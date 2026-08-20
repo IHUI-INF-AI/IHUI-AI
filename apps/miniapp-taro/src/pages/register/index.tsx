@@ -2,7 +2,7 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import {
   useRegisterForm,
   type RegisterApiResult,
@@ -14,8 +14,29 @@ import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import './index.css'
 
+/** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
+function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: string } | null {
+  if (e === 'auth.invalidPhone') {
+    return phone.trim()
+      ? { key: 'register.phoneInvalid', fb: '请输入正确手机号' }
+      : { key: 'register.enterPhone', fb: '请输入手机号' }
+  }
+  if (e === 'auth.codePlaceholder') return { key: 'register.incomplete', fb: '请填写完整信息' }
+  if (e === 'auth.invalidPassword') return { key: 'register.pwdLength', fb: '密码长度需为 6-20 位' }
+  if (e === 'auth.agreeRequired') return { key: 'register.agreeFirst', fb: '请先阅读并同意用户协议' }
+  return null
+}
+
+/** 把共享 hook 返回的通用成功 key(auth.*)映射到本页 register.* 文案 */
+function mapRegisterInfoKey(e: string): { key: string; fb: string } | null {
+  if (e === 'auth.codeSent') return { key: 'register.codeSent', fb: '验证码已发送' }
+  if (e === 'auth.registerSuccess') return { key: 'register.success', fb: '注册成功' }
+  return null
+}
+
 export default function RegisterIndex() {
   const { t } = useI18n()
+  const tt = useTt()
 
   // 视觉状态:区号 / 密码可见性 / 输入框聚焦(对齐 register.vue)
   const [phoneHead, setPhoneHead] = useState('+86')
@@ -55,21 +76,23 @@ export default function RegisterIndex() {
 
   useEffect(() => {
     if (form.error) {
-      Taro.showToast({ title: t(form.error), icon: 'none' })
+      const mapped = mapRegisterErrorKey(form.error, form.values.phone)
+      Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.error), icon: 'none' })
     }
-  }, [form.error, t])
+  }, [form.error, form.values.phone, t, tt])
 
   useEffect(() => {
     if (form.info) {
-      Taro.showToast({ title: t(form.info), icon: 'success' })
+      const mapped = mapRegisterInfoKey(form.info)
+      Taro.showToast({ title: mapped ? tt(mapped.key, mapped.fb) : t(form.info), icon: 'success' })
     }
-  }, [form.info, t])
+  }, [form.info, t, tt])
 
   function openAgreement(type: 'user' | 'privacy') {
     const url = type === 'user' ? '/pages/about/protocol' : '/pages/about/privacy'
     Taro.navigateTo({
       url,
-      fail: () => Taro.showToast({ title: '页面未注册', icon: 'none' }),
+      fail: () => Taro.showToast({ title: tt('register.pageMissing', '页面未注册'), icon: 'none' }),
     })
   }
 
@@ -77,7 +100,7 @@ export default function RegisterIndex() {
     Taro.redirectTo({ url: '/pages/login/login' })
   }
 
-  const codeBtnText = form.countdown > 0 ? `${form.countdown}秒后重新获取` : '发送验证码'
+  const codeBtnText = form.countdown > 0 ? `${form.countdown}秒后重新获取` : tt('register.getCode', '发送验证码')
 
   return (
     <View className="container-ali">
@@ -100,12 +123,14 @@ export default function RegisterIndex() {
                 src="/static/images/loginzhtext.png"
                 mode="aspectFit"
               />
+              <Text className="page-title">{tt('register.title', '注册')}</Text>
             </View>
           </View>
 
           <View className="center_box">
             {/* 手机号输入框 + 区号 */}
             <View className="input-wbox">
+              <Text className="field-label">{tt('register.phone', '手机号')}</Text>
               <View className={`input-nbox ${isPhoneFocused ? 'input-nbox-focused' : ''}`}>
                 <View className="input-box">
                   <View className="input-icon" />
@@ -118,7 +143,7 @@ export default function RegisterIndex() {
                     className="input iponeinput input-text"
                     type="number"
                     maxlength={11}
-                    placeholder="手机号码"
+                    placeholder={tt('register.phonePlaceholder', '请输入手机号')}
                     placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
                     value={form.values.phone}
                     onInput={(e) => form.setPhone(e.detail.value)}
@@ -131,6 +156,7 @@ export default function RegisterIndex() {
 
             {/* 验证码输入框 */}
             <View className="input-wbox">
+              <Text className="field-label">{tt('register.code', '验证码')}</Text>
               <View
                 className={`input-nbox ${isCodeFocused ? 'input-nbox-focused' : ''}`}
                 style={{ marginTop: '18rpx' }}
@@ -141,7 +167,7 @@ export default function RegisterIndex() {
                     className="input input-text"
                     type="number"
                     maxlength={6}
-                    placeholder="验证码"
+                    placeholder={tt('register.codePlaceholder', '请输入验证码')}
                     placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
                     value={form.values.code}
                     onInput={(e) => form.setCode(e.detail.value)}
@@ -157,6 +183,7 @@ export default function RegisterIndex() {
 
             {/* 密码输入框 + 可见性切换 */}
             <View className="input-wbox">
+              <Text className="field-label">{tt('register.password', '密码')}</Text>
               <View
                 className={`input-nbox ${isPwdFocused ? 'input-nbox-focused' : ''}`}
                 style={{ marginTop: '18rpx' }}
@@ -167,7 +194,7 @@ export default function RegisterIndex() {
                     className="input input-text"
                     password={!showPwd}
                     maxlength={20}
-                    placeholder="密码"
+                    placeholder={tt('register.passwordPlaceholder', '请输入密码')}
                     placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
                     value={form.values.password}
                     onInput={(e) => form.setPassword(e.detail.value)}
@@ -177,16 +204,18 @@ export default function RegisterIndex() {
                   <PasswordVisibilityToggle
                     visible={showPwd}
                     onToggle={() => setShowPwd((v) => !v)}
+                    label={showPwd ? tt('register.hide', '隐藏') : tt('register.show', '显示')}
                   />
                 </View>
               </View>
+              <Text className="field-hint">{tt('register.pwdHint', '6-20 位,建议字母和数字组合')}</Text>
             </View>
           </View>
 
           {/* 底部:注册按钮 + 协议 + 第三方绑定 + 登录链接 */}
           <View className="bottom_box">
             <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
-              {form.submitting ? '注册中…' : '注册'}
+              {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
             </AuthButton>
 
             {/* 协议勾选:check-circle 16.5rpx 圆形 + #847CFF checked */}
@@ -196,18 +225,12 @@ export default function RegisterIndex() {
                   {form.agreed ? <Text className="check-icon">✓</Text> : null}
                 </View>
                 <Text className="arge">
-                  我已阅读并同意
+                  {tt('register.agreePrefix', '我已阅读并同意')}
                   <Text className="textItem" onClick={() => openAgreement('user')}>
-                    《用户协议》
+                    {tt('register.userAgreement', '《用户协议》')}
                   </Text>
                   <Text className="textItem" onClick={() => openAgreement('privacy')}>
-                    《隐私协议》
-                  </Text>
-                  <Text className="textItem" onClick={() => openAgreement('privacy')}>
-                    《个人隐私》
-                  </Text>
-                  <Text className="textItem" onClick={() => openAgreement('user')}>
-                    《软件使用协议》
+                    {tt('register.privacyPolicy', '《隐私政策》')}
                   </Text>
                 </Text>
               </View>
@@ -244,9 +267,9 @@ export default function RegisterIndex() {
             {/* 已有账户?登录 */}
             <View className="logintext">
               <View className="textoo">
-                <Text className="has-account">已有账户?</Text>
+                <Text className="has-account">{tt('register.hasAccount', '已有账户?')}</Text>
                 <Text className="to-login" onClick={toLogin}>
-                  登录
+                  {tt('register.toLogin', '登录')}
                 </Text>
               </View>
             </View>

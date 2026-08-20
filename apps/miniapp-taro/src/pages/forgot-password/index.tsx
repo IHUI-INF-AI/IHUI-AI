@@ -2,7 +2,7 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { sendSmsCode, post } from '@/api'
-import { useI18n } from '@/i18n'
+import { useI18n, useTt } from '@/i18n'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
@@ -16,6 +16,7 @@ import './index.css'
  */
 export default function ForgotPassword() {
   const { t } = useI18n()
+  const tt = useTt()
   const [step, setStep] = useState<1 | 2>(1)
   const [phone, setPhone] = useState('')
   const [code, setCode] = useState('')
@@ -137,6 +138,7 @@ export default function ForgotPassword() {
                 src="/static/images/loginzhtext.png"
                 mode="aspectFit"
               />
+              <Text className="page-title">{tt('forgot.title', '找回密码')}</Text>
             </View>
           </View>
 
@@ -152,6 +154,7 @@ export default function ForgotPassword() {
               <>
                 {/* 手机号输入框 + 区号 */}
                 <View className="input-wbox">
+                  <Text className="field-label">{t('forgot.phone')}</Text>
                   <View className={`input-nbox ${isPhoneFocused ? 'input-nbox-focused' : ''}`}>
                     <View className="input-box">
                       <View className="input-icon" />
@@ -177,6 +180,7 @@ export default function ForgotPassword() {
 
                 {/* 验证码输入框 */}
                 <View className="input-wbox">
+                  <Text className="field-label">{t('forgot.code')}</Text>
                   <View
                     className={`input-nbox ${isCodeFocused ? 'input-nbox-focused' : ''}`}
                     style={{ marginTop: '18rpx' }}
@@ -208,6 +212,7 @@ export default function ForgotPassword() {
               <>
                 {/* 新密码输入框 + 可见性切换 */}
                 <View className="input-wbox">
+                  <Text className="field-label">{t('forgot.newPassword')}</Text>
                   <View className={`input-nbox ${isNewPwdFocused ? 'input-nbox-focused' : ''}`}>
                     <View className="input-box">
                       <View className="input-icon" />
@@ -225,6 +230,7 @@ export default function ForgotPassword() {
                       <PasswordVisibilityToggle
                         visible={showNew}
                         onToggle={() => setShowNew((v) => !v)}
+                        label={showNew ? tt('forgot.hidePassword', '隐藏') : tt('forgot.showPassword', '显示')}
                       />
                     </View>
                   </View>
@@ -232,6 +238,7 @@ export default function ForgotPassword() {
 
                 {/* 确认密码输入框 + 可见性切换 */}
                 <View className="input-wbox">
+                  <Text className="field-label">{t('forgot.confirmPassword')}</Text>
                   <View
                     className={`input-nbox ${isConfirmPwdFocused ? 'input-nbox-focused' : ''}`}
                     style={{ marginTop: '18rpx' }}
@@ -252,6 +259,7 @@ export default function ForgotPassword() {
                       <PasswordVisibilityToggle
                         visible={showConfirm}
                         onToggle={() => setShowConfirm((v) => !v)}
+                        label={showConfirm ? tt('forgot.hidePassword', '隐藏') : tt('forgot.showPassword', '显示')}
                       />
                     </View>
                   </View>

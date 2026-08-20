@@ -1258,6 +1258,36 @@ export default function Index() {
             style={{ flex: 1, height: 'calc(100% - 100rpx)' }}
             onScrollToLower={() => {}}
           >
+            {/* 直播预告 banner(对齐 home.livePreview/startTime/more) */}
+            <View
+              className="live-preview-banner"
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: `${rpx(16)} ${rpx(20)}`,
+                marginBottom: rpx(16),
+                background:
+                  'linear-gradient(90deg, var(--color-brand-cyan, #93d2f3), var(--color-primary))',
+                borderRadius: rpx(16),
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: rpx(28), fontWeight: 'bold', color: '#fff' }}>
+                  {tt('home.livePreview', '直播预告')}
+                </Text>
+                <Text style={{ fontSize: rpx(22), color: 'rgba(255,255,255,0.92)', marginTop: rpx(4) }}>
+                  {tt('home.startTime', '开播时间')} 20:00
+                </Text>
+              </View>
+              <View
+                onClick={() => Taro.switchTab({ url: '/pages/live/list' })}
+                style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
+              >
+                <Text style={{ fontSize: rpx(22), color: '#fff' }}>{tt('home.more', '更多')}</Text>
+              </View>
+            </View>
             {state.conversationMessages.length === 0 && !state.isStreaming ? (
               <View
                 className="flex flex-col items-center justify-center"
