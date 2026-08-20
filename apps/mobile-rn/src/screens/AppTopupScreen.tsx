@@ -28,9 +28,9 @@ export default function AppTopupScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
 
-  // 当前用户档位:AuthUser 仅有 isVip(0/1),identityType(操盘手)API 未返回,
-  // 故只能区分普通/会员;操盘手档位仅在数据源补齐 identityType 后可传入(见 @ihui/types AppTopupScreenProps.userTier)
-  const userTier: 'normal' | 'vip' | 'trader' = user?.isVip === 1 ? 'vip' : 'normal'
+  // 当前用户档位:identityType(操盘手=trader)优先,其次 isVip(0/1);数据源补齐 identityType 后操盘手档位即可高亮
+  const userTier: 'normal' | 'vip' | 'trader' =
+    user?.identityType === 'trader' ? 'trader' : user?.isVip === 1 ? 'vip' : 'normal'
 
   const [selectedId, setSelectedId] = useState(AMOUNT_OPTIONS[0]?.id ?? '')
   const [customAmount, setCustomAmount] = useState('')
