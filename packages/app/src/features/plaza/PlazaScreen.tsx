@@ -157,7 +157,8 @@ export function PlazaScreen({
     const cycleUnit = item['cycleUnit'] as string | undefined
     const lowestPrice = item['lowestPrice'] as string | number | undefined
     const peakPrice = item['peakPrice'] as string | number | undefined
-    const itemStatus = (item.status as string | undefined) || ''
+    const itemStatus =
+      (item.taskStatus as string | undefined) || (item.status as string | undefined) || ''
     const isCompleted = itemStatus === 'offline' || itemStatus === 'completed'
     const isDeveloping = itemStatus === 'approved' || itemStatus === 'developing'
     const isWaiting = itemStatus === 'pending' || itemStatus === 'waiting'
