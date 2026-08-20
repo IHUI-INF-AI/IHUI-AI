@@ -445,13 +445,7 @@ export function VipScreen() {
           {filteredPlans.map((plan) => {
             const hasDiscount = plan.defAmount > plan.amount
             return (
-              <Pressable
-                key={plan.id}
-                style={({ pressed }) => [styles.planItem, pressed ? styles.planItemPressed : null]}
-                onPress={() => pay(plan)}
-                accessibilityRole="button"
-                accessibilityLabel={`${plan.cycle} ¥${(plan.amount / 100).toFixed(2)}`}
-              >
+              <View key={plan.id} style={styles.planItem}>
                 <View style={styles.planHeader}>
                   <Text style={styles.planCycle} numberOfLines={1}>
                     {plan.cycle}
@@ -481,7 +475,19 @@ export function VipScreen() {
                   ) : null}
                   <Text style={styles.planDuration}>{plan.durationDays} 天</Text>
                 </View>
-              </Pressable>
+                {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付) */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.subscribeButton,
+                    pressed ? styles.planItemPressed : null,
+                  ]}
+                  onPress={() => pay(plan)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('vipScreen.subscribe')}
+                >
+                  <Text style={styles.subscribeButtonText}>{t('vipScreen.subscribe')}</Text>
+                </Pressable>
+              </View>
             )
           })}
         </ScrollView>
