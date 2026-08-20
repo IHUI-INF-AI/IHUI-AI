@@ -713,7 +713,7 @@ export function LoginScreen() {
           welcomeNode={<SvgXml xml={welcomeXml} width={224} height={34} />}
           // 4-tab 配置
           tabs={TABS}
-          defaultTab="password"
+          defaultTab="phone"
           // email tab
           email={email}
           emailCode={emailCode}
