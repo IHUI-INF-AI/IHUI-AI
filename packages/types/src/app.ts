@@ -3051,6 +3051,12 @@ export interface BusinessCardScreenProps {
   onSave: () => void
   onEdit: () => void
   onBack: () => void
+  /** 定制名片入口(对齐原项目 business-card/index.vue 的"社区名片定制入口";暂无对应落地页时 toast 提示) */
+  onCustomize: () => void
+  /** 分享到微信(走 RN Share.share,对齐原 project business-card-sharing 组件 @wx 事件) */
+  onShareWechat: () => void
+  /** 分享到朋友圈(走 RN Share.share,对齐原 project business-card-sharing 组件 @pyq 事件) */
+  onShareMoments: () => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -4600,6 +4606,8 @@ export interface AppTopupScreenProps {
   balance: number
   refreshing: boolean
   introVisible: boolean
+  /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 需 identityType,当前 API 未返回则不会传入) */
+  userTier: 'normal' | 'vip' | 'trader'
   amountOptions: { id: string; amount: number; label: string }[]
   payMethods: { id: string; label: string; icon?: string }[]
   onSelectAmount: (id: string) => void

@@ -7,6 +7,7 @@ import { AppTopupScreen as SharedAppTopupScreen } from '@ihui/rn-app'
 import { fetchApi } from '@ihui/api-client'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useWechatPayment } from '../hooks/useWechatPayment'
+import { useAuth } from '../context/AuthContext'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -25,6 +26,11 @@ const PAY_METHODS = [
 export default function AppTopupScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
+  const { user } = useAuth()
+
+  // 当前用户档位:AuthUser 仅有 isVip(0/1),identityType(操盘手)API 未返回,
+  // 故只能区分普通/会员;操盘手档位仅在数据源补齐 identityType 后可传入(见 @ihui/types AppTopupScreenProps.userTier)
+  const userTier: 'normal' | 'vip' | 'trader' = user?.isVip === 1 ? 'vip' : 'normal'
 
   const [selectedId, setSelectedId] = useState(AMOUNT_OPTIONS[0]?.id ?? '')
   const [customAmount, setCustomAmount] = useState('')
@@ -102,6 +108,7 @@ export default function AppTopupScreen() {
       balance={balance}
       refreshing={refreshing}
       introVisible={introVisible}
+      userTier={userTier}
       amountOptions={AMOUNT_OPTIONS}
       payMethods={PAY_METHODS}
       onSelectAmount={setSelectedId}

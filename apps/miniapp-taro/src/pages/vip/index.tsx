@@ -84,6 +84,18 @@ export default function VipIndexPage() {
         title: tt('vip.feature.aiDesign', 'AI智能设计'),
         desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计'),
       },
+      {
+        id: 'ai_video',
+        icon: '🎬',
+        title: tt('vip.feature.aiVideo', 'AI视频制作'),
+        desc: tt('vip.feature.aiVideoDesc', '智能生成视频内容'),
+      },
+      {
+        id: 'ai_live',
+        icon: '📡',
+        title: tt('vip.feature.aiLive', 'AI直播助手'),
+        desc: tt('vip.feature.aiLiveDesc', '智能直播辅助工具'),
+      },
     ],
     [tt],
   )
