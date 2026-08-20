@@ -627,6 +627,7 @@ export default function AiAssistantN8nScreen() {
           loading={sending}
           onStop={onStop}
           stopLabel={t('chat.stop')}
+          sendLabel={t('aiAssistantN8n.send')}
         />
         {sending ? (
           <View style={styles.streamingBar}>

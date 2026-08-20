@@ -21,6 +21,7 @@ import { useEffect, useRef } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   Pressable,
@@ -34,6 +35,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useI18n } from '../i18n'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -293,6 +295,7 @@ interface ToggleChipConfig {
 }
 
 function ChatInputBar(props: BottomActionBarProps) {
+  const { t } = useI18n()
   const {
     prompt = '',
     onPromptChange,
@@ -499,7 +502,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           onContentSizeChange={(e) => {
             onTextareaHeightChange?.(e.nativeEvent.contentSize.height)
           }}
-          placeholder="输入消息..."
+          placeholder={t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
           editable={!isLoading}
@@ -525,9 +528,26 @@ function ChatInputBar(props: BottomActionBarProps) {
         ) : null}
       </View>
 
-      {/* 辅助按钮行:ƒ / 📎 / ⛶ */}
+      {/* 辅助按钮行:附件 / ƒ / 📎 / ⛶ */}
       {showSecondaryRow ? (
         <View style={styles.secondaryRow}>
+          {/* 添加附件(mobile-rn 聊天输入附件按钮:点击弹附件选择占位) */}
+          <Pressable
+            style={styles.addFileBtn}
+            onPress={() =>
+              Alert.alert(
+                t('messageInput.addFile'),
+                `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
+              )
+            }
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('messageInput.addFile')}
+          >
+            <Text style={styles.secondaryEmoji} allowFontScaling={false}>
+              {'📁'}
+            </Text>
+          </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
               style={styles.secondaryBtn}
@@ -922,6 +942,21 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
+  } as ViewStyle,
+  // 添加附件按钮(点击弹附件选择占位)
+  addFileBtn: {
+    height: SECONDARY_BTN_SIZE,
+    minWidth: SECONDARY_BTN_SIZE,
+    paddingHorizontal: 8,
+    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
   } as ViewStyle,
   secondaryEmoji: {
     fontSize: SECONDARY_BTN_EMOJI_SIZE,
