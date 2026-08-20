@@ -159,9 +159,9 @@ export function PlazaScreen({
     const peakPrice = item['peakPrice'] as string | number | undefined
     const itemStatus =
       (item.taskStatus as string | undefined) || (item.status as string | undefined) || ''
-    const isCompleted = itemStatus === 'offline' || itemStatus === 'completed'
-    const isDeveloping = itemStatus === 'approved' || itemStatus === 'developing'
-    const isWaiting = itemStatus === 'pending' || itemStatus === 'waiting'
+    const isCompleted = itemStatus === 'completed'
+    const isDeveloping = itemStatus === 'developing'
+    const isWaiting = itemStatus === 'waiting'
 
     // 需求图(兼容两种数据形态:imgs 逗号分隔串 / cover 单图 URL;无图不占位)
     const rawImgs = item['imgs']

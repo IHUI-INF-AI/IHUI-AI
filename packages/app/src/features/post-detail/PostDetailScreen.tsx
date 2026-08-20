@@ -87,10 +87,15 @@ export function PostDetailScreen({
       ) : null}
       {item.types?.length || item.categories?.length ? (
         <Text style={styles.detailText}>
-          类型：{item.types?.join('、') || '-'} 分类：{item.categories?.join('、') || '-'}
+          类型：{item.types?.join('、') || '-'}  分类：{item.categories?.join('、') || '-'}
         </Text>
       ) : null}
-      {item.lowestPrice !== null || item.peakPrice !== null ? (
+      {item.taskStatus || item.status ? (
+        <Text style={styles.detailText}>
+          任务状态：{item.taskStatus || '-'}  审核状态：{item.status || '-'}
+        </Text>
+      ) : null}
+      {item.lowestPrice != null || item.peakPrice != null ? (
         <Text style={styles.detailText}>
           价格：￥{item.lowestPrice ?? '-'} - ￥{item.peakPrice ?? '-'}
         </Text>
