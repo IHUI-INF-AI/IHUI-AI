@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, getBalance } from '@ihui/api-client'
 import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -17,6 +17,14 @@ export function WithdrawScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  // 可提现金额(对齐原项目 withdrawal/index.vue 顶部余额展示;真实来源 wallet.getBalance())
+  const [balance, setBalance] = useState(0)
+
+  useEffect(() => {
+    void getBalance().then((res) => {
+      if (res.success) setBalance(res.data.balance)
+    })
+  }, [])
 
   const doWithdraw = async () => {
     const num = Number(amount)
@@ -65,6 +73,7 @@ export function WithdrawScreen() {
       t={t}
       amount={amount}
       bankCardId={bankCardId}
+      balance={balance}
       loading={loading}
       error={error}
       success={success}

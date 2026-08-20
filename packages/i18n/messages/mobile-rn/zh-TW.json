@@ -20,9 +20,6 @@
   "course": {
     "title": "課程",
     "studentCount": "{count} 人學過",
-    "pay": "支付 ¥{amount}",
-    "enroll": "立即報名",
-    "enrolled": "已報名",
     "progress": "學習進度",
     "empty": "",
     "completed": "",
@@ -33,9 +30,33 @@
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人觀看",
+    "ongoing": "直播中",
     "upcoming": "即將開播",
     "ended": "已結束",
-    "chat": "互動"
+    "empty": "暫無直播",
+    "lecturer": "講師",
+    "startAt": "開始時間"
+  },
+  "liveDetail": {
+    "title": "直播詳情",
+    "empty": "直播不存在或已結束",
+    "ongoing": "直播中",
+    "upcoming": "即將開播",
+    "lecturer": "講師",
+    "viewerCount": "{count} 人觀看",
+    "subscribe": "預約直播",
+    "subscribed": "已預約",
+    "subscribing": "預約中...",
+    "intro": "直播介紹",
+    "chat": "互動",
+    "chatEmpty": "暫無互動,快來搶個頭香吧",
+    "chatPlaceholder": "說點什麼...",
+    "chatSend": "發送",
+    "chatConnecting": "連線中...",
+    "chatConnected": "已連線",
+    "chatReconnecting": "重連中...",
+    "chatError": "連線失敗",
+    "chatDisconnected": "已斷開"
   },
   "profile": {
     "title": "我的",
@@ -92,6 +113,7 @@
   },
   "order": {
     "title": "訂單",
+    "searchPlaceholder": "搜尋我的訂單",
     "status": {
       "pending": "待付款",
       "paid": "已付款",
@@ -961,8 +983,16 @@
   "register": {
     "phone": "",
     "phonePlaceholder": "",
+    "code": "驗證碼",
+    "codePlaceholder": "請輸入驗證碼",
+    "sendCode": "發送驗證碼",
+    "resendIn": "{{countdown}} 秒後重新發送",
+    "sendCodeFailed": "驗證碼發送失敗,請重試",
     "submit": "",
     "registering": ""
+  },
+  "withdraw": {
+    "availableBalance": "可提現金額(元)"
   },
   "search": {
     "title": "",
