@@ -1,4 +1,4 @@
-import { View, Image } from '@tarojs/components'
+import { View, Image, Text } from '@tarojs/components'
 import { type ReactElement } from 'react'
 
 /**
@@ -12,14 +12,18 @@ export interface PasswordVisibilityToggleProps {
   visible: boolean
   /** 点击切换回调 */
   onToggle: () => void
+  /** 可选文案标签(如"显示/隐藏密码"),不传则仅显示眼睛图标 */
+  label?: string
 }
 
 export default function PasswordVisibilityToggle({
   visible,
   onToggle,
+  label,
 }: PasswordVisibilityToggleProps): ReactElement {
   return (
     <View className="password-toggle" onClick={onToggle}>
+      {label ? <Text className="password-toggle-label">{label}</Text> : null}
       <Image
         className="eye-icon"
         src={visible ? '/static/images/eye-gray.svg' : '/static/images/eye-slash-gray.svg'}
