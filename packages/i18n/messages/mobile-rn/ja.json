@@ -5,13 +5,13 @@
   },
   "home": {
     "welcome": "IHUI AI へようこそ",
-    "guest": "",
-    "learningProgress": "",
-    "progressLessons": "",
-    "progressEmpty": "",
-    "livePreview": "",
-    "livePreviewMore": "",
-    "recommend": "",
+    "guest": "ゲスト",
+    "learningProgress": "学習進捗",
+    "progressLessons": "{completed}/{total} 節修了",
+    "progressEmpty": "まだ学習を始めていません。コースを選びましょう",
+    "livePreview": "ライブ予告",
+    "livePreviewMore": "もっと見る",
+    "recommend": "おすすめ",
     "greetingMorning": "おはよう",
     "greetingNoon": "こんにちは",
     "greetingAfternoon": "こんにちは",
@@ -21,11 +21,11 @@
     "title": "コース",
     "studentCount": "{count} 人が学習",
     "progress": "進捗",
-    "empty": "",
-    "completed": "",
-    "complete": "",
-    "player": "",
-    "progressLessons": ""
+    "empty": "コースはまだありません",
+    "completed": "修了済み",
+    "complete": "修了にする",
+    "player": "動画の読み込み後に再生できます",
+    "progressLessons": "{completed}/{total} 節修了"
   },
   "live": {
     "title": "ライブ",
@@ -74,10 +74,10 @@
       "walletSubtitle": "残高とチャージを表示",
       "loginRequired": "先にログインしてください"
     },
-    "nickname": "",
-    "logout": "",
-    "myOrders": "",
-    "editProfile": ""
+    "nickname": "ニックネーム未設定",
+    "logout": "ログアウト",
+    "myOrders": "マイ注文",
+    "editProfile": "プロフィール編集"
   },
   "payment": {
     "title": "支払い注文",
@@ -114,6 +114,10 @@
   "order": {
     "title": "注文",
     "searchPlaceholder": "注文を検索",
+    "tab": {
+      "refunded": "返金済み"
+    },
+    "noMore": "これ以上ありません",
     "status": {
       "pending": "支払い待ち",
       "paid": "支払い済み",
@@ -173,24 +177,24 @@
     "checkUpdateLatest": "最新のバージョンです",
     "changePhoneMissingUser": "ユーザー情報が不足しています",
     "logoutConfirm": "ログアウトしますか?",
-    "appPermission": "",
-    "icpRecord": "",
-    "usageRules": "",
-    "changePassword": "",
-    "oldPassword": "",
-    "newPassword": "",
-    "confirmPassword": "",
-    "pwdFieldsRequired": "",
-    "pwdTooShort": "",
-    "pwdNotMatch": "",
-    "pwdChanged": "",
-    "pwdChangeFailed": "",
-    "notifPush": "",
-    "notifMessage": "",
-    "notifEmail": "",
-    "notification": "",
-    "account": "",
-    "version": ""
+    "appPermission": "アプリ権限",
+    "icpRecord": "ICP備案",
+    "usageRules": "利用規範",
+    "changePassword": "パスワード変更",
+    "oldPassword": "現在のパスワード",
+    "newPassword": "新しいパスワード",
+    "confirmPassword": "新しいパスワードの確認",
+    "pwdFieldsRequired": "パスワード情報をすべて入力してください",
+    "pwdTooShort": "新しいパスワードは 6 文字以上にしてください",
+    "pwdNotMatch": "入力したパスワードが一致しません",
+    "pwdChanged": "パスワードを変更しました",
+    "pwdChangeFailed": "パスワード変更に失敗しました。再試行してください",
+    "notifPush": "プッシュ通知",
+    "notifMessage": "サイト内メッセージ",
+    "notifEmail": "メール通知",
+    "notification": "メッセージ通知",
+    "account": "アカウントとセキュリティ",
+    "version": "バージョン"
   },
   "menu": {
     "about": "について",
@@ -207,7 +211,7 @@
     "businessLicense": "営業許可証",
     "icpRecord": "ICP備案",
     "modelRecord": "モデル備案",
-    "sectionDiscover": "",
+    "sectionDiscover": "発見",
     "assistant": "マイアシスタント",
     "apiSettings": "API設定"
   },
@@ -262,10 +266,10 @@
     "error": "エラー",
     "menu": "メニュー",
     "empty": "データなし",
-    "show": "",
-    "hide": "",
-    "submitting": "",
-    "viewMore": ""
+    "show": "表示",
+    "hide": "非表示",
+    "submitting": "送信中...",
+    "viewMore": "もっと見る"
   },
   "aiAssistant": {
     "title": "AIアシスタント",
@@ -473,200 +477,200 @@
     }
   },
   "about": {
-    "title": "",
-    "appName": "",
-    "version": "",
-    "description": "",
-    "officialSite": "",
-    "contactEmail": "",
-    "license": ""
+    "title": "について",
+    "appName": "アプリ名",
+    "version": "バージョン",
+    "description": "アプリ紹介",
+    "officialSite": "公式サイト",
+    "contactEmail": "お問い合わせメールアドレス",
+    "license": "オープンソースライセンス"
   },
   "activityDetail": {
-    "title": "",
-    "empty": "",
-    "startAt": "",
-    "endAt": "",
-    "location": ""
+    "title": "イベント詳細",
+    "empty": "イベントが見つからないか、終了しました",
+    "startAt": "開始時間",
+    "endAt": "終了時間",
+    "location": "開催場所"
   },
   "agentChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "まだメッセージはありません。最初の投稿をしましょう",
+    "placeholder": "メッセージを入力...",
+    "send": "送信"
   },
   "agentCreate": {
-    "title": "",
-    "name": "",
-    "namePlaceholder": "",
-    "category": "",
-    "categoryPlaceholder": "",
-    "description": "",
-    "descPlaceholder": "",
-    "systemPrompt": "",
-    "promptPlaceholder": "",
-    "isPublic": "",
-    "public": "",
-    "private": "",
-    "submit": ""
+    "title": "エージェント作成",
+    "name": "名称",
+    "namePlaceholder": "エージェントの名前を入力",
+    "category": "カテゴリ",
+    "categoryPlaceholder": "例:オフィスアシスタント",
+    "description": "説明",
+    "descPlaceholder": "このエージェントを紹介してください",
+    "systemPrompt": "システムプロンプト",
+    "promptPlaceholder": "エージェントの役割と動作を定義します",
+    "isPublic": "公開するか",
+    "public": "公開",
+    "private": "非公開",
+    "submit": "作成"
   },
   "agentReviewDetail": {
-    "title": "",
-    "empty": "",
-    "author": ""
+    "title": "評価詳細",
+    "empty": "評価が見つからないか、削除されました",
+    "author": "著者"
   },
   "agentSetting": {
-    "title": "",
-    "name": "",
-    "model": "",
-    "temperature": "",
-    "enabled": "",
-    "save": ""
+    "title": "エージェント設定",
+    "name": "名称",
+    "model": "モデル",
+    "temperature": "温度",
+    "enabled": "有効",
+    "save": "保存"
   },
   "agentStat": {
-    "title": "",
-    "conversations": "",
-    "messages": "",
-    "tokens": "",
-    "avgRating": ""
+    "title": "エージェント統計",
+    "conversations": "会話数",
+    "messages": "メッセージ数",
+    "tokens": "トークン消費",
+    "avgRating": "平均評価"
   },
   "announcementDetail": {
-    "empty": ""
+    "empty": "お知らせが見つからないか、削除されました"
   },
   "apiSettings": {
-    "title": "",
-    "cozeTitle": "",
-    "apiToken": "",
-    "tokenPlaceholder": "",
-    "baseUrl": "",
-    "botId": "",
-    "botIdPlaceholder": "",
-    "timeout": "",
-    "tokenHint": "",
-    "save": "",
-    "reset": "",
-    "diagnoseTitle": "",
-    "diagnose": "",
-    "test": "",
-    "testSuccess": "",
-    "testFailed": ""
+    "title": "API設定",
+    "cozeTitle": "Coze 設定",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "API Token を入力してください",
+    "baseUrl": "エンドポイント",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "Bot ID を入力してください",
+    "timeout": "タイムアウト(秒)",
+    "tokenHint": "Coze のインターフェースを呼び出すためのアクセストークン",
+    "save": "保存",
+    "reset": "リセット",
+    "diagnoseTitle": "接続性診断",
+    "diagnose": "診断",
+    "test": "テスト",
+    "testSuccess": "接続正常",
+    "testFailed": "接続に失敗しました"
   },
   "appPermission": {
-    "intro": ""
+    "intro": "本アプリは最小必要の原則に従ってシステム権限を申請し、すべての権限はお客様の明示的な許可によって付与されます。いつでもお使いの端末の「設定 - 権限管理」で確認・調整・撤回できます。非必要な権限の撤回は、その他の機能の利用に影響しません。"
   },
   "askCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "質問を投稿",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "質問を一言でまとめてください",
+    "contentLabel": "内容",
+    "contentPlaceholder": "質問を詳しく説明してください",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "submit": "投稿"
   },
   "bankCard": {
-    "title": "",
-    "empty": "",
-    "default": "",
-    "holder": ""
+    "title": "銀行カード",
+    "empty": "銀行カードはまだありません",
+    "default": "デフォルト",
+    "holder": "カード名義人"
   },
   "carte": {
-    "title": "",
-    "projects": "",
-    "skills": "",
-    "rating": "",
-    "skillsTitle": "",
-    "worksTitle": "",
-    "empty": ""
+    "title": "クリエイター名刺",
+    "projects": "プロジェクト",
+    "skills": "スキル",
+    "rating": "評価",
+    "skillsTitle": "スキル・特長",
+    "worksTitle": "代表作",
+    "empty": "作品はまだありません"
   },
   "certApply": {
-    "title": "",
-    "name": "",
-    "placeholder": "",
-    "idCard": "",
-    "submit": "",
-    "success": ""
+    "title": "講師認証",
+    "name": "氏名",
+    "placeholder": "正確な情報を入力してください",
+    "idCard": "身分証番号",
+    "submit": "認証を提出",
+    "success": "提出しました。審査をお待ちください"
   },
   "community": {
-    "follow": "",
-    "follower": ""
+    "follow": "フォロー",
+    "follower": "フォロワー"
   },
   "coupon": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "クーポンを使ってお得にご購入",
+    "retry": "再試行"
   },
   "courseAnnex": {
-    "title": "",
-    "empty": "",
-    "size": "",
-    "download": ""
+    "title": "コース添付資料",
+    "empty": "添付資料はありません",
+    "size": "サイズ",
+    "download": "ダウンロード"
   },
   "courseChapter": {
-    "title": "",
-    "lessons": ""
+    "title": "コースの章節",
+    "lessons": "全 {count} レッスン"
   },
   "courseComment": {
-    "title": "",
-    "empty": ""
+    "title": "コースレビュー",
+    "empty": "レビューはありません"
   },
   "courseDetail": {
-    "loadFailed": "",
-    "studentCount": "",
-    "instructor": "",
-    "rating": "",
-    "free": "",
-    "enrolled": "",
-    "enroll": "",
-    "pay": "",
-    "lessons": "",
-    "completed": ""
+    "loadFailed": "コース詳細の読み込みに失敗しました",
+    "studentCount": "{count} 人が学習",
+    "instructor": "講師",
+    "rating": "評価",
+    "free": "無料",
+    "enrolled": "申込済み",
+    "enroll": "今すぐ申し込む",
+    "pay": "¥{amount} を支払う",
+    "lessons": "コース目次",
+    "completed": "修了済み"
   },
   "courseEnroll": {
-    "title": "",
-    "subtitle": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "enrolled": "",
-    "enroll": "",
-    "free": "",
-    "instructor": "",
-    "level": "",
-    "lessons": "",
-    "students": ""
+    "title": "コース申込",
+    "subtitle": "コースを選んで学習を始めましょう",
+    "searchPlaceholder": "コースを検索",
+    "empty": "コースはまだありません",
+    "enrolled": "申込済み",
+    "enroll": "今すぐ申し込む",
+    "free": "無料",
+    "instructor": "講師",
+    "level": "難易度",
+    "lessons": "レッスン数",
+    "students": "受講生"
   },
   "courseFilter": {
-    "title": "",
-    "subtitle": "",
-    "category": "",
-    "level": "",
-    "priceRange": "",
-    "reset": "",
-    "apply": "",
-    "retry": "",
-    "empty": "",
-    "instructor": "",
-    "level_label": "",
-    "free": ""
+    "title": "コース絞り込み",
+    "subtitle": "条件に合うコースを探します",
+    "category": "カテゴリ",
+    "level": "難易度",
+    "priceRange": "価格帯",
+    "reset": "リセット",
+    "apply": "確定",
+    "retry": "再試行",
+    "empty": "該当するコースがありません",
+    "instructor": "講師",
+    "level_label": "難易度",
+    "free": "無料"
   },
   "courseQAAsk": {
-    "title": "",
-    "question": "",
-    "placeholder": "",
-    "success": "",
-    "submit": ""
+    "title": "コース質問",
+    "question": "質問の説明",
+    "placeholder": "ご質問を入力してください。講師ができる限り早く回答します",
+    "success": "送信成功",
+    "submit": "質問を送信"
   },
   "courseResource": {
-    "title": "",
-    "empty": "",
-    "type": "",
-    "size": "",
-    "open": ""
+    "title": "コース資料",
+    "empty": "資料はありません",
+    "type": "種類",
+    "size": "サイズ",
+    "open": "開く"
   },
   "courseScreen": {
-    "title": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "free": "",
-    "studentCount": "",
-    "nextPage": "",
+    "title": "全コース",
+    "searchPlaceholder": "コースを検索",
+    "empty": "コースはまだありません",
+    "free": "無料",
+    "studentCount": "{count} 人が学習",
+    "nextPage": "次のページ",
     "recommended": "おすすめコース",
     "track": "コーストラック",
     "latest": "最新コース",
@@ -674,445 +678,445 @@
     "unknownInstructor": "不明な講師"
   },
   "customerService": {
-    "title": "",
-    "empty": "",
-    "status": "",
-    "online": "",
-    "offline": "",
-    "workingHours": "",
-    "phone": "",
-    "email": ""
+    "title": "カスタマーサポートに連絡",
+    "empty": "カスタマーサポート情報の読み込みに失敗しました",
+    "status": "サービス状況",
+    "online": "オンライン",
+    "offline": "オフライン",
+    "workingHours": "サービス時間",
+    "phone": "サポート電話",
+    "email": "サポートメール"
   },
   "distribution": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "level": "",
-    "commissionRate": "",
-    "totalEarnings": "",
-    "withdrawn": "",
-    "pending": "",
-    "withdrawBtn": "",
-    "withdrawMin": "",
-    "products": "",
-    "commission": "",
-    "sales": ""
+    "title": "販売センター",
+    "subtitle": "商品を宣伝してコミッションを獲得",
+    "retry": "再試行",
+    "empty": "データなし",
+    "level": "販売レベル",
+    "commissionRate": "コミッション率",
+    "totalEarnings": "累計収益",
+    "withdrawn": "出金済み",
+    "pending": "決済待ち",
+    "withdrawBtn": "出金申請",
+    "withdrawMin": "¥{amount} 以上で出金できます",
+    "products": "販売商品",
+    "commission": "コミッション",
+    "sales": "{count} 件販売"
   },
   "earnCommission": {
-    "title": "",
-    "introTitle": "",
-    "introDesc": "",
-    "totalEarnings": "",
-    "invitedCount": "",
-    "rules": "",
-    "rateTitle": "",
-    "openVip": ""
+    "title": "コミッションプラン",
+    "introTitle": "友達を招待してコミッションを獲得",
+    "introDesc": "コミッションプランに参加して友達を招待し会員登録してもらうと、会員費の 20% のコミッション収益が得られます",
+    "totalEarnings": "累計収益",
+    "invitedCount": "招待人数",
+    "rules": "コミッション規則",
+    "rateTitle": "コミッション比率",
+    "openVip": "VIP 会員を開通してコミッションプランに参加"
   },
   "exam": {
-    "subtitle": "",
-    "retry": "",
-    "questions": "",
-    "end": "",
-    "startExam": ""
+    "subtitle": "試験で学び、学習成果を確認",
+    "retry": "再試行",
+    "questions": "問題数",
+    "end": "終了時間",
+    "startExam": "試験開始"
   },
   "examQuestion": {
-    "loadFailed": "",
-    "single": "",
-    "multi": "",
-    "prev": "",
-    "next": "",
-    "submit": ""
+    "loadFailed": "試験問題の読み込みに失敗しました",
+    "single": "単一選択",
+    "multi": "複数選択",
+    "prev": "前の問題",
+    "next": "次の問題",
+    "submit": "提出"
   },
   "favorite": {
-    "title": "",
-    "tabAll": "",
-    "tabCourse": "",
-    "tabLive": "",
-    "tabArticle": "",
-    "empty": ""
+    "title": "お気に入り",
+    "tabAll": "すべて",
+    "tabCourse": "コース",
+    "tabLive": "ライブ",
+    "tabArticle": "記事",
+    "empty": "お気に入りはありません"
   },
   "finance": {
-    "title": "",
-    "empty": "",
-    "balance": "",
-    "todayIncome": "",
-    "totalIncome": "",
-    "totalExpense": ""
+    "title": "財務",
+    "empty": "明細データはありません",
+    "balance": "口座残高",
+    "todayIncome": "今日の収入",
+    "totalIncome": "累計収入",
+    "totalExpense": "累計支出"
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "フォローとフォロワー",
+    "following": "フォロー",
+    "fans": "ファン",
+    "empty": "データなし",
+    "unfollow": "フォロー解除"
   },
   "icpRecord": {
-    "licenseLabel": ""
+    "licenseLabel": "ICP 備案・許可番号"
   },
   "identityVerify": {
-    "title": "",
-    "subtitle": "",
-    "uploadFront": "",
-    "uploadBack": "",
-    "uploadSelfie": "",
-    "submit": "",
-    "submitting": ""
+    "title": "本人確認",
+    "subtitle": "本人確認を完了してアカウントの安全を確保",
+    "uploadFront": "身分証の肖像面をアップロード",
+    "uploadBack": "身分証の国章面をアップロード",
+    "uploadSelfie": "身分証を手に持った写真をアップロード",
+    "submit": "認証を提出",
+    "submitting": "送信中..."
   },
   "income": {
-    "title": "",
-    "today": "",
-    "total": "",
-    "withdrawable": "",
-    "withdraw": "",
-    "sectionTitle": "",
-    "empty": "",
-    "settled": "",
-    "pending": ""
+    "title": "収益",
+    "today": "今日の収益",
+    "total": "累計収益",
+    "withdrawable": "出金可能残高",
+    "withdraw": "出金",
+    "sectionTitle": "収益明細",
+    "empty": "収益記録はありません",
+    "settled": "決済済み",
+    "pending": "決済待ち"
   },
   "invite": {
-    "title": "",
-    "inviteCode": "",
-    "totalInvited": "",
-    "totalReward": "",
-    "share": "",
-    "sectionTitle": "",
-    "empty": "",
-    "statusCompleted": "",
-    "statusPending": ""
+    "title": "友達招待",
+    "inviteCode": "招待コード",
+    "totalInvited": "累計招待",
+    "totalReward": "累計報酬",
+    "share": "今すぐ招待",
+    "sectionTitle": "招待記録",
+    "empty": "招待記録はありません",
+    "statusCompleted": "完了",
+    "statusPending": "待機中"
   },
   "learnDevelop": {
-    "title": "",
-    "comingSoon": "",
-    "contactLabel": ""
+    "title": "学習開発",
+    "comingSoon": "コースプラネットは開発中です",
+    "contactLabel": "直接 李総 に連絡"
   },
   "lecturerDetail": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "courses": "",
-    "followers": "",
-    "students": "",
-    "followBtn": "",
-    "unfollowBtn": "",
-    "retry": "",
-    "level": "",
-    "studentCount": "",
-    "free": ""
+    "title": "講師詳細",
+    "subtitle": "講師を理解して、コース選びに迷わない",
+    "empty": "紹介はありません",
+    "courses": "コース",
+    "followers": "フォロワー",
+    "students": "受講生",
+    "followBtn": "フォロー",
+    "unfollowBtn": "フォロー済み",
+    "retry": "再試行",
+    "level": "難易度",
+    "studentCount": "{count} 人が学習",
+    "free": "無料"
   },
   "liveChat": {
-    "title": "",
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "title": "ライブチャット",
+    "empty": "まだメッセージはありません。最初の投稿をしましょう",
+    "placeholder": "何か話してください...",
+    "send": "送信"
   },
   "liveList": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "素晴らしいライブをお見逃しなく",
+    "retry": "再試行"
   },
   "messageChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "メッセージはありません",
+    "placeholder": "メッセージを入力...",
+    "send": "送信"
   },
   "messageDetail": {
-    "title": "",
-    "reply": "",
-    "notFound": "",
-    "from": "",
-    "createdAt": ""
+    "title": "メッセージ詳細",
+    "reply": "返信",
+    "notFound": "メッセージが見つからないか、削除されました",
+    "from": "送信者",
+    "createdAt": "時間"
   },
   "note": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "add": "",
-    "edit": "",
-    "updatedAt": "",
-    "titlePlaceholder": "",
-    "placeholder": ""
+    "title": "マイノート",
+    "subtitle": "好記性は口頭に勝る",
+    "empty": "ノートはまだありません。＋ボタンで作成を始めましょう",
+    "add": "ノートを新規作成",
+    "edit": "編集",
+    "updatedAt": "更新日:",
+    "titlePlaceholder": "ノートのタイトルを入力",
+    "placeholder": "学習のメモを記録..."
   },
   "noteCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "isPublic": "",
-    "submit": ""
+    "title": "新しいノート",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "ノートのタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "学習のメモを記録...",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "isPublic": "ノートを公開",
+    "submit": "保存"
   },
   "notificationSettings": {
-    "title": "",
-    "push": "",
-    "message": "",
-    "email": "",
-    "sms": "",
-    "marketing": "",
-    "desc": "",
-    "save": "",
-    "saving": ""
+    "title": "通知設定",
+    "push": "プッシュ通知",
+    "message": "サイト内メッセージ",
+    "email": "メール通知",
+    "sms": "SMS通知",
+    "marketing": "プロモーション通知",
+    "desc": "必要に応じて通知チャンネルを有効化。重要な情報をお見逃しなく",
+    "save": "保存",
+    "saving": "保存中..."
   },
   "orderLog": {
-    "title": "",
-    "empty": "",
-    "action": "",
-    "operator": ""
+    "title": "注文動向",
+    "empty": "動向はありません",
+    "action": "操作",
+    "operator": "担当者"
   },
   "orderRefund": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "orderNo": "",
-    "reasonLabel": "",
-    "reasonPlaceholder": "",
-    "submit": "",
-    "applyRefund": ""
+    "title": "返金申請",
+    "subtitle": "注文を選択して返金を申請します",
+    "retry": "再試行",
+    "empty": "返金可能な注文はありません",
+    "orderNo": "注文番号",
+    "reasonLabel": "返金理由",
+    "reasonPlaceholder": "返金理由を入力してください",
+    "submit": "申請を送信",
+    "applyRefund": "返金申請"
   },
   "orderTrack": {
-    "title": "",
-    "empty": "",
-    "location": ""
+    "title": "配送追跡",
+    "empty": "配送情報はありません",
+    "location": "現在の場所"
   },
   "player": {
-    "noUrl": ""
+    "noUrl": "再生URLがありません"
   },
   "pointsRecord": {
-    "title": "",
-    "tabAll": "",
-    "tabEarn": "",
-    "tabSpend": "",
-    "balance": "",
-    "empty": "",
-    "balanceAfter": ""
+    "title": "トークン明細",
+    "tabAll": "すべて",
+    "tabEarn": "獲得",
+    "tabSpend": "消費",
+    "balance": "現在の残高",
+    "empty": "明細記録はありません",
+    "balanceAfter": "変更後の残高"
   },
   "postCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "投稿を公開",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "投稿のタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "あなたの考えを共有...",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "submit": "投稿"
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "タップでアバターを変更",
+    "nicknamePlaceholder": "ニックネームを入力してください",
+    "bioPlaceholder": "自己紹介をしましょう",
+    "avatarModalTitle": "アバターの変更",
+    "avatarUrlLabel": "アバターURL",
+    "avatarUrlPlaceholder": "画像のURLを貼り付け",
+    "avatarUrlHint": "JPG / PNG 対応、200x200 推奨"
   },
   "promote": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "inviteCount": "",
-    "activeCount": "",
-    "totalEarnings": "",
-    "referralLink": "",
-    "copyLink": "",
-    "copySuccess": "",
-    "shareBtn": "",
-    "referralCode": "",
-    "rules": "",
-    "inviteRecords": "",
-    "empty": ""
+    "title": "プロモーションセンター",
+    "subtitle": "専用リンクを共有して友達を招待",
+    "retry": "再試行",
+    "inviteCount": "招待人数",
+    "activeCount": "アクティブ人数",
+    "totalEarnings": "累計収益",
+    "referralLink": "専用プロモーションリンク",
+    "copyLink": "リンクをコピー",
+    "copySuccess": "コピーしました",
+    "shareBtn": "共有",
+    "referralCode": "プロモーションコード",
+    "rules": "プロモーション規則",
+    "inviteRecords": "招待記録",
+    "empty": "データなし"
   },
   "promotion": {
-    "title": "",
-    "empty": "",
-    "minSpend": "",
-    "expireDate": "",
-    "useNow": ""
+    "title": "クーポン",
+    "empty": "利用可能なクーポンはありません",
+    "minSpend": "¥{minSpend} 以上で利用可能",
+    "expireDate": "有効期限",
+    "useNow": "今すぐ使う"
   },
   "qrCode": {
-    "title": "",
-    "scanTip": "",
-    "share": ""
+    "title": "マイQRコード",
+    "scanTip": "上のQRコードをスキャンして、一緒に学び成長しましょう",
+    "share": "共有"
   },
   "ranking": {
-    "subtitle": "",
-    "retry": "",
-    "anonymous": "",
-    "me": "",
-    "studyHours": ""
+    "subtitle": "学習ランキング。自分の順位をチェック!!",
+    "retry": "再試行",
+    "anonymous": "匿名ユーザー",
+    "me": "自分",
+    "studyHours": "{count} 時間学習"
   },
   "rankingDetail": {
-    "rank": "",
-    "attention": "",
-    "organization": ""
+    "rank": "ランキング",
+    "attention": "注目度",
+    "organization": "機関"
   },
   "realNameAuth": {
-    "title": "",
-    "status": "",
-    "verifiedDesc": "",
-    "unverifiedDesc": "",
-    "name": "",
-    "namePlaceholder": "",
-    "idNumber": "",
-    "idNumberPlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "実名認証",
+    "status": "認証状況",
+    "verifiedDesc": "実名認証が完了しました",
+    "unverifiedDesc": "実名認証を完了すると、より多くのサービスを利用できます",
+    "name": "本名",
+    "namePlaceholder": "本名を入力してください",
+    "idNumber": "身分証番号",
+    "idNumberPlaceholder": "身分証番号を入力してください",
+    "submit": "認証を提出",
+    "submitting": "送信中..."
   },
   "recruitment": {
-    "title": "",
-    "count": "",
-    "empty": "",
-    "applied": "",
-    "close": "",
-    "description": "",
-    "requirements": "",
-    "applyNow": "",
-    "appliedWaiting": ""
+    "title": "人材募集",
+    "count": "全 {count} ポジション",
+    "empty": "募集中の職種はありません",
+    "applied": "申込済み",
+    "close": "閉じる",
+    "description": "職務内容",
+    "requirements": "応募資格",
+    "applyNow": "今すぐ申し込む",
+    "appliedWaiting": "申込済み。審査をお待ちください"
   },
   "referrer": {
-    "title": "",
-    "current": "",
-    "empty": "",
-    "desc": "",
-    "codeLabel": "",
-    "codePlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "紹介者",
+    "current": "現在の紹介者",
+    "empty": "紹介者がまだ設定されていません",
+    "desc": "紹介者を設定すると、双方とも報酬を獲得できます",
+    "codeLabel": "紹介コード",
+    "codePlaceholder": "紹介コードを入力してください",
+    "submit": "設定",
+    "submitting": "設定中..."
   },
   "register": {
-    "phone": "",
-    "phonePlaceholder": "",
+    "phone": "電話番号",
+    "phonePlaceholder": "電話番号を入力してください",
     "code": "認証コード",
     "codePlaceholder": "認証コードを入力",
     "sendCode": "コード送信",
     "resendIn": "{{countdown}}秒後に再送信",
     "sendCodeFailed": "認証コードの送信に失敗しました",
-    "submit": "",
-    "registering": ""
+    "submit": "登録",
+    "registering": "登録中..."
   },
   "withdraw": {
     "availableBalance": "引き出し可能額(元)"
   },
   "search": {
-    "title": "",
-    "placeholder": "",
-    "empty": ""
+    "title": "検索",
+    "placeholder": "コース、講師、コンテンツを検索",
+    "empty": "関連するコンテンツが見つかりません"
   },
   "securitySettings": {
-    "title": "",
-    "password": "",
-    "biometric": "",
-    "twoFactor": "",
-    "loginAlert": "",
-    "desc": ""
+    "title": "セキュリティ設定",
+    "password": "パスワードログイン",
+    "biometric": "生体認証",
+    "twoFactor": "二段階認証",
+    "loginAlert": "ログイン通知",
+    "desc": "アカウントログインに関するスイッチを管理"
   },
   "settingsAccount": {
-    "title": "",
-    "name": "",
-    "email": "",
-    "phone": "",
-    "save": ""
+    "title": "アカウント管理",
+    "name": "氏名",
+    "email": "メールアドレス",
+    "phone": "電話番号",
+    "save": "保存"
   },
   "square": {
-    "title": ""
+    "title": "AIニュース"
   },
   "studyProgress": {
-    "title": "",
-    "loadFailed": "",
-    "courses": "",
-    "totalMinutes": "",
-    "weekMinutes": "",
-    "streak": "",
-    "courseProgress": ""
+    "title": "学習進捗",
+    "loadFailed": "学習進捗の読み込みに失敗しました",
+    "courses": "コース(完了/合計)",
+    "totalMinutes": "累計学習(分)",
+    "weekMinutes": "今週の学習(分)",
+    "streak": "連続学習(日)",
+    "courseProgress": "コース進捗"
   },
   "studyPublish": {
-    "title": ""
+    "title": "コースを公開"
   },
   "studyRecord": {
-    "title": "",
-    "subtitle": "",
-    "totalDuration": "",
-    "totalCourses": "",
-    "completedCourses": "",
-    "totalLessons": "",
-    "completedLessons": "",
-    "continuousDays": "",
-    "empty": "",
-    "untitled": "",
-    "duration": "",
-    "progress": "",
-    "statusCompleted": "",
-    "statusInProgress": "",
-    "statusPaused": ""
+    "title": "学習記録",
+    "subtitle": "{name} の学習記録",
+    "totalDuration": "累計時間(分)",
+    "totalCourses": "コース合計",
+    "completedCourses": "修了コース",
+    "totalLessons": "レッスン合計",
+    "completedLessons": "修了レッスン",
+    "continuousDays": "連続学習(日)",
+    "empty": "学習記録はありません",
+    "untitled": "無題の学習記録",
+    "duration": "時間",
+    "progress": "進捗",
+    "statusCompleted": "完了",
+    "statusInProgress": "進行中",
+    "statusPaused": "一時停止中"
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "マイサブスクリプション",
+    "empty": "サブスクリプションはありません",
+    "cancel": "サブスクリプション解除"
   },
   "taskCenter": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "claimed": "",
-    "claim": "",
-    "goToDo": "",
-    "progress": ""
+    "title": "タスクセンター",
+    "subtitle": "タスクを達成して報酬を獲得",
+    "retry": "再試行",
+    "empty": "実行可能なタスクはありません",
+    "claimed": "受け取り済み",
+    "claim": "受け取る",
+    "goToDo": "やりに行く",
+    "progress": "{current}/{target}"
   },
   "team": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "totalMembers": "",
-    "activeMembers": "",
-    "directCount": "",
-    "indirectCount": "",
-    "totalContribution": "",
-    "empty": "",
-    "joinDate": "",
-    "level": ""
+    "title": "マイチーム",
+    "subtitle": "チーム人数と業績を一覧表示",
+    "retry": "再試行",
+    "totalMembers": "チーム総人数",
+    "activeMembers": "アクティブメンバー",
+    "directCount": "直接紹介数",
+    "indirectCount": "間接紹介数",
+    "totalContribution": "チーム総貢献",
+    "empty": "チームメンバーはまだありません",
+    "joinDate": "参加日",
+    "level": "レベル"
   },
   "teamDetail": {
-    "title": "",
-    "transactionVolume": "",
-    "commission": "",
-    "orderNum": "",
-    "phone": "",
-    "joinedAt": "",
-    "contact": "",
-    "viewOrders": ""
+    "title": "チームメンバー詳細",
+    "transactionVolume": "取引額",
+    "commission": "獲得コミッション",
+    "orderNum": "取引注文数",
+    "phone": "電話番号",
+    "joinedAt": "参加日",
+    "contact": "連絡",
+    "viewOrders": "注文を見る"
   },
   "vip": {
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "currentLevel": "",
-    "expireAt": "",
-    "levelsTitle": "",
-    "currentBadge": "",
-    "duration": "",
-    "benefitsCount": ""
+    "subtitle": "会員を開通して、より多くの権益を",
+    "retry": "再試行",
+    "empty": "会員レベル情報はありません",
+    "currentLevel": "現在のレベル",
+    "expireAt": "有効期限",
+    "levelsTitle": "会員レベル",
+    "currentBadge": "現在のレベル",
+    "duration": "{days} 日",
+    "benefitsCount": "{count} 個の専用権益"
   },
   "vipBenefit": {
-    "title": ""
+    "title": "会員権益"
   },
   "vipTrader": {
-    "title": "",
-    "subtitle": "",
-    "badge": "",
-    "heroDesc": "",
-    "entryTeam": "",
-    "entryStats": "",
-    "entryWithdraw": "",
-    "benefits": "",
-    "benefitCount": "",
-    "lifetime": "",
-    "openNow": "",
-    "opened": ""
+    "title": "VIP トレーダー",
+    "subtitle": "トレーダー専用権益をご利用いただけます",
+    "badge": "トレーダー専用",
+    "heroDesc": "期間限定 ¥{price} で開通、{power} の計算力を贈呈、大量売上と専用カスタマイズ権益を楽しめます",
+    "entryTeam": "マイチーム",
+    "entryStats": "収益統計",
+    "entryWithdraw": "出金する",
+    "benefits": "専用権益",
+    "benefitCount": "全 {count} 項目",
+    "lifetime": "永久有効",
+    "openNow": "今すぐ開通",
+    "opened": "開通済み"
   },
   "wallet": {
-    "points": ""
+    "points": "トークン"
   }
 }
