@@ -6,7 +6,9 @@ import {
   getCommissionList,
   getDayMonthSummary,
   getOverview,
+  getWithdrawList,
   type CommissionRecord,
+  type CommissionWithdrawRecord,
 } from '@ihui/api-client'
 import { IncomeScreen as SharedIncomeScreen } from '@ihui/rn-app'
 import type { IncomeCommissionItem, IncomeData } from '@ihui/types'
@@ -51,6 +53,19 @@ function mapRecord(r: CommissionRecord): IncomeCommissionItem {
   }
 }
 
+/** 提现记录 → 已结算条目(对齐 Uniapp accumulation「已结算=已提现」语义;仅 completed(status=2)计入) */
+function mapWithdrawRecord(r: CommissionWithdrawRecord): IncomeCommissionItem {
+  return {
+    id: r.id,
+    title: r.accountType === 'bank' ? '银行卡提现' : '提现记录',
+    amount: (r.amount ?? 0) / 100,
+    time: r.processedAt ?? r.createdAt,
+    settled: true,
+    orderId: '',
+    cancelled: false,
+  }
+}
+
 export function IncomeScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
@@ -72,14 +87,21 @@ export function IncomeScreen() {
     setLoading(true)
     setError('')
     try {
-      const [overviewRes, listRes, dayMonthRes] = await Promise.all([
+      const [overviewRes, listRes, dayMonthRes, withdrawRes] = await Promise.all([
         getOverview(),
         getCommissionList({ page: 1, pageSize: 50 }),
         getDayMonthSummary(),
+        getWithdrawList({ page: 1, pageSize: 50 }),
       ])
       if (!overviewRes.success || !listRes.success || !dayMonthRes.success) {
         throw new Error('http')
       }
+      // 「已结算」= 已成功提现的记录(completed status=2);佣金行与提现记录无字段关联,无法逐条标记
+      const settledItems = withdrawRes.success
+        ? withdrawRes.data.list
+            .filter((w) => String(w.status) === '2')
+            .map(mapWithdrawRecord)
+        : []
       setData({
         totalEarnings: overviewRes.data.totalCommission,
         todayCommission:
@@ -87,7 +109,7 @@ export function IncomeScreen() {
         balance: overviewRes.data.availableCommission,
         pendingCommission: overviewRes.data.pendingCommission,
         withdrawnCommission: overviewRes.data.withdrawnCommission,
-        list: listRes.data.list.map(mapRecord),
+        list: [...listRes.data.list.map(mapRecord), ...settledItems],
       })
     } catch {
       setError(t('income.loadFailed'))
