@@ -51,6 +51,13 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
 
+const PLAZA_STATUS = {
+  waiting: 'pending',
+  developing: 'approved',
+  completed: 'offline',
+  mine: 'mine',
+} as const
+
 const FLOAT_BOX_DEFAULT = { visible: false, type: 'info' as FloatBoxType, message: '' }
 
 /**
@@ -101,7 +108,7 @@ export function PlazaScreen() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [status, setStatus] = useState('2')
+  const [status, setStatus] = useState<string>(PLAZA_STATUS.waiting)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [showSearch, setShowSearch] = useState(false)
@@ -138,7 +145,7 @@ export function PlazaScreen() {
         setError('')
       }
       try {
-        const isMyTask = status === '9'
+        const isMyTask = status === PLAZA_STATUS.mine
         // 使用 PlazaScreenProps 的 items 类型。
         // 注:api-client getPlazaList 声明 categories?: string[],与基类型 PageQuery 的标量
         // index signature 冲突(既有缺陷,buildQs 用 String(v) 序列化数组为逗号分隔串),
