@@ -179,6 +179,32 @@ export function DistributionScreen() {
       )
       return
     }
+    // 实名校验(对齐 Uniapp PersonalInformationCard/index.vue withdrawalClick):
+    // 未实名(后端 authStatus !== 'approved')→ 弹「提现前请先实名认证!」并引导去实名,不放行。
+    // 说明:AuthUser 用户模型无 realName 字段,实名状态以 /auth/realname/my 接口为准。
+    try {
+      const realnameRes = await fetchApi<{ authStatus?: string }>('/auth/realname/my')
+      if (!realnameRes.success || realnameRes.data?.authStatus !== 'approved') {
+        Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+          { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+          {
+            text: t('distribution.withdrawRealnameGo'),
+            onPress: () => navigation.navigate('RealNameAuth' as never),
+          },
+        ])
+        return
+      }
+    } catch {
+      // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
+      Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+        { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+        {
+          text: t('distribution.withdrawRealnameGo'),
+          onPress: () => navigation.navigate('RealNameAuth' as never),
+        },
+      ])
+      return
+    }
     setWithdrawing(true)
     const res = await fetchApi('/distribution/withdraw', {
       method: 'POST',
