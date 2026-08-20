@@ -5,13 +5,13 @@
   },
   "home": {
     "welcome": "歡迎使用智匯 AI",
-    "guest": "",
-    "learningProgress": "",
-    "progressLessons": "",
-    "progressEmpty": "",
-    "livePreview": "",
-    "livePreviewMore": "",
-    "recommend": "",
+    "guest": "遊客",
+    "learningProgress": "學習進度",
+    "progressLessons": "已學 {completed}/{total} 節",
+    "progressEmpty": "還沒有開始學習,去挑一堂課吧",
+    "livePreview": "直播預告",
+    "livePreviewMore": "更多直播",
+    "recommend": "為你推薦",
     "greetingMorning": "早晨好",
     "greetingNoon": "中午好",
     "greetingAfternoon": "下午好",
@@ -21,11 +21,11 @@
     "title": "課程",
     "studentCount": "{count} 人學過",
     "progress": "學習進度",
-    "empty": "",
-    "completed": "",
-    "complete": "",
-    "player": "",
-    "progressLessons": ""
+    "empty": "暫無課程",
+    "completed": "已學完",
+    "complete": "標記學完",
+    "player": "影片載入後即可播放",
+    "progressLessons": "已學 {completed}/{total} 節"
   },
   "live": {
     "title": "直播",
@@ -74,10 +74,10 @@
       "walletSubtitle": "查看餘額與儲值",
       "loginRequired": "請先登入"
     },
-    "nickname": "",
-    "logout": "",
-    "myOrders": "",
-    "editProfile": ""
+    "nickname": "未設定暱稱",
+    "logout": "登出",
+    "myOrders": "我的訂單",
+    "editProfile": "編輯資料"
   },
   "payment": {
     "title": "支付訂單",
@@ -114,6 +114,10 @@
   "order": {
     "title": "訂單",
     "searchPlaceholder": "搜尋我的訂單",
+    "tab": {
+      "refunded": "已退款"
+    },
+    "noMore": "沒有更多了",
     "status": {
       "pending": "待付款",
       "paid": "已付款",
@@ -173,24 +177,24 @@
     "checkUpdateLatest": "當前已是最新版本",
     "changePhoneMissingUser": "使用者資訊缺失,無法更換手機號",
     "logoutConfirm": "確認退出當前帳號?",
-    "appPermission": "",
-    "icpRecord": "",
-    "usageRules": "",
-    "changePassword": "",
-    "oldPassword": "",
-    "newPassword": "",
-    "confirmPassword": "",
-    "pwdFieldsRequired": "",
-    "pwdTooShort": "",
-    "pwdNotMatch": "",
-    "pwdChanged": "",
-    "pwdChangeFailed": "",
-    "notifPush": "",
-    "notifMessage": "",
-    "notifEmail": "",
-    "notification": "",
-    "account": "",
-    "version": ""
+    "appPermission": "應用權限",
+    "icpRecord": "ICP 備案",
+    "usageRules": "使用規範",
+    "changePassword": "修改密碼",
+    "oldPassword": "舊密碼",
+    "newPassword": "新密碼",
+    "confirmPassword": "確認新密碼",
+    "pwdFieldsRequired": "請填寫完整的密碼資訊",
+    "pwdTooShort": "新密碼至少 6 位",
+    "pwdNotMatch": "兩次輸入的密碼不一致",
+    "pwdChanged": "密碼修改成功",
+    "pwdChangeFailed": "密碼修改失敗,請重試",
+    "notifPush": "推播通知",
+    "notifMessage": "站內訊息",
+    "notifEmail": "郵件通知",
+    "notification": "訊息通知",
+    "account": "帳號與安全",
+    "version": "版本"
   },
   "menu": {
     "about": "關於",
@@ -207,7 +211,7 @@
     "businessLicense": "營業執照",
     "icpRecord": "ICP 備案",
     "modelRecord": "模型備案",
-    "sectionDiscover": "",
+    "sectionDiscover": "發現",
     "assistant": "我的助手",
     "apiSettings": "API 設定"
   },
@@ -262,10 +266,10 @@
     "error": "錯誤",
     "menu": "選單",
     "empty": "暫無資料",
-    "show": "",
-    "hide": "",
-    "submitting": "",
-    "viewMore": ""
+    "show": "顯示",
+    "hide": "隱藏",
+    "submitting": "提交中...",
+    "viewMore": "查看更多"
   },
   "aiAssistant": {
     "title": "AI 助手",
@@ -473,200 +477,200 @@
     }
   },
   "about": {
-    "title": "",
-    "appName": "",
-    "version": "",
-    "description": "",
-    "officialSite": "",
-    "contactEmail": "",
-    "license": ""
+    "title": "關於",
+    "appName": "應用名稱",
+    "version": "版本",
+    "description": "應用介紹",
+    "officialSite": "官方網站",
+    "contactEmail": "聯絡信箱",
+    "license": "開放原始碼授權"
   },
   "activityDetail": {
-    "title": "",
-    "empty": "",
-    "startAt": "",
-    "endAt": "",
-    "location": ""
+    "title": "活動詳情",
+    "empty": "活動不存在或已下線",
+    "startAt": "開始時間",
+    "endAt": "結束時間",
+    "location": "活動地點"
   },
   "agentChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "暫無訊息,發送第一則訊息開始對話吧",
+    "placeholder": "輸入訊息...",
+    "send": "傳送"
   },
   "agentCreate": {
-    "title": "",
-    "name": "",
-    "namePlaceholder": "",
-    "category": "",
-    "categoryPlaceholder": "",
-    "description": "",
-    "descPlaceholder": "",
-    "systemPrompt": "",
-    "promptPlaceholder": "",
-    "isPublic": "",
-    "public": "",
-    "private": "",
-    "submit": ""
+    "title": "建立智能體",
+    "name": "名稱",
+    "namePlaceholder": "幫智能體取個名字",
+    "category": "分類",
+    "categoryPlaceholder": "如:辦公助手",
+    "description": "描述",
+    "descPlaceholder": "介紹一下這個智能體",
+    "systemPrompt": "系統提示詞",
+    "promptPlaceholder": "定義智能體的角色和行為",
+    "isPublic": "是否公開",
+    "public": "公開",
+    "private": "私有",
+    "submit": "建立"
   },
   "agentReviewDetail": {
-    "title": "",
-    "empty": "",
-    "author": ""
+    "title": "評價詳情",
+    "empty": "評價不存在或已刪除",
+    "author": "作者"
   },
   "agentSetting": {
-    "title": "",
-    "name": "",
-    "model": "",
-    "temperature": "",
-    "enabled": "",
-    "save": ""
+    "title": "智能體設定",
+    "name": "名稱",
+    "model": "模型",
+    "temperature": "溫度",
+    "enabled": "啟用",
+    "save": "儲存"
   },
   "agentStat": {
-    "title": "",
-    "conversations": "",
-    "messages": "",
-    "tokens": "",
-    "avgRating": ""
+    "title": "智能體統計",
+    "conversations": "對話數",
+    "messages": "訊息數",
+    "tokens": "Token 消耗",
+    "avgRating": "平均評分"
   },
   "announcementDetail": {
-    "empty": ""
+    "empty": "公告不存在或已刪除"
   },
   "apiSettings": {
-    "title": "",
-    "cozeTitle": "",
-    "apiToken": "",
-    "tokenPlaceholder": "",
-    "baseUrl": "",
-    "botId": "",
-    "botIdPlaceholder": "",
-    "timeout": "",
-    "tokenHint": "",
-    "save": "",
-    "reset": "",
-    "diagnoseTitle": "",
-    "diagnose": "",
-    "test": "",
-    "testSuccess": "",
-    "testFailed": ""
+    "title": "API 設定",
+    "cozeTitle": "Coze 配置",
+    "apiToken": "API Token",
+    "tokenPlaceholder": "請輸入 API Token",
+    "baseUrl": "介面位址",
+    "botId": "Bot ID",
+    "botIdPlaceholder": "請輸入 Bot ID",
+    "timeout": "逾時時間(秒)",
+    "tokenHint": "用於呼叫 Coze 介面的存取權杖",
+    "save": "儲存",
+    "reset": "重設",
+    "diagnoseTitle": "連通性診斷",
+    "diagnose": "診斷",
+    "test": "測試",
+    "testSuccess": "連線正常",
+    "testFailed": "連線失敗"
   },
   "appPermission": {
-    "intro": ""
+    "intro": "本 APP 嚴格遵循最小必要原則申請系統權限,所有權限均由您主動授權,您可隨時在手機系統「設定 - 權限管理」中查看、調整或撤回授權。撤回非必要權限不影響 APP 其他功能的正常使用。"
   },
   "askCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "發布提問",
+    "titleLabel": "標題",
+    "titlePlaceholder": "一句話概括你的問題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "詳細描述你的問題",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布"
   },
   "bankCard": {
-    "title": "",
-    "empty": "",
-    "default": "",
-    "holder": ""
+    "title": "銀行卡",
+    "empty": "暫無銀行卡",
+    "default": "預設",
+    "holder": "持卡人"
   },
   "carte": {
-    "title": "",
-    "projects": "",
-    "skills": "",
-    "rating": "",
-    "skillsTitle": "",
-    "worksTitle": "",
-    "empty": ""
+    "title": "創作者名片",
+    "projects": "專案",
+    "skills": "技能",
+    "rating": "評分",
+    "skillsTitle": "技能特長",
+    "worksTitle": "代表作品",
+    "empty": "暫無作品"
   },
   "certApply": {
-    "title": "",
-    "name": "",
-    "placeholder": "",
-    "idCard": "",
-    "submit": "",
-    "success": ""
+    "title": "講師認證",
+    "name": "姓名",
+    "placeholder": "請輸入真實資訊",
+    "idCard": "身分證號",
+    "submit": "提交認證",
+    "success": "提交成功,請等待審核"
   },
   "community": {
-    "follow": "",
-    "follower": ""
+    "follow": "關注",
+    "follower": "粉絲"
   },
   "coupon": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "領券下單,更划算",
+    "retry": "重試"
   },
   "courseAnnex": {
-    "title": "",
-    "empty": "",
-    "size": "",
-    "download": ""
+    "title": "課程附件",
+    "empty": "暫無附件",
+    "size": "大小",
+    "download": "下載"
   },
   "courseChapter": {
-    "title": "",
-    "lessons": ""
+    "title": "課程章節",
+    "lessons": "共 {count} 堂課"
   },
   "courseComment": {
-    "title": "",
-    "empty": ""
+    "title": "課程評論",
+    "empty": "暫無評論"
   },
   "courseDetail": {
-    "loadFailed": "",
-    "studentCount": "",
-    "instructor": "",
-    "rating": "",
-    "free": "",
-    "enrolled": "",
-    "enroll": "",
-    "pay": "",
-    "lessons": "",
-    "completed": ""
+    "loadFailed": "載入課程詳情失敗",
+    "studentCount": "{count} 人學過",
+    "instructor": "講師",
+    "rating": "評分",
+    "free": "免費",
+    "enrolled": "已報名",
+    "enroll": "立即報名",
+    "pay": "支付 ¥{amount}",
+    "lessons": "課程目錄",
+    "completed": "已學完"
   },
   "courseEnroll": {
-    "title": "",
-    "subtitle": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "enrolled": "",
-    "enroll": "",
-    "free": "",
-    "instructor": "",
-    "level": "",
-    "lessons": "",
-    "students": ""
+    "title": "報名課程",
+    "subtitle": "選課報名,開啟學習之旅",
+    "searchPlaceholder": "搜尋課程",
+    "empty": "暫無課程",
+    "enrolled": "已報名",
+    "enroll": "立即報名",
+    "free": "免費",
+    "instructor": "講師",
+    "level": "難度",
+    "lessons": "堂數",
+    "students": "學員"
   },
   "courseFilter": {
-    "title": "",
-    "subtitle": "",
-    "category": "",
-    "level": "",
-    "priceRange": "",
-    "reset": "",
-    "apply": "",
-    "retry": "",
-    "empty": "",
-    "instructor": "",
-    "level_label": "",
-    "free": ""
+    "title": "篩選課程",
+    "subtitle": "按條件找到適合你的課",
+    "category": "分類",
+    "level": "難度",
+    "priceRange": "價格區間",
+    "reset": "重設",
+    "apply": "確定",
+    "retry": "重試",
+    "empty": "沒有符合條件的課程",
+    "instructor": "講師",
+    "level_label": "難度",
+    "free": "免費"
   },
   "courseQAAsk": {
-    "title": "",
-    "question": "",
-    "placeholder": "",
-    "success": "",
-    "submit": ""
+    "title": "課程提問",
+    "question": "問題描述",
+    "placeholder": "輸入你的疑問,講師會盡快解答",
+    "success": "提交成功",
+    "submit": "提交問題"
   },
   "courseResource": {
-    "title": "",
-    "empty": "",
-    "type": "",
-    "size": "",
-    "open": ""
+    "title": "課程資源",
+    "empty": "暫無資源",
+    "type": "類型",
+    "size": "大小",
+    "open": "開啟"
   },
   "courseScreen": {
-    "title": "",
-    "searchPlaceholder": "",
-    "empty": "",
-    "free": "",
-    "studentCount": "",
-    "nextPage": "",
+    "title": "全部課程",
+    "searchPlaceholder": "搜尋課程",
+    "empty": "暫無課程",
+    "free": "免費",
+    "studentCount": "{count} 人學過",
+    "nextPage": "下一頁",
     "recommended": "推薦課程",
     "track": "課程賽道",
     "latest": "最新課程",
@@ -674,445 +678,445 @@
     "unknownInstructor": "未知講師"
   },
   "customerService": {
-    "title": "",
-    "empty": "",
-    "status": "",
-    "online": "",
-    "offline": "",
-    "workingHours": "",
-    "phone": "",
-    "email": ""
+    "title": "聯絡客服",
+    "empty": "客服資訊載入失敗",
+    "status": "服務狀態",
+    "online": "線上",
+    "offline": "離線",
+    "workingHours": "服務時間",
+    "phone": "客服電話",
+    "email": "客服信箱"
   },
   "distribution": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "level": "",
-    "commissionRate": "",
-    "totalEarnings": "",
-    "withdrawn": "",
-    "pending": "",
-    "withdrawBtn": "",
-    "withdrawMin": "",
-    "products": "",
-    "commission": "",
-    "sales": ""
+    "title": "分銷中心",
+    "subtitle": "推廣商品,賺取佣金",
+    "retry": "重試",
+    "empty": "暫無資料",
+    "level": "分銷等級",
+    "commissionRate": "佣金比例",
+    "totalEarnings": "累計收益",
+    "withdrawn": "已提現",
+    "pending": "待結算",
+    "withdrawBtn": "申請提現",
+    "withdrawMin": "滿 ¥{amount} 方可提現",
+    "products": "分銷商品",
+    "commission": "佣金",
+    "sales": "已售 {count} 件"
   },
   "earnCommission": {
-    "title": "",
-    "introTitle": "",
-    "introDesc": "",
-    "totalEarnings": "",
-    "invitedCount": "",
-    "rules": "",
-    "rateTitle": "",
-    "openVip": ""
+    "title": "分傭計畫",
+    "introTitle": "邀請好友,賺取佣金",
+    "introDesc": "加入分傭計畫,邀請好友註冊成為會員,即可獲得會員費 20% 的佣金收益",
+    "totalEarnings": "累計收益",
+    "invitedCount": "邀請人數",
+    "rules": "分傭規則",
+    "rateTitle": "分傭比例",
+    "openVip": "開通 VIP 會員 參與分傭計畫"
   },
   "exam": {
-    "subtitle": "",
-    "retry": "",
-    "questions": "",
-    "end": "",
-    "startExam": ""
+    "subtitle": "以考促學,檢驗學習成果",
+    "retry": "重試",
+    "questions": "題數",
+    "end": "結束時間",
+    "startExam": "開始考試"
   },
   "examQuestion": {
-    "loadFailed": "",
-    "single": "",
-    "multi": "",
-    "prev": "",
-    "next": "",
-    "submit": ""
+    "loadFailed": "載入試卷失敗",
+    "single": "單選題",
+    "multi": "多選題",
+    "prev": "上一題",
+    "next": "下一題",
+    "submit": "交卷"
   },
   "favorite": {
-    "title": "",
-    "tabAll": "",
-    "tabCourse": "",
-    "tabLive": "",
-    "tabArticle": "",
-    "empty": ""
+    "title": "我的收藏",
+    "tabAll": "全部",
+    "tabCourse": "課程",
+    "tabLive": "直播",
+    "tabArticle": "文章",
+    "empty": "暫無收藏"
   },
   "finance": {
-    "title": "",
-    "empty": "",
-    "balance": "",
-    "todayIncome": "",
-    "totalIncome": "",
-    "totalExpense": ""
+    "title": "財務",
+    "empty": "暫無帳單資料",
+    "balance": "帳戶餘額",
+    "todayIncome": "今日收入",
+    "totalIncome": "累計收入",
+    "totalExpense": "累計支出"
   },
   "follow": {
-    "title": "",
-    "following": "",
-    "fans": "",
-    "empty": "",
-    "unfollow": ""
+    "title": "關注與粉絲",
+    "following": "關注",
+    "fans": "粉絲",
+    "empty": "暫無資料",
+    "unfollow": "取消關注"
   },
   "icpRecord": {
-    "licenseLabel": ""
+    "licenseLabel": "ICP 備案/許可證號"
   },
   "identityVerify": {
-    "title": "",
-    "subtitle": "",
-    "uploadFront": "",
-    "uploadBack": "",
-    "uploadSelfie": "",
-    "submit": "",
-    "submitting": ""
+    "title": "身分認證",
+    "subtitle": "完成身分認證,保障帳戶安全",
+    "uploadFront": "上傳身分證人像面",
+    "uploadBack": "上傳身分證國徽面",
+    "uploadSelfie": "上傳手持身分證照片",
+    "submit": "提交認證",
+    "submitting": "提交中..."
   },
   "income": {
-    "title": "",
-    "today": "",
-    "total": "",
-    "withdrawable": "",
-    "withdraw": "",
-    "sectionTitle": "",
-    "empty": "",
-    "settled": "",
-    "pending": ""
+    "title": "收益",
+    "today": "今日收益",
+    "total": "累計收益",
+    "withdrawable": "可提現餘額",
+    "withdraw": "提現",
+    "sectionTitle": "收益明細",
+    "empty": "暫無收益記錄",
+    "settled": "已結算",
+    "pending": "待結算"
   },
   "invite": {
-    "title": "",
-    "inviteCode": "",
-    "totalInvited": "",
-    "totalReward": "",
-    "share": "",
-    "sectionTitle": "",
-    "empty": "",
-    "statusCompleted": "",
-    "statusPending": ""
+    "title": "邀請好友",
+    "inviteCode": "邀請碼",
+    "totalInvited": "累計邀請",
+    "totalReward": "累計獎勵",
+    "share": "立即邀請",
+    "sectionTitle": "邀請記錄",
+    "empty": "暫無邀請記錄",
+    "statusCompleted": "已完成",
+    "statusPending": "待完成"
   },
   "learnDevelop": {
-    "title": "",
-    "comingSoon": "",
-    "contactLabel": ""
+    "title": "學習開發",
+    "comingSoon": "課程星球正在開發中",
+    "contactLabel": "直接聯繫李總"
   },
   "lecturerDetail": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "courses": "",
-    "followers": "",
-    "students": "",
-    "followBtn": "",
-    "unfollowBtn": "",
-    "retry": "",
-    "level": "",
-    "studentCount": "",
-    "free": ""
+    "title": "講師詳情",
+    "subtitle": "了解講師,選課不迷路",
+    "empty": "暫無簡介",
+    "courses": "課程",
+    "followers": "粉絲",
+    "students": "學員",
+    "followBtn": "關注",
+    "unfollowBtn": "已關注",
+    "retry": "重試",
+    "level": "難度",
+    "studentCount": "{count} 人學過",
+    "free": "免費"
   },
   "liveChat": {
-    "title": "",
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "title": "直播間互動",
+    "empty": "暫無互動,快來搶個頭香吧",
+    "placeholder": "說點什麼...",
+    "send": "傳送"
   },
   "liveList": {
-    "subtitle": "",
-    "retry": ""
+    "subtitle": "精彩直播,不見不散",
+    "retry": "重試"
   },
   "messageChat": {
-    "empty": "",
-    "placeholder": "",
-    "send": ""
+    "empty": "暫無訊息",
+    "placeholder": "輸入訊息...",
+    "send": "傳送"
   },
   "messageDetail": {
-    "title": "",
-    "reply": "",
-    "notFound": "",
-    "from": "",
-    "createdAt": ""
+    "title": "訊息詳情",
+    "reply": "回覆",
+    "notFound": "訊息不存在或已刪除",
+    "from": "寄件者",
+    "createdAt": "時間"
   },
   "note": {
-    "title": "",
-    "subtitle": "",
-    "empty": "",
-    "add": "",
-    "edit": "",
-    "updatedAt": "",
-    "titlePlaceholder": "",
-    "placeholder": ""
+    "title": "我的筆記",
+    "subtitle": "好記性不如爛筆頭",
+    "empty": "暫無筆記,點擊新增開始記錄",
+    "add": "新增筆記",
+    "edit": "編輯",
+    "updatedAt": "更新於",
+    "titlePlaceholder": "幫筆記取個標題",
+    "placeholder": "記錄你的學習心得..."
   },
   "noteCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "isPublic": "",
-    "submit": ""
+    "title": "建立筆記",
+    "titleLabel": "標題",
+    "titlePlaceholder": "幫筆記取個標題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "記錄你的學習心得...",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "isPublic": "公開筆記",
+    "submit": "儲存"
   },
   "notificationSettings": {
-    "title": "",
-    "push": "",
-    "message": "",
-    "email": "",
-    "sms": "",
-    "marketing": "",
-    "desc": "",
-    "save": "",
-    "saving": ""
+    "title": "通知設定",
+    "push": "推播通知",
+    "message": "站內訊息",
+    "email": "郵件通知",
+    "sms": "簡訊通知",
+    "marketing": "行銷通知",
+    "desc": "依需求開啟通知管道,重要訊息不錯過",
+    "save": "儲存",
+    "saving": "儲存中..."
   },
   "orderLog": {
-    "title": "",
-    "empty": "",
-    "action": "",
-    "operator": ""
+    "title": "訂單動態",
+    "empty": "暫無動態",
+    "action": "操作",
+    "operator": "操作人"
   },
   "orderRefund": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "orderNo": "",
-    "reasonLabel": "",
-    "reasonPlaceholder": "",
-    "submit": "",
-    "applyRefund": ""
+    "title": "申請退款",
+    "subtitle": "選擇訂單,提交退款申請",
+    "retry": "重試",
+    "empty": "暫無可退款的訂單",
+    "orderNo": "訂單號",
+    "reasonLabel": "退款原因",
+    "reasonPlaceholder": "請填寫退款原因",
+    "submit": "提交申請",
+    "applyRefund": "申請退款"
   },
   "orderTrack": {
-    "title": "",
-    "empty": "",
-    "location": ""
+    "title": "物流追蹤",
+    "empty": "暫無物流資訊",
+    "location": "目前位置"
   },
   "player": {
-    "noUrl": ""
+    "noUrl": "暫無播放位址"
   },
   "pointsRecord": {
-    "title": "",
-    "tabAll": "",
-    "tabEarn": "",
-    "tabSpend": "",
-    "balance": "",
-    "empty": "",
-    "balanceAfter": ""
+    "title": "智匯值明細",
+    "tabAll": "全部",
+    "tabEarn": "取得",
+    "tabSpend": "消耗",
+    "balance": "目前餘額",
+    "empty": "暫無明細記錄",
+    "balanceAfter": "變動後餘額"
   },
   "postCreate": {
-    "title": "",
-    "titleLabel": "",
-    "titlePlaceholder": "",
-    "contentLabel": "",
-    "contentPlaceholder": "",
-    "tagsLabel": "",
-    "tagsPlaceholder": "",
-    "submit": ""
+    "title": "發布貼文",
+    "titleLabel": "標題",
+    "titlePlaceholder": "幫貼文取個標題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布"
   },
   "profileEdit": {
-    "avatarTip": "",
-    "nicknamePlaceholder": "",
-    "bioPlaceholder": "",
-    "avatarModalTitle": "",
-    "avatarUrlLabel": "",
-    "avatarUrlPlaceholder": "",
-    "avatarUrlHint": ""
+    "avatarTip": "點擊更換頭像",
+    "nicknamePlaceholder": "請輸入暱稱",
+    "bioPlaceholder": "介紹一下自己吧",
+    "avatarModalTitle": "更換頭像",
+    "avatarUrlLabel": "頭像連結",
+    "avatarUrlPlaceholder": "貼上圖片連結",
+    "avatarUrlHint": "支援 JPG / PNG,建議 200x200"
   },
   "promote": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "inviteCount": "",
-    "activeCount": "",
-    "totalEarnings": "",
-    "referralLink": "",
-    "copyLink": "",
-    "copySuccess": "",
-    "shareBtn": "",
-    "referralCode": "",
-    "rules": "",
-    "inviteRecords": "",
-    "empty": ""
+    "title": "推廣中心",
+    "subtitle": "分享專屬連結,邀請好友加入",
+    "retry": "重試",
+    "inviteCount": "邀請人數",
+    "activeCount": "活躍人數",
+    "totalEarnings": "累計收益",
+    "referralLink": "專屬推廣連結",
+    "copyLink": "複製連結",
+    "copySuccess": "已複製",
+    "shareBtn": "分享",
+    "referralCode": "推廣碼",
+    "rules": "推廣規則",
+    "inviteRecords": "邀請記錄",
+    "empty": "暫無資料"
   },
   "promotion": {
-    "title": "",
-    "empty": "",
-    "minSpend": "",
-    "expireDate": "",
-    "useNow": ""
+    "title": "優惠券",
+    "empty": "暫無可用優惠券",
+    "minSpend": "滿 ¥{minSpend} 可用",
+    "expireDate": "有效期限至",
+    "useNow": "去使用"
   },
   "qrCode": {
-    "title": "",
-    "scanTip": "",
-    "share": ""
+    "title": "我的二維碼",
+    "scanTip": "掃描上方的二維碼,一起學習成長",
+    "share": "分享"
   },
   "ranking": {
-    "subtitle": "",
-    "retry": "",
-    "anonymous": "",
-    "me": "",
-    "studyHours": ""
+    "subtitle": "學習排行榜,看看你排第幾",
+    "retry": "重試",
+    "anonymous": "匿名用戶",
+    "me": "我",
+    "studyHours": "學習 {count} 小時"
   },
   "rankingDetail": {
-    "rank": "",
-    "attention": "",
-    "organization": ""
+    "rank": "排名",
+    "attention": "關注度",
+    "organization": "機構"
   },
   "realNameAuth": {
-    "title": "",
-    "status": "",
-    "verifiedDesc": "",
-    "unverifiedDesc": "",
-    "name": "",
-    "namePlaceholder": "",
-    "idNumber": "",
-    "idNumberPlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "實名認證",
+    "status": "認證狀態",
+    "verifiedDesc": "已完成實名認證",
+    "unverifiedDesc": "完成實名認證,解鎖更多服務",
+    "name": "真實姓名",
+    "namePlaceholder": "請輸入真實姓名",
+    "idNumber": "身分證號",
+    "idNumberPlaceholder": "請輸入身分證號",
+    "submit": "提交認證",
+    "submitting": "提交中..."
   },
   "recruitment": {
-    "title": "",
-    "count": "",
-    "empty": "",
-    "applied": "",
-    "close": "",
-    "description": "",
-    "requirements": "",
-    "applyNow": "",
-    "appliedWaiting": ""
+    "title": "人才招聘",
+    "count": "共 {count} 個職位",
+    "empty": "暫無在招職位",
+    "applied": "已報名",
+    "close": "關閉",
+    "description": "職位描述",
+    "requirements": "任職要求",
+    "applyNow": "立即報名",
+    "appliedWaiting": "已報名,等待審核"
   },
   "referrer": {
-    "title": "",
-    "current": "",
-    "empty": "",
-    "desc": "",
-    "codeLabel": "",
-    "codePlaceholder": "",
-    "submit": "",
-    "submitting": ""
+    "title": "推薦人",
+    "current": "目前推薦人",
+    "empty": "暫未綁定推薦人",
+    "desc": "綁定推薦人後,雙方皆可獲得獎勵",
+    "codeLabel": "推薦碼",
+    "codePlaceholder": "請輸入推薦碼",
+    "submit": "綁定",
+    "submitting": "綁定中..."
   },
   "register": {
-    "phone": "",
-    "phonePlaceholder": "",
+    "phone": "手機號碼",
+    "phonePlaceholder": "請輸入手機號碼",
     "code": "驗證碼",
     "codePlaceholder": "請輸入驗證碼",
     "sendCode": "發送驗證碼",
     "resendIn": "{{countdown}} 秒後重新發送",
     "sendCodeFailed": "驗證碼發送失敗,請重試",
-    "submit": "",
-    "registering": ""
+    "submit": "註冊",
+    "registering": "註冊中..."
   },
   "withdraw": {
     "availableBalance": "可提現金額(元)"
   },
   "search": {
-    "title": "",
-    "placeholder": "",
-    "empty": ""
+    "title": "搜尋",
+    "placeholder": "搜尋課程、講師、內容",
+    "empty": "未找到相關內容"
   },
   "securitySettings": {
-    "title": "",
-    "password": "",
-    "biometric": "",
-    "twoFactor": "",
-    "loginAlert": "",
-    "desc": ""
+    "title": "安全設定",
+    "password": "密碼登入",
+    "biometric": "生物辨識",
+    "twoFactor": "兩步驟驗證",
+    "loginAlert": "登入提醒",
+    "desc": "管理帳號安全相關的開關"
   },
   "settingsAccount": {
-    "title": "",
-    "name": "",
-    "email": "",
-    "phone": "",
-    "save": ""
+    "title": "帳號管理",
+    "name": "姓名",
+    "email": "信箱",
+    "phone": "手機號碼",
+    "save": "儲存"
   },
   "square": {
-    "title": ""
+    "title": "AI 資訊"
   },
   "studyProgress": {
-    "title": "",
-    "loadFailed": "",
-    "courses": "",
-    "totalMinutes": "",
-    "weekMinutes": "",
-    "streak": "",
-    "courseProgress": ""
+    "title": "學習進度",
+    "loadFailed": "載入學習進度失敗",
+    "courses": "課程(已完成/總數)",
+    "totalMinutes": "累計學習(分鐘)",
+    "weekMinutes": "本週學習(分鐘)",
+    "streak": "連續打卡(天)",
+    "courseProgress": "課程進度"
   },
   "studyPublish": {
-    "title": ""
+    "title": "發布課程"
   },
   "studyRecord": {
-    "title": "",
-    "subtitle": "",
-    "totalDuration": "",
-    "totalCourses": "",
-    "completedCourses": "",
-    "totalLessons": "",
-    "completedLessons": "",
-    "continuousDays": "",
-    "empty": "",
-    "untitled": "",
-    "duration": "",
-    "progress": "",
-    "statusCompleted": "",
-    "statusInProgress": "",
-    "statusPaused": ""
+    "title": "學習記錄",
+    "subtitle": "{name} 的學習記錄",
+    "totalDuration": "累計時長(分鐘)",
+    "totalCourses": "課程總數",
+    "completedCourses": "已完成課程",
+    "totalLessons": "課時總數",
+    "completedLessons": "已完成課時",
+    "continuousDays": "連續學習(天)",
+    "empty": "暫無學習記錄",
+    "untitled": "未命名學習記錄",
+    "duration": "時長",
+    "progress": "進度",
+    "statusCompleted": "已完成",
+    "statusInProgress": "進行中",
+    "statusPaused": "已暫停"
   },
   "subscriptions": {
-    "title": "",
-    "empty": "",
-    "cancel": ""
+    "title": "我的訂閱",
+    "empty": "暫無訂閱",
+    "cancel": "取消訂閱"
   },
   "taskCenter": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "claimed": "",
-    "claim": "",
-    "goToDo": "",
-    "progress": ""
+    "title": "任務中心",
+    "subtitle": "做任務,拿獎勵",
+    "retry": "重試",
+    "empty": "暫無可做的任務",
+    "claimed": "已領取",
+    "claim": "領取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}"
   },
   "team": {
-    "title": "",
-    "subtitle": "",
-    "retry": "",
-    "totalMembers": "",
-    "activeMembers": "",
-    "directCount": "",
-    "indirectCount": "",
-    "totalContribution": "",
-    "empty": "",
-    "joinDate": "",
-    "level": ""
+    "title": "我的團隊",
+    "subtitle": "團隊人數與業績一覽",
+    "retry": "重試",
+    "totalMembers": "團隊總人數",
+    "activeMembers": "活躍成員",
+    "directCount": "直推人數",
+    "indirectCount": "間推人數",
+    "totalContribution": "團隊總貢獻",
+    "empty": "暫無團隊成員",
+    "joinDate": "加入時間",
+    "level": "等級"
   },
   "teamDetail": {
-    "title": "",
-    "transactionVolume": "",
-    "commission": "",
-    "orderNum": "",
-    "phone": "",
-    "joinedAt": "",
-    "contact": "",
-    "viewOrders": ""
+    "title": "團隊成員詳情",
+    "transactionVolume": "成交額",
+    "commission": "取得佣金",
+    "orderNum": "成交訂單數",
+    "phone": "手機號碼",
+    "joinedAt": "加入時間",
+    "contact": "聯繫",
+    "viewOrders": "查看訂單"
   },
   "vip": {
-    "subtitle": "",
-    "retry": "",
-    "empty": "",
-    "currentLevel": "",
-    "expireAt": "",
-    "levelsTitle": "",
-    "currentBadge": "",
-    "duration": "",
-    "benefitsCount": ""
+    "subtitle": "開通會員,尊享更多權益",
+    "retry": "重試",
+    "empty": "暫無會員等級資訊",
+    "currentLevel": "目前等級",
+    "expireAt": "到期時間",
+    "levelsTitle": "會員等級",
+    "currentBadge": "目前等級",
+    "duration": "{days} 天",
+    "benefitsCount": "{count} 項專屬權益"
   },
   "vipBenefit": {
-    "title": ""
+    "title": "會員權益"
   },
   "vipTrader": {
-    "title": "",
-    "subtitle": "",
-    "badge": "",
-    "heroDesc": "",
-    "entryTeam": "",
-    "entryStats": "",
-    "entryWithdraw": "",
-    "benefits": "",
-    "benefitCount": "",
-    "lifetime": "",
-    "openNow": "",
-    "opened": ""
+    "title": "VIP 操盤手",
+    "subtitle": "尊享操盤手專屬權益",
+    "badge": "操盤手專屬",
+    "heroDesc": "限時 ¥{price} 開通,贈送 {power} 算力,尊享大額分銷與專屬客製權益",
+    "entryTeam": "我的團隊",
+    "entryStats": "收益統計",
+    "entryWithdraw": "去提現",
+    "benefits": "專屬權益",
+    "benefitCount": "共 {count} 項",
+    "lifetime": "終身有效",
+    "openNow": "立即開通",
+    "opened": "已開通"
   },
   "wallet": {
-    "points": ""
+    "points": "智匯值"
   }
 }
