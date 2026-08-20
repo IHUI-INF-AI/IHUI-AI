@@ -11,7 +11,11 @@
     "progressEmpty": "",
     "livePreview": "",
     "livePreviewMore": "",
-    "recommend": ""
+    "recommend": "",
+    "greetingMorning": "おはよう",
+    "greetingNoon": "こんにちは",
+    "greetingAfternoon": "こんにちは",
+    "greetingEvening": "こんばんは"
   },
   "course": {
     "title": "コース",
