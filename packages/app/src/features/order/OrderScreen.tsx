@@ -1,5 +1,13 @@
-import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { useMemo, useState } from 'react'
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
@@ -29,6 +37,17 @@ export function OrderScreen({
 }: OrderScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  // 本地搜索关键词:匹配订单号 / 商品名(对齐 Uniapp user_order_list searchText 过滤,见 index.vue:195-197)
+  const [keyword, setKeyword] = useState('')
+  const filteredItems = useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
+    if (!kw) return items
+    return items.filter(
+      (item) =>
+        item.orderNo.toLowerCase().includes(kw) || item.title.toLowerCase().includes(kw),
+    )
+  }, [items, keyword])
 
   const statusColors = (status: AppOrderStatus) => {
     switch (status) {
@@ -80,6 +99,18 @@ export function OrderScreen({
         })}
       </ScrollView>
 
+      <TextInput
+        style={styles.searchInput}
+        value={keyword}
+        onChangeText={setKeyword}
+        placeholder={t('order.searchPlaceholder')}
+        placeholderTextColor={tk.text.tertiary}
+        autoCapitalize="none"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        accessibilityLabel={t('order.searchPlaceholder')}
+      />
+
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
@@ -91,12 +122,12 @@ export function OrderScreen({
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
-          {items.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <View style={styles.center}>
               <Text style={styles.muted}>{t('order.empty')}</Text>
             </View>
           ) : (
-            items.map((item: OrderItem) => {
+            filteredItems.map((item: OrderItem) => {
               const sc = statusColors(item.status)
               return (
                 <TouchableOpacity
@@ -158,6 +189,19 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.DEFAULT },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    searchInput: {
+      marginHorizontal: 10,
+      marginTop: 4,
+      marginBottom: 4,
+      paddingHorizontal: 12,
+      height: 40,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      fontSize: 14,
+      color: tk.text.primary,
+    },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
