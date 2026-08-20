@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Share } from 'react-native'
+import { Alert, Share } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getProfile, type AuthUser } from '@ihui/api-client'
@@ -87,15 +87,52 @@ export default function BusinessCardScreen() {
     }
   }, [])
 
+  /** 拼接名片分享文案(微信/朋友圈共用,对齐原项目 business-card-sharing 分享内容) */
+  const buildShareMessage = (): string =>
+    card
+      ? `${card.name} · ${card.position}\n${card.company}\n电话:${card.phone}  微信:${card.wechat}`
+      : ''
+
   const onShare = async () => {
     if (!card) return
     try {
       await Share.share({
-        message: `${card.name} · ${card.position}\n${card.company}\n电话:${card.phone}  微信:${card.wechat}`,
+        message: buildShareMessage(),
       })
     } catch {
       // ignore share errors
     }
+  }
+
+  // 微信好友 / 朋友圈:RN 端统一走系统 Share 面板(无原生直达能力),按钮文案区分
+  const onShareWechat = async () => {
+    if (!card) return
+    try {
+      await Share.share({
+        title: '微信好友',
+        message: buildShareMessage(),
+      })
+    } catch {
+      // ignore share errors
+    }
+  }
+
+  const onShareMoments = async () => {
+    if (!card) return
+    try {
+      await Share.share({
+        title: '朋友圈',
+        message: buildShareMessage(),
+      })
+    } catch {
+      // ignore share errors
+    }
+  }
+
+  // 定制名片入口(对齐原项目 buyToken 的"社区名片定制入口");
+  // RN 端暂无对应落地页,先 toast 提示,待接入定制名片流程后再挂载跳转
+  const onCustomize = () => {
+    Alert.alert('提示', '名片定制待接入')
   }
 
   const onSave = () => {
@@ -114,6 +151,9 @@ export default function BusinessCardScreen() {
       onSave={onSave}
       onEdit={() => navigation.goBack()}
       onBack={() => navigation.goBack()}
+      onCustomize={onCustomize}
+      onShareWechat={onShareWechat}
+      onShareMoments={onShareMoments}
     />
   )
 }
