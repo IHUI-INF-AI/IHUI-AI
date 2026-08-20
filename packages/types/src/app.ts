@@ -2925,30 +2925,63 @@ export interface AiAssistantScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** AI 职业趋势 */
-export type AiCareerTrend = 'up' | 'new' | 'stable'
-
-/** AI 职业匹配�?*/
-export interface AiCareerMatchItem {
-  id: string
-  title: string
-  salary?: string
-  match: number
-  trend: AiCareerTrend
-  reasons: string[]
+/** AI 生涯指导 — 孩子学业问卷表单字段(对齐原 Uniapp 页 pagesA/ai_career 的 formData) */
+export interface AiCareerFormData {
+  school: string
+  classLevel: string
+  scoreRange: string
+  languageDifficulty: string
+  scienceCharacteristics: string
+  learningObstacle: string
+  hobbies: string
+  personality: string
+  extraTime: string
+  pressureTolerance: string
+  learningGoal: string
+  personalityTest1: string
+  personalityTest2: string
+  personalityTest3: string
+  personalityTest4: string
+  personalityTest5: string
 }
 
-/** AiCareerScreen props */
+/** 问卷字段名(约束选项/输入回调的 key) */
+export type AiCareerFieldKey = keyof AiCareerFormData
+
+/** 问卷区块:基础信息 / 性格测试 */
+export type AiCareerSection = 'basic' | 'personality'
+
+/** 题目控件类型:单选 / 单行输入 / 多行输入 / 1-5 评分行 */
+export type AiCareerQuestionType = 'choice' | 'input' | 'textarea' | 'score'
+
+/** 单选题选项(label 与 value 同文案,对齐原项目 selectOption(field, value)) */
+export interface AiCareerChoiceOption {
+  label: string
+  value: string
+}
+
+/** 问卷题目定义 */
+export interface AiCareerQuestion {
+  key: AiCareerFieldKey
+  title: string
+  required: boolean
+  type: AiCareerQuestionType
+  options?: AiCareerChoiceOption[]
+  placeholder?: string
+  maxLength?: number
+  section: AiCareerSection
+}
+
+/** AiCareerScreen(孩子学业问卷)props */
 export interface AiCareerScreenProps {
   t: TFunction
-  items: AiCareerMatchItem[]
-  loading: boolean
-  refreshing: boolean
+  questions: AiCareerQuestion[]
+  formData: AiCareerFormData
   error: string | null
-  selectedId: string | null
-  onToggleItem: (id: string) => void
-  onRefresh: () => void
-  onPlan: (item: AiCareerMatchItem) => void
+  submitting: boolean
+  onSelectOption: (key: AiCareerFieldKey, value: string) => void
+  onInputChange: (key: AiCareerFieldKey, value: string) => void
+  onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
