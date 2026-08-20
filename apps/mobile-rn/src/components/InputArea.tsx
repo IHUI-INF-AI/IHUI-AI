@@ -91,6 +91,8 @@ export interface InputAreaProps {
   onStop?: () => void
   /** 停止按钮文字,缺省"停止" */
   stopLabel?: string
+  /** 发送按钮可访问文案(i18n 注入);未提供时回退 "send" */
+  sendLabel?: string
 
   // ── 新增(可选,不传则降级为原行为)──────────────────────────────
   /** 图片/视频/文档列表 */
@@ -211,6 +213,7 @@ export function InputArea({
   loading = false,
   onStop,
   stopLabel,
+  sendLabel,
   images,
   onImageRemove,
   onImageAdd,
@@ -461,7 +464,7 @@ export function InputArea({
           activeOpacity={0.7}
           disabled={!canSend}
           accessibilityRole="button"
-          accessibilityLabel="send"
+          accessibilityLabel={sendLabel ?? 'send'}
         >
           {loading ? (
             <ActivityIndicator size="small" color={tokens.surface.light} />

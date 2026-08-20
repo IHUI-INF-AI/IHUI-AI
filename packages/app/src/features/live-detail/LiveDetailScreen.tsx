@@ -281,6 +281,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     subscribedText: { fontSize: 14, color: tk.success.deepText },
     introSection: { paddingHorizontal: 10, paddingBottom: 8 },
+    actionRow: { paddingHorizontal: 10, paddingVertical: 8 },
     sectionTitle: { fontSize: 18, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
     introText: { fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
     chatSection: { flex: 1, paddingHorizontal: 10, marginTop: 8 },
