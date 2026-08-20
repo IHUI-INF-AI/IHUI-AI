@@ -297,6 +297,7 @@ export async function getPlazaList(
     page?: number
     pageSize?: number
     status?: string
+    taskStatus?: string
     search?: string
     creator?: string
     types?: string[]

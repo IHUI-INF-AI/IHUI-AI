@@ -1,0 +1,1 @@
+ALTER TABLE "zhs_demand_square" ADD COLUMN "task_status" varchar(20) DEFAULT 'waiting' NOT NULL;
