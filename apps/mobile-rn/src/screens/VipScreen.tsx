@@ -329,13 +329,16 @@ export function VipScreen() {
                   return
                 }
 
-                // 5. 支付成功,查询支付状态确认(乐观提示:SDK 成功即展示,后端状态延迟同步)
+                // 5. 只有后端确认已支付才展示成功
                 const orderNo = payRes.data.outTradeNo
-                if (orderNo) {
-                  const statusRes = await checkPaymentStatus(orderNo)
-                  if (!statusRes.success || !statusRes.data?.paid) {
-                    // 后端状态未同步,乐观提示(不打印 __DEV__ warn)
-                  }
+                if (!orderNo) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
+                }
+                const statusRes = await checkPaymentStatus(orderNo)
+                if (!statusRes.success || !statusRes.data?.paid) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
                 }
                 setToast(t('vipScreen.pay.success'))
                 void load(true)

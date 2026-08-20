@@ -699,6 +699,10 @@
     "pending": "決済待ち",
     "withdrawBtn": "出金申請",
     "withdrawMin": "¥{amount} 以上で出金できます",
+    "withdrawNeedRealname": "出金前に実名認証を行ってください!",
+    "withdrawNeedRealnameHint": "実名認証完了後、通常通り出金できます",
+    "withdrawRealnameGo": "実名認証へ",
+    "withdrawRealnameCancel": "いいえ、結構です",
     "products": "販売商品",
     "commission": "コミッション",
     "sales": "{count} 件販売"
@@ -773,7 +777,18 @@
     "empty": "収益記録はありません",
     "settled": "決済済み",
     "pending": "決済待ち",
-    "withdrawn": "出金済み"
+    "cancelled": "決済キャンセル",
+    "withdrawn": "出金済み",
+    "tab": {
+      "all": "すべて",
+      "pending": "決済待ち",
+      "settled": "決済済み",
+      "cancelled": "決済キャンセル"
+    },
+    "buyer": "注文者:{name}",
+    "relatedOrder": "関連注文:{orderNo}",
+    "copy": "注文番号をコピー",
+    "copySuccess": "注文番号をコピーしました"
   },
   "invite": {
     "title": "友達招待",
