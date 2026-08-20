@@ -267,6 +267,10 @@ export function scanCode(files) {
       DYNAMIC_T_RE.lastIndex = 0
       while ((m = DYNAMIC_T_RE.exec(line)) !== null) {
         dynamicHits.push({ file: path.relative(ROOT, f), line: i + 1, snippet: trimmed.slice(0, 200) })
+        // 提取动态模板静态前缀 t(`order.status.${var}`) → "order.status",作为已用命名空间
+        // 使 order.status.* 等动态拼接引用的 key 不再被误判为死 key(2026-08-20 增强,对齐 DYNAMIC_PREFIX_RE 语义)
+        const prefixM = m[1].match(/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/)
+        if (prefixM) usedNamespaces.add(prefixM[0].replace(/\.$/, ''))
       }
     }
   }
