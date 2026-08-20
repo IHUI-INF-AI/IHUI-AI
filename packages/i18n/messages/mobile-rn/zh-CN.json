@@ -1,7 +1,8 @@
 {
   "nav": {
     "profile": "我的",
-    "agents": "智能体"
+    "agents": "智能体",
+    "courses": "课程"
   },
   "home": {
     "welcome": "欢迎使用智汇 AI",
@@ -25,7 +26,10 @@
     "completed": "已学完",
     "complete": "标记学完",
     "player": "视频加载后即可播放",
-    "progressLessons": "已学 {completed}/{total} 节"
+    "progressLessons": "已学 {completed}/{total} 节",
+    "free": "免费",
+    "loadFailed": "加载课程失败",
+    "playError": "播放出错"
   },
   "live": {
     "title": "直播",
@@ -35,7 +39,8 @@
     "ended": "已结束",
     "empty": "暂无直播",
     "lecturer": "讲师",
-    "startAt": "开始时间"
+    "startAt": "开始时间",
+    "loadFailed": "加载直播失败"
   },
   "liveDetail": {
     "title": "直播详情",
@@ -56,7 +61,9 @@
     "chatConnected": "已连接",
     "chatReconnecting": "重连中...",
     "chatError": "连接失败",
-    "chatDisconnected": "已断开"
+    "chatDisconnected": "已断开",
+    "chatNotReady": "聊天未就绪",
+    "loadFailed": "加载直播详情失败"
   },
   "profile": {
     "title": "我的",
@@ -125,7 +132,9 @@
       "refunding": "退款中",
       "completed": "已完成",
       "failed": "失败"
-    }
+    },
+    "amount": "金额",
+    "empty": "暂无订单"
   },
   "agent": {
     "config": "配置",
@@ -194,7 +203,9 @@
     "notifEmail": "邮件通知",
     "notification": "消息通知",
     "account": "账号与安全",
-    "version": "版本"
+    "version": "版本",
+    "language": "语言",
+    "theme": "主题"
   },
   "menu": {
     "about": "关于",
@@ -269,7 +280,18 @@
     "show": "显示",
     "hide": "隐藏",
     "submitting": "提交中...",
-    "viewMore": "查看更多"
+    "viewMore": "查看更多",
+    "close": "关闭",
+    "delete": "删除",
+    "failed": "操作失败",
+    "hint": "提示",
+    "loadFailed": "加载失败",
+    "login": "登录",
+    "logout": "退出登录",
+    "networkError": "网络错误",
+    "retry": "重试",
+    "save": "保存",
+    "search": "搜索"
   },
   "aiAssistant": {
     "title": "AI 助手",
@@ -299,12 +321,6 @@
     "streaming": "正在生成...",
     "callFailed": "调用失败,请稍后重试"
   },
-  "aiCareer": {
-    "plan": {
-      "title": "生成规划",
-      "message": "正在为「{name}」生成 90 天成长计划"
-    }
-  },
   "aigcCover": {
     "applied": {
       "title": "封面已应用",
@@ -313,19 +329,79 @@
     "aiGen": {
       "title": "AI 生成封面",
       "message": "功能开发中"
-    }
+    },
+    "aiGenBtn": "AI 生成封面",
+    "back": "返回",
+    "confirmBtn": "确定",
+    "empty": "暂无封面",
+    "loadFailed": "加载失败",
+    "loading": "加载中...",
+    "subtitle": "选择或生成封面",
+    "title": "封面",
+    "workTitleDefault": "未命名作品"
   },
   "aigcPublish": {
     "success": {
       "title": "发布成功",
       "message": "作品已提交审核"
-    }
+    },
+    "back": "返回",
+    "errorMaxFiles": "最多上传 {max} 个文件",
+    "errorNoDescription": "请输入描述",
+    "errorNoFile": "请选择文件",
+    "errorNoPrompt": "请输入提示词",
+    "errorNoText": "请输入文本内容",
+    "errorNoTitle": "请输入标题",
+    "errorNoUrl": "请输入链接",
+    "errorPickFailed": "选择文件失败",
+    "errorPublishFailed": "发布失败",
+    "errorPublishRetry": "请稍后重试",
+    "errorUploadFailed": "上传失败",
+    "fileAddText": "点击添加文件",
+    "labelDescription": "描述",
+    "labelPrompt": "提示词",
+    "labelTextContent": "文本内容",
+    "labelTitle": "标题",
+    "labelType": "类型",
+    "labelUpload": "上传",
+    "pickFromAlbum": "从相册选择",
+    "placeholderDescription": "输入描述",
+    "placeholderPrompt": "输入提示词",
+    "placeholderTextContent": "输入文本内容",
+    "placeholderTitle": "输入标题",
+    "placeholderUrl": "输入链接",
+    "submitBtn": "发布",
+    "subtitle": "分享你的 AI 作品",
+    "title": "发布作品",
+    "uploading": "上传中 {progress}%...",
+    "uploadingShort": "上传中",
+    "urlAddBtn": "添加链接"
   },
   "aiGroup": {
     "join": {
       "title": "加入群组",
       "message": "已申请加入「{name}」"
-    }
+    },
+    "back": "返回",
+    "cardMembers": "成员",
+    "detailEnter": "进入群聊",
+    "detailMembers": "群成员",
+    "detailRecent": "最近消息",
+    "empty": "暂无群聊",
+    "enterChat": {
+      "message": "确定要进入该群聊?",
+      "title": "提示"
+    },
+    "enterDiscover": "发现",
+    "enterMine": "我的",
+    "loadFailed": "加载群聊失败",
+    "memberRole": "角色",
+    "metaActive": "活跃",
+    "metaMessages": "消息",
+    "previewHello": "你好",
+    "previewMine": "我创建的",
+    "subtitle": "AI 群聊助手",
+    "title": "AI 群聊"
   },
   "assistant": {
     "edit": {
@@ -337,7 +413,26 @@
       "message": "是否确定下架「{name}」?",
       "confirmBtn": "确定下架",
       "done": "已下架"
-    }
+    },
+    "actionOffline": "下线",
+    "actionReedit": "重新编辑",
+    "actionSettings": "设置",
+    "audienceAll": "全部",
+    "audienceVip": "会员",
+    "badgeDraft": "草稿",
+    "badgeOffline": "已下线",
+    "badgePublished": "已发布",
+    "badgeRejected": "已拒绝",
+    "badgeReviewing": "审核中",
+    "empty": "暂无智能体",
+    "loadFailed": "加载失败",
+    "loading": "加载中...",
+    "metaAudience": "可见范围",
+    "metaCategory": "分类",
+    "metaCycleForever": "永久有效",
+    "metaPublishTime": "发布时间",
+    "searchPlaceholder": "搜索智能体",
+    "title": "我的助理"
   },
   "chatAlert": {
     "compaction": {
@@ -385,7 +480,29 @@
     },
     "productAdd": {
       "message": "商品添加功能待接入"
-    }
+    },
+    "copyHint": "已复制",
+    "endLive": "结束直播",
+    "ending": "结束中...",
+    "previewActive": "已开始预览",
+    "previewIdle": "未开始预览",
+    "productAddBtn": "添加商品",
+    "productEmpty": "暂无商品",
+    "productLoadFailed": "加载商品失败",
+    "productLoading": "加载中...",
+    "productManage": "商品管理",
+    "pushUrl": "推流地址",
+    "startLive": "开始直播",
+    "starting": "开始中...",
+    "statDuration": "直播时长",
+    "statRecvBytes": "下行流量",
+    "statSendBytes": "上行流量",
+    "statViewers": "在线人数",
+    "stats": "直播统计",
+    "streamKey": "推流密钥",
+    "streamTitle": "直播标题",
+    "streamTitlePlaceholder": "请输入直播标题",
+    "title": "主播中心"
   },
   "modelEdit": {
     "error": {
@@ -395,7 +512,19 @@
     "success": {
       "title": "提交成功",
       "message": "配置已提交审核"
-    }
+    },
+    "headerTitle": "编辑模型",
+    "labelAudience": "可见范围",
+    "labelCategory": "分类",
+    "labelCycle": "结算周期",
+    "labelDept": "部门",
+    "labelDiscount": "折扣",
+    "labelFreeDur": "免费时长",
+    "labelPrice": "价格",
+    "labelSaleType": "售卖类型",
+    "pricePlaceholder": "请输入价格",
+    "submit": "保存",
+    "submitting": "提交中..."
   },
   "n8nModel": {
     "toggle": {
@@ -404,7 +533,19 @@
       "stopMessage": "确定停止「{name}」吗?",
       "startMessage": "确定启动「{name}」吗?",
       "success": "操作成功"
-    }
+    },
+    "actionEdit": "编辑",
+    "actionStart": "启动",
+    "actionStop": "停止",
+    "calls": "调用次数",
+    "create": "新建",
+    "empty": "暂无模型",
+    "loadFailed": "加载失败",
+    "params": "参数",
+    "running": "运行中",
+    "searchPlaceholder": "搜索模型",
+    "stopped": "已停止",
+    "title": "n8n 模型"
   },
   "modelPlaza": {
     "compare": {
@@ -414,7 +555,17 @@
     "detail": {
       "title": "模型详情",
       "message": "查看「{name}」完整参数与定价"
-    }
+    },
+    "compareBtn": "对比",
+    "emptyType": "该类型暂无模型",
+    "input": "输入",
+    "loadFailed": "加载模型失败",
+    "output": "输出",
+    "perCall": "每次",
+    "priceUnit": "价格",
+    "providerTotal": "供应商共 {count} 个模型",
+    "selectProviderLabel": "选择供应商",
+    "title": "模型广场"
   },
   "tokenValue": {
     "recharge": {
@@ -425,7 +576,23 @@
         "title": "支付成功",
         "message": "已到账 {tokens} Token"
       }
-    }
+    },
+    "balanceLabel": "智汇值余额",
+    "bonus": "奖励",
+    "empty": "暂无数据",
+    "frozen": "冻结",
+    "loadFailed": "加载失败",
+    "packagesTitle": "充值套餐",
+    "popular": "热门",
+    "rechargeLabel": "充值",
+    "recordsTitle": "交易记录",
+    "tab": {
+      "cost": "消费",
+      "recharge": "充值"
+    },
+    "title": "智汇值",
+    "tokenUnit": "智汇值",
+    "totalCost": "总消费"
   },
   "messageInput": {
     "placeholder": "请输入内容...",
@@ -443,7 +610,15 @@
     "aiContent": "AI 内容",
     "voiceInput": "语音输入",
     "voicePlaceholder": "按住说出分享内容",
-    "submit": "分享"
+    "submit": "分享",
+    "code": "分享码",
+    "create": "生成分享",
+    "expireAt": "有效期至",
+    "remark": "备注",
+    "remarkPlaceholder": "请输入备注",
+    "shareNow": "立即分享",
+    "title": "分享",
+    "url": "链接"
   },
   "vipScreen": {
     "plans": {
@@ -474,7 +649,8 @@
       "hint": "长按二维码保存到相册",
       "card": "名片二维码",
       "close": "关闭"
-    }
+    },
+    "payFailed": "支付失败"
   },
   "about": {
     "title": "关于",
@@ -490,12 +666,15 @@
     "empty": "活动不存在或已下线",
     "startAt": "开始时间",
     "endAt": "结束时间",
-    "location": "活动地点"
+    "location": "活动地点",
+    "loadFailed": "加载详情失败"
   },
   "agentChat": {
     "empty": "暂无消息,发送第一条开始对话吧",
     "placeholder": "输入消息...",
-    "send": "发送"
+    "send": "发送",
+    "loadFailed": "加载聊天失败",
+    "sendFailed": "发送失败"
   },
   "agentCreate": {
     "title": "创建智能体",
@@ -510,12 +689,15 @@
     "isPublic": "是否公开",
     "public": "公开",
     "private": "私有",
-    "submit": "创建"
+    "submit": "创建",
+    "nameRequired": "请输入名称",
+    "saveFailed": "保存失败"
   },
   "agentReviewDetail": {
     "title": "评价详情",
     "empty": "评价不存在或已删除",
-    "author": "作者"
+    "author": "作者",
+    "loadFailed": "加载评价详情失败"
   },
   "agentSetting": {
     "title": "智能体设置",
@@ -523,17 +705,21 @@
     "model": "模型",
     "temperature": "温度",
     "enabled": "启用",
-    "save": "保存"
+    "save": "保存",
+    "loadFailed": "加载设置失败",
+    "saved": "保存成功"
   },
   "agentStat": {
     "title": "智能体统计",
     "conversations": "对话数",
     "messages": "消息数",
     "tokens": "Token 消耗",
-    "avgRating": "平均评分"
+    "avgRating": "平均评分",
+    "loadFailed": "加载统计失败"
   },
   "announcementDetail": {
-    "empty": "公告不存在或已删除"
+    "empty": "公告不存在或已删除",
+    "loadFailed": "加载公告详情失败"
   },
   "apiSettings": {
     "title": "API 设置",
@@ -551,7 +737,11 @@
     "diagnose": "诊断",
     "test": "测试",
     "testSuccess": "连接正常",
-    "testFailed": "连接失败"
+    "testFailed": "连接失败",
+    "resetDone": "已重置",
+    "saveFailed": "保存失败",
+    "saved": "保存成功",
+    "tokenRequired": "请填写令牌"
   },
   "appPermission": {
     "intro": "本 APP 严格遵循最小必要原则申请系统权限,所有权限均由您主动授权,您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。撤回非必要权限不影响 APP 其他功能的正常使用。"
@@ -564,13 +754,16 @@
     "contentPlaceholder": "详细描述你的问题",
     "tagsLabel": "标签",
     "tagsPlaceholder": "多个标签用逗号分隔",
-    "submit": "发布"
+    "submit": "发布",
+    "saveFailed": "保存失败",
+    "titleRequired": "请输入标题"
   },
   "bankCard": {
     "title": "银行卡",
     "empty": "暂无银行卡",
     "default": "默认",
-    "holder": "持卡人"
+    "holder": "持卡人",
+    "loadFailed": "加载银行卡失败"
   },
   "carte": {
     "title": "创作者名片",
@@ -579,7 +772,8 @@
     "rating": "评分",
     "skillsTitle": "技能特长",
     "worksTitle": "代表作品",
-    "empty": "暂无作品"
+    "empty": "暂无作品",
+    "loadFailed": "加载名片失败"
   },
   "certApply": {
     "title": "讲师认证",
@@ -587,7 +781,8 @@
     "placeholder": "请输入真实信息",
     "idCard": "身份证号",
     "submit": "提交认证",
-    "success": "提交成功,请等待审核"
+    "success": "提交成功,请等待审核",
+    "submitting": "提交中..."
   },
   "community": {
     "follow": "关注",
@@ -595,21 +790,29 @@
   },
   "coupon": {
     "subtitle": "领券下单,更划算",
-    "retry": "重试"
+    "retry": "重试",
+    "empty": "暂无优惠券",
+    "loadFailed": "加载失败",
+    "minSpend": "满 {amount} 可用",
+    "title": "优惠券",
+    "validUntil": "有效期至"
   },
   "courseAnnex": {
     "title": "课程附件",
     "empty": "暂无附件",
     "size": "大小",
-    "download": "下载"
+    "download": "下载",
+    "loadFailed": "加载附件失败"
   },
   "courseChapter": {
     "title": "课程章节",
-    "lessons": "共 {count} 节课"
+    "lessons": "共 {count} 节课",
+    "loadFailed": "加载章节失败"
   },
   "courseComment": {
     "title": "课程评论",
-    "empty": "暂无评论"
+    "empty": "暂无评论",
+    "loadFailed": "加载评论失败"
   },
   "courseDetail": {
     "loadFailed": "加载课程详情失败",
@@ -634,7 +837,10 @@
     "instructor": "讲师",
     "level": "难度",
     "lessons": "节数",
-    "students": "学员"
+    "students": "学员",
+    "enrollFailed": "报名失败",
+    "enrollSuccess": "报名成功",
+    "loadFailed": "加载失败"
   },
   "courseFilter": {
     "title": "筛选课程",
@@ -648,21 +854,24 @@
     "empty": "没有符合条件的课程",
     "instructor": "讲师",
     "level_label": "难度",
-    "free": "免费"
+    "free": "免费",
+    "loadFailed": "加载筛选失败"
   },
   "courseQAAsk": {
     "title": "课程提问",
     "question": "问题描述",
     "placeholder": "输入你的疑问,讲师会尽快解答",
     "success": "提交成功",
-    "submit": "提交问题"
+    "submit": "提交问题",
+    "submitting": "提交中..."
   },
   "courseResource": {
     "title": "课程资源",
     "empty": "暂无资源",
     "type": "类型",
     "size": "大小",
-    "open": "打开"
+    "open": "打开",
+    "loadFailed": "加载资料失败"
   },
   "courseScreen": {
     "title": "全部课程",
@@ -685,7 +894,8 @@
     "offline": "离线",
     "workingHours": "服务时间",
     "phone": "客服电话",
-    "email": "客服邮箱"
+    "email": "客服邮箱",
+    "loadFailed": "加载客服失败"
   },
   "distribution": {
     "title": "分销中心",
@@ -705,7 +915,10 @@
     "withdrawRealnameCancel": "不,谢谢",
     "products": "分销商品",
     "commission": "佣金",
-    "sales": "已售 {count} 件"
+    "sales": "已售 {count} 件",
+    "loadFailed": "加载分销失败",
+    "withdrawFailed": "提现失败",
+    "withdrawSuccess": "提现成功"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -722,7 +935,19 @@
     "retry": "重试",
     "questions": "题数",
     "end": "结束时间",
-    "startExam": "开始考试"
+    "startExam": "开始考试",
+    "attempts": "考试次数",
+    "duration": "考试时长",
+    "empty": "暂无考试",
+    "ended": "已结束",
+    "loadFailed": "加载考试失败",
+    "noAttemptsLeft": "考试次数已用完",
+    "notStarted": "未开始",
+    "passScore": "及格分",
+    "start": "开始考试",
+    "startHint": "点击开始考试",
+    "title": "考试",
+    "totalScore": "总分"
   },
   "examQuestion": {
     "loadFailed": "加载试卷失败",
@@ -730,7 +955,8 @@
     "multi": "多选题",
     "prev": "上一题",
     "next": "下一题",
-    "submit": "交卷"
+    "submit": "交卷",
+    "submitFailed": "提交失败"
   },
   "favorite": {
     "title": "我的收藏",
@@ -746,7 +972,8 @@
     "balance": "账户余额",
     "todayIncome": "今日收入",
     "totalIncome": "累计收入",
-    "totalExpense": "累计支出"
+    "totalExpense": "累计支出",
+    "loadFailed": "加载财务失败"
   },
   "follow": {
     "title": "关注与粉丝",
@@ -765,7 +992,9 @@
     "uploadBack": "上传身份证国徽面",
     "uploadSelfie": "上传手持身份证照片",
     "submit": "提交认证",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "failed": "认证失败",
+    "loadFailed": "加载认证失败"
   },
   "income": {
     "title": "收益",
@@ -788,7 +1017,8 @@
     "buyer": "下单人:{name}",
     "relatedOrder": "关联订单:{orderNo}",
     "copy": "复制订单号",
-    "copySuccess": "已复制订单号"
+    "copySuccess": "已复制订单号",
+    "loadFailed": "加载收益失败"
   },
   "invite": {
     "title": "邀请好友",
@@ -799,7 +1029,9 @@
     "sectionTitle": "邀请记录",
     "empty": "暂无邀请记录",
     "statusCompleted": "已完成",
-    "statusPending": "待完成"
+    "statusPending": "待完成",
+    "loadFailed": "加载邀请失败",
+    "shareText": "加入智汇 AI,一起学习进步"
   },
   "learnDevelop": {
     "title": "学习开发",
@@ -818,29 +1050,41 @@
     "retry": "重试",
     "level": "难度",
     "studentCount": "{count} 人学过",
-    "free": "免费"
+    "free": "免费",
+    "loadFailed": "加载讲师失败"
   },
   "liveChat": {
     "title": "直播间互动",
     "empty": "暂无互动,来抢个沙发吧",
     "placeholder": "说点什么...",
-    "send": "发送"
+    "send": "发送",
+    "loadFailed": "加载直播聊天失败",
+    "sendFailed": "发送失败"
   },
   "liveList": {
     "subtitle": "精彩直播,不见不散",
-    "retry": "重试"
+    "retry": "重试",
+    "empty": "暂无直播",
+    "lecturer": "讲师",
+    "loadFailed": "加载失败",
+    "startAt": "开始时间",
+    "title": "直播列表",
+    "viewerCount": "观看人数"
   },
   "messageChat": {
     "empty": "暂无消息",
     "placeholder": "输入消息...",
-    "send": "发送"
+    "send": "发送",
+    "loadFailed": "加载消息失败",
+    "sendFailed": "发送失败"
   },
   "messageDetail": {
     "title": "消息详情",
     "reply": "回复",
     "notFound": "消息不存在或已删除",
     "from": "发件人",
-    "createdAt": "时间"
+    "createdAt": "时间",
+    "loadFailed": "加载消息详情失败"
   },
   "note": {
     "title": "我的笔记",
@@ -850,7 +1094,13 @@
     "edit": "编辑",
     "updatedAt": "更新于",
     "titlePlaceholder": "给笔记起个标题",
-    "placeholder": "记录你的学习心得..."
+    "placeholder": "记录你的学习心得...",
+    "deleteFailed": "删除失败",
+    "deleted": "已删除",
+    "loadFailed": "加载失败",
+    "saveFailed": "保存失败",
+    "saved": "已保存",
+    "titleRequired": "请输入标题"
   },
   "noteCreate": {
     "title": "新建笔记",
@@ -861,7 +1111,9 @@
     "tagsLabel": "标签",
     "tagsPlaceholder": "多个标签用逗号分隔",
     "isPublic": "公开笔记",
-    "submit": "保存"
+    "submit": "保存",
+    "required": "请输入内容",
+    "saveFailed": "保存失败"
   },
   "notificationSettings": {
     "title": "通知设置",
@@ -872,13 +1124,17 @@
     "marketing": "营销通知",
     "desc": "按需开启通知渠道,重要消息不错过",
     "save": "保存",
-    "saving": "保存中..."
+    "saving": "保存中...",
+    "loadFailed": "加载设置失败",
+    "saveFailed": "保存失败",
+    "saved": "已保存"
   },
   "orderLog": {
     "title": "订单动态",
     "empty": "暂无动态",
     "action": "操作",
-    "operator": "操作人"
+    "operator": "操作人",
+    "loadFailed": "加载订单日志失败"
   },
   "orderRefund": {
     "title": "申请退款",
@@ -889,15 +1145,26 @@
     "reasonLabel": "退款原因",
     "reasonPlaceholder": "请填写退款原因",
     "submit": "提交申请",
-    "applyRefund": "申请退款"
+    "applyRefund": "申请退款",
+    "loadFailed": "加载退款失败",
+    "reasonRequired": "请选择原因",
+    "submitFailed": "提交失败",
+    "submitSuccess": "退款已提交"
   },
   "orderTrack": {
     "title": "物流跟踪",
     "empty": "暂无物流信息",
-    "location": "当前位置"
+    "location": "当前位置",
+    "loadFailed": "加载订单跟踪失败"
   },
   "player": {
-    "noUrl": "暂无播放地址"
+    "noUrl": "暂无播放地址",
+    "exitFullscreen": "退出全屏",
+    "fullscreen": "全屏",
+    "pause": "暂停",
+    "play": "播放",
+    "rate": "倍速",
+    "seek": "跳转"
   },
   "pointsRecord": {
     "title": "智汇值明细",
@@ -906,7 +1173,8 @@
     "tabSpend": "消耗",
     "balance": "当前余额",
     "empty": "暂无明细记录",
-    "balanceAfter": "变动后余额"
+    "balanceAfter": "变动后余额",
+    "loadFailed": "加载积分记录失败"
   },
   "postCreate": {
     "title": "发布帖子",
@@ -916,7 +1184,9 @@
     "contentPlaceholder": "分享你的想法...",
     "tagsLabel": "标签",
     "tagsPlaceholder": "多个标签用逗号分隔",
-    "submit": "发布"
+    "submit": "发布",
+    "required": "请输入内容",
+    "saveFailed": "保存失败"
   },
   "profileEdit": {
     "avatarTip": "点击更换头像",
@@ -925,7 +1195,13 @@
     "avatarModalTitle": "更换头像",
     "avatarUrlLabel": "头像链接",
     "avatarUrlPlaceholder": "粘贴图片链接",
-    "avatarUrlHint": "支持 JPG / PNG,建议 200x200"
+    "avatarUrlHint": "支持 JPG / PNG,建议 200x200",
+    "bio": "个人简介",
+    "gender": "性别",
+    "nickname": "昵称",
+    "retry": "重试",
+    "save": "保存",
+    "title": "编辑资料"
   },
   "promote": {
     "title": "推广中心",
@@ -941,26 +1217,32 @@
     "referralCode": "推广码",
     "rules": "推广规则",
     "inviteRecords": "邀请记录",
-    "empty": "暂无数据"
+    "empty": "暂无数据",
+    "loadFailed": "加载推广失败"
   },
   "promotion": {
     "title": "优惠券",
     "empty": "暂无可用优惠券",
     "minSpend": "满 ¥{minSpend} 可用",
     "expireDate": "有效期至",
-    "useNow": "去使用"
+    "useNow": "去使用",
+    "loadFailed": "加载推广失败"
   },
   "qrCode": {
     "title": "我的二维码",
     "scanTip": "扫一扫上面的二维码,一起学习成长",
-    "share": "分享"
+    "share": "分享",
+    "loadFailed": "加载二维码失败"
   },
   "ranking": {
     "subtitle": "学习排行榜,看看你排第几",
     "retry": "重试",
     "anonymous": "匿名用户",
     "me": "我",
-    "studyHours": "学习 {count} 小时"
+    "studyHours": "学习 {count} 小时",
+    "empty": "暂无排行",
+    "loadFailed": "加载排行榜失败",
+    "title": "排行榜"
   },
   "rankingDetail": {
     "rank": "排名",
@@ -977,7 +1259,10 @@
     "idNumber": "身份证号",
     "idNumberPlaceholder": "请输入身份证号",
     "submit": "提交认证",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "failed": "认证失败",
+    "fieldsRequired": "请填写完整信息",
+    "loadFailed": "加载实名认证失败"
   },
   "recruitment": {
     "title": "人才招聘",
@@ -988,7 +1273,8 @@
     "description": "职位描述",
     "requirements": "任职要求",
     "applyNow": "立即报名",
-    "appliedWaiting": "已报名,等待审核"
+    "appliedWaiting": "已报名,等待审核",
+    "loadFailed": "加载招聘失败"
   },
   "referrer": {
     "title": "推荐人",
@@ -998,7 +1284,11 @@
     "codeLabel": "推荐码",
     "codePlaceholder": "请输入推荐码",
     "submit": "绑定",
-    "submitting": "绑定中..."
+    "submitting": "绑定中...",
+    "bindFailed": "绑定失败",
+    "bindSuccess": "绑定成功",
+    "codeRequired": "请输入邀请码",
+    "loadFailed": "加载邀请人失败"
   },
   "register": {
     "phone": "手机号",
@@ -1009,15 +1299,35 @@
     "resendIn": "{{countdown}}s 后重发",
     "sendCodeFailed": "验证码发送失败,请重试",
     "submit": "注册",
-    "registering": "注册中..."
+    "registering": "注册中...",
+    "confirmPassword": "确认密码",
+    "confirmPasswordPlaceholder": "请再次输入密码",
+    "password": "密码",
+    "passwordPlaceholder": "请输入密码",
+    "title": "注册"
   },
   "withdraw": {
-    "availableBalance": "可提现金额(元)"
+    "availableBalance": "可提现金额(元)",
+    "amount": "提现金额",
+    "amountInvalid": "金额无效",
+    "amountPlaceholder": "请输入提现金额",
+    "bankCard": "银行卡",
+    "bankCardPlaceholder": "请选择银行卡",
+    "confirmMessage": "确定要提现 {amount} 元吗?",
+    "confirmTitle": "确认提现",
+    "failed": "提现失败",
+    "feeHint": "提现手续费 {fee}%",
+    "minAmount": "最低提现 {amount} 元",
+    "submit": "提交",
+    "submitting": "提交中...",
+    "success": "提现成功",
+    "title": "提现"
   },
   "search": {
     "title": "搜索",
     "placeholder": "搜索课程、讲师、内容",
-    "empty": "未找到相关内容"
+    "empty": "未找到相关内容",
+    "failed": "搜索失败"
   },
   "securitySettings": {
     "title": "安全设置",
@@ -1025,14 +1335,17 @@
     "biometric": "生物识别",
     "twoFactor": "两步验证",
     "loginAlert": "登录提醒",
-    "desc": "管理账号安全相关的开关"
+    "desc": "管理账号安全相关的开关",
+    "loadFailed": "加载安全设置失败"
   },
   "settingsAccount": {
     "title": "账号管理",
     "name": "姓名",
     "email": "邮箱",
     "phone": "手机号",
-    "save": "保存"
+    "save": "保存",
+    "loadFailed": "加载账户设置失败",
+    "saved": "已保存"
   },
   "square": {
     "title": "AI资讯"
@@ -1064,7 +1377,8 @@
     "progress": "进度",
     "statusCompleted": "已完成",
     "statusInProgress": "进行中",
-    "statusPaused": "已暂停"
+    "statusPaused": "已暂停",
+    "loadFailed": "加载学习记录失败"
   },
   "subscriptions": {
     "title": "我的订阅",
@@ -1079,7 +1393,9 @@
     "claimed": "已领取",
     "claim": "领取",
     "goToDo": "去完成",
-    "progress": "{current}/{target}"
+    "progress": "{current}/{target}",
+    "claimFailed": "领取失败",
+    "loadFailed": "加载任务失败"
   },
   "team": {
     "title": "我的团队",
@@ -1092,7 +1408,8 @@
     "totalContribution": "团队总贡献",
     "empty": "暂无团队成员",
     "joinDate": "加入时间",
-    "level": "等级"
+    "level": "等级",
+    "loadFailed": "加载团队失败"
   },
   "teamDetail": {
     "title": "团队成员详情",
@@ -1113,10 +1430,17 @@
     "levelsTitle": "会员等级",
     "currentBadge": "当前等级",
     "duration": "{days} 天",
-    "benefitsCount": "{count} 项专属权益"
+    "benefitsCount": "{count} 项专属权益",
+    "daysRemaining": "剩余 {count} 天",
+    "loadFailed": "加载会员失败",
+    "orderCreated": "订单已创建",
+    "purchase": "开通会员",
+    "purchaseFailed": "开通失败",
+    "title": "会员中心"
   },
   "vipBenefit": {
-    "title": "会员权益"
+    "title": "会员权益",
+    "loadFailed": "加载会员权益失败"
   },
   "vipTrader": {
     "title": "VIP 操盘手",
@@ -1130,9 +1454,561 @@
     "benefitCount": "共 {count} 项",
     "lifetime": "终身有效",
     "openNow": "立即开通",
-    "opened": "已开通"
+    "opened": "已开通",
+    "loadFailed": "加载交易者失败"
   },
   "wallet": {
-    "points": "智汇值"
+    "points": "智汇值",
+    "balance": "余额",
+    "frozen": "冻结金额",
+    "loadFailed": "加载钱包失败",
+    "recharge": "充值",
+    "title": "我的钱包",
+    "totalRecharge": "累计充值",
+    "totalWithdraw": "累计提现",
+    "withdraw": "提现"
+  },
+  "activity": {
+    "empty": "暂无活动",
+    "endTime": "结束时间",
+    "joinNow": "立即参加",
+    "loadFailed": "加载失败",
+    "participants": "参与人数",
+    "startTime": "开始时间",
+    "title": "活动"
+  },
+  "agentDetail": {
+    "creator": "创建者",
+    "description": "简介",
+    "free": "免费",
+    "loadFailed": "加载智能体详情失败",
+    "price": "价格",
+    "rating": "评分",
+    "startChat": "开始对话",
+    "uses": "使用次数"
+  },
+  "agentMarket": {
+    "empty": "暂无智能体",
+    "free": "免费",
+    "loadFailed": "加载失败",
+    "paid": "付费",
+    "searchPlaceholder": "搜索智能体",
+    "title": "智能体市场",
+    "uses": "使用次数"
+  },
+  "agentReviewList": {
+    "author": "作者",
+    "empty": "暂无评价",
+    "loadFailed": "加载评价失败",
+    "title": "用户评价"
+  },
+  "agentScreen": {
+    "loadFailed": "加载智能体失败",
+    "rating": "评分",
+    "title": "智能体",
+    "useCount": "使用次数"
+  },
+  "agreement": {
+    "subtitle": "请仔细阅读本协议",
+    "title": "用户协议"
+  },
+  "agreementSections": {
+    "sectionObligations": "用户义务",
+    "sectionObligationsBody": "您应遵守相关法律法规,不得发布违法、违规、有害信息,不得侵犯他人合法权益。",
+    "sectionRights": "用户权利",
+    "sectionRightsBody": "您享有依法获取服务、对个人信息进行管理、对违规内容举报等权利。",
+    "sectionTerms": "服务条款",
+    "sectionTermsBody": "本协议是您与智汇 AI 之间就使用本平台服务所订立的协议。请在使用前仔细阅读,一旦使用即视为同意并接受本协议所有条款。"
+  },
+  "aiMultimodal": {
+    "clear": "清空",
+    "empty": "暂无消息",
+    "error": "出错了",
+    "inputPlaceholder": "输入消息...",
+    "noModels": "暂无可用模型",
+    "send": "发送",
+    "subtitle": "多模态对话",
+    "switchModel": "切换模型",
+    "title": "多模态"
+  },
+  "aigcList": {
+    "empty": "暂无作品",
+    "playAudio": "播放音频",
+    "promptLabel": "提示词",
+    "publish": "发布",
+    "subtitle": "我的 AIGC 作品",
+    "title": "AIGC 作品",
+    "videoBadge": "视频"
+  },
+  "announcement": {
+    "empty": "暂无公告",
+    "loadFailed": "加载失败",
+    "pinned": "置顶",
+    "publishTime": "发布时间",
+    "title": "公告"
+  },
+  "articleDetail": {
+    "loadFailed": "加载文章失败",
+    "views": "阅读量"
+  },
+  "articleList": {
+    "empty": "暂无文章",
+    "loadFailed": "加载失败",
+    "title": "文章",
+    "views": "阅读量"
+  },
+  "askDetail": {
+    "accepted": "已采纳",
+    "answers": "回答",
+    "empty": "暂无内容",
+    "loadFailed": "加载失败",
+    "views": "浏览量"
+  },
+  "askList": {
+    "answers": "回答",
+    "empty": "暂无提问",
+    "loadFailed": "加载失败",
+    "title": "问答",
+    "views": "浏览量"
+  },
+  "auth": {
+    "account": "账号",
+    "accountPlaceholder": "请输入账号",
+    "agreePrefix": "我已阅读并同意",
+    "agreeRequired": "请勾选同意协议",
+    "and": "和",
+    "autoLoginFailed": "自动登录失败",
+    "code": "验证码",
+    "codePlaceholder": "请输入验证码",
+    "email": "邮箱",
+    "emailPlaceholder": "请输入邮箱",
+    "forgotPassword": "忘记密码",
+    "getVerificationCode": "获取验证码",
+    "googleNotConfigured": "Google 登录未配置",
+    "loginBtn": "登录",
+    "noAccount": "还没有账号?",
+    "password": "密码",
+    "passwordPlaceholder": "请输入密码",
+    "phone": "手机号",
+    "phonePlaceholder": "请输入手机号",
+    "privacyPolicy": "隐私政策",
+    "registerFailed": "注册失败",
+    "registerNow": "立即注册",
+    "registerSuccess": "注册成功",
+    "resendCode": "重新发送",
+    "termsOfService": "服务条款",
+    "thirdPartyLogin": "第三方登录"
+  },
+  "bookmark": {
+    "empty": "暂无收藏",
+    "loadFailed": "加载失败",
+    "remove": "移除",
+    "title": "我的收藏",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "note": "笔记",
+      "other": "其他",
+      "post": "帖子"
+    }
+  },
+  "certificate": {
+    "empty": "暂无证书",
+    "expiryDate": "到期时间",
+    "issuedDate": "颁发时间",
+    "status": {
+      "expired": "已过期",
+      "issued": "有效",
+      "revoked": "已撤销"
+    },
+    "title": "我的证书"
+  },
+  "certDetail": {
+    "certNo": "证书编号",
+    "expiredAt": "有效期至",
+    "holder": "持证人",
+    "issuedAt": "颁发日期",
+    "issuer": "颁发机构",
+    "loadFailed": "加载证书失败",
+    "score": "成绩",
+    "title": "证书详情",
+    "verify": "查看验真"
+  },
+  "certList": {
+    "empty": "暂无证书",
+    "issuedAt": "颁发时间",
+    "issuer": "颁发机构",
+    "loadFailed": "加载失败",
+    "title": "证书列表"
+  },
+  "certVerify": {
+    "certNo": "证书编号",
+    "failed": "验证失败",
+    "holder": "持证人",
+    "invalid": "无效",
+    "issuedAt": "颁发日期",
+    "issuer": "颁发机构",
+    "placeholder": "请输入证书编号",
+    "title": "证书验真",
+    "valid": "有效",
+    "verify": "验证"
+  },
+  "checkIn": {
+    "calendar": "签到日历",
+    "checkInBtn": "签到",
+    "checkedIn": "已签到",
+    "empty": "暂无签到记录",
+    "loadFailed": "加载失败",
+    "monthlyDays": "本月签到 {count} 天",
+    "retry": "重试",
+    "signFailed": "签到失败",
+    "signSuccess": "签到成功",
+    "streak": "连续签到 {count} 天",
+    "subtitle": "每日签到领取奖励",
+    "title": "每日签到",
+    "totalDays": "累计签到 {count} 天"
+  },
+  "circleChat": {
+    "empty": "暂无消息",
+    "loadFailed": "加载消息失败",
+    "placeholder": "说点什么...",
+    "send": "发送",
+    "sendFailed": "发送失败"
+  },
+  "circleCreate": {
+    "descPlaceholder": "请输入圈子描述",
+    "description": "圈子描述",
+    "name": "圈子名称",
+    "namePlaceholder": "请输入圈子名称",
+    "nameRequired": "请输入圈子名称",
+    "saveFailed": "创建失败",
+    "submit": "创建",
+    "title": "创建圈子"
+  },
+  "circleDetail": {
+    "join": "加入",
+    "leave": "退出",
+    "loadFailed": "加载失败",
+    "members": "成员",
+    "membersAction": "成员管理",
+    "post": "发布帖子",
+    "posts": "帖子"
+  },
+  "circleMember": {
+    "empty": "暂无成员",
+    "loadFailed": "加载成员失败",
+    "title": "圈子成员"
+  },
+  "courseCatalog": {
+    "duration": "时长",
+    "empty": "暂无目录",
+    "loadFailed": "加载目录失败",
+    "title": "目录"
+  },
+  "courseQAList": {
+    "answers": "回答",
+    "ask": "提问",
+    "asker": "提问者",
+    "empty": "暂无问答",
+    "loadFailed": "加载失败",
+    "title": "课程问答"
+  },
+  "debug": {
+    "apiBaseUrl": "API 地址",
+    "clearCache": "清除缓存",
+    "clearStorage": "清除存储",
+    "cleared": "已清除",
+    "confirm": "确定",
+    "copied": "已复制",
+    "copyFailed": "复制失败",
+    "copyLogs": "复制日志",
+    "env": "环境",
+    "locale": "语言",
+    "platform": "平台",
+    "title": "调试面板",
+    "version": "版本",
+    "warning": "调试模式可能影响性能"
+  },
+  "examHistory": {
+    "empty": "暂无考试记录",
+    "failed": "未通过",
+    "loadFailed": "加载失败",
+    "passed": "已通过",
+    "title": "考试记录"
+  },
+  "examResult": {
+    "correct": "答对",
+    "correctAnswer": "正确答案",
+    "duration": "用时",
+    "failed": "未通过",
+    "loadFailed": "加载失败",
+    "passed": "已通过",
+    "wrongQuestions": "错题",
+    "yourAnswer": "你的答案"
+  },
+  "favorites": {
+    "deleteTitle": "确认删除",
+    "empty": "暂无收藏",
+    "loadFailed": "加载失败",
+    "title": "我的收藏"
+  },
+  "feedback": {
+    "contact": "联系方式",
+    "contactPlaceholder": "请输入联系方式",
+    "content": "反馈内容",
+    "contentPlaceholder": "请输入反馈内容",
+    "contentRequired": "请输入反馈内容",
+    "failed": "提交失败",
+    "submit": "提交",
+    "submitting": "提交中...",
+    "success": "提交成功",
+    "title": "意见反馈",
+    "type": "反馈类型"
+  },
+  "feedbackDetail": {
+    "content": "反馈内容",
+    "empty": "暂无反馈",
+    "loadFailed": "加载失败",
+    "reply": "回复",
+    "title": "反馈详情"
+  },
+  "feedbackHistory": {
+    "createdAt": "提交时间",
+    "empty": "暂无反馈记录",
+    "loadFailed": "加载失败",
+    "title": "反馈记录"
+  },
+  "following": {
+    "empty": "暂无关注",
+    "title": "我的关注",
+    "unfollow": "取消关注"
+  },
+  "help": {
+    "empty": "暂无帮助",
+    "loadFailed": "加载帮助失败",
+    "title": "帮助中心"
+  },
+  "helpDetail": {
+    "answer": "解答",
+    "empty": "暂无内容",
+    "loadFailed": "加载失败",
+    "title": "帮助详情"
+  },
+  "history": {
+    "empty": "暂无记录",
+    "loadFailed": "加载失败",
+    "refresh": "刷新",
+    "title": "浏览历史",
+    "type": {
+      "article": "文章",
+      "course": "课程",
+      "live": "直播",
+      "note": "笔记",
+      "post": "帖子"
+    }
+  },
+  "legalDoc": {
+    "updatedAt": "更新时间"
+  },
+  "livePlayback": {
+    "duration": "时长",
+    "empty": "暂无回放",
+    "ended": "已结束",
+    "lecturer": "讲师",
+    "loadFailed": "加载回放失败",
+    "noReplay": "暂无回放",
+    "play": "播放回放",
+    "replayTitle": "直播回放",
+    "retry": "重试",
+    "startAt": "开始时间",
+    "subtitle": "观看直播回放",
+    "title": "直播回放",
+    "viewerCount": "观看人数"
+  },
+  "livePlaybackList": {
+    "duration": "时长",
+    "empty": "暂无回放",
+    "lecturer": "讲师",
+    "loadFailed": "加载失败",
+    "play": "播放",
+    "title": "回放列表",
+    "viewerCount": "观看人数"
+  },
+  "livePreview": {
+    "empty": "暂无预告",
+    "lecturer": "讲师",
+    "loadFailed": "加载失败",
+    "startAt": "开始时间",
+    "subscribe": "预约直播",
+    "subscribed": "已预约",
+    "subscribing": "预约中...",
+    "title": "直播预告"
+  },
+  "messageCenter": {
+    "conversations": "会话",
+    "empty": "暂无消息",
+    "title": "消息",
+    "type": {
+      "course": "课程",
+      "order": "订单",
+      "social": "互动",
+      "system": "系统"
+    }
+  },
+  "messageDirect": {
+    "empty": "暂无私信",
+    "loadFailed": "加载失败",
+    "title": "私信"
+  },
+  "messageGroup": {
+    "empty": "暂无群聊",
+    "loadFailed": "加载失败",
+    "title": "群聊"
+  },
+  "messageSystem": {
+    "empty": "暂无系统消息",
+    "loadFailed": "加载失败",
+    "title": "系统消息"
+  },
+  "modelIncome": {
+    "accumulated": "累计收入",
+    "empty": "暂无收益记录",
+    "loadListFailed": "加载记录失败",
+    "loadOverviewFailed": "加载概览失败",
+    "networkError": "网络错误",
+    "orderLabel": "订单",
+    "pending": "待结算",
+    "rateLabel": "分成比例",
+    "retry": "重试",
+    "tip": "收益数据每日更新",
+    "title": "收益管理",
+    "today": "今日收入",
+    "withdrawBtn": "提现",
+    "withdrawModal": {
+      "close": "取消",
+      "confirm": "确认提现",
+      "moreMethods": "更多提现方式",
+      "subtitle": "请选择提现方式",
+      "title": "选择提现方式",
+      "wechat": "微信提现"
+    },
+    "withdrawable": "可提现",
+    "withdrawn": "已提现",
+    "yuan": "元"
+  },
+  "noteDetail": {
+    "loadFailed": "加载笔记详情失败",
+    "views": "阅读量"
+  },
+  "noteList": {
+    "empty": "暂无笔记",
+    "loadFailed": "加载失败",
+    "title": "笔记"
+  },
+  "notificationList": {
+    "empty": "暂无通知",
+    "loadFailed": "加载通知失败",
+    "title": "通知",
+    "type": {
+      "course": "课程",
+      "order": "订单",
+      "social": "互动",
+      "system": "系统"
+    }
+  },
+  "orderDetail": {
+    "amount": "金额",
+    "createdAt": "创建时间",
+    "loadFailed": "加载订单详情失败",
+    "orderNo": "订单号",
+    "paidAt": "支付时间",
+    "product": "商品",
+    "status": "订单状态",
+    "title": "订单详情"
+  },
+  "pointHistory": {
+    "balance": "积分余额",
+    "empty": "暂无积分记录",
+    "loadFailed": "加载积分失败",
+    "title": "积分记录"
+  },
+  "pointRule": {
+    "empty": "暂无积分规则",
+    "loadFailed": "加载规则失败",
+    "title": "积分规则"
+  },
+  "pointsMall": {
+    "balance": "当前积分",
+    "empty": "暂无商品",
+    "insufficient": "积分不足",
+    "loadFailed": "加载积分商品失败",
+    "pointsUnit": "积分",
+    "redeem": "兑换",
+    "redeemFailed": "兑换失败",
+    "redeemSuccess": "兑换成功",
+    "retry": "重试",
+    "stock": "库存",
+    "subtitle": "用积分兑换好礼",
+    "title": "积分商城"
+  },
+  "postDetail": {
+    "loadFailed": "加载帖子失败"
+  },
+  "privacy": {
+    "sectionCookie": "Cookie 使用",
+    "sectionCookieBody": "我们使用 Cookie 来记住您的偏好和登录状态,以提供更好的浏览体验。您可以在浏览器设置中禁用 Cookie,但部分功能可能无法正常使用。",
+    "sectionData": "数据收集",
+    "sectionDataBody": "我们收集您在使用本平台过程中主动提供的信息,包括账号信息、学习记录、互动内容等,用于为您提供个性化服务和改进产品体验。",
+    "sectionThirdParty": "第三方共享",
+    "sectionThirdPartyBody": "我们不会出售您的个人信息。在法律要求或为您提供服务所必需的情况下,我们可能与可信合作伙伴共享必要的信息,但我们会确保其遵守同等严格的数据保护标准。",
+    "subtitle": "我们重视您的隐私",
+    "title": "隐私政策"
+  },
+  "refundDetail": {
+    "amount": "退款金额",
+    "createdAt": "申请时间",
+    "empty": "暂无退款",
+    "loadFailed": "加载退款详情失败",
+    "orderNo": "订单号",
+    "reason": "退款原因",
+    "status": "退款状态",
+    "title": "退款详情"
+  },
+  "refundHistory": {
+    "createdAt": "申请时间",
+    "empty": "暂无退款记录",
+    "loadFailed": "加载失败",
+    "title": "退款记录"
+  },
+  "studyPlan": {
+    "deadline": "截止时间",
+    "empty": "暂无学习计划",
+    "lessons": "课程数",
+    "loadFailed": "加载学习计划失败",
+    "progress": "进度",
+    "status": {
+      "active": "进行中",
+      "completed": "已完成",
+      "overdue": "已逾期",
+      "paused": "已暂停"
+    },
+    "title": "学习计划"
+  },
+  "vipCompare": {
+    "basic": "基础",
+    "enterprise": "企业",
+    "feature": "功能",
+    "loadFailed": "加载会员对比失败",
+    "premium": "高级",
+    "title": "会员对比"
+  },
+  "vipLevel": {
+    "benefits": "权益",
+    "days": "天数",
+    "duration": "时长",
+    "empty": "暂无等级",
+    "loadFailed": "加载等级失败",
+    "price": "价格",
+    "title": "会员等级"
   }
 }
