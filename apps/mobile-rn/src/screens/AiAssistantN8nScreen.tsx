@@ -41,6 +41,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -48,6 +49,10 @@ import {
   type ImageSourcePropType,
   type ListRenderItem,
 } from 'react-native'
+import Clipboard from '@react-native-clipboard/clipboard'
+import * as FileSystem from 'expo-file-system'
+import * as MediaLibrary from 'expo-media-library'
+import { Brain, Copy, Download, Eye, EyeOff, Share2 } from 'lucide-react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
@@ -98,6 +103,16 @@ interface N8nMessage {
   content: string
   /** assistant 回复中提取的图片 URL 列表(对齐 Uniapp imgUrlList) */
   images?: string[]
+  /** 对齐 Uniapp agent_content_list.total_tokens:回复消耗智汇值。
+   *  RN 数据无此字段时保持 undefined,操作区不渲染消耗文案(降级,不伪造)。 */
+  totalTokens?: number
+  /** 对齐 Uniapp agent_content_list.isHaveSikao:回复是否含思考过程。
+   *  仅 streamChat onReasoning 收到增量时置 true。 */
+  isHaveSikao?: boolean
+  /** 对齐 Uniapp agent_content_list.agent_content1:思考过程全文(流式累积)。 */
+  thinkingContent?: string
+  /** 对齐 Uniapp copyContent:复制按钮优先复制的内容,缺失时降级复制 content。 */
+  copyContent?: string
 }
 
 /**
@@ -143,6 +158,17 @@ function extractImageUrls(content: string): string[] {
   return Array.from(urls)
 }
 
+/** 消耗智汇值格式化(对齐 Uniapp total_tokens >= 1000 显示 K 值) */
+function formatTotalTokens(totalTokens: number): string {
+  return totalTokens >= 1000 ? `${(totalTokens / 1000).toFixed(1)}K` : String(totalTokens)
+}
+
+/** 从图片 URL 提取扩展名(保存相册时使用,对齐 Uniapp downloadImages 的本地文件命名) */
+function imageExtFromUrl(url: string): string {
+  const m = /\.(jpg|jpeg|png|gif|bmp|webp|svg)(?:\?|$)/i.exec(url)
+  return m?.[1]?.toLowerCase() ?? 'jpg'
+}
+
 /** 把 API 返回的 ConversationDetail 映射为 DrawerConversationItem(对齐 ChatScreen) */
 function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem {
   const tsStr = c.lastMessageAt ?? c.updatedAt ?? c.createdAt
@@ -159,33 +185,177 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
 interface MessageBubbleProps {
   message: N8nMessage
   onPreviewImage: (url: string) => void
+  /** 浮层提示(复用屏幕 showToast,对齐 Uniapp uni.showToast) */
+  onToast: (type: FloatBoxType, message: string) => void
 }
 
-function MessageBubble({ message, onPreviewImage }: MessageBubbleProps): React.JSX.Element {
+function MessageBubble({ message, onPreviewImage, onToast }: MessageBubbleProps): React.JSX.Element {
   const isUser = message.role === 'user'
-  const hasImages = !isUser && message.images && message.images.length > 0
+  const hasImages = !isUser && (message.images?.length ?? 0) > 0
+  // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
+  const [answerVisible, setAnswerVisible] = useState(true)
+  // 思考过程展开/收起(对齐 Uniapp agent_con1)
+  const [sikaoOpen, setSikaoOpen] = useState(false)
+  // 图片下载中(防重复点击,对齐 Uniapp uni.showLoading)
+  const [downloading, setDownloading] = useState(false)
+
+  // 复制回答(对齐 Uniapp copyHandle:copyContent 优先,缺失降级 content)
+  const handleCopy = (): void => {
+    const text = message.copyContent ?? message.content
+    if (!text) return
+    try {
+      Clipboard.setString(text)
+      onToast('success', '复制成功')
+    } catch {
+      onToast('error', '复制失败')
+    }
+  }
+
+  // 下载图片(对齐 Uniapp downloadImages:下载第一张图片保存到相册)
+  const handleDownloadImages = async (): Promise<void> => {
+    if (downloading) return
+    const url = message.images?.[0]
+    if (!url) return
+    setDownloading(true)
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        onToast('warning', '需要相册权限才能保存图片')
+        return
+      }
+      const filename = `ai_image_${Date.now()}.${imageExtFromUrl(url)}`
+      const destFile = new FileSystem.File(FileSystem.Paths.cache, filename)
+      const downloaded = await FileSystem.File.downloadFileAsync(url, destFile, {
+        idempotent: true,
+      })
+      await MediaLibrary.saveToLibraryAsync(downloaded.uri)
+      onToast('success', '图片已保存到相册')
+    } catch {
+      onToast('error', '下载失败,请重试')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  // 分享回答(对齐 Uniapp share + onShareAppMessage,RN 用 Share API 分享 content)
+  const handleShare = (): void => {
+    if (!message.content) return
+    void Share.share({ message: message.content }).catch(() => onToast('error', '分享失败'))
+  }
+
+  const hasTokens = message.totalTokens !== undefined
+  const tokensText =
+    message.totalTokens !== undefined ? formatTotalTokens(message.totalTokens) : undefined
+
   return (
     <View style={[bubbleStyles.row, isUser ? bubbleStyles.rowUser : bubbleStyles.rowAi]}>
-      <View style={[bubbleStyles.bubble, isUser ? bubbleStyles.bubbleUser : bubbleStyles.bubbleAi]}>
-        {message.content ? (
-          <Text style={[bubbleStyles.text, isUser ? bubbleStyles.textUser : bubbleStyles.textAi]}>
-            {message.content}
-          </Text>
-        ) : null}
-        {hasImages ? (
-          <View style={bubbleStyles.imageGrid}>
-            {message.images!.map((url, i) => (
-              <TouchableOpacity
-                key={`${url}-${i}`}
-                activeOpacity={0.85}
-                onPress={() => onPreviewImage(url)}
-              >
-                <Image source={{ uri: url }} style={bubbleStyles.chatImage} resizeMode="cover" />
-              </TouchableOpacity>
-            ))}
+      {isUser ? (
+        <View style={[bubbleStyles.bubble, bubbleStyles.bubbleUser]}>
+          {message.content ? (
+            <Text style={[bubbleStyles.text, bubbleStyles.textUser]}>{message.content}</Text>
+          ) : null}
+        </View>
+      ) : (
+        <View style={bubbleStyles.msgCol}>
+          <View style={[bubbleStyles.bubble, bubbleStyles.bubbleAi]}>
+            {answerVisible && message.content ? (
+              <Text style={[bubbleStyles.text, bubbleStyles.textAi]}>{message.content}</Text>
+            ) : null}
+            {answerVisible && hasImages ? (
+              <View style={bubbleStyles.imageGrid}>
+                {message.images!.map((url, i) => (
+                  <TouchableOpacity
+                    key={`${url}-${i}`}
+                    activeOpacity={0.85}
+                    onPress={() => onPreviewImage(url)}
+                  >
+                    <Image source={{ uri: url }} style={bubbleStyles.chatImage} resizeMode="cover" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
-        ) : null}
-      </View>
+          {/* 思考过程展开区(仅 isHaveSikao 时显示按钮,展开后渲染思考内容) */}
+          {sikaoOpen && message.thinkingContent ? (
+            <View style={bubbleStyles.thinkingBox}>
+              <Text style={bubbleStyles.thinkingText}>{message.thinkingContent}</Text>
+            </View>
+          ) : null}
+          {/* 操作按钮行(对齐 Uniapp action-buttons:左消耗文案 + 右按钮组) */}
+          <View style={[bubbleStyles.actionRow, hasTokens ? null : bubbleStyles.actionRowNoLabel]}>
+            {answerVisible && tokensText ? (
+              <Text style={bubbleStyles.tokensText} numberOfLines={1}>
+                {'智汇AI生成 消耗智汇值:'}
+                {tokensText}
+              </Text>
+            ) : null}
+            <View style={bubbleStyles.actionBtns}>
+              {/* 显示/隐藏回答(对齐 Uniapp toggleAnswerVisibility:可见时显示"隐藏"图标) */}
+              <TouchableOpacity
+                style={bubbleStyles.actionBtn}
+                hitSlop={6}
+                onPress={() => setAnswerVisible((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel={answerVisible ? '隐藏回答' : '显示回答'}
+              >
+                {answerVisible ? (
+                  <EyeOff size={16} color={tokens.text.secondary} />
+                ) : (
+                  <Eye size={16} color={tokens.text.secondary} />
+                )}
+              </TouchableOpacity>
+              {/* 思考过程展开/收起(仅 isHaveSikao 时显示,对齐 Uniapp toggleAgentCon1) */}
+              {message.isHaveSikao ? (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={() => setSikaoOpen((v) => !v)}
+                  accessibilityRole="button"
+                  accessibilityLabel="思考过程"
+                >
+                  <Brain
+                    size={16}
+                    color={sikaoOpen ? tokens.brand.DEFAULT : tokens.text.secondary}
+                  />
+                </TouchableOpacity>
+              ) : null}
+              {/* 复制回答(对齐 Uniapp copyHandle) */}
+              <TouchableOpacity
+                style={bubbleStyles.actionBtn}
+                hitSlop={6}
+                onPress={handleCopy}
+                accessibilityRole="button"
+                accessibilityLabel="复制回答"
+              >
+                <Copy size={16} color={tokens.text.secondary} />
+              </TouchableOpacity>
+              {/* 下载图片(仅消息含图片时显示,对齐 Uniapp downloadImages) */}
+              {hasImages ? (
+                <TouchableOpacity
+                  style={bubbleStyles.actionBtn}
+                  hitSlop={6}
+                  onPress={() => void handleDownloadImages()}
+                  disabled={downloading}
+                  accessibilityRole="button"
+                  accessibilityLabel="下载图片"
+                >
+                  <Download size={16} color={tokens.text.secondary} />
+                </TouchableOpacity>
+              ) : null}
+              {/* 分享(对齐 Uniapp share,RN 用 Share API 分享 content) */}
+              <TouchableOpacity
+                style={bubbleStyles.actionBtn}
+                hitSlop={6}
+                onPress={handleShare}
+                accessibilityRole="button"
+                accessibilityLabel="分享"
+              >
+                <Share2 size={16} color={tokens.text.secondary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   )
 }
@@ -375,6 +545,34 @@ export default function AiAssistantN8nScreen() {
         })
         scrollToEnd()
       },
+      // 思考过程增量(对齐 Uniapp onMessage 累积 agent_content1 + isHaveSikao)
+      onReasoning: (delta) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = {
+              ...last,
+              isHaveSikao: true,
+              thinkingContent: (last.thinkingContent ?? '') + delta,
+            }
+          }
+          return next
+        })
+        scrollToEnd()
+      },
+      // 消耗智汇值(对齐 Uniapp total_tokens,SSE usage chunk 映射)
+      onUsage: (usage) => {
+        if (usage.totalTokens <= 0) return
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = { ...last, totalTokens: usage.totalTokens }
+          }
+          return next
+        })
+      },
       onError: (err) => {
         const formatted = formatSSEError(new Error(err))
         setSending(false)
@@ -519,7 +717,7 @@ export default function AiAssistantN8nScreen() {
   }
 
   const renderItem: ListRenderItem<N8nMessage> = ({ item }) => (
-    <MessageBubble message={item} onPreviewImage={handlePreviewImage} />
+    <MessageBubble message={item} onPreviewImage={handlePreviewImage} onToast={showToast} />
   )
 
   return (
@@ -822,6 +1020,50 @@ const bubbleStyles = StyleSheet.create({
     height: 120,
     borderRadius: 6,
     backgroundColor: tokens.surface.muted,
+  },
+  // assistant 消息纵向容器:气泡 + 思考过程区 + 操作按钮行
+  msgCol: {
+    alignItems: 'flex-start',
+  },
+  // 思考过程展开区(对齐 Uniapp agent_content_con 思考内容展示)
+  thinkingBox: {
+    maxWidth: '78%',
+    marginTop: rpx(8),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(12),
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  },
+  thinkingText: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: tokens.text.secondary,
+  },
+  // 操作按钮行(对齐 Uniapp action-buttons:左消耗文案 + 右按钮组)
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    maxWidth: '78%',
+    marginTop: rpx(8),
+  },
+  // 无消耗文案时按钮组右对齐(对齐 Uniapp justify-content: flex-end)
+  actionRowNoLabel: {
+    justifyContent: 'flex-end',
+  },
+  tokensText: {
+    flex: 1,
+    marginRight: rpx(16),
+    fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  actionBtns: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(20),
+  },
+  actionBtn: {
+    padding: rpx(4),
   },
 })
 
