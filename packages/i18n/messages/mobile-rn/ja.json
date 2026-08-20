@@ -772,7 +772,8 @@
     "sectionTitle": "収益明細",
     "empty": "収益記録はありません",
     "settled": "決済済み",
-    "pending": "決済待ち"
+    "pending": "決済待ち",
+    "withdrawn": "出金済み"
   },
   "invite": {
     "title": "友達招待",

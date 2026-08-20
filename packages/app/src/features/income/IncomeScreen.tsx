@@ -6,6 +6,11 @@ import type { IncomeCommissionItem, IncomeData, IncomeScreenProps } from '@ihui/
 /** 收益记录/Props 类型 re-export(单一来源 @ihui/types) */
 export type { IncomeCommissionItem, IncomeData, IncomeScreenProps }
 
+/** 后端金额以「分」存储,换算为元(两位小数) */
+function fmtYuan(cents: number): string {
+  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : '0.00'
+}
+
 /**
  * 收益 Tab(对齐 Uniapp pages/income/components/accumulation/index.vue tabList:
  * 全部 / 待结算 / 已结算 / 取消结算)。
@@ -116,15 +121,26 @@ export function IncomeScreen({
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>{t('income.today')}</Text>
-              <Text style={styles.summaryValue}>¥{data.todayCommission}</Text>
+              <Text style={styles.summaryValue}>¥{fmtYuan(data.todayCommission)}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>{t('income.total')}</Text>
-              <Text style={styles.summaryValue}>¥{data.totalEarnings}</Text>
+              <Text style={styles.summaryValue}>¥{fmtYuan(data.totalEarnings)}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={styles.summaryLabel}>{t('income.withdrawable')}</Text>
-              <Text style={styles.summaryValue}>¥{data.balance}</Text>
+              <Text style={styles.summaryValue}>¥{fmtYuan(data.balance)}</Text>
+            </View>
+          </View>
+          {/* 汇总第二行:待结算/已提现(数据源 GET /distribution/overview 的 pending/withdrawnCommission) */}
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>{t('income.pending')}</Text>
+              <Text style={styles.summaryValue}>¥{fmtYuan(data.pendingCommission)}</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryLabel}>{t('income.withdrawn')}</Text>
+              <Text style={styles.summaryValue}>¥{fmtYuan(data.withdrawnCommission)}</Text>
             </View>
           </View>
           <TouchableOpacity
