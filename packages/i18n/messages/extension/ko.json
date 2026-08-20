@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "실패"
+    "failed": "실패",
+    "all": "전체",
+    "back": "뒤로",
+    "close": "닫기",
+    "delete": "삭제",
+    "empty": "데이터 없음",
+    "loading": "로드 중...",
+    "retry": "다시 시도",
+    "search": "검색",
+    "submit": "제출"
   },
   "nav": {
     "chat": "AI 채팅",
@@ -11,7 +20,8 @@
     "tabRuntime": "런타임",
     "ai": "AI",
     "content": "콘텐츠",
-    "me": "마이"
+    "me": "마이",
+    "wallet": "지갑"
   },
   "apps": {
     "aiTitle": "AI 앱 센터",
@@ -125,7 +135,14 @@
   "auth": {
     "logout": "로그아웃",
     "roleAdmin": "관리자",
-    "roleUser": "일반 사용자"
+    "roleUser": "일반 사용자",
+    "appleComingSoon": "Apple 로그인 출시 예정",
+    "login": "로그인",
+    "loginSubtitle": "계정에 로그인하여 계속하세요",
+    "orUseAccount": "또는 계정으로 로그인",
+    "ssoCancelled": "SSO 로그인이 취소되었습니다",
+    "ssoLoading": "SSO 인증 중...",
+    "ssoLogin": "SSO 원클릭 로그인"
   },
   "popup": {
     "copyFailed": "복사 실패",
@@ -168,7 +185,8 @@
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "설정"
   },
   "notification": {
     "title": "알림",
