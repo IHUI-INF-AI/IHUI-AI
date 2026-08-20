@@ -19,6 +19,8 @@ interface FormState {
   cycleUnit: string
   types: string
   categories: string
+  closingTime: string
+  imgs: string
 }
 
 const INITIAL_FORM: FormState = {
@@ -31,6 +33,8 @@ const INITIAL_FORM: FormState = {
   cycleUnit: '周',
   types: '',
   categories: '',
+  closingTime: '',
+  imgs: '',
 }
 
 const DESC_MIN = 10
@@ -61,6 +65,11 @@ export function SetNeedScreen() {
     if (low > peak) return '起步价不能高于最高价'
     if (low < 100) return '起步价不能低于 100 元'
     if (!form.contact.trim()) return '请输入联系方式'
+    if (!form.closingTime.trim()) return '请设置任务截止时间'
+    const closingTime = new Date(form.closingTime)
+    if (Number.isNaN(closingTime.getTime())) return '截止时间格式无效'
+    if (closingTime.getTime() <= Date.now()) return '截止时间必须晚于当前时间'
+    if (!form.cycle.trim() || Number(form.cycle) <= 0) return '请设置有效的开发周期'
     return ''
   }
 
@@ -80,6 +89,11 @@ export function SetNeedScreen() {
         contact: form.contact.trim(),
         cycle: form.cycle.trim() || undefined,
         cycleUnit: form.cycleUnit.trim() || undefined,
+        closingTime: new Date(form.closingTime.trim()).toISOString(),
+        imgs: form.imgs
+          .split(',')
+          .map((url) => url.trim())
+          .filter(Boolean),
         types: form.types.trim() ? [form.types.trim()] : undefined,
         categories: form.categories.trim() ? [form.categories.trim()] : undefined,
       })
