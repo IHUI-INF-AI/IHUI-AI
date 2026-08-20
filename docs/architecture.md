@@ -15,7 +15,7 @@
 | App | 技术栈 | 职责 | 端点数 |
 |-----|--------|------|--------|
 | `apps/ai-service` | Python FastAPI + LangGraph + LiteLLM + MCP | **AI 推理网关** — LLM 调用、Agent 执行、MCP 工具、A2A 协议、Persona、Voice STT | ~55 |
-| `apps/api` | TypeScript Fastify + Drizzle ORM | **业务管理 + 多厂商代理 + 认证 + WebSocket** — 智能体业务、Coze SDK、OAuth、计费、文件、外呼、聊天室、多模型 WS | ~1080 |
+| `apps/api` | TypeScript Fastify + Drizzle ORM | **业务管理 + 多厂商代理 + 认证 + WebSocket** — 智能体业务、Coze SDK、OAuth、计费、文件、外呼、聊天室、多模型 WS | 4393 |
 
 ### 0.2 为什么拆分两 app
 
@@ -42,7 +42,7 @@
 ### 0.4 审计规则
 
 1. **审计 AI 能力迁移**: 必须同时 grep `apps/ai-service` + `apps/api/src/routes/`
-2. **审计端点总数**: ai-service(~55) + apps/api(~1080) = ~1135,远超源项目 331
+2. **审计端点总数**: apps/api(4393) + ai-service(55) = ~4448,远超源项目 331
 3. **协议变更不算缺失**: WebSocket→SSE / SQLAlchemy→Drizzle / Python SDK→直接 HTTP 都是合理架构变更
 4. **多个文件头有"1:1 迁移 D 盘"注释**: n8n-proxy / tencent-hunyuan-3d / user-sk / outbound / coze-oauth / legacy-langchain
 
@@ -119,7 +119,7 @@ users, projects, files, files-extra, notifications, billing, audit, chat, teams,
 
 ## 3. API 路由架构
 
-### 路由组织(`apps/api/src/routes/`,200+ 文件,1300+ 端点)
+### 路由组织(`apps/api/src/routes/`,267 文件,4393 路由)
 
 所有路由在 `server.ts` 的 `registerRoutes()` 中注册,分两类:
 
@@ -182,7 +182,7 @@ REST 路由之外的实时双向通信,按 plugin 分组:
 ### API 调用
 - 统一封装 `src/lib/api.ts`(`fetchApi<T>`),自动携带 JWT,解析 `{ code, message, data }`
 - React Query 管理服务端状态,全局 `mutations.onError` 自动 toast.error
-- API 调用 100% 有后端支持(架构迁移覆盖率审计:1300+ 端点对齐)
+- API 调用 100% 有后端支持(架构迁移覆盖率审计:4393 路由对齐)
 
 ### i18n
 - next-intl,zh-CN + en 双语
@@ -408,7 +408,6 @@ pnpm turbo typecheck lint test  # 5346/5346 tests passed, 0 errors + 0 warnings
 - `apps/api/scripts/seed-test-users.ts` — 测试用户种子
 - `apps/api/scripts/cleanup-test-users.mjs` — 测试用户清理
 - `apps/api/scripts/probe-exp-monitor*.mjs` — 实验性监控探针
-- `scripts/test-admin-e2e.ps1` — 管理员 E2E 测试
 - `scripts/test-llm-connection.mjs` — LLM 连接验证
 - `scripts/verify-cli-*.mjs`(3 个) — CLI 子命令验证
 
