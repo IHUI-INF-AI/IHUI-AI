@@ -133,6 +133,12 @@ export const OBJECT_LITERAL_KEY_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z]
 // 此正则识别 `= \`prefix.${var}\`` 形式,捕获前缀 `prefix`(不含末尾点),把前缀加入 usedNamespaces,
 // 使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true(因 'order.status.pending'.startsWith('order.status.'))
 export const DYNAMIC_PREFIX_RE = /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
+// 字符串常量 return:`return 'namespace.leaf'`(2026-08-20 增强)
+// 背景:mobile-rn LiveDetailScreen.chatStatusLabelKey() 通过 switch 返回 'liveDetail.chatConnecting'
+// 等字符串常量,再由 t(statusKey) 间接引用,静态扫描器无法做值流分析,导致 5 个 liveDetail.chat* 误判为死 key。
+// 此正则捕获 `return '<多段点分 key>'` 形式(含 `=> 'x.y.z'` 精简写法),把该 key 加入 staticRefs。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const RETURN_KEY_RE = /return\s+['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -249,6 +255,9 @@ export function scanCode(files) {
       // 2026-07-26 三次增强:对象字面量值 key: 'namespace.leaf'(mobile-rn payment/taskDispatch.status.* 引用模式)
       OBJECT_LITERAL_KEY_RE.lastIndex = 0
       while ((m = OBJECT_LITERAL_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:字符串常量 return 'a.b.c'(LiveDetailScreen.chatStatusLabelKey 引用模式)
+      RETURN_KEY_RE.lastIndex = 0
+      while ((m = RETURN_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
       // 2026-07-26 三次增强:动态前缀拼接 `prefix.${var}`(mobile-rn order.status.* 引用模式)
       // 把前缀加入 usedNamespaces,使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true
       DYNAMIC_PREFIX_RE.lastIndex = 0

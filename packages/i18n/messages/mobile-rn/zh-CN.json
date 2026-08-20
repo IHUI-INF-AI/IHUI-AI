@@ -114,6 +114,10 @@
   "order": {
     "title": "订单",
     "searchPlaceholder": "搜索我的订单",
+    "tab": {
+      "refunded": "已退款"
+    },
+    "noMore": "没有更多了",
     "status": {
       "pending": "待支付",
       "paid": "已支付",
