@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { and, desc, eq, ilike, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, sql } from 'drizzle-orm'
 import { zhsDemandSquare } from '@ihui/database'
 import { z } from 'zod'
 import { checkAuth } from '../plugins/auth.js'
@@ -56,8 +56,10 @@ export const plazaRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { status, taskStatus, search, creator, types, categories, page, pageSize } = parsed.data
-    const conditions = []
-    if (status) conditions.push(eq(zhsDemandSquare.status, status))
+    const conditions = [inArray(zhsDemandSquare.status, ['approved', 'featured'])]
+    if (status && (status === 'approved' || status === 'featured')) {
+      conditions.push(eq(zhsDemandSquare.status, status))
+    }
     if (taskStatus) conditions.push(eq(zhsDemandSquare.taskStatus, taskStatus))
     if (creator) conditions.push(eq(zhsDemandSquare.userId, creator))
     if (types?.length) {

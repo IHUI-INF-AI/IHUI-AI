@@ -131,6 +131,7 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
       .update(zhsDemandSquare)
       .set({
         status: newStatus,
+        taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
         rejectReason,
         reviewedBy: request.userId,
         reviewedAt: now,
@@ -166,6 +167,7 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
         .update(zhsDemandSquare)
         .set({
           status: newStatus,
+          taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
           rejectReason,
           reviewedBy: request.userId,
           reviewedAt: now,
