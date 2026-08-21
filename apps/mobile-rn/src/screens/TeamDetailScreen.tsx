@@ -1,27 +1,19 @@
 /**
  * TeamDetailScreen 团队成员详情(mobile-rn 端 wrapper)
  *
- * 保留 RN 特定逻辑(导航/路由/mock 数据/拨号),UI 委托给 @ihui/rn-app 共享组件。
+ * 保留 RN 特定逻辑(导航/路由/拨号),UI 委托给 @ihui/rn-app 共享组件。
+ * 2026-08-21:真实 API 接入(getTeamMemberDetail,后端 /api/distribution/team/members/:id),
+ * 替代原 buildMockMember mock 数据(对齐 Uniapp distribution_personnel_list/detail.vue)。
  */
-import { useState } from 'react'
-import { Alert, Linking } from 'react-native'
+import { useCallback, useEffect, useState } from 'react'
+import { Alert, Linking, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { TeamDetailScreen } from '@ihui/rn-app'
+import { getTeamMemberDetail, type TeamMemberDetail } from '@ihui/api-client'
+import { TeamDetailScreen, type TeamDetailScreenProps } from '@ihui/rn-app'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import type { TeamDetailScreenProps } from '@ihui/rn-app'
-
-/** 团队成员详情(对齐 Uniapp detail.vue member 字段) */
-interface TeamMemberDetail {
-  id: string
-  nickname: string
-  phone: string
-  avatar: string | null
-  joinedAt: string
-  transactionVolume: number
-  commission: number
-  orderNum: number
-}
+import { useI18n } from '../i18n'
 
 type LocalParamList = RootStackParamList & {
   TeamDetail: { memberId: string }
@@ -30,28 +22,40 @@ type LocalParamList = RootStackParamList & {
 type TeamDetailRouteProp = RouteProp<LocalParamList, 'TeamDetail'>
 type NavigationProp = NativeStackNavigationProp<LocalParamList>
 
-/** mock 数据(后端 /team/member/:id 待接入,memberId 路由参数已预留) */
-function buildMockMember(memberId: string): TeamMemberDetail {
-  return {
-    id: memberId,
-    nickname: '团友' + memberId.slice(-4),
-    phone: '138****8888',
-    avatar: null,
-    joinedAt: '2025-05-16',
-    transactionVolume: 128000,
-    commission: 2560,
-    orderNum: 12,
-  }
-}
-
 export default function TeamDetailScreenWrapper() {
   const navigation = useNavigation<NavigationProp>()
   const route = useRoute<TeamDetailRouteProp>()
   const { memberId } = route.params
-  const [member] = useState<TeamMemberDetail>(() => buildMockMember(memberId))
+  const { t } = useI18n()
+  const [member, setMember] = useState<TeamMemberDetail | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await getTeamMemberDetail(memberId)
+      if (!res.success || !res.data) {
+        setError('加载失败,请重试')
+        setMember(null)
+        return
+      }
+      setMember(res.data)
+    } catch {
+      setError('加载失败,请重试')
+      setMember(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [memberId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const onContact = (): void => {
-    if (!member.phone) {
+    if (!member?.phone) {
       Alert.alert('提示', '该成员未提供手机号')
       return
     }
@@ -65,22 +69,35 @@ export default function TeamDetailScreenWrapper() {
   }
 
   const props: TeamDetailScreenProps = {
-    t: (key: string) => key,
+    t,
     onBack: () => navigation.goBack(),
-    member: {
-      id: member.id,
-      nickname: member.nickname,
-      phone: member.phone,
-      avatar: member.avatar,
-      joinedAt: member.joinedAt,
-      transactionVolume: member.transactionVolume,
-      commission: member.commission,
-      orderNum: member.orderNum,
-    },
+    loading,
+    error,
+    onRetry: () => void load(),
+    member: member
+      ? {
+          id: member.id,
+          nickname: member.nickname,
+          phone: member.phone ?? '',
+          avatar: member.avatar,
+          joinedAt: member.joinedAt,
+          transactionVolume: member.transactionVolume,
+          commission: member.commission,
+          orderNum: member.orderNum,
+        }
+      : null,
     onContact,
     onViewOrders,
     colorScheme: 'light',
   }
 
-  return <TeamDetailScreen {...props} />
+  return (
+    <View style={styles.container}>
+      <TeamDetailScreen {...props} />
+    </View>
+  )
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: tokens.surface.bg },
+})
