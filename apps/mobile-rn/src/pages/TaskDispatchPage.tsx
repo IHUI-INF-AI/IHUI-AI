@@ -177,92 +177,130 @@ export function TaskDispatchPage(_: Props) {
   // WebSocket 实时监听 task-result / task-progress / task-cancelled 频道 + 重连增量补拉
   useEffect(() => {
     if (!token) return
-    const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/tasks?token=${encodeURIComponent(token)}`
     let ws: WebSocket | null = null
-    try {
-      ws = new WebSocket(wsUrl)
-    } catch {
-      return
+    // 2026-08-21 修复(断线永不重连):原实现仅在 effect 建立时连接一次,
+    // onclose 的"重连后增量补拉"设计意图(见 onopen 注释)从未真正落地——
+    // 网络闪断后页面静默失去实时更新,直到 token 变化或离开页面。
+    // 修复:onclose 触发指数退避重连(1s → 2s → ... → 30s 上限),
+    // disposed 守卫防止卸载后重连(与 web 端 create-websocket-hook 同源策略)。
+    let disposed = false
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let reconnectAttempt = 0
+
+    const clearReconnectTimer = () => {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
     }
 
-    // 重连后(onopen)增量补拉断线期间错过的任务
-    ws.onopen = () => {
-      const since = lastSeenTsRef.current
-      if (since <= 0) return
-      setReconnecting(true)
-      void (async () => {
-        const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
-          `/api/tasks?since=${since}`,
-        )
-        setReconnecting(false)
-        if (!data) return
-        const list = Array.isArray(data) ? data : (data.tasks ?? [])
-        if (list.length === 0) return
-        setTasks((prev) => upsertIncremental(prev, list))
-        const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), since)
-        if (maxTs > lastSeenTsRef.current) {
-          lastSeenTsRef.current = maxTs
-          void saveLastSeenTs(maxTs)
-        }
-      })()
+    const scheduleReconnect = () => {
+      if (disposed) return
+      const delay = Math.min(1000 * 2 ** reconnectAttempt, 30000)
+      reconnectAttempt += 1
+      clearReconnectTimer()
+      reconnectTimer = setTimeout(connect, delay)
     }
 
-    ws.onmessage = (ev: { data: unknown }) => {
-      const raw = typeof ev.data === 'string' ? ev.data : ''
-      if (!raw) return
-      let msg: TaskWsMessage
+    const connect = () => {
+      if (disposed) return
+      const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws/tasks?token=${encodeURIComponent(token)}`
       try {
-        msg = JSON.parse(raw) as TaskWsMessage
+        ws = new WebSocket(wsUrl)
       } catch {
+        scheduleReconnect()
         return
       }
-      if (!msg?.taskId) return
 
-      // task-cancelled:更新本地任务状态为 cancelled
-      if (msg.type === 'task-cancelled') {
+      // 重连后(onopen)增量补拉断线期间错过的任务
+      ws.onopen = () => {
+        reconnectAttempt = 0
+        const since = lastSeenTsRef.current
+        if (since <= 0) return
+        setReconnecting(true)
+        void (async () => {
+          const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
+            `/api/tasks?since=${since}`,
+          )
+          setReconnecting(false)
+          if (!data) return
+          const list = Array.isArray(data) ? data : (data.tasks ?? [])
+          if (list.length === 0) return
+          setTasks((prev) => upsertIncremental(prev, list))
+          const maxTs = list.reduce((max, x) => Math.max(max, Date.parse(x.updatedAt) || 0), since)
+          if (maxTs > lastSeenTsRef.current) {
+            lastSeenTsRef.current = maxTs
+            void saveLastSeenTs(maxTs)
+          }
+        })()
+      }
+
+      ws.onclose = () => {
+        scheduleReconnect()
+      }
+
+      ws.onmessage = (ev: { data: unknown }) => {
+        const raw = typeof ev.data === 'string' ? ev.data : ''
+        if (!raw) return
+        let msg: TaskWsMessage
+        try {
+          msg = JSON.parse(raw) as TaskWsMessage
+        } catch {
+          return
+        }
+        if (!msg?.taskId) return
+
+        // task-cancelled:更新本地任务状态为 cancelled
+        if (msg.type === 'task-cancelled') {
+          setTasks((prev) =>
+            prev.map((task) => {
+              if (task.id !== msg.taskId) return task
+              const p = msg.payload as Partial<TaskDispatch>
+              const updatedAt = p.updatedAt || new Date().toISOString()
+              const ts = Date.parse(updatedAt)
+              if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
+                lastSeenTsRef.current = ts
+                void saveLastSeenTs(ts)
+              }
+              return { ...task, status: 'cancelled', updatedAt }
+            }),
+          )
+          return
+        }
+
         setTasks((prev) =>
           prev.map((task) => {
             if (task.id !== msg.taskId) return task
-            const p = msg.payload as Partial<TaskDispatch>
-            const updatedAt = p.updatedAt || new Date().toISOString()
+            const p = msg.payload as Partial<TaskResult> & Partial<TaskDispatch>
+            const status: TaskStatus = (p.status as TaskStatus) || task.status
+            const hasResult =
+              p.output !== undefined || p.error !== undefined || p.finishedAt !== undefined
+            const result: TaskResult | undefined = hasResult
+              ? {
+                  taskId: task.id,
+                  status,
+                  output: p.output,
+                  error: p.error,
+                  finishedAt: p.finishedAt || new Date().toISOString(),
+                }
+              : task.result
+            const updatedAt = p.updatedAt || task.updatedAt
             const ts = Date.parse(updatedAt)
             if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
               lastSeenTsRef.current = ts
               void saveLastSeenTs(ts)
             }
-            return { ...task, status: 'cancelled', updatedAt }
+            return { ...task, status, result, updatedAt }
           }),
         )
-        return
       }
-
-      setTasks((prev) =>
-        prev.map((task) => {
-          if (task.id !== msg.taskId) return task
-          const p = msg.payload as Partial<TaskResult> & Partial<TaskDispatch>
-          const status: TaskStatus = (p.status as TaskStatus) || task.status
-          const hasResult =
-            p.output !== undefined || p.error !== undefined || p.finishedAt !== undefined
-          const result: TaskResult | undefined = hasResult
-            ? {
-                taskId: task.id,
-                status,
-                output: p.output,
-                error: p.error,
-                finishedAt: p.finishedAt || new Date().toISOString(),
-              }
-            : task.result
-          const updatedAt = p.updatedAt || task.updatedAt
-          const ts = Date.parse(updatedAt)
-          if (Number.isFinite(ts) && ts > lastSeenTsRef.current) {
-            lastSeenTsRef.current = ts
-            void saveLastSeenTs(ts)
-          }
-          return { ...task, status, result, updatedAt }
-        }),
-      )
     }
+
+    connect()
+
     return () => {
+      disposed = true
+      clearReconnectTimer()
       try {
         ws?.close()
       } catch {
