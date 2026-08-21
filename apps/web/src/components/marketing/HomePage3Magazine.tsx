@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, FileText } from 'lucide-react'
+import { ChevronRight, FileText, Loader2, RefreshCw } from 'lucide-react'
 import { Card } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
@@ -211,7 +211,13 @@ export function HomePage3Magazine() {
     refetchOnWindowFocus: false,
   })
 
-  const { data: allItems = [], isLoading } = useQuery<NewsItem[]>({
+  const {
+    data: allItems = [],
+    isLoading,
+    isError,
+    isRefetching,
+    refetch,
+  } = useQuery<NewsItem[]>({
     queryKey: ['marketing', 'magazine'],
     queryFn: async () => {
       // pageSize=100 拉满(articlesQuerySchema 上限 100):前端按 TAB_CATEGORY_MAP 分类过滤,
@@ -227,8 +233,14 @@ export function HomePage3Magazine() {
     // fetchApi 失败 → allItems = [] → "暂无内容"占位 → 用户刷新看不到数据恢复。
     // 改成 retry: 2 + refetchOnReconnect + refetchOnWindowFocus,等 api 起来后
     // (网络重连 / 窗口切回)能自动重新拉取,无需用户手动 hard refresh。
+    // 2026-08-21 根治(空数据不复位 Bug2):
+    // - placeholderData: 重试/低优先级 refetch 失败时保留上一次成功数据(stale-while-revalidate),
+    //   不因刷新失败把已展示数据闪回"暂无内容"占位。
+    // - isError + 重试按钮:仅当从未成功过(api server 未起 / 网络失败,retry 耗尽)时,
+    //   展示明确错误提示 + 手动"重试",替代误导性的"暂无内容";api 恢复后点重试即可恢复数据。
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
+    placeholderData: (prev) => prev,
     refetchOnReconnect: true,
     refetchOnWindowFocus: true,
     staleTime: 5 * 60 * 1000,
@@ -332,6 +344,24 @@ export function HomePage3Magazine() {
 
       {isLoading ? (
         <Skeleton />
+      ) : isError && items.length === 0 ? (
+        <Card className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+          <p>{t('error')}</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            data-testid="magazine-retry"
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-accent hover:text-foreground disabled:opacity-60"
+          >
+            {isRefetching ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
+            {t('retry')}
+          </button>
+        </Card>
       ) : items.length === 0 ? (
         <Card className="flex min-h-0 flex-1 items-center justify-center text-sm text-muted-foreground">
           {t('empty')}
