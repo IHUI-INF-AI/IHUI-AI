@@ -1255,7 +1255,10 @@
     "title": "排行榜"
   },
   "rankingDetail": {
-    "rank": "排名"
+    "rank": "排名",
+    "points": "积分",
+    "studyHours": "学习时长",
+    "levelDesc": "等级"
   },
   "realNameAuth": {
     "title": "实名认证",
@@ -1427,7 +1430,8 @@
     "phone": "手机号",
     "joinedAt": "加入时间",
     "contact": "联系",
-    "viewOrders": "查看订单"
+    "viewOrders": "查看订单",
+    "empty": "暂无成员信息"
   },
   "vip": {
     "subtitle": "开通会员,尊享更多权益",
