@@ -456,18 +456,6 @@
     "openNow": "지금 활성화",
     "agreementHint": "활성화하면 《개발자 서비스 약관》에 동의한 것으로 간주됩니다"
   },
-  "devEnter": {
-    "error": {
-      "nameRequired": "개발자 이름을 입력하세요",
-      "contactRequired": "연락처를 입력하세요",
-      "introMin": "소개는 최소 10자 이상이어야 합니다",
-      "agreeRequired": "개발자 약관에 동의해 주세요"
-    },
-    "success": {
-      "title": "제출 성공",
-      "message": "신청이 제출되었습니다. 심사 결과는 3영업일 이내에 통지됩니다."
-    }
-  },
   "liveHost": {
     "error": {
       "titleRequired": "라이브 제목을 입력하세요",
@@ -783,8 +771,7 @@
     "rating": "평점",
     "skillsTitle": "전문 스킬",
     "worksTitle": "대표 작품",
-    "empty": "작품이 없습니다",
-    "loadFailed": "명함 불러오기 실패"
+    "empty": "작품이 없습니다"
   },
   "certApply": {
     "title": "강사 인증",
@@ -1284,8 +1271,7 @@
     "description": "직무 설명",
     "requirements": "자격 요건",
     "applyNow": "지금 지원",
-    "appliedWaiting": "지원 완료, 심사 대기 중",
-    "loadFailed": "채용 불러오기 실패"
+    "appliedWaiting": "지원 완료, 심사 대기 중"
   },
   "referrer": {
     "title": "추천인",
