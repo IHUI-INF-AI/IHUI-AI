@@ -456,18 +456,6 @@
     "openNow": "今すぐ有効化",
     "agreementHint": "有効化により《開発者サービス規約》に同意したものとみなされます"
   },
-  "devEnter": {
-    "error": {
-      "nameRequired": "開発者名を入力してください",
-      "contactRequired": "連絡先を入力してください",
-      "introMin": "紹介は 10 文字以上で入力してください",
-      "agreeRequired": "開発者契約に同意してください"
-    },
-    "success": {
-      "title": "送信成功",
-      "message": "申請を送信しました。審査結果は 3 営業日以内に通知されます。"
-    }
-  },
   "liveHost": {
     "error": {
       "titleRequired": "配信タイトルを入力してください",
@@ -783,8 +771,7 @@
     "rating": "評価",
     "skillsTitle": "スキル・特長",
     "worksTitle": "代表作",
-    "empty": "作品はまだありません",
-    "loadFailed": "名刺の読み込みに失敗"
+    "empty": "作品はまだありません"
   },
   "certApply": {
     "title": "講師認証",
@@ -1284,8 +1271,7 @@
     "description": "職務内容",
     "requirements": "応募資格",
     "applyNow": "今すぐ申し込む",
-    "appliedWaiting": "申込済み。審査をお待ちください",
-    "loadFailed": "採用の読み込みに失敗"
+    "appliedWaiting": "申込済み。審査をお待ちください"
   },
   "referrer": {
     "title": "紹介者",
