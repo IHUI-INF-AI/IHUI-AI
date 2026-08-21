@@ -19,7 +19,9 @@
  *   (对齐 Uniapp ai_assistant_n8n quick-actions-container + handleQuickActionClick)
  * - 图片预览:assistant 回复中提取图片 URL(对齐 Uniapp processContent + imgUrlList),
  *   渲染缩略图,点击 ImagePreviewModal 全屏预览(对齐 Uniapp previewImage)
- * - 无 agentId → 模拟响应 + Alert(对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent)
+ * - 无 agentId → 不伪造回复:移除刚加入的消息 + FloatBox 提示选择智能体
+ *   (对齐 Uniapp onLoad 无 agentId 不调 processN8nAgent,2026-08-21 注释修正:
+ *   原注释"模拟响应"为过时描述,实际实现已是防伪造提示)
  * - Drawer 集成:历史对话入口(对齐任务要求"Drawer 集成:历史对话入口"),
  *   复用 @ihui/rn-app Drawer 组件 + listConversations/getMessages/deleteConversation API;
  *   NavBar 右侧菜单按钮打开 Drawer,Drawer 内选择历史对话 → 加载消息,
@@ -189,7 +191,11 @@ interface MessageBubbleProps {
   onToast: (type: FloatBoxType, message: string) => void
 }
 
-function MessageBubble({ message, onPreviewImage, onToast }: MessageBubbleProps): React.JSX.Element {
+function MessageBubble({
+  message,
+  onPreviewImage,
+  onToast,
+}: MessageBubbleProps): React.JSX.Element {
   const isUser = message.role === 'user'
   const hasImages = !isUser && (message.images?.length ?? 0) > 0
   // 显示/隐藏回答(对齐 Uniapp answerVisibilityStates,默认可见)
@@ -269,7 +275,11 @@ function MessageBubble({ message, onPreviewImage, onToast }: MessageBubbleProps)
                     activeOpacity={0.85}
                     onPress={() => onPreviewImage(url)}
                   >
-                    <Image source={{ uri: url }} style={bubbleStyles.chatImage} resizeMode="cover" />
+                    <Image
+                      source={{ uri: url }}
+                      style={bubbleStyles.chatImage}
+                      resizeMode="cover"
+                    />
                   </TouchableOpacity>
                 ))}
               </View>

@@ -28,7 +28,18 @@ export const Modal = (props: { visible?: boolean; children?: ReactNode }) =>
 export const Switch = (props: { value?: boolean; onValueChange?: (v: boolean) => void }) =>
   createElement('input', { type: 'checkbox', checked: !!props.value, readOnly: true })
 export const useColorScheme = () => 'light'
-export const StyleSheet = { create: (s: Record<string, unknown>) => s }
+export const StyleSheet = {
+  create: (s: Record<string, unknown>) => {
+    // 对齐 RN StyleSheet.create 返回冻结对象的行为，但用 String 包装数值 key，
+    // 避免 React DOM setValueForStyle 对属性名 '0' 调用 Proxy set trap 时报
+    // 'trap returned falsish' 错误（冻结对象 + 数值索引在 jsdom 下会 crash）。
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(s)) {
+      out[String(k)] = v
+    }
+    return out
+  },
+} as const
 export const Dimensions = { get: () => ({ width: 375, height: 812 }) }
 export const Animated = {
   View: mk('div'),

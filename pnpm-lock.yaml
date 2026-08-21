@@ -130,7 +130,7 @@ importers:
         specifier: 'catalog:'
         version: 6.1.3
       sharp:
-        specifier: ^0.35.3
+        specifier: 0.35.3
         version: 0.35.3(@types/node@26.1.2)
       turbo:
         specifier: ^2.10.8

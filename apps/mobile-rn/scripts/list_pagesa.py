@@ -1,0 +1,25 @@
+# -*- coding: utf-8 -*-
+"""列出 pagesA 所有页面并检查是否有对应新 screen"""
+import os
+import json
+import re
+
+old = r"D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue\src\pagesA"
+pages_a = {}
+for dirpath, dirs, files in os.walk(old):
+    for fn in files:
+        if fn.endswith(".vue"):
+            full = os.path.join(dirpath, fn)
+            rel = os.path.relpath(full, old).replace("\\", "/")
+            pages_a[rel] = full
+
+r = json.load(open(r"G:\IHUI-AI\apps\mobile-rn\report\uniapp_diff_audit.json", encoding="utf-8"))
+new_screens = set(r["new_screen_component_usage"].keys())
+
+# 过滤掉明显是组件/子组件的(路径含 components/ 或文件名是子组件)
+page_only = {p: f for p, f in pages_a.items() if "/components/" not in p}
+
+print(f"pagesA 页面总数: {len(page_only)}")
+print("=" * 60)
+for p in sorted(page_only.keys()):
+    print(" ", p)

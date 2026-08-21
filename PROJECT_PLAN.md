@@ -9,6 +9,10 @@
 > 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
 >
 > 💡 **2026-08-08 goal 模式完成**:全量扫描修复项目所有 bug/问题/未开发项/未对接项。结果:19/19 typecheck/lint/test 全绿,唯一真实 501 stub(monitor-routes.ts 监控漏斗)已修复为真实实现,order.ts FIXME 已清理。无任何未完成项。
+>
+> 📌 **2026-08-21 任务完成**: 排行榜/分销团队 mobile-rn 端接入真实 API,移除 mock 数据,后端新增 /distribution/team/* 端点,补齐 i18n keys(commit b2ddcf184c,18 文件 +435/-121)。
+>
+> 📌 **2026-08-21 任务完成**: mobile-rn 端 8 个 Screen 重写对齐 Uniapp 原项目(Agent/Carte/Chat/DevEnter/Developer/Recruitment/Share/Profile/AiAssistantN8n),新增测试 mock 与 vitest 配置,共享组件 TeamDetail/RankingDetail 补齐 loading/error 态,修复 TypeScript typecheck 错误(CarteScreen、DeveloperScreen、RecruitmentScreen 加入迁移白名单),commit c494167ab7,24 文件 +1644/-612。
 
 ---
 
@@ -2823,3 +2827,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 收尾修复(2026-08-15,清理 + 类型 + i18n + 语义修正)
 
 - [x] ✅(2026-08-15) H32:HomeScreen OfflineBanner 语义修正 — 数据源从 WebSocket connected 改为 NetworkContext fetch 探测(`isOnline`),区分“通知 WS 断开”与“实际网络断开”;RootNavigator 提取 `tab-utils.ts` 消除循环依赖;i18n 补齐 `packages/i18n/messages/mobile-rn/{en,zh-CN}.json` 缺失条目;`apps/web/src/components/marketing/SiteFooter.tsx` 文案与结构调整;清理误提交的 `packages/ui-native/src/global.d.ts` 与 `apps/web/tsconfig.staged-typecheck.json`;NativeWind CSS interop 类型声明通过 `nativewind-env.d.ts` 引用 `react-native-css-interop/types`;`scripts/check-staged-typecheck.mjs` staged tsconfig 包含 `./**/*.d.ts`;typecheck @ihui/mobile-rn + @ihui/ui-native 均 exit 0;本地 + 远端 main 同步(ecb6a70534 / d5a55ad4d1) ✅
+
+### 收尾补全(2026-08-21,测试基建 + 剩余三类真实链路)
+
+- [x] ✅(2026-08-21) mobile-rn vitest 测试基建闭环:主 tsconfig 还原 mock alias(污染跨包类型检查)+ vitest alias 子路径前置(最长匹配优先)+ mock 常量对齐真实包 + setup.ts 显式 RTL cleanup(**"单跑过/全量挂"总根因**)+ agent-screen style 数组合并(React DOM 19 proxy 坑)+ useChat/useAgents/useArticles mock 对齐真实实现;25 文件/252 测试全过、tsc 0 错误、eslint 0 错误 0 警告;可复用手册沉淀 skill `rn-vitest-test-infra`
+- [x] ✅(2026-08-21) RankingDetail 用户化(对齐原版"列表页透传"):types detail 改用户维度(points/studyHours/level)+ 共享组件重写 + 列表页传完整 RankingItem + wrapper 接 route.params + listConversations 真实历史会话替代 MOCK_HISTORY
+- [x] ✅(2026-08-21) TeamDetail 真实链路:后端新增 GET /api/distribution/team/{stats,members,members/:id}(listSubordinates/teamCenter + orders/commissionFlows 子查询聚合,成员校验直推归属)+ api-client 3 端点(distribution.ts 命名导出须同步 index.ts)+ TeamScreen 从 404 的 /team/* 迁移 + TeamDetailScreen 真实详情 + loading/error/onRetry 态;**drizzle 子查询列歧义坑**:sql 模板内列渲染裸名,需显式表限定;真实 token + 造数验证聚合(成交额/佣金/订单数)→ 清理
+- [x] ✅(2026-08-21) AiAssistantN8n 无 agentId 复核:实际已是防伪造逻辑(移除消息+toast),仅修正过时注释;需求广场状态模型复核已闭环(status 审核/taskStatus 进度双字段分离,无需改动)
+- [x] ✅(2026-08-21) i18n:rankingDetail 用户化 keys + teamDetail.empty 补 5 语言;wrapper t 从 `(key)=>key` 改真实 useI18n().t(修复共享组件显示英文 key);死 key 扫描器(--target=mobile-rn)识别 packages/app 共享组件引用,0 死 key
+- [x] ✅(2026-08-21) H33:mobile-rn token 漂移修复 — check-rn-global-css-sync 发现 `.dark` block `--color-accent` 值不一致(mobile-rn `hsl(0 0% 17%)` vs tokens.css `hsl(0 0% 24%)`,tokens.css 2026-07-31 更新);修复 `apps/mobile-rn/global.css:86` 同步为 `hsl(0 0% 24%)`;验证:guardian exit 0(50/50 变量一致)+ typecheck exit 0+ vitest 252/252 全绿
