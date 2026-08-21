@@ -33,6 +33,8 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
+// 对齐 Uniapp tools/index.vue float-box:悬浮导航(赚米/客服/反馈),原页面 5 个核心 Tab 页均有,补齐 AgentScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import InputArea from '../components/InputArea'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
@@ -79,7 +81,8 @@ const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
 }
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
-const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 function mapToItem(a: Agent): AgentScreenItem {
   return {
@@ -152,9 +155,9 @@ export function AgentScreen() {
   const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
   // 智汇值卡(对齐 Uniapp Intelligent-assistant.vue):暂无 getTokenCount 接口,占位 0
   const [tokenQuantity] = useState(0)
-  // 搜索关键词 + 搜索框显隐(对齐 Uniapp showSearchBox)
+  // 搜索关键词 + 搜索框显隐(对齐 Uniapp showSearchBox:默认隐藏,点击导航搜索按钮展开)
   const [searchKeyword, setSearchKeyword] = useState('')
-  const [showSearchBox, setShowSearchBox] = useState(true)
+  const [showSearchBox, setShowSearchBox] = useState(false)
   // 返回顶部按钮(对齐 Uniapp toodown-wrapper)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const contentScrollRef = useRef<ScrollView>(null)
@@ -194,8 +197,7 @@ export function AgentScreen() {
             .slice(0, 6)
             .map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar ?? undefined })),
         )
-      }
-      else setError(res.error || t('agentScreen.loadFailed'))
+      } else setError(res.error || t('agentScreen.loadFailed'))
     },
     [t],
   )
@@ -454,14 +456,6 @@ export function AgentScreen() {
           />
         }
       >
-        {showSearchBox ? (
-          <InputArea
-            value={searchKeyword}
-            onChangeText={setSearchKeyword}
-            placeholder="搜索AI应用"
-            onSubmit={(text) => setSearchKeyword(text)}
-          />
-        ) : null}
         {banners.length > 0 ? (
           <View style={styles.carouselWrap}>
             <Carousel
@@ -471,6 +465,15 @@ export function AgentScreen() {
               }}
             />
           </View>
+        ) : null}
+        {/* 搜索框位置对齐 Uniapp tools/index.vue 行 44:轮播图之后、RecentAgents 之前 */}
+        {showSearchBox ? (
+          <InputArea
+            value={searchKeyword}
+            onChangeText={setSearchKeyword}
+            placeholder="搜索AI应用"
+            onSubmit={(text) => setSearchKeyword(text)}
+          />
         ) : null}
         {recentAgents.length > 0 ? (
           <RecentAgents items={recentAgents} onItemClick={(item) => handleItemClick(item.id)} />
@@ -543,6 +546,12 @@ export function AgentScreen() {
         message={toast.message}
         onHide={handleToastHide}
       />
+      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp tools/index.vue float-box:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => rootNav?.navigate('Promote')}
+        onConsult={() => rootNav?.navigate('CustomerService')}
+        onFeedback={() => rootNav?.navigate('Settings')}
+      />
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}
@@ -611,7 +620,12 @@ export function AgentScreen() {
 const styles = StyleSheet.create({
   shell: { flex: 1, backgroundColor: tokens.surface.bg },
   contentScroll: { flex: 1 },
-  carouselWrap: { marginTop: rpx(18), marginHorizontal: rpx(20), borderRadius: 15, overflow: 'hidden' },
+  carouselWrap: {
+    marginTop: rpx(18),
+    marginHorizontal: rpx(20),
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
   sectionWrap: { marginHorizontal: rpx(24), marginTop: rpx(16) },
   tabBar: {
     flexDirection: 'row',
