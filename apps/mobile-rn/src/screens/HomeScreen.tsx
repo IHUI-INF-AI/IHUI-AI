@@ -785,7 +785,7 @@ export function HomeScreen() {
     }
   }
   const onToolbarCustomMade = () => {
-    // 原项目 goToCustomMade: 功能开发中 toast
+    // AI 定制入口 → AgentMarket(Agent 市场)真实路由,对接智能体定制功能
     rootNav?.navigate('AgentMarket')
   }
 
@@ -1441,12 +1441,16 @@ export function HomeScreen() {
             </Pressable>
             <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
             <Text style={shellStyles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward} 智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+              首次分享成功,获得 {shareFirstReward}{' '}
+              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
             </Text>
             <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
               <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
             </Pressable>
-            <Pressable onPress={hideSharePoints} style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}>
+            <Pressable
+              onPress={hideSharePoints}
+              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
+            >
               <Text style={shellStyles.shareBtnText}>稍后再说</Text>
             </Pressable>
           </Pressable>
@@ -1463,14 +1467,23 @@ const shellStyles = {
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
   voiceInputWrap: { paddingHorizontal: rpx(24), paddingVertical: rpx(12) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
-  carouselWrap: { marginTop: rpx(18), marginBottom: rpx(16), borderRadius: 15, overflow: 'hidden' } as const,
+  carouselWrap: {
+    marginTop: rpx(18),
+    marginBottom: rpx(16),
+    borderRadius: 15,
+    overflow: 'hidden',
+  } as const,
   toolbarWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
   agentListWrap: { paddingVertical: rpx(16) } as const,
-  bottomFigureWrap: { paddingHorizontal: rpx(20), paddingTop: rpx(16), marginBottom: rpx(20) } as const,
+  bottomFigureWrap: {
+    paddingHorizontal: rpx(20),
+    paddingTop: rpx(16),
+    marginBottom: rpx(20),
+  } as const,
   // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
   backToTop: {
     position: 'absolute',
