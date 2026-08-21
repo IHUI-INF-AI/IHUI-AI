@@ -25,23 +25,30 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import * as FileSystem from 'expo-file-system'
+import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
 import {
+  cancelRecurringContract,
   deleteConversation,
   getOrders,
+  getProfile,
+  getSubscriptionStatus,
   getUserStatistics,
   listConversations,
+  resolveFileUrl,
   updateProfile,
+  uploadFileMultipart,
   type AuthUser,
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { useAuth } from '../context/AuthContext'
+import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { LoginPopUp } from '../components/LoginPopUp'
@@ -381,6 +388,34 @@ export function ProfileScreen() {
       }
     : null
 
+  /**
+   * 退订确认 — 查询当前 VIP 订阅状态(含微信周期扣款签约),有自动续费则真实解约;
+   * 无自动续费订阅(单次购买 VIP)时给出明确反馈,不再提示"开发中"。
+   */
+  const handleConfirmUnsubscribe = async () => {
+    setUnsubscribeVisible(false)
+    try {
+      const statusRes = await getSubscriptionStatus()
+      if (!statusRes.success) {
+        showFloat(statusRes.error || '查询订阅状态失败', 'warning')
+        return
+      }
+      const contract = statusRes.data.contract
+      if (contract && contract.status === 'active') {
+        const cancelRes = await cancelRecurringContract(contract.id)
+        if (cancelRes.success) {
+          showFloat('已取消自动续费,会员到期后不会续扣', 'success')
+        } else {
+          showFloat(cancelRes.error || '退订失败,请稍后重试', 'warning')
+        }
+      } else {
+        showFloat('当前无自动续费订阅,无需退订', 'info')
+      }
+    } catch {
+      showFloat('网络错误,请稍后重试', 'warning')
+    }
+  }
+
   return (
     <>
       <NavBar
@@ -542,10 +577,7 @@ export function ProfileScreen() {
       <UnsubscribeModal
         visible={unsubscribeVisible}
         onClose={() => setUnsubscribeVisible(false)}
-        onConfirm={() => {
-          setUnsubscribeVisible(false)
-          showFloat('退订功能开发中', 'info')
-        }}
+        onConfirm={handleConfirmUnsubscribe}
       />
     </>
   )
@@ -573,7 +605,8 @@ function EditProfileModal({
   onSaved,
 }: EditProfileModalProps): React.JSX.Element {
   const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
-  const [avatarHintVisible, setAvatarHintVisible] = useState(false)
+  const [avatarHint, setAvatarHint] = useState('')
+  const [avatarUpdating, setAvatarUpdating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -581,10 +614,61 @@ function EditProfileModal({
   useEffect(() => {
     if (visible) {
       setNickname(user.nickname ?? user.username ?? '')
-      setAvatarHintVisible(false)
+      setAvatarHint('')
+      setAvatarUpdating(false)
       setSaveError('')
     }
   }, [visible, user.nickname, user.username])
+
+  /**
+   * 更换头像 — 相册选图 → 上传文件 → 更新用户 avatar → 刷新全局用户态。
+   * 替代原"头像更换功能开发中"占位,走真实上传链路(uploadFileMultipart + updateProfile)。
+   */
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        setAvatarHint('需要相册权限才能更换头像')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+
+      setAvatarUpdating(true)
+      setAvatarHint('头像上传中...')
+      const uploadRes = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `avatar_${Date.now()}.jpg`,
+      })
+      if (!uploadRes.success) {
+        setAvatarHint(uploadRes.error || '头像上传失败')
+        return
+      }
+      const avatarUrl = resolveFileUrl(uploadRes.data.path)
+      const updateRes = await updateProfile({ avatar: avatarUrl })
+      if (!updateRes.success) {
+        setAvatarHint(updateRes.error || '头像更新失败')
+        return
+      }
+      // 刷新认证用户态,同步到全局展示(头像/昵称等)
+      const meRes = await getProfile()
+      if (meRes.success) {
+        rnAuthStore.getState().setUser(meRes.data)
+      }
+      setAvatarHint('头像已更新')
+    } catch {
+      setAvatarHint('网络错误,请稍后重试')
+    } finally {
+      setAvatarUpdating(false)
+    }
+  }
 
   const handleSave = async () => {
     const trimmed = nickname.trim()
@@ -614,11 +698,12 @@ function EditProfileModal({
         <View style={styles.editProfileCard}>
           <Text style={styles.editProfileTitle}>编辑资料</Text>
 
-          {/* 头像(可点击更换,占位提示) */}
+          {/* 头像(点击更换 — 相册选图 → 上传 → 更新用户信息) */}
           <View style={styles.editProfileAvatarSection}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => setAvatarHintVisible(true)}
+              onPress={() => void handlePickAvatar()}
+              disabled={avatarUpdating}
               style={styles.editProfileAvatarBtn}
               accessibilityLabel="更换头像"
             >
@@ -630,9 +715,7 @@ function EditProfileModal({
                 <Text style={styles.editProfileAvatarBadgeText}>+</Text>
               </View>
             </TouchableOpacity>
-            {avatarHintVisible ? (
-              <Text style={styles.editProfileAvatarHint}>头像更换功能开发中</Text>
-            ) : null}
+            {avatarHint ? <Text style={styles.editProfileAvatarHint}>{avatarHint}</Text> : null}
           </View>
 
           {/* 昵称(可编辑) */}
