@@ -119,14 +119,7 @@
       "title": "精品课程"
     },
     "ratingTitle": "评价课程",
-    "ratingLabels": [
-      "",
-      "很差",
-      "较差",
-      "一般",
-      "不错",
-      "很好"
-    ],
+    "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
     "ratingPlaceholder": "请评分",
     "ratingDescLabel": "写下你的评价",
     "ratingInputPlaceholder": "课程怎么样?分享你的感受...",
@@ -439,12 +432,7 @@
   "ai": {
     "title": "AI 助手",
     "inputPlaceholder": "输入你的问题…",
-    "suggestions": [
-      "帮我写一首诗",
-      "解释量子力学",
-      "写一段代码",
-      "翻译这段话"
-    ],
+    "suggestions": ["帮我写一首诗", "解释量子力学", "写一段代码", "翻译这段话"],
     "thinking": "思考中…",
     "stop": "停止",
     "clear": "清空",
@@ -614,7 +602,9 @@
       "share": "分享",
       "title": "AI 绘图",
       "tryThese": "试试这些提示词",
-      "vertical": "竖版"
+      "vertical": "竖版",
+      "examples": ["一只可爱的猫咪", "日落山景", "未来城市", "抽象艺术"],
+      "styles": ["写实", "动漫", "油画", "水彩", "3D", "像素"]
     },
     "inputArea": {
       "holdToSpeak": "按住说话",
@@ -1039,10 +1029,7 @@
       "totalScoreValue": "{n} 分"
     },
     "answer": {
-      "judgmentOptions": [
-        "正确",
-        "错误"
-      ],
+      "judgmentOptions": ["正确", "错误"],
       "loadFailed": "试卷加载失败",
       "answerPlaceholder": "输入你的答案",
       "prev": "上一题",
@@ -1107,12 +1094,15 @@
     },
     "plan": {
       "openVipTitle": "开通VIP会员",
+      "openVipContent": "是否前往开通VIP会员,参与分佣计划?",
       "confirm": "确认",
       "cancel": "取消",
       "rule1": "成为VIP会员后可参与分佣计划",
       "rule2": "邀请好友成为会员,您将获得会员费20%的佣金",
+      "rule3": "佣金将在好友支付成功后24小时内自动结算到您的账户",
       "rule4": "账户余额满100元可申请提现到微信或支付宝",
       "introTitle": "邀请好友,赚取佣金",
+      "introDesc": "加入我们的分佣计划,邀请好友注册成为会员,您将获得会员费20%的佣金收益",
       "totalEarnings": "累计收益",
       "inviteCount": "邀请人数",
       "rulesTitle": "分佣规则",
@@ -1135,6 +1125,9 @@
     "orderList": {
       "loading": "加载中…",
       "empty": "暂无订单",
+      "totalCount": "共",
+      "orders": "笔",
+      "commissionTotal": "佣金总额",
       "product": "商品",
       "orderNo": "订单号",
       "commission": "佣金",
@@ -1642,13 +1635,7 @@
       "title": "使用规则"
     },
     "appPermission": {
-      "names": [
-        "相册权限",
-        "相机权限",
-        "麦克风权限",
-        "位置权限",
-        "通知权限"
-      ],
+      "names": ["相册权限", "相机权限", "麦克风权限", "位置权限", "通知权限"],
       "descs": [
         "用于保存和上传图片到相册",
         "用于拍摄照片和录制视频",
@@ -2009,26 +1996,9 @@
   },
   "plaza": {
     "setNeed": {
-      "categories": [
-        "学习心得",
-        "技术分享",
-        "课程笔记",
-        "项目实战",
-        "问题求助",
-        "经验总结"
-      ],
-      "levels": [
-        "初级",
-        "中级",
-        "高级",
-        "专家"
-      ],
-      "budgets": [
-        "1000 元以下",
-        "1000-5000 元",
-        "5000-10000 元",
-        "10000 元以上"
-      ],
+      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
+      "levels": ["初级", "中级", "高级", "专家"],
+      "budgets": ["1000 元以下", "1000-5000 元", "5000-10000 元", "10000 元以上"],
       "selectAtLeast": "请至少选择一项",
       "saved": "保存成功",
       "directionTitle": "学习方向",
@@ -2408,19 +2378,8 @@
       "tabsComment": "评论"
     },
     "publish": {
-      "categories": [
-        "学习心得",
-        "技术分享",
-        "课程笔记",
-        "项目实战",
-        "问题求助",
-        "经验总结"
-      ],
-      "visibilityOptions": [
-        "公开",
-        "仅好友",
-        "私密"
-      ],
+      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
+      "visibilityOptions": ["公开", "仅好友", "私密"],
       "enterTitle": "请输入标题",
       "enterContent": "请输入内容",
       "published": "发布成功",
@@ -2761,14 +2720,7 @@
       "bannerTitle": "升级VIP会员",
       "bannerDesc": "解锁更多专属特权",
       "rightsTitle": "会员权益",
-      "rights": [
-        "专属客服",
-        "优先体验",
-        "高级功能",
-        "去广告",
-        "专属标识",
-        "折扣优惠"
-      ],
+      "rights": ["专属客服", "优先体验", "高级功能", "去广告", "专属标识", "折扣优惠"],
       "loadFailed": "加载失败",
       "operationFailed": "操作失败",
       "originalPrice": "原价¥{n}",
