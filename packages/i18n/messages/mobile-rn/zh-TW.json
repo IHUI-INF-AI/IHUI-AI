@@ -1040,7 +1040,7 @@
   },
   "lecturerDetail": {
     "title": "講師詳情",
-    "subtitle": "了解講師,選課不迷路",
+    "subtitle": "瞭解講師,選課不迷路",
     "empty": "暫無簡介",
     "courses": "課程",
     "followers": "粉絲",
@@ -1518,7 +1518,7 @@
     "sectionRights": "使用者權利",
     "sectionRightsBody": "您享有依法獲取服務、對個人資訊進行管理、對違規內容檢舉等權利。",
     "sectionTerms": "服務條款",
-    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平台服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。"
+    "sectionTermsBody": "本協議是您與智匯 AI 之間就使用本平臺服務所訂立的協議。請在使用前仔細閱讀,一旦使用即視為同意並接受本協議所有條款。"
   },
   "aiMultimodal": {
     "clear": "清空",
@@ -1724,7 +1724,7 @@
     "copyLogs": "複製日誌",
     "env": "環境",
     "locale": "語言",
-    "platform": "平台",
+    "platform": "平臺",
     "title": "偵錯面板",
     "version": "版本",
     "warning": "偵錯模式可能影響效能"
@@ -1958,7 +1958,7 @@
     "sectionCookie": "Cookie 使用",
     "sectionCookieBody": "我們使用 Cookie 來記住您的偏好和登入狀態,以提供更好的瀏覽體驗。您可以在瀏覽器設定中停用 Cookie,但部分功能可能無法正常使用。",
     "sectionData": "資料收集",
-    "sectionDataBody": "我們收集您在使用本平台過程中主動提供的資訊,包括帳號資訊、學習紀錄、互動內容等,用於為您提供個人化服務和改進產品體驗。",
+    "sectionDataBody": "我們收集您在使用本平臺過程中主動提供的資訊,包括帳號資訊、學習紀錄、互動內容等,用於為您提供個人化服務和改進產品體驗。",
     "sectionThirdParty": "第三方共用",
     "sectionThirdPartyBody": "我們不會出售您的個人資訊。在法律要求或為您提供服務所必要的情況下,我們可能與可信的合作夥伴共用必要的資訊,但我們會確保其遵守同等嚴格的資料保護標準。",
     "subtitle": "我們重視您的隱私",
