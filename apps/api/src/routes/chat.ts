@@ -104,8 +104,10 @@ const updateConversationSchema = z.object({
 const createMessageSchema = z
   .object({
     content: z.string().min(1, '消息内容不能为空'),
-    // 客户端只能创建 user 消息,assistant/system 由后端 Worker/AI 创建
-    // 兼容旧前端:未传 role 默认 user,传 assistant/system 则忽略改为 user
+    // role 白名单:user(用户输入)/ assistant(斜杠命令 skill 结果等本地生成的 AI 文本)。
+    // 主 chat 流的 assistant 消息由 ai-callback worker 权威持久化(带扣费/幂等),
+    // 前端只在无 LLM 流的 skill 场景(如 /wechat-article)直接写 assistant,需登录 + 会话归属校验。
+    // system 仍被拒绝:允许客户端持久化 system 消息等于开放历史上下文注入通道(见下方 refine)。
     role: z.enum(['user', 'assistant', 'system']).optional(),
     tokens: z.number().int().nonnegative().optional(),
     metadata: z.unknown().optional(),
@@ -113,13 +115,14 @@ const createMessageSchema = z
   })
   .refine(
     (data) => {
-      // 强制客户端只能写 user 消息
-      if (data.role && data.role !== 'user') {
+      // 强制拒绝 system:system 消息会进入后续 LLM 上下文(repairMessages 历史),
+      // 客户端可持久化 system 即可实施 prompt 注入,必须服务端独占。
+      if (data.role === 'system') {
         return false
       }
       return true
     },
-    { message: '客户端只能创建 user 消息,assistant 消息由 AI 自动创建' },
+    { message: '客户端不能创建 system 消息' },
   )
 
 const paginationSchema = z.object({
