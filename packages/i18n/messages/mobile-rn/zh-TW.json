@@ -456,18 +456,6 @@
     "openNow": "一鍵開通",
     "agreementHint": "開通即表示同意《開發者服務協議》"
   },
-  "devEnter": {
-    "error": {
-      "nameRequired": "請輸入開發者名稱",
-      "contactRequired": "請輸入聯絡方式",
-      "introMin": "簡介至少 10 個字元",
-      "agreeRequired": "請先同意開發者協議"
-    },
-    "success": {
-      "title": "提交成功",
-      "message": "申請已提交,審核結果將在 3 個工作日內通知"
-    }
-  },
   "liveHost": {
     "error": {
       "titleRequired": "請輸入直播標題",
@@ -783,8 +771,7 @@
     "rating": "評分",
     "skillsTitle": "技能特長",
     "worksTitle": "代表作品",
-    "empty": "暫無作品",
-    "loadFailed": "載入名片失敗"
+    "empty": "暫無作品"
   },
   "certApply": {
     "title": "講師認證",
@@ -1284,8 +1271,7 @@
     "description": "職位描述",
     "requirements": "任職要求",
     "applyNow": "立即報名",
-    "appliedWaiting": "已報名,等待審核",
-    "loadFailed": "載入招聘失敗"
+    "appliedWaiting": "已報名,等待審核"
   },
   "referrer": {
     "title": "推薦人",

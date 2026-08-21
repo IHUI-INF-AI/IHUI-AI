@@ -456,18 +456,6 @@
     "openNow": "一键开通",
     "agreementHint": "开通即表示同意《开发者服务协议》"
   },
-  "devEnter": {
-    "error": {
-      "nameRequired": "请输入开发者名称",
-      "contactRequired": "请输入联系方式",
-      "introMin": "简介至少 10 个字符",
-      "agreeRequired": "请先同意开发者协议"
-    },
-    "success": {
-      "title": "提交成功",
-      "message": "申请已提交,审核结果将在 3 个工作日内通知"
-    }
-  },
   "liveHost": {
     "error": {
       "titleRequired": "请输入直播标题",
@@ -783,8 +771,7 @@
     "rating": "评分",
     "skillsTitle": "技能特长",
     "worksTitle": "代表作品",
-    "empty": "暂无作品",
-    "loadFailed": "加载名片失败"
+    "empty": "暂无作品"
   },
   "certApply": {
     "title": "讲师认证",
@@ -1284,8 +1271,7 @@
     "description": "职位描述",
     "requirements": "任职要求",
     "applyNow": "立即报名",
-    "appliedWaiting": "已报名,等待审核",
-    "loadFailed": "加载招聘失败"
+    "appliedWaiting": "已报名,等待审核"
   },
   "referrer": {
     "title": "推荐人",
