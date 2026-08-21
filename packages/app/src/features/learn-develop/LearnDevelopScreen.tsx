@@ -1,14 +1,29 @@
 import { useMemo } from 'react'
-import { View, Text, Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native'
+import {
+  View,
+  Text,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { LearnDevelopScreenProps } from '../../types'
+import type { LearnDevelopEntry, LearnDevelopScreenProps } from '../../types'
 
-export type { LearnDevelopScreenProps }
+export type { LearnDevelopEntry, LearnDevelopScreenProps }
 
+/**
+ * LearnDevelopScreen 学习导航页(共享层,平台无关 UI)
+ *
+ * 由端侧 wrapper 通过 props 注入真实学习功能入口(课程星球/学习计划/知识星球等卡片)与跳转,
+ * 不再是「课程星球正在开发中」占位桩。卡片列表仅渲染端侧传入的 entries。
+ */
 export function LearnDevelopScreen({
   t,
   onBack,
   onContact,
+  entries = [],
   colorScheme = 'light',
 }: LearnDevelopScreenProps) {
   const tk = getTokens(colorScheme)
@@ -22,32 +37,42 @@ export function LearnDevelopScreen({
         </Pressable>
         <Text style={styles.title}>{t('learnDevelop.title', { fallback: '学习开发' })}</Text>
       </View>
-      <View style={styles.body}>
-        <View style={styles.card}>
-          <View style={styles.cardGradientTop} />
-          <View style={styles.cardGradientBottom} />
-          <View style={styles.cardContent}>
-            <View style={styles.benefitsList}>
-              <Text style={styles.benefitText}>
-                {t('learnDevelop.comingSoon', { fallback: '课程星球正在开发中' })}
-              </Text>
-            </View>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.grid}>
+          {entries.map((entry: LearnDevelopEntry) => (
             <Pressable
-              style={({ pressed }) => [
-                styles.detailsButton,
-                pressed ? styles.detailsButtonPressed : null,
-              ]}
-              onPress={onContact}
+              key={entry.title}
+              style={({ pressed }) => [styles.entryCard, pressed ? styles.entryCardPressed : null]}
+              onPress={entry.onPress}
               accessibilityRole="button"
-              accessibilityLabel={t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+              accessibilityLabel={entry.title}
             >
-              <Text style={styles.detailsButtonText}>
-                {t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+              <Text style={styles.entryIcon}>{entry.icon}</Text>
+              <Text style={styles.entryTitle} numberOfLines={1}>
+                {entry.title}
+              </Text>
+              <Text style={styles.entryDesc} numberOfLines={2}>
+                {entry.desc}
               </Text>
             </Pressable>
-          </View>
+          ))}
         </View>
-      </View>
+        {onContact ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.detailsButton,
+              pressed ? styles.detailsButtonPressed : null,
+            ]}
+            onPress={onContact}
+            accessibilityRole="button"
+            accessibilityLabel={t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+          >
+            <Text style={styles.detailsButtonText}>
+              {t('learnDevelop.contactLabel', { fallback: '直接联系李总' })}
+            </Text>
+          </Pressable>
+        ) : null}
+      </ScrollView>
     </View>
   )
 }
@@ -64,63 +89,32 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     backText: { fontSize: 16, color: tk.text.medium } as TextStyle,
     title: { fontSize: 20, fontWeight: '600', color: tk.text.primary } as TextStyle,
-    body: {
-      flex: 1,
-      backgroundColor: '#cbeaf1',
+    scrollContent: { paddingHorizontal: 10, paddingVertical: 12, paddingBottom: 24 } as ViewStyle,
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 } as ViewStyle,
+    entryCard: {
+      width: '47%',
+      backgroundColor: tk.surface.light,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      padding: 14,
+      gap: 6,
       alignItems: 'center',
     } as ViewStyle,
-    card: {
-      width: '90%',
-      height: 200,
-      marginTop: 75,
-      borderRadius: 15,
-      overflow: 'hidden',
-      elevation: 2,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.05,
-      shadowRadius: 6,
-    } as ViewStyle,
-    cardGradientTop: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 70,
-      backgroundColor: '#FFE09E',
-    } as ViewStyle,
-    cardGradientBottom: {
-      position: 'absolute',
-      top: 70,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: '#FFFFFF',
-    } as ViewStyle,
-    cardContent: {
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      alignItems: 'center',
-    } as ViewStyle,
-    benefitsList: {
-      width: '80%',
-      height: '60%',
-      marginTop: 50,
-      marginBottom: 20,
-      alignItems: 'center',
-      justifyContent: 'center',
-    } as ViewStyle,
-    benefitText: {
-      fontSize: 25,
-      color: '#333333',
+    entryCardPressed: { backgroundColor: tk.surface.muted } as ViewStyle,
+    entryIcon: { fontSize: 32 } as TextStyle,
+    entryTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
+    entryDesc: {
+      fontSize: 14,
+      color: tk.text.tertiary,
       textAlign: 'center',
+      lineHeight: 16,
     } as TextStyle,
     detailsButton: {
+      alignSelf: 'center',
       width: 187,
       height: 38,
+      marginTop: 24,
       borderRadius: 30,
       alignItems: 'center',
       justifyContent: 'center',
@@ -131,13 +125,7 @@ function createStyles(tk: AppThemeTokens) {
       shadowOpacity: 0.4,
       shadowRadius: 5,
     } as ViewStyle,
-    detailsButtonPressed: {
-      opacity: 0.8,
-    } as ViewStyle,
-    detailsButtonText: {
-      fontSize: 16,
-      fontWeight: '700',
-      color: '#FFFFFF',
-    } as TextStyle,
+    detailsButtonPressed: { opacity: 0.8 } as ViewStyle,
+    detailsButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' } as TextStyle,
   })
 }
