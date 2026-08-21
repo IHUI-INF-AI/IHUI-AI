@@ -1,12 +1,16 @@
 /**
  * RankingDetailScreen 排行榜详情(mobile-rn 端 wrapper)
  *
- * 保留 RN 特定逻辑(导航/路由/mock 数据/Drawer),UI 委托给 @ihui/rn-app 共享组件。
+ * 保留 RN 特定逻辑(导航/路由/Drawer),UI 委托给 @ihui/rn-app 共享组件。
+ * 2026-08-21:对齐原版"列表页透传"模式(Uniapp onLoad options.data),
+ * 详情数据由列表页 RankingScreen 传入完整 RankingItem(route.params.item),
+ * 历史榜单 Drawer 会话改用真实 listConversations API(替代原 MOCK_HISTORY)。
  */
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Alert, StyleSheet, View } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { listConversations, type ConversationDetail } from '@ihui/api-client'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { RankingDetailScreen } from '@ihui/rn-app'
@@ -17,32 +21,43 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { useI18n } from '../i18n'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
-
-// mock 详情(getRankingDetail API 暂无,真实场景用 route.params.id 请求)
-const MOCK_DETAIL = {
-  avatar: '',
-  title: '智汇AI助手',
-  rank: 3,
-  organization: '智汇社',
-  attention: 1280,
-  context: '专注于知识问答与办公提效的通用 AI 助手,支持多轮对话与文档解析。',
-}
-
-// mock 历史排行榜列表(映射为 Drawer 会话项)
-const MOCK_HISTORY: DrawerConversationItem[] = [
-  { id: 'h1', title: '本周榜单 · 通用助手', createdAt: Date.now() },
-  { id: 'h2', title: '上周榜单 · 通用助手', createdAt: Date.now() - 86400000 },
-  { id: 'h3', title: '本月榜单 · 通用助手', createdAt: Date.now() - 86400000 * 8 },
-]
+type RankingDetailRouteProp = RouteProp<RootStackParamList, 'RankingDetail'>
 
 export default function RankingDetailScreenWrapper() {
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+  const route = useRoute<RankingDetailRouteProp>()
+  const { item } = route.params
+  const { t } = useI18n()
   const [drawerVisible, setDrawerVisible] = useState(false)
-  const [history, setHistory] = useState<DrawerConversationItem[]>(MOCK_HISTORY)
+  const [history, setHistory] = useState<DrawerConversationItem[]>([])
+
+  // 历史榜单会话:真实对话列表(对齐原版 loadHistoryChat → getModelChat)
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await listConversations({ page: 1, pageSize: 20 })
+      if (!res.success) {
+        setHistory([])
+        return
+      }
+      const list = (res.data?.conversations ?? []).map((c: ConversationDetail) => ({
+        id: c.id,
+        title: c.title || '未命名对话',
+        createdAt: c.createdAt ? new Date(c.createdAt).getTime() : Date.now(),
+      }))
+      setHistory(list)
+    } catch {
+      setHistory([])
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadHistory()
+  }, [loadHistory])
 
   const openDrawer = () => setDrawerVisible(true)
   const closeDrawer = () => setDrawerVisible(false)
@@ -77,7 +92,7 @@ export default function RankingDetailScreenWrapper() {
         break
     }
   }
-  // 历史榜单会话 → MessageChat(对齐 ChatScreen 会话跳转,替代 Alert 占位)
+  // 历史榜单会话 → MessageChat(对齐 ChatScreen 会话跳转)
   const onSelectConversation = (convId: string) => {
     closeDrawer()
     const conv = history.find((c) => c.id === convId)
@@ -89,24 +104,36 @@ export default function RankingDetailScreenWrapper() {
   const onOpenMessages = () => navigation.navigate('MessageCenter')
   const onGoHome = () => navigation.navigate('Main', { screen: 'HomeMain' })
 
+  // 详情数据(列表页透传;无 item 时回退零值,不展示伪造内容)
+  const detail = item
+    ? {
+        avatar: item.avatar ?? null,
+        title: item.nickname,
+        rank: item.rank,
+        points: item.points,
+        studyHours: item.studyHours,
+        level: 0,
+      }
+    : {
+        avatar: null,
+        title: '排行榜',
+        rank: 0,
+        points: 0,
+        studyHours: 0,
+        level: 0,
+      }
+
   return (
     <View style={styles.container}>
       <NavBar
-        title={MOCK_DETAIL.title}
+        title={detail.title}
         onBack={() => navigation.goBack()}
         rightActions={[{ icon: '☰', label: '历史榜单', onPress: openDrawer }]}
       />
       <RankingDetailScreen
-        t={(key: string) => key}
+        t={t}
         onBack={() => navigation.goBack()}
-        detail={{
-          avatar: MOCK_DETAIL.avatar,
-          title: MOCK_DETAIL.title,
-          rank: MOCK_DETAIL.rank,
-          organization: MOCK_DETAIL.organization,
-          attention: MOCK_DETAIL.attention,
-          context: MOCK_DETAIL.context,
-        }}
+        detail={detail}
         history={history}
         drawerVisible={drawerVisible}
         onDrawerVisibleChange={setDrawerVisible}
