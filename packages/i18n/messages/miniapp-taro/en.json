@@ -136,14 +136,7 @@
       "subtitle": "{n} courses"
     },
     "ratingTitle": "Rate Course",
-    "ratingLabels": [
-      "",
-      "Very Bad",
-      "Poor",
-      "Fair",
-      "Good",
-      "Excellent"
-    ],
+    "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
     "ratingPlaceholder": "Please rate",
     "ratingDescLabel": "Write your review",
     "ratingInputPlaceholder": "How was the course? Share your thoughts...",
@@ -550,12 +543,7 @@
       "title": "AI Voice Chat"
     },
     "image": {
-      "examples": [
-        "A cute cat",
-        "Sunset mountain landscape",
-        "Futuristic city",
-        "Abstract art"
-      ],
+      "examples": ["A cute cat", "Sunset mountain landscape", "Futuristic city", "Abstract art"],
       "emptyHint": "Describe an image to generate",
       "tryThese": "Try these",
       "placeholder": "Describe the image you want",
@@ -569,14 +557,7 @@
       "favorited": "Favorited",
       "history": "History",
       "empty": "No generations yet",
-      "styles": [
-        "Realistic",
-        "Anime",
-        "Oil Painting",
-        "Watercolor",
-        "3D",
-        "Pixel"
-      ],
+      "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"],
       "generateFailed": "Generation failed, please retry",
       "downloadSuccess": "Saved to album",
       "downloadFailed": "Download failed, please retry",
@@ -1080,10 +1061,7 @@
       "totalScoreValue": "{n} points"
     },
     "answer": {
-      "judgmentOptions": [
-        "True",
-        "False"
-      ],
+      "judgmentOptions": ["True", "False"],
       "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
@@ -1148,12 +1126,15 @@
     },
     "plan": {
       "openVipTitle": "Open VIP membership",
+      "openVipContent": "Go to activate VIP membership and join the commission plan?",
       "confirm": "Confirm",
       "cancel": "Cancel",
       "rule1": "Join the commission plan after becoming a VIP member",
       "rule2": "Invite friends to become members and you will earn 20% commission of their membership fee",
+      "rule3": "Commission is automatically settled to your account within 24 hours after your friend's payment succeeds",
       "rule4": "Withdraw to WeChat or Alipay when balance reaches 100 CNY",
       "introTitle": "Invite friends, earn commission",
+      "introDesc": "Join our commission plan, invite friends to register as members, and you will earn 20% commission on their membership fees",
       "totalEarnings": "Total earnings",
       "inviteCount": "Invites",
       "rulesTitle": "Commission rules",
@@ -1176,6 +1157,9 @@
     "orderList": {
       "loading": "Loading…",
       "empty": "No orders",
+      "totalCount": "Total",
+      "orders": "orders",
+      "commissionTotal": "Total commission",
       "product": "Product",
       "orderNo": "Order No.",
       "amount": "Amount",
@@ -2060,18 +2044,8 @@
         "Help Request",
         "Experience Summary"
       ],
-      "levels": [
-        "Beginner",
-        "Intermediate",
-        "Advanced",
-        "Expert"
-      ],
-      "budgets": [
-        "Under 1000 CNY",
-        "1000-5000 CNY",
-        "5000-10000 CNY",
-        "Over 10000 CNY"
-      ],
+      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
+      "budgets": ["Under 1000 CNY", "1000-5000 CNY", "5000-10000 CNY", "Over 10000 CNY"],
       "selectAtLeast": "Please select at least one",
       "saved": "Saved",
       "directionTitle": "Learning direction",
@@ -2459,11 +2433,7 @@
         "Help Request",
         "Experience Summary"
       ],
-      "visibilityOptions": [
-        "Public",
-        "Friends Only",
-        "Private"
-      ],
+      "visibilityOptions": ["Public", "Friends Only", "Private"],
       "enterTitle": "Please enter a title",
       "enterContent": "Please enter content",
       "published": "Published",
