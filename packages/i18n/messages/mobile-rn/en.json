@@ -532,7 +532,8 @@
       "startTitle": "Start Workflow",
       "stopMessage": "Are you sure you want to stop \"{name}\"?",
       "startMessage": "Are you sure you want to start \"{name}\"?",
-      "success": "Operation successful"
+      "success": "Operation successful",
+      "failed": "Operation failed"
     },
     "actionEdit": "Edit",
     "actionStart": "Start",
@@ -545,6 +546,16 @@
     "running": "Running",
     "searchPlaceholder": "Search models",
     "stopped": "Stopped",
+    "createSuccess": "Workflow created",
+    "createTitle": "Create Workflow",
+    "descLabel": "Description",
+    "descPlaceholder": "Enter workflow description (optional)",
+    "editSuccess": "Changes saved",
+    "editTitle": "Edit Workflow",
+    "nameLabel": "Name",
+    "namePlaceholder": "Enter workflow name",
+    "nameRequired": "Please enter a name",
+    "operationFailed": "Operation failed, please try again",
     "title": "n8n Models"
   },
   "modelPlaza": {
