@@ -145,3 +145,60 @@ export interface DayMonthSummary {
 export async function getDayMonthSummary(): Promise<ApiResult<DayMonthSummary>> {
   return fetchApi<DayMonthSummary>('/api/finance/commission/day-month-summary')
 }
+
+// ============================================================================
+// 分销团队(对齐后端 /api/distribution/team/*,Uniapp distribution_personnel_list)
+// ============================================================================
+
+export interface TeamStats {
+  totalMembers: number
+  activeMembers: number
+  directCount: number
+  indirectCount: number
+  totalContribution: number
+  vipInvitees: number
+  monthNew: number
+}
+
+export interface TeamMemberItem {
+  id: string
+  nickname: string
+  avatar: string | null
+  level: number
+  joinDate: string
+  contribution: number
+  status: 'active'
+  relation: 'direct'
+  transactionVolume: number
+  commission: number
+  orderNum: number
+  phone: string | null
+}
+
+export interface TeamMemberDetail {
+  id: string
+  nickname: string
+  phone: string | null
+  avatar: string | null
+  joinedAt: string
+  transactionVolume: number
+  commission: number
+  orderNum: number
+}
+
+export async function getTeamStats(): Promise<ApiResult<TeamStats>> {
+  return fetchApi<TeamStats>('/distribution/team/stats')
+}
+
+export async function getTeamMembers(
+  params: {
+    page?: number
+    pageSize?: number
+  } = {},
+): Promise<ApiResult<PageData<TeamMemberItem>>> {
+  return fetchApi<PageData<TeamMemberItem>>(`/distribution/team/members${buildQs(params)}`)
+}
+
+export async function getTeamMemberDetail(id: string): Promise<ApiResult<TeamMemberDetail | null>> {
+  return fetchApi<TeamMemberDetail | null>(`/distribution/team/members/${id}`)
+}
