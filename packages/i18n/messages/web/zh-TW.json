@@ -12635,6 +12635,8 @@
       "tagNews": "資訊",
       "title": "最新資訊",
       "titleEn": "LATEST NEWS",
+      "error": "資訊載入失敗,請稍後重試",
+      "retry": "重試",
       "viewMore": "查看更多"
     },
     "marquee": {
