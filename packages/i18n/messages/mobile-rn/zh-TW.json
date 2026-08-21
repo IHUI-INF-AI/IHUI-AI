@@ -532,7 +532,8 @@
       "startTitle": "啟動工作流",
       "stopMessage": "確定停止「{name}」嗎?",
       "startMessage": "確定啟動「{name}」嗎?",
-      "success": "操作成功"
+      "success": "操作成功",
+      "failed": "操作失敗"
     },
     "actionEdit": "編輯",
     "actionStart": "啟動",
@@ -545,6 +546,16 @@
     "running": "執行中",
     "searchPlaceholder": "搜尋模型",
     "stopped": "已停止",
+    "createSuccess": "建立成功",
+    "createTitle": "新增工作流",
+    "descLabel": "描述",
+    "descPlaceholder": "請輸入工作流描述（選填）",
+    "editSuccess": "儲存成功",
+    "editTitle": "編輯工作流",
+    "nameLabel": "名稱",
+    "namePlaceholder": "請輸入工作流名稱",
+    "nameRequired": "請輸入名稱",
+    "operationFailed": "操作失敗，請稍後重試",
     "title": "n8n 模型"
   },
   "modelPlaza": {
