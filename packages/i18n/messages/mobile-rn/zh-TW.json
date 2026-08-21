@@ -1255,7 +1255,10 @@
     "title": "排行榜"
   },
   "rankingDetail": {
-    "rank": "排名"
+    "rank": "排名",
+    "points": "積分",
+    "studyHours": "學習時長",
+    "levelDesc": "等級"
   },
   "realNameAuth": {
     "title": "實名認證",
@@ -1427,7 +1430,8 @@
     "phone": "手機號碼",
     "joinedAt": "加入時間",
     "contact": "聯繫",
-    "viewOrders": "查看訂單"
+    "viewOrders": "查看訂單",
+    "empty": "暫無成員資訊"
   },
   "vip": {
     "subtitle": "開通會員,尊享更多權益",

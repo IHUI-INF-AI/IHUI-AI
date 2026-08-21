@@ -119,6 +119,13 @@ export {
   getWithdrawList,
   requestWithdraw,
   getDayMonthSummary,
+  // 分销团队(2026-08-21 建,TeamScreen/TeamDetailScreen 真实链路)
+  type TeamStats,
+  type TeamMemberItem,
+  type TeamMemberDetail,
+  getTeamStats,
+  getTeamMembers,
+  getTeamMemberDetail,
 } from './endpoints/distribution'
 // 下载量统计 API(2026-08-06 立,sidebar + 详情页下载按钮点击上报)
 export * from './endpoints/downloads'
