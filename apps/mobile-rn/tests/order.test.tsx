@@ -68,6 +68,7 @@ vi.mock('react-native', async () => {
     RefreshControl: () => null,
     useColorScheme: () => 'light',
     StyleSheet: { create: (s: Record<string, unknown>) => s },
+    TextInput: mk('input'),
   }
 })
 
