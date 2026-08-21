@@ -2836,3 +2836,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-21) AiAssistantN8n 无 agentId 复核:实际已是防伪造逻辑(移除消息+toast),仅修正过时注释;需求广场状态模型复核已闭环(status 审核/taskStatus 进度双字段分离,无需改动)
 - [x] ✅(2026-08-21) i18n:rankingDetail 用户化 keys + teamDetail.empty 补 5 语言;wrapper t 从 `(key)=>key` 改真实 useI18n().t(修复共享组件显示英文 key);死 key 扫描器(--target=mobile-rn)识别 packages/app 共享组件引用,0 死 key
 - [x] ✅(2026-08-21) H33:mobile-rn token 漂移修复 — check-rn-global-css-sync 发现 `.dark` block `--color-accent` 值不一致(mobile-rn `hsl(0 0% 17%)` vs tokens.css `hsl(0 0% 24%)`,tokens.css 2026-07-31 更新);修复 `apps/mobile-rn/global.css:86` 同步为 `hsl(0 0% 24%)`;验证:guardian exit 0(50/50 变量一致)+ typecheck exit 0+ vitest 252/252 全绿
+
+### 测试基建 + i18n 死 key + Uniapp 未迁移页面审计(2026-08-21)
+
+- [x] ✅(2026-08-21) agent-screen.test.tsx 补充 `Image`/`TextInput`/`PanResponder` mock(根因:`GlobalFloatBox.tsx` 使用 `<Image source={ICON_ARROW}>` 但 react-native mock 未导出);vitest 252/252 全绿
+- [x] ✅(2026-08-21) i18n 死 key 清理:mobile-rn 5 语言文件删除 devEnter(6 keys)+carte.loadFailed(1)+recruitment.loadFailed(1)=8 keys;miniapp-taro/zh-CN.json 删除 news.views(1 key);脚本 `scripts/fix-test-and-i18n.mjs` 执行通过
+- [ ] 🔲(2026-08-21) Uniapp 未迁移 Screen 清单(9 个,待后续批次实现):AiMainScreen/CourseMainScreen/HomeMainScreen/LiveMainScreen/MainScreen/ProfileMainScreen/RechargeScreen/TaskDispatchScreen/WorkPanelScreen(来源:`apps/mobile-rn/scripts/uniapp_diff_audit.py` 审计 + `report/uniapp_diff_audit.json`)

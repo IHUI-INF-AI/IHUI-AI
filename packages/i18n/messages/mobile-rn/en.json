@@ -456,18 +456,6 @@
     "openNow": "Activate Now",
     "agreementHint": "By activating, you agree to the Developer Service Agreement"
   },
-  "devEnter": {
-    "error": {
-      "nameRequired": "Please enter developer name",
-      "contactRequired": "Please enter contact info",
-      "introMin": "Intro must be at least 10 characters",
-      "agreeRequired": "Please accept the developer agreement first"
-    },
-    "success": {
-      "title": "Submitted Successfully",
-      "message": "Application submitted. Review result will be notified within 3 business days."
-    }
-  },
   "liveHost": {
     "error": {
       "titleRequired": "Please enter a stream title",
@@ -783,8 +771,7 @@
     "rating": "Rating",
     "skillsTitle": "Skills",
     "worksTitle": "Featured Works",
-    "empty": "No works yet",
-    "loadFailed": "Failed to load business card"
+    "empty": "No works yet"
   },
   "certApply": {
     "title": "Lecturer Certification",
@@ -1284,8 +1271,7 @@
     "description": "Job Description",
     "requirements": "Requirements",
     "applyNow": "Apply Now",
-    "appliedWaiting": "Applied, under review",
-    "loadFailed": "Failed to load recruitment"
+    "appliedWaiting": "Applied, under review"
   },
   "referrer": {
     "title": "Referrer",
