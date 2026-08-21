@@ -532,7 +532,8 @@
       "startTitle": "ワークフローを開始",
       "stopMessage": "「{name}」を停止しますか?",
       "startMessage": "「{name}」を開始しますか?",
-      "success": "操作成功"
+      "success": "操作成功",
+      "failed": "操作に失敗しました"
     },
     "actionEdit": "編集",
     "actionStart": "開始",
@@ -545,6 +546,16 @@
     "running": "実行中",
     "searchPlaceholder": "モデルを検索",
     "stopped": "停止済み",
+    "createSuccess": "作成しました",
+    "createTitle": "ワークフローを作成",
+    "descLabel": "説明",
+    "descPlaceholder": "ワークフローの説明を入力（任意）",
+    "editSuccess": "保存しました",
+    "editTitle": "ワークフローを編集",
+    "nameLabel": "名前",
+    "namePlaceholder": "ワークフロー名を入力",
+    "nameRequired": "名前を入力してください",
+    "operationFailed": "操作に失敗しました。もう一度お試しください",
     "title": "n8n モデル"
   },
   "modelPlaza": {
