@@ -1084,9 +1084,32 @@ export function useChat(): UseChatReturn {
   // P3 修复:切换会话时清空 lastSentContentRef/lastSentAnswerRef,释放大文本引用
   // (用户输入可能含大段粘贴代码,ref 不会自动释放;retry toast 在切换会话后不再有意义)
   const conversationId = useChatStore((s) => s.conversationId)
+  // 2026-08-21 修复(C3):流代际计数。每次新流开始 ++;旧流 finally 据此判断
+  // 自己是否仍是最新流,避免被 abort 的旧流把新流/新会话的 isStreaming 错误置 false。
+  const streamGenerationRef = React.useRef(0)
+  // 2026-08-21 修复(C3):当前活跃流绑定的会话 id,用于切换会话时识别并 abort 旧流
+  const streamConversationRef = React.useRef<string | null>(null)
   React.useEffect(() => {
-    lastSentContentRef.current = ''
-    lastSentAnswerRef.current = null
+    // 2026-08-21 修复(C5):仅在"离开流绑定的会话"时清空重试上下文。
+    // 原缺陷:sendMessage 新建会话也会触发 conversationId 变化(null → newId),
+    // 无条件清空会把刚存入的 lastSentContentRef 抹掉,导致新会话里流失败后
+    // retry 按钮调 sendMessage('') 静默 return,重试永远无效。
+    // 判定:活跃流绑定会话 === 新会话 id(sendMessage 刚创建)→ 保留;否则清空。
+    const streamConv = streamConversationRef.current
+    const leftStreamConversation = !abortRef.current || streamConv !== conversationId
+    if (leftStreamConversation) {
+      lastSentContentRef.current = ''
+      lastSentAnswerRef.current = null
+    }
+    // 2026-08-21 修复(C3):切换会话时终止旧会话进行中的流。
+    // 原缺陷:旧流不终止 → ① 全局 isStreaming 锁死新会话输入(重连时最长数分钟)
+    // ② 旧流 token 持续消耗计费但无处显示 ③ 旧流 onAgentDelta 持续写入全局
+    // subAgentActivities,污染新会话的 SubAgent 面板。
+    // abort 后走 catch 的 AbortError 静默分支(非超时 abort 不报错),finally 由
+    // 代际守卫跳过全局状态清理,不影响新会话。
+    if (abortRef.current && streamConv !== conversationId) {
+      abortRef.current.abort()
+    }
   }, [conversationId])
 
   const sendMessage = React.useCallback(
@@ -1209,7 +1232,13 @@ export function useChat(): UseChatReturn {
           .getState()
           .messages.findLast((mm) => mm.role === 'assistant' && mm.content)
         if (lastAssistant) {
-          void persistMessageSafe(slashCid, lastAssistant.content, 'assistant', undefined, lastAssistant.reasoning)
+          void persistMessageSafe(
+            slashCid,
+            lastAssistant.content,
+            'assistant',
+            undefined,
+            lastAssistant.reasoning,
+          )
         }
         sendInFlightRef.current = false
         return true
@@ -1286,6 +1315,11 @@ export function useChat(): UseChatReturn {
 
       const controller = new AbortController()
       abortRef.current = controller
+      // 2026-08-21 修复(C2/C3):记录流代际与绑定会话。
+      // - 代际:旧流被 abort 后其 finally 跳过全局清理,防止污染新流状态
+      // - 绑定会话:切换会话的 effect 据此 abort 旧流;onCompaction 据此丢弃过期压缩结果
+      const streamGeneration = ++streamGenerationRef.current
+      streamConversationRef.current = conversationId
 
       // #13 首 token 超时区分 reasoning(2026-07-25 立):
       // 双阶超时适配 reasoning 模型(o1/R1)长思考场景:
@@ -1382,6 +1416,10 @@ export function useChat(): UseChatReturn {
           // 避免某些后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
           stream: true,
           onCompaction: async (info) => {
+            // 2026-08-21 修复(C2):压缩结果只允许写回发起流的会话。
+            // 原缺陷:流式期间用户切换会话后,setMessages 会用旧会话的压缩消息
+            // 整体覆盖新会话的消息列表(消息串会话)。
+            if (useChatStore.getState().conversationId !== conversationId) return
             // 显示底部压缩状态栏(2026-08-16 立)
             useChatStore.getState().setCompactionStatus({
               phase: 'done',
@@ -1719,19 +1757,21 @@ export function useChat(): UseChatReturn {
         contentBatcher.flush()
         reasoningBatcher.flush()
         agentBatcher.flushAll()
-        // P2: 流式完成后持久化 assistant 消息(含 reasoning),后台 fire-and-forget 不阻塞
-        ;(async () => {
-          const finalMsg = useChatStore.getState().messages.find((m) => m.id === assistantId)
-          if (finalMsg && finalMsg.content) {
-            void persistMessageSafe(conversationId, finalMsg.content, 'assistant', undefined, finalMsg.reasoning)
-          }
-        })()
+        // assistant 消息持久化由后端 ai-callback worker 权威负责(带扣费/幂等/WS 推送):
+        // 前端 streamChat metadata 已携带 conversationId/userId/messageId,
+        // ai-service 推理完成后 _fire_callback → /api/ai/callback → worker 落库。
+        // 2026-08-21 修复:删除此处前端持久化(曾每轮必现 400 误报 toast)。
         contentBatcher.cancel()
         reasoningBatcher.cancel()
         agentBatcher.cancelAll()
-        abortRef.current = null
-        useChatStore.getState().setStreaming(false)
-        useChatStore.getState().markAllAgentStreamsDone()
+        // 2026-08-21 修复(C3):代际守卫。仅当本流仍是最新流时才清理全局状态,
+        // 防止被"切换会话"abort 的旧流把新流/新会话的 isStreaming 错误置 false、
+        // 或把新会话正在跑的 agent 流误标完成。batcher 为流私有,无需守卫。
+        if (streamGenerationRef.current === streamGeneration) {
+          abortRef.current = null
+          useChatStore.getState().setStreaming(false)
+          useChatStore.getState().markAllAgentStreamsDone()
+        }
         // 2026-08-06 修复:发送完成(成功/异常)释放 in-flight 锁,允许下一次发送
         sendInFlightRef.current = false
       }
@@ -1747,16 +1787,23 @@ export function useChat(): UseChatReturn {
 
   // 用户回答 AI 主动提问:调 /chat/answer 续流,不中断对话
   // 后端会把 answer 作为新 user 消息 append 到 messages 末尾,继续生成
+  // 2026-08-21 修复(C4):增加 opts.fromRetry —— 原缺陷:流式开始前已
+  // clearPendingQuestion,失败后 toast 的 retry 按钮再调 sendAnswer 时
+  // pending 已为 null,入口直接 return,重试永远无效(用户答案无法恢复)。
+  // fromRetry 时从 lastSentAnswerRef 恢复 questionId,绕过 pending 检查。
   const sendAnswer = React.useCallback(
-    async (answer: string) => {
+    async (answer: string, opts?: { fromRetry?: boolean }) => {
       const trimmed = answer.trim()
       if (!trimmed) return
       const store = useChatStore.getState()
       const pending = store.pendingQuestion
-      if (!pending || store.isStreaming) return
+      if ((!pending && !opts?.fromRetry) || store.isStreaming) return
+      // fromRetry 时 pending 已被清除,questionId 从 lastSentAnswerRef 恢复
+      const questionId = pending?.questionId ?? lastSentAnswerRef.current?.questionId
+      if (!questionId) return
 
       // #10 入口存储 lastSentAnswerRef(2026-07-25 立):catch 块 retry 按钮用
-      lastSentAnswerRef.current = { answer: trimmed, questionId: pending.questionId }
+      lastSentAnswerRef.current = { answer: trimmed, questionId }
 
       // 立即关闭弹窗,避免重复提交
       store.clearPendingQuestion()
@@ -1787,6 +1834,10 @@ export function useChat(): UseChatReturn {
 
       const controller = new AbortController()
       abortRef.current = controller
+      // 2026-08-21 修复(C2/C3):流代际与绑定会话(与 sendMessage 对称)
+      const streamGeneration = ++streamGenerationRef.current
+      const convAtStart = store.conversationId
+      streamConversationRef.current = convAtStart
 
       // #13 首 token 超时区分 reasoning(2026-07-25 立,与 sendMessage 对称)
       // 2026-07-27 修复:15s → 30s(与 sendMessage 同步,防冷启动误 abort)
@@ -1853,7 +1904,8 @@ export function useChat(): UseChatReturn {
           messages: history,
           path: '/ai/chat/answer',
           extraBody: {
-            questionId: pending.questionId,
+            // 2026-08-21 修复(C4):fromRetry 时 pending 为 null,用入口恢复的 questionId
+            questionId,
             answer: trimmed,
             // 模式透传(2026-07-22 立,对标 Trae Plan/Spec):build/plan/review/spec
             // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已废弃,仅传 mode
@@ -1871,6 +1923,8 @@ export function useChat(): UseChatReturn {
           workspaceContext,
           contextLimit: answerContextLimit,
           onCompaction: async (info) => {
+            // 2026-08-21 修复(C2):压缩结果只允许写回发起流的会话(与 sendMessage 对称)
+            if (useChatStore.getState().conversationId !== convAtStart) return
             // 显示底部压缩状态栏(2026-08-16 立)
             useChatStore.getState().setCompactionStatus({
               phase: 'done',
@@ -2108,7 +2162,7 @@ export function useChat(): UseChatReturn {
                   label: t('retry'),
                   onClick: () => {
                     const last = lastSentAnswerRef.current
-                    if (last) sendAnswer(last.answer)
+                    if (last) sendAnswer(last.answer, { fromRetry: true })
                   },
                 },
               })
@@ -2152,7 +2206,7 @@ export function useChat(): UseChatReturn {
                 label: t('retry'),
                 onClick: () => {
                   const last = lastSentAnswerRef.current
-                  if (last) sendAnswer(last.answer)
+                  if (last) sendAnswer(last.answer, { fromRetry: true })
                 },
               },
             })
@@ -2164,7 +2218,7 @@ export function useChat(): UseChatReturn {
                 label: t('retry'),
                 onClick: () => {
                   const last = lastSentAnswerRef.current
-                  if (last) sendAnswer(last.answer)
+                  if (last) sendAnswer(last.answer, { fromRetry: true })
                 },
               },
             })
@@ -2177,19 +2231,17 @@ export function useChat(): UseChatReturn {
         contentBatcher.flush()
         reasoningBatcher.flush()
         agentBatcher.flushAll()
-        // P2: 流式完成后持久化 assistant 消息(含 reasoning),后台 fire-and-forget 不阻塞
-        ;(async () => {
-          const finalMsg = useChatStore.getState().messages.find((m) => m.id === assistantId)
-          if (finalMsg && finalMsg.content && store.conversationId) {
-            void persistMessageSafe(store.conversationId, finalMsg.content, 'assistant', undefined, finalMsg.reasoning)
-          }
-        })()
+        // assistant 消息持久化由后端 ai-callback worker 权威负责(同 sendMessage finally 注释)。
+        // 2026-08-21 修复:删除此处前端持久化(曾每轮必现 400 误报 toast)。
         contentBatcher.cancel()
         reasoningBatcher.cancel()
         agentBatcher.cancelAll()
-        abortRef.current = null
-        useChatStore.getState().setStreaming(false)
-        useChatStore.getState().markAllAgentStreamsDone()
+        // 2026-08-21 修复(C3):代际守卫(与 sendMessage 对称),旧流不清理新流全局状态
+        if (streamGenerationRef.current === streamGeneration) {
+          abortRef.current = null
+          useChatStore.getState().setStreaming(false)
+          useChatStore.getState().markAllAgentStreamsDone()
+        }
       }
       return
     },
