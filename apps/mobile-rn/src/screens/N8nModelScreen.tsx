@@ -1,8 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getN8nWorkflows, type N8nWorkflow } from '@ihui/api-client'
+import {
+  createN8nWorkflow,
+  getN8nWorkflows,
+  toggleN8nWorkflow,
+  updateN8nWorkflow,
+  type N8nWorkflow,
+} from '@ihui/api-client'
 import {
   N8nModelScreen as SharedN8nModelScreen,
   type N8nModelItem,
@@ -17,6 +32,8 @@ import { rpx } from '../utils/rpx'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 type ViewMode = 'shared' | 'local'
+
+type FormMode = 'create' | 'edit'
 
 function toNumber(v: unknown): number {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0
@@ -68,6 +85,12 @@ export default function N8nModelScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [formVisible, setFormVisible] = useState(false)
+  const [formMode, setFormMode] = useState<FormMode>('create')
+  const [formId, setFormId] = useState('')
+  const [formName, setFormName] = useState('')
+  const [formDesc, setFormDesc] = useState('')
+  const [formSubmitting, setFormSubmitting] = useState(false)
 
   const load = useCallback(async () => {
     setError('')
@@ -98,24 +121,92 @@ export default function N8nModelScreen() {
   }
 
   const handleToggle = (m: N8nModelItem) => {
+    const wf = workflows.find((w) => w.id === m.id)
+    const isActive = wf ? Boolean(wf.active) : m.status === 'running'
     Alert.alert(
-      m.status === 'running' ? t('n8nModel.toggle.stopTitle') : t('n8nModel.toggle.startTitle'),
-      m.status === 'running'
+      isActive ? t('n8nModel.toggle.stopTitle') : t('n8nModel.toggle.startTitle'),
+      isActive
         ? t('n8nModel.toggle.stopMessage', { name: m.name })
         : t('n8nModel.toggle.startMessage', { name: m.name }),
       [
-        { text: t('common.cancel') },
-        { text: t('common.confirm'), onPress: () => Alert.alert(t('n8nModel.toggle.success')) },
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: async () => {
+            try {
+              const res = await toggleN8nWorkflow(m.id, !isActive)
+              if (res.success) {
+                Alert.alert(t('common.hint'), t('n8nModel.toggle.success'))
+                await load()
+              } else {
+                Alert.alert(t('common.hint'), res.error || t('n8nModel.toggle.failed'))
+              }
+            } catch {
+              Alert.alert(t('common.hint'), t('n8nModel.operationFailed'))
+            }
+          },
+        },
       ],
     )
   }
 
+  const openEdit = (m: N8nModelItem) => {
+    setFormMode('edit')
+    setFormId(m.id)
+    setFormName(m.name)
+    setFormDesc(m.desc ?? '')
+    setFormSubmitting(false)
+    setFormVisible(true)
+  }
+
+  const openCreate = () => {
+    setFormMode('create')
+    setFormId('')
+    setFormName('')
+    setFormDesc('')
+    setFormSubmitting(false)
+    setFormVisible(true)
+  }
+
+  const handleFormSubmit = async () => {
+    const name = formName.trim()
+    if (!name) {
+      Alert.alert(t('common.hint'), t('n8nModel.nameRequired'))
+      return
+    }
+    setFormSubmitting(true)
+    try {
+      const input: Partial<N8nWorkflow> = { name, description: formDesc.trim() || undefined }
+      const res =
+        formMode === 'create'
+          ? await createN8nWorkflow(input)
+          : await updateN8nWorkflow(formId, input)
+      if (res.success) {
+        setFormVisible(false)
+        Alert.alert(
+          t('common.hint'),
+          formMode === 'create' ? t('n8nModel.createSuccess') : t('n8nModel.editSuccess'),
+        )
+        await load()
+        if (formMode === 'create' && res.data?.id) {
+          setSelectedIds([res.data.id])
+        }
+      } else {
+        Alert.alert(t('common.hint'), res.error || t('n8nModel.operationFailed'))
+      }
+    } catch {
+      Alert.alert(t('common.hint'), t('n8nModel.operationFailed'))
+    } finally {
+      setFormSubmitting(false)
+    }
+  }
+
   const handleEdit = (m: N8nModelItem) => {
-    Alert.alert(t('common.hint'), `工作流「${m.name}」编辑功能即将上线,敬请期待`)
+    openEdit(m)
   }
 
   const handleCreate = () => {
-    Alert.alert(t('common.hint'), '新建工作流功能即将上线,敬请期待')
+    openCreate()
   }
 
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroup(workflows), [workflows])
@@ -166,7 +257,96 @@ export default function N8nModelScreen() {
           />
         )}
       </View>
+      <WorkflowFormModal
+        visible={formVisible}
+        title={formMode === 'create' ? t('n8nModel.createTitle') : t('n8nModel.editTitle')}
+        name={formName}
+        desc={formDesc}
+        submitting={formSubmitting}
+        onChangeName={setFormName}
+        onChangeDesc={setFormDesc}
+        onCancel={() => setFormVisible(false)}
+        onConfirm={handleFormSubmit}
+      />
     </View>
+  )
+}
+
+interface WorkflowFormModalProps {
+  visible: boolean
+  title: string
+  name: string
+  desc: string
+  submitting: boolean
+  onChangeName: (value: string) => void
+  onChangeDesc: (value: string) => void
+  onCancel: () => void
+  onConfirm: () => void
+}
+
+function WorkflowFormModal({
+  visible,
+  title,
+  name,
+  desc,
+  submitting,
+  onChangeName,
+  onChangeDesc,
+  onCancel,
+  onConfirm,
+}: WorkflowFormModalProps) {
+  const { t } = useI18n()
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalMask}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>{title}</Text>
+          <Text style={styles.modalLabel}>{t('n8nModel.nameLabel')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={name}
+            onChangeText={onChangeName}
+            placeholder={t('n8nModel.namePlaceholder')}
+            placeholderTextColor={tokens.text.tertiary}
+          />
+          <Text style={styles.modalLabel}>{t('n8nModel.descLabel')}</Text>
+          <TextInput
+            style={[styles.modalInput, styles.modalInputMultiline]}
+            value={desc}
+            onChangeText={onChangeDesc}
+            placeholder={t('n8nModel.descPlaceholder')}
+            placeholderTextColor={tokens.text.tertiary}
+            multiline
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnCancel]}
+              onPress={onCancel}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnTextCancel}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.modalBtn,
+                styles.modalBtnConfirm,
+                submitting && styles.modalBtnDisabled,
+              ]}
+              onPress={onConfirm}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={tokens.surface.light} />
+              ) : (
+                <Text style={styles.modalBtnTextConfirm}>{t('common.confirm')}</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   )
 }
 
@@ -203,5 +383,73 @@ const styles = StyleSheet.create({
   },
   viewport: {
     flex: 1,
+  },
+  modalMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    justifyContent: 'center',
+    paddingHorizontal: rpx(40),
+  },
+  modalCard: {
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: rpx(28),
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginBottom: rpx(20),
+    textAlign: 'center',
+  },
+  modalLabel: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+    marginBottom: rpx(8),
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: 8,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(12),
+    fontSize: 14,
+    color: tokens.text.primary,
+    backgroundColor: tokens.surface.muted,
+    marginBottom: rpx(16),
+  },
+  modalInputMultiline: {
+    minHeight: rpx(88),
+    textAlignVertical: 'top',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: rpx(16),
+    marginTop: rpx(8),
+  },
+  modalBtn: {
+    flex: 1,
+    height: rpx(88),
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnCancel: {
+    backgroundColor: tokens.surface.muted,
+  },
+  modalBtnConfirm: {
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  modalBtnDisabled: {
+    opacity: 0.6,
+  },
+  modalBtnTextCancel: {
+    fontSize: 15,
+    color: tokens.text.secondary,
+  },
+  modalBtnTextConfirm: {
+    fontSize: 15,
+    color: tokens.surface.light,
+    fontWeight: '600',
   },
 })
