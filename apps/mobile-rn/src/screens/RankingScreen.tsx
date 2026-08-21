@@ -78,12 +78,13 @@ export function RankingScreen() {
   const rest = list.slice(3)
   const fullItems = useMemo<FullRankingItem[]>(() => toFullRankingItems(list), [list])
 
-  /** 点击排名项 → 跳转排名详情页 */
+  /** 点击排名项 → 跳转排名详情页(对齐原版"列表页透传"模式,传完整 RankingItem) */
   const onItemPress = useCallback(
     (id: string) => {
-      navigation.navigate('RankingDetail', { id })
+      const item = list.find((i) => i.id === id)
+      navigation.navigate('RankingDetail', { id, item })
     },
-    [navigation],
+    [list, navigation],
   )
 
   return (

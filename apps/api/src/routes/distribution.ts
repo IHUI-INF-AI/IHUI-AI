@@ -7,6 +7,8 @@ import { commissionFlows, withdrawalFlows, users, systemConfigs } from '@ihui/da
 import {
   listCommissionFlows,
   listSubordinates,
+  listTeamMembers,
+  getTeamMember,
   teamCenter,
   availableWithdrawal,
   listWithdrawals,
@@ -66,7 +68,9 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
         total: sql<number>`count(distinct ${commissionFlows.orderId})::int`,
       })
       .from(commissionFlows)
-      .where(sql`${commissionFlows.beneficiaryId} = ${userId} AND ${commissionFlows.orderId} IS NOT NULL`)
+      .where(
+        sql`${commissionFlows.beneficiaryId} = ${userId} AND ${commissionFlows.orderId} IS NOT NULL`,
+      )
 
     return reply.send(
       success({
@@ -448,5 +452,74 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     })
 
     return reply.send(success(ranking))
+  })
+
+  // ============================================================================
+  // 分销团队(成员列表/详情,对齐 Uniapp distribution_personnel_list)
+  // 路径 /distribution/team/*:TeamScreen/TeamDetailScreen 的 /team/* 历史调用
+  // 经 fetchApi normalizeUrl 实际请求 /api/team/* 并不存在,统一迁移到本前缀。
+  // ============================================================================
+
+  // GET /distribution/team/stats — 团队统计(复用 teamCenter 聚合)
+  server.get('/distribution/team/stats', async (request, reply) => {
+    const team = await teamCenter(request.userId!)
+    return reply.send(
+      success({
+        totalMembers: team.totalInvitees,
+        activeMembers: team.vipInvitees,
+        directCount: team.totalInvitees,
+        indirectCount: 0,
+        totalContribution: team.commissionTotal,
+        vipInvitees: team.vipInvitees,
+        monthNew: team.monthNew,
+      }),
+    )
+  })
+
+  // GET /distribution/team/members — 团队成员分页列表
+  server.get('/distribution/team/members', async (request, reply) => {
+    const { page, pageSize } = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(20),
+      })
+      .parse(request.query ?? {})
+    const result = await listTeamMembers(request.userId!, page, pageSize)
+    const list = result.items.map((m) => ({
+      id: m.id,
+      nickname: m.nickname,
+      avatar: m.avatar,
+      level: m.isVip >= 1 ? 1 : 0,
+      joinDate: m.createdAt.toISOString(),
+      contribution: m.transactionVolume,
+      status: 'active' as const,
+      relation: 'direct' as const,
+      transactionVolume: m.transactionVolume,
+      commission: m.commission,
+      orderNum: m.orderNum,
+      phone: m.phone,
+    }))
+    return reply.send(success({ list, total: result.total, page, pageSize }))
+  })
+
+  // GET /distribution/team/members/:id — 成员详情(校验直推归属)
+  server.get('/distribution/team/members/:id', async (request, reply) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(request.params ?? {})
+    const m = await getTeamMember(request.userId!, id)
+    if (!m) {
+      return reply.send(success(null))
+    }
+    return reply.send(
+      success({
+        id: m.id,
+        nickname: m.nickname,
+        phone: m.phone,
+        avatar: m.avatar,
+        joinedAt: m.createdAt.toISOString(),
+        transactionVolume: m.transactionVolume,
+        commission: m.commission,
+        orderNum: m.orderNum,
+      }),
+    )
   })
 }
