@@ -595,11 +595,11 @@ export const getRelatedNews = (
   params?: { page?: number; pageSize?: number },
 ) => get<{ list: News[]; total: number }>('/news/articles/recommended', params)
 /**
- * 点赞资讯 — POST /news/articles/:id/like(后端暂未实现,请求将 404,
- * 调用方 detail.tsx 已 catch 回滚 UI 状态)。
+ * 点赞资讯 — POST /news/articles/:id/like(后端已实现,复用 resource_likes 表 toggleLike,
+ * 返回 { liked, likeCount })。调用方 detail.tsx 按返回回滚 UI 状态。
  */
 export const likeNews = (id: string | number) =>
-  post<{ liked?: boolean }>(`/news/articles/${id}/like`)
+  post<{ liked?: boolean; likeCount?: number }>(`/news/articles/${id}/like`)
 
 export interface Circle {
   id: string | number
