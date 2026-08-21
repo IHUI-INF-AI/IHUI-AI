@@ -31,7 +31,10 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
   Bot,
   Building2,
@@ -61,6 +64,9 @@ export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
 export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company'
 export type DrawerUserLevel = 'vip' | 'normal'
 
+/** 扩展菜单兜底导航用的根栈导航类型 */
+type DrawerNav = NativeStackNavigationProp<RootStackParamList>
+
 export interface DrawerModelConfig {
   id: string
   name: string
@@ -88,8 +94,7 @@ export interface DrawerProps {
   // 回调
   onNavigate: (tab: DrawerTab) => void
   /**
-   * 扩展菜单跳转回调(可选)。未传入时点击扩展菜单弹 Alert 占位。
-   * 主 agent 后续在 ChatScreen 接入即可激活真实跳转。
+   * 扩展菜单跳转回调(可选)。未传入时由本组件兜底导航到真实路由(见 handleNavigateExtra)。
    */
   onNavigateExtra?: (menu: DrawerExtraMenu) => void
   onNavigateCompany: () => void // 一人公司
@@ -364,6 +369,7 @@ export function Drawer(props: DrawerProps) {
 
   const insets = useSafeAreaInsets()
   const { t } = useI18n()
+  const navigation = useNavigation<DrawerNav>()
   const screenWidth = Dimensions.get('window').width
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
 
@@ -406,21 +412,29 @@ export function Drawer(props: DrawerProps) {
   }
 
   /**
-   * 扩展菜单点击:父级未接 onNavigateExtra 时 Alert 占位(对齐任务"依赖缺失用 Alert"约束)。
-   * 路由均已注册(RootNavigator 行 673-698),主 agent 后续在 ChatScreen 接回调即可激活。
+   * 扩展菜单点击:优先走父级 onNavigateExtra(真实路由已接),未注入回调时由本组件兜底导航。
+   * 所有扩展菜单均已有真实页面/路由(RootNavigator 已注册 AigcList/Learn/ModelPlaza/Settings),
+   * 故兜底直接跳真实路由,不再弹"功能开发中(待接入路由)"占位。
    */
   const handleNavigateExtra = (menu: DrawerExtraMenu) => {
     if (onNavigateExtra) {
       onNavigateExtra(menu)
     } else {
-      const labelMap: Record<DrawerExtraMenu, string> = {
-        tools: '工具',
-        aigc: 'AIGC',
-        learn: '学习',
-        modelPlaza: '模型广场',
-        company: '一人公司',
+      switch (menu) {
+        case 'aigc':
+          navigation.navigate('AigcList')
+          break
+        case 'learn':
+          navigation.navigate('Learn')
+          break
+        case 'modelPlaza':
+          navigation.navigate('ModelPlaza')
+          break
+        case 'tools':
+        case 'company':
+          navigation.navigate('Settings')
+          break
       }
-      Alert.alert(labelMap[menu], '功能开发中(待接入路由)')
     }
     onClose()
   }
