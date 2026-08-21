@@ -94,7 +94,18 @@ vi.mock('react-native', async () => {
         return out
       },
     },
+    Image: mk('img'),
+    TextInput: mk('input'),
+    PanResponder: () => ({ panHandlers: {} }),
     Platform: { OS: 'web' as const },
+    Animated: {
+      View: mk('div'),
+      Text: mk('span'),
+      createAnimatedComponent: (c) => c,
+      timing: () => ({ start: () => {} }),
+      spring: () => ({ start: () => {} }),
+      Value: class { constructor(_v) {} setValue(_v) {} interpolate() { return { __getValue: () => 0 }; } }
+    },
   }
 })
 
