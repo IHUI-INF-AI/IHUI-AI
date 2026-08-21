@@ -1255,7 +1255,10 @@
     "title": "ランキング"
   },
   "rankingDetail": {
-    "rank": "ランキング"
+    "rank": "ランキング",
+    "points": "ポイント",
+    "studyHours": "学習時間",
+    "levelDesc": "レベル"
   },
   "realNameAuth": {
     "title": "実名認証",
@@ -1427,7 +1430,8 @@
     "phone": "電話番号",
     "joinedAt": "参加日",
     "contact": "連絡",
-    "viewOrders": "注文を見る"
+    "viewOrders": "注文を見る",
+    "empty": "メンバー情報がありません"
   },
   "vip": {
     "subtitle": "会員を開通して、より多くの権益を",

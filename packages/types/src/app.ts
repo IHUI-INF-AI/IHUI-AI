@@ -4551,7 +4551,7 @@ export interface EarnCommissionScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** ���� 34(2026-08-15):Mock ������(�Ŷӳ�Ա����/���а�����,2 ��Ǩ���� mobile-rn) */
+/** 团队成员详情 props(批次 34 2026-08-15 建,2026-08-21 扩展 loading/error/onRetry + member 可空) */
 export interface TeamDetailScreenProps {
   t: TFunction
   onBack: () => void
@@ -4564,22 +4564,30 @@ export interface TeamDetailScreenProps {
     transactionVolume: number
     commission: number
     orderNum: number
-  }
+  } | null
+  loading?: boolean
+  error?: string
+  onRetry?: () => void
   onContact: () => void
   onViewOrders: () => void
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 排行榜详情 props(批次 34 建,2026-08-21 用户化):
+ * 列表页为 users 积分排行(/ranking),详情页对齐原版"列表页透传"模式,
+ * detail 改用户维度(积分/学习时长/等级),替代原模型形态(organization/attention/context)。
+ */
 export interface RankingDetailScreenProps {
   t: TFunction
   onBack: () => void
   detail: {
-    avatar: string
+    avatar: string | null
     title: string
     rank: number
-    organization: string
-    attention: number
-    context: string
+    points: number
+    studyHours: number
+    level: number
   }
   history: Array<{ id: string; title: string; createdAt: number }>
   drawerVisible: boolean
