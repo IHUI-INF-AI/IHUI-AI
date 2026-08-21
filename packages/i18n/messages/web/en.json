@@ -12635,6 +12635,8 @@
       "tagNews": "News",
       "title": "Latest News",
       "titleEn": "LATEST NEWS",
+      "error": "Failed to load news, please try again",
+      "retry": "Retry",
       "viewMore": "View more"
     },
     "marquee": {
