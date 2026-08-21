@@ -6696,12 +6696,7 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": [
-        "優秀(班級前 10%)",
-        "良好(10-30%)",
-        "中等(30-70%)",
-        "一般(後 30%)"
-      ],
+      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6718,12 +6713,7 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": [
-        "重點中學",
-        "普通中學",
-        "國際學校",
-        "私立學校"
-      ]
+      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8633,58 +8623,32 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": [
-          "AI",
-          "世界",
-          "應用"
-        ],
+        "keywords": ["AI", "世界", "應用"],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": [
-          "對話",
-          "聊天",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["對話", "聊天", "AI", "chat"],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": [
-          "短劇",
-          "視頻",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["短劇", "視頻", "AI", "drama"],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": [
-          "個人",
-          "資料",
-          "設置"
-        ],
+        "keywords": ["個人", "資料", "設置"],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": [
-          "搜索",
-          "查找",
-          "search"
-        ],
+        "keywords": ["搜索", "查找", "search"],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": [
-          "設置",
-          "偏好",
-          "配置"
-        ],
+        "keywords": ["設置", "偏好", "配置"],
         "label": "系統設置"
       }
     },
@@ -10471,37 +10435,25 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": [
-            "知識問答",
-            "流程自動化"
-          ],
+          "examples": ["知識問答", "流程自動化"],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": [
-            "數據分析",
-            "決策支持"
-          ],
+          "examples": ["數據分析", "決策支持"],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": [
-            "會議安排",
-            "審批流程"
-          ],
+          "examples": ["會議安排", "審批流程"],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": [
-            "營銷自動化",
-            "多智能體協同"
-          ],
+          "examples": ["營銷自動化", "多智能體協同"],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10635,31 +10587,19 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": [
-            "系統化課程",
-            "實踐探索",
-            "社群互助"
-          ],
+          "features": ["系統化課程", "實踐探索", "社群互助"],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": [
-            "交流平臺",
-            "經驗共享",
-            "資源對接"
-          ],
+          "features": ["交流平臺", "經驗共享", "資源對接"],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": [
-            "專業大模型",
-            "智能體服務",
-            "咨詢服務"
-          ],
+          "features": ["專業大模型", "智能體服務", "諮詢服務"],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -13092,15 +13032,7 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": [
-      "周一",
-      "周二",
-      "周三",
-      "周四",
-      "周五",
-      "周六",
-      "周日"
-    ]
+    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
   },
   "models": {
     "aiNews": {
@@ -13819,7 +13751,7 @@
           "專屬模型通道",
           "無限 API 令牌",
           "專屬客戶經理",
-          "調用日志永久",
+          "調用日誌永久",
           "SLA 99.95%"
         ]
       },
@@ -13829,16 +13761,11 @@
           "全部模型可用",
           "20 個 API 令牌",
           "優先技術支持",
-          "調用日志 90 天"
+          "調用日誌 90 天"
         ]
       },
       "starter": {
-        "features": [
-          "1M tokens 額度",
-          "基礎模型可用",
-          "5 個 API 令牌",
-          "社區支持"
-        ]
+        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
       }
     },
     "productSchema": {
@@ -14343,7 +14270,7 @@
     },
     "benefits": {
       "items": [
-        "每周 AI 工程實戰案例",
+        "每週 AI 工程實戰案例",
         "新功能提前體驗",
         "獨家 prompt 模板",
         "行業趨勢分析",
@@ -14787,24 +14714,12 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": [
-          "不限積分",
-          "私有化部署",
-          "SSO/SAML 2.0",
-          "審計日志",
-          "專屬技術支持"
-        ],
+        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": [
-          "每月 1000 積分",
-          "所有 AI 模型",
-          "所有 6 個客戶端",
-          "API 訪問",
-          "社區支持"
-        ],
+        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
         "name": "免費版"
       },
       "pro": {
@@ -15019,7 +14934,7 @@
         "全年所有課程免費參加",
         "線下探索活動優先參與名額",
         "智匯 AI 會員社群無限次互動",
-        "早鳥專屬導師 1v1 咨詢 1 次",
+        "早鳥專屬導師 1v1 諮詢 1 次",
         "早鳥專屬資料包(價值 ¥3000)"
       ],
       "name": "早鳥會員",
@@ -15031,11 +14946,11 @@
       "cta": "聯系商務",
       "desc": "面向企業決策者團隊的定製方案",
       "features": [
-        "專屬客戶經理 + 定制化部署",
+        "專屬客戶經理 + 定製化部署",
         "團隊培訓 + 內部知識庫接入",
         "API 高並發配額 + SLA 保障",
         "私有化部署可選",
-        "季度復盤 + 戰略咨詢"
+        "季度復盤 + 戰略諮詢"
       ],
       "name": "企業服務",
       "period": "/月",
@@ -16036,13 +15951,7 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": [
-          "視頻會議 / 遠程桌面",
-          "2 小時起",
-          "故障排查",
-          "增值稅發票",
-          "響應 SLA 24h"
-        ],
+        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -16051,7 +15960,7 @@
         "desc": "基於 IHUI-AI 定製企業專屬功能",
         "features": [
           "業務集成 / Agent 開發",
-          "UI 定制 / API 擴展",
+          "UI 定製 / API 擴展",
           "80 工時(約 2 周)",
           "3 個月保修",
           "源碼 + 部署文檔"
@@ -18244,7 +18153,7 @@
     "avgDuration": "平均耗時",
     "activeAccounts": "活躍帳號",
     "trend": "發布趨勢",
-    "platformDistribution": "平台分布",
+    "platformDistribution": "平臺分佈",
     "failureReasons": "失敗原因",
     "accountHealth": "帳號健康度",
     "noData": "暫無資料",
@@ -18307,11 +18216,11 @@
   },
   "agreementSections": {
     "sectionTerms": "服務條款",
-    "sectionTermsBody": "歡迎使用智匯 AI 平台。使用本服務即表示您同意本條款。請在使用前仔細閱讀並理解本協議的全部內容。",
+    "sectionTermsBody": "歡迎使用智匯 AI 平臺。使用本服務即表示您同意本條款。請在使用前仔細閱讀並理解本協議的全部內容。",
     "sectionRights": "使用者權利",
-    "sectionRightsBody": "您有權在遵守法律法規和本協議的前提下使用平台功能，並依法享有資料存取、帳號註銷等權利。",
+    "sectionRightsBody": "您有權在遵守法律法規和本協議的前提下使用平臺功能，並依法享有資料存取、帳號註銷等權利。",
     "sectionObligations": "使用者義務",
-    "sectionObligationsBody": "您應保證所提交資訊真實有效，不得利用平台從事違法違規活動，也不得侵犯他人合法權益。"
+    "sectionObligationsBody": "您應保證所提交資訊真實有效，不得利用平臺從事違法違規活動，也不得侵犯他人合法權益。"
   },
   "aiAssistantN8n": {
     "placeholder": "輸入問題，開始對話…",
@@ -18544,9 +18453,9 @@
     "sectionCookie": "Cookie 使用",
     "sectionCookieBody": "為改善存取體驗和統計流量，我們會在您的裝置上儲存 Cookie，您可以透過瀏覽器設定進行管理。",
     "sectionThirdParty": "第三方服務",
-    "sectionThirdPartyBody": "本平台可能接入第三方服務（如支付、登入），第三方將依其各自的隱私權政策處理您的資料。",
+    "sectionThirdPartyBody": "本平臺可能接入第三方服務（如支付、登入），第三方將依其各自的隱私權政策處理您的資料。",
     "title": "隱私權政策",
-    "subtitle": "了解我們如何收集、使用與保護您的個人資料"
+    "subtitle": "瞭解我們如何收集、使用與保護您的個人資料"
   },
   "realNameAuth": {
     "title": "實名認證",
@@ -18692,7 +18601,7 @@
     "breakpoints": "中斷點",
     "toggle": "切換",
     "callStack": "呼叫堆疊",
-    "debugConsole": "偵錯主控台"
+    "debugConsole": "偵錯主控臺"
   },
   "diffFileList": {
     "noMatch": "無符合的檔案"
@@ -19043,7 +18952,7 @@
     "title": "推薦人",
     "current": "目前推薦人",
     "empty": "暫無推薦人",
-    "desc": "填寫推薦碼加入平台,獲取專屬福利",
+    "desc": "填寫推薦碼加入平臺,獲取專屬福利",
     "codeLabel": "推薦碼",
     "codePlaceholder": "請輸入推薦碼",
     "submitting": "提交中...",
@@ -19093,7 +19002,7 @@
     "completed": "已完成",
     "failed": "失敗",
     "cancelled": "已取消",
-    "preempted": "已被搶占",
+    "preempted": "已被搶佔",
     "quota_exceeded": "配額超限"
   },
   "cancelDialog": {
@@ -19223,7 +19132,7 @@
   },
   "typewriter": {
     "ctaPrimary": "立即諮詢",
-    "ctaSecondary": "了解更多",
+    "ctaSecondary": "瞭解更多",
     "miniappBtn": "微信小程式"
   },
   "defaultTags": {
@@ -19650,7 +19559,7 @@
     "export": "匯出",
     "selectFile": "選擇檔案",
     "previewCount": "已解析 {count} 列",
-    "colPlatform": "平台",
+    "colPlatform": "平臺",
     "colNickname": "暱稱",
     "colCreds": "憑證",
     "moreRows": "還有 {count} 列",
