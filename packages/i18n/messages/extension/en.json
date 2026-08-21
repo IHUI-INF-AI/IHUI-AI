@@ -28,7 +28,6 @@
     "contentTitle": "Content Center",
     "meTitle": "My Center",
     "openInWeb": "Open in Web",
-    "openInWebDesc": "This feature is best experienced on the web version",
     "comingSoon": "Coming Soon",
     "dashboard": "Dashboard",
     "dashboardDesc": "Data overview and quick access",
@@ -259,7 +258,6 @@
     "send": "IHUI AI · Send to Chat"
   },
   "page": {
-    "back": "Back",
     "benefitsTitle": "Membership Benefits",
     "benefit1": "Access to all advanced AI models and agents",
     "benefit2": "Exclusive VIP badge and priority support",
@@ -321,7 +319,6 @@
       "totalSpent": "Total used",
       "streak": "Day streak",
       "todaySigned": "Signed in today",
-      "notSigned": "Not signed in yet",
       "signIn": "Check In Now",
       "earnTitle": "How to earn points",
       "earn1": "Daily check-in reward",
@@ -333,9 +330,7 @@
       "desc": "Share IHUI AI and invite friends to sign up to earn referral commissions and rewards.",
       "totalCommission": "Total commissions",
       "available": "Available",
-      "frozen": "Frozen",
       "invited": "Invited",
-      "active": "Active",
       "rank": "Rank",
       "inviteCode": "Invite code",
       "rate": "Commission rate",
@@ -347,7 +342,6 @@
     },
     "invitations": {
       "joinedAt": "Joined",
-      "lastActive": "Last active",
       "commission": "Total commission",
       "statusActive": "Active",
       "statusInactive": "Pending",
@@ -356,11 +350,9 @@
     "follow": {
       "emptyFollowing": "You are not following anyone yet",
       "emptyFans": "No fans yet",
-      "followedAt": "Followed",
-      "goExplore": "Explore"
+      "followedAt": "Followed"
     },
     "pricing": {
-      "priceLabel": "Price",
       "perMonth": "CNY/month",
       "duration": "Duration",
       "days": "days",
