@@ -3,13 +3,13 @@
 测试覆盖:
 - _cosine_similarity 余弦相似度计算(相同/正交/空/不同长度/零向量/相反)
 - _hash_embedding 确定性 hash 伪向量(同文本同向量/维度/值域 [-1,1]/不同文本)
-- _AsyncLRUCache 异步 LRU 缓存(L1 命中/L1 未命中/LRU 淘汰/maxsize 限制/L1 命中提升 MRU/L2 Redis 回填)
+- _AsyncLRUCache 异步 LRU 缓存(L1 命中/L1 未命中/LRU 淘汰/maxsize 限制/提升 MRU/L2 Redis 回填)
 - VectorMemoryStore 构造(默认 persist_path/自定义 persist_path)
 - add_entry 存储 entry + vector/触发 dirty/同 entry_id 覆盖
 - search 空存储/有结果/按相似度降序/top_k 限制/threshold 过滤/空 query_embedding
 - update_embedding 更新已有/entry 不存在时不创建
 - delete 删除已有/删除不存在不报错
-- clear 无参数清空全部/clear(session_id) 只清匹配/不匹配 session_id 不清空/保留无 session_id 字段的 entry
+- clear 无参数清空全部/clear(session_id) 只清匹配/不匹配不清空/保留无 session_id 字段的 entry
 - embed LLM 成功返回向量/LLM 失败降级 hash/LLM 返回空降级 hash/缓存命中
 - hydrate 空文件/有数据/损坏文件/已 hydrate 不重复加载/数据一致性过滤(只加载 entries ∩ vectors)
 - list_entry_ids / list_entries(浅拷贝) / __len__
@@ -20,6 +20,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any
@@ -34,7 +35,6 @@ from app.services.vector_memory import (
     _hash_embedding,
     vector_memory,
 )
-
 
 # =============================================================================
 # 共享 fixtures
@@ -706,10 +706,10 @@ def test_persist_sync_writes_file(store: VectorMemoryStore):
     store._vectors = {"e1": [0.1, 0.2]}
     store._dirty = True
 
-    store._persist_sync()
+    store._persist_sync({"entries": {"e1": {"content": "a"}}, "vectors": {"e1": [0.1, 0.2]}})
 
     assert os.path.isfile(store._persist_path)
-    with open(store._persist_path, "r", encoding="utf-8") as f:
+    with open(store._persist_path, encoding="utf-8") as f:
         data = json.load(f)
     assert data["entries"] == {"e1": {"content": "a"}}
     assert data["vectors"] == {"e1": [0.1, 0.2]}
@@ -721,7 +721,7 @@ def test_persist_sync_resets_dirty(store: VectorMemoryStore):
     store._vectors = {"e1": [0.1]}
     store._dirty = True
 
-    store._persist_sync()
+    store._persist_sync({"entries": {"e1": {"content": "a"}}, "vectors": {"e1": [0.1]}})
     assert store._dirty is False
 
 
@@ -733,8 +733,36 @@ def test_persist_sync_creates_parent_dir(tmp_path):
     store._vectors = {"e1": [0.1]}
     store._dirty = True
 
-    store._persist_sync()
+    store._persist_sync({"entries": {"e1": {"content": "a"}}, "vectors": {"e1": [0.1]}})
     assert os.path.isfile(path)
+
+
+async def test_persist_async_snapshot_isolated_from_mutation(store: VectorMemoryStore):
+    """_persist_async 写盘期间并发增删 entries 不影响序列化(跨线程竞态修复)。
+
+    2026-08-21 修复回归测试:原实现 executor 线程直接迭代 self._entries,
+    写盘期间事件循环并发 add/delete 触发
+    "dictionary changed size during iteration"。修复后 _persist_async 在
+    事件循环线程内先做快照,executor 只序列化快照。
+    """
+    store._entries = {f"e{i}": {"content": str(i)} for i in range(50)}
+    store._vectors = {f"e{i}": [float(i)] for i in range(50)}
+    store._dirty = True
+
+    # 在 _persist_async 派发 executor 后、写盘完成前并发修改(模拟事件循环并发写)
+    async def run_and_mutate():
+        task = asyncio.ensure_future(store._persist_async())
+        # 让 _persist_async 先跑到 await run_in_executor 处(snapshot 已生成)
+        await asyncio.sleep(0)
+        # 写盘仍在进行时并发删除/新增(旧实现会在 executor 线程 json.dump 中崩溃)
+        store._entries.pop("e10", None)
+        store._entries["e-new"] = {"content": "new"}
+        store._vectors["e-new"] = [0.5]
+        await task
+
+    await run_and_mutate()
+    assert os.path.isfile(store._persist_path)
+    assert store._dirty is False
 
 
 async def test_persist_async_writes_when_dirty(store: VectorMemoryStore):
@@ -759,7 +787,7 @@ async def test_add_entry_triggers_persist(store: VectorMemoryStore):
     """add_entry 触发异步持久化(文件已写入)。"""
     await store.add_entry("e1", {"content": "a"}, [0.1, 0.2])
     assert os.path.isfile(store._persist_path)
-    with open(store._persist_path, "r", encoding="utf-8") as f:
+    with open(store._persist_path, encoding="utf-8") as f:
         data = json.load(f)
     assert "e1" in data["entries"]
     assert "e1" in data["vectors"]
