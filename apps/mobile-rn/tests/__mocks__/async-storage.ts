@@ -1,34 +1,37 @@
+/**
+ * tests/__mocks__/async-storage.ts
+ *
+ * jsdom 环境下模拟 @react-native-async-storage/async-storage。
+ * 使用 vi.fn() 包装三方法,支持测试中 verify call / mockRejectedValueOnce 等 spy 操作。
+ *
+ * resetAsyncStorageMock():清空 Map + mockClear,由 tests/setup.ts beforeEach 调用。
+ */
 import { vi } from 'vitest'
 
 const store = new Map<string, string>()
 
-export const resetAsyncStorageMock = (): void => {
+export const getItem = vi.fn(async (key: string): Promise<string | null> => {
+  return store.get(key) ?? null
+})
+
+export const setItem = vi.fn(async (key: string, value: string): Promise<void> => {
+  store.set(key, value)
+})
+
+export const removeItem = vi.fn(async (key: string): Promise<void> => {
+  store.delete(key)
+})
+
+export function resetAsyncStorageMock(): void {
   store.clear()
+  getItem.mockClear()
+  setItem.mockClear()
+  removeItem.mockClear()
 }
 
-const AsyncStorage = {
-  getItem: vi.fn(async (key: string): Promise<string | null> => {
-    return store.has(key) ? (store.get(key) as string) : null
-  }),
-  setItem: vi.fn(async (key: string, value: string): Promise<void> => {
-    store.set(key, String(value))
-  }),
-  removeItem: vi.fn(async (key: string): Promise<void> => {
-    store.delete(key)
-  }),
-  getAllKeys: vi.fn(async (): Promise<readonly string[]> => Array.from(store.keys())),
-  multiGet: vi.fn(async (keys: string[]): Promise<readonly [string, string | null][]> =>
-    keys.map((k) => [k, store.has(k) ? (store.get(k) as string) : null]),
-  ),
-  multiSet: vi.fn(async (pairs: [string, string][]): Promise<void> => {
-    for (const [k, v] of pairs) store.set(k, String(v))
-  }),
-  multiRemove: vi.fn(async (keys: string[]): Promise<void> => {
-    for (const k of keys) store.delete(k)
-  }),
-  clear: vi.fn(async (): Promise<void> => {
-    store.clear()
-  }),
+export default {
+  getItem,
+  setItem,
+  removeItem,
+  __store: store,
 }
-
-export default AsyncStorage
