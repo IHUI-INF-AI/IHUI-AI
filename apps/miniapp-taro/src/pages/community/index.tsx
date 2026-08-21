@@ -715,23 +715,25 @@ export default function Community() {
                   variant="default"
                 />
               </View>
-              {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277) */}
+              {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
+                 语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
+                  统一提示该能力在完整版提供,避免「开发中」误导) */}
               <Text
                 style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
                 onClick={() => {
-                  Taro.showToast({ title: '语音搜索开发中', icon: 'none' })
+                  Taro.showToast({ title: '语音搜索请在完整版使用', icon: 'none' })
                 }}
               >
                 🎤
               </Text>
-              {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207) */}
+              {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
+                 后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
               <Text
                 style={{ fontSize: rpx(40), padding: rpx(8), flexShrink: 0 }}
                 onClick={async () => {
                   try {
                     await chooseImages(1)
-
-                    Taro.showToast({ title: '图片搜索开发中', icon: 'none' })
+                    Taro.showToast({ title: '图片搜索请在完整版使用', icon: 'none' })
                   } catch {
                     // 用户取消或失败,静默
                   }

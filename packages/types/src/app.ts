@@ -4441,10 +4441,19 @@ export interface UsageRulesScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+export interface LearnDevelopEntry {
+  icon: string
+  title: string
+  desc: string
+  onPress: () => void
+}
+
 export interface LearnDevelopScreenProps {
   t: TFunction
   onBack: () => void
   onContact?: () => void
+  /** 学习功能导航卡片;由端侧 wrapper 注入真实跳转 */
+  entries?: LearnDevelopEntry[]
   colorScheme?: 'light' | 'dark'
 }
 
