@@ -153,6 +153,22 @@ export const TERNARY_KEY_RE_ELSE = /:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0
 // 匹配任意以 t 开头 XX 单词 + 元组第 2 参为多段点分 key: `wordToScan(locale, 'a.b.c')`。
 // 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
 export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 2026-08-21 新增:字符串数组 i18n key 列表识别(含行首空格)
+// 背景:extension VipPage/PricingPage/MemberPage 用:
+//   const benefits = [
+//     'page.benefit1',
+//     'page.benefit2',
+//     ...
+//   ]
+// 原扫描器无法识别数组元素中的点分 key,导致 benefit1-5 误判为死 key。
+// 此正则:匹配行首(含缩进空格)的单/双引号包裹的多段点分 key(如 'page.benefit1')。
+// 注:为避免误命中非数组字符串字面量,只在行含 `[` 时启用此扫描。
+export const STRING_ARRAY_KEY_RE = /(?:^|\s)['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 2026-08-21 新增:JSX prop 传递 i18n key (emptyKey/descKey/titleKey 等)
+// 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
+// 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
+// 与 JSX_PROP_KEY_RE 互补:JSX_PROP_KEY_RE 只识别白名单属性(name/title/label/...),此正则识别任意属性名的等号赋值。
+export const JSX_PROP_KEY_EQ_RE = /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -280,6 +296,16 @@ export function scanCode(files) {
       // 2026-08-20 增强:自定义翻译包装器第二参 translateBg(locale, 'a.b.c')(extension background 引用模式)
       WRAPPER_ARG_KEY_RE.lastIndex = 0
       while ((m = WRAPPER_ARG_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-21 增强:字符串数组 i18n key 列表识别
+      // 背景:extension VipPage/PricingPage/MemberPage 用 const benefits = ['page.benefit1', ...] 形式引用,
+      // 扫描器需识别单/双引号包裹的多段点分 key(如 'page.benefit1'),补字符串数组元素扫描缺口。
+      // 注:误报风险极低 — 匹配多段点分 key(含至少 1 个点),只要不在 zh-CN.json 中不影响死 key 判定;
+      // 即便误命中也不会增加死 key 数(更多 staticRefs = 更少死 key,判定保守)。
+      STRING_ARRAY_KEY_RE.lastIndex = 0
+      while ((m = STRING_ARRAY_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-21 增强:JSX prop 传递 i18n key emptyKey="page.follow.emptyFollowing"(extension FollowingPage/FansPage)
+      JSX_PROP_KEY_EQ_RE.lastIndex = 0
+      while ((m = JSX_PROP_KEY_EQ_RE.exec(line)) !== null) staticRefs.add(m[1])
       // 2026-07-26 三次增强:动态前缀拼接 `prefix.${var}`(mobile-rn order.status.* 引用模式)
       // 把前缀加入 usedNamespaces,使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true
       DYNAMIC_PREFIX_RE.lastIndex = 0

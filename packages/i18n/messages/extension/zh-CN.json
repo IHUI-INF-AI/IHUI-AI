@@ -28,7 +28,6 @@
     "contentTitle": "内容中心",
     "meTitle": "个人中心",
     "openInWeb": "在网页版打开",
-    "openInWebDesc": "此功能建议在网页版使用,体验更佳",
     "comingSoon": "即将上线",
     "dashboard": "仪表盘",
     "dashboardDesc": "数据概览与快捷入口",
@@ -259,7 +258,6 @@
     "send": "IHUI AI · 发送到对话"
   },
   "page": {
-    "back": "返回",
     "benefitsTitle": "会员专属权益",
     "benefit1": "全部高级 AI 模型与智能体",
     "benefit2": "VIP 专属标识与优先客服",
@@ -321,7 +319,6 @@
       "totalSpent": "累计使用",
       "streak": "连续签到",
       "todaySigned": "今日已签到",
-      "notSigned": "尚未签到",
       "signIn": "立即签到",
       "earnTitle": "如何获取积分",
       "earn1": "每日签到奖励",
@@ -333,9 +330,7 @@
       "desc": "分享 IHUI AI,邀请好友注册,即可获得推广佣金与奖励。",
       "totalCommission": "累计佣金",
       "available": "可提现",
-      "frozen": "冻结中",
       "invited": "邀请人数",
-      "active": "活跃",
       "rank": "排名",
       "inviteCode": "邀请码",
       "rate": "佣金比例",
@@ -347,7 +342,6 @@
     },
     "invitations": {
       "joinedAt": "加入时间",
-      "lastActive": "最近活跃",
       "commission": "累计贡献佣金",
       "statusActive": "活跃",
       "statusInactive": "待激活",
@@ -356,11 +350,9 @@
     "follow": {
       "emptyFollowing": "暂未关注任何用户",
       "emptyFans": "还没有粉丝",
-      "followedAt": "关注时间",
-      "goExplore": "去逛逛"
+      "followedAt": "关注时间"
     },
     "pricing": {
-      "priceLabel": "价格",
       "perMonth": "元/月",
       "duration": "时长",
       "days": "天",

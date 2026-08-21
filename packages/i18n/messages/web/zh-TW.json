@@ -19423,9 +19423,7 @@
     "studyHours": "{count} 學習小時"
   },
   "rankingDetail": {
-    "attention": "關注度",
-    "rank": "排名",
-    "organization": "機構"
+    "rank": "排名"
   },
   "securitySettings": {
     "title": "安全設定",
