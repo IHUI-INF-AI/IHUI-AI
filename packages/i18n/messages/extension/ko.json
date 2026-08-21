@@ -28,7 +28,6 @@
     "contentTitle": "콘텐츠 센터",
     "meTitle": "개인 센터",
     "openInWeb": "웹에서 열기",
-    "openInWebDesc": "이 기능은 웹 버전에서 사용하는 것을 권장합니다",
     "comingSoon": "출시 예정",
     "dashboard": "대시보드",
     "dashboardDesc": "데이터 개요 및 빠른 액세스",
@@ -259,7 +258,6 @@
     "send": "IHUI AI · 채팅으로 보내기"
   },
   "page": {
-    "back": "뒤로",
     "benefitsTitle": "회원 전용 혜택",
     "benefit1": "모든 고급 AI 모델 및 에이전트 이용",
     "benefit2": "VIP 전용 배지 및 우선 지원",
@@ -321,7 +319,6 @@
       "totalSpent": "누적 사용",
       "streak": "연속 체크인",
       "todaySigned": "오늘 체크인 완료",
-      "notSigned": "아직 체크인 안 함",
       "signIn": "지금 체크인",
       "earnTitle": "포인트를 얻는 방법",
       "earn1": "매일 체크인 보상",
@@ -333,9 +330,7 @@
       "desc": "IHUI AI를 공유하고 친구를 초대해 가입하면 추천 수수료와 보상을 받을 수 있습니다.",
       "totalCommission": "누적 수수료",
       "available": "출금 가능",
-      "frozen": "동결 중",
       "invited": "초대 인원",
-      "active": "활성",
       "rank": "순위",
       "inviteCode": "초대 코드",
       "rate": "수수료 비율",
@@ -347,7 +342,6 @@
     },
     "invitations": {
       "joinedAt": "가입일",
-      "lastActive": "최근 활동",
       "commission": "누적 수수료",
       "statusActive": "활성",
       "statusInactive": "대기 중",
@@ -356,11 +350,9 @@
     "follow": {
       "emptyFollowing": "아직 팔로우한 사용자가 없습니다",
       "emptyFans": "아직 팔로워가 없습니다",
-      "followedAt": "팔로우일",
-      "goExplore": "구경하기"
+      "followedAt": "팔로우일"
     },
     "pricing": {
-      "priceLabel": "가격",
       "perMonth": "원/월",
       "duration": "기간",
       "days": "일",
