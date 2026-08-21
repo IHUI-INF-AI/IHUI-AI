@@ -532,7 +532,8 @@
       "startTitle": "워크플로우 시작",
       "stopMessage": "「{name}」을(를) 중지하시겠습니까?",
       "startMessage": "「{name}」을(를) 시작하시겠습니까?",
-      "success": "작업 성공"
+      "success": "작업 성공",
+      "failed": "작업 실패"
     },
     "actionEdit": "편집",
     "actionStart": "시작",
@@ -545,6 +546,16 @@
     "running": "실행 중",
     "searchPlaceholder": "모델 검색",
     "stopped": "중지됨",
+    "createSuccess": "생성되었습니다",
+    "createTitle": "워크플로우 만들기",
+    "descLabel": "설명",
+    "descPlaceholder": "워크플로우 설명 입력(선택)",
+    "editSuccess": "저장되었습니다",
+    "editTitle": "워크플로우 편집",
+    "nameLabel": "이름",
+    "namePlaceholder": "워크플로우 이름 입력",
+    "nameRequired": "이름을 입력하세요",
+    "operationFailed": "작업에 실패했습니다. 잠시 후 다시 시도해 주세요",
     "title": "n8n 모델"
   },
   "modelPlaza": {
