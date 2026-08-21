@@ -594,8 +594,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
             <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
-            {/* Recharge 暂复用钱包页(充值页独立实现前,保证导航可达不崩) */}
-            <RootStack.Screen name="Recharge" component={WalletScreen} />
+            {/* Recharge 指向完整充值页 AppTopup(真实微信支付链),替代此前复用钱包页的占位 */}
+            <RootStack.Screen name="Recharge" component={AppTopupScreen} />
             <RootStack.Screen name="AigcCover" component={AigcCoverScreen} />
             <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
             {/* H10-H18 新增 Screen(复刻 Uniapp 缺失页面) */}
