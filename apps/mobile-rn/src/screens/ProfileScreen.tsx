@@ -57,6 +57,8 @@ import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import {
@@ -535,12 +537,18 @@ export function ProfileScreen() {
         agreeChecked={agreeChecked}
         onAgreeChange={setAgreeChecked}
       />
-      {/* FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */}
+      {/* FloatBox 悬浮提示(对齐 Uniapp uni.showToast 语义) */}
       <FloatBox
         visible={floatVisible}
         type={floatType}
         message={floatMessage}
         onHide={() => setFloatVisible(false)}
+      />
+      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp user/index.vue 行 8 <FloatBox />:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => rootNav?.navigate('Promote')}
+        onConsult={() => rootNav?.navigate('CustomerService')}
+        onFeedback={() => rootNav?.navigate('Settings')}
       />
       {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
       <Drawer

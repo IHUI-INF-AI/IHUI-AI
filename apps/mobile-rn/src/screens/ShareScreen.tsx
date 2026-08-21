@@ -40,6 +40,8 @@ import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
 import { VoiceInput } from '../components/VoiceInput'
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 对齐 Uniapp share/index.vue float-box:悬浮导航(赚米/客服/反馈),补齐 ShareScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -63,7 +65,8 @@ interface FloatBoxState {
 const FLOAT_BOX_DEFAULT: FloatBoxState = { visible: false, type: 'info', message: '' }
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
-const FREE_RESOURCE_URL = 'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 export function ShareScreen() {
   const { t } = useI18n()
@@ -346,6 +349,13 @@ export function ShareScreen() {
         type={floatBox.type}
         message={floatBox.message}
         onHide={handleFloatBoxHide}
+      />
+
+      {/* GlobalFloatBox — 悬浮导航(对齐 Uniapp share/index.vue float-box:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => navigation.navigate('Promote')}
+        onConsult={() => navigation.navigate('CustomerService')}
+        onFeedback={() => navigation.navigate('Settings')}
       />
 
       {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:

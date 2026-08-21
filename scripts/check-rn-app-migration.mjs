@@ -68,6 +68,9 @@ const WHITELIST = new Set([
   'StudyPublishScreen.tsx', // 课程发布页:expo-image-picker 选图/选视频 + VideoPlayer 预览 + 双态表单(group/video),RN 端独占发布能力
   'CoursePlanetScreen.tsx', // 课程星球:Carousel + KnowledgePlanet + MoreTitles,RN 端独占课程浏览交互
   'MoreCourseScreen.tsx', // 更多课程:KnowledgePlanet + BottomFigure + CommissionFloatingIcon,RN 端独占课程列表
+  'CarteScreen.tsx', // 社群宣传卡纯静态页:无 JS 逻辑,CDN 图片展示,对齐 Uniapp pagesA/carte/index.vue,无跨端需求
+  'DeveloperScreen.tsx', // 开发者空间页:标题+三功能入口+开发者信息占位,对齐 Uniapp pagesA/plaza/developer.vue,无跨端需求
+  'RecruitmentScreen.tsx', // 操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */

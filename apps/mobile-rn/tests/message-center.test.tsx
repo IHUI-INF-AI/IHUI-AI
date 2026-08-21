@@ -50,7 +50,7 @@ vi.mock('@ihui/rn-app', async () => {
       onPressConversation?: (c: { id: string; name: string }) => void
       items?: { id: string; title: string }[]
     }) =>
-      h('div', null, [
+      h('div', { 'data-testid': 'message-center-root' }, [
         h(
           'div',
           { 'data-testid': 'conversations' },
@@ -92,7 +92,14 @@ vi.mock('react-native', async () => {
 
 import { MessageCenterScreen } from '../src/screens/MessageCenterScreen'
 
-const mockMessage = { id: 'm1', type: 'system', title: '系统通知', content: '内容', read: false, createdAt: '2026-08-19T10:00:00Z' }
+const mockMessage = {
+  id: 'm1',
+  type: 'system',
+  title: '系统通知',
+  content: '内容',
+  read: false,
+  createdAt: '2026-08-19T10:00:00Z',
+}
 
 describe('MessageCenterScreen 消息中心', () => {
   beforeEach(() => {
@@ -100,19 +107,28 @@ describe('MessageCenterScreen 消息中心', () => {
     apiMocks.fetchApi.mockResolvedValue({ success: true, data: { list: [mockMessage], total: 1 } })
     apiMocks.listConversations.mockResolvedValue({
       success: true,
-      data: { conversations: [{ id: 'c1', title: 'AI客服', lastMessageAt: '2026-08-19T10:00:00Z' }], total: 1 },
+      data: {
+        conversations: [{ id: 'c1', title: 'AI客服', lastMessageAt: '2026-08-19T10:00:00Z' }],
+        total: 1,
+      },
     })
   })
 
   it('加载通知列表与会话列表', async () => {
-    const { getByTestId } = render(<MessageCenterScreen />)
+    const { container } = render(<MessageCenterScreen />)
 
     await waitFor(() => {
       expect(apiMocks.fetchApi).toHaveBeenCalled()
       expect(apiMocks.listConversations).toHaveBeenCalled()
     })
-    await waitFor(() => expect(getByTestId('messages').textContent).toContain('系统通知'))
-    await waitFor(() => expect(getByTestId('conversations').textContent).toContain('AI客服'))
+    await waitFor(() => {
+      const messages = container.querySelectorAll('[data-testid="messages"]')
+      expect(messages[0]!.textContent).toContain('系统通知')
+    })
+    await waitFor(() => {
+      const conversations = container.querySelectorAll('[data-testid="conversations"]')
+      expect(conversations[0]!.textContent).toContain('AI客服')
+    })
   })
 
   it('无会话时不渲染会话区块', async () => {
@@ -120,20 +136,23 @@ describe('MessageCenterScreen 消息中心', () => {
       success: true,
       data: { conversations: [], total: 0 },
     })
-    const { getByTestId } = render(<MessageCenterScreen />)
+    const { container } = render(<MessageCenterScreen />)
 
     await waitFor(() => {
-      expect(getByTestId('conversations').textContent ?? '').toBe('')
+      const conversations = container.querySelectorAll('[data-testid="conversations"]')
+      expect(conversations[0]?.textContent ?? '').toBe('')
     })
   })
 
   it('点击会话跳 MessageChat(peerId/name)', async () => {
-    const { getByTestId } = render(<MessageCenterScreen />)
+    const { container } = render(<MessageCenterScreen />)
 
     await waitFor(() => {
-      expect(getByTestId('conversations').textContent).toContain('AI客服')
+      const conversations = container.querySelectorAll('[data-testid="conversations"]')
+      expect(conversations[0]!.textContent).toContain('AI客服')
     })
-    fireEvent.click(getByTestId('conversations').querySelector('button') as HTMLButtonElement)
+    const conversations = container.querySelectorAll('[data-testid="conversations"]')
+    fireEvent.click(conversations[0]!.querySelector('button') as HTMLButtonElement)
 
     await waitFor(() => {
       expect(apiMocks.navigate).toHaveBeenCalledWith('MessageChat', {
