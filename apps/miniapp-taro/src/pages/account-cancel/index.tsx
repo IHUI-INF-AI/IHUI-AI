@@ -80,6 +80,7 @@ export default function AccountCancel() {
   const [confirmCountdown, setConfirmCountdown] = useState(5)
   const codeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const confirmTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const codeSendingRef = useRef(false)
 
   const requiredSentence = t('accountCancel.confirmSentence')
   const phone = (info?.phone as string) || ''
@@ -133,11 +134,17 @@ export default function AccountCancel() {
 
   const onSendCode = useCallback(async () => {
     if (codeBtnDisabled) return
-    if (!phone) {
-      Taro.showToast({ title: t('accountCancel.noPhone'), icon: 'none' })
-      return
-    }
+    // 2026-08-21 修复(双击重发竞态):codeBtnDisabled 依赖的 countdown 在
+    // await sendSmsCode 网络往返期间仍为 0,快速双击会两次通过守卫 →
+    // 发两条短信 + 启动两个 interval(第一个引用被覆盖泄漏,倒计时 2 倍速)。
+    // 用同步 ref 守卫覆盖整个 await 窗口。
+    if (codeSendingRef.current) return
+    codeSendingRef.current = true
     try {
+      if (!phone) {
+        Taro.showToast({ title: t('accountCancel.noPhone'), icon: 'none' })
+        return
+      }
       await api.sendSmsCode(phone)
       Taro.showToast({ title: t('accountCancel.codeSent'), icon: 'success' })
       setCountdown(60)
@@ -152,6 +159,8 @@ export default function AccountCancel() {
       }, 1000)
     } catch {
       // 错误已由 request 统一提示
+    } finally {
+      codeSendingRef.current = false
     }
   }, [codeBtnDisabled, phone, t])
 
