@@ -1046,7 +1046,6 @@
   },
   "learnDevelop": {
     "title": "学習開発",
-    "comingSoon": "コースプラネットは開発中です",
     "contactLabel": "直接 李総 に連絡"
   },
   "lecturerDetail": {
@@ -1256,9 +1255,7 @@
     "title": "ランキング"
   },
   "rankingDetail": {
-    "rank": "ランキング",
-    "attention": "注目度",
-    "organization": "機関"
+    "rank": "ランキング"
   },
   "realNameAuth": {
     "title": "実名認証",
