@@ -28,7 +28,6 @@
     "contentTitle": "內容中心",
     "meTitle": "個人中心",
     "openInWeb": "在網頁版開啟",
-    "openInWebDesc": "此功能建議在網頁版使用,體驗更佳",
     "comingSoon": "即將上線",
     "dashboard": "儀錶板",
     "dashboardDesc": "資料概覽與快捷入口",
@@ -259,7 +258,6 @@
     "send": "IHUI AI · 傳送到對話"
   },
   "page": {
-    "back": "返回",
     "benefitsTitle": "會員專屬權益",
     "benefit1": "全部進階 AI 模型與智能體",
     "benefit2": "VIP 專屬標識與優先客服",
@@ -321,7 +319,6 @@
       "totalSpent": "累計使用",
       "streak": "連續簽到",
       "todaySigned": "今日已簽到",
-      "notSigned": "尚未簽到",
       "signIn": "立即簽到",
       "earnTitle": "如何取得積分",
       "earn1": "每日簽到獎勵",
@@ -347,7 +344,6 @@
     },
     "invitations": {
       "joinedAt": "加入時間",
-      "lastActive": "最近活躍",
       "commission": "累計貢獻佣金",
       "statusActive": "活躍",
       "statusInactive": "待啟用",
@@ -356,11 +352,9 @@
     "follow": {
       "emptyFollowing": "暫未關注任何使用者",
       "emptyFans": "還沒有粉絲",
-      "followedAt": "關注時間",
-      "goExplore": "去逛逛"
+      "followedAt": "關注時間"
     },
     "pricing": {
-      "priceLabel": "價格",
       "perMonth": "元/月",
       "duration": "時長",
       "days": "天",

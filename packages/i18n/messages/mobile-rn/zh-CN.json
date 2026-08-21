@@ -1046,7 +1046,6 @@
   },
   "learnDevelop": {
     "title": "学习开发",
-    "comingSoon": "课程星球正在开发中",
     "contactLabel": "直接联系李总"
   },
   "lecturerDetail": {
@@ -1256,9 +1255,7 @@
     "title": "排行榜"
   },
   "rankingDetail": {
-    "rank": "排名",
-    "attention": "关注度",
-    "organization": "机构"
+    "rank": "排名"
   },
   "realNameAuth": {
     "title": "实名认证",
