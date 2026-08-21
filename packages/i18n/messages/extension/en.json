@@ -257,5 +257,116 @@
     "translate": "IHUI AI · Translate Selection",
     "vocab": "IHUI AI · Look Up Word",
     "send": "IHUI AI · Send to Chat"
+  },
+  "page": {
+    "back": "Back",
+    "benefitsTitle": "Membership Benefits",
+    "benefit1": "Access to all advanced AI models and agents",
+    "benefit2": "Exclusive VIP badge and priority support",
+    "benefit3": "Bonus points acceleration and exclusive discounts",
+    "benefit4": "Early access to new features",
+    "benefit5": "More storage and collaboration allowance",
+    "about": {
+      "introP1": "IHUI AI is a browser extension that combines intelligent chat, content services, and personal learning management, letting you call on AI capabilities anytime while browsing. ",
+      "introP2": "From the side panel you can chat, look up words, save content, manage your study plan, and keep your data in sync across devices.",
+      "version": "Version",
+      "copyright": "© {year} IHUI AI · All rights reserved"
+    },
+    "agreement": {
+      "intro": "Welcome to IHUI AI. Please read and agree to the following terms before using this extension. By using the service you accept this agreement.",
+      "section1": "1. Service description: This extension provides value-added services such as AI chat, vocabulary lookup, content saving, and learning management, subject to the actual features.",
+      "section2": "2. Account and data: You are responsible for safeguarding your account credentials and for the content you generate and submit.",
+      "section3": "3. Intellectual property: The extension and its interface and features belong to the developer; they may not be copied, modified, or used commercially without permission.",
+      "section4": "4. Changes and disclaimer: We may adjust or terminate features based on operational needs, and will make reasonable efforts to ensure service stability.",
+      "note": "By continuing to use this extension you agree to all of the above terms. IHUI AI reserves all final interpretation rights."
+    },
+    "contact": {
+      "desc": "If you have any questions or suggestions, feel free to reach out through the following channels.",
+      "serviceTime": "Service hours: Monday to Friday, 9:00 - 18:00 (excluding public holidays)",
+      "email": "Email",
+      "wechat": "WeChat Public Account",
+      "wechatValue": "IHUI AI",
+      "feedback": "Feedback"
+    },
+    "help": {
+      "desc": "Browse the frequently asked questions to get started with IHUI AI.",
+      "faq1Title": "How do I open the side panel?",
+      "faq1Body": "Click the IHUI AI icon in the browser toolbar to open the side panel on the right side of the page; click again to collapse it.",
+      "faq2Title": "How do I save web content?",
+      "faq2Body": "Manage saved content under Me > Favorites in the side panel, or quickly save from the page using the context menu.",
+      "faq3Title": "How do I enable dark mode?",
+      "faq3Body": "Go to Settings > Appearance to switch dark mode; the preference is saved automatically and synced across devices.",
+      "faq4Title": "How do I contact support?",
+      "faq4Body": "Go to Settings > Contact Us for official contact details, or submit an issue via Feedback.",
+      "faq5Title": "Is my data synced to other devices?",
+      "faq5Body": "Once signed in with the same account, data such as favorites, followings, and points sync automatically across supported devices.",
+      "more": "For more help, visit the web Help Center."
+    },
+    "vip": {
+      "notActive": "VIP not activated",
+      "active": "Active",
+      "level": "Current level",
+      "expire": "Expires",
+      "permanent": "Permanent",
+      "upgrade": "Activate Now"
+    },
+    "member": {
+      "desc": "Become a member to unlock all premium benefits and dedicated services.",
+      "coupons": "Available coupons",
+      "open": "Become a Member"
+    },
+    "points": {
+      "balance": "Current points",
+      "totalEarned": "Total earned",
+      "totalSpent": "Total used",
+      "streak": "Day streak",
+      "todaySigned": "Signed in today",
+      "notSigned": "Not signed in yet",
+      "signIn": "Check In Now",
+      "earnTitle": "How to earn points",
+      "earn1": "Daily check-in reward",
+      "earn2": "Complete learning and tasks",
+      "earn3": "Daily interactions and favorites",
+      "earn4": "Join platform activities"
+    },
+    "distribution": {
+      "desc": "Share IHUI AI and invite friends to sign up to earn referral commissions and rewards.",
+      "totalCommission": "Total commissions",
+      "available": "Available",
+      "frozen": "Frozen",
+      "invited": "Invited",
+      "active": "Active",
+      "rank": "Rank",
+      "inviteCode": "Invite code",
+      "rate": "Commission rate",
+      "guidanceTitle": "How to join the affiliate program",
+      "guidance1": "1. Copy your exclusive invite code or link",
+      "guidance2": "2. Share it with friends to complete sign-up",
+      "guidance3": "3. Earn commission at a set rate when friends make purchases",
+      "open": "Go to Web Affiliate Center"
+    },
+    "invitations": {
+      "joinedAt": "Joined",
+      "lastActive": "Last active",
+      "commission": "Total commission",
+      "statusActive": "Active",
+      "statusInactive": "Pending",
+      "empty": "No invitation records yet — share with friends"
+    },
+    "follow": {
+      "emptyFollowing": "You are not following anyone yet",
+      "emptyFans": "No fans yet",
+      "followedAt": "Followed",
+      "goExplore": "Explore"
+    },
+    "pricing": {
+      "priceLabel": "Price",
+      "perMonth": "CNY/month",
+      "duration": "Duration",
+      "days": "days",
+      "benefitsTitle": "Included benefits",
+      "note": "Pricing and benefits are subject to the web version.",
+      "open": "Go to Web to Activate"
+    }
   }
 }
