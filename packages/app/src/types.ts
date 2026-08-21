@@ -417,6 +417,7 @@ export type {
   IcpRecordScreenProps,
   AppPermissionScreenProps,
   UsageRulesScreenProps,
+  LearnDevelopEntry,
   LearnDevelopScreenProps,
   TopupFailScreenProps,
   TopupSuccessScreenProps,
