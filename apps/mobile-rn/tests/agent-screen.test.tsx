@@ -101,10 +101,10 @@ vi.mock('react-native', async () => {
     Animated: {
       View: mk('div'),
       Text: mk('span'),
-      createAnimatedComponent: (c) => c,
+      createAnimatedComponent: (c: unknown) => c,
       timing: () => ({ start: () => {} }),
       spring: () => ({ start: () => {} }),
-      Value: class { constructor(_v) {} setValue(_v) {} interpolate() { return { __getValue: () => 0 }; } }
+      Value: class { constructor(_v: number) {} setValue(_v: number) {} interpolate() { return { __getValue: () => 0 }; } }
     },
   }
 })
