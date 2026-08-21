@@ -157,6 +157,7 @@ import AiGroupScreen from '../screens/AiGroupScreen'
 import AiAssistantScreen from '../screens/AiAssistantScreen'
 import AigcListScreen from '../screens/AigcListScreen'
 import ModelPlazaScreen from '../screens/ModelPlazaScreen'
+import type { RankingItem } from '@ihui/types'
 import DeveloperScreen from '../screens/DeveloperScreen'
 import BusinessCardScreen from '../screens/BusinessCardScreen'
 import RecruitmentScreen from '../screens/RecruitmentScreen'
@@ -378,7 +379,8 @@ export type RootStackParamList = {
   TopupSuccess: { amount: number; orderId: string }
   TopupFail: { reason?: string }
   CategoryDetail: { categoryId: string; title: string }
-  RankingDetail: { id: string }
+  // 2026-08-21:列表页透传完整 RankingItem(对齐原版 onLoad options.data),item 可选兼容旧调用
+  RankingDetail: { id: string; item?: RankingItem }
   TeamDetail: { memberId: string }
   DistributionOrderList: undefined
   EarnCommission: undefined
