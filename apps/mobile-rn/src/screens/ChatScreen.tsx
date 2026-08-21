@@ -98,6 +98,8 @@ import {
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { BottomActionBar } from '../components/BottomActionBar'
+// 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
 import {
   Drawer,
@@ -247,6 +249,10 @@ export function ChatScreen() {
 
   // ── 模型/对话状态 ──
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
+  // 对话页顶部「查看卡片」折叠(对齐 Uniapp ai_index2.vue tishi_show:初始展开,点击 tishiHandle 切换)
+  const [tishiShow, setTishiShow] = useState(true)
+  // 智汇值卡占位(对齐 Uniapp ai_index2 tokenQuantity;暂无 getTokenCount 接口,占位 0,充值跳 AppTopup)
+  const [tokenQuantity] = useState(0)
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
   const [prompt, setPrompt] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -281,7 +287,7 @@ export function ChatScreen() {
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
   // 上下文自动压缩提示条(chatAlert.compaction.*):当前无对话上下文压缩逻辑,
   // 仅预留渲染阀门;接入压缩逻辑时 set 前/后条数即可展示真实参数。
-   
+
   const [compactionInfo, setCompactionInfo] = useState<{
     before: number
     after: number
@@ -947,6 +953,28 @@ export function ChatScreen() {
 
   const renderListHeader = useCallback((): React.ReactNode => {
     const nodes: React.ReactNode[] = []
+    // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
+    nodes.push(
+      <View key="tishi-block" style={styles.tishiBlock}>
+        <Pressable
+          style={styles.tishiBtn}
+          onPress={() => setTishiShow((v) => !v)}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={tishiShow ? '关闭卡片' : '查看卡片'}
+        >
+          <Text style={styles.tishiBtnText}>{tishiShow ? '关闭' : '查看'}卡片</Text>
+        </Pressable>
+        {tishiShow ? (
+          <View style={styles.tishiCardWrap}>
+            <IntelligentAssistant
+              tokenQuantity={tokenQuantity}
+              onRecharge={() => navigation.navigate('AppTopup')}
+            />
+          </View>
+        ) : null}
+      </View>,
+    )
     if (compactionInfo) {
       nodes.push(
         <View style={styles.compactionBanner}>
@@ -1014,7 +1042,16 @@ export function ChatScreen() {
       )
     }
     return nodes.length > 0 ? <>{nodes}</> : null
-  }, [materialCards, inputFiles, removeImage, compactionInfo, t])
+  }, [
+    materialCards,
+    inputFiles,
+    removeImage,
+    compactionInfo,
+    t,
+    tishiShow,
+    tokenQuantity,
+    navigation,
+  ])
 
   const renderListFooter = useCallback((): React.ReactNode => {
     return (
@@ -1861,6 +1898,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: rpx(32),
+  },
+  // ── 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue tishi_block) ──
+  tishiBlock: {
+    marginBottom: rpx(16),
+  },
+  tishiBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(6),
+    borderRadius: rpx(8),
+    backgroundColor: tokens.surface.muted,
+    marginBottom: rpx(8),
+  },
+  tishiBtnText: {
+    fontSize: rpx(13),
+    color: tokens.text.secondary,
+  },
+  tishiCardWrap: {
+    borderRadius: rpx(12),
+    overflow: 'hidden',
   },
   // ── 上下文自动压缩提示条(chatAlert.compaction.*) ──
   compactionBanner: {
