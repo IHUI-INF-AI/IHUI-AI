@@ -1046,7 +1046,6 @@
   },
   "learnDevelop": {
     "title": "Learning & Development",
-    "comingSoon": "Course Planet is under development",
     "contactLabel": "Contact Mr. Li directly"
   },
   "lecturerDetail": {
@@ -1256,9 +1255,7 @@
     "title": "Ranking"
   },
   "rankingDetail": {
-    "rank": "Rank",
-    "attention": "Attention",
-    "organization": "Organization"
+    "rank": "Rank"
   },
   "realNameAuth": {
     "title": "Real-Name Verification",
