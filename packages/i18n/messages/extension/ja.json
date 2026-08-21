@@ -28,7 +28,6 @@
     "contentTitle": "コンテンツセンター",
     "meTitle": "マイページ",
     "openInWeb": "ウェブ版で開く",
-    "openInWebDesc": "この機能はウェブ版での使用をお勧めします",
     "comingSoon": "近日公開",
     "dashboard": "ダッシュボード",
     "dashboardDesc": "データ概要とクイックアクセス",
@@ -259,7 +258,6 @@
     "send": "IHUI AI · チャットに送信"
   },
   "page": {
-    "back": "戻る",
     "benefitsTitle": "会員限定特典",
     "benefit1": "全上級 AI モデルとエージェントを利用可能",
     "benefit2": "VIP 専用バッジと優先サポート",
@@ -321,7 +319,6 @@
       "totalSpent": "累計利用",
       "streak": "連続チェックイン",
       "todaySigned": "本日チェックイン済み",
-      "notSigned": "未チェックイン",
       "signIn": "今すぐチェックイン",
       "earnTitle": "ポイントを獲得するには",
       "earn1": "毎日のチェックイン特典",
@@ -333,9 +330,7 @@
       "desc": "IHUI AI を共有し、友達を招待して登録してもらうと、紹介報酬と特典を獲得できます。",
       "totalCommission": "累計報酬",
       "available": "引き出し可能",
-      "frozen": "凍結中",
       "invited": "招待人数",
-      "active": "アクティブ",
       "rank": "ランキング",
       "inviteCode": "招待コード",
       "rate": "報酬率",
@@ -347,7 +342,6 @@
     },
     "invitations": {
       "joinedAt": "参加日",
-      "lastActive": "最近のアクティブ",
       "commission": "累計報酬",
       "statusActive": "アクティブ",
       "statusInactive": "待機中",
@@ -356,11 +350,9 @@
     "follow": {
       "emptyFollowing": "まだフォローしているユーザーはいません",
       "emptyFans": "まだフォロワーはいません",
-      "followedAt": "フォロー日",
-      "goExplore": "見に行く"
+      "followedAt": "フォロー日"
     },
     "pricing": {
-      "priceLabel": "価格",
       "perMonth": "円/月",
       "duration": "期間",
       "days": "日",

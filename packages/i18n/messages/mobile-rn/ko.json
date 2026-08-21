@@ -1046,7 +1046,6 @@
   },
   "learnDevelop": {
     "title": "학습 개발",
-    "comingSoon": "강좌 플래닛 개발 중",
     "contactLabel": "이 대표에게 직접 문의"
   },
   "lecturerDetail": {
@@ -1256,9 +1255,7 @@
     "title": "순위"
   },
   "rankingDetail": {
-    "rank": "순위",
-    "attention": "관심도",
-    "organization": "기관"
+    "rank": "순위"
   },
   "realNameAuth": {
     "title": "실명 인증",
