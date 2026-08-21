@@ -1255,7 +1255,10 @@
     "title": "Ranking"
   },
   "rankingDetail": {
-    "rank": "Rank"
+    "rank": "Rank",
+    "points": "Points",
+    "studyHours": "Study Hours",
+    "levelDesc": "Level"
   },
   "realNameAuth": {
     "title": "Real-Name Verification",
@@ -1427,7 +1430,8 @@
     "phone": "Phone",
     "joinedAt": "Joined",
     "contact": "Contact",
-    "viewOrders": "View Orders"
+    "viewOrders": "View Orders",
+    "empty": "No member info"
   },
   "vip": {
     "subtitle": "Unlock membership and enjoy more benefits",
