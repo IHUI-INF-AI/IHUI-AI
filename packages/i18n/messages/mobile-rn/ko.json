@@ -1255,7 +1255,10 @@
     "title": "순위"
   },
   "rankingDetail": {
-    "rank": "순위"
+    "rank": "순위",
+    "points": "포인트",
+    "studyHours": "학습 시간",
+    "levelDesc": "레벨"
   },
   "realNameAuth": {
     "title": "실명 인증",
@@ -1427,7 +1430,8 @@
     "phone": "휴대폰 번호",
     "joinedAt": "가입 시간",
     "contact": "연락",
-    "viewOrders": "주문 보기"
+    "viewOrders": "주문 보기",
+    "empty": "멤버 정보가 없습니다"
   },
   "vip": {
     "subtitle": "멤버십을 개통하고 더 많은 혜택을 누리세요",
