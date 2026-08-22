@@ -1599,6 +1599,95 @@ class LLMGateway:
 
         return {"error": True, "error_message": last_error or "unknown"}
 
+    async def _astream_fallback_events(
+        self,
+        trimmed_messages: list[dict[str, Any]],
+        used_model: str,
+        error_message: str,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """流式主路径失败(未发任何 chunk)时的 FallbackRouter 兜底事件流。
+
+        2026-08-22 立:厂商原生适配器路径(stepfun/* 必走 / 带 tools)此前直接透传
+        error 事件并 return,绕过 LiteLLM 路径的流式兜底契约,导致默认模型
+        stepfun/* 流式失败时零兜底。本 helper 与 LiteLLM 路径 except 块中的
+        fallback 分支保持同一事件契约:
+          fallback 通知事件(P4-2,前端感知模型切换)
+          → chunk(10 字符/块)
+          → done(fallback_used=True, fallback_primary=主模型);
+        兜底不可用 / 全部失败时透传 error 事件(errorCode=LLM_ERROR)。
+        """
+        error_evt = {"type": "error", "message": error_message, "errorCode": "LLM_ERROR"}
+        if not fallback_router._configs:
+            yield error_evt
+            return
+        fb_reason = classify_fallback_reason(Exception(error_message))
+        try:
+            fb_result = await fallback_router.complete_with_fallback(
+                trimmed_messages, used_model
+            )
+            if not fb_result.get("error"):
+                fb_content = fb_result.get("content", "") or ""
+                backup_model = fb_result.get("model", "unknown")
+                try:
+                    LLM_FALLBACK_TRIGGERED.labels(
+                        primary_model=used_model,
+                        backup_model=backup_model,
+                        reason=fb_reason,
+                    ).inc()
+                    LLM_FALLBACK_SUCCESS.labels(
+                        primary_model=used_model,
+                        backup_model=backup_model,
+                    ).inc()
+                except Exception as metric_err:
+                    logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+                # P4-2: 提前发送 fallback 通知事件,让前端感知模型切换(与 LiteLLM 路径一致)
+                yield {
+                    "type": "fallback",
+                    "primary_model": used_model,
+                    "backup_model": backup_model,
+                    "reason": fb_reason,
+                }
+                chunk_size = 10
+                for i in range(0, len(fb_content), chunk_size):
+                    yield {"type": "chunk", "content": fb_content[i : i + chunk_size]}
+                yield {
+                    "type": "done",
+                    "model": backup_model,
+                    "usage": fb_result.get("usage", {}),
+                    "stub": False,
+                    "fallback_used": True,
+                    "fallback_primary": used_model,
+                }
+                return
+            # 所有 fallback 均失败 → 指标埋点 + 透传原 error
+            try:
+                LLM_FALLBACK_TRIGGERED.labels(
+                    primary_model=used_model,
+                    backup_model="all_failed",
+                    reason=fb_reason,
+                ).inc()
+                LLM_FALLBACK_FAILURE.labels(
+                    primary_model=used_model,
+                    backup_model="all_failed",
+                ).inc()
+            except Exception as metric_err:
+                logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+        except Exception as fb_err:
+            logger.warning("astream fallback 失败: %s", fb_err)
+            try:
+                LLM_FALLBACK_TRIGGERED.labels(
+                    primary_model=used_model,
+                    backup_model="all_failed",
+                    reason=fb_reason,
+                ).inc()
+                LLM_FALLBACK_FAILURE.labels(
+                    primary_model=used_model,
+                    backup_model="all_failed",
+                ).inc()
+            except Exception as metric_err:
+                logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
+        yield error_evt
+
     async def astream(
         self,
         messages: list[dict[str, Any]],
@@ -1651,7 +1740,26 @@ class LLMGateway:
                 astream_iter = provider.astream(
                     trimmed_messages, used_model, tools=tools, **provider_kwargs
                 )
+                # 2026-08-22 修复:原生适配器路径此前直接透传全部事件并 return,
+                # error 事件绕过 LiteLLM 路径的流式兜底契约(默认模型 stepfun/* 必走
+                # 本路径,流式失败时零兜底)。对齐契约:未发任何 chunk 前收到 error →
+                # _astream_fallback_events 兜底;已发 chunk 后的 error 透传(不可撤回)。
+                native_sent_content = False
                 async for evt in astream_iter:
+                    if (
+                        isinstance(evt, dict)
+                        and evt.get("type") == "error"
+                        and not native_sent_content
+                    ):
+                        async for fb_evt in self._astream_fallback_events(
+                            trimmed_messages,
+                            used_model,
+                            str(evt.get("message", "")) or "native provider stream failed",
+                        ):
+                            yield fb_evt
+                        return
+                    if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
+                        native_sent_content = True
                     yield evt
                 return
 

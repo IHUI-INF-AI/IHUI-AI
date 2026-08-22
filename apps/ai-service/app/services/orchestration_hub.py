@@ -319,7 +319,9 @@ class PillarEventBus:
             if not _REDIS_URL or aioredis is None:
                 self._use_redis = False
                 return None
-            self._redis = aioredis.from_url(_REDIS_URL, decode_responses=True)
+            # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+            # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
+            self._redis = aioredis.from_url(_REDIS_URL, decode_responses=True, protocol=2)
             await self._redis.ping()
             # 确保消费者组存在(不存在则创建)
             try:
@@ -510,7 +512,9 @@ class JointDecisionEngine:
             if not _REDIS_URL or aioredis is None:
                 self._use_redis = False
                 return None
-            self._redis = aioredis.from_url(_REDIS_URL, decode_responses=True)
+            # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+            # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
+            self._redis = aioredis.from_url(_REDIS_URL, decode_responses=True, protocol=2)
             await self._redis.ping()
             # 加载 playbook 启用状态
             saved = await self._redis.hgetall(_PLAYBOOK_HASH_KEY)
