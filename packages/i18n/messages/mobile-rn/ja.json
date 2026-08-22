@@ -401,7 +401,8 @@
     "previewHello": "こんにちは",
     "previewMine": "自分が作成",
     "subtitle": "AI グループアシスタント",
-    "title": "AI グループ"
+    "title": "AI グループ",
+    "searchPlaceholder": "AIアシスタントを検索"
   },
   "assistant": {
     "edit": {
@@ -1406,7 +1407,13 @@
     "empty": "チームメンバーはまだありません",
     "joinDate": "参加日",
     "level": "レベル",
-    "loadFailed": "チームの読み込みに失敗"
+    "loadFailed": "チームの読み込みに失敗",
+    "tab_all": "すべて",
+    "tab_direct": "直接",
+    "tab_indirect": "間接",
+    "status_active": "アクティブ",
+    "status_inactive": "非アクティブ",
+    "searchPlaceholder": "メンバーを検索"
   },
   "teamDetail": {
     "title": "チームメンバー詳細",
