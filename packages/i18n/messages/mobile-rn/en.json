@@ -1768,7 +1768,10 @@
     "submitting": "Submitting...",
     "success": "Submitted successfully",
     "title": "Feedback",
-    "type": "Type"
+    "type": "Type",
+    "imagesLabel": "Upload screenshots of the issue (max 9)",
+    "imagePickFailed": "Failed to pick images, please retry",
+    "pickImages": "Pick images"
   },
   "feedbackDetail": {
     "content": "Content",
