@@ -1,0 +1,382 @@
+........................................................................ [  0%]
+........................................................................ [  1%]
+........................................................................ [  2%]
+........................................................................ [  3%]
+........................................................................ [  4%]
+........................................................................ [  4%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [  9%]
+........................................................................ [  9%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 12%]
+........................................................................ [ 13%]
+........................................................................ [ 14%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 16%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 19%]
+........................................................................ [ 19%]
+........................................................................ [ 20%]
+........................................................................ [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 23%]
+........................................................................ [ 24%]
+........................................................................ [ 24%]
+........................................................................ [ 25%]
+........................................................................ [ 26%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+.....FF................................................................. [ 29%]
+........................................................................ [ 30%]
+........................................................................ [ 31%]
+........................................................................ [ 32%]
+........................................................................ [ 33%]
+........................................................................ [ 34%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 37%]
+........................................................................ [ 38%]
+........................................................................ [ 39%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 41%]
+........................................................................ [ 42%]
+.....................................F...F.............................. [ 43%]
+........................................................................ [ 44%]
+........................................................................ [ 44%]
+........................................................................ [ 45%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 48%]
+........................................................................ [ 49%]
+........................................................................ [ 49%]
+........................................................................ [ 50%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 53%]
+........................................................................ [ 54%]
+........................................................................ [ 54%]
+........................................................................ [ 55%]
+........................................................................ [ 56%]
+........................................................................ [ 57%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 59%]
+........................................................................ [ 60%]
+........................................................................ [ 61%]
+........................................................................ [ 62%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 64%]
+........................................................................ [ 65%]
+........................................................................ [ 66%]
+........................................................................ [ 67%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 69%]
+........................................................................ [ 70%]
+.......F.FFFF........................................................... [ 71%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 73%]
+........................................................................ [ 74%]
+...............................................FFF..F.FFF............... [ 75%]
+F....................................................................... [ 76%]
+........................................................................ [ 77%]
+........................................................................ [ 78%]
+........................................................................ [ 78%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 82%]
+........................................................................ [ 83%]
+........................................................................ [ 83%]
+........................................................................ [ 84%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 88%]
+................................................FF...................... [ 88%]
+........................................................................ [ 89%]
+........................................................................ [ 90%]
+........................................................................ [ 91%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 93%]
+........................................................................ [ 94%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+........................................................................ [ 98%]
+........................................................................ [ 99%]
+....................                                                     [100%]
+============================== warnings summary ===============================
+.venv\Lib\site-packages\fastapi\testclient.py:1
+  G:\IHUI-AI\apps\ai-service\.venv\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+    from starlette.testclient import TestClient as TestClient  # noqa
+
+tests/test_ab_test_scheduler.py::TestIsExpired::test_naive_datetime_assumed_utc
+  G:\IHUI-AI\apps\ai-service\tests\test_ab_test_scheduler.py:557: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    naive_old = (datetime.utcnow() - timedelta(days=2)).isoformat()
+
+tests/test_agent_loop.py: 29 warnings
+tests/test_agent_orchestrator.py: 14 warnings
+tests/test_api_v1.py: 24 warnings
+tests/test_business_flow_integration.py: 25 warnings
+tests/test_conversation.py: 8 warnings
+tests/test_memory.py: 134 warnings
+tests/test_routers.py: 12 warnings
+tests/test_slash_commands.py: 5 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\memory.py:74: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_api_v1.py::TestChatEndpoint::test_chat_basic
+tests/test_api_v1.py::TestChatEndpoint::test_chat_with_allowed_tools
+tests/test_business_flow_integration.py::TestConversationEndToEnd::test_simple_chat_completes
+tests/test_business_flow_integration.py::TestConversationEndToEnd::test_max_iterations_caps_tool_loop
+tests/test_business_flow_integration.py::TestConversationEndToEnd::test_result_to_dict_serializable
+tests/test_business_flow_integration.py::TestConversationEndToEnd::test_fallback_intent_used_when_classify_returns_other
+tests/test_business_flow_integration.py::TestAPIEndpoints::test_chat_endpoint_format
+tests/test_business_flow_integration.py::TestAPIEndpoints::test_chat_endpoint_rag_flag_propagates
+tests/test_conversation.py::test_chat_new_session_id
+  G:\IHUI-AI\apps\ai-service\app\services\conversation.py:163: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    sid = session_id or f"conv-{int(datetime.utcnow().timestamp())}"
+
+tests/test_api_v1.py::TestAgentInvokeEndpoint::test_invoke_existing_agent
+tests/test_business_flow_integration.py::TestAPIEndpoints::test_agent_invoke_endpoint
+  G:\IHUI-AI\apps\ai-service\app\services\agent_orchestrator.py:1454: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    sid = session_id or f"agent-{agent.name}-{int(datetime.utcnow().timestamp())}"
+
+tests/test_artifacts_store.py: 30 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\artifacts_store.py:248: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow().isoformat(),
+
+tests/test_business_flow_integration.py: 10 warnings
+tests/test_langgraph_service.py: 15 warnings
+tests/test_routers.py: 4 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\langgraph_service.py:86: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    "start": datetime.utcfromtimestamp(start).isoformat() + "Z",
+
+tests/test_business_flow_integration.py: 10 warnings
+tests/test_langgraph_service.py: 15 warnings
+tests/test_routers.py: 4 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\langgraph_service.py:87: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    "end": datetime.utcfromtimestamp(end).isoformat() + "Z",
+
+tests/test_business_flow_integration.py::TestLangGraphBusinessFlow::test_graph_run_returns_status
+tests/test_business_flow_integration.py::TestLangGraphBusinessFlow::test_graph_handles_empty_goal
+  G:\IHUI-AI\apps\ai-service\app\services\memory.py:298: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_hook_engine.py: 36 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:491: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat() + "Z"
+
+tests/test_hook_engine.py::TestCRUD::test_update_hook
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:520: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    hook["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+
+tests/test_hook_engine.py::TestCRUD::test_toggle_hook
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:544: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    hook["updatedAt"] = datetime.utcnow().isoformat() + "Z"
+
+tests/test_hook_engine.py::TestLogs::test_list_logs_all
+tests/test_hook_engine.py::TestLogs::test_list_logs_by_hook
+tests/test_hook_engine.py::TestLogs::test_list_logs_by_event
+tests/test_hook_engine.py::TestLogs::test_list_logs_by_success
+tests/test_hook_engine.py::TestLogs::test_list_logs_by_duration
+tests/test_hook_engine.py::TestLogs::test_list_logs_limit
+tests/test_hook_engine.py::TestLogs::test_get_stats_with_data
+tests/test_hook_engine.py::TestHealthCheck::test_healthy_hook
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_hook_engine.py::TestLogs::test_list_logs_by_hook
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:367: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py: 1010 warnings
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:412: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py: 19 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:905: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    line = f"[{datetime.utcnow().isoformat()}Z] event={event} msg={message}\n"
+
+tests/test_hook_engine.py: 22 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:1043: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestRunNotify::test_toast_channel
+tests/test_hook_engine.py::TestRunNotify::test_notification_alias
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:966: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "createdAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py: 118 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:1064: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "failedAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestReplay::test_replay_log_success
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:909: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestReplay::test_replay_all_success
+tests/test_hook_engine.py::TestReplay::test_replay_all_success
+tests/test_hook_engine.py::TestReplay::test_replay_all_success
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:932: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestReplay::test_replay_all_with_time_range
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:946: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    old_ts = (datetime.utcnow() - timedelta(hours=2)).isoformat() + "Z"
+
+tests/test_hook_engine.py::TestReplay::test_replay_all_with_time_range
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:947: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    new_ts = datetime.utcnow().isoformat() + "Z"
+
+tests/test_hook_engine.py::TestReplay::test_replay_all_with_time_range
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:961: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    cutoff = (datetime.utcnow() - timedelta(hours=1)).isoformat() + "Z"
+
+tests/test_hook_engine.py::TestHealthCheck::test_hook_never_triggered_is_stale
+tests/test_hook_engine.py::TestHealthCheck::test_healthy_hook_proper
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_stale_hook
+tests/test_hook_engine.py::TestHealthCheck::test_filter_by_hook_id
+  G:\IHUI-AI\apps\ai-service\app\services\hook_engine.py:1231: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_hook_engine.py: 20 warnings
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:992: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py: 20 warnings
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:1011: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:1027: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+tests/test_hook_engine.py::TestHealthCheck::test_unhealthy_hook
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:1034: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "triggeredAt": datetime.utcnow().isoformat() + "Z",
+
+tests/test_hook_engine.py::TestHealthCheck::test_stale_hook
+  G:\IHUI-AI\apps\ai-service\tests\test_hook_engine.py:1045: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    old_ts = (datetime.utcnow() - timedelta(days=35)).isoformat() + "Z"
+
+tests/test_jwt_auth.py::TestVerifyToken::test_invalid_signature_returns_none
+  G:\IHUI-AI\apps\ai-service\.venv\Lib\site-packages\jwt\api_jwt.py:147: InsecureKeyLengthWarning: The HMAC key is 12 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+    return self._jws.encode(
+
+tests/test_koubo_workflow.py: 67 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\koubo_workflow.py:69: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    "start": datetime.utcfromtimestamp(start).isoformat() + "Z",
+
+tests/test_koubo_workflow.py: 67 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\koubo_workflow.py:70: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    "end": datetime.utcfromtimestamp(end).isoformat() + "Z",
+
+tests/test_koubo_workflow.py::TestTrace::test_returns_dict_with_required_fields
+  G:\IHUI-AI\apps\ai-service\tests\test_koubo_workflow.py:203: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    assert t["start"] == datetime.utcfromtimestamp(1000.0).isoformat() + "Z"
+
+tests/test_koubo_workflow.py::TestTrace::test_returns_dict_with_required_fields
+  G:\IHUI-AI\apps\ai-service\tests\test_koubo_workflow.py:204: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    assert t["end"] == datetime.utcfromtimestamp(1000.5).isoformat() + "Z"
+
+G:\IHUI-AI\apps\ai-service\.venv\Lib\site-packages\_pytest\unraisableexception.py:33: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+  gc.collect()
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
+tests/test_mcp_server_coverage.py::TestMcpServerCoverageSamplingHandler::test_successful_call_returns_content_and_logs_audit
+  G:\IHUI-AI\apps\ai-service\app\services\mcp_server.py:4532: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_mcp_server_coverage.py::TestMcpServerCoverageSamplingHandler::test_llm_timeout_returns_blocked_with_audit
+  G:\IHUI-AI\apps\ai-service\app\services\mcp_server.py:4547: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "timestamp": datetime.utcnow().isoformat(),
+
+tests/test_message_bus.py: 39 warnings
+  <string>:8: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+
+tests/test_message_bus.py: 37 warnings
+  G:\IHUI-AI\apps\ai-service\app\services\message_bus.py:430: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    last_attempt = datetime.utcnow()
+
+tests/test_publish.py::test_scheduler_poll_once_returns_true_when_db_ok
+  C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\Lib\unittest\mock.py:2217: RuntimeWarning: coroutine 'PublishScheduler._run_task' was never awaited
+    def __init__(self, name, parent):
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_routers.py::test_agents_execute_stream_endpoint
+tests/test_routers.py::test_agents_execute_stream_has_x_accel_buffering
+tests/test_routers.py::test_agents_execute_stream_with_last_event_id
+tests/test_routers.py::test_agents_execute_stream_yields_plan_events
+  G:\IHUI-AI\apps\ai-service\app\services\langgraph_service.py:677: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_gateway_dashboard_api.py::test_providers_health_provider_fields - assert 0 > 0
+ +  where 0 = len([])
+FAILED tests/test_gateway_dashboard_api.py::test_providers_health_local_providers_exist - assert 0 > 0
+ +  where 0 = len([])
+FAILED tests/test_llm_gateway.py::test_complete_fallback_triggered_on_llm_error - AssertionError: assert '' == 'fallback response'
+  
+  - fallback response
+FAILED tests/test_llm_gateway.py::test_astream_fallback_when_no_chunks_sent - assert 0 == 1
+ +  where 0 = len([])
+FAILED tests/test_publish_notifications.py::TestNotifyPublishComplete::test_returns_both_true_on_success - AssertionError: assert {'sio': False, 'db': False} == {'sio': True, 'db': True}
+  
+  Differing items:
+  {'sio': False} != {'sio': True}
+  {'db': False} != {'db': True}
+  
+  Full diff:
+    {
+  -     'sio': True,
+  ?            ^^^
+  +     'sio': False,
+  ?            ^^^^
+  -     'db': True,
+  ?           ^^^
+  +     'db': False,
+  ?           ^^^^
+    }
+FAILED tests/test_publish_notifications.py::TestNotifyPublishComplete::test_uses_user_room_when_user_id_present - KeyError: 'room'
+FAILED tests/test_publish_notifications.py::TestNotifyPublishComplete::test_uses_broadcast_room_when_user_id_none - KeyError: 'room'
+FAILED tests/test_publish_notifications.py::TestNotifyPublishComplete::test_payload_defaults_to_empty_dict - KeyError: 'data'
+FAILED tests/test_publish_notifications.py::TestNotifyPublishComplete::test_data_includes_required_fields - KeyError: 'data'
+FAILED tests/test_routers.py::test_llm_complete_endpoint - RuntimeError: LLM down
+FAILED tests/test_routers.py::test_llm_complete_with_model - RuntimeError: LLM down
+FAILED tests/test_routers.py::test_llm_complete_stream_endpoint - assert 'event: chunk' in 'event: error\ndata: {"type": "error", "message": "LLM down", "errorCode": "LLM_ERROR"}\n\n'
+FAILED tests/test_routers.py::test_llm_complete_stream_chunk_content_concatenated - assert '[stub]' in 'event: error\ndata: {"type": "error", "message": "LLM down", "errorCode": "LLM_ERROR"}\n\n'
+FAILED tests/test_routers.py::test_llm_complete_with_metadata - RuntimeError: LLM down
+FAILED tests/test_routers.py::test_llm_complete_with_metadata_no_association - RuntimeError: LLM down
+FAILED tests/test_routers.py::test_llm_complete_with_callback_url - RuntimeError: LLM down
+FAILED tests/test_routers.py::test_agents_execute_endpoint - AssertionError: assert 'failed' == 'completed'
+  
+  - completed
+  + failed
+FAILED tests/test_skills.py::TestEvolutionLoopIterate::test_baseline_generate_exception_returns_should_iterate_false - redis.exceptions.ConnectionError: Error 22 connecting to 127.0.0.1:1. 远程计算机拒绝网络连接。.
+FAILED tests/test_skills.py::TestEvolutionLoopIterate::test_baseline_run_test_exception_returns_should_iterate_false - redis.exceptions.ConnectionError: Error 22 connecting to 127.0.0.1:1. 远程计算机拒绝网络连接。.
+19 failed, 8641 passed, 1855 warnings in 516.81s (0:08:36)

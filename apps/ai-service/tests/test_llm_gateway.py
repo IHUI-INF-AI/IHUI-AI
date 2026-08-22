@@ -478,9 +478,14 @@ async def test_astream_stub_short_message_single_chunk(monkeypatch):
 
 
 async def test_astream_real_mode_yields_tokens(monkeypatch):
-    """真实模式:astream 逐 token 产出 chunk + done。"""
+    """真实模式:astream 逐 token 产出 chunk + done。
+
+    2026-08-22 修正:显式指定 agnes/gpt-4o 走 LiteLLM 路径。旧版不传 model 依赖
+    _resolve_auto_model 的全局状态(model_availability 缓存随测试顺序/网络变化,
+    有时选中 stepfun/* 走厂商原生适配器路径打真实 httpx,fake_acompletion 失效)。
+    """
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     gw = LLMGateway()
 
@@ -514,7 +519,7 @@ async def test_astream_real_mode_yields_tokens(monkeypatch):
     fake_litellm.acompletion = fake_acompletion
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
-    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/gpt-4o")]
 
     chunks = [e for e in events if e["type"] == "chunk"]
     done = events[-1]
@@ -528,9 +533,13 @@ async def test_astream_real_mode_yields_tokens(monkeypatch):
 
 
 async def test_astream_real_mode_skip_empty_content(monkeypatch):
-    """真实模式:空 content 的 chunk 被跳过。"""
+    """真实模式:空 content 的 chunk 被跳过。
+
+    2026-08-22 修正:显式指定 agnes/gpt-4o 走 LiteLLM 路径(消除 auto 模型解析的
+    全局状态依赖,详见 test_astream_real_mode_yields_tokens docstring)。
+    """
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     gw = LLMGateway()
 
@@ -564,7 +573,7 @@ async def test_astream_real_mode_skip_empty_content(monkeypatch):
     fake_litellm.acompletion = fake_acompletion
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
-    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/gpt-4o")]
     chunks = [e for e in events if e["type"] == "chunk"]
 
     # None 和 "" 被跳过,只有 "real" 和 " token"
@@ -574,9 +583,13 @@ async def test_astream_real_mode_skip_empty_content(monkeypatch):
 
 
 async def test_astream_real_mode_exception_yields_error(monkeypatch):
-    """真实模式:litellm 抛异常时 yield error 事件。"""
+    """真实模式:litellm 抛异常时 yield error 事件。
+
+    2026-08-22 修正:显式指定 agnes/gpt-4o 走 LiteLLM 路径(消除 auto 模型解析的
+    全局状态依赖,详见 test_astream_real_mode_yields_tokens docstring)。
+    """
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     gw = LLMGateway()
 
@@ -591,7 +604,7 @@ async def test_astream_real_mode_exception_yields_error(monkeypatch):
     fake_litellm.acompletion = fake_acompletion
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
-    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/gpt-4o")]
 
     assert len(events) == 1
     assert events[0]["type"] == "error"
@@ -599,9 +612,13 @@ async def test_astream_real_mode_exception_yields_error(monkeypatch):
 
 
 async def test_astream_real_mode_no_choices(monkeypatch):
-    """真实模式:chunk 无 choices 时不报错,只取 model。"""
+    """真实模式:chunk 无 choices 时不报错,只取 model。
+
+    2026-08-22 修正:显式指定 agnes/gpt-4o 走 LiteLLM 路径(消除 auto 模型解析的
+    全局状态依赖,详见 test_astream_real_mode_yields_tokens docstring)。
+    """
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     gw = LLMGateway()
 
@@ -623,7 +640,7 @@ async def test_astream_real_mode_no_choices(monkeypatch):
     fake_litellm.acompletion = fake_acompletion
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
-    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+    events = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/gpt-4o")]
 
     # 无 chunk(因为 choices 为空),只有 done
     assert len(events) == 1
@@ -632,9 +649,13 @@ async def test_astream_real_mode_no_choices(monkeypatch):
 
 
 async def test_astream_passes_stream_kwarg(monkeypatch):
-    """真实模式:astream 透传 stream=True 给 litellm。"""
+    """真实模式:astream 透传 stream=True 给 litellm。
+
+    2026-08-22 修正:显式指定 agnes/gpt-4o 走 LiteLLM 路径(消除 auto 模型解析的
+    全局状态依赖,详见 test_astream_real_mode_yields_tokens docstring)。
+    """
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     gw = LLMGateway()
 
@@ -658,7 +679,7 @@ async def test_astream_passes_stream_kwarg(monkeypatch):
     fake_litellm.acompletion = fake_acompletion
     monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
 
-    _ = [e async for e in gw.astream([{"role": "user", "content": "hi"}])]
+    _ = [e async for e in gw.astream([{"role": "user", "content": "hi"}], model="agnes/gpt-4o")]
 
     assert received_kwargs.get("stream") is True
 
@@ -1182,7 +1203,16 @@ async def test_complete_fallback_all_providers_fail(clean_fallback_router, monke
 
 
 async def test_astream_fallback_when_no_chunks_sent(clean_fallback_router, monkeypatch):
-    """astream 流式调用在发送任何 chunk 前失败 → fallback 触发 → 拆成 chunk 产出。"""
+    """astream 原生适配器路径在发送任何 chunk 前失败 → fallback 触发 → 拆成 chunk 产出。
+
+    2026-08-22 修复:astream 的 stepfun 厂商原生适配器路径此前直接透传 error 事件,
+    完全绕过 FallbackRouter(默认模型流式失败零兜底)。生产代码已对齐 LiteLLM
+    路径契约。本测试 mock LLMGateway._get_provider 返回受控 FakeNativeProvider
+    (astream 立即 yield error 事件,避免真实 httpx 请求);fallback 的
+    complete_with_fallback 走 agnes/gpt-4o 的 LiteLLM 路径,由 mock litellm 支撑。
+    """
+    from unittest.mock import AsyncMock
+
     from app.core.config import settings
     monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}, "agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
@@ -1190,15 +1220,21 @@ async def test_astream_fallback_when_no_chunks_sent(clean_fallback_router, monke
 
     gw = LLMGateway()
 
+    class FakeNativeProvider:
+        """受控原生适配器:astream 立即失败(未发任何 chunk)。"""
+        def astream(self, messages, model, *, tools=None, **kwargs):
+            async def _gen():
+                yield {"type": "error", "message": "stream timeout"}
+            return _gen()
+
+    monkeypatch.setattr(LLMGateway, "_get_provider", AsyncMock(return_value=FakeNativeProvider()))
+
     import sys
     from types import ModuleType
     fake_litellm = ModuleType("litellm")
 
     async def fake_acompletion(**kwargs):
-        if kwargs.get("stream"):
-            # astream 主调用立即失败(无 chunk 产出)
-            raise RuntimeError("stream timeout")
-        # fallback complete 调用成功
+        # fallback complete(非流式,agnes/gpt-4o 走 LiteLLM 路径)调用成功
         class FakeUsage:
             def model_dump(self):
                 return {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10}
@@ -1225,9 +1261,13 @@ async def test_astream_fallback_when_no_chunks_sent(clean_fallback_router, monke
         model="stepfun/step-3.7-flash",
     )]
 
-    # 应有 chunk 事件 + done 事件(来自 fallback)
+    # 应有 fallback 通知 + chunk 事件 + done 事件(来自 fallback)
+    fallback_events = [e for e in events if e["type"] == "fallback"]
     chunk_events = [e for e in events if e["type"] == "chunk"]
     done_events = [e for e in events if e["type"] == "done"]
+    assert len(fallback_events) == 1
+    assert fallback_events[0]["primary_model"] == "stepfun/step-3.7-flash"
+    assert fallback_events[0]["backup_model"] == "gpt-4o"
     assert len(chunk_events) > 0
     assert len(done_events) == 1
     # chunk 拼接应为 fallback content
@@ -1239,11 +1279,16 @@ async def test_astream_fallback_when_no_chunks_sent(clean_fallback_router, monke
 
 
 async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_router, monkeypatch):
-    """astream 已发送 chunk 后失败 → 不触发 fallback(已发送 chunk 不可撤回)。"""
+    """astream 已发送 chunk 后失败 → 不触发 fallback(已发送 chunk 不可撤回)。
+
+    2026-08-22 修正:改用 agnes/gpt-4o 模型走 LiteLLM 路径(stepfun/* 必走厂商
+    原生适配器路径,旧版用 stepfun 模型实际打真实 httpx 401,mock 场景错位)。
+    本测试守护 LiteLLM 路径的 partial_done 中断契约。
+    """
     from app.core.config import settings
     monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}, "agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
-    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+    clean_fallback_router.configure("agnes/gpt-4o", {"fallbacks": ["stepfun/step-3.7-flash"]})
 
     gw = LLMGateway()
 
@@ -1261,7 +1306,7 @@ async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_route
         def __init__(self, content):
             self.choices = [type("obj", (object,), {"delta": FakeDelta(content)})()]
             self.usage = None
-            self.model = "step-3.7-flash"
+            self.model = "gpt-4o"
 
     class FakeStreamThatFails:
         """先 yield 一个 chunk,再抛异常(模拟中途断流)。"""
@@ -1283,7 +1328,7 @@ async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_route
                     return {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
             usage = _U()
             choices = [type("obj", (object,), {"message": type("obj", (object,), {"content": "SHOULD NOT BE USED"})()})()]
-            model = "gpt-4o"
+            model = "step-3.7-flash"
         return FakeResponse()
 
     fake_litellm.acompletion = fake_acompletion
@@ -1292,11 +1337,11 @@ async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_route
 
     events = [e async for e in gw.astream(
         [{"role": "user", "content": "hi"}],
-        model="stepfun/step-3.7-flash",
+        model="agnes/gpt-4o",
     )]
 
     # 应有 1 个 chunk(已发送的 partial)+ 1 个 partial_done(流式中断标记,不触发 fallback)
-    # 阶段3主体(2026-07-26):生产代码 llm_gateway.py line 1119-1123 在流式中断时
+    # 阶段3主体(2026-07-26):生产代码 llm_gateway.py 在流式中断时
     # yield partial_done 事件(避免半截内容 + error 混淆),测试断言对齐此契约
     chunk_events = [e for e in events if e["type"] == "chunk"]
     partial_done_events = [e for e in events if e["type"] == "partial_done"]
@@ -1309,10 +1354,67 @@ async def test_astream_no_fallback_when_chunks_already_sent(clean_fallback_route
     assert len(done_events) == 0
 
 
-async def test_astream_no_fallback_when_configs_empty(monkeypatch):
-    """astream 失败但无 fallback 配置 → 直接 yield error(不尝试 fallback)。"""
+async def test_astream_native_error_after_chunk_no_fallback(clean_fallback_router, monkeypatch):
+    """原生适配器路径已发 chunk 后 error → 透传 error,不触发 fallback(2026-08-22 契约)。
+
+    覆盖 _astream_fallback_events 集成点 native_sent_content 分支:原生 provider
+    先 yield chunk 再 yield error 时,已发送内容不可撤回,error 直接透传。
+    """
+    from unittest.mock import AsyncMock
+
     from app.core.config import settings
-    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}}))
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}, "agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    class FakeNativeProvider:
+        """受控原生适配器:先发 1 个 chunk,再发 error(模拟中途断流)。"""
+        def astream(self, messages, model, *, tools=None, **kwargs):
+            async def _gen():
+                yield {"type": "chunk", "content": "partial native"}
+                yield {"type": "error", "message": "mid-stream native disconnect"}
+            return _gen()
+
+    monkeypatch.setattr(LLMGateway, "_get_provider", AsyncMock(return_value=FakeNativeProvider()))
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        raise AssertionError("fallback 不应被调用(已发送 chunk 不可撤回)")
+
+    fake_litellm.acompletion = fake_acompletion
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    events = [e async for e in gw.astream(
+        [{"role": "user", "content": "hi"}],
+        model="stepfun/step-3.7-flash",
+    )]
+
+    # chunk 透传 + error 透传;无 fallback 通知 / 无 fallback done
+    chunk_events = [e for e in events if e["type"] == "chunk"]
+    error_events = [e for e in events if e["type"] == "error"]
+    fallback_events = [e for e in events if e["type"] == "fallback"]
+    done_events = [e for e in events if e["type"] == "done"]
+    assert len(chunk_events) == 1
+    assert chunk_events[0]["content"] == "partial native"
+    assert len(error_events) == 1
+    assert "mid-stream native disconnect" in error_events[0]["message"]
+    assert len(fallback_events) == 0
+    assert len(done_events) == 0
+
+
+async def test_astream_no_fallback_when_configs_empty(monkeypatch):
+    """astream 失败但无 fallback 配置 → 直接 yield error(不尝试 fallback)。
+
+    2026-08-22 修正:改用 agnes/gpt-4o 模型走 LiteLLM 路径(stepfun/* 必走厂商
+    原生适配器路径,旧版用 stepfun 模型实际打真实 httpx 401,mock 场景错位)。
+    """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"agnes": {"api_key": "sk-test-agnes", "api_base": "https://apihub.agnes-ai.com/v1"}}))
 
     saved = dict(fallback_router._configs)
     fallback_router._configs.clear()
@@ -1331,7 +1433,7 @@ async def test_astream_no_fallback_when_configs_empty(monkeypatch):
 
         events = [e async for e in gw.astream(
             [{"role": "user", "content": "hi"}],
-            model="stepfun/step-3.7-flash",
+            model="agnes/gpt-4o",
         )]
 
         # 鍙簲鏈?error 浜嬩欢
