@@ -401,7 +401,8 @@
     "previewHello": "안녕하세요",
     "previewMine": "내가 만듦",
     "subtitle": "AI 그룹 어시스턴트",
-    "title": "AI 그룹"
+    "title": "AI 그룹",
+    "searchPlaceholder": "AI 어시스턴트 검색"
   },
   "assistant": {
     "edit": {
@@ -1406,7 +1407,13 @@
     "empty": "팀 멤버가 없습니다",
     "joinDate": "가입 시간",
     "level": "등급",
-    "loadFailed": "팀 불러오기 실패"
+    "loadFailed": "팀 불러오기 실패",
+    "tab_all": "전체",
+    "tab_direct": "직접",
+    "tab_indirect": "간접",
+    "status_active": "활성",
+    "status_inactive": "비활성",
+    "searchPlaceholder": "멤버 검색"
   },
   "teamDetail": {
     "title": "팀 멤버 상세",
