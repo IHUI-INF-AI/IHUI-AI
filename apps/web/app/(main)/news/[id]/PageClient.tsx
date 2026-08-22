@@ -109,7 +109,8 @@ export default function NewsDetailPage() {
     <div className="mx-auto w-full max-w-6xl space-y-4">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的输入会提前闭合脚本标签导致 XSS
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c') }}
       />
       <BackButton />
       <Breadcrumb
