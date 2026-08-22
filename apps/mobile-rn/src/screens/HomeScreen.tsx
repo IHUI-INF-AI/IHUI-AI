@@ -51,6 +51,7 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
+import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
@@ -84,6 +85,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
 import { rpx } from '../utils/rpx'
+// 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -438,6 +441,26 @@ export function HomeScreen() {
   /** 父级 RootStack 导航(用于跳转 Search/Chat/Promote 等 RootStack 路由) */
   const rootNav = navigation.getParent<RootNav>()
 
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        rootNav?.navigate('Main', { screen: 'AiMain' })
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        rootNav?.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'home':
+        break // 当前 Tab
+    }
+  }
+
   // ── 对齐 Uniapp ai_index:NavBar 菜单按钮触发 Drawer ──
   const [drawerVisible, setDrawerVisible] = useState(false)
   // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
@@ -722,6 +745,14 @@ export function HomeScreen() {
     }
     rootNav?.navigate('AppTopup')
   }
+  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
+  const handleCommissionPress = (): void => {
+    if (!user) {
+      rootNav?.navigate('Login')
+      return
+    }
+    rootNav?.navigate('Distribution')
+  }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
@@ -979,6 +1010,8 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
       <OfflineBanner isOnline={isOnline} />
+      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
+      <CommissionFloatingIcon onPress={handleCommissionPress} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
@@ -1456,6 +1489,8 @@ export function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
   )
 }
