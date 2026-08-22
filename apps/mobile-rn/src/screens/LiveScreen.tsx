@@ -1,3 +1,10 @@
+/**
+ * LiveScreen 直播列表页(mobile-rn 端 wrapper)
+ *
+ * 对齐历史项目 pagesA/live-streaming/index.vue 直播列表:
+ * - 直播列表由共享组件 SharedLiveScreen 承载
+ * - 入口:Drawer 扩展菜单「直播」/ 其他内容入口(非原项目底部主 Tab,不挂 TabBar)
+ */
 import { useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
