@@ -1768,7 +1768,10 @@
     "submitting": "제출 중...",
     "success": "제출되었습니다",
     "title": "피드백",
-    "type": "유형"
+    "type": "유형",
+    "imagesLabel": "문제 스크린샷 업로드(최대 9장)",
+    "imagePickFailed": "이미지 선택 실패, 다시 시도해주세요",
+    "pickImages": "이미지 선택"
   },
   "feedbackDetail": {
     "content": "내용",
