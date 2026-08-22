@@ -1768,7 +1768,10 @@
     "submitting": "提交中...",
     "success": "提交成功",
     "title": "意見反饋",
-    "type": "反饋類型"
+    "type": "反饋類型",
+    "imagesLabel": "請在此上傳你所遇到問題的截圖（最多9張）",
+    "imagePickFailed": "圖片選擇失敗,請重試",
+    "pickImages": "選擇圖片"
   },
   "feedbackDetail": {
     "content": "反饋內容",
