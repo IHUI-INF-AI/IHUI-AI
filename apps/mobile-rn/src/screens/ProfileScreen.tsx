@@ -59,6 +59,8 @@ import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
 import { GlobalFloatBox } from '../components/GlobalFloatBox'
+// 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import {
@@ -126,6 +128,26 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 export function ProfileScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<ProfileStackNav>()
+
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        break // 当前 Tab
+    }
+  }
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -587,6 +609,8 @@ export function ProfileScreen() {
         onClose={() => setUnsubscribeVisible(false)}
         onConfirm={handleConfirmUnsubscribe}
       />
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="mine" onChange={handleTabChange} />
     </>
   )
 }
