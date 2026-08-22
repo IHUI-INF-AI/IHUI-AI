@@ -6,6 +6,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -57,6 +58,8 @@ export function TeamScreen({
   onRefresh,
   onBack,
   onPressMember,
+  keyword,
+  onKeywordChange,
   colorScheme = 'light',
 }: TeamScreenProps) {
   const tk = getTokens(colorScheme)
@@ -82,7 +85,11 @@ export function TeamScreen({
     )
   }
 
-  const filtered = activeTab === 'all' ? members : members.filter((m) => m.relation === activeTab)
+  // 搜索过滤(对齐 Uniapp InputArea「搜索我的团友」handleSearch:昵称关键字过滤)
+  const kw = keyword?.trim().toLowerCase() ?? ''
+  const filtered = (
+    activeTab === 'all' ? members : members.filter((m) => m.relation === activeTab)
+  ).filter((m) => !kw || m.nickname.toLowerCase().includes(kw))
 
   return (
     <View style={styles.container}>
@@ -138,6 +145,20 @@ export function TeamScreen({
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* 搜索框(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;未注入回调则不渲染) */}
+      {onKeywordChange ? (
+        <View style={styles.searchRow}>
+          <TextInput
+            value={keyword ?? ''}
+            onChangeText={onKeywordChange}
+            placeholder={t('team.searchPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+        </View>
+      ) : null}
 
       {error ? (
         <View style={styles.errorBar}>
@@ -240,6 +261,17 @@ function createStyles(tk: AppThemeTokens) {
     contributionLabel: { fontSize: 11, color: tk.text.secondary },
     contributionValue: { marginTop: 8, fontSize: 20, fontWeight: '700', color: tk.success.DEFAULT },
     tabs: { flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 8, gap: 6 },
+    searchRow: { paddingHorizontal: 10, paddingBottom: 8 },
+    searchInput: {
+      height: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      color: tk.text.primary,
+    },
     tab: {
       paddingHorizontal: 12,
       paddingVertical: 6,

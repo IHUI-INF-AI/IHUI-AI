@@ -129,6 +129,8 @@ export interface FeedbackSubmitPayload {
   type: FeedbackType
   content: string
   contact: string
+  /** 问题截图 URL 数组(对齐 Uniapp fankui filePaths,最多 9 张,逗号分隔存 filePath 字段) */
+  images?: string[]
 }
 
 /** Feedback �?props */
@@ -137,6 +139,8 @@ export interface FeedbackScreenProps {
   /** 提交回调,返回 true 表示成功(平台注入实际 API 调用) */
   onSubmit: (payload: FeedbackSubmitPayload) => Promise<boolean>
   onBack: () => void
+  /** 选图回调(平台注入 expo-image-picker;返回已选图片 URL 数组,最多 9 张;不传则隐藏上传区) */
+  onPickImages?: () => Promise<string[]>
   /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
@@ -2796,6 +2800,10 @@ export interface AiGroupScreenProps {
   onEnterChat: (item: AiGroupItem) => void
   onRefresh: () => void
   onRetry: () => void
+  /** 搜索关键词(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;不传则隐藏搜索框) */
+  keyword?: string
+  /** 搜索关键词变更回调(由 wrapper 注入 state) */
+  onKeywordChange?: (keyword: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -4152,6 +4160,10 @@ export interface TeamScreenProps {
   onBack: () => void
   /** 点击成员卡片跳转详情(可�?不传则卡片不可点�? */
   onPressMember?: (memberId: string) => void
+  /** 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;不传则隐藏搜索框) */
+  keyword?: string
+  /** 搜索关键词变更回调(由 wrapper 注入 state) */
+  onKeywordChange?: (keyword: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
