@@ -72,7 +72,8 @@ export default async function BlogPostPage({ params }: PageProps) {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-8 min-[768px]:py-8">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+        // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c') }}
       />
       <Link
         href="/blog"
