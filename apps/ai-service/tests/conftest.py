@@ -65,10 +65,73 @@ def _isolate_llm_env(monkeypatch):
     # (环境泄漏导致断言 3==2)。与 vendor key 同规则清理。
     monkeypatch.delenv("COMBO_CHAINS", raising=False)
 
+    # 2026-08-22 修复:settings.llm_providers(启动时从 .env 加载的 provider JSON)
+    # 含真实 api_key 时,_is_stub_mode() 第一层即判非 stub → 测试打真实 LLM API
+    # (慢/花 token/结果不稳定)。清空它,让 stub 判定只看被清空的 os.environ。
+    from app.core.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "llm_providers", "")
+
+    # 2026-08-22 修复:本地 .env 的 AGENT_EXECUTOR=loop_v2 会改变
+    # /api/agents/execute/stream 的执行路径与 SSE 事件集(loop_v2 无 status/plan
+    # 事件),而测试针对默认 langgraph 路径编写。删除保证确定性。
+    monkeypatch.delenv("AGENT_EXECUTOR", raising=False)
+
+    # 2026-08-22 修复:清空 REDIS_URL。app.main 启动时把 .env 的真实
+    # REDIS_URL 同步进 os.environ → WorkerPool._init_redis 等组件拿到真实
+    # 客户端,submit/_persist 打真实 Redis IO —— 测试协程在真实网络 IO 上
+    # 让出控制权,产生调度竞态(test_queue_full_rejected 曾因此 flaky +
+    # teardown 死锁)。需要 Redis 的测试自行 monkeypatch.setenv。
+    monkeypatch.delenv("REDIS_URL", raising=False)
+
+    # 2026-08-22 补强:delenv 只挡住 os.environ.get("REDIS_URL") 的组件
+    # (dag_scheduler/llm_budget_governor/agent_runtime);用 settings.redis_url
+    # 的组件(skill_feedback/memory/hook_engine/telemetry/vector_memory 等)
+    # 仍持有 .env 固化的真实地址。此前被"redis-py 8.x 默认 RESP3 → 老 Redis
+    # HELLO 3 协商必败 → 降级内存"意外掩盖;protocol=2 修复(2026-08-22)后
+    # Redis 真实可达 → 测试翻转失败(DLQ 计数/事件循环跨用/sio 房间断言)。
+    # 单元测试不依赖外部 Redis 状态:指向端口 1(连接立即拒绝,确定性降级内存)。
+    # 显式测试 Redis 行为的测试自行 monkeypatch settings.redis_url 覆盖本值。
+    monkeypatch.setattr(_settings, "redis_url", "redis://127.0.0.1:1/0")
+    monkeypatch.setattr(_settings, "schedule_redis_url", "redis://127.0.0.1:1/0")
+
     async def _noop_resolve_from_db(model, owner_uuid=None):
         return None
 
     monkeypatch.setattr("app.core.llm_gateway._resolve_from_db", _noop_resolve_from_db)
+
+    # 2026-08-22 修复:_resolve() 三层优先级的第 2 层 KeyPoolSelector.select_key
+    # 查真实 DB(ai_relay_key_pool)。测试环境共享 app.main 启动的 asyncpg pool,
+    # 并发查询会 "another operation is in progress" 抛错,或拿到 DB 里真实号池
+    # key → current_key_pool_id 非 None → complete/astream 走"号池换 key 重试"
+    # 而非 FallbackRouter → fallback_used 标记丢失/测试结果随 DB 状态翻转。
+    # 单元测试统一 mock 号池不可用(返回 None → 走 .env/llm_providers JSON 层),
+    # 需要测号池故障转移的测试自行 monkeypatch 覆盖。
+    async def _noop_select_key(provider_code):
+        return None
+
+    monkeypatch.setattr(
+        "app.services.key_pool_selector.KeyPoolSelector.select_key", _noop_select_key
+    )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_jwt_auth(monkeypatch):
+    """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径(node_env=development)。
+
+    .env 中配置了真实 jwt_secret 时,JWTAuthMiddleware 会验证 token,
+    不带 token 的 HTTP 测试全部 401(test_routers/test_a2a 等)。
+    清空 jwt_secret + node_env=development 后,middleware 直接放行。
+
+    此前 test_dag_api/test_debug_api/test_message_bus/test_personas_router
+    各自本地做过同样隔离(2026-08 修复),现提升为全局,消除逐文件遗漏。
+    需要真实验证的测试(test_jwt_auth)自行 monkeypatch 设置自己的 secret,
+    测试局部 setattr 晚于本 fixture 生效,不受影响。
+    """
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "jwt_secret", "")
+    monkeypatch.setattr(settings, "node_env", "development")
 
 
 @pytest.fixture(autouse=True)
