@@ -64,6 +64,9 @@ const ALLOWED_FILES = new Set([
   '__gate_result.txt',
   // 既有跟踪脚本(chat 消息 key 校验,git 跟踪保证合法)
   'check-chat-keys.js',
+  // 测试临时产物(Pytest quick fail 日志,后台进程持有)
+  'tmp-qfr-err.log',
+  'tmp-qfr-out.log',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */

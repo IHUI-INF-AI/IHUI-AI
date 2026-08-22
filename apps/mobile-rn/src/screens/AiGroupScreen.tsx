@@ -48,6 +48,8 @@ export default function AiGroupScreen() {
   const { t } = useI18n()
   const [tab, setTab] = useState<AiGroupTab>('mine')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // 搜索关键词(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」)
+  const [keyword, setKeyword] = useState('')
   const [items, setItems] = useState<AiGroupItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -99,6 +101,8 @@ export default function AiGroupScreen() {
       refreshing={refreshing}
       error={error}
       onTabChange={setTab}
+      keyword={keyword}
+      onKeywordChange={setKeyword}
       onPressItem={handlePressItem}
       onBackToList={() => setSelectedId(null)}
       onEnterChat={(g) =>
