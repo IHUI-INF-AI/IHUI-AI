@@ -1768,7 +1768,10 @@
     "submitting": "送信中...",
     "success": "送信しました",
     "title": "フィードバック",
-    "type": "種類"
+    "type": "種類",
+    "imagesLabel": "問題のスクリーンショットをアップロード(最大9枚)",
+    "imagePickFailed": "画像の選択に失敗しました",
+    "pickImages": "画像を選択"
   },
   "feedbackDetail": {
     "content": "内容",

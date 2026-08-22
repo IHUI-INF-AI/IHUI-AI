@@ -1768,7 +1768,10 @@
     "submitting": "提交中...",
     "success": "提交成功",
     "title": "意见反馈",
-    "type": "反馈类型"
+    "type": "反馈类型",
+    "imagesLabel": "请在此上传你所遇到问题的截图（最多9张）",
+    "imagePickFailed": "图片选择失败,请重试",
+    "pickImages": "选择图片"
   },
   "feedbackDetail": {
     "content": "反馈内容",
