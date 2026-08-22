@@ -401,7 +401,8 @@
     "previewHello": "你好",
     "previewMine": "我建立的",
     "subtitle": "AI 群聊助手",
-    "title": "AI 群聊"
+    "title": "AI 群聊",
+    "searchPlaceholder": "搜尋AI助手"
   },
   "assistant": {
     "edit": {
@@ -1406,7 +1407,13 @@
     "empty": "暫無團隊成員",
     "joinDate": "加入時間",
     "level": "等級",
-    "loadFailed": "載入團隊失敗"
+    "loadFailed": "載入團隊失敗",
+    "tab_all": "全部",
+    "tab_direct": "直推",
+    "tab_indirect": "間推",
+    "status_active": "活躍",
+    "status_inactive": "不活躍",
+    "searchPlaceholder": "搜尋我的團友"
   },
   "teamDetail": {
     "title": "團隊成員詳情",
