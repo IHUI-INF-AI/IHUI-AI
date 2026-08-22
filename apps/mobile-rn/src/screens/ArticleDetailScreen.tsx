@@ -1,13 +1,35 @@
-import { useEffect, useState } from 'react'
+/**
+ * ArticleDetailScreen 资讯详情页(mobile-rn 端 wrapper)
+ *
+ * 对齐历史项目 pagesA/news/detail.vue(新闻详情):
+ * - 共享组件渲染:返回 + 标题 + 作者/时间 + 阅读/点赞统计 + 正文(SharedArticleDetailScreen)
+ * - RN 端补充原页面底部操作栏(L40-54 bottom-bar):
+ *   ① 点赞(icon-like + count,本地 toggle 状态,对齐 isLiked/handleLike)
+ *   ② 评论(icon-comment + count → 原跳 /pagesA/news/comment?id=,该页未实现,点击提示)
+ *   ③ 分享(icon-share → RN Share API,对齐 handleShare)
+ */
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Alert,
+  Share,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
   type ArticleDetailItem,
 } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -20,6 +42,9 @@ export function ArticleDetailScreen() {
   const [article, setArticle] = useState<ArticleDetailItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // 底部操作栏状态(对齐 Uniapp news/detail.vue isLiked/handleLike)
+  const [liked, setLiked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -28,8 +53,12 @@ export function ArticleDetailScreen() {
       setError('')
       const res = await fetchApi<ArticleDetailItem>(`/api/articles/${encodeURIComponent(id)}`)
       if (cancelled) return
-      if (res.success) setArticle(res.data)
-      else setError(res.error || t('articleDetail.loadFailed'))
+      if (res.success) {
+        setArticle(res.data)
+        setLikeCount(res.data.likes ?? 0)
+      } else {
+        setError(res.error || t('articleDetail.loadFailed'))
+      }
       setLoading(false)
     })()
     return () => {
@@ -37,13 +66,100 @@ export function ArticleDetailScreen() {
     }
   }, [id, t])
 
+  /** 点赞切换(对齐 handleLike:本地 toggle,UI 即时反馈) */
+  const handleLike = useCallback((): void => {
+    setLiked((prev) => {
+      const next = !prev
+      setLikeCount((c) => (next ? c + 1 : Math.max(0, c - 1)))
+      return next
+    })
+  }, [])
+
+  /** 评论入口(原跳 /pagesA/news/comment?id=,该页未实现,提示占位) */
+  const handleComment = useCallback((): void => {
+    Alert.alert(t('common.hint'), '评论功能开发中,敬请期待')
+  }, [t])
+
+  /** 分享(对齐 handleShare:uni.share → RN Share API) */
+  const handleShare = useCallback((): void => {
+    if (!article) return
+    void Share.share({
+      title: article.title,
+      message: `${article.title}\n${article.content.slice(0, 100)}${article.content.length > 100 ? '…' : ''}`,
+    })
+  }, [article])
+
   return (
-    <SharedArticleDetailScreen
-      t={t}
-      item={article}
-      loading={loading}
-      error={error}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={styles.shell}>
+      <View style={styles.body}>
+        <SharedArticleDetailScreen
+          t={t}
+          item={article}
+          loading={loading}
+          error={error}
+          onBack={() => navigation.goBack()}
+        />
+      </View>
+      {/* 底部操作栏(对齐 Uniapp news/detail.vue bottom-bar:点赞/评论/分享) */}
+      {article ? (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
+            <Text style={[styles.actionIcon, liked ? styles.actionIconActive : null]}>
+              {liked ? '❤️' : '🤍'}
+            </Text>
+            <Text style={styles.actionCount}>{likeCount}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem} onPress={handleComment} activeOpacity={0.7}>
+            <Text style={styles.actionIcon}>💬</Text>
+            {/* 评论数:原 article.comments 字段未在后端 ArticleDetailItem 契约中,暂展示 0 */}
+            <Text style={styles.actionCount}>0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
+            <Text style={styles.actionIcon}>↗️</Text>
+            <Text style={styles.actionLabel}>分享</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+    backgroundColor: tokens.surface.bg,
+  } as ViewStyle,
+  body: {
+    flex: 1,
+  } as ViewStyle,
+  bottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    paddingVertical: rpx(16),
+    paddingBottom: rpx(20),
+  } as ViewStyle,
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: rpx(8),
+  } as ViewStyle,
+  actionIcon: {
+    fontSize: 18,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  actionIconActive: {
+    color: '#FF3B3B',
+  } as TextStyle,
+  actionCount: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  actionLabel: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as TextStyle,
+})

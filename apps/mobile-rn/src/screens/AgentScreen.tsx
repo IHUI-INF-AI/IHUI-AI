@@ -35,6 +35,8 @@ import Drawer, {
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 // 对齐 Uniapp tools/index.vue float-box:悬浮导航(赚米/客服/反馈),原页面 5 个核心 Tab 页均有,补齐 AgentScreen
 import { GlobalFloatBox } from '../components/GlobalFloatBox'
+// 底部导航(对齐原 customTabBar 5 主 Tab,AgentScreen 对应「AI」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import InputArea from '../components/InputArea'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import NavBar from '../components/NavBar'
@@ -431,6 +433,26 @@ export function AgentScreen() {
     level: (user?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'home':
+        rootNav?.navigate('Main', { screen: 'HomeMain' })
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        rootNav?.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'aiShop':
+        break // 当前 Tab
+    }
+  }
+
   return (
     <View style={styles.shell}>
       <NavBar
@@ -613,6 +635,8 @@ export function AgentScreen() {
           </View>
         </View>
       </Modal>
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="aiShop" onChange={handleTabChange} />
     </View>
   )
 }
