@@ -73,6 +73,8 @@ export const feedbacks = pgTable('feedbacks', {
   title: varchar('title', { length: 255 }).notNull(),
   content: text('content').notNull(),
   contact: varchar('contact', { length: 255 }),
+  /** 问题截图 URL 列表(逗号分隔,对齐 Uniapp fankui filePaths;2026-08-22 补建) */
+  filePath: text('file_path'),
   status: varchar('status', { length: 32 }).default('pending').notNull(),
   priority: varchar('priority', { length: 16 }).default('medium').notNull(),
   adminReply: text('admin_reply'),
