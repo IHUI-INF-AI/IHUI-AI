@@ -66,10 +66,20 @@ export async function uploadFile(
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   })
-  const json = (await response.json()) as {
+  let json: {
     code: number
     message: string
     data?: { file: FileItem }
+  }
+  try {
+    json = (await response.json()) as {
+      code: number
+      message: string
+      data?: { file: FileItem }
+    }
+  } catch {
+    // 网关 502 等返回 HTML 错误页时 response.json() 抛 SyntaxError,统一转为 errorMsg,避免英文报错直达用户
+    throw new Error(errorMsg)
   }
   if (!response.ok || json.code !== 0) throw new Error(json.message || errorMsg)
   if (!json.data?.file) throw new Error(json.message || errorMsg)
