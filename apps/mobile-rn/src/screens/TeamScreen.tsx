@@ -20,6 +20,8 @@ export function TeamScreen() {
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [activeTab, setActiveTab] = useState<TeamTab>('all')
+  // 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」)
+  const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -83,6 +85,8 @@ export function TeamScreen() {
       stats={stats}
       members={members}
       activeTab={activeTab}
+      keyword={keyword}
+      onKeywordChange={setKeyword}
       loading={loading}
       refreshing={refreshing}
       error={error}
