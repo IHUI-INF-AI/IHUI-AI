@@ -7,9 +7,19 @@
  */
 import { createElement, type ReactNode } from 'react'
 
+const flattenStyle = (style: unknown): unknown => {
+  if (!Array.isArray(style)) return style
+  return Object.assign({}, ...style.filter(Boolean).map(flattenStyle))
+}
+
 const mk = (tag: string) =>
   function MockComp(props: { children?: ReactNode; [k: string]: unknown }) {
-    return createElement(tag, props, props.children)
+    const { style, onPress, ...rest } = props
+    return createElement(
+      tag,
+      { ...rest, onClick: onPress, style: flattenStyle(style) },
+      props.children,
+    )
   }
 
 export const Platform = { OS: 'web' as const }
