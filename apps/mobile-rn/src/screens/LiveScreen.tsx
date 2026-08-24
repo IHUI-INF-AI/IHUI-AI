@@ -3,13 +3,16 @@
  *
  * 对齐历史项目 pagesA/live-streaming/index.vue 直播列表:
  * - 直播列表由共享组件 SharedLiveScreen 承载
- * - 入口:Drawer 扩展菜单「直播」/ 其他内容入口(非原项目底部主 Tab,不挂 TabBar)
+ * - 入口:首页 onNavigateLives → Main LiveMain
+ * - 直播非原项目 5 主 Tab:底部 TabBar 常驻无高亮,可切换主 Tab(对齐原内容页底部导航)
  */
 import { useEffect, useState } from 'react'
+import { StyleSheet, View, type ViewStyle } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveList, type Live } from '@ihui/api-client'
 import { LiveScreen as SharedLiveScreen, type LiveScreenItem } from '@ihui/rn-app'
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
@@ -54,16 +57,52 @@ export function LiveScreen() {
     viewCount: live.viewCount,
   }))
 
+  /** 底部 Tab 切换(直播非主 Tab,TabBar 常驻供切换) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'mine':
+        navigation.navigate('ProfileMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+    }
+  }
+
   return (
-    <SharedLiveScreen
-      t={t}
-      items={items}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => load(true)}
-      onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={styles.shell}>
+      <View style={styles.body}>
+        <SharedLiveScreen
+          t={t}
+          items={items}
+          loading={loading}
+          refreshing={refreshing}
+          error={error}
+          onRefresh={() => load(true)}
+          onPressItem={(id) => rootNav?.navigate('LiveDetail', { id })}
+          onBack={() => navigation.goBack()}
+        />
+      </View>
+      {/* 底部导航(直播非主 Tab,TabBar 常驻无高亮) */}
+      <TabBar onChange={handleTabChange} />
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+  } as ViewStyle,
+  body: {
+    flex: 1,
+  } as ViewStyle,
+})
