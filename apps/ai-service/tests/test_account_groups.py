@@ -398,7 +398,12 @@ class TestRouterDefinition:
         assert "publish-account-groups" in router.tags
 
     def test_router_has_expected_routes(self) -> None:
-        """应包含所有预期端点。"""
+        """应包含所有预期端点。
+
+        2026-08-22 修复:旧断言把 publish.py 的 `/accounts/batch-template`(在 publish router 作用域)
+        误塞进 account_groups.router 期望集 → 永远缺。batch-template 由 publish.py 注册,不在
+        account_groups.py 模块。从期望集移除即可,等价语义保持(其他 10 个端点都是 account_groups 自身)。
+        """
         paths = {route.path for route in router.routes}
         expected = {
             "/publish/groups",
@@ -412,7 +417,6 @@ class TestRouterDefinition:
             "/publish/accounts/batch-verify",
             "/publish/accounts/{account_id}/cookie-health",
             "/publish/accounts/{account_id}/refresh-cookie",
-            "/publish/accounts/batch-template",
         }
         assert expected.issubset(paths), f"缺失路由: {expected - paths}"
 

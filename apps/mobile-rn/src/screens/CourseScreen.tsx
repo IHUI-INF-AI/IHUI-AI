@@ -9,6 +9,7 @@
  * - 全部课程(搜索 + 分页列表)— getCourses
  */
 import { useEffect, useState } from 'react'
+import { View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -19,6 +20,7 @@ import {
   type LearnCourse,
 } from '@ihui/api-client'
 import { CourseTabScreen, type CourseTabScreenProps } from '@ihui/rn-app'
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { type LearnCategory } from './LearnScreen'
@@ -137,28 +139,53 @@ export function CourseScreen() {
   const openCategory = (cat: LearnCategory) =>
     rootNav?.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
 
+  /** 底部 Tab 切换(课程非主 Tab,TabBar 常驻供切换;对齐原内容页底部导航) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'mine':
+        navigation.navigate('ProfileMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+    }
+  }
+
   return (
-    <CourseTabScreen
-      t={t}
-      progress={progress}
-      paths={toCarouselItems(paths)}
-      popularItems={toPopularCourses(courses)}
-      courses={toCourseListItems(courses)}
-      loading={loading}
-      error={error}
-      keyword={keyword}
-      page={page}
-      totalPages={totalPages}
-      onKeywordChange={(v) => {
-        setKeyword(v)
-        setPage(1)
-      }}
-      onPageChange={setPage}
-      onPressCourse={openCourse}
-      onPressCategory={openCategory}
-      onPressPath={openCourse}
-      onPressMoreCourses={openBrowse}
-      colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
-    />
+    <View style={{ flex: 1 }}>
+      <CourseTabScreen
+        t={t}
+        progress={progress}
+        paths={toCarouselItems(paths)}
+        popularItems={toPopularCourses(courses)}
+        courses={toCourseListItems(courses)}
+        loading={loading}
+        error={error}
+        keyword={keyword}
+        page={page}
+        totalPages={totalPages}
+        onKeywordChange={(v) => {
+          setKeyword(v)
+          setPage(1)
+        }}
+        onPageChange={setPage}
+        onPressCourse={openCourse}
+        onPressCategory={openCategory}
+        onPressPath={openCourse}
+        onPressMoreCourses={openBrowse}
+        colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+      />
+      {/* 底部导航(课程非原项目 5 主 Tab,TabBar 常驻无高亮,可切换主 Tab;对齐原内容页导航) */}
+      <TabBar onChange={handleTabChange} />
+    </View>
   )
 }
