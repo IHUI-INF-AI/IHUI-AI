@@ -151,6 +151,18 @@ export function ProfileScreen() {
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const profileScrollRef = useRef<ScrollView>(null)
+  const handleProfileScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      setShowBackToTop(e.nativeEvent.contentOffset.y > 300)
+    },
+    [],
+  )
+  const handleBackToTop = useCallback(() => {
+    profileScrollRef.current?.scrollTo({ y: 0, animated: true })
+  }, [])
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [orderCount, setOrderCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -454,9 +466,12 @@ export function ProfileScreen() {
         ]}
       />
       <ScrollView
+        ref={profileScrollRef}
         style={styles.screenScroll}
         contentContainerStyle={styles.screenScrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleProfileScroll}
+        scrollEventThrottle={16}
       >
         {loading ? (
           <View style={styles.loaderWrap}>
@@ -589,6 +604,12 @@ export function ProfileScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 返回顶部按钮(对齐 Uniapp user/index.vue toodown) */}
+      {showBackToTop ? (
+        <TouchableOpacity style={styles.backToTopBtn} activeOpacity={0.7} onPress={handleBackToTop}>
+          <Text style={styles.backToTopIcon}>↑</Text>
+        </TouchableOpacity>
+      ) : null}
       {/* 编辑资料弹窗(对齐 Uniapp user/index.vue 编辑资料弹层,替代 ProfileEdit 跳转) */}
       {user ? (
         <EditProfileModal
@@ -1750,6 +1771,28 @@ const styles = StyleSheet.create({
   },
   screenScrollContent: {
     flexGrow: 1,
+  },
+  // 返回顶部按钮(对齐 Uniapp toodown,样式对齐 AgentScreen backToTopBtn)
+  backToTopBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 76, // TabBar 上方
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: tokens.gray[900],
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  backToTopIcon: {
+    fontSize: 18,
+    color: tokens.text.secondary,
+    fontWeight: '600',
   },
   loaderWrap: {
     alignItems: 'center',

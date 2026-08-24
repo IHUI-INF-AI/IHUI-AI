@@ -43,6 +43,8 @@ import Drawer, {
 } from '../components/Drawer'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar, type NavBarAction } from '../components/NavBar'
+// 底部导航(对齐原 customTabBar 5 主 Tab,PlazaScreen 对应「广场」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -107,6 +109,26 @@ export function PlazaScreen() {
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;Plaza 为 RootStack 独立路由,经 Main 聚焦 Tab) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('Main', { screen: 'AiMain' })
+        break
+      case 'home':
+        navigation.navigate('Main', { screen: 'HomeMain' })
+        break
+      case 'news':
+        navigation.navigate('News')
+        break
+      case 'mine':
+        navigation.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'plaza':
+        break // 当前 Tab
+    }
+  }
 
   const [items, setItems] = useState<PlazaScreenProps['items']>([])
   const [loading, setLoading] = useState(true)
@@ -583,6 +605,8 @@ export function PlazaScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="plaza" onChange={handleTabChange} />
     </View>
   )
 }
