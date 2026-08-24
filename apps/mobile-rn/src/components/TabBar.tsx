@@ -50,7 +50,8 @@ export interface TabBarItemConfig {
 }
 
 export interface TabBarProps {
-  activeTab: TabBarKey
+  /** 当前激活 Tab;不传或 undefined 表示无高亮(用于课程/直播等非主 Tab 内容页,TabBar 常驻可切换) */
+  activeTab?: TabBarKey
   onChange: (tab: TabBarKey) => void
   /** 覆盖默认标签(i18n 注入);未提供则用 TABS 内置默认值 */
   labels?: Partial<Record<TabBarKey, string>>
