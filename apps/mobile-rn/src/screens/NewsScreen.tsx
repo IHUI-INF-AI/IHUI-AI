@@ -23,6 +23,8 @@ import Drawer, {
 } from '../components/Drawer'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar, type NavBarAction } from '../components/NavBar'
+// 底部导航(对齐原 customTabBar 5 主 Tab,NewsScreen 对应「动态」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -81,6 +83,26 @@ export default function NewsScreenWrapper() {
   const { user } = useAuth()
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
+
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;News 为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('Main', { screen: 'AiMain' })
+        break
+      case 'home':
+        navigation.navigate('Main', { screen: 'HomeMain' })
+        break
+      case 'plaza':
+        navigation.navigate('Plaza')
+        break
+      case 'mine':
+        navigation.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'news':
+        break // 当前 Tab
+    }
+  }
 
   const [items, setItems] = useState<ArticleItem[]>([])
   const [loading, setLoading] = useState(false)
@@ -353,6 +375,8 @@ export default function NewsScreenWrapper() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="news" onChange={handleTabChange} />
     </View>
   )
 }
