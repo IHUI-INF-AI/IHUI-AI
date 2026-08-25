@@ -14,6 +14,7 @@ import {
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
+import { Asset } from 'expo-asset'
 import { SlidersHorizontal } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
@@ -622,7 +623,9 @@ export function HomeScreen() {
         showToast('warning', '需要相册权限才能保存')
         return
       }
-      const asset = await MediaLibrary.createAssetAsync(QrCodeImage)
+      const localAsset = Asset.fromModule(QrCodeImage)
+      await localAsset.downloadAsync()
+      const asset = await MediaLibrary.createAssetAsync(localAsset.localUri ?? localAsset.uri)
       await MediaLibrary.saveToLibraryAsync(asset.uri)
       showToast('success', '已保存到相册')
     } catch {
@@ -1526,7 +1529,7 @@ export function HomeScreen() {
               accessibilityRole="imagebutton"
               accessibilityLabel="社群二维码,长按保存"
             >
-              <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
+              <Image source={QrCodeImage as any} style={shellStyles.qrImage} resizeMode="contain" />
             </Pressable>
             <Text style={shellStyles.qrTitle}>扫描二维码加入社区</Text>
             <Pressable
