@@ -184,13 +184,15 @@ export function AnalyticsCapture() {
     document.addEventListener('click', onClick, true)
     document.addEventListener('submit', onSubmit, true)
 
-    document.addEventListener('visibilitychange', () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') void flush()
-    })
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     return () => {
       document.removeEventListener('click', onClick, true)
       document.removeEventListener('submit', onSubmit, true)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
     }
   }, [pathname, userId, queue, flush])
