@@ -28,6 +28,15 @@ import {
 
 const ADMIN_ROLE_ID = 1
 
+// P2 修复(2026-08-25):上传接口返回的 path 由磁盘绝对路径改为公开可访问 URL。
+// 配置 FILE_CDN_BASE(可选,如 https://file.aizhs.top)时返回 CDN 前缀地址;
+// 未配置时返回相对路径 /uploads/<id>(与 server.ts 静态服务 prefix 对应,
+// 前端 resolveFileUrl 拼 host,保持向后兼容)。
+function resolvePublicUrl(fileId: string): string {
+  const cdnBase = process.env.FILE_CDN_BASE
+  return cdnBase ? `${cdnBase}/uploads/${fileId}` : `/uploads/${fileId}`
+}
+
 // =============================================================================
 // 序列化辅助
 // =============================================================================
@@ -208,7 +217,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
               name: safeFilename,
               size: finalBuffer.length,
               mimeType: validation.mimeType,
-              path: filePath,
+              path: resolvePublicUrl(fileId),
               uploadedBy: request.userId,
             },
           }),
@@ -620,7 +629,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
    * multipart/form-data 文件上传。
    * 使用 @fastify/multipart 解析，单文件限制 100MB（见 server.ts 注册配置）。
    * @form field "file" — 文件二进制（必填）
-   * @returns { file: { id, name, size, mimeType, path, uploadedBy } }
+   * @returns { file: { id, name, size, mimeType, path(公开 URL,见 resolvePublicUrl), uploadedBy } }
    */
   server.post(
     '/files/upload/form',
@@ -642,6 +651,14 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
       const data = await request.file()
       if (!data) {
         return reply.status(400).send(error(400, '未找到上传文件'))
+      }
+
+      // P2 修复(2026-08-25):超限文件会被 @fastify/multipart 截断(busboy limits.fileSize=100MB),
+      // 截断后 toBuffer() 恰好返回 100MB,validateUploadFile 的 `> maxSize` 判断不生效,
+      // 导致超大文件被静默截断落盘(内容损坏)。必须在读取前检查 truncated 直接拒绝。
+      if (data.file.truncated) {
+        const mb = Math.floor(MAX_MULTIPART_UPLOAD_SIZE / 1024 / 1024)
+        return reply.status(400).send(error(400, `文件大小超过 ${mb}MB 限制`))
       }
 
       const buffer = await data.toBuffer()
@@ -673,7 +690,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
               name: safeFilename,
               size: buffer.length,
               mimeType: validation.mimeType,
-              path: filePath,
+              path: resolvePublicUrl(fileId),
               uploadedBy: request.userId,
             },
           }),
@@ -688,7 +705,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
   /**
    * application/octet-stream 原始流上传。
    * @header x-filename — 必填,指定保存文件名(含扩展名,用于类型校验)
-   * @returns { file: { id, name, size, mimeType, path, uploadedBy } }
+   * @returns { file: { id, name, size, mimeType, path(公开 URL,见 resolvePublicUrl), uploadedBy } }
    */
   server.post(
     '/files/upload/octet',
@@ -748,7 +765,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
               name: safeFilename,
               size: buffer.length,
               mimeType: validation.mimeType,
-              path: filePath,
+              path: resolvePublicUrl(fileId),
               uploadedBy: request.userId,
             },
           }),
