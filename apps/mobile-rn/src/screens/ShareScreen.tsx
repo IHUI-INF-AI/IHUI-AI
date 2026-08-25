@@ -14,7 +14,7 @@
  * - NavBar(标题「分享」+ 返回)
  * - 浅色优雅风,getRnTokens 支持暗色模式;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +33,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
 import Clipboard from '@react-native-clipboard/clipboard'
+import { deleteConversation, listConversations, type ConversationDetail } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { ShareScreen as SharedShareScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
@@ -82,13 +83,40 @@ export function ShareScreen() {
   const [imageUri, setImageUri] = useState('')
   const [floatBox, setFloatBox] = useState<FloatBoxState>(FLOAT_BOX_DEFAULT)
   const [voiceText, setVoiceText] = useState('')
+  /** 分享备注(对齐 Uniapp share remark 字段,用于分享内容附带说明) */
+  const [remark, setRemark] = useState('')
   // Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall,
-  // 由 NavBar 菜单按钮触发;历史对话列表待 API 接入,先传空数组占位,对齐 AgentScreen 做法)
+  // 由 NavBar 菜单按钮触发;历史对话懒加载,对齐 ProfileScreen/AgentScreen drawerConversations 模式)
   const [drawerVisible, setDrawerVisible] = useState(false)
-  const [drawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
   // ── Drawer 回调(对齐 AgentScreen 接入惯例) ──
   const closeDrawer = (): void => setDrawerVisible(false)
+
+  /** 懒加载历史对话(对齐 ProfileScreen loadDrawerConversations,抽屉打开且未加载过才拉取) */
+  const loadDrawerConversations = useCallback(async () => {
+    if (!user) return
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const list: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+        setDrawerConversations(list)
+      } else {
+        setDrawerConversations([])
+      }
+    } catch {
+      setDrawerConversations([])
+    } finally {
+      setDrawerConversationsLoaded(true)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (drawerVisible && !drawerConversationsLoaded && user) {
+      void loadDrawerConversations()
+    }
+  }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     setDrawerVisible(false)
     if (tab === 'square') {
@@ -124,15 +152,18 @@ export function ShareScreen() {
     const conv = drawerConversations.find((c) => c.id === id)
     navigation.navigate('AiAssistantN8n', { agentId: id, title: conv?.title })
   }
-  const handleDrawerDeleteConversation = (): void => {
-    Alert.alert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () => setFloatBox({ visible: true, type: 'info', message: '删除功能待 API 接入' }),
-      },
-    ])
+  const handleDrawerDeleteConversation = (id: string): void => {
+    const snapshot = drawerConversations
+    setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
+    void (async () => {
+      const res = await deleteConversation(id)
+      if (!res.success) {
+        setDrawerConversations(snapshot)
+        setFloatBox({ visible: true, type: 'warning', message: '删除失败,请重试' })
+      } else {
+        setFloatBox({ visible: true, type: 'success', message: '删除成功' })
+      }
+    })()
   }
   const handleDrawerOpenSettings = (): void => {
     setDrawerVisible(false)
@@ -161,6 +192,11 @@ export function ShareScreen() {
       case 'company':
         navigation.navigate('Distribution')
         break
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         navigation.navigate('Settings')
         break
@@ -174,7 +210,7 @@ export function ShareScreen() {
   }
 
   const doShare = async (): Promise<void> => {
-    const lines = [voiceText, imageUri].filter(Boolean)
+    const lines = [remark, voiceText, imageUri].filter(Boolean)
     const message = lines.length > 0 ? lines.join('\n') : '来看看这个 AI 内容'
     setSharing(true)
     try {
@@ -246,12 +282,12 @@ export function ShareScreen() {
       <SharedShareScreen
         t={t}
         targetTitle=""
-        remark=""
+        remark={remark}
         result={null}
         loading={sharing}
         error=""
-        onRemarkChange={() => {}}
-        onCreate={() => {}}
+        onRemarkChange={setRemark}
+        onCreate={handleShare}
         onShare={handleShare}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
@@ -378,6 +414,19 @@ export function ShareScreen() {
       />
     </>
   )
+}
+
+/** ConversationDetail → DrawerConversationItem 映射(对齐 NewsScreen/ProfileScreen 写法) */
+function mapConversationToDrawer(item: ConversationDetail): DrawerConversationItem {
+  const tsStr = item.lastMessageAt ?? item.updatedAt ?? item.createdAt
+  const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
+  const model = item.model ?? ''
+  return {
+    id: item.id,
+    title: item.title?.trim() || '未命名对话',
+    modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
+    createdAt,
+  }
 }
 
 function createStyles(tk: RnThemeTokens) {

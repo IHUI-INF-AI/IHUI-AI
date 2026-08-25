@@ -62,6 +62,7 @@ import {
   deleteConversation,
   formatSSEError,
   getMessages,
+  getTokenBalance,
   listConversations,
   streamChat,
   type ConversationDetail,
@@ -128,6 +129,10 @@ const QUICK_SUGGESTIONS: readonly string[] = [
   '写一段代码',
   '翻译这段话',
 ]
+
+/** 免费资料飞书链接(Drawer 领取免费资料 → 复制到剪贴板,对齐 Uniapp lingqu → setClipboardData) */
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 // ── 图片 URL 提取(对齐 Uniapp processContent + isValidImageUrl)──
 
@@ -394,6 +399,27 @@ export default function AiAssistantN8nScreen() {
     routeConversationId,
   )
 
+  // 剩余智汇值(对齐 Uniapp 顶部 intelligent-assistant tokenQuantity,接 getTokenBalance 真实余额)
+  const [tokenBalance, setTokenBalance] = useState(0)
+
+  // 加载智汇值余额:失败静默保持 0(不阻塞页面,充值入口仍可用)
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await getTokenBalance()
+        if (!cancelled && res.success) {
+          setTokenBalance(res.data.balance)
+        }
+      } catch {
+        // 失败保持 0
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // 模型选择器(对齐 Uniapp modelList + pitch + pitchHandle)
   // 路由参数 modelId 优先初始化(对齐 Uniapp onLoad options.modelNamea)
   const [selectedModelId, setSelectedModelId] = useState<string>(
@@ -658,7 +684,13 @@ export default function AiAssistantN8nScreen() {
     navigation.navigate('Distribution')
   }
   const handleDrawerClaimFree = (): void => {
-    // 占位:领取免费资料(对齐 ChatScreen,后续接入真实链接)
+    // 领取免费资料:复制飞书链接 + FloatBox 提示(对齐 Uniapp lingqu → setClipboardData)
+    try {
+      Clipboard.setString(FREE_RESOURCE_URL)
+      showToast('success', '链接已复制,请在浏览器中打开')
+    } catch {
+      showToast('error', '复制失败,请重试')
+    }
   }
   const handleDrawerCreateNewChat = (): void => {
     setMessages([])
@@ -709,6 +741,11 @@ export default function AiAssistantN8nScreen() {
       case 'modelPlaza':
         navigation.navigate('ModelPlaza')
         break
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         // 对齐 Uniapp tools/index(AI应用商店)由 HomeScreen 承载
         navigation.navigate('Home')
@@ -738,10 +775,10 @@ export default function AiAssistantN8nScreen() {
         rightActions={[{ icon: '≡', label: '', onPress: () => setDrawerVisible(true) }]}
       />
       {/* 智汇值卡(对齐 Uniapp ai_assistant_n8n.vue 顶部 intelligent-assistant:
-          小方欢迎卡 + 剩余智汇值 + 充值;占位 0,充值入口可用) */}
+          小方欢迎卡 + 剩余智汇值 + 充值;余额接 getTokenBalance,加载失败保持 0,充值入口可用) */}
       <View style={styles.valueCardWrap}>
         <IntelligentAssistant
-          tokenQuantity={0}
+          tokenQuantity={tokenBalance}
           onRecharge={() => navigation.navigate('AppTopup')}
         />
       </View>
