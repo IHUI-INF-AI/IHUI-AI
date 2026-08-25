@@ -360,14 +360,15 @@ async def test_scheduler_submit_task_scheduled_returns_scheduled() -> None:
 # =============================================================================
 
 
-async def test_scheduler_run_task_no_targets_returns_failed_status() -> None:
+async def test_scheduler_run_task_no_targets_returns_failed_status(monkeypatch) -> None:
     """_run_task 无目标平台时,状态机判定为 failed(无目标平台)。"""
     sched = PublishScheduler()
     sched._get_conn = AsyncMock(return_value=None)  # type: ignore[assignment]
-    # mock notifications 避免真实推送
+    # mock notifications 避免真实推送(monkeypatch 自动恢复,防污染其他测试)
     from app.services.publish import notifications
 
-    notifications.notify_publish_complete = AsyncMock(return_value={"sio": False, "db": False})  # type: ignore[assignment]
+    monkeypatch.setattr(notifications, "notify_publish_complete",
+                        AsyncMock(return_value={"sio": False, "db": False}))
     content = PublishContent(format="md", title="空任务", text="hello")
     # 无 targets
     await sched._run_task("task-empty", "user-1", content, [])
@@ -379,13 +380,14 @@ async def test_scheduler_run_task_no_targets_returns_failed_status() -> None:
     assert history[0]["success_count"] == 0
 
 
-async def test_scheduler_run_task_all_success_returns_success_status() -> None:
+async def test_scheduler_run_task_all_success_returns_success_status(monkeypatch) -> None:
     """_run_task 所有平台成功时,状态机判定为 success。"""
     sched = PublishScheduler()
     sched._get_conn = AsyncMock(return_value=None)  # type: ignore[assignment]
     from app.services.publish import notifications
 
-    notifications.notify_publish_complete = AsyncMock(return_value={"sio": False, "db": False})  # type: ignore[assignment]
+    monkeypatch.setattr(notifications, "notify_publish_complete",
+                        AsyncMock(return_value={"sio": False, "db": False}))
     # mock _run_single_platform 返回成功
     async def _fake_single(task_id, user_id, content, target):  # type: ignore[no-untyped-def]
         return PublishResult(success=True, platform=target["platform"], published_url="https://example.com/post")
@@ -405,13 +407,14 @@ async def test_scheduler_run_task_all_success_returns_success_status() -> None:
     assert history[0]["success_count"] == 2
 
 
-async def test_scheduler_run_task_all_fail_returns_failed_status() -> None:
+async def test_scheduler_run_task_all_fail_returns_failed_status(monkeypatch) -> None:
     """_run_task 所有平台失败时,状态机判定为 failed。"""
     sched = PublishScheduler()
     sched._get_conn = AsyncMock(return_value=None)  # type: ignore[assignment]
     from app.services.publish import notifications
 
-    notifications.notify_publish_complete = AsyncMock(return_value={"sio": False, "db": False})  # type: ignore[assignment]
+    monkeypatch.setattr(notifications, "notify_publish_complete",
+                        AsyncMock(return_value={"sio": False, "db": False}))
     async def _fake_single(task_id, user_id, content, target):  # type: ignore[no-untyped-def]
         return PublishResult(success=False, platform=target["platform"], error_message="发布失败")
 
@@ -430,13 +433,14 @@ async def test_scheduler_run_task_all_fail_returns_failed_status() -> None:
     assert history[0]["success_count"] == 0
 
 
-async def test_scheduler_run_task_partial_returns_partial_status() -> None:
+async def test_scheduler_run_task_partial_returns_partial_status(monkeypatch) -> None:
     """_run_task 部分平台成功时,状态机判定为 partial。"""
     sched = PublishScheduler()
     sched._get_conn = AsyncMock(return_value=None)  # type: ignore[assignment]
     from app.services.publish import notifications
 
-    notifications.notify_publish_complete = AsyncMock(return_value={"sio": False, "db": False})  # type: ignore[assignment]
+    monkeypatch.setattr(notifications, "notify_publish_complete",
+                        AsyncMock(return_value={"sio": False, "db": False}))
     # mock: wordpress 成功,medium 失败
     async def _fake_single(task_id, user_id, content, target):  # type: ignore[no-untyped-def]
         if target["platform"] == "wordpress":

@@ -457,6 +457,9 @@ class LangGraphService:
                         messages=history,
                         scope="session",
                         session_id=session_id or None,
+                        # 消息已在对话过程中写入 memory_store,这里只做提取,
+                        # 不再重复写回(否则历史被反复追加导致膨胀/死循环)
+                        persist_messages=False,
                     )
                     deep_count = int(result.get("count", 0))
                     logger.info(
