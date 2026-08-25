@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import QrCodeImage from '../../assets/images/common/qewm.png'
 import {
   Image,
   Modal,
@@ -95,7 +96,6 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 /** 社群二维码图片(对齐 Uniapp ai_index /static/images/qewm.png 二维码弹窗) */
-const QrCodeImage = require('../../assets/images/common/qewm.png')
 
 const MENU_ITEMS: HomeMenuItem[] = [
   { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
