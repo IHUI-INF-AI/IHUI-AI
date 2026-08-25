@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   FlatList,
   Pressable,
@@ -7,6 +7,8 @@ import {
   Text,
   TouchableOpacity,
   View,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -47,6 +49,7 @@ export interface SquareScreenProps {
   onItemClick: (id: string) => void
   showBackTop: boolean
   onBackToTop: () => void
+  onListRef?: (ref: unknown) => void
   onBack?: () => void
 }
 
@@ -106,10 +109,17 @@ export function SquareScreen({
   onItemClick,
   showBackTop,
   onBackToTop,
+  onListRef,
   onBack,
 }: SquareScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  /** 返回顶部按钮可见性:滚动超过阈值显示(对齐 Uniapp share/index.vue showToodown scrollTop>200) */
+  const [showTopBtn, setShowTopBtn] = useState(false)
+
+  const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setShowTopBtn(e.nativeEvent.contentOffset.y > 200)
+  }
 
   const renderItem = ({ item }: { item: ArticleItem }) => {
     const author = item.authorName || '佚名'
@@ -214,10 +224,13 @@ export function SquareScreen({
           }
           onEndReached={onEndReached}
           onEndReachedThreshold={0.2}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          ref={(ref) => onListRef?.(ref)}
         />
       )}
       {/* 返回顶部按钮 */}
-      {showBackTop ? (
+      {showBackTop && showTopBtn ? (
         <Pressable
           style={styles.backToTop}
           onPress={onBackToTop}
