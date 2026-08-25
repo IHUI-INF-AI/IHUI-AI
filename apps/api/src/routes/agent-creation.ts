@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, sql, type SQL } from 'drizzle-orm'
+import { eq, desc, sql, and, type SQL } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { agents, zhsAgentCategory, workflows, plugins } from '@ihui/database'
@@ -116,6 +116,71 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '查询我的创作失败'))
+    }
+  })
+
+  // -------------------------------------------------------------------------
+  // 1.5 GET /api/agent/creation/:type/:id — 按类型查询我的创作详情(单条)
+  //    type: 'agent' | 'workflow' | 'plugin'
+  //    agent    → agents 表按 agentId 匹配 + userId 归属校验(防越权查看他人素材)
+  //    workflow → workflows 表按 id 匹配 + createdBy 归属校验(与列表接口 createdBy 用法一致)
+  //    plugin   → plugins 表按 id 匹配(插件是平台级的,无 userId 字段,
+  //               仅允许查已上架 isActive=true,列表接口同款过滤)
+  //    返回 success(行对象);type 非法 → 400;未找到 → 404;id 非合法 uuid → 404
+  // -------------------------------------------------------------------------
+  const creationDetailParam = z.object({
+    type: z.enum(['agent', 'workflow', 'plugin']),
+    id: z.string().min(1),
+  })
+
+  server.get('/api/agent/creation/:type/:id', { preHandler: requireAuth }, async (req, reply) => {
+    const parsed = creationDetailParam.safeParse(req.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, '无效的 type,允许:agent|workflow|plugin'))
+    }
+    const { type, id } = parsed.data
+    const userId = req.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '需要登录后查询'))
+    }
+    try {
+      if (type === 'agent') {
+        const rows = await db
+          .select()
+          .from(agents)
+          .where(and(eq(agents.agentId, id), eq(agents.userId, userId)))
+          .limit(1)
+        const row = rows[0]
+        if (!row) return reply.status(404).send(error(404, '智能体不存在'))
+        return reply.send(success(row))
+      }
+      if (type === 'workflow') {
+        // workflows 表用 createdBy 关联用户(非 userId),对齐列表接口
+        const rows = await db
+          .select()
+          .from(workflows)
+          .where(and(eq(workflows.id, id), eq(workflows.createdBy, userId)))
+          .limit(1)
+        const row = rows[0]
+        if (!row) return reply.status(404).send(error(404, '工作流不存在'))
+        return reply.send(success(row))
+      }
+      // plugin:平台级插件,无 userId 归属字段,允许查任何已上架插件
+      const rows = await db
+        .select()
+        .from(plugins)
+        .where(and(eq(plugins.id, id), eq(plugins.isActive, true)))
+        .limit(1)
+      const row = rows[0]
+      if (!row) return reply.status(404).send(error(404, '插件不存在'))
+      return reply.send(success(row))
+    } catch (e) {
+      // id 非合法 uuid 时 PG 抛 22P02,等价"未找到",返回 404 而非 500
+      if (e instanceof Error && e.message.includes('invalid input syntax for type uuid')) {
+        return reply.status(404).send(error(404, '素材不存在'))
+      }
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询创作详情失败'))
     }
   })
 
