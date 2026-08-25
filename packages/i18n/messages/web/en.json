@@ -14935,7 +14935,25 @@
     "totalEarned": "Total Earned",
     "totalSpent": "Total Spent",
     "user": "User",
-    "you": "You"
+    "you": "You",
+    "tasks": {
+      "title": "Task Center",
+      "subtitle": "Complete tasks to earn points",
+      "tab": {
+        "daily": "Daily",
+        "weekly": "Weekly",
+        "newbie": "Newbie"
+      },
+      "loading": "Loading...",
+      "loadFailed": "Failed to load tasks",
+      "retry": "Retry",
+      "empty": "No tasks",
+      "claimed": "Claimed",
+      "claim": "Claim",
+      "notCompleted": "Not completed",
+      "claimFailed": "Claim failed"
+    },
+    "taskCenterLink": "Task Center"
   },
   "pricingPage": {
     "badge": "Limited Early Bird",
