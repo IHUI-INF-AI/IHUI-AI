@@ -148,16 +148,16 @@ class TestExtract:
         assert result["entities"] == []
         assert result["relations"] == []
 
-    async def test_filter_invalid_entity_types(self):
+    async def test_filter_invalid_entity_types(self, monkeypatch):
         """LLM 返回非法 type 时被过滤。"""
         svc = KnowledgeGraphService()
-        # 模拟 LLM 输出
+        # 模拟 LLM 输出(用 monkeypatch 临时替换,防止污染全局 llm_gateway 单例)
         async def _fake_complete(messages, **kw):
             return {
                 "content": '{"entities": [{"name": "X", "type": "invalid_type"}, {"name": "Y", "type": "person"}], "relations": []}',
                 "stub": False,
             }
-        svc._gateway.complete = _fake_complete  # type: ignore[assignment]
+        monkeypatch.setattr(svc._gateway, "complete", _fake_complete)
 
         # 强制非 stub
         from app.core.llm_gateway import LLMGateway
@@ -173,14 +173,14 @@ class TestExtract:
         assert "Y" in names
         assert "X" not in names
 
-    async def test_filter_invalid_relation_types(self):
+    async def test_filter_invalid_relation_types(self, monkeypatch):
         svc = KnowledgeGraphService()
         async def _fake_complete(messages, **kw):
             return {
                 "content": '{"entities": [{"name": "A", "type": "person"}, {"name": "B", "type": "org"}], "relations": [{"source": "A", "target": "B", "type": "invalid_rel"}]}',
                 "stub": False,
             }
-        svc._gateway.complete = _fake_complete  # type: ignore[assignment]
+        monkeypatch.setattr(svc._gateway, "complete", _fake_complete)
 
         from app.core.llm_gateway import LLMGateway
         original = LLMGateway._is_stub_mode
@@ -192,12 +192,12 @@ class TestExtract:
 
         assert result["relations"] == []
 
-    async def test_llm_failure_fallback_to_stub(self):
+    async def test_llm_failure_fallback_to_stub(self, monkeypatch):
         """LLM 抛异常时返回空结果(stub extract 走的是另一路径,这里只验证不崩溃)。"""
         svc = KnowledgeGraphService()
         async def _broken_complete(messages, **kw):
             raise RuntimeError("LLM down")
-        svc._gateway.complete = _broken_complete  # type: ignore[assignment]
+        monkeypatch.setattr(svc._gateway, "complete", _broken_complete)
 
         from app.core.llm_gateway import LLMGateway
         original = LLMGateway._is_stub_mode
