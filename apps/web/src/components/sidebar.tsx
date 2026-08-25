@@ -1085,8 +1085,10 @@ function SidebarUserRow({
           <button
             aria-label={user?.nickname ?? 'User'}
             className={cn(
-              // 整行 row 容器样式(继承自旧外层 div):inline-flex + h-9(与 NavLink 行高一致) + gap-1.5 + 圆角 + padding
-              'group/row inline-flex h-9 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
+              // 整行 row 容器样式(继承自旧外层 div):inline-flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
+              // 2026-08-26 修复:gap-1.5(6px) → gap-2(8px),与 sidebar-visual.spec.ts:562 契约一致
+              // (spec 断言 gapBetween ≈ 8px,防的正是间距回归)
+              'group/row inline-flex h-9 items-center gap-2 rounded-md px-2 transition-colors hover:bg-sidebar-item-hover-bg',
               // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
               'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
             )}

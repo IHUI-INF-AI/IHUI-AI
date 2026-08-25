@@ -31,18 +31,22 @@ export function ChatWindow({ roomId, onClose }: Props) {
   const prevCount = React.useRef(0)
 
   const loadMessages = React.useCallback(async () => {
-    const r = await fetchApi<CsMessage[]>(
-      `/api/customer-service/messages${roomId ? `?roomId=${roomId}` : ''}`,
-    )
-    if (r.success && r.data) {
-      // 合并去重(按 msg.id),避免轮询整表替换覆盖用户刚发送的新消息
-      setMessages((prev) => {
-        const map = new Map<string, CsMessage>(prev.map((m) => [m.id, m]))
-        for (const m of r.data!) map.set(m.id, m)
-        return Array.from(map.values())
-      })
-      setStatus('online')
-    } else {
+    try {
+      const r = await fetchApi<CsMessage[]>(
+        `/api/customer-service/messages${roomId ? `?roomId=${roomId}` : ''}`,
+      )
+      if (r.success && r.data) {
+        // 合并去重(按 msg.id),避免轮询整表替换覆盖用户刚发送的新消息
+        setMessages((prev) => {
+          const map = new Map<string, CsMessage>(prev.map((m) => [m.id, m]))
+          for (const m of r.data!) map.set(m.id, m)
+          return Array.from(map.values())
+        })
+        setStatus('online')
+      } else {
+        setStatus('offline')
+      }
+    } catch {
       setStatus('offline')
     }
   }, [roomId])
