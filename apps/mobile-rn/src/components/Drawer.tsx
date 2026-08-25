@@ -59,9 +59,10 @@ export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
  * (任务禁止改 ChatScreen,故新增独立类型 + 可选回调)。
  * 主 agent 后续可在 ChatScreen 接 onNavigateExtra 实现真实跳转:
  *   tools→AiAssistant/AgentScreen, aigc→AigcList, learn→StudyIndex,
- *   modelPlaza→ModelPlaza, company→WorkPanel(路由均已注册,见 RootNavigator 行 673-698)。
+ *   modelPlaza→ModelPlaza, company→Distribution, assistant→Assistant
+ *   (路由均已注册,见 RootNavigator)。
  */
-export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company'
+export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company' | 'assistant'
 export type DrawerUserLevel = 'vip' | 'normal'
 
 /** 扩展菜单兜底导航用的根栈导航类型 */
@@ -151,6 +152,7 @@ const EXTRA_MENUS: readonly ExtraMenuConfig[] = [
   { key: 'learn', label: '学习', emoji: '📚' },
   { key: 'modelPlaza', label: '模型广场', emoji: '🤖' },
   { key: 'company', label: '一人公司', emoji: '🏢' },
+  { key: 'assistant', label: '我的智能体', emoji: '🧩' },
 ] as const
 
 // ── 日期分组逻辑 ──
@@ -433,6 +435,9 @@ export function Drawer(props: DrawerProps) {
         case 'tools':
         case 'company':
           navigation.navigate('Settings')
+          break
+        case 'assistant':
+          navigation.navigate('Assistant')
           break
       }
     }

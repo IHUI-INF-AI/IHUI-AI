@@ -500,7 +500,16 @@ export function VipScreen() {
       </View>
 
       {/* 等级升级机制装饰区(对齐 Uniapp levelIndex.vue 行 21-29 钻石装饰) */}
-      <View style={styles.levelBanner}>
+      <Pressable
+        style={({ pressed }) => [styles.levelBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() => {
+          // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
+          const firstLevel = levels[0]
+          if (firstLevel) navigation.navigate('VipLevel', { id: firstLevel.id })
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.level')}
+      >
         <Text style={styles.diamondIcon} allowFontScaling={false}>
           {'\u25C6'}
         </Text>
@@ -508,14 +517,15 @@ export function VipScreen() {
           <Text style={styles.levelBannerTitle}>{t('vipScreen.banner.level')}</Text>
           <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
         </View>
-      </View>
+      </Pressable>
 
       {/* 操盘手专属权益横幅(品牌色卡片,title + subtitle) */}
       <Pressable
         style={({ pressed }) => [styles.traderBanner, pressed ? styles.traderBannerPressed : null]}
-        onPress={() =>
-          Alert.alert(t('vipScreen.banner.trader'), t('vipScreen.banner.traderSubtitle'))
-        }
+        onPress={() => {
+          // 孤儿路由修复:VipTrader 注册无入口,点击操盘手横幅进入开通页
+          navigation.navigate('VipTrader')
+        }}
         accessibilityRole="button"
         accessibilityLabel={t('vipScreen.banner.trader')}
       >
