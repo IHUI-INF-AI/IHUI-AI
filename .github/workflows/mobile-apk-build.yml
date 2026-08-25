@@ -42,7 +42,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: react-native-community/setup-android@v3
+        uses: android-actions/setup-android@v3
 
       - name: Setup pnpm
         # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
