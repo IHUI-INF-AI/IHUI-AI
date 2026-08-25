@@ -14908,7 +14908,25 @@
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",
     "user": "用戶",
-    "you": "我"
+    "you": "我",
+    "tasks": {
+      "title": "任務中心",
+      "subtitle": "完成任務賺積分,獎勵自動發放",
+      "tab": {
+        "daily": "每日任務",
+        "weekly": "每週任務",
+        "newbie": "新手任務"
+      },
+      "loading": "載入中...",
+      "loadFailed": "任務載入失敗",
+      "retry": "重試",
+      "empty": "暫無任務",
+      "claimed": "已領取",
+      "claim": "領取",
+      "notCompleted": "未完成",
+      "claimFailed": "領取失敗"
+    },
+    "taskCenterLink": "任務中心"
   },
   "pricingPage": {
     "badge": "限時早鳥",
