@@ -13,6 +13,9 @@
  *  - JWT_SECRET:web / api / ai-service 三端必须一致(签发/验签同一密钥)
  *  - CREDENTIALS_ENCRYPTION_KEY:api / ai-service 必须一致(跨服务共享加密密钥)
  *  - 占位符检测:<your-...> / change-me / placeholder 等一律视为未配置
+ *  - 生产清单回归守门(2026-08-25 增补):docker-compose.yml / render.yaml 的
+ *    web/ai-service 块必须引用 JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY(曾缺失
+ *    导致 2026-08-07 生产事故路径复现,已修复并纳入守门)
  *
  * 用法:
  *   node scripts/check-dev-env-consistency.mjs         # 校验(0=通过,1=失败)
@@ -80,6 +83,76 @@ function isValidValue(value) {
   return !PLACEHOLDER_PATTERN.test(value)
 }
 
+/**
+ * 生产清单回归守门(2026-08-25 增补)
+ * 背景:2026-08-07 事故 #2(ai-service 缺 JWT_SECRET → 模型端点全 401)曾因
+ * docker-compose.yml / render.yaml 的 web/ai-service 块缺失密钥引用而复现。
+ * 已补齐,此处永久守门:两个清单的 web/ai-service 块必须引用共享密钥。
+ */
+const PROD_MANIFESTS = [
+  {
+    path: path.join(REPO_ROOT, 'docker-compose.yml'),
+    // docker-compose:service 名以 2 空格缩进的 `word:` 为块边界
+    blockStart: (l) => /^  [a-z][a-z0-9-]*:$/.test(l),
+    blockName: (startLine) => startLine.trim().replace(/:$/, ''),
+    services: ['web', 'ai-service'],
+    keyCheck: (block) =>
+      block.includes('JWT_SECRET=${JWT_SECRET:?') &&
+      block.includes('CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?'),
+  },
+  {
+    path: path.join(REPO_ROOT, 'render.yaml'),
+    // render.yaml:每个 service 以 `  - type:` 为块边界,`    name: X` 标识服务名
+    blockStart: (l) => /^  - type:/.test(l),
+    blockName: (_startLine, blockLines) => {
+      const m = blockLines.find((l) => /^\s*name:\s*\S+/.test(l))
+      return m ? m.trim().split(/\s+/)[1] : ''
+    },
+    services: ['ihui-web', 'ihui-ai-service'],
+    keyCheck: (block) =>
+      block.includes('- key: JWT_SECRET') && block.includes('- key: CREDENTIALS_ENCRYPTION_KEY'),
+  },
+]
+
+function checkProductionManifests() {
+  const issues = []
+  for (const m of PROD_MANIFESTS) {
+    if (!fs.existsSync(m.path)) {
+      issues.push(`生产清单缺失:${m.path}`)
+      continue
+    }
+    const lines = fs.readFileSync(m.path, 'utf8').split(/\r?\n/)
+    const blocks = []
+    let current = null
+    for (const line of lines) {
+      if (m.blockStart(line)) {
+        if (current) blocks.push(current)
+        current = { lines: [line], name: m.blockName(line, [line]) }
+      } else if (current) {
+        current.lines.push(line)
+        if (m.blockName.length > 1 && /^\s*name:\s*\S+/.test(line)) {
+          current.name = line.trim().split(/\s+/)[1]
+        }
+      }
+    }
+    if (current) blocks.push(current)
+
+    for (const svc of m.services) {
+      const block = blocks.find((b) => b.name === svc)
+      if (!block) {
+        issues.push(`生产清单 ${path.basename(m.path)} 找不到服务块「${svc}」`)
+        continue
+      }
+      if (!m.keyCheck(block.lines.join('\n'))) {
+        issues.push(
+          `生产清单 ${path.basename(m.path)} 服务「${svc}」缺少 JWT_SECRET / CREDENTIALS_ENCRYPTION_KEY 引用(须与 api 共享同一密钥)`,
+        )
+      }
+    }
+  }
+  return issues
+}
+
 function run() {
   const parsed = {}
   for (const [endpoint, filePath] of Object.entries(ENV_FILES)) {
@@ -88,6 +161,10 @@ function run() {
 
   const issues = []
   const report = {}
+
+  // 生产清单回归守门(2026-08-25 增补)
+  const prodIssues = checkProductionManifests()
+  issues.push(...prodIssues)
 
   for (const [key, meta] of Object.entries(CONSISTENCY_KEYS)) {
     const endpointValues = meta.endpoints.map((ep) => {
@@ -106,7 +183,7 @@ function run() {
     // 一致性检查(以第一个有效值为基准)
     const validValues = new Set(present.map((e) => e.value))
     if (validValues.size > 1) {
-      const detail = endpointValues.map((e) => `${e.endpoint}=${e.present ? e.value.slice(0, 12) + '...' : '(未配置)'}`).join(' | ')
+      const detail = endpointValues.map((e) => `${e.endpoint}=${e.present ? e.value.slice(0, 6) + '...' : '(未配置)'}`).join(' | ')
       issues.push(`${meta.label} 三端不一致:${detail}`)
     }
 
@@ -134,6 +211,9 @@ function run() {
         console.log(`         ${ep.endpoint.padEnd(12)} ${ep.valuePreview}`)
       }
     }
+    const prodOk = prodIssues.length === 0
+    console.log(`  [${prodOk ? 'PASS' : 'FAIL'}] 生产清单(docker-compose.yml / render.yaml) web/ai-service 密钥引用`)
+    for (const msg of prodIssues) console.log(`         - ${msg}`)
     if (issues.length > 0) {
       console.log('')
       console.log('  ✗ 发现不一致:')
