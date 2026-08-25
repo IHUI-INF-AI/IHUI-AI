@@ -82,16 +82,21 @@ export function useDesktop() {
     }
     let cancelled = false
     void (async () => {
-      const [info, maximized, autostart] = await Promise.all([
-        getDesktopAppInfo(),
-        isWindowMaximized(),
-        isAutostartEnabled(),
-      ])
-      if (cancelled) return
-      setAppInfo(info)
-      setIsMaximized(maximized)
-      setAutostartEnabled(autostart)
-      setLoading(false)
+      try {
+        const [info, maximized, autostart] = await Promise.all([
+          getDesktopAppInfo(),
+          isWindowMaximized(),
+          isAutostartEnabled(),
+        ])
+        if (cancelled) return
+        setAppInfo(info)
+        setIsMaximized(maximized)
+        setAutostartEnabled(autostart)
+      } catch {
+        // 忽略桌面 API 错误
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     })()
     return () => {
       cancelled = true
@@ -101,11 +106,19 @@ export function useDesktop() {
   // 监听窗口最大化状态变化(Resize 事件)
   React.useEffect(() => {
     if (!isDesktop) return
+    let cancelled = false
     const onResize = () => {
-      void isWindowMaximized().then(setIsMaximized)
+      void isWindowMaximized()
+        .then((m) => {
+          if (!cancelled) setIsMaximized(m)
+        })
+        .catch(() => {})
     }
     window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    return () => {
+      cancelled = true
+      window.removeEventListener('resize', onResize)
+    }
   }, [isDesktop])
 
   const minimize = React.useCallback(async () => {
@@ -173,10 +186,12 @@ export function useSystemTheme(): 'light' | 'dark' | null {
     let cancelled = false
 
     // 挂载时一次性获取当前系统主题
-    void getSystemTheme().then((theme) => {
-      if (cancelled) return
-      if (theme) setSystemTheme(theme)
-    })
+    void getSystemTheme()
+      .then((theme) => {
+        if (cancelled) return
+        if (theme) setSystemTheme(theme)
+      })
+      .catch(() => {})
 
     // 监听 OS 主题切换事件(onSystemThemeChange 返回同步清理函数)
     const unlisten = onSystemThemeChange((theme) => {
