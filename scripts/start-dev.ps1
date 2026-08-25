@@ -23,7 +23,7 @@
   端口 + 命令注册表:scripts/dev-port-registry.json
   端口权威来源:docs/port-management.md(必须保持同步)
 .NOTES
-  仅支持 Windows PowerShell 5.1+(PowerShell Core 7+ 也兼容)
+  要求 PowerShell 7+(pwsh)。项目内所有 .ps1 由 scripts/check-pwsh-version.mjs 守门,必须 `#requires -Version 7`;请勿用 Windows PowerShell 5.1 调用本脚本(否则会被 #requires 拒绝)。
 #>
 
 [CmdletBinding()]
