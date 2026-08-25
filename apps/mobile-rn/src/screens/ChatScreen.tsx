@@ -82,6 +82,7 @@ import {
   getAgents,
   getMessages,
   getModelContextCapacity,
+  getMyCreation,
   getShareFirstStatus,
   listConversations,
   streamChat,
@@ -238,6 +239,9 @@ export function ChatScreen() {
   const [shareFirstReward, setShareFirstReward] = useState(0)
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [materialTab, setMaterialTab] = useState<string>('text')
+  // 素材库数据(getMyCreation('agent') 我的创作,对齐 Uniapp loadMaterialContent)
+  const [materialItems, setMaterialItems] = useState<MaterialItem[]>([])
+  const [materialLoading, setMaterialLoading] = useState(false)
   // 接入 ModelConfigDialog / ModelList / AgentList(对齐 Uniapp ai_index.vue 行 32/34/104)
   const [modelConfigVisible, setModelConfigVisible] = useState(false)
   const [modelListVisible, setModelListVisible] = useState(false)
@@ -462,6 +466,29 @@ export function ChatScreen() {
   }
 
   // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
+  /** 素材库加载(对齐 Uniapp loadMaterialContent;数据源 getMyCreation('agent') 我的创作) */
+  const loadMaterials = useCallback((): void => {
+    setMaterialLoading(true)
+    void getMyCreation('agent', { page: 1, pageSize: 50 })
+      .then((res) => {
+        if (res.success) {
+          setMaterialItems(
+            res.data.list.map((it) => ({
+              id: it.id,
+              title: it.name || '文本内容',
+              type: 'text' as const,
+              text: it.description ?? '',
+              createdAt: it.createdAt,
+            })),
+          )
+        } else {
+          setMaterialItems([])
+        }
+      })
+      .catch(() => setMaterialItems([]))
+      .finally(() => setMaterialLoading(false))
+  }, [])
+
   const handleModelTypeClick = useCallback((type: ModelType): void => {
     if (type === 'sck') {
       // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
@@ -471,6 +498,7 @@ export function ChatScreen() {
           return ''
         }
         setShowMaterialList(true)
+        void loadMaterials()
         return 'sck'
       })
       return
@@ -1363,9 +1391,8 @@ export function ChatScreen() {
     level: (authUser?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
-  // ── 素材库列表(占位,后续对接 getMyCreation API) ──
-  const materialItems: MaterialItem[] = []
-  const materialLoading = false
+  // ── 素材库列表(getMyCreation('agent') 我的创作,对齐 Uniapp loadMaterialContent) ──
+  // (materialItems/materialLoading 为 state,见组件顶部)
 
   // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
   const modelListGroups: ModelListGroup[] =
