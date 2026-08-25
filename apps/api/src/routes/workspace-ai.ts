@@ -1269,10 +1269,15 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const body = request.body as Record<string, unknown>
-    const updated = personaRegistry.update(id, body)
-    if (!updated) return reply.status(404).send(error(404, 'Persona 不存在'))
-    return reply.send(success(updated))
+    const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const updated = personaRegistry.update(id, body.data)
+      if (!updated) return reply.status(404).send(error(404, 'Persona 不存在'))
+      return reply.send(success(updated))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
   })
 
   server.delete('/personas/:id', async (request, reply) => {
@@ -1280,7 +1285,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
     const deleted = personaRegistry.delete(id)
-    if (!deleted) return reply.status(400).send(error(400, 'Persona 不存在或为内置'))
+    if (!deleted) return reply.status(404).send(error(404, 'Persona 不存在或为内置'))
     return reply.send(success({ deleted: true }))
   })
 
@@ -1325,10 +1330,15 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
-    const body = request.body as Record<string, unknown>
-    const updated = routineManager.update(id, body)
-    if (!updated) return reply.status(404).send(error(404, '例行程序不存在'))
-    return reply.send(success(updated))
+    const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    try {
+      const updated = routineManager.update(id, body.data)
+      if (!updated) return reply.status(404).send(error(404, '例行程序不存在'))
+      return reply.send(success(updated))
+    } catch (e) {
+      return reply.status(500).send(error(500, (e as Error).message))
+    }
   })
 
   server.delete('/routines/:id', async (request, reply) => {
@@ -1345,7 +1355,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const { id } = idParam.parse(request.params)
     const agentId = routineManager.trigger(id)
-    if (!agentId) return reply.status(400).send(error(400, '例行程序不存在或未启用'))
+    if (!agentId) return reply.status(404).send(error(404, '例行程序不存在或未启用'))
     return reply.send(success({ agentId }))
   })
 

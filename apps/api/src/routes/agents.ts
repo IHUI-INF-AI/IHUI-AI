@@ -278,8 +278,23 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // PUT /agents/:agentId - 更新代理
   server.put('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
-    const body = request.body as UpdateAgentInput
-    const agent = await updateAgent(agentId, body)
+    const body = z
+      .object({
+        name: z.string().optional(),
+        description: z.string().nullable().optional(),
+        avatar: z.string().nullable().optional(),
+        cover: z.string().nullable().optional(),
+        categoryId: z.string().nullable().optional(),
+        workspaceId: z.string().nullable().optional(),
+        status: z.string().optional(),
+        price: z.number().optional(),
+        isFree: z.boolean().optional(),
+        sort: z.number().optional(),
+        remark: z.string().nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const agent = await updateAgent(agentId, body.data as UpdateAgentInput, request.userId)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success(agent))
   })
@@ -287,7 +302,7 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // DELETE /agents/:agentId - 删除代理
   server.delete('/agents/:agentId', async (request, reply) => {
     const { agentId } = agentIdParam.parse(request.params)
-    const agent = await deleteAgent(agentId)
+    const agent = await deleteAgent(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
     return reply.send(success({ deleted: true }))
   })
@@ -700,8 +715,19 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /settlement/create - 创建结算记录
   server.post('/settlement/create', async (request, reply) => {
-    const body = request.body as CreateSettlementInput
-    const record = await createSettlement(body)
+    const body = z
+      .object({
+        agentId: z.string().nullable().optional(),
+        buyRecordId: z.string().nullable().optional(),
+        orderNo: z.string().nullable().optional(),
+        amount: z.number().optional(),
+        commissionRate: z.number().optional(),
+        commissionAmount: z.number().optional(),
+        status: z.string().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const record = await createSettlement(body.data as CreateSettlementInput)
     return reply.send(success(record))
   })
 
