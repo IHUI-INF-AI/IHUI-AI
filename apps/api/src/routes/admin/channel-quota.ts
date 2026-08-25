@@ -89,7 +89,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ list: listWithUsage }))
     } catch (err) {
       server.log.error({ err }, '[admin/channel-quota] list failed')
-      return reply.send(error(500, '查询渠道配额列表失败'))
+      return reply.status(500).send(error(500, '查询渠道配额列表失败'))
     }
   })
 
@@ -127,7 +127,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
         }
 
         if (setClauses.length === 0) {
-          return reply.send(error(400, '未提供任何配额字段'))
+          return reply.status(400).send(error(400, '未提供任何配额字段'))
         }
 
         // 执行原始 SQL 更新(drizzle .update().set() 不支持未定义列,用 db.execute)
@@ -138,7 +138,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
         // postgres-js 返回数组,长度 0 表示未匹配
         const affected = Array.isArray(result) ? result.length : 0
         if (affected === 0) {
-          return reply.send(error(404, '渠道不存在'))
+          return reply.status(404).send(error(404, '渠道不存在'))
         }
 
         return reply.send(success({ id }))

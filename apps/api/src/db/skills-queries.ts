@@ -86,7 +86,11 @@ export interface UpdateSkillInput {
   status?: number
 }
 
-export async function updateSkill(id: string, data: UpdateSkillInput): Promise<Skill | undefined> {
+export async function updateSkill(
+  id: string,
+  data: UpdateSkillInput,
+  authorId?: string,
+): Promise<Skill | undefined> {
   const set: Record<string, unknown> = {}
   if (data.name !== undefined) set.name = data.name
   if (data.description !== undefined) set.description = data.description
@@ -97,10 +101,12 @@ export async function updateSkill(id: string, data: UpdateSkillInput): Promise<S
   if (data.isPublished !== undefined) set.isPublished = data.isPublished
   if (data.status !== undefined) set.status = data.status
   set.updatedAt = new Date()
+  const conds = [eq(skills.id, id), isNull(skills.deletedAt)]
+  if (authorId) conds.push(eq(skills.authorId, authorId))
   const rows = await db
     .update(skills)
     .set(set)
-    .where(and(eq(skills.id, id), isNull(skills.deletedAt)))
+    .where(and(...conds))
     .returning()
   return rows[0]
 }
