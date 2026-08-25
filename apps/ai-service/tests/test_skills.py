@@ -1228,6 +1228,12 @@ class TestEvolutionLoopIterate:
         with patch(
             "app.services.skill_tester.skill_tester.generate_test_cases",
             new_callable=AsyncMock, side_effect=RuntimeError("gen failed"),
+        ), patch(
+            "app.services.skill_feedback.skill_feedback_tracker.get_stats",
+            new_callable=AsyncMock, return_value={"totalUses": 0},
+        ), patch(
+            "app.services.skill_feedback.skill_feedback_tracker.get_failure_cases",
+            new_callable=AsyncMock, return_value=[],
         ):
             result = await loop.iterate_on_feedback("code-review")
         assert result["shouldIterate"] is False
@@ -1243,6 +1249,12 @@ class TestEvolutionLoopIterate:
         ), patch(
             "app.services.skill_tester.skill_tester.run_test",
             new_callable=AsyncMock, side_effect=RuntimeError("run failed"),
+        ), patch(
+            "app.services.skill_feedback.skill_feedback_tracker.get_stats",
+            new_callable=AsyncMock, return_value={"totalUses": 0},
+        ), patch(
+            "app.services.skill_feedback.skill_feedback_tracker.get_failure_cases",
+            new_callable=AsyncMock, return_value=[],
         ):
             result = await loop.iterate_on_feedback("code-review")
         assert result["shouldIterate"] is False

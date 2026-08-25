@@ -181,7 +181,7 @@ class TestDiscoverSkills:
         mock_skill_c.name = "skill-c"
 
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill_a, mock_skill_b, mock_skill_c])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill_a, mock_skill_b, mock_skill_c])
         monkeypatch.setattr(
             "app.services.skills.skill_registry", mock_registry
         )
@@ -215,7 +215,7 @@ class TestDiscoverSkills:
         mock_skill = MagicMock()
         mock_skill.name = "skill-a"
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill])
         monkeypatch.setattr("app.services.skills.skill_registry", mock_registry)
 
         async def fake_get_failures(skill_name: str):
@@ -235,7 +235,7 @@ class TestDiscoverSkills:
         """skill_registry.list 抛异常 → 返回空列表。"""
         sched = SkillEvolutionScheduler()
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(side_effect=RuntimeError("registry down"))
+        mock_registry.list_skills = MagicMock(side_effect=RuntimeError("registry down"))
         monkeypatch.setattr("app.services.skills.skill_registry", mock_registry)
         skills = await sched._discover_skills_to_evolve()
         assert skills == []
@@ -250,7 +250,7 @@ class TestDiscoverSkills:
         mock_skill_valid = MagicMock()
         mock_skill_valid.name = "valid-skill"
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill_no_name, mock_skill_valid])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill_no_name, mock_skill_valid])
         monkeypatch.setattr("app.services.skills.skill_registry", mock_registry)
 
         async def fake_get_failures(skill_name: str):
@@ -278,7 +278,7 @@ class TestDiscoverSkills:
         mock_skill_b.name = "skill-b"
 
         mock_registry = MagicMock()
-        mock_registry.list = MagicMock(return_value=[mock_skill_a, mock_skill_b])
+        mock_registry.list_skills = MagicMock(return_value=[mock_skill_a, mock_skill_b])
         monkeypatch.setattr("app.services.skills.skill_registry", mock_registry)
 
         async def fake_get_failures(skill_name: str):
