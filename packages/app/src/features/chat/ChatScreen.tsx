@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
@@ -65,8 +65,10 @@ export function ChatScreen({
   itemSeparatorComponent,
   containerStyle,
   flatListStyle,
+  onListRef,
 }: ChatScreenProps) {
   const tk = getTokens(colorScheme)
+  const listRef = useRef<FlatList<ChatScreenMessage> | null>(null)
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const currentModelName = models.find((m) => m.id === model)?.name || model
@@ -168,6 +170,10 @@ export function ChatScreen({
       </Modal>
 
       <FlatList
+        ref={(ref) => {
+          listRef.current = ref
+          onListRef?.(ref)
+        }}
         style={[styles.list, flatListStyle]}
         data={messages}
         keyExtractor={(item) => item.id}

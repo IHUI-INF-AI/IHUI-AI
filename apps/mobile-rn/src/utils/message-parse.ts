@@ -18,13 +18,14 @@ const IMAGE_URL_RE = /(https?:\/\/[^\s)]+\.(?:png|jpe?g|gif|webp)(?:\?[^\s)]*)?)
 export function parseMessageContent(content: string): ContentSegment[] {
   if (!content) return []
   const segments: ContentSegment[] = []
-  const codeRe = /```([\w+#.-]*)\n([\s\S]*?)```/g
+  const codeRe = /```([\w+#.-]*)\r?\n([\s\S]*?)```/g
   let lastIndex = 0
   let m: RegExpExecArray | null
   while ((m = codeRe.exec(content)) !== null) {
     if (m.index > lastIndex) pushTextSegments(segments, content.slice(lastIndex, m.index))
     const codeBody = m[2] ?? ''
-    segments.push({ type: 'code', language: m[1] || '', code: codeBody.replace(/\n$/, '') })
+    // LF 场景 strip 尾部 \n(对齐代码块内容整理);CRLF 场景保留 \r\n(保护代码块原样内容)
+    segments.push({ type: 'code', language: m[1] || '', code: codeBody.replace(/(?<!\r)\n$/, '') })
     lastIndex = m.index + m[0].length
   }
   if (lastIndex < content.length) pushTextSegments(segments, content.slice(lastIndex))
