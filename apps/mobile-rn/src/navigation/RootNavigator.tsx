@@ -1,11 +1,8 @@
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
-import {
-  createNativeStackNavigator,
-  type NativeStackNavigationProp,
-} from '@react-navigation/native-stack'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { useNavigation, type NavigatorScreenParams } from '@react-navigation/native'
+import { type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -46,11 +43,9 @@ import { PromotionScreen } from '../screens/PromotionScreen'
 import { ReferrerScreen } from '../screens/ReferrerScreen'
 import { InviteScreen } from '../screens/InviteScreen'
 import { QrCodeScreen } from '../screens/QrCodeScreen'
-import { DebugScreen } from '../screens/DebugScreen'
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen'
 import { CourseFilterScreen } from '../screens/CourseFilterScreen'
 import { LiveListScreen } from '../screens/LiveListScreen'
-import { LecturerDetailScreen } from '../screens/LecturerDetailScreen'
 import { CouponScreen } from '../screens/CouponScreen'
 import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
@@ -60,7 +55,6 @@ import { RankingScreen } from '../screens/RankingScreen'
 import { PromoteScreen } from '../screens/PromoteScreen'
 import { DistributionScreen } from '../screens/DistributionScreen'
 import { TeamScreen } from '../screens/TeamScreen'
-import { AgentReviewDetailScreen } from '../screens/AgentReviewDetailScreen'
 import { AgentReviewListScreen } from '../screens/AgentReviewListScreen'
 import { AgentStatScreen } from '../screens/AgentStatScreen'
 import { AgentSettingScreen } from '../screens/AgentSettingScreen'
@@ -88,8 +82,6 @@ import { MessageSystemScreen } from '../screens/MessageSystemScreen'
 import { MessageDirectScreen } from '../screens/MessageDirectScreen'
 import { MessageGroupScreen } from '../screens/MessageGroupScreen'
 import { AnnouncementDetailScreen } from '../screens/AnnouncementDetailScreen'
-import { ActivityDetailScreen } from '../screens/ActivityDetailScreen'
-import { HelpDetailScreen } from '../screens/HelpDetailScreen'
 import { FeedbackHistoryScreen } from '../screens/FeedbackHistoryScreen'
 import { FeedbackDetailScreen } from '../screens/FeedbackDetailScreen'
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen'
@@ -134,8 +126,6 @@ import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useTheme } from '../context/ThemeContext'
-import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
-import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
@@ -238,7 +228,6 @@ export type RootStackParamList = {
   Exam: undefined
   CourseFilter: undefined
   LiveList: undefined
-  LecturerDetail: { id: string }
   Coupon: undefined
   PointsMall: undefined
   PointsRecord: undefined
@@ -266,9 +255,7 @@ export type RootStackParamList = {
   Referrer: undefined
   Invite: undefined
   QrCode: undefined
-  Debug: undefined
   NotificationSettings: undefined
-  AgentReviewDetail: { id: string }
   AgentReviewList: undefined
   AgentStat: undefined
   AgentSetting: undefined
@@ -296,8 +283,6 @@ export type RootStackParamList = {
   MessageDirect: undefined
   MessageGroup: undefined
   AnnouncementDetail: { id: string }
-  ActivityDetail: { id: string }
-  HelpDetail: { id: string }
   FeedbackHistory: undefined
   FeedbackDetail: { id: string }
   SettingsAccount: undefined
@@ -341,8 +326,6 @@ export type RootStackParamList = {
   History: undefined
   Bookmark: undefined
   Share: undefined
-  WorkPanel: { url: string }
-  TaskDispatch: undefined
   SharedDemo: undefined
   Recharge: undefined
   AigcCover: { id: string; title: string }
@@ -426,15 +409,6 @@ function MainNavigator() {
   )
 }
 
-function WorkPanelNavBridge() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
-  useEffect(() => {
-    setWorkPanelNavigator((url: string) => navigation.navigate('WorkPanel', { url }))
-    return () => setWorkPanelNavigator(null)
-  }, [navigation])
-  return null
-}
-
 function RootNavigatorInner() {
   const { token, ready } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -478,7 +452,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Exam" component={ExamScreen} />
             <RootStack.Screen name="CourseFilter" component={CourseFilterScreen} />
             <RootStack.Screen name="LiveList" component={LiveListScreen} />
-            <RootStack.Screen name="LecturerDetail" component={LecturerDetailScreen} />
             <RootStack.Screen name="Coupon" component={CouponScreen} />
             <RootStack.Screen name="PointsMall" component={PointsMallScreen} />
             <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
@@ -506,9 +479,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Referrer" component={ReferrerScreen} />
             <RootStack.Screen name="Invite" component={InviteScreen} />
             <RootStack.Screen name="QrCode" component={QrCodeScreen} />
-            <RootStack.Screen name="Debug" component={DebugScreen} />
             <RootStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-            <RootStack.Screen name="AgentReviewDetail" component={AgentReviewDetailScreen} />
             <RootStack.Screen name="AgentReviewList" component={AgentReviewListScreen} />
             <RootStack.Screen name="AgentStat" component={AgentStatScreen} />
             <RootStack.Screen name="AgentSetting" component={AgentSettingScreen} />
@@ -536,8 +507,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MessageDirect" component={MessageDirectScreen} />
             <RootStack.Screen name="MessageGroup" component={MessageGroupScreen} />
             <RootStack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
-            <RootStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
-            <RootStack.Screen name="HelpDetail" component={HelpDetailScreen} />
             <RootStack.Screen name="FeedbackHistory" component={FeedbackHistoryScreen} />
             <RootStack.Screen name="FeedbackDetail" component={FeedbackDetailScreen} />
             <RootStack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
@@ -593,8 +562,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="History" component={HistoryScreen} />
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
-            <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
-            <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
             {/* Recharge 指向完整充值页 AppTopup(真实微信支付链),替代此前复用钱包页的占位 */}
             <RootStack.Screen name="Recharge" component={AppTopupScreen} />
@@ -673,7 +640,6 @@ function RootNavigatorInner() {
         )}
       </RootStack.Navigator>
       <NotificationPanel />
-      <WorkPanelNavBridge />
     </>
   )
 }

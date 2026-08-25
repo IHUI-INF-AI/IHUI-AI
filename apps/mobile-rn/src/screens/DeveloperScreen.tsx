@@ -14,6 +14,7 @@
  * 注:历史版本把本路由误实现为「开发者套餐开通订阅页」(FEATURES+plans+微信支付)——
  * 该开通支付语义已由 DevEnterCoverScreen(原 dev_enter/cover.vue)承接,本路由恢复为开发者空间页。
  */
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Image,
@@ -29,6 +30,12 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import {
+  getDeveloperApiKeys,
+  getDeveloperSubscription,
+  type DeveloperApiKeyItem,
+  type DeveloperSubscriptionInfo,
+} from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import { useAuth } from '../context/AuthContext'
@@ -42,6 +49,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 const ICON_MY_MODEL = 'https://file.aizhs.top/sys-mini/xtk/my_model.png'
 const ICON_INCOME = 'https://file.aizhs.top/sys-mini/xtk/my_input.png'
 const ICON_N8N = 'https://file.aizhs.top/sys-mini/default/n8n.png'
+const ICON_BUSINESS_CARD = 'https://file.aizhs.top/sys-mini/geren-icon.png'
 const DEFAULT_LOGO = 'https://file.aizhs.top/sys-mini/xtk/devlogo.png'
 
 /** 非开发者问题解答卡(对齐 Uniapp problems 数据) */
@@ -64,6 +72,43 @@ export default function DeveloperScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
+  // 开发者订阅 + API 密钥(对齐原 developer_info 区:账号/密钥/到期时间 + 续费)
+  const [subscription, setSubscription] = useState<DeveloperSubscriptionInfo | null>(null)
+  const [apiKeys, setApiKeys] = useState<DeveloperApiKeyItem[]>([])
+  const [infoLoaded, setInfoLoaded] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const [subRes, keyRes] = await Promise.all([
+          getDeveloperSubscription(),
+          getDeveloperApiKeys().catch(() => null),
+        ])
+        if (cancelled) return
+        if (subRes.success) setSubscription(subRes.data.subscription)
+        if (keyRes?.success) setApiKeys(keyRes.data.list)
+      } catch {
+        // 订阅/密钥加载失败不阻塞页面
+      } finally {
+        if (!cancelled) setInfoLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  /** 复制文本(对齐原 copyText) */
+  const handleCopy = (text: string): void => {
+    if (!text) return
+    try {
+      Clipboard.setString(text)
+      Alert.alert(t('common.hint'), '已复制')
+    } catch {
+      Alert.alert(t('common.hint'), '复制失败')
+    }
+  }
 
   const handleOpenCover = (): void => {
     // 成为开发者 → 开通封面(选套餐 + 一键开通支付)
@@ -102,9 +147,43 @@ export default function DeveloperScreen() {
             {user?.nickname ?? user?.username ?? '未登录'}
           </Text>
           <TouchableOpacity style={styles.entryBtn} onPress={handleOpenCover} activeOpacity={0.8}>
-            <Text style={styles.entryBtnText}>成为开发者</Text>
+            <Text style={styles.entryBtnText}>{subscription ? '续费' : '成为开发者'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* 开发者信息区(对齐原 developer_info_body:账号/密钥/到期时间 + 续费;
+         *  数据源 getDeveloperSubscription + getDeveloperApiKeys,仅在有效订阅时展示) */}
+        {infoLoaded && subscription ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>开发者信息</Text>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>账号</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {user?.nickname ?? user?.username ?? '-'}
+              </Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>API 密钥</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {apiKeys.length > 0 ? `已创建 ${apiKeys.length} 个` : '未创建'}
+              </Text>
+              {apiKeys[0]?.id ? (
+                <TouchableOpacity onPress={() => handleCopy(apiKeys[0]!.id!)} hitSlop={8}>
+                  <Text style={styles.infoCopy}>复制</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoLabel, { color: '#FF7272' }]}>到期时间</Text>
+              <Text style={[styles.infoValue, { color: '#FF7272' }]} numberOfLines={1}>
+                {subscription.endTime ? new Date(subscription.endTime).toLocaleDateString() : '-'}
+              </Text>
+              <TouchableOpacity onPress={handleOpenCover} hitSlop={8}>
+                <Text style={styles.infoRenew}>续费</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
         {/* dev_list 三功能入口(对齐 Uniapp dev_list:我的智能体/智能体收入/n8n智能体) */}
         <View style={styles.devList}>
@@ -137,6 +216,21 @@ export default function DeveloperScreen() {
               <Image source={{ uri: ICON_N8N }} style={styles.devIcon} resizeMode="contain" />
             </View>
             <Text style={styles.devItemText}>n8n智能体</Text>
+          </TouchableOpacity>
+          {/* 创客名片入口(孤儿路由修复:BusinessCard 注册无入口,开发者空间补挂) */}
+          <TouchableOpacity
+            style={styles.devItem}
+            onPress={() => navigation.navigate('BusinessCard', {})}
+            activeOpacity={0.7}
+          >
+            <View style={styles.iconBody}>
+              <Image
+                source={{ uri: ICON_BUSINESS_CARD }}
+                style={styles.devIcon}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={styles.devItemText}>创客名片</Text>
           </TouchableOpacity>
         </View>
 
@@ -214,6 +308,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: tokens.surface.light,
+  } as TextStyle,
+  // ── 开发者信息区 ──
+  infoCard: {
+    backgroundColor: tokens.surface.card,
+    borderRadius: 12,
+    padding: rpx(24),
+    marginBottom: rpx(20),
+  } as ViewStyle,
+  infoTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginBottom: rpx(12),
+  } as TextStyle,
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: rpx(8),
+  } as ViewStyle,
+  infoLabel: {
+    width: 76,
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as TextStyle,
+  infoValue: {
+    flex: 1,
+    fontSize: 13,
+    color: tokens.text.primary,
+  } as TextStyle,
+  infoCopy: {
+    fontSize: 12,
+    color: tokens.brand.DEFAULT,
+    paddingHorizontal: 4,
+  } as TextStyle,
+  infoRenew: {
+    fontSize: 12,
+    color: '#FF7272',
+    fontWeight: '600',
+    paddingHorizontal: 4,
   } as TextStyle,
   devList: {
     flexDirection: 'row',

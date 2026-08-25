@@ -4,8 +4,8 @@
  * 保留 RN 特定逻辑: useState/useEffect/useNavigation/useAuth/fetchApi/Drawer/FloatBox/NavBar
  * 主 UI 委托给 @ihui/rn-app SquareScreen 共享组件
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { StyleSheet, View, type ViewStyle } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { StyleSheet, View, type FlatList, type ViewStyle } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -107,6 +107,9 @@ export default function NewsScreenWrapper() {
   const [items, setItems] = useState<ArticleItem[]>([])
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState('')
   const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]?.id ?? 'all')
 
@@ -114,6 +117,8 @@ export default function NewsScreenWrapper() {
   const [drawerVisible, setDrawerVisible] = useState(false)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
+  /** 资讯列表 ref(共享 SquareScreen 通过 onListRef 暴露,用于返回顶部 scrollToOffset) */
+  const listRef = useRef<FlatList<ArticleItem> | null>(null)
 
   const showFloat = useCallback((message: string, type: FloatBoxType = 'info') => {
     setFloatBox({ visible: true, type, message })
@@ -238,12 +243,25 @@ export default function NewsScreenWrapper() {
           navigateRoot(rootNav, 'ModelPlaza')
           break
         case 'company':
+          navigateRoot(rootNav, 'Distribution')
+
+          break
+
+        case 'assistant':
+          navigation?.navigate('Assistant')
+
+          break
+
         case 'tools':
+          navigateRoot(rootNav, 'Settings')
+
+          break
+
         default:
           break
       }
     },
-    [rootNav],
+    [navigation, rootNav],
   )
 
   const drawerUser = useMemo(
@@ -260,18 +278,36 @@ export default function NewsScreenWrapper() {
     [],
   )
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const code = CATEGORIES.find((c) => c.id === selectedCategory)?.code ?? 'ARTF_INTG'
-      const res = await fetchApi<KnowledgePage>('/api/knowledge', {
-        method: 'GET',
-        params: { code, page: 1, pageSize: PAGE_SIZE },
-      })
-      if (res.success && res.data) {
-        setItems(
-          res.data.list.map((k) => ({
+  // 分享入口(孤儿路由修复:Share 注册无入口,资讯/动态页补挂)
+  const rightActions = useMemo<ReadonlyArray<NavBarAction>>(
+    () => [
+      {
+        icon: '↗',
+        label: '分享',
+        onPress: () => {
+          const nav = navigation.getParent<RootNav>() ?? navigation
+          nav.navigate('Share')
+        },
+      },
+    ],
+    [navigation],
+  )
+
+  const load = useCallback(
+    async (targetPage: number, append: boolean) => {
+      // 追加分页时不触发全屏 loading(避免上拉时列表闪加载态)
+      if (!append) {
+        setLoading(true)
+        setError('')
+      }
+      try {
+        const code = CATEGORIES.find((c) => c.id === selectedCategory)?.code ?? 'ARTF_INTG'
+        const res = await fetchApi<KnowledgePage>('/api/knowledge', {
+          method: 'GET',
+          params: { code, page: targetPage, pageSize: PAGE_SIZE },
+        })
+        if (res.success && res.data) {
+          const list: ArticleItem[] = res.data.list.map((k) => ({
             id: k.id,
             title: k.title,
             summary: k.summary,
@@ -280,33 +316,46 @@ export default function NewsScreenWrapper() {
             viewCount: k.viewCount ?? 0,
             category: k.category,
             sourceName: (k as Knowledge & { sourceName?: string }).sourceName,
-          })),
-        )
-      } else {
-        setItems([])
-        setError(res.error || '加载失败')
+          }))
+          setItems((prev) => (append ? [...prev, ...list] : list))
+          setPage(targetPage)
+          // 不足 pageSize 视为无更多(对齐原 scrolltolower 语义)
+          setHasMore(list.length >= PAGE_SIZE)
+        } else {
+          if (!append) {
+            setItems([])
+            setError(res.error || '加载失败')
+          }
+        }
+      } catch {
+        if (!append) {
+          setItems([])
+          setError('网络异常')
+        }
+      } finally {
+        if (!append) setLoading(false)
+        setRefreshing(false)
+        setLoadingMore(false)
       }
-    } catch {
-      setItems([])
-      setError('网络异常')
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [selectedCategory])
+    },
+    [selectedCategory],
+  )
 
   useEffect(() => {
-    void load()
+    void load(1, false)
   }, [load])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
-    await load()
+    await load(1, false)
   }, [load])
 
   const handleEndReached = useCallback(() => {
-    // 简单实现:滚动到底不再加载更多,保持和原逻辑一致
-  }, [])
+    // 上拉分页(对齐原 scrolltolower):加载中防重入,无更多则停止
+    if (loading || loadingMore || refreshing || !hasMore) return
+    setLoadingMore(true)
+    void load(page + 1, true)
+  }, [loading, loadingMore, refreshing, hasMore, page, load])
 
   const handleSelectCategory = useCallback(
     (id: string) => {
@@ -333,9 +382,19 @@ export default function NewsScreenWrapper() {
     navigation.goBack()
   }, [navigation])
 
+  /** 返回顶部(对齐 Uniapp backToTop → pageScrollTo,RN 端用列表 ref scrollToOffset) */
+  const handleBackToTop = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }, [])
+
   return (
     <View style={styles.container}>
-      <NavBar title="AI资讯" leftActions={leftActions} onBack={handleBack} />
+      <NavBar
+        title="AI资讯"
+        leftActions={leftActions}
+        rightActions={rightActions}
+        onBack={handleBack}
+      />
       <SharedSquareScreen
         t={t}
         colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
@@ -349,8 +408,11 @@ export default function NewsScreenWrapper() {
         onRefresh={handleRefresh}
         onEndReached={handleEndReached}
         onItemClick={handleItemClick}
-        showBackTop={false}
-        onBackToTop={() => undefined}
+        showBackTop={true}
+        onBackToTop={handleBackToTop}
+        onListRef={(ref) => {
+          listRef.current = ref as FlatList<ArticleItem> | null
+        }}
         onBack={handleBack}
       />
       <FloatBox
