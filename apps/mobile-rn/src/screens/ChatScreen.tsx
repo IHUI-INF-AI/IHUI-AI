@@ -27,6 +27,7 @@ import { useAudioPlayer } from 'expo-audio'
 import { File, Paths } from 'expo-file-system'
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -119,6 +120,8 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
+// 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
+import { parseMessageContent } from '../utils/message-parse'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -257,6 +260,9 @@ export function ChatScreen() {
   const [prompt, setPrompt] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  // 消息富内容状态:代码块展开(msgId-partIndex) + 图片全屏预览(对齐 ai_index2 toggleCodeBlock/previewImage)
+  const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(new Set())
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const [agents, setAgents] = useState<Agent[]>([])
@@ -897,6 +903,8 @@ export function ChatScreen() {
       const isUser = item.role === 'user'
       const isLastMessage = messages.length > 0 && item.id === messages[messages.length - 1]?.id
       const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
+      // 富内容分段(代码块/图片/文本,对齐 ai_index2 agent_content_list;消息内容不长,直接解析)
+      const segments = parseMessageContent(item.content)
       return (
         <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
           <View style={styles.msgContent}>
@@ -909,9 +917,93 @@ export function ChatScreen() {
               delayLongPress={500}
               style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
             >
-              <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
-                {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
-              </Text>
+              {segments.map((seg, segIndex) => {
+                if (seg.type === 'image') {
+                  return (
+                    <Pressable
+                      key={`${item.id}-img-${segIndex}`}
+                      onPress={() => setPreviewImageUrl(seg.url)}
+                      style={styles.msgImageWrap}
+                    >
+                      <Image
+                        source={{ uri: seg.url }}
+                        style={styles.msgImage}
+                        resizeMode="cover"
+                        accessibilityLabel="消息图片,点击预览"
+                      />
+                    </Pressable>
+                  )
+                }
+                if (seg.type === 'code') {
+                  const codeKey = `${item.id}-${segIndex}`
+                  const expanded = expandedCodeBlocks.has(codeKey)
+                  return (
+                    <View key={`${item.id}-code-${segIndex}`} style={styles.codeBlock}>
+                      <View style={styles.codeBlockHeader}>
+                        <Text style={styles.codeBlockLang} numberOfLines={1}>
+                          {seg.language || 'code'}
+                        </Text>
+                        <View style={styles.codeBlockActions}>
+                          <TouchableOpacity
+                            style={styles.codeBlockBtn}
+                            hitSlop={6}
+                            onPress={() => {
+                              Clipboard.setString(seg.code)
+                              showToast('success', '已复制')
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="复制代码"
+                          >
+                            <Copy size={13} color="#e8e8e8" />
+                            <Text style={styles.codeBlockBtnText}>复制</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.codeBlockBtn}
+                            hitSlop={6}
+                            onPress={() =>
+                              setExpandedCodeBlocks((prev) => {
+                                const next = new Set(prev)
+                                if (next.has(codeKey)) next.delete(codeKey)
+                                else next.add(codeKey)
+                                return next
+                              })
+                            }
+                            accessibilityRole="button"
+                            accessibilityLabel={expanded ? '收起代码' : '展开代码'}
+                          >
+                            <Text style={styles.codeBlockBtnText}>{expanded ? '收起' : '展开'}</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                      {expanded ? (
+                        <Text style={styles.codeBlockContent} selectable>
+                          {seg.code}
+                        </Text>
+                      ) : (
+                        <Text style={styles.codeBlockContent} numberOfLines={4}>
+                          {seg.code}
+                        </Text>
+                      )}
+                    </View>
+                  )
+                }
+                return (
+                  <Text
+                    key={`${item.id}-text-${segIndex}`}
+                    style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}
+                  >
+                    {seg.text}
+                  </Text>
+                )
+              })}
+              {segments.length === 0
+                ? (
+                  <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
+                    {item.content ||
+                      (isStreaming && !isUser ? '正在思考…' : item.content)}
+                  </Text>
+                )
+                : null}
             </Pressable>
             {showActions ? (
               <View style={styles.msgActions}>
@@ -948,7 +1040,7 @@ export function ChatScreen() {
         </View>
       )
     },
-    [messages, isStreaming, maybeTriggerFirstShareReward, showToast, handleLongPressMessage],
+    [messages, isStreaming, expandedCodeBlocks, maybeTriggerFirstShareReward, showToast, handleLongPressMessage],
   )
 
   const renderListHeader = useCallback((): React.ReactNode => {
@@ -1860,6 +1952,35 @@ export function ChatScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* 消息图片全屏预览(对齐 Uniapp ai_index2 previewImage) */}
+      <Modal
+        visible={previewImageUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewImageUrl(null)}
+      >
+        <View style={styles.imagePreviewOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPreviewImageUrl(null)} />
+          {previewImageUrl ? (
+            <Image
+              source={{ uri: previewImageUrl }}
+              style={styles.imagePreviewFull}
+              resizeMode="contain"
+              accessibilityLabel="图片预览"
+            />
+          ) : null}
+          <Pressable
+            hitSlop={10}
+            onPress={() => setPreviewImageUrl(null)}
+            style={styles.imagePreviewClose}
+            accessibilityRole="button"
+            accessibilityLabel="关闭预览"
+          >
+            <X size={26} color="#fff" />
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -1991,6 +2112,85 @@ const styles = StyleSheet.create({
   },
   msgTextAi: {
     color: tokens.text.primary,
+  },
+  // ── 消息富内容:图片(点击全屏预览) ──
+  msgImageWrap: {
+    marginVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+    maxWidth: 220,
+  },
+  msgImage: {
+    width: 180,
+    height: 140,
+    backgroundColor: tokens.surface.muted,
+  },
+  // ── 消息富内容:代码块(展开/收起 + 复制,对齐 ai_index2 code-block) ──
+  codeBlock: {
+    marginVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#1e1e2e',
+    overflow: 'hidden',
+  },
+  codeBlockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#2d2d44',
+  },
+  codeBlockLang: {
+    fontSize: 11,
+    color: '#9cdcfe',
+    fontWeight: '600',
+    flexShrink: 1,
+    marginRight: 8,
+  },
+  codeBlockActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  codeBlockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  codeBlockBtnText: {
+    fontSize: 11,
+    color: '#e8e8e8',
+  },
+  codeBlockContent: {
+    padding: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#e8e8e8',
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
+  // ── 消息图片全屏预览 ──
+  imagePreviewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePreviewFull: {
+    width: '94%',
+    height: '80%',
+  },
+  imagePreviewClose: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // ── 素材库弹窗(Modal 内部对话框样式,参考 listDialogContent) ──
   materialPopup: {
