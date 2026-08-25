@@ -441,6 +441,9 @@ const test = base.extend<{ authenticatedPage: Page; adminPage: Page }>({
 
 // 导出 test（与 @playwright/test 的 test 兼容，现有 spec 无需改动）
 export const setupTest = test
+// 2026-08-26:同时导出 test 本身,spec 可 import { test } from './fixtures'
+// 直接使用 authenticatedPage / adminPage 扩展 fixture(如 chat-mode-badge 迁移)。
+export { test }
 
 // 导出登录辅助函数与路径
 export {
