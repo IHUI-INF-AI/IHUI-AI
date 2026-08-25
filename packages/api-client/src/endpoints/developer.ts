@@ -384,3 +384,38 @@ export async function revokeAuthorization(id: string): Promise<ApiResult<{ succe
     method: 'DELETE',
   })
 }
+
+// =============================================================================
+// 开发者订阅 + API 密钥(对齐后端 /developer/subscription 与 /developer/api-keys)
+// =============================================================================
+
+export interface DeveloperSubscriptionInfo {
+  id: string
+  userId: string
+  pricingId: string | null
+  period: string | null
+  startTime: string
+  endTime: string
+  status: number
+  autoRenew: number
+  orderId: string | null
+}
+
+/** 我的开发者订阅(有效订阅含到期时间 endTime;无订阅返回 subscription=null) */
+export async function getDeveloperSubscription(): Promise<
+  ApiResult<{ subscription: DeveloperSubscriptionInfo | null }>
+> {
+  return fetchApi<{ subscription: DeveloperSubscriptionInfo | null }>('/developer/subscription')
+}
+
+export interface DeveloperApiKeyItem {
+  id: string
+  name: string | null
+  createdAt: string | null
+  [key: string]: unknown
+}
+
+/** 我的开发者 API 密钥列表 */
+export async function getDeveloperApiKeys(): Promise<ApiResult<{ list: DeveloperApiKeyItem[] }>> {
+  return fetchApi<{ list: DeveloperApiKeyItem[] }>('/developer/api-keys')
+}
