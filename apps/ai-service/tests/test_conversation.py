@@ -28,16 +28,21 @@ from app.services.vector_memory import vector_memory
 
 @pytest.fixture(autouse=True)
 def _clear_singletons():
-    """清理单例状态,避免测试间污染。"""
+    """清理单例状态,避免测试间污染。
+
+    2026-08-22 修复:VectorMemoryStore 重构后内部存储为 _entries/_vectors(原 _store 移除)。
+    """
     memory_store._use_redis = False
     memory_store._redis = None
     memory_store._store.clear()
-    vector_memory._store.clear()
+    vector_memory._entries.clear()
+    vector_memory._vectors.clear()
     yield
     memory_store._use_redis = False
     memory_store._redis = None
     memory_store._store.clear()
-    vector_memory._store.clear()
+    vector_memory._entries.clear()
+    vector_memory._vectors.clear()
 
 
 # =============================================================================

@@ -1529,7 +1529,7 @@ export function HomeScreen() {
               accessibilityRole="imagebutton"
               accessibilityLabel="社群二维码,长按保存"
             >
-              <Image source={QrCodeImage as any} style={shellStyles.qrImage} resizeMode="contain" />
+              <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
             </Pressable>
             <Text style={shellStyles.qrTitle}>扫描二维码加入社区</Text>
             <Pressable
