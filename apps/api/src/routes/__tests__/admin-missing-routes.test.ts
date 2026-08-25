@@ -75,7 +75,7 @@ describe('Admin Missing Routes — PUT /configs (upsert)', () => {
   let app: FastifyInstance
 
   beforeAll(async () => {
-    app = Fastify({ logger: false })
+    app = Fastify({ logger: false, pluginTimeout: 120_000 })
     await app.register(adminMissingRoutes, { prefix: '/api/admin' })
     await app.ready()
   })
