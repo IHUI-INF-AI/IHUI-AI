@@ -179,9 +179,18 @@ export function validateUploadFile(
 /**
  * 净化存储文件名:取 basename、去控制字符与空字节、去前导点。
  * 丢弃路径分隔符,防止路径穿越;保留原始名用于展示。
+ *
+ * 2026-08-25 上传链路审计加固:
+ * - 追加替换 Windows 保留字符(`< > : " | ? *`),避免含非法字符的文件名写入 DB/回显
+ * - 折叠连续点号(`..` → `.`),防展示层把文件名误读为上级目录
+ * - 保留中文等 Unicode 字符,仅替换 ASCII 危险字符
  */
 export function sanitizeFilename(filename: string): string {
   const base = filename.split(/[\/\\]/).pop() ?? filename
-  const cleaned = base.replace(/[\x00-\x1f]/g, '').replace(/^\.+/, '')
+  const cleaned = base
+    .replace(/[\x00-\x1f]/g, '')
+    .replace(/[<>:"|?*]/g, '_')
+    .replace(/^\.+/, '')
+    .replace(/\.\.+/g, '.')
   return cleaned || 'unnamed'
 }
