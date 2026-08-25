@@ -29,6 +29,11 @@ from app.core.jwt_auth import JWTAuthMiddleware, get_current_user_id
 JWT_SECRET = "test-jwt-secret-for-testing-only"
 JWT_ISSUER = "ihui-ai"
 
+# 2026-08-25:conftest._isolate_jwt_auth(autouse)会在显式 fixture(enable_jwt)
+# 之后把 jwt_secret 清回空,导致 _verify_token 用空 secret 解码失败。
+# 本模块自行管理 jwt_secret,跳过全局隔离。
+pytestmark = pytest.mark.real_jwt
+
 
 def _make_token(
     *,
@@ -45,6 +50,9 @@ def _make_token(
         "iat": int(time.time()),
         "exp": int(time.time()) + expires_in,
         "iss": issuer,
+        # P1-2 修复(2026-08-06):jwt_auth._verify_token 校验 aud='ihui-ai-users'
+        # (与 apps/api packages/auth/src/jwt.ts AUDIENCE 一致),缺 aud 会解码失败。
+        "aud": "ihui-ai-users",
     }
     if token_type is not None:
         payload["type"] = token_type

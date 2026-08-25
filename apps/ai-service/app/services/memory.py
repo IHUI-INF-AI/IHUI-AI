@@ -96,7 +96,12 @@ class MemoryStore:
             raw = await redis.lrange(key, -limit, -1)
             return [json.loads(r) for r in raw]
         msgs = self._store.get(self._key(session_id, user_id), [])
-        return msgs[-limit:] if limit < len(msgs) else msgs
+        # 2026-08-25 修复:返回防御性副本,禁止暴露内部 list 活引用。
+        # 此前 limit>=len 时直接返回 self._store[key] 本体,调用方(如
+        # langgraph_service._memory_save_node)把它当 messages 传给
+        # add_with_extraction,后者边遍历边 append 同一 list → 无限循环
+        # (10M+ 次 add)。改为浅拷贝新 list + 新 dict,杜绝调用方改内部状态。
+        return [dict(m) for m in (msgs[-limit:] if limit < len(msgs) else msgs)]
 
     async def clear(self, session_id: str, *, user_id: str | None = None) -> None:
         """清除指定会话的全部消息。user_id 非空时启用用户隔离(P1-6)。"""
@@ -234,11 +239,15 @@ class MemorySystem:
         messages: list[dict[str, str]],
         scope: str = "session",
         session_id: str | None = None,
+        *,
+        persist_messages: bool = True,
     ) -> dict[str, Any]:
         """写入消息 + 自动提取记忆 + 更新画像。
 
         流程:
-        1. 写入会话消息到 MemoryStore
+        1. 写入会话消息到 MemoryStore(persist_messages=False 时跳过——消息已
+           由调用方在对话过程中持久化,避免 memory_save 读回历史后重复写回,
+           导致数据膨胀甚至边遍历边 append 死循环)
         2. 从对话中自动提取记忆(MemoryExtractor)
         3. 每条提取的记忆:生成 embedding → 写入 VectorMemoryStore + UnifiedMemoryClient
         4. 增量更新用户画像(UserProfileBuilder)
@@ -248,6 +257,8 @@ class MemorySystem:
             messages:  对话消息列表 [{role, content}]
             scope:     记忆作用域(session/project/user/global)
             session_id: 会话 ID(scope=session 时用)
+            persist_messages: 是否把 messages 再次写入 MemoryStore(默认 True;
+                          调用方已持久化时传 False)
 
         Returns:
             {extracted: [...], count: int, durationMs: int}
@@ -255,13 +266,14 @@ class MemorySystem:
         self._ensure_services()
         start = time.time()
 
-        # 1. 写入会话消息
-        sid = session_id or user_id
-        for msg in messages:
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            if content:
-                await self._store.add(sid, role, content)
+        # 1. 写入会话消息(调用方已持久化时跳过,防重复写回)
+        if persist_messages:
+            sid = session_id or user_id
+            for msg in messages:
+                role = msg.get("role", "user")
+                content = msg.get("content", "")
+                if content:
+                    await self._store.add(sid, role, content)
 
         # 2. 获取已有记忆(用于去重)
         existing = await self._client.get_entries(user_id, scope="user")
