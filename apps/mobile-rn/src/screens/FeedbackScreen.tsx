@@ -12,6 +12,7 @@
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as ImagePicker from 'expo-image-picker'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { FeedbackScreen as SharedFeedbackScreen } from '@ihui/rn-app'
 import { fetchApi, uploadFileMultipart } from '@ihui/api-client'
 import { useI18n } from '../i18n'
@@ -77,12 +78,43 @@ export function FeedbackScreen() {
   }
 
   return (
-    <SharedFeedbackScreen
-      t={t}
-      onSubmit={handleSubmit}
-      onBack={() => navigation.goBack()}
-      onPickImages={handlePickImages}
-      colorScheme={resolvedTheme}
-    />
+    <View style={styles.container}>
+      <SharedFeedbackScreen
+        t={t}
+        onSubmit={handleSubmit}
+        onBack={() => navigation.goBack()}
+        onPickImages={handlePickImages}
+        colorScheme={resolvedTheme}
+      />
+      {/* 反馈记录入口(孤儿路由修复:FeedbackHistory 注册无入口,由反馈页补挂) */}
+      <Pressable
+        style={({ pressed }) => [styles.historyBtn, pressed ? styles.historyBtnPressed : null]}
+        onPress={() => navigation.navigate('FeedbackHistory')}
+        accessibilityRole="button"
+        accessibilityLabel="查看反馈记录"
+      >
+        <Text style={styles.historyBtnText}>查看反馈记录 ›</Text>
+      </Pressable>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  historyBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyBtnPressed: {
+    opacity: 0.7,
+  },
+  historyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5088fa',
+  },
+})

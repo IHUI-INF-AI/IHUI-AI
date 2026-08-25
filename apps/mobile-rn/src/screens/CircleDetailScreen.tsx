@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -78,16 +79,52 @@ export function CircleDetailScreen() {
   }
 
   return (
-    <SharedCircleDetailScreen
-      t={t}
-      item={circle}
-      loading={loading}
-      error={error}
-      onJoin={onJoin}
-      onLeave={onLeave}
-      onPressPost={() => navigation.navigate('PostCreate', { circleId: circle?.id ?? id })}
-      onPressMembers={() => navigation.navigate('CircleMember', { circleId: circle?.id ?? id })}
-      onBack={() => navigation.goBack()}
-    />
+    <View style={styles.container}>
+      <SharedCircleDetailScreen
+        t={t}
+        item={circle}
+        loading={loading}
+        error={error}
+        onJoin={onJoin}
+        onLeave={onLeave}
+        onPressPost={() => navigation.navigate('PostCreate', { circleId: circle?.id ?? id })}
+        onPressMembers={() => navigation.navigate('CircleMember', { circleId: circle?.id ?? id })}
+        onBack={() => navigation.goBack()}
+      />
+      {/* 群聊入口(孤儿路由修复:CircleChat 注册无入口,圈子详情补挂) */}
+      <Pressable
+        style={({ pressed }) => [styles.chatBtn, pressed ? styles.chatBtnPressed : null]}
+        onPress={() =>
+          navigation.navigate('CircleChat', {
+            circleId: circle?.id ?? id,
+            name: circle?.name ?? '',
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel="进入群聊"
+      >
+        <Text style={styles.chatBtnText}>进入群聊 ›</Text>
+      </Pressable>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  chatBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatBtnPressed: {
+    opacity: 0.7,
+  },
+  chatBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5088fa',
+  },
+})
