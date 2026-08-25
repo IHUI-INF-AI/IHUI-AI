@@ -42,6 +42,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# 2026-08-26 修复:兼容 `pwsh -File ... -Services web,api,ai-service` 传参。
+# pwsh -File 的 CLI 解析把 "web,api,ai-service" 当作单个字符串传给 [string[]]。
+# (PowerShell 交互式下逗号会被解析为数组,但 -File 原生调用不会)。
+# 这里展开逗号分隔 + 去空白 + 去空,保证文档示例用法真实可用。
+$Services = @(
+  $Services | ForEach-Object { $_ -split ',' } |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ }
+)
+
 # ============================================================
 # 路径常量
 # ============================================================

@@ -47,9 +47,9 @@ type Credentials = typeof TEST_USER
  * 从 Set-Cookie headers 中提取 refresh_token 值。
  * 与 apiLoginAndSaveStorageState 共享，放模块级避免作用域问题。
  */
-function parseRefreshTokenFromSetCookie(
-  res: { headersArray(): Array<{ name: string; value: string }> },
-): string | undefined {
+function parseRefreshTokenFromSetCookie(res: {
+  headersArray(): Array<{ name: string; value: string }>
+}): string | undefined {
   for (const h of res.headersArray()) {
     if (h.name.toLowerCase() !== 'set-cookie') continue
     const m = /(?:^|;\s*)refresh_token=([^;]+)/i.exec(h.value)
@@ -91,6 +91,12 @@ async function loginAndSaveStorageState(
 /**
  * 通过 API 直接登录（更快，不经过 UI，绕过验证码）。
  * 调用真实接口 /api/auth/login，将 accessToken 写入 cookie。
+ *
+ * 429 退避(2026-08-26 实锤):api 的 /api/auth/login 自带 Fastify 限流
+ * max:5/1min(apps/api/src/routes/auth.ts:600 安全加固)。e2e 全量多 worker
+ * 并发登录 → 429,storage 创建失败 → 后续用例连锁失败。这里对 429 退避重试
+ * (读 Retry-After 或默认 65s),配合 ensureStorageState 的并发锁,正常每次
+ * 运行仅登录 1-2 次,退避只是兜底。
  */
 async function apiLoginAndSaveStorageState(
   request: APIRequestContext,
@@ -98,12 +104,23 @@ async function apiLoginAndSaveStorageState(
   credentials: Credentials,
   storageStatePath: string,
 ) {
-  const response = await request.post(`${baseURL}/api/auth/login`, {
-    data: {
-      account: credentials.account,
-      password: credentials.password,
-    },
-  })
+  const MAX_ATTEMPTS = 4
+  let response: Awaited<ReturnType<APIRequestContext['post']>> | null = null
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    response = await request.post(`${baseURL}/api/auth/login`, {
+      data: {
+        account: credentials.account,
+        password: credentials.password,
+      },
+    })
+    if (response.status() !== 429) break
+    const retryAfter = Number(response.headers()['retry-after'] ?? 0) || 65
+    if (attempt === MAX_ATTEMPTS) {
+      throw new Error(`登录被限流(429)重试 ${MAX_ATTEMPTS} 次仍失败`)
+    }
+    await new Promise((r) => setTimeout(r, (retryAfter + 1) * 1000))
+  }
+  if (!response) throw new Error('登录请求未发出')
 
   if (!response.ok()) {
     throw new Error(`登录请求失败: ${response.status()} ${response.statusText}`)
@@ -112,7 +129,13 @@ async function apiLoginAndSaveStorageState(
   const body = (await response.json()) as {
     code?: number
     message?: string
-    data?: { accessToken?: string; token?: string; userId?: string; refreshToken?: string; user?: { id: string; nickname?: string } }
+    data?: {
+      accessToken?: string
+      token?: string
+      userId?: string
+      refreshToken?: string
+      user?: { id: string; nickname?: string }
+    }
     token?: string
     user?: unknown
   }
@@ -212,7 +235,15 @@ async function apiLoginAndSaveStorageState(
  */
 async function updateStorageCookies(
   storageStatePath: string,
-  cookies: Array<{ name: string; value: string; httpOnly?: boolean; domain?: string; path?: string; secure?: boolean; sameSite?: 'Lax' | 'Strict' | 'None' }>,
+  cookies: Array<{
+    name: string
+    value: string
+    httpOnly?: boolean
+    domain?: string
+    path?: string
+    secure?: boolean
+    sameSite?: 'Lax' | 'Strict' | 'None'
+  }>,
 ): Promise<void> {
   type StorageCookie = {
     name: string
@@ -273,12 +304,23 @@ async function isStorageStateValid(
   storageStatePath: string,
 ): Promise<boolean> {
   try {
+    // mtime 缓存(2026-08-26 实锤):storage 文件 10 分钟内视为有效,直接复用。
+    // 背景:20 个 worker 并发创建 adminPage 时若全部走 refresh 轮转(每次都是
+    // 网络调用+文件回写),fixture setup 30s 超时;mtime 缓存让绝大多数 worker
+    // 瞬时通过,只有文件超过 10 分钟的才做 refresh(access TTL 15min,10min 时
+    // 轮转一次后新 token 再覆盖 15min,无过期窗口)。
+    const stat = await fs.stat(storageStatePath)
+    if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) return true
     const raw = await fs.readFile(storageStatePath, 'utf8')
     const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string }> }
     const rt = state.cookies?.find((c) => c.name === 'refresh_token')?.value
     if (!rt) return false
     const res = await request.post(`${baseURL}/api/auth/refresh`, {
       headers: { cookie: `refresh_token=${rt}` },
+      // 必须带 body {}:refresh 路由 schema body.type='object' 对 undefined body
+      // 校验失败返回 400(2026-08-26 实锤)——无 body 的 POST 永远到不了 handler,
+      // storage 的 refresh_token 从未被轮转回写,一旦被应用 bootstrap 消费即失效。
+      data: {},
     })
     if (!res.ok()) return false
     const body = (await res.json().catch(() => null)) as {
@@ -286,8 +328,7 @@ async function isStorageStateValid(
     } | null
     const newAccess = body?.data?.accessToken
     if (!newAccess) return false
-    const newRefresh =
-      body?.data?.refreshToken ?? parseRefreshTokenFromSetCookie(res) ?? rt
+    const newRefresh = body?.data?.refreshToken ?? parseRefreshTokenFromSetCookie(res) ?? rt
     await updateStorageCookies(storageStatePath, [
       { name: 'auth_token', value: newAccess },
       { name: 'token', value: newAccess },
@@ -300,8 +341,60 @@ async function isStorageStateValid(
 }
 
 /**
+ * storage 创建/校验的进程级并发锁(mkdir 原子性)。
+ *
+ * 背景(2026-08-26 实锤):playwright 本地 workers=CPU/2(fullyParallel:true),
+ * 多个 worker 首次同时发现 storage 文件缺失 → 并发调 /api/auth/login →
+ * 撞 5 次/分钟限流(429) → storage 创建失败 → 后续用例连锁失败。
+ *
+ * 锁保证同一时刻只有一个 worker 执行"创建/校验/回写",其余 worker 轮询等待
+ * 锁释放后复用文件。超时 90s(覆盖 429 退避的 65s 窗口)。
+ */
+async function acquireStorageLock(
+  storageStatePath: string,
+  timeoutMs = 45_000,
+): Promise<() => Promise<void>> {
+  const lockPath = `${storageStatePath}.lock`
+  const start = Date.now()
+  for (;;) {
+    try {
+      await fs.mkdir(lockPath)
+      return async () => {
+        // 释放失败不能静默吞:记录原因,便于排查残留锁
+        try {
+          await fs.rmdir(lockPath)
+        } catch (e) {
+          console.warn(
+            `[fixtures] storage 锁释放失败(${lockPath}): ${(e as Error).message} — 将残留至下次僵尸回收`,
+          )
+        }
+      }
+    } catch {
+      // 僵尸锁自愈(2026-08-26 实锤):fixture setup 超时 → Playwright 杀 worker →
+      // finally 未执行 → 锁目录残留 → 下一轮所有 worker 卡在等锁连锁超时。
+      // 正常持有 <5s,锁目录 mtime 超过 60s 视为持有者已死,强制回收。
+      try {
+        const stat = await fs.stat(lockPath)
+        if (Date.now() - stat.mtimeMs > 60_000) {
+          await fs.rm(lockPath, { recursive: true, force: true })
+          continue
+        }
+      } catch {
+        /* 锁目录已被其他 worker 释放,继续轮询 */
+      }
+      if (Date.now() - start > timeoutMs) {
+        throw new Error(`获取 storage 锁超时: ${storageStatePath}`)
+      }
+      await new Promise((r) => setTimeout(r, 250))
+    }
+  }
+}
+
+/**
  * 确保 storageState 文件存在且会话有效；文件缺失或 token 失效时通过 API 登录创建/刷新。
  * 让 chromium project 下使用 authenticatedPage 的测试即使未预先执行 setup 也能跑通。
+ *
+ * 全程持锁:创建/校验/回写串行化,避免多 worker 并发登录触发 429 限流。
  */
 async function ensureStorageState(
   request: APIRequestContext,
@@ -309,15 +402,20 @@ async function ensureStorageState(
   credentials: Credentials,
   storageStatePath: string,
 ) {
+  const release = await acquireStorageLock(storageStatePath)
   try {
-    await fs.access(storageStatePath)
-  } catch {
-    await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
-    return
-  }
-  // 文件存在但会话可能已失效(access 过期 / refresh 被轮转消费)→ 重新登录
-  if (!(await isStorageStateValid(request, baseURL, storageStatePath))) {
-    await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
+    try {
+      await fs.access(storageStatePath)
+    } catch {
+      await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
+      return
+    }
+    // 文件存在但会话可能已失效(access 过期 / refresh 被轮转消费)→ 重新登录
+    if (!(await isStorageStateValid(request, baseURL, storageStatePath))) {
+      await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
+    }
+  } finally {
+    await release()
   }
 }
 
