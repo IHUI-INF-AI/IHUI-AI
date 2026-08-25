@@ -25,6 +25,7 @@ import { socialRoutes } from './social.js'
 import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
+import { pointsTasksRoutes } from './points-tasks.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
 import { learnRoutes, adminLearnRoutes } from './learn.js'
 import { systemRoutes, adminSystemRoutes } from './system.js'
@@ -450,6 +451,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
+  server.register(pointsTasksRoutes, { prefix: '/api' })
   // 系统配置 / 集成 / API 日志 / 系统事件：/api/configs + /api/admin/configs /api/admin/integrations /api/admin/logs /api/admin/events
   server.register(systemRoutes, { prefix: '/api' })
   server.register(adminSystemRoutes, { prefix: '/api/admin' })
