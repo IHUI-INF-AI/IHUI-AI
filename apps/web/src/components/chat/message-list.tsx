@@ -879,10 +879,16 @@ export function MessageList({
   const setUserScrolledUp = useChatStore((s) => s.setUserScrolledUp)
   const setUserScrolledToTop = useChatStore((s) => s.setUserScrolledToTop)
   // 防御性 null check(测试环境 mock 可能未完整注入 setter)
-  const safeSetUserScrolledUp =
-    typeof setUserScrolledUp === 'function' ? setUserScrolledUp : () => {}
-  const safeSetUserScrolledToTop =
-    typeof setUserScrolledToTop === 'function' ? setUserScrolledToTop : () => {}
+  // 2026-08-25 useMemo 稳定化:原条件表达式在 setter 缺失时每次渲染新建 () => {},
+  // 导致依赖它的 useCallback deps 每帧变化(exhaustive-deps 警告 + 无谓重渲染)。
+  const safeSetUserScrolledUp = React.useMemo(
+    () => (typeof setUserScrolledUp === 'function' ? setUserScrolledUp : () => {}),
+    [setUserScrolledUp],
+  )
+  const safeSetUserScrolledToTop = React.useMemo(
+    () => (typeof setUserScrolledToTop === 'function' ? setUserScrolledToTop : () => {}),
+    [setUserScrolledToTop],
+  )
   // 2026-07-28 立:键盘导航的 focused message index(-1 = 无聚焦)
   // - ↑/↓ 切换时设置,Enter 展开/折叠 reasoning,Esc 取消聚焦
   // - focused 消息添加 ring 视觉 + data-message-focused 属性
@@ -969,8 +975,10 @@ export function MessageList({
       : distanceFromBottom > UPPER_THRESHOLD
     userScrolledUpRef.current = scrolledUp
     // 同步到 store(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
+    // 2026-08-25:统一走 safe 包装(与顶部按钮一致),消除对原始 setter 的依赖
+    // 同时修复 exhaustive-deps 缺失依赖警告(setter 缺失时原代码此处会直接抛错)
     if (scrolledUp !== userScrolledUp) {
-      setUserScrolledUp(scrolledUp)
+      safeSetUserScrolledUp(scrolledUp)
     }
 
     // 顶部返回按钮:scrollTop > 200px 时显示
