@@ -151,7 +151,12 @@ async def test_verify_credentials_success_no_login_button():
 
     with patch.object(juejin, "_HAS_PLAYWRIGHT", True):
         with patch.object(juejin, "async_playwright", return_value=fake_playwright_ctx, create=True):
-            ok, msg = await a.verify_credentials({"sessionid": "valid"})
+            # 直接 patch 反风控工厂(内部走 launch_persistent_context,与 mock 链无关),
+            # 避免真实工厂对未配置的 chromium.launch_persistent_context 产生 MagicMock 协程。
+            with patch.object(juejin, "create_stealth_browser_context",
+                              AsyncMock(return_value=(fake_browser, fake_context))):
+                with patch.object(juejin, "close_stealth_context", AsyncMock()):
+                    ok, msg = await a.verify_credentials({"sessionid": "valid"})
 
     assert ok is True
     assert "connected" in msg
@@ -187,7 +192,11 @@ async def test_verify_credentials_cookie_expired():
 
     with patch.object(juejin, "_HAS_PLAYWRIGHT", True):
         with patch.object(juejin, "async_playwright", return_value=fake_playwright_ctx, create=True):
-            ok, msg = await a.verify_credentials({"sessionid": "expired"})
+            # 同 test_verify_credentials_success_no_login_button:patch 反风控工厂
+            with patch.object(juejin, "create_stealth_browser_context",
+                              AsyncMock(return_value=(fake_browser, fake_context))):
+                with patch.object(juejin, "close_stealth_context", AsyncMock()):
+                    ok, msg = await a.verify_credentials({"sessionid": "expired"})
 
     assert ok is False
     assert "cookie expired" in msg

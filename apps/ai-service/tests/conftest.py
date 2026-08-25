@@ -48,13 +48,18 @@ _VENDOR_ENV_KEYS = (
 
 
 @pytest.fixture(autouse=True)
-def _isolate_llm_env(monkeypatch):
+def _isolate_llm_env(monkeypatch, request):
     """隔离 .env 真实 API key:每个测试前清空 50+ os.environ vendor key,
     确保从干净状态开始。避免测试因 .env 中的真实 key 意外调用真实 API。
     需要真实模式的测试自行 monkeypatch 设置对应 key。
     同时 mock _resolve_from_db 避免 asyncpg 连接数据库(测试环境无 DB)。
 
     阶段 3 主体(2026-07-26):扁平字段已从 Settings 删除,无需再清空 settings.*_api_key。
+
+    2026-08-25:select_key 的全局 mock 加 real_key_pool marker 闸门 ——
+    test_key_pool_selector 直接测 KeyPoolSelector.select_key 真实选择逻辑,
+    全局 mock 会把它打回 None 导致 5 个测试失败(assert None is not None)。
+    标记 real_key_pool 的测试保留真实 select_key(内部自备 mock pool)。
     """
     # 清空 os.environ 里的 vendor key(app.main 启动时同步过)
     for k in _VENDOR_ENV_KEYS:
@@ -107,16 +112,19 @@ def _isolate_llm_env(monkeypatch):
     # 而非 FallbackRouter → fallback_used 标记丢失/测试结果随 DB 状态翻转。
     # 单元测试统一 mock 号池不可用(返回 None → 走 .env/llm_providers JSON 层),
     # 需要测号池故障转移的测试自行 monkeypatch 覆盖。
-    async def _noop_select_key(provider_code):
-        return None
+    # 2026-08-25:标 real_key_pool 的测试(test_key_pool_selector)保留真实
+    # select_key,不被全局 mock 打回 None。
+    if request.node.get_closest_marker("real_key_pool") is None:
+        async def _noop_select_key(provider_code):
+            return None
 
-    monkeypatch.setattr(
-        "app.services.key_pool_selector.KeyPoolSelector.select_key", _noop_select_key
-    )
+        monkeypatch.setattr(
+            "app.services.key_pool_selector.KeyPoolSelector.select_key", _noop_select_key
+        )
 
 
 @pytest.fixture(autouse=True)
-def _isolate_jwt_auth(monkeypatch):
+def _isolate_jwt_auth(monkeypatch, request):
     """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径(node_env=development)。
 
     .env 中配置了真实 jwt_secret 时,JWTAuthMiddleware 会验证 token,
@@ -125,9 +133,15 @@ def _isolate_jwt_auth(monkeypatch):
 
     此前 test_dag_api/test_debug_api/test_message_bus/test_personas_router
     各自本地做过同样隔离(2026-08 修复),现提升为全局,消除逐文件遗漏。
-    需要真实验证的测试(test_jwt_auth)自行 monkeypatch 设置自己的 secret,
-    测试局部 setattr 晚于本 fixture 生效,不受影响。
+
+    2026-08-25:加 real_jwt marker 闸门 —— test_jwt_auth 的 enable_jwt fixture
+    显式设置真实 secret,但 autouse fixture 的 monkeypatch 在显式 fixture 之后
+    生效会把它清回空,导致 _verify_token 解码失败(3 个测试 assert None)。
+    标 real_jwt 的测试跳过本隔离,自行管理 jwt_secret。
     """
+    if request.node.get_closest_marker("real_jwt") is not None:
+        return
+
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "jwt_secret", "")
