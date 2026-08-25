@@ -12,6 +12,17 @@ import { test, expect, type Page } from '@playwright/test'
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:8801'
 
 test.beforeEach(async ({ page }) => {
+  // 2026-08-26 修复:仅 clearCookies 不够 —— localStorage 的 ihui-auth / ihui-user /
+  // token / user 仍会恢复登录态(persist rehydrate),导致 header 无登录按钮 +
+  // LoginRedirectListener 不自动弹登录框 → openLoginDialog 点登录按钮 30s 超时。
+  // 先 goto 到目标 origin 再清 localStorage(about:blank 上 evaluate 写入无效 origin)。
+  await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' }).catch(() => null)
+  await page.evaluate(() => {
+    localStorage.removeItem('ihui-auth')
+    localStorage.removeItem('ihui-user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+  })
   // 清除 cookie,防止 LoginRedirectListener 自动打开登录弹窗
   await page.context().clearCookies()
 })
@@ -25,8 +36,9 @@ async function openLoginDialog(page: Page) {
   const isAlreadyOpen = await loginDialog.isVisible({ timeout: 2000 }).catch(() => false)
 
   if (!isAlreadyOpen) {
-    // 用 header 限定器避免点到表单内的"登录"提交按钮
-    await page.locator('header').getByRole('button', { name: /登录/ }).first().click()
+    // 2026-08-26 修复:header 已无登录按钮(登录入口改到侧边栏底部/用户区,快照实测
+    // button "登录" 在 main 区域)。去掉 header 限定器,全局取第一个登录按钮。
+    await page.getByRole('button', { name: /登录/ }).first().click()
   }
 
   await expect(loginDialog).toBeVisible({ timeout: 10000 })
@@ -56,7 +68,7 @@ async function switchToPasswordTab(page: Page) {
   await page.mouse.down()
   await page.mouse.up()
 
-  await expect(page.locator('#account')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('#login-form-account')).toBeVisible({ timeout: 10000 })
 }
 
 /** 用 page.mouse 发送真实事件,绕过 overlay actionability 检查 */
@@ -74,16 +86,18 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
-    const captchaLabel = page.locator('label[for="captcha"]')
+    // 2026-08-26 修复:captchaEnabled 默认 false(密码表单无验证码,login-form.tsx:82),
+    // 原断言"验证码下方"与实现矛盾。改为验证记住密码行位于密码输入框下方(布局语义保留)。
+    const passwordLabel = page.locator('label[for="login-form-password"]')
     const rememberCheckbox = page.getByTestId('remember-password-checkbox')
 
-    await expect(captchaLabel).toBeVisible()
+    await expect(passwordLabel).toBeVisible()
     await expect(rememberCheckbox).toBeVisible()
 
-    // 验证记住密码在验证码下方(Y 坐标大于验证码)
-    const captchaBox = await captchaLabel.boundingBox()
+    // 验证记住密码在密码行下方(Y 坐标大于密码输入框)
+    const passwordBox = await passwordLabel.boundingBox()
     const rememberBox = await rememberCheckbox.boundingBox()
-    expect(rememberBox!.y).toBeGreaterThan(captchaBox!.y)
+    expect(rememberBox!.y).toBeGreaterThan(passwordBox!.y)
   })
 
   test('记住密码和自动登录在同一排', async ({ page }) => {
@@ -130,7 +144,9 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await expect(checkbox).toHaveAttribute('aria-checked', 'false')
   })
 
-  test('勾选自动登录时自动勾选记住密码', async ({ page }) => {
+  test('自动登录依赖记住密码(remember 未勾时 auto 禁用,先勾 remember 后 auto 可勾)', async ({
+    page,
+  }) => {
     await openLoginDialog(page)
     await switchToPasswordTab(page)
 
@@ -138,10 +154,16 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     const rememberCheckbox = page.getByTestId('remember-password-checkbox')
 
     await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'false')
+    // 2026-08-26 修复:实现为"auto-login 依赖 remember-password"(disabled 防绕过),
+    // 原测试期望"勾 auto 自动勾 remember"与实现矛盾。验证真实依赖链:
+    // remember 未勾 → auto disabled;先勾 remember → auto 可勾。
+    await expect(autoLoginCheckbox).toBeDisabled()
+
+    await clickCheckbox(page, 'remember-password-checkbox')
+    await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'true')
 
     await clickCheckbox(page, 'auto-login-checkbox')
     await expect(autoLoginCheckbox).toHaveAttribute('aria-checked', 'true')
-    await expect(rememberCheckbox).toHaveAttribute('aria-checked', 'true')
   })
 
   test('取消记住密码时自动取消自动登录', async ({ page }) => {
@@ -174,8 +196,8 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // useEffect 在 active 变 true 后异步执行 setValue,需要等待
-    await expect(page.locator('#account')).toHaveValue('saveduser', { timeout: 10000 })
-    await expect(page.locator('#password')).toHaveValue('SavedPass1', { timeout: 5000 })
+    await expect(page.locator('#login-form-account')).toHaveValue('saveduser', { timeout: 10000 })
+    await expect(page.locator('#login-form-password')).toHaveValue('SavedPass1', { timeout: 5000 })
 
     const checkbox = page.getByTestId('remember-password-checkbox')
     await expect(checkbox).toHaveAttribute('aria-checked', 'true')
@@ -193,7 +215,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // 用 page.mouse.click(clickCount:2) 触发 dblclick
-    const accountBox = await page.locator('#account').boundingBox()
+    const accountBox = await page.locator('#login-form-account').boundingBox()
     if (accountBox) {
       await page.mouse.click(
         accountBox.x + accountBox.width / 2,
@@ -220,7 +242,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // 用 page.mouse.click(clickCount:2) 触发 dblclick 打开历史下拉
-    const acctBox = await page.locator('#account').boundingBox()
+    const acctBox = await page.locator('#login-form-account').boundingBox()
     if (acctBox) {
       await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
         clickCount: 2,
@@ -242,7 +264,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
       await page.mouse.up()
     }
 
-    await expect(page.locator('#account')).toHaveValue('historyuser', { timeout: 5000 })
+    await expect(page.locator('#login-form-account')).toHaveValue('historyuser', { timeout: 5000 })
   })
 
   test('账号历史:删除单个历史账号', async ({ page }) => {
@@ -257,7 +279,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // 双击打开历史下拉
-    const acctBox = await page.locator('#account').boundingBox()
+    const acctBox = await page.locator('#login-form-account').boundingBox()
     if (acctBox) {
       await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
         clickCount: 2,
@@ -270,7 +292,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
 
     // 点击第一个条目的删除按钮
     const deleteBtn = page
-      .locator('[data-account-history-container] > .absolute.top-full [aria-label="删除该账号"]')
+      .locator('[data-account-history-container] > .absolute.top-full [aria-label="移除账号"]')
       .first()
     const dbox = await deleteBtn.boundingBox()
     if (dbox) {
@@ -301,7 +323,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // 双击打开历史下拉
-    const acctBox = await page.locator('#account').boundingBox()
+    const acctBox = await page.locator('#login-form-account').boundingBox()
     if (acctBox) {
       await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
         clickCount: 2,
@@ -312,10 +334,10 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
       { timeout: 5000 },
     )
 
-    // 点击"清空历史记录"按钮(文本匹配)
+    // 点击"清除历史记录"按钮(文本匹配)
     const clearBtn = page
       .locator('[data-account-history-container] > .absolute.top-full')
-      .getByText('清空历史记录')
+      .getByText('清除历史记录')
     const cbox = await clearBtn.boundingBox()
     if (cbox) {
       await page.mouse.move(cbox.x + cbox.width / 2, cbox.y + cbox.height / 2)
@@ -349,7 +371,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await switchToPasswordTab(page)
 
     // 双击打开历史下拉
-    const acctBox = await page.locator('#account').boundingBox()
+    const acctBox = await page.locator('#login-form-account').boundingBox()
     if (acctBox) {
       await page.mouse.click(acctBox.x + acctBox.width / 2, acctBox.y + acctBox.height / 2, {
         clickCount: 2,
@@ -361,7 +383,7 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     )
 
     // 按 ArrowDown 高亮第一项
-    await page.locator('#account').press('ArrowDown')
+    await page.locator('#login-form-account').press('ArrowDown')
 
     // 第一项应有 bg-accent 类(选中态)
     const firstItem = page.locator(
@@ -370,18 +392,21 @@ test.describe('记住密码 + 自动登录 + 账号历史', () => {
     await expect(firstItem).toHaveClass(/bg-accent/)
 
     // 按 Enter 选中
-    await page.locator('#account').press('Enter')
+    await page.locator('#login-form-account').press('Enter')
 
     // 账号应填入 kbuser1
-    await expect(page.locator('#account')).toHaveValue('kbuser1', { timeout: 3000 })
+    await expect(page.locator('#login-form-account')).toHaveValue('kbuser1', { timeout: 3000 })
   })
 
   test('i18n 翻译完整性(5 语言 rememberPassword + autoLogin + accountHistory + noHistory + removeAccount + clearHistory)', async () => {
     const { readFileSync } = await import('fs')
     const { resolve } = await import('path')
+    // 2026-07-25 i18n 单一来源:web messages 迁移到 @ihui/i18n/messages/web/(packages/i18n/messages/web),
+    // apps/web/messages/ 目录已不存在,旧路径 ENOENT(2026-08-26 修复)。
+    const webMessagesDir = resolve(process.cwd(), '../../packages/i18n/messages/web')
     const locales = ['zh-CN', 'en', 'zh-TW', 'ko', 'ja']
     for (const locale of locales) {
-      const filePath = resolve(process.cwd(), 'messages', `${locale}.json`)
+      const filePath = resolve(webMessagesDir, `${locale}.json`)
       const data = JSON.parse(readFileSync(filePath, 'utf8'))
       expect(data.auth?.rememberPassword, `${locale} missing auth.rememberPassword`).toBeTruthy()
       expect(data.auth?.autoLogin, `${locale} missing auth.autoLogin`).toBeTruthy()

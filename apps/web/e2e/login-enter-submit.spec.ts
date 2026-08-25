@@ -108,18 +108,23 @@ async function openLoginDialog(
   await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
 
   await page.getByTestId(tabTestId).click()
-  await expect(page.getByTestId(firstInputTestId)).toBeVisible({ timeout: 3000 })
+  // 2026-08-26 修复:enableCredentialPersistence 后账号框为 AccountHistoryInput
+  // (id=login-form-{account,phone,email},无 testid)→ 支持 #CSS 选择器或 testid 两种形式
+  const inputLocator = firstInputTestId.startsWith('#')
+    ? page.locator(firstInputTestId)
+    : page.getByTestId(firstInputTestId)
+  await expect(inputLocator).toBeVisible({ timeout: 3000 })
 }
 
 test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
   test.describe('密码登录 tab', () => {
     test('账号框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-password', 'login-account-input')
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-account-input').fill('admin')
-      await page.getByTestId('login-account-input').press('Enter')
+      await page.locator('#login-form-account').fill('admin')
+      await page.locator('#login-form-account').press('Enter')
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -128,10 +133,10 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
     test('密码框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-password', 'login-account-input')
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-account-input').fill('admin')
+      await page.locator('#login-form-account').fill('admin')
       await page.getByTestId('login-password-input').fill('admin123')
       await page.getByTestId('login-password-input').press('Enter')
       await page.waitForTimeout(500)
@@ -144,10 +149,10 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       freshPage: page,
     }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-password', 'login-account-input')
+      await openLoginDialog(page, 'login-tab-password', '#login-form-account')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-account-input').fill('admin')
+      await page.locator('#login-form-account').fill('admin')
       await page.getByTestId('login-password-input').fill('admin123')
 
       // 鼠标点击 label 左侧 16x16 方框区域(模拟真实用户点击 checkbox 方框)
@@ -173,11 +178,11 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
   test.describe('手机验证码登录 tab', () => {
     test('手机框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-phone', 'login-phone-input')
+      await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-phone-input').fill('13800138000')
-      await page.getByTestId('login-phone-input').press('Enter')
+      await page.locator('#login-form-phone').fill('13800138000')
+      await page.locator('#login-form-phone').press('Enter')
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -186,10 +191,10 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
     test('验证码框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-phone', 'login-phone-input')
+      await openLoginDialog(page, 'login-tab-phone', '#login-form-phone')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-phone-input').fill('13800138000')
+      await page.locator('#login-form-phone').fill('13800138000')
       await page.getByTestId('login-phone-code-input').fill('123456')
       await page.getByTestId('login-phone-code-input').press('Enter')
       await page.waitForTimeout(500)
@@ -202,11 +207,11 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
   test.describe('邮箱验证码登录 tab', () => {
     test('邮箱框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-email', 'login-email-input')
+      await openLoginDialog(page, 'login-tab-email', '#login-form-email')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-email-input').fill('502319984@qq.com')
-      await page.getByTestId('login-email-input').press('Enter')
+      await page.locator('#login-form-email').fill('502319984@qq.com')
+      await page.locator('#login-form-email').press('Enter')
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -215,10 +220,10 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
     test('验证码框 Enter → form submit', async ({ freshPage: page }) => {
       test.setTimeout(60000)
-      await openLoginDialog(page, 'login-tab-email', 'login-email-input')
+      await openLoginDialog(page, 'login-tab-email', '#login-form-email')
       await installSubmitListener(page)
 
-      await page.getByTestId('login-email-input').fill('502319984@qq.com')
+      await page.locator('#login-form-email').fill('502319984@qq.com')
       await page.getByTestId('login-email-code-input').fill('123456')
       await page.getByTestId('login-email-code-input').press('Enter')
       await page.waitForTimeout(500)

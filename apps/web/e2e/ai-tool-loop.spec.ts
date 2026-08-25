@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 /**
  * AI 对话 tool loop 全链路 E2E 测试。
@@ -214,13 +214,13 @@ test.describe('AI 对话 tool loop 全链路', () => {
  * - STREAM_MAX_RETRIES=3(client.ts:809),用 Retry-After: 1 控制 3s 内跑完,避免 15s 超时
  */
 test.describe('SSE retry-after 限流降级', () => {
-  test('SSE 429 限流时客户端按 Retry-After 重试并显示降级提示', async ({ page }) => {
+  test('SSE 429 限流时客户端按 Retry-After 重试并显示降级提示', async ({ authenticatedPage }) => {
     const consoleErrors: string[] = []
-    page.on('pageerror', (err) => consoleErrors.push(err.message))
+    authenticatedPage.on('pageerror', (err) => consoleErrors.push(err.message))
 
     // mock SSE 端点:始终返回 429 + Retry-After: 1(秒),触发 streamChat 重试路径
     let callCount = 0
-    await page.route('**/api/ai/chat/stream', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/stream', async (route) => {
       callCount++
       await route.fulfill({
         status: 429,
@@ -229,7 +229,7 @@ test.describe('SSE retry-after 限流降级', () => {
       })
     })
     // 兜底 mock createConversation,避免无 dev 后端时无法走到 SSE 调用
-    await page.route('**/api/conversations', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/conversations', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 200,
@@ -245,15 +245,15 @@ test.describe('SSE retry-after 限流降级', () => {
       }
     })
 
-    await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
-    if (!page.url().includes('/chat')) return
+    await authenticatedPage.goto('/chat')
+    await authenticatedPage.waitForLoadState('networkidle')
+    if (!authenticatedPage.url().includes('/chat')) return
 
-    const textarea = page.locator('textarea').first()
+    const textarea = authenticatedPage.locator('textarea').first()
     if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) return
 
     await textarea.fill('测试 429 限流场景')
-    await page.keyboard.press('Enter').catch(() => {})
+    await authenticatedPage.keyboard.press('Enter').catch(() => {})
 
     // 断言 1:Retry-After 触发了重试(callCount >= 2,证明 429+retryAfter 走了重连路径)
     await expect.poll(async () => callCount, { timeout: 12000 }).toBeGreaterThanOrEqual(2)
@@ -263,7 +263,7 @@ test.describe('SSE retry-after 限流降级', () => {
     await expect
       .poll(
         async () => {
-          const text = (await page.locator('body').textContent()) ?? ''
+          const text = (await authenticatedPage.locator('body').textContent()) ?? ''
           return (
             text.includes('1 秒后重试') ||
             text.includes('稍后重试') ||
@@ -276,19 +276,19 @@ test.describe('SSE retry-after 限流降级', () => {
       .toBeTruthy()
 
     // 断言 3:页面不崩溃,仍在 /chat,无未捕获异常
-    expect(page.url()).toContain('/chat')
+    expect(authenticatedPage.url()).toContain('/chat')
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
     expect(realErrors).toHaveLength(0)
 
-    await page.unroute('**/api/ai/chat/stream')
-    await page.unroute('**/api/conversations')
+    await authenticatedPage.unroute('**/api/ai/chat/stream')
+    await authenticatedPage.unroute('**/api/ai/chat/conversations')
   })
 
-  test('SSE error 事件含 retryAfter 时客户端解析并降级', async ({ page }) => {
+  test('SSE error 事件含 retryAfter 时客户端解析并降级', async ({ authenticatedPage }) => {
     const consoleErrors: string[] = []
-    page.on('pageerror', (err) => consoleErrors.push(err.message))
+    authenticatedPage.on('pageerror', (err) => consoleErrors.push(err.message))
 
     // SSE error 事件用 parseStreamLine 可识别的格式(P3-4 后支持 4 种,含 RATE_LIMIT):
     // {"type":"error","message":"...","retryAfter":N} → attachErrorMeta 挂载 retryAfter(err.retryAfter=N)
@@ -299,14 +299,14 @@ test.describe('SSE retry-after 限流降级', () => {
       'event: error\ndata: {"type":"error","message":"限流,请稍后重试","retryAfter":1,"errorCode":"RATE_LIMIT"}\n\n',
     ].join('')
 
-    await page.route('**/api/ai/chat/stream', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/stream', async (route) => {
       await route.fulfill({
         status: 200,
         headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
         body: sseBody,
       })
     })
-    await page.route('**/api/conversations', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/conversations', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 200,
@@ -322,21 +322,21 @@ test.describe('SSE retry-after 限流降级', () => {
       }
     })
 
-    await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
-    if (!page.url().includes('/chat')) return
+    await authenticatedPage.goto('/chat')
+    await authenticatedPage.waitForLoadState('networkidle')
+    if (!authenticatedPage.url().includes('/chat')) return
 
-    const textarea = page.locator('textarea').first()
+    const textarea = authenticatedPage.locator('textarea').first()
     if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) return
 
     await textarea.fill('测试 SSE error retryAfter')
-    await page.keyboard.press('Enter').catch(() => {})
+    await authenticatedPage.keyboard.press('Enter').catch(() => {})
 
     // 断言 1:chunk 内容 "正在思考" 渲染到页面(证明 SSE chunk 事件被正确解析)
     await expect
       .poll(
         async () => {
-          const text = (await page.locator('body').textContent()) ?? ''
+          const text = (await authenticatedPage.locator('body').textContent()) ?? ''
           return text.includes('正在思考')
         },
         { timeout: 10000 },
@@ -348,7 +348,7 @@ test.describe('SSE retry-after 限流降级', () => {
     await expect
       .poll(
         async () => {
-          const text = (await page.locator('body').textContent()) ?? ''
+          const text = (await authenticatedPage.locator('body').textContent()) ?? ''
           return (
             text.includes('限流') || text.includes('1 秒后重试') || text.includes('AI 服务异常')
           )
@@ -358,23 +358,23 @@ test.describe('SSE retry-after 限流降级', () => {
       .toBeTruthy()
 
     // 断言 3:页面不崩溃
-    expect(page.url()).toContain('/chat')
+    expect(authenticatedPage.url()).toContain('/chat')
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
     expect(realErrors).toHaveLength(0)
 
-    await page.unroute('**/api/ai/chat/stream')
-    await page.unroute('**/api/conversations')
+    await authenticatedPage.unroute('**/api/ai/chat/stream')
+    await authenticatedPage.unroute('**/api/ai/chat/conversations')
   })
 
-  test('SSE 流中断后客户端触发重连并恢复', async ({ page }) => {
+  test('SSE 流中断后客户端触发重连并恢复', async ({ authenticatedPage }) => {
     const consoleErrors: string[] = []
-    page.on('pageerror', (err) => consoleErrors.push(err.message))
+    authenticatedPage.on('pageerror', (err) => consoleErrors.push(err.message))
 
     // 第一次请求 abort 模拟连接中断;第二次起返回正常 chunk + done
     let callCount = 0
-    await page.route('**/api/ai/chat/stream', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/stream', async (route) => {
       callCount++
       if (callCount === 1) {
         await route.abort('connectionreset')
@@ -386,7 +386,7 @@ test.describe('SSE retry-after 限流降级', () => {
         })
       }
     })
-    await page.route('**/api/conversations', async (route) => {
+    await authenticatedPage.route('**/api/ai/chat/conversations', async (route) => {
       if (route.request().method() === 'POST') {
         await route.fulfill({
           status: 200,
@@ -402,15 +402,15 @@ test.describe('SSE retry-after 限流降级', () => {
       }
     })
 
-    await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
-    if (!page.url().includes('/chat')) return
+    await authenticatedPage.goto('/chat')
+    await authenticatedPage.waitForLoadState('networkidle')
+    if (!authenticatedPage.url().includes('/chat')) return
 
-    const textarea = page.locator('textarea').first()
+    const textarea = authenticatedPage.locator('textarea').first()
     if (!(await textarea.isVisible({ timeout: 5000 }).catch(() => false))) return
 
     await textarea.fill('测试 SSE 中断重连')
-    await page.keyboard.press('Enter').catch(() => {})
+    await authenticatedPage.keyboard.press('Enter').catch(() => {})
 
     // 断言 1:重连被触发(callCount >= 2,证明 abort 后客户端走了重试路径)
     await expect.poll(async () => callCount, { timeout: 12000 }).toBeGreaterThanOrEqual(2)
@@ -419,7 +419,7 @@ test.describe('SSE retry-after 限流降级', () => {
     await expect
       .poll(
         async () => {
-          const text = (await page.locator('body').textContent()) ?? ''
+          const text = (await authenticatedPage.locator('body').textContent()) ?? ''
           return text.includes('完成')
         },
         { timeout: 12000 },
@@ -427,13 +427,13 @@ test.describe('SSE retry-after 限流降级', () => {
       .toBeTruthy()
 
     // 断言 3:页面不崩溃
-    expect(page.url()).toContain('/chat')
+    expect(authenticatedPage.url()).toContain('/chat')
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
     expect(realErrors).toHaveLength(0)
 
-    await page.unroute('**/api/ai/chat/stream')
-    await page.unroute('**/api/conversations')
+    await authenticatedPage.unroute('**/api/ai/chat/stream')
+    await authenticatedPage.unroute('**/api/ai/chat/conversations')
   })
 })
