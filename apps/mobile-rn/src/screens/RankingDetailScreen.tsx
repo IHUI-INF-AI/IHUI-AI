@@ -87,6 +87,11 @@ export default function RankingDetailScreenWrapper() {
         navigation.navigate('ModelPlaza')
         break
       case 'company':
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         navigation.navigate('Settings')
         break
