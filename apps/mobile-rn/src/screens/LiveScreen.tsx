@@ -33,14 +33,20 @@ export function LiveScreen() {
     if (refresh) setRefreshing(true)
     else setLoading(true)
     setError('')
-    const res = await getLiveList({ page: 1, pageSize: 20 })
-    if (res.success) {
-      setLives(res.data.list)
-    } else {
-      setError(res.error || t('live.loadFailed'))
+    try {
+      const res = await getLiveList({ page: 1, pageSize: 20 })
+      if (res.success) {
+        setLives(res.data.list)
+      } else {
+        setError(res.error || t('live.loadFailed'))
+      }
+    } catch {
+      // 接口抛错(网络异常等)不阻塞页面,走错误态提示
+      setError(t('live.loadFailed'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    setLoading(false)
-    setRefreshing(false)
   }
 
   useEffect(() => {

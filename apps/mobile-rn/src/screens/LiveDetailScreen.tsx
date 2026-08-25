@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getLiveById, subscribeLive, type Live } from '@ihui/api-client'
@@ -136,6 +136,25 @@ export function LiveDetailScreen() {
   return (
     <View style={{ flex: 1 }}>
       <NavBar title={live?.title ?? t('liveDetail.title')} onBack={() => navigation.goBack()} />
+      {/* 直播预告 / 主播端入口(孤儿路由修复:LivePreview/LiveHost 注册无入口,直播详情补挂) */}
+      <View style={styles.entryRow}>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('LivePreview', { id })}
+          accessibilityRole="button"
+          accessibilityLabel="直播预告"
+        >
+          <Text style={styles.entryBtnText}>直播预告</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('LiveHost')}
+          accessibilityRole="button"
+          accessibilityLabel="主播端"
+        >
+          <Text style={styles.entryBtnText}>主播端</Text>
+        </Pressable>
+      </View>
       <SharedLiveDetailScreen
         t={t}
         live={sharedLive}
@@ -156,3 +175,28 @@ export function LiveDetailScreen() {
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  entryRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  entryBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#5088fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryBtnPressed: {
+    opacity: 0.8,
+  },
+  entryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+})

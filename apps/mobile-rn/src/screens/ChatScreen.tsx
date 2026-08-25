@@ -24,8 +24,10 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioPlayer } from 'expo-audio'
+import * as DocumentPicker from 'expo-document-picker'
 import { File, Paths } from 'expo-file-system'
 import {
+  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -75,6 +77,7 @@ import {
 } from 'lucide-react-native'
 import {
   claimShareFirstReward,
+  deleteAgent,
   deleteConversation,
   fetchModels,
   fetchTextToSpeechAudio,
@@ -83,12 +86,17 @@ import {
   getMessages,
   getModelContextCapacity,
   getMyCreation,
+  getMyCreationDetail,
   getShareFirstStatus,
   listConversations,
+  resolveFileUrl,
   streamChat,
+  uploadFileMultipart,
   type Agent,
   type ConversationDetail,
   type LlmModel,
+  type MyCreationItem,
+  type MyCreationType,
 } from '@ihui/api-client'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import type { ChatMessage } from '@ihui/shared'
@@ -155,6 +163,15 @@ interface ModelTypeConfig {
 }
 
 /**
+ * 带推理过程(thinking)的 AI 消息(对齐 Uniapp ai_index2.vue thinking-process)。
+ * ChatScreenMessage(@ihui/types)仅有 id/role/content,本地扩展 reasoning 字段,
+ * 对齐 @ihui/shared ChatMessage.reasoning(chat_messages 表已有该字段)。
+ */
+interface ChatScreenMessageWithReasoning extends ChatScreenMessage {
+  reasoning?: string
+}
+
+/**
  * 底部上滑面板列表项配置(对齐 Uniapp function-handle / source-handle 子组件)。
  * function-handle 提供 6 项 AI 功能(切换模型/清空/导出/分享/转语音/收藏);
  * source-handle 提供 4 项知识来源(素材库/网页链接/文件上传/历史对话)。
@@ -168,10 +185,12 @@ interface PanelItem {
 
 // ── 转换函数 ──
 
-const toChatScreenMessage = (m: ChatMessage): ChatScreenMessage => ({
+const toChatScreenMessage = (m: ChatMessage): ChatScreenMessageWithReasoning => ({
   id: m.id,
   role: m.role as 'user' | 'assistant',
   content: m.content,
+  // 推理过程随消息一起透传(历史/流式消息均可能带 reasoning,渲染思考过程展开块用)
+  reasoning: m.reasoning,
 })
 
 const toChatScreenModel = (m: LlmModel): ChatScreenModel => ({
@@ -212,6 +231,89 @@ const MATERIAL_CATEGORIES: readonly MaterialCategory[] = [
   { key: 'audio', label: '音频' },
 ] as const
 
+/** 素材分类 tab → getMyCreation API type(对齐 Uniapp getMaterialApiType:
+ *  agent=智能体创作(文本)/plugin=插件(图片)/workflow=工作流(视频);audio 无对应类型 → null 空态) */
+const materialApiTypeForCategory = (key: string): MyCreationType | null => {
+  switch (key) {
+    case 'text':
+      return 'agent'
+    case 'image':
+      return 'plugin'
+    case 'video':
+      return 'workflow'
+    case 'audio':
+      return null
+    default:
+      return null
+  }
+}
+
+/** 安全读取 MyCreationItem 索引字段([key:string]: unknown 索引签名,强类型化避免 any) */
+const strField = (it: MyCreationItem, key: string): string => {
+  const v: unknown = it[key]
+  return typeof v === 'string' ? v : ''
+}
+
+/** MyCreationItem → MaterialItem(对齐 Uniapp loadMaterialContent 各 tab 字段映射:
+ *  agent=文本(text 预览)/plugin=图片(agentUrl 缩略图)/workflow=视频(poster/cover 缩略图)) */
+const mapMyCreationItem = (it: MyCreationItem, category: string): MaterialItem => {
+  // agents 表主键是 agentId(非 id),getMyCreation('agent') 返回原始 agents 行 → id 用 agentId 回退 id
+  const itemId = strField(it, 'agentId') || it.id
+  if (category === 'image') {
+    return {
+      id: itemId,
+      title: it.name || '图片内容',
+      type: 'image' as const,
+      url: strField(it, 'agentUrl') || strField(it, 'url') || undefined,
+      createdAt: it.createdAt,
+    }
+  }
+  if (category === 'video') {
+    return {
+      id: itemId,
+      title: it.name || '视频内容',
+      type: 'video' as const,
+      url:
+        strField(it, 'posterUrl') ||
+        strField(it, 'coverUrl') ||
+        strField(it, 'thumbnail') ||
+        strField(it, 'agentUrl') ||
+        strField(it, 'url') ||
+        undefined,
+      createdAt: it.createdAt,
+    }
+  }
+  return {
+    id: itemId,
+    title: it.name || '文本内容',
+    type: 'text' as const,
+    text: it.description ?? '',
+    createdAt: it.createdAt,
+  }
+}
+
+/** 素材详情通用字段展示定义(agent/workflow/plugin 三类型字段并集,仅展示存在且有值的字段) */
+const MATERIAL_DETAIL_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'name', label: '名称' },
+  { key: 'displayName', label: '显示名' },
+  { key: 'description', label: '描述' },
+  { key: 'status', label: '状态' },
+  { key: 'author', label: '作者' },
+  { key: 'version', label: '版本' },
+  { key: 'category', label: '分类' },
+  { key: 'createdBy', label: '创建者' },
+  { key: 'createdAt', label: '创建时间' },
+  { key: 'updatedAt', label: '更新时间' },
+]
+
+/** 详情字段值 → 展示文本(boolean/对象转字符串;null/undefined/空串返回 '' 隐藏) */
+const formatDetailValue = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return ''
+  if (typeof v === 'boolean') return v ? '是' : '否'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
+
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
 
@@ -239,9 +341,14 @@ export function ChatScreen() {
   const [shareFirstReward, setShareFirstReward] = useState(0)
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [materialTab, setMaterialTab] = useState<string>('text')
-  // 素材库数据(getMyCreation('agent') 我的创作,对齐 Uniapp loadMaterialContent)
+  // 素材库数据(getMyCreation 按分类映射 agent/plugin/workflow 我的创作,对齐 Uniapp loadMaterialContent)
   const [materialItems, setMaterialItems] = useState<MaterialItem[]>([])
   const [materialLoading, setMaterialLoading] = useState(false)
+  // ── 素材详情弹窗(点击列表项「详情」→ getMyCreationDetail 按类型查询单条) ──
+  const [materialDetailItem, setMaterialDetailItem] = useState<MaterialItem | null>(null)
+  const [materialDetailLoading, setMaterialDetailLoading] = useState(false)
+  const [materialDetailData, setMaterialDetailData] = useState<Record<string, unknown> | null>(null)
+  const [materialDetailError, setMaterialDetailError] = useState<string>('')
   // 接入 ModelConfigDialog / ModelList / AgentList(对齐 Uniapp ai_index.vue 行 32/34/104)
   const [modelConfigVisible, setModelConfigVisible] = useState(false)
   const [modelListVisible, setModelListVisible] = useState(false)
@@ -266,6 +373,8 @@ export function ChatScreen() {
   const [isStreaming, setIsStreaming] = useState(false)
   // 消息富内容状态:代码块展开(msgId-partIndex) + 图片全屏预览(对齐 ai_index2 toggleCodeBlock/previewImage)
   const [expandedCodeBlocks, setExpandedCodeBlocks] = useState<Set<string>>(new Set())
+  // 思考过程展开状态(msgId,对齐 ai_index2 thinking-process:默认收起,点击标题展开/收起)
+  const [expandedThinking, setExpandedThinking] = useState<Set<string>>(new Set())
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
   const [models, setModels] = useState<LlmModel[]>(FALLBACK_MODELS)
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
@@ -278,6 +387,8 @@ export function ChatScreen() {
   const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
   const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
   const [fangdaVisible, setFangdaVisible] = useState(false)
+  // 输入框键盘焦点状态(handleInputFocus/handleInputBlur 维护,供 SharedChatScreen isInputFocused 等 UI 调整)
+  const [inputFocused, setInputFocused] = useState(false)
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
@@ -290,8 +401,9 @@ export function ChatScreen() {
   // P1.4 网页链接输入 Modal
   const [urlInputVisible, setUrlInputVisible] = useState(false)
   const [urlInputValue, setUrlInputValue] = useState('')
-  // P1.5 文件上传 Modal(expo-document-picker 未安装,Modal 占位)
+  // P1.5 文件上传 Modal(expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传)
   const [fileUploadVisible, setFileUploadVisible] = useState(false)
+  const [fileUploading, setFileUploading] = useState(false)
   // Drawer 历史对话列表(对齐 Uniapp loadHistoryChat → getModelChat API + groupDataByDate)
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
@@ -439,6 +551,18 @@ export function ChatScreen() {
           return next
         })
       },
+      // 2026-08-25 立:思考过程流式同步(对齐 Uniapp ai_index2 thinking-process,
+      // 后端 SSE reasoning_content/type==='reasoning' 增量,追加到当前流式 assistant 消息)
+      onReasoning: (delta) => {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') {
+            next[next.length - 1] = { ...last, reasoning: (last.reasoning ?? '') + delta }
+          }
+          return next
+        })
+      },
       onError: (err) => {
         const formatted = formatSSEError(new Error(err))
         setIsStreaming(false)
@@ -466,21 +590,21 @@ export function ChatScreen() {
   }
 
   // ── 模型类型按钮点击(对齐 Uniapp handleModelTypeClick / toggleMaterialPopup) ──
-  /** 素材库加载(对齐 Uniapp loadMaterialContent;数据源 getMyCreation('agent') 我的创作) */
-  const loadMaterials = useCallback((): void => {
+  /** 按分类加载素材库(对齐 Uniapp loadMaterialContent;数据源 getMyCreation,按分类映射 API type;
+   *  audio 无对应类型 → 空态) */
+  const loadMaterials = useCallback((category: string): void => {
     setMaterialLoading(true)
-    void getMyCreation('agent', { page: 1, pageSize: 50 })
+    const apiType = materialApiTypeForCategory(category)
+    if (apiType === null) {
+      // 音频无对应后端类型,直接空态(对齐 Uniapp tab4 加载空列表)
+      setMaterialItems([])
+      setMaterialLoading(false)
+      return
+    }
+    void getMyCreation(apiType, { page: 1, pageSize: 50 })
       .then((res) => {
         if (res.success) {
-          setMaterialItems(
-            res.data.list.map((it) => ({
-              id: it.id,
-              title: it.name || '文本内容',
-              type: 'text' as const,
-              text: it.description ?? '',
-              createdAt: it.createdAt,
-            })),
-          )
+          setMaterialItems(res.data.list.map((it) => mapMyCreationItem(it, category)))
         } else {
           setMaterialItems([])
         }
@@ -489,35 +613,49 @@ export function ChatScreen() {
       .finally(() => setMaterialLoading(false))
   }, [])
 
-  const handleModelTypeClick = useCallback((type: ModelType): void => {
-    if (type === 'sck') {
-      // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
+  /** 切素材分类:先切 tab 再加载对应类型数据(对齐 Uniapp handleMaterialTabChange → loadMaterialContent) */
+  const handleMaterialCategoryChange = useCallback(
+    (key: string): void => {
+      setMaterialTab(key)
+      loadMaterials(key)
+    },
+    [loadMaterials],
+  )
+
+  const handleModelTypeClick = useCallback(
+    (type: ModelType): void => {
+      if (type === 'sck') {
+        // 素材库:切换弹窗(对齐 Uniapp toggleMaterialPopup)
+        setCurrentModelType((prev) => {
+          if (prev === 'sck') {
+            setShowMaterialList(false)
+            return ''
+          }
+          setShowMaterialList(true)
+          // 打开素材库默认切回文本 tab 并加载(对齐 Uniapp materialTab=1 + loadMaterialContent(1))
+          setMaterialTab('text')
+          void loadMaterials('text')
+          return 'sck'
+        })
+        return
+      }
+      // 其他类型:切换选中态 + 打开 ModelList 弹窗
+      // (对齐 Uniapp handleModelTypeClick 行 698-777:点击类型 → showModelList=true 显示
+      // 对应类型模型列表;二次点击同一类型收起。RN 端 ModelList 弹窗按 vendor 分组展示全部
+      // 模型,不区分类型,为内联等价实现)
       setCurrentModelType((prev) => {
-        if (prev === 'sck') {
-          setShowMaterialList(false)
+        if (prev === type) {
+          setModelListVisible(false)
           return ''
         }
-        setShowMaterialList(true)
-        void loadMaterials()
-        return 'sck'
+        setModelListVisible(true)
+        setShowMaterialList(false)
+        setAgentListVisible(false)
+        return type
       })
-      return
-    }
-    // 其他类型:切换选中态 + 打开 ModelList 弹窗
-    // (对齐 Uniapp handleModelTypeClick 行 698-777:点击类型 → showModelList=true 显示
-    // 对应类型模型列表;二次点击同一类型收起。RN 端 ModelList 弹窗按 vendor 分组展示全部
-    // 模型,不区分类型,为内联等价实现)
-    setCurrentModelType((prev) => {
-      if (prev === type) {
-        setModelListVisible(false)
-        return ''
-      }
-      setModelListVisible(true)
-      setShowMaterialList(false)
-      setAgentListVisible(false)
-      return type
-    })
-  }, [loadMaterials])
+    },
+    [loadMaterials],
+  )
 
   // ── BottomActionBar 核心事件回调(10 个核心) ──
 
@@ -596,8 +734,10 @@ export function ChatScreen() {
 
   // ── BottomActionBar 其余事件 stub(对齐 Uniapp 30+ 事件,后续 H22 补全) ──
   // 已挂载到 UI 的:handleInputFocus/handleInputBlur(TextInput)、textareaHeightChange(TextInput onContentSizeChange)
-  const handleInputFocus = (): void => {}
-  const handleInputBlur = (): void => {}
+  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整);
+  // textareaHeightChange 仅 BottomActionBar 接线(回调带 height 参数),Shared ChatScreen 未接线,保留空实现。
+  const handleInputFocus = (): void => setInputFocused(true)
+  const handleInputBlur = (): void => setInputFocused(false)
   const textareaHeightChange = (): void => {}
 
   /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能) */
@@ -609,6 +749,44 @@ export function ChatScreen() {
   const handleSourceHandle = (): void => {
     setSourcePanelVisible(true)
   }
+
+  /** 文件上传(对齐 Uniapp source-handle 文件上传:DocumentPicker 选文件 → uploadFileMultipart 上传) */
+  const handleFileUpload = useCallback(async (): Promise<void> => {
+    setFileUploadVisible(false)
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'text/plain',
+        ],
+        copyToCacheDirectory: true,
+        multiple: false,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]!
+      setFileUploading(true)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'application/octet-stream',
+        name: asset.name ?? `file-${Date.now()}`,
+      })
+      if (up.success && up.data?.path) {
+        const fileName = asset.name ?? '文件'
+        setPrompt((p) => `${p ? `${p}\n` : ''}[文件] ${fileName} ${resolveFileUrl(up.data!.path)}`)
+        showToast('success', `已上传:${fileName}`)
+      } else {
+        showToast('warning', '文件上传失败')
+      }
+    } catch {
+      showToast('warning', '文件选择失败,请重试')
+    } finally {
+      setFileUploading(false)
+    }
+  }, [showToast, setPrompt])
 
   /** 关闭功能/来源面板 */
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
@@ -845,7 +1023,7 @@ export function ChatScreen() {
       label: '文件上传',
       Icon: Paperclip,
       onPress: () => {
-        // P1.5:expo-document-picker 未安装,弹 Modal 占位
+        // P1.5:打开文件选择 Modal(DocumentPicker + uploadFileMultipart 真实上传)
         setSourcePanelVisible(false)
         setFileUploadVisible(true)
       },
@@ -933,6 +1111,11 @@ export function ChatScreen() {
       const showActions = !isUser && item.content.trim() !== '' && !(isStreaming && isLastMessage)
       // 富内容分段(代码块/图片/文本,对齐 ai_index2 agent_content_list;消息内容不长,直接解析)
       const segments = parseMessageContent(item.content)
+      // 思考过程(对齐 ai_index2 thinking-process:assistant 消息带 reasoning 时渲染折叠区块,
+      // 默认收起只显示标题行;reasoning 由 toChatScreenMessage 映射透传)
+      const reasoning = !isUser ? ((item as ChatScreenMessageWithReasoning).reasoning ?? '') : ''
+      const thinkingKey = item.id
+      const thinkingExpanded = expandedThinking.has(thinkingKey)
       return (
         <View style={[styles.msgRow, isUser ? styles.msgRowUser : styles.msgRowAi]}>
           <View style={styles.msgContent}>
@@ -945,6 +1128,32 @@ export function ChatScreen() {
               delayLongPress={500}
               style={[styles.msgBubble, isUser ? styles.msgBubbleUser : styles.msgBubbleAi]}
             >
+              {reasoning.trim() !== '' ? (
+                <View style={styles.thinkingBlock}>
+                  <Pressable
+                    style={styles.thinkingHeader}
+                    hitSlop={6}
+                    onPress={() =>
+                      setExpandedThinking((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(thinkingKey)) next.delete(thinkingKey)
+                        else next.add(thinkingKey)
+                        return next
+                      })
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={thinkingExpanded ? '收起思考过程' : '展开思考过程'}
+                  >
+                    <Text style={styles.thinkingTitle}>💭 思考过程</Text>
+                    <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
+                  </Pressable>
+                  {thinkingExpanded ? (
+                    <Text style={styles.thinkingContent} selectable>
+                      {reasoning}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
               {segments.map((seg, segIndex) => {
                 if (seg.type === 'image') {
                   return (
@@ -999,7 +1208,9 @@ export function ChatScreen() {
                             accessibilityRole="button"
                             accessibilityLabel={expanded ? '收起代码' : '展开代码'}
                           >
-                            <Text style={styles.codeBlockBtnText}>{expanded ? '收起' : '展开'}</Text>
+                            <Text style={styles.codeBlockBtnText}>
+                              {expanded ? '收起' : '展开'}
+                            </Text>
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1024,14 +1235,11 @@ export function ChatScreen() {
                   </Text>
                 )
               })}
-              {segments.length === 0
-                ? (
-                  <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
-                    {item.content ||
-                      (isStreaming && !isUser ? '正在思考…' : item.content)}
-                  </Text>
-                )
-                : null}
+              {segments.length === 0 ? (
+                <Text style={[styles.msgText, isUser ? styles.msgTextUser : styles.msgTextAi]}>
+                  {item.content || (isStreaming && !isUser ? '正在思考…' : item.content)}
+                </Text>
+              ) : null}
             </Pressable>
             {showActions ? (
               <View style={styles.msgActions}>
@@ -1068,7 +1276,15 @@ export function ChatScreen() {
         </View>
       )
     },
-    [messages, isStreaming, expandedCodeBlocks, maybeTriggerFirstShareReward, showToast, handleLongPressMessage],
+    [
+      messages,
+      isStreaming,
+      expandedCodeBlocks,
+      expandedThinking,
+      maybeTriggerFirstShareReward,
+      showToast,
+      handleLongPressMessage,
+    ],
   )
 
   const renderListHeader = useCallback((): React.ReactNode => {
@@ -1249,6 +1465,66 @@ export function ChatScreen() {
     setShowMaterialList(false)
     setCurrentModelType('')
   }
+  /** 素材长按删除(对齐 Uniapp MaterialList 删除;后端 DELETE /agents/:agentId) */
+  const handleMaterialDelete = useCallback(
+    (item: MaterialItem): void => {
+      Alert.alert('删除素材', `确认删除「${item.title}」？`, [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '删除',
+          style: 'destructive',
+          onPress: () => {
+            void deleteAgent(item.id)
+              .then((res) => {
+                if (res.success) {
+                  setMaterialItems((prev) => prev.filter((m) => m.id !== item.id))
+                  showToast('success', '已删除')
+                } else {
+                  showToast('warning', '删除失败')
+                }
+              })
+              .catch(() => showToast('warning', '删除失败'))
+          },
+        },
+      ])
+    },
+    [showToast],
+  )
+  /** 素材详情弹窗:按当前分类 tab 推导 API type,getMyCreationDetail 拉取单条后展示
+   *  audio 无对应类型 → toast 提示;失败置 error,弹窗内提供重试 */
+  const handleMaterialDetail = useCallback(
+    (item: MaterialItem): void => {
+      const apiType = materialApiTypeForCategory(materialTab)
+      if (apiType === null) {
+        showToast('info', '该素材暂不支持查看详情')
+        return
+      }
+      setMaterialDetailItem(item)
+      setMaterialDetailData(null)
+      setMaterialDetailError('')
+      setMaterialDetailLoading(true)
+      void getMyCreationDetail(apiType, item.id)
+        .then((res) => {
+          if (res.success) {
+            setMaterialDetailData(res.data)
+          } else {
+            setMaterialDetailError(res.error ?? '加载详情失败')
+          }
+        })
+        .catch(() => setMaterialDetailError('网络异常,加载失败'))
+        .finally(() => setMaterialDetailLoading(false))
+    },
+    [materialTab, showToast],
+  )
+
+  /** 关闭素材详情弹窗并清空数据 */
+  const closeMaterialDetail = useCallback((): void => {
+    setMaterialDetailItem(null)
+    setMaterialDetailData(null)
+    setMaterialDetailError('')
+    setMaterialDetailLoading(false)
+  }, [])
+
   const removeMaterialCard = (id: string): void => {
     setMaterialCards((prev) => prev.filter((c) => c.id !== id))
   }
@@ -1295,6 +1571,8 @@ export function ChatScreen() {
           id: `${m.id}-${idx}`,
           role: m.role,
           content: m.content,
+          // 历史消息思考过程透传(chat_messages.reasoning,供思考过程展开块渲染)
+          reasoning: m.reasoning,
         }))
         setMessages(loaded)
         setPrompt('')
@@ -1378,6 +1656,11 @@ export function ChatScreen() {
         navigation.navigate('ModelPlaza')
         break
       case 'company':
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         navigation.navigate('Settings')
         break
@@ -1391,7 +1674,7 @@ export function ChatScreen() {
     level: (authUser?.isVip === 1 ? 'vip' : 'normal') as 'vip' | 'normal',
   }
 
-  // ── 素材库列表(getMyCreation('agent') 我的创作,对齐 Uniapp loadMaterialContent) ──
+  // ── 素材库列表(getMyCreation 按分类映射 agent/plugin/workflow 我的创作,对齐 Uniapp loadMaterialContent) ──
   // (materialItems/materialLoading 为 state,见组件顶部)
 
   // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
@@ -1434,7 +1717,7 @@ export function ChatScreen() {
 
   // ── 共享组件数据准备 ──
   const sharedModels: ChatScreenModel[] = models.map(toChatScreenModel)
-  const sharedMessages: ChatScreenMessage[] = messages
+  const sharedMessages: ChatScreenMessageWithReasoning[] = messages
     .filter((m) => m.role !== 'system')
     .map(toChatScreenMessage)
 
@@ -1484,7 +1767,7 @@ export function ChatScreen() {
           pickerOpen={false}
           navItems={[]}
           inputFiles={inputFiles}
-          isInputFocused={false}
+          isInputFocused={inputFocused}
           isInputFullscreen={false}
           isVoiceMode={isVoiceMode}
           isRecording={false}
@@ -1506,14 +1789,16 @@ export function ChatScreen() {
           onSend={() => send()}
           onStop={stop}
           onModelChange={setModel}
-          onPickerOpenChange={() => {}}
-          onLongPressMessage={() => {}}
-          onInputFocus={() => {}}
-          onInputBlur={() => {}}
-          onInputFullscreenToggle={() => {}}
+          // 共享层 onPickerOpenChange 语义=模型选择器开关(showModelBar 点开/关闭),
+          // RN 端对应 ModelList 弹窗(modelListVisible,showModelBar=false 时不会被触发)
+          onPickerOpenChange={(open) => setModelListVisible(open)}
+          onLongPressMessage={(msg) => void handleLongPressMessage(msg)}
+          onInputFocus={handleInputFocus}
+          onInputBlur={handleInputBlur}
+          onInputFullscreenToggle={handleFangda}
           onInputVoiceToggle={onInputVoiceToggle}
           onInputAddImage={onInputAddImage}
-          onInputAddFile={() => {}}
+          onInputAddFile={() => void handleFileUpload()}
           onInputRemoveFile={onInputRemoveFile}
           onInputClear={() => {}}
           onInputVoiceStart={() => {}}
@@ -1587,15 +1872,66 @@ export function ChatScreen() {
               <MaterialList
                 categories={[...MATERIAL_CATEGORIES]}
                 activeCategory={materialTab}
-                onCategoryChange={setMaterialTab}
+                onCategoryChange={handleMaterialCategoryChange}
                 items={materialItems}
                 onPress={handleMaterialItemClick}
+                onDelete={handleMaterialDelete}
+                onDetail={handleMaterialDetail}
                 loading={materialLoading}
               />
             </Pressable>
           </Pressable>
         </Modal>
       ) : null}
+
+      {/* 素材详情弹窗(点击列表项「详情」→ getMyCreationDetail;居中对话框,复用 listDialog 样式) */}
+      <Modal
+        visible={materialDetailItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMaterialDetail}
+      >
+        <Pressable style={styles.modalMask} onPress={closeMaterialDetail}>
+          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.listDialogHeader}>
+              <Text style={styles.listDialogTitle} numberOfLines={1}>
+                {materialDetailItem?.title ?? '素材详情'}
+              </Text>
+              <Pressable hitSlop={8} onPress={closeMaterialDetail} style={styles.listDialogClose}>
+                <X size={18} color={tokens.text.secondary} />
+              </Pressable>
+            </View>
+            <View style={styles.detailDialogBody}>
+              {materialDetailLoading ? (
+                <ActivityIndicator size="small" color={tokens.brand.DEFAULT} />
+              ) : materialDetailError ? (
+                <View style={styles.detailDialogErrorWrap}>
+                  <Text style={styles.detailDialogErrorText}>{materialDetailError}</Text>
+                  <Pressable
+                    onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
+                    style={styles.detailDialogRetryBtn}
+                  >
+                    <Text style={styles.detailDialogRetryText}>重试</Text>
+                  </Pressable>
+                </View>
+              ) : materialDetailData ? (
+                <ScrollView style={styles.detailDialogScroll}>
+                  {MATERIAL_DETAIL_FIELDS.map((f) => {
+                    const value = formatDetailValue(materialDetailData[f.key])
+                    if (!value) return null
+                    return (
+                      <View key={f.key} style={styles.detailDialogFieldRow}>
+                        <Text style={styles.detailDialogFieldLabel}>{f.label}</Text>
+                        <Text style={styles.detailDialogFieldValue}>{value}</Text>
+                      </View>
+                    )
+                  })}
+                </ScrollView>
+              ) : null}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* 二维码弹窗(对齐 Uniapp qr-code-modal) */}
       <Modal visible={qrCodeVisible} transparent animationType="fade" onRequestClose={hideQrCode}>
@@ -1789,19 +2125,16 @@ export function ChatScreen() {
                   </View>
                 ))}
               </View>
-              <Text style={styles.fileUploadHint}>
-                文件选择功能待接入(expo-document-picker 未安装)
-              </Text>
+              <Text style={styles.fileUploadHint}>选择文件后自动上传,支持常见文档/文本格式</Text>
               <Pressable
-                onPress={() => {
-                  setFileUploadVisible(false)
-                  showToast('info', '文件选择功能待接入')
-                }}
+                onPress={() => void handleFileUpload()}
                 style={styles.fileUploadConfirmBtn}
                 accessibilityRole="button"
-                accessibilityLabel="知道了"
+                accessibilityLabel="选择文件"
               >
-                <Text style={styles.fileUploadConfirmText}>知道了</Text>
+                <Text style={styles.fileUploadConfirmText}>
+                  {fileUploading ? '上传中…' : '选择文件'}
+                </Text>
               </Pressable>
             </View>
           </Pressable>
@@ -2200,6 +2533,39 @@ const styles = StyleSheet.create({
     color: '#e8e8e8',
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
+  // ── 消息富内容:思考过程(推理 reasoning,对齐 ai_index2 thinking-process) ──
+  // 用浅灰/中性色区分代码块(深色底):思考过程是半成品,别和最终代码混淆
+  thinkingBlock: {
+    marginBottom: 6,
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+    overflow: 'hidden',
+  },
+  thinkingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  thinkingTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: tokens.text.secondary,
+    flexShrink: 1,
+  },
+  thinkingToggle: {
+    fontSize: 11,
+    color: tokens.text.tertiary,
+    marginLeft: 8,
+  },
+  thinkingContent: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    color: tokens.text.secondary,
+  },
   // ── 消息图片全屏预览 ──
   imagePreviewOverlay: {
     flex: 1,
@@ -2496,6 +2862,53 @@ const styles = StyleSheet.create({
     height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // ── 素材详情弹窗内容区(复用 listDialogContent/Header,以下为正文/字段/错误态) ──
+  detailDialogBody: {
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(16),
+    minHeight: 120,
+  },
+  detailDialogScroll: {
+    alignSelf: 'stretch',
+  },
+  detailDialogFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: rpx(10),
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  },
+  detailDialogFieldLabel: {
+    width: rpx(140),
+    fontSize: 13,
+    color: tokens.text.tertiary,
+  },
+  detailDialogFieldValue: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: tokens.text.primary,
+  },
+  detailDialogErrorWrap: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: rpx(16),
+  },
+  detailDialogErrorText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  },
+  detailDialogRetryBtn: {
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(12),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  detailDialogRetryText: {
+    fontSize: 13,
+    color: tokens.surface.light,
+    fontWeight: '600',
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
   panelItem: {

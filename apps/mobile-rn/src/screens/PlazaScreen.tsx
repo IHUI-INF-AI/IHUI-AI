@@ -27,6 +27,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Clipboard from '@react-native-clipboard/clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   deleteConversation,
   getAgentCategories,
@@ -358,7 +359,20 @@ export function PlazaScreen() {
         navigateRoot(rootNav, 'ModelPlaza')
         break
       case 'company':
+        navigateRoot(rootNav, 'Distribution')
+
+        break
+
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
+        navigateRoot(rootNav, 'Settings')
+
+        break
+
       default:
         break
     }
@@ -522,7 +536,11 @@ export function PlazaScreen() {
             <View style={styles.identityButtons}>
               <Pressable
                 style={[styles.identityBtn, styles.identityBtnOutline]}
-                onPress={() => setIdentityVisible(false)}
+                onPress={() => {
+                  // 对齐原项目 toSet:写身份 userStatus='nomal' + 关弹窗(切换发布路径视图)
+                  setIdentityVisible(false)
+                  void AsyncStorage.setItem('userStatus', 'nomal')
+                }}
                 accessibilityRole="button"
                 accessibilityLabel="找大佬开发"
               >
@@ -532,8 +550,10 @@ export function PlazaScreen() {
                 style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
                 onPress={() => {
                   setIdentityVisible(false)
-                  // 对齐原项目 toDev → /pagesA/plaza/developer(RN DeveloperScreen 承载开发者详情)
-                  navigation.navigate('Developer', { id: 'self' })
+                  // 对齐原项目 toDev:先写身份 userStatus='developer' 再跳开发者页
+                  void AsyncStorage.setItem('userStatus', 'developer').then(() => {
+                    navigation.navigate('Developer', { id: 'self' })
+                  })
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="我是开发者"
