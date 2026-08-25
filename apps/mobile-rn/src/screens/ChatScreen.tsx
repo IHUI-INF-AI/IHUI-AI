@@ -1499,6 +1499,9 @@ export function ChatScreen() {
           itemSeparatorComponent={null}
           containerStyle={{ flex: 1 }}
           flatListStyle={{ flex: 1 }}
+          onListRef={(ref) => {
+            listRef.current = ref as FlatList<ChatMessage> | null
+          }}
           onInputTextChange={updatePrompt}
           onSend={() => send()}
           onStop={stop}
