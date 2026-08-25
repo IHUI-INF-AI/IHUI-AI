@@ -48,6 +48,11 @@ export function LivePlayer({
       clearTimeout(retryTimer.current)
       retryTimer.current = null
     }
+    const video = videoRef.current
+    if (video) {
+      video.onloadedmetadata = null
+      video.onerror = null
+    }
   }, [])
 
   const attachHls = React.useCallback(
@@ -104,24 +109,24 @@ export function LivePlayer({
           })
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = url
-          video.addEventListener('loadedmetadata', () => {
+          video.onloadedmetadata = () => {
             setLoading(false)
             if (autoPlay) video.play().catch(() => {})
-          })
+          }
         } else {
           setError('当前浏览器不支持 HLS 直播')
           setLoading(false)
         }
       } else {
         video.src = url
-        video.addEventListener('loadedmetadata', () => {
+        video.onloadedmetadata = () => {
           setLoading(false)
           if (autoPlay) video.play().catch(() => {})
-        })
-        video.addEventListener('error', () => {
+        }
+        video.onerror = () => {
           setError('视频加载失败')
           setLoading(false)
-        })
+        }
       }
     },
     [autoPlay, cleanup],
