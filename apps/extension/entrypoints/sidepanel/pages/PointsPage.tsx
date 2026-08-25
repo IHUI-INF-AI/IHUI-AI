@@ -105,7 +105,7 @@ export default function PointsPage() {
           </Card>
           <div className="grid grid-cols-3 gap-2">
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="p-3 min-[640px]:p-3 text-center">
                 <div className="text-xs text-muted-foreground">{t('page.points.totalEarned')}</div>
                 <div className="text-sm font-semibold tabular-nums mt-1">
                   {fmt(data.totalEarned)}
@@ -113,7 +113,7 @@ export default function PointsPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="p-3 min-[640px]:p-3 text-center">
                 <div className="text-xs text-muted-foreground">{t('page.points.totalSpent')}</div>
                 <div className="text-sm font-semibold tabular-nums mt-1">
                   {fmt(data.totalSpent)}
@@ -121,7 +121,7 @@ export default function PointsPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="p-3 text-center">
+              <CardContent className="p-3 min-[640px]:p-3 text-center">
                 <div className="text-xs text-muted-foreground">{t('page.points.streak')}</div>
                 <div className="text-sm font-semibold tabular-nums mt-1">
                   {fmt(data.continuousDays)}
