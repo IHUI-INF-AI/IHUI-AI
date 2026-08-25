@@ -2842,3 +2842,25 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-21) agent-screen.test.tsx 补充 `Image`/`TextInput`/`PanResponder` mock(根因:`GlobalFloatBox.tsx` 使用 `<Image source={ICON_ARROW}>` 但 react-native mock 未导出);vitest 252/252 全绿
 - [x] ✅(2026-08-21) i18n 死 key 清理:mobile-rn 5 语言文件删除 devEnter(6 keys)+carte.loadFailed(1)+recruitment.loadFailed(1)=8 keys;miniapp-taro/zh-CN.json 删除 news.views(1 key);脚本 `scripts/fix-test-and-i18n.mjs` 执行通过
 - [x] ✅(2026-08-24) Uniapp 未迁移 Screen 清单已闭环(审计误报):9 项均为路由名而非真实缺失——HomeMain/AiMain/CourseMain/LiveMain/ProfileMain 已在 `MainTabs` 栈映射到 HomeScreen/AgentScreen/CourseScreen/LiveScreen/ProfileScreen,Recharge→AppTopupScreen,WorkPanel→WorkPanel.tsx,TaskDispatch→TaskDispatchPage,MainScreen 即 MainTabs 栈本身;来源:`apps/mobile-rn/src/navigation/RootNavigator.tsx:409-424` + `tab-utils.ts:9-15`,`apps/mobile-rn/scripts/uniapp_diff_audit.py` 按旧路由名匹配新路由名产生误报。
+
+## P0 双端功能完全互通工程(2026-08-26 立,跨端:apps/api + apps/web + apps/mobile-rn + packages,用户已确认全量双向)
+
+### 目标
+
+消除 web 端与 mobile-rn 用户端功能差异,做到用户功能完全一致互通(移动端 179 屏 ↔ web 用户端路由双向补齐),含任务中心接口根治。
+
+### 里程碑(M0-M5)
+
+- [ ] M0 基线核查:任务中心接口真相 + web 开发模式确认
+- [ ] M1 移动端独有 14 项功能补齐到 web 端(任务中心/主播端/证书验证/积分商城/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
+- [ ] M2 任务中心接口不匹配修复(跨端)
+- [ ] M3 web 核心用户功能补齐到移动端(知识库/图像生成/记忆/上下文/规范/AI 世界/AI 技能/发布/自媒体/PDF 工具等)
+- [ ] M4 复杂后台/营销功能互通方案落地(WebView 内嵌 web 页面)
+- [ ] M5 双端一致性验证与差异清零
+
+### 进度记录
+
+- [x] ✅(2026-08-26) M0 完成:核查确认移动端 TaskCenterScreen 调 GET /tasks(异步任务列表)+ POST /tasks/:id/claim(不存在)→ 任务中心实际不可用;web 开发模式确认(PageClient + @/lib/api fetchApi + 5 语言 i18n)
+- [x] ✅(2026-08-26) M2 完成(根治):新建 `apps/api/src/routes/points-tasks.ts` — GET /api/points/tasks?type=(9 个任务:4 daily+2 weekly+3 newbie,实时进度计算:签到/分享/关注/考试/实名/资料)+ POST /api/points/tasks/:code/claim(幂等:source='task' + description 周期键查重,已领 409/未完成 400,发积分走 earnPoints);注册于 routes/index.ts;mobile-rn TaskCenterScreen wrapper 改调 /points/tasks;api/web/mobile-rn typecheck + lint 全绿
+- [x] ✅(2026-08-26) M1 任务中心 web 页:新建 `apps/web/app/(main)/points/tasks/page.tsx`(Tabs daily/weekly/newbie + 进度条 + 领取,复用 @ihui/ui-react + fetchApi);points 页加"任务中心"入口(5 语言 taskCenterLink);i18n 5 语言补 points.tasks.* 与 taskCenterLink
+- [ ] M1 其余 13 项(主播端/证书验证/积分商城独立页/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
