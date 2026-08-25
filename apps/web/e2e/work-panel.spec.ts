@@ -22,12 +22,14 @@ declare global {
 
 test.beforeEach(async ({ page }) => {
   // 清理 localStorage 避免前一个测试残留状态
-  await page.goto('/')
+  // 2026-08-26 修复:goto 用 domcontentloaded —— dev 模式下首屏 load 需等全部 chunk
+  // 编译完成,可能 >30s 超时(work-panel 依赖 dev-only 的 __workPanelStore,必须 dev 跑)
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     localStorage.removeItem('ihui-work-panel')
     localStorage.removeItem('theme')
   })
-  await page.goto('/')
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
   // 等待 dev 模式暴露 store
   await page
     .waitForFunction(() => typeof window.__workPanelStore !== 'undefined', { timeout: 5000 })
