@@ -118,22 +118,30 @@ export interface UpdateAgentInput {
 export async function updateAgent(
   agentId: string,
   patch: UpdateAgentInput,
+  userId?: string,
 ): Promise<Agent | undefined> {
   // 发布时若未显式提供 publishedAt，则自动填充当前时间
   const extra: Partial<UpdateAgentInput> = {}
   if (patch.status === 'published' && patch.publishedAt === undefined) {
     extra.publishedAt = new Date()
   }
+  const conds = [eq(agents.agentId, agentId)]
+  if (userId) conds.push(eq(agents.userId, userId))
   const rows = await db
     .update(agents)
     .set({ ...patch, ...extra, updatedAt: new Date() })
-    .where(eq(agents.agentId, agentId))
+    .where(and(...conds))
     .returning()
   return rows[0]
 }
 
-export async function deleteAgent(agentId: string): Promise<Agent | undefined> {
-  const rows = await db.delete(agents).where(eq(agents.agentId, agentId)).returning()
+export async function deleteAgent(agentId: string, userId?: string): Promise<Agent | undefined> {
+  const conds = [eq(agents.agentId, agentId)]
+  if (userId) conds.push(eq(agents.userId, userId))
+  const rows = await db
+    .delete(agents)
+    .where(and(...conds))
+    .returning()
   return rows[0]
 }
 
