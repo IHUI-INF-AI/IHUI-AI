@@ -43,6 +43,21 @@ type Credentials = typeof TEST_USER
  * 注意：邮箱登录表单含图形验证码（CaptchaCanvas），UI 流程可能不稳定，
  * 优先使用 apiLoginAndSaveStorageState；此函数保留用于端到端 UI 验证。
  */
+/**
+ * 从 Set-Cookie headers 中提取 refresh_token 值。
+ * 与 apiLoginAndSaveStorageState 共享，放模块级避免作用域问题。
+ */
+function parseRefreshTokenFromSetCookie(
+  res: { headersArray(): Array<{ name: string; value: string }> },
+): string | undefined {
+  for (const h of res.headersArray()) {
+    if (h.name.toLowerCase() !== 'set-cookie') continue
+    const m = /(?:^|;\s*)refresh_token=([^;]+)/i.exec(h.value)
+    if (m) return m[1]
+  }
+  return undefined
+}
+
 async function loginAndSaveStorageState(
   page: Page,
   credentials: Credentials,
@@ -97,7 +112,7 @@ async function apiLoginAndSaveStorageState(
   const body = (await response.json()) as {
     code?: number
     message?: string
-    data?: { accessToken?: string; token?: string; userId?: string; refreshToken?: string }
+    data?: { accessToken?: string; token?: string; userId?: string; refreshToken?: string; user?: { id: string; nickname?: string } }
     token?: string
     user?: unknown
   }
@@ -111,6 +126,16 @@ async function apiLoginAndSaveStorageState(
   if (!token) {
     throw new Error('登录响应缺少 token 字段')
   }
+
+  // P2-18(2026-08-14):登录链路 httpOnly cookie 化 —— 后端 setAuthCookies 会
+  // Set-Cookie auth_token + refresh_token 两个 httpOnly cookie;刷新链路
+  // /api/auth/refresh 从 refresh_token cookie 读(前端 JS 读不到)。
+  // 若 storage 缺 refresh_token,页面加载后 bootstrap 的 refresh 无 cookie →
+  // 400 "refreshToken 必填" → startAutoRefresh 失败回调自动弹登录框
+  // (z-modal 遮罩拦截)→ e2e 全量 ~100 用例系统性失败(2026-08-26 实锤)。
+  // 优先从 Set-Cookie 抓 refresh_token,body.data.refreshToken 兜底。
+  const refreshTokenFromCookie = parseRefreshTokenFromSetCookie(response)
+  const refreshToken = refreshTokenFromCookie ?? body.data?.refreshToken
 
   const hostname = new URL(baseURL).hostname
 
@@ -136,6 +161,20 @@ async function apiLoginAndSaveStorageState(
         secure: false,
         sameSite: 'Lax' as const,
       },
+      ...(refreshToken
+        ? [
+            {
+              name: 'refresh_token',
+              value: refreshToken,
+              domain: hostname,
+              path: '/',
+              // 与后端一致置 httpOnly:应用 JS 无需读它,refresh 请求自动附带
+              httpOnly: true,
+              secure: false,
+              sameSite: 'Lax' as const,
+            },
+          ]
+        : []),
     ],
     origins: [
       {
@@ -143,6 +182,19 @@ async function apiLoginAndSaveStorageState(
         localStorage: [
           { name: 'token', value: token },
           { name: 'user', value: JSON.stringify(body.data ?? {}) },
+          // 恢复 auth store 持久化标志位(仅 isAuthenticated + user):
+          // 缺失时应用启动 isAuthenticated=false,即便 refresh 成功也会有一段
+          // 未登录窗口,期间非 GET 401 会触发登录弹窗(2026-08-26 实锤)。
+          {
+            name: 'ihui-auth',
+            value: JSON.stringify({
+              state: {
+                isAuthenticated: true,
+                user: body.data?.user ?? { id: body.data?.userId ?? '', nickname: '' },
+              },
+              version: 0,
+            }),
+          },
         ],
       },
     ],
@@ -154,7 +206,101 @@ async function apiLoginAndSaveStorageState(
 }
 
 /**
- * 确保 storageState 文件存在；若不存在则通过 API 登录创建。
+ * 回写 storageState 的 auth cookies(刷新轮转后更新,保持 storage 自愈)。
+ * refresh 单次轮转(api 侧 RFC 6749 §10.4),每次 refresh 后旧 refresh_token 吊销;
+ * 若不回写,下次测试仍用旧 token → /api/auth/refresh 401 → 应用弹登录框。
+ */
+async function updateStorageCookies(
+  storageStatePath: string,
+  cookies: Array<{ name: string; value: string; httpOnly?: boolean; domain?: string; path?: string; secure?: boolean; sameSite?: 'Lax' | 'Strict' | 'None' }>,
+): Promise<void> {
+  type StorageCookie = {
+    name: string
+    value: string
+    httpOnly?: boolean
+    domain?: string
+    path?: string
+    secure?: boolean
+    sameSite?: 'Strict' | 'Lax' | 'None'
+  }
+  try {
+    const raw = await fs.readFile(storageStatePath, 'utf8')
+    const state = JSON.parse(raw) as {
+      cookies?: StorageCookie[]
+    }
+    if (!Array.isArray(state.cookies)) return
+    for (const c of cookies) {
+      const existing = state.cookies.find((x) => x.name === c.name)
+      if (existing) {
+        existing.value = c.value
+        if (c.httpOnly !== undefined) existing.httpOnly = c.httpOnly
+      } else {
+        // 新 cookie:以现有 auth_token 的 domain/path 为模板
+        const tmpl = state.cookies.find((x) => x.name === 'auth_token') ?? state.cookies[0]
+        state.cookies.push({
+          name: c.name,
+          value: c.value,
+          domain: tmpl?.domain ?? 'localhost',
+          path: tmpl?.path ?? '/',
+          httpOnly: c.httpOnly ?? false,
+          secure: tmpl?.secure ?? false,
+          sameSite: tmpl?.sameSite ?? 'Lax',
+        })
+      }
+    }
+    await fs.writeFile(storageStatePath, JSON.stringify(state, null, 2))
+  } catch {
+    /* 回写失败不影响本次运行(下次校验会重新登录) */
+  }
+}
+
+/**
+ * 校验 storageState 里的会话是否仍有效,并在 refresh 轮转成功后回写新 token。
+ *
+ * 背景(2026-08-26 实锤,e2e 全量 623 用例中 ~100 个系统性失败的根因):
+ * - api access token TTL 15 分钟,refresh token 单次轮转(RFC 6749 重用检测);
+ * - 应用启动 bootstrap 用 refresh_token cookie 静默刷新恢复会话;storageState 只创建一次,
+ *   轮转后的新 refresh token 只存在于浏览器 context,不回写文件 → 后续测试加载旧 storage:
+ *   /api/auth/refresh 401 → 应用自动弹登录框(z-modal 遮罩拦截指针事件)→ 点击全部超时。
+ *
+ * 校验方式:用 storage 的 refresh_token 调 POST /api/auth/refresh:
+ *   200 → 会话有效且已轮转 → 回写新 accessToken/refreshToken → true(复用);
+ *   401/400 → 会话失效 → false(触发重新登录)。
+ */
+async function isStorageStateValid(
+  request: APIRequestContext,
+  baseURL: string,
+  storageStatePath: string,
+): Promise<boolean> {
+  try {
+    const raw = await fs.readFile(storageStatePath, 'utf8')
+    const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string }> }
+    const rt = state.cookies?.find((c) => c.name === 'refresh_token')?.value
+    if (!rt) return false
+    const res = await request.post(`${baseURL}/api/auth/refresh`, {
+      headers: { cookie: `refresh_token=${rt}` },
+    })
+    if (!res.ok()) return false
+    const body = (await res.json().catch(() => null)) as {
+      data?: { accessToken?: string; refreshToken?: string }
+    } | null
+    const newAccess = body?.data?.accessToken
+    if (!newAccess) return false
+    const newRefresh =
+      body?.data?.refreshToken ?? parseRefreshTokenFromSetCookie(res) ?? rt
+    await updateStorageCookies(storageStatePath, [
+      { name: 'auth_token', value: newAccess },
+      { name: 'token', value: newAccess },
+      { name: 'refresh_token', value: newRefresh, httpOnly: true },
+    ])
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 确保 storageState 文件存在且会话有效；文件缺失或 token 失效时通过 API 登录创建/刷新。
  * 让 chromium project 下使用 authenticatedPage 的测试即使未预先执行 setup 也能跑通。
  */
 async function ensureStorageState(
@@ -166,6 +312,11 @@ async function ensureStorageState(
   try {
     await fs.access(storageStatePath)
   } catch {
+    await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
+    return
+  }
+  // 文件存在但会话可能已失效(access 过期 / refresh 被轮转消费)→ 重新登录
+  if (!(await isStorageStateValid(request, baseURL, storageStatePath))) {
     await apiLoginAndSaveStorageState(request, baseURL, credentials, storageStatePath)
   }
 }
