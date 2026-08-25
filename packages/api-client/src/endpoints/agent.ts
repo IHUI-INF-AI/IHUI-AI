@@ -264,3 +264,39 @@ export async function getAgentPermission(
     `/api/agent-ext/permission/${agentId}${buildQs(userId ? { userId } : {})}`,
   )
 }
+
+// =============================================================================
+// 我的创作(对齐 Uniapp getMyCreation → POST /agent/creation/my/:type,素材列表「我的创作」)
+// =============================================================================
+
+export type MyCreationType = 'agent' | 'workflow' | 'plugin'
+
+/** 我的创作条目(agent=智能体/workflow=工作流/plugin=插件,list 字段取 name/description/createdAt) */
+export interface MyCreationItem {
+  id: string
+  name: string
+  description: string | null
+  createdAt: string
+  [key: string]: unknown
+}
+
+export type MyCreationQuery = {
+  page?: number
+  pageSize?: number
+  keyword?: string
+}
+
+/** 查询我的创作(按类型分页;对齐后端 /api/agent/creation/my/:type) */
+export async function getMyCreation(
+  type: MyCreationType,
+  query: MyCreationQuery = {},
+): Promise<ApiResult<PageData<MyCreationItem>>> {
+  return fetchApi<PageData<MyCreationItem>>(`/api/agent/creation/my/${type}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 10,
+      keyword: query.keyword ?? '',
+    }),
+  })
+}
