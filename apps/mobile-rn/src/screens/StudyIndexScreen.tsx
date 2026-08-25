@@ -403,6 +403,11 @@ export function StudyIndexScreen() {
       case 'company':
         navigation.navigate('Distribution')
         break
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         navigation.navigate('AiAssistantN8n', {})
         break

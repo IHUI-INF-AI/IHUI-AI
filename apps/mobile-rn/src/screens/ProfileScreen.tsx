@@ -86,10 +86,8 @@ import {
   EMPTY_TEXT_LIST,
   EMPTY_VIDEO_LIST,
   PROFILE_TAB_LIST,
-  createInitialPagination,
   extractConversationMetadata,
   type AudioContent,
-  type ContentPagination,
   type ImageContent,
   type ProfileTabId,
   type TextContent,
@@ -247,12 +245,10 @@ export function ProfileScreen() {
     }
   }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
 
+  // 菜单项点击跳转:所有菜单路由均注册在 RootStack(menuSections 映射时已统一为 RootRoute),
+  // 统一经父级 rootNav navigate(ProfileMain 为 Main 子 Tab,不能直接用子栈 navigation)
   const onNavigate = (item: MenuItem) => {
-    if (item.viaParent) {
-      navigateRoot(rootNav, item.key)
-    } else {
-      navigateRoot(rootNav, item.key)
-    }
+    navigateRoot(rootNav, item.key)
   }
 
   /** UserCard 4 宫格点击跳转(对齐 Uniapp user_cards.vue handleClick) */
@@ -381,6 +377,15 @@ export function ProfileScreen() {
         navigateRoot(rootNav, 'ModelPlaza')
         break
       case 'company':
+        rootNav?.navigate('Distribution')
+
+        break
+
+      case 'assistant':
+        rootNav?.navigate('Assistant')
+
+        break
+
       case 'tools':
         rootNav?.navigate('Settings')
         break
@@ -987,10 +992,6 @@ function ProfileContentSection(): React.JSX.Element {
     useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
   const [audioContentList, setAudioContentList] =
     useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
-  const [textPagination] = useState<ContentPagination>(createInitialPagination)
-  const [imagePagination] = useState<ContentPagination>(createInitialPagination)
-  const [videoPagination] = useState<ContentPagination>(createInitialPagination)
-  const [audioPagination] = useState<ContentPagination>(createInitialPagination)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<PreviewState>({ images: [], index: 0, visible: false })
@@ -1147,26 +1148,14 @@ function ProfileContentSection(): React.JSX.Element {
           </View>
         ) : (
           <>
-            {activeTab === 1 ? (
-              <TextTabContent list={textContentList} pagination={textPagination} />
-            ) : null}
+            {activeTab === 1 ? <TextTabContent list={textContentList} /> : null}
             {activeTab === 2 ? (
-              <ImageTabContent
-                list={imageContentList}
-                pagination={imagePagination}
-                onPreview={onImagePreview}
-              />
+              <ImageTabContent list={imageContentList} onPreview={onImagePreview} />
             ) : null}
             {activeTab === 3 ? (
-              <VideoTabContent
-                list={videoContentList}
-                pagination={videoPagination}
-                onPlay={onVideoPlay}
-              />
+              <VideoTabContent list={videoContentList} onPlay={onVideoPlay} />
             ) : null}
-            {activeTab === 4 ? (
-              <AudioTabContent list={audioContentList} pagination={audioPagination} />
-            ) : null}
+            {activeTab === 4 ? <AudioTabContent list={audioContentList} /> : null}
           </>
         )}
       </View>
@@ -1205,7 +1194,6 @@ function ProfileContentSection(): React.JSX.Element {
 
 interface TextTabProps {
   list: readonly TextContent[]
-  pagination: ContentPagination
 }
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
@@ -1242,7 +1230,6 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
 
 interface ImageTabProps {
   list: readonly ImageContent[]
-  pagination: ContentPagination
   onPreview: (images: readonly string[], index: number) => void
 }
 
@@ -1288,7 +1275,6 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
 
 interface VideoTabProps {
   list: readonly VideoContent[]
-  pagination: ContentPagination
   onPlay: (url: string) => void
 }
 
@@ -1351,7 +1337,6 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
 
 interface AudioTabProps {
   list: readonly AudioContent[]
-  pagination: ContentPagination
 }
 
 function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
@@ -1684,7 +1669,8 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.videoModalOverlay}>
-          {/* 内容区阻止冒泡,避免点击视频/按钮触发遮罩关闭(对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
+          {/* 内容区阻止冒泡:onPress 空实现有意吞掉内容区点击,让遮罩 onClose 仅在点击遮罩区域时触发
+           * (对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
           <TouchableWithoutFeedback onPress={() => undefined}>
             <View style={styles.videoModalContent}>
               <View
