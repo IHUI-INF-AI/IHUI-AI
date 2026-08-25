@@ -1520,13 +1520,14 @@ export function HomeScreen() {
           accessibilityLabel="关闭二维码"
         >
           <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
-            <Image
-              source={QrCodeImage}
-              style={shellStyles.qrImage}
-              resizeMode="contain"
+            <Pressable
               onLongPress={() => void handleLongPressQrCode()}
+              delayLongPress={500}
+              accessibilityRole="imagebutton"
               accessibilityLabel="社群二维码,长按保存"
-            />
+            >
+              <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
+            </Pressable>
             <Text style={shellStyles.qrTitle}>扫描二维码加入社区</Text>
             <Pressable
               hitSlop={8}
