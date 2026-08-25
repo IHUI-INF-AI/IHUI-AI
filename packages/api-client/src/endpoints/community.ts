@@ -236,3 +236,60 @@ export interface LikeCountItem {
   resourceId: string
   count: number
 }
+
+// =============================================================================
+// 评论(对齐后端 /api/comments,资讯/文章详情评论;对齐原 /pagesA/news/comment 评论页)
+// =============================================================================
+
+export type CommentResourceType = 'project' | 'file' | 'doc' | 'post'
+
+export interface CommentItem {
+  id: string
+  resourceType: string
+  resourceId: string
+  parentId: string | null
+  content: string
+  author: { id: string; nickname: string; avatar: string | null }
+  likeCount: number
+  isLiked: boolean
+  createdAt: string
+}
+
+export type CommentListQuery = {
+  resourceType: CommentResourceType
+  resourceId: string
+  page?: number
+  pageSize?: number
+}
+
+/** 评论列表(按资源分页) */
+export async function getComments(
+  query: CommentListQuery,
+): Promise<ApiResult<PageData<CommentItem>>> {
+  return fetchApi<PageData<CommentItem>>(
+    `/comments${buildQs({
+      resourceType: query.resourceType,
+      resourceId: query.resourceId,
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 20,
+    })}`,
+  )
+}
+
+/** 创建评论 */
+export async function createComment(input: {
+  resourceType: CommentResourceType
+  resourceId: string
+  content: string
+  parentId?: string
+}): Promise<ApiResult<CommentItem>> {
+  return fetchApi<CommentItem>('/comments', {
+    method: 'POST',
+    body: JSON.stringify({
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      content: input.content,
+      parentId: input.parentId,
+    }),
+  })
+}

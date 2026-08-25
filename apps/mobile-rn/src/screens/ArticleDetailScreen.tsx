@@ -10,10 +10,15 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import {
+  ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
+  Pressable,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   type TextStyle,
@@ -21,7 +26,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   ArticleDetailScreen as SharedArticleDetailScreen,
@@ -45,6 +50,13 @@ export function ArticleDetailScreen() {
   // 底部操作栏状态(对齐 Uniapp news/detail.vue isLiked/handleLike)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
+  // 评论弹窗(getComments/createComment,对齐原 /pagesA/news/comment 评论页)
+  const [commentVisible, setCommentVisible] = useState(false)
+  const [comments, setComments] = useState<CommentItem[]>([])
+  const [commentLoading, setCommentLoading] = useState(false)
+  const [commentText, setCommentText] = useState('')
+  const [commentSubmitting, setCommentSubmitting] = useState(false)
+  const [commentError, setCommentError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -75,10 +87,47 @@ export function ArticleDetailScreen() {
     })
   }, [])
 
-  /** 评论入口(原跳 /pagesA/news/comment?id=,该页未实现,提示占位) */
+  /** 评论入口(对齐原 /pagesA/news/comment?id=:打开评论列表,加载 getComments) */
   const handleComment = useCallback((): void => {
-    Alert.alert(t('common.hint'), '评论功能开发中,敬请期待')
-  }, [t])
+    setCommentVisible(true)
+    setCommentLoading(true)
+    setCommentError('')
+    void getComments({ resourceType: 'post', resourceId: id, page: 1, pageSize: 20 })
+      .then((res) => {
+        if (res.success) {
+          setComments(res.data.list)
+        } else {
+          setComments([])
+          setCommentError(res.error || '评论加载失败')
+        }
+      })
+      .catch(() => {
+        setComments([])
+        setCommentError('评论加载失败')
+      })
+      .finally(() => setCommentLoading(false))
+  }, [id])
+
+  /** 发表评论(对齐 news/comment 提交) */
+  const handleCommentSubmit = useCallback(async (): Promise<void> => {
+    const content = commentText.trim()
+    if (!content) return
+    setCommentSubmitting(true)
+    setCommentError('')
+    try {
+      const res = await createComment({ resourceType: 'post', resourceId: id, content })
+      if (res.success) {
+        setComments((prev) => [res.data, ...prev])
+        setCommentText('')
+      } else {
+        setCommentError(res.error || '评论失败')
+      }
+    } catch {
+      setCommentError('评论失败,请重试')
+    } finally {
+      setCommentSubmitting(false)
+    }
+  }, [commentText, id])
 
   /** 分享(对齐 handleShare:uni.share → RN Share API) */
   const handleShare = useCallback((): void => {
@@ -120,6 +169,89 @@ export function ArticleDetailScreen() {
           </TouchableOpacity>
         </View>
       ) : null}
+
+      {/* 评论弹窗(对齐原 /pagesA/news/comment?id= 评论列表 + 发表) */}
+      <Modal
+        visible={commentVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCommentVisible(false)}
+      >
+        <View style={styles.commentOverlay}>
+          <Pressable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
+          <View style={styles.commentSheet}>
+            <View style={styles.commentHeader}>
+              <Text style={styles.commentTitle}>评论</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={() => setCommentVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel="关闭评论"
+              >
+                <Text style={styles.commentClose}>×</Text>
+              </Pressable>
+            </View>
+            {commentLoading ? (
+              <ActivityIndicator style={styles.commentLoading} color={tokens.text.secondary} />
+            ) : (
+              <FlatList
+                data={comments}
+                keyExtractor={(item) => item.id}
+                style={styles.commentList}
+                contentContainerStyle={comments.length === 0 ? styles.commentListEmpty : undefined}
+                ListEmptyComponent={
+                  <Text style={styles.commentEmptyText}>
+                    {commentError || '暂无评论,快来抢沙发'}
+                  </Text>
+                }
+                renderItem={({ item }) => (
+                  <View style={styles.commentItem}>
+                    <View style={styles.commentAvatar}>
+                      <Text style={styles.commentAvatarText}>
+                        {(item.author.nickname || '用')[0] ?? '用'}
+                      </Text>
+                    </View>
+                    <View style={styles.commentBody}>
+                      <Text style={styles.commentNickname} numberOfLines={1}>
+                        {item.author.nickname || '匿名用户'}
+                      </Text>
+                      <Text style={styles.commentContent}>{item.content}</Text>
+                      <Text style={styles.commentTime}>
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              />
+            )}
+            <View style={styles.commentInputRow}>
+              <TextInput
+                value={commentText}
+                onChangeText={setCommentText}
+                placeholder="写下你的评论..."
+                placeholderTextColor={tokens.text.tertiary}
+                style={styles.commentInput}
+                multiline
+              />
+              <TouchableOpacity
+                style={[
+                  styles.commentSendBtn,
+                  (!commentText.trim() || commentSubmitting) && styles.commentSendBtnDisabled,
+                ]}
+                onPress={() => void handleCommentSubmit()}
+                disabled={!commentText.trim() || commentSubmitting}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="发表评论"
+              >
+                <Text style={styles.commentSendText}>
+                  {commentSubmitting ? '…' : '发送'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
