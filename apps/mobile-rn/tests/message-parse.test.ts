@@ -50,4 +50,9 @@ describe('parseMessageContent 消息富内容解析', () => {
     expect(segs).toHaveLength(1)
     expect(segs[0]!.type).toBe('code')
   })
+
+  it('兼容 CRLF 代码块并保护代码块内图片 URL', () => {
+    const segs = parseMessageContent('```py\r\nurl = "https://x.com/a.png"\r\n```')
+    expect(segs).toEqual([{ type: 'code', language: 'py', code: 'url = "https://x.com/a.png"\r\n' }])
+  })
 })

@@ -11,7 +11,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -293,5 +292,137 @@ const styles = StyleSheet.create({
   actionLabel: {
     fontSize: 13,
     color: tokens.text.secondary,
+  } as TextStyle,
+  // ── 评论弹窗 ──
+  commentOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  } as ViewStyle,
+  commentMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: tokens.overlay.modal,
+  } as ViewStyle,
+  commentSheet: {
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingTop: 14,
+    minHeight: 360,
+    maxHeight: '72%',
+  } as ViewStyle,
+  commentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  } as ViewStyle,
+  commentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as TextStyle,
+  commentClose: {
+    fontSize: 24,
+    lineHeight: 26,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+  } as TextStyle,
+  commentLoading: {
+    marginVertical: 40,
+  },
+  commentList: {
+    flexGrow: 0,
+    paddingHorizontal: 16,
+  } as ViewStyle,
+  commentListEmpty: {
+    flexGrow: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  } as ViewStyle,
+  commentEmptyText: {
+    fontSize: 13,
+    color: tokens.text.tertiary,
+  } as TextStyle,
+  commentItem: {
+    flexDirection: 'row',
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  } as ViewStyle,
+  commentAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  } as ViewStyle,
+  commentAvatarText: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '600',
+  } as TextStyle,
+  commentBody: {
+    flex: 1,
+  } as ViewStyle,
+  commentNickname: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as TextStyle,
+  commentContent: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: tokens.text.primary,
+    marginTop: 2,
+  } as TextStyle,
+  commentTime: {
+    fontSize: 11,
+    color: tokens.text.tertiary,
+    marginTop: 4,
+  } as TextStyle,
+  commentInputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    padding: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: tokens.border.light,
+  } as ViewStyle,
+  commentInput: {
+    flex: 1,
+    minHeight: 38,
+    maxHeight: 80,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.bg,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 14,
+    color: tokens.text.primary,
+  } as TextStyle,
+  commentSendBtn: {
+    height: 38,
+    paddingHorizontal: 18,
+    borderRadius: 19,
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  commentSendBtnDisabled: {
+    opacity: 0.5,
+  } as ViewStyle,
+  commentSendText: {
+    fontSize: 14,
+    color: '#fff',
+    fontWeight: '600',
   } as TextStyle,
 })
