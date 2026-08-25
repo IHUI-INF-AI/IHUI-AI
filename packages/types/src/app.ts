@@ -4956,6 +4956,8 @@ export interface SquareScreenProps {
   onItemClick: (id: string) => void
   showBackTop: boolean
   onBackToTop: () => void
+  /** 暴露内部 FlatList ref(wrapper 用于返回顶部 scrollToOffset,对齐 ChatScreen onListRef 模式) */
+  onListRef?: (ref: unknown) => void
   onBack?: () => void
 }
 
