@@ -45,6 +45,7 @@ class Workflow:
     isActive: bool = True
     createdAt: str = ""
     updatedAt: str = ""
+    seq: int = 0  # 创建序号(同微秒时间戳排序 tiebreaker,保证 list_workflows 确定性)
 
 
 @dataclass
@@ -104,6 +105,8 @@ class WorkflowEngine:
         self._cancel_events: dict[str, asyncio.Event] = {}
         # 运行中的 task 锁(防并发触发)
         self._running_instances: set[str] = set()
+        # 创建序号(单调递增,作为 createdAt 同微秒时的排序 tiebreaker)
+        self._create_seq = 0
 
     # =========================================================================
     # Workflow CRUD
@@ -118,6 +121,7 @@ class WorkflowEngine:
     ) -> Workflow:
         """创建新工作流。"""
         now = datetime.now(timezone.utc).isoformat()
+        self._create_seq += 1
         wf = Workflow(
             id=f"wf-{uuid.uuid4().hex[:12]}",
             name=name,
@@ -127,16 +131,17 @@ class WorkflowEngine:
             isActive=True,
             createdAt=now,
             updatedAt=now,
+            seq=self._create_seq,
         )
         self._workflows[wf.id] = wf
         logger.info("workflow_engine 创建工作流: id=%s name=%s", wf.id, wf.name)
         return wf
 
     def list_workflows(self) -> list[Workflow]:
-        """列出所有工作流(按创建时间降序)。"""
+        """列出所有工作流(按创建时间降序,同微秒按创建序号倒序保证确定性)。"""
         return sorted(
             self._workflows.values(),
-            key=lambda w: w.createdAt,
+            key=lambda w: (w.createdAt, w.seq),
             reverse=True,
         )
 
