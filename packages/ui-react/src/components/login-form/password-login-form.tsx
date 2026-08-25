@@ -375,6 +375,8 @@ export function PasswordLoginForm({
                 if (!checked) setAutoLogin(false)
               }}
               aria-label={t('auth.rememberPassword')}
+              // e2e 契约(2026-08-26):remember-password.spec.ts 依赖此 testid
+              data-testid="remember-password-checkbox"
             />
             {t('auth.rememberPassword')}
           </label>
@@ -392,6 +394,8 @@ export function PasswordLoginForm({
               disabled={!rememberPassword}
               onCheckedChange={(v) => setAutoLogin(v === true)}
               aria-label={t('auth.autoLogin')}
+              // e2e 契约(2026-08-26):remember-password.spec.ts 依赖此 testid
+              data-testid="auto-login-checkbox"
             />
             {t('auth.autoLogin')}
           </label>
