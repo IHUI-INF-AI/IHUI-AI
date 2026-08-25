@@ -517,7 +517,7 @@ export function ChatScreen() {
       setAgentListVisible(false)
       return type
     })
-  }, [])
+  }, [loadMaterials])
 
   // ── BottomActionBar 核心事件回调(10 个核心) ──
 
