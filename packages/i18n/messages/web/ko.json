@@ -14935,7 +14935,25 @@
     "totalEarned": "누적계획득받음",
     "totalSpent": "총 지출",
     "user": "사용자",
-    "you": "나"
+    "you": "나",
+    "tasks": {
+      "title": "작업 센터",
+      "subtitle": "작업을 완료하고 포인트를 획득하세요",
+      "tab": {
+        "daily": "매일",
+        "weekly": "매주",
+        "newbie": "신규"
+      },
+      "loading": "로딩 중...",
+      "loadFailed": "작업을 불러오지 못했습니다",
+      "retry": "재시도",
+      "empty": "작업이 없습니다",
+      "claimed": "수령 완료",
+      "claim": "수령",
+      "notCompleted": "미완료",
+      "claimFailed": "수령에 실패했습니다"
+    },
+    "taskCenterLink": "작업 센터"
   },
   "pricingPage": {
     "badge": "한정 얼리버드",
