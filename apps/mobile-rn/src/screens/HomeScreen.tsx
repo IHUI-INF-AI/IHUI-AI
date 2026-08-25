@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,6 +12,7 @@ import {
   type NativeSyntheticEvent,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import * as MediaLibrary from 'expo-media-library'
 import { SlidersHorizontal } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
@@ -91,6 +93,9 @@ import TabBar, { type TabBarKey } from '../components/TabBar'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+/** 社群二维码图片(对齐 Uniapp ai_index /static/images/qewm.png 二维码弹窗) */
+const QrCodeImage = require('../../assets/images/common/qewm.png')
 
 const MENU_ITEMS: HomeMenuItem[] = [
   { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
@@ -464,6 +469,8 @@ export function HomeScreen() {
 
   // ── 对齐 Uniapp ai_index:NavBar 菜单按钮触发 Drawer ──
   const [drawerVisible, setDrawerVisible] = useState(false)
+  // ── 二维码弹窗(对齐 Uniapp ai_index showQrCodeModal;图片 assets/images/common/qewm.png) ──
+  const [qrCodeVisible, setQrCodeVisible] = useState(false)
   // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -604,10 +611,23 @@ export function HomeScreen() {
   // ── NavBar 按钮回调(对齐 Uniapp navigation-bars 事件) ──
   /** 菜单按钮:打开 Drawer(对齐 Uniapp handleNavClick → tagWrapShow = true) */
   const handleMenuPress = (): void => setDrawerVisible(true)
-  /** 加入社区群:显示二维码提示(对齐 Uniapp join-click → showQrCode → showQrCodeModal = true)
-   *  RN 端无二维码图片资源,用 FloatBox 提示替代弹窗 */
-  const handleJoinPress = (): void => {
-    showToast('info', '请扫描社群二维码加入(二维码图片待接入)')
+  /** 加入社区群:显示二维码弹窗(对齐 Uniapp join-click → showQrCodeModal = true;
+   *  图片资源 assets/images/common/qewm.png,长按保存到相册) */
+  const handleJoinPress = (): void => setQrCodeVisible(true)
+  /** 长按二维码:保存到相册(对齐 Uniapp handleLongPressQrCode → saveQrCodeToAlbum) */
+  const handleLongPressQrCode = async (): Promise<void> => {
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', '需要相册权限才能保存')
+        return
+      }
+      const asset = await MediaLibrary.createAssetAsync(QrCodeImage)
+      await MediaLibrary.saveToLibraryAsync(asset.uri)
+      showToast('success', '已保存到相册')
+    } catch {
+      showToast('warning', '保存失败,请重试')
+    }
   }
   /** 分享图:跳我的页面(对齐 Uniapp share-image → goToMyPage → /pages/table/user/index) */
   const handleGoToMyPage = (): void => {
@@ -1486,6 +1506,40 @@ export function HomeScreen() {
         onChange={setModelConfig}
         onClose={closeModelConfig}
       />
+      {/* 二维码弹窗(对齐 Uniapp ai_index qr-code-modal:qewm.png 600rpx + 长按保存 + 关闭) */}
+      <Modal
+        visible={qrCodeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrCodeVisible(false)}
+      >
+        <Pressable
+          style={shellStyles.modalMask}
+          onPress={() => setQrCodeVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel="关闭二维码"
+        >
+          <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
+            <Image
+              source={QrCodeImage}
+              style={shellStyles.qrImage}
+              resizeMode="contain"
+              onLongPress={() => void handleLongPressQrCode()}
+              accessibilityLabel="社群二维码,长按保存"
+            />
+            <Text style={shellStyles.qrTitle}>扫描二维码加入社区</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setQrCodeVisible(false)}
+              style={shellStyles.qrClose}
+              accessibilityRole="button"
+              accessibilityLabel="关闭"
+            >
+              <Text style={shellStyles.qrCloseText}>×</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
       <Modal
         visible={shareValueVisible}
@@ -1765,6 +1819,40 @@ const shellStyles = {
   shareCloseText: {
     fontSize: 22,
     lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+  } as const,
+  // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
+  qrContent: {
+    width: '80%',
+    borderRadius: 12,
+    backgroundColor: tokens.surface.light,
+    paddingVertical: rpx(36),
+    paddingHorizontal: rpx(24),
+    alignItems: 'center',
+    position: 'relative',
+  } as const,
+  qrImage: {
+    width: 240,
+    height: 240,
+    borderRadius: 8,
+  } as const,
+  qrTitle: {
+    marginTop: rpx(20),
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    textAlign: 'center',
+  } as const,
+  qrClose: {
+    position: 'absolute',
+    top: 10,
+    right: 14,
+    padding: 4,
+  } as const,
+  qrCloseText: {
+    fontSize: 24,
+    lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as const,
