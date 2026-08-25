@@ -4,6 +4,7 @@ import * as React from 'react'
 
 import { useAuthStore } from '@/stores/auth'
 import { useUserStore } from '@/stores/user'
+import { getAuthCookie } from '@/lib/cookie-utils'
 import { fetchApi } from '@/lib/api'
 import { refreshAccessTokenOnce } from '@ihui/api-client'
 
@@ -66,19 +67,32 @@ export function useAuthBootstrap(): UseAuthBootstrapReturn {
 
       // 无内存 accessToken:尝试静默刷新恢复登录态(自动登录闭环)
       if (!storedToken) {
-        const refreshed = await tryRefresh()
-        if (cancelled) return
-        if (refreshed) {
-          storedToken = refreshed.accessToken
-          setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+        // 2026-08-26 修复:先尝试从 cookie 直接恢复(非 httpOnly 场景)。
+        // 生产/真实浏览器 auth_token 为 httpOnly(JS 读不到)→ getAuthCookie() 返回 null
+        // → 走下方 refresh(行为不变,注释 P2-18 语义保持)。
+        // e2e/测试 storage 注入的是非 httpOnly cookie(Playwright storageState)→ 可直接恢复,
+        // 避免 bootstrap 每次页面加载消费单次轮转的 refresh_token —— 多 worker 共享同一
+        // storage 文件时,一个 context 消费后其余全部 401 → logout → "请先登录" 全量失败
+        // (2026-08-26 e2e 全量 244 失败中 ~80 个 aria-hidden/登录框的根因链)。
+        const cookieToken = getAuthCookie()
+        if (cookieToken) {
+          storedToken = cookieToken
+          setToken(cookieToken, useAuthStore.getState().refreshToken)
         } else {
-          // 刷新失败(401):清理幽灵登录态(2026-08-07 修复)
-          // 根因:persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后
-          // 标志位残留 → 前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败"。
-          // 此处必须 logout() 清空标志位,而非仅 setReady(true) 静默返回。
-          logout()
-          setReady(true)
-          return
+          const refreshed = await tryRefresh()
+          if (cancelled) return
+          if (refreshed) {
+            storedToken = refreshed.accessToken
+            setToken(refreshed.accessToken, refreshed.refreshToken ?? null)
+          } else {
+            // 刷新失败(401):清理幽灵登录态(2026-08-07 修复)
+            // 根因:persist 仅存 isAuthenticated 标志位,httpOnly cookie 失效后
+            // 标志位残留 → 前端误判已登录渲染任务列表 → 请求无凭据 401 → "加载失败"。
+            // 此处必须 logout() 清空标志位,而非仅 setReady(true) 静默返回。
+            logout()
+            setReady(true)
+            return
+          }
         }
       } else {
         // 内存已有 token(本会话登录过):补 setToken 保持状态一致。
