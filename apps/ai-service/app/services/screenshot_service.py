@@ -35,6 +35,13 @@ logger = logging.getLogger(__name__)
 _ALLOWED_SCHEMES = {"http", "https"}
 _ALLOWED_PORTS = {80, 443, 8080, 8443, 3000, 8801}
 
+# RFC 2544 基准测试段(198.18.0.0/15)。
+# 该段是 Clash/Surge 等代理的 fake-ip 默认范围:开启 fake-ip 的机器上,
+# 所有域名 DNS 解析都会返回 198.18.x.x。它不属于可被 SSRF 利用的内网
+# (不是回环/链路本地/私有 RFC1918),若按 is_private 拦截会导致
+# 截图/探测功能对全部公网 URL 误杀。故显式放行该段。
+_BENCHMARKING_NET = ipaddress.ip_network("198.18.0.0/15")
+
 
 def _is_private_ip(ip: str) -> bool:
     """检查 IP 是否为内网/保留地址(SSRF 黑名单)。
@@ -46,6 +53,9 @@ def _is_private_ip(ip: str) -> bool:
         addr = ipaddress.ip_address(ip)
     except ValueError:
         return True  # 无效 IP 视为危险(fail-closed)
+    # 198.18.0.0/15 为基准测试段(代理 fake-ip 常用),非 SSRF 可利用内网,放行
+    if isinstance(addr, ipaddress.IPv4Address) and addr in _BENCHMARKING_NET:
+        return False
     return (
         addr.is_private
         or addr.is_loopback
