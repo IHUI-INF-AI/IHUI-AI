@@ -14948,7 +14948,25 @@
     "totalEarned": "累計取得",
     "totalSpent": "累計消費",
     "user": "ユーザー",
-    "you": "マイ"
+    "you": "マイ",
+    "tasks": {
+      "title": "タスクセンター",
+      "subtitle": "タスクを完了してポイントを獲得",
+      "tab": {
+        "daily": "毎日",
+        "weekly": "毎週",
+        "newbie": "初心者"
+      },
+      "loading": "読み込み中...",
+      "loadFailed": "タスクの読み込みに失敗しました",
+      "retry": "再試行",
+      "empty": "タスクはありません",
+      "claimed": "受取済み",
+      "claim": "受け取る",
+      "notCompleted": "未完了",
+      "claimFailed": "受け取りに失敗しました"
+    },
+    "taskCenterLink": "タスクセンター"
   },
   "pricingPage": {
     "badge": "期間限定アーリーバード",
