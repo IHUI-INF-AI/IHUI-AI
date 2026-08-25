@@ -161,6 +161,8 @@ services:
       - API_URL=http://api:8802
       - AI_SERVICE_URL=http://ai-service:8803
       - NEXT_TELEMETRY_DISABLED=1
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
     ports:
       - '${WEB_PORT:-8801}:8801'
     depends_on:
@@ -200,6 +202,8 @@ services:
       - API_SERVICE_URL=http://api:8802
       - AI_CALLBACK_SECRET=${AI_CALLBACK_SECRET:?AI_CALLBACK_SECRET 未配置,请在 .env 设置 32 字符随机密钥}
       - LLM_PROXY_URL=${LLM_PROXY_URL:-}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
+      - CREDENTIALS_ENCRYPTION_KEY=${CREDENTIALS_ENCRYPTION_KEY:?CREDENTIALS_ENCRYPTION_KEY 未配置,请在 .env 设置 32 字符随机密钥}
     depends_on:
       db:
         condition: service_healthy
