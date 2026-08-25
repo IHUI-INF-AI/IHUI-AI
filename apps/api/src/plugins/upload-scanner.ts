@@ -173,14 +173,20 @@ export function scanFileBuffer(
   }
 
   if (requireMagic) {
-    const realMime = detectMimeFromBytes(buffer)
-    if (!realMime) {
-      return { ok: false, error: '无法识别文件类型，拒绝上传' }
-    }
-    // 扩展名与魔数类型必须严格匹配（按 MAGIC_SIGNATURES 的 exts 列表校验）
+    // 仅当扩展名存在已知魔数签名时强制一致性校验。
+    // 修复(2026-08-25):DEFAULT_ALLOWED_EXTS 含 txt/mp3/wav/ogg/m4a/webm/mov 等
+    // 无稳定文件头签名的类型,MAGIC_SIGNATURES 无法识别它们 —— 原实现会统一返回
+    // "无法识别文件类型",导致白名单内类型实际全部不可用。改为:签名存在的类型
+    // 仍严格匹配(防伪装 MIME),无签名类型放行(白名单 + 危险特征检测仍然生效)。
     const match = MAGIC_SIGNATURES.find(([, , exts]) => exts.includes(ext))
-    if (match && match[1] !== realMime) {
-      return { ok: false, error: `扩展名 ${ext} 与实际类型 ${realMime} 不一致` }
+    if (match) {
+      const realMime = detectMimeFromBytes(buffer)
+      if (!realMime) {
+        return { ok: false, error: '无法识别文件类型，拒绝上传' }
+      }
+      if (match[1] !== realMime) {
+        return { ok: false, error: `扩展名 ${ext} 与实际类型 ${realMime} 不一致` }
+      }
     }
   }
 
