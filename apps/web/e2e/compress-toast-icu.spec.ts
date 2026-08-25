@@ -54,10 +54,12 @@ async function waitForChatWithTrigger(page: import('@playwright/test').Page): Pr
   const trigger = page.locator('button[aria-label]').filter({
     hasText: '',
   })
-  const triggers = await trigger.evaluateAll((els) =>
-    els
-      .map((el) => el.getAttribute('aria-label') ?? '')
-      .filter((label) => TRIGGER_ARIA_LABEL_PATTERN.test(label)),
+  // evaluateAll 回调在浏览器上下文执行,闭包外部常量不可见(2026-08-26 修复:
+  // TRIGGER_ARIA_LABEL_PATTERN 原在回调内引用 → ReferenceError) → 作为第二参数传入。
+  const triggers = await trigger.evaluateAll(
+    (els, pattern) =>
+      els.map((el) => el.getAttribute('aria-label') ?? '').filter((label) => pattern.test(label)),
+    TRIGGER_ARIA_LABEL_PATTERN,
   )
   return triggers.length > 0
 }
