@@ -3,7 +3,7 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, and, asc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { aiModelConfig } from '@ihui/database'
@@ -117,7 +117,13 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
     const [row] = await db
       .update(aiModelConfig)
       .set(updates)
-      .where(eq(aiModelConfig.id, Number(id)))
+      .where(
+        and(
+          eq(aiModelConfig.id, Number(id)),
+          // 防越权：仅允许 owner 修改自己的自定义模型（内置模型 ownerUuid 为空，同样被挡）
+          eq(aiModelConfig.ownerUuid, request.userId!),
+        ),
+      )
       .returning()
     if (!row) return reply.status(404).send(error(404, '模型不存在'))
     return reply.send(
@@ -137,14 +143,17 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
     await authenticate(request)
     const id = parseIdParam(request, reply)
     if (id === null) return
+    // 防越权：查询与删除均限定 owner，他人模型与内置模型统一返回 404，不泄露存在性
     const [row] = await db
       .select({ id: aiModelConfig.id, isBuiltin: aiModelConfig.isBuiltin })
       .from(aiModelConfig)
-      .where(eq(aiModelConfig.id, Number(id)))
+      .where(and(eq(aiModelConfig.id, Number(id)), eq(aiModelConfig.ownerUuid, request.userId!)))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '模型不存在'))
     if (row.isBuiltin) return reply.status(403).send(error(403, '内置模型不可删除'))
-    await db.delete(aiModelConfig).where(eq(aiModelConfig.id, Number(id)))
+    await db
+      .delete(aiModelConfig)
+      .where(and(eq(aiModelConfig.id, Number(id)), eq(aiModelConfig.ownerUuid, request.userId!)))
     return reply.send(success({ success: true }))
   })
 }
