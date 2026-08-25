@@ -23,6 +23,7 @@ import {
   getAgents,
   getCourses,
   getLiveList,
+  getMyCreation,
   getShareFirstStatus,
   type Agent,
   type AgentCategoryItem,
@@ -477,10 +478,11 @@ export function HomeScreen() {
   const [showModelConfig, setShowModelConfig] = useState(false)
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
   // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
-  // 无独立素材 API(@ihui/api-client 暂无 getMaterials 封装),暂用空数据占位,接入后填 materialItems
+  // 数据源:getMyCreation('agent')(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
   const [showMaterialList, setShowMaterialList] = useState(false)
   const [activeMaterialCategory, setActiveMaterialCategory] = useState('all')
-  const [materialItems] = useState<MaterialItem[]>([])
+  const [materialItems, setMaterialItems] = useState<MaterialItem[]>([])
+  const [materialLoading, setMaterialLoading] = useState(false)
   // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
   // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
@@ -663,8 +665,7 @@ export function HomeScreen() {
   /** 打开/关闭模型参数配置弹窗(对齐 Uniapp showModelaConfig 开关) */
   const closeModelConfig = (): void => setShowModelConfig(false)
   /** 素材项点击(对齐 Uniapp handleMaterialItemClick:素材作为卡片插入输入区上方,可移除)
-   *  无素材详情 API(@ihui/api-client 暂无 getMaterials 封装),materialItems 接入前命中不到 item,
-   *  保留原"待接入"提示兜底;接入后点击即插入卡片并关闭素材弹窗 */
+   *  数据源 getMyCreation('agent'),点击即插入卡片并关闭素材弹窗 */
   const handleMaterialPress = useCallback(
     (id: string): void => {
       const item = materialItems.find((m) => m.id === id)
@@ -685,6 +686,31 @@ export function HomeScreen() {
   const handleRemoveMaterialCard = useCallback((uid: string): void => {
     setMaterialCards((prev) => prev.filter((c) => c.uid !== uid))
   }, [])
+
+  /** 打开素材列表并加载"我的创作"(对齐 Uniapp showMaterialList + loadMaterialContent;数据源 getMyCreation('agent')) */
+  const handleOpenMaterialList = useCallback((): void => {
+    setShowMaterialList(true)
+    setMaterialLoading(true)
+    void getMyCreation('agent', { page: 1, pageSize: 50 })
+      .then((res) => {
+        if (res.success) {
+          setMaterialItems(
+            res.data.list.map((it) => ({
+              id: it.id,
+              title: it.name || '文本内容',
+              type: 'text' as const,
+              text: it.description ?? '',
+              createdAt: it.createdAt,
+            })),
+          )
+        } else {
+          setMaterialItems([])
+        }
+      })
+      .catch(() => setMaterialItems([]))
+      .finally(() => setMaterialLoading(false))
+  }, [])
+
 
   // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
   const hideSharePoints = (): void => setShareValueVisible(false)
@@ -1277,10 +1303,10 @@ export function HomeScreen() {
           </View>
         ) : null}
       </View>
-      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true)
-       *  无独立素材 API,暂以空数据占位,接入后 items 由 getMaterials 填充 */}
+      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
+       *  点击加载 getMyCreation('agent') 我的创作数据) */}
       <TouchableOpacity
-        onPress={() => setShowMaterialList(true)}
+        onPress={handleOpenMaterialList}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel="我的创作"
@@ -1445,7 +1471,7 @@ export function HomeScreen() {
               onCategoryChange={setActiveMaterialCategory}
               items={materialItems}
               onPress={handleMaterialPress}
-              loading={false}
+              loading={materialLoading}
               hasMore={false}
             />
           </View>
