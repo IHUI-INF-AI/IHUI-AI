@@ -144,7 +144,7 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
         return reply.send(success({ id }))
       } catch (err) {
         server.log.error({ err }, '[admin/channel-quota] update failed')
-        return reply.send(error(500, '更新渠道配额失败'))
+        return reply.status(500).send(error(500, '更新渠道配额失败'))
       }
     },
   )
