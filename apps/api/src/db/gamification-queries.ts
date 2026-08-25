@@ -197,81 +197,56 @@ export interface AdjustPointsInput {
 /**
  * 调整积分：更新 user_points 余额/累计/经验（仅 earn 增长经验），并写入流水。
  * 使用 DB 事务包裹更新与流水写入，并在 earn 时同步更新等级，保证三者原子性。
+ * 可传入外部事务句柄 tx，与调用方（如签到）的其他写操作组成同一原子事务。
  */
+type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type { DbTx }
+
 export async function adjustPoints(
   data: AdjustPointsInput,
+  tx?: DbTx,
 ): Promise<{ points: UserPoints; transaction: PointTransaction }> {
   const amount = Math.abs(data.amount)
   if (amount === 0) throw new Error('调整积分数不能为 0')
 
   // 仅用于确保积分行存在;核心增减用原子 UPDATE,不依赖此快照计算新值(防 lost update)
+  // 注意:始终用全局 db(非事务连接)执行,避免并发首签时 INSERT 唯一冲突中止外层事务
   await ensureUserPoints(data.userId)
 
-  return db.transaction(async (tx) => {
-    if (data.type === 'earn') {
-      // earn 路径:原子 UPDATE 累加 points/totalEarned/experience,DB 级串行执行无 lost update
-      const updated = await tx
-        .update(userPoints)
-        .set({
-          points: sql`${userPoints.points} + ${amount}`,
-          totalEarned: sql`${userPoints.totalEarned} + ${amount}`,
-          experience: sql`${userPoints.experience} + ${amount}`,
-          updatedAt: new Date(),
-        })
-        .where(eq(userPoints.userId, data.userId))
-        .returning(userPointsFields)
-      const pointsRow = updated[0]
-      if (!pointsRow) throw new Error('用户积分记录不存在')
+  if (tx) return adjustPointsInTx(tx, data, amount)
+  return db.transaction((innerTx) => adjustPointsInTx(innerTx, data, amount))
+}
 
-      // 等级更新:用 RETURNING 拿到新 experience 再查 levels 表,避免内存计算脏读
-      const levelRow = await findLevelByExperience(pointsRow.experience)
-      let finalPoints = pointsRow
-      if (levelRow.level !== pointsRow.level) {
-        const reUpdated = await tx
-          .update(userPoints)
-          .set({ level: levelRow.level, updatedAt: new Date() })
-          .where(eq(userPoints.userId, data.userId))
-          .returning(userPointsFields)
-        finalPoints = reUpdated[0] ?? pointsRow
-      }
-
-      const transaction = await tx
-        .insert(pointTransactions)
-        .values({
-          userId: data.userId,
-          type: data.type,
-          source: data.source,
-          amount,
-          balanceAfter: finalPoints.points,
-          description: data.description,
-          referenceId: data.referenceId,
-        })
-        .returning(transactionFields)
-      const txRow = transaction[0]
-      if (!txRow) throw new Error('创建积分流水失败')
-
-      return { points: finalPoints, transaction: txRow }
-    }
-
-    // spend 路径:原子 UPDATE 扣减 + WHERE 余额检查(0 行影响 = 余额不足或用户不存在)
+async function adjustPointsInTx(
+  tx: DbTx,
+  data: AdjustPointsInput,
+  amount: number,
+): Promise<{ points: UserPoints; transaction: PointTransaction }> {
+  if (data.type === 'earn') {
+    // earn 路径:原子 UPDATE 累加 points/totalEarned/experience,DB 级串行执行无 lost update
     const updated = await tx
       .update(userPoints)
       .set({
-        points: sql`${userPoints.points} - ${amount}`,
-        totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
+        points: sql`${userPoints.points} + ${amount}`,
+        totalEarned: sql`${userPoints.totalEarned} + ${amount}`,
+        experience: sql`${userPoints.experience} + ${amount}`,
         updatedAt: new Date(),
       })
-      .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+      .where(eq(userPoints.userId, data.userId))
       .returning(userPointsFields)
     const pointsRow = updated[0]
-    if (!pointsRow) {
-      const [existing] = await tx
-        .select(userPointsFields)
-        .from(userPoints)
+    if (!pointsRow) throw new Error('用户积分记录不存在')
+
+    // 等级更新:用 RETURNING 拿到新 experience 再查 levels 表,避免内存计算脏读
+    const levelRow = await findLevelByExperience(pointsRow.experience)
+    let finalPoints = pointsRow
+    if (levelRow.level !== pointsRow.level) {
+      const reUpdated = await tx
+        .update(userPoints)
+        .set({ level: levelRow.level, updatedAt: new Date() })
         .where(eq(userPoints.userId, data.userId))
-        .limit(1)
-      if (!existing) throw new Error('用户积分记录不存在')
-      throw new Error('积分余额不足')
+        .returning(userPointsFields)
+      finalPoints = reUpdated[0] ?? pointsRow
     }
 
     const transaction = await tx
@@ -280,8 +255,8 @@ export async function adjustPoints(
         userId: data.userId,
         type: data.type,
         source: data.source,
-        amount: -amount,
-        balanceAfter: pointsRow.points,
+        amount,
+        balanceAfter: finalPoints.points,
         description: data.description,
         referenceId: data.referenceId,
       })
@@ -289,8 +264,46 @@ export async function adjustPoints(
     const txRow = transaction[0]
     if (!txRow) throw new Error('创建积分流水失败')
 
-    return { points: pointsRow, transaction: txRow }
-  })
+    return { points: finalPoints, transaction: txRow }
+  }
+
+  // spend 路径:原子 UPDATE 扣减 + WHERE 余额检查(0 行影响 = 余额不足或用户不存在)
+  const updated = await tx
+    .update(userPoints)
+    .set({
+      points: sql`${userPoints.points} - ${amount}`,
+      totalSpent: sql`${userPoints.totalSpent} + ${amount}`,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(userPoints.userId, data.userId), sql`${userPoints.points} >= ${amount}`))
+    .returning(userPointsFields)
+  const pointsRow = updated[0]
+  if (!pointsRow) {
+    const [existing] = await tx
+      .select(userPointsFields)
+      .from(userPoints)
+      .where(eq(userPoints.userId, data.userId))
+      .limit(1)
+    if (!existing) throw new Error('用户积分记录不存在')
+    throw new Error('积分余额不足')
+  }
+
+  const transaction = await tx
+    .insert(pointTransactions)
+    .values({
+      userId: data.userId,
+      type: data.type,
+      source: data.source,
+      amount: -amount,
+      balanceAfter: pointsRow.points,
+      description: data.description,
+      referenceId: data.referenceId,
+    })
+    .returning(transactionFields)
+  const txRow = transaction[0]
+  if (!txRow) throw new Error('创建积分流水失败')
+
+  return { points: pointsRow, transaction: txRow }
 }
 
 export interface FindTransactionsInput {
@@ -356,8 +369,37 @@ export interface CreateSignInInput {
   rewardPoints: number
 }
 
-export async function createSignInRecord(data: CreateSignInInput): Promise<SignInRecord> {
-  const rows = await db
+/**
+ * 签到 + 发积分原子事务：签到记录与积分发放在同一 DB 事务内完成。
+ * 发积分失败则签到一并回滚，避免"已签到但永久丢积分"的状态不一致。
+ * 并发双击时 (userId, signInDate) 唯一约束兜底，抛出 unique violation。
+ */
+export async function signInWithPoints(
+  data: CreateSignInInput,
+  rewardDescription: string,
+): Promise<{ record: SignInRecord; points: UserPoints; transaction: PointTransaction }> {
+  return db.transaction(async (tx) => {
+    const record = await createSignInRecord(data, tx)
+    const { points, transaction } = await adjustPoints(
+      {
+        userId: data.userId,
+        type: 'earn',
+        amount: data.rewardPoints,
+        source: 'signin',
+        description: rewardDescription,
+        referenceId: record.id,
+      },
+      tx,
+    )
+    return { record, points, transaction }
+  })
+}
+
+export async function createSignInRecord(
+  data: CreateSignInInput,
+  tx?: DbTx,
+): Promise<SignInRecord> {
+  const rows = await (tx ?? db)
     .insert(signInRecords)
     .values({
       userId: data.userId,
