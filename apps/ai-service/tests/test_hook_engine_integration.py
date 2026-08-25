@@ -211,10 +211,13 @@ async def test_error_emitted_on_exception():
 
     assert result.success is False
     assert result.stop_reason == "error"
+    # 源码 emit 契约(2026-08-12 演进):error 事件含 4 键,error_type 由
+    # _classify_error(ValueError) 分类为 "unknown"(无 http/timeout 关键字)。
     mock_emit.assert_any_call("error", {
         "session_id": loop._session_id or "",
         "iteration": 1,
         "error": "LLM API 调用失败",
+        "error_type": "unknown",
     })
     # 异常时也应有 session.end
     assert any(c[0][0] == "session.end" for c in mock_emit.call_args_list)
