@@ -29,6 +29,15 @@ import type { MainStackParamList } from '../navigation/tab-utils'
 
 const PAGE_SIZE = 12
 
+/** 分类 UI id → 后端分类 id 映射(对齐 Uniapp learn.vue categories:
+ *  抖音运营=1/私域运营=2/内容创作=3/数据分析=4;CategoryDetail 期望数字 id,未命中回退原 id) */
+const CATEGORY_ID_MAP: Readonly<Record<string, string>> = {
+  douyin: '1',
+  private: '2',
+  content: '3',
+  data: '4',
+}
+
 type NavigationProp = NativeStackNavigationProp<MainStackParamList, 'CourseMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
@@ -84,12 +93,13 @@ export function CourseScreen() {
   const rootNav = navigation.getParent<RootNav>()
 
   const [courses, setCourses] = useState<Course[]>([])
+  // 热门课程独立数据源:首次加载(无关键词、第一页)时缓存,不随搜索/翻页变化(对齐 learn.vue 热门区)
+  const [initialCourses, setInitialCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [reloadTick] = useState(0)
   const [progress, setProgress] = useState<ProgressOverview | null>(null)
   const [paths, setPaths] = useState<LearnCourse[]>([])
 
@@ -111,6 +121,10 @@ export function CourseScreen() {
       if (coursesRes.success) {
         setCourses(coursesRes.data.list)
         setTotal(coursesRes.data.total)
+        // 热门课程独立数据源:仅首次加载(无关键词、第一页)时缓存,避免搜索/翻页污染热门区
+        if (page === 1 && !keyword.trim()) {
+          setInitialCourses(coursesRes.data.list)
+        }
       } else {
         setError(coursesRes.error || t('common.loadFailed'))
       }
@@ -128,16 +142,19 @@ export function CourseScreen() {
     return () => {
       cancelled = true
     }
-  }, [page, keyword, reloadTick, t])
+  }, [page, keyword, t])
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const openCourse = (id: string) => rootNav?.navigate('CourseDetail', { id })
   /** "更多"→ 课程筛选页(对齐 Uniapp learn.vue more-link navigateTo) */
   const openBrowse = () => rootNav?.navigate('CourseFilter')
-  /** 分类点击 → 分类详情页(对齐 Uniapp learn.vue navigateTo(item.path) 带 id) */
+  /** 分类点击 → 分类详情页(对齐 Uniapp learn.vue navigateTo(item.path) 带 id;id 经 CATEGORY_ID_MAP 映射为后端数字 id) */
   const openCategory = (cat: LearnCategory) =>
-    rootNav?.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
+    rootNav?.navigate('CategoryDetail', {
+      categoryId: CATEGORY_ID_MAP[cat.id] ?? cat.id,
+      title: cat.name,
+    })
 
   /** 底部 Tab 切换(课程非主 Tab,TabBar 常驻供切换;对齐原内容页底部导航) */
   const handleTabChange = (key: TabBarKey): void => {
@@ -166,7 +183,7 @@ export function CourseScreen() {
         t={t}
         progress={progress}
         paths={toCarouselItems(paths)}
-        popularItems={toPopularCourses(courses)}
+        popularItems={toPopularCourses(initialCourses)}
         courses={toCourseListItems(courses)}
         loading={loading}
         error={error}
