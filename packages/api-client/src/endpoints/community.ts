@@ -293,3 +293,42 @@ export async function createComment(input: {
     }),
   })
 }
+
+// =============================================================================
+// 社区名片(对齐后端 /api/business-card + /remote/business-card/upload)
+// =============================================================================
+
+export interface BusinessCardRecord {
+  id: string
+  imageUrl: string | null
+  name: string | null
+  company: string | null
+  title: string | null
+  phone: string | null
+  email: string | null
+  createdAt: string
+}
+
+/** 名片列表(我的名片,分页) */
+export async function getBusinessCardList(
+  query: { page?: number; pageSize?: number } = {},
+): Promise<ApiResult<PageData<BusinessCardRecord>>> {
+  return fetchApi<PageData<BusinessCardRecord>>(
+    `/api/business-card/list${buildQs({ page: query.page ?? 1, pageSize: query.pageSize ?? 100 })}`,
+  )
+}
+
+/** 上传名片(对齐原 uploadBusinessCard → POST /remote/business-card/upload;imageUrl 为已上传图片 URL) */
+export async function uploadBusinessCard(input: {
+  imageUrl: string
+  name?: string
+  company?: string
+  title?: string
+  phone?: string
+  email?: string
+}): Promise<ApiResult<BusinessCardRecord>> {
+  return fetchApi<BusinessCardRecord>('/remote/business-card/upload', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
