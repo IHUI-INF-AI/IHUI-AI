@@ -445,6 +445,8 @@ class TestStore:
             "metadata": {},
         }
         mem._cache["u1"] = [existing]
+        # _find_in_cache 走 _cache_index 索引(O(1)),必须同步填充,否则查重落空走新建
+        mem._cache_index["u1"] = {c_hash: existing}
         # mock DB(用于 _bump_access_count_db)
         mock_conn = MagicMock()
         mock_conn.execute = AsyncMock(return_value="UPDATE 1")

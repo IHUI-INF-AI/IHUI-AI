@@ -468,6 +468,8 @@ async def test_take_screenshot_async_wrapper_returns_sync_result(
     def _fake_sync(url, width, height, full_page, wait_until, timeout):
         return expected
 
+    # SSRF 校验做真实 DNS 解析,依赖环境(fake-ip 代理/DNS 可达性),mock 掉以测 wrapper 透传契约
+    monkeypatch.setattr(svc, "_validate_url_ssrf", lambda url: (True, ""))
     monkeypatch.setattr(svc, "_take_screenshot_sync", _fake_sync)
 
     result = await svc.take_screenshot(
@@ -495,6 +497,7 @@ async def test_probe_can_embed_async_wrapper_returns_sync_result(
     def _fake_probe_sync(url):
         return expected
 
+    monkeypatch.setattr(svc, "_validate_url_ssrf", lambda url: (True, ""))
     monkeypatch.setattr(svc, "_probe_can_embed_sync", _fake_probe_sync)
 
     result = await svc.probe_can_embed("https://x.example.com")
@@ -512,6 +515,7 @@ async def test_take_screenshot_propagates_sync_exception(
     def _fake_sync(url, width, height, full_page, wait_until, timeout):
         raise RuntimeError("playwright not installed")
 
+    monkeypatch.setattr(svc, "_validate_url_ssrf", lambda url: (True, ""))
     monkeypatch.setattr(svc, "_take_screenshot_sync", _fake_sync)
 
     with pytest.raises(RuntimeError, match="playwright not installed"):
