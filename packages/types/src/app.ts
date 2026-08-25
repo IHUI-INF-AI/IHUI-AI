@@ -4398,6 +4398,8 @@ export interface ChatScreenProps {
   containerStyle?: object
   /** 消息列表样式(wrapper 用于覆盖默认 flex:1) */
   flatListStyle?: object
+  /** 消息列表 ref(wrapper 可用于加载历史后滚动到底部等平台特定能力) */
+  onListRef?: (ref: unknown) => void
 }
 
 /** 开发者套餐类�?*/
