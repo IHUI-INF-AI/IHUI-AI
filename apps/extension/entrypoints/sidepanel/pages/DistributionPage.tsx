@@ -56,7 +56,7 @@ export default function DistributionPage() {
       </Card>
       <div className="grid grid-cols-2 gap-2">
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3 min-[640px]:p-3 text-center">
             <div className="text-xs text-muted-foreground">
               {t('page.distribution.totalCommission')}
             </div>
@@ -66,7 +66,7 @@ export default function DistributionPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3 min-[640px]:p-3 text-center">
             <div className="text-xs text-muted-foreground">{t('page.distribution.available')}</div>
             <div className="text-sm font-semibold tabular-nums mt-1">
               {loading ? '—' : fmtMoney(overview?.availableCommission)}
@@ -74,7 +74,7 @@ export default function DistributionPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3 min-[640px]:p-3 text-center">
             <div className="text-xs text-muted-foreground">{t('page.distribution.invited')}</div>
             <div className="text-sm font-semibold tabular-nums mt-1">
               {loading ? '—' : (overview?.invitedCount ?? '—')}
@@ -82,7 +82,7 @@ export default function DistributionPage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-3 text-center">
+          <CardContent className="p-3 min-[640px]:p-3 text-center">
             <div className="text-xs text-muted-foreground">{t('page.distribution.rank')}</div>
             <div className="text-sm font-semibold tabular-nums mt-1">
               {loading ? '—' : (overview?.rank ?? '—')}
