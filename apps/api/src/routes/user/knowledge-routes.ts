@@ -86,7 +86,7 @@ const knowledgeRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
-    const knowledge = await updateKnowledge(id, body.data)
+    const knowledge = await updateKnowledge(id, body.data, request.userId)
     if (!knowledge) return reply.status(404).send(error(404, '知识库不存在'))
     return reply.send(success({ success: true, knowledge }))
   })
@@ -94,7 +94,8 @@ const knowledgeRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/knowledge/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    await deleteKnowledge(id)
+    const deleted = await deleteKnowledge(id, request.userId)
+    if (!deleted) return reply.status(404).send(error(404, '知识库不存在'))
     return reply.send(success({ success: true }))
   })
 }

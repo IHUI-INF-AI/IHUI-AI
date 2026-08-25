@@ -64,9 +64,13 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
   })
 
   // 取消报名
-  fastify.delete('/exam/signups/:id', { preHandler: authenticate }, async (request) => {
+  fastify.delete('/exam/signups/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
-    await db.delete(examSignups).where(eq(examSignups.id, id))
+    const [deleted] = await db
+      .delete(examSignups)
+      .where(and(eq(examSignups.id, id), eq(examSignups.userId, request.userId!)))
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '报名记录不存在'))
     return { deleted: true }
   })
 
@@ -114,9 +118,17 @@ export const legacyExamRoutes: FastifyPluginAsync = async (fastify: FastifyInsta
   })
 
   // ========== D16: 错题删除 ==========
-  fastify.delete('/exam/wrong-questions/:id', { preHandler: authenticate }, async (request) => {
-    const { id } = idParam.parse(request.params)
-    await db.delete(examWrongQuestion).where(eq(examWrongQuestion.id, id))
-    return { deleted: true }
-  })
+  fastify.delete(
+    '/exam/wrong-questions/:id',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const { id } = idParam.parse(request.params)
+      const [deleted] = await db
+        .delete(examWrongQuestion)
+        .where(and(eq(examWrongQuestion.id, id), eq(examWrongQuestion.userId, request.userId!)))
+        .returning()
+      if (!deleted) return reply.status(404).send(error(404, '错题记录不存在'))
+      return { deleted: true }
+    },
+  )
 }
