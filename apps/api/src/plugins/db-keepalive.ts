@@ -14,6 +14,13 @@ const POOL_SAMPLE_INTERVAL_MS = 5_000
 // 连接池泄漏扫描间隔（毫秒）
 const LEAK_SCAN_INTERVAL_MS = 60_000
 
+// 测试环境(vitest)不启动生产定时器:单元测试中 db/dbClient 常被 vi.mock 只替换
+// 部分导出(多数测试只给 db),定时器触发访问不完整 mock 会抛
+// "No 'dbClient' export is defined on the mock" 并打噪音日志
+// (pool metrics sample failed / database keepalive failed),且无谓增加测试负载。
+// vitest 默认置 NODE_ENV=test 并恒置 VITEST=true,双保险判定。
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
 /**
  * 数据库连接保活插件。
  * 每 30 秒执行一次 SELECT 1,检测连接可用性。
@@ -33,85 +40,91 @@ const dbKeepalivePlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
   let isAlive = true
   let consecutiveFailures = 0
 
-  const timer = setInterval(async () => {
-    const startMs = Date.now()
-    try {
-      await db.execute(sql`SELECT 1`)
-      // 上报保活 SQL 查询耗时（fire-and-forget）
-      try {
-        const durationSec = (Date.now() - startMs) / 1000
-        server.recordSqlQuery('system', 'SELECT', durationSec)
-      } catch {
-        /* 指标采集失败不影响业务 */
-      }
-      if (!isAlive || consecutiveFailures > 0) {
-        server.log.info('database connection restored')
-      }
-      isAlive = true
-      consecutiveFailures = 0
-    } catch (err) {
-      // 上报保活 SQL 查询失败耗时
-      try {
-        const durationSec = (Date.now() - startMs) / 1000
-        server.recordSqlQuery('system', 'SELECT', durationSec)
-      } catch {
-        /* 指标采集失败不影响业务 */
-      }
-      consecutiveFailures++
-      isAlive = false
-      server.log.error({ err, consecutiveFailures }, 'database keepalive failed')
-    }
-  }, KEEPALIVE_INTERVAL_MS)
+  const timer = isTestEnv
+    ? undefined
+    : setInterval(async () => {
+        const startMs = Date.now()
+        try {
+          await db.execute(sql`SELECT 1`)
+          // 上报保活 SQL 查询耗时（fire-and-forget）
+          try {
+            const durationSec = (Date.now() - startMs) / 1000
+            server.recordSqlQuery('system', 'SELECT', durationSec)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+          if (!isAlive || consecutiveFailures > 0) {
+            server.log.info('database connection restored')
+          }
+          isAlive = true
+          consecutiveFailures = 0
+        } catch (err) {
+          // 上报保活 SQL 查询失败耗时
+          try {
+            const durationSec = (Date.now() - startMs) / 1000
+            server.recordSqlQuery('system', 'SELECT', durationSec)
+          } catch {
+            /* 指标采集失败不影响业务 */
+          }
+          consecutiveFailures++
+          isAlive = false
+          server.log.error({ err, consecutiveFailures }, 'database keepalive failed')
+        }
+      }, KEEPALIVE_INTERVAL_MS)
 
-  timer.unref()
+  timer?.unref()
 
   // 定时采样 postgres.js 连接池状态并上报 Gauge 指标
   // postgres.js 的 options.max 为连接池最大容量；内部连接状态通过尝试访问内部属性获取
-  const poolSampler = setInterval(() => {
-    try {
-      const poolSize = dbClient.options?.max ?? 0
-      let inUse = 0
-      let checkedOut = 0
-      // postgres.js 不公开 pool 内部状态，尝试读取内部属性（兼容不同版本）
-      const internal = dbClient as unknown as {
-        state?: { connections?: unknown[]; idle?: unknown[]; active?: unknown[] }
-      }
-      if (internal.state) {
-        const allConns = internal.state.connections ?? []
-        const idleConns = internal.state.idle ?? []
-        const activeConns = internal.state.active ?? []
-        inUse = activeConns.length
-        checkedOut = allConns.length - idleConns.length
-      }
-      server.setDbPoolMetrics({
-        size: poolSize,
-        inUse,
-        checkedOut,
-        overflow: 0,
-      })
-    } catch (err) {
-      server.log.warn({ err }, 'pool metrics sample failed')
-    }
-  }, POOL_SAMPLE_INTERVAL_MS)
+  const poolSampler = isTestEnv
+    ? undefined
+    : setInterval(() => {
+        try {
+          const poolSize = dbClient.options?.max ?? 0
+          let inUse = 0
+          let checkedOut = 0
+          // postgres.js 不公开 pool 内部状态，尝试读取内部属性（兼容不同版本）
+          const internal = dbClient as unknown as {
+            state?: { connections?: unknown[]; idle?: unknown[]; active?: unknown[] }
+          }
+          if (internal.state) {
+            const allConns = internal.state.connections ?? []
+            const idleConns = internal.state.idle ?? []
+            const activeConns = internal.state.active ?? []
+            inUse = activeConns.length
+            checkedOut = allConns.length - idleConns.length
+          }
+          server.setDbPoolMetrics({
+            size: poolSize,
+            inUse,
+            checkedOut,
+            overflow: 0,
+          })
+        } catch (err) {
+          server.log.warn({ err }, 'pool metrics sample failed')
+        }
+      }, POOL_SAMPLE_INTERVAL_MS)
 
-  poolSampler.unref()
+  poolSampler?.unref()
 
   // 定时扫描连接池泄漏（超时未归还的连接）
-  const leakScanner = setInterval(() => {
-    try {
-      const leaks = poolLeakDetector.scanLeaks()
-      if (leaks.length > 0) {
-        server.log.warn(
-          { leakCount: leaks.length, stats: poolLeakDetector.stats() },
-          'pool leak detected',
-        )
-      }
-    } catch (err) {
-      server.log.warn({ err }, 'pool leak scan failed')
-    }
-  }, LEAK_SCAN_INTERVAL_MS)
+  const leakScanner = isTestEnv
+    ? undefined
+    : setInterval(() => {
+        try {
+          const leaks = poolLeakDetector.scanLeaks()
+          if (leaks.length > 0) {
+            server.log.warn(
+              { leakCount: leaks.length, stats: poolLeakDetector.stats() },
+              'pool leak detected',
+            )
+          }
+        } catch (err) {
+          server.log.warn({ err }, 'pool leak scan failed')
+        }
+      }, LEAK_SCAN_INTERVAL_MS)
 
-  leakScanner.unref()
+  leakScanner?.unref()
 
   server.decorate('dbKeepalive', {
     get isAlive() {
@@ -131,9 +144,9 @@ const dbKeepalivePlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
   })
 
   server.addHook('onClose', async () => {
-    clearInterval(timer)
-    clearInterval(poolSampler)
-    clearInterval(leakScanner)
+    if (timer) clearInterval(timer)
+    if (poolSampler) clearInterval(poolSampler)
+    if (leakScanner) clearInterval(leakScanner)
   })
 }
 
