@@ -74,7 +74,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
         ),
       )
     } catch (e) {
-      return reply.status(400).send(error(400, toUserFriendlyMessage(e) || '创建失败'))
+      return reply.status(500).send(error(500, toUserFriendlyMessage(e) || '创建失败'))
     }
   })
 
@@ -103,7 +103,7 @@ export const adminGrayReleaseRoutes: FastifyPluginAsync = async (server) => {
         }),
       )
     } catch (e) {
-      return reply.status(400).send(error(400, toUserFriendlyMessage(e) || '操作失败'))
+      return reply.status(500).send(error(500, toUserFriendlyMessage(e) || '操作失败'))
     }
   })
 }

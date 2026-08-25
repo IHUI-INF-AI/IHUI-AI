@@ -1117,7 +1117,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           '使用 refreshToken 轮换签发新的 accessToken / refreshToken(支持 body 或 httpOnly cookie)',
         tags: ['auth'],
         body: {
-          type: 'object',
+          // 2026-08-26 修复:type 允许 ['object','null'] —— 注释声称"cookie 模式 body 可缺省",
+          // 但 Fastify schema 校验对 undefined body 直接 400(JSON Schema type:'object' 不匹配 undefined),
+          // 与 handler 的 cookie-only 设计矛盾(注释 2026-08-14 声明 body 可缺省但实际被 schema 拦截)。
+          // 修复后无 body 的 POST 才真正走到 handler 走 cookie 路径。
+          type: ['object', 'null'],
           // 2026-08-14 修复:refreshToken 不再 required —— httpOnly cookie 化后,前端 JS
           // 读不到 refresh_token,body 可缺省(handler 兼容 cookie 读取)。
           // 之前 required: ['refreshToken'] 让 schema 校验拒绝没 body 的请求 → 400
