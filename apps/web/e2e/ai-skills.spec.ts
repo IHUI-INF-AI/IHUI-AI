@@ -37,6 +37,9 @@ test.describe('AI Skills 独立页', () => {
     await expect(heading).not.toBeEmpty()
 
     // 分类 Tab 可见
+    // 2026-08-26 修复:原 .or() 链 + isVisible 在多匹配时行为不可靠
+    // (Locator.or() 多元素时 .isVisible() 只看第一个,容易误判 false)。
+    // 改用 count() 检查元素存在 + 单独 isVisible 检查。
     const tabAll = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて/i })
     const tabAvailable = page
       .getByRole('button')
@@ -44,11 +47,22 @@ test.describe('AI Skills 独立页', () => {
     const tabComing = page
       .getByRole('button')
       .filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
-    const hasAnyTab = await tabAll
-      .or(tabAvailable.or(tabComing))
+    const tabAllVisible = await tabAll
+      .first()
       .isVisible({ timeout: 5000 })
       .catch(() => false)
-    expect(hasAnyTab).toBeTruthy()
+    const tabAvailableVisible = await tabAvailable
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
+    const tabComingVisible = await tabComing
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
+    expect(
+      tabAllVisible || tabAvailableVisible || tabComingVisible,
+      '至少一个 Tab 按钮应可见',
+    ).toBeTruthy()
 
     // 搜索框可见
     const searchInput = page.getByPlaceholder(/搜索|Search|검색|検索/i)

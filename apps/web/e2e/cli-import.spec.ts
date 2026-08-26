@@ -82,10 +82,16 @@ test.describe('CLI 配置导入', () => {
     await page.goto('/settings/import')
     await page.waitForLoadState('domcontentloaded')
     const loggedOutText = await page.getByText('请先登录').count()
-    const dialogState = await page
-      .getByTestId('login-dialog')
-      .getAttribute('data-state')
-      .catch(() => null)
+    // 2026-08-26 修复:getByTestId().getAttribute() 在 strict mode 下会先等待元素出现,
+    // login-dialog 不渲染(未登录态显示"请先登录"而非弹窗)时会等满测试预算 → 30s 超时
+    // (catch 兜底无效,因为等待发生在 catch 之前)。改为先 count() > 0 判断再取属性。
+    let dialogState: string | null = null
+    if ((await page.getByTestId('login-dialog').count()) > 0) {
+      dialogState = await page
+        .getByTestId('login-dialog')
+        .getAttribute('data-state')
+        .catch(() => null)
+    }
     expect(loggedOutText > 0 || dialogState === 'open', '应显示未登录登录墙').toBeTruthy()
   })
 
@@ -129,11 +135,14 @@ test.describe('CLI 配置导入', () => {
           .filter({ hasText: /CLI|配置导入/ })
           .first(),
       ).toBeVisible({ timeout: 10000 })
-      // 6 个来源按钮(2026-08-26 修复:真实后端可能多返回来源/按钮文本含多个关键词,
-      // 精确 =6 脆弱 → 改为 ≥6)
-      const sourceCount = await authenticatedPage
-        .getByRole('button', { name: /cc-switch|codex\+\+|Claude|Codex|Gemini|Hermes/ })
-        .count()
+      // 来源按钮(2026-08-26 修复:真实后端可能多返回来源/按钮文本含多个关键词,
+      // 精确 =6 脆弱 → 改为 ≥6;count() 是即时查询不等待 → 先等首个按钮可见
+      // 再 count(sources API 异步加载,dev 首屏编译慢时立即 count 得 0))
+      const sourceBtns = authenticatedPage.getByRole('button', {
+        name: /cc-switch|codex\+\+|Claude|Codex|Gemini|Hermes/,
+      })
+      await expect(sourceBtns.first()).toBeVisible({ timeout: 15000 })
+      const sourceCount = await sourceBtns.count()
       expect(sourceCount, `来源按钮应 ≥6,实际 ${sourceCount}`).toBeGreaterThanOrEqual(6)
     })
 
@@ -154,8 +163,10 @@ test.describe('CLI 配置导入', () => {
       // 选中按钮应有 border-primary 类
       const selected = authenticatedPage.getByRole('button', { name: /cc-switch/ }).first()
       await expect(selected).toHaveClass(/border-primary/)
-      // 选中后显示文件上传区域
-      await expect(authenticatedPage.getByText(/上传文件|选择文件|拖拽/)).toBeVisible({ timeout: 5000 })
+      // 选中后显示文件上传区域(strict mode:多个元素含"上传文件",取 first)
+      await expect(
+        authenticatedPage.getByText(/上传文件|选择文件|拖拽/).first(),
+      ).toBeVisible({ timeout: 5000 })
     })
 
     test('/settings/llm 页面有导入 CLI 配置按钮', async ({ authenticatedPage }) => {
@@ -201,8 +212,13 @@ test.describe('CLI 配置导入', () => {
         .getByRole('button', { name: /Claude Code/ })
         .first()
         .click()
-      // 上传一个 mock 文件
-      const fileInput = authenticatedPage.locator('input[type="file"]')
+      // 上传一个 mock 文件(2026-08-26 修复:页面存在 2 个 file input —— ①聊天工具栏
+      // ai-input-toolbar 的 1 个(hidden);②Step2 上传区 label 内的 1 个(hidden,
+      // 选来源后条件渲染)。strict mode violation + :visible 匹配不到(hidden)→
+      // 用 label 限定唯一上传区 file input)
+      const fileInput = authenticatedPage.locator(
+        'label:has(> input[type="file"]) input[type="file"]',
+      )
       await fileInput.setInputFiles({
         name: 'settings.json',
         mimeType: 'application/json',
@@ -210,8 +226,10 @@ test.describe('CLI 配置导入', () => {
       })
       // 点击解析按钮
       await authenticatedPage.getByRole('button', { name: /解析/ }).click()
-      // 等 preview 显示
-      await expect(authenticatedPage.getByText(/解析预览|解析成功/)).toBeVisible({ timeout: 5000 })
+      // 等 preview 显示(2026-08-26 修复:解析结果区标题+描述多处含关键词,strict violation → first)
+      await expect(authenticatedPage.getByText(/解析预览|解析成功/).first()).toBeVisible({
+        timeout: 5000,
+      })
       // 提交按钮可见
       await expect(authenticatedPage.getByRole('button', { name: /确认导入|导入/ })).toBeVisible({
         timeout: 5000,
