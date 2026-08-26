@@ -10,7 +10,6 @@ export type { WithdrawScreenProps }
  * 提现余额可选注入 props(接入点):
  * 真实来源为 @ihui/api-client wallet.getBalance()(GET /api/wallet/balance)的 balance 字段,
  * 由 wrapper 拉取后通过 balance prop 传入。未注入时兜底展示 0.00。
- * TODO(待余额接口):当前 wrapper 未拉取余额,接入 getBalance 后移除兜底。
  */
 export interface WithdrawBalanceOptions {
   /** 可提现余额(元),由 wrapper 经 wallet.getBalance() 注入 */
@@ -123,8 +122,8 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#eaeaea',
-      backgroundColor: '#f5f5f5',
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.muted,
       fontSize: 16,
       color: tk.text.primary,
     },
