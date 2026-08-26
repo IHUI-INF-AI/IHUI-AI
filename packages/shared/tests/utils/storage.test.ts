@@ -11,7 +11,7 @@
  *
  * 依赖:vitest(本包已声明,pnpm --filter @ihui/shared test 可直接跑)
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   createJsonStorage,
   createStringStorage,
@@ -19,6 +19,7 @@ import {
   createFlagStorage,
   type JsonStorage,
 } from '../../src/utils/storage'
+import { logger } from '../../src/utils/logger'
 import {
   createSyncTransport,
   createAsyncTransport,
@@ -322,5 +323,135 @@ describe('storage 工厂错误边界', () => {
     }
     const s = createJsonStorage<{ x: number }>(transport, 'k')
     expect(await s.get()).toBeNull()
+  })
+})
+
+describe('storage 静默 catch 的日志可观测性', () => {
+  /** 三个方法全部抛错的 transport(模拟配额满/隐私模式/storage 不可用) */
+  function makeBrokenTransport(): PersistTransport {
+    const boom = (): never => {
+      throw new Error('storage unavailable')
+    }
+    return {
+      getItem: boom,
+      setItem: boom,
+      removeItem: boom,
+    }
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('createJsonStorage.set 写入失败:不抛错且记录 warn(含操作名 + key + 错误消息)', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const s = createJsonStorage<{ x: number }>(makeBrokenTransport(), 'cred-key')
+    await expect(s.set({ x: 1 })).resolves.toBeUndefined()
+    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warnSpy).toHaveBeenCalledWith(
+      'storage',
+      'json.set',
+      expect.stringContaining('key=cred-key'),
+    )
+    expect(warnSpy).toHaveBeenCalledWith(
+      'storage',
+      'json.set',
+      expect.stringContaining('storage unavailable'),
+    )
+  })
+
+  it('createJsonStorage.get 读取失败:返回 null 且记录 debug(不记 warn)', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const debugSpy = vi.spyOn(logger, 'debug')
+    const s = createJsonStorage<{ x: number }>(makeBrokenTransport(), 'cred-key')
+    expect(await s.get()).toBeNull()
+    expect(debugSpy).toHaveBeenCalledWith(
+      'storage',
+      'json.get',
+      expect.stringContaining('key=cred-key'),
+    )
+    expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('createJsonStorage.get 损坏 JSON:返回 null 且记录 debug(解析失败)', async () => {
+    const debugSpy = vi.spyOn(logger, 'debug')
+    const { transport, store } = makeMockTransport()
+    store.set('k', '{not-valid-json')
+    const s = createJsonStorage<{ x: number }>(transport, 'k')
+    expect(await s.get()).toBeNull()
+    expect(debugSpy).toHaveBeenCalledWith('storage', 'json.get', expect.stringContaining('key=k'))
+  })
+
+  it('createJsonStorage.set 循环引用序列化失败:记录 warn 且不抛错', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const { transport } = makeMockTransport()
+    const s = createJsonStorage<Record<string, unknown>>(transport, 'k')
+    const circular: Record<string, unknown> = {}
+    circular.self = circular
+    await expect(s.set(circular)).resolves.toBeUndefined()
+    expect(warnSpy).toHaveBeenCalledWith('storage', 'json.set', expect.stringContaining('key=k'))
+  })
+
+  it('createHistoryStorage.push 写入失败:返回新列表且记录 warn', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const h = createHistoryStorage<string>({
+      transport: makeBrokenTransport(),
+      key: 'h',
+      maxItems: 5,
+    })
+    const list = await h.push('a')
+    expect(list).toEqual(['a']) // 行为不变:写入失败仍返回内存中的新列表
+    expect(warnSpy).toHaveBeenCalledWith(
+      'storage',
+      'history.write',
+      expect.stringContaining('key=h'),
+    )
+  })
+
+  it('createStringStorage.set 写入失败:记录 warn;get 读取失败记录 debug', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const debugSpy = vi.spyOn(logger, 'debug')
+    const s = createStringStorage(makeBrokenTransport(), 'str-key')
+    await expect(s.set('v')).resolves.toBeUndefined()
+    expect(await s.get()).toBeNull()
+    expect(warnSpy).toHaveBeenCalledWith(
+      'storage',
+      'string.set',
+      expect.stringContaining('key=str-key'),
+    )
+    expect(debugSpy).toHaveBeenCalledWith(
+      'storage',
+      'string.get',
+      expect.stringContaining('key=str-key'),
+    )
+  })
+
+  it('createFlagStorage.set 写入失败:不抛错且记录 warn;get 读取失败记录 debug 返回 false', async () => {
+    const warnSpy = vi.spyOn(logger, 'warn')
+    const debugSpy = vi.spyOn(logger, 'debug')
+    const f = createFlagStorage(makeBrokenTransport(), 'flag')
+    await expect(f.set(true)).resolves.toBeUndefined()
+    expect(await f.get()).toBe(false)
+    expect(warnSpy).toHaveBeenCalledWith('storage', 'flag.set', expect.stringContaining('key=flag'))
+    expect(debugSpy).toHaveBeenCalledWith(
+      'storage',
+      'flag.get',
+      expect.stringContaining('key=flag'),
+    )
+  })
+
+  it('createHistoryStorage.clear 空列表 remove 失败:记录 debug 且不抛错', async () => {
+    const debugSpy = vi.spyOn(logger, 'debug')
+    const h = createHistoryStorage<string>({
+      transport: makeBrokenTransport(),
+      key: 'h',
+      maxItems: 5,
+    })
+    await expect(h.clear()).resolves.toEqual([])
+    expect(debugSpy).toHaveBeenCalledWith(
+      'storage',
+      'history.remove',
+      expect.stringContaining('key=h'),
+    )
   })
 })
