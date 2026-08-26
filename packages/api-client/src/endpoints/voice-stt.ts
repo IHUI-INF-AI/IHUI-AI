@@ -123,6 +123,7 @@ export async function voiceSttFromReactNative(
     const res = await fetch(`${aiServiceUrl}/api/voice/stt`, {
       method: 'POST',
       body: fd,
+      signal: AbortSignal.timeout(30_000),
     })
 
     if (!res.ok) return ''
