@@ -6,6 +6,7 @@
  *
  * 设计：
  * - 连接池 Map<tenantId, Database>，懒加载，首次访问时创建。
+ * - LRU 上限(默认 32 个租户,env TENANT_CACHE_MAX_ENTRIES 可调):超限淘汰最久未访问的租户池。
  * - 租户数据库 URL 从 env 读取：TENANT_${TENANT_ID}_DATABASE_URL（tenantId 归一化为大写下划线）。
  * - 未配置租户专用 URL 时，fallback 到默认 Database（保持现有单租户行为）。
  * - 每个租户连接池 max=10；默认池由调用方配置（apps/api 用 max=20）。
@@ -26,6 +27,20 @@ import type { Database } from './client.js'
 
 /** 每个租户连接池上限。 */
 const TENANT_POOL_MAX = 10
+
+/**
+ * 租户连接缓存上限（LRU）。
+ *
+ * 根治连接池无界增长:每个租户条目持有一个 max=10 的 postgres 连接池,
+ * 租户数无限增长会同时耗尽数据库连接数与内存。超过上限时淘汰最久未访问
+ * 的租户条目并关闭其连接池(postgres 的 end() 默认等待在途查询完成,
+ * 不会截断进行中的请求);该租户下次访问会重新懒加载建池。
+ * 可通过环境变量 TENANT_CACHE_MAX_ENTRIES 覆盖(<=0 视为无限制,仅测试用)。
+ */
+const TENANT_CACHE_MAX = (() => {
+  const raw = Number(process.env.TENANT_CACHE_MAX_ENTRIES)
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 32
+})()
 
 /** 租户连接池条目：drizzle 实例 + 底层 postgres 客户端（用于关闭）。 */
 interface TenantPoolEntry {
@@ -86,9 +101,13 @@ export function getTenantDatabase(tenantId: string | null | undefined): Database
     return defaultDb
   }
 
-  // 池命中
+  // 池命中(删除再插入,把该租户刷新为 LRU 最新)
   const cached = tenantDbPool.get(tenantId)
-  if (cached) return cached.db
+  if (cached) {
+    tenantDbPool.delete(tenantId)
+    tenantDbPool.set(tenantId, cached)
+    return cached.db
+  }
 
   // 查找租户专用 URL
   const tenantUrl = getTenantDbUrl(tenantId)
@@ -104,6 +123,7 @@ export function getTenantDatabase(tenantId: string | null | undefined): Database
   try {
     const client = postgres(tenantUrl, { max: TENANT_POOL_MAX, prepare: false })
     const db = drizzle(client, { schema })
+    evictLeastRecentlyUsed()
     tenantDbPool.set(tenantId, { db, client })
     return db
   } catch (err) {
@@ -116,6 +136,22 @@ export function getTenantDatabase(tenantId: string | null | undefined): Database
       throw new Error('[tenant-router] 默认 Database 未注入，请先调用 setDefaultDatabase()')
     }
     return defaultDb
+  }
+}
+
+/**
+ * 超过缓存上限时淘汰最久未访问的租户条目并关闭其连接池。
+ * Map 的插入序即 LRU 序(命中时删除重插刷新),首个 key 即最旧。
+ * 关闭异步进行(end() 等待在途查询),不阻塞当前请求路径。
+ */
+function evictLeastRecentlyUsed(): void {
+  while (tenantDbPool.size >= TENANT_CACHE_MAX && tenantDbPool.size > 0) {
+    const [oldestId, oldest] = tenantDbPool.entries().next().value!
+    tenantDbPool.delete(oldestId)
+    void oldest.client.end().catch(() => {})
+    console.warn(
+      `[tenant-router] 租户连接缓存达上限(${TENANT_CACHE_MAX}),已淘汰最久未访问的租户 ${oldestId} 并关闭其连接池`,
+    )
   }
 }
 
