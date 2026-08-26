@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getSettingsPath, loadSettings, type Settings } from './settings.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 interface JwtPayload {
   exp?: number;
@@ -71,10 +72,11 @@ function persistTokens(accessToken: string, refreshToken: string): void {
   if (fs.existsSync(settingsPath)) {
     try {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
-      const parsed = JSON.parse(raw) as Settings;
-      if (parsed && typeof parsed === 'object') existing = parsed;
+      // 损坏/非对象(如数组、标量)一律从头建,防止把数组误当 Settings 写丢 token
+      const parsed = tryParseJson(raw);
+      if (isRecord(parsed)) existing = parsed as Settings;
     } catch {
-      // 损坏文件,从头建
+      // 读文件失败,从头建
     }
   }
   existing.apiKey = accessToken;
