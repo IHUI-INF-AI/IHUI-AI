@@ -1163,6 +1163,7 @@ const NavLink = React.memo(function NavLink({
           prefetch={false}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
+          data-testid={`nav-${item.labelKey}`}
           className={className}
         >
           <Icon className="h-5 w-5 shrink-0" />
@@ -1179,6 +1180,7 @@ const NavLink = React.memo(function NavLink({
       onClick={handleClick}
       prefetch={false}
       aria-current={active ? 'page' : undefined}
+      data-testid={`nav-${item.labelKey}`}
       className={className}
     >
       <Icon className="h-5 w-5 shrink-0" />

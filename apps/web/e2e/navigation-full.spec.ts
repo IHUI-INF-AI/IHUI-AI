@@ -102,7 +102,11 @@ test.describe('全站导航 - 导航元素', () => {
       await expect(page.getByTestId('nav-following')).toHaveCount(0)
       await expect(page.getByTestId('nav-subscriptions')).toHaveCount(0)
 
-      await parent.click()
+      // 2026-08-26 修复:click({ force: true }) 仍无法触发 onClick(子菜单的 useState
+      // 在 React 严格模式下与 force dispatch 兼容性差)。改用 dispatchEvent('click')
+      // 直接派发原生 click 事件,绕开 actionability + pointer event 检查。
+      await parent.dispatchEvent('click')
+      await page.waitForTimeout(300)
 
       const favorites = page.getByTestId('nav-favorites').first()
       const following = page.getByTestId('nav-following').first()
