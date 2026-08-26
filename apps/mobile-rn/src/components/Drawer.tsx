@@ -34,6 +34,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
+import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
   Bot,
@@ -371,6 +372,7 @@ export function Drawer(props: DrawerProps) {
 
   const insets = useSafeAreaInsets()
   const { t } = useI18n()
+  const { logout } = useAuth()
   const navigation = useNavigation<DrawerNav>()
   const screenWidth = Dimensions.get('window').width
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
@@ -442,6 +444,44 @@ export function Drawer(props: DrawerProps) {
       }
     }
     onClose()
+  }
+
+  /**
+   * 快捷导航(chat.nav* 区)点击:全部接通真实路由(2026-08-26 修复,
+   * 此前 7 项均为 Alert '待接入导航路由' 死按钮)。导航统一冒泡到 RootStack,
+   * 与 handleNavigateExtra 兜底同模式;logout 弹确认后调 AuthContext.logout。
+   */
+  const handleQuickNav = (
+    key: 'agent' | 'wallet' | 'course' | 'order' | 'profile' | 'settings' | 'logout',
+  ) => {
+    if (key === 'logout') {
+      Alert.alert(t('chat.navLogout'), '确定要退出登录吗?', [
+        { text: '取消', style: 'cancel' },
+        { text: '退出', style: 'destructive', onPress: () => void logout() },
+      ])
+      return
+    }
+    onClose()
+    switch (key) {
+      case 'agent':
+        navigation.navigate('Assistant')
+        break
+      case 'wallet':
+        navigation.navigate('Wallet')
+        break
+      case 'course':
+        navigation.navigate('Main', { screen: 'CourseMain' })
+        break
+      case 'order':
+        navigation.navigate('Order')
+        break
+      case 'profile':
+        navigation.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'settings':
+        navigation.navigate('Settings')
+        break
+    }
   }
 
   const handleSelectConversation = (id: string) => {
@@ -627,13 +667,12 @@ export function Drawer(props: DrawerProps) {
               </View>
 
               {/* 2c. 快捷导航(chat.nav* 键:智能体/钱包/课程/订单/我的/设置/退出登录)。
-                  纯 i18n 标签占位导航,onPress 弹 Alert 占位(对齐 handleNavigateExtra 模式)。
-                  后续可在 ChatScreen 接真实路由跳转 */}
+                  2026-08-26:7 项全部接通真实路由(handleQuickNav),不再弹占位 Alert */}
 
               <View className="px-2 py-2 gap-0.5">
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navAgent'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('agent')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navAgent')}</Text>
@@ -641,7 +680,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navWallet'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('wallet')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navWallet')}</Text>
@@ -649,7 +688,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navCourse'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('course')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navCourse')}</Text>
@@ -657,7 +696,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navOrder'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('order')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navOrder')}</Text>
@@ -665,7 +704,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navProfile'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('profile')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navProfile')}</Text>
@@ -673,7 +712,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navSettings'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('settings')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navSettings')}</Text>
@@ -681,7 +720,7 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
                 <Pressable
                   className="flex-row items-center px-3 py-2 rounded-lg"
-                  onPress={() => Alert.alert(t('chat.navLogout'), '待接入导航路由')}
+                  onPress={() => handleQuickNav('logout')}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navLogout')}</Text>

@@ -76,6 +76,7 @@ import {
   X,
 } from 'lucide-react-native'
 import {
+  batchOperateConversations,
   claimShareFirstReward,
   deleteAgent,
   deleteConversation,
@@ -88,6 +89,7 @@ import {
   getMyCreation,
   getMyCreationDetail,
   getShareFirstStatus,
+  getTokenBalance,
   listConversations,
   resolveFileUrl,
   streamChat,
@@ -317,7 +319,7 @@ const formatDetailValue = (v: unknown): string => {
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
 
-/** 文件上传支持类型徽章(P1.5,expo-document-picker 未安装,Modal 占位) */
+/** 文件上传支持类型徽章(P1.5,expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传) */
 const FILE_TYPE_BADGES: readonly string[] = ['PDF', 'Word', 'Excel', 'TXT'] as const
 
 // DrawerTab 中 home/ai/mine 是 MainStack 路由(走 Main navigator);
@@ -365,9 +367,14 @@ export function ChatScreen() {
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
   // 对话页顶部「查看卡片」折叠(对齐 Uniapp ai_index2.vue tishi_show:初始展开,点击 tishiHandle 切换)
   const [tishiShow, setTishiShow] = useState(true)
-  // 智汇值卡占位(对齐 Uniapp ai_index2 tokenQuantity;暂无 getTokenCount 接口,占位 0,充值跳 AppTopup)
-  const [tokenQuantity] = useState(0)
+  // 智汇值卡(对齐 Uniapp ai_index2 tokenQuantity;数据源 getTokenBalance 真实余额,
+  // 接口异常静默降级为 0,不阻塞页面;充值跳 AppTopup)
+  const [tokenQuantity, setTokenQuantity] = useState(0)
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
+  // 当前对话 DB id(Profile/Drawer 跳转加载历史对话时写入;新会话为 null → 收藏降级为本地 UI 状态)
+  const [conversationId, setConversationId] = useState<string | null>(
+    route.params?.conversationId ?? null,
+  )
   const [prompt, setPrompt] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -439,6 +446,23 @@ export function ChatScreen() {
     [setToastType, setToastMessage, setToastVisible],
   )
   const hideToast = useCallback((): void => setToastVisible(false), [])
+
+  // ── 智汇值卡余额加载(getTokenBalance;接口异常静默降级为 0,不阻塞页面) ──
+  useEffect(() => {
+    let cancelled = false
+    getTokenBalance()
+      .then((res) => {
+        if (cancelled) return
+        if (res.success) setTokenQuantity(res.data.balance)
+        // 失败保持默认 0,静默降级
+      })
+      .catch(() => {
+        // 接口异常不阻塞页面
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // ── 模型列表加载(保留原 streamChat 链路) ──
   useEffect(() => {
@@ -829,9 +853,11 @@ export function ChatScreen() {
 
   /**
    * P1.2 收藏:切换最近一条 assistant 消息的收藏状态。
-   * 不调 API,仅用 Set 跟踪 UI 状态 + toast 反馈。
+   * 已接入 batchOperateConversations('favorite'/'unfavorite', [conversationId])(对话级收藏,
+   * 后端 /api/chat/conversations/batch)。当前对话无 DB id(新会话/纯本地消息)时降级为
+   * 本地 Set 跟踪 UI 状态 + toast,接口异常不阻塞收藏流程。
    */
-  const toggleFavorite = (): void => {
+  const toggleFavorite = useCallback((): void => {
     setFunctionPanelVisible(false)
     const lastAi = [...messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())
     if (!lastAi) {
@@ -839,14 +865,31 @@ export function ChatScreen() {
       return
     }
     const isFavorited = favoritedMessageIds.has(lastAi.id)
-    setFavoritedMessageIds((prev) => {
-      const next = new Set(prev)
-      if (isFavorited) next.delete(lastAi.id)
-      else next.add(lastAi.id)
-      return next
-    })
-    showToast('success', isFavorited ? '已取消收藏' : '已收藏')
-  }
+    const applyLocalToggle = (): void => {
+      setFavoritedMessageIds((prev) => {
+        const next = new Set(prev)
+        if (isFavorited) next.delete(lastAi.id)
+        else next.add(lastAi.id)
+        return next
+      })
+    }
+    // 无 conversationId(未关联后端对话)时降级:仅本地 UI 状态,不调 API
+    if (!conversationId) {
+      applyLocalToggle()
+      showToast('success', isFavorited ? '已取消收藏' : '已收藏')
+      return
+    }
+    void batchOperateConversations(isFavorited ? 'unfavorite' : 'favorite', [conversationId])
+      .then((res) => {
+        if (res.success) {
+          applyLocalToggle()
+          showToast('success', isFavorited ? '已取消收藏' : '已收藏')
+        } else {
+          showToast('error', `收藏操作失败:${res.error ?? '未知错误'}`)
+        }
+      })
+      .catch(() => showToast('error', '收藏失败,请稍后重试'))
+  }, [conversationId, favoritedMessageIds, messages, showToast])
 
   /**
    * P1.4 网页链接确认:将输入的 URL 作为消息发送。
@@ -879,6 +922,8 @@ export function ChatScreen() {
           abortRef.current?.abort()
           abortRef.current = null
           setIsStreaming(false)
+          // 清空后视为新会话,收藏降级为本地 UI 状态
+          setConversationId(null)
         },
       },
     ])
@@ -940,8 +985,8 @@ export function ChatScreen() {
    * 2. 清空对话 → Alert 二次确认
    * 3. 导出对话 → Share.share 分享对话文本
    * 4. 分享对话 → Share.share(语义独立,UI 入口分离)
-   * 5. 转语音 → 占位提示(后续接 TTS)
-   * 6. 收藏 → 占位提示(后续接收藏 API)
+   * 5. 转语音 → 真实 TTS(fetchTextToSpeechAudio + expo-audio 播放,openTtsPanel)
+   * 6. 收藏 → batchOperateConversations('favorite'/'unfavorite', [conversationId])
    */
   const functionPanelItems: readonly PanelItem[] = [
     {
@@ -991,9 +1036,10 @@ export function ChatScreen() {
 
   /**
    * source-handle 面板 4 项列表(对齐 Uniapp source-handle 子组件)。
-   * 1. 素材库 → 占位提示(后续接 MaterialList 列表)
-   * 2. 网页链接 → 占位提示(后续接输入弹窗)
-   * 3. 文件上传 → 占位提示(后续接 DocumentPicker)
+   * 1. 素材库 → 已接 MaterialList 弹窗(数据源 getMyCreation 我的创作;
+   *    后端无 /api/material 端点,素材库接口未开通,勿伪造)
+   * 2. 网页链接 → 已接 URL 输入 Modal(纯前端实现,作为消息发送)
+   * 3. 文件上传 → 已接 DocumentPicker + uploadFileMultipart 真实上传
    * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
    */
   const sourcePanelItems: readonly PanelItem[] = [
@@ -1454,12 +1500,17 @@ export function ChatScreen() {
   // ── Material 卡片操作(对齐 Uniapp handleMaterialItemClick / removeMaterialCard) ──
   const handleMaterialItemClick = (id: string): void => {
     // 素材库选中 → 引入到 materialCards(对齐 Uniapp handleMaterialItemClick)
-    // 注:MaterialList 组件 items 是 MaterialItem(无 content/imageList),这里用占位卡片
+    // 数据源 getMyCreation(我的创作);后端无 /api/material 端点,素材库接口未开通,
+    // 此处直接复用 materialItems 中的真实标题/类型生成卡片,不做额外接口调用
+    const item = materialItems.find((m) => m.id === id)
+    const cardType: 1 | 2 | 3 | 4 =
+      item?.type === 'image' ? 2 : item?.type === 'video' ? 3 : item?.type === 'audio' ? 4 : 1
     const card: MaterialCard = {
       id: nextMaterialCardId(),
-      type: 1,
-      title: `素材 ${id}`,
-      content: '',
+      type: cardType,
+      // item 在列表中找不到时回退占位标题(仅理论边界,勿伪造接口)
+      title: item?.title ?? `素材 ${id}`,
+      content: item?.text ?? '',
     }
     setMaterialCards((prev) => [...prev, card])
     setShowMaterialList(false)
@@ -1561,6 +1612,8 @@ export function ChatScreen() {
     setPrompt('')
     setMaterialCards([])
     setCompactionInfo(null)
+    // 新会话无后端对话 id,收藏降级为本地 UI 状态
+    setConversationId(null)
   }
   /** 加载历史对话消息并填入当前消息列表(对齐 Uniapp handleShowFullList) */
   const loadConversationMessages = useCallback(
@@ -1577,6 +1630,8 @@ export function ChatScreen() {
         setMessages(loaded)
         setPrompt('')
         setMaterialCards([])
+        // 记录当前对话 DB id(供收藏 batchOperateConversations 使用)
+        setConversationId(id)
         requestAnimationFrame(() => {
           listRef.current?.scrollToEnd({ animated: true })
         })
@@ -1824,6 +1879,8 @@ export function ChatScreen() {
           onInputBlur={handleInputBlur}
           onFunctionHandle={handleFunctionHandle}
           onSourceHandle={handleSourceHandle}
+          // 附件按钮 → 真实 DocumentPicker + uploadFileMultipart(原占位 Alert 已移除)
+          onAddFile={() => void handleFileUpload()}
           onIconClick={handleIconClick}
           onFangda={handleFangda}
           onTextareaHeightChange={textareaHeightChange}
@@ -2097,7 +2154,7 @@ export function ChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* P1.5 文件上传 Modal(expo-document-picker 未安装,Modal 占位) */}
+      {/* P1.5 文件上传 Modal(expo-document-picker 已装,DocumentPicker + uploadFileMultipart 真实上传) */}
       <Modal
         visible={fileUploadVisible}
         transparent

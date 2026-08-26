@@ -10,7 +10,7 @@
  * - WEB_BASE_URL 生产默认 https://aizhs.top,可用 EXPO_PUBLIC_WEB_BASE_URL 覆盖
  *   (开发环境可设为 http://<局域网IP>:8801)
  * - path 与 apps/web/app/(main) 下的真实路由一致((main) 为 Next.js 路由组,URL 不含它)
- * - titleKey 为 i18n key 名,统一置于 webViewPortal 命名空间
+ * - titleKey 为 i18n key 名,统一置于 webViewPortal 命名空间,由主 agent 补翻译
  * - key 全局唯一,采用 <domain>-<page> 连字符格式
  */
 
@@ -21,11 +21,11 @@ export const WEB_BASE_URL = ENV_WEB_BASE_URL || 'https://aizhs.top'
 export interface WebPortalEntry {
   /** 全局唯一标识(domain 前缀 + 页面,连字符分隔) */
   key: string
-  /** i18n key 名 */
+  /** i18n key 名,主 agent 补翻译 */
   titleKey: string
   /** 相对路径,与 web 端 (main) 路由一致,不含 (main) */
   path: string
-  /** 功能域名 */
+  /** 功能域名,如 'edu-ai' */
   domain: string
 }
 
@@ -37,76 +37,261 @@ export interface WebPortalSection {
 }
 
 /**
- * 门户分组配置:覆盖移动端未原生实现的全部复杂功能域(7 组 47 条)
+ * 门户分组配置:覆盖移动端未原生实现的全部复杂功能域
  */
 export const WEB_PORTAL_SECTIONS = [
   {
     titleKey: 'webViewPortal.sections.eduAi',
     entries: [
-      { key: 'edu-ai-policy', titleKey: 'webViewPortal.eduAi.policy', path: '/edu-ai/policy', domain: 'edu-ai' },
-      { key: 'edu-ai-certification', titleKey: 'webViewPortal.eduAi.certification', path: '/edu-ai/certification', domain: 'edu-ai' },
-      { key: 'edu-ai-courses', titleKey: 'webViewPortal.eduAi.courses', path: '/edu-ai/courses', domain: 'edu-ai' },
-      { key: 'edu-ai-aigc-tools', titleKey: 'webViewPortal.eduAi.aigcTools', path: '/edu-ai/aigc-tools', domain: 'edu-ai' },
-      { key: 'edu-ai-map', titleKey: 'webViewPortal.eduAi.map', path: '/edu-ai/map', domain: 'edu-ai' },
-      { key: 'edu-ai-marking', titleKey: 'webViewPortal.eduAi.marking', path: '/edu-ai/marking', domain: 'edu-ai' },
-      { key: 'edu-ai-outbound', titleKey: 'webViewPortal.eduAi.outbound', path: '/edu-ai/outbound', domain: 'edu-ai' },
-      { key: 'edu-ai-tbox', titleKey: 'webViewPortal.eduAi.tbox', path: '/edu-ai/tbox', domain: 'edu-ai' },
-      { key: 'edu-ai-video-compose', titleKey: 'webViewPortal.eduAi.videoCompose', path: '/edu-ai/video-compose', domain: 'edu-ai' },
-      { key: 'edu-ai-voice', titleKey: 'webViewPortal.eduAi.voice', path: '/edu-ai/voice', domain: 'edu-ai' },
+      {
+        key: 'edu-ai-policy',
+        titleKey: 'webViewPortal.eduAi.policy',
+        path: '/edu-ai/policy',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-certification',
+        titleKey: 'webViewPortal.eduAi.certification',
+        path: '/edu-ai/certification',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-courses',
+        titleKey: 'webViewPortal.eduAi.courses',
+        path: '/edu-ai/courses',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-aigc-tools',
+        titleKey: 'webViewPortal.eduAi.aigcTools',
+        path: '/edu-ai/aigc-tools',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-map',
+        titleKey: 'webViewPortal.eduAi.map',
+        path: '/edu-ai/map',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-marking',
+        titleKey: 'webViewPortal.eduAi.marking',
+        path: '/edu-ai/marking',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-outbound',
+        titleKey: 'webViewPortal.eduAi.outbound',
+        path: '/edu-ai/outbound',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-tbox',
+        titleKey: 'webViewPortal.eduAi.tbox',
+        path: '/edu-ai/tbox',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-video-compose',
+        titleKey: 'webViewPortal.eduAi.videoCompose',
+        path: '/edu-ai/video-compose',
+        domain: 'edu-ai',
+      },
+      {
+        key: 'edu-ai-voice',
+        titleKey: 'webViewPortal.eduAi.voice',
+        path: '/edu-ai/voice',
+        domain: 'edu-ai',
+      },
     ],
   },
   {
     titleKey: 'webViewPortal.sections.edu',
     entries: [
-      { key: 'edu-schedule-management', titleKey: 'webViewPortal.eduManagement.schedule', path: '/edu/edu-management/schedule', domain: 'edu' },
-      { key: 'edu-attendance', titleKey: 'webViewPortal.eduManagement.attendance', path: '/edu/edu-management/attendance', domain: 'edu' },
-      { key: 'edu-grades', titleKey: 'webViewPortal.eduManagement.grades', path: '/edu/edu-management/grades', domain: 'edu' },
-      { key: 'edu-homework', titleKey: 'webViewPortal.eduManagement.homework', path: '/edu/edu-management/homework', domain: 'edu' },
-      { key: 'edu-parent', titleKey: 'webViewPortal.eduParent', path: '/edu/parent', domain: 'edu' },
-      { key: 'edu-timetable', titleKey: 'webViewPortal.eduSchedule', path: '/edu/schedule', domain: 'edu' },
+      {
+        key: 'edu-schedule-management',
+        titleKey: 'webViewPortal.eduManagement.schedule',
+        path: '/edu/edu-management/schedule',
+        domain: 'edu',
+      },
+      {
+        key: 'edu-attendance',
+        titleKey: 'webViewPortal.eduManagement.attendance',
+        path: '/edu/edu-management/attendance',
+        domain: 'edu',
+      },
+      {
+        key: 'edu-grades',
+        titleKey: 'webViewPortal.eduManagement.grades',
+        path: '/edu/edu-management/grades',
+        domain: 'edu',
+      },
+      {
+        key: 'edu-homework',
+        titleKey: 'webViewPortal.eduManagement.homework',
+        path: '/edu/edu-management/homework',
+        domain: 'edu',
+      },
+      {
+        key: 'edu-parent',
+        titleKey: 'webViewPortal.eduParent',
+        path: '/edu/parent',
+        domain: 'edu',
+      },
+      {
+        key: 'edu-timetable',
+        titleKey: 'webViewPortal.eduSchedule',
+        path: '/edu/schedule',
+        domain: 'edu',
+      },
     ],
   },
   {
     titleKey: 'webViewPortal.sections.developer',
     entries: [
-      { key: 'developer-keys', titleKey: 'webViewPortal.developer.keys', path: '/developer/keys', domain: 'developer' },
-      { key: 'developer-api-docs', titleKey: 'webViewPortal.developer.apiDocs', path: '/developer/api-docs', domain: 'developer' },
-      { key: 'developer-webhooks', titleKey: 'webViewPortal.developer.webhooks', path: '/developer/webhooks', domain: 'developer' },
-      { key: 'developer-logs', titleKey: 'webViewPortal.developer.logs', path: '/developer/logs', domain: 'developer' },
-      { key: 'developer-billing', titleKey: 'webViewPortal.developer.billing', path: '/developer/billing', domain: 'developer' },
-      { key: 'developer-relay', titleKey: 'webViewPortal.developer.relay', path: '/developer/relay', domain: 'developer' },
+      {
+        key: 'developer-keys',
+        titleKey: 'webViewPortal.developer.keys',
+        path: '/developer/keys',
+        domain: 'developer',
+      },
+      {
+        key: 'developer-api-docs',
+        titleKey: 'webViewPortal.developer.apiDocs',
+        path: '/developer/api-docs',
+        domain: 'developer',
+      },
+      {
+        key: 'developer-webhooks',
+        titleKey: 'webViewPortal.developer.webhooks',
+        path: '/developer/webhooks',
+        domain: 'developer',
+      },
+      {
+        key: 'developer-logs',
+        titleKey: 'webViewPortal.developer.logs',
+        path: '/developer/logs',
+        domain: 'developer',
+      },
+      {
+        key: 'developer-billing',
+        titleKey: 'webViewPortal.developer.billing',
+        path: '/developer/billing',
+        domain: 'developer',
+      },
+      {
+        key: 'developer-relay',
+        titleKey: 'webViewPortal.developer.relay',
+        path: '/developer/relay',
+        domain: 'developer',
+      },
     ],
   },
   {
     titleKey: 'webViewPortal.sections.selfMedia',
     entries: [
-      { key: 'self-media-koubo', titleKey: 'webViewPortal.selfMedia.koubo', path: '/self-media/koubo', domain: 'self-media' },
-      { key: 'self-media-wechat', titleKey: 'webViewPortal.selfMedia.wechat', path: '/self-media/wechat', domain: 'self-media' },
-      { key: 'self-media-automation', titleKey: 'webViewPortal.selfMedia.automation', path: '/self-media/automation', domain: 'self-media' },
-      { key: 'publish-analytics', titleKey: 'webViewPortal.publish.analytics', path: '/publish/analytics', domain: 'self-media' },
-      { key: 'publish-calendar', titleKey: 'webViewPortal.publish.calendar', path: '/publish/calendar', domain: 'self-media' },
+      {
+        key: 'self-media-koubo',
+        titleKey: 'webViewPortal.selfMedia.koubo',
+        path: '/self-media/koubo',
+        domain: 'self-media',
+      },
+      {
+        key: 'self-media-wechat',
+        titleKey: 'webViewPortal.selfMedia.wechat',
+        path: '/self-media/wechat',
+        domain: 'self-media',
+      },
+      {
+        key: 'self-media-automation',
+        titleKey: 'webViewPortal.selfMedia.automation',
+        path: '/self-media/automation',
+        domain: 'self-media',
+      },
+      {
+        key: 'publish-analytics',
+        titleKey: 'webViewPortal.publish.analytics',
+        path: '/publish/analytics',
+        domain: 'self-media',
+      },
+      {
+        key: 'publish-calendar',
+        titleKey: 'webViewPortal.publish.calendar',
+        path: '/publish/calendar',
+        domain: 'self-media',
+      },
     ],
   },
   {
     titleKey: 'webViewPortal.sections.knowledgeTools',
     entries: [
       // workspace(IDE 项目空间)依赖本地文件系统,移动端不适配原生,WebView 承载
-      { key: 'workspace', titleKey: 'webViewPortal.workspace', path: '/workspace', domain: 'workspace' },
-      { key: 'knowledge-graph', titleKey: 'webViewPortal.knowledgeGraph', path: '/knowledge-graph', domain: 'knowledge-graph' },
-      { key: 'tools-voice-stt', titleKey: 'webViewPortal.tools.voiceStt', path: '/tools/voice-stt', domain: 'tools' },
-      { key: 'resources', titleKey: 'webViewPortal.resources', path: '/resources', domain: 'resources' },
+      {
+        key: 'workspace',
+        titleKey: 'webViewPortal.workspace',
+        path: '/workspace',
+        domain: 'workspace',
+      },
+      {
+        key: 'knowledge-graph',
+        titleKey: 'webViewPortal.knowledgeGraph',
+        path: '/knowledge-graph',
+        domain: 'knowledge-graph',
+      },
+      {
+        key: 'tools-voice-stt',
+        titleKey: 'webViewPortal.tools.voiceStt',
+        path: '/tools/voice-stt',
+        domain: 'tools',
+      },
+      {
+        key: 'resources',
+        titleKey: 'webViewPortal.resources',
+        path: '/resources',
+        domain: 'resources',
+      },
       { key: 'stock', titleKey: 'webViewPortal.stock', path: '/stock', domain: 'stock' },
-      { key: 'fund-data', titleKey: 'webViewPortal.fundData', path: '/fund-data', domain: 'fund-data' },
+      {
+        key: 'fund-data',
+        titleKey: 'webViewPortal.fundData',
+        path: '/fund-data',
+        domain: 'fund-data',
+      },
     ],
   },
   {
     titleKey: 'webViewPortal.sections.models',
     entries: [
-      { key: 'models-overview', titleKey: 'webViewPortal.models.overview', path: '/models/overview', domain: 'models' },
-      { key: 'models-keys', titleKey: 'webViewPortal.models.keys', path: '/models/keys', domain: 'models' },
-      { key: 'models-usage', titleKey: 'webViewPortal.models.usage', path: '/models/usage', domain: 'models' },
-      { key: 'models-prompts', titleKey: 'webViewPortal.models.prompts', path: '/models/prompts', domain: 'models' },
-      { key: 'models-eval', titleKey: 'webViewPortal.models.eval', path: '/models/eval', domain: 'models' },
+      {
+        key: 'models-overview',
+        titleKey: 'webViewPortal.models.overview',
+        path: '/models/overview',
+        domain: 'models',
+      },
+      {
+        key: 'models-keys',
+        titleKey: 'webViewPortal.models.keys',
+        path: '/models/keys',
+        domain: 'models',
+      },
+      {
+        key: 'models-usage',
+        titleKey: 'webViewPortal.models.usage',
+        path: '/models/usage',
+        domain: 'models',
+      },
+      {
+        key: 'models-prompts',
+        titleKey: 'webViewPortal.models.prompts',
+        path: '/models/prompts',
+        domain: 'models',
+      },
+      {
+        key: 'models-eval',
+        titleKey: 'webViewPortal.models.eval',
+        path: '/models/eval',
+        domain: 'models',
+      },
     ],
   },
   {
@@ -119,14 +304,24 @@ export const WEB_PORTAL_SECTIONS = [
       { key: 'traders', titleKey: 'webViewPortal.traders', path: '/traders', domain: 'community' },
       { key: 'members', titleKey: 'webViewPortal.members', path: '/members', domain: 'community' },
       { key: 'lecturers', titleKey: 'webViewPortal.lecturers', path: '/lecturers', domain: 'edu' },
-      { key: 'tools-pdf', titleKey: 'webViewPortal.tools.pdf', path: '/tools/pdf', domain: 'tools' },
+      {
+        key: 'tools-pdf',
+        titleKey: 'webViewPortal.tools.pdf',
+        path: '/tools/pdf',
+        domain: 'tools',
+      },
       {
         key: 'oauth-authorized',
         titleKey: 'webViewPortal.oauth.authorized',
         path: '/oauth/my-authorized',
         domain: 'oauth',
       },
-      { key: 'enterprise', titleKey: 'webViewPortal.enterprise', path: '/enterprise', domain: 'enterprise' },
+      {
+        key: 'enterprise',
+        titleKey: 'webViewPortal.enterprise',
+        path: '/enterprise',
+        domain: 'enterprise',
+      },
       {
         key: 'feature-center',
         titleKey: 'webViewPortal.featureCenter',

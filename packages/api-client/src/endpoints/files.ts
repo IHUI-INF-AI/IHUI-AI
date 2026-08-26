@@ -144,6 +144,7 @@ export async function uploadFileMultipart(
       headers,
       body: formData,
       credentials: 'include',
+      signal: AbortSignal.timeout(120_000),
     })
 
     const json = (await resp.json()) as ApiResponse<UploadResponseData>

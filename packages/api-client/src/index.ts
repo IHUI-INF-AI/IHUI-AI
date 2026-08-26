@@ -62,6 +62,7 @@ export {
   WebSocketClient,
   createNotificationClient,
   buildNotificationWsUrl,
+  fetchWsTicket,
   isWSNotification,
 } from './ws-client'
 export type { WebSocketClientOptions, WebSocketClientHandlers, WebSocketLike } from './ws-client'
@@ -201,3 +202,6 @@ export * from './endpoints/coze'
 
 // IM 渠道管理 API 端点(2026-07-31 立,P0 admin/im-channels 16 平台管理配套)
 export * from './endpoints/im-channel'
+
+// 子智能体(Subagent)派单 + Swarm 拓扑端点(2026-08-26 立,移动端原生化配套)
+export * from './endpoints/subagents'
