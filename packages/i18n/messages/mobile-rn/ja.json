@@ -224,7 +224,14 @@
     "modelRecord": "モデル備案",
     "sectionDiscover": "発見",
     "assistant": "マイアシスタント",
-    "apiSettings": "API設定"
+    "apiSettings": "API設定",
+    "knowledgeBase": "ナレッジベース",
+    "aiSkill": "AI スキル",
+    "memory": "メモリー",
+    "aiWorld": "AI ワールド",
+    "imageGen": "画像生成",
+    "publish": "コンテンツ公開",
+    "webPortal": "ウェブ版"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -2018,5 +2025,101 @@
     "loadFailed": "レベルの読み込みに失敗",
     "price": "価格",
     "title": "会員レベル"
+  },
+  "knowledgeBase": {
+    "title": "ナレッジベース",
+    "add": "新規",
+    "loadFailed": "ナレッジベースの読み込みに失敗",
+    "retry": "再試行",
+    "empty": "文書がありません",
+    "emptyHint": "右上の「新規」からテキストを追加",
+    "chunks": "チャンク",
+    "delete": "削除",
+    "deleteTitle": "文書を削除",
+    "deleteConfirm": "この文書を削除しますか?",
+    "deleteFailed": "削除に失敗"
+  },
+  "knowledgeCreate": {
+    "title": "新規文書",
+    "submit": "保存",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "文書タイトルを入力",
+    "textLabel": "本文",
+    "textPlaceholder": "テキストを貼り付けまたは入力",
+    "hint": "内容は自動でチャンク化され検索可能になります",
+    "required": "タイトルと本文は必須です",
+    "successTitle": "登録完了",
+    "successMessage": "文書を追加しました",
+    "failedTitle": "登録失敗",
+    "failedMessage": "後で再試行してください"
+  },
+  "knowledgeDoc": {
+    "title": "文書詳細",
+    "loadFailed": "文書の読み込みに失敗",
+    "retry": "再試行",
+    "chunksTotal": "チャンク",
+    "source": "出典",
+    "preview": "プレビュー",
+    "noChunks": "チャンクがありません"
+  },
+  "aiSkill": {
+    "title": "AI スキル",
+    "loadFailed": "スキル一覧の読み込みに失敗",
+    "retry": "再試行",
+    "empty": "スキルがありません",
+    "detail": "詳細を見る"
+  },
+  "aiSkillDetail": {
+    "title": "スキル詳細",
+    "loadFailed": "スキル詳細の読み込みに失敗",
+    "retry": "再試行",
+    "prompt": "プロンプトテンプレート",
+    "noPrompt": "テンプレートなし",
+    "source": "出典"
+  },
+  "memory": {
+    "title": "メモリー",
+    "empty": "メモリーがありません",
+    "emptyHint": "AI との長期会話メモリーが保存されます",
+    "loadFailed": "メモリーの読み込みに失敗",
+    "delete": "削除",
+    "deleteTitle": "メモリーを削除",
+    "deleteConfirm": "このメモリーを削除しますか?",
+    "deleteFailed": "削除に失敗",
+    "source": "出典",
+    "updatedAt": "更新日",
+    "loginRequired": "ログインしてください"
+  },
+  "aiWorld": {
+    "title": "AI ワールド",
+    "empty": "コンテンツがありません",
+    "emptyHint": "AI ワールドのコンテンツは近日公開",
+    "favorites": "お気に入り",
+    "history": "履歴",
+    "kindLabel": "種類",
+    "loadFailed": "読み込みに失敗",
+    "viewCount": "閲覧"
+  },
+  "publish": {
+    "title": "コンテンツ公開",
+    "empty": "公開タスクがありません",
+    "emptyHint": "公開した記事やコンテンツが表示されます",
+    "loadFailed": "読み込みに失敗",
+    "retry": "再試行",
+    "scheduled": "予約済み",
+    "statsFailed": "統計の読み込みに失敗",
+    "statsSuccess": "公開しました",
+    "statsTotal": "合計"
+  },
+  "imageGen": {
+    "title": "画像生成",
+    "historyEmpty": "生成履歴がありません",
+    "favoritesEmpty": "お気に入りがありません",
+    "loadFailed": "読み込みに失敗",
+    "promptFallback": "無題"
+  },
+  "webView": {
+    "loadFailed": "ページの読み込みに失敗",
+    "retry": "再試行"
   }
 }
