@@ -79,6 +79,8 @@ export interface BottomActionBarProps {
   onStopVoiceAnimation?: () => void
   onFunctionHandle?: () => void
   onSourceHandle?: () => void
+  /** 添加附件回调(📁 按钮;不传时降级为占位提示 Alert) */
+  onAddFile?: () => void
   onIconClick?: (type: BottomActionBarIconType) => void
   onShowModelConfig?: () => void
   onTextareaHeightChange?: (height: number) => void
@@ -316,6 +318,7 @@ function ChatInputBar(props: BottomActionBarProps) {
     onStopVoiceAnimation,
     onFunctionHandle,
     onSourceHandle,
+    onAddFile,
     onIconClick,
     onShowModelConfig,
     onTextareaHeightChange,
@@ -531,15 +534,20 @@ function ChatInputBar(props: BottomActionBarProps) {
       {/* 辅助按钮行:附件 / ƒ / 📎 / ⛶ */}
       {showSecondaryRow ? (
         <View style={styles.secondaryRow}>
-          {/* 添加附件(mobile-rn 聊天输入附件按钮:点击弹附件选择占位) */}
+          {/* 添加附件(ChatScreen 传入 onAddFile → DocumentPicker + uploadFileMultipart 真实上传;
+              未传 onAddFile 时降级为占位提示 Alert,保持向后兼容) */}
           <Pressable
             style={styles.addFileBtn}
-            onPress={() =>
-              Alert.alert(
-                t('messageInput.addFile'),
-                `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
-              )
-            }
+            onPress={() => {
+              if (onAddFile) {
+                onAddFile()
+              } else {
+                Alert.alert(
+                  t('messageInput.addFile'),
+                  `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
+                )
+              }
+            }}
             hitSlop={4}
             accessibilityRole="button"
             accessibilityLabel={t('messageInput.addFile')}
@@ -943,7 +951,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
-  // 添加附件按钮(点击弹附件选择占位)
+  // 添加附件按钮(有 onAddFile 时真实上传,否则降级占位提示)
   addFileBtn: {
     height: SECONDARY_BTN_SIZE,
     minWidth: SECONDARY_BTN_SIZE,

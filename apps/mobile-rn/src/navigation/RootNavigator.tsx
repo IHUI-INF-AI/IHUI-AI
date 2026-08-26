@@ -200,6 +200,10 @@ import { PublishScreen } from '../screens/PublishScreen'
 // M4(2026-08-26):通用 WebView 承载页
 import { WebViewScreen } from '../screens/WebViewScreen'
 import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
+// M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体(双端功能矩阵 P0/P1 补齐)
+import { WebPortalScreen } from '../screens/WebPortalScreen'
+import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
+import { SubagentsScreen } from '../screens/SubagentsScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -402,6 +406,10 @@ export type RootStackParamList = {
   ImageGenHistory: undefined
   // M4(2026-08-26):通用 WebView 承载页
   WebView: { url: string; title?: string }
+  // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体
+  WebPortal: undefined
+  KnowledgeRag: undefined
+  Subagents: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -654,6 +662,10 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
             {/* M4(2026-08-26):通用 WebView 承载页 */}
             <RootStack.Screen name="WebView" component={WebViewScreen} />
+            {/* M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体 */}
+            <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
+            <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
+            <RootStack.Screen name="Subagents" component={SubagentsScreen} />
             {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
             <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
             <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
