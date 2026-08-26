@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures'
 
 /**
  * 工作流编辑器 E2E 测试。
@@ -17,6 +17,8 @@ import { test, expect } from '@playwright/test'
 const WORKFLOWS_URL = '/workflows'
 
 test.describe('工作流编辑器', () => {
+  // 2026-08-26:dev 环境偶发浏览器崩溃(Target page closed),加 1 次重试兜底
+  test.describe.configure({ retries: 1 })
   test('列表页渲染:标题/无 500', async ({ page }) => {
     const serverErrors: string[] = []
     page.on('response', (resp) => {
@@ -54,19 +56,19 @@ test.describe('工作流编辑器', () => {
     expect(criticalErrors).toHaveLength(0)
   })
 
-  test('编辑器页面可访问:画布与节点调色板渲染', async ({ page }) => {
-    await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+  test('编辑器页面可访问:画布与节点调色板渲染', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto(WORKFLOWS_URL)
+    await authenticatedPage.waitForLoadState('networkidle')
 
     // 点击"新建工作流"按钮打开对话框
-    const createBtn = page.getByRole('button').filter({ hasText: /新建工作流/i })
+    const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     const isVisible = await createBtn.isVisible({ timeout: 10000 }).catch(() => false)
     if (!isVisible) return
 
     await createBtn.click()
 
     // 等待对话框出现
-    const dialog = page.getByRole('dialog').first()
+    const dialog = authenticatedPage.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 5000 })
 
     // 验证编辑器画布渲染(ReactFlow 容器)
@@ -84,15 +86,15 @@ test.describe('工作流编辑器', () => {
       .catch(() => {})
   })
 
-  test('节点选中后显示属性面板', async ({ page }) => {
-    await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+  test('节点选中后显示属性面板', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto(WORKFLOWS_URL)
+    await authenticatedPage.waitForLoadState('networkidle')
 
-    const createBtn = page.getByRole('button').filter({ hasText: /新建工作流/i })
+    const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
     await createBtn.click()
 
-    const dialog = page.getByRole('dialog').first()
+    const dialog = authenticatedPage.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 5000 })
 
     // 等待 ReactFlow 画布渲染完成
@@ -104,7 +106,7 @@ test.describe('工作流编辑器', () => {
     const nodeExists = await canvasNode.isVisible({ timeout: 5000 }).catch(() => false)
     if (nodeExists) {
       await canvasNode.click()
-      await page.waitForTimeout(300)
+      await authenticatedPage.waitForTimeout(300)
 
       // 验证属性面板显示(标题"属性"且非"选择一个节点编辑属性")
       const propertiesHeader = dialog.locator('text=属性').first()
@@ -123,15 +125,15 @@ test.describe('工作流编辑器', () => {
     }
   })
 
-  test('工作流创建流程:填写表单与节点属性编辑', async ({ page }) => {
-    await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+  test('工作流创建流程:填写表单与节点属性编辑', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto(WORKFLOWS_URL)
+    await authenticatedPage.waitForLoadState('networkidle')
 
-    const createBtn = page.getByRole('button').filter({ hasText: /新建工作流/i })
+    const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
     await createBtn.click()
 
-    const dialog = page.getByRole('dialog').first()
+    const dialog = authenticatedPage.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 5000 })
 
     // 填写工作流名称
@@ -157,7 +159,7 @@ test.describe('工作流编辑器', () => {
     const nodeExists = await canvasNode.isVisible({ timeout: 5000 }).catch(() => false)
     if (nodeExists) {
       await canvasNode.click()
-      await page.waitForTimeout(300)
+      await authenticatedPage.waitForTimeout(300)
 
       // 编辑节点名称
       const propName = dialog.locator('#prop-name')
@@ -177,22 +179,22 @@ test.describe('工作流编辑器', () => {
     }
   })
 
-  test('暗色模式兼容:编辑器正常渲染', async ({ page }) => {
-    await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+  test('暗色模式兼容:编辑器正常渲染', async ({ authenticatedPage }) => {
+    await authenticatedPage.goto(WORKFLOWS_URL)
+    await authenticatedPage.waitForLoadState('networkidle')
 
-    const createBtn = page.getByRole('button').filter({ hasText: /新建工作流/i })
+    const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
     await createBtn.click()
 
-    const dialog = page.getByRole('dialog').first()
+    const dialog = authenticatedPage.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 5000 })
 
     // 切换到暗色模式
-    await page.evaluate(() => {
+    await authenticatedPage.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
-    await page.waitForTimeout(300)
+    await authenticatedPage.waitForTimeout(300)
 
     // 验证编辑器画布在暗色模式下仍可见
     const reactFlow = dialog.locator('.react-flow')
@@ -203,7 +205,7 @@ test.describe('工作流编辑器', () => {
     await expect(palette).toBeVisible({ timeout: 3000 })
 
     // 切回亮色模式
-    await page.evaluate(() => {
+    await authenticatedPage.evaluate(() => {
       document.documentElement.classList.remove('dark')
     })
   })

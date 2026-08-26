@@ -287,7 +287,8 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
         .innerText()
         .catch(() => '')) ?? ''
     expect(
-      /404|500|Server-side Exception|找不到页面|not[-_ ]found/i.test(bodyText),
+      // 2026-08-26 修复:原正则 /500/ 误匹配价格文案"API ¥50000"(\b500\b 才匹配独立错误码)
+      /\b404\b|\b500\b|Server-side Exception|找不到页面|not[-_ ]found/i.test(bodyText),
       '页面渲染了 not-found / 500 兜底',
     ).toBe(false)
   })
