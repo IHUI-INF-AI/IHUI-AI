@@ -239,12 +239,6 @@
   "error": {
     "network": "네트워크 오류"
   },
-  "taskDispatch": {
-    "status": {},
-    "cancel": {},
-    "reconnect": {},
-    "file": {}
-  },
   "common": {
     "ok": "확인",
     "gotIt": "알겠습니다",
@@ -2021,7 +2015,6 @@
     "detail": "상세 보기"
   },
   "aiSkillDetail": {
-    "title": "스킬 상세",
     "loadFailed": "스킬 상세 로드 실패",
     "retry": "재시도",
     "prompt": "프롬프트 템플릿",
