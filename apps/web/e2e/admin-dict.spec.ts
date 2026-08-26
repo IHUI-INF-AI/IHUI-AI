@@ -23,7 +23,7 @@ test.describe('Admin 字典类型管理', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/admin/dict')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -41,7 +41,7 @@ test.describe('Admin 字典类型管理', () => {
 
   test('创建字典类型:新建按钮可点击(若可访问)', async ({ page }) => {
     await page.goto('/admin/dict')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/dict')) return
 
     const createBtn = page
@@ -67,7 +67,7 @@ test.describe('Admin 字典类型管理', () => {
 test.describe('Admin 字典数据管理', () => {
   test('字典数据列表渲染(若可访问)', async ({ page }) => {
     await page.goto('/admin/dict')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/dict')) return
 
     await page.waitForTimeout(2000)
@@ -83,7 +83,7 @@ test.describe('Admin 字典数据管理', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/admin/dict')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

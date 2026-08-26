@@ -84,7 +84,7 @@ async function triggerAndMeasure(page: Page): Promise<DialogMeasurement> {
 
   // 1. 打开主页
   await page.goto(BASE_URL)
-  await page.waitForLoadState('networkidle')
+  await page.waitForLoadState('domcontentloaded')
 
   // 2. 点 header 登录按钮
   // 2026-08-26 修复:移动端(375x667)该按钮以 fixed 定位,即使 force: true 仍报

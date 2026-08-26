@@ -26,7 +26,7 @@ test.describe('技能市场页', () => {
     })
 
     await page.goto(MARKET_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 无 500 错误
     expect(
@@ -52,7 +52,7 @@ test.describe('技能市场页', () => {
 
   test('搜索过滤:输入关键词过滤技能列表', async ({ page }) => {
     await page.goto(MARKET_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const searchInput = page.getByPlaceholder(/搜索|Search|검색|検索|skill/i)
     const isVisible = await searchInput.isVisible({ timeout: 5000 }).catch(() => false)
@@ -83,7 +83,7 @@ test.describe('技能市场页', () => {
 
   test('Tag 分类过滤:切换 Tag 按钮过滤列表', async ({ page }) => {
     await page.goto(MARKET_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const serverErrors: string[] = []
     page.on('response', (resp) => {
@@ -121,7 +121,7 @@ test.describe('技能市场页', () => {
 
   test('分页导航:点击下一页/上一页', async ({ page }) => {
     await page.goto(MARKET_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const serverErrors: string[] = []
     page.on('response', (resp) => {
@@ -169,7 +169,7 @@ test.describe('技能市场页', () => {
     })
 
     await page.goto(MARKET_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 忽略非关键错误(如 favicon 404 和 Failed to load resource)
     const criticalErrors = consoleErrors.filter(

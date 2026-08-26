@@ -10,7 +10,7 @@ test.describe('Chat 页面', () => {
   test('chat 页面渲染核心结构(消息列表 + 输入框)', async ({ page }) => {
     await page.goto('/chat')
     // 等待页面加载(可能重定向到 login,也可能渲染 chat 骨架)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 如果停在 chat 页面,验证核心结构
     if (page.url().includes('/chat')) {
       // 消息列表或空状态存在
@@ -21,7 +21,7 @@ test.describe('Chat 页面', () => {
 
   test('chat 输入框存在并可输入(若页面可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/chat')) {
       const textarea = page.locator('textarea').first()
       if (await textarea.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -33,7 +33,7 @@ test.describe('Chat 页面', () => {
 
   test('chat 模型选择器可见(若页面可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/chat')) {
       // 模型选择器可能是 select 或 button,等待 5s
       await page.waitForTimeout(2000)

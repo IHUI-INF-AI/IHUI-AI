@@ -30,7 +30,7 @@ test.describe('插件市场 Codex 10 插件对齐', () => {
 
   test('H8.2 10 插件卡片渲染 - 名称可见', async ({ page }) => {
     await page.goto('/plugins')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     for (const plugin of CODEX_TEN_PLUGINS) {
       const card = page.locator('text=' + plugin.name).first()
@@ -40,7 +40,7 @@ test.describe('插件市场 Codex 10 插件对齐', () => {
 
   test('H8.3 每张卡片含图标(svg 或 img)', async ({ page }) => {
     await page.goto('/plugins')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     for (const plugin of CODEX_TEN_PLUGINS) {
       const card = page.locator('text=' + plugin.name).first()
