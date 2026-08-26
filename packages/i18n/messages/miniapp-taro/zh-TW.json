@@ -2004,7 +2004,6 @@
   },
   "news": {
     "search": "搜尋資訊",
-    "views": "{n} 次瀏覽",
     "empty": "暫無資訊",
     "readCount": "{n}閱讀",
     "detail": {
