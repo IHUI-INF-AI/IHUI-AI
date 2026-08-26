@@ -8633,32 +8633,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -9844,7 +9870,8 @@
       "upcoming": "Upcoming",
       "viewCount": "Views",
       "viewDetail": "View detail",
-      "watch": "Watch live"
+      "watch": "Watch live",
+      "hostLink": "Host Center"
     },
     "map": {
       "description": "Description",
@@ -10445,25 +10472,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10597,19 +10636,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -13042,7 +13093,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14810,7 +14869,8 @@
     "subtitle": "Browse circles and Q&A in one place",
     "title": "Community Plaza",
     "viewAllAsks": "View all Q&A",
-    "viewAllCircles": "View all circles"
+    "viewAllCircles": "View all circles",
+    "publish": "Publish"
   },
   "plugins": {
     "addToChat": "Add to Chat",
@@ -14953,7 +15013,13 @@
       "notCompleted": "Not completed",
       "claimFailed": "Claim failed"
     },
-    "taskCenterLink": "Task Center"
+    "taskCenterLink": "Task Center",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "mallTitle": "Points Mall",
+    "redeemSuccess": "Redeemed successfully",
+    "redeemFailed": "Redemption failed",
+    "mallLink": "Points Mall"
   },
   "pricingPage": {
     "badge": "Limited Early Bird",
@@ -18297,7 +18363,8 @@
     "publish": "Publish"
   },
   "appPermission": {
-    "intro": "This APP requests system permissions strictly on a minimum necessary basis. All permissions are granted by you voluntarily, and you can view, adjust, or revoke them anytime in your device's Settings > Permission management."
+    "title": "App Permissions",
+    "subtitle": "We only request permissions for necessary scenarios and strictly protect your privacy"
   },
   "askDetail": {
     "loadFailed": "Failed to load",
@@ -18419,27 +18486,25 @@
     "statusPending": "Pending"
   },
   "liveHost": {
-    "statDuration": "Duration",
-    "statViewers": "Viewers",
-    "statRecvBytes": "Downloaded",
-    "statSendBytes": "Uploaded",
-    "title": "Go live settings",
-    "previewActive": "Previewing live",
-    "previewIdle": "Not started",
-    "streamTitle": "Stream title",
-    "streamTitlePlaceholder": "Enter a stream title",
-    "pushUrl": "Push URL",
-    "copyHint": "Click to copy",
+    "title": "Host Center",
+    "titleLabel": "Stream title",
+    "titlePlaceholder": "Enter stream title",
+    "startBtn": "Start Streaming",
+    "startSuccess": "Stream created",
+    "startFailed": "Create failed",
+    "streamInfo": "Stream info",
     "streamKey": "Stream key",
-    "starting": "Starting…",
-    "startLive": "Start live",
-    "ending": "Ending…",
-    "endLive": "End live",
-    "stats": "Stats",
-    "productManage": "Product management",
-    "productAddBtn": "Add product",
-    "productLoading": "Loading products…",
-    "productEmpty": "No products"
+    "obsHint": "Use the push URL and key above in OBS or similar tools to start streaming",
+    "copied": "Copied",
+    "copyFailed": "Copy failed",
+    "myStreams": "My streams",
+    "loading": "Loading...",
+    "empty": "No streams yet",
+    "statusActive": "Live",
+    "statusInactive": "Offline",
+    "endBtn": "End Stream",
+    "endSuccess": "Ended",
+    "endFailed": "End failed"
   },
   "livePlaybackList": {
     "title": "Live replays",
@@ -18804,13 +18869,10 @@
     "holder": "Cardholder"
   },
   "carte": {
-    "projects": "Projects",
-    "skills": "Skills",
-    "rating": "Rating",
-    "title": "Creator card",
-    "skillsTitle": "Skills",
-    "worksTitle": "Featured works",
-    "empty": "No content"
+    "title": "ZHIHUI Community",
+    "recommend": "Recommended for you",
+    "inviteHint": "Scan the QR code to join the community free",
+    "scanHint": "Scan to join and connect with 1000+ AI peers"
   },
   "certApply": {
     "title": "Certificate application",
@@ -18821,15 +18883,18 @@
     "submit": "Submit application"
   },
   "certVerify": {
-    "title": "Certificate verification",
-    "certNo": "Certificate number",
-    "placeholder": "Enter certificate number",
-    "verify": "Verify",
-    "valid": "Certificate is valid",
-    "invalid": "Certificate is invalid",
-    "holder": "Holder",
-    "issuer": "Issuer",
-    "issuedAt": "Issued on"
+    "title": "Certificate Verification",
+    "subtitle": "Enter the certificate number to verify authenticity",
+    "certNoLabel": "Certificate No.",
+    "certNoPlaceholder": "Enter certificate number",
+    "verifyBtn": "Verify",
+    "notFound": "Certificate not found",
+    "notFoundHint": "Check the number and try again",
+    "verified": "Certificate is valid",
+    "certTitle": "Certificate",
+    "certNo": "Number",
+    "holderName": "Holder",
+    "issueDate": "Issue date"
   },
   "courseCatalog": {
     "title": "Course catalog",
@@ -18996,7 +19061,14 @@
   "qrCode": {
     "title": "Scan QR code",
     "scanTip": "Scan the QR code with the ZHIHUI AI app",
-    "share": "Share"
+    "share": "Share",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load QR code",
+    "retry": "Retry",
+    "scanHint": "Scan to connect",
+    "inviteCode": "Invite code",
+    "copied": "Link copied",
+    "copyFailed": "Copy failed"
   },
   "referrer": {
     "title": "Referrer",
@@ -19006,7 +19078,17 @@
     "codeLabel": "Referral code",
     "codePlaceholder": "Enter referral code",
     "submitting": "Submitting...",
-    "submit": "Bind referral code"
+    "submit": "Bind referral code",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load referrer",
+    "retry": "Retry",
+    "myReferrer": "My referrer",
+    "noReferrer": "No referrer bound",
+    "myInviteCode": "My invite code",
+    "bindTitle": "Bind referrer",
+    "bindBtn": "Bind",
+    "bindSuccess": "Bound successfully",
+    "bindFailed": "Bind failed"
   },
   "studyPlan": {
     "status": {
@@ -19958,5 +20040,33 @@
     "duration": "Duration",
     "days": "days",
     "benefits": "Membership Benefits"
+  },
+  "knowledgePlanet": {
+    "title": "Knowledge Planet",
+    "memberCount": "{count} members",
+    "latestNews": "Latest news",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load news",
+    "retry": "Retry",
+    "empty": "No news yet"
+  },
+  "businessLicense": {
+    "title": "Company Info",
+    "companyName": "Jilin Aihui AI Technology Co., Ltd.",
+    "subtitle": "AI Application Dev · AI+Education · Enterprise Services"
+  },
+  "plazaNew": {
+    "title": "Post a Demand",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Summarize your demand in one sentence",
+    "descLabel": "Details",
+    "descPlaceholder": "Describe background, goals and expected results (min 10 chars)",
+    "lowLabel": "Min budget",
+    "peakLabel": "Max budget",
+    "contactLabel": "Contact",
+    "contactPlaceholder": "Phone / WeChat / Email (optional)",
+    "submit": "Publish",
+    "success": "Published",
+    "failed": "Publish failed"
   }
 }
