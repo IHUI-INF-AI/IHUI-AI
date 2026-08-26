@@ -6696,7 +6696,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -6713,7 +6718,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8623,32 +8633,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       }
     },
@@ -9834,7 +9870,8 @@
       "upcoming": "预告",
       "viewCount": "观看次数",
       "viewDetail": "查看详情",
-      "watch": "进入直播间"
+      "watch": "进入直播间",
+      "hostLink": "主播中心"
     },
     "map": {
       "description": "简介",
@@ -10435,25 +10472,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -10587,19 +10636,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -13032,7 +13093,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13765,7 +13834,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -14714,12 +14788,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -14783,7 +14869,8 @@
     "subtitle": "圈子与问答，一站式浏览社区动态",
     "title": "社区广场",
     "viewAllAsks": "查看全部问答",
-    "viewAllCircles": "查看全部圈子"
+    "viewAllCircles": "查看全部圈子",
+    "publish": "发布"
   },
   "plugins": {
     "addToChat": "添加到对话",
@@ -14926,7 +15013,13 @@
       "notCompleted": "未完成",
       "claimFailed": "领取失败"
     },
-    "taskCenterLink": "任务中心"
+    "taskCenterLink": "任务中心",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "mallTitle": "积分商城",
+    "redeemSuccess": "兑换成功",
+    "redeemFailed": "兑换失败",
+    "mallLink": "积分商城"
   },
   "pricingPage": {
     "badge": "限时早鸟",
@@ -15969,7 +16062,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -18264,7 +18363,8 @@
     "publish": "发布"
   },
   "appPermission": {
-    "intro": "本 APP 严格遵循最小必要原则申请系统权限，所有权限均由您主动授权，您可随时在手机系统「设置 - 权限管理」中查看、调整或撤回授权。"
+    "title": "应用权限说明",
+    "subtitle": "我们仅在必要场景申请以下权限,并严格保护您的隐私"
   },
   "askDetail": {
     "loadFailed": "加载失败",
@@ -18386,27 +18486,25 @@
     "statusPending": "待确认"
   },
   "liveHost": {
-    "statDuration": "直播时长",
-    "statViewers": "观看人数",
-    "statRecvBytes": "下行流量",
-    "statSendBytes": "上行流量",
-    "title": "开播设置",
-    "previewActive": "直播预览中",
-    "previewIdle": "直播未开始",
-    "streamTitle": "直播标题",
-    "streamTitlePlaceholder": "请输入直播标题",
-    "pushUrl": "推流地址",
-    "copyHint": "点击复制",
+    "title": "主播中心",
+    "titleLabel": "直播标题",
+    "titlePlaceholder": "输入直播标题",
+    "startBtn": "开始直播",
+    "startSuccess": "已创建直播流",
+    "startFailed": "创建失败",
+    "streamInfo": "推流信息",
     "streamKey": "推流密钥",
-    "starting": "开播中…",
-    "startLive": "开始直播",
-    "ending": "结束中…",
-    "endLive": "结束直播",
-    "stats": "数据统计",
-    "productManage": "商品管理",
-    "productAddBtn": "添加商品",
-    "productLoading": "商品加载中…",
-    "productEmpty": "暂无商品"
+    "obsHint": "在 OBS 等推流工具中使用上方推流地址与密钥开始推流",
+    "copied": "已复制",
+    "copyFailed": "复制失败",
+    "myStreams": "我的直播流",
+    "loading": "加载中...",
+    "empty": "暂无直播流",
+    "statusActive": "直播中",
+    "statusInactive": "未开播",
+    "endBtn": "结束直播",
+    "endSuccess": "已结束",
+    "endFailed": "结束失败"
   },
   "livePlaybackList": {
     "title": "直播回放",
@@ -18771,13 +18869,10 @@
     "holder": "持卡人"
   },
   "carte": {
-    "projects": "项目",
-    "skills": "技能",
-    "rating": "评分",
-    "title": "创作者名片",
-    "skillsTitle": "技能展示",
-    "worksTitle": "代表作品",
-    "empty": "暂无内容"
+    "title": "智汇社社群",
+    "recommend": "为您推荐",
+    "inviteHint": "扫描二维码免费进智汇社社群",
+    "scanHint": "扫码加入,和 1000+ 同行一起交流 AI"
   },
   "certApply": {
     "title": "证书申请",
@@ -18789,14 +18884,17 @@
   },
   "certVerify": {
     "title": "证书验证",
+    "subtitle": "输入证书编号,核验证书真伪",
+    "certNoLabel": "证书编号",
+    "certNoPlaceholder": "请输入证书编号",
+    "verifyBtn": "验证",
+    "notFound": "未找到该证书",
+    "notFoundHint": "请核对证书编号后重试",
+    "verified": "证书真实有效",
+    "certTitle": "证书名称",
     "certNo": "证书编号",
-    "placeholder": "请输入证书编号",
-    "verify": "验证",
-    "valid": "证书有效",
-    "invalid": "证书无效",
-    "holder": "持有者",
-    "issuer": "颁发机构",
-    "issuedAt": "颁发日期"
+    "holderName": "持证姓名",
+    "issueDate": "签发日期"
   },
   "courseCatalog": {
     "title": "课程目录",
@@ -18963,7 +19061,14 @@
   "qrCode": {
     "title": "扫描二维码",
     "scanTip": "使用智汇 AI 客户端扫描二维码",
-    "share": "分享"
+    "share": "分享",
+    "loading": "加载中...",
+    "loadFailed": "二维码加载失败",
+    "retry": "重试",
+    "scanHint": "扫码关注,成为好友",
+    "inviteCode": "邀请码",
+    "copied": "链接已复制",
+    "copyFailed": "复制失败"
   },
   "referrer": {
     "title": "推荐人",
@@ -18973,7 +19078,17 @@
     "codeLabel": "推荐码",
     "codePlaceholder": "请输入推荐码",
     "submitting": "提交中...",
-    "submit": "绑定推荐码"
+    "submit": "绑定推荐码",
+    "loading": "加载中...",
+    "loadFailed": "推荐人信息加载失败",
+    "retry": "重试",
+    "myReferrer": "我的推荐人",
+    "noReferrer": "暂未绑定推荐人",
+    "myInviteCode": "我的邀请码",
+    "bindTitle": "绑定推荐人",
+    "bindBtn": "绑定",
+    "bindSuccess": "绑定成功",
+    "bindFailed": "绑定失败"
   },
   "studyPlan": {
     "status": {
@@ -19925,5 +20040,33 @@
     "duration": "时长",
     "days": "天",
     "benefits": "会员权益"
+  },
+  "knowledgePlanet": {
+    "title": "知识星球",
+    "memberCount": "{count} 位成员",
+    "latestNews": "最新资讯",
+    "loading": "加载中...",
+    "loadFailed": "资讯加载失败",
+    "retry": "重试",
+    "empty": "暂无资讯"
+  },
+  "businessLicense": {
+    "title": "企业信息",
+    "companyName": "吉林省爱智汇人工智能科技有限公司",
+    "subtitle": "人工智能应用开发 · AI+教育 · 企业服务"
+  },
+  "plazaNew": {
+    "title": "发布需求",
+    "titleLabel": "标题",
+    "titlePlaceholder": "一句话说明您的需求",
+    "descLabel": "需求详情",
+    "descPlaceholder": "请详细描述需求背景、目标与期望结果(至少 10 字)",
+    "lowLabel": "预算下限",
+    "peakLabel": "预算上限",
+    "contactLabel": "联系方式",
+    "contactPlaceholder": "手机/微信/邮箱(选填)",
+    "submit": "发布",
+    "success": "发布成功",
+    "failed": "发布失败"
   }
 }

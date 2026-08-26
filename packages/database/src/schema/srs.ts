@@ -8,6 +8,7 @@ import {
   index,
   jsonb,
 } from 'drizzle-orm/pg-core'
+import { users } from './users.js'
 
 /**
  * SRS 直播流管理表 (等价自旧架构 services/srs_manager.py)。
@@ -19,6 +20,8 @@ export const srsStreams = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     streamKey: varchar('stream_key', { length: 128 }).notNull().unique(),
+    // 2026-08-26:流创建者(普通主播可结束自己的流;历史流为 null)
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     channelId: uuid('channel_id'),
     title: varchar('title', { length: 200 }).notNull(),
     pushUrl: varchar('push_url', { length: 500 }),

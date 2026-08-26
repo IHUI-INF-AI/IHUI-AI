@@ -224,7 +224,14 @@
     "modelRecord": "Model Record",
     "sectionDiscover": "Discover",
     "assistant": "My Assistants",
-    "apiSettings": "API Settings"
+    "apiSettings": "API Settings",
+    "knowledgeBase": "Knowledge Base",
+    "aiSkill": "AI Skills",
+    "memory": "Memory",
+    "aiWorld": "AI World",
+    "imageGen": "Image Gen",
+    "publish": "Publish",
+    "webPortal": "Web Version"
   },
   "error": {
     "network": "Network error, please retry"
@@ -2018,5 +2025,101 @@
     "loadFailed": "Failed to load levels",
     "price": "Price",
     "title": "VIP Levels"
+  },
+  "knowledgeBase": {
+    "title": "Knowledge Base",
+    "add": "Add",
+    "loadFailed": "Failed to load knowledge base",
+    "retry": "Retry",
+    "empty": "No documents",
+    "emptyHint": "Tap \"Add\" to ingest text knowledge",
+    "chunks": "chunks",
+    "delete": "Delete",
+    "deleteTitle": "Delete document",
+    "deleteConfirm": "Delete this document?",
+    "deleteFailed": "Delete failed"
+  },
+  "knowledgeCreate": {
+    "title": "New Document",
+    "submit": "Save",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Enter document title",
+    "textLabel": "Content",
+    "textPlaceholder": "Paste or type text content",
+    "hint": "Content will be chunked and searchable",
+    "required": "Title and content are required",
+    "successTitle": "Ingested",
+    "successMessage": "Document added to knowledge base",
+    "failedTitle": "Ingest failed",
+    "failedMessage": "Please retry later"
+  },
+  "knowledgeDoc": {
+    "title": "Document",
+    "loadFailed": "Failed to load document",
+    "retry": "Retry",
+    "chunksTotal": "chunks",
+    "source": "Source",
+    "preview": "Preview",
+    "noChunks": "No chunk content"
+  },
+  "aiSkill": {
+    "title": "AI Skills",
+    "loadFailed": "Failed to load skills",
+    "retry": "Retry",
+    "empty": "No skills",
+    "detail": "Details"
+  },
+  "aiSkillDetail": {
+    "title": "Skill Details",
+    "loadFailed": "Failed to load skill",
+    "retry": "Retry",
+    "prompt": "Prompt template",
+    "noPrompt": "No template",
+    "source": "Source"
+  },
+  "memory": {
+    "title": "My Memory",
+    "empty": "No memories",
+    "emptyHint": "Long-term conversation memories with AI are kept here",
+    "loadFailed": "Failed to load memories",
+    "delete": "Delete",
+    "deleteTitle": "Delete memory",
+    "deleteConfirm": "Delete this memory?",
+    "deleteFailed": "Delete failed",
+    "source": "Source",
+    "updatedAt": "Updated",
+    "loginRequired": "Please sign in"
+  },
+  "aiWorld": {
+    "title": "AI World",
+    "empty": "No content",
+    "emptyHint": "Great AI World content is on the way",
+    "favorites": "Favorites",
+    "history": "History",
+    "kindLabel": "Kind",
+    "loadFailed": "Failed to load",
+    "viewCount": "views"
+  },
+  "publish": {
+    "title": "Content Publish",
+    "empty": "No publish tasks",
+    "emptyHint": "Published articles and content appear here",
+    "loadFailed": "Failed to load",
+    "retry": "Retry",
+    "scheduled": "Scheduled",
+    "statsFailed": "Failed to load stats",
+    "statsSuccess": "Published",
+    "statsTotal": "Total"
+  },
+  "imageGen": {
+    "title": "Image Gen",
+    "historyEmpty": "No generation history",
+    "favoritesEmpty": "No favorites",
+    "loadFailed": "Failed to load",
+    "promptFallback": "Untitled"
+  },
+  "webView": {
+    "loadFailed": "Failed to load page",
+    "retry": "Retry"
   }
 }

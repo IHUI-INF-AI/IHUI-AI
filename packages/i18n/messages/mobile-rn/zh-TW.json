@@ -224,7 +224,14 @@
     "modelRecord": "模型備案",
     "sectionDiscover": "發現",
     "assistant": "我的助手",
-    "apiSettings": "API 設定"
+    "apiSettings": "API 設定",
+    "knowledgeBase": "知識庫",
+    "aiSkill": "AI 技能",
+    "memory": "記憶",
+    "aiWorld": "AI 世界",
+    "imageGen": "圖像生成",
+    "publish": "內容發布",
+    "webPortal": "網頁版"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -2018,5 +2025,101 @@
     "loadFailed": "載入等級失敗",
     "price": "價格",
     "title": "會員等級"
+  },
+  "knowledgeBase": {
+    "title": "知識庫",
+    "add": "新建",
+    "loadFailed": "知識庫載入失敗",
+    "retry": "重試",
+    "empty": "暫無文件",
+    "emptyHint": "點擊右上角「新建」添加文字知識",
+    "chunks": "個切片",
+    "delete": "刪除",
+    "deleteTitle": "刪除文件",
+    "deleteConfirm": "確定刪除該文件嗎?",
+    "deleteFailed": "刪除失敗"
+  },
+  "knowledgeCreate": {
+    "title": "新建文件",
+    "submit": "儲存",
+    "titleLabel": "標題",
+    "titlePlaceholder": "輸入文件標題",
+    "textLabel": "正文",
+    "textPlaceholder": "貼上或輸入文字內容",
+    "hint": "內容將自動切片入庫,支援語意檢索",
+    "required": "標題和正文不能為空",
+    "successTitle": "入庫成功",
+    "successMessage": "文件已加入知識庫",
+    "failedTitle": "入庫失敗",
+    "failedMessage": "請稍後重試"
+  },
+  "knowledgeDoc": {
+    "title": "文件詳情",
+    "loadFailed": "文件載入失敗",
+    "retry": "重試",
+    "chunksTotal": "個切片",
+    "source": "來源",
+    "preview": "內容預覽",
+    "noChunks": "暫無切片內容"
+  },
+  "aiSkill": {
+    "title": "AI 技能",
+    "loadFailed": "技能清單載入失敗",
+    "retry": "重試",
+    "empty": "暫無技能",
+    "detail": "檢視詳情"
+  },
+  "aiSkillDetail": {
+    "title": "技能詳情",
+    "loadFailed": "技能詳情載入失敗",
+    "retry": "重試",
+    "prompt": "Prompt 模板",
+    "noPrompt": "無模板",
+    "source": "來源"
+  },
+  "memory": {
+    "title": "我的記憶",
+    "empty": "暫無記憶",
+    "emptyHint": "與 AI 的長期對話記憶會保存在這裡",
+    "loadFailed": "記憶載入失敗",
+    "delete": "刪除",
+    "deleteTitle": "刪除記憶",
+    "deleteConfirm": "確定刪除這條記憶嗎?",
+    "deleteFailed": "刪除失敗",
+    "source": "來源",
+    "updatedAt": "更新時間",
+    "loginRequired": "請先登入"
+  },
+  "aiWorld": {
+    "title": "AI 世界",
+    "empty": "暫無內容",
+    "emptyHint": "AI 世界的精彩內容正在路上",
+    "favorites": "收藏",
+    "history": "瀏覽歷史",
+    "kindLabel": "類型",
+    "loadFailed": "載入失敗",
+    "viewCount": "瀏覽"
+  },
+  "publish": {
+    "title": "內容發布",
+    "empty": "暫無發布任務",
+    "emptyHint": "發布的文章與內容會顯示在這裡",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "scheduled": "已排期",
+    "statsFailed": "統計載入失敗",
+    "statsSuccess": "發布成功",
+    "statsTotal": "總計"
+  },
+  "imageGen": {
+    "title": "圖像生成",
+    "historyEmpty": "暫無生成歷史",
+    "favoritesEmpty": "暫無收藏",
+    "loadFailed": "載入失敗",
+    "promptFallback": "未命名作品"
+  },
+  "webView": {
+    "loadFailed": "頁面載入失敗",
+    "retry": "重試"
   }
 }

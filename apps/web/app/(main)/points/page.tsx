@@ -14,7 +14,7 @@ import { api } from './helpers'
 import type { Transaction, LeaderboardUser } from './types'
 import { BackButton } from '@/components/common'
 import Link from 'next/link'
-import { ListChecks } from 'lucide-react'
+import { ListChecks, ShoppingBag } from 'lucide-react'
 
 export default function PointsPage() {
   const t = useTranslations('points')
@@ -73,13 +73,22 @@ export default function PointsPage() {
     <div className="mx-auto w-full max-w-5xl space-y-4">
       <div className="flex items-center justify-between">
         <BackButton />
-        <Link
-          href="/points/tasks"
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
-        >
-          <ListChecks className="h-4 w-4" />
-          {t('taskCenterLink')}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/points/mall"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            {t('mallLink')}
+          </Link>
+          <Link
+            href="/points/tasks"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+          >
+            <ListChecks className="h-4 w-4" />
+            {t('taskCenterLink')}
+          </Link>
+        </div>
       </div>
       <PointsSummary
         points={points}
