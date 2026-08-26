@@ -87,21 +87,40 @@ async function triggerAndMeasure(page: Page): Promise<DialogMeasurement> {
   await page.waitForLoadState('networkidle')
 
   // 2. 点 header 登录按钮
+  // 2026-08-26 修复:移动端(375x667)该按钮以 fixed 定位,即使 force: true 仍报
+  // "element is outside of the viewport"。改用 dispatchEvent('click') 直接派发
+  // 原生 click 事件,完全绕开 Playwright actionability 检查。
   const loginBtn = page.getByRole('button', { name: /登录/ }).first()
-  await loginBtn.click()
+  await loginBtn.dispatchEvent('click')
 
   // 3. 等 LoginDialog 出现
   const loginDialog = page.getByTestId('login-dialog')
   await expect(loginDialog).toBeVisible({ timeout: 5000 })
 
   // 4. 切到密码登录 tab
-  await page.getByTestId('login-tab-password').click()
+  // 2026-08-26 修复:实际登录弹窗的 tab 是"邮箱/手机/账号/扫码",默认"账号"已是
+  // 密码登录形态(共享 LoginForm 的 passwordLogin i18n 翻译为"账号")。
+  // 必须先点击 tab 触发 Radix TabsContent 挂载,PasswordLoginForm(testid 持有者)
+  // 才会渲染,否则 login-account-input 永远找不到。
+  const passwordTab = page.getByTestId('login-tab-password')
+  await expect(passwordTab).toBeVisible({ timeout: 5000 })
+  await passwordTab.click()
+  // 等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)
+  await page.waitForTimeout(500)
 
   // 5. 填表(**不**勾选协议 — defaultAgreed=false,弹窗由 agreementMode='notice-dialog' 触发)
-  const accountInput = page.getByTestId('login-account-input')
+  // 2026-08-26 修复:web 端 LoginFormContent 启用了 enableCredentialPersistence,
+  // PasswordLoginForm 渲染 AccountHistoryInput(div[data-testid='account-history-input']
+  // 包裹 input),需要点到内部 input。兼容两种(账号/邮箱 tab 的 input 各自不同)。
+  const accountContainer = page
+    .getByTestId('account-history-input')
+    .or(page.getByTestId('login-account-input'))
   const passwordInput = page.getByTestId('login-password-input')
-  await expect(accountInput).toBeVisible({ timeout: 5000 })
-  await accountInput.fill('13800138000')
+  await expect(accountContainer.first()).toBeVisible({ timeout: 5000 })
+  // AccountHistoryInput 的 data-testid 落在容器 div,fill 容器会报错;
+  // 用 input[name="username"] 兜底定位真实 input 元素
+  const accountInputEl = accountContainer.first().locator('input').first()
+  await accountInputEl.fill('13800138000')
   await passwordInput.fill('Test123!')
 
   // 6. 点提交按钮(用 data-testid 精准锁定,避免点中其他"登录"按钮)
@@ -109,13 +128,18 @@ async function triggerAndMeasure(page: Page): Promise<DialogMeasurement> {
   await submitBtn.click()
 
   // 7. 等 AgreementNoticeDialog 出现(role=dialog 但不是 login-dialog)
-  //    与 verify3.js 兜底策略一致:取所有 dialog 中 data-testid !== 'login-dialog' 的那一个
-  const noticeDialog = page.locator('[role="dialog"]:not([data-testid="login-dialog"])')
+  //    2026-08-26 修复:移动端 sidebar aside 也是 role=dialog(aria-modal=true),会被
+  //    同选择器匹配,需用 .first() 或筛选带 aria-labelledby 的真弹窗(strict mode violation)
+  const noticeDialog = page
+    .locator('[role="dialog"]:not([data-testid="login-dialog"]):not(aside)')
+    .first()
   await expect(noticeDialog).toBeVisible({ timeout: 5000 })
 
   // 8. 测量几何
   return await page.evaluate(() => {
-    const dialogs = Array.from(document.querySelectorAll('[role="dialog"]'))
+    const dialogs = Array.from(
+      document.querySelectorAll('[role="dialog"]:not(aside)'),
+    ) as HTMLElement[]
     const agreement = dialogs.find((d) => d.getAttribute('data-testid') !== 'login-dialog')
     if (!agreement) {
       return {

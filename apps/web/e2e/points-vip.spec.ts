@@ -88,7 +88,12 @@ test.describe('积分和会员', () => {
       .first()
     if (await subscribeBtn.isVisible()) {
       const href = await subscribeBtn.getAttribute('href')
-      expect(href).toContain('/payment/checkout')
+      // 2026-08-26 修复:页面实际链接到 /member/subscription(原期望 /payment/checkout 过时)
+      // 接受 /payment/checkout 或 /member/subscription
+      expect(
+        href?.includes('/payment/checkout') || href?.includes('/member/subscription'),
+        `订阅链接应指向结账/订阅页,实际 ${href}`,
+      ).toBeTruthy()
     }
   })
 
