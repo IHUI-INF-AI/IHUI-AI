@@ -6701,7 +6701,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6718,7 +6723,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8628,32 +8638,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -9849,7 +9885,8 @@
       "upcoming": "预告",
       "viewCount": "視聴回数",
       "viewDetail": "查看详情",
-      "watch": "进入直播间"
+      "watch": "进入直播间",
+      "hostLink": "配信センター"
     },
     "map": {
       "description": "简介",
@@ -10450,25 +10487,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10602,19 +10651,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -13055,7 +13116,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14823,7 +14892,8 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "APIテスト",
     "viewAllAsks": "すべてのQ&Aを",
-    "viewAllCircles": "すべてのサークルを"
+    "viewAllCircles": "すべてのサークルを",
+    "publish": "投稿"
   },
   "plugins": {
     "addToChat": "チャットに追加",
@@ -14966,7 +15036,13 @@
       "notCompleted": "未完了",
       "claimFailed": "受け取りに失敗しました"
     },
-    "taskCenterLink": "タスクセンター"
+    "taskCenterLink": "タスクセンター",
+    "loadFailed": "読み込みに失敗しました",
+    "retry": "再試行",
+    "mallTitle": "ポイントモール",
+    "redeemSuccess": "交換しました",
+    "redeemFailed": "交換に失敗しました",
+    "mallLink": "ポイントモール"
   },
   "pricingPage": {
     "badge": "期間限定アーリーバード",
@@ -18348,7 +18424,8 @@
     "publish": "公開"
   },
   "appPermission": {
-    "intro": "本 APP は最小必要の原則に従ってシステム権限を申請します。すべての権限はご自身の同意により付与され、端末の「設定 - 権限管理」でいつでも確認・調整・撤回できます。"
+    "title": "アプリ権限",
+    "subtitle": "必要な場面でのみ権限を申請し、プライバシーを厳格に保護します"
   },
   "askDetail": {
     "loadFailed": "読み込みに失敗しました",
@@ -18470,27 +18547,25 @@
     "statusPending": "確認待ち"
   },
   "liveHost": {
-    "statDuration": "配信時間",
-    "statViewers": "視聴者数",
-    "statRecvBytes": "ダウンロード",
-    "statSendBytes": "アップロード",
-    "title": "配信設定",
-    "previewActive": "配信プレビュー中",
-    "previewIdle": "未配信",
-    "streamTitle": "配信タイトル",
-    "streamTitlePlaceholder": "配信タイトルを入力",
-    "pushUrl": "プッシュ URL",
-    "copyHint": "クリックでコピー",
+    "title": "配信センター",
+    "titleLabel": "配信タイトル",
+    "titlePlaceholder": "配信タイトルを入力",
+    "startBtn": "配信開始",
+    "startSuccess": "配信を作成しました",
+    "startFailed": "作成に失敗しました",
+    "streamInfo": "配信情報",
     "streamKey": "配信キー",
-    "starting": "配信開始中…",
-    "startLive": "配信開始",
-    "ending": "終了中…",
-    "endLive": "配信終了",
-    "stats": "データ統計",
-    "productManage": "商品管理",
-    "productAddBtn": "商品を追加",
-    "productLoading": "商品を読み込み中…",
-    "productEmpty": "商品はありません"
+    "obsHint": "OBS 等で上記の配信 URL とキーを使用して配信を開始します",
+    "copied": "コピーしました",
+    "copyFailed": "コピーに失敗しました",
+    "myStreams": "自分の配信",
+    "loading": "読み込み中...",
+    "empty": "配信はありません",
+    "statusActive": "配信中",
+    "statusInactive": "未配信",
+    "endBtn": "配信終了",
+    "endSuccess": "終了しました",
+    "endFailed": "終了に失敗しました"
   },
   "livePlaybackList": {
     "title": "ライブアーカイブ",
@@ -18855,13 +18930,10 @@
     "holder": "名義人"
   },
   "carte": {
-    "projects": "プロジェクト",
-    "skills": "スキル",
-    "rating": "評価",
-    "title": "クリエイターカード",
-    "skillsTitle": "スキル紹介",
-    "worksTitle": "代表作",
-    "empty": "コンテンツがありません"
+    "title": "智匯社コミュニティ",
+    "recommend": "おすすめ",
+    "inviteHint": "QRコードをスキャンして無料で参加",
+    "scanHint": "スキャンして 1000+ の AI 仲間と交流"
   },
   "certApply": {
     "title": "証明書申請",
@@ -18873,14 +18945,17 @@
   },
   "certVerify": {
     "title": "証明書検証",
+    "subtitle": "証明書番号を入力して真偽を確認",
+    "certNoLabel": "証明書番号",
+    "certNoPlaceholder": "証明書番号を入力",
+    "verifyBtn": "検証",
+    "notFound": "証明書が見つかりません",
+    "notFoundHint": "番号を確認して再試行してください",
+    "verified": "証明書は有効です",
+    "certTitle": "証明書名",
     "certNo": "証明書番号",
-    "placeholder": "証明書番号を入力",
-    "verify": "検証",
-    "valid": "証明書は有効です",
-    "invalid": "証明書は無効です",
-    "holder": "保有者",
-    "issuer": "発行機関",
-    "issuedAt": "発行日"
+    "holderName": "氏名",
+    "issueDate": "発行日"
   },
   "courseCatalog": {
     "title": "コース目次",
@@ -19047,7 +19122,14 @@
   "qrCode": {
     "title": "QR コードをスキャン",
     "scanTip": "生慧 AI アプリで QR コードをスキャンしてください",
-    "share": "共有"
+    "share": "共有",
+    "loading": "読み込み中...",
+    "loadFailed": "QRコードの読み込みに失敗しました",
+    "retry": "再試行",
+    "scanHint": "スキャンして友達になる",
+    "inviteCode": "招待コード",
+    "copied": "リンクをコピーしました",
+    "copyFailed": "コピーに失敗しました"
   },
   "referrer": {
     "title": "紹介者",
@@ -19057,7 +19139,17 @@
     "codeLabel": "紹介コード",
     "codePlaceholder": "紹介コードを入力",
     "submitting": "送信中...",
-    "submit": "紹介コードを連携"
+    "submit": "紹介コードを連携",
+    "loading": "読み込み中...",
+    "loadFailed": "紹介者の読み込みに失敗しました",
+    "retry": "再試行",
+    "myReferrer": "私の紹介者",
+    "noReferrer": "紹介者は未登録です",
+    "myInviteCode": "私の招待コード",
+    "bindTitle": "紹介者を登録",
+    "bindBtn": "登録",
+    "bindSuccess": "登録しました",
+    "bindFailed": "登録に失敗しました"
   },
   "studyPlan": {
     "status": {
@@ -20009,5 +20101,33 @@
     "duration": "期間",
     "days": "日",
     "benefits": "会員特典"
+  },
+  "knowledgePlanet": {
+    "title": "ナレッジプラネット",
+    "memberCount": "{count} 人のメンバー",
+    "latestNews": "最新ニュース",
+    "loading": "読み込み中...",
+    "loadFailed": "ニュースの読み込みに失敗しました",
+    "retry": "再試行",
+    "empty": "ニュースはありません"
+  },
+  "businessLicense": {
+    "title": "会社情報",
+    "companyName": "吉林省愛智匯人工知能科技有限公司",
+    "subtitle": "AI アプリ開発 · AI+教育 · 企業サービス"
+  },
+  "plazaNew": {
+    "title": "需要を投稿",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "要件を一言で",
+    "descLabel": "詳細",
+    "descPlaceholder": "背景・目標・期待結果を詳しく(10 文字以上)",
+    "lowLabel": "予算下限",
+    "peakLabel": "予算上限",
+    "contactLabel": "連絡先",
+    "contactPlaceholder": "電話/WeChat/メール(任意)",
+    "submit": "投稿",
+    "success": "投稿しました",
+    "failed": "投稿に失敗しました"
   }
 }

@@ -187,6 +187,19 @@ import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
 import { SetNeedScreen } from '../screens/SetNeedScreen'
 import { SubPackageIndexScreen } from '../screens/SubPackageIndexScreen'
 import AppTopupScreen from '../screens/AppTopupScreen'
+// M3 补齐(2026-08-26):web 核心用户功能 → 移动端原生
+import { KnowledgeBaseScreen } from '../screens/KnowledgeBaseScreen'
+import { KnowledgeCreateScreen } from '../screens/KnowledgeCreateScreen'
+import { KnowledgeDocScreen } from '../screens/KnowledgeDocScreen'
+import { AiSkillScreen } from '../screens/AiSkillScreen'
+import { AiSkillDetailScreen } from '../screens/AiSkillDetailScreen'
+// M3 并行批次(2026-08-26)
+import { MemoryScreen } from '../screens/MemoryScreen'
+import { AiWorldScreen } from '../screens/AiWorldScreen'
+import { PublishScreen } from '../screens/PublishScreen'
+// M4(2026-08-26):通用 WebView 承载页
+import { WebViewScreen } from '../screens/WebViewScreen'
+import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -376,6 +389,19 @@ export type RootStackParamList = {
   SetNeed: undefined
   SubPackageIndex: undefined
   AppTopup: undefined
+  // M3 补齐(2026-08-26)
+  KnowledgeBase: undefined
+  KnowledgeCreate: undefined
+  KnowledgeDoc: { id: number; title: string }
+  AiSkill: undefined
+  AiSkillDetail: { id: string; name: string }
+  // M3 并行批次(2026-08-26)
+  Memory: undefined
+  AiWorld: undefined
+  Publish: undefined
+  ImageGenHistory: undefined
+  // M4(2026-08-26):通用 WebView 承载页
+  WebView: { url: string; title?: string }
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -615,6 +641,19 @@ function RootNavigatorInner() {
             <RootStack.Screen name="SetNeed" component={SetNeedScreen} />
             <RootStack.Screen name="SubPackageIndex" component={SubPackageIndexScreen} />
             <RootStack.Screen name="AppTopup" component={AppTopupScreen} />
+            {/* M3 补齐(2026-08-26) */}
+            <RootStack.Screen name="KnowledgeBase" component={KnowledgeBaseScreen} />
+            <RootStack.Screen name="KnowledgeCreate" component={KnowledgeCreateScreen} />
+            <RootStack.Screen name="KnowledgeDoc" component={KnowledgeDocScreen} />
+            <RootStack.Screen name="AiSkill" component={AiSkillScreen} />
+            <RootStack.Screen name="AiSkillDetail" component={AiSkillDetailScreen} />
+            {/* M3 并行批次(2026-08-26) */}
+            <RootStack.Screen name="Memory" component={MemoryScreen} />
+            <RootStack.Screen name="AiWorld" component={AiWorldScreen} />
+            <RootStack.Screen name="Publish" component={PublishScreen} />
+            <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
+            {/* M4(2026-08-26):通用 WebView 承载页 */}
+            <RootStack.Screen name="WebView" component={WebViewScreen} />
             {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
             <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
             <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />

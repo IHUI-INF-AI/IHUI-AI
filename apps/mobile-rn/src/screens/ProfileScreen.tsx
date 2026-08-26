@@ -248,6 +248,14 @@ export function ProfileScreen() {
   // 菜单项点击跳转:所有菜单路由均注册在 RootStack(menuSections 映射时已统一为 RootRoute),
   // 统一经父级 rootNav navigate(ProfileMain 为 Main 子 Tab,不能直接用子栈 navigation)
   const onNavigate = (item: MenuItem) => {
+    // M4(2026-08-26):WebView 承载页需带 URL 参数,单独处理
+    if (item.key === 'WebViewPortal') {
+      rootNav?.navigate('WebView', {
+        url: 'https://aizhs.top',
+        title: t('menu.webPortal'),
+      })
+      return
+    }
     navigateRoot(rootNav, item.key)
   }
 
