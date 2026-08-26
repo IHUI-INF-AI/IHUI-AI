@@ -2,7 +2,10 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import IORedis, { type Redis } from 'ioredis'
+import { generateWsToken } from '@ihui/auth'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter } from './ws-helpers.js'
+import { authenticate } from './auth.js'
+import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 
@@ -179,6 +182,23 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
         }
       }
     }
+  })
+
+  // POST /ws/ticket — 用 access token 换取短期 WS 专用 token(5 分钟 TTL)
+  // 根治 access token 经 URL query 暴露进访问日志的问题:access token 改走
+  // Authorization header 换取 5 分钟一次性 WS token,即使经 URL 泄漏也无法
+  // 访问 REST API(type='ws' 被严格类型隔离)。
+  server.post('/ws/ticket', async (request, reply) => {
+    try {
+      await authenticate(request)
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
+      return reply.status(statusCode).send(error(statusCode, (e as Error).message || '请先登录'))
+    }
+    const userId = request.userId!
+    const roleId = (request.jwtPayload as { roleId?: number } | undefined)?.roleId ?? 0
+    const wsToken = await generateWsToken(userId, { roleId })
+    return reply.send(success({ wsToken, expiresIn: 300 }))
   })
 
   server.get('/ws/notifications', { websocket: true }, (socket, request) => {
