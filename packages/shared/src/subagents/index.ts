@@ -34,6 +34,12 @@ export type DispatchPriority = 'low' | 'normal' | 'high' | 'urgent'
 /** 派单状态 */
 export type DispatchStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused'
 
+/**
+ * 派单扩展状态(对齐 apps/api/src/services/subagent-dispatch-service.ts 的 ExtendedDispatchStatus,
+ * 在 DispatchStatus 基础上增加 preempted(被抢占)/ quota_exceeded(超限))。
+ */
+export type ExtendedDispatchStatus = DispatchStatus | 'preempted' | 'quota_exceeded'
+
 /** DAG 节点定义 */
 export interface DagNode {
   id: string
@@ -225,34 +231,64 @@ export interface TopologyResponse {
   topology: SwarmTopologyV2
 }
 
-/** 全局统计 */
+/**
+ * 全局统计(对齐 apps/api GET /subagents/stats,service getStats 实际返回字段)。
+ * 实际字段为 { active, completed, failed, total, avgDurationMs, totalTokens },
+ * 无 totalDispatches / byRole / byOrchestration / cancelled。
+ */
 export interface SubagentGlobalStats {
-  totalDispatches: number
+  /** 当前活跃(pending/running)派单数 */
   active: number
+  /** 已完成派单数 */
   completed: number
+  /** 失败派单数 */
   failed: number
-  cancelled: number
-  byRole: Record<AgentRole, number>
-  byOrchestration: Record<OrchestrationMode, number>
+  /** 总派单数(后端 DispatchStats.total,替代旧 totalDispatches) */
+  total: number
+  /** 平均耗时 ms(总耗时/总派单数) */
   avgDurationMs: number
+  /** 累计 token 用量 */
+  totalTokens: number
 }
 
-/** 单个派单统计 */
+/**
+ * 单个派单统计(对齐 apps/api GET /subagents/:id/stats,service getDispatchStats 实际返回字段)。
+ * 实际字段为 { dispatchId, status, totalDurationMs, totalTokens, estimatedCost, steps },
+ * 无 durationMs / tokensUsed / retries / toolCalls / filesChanged。
+ */
 export interface SubagentDispatchStats {
+  /** 派单 ID(后端 DispatchResourceStats.dispatchId) */
   dispatchId: string
-  durationMs: number
-  tokensUsed: number
-  retries: number
-  toolCalls: number
-  filesChanged: number
+  /** 派单状态(含 preempted / quota_exceeded 扩展态) */
+  status: ExtendedDispatchStatus
+  /** 总耗时 ms */
+  totalDurationMs: number
+  /** 总 token 用量 */
+  totalTokens: number
+  /** 估算成本($) */
+  estimatedCost: number
+  /** 各 agent 步骤明细 */
+  steps: Array<{
+    agent: string
+    durationMs: number
+    tokenUsage: { prompt: number; completion: number; total: number }
+    attempt: number
+    status: 'ok' | 'failed' | 'quota_exceeded'
+    error?: string
+  }>
 }
 
-/** 优先级队列条目 */
+/**
+ * 优先级队列条目(对齐 apps/api GET /subagents/queue,service getQueue 实际返回字段)。
+ * 实际字段为 { dispatchId, priority, status, goal, createdAt, position },
+ * 使用 dispatchId 而非 id。
+ */
 export interface SubagentQueueEntry {
-  id: string
+  /** 派单 ID(后端 QueueEntry.dispatchId,替代旧 id) */
+  dispatchId: string
   goal: string
   priority: DispatchPriority
-  status: DispatchStatus
+  status: ExtendedDispatchStatus
   position: number
   createdAt: string
 }

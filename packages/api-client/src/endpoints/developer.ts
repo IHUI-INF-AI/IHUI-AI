@@ -15,19 +15,23 @@ export interface PageQuery {
   [key: string]: string | number | undefined | null
 }
 
-/** 开发者信*/
+/** 开发者信(2026-08-26 对齐后端 /api/developer/info 实际返回:developer_applications 行)*/
 export interface DeveloperInfo {
   id: string
   userId: string
+  /** 开发者/企业名称 */
   name: string
-  email?: string
-  avatar?: string
-  status: 'pending' | 'approved' | 'rejected' | 'suspended'
-  level?: number
-  permissions?: string[]
-  price?: number
+  /** 申请简介(可空) */
+  description?: string
+  /** 开发者/企业网址(developer_applications.website,可空) */
+  website?: string
+  /** 申请状态:0 待审核 / 1 已通过 / 2 已拒绝(后端 integer,此处透传) */
+  status: number
   createdAt: string
   updatedAt?: string
+  /** 以下字段为历史/前端展示预留,后端当前不返回 */
+  email?: string
+  avatar?: string
   [key: string]: unknown
 }
 
@@ -132,10 +136,9 @@ export async function getDeveloperPrice(): Promise<
   return fetchApi<{ price: number; [key: string]: unknown }>('/api/developer/price')
 }
 
-/** 申请成为开发*/
+/** 申请成为开发(2026-08-26 入参对齐后端 z schema:name 必填 + description 可选)*/
 export async function applyDeveloper(input: {
   name: string
-  email?: string
   description?: string
 }): Promise<ApiResult<DeveloperInfo>> {
   return fetchApi<DeveloperInfo>('/api/developer/apply', {
@@ -144,7 +147,7 @@ export async function applyDeveloper(input: {
   })
 }
 
-/** 更新开发者信*/
+/** 更新开发者信(2026-08-26 标注:后端无 PUT /api/developer/info,勿调用,保留兼容签名)*/
 export async function updateDeveloperInfo(
   input: Partial<DeveloperInfo>,
 ): Promise<ApiResult<DeveloperInfo>> {
@@ -408,11 +411,22 @@ export async function getDeveloperSubscription(): Promise<
   return fetchApi<{ subscription: DeveloperSubscriptionInfo | null }>('/developer/subscription')
 }
 
+/**
+ * 我的开发者 API 密钥列表项(对齐后端 GET /developer/api-keys 返回的 SafeApiKey 子集)。
+ * 注:secret 在 DB 中仅存哈希,列表永不返回;明文只在创建/轮换接口一次性返回。
+ * 注:tokenBalance/tokenUsedTotal 等含 "token" 字段会被后端 response-sanitizer 遮蔽为 '***',
+ * 故此处不声明这些字段(避免类型与运行时不符)。
+ */
 export interface DeveloperApiKeyItem {
   id: string
-  name: string | null
-  createdAt: string | null
-  [key: string]: unknown
+  name: string
+  /** 公开标识(前缀 + 短码),非 secret,可安全展示/复制 */
+  key: string
+  status: 'active' | 'revoked'
+  permissions: string[]
+  rateLimit: number
+  expiresAt: string | null
+  createdAt: string
 }
 
 /** 我的开发者 API 密钥列表 */
