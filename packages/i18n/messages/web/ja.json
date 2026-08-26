@@ -16870,7 +16870,15 @@
     "registerTitle": "統合登録",
     "sendCodeFailed": "認証コードの送信に失敗しました",
     "subtitle": "ログインに {clientId} へのとリダイレクトをいます",
-    "title": "ログイン"
+    "title": "ログイン",
+    "mobileAuth": {
+      "title": "モバイル認証",
+      "processing": "ログイン状態を確認中…",
+      "missingCode": "認証コードがありません。アプリから開いてください",
+      "exchangeFailed": "認証に失敗しました。再試行または再ログインしてください",
+      "networkError": "ネットワークエラーです。再試行してください",
+      "backToLogin": "ログインに戻る"
+    }
   },
   "statistics": {
     "actions": "操作",

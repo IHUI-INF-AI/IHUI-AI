@@ -16821,7 +16821,15 @@
     "registerTitle": "統一注冊",
     "sendCodeFailed": "驗證碼發送失敗",
     "subtitle": "登錄後將為 {clientId} 授權並跳轉",
-    "title": "統一登錄"
+    "title": "統一登錄",
+    "mobileAuth": {
+      "title": "行動裝置授權",
+      "processing": "正在驗證登入狀態…",
+      "missingCode": "缺少授權碼，請從 App 內開啟",
+      "exchangeFailed": "授權失敗，請重試或重新登入",
+      "networkError": "網路異常，請重試",
+      "backToLogin": "返回登入"
+    }
   },
   "statistics": {
     "actions": "操作",
