@@ -6696,7 +6696,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6713,7 +6718,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8623,32 +8633,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -9834,7 +9870,8 @@
       "upcoming": "預告",
       "viewCount": "觀看次數",
       "viewDetail": "查看詳情",
-      "watch": "進入直播間"
+      "watch": "進入直播間",
+      "hostLink": "主播中心"
     },
     "map": {
       "description": "簡介",
@@ -10435,25 +10472,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10587,19 +10636,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -13032,7 +13093,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13765,7 +13834,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14714,12 +14788,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -14783,7 +14869,8 @@
     "subtitle": "圈子與問答，一站式瀏覽社區動態",
     "title": "社區廣場",
     "viewAllAsks": "查看全部問答",
-    "viewAllCircles": "查看全部圈子"
+    "viewAllCircles": "查看全部圈子",
+    "publish": "發佈"
   },
   "plugins": {
     "addToChat": "添加到對話",
@@ -14926,7 +15013,13 @@
       "notCompleted": "未完成",
       "claimFailed": "領取失敗"
     },
-    "taskCenterLink": "任務中心"
+    "taskCenterLink": "任務中心",
+    "loadFailed": "載入失敗",
+    "retry": "重試",
+    "mallTitle": "積分商城",
+    "redeemSuccess": "兌換成功",
+    "redeemFailed": "兌換失敗",
+    "mallLink": "積分商城"
   },
   "pricingPage": {
     "badge": "限時早鳥",
@@ -15969,7 +16062,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -18264,7 +18363,8 @@
     "publish": "發布"
   },
   "appPermission": {
-    "intro": "本 APP 嚴格遵循最小必要原則申請系統權限，所有權限均由您主動授權，您可隨時在手機系統「設定 - 權限管理」中查看、調整或撤回授權。"
+    "title": "應用權限說明",
+    "subtitle": "我們僅在必要場景申請以下權限,並嚴格保護您的隱私"
   },
   "askDetail": {
     "loadFailed": "載入失敗",
@@ -18386,27 +18486,25 @@
     "statusPending": "待確認"
   },
   "liveHost": {
-    "statDuration": "直播時長",
-    "statViewers": "觀看人數",
-    "statRecvBytes": "下行流量",
-    "statSendBytes": "上行流量",
-    "title": "開播設定",
-    "previewActive": "直播預覽中",
-    "previewIdle": "直播未開始",
-    "streamTitle": "直播標題",
-    "streamTitlePlaceholder": "請輸入直播標題",
-    "pushUrl": "推流位址",
-    "copyHint": "點擊複製",
+    "title": "主播中心",
+    "titleLabel": "直播標題",
+    "titlePlaceholder": "輸入直播標題",
+    "startBtn": "開始直播",
+    "startSuccess": "已建立直播流",
+    "startFailed": "建立失敗",
+    "streamInfo": "推流資訊",
     "streamKey": "推流金鑰",
-    "starting": "開播中…",
-    "startLive": "開始直播",
-    "ending": "結束中…",
-    "endLive": "結束直播",
-    "stats": "數據統計",
-    "productManage": "商品管理",
-    "productAddBtn": "新增商品",
-    "productLoading": "商品載入中…",
-    "productEmpty": "暫無商品"
+    "obsHint": "在 OBS 等推流工具中使用上方推流位址與金鑰開始推流",
+    "copied": "已複製",
+    "copyFailed": "複製失敗",
+    "myStreams": "我的直播流",
+    "loading": "載入中...",
+    "empty": "暫無直播流",
+    "statusActive": "直播中",
+    "statusInactive": "未開播",
+    "endBtn": "結束直播",
+    "endSuccess": "已結束",
+    "endFailed": "結束失敗"
   },
   "livePlaybackList": {
     "title": "直播回放",
@@ -18771,13 +18869,10 @@
     "holder": "持卡人"
   },
   "carte": {
-    "projects": "專案",
-    "skills": "技能",
-    "rating": "評分",
-    "title": "創作者名片",
-    "skillsTitle": "技能展示",
-    "worksTitle": "代表作品",
-    "empty": "暫無內容"
+    "title": "智匯社社群",
+    "recommend": "為您推薦",
+    "inviteHint": "掃描二維碼免費進智匯社社群",
+    "scanHint": "掃碼加入,和 1000+ 同行一起交流 AI"
   },
   "certApply": {
     "title": "證書申請",
@@ -18789,14 +18884,17 @@
   },
   "certVerify": {
     "title": "證書驗證",
+    "subtitle": "輸入證書編號,核驗證書真偽",
+    "certNoLabel": "證書編號",
+    "certNoPlaceholder": "請輸入證書編號",
+    "verifyBtn": "驗證",
+    "notFound": "未找到該證書",
+    "notFoundHint": "請核對證書編號後重試",
+    "verified": "證書真實有效",
+    "certTitle": "證書名稱",
     "certNo": "證書編號",
-    "placeholder": "請輸入證書編號",
-    "verify": "驗證",
-    "valid": "證書有效",
-    "invalid": "證書無效",
-    "holder": "持有者",
-    "issuer": "頒發機構",
-    "issuedAt": "頒發日期"
+    "holderName": "持證姓名",
+    "issueDate": "簽發日期"
   },
   "courseCatalog": {
     "title": "課程目錄",
@@ -18963,7 +19061,14 @@
   "qrCode": {
     "title": "掃描 QR Code",
     "scanTip": "使用智匯 AI 用戶端掃描 QR Code",
-    "share": "分享"
+    "share": "分享",
+    "loading": "載入中...",
+    "loadFailed": "二維碼載入失敗",
+    "retry": "重試",
+    "scanHint": "掃碼關注,成為好友",
+    "inviteCode": "邀請碼",
+    "copied": "連結已複製",
+    "copyFailed": "複製失敗"
   },
   "referrer": {
     "title": "推薦人",
@@ -18973,7 +19078,17 @@
     "codeLabel": "推薦碼",
     "codePlaceholder": "請輸入推薦碼",
     "submitting": "提交中...",
-    "submit": "綁定推薦碼"
+    "submit": "綁定推薦碼",
+    "loading": "載入中...",
+    "loadFailed": "推薦人資訊載入失敗",
+    "retry": "重試",
+    "myReferrer": "我的推薦人",
+    "noReferrer": "暫未綁定推薦人",
+    "myInviteCode": "我的邀請碼",
+    "bindTitle": "綁定推薦人",
+    "bindBtn": "綁定",
+    "bindSuccess": "綁定成功",
+    "bindFailed": "綁定失敗"
   },
   "studyPlan": {
     "status": {
@@ -19925,5 +20040,33 @@
     "duration": "時長",
     "days": "天",
     "benefits": "會員權益"
+  },
+  "knowledgePlanet": {
+    "title": "知識星球",
+    "memberCount": "{count} 位成員",
+    "latestNews": "最新資訊",
+    "loading": "載入中...",
+    "loadFailed": "資訊載入失敗",
+    "retry": "重試",
+    "empty": "暫無資訊"
+  },
+  "businessLicense": {
+    "title": "企業資訊",
+    "companyName": "吉林省愛智匯人工智能科技有限公司",
+    "subtitle": "人工智慧應用開發 · AI+教育 · 企業服務"
+  },
+  "plazaNew": {
+    "title": "發佈需求",
+    "titleLabel": "標題",
+    "titlePlaceholder": "一句話說明您的需求",
+    "descLabel": "需求詳情",
+    "descPlaceholder": "請詳細描述需求背景、目標與期望結果(至少 10 字)",
+    "lowLabel": "預算下限",
+    "peakLabel": "預算上限",
+    "contactLabel": "聯絡方式",
+    "contactPlaceholder": "手機/微信/郵箱(選填)",
+    "submit": "發佈",
+    "success": "發佈成功",
+    "failed": "發佈失敗"
   }
 }
