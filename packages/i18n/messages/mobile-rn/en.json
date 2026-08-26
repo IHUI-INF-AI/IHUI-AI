@@ -239,12 +239,6 @@
   "error": {
     "network": "Network error, please retry"
   },
-  "taskDispatch": {
-    "status": {},
-    "cancel": {},
-    "reconnect": {},
-    "file": {}
-  },
   "common": {
     "ok": "OK",
     "gotIt": "Got it",
@@ -2021,7 +2015,6 @@
     "detail": "Details"
   },
   "aiSkillDetail": {
-    "title": "Skill Details",
     "loadFailed": "Failed to load skill",
     "retry": "Retry",
     "prompt": "Prompt template",
