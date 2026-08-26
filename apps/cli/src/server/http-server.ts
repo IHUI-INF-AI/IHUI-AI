@@ -12,6 +12,7 @@
 
 import * as http from 'node:http';
 import type { AgentCore, AgentEvent } from './agent-core.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export interface AgentServerOptions {
   port: number;
@@ -141,11 +142,12 @@ function readJsonBody(req: http.IncomingMessage): Promise<Record<string, unknown
         resolve({});
         return;
       }
-      try {
-        resolve(JSON.parse(raw) as Record<string, unknown>);
-      } catch (e) {
-        reject(e);
+      const parsed = tryParseJson(raw);
+      if (!isRecord(parsed)) {
+        reject(new Error('请求体必须是合法的 JSON 对象'));
+        return;
       }
+      resolve(parsed);
     });
   });
 }
