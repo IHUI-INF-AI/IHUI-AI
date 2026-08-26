@@ -53,7 +53,7 @@ test.describe('第三方登录 - 基础', () => {
 
   test('OAuth 按钮可点击(无 disabled)', async ({ page }) => {
     await page.goto(LOGIN_PAGE)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // Google 按钮应可点(所有平台均走真实 OAuth 流程)
     const googleBtn = page.getByRole('button', { name: /Google/i }).first()
@@ -107,7 +107,7 @@ test.describe('第三方登录 - 基础', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto(LOGIN_PAGE)
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
@@ -166,7 +166,7 @@ test.describe('第三方登录 - 跳转目标验证', () => {
         return
       }
       await page.goto(LOGIN_PAGE)
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
       await expect(page.getByText(/第三方登录|Third Party/i).first()).toBeVisible({
         timeout: 10000,
       })

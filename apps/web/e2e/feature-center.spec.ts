@@ -50,7 +50,7 @@ test.describe('Feature Center - 各子页面可达', () => {
 test.describe('Feature Center - 功能验证', () => {
   test('仪表盘渲染(若可访问)', async ({ page }) => {
     await page.goto('/feature-center')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -59,7 +59,7 @@ test.describe('Feature Center - 功能验证', () => {
 
   test('API 集市列表渲染(若可访问)', async ({ page }) => {
     await page.goto('/feature-center/apis')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -68,7 +68,7 @@ test.describe('Feature Center - 功能验证', () => {
 
   test('Agent 集市列表渲染(若可访问)', async ({ page }) => {
     await page.goto('/feature-center/agents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -77,7 +77,7 @@ test.describe('Feature Center - 功能验证', () => {
 
   test('模型列表渲染(若可访问)', async ({ page }) => {
     await page.goto('/feature-center/models')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -86,7 +86,7 @@ test.describe('Feature Center - 功能验证', () => {
 
   test('SDK 页面渲染(若可访问)', async ({ page }) => {
     await page.goto('/feature-center/documents')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -97,7 +97,7 @@ test.describe('Feature Center - 功能验证', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/feature-center')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
