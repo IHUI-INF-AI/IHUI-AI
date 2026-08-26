@@ -224,7 +224,14 @@
     "modelRecord": "模型备案",
     "sectionDiscover": "发现",
     "assistant": "我的助手",
-    "apiSettings": "API 设置"
+    "apiSettings": "API 设置",
+    "knowledgeBase": "知识库",
+    "aiSkill": "AI 技能",
+    "memory": "记忆",
+    "aiWorld": "AI 世界",
+    "imageGen": "图像生成",
+    "publish": "内容发布",
+    "webPortal": "网页版"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -2018,5 +2025,101 @@
     "loadFailed": "加载等级失败",
     "price": "价格",
     "title": "会员等级"
+  },
+  "knowledgeBase": {
+    "title": "知识库",
+    "add": "新建",
+    "loadFailed": "知识库加载失败",
+    "retry": "重试",
+    "empty": "暂无文档",
+    "emptyHint": "点击右上角\"新建\"添加文本知识",
+    "chunks": "个切片",
+    "delete": "删除",
+    "deleteTitle": "删除文档",
+    "deleteConfirm": "确定删除该文档吗?",
+    "deleteFailed": "删除失败"
+  },
+  "knowledgeCreate": {
+    "title": "新建文档",
+    "submit": "保存",
+    "titleLabel": "标题",
+    "titlePlaceholder": "输入文档标题",
+    "textLabel": "正文",
+    "textPlaceholder": "粘贴或输入文本内容",
+    "hint": "内容将自动切片入库,支持语义检索",
+    "required": "标题和正文不能为空",
+    "successTitle": "入库成功",
+    "successMessage": "文档已加入知识库",
+    "failedTitle": "入库失败",
+    "failedMessage": "请稍后重试"
+  },
+  "knowledgeDoc": {
+    "title": "文档详情",
+    "loadFailed": "文档加载失败",
+    "retry": "重试",
+    "chunksTotal": "个切片",
+    "source": "来源",
+    "preview": "内容预览",
+    "noChunks": "暂无切片内容"
+  },
+  "aiSkill": {
+    "title": "AI 技能",
+    "loadFailed": "技能列表加载失败",
+    "retry": "重试",
+    "empty": "暂无技能",
+    "detail": "查看详情"
+  },
+  "aiSkillDetail": {
+    "title": "技能详情",
+    "loadFailed": "技能详情加载失败",
+    "retry": "重试",
+    "prompt": "Prompt 模板",
+    "noPrompt": "无模板",
+    "source": "来源"
+  },
+  "memory": {
+    "title": "我的记忆",
+    "empty": "暂无记忆",
+    "emptyHint": "与 AI 的长期对话记忆会保存在这里",
+    "loadFailed": "记忆加载失败",
+    "delete": "删除",
+    "deleteTitle": "删除记忆",
+    "deleteConfirm": "确定删除这条记忆吗?",
+    "deleteFailed": "删除失败",
+    "source": "来源",
+    "updatedAt": "更新时间",
+    "loginRequired": "请先登录"
+  },
+  "aiWorld": {
+    "title": "AI 世界",
+    "empty": "暂无内容",
+    "emptyHint": "AI 世界的精彩内容正在路上",
+    "favorites": "收藏",
+    "history": "浏览历史",
+    "kindLabel": "类型",
+    "loadFailed": "加载失败",
+    "viewCount": "浏览"
+  },
+  "publish": {
+    "title": "内容发布",
+    "empty": "暂无发布任务",
+    "emptyHint": "发布的文章与内容会显示在这里",
+    "loadFailed": "加载失败",
+    "retry": "重试",
+    "scheduled": "已排期",
+    "statsFailed": "统计加载失败",
+    "statsSuccess": "发布成功",
+    "statsTotal": "总计"
+  },
+  "imageGen": {
+    "title": "图像生成",
+    "historyEmpty": "暂无生成历史",
+    "favoritesEmpty": "暂无收藏",
+    "loadFailed": "加载失败",
+    "promptFallback": "未命名作品"
+  },
+  "webView": {
+    "loadFailed": "页面加载失败",
+    "retry": "重试"
   }
 }
