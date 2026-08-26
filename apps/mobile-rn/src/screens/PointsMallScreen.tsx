@@ -27,10 +27,8 @@ export function PointsMallScreen() {
   const [redeemingId, setRedeemingId] = useState<string | null>(null)
 
   const fetcher = useCallback(
-    async ({ page, pageSize }: { page: number; pageSize: number }) => {
-      const res = await fetchApi<ProductPage>('/points-mall', {
-        params: { page, pageSize },
-      })
+    async () => {
+      const res = await fetchApi<ProductPage>('/points/redeem')
       if (!res.success) return { success: false as const, error: t('pointsMall.loadFailed') }
       const page0 = res.data
       const list = page0?.list ?? []
@@ -51,7 +49,7 @@ export function PointsMallScreen() {
       return
     }
     setRedeemingId(item.id)
-    const res = await fetchApi<{ ok: boolean }>(`/points-mall/${item.id}/redeem`, {
+    const res = await fetchApi<{ redeemed: number }>(`/points/redeem/${item.id}`, {
       method: 'POST',
     })
     setRedeemingId(null)

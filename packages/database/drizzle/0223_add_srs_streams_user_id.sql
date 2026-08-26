@@ -1,0 +1,3 @@
+ALTER TABLE "feedbacks" ADD COLUMN "file_path" text;--> statement-breakpoint
+ALTER TABLE "srs_streams" ADD COLUMN "user_id" uuid;--> statement-breakpoint
+ALTER TABLE "srs_streams" ADD CONSTRAINT "srs_streams_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;

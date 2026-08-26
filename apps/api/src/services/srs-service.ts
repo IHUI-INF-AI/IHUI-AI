@@ -58,6 +58,7 @@ export async function createStream(params: {
   title: string
   channelId?: string
   serverId?: string
+  userId?: string
 }): Promise<{ stream: typeof srsStreams.$inferSelect }> {
   let server = await getActiveServer()
   if (!server) {
@@ -88,6 +89,8 @@ export async function createStream(params: {
     .values({
       streamKey,
       channelId: params.channelId ?? null,
+      // 2026-08-26:记录流创建者,普通主播可结束自己的流
+      userId: params.userId ?? null,
       title: params.title,
       pushUrl: urls.pushUrl,
       playUrl: urls.playUrl,

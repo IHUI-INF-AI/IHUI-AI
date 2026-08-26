@@ -6702,7 +6702,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6719,7 +6724,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -8629,32 +8639,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -9847,7 +9883,8 @@
       "upcoming": "예고",
       "viewCount": "조회수",
       "viewDetail": "자세히 보기",
-      "watch": "라이브 입장"
+      "watch": "라이브 입장",
+      "hostLink": "호스트 센터"
     },
     "map": {
       "description": "소개",
@@ -10448,25 +10485,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10600,19 +10649,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -13053,7 +13114,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13786,7 +13855,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14735,7 +14809,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -14810,7 +14890,8 @@
     "subtitle": "포괄적인의개발문서및API참조",
     "title": "AI인마음페이스테스트",
     "viewAllAsks": "모든 Q&A 보기",
-    "viewAllCircles": "모든 서클 보기"
+    "viewAllCircles": "모든 서클 보기",
+    "publish": "게시"
   },
   "plugins": {
     "addToChat": "대화에 추가",
@@ -14953,7 +15034,13 @@
       "notCompleted": "미완료",
       "claimFailed": "수령에 실패했습니다"
     },
-    "taskCenterLink": "작업 센터"
+    "taskCenterLink": "작업 센터",
+    "loadFailed": "로드 실패",
+    "retry": "재시도",
+    "mallTitle": "포인트 몰",
+    "redeemSuccess": "교환 완료",
+    "redeemFailed": "교환 실패",
+    "mallLink": "포인트 몰"
   },
   "pricingPage": {
     "badge": "한정 얼리버드",
@@ -18333,7 +18420,8 @@
     "publish": "게시"
   },
   "appPermission": {
-    "intro": "본 APP은 최소 필요 원칙에 따라 시스템 권한을 요청하며, 모든 권한은 사용자가 직접 승인합니다. 기기의 '설정 - 권한 관리'에서 언제든지 확인·조정·철회할 수 있습니다."
+    "title": "앱 권한",
+    "subtitle": "필요한 경우에만 권한을 요청하며 개인정보를 엄격히 보호합니다"
   },
   "askDetail": {
     "loadFailed": "불러오기 실패",
@@ -18455,27 +18543,25 @@
     "statusPending": "대기 중"
   },
   "liveHost": {
-    "statDuration": "방송 시간",
-    "statViewers": "시청자 수",
-    "statRecvBytes": "다운로드",
-    "statSendBytes": "업로드",
-    "title": "방송 설정",
-    "previewActive": "라이브 미리보기 중",
-    "previewIdle": "미방송",
-    "streamTitle": "방송 제목",
-    "streamTitlePlaceholder": "방송 제목을 입력하세요",
-    "pushUrl": "푸시 URL",
-    "copyHint": "클릭하여 복사",
-    "streamKey": "방송 키",
-    "starting": "방송 시작 중…",
-    "startLive": "방송 시작",
-    "ending": "종료 중…",
-    "endLive": "방송 종료",
-    "stats": "데이터 통계",
-    "productManage": "상품 관리",
-    "productAddBtn": "상품 추가",
-    "productLoading": "상품 불러오는 중…",
-    "productEmpty": "상품 없음"
+    "title": "호스트 센터",
+    "titleLabel": "방송 제목",
+    "titlePlaceholder": "방송 제목 입력",
+    "startBtn": "방송 시작",
+    "startSuccess": "방송을 만들었습니다",
+    "startFailed": "생성 실패",
+    "streamInfo": "방송 정보",
+    "streamKey": "스트림 키",
+    "obsHint": "OBS 등에서 위 푸시 URL과 키를 사용하여 방송을 시작하세요",
+    "copied": "복사됨",
+    "copyFailed": "복사 실패",
+    "myStreams": "내 방송",
+    "loading": "로딩 중...",
+    "empty": "방송이 없습니다",
+    "statusActive": "방송 중",
+    "statusInactive": "오프라인",
+    "endBtn": "방송 종료",
+    "endSuccess": "종료됨",
+    "endFailed": "종료 실패"
   },
   "livePlaybackList": {
     "title": "라이브 다시보기",
@@ -18840,13 +18926,10 @@
     "holder": "카드 소지자"
   },
   "carte": {
-    "projects": "프로젝트",
-    "skills": "스킬",
-    "rating": "평점",
-    "title": "크리에이터 카드",
-    "skillsTitle": "스킬 소개",
-    "worksTitle": "대표 작품",
-    "empty": "콘텐츠가 없습니다"
+    "title": "지혜사 커뮤니티",
+    "recommend": "추천합니다",
+    "inviteHint": "QR코드를 스캔하여 무료로 가입하세요",
+    "scanHint": "스캔하여 1000+ AI 동료와 소통하세요"
   },
   "certApply": {
     "title": "자격증 신청",
@@ -18857,15 +18940,18 @@
     "submit": "신청 제출"
   },
   "certVerify": {
-    "title": "자격증 검증",
-    "certNo": "자격증 번호",
-    "placeholder": "자격증 번호를 입력하세요",
-    "verify": "검증",
-    "valid": "유효한 자격증입니다",
-    "invalid": "유효하지 않은 자격증입니다",
-    "holder": "소지자",
-    "issuer": "발급 기관",
-    "issuedAt": "발급일"
+    "title": "인증서 검증",
+    "subtitle": "인증서 번호를 입력하여 진위를 확인하세요",
+    "certNoLabel": "인증서 번호",
+    "certNoPlaceholder": "인증서 번호 입력",
+    "verifyBtn": "검증",
+    "notFound": "인증서를 찾을 수 없습니다",
+    "notFoundHint": "번호를 확인 후 다시 시도하세요",
+    "verified": "유효한 인증서입니다",
+    "certTitle": "인증서 이름",
+    "certNo": "인증서 번호",
+    "holderName": "소지자",
+    "issueDate": "발급일"
   },
   "courseCatalog": {
     "title": "강의 목차",
@@ -19032,7 +19118,14 @@
   "qrCode": {
     "title": "QR 코드 스캔",
     "scanTip": "지혜 AI 앱으로 QR 코드를 스캔하세요",
-    "share": "공유"
+    "share": "공유",
+    "loading": "로딩 중...",
+    "loadFailed": "QR 코드 로드 실패",
+    "retry": "재시도",
+    "scanHint": "스캔하여 친구가 되세요",
+    "inviteCode": "초대 코드",
+    "copied": "링크가 복사되었습니다",
+    "copyFailed": "복사 실패"
   },
   "referrer": {
     "title": "추천인",
@@ -19042,7 +19135,17 @@
     "codeLabel": "추천 코드",
     "codePlaceholder": "추천 코드를 입력하세요",
     "submitting": "제출 중...",
-    "submit": "추천 코드 연결"
+    "submit": "추천 코드 연결",
+    "loading": "로딩 중...",
+    "loadFailed": "추천인 정보 로드 실패",
+    "retry": "재시도",
+    "myReferrer": "내 추천인",
+    "noReferrer": "추천인이 없습니다",
+    "myInviteCode": "내 초대 코드",
+    "bindTitle": "추천인 등록",
+    "bindBtn": "등록",
+    "bindSuccess": "등록 완료",
+    "bindFailed": "등록 실패"
   },
   "studyPlan": {
     "status": {
@@ -19994,5 +20097,33 @@
     "duration": "기간",
     "days": "일",
     "benefits": "멤버십 혜택"
+  },
+  "knowledgePlanet": {
+    "title": "지식 플래닛",
+    "memberCount": "{count}명의 멤버",
+    "latestNews": "최신 뉴스",
+    "loading": "로딩 중...",
+    "loadFailed": "뉴스 로드 실패",
+    "retry": "재시도",
+    "empty": "뉴스가 없습니다"
+  },
+  "businessLicense": {
+    "title": "회사 정보",
+    "companyName": "지린성 아이후이 AI 기술 유한회사",
+    "subtitle": "AI 앱 개발 · AI+교육 · 기업 서비스"
+  },
+  "plazaNew": {
+    "title": "수요 게시",
+    "titleLabel": "제목",
+    "titlePlaceholder": "요구사항을 한 문장으로",
+    "descLabel": "상세",
+    "descPlaceholder": "배경·목표·기대 결과를 상세히(10자 이상)",
+    "lowLabel": "예산 하한",
+    "peakLabel": "예산 상한",
+    "contactLabel": "연락처",
+    "contactPlaceholder": "전화/위챗/이메일(선택)",
+    "submit": "게시",
+    "success": "게시 완료",
+    "failed": "게시 실패"
   }
 }
