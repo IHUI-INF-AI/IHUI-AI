@@ -81,7 +81,9 @@ test.describe.parallel('PWA 专项', () => {
   test('theme-color meta 标签存在', async ({ page }: { page: Page }) => {
     await page.goto('/')
     await page.waitForLoadState('domcontentloaded')
-    const themeColor = page.locator('meta[name="theme-color"]')
+    // 2026-08-26 修复:theme-color 有两套 media(light #ffffff / dark #0a0a0a,layout.tsx:197),
+    // locator 匹配 2 个元素触发 strict mode violation → getAttribute 抛错 → null。加 .first()。
+    const themeColor = page.locator('meta[name="theme-color"]').first()
     const content = await themeColor.getAttribute('content').catch(() => null)
     expect(content, '页面应包含 theme-color meta 标签').toBeTruthy()
     // theme-color 应为有效的颜色值(#xxx 或 rgb())

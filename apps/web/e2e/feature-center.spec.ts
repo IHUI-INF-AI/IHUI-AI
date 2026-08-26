@@ -16,12 +16,12 @@ import { test, expect } from '@playwright/test'
 // Feature Center 子页面路径
 const FEATURE_CENTER_PAGES = [
   '/feature-center',
-  '/feature-center/dashboard',
-  '/feature-center/api-market',
-  '/feature-center/agent-market',
+  '/feature-center',
+  '/feature-center/apis',
+  '/feature-center/agents',
   '/feature-center/docs',
   '/feature-center/models',
-  '/feature-center/sdk',
+  '/feature-center/documents',
 ] as const
 
 test.describe('Feature Center - 各子页面可达', () => {
@@ -50,7 +50,7 @@ test.describe('Feature Center - 各子页面可达', () => {
 
 test.describe('Feature Center - 功能验证', () => {
   test('仪表盘渲染(若可访问)', async ({ page }) => {
-    await page.goto('/feature-center/dashboard')
+    await page.goto('/feature-center')
     await page.waitForLoadState('networkidle')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
@@ -59,7 +59,7 @@ test.describe('Feature Center - 功能验证', () => {
   })
 
   test('API 集市列表渲染(若可访问)', async ({ page }) => {
-    await page.goto('/feature-center/api-market')
+    await page.goto('/feature-center/apis')
     await page.waitForLoadState('networkidle')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
@@ -68,7 +68,7 @@ test.describe('Feature Center - 功能验证', () => {
   })
 
   test('Agent 集市列表渲染(若可访问)', async ({ page }) => {
-    await page.goto('/feature-center/agent-market')
+    await page.goto('/feature-center/agents')
     await page.waitForLoadState('networkidle')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
@@ -86,7 +86,7 @@ test.describe('Feature Center - 功能验证', () => {
   })
 
   test('SDK 页面渲染(若可访问)', async ({ page }) => {
-    await page.goto('/feature-center/sdk')
+    await page.goto('/feature-center/documents')
     await page.waitForLoadState('networkidle')
     if (page.url().includes('/feature-center')) {
       const main = page.locator('main, [role="main"]').first()
