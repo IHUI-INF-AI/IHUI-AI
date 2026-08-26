@@ -201,7 +201,7 @@ async function mockSSE(
 /** 导航到 /chat,等待 trigger 可见并打开 pane(原 openTimeline 的"切 timeline tab"步骤已移除) */
 async function openPane(page: Page): Promise<void> {
   await page.goto(CHAT_URL)
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   // 确保仍在 /chat(已登录态下不会被重定向)
   await expect(page).toHaveURL(/\/chat/, { timeout: 15000 })
 

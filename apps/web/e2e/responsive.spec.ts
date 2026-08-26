@@ -48,7 +48,7 @@ test.describe('响应式设计 - 多视口', () => {
   test('移动端导航菜单按钮可见(汉堡菜单)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 移动端通常有汉堡菜单按钮
     const menuBtn = page
       .getByRole('button')
@@ -66,7 +66,7 @@ test.describe('响应式设计 - 多视口', () => {
   test('桌面端导航栏完整可见', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const nav = page.locator('nav, [role="navigation"]').first()
     await expect(nav).toBeVisible({ timeout: 10000 })
   })
@@ -76,7 +76,7 @@ test.describe('响应式设计 - 多视口', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/plaza')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

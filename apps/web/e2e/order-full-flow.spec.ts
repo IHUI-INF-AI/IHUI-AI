@@ -23,7 +23,7 @@ test.describe('完整订单流程', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/orders')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -41,7 +41,7 @@ test.describe('完整订单流程', () => {
 
   test('下单:商品页加入购物车或立即购买(若可访问)', async ({ page }) => {
     await page.goto('/vip')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 查找订阅/购买按钮
     const buyBtn = page.getByRole('link', { name: /订阅|购买|Subscribe|立即|Get Started/i }).first()
     if (await buyBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
@@ -73,7 +73,7 @@ test.describe('完整订单流程', () => {
 
   test('支付方式选择存在(若可访问)', async ({ page }) => {
     await page.goto('/payment/checkout')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/payment/checkout')) return
 
     await page.waitForTimeout(2000)
@@ -87,7 +87,7 @@ test.describe('完整订单流程', () => {
 
   test('退款:订单操作按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/orders')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/orders')) return
 
     await page.waitForTimeout(2000)
@@ -100,7 +100,7 @@ test.describe('完整订单流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/orders')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
