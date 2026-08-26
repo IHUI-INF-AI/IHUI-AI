@@ -80,7 +80,9 @@ export const metadata: Metadata = {
   category: 'Technology',
   classification: 'AI Platform / SaaS',
   metadataBase: new URL(SITE_URL),
-  manifest: '/manifest.json',
+  // 2026-08-26 修复:指向 app/manifest.ts 生成的 /manifest.webmanifest(Next 标准端点,
+  // PWA 规范;原 /manifest.json 静态文件保留兼容旧链接)
+  manifest: '/manifest.webmanifest',
   icons: {
     // 2026-08-06 修复浏览器标签破图 + 品牌图标统一:
     // - favicon.ico: logo.png(2534x2534)→黑色背景+logo→多尺寸 16/32/48 PNG-based ICO
