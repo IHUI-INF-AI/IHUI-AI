@@ -23,7 +23,7 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
     {
       key: 'total',
       label: '总派单',
-      value: stats?.totalDispatches ?? 0,
+      value: stats?.total ?? 0,
       icon: Layers,
       iconClass: 'text-slate-600 dark:text-slate-400',
     },

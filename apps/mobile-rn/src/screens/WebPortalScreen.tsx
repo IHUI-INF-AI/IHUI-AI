@@ -3,8 +3,8 @@
  *
  * 背景:移动端无法原生实现的复杂功能域(edu-ai/教务家长/开发者平台/自媒体/知识图谱/模型管理)
  * 通过本门户按细分 URL 打开 WebViewScreen(替代此前"网页版"整站入口)。
- * 数据源:lib/webview-portal-config.ts 的 WEB_PORTAL_SECTIONS(7 组 47 条)。
- * 平台特有:依赖 RN ScrollView/Pressable,不适合共享。
+ * 数据源:lib/webview-portal-config.ts 的 WEB_PORTAL_SECTIONS(6 组 37 条)。
+ * 平台特有:依赖 RN SectionList/Pressable,不适合共享。
  */
 import { useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
@@ -25,9 +25,7 @@ export function WebPortalScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
-  const [expanded, setExpanded] = useState<ReadonlySet<string>>(
-    () => new Set(DEFAULT_EXPANDED),
-  )
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(DEFAULT_EXPANDED))
 
   const toggleSection = (titleKey: string) => {
     setExpanded((prev) => {
@@ -65,7 +63,9 @@ export function WebPortalScreen() {
                   dark ? 'bg-neutral-800' : 'bg-gray-50'
                 }`}
               >
-                <Text className={`text-[15px] font-semibold ${dark ? 'text-neutral-100' : 'text-gray-900'}`}>
+                <Text
+                  className={`text-[15px] font-semibold ${dark ? 'text-neutral-100' : 'text-gray-900'}`}
+                >
                   {t(section.titleKey)}
                 </Text>
                 <Text className={`text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}>
@@ -83,10 +83,14 @@ export function WebPortalScreen() {
                         dark ? 'bg-neutral-800/60' : 'bg-white'
                       } border ${dark ? 'border-neutral-700' : 'border-gray-200'}`}
                     >
-                      <Text className={`flex-1 text-[14px] ${dark ? 'text-neutral-200' : 'text-gray-800'}`}>
+                      <Text
+                        className={`flex-1 text-[14px] ${dark ? 'text-neutral-200' : 'text-gray-800'}`}
+                      >
                         {t(entry.titleKey)}
                       </Text>
-                      <Text className={`ml-2 text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}>
+                      <Text
+                        className={`ml-2 text-[12px] ${dark ? 'text-neutral-500' : 'text-gray-400'}`}
+                      >
                         {entry.path}
                       </Text>
                     </Pressable>

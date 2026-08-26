@@ -8,7 +8,9 @@
  *   ① 我的智能体 → DevEnter(原 /pagesA/dev_enter/index)
  *   ② 智能体收入 → ModelIncome(原 /pagesA/dev_enter/model_income)
  *   ③ n8n智能体   → N8nModel(原 /pagesA/dev_enter/nbn_model)
- * - 开发者信息(账号/秘密/网址/到期时间 + 续费):后端暂无 getDevInfo 接口,开发者信息区暂隐藏
+ * - 开发者信息(账号/API密钥/网址/到期时间 + 续费):后端无 getDevInfo 接口,由
+ *   getDeveloperSubscription + getDeveloperApiKeys + 登录用户信息拼装;
+ *   网址字段暂无数据源(users 表无 website),显示 '—'
  * - 非开发者问题区(开发者须知/联系团长):占位卡片
  *
  * 注:历史版本把本路由误实现为「开发者套餐开通订阅页」(FEATURES+plans+微信支付)——
@@ -32,8 +34,10 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   getDeveloperApiKeys,
+  getDeveloperInfo,
   getDeveloperSubscription,
   type DeveloperApiKeyItem,
+  type DeveloperInfo,
   type DeveloperSubscriptionInfo,
 } from '@ihui/api-client'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -72,24 +76,28 @@ export default function DeveloperScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
-  // 开发者订阅 + API 密钥(对齐原 developer_info 区:账号/密钥/到期时间 + 续费)
+  // 开发者订阅 + API 密钥(对齐原 developer_info 区:账号/密钥/网址/到期时间 + 续费)
   const [subscription, setSubscription] = useState<DeveloperSubscriptionInfo | null>(null)
   const [apiKeys, setApiKeys] = useState<DeveloperApiKeyItem[]>([])
+  // 开发者申请信息(2026-08-26:GET /api/developer/info 死代码路由已恢复注册)
+  const [devInfo, setDevInfo] = useState<DeveloperInfo | null>(null)
   const [infoLoaded, setInfoLoaded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
-        const [subRes, keyRes] = await Promise.all([
+        const [subRes, keyRes, infoRes] = await Promise.all([
           getDeveloperSubscription(),
           getDeveloperApiKeys().catch(() => null),
+          getDeveloperInfo().catch(() => null),
         ])
         if (cancelled) return
         if (subRes.success) setSubscription(subRes.data.subscription)
         if (keyRes?.success) setApiKeys(keyRes.data.list)
+        if (infoRes?.success) setDevInfo(infoRes.data)
       } catch {
-        // 订阅/密钥加载失败不阻塞页面
+        // 订阅/密钥/信息加载失败不阻塞页面
       } finally {
         if (!cancelled) setInfoLoaded(true)
       }
@@ -98,6 +106,10 @@ export default function DeveloperScreen() {
       cancelled = true
     }
   }, [])
+
+  /** 首个可用(active 且含公开 key)的 API 密钥,供"秘密"行展示与复制 */
+  const firstApiKey: DeveloperApiKeyItem | null =
+    apiKeys.find((k) => k.status === 'active' && k.key.length > 0) ?? null
 
   /** 复制文本(对齐原 copyText) */
   const handleCopy = (text: string): void => {
@@ -151,27 +163,62 @@ export default function DeveloperScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 开发者信息区(对齐原 developer_info_body:账号/密钥/到期时间 + 续费;
-         *  数据源 getDeveloperSubscription + getDeveloperApiKeys,仅在有效订阅时展示) */}
+        {/* 开发者信息区(对齐原 developer_info_body:账号/密钥/网址/到期时间 + 续费;
+         *  数据源 getDeveloperSubscription + getDeveloperApiKeys + 登录用户信息,仅在有效订阅时展示;
+         *  secret 后端仅创建时返回一次,此处展示密钥概览并复制公开 key;网址数据源 developer_applications.website) */}
         {infoLoaded && subscription ? (
           <View style={styles.infoCard}>
             <Text style={styles.infoTitle}>开发者信息</Text>
+            {/* 开发者名称/简介/申请状态(2026-08-26:GET /api/developer/info 死代码路由已恢复注册) */}
+            {devInfo ? (
+              <>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>名称</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {devInfo.name || '-'}
+                  </Text>
+                </View>
+                {devInfo.description ? (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>简介</Text>
+                    <Text style={styles.infoValue} numberOfLines={2}>
+                      {devInfo.description}
+                    </Text>
+                  </View>
+                ) : null}
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>申请状态</Text>
+                  <Text style={styles.infoValue} numberOfLines={1}>
+                    {devInfo.status === 1 ? '已通过' : devInfo.status === 2 ? '已拒绝' : '待审核'}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+            {/* 账号 = 邮箱/手机号,兜底昵称/用户名 */}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>账号</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
-                {user?.nickname ?? user?.username ?? '-'}
+                {user?.email ?? user?.phone ?? user?.nickname ?? user?.username ?? '-'}
               </Text>
             </View>
+            {/* 秘密 = API 密钥概览(明文 secret 不可回取;复制公开 key) */}
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>API 密钥</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {apiKeys.length > 0 ? `已创建 ${apiKeys.length} 个` : '未创建'}
               </Text>
-              {apiKeys[0]?.id ? (
-                <TouchableOpacity onPress={() => handleCopy(apiKeys[0]!.id!)} hitSlop={8}>
+              {firstApiKey ? (
+                <TouchableOpacity onPress={() => handleCopy(firstApiKey.key)} hitSlop={8}>
                   <Text style={styles.infoCopy}>复制</Text>
                 </TouchableOpacity>
               ) : null}
+            </View>
+            {/* 网址:数据源 developer_applications.website(GET /api/developer/info),无值时占位 '—' */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>网址</Text>
+              <Text style={styles.infoValue} numberOfLines={1}>
+                {devInfo?.website || '—'}
+              </Text>
             </View>
             <View style={styles.infoRow}>
               <Text style={[styles.infoLabel, { color: '#FF7272' }]}>到期时间</Text>

@@ -61,6 +61,14 @@ export default defineConfig({
     ],
     exclude: ['**/node_modules/**', '**/.git/**', 'dist/**', 'tests/*-debug*.test.tsx'],
     environment: 'jsdom',
+    // 固定测试环境变量:Vitest 会自动加载 .env 注入 process.env,
+    // 若开发者本地 .env 指向生产域名(如 EXPO_PUBLIC_API_BASE_URL),会导致
+    // 依赖默认值的测试(如 config.ts 的 localhost:8802)非确定性失败。
+    // 此处显式覆盖,保证测试环境始终确定性。
+    env: {
+      EXPO_PUBLIC_API_BASE_URL: 'http://localhost:8802',
+      EXPO_PUBLIC_WEB_URL: 'http://localhost:8801',
+    },
     setupFiles: ['./tests/setup.ts'],
     testTimeout: 10_000,
     server: {
