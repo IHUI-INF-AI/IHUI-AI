@@ -256,6 +256,11 @@ export function ProfileScreen() {
       })
       return
     }
+    // M4.1(2026-08-26):Web 功能门户(细分 URL 列表页)
+    if (item.key === 'WebPortal') {
+      rootNav?.navigate('WebPortal')
+      return
+    }
     navigateRoot(rootNav, item.key)
   }
 
