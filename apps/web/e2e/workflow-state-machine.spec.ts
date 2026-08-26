@@ -50,7 +50,10 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     }
 
     await adminPage.waitForTimeout(1500)
+    // 2026-08-26 修复:getByRole('button') 全局匹配会命中侧边栏"内容审核"按钮
+    // (含"审核"二字),点击它不会打开 dialog。需限定到主区域 + 操作列。
     const approveRowBtn = adminPage
+      .locator('main')
       .getByRole('button')
       .filter({ hasText: /审核|通过|审批|Approve|Review/i })
       .first()
@@ -82,7 +85,9 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
       }
 
       await adminPage.waitForTimeout(1500)
+      // 2026-08-26 修复:同 45 行 —— 限定 main 区域,避免误中侧边栏"内容审核"
       const approveRowBtn = adminPage
+        .locator('main')
         .getByRole('button')
         .filter({ hasText: /审核|通过|审批|Approve|Review/i })
         .first()
@@ -116,7 +121,9 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     }
 
     await adminPage.waitForTimeout(1500)
+    // 2026-08-26 修复:同 45 行 —— 限定 main 区域,避免误中侧边栏"内容审核"
     const approveRowBtn = adminPage
+      .locator('main')
       .getByRole('button')
       .filter({ hasText: /审核|通过|审批|Approve|Review/i })
       .first()
