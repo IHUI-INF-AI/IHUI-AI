@@ -16868,7 +16868,15 @@
     "registerTitle": "통합 가입",
     "sendCodeFailed": "인증 코드 전송 실패",
     "subtitle": "로그인 후 {clientId}에 대한 인증 및 리디렉션",
-    "title": "통합 로그인"
+    "title": "통합 로그인",
+    "mobileAuth": {
+      "title": "모바일 인증",
+      "processing": "로그인 상태 확인 중…",
+      "missingCode": "인증 코드가 없습니다. 앱에서 열어주세요",
+      "exchangeFailed": "인증에 실패했습니다. 다시 시도하거나 로그인하세요",
+      "networkError": "네트워크 오류입니다. 다시 시도하세요",
+      "backToLogin": "로그인으로 돌아가기"
+    }
   },
   "statistics": {
     "actions": "작업",
