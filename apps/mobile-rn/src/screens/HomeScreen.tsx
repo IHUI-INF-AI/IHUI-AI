@@ -794,12 +794,13 @@ export function HomeScreen() {
   /** 打开/关闭模型参数配置弹窗(对齐 Uniapp showModelaConfig 开关) */
   const closeModelConfig = (): void => setShowModelConfig(false)
   /** 素材项点击(对齐 Uniapp handleMaterialItemClick:素材作为卡片插入输入区上方,可移除)
-   *  数据源 getMyCreation(按分类映射 agent/plugin/workflow),点击即插入卡片并关闭素材弹窗 */
+   *  数据源 getMyCreation(按分类映射 agent/plugin/workflow),点击即插入卡片并关闭素材弹窗。
+   *  注:后端无 /api/material 端点,素材库接口未开通,本地列表找不到 item 时明确提示,不伪造实现 */
   const handleMaterialPress = useCallback(
     (id: string): void => {
       const item = materialItems.find((m) => m.id === id)
       if (!item) {
-        showToast('info', '素材详情待接入')
+        showToast('info', '素材库接口未开通')
         return
       }
       const uid = `${item.id}-${Date.now()}`
