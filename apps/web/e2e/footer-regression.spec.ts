@@ -25,6 +25,14 @@ import { setupTest as test, expect } from './fixtures'
 test.describe('SiteFooter v10/v11 防回归', () => {
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/')
+    // 2026-08-26 修复:首页 footer 是 #home-scroll-container(full-page snap scroll,
+    // 高度 calc(100vh-58px),overflow-y-scroll)的最后一个 section —— 未滚动时不在视口,
+    // waitFor visible 恒超时。先等 footer 挂载,滚动容器到底,再等可见。
+    await adminPage.locator('footer').waitFor({ state: 'attached', timeout: 15000 })
+    await adminPage.evaluate(() => {
+      const sc = document.getElementById('home-scroll-container')
+      if (sc) sc.scrollTop = sc.scrollHeight
+    })
     // 等待 footer 真实渲染(等动画/字体加载完成)
     await adminPage.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
   })
@@ -70,13 +78,15 @@ test.describe('SiteFooter v10/v11 防回归', () => {
         `视口 ${width}px ECOSYSTEM_GROUPS 分组数 ${titleCount} ≠ 5(v11 拆分国际/国产)`,
       ).toBeGreaterThanOrEqual(5)
 
-      // 5. 1024px+ 生态合作 5 列布局(lg:grid-cols-5)
-      if (width >= 1024) {
+      // 5. 1280px+ 生态合作 5 列布局(xl:grid-cols-5)
+      // 2026-08-26 修复:lg → xl —— 1024 视口内容区 470px 不够 5 列(组件 lg:grid-cols-5
+      // 改为 xl:grid-cols-5,1024-1279 保持 2 列)
+      if (width >= 1280) {
         // 找包含 5 个 h5 子元素的 grid 容器
-        const ecosystemGrid = adminPage.locator('footer .grid.lg\\:grid-cols-5').first()
+        const ecosystemGrid = adminPage.locator('footer .grid.xl\\:grid-cols-5').first()
         await expect(
           ecosystemGrid,
-          `视口 ${width}px 找不到 lg:grid-cols-5 生态合作容器`,
+          `视口 ${width}px 找不到 xl:grid-cols-5 生态合作容器`,
         ).toBeVisible()
       }
 
@@ -96,12 +106,13 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     })
   }
 
-  test('视口 1024px — 生态合作 5 列同行布局(每列 1 个或 2 个图标)', async ({ adminPage }) => {
-    await adminPage.setViewportSize({ width: 1024, height: 800 })
+  test('视口 1280px — 生态合作 5 列同行布局(每列 1 个或 2 个图标)', async ({ adminPage }) => {
+    // 2026-08-26 修复:1024 → 1280 —— xl:grid-cols-5 需 ≥1280 视口(组件已从 lg 改为 xl)
+    await adminPage.setViewportSize({ width: 1280, height: 800 })
     await adminPage.waitForTimeout(500)
 
-    // v11 拆分后:5 分组 × 4-5 图标,lg+ 5 列同行
-    // 验证国际大模型分组(4 个图标: GPT/Claude/Gemini/Llama) 都在 viewport 1024 同行
+    // v11 拆分后:5 分组 × 4-5 图标,xl+ 5 列同行
+    // 验证国际大模型分组(4 个图标: GPT/Claude/Gemini/Llama) 都在 viewport 1280 同行
     const intlGroup = adminPage
       .locator('footer h5:has-text("国际大模型")')
       .locator('..')
@@ -125,11 +136,23 @@ test.describe('SiteFooter v10/v11 防回归', () => {
     await adminPage.waitForTimeout(500)
 
     // 切到英文
+    // 2026-08-26 修复:应用 locale 由 useLanguageStore 驱动(i18n-provider.tsx 读
+    // ihui-language localStorage),NEXT_LOCALE cookie 无效(reload 后仍 zh-CN)。
+    // 直接调 store + 写 localStorage 持久化(与 chat-mode-badge.spec 的 switchLocale 一致)。
     await adminPage.evaluate(() => {
-      const html = document.documentElement
-      html.lang = 'en'
-      // 触发 i18n 切换(通过 cookie/localStorage 模拟)
-      document.cookie = 'NEXT_LOCALE=en; path=/'
+      const store = (
+        window as unknown as { __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } } }
+      ).__IHUI_LANGUAGE_STORE__
+      if (store) store.getState().setLocale('en')
+      try {
+        const raw = localStorage.getItem('ihui-language')
+        const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
+        obj.state = obj.state || {}
+        obj.state.locale = 'en'
+        localStorage.setItem('ihui-language', JSON.stringify(obj))
+      } catch {
+        // localStorage 不可用时静默
+      }
     })
     await adminPage.reload()
     await adminPage.locator('footer').waitFor({ state: 'visible', timeout: 15000 })
