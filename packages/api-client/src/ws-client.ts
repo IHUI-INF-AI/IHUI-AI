@@ -4,7 +4,8 @@
  * 封装通用能力:token 注入、心跳、断线指数退避重连、消息类型守卫。
  * 不依赖任何框架(React/Vue/RN/Tauri 均可用),各端自行写薄包装层。
  *
- * 后端端点:GET /ws/notifications?token=<access_token>
+ * 后端端点:GET /ws/notifications?token=<ws_ticket>
+ * 换票流程:POST /ws/ticket(Authorization: Bearer <access_token>)→ 5 分钟 WS ticket
  * 消息格式:{ type: 'notification', data: {...} }
  * 心跳:客户端发 'ping' 字符串,服务端回 'pong' 字符串
  */
@@ -42,6 +43,14 @@ export interface WebSocketClientOptions<TMessage> {
   urlBuilder: (token: string) => string
   /** 获取当前 access_token(返回 null 时不连接) */
   tokenProvider: () => string | null
+  /**
+   * 连接前用 access token 换取短期 WS ticket(根治 access token 经 URL 暴露)。
+   *
+   * 返回的 ticket 5 分钟 TTL 且 type='ws' 隔离,经 URL 泄漏也无法访问 REST API;
+   * 返回 null/undefined/抛错时降级为直连 access token(兼容旧服务端)。
+   * 不提供则直接用 access token 连接(旧行为)。
+   */
+  ticketProvider?: (accessToken: string) => Promise<string | null | undefined>
   /** 消息类型守卫(过滤非法消息) */
   messageGuard: (data: unknown) => data is TMessage
   /** 心跳间隔(ms),默认 30000 */
@@ -93,6 +102,8 @@ export class WebSocketClient<TMessage = WSNotification> {
   // 在 closedByUser=false 时调度一次多余的 scheduleReconnect,与 updateToken
   // 立即发起的新连接竞争,造成双连接/重连风暴。
   private generation = 0
+  // 换取 WS ticket 的进行中标志:防止 connect 并发触发多次 ticket 请求
+  private _connecting = false
 
   constructor(
     private readonly options: WebSocketClientOptions<TMessage>,
@@ -103,8 +114,16 @@ export class WebSocketClient<TMessage = WSNotification> {
     return this._isConnected
   }
 
-  /** 连接 WebSocket(若已连接则忽略) */
+  /** 连接 WebSocket(若已连接则忽略)。ticketProvider 存在时先异步换 ticket 再建连 */
   connect(): void {
+    if (this._connecting) return
+    this._connecting = true
+    void this.connectInternal().finally(() => {
+      this._connecting = false
+    })
+  }
+
+  private async connectInternal(): Promise<void> {
     const token = this.options.tokenProvider()
     if (!token || this.closedByUser) return
     // 提供了 webSocketFactory 时跳过全局 WebSocket 检查(factory 可能不依赖全局 WebSocket)
@@ -113,11 +132,24 @@ export class WebSocketClient<TMessage = WSNotification> {
       return
     }
 
+    // 先用 access token 换取短期 WS ticket(access token 不再进 URL);
+    // 失败/未配置时降级为直连 access token(兼容旧服务端)
+    let connectToken = token
+    if (this.options.ticketProvider) {
+      try {
+        connectToken = (await this.options.ticketProvider(token)) || token
+      } catch {
+        connectToken = token
+      }
+      // 换取期间被 disconnect,放弃本次建连
+      if (this.closedByUser) return
+    }
+
     let ws: WebSocketLike
     try {
       ws = this.options.webSocketFactory
-        ? this.options.webSocketFactory(this.options.urlBuilder(token))
-        : (new WebSocket(this.options.urlBuilder(token)) as unknown as WebSocketLike)
+        ? this.options.webSocketFactory(this.options.urlBuilder(connectToken))
+        : (new WebSocket(this.options.urlBuilder(connectToken)) as unknown as WebSocketLike)
     } catch (e) {
       this.handlers.onError?.(e instanceof Error ? e.message : 'WebSocket 连接失败')
       return
@@ -269,6 +301,35 @@ export function buildNotificationWsUrl(baseUrl: string, token: string): string {
 }
 
 /**
+ * 用 access token 换取短期 WS ticket(POST /ws/ticket)。
+ *
+ * access token 走 Authorization header(不进 URL/访问日志),换回的 WS token
+ * 5 分钟过期且 type='ws' 隔离,即使经 URL 泄漏也无法访问 REST API。
+ *
+ * 返回 null 表示换票失败(网络/HTTP/JSON 解析/无全局 fetch),调用方应降级
+ * 为直连 access token(服务端 wsAuth 兼容双 token)。
+ *
+ * 跨端:依赖全局 fetch(web/RN/extension 均有);小程序环境无全局 fetch 时
+ * 返回 null 降级,各端也可通过 overrides.ticketProvider 注入自定义实现。
+ */
+export async function fetchWsTicket(baseUrl: string, accessToken: string): Promise<string | null> {
+  if (typeof fetch === 'undefined') return null
+  try {
+    const res = await fetch(`${baseUrl.replace(/\/$/, '')}/ws/ticket`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10_000),
+    })
+    if (!res.ok) return null
+    const body = (await res.json()) as { data?: { wsToken?: unknown } }
+    const wsToken = body?.data?.wsToken
+    return typeof wsToken === 'string' && wsToken.length > 0 ? wsToken : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * 创建通知专用 WebSocket 客户端(预配置消息守卫 + 通知端点)。
  *
  * 各端只需提供 baseUrl + tokenProvider + handlers 即可:
@@ -289,6 +350,10 @@ export function createNotificationClient(
       urlBuilder: (token) => buildNotificationWsUrl(config.baseUrl, token),
       tokenProvider: config.tokenProvider,
       messageGuard: isWSNotification,
+      // 默认启用短期 ticket:access token 不再直接经 URL 暴露;
+      // 换票失败自动降级直连(服务端 wsAuth 兼容双 token),可通过
+      // overrides.ticketProvider 覆盖(小程序注入自定义实现或显式禁用)
+      ticketProvider: (accessToken) => fetchWsTicket(config.baseUrl, accessToken),
       ...overrides,
     },
     handlers,
