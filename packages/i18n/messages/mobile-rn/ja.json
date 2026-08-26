@@ -231,48 +231,19 @@
     "aiWorld": "AI ワールド",
     "imageGen": "画像生成",
     "publish": "コンテンツ公開",
-    "webPortal": "ウェブ版"
+    "webPortal": "ウェブ版",
+    "webPortalCenter": "Web 機能ポータル",
+    "knowledgeRag": "RAG 知識ベース",
+    "subagents": "サブエージェント"
   },
   "error": {
     "network": "ネットワークエラー"
   },
   "taskDispatch": {
-    "title": "タスク送信",
-    "inputPlaceholder": "タスクコマンドを入力、例:ユニットテスト実行",
-    "send": "送信",
-    "sending": "送信中",
-    "loadTasksFailed": "タスク読み込み失敗",
-    "loadDevicesFailed": "デバイス読み込み失敗",
-    "selectDeviceFirst": "デバイスを選択してください",
-    "dispatchFailed": "送信失敗",
-    "emptyTasks": "送信したタスクがここに表示されます",
-    "noDevices": "オンラインデバイスなし",
-    "target": "対象",
-    "status": {
-      "pending": "待機中",
-      "running": "実行中",
-      "completed": "完了",
-      "failed": "失敗",
-      "cancelled": "キャンセル"
-    },
-    "cancel": {
-      "cancelButton": "タスクをキャンセル",
-      "cancelling": "キャンセル中",
-      "cancelFailed": "タスクのキャンセルに失敗しました"
-    },
-    "reconnect": {
-      "reconnecting": "タスクを同期中"
-    },
-    "file": {
-      "attach": "添付",
-      "attached": "添付済み: {filename} ({size})",
-      "tooLarge": "ファイルが大きすぎます(上限 1MB)",
-      "invalidBase64": "Base64 内容が不正です",
-      "missingFilename": "ファイル名を入力してください",
-      "filenamePlaceholder": "ファイル名,例: notes.txt",
-      "mimePlaceholder": "MIME タイプ,例: text/plain",
-      "contentPlaceholder": "Base64 内容"
-    }
+    "status": {},
+    "cancel": {},
+    "reconnect": {},
+    "file": {}
   },
   "common": {
     "ok": "OK",
@@ -298,7 +269,8 @@
     "networkError": "ネットワークエラー",
     "retry": "再試行",
     "save": "保存",
-    "search": "検索"
+    "search": "検索",
+    "searchPlaceholder": "ドキュメントを検索..."
   },
   "aiAssistant": {
     "title": "AIアシスタント",
@@ -673,8 +645,7 @@
     "empty": "イベントが見つからないか、終了しました",
     "startAt": "開始時間",
     "endAt": "終了時間",
-    "location": "開催場所",
-    "loadFailed": "詳細の読み込みに失敗しました"
+    "location": "開催場所"
   },
   "agentChat": {
     "empty": "まだメッセージはありません。最初の投稿をしましょう",
@@ -703,8 +674,7 @@
   "agentReviewDetail": {
     "title": "評価詳細",
     "empty": "評価が見つからないか、削除されました",
-    "author": "著者",
-    "loadFailed": "レビューの読み込みに失敗"
+    "author": "著者"
   },
   "agentSetting": {
     "title": "エージェント設定",
@@ -951,7 +921,6 @@
     "notStarted": "未開始",
     "passScore": "合格点",
     "start": "試験を開始",
-    "startHint": "タップして開始",
     "title": "試験",
     "totalScore": "総得点"
   },
@@ -1055,8 +1024,7 @@
     "retry": "再試行",
     "level": "難易度",
     "studentCount": "{count} 人が学習",
-    "free": "無料",
-    "loadFailed": "講師の読み込みに失敗"
+    "free": "無料"
   },
   "liveChat": {
     "title": "ライブチャット",
@@ -1725,22 +1693,6 @@
     "loadFailed": "読み込みに失敗",
     "title": "コース Q&A"
   },
-  "debug": {
-    "apiBaseUrl": "API ベース URL",
-    "clearCache": "キャッシュをクリア",
-    "clearStorage": "ストレージをクリア",
-    "cleared": "クリア済み",
-    "confirm": "確認",
-    "copied": "コピーしました",
-    "copyFailed": "コピーに失敗",
-    "copyLogs": "ログをコピー",
-    "env": "環境",
-    "locale": "ロケール",
-    "platform": "プラットフォーム",
-    "title": "デバッグ",
-    "version": "バージョン",
-    "warning": "デバッグモードはパフォーマンスに影響する可能性があります"
-  },
   "examHistory": {
     "empty": "受験履歴がありません",
     "failed": "不合格",
@@ -1806,7 +1758,6 @@
   "helpDetail": {
     "answer": "回答",
     "empty": "内容なし",
-    "loadFailed": "読み込みに失敗",
     "title": "ヘルプ詳細"
   },
   "history": {
@@ -2121,5 +2072,96 @@
   "webView": {
     "loadFailed": "ページの読み込みに失敗",
     "retry": "再試行"
+  },
+  "webViewPortal": {
+    "title": "Web 機能ポータル",
+    "hint": "以下は Web 版機能の入口です。内蔵ブラウザで開きます",
+    "sections": {
+      "eduAi": "教育 AI",
+      "edu": "教务管理 / 保護者",
+      "developer": "開発者プラットフォーム",
+      "selfMedia": "自媒体運営",
+      "knowledgeTools": "知識グラフとツール",
+      "models": "モデルプラットフォーム",
+      "more": "その他"
+    },
+    "eduAi": {
+      "policy": "政策解説",
+      "certification": "認証センター",
+      "courses": "コースセンター",
+      "aigcTools": "AIGC ツール",
+      "map": "学習マップ",
+      "marking": "AI 採点",
+      "outbound": "智能外呼",
+      "tbox": "T-Box",
+      "videoCompose": "動画合成",
+      "voice": "AI 音声"
+    },
+    "eduManagement": {
+      "schedule": "授業管理",
+      "attendance": "出欠管理",
+      "grades": "成績管理",
+      "homework": "宿題管理"
+    },
+    "eduParent": "保護者端",
+    "eduSchedule": "時間割",
+    "developer": {
+      "keys": "API キー",
+      "apiDocs": "API ドキュメント",
+      "webhooks": "Webhook",
+      "logs": "呼び出しログ",
+      "billing": "請求",
+      "relay": "Relay ゲートウェイ"
+    },
+    "selfMedia": {
+      "koubo": "口播稿",
+      "wechat": "公众号",
+      "automation": "自動化"
+    },
+    "publish": {
+      "analytics": "公開分析",
+      "calendar": "公開カレンダー"
+    },
+    "knowledgeGraph": "知識グラフ",
+    "tools": {
+      "voiceStt": "音声→テキスト",
+      "pdf": "PDF ツール"
+    },
+    "resources": "リソース",
+    "stock": "株式",
+    "fundData": "ファンド",
+    "models": {
+      "overview": "モデル概要",
+      "keys": "モデルキー",
+      "usage": "使用量",
+      "prompts": "Prompt 管理",
+      "eval": "モデル評価"
+    },
+    "workspace": "ワークスペース",
+    "tags": "タグ",
+    "topics": "トピック",
+    "context": "コンテキスト管理",
+    "traders": "トレーダー",
+    "members": "メンバー",
+    "lecturers": "講師",
+    "oauth": {
+      "authorized": "認可管理"
+    },
+    "enterprise": "エンタープライズ",
+    "featureCenter": "機能センター"
+  },
+  "knowledgeRag": {
+    "title": "RAG 知識ベース",
+    "searchFailed": "検索に失敗しました。再試行してください",
+    "searchEmpty": "結果が見つかりません",
+    "expand": "全文を展開",
+    "collapse": "折りたたむ",
+    "score": "関連度"
+  },
+  "subagents": {
+    "title": "サブエージェント"
+  },
+  "developerInfo": {
+    "urlLabel": "URL"
   }
 }
