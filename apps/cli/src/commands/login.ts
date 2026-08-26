@@ -24,6 +24,7 @@ import type { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
 import { loadSettings, getSettingsPath, type Settings } from './settings.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 import { loginWithSso } from '../lib/sso.js';
 
 interface LoginResponse {
@@ -110,10 +111,11 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   if (fs.existsSync(settingsPath)) {
     try {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
-      const parsed = JSON.parse(raw) as Settings;
-      if (parsed && typeof parsed === 'object') existing = parsed;
+      // 损坏/非对象(如数组、标量)一律从头建,防止把数组误当 Settings 写丢 token
+      const parsed = tryParseJson(raw);
+      if (isRecord(parsed)) existing = parsed as Settings;
     } catch {
-      // 损坏文件,从头建
+      // 读文件失败,从头建
     }
   }
   existing.apiKey = accessToken;
@@ -129,11 +131,12 @@ function clearLocalToken(): void {
   if (!fs.existsSync(settingsPath)) return;
   try {
     const raw = fs.readFileSync(settingsPath, 'utf-8');
-    const parsed = JSON.parse(raw) as Settings;
-    if (parsed && typeof parsed === 'object') {
-      parsed.apiKey = undefined;
-      parsed.refreshToken = undefined;
-      fs.writeFileSync(settingsPath, JSON.stringify(parsed, null, 2) + '\n', 'utf-8');
+    const parsed = tryParseJson(raw);
+    if (isRecord(parsed)) {
+      const settings = parsed as Settings;
+      settings.apiKey = undefined;
+      settings.refreshToken = undefined;
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
     }
   } catch {
     // 损坏文件忽略
