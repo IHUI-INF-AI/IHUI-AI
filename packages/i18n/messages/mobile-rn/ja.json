@@ -239,12 +239,6 @@
   "error": {
     "network": "ネットワークエラー"
   },
-  "taskDispatch": {
-    "status": {},
-    "cancel": {},
-    "reconnect": {},
-    "file": {}
-  },
   "common": {
     "ok": "OK",
     "gotIt": "了解しました",
@@ -2021,7 +2015,6 @@
     "detail": "詳細を見る"
   },
   "aiSkillDetail": {
-    "title": "スキル詳細",
     "loadFailed": "スキル詳細の読み込みに失敗",
     "retry": "再試行",
     "prompt": "プロンプトテンプレート",

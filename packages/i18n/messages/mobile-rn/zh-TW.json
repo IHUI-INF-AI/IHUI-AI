@@ -239,12 +239,6 @@
   "error": {
     "network": "網路錯誤,請稍後重試"
   },
-  "taskDispatch": {
-    "status": {},
-    "cancel": {},
-    "reconnect": {},
-    "file": {}
-  },
   "common": {
     "ok": "好的",
     "gotIt": "知道了",
@@ -2021,7 +2015,6 @@
     "detail": "檢視詳情"
   },
   "aiSkillDetail": {
-    "title": "技能詳情",
     "loadFailed": "技能詳情載入失敗",
     "retry": "重試",
     "prompt": "Prompt 模板",
