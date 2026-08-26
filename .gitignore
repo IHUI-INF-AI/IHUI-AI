@@ -142,6 +142,7 @@ venv.bak*/
 # 测试产物
 # ============================================================================
 test-results/
+test-results-*/
 playwright-report/
 coverage/
 .v8-coverage/
