@@ -231,48 +231,19 @@
     "aiWorld": "AI World",
     "imageGen": "Image Gen",
     "publish": "Publish",
-    "webPortal": "Web Version"
+    "webPortal": "Web Version",
+    "webPortalCenter": "Web Feature Portal",
+    "knowledgeRag": "RAG Knowledge",
+    "subagents": "Subagents"
   },
   "error": {
     "network": "Network error, please retry"
   },
   "taskDispatch": {
-    "title": "Task Dispatch",
-    "inputPlaceholder": "Enter task command, e.g. run unit tests",
-    "send": "Send Task",
-    "sending": "Sending",
-    "loadTasksFailed": "Failed to load tasks",
-    "loadDevicesFailed": "Failed to load devices",
-    "selectDeviceFirst": "Please select a device first",
-    "dispatchFailed": "Dispatch failed",
-    "emptyTasks": "Dispatched tasks will appear here",
-    "noDevices": "No online devices",
-    "target": "Target",
-    "status": {
-      "pending": "Pending",
-      "running": "Running",
-      "completed": "Completed",
-      "failed": "Failed",
-      "cancelled": "Cancelled"
-    },
-    "cancel": {
-      "cancelButton": "Cancel Task",
-      "cancelling": "Cancelling",
-      "cancelFailed": "Failed to cancel task"
-    },
-    "reconnect": {
-      "reconnecting": "Syncing tasks"
-    },
-    "file": {
-      "attach": "Attach",
-      "attached": "Attached: {filename} ({size})",
-      "tooLarge": "File too large (limit 1MB)",
-      "invalidBase64": "Invalid base64 content",
-      "missingFilename": "Please provide filename",
-      "filenamePlaceholder": "Filename, e.g. notes.txt",
-      "mimePlaceholder": "MIME type, e.g. text/plain",
-      "contentPlaceholder": "Base64 content"
-    }
+    "status": {},
+    "cancel": {},
+    "reconnect": {},
+    "file": {}
   },
   "common": {
     "ok": "OK",
@@ -298,7 +269,8 @@
     "networkError": "Network error",
     "retry": "Retry",
     "save": "Save",
-    "search": "Search"
+    "search": "Search",
+    "searchPlaceholder": "Search documents..."
   },
   "aiAssistant": {
     "title": "AI Assistant",
@@ -673,8 +645,7 @@
     "empty": "Activity not found or offline",
     "startAt": "Starts",
     "endAt": "Ends",
-    "location": "Location",
-    "loadFailed": "Failed to load details"
+    "location": "Location"
   },
   "agentChat": {
     "empty": "No messages yet. Send the first one to start",
@@ -703,8 +674,7 @@
   "agentReviewDetail": {
     "title": "Review Details",
     "empty": "Review not found or deleted",
-    "author": "Author",
-    "loadFailed": "Failed to load review"
+    "author": "Author"
   },
   "agentSetting": {
     "title": "Agent Settings",
@@ -951,7 +921,6 @@
     "notStarted": "Not started",
     "passScore": "Pass score",
     "start": "Start exam",
-    "startHint": "Tap to start",
     "title": "Exam",
     "totalScore": "Total score"
   },
@@ -1055,8 +1024,7 @@
     "retry": "Retry",
     "level": "Level",
     "studentCount": "{count} learners",
-    "free": "Free",
-    "loadFailed": "Failed to load lecturer"
+    "free": "Free"
   },
   "liveChat": {
     "title": "Live Chat",
@@ -1725,22 +1693,6 @@
     "loadFailed": "Failed to load",
     "title": "Course Q&A"
   },
-  "debug": {
-    "apiBaseUrl": "API base URL",
-    "clearCache": "Clear cache",
-    "clearStorage": "Clear storage",
-    "cleared": "Cleared",
-    "confirm": "Confirm",
-    "copied": "Copied",
-    "copyFailed": "Copy failed",
-    "copyLogs": "Copy logs",
-    "env": "Environment",
-    "locale": "Locale",
-    "platform": "Platform",
-    "title": "Debug",
-    "version": "Version",
-    "warning": "Debug mode may affect performance"
-  },
   "examHistory": {
     "empty": "No history",
     "failed": "Failed",
@@ -1806,7 +1758,6 @@
   "helpDetail": {
     "answer": "Answer",
     "empty": "No content",
-    "loadFailed": "Failed to load",
     "title": "Help Details"
   },
   "history": {
@@ -2121,5 +2072,96 @@
   "webView": {
     "loadFailed": "Failed to load page",
     "retry": "Retry"
+  },
+  "webViewPortal": {
+    "title": "Web Feature Portal",
+    "hint": "Open web features in the built-in browser",
+    "sections": {
+      "eduAi": "AI Education",
+      "edu": "School Admin / Parent",
+      "developer": "Developer Platform",
+      "selfMedia": "Social Media Ops",
+      "knowledgeTools": "Knowledge & Tools",
+      "models": "Model Platform",
+      "more": "More"
+    },
+    "eduAi": {
+      "policy": "Policy",
+      "certification": "Certification",
+      "courses": "Courses",
+      "aigcTools": "AIGC Tools",
+      "map": "Learning Map",
+      "marking": "AI Grading",
+      "outbound": "AI Outbound",
+      "tbox": "T-Box",
+      "videoCompose": "Video Compose",
+      "voice": "AI Voice"
+    },
+    "eduManagement": {
+      "schedule": "Scheduling",
+      "attendance": "Attendance",
+      "grades": "Grades",
+      "homework": "Homework"
+    },
+    "eduParent": "Parent Portal",
+    "eduSchedule": "Timetable",
+    "developer": {
+      "keys": "API Keys",
+      "apiDocs": "API Docs",
+      "webhooks": "Webhooks",
+      "logs": "Logs",
+      "billing": "Billing",
+      "relay": "Relay Gateway"
+    },
+    "selfMedia": {
+      "koubo": "Script Draft",
+      "wechat": "WeChat OA",
+      "automation": "Automation"
+    },
+    "publish": {
+      "analytics": "Publish Analytics",
+      "calendar": "Publish Calendar"
+    },
+    "knowledgeGraph": "Knowledge Graph",
+    "tools": {
+      "voiceStt": "Voice to Text",
+      "pdf": "PDF Tools"
+    },
+    "resources": "Resources",
+    "stock": "Stock",
+    "fundData": "Funds",
+    "models": {
+      "overview": "Overview",
+      "keys": "Keys",
+      "usage": "Usage",
+      "prompts": "Prompts",
+      "eval": "Evaluation"
+    },
+    "workspace": "Workspace",
+    "tags": "Tags",
+    "topics": "Topics",
+    "context": "Context",
+    "traders": "Traders",
+    "members": "Members",
+    "lecturers": "Lecturers",
+    "oauth": {
+      "authorized": "Authorizations"
+    },
+    "enterprise": "Enterprise",
+    "featureCenter": "Feature Center"
+  },
+  "knowledgeRag": {
+    "title": "RAG Knowledge Base",
+    "searchFailed": "Search failed, please retry",
+    "searchEmpty": "No results found",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "score": "Score"
+  },
+  "subagents": {
+    "title": "Subagents"
+  },
+  "developerInfo": {
+    "urlLabel": "Website"
   }
 }
