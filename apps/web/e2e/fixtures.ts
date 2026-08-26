@@ -286,6 +286,14 @@ async function updateStorageCookies(
 }
 
 /**
+ * 进程内 storage 校验缓存:每个 storage 文件每进程首次真实验证后缓存 60s,
+ * 命中缓存直接返回,避免每个 worker 都调 refresh 轮转(撞 api 限流/多余网络)。
+ * 注意:缓存按"进程"隔离,跨 agent 的失效依赖 refresh 401 → 缓存 60s 后自愈。
+ */
+const storageValidationCache = new Map<string, { ok: boolean; at: number }>()
+const STORAGE_VALIDATION_TTL = 60_000
+
+/**
  * 校验 storageState 里的会话是否仍有效,并在 refresh 轮转成功后回写新 token。
  *
  * 背景(2026-08-26 实锤,e2e 全量 623 用例中 ~100 个系统性失败的根因):
@@ -297,28 +305,39 @@ async function updateStorageCookies(
  * 校验方式:用 storage 的 refresh_token 调 POST /api/auth/refresh:
  *   200 → 会话有效且已轮转 → 回写新 accessToken/refreshToken → true(复用);
  *   401/400 → 会话失效 → false(触发重新登录)。
+ *
+ * 2026-08-26 修复(多 agent 并发崩溃根因):原实现 `mtime < 10min 直接 return true`
+ * 无条件信任新文件 = token 有效。但用户可能被其他 agent 的 global-teardown 并发删除,
+ * 此时 JWT exp 未到、mtime 也新 → 失效 token 被复用 → 应用未登录 → 依赖登录态的
+ * 按钮不渲染 → waitFor 30s 超时 → "Target page closed" 假崩溃。修复:删除无条件
+ * mtime 放行,每次(缓存过期后)都用 refresh_token 实测 /api/auth/refresh——
+ * 用户被删后 refresh 必 401,ensureStorageState 会重新登录,测试自动恢复。
  */
 async function isStorageStateValid(
   request: APIRequestContext,
   baseURL: string,
   storageStatePath: string,
 ): Promise<boolean> {
+  // 进程内缓存:60s 内命中直接返回(不重复 refresh 轮转)
+  const cached = storageValidationCache.get(storageStatePath)
+  if (cached && Date.now() - cached.at < STORAGE_VALIDATION_TTL) {
+    return cached.ok
+  }
+  const cache = (ok: boolean) => storageValidationCache.set(storageStatePath, { ok, at: Date.now() })
   try {
-    // mtime 缓存(2026-08-26 实锤):storage 文件 10 分钟内视为有效,直接复用。
-    // 背景:20 个 worker 并发创建 adminPage 时若全部走 refresh 轮转(每次都是
-    // 网络调用+文件回写),fixture setup 30s 超时;mtime 缓存让绝大多数 worker
-    // 瞬时通过,只有文件超过 10 分钟的才做 refresh(access TTL 15min,10min 时
-    // 轮转一次后新 token 再覆盖 15min,无过期窗口)。
-    const stat = await fs.stat(storageStatePath)
-    // 2026-08-26 补充:跨多轮 e2e 运行时,storage 可能在 10-15min 前创建(mtime 缓存
-    // 有效)但 access token 已超 15min TTL 过期 → 复用过期 token → 应用未登录 →
-    // 发送被拦截/页面未登录态(ai-tool-loop SSE callCount=0、sidebar row 不渲染复现)。
-    // 即使 mtime 有效,也检查 access token 的 exp,过期即走 refresh/重新登录。
-    const rawEarly = await fs.readFile(storageStatePath, 'utf8')
-    const stateEarly = JSON.parse(rawEarly) as {
+    const stat = await fs.stat(storageStatePath).catch(() => null)
+    if (!stat) {
+      cache(false) // 文件缺失 → 需要重新登录
+      return false
+    }
+    const raw = await fs.readFile(storageStatePath, 'utf8')
+    const state = JSON.parse(raw) as {
       cookies?: Array<{ name: string; value: string }>
     }
-    const accessToken = stateEarly.cookies?.find((c) => c.name === 'auth_token')?.value
+
+    // 快速通道:access token 将过期/已过期(留 60s 缓冲)→ 直接判定失效走重新登录
+    // (避免用快过期的 token 建 context 后应用 refresh 才 401,期间页面短暂未登录)
+    const accessToken = state.cookies?.find((c) => c.name === 'auth_token')?.value
     if (accessToken) {
       const payloadB64 = accessToken.split('.')[1]
       if (payloadB64) {
@@ -329,18 +348,22 @@ async function isStorageStateValid(
             ),
           ) as { exp?: number }
           if (payload.exp && payload.exp * 1000 < Date.now() + 60_000) {
-            return false // access token 将过期/已过期(留 60s 缓冲)→ 需 refresh 轮转
+            cache(false)
+            return false
           }
         } catch {
-          // JWT payload 解析失败不阻断(mtime 缓存兜底)
+          // JWT payload 解析失败不阻断,继续实测
         }
       }
     }
-    if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) return true
-    const raw = await fs.readFile(storageStatePath, 'utf8')
-    const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string }> }
+
+    // 实测:用 refresh_token 调 POST /api/auth/refresh 验证会话仍有效。
+    // 用户被并发 teardown 删除后,即使 access token exp 未到,refresh 也会 401。
     const rt = state.cookies?.find((c) => c.name === 'refresh_token')?.value
-    if (!rt) return false
+    if (!rt) {
+      cache(false)
+      return false
+    }
     const res = await request.post(`${baseURL}/api/auth/refresh`, {
       headers: { cookie: `refresh_token=${rt}` },
       // 必须带 body {}:refresh 路由 schema body.type='object' 对 undefined body
@@ -348,20 +371,28 @@ async function isStorageStateValid(
       // storage 的 refresh_token 从未被轮转回写,一旦被应用 bootstrap 消费即失效。
       data: {},
     })
-    if (!res.ok()) return false
+    if (!res.ok()) {
+      cache(false) // 401/400 → 会话失效(用户被删/轮转被消费)
+      return false
+    }
     const body = (await res.json().catch(() => null)) as {
       data?: { accessToken?: string; refreshToken?: string }
     } | null
     const newAccess = body?.data?.accessToken
-    if (!newAccess) return false
+    if (!newAccess) {
+      cache(false)
+      return false
+    }
     const newRefresh = body?.data?.refreshToken ?? parseRefreshTokenFromSetCookie(res) ?? rt
     await updateStorageCookies(storageStatePath, [
       { name: 'auth_token', value: newAccess },
       { name: 'token', value: newAccess },
       { name: 'refresh_token', value: newRefresh, httpOnly: true },
     ])
+    cache(true)
     return true
   } catch {
+    cache(false)
     return false
   }
 }
