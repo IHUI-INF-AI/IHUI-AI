@@ -1,0 +1,1 @@
+ALTER TABLE "developer_applications" ADD COLUMN "website" varchar(255);
