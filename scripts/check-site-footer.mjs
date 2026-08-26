@@ -7,7 +7,8 @@
  * 本守门脚本防止 v10/v11 关键改动再被回退。
  *
  * 守门项:
- * 1. SiteFooter.tsx 关键 className 不能变(py-2 md:py-3 / h-7 w-7 / h-16 w-16 / h-5 w-5 / lg:grid-cols-5)
+ * 1. SiteFooter.tsx 关键 className 不能变(py-2 md:py-3 / h-7 w-7 / h-16 w-16 / h-5 w-5 / xl:grid-cols-5)
+ *    (2026-08-26 lg→xl:1024 视口内容区仅 470px,5 列每列 ~40px 放不下 h5 → grid 坍缩 16px;xl(≥1280) 内容区 726px 才够 5 列)
  * 2. ECOSYSTEM_GROUPS 必须是 5 分组(含 internationalModels / chineseModels)
  * 3. 必须 import INTERNATIONAL_MODELS / CHINESE_MODELS
  * 4. 单一 useTranslations('footer') 命名空间,禁止 tRoutes() / 其他 namespace
@@ -39,11 +40,6 @@ function check(label, cond, hint) {
   }
 }
 
-function warn(label, hint) {
-  warnings.push(`${label}${hint ? ' — ' + hint : ''}`)
-  console.log(`  \u26a0 ${label}${hint ? ' — ' + hint : ''}`)
-}
-
 // 1. SiteFooter.tsx 关键 class 守门
 const sfPath = resolve(ROOT, 'apps/web/src/components/marketing/SiteFooter.tsx')
 if (!existsSync(sfPath)) {
@@ -55,7 +51,7 @@ if (!existsSync(sfPath)) {
   check('h-7 w-7 icon box', /h-7 w-7/.test(sf), 'icon 容器尺寸')
   check('h-16 w-16 QR box', /h-16 w-16/.test(sf), 'QR 码容器尺寸')
   check('h-5 w-5 ICP icon', /h-5 w-5 object-contain/.test(sf), '备案图标尺寸')
-  check('lg:grid-cols-5 生态合作 5 列', /lg:grid-cols-5/.test(sf), '5 类分组 1 行布局')
+  check('xl:grid-cols-5 生态合作 5 列', /xl:grid-cols-5/.test(sf), '5 类分组 1 行布局(2026-08-26 lg→xl 防窄内容区坍缩)')
   check('useTranslations(\'footer\') 单一命名空间', /useTranslations\(['"]footer['"]\)/.test(sf))
   check('无 tRoutes() 残留(跨 namespace 拼接)', !/tRoutes\(/.test(sf), 'SiteFooter 不应跨 namespace')
   check('ECOSYSTEM_GROUPS 含 5 项', (sf.match(/titleKey:/g) ?? []).length >= 5, '5 个分组')
