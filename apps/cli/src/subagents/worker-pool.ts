@@ -20,6 +20,7 @@ import { fork, type ChildProcess, type ForkOptions } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tryParseJson, isRecord } from '../util/json.js';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree.js';
 import type {
   NetworkEgressPolicy,
@@ -570,22 +571,16 @@ function parseWorkerStdout(stdout: string): {
     const trimmed = line.trim();
     if (!trimmed) continue;
     try {
-      const evt = JSON.parse(trimmed) as {
-        type?: string;
-        text?: string;
-        message?: string;
-        payload?: string;
-        stopReason?: string;
-        iterations?: number;
-      };
+      const evt = tryParseJson(trimmed);
+      if (!isRecord(evt)) continue;
       // P0 修复:同时识别 text 和 message 字段(worker-entry 写 message,容错多种命名)
-      const evtText = evt.text ?? evt.message ?? evt.payload;
-      if (evt.type === 'message_delta' && typeof evtText === 'string') {
+      const evtText = [evt.text, evt.message, evt.payload].find((v): v is string => typeof v === 'string');
+      if (evt.type === 'message_delta' && evtText !== undefined) {
         assistantText += evtText;
       } else if (evt.type === 'complete') {
-        stopReason = evt.stopReason;
-        iterations = evt.iterations;
-      } else if (evt.type === 'error' && typeof evtText === 'string') {
+        if (typeof evt.stopReason === 'string') stopReason = evt.stopReason;
+        if (typeof evt.iterations === 'number') iterations = evt.iterations;
+      } else if (evt.type === 'error' && evtText !== undefined) {
         assistantText += evtText;
       }
     } catch {

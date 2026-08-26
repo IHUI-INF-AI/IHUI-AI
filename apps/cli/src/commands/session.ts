@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
+import { tryParseJson, isRecord } from '../util/json.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -53,7 +54,9 @@ export function loadSession(id: string): Session | null {
   const filePath = path.join(getSessionsDir(), `${id}.json`);
   if (!fs.existsSync(filePath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf-8')) as Session;
+    const parsed = tryParseJson(fs.readFileSync(filePath, 'utf-8'));
+    // 非对象内容视为损坏文件
+    return isRecord(parsed) ? (parsed as unknown as Session) : null;
   } catch {
     return null;
   }
@@ -66,7 +69,9 @@ export function listSessions(): Session[] {
   const sessions: Session[] = [];
   for (const f of files) {
     try {
-      sessions.push(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf-8')) as Session);
+      const parsed = tryParseJson(fs.readFileSync(path.join(dir, f), 'utf-8'));
+      // 跳过损坏 / 非对象文件
+      if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
     } catch {
       /* ignore corrupted files */
     }

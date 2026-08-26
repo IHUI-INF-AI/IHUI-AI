@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export type MCPTransport = 'stdio' | 'http' | 'sse';
 
@@ -87,12 +88,13 @@ export function loadMcpConfig(): McpConfig {
   for (const p of [...paths].reverse()) {
     if (!fs.existsSync(p)) continue;
     try {
-      const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as McpConfig;
-      if (parsed && typeof parsed === 'object') {
-        acc = deepMergeMcpConfig(acc, parsed);
+      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
+      // 数组/标量不是合法 McpConfig,防止误合并损坏配置
+      if (isRecord(parsed)) {
+        acc = deepMergeMcpConfig(acc, parsed as unknown as McpConfig);
       }
     } catch {
-      // 损坏文件忽略,继续下一源
+      // 读文件失败忽略,继续下一源
     }
   }
   return acc;

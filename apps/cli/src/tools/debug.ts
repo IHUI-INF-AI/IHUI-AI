@@ -15,6 +15,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { registerTools, type Tool, type ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 const DAP_REQUEST_TIMEOUT_MS = 10_000;
 const DAP_INIT_TIMEOUT_MS = 15_000;
@@ -128,11 +129,8 @@ class DapClient {
     if (this.buffer.length - bodyStart < contentLength) return null; // body 不完整
     const body = this.buffer.substring(bodyStart, bodyStart + contentLength);
     this.buffer = this.buffer.substring(bodyStart + contentLength);
-    try {
-      return JSON.parse(body) as DapMessage;
-    } catch {
-      return null;
-    }
+    const msg = tryParseJson(body);
+    return isRecord(msg) ? (msg as unknown as DapMessage) : null;
   }
 
   private handleMessage(msg: DapMessage): void {

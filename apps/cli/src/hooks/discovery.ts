@@ -11,6 +11,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export type DiscoveredHookType =
   | 'pre_tool'
@@ -213,9 +214,9 @@ export class HooksDiscovery {
   private loadState(): HookState {
     if (!fs.existsSync(this.stateFile)) return {};
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.stateFile, 'utf-8')) as unknown;
-      if (parsed && typeof parsed === 'object') {
-        return parsed as HookState;
+      const parsed = tryParseJson(fs.readFileSync(this.stateFile, 'utf-8'));
+      if (isRecord(parsed)) {
+        return parsed as unknown as HookState;
       }
       return {};
     } catch {

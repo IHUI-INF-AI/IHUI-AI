@@ -4,11 +4,15 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import os from 'node:os'
 import { createDeviceFingerprintCollector } from '@ihui/types'
+import { tryParseJson, isRecord } from '../util/json.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const pkg = JSON.parse(
-  readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'),
-) as { version: string }
+// 受信资产,但防损坏文件导致模块加载即抛错(CLI 启动崩溃)
+const pkgRaw = tryParseJson(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'))
+const pkg: { version: string } =
+  isRecord(pkgRaw) && typeof pkgRaw.version === 'string'
+    ? (pkgRaw as { version: string })
+    : { version: '0.0.0' }
 
 /**
  * cli 端设备指纹采集器(Node.js CLI)。

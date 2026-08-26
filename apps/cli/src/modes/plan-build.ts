@@ -8,6 +8,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export type PlanBuildMode = 'plan' | 'build' | 'review';
 
@@ -88,9 +89,10 @@ export class PlanBuildCoordinator {
   private load(): void {
     if (!fs.existsSync(this.stateFile)) return;
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.stateFile, 'utf-8')) as Partial<PlanBuildState>;
-      if (parsed.mode && VALID_MODES.has(parsed.mode)) {
-        this.mode = parsed.mode;
+      const parsed = tryParseJson(fs.readFileSync(this.stateFile, 'utf-8'));
+      if (!isRecord(parsed)) return;
+      if (typeof parsed.mode === 'string' && VALID_MODES.has(parsed.mode as PlanBuildMode)) {
+        this.mode = parsed.mode as PlanBuildMode;
       }
       if (typeof parsed.plan === 'string' || parsed.plan === null) {
         this.plan = parsed.plan ?? null;
@@ -98,14 +100,14 @@ export class PlanBuildCoordinator {
       if (Array.isArray(parsed.history)) {
         for (const h of parsed.history) {
           if (
-            h &&
+            isRecord(h) &&
             typeof h.ts === 'number' &&
-            h.from &&
-            h.to &&
-            VALID_MODES.has(h.from) &&
-            VALID_MODES.has(h.to)
+            typeof h.from === 'string' &&
+            typeof h.to === 'string' &&
+            VALID_MODES.has(h.from as PlanBuildMode) &&
+            VALID_MODES.has(h.to as PlanBuildMode)
           ) {
-            this.history.push({ ts: h.ts, from: h.from, to: h.to });
+            this.history.push({ ts: h.ts, from: h.from as PlanBuildMode, to: h.to as PlanBuildMode });
           }
         }
       }

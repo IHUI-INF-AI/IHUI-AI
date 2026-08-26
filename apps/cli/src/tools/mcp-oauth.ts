@@ -29,6 +29,7 @@ import * as os from 'node:os';
 import { spawn } from 'node:child_process';
 import { randomBytes, createHash } from 'node:crypto';
 import { setCredential } from './mcp-credentials.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 const OAUTH_LOCK_FILENAME = 'mcp-oauth.lock';
 const OAUTH_TIMEOUT_MS = 5 * 60_000; // 5 分钟
@@ -461,7 +462,18 @@ export async function acquireLock(serverUrl: string): Promise<void> {
     let existing: LockInfo | null = null;
     try {
       const raw = await fs.readFile(lockPath, 'utf-8');
-      existing = JSON.parse(raw) as LockInfo;
+      const parsed = tryParseJson(raw);
+      // 非 lock 结构(如 null/数组/缺 pid)视为损坏 lock,删除后重新获取,
+      // 防止 existing.pid 在 try 外触发 TypeError 逃逸
+      existing =
+        isRecord(parsed) && typeof parsed.pid === 'number' ? (parsed as unknown as LockInfo) : null;
+      if (existing === null && parsed !== undefined) {
+        try {
+          await fs.unlink(lockPath);
+        } catch {
+          // 忽略
+        }
+      }
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === 'ENOENT') {
@@ -513,11 +525,11 @@ export async function releaseLock(): Promise<void> {
   const lockPath = getLockPath();
   try {
     const raw = await fs.readFile(lockPath, 'utf-8');
-    const info = JSON.parse(raw) as LockInfo;
-    if (info.pid === process.pid) {
+    const info = tryParseJson(raw);
+    if (isRecord(info) && typeof info.pid === 'number' && info.pid === process.pid) {
       await fs.unlink(lockPath);
     }
-    // PID 不匹配则不动(可能是其他进程的 lock)
+    // PID 不匹配/结构非法则不动(可能是其他进程的 lock 或已损坏)
   } catch {
     // lock 文件不存在或损坏,忽略
   }
@@ -541,7 +553,8 @@ export async function isProcessAlive(pid: number): Promise<boolean> {
 export async function readLockForTest(): Promise<LockInfo | null> {
   try {
     const raw = await fs.readFile(getLockPath(), 'utf-8');
-    return JSON.parse(raw) as LockInfo;
+    const parsed = tryParseJson(raw);
+    return isRecord(parsed) ? (parsed as unknown as LockInfo) : null;
   } catch {
     return null;
   }
