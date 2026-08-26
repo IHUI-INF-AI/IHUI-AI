@@ -134,14 +134,25 @@ async function mockConversation(page: Page): Promise<void> {
           body: JSON.stringify({
             code: 0,
             message: 'ok',
-            data: { messages: [], page: 1, pageSize: 50, total: 0, hasMore: false, nextCursor: null },
+            data: {
+              messages: [],
+              page: 1,
+              pageSize: 50,
+              total: 0,
+              hasMore: false,
+              nextCursor: null,
+            },
           }),
         })
       } else {
         await route.fulfill({
           status: 200,
           headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-          body: JSON.stringify({ code: 0, message: 'ok', data: { message: { id: 'persisted-1' } } }),
+          body: JSON.stringify({
+            code: 0,
+            message: 'ok',
+            data: { message: { id: 'persisted-1' } },
+          }),
         })
       }
       return
@@ -156,7 +167,10 @@ async function mockConversation(page: Page): Promise<void> {
  * (否则 30s 首 token 超时 abort)。
  * 返回 { count },可断言 SSE 端点确实被调用。
  */
-async function mockSSE(page: Page, events: ReadonlyArray<Record<string, unknown>>): Promise<{ count: () => number }> {
+async function mockSSE(
+  page: Page,
+  events: ReadonlyArray<Record<string, unknown>>,
+): Promise<{ count: () => number }> {
   let callCount = 0
   const body = makeSSE([
     ...events,
@@ -291,7 +305,9 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await waitForPaneReady(page)
   })
 
-  test('4. subagent_progress(tool_result)→ 事件序列被消费,pane 就绪', async ({ adminPage: page }) => {
+  test('4. subagent_progress(tool_result)→ 事件序列被消费,pane 就绪', async ({
+    adminPage: page,
+  }) => {
     await mockConversation(page)
     const sse = await mockSSE(page, [
       {
@@ -317,7 +333,9 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await waitForPaneReady(page)
   })
 
-  test('5. subagent_progress(output_ready)→ 事件序列被消费,pane 就绪', async ({ adminPage: page }) => {
+  test('5. subagent_progress(output_ready)→ 事件序列被消费,pane 就绪', async ({
+    adminPage: page,
+  }) => {
     await mockConversation(page)
     const sse = await mockSSE(page, [
       {
@@ -416,7 +434,9 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await waitForPaneReady(page)
   })
 
-  test('9. progress 先于 spawn 到达(网络乱序)→ 事件序列被消费,pane 就绪', async ({ adminPage: page }) => {
+  test('9. progress 先于 spawn 到达(网络乱序)→ 事件序列被消费,pane 就绪', async ({
+    adminPage: page,
+  }) => {
     await mockConversation(page)
     // mock SSE 先发 progress 再发 spawn(模拟网络乱序)
     const sse = await mockSSE(page, [
@@ -443,14 +463,17 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     await waitForPaneReady(page)
   })
 
-  test('10. subagent 事件 data-jump-target 属性', async ({ adminPage: page }) => {
+  test('10. subagent 事件 data-jump-target 属性', async () => {
     // 原断言对象是 TimelineEventRow 行内 button 的 data-jump-target 属性 + disabled 状态。
     // 重构后 pane 不再渲染 timeline 事件行(see 文件头适配说明),该 UI 与属性已不存在,
     // 无等价 DOM 可断言 → skip。
-    test.skip(true, 'TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标')
+    test.skip(
+      true,
+      'TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标',
+    )
   })
 
-  test('11. subagent 事件相对时间显示(刚刚 / Ns 前)', async ({ adminPage: page }) => {
+  test('11. subagent 事件相对时间显示(刚刚 / Ns 前)', async () => {
     // 原断言 TimelineEventRow 内 formatRelativeTime 输出。重构后无 timeline 行,
     // 无相对时间 UI → skip。
     test.skip(true, '相对时间显示为 TimelineEventRow 特有,重构后已移除,无等价目标')
@@ -479,7 +502,7 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     expect(cls).toContain('animate-spin')
   })
 
-  test('13. subagent 事件颜色(type=cyan-500)', async ({ adminPage: page }) => {
+  test('13. subagent 事件颜色(type=cyan-500)', async () => {
     // 原断言 TimelineEventRow TypeIcon class 含 text-cyan-500。重构后无 timeline 行,
     // 事件类型颜色图标已移除 → skip。
     test.skip(true, 'TimelineEventRow 类型颜色图标(text-cyan-500)已随 timeline 行移除,无等价目标')
@@ -542,13 +565,13 @@ test.describe('Phase 21 Pane 面板实时响应 subagent SSE 事件', () => {
     expect(textAfter.toLowerCase()).toContain('waiting')
   })
 
-  test('16. Timeline 事件计数徽章', async ({ adminPage: page }) => {
+  test('16. Timeline 事件计数徽章', async () => {
     // 原断言 TimelineTab 头部事件计数徽章(data-testid="timeline-total-count")。
     // 重构后 TimelineTab 无 UI 挂载,计数徽章已不存在 → skip。
     test.skip(true, '事件计数徽章为 TimelineTab 特有,重构后 TimelineTab 无挂载,无等价目标')
   })
 
-  test('17. subagent 事件 title 显示 role', async ({ adminPage: page }) => {
+  test('17. subagent 事件 title 显示 role', async () => {
     // 原断言 TimelineEventRow title 字段 = spawn 事件的 role。重构后无 timeline 行,
     // role title 展示已随 timeline 行移除 → skip。
     test.skip(true, 'TimelineEventRow title(role)展示已随 timeline 行移除,无等价目标')
