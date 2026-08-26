@@ -39,7 +39,7 @@ import type { Metadata } from 'next'
  */
 export const metadata: Metadata = {
   title: {
-    default: '智汇 AI 社区 — 8 端全覆盖 · 100+ LLM · 自研 CLI 对标 Claude Code · 省 ¥18 万/年',
+    default: '智汇 AI 社区 — 8 端全覆盖 · 100+ LLM · 自研 CLI · 省 ¥18 万/年',
     template: '%s | 智汇 AI',
   },
   description:

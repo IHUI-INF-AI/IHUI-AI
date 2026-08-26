@@ -18,11 +18,11 @@ test.describe('冒烟测试', () => {
     await page.goto('/login')
     await expect(page).toHaveURL(/\/(sso\/)?login/)
     // 任意可见 input 即可(SSO 页用 type=text, 密码登录用 type=tel/password)
-    await expect(page.locator('input').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({ timeout: 10000 })
   })
 
   test('注册页可访问', async ({ page }) => {
     await page.goto('/register')
-    await expect(page.locator('input').first()).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({ timeout: 10000 })
   })
 })
