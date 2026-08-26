@@ -2015,7 +2015,6 @@
   },
   "news": {
     "search": "Search news",
-    "views": "{n} views",
     "empty": "No news",
     "readCount": "{n} reads",
     "detail": {
