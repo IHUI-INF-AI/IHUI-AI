@@ -231,48 +231,19 @@
     "aiWorld": "AI 世界",
     "imageGen": "圖像生成",
     "publish": "內容發布",
-    "webPortal": "網頁版"
+    "webPortal": "網頁版",
+    "webPortalCenter": "Web 功能入口",
+    "knowledgeRag": "RAG 知識庫",
+    "subagents": "子智能體"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
   },
   "taskDispatch": {
-    "title": "任務下發",
-    "inputPlaceholder": "輸入任務指令,例如:執行單元測試",
-    "send": "發送任務",
-    "sending": "發送中",
-    "loadTasksFailed": "載入任務失敗",
-    "loadDevicesFailed": "載入設備失敗",
-    "selectDeviceFirst": "請先選擇設備",
-    "dispatchFailed": "下發失敗",
-    "emptyTasks": "已下發的任務會顯示在這裡",
-    "noDevices": "暫無線上設備",
-    "target": "目標",
-    "status": {
-      "pending": "待執行",
-      "running": "執行中",
-      "completed": "已完成",
-      "failed": "失敗",
-      "cancelled": "已取消"
-    },
-    "cancel": {
-      "cancelButton": "取消任務",
-      "cancelling": "取消中",
-      "cancelFailed": "取消任務失敗"
-    },
-    "reconnect": {
-      "reconnecting": "正在同步任務"
-    },
-    "file": {
-      "attach": "新增附件",
-      "attached": "已附加: {filename} ({size})",
-      "tooLarge": "檔案過大(限制 1MB)",
-      "invalidBase64": "Base64 內容非法",
-      "missingFilename": "請填寫檔名",
-      "filenamePlaceholder": "檔名,如 notes.txt",
-      "mimePlaceholder": "MIME 類型,如 text/plain",
-      "contentPlaceholder": "Base64 內容"
-    }
+    "status": {},
+    "cancel": {},
+    "reconnect": {},
+    "file": {}
   },
   "common": {
     "ok": "好的",
@@ -298,7 +269,8 @@
     "networkError": "網路錯誤",
     "retry": "重試",
     "save": "儲存",
-    "search": "搜尋"
+    "search": "搜尋",
+    "searchPlaceholder": "搜尋文件..."
   },
   "aiAssistant": {
     "title": "AI 助手",
@@ -673,8 +645,7 @@
     "empty": "活動不存在或已下線",
     "startAt": "開始時間",
     "endAt": "結束時間",
-    "location": "活動地點",
-    "loadFailed": "載入詳情失敗"
+    "location": "活動地點"
   },
   "agentChat": {
     "empty": "暫無訊息,發送第一則訊息開始對話吧",
@@ -703,8 +674,7 @@
   "agentReviewDetail": {
     "title": "評價詳情",
     "empty": "評價不存在或已刪除",
-    "author": "作者",
-    "loadFailed": "載入評價詳情失敗"
+    "author": "作者"
   },
   "agentSetting": {
     "title": "智能體設定",
@@ -951,7 +921,6 @@
     "notStarted": "未開始",
     "passScore": "及格分",
     "start": "開始考試",
-    "startHint": "點擊開始考試",
     "title": "考試",
     "totalScore": "總分"
   },
@@ -1055,8 +1024,7 @@
     "retry": "重試",
     "level": "難度",
     "studentCount": "{count} 人學過",
-    "free": "免費",
-    "loadFailed": "載入講師失敗"
+    "free": "免費"
   },
   "liveChat": {
     "title": "直播間互動",
@@ -1725,22 +1693,6 @@
     "loadFailed": "載入失敗",
     "title": "課程問答"
   },
-  "debug": {
-    "apiBaseUrl": "API 位址",
-    "clearCache": "清除快取",
-    "clearStorage": "清除儲存",
-    "cleared": "已清除",
-    "confirm": "確定",
-    "copied": "已複製",
-    "copyFailed": "複製失敗",
-    "copyLogs": "複製日誌",
-    "env": "環境",
-    "locale": "語言",
-    "platform": "平臺",
-    "title": "偵錯面板",
-    "version": "版本",
-    "warning": "偵錯模式可能影響效能"
-  },
   "examHistory": {
     "empty": "暫無考試紀錄",
     "failed": "未通過",
@@ -1806,7 +1758,6 @@
   "helpDetail": {
     "answer": "解答",
     "empty": "暫無內容",
-    "loadFailed": "載入失敗",
     "title": "說明詳情"
   },
   "history": {
@@ -2121,5 +2072,96 @@
   "webView": {
     "loadFailed": "頁面載入失敗",
     "retry": "重試"
+  },
+  "webViewPortal": {
+    "title": "Web 功能入口",
+    "hint": "以下為網頁版功能入口，將於內建瀏覽器開啟",
+    "sections": {
+      "eduAi": "教育 AI",
+      "edu": "教務管理 / 家長端",
+      "developer": "開發者平台",
+      "selfMedia": "自媒體運營",
+      "knowledgeTools": "知識圖譜與工具",
+      "models": "模型平台",
+      "more": "更多功能"
+    },
+    "eduAi": {
+      "policy": "政策解讀",
+      "certification": "認證中心",
+      "courses": "課程中心",
+      "aigcTools": "AIGC 工具",
+      "map": "學習地圖",
+      "marking": "AI 批改",
+      "outbound": "智能外呼",
+      "tbox": "T-Box",
+      "videoCompose": "影片合成",
+      "voice": "AI 語音"
+    },
+    "eduManagement": {
+      "schedule": "排課管理",
+      "attendance": "考勤管理",
+      "grades": "成績管理",
+      "homework": "作業管理"
+    },
+    "eduParent": "家長端",
+    "eduSchedule": "課表",
+    "developer": {
+      "keys": "API 金鑰",
+      "apiDocs": "API 文件",
+      "webhooks": "Webhook",
+      "logs": "呼叫日誌",
+      "billing": "帳單",
+      "relay": "Relay 閘道"
+    },
+    "selfMedia": {
+      "koubo": "口播稿",
+      "wechat": "公眾號",
+      "automation": "自動化"
+    },
+    "publish": {
+      "analytics": "發布分析",
+      "calendar": "發布日曆"
+    },
+    "knowledgeGraph": "知識圖譜",
+    "tools": {
+      "voiceStt": "語音轉文字",
+      "pdf": "PDF 工具"
+    },
+    "resources": "資源庫",
+    "stock": "股票行情",
+    "fundData": "基金行情",
+    "models": {
+      "overview": "模型總覽",
+      "keys": "模型金鑰",
+      "usage": "用量統計",
+      "prompts": "Prompt 管理",
+      "eval": "模型評測"
+    },
+    "workspace": "工作區",
+    "tags": "標籤",
+    "topics": "話題",
+    "context": "上下文管理",
+    "traders": "交易員",
+    "members": "會員列表",
+    "lecturers": "講師",
+    "oauth": {
+      "authorized": "授權管理"
+    },
+    "enterprise": "企業服務",
+    "featureCenter": "能力中心"
+  },
+  "knowledgeRag": {
+    "title": "RAG 知識庫",
+    "searchFailed": "檢索失敗，請重試",
+    "searchEmpty": "未找到相關結果",
+    "expand": "展開全文",
+    "collapse": "收起",
+    "score": "相關度"
+  },
+  "subagents": {
+    "title": "子智能體"
+  },
+  "developerInfo": {
+    "urlLabel": "網址"
   }
 }
