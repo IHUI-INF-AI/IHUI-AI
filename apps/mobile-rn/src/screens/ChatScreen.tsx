@@ -403,7 +403,8 @@ export function ChatScreen() {
   const [ttsVisible, setTtsVisible] = useState(false)
   const [ttsLoading, setTtsLoading] = useState(false)
   const ttsPlayer = useAudioPlayer(null)
-  // P1.2 收藏 UI 状态(不调 API,用 Set 跟踪已收藏消息 id)
+  // P1.2 收藏 UI 状态(Set 跟踪已收藏消息 id;有 conversationId 时调 batchOperateConversations,
+  // 无对话 id 时降级为纯本地 UI 状态,见 toggleFavorite)
   const [favoritedMessageIds, setFavoritedMessageIds] = useState<Set<string>>(new Set())
   // P1.4 网页链接输入 Modal
   const [urlInputVisible, setUrlInputVisible] = useState(false)
