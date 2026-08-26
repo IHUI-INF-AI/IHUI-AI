@@ -132,11 +132,11 @@ export function KnowledgeRagScreen() {
       setHits(result)
     } catch {
       setHits([])
-      setSearchError('检索失败，请重试' /* i18n key: knowledgeRag.searchFailed 待补 */)
+      setSearchError(t('knowledgeRag.searchFailed'))
     } finally {
       setSearching(false)
     }
-  }, [query, ownerUuid])
+  }, [query, ownerUuid, t])
 
   const openDetail = useCallback(
     async (docId: number, back: ViewMode) => {
@@ -280,8 +280,7 @@ export function KnowledgeRagScreen() {
                     {item.content}
                   </Text>
                   <Text className={`mt-1 text-xs ${metaCls}`}>
-                    {expanded ? '收起' : '展开'}
-                    {/* i18n key: knowledgeRag.expand / knowledgeRag.collapse 待补 */}
+                    {expanded ? t('knowledgeRag.collapse') : t('knowledgeRag.expand')}
                   </Text>
                 </TouchableOpacity>
               )
@@ -295,9 +294,7 @@ export function KnowledgeRagScreen() {
   // ---- 文档列表 / 搜索结果视图 ----
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
-      {renderHeader('RAG 知识库' /* i18n key: knowledgeRag.title 待补 */, () =>
-        navigation.goBack(),
-      )}
+      {renderHeader(t('knowledgeRag.title'), () => navigation.goBack())}
       {renderSearchBar()}
 
       {view === 'docs' ? (
@@ -364,9 +361,7 @@ export function KnowledgeRagScreen() {
           keyExtractor={(hit) => String(hit.id)}
           ListEmptyComponent={
             <View className="items-center py-16">
-              <Text className="text-sm text-gray-500">
-                未找到相关结果{/* i18n key: knowledgeRag.searchEmpty 待补 */}
-              </Text>
+              <Text className="text-sm text-gray-500">{t('knowledgeRag.searchEmpty')}</Text>
             </View>
           }
           contentContainerStyle={{ padding: 16 }}
@@ -379,8 +374,7 @@ export function KnowledgeRagScreen() {
                 {item.content}
               </Text>
               <Text className={`mt-2 text-xs ${metaCls}`}>
-                #{item.chunkIndex + 1} · 相关度 {item.score.toFixed(2)}
-                {/* i18n key: knowledgeRag.score 待补 */}
+                #{item.chunkIndex + 1} · {t('knowledgeRag.score')} {item.score.toFixed(2)}
               </Text>
             </TouchableOpacity>
           )}

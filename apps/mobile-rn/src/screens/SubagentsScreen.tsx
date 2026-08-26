@@ -5,7 +5,7 @@
  * - 复用 @ihui/api-client/endpoints/subagents 端点封装(走 fetchApi 统一鉴权/超时),
  *   不跨端 import web 文件。
  * - 三段式 Tab:概览(StatsCards + 队列)/ 调度(活跃派单,可取消)/ 拓扑(节点 + 边)。
- * - 标题用中文常量「子智能体」(i18n key subagents.title 待主 agent 补齐)。
+ * - 标题走 i18n key subagents.title。
  * - 样式与 KnowledgeBaseScreen 一致:Tailwind className + resolvedTheme 暗色适配 + NavBar。
  * - 端点失败时整页错误态 + 重试;支持下拉刷新。
  */
@@ -207,7 +207,7 @@ export function SubagentsScreen() {
   if (loading) {
     return (
       <View className={`flex-1 ${bgClass}`}>
-        <NavBar title="子智能体" onBack={() => navigation.goBack()} />
+        <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
         <View className="flex-1 items-center justify-center">
           <Text className={`text-sm ${textSecondary}`}>{t('common.loading')}</Text>
         </View>
@@ -217,7 +217,7 @@ export function SubagentsScreen() {
 
   return (
     <View className={`flex-1 ${bgClass}`}>
-      <NavBar title="子智能体" onBack={() => navigation.goBack()} />
+      <NavBar title={t('subagents.title')} onBack={() => navigation.goBack()} />
 
       {/* 分段切换(概览 / 调度 / 拓扑) */}
       <View className="flex-row gap-2 px-4 pb-3 pt-3">
