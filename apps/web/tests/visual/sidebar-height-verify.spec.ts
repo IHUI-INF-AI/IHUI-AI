@@ -82,7 +82,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
         r.navLink1_height = navLinks[1].getBoundingClientRect().height
       }
 
-      const newTask = aside.querySelector('nav button.bg-foreground')
+      // 新建任务按钮(2026-07-19 起 bg-foreground → bg-foreground/10,见 sidebar.tsx BTN_NEW_CONVERSATION_CLASS)
+      const newTask = aside.querySelector('nav button[class*="bg-foreground/10"]')
       if (newTask) {
         r.newTask_height = newTask.getBoundingClientRect().height
         r.newTask_class = newTask.className.substring(0, 150)
@@ -103,18 +104,15 @@ test.describe('侧边栏按钮高度统一验证', () => {
         }
       }
 
-      // 底部工具栏 4 个 icon 按钮(语言/下载/消息/主题) — 用图标类名精确匹配
-      const footerContainer = aside.querySelector('.shrink-0')
-      if (footerContainer) {
-        // 精确选 4 个 icon 按钮:含 lucide 图标 svg 且父级是 SidebarActions(gap-0.5 容器)
-        const actionContainer = footerContainer.querySelector('.gap-0\\.5, [class*="gap-0.5"]')
-        const allBtns = actionContainer
-          ? actionContainer.querySelectorAll('button')
-          : footerContainer.querySelectorAll('button')
-        r.footerBtnCount = allBtns.length
-        r.footerBtn_heights = Array.from(allBtns).map((b) => b.getBoundingClientRect().height)
-        r.footerBtn_classes = Array.from(allBtns).map((b) => b.className.substring(0, 80))
-      }
+      // 底部工具栏 icon 按钮(语言/下载/消息/主题/设置) — SidebarActions 容器
+      // (flex gap-0.5 rounded-md p-1,见 sidebar.tsx SidebarActions),精确锚定避免误选 header
+      const actionContainer = aside.querySelector('[class*="gap-0.5"][class*="rounded-md"][class*="p-1"]')
+      const allBtns2 = actionContainer
+        ? actionContainer.querySelectorAll('button')
+        : []
+      r.footerBtnCount = allBtns2.length
+      r.footerBtn_heights = Array.from(allBtns2).map((b) => b.getBoundingClientRect().height)
+      r.footerBtn_classes = Array.from(allBtns2).map((b) => b.className.substring(0, 80))
 
       r.htmlClass = document.documentElement.className
       r.url = window.location.href
@@ -129,7 +127,8 @@ test.describe('侧边栏按钮高度统一验证', () => {
     // 断言(核心)
     expect(data.navLink0_height).toBe(36)
     expect(data.newTask_height).toBe(36)
-    expect(data.collapseBtn_height).toBe(26)
+    // 2026-08-27:header 折叠按钮已从 26px(h-[26px])升级为 36px(h-9),与导航项对齐
+    expect(data.collapseBtn_height).toBe(36)
     // 底部工具栏 icon 按钮:2026-08-07 升级为 28×28 (h-7 w-7)
     const footerHeights = (data.footerBtn_heights as number[]).filter((h) => h > 0)
     expect(footerHeights.length).toBeGreaterThanOrEqual(1)

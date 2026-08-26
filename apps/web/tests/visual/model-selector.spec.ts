@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect, type Page } from '../../e2e/fixtures'
 
 /**
  * 模型选择器(ModelSelector)+ /models 页面厂商图标视觉回归
@@ -13,6 +13,13 @@ import { test, expect, type Page } from '@playwright/test'
  *   - 任何对 brand-icon.tsx / model-selector.tsx / helpers.ts / fallback-models.ts 的改动
  *     必须跑此测试通过
  *   - 任何对 ai-service/app/data/default_models.json 的改动也必须跑此测试通过
+ *
+ * 2026-08-27 适配(侧边栏/布局改版):
+ *   - /chat 未登录只渲染"请登录"引导,ModelSelector 的 trigger 按钮 disabled
+ *     (loading 恒 true:authedWithToken=false)。下拉菜单测试改用 authenticatedPage
+ *     (e2e/fixtures.ts,真实登录 test@aizhs.top)让按钮可用。
+ *   - /models 页厂商标签已 i18n:百炼(Bailian vendor)渲染为中文"百炼",
+ *     SSR 关键词断言由 'Bailian' 改为 '百炼'。
  */
 
 // /models 页面 SSR 应包含的核心厂商关键词(中文+英文混合)
@@ -75,7 +82,7 @@ const EXPECTED_VENDOR_KEYWORDS = [
   'ModelScope',
   'PPIO',
   'Volcengine',
-  'Bailian',
+  '百炼',
   'BAAI',
   'TII',
   'Liquid',
@@ -132,26 +139,37 @@ test.describe('模型选择器 - SSR 厂商图标渲染', () => {
 })
 
 test.describe('模型选择器 - 下拉菜单 4 状态', () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto('/chat', { waitUntil: 'domcontentloaded' })
-    await page.waitForLoadState('networkidle', { timeout: 15000 })
-    // 等待 ModelSelector 按钮渲染(可能需要客户端水合)
-    await page.waitForTimeout(2000)
+  // authenticatedPage 的 ensureStorageState 在会话失效时可能走 429 限流退避(最长 ~65s),
+  // 加宽单测超时避免 beforeEach 误超时(2026-08-27)
+  test.describe.configure({ timeout: 120_000 })
+
+  // 2026-08-27:ModelSelector 依赖登录态(authedWithToken 才拉取模型 + 解除 trigger disabled),
+  // /chat 未登录只显示"请登录"引导。改用 authenticatedPage(e2e/fixtures.ts)注入真实登录 cookie。
+  test.beforeEach(async ({ authenticatedPage }) => {
+    await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
+    await authenticatedPage.waitForLoadState('networkidle', { timeout: 15000 })
+    // 等待 ModelSelector 按钮渲染(可能需要客户端水合 + 模型列表加载)
+    await authenticatedPage.waitForTimeout(3000)
   })
 
-  test('默认态: 按钮应显示厂商图标 + 模型名 + ChevronDown', async ({ page }) => {
+  test('默认态: 按钮应显示厂商图标 + 模型名 + ChevronDown', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       // /chat 可能没有 ModelSelector,跳过
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
       return
     }
-    // 按钮内应至少有 1 个 SVG(厂商图标)+ 1 个 SVG(ChevronDown)
-    const svgCount = await trigger.locator('svg').count()
-    expect(svgCount, '触发按钮至少应有 2 个 SVG').toBeGreaterThanOrEqual(2)
+    // 登录后 trigger 不应 disabled(authedWithToken=true → loading 解除)
+    await expect(trigger, '登录后模型选择按钮应可用').toBeEnabled()
+    // 品牌标记 + ChevronDown:默认"自动"模式品牌图标是 logo <img>(非 SVG),
+    // 因此按 svg + img 总数 >= 2 判定(BrandIcon SVG 或 auto 模式 img + ChevronDown svg)
+    const brandMarks = (await trigger.locator('svg').count()) + (await trigger.locator('img').count())
+    expect(brandMarks, '触发按钮应含品牌图标 + ChevronDown(共 >= 2 个标记)').toBeGreaterThanOrEqual(2)
   })
 
-  test('打开下拉菜单: 应按厂商分组,每组带 SVG 图标', async ({ page }) => {
+  test('打开下拉菜单: 应按厂商分组,每组带 SVG 图标', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
@@ -180,7 +198,8 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     }
   })
 
-  test('hover 态: 悬停菜单项应触发 focus:bg-accent', async ({ page }) => {
+  test('hover 态: 悬停菜单项应触发 focus:bg-accent', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
@@ -203,7 +222,8 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     expect(className, '菜单项应有 focus:bg-accent 类').toContain('focus:bg-accent')
   })
 
-  test('active 选中态: 点击菜单项应关闭菜单', async ({ page }) => {
+  test('active 选中态: 点击菜单项应关闭菜单', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
@@ -223,7 +243,8 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     expect(visibleMenu, '点击后菜单应关闭').toBe(0)
   })
 
-  test('自定义配置模型入口置顶并跳转 /settings/llm', async ({ page }) => {
+  test('自定义配置模型入口置顶并跳转 /settings/llm', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     // 守护:2026-07-20 用户反馈"丢失了自定义配置模型的选项按钮",补回的入口必须
     //   1) 在下拉菜单的最顶部(第一个 menuitem)
     //   2) 文案为"自定义配置模型"(zh-CN 默认 locale)
@@ -281,7 +302,8 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     expect(pathname, '点击后应离开 /chat 跳转').not.toBe('/chat')
   })
 
-  test('dark mode: 切换暗色后下拉菜单可见', async ({ page }) => {
+  test('dark mode: 切换暗色后下拉菜单可见', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
     await page.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
