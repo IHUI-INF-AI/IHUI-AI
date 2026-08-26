@@ -79,7 +79,7 @@ const ICU_KEYS: readonly IcuKey[] = [
   { key: 'pay.couponSaved', placeholder: 'n' },
   { key: 'pay.balanceAmount', placeholder: 'n' },
   { key: 'pay.couponAvailable', placeholder: 'n' },
-  { key: 'news.views', placeholder: 'n' },
+  { key: 'news.readCount', placeholder: 'n' },
   { key: 'wallet.recharge.tokenRate', placeholder: 'n' },
   { key: 'ai.historyPage.msgCount', placeholder: 'n' },
 ] as const
