@@ -33,7 +33,7 @@ test.describe('社区完整流程', () => {
 
   test('圈子列表可访问', async ({ page }) => {
     await page.goto('/circles')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/circles')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -42,7 +42,7 @@ test.describe('社区完整流程', () => {
 
   test('问答列表可访问', async ({ page }) => {
     await page.goto('/asks')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/asks')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -51,7 +51,7 @@ test.describe('社区完整流程', () => {
 
   test('发帖:发帖按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/circles')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/circles')) return
 
     const postBtn = page
@@ -66,7 +66,7 @@ test.describe('社区完整流程', () => {
 
   test('帖子详情可访问(若有帖子)', async ({ page }) => {
     await page.goto('/circles')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/circles')) return
 
     await page.waitForTimeout(2000)
@@ -80,7 +80,7 @@ test.describe('社区完整流程', () => {
 
   test('评论/点赞/收藏/分享按钮存在(若帖子详情可访问)', async ({ page }) => {
     await page.goto('/circles')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/circles')) return
 
     await page.waitForTimeout(2000)
@@ -99,7 +99,7 @@ test.describe('社区完整流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/plaza')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

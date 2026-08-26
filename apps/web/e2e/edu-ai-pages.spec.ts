@@ -38,7 +38,7 @@ test.describe('AI 教育板块 10 页面验证', () => {
       page.on('pageerror', (err) => consoleErrors.push(err.message))
 
       await page.goto(path)
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       // 过滤已知的无关错误（favicon、AI 服务超时等）
       const realServerErrors = serverErrors.filter(

@@ -52,7 +52,7 @@ test.describe('知识库板块回归', () => {
 
   test('dashboard 渲染知识库板块且含 ≥1 条卡片', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/dashboard')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
     // 2026-08-26 修复:knowledge 板块在 HomeModules 最后渲染,请求延迟发出,
     // networkidle 返回后可能未加载 → 直接等待知识卡片出现(最多 20s)
     await authenticatedPage
@@ -76,7 +76,7 @@ test.describe('知识库板块回归', () => {
 
   test('知识库卡片含标题与封面图(防骨架/空状态)', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/dashboard')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     const card = authenticatedPage.locator('a[href^="/resources/"]').first()
     await expect(card).toBeVisible({ timeout: 15000 })
@@ -89,7 +89,7 @@ test.describe('知识库板块回归', () => {
 
   test('点击知识库卡片可跳转详情页', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/dashboard')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     const card = authenticatedPage.locator('a[href^="/resources/"]').first()
     await expect(card).toBeVisible({ timeout: 15000 })
@@ -111,7 +111,7 @@ test.describe('知识库板块回归', () => {
     const consoleErrors: string[] = []
     authenticatedPage.on('pageerror', (err) => consoleErrors.push(err.message))
     await authenticatedPage.goto('/dashboard')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
