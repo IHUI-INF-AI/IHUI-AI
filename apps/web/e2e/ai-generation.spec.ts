@@ -24,7 +24,7 @@ test.describe('AI 内容生成', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/ai-generation')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -42,7 +42,7 @@ test.describe('AI 内容生成', () => {
 
   test('文本生成:输入框可输入(若可访问)', async ({ page }) => {
     await page.goto('/ai-generation')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-generation')) return
 
     const textarea = page.locator('textarea, input[type="text"]').first()
@@ -54,7 +54,7 @@ test.describe('AI 内容生成', () => {
 
   test('生成类型切换:文/图/音/视频标签(若可访问)', async ({ page }) => {
     await page.goto('/ai-generation')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-generation')) return
 
     await page.waitForTimeout(2000)
@@ -72,7 +72,7 @@ test.describe('AI 内容生成', () => {
 
   test('生成按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/ai-generation')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-generation')) return
 
     const generateBtn = page
@@ -89,7 +89,7 @@ test.describe('AI 内容生成', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/ai-generation')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

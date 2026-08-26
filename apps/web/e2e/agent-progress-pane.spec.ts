@@ -22,7 +22,7 @@ import { test, expect } from './fixtures'
 test.describe('AgentTaskProgressPane v11 交互流程', () => {
   test('触发按钮存在并可点击', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     // 允许未登录跳转到 /login,/register,/chat 都算正常
     if (!authenticatedPage.url().includes('/chat')) return
@@ -33,7 +33,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('点击 trigger 打开 popover', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -47,7 +47,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('Ctrl+Shift+J 快捷键切换 popover', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -67,7 +67,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('popover 存在 a11y 属性', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -92,7 +92,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('折叠子区可点击展开', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -116,7 +116,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('展开全部 / 折叠全部 按钮', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -139,7 +139,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('Esc 键关闭 popover(unpin 状态)', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -159,7 +159,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
   test('dark mode 下 popover 仍可见', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
@@ -197,7 +197,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     })
 
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle').catch(() => {})
+    await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
