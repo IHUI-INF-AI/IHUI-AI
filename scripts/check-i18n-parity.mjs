@@ -54,6 +54,8 @@ for (const file of files) {
   }
 }
 
-fs.writeFileSync('i18n-parity-report.txt', report.join('\n'), 'utf-8')
-console.log('报告已生成: i18n-parity-report.txt')
+// 报告写入 tmp/(白名单目录),避免污染根目录触发根目录整洁守门[44]
+fs.mkdirSync('tmp', { recursive: true })
+fs.writeFileSync('tmp/i18n-parity-report.txt', report.join('\n'), 'utf-8')
+console.log('报告已生成: tmp/i18n-parity-report.txt')
 console.log(report.join('\n'))
