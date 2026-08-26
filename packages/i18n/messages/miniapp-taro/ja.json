@@ -2009,7 +2009,6 @@
   },
   "news": {
     "search": "ニュース検索",
-    "views": "{n} 回閲覧",
     "empty": "ニュースなし",
     "readCount": "{n} 閲覧",
     "detail": {
