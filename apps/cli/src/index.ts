@@ -20,6 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { setBaseUrl, setTokenProvider, setDeviceFingerprintProvider } from '@ihui/api-client';
 import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
+import { tryParseJson, isRecord } from './util/json.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
 import { loadSkills, findSkill } from './skills/index.js';
@@ -87,9 +88,10 @@ function resolvePermissions(opts: OptionValues): PermissionRules | undefined {
 }
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const pkg = JSON.parse(
-  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
-) as { version: string };
+// package.json 是随包分发的受信资产,但仍防异常逃逸与结构异常导致 CLI 启动崩溃
+const pkgRaw = tryParseJson(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'));
+const pkg: { version: string } =
+  isRecord(pkgRaw) && typeof pkgRaw.version === 'string' ? (pkgRaw as { version: string }) : { version: '0.0.0' };
 
 const program = new Command();
 
