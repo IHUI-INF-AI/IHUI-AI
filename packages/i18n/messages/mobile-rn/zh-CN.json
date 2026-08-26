@@ -239,12 +239,6 @@
   "error": {
     "network": "网络错误,请稍后重试"
   },
-  "taskDispatch": {
-    "status": {},
-    "cancel": {},
-    "reconnect": {},
-    "file": {}
-  },
   "common": {
     "ok": "好的",
     "gotIt": "知道了",
@@ -2021,7 +2015,6 @@
     "detail": "查看详情"
   },
   "aiSkillDetail": {
-    "title": "技能详情",
     "loadFailed": "技能详情加载失败",
     "retry": "重试",
     "prompt": "Prompt 模板",
