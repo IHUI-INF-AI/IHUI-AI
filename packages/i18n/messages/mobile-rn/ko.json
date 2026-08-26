@@ -224,7 +224,14 @@
     "modelRecord": "모델 신고",
     "sectionDiscover": "발견",
     "assistant": "내 어시스턴트",
-    "apiSettings": "API 설정"
+    "apiSettings": "API 설정",
+    "knowledgeBase": "지식 베이스",
+    "aiSkill": "AI 스킬",
+    "memory": "메모리",
+    "aiWorld": "AI 월드",
+    "imageGen": "이미지 생성",
+    "publish": "콘텐츠 게시",
+    "webPortal": "웹 버전"
   },
   "error": {
     "network": "네트워크 오류"
@@ -284,7 +291,7 @@
     "close": "닫기",
     "delete": "삭제",
     "failed": "작업 실패",
-    "hint": "알림",
+    "hint": "힌트",
     "loadFailed": "불러오기 실패",
     "login": "로그인",
     "logout": "로그아웃",
@@ -2018,5 +2025,101 @@
     "loadFailed": "등급 불러오기 실패",
     "price": "가격",
     "title": "회원 등급"
+  },
+  "knowledgeBase": {
+    "title": "지식 베이스",
+    "add": "추가",
+    "loadFailed": "지식 베이스 로드 실패",
+    "retry": "재시도",
+    "empty": "문서가 없습니다",
+    "emptyHint": "오른쪽 위 \"추가\"로 텍스트를 등록하세요",
+    "chunks": "청크",
+    "delete": "삭제",
+    "deleteTitle": "문서 삭제",
+    "deleteConfirm": "이 문서를 삭제할까요?",
+    "deleteFailed": "삭제 실패"
+  },
+  "knowledgeCreate": {
+    "title": "새 문서",
+    "submit": "저장",
+    "titleLabel": "제목",
+    "titlePlaceholder": "문서 제목 입력",
+    "textLabel": "본문",
+    "textPlaceholder": "텍스트를 붙여넣거나 입력",
+    "hint": "내용은 자동 청크되어 검색 가능합니다",
+    "required": "제목과 본문은 필수입니다",
+    "successTitle": "등록 완료",
+    "successMessage": "문서를 추가했습니다",
+    "failedTitle": "등록 실패",
+    "failedMessage": "나중에 다시 시도하세요"
+  },
+  "knowledgeDoc": {
+    "title": "문서 상세",
+    "loadFailed": "문서 로드 실패",
+    "retry": "재시도",
+    "chunksTotal": "청크",
+    "source": "출처",
+    "preview": "미리보기",
+    "noChunks": "청크가 없습니다"
+  },
+  "aiSkill": {
+    "title": "AI 스킬",
+    "loadFailed": "스킬 목록 로드 실패",
+    "retry": "재시도",
+    "empty": "스킬이 없습니다",
+    "detail": "상세 보기"
+  },
+  "aiSkillDetail": {
+    "title": "스킬 상세",
+    "loadFailed": "스킬 상세 로드 실패",
+    "retry": "재시도",
+    "prompt": "프롬프트 템플릿",
+    "noPrompt": "템플릿 없음",
+    "source": "출처"
+  },
+  "memory": {
+    "title": "내 메모리",
+    "empty": "메모리가 없습니다",
+    "emptyHint": "AI와의 장기 대화 메모리가 여기에 저장됩니다",
+    "loadFailed": "메모리 로드 실패",
+    "delete": "삭제",
+    "deleteTitle": "메모리 삭제",
+    "deleteConfirm": "이 메모리를 삭제할까요?",
+    "deleteFailed": "삭제 실패",
+    "source": "출처",
+    "updatedAt": "업데이트",
+    "loginRequired": "로그인이 필요합니다"
+  },
+  "aiWorld": {
+    "title": "AI 월드",
+    "empty": "콘텐츠가 없습니다",
+    "emptyHint": "AI 월드의 멋진 콘텐츠가 곧 공개됩니다",
+    "favorites": "즐겨찾기",
+    "history": "기록",
+    "kindLabel": "유형",
+    "loadFailed": "로드 실패",
+    "viewCount": "조회"
+  },
+  "publish": {
+    "title": "콘텐츠 게시",
+    "empty": "게시 작업이 없습니다",
+    "emptyHint": "게시한 기사와 콘텐츠가 여기에 표시됩니다",
+    "loadFailed": "로드 실패",
+    "retry": "재시도",
+    "scheduled": "예약됨",
+    "statsFailed": "통계 로드 실패",
+    "statsSuccess": "게시됨",
+    "statsTotal": "합계"
+  },
+  "imageGen": {
+    "title": "이미지 생성",
+    "historyEmpty": "생성 기록이 없습니다",
+    "favoritesEmpty": "즐겨찾기가 없습니다",
+    "loadFailed": "로드 실패",
+    "promptFallback": "제목 없음"
+  },
+  "webView": {
+    "loadFailed": "페이지 로드 실패",
+    "retry": "재시도"
   }
 }
