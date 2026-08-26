@@ -56,7 +56,7 @@ test.describe.parallel('PWA 专项', () => {
 
   test('service worker 注册(如配置)', async ({ page }: { page: Page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 检查 navigator.serviceWorker 是否注册了 SW
     const hasSW = await page.evaluate(async () => {
       if (!('serviceWorker' in navigator)) return false

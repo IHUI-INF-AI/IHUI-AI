@@ -30,7 +30,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -45,7 +45,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
@@ -54,7 +54,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
   test('textarea + 工具栏可见(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -74,7 +74,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -94,7 +94,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
   test('网络请求工具调用链路:请求 body 含 agent_tools(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -129,7 +129,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
   test('SSE 事件链路:响应类型与事件(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -174,7 +174,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     // 查找工具相关按钮(browser/computer/screenshot 等工具切换或图标按钮)
@@ -246,7 +246,7 @@ test.describe('SSE retry-after 限流降级', () => {
     })
 
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
     if (!authenticatedPage.url().includes('/chat')) return
 
     const textarea = authenticatedPage.locator('textarea').first()
@@ -324,7 +324,7 @@ test.describe('SSE retry-after 限流降级', () => {
     })
 
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
     if (!authenticatedPage.url().includes('/chat')) return
 
     const textarea = authenticatedPage.locator('textarea').first()
@@ -396,7 +396,7 @@ test.describe('SSE retry-after 限流降级', () => {
     })
 
     await authenticatedPage.goto('/chat')
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
     if (!authenticatedPage.url().includes('/chat')) return
 
     const textarea = authenticatedPage.locator('textarea').first()
