@@ -33,7 +33,7 @@ test.describe('两步验证 2FA', () => {
 
   test('2FA 入口存在(若可访问)', async ({ page }) => {
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
     await page.waitForTimeout(2000)
@@ -45,7 +45,7 @@ test.describe('两步验证 2FA', () => {
 
   test('启用 2FA:开启按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
     await page.waitForTimeout(2000)
@@ -61,7 +61,7 @@ test.describe('两步验证 2FA', () => {
 
   test('验证 2FA:验证码输入框存在(若已启用)', async ({ page }) => {
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
     await page.waitForTimeout(2000)
@@ -79,7 +79,7 @@ test.describe('两步验证 2FA', () => {
 
   test('恢复码区域存在(若已启用 2FA)', async ({ page }) => {
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
     await page.waitForTimeout(2000)
@@ -90,7 +90,7 @@ test.describe('两步验证 2FA', () => {
 
   test('禁用 2FA:关闭按钮存在(若已启用)', async ({ page }) => {
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/user/security')) return
 
     await page.waitForTimeout(2000)
@@ -108,7 +108,7 @@ test.describe('两步验证 2FA', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/user/security')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

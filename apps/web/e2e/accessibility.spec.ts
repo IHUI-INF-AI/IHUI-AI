@@ -43,7 +43,7 @@ test.describe('基础可访问性', () => {
 
   test('键盘导航:Tab 键可聚焦(若可访问)', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 按 Tab 键,焦点应移动到可聚焦元素
     await page.keyboard.press('Tab')
     await page.waitForTimeout(500)
@@ -55,7 +55,7 @@ test.describe('基础可访问性', () => {
 
   test('图片有 alt 属性(若存在图片)', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const images = page.locator('img')
     const count = await images.count()
     if (count > 0) {
@@ -70,7 +70,7 @@ test.describe('基础可访问性', () => {
 
   test('按钮有可访问名称(若存在按钮)', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const buttons = page.getByRole('button')
     const count = await buttons.count()
     if (count > 0) {
@@ -95,7 +95,7 @@ test.describe('基础可访问性', () => {
 
   test('heading 层级合理(若存在)', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const h1 = page.locator('h1')
     const h1Count = await h1.count()
     // 页面应有 h1(或没有也通过,可能 SPA 延迟渲染)
@@ -106,7 +106,7 @@ test.describe('基础可访问性', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

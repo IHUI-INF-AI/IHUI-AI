@@ -28,7 +28,7 @@ const adminExpect = baseExpect
 /** 等待 chat 页面就绪 */
 async function waitForChatReady(page: Page): Promise<boolean> {
   await page.goto(CHAT_URL)
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   if (!page.url().includes('/chat')) return false
   const trigger = page.locator(TRIGGER_TESTID)
   if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false

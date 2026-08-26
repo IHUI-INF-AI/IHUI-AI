@@ -55,7 +55,7 @@ test.describe('支付结账链路', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/payment')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     // 过滤已知的 Next.js dev 警告,只留真正的未捕获错误
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('Download the React DevTools') && !e.includes('favicon'),

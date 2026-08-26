@@ -31,8 +31,15 @@ test.beforeEach(async ({ page }) => {
   })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   // 等待 dev 模式暴露 store
+  // 2026-08-27 修复:waitForFunction(fn, { timeout }) 第二参数被当作 arg 而非 options
+  // (Playwright 签名 pageFunction, arg?, options?),timeout 未生效 → 默认 30s 等待 →
+  // build 版无 __workPanelStore 时 beforeEach 恒超时。传 undefined 占位让 options 生效。
   await page
-    .waitForFunction(() => typeof window.__workPanelStore !== 'undefined', { timeout: 5000 })
+    .waitForFunction(
+      () => typeof window.__workPanelStore !== 'undefined',
+      undefined,
+      { timeout: 5000 },
+    )
     .catch(() => null) // dev mode store 未暴露时降级
 })
 
@@ -125,6 +132,8 @@ test('P3-3: addFavorite 收藏 + Star 按钮 amber-500 class', async ({ page }) 
 
 test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({ page }) => {
   // 1. 准备数据:1 个收藏 + 1 个历史
+  const storeExists = await page.evaluate(() => typeof (window as any).__workPanelStore !== 'undefined')
+  test.skip(storeExists === false, 'window.__workPanelStore 未暴露(build 版),跳过')
   await page.evaluate(() => {
     const store = (window as any).__workPanelStore
     if (!store) return
