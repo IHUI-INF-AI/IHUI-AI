@@ -79,7 +79,7 @@ test.describe('icon + 文字垂直对齐守门', () => {
     await page.goto('/')
     // 等侧边栏 + AI 面板 + chat header 全部就绪
     await expect(page.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
   })
 
   test('侧边栏主导航项:icon 与文字视觉对齐 (默认/hover/active 三态)', async ({ page }) => {
