@@ -378,3 +378,27 @@ export async function verifyGoogleIdToken(idToken: string): Promise<ApiResult<Go
     { method: 'GET' },
   )
 }
+
+// ===================== SSO 授权码(2026-08-27 立,App→Web 会话打通) =====================
+
+/** 生成 SSO 一次性授权码(30s 有效,已登录用户调用,跨端共享登录态) */
+export async function generateSsoCode(
+  clientId: string,
+  redirectUri: string,
+): Promise<ApiResult<{ code: string; redirectUri: string; expiresIn: number }>> {
+  return fetchApi('/api/auth/sso/code', {
+    method: 'POST',
+    body: JSON.stringify({ clientId, redirectUri }),
+  })
+}
+
+/** 消费 SSO 授权码换 token(web 端 mobile-auth 页使用;响应自动 Set-Cookie auth_token) */
+export async function exchangeSsoCode(
+  code: string,
+  clientId: string,
+): Promise<ApiResult<LoginResult>> {
+  return fetchApi('/api/auth/sso/exchange', {
+    method: 'POST',
+    body: JSON.stringify({ code, clientId }),
+  })
+}
