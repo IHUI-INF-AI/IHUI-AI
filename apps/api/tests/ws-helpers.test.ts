@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { mockVerifyAccessToken } = vi.hoisted(() => ({
+const { mockVerifyAccessToken, mockVerifyWsToken } = vi.hoisted(() => ({
   mockVerifyAccessToken: vi.fn(),
+  mockVerifyWsToken: vi.fn(),
 }))
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: mockVerifyAccessToken,
+  verifyWsToken: mockVerifyWsToken,
 }))
 
 vi.mock('../src/utils/logger.js', () => ({
@@ -32,6 +34,8 @@ function makeMockSocket(): WebSocket {
 describe('ws-helpers — WebSocket 鉴权辅助', () => {
   beforeEach(() => {
     mockVerifyAccessToken.mockReset()
+    // 默认:非 WS 专用 token(走 access token 降级路径)
+    mockVerifyWsToken.mockReset().mockResolvedValue(null)
   })
 
   describe('WS_CLOSE 常量', () => {
@@ -121,6 +125,37 @@ describe('ws-helpers — WebSocket 鉴权辅助', () => {
       await wsAuth(socket, 'bad')
       // 注:此处因 token 校验失败,函数内不会进入 status 查询
       expect(socket.close).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('wsAuth — WS 专用短期 token(ticket)路径', () => {
+    it('WS ticket 有效 → 直接用 ticket 的 userId,不走 access token 降级', async () => {
+      mockVerifyWsToken.mockResolvedValue({ userId: 'user-ws-1', claims: {} })
+      const fetchStatus: UserStatusFetcher = vi.fn().mockResolvedValue(1)
+      const socket = makeMockSocket()
+      const userId = await wsAuth(socket, 'ws-ticket-token', fetchStatus)
+      expect(userId).toBe('user-ws-1')
+      expect(mockVerifyAccessToken).not.toHaveBeenCalled()
+      expect(socket.close).not.toHaveBeenCalled()
+    })
+
+    it('WS ticket 无效但 access token 有效 → 降级 access token 路径', async () => {
+      mockVerifyWsToken.mockResolvedValue(null)
+      mockVerifyAccessToken.mockResolvedValue({ userId: 'user-fallback' })
+      const fetchStatus: UserStatusFetcher = vi.fn().mockResolvedValue(1)
+      const socket = makeMockSocket()
+      const userId = await wsAuth(socket, 'legacy-access-token', fetchStatus)
+      expect(userId).toBe('user-fallback')
+      expect(mockVerifyAccessToken).toHaveBeenCalledWith('legacy-access-token')
+    })
+
+    it('WS ticket 与 access token 均无效 → close(4003) + 返回 null', async () => {
+      mockVerifyWsToken.mockResolvedValue(null)
+      mockVerifyAccessToken.mockRejectedValue(new Error('expired'))
+      const socket = makeMockSocket()
+      const userId = await wsAuth(socket, 'bad-token')
+      expect(userId).toBeNull()
+      expect(socket.close).toHaveBeenCalledWith(4003, 'token 无效')
     })
   })
 })
