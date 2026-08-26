@@ -17,6 +17,7 @@ import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
 import { type Tool, type ToolResult, checkPathWritePermission } from './index.js';
 import { computeUnifiedDiff, type EditToolContext } from './file-edit.js';
 import type { BatchEditOperation, BatchEditResult } from '@ihui/types';
+import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
 // ==================== Checkpoint 机制 ====================
 
@@ -433,7 +434,15 @@ export function createBatchUndoTool(ctx: EditToolContext): Tool {
 
       let manifest: CheckpointManifest;
       try {
-        manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as CheckpointManifest;
+        const parsed = tryParseJson(fs.readFileSync(manifestPath, 'utf-8'));
+        if (
+          !isRecord(parsed) ||
+          typeof parsed.workspacePath !== 'string' ||
+          !isJsonArray(parsed.files)
+        ) {
+          return { success: false, output: '', error: 'manifest 解析失败: 结构不合法' };
+        }
+        manifest = parsed as unknown as CheckpointManifest;
       } catch (err) {
         return {
           success: false,
