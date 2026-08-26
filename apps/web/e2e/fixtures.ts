@@ -2,6 +2,8 @@ import { test as base, expect, type Page, type APIRequestContext } from '@playwr
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+export type { Page, APIRequestContext }
+
 /**
  * E2E 共享 fixtures：提供已登录状态的 storageState 注入。
  *
@@ -323,7 +325,8 @@ async function isStorageStateValid(
   if (cached && Date.now() - cached.at < STORAGE_VALIDATION_TTL) {
     return cached.ok
   }
-  const cache = (ok: boolean) => storageValidationCache.set(storageStatePath, { ok, at: Date.now() })
+  const cache = (ok: boolean) =>
+    storageValidationCache.set(storageStatePath, { ok, at: Date.now() })
   try {
     const stat = await fs.stat(storageStatePath).catch(() => null)
     if (!stat) {
