@@ -13,21 +13,6 @@ import { test, expect } from './fixtures'
  * - 文件上传后 mock parse-file 显示 preview
  */
 
-const SOURCES_MOCK = {
-  code: 0,
-  message: 'ok',
-  data: {
-    sources: [
-      { source: 'cc-switch', description: 'cc-switch SQLite 数据库' },
-      { source: 'codex++', description: 'codex++ BackendSettings' },
-      { source: 'claude-cli', description: 'Claude Code CLI settings.json' },
-      { source: 'codex-cli', description: 'Codex CLI config.toml' },
-      { source: 'gemini-cli', description: 'Gemini CLI .env / settings.json' },
-      { source: 'hermes', description: 'Hermes config.yaml' },
-    ],
-  },
-}
-
 const PARSE_MOCK = {
   code: 0,
   message: 'ok',
@@ -50,26 +35,6 @@ const PARSE_MOCK = {
       ],
       globalWarnings: [],
     },
-  },
-}
-
-const HISTORY_MOCK = {
-  code: 0,
-  message: 'ok',
-  data: {
-    list: [
-      {
-        id: 'imp-1',
-        source: 'claude-cli',
-        sourcePath: '~/.claude/settings.json',
-        importedCount: 1,
-        skippedCount: 0,
-        failedCount: 0,
-        status: 'success',
-        importedAt: new Date().toISOString(),
-      },
-    ],
-    total: 1,
   },
 }
 
@@ -101,9 +66,7 @@ test.describe('CLI 配置导入', () => {
     await authenticatedPage.goto('/settings')
     await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
     // SUB_PAGES 卡片渲染(2026-08-26 修复:strict mode violation,取 first)
-    await expect(
-      authenticatedPage.locator('a[href="/settings/import"]').first(),
-    ).toBeVisible({
+    await expect(authenticatedPage.locator('a[href="/settings/import"]').first()).toBeVisible({
       timeout: 15000,
     })
   })
@@ -164,9 +127,9 @@ test.describe('CLI 配置导入', () => {
       const selected = authenticatedPage.getByRole('button', { name: /cc-switch/ }).first()
       await expect(selected).toHaveClass(/border-primary/)
       // 选中后显示文件上传区域(strict mode:多个元素含"上传文件",取 first)
-      await expect(
-        authenticatedPage.getByText(/上传文件|选择文件|拖拽/).first(),
-      ).toBeVisible({ timeout: 5000 })
+      await expect(authenticatedPage.getByText(/上传文件|选择文件|拖拽/).first()).toBeVisible({
+        timeout: 5000,
+      })
     })
 
     test('/settings/llm 页面有导入 CLI 配置按钮', async ({ authenticatedPage }) => {
