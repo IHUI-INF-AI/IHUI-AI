@@ -16821,7 +16821,15 @@
     "registerTitle": "Unified Register",
     "sendCodeFailed": "Failed to send verification code",
     "subtitle": "Authorize and redirect to {clientId} after login",
-    "title": "Unified Login"
+    "title": "Unified Login",
+    "mobileAuth": {
+      "title": "Mobile Authorization",
+      "processing": "Verifying login…",
+      "missingCode": "Missing auth code, open from the app",
+      "exchangeFailed": "Authorization failed, retry or sign in again",
+      "networkError": "Network error, please retry",
+      "backToLogin": "Back to sign in"
+    }
   },
   "statistics": {
     "actions": "Actions",
