@@ -16821,7 +16821,15 @@
     "registerTitle": "统一注册",
     "sendCodeFailed": "验证码发送失败",
     "subtitle": "登录后将为 {clientId} 授权并跳转",
-    "title": "统一登录"
+    "title": "统一登录",
+    "mobileAuth": {
+      "title": "移动端授权",
+      "processing": "正在验证登录状态…",
+      "missingCode": "缺少授权码，请从 App 内打开",
+      "exchangeFailed": "授权失败，请重试或重新登录",
+      "networkError": "网络异常，请重试",
+      "backToLogin": "返回登录"
+    }
   },
   "statistics": {
     "actions": "操作",
