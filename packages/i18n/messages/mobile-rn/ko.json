@@ -231,48 +231,19 @@
     "aiWorld": "AI 월드",
     "imageGen": "이미지 생성",
     "publish": "콘텐츠 게시",
-    "webPortal": "웹 버전"
+    "webPortal": "웹 버전",
+    "webPortalCenter": "웹 기능 포털",
+    "knowledgeRag": "RAG 지식 베이스",
+    "subagents": "서브 에이전트"
   },
   "error": {
     "network": "네트워크 오류"
   },
   "taskDispatch": {
-    "title": "작업 전송",
-    "inputPlaceholder": "작업 명령 입력, 예: 단위 테스트 실행",
-    "send": "전송",
-    "sending": "전송 중",
-    "loadTasksFailed": "작업 로드 실패",
-    "loadDevicesFailed": "기기 로드 실패",
-    "selectDeviceFirst": "기기를 먼저 선택하세요",
-    "dispatchFailed": "전송 실패",
-    "emptyTasks": "전송한 작업이 여기 표시됩니다",
-    "noDevices": "온라인 기기 없음",
-    "target": "대상",
-    "status": {
-      "pending": "대기 중",
-      "running": "실행 중",
-      "completed": "완료",
-      "failed": "실패",
-      "cancelled": "취소됨"
-    },
-    "cancel": {
-      "cancelButton": "작업 취소",
-      "cancelling": "취소 중",
-      "cancelFailed": "작업 취소에 실패했습니다"
-    },
-    "reconnect": {
-      "reconnecting": "작업 동기화 중"
-    },
-    "file": {
-      "attach": "첨부",
-      "attached": "첨부됨: {filename} ({size})",
-      "tooLarge": "파일이 너무 큽니다(1MB 제한)",
-      "invalidBase64": "Base64 내용이 잘못되었습니다",
-      "missingFilename": "파일명을 입력하세요",
-      "filenamePlaceholder": "파일명, 예: notes.txt",
-      "mimePlaceholder": "MIME 유형, 예: text/plain",
-      "contentPlaceholder": "Base64 내용"
-    }
+    "status": {},
+    "cancel": {},
+    "reconnect": {},
+    "file": {}
   },
   "common": {
     "ok": "확인",
@@ -298,7 +269,8 @@
     "networkError": "네트워크 오류",
     "retry": "재시도",
     "save": "저장",
-    "search": "검색"
+    "search": "검색",
+    "searchPlaceholder": "문서 검색..."
   },
   "aiAssistant": {
     "title": "AI 어시스턴트",
@@ -673,8 +645,7 @@
     "empty": "활동을 찾을 수 없거나 종료되었습니다",
     "startAt": "시작 시간",
     "endAt": "종료 시간",
-    "location": "활동 장소",
-    "loadFailed": "상세 정보를 불러오지 못했습니다"
+    "location": "활동 장소"
   },
   "agentChat": {
     "empty": "메시지가 없습니다. 첫 메시지를 보내 대화를 시작하세요",
@@ -703,8 +674,7 @@
   "agentReviewDetail": {
     "title": "평가 상세",
     "empty": "평가를 찾을 수 없거나 삭제되었습니다",
-    "author": "작성자",
-    "loadFailed": "리뷰 불러오기 실패"
+    "author": "작성자"
   },
   "agentSetting": {
     "title": "에이전트 설정",
@@ -951,7 +921,6 @@
     "notStarted": "시작 전",
     "passScore": "합격 점수",
     "start": "시험 시작",
-    "startHint": "탭하여 시작",
     "title": "시험",
     "totalScore": "총점"
   },
@@ -1055,8 +1024,7 @@
     "retry": "재시도",
     "level": "난이도",
     "studentCount": "{count}명 학습",
-    "free": "무료",
-    "loadFailed": "강사 불러오기 실패"
+    "free": "무료"
   },
   "liveChat": {
     "title": "라이브 채팅",
@@ -1725,22 +1693,6 @@
     "loadFailed": "불러오기 실패",
     "title": "강좌 Q&A"
   },
-  "debug": {
-    "apiBaseUrl": "API 기본 URL",
-    "clearCache": "캐시 지우기",
-    "clearStorage": "저장소 지우기",
-    "cleared": "지워짐",
-    "confirm": "확인",
-    "copied": "복사됨",
-    "copyFailed": "복사 실패",
-    "copyLogs": "로그 복사",
-    "env": "환경",
-    "locale": "언어",
-    "platform": "플랫폼",
-    "title": "디버그",
-    "version": "버전",
-    "warning": "디버그 모드는 성능에 영향을 줄 수 있습니다"
-  },
   "examHistory": {
     "empty": "응시 기록이 없습니다",
     "failed": "불합격",
@@ -1806,7 +1758,6 @@
   "helpDetail": {
     "answer": "답변",
     "empty": "내용 없음",
-    "loadFailed": "불러오기 실패",
     "title": "도움말 상세"
   },
   "history": {
@@ -2121,5 +2072,96 @@
   "webView": {
     "loadFailed": "페이지 로드 실패",
     "retry": "재시도"
+  },
+  "webViewPortal": {
+    "title": "웹 기능 포털",
+    "hint": "아래는 웹 버전 기능 진입점입니다. 내장 브라우저에서 열립니다",
+    "sections": {
+      "eduAi": "교육 AI",
+      "edu": "교무 관리 / 학부모",
+      "developer": "개발자 플랫폼",
+      "selfMedia": "자체 미디어 운영",
+      "knowledgeTools": "지식 그래프와 도구",
+      "models": "모델 플랫폼",
+      "more": "더보기"
+    },
+    "eduAi": {
+      "policy": "정책 해설",
+      "certification": "인증 센터",
+      "courses": "강좌 센터",
+      "aigcTools": "AIGC 도구",
+      "map": "학습 지도",
+      "marking": "AI 채점",
+      "outbound": "스마트 아웃바운드",
+      "tbox": "T-Box",
+      "videoCompose": "영상 합성",
+      "voice": "AI 음성"
+    },
+    "eduManagement": {
+      "schedule": "시간표 관리",
+      "attendance": "출결 관리",
+      "grades": "성적 관리",
+      "homework": "숙제 관리"
+    },
+    "eduParent": "학부모 포털",
+    "eduSchedule": "시간표",
+    "developer": {
+      "keys": "API 키",
+      "apiDocs": "API 문서",
+      "webhooks": "Webhook",
+      "logs": "호출 로그",
+      "billing": "청구",
+      "relay": "Relay 게이트웨이"
+    },
+    "selfMedia": {
+      "koubo": "입담 대본",
+      "wechat": "공식 계정",
+      "automation": "자동화"
+    },
+    "publish": {
+      "analytics": "발행 분석",
+      "calendar": "발행 캘린더"
+    },
+    "knowledgeGraph": "지식 그래프",
+    "tools": {
+      "voiceStt": "음성→텍스트",
+      "pdf": "PDF 도구"
+    },
+    "resources": "자료실",
+    "stock": "주식",
+    "fundData": "펀드",
+    "models": {
+      "overview": "모델 개요",
+      "keys": "모델 키",
+      "usage": "사용량",
+      "prompts": "Prompt 관리",
+      "eval": "모델 평가"
+    },
+    "workspace": "워크스페이스",
+    "tags": "태그",
+    "topics": "토픽",
+    "context": "컨텍스트 관리",
+    "traders": "트레이더",
+    "members": "회원",
+    "lecturers": "강사",
+    "oauth": {
+      "authorized": "인증 관리"
+    },
+    "enterprise": "엔터프라이즈",
+    "featureCenter": "기능 센터"
+  },
+  "knowledgeRag": {
+    "title": "RAG 지식 베이스",
+    "searchFailed": "검색에 실패했습니다. 다시 시도하세요",
+    "searchEmpty": "결과를 찾지 못했습니다",
+    "expand": "전체 펼치기",
+    "collapse": "접기",
+    "score": "관련도"
+  },
+  "subagents": {
+    "title": "서브 에이전트"
+  },
+  "developerInfo": {
+    "urlLabel": "웹사이트"
   }
 }
