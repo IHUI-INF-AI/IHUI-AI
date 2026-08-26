@@ -339,8 +339,12 @@ export function SiteFooter({ className }: { className?: string }) {
             - 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底) — flex justify-between 消除空白
             - 栏 2: 生态合作 4 类分组 — grid-cols-2 min-[768px]:grid-cols-4 响应式自适应屏幕宽度
             - 栏 3: 官方推广 + QR(不变)
-            v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐 */}
-        <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-[1fr_1.5fr_1fr] min-[768px]:items-start">
+            v10: gap-3(从 v9 gap-1 放大),与 footer 整体拉高对齐
+            2026-08-26 修复:min-[768px] → min-[1100px] —— Tailwind 断点基于视口而非内容区,
+            768/1024 视口内容区仅 268/470px(60px 侧边栏 + flex 压缩),3 栏在窄区坍缩
+            (生态 grid 宽 16px,h5 宽 0 → footer-regression.spec 失败)。1100+ 内容区 ~700px
+            才展开 3 栏;768-1099 用 grid-cols-1 单栏堆叠(各栏 ~230px,生态 2 列放得下)。 */}
+        <div className="grid grid-cols-1 gap-3 min-[1100px]:grid-cols-[1fr_1.5fr_1fr] min-[1100px]:items-start">
           {/* 栏 1: 公司信息(顶) + 4 个 Dialog 按钮(底)
               - flex flex-col justify-between 让按钮沉底,消除公司信息下方空白
               - 公司信息用 space-y-1,按钮用 flex flex-wrap gap-x-2 gap-y-1 */}
@@ -455,10 +459,13 @@ export function SiteFooter({ className }: { className?: string }) {
           {/* 栏 2: 生态合作 5 类分组(响应式自适应,2026-07-30 v11 拆分大模型为国际/国产 2 组)
               - grid-cols-2(移动端/平板 2 列)+ min-[1024px]:grid-cols-5(桌面 lg+ 5 列 1 行)
               - 1024 边界修复:768-1023px 用 min-[768px]:grid-cols-2 留出更多列宽,避免 5 列过挤图标溢出
-              - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1 */}
+              - v10: gap-1(从 v9 gap-0.5 放宽),icons 用 flex flex-wrap gap-1
+              2026-08-26 修复:lg:grid-cols-5 → xl:grid-cols-5 —— 1024 视口内容区仅 470px,
+              lg(≥1024) 触发 5 列后每列 ~40px,h5 内容放不下 → grid 坍缩到 16px。
+              xl(≥1280) 内容区 726px 才够 5 列;1024-1279 保持 grid-cols-2(每列 ~220px)。 */}
           <div className="space-y-1">
             <h4 className={SECTION_TITLE}>{t('ecosystem')}</h4>
-            <div className="grid grid-cols-2 gap-1 lg:grid-cols-5">
+            <div className="grid grid-cols-2 gap-1 xl:grid-cols-5">
               {ECOSYSTEM_GROUPS.map((g) => (
                 <div key={g.titleKey} className="space-y-1">
                   <h5 className="text-[11px] font-medium text-foreground/50">{t(g.titleKey)}</h5>
