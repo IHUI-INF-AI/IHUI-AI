@@ -310,6 +310,32 @@ async function isStorageStateValid(
     // 瞬时通过,只有文件超过 10 分钟的才做 refresh(access TTL 15min,10min 时
     // 轮转一次后新 token 再覆盖 15min,无过期窗口)。
     const stat = await fs.stat(storageStatePath)
+    // 2026-08-26 补充:跨多轮 e2e 运行时,storage 可能在 10-15min 前创建(mtime 缓存
+    // 有效)但 access token 已超 15min TTL 过期 → 复用过期 token → 应用未登录 →
+    // 发送被拦截/页面未登录态(ai-tool-loop SSE callCount=0、sidebar row 不渲染复现)。
+    // 即使 mtime 有效,也检查 access token 的 exp,过期即走 refresh/重新登录。
+    const rawEarly = await fs.readFile(storageStatePath, 'utf8')
+    const stateEarly = JSON.parse(rawEarly) as {
+      cookies?: Array<{ name: string; value: string }>
+    }
+    const accessToken = stateEarly.cookies?.find((c) => c.name === 'auth_token')?.value
+    if (accessToken) {
+      const payloadB64 = accessToken.split('.')[1]
+      if (payloadB64) {
+        try {
+          const payload = JSON.parse(
+            Buffer.from(payloadB64.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString(
+              'utf8',
+            ),
+          ) as { exp?: number }
+          if (payload.exp && payload.exp * 1000 < Date.now() + 60_000) {
+            return false // access token 将过期/已过期(留 60s 缓冲)→ 需 refresh 轮转
+          }
+        } catch {
+          // JWT payload 解析失败不阻断(mtime 缓存兜底)
+        }
+      }
+    }
     if (Date.now() - stat.mtimeMs < 10 * 60 * 1000) return true
     const raw = await fs.readFile(storageStatePath, 'utf8')
     const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string }> }
