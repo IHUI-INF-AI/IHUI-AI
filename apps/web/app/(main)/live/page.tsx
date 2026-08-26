@@ -12,7 +12,9 @@ import {
   ChevronRight,
   Calendar,
   ExternalLink,
+  RadioTower,
 } from 'lucide-react'
+import Link from 'next/link'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -129,7 +131,16 @@ export default function LivePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
-      <BackButton fallbackHref="/edu-ai" />
+      <div className="flex items-center justify-between">
+        <BackButton fallbackHref="/edu-ai" />
+        <Link
+          href="/live/host"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+        >
+          <RadioTower className="h-4 w-4" />
+          {t('hostLink')}
+        </Link>
+      </div>
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Radio className="h-7 w-7 text-primary" />
