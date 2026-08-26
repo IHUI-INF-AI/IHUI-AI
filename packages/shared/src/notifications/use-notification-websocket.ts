@@ -40,14 +40,16 @@ export function useNotificationWebSocket(
   const [connected, setConnected] = useState(false)
   const [lastMessage, setLastMessage] = useState<WSNotification | null>(null)
   const clientRef = useRef<WebSocketClient<WSNotification> | null>(null)
+  const configRef = useRef(config)
+  configRef.current = config
 
   useEffect(() => {
     if (!token) return
 
     const client = createNotificationClient(
       {
-        baseUrl: config.baseUrl,
-        tokenProvider: config.tokenProvider,
+        baseUrl: configRef.current.baseUrl,
+        tokenProvider: configRef.current.tokenProvider,
       },
       {
         onOpen: () => setConnected(true),
@@ -62,7 +64,7 @@ export function useNotificationWebSocket(
       client.disconnect()
       clientRef.current = null
     }
-  }, [token, config.baseUrl, config.tokenProvider])
+  }, [token])
 
   return { connected, lastMessage }
 }
