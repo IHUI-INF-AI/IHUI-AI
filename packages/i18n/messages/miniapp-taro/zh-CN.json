@@ -1976,7 +1976,6 @@
   },
   "news": {
     "search": "搜索资讯",
-    "views": "{n} 次查看",
     "empty": "暂无资讯",
     "readCount": "{n}阅读",
     "detail": {
