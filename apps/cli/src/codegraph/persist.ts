@@ -11,6 +11,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import { tryParseJson, isRecord } from '../util/json.js'
 import {
   CodeGraphIndex,
   type CodeGraphSnapshot,
@@ -70,13 +71,9 @@ export async function saveCache(index: CodeGraphIndex, cachePath: string): Promi
 export async function loadCache(cachePath: string): Promise<CodeGraphIndex | undefined> {
   if (!fs.existsSync(cachePath)) return undefined
 
-  let data: PersistedGraph
-  try {
-    const content = fs.readFileSync(cachePath, 'utf-8')
-    data = JSON.parse(content) as PersistedGraph
-  } catch {
-    return undefined
-  }
+  const parsed = tryParseJson(fs.readFileSync(cachePath, 'utf-8'))
+  if (!isRecord(parsed)) return undefined
+  const data = parsed as unknown as PersistedGraph
 
   // 校验 magic
   if (data.magic !== CODEGRAPH_MAGIC) return undefined
