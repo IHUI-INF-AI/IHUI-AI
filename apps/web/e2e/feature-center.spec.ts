@@ -16,7 +16,6 @@ import { test, expect } from '@playwright/test'
 // Feature Center 子页面路径
 const FEATURE_CENTER_PAGES = [
   '/feature-center',
-  '/feature-center',
   '/feature-center/apis',
   '/feature-center/agents',
   '/feature-center/docs',
