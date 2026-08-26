@@ -2894,3 +2894,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-08-26) M4(WebView 方案):通用 WebViewScreen(URL+title 参数,加载指示/错误重试/深色适配,react-native-webview ^14);RootNavigator 注册 WebView 路由;个人中心「设置 → 网页版」入口(menu.webPortal,MenuItem 类型放宽支持 MenuSpecialKey 'WebViewPortal');mobile 5 语言 i18n(webView.* + menu.webPortal)。守门:typecheck+lint+261 测试+i18n parity 全绿。
 - [x] ✅(2026-08-26) **M5(双端一致性验收)**:生成覆盖矩阵脚本(m5-matrix.py),web 131 功能路由对照移动端 187 屏 → **71 直接覆盖 + 15 等价覆盖 + 45 合理差异 + 0 待办缺口,差异清零达成**;验收报告 outputs/M5-双端一致性验收报告-2026-08-26.md。合理差异含 21 开发/管理工具 + 14 营销/内容页 + 7 桌面分析 + 3 帮助/法律。
 - [x] ✅(2026-08-26) **M0-M5 全里程碑完成**:M1(移动→web 14 项+6 缺陷根治)、M2(任务中心)、M3(web→移动 7 功能+ai-skills 代理)、M4(WebView 方案)、M5(验收差异清零)。
+
+### 双端矩阵落地入库确认(2026-08-27 00:3x 收尾)
+
+- [x] ✅(2026-08-27) 双端矩阵执行成果全量入库 — **事件**:并发会话 `git pull --rebase --autostash origin main` 导致本会话未提交工作一度"丢失"(untracked 新文件被 git clean 删除、已跟踪文件修改进 autostash)。**恢复**:untracked 5 文件(webview-portal-config.ts/WebPortalScreen.tsx/KnowledgeRagScreen.tsx/SubagentsScreen.tsx/api-client subagents.ts)由主 agent 重建并提交(1aec482c34);已跟踪文件修改(Drawer/RootNavigator/菜单/ProfileScreen/Chat/BottomActionBar/HomeScreen/DeveloperScreen/shared subagents/web 组件/api-client developer/i18n)经并发会话 stash 恢复提交(980af29d47),3 个并行 agent 逐项核对确认与规格一致。**最终验证**:六端(shared/api-client/database/api/mobile/web)typecheck exit 0 + mobile lint 0 + vitest 261/261 + i18n parity 1703 keys 5 语言一致 + api _server-smoke 通过。**遗留(已到外部边界)**:developer 网址字段需后端加 website 列已完成迁移(0224);WebView 会话打通验证需运行时;远程 9 个未 push 提交由并发会话负责 push(守门 [29] 为环境状态非代码问题)。
