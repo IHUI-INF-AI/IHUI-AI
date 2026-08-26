@@ -20,7 +20,7 @@
 import { createHash } from 'node:crypto'
 import { SignJWT, jwtVerify } from 'jose'
 import type IORedis from 'ioredis'
-import { getJwtSecret, type JWTPayload, ACCESS_TOKEN_TTL_SECONDS } from './jwt'
+import { getJwtSecret, AUDIENCE, type JWTPayload, ACCESS_TOKEN_TTL_SECONDS } from './jwt'
 
 /** 密钥版本 */
 export interface KeyVersion {
@@ -116,6 +116,8 @@ export class JwtKeyRotator {
   private readonly gracePeriodSec: number
   private advanceRatio = 1.0
   private readonly redis: IORedis | null
+  /** Redis 状态加载完成 promise；状态变更方法需 await 此 promise */
+  private readonly readyPromise: Promise<void>
 
   constructor(
     options: {
@@ -137,7 +139,12 @@ export class JwtKeyRotator {
       fingerprint: fingerprint(key),
     }
     // 尝试从 Redis 恢复状态(异步,不阻塞构造;恢复成功会覆盖默认 current)
-    void this._loadStateFromRedis()
+    this.readyPromise = this._loadStateFromRedis()
+  }
+
+  /** 等待 Redis 状态加载完成 */
+  get ready(): Promise<void> {
+    return this.readyPromise
   }
 
   /**
@@ -223,7 +230,8 @@ export class JwtKeyRotator {
    * 开始一次轮换：生成新版本，旧版本进入宽限期 (canary 阶段)。
    * 此后签发使用新密钥，验证同时接受新旧密钥。
    */
-  rotateKey(newKey: Uint8Array): KeyVersion {
+  async rotateKey(newKey: Uint8Array): Promise<KeyVersion> {
+    await this.readyPromise
     const now = Date.now()
     // 旧密钥进入宽限期
     this.previous = {
@@ -251,7 +259,8 @@ export class JwtKeyRotator {
    * 推进灰度比例。ratio >= 1 时进入 stable 阶段。
    * @returns 实际生效的比例 (0~1)
    */
-  advanceRollout(ratio: number): number {
+  async advanceRollout(ratio: number): Promise<number> {
+    await this.readyPromise
     const r = Math.max(0, Math.min(1, ratio))
     this.advanceRatio = r
     if (r >= 1) {
@@ -266,7 +275,8 @@ export class JwtKeyRotator {
   /**
    * 完成轮换：清除旧密钥 (不再接受 previous 验证)。
    */
-  complete(): void {
+  async complete(): Promise<void> {
+    await this.readyPromise
     this.previous = null
     this.phase = 'rotated'
     this.advanceRatio = 1.0
@@ -277,7 +287,8 @@ export class JwtKeyRotator {
    * 回滚到上一版本。
    * @returns 回滚后的密钥版本；无上一版本时返回 null
    */
-  rollback(): KeyVersion | null {
+  async rollback(): Promise<KeyVersion | null> {
+    await this.readyPromise
     if (!this.previous) return null
     const rolledBack = this.previous
     this.current = rolledBack
@@ -300,6 +311,7 @@ export class JwtKeyRotator {
       .setProtectedHeader({ alg: ALG })
       .setSubject(payload.userId)
       .setIssuer(ISSUER)
+      .setAudience(AUDIENCE)
       .setIssuedAt()
       .setExpirationTime(`${ACCESS_TOKEN_TTL_SECONDS}s`)
       .sign(this.current.key)
@@ -316,6 +328,7 @@ export class JwtKeyRotator {
       try {
         const { payload } = await jwtVerify(token, kv.key, {
           issuer: ISSUER,
+          audience: AUDIENCE,
           algorithms: [ALG],
         })
         if (payload.type === 'refresh') {
@@ -394,7 +407,7 @@ export function getJwtKeyRotator(): JwtKeyRotator {
 }
 
 /** 便捷：轮换密钥。 */
-export function rotateJwtKey(newKey: Uint8Array): KeyVersion {
+export async function rotateJwtKey(newKey: Uint8Array): Promise<KeyVersion> {
   return getJwtKeyRotator().rotateKey(newKey)
 }
 
