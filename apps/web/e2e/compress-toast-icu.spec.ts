@@ -45,7 +45,7 @@ const COMPRESS_DESC_DIGIT_PATTERN = /\d+/
 /** 等待 chat 页面就绪 + ContextUsageRing trigger 可见(ICU 变量插值未报错) */
 async function waitForChatWithTrigger(page: import('@playwright/test').Page): Promise<boolean> {
   await page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' }).catch(() => null)
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   // middleware 拦截 / 后端不可用时可能跳走,允许降级
   if (!page.url().includes('/chat')) return false
 

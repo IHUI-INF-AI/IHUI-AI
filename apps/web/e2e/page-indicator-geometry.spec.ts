@@ -64,7 +64,7 @@ test.describe('PageIndicator 几何守门', () => {
     // 等指示器渲染(group/indicator 只在 md+ 可见)
     await page.setViewportSize({ width: 1280, height: 900 })
     await expect(page.locator(INDICATOR_SELECTOR)).toBeVisible({ timeout: 10000 })
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
   })
 
   test('激活态:24x8 竖向胶囊(宽度=非激活态直径,高度=3x 放大)', async ({ page }) => {

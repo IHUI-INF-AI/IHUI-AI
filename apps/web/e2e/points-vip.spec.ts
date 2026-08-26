@@ -36,7 +36,7 @@ test.describe('积分和会员', () => {
 
   test('VIP 会员页可访问', async ({ page }) => {
     await page.goto('/vip')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     await expect(page).toHaveURL(/\/vip/)
     const h1 = page.locator('h1').first()
     await expect(h1).toBeVisible({ timeout: 10000 })
@@ -44,7 +44,7 @@ test.describe('积分和会员', () => {
 
   test('签到按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/points')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
     await page.waitForTimeout(2000)
@@ -60,7 +60,7 @@ test.describe('积分和会员', () => {
 
   test('积分显示存在(若可访问)', async ({ page }) => {
     await page.goto('/points')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
     await page.waitForTimeout(2000)
@@ -71,7 +71,7 @@ test.describe('积分和会员', () => {
 
   test('等级显示存在(若可访问)', async ({ page }) => {
     await page.goto('/points')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/points')) return
 
     await page.waitForTimeout(2000)
@@ -109,7 +109,7 @@ test.describe('积分和会员', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/points')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

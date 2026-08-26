@@ -102,7 +102,7 @@ async function openLoginDialog(
   firstInputTestId: string,
 ): Promise<void> {
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
 
   await clickButtonByText(page, /^登录$|^登 录$|^Sign in$|^Login$/i)
   await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })

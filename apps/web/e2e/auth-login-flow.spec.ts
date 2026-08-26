@@ -50,7 +50,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     await expect(page).toHaveURL(/\/(register|sso\/register|login|sso\/login)/, {
       timeout: 8000,
     })
-    const firstInput = page.locator('input').first()
+    const firstInput = page.locator('input:not([type="file"]):visible').first()
     await expect(firstInput).toBeVisible({ timeout: 8000 })
     const passwordInput = page.locator('input[type="password"]').first()
     await expect(passwordInput).toBeVisible({ timeout: 5000 })
@@ -65,7 +65,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
   test('登录页(/login)被 middleware 重定向到 /sso/login,表单存在', async ({ page }) => {
     await page.goto('/login')
     await expect(page).toHaveURL(/\/(sso\/)?login/, { timeout: 8000 })
-    const firstInput = page.locator('input').first()
+    const firstInput = page.locator('input:not([type="file"]):visible').first()
     await expect(firstInput).toBeVisible({ timeout: 8000 })
     const passwordInput = page.locator('input[type="password"]').first()
     await expect(passwordInput).toBeVisible({ timeout: 5000 })

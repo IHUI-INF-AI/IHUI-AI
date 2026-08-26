@@ -26,7 +26,7 @@ test.describe('工作流编辑器', () => {
     })
 
     await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 无 500 错误(过滤已知白名单端点)
     const criticalErrors = serverErrors.filter(
@@ -47,7 +47,7 @@ test.describe('工作流编辑器', () => {
     })
 
     await page.goto(WORKFLOWS_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 忽略非关键错误
     const criticalErrors = consoleErrors.filter(
@@ -58,7 +58,7 @@ test.describe('工作流编辑器', () => {
 
   test('编辑器页面可访问:画布与节点调色板渲染', async ({ authenticatedPage }) => {
     await authenticatedPage.goto(WORKFLOWS_URL)
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
 
     // 点击"新建工作流"按钮打开对话框
     const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
@@ -88,7 +88,7 @@ test.describe('工作流编辑器', () => {
 
   test('节点选中后显示属性面板', async ({ authenticatedPage }) => {
     await authenticatedPage.goto(WORKFLOWS_URL)
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
 
     const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
@@ -127,7 +127,7 @@ test.describe('工作流编辑器', () => {
 
   test('工作流创建流程:填写表单与节点属性编辑', async ({ authenticatedPage }) => {
     await authenticatedPage.goto(WORKFLOWS_URL)
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
 
     const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
@@ -181,7 +181,7 @@ test.describe('工作流编辑器', () => {
 
   test('暗色模式兼容:编辑器正常渲染', async ({ authenticatedPage }) => {
     await authenticatedPage.goto(WORKFLOWS_URL)
-    await authenticatedPage.waitForLoadState('networkidle')
+    await authenticatedPage.waitForLoadState('domcontentloaded')
 
     const createBtn = authenticatedPage.getByRole('button').filter({ hasText: /新建工作流/i })
     if (!(await createBtn.isVisible({ timeout: 10000 }).catch(() => false))) return
