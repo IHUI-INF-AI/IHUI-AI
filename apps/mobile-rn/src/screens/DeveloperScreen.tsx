@@ -215,7 +215,7 @@ export default function DeveloperScreen() {
             </View>
             {/* 网址:数据源 developer_applications.website(GET /api/developer/info),无值时占位 '—' */}
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>网址</Text>
+              <Text style={styles.infoLabel}>{t('developerInfo.urlLabel')}</Text>
               <Text style={styles.infoValue} numberOfLines={1}>
                 {devInfo?.website || '—'}
               </Text>
