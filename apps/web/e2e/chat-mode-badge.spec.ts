@@ -62,7 +62,7 @@ const LOCALES = Object.keys(MODE_LABEL_EXPECT) as Array<keyof typeof MODE_LABEL_
 
 /** 设置 zustand persist 的 mode store(让页面加载时直接进入目标 mode) */
 async function setModeStore(page: Page, mode: Mode) {
-  await page.evaluate((m) => {
+  await page.evaluate((m: string) => {
     const raw = localStorage.getItem('ihui-mode-store')
     const obj = raw ? JSON.parse(raw) : { state: { currentMode: 'build' }, version: 0 }
     obj.state = obj.state || {}
@@ -77,7 +77,7 @@ async function switchLocale(page: Page, locale: string) {
   // localStorage 写入无效 origin,persist rehydrate 永远恢复 zh-CN),再调
   // window.__IHUI_LANGUAGE_STORE__.setLocale() 同步切换(注释推荐方式,无需等 rehydrate)。
   await page.goto('/chat', { waitUntil: 'domcontentloaded' }).catch(() => null)
-  await page.evaluate((l) => {
+  await page.evaluate((l: string) => {
     const store = (
       window as unknown as {
         __IHUI_LANGUAGE_STORE__?: { getState: () => { setLocale: (x: string) => void } }
@@ -97,7 +97,7 @@ async function switchLocale(page: Page, locale: string) {
       sameSite: 'Lax',
     },
   ])
-  await page.evaluate((l) => {
+  await page.evaluate((l: string) => {
     try {
       const raw = localStorage.getItem('ihui-language')
       const obj = raw ? JSON.parse(raw) : { state: { locale: 'zh-CN' }, version: 0 }
