@@ -19,6 +19,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@ihui/ui-react'
+import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { fetchApi } from '@/lib/api'
 
 const ROLE_OPTIONS = [
@@ -48,7 +49,8 @@ const TOOL_OPTIONS = [
   'web_fetch',
 ]
 
-const FALLBACK_MODELS = ['gpt-4o', 'claude-3-5-sonnet', 'glm-4.5', 'default']
+// 共享已验证兜底(仅后端不可达时使用;FALLBACK_MODELS 来自 @ihui/shared,全部已验证连通)
+const FALLBACK_MODEL_VALUES = FALLBACK_MODELS.map((f) => f.value)
 
 interface Props {
   open: boolean
@@ -59,30 +61,34 @@ interface Props {
 export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
   const [name, setName] = React.useState('')
   const [role, setRole] = React.useState('coder')
-  const [model, setModel] = React.useState('default')
+  const [model, setModel] = React.useState(FALLBACK_MODEL_VALUES[0] ?? '')
   const [tools, setTools] = React.useState<string[]>(['read_file', 'grep', 'glob'])
   const [permissionMode, setPermissionMode] = React.useState('default')
   const [maxIterations, setMaxIterations] = React.useState(25)
   const [systemPrompt, setSystemPrompt] = React.useState('')
-  const [models, setModels] = React.useState<string[]>(FALLBACK_MODELS)
+  const [models, setModels] = React.useState<string[]>(FALLBACK_MODEL_VALUES)
   const [submitting, setSubmitting] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
 
-  // 拉取模型列表(失败降级用 FALLBACK_MODELS)
+  // 拉取模型列表:主源 = 后端已过滤(可用+有配额)的 /llm/models。
+  // API 成功且非空 → 仅展示后端列表,不混入任何硬编码模型;
+  // API 失败/空 → 降级共享已验证兜底 FALLBACK_MODELS(后端不可达时的最小降级)。
   React.useEffect(() => {
     if (!open) return
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<{ list?: Array<{ id: string }>; data?: Array<{ id: string }> }>(
-          '/api/ai-models?pageSize=100',
-        )
-        if (cancelled || !res.success || !res.data) return
-        const arr = res.data.list ?? res.data.data ?? []
-        const ids = arr.map((m) => m.id).filter(Boolean)
-        if (ids.length) setModels([...new Set([...ids, ...FALLBACK_MODELS])])
+        const res = await fetchApi<{ models?: Array<{ id: string }> }>('/api/llm/models')
+        if (cancelled) return
+        if (!res.success || !res.data) {
+          setModels(FALLBACK_MODEL_VALUES)
+          return
+        }
+        const ids = (res.data.models ?? []).map((m) => m.id).filter(Boolean)
+        setModels(ids.length > 0 ? ids : FALLBACK_MODEL_VALUES)
       } catch {
-        /* 降级用默认列表 */
+        if (cancelled) return
+        setModels(FALLBACK_MODEL_VALUES)
       }
     })()
     return () => {
@@ -97,7 +103,7 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
   const reset = () => {
     setName('')
     setRole('coder')
-    setModel('default')
+    setModel(FALLBACK_MODEL_VALUES[0] ?? '')
     setTools(['read_file', 'grep', 'glob'])
     setPermissionMode('default')
     setMaxIterations(25)
