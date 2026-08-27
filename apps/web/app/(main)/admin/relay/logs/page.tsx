@@ -233,7 +233,7 @@ export default function AdminRelayLogsPage() {
         />
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between bg-muted/50 px-3 py-2">
           <span className="text-xs font-medium uppercase text-muted-foreground">聚合统计</span>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'model' | 'day' | 'user')}>
@@ -305,7 +305,7 @@ export default function AdminRelayLogsPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="bg-muted/50 px-3 py-2 text-xs font-medium uppercase text-muted-foreground">
           调用明细
         </div>

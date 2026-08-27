@@ -45,6 +45,7 @@ git commit
        ├─ 9  check-safe-parse          (warn-only)
        ├─ 10 openapi-check             (informational)
        ├─ 11 check-rounded-full        (阻塞)
+       ├─ 11d check-no-divider         (阻塞,§4 分割线 divide-y/divide-x)
        ├─ 12 check-delivery-report     (阻塞)
        ├─ 13b check-project-plan-size  (阻塞,<50KB)
        ├─ 13c check-project-plan-archive (阻塞,防误删)
