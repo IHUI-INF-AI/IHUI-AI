@@ -120,13 +120,9 @@ const hasbuyIconIcon = '/remote-images/hasbuy_icon.png'
 
 // 2026-08-27 恢复:原 CDN(file.aizhs.top / bspapp)已退服,从原项目源码
 // (D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue)找回的图标,拷贝至本地副本
-const kingLocalIcon = '/remote-images/king.png'
-const likeLocalIcon = '/remote-images/like.png'
 const aiIconLocalIcon = '/remote-images/ai-icon.png'
 const courseIconLocalIcon = '/remote-images/course-icon.png'
 const knowledgeIconLocalIcon = '/remote-images/knowledge-icon.png'
-const icon1LocalIcon = '/remote-images/icon1.png'
-const n8nLocalIcon = '/remote-images/n8n.png'
 
 /** 远程图标注册表:name → 资源路径(本地 import 或远程 URL) */
 export const REMOTE_ICONS: Record<string, string> = {
