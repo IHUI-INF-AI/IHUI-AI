@@ -20,6 +20,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
 import { rpx } from '../utils/rpx'
+import { CreditCard } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -147,7 +148,7 @@ export function PaymentScreen() {
     ? {
         name: pendingPurchase.subject || t('payment.untitledOrder'),
         price: (pendingPurchase.amount ?? 0) / 100,
-        icon: '💳',
+        icon: CreditCard,
       }
     : null
 

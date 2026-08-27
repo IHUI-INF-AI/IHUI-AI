@@ -10,6 +10,25 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import type { AppIcon } from '@ihui/types'
+import {
+  Award,
+  BarChart3,
+  Bot,
+  Building2,
+  CreditCard,
+  FlaskConical,
+  FolderOpen,
+  Gem,
+  Gift,
+  Globe,
+  GraduationCap,
+  Handshake,
+  Lightbulb,
+  Rocket,
+  Users,
+  Zap,
+} from 'lucide-react-native'
 
 /** VIP 操盘手统计项(由 wrapper 从 CommissionOverview 构建) */
 export interface VipTraderStat {
@@ -21,7 +40,7 @@ export interface VipTraderStat {
 /** VIP 操盘手权益特性(静态产品展示) */
 export interface VipTraderFeature {
   id: string
-  icon: string
+  icon: AppIcon | string
   title: string
 }
 
@@ -44,19 +63,23 @@ const TRADER_POWER = '1600W'
 
 // 权益特性是产品展示,非业务数据,保留前端静态
 const FEATURES: VipTraderFeature[] = [
-  { id: 'distribution', icon: '🏅', title: '享受大额分销资格,入驻社区服务商名列' },
-  { id: 'ai_courses', icon: '🎓', title: 'AI 深度认知课/深度商业课/流量全链路打法免费观看' },
-  { id: 'founder_qa', icon: '🤝', title: '创始人一对一随时答疑陪跑' },
-  { id: 'agent_beta', icon: '🧪', title: '最新研发 Agent 内测资格一年' },
-  { id: 'vip_max_discount', icon: '💎', title: '会员等级拉满,享受全部最高折扣' },
-  { id: 'custom_agent', icon: '⚡', title: '插队定制独家 Agent 功能 8 折优惠' },
-  { id: 'all_rights', icon: '🎁', title: '会员享受的全部权益' },
-  { id: 'incubation', icon: '🚀', title: 'AI+垂类账号孵化优先陪跑机会' },
-  { id: 'secondary', icon: '🌐', title: '二级分销权益,快速扩张团队及收益' },
-  { id: 'offline', icon: '🏢', title: '公司总部入驻及线下学习实操机会' },
-  { id: 'computing', icon: '💡', title: `操盘手赠送 ${TRADER_POWER} 算力` },
-  { id: 'knowledge', icon: '🗂️', title: '开通个人知识库超大 20G 空间' },
-  { id: 'ai_custom', icon: '🤖', title: '插队 AI 分身/AI 客服定制开通' },
+  { id: 'distribution', icon: Award, title: '享受大额分销资格,入驻社区服务商名列' },
+  {
+    id: 'ai_courses',
+    icon: GraduationCap,
+    title: 'AI 深度认知课/深度商业课/流量全链路打法免费观看',
+  },
+  { id: 'founder_qa', icon: Handshake, title: '创始人一对一随时答疑陪跑' },
+  { id: 'agent_beta', icon: FlaskConical, title: '最新研发 Agent 内测资格一年' },
+  { id: 'vip_max_discount', icon: Gem, title: '会员等级拉满,享受全部最高折扣' },
+  { id: 'custom_agent', icon: Zap, title: '插队定制独家 Agent 功能 8 折优惠' },
+  { id: 'all_rights', icon: Gift, title: '会员享受的全部权益' },
+  { id: 'incubation', icon: Rocket, title: 'AI+垂类账号孵化优先陪跑机会' },
+  { id: 'secondary', icon: Globe, title: '二级分销权益,快速扩张团队及收益' },
+  { id: 'offline', icon: Building2, title: '公司总部入驻及线下学习实操机会' },
+  { id: 'computing', icon: Lightbulb, title: `操盘手赠送 ${TRADER_POWER} 算力` },
+  { id: 'knowledge', icon: FolderOpen, title: '开通个人知识库超大 20G 空间' },
+  { id: 'ai_custom', icon: Bot, title: '插队 AI 分身/AI 客服定制开通' },
 ]
 
 /**
@@ -84,7 +107,11 @@ export function VipTraderScreen({
   const renderItem = ({ item }: { item: VipTraderFeature }) => (
     <View style={styles.featureItem}>
       <View style={styles.featureIcon}>
-        <Text style={styles.featureIconText}>{item.icon}</Text>
+        {typeof item.icon === 'string' ? (
+          <Text style={styles.featureIconText}>{item.icon}</Text>
+        ) : (
+          <item.icon size={18} color={tk.text.primary} />
+        )}
       </View>
       <Text style={styles.featureTitle}>{item.title}</Text>
     </View>
@@ -133,15 +160,15 @@ export function VipTraderScreen({
 
       <View style={styles.entryRow}>
         <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
-          <Text style={styles.entryIcon}>👥</Text>
+          <Users size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryTeam')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
-          <Text style={styles.entryIcon}>📊</Text>
+          <BarChart3 size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryStats')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.entryBtn} activeOpacity={0.8}>
-          <Text style={styles.entryIcon}>💳</Text>
+          <CreditCard size={20} color={tk.text.medium} />
           <Text style={styles.entryText}>{t('vipTrader.entryWithdraw')}</Text>
         </TouchableOpacity>
       </View>

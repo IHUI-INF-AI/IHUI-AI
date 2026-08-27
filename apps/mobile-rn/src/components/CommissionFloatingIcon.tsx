@@ -20,6 +20,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { Banknote } from 'lucide-react-native'
 
 export interface CommissionFloatingIconProps {
   amount?: string | number
@@ -30,7 +31,6 @@ const CONTAINER_RADIUS = 12
 const CONTAINER_PADDING_H = 12
 const CONTAINER_PADDING_V = 8
 const TEXT_WRAP_MARGIN_LEFT = 6
-const ICON_FONT_SIZE = 18
 const LABEL_FONT_SIZE = 10
 const AMOUNT_FONT_SIZE = 14
 const AMOUNT_MARGIN_TOP = 2
@@ -38,7 +38,7 @@ const BOTTOM_OFFSET = 80
 const RIGHT_OFFSET = 16
 const Z_INDEX = 100
 
-const ICON = '💰'
+const ICON = Banknote
 const LABEL = '我的佣金'
 const CURRENCY = '¥'
 
@@ -54,9 +54,7 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       accessibilityRole="button"
       accessibilityLabel={LABEL}
     >
-      <Text style={styles.icon} allowFontScaling={false}>
-        {ICON}
-      </Text>
+      <ICON size={18} color={'#ffffff'} />
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
           {LABEL}
@@ -85,9 +83,6 @@ const styles = StyleSheet.create({
     paddingVertical: CONTAINER_PADDING_V,
     zIndex: Z_INDEX,
   } as ViewStyle,
-  icon: {
-    fontSize: ICON_FONT_SIZE,
-  } as TextStyle,
   textWrap: {
     marginLeft: TEXT_WRAP_MARGIN_LEFT,
   } as ViewStyle,

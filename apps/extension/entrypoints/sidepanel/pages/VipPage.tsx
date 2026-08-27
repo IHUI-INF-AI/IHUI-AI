@@ -3,6 +3,7 @@
  * 展示当前会员状态(GET /api/vip/my)+ 权益说明,并引导前往网页版开通。
  */
 import { useEffect, useState } from 'react'
+import { Crown } from 'lucide-react'
 import { getMembershipInfo, type MembershipInfo } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -42,9 +43,7 @@ export default function VipPage() {
       <Card>
         <CardContent className="p-4 flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl" aria-hidden>
-              👑
-            </span>
+            <Crown size={24} className="shrink-0" aria-hidden />
             {!loading && info?.isActive ? (
               <span className="text-sm font-semibold">
                 {t('page.vip.active')} · {info.levelName || t('page.vip.level')} {info.level}

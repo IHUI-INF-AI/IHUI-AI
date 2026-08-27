@@ -8,6 +8,7 @@ import { ConfirmPurchasePopUp } from '../components/ConfirmPurchasePopUp'
 import { useWechatPayment } from '../hooks/useWechatPayment'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { Medal } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -156,7 +157,7 @@ export default function VipTraderScreen() {
         visible={confirmVisible}
         title={t('vipTrader.title')}
         message={t('vipTrader.heroDesc', { price: '9,980', power: '1600W' })}
-        product={{ name: TRADER_PRODUCT_NAME, price: 9980, icon: '🏅' }}
+        product={{ name: TRADER_PRODUCT_NAME, price: 9980, icon: Medal }}
         onCancel={() => setConfirmVisible(false)}
         onConfirm={onConfirmPurchase}
         loading={paying}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Gift } from 'lucide-react-native'
 import type { PointsMallItem, PointsMallScreenProps } from '../../types'
 
 /** 积分商城/Props 类型 re-export(单一来源 @ihui/types) */
@@ -80,7 +81,7 @@ export function PointsMallScreen({
             return (
               <View style={styles.card}>
                 <View style={styles.coverPlaceholder}>
-                  <Text style={styles.coverEmoji}>🎁</Text>
+                  <Gift size={32} color={'#374151'} />
                 </View>
                 <Text style={styles.productName} numberOfLines={2}>
                   {item.name}

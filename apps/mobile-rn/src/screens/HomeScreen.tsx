@@ -17,7 +17,36 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as MediaLibrary from 'expo-media-library'
 import { Asset } from 'expo-asset'
-import { SlidersHorizontal } from 'lucide-react-native'
+import {
+  BookOpen,
+  Bot,
+  Folder,
+  SlidersHorizontal,
+  Search,
+  History,
+  Bookmark,
+  Target,
+  Radio,
+  Clapperboard,
+  Paperclip,
+  HelpCircle,
+  Gift,
+  CheckCircle2,
+  Calendar,
+  Trophy,
+  Brain,
+  MessageSquare,
+  Image as ImageIcon,
+  Music,
+  Video,
+  Settings,
+  Palette,
+  Film,
+  Volume2,
+  Mic,
+  Menu,
+  Handshake,
+} from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -53,7 +82,7 @@ import {
   type HomeRecommendItem,
 } from '@ihui/rn-app'
 import type { CarouselItem } from '@ihui/ui-native'
-import type { AiModelData, ApiResult } from '@ihui/types'
+import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
@@ -109,15 +138,15 @@ type RootNav = NativeStackNavigationProp<RootStackParamList>
 /** 社群二维码图片(对齐 Uniapp ai_index /static/images/qewm.png 二维码弹窗) */
 
 const MENU_ITEMS: HomeMenuItem[] = [
-  { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
-  { key: 'History', labelKey: 'menu.history', icon: '🕘' },
-  { key: 'Bookmark', labelKey: 'menu.bookmark', icon: '🔖' },
-  { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: '🎯' },
-  { key: 'LiveList', labelKey: 'menu.liveList', icon: '📡' },
-  { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: '🎬' },
-  { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: '📎' },
-  { key: 'CourseResource', labelKey: 'menu.courseResource', icon: '📚' },
-  { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: '❓' },
+  { key: 'Search', labelKey: 'menu.search', icon: Search },
+  { key: 'History', labelKey: 'menu.history', icon: History },
+  { key: 'Bookmark', labelKey: 'menu.bookmark', icon: Bookmark },
+  { key: 'CourseFilter', labelKey: 'menu.courseFilter', icon: Target },
+  { key: 'LiveList', labelKey: 'menu.liveList', icon: Radio },
+  { key: 'LivePlaybackList', labelKey: 'menu.livePlaybackList', icon: Clapperboard },
+  { key: 'CourseAnnex', labelKey: 'menu.courseAnnex', icon: Paperclip },
+  { key: 'CourseResource', labelKey: 'menu.courseResource', icon: BookOpen },
+  { key: 'CourseQAList', labelKey: 'menu.courseQAList', icon: HelpCircle },
 ]
 
 function toRecommend(courses: Course[]): HomeRecommendItem[] {
@@ -161,7 +190,7 @@ function toCarouselItems(items: HomeRecommendItem[]): CourseCarouselItem[] {
     title: r.title,
     price: r.price,
     isFree: r.isFree,
-    icon: '📘',
+    icon: BookOpen,
   }))
 }
 
@@ -192,10 +221,10 @@ function toPopularCourseItems(items: HomeRecommendItem[]): PopularCourse[] {
 
 /** FunctionBlockColumn 功能块(对齐 Uniapp 首页功能入口) */
 const FUNCTION_BLOCKS: FunctionBlock[] = [
-  { id: 'distribution', title: '分销中心', icon: '🎁', description: '推广赚佣金' },
-  { id: 'task', title: '任务中心', icon: '✅', description: '完成领奖励' },
-  { id: 'checkin', title: '每日签到', icon: '📅', description: '连续签到得好礼' },
-  { id: 'ranking', title: '排行榜', icon: '🏆', description: '查看学习排名' },
+  { id: 'distribution', title: '分销中心', icon: Gift, description: '推广赚佣金' },
+  { id: 'task', title: '任务中心', icon: CheckCircle2, description: '完成领奖励' },
+  { id: 'checkin', title: '每日签到', icon: Calendar, description: '连续签到得好礼' },
+  { id: 'ranking', title: '排行榜', icon: Trophy, description: '查看学习排名' },
 ]
 
 // ── 对齐 Uniapp ai_index BottomActionBar 8 种 model-type-btn(行 44-97) ──
@@ -206,7 +235,7 @@ type ModelType = 'skills' | 'talk' | 'image' | 'video' | 'audio' | 'videoa' | 'o
 interface ModelTypeOption {
   type: ModelType
   label: string
-  icon: string
+  icon: AppIcon | string
 }
 
 /** 当前选中的模型(对齐 Uniapp modelName/modelNameEN/modelId 三元组,简化为 type+id+name) */
@@ -226,14 +255,14 @@ interface MaterialCard {
 
 /** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
 const MODEL_TYPES: ModelTypeOption[] = [
-  { type: 'skills', label: '技能', icon: '🧠' },
-  { type: 'talk', label: '对话', icon: '💬' },
-  { type: 'image', label: '图片', icon: '🖼️' },
-  { type: 'video', label: '视频', icon: '🎬' },
-  { type: 'audio', label: '音频', icon: '🎵' },
-  { type: 'videoa', label: '视音', icon: '📹' },
-  { type: 'other', label: '其他', icon: '⚙️' },
-  { type: 'sck', label: '知识库', icon: '📚' },
+  { type: 'skills', label: '技能', icon: Brain },
+  { type: 'talk', label: '对话', icon: MessageSquare },
+  { type: 'image', label: '图片', icon: ImageIcon },
+  { type: 'video', label: '视频', icon: Clapperboard },
+  { type: 'audio', label: '音频', icon: Music },
+  { type: 'videoa', label: '视音', icon: Video },
+  { type: 'other', label: '其他', icon: Settings },
+  { type: 'sck', label: '知识库', icon: BookOpen },
 ]
 
 /** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
@@ -365,7 +394,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
           id: 'agent-default',
           name: '通用智能体',
           description: '通用问答 Agent',
-          icon: '🤖',
+          icon: Bot,
           isFree: true,
         },
       ],
@@ -375,7 +404,13 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '文本模型',
       models: [
-        { id: 'talk-gpt', name: 'GPT 对话', description: '通用文本对话', icon: '💬', isFree: true },
+        {
+          id: 'talk-gpt',
+          name: 'GPT 对话',
+          description: '通用文本对话',
+          icon: MessageSquare,
+          isFree: true,
+        },
       ],
     },
   ],
@@ -387,7 +422,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
           id: 'img-sdxl',
           name: 'SDXL 图像',
           description: '高质量图像生成',
-          icon: '🎨',
+          icon: Palette,
           isFree: false,
         },
       ],
@@ -397,7 +432,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '视频生成',
       models: [
-        { id: 'vid-sora', name: 'Sora 视频', description: '文生视频', icon: '🎞️', isFree: false },
+        { id: 'vid-sora', name: 'Sora 视频', description: '文生视频', icon: Film, isFree: false },
       ],
     },
   ],
@@ -405,7 +440,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
     {
       vendor: '语音模型',
       models: [
-        { id: 'aud-tts', name: 'TTS 语音', description: '文本转语音', icon: '🔊', isFree: true },
+        { id: 'aud-tts', name: 'TTS 语音', description: '文本转语音', icon: Volume2, isFree: true },
       ],
     },
   ],
@@ -417,7 +452,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
           id: 'va-default',
           name: '视音合成',
           description: '视频音频一体化',
-          icon: '🎤',
+          icon: Mic,
           isFree: false,
         },
       ],
@@ -431,7 +466,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
           id: 'other-default',
           name: '通用模型',
           description: '其他类型模型',
-          icon: '⚙️',
+          icon: Settings,
           isFree: true,
         },
       ],
@@ -445,7 +480,7 @@ const PLACEHOLDER_MODELS: Record<ModelType, ModelListGroup[]> = {
           id: 'sck-default',
           name: '默认知识库',
           description: '通用知识库检索',
-          icon: '📚',
+          icon: BookOpen,
           isFree: true,
         },
       ],
@@ -747,12 +782,12 @@ export function HomeScreen() {
    *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: '☰', label: '菜单', onPress: handleMenuPress },
+    { icon: Menu, label: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
-    { icon: '🔍', label: '搜索', onPress: () => rootNav?.navigate('Search') },
-    { icon: '🤝', label: '加入群', onPress: handleJoinPress },
-    { icon: '🎁', label: '分享', onPress: handleGoToMyPage },
+    { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
+    { icon: Handshake, label: '加入群', onPress: handleJoinPress },
+    { icon: Gift, label: '分享', onPress: handleGoToMyPage },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -1009,7 +1044,7 @@ export function HomeScreen() {
         id: r.id,
         title: r.title,
         subtitle: r.instructor,
-        icon: '📘',
+        icon: BookOpen,
       })),
     [recommends],
   )
@@ -1119,7 +1154,7 @@ export function HomeScreen() {
               id: m.id,
               name: m.name,
               description: m.provider ?? '',
-              icon: '🤖',
+              icon: Bot,
               isFree: !m.input_price,
             })
             grouped.set(key, models)
@@ -1534,7 +1569,11 @@ export function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={opt.label}
               >
-                <Text style={shellStyles.modelTypeIcon}>{opt.icon}</Text>
+                {typeof opt.icon === 'string' ? (
+                  <Text style={shellStyles.modelTypeIcon}>{opt.icon}</Text>
+                ) : opt.icon ? (
+                  <opt.icon size={14} color={tokens.text.primary} />
+                ) : null}
                 <Text
                   style={[
                     shellStyles.modelTypeLabel,
@@ -1584,7 +1623,10 @@ export function HomeScreen() {
         accessibilityLabel="我的创作"
         style={shellStyles.creationEntry}
       >
-        <Text style={shellStyles.creationEntryText}>📁 我的创作</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Folder size={13} color={tokens.brand.DEFAULT} />
+          <Text style={shellStyles.creationEntryText}>我的创作</Text>
+        </View>
       </TouchableOpacity>
       {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
           转文字回填输入框,随提交跳 Chat) */}

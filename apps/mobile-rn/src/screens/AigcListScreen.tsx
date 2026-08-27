@@ -20,6 +20,7 @@ import MaterialList, {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { type LucideIcon, FileText, Film, Image, Music } from 'lucide-react-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -102,12 +103,12 @@ function toMaterialItem(work: AigcListItem): MaterialItem {
   }
 }
 
-/** AIGC 作品类型 → 顶部轮播 emoji(0 图片 / 1 视频 / 3 音频 / 4 文案) */
-const FILE_TYPE_ICON: Readonly<Record<AigcFileType, string>> = {
-  0: '🖼️',
-  1: '🎬',
-  3: '🎵',
-  4: '📝',
+/** AIGC 作品类型 → 顶部轮播 lucide 图标组件(0 图片 / 1 视频 / 3 音频 / 4 文案) */
+const FILE_TYPE_ICON: Readonly<Record<AigcFileType, LucideIcon>> = {
+  0: Image,
+  1: Film,
+  3: Music,
+  4: FileText,
 }
 
 /** AIGC 作品 → 顶部轮播卡片项(全部免费,price=0 + isFree=true) */

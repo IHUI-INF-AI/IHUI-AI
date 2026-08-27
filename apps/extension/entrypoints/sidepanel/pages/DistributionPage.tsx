@@ -4,6 +4,7 @@
  * 附参与引导与前往网页版入口。
  */
 import { useEffect, useState } from 'react'
+import { TrendingUp } from 'lucide-react'
 import {
   getInviteInfo,
   getOverview,
@@ -48,9 +49,7 @@ export default function DistributionPage() {
       </div>
       <Card>
         <CardContent className="p-4 flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>
-            📈
-          </span>
+          <TrendingUp size={24} className="shrink-0" aria-hidden />
           <span className="text-sm">{t('page.distribution.desc')}</span>
         </CardContent>
       </Card>
