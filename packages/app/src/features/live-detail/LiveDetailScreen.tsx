@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveDetailChatStatus,
@@ -134,7 +135,7 @@ export function LiveDetailScreen({
       </View>
 
       <View style={styles.videoArea}>
-        <Text style={styles.videoIcon}>▶</Text>
+        <Play size={24} color={tk.surface.light} />
         <Text style={styles.videoHint}>{t('liveDetail.title')}</Text>
         {live.playUrl ? (
           <Text style={styles.videoUrl} numberOfLines={1}>

@@ -12,7 +12,7 @@
 import { Pressable, StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native'
 import type { ReactNode } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { CircleCheck, Crown, Sparkles, type LucideIcon } from 'lucide-react-native'
+import { Check, CircleCheck, Crown, Sparkles, X, type LucideIcon } from 'lucide-react-native'
 
 export interface BenefitItem {
   id: string
@@ -112,8 +112,8 @@ const DEFAULT_COMPARISON_ROWS: readonly MembershipComparisonRow[] = [
 ]
 
 function renderCell(cell: MembershipCell): ReactNode {
-  if (cell === true) return <Text style={styles.cellCheck}>✓</Text>
-  if (cell === false) return <Text style={styles.cellCross}>✗</Text>
+  if (cell === true) return <Check size={14} color={tokens.success.DEFAULT} />
+  if (cell === false) return <X size={14} color={tokens.danger.DEFAULT} />
   return <Text style={styles.cellText}>{cell}</Text>
 }
 

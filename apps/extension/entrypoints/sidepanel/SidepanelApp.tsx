@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Bell, Bot, BookOpen, MessageCircle, Settings, User } from 'lucide-react'
 import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
@@ -59,11 +60,11 @@ import AsksPage from './pages/AsksPage'
 
 // 5 主 tab(2026-07-25 重构):对话 / AI / 内容 / 我的 / 设置
 const TABS = [
-  { to: '/chat', labelKey: 'nav.chat', icon: '💬' },
-  { to: '/ai', labelKey: 'nav.ai', icon: '🤖' },
-  { to: '/content', labelKey: 'nav.content', icon: '📚' },
-  { to: '/me', labelKey: 'nav.me', icon: '👤' },
-  { to: '/settings', labelKey: 'nav.settings', icon: '⚙️' },
+  { to: '/chat', labelKey: 'nav.chat', icon: MessageCircle },
+  { to: '/ai', labelKey: 'nav.ai', icon: Bot },
+  { to: '/content', labelKey: 'nav.content', icon: BookOpen },
+  { to: '/me', labelKey: 'nav.me', icon: User },
+  { to: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 function isUnauthorized(res: { success: false; error: string; status?: number }): boolean {
@@ -215,7 +216,7 @@ function SidepanelInner() {
                 onClick={() => setVisible(true)}
                 aria-label={t('nav.notifications')}
               >
-                <span aria-hidden>🔔</span>
+                <Bell size={16} className="shrink-0" aria-hidden />
                 {unreadCount > 0 ? (
                   <span className="absolute -top-0.5 -right-1 min-w-3.5 h-3.5 px-1 rounded-md bg-destructive text-primary-foreground text-[9px] leading-3.5 text-center font-semibold">
                     {unreadCount}
@@ -263,7 +264,11 @@ function SidepanelInner() {
               }
             >
               <span className="text-lg leading-none" aria-hidden>
-                {tab.icon}
+                {typeof tab.icon === 'function' ? (
+                  <tab.icon size={18} className="shrink-0" />
+                ) : (
+                  tab.icon
+                )}
               </span>
               <span className="leading-tight">{t(tab.labelKey)}</span>
             </NavLink>

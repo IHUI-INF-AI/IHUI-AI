@@ -22,6 +22,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { AlertTriangle, Check, Info, X, type LucideIcon } from 'lucide-react-native'
 
 export type FloatBoxType = 'success' | 'error' | 'warning' | 'info'
 
@@ -52,11 +53,11 @@ const ROW_GAP = 8
 const TEXT_COLOR = '#FFFFFF'
 const BG_COLOR = 'rgba(0,0,0,0.85)'
 
-const TYPE_ICONS: Readonly<Record<FloatBoxType, string>> = {
-  success: '✓',
-  error: '✕',
-  warning: '⚠',
-  info: 'ℹ',
+const TYPE_ICONS: Readonly<Record<FloatBoxType, LucideIcon>> = {
+  success: Check,
+  error: X,
+  warning: AlertTriangle,
+  info: Info,
 }
 
 const TYPE_ICON_COLORS: Readonly<Record<FloatBoxType, string>> = {
@@ -123,6 +124,7 @@ export function FloatBox({
   const screenWidth = Dimensions.get('window').width
   const maxWidth = Math.round(screenWidth * MAX_WIDTH_RATIO)
   const iconColor = TYPE_ICON_COLORS[type]
+  const Icon = TYPE_ICONS[type]
 
   return (
     <Animated.View
@@ -132,9 +134,7 @@ export function FloatBox({
       accessibilityLabel={message}
     >
       <View style={styles.contentRow}>
-        <Text style={[styles.icon, { color: iconColor }]} allowFontScaling={false}>
-          {TYPE_ICONS[type]}
-        </Text>
+        <Icon size={ICON_SIZE} color={iconColor} />
         <Text style={styles.message} numberOfLines={2} allowFontScaling={false}>
           {message}
         </Text>

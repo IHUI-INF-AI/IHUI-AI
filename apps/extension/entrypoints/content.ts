@@ -148,7 +148,30 @@ function insertTranslation(_original: string, translated: string) {
   `
   const inner = doc.createElement('span')
   inner.className = 'tx'
-  inner.textContent = `🌐 ${translated}`
+  // 向量化地球图标(lucide Globe 的 SVG path),替代 emoji 🌐
+  const SVG_NS = 'http://www.w3.org/2000/svg'
+  const globeSvg = doc.createElementNS(SVG_NS, 'svg')
+  globeSvg.setAttribute('width', '12')
+  globeSvg.setAttribute('height', '12')
+  globeSvg.setAttribute('viewBox', '0 0 24 24')
+  globeSvg.setAttribute('fill', 'none')
+  globeSvg.setAttribute('stroke', 'currentColor')
+  globeSvg.setAttribute('stroke-width', '2')
+  globeSvg.setAttribute('stroke-linecap', 'round')
+  globeSvg.setAttribute('stroke-linejoin', 'round')
+  globeSvg.setAttribute('style', 'margin-right:4px;vertical-align:-2px')
+  globeSvg.setAttribute('aria-hidden', 'true')
+  const gCircle = doc.createElementNS(SVG_NS, 'circle')
+  gCircle.setAttribute('cx', '12')
+  gCircle.setAttribute('cy', '12')
+  gCircle.setAttribute('r', '10')
+  const gPath1 = doc.createElementNS(SVG_NS, 'path')
+  gPath1.setAttribute('d', 'M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20')
+  const gPath2 = doc.createElementNS(SVG_NS, 'path')
+  gPath2.setAttribute('d', 'M2 12h20')
+  globeSvg.append(gCircle, gPath1, gPath2)
+  inner.appendChild(globeSvg)
+  inner.appendChild(doc.createTextNode(translated))
   shadow.appendChild(style)
   shadow.appendChild(inner)
 
