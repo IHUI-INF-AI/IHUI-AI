@@ -10,6 +10,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2, Settings } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 
@@ -26,7 +27,9 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return r.data
 }
 
-// 用户已配置的模型列表(settings/llm v2-providers),与默认值兜底合并去重
+// 用户已配置的模型列表(settings/llm v2-providers)。
+// configured 非空 → 只返回后端配置(可用且有配额)的模型,不合并任何硬编码;
+// 空/查询无数据 → 降级共享已验证兜底 FALLBACK_MODELS(仅后端不可达时使用)。
 function useConfiguredModels() {
   const { data } = useQuery({
     queryKey: ['v2-providers'],
@@ -38,23 +41,10 @@ function useConfiguredModels() {
       .flatMap((g) => g.providers)
       .flatMap((p) => (p.models ?? []).filter((m) => m.enabled))
       .map((m) => ({ value: m.modelId, label: m.displayName ?? m.modelId }))
-    const seen = new Set<string>()
-    return [...configured, ...FALLBACK_MODELS].filter((m) => {
-      if (seen.has(m.value)) return false
-      seen.add(m.value)
-      return true
-    })
+    if (configured.length > 0) return configured
+    return FALLBACK_MODELS.map((f) => ({ value: f.value, label: f.label }))
   }, [data])
 }
-
-/** 内置兜底模型(用户未配置 LLM 或配置加载失败时使用) */
-const FALLBACK_MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o' },
-  { value: 'gpt-4', label: 'GPT-4' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-  { value: 'claude-3-opus', label: 'Claude 3 Opus' },
-  { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
-]
 
 export default function ChatSettingsPage() {
   const router = useRouter()
@@ -62,7 +52,7 @@ export default function ChatSettingsPage() {
   const MODELS = useConfiguredModels()
 
   const [form, setForm] = React.useState<ChatSettings>({
-    model: 'gpt-4o',
+    model: MODELS[0]?.value ?? FALLBACK_MODELS[0]?.value ?? '',
     temperature: '0.7',
     maxTokens: '2048',
     systemPrompt: '',
