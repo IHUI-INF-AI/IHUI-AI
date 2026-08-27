@@ -54,7 +54,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
-import { Brain, Copy, Download, Eye, EyeOff, Share2 } from 'lucide-react-native'
+import { Bot, Brain, Copy, Download, Eye, EyeOff, Settings, Share2 } from 'lucide-react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
@@ -485,7 +485,7 @@ export default function AiAssistantN8nScreen() {
         id: m.id,
         name: m.name || m.id,
         description: m.provider,
-        icon: '🤖',
+        icon: Bot,
         // 免费模型标记:zero_cost provider 前缀(与后端 free_provider_registry 对齐)
         isFree: /^@cf\/|^pollinations\/|^llm7\/|^aihorde\//.test(m.id),
       }))
@@ -494,7 +494,7 @@ export default function AiAssistantN8nScreen() {
       id: m.value,
       name: m.label,
       description: m.vendor,
-      icon: '🤖',
+      icon: Bot,
       isFree: (m.pointsMultiplier ?? 1) === 0,
     }))
   }, [modelList])
@@ -875,9 +875,7 @@ export default function AiAssistantN8nScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('agent.config')}
           >
-            <Text style={styles.modelConfigBtnText} allowFontScaling={false}>
-              {'⚙'}
-            </Text>
+            <Settings size={12} color="#6b7280" />
             <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
           </TouchableOpacity>
           <Text style={styles.modelBarArrow}>{'›'}</Text>

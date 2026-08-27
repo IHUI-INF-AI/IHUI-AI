@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Heart, MessageCircle } from 'lucide-react-native'
 import type { PostDetailScreenProps } from '../../types'
 
 /**
@@ -115,10 +116,12 @@ export function PostDetailScreen({
       {item.contact ? <Text style={styles.detailText}>联系方式：{item.contact}</Text> : null}
       <View style={styles.statRow}>
         <TouchableOpacity style={styles.statBtn}>
-          <Text style={styles.statText}>❤ {item.likes}</Text>
+          <Heart size={12} color={tk.text.medium} />
+          <Text style={styles.statText}>{item.likes}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.statBtn}>
-          <Text style={styles.statText}>💬 {item.comments}</Text>
+          <MessageCircle size={12} color={tk.text.medium} />
+          <Text style={styles.statText}>{item.comments}</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -160,6 +163,9 @@ function createStyles(tk: AppThemeTokens) {
     detailText: { marginTop: 8, fontSize: 14, lineHeight: 20, color: tk.text.secondary },
     statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
     statBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       paddingHorizontal: 12,
       paddingVertical: 6,
       borderRadius: 12,

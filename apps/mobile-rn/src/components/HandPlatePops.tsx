@@ -23,6 +23,7 @@
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useEffect, useRef, useState } from 'react'
+import { Check } from 'lucide-react-native'
 import {
   ActivityIndicator,
   Animated,
@@ -329,8 +330,7 @@ export function HandPlatePops({
                             : styles.purchaseBenefit
                         }
                       >
-                        {'✓ '}
-                        {b}
+                        <Check size={14} color={tokens.success.DEFAULT} /> {b}
                       </Text>
                     ))}
                   </View>
@@ -374,11 +374,7 @@ export function HandPlatePops({
                       accessibilityState={{ checked: isAgreed }}
                       accessibilityLabel={purchase.agreementText}
                     >
-                      {isAgreed ? (
-                        <Text style={styles.checkboxMark} allowFontScaling={false}>
-                          ✓
-                        </Text>
-                      ) : null}
+                      {isAgreed ? <Check size={11} color={'#ffffff'} /> : null}
                     </Pressable>
                     <Pressable
                       style={styles.purchaseAgreementTextWrap}

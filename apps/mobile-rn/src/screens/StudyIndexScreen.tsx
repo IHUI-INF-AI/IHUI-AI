@@ -35,7 +35,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
-import { Search, X } from 'lucide-react-native'
+import { Bot, Film, Search, X, Menu } from 'lucide-react-native'
 import {
   deleteConversation,
   fetchApi,
@@ -430,7 +430,7 @@ export function StudyIndexScreen() {
               id: m.id,
               name: m.name,
               description: m.provider,
-              icon: '🤖',
+              icon: Bot,
               isFree: !m.input_price,
             })),
           },
@@ -495,7 +495,7 @@ export function StudyIndexScreen() {
       <NavBar
         title="AI 视频"
         onBack={handleBack}
-        rightActions={[{ icon: '☰', onPress: () => setDrawerVisible(true), label: '菜单' }]}
+        rightActions={[{ icon: Menu, onPress: () => setDrawerVisible(true), label: '菜单' }]}
         rightAction={
           <Pressable
             hitSlop={BACK_HIT_SLOP}
@@ -561,7 +561,7 @@ export function StudyIndexScreen() {
               previewModels.map((m) => (
                 <View key={m.id} style={styles.previewModelRow}>
                   <View style={styles.previewModelIcon}>
-                    <Text style={styles.previewModelEmoji}>🤖</Text>
+                    <Bot size={18} color={'#6b7280'} />
                   </View>
                   <View style={styles.previewModelBody}>
                     <Text style={styles.previewModelName} numberOfLines={1}>
@@ -597,7 +597,7 @@ export function StudyIndexScreen() {
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Text style={styles.previewIcon}>🎬</Text>
+                <Film size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
               <Pressable

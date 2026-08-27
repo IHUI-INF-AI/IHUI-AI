@@ -82,7 +82,11 @@ export function ProfileScreen({
                   style={[styles.menuItem, idx > 0 && styles.menuItemGap]}
                   onPress={() => onNavigate?.(item.key)}
                 >
-                  {item.icon ? <Text style={styles.menuIcon}>{item.icon}</Text> : null}
+                  {typeof item.icon === 'string' ? (
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                  ) : item.icon ? (
+                    <item.icon size={20} color={tk.text.primary} />
+                  ) : null}
                   <Text style={styles.menuLabel}>{item.label}</Text>
                   <Text style={styles.menuArrow}>›</Text>
                 </TouchableOpacity>
