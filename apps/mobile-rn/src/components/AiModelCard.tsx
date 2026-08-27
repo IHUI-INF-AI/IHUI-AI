@@ -15,6 +15,16 @@
  * 不 extends AiModelCardMinimalProps(该 Minimal 仅作语义参考)。
  */
 import { useState } from 'react'
+import {
+  AlertTriangle,
+  Bookmark,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Share2,
+  ThumbsDown,
+  type LucideIcon,
+} from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import type { AiModelData, AiModelUserType } from '@ihui/types'
@@ -63,14 +73,14 @@ const USER_TYPE_LABEL: Record<AiModelUserType, string> = {
 // group 底部操作栏 5 图标(对齐原版 warning/unlike/unstore/uninfo/unshare)
 const GROUP_ACTIONS: Array<{
   key: 'warning' | 'dislike' | 'favorite' | 'info' | 'share'
-  glyph: string
+  glyph: LucideIcon
   label: string
 }> = [
-  { key: 'warning', glyph: '⚠️', label: '警告' },
-  { key: 'dislike', glyph: '👎', label: '踩' },
-  { key: 'favorite', glyph: '🔖', label: '收藏' },
-  { key: 'info', glyph: 'ℹ️', label: '信息' },
-  { key: 'share', glyph: '📤', label: '分享' },
+  { key: 'warning', glyph: AlertTriangle, label: '警告' },
+  { key: 'dislike', glyph: ThumbsDown, label: '踩' },
+  { key: 'favorite', glyph: Bookmark, label: '收藏' },
+  { key: 'info', glyph: Info, label: '信息' },
+  { key: 'share', glyph: Share2, label: '分享' },
 ]
 
 export default function AiModelCard({
@@ -182,9 +192,7 @@ export default function AiModelCard({
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
               >
-                <Text style={styles.groupActionIcon} allowFontScaling={false}>
-                  {action.glyph}
-                </Text>
+                <action.glyph size={16} color={'#6b7280'} style={styles.groupActionIcon} />
               </TouchableOpacity>
             ))}
             {type === 'buy' ? (
@@ -202,7 +210,11 @@ export default function AiModelCard({
                 style={styles.payDetailRow}
               >
                 <Text style={styles.payDetailText}>购买详情</Text>
-                <Text style={styles.payDetailArrow}>{details ? '▴' : '▾'}</Text>
+                {details ? (
+                  <ChevronUp size={12} color={tokens.brand.DEFAULT} style={{ marginLeft: 2 }} />
+                ) : (
+                  <ChevronDown size={12} color={tokens.brand.DEFAULT} style={{ marginLeft: 2 }} />
+                )}
               </TouchableOpacity>
             ) : null}
           </View>

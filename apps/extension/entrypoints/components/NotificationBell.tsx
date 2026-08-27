@@ -3,6 +3,7 @@
  * 通过 chrome.runtime.sendMessage 主动拉取未读数,WS 推送通过 onWsMessage 回调。
  */
 import { useEffect, useState } from 'react'
+import { Bell } from 'lucide-react'
 import { sendMessage } from '../../lib/message-router'
 
 export interface NotificationBellProps {
@@ -61,7 +62,7 @@ export function NotificationBell({ initialCount = 0, onOpen }: NotificationBellP
       onClick={onOpen}
       aria-label="通知"
     >
-      <span aria-hidden>🔔</span>
+      <Bell size={16} className="shrink-0" aria-hidden />
       {count > 0 ? (
         <span className="absolute -top-0.5 -right-1 min-w-4 h-4 px-1 bg-destructive text-white text-xs font-semibold rounded-lg inline-flex items-center justify-center leading-none">
           {count > 99 ? '99+' : count}

@@ -44,6 +44,17 @@ import {
   View,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import {
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Keyboard,
+  Mic,
+  Play,
+  Plus,
+  Send,
+  X,
+} from 'lucide-react-native'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
@@ -269,7 +280,7 @@ export function InputArea({
       <View key={item.id ?? index} style={styles.thumbWrap}>
         {isDoc ? (
           <View style={[styles.thumb, styles.thumbDoc]}>
-            <Text style={styles.docIcon}>📄</Text>
+            <FileText size={26} color={'#6b7280'} />
             {item.filename ? <FilenameMarquee text={item.filename} /> : null}
           </View>
         ) : (
@@ -278,13 +289,17 @@ export function InputArea({
               <Image source={{ uri: item.url }} style={styles.thumbImage} resizeMode="cover" />
             ) : (
               <View style={styles.thumbPlaceholder}>
-                <Text style={styles.thumbPlaceholderIcon}>{isVideo ? '🎬' : '🖼️'}</Text>
+                {isVideo ? (
+                  <Film size={24} color={'#6b7280'} />
+                ) : (
+                  <ImageIcon size={24} color={'#6b7280'} />
+                )}
               </View>
             )}
             {/* 视频封面角标:播放图标(真实播放待接 expo-video) */}
             {isVideo ? (
               <View style={styles.videoBadge}>
-                <Text style={styles.videoBadgeIcon}>▶</Text>
+                <Play size={20} color={'#ffffff'} />
               </View>
             ) : null}
           </View>
@@ -296,7 +311,7 @@ export function InputArea({
           accessibilityRole="button"
           accessibilityLabel="删除附件"
         >
-          <Text style={styles.thumbCloseIcon}>✕</Text>
+          <X size={10} color={'#6b7280'} />
         </TouchableOpacity>
       </View>
     )
@@ -327,7 +342,11 @@ export function InputArea({
               accessibilityRole="button"
               accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
             >
-              <Text style={styles.voiceBtnIcon}>{voiceActive || voiceInput ? '⌨️' : '🎤'}</Text>
+              {voiceActive || voiceInput ? (
+                <Keyboard size={20} color={'#6b7280'} />
+              ) : (
+                <Mic size={20} color={'#6b7280'} />
+              )}
             </TouchableOpacity>
           ) : null}
 
@@ -401,7 +420,7 @@ export function InputArea({
               accessibilityRole="button"
               accessibilityLabel="添加图片或文件"
             >
-              <Text style={styles.addBtnIcon}>＋</Text>
+              <Plus size={24} color={'#6b7280'} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -427,7 +446,7 @@ export function InputArea({
                         accessibilityRole="button"
                         accessibilityLabel="添加参数图片"
                       >
-                        <Text style={styles.paramAddIcon}>＋</Text>
+                        <Plus size={16} color={'#6b7280'} />
                       </TouchableOpacity>
                     ) : (
                       <TextInput
@@ -469,7 +488,7 @@ export function InputArea({
           {loading ? (
             <ActivityIndicator size="small" color={tokens.surface.light} />
           ) : (
-            <Text style={styles.sendIcon}>➤</Text>
+            <Send size={18} color={'#ffffff'} />
           )}
         </TouchableOpacity>
       )}

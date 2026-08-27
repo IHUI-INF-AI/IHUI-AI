@@ -68,7 +68,18 @@ import {
   type BenefitItem,
   type MembershipLevel,
 } from '../components/UserMembershipBenefits'
-import { Bot, BookOpen, ChevronDown, Database } from 'lucide-react-native'
+import {
+  Bot,
+  BookOpen,
+  ChevronDown,
+  Database,
+  FileText,
+  Film,
+  Image as ImageIcon,
+  Menu,
+  Music,
+  SquarePen,
+} from 'lucide-react-native'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -476,11 +487,11 @@ export function ProfileScreen() {
         title={t('profile.title')}
         rightActions={[
           {
-            icon: '✎',
+            icon: SquarePen,
             label: t('menu.feedback'),
             onPress: () => rootNav?.navigate('Feedback', { pageType: 'profile' } as never),
           },
-          { icon: '☰', onPress: () => setDrawerVisible(true) },
+          { icon: Menu, onPress: () => setDrawerVisible(true) },
         ]}
       />
       <ScrollView
@@ -1211,7 +1222,7 @@ interface TextTabProps {
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
   if (list.length === 0) {
-    return <Empty text="暂无文本内容" icon="📝" />
+    return <Empty text="暂无文本内容" icon={FileText} />
   }
   return (
     <View>
@@ -1248,7 +1259,7 @@ interface ImageTabProps {
 
 function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element {
   if (list.length === 0) {
-    return <Empty text="暂无图片内容" icon="🖼️" />
+    return <Empty text="暂无图片内容" icon={ImageIcon} />
   }
   return (
     <FlatList
@@ -1298,7 +1309,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
   const posterHeight = 200
 
   if (list.length === 0) {
-    return <Empty text="暂无视频内容" icon="🎬" />
+    return <Empty text="暂无视频内容" icon={Film} />
   }
   return (
     <FlatList
@@ -1354,7 +1365,7 @@ interface AudioTabProps {
 
 function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
   if (list.length === 0) {
-    return <Empty text="暂无音频内容" icon="🎵" />
+    return <Empty text="暂无音频内容" icon={Music} />
   }
   return (
     <FlatList

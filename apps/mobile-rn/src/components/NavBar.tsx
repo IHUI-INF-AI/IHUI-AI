@@ -21,10 +21,11 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import type { AppIcon } from '@ihui/types'
 
 export interface NavBarAction {
-  /** emoji 字符 或 图片 URL(http:// / / 开头)*/
-  icon: string
+  /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
+  icon: AppIcon | string
   label?: string
   onPress: () => void
 }
@@ -154,7 +155,22 @@ interface NavBarActionButtonProps {
 }
 
 function NavBarActionButton({ action }: NavBarActionButtonProps) {
-  const isImg = isImageUrl(action.icon)
+  const renderIcon = (): ReactNode => {
+    if (typeof action.icon === 'string') {
+      if (isImageUrl(action.icon)) {
+        return (
+          <Image source={{ uri: action.icon }} style={styles.actionImage} resizeMode="contain" />
+        )
+      }
+      return (
+        <Text style={styles.actionEmoji} allowFontScaling={false}>
+          {action.icon}
+        </Text>
+      )
+    }
+    const Icon = action.icon
+    return <Icon size={18} color="#6b7280" />
+  }
   return (
     <TouchableOpacity
       onPress={action.onPress}
@@ -164,13 +180,7 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       accessibilityRole="button"
       accessibilityLabel={action.label}
     >
-      {isImg ? (
-        <Image source={{ uri: action.icon }} style={styles.actionImage} resizeMode="contain" />
-      ) : (
-        <Text style={styles.actionEmoji} allowFontScaling={false}>
-          {action.icon}
-        </Text>
-      )}
+      {renderIcon()}
       {action.label ? (
         <Text style={styles.actionLabel} numberOfLines={1}>
           {action.label}

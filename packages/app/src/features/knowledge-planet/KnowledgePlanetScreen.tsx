@@ -8,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Newspaper } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
 export interface KnowledgePlanetScreenProps {
@@ -77,7 +78,7 @@ export function KnowledgePlanetScreen({
                     {item.cover ? (
                       <View style={styles.itemCoverImage} />
                     ) : (
-                      <Text style={styles.itemCoverEmoji}>📰</Text>
+                      <Newspaper size={32} color="#374151" />
                     )}
                   </View>
                   <View style={styles.itemBody}>
@@ -163,7 +164,6 @@ function createStyles(tk: AppThemeTokens) {
       height: '100%',
       backgroundColor: tk.border.light,
     } as ViewStyle,
-    itemCoverEmoji: { fontSize: 32 } as TextStyle,
     itemBody: { flex: 1, padding: 12, gap: 6, justifyContent: 'space-between' } as ViewStyle,
     itemTitle: { fontSize: 18, fontWeight: '700', color: tk.text.primary } as TextStyle,
     itemSummary: { fontSize: 14, color: tk.text.secondary } as TextStyle,

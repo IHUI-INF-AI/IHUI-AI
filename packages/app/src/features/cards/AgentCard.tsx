@@ -2,10 +2,11 @@ import { Fragment, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import type { AppIcon } from '@ihui/types'
 
 export interface AgentCardProps {
-  /** 图标 URL 或 emoji(长度 ≤ 2 视为 emoji) */
-  icon: string
+  /** 图标组件(AppIcon)/URL(图片)/emoji 字符串 */
+  icon: AppIcon | string
   name: string
   description: string
   /** 使用次数 */
@@ -67,7 +68,6 @@ export function AgentCard({
 }: AgentCardProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const isEmoji = icon.length <= 2
   const showRating = typeof rating === 'number' && Number.isFinite(rating) && rating > 0
   const showPrice =
     typeof isFree === 'boolean' ||
@@ -88,16 +88,21 @@ export function AgentCard({
     return null
   })()
 
+  const renderIcon = () => {
+    if (typeof icon === 'function') {
+      const IconComp = icon
+      return <IconComp size={48} color={tk.text.primary} />
+    }
+    if (typeof icon === 'string' && icon.startsWith('http')) {
+      return <Image source={{ uri: icon }} style={styles.iconImg} />
+    }
+    return <Text style={styles.iconEmoji}>{icon}</Text>
+  }
+
   const inner = (
     <Fragment>
       <View style={styles.headRow}>
-        <View style={styles.iconBox}>
-          {isEmoji ? (
-            <Text style={styles.iconEmoji}>{icon}</Text>
-          ) : (
-            <Image source={{ uri: icon }} style={styles.iconImg} />
-          )}
-        </View>
+        <View style={styles.iconBox}>{renderIcon()}</View>
         <View style={styles.meta}>
           <Text style={styles.name}>{name}</Text>
           <Text style={styles.description} numberOfLines={2}>
