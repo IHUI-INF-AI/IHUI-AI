@@ -1232,22 +1232,25 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   // 性能修复:使用预计算的 activeHref 替代 pathname，避免 isHrefActive 遍历 ALL_NAV_HREFS。
   const parentActive = activeHref ? children.some((child) => child.href === activeHref) : false
   const storageKey = `sidebar-expand-${item.href}`
-  // 2026-07-22 修复首屏父菜单子菜单展开闪烁:
-  // 原方案 useState(false) → useEffect 读 localStorage → setOpen → 二次 render
-  // 会有子菜单从折叠变展开的高度动画 + 子项 stagger 进入动画,视觉上算"闪烁"。
-  // 新方案:useState lazy initializer 在首次 render 时同步读 localStorage,
-  // - SSR(无 window):返回 false(避免 hydration mismatch 字符串差异)
-  // - CSR 首次 render(有 window):同步读 localStorage 返回真实状态
-  //   实际首帧 DOM 就是正确状态,无 false → true 二次跳变
-  // 父级 <button> 加 suppressHydrationWarning 抑制 React 警告(SSR=false vs CSR=true 必然不一致)
-  const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return false
+  // hydration-safe 持久化展开(2026-08-28 根因修复,与 NavGroupSection 同模式):
+  // 旧实现(2026-07-22)用 lazy initializer 读 localStorage,存在两个问题:
+  //   1. hydration 陷阱:子菜单是条件渲染({open && childList}),SSR 固定 false,
+  //      client lazy initializer 为 true 时产生结构性 mismatch,React 走 recoverable error 路径整体重渲;
+  //      aria-expanded 属性 mismatch 则被 suppressHydrationWarning 压制且永不 patch。
+  //   2. mount 写污染:persist effect 在首次挂载就写 localStorage('0'),
+  //      复发 2026-07-20 已在分组侧根除的"首挂载写 localStorage 污染测试环境"问题。
+  // 新方案:首帧(hydration)固定 false 与 SSR 一致;mount 后 effect 只读同步;
+  // 持久化只在用户主动 toggle 时写入。
+  const [open, setOpen] = React.useState(false)
+
+  // mount 后同步 localStorage 持久化值(只读不写)
+  React.useEffect(() => {
     try {
-      return window.localStorage.getItem(storageKey) === '1'
+      if (window.localStorage.getItem(storageKey) === '1') setOpen(true)
     } catch {
-      return false
+      // localStorage 不可用(隐私模式等),保持默认折叠
     }
-  })
+  }, [storageKey])
   // 静态派生 listId(不含 useId),保证 SSR/CSR 字节级一致 + DOM 唯一 id。
   // React 18 useId 在两个 React 树(桌面/移动 aside)间偶发漂移会导致 hydration mismatch + Radix aria-controls 失效。
   const listId = `exp-list-${scope}-${item.href.replace(/[^a-z0-9]+/gi, '-')}`
@@ -1269,14 +1272,20 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
     if (parentActive && !open) setOpen(true)
   }, [parentActive, open])
 
-  // 持久化展开状态到 localStorage
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, open ? '1' : '0')
-    } catch {
-      // localStorage 不可用
-    }
-  }, [open, storageKey])
+  // 2026-08-28 修复:持久化只在用户主动 toggle 时写入(handleToggleOpen),
+  // 不再挂在 effect 上 —— 旧写法首次挂载(open=false)就写 '0',污染 localStorage,
+  // 且与只读同步 effect 形成"读自己刚写的值"的混乱时序。
+  const handleToggleOpen = React.useCallback(() => {
+    setOpen((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem(storageKey, next ? '1' : '0')
+      } catch {
+        // localStorage 不可用
+      }
+      return next
+    })
+  }, [storageKey])
 
   const Icon = item.icon
   // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
@@ -1381,14 +1390,10 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
       <button
         type="button"
         data-testid={`nav-${item.labelKey}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={handleToggleOpen}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-controls={listId}
-        // 2026-07-22 修复首屏父菜单子菜单展开闪烁:
-        // 父级 button 加 suppressHydrationWarning 抑制 SSR=false vs CSR=true 的 hydration 警告。
-        // 实际 DOM 已被 client value 覆盖,首帧就是正确展开态,无 false → true 跳变。
-        suppressHydrationWarning
         className={parentClassName}
       >
         <Icon className="h-5 w-5 shrink-0" />
@@ -1509,27 +1514,29 @@ const NavGroupSection = React.memo(function NavGroupSection({
       )
     : false
 
-  // SSR-safe + no-flash(2026-07-22 修复首屏 sidebar 子菜单展开闪烁):
-  // - SSR 阶段:无 window,fallback 到 defaultOpen(AI / admin 默认 true,其余 false),
-  //   与 SSR HTML 一致,无 hydration mismatch
-  // - 首次 client render:lazy initializer 同步读 localStorage,持久化值已就位,
-  //   首帧 open 就是持久化值 / defaultOpen,无需 useEffect 二次设置
-  // - 用户持久化 stored='0'/'1' 时,client 首 render 可能与 SSR defaultOpen 不一致 →
-  //   对 button 的 aria-expanded 加 suppressHydrationWarning(仅此属性,不影响交互)
-  // 之前:open 初始固定 false,useEffect 读 defaultOpen=true 后 setOpen(true),
-  //       触发 grid-rows 0fr→1fr 过渡(0px → 302px),用户看到"先收起后展开"闪烁
-  // 本次:open 首帧就是 defaultOpen(AI / admin 已是 true),无过渡,无闪烁
-  const [open, setOpen] = React.useState(() => {
-    if (typeof window === 'undefined') return defaultOpen
+  // hydration-safe 持久化展开(2026-08-28 根因修复):
+  // 旧实现(2026-07-22)用 useState lazy initializer 读 localStorage,看似"首帧即持久化值",
+  // 实际是 hydration 陷阱:SSR HTML 固定为 defaultOpen(如 eduGroup 折叠),
+  // client hydration 时 React 对不一致的属性只警告不 patch(suppressHydrationWarning 连警告也压制),
+  // 且后续 re-render diff 的是 client vdom(已是 open=true),DOM 永远停留在服务端折叠版本——
+  // 用户持久化的展开偏好在首屏永不生效。
+  // 正确方案:首帧(hydration)用 defaultOpen,与 SSR HTML 完全一致;
+  // mount 后 effect 读取持久化值 setOpen → 真实 state 变化 → React diff defaultOpen→stored,DOM 被正确 patch。
+  // - 默认展开分组(hot/AI/admin):defaultOpen=true 即持久化意图,首帧无过渡无闪烁(保留 2026-07-22 收益)
+  // - 持久化展开的非默认分组:mount 后一次 0fr→1fr 过渡,属于持久化状态恢复的正确行为
+  // - 本 effect 只读不写,不复发 2026-07-20 的"mount 时写 localStorage 污染测试环境"问题
+  const [open, setOpen] = React.useState(defaultOpen)
+
+  // mount 后同步 localStorage 持久化值(见上方注释)
+  React.useEffect(() => {
     try {
       const stored = window.localStorage.getItem(storageKey)
-      if (stored === '1') return true
-      if (stored === '0') return false
-      return defaultOpen
+      if (stored === '1') setOpen(true)
+      else if (stored === '0') setOpen(false)
     } catch {
-      return defaultOpen
+      // localStorage 不可用(隐私模式等),保持 defaultOpen
     }
-  })
+  }, [storageKey])
 
   // 路由切换后,若新路由命中本组,强制展开(覆盖用户上次折叠的偏好)
   React.useEffect(() => {
@@ -1607,10 +1614,6 @@ const NavGroupSection = React.memo(function NavGroupSection({
         aria-expanded={open}
         aria-label={groupLabel}
         data-testid={`nav-group-${group.label}-toggle`}
-        // suppressHydrationWarning: client 首 render 的 open 可能与 SSR defaultOpen 不一致
-        // (用户持久化 stored='0'/'1' 场景),允许 React 在此属性上 mismatch,避免 console warning。
-        // 不影响交互和 grid-rows 展开行为(首帧 open 已是正确值,无过渡闪烁)。
-        suppressHydrationWarning
         className="group/grp flex w-full items-center gap-1.5 px-2.5 pb-1.5 pt-1.5 text-sm font-semibold uppercase tracking-wider text-muted-foreground/60 transition-colors hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         {group.label === 'hotGroupLabel' ? (
@@ -1627,7 +1630,6 @@ const NavGroupSection = React.memo(function NavGroupSection({
           <span className="min-w-0 whitespace-nowrap text-left">{groupLabel}</span>
         )}
         <ChevronDown
-          suppressHydrationWarning
           className={cn(
             'ml-auto h-4 w-4 shrink-0 transition-transform duration-200',
             !open && '-rotate-90',
@@ -1644,10 +1646,7 @@ const NavGroupSection = React.memo(function NavGroupSection({
         折叠态(grid-rows-[0fr]):内容高度 0,被 overflow-hidden 裁剪不可见。
         展开态(grid-rows-[1fr]):内容高度自适应,可见。
       */}
-      {/* suppressHydrationWarning:open 在 SSR 固定 defaultOpen,但 client 可能读 localStorage 不同值,
-          导致 grid-rows 类名 server/client 不一致。这是预期行为,不影响交互。 */}
       <div
-        suppressHydrationWarning
         className={cn(
           'grid transition-[grid-template-rows] duration-200 ease-out',
           open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
@@ -2184,6 +2183,12 @@ const Sidebar = React.memo(function Sidebar({
           - data-viewport-collapsed 属性供 globals.css 选择器在小尺寸下隐藏文字 span
           - 移动端抽屉 + 汉堡菜单保留作为完整菜单备用入口 */}
       <aside
+        // 2026-08-28 修复:把 GlobalShell 传入的 id 渲染到桌面 aside DOM。
+        // 此前 id 只用于派生 navId,DOM 中不存在 aside#main-sidebar,
+        // e2e icon-text-alignment.spec.ts 选择器命中 0 元素。
+        // 移动抽屉 aside(line ~2249)不设 id,保证 DOM id 唯一,
+        // 测试可用 aside#main-sidebar 精准锁定桌面侧边栏(避免 strict mode violation)。
+        id={id}
         aria-label={t('mainNav')}
         data-viewport-collapsed="true"
         className={cn(

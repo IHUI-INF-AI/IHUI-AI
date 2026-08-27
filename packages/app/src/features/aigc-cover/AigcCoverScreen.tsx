@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCoverFilter, AigcCoverOption, AigcCoverScreenProps } from '../../types'
 
@@ -108,7 +109,7 @@ export function AigcCoverScreen({
                 </Text>
                 {selectedId === c.id ? (
                   <View style={styles.selectedDot}>
-                    <Text style={styles.selectedDotText}>✓</Text>
+                    <Check size={14} color={tk.surface.light} strokeWidth={3} />
                   </View>
                 ) : null}
               </TouchableOpacity>
@@ -202,7 +203,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    selectedDotText: { color: tk.surface.light, fontSize: 14, fontWeight: '700' },
     aiGenBtn: {
       marginTop: 16,
       paddingVertical: 12,

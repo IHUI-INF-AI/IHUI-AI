@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { BookOpen, Rocket, MessageCircle, Coins } from 'lucide-react'
+import { BookOpen, Rocket, MessageCircle, Coins, Bot, Settings, HelpCircle } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -78,7 +78,7 @@ const chapters = [
     href: '/docs/manual/agent',
     title: '使用 Agent',
     desc: '从市场选用 Agent、收藏、定制提示词、发布到自己的工作台。',
-    icon: '🤖',
+    icon: Bot,
   },
   {
     num: '04',
@@ -99,14 +99,14 @@ const chapters = [
     href: '/docs/manual/account',
     title: '账户设置',
     desc: '个人资料、安全设置、API Key、通知偏好、注销账号。',
-    icon: '⚙️',
+    icon: Settings,
   },
   {
     num: '07',
     href: '/docs/manual/faq',
     title: '常见问题',
     desc: '登录失败、积分异常、模型不可用、数据导出等高频问答。',
-    icon: '❓',
+    icon: HelpCircle,
   },
 ]
 

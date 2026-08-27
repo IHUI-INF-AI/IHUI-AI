@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { BackButton } from '@/components/common'
-import { BookOpen, Rocket, Container, Wrench } from 'lucide-react'
+import { BookOpen, Rocket, Container, Wrench, Brain } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -165,7 +165,7 @@ const docSections = [
   {
     title: '核心能力',
     description: '深入理解每个模块',
-    icon: '🧠',
+    icon: Brain,
     items: [
       { name: 'Agent 开发', href: '/docs/agent', desc: '可视化编排 + 模板开发' },
       { name: '知识库 RAG', href: '/docs/rag', desc: '向量 + BM25 + 知识图谱' },

@@ -3,6 +3,7 @@
  * 展示 VIP 套餐列表(GET /api/vip/levels)+ 权益说明,并引导前往网页版开通。
  */
 import { useEffect, useState } from 'react'
+import { Check } from 'lucide-react'
 import { getVipLevels, type VipLevel } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -83,7 +84,8 @@ export default function PricingPage() {
           <CardContent className="p-4 pt-1 flex flex-col gap-1.5 text-sm">
             {benefits.map((k) => (
               <div key={k} className="flex items-center gap-2">
-                <span aria-hidden>✅</span> {t(k)}
+                <Check className="h-4 w-4" aria-hidden />
+                {t(k)}
               </div>
             ))}
           </CardContent>

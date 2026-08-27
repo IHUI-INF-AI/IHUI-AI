@@ -1,7 +1,18 @@
 'use client'
 
 import * as React from 'react'
-import { MessageSquare, ListTree, Search, X, Download, Check, Inbox, FilterX } from 'lucide-react'
+import {
+  MessageSquare,
+  ListTree,
+  Search,
+  X,
+  Download,
+  Check,
+  Inbox,
+  FilterX,
+  TriangleAlert,
+  Clock,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
@@ -362,7 +373,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                   className="inline-flex items-center gap-0.5 text-emerald-500"
                   data-testid="timeline-count-done"
                 >
-                  <span aria-hidden>✓</span>
+                  <Check className="h-3.5 w-3.5" aria-hidden />
                   <span>{statusCounts.done}</span>
                 </span>
               </Tooltip>
@@ -373,7 +384,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                   className="inline-flex items-center gap-0.5 text-destructive"
                   data-testid="timeline-count-failed"
                 >
-                  <span aria-hidden>⚠</span>
+                  <TriangleAlert className="h-3.5 w-3.5" aria-hidden />
                   <span>{statusCounts.failed}</span>
                 </span>
               </Tooltip>
@@ -384,7 +395,7 @@ export const TimelineTab = React.memo(function TimelineTab({
                   className="inline-flex items-center gap-0.5 text-primary"
                   data-testid="timeline-count-running"
                 >
-                  <span aria-hidden>⏳</span>
+                  <Clock className="h-3.5 w-3.5" aria-hidden />
                   <span>{statusCounts.running}</span>
                 </span>
               </Tooltip>

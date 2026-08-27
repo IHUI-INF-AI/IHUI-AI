@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { CheckCircle2 } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupSuccessScreenProps } from '../../types'
 
@@ -36,7 +37,7 @@ export function TopupSuccessScreen({
         <Text style={styles.title}>充值结果</Text>
       </View>
       <View style={styles.body}>
-        <Text style={styles.icon}>✅</Text>
+        <CheckCircle2 size={64} color={tk.success.deep} />
         <Text style={styles.titleText}>充值成功</Text>
         <View style={styles.card}>
           <Row label="充值金额" value={`¥${amount.toFixed(2)}`} tk={tk} styles={styles} />

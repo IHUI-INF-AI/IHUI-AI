@@ -217,7 +217,14 @@ export default function PlazaIndex() {
         <View className="pza-tags">
           {item.track ? <Text className="pza-track">{item.track}</Text> : null}
           {(item.attention ?? 0) > 0 ? (
-            <Text className="pza-attention">♥ {item.attention}</Text>
+            <View className="pza-attention" style={{ display: 'flex', alignItems: 'center' }}>
+              <Image
+                src="/static/images/icons/heart-fill.svg"
+                mode="aspectFit"
+                style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+              />
+              <Text>{item.attention}</Text>
+            </View>
           ) : null}
         </View>
       </View>
@@ -313,9 +320,13 @@ export default function PlazaIndex() {
               <Text className="pza-drawer-title">
                 {tt('plaza.index.categoryTitle', '赛道分类')}
               </Text>
-              <Text className="pza-drawer-close" onClick={() => setDrawerVisible(false)}>
-                ×
-              </Text>
+              <Image
+                className="pza-drawer-close"
+                src="/static/images/icons/x.svg"
+                mode="aspectFit"
+                style={{ width: '40rpx', height: '40rpx' }}
+                onClick={() => setDrawerVisible(false)}
+              />
             </View>
             <ScrollView scrollX className="pza-track-scroll">
               {TRACKS.map((tr) => (
@@ -353,9 +364,13 @@ export default function PlazaIndex() {
           <View className="pza-center" catchMove>
             <View className="pza-center-head">
               <Text className="pza-center-title">{detail.title}</Text>
-              <Text className="pza-center-close" onClick={() => setShowCenter(false)}>
-                ×
-              </Text>
+              <Image
+                className="pza-center-close"
+                src="/static/images/icons/x.svg"
+                mode="aspectFit"
+                style={{ width: '40rpx', height: '40rpx' }}
+                onClick={() => setShowCenter(false)}
+              />
             </View>
             <ScrollView scrollY className="pza-center-body">
               {detail.coverUrl ? (

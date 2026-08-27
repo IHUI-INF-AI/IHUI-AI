@@ -20,7 +20,14 @@ import MaterialList, {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
-import { type LucideIcon, FileText, Film, Image, Music } from 'lucide-react-native'
+import {
+  type LucideIcon,
+  FileText,
+  Film,
+  Image,
+  Music,
+  Sparkles,
+} from 'lucide-react-native'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
@@ -28,14 +35,14 @@ type Nav = NativeStackNavigationProp<RootStackParamList>
 const PAGE_SIZE = 20
 
 /** 本地扩展 AigcCategoryOption,补 icon 字段对齐 Uniapp fenlei_icon(不改 @ihui/rn-app 类型) */
-type AigcCategoryOptionWithIcon = AigcCategoryOption & { icon?: string }
+type AigcCategoryOptionWithIcon = AigcCategoryOption & { icon?: LucideIcon }
 
 const CATEGORIES: AigcCategoryOptionWithIcon[] = [
-  { key: 'all', label: '全部', icon: '🌟' },
-  { key: 'image', label: '图片', fileType: 0, icon: '🖼️' },
-  { key: 'video', label: '视频', fileType: 1, icon: '🎬' },
-  { key: 'audio', label: '音频', fileType: 3, icon: '🎵' },
-  { key: 'text', label: '文案', fileType: 4, icon: '📝' },
+  { key: 'all', label: '全部', icon: Sparkles },
+  { key: 'image', label: '图片', fileType: 0, icon: Image },
+  { key: 'video', label: '视频', fileType: 1, icon: Film },
+  { key: 'audio', label: '音频', fileType: 3, icon: Music },
+  { key: 'text', label: '文案', fileType: 4, icon: FileText },
 ]
 
 /** 按分类 key 解析对应的 fileType(供 API 查询用,'all' 不传 fileType) */
@@ -118,7 +125,7 @@ function toCarouselItems(items: AigcListItem[]): CourseCarouselItem[] {
     title: it.title,
     price: 0,
     isFree: true,
-    icon: FILE_TYPE_ICON[it.fileType] ?? '✨',
+    icon: FILE_TYPE_ICON[it.fileType] ?? Sparkles,
   }))
 }
 

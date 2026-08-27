@@ -153,8 +153,24 @@ export default function AiCircle() {
                     </View>
                   ) : null}
                   <View className="flex items-center gap-[32rpx] mt-[16rpx]">
-                    <Text className="text-[24rpx] text-muted-foreground">♡ {likes}</Text>
-                    <Text className="text-[24rpx] text-muted-foreground">💬 {comments}</Text>
+                    <View className="flex items-center">
+                      <Image
+                        src="/static/images/icons/heart.svg"
+                        mode="aspectFit"
+                        className="mr-[6rpx]"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                      />
+                      <Text className="text-[24rpx] text-muted-foreground">{likes}</Text>
+                    </View>
+                    <View className="flex items-center">
+                      <Image
+                        src="/static/images/icons/message-circle.svg"
+                        mode="aspectFit"
+                        className="mr-[6rpx]"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                      />
+                      <Text className="text-[24rpx] text-muted-foreground">{comments}</Text>
+                    </View>
                   </View>
                 </View>
               )

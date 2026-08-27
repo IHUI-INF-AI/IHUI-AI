@@ -7,19 +7,19 @@ import { test, expect } from '@playwright/test'
  * Tailwind 按源序后值覆盖前值 → 非激活态被拉成 16x8 胶囊,所有点都成椭圆。
  * 修复:拆两套完整 className 分支互斥。
  *
- * 2026-08-13 v13 间距再压缩:用户反馈"每个按钮之间的间距还是太大了"。
- *   设计:
- *     - 激活态 span: 24x8 竖向胶囊 (h-6=24px w-2=8px,宽度=非激活态直径,高度=3x 直径放大)
- *     - 非激活态 span: 8x8 圆点 (h-2=8px w-2=8px,1x 直径)
- *     - hover 态: transform scale-125 → 8x8 → 10x10 视觉(实际 8x8,transform 中心)
- *     - 激活态 button: 24x10 (h-6 w-2.5)
- *     - 非激活态 button: 8x10 (h-2 w-2.5)
- *     - 容器: gap-1 (4px) + py-1 (4px) — 视觉间距 4px(1/2 非激活态直径)
- *     - 总高(7 个 button): py 4 + 1*24(激活) + 6*8(非激活) + 6*4(gap) + py 4 = 100px
+ * 2026-08-27 v14/v15 间距回调(已提交 713698c1d9,用户反馈驱动):
+ *   - gap-1 (4px) → gap-4 (16px) → gap-2 (8px):v13 的 4px 用户反馈"太挤",16px 反馈"太大",定格 8px
+ *   - 全部尺寸等比放大一档:
+ *     - 激活态 span: 36x12 竖向胶囊 (h-9=36px w-3=12px,仍为 3:1 比例)
+ *     - 非激活态 span: 12x12 圆点 (h-3=12px w-3=12px,1x 直径)
+ *     - 激活态 button: 36x14 (h-9 w-3.5)
+ *     - 非激活态 button: 12x14 (h-3 w-3.5)
+ *     - 容器宽度: 14 + px-0.5×2(4) + border×2(2) = 20px
+ *     - 总高(7 button): py 4×2 + 36(激活) + 6×12(非激活) + 6×8(gap) + border 2 = 166px
  *   此测试用 getBoundingClientRect() 验证实际渲染尺寸与设计意图一致:
- *     - 激活态(span[aria-current=true]):24x8 竖向胶囊
- *     - 非激活态(span):8x8 圆点
- *     - hover 态:transform scale-125 → 视觉 10x10(实际 8x8 + transform)
+ *     - 激活态(span[aria-current=true]):36x12 竖向胶囊
+ *     - 非激活态(span):12x12 圆点
+ *     - hover 态:transform scale-125 → 视觉 15x15(实际 12x12 + transform)
  *     - 所有态 rounded-full(borderRadius ≥ 9999px 即 50%)
  *     - 激活态不透明度 1,非激活态 opacity ≈ 0.3(由 bg-foreground/30 控制)
  *
@@ -67,35 +67,35 @@ test.describe('PageIndicator 几何守门', () => {
     await page.waitForLoadState('domcontentloaded')
   })
 
-  test('激活态:24x8 竖向胶囊(宽度=非激活态直径,高度=3x 放大)', async ({ page }) => {
+  test('激活态:36x12 竖向胶囊(宽度=非激活态直径,高度=3x 放大)', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     const active = dots.find((d) => d.active)
     if (!active) throw new Error('No active dot found')
-    // h-6 = 24px, w-2 = 8px(宽度=非激活态直径 8,高度=3x 直径 24)
-    expect(active.h).toBeGreaterThanOrEqual(23.5)
-    expect(active.h).toBeLessThanOrEqual(24.5)
-    expect(active.w).toBeGreaterThanOrEqual(7.5)
-    expect(active.w).toBeLessThanOrEqual(8.5)
+    // h-9 = 36px, w-3 = 12px(宽度=非激活态直径 12,高度=3x 直径 36)
+    expect(active.h).toBeGreaterThanOrEqual(35.5)
+    expect(active.h).toBeLessThanOrEqual(36.5)
+    expect(active.w).toBeGreaterThanOrEqual(11.5)
+    expect(active.w).toBeLessThanOrEqual(12.5)
     // 验证是竖向胶囊:高度 > 宽度,且 3:1 比例
     expect(active.h).toBeGreaterThan(active.w * 2)
     expect(active.opacity).toBe('1')
   })
 
-  test('非激活态:8x8 圆点', async ({ page }) => {
+  test('非激活态:12x12 圆点', async ({ page }) => {
     const { dots, error } = await getDotMetrics(page)
     if (error) throw new Error(error)
     const inactive = dots.filter((d) => !d.active)
     expect(inactive.length).toBeGreaterThan(0)
     for (const d of inactive) {
-      // h-2 = 8px, w-2 = 8px
-      expect(d.h).toBeGreaterThanOrEqual(7.5)
-      expect(d.h).toBeLessThanOrEqual(8.5)
-      expect(d.w).toBeGreaterThanOrEqual(7.5)
-      expect(d.w).toBeLessThanOrEqual(8.5)
-      // 非激活不应是 16x6 胶囊(回归检测)
-      expect(d.h).toBeLessThan(12)
-      expect(d.w).toBeLessThan(12)
+      // h-3 = 12px, w-3 = 12px
+      expect(d.h).toBeGreaterThanOrEqual(11.5)
+      expect(d.h).toBeLessThanOrEqual(12.5)
+      expect(d.w).toBeGreaterThanOrEqual(11.5)
+      expect(d.w).toBeLessThanOrEqual(12.5)
+      // 非激活不应是胶囊(回归检测)
+      expect(d.h).toBeLessThan(16)
+      expect(d.w).toBeLessThan(16)
     }
   })
 
@@ -113,12 +113,12 @@ test.describe('PageIndicator 几何守门', () => {
     await page.waitForTimeout(500)
     const hoveredSpan = btns.nth(idx).locator('span')
     const sb = await hoveredSpan.boundingBox()
-    // CSS scale:1.25 → 8x8 视觉膨胀到 10x10
+    // CSS scale:1.25 → 12x12 视觉膨胀到 15x15
     // 容差:±1px(DPR 误差)
-    expect(sb?.width).toBeGreaterThanOrEqual(9)
-    expect(sb?.width).toBeLessThanOrEqual(11)
-    expect(sb?.height).toBeGreaterThanOrEqual(9)
-    expect(sb?.height).toBeLessThanOrEqual(11)
+    expect(sb?.width).toBeGreaterThanOrEqual(14)
+    expect(sb?.width).toBeLessThanOrEqual(16)
+    expect(sb?.height).toBeGreaterThanOrEqual(14)
+    expect(sb?.height).toBeLessThanOrEqual(16)
     // 同时断言 hover 后 scale 属性 ≈ 1.25(transition 过程中可能 1.20-1.25)
     const cs = await hoveredSpan.evaluate((el) => {
       const c = getComputedStyle(el)
@@ -142,7 +142,7 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
-  test('容器宽度压缩(2026-08-13 v12/v13):容器宽度 ≈ 14px (button 10 + px-0.5×2)', async ({
+  test('容器宽度压缩(2026-08-13 v12):容器宽度 ≈ 20px (button 14 + px-0.5×2 + border×2)', async ({
     page,
   }) => {
     const dims = await page.evaluate((selector) => {
@@ -152,7 +152,7 @@ test.describe('PageIndicator 几何守门', () => {
       const buttons = container.querySelectorAll('button')
       const firstBtn = buttons[0] as HTMLElement | null
       const firstBr = firstBtn?.getBoundingClientRect()
-      // v13: 找激活态 button(active=24) + 一个非激活态 button(inactive=8)
+      // v15: 找激活态 button(active=36) + 一个非激活态 button(inactive=12)
       let activeBtn: HTMLElement | null = null
       let inactiveBtn: HTMLElement | null = null
       for (const b of Array.from(buttons)) {
@@ -180,25 +180,25 @@ test.describe('PageIndicator 几何守门', () => {
     }, INDICATOR_SELECTOR)
     if ('error' in dims) throw new Error(dims.error)
 
-    // 容器宽度:14 (button + px) + 2 (1px border × 2) = 16px,容差 ±1px
-    expect(dims.containerW).toBeGreaterThanOrEqual(15)
-    expect(dims.containerW).toBeLessThanOrEqual(17)
-    // 激活态 button:24x10,容差 ±0.5px
-    expect(dims.activeBtnH).toBeGreaterThanOrEqual(23.5)
-    expect(dims.activeBtnH).toBeLessThanOrEqual(24.5)
-    expect(dims.activeBtnW).toBeGreaterThanOrEqual(9.5)
-    expect(dims.activeBtnW).toBeLessThanOrEqual(10.5)
-    // 非激活态 button:8x10 (v13 砍掉 16px 上空),容差 ±0.5px
-    expect(dims.inactiveBtnH).toBeGreaterThanOrEqual(7.5)
-    expect(dims.inactiveBtnH).toBeLessThanOrEqual(8.5)
-    expect(dims.inactiveBtnW).toBeGreaterThanOrEqual(9.5)
-    expect(dims.inactiveBtnW).toBeLessThanOrEqual(10.5)
+    // 容器宽度:14 (button) + 4 (px-0.5×2) + 2 (1px border × 2) = 20px,容差 ±1px
+    expect(dims.containerW).toBeGreaterThanOrEqual(19)
+    expect(dims.containerW).toBeLessThanOrEqual(21)
+    // 激活态 button:36x14,容差 ±0.5px
+    expect(dims.activeBtnH).toBeGreaterThanOrEqual(35.5)
+    expect(dims.activeBtnH).toBeLessThanOrEqual(36.5)
+    expect(dims.activeBtnW).toBeGreaterThanOrEqual(13.5)
+    expect(dims.activeBtnW).toBeLessThanOrEqual(14.5)
+    // 非激活态 button:12x14,容差 ±0.5px
+    expect(dims.inactiveBtnH).toBeGreaterThanOrEqual(11.5)
+    expect(dims.inactiveBtnH).toBeLessThanOrEqual(12.5)
+    expect(dims.inactiveBtnW).toBeGreaterThanOrEqual(13.5)
+    expect(dims.inactiveBtnW).toBeLessThanOrEqual(14.5)
     // 顶部 padding:py-1 (4px),容差 ±1px
     expect(dims.topPadding).toBeGreaterThanOrEqual(3)
     expect(dims.topPadding).toBeLessThanOrEqual(5)
   })
 
-  test('间距一致 + 极致紧凑(2026-08-13 v13):任意相邻两点间距 ≈ 4px (1/2 非激活态直径)', async ({
+  test('间距一致(2026-08-27 v15):任意相邻两点间距 ≈ 8px (gap-2)', async ({
     page,
   }) => {
     const metrics = await page.evaluate((selector) => {
@@ -223,17 +223,17 @@ test.describe('PageIndicator 几何守门', () => {
     const dots = metrics.dots
     expect(dots.length).toBeGreaterThanOrEqual(2)
 
-    // v13 设计: 激活态 button h-6 + 24x8 填满; 非激活态 button h-2 + 8x8 填满; gap-1 (4px)
-    // 间距计算(非激活态之间): 非激活底 8 → 下一非激活顶 (8 + 4) = 12, 间距 4px
-    // 间距计算(激活态 → 非激活态): 激活底 24 → 下一非激活顶 (24 + 4) = 28, 间距 4px
+    // v15 设计: 激活态 button h-9 + 36x12 填满; 非激活态 button h-3 + 12x12 填满; gap-2 (8px)
+    // 间距计算(非激活态之间): 非激活底 12 → 下一非激活顶 (12 + 8) = 20, 间距 8px
+    // 间距计算(激活态 → 非激活态): 激活底 36 → 下一非激活顶 (36 + 8) = 44, 间距 8px
     // 容差:±1px(Tailwind/DPR 误差)
     for (let i = 0; i < dots.length - 1; i++) {
       const a = dots[i]
       const b = dots[i + 1]
       if (!a || !b) continue
       const gap = b.top - a.bottom
-      expect(gap).toBeGreaterThanOrEqual(3)
-      expect(gap).toBeLessThanOrEqual(5)
+      expect(gap).toBeGreaterThanOrEqual(7)
+      expect(gap).toBeLessThanOrEqual(9)
     }
 
     // 额外断言:激活态底部到下一非激活态顶部 = 非激活态之间间距(一致性)
@@ -260,7 +260,7 @@ test.describe('PageIndicator 几何守门', () => {
     }
   })
 
-  test('v13 总高压缩(2026-08-13 v13):7 button 总高 ≈ 106px (含 2px border)', async ({ page }) => {
+  test('v15 总高(2026-08-27 v15):7 button 总高 ≈ 166px (含 2px border)', async ({ page }) => {
     const dims = await page.evaluate((selector) => {
       const container = document.querySelector(selector) as HTMLElement | null
       if (!container) return { error: 'indicator not found' as const }
@@ -269,9 +269,9 @@ test.describe('PageIndicator 几何守门', () => {
     }, INDICATOR_SELECTOR)
     if ('error' in dims) throw new Error(dims.error)
 
-    // v13 总高 = py 4 + (1*24 激活 + 6*8 非激活) + 6*4 gap + py 4 + 2 border = 106px
+    // v15 总高 = py 4×2 + (1*36 激活 + 6*12 非激活) + 6*8 gap + 2 border = 166px
     // 容差:±5px(Tailwind/DPR 误差)
-    expect(dims.containerH).toBeGreaterThanOrEqual(101)
-    expect(dims.containerH).toBeLessThanOrEqual(111)
+    expect(dims.containerH).toBeGreaterThanOrEqual(161)
+    expect(dims.containerH).toBeLessThanOrEqual(171)
   })
 })

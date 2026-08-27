@@ -35,7 +35,7 @@ import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
-import { Bot, Film, Search, X, Menu } from 'lucide-react-native'
+import { Bot, Film, Flame, Lightbulb, Menu, Play, Search, X } from 'lucide-react-native'
 import {
   deleteConversation,
   fetchApi,
@@ -159,7 +159,7 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
   return (
     <View style={styles.tipOuter}>
       <View style={styles.tipInner}>
-        <Text style={styles.tipIcon}>💡</Text>
+        <Lightbulb size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
         <View style={styles.tipScrollContainer}>
           <Animated.View
             style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
@@ -458,7 +458,7 @@ export function StudyIndexScreen() {
             <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
           ) : (
             <View style={styles.gridCoverPlaceholder}>
-              <Text style={styles.gridCoverPlaceholderText}>▶</Text>
+              <Play size={24} color={tk.text.tertiary} />
             </View>
           )}
           {/* 标题 + 日期覆盖在封面上(对齐 Uniapp study_list .video_info absolute) */}
@@ -544,7 +544,7 @@ export function StudyIndexScreen() {
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Text style={styles.previewIcon}>🔥</Text>
+                <Flame size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
               <Pressable
@@ -621,7 +621,7 @@ export function StudyIndexScreen() {
                 ))}
               </View>
             ) : (
-              <Empty text="暂无学习视频" icon="🎬" />
+              <Empty text="暂无学习视频" icon={Film} />
             )}
           </View>
         </ScrollView>
@@ -660,7 +660,7 @@ export function StudyIndexScreen() {
                 </Pressable>
               </View>
             ) : (
-              <Empty text="暂无学习视频" icon="🎬" />
+              <Empty text="暂无学习视频" icon={Film} />
             )
           }
           ListFooterComponent={

@@ -181,7 +181,11 @@ export default function NewsDetailPage() {
             className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
             onClick={onLike}
           >
-            <Text className="text-[32rpx] leading-none">{liked ? '♥' : '♡'}</Text>
+            <Image
+              style={{ width: '32rpx', height: '32rpx' }}
+              src={liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
+              mode="aspectFit"
+            />
             <Text className="text-[24rpx] leading-none">
               {likes > 0 ? likes : tt('news.detail.like', '点赞')}
             </Text>
@@ -190,7 +194,11 @@ export default function NewsDetailPage() {
             className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
             onClick={onComment}
           >
-            <Text className="text-[32rpx] leading-none">💬</Text>
+            <Image
+              style={{ width: '32rpx', height: '32rpx' }}
+              src="/static/images/icons/message-circle.svg"
+              mode="aspectFit"
+            />
             <Text className="text-[24rpx] leading-none">
               {comments > 0 ? comments : tt('news.detail.comment', '评论')}
             </Text>
@@ -199,7 +207,11 @@ export default function NewsDetailPage() {
             className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
             onClick={onShare}
           >
-            <Text className="text-[32rpx] leading-none">↗</Text>
+            <Image
+              style={{ width: '32rpx', height: '32rpx' }}
+              src="/static/images/icons/share-2.svg"
+              mode="aspectFit"
+            />
             <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
           </View>
         </View>
