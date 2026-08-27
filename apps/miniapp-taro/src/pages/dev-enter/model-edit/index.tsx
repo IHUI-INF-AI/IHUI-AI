@@ -261,7 +261,11 @@ export default function ModelEdit() {
           >
             <View className="flex items-center justify-between py-[20rpx] px-[24rpx] bg-card rounded-[12rpx] text-[28rpx] text-foreground border border-border">
               <Text>{DEPARTMENTS[deptIndex]}</Text>
-              <Text className="text-muted-foreground text-[24rpx]">▾</Text>
+              <Image
+                src="/static/images/icons/chevron-down.svg"
+                mode="aspectFit"
+                style={{ width: '24rpx', height: '24rpx' }}
+              />
             </View>
           </Picker>
 

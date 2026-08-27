@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useState } from 'react'
 import { useTt } from '@/i18n'
 
@@ -29,7 +29,12 @@ export default function FilterDropdown({
         <Text className={`text-xs ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
           {selected?.label || tt('common.all', '全部')}
         </Text>
-        <Text className="text-xs text-muted-foreground ml-1">{open ? '▲' : '▼'}</Text>
+        <Image
+          className="ml-1"
+          style={{ width: 14, height: 14 }}
+          src={open ? '/static/images/icons/chevron-up.svg' : '/static/images/icons/chevron-down.svg'}
+          mode="aspectFit"
+        />
       </View>
       {open && (
         <View className="absolute z-10 mt-1 py-1 bg-card rounded-lg shadow-lg border border-border min-w-32">

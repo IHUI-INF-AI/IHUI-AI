@@ -407,12 +407,22 @@ export default function AigcList() {
               <Image className="waterfall-cover" src={item.coverUrl} mode="aspectFill" lazyLoad />
             ) : (
               <View className="video-placeholder">
-                <Text className="placeholder-icon">🎬</Text>
+                <Image
+                  className="placeholder-icon"
+                  style={{ width: '80rpx', height: '80rpx' }}
+                  src="/static/images/icons/film.svg"
+                  mode="aspectFit"
+                />
               </View>
             )}
             {!isFullscreenVideo && (
               <View className="play-badge">
-                <Text className="play-icon">▶</Text>
+                <Image
+                  className="play-icon"
+                  style={{ width: '32rpx', height: '32rpx' }}
+                  src="/static/images/icons/play.svg"
+                  mode="aspectFit"
+                />
               </View>
             )}
           </View>
@@ -425,7 +435,14 @@ export default function AigcList() {
             <Text className="card-author">
               {item.author || tt('aigc.list.anonymous', '匿名作者')}
             </Text>
-            <Text className="card-likes">♡ {item.likes}</Text>
+            <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
+              <Image
+                src="/static/images/icons/heart.svg"
+                mode="aspectFit"
+                style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+              />
+              <Text>{item.likes}</Text>
+            </View>
           </View>
         </View>
       </View>
@@ -492,7 +509,14 @@ export default function AigcList() {
                   <Text className="card-author">
                     {item.author || tt('aigc.list.anonymous', '匿名作者')}
                   </Text>
-                  <Text className="card-likes">♡ {item.likes}</Text>
+                  <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
+                    <Image
+                      src="/static/images/icons/heart.svg"
+                      mode="aspectFit"
+                      style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+                    />
+                    <Text>{item.likes}</Text>
+                  </View>
                 </View>
               </View>
             ))}
@@ -509,14 +533,24 @@ export default function AigcList() {
                         <Image className="audio-cover" src={item.coverUrl} mode="aspectFill" />
                       ) : (
                         <View className="audio-cover-placeholder">
-                          <Text className="audio-cover-icon">🎵</Text>
+                          <Image
+                            className="audio-cover-icon"
+                            style={{ width: '48rpx', height: '48rpx' }}
+                            src="/static/images/icons/headphones.svg"
+                            mode="aspectFit"
+                          />
                         </View>
                       )}
                     </View>
                     {/* 不旋转层:中心点 + 播放按钮(对标原项目 center-dot-image / audio-play-button) */}
                     <View className="audio-center-dot" />
                     <View className="audio-play-btn">
-                      <Text className="audio-play-icon">{isPlaying ? '❚❚' : '▶'}</Text>
+                      <Image
+                        className="audio-play-icon"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                        src={isPlaying ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                        mode="aspectFit"
+                      />
                     </View>
                   </View>
                   <View className="audio-info">

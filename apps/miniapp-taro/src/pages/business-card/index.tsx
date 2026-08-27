@@ -92,7 +92,12 @@ export default function BusinessCardIndex() {
       </View>
 
       <View className="card-entry" onClick={buyToken}>
-        <Text className="card-entry-icon">👤</Text>
+        <Image
+          className="card-entry-icon"
+          style={{ width: '32rpx', height: '32rpx' }}
+          src="/static/images/icons/user.svg"
+          mode="aspectFit"
+        />
         <Text className="card-entry-text">
           {tt('businessCard.customEntry', '社区名片定制入口')}
         </Text>

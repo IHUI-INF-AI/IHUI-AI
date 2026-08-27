@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, RadioGroup, Radio } from '@tarojs/components'
+import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
@@ -19,7 +19,7 @@ interface ThemeOption {
 
 const AUTO_THEME: ThemeOption = {
   value: 'auto',
-  icon: '🔄',
+  icon: '/static/images/icons/refresh-cw.svg',
   labelKey: 'setting.theme.auto',
   label: '跟随系统',
   descKey: 'setting.theme.autoDesc',
@@ -30,7 +30,7 @@ const THEMES: ThemeOption[] = [
   AUTO_THEME,
   {
     value: 'light',
-    icon: '☀️',
+    icon: '/static/images/icons/sun.svg',
     labelKey: 'setting.theme.light',
     label: '浅色模式',
     descKey: 'setting.theme.lightDesc',
@@ -38,7 +38,7 @@ const THEMES: ThemeOption[] = [
   },
   {
     value: 'dark',
-    icon: '🌙',
+    icon: '/static/images/icons/moon.svg',
     labelKey: 'setting.theme.dark',
     label: '深色模式',
     descKey: 'setting.theme.darkDesc',
@@ -98,7 +98,12 @@ export default function ThemePage() {
   return (
     <View className="theme-page">
       <View className="theme-current">
-        <Text className="theme-current-icon">{currentOption.icon}</Text>
+        <Image
+          className="theme-current-icon"
+          style={{ width: '64rpx', height: '64rpx' }}
+          src={currentOption.icon}
+          mode="aspectFit"
+        />
         <View className="theme-current-info">
           <Text className="theme-current-name">
             {tt(currentOption.labelKey, currentOption.label)}
@@ -116,7 +121,12 @@ export default function ThemePage() {
             className={`theme-item${current === th.value ? ' active' : ''}`}
             onClick={() => onSelect(th.value)}
           >
-            <Text className="theme-item-icon">{th.icon}</Text>
+            <Image
+              className="theme-item-icon"
+              style={{ width: '44rpx', height: '44rpx' }}
+              src={th.icon}
+              mode="aspectFit"
+            />
             <View className="theme-item-info">
               <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>
               <Text className="theme-item-desc">{tt(th.descKey, th.desc)}</Text>

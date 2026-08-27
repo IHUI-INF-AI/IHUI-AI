@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 
@@ -138,7 +138,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleShare}
             >
-              <Text style={{ fontSize: '36rpx', marginBottom: '6rpx' }}>💰</Text>
+              <Image
+                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
+                src="/static/images/icons/wallet.svg"
+                mode="aspectFit"
+              />
               <Text
                 style={{
                   fontSize: '28rpx',
@@ -164,7 +168,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleService}
             >
-              <Text style={{ fontSize: '36rpx', marginBottom: '6rpx' }}>📞</Text>
+              <Image
+                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
+                src="/static/images/icons/phone.svg"
+                mode="aspectFit"
+              />
               <Text
                 style={{
                   fontSize: '28rpx',
@@ -190,7 +198,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleFeedback}
             >
-              <Text style={{ fontSize: '36rpx', marginBottom: '6rpx' }}>✉️</Text>
+              <Image
+                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
+                src="/static/images/icons/mail.svg"
+                mode="aspectFit"
+              />
               <Text
                 style={{
                   fontSize: '28rpx',

@@ -3,7 +3,7 @@
  * 展示当前积分与签到状态,数据来自 GET /points;支持签到 POST /api/sign-in。
  */
 import { useEffect, useState } from 'react'
-import { BookOpen, Gift, MessageCircle, PartyPopper } from 'lucide-react'
+import { BookOpen, Gift, MessageCircle, PartyPopper, Star, Check } from 'lucide-react'
 import { getPoints, signIn, type PointsInfo } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -84,14 +84,18 @@ export default function PointsPage() {
           <Card>
             <CardContent className="p-4 flex flex-col items-center gap-1 text-center">
               <div className="text-xs text-muted-foreground">{t('page.points.balance')}</div>
-              <div className="text-[26px] font-semibold tabular-nums">⭐ {fmt(data.balance)}</div>
+              <div className="text-[26px] font-semibold tabular-nums">
+                <Star className="h-6 w-6 inline-block -mt-1 text-amber-500" aria-hidden />{' '}
+                {fmt(data.balance)}
+              </div>
               {data.todaySignedIn ? (
                 <button
                   type="button"
                   disabled
                   className="mt-1 px-3 py-1 text-xs rounded-md border border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
                 >
-                  ✓ {t('page.points.todaySigned')}
+                  <Check className="h-3.5 w-3.5 inline-block -mt-0.5" aria-hidden />{' '}
+                  {t('page.points.todaySigned')}
                 </button>
               ) : (
                 <button

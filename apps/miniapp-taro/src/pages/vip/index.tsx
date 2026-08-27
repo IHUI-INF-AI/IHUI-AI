@@ -62,37 +62,37 @@ export default function VipIndexPage() {
     () => [
       {
         id: 'ai_copywriting',
-        icon: '✍️',
+        icon: '/static/images/icons/sparkles.svg',
         title: tt('vip.feature.aiCopywriting', 'AI营销文案'),
         desc: tt('vip.feature.aiCopywritingDesc', '智能生成各类营销文案'),
       },
       {
         id: 'ai_chat',
-        icon: '💬',
+        icon: '/static/images/icons/message-circle.svg',
         title: tt('vip.feature.aiChat', 'AI智能对话'),
         desc: tt('vip.feature.aiChatDesc', '智能助手解答各类问题'),
       },
       {
         id: 'ai_analysis',
-        icon: '📊',
+        icon: '/static/images/icons/bar-chart-3.svg',
         title: tt('vip.feature.aiAnalysis', 'AI数据分析'),
         desc: tt('vip.feature.aiAnalysisDesc', '智能分析各类数据报表'),
       },
       {
         id: 'ai_design',
-        icon: '🎨',
+        icon: '/static/images/icons/palette.svg',
         title: tt('vip.feature.aiDesign', 'AI智能设计'),
         desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计'),
       },
       {
         id: 'ai_video',
-        icon: '🎬',
+        icon: '/static/images/icons/film.svg',
         title: tt('vip.feature.aiVideo', 'AI视频制作'),
         desc: tt('vip.feature.aiVideoDesc', '智能生成视频内容'),
       },
       {
         id: 'ai_live',
-        icon: '📡',
+        icon: '/static/images/icons/radio.svg',
         title: tt('vip.feature.aiLive', 'AI直播助手'),
         desc: tt('vip.feature.aiLiveDesc', '智能直播辅助工具'),
       },
@@ -276,7 +276,13 @@ export default function VipIndexPage() {
         <View className="feature-list">
           {features.map((f) => (
             <View key={f.id} className="feature-item">
-              <Text className="feature-icon">{f.icon}</Text>
+              <View className="feature-icon">
+                <Image
+                  style={{ width: '40rpx', height: '40rpx' }}
+                  src={f.icon}
+                  mode="aspectFit"
+                />
+              </View>
               <View className="feature-info">
                 <Text className="feature-title">{f.title}</Text>
                 <Text className="feature-desc">{f.desc}</Text>
@@ -420,7 +426,14 @@ export default function VipIndexPage() {
               >
                 <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
                 <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
-                <Text className="pp-pay-check">{payMethod === 'wechat' ? '✓' : ''}</Text>
+                {payMethod === 'wechat' ? (
+                  <Image
+                    className="pp-pay-check"
+                    src="/static/images/icons/check.svg"
+                    mode="aspectFit"
+                    style={{ width: '32rpx', height: '32rpx' }}
+                  />
+                ) : null}
               </View>
               <View
                 className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
@@ -428,7 +441,14 @@ export default function VipIndexPage() {
               >
                 <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
                 <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
-                <Text className="pp-pay-check">{payMethod === 'alipay' ? '✓' : ''}</Text>
+                {payMethod === 'alipay' ? (
+                  <Image
+                    className="pp-pay-check"
+                    src="/static/images/icons/check.svg"
+                    mode="aspectFit"
+                    style={{ width: '32rpx', height: '32rpx' }}
+                  />
+                ) : null}
               </View>
             </View>
             <Button className="pp-btn" onClick={onPayMethodConfirm}>
@@ -442,7 +462,13 @@ export default function VipIndexPage() {
       {showSuccess ? (
         <View className="pp-mask">
           <View className="pp-card">
-            <View className="pp-success-icon">✓</View>
+            <View className="pp-success-icon">
+              <Image
+                src="/static/images/icons/check-success.svg"
+                mode="aspectFit"
+                style={{ width: '64rpx', height: '64rpx' }}
+              />
+            </View>
             <View className="pp-title">{t('vip.index.successTitle')}</View>
             <View className="pp-body">
               <Text className="pp-text">{t('vip.index.successDesc')}</Text>

@@ -136,7 +136,12 @@ export default function Realname() {
       <View className="rn-page">
         <View className="rn-result-card">
           <View className="rn-result-icon">
-            <Text className="rn-result-icon-text">✓</Text>
+            <Image
+              className="rn-result-icon-text"
+              src="/static/images/icons/check-success.svg"
+              mode="aspectFit"
+              style={{ width: '56rpx', height: '56rpx' }}
+            />
           </View>
           <Text className="rn-result-title">{t('user.realname.authed')}</Text>
           <Text className="rn-result-name">{authedName}</Text>

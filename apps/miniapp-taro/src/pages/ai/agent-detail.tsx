@@ -339,9 +339,17 @@ export default function AgentDetailPage() {
                       </Text>
                     )}
                     {rating > 0 && (
-                      <Text className="text-[22rpx] text-amber-500 mr-[16rpx]">
-                        ★ {rating.toFixed(1)}
-                      </Text>
+                      <View className="flex items-center mr-[16rpx]">
+                        <Image
+                          src="/static/images/icons/star-fill.svg"
+                          mode="aspectFit"
+                          className="mr-[6rpx]"
+                          style={{ width: '22rpx', height: '22rpx' }}
+                        />
+                        <Text className="text-[22rpx] text-amber-500">
+                          {rating.toFixed(1)}
+                        </Text>
+                      </View>
                     )}
                     {useCount !== undefined && (
                       <Text className="text-[22rpx] text-muted-foreground">
@@ -467,9 +475,16 @@ export default function AgentDetailPage() {
                 const percent = Math.round((item.count / total) * 100)
                 return (
                   <View key={item.star} className="flex items-center mb-[8rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground w-[40rpx]">
-                      {item.star}★
-                    </Text>
+                    <View className="flex items-center w-[40rpx]">
+                      <Text className="text-[22rpx] text-muted-foreground mr-[4rpx]">
+                        {item.star}
+                      </Text>
+                      <Image
+                        src="/static/images/icons/star.svg"
+                        mode="aspectFit"
+                        style={{ width: '20rpx', height: '20rpx' }}
+                      />
+                    </View>
                     <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
                       <View
                         className="h-full bg-amber-400 rounded"

@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
-import { Eye, EyeOff } from 'lucide-react-native'
+import { Eye, EyeOff, Check, X } from 'lucide-react-native'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -146,10 +146,16 @@ export function ApiSettingsScreen({
           </TouchableOpacity>
         </View>
         {testing === 'success' ? (
-          <Text style={styles.statusOk}>✓ {testMsg || t('apiSettings.testSuccess')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Check size={14} color={tk.success.DEFAULT} strokeWidth={2.5} />
+            <Text style={styles.statusOk}>{testMsg || t('apiSettings.testSuccess')}</Text>
+          </View>
         ) : null}
         {testing === 'failed' ? (
-          <Text style={styles.statusErr}>✗ {testMsg || t('apiSettings.testFailed')}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <X size={14} color={tk.danger.DEFAULT} strokeWidth={2.5} />
+            <Text style={styles.statusErr}>{testMsg || t('apiSettings.testFailed')}</Text>
+          </View>
         ) : null}
       </View>
 

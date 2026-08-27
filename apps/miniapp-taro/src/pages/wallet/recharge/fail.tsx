@@ -1,4 +1,4 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useTt } from '@/i18n'
@@ -32,7 +32,12 @@ export default function RechargeFail() {
     <View className="min-h-screen bg-background pb-[80rpx]">
       <View className="pt-[120rpx] px-[60rpx] pb-[60rpx] text-center">
         <View className="w-[160rpx] h-[160rpx] mx-auto rounded-[16rpx] bg-destructive/10 border-[2rpx] border-destructive/40 flex items-center justify-center">
-          <Text className="text-[80rpx] text-destructive leading-none">✕</Text>
+          <Image
+            src="/static/images/icons/x.svg"
+            mode="aspectFit"
+            className="text-destructive"
+            style={{ width: '80rpx', height: '80rpx' }}
+          />
         </View>
         <Text className="block text-[36rpx] text-foreground font-semibold mt-[32rpx]">
           {tt('wallet.recharge.fail.title', '充值失败')}

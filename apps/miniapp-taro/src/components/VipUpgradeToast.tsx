@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
 
 export interface VipUpgradeToastProps {
@@ -44,7 +44,12 @@ export default function VipUpgradeToast({
         className="flex items-center px-4 py-2.5 rounded-md shadow-lg"
         style={{ background: 'linear-gradient(90deg, #fef3c7, #fde68a)' }}
       >
-        <Text className="text-base mr-2">👑</Text>
+        <Image
+          className="mr-2"
+          style={{ width: '32rpx', height: '32rpx' }}
+          src="/static/images/icons/gem.svg"
+          mode="aspectFit"
+        />
         <Text className="text-xs text-yellow-700 mr-3">{desc}</Text>
 
         <View

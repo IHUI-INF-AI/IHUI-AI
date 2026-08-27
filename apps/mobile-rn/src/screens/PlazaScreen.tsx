@@ -51,7 +51,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
-import { Search, User, Menu, FolderOpen } from 'lucide-react-native'
+import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -418,7 +418,7 @@ export function PlazaScreen() {
             accessibilityLabel="搜索"
           >
             {showSearch ? (
-              <Text style={styles.navIcon}>✕</Text>
+              <X size={20} color={'#000'} />
             ) : (
               <Search size={20} color={'#000'} />
             )}

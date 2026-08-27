@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ScrollView, RefreshControl, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CheckInDay, CheckInInfo, CheckInScreenProps } from '../../types'
 
@@ -11,7 +12,7 @@ export type { CheckInDay, CheckInInfo, CheckInScreenProps }
  *
  * 平台无关:负责渲染 header + 三列统计卡(连续/本月/累计)+ 签到按钮 + 日历网格。
  * 签到按钮:todaySigned 灰色禁用,否则品牌色显示"签到 +今日积分";signing 时显示 loading 文案。
- * 日历项:已签到品牌色背景 + ✓,未签到卡片背景 + reward。
+ * 日历项:已签到品牌色背景 + Check 图标,未签到卡片背景 + reward。
  * 平台特定(导航 / API 调用 / Alert 成功失败提示)由 wrapper 通过 props 注入。
  */
 export function CheckInScreen({
@@ -113,7 +114,7 @@ export function CheckInScreen({
                   {day.date.slice(-2)}
                 </Text>
                 {day.signed ? (
-                  <Text style={styles.calendarMarkSigned}>✓</Text>
+                  <Check size={14} color={tk.surface.light} strokeWidth={3} />
                 ) : (
                   <Text style={styles.calendarMarkReward}>+{day.reward}</Text>
                 )}
@@ -211,11 +212,6 @@ function createStyles(tk: AppThemeTokens) {
     calendarDate: { fontSize: 14 },
     calendarDateSigned: { color: tk.surface.light },
     calendarDateUnsigned: { color: tk.text.primary },
-    calendarMarkSigned: {
-      marginTop: 8,
-      fontSize: 14,
-      color: tk.surface.light,
-    },
     calendarMarkReward: {
       marginTop: 8,
       fontSize: 10,

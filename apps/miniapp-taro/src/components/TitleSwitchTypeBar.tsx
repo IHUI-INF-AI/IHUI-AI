@@ -187,7 +187,12 @@ export default function TitleSwitchTypeBar({
               <Text>{item.name}</Text>
               {/* multi 模式选中态:勾选图标 */}
               {mode === 'multi' && selected ? (
-                <Text className="title-switch-type-bar__check">✓</Text>
+                <Image
+                  className="title-switch-type-bar__check"
+                  style={{ width: '28rpx', height: '28rpx' }}
+                  src="/static/images/icons/check.svg"
+                  mode="aspectFit"
+                />
               ) : null}
             </View>
           )
