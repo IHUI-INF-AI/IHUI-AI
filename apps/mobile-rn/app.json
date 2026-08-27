@@ -18,7 +18,7 @@
           "NSAllowsArbitraryLoads": false
         }
       },
-      "associatedDomains": ["applinks:file.aizhs.top"],
+      "associatedDomains": ["applinks:aizhs.top", "applinks:file.aizhs.top"],
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -51,7 +51,7 @@
         "projectId": ""
       },
       "WX_APP_APPID": "wx85fa429a9331b5c8",
-      "WX_UNIVERSAL_LINK": "https://file.aizhs.top/"
+      "WX_UNIVERSAL_LINK": "https://aizhs.top/"
     }
   }
 }
