@@ -104,7 +104,7 @@ const MODEL_SELECTOR_TRIGGER_SELECTOR =
 async function navigateToModels(page: Page) {
   await page.goto('/models', { waitUntil: 'domcontentloaded' })
   // 等待页面主内容出现
-  await page.waitForLoadState('networkidle', { timeout: 15000 })
+  await page.waitForLoadState('domcontentloaded', { timeout: 15000 })
 }
 
 test.describe('模型选择器 - SSR 厂商图标渲染', () => {
@@ -147,7 +147,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
   // /chat 未登录只显示"请登录"引导。改用 authenticatedPage(e2e/fixtures.ts)注入真实登录 cookie。
   test.beforeEach(async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
-    await authenticatedPage.waitForLoadState('networkidle', { timeout: 15000 })
+    await authenticatedPage.waitForLoadState('domcontentloaded', { timeout: 15000 })
     // 等待 ModelSelector 按钮渲染(可能需要客户端水合 + 模型列表加载)
     await authenticatedPage.waitForTimeout(3000)
   })
@@ -196,6 +196,29 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       const labelText = await firstGroupLabel.textContent()
       expect(labelText?.trim().length, '分组标签文本应非空').toBeGreaterThan(0)
     }
+  })
+
+  test('无配额(未配置)模型不应出现在可选择列表', async ({ authenticatedPage }) => {
+    const page = authenticatedPage
+    const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
+    if ((await trigger.count()) === 0) {
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      return
+    }
+    await trigger.click()
+    await page.waitForTimeout(500)
+    const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
+    if ((await menu.count()) === 0) {
+      test.skip(true, '下拉菜单未渲染')
+      return
+    }
+    // 2026-08-27 需求:没有配额的模型不显示在可选择列表里。
+    // 断言:下拉中未配置 ⚠ 徽章(TriangleAlert 琥珀色,aria-label 为 i18n 翻译值
+    // 非 key,故用 svg.text-amber-500 匹配)数量 ≤ 1 —— 仅当前选中模型可保留,
+    // 其余无配额模型必须被过滤隐藏。
+    const warnBadges = menu.locator('svg.text-amber-500')
+    const warnCount = await warnBadges.count()
+    expect(warnCount, `无配额模型应被过滤,⚠ 徽章最多 1(当前选中),实际 ${warnCount}`).toBeLessThanOrEqual(1)
   })
 
   test('hover 态: 悬停菜单项应触发 focus:bg-accent', async ({ authenticatedPage }) => {
