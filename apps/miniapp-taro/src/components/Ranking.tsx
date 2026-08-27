@@ -19,7 +19,11 @@ export interface RankingProps {
   loading?: boolean
 }
 
-const MEDALS = ['🥇', '🥈', '🥉']
+const MEDALS = [
+  '/static/images/icons/medal.svg',
+  '/static/images/icons/medal.svg',
+  '/static/images/icons/medal.svg',
+] as const
 
 function getValue(item: RankingItem): number {
   return item.score || item.value || item.commission || item.minutes || 0
@@ -64,7 +68,7 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
           >
             <View className="flex items-center justify-center w-6 mr-3">
               {idx < 3 ? (
-                <Text className="text-lg">{MEDALS[idx]}</Text>
+                <Image style={{ width: '36rpx', height: '36rpx' }} src={MEDALS[idx]!} mode="aspectFit" />
               ) : (
                 <Text className="text-sm font-medium text-muted-foreground">{idx + 1}</Text>
               )}

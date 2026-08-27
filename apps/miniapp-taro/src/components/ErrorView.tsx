@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
 
 export interface ErrorViewProps {
@@ -15,7 +15,12 @@ export default function ErrorView({
   const tt = useTt()
   return (
     <View className="flex flex-col items-center justify-center py-12 px-4">
-      <Text className="text-4xl text-muted-foreground mb-3">⚠</Text>
+      <Image
+        className="text-muted-foreground mb-3"
+        style={{ width: '72rpx', height: '72rpx' }}
+        src="/static/images/icons/triangle-alert.svg"
+        mode="aspectFit"
+      />
       <Text className="text-sm font-medium text-foreground mb-1">{title}</Text>
       <Text className="text-xs text-muted-foreground mb-4 text-center">{desc}</Text>
       {onRetry && (

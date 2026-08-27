@@ -122,8 +122,19 @@ async function openLoginDialog(
   await page.goto(BASE_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
   await page.waitForLoadState('domcontentloaded').catch(() => {})
 
-  await clickButtonByText(page, /^登录$|^登 录$|^Sign in$|^Login$/i)
-  await expect(page.getByTestId('login-dialog')).toBeVisible({ timeout: 5000 })
+  // 2026-08-28 根因修复:登录按钮(如 sidebar 底部"登录"入口)由 SSR 首屏渲染,
+  // clickButtonByText 只等按钮存在就 DOM click —— 若 React hydration 尚未完成,
+  // click 落在无 onClick 的静态 DOM 上,login-dialog 永不打开。
+  // 多 worker 负载下 hydration 变慢,此竞态从偶发变为近确定性失败。
+  // 根治:点击后轮询验证 dialog 出现,未出现则重试点击(有界 10 次 × 1s),
+  // 与 hydration 时序彻底解耦。
+  const dialog = page.getByTestId('login-dialog')
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await clickButtonByText(page, /^登录$|^登 录$|^Sign in$|^Login$/i)
+    if (await dialog.isVisible()) break
+    await page.waitForTimeout(1000)
+  }
+  await expect(dialog).toBeVisible({ timeout: 5000 })
 
   await page.getByTestId(tabTestId).click()
   // 2026-08-26 修复:enableCredentialPersistence 后账号框为 AccountHistoryInput

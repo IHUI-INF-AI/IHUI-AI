@@ -20,7 +20,7 @@
  * - 禁用 any,异步回调统一 unknown + 类型守卫
  * - Taro API 返回类型显式声明 chooseImageRes / chooseMessageFileRes
  */
-import { View, Text, ScrollView, Input } from '@tarojs/components'
+import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
@@ -397,7 +397,12 @@ export default function AiChatDetail() {
             className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
             onClick={handleVoiceToggle}
           >
-            <Text className="text-[28rpx] text-foreground">🎙</Text>
+            <Image
+              className="text-foreground"
+              style={{ width: '28rpx', height: '28rpx' }}
+              src="/static/images/icons/mic.svg"
+              mode="aspectFit"
+            />
           </View>
           <View
             className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
@@ -410,7 +415,12 @@ export default function AiChatDetail() {
               className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
               onClick={handleFullscreenToggle}
             >
-              <Text className="text-[24rpx] text-foreground">⛶</Text>
+              <Image
+                className="text-foreground"
+                style={{ width: '24rpx', height: '24rpx' }}
+                src="/static/images/icons/maximize.svg"
+                mode="aspectFit"
+              />
             </View>
           ) : null}
           {isInputFocused ? (
@@ -418,7 +428,12 @@ export default function AiChatDetail() {
               className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
               onClick={handleAddFile}
             >
-              <Text className="text-[28rpx] text-foreground">📎</Text>
+              <Image
+                className="text-foreground"
+                style={{ width: '28rpx', height: '28rpx' }}
+                src="/static/images/icons/paperclip.svg"
+                mode="aspectFit"
+              />
             </View>
           ) : null}
           <View
