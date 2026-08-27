@@ -254,10 +254,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.DEFAULT,
     },
     customInput: {
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#eaeaea',
+      borderColor: tk.border.light,
       paddingHorizontal: 14,
       height: 50,
       fontSize: 16,

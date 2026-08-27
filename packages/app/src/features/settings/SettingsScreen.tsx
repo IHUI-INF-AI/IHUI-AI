@@ -287,18 +287,18 @@ function PwdInput({
 }
 
 function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
-  // 页面背景:浅色 #f5f5f5(对齐 D 盘 Ai-WXMiniVue 设置页),深色沿用 surface.bg
-  const pageBg = colorScheme === 'dark' ? tk.surface.bg : '#f5f5f5'
-  // 卡片表面:浅色纯白 #fff(对齐 uniapp section-card),深色沿用 surface.muted
-  const cardBg = colorScheme === 'dark' ? tk.surface.muted : '#ffffff'
-  // 分隔线:浅色 #f0f0f0(对齐 uniapp border-bottom),深色沿用 border.light
-  const divider = colorScheme === 'dark' ? tk.border.light : '#f0f0f0'
-  // cell 标签文字:浅色 #333(对齐 uniapp item-label),深色沿用 text.primary
-  const rowLabelColor = colorScheme === 'dark' ? tk.text.primary : '#333333'
-  // 箭头:浅色 #999(对齐 uniapp arrow-icon),深色沿用 text.tertiary
-  const arrowColor = colorScheme === 'dark' ? tk.text.tertiary : '#999999'
-  // 分组标题:浅色 #999(对齐 uniapp section-title),深色沿用 text.secondary
-  const sectionTitleColor = colorScheme === 'dark' ? tk.text.secondary : '#999999'
+  // 页面背景:浅色 surface.bg(对齐 D 盘 Ai-WXMiniVue 设置页),深色沿用 surface.bg
+  const pageBg = tk.surface.bg
+  // 卡片表面:浅色纯白 surface.light(对齐 uniapp section-card),深色沿用 surface.muted
+  const cardBg = colorScheme === 'dark' ? tk.surface.muted : tk.surface.light
+  // 分隔线:浅色 border.light(对齐 uniapp border-bottom),深色沿用 border.light
+  const divider = tk.border.light
+  // cell 标签文字:浅色 text.medium(对齐 uniapp item-label),深色沿用 text.primary
+  const rowLabelColor = colorScheme === 'dark' ? tk.text.primary : tk.text.medium
+  // 箭头:浅色 text.tertiary(对齐 uniapp arrow-icon),深色沿用 text.tertiary
+  const arrowColor = tk.text.tertiary
+  // 分组标题:浅色 text.secondary(对齐 uniapp section-title),深色沿用 text.secondary
+  const sectionTitleColor = tk.text.secondary
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: pageBg },
     header: {
@@ -368,7 +368,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    logoutText: { fontSize: 16, fontWeight: '600', color: '#e64340' },
+    logoutText: { fontSize: 16, fontWeight: '600', color: tk.danger.DEFAULT },
     versionText: { textAlign: 'center', fontSize: 12, color: tk.text.tertiary, marginTop: 4 },
     modalOverlay: {
       flex: 1,

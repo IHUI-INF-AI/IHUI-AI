@@ -423,7 +423,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     } as TextStyle,
     // 赛道分类 chip 切换
     scrollTitleWrap: {
@@ -594,7 +594,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: GRID_COVER_HEIGHT,
       borderRadius: 12,
-      backgroundColor: '#000',
+      backgroundColor: tk.text.primary,
     } as ImageStyle,
     gridCoverPlaceholder: {
       width: '100%',
@@ -622,18 +622,18 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       fontSize: 9,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: tk.text.primary,
     } as TextStyle,
     gridCoverDate: {
       fontSize: 9,
       fontWeight: '700',
-      color: '#FFFFFF',
+      color: tk.text.primary,
       marginLeft: 8,
     } as TextStyle,
     // 下方课程名
     gridTitle: {
       fontSize: 14,
-      color: '#3D3D3D',
+      color: tk.text.primary,
       marginTop: 8,
       marginBottom: 8,
     } as TextStyle,
@@ -655,7 +655,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     // Tip 提示横幅
     tipOuter: {
-      backgroundColor: '#d9e6fd',
+      backgroundColor: tk.indigo.light,
       padding: 4,
       borderRadius: 12,
       marginBottom: 9,
@@ -663,7 +663,7 @@ function createStyles(tk: AppThemeTokens) {
     tipInner: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#eee',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       paddingVertical: 4,
       paddingHorizontal: 6,
@@ -684,7 +684,7 @@ function createStyles(tk: AppThemeTokens) {
     tipText: {
       fontSize: 16,
       fontWeight: '700',
-      color: '#666666',
+      color: tk.text.secondary,
       paddingRight: 10,
     } as TextStyle,
     tipMyModel: {
@@ -692,8 +692,8 @@ function createStyles(tk: AppThemeTokens) {
       height: 28,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#518dfd',
-      backgroundColor: '#d9e6fd',
+      borderColor: tk.indigo.DEFAULT,
+      backgroundColor: tk.indigo.light,
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: 8,
@@ -701,7 +701,7 @@ function createStyles(tk: AppThemeTokens) {
     tipMyModelText: {
       fontSize: 14,
       fontWeight: '700',
-      color: '#000',
+      color: tk.text.primary,
     } as TextStyle,
     // 没有更多了
     noMoreWrap: {
@@ -714,11 +714,11 @@ function createStyles(tk: AppThemeTokens) {
     noMoreLine: {
       flex: 1,
       height: 1,
-      backgroundColor: '#e0e0e0',
+      backgroundColor: tk.surface.muted,
     } as ViewStyle,
     noMoreText: {
       marginHorizontal: 10,
-      color: '#767676',
+      color: tk.text.secondary,
       fontSize: 14,
     } as TextStyle,
     centerWrap: {

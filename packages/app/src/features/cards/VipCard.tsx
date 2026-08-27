@@ -24,9 +24,6 @@ export interface VipCardProps {
   colorScheme?: 'light' | 'dark'
 }
 
-const VIP_BG = '#F59E0B'
-const VIP_TEXT = '#FFFFFF'
-
 function formatDate(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
@@ -148,15 +145,15 @@ function createStyles(tk: AppThemeTokens) {
     headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     titleWrap: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     vipBadge: {
-      backgroundColor: VIP_BG,
+      backgroundColor: tk.warning.DEFAULT,
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
-    vipBadgeText: { color: VIP_TEXT, fontSize: 14, fontWeight: '700' },
+    vipBadgeText: { color: tk.surface.light, fontSize: 14, fontWeight: '700' },
     title: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     expireWrap: { alignItems: 'flex-end', gap: 4 },
-    daysText: { fontSize: 14, color: VIP_BG, fontWeight: '600' },
+    daysText: { fontSize: 14, color: tk.warning.DEFAULT, fontWeight: '600' },
     expireText: { fontSize: 14, color: tk.text.secondary },
     benefitsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     benefitTag: {
@@ -169,12 +166,12 @@ function createStyles(tk: AppThemeTokens) {
     benefitText: { fontSize: 11, color: tk.text.secondary },
     purchaseBtn: {
       alignSelf: 'flex-start',
-      backgroundColor: VIP_BG,
+      backgroundColor: tk.warning.DEFAULT,
       borderRadius: 12,
       paddingHorizontal: 10,
       paddingVertical: 8,
     },
-    purchaseBtnText: { color: VIP_TEXT, fontSize: 14, fontWeight: '700' },
+    purchaseBtnText: { color: tk.surface.light, fontSize: 14, fontWeight: '700' },
     footer: { marginTop: 8 },
   })
 }

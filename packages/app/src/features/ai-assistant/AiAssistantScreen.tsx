@@ -163,7 +163,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     catScroll: { marginTop: 12, maxHeight: 40 },
     catScrollContent: { paddingHorizontal: 10, gap: 8 },
