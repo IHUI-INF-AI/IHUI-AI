@@ -372,7 +372,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       paddingHorizontal: 12,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 16,
     } as ViewStyle,
