@@ -15,6 +15,7 @@
 import { useEffect, useRef } from 'react'
 import { Animated, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { Check } from 'lucide-react-native'
 
 /** 单个 Agent 条目(对齐 Uniapp AgentListItem 核心字段) */
 export interface AgentListItem {
@@ -109,7 +110,7 @@ function Row({
       <View style={styles.rowRight}>
         {selected ? (
           <Animated.View style={[styles.selectedIcon, { transform: [{ scale }] }]}>
-            <Text style={styles.selectedIconText}>✓</Text>
+            <Check size={11} color={'#ffffff'} />
           </Animated.View>
         ) : null}
       </View>

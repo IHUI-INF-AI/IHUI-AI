@@ -12,6 +12,17 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { MessageInputAgentVariable, MessageInputFile, MessageInputProps } from '../../types'
+import {
+  FileText,
+  Keyboard,
+  Maximize,
+  Mic,
+  Minimize,
+  Paperclip,
+  Play,
+  Plus,
+  X,
+} from 'lucide-react-native'
 
 export type { MessageInputAgentVariable, MessageInputFile, MessageInputProps }
 
@@ -134,14 +145,14 @@ export function MessageInput({
                   <Image source={{ uri: f.url }} style={styles.fileImage} resizeMode="cover" />
                 ) : f.type === 'video' ? (
                   <View style={styles.fileVideoPlaceholder}>
-                    <Text style={styles.fileVideoBadge}>▶</Text>
+                    <Play size={16} color={tk.surface.light} />
                     <Text style={styles.fileVideoText} numberOfLines={1}>
                       {f.filename || t('messageInput.video')}
                     </Text>
                   </View>
                 ) : (
                   <View style={styles.fileDocPlaceholder}>
-                    <Text style={styles.fileDocIcon}>📄</Text>
+                    <FileText size={20} color={tk.text.secondary} />
                     <Text style={styles.fileDocText} numberOfLines={1}>
                       {f.filename || t('messageInput.document')}
                     </Text>
@@ -164,7 +175,11 @@ export function MessageInput({
           onPress={onVoiceToggle}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
-          <Text style={styles.iconBtnText}>{isVoiceMode ? '⌨' : '🎙'}</Text>
+          {isVoiceMode ? (
+            <Keyboard size={20} color={tk.text.secondary} />
+          ) : (
+            <Mic size={20} color={tk.text.secondary} />
+          )}
         </TouchableOpacity>
 
         {/* 文本输入区(语音模式下隐藏) */}
@@ -219,7 +234,11 @@ export function MessageInput({
               onPress={onFullscreenToggle}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.iconBtnText}>{isFullscreen ? '⊟' : '⛶'}</Text>
+              {isFullscreen ? (
+                <Minimize size={20} color={tk.text.secondary} />
+              ) : (
+                <Maximize size={20} color={tk.text.secondary} />
+              )}
             </TouchableOpacity>
           ) : null}
           {showAddFileBtn && !isFocused ? (
@@ -228,7 +247,7 @@ export function MessageInput({
               onPress={onAddImage}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.iconBtnText}>+</Text>
+              <Plus size={20} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
           {showAddFileBtn && isFocused ? (
@@ -237,7 +256,7 @@ export function MessageInput({
               onPress={onAddFile}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.iconBtnText}>📎</Text>
+              <Paperclip size={20} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
           {text.length > 0 && !isStreaming ? (
@@ -246,7 +265,7 @@ export function MessageInput({
               onPress={onClear}
               hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             >
-              <Text style={styles.iconBtnText}>×</Text>
+              <X size={20} color={tk.text.secondary} />
             </TouchableOpacity>
           ) : null}
           {isStreaming ? (

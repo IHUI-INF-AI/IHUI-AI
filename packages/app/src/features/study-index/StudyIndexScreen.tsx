@@ -27,6 +27,8 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Lightbulb, Play, Flame, Bot, Clapperboard } from 'lucide-react-native'
+import type { AppIcon } from '@ihui/types'
 
 /** 赛道分类 */
 export interface StudyTrackCategory {
@@ -51,7 +53,7 @@ export interface StudyModelPreview {
   id: string
   name: string
   description: string
-  icon?: string
+  icon?: AppIcon | string
   isFree?: boolean
 }
 
@@ -150,7 +152,7 @@ export function StudyIndexScreen({
     return (
       <View style={styles.tipOuter}>
         <View style={styles.tipInner}>
-          <Text style={styles.tipIcon}>💡</Text>
+          <Lightbulb size={20} color={'#374151'} style={styles.tipIcon} />
           <View style={styles.tipScrollContainer}>
             <Animated.View
               style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
@@ -186,7 +188,7 @@ export function StudyIndexScreen({
             <Image source={{ uri: item.cover }} style={styles.gridCover} resizeMode="cover" />
           ) : (
             <View style={styles.gridCoverPlaceholder}>
-              <Text style={styles.gridCoverPlaceholderText}>▶</Text>
+              <Play size={24} color={tk.text.tertiary} />
             </View>
           )}
           <View style={styles.gridCoverInfo}>
@@ -265,7 +267,7 @@ export function StudyIndexScreen({
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Text style={styles.previewIcon}>🔥</Text>
+                <Flame size={20} color={'#374151'} style={styles.previewIcon} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
               <Pressable
@@ -282,7 +284,13 @@ export function StudyIndexScreen({
               previewModels.map((m) => (
                 <View key={m.id} style={styles.previewModelRow}>
                   <View style={styles.previewModelIcon}>
-                    <Text style={styles.previewModelEmoji}>{m.icon || '🤖'}</Text>
+                    {typeof m.icon === 'function' ? (
+                      <m.icon size={28} color={tk.text.primary} />
+                    ) : m.icon ? (
+                      <Text style={styles.previewModelEmoji}>{m.icon}</Text>
+                    ) : (
+                      <Bot size={28} color={tk.text.primary} />
+                    )}
                   </View>
                   <View style={styles.previewModelBody}>
                     <Text style={styles.previewModelName} numberOfLines={1}>
@@ -318,7 +326,7 @@ export function StudyIndexScreen({
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Text style={styles.previewIcon}>🎬</Text>
+                <Clapperboard size={20} color={'#374151'} style={styles.previewIcon} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
               <Pressable

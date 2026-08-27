@@ -36,6 +36,17 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
+import {
+  Camera,
+  ChevronDown,
+  Folder,
+  Image as ImageIcon,
+  Maximize,
+  MessageCircle,
+  Mic,
+  Paperclip,
+  Settings,
+} from 'lucide-react-native'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -417,7 +428,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               <Text style={styles.modelNameLabel} numberOfLines={1}>
                 {modelName ?? '选择模型'}
               </Text>
-              <Text style={styles.modelArrow}>{'▼'}</Text>
+              <ChevronDown size={10} color={tokens.text.tertiary} />
             </Pressable>
           ) : null}
           {onShowModelConfig !== undefined ? (
@@ -433,9 +444,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="模型配置"
             >
-              <Text style={styles.configEmoji} allowFontScaling={false}>
-                {'⚙️'}
-              </Text>
+              <Settings size={16} color={'#6b7280'} />
             </Pressable>
           ) : null}
         </View>
@@ -489,9 +498,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="语音输入"
           >
-            <Text style={styles.voiceEmoji} allowFontScaling={false}>
-              {'🎤'}
-            </Text>
+            <Mic size={18} color={'#6b7280'} />
           </Pressable>
         ) : null}
 
@@ -552,9 +559,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel={t('messageInput.addFile')}
           >
-            <Text style={styles.secondaryEmoji} allowFontScaling={false}>
-              {'📁'}
-            </Text>
+            <Folder size={18} color={'#6b7280'} />
           </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
@@ -577,9 +582,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="来源"
             >
-              <Text style={styles.secondaryEmoji} allowFontScaling={false}>
-                {'📎'}
-              </Text>
+              <Paperclip size={18} color={'#6b7280'} />
             </Pressable>
           ) : null}
           {onFangda !== undefined ? (
@@ -590,9 +593,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="放大"
             >
-              <Text style={styles.secondaryEmoji} allowFontScaling={false}>
-                {'⛶'}
-              </Text>
+              <Maximize size={18} color={'#6b7280'} />
             </Pressable>
           ) : null}
         </View>
@@ -607,9 +608,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="相机"
           >
-            <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
-              {'📷'}
-            </Text>
+            <Camera size={24} color={'#6b7280'} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'相机'}
             </Text>
@@ -620,9 +619,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="相册"
           >
-            <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
-              {'🖼️'}
-            </Text>
+            <ImageIcon size={24} color={'#6b7280'} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'相册'}
             </Text>
@@ -633,9 +630,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="本地文件"
           >
-            <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
-              {'📁'}
-            </Text>
+            <Folder size={24} color={'#6b7280'} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'本地文件'}
             </Text>
@@ -646,9 +641,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="微信文件"
           >
-            <Text style={styles.iconGroupEmoji} allowFontScaling={false}>
-              {'💬'}
-            </Text>
+            <MessageCircle size={24} color={'#6b7280'} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'微信文件'}
             </Text>

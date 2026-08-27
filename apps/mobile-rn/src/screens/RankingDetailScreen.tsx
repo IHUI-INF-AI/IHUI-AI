@@ -22,6 +22,7 @@ import Drawer, {
 } from '../components/Drawer'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
+import { Menu } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -133,7 +134,7 @@ export default function RankingDetailScreenWrapper() {
       <NavBar
         title={detail.title}
         onBack={() => navigation.goBack()}
-        rightActions={[{ icon: '☰', label: '历史榜单', onPress: openDrawer }]}
+        rightActions={[{ icon: Menu, label: '历史榜单', onPress: openDrawer }]}
       />
       <RankingDetailScreen
         t={t}

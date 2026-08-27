@@ -28,6 +28,7 @@ import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { voiceSttFromReactNative } from '@ihui/api-client'
 import type { VoiceInputMinimalProps } from '@ihui/types'
+import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
 /** 图片弹出层来源类型(对齐 Uniapp handleIconClick(type):camera/album/file) */
 export type VoiceImageSource = 'camera' | 'album' | 'file'
@@ -51,10 +52,10 @@ const WAVE_MIN = 6
 const WAVE_MAX = 28
 const WAVE_SAMPLES = [0, 0.25, 0.5, 0.75, 1]
 
-const IMAGE_SOURCES: ReadonlyArray<{ type: VoiceImageSource; emoji: string; label: string }> = [
-  { type: 'camera', emoji: '📷', label: '相机' },
-  { type: 'album', emoji: '🖼️', label: '相册' },
-  { type: 'file', emoji: '📁', label: '文件' },
+const IMAGE_SOURCES: ReadonlyArray<{ type: VoiceImageSource; icon: LucideIcon; label: string }> = [
+  { type: 'camera', icon: Camera, label: '相机' },
+  { type: 'album', icon: ImageIcon, label: '相册' },
+  { type: 'file', icon: Folder, label: '文件' },
 ]
 
 export function VoiceInput({
@@ -316,9 +317,7 @@ export function VoiceInput({
               accessibilityRole="button"
               accessibilityLabel={item.label}
             >
-              <Text style={styles.popupEmoji} allowFontScaling={false}>
-                {item.emoji}
-              </Text>
+              <item.icon size={20} color={'#6b7280'} />
               <Text style={styles.popupLabel} numberOfLines={1}>
                 {item.label}
               </Text>

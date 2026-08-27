@@ -5,6 +5,7 @@
  * 列表项:图标 + 圈子名 + 简介 + 成员数 + 帖子数,点击 chrome.tabs.create 跳 web 详情。
  */
 import { useEffect, useState } from 'react'
+import { MessageCircle } from 'lucide-react'
 import { getCircles, type Circle } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -91,7 +92,7 @@ export default function CirclesPage() {
                 />
               ) : (
                 <div className="w-10 h-10 rounded-md bg-muted shrink-0 flex items-center justify-center text-base">
-                  💬
+                  <MessageCircle size={20} className="text-muted-foreground" aria-hidden />
                 </div>
               )}
               <div className="flex-1 min-w-0">

@@ -42,6 +42,7 @@ import {
   type TextInputSubmitEditingEventData,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { Search, Mic, Keyboard, X } from 'lucide-react-native'
 
 export interface SearchInputProps {
   value: string
@@ -72,10 +73,6 @@ const INPUT_FONT_SIZE = 14
 const CLEAR_BUTTON_SIZE = 16
 const CLEAR_BUTTON_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 } as const
 const CLEAR_ICON_FONT_SIZE = 12
-const SEARCH_ICON = '\u{1F50D}'
-const CLEAR_ICON = '\u00D7'
-const VOICE_ICON = '\u{1F3A4}'
-const KEYBOARD_ICON = '\u{2328}\u{FE0F}'
 const VOICE_ICON_FONT_SIZE = 20
 const VOICE_TOGGLE_HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 } as const
 const VOICE_LONG_PRESS_DELAY = 500
@@ -163,9 +160,7 @@ export function SearchInput({
 
   return (
     <View style={[styles.container, focused ? styles.containerFocused : null]}>
-      <Text style={styles.icon} accessibilityElementsHidden>
-        {SEARCH_ICON}
-      </Text>
+      <Search size={ICON_FONT_SIZE} color={tokens.text.tertiary} />
 
       {isVoiceMode ? (
         <Pressable
@@ -206,7 +201,7 @@ export function SearchInput({
           hitSlop={CLEAR_BUTTON_HIT_SLOP}
           accessibilityLabel="清除"
         >
-          <Text style={styles.clearIcon}>{CLEAR_ICON}</Text>
+          <X size={CLEAR_ICON_FONT_SIZE} color={tokens.text.tertiary} />
         </Pressable>
       ) : null}
 
@@ -218,9 +213,11 @@ export function SearchInput({
           accessibilityRole="button"
           accessibilityLabel={isVoiceMode ? '切换键盘输入' : '切换语音输入'}
         >
-          <Text style={[styles.voiceToggleIcon, isVoiceMode ? styles.voiceToggleIconActive : null]}>
-            {isVoiceMode ? KEYBOARD_ICON : VOICE_ICON}
-          </Text>
+          {isVoiceMode ? (
+            <Keyboard size={VOICE_ICON_FONT_SIZE} color={tokens.brand.DEFAULT} />
+          ) : (
+            <Mic size={VOICE_ICON_FONT_SIZE} color={tokens.text.secondary} />
+          )}
         </Pressable>
       ) : null}
     </View>

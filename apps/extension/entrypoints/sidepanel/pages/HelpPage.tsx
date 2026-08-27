@@ -3,6 +3,7 @@
  * 展示常见问题(Q&A折叠/列表),数据来自扩展 i18n 文案。
  */
 import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 
@@ -35,7 +36,7 @@ export default function HelpPage() {
             >
               <span className="text-sm font-medium">{t(faq.title)}</span>
               <span aria-hidden className="text-muted-foreground text-xs">
-                {isOpen ? '▾' : '▸'}
+                {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               </span>
             </button>
             {isOpen ? (

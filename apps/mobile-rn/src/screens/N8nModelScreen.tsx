@@ -23,6 +23,7 @@ import {
   type N8nModelItem,
   type N8nModelTab,
 } from '@ihui/rn-app'
+import { Zap, PauseCircle } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
@@ -64,7 +65,7 @@ function toModelListItem(w: N8nWorkflow): ModelListItem {
     id: w.id,
     name: w.name,
     description: w.description ?? '',
-    icon: isActive ? '⚡' : '⏸',
+    icon: isActive ? Zap : PauseCircle,
     isFree: true,
   }
 }

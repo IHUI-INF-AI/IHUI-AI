@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Camera, SquarePen } from 'lucide-react-native'
 import type { Gender, ProfileEditScreenProps } from '../../types'
 
 /** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
@@ -95,11 +96,11 @@ export function ProfileEditScreen({
             <Image source={{ uri: avatar }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarFallback}>
-              <Text style={styles.avatarEmoji}>📷</Text>
+              <Camera size={28} color={'#374151'} />
             </View>
           )}
           <View style={styles.avatarEditBadge}>
-            <Text style={styles.avatarEditBadgeText}>✎</Text>
+            <SquarePen size={14} color={tk.surface.light} />
           </View>
         </TouchableOpacity>
         <Text style={styles.avatarTip}>{t('profileEdit.avatarTip')}</Text>

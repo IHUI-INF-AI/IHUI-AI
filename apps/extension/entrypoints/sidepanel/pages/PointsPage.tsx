@@ -3,6 +3,7 @@
  * 展示当前积分与签到状态,数据来自 GET /points;支持签到 POST /api/sign-in。
  */
 import { useEffect, useState } from 'react'
+import { BookOpen, Gift, MessageCircle, PartyPopper } from 'lucide-react'
 import { getPoints, signIn, type PointsInfo } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -137,16 +138,20 @@ export default function PointsPage() {
         </div>
         <CardContent className="p-4 pt-1 flex flex-col gap-1.5 text-sm">
           <div className="flex items-center gap-2">
-            <span aria-hidden>🎁</span> {t('page.points.earn1')}
+            <Gift size={18} className="shrink-0 text-current" aria-hidden />{' '}
+            {t('page.points.earn1')}
           </div>
           <div className="flex items-center gap-2">
-            <span aria-hidden>📚</span> {t('page.points.earn2')}
+            <BookOpen size={18} className="shrink-0 text-current" aria-hidden />{' '}
+            {t('page.points.earn2')}
           </div>
           <div className="flex items-center gap-2">
-            <span aria-hidden>💬</span> {t('page.points.earn3')}
+            <MessageCircle size={18} className="shrink-0 text-current" aria-hidden />{' '}
+            {t('page.points.earn3')}
           </div>
           <div className="flex items-center gap-2">
-            <span aria-hidden>🎉</span> {t('page.points.earn4')}
+            <PartyPopper size={18} className="shrink-0 text-current" aria-hidden />{' '}
+            {t('page.points.earn4')}
           </div>
         </CardContent>
       </Card>

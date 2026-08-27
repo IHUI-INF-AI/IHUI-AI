@@ -14,6 +14,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Globe, User } from 'lucide-react-native'
 import type { TFunction } from '../../types'
 
 /** 广场任务项(共享层简化类型,保留 UI 渲染所需字段) */
@@ -70,7 +71,7 @@ const CYCLE_UNITS: Readonly<Record<string, string>> = {
   '3': '年',
 }
 
-const PLACEHOLDER_AVATAR = '🧑‍💻'
+const PLACEHOLDER_AVATAR = User
 
 /** 双列瀑布流:FlatList 只渲染一「行」(内含左右两列),用占位数据驱动滚动/分页/刷新 */
 const COLUMN_ROW_DATA: readonly number[] = [0]
@@ -95,7 +96,7 @@ function formatDateRange(start: string | undefined, end: string | undefined): st
 
 function avatarText(name: string): string {
   const trimmed = name.trim()
-  return trimmed ? trimmed.slice(0, 1).toUpperCase() : PLACEHOLDER_AVATAR
+  return trimmed ? trimmed.slice(0, 1).toUpperCase() : ''
 }
 
 export function PlazaScreen({
@@ -205,7 +206,11 @@ export function PlazaScreen({
         <View style={styles.cardMeta}>
           <View style={styles.avatarWrap}>
             <View style={styles.avatarFallback}>
-              <Text style={styles.avatarText}>{avatarText(author)}</Text>
+              {author.trim() ? (
+                <Text style={styles.avatarText}>{avatarText(author)}</Text>
+              ) : (
+                <PLACEHOLDER_AVATAR size={14} color={'#374151'} />
+              )}
             </View>
           </View>
           <Text style={styles.author} numberOfLines={1}>
@@ -319,7 +324,7 @@ export function PlazaScreen({
               </View>
             ) : (
               <View style={styles.emptyWrap}>
-                <Text style={styles.emptyIcon}>🌐</Text>
+                <Globe size={48} color={'#374151'} />
                 <Text style={styles.emptyText}>当前赛道</Text>
                 <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
                 <Text style={styles.emptyText}>不会开发?发布需求</Text>

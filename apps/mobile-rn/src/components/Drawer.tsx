@@ -38,17 +38,21 @@ import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
   Bot,
+  BookOpen,
   Building2,
   ChevronRight,
   Gift,
   Home,
   LayoutGrid,
   MessageCircle,
+  Palette,
   Plus,
+  Puzzle,
   Settings,
   Share2,
   Trash2,
   User,
+  Wrench,
 } from 'lucide-react-native'
 
 // ── 类型定义(强类型,禁用 any) ──
@@ -144,16 +148,16 @@ const MAIN_MENUS: readonly MainMenuConfig[] = [
 interface ExtraMenuConfig {
   key: DrawerExtraMenu
   label: string
-  emoji: string
+  Icon: typeof Home
 }
 
 const EXTRA_MENUS: readonly ExtraMenuConfig[] = [
-  { key: 'tools', label: '工具', emoji: '🔧' },
-  { key: 'aigc', label: 'AIGC', emoji: '🎨' },
-  { key: 'learn', label: '学习', emoji: '📚' },
-  { key: 'modelPlaza', label: '模型广场', emoji: '🤖' },
-  { key: 'company', label: '一人公司', emoji: '🏢' },
-  { key: 'assistant', label: '我的智能体', emoji: '🧩' },
+  { key: 'tools', label: '工具', Icon: Wrench },
+  { key: 'aigc', label: 'AIGC', Icon: Palette },
+  { key: 'learn', label: '学习', Icon: BookOpen },
+  { key: 'modelPlaza', label: '模型广场', Icon: Bot },
+  { key: 'company', label: '一人公司', Icon: Building2 },
+  { key: 'assistant', label: '我的智能体', Icon: Puzzle },
 ] as const
 
 // ── 日期分组逻辑 ──
@@ -611,7 +615,7 @@ export function Drawer(props: DrawerProps) {
                 className="py-2 flex-row items-start justify-between"
                 style={{ paddingHorizontal: 14 }}
               >
-                {EXTRA_MENUS.map(({ key, label, emoji }) => (
+                {EXTRA_MENUS.map(({ key, label, Icon }) => (
                   <Pressable
                     key={key}
                     className="flex-1 items-center py-1.5 rounded-lg"
@@ -622,7 +626,7 @@ export function Drawer(props: DrawerProps) {
                       className="rounded-xl items-center justify-center bg-gray-50 mb-1"
                       style={{ width: 30, height: 30 }}
                     >
-                      <Text className="text-[22px] leading-none">{emoji}</Text>
+                      <Icon size={22} color="#6b7280" />
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
                   </Pressable>

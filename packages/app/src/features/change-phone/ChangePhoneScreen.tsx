@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ChangePhoneScreenProps } from '../../types'
+import { ChevronDown } from 'lucide-react-native'
 
 /** 换绑手机共享屏 — props 注入式跨端组件(wrapper 负责 fetchApi + setInterval 倒计时)。
  *  原屏硬编码中文(无 i18n),共享层保持原样不接入 t()。 */
@@ -44,7 +45,7 @@ export function ChangePhoneScreen({
             accessibilityLabel="选择区号"
           >
             <Text style={styles.areaText}>{phoneHead}</Text>
-            <Text style={styles.areaArrow}>▾</Text>
+            <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 8 }} />
           </Pressable>
           <TextInput
             style={styles.input}

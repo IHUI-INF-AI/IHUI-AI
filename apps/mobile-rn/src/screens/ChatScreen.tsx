@@ -1191,7 +1191,10 @@ export function ChatScreen() {
                     accessibilityRole="button"
                     accessibilityLabel={thinkingExpanded ? '收起思考过程' : '展开思考过程'}
                   >
-                    <Text style={styles.thinkingTitle}>💭 思考过程</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <MessageSquare size={12} color={tokens.text.secondary} />
+                      <Text style={styles.thinkingTitle}>思考过程</Text>
+                    </View>
                     <Text style={styles.thinkingToggle}>{thinkingExpanded ? '收起' : '展开'}</Text>
                   </Pressable>
                   {thinkingExpanded ? (
@@ -1743,7 +1746,7 @@ export function ChatScreen() {
               id: m.id,
               name: m.name,
               description: m.provider ?? '',
-              icon: '🤖',
+              icon: Bot,
               isFree: !m.input_price,
             })),
           },
