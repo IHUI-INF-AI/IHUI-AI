@@ -359,6 +359,21 @@ function Show-Status {
   Write-Host ''
   Write-Host "  PID 注册表: $PidFile" -ForegroundColor DarkGray
   Write-Host "  日志目录:   $LogDir" -ForegroundColor DarkGray
+
+  # 2026-08-27:web Turbopack 缓存卫生提示(预防缓存膨胀 → dev 高内存/CPU)。
+  # 缓存由 apps/web dev 脚本前置的 clean-turbopack-cache.mjs 自动治理,超 3GB 启动时自动清;
+  # 此处仅作诊断辅助,一眼看出当前缓存是否已逼近阈值。
+  $nextCache = Join-Path $RepoRoot 'apps\web\.next\dev\cache\turbopack'
+  if (Test-Path $nextCache) {
+    $cacheMB = [math]::Round((Get-ChildItem $nextCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB, 0)
+    if ($cacheMB -gt 3072) {
+      Write-Host "  web turbopack 缓存: $cacheMB MB ⚠ 超 3GB(重启 web 时自动清理)" -ForegroundColor Yellow
+    } else {
+      Write-Host "  web turbopack 缓存: $cacheMB MB (阈值 3GB,启动时自动清理)" -ForegroundColor DarkGray
+    }
+  } else {
+    Write-Host "  web turbopack 缓存: 无(首次 dev 启动时生成)" -ForegroundColor DarkGray
+  }
 }
 
 # ============================================================
