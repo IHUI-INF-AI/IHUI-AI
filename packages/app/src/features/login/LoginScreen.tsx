@@ -48,56 +48,23 @@ export type { LoginScreenProps }
 // ===== 辅助函数 =====
 
 /** image 专有 style sheet — module 顶层 const,所有子组件可直接引用
- *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表) */
+ *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表)
+ *  注:含 tk token 的 fallback 样式已移至组件内联样式(模块顶层无法访问 tk) */
 const imageStyles = StyleSheet.create({
-  // 第三方登录图标:28×28 圆角(borderRadius 6 = rounded-md,符合圆角守门)
-  // 2026-08-04 从 44×44 圆形(borderRadius 22,违反圆角守门)缩小
   thirdPartyIcon: {
     width: 28,
     height: 28,
     borderRadius: 6,
   },
-  // 无图标 fallback:品牌色圆角背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
-  thirdPartyFallback: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#999999',
-  },
-  thirdPartyFallbackText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 13,
-  },
   qrImage: {
     width: 200,
     height: 200,
   },
-  // QR 平台切换 tab 中的平台图标:20×20(对齐第三方登录区图标风格)
   qrPlatformIcon: {
     width: 20,
     height: 20,
     borderRadius: 4,
   },
-  // QR 平台切换 tab 中的 fallback:品牌色圆角背景 + 白色首字母
-  qrPlatformFallback: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#999999',
-  },
-  qrPlatformFallbackText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '600',
-    lineHeight: 10,
-  },
-  // logo 图片:44×44(2026-08-04 从 31×31 加大,提升移动端视觉层次)
   logoImage: {
     width: 44,
     height: 44,
@@ -361,11 +328,18 @@ function ThirdPartyLoginArea({
               ) : (
                 <View
                   style={[
-                    imageStyles.thirdPartyFallback,
+                    {
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: tk.text.tertiary,
+                    },
                     !!opt.brandColor && { backgroundColor: opt.brandColor },
                   ]}
                 >
-                  <Text style={imageStyles.thirdPartyFallbackText}>
+                  <Text style={{ color: tk.surface.light, fontSize: 11, fontWeight: '600', lineHeight: 13 }}>
                     {opt.label.charAt(0).toUpperCase()}
                   </Text>
                 </View>
@@ -781,11 +755,18 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
                 ) : (
                   <View
                     style={[
-                      imageStyles.qrPlatformFallback,
+                      {
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: tk.text.tertiary,
+                      },
                       !!p.brandColor && { backgroundColor: p.brandColor },
                     ]}
                   >
-                    <Text style={imageStyles.qrPlatformFallbackText}>{p.label.charAt(0)}</Text>
+                    <Text style={{ color: tk.surface.light, fontSize: 9, fontWeight: '600', lineHeight: 10 }}>{p.label.charAt(0)}</Text>
                   </View>
                 )}
                 <Text
@@ -1176,9 +1157,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
   // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
   const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
-  // uniapp 输入框风格:浅色 #f5f5f5 底 + #eaeaea 边框(对齐 D 盘 Ai-WXMiniVue 登录页);深色沿用 surface.card
-  const inputBg = colorScheme === 'dark' ? tk.surface.card : '#f5f5f5'
-  const inputBorder = colorScheme === 'dark' ? tk.border.medium : '#eaeaea'
+  // uniapp 输入框风格:浅色 surface.muted 底 + border.light 边框(对齐 D 盘 Ai-WXMiniVue 登录页);深色沿用 surface.card
+  const inputBg = colorScheme === 'dark' ? tk.surface.card : tk.surface.muted
+  const inputBorder = colorScheme === 'dark' ? tk.border.medium : tk.border.light
   return StyleSheet.create({
     page: {
       flex: 1,
