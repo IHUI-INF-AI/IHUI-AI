@@ -199,6 +199,13 @@ const checks = [
     mode: 'blocking',
   },
   {
+    id: '11h',
+    label: '🚫 UI 图标位 emoji 违规(icon 字段/渲染位)',
+    script: 'check-no-emoji-icons.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  {
     id: '11e',
     label: '📏 单文件行数上限 (仅拦新增)',
     script: 'check-file-size.mjs',

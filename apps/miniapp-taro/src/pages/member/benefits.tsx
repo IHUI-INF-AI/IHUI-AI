@@ -329,7 +329,16 @@ export default function BenefitsPage() {
               key={b.id}
               className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
             >
-              <Text className="block text-[48rpx]">{b.icon || '★'}</Text>
+              {b.icon ? (
+                <Text className="block text-[48rpx]">{b.icon}</Text>
+              ) : (
+                <Image
+                  src="/static/images/icons/star-fill.svg"
+                  mode="aspectFit"
+                  className="mx-auto"
+                  style={{ width: '48rpx', height: '48rpx' }}
+                />
+              )}
               {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}
               {b.icon && isImagePath(b.icon) ? (
                 <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />

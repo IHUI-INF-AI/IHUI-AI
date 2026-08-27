@@ -430,9 +430,17 @@ export default function AgentPage() {
                       </Text>
                     )}
                     {rating > 0 && (
-                      <Text className="text-[22rpx] text-amber-500 mr-2">
-                        ★ {rating.toFixed(1)}
-                      </Text>
+                      <View className="flex items-center mr-2">
+                        <Image
+                          src="/static/images/icons/star-fill.svg"
+                          mode="aspectFit"
+                          className="mr-[6rpx]"
+                          style={{ width: '22rpx', height: '22rpx' }}
+                        />
+                        <Text className="text-[22rpx] text-amber-500">
+                          {rating.toFixed(1)}
+                        </Text>
+                      </View>
                     )}
                     {agent.uses !== undefined && (
                       <Text className="text-[22rpx] text-muted-foreground">

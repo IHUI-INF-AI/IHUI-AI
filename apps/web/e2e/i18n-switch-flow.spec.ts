@@ -1,35 +1,19 @@
 import { test, expect } from '@playwright/test'
-import { attachErrorGuards, I18N_KEYWORDS, waitForAnyText } from '../tests/e2e/fixtures/helpers'
+import {
+  attachErrorGuards,
+  filterRealErrors,
+  I18N_KEYWORDS,
+  waitForAnyText,
+} from '../tests/e2e/fixtures/helpers'
 
 /**
- * 本地过滤 helper(覆盖 tests/e2e/fixtures/helpers.ts 的 filterRealErrors):
- * - helpers.ts 的 WHITELISTED_5XX_PATH 正则要求路径后紧跟 `/`,而 `/api/user/llm-configs`
- *   路径本身含 `/`、后面无 `/`,会漏过 5xx 白名单,误报 e2e 失败。
- * - 这里把路径后的 `/` 改成可选 `(?:/.*)?`,涵盖 `/api/llm/models 500`、
- *   `/api/user/llm-configs 500`、`/api/news?... 500` 三种形态。
+ * 2026-08-28 根因修复:删除本地 filterServerErrorsLocal 覆盖。
+ * 原因:本地覆盖与 helpers.ts 的 filterRealErrors 存在同样的 regex 缺陷 —
+ * 白名单段必须紧跟 /api/,导致 /api/admin/news/status 500(ai-service 8803
+ * 未起时经 next.config.ts rewrite 代理返回 500)永远漏过白名单 → 4 个
+ * 语言切换用例误报失败。已在 helpers.ts 统一根治(允许中间路径段 +
+ * 兼容 /api/news?x 500 无尾路径形态),本 spec 直接复用共享实现。
  */
-const WHITELISTED_5XX_PATH = new RegExp(
-  [
-    'ai',
-    'llm',
-    'agents',
-    'tools',
-    'mcp',
-    'a2a',
-    'workflow',
-    'llm-tools',
-    'news',
-    'analytics',
-    'user/llm-configs',
-  ].join('|'),
-)
-const filterServerErrorsLocal = (errors: string[]): string[] =>
-  errors.filter(
-    (e) =>
-      !e.includes('favicon') &&
-      !new RegExp(`/api/(${WHITELISTED_5XX_PATH.source})(?:/.*)?\\b(5\\d{2})\\b`).test(e) &&
-      !/(\/sso\/(login|register)|\/login|\/register).*\b500\b/.test(e),
-  )
 
 /**
  * 8 端关键路径 — 5 语言切换 (zh-CN / en / ja / ko / zh-TW)
@@ -80,19 +64,31 @@ async function switchLocale(page: import('@playwright/test').Page, locale: Local
       // localStorage 不可用时忽略
     }
   }, locale)
-  // router.refresh 触发服务端重读 cookie
-  await page.goto('/', { waitUntil: 'domcontentloaded' })
-  await page.waitForTimeout(500)
+  // 2026-08-28 根因修复(并发负载 flaky):
+  // 切换链路是 goto → SSR(zh-CN,见 src/i18n/request.ts 硬编码)→ 客户端
+  // zustand persist rehydrate → I18nProvider 重渲染(目标语言)。
+  // 高并发(多 worker)下新文档就绪 + rehydrate + 重渲染可能超过调用方 8s
+  // 轮询预算,旧语言文档仍滞留 body → 假报"语言未切换"(实测 en 用例失败
+  // 时页面仍为 zh-TW)。根治:switchLocale 内 goto 后轮询目标语言关键字,
+  // 未命中则重新 goto(有界 4 次 × 12s),覆盖 dev server 编译慢 /
+  // 客户端重渲染抖动 / 旧文档滞留三类场景;返回是否命中供调用方断言。
+  const keywords = I18N_KEYWORDS[locale] ?? []
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
+    const hit = await waitForAnyText(page, keywords, 12000)
+    if (hit) return true
+  }
+  return false
 }
 
 test.describe('8 端关键路径 · 5 语言切换', () => {
   test('默认加载 zh-CN,中文关键字命中', async ({ page }) => {
     const { serverErrors } = attachErrorGuards(page)
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('domcontentloaded')
     const hit = await waitForAnyText(page, I18N_KEYWORDS['zh-CN'] ?? [], 8000)
     expect(hit).toBeTruthy()
-    expect(filterServerErrorsLocal(serverErrors)).toHaveLength(0)
+    expect(filterRealErrors(serverErrors)).toHaveLength(0)
   })
 
   for (const locale of LOCALES) {
@@ -101,10 +97,8 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
       // 先访问一次以建立 context
       await page.goto('/')
       await page.waitForLoadState('domcontentloaded')
-      // 切换
-      await switchLocale(page, locale)
-      // 等待目标语言关键字出现
-      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale] ?? [], 10000)
+      // 切换(switchLocale 内部有界重试,已保证目标语言关键字命中后才返回)
+      const hit = await switchLocale(page, locale)
       // 5 语言是项目硬约束,必须命中;若失败先核对 messages/<locale>.json
       expect(
         hit,
@@ -121,7 +115,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
       expect(persisted).toBe(locale)
       // 无 5xx / 无控制台异常
       // 应用与 默认加载 用同一份 filterRealErrors(白名单 /api/llm/* 5xx,避免 ai-service 5xx 误杀)
-      expect(filterServerErrorsLocal(serverErrors)).toHaveLength(0)
+      expect(filterRealErrors(serverErrors)).toHaveLength(0)
       const real = consoleErrors.filter(
         (e) => !e.includes('favicon') && !e.includes('React DevTools'),
       )
@@ -131,11 +125,10 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
 
   test('5 语言连续切换:每次都生效,无累积状态泄漏', async ({ page }) => {
     const { consoleErrors } = attachErrorGuards(page)
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('domcontentloaded')
     for (const locale of LOCALES) {
-      await switchLocale(page, locale)
-      const hit = await waitForAnyText(page, I18N_KEYWORDS[locale] ?? [], 8000)
+      const hit = await switchLocale(page, locale)
       expect(hit, `连续切换中 ${locale} 未生效`).toBeTruthy()
     }
     const real = consoleErrors.filter(
@@ -146,15 +139,15 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
 
   test('切换后访问登录页:目标语言关键字在登录页也命中', async ({ page }) => {
     const { consoleErrors, serverErrors } = attachErrorGuards(page)
-    await page.goto('/')
+    await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('domcontentloaded')
     await switchLocale(page, 'en')
-    await page.goto('/login')
+    await page.goto('/login', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('domcontentloaded')
     // 英文关键字应出现在 /login 页面(可能重定向到 /sso/login)
     const hit = await waitForAnyText(page, I18N_KEYWORDS.en ?? [], 8000)
     expect(hit).toBeTruthy()
-    expect(filterServerErrorsLocal(serverErrors)).toHaveLength(0)
+    expect(filterRealErrors(serverErrors)).toHaveLength(0)
     const real = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

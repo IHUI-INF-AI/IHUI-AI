@@ -159,7 +159,11 @@ export default function ImagePage() {
         </View>
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
-          <Text className="text-[120rpx]">🎨</Text>
+          <Image
+            style={{ width: '120rpx', height: '120rpx' }}
+            src="/static/images/icons/palette.svg"
+            mode="aspectFit"
+          />
           <Text className="text-[26rpx] text-muted-foreground mt-[24rpx]">
             {t('ai.image.emptyHint')}
           </Text>
