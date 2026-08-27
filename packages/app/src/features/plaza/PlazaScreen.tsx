@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import {
   FlatList,
   Image,
@@ -363,7 +363,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -397,7 +397,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
-      color: '#fff',
+      color: tk.surface.light,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
@@ -440,7 +440,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     retryText: {
       fontSize: 16,
-      color: '#fff',
+      color: tk.text.primary,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',
@@ -459,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
     emptyTextStrong: {
       fontSize: 20,
       fontWeight: '700',
-      color: '#847CFF',
+      color: tk.purple.DEFAULT,
       textAlign: 'center',
     } as TextStyle,
     emptyBtn: {
@@ -471,7 +471,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: '#fff',
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     card: {
@@ -567,7 +567,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     chatBtnText: {
       fontSize: 11,
-      color: '#fff',
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     statusDone: {
@@ -593,7 +593,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderRadius: 25,
       backgroundColor: tk.brand.DEFAULT,
-      color: '#fff',
+      color: tk.text.primary,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,
