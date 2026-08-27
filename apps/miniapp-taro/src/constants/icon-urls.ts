@@ -15,11 +15,17 @@
  *   - 待下载清单见 .trae-cn/tmp/REMOTE_ICONS_TODO.md(186 个 URL)
  */
 
-/** bspapp CDN base URL(uniCloud) */
-export const BSPAPP_BASE = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com' as const
+/**
+ * bspapp CDN base URL(uniCloud)——2026-08-27 起已失效(DNS 不再解析),改指自建 CDN
+ */
+export const BSPAPP_BASE = 'https://aizhs.top' as const
 
-/** aizhs 自建图库 base URL */
-export const AIZHS_BASE = 'https://file.aizhs.top' as const
+/**
+ * aizhs 自建图库 base URL——2026-08-27 起由 file.aizhs.top(公网被指向第三方
+ * "写字楼系统")切到 aizhs.top:web 端 next.config.ts 对 184 个图标路径做精确
+ * rewrite 回源本机 :80 的 cdn-server.js(Cloudflare Flexible 零证书)。
+ */
+export const AIZHS_BASE = 'https://aizhs.top' as const
 
 /** 拼接 bspapp URL */
 export function bspappUrl(path: string): string {
