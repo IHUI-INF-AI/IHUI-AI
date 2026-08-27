@@ -236,6 +236,8 @@ export interface V1ModelsResponse {
     object: 'model'
     created: number
     owned_by: string
+    /** 平台模型是否可用(有额度且 provider 健康)。BYOK/实时/降级路径恒为 true。OpenAI 客户端可忽略。 */
+    available?: boolean
   }>
 }
 
