@@ -85,7 +85,7 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
   return (
     <div className="overflow-hidden rounded-lg border bg-zinc-950">
       {(filename || language) && (
-        <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2">
+        <div className="flex items-center justify-between border-b border-zinc-800 px-3 py-2 dark:border-border">
           {filename && <span className="text-xs font-medium text-zinc-300">{filename}</span>}
           {language && (
             <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-xs text-zinc-400">
@@ -95,8 +95,8 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
         </div>
       )}
       <div className="grid grid-cols-2 text-xs">
-        <div className="border-zinc-800">
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">
+        <div className="border-zinc-800 dark:border-border">
+          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500 dark:border-border dark:bg-muted">
             旧版本
           </div>
           <div className="font-mono">
@@ -119,7 +119,7 @@ export function DiffPreview({ oldContent, newContent, language, filename }: Diff
           </div>
         </div>
         <div>
-          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500">
+          <div className="border-b border-zinc-800 bg-zinc-900 px-3 py-1 text-center text-zinc-500 dark:border-border dark:bg-muted">
             新版本
           </div>
           <div className="font-mono">

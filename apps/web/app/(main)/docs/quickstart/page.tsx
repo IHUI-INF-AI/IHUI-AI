@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BookOpen, Rocket, Container, Globe, Monitor, Smartphone, Puzzle, Keyboard } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -246,7 +247,7 @@ export default function QuickstartPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>📘</span>
+          <BookOpen className="h-3.5 w-3.5" />
           快速开始
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -259,15 +260,17 @@ export default function QuickstartPage() {
         <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-sm">
           <a
             href="#step-1"
-            className="rounded-lg border bg-card px-4 py-2 hover:bg-accent"
+            className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-4 py-2 hover:bg-accent"
           >
-            🚀 在线版 5 步开始
+            <Rocket className="h-4 w-4" />
+            在线版 5 步开始
           </a>
           <a
             href="#self-host"
-            className="rounded-lg border bg-card px-4 py-2 hover:bg-accent"
+            className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-4 py-2 hover:bg-accent"
           >
-            🐳 自托管 5 分钟部署
+            <Container className="h-4 w-4" />
+            自托管 5 分钟部署
           </a>
         </div>
       </header>
@@ -391,12 +394,12 @@ export default function QuickstartPage() {
                   在 Agent 编排页面点击「发布」,选择目标客户端:
                 </p>
                 <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
-                  <li>🌐 <strong>Web</strong> — Next.js 16,主入口</li>
-                  <li>🖥️ <strong>桌面</strong> — Tauri 2,原生应用,离线支持</li>
-                  <li>📱 <strong>小程序</strong> — Taro 4,支持微信/支付宝/抖音/百度</li>
-                  <li>🧩 <strong>浏览器插件</strong> — WXT MV3,工具栏弹窗</li>
-                  <li>📲 <strong>移动端</strong> — React Native,iOS + Android</li>
-                  <li>⌨️ <strong>CLI</strong> — Node.js/Bun,脚本和 CI/CD</li>
+                  <li><Globe className="mr-1.5 inline h-4 w-4" /><strong>Web</strong> — Next.js 16,主入口</li>
+                  <li><Monitor className="mr-1.5 inline h-4 w-4" /><strong>桌面</strong> — Tauri 2,原生应用,离线支持</li>
+                  <li><Smartphone className="mr-1.5 inline h-4 w-4" /><strong>小程序</strong> — Taro 4,支持微信/支付宝/抖音/百度</li>
+                  <li><Puzzle className="mr-1.5 inline h-4 w-4" /><strong>浏览器插件</strong> — WXT MV3,工具栏弹窗</li>
+                  <li><Smartphone className="mr-1.5 inline h-4 w-4" /><strong>移动端</strong> — React Native,iOS + Android</li>
+                  <li><Keyboard className="mr-1.5 inline h-4 w-4" /><strong>CLI</strong> — Node.js/Bun,脚本和 CI/CD</li>
                 </ul>
                 <p className="text-xs text-muted-foreground">
                   💡 一套代码,六端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。

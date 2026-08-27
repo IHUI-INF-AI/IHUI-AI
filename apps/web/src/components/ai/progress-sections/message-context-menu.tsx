@@ -203,7 +203,7 @@ export const MessageContextMenu = React.memo(function MessageContextMenu({
       aria-label="消息操作菜单"
       data-testid={testId ?? 'message-context-menu'}
       className={cn(
-        'fixed z-[1100] min-w-[180px] max-w-[260px] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
+        'fixed z-popover min-w-[180px] max-w-[260px] rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',
         'animate-in fade-in-0 zoom-in-95',
         className,
       )}

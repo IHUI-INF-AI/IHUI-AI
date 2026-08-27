@@ -217,7 +217,25 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
           AISidePanel 不再用 fixed 定位,改为 flex 子元素自然占空间,彻底消除 padding-left 压缩问题。 */}
       <div className="flex h-screen overflow-hidden">
         {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
-        <React.Suspense fallback={null}>
+        <React.Suspense
+          // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
+          // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
+          // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
+          // 修复:fallback 渲染等宽占位 aside,预留与真实 Sidebar 相同的空间:
+          // - width 引用 layout.tsx inline script 预设的 --sidebar-width(160-180,fallback 160;
+          //   折叠持久化时 inline script 预设 60px),与 sidebar.tsx 真实 aside 的宽度策略一致
+          // - data-viewport-collapsed="true" 复用 globals.css <1024px 强制 60px 规则,
+          //   移动端占位与真实 sidebar 行为字节级一致
+          // - bg-background 避免占位期间透出底色闪烁
+          fallback={
+            <aside
+              aria-hidden
+              data-viewport-collapsed="true"
+              className="relative h-screen shrink-0 bg-background"
+              style={{ width: 'var(--sidebar-width, 160px)' }}
+            />
+          }
+        >
           <Sidebar
             id={sidebarId}
             collapsed={collapsed}
@@ -241,7 +259,24 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             - flex 布局保证 AISidePanel 与 work-area-portal-root 永不重叠,TagsView 永不被压缩
             - --ai-panel-occupy CSS 变量仍同步到 :root(供 WebWorkPanel 计算最大可用宽度)
           */}
-          <React.Suspense fallback={null}>
+          <React.Suspense
+            // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
+            // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
+            // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
+            // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
+            //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
+            // - hidden + min-[768px]:block 复制真实容器的响应式显隐(<768px 走浮窗不占 flex 空间)
+            // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
+            // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
+            //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
+            fallback={
+              <div
+                aria-hidden
+                className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
+                style={{ width: 'var(--ai-panel-width, 380px)' }}
+              />
+            }
+          >
             <AISidePanel />
           </React.Suspense>
           {/*

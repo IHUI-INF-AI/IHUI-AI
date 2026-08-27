@@ -33,6 +33,8 @@
  * 跳过方法(紧急):HUSKY_SKIP_ROUNDED_OVERFLOW=1 git commit ...
  *
  * 注:本脚本采用行级启发式 + className 跨行合并 + 缩进判断父子关系,准确度 ~90%。
+ *     cn()/clsx() 包装的 className 已解析其中的字符串字面量(2026-08-27 修复
+ *     UserMembershipBenefits 误报,并由此揭示 RequestBuilder/ResponseViewer 两处真实溢出)。
  *     warn-only 起步(不阻塞 commit),1 周后(2026-08-13)评估升级 blocking。
  */
 import { execSync } from 'node:child_process'
@@ -144,6 +146,31 @@ function extractJsxElements(src) {
 }
 
 /**
+ * 解析模板字符串 className(`` `flex ${x}` ``):去掉 ${...} 插值后保留字面文本。
+ */
+function resolveTemplateClassName(src) {
+  return src.replace(/\$\{[^}]*\}/g, ' ')
+}
+
+/**
+ * 解析表达式 className(如 cn('a', cond && 'b') / clsx(...)):
+ * 提取其中所有单/双引号字符串字面量并拼接,使 cn('overflow-hidden ...') 等包装写法
+ * 能被圆角/溢出判定正则正确识别(2026-08-27 修复 UserMembershipBenefits 误报)。
+ * 注意:仅提取字面量,不解析条件分支——目的是"父容器有 overflow-hidden/rounded 时正确豁免",
+ * 不影响非 cn() 的普通 className 判定。
+ */
+function resolveExprClassName(src) {
+  const noInterp = src.replace(/\$\{[^}]*\}/g, ' ')
+  const re = /'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g
+  const out = []
+  let m
+  while ((m = re.exec(noInterp))) {
+    out.push(m[1] ?? m[2] ?? '')
+  }
+  return out.join(' ')
+}
+
+/**
  * 从指定行开始提取 className 的值。
  * 支持:className="..." / className='...' / className={cn(...)} / className={`...`}
  * 返回 { value, endLine } 或 null。
@@ -156,8 +183,13 @@ function extractClassName(lines, startIdx) {
     // 找 className=
     const clsMatch = combined.match(/className\s*=\s*("([^"]*)"|'([^']*)'|`([^`]*)`|\{([^}]+)\})/)
     if (clsMatch) {
-      // 提取引号/大括号内的内容
-      const value = clsMatch[2] ?? clsMatch[3] ?? clsMatch[4] ?? clsMatch[5] ?? ''
+      // 提取引号/大括号内的内容;cn()/clsx() 表达式与模板字符串需解析出字面量 className
+      const value =
+        clsMatch[4] !== null
+          ? resolveTemplateClassName(clsMatch[4])
+          : clsMatch[5] !== null
+            ? resolveExprClassName(clsMatch[5])
+            : (clsMatch[2] ?? clsMatch[3] ?? '')
       // 计算 endLine:找 className= 在 combined 中的位置,数换行
       const clsIdx = combined.indexOf('className')
       const beforeCls = combined.slice(0, clsIdx)

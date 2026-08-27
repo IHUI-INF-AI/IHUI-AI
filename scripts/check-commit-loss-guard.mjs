@@ -469,8 +469,15 @@ function main() {
     // 检查每个悬空 commit 是否有 lost-commit tag 备份
     // 注意:stash-like 悬空 commit 的 subject 包含原 commit hash(如 "index on main: 5ef36e59d ...")
     // 需从 subject 提取原 hash 与 lostTag 比对
+    // 2026-08-28 性能修复:原实现对每个 lost-commit tag 单独 execSync(git rev-list -1),
+    // 数千个 tag 时累积 5+ 分钟阻塞 pre-commit [30a]。改用上方 verifyAllTagReachability
+    // 已通过单次 git for-each-ref 批量算出的 hash(peeled || obj),零额外子进程。
+    const lostTagNames = new Set(lostTags)
     const backedUp = new Set(
-      lostTags.map((t) => run(`git rev-list -1 ${t}`, { allowFail: true })),
+      reachability
+        .filter((r) => lostTagNames.has(r.tag))
+        .map((r) => r.hash)
+        .filter(Boolean),
     )
     const unbacked = unreachable.filter((c) => {
       if (backedUp.has(c)) return false

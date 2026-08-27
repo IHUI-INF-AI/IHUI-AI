@@ -286,7 +286,7 @@ export function RichTextEditor({
   }, [mode, value])
 
   return (
-    <div className="rounded-md border border-input">
+    <div className="overflow-hidden rounded-md border border-input">
       {/* 工具栏 */}
       <div className="flex flex-wrap items-center gap-2 bg-muted/30 p-1.5">
         <div className="flex items-center gap-0.5">

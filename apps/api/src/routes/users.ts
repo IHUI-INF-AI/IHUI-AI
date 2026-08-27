@@ -39,6 +39,7 @@ const updateSchema = z.object({
 
 function publicUser(user: {
   id: string
+  username: string | null
   phone: string | null
   email: string | null
   nickname: string | null
@@ -52,6 +53,7 @@ function publicUser(user: {
 }) {
   return {
     id: user.id,
+    username: user.username ?? '',
     phone: user.phone ?? '',
     email: user.email ?? '',
     nickname: user.nickname ?? '',

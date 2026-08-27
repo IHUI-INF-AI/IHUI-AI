@@ -14,6 +14,7 @@ import {
   ArrowUp,
   ArrowDown,
   Gauge,
+  X,
 } from 'lucide-react'
 import { COMPANY_RELAYS, PERSONAL_RELAY_NOTE } from './api-relays'
 import { encodePrefill } from './vendor-platforms'
@@ -219,7 +220,7 @@ export function ApiRelaysSection() {
                   onClick={() => setQuery('')}
                   className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
                 >
-                  ✕
+                  <X className="h-3 w-3" />
                 </button>
               ) : null}
             </div>

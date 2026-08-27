@@ -149,7 +149,7 @@ export default function MyCommissionPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('commissionFlows')}</h2>
-        <div className="rounded-lg border">
+        <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
