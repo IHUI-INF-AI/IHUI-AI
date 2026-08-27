@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState } from '../../types'
+import { Eye, EyeOff } from 'lucide-react-native'
 
 /** API 设置共享屏 — props 注入式跨端组件 */
 export type { ApiSettingsConfig, ApiSettingsScreenProps, ApiSettingsTestState }
@@ -65,7 +66,11 @@ export function ApiSettingsScreen({
             onPress={onToggleShowToken}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
-            <Text style={styles.eyeText}>{showToken ? '🙈' : '👁'}</Text>
+            {showToken ? (
+              <EyeOff size={16} color={'#374151'} />
+            ) : (
+              <Eye size={16} color={'#374151'} />
+            )}
           </TouchableOpacity>
         </View>
 

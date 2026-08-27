@@ -23,7 +23,8 @@
     "@ihui/ui-react": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "lucide-react": "^1.28.0"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",

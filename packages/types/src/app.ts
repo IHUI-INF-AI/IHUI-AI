@@ -7,10 +7,17 @@
  * (i18n t 函数、导航、API 调用、Alert/Confirm 弹窗�?,
  * 共享组件只负责纯 UI 渲染,不直接依赖任何平�?API�? */
 
-import type { ReactNode } from 'react'
+import type { ComponentType, ReactNode } from 'react'
 
 /** i18n 翻译函数契约(兼容 next-intl / i18next / 自定�? */
 export type TFunction = (key: string, options?: Record<string, string | number>) => string
+
+/**
+ * 跨端图标组件契约。
+ * web 端传 lucide-react 组件、RN 端传 lucide-react-native 组件,二者 props(size/color)兼容。
+ * 共享组件渲染时若为字符串则按 emoji/字符回退(<Text>),否则渲染该组件。
+ */
+export type AppIcon = ComponentType<{ size?: number; color?: string }>
 
 /** 用户信息(平台注入,字段对齐 mobile-rn useAuth + web useUser) */
 export interface SharedUser {
@@ -35,7 +42,7 @@ export interface SharedUserStatistics {
 export interface SharedMenuItem {
   key: string
   label: string
-  icon?: string
+  icon?: AppIcon | string
 }
 
 /** 菜单分组(个人页多 section 列表) */
@@ -3953,7 +3960,7 @@ export interface HomeProgressItem {
 export interface HomeMenuItem {
   key: string
   labelKey: string
-  icon: string
+  icon: AppIcon | string
 }
 
 /** HomeScreen props(注入�?wrapper 保留 useAuth/useNotificationStore/API 调用) */
@@ -4456,7 +4463,7 @@ export interface UsageRulesScreenProps {
 }
 
 export interface LearnDevelopEntry {
-  icon: string
+  icon: AppIcon | string
   title: string
   desc: string
   onPress: () => void
@@ -4503,7 +4510,7 @@ export interface PlazaCoverScreenProps {
 }
 
 export interface SubPackageEntry {
-  icon: string
+  icon: AppIcon | string
   title: string
   desc: string
   onPress: () => void
@@ -4791,7 +4798,7 @@ export interface KnowledgePlanetScreenProps {
 export interface LearnCategory {
   id: string
   name: string
-  icon: string
+  icon: AppIcon | string
 }
 
 /** 学习中心 Screen Props */

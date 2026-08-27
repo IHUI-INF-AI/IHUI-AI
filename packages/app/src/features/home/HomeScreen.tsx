@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Bell } from 'lucide-react-native'
 import type {
   HomeRecommendItem,
   HomeLiveItem,
@@ -93,7 +94,7 @@ export function HomeScreen({
             style={styles.bellBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.bellIcon}>🔔</Text>
+            <Bell size={18} color="#374151" />
             {unreadCount > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -246,7 +247,11 @@ export function HomeScreen({
               style={styles.menuItem}
             >
               <View style={styles.menuRow}>
-                <Text style={styles.menuIcon}>{m.icon}</Text>
+                {typeof m.icon === 'string' ? (
+                  <Text style={styles.menuIcon}>{m.icon}</Text>
+                ) : m.icon ? (
+                  <m.icon size={18} color={tk.text.primary} />
+                ) : null}
                 <Text style={styles.menuLabel}>{t(m.labelKey)}</Text>
                 <Text style={styles.menuArrow}>›</Text>
               </View>
@@ -282,7 +287,6 @@ function createStyles(tk: AppThemeTokens) {
     dotOn: { backgroundColor: tk.success.DEFAULT },
     dotOff: { backgroundColor: tk.text.tertiary },
     bellBtn: { position: 'relative', padding: 4 },
-    bellIcon: { fontSize: 18 },
     badge: {
       position: 'absolute',
       right: -4,

@@ -2,11 +2,12 @@
  * QuickActionButton — popup 内的快捷操作按钮(打开侧边栏/收藏/通知/打赏/复制 URL)。
  * 纯展示组件,无业务逻辑,通过 onClick 回调触发。
  */
-import { type ReactNode } from 'react'
+import { createElement, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 
 export interface QuickActionButtonProps {
   label: string
-  icon: ReactNode
+  icon: LucideIcon | ReactNode
   onClick: () => void
   variant?: 'default' | 'primary' | 'danger'
   disabled?: boolean
@@ -42,7 +43,9 @@ export function QuickActionButton({
       data-ihui-action={label}
     >
       <span className="text-base leading-none shrink-0" aria-hidden>
-        {icon}
+        {typeof icon === 'function'
+          ? createElement(icon as LucideIcon, { size: 16, className: 'shrink-0' })
+          : icon}
       </span>
       <span className="flex-1 text-xs truncate">{label}</span>
       {badge !== undefined && badge !== null && badge !== '' ? (

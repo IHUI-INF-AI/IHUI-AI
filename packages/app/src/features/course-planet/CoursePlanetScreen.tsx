@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import { BookOpen } from 'lucide-react-native'
 
 export interface CoursePlanetScreenProps {
   t: TFunction
@@ -59,7 +60,7 @@ export function CoursePlanetScreen({
         {course.coverImage ? (
           <View style={styles.courseCoverPlaceholder} />
         ) : (
-          <Text style={styles.courseCoverEmoji}>📚</Text>
+          <BookOpen size={32} color={'#374151'} />
         )}
       </View>
       <View style={styles.courseInfo}>

@@ -1,4 +1,5 @@
 import { View, Text, Pressable, ScrollView } from 'react-native'
+import { Check, X } from 'lucide-react-native'
 import { useAgentRuntime } from '@ihui/shared'
 import { useI18n } from '../i18n'
 
@@ -31,8 +32,8 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
           </Text>
         ) : null}
         {status === 'running' ? <Loading size="sm" className="ml-2" /> : null}
-        {status === 'completed' ? <Text className="ml-2 text-xs text-emerald-600">✓</Text> : null}
-        {status === 'failed' ? <Text className="ml-2 text-xs text-red-500">✗</Text> : null}
+        {status === 'completed' ? <Check size={12} color={'#059669'} /> : null}
+        {status === 'failed' ? <X size={12} color={'#ef4444'} /> : null}
         <View className="flex-1" />
         <Pressable
           onPress={handleClear}
