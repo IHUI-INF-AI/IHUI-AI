@@ -1,6 +1,7 @@
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import type { MenuItem } from '@ihui/types'
+import { BSPAPP_BASE } from '@/constants/icon-urls'
 
 // 共享类型 MenuItem 已下沉到 packages/types,两端复用。
 // 统一为必选版(id/icon 必选),本组件原 `item.id ?? index` 和 `item.icon ?` 仍合法。
@@ -14,7 +15,8 @@ export interface MenuProps {
 }
 
 // 与原项目 Menu/index.vue 一致(bspapp CDN URL,本地 assets/remote 无 tabbar/coursePlanet/ 副本)
-const BSPAPP_BASE = 'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com'
+// 2026-08-27:bspapp.com 已失效,统一走 icon-urls 的 BSPAPP_BASE(现指向 https://aizhs.top,
+// 由 web 端 184 条精确 rewrite 回源本机 cdn-server 出图)
 
 const DEFAULT_ITEMS: MenuItem[] = [
   { id: 1, name: '图片', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/8.png` },

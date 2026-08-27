@@ -120,6 +120,9 @@ Thumbs.db
 storage/
 uploads/
 local_uploads/
+# 例外:apps/web/app/uploads/ 是 Next.js 路由目录(/uploads route handler,非上传数据目录)
+!apps/web/app/uploads/
+!apps/web/app/uploads/**
 
 # ============================================================================
 # 依赖
