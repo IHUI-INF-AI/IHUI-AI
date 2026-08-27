@@ -30,6 +30,16 @@ async function waitForChatReady(page: Page): Promise<boolean> {
   await page.goto(CHAT_URL)
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   if (!page.url().includes('/chat')) return false
+  // 2026-08-27 修复:受保护页未登录不再跳转,而是原地弹 LoginDialog 遮罩(登录弹窗懒触发策略)。
+  // 遮罩会拦截 trigger 点击导致 30s 超时,按软跳过设计返回 false。等 2s 覆盖 401 异步触发。
+  await page.waitForTimeout(2000)
+  if (
+    await page
+      .getByTestId('login-dialog')
+      .isVisible()
+      .catch(() => false)
+  )
+    return false
   const trigger = page.locator(TRIGGER_TESTID)
   if (!(await trigger.isVisible({ timeout: 8000 }).catch(() => false))) return false
   return true

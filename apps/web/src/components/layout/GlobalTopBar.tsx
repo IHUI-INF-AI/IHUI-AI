@@ -426,49 +426,49 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('n')
             }}
-            className="fixed top-0 left-8 right-8 h-1 z-[9999] cursor-n-resize"
+            className="fixed top-0 left-8 right-8 h-1 z-notification cursor-n-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('s')
             }}
-            className="fixed bottom-0 left-8 right-8 h-1 z-[9999] cursor-s-resize"
+            className="fixed bottom-0 left-8 right-8 h-1 z-notification cursor-s-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('w')
             }}
-            className="fixed left-0 top-8 bottom-8 w-1 z-[9999] cursor-w-resize"
+            className="fixed left-0 top-8 bottom-8 w-1 z-notification cursor-w-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('e')
             }}
-            className="fixed right-0 top-8 bottom-8 w-1 z-[9999] cursor-e-resize"
+            className="fixed right-0 top-8 bottom-8 w-1 z-notification cursor-e-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('nw')
             }}
-            className="fixed top-0 left-0 w-2 h-2 z-[10000] cursor-nw-resize"
+            className="fixed top-0 left-0 w-2 h-2 z-loading cursor-nw-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('ne')
             }}
-            className="fixed top-0 right-0 w-2 h-2 z-[10000] cursor-ne-resize"
+            className="fixed top-0 right-0 w-2 h-2 z-loading cursor-ne-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('sw')
             }}
-            className="fixed bottom-0 left-0 w-2 h-2 z-[10000] cursor-sw-resize"
+            className="fixed bottom-0 left-0 w-2 h-2 z-loading cursor-sw-resize"
           />
           <div
             onMouseDown={(e) => {
               if (e.button === 0) void startResize('se')
             }}
-            className="fixed bottom-0 right-0 w-2 h-2 z-[10000] cursor-se-resize"
+            className="fixed bottom-0 right-0 w-2 h-2 z-loading cursor-se-resize"
           />
         </>
       )}
@@ -674,14 +674,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           </React.Suspense>
 
           {/* 窗口控制按钮(Min/Max/Close),仅桌面端 isDesktop
-            z-[10001]:高于 8 方向 resize 区域(z-9999/10000)
+            z-max:高于 8 方向 resize 区域(z-9999/10000)
             2026-07-30 深度修复"双重高度设定/冲突设定"(用户反馈):之前容器 h-7 (28px) 跟
             顶栏 h-9 (36px) 矮 8px,导致桌面端窗口控制按钮区域"塌陷",跟右侧 Plus 按钮
             视觉参差。改 h-full 后容器跟顶栏 36px 严格一致,内部 WindowControlButton 同步
             h-full 撑满容器,消除容器+按钮的"双重高度"残留风险。 */}
           {isDesktop && (
             <div
-              className="relative z-[10001] flex h-full shrink-0 items-center gap-0.5 rounded-md"
+              className="relative z-max flex h-full shrink-0 items-center gap-0.5 rounded-md"
               data-window-controls
             >
               <WindowControlButton
