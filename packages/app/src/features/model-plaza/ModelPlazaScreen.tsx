@@ -403,7 +403,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 6,
       paddingVertical: 3,
       borderRadius: 3,
-      backgroundColor: '#F0F0F0',
+      backgroundColor: tk.surface.muted,
     },
     cardTagText: { fontSize: 12, color: tk.text.secondary },
     payMode: { marginLeft: 'auto', fontSize: 12, color: tk.text.tertiary },
