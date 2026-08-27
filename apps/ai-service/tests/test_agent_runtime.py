@@ -50,10 +50,23 @@ def _clear_sessions():
 
 
 def _make_app():
-    """构建挂载 agent_runtime router 的最小 FastAPI app。"""
+    """构建挂载 agent_runtime router 的最小 FastAPI app。
+
+    2026-08-22 修复:生产代码(2026-08-06 P1)要求 request.state.user_id(端点一律
+    _get_current_user 校验 JWT 身份,防 IDOR)。测试 app 未挂 JWT 中间件 → 之前 16 个
+    端点测试 401。本中间件模拟 JWT 注入(与 app/core/jwt_auth.py 行为一致),
+    所有请求以 user_id=u1 / role_id=1 通过认证。
+    """
     from fastapi import FastAPI
 
     app = FastAPI()
+
+    @app.middleware("http")
+    async def _fake_jwt(request, call_next):
+        request.state.user_id = "u1"
+        request.state.role_id = 1
+        return await call_next(request)
+
     app.include_router(agent_runtime.router)
     return app
 
@@ -139,7 +152,7 @@ def test_check_permission_unknown_mode_falls_back():
 
 def test_get_or_create_session_new():
     """无 sessionId → 新建 session 并写入 _sessions。"""
-    s = _get_or_create_session(None, "bot1")
+    s = _get_or_create_session(None, "bot1", "u1")
     assert s.id in _sessions
     assert s.botId == "bot1"
     assert s.status == "running"
@@ -147,10 +160,10 @@ def test_get_or_create_session_new():
 
 def test_get_or_create_session_existing_updates_last_access():
     """已有 sessionId → 命中内存,刷新 last_access。"""
-    s1 = _get_or_create_session("fixed-id", "bot1")
+    s1 = _get_or_create_session("fixed-id", "bot1", "u1")
     old_access = s1.last_access
     time.sleep(0.01)
-    s2 = _get_or_create_session("fixed-id", "bot1")
+    s2 = _get_or_create_session("fixed-id", "bot1", "u1")
     assert s2.id == s1.id
     assert s2.last_access > old_access
     assert len(_sessions) == 1
@@ -159,7 +172,7 @@ def test_get_or_create_session_existing_updates_last_access():
 def test_get_or_create_session_with_empty_bot_id_string():
     """bot_id 必须是 str(SessionState.botId 不允许 None)。
     endpoint 层用 `req.botId or "default"` 兜底,_get_or_create_session 直接透传。"""
-    s = _get_or_create_session("sid", "default")
+    s = _get_or_create_session("sid", "default", "u1")
     assert s.botId == "default"
 
 
@@ -170,7 +183,7 @@ def test_find_session_miss_returns_none():
 
 def test_find_session_hit_updates_last_access():
     """_find_session 命中时刷新 last_access。"""
-    s = _get_or_create_session("hit-id", "b")
+    s = _get_or_create_session("hit-id", "b", "u1")
     old = s.last_access
     time.sleep(0.01)
     found = _find_session("hit-id")
@@ -185,7 +198,7 @@ def test_evict_if_needed_fifo_capacity():
     agent_runtime._MAX_SESSIONS = 3
     try:
         for i in range(5):
-            _get_or_create_session(f"s{i}", "b")
+            _get_or_create_session(f"s{i}", "b", "u1")
         _evict_if_needed()
         assert len(_sessions) <= 3
         # 最早两个应被淘汰
@@ -198,7 +211,7 @@ def test_evict_if_needed_fifo_capacity():
 
 def test_evict_if_needed_ttl_expiry():
     """超过 _SESSION_TTL_SEC 未访问的 session 被淘汰。"""
-    s = _get_or_create_session("old", "b")
+    s = _get_or_create_session("old", "b", "u1")
     # 手动把 last_access 改到 2 小时前
     s.last_access = time.time() - 7200
     _evict_if_needed()

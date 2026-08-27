@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -95,7 +95,7 @@ export function CourseDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <NavBar title={course?.title ?? '课程详情'} onBack={() => navigation.goBack()} />
+      <NavBar title={course?.title ?? t('course.title')} onBack={() => navigation.goBack()} />
       <SharedCourseDetailScreen
         t={t}
         item={detailItem}
@@ -107,6 +107,50 @@ export function CourseDetailScreen() {
         onPlayLesson={onPlay}
         onBack={() => navigation.goBack()}
       />
+      {/* 目录/评论入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂) */}
+      <View style={styles.entryRow}>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('CourseCatalog', { courseId: id })}
+          accessibilityRole="button"
+          accessibilityLabel="课程目录"
+        >
+          <Text style={styles.entryBtnText}>课程目录</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('CourseComment', { courseId: id })}
+          accessibilityRole="button"
+          accessibilityLabel="课程评论"
+        >
+          <Text style={styles.entryBtnText}>课程评论</Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  entryRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  entryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#5088fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryBtnPressed: {
+    opacity: 0.8,
+  },
+  entryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+})

@@ -5,7 +5,7 @@
 
 import type { ApiResult } from '@ihui/types'
 
-import { fetchApi } from '../client'
+import { fetchApi, fetchRaw } from '../client'
 
 /** 异步任务状态（对应后端 AsyncTask）。 */
 export interface AsyncTask {
@@ -140,6 +140,15 @@ export async function textToSpeech(text: string, voice = 'default'): Promise<Api
   return fetchApi<TtsResult>('/api/ai-audio/tts', {
     method: 'POST',
     body: JSON.stringify({ text, voice }),
+  })
+}
+
+/** 获取真实 TTS 音频二进制,供移动端直接播放。 */
+export async function fetchTextToSpeechAudio(text: string, voice = 'longxiaochun'): Promise<Blob> {
+  return fetchRaw('/api/ai/audio/speech', {
+    method: 'POST',
+    body: JSON.stringify({ text, voice_id: voice, response_format: 'mp3' }),
+    headers: { 'Content-Type': 'application/json' },
   })
 }
 

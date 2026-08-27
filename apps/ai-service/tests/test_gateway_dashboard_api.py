@@ -117,13 +117,20 @@ async def test_providers_health_has_cooldown_fields(client):
         assert isinstance(p["consecutive_failures"], int)
 
 
-async def test_providers_health_provider_fields(client):
-    """每个 provider 含 provider_code/display_name/status/category/default_models 字段。"""
+async def test_providers_health_provider_fields(client, monkeypatch):
+    """每个 provider 含 provider/display_name/status/category/default_models 字段。
+
+    2026-08-22 对齐:H3 Phase B 重构后条目键名为 "provider"(旧断言 "provider_code"
+    是遗留旧 schema);conftest 清空 llm_providers 后列表为空,本测试注入一个
+    空 key provider(not_configured 状态,不打真实网络)保证非空确定性。
+    """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"ollama": {}}))
     resp = await client.get("/api/llm/providers/health")
     data = resp.json()["data"]
     assert len(data["providers"]) > 0
     p = data["providers"][0]
-    assert "provider_code" in p
+    assert "provider" in p
     assert "display_name" in p
     assert "status" in p
     assert "category" in p
@@ -132,14 +139,22 @@ async def test_providers_health_provider_fields(client):
     assert "free_quota" in p
 
 
-async def test_providers_health_local_providers_exist(client):
-    """测试环境无 API key,local provider(ollama 等)status 应为 'local'。"""
+async def test_providers_health_local_providers_exist(client, monkeypatch):
+    """provider 无 api_key → status 为 not_configured(2026-08-22 对齐新 schema)。
+
+    旧版契约(local status + ollama 自动注入)已在 H3 Phase B 重构中移除
+    (新 schema 无 local 概念,summary.local 恒 0)。保留测试名以守护
+    "无 key provider 出现在健康列表"的等价语义,断言对齐 not_configured。
+    """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"ollama": {}}))
     resp = await client.get("/api/llm/providers/health")
     data = resp.json()["data"]
-    local_providers = [p for p in data["providers"] if p["status"] == "local"]
-    assert len(local_providers) > 0
-    local_codes = {p["provider_code"] for p in local_providers}
-    assert "ollama" in local_codes
+    unconfigured = [p for p in data["providers"] if p["status"] == "not_configured"]
+    assert len(unconfigured) > 0
+    codes = {p["provider"] for p in unconfigured}
+    assert "ollama" in codes
+    assert data["summary"]["not_configured"] >= 1
 
 
 # =============================================================================

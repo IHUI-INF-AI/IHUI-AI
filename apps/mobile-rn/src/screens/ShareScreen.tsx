@@ -14,7 +14,7 @@
  * - NavBar(标题「分享」+ 返回)
  * - 浅色优雅风,getRnTokens 支持暗色模式;圆角守门(无 rounded-full);无分割线(gap 间距)
  */
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +33,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import * as ImagePicker from 'expo-image-picker'
 import Clipboard from '@react-native-clipboard/clipboard'
+import { deleteConversation, listConversations, type ConversationDetail } from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { ShareScreen as SharedShareScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
@@ -40,6 +41,8 @@ import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
 import { VoiceInput } from '../components/VoiceInput'
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 对齐 Uniapp share/index.vue float-box:悬浮导航(赚米/客服/反馈),补齐 ShareScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -50,6 +53,7 @@ import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -62,7 +66,8 @@ interface FloatBoxState {
 const FLOAT_BOX_DEFAULT: FloatBoxState = { visible: false, type: 'info', message: '' }
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
-const FREE_RESOURCE_URL = 'https://ihui.feishu.cn/wiki/'
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 export function ShareScreen() {
   const { t } = useI18n()
@@ -78,20 +83,50 @@ export function ShareScreen() {
   const [imageUri, setImageUri] = useState('')
   const [floatBox, setFloatBox] = useState<FloatBoxState>(FLOAT_BOX_DEFAULT)
   const [voiceText, setVoiceText] = useState('')
+  /** 分享备注(对齐 Uniapp share remark 字段,用于分享内容附带说明) */
+  const [remark, setRemark] = useState('')
   // Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall,
-  // 由 NavBar 菜单按钮触发;历史对话列表待 API 接入,先传空数组占位,对齐 AgentScreen 做法)
+  // 由 NavBar 菜单按钮触发;历史对话懒加载,对齐 ProfileScreen/AgentScreen drawerConversations 模式)
   const [drawerVisible, setDrawerVisible] = useState(false)
-  const [drawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
+  const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
   // ── Drawer 回调(对齐 AgentScreen 接入惯例) ──
   const closeDrawer = (): void => setDrawerVisible(false)
+
+  /** 懒加载历史对话(对齐 ProfileScreen loadDrawerConversations,抽屉打开且未加载过才拉取) */
+  const loadDrawerConversations = useCallback(async () => {
+    if (!user) return
+    try {
+      const res = await listConversations({ page: 1, pageSize: 50 })
+      if (res.success) {
+        const list: DrawerConversationItem[] = res.data.conversations.map(mapConversationToDrawer)
+        setDrawerConversations(list)
+      } else {
+        setDrawerConversations([])
+      }
+    } catch {
+      setDrawerConversations([])
+    } finally {
+      setDrawerConversationsLoaded(true)
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (drawerVisible && !drawerConversationsLoaded && user) {
+      void loadDrawerConversations()
+    }
+  }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigation.navigate('Square')
+      navigation.navigate('Plaza')
       return
     }
-    if (tab === 'share') return // 已在分享页,仅收起抽屉
+    if (tab === 'share') {
+      navigation.navigate('News')
+      return
+    }
     navigation.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
@@ -109,22 +144,26 @@ export function ShareScreen() {
   }
   const handleDrawerCreateNewChat = (): void => {
     setDrawerVisible(false)
-    navigation.navigate('AiAssistant')
+    // 对齐 Uniapp addNewChat → ai_assistant 对话页
+    navigation.navigate('AiAssistantN8n', {})
   }
   const handleDrawerSelectConversation = (id: string): void => {
     setDrawerVisible(false)
     const conv = drawerConversations.find((c) => c.id === id)
-    navigation.navigate('AiAssistant', { agentId: id, title: conv?.title })
+    navigation.navigate('AiAssistantN8n', { agentId: id, title: conv?.title })
   }
-  const handleDrawerDeleteConversation = (): void => {
-    Alert.alert('删除对话', '确认删除此对话?', [
-      { text: '取消', style: 'cancel' },
-      {
-        text: '删除',
-        style: 'destructive',
-        onPress: () => setFloatBox({ visible: true, type: 'info', message: '删除功能待 API 接入' }),
-      },
-    ])
+  const handleDrawerDeleteConversation = (id: string): void => {
+    const snapshot = drawerConversations
+    setDrawerConversations((prev) => prev.filter((c) => c.id !== id))
+    void (async () => {
+      const res = await deleteConversation(id)
+      if (!res.success) {
+        setDrawerConversations(snapshot)
+        setFloatBox({ visible: true, type: 'warning', message: '删除失败,请重试' })
+      } else {
+        setFloatBox({ visible: true, type: 'success', message: '删除成功' })
+      }
+    })()
   }
   const handleDrawerOpenSettings = (): void => {
     setDrawerVisible(false)
@@ -153,6 +192,11 @@ export function ShareScreen() {
       case 'company':
         navigation.navigate('Distribution')
         break
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
         navigation.navigate('Settings')
         break
@@ -166,7 +210,7 @@ export function ShareScreen() {
   }
 
   const doShare = async (): Promise<void> => {
-    const lines = [voiceText, imageUri].filter(Boolean)
+    const lines = [remark, voiceText, imageUri].filter(Boolean)
     const message = lines.length > 0 ? lines.join('\n') : '来看看这个 AI 内容'
     setSharing(true)
     try {
@@ -238,16 +282,16 @@ export function ShareScreen() {
       <SharedShareScreen
         t={t}
         targetTitle=""
-        remark=""
+        remark={remark}
         result={null}
         loading={sharing}
         error=""
-        onRemarkChange={() => {}}
-        onCreate={() => {}}
+        onRemarkChange={setRemark}
+        onCreate={handleShare}
         onShare={handleShare}
         onBack={() => navigation.goBack()}
         colorScheme={resolvedTheme}
-        containerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}
+        containerStyle={{ paddingHorizontal: rpx(0), paddingTop: rpx(0), paddingBottom: rpx(0) }}
         renderHeader={() => (
           <NavBar
             title={t('share.title')}
@@ -343,6 +387,13 @@ export function ShareScreen() {
         onHide={handleFloatBoxHide}
       />
 
+      {/* GlobalFloatBox — 悬浮导航(对齐 Uniapp share/index.vue float-box:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => navigation.navigate('Promote')}
+        onConsult={() => navigation.navigate('CustomerService')}
+        onFeedback={() => navigation.navigate('Settings')}
+      />
+
       {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:
           主菜单导航/一人公司/领取资料/创建新对话/历史对话/设置/消息/回主页) */}
       <Drawer
@@ -365,6 +416,19 @@ export function ShareScreen() {
   )
 }
 
+/** ConversationDetail → DrawerConversationItem 映射(对齐 NewsScreen/ProfileScreen 写法) */
+function mapConversationToDrawer(item: ConversationDetail): DrawerConversationItem {
+  const tsStr = item.lastMessageAt ?? item.updatedAt ?? item.createdAt
+  const createdAt = tsStr ? new Date(tsStr).getTime() : Date.now()
+  const model = item.model ?? ''
+  return {
+    id: item.id,
+    title: item.title?.trim() || '未命名对话',
+    modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
+    createdAt,
+  }
+}
+
 function createStyles(tk: RnThemeTokens) {
   return StyleSheet.create({
     container: {
@@ -375,15 +439,15 @@ function createStyles(tk: RnThemeTokens) {
       flex: 1,
     } as ViewStyle,
     scrollContent: {
-      padding: 16,
-      gap: 16,
-      paddingBottom: 24,
+      padding: rpx(32),
+      gap: rpx(32),
+      paddingBottom: rpx(48),
     } as ViewStyle,
     section: {
       backgroundColor: tk.surface.card,
       borderRadius: 12,
-      padding: 12,
-      gap: 8,
+      padding: rpx(24),
+      gap: rpx(16),
     } as ViewStyle,
     sectionTitle: {
       fontSize: 15,
@@ -394,7 +458,7 @@ function createStyles(tk: RnThemeTokens) {
       fontSize: 14,
       color: tk.text.secondary,
       lineHeight: 20,
-      marginTop: 4,
+      marginTop: rpx(8),
     } as TextStyle,
     pickerBox: {
       height: 100,
@@ -404,7 +468,7 @@ function createStyles(tk: RnThemeTokens) {
       borderStyle: 'dashed',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: rpx(12),
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     pickerBoxPressed: {
@@ -448,8 +512,8 @@ function createStyles(tk: RnThemeTokens) {
       lineHeight: 18,
     } as TextStyle,
     bottomBar: {
-      paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingHorizontal: rpx(32),
+      paddingVertical: rpx(24),
       backgroundColor: tk.surface.bg,
     } as ViewStyle,
     shareBtn: {

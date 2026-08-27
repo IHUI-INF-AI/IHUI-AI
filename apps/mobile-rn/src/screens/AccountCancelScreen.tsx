@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
 import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
+import { deleteAccount, sendSmsCode } from '@ihui/api-client'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -41,13 +42,24 @@ export default function AccountCancelScreen() {
     }
   }, [confirmCountdown, showConfirmModal])
 
-  const onSendSms = useCallback(() => {
-    if (!inputPhone.trim()) {
+  const onSendSms = useCallback(async () => {
+    const phone = inputPhone.trim()
+    if (!phone) {
       Alert.alert('提示', '请先输入手机号')
       return
     }
-    Alert.alert('提示', '验证码已发送')
-    setCountdown(60)
+    if (!/^1\d{10}$/.test(phone)) {
+      Alert.alert('提示', '请输入正确的手机号')
+      return
+    }
+    // 真实发送短信验证码(对齐原项目 account-cancel.vue onGetCode → sendTextMsg)
+    const res = await sendSmsCode(phone, 'login')
+    if (res.success) {
+      Alert.alert('提示', '验证码已发送')
+      setCountdown(60)
+    } else {
+      Alert.alert('提示', res.error ?? '验证码发送失败，请稍后重试')
+    }
   }, [inputPhone])
 
   const validate = useCallback((): string => {
@@ -67,7 +79,12 @@ export default function AccountCancelScreen() {
     }
     setSubmitting(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200))
+      // 真实注销接口(对齐原项目 accountCancel → DELETE /login/cancel;RN 后端为 POST /api/settings/delete-account)
+      const res = await deleteAccount(smsCode.trim(), '用户主动申请注销')
+      if (!res.success) {
+        Alert.alert('提示', res.error ?? '提交失败，请稍后重试')
+        return
+      }
       Alert.alert('注销成功', '您的账号已注销', [
         {
           text: '知道了',
@@ -81,7 +98,7 @@ export default function AccountCancelScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout])
+  }, [validate, logout, smsCode])
 
   return (
     <SharedAccountCancelScreen

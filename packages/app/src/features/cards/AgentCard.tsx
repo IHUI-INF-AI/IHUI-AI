@@ -26,9 +26,7 @@ export interface AgentCardProps {
 }
 
 const ICON_TINT = 'rgba(16, 185, 129, 0.12)'
-const PRICE_COLOR = '#EF4444'
 const FREE_TINT = 'rgba(34, 197, 94, 0.12)'
-const FREE_COLOR = '#22C55E'
 
 function formatCount(n: number): string {
   if (!Number.isFinite(n) || n < 0) return '0'
@@ -181,16 +179,16 @@ function createStyles(tk: AppThemeTokens) {
     tagText: { fontSize: 11, color: tk.text.secondary },
     footerRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
     footerText: { fontSize: 11, color: tk.text.tertiary },
-    ratingText: { fontSize: 11, color: '#F59E0B', fontWeight: '600' },
+    ratingText: { fontSize: 11, color: tk.warning.DEFAULT, fontWeight: '600' },
     footerSpacer: { flex: 1, minWidth: 8 },
-    price: { fontSize: 16, fontWeight: '700', color: PRICE_COLOR },
+    price: { fontSize: 16, fontWeight: '700', color: tk.danger.bright },
     freeTag: {
       backgroundColor: FREE_TINT,
       borderRadius: 12,
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
-    freeTagText: { fontSize: 11, fontWeight: '700', color: FREE_COLOR },
+    freeTagText: { fontSize: 11, fontWeight: '700', color: tk.success.DEFAULT },
     footer: { marginTop: 8 },
   })
 }

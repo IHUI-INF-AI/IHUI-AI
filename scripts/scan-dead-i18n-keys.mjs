@@ -45,6 +45,7 @@ const TARGETS = {
       'apps/web/app', // Next.js 15 App Router(2026-07-26 漏扫 bug 修复)
       'apps/miniapp-taro/src',
       'apps/mobile-rn/src', // React Native 端,2026-07-26 mobile-rn 子任务补扫(与 web 共享部分 leaf key)
+      'packages/app/src', // @ihui/rn-app 共享屏,web/mobile-rn/miniapp-taro 共用 messages/web(2026-08-20 修假阳性 bug: 此前漏扫导致 865 误报)
     ],
   },
   'miniapp-taro': {
@@ -53,7 +54,7 @@ const TARGETS = {
   },
   'mobile-rn': {
     localeDir: 'packages/i18n/messages/mobile-rn',
-    scanTargets: ['apps/mobile-rn/src'],
+    scanTargets: ['apps/mobile-rn/src', 'packages/app/src'], // packages/app = @ihui/rn-app 共享屏,由 mobile-rn wrapper 传入本端 t 消费其 key
   },
   cli: {
     localeDir: 'packages/i18n/messages/cli',

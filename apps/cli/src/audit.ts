@@ -13,6 +13,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { redactSecrets, redactObject } from './redact.js';
+import { tryParseJson, isRecord } from './util/json.js';
 import { loadSettings } from './commands/settings.js';
 
 export interface AuditEntry {
@@ -121,7 +122,10 @@ export function queryAuditLog(opts: AuditQueryOptions = {}): AuditQueryResult {
   let total = 0;
   for (const line of lines) {
     try {
-      const entry = JSON.parse(line) as AuditEntry;
+      const parsed = tryParseJson(line);
+      // 损坏行 / 非对象 / 缺关键字段的行统一跳过(与原 catch 语义一致,额外防 null.tool 崩溃)
+      if (!isRecord(parsed) || typeof parsed.tool !== 'string') continue;
+      const entry = parsed as unknown as AuditEntry;
       total++;
 
       // 按工具名过滤(子串匹配)

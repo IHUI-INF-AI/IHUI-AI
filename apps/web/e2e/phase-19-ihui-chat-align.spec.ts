@@ -35,7 +35,7 @@ const MESSAGE_CONTEXT_MENU_ITEM = (action: string) =>
 /** 等待 chat 页面就绪(未登录自动跳过) */
 async function waitForChatReady(page: Page): Promise<boolean> {
   await page.goto(CHAT_URL)
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   // 允许未登录跳转到 /login,只要当前 URL 不含 /chat 就跳过
   if (!page.url().includes('/chat')) return false
   // 等待 trigger 出现(最多 8s,沿用 Phase 13 规范)
@@ -1242,7 +1242,7 @@ test.describe('Phase 19 v16 拖拽 + 快捷键 + 庆祝横幅深度补充(12 个
 
     // 2) 刷新页面 → 重新打开 pane
     await page.reload().catch(() => {})
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     if (!page.url().includes('/chat')) {
       test.skip(true, '刷新后跳走,跳过')
       return
@@ -2185,7 +2185,7 @@ adminTest.describe('Phase 19 v17 adminPage 深度化(20 个测试)', () => {
     'v17.19 i18n:ja 状态下 Pane tab 显示 "会話" / "タイムライン"',
     async ({ adminPage }) => {
       await adminPage.goto(CHAT_URL).catch(() => {})
-      await adminPage.waitForLoadState('networkidle').catch(() => {})
+      await adminPage.waitForLoadState('domcontentloaded').catch(() => {})
       await adminPage.waitForTimeout(3000)
       await switchLocale(adminPage, 'ja')
       await adminPage.waitForTimeout(1500)

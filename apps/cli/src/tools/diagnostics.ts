@@ -9,6 +9,7 @@ import { spawnSync } from 'node:child_process';
 import * as path from 'node:path';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
 interface Diagnostic {
   file: string;
@@ -57,26 +58,20 @@ function runEslint(cwd: string, targetPath?: string): Diagnostic[] {
   });
   const stdout = (result.stdout as string) ?? '';
   try {
-    const data = JSON.parse(stdout) as Array<{
-      filePath: string;
-      messages: Array<{
-        ruleId?: string;
-        message: string;
-        line: number;
-        column: number;
-        severity: number;
-      }>;
-    }>;
+    const data = tryParseJson(stdout);
+    if (!isJsonArray(data)) return [];
     const diags: Diagnostic[] = [];
     for (const file of data) {
-      for (const m of file.messages) {
+      if (!isRecord(file)) continue;
+      for (const m of isJsonArray(file.messages) ? file.messages : []) {
+        if (!isRecord(m)) continue;
         diags.push({
-          file: path.relative(cwd, file.filePath),
-          line: m.line,
-          column: m.column,
+          file: path.relative(cwd, typeof file.filePath === 'string' ? file.filePath : String(file.filePath ?? '')),
+          line: typeof m.line === 'number' ? m.line : 0,
+          column: typeof m.column === 'number' ? m.column : 0,
           severity: m.severity === 2 ? 'error' : 'warning',
-          message: m.message,
-          ruleId: m.ruleId,
+          message: typeof m.message === 'string' ? m.message : '',
+          ruleId: typeof m.ruleId === 'string' ? m.ruleId : undefined,
         });
       }
     }

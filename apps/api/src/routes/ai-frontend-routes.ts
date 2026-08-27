@@ -153,7 +153,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       return reply
         .status(statusCode)
-        .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+        .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
     }
   })
 

@@ -1,6 +1,7 @@
-import { useMemo } from 'react'
+﻿import { useMemo } from 'react'
 import {
   FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -8,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -22,6 +24,7 @@ export interface PlazaItem {
   creator?: string
   createdAt?: string
   status?: string
+  taskStatus?: string
   [key: string]: unknown
 }
 
@@ -48,14 +51,16 @@ export interface PlazaScreenProps {
   onSearchChange: (search: string) => void
   onSubmitSearch: () => void
   onPressItem: (item: PlazaItem) => void
+  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
+  onChatPress?: (item: PlazaItem) => void
   onPublish: () => void
 }
 
 const STATUS_CHIPS: readonly StatusChip[] = [
-  { label: '待接单', value: '2' },
-  { label: '开发中', value: '4' },
-  { label: '已完成', value: '6' },
-  { label: '我的任务', value: '9' },
+  { label: '待接单', value: 'waiting' },
+  { label: '开发中', value: 'developing' },
+  { label: '已完成', value: 'completed' },
+  { label: '我的任务', value: 'mine' },
 ] as const
 
 const CYCLE_UNITS: Readonly<Record<string, string>> = {
@@ -66,6 +71,9 @@ const CYCLE_UNITS: Readonly<Record<string, string>> = {
 }
 
 const PLACEHOLDER_AVATAR = '🧑‍💻'
+
+/** 双列瀑布流:FlatList 只渲染一「行」(内含左右两列),用占位数据驱动滚动/分页/刷新 */
+const COLUMN_ROW_DATA: readonly number[] = [0]
 
 function formatPrice(price: string | number | undefined): string {
   const n = Number(price)
@@ -106,6 +114,7 @@ export function PlazaScreen({
   onSearchChange,
   onSubmitSearch,
   onPressItem,
+  onChatPress,
   onPublish,
   colorScheme = 'light',
 }: PlazaScreenProps) {
@@ -113,6 +122,31 @@ export function PlazaScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
 
   const initialLoading = loading && items.length === 0 && !refreshing
+
+  /**
+   * 双列瀑布流数据拆分(对齐原项目 pagesA/plaza/index.vue:leftList/rightList 两列独立渲染)。
+   * 原项目按实际高度把下一项放入较矮列(getHeight→pushItem);RN 无 DOM 测量,
+   * 用奇偶交替分配近似错落效果,卡片高度自适应(移除 flex:1 等高拉伸)。
+   */
+  const { leftItems, rightItems } = useMemo(() => {
+    const left: PlazaItem[] = []
+    const right: PlazaItem[] = []
+    items.forEach((item, index) => {
+      if (index % 2 === 0) {
+        left.push(item)
+      } else {
+        right.push(item)
+      }
+    })
+    return { leftItems: left, rightItems: right }
+  }, [items])
+
+  const renderColumns = () => (
+    <View style={styles.columnsRow}>
+      <View style={styles.column}>{leftItems.map((item) => renderCard({ item }))}</View>
+      <View style={styles.column}>{rightItems.map((item) => renderCard({ item }))}</View>
+    </View>
+  )
 
   const renderCard = ({ item }: { item: PlazaItem }) => {
     const author = (item.creator as string | undefined) || '匿名'
@@ -123,15 +157,35 @@ export function PlazaScreen({
     const cycleUnit = item['cycleUnit'] as string | undefined
     const lowestPrice = item['lowestPrice'] as string | number | undefined
     const peakPrice = item['peakPrice'] as string | number | undefined
-    const itemStatus = (item.status as string | undefined) || ''
+    const itemStatus =
+      (item.taskStatus as string | undefined) || (item.status as string | undefined) || ''
+    const isCompleted = itemStatus === 'completed'
+    const isDeveloping = itemStatus === 'developing'
+    const isWaiting = itemStatus === 'waiting'
+
+    // 需求图(兼容两种数据形态:imgs 逗号分隔串 / cover 单图 URL;无图不占位)
+    const rawImgs = item['imgs']
+    const rawCover = item['cover']
+    const coverImage: string | undefined = (() => {
+      if (typeof rawImgs === 'string' && rawImgs.trim()) {
+        const first = rawImgs.split(',')[0]?.trim()
+        if (first) return first
+      }
+      if (typeof rawCover === 'string' && rawCover.trim()) return rawCover.trim()
+      return undefined
+    })()
 
     return (
       <Pressable
+        key={String(item.id)}
         style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
         onPress={() => onPressItem(item)}
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
+        {coverImage ? (
+          <Image source={{ uri: coverImage }} style={styles.cardImage} resizeMode="cover" />
+        ) : null}
         <Text style={styles.cardTitle} numberOfLines={2}>
           {item.title}
         </Text>
@@ -160,23 +214,35 @@ export function PlazaScreen({
         </View>
         <View style={styles.cardFooter}>
           <Text
-            style={[styles.price, itemStatus === '6' ? styles.priceDone : null]}
+            style={[styles.price, isCompleted ? styles.priceDone : null]}
             allowFontScaling={false}
           >
             <Text style={styles.priceUnit}>￥</Text>
             {`${formatPrice(lowestPrice)}-${formatPrice(peakPrice)}`}
           </Text>
-          {itemStatus === '2' ? (
-            <View style={styles.chatBtn}>
+          {isWaiting ? (
+            <Pressable
+              style={({ pressed }) => [styles.chatBtn, pressed ? styles.chatBtnPressed : null]}
+              onPress={() => {
+                // 独立可点:有 onChatPress 走回调(由 wrapper 决定跳转),否则与整卡一致
+                if (onChatPress) {
+                  onChatPress(item)
+                } else {
+                  onPressItem(item)
+                }
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="聊一聊"
+            >
               <Text style={styles.chatBtnText} allowFontScaling={false}>
                 聊一聊
               </Text>
-            </View>
-          ) : itemStatus === '6' ? (
+            </Pressable>
+          ) : isCompleted ? (
             <Text style={styles.statusDone} allowFontScaling={false}>
               项目已完成
             </Text>
-          ) : itemStatus === '4' ? (
+          ) : isDeveloping ? (
             <Text style={styles.statusDev} allowFontScaling={false}>
               开发中...
             </Text>
@@ -230,11 +296,9 @@ export function PlazaScreen({
         </View>
       ) : (
         <FlatList
-          data={items}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderCard}
-          numColumns={2}
-          columnWrapperStyle={styles.columnWrapper}
+          data={items.length > 0 ? COLUMN_ROW_DATA : []}
+          keyExtractor={() => 'plaza-two-columns'}
+          renderItem={renderColumns}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl
@@ -256,7 +320,10 @@ export function PlazaScreen({
             ) : (
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyIcon}>🌐</Text>
-                <Text style={styles.emptyText}>当前赛道千万级空白市场,快来抢占市场!</Text>
+                <Text style={styles.emptyText}>当前赛道</Text>
+                <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
+                <Text style={styles.emptyText}>不会开发?发布需求</Text>
+                <Text style={styles.emptyText}>快来抢占市场!</Text>
                 <Pressable style={styles.emptyBtn} onPress={onPublish}>
                   <Text style={styles.emptyBtnText}>发布需求</Text>
                 </Pressable>
@@ -296,7 +363,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       paddingHorizontal: 12,
       paddingVertical: 14,
       fontSize: 16,
@@ -330,16 +397,20 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
     } as TextStyle,
     chipTextActive: {
-      color: '#fff',
+      color: tk.surface.light,
       fontWeight: '600',
     } as TextStyle,
     listContent: {
       padding: 10,
       paddingBottom: 80,
     } as ViewStyle,
-    columnWrapper: {
-      justifyContent: 'space-between',
+    columnsRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
       gap: 12,
+    } as ViewStyle,
+    column: {
+      flex: 1,
     } as ViewStyle,
     centerWrap: {
       alignItems: 'center',
@@ -369,7 +440,7 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     retryText: {
       fontSize: 16,
-      color: '#fff',
+      color: tk.text.primary,
     } as TextStyle,
     emptyWrap: {
       alignItems: 'center',
@@ -384,6 +455,13 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.secondary,
       textAlign: 'center',
     } as TextStyle,
+    // 强调行(对齐原项目 empty .font_big:40rpx bold #847CFF)
+    emptyTextStrong: {
+      fontSize: 20,
+      fontWeight: '700',
+      color: tk.purple.DEFAULT,
+      textAlign: 'center',
+    } as TextStyle,
     emptyBtn: {
       marginTop: 12,
       paddingHorizontal: 24,
@@ -393,14 +471,13 @@ function createStyles(tk: AppThemeTokens) {
     } as ViewStyle,
     emptyBtnText: {
       fontSize: 16,
-      color: '#fff',
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     card: {
-      flex: 1,
-      marginBottom: 12,
+      marginBottom: 9,
       padding: 12,
-      borderRadius: 12,
+      borderRadius: 10,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -414,6 +491,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: 8,
     } as TextStyle,
+    cardImage: {
+      width: '100%',
+      height: 160,
+      borderRadius: 8,
+      marginBottom: 8,
+    } as ImageStyle,
     cardDesc: {
       fontSize: 14,
       color: tk.text.secondary,
@@ -479,9 +562,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
     } as ViewStyle,
+    chatBtnPressed: {
+      opacity: 0.75,
+    } as ViewStyle,
     chatBtnText: {
       fontSize: 11,
-      color: '#fff',
+      color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     statusDone: {
@@ -507,7 +593,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       borderRadius: 25,
       backgroundColor: tk.brand.DEFAULT,
-      color: '#fff',
+      color: tk.text.primary,
       textAlign: 'center',
       lineHeight: 50,
       fontSize: 28,

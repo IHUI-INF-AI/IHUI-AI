@@ -24,9 +24,7 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply
-        .status(statusCode)
-        .send(error(statusCode, (e as Error).message || 'Authentication required'))
+      return reply.status(statusCode).send(error(statusCode, '操作失败,请稍后重试'))
     }
   })
 

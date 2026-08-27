@@ -46,8 +46,12 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ settings }))
   })
 
+  const settingsBodySchema = z.record(z.string(), z.unknown())
+
   server.put('/settings/notifications', async (request, reply) => {
-    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const parsed = settingsBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = parsed.data
     const userId = request.userId!
     await Promise.all(
       Object.entries(body).map(([key, value]) =>
@@ -63,7 +67,9 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/settings/privacy', async (request, reply) => {
-    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const parsed = settingsBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = parsed.data
     const userId = request.userId!
     await Promise.all(
       Object.entries(body).map(([key, value]) =>
@@ -79,7 +85,9 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/settings/preferences', async (request, reply) => {
-    const body = (request.body as Record<string, unknown> | null) ?? {}
+    const parsed = settingsBodySchema.safeParse(request.body ?? {})
+    if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
+    const body = parsed.data
     const userId = request.userId!
     await Promise.all(
       Object.entries(body).map(([key, value]) =>

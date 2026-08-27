@@ -5,7 +5,7 @@
  * - 分级输出(error/warn/info/debug),currentLevel 控制最低输出级别
  * - 默认 error 级别(生产环境只输出 error,避免日志噪音)
  * - 跨端兼容:只用 console.error/warn/info,不依赖任何平台 API
- * - 签名统一:logger.error(module, action, err) / logger.warn(module, action, message) / logger.info(module, action, message)
+ * - 签名统一:logger.error(module, action, err) / logger.warn(module, action, message) / logger.info(module, action, message) / logger.debug(module, action, message)
  *
  * 消费者(2026-07-27 审计):
  * - miniapp-taro:`apps/miniapp-taro/src/utils/logger.ts` re-export 本 logger,
@@ -33,7 +33,14 @@ const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 3,
 }
 
-const currentLevel: LogLevel = 'error'
+let currentLevel: LogLevel = 'error'
+
+/**
+ * 运行时调整日志级别(默认 error 保持生产零噪音,排查问题时可调高到 warn/info/debug)。
+ */
+export function setLogLevel(level: LogLevel): void {
+  currentLevel = level
+}
 
 export const logger = {
   error: (module: string, action: string, err: unknown) => {
@@ -49,6 +56,11 @@ export const logger = {
   info: (module: string, action: string, message: string) => {
     if (LOG_LEVELS[currentLevel] >= LOG_LEVELS.info) {
       console.info(`[${module}] ${action}: ${message}`)
+    }
+  },
+  debug: (module: string, action: string, message: string) => {
+    if (LOG_LEVELS[currentLevel] >= LOG_LEVELS.debug) {
+      console.debug(`[${module}] ${action}: ${message}`)
     }
   },
 }

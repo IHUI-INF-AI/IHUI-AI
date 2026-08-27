@@ -1,0 +1,1 @@
+ALTER TABLE "edu_orders" ADD COLUMN "image" varchar(500);

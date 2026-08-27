@@ -1,5 +1,5 @@
 import type { UserPoints, PointTransaction } from '@ihui/database'
-import { adjustPoints } from '../db/gamification-queries.js'
+import { adjustPoints, type DbTx } from '../db/gamification-queries.js'
 
 export interface PointsResult {
   points: UserPoints
@@ -16,16 +16,20 @@ export async function earnPoints(
   source: string,
   description?: string,
   referenceId?: string,
+  tx?: DbTx,
 ): Promise<PointsResult> {
   if (amount <= 0) throw new Error('获得积分必须为正数')
-  return adjustPoints({
-    userId,
-    type: 'earn',
-    amount,
-    source,
-    description,
-    referenceId,
-  })
+  return adjustPoints(
+    {
+      userId,
+      type: 'earn',
+      amount,
+      source,
+      description,
+      referenceId,
+    },
+    tx,
+  )
 }
 
 /**

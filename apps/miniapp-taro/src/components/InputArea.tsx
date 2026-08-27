@@ -386,6 +386,28 @@ export default function InputArea({
                         mode="heightFix"
                       />
                     )}
+                    {/* 附件类型角标:文档/视频(对齐 messageInput.document/video) */}
+                    {item.fileType === 'document' || item.fileType === 'video' ? (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          right: 0,
+                          bottom: 0,
+                          padding: '2rpx 10rpx',
+                          fontSize: rpx(18),
+                          lineHeight: rpx(26),
+                          background: 'rgba(0,0,0,0.55)',
+                          color: '#fff',
+                          borderRadius: `${rpx(8)} 0 0 0`,
+                        }}
+                      >
+                        <Text>
+                          {item.fileType === 'document'
+                            ? t('messageInput.document')
+                            : t('messageInput.video')}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 ))}
               </ScrollView>
@@ -476,7 +498,7 @@ export default function InputArea({
                   } as CSSProperties
                 }
                 value={value}
-                placeholder={placeholder || t('ai.inputArea.placeholder')}
+                placeholder={placeholder || t('messageInput.placeholder')}
                 placeholderStyle="color: #999999; font-size: 28rpx;"
                 maxlength={maxLength}
                 autoFocus={autoFocus}
@@ -673,7 +695,7 @@ export default function InputArea({
               className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
               style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
               value={value}
-              placeholder={placeholder || t('ai.inputArea.placeholder')}
+              placeholder={placeholder || t('messageInput.placeholder')}
               placeholderStyle="color: #999999; font-size: 28rpx;"
               maxlength={maxLength}
               autoFocus={autoFocus}
@@ -711,11 +733,16 @@ export default function InputArea({
               😊
             </Text>
           ) : null}
-          <View
-            className="w-9 h-9 flex items-center justify-center rounded-lg ml-1 text-muted-foreground active:bg-muted"
-            onClick={handleUploadToggle}
-          >
-            <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
+          <View className="flex flex-col items-center ml-1">
+            <View
+              className="w-9 h-9 flex items-center justify-center rounded-lg text-muted-foreground active:bg-muted"
+              onClick={handleUploadToggle}
+            >
+              <Image src={searchAddPng} className="w-5 h-5" mode="aspectFit" />
+            </View>
+            <Text className="text-[18rpx] text-muted-foreground leading-none mt-[4rpx]">
+              {t('messageInput.addFile')}
+            </Text>
           </View>
         </View>
 
@@ -724,7 +751,7 @@ export default function InputArea({
             className={`ml-2 px-4 h-9 leading-9 rounded-lg text-sm flex-shrink-0 ${canSend ? 'bg-primary text-white active:bg-primary' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
           >
-            <Text>{t('ai.inputArea.send')}</Text>
+            <Text>{t('messageInput.send')}</Text>
           </View>
         ) : null}
       </View>

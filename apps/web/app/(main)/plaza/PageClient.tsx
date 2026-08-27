@@ -2,6 +2,9 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useTranslations } from 'next-intl'
+import Link from 'next/link'
+import { Plus } from 'lucide-react'
 
 import { PlazaHeader } from './PlazaHeader'
 import { CirclesPanel } from './CirclesPanel'
@@ -11,6 +14,7 @@ import { PREVIEW_SIZE, api } from './helpers'
 import type { CirclesData, AsksData, Tab } from './types'
 
 export default function PlazaPageClient() {
+  const t = useTranslations('plaza')
   const [tab, setTab] = React.useState<Tab>('circles')
 
   const circlesQuery = useQuery({
@@ -28,7 +32,16 @@ export default function PlazaPageClient() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4">
-      <BackButton />
+      <div className="flex items-center justify-between">
+        <BackButton />
+        <Link
+          href="/plaza/new"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary/60"
+        >
+          <Plus className="h-4 w-4" />
+          {t('publish')}
+        </Link>
+      </div>
       <PlazaHeader
         tab={tab}
         setTab={setTab}

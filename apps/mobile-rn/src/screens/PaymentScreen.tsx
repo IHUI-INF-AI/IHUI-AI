@@ -19,6 +19,7 @@ import { PayButton } from '../components/PayButton'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { formatDateByTemplate } from '../utils/date-utils'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -190,5 +191,5 @@ export function PaymentScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  rechargeWrap: { padding: 16, paddingBottom: 24 },
+  rechargeWrap: { padding: rpx(32), paddingBottom: rpx(48) },
 })

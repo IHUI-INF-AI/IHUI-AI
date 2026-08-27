@@ -93,9 +93,15 @@ export interface TelegramBotProvider {
 
   /** 构造 Bot 授权 deeplink */
   getBotAuthUrl(authToken: string): string
-  /** Bot 接收到 /start 命令后调用:写入 authToken → 用户信息映射(5min TTL) */
+  /**
+   * Bot 接收到 /start 命令后调用:写入 authToken → 用户信息映射(TTL 内有效)。
+   * 已消费(verifyAuth 已用过的)token 静默拒绝;重放写入不延长 TTL。
+   */
   saveAuthResult(authToken: string, telegramUser: TelegramUser): Promise<void>
-  /** 前端轮询:读取 authToken 对应的用户信息(无则返回 null) */
+  /**
+   * 前端轮询:读取 authToken 对应的用户信息(无/过期/已消费则返回 null)。
+   * 一次性使用:首次成功即消费 token,重放一律返回 null(防 token 重放窗口攻击)。
+   */
   verifyAuth(authToken: string): Promise<TelegramAuthResult | null>
 }
 

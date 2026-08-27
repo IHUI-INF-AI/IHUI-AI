@@ -125,8 +125,10 @@ foreach ($d in $ihuiTemp) {
 }
 
 # ===== 5. 触发 TRAE ModularData 迁移(如未运行)=====
+# 2026-08-19 修订:原为硬编码绝对路径 "D:\桌面\项目\IHUI-AI\scripts\auto-migrate-trae-modular.ps1",
+# 不满足 AGENTS.md §15 "$PSScriptRoot / 相对路径" 规则,现改为脚本自身目录推导,跨机器/跨盘符可用。
 Log "[5/5] 触发 TRAE ModularData 自动迁移(如 TRAE 未运行)"
-$migrationScript = "D:\桌面\项目\IHUI-AI\scripts\auto-migrate-trae-modular.ps1"
+$migrationScript = Join-Path $PSScriptRoot "auto-migrate-trae-modular.ps1"
 if (Test-Path $migrationScript) {
   try {
     & pwsh -NoProfile -ExecutionPolicy Bypass -File $migrationScript 2>&1 | ForEach-Object { Log "  $_" }

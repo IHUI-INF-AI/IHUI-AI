@@ -329,7 +329,10 @@ class ScanTaskStore:
         if self._redis is None and self._use_redis:
             try:
                 self._redis = _redis_sync.Redis.from_url(
-                    settings.redis_url, decode_responses=True
+                    settings.redis_url, decode_responses=True,
+                    # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+                    # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
+                    protocol=2,
                 )
                 self._redis.ping()
                 logger.info("[scan_login] Redis 存储已启用")
