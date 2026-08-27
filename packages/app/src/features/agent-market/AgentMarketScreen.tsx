@@ -135,7 +135,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     searchBtn: {
       paddingHorizontal: 14,

@@ -25,6 +25,9 @@ import { socialRoutes } from './social.js'
 import { interactionsRoutes } from './interactions.js'
 import { promotionRoutes, adminPromotionRoutes } from './promotions.js'
 import { gamificationRoutes } from './gamification.js'
+import { pointsTasksRoutes } from './points-tasks.js'
+import { userExtraRoutes } from './user-extras.js'
+import { aiSkillsProxyRoutes } from './ai-skills-proxy.js'
 import { contentRoutes, adminContentRoutes } from './content.js'
 import { learnRoutes, adminLearnRoutes } from './learn.js'
 import { systemRoutes, adminSystemRoutes } from './system.js'
@@ -63,6 +66,7 @@ import { agentsRoutes } from './agents.js'
 import { agentsKanbanRoutes } from './agents-kanban.js'
 import { oauthKeysRoutes } from './oauth-keys.js'
 import { plazaRoutes } from './plaza.js'
+import { shareFirstRoutes } from './share-first.js'
 import { cozeVariablesRoutes } from './coze-variables.js'
 import { cozeRoutes } from './coze.js'
 import { cozeEcosystemRoutes } from './coze-ecosystem.js'
@@ -449,6 +453,9 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(adminLearnRoutes, { prefix: '/api/admin' })
   // 积分 / 等级 / 签到：/api/points /api/sign-in /api/levels /api/leaderboard
   server.register(gamificationRoutes, { prefix: '/api' })
+  server.register(pointsTasksRoutes, { prefix: '/api' })
+  server.register(userExtraRoutes, { prefix: '/api/user' })
+  server.register(aiSkillsProxyRoutes, { prefix: '/api/ai-skills' })
   // 系统配置 / 集成 / API 日志 / 系统事件：/api/configs + /api/admin/configs /api/admin/integrations /api/admin/logs /api/admin/events
   server.register(systemRoutes, { prefix: '/api' })
   server.register(adminSystemRoutes, { prefix: '/api/admin' })
@@ -520,6 +527,7 @@ export function registerRoutes(server: FastifyInstance) {
   // OAuth 私钥管理(多租户 JWT/RS256 签名密钥轮转):/api/oauth-keys/generate|rotate|revoke|list|active
   server.register(oauthKeysRoutes, { prefix: '/api/oauth-keys' })
   server.register(plazaRoutes, { prefix: '/api/plaza' })
+  server.register(shareFirstRoutes, { prefix: '/api' })
   server.register(cozeVariablesRoutes, { prefix: '/api/coze/variables' })
   // Coze 平台集成:apps/audio/chat-audio/conversations/datasets/files/review/templates/workflows/workspaces/bot
   server.register(cozeRoutes, { prefix: '/api/coze' })

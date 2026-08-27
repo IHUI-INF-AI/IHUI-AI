@@ -13,6 +13,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { tryParseJson, isRecord } from '../util/json.js';
 import type {
   RegistryItemListResponse,
   RegistryItemListQuery,
@@ -146,10 +147,6 @@ export interface RegistryInstallRecord {
   installedAt: string;
 }
 
-interface InstallsManifest {
-  installs: RegistryInstallRecord[];
-}
-
 /** 本地安装清单路径 */
 export function getInstallsManifestPath(): string {
   return MANIFEST_PATH;
@@ -160,8 +157,10 @@ export function loadInstalls(): RegistryInstallRecord[] {
   try {
     if (!fs.existsSync(MANIFEST_PATH)) return [];
     const raw = fs.readFileSync(MANIFEST_PATH, 'utf-8');
-    const parsed = JSON.parse(raw) as InstallsManifest;
-    return Array.isArray(parsed.installs) ? parsed.installs : [];
+    const parsed = tryParseJson(raw);
+    return isRecord(parsed) && Array.isArray(parsed.installs)
+      ? (parsed.installs as RegistryInstallRecord[])
+      : [];
   } catch {
     return [];
   }

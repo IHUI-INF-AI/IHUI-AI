@@ -24,7 +24,7 @@ test.describe('Admin 用户管理', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -42,7 +42,7 @@ test.describe('Admin 用户管理', () => {
 
   test('用户搜索:输入关键词触发搜索(若可访问)', async ({ page }) => {
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/users')) return
 
     // 查找搜索框
@@ -58,7 +58,7 @@ test.describe('Admin 用户管理', () => {
 
   test('用户禁用/启用按钮存在(若列表有数据)', async ({ page }) => {
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/users')) return
 
     await page.waitForTimeout(2000)
@@ -72,7 +72,7 @@ test.describe('Admin 用户管理', () => {
 
   test('角色分配:角色列存在(若可访问)', async ({ page }) => {
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/users')) return
 
     await page.waitForTimeout(2000)
@@ -91,7 +91,7 @@ test.describe('Admin 用户管理', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

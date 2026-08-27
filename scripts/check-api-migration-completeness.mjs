@@ -30,6 +30,8 @@ import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import http from 'node:http';
+import https from 'node:https';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -518,21 +520,42 @@ const runtimeEndpoints = [
 
 let runtimeOk = 0;
 let runtimeFail = 0;
-for (const ep of runtimeEndpoints) {
-  try {
-    const res = await fetch(ep.url, {
-      method: 'GET',
-      signal: AbortSignal.timeout(2000),
-    });
-    if (res.ok) {
-      console.log(`  ${C.green}✅ ${ep.name} (${ep.url}) → ${res.status}${C.reset}`);
-      runtimeOk++;
-    } else {
-      console.log(`  ${C.yellow}⚠️ ${ep.name} (${ep.url}) → ${res.status}${C.reset}`);
-      runtimeFail++;
+
+// 根因修复(2026-08-26): 原实现用全局 fetch(undici),请求后 keep-alive socket
+// 挂在全局连接池,process.exit(0) 强退时 Windows libuv 清理 handle 触发断言崩溃
+// (Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), src\win\async.c:94,
+//  退出码 0xC0000409),守门被误判失败并阻塞 commit。
+// 改用 node:http/https + agent:false(连接即用即关),退出时无悬挂 handle。
+function httpGetStatus(url, timeoutMs) {
+  return new Promise((resolve) => {
+    const lib = url.startsWith('https') ? https : http;
+    try {
+      const req = lib.get(
+        url,
+        { agent: false, timeout: timeoutMs },
+        (res) => {
+          res.resume(); // drain body
+          resolve(res.statusCode ?? 0);
+        },
+      );
+      req.on('timeout', () => req.destroy(new Error('timeout')));
+      req.on('error', () => resolve(0));
+    } catch {
+      resolve(0);
     }
-  } catch (e) {
-    console.log(`  ${C.dim}⏭️ ${ep.name} (${ep.url}) → 服务未启动 (${e.message.split('\n')[0]})${C.reset}`);
+  });
+}
+
+for (const ep of runtimeEndpoints) {
+  const status = await httpGetStatus(ep.url, 2000);
+  if (status >= 200 && status < 400) {
+    console.log(`  ${C.green}✅ ${ep.name} (${ep.url}) → ${status}${C.reset}`);
+    runtimeOk++;
+  } else if (status > 0) {
+    console.log(`  ${C.yellow}⚠️ ${ep.name} (${ep.url}) → ${status}${C.reset}`);
+    runtimeFail++;
+  } else {
+    console.log(`  ${C.dim}⏭️ ${ep.name} (${ep.url}) → 服务未启动${C.reset}`);
     runtimeFail++;
   }
 }

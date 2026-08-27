@@ -15,6 +15,10 @@ services:
         value: IHUI AI
       - key: NEXT_TELEMETRY_DISABLED
         value: '1'
+      - key: JWT_SECRET
+        sync: false
+      - key: CREDENTIALS_ENCRYPTION_KEY
+        sync: false
     healthCheckPath: /api/health
 
   - type: web
@@ -67,6 +71,10 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CREDENTIALS_ENCRYPTION_KEY
         sync: false
     healthCheckPath: /health
 

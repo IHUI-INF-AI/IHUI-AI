@@ -1,5 +1,14 @@
 import { useMemo } from 'react'
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type ImageStyle,
+  type ViewStyle,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PostDetailScreenProps } from '../../types'
 
@@ -20,6 +29,13 @@ export function PostDetailScreen({
 }: PostDetailScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const imageUrls =
+    typeof item?.imgs === 'string'
+      ? item.imgs
+          .split(',')
+          .map((url) => url.trim())
+          .filter(Boolean)
+      : (item?.imgs ?? [])
 
   if (loading) {
     return (
@@ -56,6 +72,47 @@ export function PostDetailScreen({
         <Text style={styles.meta}>{item.createdAt}</Text>
       </View>
       <Text style={styles.content}>{item.content}</Text>
+      {imageUrls.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.imageRow}
+        >
+          {imageUrls.map((url, index) => (
+            <TouchableOpacity key={`${url}-${index}`} activeOpacity={0.8}>
+              <Image source={{ uri: url }} style={styles.detailImage} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+      {item.types?.length || item.categories?.length ? (
+        <Text style={styles.detailText}>
+          类型：{item.types?.join('、') || '-'} 分类：{item.categories?.join('、') || '-'}
+        </Text>
+      ) : null}
+      {item.taskStatus || item.status ? (
+        <Text style={styles.detailText}>
+          任务状态：{item.taskStatus || '-'} 审核状态：{item.status || '-'}
+        </Text>
+      ) : null}
+      {item.lowestPrice !== null ||
+      item.lowestPrice !== undefined ||
+      item.peakPrice !== null ||
+      item.peakPrice !== undefined ? (
+        <Text style={styles.detailText}>
+          价格：￥{item.lowestPrice ?? '-'} - ￥{item.peakPrice ?? '-'}
+        </Text>
+      ) : null}
+      {item.cycle ? (
+        <Text style={styles.detailText}>
+          周期：{item.cycle}
+          {item.cycleUnit ?? ''}
+        </Text>
+      ) : null}
+      {item.closingTime ? (
+        <Text style={styles.detailText}>截止时间：{item.closingTime}</Text>
+      ) : null}
+      {item.contact ? <Text style={styles.detailText}>联系方式：{item.contact}</Text> : null}
       <View style={styles.statRow}>
         <TouchableOpacity style={styles.statBtn}>
           <Text style={styles.statText}>❤ {item.likes}</Text>
@@ -100,6 +157,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     meta: { fontSize: 11, color: tk.text.tertiary },
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
+    detailText: { marginTop: 8, fontSize: 14, lineHeight: 20, color: tk.text.secondary },
     statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
     statBtn: {
       paddingHorizontal: 12,
@@ -109,5 +167,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     statText: { fontSize: 12, color: tk.text.medium },
     backBtn: { marginTop: 12 },
+    imageRow: { flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' } as ViewStyle,
+    detailImage: { width: 100, height: 100, borderRadius: 8 } as ImageStyle,
   })
 }

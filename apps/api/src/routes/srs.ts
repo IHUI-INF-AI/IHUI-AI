@@ -106,14 +106,26 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const { stream } = await createStream(parsed.data)
+    const { stream } = await createStream({ ...parsed.data, userId: request.userId })
     return reply.status(201).send(success(stream))
   })
 
   server.put('/streams/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    // 2026-08-26:管理员或流创建者(普通主播可结束自己的流)
+    await requireAuth(request, reply)
     if (reply.sent) return
     const { id } = idParam.parse(request.params)
+    const [existing] = await db
+      .select({ id: srsStreams.id, userId: srsStreams.userId })
+      .from(srsStreams)
+      .where(eq(srsStreams.id, id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '流不存在'))
+    const isAdmin = (request.jwtPayload?.roleId ?? 0) >= 1
+    const isOwner = existing.userId === request.userId
+    if (!isAdmin && !isOwner) {
+      return reply.status(403).send(error(403, '无权操作此直播流'))
+    }
     const parsed = updateStreamSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

@@ -1,11 +1,8 @@
 import { useEffect } from 'react'
 import { View, Text } from 'react-native'
-import {
-  createNativeStackNavigator,
-  type NativeStackNavigationProp,
-} from '@react-navigation/native-stack'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import { useNavigation, type NavigatorScreenParams } from '@react-navigation/native'
+import { type NavigatorScreenParams } from '@react-navigation/native'
 import { useAuth } from '../context/AuthContext'
 import { useNotificationWebSocket } from '../hooks/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../stores/notification'
@@ -46,11 +43,9 @@ import { PromotionScreen } from '../screens/PromotionScreen'
 import { ReferrerScreen } from '../screens/ReferrerScreen'
 import { InviteScreen } from '../screens/InviteScreen'
 import { QrCodeScreen } from '../screens/QrCodeScreen'
-import { DebugScreen } from '../screens/DebugScreen'
 import { NotificationSettingsScreen } from '../screens/NotificationSettingsScreen'
 import { CourseFilterScreen } from '../screens/CourseFilterScreen'
 import { LiveListScreen } from '../screens/LiveListScreen'
-import { LecturerDetailScreen } from '../screens/LecturerDetailScreen'
 import { CouponScreen } from '../screens/CouponScreen'
 import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
@@ -60,10 +55,12 @@ import { RankingScreen } from '../screens/RankingScreen'
 import { PromoteScreen } from '../screens/PromoteScreen'
 import { DistributionScreen } from '../screens/DistributionScreen'
 import { TeamScreen } from '../screens/TeamScreen'
-import { AgentReviewDetailScreen } from '../screens/AgentReviewDetailScreen'
 import { AgentReviewListScreen } from '../screens/AgentReviewListScreen'
 import { AgentStatScreen } from '../screens/AgentStatScreen'
 import { AgentSettingScreen } from '../screens/AgentSettingScreen'
+import { ApiSettingsScreen } from '../screens/ApiSettingsScreen'
+import ModelEditScreen from '../screens/ModelEditScreen'
+import CarteScreen from '../screens/CarteScreen'
 import { CourseAnnexScreen } from '../screens/CourseAnnexScreen'
 import { CourseResourceScreen } from '../screens/CourseResourceScreen'
 import { CourseQAListScreen } from '../screens/CourseQAListScreen'
@@ -85,8 +82,6 @@ import { MessageSystemScreen } from '../screens/MessageSystemScreen'
 import { MessageDirectScreen } from '../screens/MessageDirectScreen'
 import { MessageGroupScreen } from '../screens/MessageGroupScreen'
 import { AnnouncementDetailScreen } from '../screens/AnnouncementDetailScreen'
-import { ActivityDetailScreen } from '../screens/ActivityDetailScreen'
-import { HelpDetailScreen } from '../screens/HelpDetailScreen'
 import { FeedbackHistoryScreen } from '../screens/FeedbackHistoryScreen'
 import { FeedbackDetailScreen } from '../screens/FeedbackDetailScreen'
 import { SettingsAccountScreen } from '../screens/SettingsAccountScreen'
@@ -131,13 +126,11 @@ import { HistoryScreen } from '../screens/HistoryScreen'
 import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useTheme } from '../context/ThemeContext'
-import { WorkPanelScreen, setWorkPanelNavigator } from '../components/WorkPanel'
-import { TaskDispatchPage } from '../pages/TaskDispatchPage'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
 import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
-import SquareScreen from '../screens/SquareScreen'
+import NewsScreen from '../screens/NewsScreen'
 import { PlazaScreen } from '../screens/PlazaScreen'
 import { CoursePlanetScreen } from '../screens/CoursePlanetScreen'
 import { LearnDevelopScreen } from '../screens/LearnDevelopScreen'
@@ -154,6 +147,7 @@ import AiGroupScreen from '../screens/AiGroupScreen'
 import AiAssistantScreen from '../screens/AiAssistantScreen'
 import AigcListScreen from '../screens/AigcListScreen'
 import ModelPlazaScreen from '../screens/ModelPlazaScreen'
+import type { RankingItem } from '@ihui/types'
 import DeveloperScreen from '../screens/DeveloperScreen'
 import BusinessCardScreen from '../screens/BusinessCardScreen'
 import RecruitmentScreen from '../screens/RecruitmentScreen'
@@ -193,6 +187,23 @@ import { PlazaCoverScreen } from '../screens/PlazaCoverScreen'
 import { SetNeedScreen } from '../screens/SetNeedScreen'
 import { SubPackageIndexScreen } from '../screens/SubPackageIndexScreen'
 import AppTopupScreen from '../screens/AppTopupScreen'
+// M3 补齐(2026-08-26):web 核心用户功能 → 移动端原生
+import { KnowledgeBaseScreen } from '../screens/KnowledgeBaseScreen'
+import { KnowledgeCreateScreen } from '../screens/KnowledgeCreateScreen'
+import { KnowledgeDocScreen } from '../screens/KnowledgeDocScreen'
+import { AiSkillScreen } from '../screens/AiSkillScreen'
+import { AiSkillDetailScreen } from '../screens/AiSkillDetailScreen'
+// M3 并行批次(2026-08-26)
+import { MemoryScreen } from '../screens/MemoryScreen'
+import { AiWorldScreen } from '../screens/AiWorldScreen'
+import { PublishScreen } from '../screens/PublishScreen'
+// M4(2026-08-26):通用 WebView 承载页
+import { WebViewScreen } from '../screens/WebViewScreen'
+import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
+// M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体(双端功能矩阵 P0/P1 补齐)
+import { WebPortalScreen } from '../screens/WebPortalScreen'
+import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
+import { SubagentsScreen } from '../screens/SubagentsScreen'
 
 export type RootStackParamList = {
   Login: undefined
@@ -234,7 +245,6 @@ export type RootStackParamList = {
   Exam: undefined
   CourseFilter: undefined
   LiveList: undefined
-  LecturerDetail: { id: string }
   Coupon: undefined
   PointsMall: undefined
   PointsRecord: undefined
@@ -262,12 +272,13 @@ export type RootStackParamList = {
   Referrer: undefined
   Invite: undefined
   QrCode: undefined
-  Debug: undefined
   NotificationSettings: undefined
-  AgentReviewDetail: { id: string }
   AgentReviewList: undefined
   AgentStat: undefined
   AgentSetting: undefined
+  Carte: undefined
+  ApiSettings: undefined
+  ModelEdit: undefined
   CourseAnnex: undefined
   CourseResource: undefined
   CourseQAList: undefined
@@ -289,8 +300,6 @@ export type RootStackParamList = {
   MessageDirect: undefined
   MessageGroup: undefined
   AnnouncementDetail: { id: string }
-  ActivityDetail: { id: string }
-  HelpDetail: { id: string }
   FeedbackHistory: undefined
   FeedbackDetail: { id: string }
   SettingsAccount: undefined
@@ -334,15 +343,13 @@ export type RootStackParamList = {
   History: undefined
   Bookmark: undefined
   Share: undefined
-  WorkPanel: { url: string }
-  TaskDispatch: undefined
   SharedDemo: undefined
   Recharge: undefined
   AigcCover: { id: string; title: string }
   AigcPublish: undefined
   // H10-H18 新增路由(复刻 Uniapp 缺失页面)
   Learn: undefined
-  Square: undefined
+  News: undefined
   Plaza: undefined
   CoursePlanet: undefined
   LearnDevelop: undefined
@@ -372,7 +379,8 @@ export type RootStackParamList = {
   TopupSuccess: { amount: number; orderId: string }
   TopupFail: { reason?: string }
   CategoryDetail: { categoryId: string; title: string }
-  RankingDetail: { id: string }
+  // 2026-08-21:列表页透传完整 RankingItem(对齐原版 onLoad options.data),item 可选兼容旧调用
+  RankingDetail: { id: string; item?: RankingItem }
   TeamDetail: { memberId: string }
   DistributionOrderList: undefined
   EarnCommission: undefined
@@ -385,6 +393,23 @@ export type RootStackParamList = {
   SetNeed: undefined
   SubPackageIndex: undefined
   AppTopup: undefined
+  // M3 补齐(2026-08-26)
+  KnowledgeBase: undefined
+  KnowledgeCreate: undefined
+  KnowledgeDoc: { id: number; title: string }
+  AiSkill: undefined
+  AiSkillDetail: { id: string; name: string }
+  // M3 并行批次(2026-08-26)
+  Memory: undefined
+  AiWorld: undefined
+  Publish: undefined
+  ImageGenHistory: undefined
+  // M4(2026-08-26):通用 WebView 承载页
+  WebView: { url: string; title?: string }
+  // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体
+  WebPortal: undefined
+  KnowledgeRag: undefined
+  Subagents: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -416,15 +441,6 @@ function MainNavigator() {
       <MainTabs.Screen name="ProfileMain" component={ProfileScreen} />
     </MainTabs.Navigator>
   )
-}
-
-function WorkPanelNavBridge() {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
-  useEffect(() => {
-    setWorkPanelNavigator((url: string) => navigation.navigate('WorkPanel', { url }))
-    return () => setWorkPanelNavigator(null)
-  }, [navigation])
-  return null
 }
 
 function RootNavigatorInner() {
@@ -470,7 +486,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Exam" component={ExamScreen} />
             <RootStack.Screen name="CourseFilter" component={CourseFilterScreen} />
             <RootStack.Screen name="LiveList" component={LiveListScreen} />
-            <RootStack.Screen name="LecturerDetail" component={LecturerDetailScreen} />
             <RootStack.Screen name="Coupon" component={CouponScreen} />
             <RootStack.Screen name="PointsMall" component={PointsMallScreen} />
             <RootStack.Screen name="PointsRecord" component={PointsRecordScreen} />
@@ -498,12 +513,13 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Referrer" component={ReferrerScreen} />
             <RootStack.Screen name="Invite" component={InviteScreen} />
             <RootStack.Screen name="QrCode" component={QrCodeScreen} />
-            <RootStack.Screen name="Debug" component={DebugScreen} />
             <RootStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
-            <RootStack.Screen name="AgentReviewDetail" component={AgentReviewDetailScreen} />
             <RootStack.Screen name="AgentReviewList" component={AgentReviewListScreen} />
             <RootStack.Screen name="AgentStat" component={AgentStatScreen} />
             <RootStack.Screen name="AgentSetting" component={AgentSettingScreen} />
+            <RootStack.Screen name="Carte" component={CarteScreen} />
+            <RootStack.Screen name="ApiSettings" component={ApiSettingsScreen} />
+            <RootStack.Screen name="ModelEdit" component={ModelEditScreen} />
             <RootStack.Screen name="CourseAnnex" component={CourseAnnexScreen} />
             <RootStack.Screen name="CourseResource" component={CourseResourceScreen} />
             <RootStack.Screen name="CourseQAList" component={CourseQAListScreen} />
@@ -525,8 +541,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MessageDirect" component={MessageDirectScreen} />
             <RootStack.Screen name="MessageGroup" component={MessageGroupScreen} />
             <RootStack.Screen name="AnnouncementDetail" component={AnnouncementDetailScreen} />
-            <RootStack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
-            <RootStack.Screen name="HelpDetail" component={HelpDetailScreen} />
             <RootStack.Screen name="FeedbackHistory" component={FeedbackHistoryScreen} />
             <RootStack.Screen name="FeedbackDetail" component={FeedbackDetailScreen} />
             <RootStack.Screen name="SettingsAccount" component={SettingsAccountScreen} />
@@ -582,16 +596,14 @@ function RootNavigatorInner() {
             <RootStack.Screen name="History" component={HistoryScreen} />
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
-            <RootStack.Screen name="WorkPanel" component={WorkPanelScreen} />
-            <RootStack.Screen name="TaskDispatch" component={TaskDispatchPage} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
-            {/* Recharge 暂复用钱包页(充值页独立实现前,保证导航可达不崩) */}
-            <RootStack.Screen name="Recharge" component={WalletScreen} />
+            {/* Recharge 指向完整充值页 AppTopup(真实微信支付链),替代此前复用钱包页的占位 */}
+            <RootStack.Screen name="Recharge" component={AppTopupScreen} />
             <RootStack.Screen name="AigcCover" component={AigcCoverScreen} />
             <RootStack.Screen name="AigcPublish" component={AigcPublishScreen} />
             {/* H10-H18 新增 Screen(复刻 Uniapp 缺失页面) */}
             <RootStack.Screen name="Learn" component={LearnScreen} />
-            <RootStack.Screen name="Square" component={SquareScreen} />
+            <RootStack.Screen name="News" component={NewsScreen} />
             <RootStack.Screen name="Plaza" component={PlazaScreen} />
             <RootStack.Screen name="CoursePlanet" component={CoursePlanetScreen} />
             <RootStack.Screen name="LearnDevelop" component={LearnDevelopScreen} />
@@ -637,6 +649,23 @@ function RootNavigatorInner() {
             <RootStack.Screen name="SetNeed" component={SetNeedScreen} />
             <RootStack.Screen name="SubPackageIndex" component={SubPackageIndexScreen} />
             <RootStack.Screen name="AppTopup" component={AppTopupScreen} />
+            {/* M3 补齐(2026-08-26) */}
+            <RootStack.Screen name="KnowledgeBase" component={KnowledgeBaseScreen} />
+            <RootStack.Screen name="KnowledgeCreate" component={KnowledgeCreateScreen} />
+            <RootStack.Screen name="KnowledgeDoc" component={KnowledgeDocScreen} />
+            <RootStack.Screen name="AiSkill" component={AiSkillScreen} />
+            <RootStack.Screen name="AiSkillDetail" component={AiSkillDetailScreen} />
+            {/* M3 并行批次(2026-08-26) */}
+            <RootStack.Screen name="Memory" component={MemoryScreen} />
+            <RootStack.Screen name="AiWorld" component={AiWorldScreen} />
+            <RootStack.Screen name="Publish" component={PublishScreen} />
+            <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
+            {/* M4(2026-08-26):通用 WebView 承载页 */}
+            <RootStack.Screen name="WebView" component={WebViewScreen} />
+            {/* M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体 */}
+            <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
+            <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
+            <RootStack.Screen name="Subagents" component={SubagentsScreen} />
             {/* H20 补齐:类型已声明但未注册的路由(此前 navigate 即崩) */}
             <RootStack.Screen name="CourseDetail" component={CourseDetailScreen} />
             <RootStack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
@@ -662,7 +691,6 @@ function RootNavigatorInner() {
         )}
       </RootStack.Navigator>
       <NotificationPanel />
-      <WorkPanelNavBridge />
     </>
   )
 }

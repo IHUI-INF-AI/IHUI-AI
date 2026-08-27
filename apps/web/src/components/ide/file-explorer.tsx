@@ -28,12 +28,6 @@ import type { FileNode, OutlineNode, TimelineEntry } from '@ihui/types'
 
 type SubTab = 'files' | 'outline' | 'timeline'
 
-/** 大纲数据占位(待接入 /api/symbols 或 codebase LSP 解析后替换为 useQuery 结果) */
-const EMPTY_OUTLINE: OutlineNode[] = []
-
-/** 时间线数据占位(待接入 /api/file-history 或 git log API 后替换为 useQuery 结果) */
-const EMPTY_TIMELINE: TimelineEntry[] = []
-
 const OUTLINE_ICON: Record<string, typeof FunctionSquare> = {
   function: FunctionSquare,
   method: FunctionSquare,
@@ -53,6 +47,53 @@ const TIMELINE_COLOR: Record<string, string> = {
   edit: 'text-blue-500',
   save: 'text-green-500',
   commit: 'text-purple-500',
+}
+
+/**
+ * 从源码文本解析顶层符号,生成大纲节点。
+ * 后端无按文件 outline / symbol 端点,采用本地正则解析(class/function/interface/type/const 声明)。
+ * 保持轻量,仅生成顶层节点(现有 UI 的 children 渲染可选)。
+ */
+function parseOutline(source: string): OutlineNode[] {
+  const nodes: OutlineNode[] = []
+  const lines = source.split(/\r?\n/)
+  lines.forEach((raw, idx) => {
+    const line = raw.trim()
+    if (!line || line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')) return
+    // 去除 export 前缀,统一识别声明关键字
+    const stripped = line.startsWith('export ') ? line.slice('export '.length).trimStart() : line
+    let type: OutlineNode['type'] | null = null
+    let label = ''
+    let m: RegExpMatchArray | null
+
+    if ((m = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
+      type = 'function'
+      label = m[1] ?? ''
+    } else if ((m = /^\bclass\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
+      type = 'class'
+      label = m[1] ?? ''
+    } else if ((m = /^\binterface\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
+      type = 'interface'
+      label = m[1] ?? ''
+    } else if ((m = /^\btype\s+([A-Za-z_$][\w$]*)\s*=/.exec(stripped))) {
+      type = 'type'
+      label = m[1] ?? ''
+    } else if ((m = /^(?:async\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/.exec(stripped))) {
+      const rhs = line.slice(line.indexOf('=') + 1).trimStart()
+      const isFn =
+        /^\(.*\)\s*=>/.test(rhs) ||
+        /^[\w$]+\s*=>/.test(rhs) ||
+        /^(?:async\s+)?function\b/.test(rhs) ||
+        /^async\b/.test(rhs)
+      type = isFn ? 'function' : 'variable'
+      label = m[1] ?? ''
+    } else {
+      return
+    }
+
+    nodes.push({ id: `${type}-${idx + 1}-${label}`, label, type, line: idx + 1 })
+  })
+  return nodes
 }
 
 function flattenFiles(nodes: FileNode[], term: string): FileNode[] {
@@ -123,6 +164,8 @@ export function FileExplorer() {
     error,
     workspacePath,
     fetchFileTree,
+    openTabs,
+    activeTabId,
   } = useIDEWorkspace()
   const [subTab, setSubTab] = React.useState<SubTab>('files')
   const [search, setSearch] = React.useState('')
@@ -181,6 +224,62 @@ export function FileExplorer() {
     if (h < 24) return t('fileExplorer.hoursAgo', { count: h })
     return new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(ts)
   }
+
+  // 大纲:解析当前活动编辑器文件内容生成顶层符号(后端无按文件 symbol 端点,本地正则解析)
+  const activeContent = openTabs.find((tab) => tab.id === activeTabId)?.content ?? ''
+  const outline = React.useMemo(() => parseOutline(activeContent), [activeContent])
+
+  // 时间线:git log 拉取最近提交,epoch 时间戳(毫秒)兼容 formatTime
+  const [timeline, setTimeline] = React.useState<TimelineEntry[]>([])
+  const [timelineLoading, setTimelineLoading] = React.useState(false)
+  const [timelineError, setTimelineError] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (!workspacePath) {
+      setTimeline([])
+      return
+    }
+    let cancelled = false
+    setTimelineLoading(true)
+    setTimelineError(null)
+    runCommand({
+      command: 'git log -20 --pretty=format:%H%x00%an%x00%ct%x00%s',
+      workspacePath,
+    })
+      .then((result) => {
+        if (cancelled) return
+        if (!result.success || !result.data.stdout.trim()) {
+          setTimeline([])
+          return
+        }
+        setTimeline(
+          result.data.stdout
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .map((lineLine) => {
+              const [id, author, ct, ...msgParts] = lineLine.split('\x00')
+              return {
+                id: id ?? '',
+                label: msgParts.join(' ') || '暂无提交信息',
+                type: 'commit' as const,
+                author: author || '',
+                timestamp: Number(ct) * 1000 || Date.now(),
+              }
+            }),
+        )
+      })
+      .catch(() => {
+        if (cancelled) return
+        setTimelineError('Git 历史加载失败')
+        setTimeline([])
+      })
+      .finally(() => {
+        if (!cancelled) setTimelineLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [workspacePath])
 
   if (activeView !== 'files') return null
 
@@ -383,7 +482,6 @@ export function FileExplorer() {
             <button
               onClick={() => void fetchFileTree()}
               aria-label={t('fileExplorer.refresh')}
-              title={t('fileExplorer.refresh')}
               className="rounded p-1 text-muted-foreground hover:bg-muted/50"
             >
               <RefreshCw className="h-3.5 w-3.5" />
@@ -497,19 +595,16 @@ export function FileExplorer() {
           ))}
 
         {subTab === 'outline' &&
-          (EMPTY_OUTLINE.length === 0 ? (
+          (outline.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">
               {t('fileExplorer.noMatch')}
             </div>
           ) : (
-            EMPTY_OUTLINE.map((item) => {
+            outline.map((item) => {
               const OIcon = OUTLINE_ICON[item.type] ?? FunctionSquare
               return (
                 <div key={item.id}>
-                  <div
-                    className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs hover:bg-muted/50"
-                    style={{ paddingLeft: 12 }}
-                  >
+                  <div className="flex cursor-pointer items-center gap-1 rounded-sm pl-3 pr-2 py-0.5 text-xs hover:bg-muted/50">
                     <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
                     <OIcon className="h-3.5 w-3.5 shrink-0 text-blue-500" />
                     <span className="truncate">{item.label}</span>
@@ -520,8 +615,7 @@ export function FileExplorer() {
                     return (
                       <div
                         key={c.id}
-                        className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
-                        style={{ paddingLeft: 28 }}
+                        className="flex cursor-pointer items-center gap-1 rounded-sm pl-7 pr-2 py-0.5 text-xs text-muted-foreground hover:bg-muted/50"
                       >
                         <CIcon className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{c.label}</span>
@@ -535,12 +629,16 @@ export function FileExplorer() {
           ))}
 
         {subTab === 'timeline' &&
-          (EMPTY_TIMELINE.length === 0 ? (
+          (timelineLoading ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">...</div>
+          ) : timelineError ? (
+            <div className="px-3 py-2 text-xs text-red-500">{timelineError}</div>
+          ) : timeline.length === 0 ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">
               {t('fileExplorer.noMatch')}
             </div>
           ) : (
-            EMPTY_TIMELINE.map((item) => {
+            timeline.map((item) => {
               const TIcon = TIMELINE_ICON[item.type] ?? FileEdit
               return (
                 <div

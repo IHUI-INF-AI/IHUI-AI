@@ -34,6 +34,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export interface HookEntry {
   name: string;
@@ -198,8 +199,8 @@ export function loadHooksConfig(cwd: string = process.cwd()): HooksConfig {
     const p = process.env.IHUI_HOOKS_CONFIG;
     if (!fs.existsSync(p)) return {};
     try {
-      const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as HooksConfig;
-      return parsed && typeof parsed === 'object' ? parsed : {};
+      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
+      return isRecord(parsed) ? (parsed as unknown as HooksConfig) : {};
     } catch {
       return {};
     }
@@ -209,9 +210,9 @@ export function loadHooksConfig(cwd: string = process.cwd()): HooksConfig {
   for (const p of [...paths].reverse()) {
     if (!fs.existsSync(p)) continue;
     try {
-      const parsed = JSON.parse(fs.readFileSync(p, 'utf-8')) as HooksConfig;
-      if (parsed && typeof parsed === 'object') {
-        acc = deepMergeHooks(acc, parsed);
+      const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
+      if (isRecord(parsed)) {
+        acc = deepMergeHooks(acc, parsed as unknown as HooksConfig);
       }
     } catch {
       // 损坏文件忽略,继续下一源
@@ -302,12 +303,11 @@ function runWebhookSync(
     return { exitCode: 1, stdout: '', stderr: 'webhook 超时' };
   }
   const out = typeof result.stdout === 'string' ? result.stdout.trim() : '';
-  let res: WebhookResult;
-  try {
-    res = JSON.parse(out) as WebhookResult;
-  } catch {
+  const parsed = tryParseJson(out);
+  if (!isRecord(parsed)) {
     return { exitCode: 1, stdout: '', stderr: 'webhook 响应解析失败' };
   }
+  const res = parsed as unknown as WebhookResult;
   if (res.kind === 'response') {
     if (res.status >= 200 && res.status < 300) {
       return { exitCode: 0, stdout: `webhook ${res.status}`, stderr: '' };

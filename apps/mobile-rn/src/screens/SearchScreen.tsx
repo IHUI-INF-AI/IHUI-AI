@@ -7,6 +7,7 @@ import { fetchApi } from '@ihui/api-client'
 import { SearchInput } from '../components/SearchInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -89,8 +90,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchBar: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
   },
   body: {
     flex: 1,

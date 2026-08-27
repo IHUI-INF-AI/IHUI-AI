@@ -120,7 +120,6 @@ export function AgentRuntimePanel({ className }: AgentRuntimePanelProps) {
           <Tooltip content={sessionId}>
             <span
               data-testid="session-id"
-              title={sessionId}
               className="truncate text-xs text-muted-foreground"
             >
               #{sessionId.slice(0, 8)}

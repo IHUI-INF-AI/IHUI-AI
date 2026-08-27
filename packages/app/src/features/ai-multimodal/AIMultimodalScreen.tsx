@@ -203,7 +203,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: 16,
       color: tk.text.primary,
       textAlignVertical: 'top',
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     sendBtn: {
       paddingHorizontal: 16,

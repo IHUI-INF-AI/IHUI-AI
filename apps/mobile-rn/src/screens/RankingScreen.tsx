@@ -14,6 +14,7 @@ import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -77,12 +78,13 @@ export function RankingScreen() {
   const rest = list.slice(3)
   const fullItems = useMemo<FullRankingItem[]>(() => toFullRankingItems(list), [list])
 
-  /** 点击排名项 → 跳转排名详情页 */
+  /** 点击排名项 → 跳转排名详情页(对齐原版"列表页透传"模式,传完整 RankingItem) */
   const onItemPress = useCallback(
     (id: string) => {
-      navigation.navigate('RankingDetail', { id })
+      const item = list.find((i) => i.id === id)
+      navigation.navigate('RankingDetail', { id, item })
     },
-    [navigation],
+    [list, navigation],
   )
 
   return (
@@ -116,7 +118,7 @@ export function RankingScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
-  rankingWrap: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 } as const,
-  bottomFigureWrap: { paddingHorizontal: 16, paddingTop: 16 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
+  rankingWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
+  bottomFigureWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(32) } as const,
 }

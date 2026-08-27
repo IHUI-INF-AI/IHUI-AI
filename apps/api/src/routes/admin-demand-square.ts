@@ -26,6 +26,10 @@ const updateStatusSchema = z.object({
   status: z.enum(['pending', 'approved', 'rejected', 'offline', 'featured']),
 })
 
+const updateTaskStatusSchema = z.object({
+  taskStatus: z.enum(['waiting', 'developing', 'completed']),
+})
+
 const batchReviewSchema = z.object({
   ids: z.array(z.uuid()).min(1).max(100),
   action: z.enum(['approve', 'reject']),
@@ -70,9 +74,7 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total, page, pageSize }))
   })
 
-  // R83 修复: 原 /stats 与 admin.ts:122 Dashboard /stats 冲突 FST_ERR_DUPLICATED_ROUTE
-  // 改为 /demand-square/stats 避免路径冲突
-  server.get('/demand-square/stats', async (_request, reply) => {
+  server.get('/stats', async (_request, reply) => {
     const [stats] = await db
       .select({
         total: sql<number>`count(*)::int`,
@@ -129,6 +131,7 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
       .update(zhsDemandSquare)
       .set({
         status: newStatus,
+        taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
         rejectReason,
         reviewedBy: request.userId,
         reviewedAt: now,
@@ -164,6 +167,7 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
         .update(zhsDemandSquare)
         .set({
           status: newStatus,
+          taskStatus: body.data.action === 'approve' ? 'waiting' : undefined,
           rejectReason,
           reviewedBy: request.userId,
           reviewedAt: now,
@@ -184,6 +188,24 @@ export const adminDemandSquareRoutes: FastifyPluginAsync = async (server) => {
       affected: pendingIdSet.size,
     })
     return reply.send(success({ results }))
+  })
+
+  server.put('/:id/task-status', async (request, reply) => {
+    const paramParsed = idParamSchema.safeParse(request.params)
+    if (!paramParsed.success) {
+      return reply.status(400).send(error(400, paramParsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const body = updateTaskStatusSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    const [updated] = await db
+      .update(zhsDemandSquare)
+      .set({ taskStatus: body.data.taskStatus, updatedAt: new Date() })
+      .where(eq(zhsDemandSquare.id, paramParsed.data.id))
+      .returning()
+    if (!updated) return reply.status(404).send(error(404, '需求不存在'))
+    return reply.send(success({ demand: updated }))
   })
 
   server.put('/:id/status', async (request, reply) => {

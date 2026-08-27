@@ -28,7 +28,7 @@ export function TaskCenterScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
-      const resp = await fetchApi<TaskCenterItem[]>('/tasks', {
+      const resp = await fetchApi<{ list: TaskCenterItem[] }>('/points/tasks', {
         params: { type: activeTab },
       })
       if (!resp.success) {
@@ -37,7 +37,7 @@ export function TaskCenterScreen() {
         setRefreshing(false)
         return
       }
-      setTasks(resp.data ?? [])
+      setTasks(resp.data?.list ?? [])
       setLoading(false)
       setRefreshing(false)
     },
@@ -50,7 +50,7 @@ export function TaskCenterScreen() {
 
   const handleClaim = async (task: TaskCenterItem) => {
     setClaimingId(task.id)
-    const resp = await fetchApi<unknown>(`/tasks/${task.id}/claim`, { method: 'POST' })
+    const resp = await fetchApi<unknown>(`/points/tasks/${task.id}/claim`, { method: 'POST' })
     setClaimingId(null)
     if (resp.success) {
       Alert.alert(t('taskCenter.claimed'), `+${task.reward}`)
