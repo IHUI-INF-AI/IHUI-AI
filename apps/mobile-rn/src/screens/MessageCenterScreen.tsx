@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
+import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, listConversations } from '@ihui/api-client'
 import { MessageCenterScreen as SharedMessageCenterScreen } from '@ihui/rn-app'
-import type { MessageCenterItem, MessageTab } from '@ihui/rn-app'
+import type { MessageCenterItem, MessageConversationItem, MessageTab } from '@ihui/rn-app'
+import { SearchInput } from '../components/SearchInput'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -27,6 +30,41 @@ const UNIAPP_TEXT: Record<string, string> = {
   'messageCenter.empty': '暂无消息',
 }
 
+/** 搜索栏样式(对齐 Uniapp message/index.vue L23-41 搜索栏:胶囊容器 + 内部 SearchInput) */
+const searchStyles = StyleSheet.create({
+  bar: {
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(16),
+  },
+})
+
+/** listConversations 返回项(对齐 @ihui/api-client ConversationDetail 字段) */
+interface ConversationItem {
+  id: string
+  title: string
+  lastMessage?: string
+  lastMessageAt?: string
+  updatedAt?: string
+  /** 未读数(对齐 Uniapp message 页 chat-item unreadCount;后端返回时透传,shared 据此渲染未读徽章) */
+  unread?: number
+}
+
+/** 时间格式化(对齐 Uniapp formatDateHistory 的 HH:mm 展示,跨天显示日期) */
+function formatConversationTime(input: string | undefined): string {
+  if (!input) return ''
+  const d = new Date(input)
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) {
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  }
+  return `${d.getMonth() + 1}-${d.getDate()}`
+}
+
 export function MessageCenterScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -36,6 +74,10 @@ export function MessageCenterScreen() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
+  // 会话列表(对齐 Uniapp message 页聊天列表 chatList,数据源 listConversations)
+  const [conversations, setConversations] = useState<MessageConversationItem[]>([])
+  // 搜索关键词(对齐 Uniapp message/index.vue L23-41 搜索栏 searchKeyword)
+  const [searchKeyword, setSearchKeyword] = useState('')
 
   // t 包装:Uniapp 对齐文案优先,其余回落 i18n
   const uniappT = useCallback(
@@ -46,9 +88,30 @@ export function MessageCenterScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<MessagePage>(`/api/messages?type=${activeTab}`)
-      if (!res.success) throw new Error()
-      setItems(res.data.list ?? [])
+      const [msgRes, convRes] = await Promise.all([
+        fetchApi<MessagePage>(`/api/messages?type=${activeTab}`),
+        listConversations({ page: 1, pageSize: 20 }),
+      ])
+      if (!msgRes.success) throw new Error()
+      setItems(msgRes.data.list ?? [])
+      // 会话列表(listConversations 返回 { conversations },字段 title/lastMessageAt/updatedAt)
+      if (convRes.success && convRes.data) {
+        const convList: ConversationItem[] = Array.isArray(convRes.data.conversations)
+          ? (convRes.data.conversations as unknown as ConversationItem[])
+          : []
+        setConversations(
+          convList.map((c) => ({
+            id: c.id,
+            name: c.title || '对话',
+            lastMessage: c.lastMessage,
+            time: (c.lastMessageAt ?? c.updatedAt)
+              ? formatConversationTime(c.lastMessageAt ?? c.updatedAt)
+              : undefined,
+            // 未读数透传(对齐 Uniapp L198 unread-badge:unreadCount>0 显示红点;shared convUnread 渲染 99+ 截断)
+            unread: c.unread,
+          })),
+        )
+      }
     } catch {
       setError(uniappT('messageCenter.loadFailed'))
     } finally {
@@ -71,22 +134,55 @@ export function MessageCenterScreen() {
     navigation.navigate('MessageDetail', { id: item.id })
   }
 
+  // 搜索过滤(对齐 Uniapp message 页搜索:按名称/内容包含匹配,过滤当前会话与消息列表)
+  const keyword = searchKeyword.trim().toLowerCase()
+  const filteredConversations = keyword
+    ? conversations.filter(
+        (c) =>
+          c.name.toLowerCase().includes(keyword) ||
+          (c.lastMessage ?? '').toLowerCase().includes(keyword),
+      )
+    : conversations
+  const filteredItems = keyword
+    ? items.filter(
+        (it) =>
+          it.title.toLowerCase().includes(keyword) ||
+          it.content.toLowerCase().includes(keyword),
+      )
+    : items
+
   return (
-    <SharedMessageCenterScreen
-      t={uniappT}
-      items={items}
-      activeTab={activeTab}
-      onSelectTab={onSelectTab}
-      loading={loading}
-      refreshing={refreshing}
-      error={error}
-      onRefresh={() => {
-        setRefreshing(true)
-        void load()
-      }}
-      onPressItem={onPressItem}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-    />
+    <View style={{ flex: 1 }}>
+      {/* 顶部搜索框(对齐 Uniapp message L23-41 搜索栏,placeholder 同原 L38;
+          shared 屏组件无搜索插槽,wrapper 层渲染并过滤列表;原页无语音入口故 voiceEnabled 关闭) */}
+      <View style={searchStyles.bar}>
+        <SearchInput
+          value={searchKeyword}
+          onChangeText={setSearchKeyword}
+          placeholder="搜索聊天记录/联系人/服务号"
+          voiceEnabled={false}
+        />
+      </View>
+      <SharedMessageCenterScreen
+        t={uniappT}
+        items={filteredItems}
+        activeTab={activeTab}
+        onSelectTab={onSelectTab}
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onRefresh={() => {
+          setRefreshing(true)
+          void load()
+        }}
+        onPressItem={onPressItem}
+        conversations={filteredConversations}
+        onPressConversation={(conv) =>
+          navigation.navigate('MessageChat', { peerId: conv.id, name: conv.name })
+        }
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+      />
+    </View>
   )
 }

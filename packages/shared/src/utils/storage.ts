@@ -37,6 +37,23 @@
  */
 
 import type { PersistTransport } from '../stores/transport'
+import { logger } from './logger'
+
+/**
+ * 统一记录 storage 内部被吞掉的异常(替代纯静默 catch):
+ * - 写入失败(数据丢失风险高)用 warn,读取/解析失败用 debug
+ * - 默认日志级别 error 下不输出,排查时可通过 setLogLevel('debug') 开启
+ * - 仅记日志,不改变"吞异常继续"的对外行为
+ */
+function logStorageFailure(op: string, key: string | null, err: unknown, warn = false): void {
+  const message = err instanceof Error ? err.message : String(err)
+  const detail = key === null ? message : `key=${key}: ${message}`
+  if (warn) {
+    logger.warn('storage', op, detail)
+  } else {
+    logger.debug('storage', op, detail)
+  }
+}
 
 /**
  * 基础 storage 抽象:JSON 序列化 + null 兜底 + 错误静默
@@ -76,22 +93,24 @@ export function createJsonStorage<T>(transport: PersistTransport, key: string): 
         const raw = await transport.getItem(key)
         if (raw === null || raw === '') return null
         return JSON.parse(raw) as T
-      } catch {
+      } catch (err) {
+        logStorageFailure('json.get', key, err)
         return null
       }
     },
     async set(value: T): Promise<void> {
       try {
         await transport.setItem(key, JSON.stringify(value))
-      } catch {
-        // 静默失败,storage 不可用不阻断业务
+      } catch (err) {
+        // 不阻断业务,但记录 warn(写入失败有数据丢失风险)
+        logStorageFailure('json.set', key, err, true)
       }
     },
     async remove(): Promise<void> {
       try {
         await transport.removeItem(key)
-      } catch {
-        // 静默失败
+      } catch (err) {
+        logStorageFailure('json.remove', key, err)
       }
     },
   }
@@ -114,22 +133,24 @@ export function createStringStorage(transport: PersistTransport, key: string): S
       try {
         const raw = await transport.getItem(key)
         return raw === null || raw === '' ? null : raw
-      } catch {
+      } catch (err) {
+        logStorageFailure('string.get', key, err)
         return null
       }
     },
     async set(value: string): Promise<void> {
       try {
         await transport.setItem(key, value)
-      } catch {
-        // 静默失败
+      } catch (err) {
+        // 不阻断业务,但记录 warn(写入失败有数据丢失风险)
+        logStorageFailure('string.set', key, err, true)
       }
     },
     async remove(): Promise<void> {
       try {
         await transport.removeItem(key)
-      } catch {
-        // 静默失败
+      } catch (err) {
+        logStorageFailure('string.remove', key, err)
       }
     },
   }
@@ -184,7 +205,8 @@ function defaultEquals<T>(a: T, b: T): boolean {
   if (Object.is(a, b)) return true
   try {
     return JSON.stringify(a) === JSON.stringify(b)
-  } catch {
+  } catch (err) {
+    logStorageFailure('history.equals', null, err)
     return false
   }
 }
@@ -215,7 +237,8 @@ export function createHistoryStorage<T>(
       const parsed = JSON.parse(raw) as unknown
       if (!Array.isArray(parsed)) return []
       return parsed.filter((x): x is T => isValid(x))
-    } catch {
+    } catch (err) {
+      logStorageFailure('history.read', key, err)
       return []
     }
   }
@@ -224,14 +247,15 @@ export function createHistoryStorage<T>(
     if (list.length === 0) {
       try {
         await transport.removeItem(key)
-      } catch {
-        // 静默
+      } catch (err) {
+        logStorageFailure('history.remove', key, err)
       }
     } else {
       try {
         await transport.setItem(key, JSON.stringify(list))
-      } catch {
-        // 静默
+      } catch (err) {
+        // 不阻断业务,但记录 warn(写入失败有数据丢失风险)
+        logStorageFailure('history.write', key, err, true)
       }
     }
     return list
@@ -279,7 +303,8 @@ export function createFlagStorage(transport: PersistTransport, key: string): Fla
       try {
         const raw = await transport.getItem(key)
         return raw === '1'
-      } catch {
+      } catch (err) {
+        logStorageFailure('flag.get', key, err)
         return false
       }
     },
@@ -290,15 +315,16 @@ export function createFlagStorage(transport: PersistTransport, key: string): Fla
         } else {
           await transport.removeItem(key)
         }
-      } catch {
-        // 静默
+      } catch (err) {
+        // 不阻断业务,但记录 warn(写入失败有数据丢失风险)
+        logStorageFailure('flag.set', key, err, true)
       }
     },
     async clear(): Promise<void> {
       try {
         await transport.removeItem(key)
-      } catch {
-        // 静默
+      } catch (err) {
+        logStorageFailure('flag.clear', key, err)
       }
     },
   }

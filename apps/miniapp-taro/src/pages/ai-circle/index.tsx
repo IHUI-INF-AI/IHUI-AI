@@ -183,7 +183,7 @@ export default function AiCircle() {
         className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[16rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_rgba(0,0,0,0.2)]"
         onClick={onPublish}
       >
-        <Text className="text-[48rpx] text-foreground leading-[48rpx]">+</Text>
+        <Text className="text-[26rpx] text-foreground leading-[26rpx]">{t('aiCircle.post')}</Text>
       </View>
     </View>
   )

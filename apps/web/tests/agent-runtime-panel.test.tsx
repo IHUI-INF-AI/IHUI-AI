@@ -8,6 +8,15 @@ vi.mock('@ihui/api-client', () => ({
   executeAgentRuntimeStream: vi.fn(),
 }))
 
+// Mock Tooltip:Radix Tooltip 默认仅在 hover 时渲染 content,
+// 测试中把 content 透传为 data-tooltip-content 以便断言完整 sessionId
+vi.mock('@/components/feedback', () => ({
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ content, children }: { content: React.ReactNode; children: React.ReactNode }) => (
+    <span data-tooltip-content={String(content)}>{children}</span>
+  ),
+}))
+
 // Mock next-intl:AgentRuntimePanel 内调 useTranslations('agentRuntimePanel'),
 // 测试不依赖真实 messages 文件,直接提供与测试断言一致的字面值
 // (title='Agent Runtime' 来自 en.json,其他用例期望中文 — 是测试自定义字面值,
@@ -126,7 +135,10 @@ describe('AgentRuntimePanel', () => {
     })
     const sessionIdEl = screen.getByTestId('session-id')
     expect(sessionIdEl.textContent).toBe('#sess-123')
-    expect(sessionIdEl.getAttribute('title')).toBe('sess-123-abcdef')
+    // 组件已迁移到 Radix Tooltip(项目规则:禁止原生 title),断言 mock 透传的完整内容
+    expect(
+      sessionIdEl.closest('[data-tooltip-content]')?.getAttribute('data-tooltip-content'),
+    ).toBe('sess-123-abcdef')
   })
 
   it('onPlan 回调 → 显示"执行计划"区域与计划文本', async () => {

@@ -14,6 +14,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -139,9 +140,9 @@ export default function ModelPlazaScreen() {
   const modelGroups = useMemo<ModelListGroup[]>(() => buildModelGroups(models), [models])
 
   const handleCompare = () =>
-    Alert.alert(t('modelPlaza.compare.title'), '模型对比功能即将上线,敬请期待')
+    Alert.alert(t('modelPlaza.compare.title'), t('modelPlaza.compare.message'))
   const handleDetail = (m: ModelPlazaItem) =>
-    Alert.alert(t('modelPlaza.detail.title'), `模型「${m.name}」详情功能即将上线,敬请期待`)
+    Alert.alert(t('modelPlaza.detail.title'), t('modelPlaza.detail.message', { name: m.name }))
 
   return (
     <View style={styles.shell}>
@@ -204,15 +205,15 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 48,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingTop: rpx(96),
+    paddingBottom: rpx(16),
+    gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },

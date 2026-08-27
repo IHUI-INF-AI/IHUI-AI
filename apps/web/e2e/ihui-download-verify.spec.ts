@@ -19,7 +19,7 @@ test.describe('下载功能验证', () => {
     await page.goto('/')
 
     // 等待侧边栏加载
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 找到下载按钮(tooltip 含"下载"或"client")
     // 侧边栏底部的下载按钮,用 tooltip 属性定位
@@ -62,7 +62,7 @@ test.describe('下载功能验证', () => {
 
   test('下载详情页 /download/desktop 可访问', async ({ page }) => {
     await page.goto('/download/desktop')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 验证页面加载成功(不 404)
     const title = await page.title()

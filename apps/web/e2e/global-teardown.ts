@@ -18,9 +18,42 @@ import { fileURLToPath } from 'node:url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+/**
+ * 检测同机是否有其他 playwright 进程正在跑测试(即其他 agent 的 e2e)。
+ *
+ * 原理:Playwright 的 Chromium 可执行文件在 %LOCALAPPDATA%\ms-playwright\ 下,
+ * 其 chrome.exe 进程命令行必然含 ms-playwright。globalTeardown 执行时本进程的
+ * 浏览器已全部关闭(Playwright 在 teardown 前关 browser/context),因此只要检测到
+ * 任意 playwright 浏览器进程,就说明有其他 agent 正在并发跑 e2e。
+ *
+ * 返回 true(有并发)时跳过删除 test@aizhs.top,避免破坏其他 agent 正在使用的
+ * storage 会话(2026-08-26 多 agent 并发"假崩溃"根因之一)。
+ * 检测失败(环境无 powershell 等)时保守返回 true(跳过删除更安全,残留用户可手动清)。
+ */
+function hasConcurrentPlaywright(): boolean {
+  try {
+    const out = execSync(
+      'powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name=\'chrome.exe\'\\" | Where-Object { $_.CommandLine -match \'ms-playwright|playwright\' } | Measure-Object | Select-Object -ExpandProperty Count"',
+      { encoding: 'utf8', timeout: 15000 },
+    )
+    const count = parseInt(out.trim(), 10)
+    return !Number.isNaN(count) && count > 0
+  } catch {
+    // 检测失败:保守跳过删除,避免误删其他 agent 的测试用户
+    return true
+  }
+}
+
 export default async function globalTeardown(): Promise<void> {
   if (process.env.E2E_AUTO_CLEANUP === '0') {
     console.log('[e2e:global-teardown] E2E_AUTO_CLEANUP=0,跳过 cleanup(保留 test@aizhs.top)')
+    return
+  }
+
+  if (hasConcurrentPlaywright()) {
+    console.log(
+      '[e2e:global-teardown] 检测到其他 playwright 进程在跑测试,跳过删除 test@aizhs.top(避免破坏并发 agent 的 storage)',
+    )
     return
   }
 

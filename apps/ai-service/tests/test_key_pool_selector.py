@@ -17,6 +17,11 @@ import pytest
 
 from app.services.key_pool_selector import KeyPoolSelector, SelectedKey
 
+# 2026-08-25:conftest._isolate_llm_env(autouse)全局 mock 掉
+# KeyPoolSelector.select_key(返回 None),而本模块直接测真实选择逻辑
+# (内部自备 mock pool)。整文件标记 real_key_pool 跳过全局 mock。
+pytestmark = pytest.mark.real_key_pool
+
 
 # =============================================================================
 # 辅助:构造 mock asyncpg 连接池 + 行

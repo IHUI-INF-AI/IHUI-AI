@@ -66,10 +66,16 @@ export default function SettingsScreen() {
     { key: 'SettingsAccount', label: t('menu.accountManage') },
     { key: 'ChangePhone', label: t('menu.changePhone') },
     { key: 'ChangePwd', label: t('menu.changePwd') },
+    // 安全设置 / 身份认证(孤儿路由修复:原注册无入口,补挂设置菜单)
+    { key: 'SecuritySettings', label: '安全设置' },
+    { key: 'IdentityVerify', label: '身份认证' },
     { key: 'AccountCancel', label: t('menu.accountCancel') },
     // 通用设置
     { key: 'CheckUpdate', label: t('menu.checkUpdate') },
+    // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)
+    { key: 'SubPackageIndex', label: '更多功能' },
     // 帮助与反馈
+    { key: 'Help', label: '帮助中心' },
     { key: 'Feedback', label: t('menu.feedback') },
     // 隐私与权限
     { key: 'Agreement', label: t('menu.agreement') },
@@ -80,6 +86,7 @@ export default function SettingsScreen() {
     { key: 'BusinessLicense', label: t('menu.businessLicense') },
     { key: 'IcpRecord', label: t('menu.icpRecord') },
     { key: 'ModelRecord', label: t('menu.modelRecord') },
+    { key: 'Announcement', label: '平台公告' },
     { key: 'About', label: t('menu.about') },
   ]
 
@@ -87,8 +94,12 @@ export default function SettingsScreen() {
     { key: 'SettingsAccount', label: t('menu.accountManage'), icon: '👤' },
     { key: 'ChangePhone', label: t('menu.changePhone'), icon: '📱' },
     { key: 'ChangePwd', label: t('menu.changePwd'), icon: '🔑' },
+    { key: 'SecuritySettings', label: '安全设置', icon: '🛡️' },
+    { key: 'IdentityVerify', label: '身份认证', icon: '🪪' },
     { key: 'AccountCancel', label: t('menu.accountCancel'), icon: '⚠' },
     { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: '🔄' },
+    { key: 'SubPackageIndex', label: '更多功能', icon: '📦' },
+    { key: 'Help', label: '帮助中心', icon: '❓' },
     { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
     { key: 'Agreement', label: t('menu.agreement'), icon: '📄' },
     { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
@@ -97,6 +108,9 @@ export default function SettingsScreen() {
     { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: '🏛' },
     { key: 'IcpRecord', label: t('menu.icpRecord'), icon: '🌐' },
     { key: 'ModelRecord', label: t('menu.modelRecord'), icon: '🤖' },
+    // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
+    { key: 'ApiSettings', label: t('menu.apiSettings'), icon: '🔌' },
+    { key: 'Announcement', label: '平台公告', icon: '📢' },
     { key: 'About', label: t('menu.about'), icon: 'ℹ' },
   ]
 
@@ -132,23 +146,23 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
-    // 检查更新:不跳转,直接弹窗提示
+    // 检查更新:不跳转,直接弹窗提示(settings.checkUpdateTitle/Latest)
     if (key === 'CheckUpdate') {
-      Alert.alert('检查更新', '当前已是最新版本')
+      Alert.alert(t('settings.checkUpdateTitle'), t('settings.checkUpdateLatest'))
       return
     }
     // 更换手机号:ChangePhone 路由需要 { uuid } 参数(取 user.id)
     if (key === 'ChangePhone') {
       if (!user?.id) {
-        Alert.alert(t('common.error'), '用户信息缺失,无法更换手机号')
+        Alert.alert(t('common.error'), t('settings.changePhoneMissingUser'))
         return
       }
-      navigation.getParent()?.navigate('ChangePhone', { uuid: user.id })
+      navigation.navigate('ChangePhone', { uuid: user.id })
       return
     }
-    // 目标路由(About/Feedback/Privacy/Agreement 等)在 RootStack 而非 ProfileStack,
-    // 需通过 getParent() 跨栈导航
-    navigation.getParent()?.navigate(key as never)
+    // Settings 为 RootStack 顶层 screen,navigation 即 RootStack 导航,
+    // 直接 navigate 即可(此前 getParent() 在根栈上返回 undefined,菜单跳转被静默忽略)
+    navigation.navigate(key as never)
   }
 
   const onDrawerItemPress = (key: string) => {

@@ -62,6 +62,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -328,11 +329,11 @@ export function StudyIndexScreen() {
   const handleDrawerNavigate = (tab: DrawerTab) => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigation.navigate('Square')
+      navigation.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      navigation.navigate('Share')
+      navigation.navigate('News')
       return
     }
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
@@ -402,8 +403,13 @@ export function StudyIndexScreen() {
       case 'company':
         navigation.navigate('Distribution')
         break
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
-        navigation.navigate('AiAssistant')
+        navigation.navigate('AiAssistantN8n', {})
         break
     }
   }
@@ -696,32 +702,32 @@ export function StudyIndexScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tk.surface.bg } as ViewStyle,
   searchBar: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(16),
     backgroundColor: tk.surface.card,
   } as ViewStyle,
   // 赛道分类容器(复用 SingleTypeBar 共享组件)
   scrollTitleWrap: {
     backgroundColor: tk.surface.card,
-    paddingVertical: 8,
+    paddingVertical: rpx(16),
   } as ViewStyle,
   // index 预览态容器(对齐 Uniapp content scroll)
   indexScroll: {
     flex: 1,
   } as ViewStyle,
   indexContent: {
-    padding: 16,
-    paddingBottom: 96,
+    padding: rpx(32),
+    paddingBottom: rpx(192),
   } as ViewStyle,
   // 预览区块(对齐 Uniapp model_list/study_list index 态 header + 查看更多)
   previewSection: {
-    marginTop: 12,
+    marginTop: rpx(24),
   } as ViewStyle,
   previewHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: rpx(16),
   } as ViewStyle,
   previewTitleRow: {
     flexDirection: 'row',
@@ -729,7 +735,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   previewIcon: {
     fontSize: 18,
-    marginRight: 6,
+    marginRight: rpx(12),
   } as TextStyle,
   previewTitle: {
     fontSize: 16,
@@ -747,19 +753,19 @@ const styles = StyleSheet.create({
   previewMoreArrow: {
     fontSize: 18,
     color: tk.text.secondary,
-    marginLeft: 2,
+    marginLeft: rpx(4),
     lineHeight: 18,
   } as TextStyle,
   // 模型预览行(对齐 ModelList row 简化版)
   previewModelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    gap: 12,
+    paddingVertical: rpx(20),
+    paddingHorizontal: rpx(24),
+    gap: rpx(24),
     backgroundColor: tk.surface.card,
     borderRadius: 8,
-    marginBottom: 6,
+    marginBottom: rpx(12),
   } as ViewStyle,
   previewModelIcon: {
     width: 36,
@@ -783,11 +789,11 @@ const styles = StyleSheet.create({
   previewModelDesc: {
     fontSize: 12,
     color: tk.text.secondary,
-    marginTop: 2,
+    marginTop: rpx(4),
   } as TextStyle,
   previewBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(4),
     borderRadius: 4,
   } as ViewStyle,
   previewBadgeFree: {
@@ -809,7 +815,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: tk.text.tertiary,
     textAlign: 'center',
-    paddingVertical: 16,
+    paddingVertical: rpx(32),
   } as TextStyle,
   // 课程预览网格(对齐 Uniapp study_list scroll_height flex-wrap)
   previewGrid: {
@@ -822,16 +828,16 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   // 视频列表(双列网格,对齐 Uniapp study_list scroll_height flex-wrap)
   listContent: {
-    padding: 16,
-    paddingBottom: 96,
+    padding: rpx(32),
+    paddingBottom: rpx(192),
   } as ViewStyle,
   gridRow: {
     justifyContent: 'space-between',
   } as ViewStyle,
   gridCard: {
     flex: 1,
-    marginHorizontal: 2,
-    marginBottom: 8,
+    marginHorizontal: rpx(4),
+    marginBottom: rpx(16),
   } as ViewStyle,
   gridCardPressed: {
     opacity: 0.8,
@@ -878,14 +884,14 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginLeft: 4,
+    marginLeft: rpx(8),
   } as TextStyle,
   // 下方课程名(对齐 Uniapp .title {{ item.name }}:24rpx≈12dp,#3D3D3D)
   gridTitle: {
     fontSize: 12,
     color: '#3D3D3D',
-    marginTop: 4,
-    marginBottom: 4,
+    marginTop: rpx(8),
+    marginBottom: rpx(8),
   } as TextStyle,
   gridAuthorRow: {
     flexDirection: 'row',
@@ -895,7 +901,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 4,
-    marginRight: 2,
+    marginRight: rpx(4),
   } as ImageStyle,
   gridAuthor: {
     fontSize: 9,
@@ -906,21 +912,21 @@ const styles = StyleSheet.create({
   // Tip 提示横幅(对齐 Uniapp tip.vue)
   tipOuter: {
     backgroundColor: '#d9e6fd',
-    padding: 1,
+    padding: rpx(2),
     borderRadius: 7,
-    marginBottom: 9,
+    marginBottom: rpx(18),
   } as ViewStyle,
   tipInner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#eee',
     borderRadius: 7,
-    paddingVertical: 2,
-    paddingHorizontal: 3,
+    paddingVertical: rpx(4),
+    paddingHorizontal: rpx(6),
   } as ViewStyle,
   tipIcon: {
     fontSize: 18,
-    marginRight: 6,
+    marginRight: rpx(12),
   } as TextStyle,
   tipScrollContainer: {
     flex: 1,
@@ -935,7 +941,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#666666',
-    paddingRight: 10,
+    paddingRight: rpx(20),
   } as TextStyle,
   tipMyModel: {
     width: 72,
@@ -946,7 +952,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#d9e6fd',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 4,
+    marginLeft: rpx(8),
   } as ViewStyle,
   tipMyModelText: {
     fontSize: 12,
@@ -958,8 +964,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 20,
-    marginTop: 10,
+    paddingTop: rpx(40),
+    marginTop: rpx(20),
   } as ViewStyle,
   noMoreLine: {
     flex: 1,
@@ -967,7 +973,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
   } as ViewStyle,
   noMoreText: {
-    marginHorizontal: 10,
+    marginHorizontal: rpx(20),
     color: '#767676',
     fontSize: 12,
   } as TextStyle,
@@ -979,8 +985,8 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
-    gap: 12,
+    padding: rpx(48),
+    gap: rpx(24),
   } as ViewStyle,
   errorText: {
     fontSize: 14,
@@ -988,8 +994,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   retryBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(16),
     borderRadius: 8,
     backgroundColor: tk.brand.DEFAULT,
   } as ViewStyle,

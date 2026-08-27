@@ -15,6 +15,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Tool, ToolResult } from './index.js';
 import { runPreToolCall, runPostToolCall } from '../hooks/index.js';
+import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
 interface TestSummary {
   passed: number;
@@ -24,12 +25,17 @@ interface TestSummary {
   failures: Array<{ name: string; message: string }>;
 }
 
+function toCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
 function detectTestFramework(workspacePath: string): 'jest' | 'vitest' | 'unknown' {
   try {
     const pkgPath = path.join(workspacePath, 'package.json');
     if (!fs.existsSync(pkgPath)) return 'unknown';
-    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8')) as { scripts?: Record<string, string> };
-    const testScript = pkg.scripts?.test ?? '';
+    const parsed = tryParseJson(fs.readFileSync(pkgPath, 'utf-8'));
+    if (!isRecord(parsed)) return 'unknown';
+    const testScript = isRecord(parsed.scripts) && typeof parsed.scripts.test === 'string' ? parsed.scripts.test : '';
     if (testScript.includes('vitest')) return 'vitest';
     if (testScript.includes('jest')) return 'jest';
     return 'unknown';
@@ -45,29 +51,24 @@ function parseJestJson(stdout: string): TestSummary | null {
   if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) return null;
   try {
     const raw = stdout.slice(jsonStart, jsonEnd + 1);
-    const data = JSON.parse(raw) as {
-      numPassedTests?: number;
-      numFailedTests?: number;
-      numPendingTests?: number;
-      numTotalTests?: number;
-      testResults?: Array<{
-        testResults?: Array<{ fullName?: string; status?: string; failureMessages?: string[] }>;
-      }>;
-    };
+    const data = tryParseJson(raw);
+    if (!isRecord(data)) return null;
     const failures: Array<{ name: string; message: string }> = [];
-    for (const fileResult of data.testResults ?? []) {
-      for (const t of fileResult.testResults ?? []) {
+    for (const fileResult of isJsonArray(data.testResults) ? data.testResults : []) {
+      if (!isRecord(fileResult)) continue;
+      for (const t of isJsonArray(fileResult.testResults) ? fileResult.testResults : []) {
+        if (!isRecord(t)) continue;
         if (t.status === 'failed') {
-          const msg = (t.failureMessages ?? []).join('\n').slice(0, 500) || '(无错误信息)';
-          failures.push({ name: t.fullName ?? '(unknown)', message: msg });
+          const msg = (isJsonArray(t.failureMessages) ? t.failureMessages : []).join('\n').slice(0, 500) || '(无错误信息)';
+          failures.push({ name: typeof t.fullName === 'string' ? t.fullName : '(unknown)', message: msg });
         }
       }
     }
     return {
-      passed: data.numPassedTests ?? 0,
-      failed: data.numFailedTests ?? 0,
-      skipped: data.numPendingTests ?? 0,
-      total: data.numTotalTests ?? 0,
+      passed: toCount(data.numPassedTests),
+      failed: toCount(data.numFailedTests),
+      skipped: toCount(data.numPendingTests),
+      total: toCount(data.numTotalTests),
       failures,
     };
   } catch {
@@ -82,30 +83,30 @@ function parseVitestJson(stdout: string): TestSummary | null {
   if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) return null;
   try {
     const raw = stdout.slice(jsonStart, jsonEnd + 1);
-    const data = JSON.parse(raw) as {
-      numTotalTests?: number;
-      numFailedTests?: number;
-      numPassedTests?: number;
-      numPendingTests?: number;
-      testResults?: Array<{
-        name?: string;
-        assertionResults?: Array<{ fullName?: string; status?: string; errors?: Array<{ message?: string }> }>;
-      }>;
-    };
+    const data = tryParseJson(raw);
+    if (!isRecord(data)) return null;
     const failures: Array<{ name: string; message: string }> = [];
-    for (const fileResult of data.testResults ?? []) {
-      for (const a of fileResult.assertionResults ?? []) {
+    for (const fileResult of isJsonArray(data.testResults) ? data.testResults : []) {
+      if (!isRecord(fileResult)) continue;
+      for (const a of isJsonArray(fileResult.assertionResults) ? fileResult.assertionResults : []) {
+        if (!isRecord(a)) continue;
         if (a.status === 'failed') {
-          const msg = (a.errors ?? []).map((e) => e.message ?? '').join('\n').slice(0, 500) || '(无错误信息)';
-          failures.push({ name: a.fullName ?? fileResult.name ?? '(unknown)', message: msg });
+          const msg = (isJsonArray(a.errors) ? a.errors : [])
+            .map((e) => (isRecord(e) && typeof e.message === 'string' ? e.message : ''))
+            .join('\n')
+            .slice(0, 500) || '(无错误信息)';
+          failures.push({
+            name: typeof a.fullName === 'string' ? a.fullName : typeof fileResult.name === 'string' ? fileResult.name : '(unknown)',
+            message: msg,
+          });
         }
       }
     }
     return {
-      passed: data.numPassedTests ?? 0,
-      failed: data.numFailedTests ?? 0,
-      skipped: data.numPendingTests ?? 0,
-      total: data.numTotalTests ?? 0,
+      passed: toCount(data.numPassedTests),
+      failed: toCount(data.numFailedTests),
+      skipped: toCount(data.numPendingTests),
+      total: toCount(data.numTotalTests),
       failures,
     };
   } catch {

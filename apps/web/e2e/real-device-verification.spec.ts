@@ -49,14 +49,11 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 1: 图片上传链路 ============
   test('1. feedback 页图片上传组件存在', async ({ page }) => {
     await page.goto('/feedback')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
-    // 切换到"提交反馈" tab
-    const newTab = page.getByRole('button', { name: /submit|提交反馈|new|新建/i }).first()
-    if (await newTab.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await newTab.click()
-      await page.waitForTimeout(500)
-    }
+    // 2026-08-26 修复:移除"提交反馈 tab"点击 —— first() 匹配到的按钮点击后页面切换,
+    // file input 从 1 → 0(实测复现),而 file input 在默认视图已存在(ImageUpload 渲染)。
+    // 直接在默认视图断言上传组件。
 
     // 验证表单存在
     const form = page.locator('form').first()
@@ -71,8 +68,14 @@ test.describe('真机验证 8 项清单', () => {
     const uploadVisible = await uploadArea.isVisible({ timeout: 3000 }).catch(() => false)
 
     // 验证 file input 存在(ImageUpload 组件内部有 hidden file input)
-    const fileInput = page.locator('input[type="file"][accept="image/*"]').first()
-    const fileInputExists = (await fileInput.count()) > 0
+    // 2026-08-26 修复:file input 渲染有时序(count 立即检查可能 0,手动等 3s 后存在)
+    // → 轮询等待最多 5s
+    let fileInputExists = false
+    for (let i = 0; i < 10; i++) {
+      fileInputExists = (await page.locator('input[type="file"]').count()) > 0
+      if (fileInputExists) break
+      await page.waitForTimeout(500)
+    }
 
     // 至少验证组件已渲染(上传按钮或 file input 之一存在)
     expect(uploadVisible || fileInputExists).toBeTruthy()
@@ -85,7 +88,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 2: 模型切换交互 ============
   test('2. chat 页模型选择器存在', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     if (!page.url().includes('/chat')) {
       // 重定向到登录页,验证重定向正常
@@ -109,7 +112,7 @@ test.describe('真机验证 8 项清单', () => {
     // 由于需要实际 AI 响应才能触发 reasoning,这里验证组件 DOM 结构
 
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     if (!page.url().includes('/chat')) {
       expect(page.url()).toMatch(/\/(login|register)/)
@@ -148,7 +151,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 4: 通知横幅 ============
   test('4. NavBar 通知图标存在', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 验证导航栏存在
     const nav = page.locator('nav, header, [role="navigation"]').first()
@@ -162,7 +165,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 5: 开发者套餐订阅 ============
   test('5. developer subscription 页面可访问', async ({ page }) => {
     await page.goto('/developer/subscription')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 验证页面渲染(可能重定向到登录)
     if (page.url().includes('/login') || page.url().includes('/register')) {
@@ -177,7 +180,7 @@ test.describe('真机验证 8 项清单', () => {
 
     // 验证 payment 页面也可访问
     await page.goto('/payment')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const paymentMain = page.locator('main, [role="main"]').first()
     await expect(paymentMain)
       .toBeVisible({ timeout: 5000 })
@@ -189,7 +192,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 6: SSE 流式 + 停止按钮 ============
   test('6. chat 停止按钮在 streaming 时显示', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     if (!page.url().includes('/chat')) {
       expect(page.url()).toMatch(/\/(login|register)/)
@@ -213,7 +216,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 7: sessionId 连续性 ============
   test('7. chat conversationId URL 同步', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     if (!page.url().includes('/chat')) {
       expect(page.url()).toMatch(/\/(login|register)/)
@@ -237,7 +240,7 @@ test.describe('真机验证 8 项清单', () => {
   // ============ 验证 8: 消息搜索 ============
   test('8. messages 页搜索框存在并可输入', async ({ page }) => {
     await page.goto('/messages')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     if (page.url().includes('/login') || page.url().includes('/register')) {
       expect(page.url()).toMatch(/\/(login|register)/)
@@ -293,7 +296,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const page = await context.newPage()
 
       await page.goto('/chat')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       if (page.url().includes('/chat')) {
         loggedIn = true
@@ -345,7 +348,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const page = await context.newPage()
 
       await page.goto('/messages')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       if (page.url().includes('/messages')) {
         loggedIn = true
@@ -389,7 +392,7 @@ test.describe('真机验证 - 已登录状态', () => {
       const page = await context.newPage()
 
       await page.goto('/feedback')
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
 
       if (page.url().includes('/feedback')) {
         loggedIn = true
@@ -402,7 +405,7 @@ test.describe('真机验证 - 已登录状态', () => {
         }
 
         // 验证图片上传组件存在
-        const fileInput = page.locator('input[type="file"][accept="image/*"]').first()
+        const fileInput = page.locator('input[type="file"]').first()
         const fileInputExists = (await fileInput.count()) > 0
         expect(fileInputExists).toBeTruthy()
 

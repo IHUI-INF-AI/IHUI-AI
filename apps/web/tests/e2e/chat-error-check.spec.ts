@@ -34,8 +34,10 @@ test('check chat page error', async ({ page }) => {
     console.info('Page errors:', JSON.stringify(pageErrors, null, 2))
   }
 
-  await page.screenshot({ path: 'g:/IHUI-AI/chat_page_check.png', fullPage: true })
-  console.info('Screenshot saved to g:/IHUI-AI/chat_page_check.png')
+  // 截图写入 test-results/(白名单目录),避免污染仓库根目录触发守门[44]
+  await page.screenshot({ path: 'g:/IHUI-AI/test-results/chat_page_check.png', fullPage: true })
+  console.info('Screenshot saved to g:/IHUI-AI/test-results/chat_page_check.png')
 
-  expect.hasAssertions()
+  // 诊断断言:页面不应渲染"严重错误"错误边界(Playwright 无 expect.hasAssertions,Jest/Vitest API)
+  expect(hasErrorText, '聊天页不应显示"应用发生严重错误"错误边界').toBe(false)
 })

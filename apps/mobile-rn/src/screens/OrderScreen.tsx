@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { getOrders, type OrderStatus } from '@ihui/api-client'
@@ -9,6 +9,9 @@ import { formatDateByTemplate } from '../utils/date-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 分页大小(对齐 Uniapp user_order_list/index.vue pageSize: 20) */
+const PAGE_SIZE = 20
 
 /**
  * 对齐 Uniapp pages/user_order_list/index.vue(我的订单)的文案覆盖:
@@ -48,6 +51,10 @@ export function OrderScreen() {
   const [activeTab, setActiveTab] = useState<OrderTab>('all')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // 上拉分页状态(对齐 Uniapp pageNum/hasMore/loading 守卫)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const pageRef = useRef(1)
   const [error, setError] = useState('')
 
   // t 包装:Uniapp 对齐文案优先,其余回落 i18n
@@ -56,31 +63,48 @@ export function OrderScreen() {
     [t],
   )
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
-    try {
-      const status = tabToStatus(activeTab)
-      const res = await getOrders({ status, page: 1, pageSize: 20 })
-      if (!res.success) throw new Error()
-      setItems(
-        (res.data?.list ?? []).map((o) => ({
+  const load = useCallback(
+    async (mode: 'refresh' | 'more' = 'refresh') => {
+      // 对齐 Uniapp getFlowOrderList:refresh 重置 pageNum=1,loadMore 追加下一页
+      const nextPage = mode === 'more' ? pageRef.current + 1 : 1
+      if (mode === 'refresh') {
+        setLoading(true)
+      } else {
+        setLoadingMore(true)
+      }
+      setError('')
+      try {
+        const status = tabToStatus(activeTab)
+        const res = await getOrders({ status, page: nextPage, pageSize: PAGE_SIZE })
+        if (!res.success) throw new Error()
+        const list = (res.data?.list ?? []).map((o) => ({
           id: o.id,
           orderNo: o.orderNo,
           title: o.targetTitle,
+          image: o.image ?? undefined,
           amount: o.payAmount,
           status: o.status,
           // Uniapp「下单时间:YYYY-MM-DD HH:mm」
           createdAt: formatOrderTime(o.createdAt),
-        })),
-      )
-    } catch {
-      setError(uniappT('order.loadFailed'))
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [activeTab, uniappT])
+        }))
+        // 追加/覆盖(函数式更新,避免闭包 items 依赖导致 load 反复重建)
+        setItems((prev) => (mode === 'more' ? [...prev, ...list] : list))
+        pageRef.current = nextPage
+        // hasMore:后端带 total 用「已加载页 * pageSize < total」,否则回退 Uniapp「len === pageSize」
+        const total = res.data?.total
+        setHasMore(
+          typeof total === 'number' ? nextPage * PAGE_SIZE < total : list.length === PAGE_SIZE,
+        )
+      } catch {
+        setError(uniappT('order.loadFailed'))
+      } finally {
+        setLoading(false)
+        setLoadingMore(false)
+        setRefreshing(false)
+      }
+    },
+    [activeTab, uniappT],
+  )
 
   useEffect(() => {
     void load()
@@ -90,6 +114,12 @@ export function OrderScreen() {
     if (tab === activeTab) return
     setActiveTab(tab)
   }
+
+  // 上拉加载下一页(对齐 Uniapp onReachBottom → loadMore,带 hasMore/loading 守卫)
+  const onLoadMore = useCallback(() => {
+    if (loading || loadingMore || refreshing || !hasMore) return
+    void load('more')
+  }, [loading, loadingMore, refreshing, hasMore, load])
 
   // Uniapp 订单卡片无点击跳转;RN 保留 → OrderDetail 详情(增强,路由已注册)
   const onPressItem = (item: OrderItem) => {
@@ -112,6 +142,9 @@ export function OrderScreen() {
       onPressItem={onPressItem}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
+      onLoadMore={onLoadMore}
+      loadingMore={loadingMore}
+      hasMore={hasMore}
     />
   )
 }

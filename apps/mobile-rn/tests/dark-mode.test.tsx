@@ -108,13 +108,14 @@ describe('SettingsScreen colorScheme prop 渲染', () => {
     expect(root.style.backgroundColor).toMatch(/rgb\(31,\s*41,\s*55\)/i)
   })
 
-  it('colorScheme="light"(显式) → 根容器 backgroundColor 为 #FFFFFF', () => {
+  it('colorScheme="light"(显式) → 根容器 backgroundColor 为 #FFFFFF(surface.bg)', () => {
     const { container } = render(<SettingsScreen {...makeProps({ colorScheme: 'light' })} />)
     const root = container.firstChild as HTMLElement
+    // 共享层 Settings createStyles:浅色 pageBg = tk.surface.bg(#FFFFFF,token 化迁移)
     expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)
   })
 
-  it('不传 colorScheme(默认 light) → 根容器 backgroundColor 为 #FFFFFF', () => {
+  it('不传 colorScheme(默认 light) → 根容器 backgroundColor 为 #FFFFFF(surface.bg)', () => {
     const { container } = render(<SettingsScreen {...makeProps()} />)
     const root = container.firstChild as HTMLElement
     expect(root.style.backgroundColor).toMatch(/rgb\(255,\s*255,\s*255\)/i)

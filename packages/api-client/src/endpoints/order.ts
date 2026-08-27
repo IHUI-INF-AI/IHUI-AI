@@ -15,6 +15,8 @@ export interface Order {
   type: OrderType
   targetId: string
   targetTitle: string
+  /** 商品图 URL,待商品库数据接入 */
+  image?: string | null
   amount: number
   discountAmount: number
   payAmount: number

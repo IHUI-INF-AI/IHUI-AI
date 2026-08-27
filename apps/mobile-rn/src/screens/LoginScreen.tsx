@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native'
+import { Alert, Platform, StyleSheet, View } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
@@ -14,7 +14,7 @@ import {
   type AuthUser,
 } from '@ihui/api-client'
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
-import { LoginScreen as SharedLoginScreen, getTokens } from '@ihui/rn-app'
+import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -40,6 +40,7 @@ import { rnAuthStore } from '../stores/auth-store'
 
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 /**
  * mobile-rn 登录页(2026-07-30 重构:3-tab + 协议同意 + 第三方登录区 + 忘记密码 + 注册链接)
@@ -184,10 +185,20 @@ const TABS: readonly LoginTab[] = ['email', 'phone', 'password']
 // 验证码倒计时秒数(对齐 web 60s)
 const CODE_COUNTDOWN_SECONDS = 60
 
-// 登录成功后回跳 returnUrl 的延迟(ms):token 写入后 RootNavigator 条件渲染切到已登录分支
-// (注册全部业务路由)需要至少一个渲染帧,延迟确保 navigate 时目标路由已挂载
-// (对齐 uniapp 登录成功后 setTimeout 延迟 reLaunch 的时序)
-const RETURN_URL_NAVIGATE_DELAY_MS = 300
+// 区号选择列表(对齐原 uniapp login.vue nationData:中国 +86/美国 +1/中国台湾 +886/中国香港 +852/韩国 +82/日本 +81,
+// 另加中国澳门 +853;默认中国 +86 由 phoneHead state 持有,列表同样含中国供再次选择)
+const NATIONS: NationOption[] = [
+  { title: '中国', content: '+86', id: 1 },
+  { title: '美国', content: '+1', id: 2 },
+  { title: '中国台湾', content: '+886', id: 3 },
+  { title: '中国香港', content: '+852', id: 4 },
+  { title: '中国澳门', content: '+853', id: 5 },
+  { title: '韩国', content: '+82', id: 6 },
+  { title: '日本', content: '+81', id: 7 },
+]
+
+// 登录成功后回跳 returnUrl:token 写入后 RootNavigator 条件渲染切到已登录分支
+// 使用 requestAnimationFrame 确保目标路由已挂载后再导航
 
 // 检测后端"未绑定手机号"提示(对齐 uniapp:data.data.msg === '请先绑定手机号!' 时跳 changePhone 页)。
 // RN 端 ApiResult / OAuthRedirectResult 失败时后端 msg 透传到 error 字段,
@@ -227,9 +238,9 @@ export function LoginScreen() {
     const target = returnUrl
     if (!target) return
     setReturnUrl(null)
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       navigation.dispatch(CommonActions.navigate({ name: target }))
-    }, RETURN_URL_NAVIGATE_DELAY_MS)
+    })
   }, [returnUrl, setReturnUrl, navigation])
 
   // 第三方登录方式:按平台 + locale 动态生成
@@ -299,6 +310,9 @@ export function LoginScreen() {
   const [phoneCodeSending, setPhoneCodeSending] = useState(false)
   const [phoneCountdown, setPhoneCountdown] = useState(0)
   const [phoneLoading, setPhoneLoading] = useState(false)
+  // 区号选择(对齐 uniapp login phoneHead/nationShow;默认中国 +86)
+  const [phoneHead, setPhoneHead] = useState('+86')
+  const [nationShow, setNationShow] = useState(false)
 
   // ===== 协议同意 state =====
   const [agreed, setAgreed] = useState(false)
@@ -386,6 +400,8 @@ export function LoginScreen() {
   }, [email, emailCode, checkAgreement, form, navigateAfterLogin])
 
   // ===== phone 验证码登录回调 =====
+  // 提交只传手机号:对齐原 uniapp login.vue sendCode/gainCode(仅传 phoneNumber,区号 phoneHead 仅作展示,不参与提交)。
+  // 保持现状 + 注释,不额外拼接区号。
   const handleSendPhoneCode = useCallback(async () => {
     if (!phone.trim()) {
       form.setError('auth.invalidPhone')
@@ -416,6 +432,7 @@ export function LoginScreen() {
     setPhoneLoading(true)
     form.clearError()
     try {
+      // 登录同样只传手机号(对齐原 uniapp registerLogin/login 仅传 phoneNumber,不拼接区号)
       const res = await loginBySms(phone.trim(), phoneCode.trim())
       if (res.success && res.data.accessToken) {
         fullUserRef.current = res.data.user
@@ -714,7 +731,7 @@ export function LoginScreen() {
           welcomeNode={<SvgXml xml={welcomeXml} width={224} height={34} />}
           // 4-tab 配置
           tabs={TABS}
-          defaultTab="password"
+          defaultTab="phone"
           // email tab
           email={email}
           emailCode={emailCode}
@@ -729,18 +746,15 @@ export function LoginScreen() {
           phoneCode={phoneCode}
           phoneCodeSending={phoneCodeSending}
           phoneCountdown={phoneCountdown}
-          // 区号前缀(对齐 uniapp login 的 xiaicc "+86" 区号展示)
-          phonePrefixNode={
-            <Text
-              style={{
-                fontSize: 16,
-                fontWeight: '500',
-                color: resolvedTheme === 'dark' ? '#E5E7EB' : '#1F2937',
-              }}
-            >
-              +86
-            </Text>
-          }
+          // 区号选择器(对齐原 uniapp login 的 nation-box:默认 +86,点击展开区号列表,选中高亮)
+          nations={NATIONS}
+          phoneHead={phoneHead}
+          nationShow={nationShow}
+          onToggleNationShow={() => setNationShow((v) => !v)}
+          onSelectNation={(n) => {
+            setPhoneHead(n.content)
+            setNationShow(false)
+          }}
           onPhoneChange={(v) => setPhone(v.replace(/\D/g, '').slice(0, 11))}
           onPhoneCodeChange={(v) => setPhoneCode(v.replace(/\D/g, '').slice(0, 6))}
           onSendPhoneCode={handleSendPhoneCode}
@@ -780,8 +794,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 6,
     top: 158,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(8),
     borderRadius: 6,
     backgroundColor: 'rgba(59,130,246,0.85)',
     zIndex: 999,

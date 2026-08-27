@@ -242,7 +242,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     textarea: { minHeight: 88, maxHeight: 180, textAlignVertical: 'top' },
     urlRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: 14,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     urlAddBtn: {
       paddingHorizontal: 14,

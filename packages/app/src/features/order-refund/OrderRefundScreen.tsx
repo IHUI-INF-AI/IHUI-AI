@@ -246,11 +246,11 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 14,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#eaeaea',
+      borderColor: tk.border.light,
       minHeight: 80,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     formActions: { flexDirection: 'row', gap: 8, marginTop: 12 },
     formBtn: {

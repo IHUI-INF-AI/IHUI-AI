@@ -21,7 +21,7 @@
  *   // 通过后: socket.data.userId
  */
 import { SignJWT, jwtVerify } from 'jose'
-import { getJwtSecret } from './jwt'
+import { getJwtSecret, AUDIENCE } from './jwt'
 
 const ISSUER = 'ihui-ai'
 const ALG = 'HS256'
@@ -54,6 +54,7 @@ export async function generateWsToken(
     .setProtectedHeader({ alg: ALG })
     .setSubject(userId)
     .setIssuer(ISSUER)
+    .setAudience(AUDIENCE)
     .setIssuedAt()
     .setExpirationTime(`${WS_TOKEN_TTL_SECONDS}s`)
   return jwt.sign(getJwtSecret())
@@ -70,6 +71,7 @@ export async function verifyWsToken(token: string): Promise<WsTokenPayload | nul
   try {
     const { payload } = await jwtVerify(token, getJwtSecret(), {
       issuer: ISSUER,
+      audience: AUDIENCE,
       algorithms: [ALG],
     })
     if (payload.type !== 'ws') return null

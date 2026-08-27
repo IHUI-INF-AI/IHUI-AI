@@ -222,16 +222,26 @@ class CollaborationManager {
   private readonly bbWatchers: Map<string, Set<(value: unknown, writerId: string) => void>> = new Map();
   /** 黑板门面(惰性创建一次) */
   private readonly _blackboard: Blackboard;
+  /** peer-msg 事件处理器(用于 dispose 时移除) */
+  private _peerMsgHandler: ((e: Event) => void) | null = null;
 
   constructor(opts: { workspacePath: string; topology: Topology }) {
     this.workspacePath = opts.workspacePath;
     this.topology = opts.topology;
     this._blackboard = this.createBlackboard();
     // 总线监听:收到 peer-msg 事件后路由到目标 peer
-    this.bus.addEventListener('peer-msg', (e) => {
+    this._peerMsgHandler = (e: Event) => {
       const msg = (e as CustomEvent<PeerMessage>).detail;
-      void this.routeMessage(msg);
-    });
+      this.routeMessage(msg).catch(() => {
+        // 路由消息失败不影响其他消息处理
+      });
+    };
+    this.bus.addEventListener('peer-msg', this._peerMsgHandler);
+  }
+
+  /** 释放资源(移除事件监听) */
+  dispose(): void {
+    this.bus.removeEventListener('peer-msg', this._peerMsgHandler);
   }
 
   /** 共享黑板(blackboard 模式,所有 peer 可读写) */

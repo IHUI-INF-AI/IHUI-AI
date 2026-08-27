@@ -273,7 +273,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       fontSize: 14,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
     errorText: { fontSize: 14, color: tk.warning.deep },

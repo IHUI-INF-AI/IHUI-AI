@@ -141,19 +141,11 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
             }}
           >
             <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600 }}>键盘快捷键</h3>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 8 }}>
+            <ul className="m-0 grid list-none gap-2 p-0">
               {shortcuts
                 .filter((s) => s.active)
                 .map((s) => (
-                  <li
-                    key={s.key}
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 24,
-                      fontSize: 14,
-                    }}
-                  >
+                  <li key={s.key} className="flex justify-between gap-6" style={{ fontSize: 14 }}>
                     <span style={{ opacity: 0.7 }}>{s.description ?? s.key}</span>
                     <code style={{ fontSize: 12, opacity: 0.9 }}>{s.key}</code>
                   </li>

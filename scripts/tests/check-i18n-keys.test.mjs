@@ -393,3 +393,47 @@ test('--staged: staged messages JSON → 触发 parity 检查', () => {
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+// ─── 17. 源码引用缺失键 → blocking(2026-08-20 收紧为硬性契约) ─
+test('缺失键阻塞: 源码 useTranslations 引用未定义 key → exit 1', () => {
+  const root = createTempProject()
+  try {
+    writeWebMessages(root, PARITY_OK)
+    // 创建源码文件,引用 common.tools 命名空间下未定义的 key
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "const t = useTranslations('common.tools')\nt('categoryEfficiency')\n",
+    )
+    // 全量模式: 扫描到缺失键 → 应 exit 1(此前只 warning exit 0)
+    const r = runScript([], { cwd: root })
+    assert.equal(r.status, 1, `源码引用缺失键应 exit 1,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /categoryEfficiency/)
+    assert.match(r.stdout, /拒绝提交|缺失键问题/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+// ─── 18. 源码缺键补齐后 → 通过(防回归:补齐即恢复绿色) ────
+test('缺失键通关: 补齐消息定义后同源码 → exit 0', () => {
+  const root = createTempProject()
+  try {
+    const msgs = JSON.parse(JSON.stringify(PARITY_OK))
+    for (const lang of Object.keys(msgs)) {
+      msgs[lang].common.tools = { categoryEfficiency: '효율' }
+    }
+    writeWebMessages(root, msgs)
+    const srcDir = join(root, 'apps', 'web', 'src')
+    mkdirSync(srcDir, { recursive: true })
+    writeFileSync(
+      join(srcDir, 'page.tsx'),
+      "const t = useTranslations('common.tools')\nt('categoryEfficiency')\n",
+    )
+    const r = runScript([], { cwd: root })
+    assert.equal(r.status, 0, `补齐消息定义后应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

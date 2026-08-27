@@ -28,16 +28,22 @@ from app.services.vector_memory import vector_memory
 
 @pytest.fixture(autouse=True)
 def force_memory_mode():
-    """强制 memory_store 内存模式 + 清理状态(避免测试间污染)。"""
+    """强制 memory_store 内存模式 + 清理状态(避免测试间污染)。
+
+    2026-08-22 修复:VectorMemoryStore 重构后内部存储字段由 _store 改为
+    _entries/_vectors(见 app/services/vector_memory.py)。旧 _store 引用 → AttributeError。
+    """
     memory_store._use_redis = False
     memory_store._redis = None
     memory_store._store.clear()
-    vector_memory._store.clear()
+    vector_memory._entries.clear()
+    vector_memory._vectors.clear()
     yield
     memory_store._use_redis = False
     memory_store._redis = None
     memory_store._store.clear()
-    vector_memory._store.clear()
+    vector_memory._entries.clear()
+    vector_memory._vectors.clear()
 
 
 # =============================================================================

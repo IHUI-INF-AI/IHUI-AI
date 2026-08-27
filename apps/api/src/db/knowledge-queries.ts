@@ -74,6 +74,7 @@ export interface UpdateKnowledgeInput {
 export async function updateKnowledge(
   id: string,
   data: UpdateKnowledgeInput,
+  authorId?: string,
 ): Promise<KnowledgeBase | undefined> {
   const set: Record<string, unknown> = {}
   if (data.title !== undefined) set.title = data.title
@@ -84,10 +85,22 @@ export async function updateKnowledge(
   if (data.isPublished !== undefined) set.isPublished = data.isPublished
   if (data.status !== undefined) set.status = data.status
   set.updatedAt = new Date()
-  const rows = await db.update(knowledgeBase).set(set).where(eq(knowledgeBase.id, id)).returning()
+  const conds = [eq(knowledgeBase.id, id)]
+  if (authorId) conds.push(eq(knowledgeBase.authorId, authorId))
+  const rows = await db
+    .update(knowledgeBase)
+    .set(set)
+    .where(and(...conds))
+    .returning()
   return rows[0]
 }
 
-export async function deleteKnowledge(id: string): Promise<void> {
-  await db.delete(knowledgeBase).where(eq(knowledgeBase.id, id))
+export async function deleteKnowledge(id: string, authorId?: string): Promise<boolean> {
+  const conds = [eq(knowledgeBase.id, id)]
+  if (authorId) conds.push(eq(knowledgeBase.authorId, authorId))
+  const rows = await db
+    .delete(knowledgeBase)
+    .where(and(...conds))
+    .returning({ id: knowledgeBase.id })
+  return rows.length > 0
 }

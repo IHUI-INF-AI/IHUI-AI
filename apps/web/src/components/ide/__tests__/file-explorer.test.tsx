@@ -18,6 +18,9 @@ const mockStore = vi.hoisted(() => ({
     toggleFolder: vi.fn(),
     expandedFolders: new Set<string>(),
     selectedFileId: null as string | null,
+    // 大纲子Tab依赖(与 useIDEWorkspace 真实 store 契约一致)
+    openTabs: [] as Array<{ id: string; fileId: string; name: string; content?: string }>,
+    activeTabId: null as string | null,
   },
 }))
 
@@ -25,6 +28,11 @@ const mockStore = vi.hoisted(() => ({
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
   useLocale: () => 'zh-CN',
+}))
+
+// 时间线子Tab会调 runCommand 拉取 git log,mock 掉避免测试环境真实网络请求
+vi.mock('@ihui/api-client', () => ({
+  runCommand: vi.fn().mockResolvedValue({ success: false, data: { stdout: '', stderr: '' } }),
 }))
 
 vi.mock('@/stores/ide-workspace', () => ({
@@ -58,6 +66,8 @@ describe('FileExplorer', () => {
       toggleFolder: vi.fn(),
       expandedFolders: new Set<string>(),
       selectedFileId: null,
+      openTabs: [],
+      activeTabId: null,
     }
   })
   afterEach(() => cleanup())
@@ -156,8 +166,9 @@ describe('FileExplorer', () => {
 
   it('刷新按钮点击触发 fetchFileTree', () => {
     mockStore.state.workspacePath = '/ws'
-    const { getByTitle } = renderFileExplorer()
-    fireEvent.click(getByTitle('fileExplorer.refresh'))
+    // 组件用 aria-label(非原生 title,符合项目 Tooltip 统一规则),按 role+name 定位
+    const { getByRole } = renderFileExplorer()
+    fireEvent.click(getByRole('button', { name: 'fileExplorer.refresh' }))
     expect(mockStore.state.fetchFileTree).toHaveBeenCalled()
   })
 })

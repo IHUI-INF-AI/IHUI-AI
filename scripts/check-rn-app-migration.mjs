@@ -66,6 +66,14 @@ const WHITELIST = new Set([
   'SquareScreen.tsx', // AI 资讯页:FlatList 资讯流 + SingleTypeBar 分类 + 返回顶部 + Drawer,RN 端独占资讯阅读体验
   'StudyIndexScreen.tsx', // AI 视频页:三态切换(index/model/study) + TipBanner 滚动 + ModelList 预览 + FloatingActionButton,RN 端独占视频浏览
   'StudyPublishScreen.tsx', // 课程发布页:expo-image-picker 选图/选视频 + VideoPlayer 预览 + 双态表单(group/video),RN 端独占发布能力
+  'CoursePlanetScreen.tsx', // 课程星球:Carousel + KnowledgePlanet + MoreTitles,RN 端独占课程浏览交互
+  'MoreCourseScreen.tsx', // 更多课程:KnowledgePlanet + BottomFigure + CommissionFloatingIcon,RN 端独占课程列表
+  'CarteScreen.tsx', // 社群宣传卡纯静态页:无 JS 逻辑,CDN 图片展示,对齐 Uniapp pagesA/carte/index.vue,无跨端需求
+  'DeveloperScreen.tsx', // 开发者空间页:标题+三功能入口+开发者信息占位,对齐 Uniapp pagesA/plaza/developer.vue,无跨端需求
+  'RecruitmentScreen.tsx', // 操盘手计划宣传页:全屏背景+底部卡片+二维码,对齐 Uniapp pagesA/recruitment/index.vue,无跨端需求
+  'KnowledgeRagScreen.tsx', // 知识库 RAG 屏:RN WebView 桥接 + webview-portal-config 注入,RN 端独占 webview 容器
+  'SubagentsScreen.tsx', // 子智能体屏:RN 独占 FlatList 队列交互 + api-client subagents 流,Web 端有独立实现
+  'WebPortalScreen.tsx', // Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */

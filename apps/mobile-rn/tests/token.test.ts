@@ -64,10 +64,12 @@ import {
 } from '../src/lib/token'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { resetAsyncStorageMock } from './__mocks__/async-storage'
+import { _resetSecureStoreBackendForTest } from '../src/lib/auth/secure-store'
 
 describe('lib/token', () => {
   beforeEach(() => {
     resetAsyncStorageMock()
+    _resetSecureStoreBackendForTest()
     apiClientMocks.setBaseUrl.mockClear()
     sharedMocks.bindTokenStoreToApiClient.mockClear()
   })

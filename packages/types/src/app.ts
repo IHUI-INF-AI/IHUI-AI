@@ -129,6 +129,8 @@ export interface FeedbackSubmitPayload {
   type: FeedbackType
   content: string
   contact: string
+  /** 问题截图 URL 数组(对齐 Uniapp fankui filePaths,最多 9 张,逗号分隔存 filePath 字段) */
+  images?: string[]
 }
 
 /** Feedback �?props */
@@ -137,6 +139,8 @@ export interface FeedbackScreenProps {
   /** 提交回调,返回 true 表示成功(平台注入实际 API 调用) */
   onSubmit: (payload: FeedbackSubmitPayload) => Promise<boolean>
   onBack: () => void
+  /** 选图回调(平台注入 expo-image-picker;返回已选图片 URL 数组,最多 9 张;不传则隐藏上传区) */
+  onPickImages?: () => Promise<string[]>
   /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
 }
@@ -304,6 +308,22 @@ export interface MessageCenterItem {
   createdAt: string
 }
 
+/** 消息中心会话列表项(对齐 Uniapp message 页聊天列表 chatList)
+ * 字段对齐 mobile-rn MessageCenterScreen conversations */
+export interface MessageConversationItem {
+  id: string
+  name: string
+  avatar?: string
+  /** 最后一条消息预览(对齐原 chat-item lastMessage) */
+  lastMessage?: string
+  /** 最后消息时间(对齐原 chat-item time) */
+  time?: string
+  /** 未读数(可选,>0 显示红点) */
+  unread?: number
+  /** 状态文案(可选,如「在线」) */
+  status?: string
+}
+
 /** 消息中心共享�?props */
 export interface MessageCenterScreenProps {
   t: TFunction
@@ -318,6 +338,10 @@ export interface MessageCenterScreenProps {
   onRefresh: () => void
   /** 点击消息卡片回调,可�?*/
   onPressItem?: (item: MessageCenterItem) => void
+  /** 会话列表(对齐 Uniapp message 页聊天列表;不传则不渲染该区块) */
+  conversations?: MessageConversationItem[]
+  /** 点击会话回调(对齐 Uniapp handleChatClick → 会话聊天页) */
+  onPressConversation?: (item: MessageConversationItem) => void
   onBack: () => void
   /** 已解析配色方�?驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'
@@ -339,6 +363,8 @@ export interface OrderItem {
   id: string
   orderNo: string
   title: string
+  /** 商品图 URL,有值则卡片渲染 130×130 圆角图 */
+  image?: string
   amount: number
   status: AppOrderStatus
   createdAt: string
@@ -861,6 +887,17 @@ export interface PostDetailItem {
   likes: number
   comments: number
   createdAt: string
+  status?: string | null
+  taskStatus?: string | null
+  lowestPrice?: number | string | null
+  peakPrice?: number | string | null
+  contact?: string | null
+  cycle?: string | null
+  cycleUnit?: string | null
+  closingTime?: string | null
+  imgs?: string | string[] | null
+  types?: string[] | null
+  categories?: string[] | null
 }
 
 /** PostDetail �?props */
@@ -1634,6 +1671,18 @@ export interface LoginScreenProps {
   /** 手机号输入框前缀节点(区号展示,�?"+86",对齐 uniapp login �?xiaicc 区号)
    * 不传则输入框独占一�?向后兼容)�?026-08-15 新增�?*/
   phonePrefixNode?: ReactNode
+  /** 区号选择列表(传 nations + phoneHead 则渲染可点击区号选择器,优先级高于 phonePrefixNode)
+   * 2026-08-20 新增,对齐 uniapp login 的 nation-box + ChangePhone 现有模式:
+   * 点击区号展开列表选择,选中项高亮。不传则回退到 phonePrefixNode / 无前缀。 */
+  nations?: NationOption[]
+  /** 当前选中区号(如 '+86');配合 nations 渲染区号选择器 */
+  phoneHead?: string
+  /** 区号列表是否展开(wrapper 管理,点击区号切换) */
+  nationShow?: boolean
+  /** 展开/收起区号列表回调 */
+  onToggleNationShow?: () => void
+  /** 选中区号回调(wrapper 更新 phoneHead 并收起列表) */
+  onSelectNation?: (nation: NationOption) => void
   onPhoneChange?: (text: string) => void
   onPhoneCodeChange?: (text: string) => void
   onSendPhoneCode?: () => void
@@ -2065,18 +2114,29 @@ export interface StudyRecordScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 收益记录�?对齐 mobile-rn IncomeScreen CommissionItem) */
+/** 收益记录(对齐 mobile-rn IncomeScreen CommissionItem) */
 export interface IncomeCommissionItem {
   id: string
   title: string
   amount: number
   time: string
   settled: boolean
+  /** 关联订单号(复制按钮用;后端无订单数据时为 undefined) */
+  orderId?: string
+  /** 是否取消结算(后端无该状态时为 undefined,与 settled=false 的待结算区分) */
+  cancelled?: boolean
 }
 export interface IncomeData {
+  /** 累计收益(overview.totalCommission,分) */
   totalEarnings: number
+  /** 今日收益(day-month-summary daySummary 今日合计,分) */
   todayCommission: number
+  /** 可提现余额(overview.availableCommission,分) */
   balance: number
+  /** 待结算佣金(overview.pendingCommission,分) */
+  pendingCommission: number
+  /** 已提现(overview.withdrawnCommission,分) */
+  withdrawnCommission: number
   list: IncomeCommissionItem[]
 }
 export interface IncomeScreenProps {
@@ -2547,6 +2607,8 @@ export interface LiveDetailScreenProps {
   onInputChange: (text: string) => void
   onSend: () => void
   onSubscribe: () => void
+  /** 直播互动入口按钮(可选):渲染「互动」按钮,点击跳转直播聊天屏 */
+  onOpenChat?: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -2738,6 +2800,10 @@ export interface AiGroupScreenProps {
   onEnterChat: (item: AiGroupItem) => void
   onRefresh: () => void
   onRetry: () => void
+  /** 搜索关键词(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;不传则隐藏搜索框) */
+  keyword?: string
+  /** 搜索关键词变更回调(由 wrapper 注入 state) */
+  onKeywordChange?: (keyword: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -2867,30 +2933,63 @@ export interface AiAssistantScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** AI 职业趋势 */
-export type AiCareerTrend = 'up' | 'new' | 'stable'
-
-/** AI 职业匹配�?*/
-export interface AiCareerMatchItem {
-  id: string
-  title: string
-  salary?: string
-  match: number
-  trend: AiCareerTrend
-  reasons: string[]
+/** AI 生涯指导 — 孩子学业问卷表单字段(对齐原 Uniapp 页 pagesA/ai_career 的 formData) */
+export interface AiCareerFormData {
+  school: string
+  classLevel: string
+  scoreRange: string
+  languageDifficulty: string
+  scienceCharacteristics: string
+  learningObstacle: string
+  hobbies: string
+  personality: string
+  extraTime: string
+  pressureTolerance: string
+  learningGoal: string
+  personalityTest1: string
+  personalityTest2: string
+  personalityTest3: string
+  personalityTest4: string
+  personalityTest5: string
 }
 
-/** AiCareerScreen props */
+/** 问卷字段名(约束选项/输入回调的 key) */
+export type AiCareerFieldKey = keyof AiCareerFormData
+
+/** 问卷区块:基础信息 / 性格测试 */
+export type AiCareerSection = 'basic' | 'personality'
+
+/** 题目控件类型:单选 / 单行输入 / 多行输入 / 1-5 评分行 */
+export type AiCareerQuestionType = 'choice' | 'input' | 'textarea' | 'score'
+
+/** 单选题选项(label 与 value 同文案,对齐原项目 selectOption(field, value)) */
+export interface AiCareerChoiceOption {
+  label: string
+  value: string
+}
+
+/** 问卷题目定义 */
+export interface AiCareerQuestion {
+  key: AiCareerFieldKey
+  title: string
+  required: boolean
+  type: AiCareerQuestionType
+  options?: AiCareerChoiceOption[]
+  placeholder?: string
+  maxLength?: number
+  section: AiCareerSection
+}
+
+/** AiCareerScreen(孩子学业问卷)props */
 export interface AiCareerScreenProps {
   t: TFunction
-  items: AiCareerMatchItem[]
-  loading: boolean
-  refreshing: boolean
+  questions: AiCareerQuestion[]
+  formData: AiCareerFormData
   error: string | null
-  selectedId: string | null
-  onToggleItem: (id: string) => void
-  onRefresh: () => void
-  onPlan: (item: AiCareerMatchItem) => void
+  submitting: boolean
+  onSelectOption: (key: AiCareerFieldKey, value: string) => void
+  onInputChange: (key: AiCareerFieldKey, value: string) => void
+  onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
 }
@@ -3012,6 +3111,12 @@ export interface BusinessCardScreenProps {
   onSave: () => void
   onEdit: () => void
   onBack: () => void
+  /** 定制名片入口(对齐原项目 business-card/index.vue 的"社区名片定制入口";暂无对应落地页时 toast 提示) */
+  onCustomize: () => void
+  /** 分享到微信(走 RN Share.share,对齐原 project business-card-sharing 组件 @wx 事件) */
+  onShareWechat: () => void
+  /** 分享到朋友圈(走 RN Share.share,对齐原 project business-card-sharing 组件 @pyq 事件) */
+  onShareMoments: () => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -3717,15 +3822,36 @@ export interface DistributionProduct {
   sales: number
 }
 
-/** 分销概览(平台注入,字段对齐 mobile-rn DistributionScreen DistributionInfo) */
+/**
+ * 分销概览 — 对齐后端 GET /distribution/overview 真实返回。
+ * 金额单位均为「分」(commission_flows.amount / withdrawalFlows.amount)。
+ * 展示层兼容字段(commissionRate/withdrawMin/products)后端无对应数据源,
+ * 保留为可选,共享屏缺省不渲染/按 0 处理(不伪造)。
+ */
 export interface DistributionInfo {
-  level: string
-  commissionRate: number
-  totalEarnings: number
-  withdrawn: number
-  pending: number
-  withdrawMin: number
-  products: DistributionProduct[]
+  /** 累计佣金(全部状态流水合计,分) */
+  totalCommission: number
+  /** 可提现余额(status=1 佣金 − 已提现 − 提现中,分) */
+  availableCommission: number
+  /** 待结算佣金(commission_flows.status=1,分) */
+  pendingCommission: number
+  /** 已提现(withdrawal_flows.status=2 累计,分) */
+  withdrawnCommission: number
+  inviteCode: string | null
+  /** 分销等级(users.level 数字) */
+  level: number
+  /** 总邀请人数(users.parentId = 当前用户计数) */
+  invitedCount: number
+  /** 活跃邀请人数(邀请用户中 status=1 计数) */
+  activeCount: number
+  /** 推广订单数(commission_flows 去重非空 orderId;无订单数据时为 null) */
+  orderCount: number | null
+  /** 佣金率(后端无数据源,可选;共享屏无值时不渲染) */
+  commissionRate?: number
+  /** 最低提现(后端无数据源,可选;缺省按 0 处理) */
+  withdrawMin?: number
+  /** 推广商品(后端无数据源,可选;共享屏无值时不渲染列表) */
+  products?: DistributionProduct[]
 }
 
 /** DistributionScreen props(注入�?wrapper 保留 API 调用 + Alert 弹窗) */
@@ -3801,6 +3927,8 @@ export interface HomeRecommendItem {
   studentCount: number
   price: number
   isFree: boolean
+  /** 封面图(对齐 Course.cover,轮播/课程卡展示;可空) */
+  cover?: string | null
 }
 
 /** 首页直播预览�?平台注入,字段对齐 mobile-rn HomeScreen Live 子集) */
@@ -4032,6 +4160,10 @@ export interface TeamScreenProps {
   onBack: () => void
   /** 点击成员卡片跳转详情(可�?不传则卡片不可点�? */
   onPressMember?: (memberId: string) => void
+  /** 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」;不传则隐藏搜索框) */
+  keyword?: string
+  /** 搜索关键词变更回调(由 wrapper 注入 state) */
+  onKeywordChange?: (keyword: string) => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -4266,6 +4398,8 @@ export interface ChatScreenProps {
   containerStyle?: object
   /** 消息列表样式(wrapper 用于覆盖默认 flex:1) */
   flatListStyle?: object
+  /** 消息列表 ref(wrapper 可用于加载历史后滚动到底部等平台特定能力) */
+  onListRef?: (ref: unknown) => void
 }
 
 /** 开发者套餐类�?*/
@@ -4321,10 +4455,19 @@ export interface UsageRulesScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+export interface LearnDevelopEntry {
+  icon: string
+  title: string
+  desc: string
+  onPress: () => void
+}
+
 export interface LearnDevelopScreenProps {
   t: TFunction
   onBack: () => void
   onContact?: () => void
+  /** 学习功能导航卡片;由端侧 wrapper 注入真实跳转 */
+  entries?: LearnDevelopEntry[]
   colorScheme?: 'light' | 'dark'
 }
 
@@ -4422,7 +4565,7 @@ export interface EarnCommissionScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** ���� 34(2026-08-15):Mock ������(�Ŷӳ�Ա����/���а�����,2 ��Ǩ���� mobile-rn) */
+/** 团队成员详情 props(批次 34 2026-08-15 建,2026-08-21 扩展 loading/error/onRetry + member 可空) */
 export interface TeamDetailScreenProps {
   t: TFunction
   onBack: () => void
@@ -4435,22 +4578,30 @@ export interface TeamDetailScreenProps {
     transactionVolume: number
     commission: number
     orderNum: number
-  }
+  } | null
+  loading?: boolean
+  error?: string
+  onRetry?: () => void
   onContact: () => void
   onViewOrders: () => void
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 排行榜详情 props(批次 34 建,2026-08-21 用户化):
+ * 列表页为 users 积分排行(/ranking),详情页对齐原版"列表页透传"模式,
+ * detail 改用户维度(积分/学习时长/等级),替代原模型形态(organization/attention/context)。
+ */
 export interface RankingDetailScreenProps {
   t: TFunction
   onBack: () => void
   detail: {
-    avatar: string
+    avatar: string | null
     title: string
     rank: number
-    organization: string
-    attention: number
-    context: string
+    points: number
+    studyHours: number
+    level: number
   }
   history: Array<{ id: string; title: string; createdAt: number }>
   drawerVisible: boolean
@@ -4538,6 +4689,8 @@ export interface AppTopupScreenProps {
   balance: number
   refreshing: boolean
   introVisible: boolean
+  /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 由 AuthUser.identityType === 'trader' 判定) */
+  userTier: 'normal' | 'vip' | 'trader'
   amountOptions: { id: string; amount: number; label: string }[]
   payMethods: { id: string; label: string; icon?: string }[]
   onSelectAmount: (id: string) => void
@@ -4698,6 +4851,12 @@ export interface SetNeedScreenProps {
     lowestPrice: string
     peakPrice: string
     contact: string
+    cycle: string
+    cycleUnit: string
+    types: string
+    categories: string
+    closingTime: string
+    imgs: string[]
   }
   submitting: boolean
   onFieldChange: (field: string, value: string) => void
@@ -4797,6 +4956,8 @@ export interface SquareScreenProps {
   onItemClick: (id: string) => void
   showBackTop: boolean
   onBackToTop: () => void
+  /** 暴露内部 FlatList ref(wrapper 用于返回顶部 scrollToOffset,对齐 ChatScreen onListRef 模式) */
+  onListRef?: (ref: unknown) => void
   onBack?: () => void
 }
 

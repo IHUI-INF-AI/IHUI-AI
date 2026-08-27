@@ -27,8 +27,14 @@ from app.services.mcp_server import (
 
 @pytest.fixture(autouse=True)
 def _workspace_root(monkeypatch, tmp_path):
-    """把工作区白名单重定向到 tmp_path,隔离测试文件。"""
-    monkeypatch.setattr(mcp_server, "_WORKSPACE_ROOTS", [str(tmp_path.resolve())])
+    """把工作区白名单重定向到 tmp_path,隔离测试文件。
+
+    2026-08-25:mcp_server 已将 _WORKSPACE_ROOTS 从模块级常量改为
+    _get_workspace_roots() 延迟读取(env MCP_WORKSPACE_ROOTS),这里 patch 函数。
+    """
+    monkeypatch.setattr(
+        mcp_server, "_get_workspace_roots", lambda: [str(tmp_path.resolve())]
+    )
     return tmp_path
 
 

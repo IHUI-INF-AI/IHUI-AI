@@ -31,6 +31,11 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { useI18n } from '../i18n'
+import { useAuth } from '../context/AuthContext'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
   Bot,
   Building2,
@@ -55,10 +60,14 @@ export type DrawerTab = 'home' | 'ai' | 'square' | 'share' | 'mine'
  * (任务禁止改 ChatScreen,故新增独立类型 + 可选回调)。
  * 主 agent 后续可在 ChatScreen 接 onNavigateExtra 实现真实跳转:
  *   tools→AiAssistant/AgentScreen, aigc→AigcList, learn→StudyIndex,
- *   modelPlaza→ModelPlaza, company→WorkPanel(路由均已注册,见 RootNavigator 行 673-698)。
+ *   modelPlaza→ModelPlaza, company→Distribution, assistant→Assistant
+ *   (路由均已注册,见 RootNavigator)。
  */
-export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company'
+export type DrawerExtraMenu = 'tools' | 'aigc' | 'learn' | 'modelPlaza' | 'company' | 'assistant'
 export type DrawerUserLevel = 'vip' | 'normal'
+
+/** 扩展菜单兜底导航用的根栈导航类型 */
+type DrawerNav = NativeStackNavigationProp<RootStackParamList>
 
 export interface DrawerModelConfig {
   id: string
@@ -87,8 +96,7 @@ export interface DrawerProps {
   // 回调
   onNavigate: (tab: DrawerTab) => void
   /**
-   * 扩展菜单跳转回调(可选)。未传入时点击扩展菜单弹 Alert 占位。
-   * 主 agent 后续在 ChatScreen 接入即可激活真实跳转。
+   * 扩展菜单跳转回调(可选)。未传入时由本组件兜底导航到真实路由(见 handleNavigateExtra)。
    */
   onNavigateExtra?: (menu: DrawerExtraMenu) => void
   onNavigateCompany: () => void // 一人公司
@@ -116,15 +124,17 @@ const DAY_MS = 24 * 60 * 60 * 1000
 interface MainMenuConfig {
   key: DrawerTab
   label: string
+  /** 对应 i18n key(mobile-rn nav 命名空间);提供时优先用 t(i18nKey) 渲染,否则回退 label */
+  i18nKey?: string
   Icon: typeof Home
 }
 
 const MAIN_MENUS: readonly MainMenuConfig[] = [
   { key: 'home', label: 'AI 对话社区', Icon: Home },
-  { key: 'ai', label: 'AI 应用', Icon: Bot },
+  { key: 'ai', label: 'AI 应用', i18nKey: 'nav.agents', Icon: Bot },
   { key: 'square', label: '广场', Icon: LayoutGrid },
   { key: 'share', label: '动态', Icon: Share2 },
-  { key: 'mine', label: '我的', Icon: User },
+  { key: 'mine', label: '我的', i18nKey: 'nav.profile', Icon: User },
 ] as const
 
 // ── 扩展菜单配置(对齐 Uniapp 行 14-40 隐藏菜单 + label_content 入口) ──
@@ -143,6 +153,7 @@ const EXTRA_MENUS: readonly ExtraMenuConfig[] = [
   { key: 'learn', label: '学习', emoji: '📚' },
   { key: 'modelPlaza', label: '模型广场', emoji: '🤖' },
   { key: 'company', label: '一人公司', emoji: '🏢' },
+  { key: 'assistant', label: '我的智能体', emoji: '🧩' },
 ] as const
 
 // ── 日期分组逻辑 ──
@@ -360,6 +371,9 @@ export function Drawer(props: DrawerProps) {
   } = props
 
   const insets = useSafeAreaInsets()
+  const { t } = useI18n()
+  const { logout } = useAuth()
+  const navigation = useNavigation<DrawerNav>()
   const screenWidth = Dimensions.get('window').width
   const drawerWidth = Math.min(screenWidth * DRAWER_WIDTH_RATIO, MAX_DRAWER_WIDTH)
 
@@ -402,23 +416,72 @@ export function Drawer(props: DrawerProps) {
   }
 
   /**
-   * 扩展菜单点击:父级未接 onNavigateExtra 时 Alert 占位(对齐任务"依赖缺失用 Alert"约束)。
-   * 路由均已注册(RootNavigator 行 673-698),主 agent 后续在 ChatScreen 接回调即可激活。
+   * 扩展菜单点击:优先走父级 onNavigateExtra(真实路由已接),未注入回调时由本组件兜底导航。
+   * 所有扩展菜单均已有真实页面/路由(RootNavigator 已注册 AigcList/Learn/ModelPlaza/Settings),
+   * 故兜底直接跳真实路由,不再弹"功能开发中(待接入路由)"占位。
    */
   const handleNavigateExtra = (menu: DrawerExtraMenu) => {
     if (onNavigateExtra) {
       onNavigateExtra(menu)
     } else {
-      const labelMap: Record<DrawerExtraMenu, string> = {
-        tools: '工具',
-        aigc: 'AIGC',
-        learn: '学习',
-        modelPlaza: '模型广场',
-        company: '一人公司',
+      switch (menu) {
+        case 'aigc':
+          navigation.navigate('AigcList')
+          break
+        case 'learn':
+          navigation.navigate('Learn')
+          break
+        case 'modelPlaza':
+          navigation.navigate('ModelPlaza')
+          break
+        case 'tools':
+        case 'company':
+          navigation.navigate('Settings')
+          break
+        case 'assistant':
+          navigation.navigate('Assistant')
+          break
       }
-      Alert.alert(labelMap[menu], '功能开发中(待接入路由)')
     }
     onClose()
+  }
+
+  /**
+   * 快捷导航(chat.nav* 区)点击:全部接通真实路由(2026-08-26 修复,
+   * 此前 7 项均为 Alert '待接入导航路由' 死按钮)。导航统一冒泡到 RootStack,
+   * 与 handleNavigateExtra 兜底同模式;logout 弹确认后调 AuthContext.logout。
+   */
+  const handleQuickNav = (
+    key: 'agent' | 'wallet' | 'course' | 'order' | 'profile' | 'settings' | 'logout',
+  ) => {
+    if (key === 'logout') {
+      Alert.alert(t('chat.navLogout'), '确定要退出登录吗?', [
+        { text: '取消', style: 'cancel' },
+        { text: '退出', style: 'destructive', onPress: () => void logout() },
+      ])
+      return
+    }
+    onClose()
+    switch (key) {
+      case 'agent':
+        navigation.navigate('Assistant')
+        break
+      case 'wallet':
+        navigation.navigate('Wallet')
+        break
+      case 'course':
+        navigation.navigate('Main', { screen: 'CourseMain' })
+        break
+      case 'order':
+        navigation.navigate('Order')
+        break
+      case 'profile':
+        navigation.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'settings':
+        navigation.navigate('Settings')
+        break
+    }
   }
 
   const handleSelectConversation = (id: string) => {
@@ -523,7 +586,7 @@ export function Drawer(props: DrawerProps) {
                 className="py-2 flex-row items-start justify-between"
                 style={{ paddingHorizontal: 14 }}
               >
-                {MAIN_MENUS.map(({ key, label, Icon }) => (
+                {MAIN_MENUS.map(({ key, label, i18nKey, Icon }) => (
                   <Pressable
                     key={key}
                     className="flex-1 items-center py-1.5 rounded-lg"
@@ -536,7 +599,9 @@ export function Drawer(props: DrawerProps) {
                     >
                       <Icon size={22} color={tokens.text.primary} />
                     </View>
-                    <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
+                    <Text className="text-[11px] text-gray-700 text-center">
+                      {i18nKey ? t(i18nKey) : label}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -598,6 +663,68 @@ export function Drawer(props: DrawerProps) {
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
+                </Pressable>
+              </View>
+
+              {/* 2c. 快捷导航(chat.nav* 键:智能体/钱包/课程/订单/我的/设置/退出登录)。
+                  2026-08-26:7 项全部接通真实路由(handleQuickNav),不再弹占位 Alert */}
+
+              <View className="px-2 py-2 gap-0.5">
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('agent')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navAgent')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('wallet')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navWallet')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('course')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navCourse')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('order')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navOrder')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('profile')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navProfile')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('settings')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navSettings')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center px-3 py-2 rounded-lg"
+                  onPress={() => handleQuickNav('logout')}
+                  android_ripple={{ color: tokens.surface.muted }}
+                >
+                  <Text className="flex-1 text-[13px] text-gray-700">{t('chat.navLogout')}</Text>
+                  <ChevronRight size={15} color={tokens.text.tertiary} />
                 </Pressable>
               </View>
 

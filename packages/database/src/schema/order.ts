@@ -31,6 +31,8 @@ export const eduOrders = pgTable(
     orderType: varchar('order_type', { length: 32 }).notNull(),
     targetId: varchar('target_id', { length: 64 }),
     targetTitle: varchar('target_title', { length: 200 }),
+    /** 商品图,待商品库数据接入 */
+    image: varchar('image', { length: 500 }),
     quantity: integer('quantity').default(1).notNull(),
     originalPrice: numeric('original_price', { precision: 10, scale: 2 }).default('0').notNull(),
     discountAmount: numeric('discount_amount', { precision: 10, scale: 2 }).default('0').notNull(),

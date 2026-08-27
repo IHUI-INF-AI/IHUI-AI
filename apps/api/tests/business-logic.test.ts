@@ -59,7 +59,7 @@ vi.mock('../src/db/gamification-queries.js', () => ({
   findSignInHistory: vi.fn(),
   findRecentSignInRecords: vi.fn().mockResolvedValue([]),
   calculateConsecutiveDays: vi.fn(),
-  createSignInRecord: vi.fn(),
+  signInWithPoints: vi.fn(),
   findLevels: vi.fn(),
   findCurrentLevel: vi.fn(),
   todayString: vi.fn().mockReturnValue('2026-07-08'),
@@ -105,6 +105,16 @@ vi.mock('../src/services/points-service.js', () => ({
   spendPoints: vi.fn(),
 }))
 
+vi.mock('../src/utils/checkin-helpers.js', () => ({
+  calcSignInReward: vi.fn().mockReturnValue(10),
+  todayString: vi.fn().mockReturnValue('2026-07-08'),
+  shiftDate: vi.fn((dateStr: string, deltaDays: number) => {
+    const d = new Date(dateStr + 'T00:00:00Z')
+    d.setUTCDate(d.getUTCDate() + deltaDays)
+    return d.toISOString().slice(0, 10)
+  }),
+}))
+
 // =============================================================================
 // 导入被测路由与 mock 函数
 // =============================================================================
@@ -114,10 +124,9 @@ import {
   findTodaySignIn,
   findSignInHistory,
   calculateConsecutiveDays,
-  createSignInRecord,
+  signInWithPoints,
 } from '../src/db/gamification-queries'
 import { findCoupons, verifyCoupon } from '../src/db/promotion-queries'
-import { earnPoints } from '../src/services/points-service'
 
 // =============================================================================
 // 常量与测试数据
@@ -157,6 +166,12 @@ const mockPointsResult = {
     referenceId: SAMPLE_UUID,
     createdAt: new Date(),
   },
+}
+
+const mockSignInWithPointsResult = {
+  record: mockSignInRecord,
+  points: mockPointsResult.points,
+  transaction: mockPointsResult.transaction,
 }
 
 const mockCoupon = {
@@ -202,8 +217,7 @@ describe('business logic', () => {
     it('POST /api/sign-in 成功签到返回 201 与积分', async () => {
       vi.mocked(findTodaySignIn).mockResolvedValue(undefined)
       vi.mocked(calculateConsecutiveDays).mockResolvedValue(1)
-      vi.mocked(createSignInRecord).mockResolvedValue(mockSignInRecord)
-      vi.mocked(earnPoints).mockResolvedValue(mockPointsResult)
+      vi.mocked(signInWithPoints).mockResolvedValue(mockSignInWithPointsResult)
 
       const res = await server.inject({
         method: 'POST',
@@ -216,13 +230,15 @@ describe('business logic', () => {
       expect(body.data.record.signInDate).toBe(TODAY)
       expect(body.data.record.rewardPoints).toBe(10)
       expect(body.data.points.points).toBe(10)
-      // earnPoints 应以 signin 来源、签到记录 id 调用
-      expect(vi.mocked(earnPoints)).toHaveBeenCalledWith(
-        SAMPLE_UUID,
-        10,
-        'signin',
+      // signInWithPoints 应以签到数据和奖励描述调用
+      expect(vi.mocked(signInWithPoints)).toHaveBeenCalledWith(
+        {
+          userId: SAMPLE_UUID,
+          signInDate: TODAY,
+          consecutiveDays: 1,
+          rewardPoints: 10,
+        },
         '每日签到奖励',
-        SAMPLE_UUID,
       )
     })
 
@@ -239,7 +255,7 @@ describe('business logic', () => {
       expect(body.code).toBe(409)
       expect(body.message).toContain('已签到')
       // 重复签到不应发放奖励
-      expect(vi.mocked(earnPoints)).not.toHaveBeenCalled()
+      expect(vi.mocked(signInWithPoints)).not.toHaveBeenCalled()
     })
 
     it('GET /api/sign-in/today 获取签到状态返回 200', async () => {
