@@ -193,6 +193,66 @@ function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string
   return modelId
 }
 
+type ProviderHealth = { status: string; error_type: string }
+
+/**
+ * 拉取 ai-service 的 provider 可用性(每个 fetchModels 调用至多一次)。
+ * 失败一律返回空 Map(宽松:视为全部可用,不影响翻车前的既有行为)。
+ */
+async function fetchProviderAvailability(): Promise<Map<string, ProviderHealth>> {
+  const map = new Map<string, ProviderHealth>()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+  try {
+    const resp = await fetch(`${config.AI_SERVICE_URL}/llm/providers/availability`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+    if (!resp.ok) return map
+    const raw = (await resp.json()) as unknown
+    let providers: Array<{ provider_code: string; status: string; error_type: string }> = []
+    if (raw && typeof raw === 'object') {
+      const obj = raw as Record<string, unknown>
+      const inner = obj.data && typeof obj.data === 'object' ? obj.data : obj
+      const p = (inner as Record<string, unknown>).providers
+      if (Array.isArray(p)) providers = p as typeof providers
+    }
+    for (const p of providers) {
+      if (typeof p.provider_code === 'string') {
+        map.set(p.provider_code, {
+          status: typeof p.status === 'string' ? p.status : '',
+          error_type: typeof p.error_type === 'string' ? p.error_type : '',
+        })
+      }
+    }
+  } catch {
+    // 网络/超时/解析失败:返回空 Map(全部视为可用)
+  } finally {
+    clearTimeout(timer)
+  }
+  return map
+}
+
+/**
+ * 与 ai-service model_availability.is_model_available 对齐的硬不可用判定。
+ * provider 未知(PENDING/未入网)一律视为可用(lenient)。
+ */
+function isProviderHardUnavailable(
+  code: string | undefined,
+  health: Map<string, ProviderHealth>,
+): boolean {
+  if (!code || !health.has(code)) return false
+  const h = health.get(code)!
+  if (h.status === 'down' || h.status === 'not_configured') return true
+  if (
+    h.status === 'degraded' &&
+    ['payment_required', 'invalid_key', 'forbidden', 'rate_limited'].includes(h.error_type)
+  ) {
+    return true
+  }
+  return false
+}
+
 async function fetchModels(userId?: string): Promise<{
   body: V1ModelsResponse
   source: 'db' | 'live' | 'cache' | 'fallback'
@@ -255,21 +315,37 @@ async function fetchModels(userId?: string): Promise<{
     }
 
     if (dbModels.length > 0 || byokModels.length > 0) {
-      const relayList = dbModels.map((m) => ({
-        // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
-        // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
-        // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
-        // 其他(如 openai/原生)→ 不加前缀。
-        id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
-        object: 'model' as const,
-        created: Math.floor(now / 1000),
-        owned_by: m.providerCode || m.configName || 'ihui',
-      }))
+      // P0 修复:DB 路径只上架 provider 实际可用的平台模型;
+      // 硬不可用(down/not_configured/受限态 402·401·403·429)剔除。
+      // 仅在存在上架平台模型时拉取一次 ai-service 可用性;
+      // 缓存命中 / live / 仅 BYOK 路径不打额外上游。
+      let healthMap: Map<string, ProviderHealth> = new Map()
+      if (dbModels.length > 0) {
+        try {
+          healthMap = await fetchProviderAvailability()
+        } catch {
+          // 视为全部可用
+        }
+      }
+      const relayList = dbModels
+        .filter((m) => !isProviderHardUnavailable(m.providerCode, healthMap))
+        .map((m) => ({
+          // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+          // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+          // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+          // 其他(如 openai/原生)→ 不加前缀。
+          id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+          object: 'model' as const,
+          created: Math.floor(now / 1000),
+          owned_by: m.providerCode || m.configName || 'ihui',
+          available: !isProviderHardUnavailable(m.providerCode, healthMap),
+        }))
       const byokList = byokModels.map((m) => ({
         id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
         object: 'model' as const,
         created: Math.floor(now / 1000),
         owned_by: 'byok',
+        available: true,
       }))
       const mapped: V1ModelsResponse = {
         object: 'list',
@@ -314,7 +390,7 @@ async function fetchModels(userId?: string): Promise<{
               (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
               'ihui'
             const created = typeof mo.created === 'number' ? mo.created : Math.floor(now / 1000)
-            return { id, object: 'model' as const, created, owned_by: ownedBy }
+            return { id, object: 'model' as const, created, owned_by: ownedBy, available: true }
           }),
         }
         modelsCache = { data: mapped, fetchedAt: now }
@@ -328,7 +404,10 @@ async function fetchModels(userId?: string): Promise<{
   if (modelsCache) {
     return { body: modelsCache.data, source: 'cache' }
   }
-  return { body: FALLBACK_MODELS, source: 'fallback' }
+  return {
+    body: { ...FALLBACK_MODELS, data: FALLBACK_MODELS.data.map((m) => ({ ...m, available: true })) },
+    source: 'fallback',
+  }
 }
 
 // =============================================================================
