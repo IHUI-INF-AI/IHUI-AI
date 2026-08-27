@@ -15,8 +15,10 @@
  *   node scripts/clean-turbopack-cache.mjs --force    # 无条件清理
  *   node scripts/clean-turbopack-cache.mjs --check    # 只报告不清理(exit 1=需清理)
  *   node scripts/clean-turbopack-cache.mjs --threshold 2048   # 自定义阈值 MB
+ *   node scripts/clean-turbopack-cache.mjs --selftest # 内置自测(临时目录模拟验证统计/清理)
  */
 import { promises as fs } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -26,16 +28,65 @@ const TARGET = path.join(REPO_ROOT, 'apps', 'web', '.next', 'dev', 'cache', 'tur
 const DEFAULT_THRESHOLD_MB = 3072 // 3GB
 
 function parseArgs(argv) {
-  const args = { thresholdMB: DEFAULT_THRESHOLD_MB, force: false, check: false }
+  const args = { thresholdMB: DEFAULT_THRESHOLD_MB, force: false, check: false, selftest: false }
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--force') args.force = true
     else if (argv[i] === '--check') args.check = true
+    else if (argv[i] === '--selftest') args.selftest = true
     else if (argv[i] === '--threshold' && argv[i + 1]) {
       const v = Number(argv[++i])
       if (Number.isFinite(v) && v > 0) args.thresholdMB = v
     }
   }
   return args
+}
+
+/**
+ * 内置自测(2026-08-27 立):在系统临时目录构造假的 turbopack 缓存结构,
+ * 验证「递归统计(含嵌套子目录)+ MB 换算 + 阈值判定 + 删除清理」四步正确,
+ * 防 2026-08-27 单位换算 bug 之类回归。无副作用,不触碰真实 .next。
+ */
+async function selfTest() {
+  const results = []
+  const check = (name, ok, detail = '') => {
+    results.push([name, ok])
+    console.log(`[turbopack-cache]   ${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ` (${detail})` : ''}`)
+  }
+
+  console.log('[turbopack-cache] ===== 自测开始 =====')
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'turbocache-selftest-'))
+  const fakeTarget = path.join(tmpRoot, 'dev', 'cache', 'turbopack')
+  const verDir = path.join(fakeTarget, 'v16.2.12')
+  try {
+    await fs.mkdir(verDir, { recursive: true })
+    // 已知大小:1MB + 5MB + 300KB + 嵌套子目录 200B
+    const sizes = [1024 * 1024, 5 * 1024 * 1024, 300 * 1024]
+    for (let i = 0; i < sizes.length; i++) {
+      await fs.writeFile(path.join(verDir, `0000000${i}.sst`), Buffer.alloc(sizes[i], 7))
+    }
+    await fs.mkdir(path.join(verDir, 'nested'))
+    await fs.writeFile(path.join(verDir, 'nested', 'x.meta'), Buffer.alloc(200, 9))
+
+    const expectedBytes = sizes.reduce((a, b) => a + b, 0) + 200
+    const actualBytes = await dirSizeBytes(fakeTarget)
+    check('递归统计字节', actualBytes === expectedBytes, `期望 ${expectedBytes} / 实际 ${actualBytes}`)
+
+    const mb = toMB(actualBytes)
+    check('MB 换算', mb > 1 && mb < 100, `${mb.toFixed(2)} MB`)
+
+    // 阈值判定:默认 3GB 不触发,1MB 触发
+    check('阈值判定', toMB(actualBytes) > 1, '1MB 阈值应触发')
+
+    await fs.rm(fakeTarget, { recursive: true, force: true })
+    const gone = !(await fs.access(fakeTarget).then(() => true).catch(() => false))
+    check('删除清理', gone, '目录已消失')
+  } finally {
+    await fs.rm(tmpRoot, { recursive: true, force: true }).catch(() => {})
+  }
+
+  const allOk = results.every(([, ok]) => ok)
+  console.log(`[turbopack-cache] ===== 自测${allOk ? '全部通过' : '存在失败'} =====`)
+  process.exit(allOk ? 0 : 1)
 }
 
 // 统一按字节累加,递归时父层不再换算;MB 换算只在最外层(调用处)做一次。
@@ -71,6 +122,12 @@ function toMB(bytes) {
 }
 
 const args = parseArgs(process.argv.slice(2))
+
+// 自测模式:不触碰真实 .next,走临时目录
+if (args.selftest) {
+  await selfTest()
+}
+
 const exists = await fs.access(TARGET).then(() => true).catch(() => false)
 
 if (!exists) {
