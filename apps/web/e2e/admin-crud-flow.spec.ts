@@ -64,8 +64,9 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
       setupTest.skip(true, 'admin 页面不可访问')
     }
 
-    // 点击"新建"按钮(中英文兼容)
+    // 2026-08-26 修复:限定 main 区域,避免误中侧边栏"新建任务"按钮
     const createBtn = adminPage
+      .locator('main')
       .getByRole('button')
       .filter({ hasText: /新建|创建|添加|新增|Create|New|Add/i })
       .first()
@@ -121,7 +122,9 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     }
 
     await adminPage.waitForTimeout(1500)
+    // 2026-08-26 修复:同上行 — 限定 main 区域,避免误中侧边栏"编辑"
     const editBtn = adminPage
+      .locator('main')
       .getByRole('button')
       .filter({ hasText: /编辑|修改|Edit/i })
       .first()
@@ -146,7 +149,9 @@ setupTest.describe('8 端关键路径 · Admin CRUD 端到端流程', () => {
     }
 
     await adminPage.waitForTimeout(1500)
+    // 2026-08-26 修复:同上行 — 限定 main 区域,避免误中侧边栏"删除"
     const deleteBtn = adminPage
+      .locator('main')
       .getByRole('button')
       .filter({ hasText: /删除|Delete|Remove/i })
       .first()

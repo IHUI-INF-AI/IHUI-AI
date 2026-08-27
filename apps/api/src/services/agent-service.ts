@@ -43,8 +43,8 @@ export async function createAgent(input: CreateAgentInput) {
 }
 
 /** 更新 Agent 配置。 */
-export async function updateAgent(agentId: string, patch: UpdateAgentInput) {
-  return updateAgentRow(agentId, patch)
+export async function updateAgent(agentId: string, patch: UpdateAgentInput, userId?: string) {
+  return updateAgentRow(agentId, patch, userId)
 }
 
 /**
@@ -109,8 +109,8 @@ export async function executeAgent(agentId: string): Promise<{
 }
 
 /** 删除 Agent。 */
-export async function deleteAgent(agentId: string) {
-  return deleteAgentRow(agentId)
+export async function deleteAgent(agentId: string, userId?: string) {
+  return deleteAgentRow(agentId, userId)
 }
 
 /** 按 userId 统计其 Agent 数量。 */

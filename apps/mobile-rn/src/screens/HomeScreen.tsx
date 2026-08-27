@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import QrCodeImage from '../../assets/images/common/qewm.png'
 import {
+  ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -7,25 +10,39 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
+import * as MediaLibrary from 'expo-media-library'
+import { Asset } from 'expo-asset'
 import { SlidersHorizontal } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
+  claimShareFirstReward,
+  deleteAgent,
   fetchApi,
   getAllStudyProgress,
   getAgentCategories,
+  getAgentDetail,
+  getAgentUseHistory,
   getAgents,
   getCourses,
   getLiveList,
+  getMyCreation,
+  getMyCreationDetail,
+  getShareFirstStatus,
+  getTokenBalance,
+  fetchModels,
   type Agent,
   type AgentCategoryItem,
   type Course,
   type Live,
+  type MyCreationItem,
+  type MyCreationType,
   type StudyProgress,
 } from '@ihui/api-client'
 import {
@@ -49,17 +66,32 @@ import PopularCourses, { type PopularCourse } from '../components/PopularCourses
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
+import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
-import ModelList, { type ModelListGroup } from '../components/ModelList'
+import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
+import MaterialList, {
+  type MaterialCategory,
+  type MaterialItem,
+  type MaterialType,
+} from '../components/MaterialList'
+// 对齐 Uniapp toggleSkillsPopup → AgentList 智能体选择列表(技能弹窗真实数据源)
+import AgentList, { type AgentListItem } from '../components/AgentList'
+import ModelConfigDialog, {
+  type ModelConfig,
+  type ModelType as ConfigModelType,
+} from '../components/ModelConfigDialog'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import RecentAgents, { type RecentAgentItem } from '../components/RecentAgents'
 // 对齐 Uniapp tools/index(AI应用商店):ai-list 智能体列表 + tagWrapShow 赛道分类弹层
 import AgentShopList, { type AgentShopItem } from '../components/AgentShopList'
 import { FenLeiOverlay } from '../components/FenLeiOverlay'
+// 对齐 Uniapp tools/index:MyAgents(我的AI APP)+ IntelligentAssistant(智汇值卡)
+import MyAgents, { type MyAgentItem } from '../components/MyAgents'
+import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
 import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
@@ -67,9 +99,14 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
+import { rpx } from '../utils/rpx'
+// 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
+
+/** 社群二维码图片(对齐 Uniapp ai_index /static/images/qewm.png 二维码弹窗) */
 
 const MENU_ITEMS: HomeMenuItem[] = [
   { key: 'Search', labelKey: 'menu.search', icon: '🔍' },
@@ -92,6 +129,8 @@ function toRecommend(courses: Course[]): HomeRecommendItem[] {
     studentCount: c.studentCount,
     price: c.price,
     isFree: c.isFree,
+    // 封面图透传(对齐 Course.cover,轮播 banner 用)
+    cover: c.cover,
   }))
 }
 
@@ -177,6 +216,14 @@ interface SelectedModel {
   name: string
 }
 
+/** 素材卡片(对齐 Uniapp materialCards:点击素材作为卡片插入输入区上方,uid 保证可重复添加/独立移除) */
+interface MaterialCard {
+  uid: string
+  id: string
+  title: string
+  type: MaterialType
+}
+
 /** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
 const MODEL_TYPES: ModelTypeOption[] = [
   { type: 'skills', label: '技能', icon: '🧠' },
@@ -188,6 +235,124 @@ const MODEL_TYPES: ModelTypeOption[] = [
   { type: 'other', label: '其他', icon: '⚙️' },
   { type: 'sck', label: '知识库', icon: '📚' },
 ]
+
+/** 模型参数默认配置(对齐 Uniapp ModelConfigDialog 初始值) */
+const DEFAULT_MODEL_CONFIG: ModelConfig = {
+  temperature: 0.7,
+  maxTokens: 2048,
+  topP: 0.9,
+  systemPrompt: '',
+  streamEnabled: true,
+}
+
+/** 本屏 ModelType → ModelConfigDialog 期望的 ModelConfigType(对齐 ui-native ModelConfigType) */
+const toConfigModelType = (t: ModelType): ConfigModelType => {
+  switch (t) {
+    case 'image':
+      return 'image'
+    case 'video':
+    case 'videoa':
+      return 'video'
+    case 'audio':
+      return 'audio'
+    default:
+      return 'text'
+  }
+}
+
+/** 素材分类(对齐 Uniapp MaterialList 分类 tab:全部/文本/图片/视频/音频) */
+const MATERIAL_CATEGORIES: MaterialCategory[] = [
+  { key: 'all', label: '全部' },
+  { key: 'text', label: '文本' },
+  { key: 'image', label: '图片' },
+  { key: 'video', label: '视频' },
+  { key: 'audio', label: '音频' },
+]
+
+/** 素材分类 tab → getMyCreation API type(对齐 Uniapp getMaterialApiType:
+ *  agent=智能体创作(文本)/plugin=插件(图片)/workflow=工作流(视频);audio 无对应类型 → null 空态) */
+const materialApiTypeForCategory = (key: string): MyCreationType | null => {
+  switch (key) {
+    case 'all':
+    case 'text':
+      return 'agent'
+    case 'image':
+      return 'plugin'
+    case 'video':
+      return 'workflow'
+    case 'audio':
+      return null
+    default:
+      return null
+  }
+}
+
+/** 安全读取 MyCreationItem 索引字段([key:string]: unknown 索引签名,强类型化避免 any) */
+const strField = (it: MyCreationItem, key: string): string => {
+  const v: unknown = it[key]
+  return typeof v === 'string' ? v : ''
+}
+
+/** MyCreationItem → MaterialItem(对齐 Uniapp loadMaterialContent 各 tab 字段映射:
+ *  agent=文本(text 预览)/plugin=图片(agentUrl 缩略图)/workflow=视频(poster/cover 缩略图))
+ *  注意:agents 表主键为 agentId(非 id),删除接口 DELETE /agents/:agentId 需要 agentId,
+ *  故 agent 条目优先取 agentId 字段,workflow/plugin 才回退到 id */
+const mapMyCreationItem = (it: MyCreationItem, category: string): MaterialItem => {
+  const id = strField(it, 'agentId') || it.id
+  if (category === 'image') {
+    return {
+      id,
+      title: it.name || '图片内容',
+      type: 'image' as const,
+      url: strField(it, 'agentUrl') || strField(it, 'url') || undefined,
+      createdAt: it.createdAt,
+    }
+  }
+  if (category === 'video') {
+    return {
+      id,
+      title: it.name || '视频内容',
+      type: 'video' as const,
+      url:
+        strField(it, 'posterUrl') ||
+        strField(it, 'coverUrl') ||
+        strField(it, 'thumbnail') ||
+        strField(it, 'agentUrl') ||
+        strField(it, 'url') ||
+        undefined,
+      createdAt: it.createdAt,
+    }
+  }
+  return {
+    id,
+    title: it.name || '文本内容',
+    type: 'text' as const,
+    text: it.description ?? '',
+    createdAt: it.createdAt,
+  }
+}
+
+/** 素材详情通用字段展示定义(agent/workflow/plugin 三类型字段并集,仅展示存在且有值的字段) */
+const MATERIAL_DETAIL_FIELDS: ReadonlyArray<{ key: string; label: string }> = [
+  { key: 'name', label: '名称' },
+  { key: 'displayName', label: '显示名' },
+  { key: 'description', label: '描述' },
+  { key: 'status', label: '状态' },
+  { key: 'author', label: '作者' },
+  { key: 'version', label: '版本' },
+  { key: 'category', label: '分类' },
+  { key: 'createdBy', label: '创建者' },
+  { key: 'createdAt', label: '创建时间' },
+  { key: 'updatedAt', label: '更新时间' },
+]
+
+/** 详情字段值 → 展示文本(boolean/对象转字符串;null/undefined/空串返回 '' 隐藏) */
+const formatDetailValue = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return ''
+  if (typeof v === 'boolean') return v ? '是' : '否'
+  if (typeof v === 'object') return JSON.stringify(v)
+  return String(v)
+}
 
 /** 各类型占位模型列表(对齐 Uniapp modelList.imageList/videoList/audioList/... 分类,
  *  空数据占位待 API 接入,沿用 recentAgents 同款占位策略;每类 1 条样例保证 Modal 非空可演示) */
@@ -322,6 +487,27 @@ function toAgentShopItem(a: Agent): AgentShopItem {
   }
 }
 
+/** AgentShopItem → AgentListItem 映射(技能弹窗复用 AgentList,字段契约逐一对齐;tags 不入列表) */
+function toAgentListItem(a: AgentShopItem): AgentListItem {
+  return {
+    id: a.id,
+    name: a.name,
+    avatar: a.avatar,
+    isNew: a.isNew,
+    description: a.description,
+    type: a.type,
+    source: a.source,
+    isCollect: a.isCollect,
+    isThumbs: a.isThumbs,
+    collectCount: a.collectCount,
+    likeCount: a.likeCount,
+    usageCount: a.usageCount,
+    isHot: a.isHot,
+    userNickname: a.userNickname,
+    userAvatar: a.userAvatar,
+  }
+}
+
 /** 智能体收藏(对齐 Uniapp pay.js getAgentCollect:POST /cozeZhsApi/agents/collect,body {uuid, botId})
  *  api-client 暂无封装,按项目模式用 fetchApi 在本文件内定义 */
 function postAgentCollect(uuid: string, botId: string): Promise<ApiResult<unknown>> {
@@ -357,8 +543,30 @@ export function HomeScreen() {
   /** 父级 RootStack 导航(用于跳转 Search/Chat/Promote 等 RootStack 路由) */
   const rootNav = navigation.getParent<RootNav>()
 
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        rootNav?.navigate('Main', { screen: 'AiMain' })
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        rootNav?.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'home':
+        break // 当前 Tab
+    }
+  }
+
   // ── 对齐 Uniapp ai_index:NavBar 菜单按钮触发 Drawer ──
   const [drawerVisible, setDrawerVisible] = useState(false)
+  // ── 二维码弹窗(对齐 Uniapp ai_index showQrCodeModal;图片 assets/images/common/qewm.png) ──
+  const [qrCodeVisible, setQrCodeVisible] = useState(false)
   // ── FloatBox toast(对齐 Uniapp uni.showToast 顶部悬浮提示,替代阻塞式 Alert) ──
   const [toastVisible, setToastVisible] = useState(false)
   const [toastType, setToastType] = useState<FloatBoxType>('info')
@@ -369,6 +577,27 @@ export function HomeScreen() {
   // activeModelType:当前展开的类型弹窗(null 表示关闭);selectedModel:已选模型(显示在输入区小标签)
   const [activeModelType, setActiveModelType] = useState<ModelType | null>(null)
   const [selectedModel, setSelectedModel] = useState<SelectedModel | null>(null)
+  // 真实模型列表(fetchModels,按 provider 分组;加载成功替换 PLACEHOLDER_MODELS 占位样例)
+  const [realModelGroups, setRealModelGroups] = useState<ModelListGroup[]>([])
+  // ── 模型参数配置弹窗(对齐 Uniapp ai_index showModelaConfig → ModelConfigDialog) ──
+  const [showModelConfig, setShowModelConfig] = useState(false)
+  const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
+  // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
+  // 数据源:getMyCreation,按分类映射 agent/plugin/workflow(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
+  const [showMaterialList, setShowMaterialList] = useState(false)
+  const [activeMaterialCategory, setActiveMaterialCategory] = useState('all')
+  const [materialItems, setMaterialItems] = useState<MaterialItem[]>([])
+  const [materialLoading, setMaterialLoading] = useState(false)
+  // ── 素材详情弹窗(点击列表项「详情」按钮 → getMyCreationDetail 按类型查询单条) ──
+  const [materialDetailItem, setMaterialDetailItem] = useState<MaterialItem | null>(null)
+  const [materialDetailLoading, setMaterialDetailLoading] = useState(false)
+  const [materialDetailData, setMaterialDetailData] = useState<Record<string, unknown> | null>(null)
+  const [materialDetailError, setMaterialDetailError] = useState<string>('')
+  // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
+  const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
+  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
+  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [shareFirstReward, setShareFirstReward] = useState(0)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -387,6 +616,13 @@ export function HomeScreen() {
   /** RecentAgents 最近使用智能体(对齐 Uniapp tools/index RecentAgents)
    *  api-client 暂无 getAgentUseHistory(/agent/use/history)封装,降级取智能体列表前 5 条占位 */
   const [recentAgents, setRecentAgents] = useState<RecentAgentItem[]>([])
+
+  /** MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue)
+   *  数据源:与 agentItems 同源(loadAgentList 填充后取前 6 条),点击跳 AiAssistantN8n */
+  const [myAgents, setMyAgents] = useState<MyAgentItem[]>([])
+
+  /** IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue;数据源 getTokenBalance) */
+  const [tokenQuantity, setTokenQuantity] = useState(0)
 
   // ── 对齐 Uniapp tools/index.vue:ai-list 智能体列表 + tagWrapShow 赛道分类弹层 ──
   const [agentItems, setAgentItems] = useState<AgentShopItem[]>([])
@@ -409,11 +645,11 @@ export function HomeScreen() {
   const handleDrawerNavigate = (tab: DrawerTab): void => {
     // square/share 是 RootStack 路由(Uniapp: 广场/动态)
     if (tab === 'square') {
-      rootNav?.navigate('Square')
+      rootNav?.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      rootNav?.navigate('Share')
+      rootNav?.navigate('News')
       return
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
@@ -465,8 +701,13 @@ export function HomeScreen() {
       case 'company':
         rootNav?.navigate('Distribution')
         break
+      case 'assistant':
+        rootNav?.navigate('Assistant')
+
+        break
+
       case 'tools':
-        rootNav?.navigate('AiAssistant')
+        rootNav?.navigate('AiAssistantN8n', {})
         break
       default:
         // 未识别的扩展菜单,静默忽略(防御性:防止 EXTRA_MENUS 配置漂移)
@@ -477,22 +718,39 @@ export function HomeScreen() {
   // ── NavBar 按钮回调(对齐 Uniapp navigation-bars 事件) ──
   /** 菜单按钮:打开 Drawer(对齐 Uniapp handleNavClick → tagWrapShow = true) */
   const handleMenuPress = (): void => setDrawerVisible(true)
-  /** 加入社区群:显示二维码提示(对齐 Uniapp join-click → showQrCode → showQrCodeModal = true)
-   *  RN 端无二维码图片资源,用 FloatBox 提示替代弹窗 */
-  const handleJoinPress = (): void => {
-    showToast('info', '请扫描社群二维码加入(二维码图片待接入)')
+  /** 加入社区群:显示二维码弹窗(对齐 Uniapp join-click → showQrCodeModal = true;
+   *  图片资源 assets/images/common/qewm.png,长按保存到相册) */
+  const handleJoinPress = (): void => setQrCodeVisible(true)
+  /** 长按二维码:保存到相册(对齐 Uniapp handleLongPressQrCode → saveQrCodeToAlbum) */
+  const handleLongPressQrCode = async (): Promise<void> => {
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync()
+      if (!perm.granted) {
+        showToast('warning', '需要相册权限才能保存')
+        return
+      }
+      const localAsset = Asset.fromModule(QrCodeImage)
+      await localAsset.downloadAsync()
+      const asset = await MediaLibrary.createAssetAsync(localAsset.localUri ?? localAsset.uri)
+      await MediaLibrary.saveToLibraryAsync(asset.uri)
+      showToast('success', '已保存到相册')
+    } catch {
+      showToast('warning', '保存失败,请重试')
+    }
   }
   /** 分享图:跳我的页面(对齐 Uniapp share-image → goToMyPage → /pages/table/user/index) */
   const handleGoToMyPage = (): void => {
     rootNav?.navigate('Main', { screen: 'ProfileMain' })
   }
 
-  /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 加入社区群 + 分享)
-   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal:12) */
+  /** NavBar 左右按钮配置(对齐 Uniapp navigation-bars:菜单 + 搜索 + 加入社区群 + 分享)
+   *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
+   *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
     { icon: '☰', label: '菜单', onPress: handleMenuPress },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
+    { icon: '🔍', label: '搜索', onPress: () => rootNav?.navigate('Search') },
     { icon: '🤝', label: '加入群', onPress: handleJoinPress },
     { icon: '🎁', label: '分享', onPress: handleGoToMyPage },
   ]
@@ -524,29 +782,223 @@ export function HomeScreen() {
   /** 选择模型(对齐 Uniapp modelList selectModel → 设置 modelName/modelNameEN/modelId 后关闭弹窗) */
   const handleModelSelect = (ids: string[]): void => {
     if (!activeModelType || ids.length === 0) return
-    const found = PLACEHOLDER_MODELS[activeModelType]
-      .flatMap((g) => g.models)
-      .find((m) => m.id === ids[0])
+    const source =
+      realModelGroups.length > 0 ? realModelGroups : PLACEHOLDER_MODELS[activeModelType]
+    const found = source.flatMap((g) => g.models).find((m) => m.id === ids[0])
     if (!found) return
     setSelectedModel({ type: activeModelType, id: found.id, name: found.name })
     setActiveModelType(null)
   }
   /** 清除已选模型(对齐 Uniapp 切换类型时清空 modelName) */
   const handleClearModel = (): void => setSelectedModel(null)
+  /** 打开/关闭模型参数配置弹窗(对齐 Uniapp showModelaConfig 开关) */
+  const closeModelConfig = (): void => setShowModelConfig(false)
+  /** 素材项点击(对齐 Uniapp handleMaterialItemClick:素材作为卡片插入输入区上方,可移除)
+   *  数据源 getMyCreation(按分类映射 agent/plugin/workflow),点击即插入卡片并关闭素材弹窗。
+   *  注:后端无 /api/material 端点,素材库接口未开通,本地列表找不到 item 时明确提示,不伪造实现 */
+  const handleMaterialPress = useCallback(
+    (id: string): void => {
+      const item = materialItems.find((m) => m.id === id)
+      if (!item) {
+        showToast('info', '素材库接口未开通')
+        return
+      }
+      const uid = `${item.id}-${Date.now()}`
+      setMaterialCards((prev) => [
+        ...prev,
+        { uid, id: item.id, title: item.title || '素材内容', type: item.type },
+      ])
+      setShowMaterialList(false)
+    },
+    [materialItems, showToast],
+  )
+  /** 移除素材卡片(对齐 Uniapp removeMaterialCard:按 uid 独立移除,允许重复素材同时存在) */
+  const handleRemoveMaterialCard = useCallback((uid: string): void => {
+    setMaterialCards((prev) => prev.filter((c) => c.uid !== uid))
+  }, [])
+
+  /** 长按素材项删除(对齐 Uniapp 素材删除语义:父级 Alert 确认 → deleteAgent → 本地过滤 + toast。
+   *  MaterialItem.id 即 agentId(agent 条目映射自 agentId 字段),删除后直接过滤本地列表,不重新拉取) */
+  const handleMaterialDelete = useCallback(
+    (item: MaterialItem): void => {
+      Alert.alert('删除素材', `确认删除「${item.title}」？`, [
+        { text: '取消', style: 'cancel' },
+        {
+          text: '确认',
+          style: 'destructive',
+          onPress: () => {
+            void deleteAgent(item.id)
+              .then((res) => {
+                if (res.success) {
+                  setMaterialItems((prev) => prev.filter((m) => m.id !== item.id))
+                  showToast('success', '已删除')
+                } else {
+                  showToast('error', '删除失败')
+                }
+              })
+              .catch(() => showToast('error', '删除失败'))
+          },
+        },
+      ])
+    },
+    [showToast],
+  )
+
+  /** 素材详情弹窗:按当前分类推导 API type,getMyCreationDetail 拉取单条后展示
+   *  audio 无对应类型 → toast 提示;失败置 error,弹窗内提供重试 */
+  const handleMaterialDetail = useCallback(
+    (item: MaterialItem): void => {
+      const apiType = materialApiTypeForCategory(activeMaterialCategory)
+      if (apiType === null) {
+        showToast('info', '该素材暂不支持查看详情')
+        return
+      }
+      setMaterialDetailItem(item)
+      setMaterialDetailData(null)
+      setMaterialDetailError('')
+      setMaterialDetailLoading(true)
+      void getMyCreationDetail(apiType, item.id)
+        .then((res) => {
+          if (res.success) {
+            setMaterialDetailData(res.data)
+          } else {
+            setMaterialDetailError(res.error ?? '加载详情失败')
+          }
+        })
+        .catch(() => setMaterialDetailError('网络异常,加载失败'))
+        .finally(() => setMaterialDetailLoading(false))
+    },
+    [activeMaterialCategory, showToast],
+  )
+
+  /** 关闭素材详情弹窗并清空数据 */
+  const closeMaterialDetail = useCallback((): void => {
+    setMaterialDetailItem(null)
+    setMaterialDetailData(null)
+    setMaterialDetailError('')
+    setMaterialDetailLoading(false)
+  }, [])
+
+  /** 按分类加载素材(对齐 Uniapp loadMaterialContent:切 tab 即重新拉取;
+   *  数据源 getMyCreation;audio 无对应 API type → 空态) */
+  const loadMaterials = useCallback((category: string): void => {
+    setMaterialLoading(true)
+    const apiType = materialApiTypeForCategory(category)
+    if (apiType === null) {
+      // 音频无对应后端类型,直接空态(对齐 Uniapp tab4 加载空列表)
+      setMaterialItems([])
+      setMaterialLoading(false)
+      return
+    }
+    void getMyCreation(apiType, { page: 1, pageSize: 50 })
+      .then((res) => {
+        if (res.success) {
+          setMaterialItems(res.data.list.map((it) => mapMyCreationItem(it, category)))
+        } else {
+          setMaterialItems([])
+        }
+      })
+      .catch(() => setMaterialItems([]))
+      .finally(() => setMaterialLoading(false))
+  }, [])
+
+  /** 打开素材列表并加载"全部"(对齐 Uniapp showMaterialList + loadMaterialContent(tab=1);
+   *  数据源 getMyCreation('agent') 我的创作) */
+  const handleOpenMaterialList = useCallback((): void => {
+    setShowMaterialList(true)
+    setActiveMaterialCategory('all')
+    loadMaterials('all')
+  }, [loadMaterials])
+
+  /** 切素材分类:先切 tab 再加载对应类型数据(对齐 Uniapp handleMaterialTabChange → loadMaterialContent) */
+  const handleMaterialCategoryChange = useCallback(
+    (key: string): void => {
+      setActiveMaterialCategory(key)
+      loadMaterials(key)
+    },
+    [loadMaterials],
+  )
+
+  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
+  const hideSharePoints = (): void => setShareValueVisible(false)
+
+  /** 首次分享奖励自动触发:进页检查(对齐 Uniapp ai_index onShow → checkFirstShareStatus) */
+  const maybeTriggerFirstShareReward = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getShareFirstStatus()
+      if (res.success && res.data.canClaim) {
+        setShareFirstReward(res.data.rewardPoints)
+        setShareValueVisible(true)
+      }
+    } catch {
+      // 接口异常静默降级,不阻塞进页
+    }
+  }, [])
+
+  /** 领取首次分享奖励(幂等:已领过后端返回 409) */
+  const handleClaimShareReward = async (): Promise<void> => {
+    try {
+      const res = await claimShareFirstReward()
+      hideSharePoints()
+      if (res.success) {
+        showToast('success', `已领取 ${res.data.points} 智汇值`)
+      } else {
+        showToast('info', res.error ?? '已领取过首次分享奖励')
+      }
+    } catch {
+      showToast('error', '领取失败,请稍后重试')
+    }
+  }
+
+  // 进页自动检查首次分享奖励(对齐 Uniapp ai_index onShow checkFirstShareStatus → showSharePointsPopup)
+  useEffect(() => {
+    void maybeTriggerFirstShareReward()
+  }, [maybeTriggerFirstShareReward])
 
   // ── RecentAgents 点击(对齐 Uniapp pitchHandlea → ai_assistant 对话页) ──
   const handleRecentAgentPress = (item: RecentAgentItem): void => {
     rootNav?.navigate('AiAssistantN8n', { agentId: item.id, title: item.name })
   }
 
+  // ── MyAgents 我的AI APP 点击(对齐 Uniapp MyAgents.vue navigateTo → ai_assistant/ai_assistant_n8n) ──
+  const handleMyAgentPress = (item: MyAgentItem): void => {
+    const id = item.agentId ?? item.id
+    if (!id) return
+    rootNav?.navigate('AiAssistantN8n', { agentId: id, title: item.agentName ?? item.name })
+  }
+  /** 我的AI员工(对齐 Uniapp MyAgents.vue goToTeam → /pages/tools/ai_group/index) */
+  const handleTeamPress = (): void => {
+    rootNav?.navigate('AiGroup')
+  }
+  /** 智汇值卡充值(对齐 Uniapp Intelligent-assistant.vue topupClick → /pagesA/top-up/index) */
+  const handleRechargePress = (): void => {
+    if (!user) {
+      rootNav?.navigate('Login')
+      return
+    }
+    rootNav?.navigate('AppTopup')
+  }
+  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
+  const handleCommissionPress = (): void => {
+    if (!user) {
+      rootNav?.navigate('Login')
+      return
+    }
+    rootNav?.navigate('Distribution')
+  }
+
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
   const bannerItems: CarouselItem[] = useMemo(
     () =>
-      recommends.slice(0, 5).map((r) => ({
-        img: '',
-        title: r.title,
-        link: r.id,
-      })),
+      // 仅取有封面图的推荐(对齐原 tools Carousel banner_carousel;无 cover 则不渲染空图轮播)
+      recommends
+        .filter((r) => Boolean(r.cover))
+        .slice(0, 5)
+        .map((r) => ({
+          img: r.cover ?? '',
+          title: r.title,
+          link: r.id,
+        })),
     [recommends],
   )
 
@@ -597,7 +1049,7 @@ export function HomeScreen() {
     }
   }
   const onToolbarCustomMade = () => {
-    // 原项目 goToCustomMade: 功能开发中 toast
+    // AI 定制入口 → AgentMarket(Agent 市场)真实路由,对接智能体定制功能
     rootNav?.navigate('AgentMarket')
   }
 
@@ -626,42 +1078,111 @@ export function HomeScreen() {
     if (refresh) setRefreshing(true)
     else setLoading(true)
     setError('')
-    const [courseRes, liveRes, progressRes] = await Promise.all([
-      getCourses({ page: 1, pageSize: 6 }),
-      getLiveList({ page: 1, pageSize: 3 }),
-      getAllStudyProgress({ page: 1, pageSize: 3 }),
-    ])
-    if (courseRes.success) setRecommends(toRecommend(courseRes.data.list))
-    if (liveRes.success) setLives(toLiveItem(liveRes.data.list))
-    if (progressRes.success) setProgress(toProgressItem(progressRes.data.list))
-    if (!courseRes.success && !liveRes.success && !progressRes.success) {
-      setError(courseRes.error || liveRes.error || progressRes.error || t('common.networkError'))
+    try {
+      const [courseRes, liveRes, progressRes] = await Promise.all([
+        getCourses({ page: 1, pageSize: 6 }),
+        getLiveList({ page: 1, pageSize: 3 }),
+        getAllStudyProgress({ page: 1, pageSize: 3 }),
+      ])
+      if (courseRes.success) setRecommends(toRecommend(courseRes.data.list))
+      if (liveRes.success) setLives(toLiveItem(liveRes.data.list))
+      if (progressRes.success) setProgress(toProgressItem(progressRes.data.list))
+      if (!courseRes.success && !liveRes.success && !progressRes.success) {
+        setError(courseRes.error || liveRes.error || progressRes.error || t('common.networkError'))
+      }
+    } catch (error) {
+      setError(error instanceof Error ? error.message : t('common.networkError'))
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    setLoading(false)
-    setRefreshing(false)
   }
 
   useEffect(() => {
     void load()
+    // 智汇值卡余额(对齐 Uniapp Intelligent-assistant.vue 展示用户智汇值;getTokenBalance)
+    void getTokenBalance()
+      .then((res) => {
+        if (res.success) setTokenQuantity(res.data.balance)
+      })
+      .catch(() => undefined)
+    // 真实模型列表(fetchModels,按 provider 分组;对齐 Uniapp modelList API 数据)
+    void fetchModels()
+      .then((res) => {
+        const list = res?.models ?? []
+        if (list.length > 0) {
+          const grouped = new Map<string, ModelListItem[]>()
+          for (const m of list) {
+            const key = m.provider || '可用模型'
+            const models = grouped.get(key) ?? []
+            models.push({
+              id: m.id,
+              name: m.name,
+              description: m.provider ?? '',
+              icon: '🤖',
+              isFree: !m.input_price,
+            })
+            grouped.set(key, models)
+          }
+          setRealModelGroups(
+            Array.from(grouped.entries()).map(([vendor, models]) => ({ vendor, models })),
+          )
+        }
+      })
+      .catch(() => undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList:带赛道/主分类筛选) ──
-  const loadAgentList = useCallback(async (trackId: string, mainId: string): Promise<void> => {
-    const res = await getAgents({
-      status: 'published',
-      pageSize: 20,
-      // buildQs 自动忽略空串,''=全公司/全部
-      agentCategory: trackId,
-      agentMainCategory: mainId,
-    })
-    if (res.success) {
-      const list = (res.data.list ?? []).map(toAgentShopItem)
-      setAgentItems(list)
-      // RecentAgents 降级数据源:无 getAgentUseHistory 接口,取列表前 5 条(对齐 uniapp slice(0,5))
-      setRecentAgents(list.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
+  /** 最近使用智能体(对齐 Uniapp getAgentUseHistory → /agents/use-history;
+   *  返回 botId 列表,并行查详情关联名称/头像;失败降级用 agentItems 前 5 条) */
+  const loadRecentAgents = useCallback(async (fallback: AgentShopItem[] = []): Promise<void> => {
+    try {
+      const res = await getAgentUseHistory({ page: 1, pageSize: 5 })
+      if (res.success && res.data.list.length > 0) {
+        const bots = res.data.list.slice(0, 5)
+        const details = await Promise.all(
+          bots.map((b) =>
+            getAgentDetail(b.botId).then(
+              (d) => (d.success ? d.data : null),
+              () => null,
+            ),
+          ),
+        )
+        const items: RecentAgentItem[] = details
+          .filter((d): d is Agent => d !== null)
+          .map((d) => ({ id: d.id, name: d.name, avatar: d.avatar ?? undefined }))
+        if (items.length > 0) {
+          setRecentAgents(items)
+          return
+        }
+      }
+    } catch {
+      // 接口失败走降级
     }
+    setRecentAgents(fallback.slice(0, 5).map((a) => ({ id: a.id, name: a.name, avatar: a.avatar })))
   }, [])
+
+  // ── 智能体列表加载(对齐 Uniapp tools/index getAgentList:带赛道/主分类筛选) ──
+  const loadAgentList = useCallback(
+    async (trackId: string, mainId: string): Promise<void> => {
+      const res = await getAgents({
+        status: 'published',
+        pageSize: 20,
+        // buildQs 自动忽略空串,''=全公司/全部
+        agentCategory: trackId,
+        agentMainCategory: mainId,
+      })
+      if (res.success) {
+        const list = (res.data.list ?? []).map(toAgentShopItem)
+        setAgentItems(list)
+        setMyAgents(
+          list.slice(0, 6).map((a) => ({ agentId: a.id, agentName: a.name, avatar: a.avatar })),
+        )
+        void loadRecentAgents(list)
+      }
+    },
+    [loadRecentAgents],
+  )
 
   // ── 分类字典加载(对齐 Uniapp onShow categories(),失败 fallback 静态占位) ──
   const loadAgentCategories = useCallback(async (): Promise<void> => {
@@ -695,6 +1216,21 @@ export function HomeScreen() {
   const handleAgentPress = useCallback(
     (id: string): void => {
       const agent = agentItems.find((a) => a.id === id)
+      rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
+    },
+    [agentItems, rootNav],
+  )
+
+  // ── 技能弹窗智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList;与 ai-list 同源 agentItems) ──
+  const skillAgentItems: AgentListItem[] = useMemo(
+    () => agentItems.map(toAgentListItem),
+    [agentItems],
+  )
+  /** 技能弹窗智能体点击(对齐 Uniapp handleAgentPitch → ai_assistant 对话页;跳转后关闭弹窗) */
+  const handleSkillAgentPress = useCallback(
+    (id: string): void => {
+      const agent = agentItems.find((a) => a.id === id)
+      setActiveModelType(null)
       rootNav?.navigate('AiAssistantN8n', { agentId: id, title: agent?.name })
     },
     [agentItems, rootNav],
@@ -772,6 +1308,8 @@ export function HomeScreen() {
     <View style={shellStyles.root}>
       {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
       <OfflineBanner isOnline={isOnline} />
+      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
+      <CommissionFloatingIcon onPress={handleCommissionPress} />
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
@@ -810,11 +1348,32 @@ export function HomeScreen() {
             />
           </View>
         ) : null}
+        {/* AgentShopList AI 应用商店核心区块(对齐 Uniapp tools/index Ai-list_b 位置:
+         *  原项目固定在导航栏下方的智能体列表,RN 此前被压到页面底部——现上移到第二个核心位置,
+         *  用户进首页即看到「AI 应用商店」) */}
+        <View style={shellStyles.agentListWrap}>
+          <MoreTitles
+            title="AI 应用商店"
+            moreText="查看更多"
+            onMore={() => rootNav?.navigate('AiAssistant', {})}
+          />
+          <AgentShopList
+            items={agentItems}
+            onItemClick={handleAgentPress}
+            onItemLike={handleAgentLike}
+            onItemCollect={handleAgentCollect}
+            emptyText="该分类下暂无智能体"
+            scrollEnabled={false}
+          />
+        </View>
         <CourseCarousel
           courses={carouselItems}
           onPress={(id) => navigation.navigate('CourseDetail', { id })}
         />
-        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块) */}
+        {/* Toolbar 首页工具栏(对齐 Uniapp 首页营销模块)
+         *  items={[]} 是旧版 32×32 工具条兼容契约,真实营销内容(3 服务项/banner/6 工具格/AI定制)
+         *  已内置于 Toolbar 组件常量(HOME_SERVICES/HOME_TOOLS,迁移自原 Toolbar/index.vue 静态数据),
+         *  传空数组仅隐藏旧版横向工具条,不影响大块渲染 */}
         <View style={shellStyles.toolbarWrap}>
           <Toolbar
             items={[]}
@@ -847,6 +1406,19 @@ export function HomeScreen() {
             <RecentAgents items={recentAgents} onItemClick={handleRecentAgentPress} />
           </View>
         ) : null}
+        {/* IntelligentAssistant 智汇值卡(对齐 Uniapp Intelligent-assistant.vue:小方欢迎卡 + 剩余智汇值 + 充值) */}
+        <View style={shellStyles.sectionWrap}>
+          <IntelligentAssistant tokenQuantity={tokenQuantity} onRecharge={handleRechargePress} />
+        </View>
+        {/* MyAgents 我的AI APP(对齐 Uniapp tools/index MyAgents.vue:标题 + 我的AI员工入口 + 横滑卡片)
+         *  数据源:与 ai-list 同源取前 6 条;点击跳 AiAssistantN8n */}
+        <View style={shellStyles.sectionWrap}>
+          <MyAgents
+            items={myAgents}
+            onItemClick={handleMyAgentPress}
+            onTeamPress={handleTeamPress}
+          />
+        </View>
         <SharedHomeScreen
           t={t}
           userNickname={user?.nickname || user?.phone || ''}
@@ -927,26 +1499,13 @@ export function HomeScreen() {
           <MoreTitles title="功能入口" />
           <FunctionBlockColumn blocks={FUNCTION_BLOCKS} onBlockPress={onFunctionBlockPress} />
         </View>
-        {/* AgentShopList 智能体列表(对齐 Uniapp tools/index AI应用商店主体 Ai-list_b,核心区块)
-         *  卡片可点赞(getAgentLike)/收藏(getAgentCollect),点击跳 AiAssistant;
-         *  scrollEnabled=false 嵌套外层 ScrollView,由页面整体滚动 */}
-        <View style={shellStyles.agentListWrap}>
-          <MoreTitles title="AI 应用商店" />
-          <AgentShopList
-            items={agentItems}
-            onItemClick={handleAgentPress}
-            onItemLike={handleAgentLike}
-            onItemCollect={handleAgentCollect}
-            emptyText="该分类下暂无智能体"
-            scrollEnabled={false}
-          />
-        </View>
+        {/* AgentShopList 已上移到 Carousel 之后(对齐原 tools 位置) */}
         {/* BottomFigure 底部装饰图(对齐 Uniapp 首页底部装饰) */}
         <View style={shellStyles.bottomFigureWrap}>
           <BottomFigure />
         </View>
       </ScrollView>
-      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen)
+      {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)
        *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
       {showBackTop ? (
         <TouchableOpacity
@@ -989,26 +1548,74 @@ export function HomeScreen() {
           })}
         </ScrollView>
         {selectedModel ? (
-          <View style={shellStyles.selectedChip}>
-            <Text style={shellStyles.selectedChipText} numberOfLines={1}>
-              {selectedModel.name}
-            </Text>
-            <Pressable
-              onPress={handleClearModel}
-              hitSlop={8}
+          <View style={shellStyles.selectedChipRow}>
+            <View style={shellStyles.selectedChip}>
+              <Text style={shellStyles.selectedChipText} numberOfLines={1}>
+                {selectedModel.name}
+              </Text>
+              <Pressable
+                onPress={handleClearModel}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="清除模型"
+              >
+                <Text style={shellStyles.selectedChipClose}>×</Text>
+              </Pressable>
+            </View>
+            {/* 模型参数配置(对齐 Uniapp ai_index 配置按钮 → ModelConfigDialog) */}
+            <TouchableOpacity
+              onPress={() => setShowModelConfig(true)}
+              activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="清除模型"
+              accessibilityLabel="模型配置"
+              style={shellStyles.configBtn}
             >
-              <Text style={shellStyles.selectedChipClose}>×</Text>
-            </Pressable>
+              <SlidersHorizontal size={16} color={tokens.brand.DEFAULT} />
+            </TouchableOpacity>
           </View>
         ) : null}
       </View>
+      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
+       *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
+      <TouchableOpacity
+        onPress={handleOpenMaterialList}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel="我的创作"
+        style={shellStyles.creationEntry}
+      >
+        <Text style={shellStyles.creationEntryText}>📁 我的创作</Text>
+      </TouchableOpacity>
       {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
           转文字回填输入框,随提交跳 Chat) */}
       <View style={shellStyles.voiceInputWrap}>
         <VoiceInput placeholder="按住说出你的问题" onComplete={handleVoiceComplete} />
       </View>
+      {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
+       *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
+      {materialCards.length > 0 ? (
+        <View style={shellStyles.materialCardsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={shellStyles.materialCardsRow}>
+              {materialCards.map((card) => (
+                <View key={card.uid} style={shellStyles.materialCardItem}>
+                  <Text style={shellStyles.materialCardTitle} numberOfLines={1}>
+                    {card.title}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleRemoveMaterialCard(card.uid)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="移除素材"
+                  >
+                    <Text style={shellStyles.materialCardClose}>×</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ) : null}
       {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
        *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
       <InputArea
@@ -1085,9 +1692,19 @@ export function HomeScreen() {
                 <Text style={shellStyles.modelModalClose}>×</Text>
               </Pressable>
             </View>
-            {activeModelType ? (
+            {/* 技能弹窗渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);其余类型保持 ModelList 占位 */}
+            {activeModelType === 'skills' ? (
+              <AgentList
+                items={skillAgentItems}
+                onItemClick={handleSkillAgentPress}
+                isLoading={false}
+                emptyText="暂无智能体"
+              />
+            ) : activeModelType ? (
               <ModelList
-                groups={PLACEHOLDER_MODELS[activeModelType]}
+                groups={
+                  realModelGroups.length > 0 ? realModelGroups : PLACEHOLDER_MODELS[activeModelType]
+                }
                 selectionMode="single"
                 selectedIds={selectedModel?.type === activeModelType ? [selectedModel.id] : []}
                 onSelectChange={handleModelSelect}
@@ -1096,6 +1713,181 @@ export function HomeScreen() {
           </View>
         </View>
       </Modal>
+      {/* MaterialList 素材弹窗(对齐 Uniapp showMaterialList → MaterialList「我的创作」,底部 sheet)
+       *  共享组件:MaterialList 自身不带 Modal,包裹 RN Modal 实现底部 sheet(对齐 BottomPopup 同款) */}
+      <Modal
+        visible={showMaterialList}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMaterialList(false)}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.materialBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowMaterialList(false)}
+            accessibilityLabel="关闭素材列表"
+          />
+          <View style={shellStyles.materialSheet}>
+            <View style={shellStyles.materialSheetBar}>
+              <Pressable
+                onPress={() => setShowMaterialList(false)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
+                <Text style={shellStyles.materialSheetClose}>×</Text>
+              </Pressable>
+            </View>
+            <MaterialList
+              categories={MATERIAL_CATEGORIES}
+              activeCategory={activeMaterialCategory}
+              onCategoryChange={handleMaterialCategoryChange}
+              items={materialItems}
+              onPress={handleMaterialPress}
+              onDelete={handleMaterialDelete}
+              onDetail={handleMaterialDetail}
+              loading={materialLoading}
+              hasMore={false}
+            />
+          </View>
+        </View>
+      </Modal>
+      {/* 素材详情弹窗(点击列表项「详情」→ getMyCreationDetail;居中对话框,参照 ChatScreen listDialog 模式) */}
+      <Modal
+        visible={materialDetailItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMaterialDetail}
+        statusBarTranslucent
+      >
+        <View style={shellStyles.detailDialogMask}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeMaterialDetail}
+            accessibilityLabel="关闭素材详情"
+          />
+          <View style={shellStyles.detailDialogContent}>
+            <View style={shellStyles.detailDialogHeader}>
+              <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
+                {materialDetailItem?.title ?? '素材详情'}
+              </Text>
+              <Pressable
+                onPress={closeMaterialDetail}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="关闭"
+              >
+                <Text style={shellStyles.detailDialogClose}>×</Text>
+              </Pressable>
+            </View>
+            <View style={shellStyles.detailDialogBody}>
+              {materialDetailLoading ? (
+                <ActivityIndicator size="small" color={tokens.brand.DEFAULT} />
+              ) : materialDetailError ? (
+                <View style={shellStyles.detailDialogErrorWrap}>
+                  <Text style={shellStyles.detailDialogErrorText}>{materialDetailError}</Text>
+                  <Pressable
+                    onPress={() => materialDetailItem && handleMaterialDetail(materialDetailItem)}
+                    style={shellStyles.detailDialogRetryBtn}
+                    accessibilityRole="button"
+                  >
+                    <Text style={shellStyles.detailDialogRetryText}>重试</Text>
+                  </Pressable>
+                </View>
+              ) : materialDetailData ? (
+                <ScrollView style={shellStyles.detailDialogScroll}>
+                  {MATERIAL_DETAIL_FIELDS.map((f) => {
+                    const value = formatDetailValue(materialDetailData[f.key])
+                    if (!value) return null
+                    return (
+                      <View key={f.key} style={shellStyles.detailDialogFieldRow}>
+                        <Text style={shellStyles.detailDialogFieldLabel}>{f.label}</Text>
+                        <Text style={shellStyles.detailDialogFieldValue}>{value}</Text>
+                      </View>
+                    )
+                  })}
+                </ScrollView>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* ModelConfigDialog 模型参数配置弹窗(对齐 Uniapp showModelaConfig → ModelConfigDialog)
+       *  共享组件:内部自带 Modal;visible 控制显隐,modelType 映射自本屏 ModelType */}
+      <ModelConfigDialog
+        visible={showModelConfig}
+        modelType={selectedModel ? toConfigModelType(selectedModel.type) : 'text'}
+        config={modelConfig}
+        onChange={setModelConfig}
+        onClose={closeModelConfig}
+      />
+      {/* 二维码弹窗(对齐 Uniapp ai_index qr-code-modal:qewm.png 600rpx + 长按保存 + 关闭) */}
+      <Modal
+        visible={qrCodeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrCodeVisible(false)}
+      >
+        <Pressable
+          style={shellStyles.modalMask}
+          onPress={() => setQrCodeVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel="关闭二维码"
+        >
+          <Pressable style={shellStyles.qrContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              onLongPress={() => void handleLongPressQrCode()}
+              delayLongPress={500}
+              accessibilityRole="imagebutton"
+              accessibilityLabel="社群二维码,长按保存"
+            >
+              <Image source={QrCodeImage} style={shellStyles.qrImage} resizeMode="contain" />
+            </Pressable>
+            <Text style={shellStyles.qrTitle}>扫描二维码加入社区</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => setQrCodeVisible(false)}
+              style={shellStyles.qrClose}
+              accessibilityRole="button"
+              accessibilityLabel="关闭"
+            >
+              <Text style={shellStyles.qrCloseText}>×</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
+      <Modal
+        visible={shareValueVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideSharePoints}
+      >
+        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
+          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
+              <Text style={shellStyles.shareCloseText}>×</Text>
+            </Pressable>
+            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
+            <Text style={shellStyles.shareDesc}>
+              首次分享成功,获得 {shareFirstReward}{' '}
+              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+            </Text>
+            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
+              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
+            </Pressable>
+            <Pressable
+              onPress={hideSharePoints}
+              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
+            >
+              <Text style={shellStyles.shareBtnText}>稍后再说</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
   )
 }
@@ -1103,23 +1895,32 @@ export function HomeScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
-  voiceInputWrap: { paddingHorizontal: 12, paddingVertical: 6 } as const,
-  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop:9 + 圆角 30rpx≈15)
-  carouselWrap: { marginTop: 9, marginBottom: 8, borderRadius: 15, overflow: 'hidden' } as const,
-  toolbarWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  cardListWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  aiModelWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
-  sectionWrap: { paddingHorizontal: 10, paddingVertical: 8 } as const,
+  voiceInputWrap: { paddingHorizontal: rpx(24), paddingVertical: rpx(12) } as const,
+  // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
+  carouselWrap: {
+    marginTop: rpx(18),
+    marginBottom: rpx(16),
+    borderRadius: 15,
+    overflow: 'hidden',
+  } as const,
+  toolbarWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  cardListWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  aiModelWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
+  sectionWrap: { paddingHorizontal: rpx(20), paddingVertical: rpx(16) } as const,
   // 智能体列表区块(对齐 Uniapp tools/index ailist_content 主体区块)
-  agentListWrap: { paddingVertical: 8 } as const,
-  bottomFigureWrap: { paddingHorizontal: 10, paddingTop: 8, marginBottom: 10 } as const,
-  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 SquareScreen) ──
+  agentListWrap: { paddingVertical: rpx(16) } as const,
+  bottomFigureWrap: {
+    paddingHorizontal: rpx(20),
+    paddingTop: rpx(16),
+    marginBottom: rpx(20),
+  } as const,
+  // ── toodown 返回顶部按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen) ──
   backToTop: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -17,
+    marginLeft: rpx(-34),
     bottom: 150,
     width: 34,
     height: 34,
@@ -1144,15 +1945,15 @@ const shellStyles = {
     backgroundColor: tokens.surface.card,
     borderTopWidth: 1,
     borderTopColor: tokens.border.light,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(12),
   } as const,
   modelTypeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginRight: 6,
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(12),
+    marginRight: rpx(12),
     borderRadius: 16,
     backgroundColor: tokens.surface.muted,
   } as const,
@@ -1161,7 +1962,7 @@ const shellStyles = {
   } as const,
   modelTypeIcon: {
     fontSize: 14,
-    marginRight: 4,
+    marginRight: rpx(8),
   } as const,
   modelTypeLabel: {
     fontSize: 12,
@@ -1176,9 +1977,9 @@ const shellStyles = {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    marginTop: rpx(0),
+    paddingHorizontal: rpx(16),
+    paddingVertical: rpx(8),
     borderRadius: 12,
     backgroundColor: tokens.purple.light,
   } as const,
@@ -1192,8 +1993,173 @@ const shellStyles = {
     fontSize: 14,
     lineHeight: 16,
     color: tokens.purple.DEFAULT,
-    marginLeft: 6,
+    marginLeft: rpx(12),
     fontWeight: '700',
+  } as const,
+  // ── selectedChipRow + configBtn(对齐 Uniapp ai_index 已选模型 + 配置按钮同行) ──
+  selectedChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: rpx(12),
+  } as const,
+  configBtn: {
+    marginLeft: rpx(16),
+    padding: rpx(12),
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
+  creationEntry: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
+  } as const,
+  creationEntryText: {
+    fontSize: 13,
+    color: tokens.brand.DEFAULT,
+    fontWeight: '600',
+  } as const,
+  // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
+  materialCardsWrap: {
+    paddingHorizontal: rpx(24),
+    paddingBottom: rpx(8),
+  } as const,
+  materialCardsRow: {
+    flexDirection: 'row',
+    gap: rpx(12),
+  } as const,
+  materialCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    maxWidth: rpx(460),
+    paddingLeft: rpx(20),
+    paddingRight: rpx(6),
+    paddingVertical: rpx(10),
+    borderRadius: 8,
+    backgroundColor: tokens.surface.muted,
+  } as const,
+  materialCardTitle: {
+    maxWidth: rpx(340),
+    fontSize: 13,
+    color: tokens.text.primary,
+  } as const,
+  materialCardClose: {
+    fontSize: 16,
+    lineHeight: 18,
+    color: tokens.text.tertiary,
+    fontWeight: '400',
+    marginLeft: rpx(12),
+    paddingHorizontal: rpx(4),
+  } as const,
+  // ── MaterialList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
+  materialBackdrop: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    justifyContent: 'flex-end',
+  } as const,
+  materialSheet: {
+    width: '100%',
+    height: '80%',
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  } as const,
+  materialSheetBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
+    backgroundColor: tokens.surface.light,
+  } as const,
+  materialSheetClose: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+    paddingHorizontal: rpx(8),
+  } as const,
+  // ── 素材详情弹窗(参照 ChatScreen listDialog 居中对话框风格) ──
+  detailDialogMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  detailDialogContent: {
+    width: '84%',
+    maxHeight: '70%',
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    overflow: 'hidden',
+  } as const,
+  detailDialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(24),
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  } as const,
+  detailDialogTitle: {
+    flex: 1,
+    marginRight: rpx(16),
+    fontSize: 15,
+    fontWeight: '600',
+    color: tokens.text.primary,
+  } as const,
+  detailDialogClose: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+    paddingHorizontal: rpx(8),
+  } as const,
+  detailDialogBody: {
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(16),
+    minHeight: 120,
+  } as const,
+  detailDialogScroll: {
+    alignSelf: 'stretch',
+  } as const,
+  detailDialogFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: rpx(10),
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: tokens.border.light,
+  } as const,
+  detailDialogFieldLabel: {
+    width: rpx(140),
+    fontSize: 13,
+    color: tokens.text.tertiary,
+  } as const,
+  detailDialogFieldValue: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    color: tokens.text.primary,
+  } as const,
+  detailDialogErrorWrap: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    gap: rpx(16),
+  } as const,
+  detailDialogErrorText: {
+    fontSize: 13,
+    color: tokens.text.secondary,
+  } as const,
+  detailDialogRetryBtn: {
+    paddingHorizontal: rpx(32),
+    paddingVertical: rpx(12),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+  } as const,
+  detailDialogRetryText: {
+    fontSize: 13,
+    color: tokens.surface.light,
+    fontWeight: '600',
   } as const,
   // ── ModelList Modal 弹窗(对齐 BottomPopup sheet 风格) ──
   modelModalBackdrop: {
@@ -1207,15 +2173,15 @@ const shellStyles = {
     backgroundColor: tokens.surface.light,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: rpx(32),
+    paddingBottom: rpx(16),
   } as const,
   modelModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    paddingHorizontal: rpx(32),
+    paddingBottom: rpx(16),
   } as const,
   modelModalTitle: {
     flex: 1,
@@ -1228,6 +2194,96 @@ const shellStyles = {
     lineHeight: 24,
     color: tokens.text.tertiary,
     fontWeight: '300',
-    paddingHorizontal: 4,
+    paddingHorizontal: rpx(8),
+  } as const,
+  // ── 分享领智汇值弹窗(对齐 Uniapp share-points-popup) ──
+  modalMask: {
+    flex: 1,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
+  shareContent: {
+    width: '84%',
+    borderRadius: 12,
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: rpx(40),
+    paddingTop: rpx(40),
+    paddingBottom: rpx(48),
+    alignItems: 'center',
+  } as const,
+  shareClose: {
+    alignSelf: 'flex-end',
+    padding: rpx(8),
+  } as const,
+  shareCloseText: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+  } as const,
+  // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
+  qrContent: {
+    width: '80%',
+    borderRadius: 12,
+    backgroundColor: tokens.surface.light,
+    paddingVertical: rpx(36),
+    paddingHorizontal: rpx(24),
+    alignItems: 'center',
+    position: 'relative',
+  } as const,
+  qrImage: {
+    width: 240,
+    height: 240,
+    borderRadius: 8,
+  } as const,
+  qrTitle: {
+    marginTop: rpx(20),
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    textAlign: 'center',
+  } as const,
+  qrClose: {
+    position: 'absolute',
+    top: 10,
+    right: 14,
+    padding: 4,
+  } as const,
+  qrCloseText: {
+    fontSize: 24,
+    lineHeight: 26,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
+  } as const,
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginTop: rpx(24),
+    marginBottom: rpx(16),
+  } as const,
+  shareDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+  } as const,
+  shareBtn: {
+    paddingHorizontal: rpx(48),
+    paddingVertical: rpx(20),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+    minWidth: '70%',
+    alignItems: 'center',
+  } as const,
+  shareBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  } as const,
+  shareBtnSecondary: {
+    marginTop: rpx(16),
   } as const,
 }

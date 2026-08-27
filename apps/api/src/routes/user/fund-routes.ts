@@ -19,8 +19,14 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body =
         (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
-      if (!body.amount || body.amount <= 0) {
-        return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+      // 严格校验金额：Number.isFinite 拦截 Infinity/NaN，上限防止 bigint 溢出与脏订单
+      if (
+        typeof body.amount !== 'number' ||
+        !Number.isFinite(body.amount) ||
+        body.amount <= 0 ||
+        body.amount > 1_000_000
+      ) {
+        return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
       const order = await createOrder(
         {
@@ -55,8 +61,13 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const body =
         (request.body as { amount?: number; description?: string; productId?: string } | null) ?? {}
-      if (!body.amount || body.amount <= 0) {
-        return reply.status(400).send(error(400, '缺少 amount 或 amount <= 0'))
+      if (
+        typeof body.amount !== 'number' ||
+        !Number.isFinite(body.amount) ||
+        body.amount <= 0 ||
+        body.amount > 1_000_000
+      ) {
+        return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
       const order = await createOrder(
         {

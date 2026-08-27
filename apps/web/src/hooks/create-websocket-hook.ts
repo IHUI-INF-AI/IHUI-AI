@@ -117,6 +117,15 @@ export function createWebSocketHook<TMessage>(options: WebSocketHookOptions<TMes
 
       ws.onclose = () => {
         setConnected(false)
+        // 2026-08-21 修复(登出后旧 token 重连 bug):
+        // 原缺陷:onclose 闭包捕获旧 enabled/token,closedByUnmount 在 effect 重跑时已被重置为 false,
+        // 登出(token→null)时序:cleanup close ws → 新 effect 重置 closedByUnmount=false →
+        // onclose 异步触发时闭包 token 仍是旧值(非空)→ 排队重连 → 用旧 token 重建 WebSocket,
+        // 登出后仍接收账号推送(隐私问题)。
+        // 修复:onclose 触发时校验"被关闭的 ws 是否仍是当前活跃连接"——
+        // cleanup/token 变化都会把 wsRef.current 置 null 或替换为新 ws,
+        // 此时旧 ws 的 onclose 不应触发重连。正常网络断开时 wsRef.current === ws,照常重连。
+        if (wsRef.current !== ws) return
         clearTimers()
         // 2026-07-22 P0 Round 4:达到 maxReconnectAttempts 后停止重连,防无限重连
         // 2026-08-02 Bug #17:enabled=false 时不重连(配合 enabled 切换关闭)

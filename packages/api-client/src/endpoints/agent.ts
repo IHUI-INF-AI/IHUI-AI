@@ -59,6 +59,12 @@ export async function getAgentDetail(id: string): Promise<ApiResult<Agent>> {
   return fetchApi<Agent>(`/agents/${id}`)
 }
 
+// DELETE /agents/:agentId - 删除智能体(2026-08-25 补:素材列表「我的创作」长按删除)
+// 后端 agents.ts:288 成功返回 success({ deleted: true }),404 返回 error('智能体不存在')
+export async function deleteAgent(agentId: string): Promise<ApiResult<{ deleted: boolean }>> {
+  return fetchApi<{ deleted: boolean }>(`/agents/${agentId}`, { method: 'DELETE' })
+}
+
 // =============================================================================
 // 智能体分类字典(对应后端 /cozeZhsApi/cache/agent-category-dict/categories)
 // 对齐 Uniapp src/service/pay.js categories() 接口,跨端共享
@@ -262,5 +268,72 @@ export async function getAgentPermission(
 ): Promise<ApiResult<AgentPermission>> {
   return fetchApi<AgentPermission>(
     `/api/agent-ext/permission/${agentId}${buildQs(userId ? { userId } : {})}`,
+  )
+}
+
+// =============================================================================
+// 我的创作(对齐 Uniapp getMyCreation → POST /agent/creation/my/:type,素材列表「我的创作」)
+// =============================================================================
+
+export type MyCreationType = 'agent' | 'workflow' | 'plugin'
+
+/** 我的创作条目(agent=智能体/workflow=工作流/plugin=插件,list 字段取 name/description/createdAt) */
+export interface MyCreationItem {
+  id: string
+  name: string
+  description: string | null
+  createdAt: string
+  [key: string]: unknown
+}
+
+export type MyCreationQuery = {
+  page?: number
+  pageSize?: number
+  keyword?: string
+}
+
+/** 查询我的创作(按类型分页;对齐后端 /api/agent/creation/my/:type) */
+export async function getMyCreation(
+  type: MyCreationType,
+  query: MyCreationQuery = {},
+): Promise<ApiResult<PageData<MyCreationItem>>> {
+  return fetchApi<PageData<MyCreationItem>>(`/api/agent/creation/my/${type}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      page: query.page ?? 1,
+      pageSize: query.pageSize ?? 10,
+      keyword: query.keyword ?? '',
+    }),
+  })
+}
+
+/** 查询我的创作详情(按类型 + id,单条)
+ *  字段随类型而异:agent=agents 行(agentId/name/status...)/workflow=workflows 行(id/triggerType/createdBy...)/plugin=plugins 行(displayName/version/author...),
+ *  故返回类型用宽松 Record,前端按通用字段提取展示 */
+export async function getMyCreationDetail(
+  type: MyCreationType,
+  id: string,
+): Promise<ApiResult<Record<string, unknown>>> {
+  return fetchApi<Record<string, unknown>>(`/api/agent/creation/${type}/${encodeURIComponent(id)}`)
+}
+
+// =============================================================================
+// 最近使用智能体(对齐 Uniapp getAgentUseHistory → GET /agents/use-history)
+// =============================================================================
+
+export interface AgentUseHistoryItem {
+  id: string
+  uuid: string
+  /** 智能体 ID(关联 agents 表取名称/头像) */
+  botId: string
+  lastTime: string
+}
+
+/** 最近使用智能体列表(按 lastTime 倒序,对齐 Uniapp getAgentUseHistory) */
+export async function getAgentUseHistory(
+  query: { page?: number; pageSize?: number } = {},
+): Promise<ApiResult<PageData<AgentUseHistoryItem>>> {
+  return fetchApi<PageData<AgentUseHistoryItem>>(
+    `/agents/use-history${buildQs({ page: query.page ?? 1, pageSize: query.pageSize ?? 10 })}`,
   )
 }

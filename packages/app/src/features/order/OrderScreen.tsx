@@ -1,12 +1,27 @@
-import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { useMemo, useState } from 'react'
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab } from '../../types'
 
 /** 订单/Tab/Props 类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderScreenProps, OrderTab }
 
-const TABS: OrderTab[] = ['all', 'pending', 'paid', 'shipped', 'completed']
+/**
+ * Tab 集对齐 Uniapp pages/user_order_list/index.vue tabList:
+ * 全部 / 待支付 / 待收货 / 已完成 / 已退款(原 RN 多 paid 缺 refunded)。
+ * 'shipped' 在后端映射为 'paid'(见 mobile-rn tabToStatus,对齐 Uniapp 待收货筛 status 1|2)。
+ */
+const TABS: OrderTab[] = ['all', 'pending', 'shipped', 'completed', 'refunded']
 
 /**
  * 订单列表共享屏 — props 注入式跨端组件
@@ -26,9 +41,31 @@ export function OrderScreen({
   onPressItem,
   onBack,
   colorScheme = 'light',
-}: OrderScreenProps) {
+  // 上拉分页(可选注入,对齐 Uniapp onReachBottom → loadMore;未注入则列表不分页)
+  onLoadMore,
+  loadingMore = false,
+  hasMore = true,
+}: OrderScreenProps & {
+  /** 上拉加载下一页回调(平台注入,内部自行守卫 hasMore/loading) */
+  onLoadMore?: () => void
+  /** 是否正在加载下一页(控制 footer 提示) */
+  loadingMore?: boolean
+  /** 是否还有更多数据(控制 footer 提示) */
+  hasMore?: boolean
+}) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  // 本地搜索关键词:匹配订单号 / 商品名(对齐 Uniapp user_order_list searchText 过滤,见 index.vue:195-197)
+  const [keyword, setKeyword] = useState('')
+  const filteredItems = useMemo(() => {
+    const kw = keyword.trim().toLowerCase()
+    if (!kw) return items
+    return items.filter(
+      (item) =>
+        item.orderNo.toLowerCase().includes(kw) || item.title.toLowerCase().includes(kw),
+    )
+  }, [items, keyword])
 
   const statusColors = (status: AppOrderStatus) => {
     switch (status) {
@@ -80,6 +117,18 @@ export function OrderScreen({
         })}
       </ScrollView>
 
+      <TextInput
+        style={styles.searchInput}
+        value={keyword}
+        onChangeText={setKeyword}
+        placeholder={t('order.searchPlaceholder')}
+        placeholderTextColor={tk.text.tertiary}
+        autoCapitalize="none"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        accessibilityLabel={t('order.searchPlaceholder')}
+      />
+
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {loading && items.length === 0 ? (
@@ -87,50 +136,80 @@ export function OrderScreen({
           <Text style={styles.muted}>{t('common.loading')}</Text>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item: OrderItem) => item.id}
+          renderItem={({ item }) => {
+            const sc = statusColors(item.status)
+            // 商品图信息块(有 image 时与图并排;无图直接平铺,保持现状不占位)
+            const info = (
+              <>
+                <View style={styles.cardHead}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>
+                    {item.title}
+                  </Text>
+                  <View style={[styles.badge, { backgroundColor: sc.bg }]}>
+                    <Text style={[styles.badgeText, { color: sc.text }]}>
+                      {t(`order.status.${item.status}`)}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.orderNo}>{item.orderNo}</Text>
+                  <Text style={styles.metaTime}>{item.createdAt}</Text>
+                </View>
+                <View style={styles.amountRow}>
+                  <Text style={styles.amountLabel}>{t('order.amount')}</Text>
+                  <Text style={styles.amountValue}>
+                    ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
+                  </Text>
+                </View>
+              </>
+            )
+            return (
+              <TouchableOpacity
+                onPress={() => onPressItem(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <View style={styles.card}>
+                  {item.image ? (
+                    <View style={styles.cardBodyRow}>
+                      <Image
+                        source={{ uri: item.image }}
+                        style={styles.cardImg}
+                        resizeMode="cover"
+                        accessibilityLabel={item.title}
+                      />
+                      <View style={styles.cardInfo}>{info}</View>
+                    </View>
+                  ) : (
+                    info
+                  )}
+                </View>
+              </TouchableOpacity>
+            )
+          }}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          {items.length === 0 ? (
+          ListEmptyComponent={
             <View style={styles.center}>
               <Text style={styles.muted}>{t('order.empty')}</Text>
             </View>
-          ) : (
-            items.map((item: OrderItem) => {
-              const sc = statusColors(item.status)
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => onPressItem(item)}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <View style={styles.card}>
-                    <View style={styles.cardHead}>
-                      <Text style={styles.cardTitle} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <View style={[styles.badge, { backgroundColor: sc.bg }]}>
-                        <Text style={[styles.badgeText, { color: sc.text }]}>
-                          {t(`order.status.${item.status}`)}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.metaRow}>
-                      <Text style={styles.orderNo}>{item.orderNo}</Text>
-                      <Text style={styles.metaTime}>{item.createdAt}</Text>
-                    </View>
-                    <View style={styles.amountRow}>
-                      <Text style={styles.amountLabel}>{t('order.amount')}</Text>
-                      <Text style={styles.amountValue}>
-                        ¥{item.amount !== null ? item.amount.toFixed(2) : '—'}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )
-            })
-          )}
-        </ScrollView>
+          }
+          onEndReachedThreshold={0.2}
+          onEndReached={onLoadMore ? () => onLoadMore() : undefined}
+          ListFooterComponent={
+            onLoadMore && filteredItems.length > 0 ? (
+              <View style={styles.footer}>
+                {loadingMore ? (
+                  <Text style={styles.muted}>{t('common.loading')}</Text>
+                ) : !hasMore ? (
+                  <Text style={styles.muted}>{t('order.noMore')}</Text>
+                ) : null}
+              </View>
+            ) : null
+          }
+        />
       )}
     </View>
   )
@@ -158,9 +237,24 @@ function createStyles(tk: AppThemeTokens) {
     tabActive: { backgroundColor: tk.brand.DEFAULT },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    searchInput: {
+      marginHorizontal: 10,
+      marginTop: 4,
+      marginBottom: 4,
+      paddingHorizontal: 12,
+      height: 40,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      fontSize: 14,
+      color: tk.text.primary,
+    },
     errorText: { paddingHorizontal: 10, fontSize: 14, color: tk.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: 48 },
     muted: { fontSize: 14, color: tk.text.secondary, marginTop: 8 },
+    // 上拉分页 footer:对齐 Uniapp loadMore 底部加载提示
+    footer: { alignItems: 'center', paddingVertical: 16 },
     listBody: { padding: 10 },
     card: {
       padding: 12,
@@ -170,6 +264,15 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       marginBottom: 12,
     },
+    // 商品图 130×130 圆角(对齐 Uniapp card-img;无图不渲染)
+    cardBodyRow: { flexDirection: 'row', gap: 12 },
+    cardImg: {
+      width: 130,
+      height: 130,
+      borderRadius: 10,
+      backgroundColor: tk.surface.card,
+    },
+    cardInfo: { flex: 1 },
     cardHead: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -23,7 +23,7 @@ test.describe('AI 工作区', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -41,7 +41,7 @@ test.describe('AI 工作区', () => {
 
   test('项目管理:创建项目按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/workspace')) return
 
     const createBtn = page
@@ -68,7 +68,7 @@ test.describe('AI 工作区', () => {
 
   test('代码生成:代码编辑器或输入框存在(若可访问)', async ({ page }) => {
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/workspace')) return
 
     await page.waitForTimeout(2000)
@@ -80,7 +80,7 @@ test.describe('AI 工作区', () => {
 
   test('文件上传:上传按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/workspace')) return
 
     await page.waitForTimeout(2000)
@@ -101,7 +101,7 @@ test.describe('AI 工作区', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

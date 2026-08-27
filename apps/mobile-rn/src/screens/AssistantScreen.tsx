@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import type { RootStackParamList } from '../navigation/RootNavigator'
 import { getAgents, type Agent } from '@ihui/api-client'
 import {
   AssistantScreen as SharedAssistantScreen,
@@ -10,11 +13,14 @@ import {
 } from '@ihui/rn-app'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import MaterialList, { type MaterialItem } from '../components/MaterialList'
+import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
+import { rpx } from '../utils/rpx'
 
 type ViewMode = 'shared' | 'local'
 
 export default function AssistantScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const { t } = useI18n()
   const [viewMode, setViewMode] = useState<ViewMode>('shared')
   const [tab, setTab] = useState<AssistantTab>('draft')
@@ -63,8 +69,14 @@ export default function AssistantScreen() {
     void load()
   }
 
-  const handleEdit = (a: AssistantItem) =>
-    Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }))
+  // 编辑智能体 → ModelEdit 页(对齐原项目 dev_enter/model_edit.vue 编辑弹层升级为独立页)
+  // 弹确认占位并复用 assistant.edit.title/message(设置售卖配置),确认后进入编辑。
+  const handleEdit = (a: AssistantItem) => {
+    Alert.alert(t('assistant.edit.title'), t('assistant.edit.message', { name: a.name }), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('common.confirm'), onPress: () => navigation.navigate('ModelEdit') },
+    ])
+  }
 
   const handleOffline = (a: AssistantItem) =>
     Alert.alert(t('assistant.offline.title'), t('assistant.offline.message', { name: a.name }), [
@@ -98,6 +110,7 @@ export default function AssistantScreen() {
 
   return (
     <View style={styles.shell}>
+      <NavBar title="智能体助手" onBack={() => navigation.goBack()} />
       <View style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, viewMode === 'shared' && styles.tabActive]}
@@ -157,15 +170,15 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingTop: 48,
-    paddingBottom: 8,
-    gap: 8,
+    paddingHorizontal: rpx(24),
+    paddingTop: rpx(96),
+    paddingBottom: rpx(16),
+    gap: rpx(16),
     backgroundColor: tokens.surface.bg,
   },
   tab: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },

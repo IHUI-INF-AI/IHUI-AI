@@ -24,7 +24,7 @@ test.describe('AI 对话流程', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -42,7 +42,7 @@ test.describe('AI 对话流程', () => {
 
   test('发送消息:输入框可输入(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -54,7 +54,7 @@ test.describe('AI 对话流程', () => {
 
   test('发送按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     // 发送按钮可能是图标按钮,匹配常见文案
@@ -70,7 +70,7 @@ test.describe('AI 对话流程', () => {
 
   test('流式响应:发送后等待响应(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -85,7 +85,7 @@ test.describe('AI 对话流程', () => {
 
   test('历史记录列表存在(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     // 历史记录通常在侧边栏
@@ -97,7 +97,7 @@ test.describe('AI 对话流程', () => {
 
   test('删除对话按钮存在(若有历史记录)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     await page.waitForTimeout(2000)
@@ -110,7 +110,7 @@ test.describe('AI 对话流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
@@ -119,7 +119,7 @@ test.describe('AI 对话流程', () => {
 
   test('附加框交互:输入内容 → 点击添加引用 → 显示引用计数 chip(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()
@@ -149,7 +149,7 @@ test.describe('AI 对话流程', () => {
 
   test('附加框 hover 态:鼠标悬停时按钮应有视觉反馈(若可访问)', async ({ page }) => {
     await page.goto('/chat')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/chat')) return
 
     const textarea = page.locator('textarea').first()

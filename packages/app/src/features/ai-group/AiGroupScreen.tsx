@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native'
@@ -34,6 +35,8 @@ export function AiGroupScreen({
   onEnterChat,
   onRefresh,
   onRetry,
+  keyword,
+  onKeywordChange,
   colorScheme = 'light',
 }: AiGroupScreenProps) {
   const tk = getTokens(colorScheme)
@@ -122,7 +125,11 @@ export function AiGroupScreen({
     )
   }
 
-  const list = tab === 'mine' ? items : items.slice().reverse()
+  // 搜索过滤(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」:名称/描述关键字过滤)
+  const kw = keyword?.trim().toLowerCase() ?? ''
+  const list = (tab === 'mine' ? items : items.slice().reverse()).filter(
+    (g) => !kw || g.name.toLowerCase().includes(kw) || g.desc.toLowerCase().includes(kw),
+  )
   const enterLabel = tab === 'mine' ? t('aiGroup.enterMine') : t('aiGroup.enterDiscover')
 
   const renderItem = ({ item }: { item: AiGroupItem }) => (
@@ -189,6 +196,20 @@ export function AiGroupScreen({
         })}
       </View>
 
+      {/* 搜索框(对齐 Uniapp ai_group/index.vue InputArea「搜索AI助手」;未注入回调则不渲染) */}
+      {onKeywordChange ? (
+        <View style={styles.searchRow}>
+          <TextInput
+            value={keyword ?? ''}
+            onChangeText={onKeywordChange}
+            placeholder={t('aiGroup.searchPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+        </View>
+      ) : null}
+
       <FlatList
         data={list}
         keyExtractor={(i) => i.id}
@@ -219,6 +240,17 @@ function createStyles(tk: AppThemeTokens) {
       padding: 4,
       borderRadius: 10,
       backgroundColor: tk.surface.card,
+    },
+    searchRow: { marginHorizontal: 16, marginTop: 10 },
+    searchInput: {
+      height: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.card,
+      paddingHorizontal: 12,
+      fontSize: 14,
+      color: tk.text.primary,
     },
     tabItem: {
       flex: 1,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
@@ -79,30 +80,79 @@ export function LearnScreen() {
     navigation.navigate('CategoryDetail', { categoryId: cat.id, title: cat.name })
 
   return (
-    <SharedLearnScreen
-      t={t}
-      progress={progress}
-      paths={paths.map((p) => ({
-        id: p.id,
-        title: p.title,
-        coverImage: p.coverImage ?? undefined,
-      }))}
-      recommended={recommended.map((r) => ({
-        id: r.id,
-        title: r.title,
-        description: r.description,
-        coverImage: r.coverImage ?? undefined,
-        difficulty: r.difficulty,
-        duration: r.duration,
-      }))}
-      loading={loading}
-      error={error}
-      onOpenCourse={openCourse}
-      onOpenBrowse={openBrowse}
-      onOpenCategory={openCategory}
-      categories={CATEGORIES as LearnCategory[]}
-      onBack={() => navigation.goBack()}
-      colorScheme={resolvedTheme}
-    />
+    <View style={styles.container}>
+      {/* 学习发展 / AI 学业规划入口(孤儿路由修复:LearnDevelop/AiCareer 注册无入口,学习中心补挂) */}
+      <View style={styles.entryRow}>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('LearnDevelop')}
+          accessibilityRole="button"
+          accessibilityLabel="学习发展"
+        >
+          <Text style={styles.entryBtnText}>学习发展</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('AiCareer')}
+          accessibilityRole="button"
+          accessibilityLabel="AI 学业规划"
+        >
+          <Text style={styles.entryBtnText}>AI 学业规划</Text>
+        </Pressable>
+      </View>
+      <SharedLearnScreen
+        t={t}
+        progress={progress}
+        paths={paths.map((p) => ({
+          id: p.id,
+          title: p.title,
+          coverImage: p.coverImage ?? undefined,
+        }))}
+        recommended={recommended.map((r) => ({
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          coverImage: r.coverImage ?? undefined,
+          difficulty: r.difficulty,
+          duration: r.duration,
+        }))}
+        loading={loading}
+        error={error}
+        onOpenCourse={openCourse}
+        onOpenBrowse={openBrowse}
+        onOpenCategory={openCategory}
+        categories={CATEGORIES as LearnCategory[]}
+        onBack={() => navigation.goBack()}
+        colorScheme={resolvedTheme}
+      />
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  entryRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  entryBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#5088fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  entryBtnPressed: {
+    opacity: 0.8,
+  },
+  entryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+})

@@ -84,6 +84,26 @@
   height: 66rpx;
 }
 
+/* ===== 品牌文案(login.brand / login.slogan) ===== */
+.brand-caption {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brand-caption-name {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #000;
+}
+
+.brand-caption-slogan {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #6B6980;
+}
+
 /* ===== 中部内容 ===== */
 .center_box {
   height: 354rpx;
@@ -438,9 +458,10 @@
 }
 
 .icon-all-box {
-  width: 100rpx;
-  height: 100rpx;
+  width: 150rpx;
+  min-height: 100rpx;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   margin: 0 15rpx;
@@ -449,6 +470,18 @@
 .third-icon {
   width: 62.505rpx;
   height: 58.505rpx;
+}
+
+.third-icon-label {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6B6980;
+}
+
+.third-icon-hint {
+  margin-top: 2rpx;
+  font-size: 20rpx;
+  color: #979797;
 }
 
 /* ===== 协议勾选 ===== */

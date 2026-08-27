@@ -16,6 +16,7 @@ import underPressure from '@fastify/under-pressure'
 import websocket from '@fastify/websocket'
 import { pino } from 'pino'
 import { join } from 'node:path'
+import { mkdirSync } from 'node:fs'
 
 import { registerRoutes } from './routes/index.js'
 import { llmVerifyKeyRoutes } from './routes/llm-verify-key.js'
@@ -354,6 +355,8 @@ async function registerPlugins(server: FastifyInstance) {
   // (uploads/private) 与文件版本 (uploads/private/versions) 等私有资源可被无鉴权
   // 猜 UUID 访问。现在 root 改为 uploads/public —— 公开资源(头像/图片/附件)写入
   // public 子目录且 URL 不变，私有文件写入 uploads/private/ 不再对外提供。
+  // 确保公开静态目录存在(全新环境首启时目录缺失会让 fastify-static WARN "must exist")
+  mkdirSync(join(process.cwd(), 'uploads', 'public'), { recursive: true })
   await server.register(fastifyStatic, {
     root: join(process.cwd(), 'uploads', 'public'),
     prefix: '/uploads/',

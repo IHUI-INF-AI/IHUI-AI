@@ -11,7 +11,7 @@
  *   if (!userId) return  // 连接已 close
  */
 import type { WebSocket } from '@fastify/websocket'
-import { verifyAccessToken } from '@ihui/auth'
+import { verifyAccessToken, verifyWsToken } from '@ihui/auth'
 import { getUserStatus } from '../db/usercenter-queries.js'
 
 /** 注入式状态查询,默认从 usercenter 表读取(便于测试覆盖) */
@@ -32,6 +32,11 @@ export const WS_CLOSE = {
 /**
  * WebSocket 鉴权:校验 JWT + 用户 status(非注销态)。
  *
+ * token 兼容两种类型(渐进迁移):
+ *  1. WS 专用短期 token(type='ws', 5 分钟 TTL,由 POST /ws/ticket 签发)— 优先;
+ *     access token 不再直接经 URL query 暴露,泄漏面大幅缩小
+ *  2. access token — 兼容期降级路径(旧客户端/旧服务端互不影响)
+ *
  * 失败时直接 `socket.close(code, reason)`,返回 null;
  * 成功返回 userId,业务层可直接使用。
  */
@@ -45,12 +50,18 @@ export async function wsAuth(
     return null
   }
   let userId: string
-  try {
-    const payload = await verifyAccessToken(token)
-    userId = payload.userId
-  } catch {
-    socket.close(WS_CLOSE.INVALID_TOKEN, 'token 无效')
-    return null
+  // 优先按 WS 专用 token 校验(verifyWsToken 内部已捕获异常,失败返回 null)
+  const wsPayload = await verifyWsToken(token)
+  if (wsPayload) {
+    userId = wsPayload.userId
+  } else {
+    try {
+      const payload = await verifyAccessToken(token)
+      userId = payload.userId
+    } catch {
+      socket.close(WS_CLOSE.INVALID_TOKEN, 'token 无效')
+      return null
+    }
   }
   const status = await fetchStatus(userId)
   if (status === undefined) {

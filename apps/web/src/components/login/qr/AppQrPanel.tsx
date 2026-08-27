@@ -66,72 +66,83 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
     setErrorMsg('')
 
     async function generateAndPoll() {
-      const genRes = await fetchApi<QrGenerateData>('/api/auth/qr/generate', {
-        method: 'POST',
-      })
-      if (cancelled) return
-
-      if (!genRes.success) {
-        setErrorMsg(genRes.error)
-        setStatus('error')
-        return
-      }
-
-      const { ticket, qrContent: content, expiresAt } = genRes.data
-      if (cancelled) return
-
-      // 轮询前先检查是否已过期
-      if (new Date(expiresAt).getTime() <= Date.now()) {
-        setStatus('expired')
-        return
-      }
-
-      setQrContent(content)
-      setStatus('pending')
-
-      const poll = async () => {
-        const res = await fetchApi<QrStatusData>(
-          `/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`,
-        )
+      try {
+        const genRes = await fetchApi<QrGenerateData>('/api/auth/qr/generate', {
+          method: 'POST',
+        })
         if (cancelled) return
 
-        if (!res.success) {
-          if (pollTimer) {
-            clearInterval(pollTimer)
-            pollTimer = null
-          }
-          setErrorMsg(res.error)
+        if (!genRes.success) {
+          setErrorMsg(genRes.error)
           setStatus('error')
           return
         }
 
-        const data = res.data
-        if (data.status === 'confirmed') {
-          if (pollTimer) {
-            clearInterval(pollTimer)
-            pollTimer = null
-          }
-          if (data.accessToken && data.refreshToken) {
-            setToken(data.accessToken, data.refreshToken)
-            qc.invalidateQueries({ queryKey: ['header'] })
-            qc.invalidateQueries({ queryKey: ['announcements'] })
-          }
-          setStatus('confirmed')
-          window.setTimeout(() => {
-            if (!cancelled) closeDialog()
-          }, SUCCESS_CLOSE_DELAY_MS)
-        } else if (data.status === 'expired') {
-          if (pollTimer) {
-            clearInterval(pollTimer)
-            pollTimer = null
-          }
-          setStatus('expired')
-        }
-        // status === 'pending' → 继续轮询
-      }
+        const { ticket, qrContent: content, expiresAt } = genRes.data
+        if (cancelled) return
 
-      poll()
-      pollTimer = setInterval(poll, POLL_INTERVAL_MS)
+        // 轮询前先检查是否已过期
+        if (new Date(expiresAt).getTime() <= Date.now()) {
+          setStatus('expired')
+          return
+        }
+
+        setQrContent(content)
+        setStatus('pending')
+
+        const poll = async () => {
+          try {
+            const res = await fetchApi<QrStatusData>(
+              `/api/auth/qr/status?ticket=${encodeURIComponent(ticket)}`,
+            )
+            if (cancelled) return
+
+            if (!res.success) {
+              if (pollTimer) {
+                clearInterval(pollTimer)
+                pollTimer = null
+              }
+              setErrorMsg(res.error)
+              setStatus('error')
+              return
+            }
+
+            const data = res.data
+            if (data.status === 'confirmed') {
+              if (pollTimer) {
+                clearInterval(pollTimer)
+                pollTimer = null
+              }
+              if (data.accessToken && data.refreshToken) {
+                setToken(data.accessToken, data.refreshToken)
+                qc.invalidateQueries({ queryKey: ['header'] })
+                qc.invalidateQueries({ queryKey: ['announcements'] })
+              }
+              setStatus('confirmed')
+              window.setTimeout(() => {
+                if (!cancelled) closeDialog()
+              }, SUCCESS_CLOSE_DELAY_MS)
+            } else if (data.status === 'expired') {
+              if (pollTimer) {
+                clearInterval(pollTimer)
+                pollTimer = null
+              }
+              setStatus('expired')
+            }
+            // status === 'pending' → 继续轮询
+          } catch {
+            // 忽略轮询错误,下次重试
+          }
+        }
+
+        poll()
+        pollTimer = setInterval(poll, POLL_INTERVAL_MS)
+      } catch {
+        if (!cancelled) {
+          setErrorMsg('二维码生成失败,请重试')
+          setStatus('error')
+        }
+      }
     }
 
     generateAndPoll()

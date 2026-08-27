@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "失败"
+    "failed": "失败",
+    "all": "全部",
+    "back": "返回",
+    "close": "关闭",
+    "delete": "删除",
+    "empty": "暂无数据",
+    "loading": "加载中...",
+    "retry": "重试",
+    "search": "搜索",
+    "submit": "提交"
   },
   "nav": {
     "chat": "对话",
@@ -11,14 +20,14 @@
     "tabRuntime": "运行时",
     "ai": "AI",
     "content": "内容",
-    "me": "我的"
+    "me": "我的",
+    "wallet": "钱包"
   },
   "apps": {
     "aiTitle": "AI 应用中心",
     "contentTitle": "内容中心",
     "meTitle": "个人中心",
     "openInWeb": "在网页版打开",
-    "openInWebDesc": "此功能建议在网页版使用,体验更佳",
     "comingSoon": "即将上线",
     "dashboard": "仪表盘",
     "dashboardDesc": "数据概览与快捷入口",
@@ -34,7 +43,6 @@
     "fansDesc": "关注我的用户",
     "points": "积分中心",
     "pointsDesc": "积分明细与签到",
-    "signIn": "每日签到",
     "vip": "VIP 会员",
     "vipDesc": "会员权益与开通",
     "member": "会员中心",
@@ -126,7 +134,14 @@
   "auth": {
     "logout": "退出登录",
     "roleAdmin": "管理员",
-    "roleUser": "普通用户"
+    "roleUser": "普通用户",
+    "appleComingSoon": "Apple 登录即将上线",
+    "login": "登录",
+    "loginSubtitle": "登录您的账号以继续",
+    "orUseAccount": "或使用账号登录",
+    "ssoCancelled": "SSO 登录已取消",
+    "ssoLoading": "SSO 授权中...",
+    "ssoLogin": "SSO 一键登录"
   },
   "popup": {
     "copyFailed": "复制失败",
@@ -169,7 +184,8 @@
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "设置"
   },
   "notification": {
     "title": "通知",
@@ -240,5 +256,109 @@
     "translate": "IHUI AI · 翻译选区",
     "vocab": "IHUI AI · 查词",
     "send": "IHUI AI · 发送到对话"
+  },
+  "page": {
+    "benefitsTitle": "会员专属权益",
+    "benefit1": "全部高级 AI 模型与智能体",
+    "benefit2": "VIP 专属标识与优先客服",
+    "benefit3": "积分加速与专属折扣",
+    "benefit4": "优先体验新功能",
+    "benefit5": "更多存储与协作额度",
+    "about": {
+      "introP1": "IHUI AI 是一款集智能对话、内容服务与个人学习管理于一体的浏览器扩展,帮助你在浏览网页时随时调用 AI 能力。",
+      "introP2": "通过侧边栏,你可以对话、查词、收藏内容、管理学习计划,并在多端之间同步你的数据。",
+      "version": "版本",
+      "copyright": "© {year} IHUI AI · 保留所有权利"
+    },
+    "agreement": {
+      "intro": "欢迎使用 IHUI AI。请在使用本扩展前仔细阅读并同意以下条款。你使用本服务即表示接受本协议。",
+      "section1": "一、服务说明:本扩展提供 AI 对话、词汇查询、内容收藏与学习管理等增值服务,具体以实际功能为准。",
+      "section2": "二、账号与数据:你需妥善保管账号凭证;你主动生成与提交的内容由你负责。",
+      "section3": "三、知识产权:本扩展及其界面、功能归开发方所有;未经许可不得复制、修改或商用。",
+      "section4": "四、服务变更与免责:我们可能根据运营需要调整或终止部分功能,并尽合理努力保障服务稳定性。",
+      "note": "如你继续使用本扩展,即视为同意上述全部条款。最终解释权归 IHUI AI 所有。"
+    },
+    "contact": {
+      "desc": "有任何问题或建议,欢迎通过以下方式联系我们。",
+      "serviceTime": "服务时间:周一至周五 9:00 - 18:00(法定节假日除外)",
+      "email": "邮箱",
+      "wechat": "公众号",
+      "wechatValue": "IHUI AI",
+      "feedback": "意见与反馈"
+    },
+    "help": {
+      "desc": "浏览常见问题,快速上手 IHUI AI。",
+      "faq1Title": "如何呼出侧边栏?",
+      "faq1Body": "点击浏览器工具栏中的 IHUI AI 图标,即可在网页右侧打开侧边栏;再次点击可收起。",
+      "faq2Title": "如何收藏网页内容?",
+      "faq2Body": "在侧边栏「我的」-「我的收藏」中管理已收藏内容,也可在页面上通过右键菜单快速收藏。",
+      "faq3Title": "如何开启深色模式?",
+      "faq3Body": "前往「设置」-「外观」切换深色模式,偏好会自动保存并在其他端同步。",
+      "faq4Title": "如何联系客服?",
+      "faq4Body": "前往「设置」-「联系我们」获取官方联系方式,或使用「意见与反馈」提交问题。",
+      "faq5Title": "数据会同步到其他设备吗?",
+      "faq5Body": "登录同一账号后,收藏、关注、积分等数据会在支持的设备间自动同步。",
+      "more": "更多帮助请前往网页版帮助中心。"
+    },
+    "vip": {
+      "notActive": "尚未开通 VIP",
+      "active": "已开通",
+      "level": "当前等级",
+      "expire": "到期时间",
+      "permanent": "永久",
+      "upgrade": "立即开通"
+    },
+    "member": {
+      "desc": "开通会员,解锁全部高级权益与专属服务。",
+      "coupons": "可用优惠券",
+      "open": "开通会员"
+    },
+    "points": {
+      "balance": "当前积分",
+      "totalEarned": "累计获得",
+      "totalSpent": "累计使用",
+      "streak": "连续签到",
+      "todaySigned": "今日已签到",
+      "signIn": "立即签到",
+      "earnTitle": "如何获取积分",
+      "earn1": "每日签到奖励",
+      "earn2": "完成学习与任务",
+      "earn3": "日常互动与收藏",
+      "earn4": "参与平台活动"
+    },
+    "distribution": {
+      "desc": "分享 IHUI AI,邀请好友注册,即可获得推广佣金与奖励。",
+      "totalCommission": "累计佣金",
+      "available": "可提现",
+      "invited": "邀请人数",
+      "rank": "排名",
+      "inviteCode": "邀请码",
+      "rate": "佣金比例",
+      "guidanceTitle": "如何参与分销",
+      "guidance1": "1. 复制你的专属邀请码或链接",
+      "guidance2": "2. 分享给好友完成注册",
+      "guidance3": "3. 好友产生消费后按比例获得佣金",
+      "open": "前往网页版分销中心"
+    },
+    "invitations": {
+      "joinedAt": "加入时间",
+      "commission": "累计贡献佣金",
+      "statusActive": "活跃",
+      "statusInactive": "待激活",
+      "empty": "暂无邀请记录,快来分享给好友吧"
+    },
+    "follow": {
+      "emptyFollowing": "暂未关注任何用户",
+      "emptyFans": "还没有粉丝",
+      "followedAt": "关注时间"
+    },
+    "pricing": {
+      "perMonth": "元/月",
+      "duration": "时长",
+      "days": "天",
+      "benefitsTitle": "包含权益",
+      "note": "定价与权益以网页版实际展示为准。",
+      "open": "前往网页版开通"
+    }
   }
 }

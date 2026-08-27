@@ -57,7 +57,7 @@ test.describe('教育完整流程', () => {
 
   test('积分页可访问', async ({ page }) => {
     await page.goto('/edu-points')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/edu-points')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -66,7 +66,7 @@ test.describe('教育完整流程', () => {
 
   test('课程详情可访问(若有课程)', async ({ page }) => {
     await page.goto('/learn')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/learn')) return
 
     await page.waitForTimeout(2000)
@@ -80,7 +80,7 @@ test.describe('教育完整流程', () => {
 
   test('学习开始按钮存在(若详情可访问)', async ({ page }) => {
     await page.goto('/learn')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/learn')) return
 
     await page.waitForTimeout(2000)
@@ -96,7 +96,7 @@ test.describe('教育完整流程', () => {
 
   test('考试入口存在(若可访问)', async ({ page }) => {
     await page.goto('/exam')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/exam')) return
 
     await page.waitForTimeout(2000)
@@ -114,7 +114,7 @@ test.describe('教育完整流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/learn')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

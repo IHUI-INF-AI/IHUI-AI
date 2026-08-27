@@ -1,5 +1,13 @@
 import { useMemo } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TeamDetailScreenProps } from '../../types'
 
@@ -11,11 +19,15 @@ export type { TeamDetailScreenProps }
  *
  * 平台无关:负责渲染成员信息卡片 + 贡献统计 + 操作按钮。
  * 平台特定(导航/拨号/跳转)由 wrapper 通过 props 注入。
+ * 2026-08-21:支持 loading/error 态(member 为 null 时按加载/失败分支渲染)。
  */
 export function TeamDetailScreen({
   t,
   onBack,
   member,
+  loading = false,
+  error = '',
+  onRetry,
   onContact,
   onViewOrders,
   colorScheme = 'light',
@@ -23,22 +35,61 @@ export function TeamDetailScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
+  // 统计卡(空态时不渲染;hooks 必须在所有分支相同顺序调用,故放条件 return 之前,
+  // 内部用可选链避免访问空对象)
   const stats = useMemo(
-    () => [
-      {
-        label: t('teamDetail.transactionVolume') || '成交额',
-        value: '¥' + (member.transactionVolume / 100).toFixed(2),
-      },
-      {
-        label: t('teamDetail.commission') || '获取佣金',
-        value: '¥' + (member.commission / 100).toFixed(2),
-      },
-      { label: t('teamDetail.orderNum') || '成交订单数', value: String(member.orderNum) },
-    ],
+    () =>
+      member
+        ? [
+            {
+              label: t('teamDetail.transactionVolume') || '成交额',
+              value: '¥' + (member.transactionVolume / 100).toFixed(2),
+            },
+            {
+              label: t('teamDetail.commission') || '获取佣金',
+              value: '¥' + (member.commission / 100).toFixed(2),
+            },
+            { label: t('teamDetail.orderNum') || '成交订单数', value: String(member.orderNum) },
+          ]
+        : [],
     [member, t],
   )
 
-  const initials = member.nickname ? member.nickname.slice(0, 1).toUpperCase() : '?'
+  const initials = member?.nickname ? member.nickname.slice(0, 1).toUpperCase() : '?'
+
+  // 加载中/失败/空态(不渲染 member 卡片,避免访问空对象字段)
+  if (!member) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.backText}>{t('common.back')}</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>{t('teamDetail.title') || '团队成员详情'}</Text>
+        </View>
+        <View style={styles.center}>
+          {loading ? (
+            <ActivityIndicator size="small" color={tk.brand.DEFAULT} />
+          ) : (
+            <>
+              <Text style={styles.emptyText}>
+                {error || t('teamDetail.empty') || '暂无成员信息'}
+              </Text>
+              {onRetry ? (
+                <Pressable
+                  style={({ pressed }) => [styles.retryBtn, pressed ? styles.pressed : null]}
+                  onPress={onRetry}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.retryText}>{t('common.retry') || '重试'}</Text>
+                </Pressable>
+              ) : null}
+            </>
+          )}
+        </View>
+      </View>
+    )
+  }
 
   return (
     <View style={styles.root}>
@@ -157,5 +208,16 @@ function createStyles(tk: AppThemeTokens) {
     actionBtnText: { fontSize: 16, fontWeight: '500', color: tk.text.primary },
     actionBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     pressed: { opacity: 0.85 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
+    emptyText: { fontSize: 14, color: tk.text.secondary, textAlign: 'center' },
+    retryBtn: {
+      paddingHorizontal: 20,
+      height: 36,
+      borderRadius: 10,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.brand.DEFAULT,
+    },
+    retryText: { fontSize: 14, fontWeight: '500', color: tk.surface.light },
   })
 }

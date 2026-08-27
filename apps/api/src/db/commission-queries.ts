@@ -7,6 +7,7 @@ import {
   withdrawalFlows,
   identityProportions,
   users,
+  orders,
   type UserMargin,
   type CommissionFlow,
   type WithdrawalFlow,
@@ -618,4 +619,85 @@ export async function teamCenter(userId: string) {
     commissionTotal: comm.totalAmount,
     withdrawalTotal: wd.totalWithdrawn,
   }
+}
+
+// ============================================================================
+// 分销团队(成员列表/详情,对齐 Uniapp distribution_personnel_list)
+// ============================================================================
+
+export interface TeamMemberRow {
+  id: string
+  nickname: string
+  avatar: string | null
+  phone: string | null
+  isVip: number
+  createdAt: Date
+  /** 成交额(分,成员已支付订单 amount 之和) */
+  transactionVolume: number
+  /** 佣金(分,成员带来的 commission_flows amount 之和) */
+  commission: number
+  /** 订单数(成员已支付订单数) */
+  orderNum: number
+}
+
+/** 单成员聚合字段(子查询,避免 N+1;导出供诊断/复用)
+ * 注意:drizzle 在 sql 模板内渲染 ${users.id} 为裸 "id"(无表限定),
+ * 子查询作用域内会歧义解析到最近 FROM(orders/commission_flows)的同名列 → 永不匹配。
+ * 故子查询内用显式表限定字面量 "users"."id"(表名/列名为代码常量,无注入风险)。 */
+export const memberSelect = {
+  id: users.id,
+  nickname: users.nickname,
+  avatar: users.avatar,
+  phone: users.phone,
+  isVip: users.isVip,
+  createdAt: users.createdAt,
+  transactionVolume: sql<number>`coalesce((
+    select sum(o.amount)::int from ${orders} o
+    where o.user_id = "users"."id" and o.status = 'paid'
+  ), 0)`,
+  commission: sql<number>`coalesce((
+    select sum(cf.amount)::int from ${commissionFlows} cf
+    where cf.invited_user_id = "users"."id" and cf.status = 1
+  ), 0)`,
+  orderNum: sql<number>`coalesce((
+    select count(*)::int from ${orders} o
+    where o.user_id = "users"."id" and o.status = 'paid'
+  ), 0)`,
+}
+
+/** 团队成员分页列表(直推下级) */
+export async function listTeamMembers(
+  userId: string,
+  page: number,
+  limit: number,
+): Promise<{ items: TeamMemberRow[]; total: number }> {
+  const where = eq(users.parentId, userId)
+  const offset = (page - 1) * limit
+  const [rows, countRows] = await Promise.all([
+    db
+      .select(memberSelect)
+      .from(users)
+      .where(where)
+      .orderBy(desc(users.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(where),
+  ])
+  return { items: rows as TeamMemberRow[], total: countRows[0]?.count ?? 0 }
+}
+
+/** 成员详情(校验归属:仅当前用户的直推下级可查) */
+export async function getTeamMember(
+  userId: string,
+  memberId: string,
+): Promise<TeamMemberRow | null> {
+  const rows = await db
+    .select(memberSelect)
+    .from(users)
+    .where(and(eq(users.id, memberId), eq(users.parentId, userId)))
+    .limit(1)
+  return (rows[0] as TeamMemberRow | undefined) ?? null
 }

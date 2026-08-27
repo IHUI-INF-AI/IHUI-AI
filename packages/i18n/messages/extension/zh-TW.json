@@ -1,6 +1,15 @@
 {
   "common": {
-    "failed": "失敗"
+    "failed": "失敗",
+    "all": "全部",
+    "back": "返回",
+    "close": "關閉",
+    "delete": "刪除",
+    "empty": "暫無資料",
+    "loading": "載入中...",
+    "retry": "重試",
+    "search": "搜尋",
+    "submit": "提交"
   },
   "nav": {
     "chat": "AI 對話",
@@ -11,14 +20,14 @@
     "tabRuntime": "執行階段",
     "ai": "AI",
     "content": "內容",
-    "me": "我的"
+    "me": "我的",
+    "wallet": "錢包"
   },
   "apps": {
     "aiTitle": "AI 應用中心",
     "contentTitle": "內容中心",
     "meTitle": "個人中心",
     "openInWeb": "在網頁版開啟",
-    "openInWebDesc": "此功能建議在網頁版使用,體驗更佳",
     "comingSoon": "即將上線",
     "dashboard": "儀錶板",
     "dashboardDesc": "資料概覽與快捷入口",
@@ -34,7 +43,6 @@
     "fansDesc": "追蹤我的使用者",
     "points": "積分中心",
     "pointsDesc": "積分明細與簽到",
-    "signIn": "每日簽到",
     "vip": "VIP 會員",
     "vipDesc": "會員權益與開通",
     "member": "會員中心",
@@ -126,7 +134,14 @@
   "auth": {
     "logout": "登出",
     "roleAdmin": "管理員",
-    "roleUser": "一般使用者"
+    "roleUser": "一般使用者",
+    "appleComingSoon": "Apple 登入即將上線",
+    "login": "登入",
+    "loginSubtitle": "登入您的帳號以繼續",
+    "orUseAccount": "或使用帳號登入",
+    "ssoCancelled": "SSO 登入已取消",
+    "ssoLoading": "SSO 授權中...",
+    "ssoLogin": "SSO 一鍵登入"
   },
   "popup": {
     "copyFailed": "複製失敗",
@@ -165,11 +180,12 @@
     "appearance": "外觀",
     "darkMode": "深色模式",
     "account": "帳號",
-    "zhCN": "简体中文",
+    "zhCN": "簡體中文",
     "en": "English",
     "ja": "日本語",
     "ko": "한국어",
-    "zhTW": "繁體中文"
+    "zhTW": "繁體中文",
+    "title": "設定"
   },
   "notification": {
     "title": "通知",
@@ -240,5 +256,109 @@
     "translate": "IHUI AI · 翻譯選區",
     "vocab": "IHUI AI · 查詞",
     "send": "IHUI AI · 傳送到對話"
+  },
+  "page": {
+    "benefitsTitle": "會員專屬權益",
+    "benefit1": "全部進階 AI 模型與智能體",
+    "benefit2": "VIP 專屬標識與優先客服",
+    "benefit3": "積分加速與專屬折扣",
+    "benefit4": "優先體驗新功能",
+    "benefit5": "更多儲存與協作額度",
+    "about": {
+      "introP1": "IHUI AI 是一款集智能對話、內容服務與個人學習管理於一體的瀏覽器擴充功能,幫助你在瀏覽網頁時隨時呼叫 AI 能力。",
+      "introP2": "透過側邊欄,你可以對話、查詞、收藏內容、管理學習計畫,並在多端之間同步你的資料。",
+      "version": "版本",
+      "copyright": "© {year} IHUI AI · 保留所有權利"
+    },
+    "agreement": {
+      "intro": "歡迎使用 IHUI AI。請在使用本擴充功能前仔細閱讀並同意以下條款。你使用本服務即表示接受本協議。",
+      "section1": "一、服務說明:本擴充功能提供 AI 對話、詞彙查詢、內容收藏與學習管理等加值服務,具體以實際功能為準。",
+      "section2": "二、帳號與資料:你需妥善保管帳號憑證;你主動產生與提交的內容由你負責。",
+      "section3": "三、智慧財產權:本擴充功能及其介面、功能歸開發方所有;未經許可不得複製、修改或商用。",
+      "section4": "四、服務變更與免責:我們可能根據營運需要調整或終止部分功能,並盡合理努力保障服務穩定性。",
+      "note": "如你繼續使用本擴充功能,即視為同意上述全部條款。最終解釋權歸 IHUI AI 所有。"
+    },
+    "contact": {
+      "desc": "有任何問題或建議,歡迎透過以下方式聯絡我們。",
+      "serviceTime": "服務時間:週一至週五 9:00 - 18:00(國定假日除外)",
+      "email": "信箱",
+      "wechat": "公眾號",
+      "wechatValue": "IHUI AI",
+      "feedback": "意見與回饋"
+    },
+    "help": {
+      "desc": "瀏覽常見問題,快速上手 IHUI AI。",
+      "faq1Title": "如何呼出側邊欄?",
+      "faq1Body": "點擊瀏覽器工具列中的 IHUI AI 圖示,即可在網頁右側開啟側邊欄;再次點擊可收起。",
+      "faq2Title": "如何收藏網頁內容?",
+      "faq2Body": "在側邊欄「我的」-「我的收藏」中管理已收藏內容,也可在頁面上透過右鍵選單快速收藏。",
+      "faq3Title": "如何開啟深色模式?",
+      "faq3Body": "前往「設定」-「外觀」切換深色模式,偏好會自動儲存並在其他端同步。",
+      "faq4Title": "如何聯絡客服?",
+      "faq4Body": "前往「設定」-「聯絡我們」取得官方聯絡方式,或使用「意見與回饋」提交問題。",
+      "faq5Title": "資料會同步到其他裝置嗎?",
+      "faq5Body": "登入同一帳號後,收藏、關注、積分等資料會在支援的裝置間自動同步。",
+      "more": "更多協助請前往網頁版說明中心。"
+    },
+    "vip": {
+      "notActive": "尚未開通 VIP",
+      "active": "已開通",
+      "level": "目前等級",
+      "expire": "到期時間",
+      "permanent": "永久",
+      "upgrade": "立即開通"
+    },
+    "member": {
+      "desc": "開通會員,解鎖全部進階權益與專屬服務。",
+      "coupons": "可用優惠券",
+      "open": "開通會員"
+    },
+    "points": {
+      "balance": "目前積分",
+      "totalEarned": "累計獲得",
+      "totalSpent": "累計使用",
+      "streak": "連續簽到",
+      "todaySigned": "今日已簽到",
+      "signIn": "立即簽到",
+      "earnTitle": "如何取得積分",
+      "earn1": "每日簽到獎勵",
+      "earn2": "完成學習與任務",
+      "earn3": "日常互動與收藏",
+      "earn4": "參與平臺活動"
+    },
+    "distribution": {
+      "desc": "分享 IHUI AI,邀請好友註冊,即可獲得推廣佣金與獎勵。",
+      "totalCommission": "累計佣金",
+      "available": "可提現",
+      "invited": "邀請人數",
+      "rank": "排名",
+      "inviteCode": "邀請碼",
+      "rate": "佣金比例",
+      "guidanceTitle": "如何參與分銷",
+      "guidance1": "1. 複製你的專屬邀請碼或連結",
+      "guidance2": "2. 分享給好友完成註冊",
+      "guidance3": "3. 好友產生消費後依比例獲得佣金",
+      "open": "前往網頁版分銷中心"
+    },
+    "invitations": {
+      "joinedAt": "加入時間",
+      "commission": "累計貢獻佣金",
+      "statusActive": "活躍",
+      "statusInactive": "待啟用",
+      "empty": "暫無邀請紀錄,快來分享給好友吧"
+    },
+    "follow": {
+      "emptyFollowing": "暫未關注任何使用者",
+      "emptyFans": "還沒有粉絲",
+      "followedAt": "關注時間"
+    },
+    "pricing": {
+      "perMonth": "元/月",
+      "duration": "時長",
+      "days": "天",
+      "benefitsTitle": "包含權益",
+      "note": "定價與權益以網頁版實際展示為準。",
+      "open": "前往網頁版開通"
+    }
   }
 }

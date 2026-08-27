@@ -100,7 +100,7 @@ export function CompactionStatusBar() {
             className="absolute inset-0 -translate-x-full animate-shimmer"
             style={{
               backgroundImage:
-                'linear-gradient(90deg, transparent, hsl(var(--color-primary) / 0.12), transparent)',
+                'linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-primary) 12%, transparent), transparent)',
               backgroundSize: '200% 100%',
             }}
             aria-hidden

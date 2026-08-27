@@ -1,38 +1,32 @@
 /**
- * 原项目 zhs_app-ZZ 远程图库 URL 集中管理(2026-07-30 立)
+ * 远程图标 CDN 前缀(运行时可配置)
  *
- * 来源:
- *   - https://file.aizhs.top/sys-mini/* (376 处引用,自建图库)
- *   - https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/* (213 处引用,uniCloud CDN)
- *
- * 本地副本:apps/miniapp-taro/src/assets/remote/(431 文件,41 MB)
- *   - 已复制原项目 src/static/ 全部图标(排除 fonts/)
- *   - 94 个唯一 URL 已匹配本地副本,118 个唯一 URL 本地无副本
- *
- * 使用方式:
- *   - 本地有副本:import xxxIcon from '@/assets/remote/<path>'
- *   - 本地无副本:直接用远程 URL(与原项目一致,微信小程序运行时可访问)
- *   - 待下载清单见 .trae-cn/tmp/REMOTE_ICONS_TODO.md(186 个 URL)
+ * 优先使用环境变量,无则回退到硬编码默认值:
+ *   - Taro 编译期可通过 APP_ENV.IMAGE_CDN_BASE 注入
+ *   - 真机/云函数可通过 process.env.IMAGE_CDN_BASE 注入
+ *   - 默认指向 aizhs.top(2026-08-27 起:web 端 next.config.ts 对 184 个图标路径做
+ *     精确 rewrite 回源本机 :80 cdn-server.js,Cloudflare Flexible 零证书出灰图;
+ *     原 file.aizhs.top / bspapp.com 均已失效)。
+ *   - 若后续在 Cloudflare 后台给 img.aizhs.top 绑了 Public Hostname → localhost:80,
+ *     可将 IMAGE_CDN_BASE 指到 https://img.aizhs.top(或改此默认值)。
  */
 
-/**
- * bspapp CDN base URL(uniCloud)——2026-08-27 起已失效(DNS 不再解析),改指自建 CDN
- */
-export const BSPAPP_BASE = 'https://aizhs.top' as const
-
-/**
- * aizhs 自建图库 base URL——2026-08-27 起由 file.aizhs.top(公网被指向第三方
- * "写字楼系统")切到 aizhs.top:web 端 next.config.ts 对 184 个图标路径做精确
- * rewrite 回源本机 :80 的 cdn-server.js(Cloudflare Flexible 零证书)。
- */
-export const AIZHS_BASE = 'https://aizhs.top' as const
-
-/** 拼接 bspapp URL */
-export function bspappUrl(path: string): string {
-  return `${BSPAPP_BASE}/${path.replace(/^\//, '')}`
+function _env(name: string, fallback: string): string {
+  const g = globalThis as unknown as Record<string, string | undefined>
+  const globalValue = typeof g[name] === 'string' ? g[name] : undefined
+  const envValue = typeof process !== 'undefined' ? process.env?.[name] : undefined
+  const v = globalValue ?? envValue
+  return v && v.trim() ? v : fallback
 }
 
-/** 拼接 aizhs URL */
+/** 新 CDN 基础 URL(替换已失效的 file.aizhs.top / bspapp.com) */
+export const AIZHS_BASE: string = _env('IMAGE_CDN_BASE', 'https://aizhs.top')
+/** 第二 CDN 基础 URL(保留兼容,默认与新 CDN 相同) */
+export const BSPAPP_BASE: string = _env('IMAGE_CDN_BASE_2', AIZHS_BASE)
+
+export function bspappUrl(path: string): string {
+  return `${BSPAPP_BASE.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+}
 export function aizhsUrl(path: string): string {
-  return `${AIZHS_BASE}/${path.replace(/^\//, '')}`
+  return `${AIZHS_BASE.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
 }

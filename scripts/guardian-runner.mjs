@@ -186,7 +186,7 @@ const checks = [
   },
   {
     id: '11c',
-    label: '🏷️  TagsView 视觉定稿防回退(主题灰描边)',
+    label: '🏷️  选中态描边定稿防回退(禁纯黑/纯白,全站)',
     script: 'check-tagsview-visual.mjs',
     args: [],
     mode: 'blocking',
@@ -320,6 +320,46 @@ const checks = [
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
+  },
+  // --- 16c (2026-08-18 新增,staged-typecheck 源/测镜像漂移防御,AGENTS.md §22b 配套) ---
+  // blocking:scripts/check-staged-typecheck.mjs 的核心过滤函数
+  //   (filterTscOutputForStagedFiles / getOriginalInclude / normalizePath)
+  //   未导出,测试靠镜像常量复制函数体,易漂移。指纹比对守卫源/测同步。
+  // id 选 16c(续 16 / 16b staged-typecheck 系列),放在 30a 之后(逻辑上紧贴 §22b 守门簇)。
+  // 跳过方法:HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC=1 git commit ...
+  {
+    id: '16c',
+    label: '🛡️  staged-typecheck 源/测镜像同步(blocking,AGENTS.md §22b 镜像同步义务)',
+    script: 'check-staged-typecheck-mirror-sync.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+  // --- 45 (2026-08-19 新增,C 盘路径硬编码扫描守门,AGENTS.md §26 配套) ---
+  // warn-only:§26 C 盘防护已配置 11 个环境变量永久指向 D 盘,但 agent 偶尔会在
+  //   写代码时把 `C:\temp\xxx` / `C:\Users\*\AppData\Local\Temp\xxx` 硬编码进源文件,
+  //   绕过环境变量直接落 C 盘。本守门在 pre-commit 阶段拦 staged 区 .ts/.tsx/.js/
+  //   .mjs/.cjs/.py/.ps1/.sh 中的硬编码写入路径(8 种正则 + 4 项排除),违规 exit 1。
+  // warn-only 起步理由:脚本刚建,先观察一周误报率,后续可升级 blocking。
+  // 跳过方法:HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...
+  // id 说明:任务原话无特定 id 要求,§26 是新章节,选下一个可用编号 '45'(44 已被
+  //   check-root-dir-clean.mjs 占用)。插入位置:16c 之后(逻辑上紧贴 staged
+  //   系列守门簇,与 staging area 扫描同源)。
+  {
+    id: '45',
+    label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
+    script: 'check-c-drive-paths.mjs',
+    args: [],
+    mode: 'warn',
+    onFailHint: [
+      '',
+      '  💡 staged 文件中检测到硬编码 C 盘写入路径(如 C:\\temp\\ / C:\\Users\\*\\AppData\\Local\\Temp\\)。',
+      '     修复:用 os.tmpdir() (Node) 或 $env:TEMP (PowerShell) 替代,自动走 D 盘;',
+      '           用户配置目录用工具自带配置 (pnpm config / npm config / pip config);',
+      '           系统日志写 $env:TEMP (已指向 D 盘)。',
+      '     唯一例外:apps/desktop/src-tauri/ 内部 API (已自动排除)。',
+      '     跳过方法 (应急):HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...',
+      '',
+    ].join('\n'),
   },
   // --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
   // blocking:项目刚完成 mypy 全库清零(4 批次 256→0 errors,226 source files),
@@ -660,28 +700,22 @@ const checks = [
   },
   {
     id: '24b',
-    label: '🔌 端口注册表守门(warn-only)',
+    label: '🔌 端口注册表守门(warn-only,monorepo-wide 全量)',
     script: 'check-port-registry.mjs',
-    args: [],
+    // 2026-08-19 立:从仅 staged 升级为 --all monorepo-wide 全量静态规则
+    // (端口注册表是项目级契约,不应只检查本次 commit 改动,
+    //  否则历史遗留非 88xx 端口会持续漏检)
+    args: ['--all'],
     mode: 'warn',
   },
 
-  // --- 31 (2026-07-26 新增,扩展端登录界面与 web 端视觉一致任务收尾) ---
-  // warn-only:脚本刚建,先观察一周,后续可升级 blocking。
-  // 静态扫描 7 项:web 端 AuthShell re-export + thin wrapper 仅透传 SharedAuthShell、
-  // 共享 .login-scope/.welcome-img-dark 单一来源、web+extension globals.css 无根级
-  // .login-scope 重复、extension 必须从 @ihui/ui-react import。
-  // 失败含义:有人重新写了一份本地 AuthShell,导致 web/extension 视觉漂移。
-  // 接入原因:commit 1f6f35cf9 + 09db8938e 已把 AuthShell 抽到 packages/ui-react 共享,
-  // 但若不接 pre-commit 守门,后续会被无意回退。AGENTS.md §4 圆角守门 + 本脚本 =
-  // 共享组件"单一来源"双保险。
-  {
-    id: '31',
-    label: '🛡️  AuthShell 共享实现静态守门(warn-only,防 web/extension 视觉漂移)',
-    script: 'verify-auth-shell.mjs',
-    args: [],
-    mode: 'warn',
-  },
+  // --- 31 (2026-07-26 新增,2026-08-19 删除) ---
+  // ID 31 verify-auth-shell 已废弃(迁移 shim,实际检查由 verify-shared-auth.mjs 11 项接管)
+  // 删除理由:verify-shared-auth.mjs 已在 §22 SOP 阶段成为 shared/auth 真实守门入口,
+  //   原 verify-auth-shell.mjs 只是兼容 shim,2026-08-19 完成迁移后无任何 caller 依赖,
+  //   删 file + guardian-runner 注册项,守卫器序列号顺延(2026-08-19 节点)
+  //   留空占位:不重新分配 id,避免历史 commit log / AGENTS.md §22 引用断裂。
+
 
   // --- 34 (2026-07-26 新增,@ts-ignore 新增检测,防历史遗留复发) ---
   // warn-only:本批次刚清理 215 处历史遗留 @ts-ignore(早期 workspace 包未导出类型时的压制),
@@ -862,6 +896,10 @@ for (const check of checks) {
     }
   } catch {
     const elapsed = Date.now() - checkStart
+    // 2026-08-19 立:catch {} 同时覆盖三种情况 — 脚本 exit 1 / 脚本崩溃 / 脚本不存在
+    // stdio:inherit 已把 stderr/stdout 透传给上游,无需额外 silent-skip 检测。
+    // (执行 stdio:inherit 后,子进程任何 stdout/stderr 都会立即打印,
+    //  silent-skip 仅在 stdio:pipe 但未读 stdout 的场景才可能发生,本 runner 不存在该风险)
     if (check.mode === 'blocking') {
       failed++
       if (check.onFailHint) {
