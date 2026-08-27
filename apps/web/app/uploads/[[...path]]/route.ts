@@ -1,10 +1,12 @@
 /**
  * 图片/文件 CDN 路由(2026-08-27 立)
  * - 直接从磁盘读取 API 服务的公开上传目录 apps/api/uploads/public 出图,
- *   由 web(8801) 同源托管,Host 无关:根域 aizhs.top / 子域 file.aizhs.top / bsm.aizhs.top
- *   等走 web 的请求统一由此路由返回,避免经 next.config rewrites 反向代理到 8802
- *   (公网 file.aizhs.top 等子域的 rewrite 代理偶发失败,见排查记录)。
+ *   由 web(8801) 同源托管,Host 无关:根域 aizhs.top / bsm.aizhs.top 等走 web
+ *   的请求统一由此路由返回,避免经 next.config rewrites 反向代理到 8802。
+ * - 注意:file.aizhs.top 公网指向第三方「写字楼租金管理系统」(同 Cloudflare
+ *   zone 另一 tunnel/origin),非我方域名,勿依赖/勿尝试 reclaim。
  * - api.aizhs.top/uploads 由 Cloudflare 隧道直指 8802,由 API 的 @fastify/static 服务,不经此路由。
+ * - 小程序远程图标见 apps/web/app/cdn/[[...path]]/route.ts(直读 deploy/server-root)。
  * - 安全:仅允许读取 uploads/public 白名单目录,严格防路径穿越(拒绝 .. / 绝对段)。
  */
 import { NextRequest, NextResponse } from 'next/server'
