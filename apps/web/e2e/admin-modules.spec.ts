@@ -106,7 +106,7 @@ test.describe('Admin 各子模块导航', () => {
 test.describe('Admin 侧边栏导航', () => {
   test('admin 各模块入口可点击(若页面可访问)', async ({ page }) => {
     await page.goto('/admin/users')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 若停留 admin 页面,验证侧边栏存在
     if (page.url().includes('/admin')) {
       const sidebar = page.locator('aside, nav, [role="navigation"]').first()

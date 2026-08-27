@@ -295,27 +295,13 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
   }
 }
 
-async function registerContextMenu(): Promise<void> {
+// 2026-08-21 修复(MV3 唤醒事件丢失):onClicked 监听必须同步注册。
+// 原实现把 addListener 放在 registerContextMenu 内 await getBackgroundLocale()
+// 之后注册——MV3 service worker 被右键菜单事件唤醒时,异步注册的监听器
+// 可能赶不上事件分发,点击静默丢失(Chrome 官方要求事件监听器在 SW
+// 顶层同步注册)。菜单标题文案仍异步加载,监听器拆出为同步函数。
+function registerContextMenuClickHandler(): void {
   if (!chrome.contextMenus) return
-  const locale = await getBackgroundLocale()
-  chrome.contextMenus.removeAll(() => {
-    chrome.contextMenus.create({
-      id: 'ihui-translate',
-      title: translateBg(locale, 'contextMenu.translate'),
-      contexts: ['selection'],
-    })
-    chrome.contextMenus.create({
-      id: 'ihui-vocab',
-      title: translateBg(locale, 'contextMenu.vocab'),
-      contexts: ['selection'],
-    })
-    chrome.contextMenus.create({
-      id: 'ihui-send',
-      title: translateBg(locale, 'contextMenu.send'),
-      contexts: ['selection'],
-    })
-  })
-
   chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const text = info.selectionText?.trim() || ''
     if (!text) return
@@ -350,6 +336,28 @@ async function registerContextMenu(): Promise<void> {
         console.warn('[IHUI AI] context menu send failed:', err)
       }
     }
+  })
+}
+
+async function registerContextMenu(): Promise<void> {
+  if (!chrome.contextMenus) return
+  const locale = await getBackgroundLocale()
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: 'ihui-translate',
+      title: translateBg(locale, 'contextMenu.translate'),
+      contexts: ['selection'],
+    })
+    chrome.contextMenus.create({
+      id: 'ihui-vocab',
+      title: translateBg(locale, 'contextMenu.vocab'),
+      contexts: ['selection'],
+    })
+    chrome.contextMenus.create({
+      id: 'ihui-send',
+      title: translateBg(locale, 'contextMenu.send'),
+      contexts: ['selection'],
+    })
   })
 }
 
@@ -452,6 +460,7 @@ export default defineBackground(() => {
   registerMessageListener()
   registerInstallHook()
   registerActionClick()
+  registerContextMenuClickHandler()
   void registerContextMenu()
   initAgentControlBridge()
 

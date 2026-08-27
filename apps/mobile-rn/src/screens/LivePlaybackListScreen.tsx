@@ -17,7 +17,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  *
  * 负责:useI18n 取 t、useTheme 取 resolvedTheme、useNavigation 取 navigation、
  * fetchApi 拉数据,把依赖通过 props 注入共享组件。
- * 原实现无卡片点击跳转,onPressItem 传 no-op。
+ * 原实现无卡片点击跳转,onPressItem 传 no-op;现改为点击跳转对应直播详情页。
  */
 export function LivePlaybackListScreen() {
   const { t } = useI18n()
@@ -59,7 +59,10 @@ export function LivePlaybackListScreen() {
       refreshing={refreshing}
       error={error}
       onRefresh={onRefresh}
-      onPressItem={() => {}}
+      onPressItem={(item) => {
+        // 点击回放卡片跳转对应直播详情页(/live/history 返回已结束直播,详情页展示「已结束」状态)
+        navigation.navigate('LiveDetail', { id: item.id })
+      }}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
     />

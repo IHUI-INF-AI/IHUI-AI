@@ -42,7 +42,7 @@ function statusText(status: string): string {
 
 function statusColor(status: string, tk: AppThemeTokens): string {
   if (status === '1' || status === 'refunded') return tk.danger.DEFAULT
-  if (status === '2' || status === 'settled' || status === 'finished') return '#16a34a'
+  if (status === '2' || status === 'settled' || status === 'finished') return tk.success.DEFAULT
   return tk.text.tertiary
 }
 
@@ -181,7 +181,7 @@ function createStyles(tk: AppThemeTokens) {
     searchInputWrap: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       paddingHorizontal: 12,
       height: 50,

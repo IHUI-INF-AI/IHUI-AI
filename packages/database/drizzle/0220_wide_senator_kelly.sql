@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "identity_type" varchar(32) DEFAULT 'normal' NOT NULL;

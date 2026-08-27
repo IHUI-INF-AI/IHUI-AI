@@ -16,6 +16,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { Tool, ToolResult, ToolContext } from './index.js';
+import { tryParseJson, isRecord, isJsonArray } from '../util/json.js';
 
 export interface TodoItem {
   id: string;
@@ -53,8 +54,9 @@ function loadTodos(ctx: ToolContext): TodoItem[] {
   try {
     if (!fs.existsSync(p)) return [];
     const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = JSON.parse(raw) as { todos?: TodoItem[] };
-    return Array.isArray(parsed.todos) ? parsed.todos : [];
+    const parsed = tryParseJson(raw);
+    if (!isRecord(parsed) || !isJsonArray(parsed.todos)) return [];
+    return parsed.todos as unknown as TodoItem[];
   } catch {
     return [];
   }

@@ -22,7 +22,7 @@ test.describe('AI Skills 独立页', () => {
     })
 
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 无 500 错误
     expect(
@@ -37,6 +37,9 @@ test.describe('AI Skills 独立页', () => {
     await expect(heading).not.toBeEmpty()
 
     // 分类 Tab 可见
+    // 2026-08-26 修复:原 .or() 链 + isVisible 在多匹配时行为不可靠
+    // (Locator.or() 多元素时 .isVisible() 只看第一个,容易误判 false)。
+    // 改用 count() 检查元素存在 + 单独 isVisible 检查。
     const tabAll = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて/i })
     const tabAvailable = page
       .getByRole('button')
@@ -44,11 +47,22 @@ test.describe('AI Skills 独立页', () => {
     const tabComing = page
       .getByRole('button')
       .filter({ hasText: /即将上线|Coming|출시 예정|近日公開/i })
-    const hasAnyTab = await tabAll
-      .or(tabAvailable.or(tabComing))
+    const tabAllVisible = await tabAll
+      .first()
       .isVisible({ timeout: 5000 })
       .catch(() => false)
-    expect(hasAnyTab).toBeTruthy()
+    const tabAvailableVisible = await tabAvailable
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
+    const tabComingVisible = await tabComing
+      .first()
+      .isVisible({ timeout: 5000 })
+      .catch(() => false)
+    expect(
+      tabAllVisible || tabAvailableVisible || tabComingVisible,
+      '至少一个 Tab 按钮应可见',
+    ).toBeTruthy()
 
     // 搜索框可见
     const searchInput = page.getByPlaceholder(/搜索|Search|검색|検索/i)
@@ -59,7 +73,7 @@ test.describe('AI Skills 独立页', () => {
 
   test('搜索过滤:输入关键词过滤技能列表', async ({ page }) => {
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const searchInput = page.getByPlaceholder(/搜索|Search|검색|検索/i)
     const isVisible = await searchInput.isVisible({ timeout: 5000 }).catch(() => false)
@@ -87,7 +101,7 @@ test.describe('AI Skills 独立页', () => {
 
   test('Tab 切换:全部/已上线/即将上线', async ({ page }) => {
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 点击"全部"Tab
     const tabAll = page.getByRole('button').filter({ hasText: /全部|All|모두|すべて/i })
@@ -113,7 +127,7 @@ test.describe('AI Skills 独立页', () => {
 
   test('详情页渲染:技能元数据可见', async ({ page }) => {
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 点击第一个技能卡片
     const firstCard = page.locator('a[href^="/ai-skills/"]').first()
@@ -121,7 +135,7 @@ test.describe('AI Skills 独立页', () => {
     if (!isVisible) return
 
     await firstCard.click()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 详情页标题可见
     const heading = page.getByRole('heading', { level: 1 })
@@ -146,7 +160,7 @@ test.describe('AI Skills 独立页', () => {
       .catch(() => false)
     if (back) {
       await backButton.or(backLink).first().click()
-      await page.waitForLoadState('networkidle')
+      await page.waitForLoadState('domcontentloaded')
       await expect(page).toHaveURL(/\/ai-skills\/?$/)
     }
   })
@@ -158,7 +172,7 @@ test.describe('AI Skills 独立页', () => {
     })
 
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     // 忽略非关键错误(如 favicon 404)
     const criticalErrors = consoleErrors.filter(
@@ -169,7 +183,7 @@ test.describe('AI Skills 独立页', () => {
 
   test('详情页无控制台异常', async ({ page }) => {
     await page.goto(SKILL_URL)
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const firstCard = page.locator('a[href^="/ai-skills/"]').first()
     const isVisible = await firstCard.isVisible({ timeout: 10000 }).catch(() => false)
@@ -181,7 +195,7 @@ test.describe('AI Skills 独立页', () => {
     })
 
     await firstCard.click()
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
 
     const criticalErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('Failed to load resource'),

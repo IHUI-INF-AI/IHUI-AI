@@ -24,7 +24,7 @@ test.describe('AI 世界展厅', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/ai-world')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -42,7 +42,7 @@ test.describe('AI 世界展厅', () => {
 
   test('分类导航:分类标签存在(若可访问)', async ({ page }) => {
     await page.goto('/ai-world')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-world')) return
 
     await page.waitForTimeout(2000)
@@ -56,7 +56,7 @@ test.describe('AI 世界展厅', () => {
 
   test('详情查看:点击展项进入详情(若可访问)', async ({ page }) => {
     await page.goto('/ai-world')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-world')) return
 
     await page.waitForTimeout(2000)
@@ -71,7 +71,7 @@ test.describe('AI 世界展厅', () => {
 
   test('搜索:搜索框存在(若可访问)', async ({ page }) => {
     await page.goto('/ai-world')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-world')) return
 
     const searchInput = page.getByPlaceholder(/搜索|查找|Search/i).first()
@@ -85,7 +85,7 @@ test.describe('AI 世界展厅', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/ai-world')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

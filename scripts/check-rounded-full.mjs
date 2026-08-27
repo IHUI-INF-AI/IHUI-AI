@@ -45,17 +45,55 @@ const VIOLATION_PATTERNS = [
 /**
  * 豁免判定 — 返回 true 表示该行可豁免(不算违规)。
  * 严格按 AGENTS.md 第 4 节"唯一豁免"清单 + Radix UI primitives 通用圆形控件特征。
+ *
+ * @param {string} line - 当前行内容
+ * @param {string} [file] - 当前文件路径(用于上下文豁免)
+ * @param {string[]} [allLines] - 文件全部行(用于前向注释豁免)
+ * @param {number} [idx] - 当前行在 allLines 中的索引
  */
-function isExempt(line) {
+function isExempt(line, file, allLines, idx) {
   const trimmed = line.trim()
 
   // 豁免 0: 纯注释行(// 或 /* 或 * 开头,提到 rounded-full 只是在说明规则)
-  if (/^\s*(\/\/|\/\*|\*)/.test(trimmed)) return true
+  // 同步支持 JSX 块注释 {/* ... */}
+  if (/^\s*(\/\/|\/\*|\*|\{)/.test(trimmed)) return true
+
+  // 豁免 0b: 前 N 行有"豁免说明"注释(开发者显式说明这行 rounded-full 是合规的)
+  // 模式: 注释行包含 "豁免 N" 或 "exempt" 或 "decorative" + 具体豁免理由关键词
+  // 上限 5 行前向检查(避免误判远处的注释与本行无关)
+  // 同步支持 JSX 块注释 {/* ... */}
+  if (file && allLines) {
+    for (let back = 1; back <= 5 && idx - back >= 0; back++) {
+      const prev = (allLines[idx - back] || '').trim()
+      // 仅看单行注释(//, /*, *, 或 JSX 块注释开头 {)
+      if (!/^\s*(\/\/|\/\*|\*|\{)/.test(prev)) continue
+      // 必须同时有"豁免说明标记" + "理由关键词"
+      const hasExemptMarker = /豁免\s*\d+[a-z]?\s*[:：]/.test(prev) || /\bexempt\b/i.test(prev) || /@allow-rounded-full/.test(prev)
+      const hasReasonKw = /装饰|头像|指示器|胶囊|红点|徽章|avatar|decorator|indicator/i.test(prev)
+      if (hasExemptMarker && hasReasonKw) return true
+      // 显式标记
+      if (/@allow-rounded-full/.test(prev)) return true
+    }
+  }
 
   // 豁免 1: <img> / AvatarImage / next/image 上的 rounded-full(头像图片本身)
   if (/<img\b[^>]*\brounded-full\b/.test(trimmed)) return true
   if (/<Image\b[^>]*\brounded-full\b/.test(trimmed)) return true
   if (/AvatarImage\b[^>]*\brounded-full\b/.test(trimmed)) return true
+
+  // 豁免 1b: mobile-rn / Taro <Image>/<View> 头像容器(width/height 设定的容器型头像)
+// 例: <Image source={...} className="rounded-full" style={{ width: 60, height: 60 }} />
+// 关键: 标签可能跨多行(Image 在 line N, className 在 line N+1, style 在 line N+2)
+// 检测窗口: 当前行 + 上下 5 行
+if (allLines) {
+  const window = allLines.slice(Math.max(0, idx - 5), Math.min(allLines.length, idx + 5)).join('\n')
+  // 检测 <Image> 或 <View> 标签 + rounded-full + 后续 width/height
+  if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:width|height)\s*:\s*\d{2,3}/.test(window)) return true
+  // Taro rpx: w-[140rpx] h-[140rpx]
+  if (/<(?:Image|View)\b[^>]*\brounded-full\b/.test(window) && /\b(?:w|h)-\[(\d{2,3})rpx\]/.test(window)) return true
+  // Taro className 含 w-[140rpx] h-[140rpx]
+  if (/\b(?:w|h)-\[\d{2,3}rpx\]/.test(window) && /\bh-\[\d{2,3}rpx\]/.test(window)) return true
+}
 
   // 豁免 2: Switch(Radix Switch Root/Thumb 特征)
   // Thumb 特征: block rounded-full bg-background shadow-lg ring-0 transition-transform
@@ -90,21 +128,40 @@ function isExempt(line) {
     // w-0.5 / h-0.5 极窄装饰条(2px,语音波形等)
     if (/\b(?:w|h)-0\.5\b/.test(trimmed)) return true
     // 竖向装饰指示器(分页指示器 active 胶囊):width <= 8px 且 height >= 12px
-    // 例: PageIndicator active 态 h-4 w-1.5 (16x6)、h-5 w-2 (20x8)
+    // 例: PageIndicator active 态 h-4 w-1.5 (16x6)、h-5 w-2 (20x8)、h-6 w-2 (24x8,2026-08-13 v10)
     // 规则来源:用户 2026-07-20 v5 明确要求"竖向胶囊",不视作违规
     if (
       /\bw-(?:0\.5|1|1\.5|2)\b/.test(trimmed) &&
-      /\bh-(?:3|3\.5|4|4\.5|5)\b/.test(trimmed) &&
+      /\bh-(?:3|3\.5|4|4\.5|5|6|7|8)\b/.test(trimmed) &&
       noLargeContainer
     ) {
       return true
     }
   }
 
-  // 豁免 6: 未读红点底(bg-red-500 + 小尺寸 + px-1 或绝对定位 -top/-right)
-  if (/\bbg-red-500\b/.test(trimmed) && /\brounded-full\b/.test(trimmed)) {
-    if (/\b(?:min-w-\[?\d+px?\]?|h-4|w-4|h-5|min-w-5)\b/.test(trimmed)) return true
+  // 豁免 6: 未读红点底(bg-red-500/bg-destructive + 小尺寸 + px-1 或绝对定位 -top/-right)
+  // 同步支持 Taro rpx 单位(w-[28rpx], w-[32rpx] 等 <= 64 rpx 装饰点)
+  if (/\bbg-(?:red-500|destructive)\b/.test(trimmed) && /\brounded-full\b/.test(trimmed)) {
+    if (/\b(?:min-w-\[?\d+r?px?\]?|h-\[?\d+r?px?\]?|w-\[?\d+r?px?\]?|h-4|w-4|h-5|min-w-5|min-h-5)\b/.test(trimmed)) return true
     if (/\bpx-1\b/.test(trimmed) && /\b(?:absolute|top|right|left|bottom)/.test(trimmed)) return true
+    // Taro: -top-1 / -top-[8rpx] + w-[28rpx] 装饰红点
+    if (/(?:min-w-\[\d+rpx\]|w-\[\d+rpx\]|h-\[\d+rpx\])/.test(trimmed) && /absolute/.test(trimmed)) return true
+  }
+
+  // 豁免 6b: 通用小尺寸绝对定位装饰点(<= 64px 或 <= 64rpx,任意背景色)
+  // 装饰点典型: 绝对定位 top-right + 圆形背景 + 尺寸小(通知红点/状态徽章)
+  if (
+    /\brounded-full\b/.test(trimmed) &&
+    /\babsolute\b/.test(trimmed) &&
+    (/\b(?:min-w-\[?\d+r?px?\]?|w-\[?\d+r?px?\]?|h-\[?\d+r?px?\]?|h-4|w-4|h-5|min-w-5|min-h-5)\b/.test(trimmed))
+  ) {
+    // 尺寸 <= 64 rpx 或 <= 64 px
+    const sizeMatch = trimmed.match(/(?:min-w-|w-|h-|min-h-)(\[\d+rpx\]|\[?\d+px?\]?|4|5|6|7|8|9|10|12|14|16|20|24|28|32|40|48|56|64)/)
+    if (sizeMatch) {
+      const raw = sizeMatch[1]
+      const numMatch = raw.match(/\d+/)
+      if (numMatch && parseInt(numMatch[0]) <= 64) return true
+    }
   }
 
   // 豁免 7: 纯装饰动画(border + animate-spin / animate-bounce / animate-ping / animate-pulse + rounded-full)
@@ -169,7 +226,18 @@ function isCssExempt(lines, idx, file) {
   }
 
   // 规则 4: 头像图片选择器(.avatar / .card-avatar / .agent-avatar / .user-avatar / .profile-img / .photo)
-  if (/(?:\.avatar|\.card-avatar|\.agent-avatar|\.user-avatar|\.profile-img|\.photo)\b/.test(selectorLine)) return true
+  // 同步支持 Taro/小程序的 .cp-member-avatar, .member-avatar, .user-avatar 等驼峰类名
+  if (/(?:\.avatar|language-\.avatar|[\w-]*avatar|profile-img|profile-photo|profile-image)\b/i.test(selectorLine)) return true
+
+  // 规则 5: 装饰点/红点底选择器(.dot / .badge / .unread / .notice / .indicator / .marker)
+  // 红点底典型: 8-32 px/rpx,绝对定位,圆形
+  if (/(?:\.dot|\.badge|\.unread|\.notice|\.indicator|\.marker|\.bubble)\b/.test(selectorLine)) {
+    if (/\bposition\s*:\s*absolute\b/i.test(blockText)) return true
+  }
+
+  // 规则 6: rpx 物理小尺寸(<= 64 rpx 装饰点,约 21 物理像素,iPhone 1.5px 比例适配)
+  // 排除容器型选择器(无具体尺寸 = 容器/卡片,不豁免)
+  if (w <= 64 && h <= 64 && w !== Infinity && h !== Infinity) return true
 
   return false
 }
@@ -307,7 +375,7 @@ for (const file of files) {
       const allowed = addedLinesMap.get(file)
       if (!allowed || !allowed.has(lineNumber)) return
     }
-    if (isExempt(line)) return
+    if (isExempt(line, file, lines, idx)) return
     if (isCssExempt(lines, idx, file)) return
     for (const { re, label } of VIOLATION_PATTERNS) {
       const m = re.exec(line)

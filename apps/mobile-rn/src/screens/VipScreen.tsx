@@ -36,6 +36,7 @@ import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -307,14 +308,10 @@ export function VipScreen() {
                   return
                 }
 
-                // 3. mock 模式(DEV 环境无微信支付配置):直接标记成功
+                // 3. mock 模式(DEV 环境无微信支付配置):提示 native unavailable
                 if (payRes.data.mock) {
-                  if (__DEV__) {
-                    console.warn('[VipScreen] mock 支付模式:跳过微信SDK,直接标记成功')
-                  }
-                  setToast(t('vipScreen.pay.success'))
+                  setToast(t('payment.nativeUnavailable'))
                   setPurchasingId(null)
-                  void load(true)
                   return
                 }
 
@@ -332,17 +329,16 @@ export function VipScreen() {
                   return
                 }
 
-                // 5. 支付成功,查询支付状态确认(乐观提示:SDK 成功即展示,后端状态延迟同步)
+                // 5. 只有后端确认已支付才展示成功
                 const orderNo = payRes.data.outTradeNo
-                if (orderNo) {
-                  const statusRes = await checkPaymentStatus(orderNo)
-                  if (!statusRes.success || !statusRes.data?.paid) {
-                    if (__DEV__) {
-                      console.warn('[VipScreen] 支付SDK返回成功但后端状态未同步,乐观提示', {
-                        orderNo,
-                      })
-                    }
-                  }
+                if (!orderNo) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
+                }
+                const statusRes = await checkPaymentStatus(orderNo)
+                if (!statusRes.success || !statusRes.data?.paid) {
+                  setToast(t('vipScreen.payFailed'))
+                  return
                 }
                 setToast(t('vipScreen.pay.success'))
                 void load(true)
@@ -452,13 +448,7 @@ export function VipScreen() {
           {filteredPlans.map((plan) => {
             const hasDiscount = plan.defAmount > plan.amount
             return (
-              <Pressable
-                key={plan.id}
-                style={({ pressed }) => [styles.planItem, pressed ? styles.planItemPressed : null]}
-                onPress={() => pay(plan)}
-                accessibilityRole="button"
-                accessibilityLabel={`${plan.cycle} ¥${(plan.amount / 100).toFixed(2)}`}
-              >
+              <View key={plan.id} style={styles.planItem}>
                 <View style={styles.planHeader}>
                   <Text style={styles.planCycle} numberOfLines={1}>
                     {plan.cycle}
@@ -466,12 +456,12 @@ export function VipScreen() {
                   <View style={styles.planTags}>
                     {plan.discount ? (
                       <View style={styles.discountTag}>
-                        <Text style={styles.discountTagText}>{plan.discount}</Text>
+                        <Text style={styles.discountTagText}>{t('vipScreen.discount')}</Text>
                       </View>
                     ) : null}
                     {plan.trial ? (
                       <View style={styles.trialTag}>
-                        <Text style={styles.trialTagText}>{plan.trial}</Text>
+                        <Text style={styles.trialTagText}>{t('vipScreen.trial')}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -488,7 +478,19 @@ export function VipScreen() {
                   ) : null}
                   <Text style={styles.planDuration}>{plan.durationDays} 天</Text>
                 </View>
-              </Pressable>
+                {/* 立即开通按钮(对齐 Uniapp introduce-popup/index.vue 订阅 CTA,显式点击支付) */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.subscribeButton,
+                    pressed ? styles.planItemPressed : null,
+                  ]}
+                  onPress={() => pay(plan)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('vipScreen.subscribe')}
+                >
+                  <Text style={styles.subscribeButtonText}>{t('vipScreen.subscribe')}</Text>
+                </Pressable>
+              </View>
             )
           })}
         </ScrollView>
@@ -498,7 +500,16 @@ export function VipScreen() {
       </View>
 
       {/* 等级升级机制装饰区(对齐 Uniapp levelIndex.vue 行 21-29 钻石装饰) */}
-      <View style={styles.levelBanner}>
+      <Pressable
+        style={({ pressed }) => [styles.levelBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() => {
+          // 孤儿路由修复:VipLevel 注册无入口,点击等级横幅进入等级详情
+          const firstLevel = levels[0]
+          if (firstLevel) navigation.navigate('VipLevel', { id: firstLevel.id })
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.level')}
+      >
         <Text style={styles.diamondIcon} allowFontScaling={false}>
           {'\u25C6'}
         </Text>
@@ -506,7 +517,21 @@ export function VipScreen() {
           <Text style={styles.levelBannerTitle}>{t('vipScreen.banner.level')}</Text>
           <Text style={styles.levelBannerHint}>{t('vipScreen.banner.levelHint')}</Text>
         </View>
-      </View>
+      </Pressable>
+
+      {/* 操盘手专属权益横幅(品牌色卡片,title + subtitle) */}
+      <Pressable
+        style={({ pressed }) => [styles.traderBanner, pressed ? styles.traderBannerPressed : null]}
+        onPress={() => {
+          // 孤儿路由修复:VipTrader 注册无入口,点击操盘手横幅进入开通页
+          navigation.navigate('VipTrader')
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={t('vipScreen.banner.trader')}
+      >
+        <Text style={styles.traderBannerTitle}>{t('vipScreen.banner.trader')}</Text>
+        <Text style={styles.traderBannerSubtitle}>{t('vipScreen.banner.traderSubtitle')}</Text>
+      </Pressable>
 
       <SharedVipScreen
         t={t}
@@ -586,6 +611,18 @@ export function VipScreen() {
         </View>
         <Text style={styles.qrCodeTitle}>{t('vipScreen.qr.title')}</Text>
         <Text style={styles.qrCodeHint}>{t('vipScreen.qr.hint')}</Text>
+        {/* 二维码弹层关闭按钮 */}
+        <Pressable
+          style={({ pressed }) => [
+            styles.qrCloseButton,
+            pressed ? styles.qrCloseButtonPressed : null,
+          ]}
+          onPress={() => setServicePopupVisible(false)}
+          accessibilityRole="button"
+          accessibilityLabel={t('vipScreen.qr.close')}
+        >
+          <Text style={styles.qrCloseText}>{t('vipScreen.qr.close')}</Text>
+        </Pressable>
       </BottomPops>
     </View>
   )
@@ -628,6 +665,18 @@ const QR_BOX_RADIUS = 8
 const SERVICE_TITLE_FONT_SIZE = 15
 const SERVICE_HINT_FONT_SIZE = 12
 
+const SUBSCRIBE_BUTTON_HEIGHT = 36
+const SUBSCRIBE_BUTTON_RADIUS = 8
+const SUBSCRIBE_BUTTON_FONT_SIZE = 13
+
+const TRADER_BANNER_RADIUS = 8
+const TRADER_TITLE_FONT_SIZE = 15
+const TRADER_SUBTITLE_FONT_SIZE = 12
+
+const QR_CLOSE_BUTTON_HEIGHT = 40
+const QR_CLOSE_BUTTON_RADIUS = 8
+const QR_CLOSE_FONT_SIZE = 13
+
 // 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量
 const ACCENT_COLOR = '#5088fa'
 
@@ -637,9 +686,9 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   } as ViewStyle,
   entryCard: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 10,
+    paddingHorizontal: rpx(32),
+    paddingTop: rpx(24),
+    paddingBottom: rpx(20),
     backgroundColor: tokens.surface.light,
     borderRadius: ENTRY_CARD_RADIUS,
   } as ViewStyle,
@@ -647,11 +696,11 @@ const styles = StyleSheet.create({
     fontSize: ENTRY_TITLE_FONT_SIZE,
     lineHeight: ENTRY_TITLE_FONT_SIZE + 4,
     color: tokens.text.secondary,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   } as TextStyle,
   entryRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: rpx(16),
   } as ViewStyle,
   entryButton: {
     flex: 1,
@@ -672,17 +721,17 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // ── 价格卡片 Tab ──
   planCard: {
-    marginTop: 10,
-    marginHorizontal: 16,
+    marginTop: rpx(20),
+    marginHorizontal: rpx(32),
     backgroundColor: tokens.surface.light,
     borderRadius: PLAN_CARD_RADIUS,
-    padding: 14,
+    padding: rpx(28),
   } as ViewStyle,
   tabBar: {
     flexDirection: 'row',
     backgroundColor: tokens.surface.muted,
     borderRadius: TAB_RADIUS,
-    padding: 3,
+    padding: rpx(6),
   } as ViewStyle,
   tab: {
     flex: 1,
@@ -716,11 +765,11 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // ── 价格卡片列表 ──
   planScroll: {
-    marginTop: 10,
+    marginTop: rpx(20),
   } as ViewStyle,
   planList: {
     gap: PLAN_ITEM_GAP,
-    paddingBottom: 4,
+    paddingBottom: rpx(8),
   } as ViewStyle,
   planItem: {
     backgroundColor: tokens.surface.muted,
@@ -744,7 +793,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   planTags: {
     flexDirection: 'row',
-    gap: 4,
+    gap: rpx(8),
   } as ViewStyle,
   discountTag: {
     backgroundColor: tokens.danger.light,
@@ -771,7 +820,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   planDetail: {
-    marginTop: 4,
+    marginTop: rpx(8),
     fontSize: PLAN_DETAIL_FONT_SIZE,
     lineHeight: PLAN_DETAIL_FONT_SIZE + 4,
     color: tokens.text.secondary,
@@ -779,8 +828,8 @@ const styles = StyleSheet.create({
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
-    marginTop: 8,
+    gap: rpx(16),
+    marginTop: rpx(16),
   } as ViewStyle,
   planAmount: {
     fontSize: PLAN_AMOUNT_FONT_SIZE,
@@ -799,8 +848,22 @@ const styles = StyleSheet.create({
     lineHeight: PLAN_DURATION_FONT_SIZE + 2,
     color: tokens.text.secondary,
   } as TextStyle,
+  subscribeButton: {
+    marginTop: rpx(16),
+    height: SUBSCRIBE_BUTTON_HEIGHT,
+    borderRadius: SUBSCRIBE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  subscribeButtonText: {
+    fontSize: SUBSCRIBE_BUTTON_FONT_SIZE,
+    lineHeight: SUBSCRIBE_BUTTON_FONT_SIZE + 2,
+    color: tokens.surface.light,
+    fontWeight: '600',
+  } as TextStyle,
   agreementText: {
-    marginTop: 8,
+    marginTop: rpx(16),
     fontSize: AGREEMENT_FONT_SIZE,
     lineHeight: AGREEMENT_FONT_SIZE + 4,
     color: tokens.text.tertiary,
@@ -810,11 +873,11 @@ const styles = StyleSheet.create({
   levelBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginHorizontal: 16,
-    marginTop: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    gap: rpx(20),
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
     backgroundColor: tokens.purple.light,
     borderRadius: LEVEL_BANNER_RADIUS,
   } as ViewStyle,
@@ -836,14 +899,39 @@ const styles = StyleSheet.create({
     fontSize: LEVEL_BANNER_HINT_FONT_SIZE,
     lineHeight: LEVEL_BANNER_HINT_FONT_SIZE + 4,
     color: tokens.danger.DEFAULT,
-    marginTop: 2,
+    marginTop: rpx(4),
+  } as TextStyle,
+  // ── 操盘手专属权益横幅 ──
+  traderBanner: {
+    marginHorizontal: rpx(32),
+    marginTop: rpx(20),
+    backgroundColor: ACCENT_COLOR,
+    borderRadius: TRADER_BANNER_RADIUS,
+    paddingHorizontal: rpx(28),
+    paddingVertical: rpx(20),
+  } as ViewStyle,
+  traderBannerPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  traderBannerTitle: {
+    fontSize: TRADER_TITLE_FONT_SIZE,
+    lineHeight: TRADER_TITLE_FONT_SIZE + 4,
+    fontWeight: '600',
+    color: tokens.surface.light,
+  } as TextStyle,
+  traderBannerSubtitle: {
+    marginTop: rpx(6),
+    fontSize: TRADER_SUBTITLE_FONT_SIZE,
+    lineHeight: TRADER_SUBTITLE_FONT_SIZE + 4,
+    color: tokens.surface.light,
+    opacity: 0.9,
   } as TextStyle,
   // ── 私董会服务弹窗(BottomPops 子内容样式) ──
   serviceCard: {
     width: '100%',
     backgroundColor: tokens.surface.muted,
     borderRadius: SERVICE_CARD_RADIUS,
-    padding: 14,
+    padding: rpx(28),
     alignItems: 'center',
   } as ViewStyle,
   serviceCardTitle: {
@@ -856,10 +944,10 @@ const styles = StyleSheet.create({
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,
-    marginTop: 4,
+    marginTop: rpx(8),
   } as TextStyle,
   qrCodeBox: {
-    marginTop: 16,
+    marginTop: rpx(32),
     width: 220,
     height: 220,
     borderRadius: QR_BOX_RADIUS,
@@ -869,7 +957,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   } as ViewStyle,
   qrCodeTitle: {
-    marginTop: 12,
+    marginTop: rpx(24),
     fontSize: SERVICE_TITLE_FONT_SIZE,
     lineHeight: SERVICE_TITLE_FONT_SIZE + 4,
     fontWeight: '600',
@@ -877,10 +965,28 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   } as TextStyle,
   qrCodeHint: {
-    marginTop: 6,
+    marginTop: rpx(12),
     fontSize: SERVICE_HINT_FONT_SIZE,
     lineHeight: SERVICE_HINT_FONT_SIZE + 4,
     color: tokens.text.secondary,
+    textAlign: 'center',
+  } as TextStyle,
+  qrCloseButton: {
+    marginTop: rpx(24),
+    height: QR_CLOSE_BUTTON_HEIGHT,
+    borderRadius: QR_CLOSE_BUTTON_RADIUS,
+    backgroundColor: ACCENT_COLOR,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  qrCloseButtonPressed: {
+    opacity: 0.85,
+  } as ViewStyle,
+  qrCloseText: {
+    fontSize: QR_CLOSE_FONT_SIZE,
+    lineHeight: QR_CLOSE_FONT_SIZE + 2,
+    color: tokens.surface.light,
+    fontWeight: '600',
     textAlign: 'center',
   } as TextStyle,
 })
