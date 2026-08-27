@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Smartphone, Coins } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -193,7 +194,10 @@ export default defineAgentTemplate({
         <h2 className="text-2xl font-bold tracking-tight">发布与变现</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-2xl border bg-card p-6">
-            <h3 className="text-lg font-semibold">📱 六端发布</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Smartphone className="mr-1.5 inline h-5 w-5" />
+              六端发布
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>Web(主入口,PWA 离线)</li>
               <li>桌面(Windows/macOS/Linux)</li>
@@ -204,7 +208,10 @@ export default defineAgentTemplate({
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6">
-            <h3 className="text-lg font-semibold">💰 变现模式</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Coins className="mr-1.5 inline h-5 w-5" />
+              变现模式
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li><strong>免费</strong>:引流,积累用户</li>
               <li><strong>按次付费</strong>:¥0.1-1/次,用户买积分</li>

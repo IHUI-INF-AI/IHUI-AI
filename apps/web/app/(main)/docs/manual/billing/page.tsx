@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { ManualNav, chapters } from '../_manual-nav'
+import { Users, Building2 } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -126,7 +127,10 @@ export default function ManualBillingPage() {
             </ul>
           </div>
           <div className="rounded-xl border bg-card p-5">
-            <p className="text-sm font-semibold">👥 Team</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Users className="mr-1.5 inline h-4 w-4" />
+              Team
+            </p>
             <p className="mt-1 text-2xl font-bold">¥299/月</p>
             <p className="text-xs text-muted-foreground">/ 5 人(每加 1 人 +¥49)</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
@@ -140,7 +144,10 @@ export default function ManualBillingPage() {
             </ul>
           </div>
           <div className="rounded-xl border bg-card p-5">
-            <p className="text-sm font-semibold">🏢 Enterprise</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Building2 className="mr-1.5 inline h-4 w-4" />
+              Enterprise
+            </p>
             <p className="mt-1 text-2xl font-bold">定制</p>
             <p className="text-xs text-muted-foreground">联系销售</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">

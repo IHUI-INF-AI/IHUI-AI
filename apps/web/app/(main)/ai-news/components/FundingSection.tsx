@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { TrendingUp, Building2, Calendar, Search, ArrowUp, ArrowDown } from 'lucide-react'
+import { TrendingUp, Building2, Calendar, Search, ArrowUp, ArrowDown, X } from 'lucide-react'
 import { Card, CardContent } from '@ihui/ui-react'
 import { Badge } from '@/components/data'
 import { getFormatters } from '@/lib/date-utils'
@@ -106,7 +106,7 @@ export function FundingSection({ items }: Props) {
               onClick={() => setQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
             >
-              ✕
+              <X className="h-3 w-3" />
             </button>
           ) : null}
         </div>

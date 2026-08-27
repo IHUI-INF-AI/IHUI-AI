@@ -1,7 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, ChevronRight, ChevronDown } from 'lucide-react'
+import {
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  SkipForward,
+  ChevronRight,
+  ChevronDown,
+} from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
 
@@ -20,13 +27,15 @@ interface ToolCallTreeProps {
   refreshKey: number
 }
 
-const STATUS_META: Record<ToolCallNode['status'], { icon: string; color: string; label: string }> =
-  {
-    pending: { icon: '⏳', color: 'text-blue-500', label: '进行中' },
-    success: { icon: '✅', color: 'text-green-600', label: '成功' },
-    failed: { icon: '❌', color: 'text-red-600', label: '失败' },
-    skipped: { icon: '⏭️', color: 'text-muted-foreground', label: '跳过' },
-  }
+const STATUS_META: Record<
+  ToolCallNode['status'],
+  { icon: React.ComponentType<{ className?: string }>; color: string; label: string }
+> = {
+  pending: { icon: Loader2, color: 'text-blue-500', label: '进行中' },
+  success: { icon: CheckCircle2, color: 'text-green-600', label: '成功' },
+  failed: { icon: XCircle, color: 'text-red-600', label: '失败' },
+  skipped: { icon: SkipForward, color: 'text-muted-foreground', label: '跳过' },
+}
 
 function TreeRow({
   node,
@@ -61,7 +70,7 @@ function TreeRow({
         ) : (
           <span className="inline-block w-3 shrink-0" />
         )}
-        <span className={meta.color}>{meta.icon}</span>
+        <meta.icon className={`h-3 w-3 ${meta.color}`} />
         <span className="font-medium">{node.tool}</span>
         {node.duration !== null && node.duration !== undefined && (
           <span className="text-muted-foreground">{node.duration}ms</span>

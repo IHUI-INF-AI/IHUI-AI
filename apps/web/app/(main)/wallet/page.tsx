@@ -142,7 +142,7 @@ export default function WalletPage() {
 
       <div className="space-y-3">
         <h2 className="text-lg font-semibold">{t('flows')}</h2>
-        <div className="rounded-lg border">
+        <div className="overflow-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">

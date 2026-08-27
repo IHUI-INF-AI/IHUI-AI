@@ -58,7 +58,7 @@ export function NavigationProgress() {
     <>
       {/* 顶部进度条 */}
       <div
-        className="fixed left-0 right-0 top-0 z-[9999] h-0.5 overflow-hidden bg-primary/10"
+        className="fixed left-0 right-0 top-0 z-notification h-0.5 overflow-hidden bg-primary/10"
         role="progressbar"
         aria-label="页面加载中"
       >
