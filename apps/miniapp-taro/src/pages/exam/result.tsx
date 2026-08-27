@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
@@ -132,7 +132,19 @@ export default function ExamResult() {
             {/* 成绩展示 */}
             <View className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}>
               <View className="exam-result-badge">
-                <Text>{info.pass ? '✓' : '×'}</Text>
+                {info.pass ? (
+                  <Image
+                    src="/static/images/icons/check.svg"
+                    mode="aspectFit"
+                    style={{ width: '48rpx', height: '48rpx' }}
+                  />
+                ) : (
+                  <Image
+                    src="/static/images/icons/x.svg"
+                    mode="aspectFit"
+                    style={{ width: '48rpx', height: '48rpx' }}
+                  />
+                )}
               </View>
               <Text className="exam-result-status">
                 {info.pass

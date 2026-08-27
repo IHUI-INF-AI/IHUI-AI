@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AgentDetailScreenProps } from '../../types'
 
@@ -53,7 +54,10 @@ export function AgentDetailScreen({
         <Text style={styles.label}>{t('agentDetail.uses')}</Text>
         <Text style={styles.value}>{item.uses}</Text>
         <Text style={styles.label}>{t('agentDetail.rating')}</Text>
-        <Text style={styles.value}>★ {item.rating.toFixed(1)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Star size={14} color={'#f59e0b'} fill={'#f59e0b'} />
+          <Text style={styles.value}>{item.rating.toFixed(1)}</Text>
+        </View>
         <Text style={styles.label}>{t('agentDetail.price')}</Text>
         <Text style={styles.price}>
           {item.isFree ? t('agentDetail.free') : `¥${item.price.toFixed(2)}`}

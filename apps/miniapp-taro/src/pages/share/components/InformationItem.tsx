@@ -1,6 +1,7 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
+import copyIcon from '@/assets/remote/images/copy.png'
 
 /**
  * InformationItem 时间轴资讯卡片组件
@@ -165,24 +166,18 @@ export default function InformationItem({
             ) : null}
           </View>
           <View style={{ display: 'flex', flexDirection: 'row', gap: rpx(16) }}>
-            <Text
-              style={{
-                fontSize: rpx(22),
-                color: 'var(--color-muted-foreground)',
-              }}
+            <Image
+              style={{ width: '22rpx', height: '22rpx', color: 'var(--color-muted-foreground)' }}
+              src={copyIcon}
+              mode="aspectFit"
               onClick={handleCopyClick}
-            >
-              📋
-            </Text>
-            <Text
-              style={{
-                fontSize: rpx(22),
-                color: 'var(--color-muted-foreground)',
-              }}
+            />
+            <Image
+              style={{ width: '22rpx', height: '22rpx', color: 'var(--color-muted-foreground)' }}
+              src="/static/images/icons/share-2.svg"
+              mode="aspectFit"
               onClick={handleShareClick}
-            >
-              🔗
-            </Text>
+            />
           </View>
         </View>
       </View>

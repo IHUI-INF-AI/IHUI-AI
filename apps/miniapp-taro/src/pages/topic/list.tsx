@@ -127,7 +127,12 @@ export default function TopicListPage() {
         <View className="p-[24rpx] pb-[60rpx]">
           {/* 搜索栏 */}
           <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[12rpx] mb-[20rpx]">
-            <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
+            <Image
+              className="mr-[12rpx] text-muted-foreground shrink-0"
+              style={{ width: '28rpx', height: '28rpx' }}
+              src="/static/images/icons/search.svg"
+              mode="aspectFit"
+            />
             <Input
               className="flex-1 text-[28rpx] text-foreground"
               value={searchText}

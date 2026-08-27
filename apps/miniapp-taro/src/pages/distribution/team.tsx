@@ -144,7 +144,12 @@ export default function DistributionTeam() {
     <View className="team-page">
       {/* 搜索栏 */}
       <View className="team-search">
-        <Text className="team-search-icon">🔍</Text>
+        <Image
+          className="team-search-icon"
+          style={{ width: '32rpx', height: '32rpx' }}
+          src="/static/images/icons/search.svg"
+          mode="aspectFit"
+        />
         <Input
           className="team-search-input"
           value={searchText}
@@ -177,7 +182,12 @@ export default function DistributionTeam() {
         >
           <View className={`team-sort-btn ${activeTab === 'date' ? 'team-sort-btn-active' : ''}`}>
             <Text>{selectedDate || tt('distribution.team.sortByDate', '邀请时间')}</Text>
-            <Text className="team-sort-arrow">▾</Text>
+            <Image
+              className="team-sort-arrow"
+              src="/static/images/icons/chevron-down.svg"
+              mode="aspectFit"
+              style={{ width: '24rpx', height: '24rpx' }}
+            />
           </View>
         </Picker>
       </View>

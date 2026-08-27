@@ -228,7 +228,11 @@ export default function SpecialModelsPage() {
           className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-primary/10 border border-primary rounded-[10rpx]"
           onClick={goHistory}
         >
-          <Text className="text-[26rpx]">🕘</Text>
+          <Image
+            style={{ width: '26rpx', height: '26rpx' }}
+            src="/static/images/icons/clock.svg"
+            mode="aspectFit"
+          />
           <Text className="text-[24rpx] text-primary">
             {tt('ai.special.history', '我的使用记录')}
           </Text>

@@ -34,7 +34,7 @@ import {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
-import { Heart, MessageCircle } from 'lucide-react-native'
+import { Heart, MessageCircle, Share2 } from 'lucide-react-native'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -166,7 +166,7 @@ export function ArticleDetailScreen() {
             <Text style={styles.actionCount}>0</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
-            <Text style={styles.actionIcon}>↗️</Text>
+            <Share2 size={18} color="#6b7280" />
             <Text style={styles.actionLabel}>分享</Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
 
 export interface CourseIntroData {
@@ -34,7 +34,12 @@ export default function CourseIntro({ data = {} }: CourseIntroProps) {
           </Text>
           {data.objectives.map((obj, i) => (
             <View key={i} className="flex items-start mb-1.5">
-              <Text className="text-xs text-primary mr-2">✓</Text>
+              <Image
+                src="/static/images/icons/check.svg"
+                mode="aspectFit"
+                className="mr-2"
+                style={{ width: 14, height: 14 }}
+              />
               <Text className="flex-1 text-xs text-muted-foreground">{obj}</Text>
             </View>
           ))}

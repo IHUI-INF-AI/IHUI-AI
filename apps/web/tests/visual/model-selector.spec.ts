@@ -195,17 +195,29 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
       return
     }
 
-    // 应至少有 5 个分组(Radix DropdownMenu.Group 渲染为 role=group)
+    // 2026-08-28 根因修复:旧断言"≥5 个厂商分组"与 2026-08-27 产品需求
+    // "没有配额的模型不显示在可选择列表里"冲突——下拉分组数取决于运行时数据:
+    //   - ai-service 可用 → 后端已按可用性+配额过滤,厂商数 = 真实可用 provider 数
+    //   - ai-service 不可用(E2E 环境默认只起 web dev server)→ 降级 FALLBACK+DEMO,
+    //     再按 configuredTemplateCodes 过滤,测试用户未配置任何模板时
+    //     仅剩内置免费 cloudflare 1 个厂商分组(+固定 2 个 group = 3)
+    // 结构性不变量:固定分组恒为 2("自定义配置模型"入口 + "自动"),其后每个
+    // 厂商分组含带图标的 Label;厂商分组数 = groupCount - 2,至少 1 个。
     const groups = menu.locator('[role="group"]')
     const groupCount = await groups.count()
-    expect(groupCount, '下拉菜单至少应有 5 个厂商分组').toBeGreaterThanOrEqual(5)
+    expect(
+      groupCount,
+      '下拉菜单至少应有 2 个固定分组(自定义配置模型 + 自动)+ 1 个厂商分组',
+    ).toBeGreaterThanOrEqual(3)
 
-    // 第一个分组应有 Label(含 SVG 厂商图标)
-    const firstGroupLabel = groups.first().locator('text=/^[A-Z]/').first()
-    if ((await firstGroupLabel.count()) > 0) {
-      const labelText = await firstGroupLabel.textContent()
-      expect(labelText?.trim().length, '分组标签文本应非空').toBeGreaterThan(0)
-    }
+    // 厂商分组(最后一个 group)应有非空 Label 且带厂商图标
+    // (BrandIcon 对已映射厂商渲染 lucide SVG,未映射回退 logo img,故 svg+img 合计 ≥ 1)
+    const vendorGroup = groups.nth(groupCount - 1)
+    const labelIconCount =
+      (await vendorGroup.locator('svg').count()) + (await vendorGroup.locator('img').count())
+    expect(labelIconCount, '厂商分组应含品牌图标(SVG 或 img)').toBeGreaterThanOrEqual(1)
+    const groupText = (await vendorGroup.innerText())?.trim() ?? ''
+    expect(groupText.length, '厂商分组文本应非空').toBeGreaterThan(0)
   })
 
   test('无配额(未配置)模型不应出现在可选择列表', async ({ authenticatedPage }) => {

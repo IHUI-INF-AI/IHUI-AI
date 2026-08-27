@@ -1,4 +1,4 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { useTt } from '@/i18n'
@@ -109,14 +109,24 @@ export default function VipSuccessPage() {
     <View className="vs-page">
       {/* ===== 成功图标 + 标题 ===== */}
       <View className="vs-icon-wrap">
-        <Text className="vs-icon">✓</Text>
+        <Image
+          className="vs-icon"
+          src="/static/images/icons/check-success.svg"
+          mode="aspectFit"
+          style={{ width: '120rpx', height: '120rpx' }}
+        />
       </View>
       <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
       <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
 
       {/* ===== 会员权益激活提示 ===== */}
       <View className="vs-activation">
-        <Text className="vs-activation-icon">✦</Text>
+        <Image
+          className="vs-activation-icon"
+          src="/static/images/icons/sparkles.svg"
+          mode="aspectFit"
+          style={{ width: '32rpx', height: '32rpx' }}
+        />
         <Text className="vs-activation-text">
           {tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
         </Text>
@@ -165,7 +175,12 @@ export default function VipSuccessPage() {
       {/* ===== 分享好友赚佣金入口 ===== */}
       <View className="vs-share" onClick={goShare}>
         <View className="vs-share-icon">
-          <Text className="vs-share-icon-text">🎁</Text>
+          <Image
+            className="vs-share-icon-text"
+            style={{ width: '40rpx', height: '40rpx' }}
+            src="/static/images/icons/package.svg"
+            mode="aspectFit"
+          />
         </View>
         <View className="vs-share-content">
           <Text className="vs-share-title">{tt('vip.success.shareTitle', '分享好友赚佣金')}</Text>

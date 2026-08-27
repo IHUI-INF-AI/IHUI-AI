@@ -18,10 +18,10 @@ export interface InteractionMessageProps {
 }
 
 const TYPE_ICON: Record<InteractionItem['type'], string> = {
-  like: '❤',
-  comment: '💬',
+  like: '/static/images/icons/heart.svg',
+  comment: '/static/images/icons/message-circle.svg',
   follow: '✚',
-  collect: '★',
+  collect: '/static/images/icons/star.svg',
 }
 
 const TYPE_COLOR: Record<InteractionItem['type'], string> = {
@@ -69,13 +69,19 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
                 <Text className="text-sm text-muted-foreground">{item.userName.charAt(0)}</Text>
               </View>
             )}
-            <Text
-              className={`absolute -bottom-1 -right-1 w-4 h-4 text-xs bg-card rounded flex items-center justify-center ${
-                TYPE_COLOR[item.type]
-              }`}
+            <View
+              className={`absolute -bottom-1 -right-1 w-4 h-4 bg-card rounded flex items-center justify-center`}
             >
-              {TYPE_ICON[item.type]}
-            </Text>
+              {TYPE_ICON[item.type].startsWith('/') ? (
+                <Image
+                  style={{ width: '16rpx', height: '16rpx' }}
+                  src={TYPE_ICON[item.type]}
+                  mode="aspectFit"
+                />
+              ) : (
+                <Text className={`text-xs ${TYPE_COLOR[item.type]}`}>{TYPE_ICON[item.type]}</Text>
+              )}
+            </View>
           </View>
           <View className="flex-1 min-w-0">
             <View className="flex items-center">

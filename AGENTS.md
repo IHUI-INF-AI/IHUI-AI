@@ -113,9 +113,10 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - **UI 图标一律用矢量图标库,禁止 emoji 充当图标。** 图标指导航项 / Tab / 按钮 / 状态指示 / 徽章 / 占位默认图标 / 关闭·发送·播放等操作图标 / 章节标题前缀 icon / 等级奖牌等界面元素。
 - **web 端**:统一 `lucide-react`(`import { X } from 'lucide-react'`),渲染 `<X className="h-4 w-4" />`;配置数组里的 `icon: 'emoji'` 须改为 `icon: LucideIcon` 组件引用后在渲染处用 `<item.icon className="..." />`。
 - **移动端(React Native)**:统一 `lucide-react-native`(`import { X } from 'lucide-react-native'`),渲染 `<X size={16} color={'#6b7280'} />`;颜色按原 `Text` 的 `text-*` 类或 style 颜色意图转十六进制,尺寸按原 fontSize(-xs→12 / -sm→14 / -lg→18 / -2xl→24)。
-- **禁止**在 UI 图标位置使用 emoji(如 🏆 🤖 🔥 ✅ ❌ 🎤 🔔 等)。新增图标须先查 `lucide-react` / `lucide-react-native` 是否有对应名称,无则用近义图标,不得回退 emoji。
+- **Taro 小程序端(miniapp-taro)**:统一 `apps/miniapp-taro/src/static/images/icons/` 下的 lucide 风格 SVG(24x24,stroke `#6366F1`),渲染 `<Image className="..." src="/static/images/icons/xxx.svg" mode="aspectFit" />`;动态切换用条件 src(如 `{liked ? heart-fill.svg : heart.svg}`);缺失图标用 `node scripts/gen-taro-lucide-icons.mjs <name>` 从 lucide 提取生成(别名如 bar-chart-3 自动解析)。
+- **禁止**在 UI 图标位置使用 emoji(如 🏆 🤖 🔥 ✅ ❌ 🎤 🔔 等)。新增图标须先查 `lucide-react` / `lucide-react-native` / Taro `static/images/icons/` 是否有对应名称,无则用近义图标,不得回退 emoji。
 - **例外(不强制)**:文档 / 营销页正文里的装饰性 emoji(提示 💡、技术栈列表、章节叙述中的 emoji)属于内容文案,不在此限;但同一页面应风格统一,优先用图标库。
-- 守门:新增 emoji 图标会被 review 拦截;`scripts/check-no-emoji-icon.mjs`(如有)对非例外位置告警。
+- 守门:`scripts/check-no-emoji-icons.mjs` 扫描 UI 图标位 emoji(icon 字段 / JSX 渲染位 / 三元条件图标),豁免注释、i18n 参数、表情面板、`'★'.repeat` 评分字符串、表格布尔标记、docs/marketing 正文;guardian-runner 第 11h 项(pre-commit staged 模式阻塞 commit)。
 
 ### 圆角容器内 absolute 子元素避让
 

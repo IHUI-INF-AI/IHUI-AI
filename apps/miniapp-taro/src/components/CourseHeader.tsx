@@ -66,7 +66,15 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
               </Text>
             )}
             {data.rating !== undefined && (
-              <Text className="text-xs text-warning">★ {data.rating.toFixed(1)}</Text>
+              <>
+                <Image
+                  src="/static/images/icons/star-fill.svg"
+                  mode="aspectFit"
+                  className="mr-1"
+                  style={{ width: 14, height: 14 }}
+                />
+                <Text className="text-xs text-warning">{data.rating.toFixed(1)}</Text>
+              </>
             )}
           </View>
         </View>

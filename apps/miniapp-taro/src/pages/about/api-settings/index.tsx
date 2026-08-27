@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, Input, Button } from '@tarojs/components'
+import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { BASE_URL } from '@/utils/api-config'
@@ -178,7 +178,11 @@ export default function ApiSettings() {
               className="absolute right-[20rpx] top-1/2 -translate-y-1/2 w-[60rpx] h-[60rpx] flex items-center justify-center text-[32rpx]"
               onClick={toggleToken}
             >
-              <Text>{showToken ? '🙈' : '👁'}</Text>
+              <Image
+                className="w-[32rpx] h-[32rpx]"
+                src={showToken ? '/static/images/eye-slash-gray.svg' : '/static/images/eye-gray.svg'}
+                mode="aspectFit"
+              />
             </View>
           </View>
         </View>

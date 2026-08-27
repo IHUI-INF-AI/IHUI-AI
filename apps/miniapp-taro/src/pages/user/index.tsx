@@ -804,7 +804,12 @@ export default function UserIndex() {
               style={{ background: 'rgba(255,255,255,0.2)' }}
               onClick={openSharePopup}
             >
-              <Text className="text-[32rpx] text-white font-bold">⤴</Text>
+              <Image
+                className="text-[32rpx] text-white"
+                style={{ width: '32rpx', height: '32rpx' }}
+                src="/static/images/icons/share-2.svg"
+                mode="aspectFit"
+              />
             </View>
           </View>
         ) : (
