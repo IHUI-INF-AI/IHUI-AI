@@ -27,62 +27,36 @@ const fs = require('fs')
 const path = require('path')
 const http = require('http')
 const https = require('https')
-const crypto = require('crypto')
-const { createHash } = crypto
+const { execFileSync } = require('child_process')
 
-// ====================== 手写 PNG 编码器(支持渲染占位文字) ======================
-
-function adler32(data) {
-  let a = 1, b = 0
-  for (let i = 0; i < data.length; i++) {
-    a = (a + data[i]) % 65521
-    b = (b + a) % 65521
-  }
-  return ((b << 16) | a) >>> 0
-}
+// ====================== PNG 占位图编码辅助(crc32 + chunk 组装) ======================
 
 function crc32(data) {
   let c = 0xffffffff
   const table = new Uint32Array(256)
   for (let n = 0; n < 256; n++) {
     let c0 = n
-    for (let k = 0; k < 8; k++) c0 = (c0 & 1) ? (0xedb88320 ^ (c0 >>> 1)) : (c0 >>> 1)
+    for (let k = 0; k < 8; k++) c0 = c0 & 1 ? 0xedb88320 ^ (c0 >>> 1) : c0 >>> 1
     table[n] = c0 >>> 0
   }
   for (let i = 0; i < data.length; i++) c = table[(c ^ data[i]) & 0xff] ^ (c >>> 8)
   return (c ^ 0xffffffff) >>> 0
 }
 
-function deflateRaw(data) {
-  // 极简 deflate:全部使用 store 块(未压缩)
-  const out = []
-  if (data.length <= 65535) {
-    const buf = Buffer.alloc(data.length + 5)
-    buf[0] = 1 | (data.length & 0xffff)
-    (buf[1] = data.length & 0xff), (buf[2] = data.length >> 8)
-    // BFINAL=1
-    buf[0] = 1 | ((data.length & 0xff) << 8)
-    buf[0] &= 0xff
-    buf[0] = 1 | (data.length & 0xffff) & 0xff // 不对,重算
-    // 简化:直接用 zlib
-    try {
-      const zlib = require('zlib')
-      return zlib.deflateRawSync(data)
-    } catch (_) {}
-  }
-  return zlib.deflateRawSync(data)
-}
-
-function createPlaceholderPng(label, width, height, bgColor, fgColor) {
+function createPlaceholderPng(label, width, height, bgColor) {
   // 纯色占位 PNG(通过 X-Placeholder header 和 tEXt chunk 标注缺失路径)
-  width = width || 64; height = height || 64
+  width = width || 64
+  height = height || 64
   const rows = []
   const rgba = hex2rgba(bgColor || '#374151')
   for (let y = 0; y < height; y++) {
     const row = Buffer.alloc(width * 4)
     for (let x = 0; x < width; x++) {
       const px = x * 4
-      row[px] = rgba[0]; row[px+1] = rgba[1]; row[px+2] = rgba[2]; row[px+3] = 255
+      row[px] = rgba[0]
+      row[px + 1] = rgba[1]
+      row[px + 2] = rgba[2]
+      row[px + 3] = 255
     }
     rows.push(row)
   }
@@ -93,21 +67,24 @@ function createPlaceholderPng(label, width, height, bgColor, fgColor) {
 
   const IHDR = makeIHDR(width, height, 2) // RGB 8bit
   const IDAT = compressed
-  const IEND = Buffer.from([0x49,0x45,0x4e,0x44,0xae,0x42,0x60,0x82])
+  const IEND = Buffer.from([0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82])
 
   // 附加 tEXt:用 label 标注缺失路径
   let tEXt = Buffer.alloc(0)
   if (label && label.length > 0 && label.length < 79) {
-    const enc = Buffer.from('Missing: ' + label.slice(0,78))
-    tEXt = Buffer.concat([Buffer.from([0x74,0x45,0x58,0x74]), enc])
+    const enc = Buffer.from('Missing: ' + label.slice(0, 78))
+    tEXt = Buffer.concat([Buffer.from([0x74, 0x45, 0x58, 0x74]), enc])
     const len = 4 + tEXt.length
-    tEXt = Buffer.concat([Buffer.from([(len>>24)&0xff,(len>>16)&0xff,(len>>8)&0xff,len&0xff]),
-      tEXt, Buffer.from([
-        crc32(tEXt.slice(4,tEXt.length-4))&0xff,
-        (crc32(tEXt.slice(4,tEXt.length-4))>>8)&0xff,
-        (crc32(tEXt.slice(4,tEXt.length-4))>>16)&0xff,
-        (crc32(tEXt.slice(4,tEXt.length-4))>>24)&0xff
-      ])])
+    tEXt = Buffer.concat([
+      Buffer.from([(len >> 24) & 0xff, (len >> 16) & 0xff, (len >> 8) & 0xff, len & 0xff]),
+      tEXt,
+      Buffer.from([
+        crc32(tEXt.slice(4, tEXt.length - 4)) & 0xff,
+        (crc32(tEXt.slice(4, tEXt.length - 4)) >> 8) & 0xff,
+        (crc32(tEXt.slice(4, tEXt.length - 4)) >> 16) & 0xff,
+        (crc32(tEXt.slice(4, tEXt.length - 4)) >> 24) & 0xff,
+      ]),
+    ])
   }
 
   const chunks = [IHDR, ...(tEXt.length ? [tEXt] : []), makeChunk('IDAT', IDAT), IEND]
@@ -116,53 +93,90 @@ function createPlaceholderPng(label, width, height, bgColor, fgColor) {
 }
 
 function hex2rgba(h) {
-  h = h.replace('#','')
-  if (h.length === 3) h = h.split('').map(c=>c+c).join('')
-  return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]
+  h = h.replace('#', '')
+  if (h.length === 3)
+    h = h
+      .split('')
+      .map((c) => c + c)
+      .join('')
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]
 }
 
 function makeChunk(type, data) {
-  const name = Buffer.from([type.charCodeAt(0),type.charCodeAt(1),type.charCodeAt(2),type.charCodeAt(3)])
-  const len = Buffer.from([(data.length>>24)&0xff,(data.length>>16)&0xff,(data.length>>8)&0xff,data.length&0xff])
+  const name = Buffer.from([
+    type.charCodeAt(0),
+    type.charCodeAt(1),
+    type.charCodeAt(2),
+    type.charCodeAt(3),
+  ])
+  const len = Buffer.from([
+    (data.length >> 24) & 0xff,
+    (data.length >> 16) & 0xff,
+    (data.length >> 8) & 0xff,
+    data.length & 0xff,
+  ])
   const crc = crc32(Buffer.concat([name, data]))
-  return Buffer.concat([len, name, data, Buffer.from([(crc>>24)&0xff,(crc>>16)&0xff,(crc>>8)&0xff,crc&0xff])])
+  return Buffer.concat([
+    len,
+    name,
+    data,
+    Buffer.from([(crc >> 24) & 0xff, (crc >> 16) & 0xff, (crc >> 8) & 0xff, crc & 0xff]),
+  ])
 }
 
 function makeIHDR(w, h, colorType) {
   const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4)
-  ihdr[8] = 8; ihdr[9] = colorType; ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = colorType
+  ihdr[10] = 0
+  ihdr[11] = 0
+  ihdr[12] = 0
   return makeChunk('IHDR', ihdr)
 }
 
-const PNG_SIG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a])
+const PNG_SIG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 // 缓存占位图,避免重复生成
 const placeholderCache = new Map()
 function getPlaceholder(label) {
   const key = label || 'unknown'
   if (placeholderCache.has(key)) return placeholderCache.get(key)
-  const png = createPlaceholderPng(key, 64, 64, '#374151', '#d1d5db')
+  const png = createPlaceholderPng(key, 64, 64, '#374151')
   if (png) placeholderCache.set(key, png)
   return png
 }
 
 // ====================== 图片格式探测 ======================
 const MIME = {
-  '.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg',
-  '.gif':'image/gif','.webp':'image/webp','.svg':'image/svg+xml',
-  '.ico':'image/x-icon','.apng':'image/apng'
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.apng': 'image/apng',
 }
-function mimeFor(ext) { return MIME[ext.toLowerCase()] || 'application/octet-stream' }
+function mimeFor(ext) {
+  return MIME[ext.toLowerCase()] || 'application/octet-stream'
+}
 
 // ====================== 路由 ======================
 function serveStatic(req, res, root) {
   let url = new URL(req.url, 'http://localhost').pathname
   url = decodeURIComponent(url)
   // 安全:禁止路径穿越
-  if (/^\.\.//.test(url) || /\.\.\\/.test(url)) { res.writeHead(403); return res.end('Forbidden') }
+  if (url.includes('..')) {
+    res.writeHead(403)
+    return res.end('Forbidden')
+  }
   const filePath = path.join(root, url)
-  if (filePath.indexOf(root) !== 0) { res.writeHead(403); return res.end('Forbidden') }
+  if (filePath.indexOf(root) !== 0) {
+    res.writeHead(403)
+    return res.end('Forbidden')
+  }
 
   fs.readFile(filePath, (err, data) => {
     if (err) {
@@ -176,7 +190,7 @@ function serveStatic(req, res, root) {
             'Content-Length': placeholder.length,
             'Cache-Control': 'no-cache',
             'X-Placeholder': 'missing-image',
-            'X-Missing-Path': url
+            'X-Missing-Path': url,
           })
           return res.end(placeholder)
         }
@@ -193,7 +207,7 @@ function serveStatic(req, res, root) {
           res.writeHead(200, {
             'Content-Type': 'image/png',
             'Content-Length': placeholder.length,
-            'X-Placeholder': 'empty-file'
+            'X-Placeholder': 'empty-file',
           })
           return res.end(placeholder)
         }
@@ -202,13 +216,12 @@ function serveStatic(req, res, root) {
       return res.end()
     }
     const ext = path.extname(filePath)
-    const isTxt = ['.txt','.md','.json','.js','.css','.html'].includes(ext)
-    const enc = Buffer.from('IHUI-AI Image CDN')
+    const isTxt = ['.txt', '.md', '.json', '.js', '.css', '.html'].includes(ext)
     res.writeHead(200, {
       'Content-Type': mimeFor(ext),
       'Content-Length': data.length,
       'Cache-Control': isTxt ? 'public,max-age=86400' : 'public,max-age=604800',
-      'Access-Control-Allow-Origin': '*'
+      'Access-Control-Allow-Origin': '*',
     })
     return res.end(data)
   })
@@ -216,44 +229,118 @@ function serveStatic(req, res, root) {
 
 // ====================== CLI 参数解析 ======================
 const args = process.argv.slice(2)
-const cfg = { root: './server-root', httpPort: null, httpsPort: null,
-  host: '0.0.0.0', cert: null, key: null, genCert: false, certOut: 'cert.pem', keyOut: 'key.pem',
-  hostName: 'img.aizhs.top' }
+const cfg = {
+  root: './server-root',
+  httpPort: null,
+  httpsPort: null,
+  host: '0.0.0.0',
+  cert: null,
+  key: null,
+  genCert: false,
+  certOut: 'cert.pem',
+  keyOut: 'key.pem',
+  hostName: 'img.aizhs.top',
+}
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--root' && args[i+1]) { cfg.root = args[++i]; continue }
-  if (args[i] === '--http-port' && args[i+1]) { cfg.httpPort = +args[++i]; continue }
-  if (args[i] === '--https-port' && args[i+1]) { cfg.httpsPort = +args[++i]; continue }
-  if (args[i] === '--host' && args[i+1]) { cfg.host = args[++i]; continue }
-  if (args[i] === '--cert' && args[i+1]) { cfg.cert = args[++i]; continue }
-  if (args[i] === '--key' && args[i+1]) { cfg.key = args[++i]; continue }
-  if (args[i] === '--gen-cert') { cfg.genCert = true; continue }
-  if (args[i] === '--cert-out' && args[i+1]) { cfg.certOut = args[++i]; continue }
-  if (args[i] === '--key-out' && args[i+1]) { cfg.keyOut = args[++i]; continue }
-  if (args[i] === '--host-name' && args[i+1]) { cfg.hostName = args[++i]; continue }
+  if (args[i] === '--root' && args[i + 1]) {
+    cfg.root = args[++i]
+    continue
+  }
+  if (args[i] === '--http-port' && args[i + 1]) {
+    cfg.httpPort = +args[++i]
+    continue
+  }
+  if (args[i] === '--https-port' && args[i + 1]) {
+    cfg.httpsPort = +args[++i]
+    continue
+  }
+  if (args[i] === '--host' && args[i + 1]) {
+    cfg.host = args[++i]
+    continue
+  }
+  if (args[i] === '--cert' && args[i + 1]) {
+    cfg.cert = args[++i]
+    continue
+  }
+  if (args[i] === '--key' && args[i + 1]) {
+    cfg.key = args[++i]
+    continue
+  }
+  if (args[i] === '--gen-cert') {
+    cfg.genCert = true
+    continue
+  }
+  if (args[i] === '--cert-out' && args[i + 1]) {
+    cfg.certOut = args[++i]
+    continue
+  }
+  if (args[i] === '--key-out' && args[i + 1]) {
+    cfg.keyOut = args[++i]
+    continue
+  }
+  if (args[i] === '--host-name' && args[i + 1]) {
+    cfg.hostName = args[++i]
+    continue
+  }
 }
 
-// ====================== 自签名证书生成 ======================
+// ====================== 自签名证书生成(仅本地开发/测试用) ======================
+// ⚠️ 生产必须用受信任 CA 证书(Let's Encrypt/win-acme),微信小程序拒绝自签证书
 function generateSelfSignedCert() {
-  const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {
-    modulusLength: 2048,
-    publicKeyEncoding: { type: 'spki', format: 'pem' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+  const openssl = [
+    'openssl',
+    'C:\\Program Files\\Git\\usr\\bin\\openssl.exe',
+    'C:\\Program Files\\OpenSSL-Win64\\bin\\openssl.exe',
+  ].find((cmd) => {
+    try {
+      execFileSync(/\.exe/.test(cmd) ? cmd : cmd, ['version'], { stdio: 'ignore' })
+      return true
+    } catch (_) {
+      return false
+    }
   })
+  if (!openssl) {
+    console.error('[错误] 未找到 openssl。')
+    console.error("       自签证书仅用于本地测试;生产请用 win-acme 申请 Let's Encrypt 免费证书:")
+    console.error('       https://www.win-acme.com/')
+    process.exit(1)
+  }
   const days = 365
-  const cert = crypto.createSelfSignedCertificateSync({
-    publicKey,
-    days,
-    subject: { CN: cfg.hostName, O: 'IHUI-AI', OU: 'Image CDN' },
-    issuer: { CN: cfg.hostName },
-    extensions: [
-      { name: 'subjectAltName', altname: [`DNS:${cfg.hostName}`] }
-    ]
-  }, { key: privateKey })
-  fs.writeFileSync(cfg.certOut, cert.cert)
-  fs.writeFileSync(cfg.keyOut, privateKey)
-  console.log(`[证书] 已生成 ${cfg.certOut} 和 ${cfg.keyOut} (CN=${cfg.hostName}, 有效期 ${days} 天)`)
+  const cn = cfg.hostName
+  try {
+    // 一条命令同时产出证书与私钥
+    execFileSync(
+      openssl,
+      [
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-nodes',
+        '-keyout',
+        cfg.keyOut,
+        '-out',
+        cfg.certOut,
+        '-days',
+        String(days),
+        '-subj',
+        `/CN=${cn}/O=IHUI-AI/OU=Image CDN`,
+        '-addext',
+        `subjectAltName=DNS:${cn}`,
+      ],
+      { stdio: 'inherit' },
+    )
+    console.log(`[证书] 已生成 ${cfg.certOut} 和 ${cfg.keyOut} (CN=${cn}, 有效期 ${days} 天)`)
+    console.log("[提醒] 自签证书仅供本地测试,微信真机环境请换 Let's Encrypt!")
+  } catch (e) {
+    console.error('[错误] openssl 执行失败:', e.message)
+    process.exit(1)
+  }
 }
-if (cfg.genCert) { generateSelfSignedCert(); process.exit(0) }
+if (cfg.genCert) {
+  generateSelfSignedCert()
+  process.exit(0)
+}
 
 // ====================== 启动服务器 ======================
 const root = path.resolve(cfg.root)
@@ -263,7 +350,12 @@ if (!fs.existsSync(root)) {
   process.exit(1)
 }
 
-const handlers = { cert: cfg.cert, key: cfg.key, host: cfg.host, serve: (req, res) => serveStatic(req, res, root) }
+const handlers = {
+  cert: cfg.cert,
+  key: cfg.key,
+  host: cfg.host,
+  serve: (req, res) => serveStatic(req, res, root),
+}
 
 const servers = []
 if (cfg.httpPort) {
@@ -290,13 +382,19 @@ if (cfg.httpsPort && cfg.cert && cfg.key) {
     servers.push(httpsSrv)
   })
 }
-if (servers.length === 0) {
-  console.error('[错误] 必须指定 --http-port 或 --https-port')
+if (!cfg.httpPort && !(cfg.httpsPort && cfg.cert && cfg.key)) {
+  console.error('[错误] 必须指定 --http-port,或 --https-port + 证书')
   process.exit(1)
 }
 
-process.on('SIGINT', () => { servers.forEach(s => s.close()); process.exit(0) })
-process.on('SIGTERM', () => { servers.forEach(s => s.close()); process.exit(0) })
+process.on('SIGINT', () => {
+  servers.forEach((s) => s.close())
+  process.exit(0)
+})
+process.on('SIGTERM', () => {
+  servers.forEach((s) => s.close())
+  process.exit(0)
+})
 
 setInterval(() => {
   const count = placeholderCache.size
