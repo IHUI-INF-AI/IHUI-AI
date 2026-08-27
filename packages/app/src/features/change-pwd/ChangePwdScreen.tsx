@@ -143,7 +143,7 @@ function createStyles(tk: AppThemeTokens) {
     inputBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       paddingHorizontal: 12,
       height: 50,
