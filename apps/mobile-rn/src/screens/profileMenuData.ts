@@ -3,9 +3,12 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type ProfileRoute = keyof RootStackParamList
 type RootRoute = keyof RootStackParamList
 
+/** 特殊菜单 key:M4 WebView 承载入口(非路由名,onNavigate 内单独处理) */
+export type MenuSpecialKey = 'WebViewPortal'
+
 export type MenuItem =
   | { key: ProfileRoute; labelKey: string; icon: string; viaParent?: false }
-  | { key: RootRoute; labelKey: string; icon: string; viaParent: true }
+  | { key: RootRoute | MenuSpecialKey; labelKey: string; icon: string; viaParent: true }
 
 export interface MenuSection {
   titleKey: string
@@ -75,6 +78,14 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'StudyPlan', labelKey: 'menu.studyPlan', icon: '🗓️', viaParent: true },
       { key: 'StudyProgress', labelKey: 'menu.studyProgress', icon: '📈', viaParent: true },
       { key: 'AIMultimodal', labelKey: 'menu.aiMultimodal', icon: '🎨', viaParent: true },
+      { key: 'KnowledgeBase', labelKey: 'menu.knowledgeBase', icon: '📚', viaParent: true },
+      // M4.1(2026-08-26):RAG 知识库增强(搜索/切片)
+      { key: 'KnowledgeRag', labelKey: 'menu.knowledgeRag', icon: '🔍', viaParent: true },
+      { key: 'AiSkill', labelKey: 'menu.aiSkill', icon: '🛠️', viaParent: true },
+      { key: 'Memory', labelKey: 'menu.memory', icon: '🧠', viaParent: true },
+      { key: 'AiWorld', labelKey: 'menu.aiWorld', icon: '🌐', viaParent: true },
+      { key: 'ImageGenHistory', labelKey: 'menu.imageGen', icon: '🖼️', viaParent: true },
+      { key: 'Publish', labelKey: 'menu.publish', icon: '📤', viaParent: true },
       { key: 'CourseEnroll', labelKey: 'menu.courseEnroll', icon: '🎓', viaParent: true },
       { key: 'LivePlayback', labelKey: 'menu.livePlayback', icon: '▶️', viaParent: true },
     ],
@@ -121,11 +132,15 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionAgent',
     items: [
       { key: 'Agent', labelKey: 'menu.agent', icon: '🤖' },
+      // 助手管理(对齐原项目 dev_enter pageType=index「我的智能体」:草稿/审核中/已发布管理)
+      { key: 'Assistant', labelKey: 'menu.assistant', icon: '🧩' },
       { key: 'AgentMarket', labelKey: 'menu.agentMarket', icon: '🏪', viaParent: true },
       { key: 'AgentCreate', labelKey: 'menu.agentCreate', icon: '➕', viaParent: true },
       { key: 'AgentReviewList', labelKey: 'menu.agentReviewList', icon: '💬', viaParent: true },
       { key: 'AgentStat', labelKey: 'menu.agentStat', icon: '📊', viaParent: true },
       { key: 'AgentSetting', labelKey: 'menu.agentSetting', icon: '⚙️', viaParent: true },
+      // M4.1(2026-08-26):子智能体调度(swarm)
+      { key: 'Subagents', labelKey: 'menu.subagents', icon: '🕸️', viaParent: true },
     ],
   },
   {
@@ -145,6 +160,10 @@ export const MENU_SECTIONS: MenuSection[] = [
     items: [
       { key: 'Subscriptions', labelKey: 'menu.subscriptions', icon: '🔁' },
       { key: 'Settings', labelKey: 'menu.settings', icon: '⚙️' },
+      // M4(2026-08-26):复杂后台/营销功能 WebView 承载入口
+      { key: 'WebViewPortal', labelKey: 'menu.webPortal', icon: '🌍', viaParent: true },
+      // M4.1(2026-08-26):Web 功能门户(edu-ai/教务家长/开发者/自媒体等 37 条细分入口)
+      { key: 'WebPortal', labelKey: 'menu.webPortalCenter', icon: '🧭', viaParent: true },
     ],
   },
 ]

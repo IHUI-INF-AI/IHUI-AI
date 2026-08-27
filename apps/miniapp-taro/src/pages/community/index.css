@@ -427,6 +427,11 @@
   color: var(--color-foreground, #FFFFFF);
 }
 
+.community-agent-list-posts {
+  font-size: 24rpx;
+  color: var(--color-muted, rgba(255, 255, 255, 0.6));
+}
+
 .community-agent-list-more {
   font-size: 24rpx;
   color: var(--color-primary, #00F2FF);

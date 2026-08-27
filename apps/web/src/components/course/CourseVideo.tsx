@@ -39,12 +39,16 @@ export function CourseVideo({
 
   React.useEffect(() => {
     if (!src || !courseId || !chapterId) return
-    const timer = setInterval(() => {
+    const timer = setInterval(async () => {
       const { currentTime, duration } = latestRef.current
-      void fetchApi('/api/edu/learn-record', {
-        method: 'POST',
-        body: JSON.stringify({ courseId, chapterId, currentTime, duration }),
-      })
+      try {
+        await fetchApi('/api/edu/learn-record', {
+          method: 'POST',
+          body: JSON.stringify({ courseId, chapterId, currentTime, duration }),
+        })
+      } catch {
+        // 忽略轮询错误,下次重试
+      }
     }, UPLOAD_INTERVAL_MS)
     return () => clearInterval(timer)
   }, [src, courseId, chapterId])

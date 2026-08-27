@@ -24,6 +24,14 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
 // uploads/chunks(非公开目录,不对外提供)。
 const PUBLIC_UPLOAD_DIR = join(UPLOAD_DIR, 'public')
 
+// P2 修复(2026-08-25):merge 返回的 url 由固定相对路径改为公开可访问 URL,
+// 配置 FILE_CDN_BASE(可选,如 https://file.aizhs.top)时返回 CDN 前缀地址;
+// 未配置时返回相对路径 /uploads/<id>(与 server.ts 静态服务 prefix 对应)。
+function resolvePublicUrl(fileId: string): string {
+  const cdnBase = process.env.FILE_CDN_BASE
+  return cdnBase ? `${cdnBase}/uploads/${fileId}` : `/uploads/${fileId}`
+}
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -274,7 +282,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         fileId,
         fileName: session.fileName,
         fileSize: session.fileSize,
-        url: `/uploads/${fileId}`,
+        url: resolvePublicUrl(fileId),
       }),
     )
   })
@@ -327,6 +335,9 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
-    return reply.send(success(session))
+    // 脱敏:filePath 是服务器磁盘路径,不返回客户端(与 files.ts path 语义修复一致)
+    const { filePath: _filePath, ...safeSession } = session
+
+    return reply.send(success(safeSession))
   })
 }

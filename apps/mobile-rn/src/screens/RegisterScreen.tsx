@@ -57,14 +57,15 @@ export function RegisterScreen() {
 
   const form = useRegisterForm({
     type: 'account',
-    enableCode: false,
+    enableCode: true,
     enableConfirmPassword: true,
     enableAgreement: true,
     enableAutoLogin: true,
+    sendCodeApi: (v) => sendSmsCode(v.account.trim(), 'register'),
     registerApi: async (v) => {
       accountRef.current = v.account.trim()
       passwordRef.current = v.password
-      const res = await register(v.account.trim(), v.password)
+      const res = await register(v.account.trim(), v.password, v.code)
       if (res.success) {
         const user = res.data.user
         // 同步缓存手机号供后续弹窗使用
@@ -98,13 +99,10 @@ export function RegisterScreen() {
         }, 1500)
         return
       }
-      // 注册 + 自动登录成功,延迟让用户看到成功提示再弹二次验证
-      const toastTimer = setTimeout(() => {
-        clearTimeout(toastTimer)
-        if (verifyPhone) {
-          setVerifyVisible(true)
-        }
-      }, 1200)
+      // 注册 + 自动登录成功,直接弹出二次验证
+      if (verifyPhone) {
+        setVerifyVisible(true)
+      }
     },
   })
 
@@ -133,11 +131,14 @@ export function RegisterScreen() {
         account={form.values.account}
         password={form.values.password}
         confirmPassword={form.values.confirmPassword}
+        code={form.values.code}
         loading={form.submitting}
         error={translateError(form.error)}
         onAccountChange={form.setAccount}
         onPasswordChange={form.setPassword}
         onConfirmPasswordChange={form.setConfirmPassword}
+        onCodeChange={form.setCode}
+        onSendCode={form.sendCode}
         onRegister={form.register}
         onBack={() => navigation.goBack()}
         colorScheme={colorScheme === 'dark' ? 'dark' : 'light'}

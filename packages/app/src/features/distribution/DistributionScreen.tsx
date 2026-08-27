@@ -13,6 +13,11 @@ import type { DistributionProduct, DistributionInfo, DistributionScreenProps } f
 
 export type { DistributionProduct, DistributionInfo, DistributionScreenProps }
 
+/** 后端金额以「分」存储,换算为元(两位小数) */
+function yuan(cents: number): string {
+  return Number.isFinite(cents) ? (cents / 100).toFixed(2) : '0.00'
+}
+
 /**
  * 分销共享屏 — props 注入式跨端组件
  *
@@ -63,7 +68,7 @@ export function DistributionScreen({
     )
   }
 
-  const canWithdraw = info.pending >= info.withdrawMin && !withdrawing
+  const canWithdraw = info.pendingCommission >= (info.withdrawMin ?? 0) && !withdrawing
 
   return (
     <ScrollView
@@ -86,7 +91,11 @@ export function DistributionScreen({
           </View>
           <View style={styles.commissionBox}>
             <Text style={styles.commissionLabel}>{t('distribution.commissionRate')}</Text>
-            <Text style={styles.commissionValue}>{(info.commissionRate * 100).toFixed(1)}%</Text>
+            <Text style={styles.commissionValue}>
+              {info.commissionRate !== undefined
+                ? `${(info.commissionRate * 100).toFixed(1)}%`
+                : '—'}
+            </Text>
           </View>
         </View>
       </View>
@@ -94,15 +103,17 @@ export function DistributionScreen({
       <View style={styles.earningsCard}>
         <View style={styles.earningsRow}>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{info.totalEarnings}</Text>
+            <Text style={styles.earningsValue}>{yuan(info.totalCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.totalEarnings')}</Text>
           </View>
           <View style={styles.earningsItem}>
-            <Text style={styles.earningsValue}>{info.withdrawn}</Text>
+            <Text style={styles.earningsValue}>{yuan(info.withdrawnCommission)}</Text>
             <Text style={styles.earningsLabel}>{t('distribution.withdrawn')}</Text>
           </View>
           <View style={styles.earningsItem}>
-            <Text style={[styles.earningsValue, styles.pendingValue]}>{info.pending}</Text>
+            <Text style={[styles.earningsValue, styles.pendingValue]}>
+              {yuan(info.pendingCommission)}
+            </Text>
             <Text style={styles.earningsLabel}>{t('distribution.pending')}</Text>
           </View>
         </View>
@@ -116,18 +127,18 @@ export function DistributionScreen({
           </Text>
         </TouchableOpacity>
         <Text style={styles.withdrawHint}>
-          {t('distribution.withdrawMin', { amount: info.withdrawMin })}
+          {t('distribution.withdrawMin', { amount: yuan(info.withdrawMin ?? 0) })}
         </Text>
       </View>
 
       <Text style={styles.sectionTitle}>{t('distribution.products')}</Text>
       <View style={styles.productsList}>
-        {info.products.length === 0 ? (
+        {(info.products ?? []).length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.muted}>{t('distribution.empty')}</Text>
           </View>
         ) : (
-          info.products.map((item) => (
+          (info.products ?? []).map((item) => (
             <View key={item.id} style={styles.productCard}>
               <Text style={styles.productTitle} numberOfLines={1}>
                 {item.title}

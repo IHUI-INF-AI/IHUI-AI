@@ -612,7 +612,7 @@ const fieldStyles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     color: getTokens('light').text.primary,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: getTokens('light').surface.muted,
   },
   textarea: {
     minHeight: 80,

@@ -15,6 +15,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -154,7 +155,8 @@ export class HunkCheckpointManager {
       const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
       if (!fs.existsSync(manifestPath)) continue;
       try {
-        metas.push(JSON.parse(fs.readFileSync(manifestPath, 'utf-8')) as HunkCheckpointMeta);
+        const parsed = tryParseJson(fs.readFileSync(manifestPath, 'utf-8'));
+        if (isRecord(parsed)) metas.push(parsed as unknown as HunkCheckpointMeta);
       } catch {
         /* skip corrupted */
       }

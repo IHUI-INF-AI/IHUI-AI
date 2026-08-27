@@ -2266,7 +2266,9 @@ def _get_schedule_redis() -> Any:
     try:
         import redis
 
-        client = redis.Redis.from_url(url, decode_responses=True)
+        # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+        # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
+        client = redis.Redis.from_url(url, decode_responses=True, protocol=2)
         client.ping()
         _SCHEDULE_REDIS = client
         logger.info("[schedule_task] Redis 连接成功: %s", url)

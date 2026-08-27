@@ -9,7 +9,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
 import { DistributionScreen as SharedDistributionScreen, type DistributionInfo } from '@ihui/rn-app'
-import EarningsStatisticsCard from '../components/EarningsStatisticsCard'
+import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
@@ -19,11 +19,20 @@ import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** 邀请链接域名(对齐 ProfileScreen WEBSITE_URL 'https://www.aizhs.top') */
 const INVITE_BASE_URL = 'https://www.aizhs.top'
+
+/** 最低提现(分):后端 /distribution/overview 无最低提现配置,按 0 处理 */
+const WITHDRAW_MIN = 0
+
+/** 后端金额以「分」存储,换算为元(供收益卡/提现详情展示) */
+function fenToYuan(cents: number): number {
+  return Number.isFinite(cents) ? cents / 100 : 0
+}
 
 export function DistributionScreen() {
   const { t } = useI18n()
@@ -170,18 +179,44 @@ export function DistributionScreen() {
 
   const handleWithdraw = async () => {
     if (!info) return
-    if (info.pending < info.withdrawMin) {
-      // 金额不足带详情,保留 Alert 展示具体金额
+    if (info.pendingCommission < WITHDRAW_MIN) {
+      // 金额不足带详情,保留 Alert 展示具体金额(后端无最低提现配置,恒不触发,保留结构)
       Alert.alert(
         t('distribution.withdrawFailed'),
-        t('distribution.withdrawMin', { amount: info.withdrawMin }),
+        t('distribution.withdrawMin', { amount: fenToYuan(WITHDRAW_MIN) }),
       )
+      return
+    }
+    // 实名校验(对齐 Uniapp PersonalInformationCard/index.vue withdrawalClick):
+    // 未实名(后端 authStatus !== 'approved')→ 弹「提现前请先实名认证!」并引导去实名,不放行。
+    // 说明:AuthUser 用户模型无 realName 字段,实名状态以 /auth/realname/my 接口为准。
+    try {
+      const realnameRes = await fetchApi<{ authStatus?: string }>('/auth/realname/my')
+      if (!realnameRes.success || realnameRes.data?.authStatus !== 'approved') {
+        Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+          { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+          {
+            text: t('distribution.withdrawRealnameGo'),
+            onPress: () => navigation.navigate('RealNameAuth' as never),
+          },
+        ])
+        return
+      }
+    } catch {
+      // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
+      Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+        { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+        {
+          text: t('distribution.withdrawRealnameGo'),
+          onPress: () => navigation.navigate('RealNameAuth' as never),
+        },
+      ])
       return
     }
     setWithdrawing(true)
     const res = await fetchApi('/distribution/withdraw', {
       method: 'POST',
-      body: JSON.stringify({ amount: info.pending }),
+      body: JSON.stringify({ amount: info.pendingCommission }),
     })
     setWithdrawing(false)
     if (res.success) {
@@ -191,6 +226,19 @@ export function DistributionScreen() {
       showFloat(t('distribution.withdrawFailed'), 'warning')
     }
   }
+
+  // 收益卡 6 字段结构化统计(EarningsStat):仅「累计」Tab 有真实后端数据,
+  // 后端 /distribution/overview 无日/月佣金拆分,今日/本月 Tab 保持 0(不伪造)。
+  const sumStat: EarningsStat | undefined = info
+    ? {
+        amount: fenToYuan(info.totalCommission),
+        incomplete: fenToYuan(info.pendingCommission),
+        finish: fenToYuan(info.withdrawnCommission),
+        order: info.orderCount ?? 0,
+        strength: info.invitedCount,
+        endAmount: fenToYuan(info.withdrawnCommission),
+      }
+    : undefined
 
   return (
     <View style={shellStyles.root}>
@@ -207,16 +255,16 @@ export function DistributionScreen() {
         <View style={shellStyles.statsWrap}>
           <EarningsStatisticsCard
             label="分销收益概览"
-            title={info?.totalEarnings ?? 0}
-            todayAmount={info?.pending ?? 0}
-            monthAmount={info?.withdrawn ?? 0}
-            totalAmount={info?.totalEarnings ?? 0}
-            trend={info ? { direction: 'up', percent: 12.5 } : undefined}
+            title={info ? fenToYuan(info.totalCommission) : 0}
+            todayAmount={0}
+            monthAmount={0}
+            totalAmount={info ? fenToYuan(info.totalCommission) : 0}
+            sumStatistics={sumStat}
           />
         </View>
-        {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue) */}
+        {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue:双列网格) */}
         <View style={shellStyles.functionBlocksWrap}>
-          <FunctionBlockColumn blocks={functionBlocks} onBlockPress={onBlockPress} />
+          <FunctionBlockColumn blocks={functionBlocks} columns={2} onBlockPress={onBlockPress} />
         </View>
         {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口) */}
         <View style={shellStyles.shareBtnWrap}>
@@ -243,7 +291,7 @@ export function DistributionScreen() {
       </ScrollView>
       {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp 分销佣金悬浮按钮) */}
       <CommissionFloatingIcon
-        amount={info?.pending}
+        amount={info ? fenToYuan(info.availableCommission) : undefined}
         onPress={() => setWithdrawDetailVisible(true)}
       />
       {/* HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue) */}
@@ -253,9 +301,13 @@ export function DistributionScreen() {
         onClose={() => setWithdrawDetailVisible(false)}
       >
         <View style={shellStyles.withdrawDetailContent}>
-          <Text style={shellStyles.withdrawDetailText}>可提现金额:¥{info?.pending ?? 0}</Text>
-          <Text style={shellStyles.withdrawDetailText}>已提现金额:¥{info?.withdrawn ?? 0}</Text>
-          <Text style={shellStyles.withdrawDetailText}>最低提现:¥{info?.withdrawMin ?? 0}</Text>
+          <Text style={shellStyles.withdrawDetailText}>
+            可提现金额:¥{info ? fenToYuan(info.availableCommission) : 0}
+          </Text>
+          <Text style={shellStyles.withdrawDetailText}>
+            已提现金额:¥{info ? fenToYuan(info.withdrawnCommission) : 0}
+          </Text>
+          <Text style={shellStyles.withdrawDetailText}>最低提现:¥{fenToYuan(WITHDRAW_MIN)}</Text>
         </View>
       </HandPlatePops>
       {/* BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层) */}
@@ -342,13 +394,13 @@ export function DistributionScreen() {
 const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: 16 } as const,
-  personalInfoWrap: { paddingHorizontal: 16, paddingTop: 12 } as const,
-  statsWrap: { paddingTop: 12, paddingBottom: 4 } as const,
-  functionBlocksWrap: { paddingHorizontal: 16, paddingVertical: 8 } as const,
-  withdrawDetailContent: { gap: 10, paddingVertical: 8 } as const,
+  scrollContent: { paddingBottom: rpx(32) } as const,
+  personalInfoWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24) } as const,
+  statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
+  functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
+  withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
   withdrawDetailText: { fontSize: 14, color: '#333' } as const,
-  shareBtnWrap: { paddingHorizontal: 16, paddingBottom: 4 } as const,
+  shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
     borderRadius: 8,
@@ -363,8 +415,8 @@ const shellStyles = {
   } as const,
   qrContent: {
     alignItems: 'center',
-    paddingVertical: 20,
-    gap: 12,
+    paddingVertical: rpx(40),
+    gap: rpx(24),
   } as const,
   qrCodeBox: {
     width: 200,
@@ -382,8 +434,8 @@ const shellStyles = {
     color: tokens.text.tertiary,
   } as const,
   qrLinkBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     maxWidth: 260,
   } as const,
   qrLinkText: {

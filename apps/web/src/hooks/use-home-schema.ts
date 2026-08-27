@@ -48,24 +48,30 @@ export function useHomeSchema(): HomeSchema {
 
     if (isPreviewDraft) {
       // 预览模式:优先加载 draft,draft 不存在则 fallback 生产 schema
-      getHomeSchemaDraftConfig().then((res) => {
-        if (cancelled || !res.success) return
-        if (res.data === null) {
-          // 草稿未保存 → fallback 生产 schema
-          getHomeSchemaConfig().then((prodRes) => {
-            if (cancelled || !prodRes.success) return
-            applySchema(prodRes.data)
-          })
-          return
-        }
-        applySchema(res.data)
-      })
+      getHomeSchemaDraftConfig()
+        .then((res) => {
+          if (cancelled || !res.success) return
+          if (res.data === null) {
+            // 草稿未保存 → fallback 生产 schema
+            getHomeSchemaConfig()
+              .then((prodRes) => {
+                if (cancelled || !prodRes.success) return
+                applySchema(prodRes.data)
+              })
+              .catch(() => {})
+            return
+          }
+          applySchema(res.data)
+        })
+        .catch(() => {})
     } else {
       // 正常模式:加载生产 schema
-      getHomeSchemaConfig().then((res) => {
-        if (cancelled || !res.success) return
-        applySchema(res.data)
-      })
+      getHomeSchemaConfig()
+        .then((res) => {
+          if (cancelled || !res.success) return
+          applySchema(res.data)
+        })
+        .catch(() => {})
     }
 
     return () => {

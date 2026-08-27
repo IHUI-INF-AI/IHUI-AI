@@ -94,6 +94,7 @@ export { AigcPublishScreen } from './features/aigc-publish/AigcPublishScreen'
 export { AgentScreen } from './features/agent-screen/AgentScreen'
 export { AiAssistantScreen } from './features/ai-assistant/AiAssistantScreen'
 export { AiCareerScreen } from './features/ai-career/AiCareerScreen'
+export { AI_CAREER_QUESTIONS, AI_CAREER_REQUIRED_FIELDS } from './features/ai-career/questions'
 export { AIMultimodalScreen } from './features/ai-multimodal/AIMultimodalScreen'
 /** 批次 16(2026-07-29):考试历史/考试结果/模型收益/Token 价值 */
 export { ExamHistoryScreen } from './features/exam-history/ExamHistoryScreen'
@@ -255,6 +256,7 @@ export type {
   CertificateScreenProps,
   MessageTab,
   MessageCenterItem,
+  MessageConversationItem,
   MessageCenterScreenProps,
   AppOrderStatus,
   OrderTab,
@@ -461,14 +463,18 @@ export type {
   AigcPublishWorkType,
   AigcPublishFile,
   AigcPublishScreenProps,
-  /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 职业规划/AI 多模态) */
+  /** 批次 22(2026-07-29):AI 相关屏(Agent 列表/AI 助手/AI 生涯问卷/AI 多模态) */
   AgentScreenItem,
   AgentScreenProps,
   AiAssistantCategory,
   AiAssistantItem,
   AiAssistantScreenProps,
-  AiCareerTrend,
-  AiCareerMatchItem,
+  AiCareerFormData,
+  AiCareerFieldKey,
+  AiCareerSection,
+  AiCareerQuestionType,
+  AiCareerChoiceOption,
+  AiCareerQuestion,
   AiCareerScreenProps,
   AiMultimodalMode,
   AiMultimodalMessage,
@@ -648,6 +654,7 @@ export type {
   IcpRecordScreenProps,
   AppPermissionScreenProps,
   UsageRulesScreenProps,
+  LearnDevelopEntry,
   LearnDevelopScreenProps,
 } from './types'
 /** 批次 32(2026-08-15):静态状态/结果屏(充值失败/成功/广场封面/子包入口,4 屏迁移自 mobile-rn) */

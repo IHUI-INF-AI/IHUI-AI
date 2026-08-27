@@ -12,6 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { resolveSandboxOptions } from '../sandbox/index.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 import { parsePermissionMode, type PermissionMode } from '../tools/permissions.js';
 import {
   loadConfig,
@@ -327,12 +328,13 @@ export function loadSettings(): Settings {
     if (!fs.existsSync(p)) continue;
     try {
       const raw = fs.readFileSync(p, 'utf-8');
-      const parsed = JSON.parse(raw) as Settings;
-      if (parsed && typeof parsed === 'object') {
-        acc = deepMergeSettings(acc, parsed);
+      // 数组/标量不是合法 Settings,防止误合并损坏配置
+      const parsed = tryParseJson(raw);
+      if (isRecord(parsed)) {
+        acc = deepMergeSettings(acc, parsed as Settings);
       }
     } catch {
-      // 损坏文件忽略,继续下一源
+      // 读文件失败忽略,继续下一源
     }
   }
   return acc;
