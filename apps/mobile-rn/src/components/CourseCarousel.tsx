@@ -22,6 +22,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useAutoPlay } from '@ihui/shared'
+import { BookOpen, type LucideIcon } from 'lucide-react-native'
 import {
   FlatList,
   Image,
@@ -43,8 +44,8 @@ export interface CourseCarouselItem {
   price: number
   /** 是否免费课程(免费优先于 price 显示) */
   isFree?: boolean
-  /** 顶部缩略图占位的 emoji 图标(无图时回退 📘,index 变体使用) */
-  icon?: string
+  /** 顶部缩略图占位的图标(无图时回退 📘,index 变体使用):emoji 字符串或 lucide 组件 */
+  icon?: string | LucideIcon
   /** 缩略图 URL(UpToDate/list 变体优先使用,替代 emoji 占位) */
   img?: string
   /** 分类标签(UpToDate 变体:左上角覆盖标签) */
@@ -82,7 +83,7 @@ const CARD_HEIGHT = 144
 const CARD_GAP = 12
 const CONTAINER_PADDING = 12
 const THUMB_HEIGHT_RATIO = 0.8
-const DEFAULT_ICON = '📘'
+const DEFAULT_ICON = BookOpen
 const GRID_GAP = 12
 const GRID_PADDING = 16
 
@@ -111,7 +112,15 @@ function CourseCard({
     >
       {/* 顶部缩略图占位 */}
       <View style={[indexStyles.thumb, { height: thumbHeight }]}>
-        <Text style={indexStyles.thumbIcon}>{item.icon ?? DEFAULT_ICON}</Text>
+        {item.icon ? (
+          typeof item.icon === 'string' ? (
+            <Text style={indexStyles.thumbIcon}>{item.icon}</Text>
+          ) : (
+            <item.icon size={36} color={'#6b7280'} />
+          )
+        ) : (
+          <DEFAULT_ICON size={36} color={'#6b7280'} />
+        )}
       </View>
 
       {/* 底部信息区 */}
@@ -233,7 +242,15 @@ function UpToDateCard({
           <Image source={{ uri: item.img }} style={uptodateStyles.thumbImg} resizeMode="cover" />
         ) : (
           <View style={uptodateStyles.thumbPlaceholder}>
-            <Text style={uptodateStyles.thumbIcon}>{item.icon ?? DEFAULT_ICON}</Text>
+            {item.icon ? (
+              typeof item.icon === 'string' ? (
+                <Text style={uptodateStyles.thumbIcon}>{item.icon}</Text>
+              ) : (
+                <item.icon size={32} color={'#6b7280'} />
+              )
+            ) : (
+              <DEFAULT_ICON size={32} color={'#6b7280'} />
+            )}
           </View>
         )}
 
@@ -447,7 +464,15 @@ function ListCard({
           <Image source={{ uri: item.img }} style={listStyles.thumbImg} resizeMode="cover" />
         ) : (
           <View style={listStyles.thumbPlaceholder}>
-            <Text style={listStyles.thumbIcon}>{item.icon ?? DEFAULT_ICON}</Text>
+            {item.icon ? (
+              typeof item.icon === 'string' ? (
+                <Text style={listStyles.thumbIcon}>{item.icon}</Text>
+              ) : (
+                <item.icon size={28} color={'#6b7280'} />
+              )
+            ) : (
+              <DEFAULT_ICON size={28} color={'#6b7280'} />
+            )}
           </View>
         )}
       </View>

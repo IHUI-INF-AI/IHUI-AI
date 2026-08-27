@@ -54,6 +54,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { type LucideIcon, Bot, Film, FolderOpen, Menu, Palette, Search } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -112,10 +113,10 @@ function readModelType(v: unknown): 'image' | 'av' | 'text' {
   return v === 'image' || v === 'av' ? v : 'text'
 }
 
-function modelIcon(type: 'image' | 'av' | 'text' | string | undefined): string {
-  if (type === 'image') return '🎨'
-  if (type === 'av') return '🎬'
-  return '🤖'
+function modelIcon(type: 'image' | 'av' | 'text' | string | undefined): LucideIcon {
+  if (type === 'image') return Palette
+  if (type === 'av') return Film
+  return Bot
 }
 
 function toModelListItem(m: AiModel): ModelListItem {
@@ -620,10 +621,10 @@ export function AgentScreen() {
       <NavBar
         title={t('agentScreen.title')}
         leftActions={[
-          { icon: '🗂️', label: '分类', onPress: handleCategoryPress },
-          { icon: '☰', label: '菜单', onPress: handleMenuPress },
+          { icon: FolderOpen, label: '分类', onPress: handleCategoryPress },
+          { icon: Menu, label: '菜单', onPress: handleMenuPress },
         ]}
-        rightActions={[{ icon: '🔍', label: '搜索', onPress: handleSearchPress }]}
+        rightActions={[{ icon: Search, label: '搜索', onPress: handleSearchPress }]}
       />
       <ScrollView
         ref={contentScrollRef}

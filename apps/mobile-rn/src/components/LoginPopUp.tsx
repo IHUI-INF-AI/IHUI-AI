@@ -24,6 +24,7 @@
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { Check } from 'lucide-react-native'
 import {
   Image,
   Modal,
@@ -247,7 +248,7 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Text style={styles.checkboxMark}>✓</Text> : null}
+                    {agreeChecked ? <Check size={11} color={'#ffffff'} /> : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>

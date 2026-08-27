@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
 import { getTokens, type AppThemeMode } from '../theme/tokens'
+import type { AppIcon } from '@ihui/types'
 
 /**
  * Toolbar 横向操作按钮组(跨端共享层)。
@@ -15,8 +16,8 @@ import { getTokens, type AppThemeMode } from '../theme/tokens'
 export interface ToolbarItem {
   /** 唯一标识(用于 activeKey 匹配 + React key) */
   key: string
-  /** 图标:http(s) URL / 绝对路径视为图片;其他短文本视为 emoji/字符 */
-  icon: string
+  /** 图标:http(s) URL / 绝对路径视为图片;lucide 组件;其他短文本视为 emoji/字符 */
+  icon: AppIcon | string
   /** 单项激活态(activeKey 缺省时生效) */
   active?: boolean
   /** 点击回调 */
@@ -134,7 +135,9 @@ export function Toolbar({
                 ...(isActive ? viewStyles.toolActive(tk) : viewStyles.toolInactive()),
               }}
             >
-              {isImagePath(item.icon) ? (
+              {typeof item.icon === 'function' ? (
+                <item.icon size={18} color={tk.text.primary} />
+              ) : isImagePath(item.icon) ? (
                 <img src={item.icon} alt="" style={viewStyles.icon()} />
               ) : (
                 <span style={textStyles.iconEmoji(tk)}>{item.icon}</span>

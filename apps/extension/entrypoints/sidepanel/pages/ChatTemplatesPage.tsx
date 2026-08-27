@@ -5,6 +5,7 @@
  * 网格项:模板名 + 描述 + 图标 + 使用次数,点击 chrome.tabs.create 跳 web 使用模板。
  */
 import { useEffect, useState } from 'react'
+import { ClipboardList } from 'lucide-react'
 import { fetchApi, type PageData } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -89,7 +90,11 @@ export default function ChatTemplatesPage() {
               <CardContent className="p-2.5 min-[640px]:p-2">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base shrink-0" aria-hidden>
-                    {tpl.icon || '📋'}
+                    {tpl.icon ? (
+                      tpl.icon
+                    ) : (
+                      <ClipboardList size={16} className="shrink-0 text-current" />
+                    )}
                   </span>
                   <div className="font-medium text-xs truncate flex-1 min-w-0">{tpl.name}</div>
                 </div>

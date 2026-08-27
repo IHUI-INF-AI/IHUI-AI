@@ -1,43 +1,56 @@
 /**
  * AIAppsPage — AI 应用中心首页,列出所有 AI 类功能入口。
  */
+import {
+  BookOpen,
+  Brain,
+  Briefcase,
+  ClipboardList,
+  Globe,
+  Palette,
+  Radio,
+  Bot,
+  Search,
+  Trophy,
+  Zap,
+} from 'lucide-react'
 import { AppListPage, type AppItem } from '../components/AppListPage'
 import { WEB_BASE } from '../../../lib/open-in-web'
 
 const items: AppItem[] = [
-  { to: '/ai/agents', icon: '🤖', titleKey: 'apps.aiAgents', descKey: 'apps.aiAgentsDesc' },
-  { to: '/ai/skills', icon: '⚡', titleKey: 'apps.aiSkills', descKey: 'apps.aiSkillsDesc' },
-  { to: '/ai/image-gen', icon: '🎨', titleKey: 'apps.imageGen', descKey: 'apps.imageGenDesc' },
-  { to: '/ai/memory', icon: '🧠', titleKey: 'apps.memory', descKey: 'apps.memoryDesc' },
-  { to: '/ai/news', icon: '📡', titleKey: 'apps.aiNews', descKey: 'apps.aiNewsDesc' },
-  { to: '/ai/models', icon: '🏆', titleKey: 'apps.models', descKey: 'apps.modelsDesc' },
+  { to: '/ai/agents', icon: Bot, titleKey: 'apps.aiAgents', descKey: 'apps.aiAgentsDesc' },
+  { to: '/ai/skills', icon: Zap, titleKey: 'apps.aiSkills', descKey: 'apps.aiSkillsDesc' },
+  { to: '/ai/image-gen', icon: Palette, titleKey: 'apps.imageGen', descKey: 'apps.imageGenDesc' },
+  { to: '/ai/memory', icon: Brain, titleKey: 'apps.memory', descKey: 'apps.memoryDesc' },
+  { to: '/ai/news', icon: Radio, titleKey: 'apps.aiNews', descKey: 'apps.aiNewsDesc' },
+  { to: '/ai/models', icon: Trophy, titleKey: 'apps.models', descKey: 'apps.modelsDesc' },
   {
     externalUrl: `${WEB_BASE}/ai-world`,
-    icon: '🌍',
+    icon: Globe,
     titleKey: 'apps.aiWorld',
     descKey: 'apps.aiWorldDesc',
   },
   {
     externalUrl: `${WEB_BASE}/ai-career`,
-    icon: '💼',
+    icon: Briefcase,
     titleKey: 'apps.aiCareer',
     descKey: 'apps.aiCareerDesc',
   },
   {
     externalUrl: `${WEB_BASE}/spec`,
-    icon: '📋',
+    icon: ClipboardList,
     titleKey: 'apps.spec',
     descKey: 'apps.specDesc',
   },
   {
     externalUrl: `${WEB_BASE}/knowledge-base`,
-    icon: '📚',
+    icon: BookOpen,
     titleKey: 'apps.knowledgeBase',
     descKey: 'apps.knowledgeBaseDesc',
   },
   {
     externalUrl: `${WEB_BASE}/knowledge-rag`,
-    icon: '🔍',
+    icon: Search,
     titleKey: 'apps.knowledgeRag',
     descKey: 'apps.knowledgeRagDesc',
   },

@@ -3,6 +3,7 @@
  * 展示邀请的好友列表,数据来自 GET /distribution/invited-users。
  */
 import { useEffect, useState } from 'react'
+import { Gift, User } from 'lucide-react'
 import { getInvitedUsers, type InvitedUser } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -68,7 +69,7 @@ export default function InvitationsPage() {
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 text-center text-muted-foreground py-10 px-4 text-sm">
           <span className="text-3xl" aria-hidden>
-            🎁
+            <Gift size={28} className="shrink-0" />
           </span>
           <div>{t('page.invitations.empty')}</div>
         </div>
@@ -85,7 +86,7 @@ export default function InvitationsPage() {
                 />
               ) : (
                 <div className="w-10 h-10 rounded-md bg-muted shrink-0 flex items-center justify-center text-base">
-                  👤
+                  <User size={20} className="text-muted-foreground" aria-hidden />
                 </div>
               )}
               <div className="flex-1 min-w-0">

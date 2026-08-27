@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { Heart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { ArticleDetailItem, ArticleDetailScreenProps } from '../../types'
 
@@ -52,7 +53,18 @@ export function ArticleDetailScreen({
       </View>
       <View style={styles.statRow}>
         <Text style={styles.stat}>{t('articleDetail.views', { count: item.views })}</Text>
-        <Text style={styles.stat}>❤ {item.likes}</Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: tk.surface.card,
+            paddingHorizontal: 8,
+            gap: 4,
+          }}
+        >
+          <Heart size={11} color={tk.text.secondary} />
+          <Text style={{ fontSize: 11, color: tk.text.secondary }}>{item.likes}</Text>
+        </View>
       </View>
       <Text style={styles.content}>{item.content}</Text>
     </ScrollView>
