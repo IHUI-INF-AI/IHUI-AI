@@ -11,6 +11,7 @@
  * - 复用 design-tokens,与 web 端 Card 风格一致
  */
 import { type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
@@ -20,8 +21,8 @@ export interface AppItem {
   to?: string
   /** 外部 web 端 URL(to 为空时使用,会在新标签页打开) */
   externalUrl?: string
-  /** 图标(emoji 或 ReactNode) */
-  icon: ReactNode
+  /** 图标(lucide 组件或 ReactNode,向后兼容 emoji 字符串) */
+  icon: LucideIcon | ReactNode
   /** 标题 i18n key */
   titleKey: string
   /** 描述 i18n key */
@@ -77,7 +78,11 @@ export function AppListPage({ titleKey, items }: AppListPageProps) {
             >
               <div className="flex items-center gap-2 w-full">
                 <span className="text-xl leading-none shrink-0" aria-hidden>
-                  {item.icon}
+                  {typeof item.icon === 'function' ? (
+                    <item.icon size={20} className="shrink-0" />
+                  ) : (
+                    item.icon
+                  )}
                 </span>
                 <span className="text-sm font-medium flex-1 truncate">{t(item.titleKey)}</span>
                 {item.badge ? (

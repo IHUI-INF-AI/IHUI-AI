@@ -16,6 +16,28 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import {
+  User,
+  Smartphone,
+  Key,
+  Shield,
+  IdCard,
+  AlertTriangle,
+  RefreshCw,
+  Package,
+  HelpCircle,
+  Pencil,
+  FileText,
+  Lock,
+  ClipboardList,
+  Landmark,
+  Globe,
+  Bot,
+  Megaphone,
+  Info,
+  Plug,
+  Menu,
+} from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Settings'>
 
@@ -40,7 +62,7 @@ export default function SettingsScreen() {
   // 右侧菜单按钮(对齐 Uniapp settings 使用 ☰ 触发 Drawer 集成)
   const rightActions: ReadonlyArray<NavBarAction> = [
     {
-      icon: '☰',
+      icon: Menu,
       label: t('common.menu'),
       onPress: () => setDrawerVisible(true),
     },
@@ -91,27 +113,27 @@ export default function SettingsScreen() {
   ]
 
   const drawerMenuItems: SideMenuItem[] = [
-    { key: 'SettingsAccount', label: t('menu.accountManage'), icon: '👤' },
-    { key: 'ChangePhone', label: t('menu.changePhone'), icon: '📱' },
-    { key: 'ChangePwd', label: t('menu.changePwd'), icon: '🔑' },
-    { key: 'SecuritySettings', label: '安全设置', icon: '🛡️' },
-    { key: 'IdentityVerify', label: '身份认证', icon: '🪪' },
-    { key: 'AccountCancel', label: t('menu.accountCancel'), icon: '⚠' },
-    { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: '🔄' },
-    { key: 'SubPackageIndex', label: '更多功能', icon: '📦' },
-    { key: 'Help', label: '帮助中心', icon: '❓' },
-    { key: 'Feedback', label: t('menu.feedback'), icon: '✎' },
-    { key: 'Agreement', label: t('menu.agreement'), icon: '📄' },
-    { key: 'Privacy', label: t('menu.privacy'), icon: '🔒' },
-    { key: 'AppPermission', label: t('menu.appPermission'), icon: '🛡' },
-    { key: 'UsageRules', label: t('menu.usageRules'), icon: '📋' },
-    { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: '🏛' },
-    { key: 'IcpRecord', label: t('menu.icpRecord'), icon: '🌐' },
-    { key: 'ModelRecord', label: t('menu.modelRecord'), icon: '🤖' },
+    { key: 'SettingsAccount', label: t('menu.accountManage'), icon: User },
+    { key: 'ChangePhone', label: t('menu.changePhone'), icon: Smartphone },
+    { key: 'ChangePwd', label: t('menu.changePwd'), icon: Key },
+    { key: 'SecuritySettings', label: '安全设置', icon: Shield },
+    { key: 'IdentityVerify', label: '身份认证', icon: IdCard },
+    { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
+    { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: RefreshCw },
+    { key: 'SubPackageIndex', label: '更多功能', icon: Package },
+    { key: 'Help', label: '帮助中心', icon: HelpCircle },
+    { key: 'Feedback', label: t('menu.feedback'), icon: Pencil },
+    { key: 'Agreement', label: t('menu.agreement'), icon: FileText },
+    { key: 'Privacy', label: t('menu.privacy'), icon: Lock },
+    { key: 'AppPermission', label: t('menu.appPermission'), icon: Shield },
+    { key: 'UsageRules', label: t('menu.usageRules'), icon: ClipboardList },
+    { key: 'BusinessLicense', label: t('menu.businessLicense'), icon: Landmark },
+    { key: 'IcpRecord', label: t('menu.icpRecord'), icon: Globe },
+    { key: 'ModelRecord', label: t('menu.modelRecord'), icon: Bot },
     // API 设置(对齐原项目 pagesA/settings/api-settings.vue:Coze PAT/Base URL 配置)
-    { key: 'ApiSettings', label: t('menu.apiSettings'), icon: '🔌' },
-    { key: 'Announcement', label: '平台公告', icon: '📢' },
-    { key: 'About', label: t('menu.about'), icon: 'ℹ' },
+    { key: 'ApiSettings', label: t('menu.apiSettings'), icon: Plug },
+    { key: 'Announcement', label: '平台公告', icon: Megaphone },
+    { key: 'About', label: t('menu.about'), icon: Info },
   ]
 
   const onSelectLocale = (v: string) => {

@@ -10,16 +10,17 @@
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { PackageOpen, type LucideIcon } from 'lucide-react-native'
 
 export interface EmptyProps {
   text?: string
-  /** emoji 字符或图片 URL(http/https 开头) */
-  icon?: string
+  /** emoji 字符、图片 URL(http/https 开头)或 lucide 图标组件 */
+  icon?: string | LucideIcon
   actionText?: string
   onAction?: () => void
 }
 
-const DEFAULT_ICON = '📭'
+const DEFAULT_ICON = PackageOpen
 const DEFAULT_TEXT = '暂无数据'
 
 function isUrl(value: string): boolean {
@@ -33,13 +34,18 @@ export default function Empty({
   onAction,
 }: EmptyProps): React.JSX.Element {
   const showAction = Boolean(actionText && onAction)
+  const IconNode = typeof icon === 'string' ? null : icon
   return (
     <View style={styles.root}>
-      {icon && isUrl(icon) ? (
-        <Image source={{ uri: icon }} style={styles.image} resizeMode="contain" />
-      ) : (
-        <Text style={styles.emoji}>{icon}</Text>
-      )}
+      {typeof icon === 'string' ? (
+        isUrl(icon) ? (
+          <Image source={{ uri: icon }} style={styles.image} resizeMode="contain" />
+        ) : (
+          <Text style={styles.emoji}>{icon}</Text>
+        )
+      ) : IconNode ? (
+        <IconNode size={48} color={'#6b7280'} />
+      ) : null}
       <Text style={styles.text}>{text}</Text>
       {showAction ? (
         <TouchableOpacity

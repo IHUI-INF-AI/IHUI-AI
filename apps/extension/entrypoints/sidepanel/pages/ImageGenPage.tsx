@@ -4,6 +4,7 @@
  * 流程:输入 prompt → 创建任务 → 轮询状态 → 展示结果图片 + 历史列表。
  */
 import { useEffect, useRef, useState } from 'react'
+import { Palette } from 'lucide-react'
 import {
   createAigcTask,
   getAigcTask,
@@ -169,7 +170,7 @@ export default function ImageGenPage() {
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-md bg-muted shrink-0 flex items-center justify-center text-xs">
-                    🎨
+                    <Palette size={16} className="text-muted-foreground" aria-hidden />
                   </div>
                 )}
                 <div className="flex-1 min-w-0 text-[11px] text-muted-foreground truncate">

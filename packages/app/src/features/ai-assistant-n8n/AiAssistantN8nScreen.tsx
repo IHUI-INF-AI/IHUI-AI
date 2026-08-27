@@ -25,6 +25,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import { Settings } from 'lucide-react-native'
 
 /** N8n 消息项 */
 export interface N8nMessage {
@@ -191,7 +192,7 @@ export function AiAssistantN8nScreen({
           {t('chat.modelLabel')}: {selectedModelLabel}
         </Text>
         <Pressable style={styles.modelConfigBtn} onPress={onModelConfigPress}>
-          <Text style={styles.modelConfigBtnText}>⚙</Text>
+          <Settings size={14} color={tk.text.secondary} />
           <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
         </Pressable>
         <Text style={styles.modelBarArrow}>{'›'}</Text>

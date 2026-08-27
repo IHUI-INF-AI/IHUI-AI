@@ -51,6 +51,7 @@ import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
+import { Search, User, Menu, FolderOpen } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -385,7 +386,7 @@ export function PlazaScreen() {
   }
 
   const leftActions = useMemo<ReadonlyArray<NavBarAction>>(
-    () => [{ icon: '☰', label: '菜单', onPress: () => setDrawerVisible(true) }],
+    () => [{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }],
     [],
   )
 
@@ -397,13 +398,13 @@ export function PlazaScreen() {
         onBack={() => navigation.goBack()}
         rightActions={[
           {
-            icon: '🗂️',
+            icon: FolderOpen,
             label: '分类',
             // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
             onPress: () => setCategoryVisible(true),
           },
           {
-            icon: '👤',
+            icon: User,
             label: '身份',
             // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
             onPress: () => setIdentityVisible(true),
@@ -416,7 +417,11 @@ export function PlazaScreen() {
             accessibilityRole="button"
             accessibilityLabel="搜索"
           >
-            <Text style={styles.navIcon}>{showSearch ? '✕' : '🔍'}</Text>
+            {showSearch ? (
+              <Text style={styles.navIcon}>✕</Text>
+            ) : (
+              <Search size={20} color={'#000'} />
+            )}
           </Pressable>
         }
       />
@@ -523,7 +528,7 @@ export function PlazaScreen() {
                 <Image source={{ uri: user.avatar }} style={styles.identityAvatar} />
               ) : (
                 <View style={[styles.identityAvatar, styles.identityAvatarFallback]}>
-                  <Text style={styles.identityAvatarFallbackText}>👤</Text>
+                  <User size={28} color={'#6b7280'} />
                 </View>
               )}
               <View style={styles.identityUserInfo}>
