@@ -69,7 +69,8 @@ export function ExamScreen() {
     if (status === 'notStarted') return setToast(t('exam.notStarted'))
     if (exam.attemptCount >= exam.maxAttempts && exam.maxAttempts > 0)
       return setToast(t('exam.noAttemptsLeft'))
-    setToast(t('exam.startHint', { title: exam.title }))
+    // 孤儿路由修复:ExamQuestion 注册无入口,「开始考试」跳转到答题页
+    navigation.navigate('ExamQuestion', { examId: exam.id })
   }
 
   return (

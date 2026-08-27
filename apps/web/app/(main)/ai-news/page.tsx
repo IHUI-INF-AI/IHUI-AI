@@ -72,7 +72,10 @@ export default async function AiNewsPage() {
       {articleJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
+          // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c'),
+          }}
         />
       ) : null}
       <div className="mx-auto w-full max-w-[1240px] space-y-4 px-4">

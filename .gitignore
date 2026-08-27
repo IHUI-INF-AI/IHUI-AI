@@ -148,6 +148,7 @@ venv.bak*/
 # 测试产物
 # ============================================================================
 test-results/
+test-results-*/
 playwright-report/
 coverage/
 .v8-coverage/
@@ -320,6 +321,7 @@ apps/ai-service/.data/
 # 数量多且每次审计都会重新生成,不入库。
 # 对应的 *-summary.json 是审计摘要,保留版本控制。
 reports/*.csv
+reports/*.png
 
 
 # ============================================================================
@@ -329,6 +331,12 @@ reports/*.csv
 deploy/prod-bundle/
 deploy/*.zip
 # scripts/start-cloudflared-tunnel.ps1 从上述本地文件读取 token,不再硬编码
+
+# 图片 CDN 部署静态根(2026-08-27):真图已在 apps/miniapp-taro/src/assets/remote/ 入库,
+# server-root 是部署副本 + 占位结构,由 deploy/generate-placeholders.js 现场生成,不入库
+# (cert.pem/key.pem 已被全局 *.pem/*.key 规则覆盖)
+deploy/server-root/
+deploy/acme-challenge/
 
 # Java SDK 构建产物
 sdks/java/target/

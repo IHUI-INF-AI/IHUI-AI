@@ -281,13 +281,19 @@ export default function ChatMessageItem({
         <View className="question-container">
           {/* 复用按钮 fuyong-btn:100rpx×40rpx,在气泡外左侧 */}
           {onReuse ? (
-            <View style={{ marginRight: '10rpx' }}>
+            <View style={{ marginRight: '10rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Image
                 src={reuseBtnPng}
                 className="fuyong-btn"
                 mode="widthFix"
                 onClick={handleReuse}
               />
+              <Text
+                style={{ fontSize: '20rpx', color: '#1888ee', marginTop: '4rpx' }}
+                onClick={handleReuse}
+              >
+                {t('ai.chatMessageItem.reuse')}
+              </Text>
             </View>
           ) : null}
           {/* 用户消息图片列表(若有) */}
@@ -314,22 +320,27 @@ export default function ChatMessageItem({
             className="agent-content-item-question"
             style={{ position: 'relative', maxWidth: 'calc(100% - 110rpx)' }}
           >
-            {/* 编辑按钮(增强功能,历史项目无,保留) */}
-            {onEdit ? (
-              <Text
-                style={{
-                  fontSize: '20rpx',
-                  color: '#fff',
-                  opacity: 0.7,
-                  display: 'block',
-                  textAlign: 'right',
-                  marginBottom: '6rpx',
-                }}
-                onClick={handleEdit}
-              >
-                {t('ai.chatMessageItem.edit')}
+            {/* 发送者"我"标签 + 编辑按钮(增强功能,历史项目无,保留) */}
+            <View
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '6rpx',
+              }}
+            >
+              <Text style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7 }}>
+                {t('ai.chatMessageItem.me')}
               </Text>
-            ) : null}
+              {onEdit ? (
+                <Text
+                  style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7 }}
+                  onClick={handleEdit}
+                >
+                  {t('ai.chatMessageItem.edit')}
+                </Text>
+              ) : null}
+            </View>
             <Text>{msg.content}</Text>
           </View>
         </View>
@@ -385,6 +396,9 @@ export default function ChatMessageItem({
                     <Text style={{ fontSize: '24rpx', color: '#abb2bf' }}>
                       {codeCollapsed ? '▸' : '▾'} code
                     </Text>
+                    <Text style={{ fontSize: '22rpx', color: '#abb2bf' }}>
+                      {t('ai.chatMessageItem.collapse')}
+                    </Text>
                     <Text style={{ fontSize: '24rpx', color: '#61dafb' }} onClick={copyCode}>
                       {codeCopied ? t('success.copied') : t('ai.chatMessageItem.copy')}
                     </Text>
@@ -424,6 +438,9 @@ export default function ChatMessageItem({
                   <Text style={{ fontSize: '32rpx', marginRight: '12rpx' }}>
                     {voicePlaying ? '⏸' : '▶'}
                   </Text>
+                  <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>
+                    {t('ai.chatMessageItem.voiceMessage')}
+                  </Text>
                   {audioDuration ? (
                     <Text style={{ fontSize: '24rpx' }}>{`${audioDuration}''`}</Text>
                   ) : null}
@@ -442,7 +459,12 @@ export default function ChatMessageItem({
                   }}
                   onClick={goDigitalHuman}
                 >
-                  <Text style={{ fontSize: '24rpx' }}>{t('ai.chatMessageItem.digitalHuman')}</Text>
+                  <Text style={{ fontSize: '24rpx', display: 'block' }}>
+                    {t('ai.chatMessageItem.viewDigitalHuman')}
+                  </Text>
+                  <Text style={{ fontSize: '20rpx', opacity: 0.9, display: 'block' }}>
+                    {t('ai.chatMessageItem.digitalHuman')}
+                  </Text>
                 </View>
               ) : null}
             </View>
@@ -545,7 +567,10 @@ export default function ChatMessageItem({
                   }}
                   onClick={handleSpeak}
                 >
-                  {speaking ? '⏸' : '🔊'}
+                  {speaking ? '⏸' : '🔊'}{' '}
+                  {speaking
+                    ? t('ai.chatMessageItem.stopSpeak')
+                    : t('ai.chatMessageItem.speak')}
                 </Text>
               ) : null}
               {/* 重新生成(增强功能,历史项目无,保留) */}
@@ -559,7 +584,7 @@ export default function ChatMessageItem({
                   }}
                   onClick={onRegenerate}
                 >
-                  ↻
+                  ↻ {t('ai.chatMessageItem.regenerate')}
                 </Text>
               ) : null}
               {/* 收藏(增强功能,历史项目无,保留) */}

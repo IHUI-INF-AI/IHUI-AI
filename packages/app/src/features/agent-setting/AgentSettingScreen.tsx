@@ -119,7 +119,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 8,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     switchRow: {
       marginTop: 12,

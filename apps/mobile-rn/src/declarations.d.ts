@@ -9,7 +9,7 @@ declare module '*.jpeg' {
 }
 
 declare module '*.png' {
-  const src: string
+  const src: number
   export default src
 }
 

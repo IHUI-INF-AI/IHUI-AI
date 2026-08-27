@@ -150,7 +150,8 @@ export default function AskDetailPage() {
       {askJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(askJsonLd) }}
+          // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本标签导致存储型 XSS
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(askJsonLd).replace(/</g, '\\u003c') }}
         />
       ) : null}
       <Button variant="ghost" size="sm" onClick={() => router.back()}>

@@ -34,6 +34,7 @@ export default function ColorfulLoader({
       {dots.map((_, i) => {
         const angle = (360 / DOT_COUNT) * i
         // 保留:colorful loader 72 点 HSL 动态着色(按索引循环色相);动态计算色无法 token 化,保留原逻辑
+        // 豁免 0b: 装饰圆点(72 点 HSL 循环色相,典型 rounded-full 装饰元素)
         const color = `hsl(${i * 5}, 70%, 60%)`
         return (
           <View

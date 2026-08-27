@@ -23,7 +23,7 @@
   端口 + 命令注册表:scripts/dev-port-registry.json
   端口权威来源:docs/port-management.md(必须保持同步)
 .NOTES
-  仅支持 Windows PowerShell 5.1+(PowerShell Core 7+ 也兼容)
+  要求 PowerShell 7+(pwsh)。项目内所有 .ps1 由 scripts/check-pwsh-version.mjs 守门,必须 `#requires -Version 7`;请勿用 Windows PowerShell 5.1 调用本脚本(否则会被 #requires 拒绝)。
 #>
 
 [CmdletBinding()]
@@ -41,6 +41,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# 2026-08-26 修复:兼容 `pwsh -File ... -Services web,api,ai-service` 传参。
+# pwsh -File 的 CLI 解析把 "web,api,ai-service" 当作单个字符串传给 [string[]]。
+# (PowerShell 交互式下逗号会被解析为数组,但 -File 原生调用不会)。
+# 这里展开逗号分隔 + 去空白 + 去空,保证文档示例用法真实可用。
+$Services = @(
+  $Services | ForEach-Object { $_ -split ',' } |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ }
+)
 
 # ============================================================
 # 路径常量
@@ -349,6 +359,21 @@ function Show-Status {
   Write-Host ''
   Write-Host "  PID 注册表: $PidFile" -ForegroundColor DarkGray
   Write-Host "  日志目录:   $LogDir" -ForegroundColor DarkGray
+
+  # 2026-08-27:web Turbopack 缓存卫生提示(预防缓存膨胀 → dev 高内存/CPU)。
+  # 缓存由 apps/web dev 脚本前置的 clean-turbopack-cache.mjs 自动治理,超 3GB 启动时自动清;
+  # 此处仅作诊断辅助,一眼看出当前缓存是否已逼近阈值。
+  $nextCache = Join-Path $RepoRoot 'apps\web\.next\dev\cache\turbopack'
+  if (Test-Path $nextCache) {
+    $cacheMB = [math]::Round((Get-ChildItem $nextCache -Recurse -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB, 0)
+    if ($cacheMB -gt 3072) {
+      Write-Host "  web turbopack 缓存: $cacheMB MB ⚠ 超 3GB(重启 web 时自动清理)" -ForegroundColor Yellow
+    } else {
+      Write-Host "  web turbopack 缓存: $cacheMB MB (阈值 3GB,启动时自动清理)" -ForegroundColor DarkGray
+    }
+  } else {
+    Write-Host "  web turbopack 缓存: 无(首次 dev 启动时生成)" -ForegroundColor DarkGray
+  }
 }
 
 # ============================================================

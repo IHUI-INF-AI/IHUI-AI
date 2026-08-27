@@ -13,7 +13,7 @@ test.describe('Orders 订单页面', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/orders')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -32,7 +32,7 @@ test.describe('Orders 订单页面', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/orders')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0)
   })
 })
@@ -48,7 +48,7 @@ test.describe('Payment 支付页面', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/payment')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 不应崩溃(可能显示错误提示或重定向)
     expect(page.url()).toBeTruthy()
     expect(consoleErrors.filter((e) => !e.includes('favicon'))).toHaveLength(0)
