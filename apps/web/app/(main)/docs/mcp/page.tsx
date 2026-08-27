@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { MessageCircle } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -102,7 +103,10 @@ export default function McpDocsPage() {
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6">
-            <h3 className="text-lg font-semibold">💬 通讯协作</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <MessageCircle className="mr-1.5 inline h-5 w-5" />
+              通讯协作
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>Slack / Discord / Telegram</li>
               <li>飞书 / 钉钉 / 企业微信</li>

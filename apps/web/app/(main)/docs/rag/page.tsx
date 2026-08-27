@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BookOpen, Ruler, Target, RefreshCw, Coins } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -65,7 +66,7 @@ export default function RagDocsPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>📚</span>
+          <BookOpen className="h-3.5 w-3.5" />
           知识库 RAG
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -289,7 +290,10 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
         <h2 className="text-2xl font-bold tracking-tight">最佳实践</h2>
         <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm font-semibold">📏 切块策略</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Ruler className="mr-1.5 inline h-4 w-4" />
+              切块策略
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>说明文档:按段落切(chunk_size=512)</li>
               <li>FAQ:按问答对切(每对独立 chunk)</li>
@@ -298,7 +302,10 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm font-semibold">🎯 文档质量</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Target className="mr-1.5 inline h-4 w-4" />
+              文档质量
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>避免扫描件(OCR 易出错,优先用原生 PDF)</li>
               <li>删除页眉页脚(避免污染检索)</li>
@@ -307,7 +314,10 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm font-semibold">🔄 定期更新</p>
+            <p className="flex items-center text-sm font-semibold">
+              <RefreshCw className="mr-1.5 inline h-4 w-4" />
+              定期更新
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>开启 Webhook:文档库变更自动重新向量化</li>
               <li>每月跑一次"知识库体检"(检测失效链接)</li>
@@ -315,7 +325,10 @@ LLM 答:产品 X 的标准保修期为 24 个月 [1],若购买延保服务可延
             </ul>
           </div>
           <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm font-semibold">💰 成本控制</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Coins className="mr-1.5 inline h-4 w-4" />
+              成本控制
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>用 bge-m3(免费)而非 OpenAI embedding</li>
               <li>chunk_overlap 不要超过 25%(浪费存储)</li>

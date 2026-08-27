@@ -73,6 +73,7 @@ pre-commit / commit-msg / pre-push 钩子使用的 `check-*` 守门脚本(含 `o
 | check-safe-parse.mjs                  | Fastify 路由 safeParse 反模式巡检(silent ignore)                     | 9 (warn)       | 检测 5 行内是否 return 400                 |
 | openapi-check.mjs                     | OpenAPI spec 存在性 + 路由数量一致性                                 | 10 (info)      | 始终 exit 0                                |
 | check-rounded-full.mjs                | 容器圆角违规(rounded-full / 9999px / 50%)                            | 11 (blocking)  | AGENTS.md §4 唯一豁免清单                  |
+| check-no-divider.mjs                  | 分割线违规(divide-y / divide-x)                                      | 11d (blocking) | AGENTS.md §4,改用 space-y-* 间距或 bg 对比 |
 | check-delivery-report-consistency.mjs | 交付报告一致性(防"无后续建议 + 列后续建议"矛盾)                      | 12 (blocking)  | AGENTS.md §10                              |
 | check-project-plan-size.mjs           | PROJECT_PLAN.md 体积守门(500KB 软参考)                               | 13b (warn)     | 2026-07-23 解除阻塞                        |
 | check-project-plan-archive.mjs        | PROJECT_PLAN.md 已完成任务条目防误删                                 | 13c (blocking) | 检测"已归档"占位注释                       |
