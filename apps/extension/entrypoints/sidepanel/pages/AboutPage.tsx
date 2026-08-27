@@ -3,6 +3,7 @@
  * 展示产品简介、版本号与版权信息。版本号与 apps/extension/package.json 保持一致。
  */
 import { Card, CardContent } from '@ihui/ui-react'
+import { Bot } from 'lucide-react'
 import { useI18n } from '../../../src/i18n'
 
 const VERSION = '1.0.0'
@@ -18,9 +19,7 @@ export default function AboutPage() {
       <Card>
         <CardContent className="p-4 flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-3xl" aria-hidden>
-              🤖
-            </span>
+            <Bot size={28} className="shrink-0" aria-hidden />
             <div>
               <div className="font-semibold text-sm">IHUI AI</div>
               <div className="text-xs text-muted-foreground">

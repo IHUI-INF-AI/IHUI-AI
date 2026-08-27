@@ -5,6 +5,7 @@ import {
   type LearnDevelopEntry,
   type LearnDevelopScreenProps,
 } from '@ihui/rn-app'
+import { Rocket, BookOpen, Brain, Compass, GraduationCap } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -13,31 +14,31 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 // 学习功能导航入口由端侧注入真实跳转(替代原有的「开发中」占位)
 const ENTRIES = (navigation: NavigationProp): LearnDevelopEntry[] => [
   {
-    icon: '🪐',
+    icon: Rocket,
     title: '课程星球',
     desc: '热门/精选课程浏览',
     onPress: () => navigation.navigate('CoursePlanet'),
   },
   {
-    icon: '📖',
+    icon: BookOpen,
     title: '学习计划',
     desc: '查看我的学习计划',
     onPress: () => navigation.navigate('StudyPlan'),
   },
   {
-    icon: '🧠',
+    icon: Brain,
     title: '知识星球',
     desc: '知识内容浏览',
     onPress: () => navigation.navigate('KnowledgePlanet'),
   },
   {
-    icon: '🧭',
+    icon: Compass,
     title: '学习视频',
     desc: '最新课程视频',
     onPress: () => navigation.navigate('StudyIndex'),
   },
   {
-    icon: '🎓',
+    icon: GraduationCap,
     title: '学习中心',
     desc: '系统化学习路径',
     onPress: () => navigation.navigate('Learn'),

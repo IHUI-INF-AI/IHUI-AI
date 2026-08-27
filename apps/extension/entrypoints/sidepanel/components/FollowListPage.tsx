@@ -4,7 +4,8 @@
  * 复用扩展侧边栏既有范式(get 接口 + 加载/错误/空态 + Card 列表),
  * 供 我的关注(/me/following)与 我的粉丝(/me/fans)两个路由共用。
  */
-import { useEffect, useState } from 'react'
+import { createElement, useEffect, useState } from 'react'
+import { User, type LucideIcon } from 'lucide-react'
 import type { ApiResult } from '@ihui/types'
 import { type FollowUser, type PageData, type PageQuery } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -16,8 +17,8 @@ interface FollowListPageProps {
   titleKey: string
   /** 空态提示 i18n key */
   emptyKey: string
-  /** 列表图标(emoji) */
-  icon: string
+  /** 列表图标(lucide 组件或 ReactNode,向后兼容 emoji 字符串) */
+  icon: LucideIcon | string
   /** 数据拉取函数(关注/粉丝分页接口) */
   fetchList: (query: PageQuery) => Promise<ApiResult<PageData<FollowUser>>>
 }
@@ -78,7 +79,9 @@ export function FollowListPage({ titleKey, emptyKey, icon, fetchList }: FollowLi
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 text-center text-muted-foreground py-10 px-4 text-sm">
           <span className="text-3xl" aria-hidden>
-            {icon}
+            {typeof icon === 'function'
+              ? createElement(icon as LucideIcon, { size: 28, className: 'shrink-0' })
+              : icon}
           </span>
           <div>{t(emptyKey)}</div>
         </div>
@@ -95,7 +98,7 @@ export function FollowListPage({ titleKey, emptyKey, icon, fetchList }: FollowLi
                 />
               ) : (
                 <div className="w-10 h-10 rounded-md bg-muted shrink-0 flex items-center justify-center text-base">
-                  👤
+                  <User size={20} className="text-muted-foreground" aria-hidden />
                 </div>
               )}
               <div className="flex-1 min-w-0">

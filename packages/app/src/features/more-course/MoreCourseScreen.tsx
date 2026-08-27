@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { BookOpen } from 'lucide-react-native'
 import type { MoreCourseScreenProps } from '../../types'
 
 /** MoreCourseScreen props re-export(单一来源 @ihui/types) */
@@ -50,7 +51,7 @@ export function MoreCourseScreen({
         <View style={styles.cover} />
       ) : (
         <View style={[styles.cover, styles.coverFallback]}>
-          <Text style={styles.coverEmoji}>📚</Text>
+          <BookOpen size={40} color="#374151" />
         </View>
       )}
       <View style={styles.cardBody}>
@@ -158,7 +159,6 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,
-    coverEmoji: { fontSize: 40 } as TextStyle,
     cardBody: { padding: 12, gap: 6 } as ViewStyle,
     cardTitle: {
       fontSize: 16,

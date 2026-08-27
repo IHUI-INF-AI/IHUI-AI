@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps } from '@ihui/types'
+import { Star } from 'lucide-react-native'
 
 /** 收藏列表/Props 类型 re-export(单一来源 @ihui/types) */
 export type { FavoriteFilterTab, FavoriteItemRow, FavoriteScreenProps }
@@ -116,7 +117,7 @@ export function FavoriteScreen({
               <Image source={{ uri: item.cover }} style={styles.coverImg} resizeMode="cover" />
             ) : (
               <View style={styles.coverPlaceholder}>
-                <Text style={styles.coverEmoji}>⭐</Text>
+                <Star size={24} color={'#374151'} />
               </View>
             )}
             <View style={styles.cardInfo}>

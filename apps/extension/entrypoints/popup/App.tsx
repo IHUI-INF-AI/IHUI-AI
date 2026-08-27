@@ -13,6 +13,15 @@
  * overflow-y-auto 解决滚动。
  */
 import { useEffect, useMemo, useState } from 'react'
+import {
+  BookOpen,
+  Globe,
+  Link as LinkIcon,
+  MapPin,
+  MessageCircle,
+  User,
+  Wallet,
+} from 'lucide-react'
 import { getMe, logout, type AuthUser } from '@ihui/api-client'
 import { AuthShell, LoginForm, type LoginResult } from '@ihui/ui-react'
 import { initApi, getToken, getRefreshToken, clearAllTokens } from '../../lib/token'
@@ -190,39 +199,39 @@ export default function App() {
         <div className="flex flex-col gap-1">
           <QuickActionButton
             label={t('popup.openChat')}
-            icon="💬"
+            icon={MessageCircle}
             onClick={() => openSidePanel('/chat')}
             variant="primary"
           />
           <QuickActionButton
             label={t('popup.openSidePanel')}
-            icon="📌"
+            icon={MapPin}
             onClick={() => openSidePanel()}
           />
           <QuickActionButton
             label={t('nav.vocabulary')}
-            icon="📖"
+            icon={BookOpen}
             onClick={() => openSidePanel('/vocabulary')}
           />
           <QuickActionButton
             label={t('nav.profile')}
-            icon="👤"
+            icon={User}
             onClick={() => openSidePanel('/profile')}
           />
           <QuickActionButton
             label={t('nav.wallet')}
-            icon="💰"
+            icon={Wallet}
             onClick={() => openSidePanel('/wallet')}
           />
           <QuickActionButton
             label={copyHint || (activeTab?.url ? `${t('popup.copySuccess')} URL` : '—')}
-            icon="🔗"
+            icon={LinkIcon}
             onClick={copyPageUrl}
             disabled={!activeTab?.url}
           />
           <QuickActionButton
             label={t('popup.openWeb')}
-            icon="🌐"
+            icon={Globe}
             onClick={openWeb}
             variant="default"
           />

@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { FlatList, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { ChevronDown } from 'lucide-react-native'
 import type {
   ChatScreenMessage,
   ChatScreenModel,
@@ -124,7 +125,8 @@ export function ChatScreen({
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Text style={styles.modelText}>
-            {t('chat.modelLabel')}: {currentModelName} ▾
+            {t('chat.modelLabel')}: {currentModelName}{' '}
+            <ChevronDown size={14} color={tk.text.secondary} />
           </Text>
         </TouchableOpacity>
       ) : null}

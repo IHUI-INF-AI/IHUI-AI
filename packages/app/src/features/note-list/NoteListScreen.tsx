@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Heart } from 'lucide-react-native'
 import type { NoteListItem, NoteListScreenProps } from '../../types'
 
 /** 笔记列表/Props 类型 re-export(单一来源 @ihui/types) */
@@ -75,9 +76,13 @@ export function NoteListScreen({
               </Text>
               <View style={styles.metaRow}>
                 <Text style={styles.author}>{item.author}</Text>
-                <Text style={styles.meta}>
-                  ❤ {item.likes} · {item.createdAt}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Heart size={11} color={tk.text.tertiary} />
+                  <Text style={styles.meta}>
+                    {' '}
+                    {item.likes} · {item.createdAt}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}

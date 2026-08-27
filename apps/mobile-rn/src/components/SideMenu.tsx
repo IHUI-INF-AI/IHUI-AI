@@ -9,11 +9,12 @@ import { useEffect, useRef } from 'react'
 import { Animated, Modal, Pressable, StyleSheet, Text } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import type { AppIcon } from '@ihui/types'
 
 export interface SideMenuItem {
   key: string
   label: string
-  icon?: string
+  icon?: AppIcon | string
 }
 
 export interface SideMenuProps {
@@ -81,7 +82,11 @@ export default function SideMenu({
                 onPress={() => handleSelect(item.key)}
                 style={({ pressed }) => [styles.item, pressed ? { opacity: 0.6 } : null]}
               >
-                {item.icon ? <Text style={styles.icon}>{item.icon}</Text> : null}
+                {typeof item.icon === 'string' ? (
+                  <Text style={styles.icon}>{item.icon}</Text>
+                ) : item.icon ? (
+                  <item.icon size={18} color={tk.text.primary} />
+                ) : null}
                 <Text
                   style={[styles.label, isActive ? styles.labelActive : styles.labelInactive]}
                   numberOfLines={1}

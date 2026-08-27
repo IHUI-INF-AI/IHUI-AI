@@ -16,7 +16,9 @@
  * - 浅色优雅风,无渐变无霓虹,系统字体
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import type { AppIcon } from '@ihui/types'
 import { useState } from 'react'
+import { Check, ShoppingCart } from 'lucide-react-native'
 import {
   ActivityIndicator,
   Modal,
@@ -31,7 +33,8 @@ import {
 export interface ConfirmPurchaseProduct {
   name: string
   price: number
-  icon?: string
+  /** 商品图标:emoji 字符串或 lucide 图标组件 */
+  icon?: AppIcon | string
   /** 原价(划线价,可选,对齐 Uniapp price-original) */
   originalPrice?: number
 }
@@ -81,7 +84,6 @@ const CARD_PADDING_HORIZONTAL = 24
 const CARD_PADDING_VERTICAL = 20
 
 const ICON_BG_SIZE = 48
-const ICON_FONT_SIZE = 28
 
 const TITLE_FONT_SIZE = 18
 const PRODUCT_NAME_FONT_SIZE = 15
@@ -197,9 +199,7 @@ export function ConfirmPurchasePopUp({
         />
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <Text style={styles.iconText} allowFontScaling={false}>
-              ✓
-            </Text>
+            <Check size={28} color={tokens.success.DEFAULT} />
           </View>
 
           <Text style={styles.title} numberOfLines={2}>
@@ -208,9 +208,15 @@ export function ConfirmPurchasePopUp({
 
           <View style={styles.productRow}>
             <View style={styles.productThumb}>
-              <Text style={styles.productThumbEmoji} allowFontScaling={false}>
-                {product.icon ?? '🛒'}
-              </Text>
+              {typeof product.icon === 'string' ? (
+                <Text style={styles.productThumbEmoji} allowFontScaling={false}>
+                  {product.icon}
+                </Text>
+              ) : product.icon ? (
+                <product.icon size={24} color={'#6b7280'} />
+              ) : (
+                <ShoppingCart size={24} color={'#6b7280'} />
+              )}
             </View>
             <View style={styles.productInfo}>
               <Text style={styles.productName} numberOfLines={1}>
@@ -234,18 +240,17 @@ export function ConfirmPurchasePopUp({
           {/* 权益列表(对齐 Uniapp product-desc benefit-item ✓ 权益,最后一条高亮) */}
           {benefits && benefits.length > 0 ? (
             <View style={styles.benefitsWrap}>
-              {benefits.map((b, i) => (
-                <Text
-                  key={`${b}-${i}`}
-                  style={[
-                    styles.benefitItem,
-                    i === benefits.length - 1 ? styles.benefitHighlight : null,
-                  ]}
-                >
-                  {'✓ '}
-                  {b}
-                </Text>
-              ))}
+              {benefits.map((b, i) => {
+                const isLast = i === benefits.length - 1
+                return (
+                  <View key={`${b}-${i}`} style={styles.benefitItem}>
+                    <Check size={14} color={'#16a34a'} />
+                    <Text style={[styles.benefitText, isLast ? styles.benefitTextHighlight : null]}>
+                      {b}
+                    </Text>
+                  </View>
+                )
+              })}
             </View>
           ) : null}
 
@@ -323,11 +328,7 @@ export function ConfirmPurchasePopUp({
                 accessibilityState={{ checked: isAgreed }}
                 accessibilityLabel={agreementText}
               >
-                {isAgreed ? (
-                  <Text style={styles.agreementCheckMark} allowFontScaling={false}>
-                    ✓
-                  </Text>
-                ) : null}
+                {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
               </Pressable>
               <Pressable
                 style={styles.agreementTextWrap}
@@ -374,13 +375,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
-  iconText: {
-    fontSize: ICON_FONT_SIZE,
-    lineHeight: ICON_FONT_SIZE + 2,
-    color: tokens.success.DEFAULT,
-    fontWeight: '700',
-    textAlign: 'center',
-  } as TextStyle,
   title: {
     marginTop: 16,
     fontSize: TITLE_FONT_SIZE,
@@ -454,11 +448,17 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   } as ViewStyle,
   benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    width: '100%',
+  } as ViewStyle,
+  benefitText: {
     fontSize: 13,
     lineHeight: 20,
     color: tokens.text.secondary,
   } as TextStyle,
-  benefitHighlight: {
+  benefitTextHighlight: {
     color: tokens.warning.deep,
     fontWeight: '600',
   } as TextStyle,
@@ -543,12 +543,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.success.DEFAULT,
     borderColor: tokens.success.DEFAULT,
   } as ViewStyle,
-  agreementCheckMark: {
-    fontSize: 11,
-    lineHeight: 13,
-    color: tokens.surface.light,
-    fontWeight: '700',
-  } as TextStyle,
   agreementTextWrap: {
     flexShrink: 1,
   } as ViewStyle,

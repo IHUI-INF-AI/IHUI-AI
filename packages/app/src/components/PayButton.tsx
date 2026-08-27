@@ -1,7 +1,8 @@
 import { useState, useCallback } from 'react'
 import type { CSSProperties, MouseEvent } from 'react'
 import { getTokens, type AppThemeTokens, type AppThemeMode } from '../theme/tokens'
-import type { TFunction } from '@ihui/types'
+import type { TFunction, AppIcon } from '@ihui/types'
+import { Crown, Gift, Clock, CreditCard, Check, X, Minus, Plus, Bot } from 'lucide-react'
 
 /**
  * 支付按钮 — 跨端共享层。
@@ -47,8 +48,8 @@ interface TypeConfig {
   bg: (tk: AppThemeTokens) => string
   /** 按钮文字颜色 */
   text: (tk: AppThemeTokens) => string
-  /** 图标 emoji */
-  icon: string
+  /** 图标 lucide 组件 */
+  icon: AppIcon
   /** 按钮文字(fallback) */
   label: string
   /** 是否显示购买弹窗 */
@@ -59,35 +60,35 @@ const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
   freevip: {
     bg: (tk) => tk.warning.light,
     text: (tk) => tk.warning.deep,
-    icon: '👑',
+    icon: Crown,
     label: '会员免费',
     showPurchasePopup: false,
   },
   '1': {
     bg: (tk) => tk.gray[100],
     text: (tk) => tk.text.primary,
-    icon: '🎁',
+    icon: Gift,
     label: '免费使用',
     showPurchasePopup: false,
   },
   '2': {
     bg: (tk) => tk.danger.light,
     text: (tk) => tk.danger.DEFAULT,
-    icon: '⏰',
+    icon: Clock,
     label: '限时免费',
     showPurchasePopup: false,
   },
   '3': {
     bg: (tk) => tk.brand.DEFAULT,
     text: (tk) => tk.surface.light,
-    icon: '💳',
+    icon: CreditCard,
     label: '每月',
     showPurchasePopup: true,
   },
   '4': {
     bg: (tk) => tk.gray[100],
     text: (tk) => tk.gray[500],
-    icon: '✓',
+    icon: Check,
     label: '已购买',
     showPurchasePopup: false,
   },
@@ -321,7 +322,9 @@ export function PayButton({
         onClick={handleClick}
         disabled={disabled}
       >
-        <span style={textStyles.icon()}>{cfg.icon}</span>
+        <span style={textStyles.icon()}>
+          <cfg.icon size={12} color={cfg.text(tk)} />
+        </span>
         <span style={textStyles.label()}>{cfg.label}</span>
       </button>
 
@@ -341,7 +344,7 @@ export function PayButton({
               style={viewStyles.closeBtn()}
               onClick={() => setPopupVisible(false)}
             >
-              ×
+              <X size={16} color={tk.text.primary} />
             </button>
             {/* 商品信息 */}
             <div style={viewStyles.productRow()}>
@@ -349,7 +352,7 @@ export function PayButton({
                 <img src={agentAvatar} alt={productName} style={imageStyles.avatar()} />
               ) : (
                 <div style={viewStyles.avatarFallback(tk)}>
-                  <span>🤖</span>
+                  <Bot size={20} color={tk.text.primary} />
                 </div>
               )}
               <div style={viewStyles.productText()}>
@@ -373,7 +376,7 @@ export function PayButton({
                 disabled={count <= 1}
                 aria-label="减少数量"
               >
-                −
+                <Minus size={16} color={tk.text.primary} />
               </button>
               <span style={textStyles.countValue()}>{count}</span>
               <button
@@ -382,7 +385,7 @@ export function PayButton({
                 onClick={() => setCount(count + 1)}
                 aria-label="增加数量"
               >
-                +
+                <Plus size={16} color={tk.text.primary} />
               </button>
             </div>
             {/* 立即支付按钮 */}
