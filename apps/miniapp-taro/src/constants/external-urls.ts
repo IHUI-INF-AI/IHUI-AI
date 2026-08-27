@@ -23,5 +23,5 @@ export const PLAZA_QA_URLS = [
 ] as const
 
 /** TabBar / 默认头像 CDN URL(pages/index, pages/user — defaultAvatar) */
-export const TABBAR_HOME_ICON_URL =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png' as const
+import { BSPAPP_BASE } from '@/constants/icon-urls'
+export const TABBAR_HOME_ICON_URL = `${BSPAPP_BASE}/tabbar/tabbar/home.png` as const

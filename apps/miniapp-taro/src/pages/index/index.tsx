@@ -55,11 +55,11 @@ import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
 import type { ChatMessage } from '@/api'
+import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 
 import './index.css'
 
-const DEFAULT_AVATAR =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+const DEFAULT_AVATAR = TABBAR_HOME_ICON_URL
 
 // 首页静态资源(Taro config copy.patterns 把 src/static/* 复制到 dist/static/*)
 const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
