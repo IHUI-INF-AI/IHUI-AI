@@ -118,6 +118,16 @@ const freeTimeIconIcon = '/remote-images/free_time_icon.png'
 const buymonthIconIcon = '/remote-images/buymonth_icon.png'
 const hasbuyIconIcon = '/remote-images/hasbuy_icon.png'
 
+// 2026-08-27 恢复:原 CDN(file.aizhs.top / bspapp)已退服,从原项目源码
+// (D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue)找回的图标,拷贝至本地副本
+const kingLocalIcon = '/remote-images/king.png'
+const likeLocalIcon = '/remote-images/like.png'
+const aiIconLocalIcon = '/remote-images/ai-icon.png'
+const courseIconLocalIcon = '/remote-images/course-icon.png'
+const knowledgeIconLocalIcon = '/remote-images/knowledge-icon.png'
+const icon1LocalIcon = '/remote-images/icon1.png'
+const n8nLocalIcon = '/remote-images/n8n.png'
+
 /** 远程图标注册表:name → 资源路径(本地 import 或远程 URL) */
 export const REMOTE_ICONS: Record<string, string> = {
   delete: bspappUrl('user/删除.png'),
@@ -199,9 +209,9 @@ export const REMOTE_ICONS: Record<string, string> = {
   daixaodiming: daixaodimingIcon,
   wirelesslogo: wirelesslogoIcon,
   rechargebtn: rechargebtnIcon,
-  aiIcon: bspappUrl('user/ai-icon.png'),
-  courseIcon: bspappUrl('user/course-icon.png'),
-  knowledgeIcon: bspappUrl('user/knowledge-icon.png'),
+  aiIcon: aiIconLocalIcon,
+  courseIcon: courseIconLocalIcon,
+  knowledgeIcon: knowledgeIconLocalIcon,
   qwenImageFe8514b76c874ffa84e6a8d0f6df392220250830094749a007: aizhsUrl(
     'sys-backs/2025/08/30/qwen_image_fe8514b76c874ffa84e6a8d0f6df3922_20250830094749A007.jpg',
   ),
