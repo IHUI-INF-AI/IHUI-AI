@@ -82,8 +82,11 @@ const SCAN_EXTS = ['.tsx', '.jsx']
 // 父容器圆角类(rounded-sm/rounded 太小不构成视觉溢出,只检测 >= 6px 的圆角)
 const PARENT_ROUNDED_RE = /(?:^|\s)rounded-(?:xl|2xl|lg|md)\b/
 
-// overflow-hidden 标记
-const OVERFLOW_HIDDEN_RE = /overflow-hidden/
+// overflow-* 标记:overflow-hidden / overflow-auto / overflow-x-auto / overflow-y-hidden 等,
+// 凡含 overflow-* 都会创建 BFC,等同裁剪,豁免圆角溢出违规。
+// 2026-08-19 修订:原脚本只匹配 overflow-hidden,导致 "overflow-x-auto rounded-lg" 包 <Table> 的
+// 标准用法被误报 140+ 处(admin 全套 table + 大量其他 table 组件)。
+const OVERFLOW_HIDDEN_RE = /(?:^|\s)overflow-(?:hidden|auto|scroll|clip|x-auto|x-hidden|x-scroll|y-auto|y-hidden|y-scroll)(?:\s|$)/
 
 // 子元素背景色类(非透明)
 const CHILD_BG_RE = /(?:^|\s)bg-(?!transparent|none\b)[a-z]/

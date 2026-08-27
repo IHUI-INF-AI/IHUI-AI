@@ -185,6 +185,7 @@ export function publicUser(
     roleId: number | null
     status: number | null
     isVip: number | null
+    identityType: string | null
     level: number | null
     inviteCode: string | null
     parentId: string | null
@@ -207,6 +208,15 @@ export function publicUser(
     roleId: user.roleId ?? 0,
     status: user.status ?? 1,
     isVip: user.isVip ?? 0,
+    // 身份档位由 is_vip 派生(-1游客/0普通/1VIP/2操盘手);identity_type 列留作显式覆盖
+    identityType:
+      user.identityType && user.identityType !== 'normal'
+        ? user.identityType
+        : user.isVip === 2
+          ? 'trader'
+          : user.isVip === 1
+            ? 'vip'
+            : 'normal',
     level: user.level ?? 0,
     inviteCode: user.inviteCode ?? '',
     parentId: user.parentId ?? '',
@@ -1107,7 +1117,11 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           '使用 refreshToken 轮换签发新的 accessToken / refreshToken(支持 body 或 httpOnly cookie)',
         tags: ['auth'],
         body: {
-          type: 'object',
+          // 2026-08-26 修复:type 允许 ['object','null'] —— 注释声称"cookie 模式 body 可缺省",
+          // 但 Fastify schema 校验对 undefined body 直接 400(JSON Schema type:'object' 不匹配 undefined),
+          // 与 handler 的 cookie-only 设计矛盾(注释 2026-08-14 声明 body 可缺省但实际被 schema 拦截)。
+          // 修复后无 body 的 POST 才真正走到 handler 走 cookie 路径。
+          type: ['object', 'null'],
           // 2026-08-14 修复:refreshToken 不再 required —— httpOnly cookie 化后,前端 JS
           // 读不到 refresh_token,body 可缺省(handler 兼容 cookie 读取)。
           // 之前 required: ['refreshToken'] 让 schema 校验拒绝没 body 的请求 → 400
@@ -1196,7 +1210,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         await authenticate(request)
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-        const message = toUserFriendlyMessage(e) || 'Authentication required'
+        const message = toUserFriendlyMessage(e) || '操作失败,请稍后重试'
         return reply.status(statusCode).send(error(statusCode, message))
       }
 
@@ -1296,7 +1310,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
         return reply
           .status(statusCode)
-          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+          .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
       const body = (request.body as Record<string, string> | null) ?? {}
       const oldPassword = body.old_password ?? body.oldPassword
@@ -1327,7 +1341,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
         return reply
           .status(statusCode)
-          .send(error(statusCode, toUserFriendlyMessage(e) || 'Authentication required'))
+          .send(error(statusCode, toUserFriendlyMessage(e) || '操作失败,请稍后重试'))
       }
       await cancelUserAccount(request.userId!)
       return reply.send(success({ cancelled: true }))

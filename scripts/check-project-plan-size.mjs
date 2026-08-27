@@ -43,7 +43,9 @@ if (stats.size > WARN_BYTES) {
   console.warn(`   当前: ${C.yellow}${sizeKB} KB${C.reset}`)
   console.warn(`   软参考: ${C.cyan}${warnKB} KB${C.reset}`)
   console.warn(`   建议: 把已完成(✅)历史条目归档到 ${C.cyan}.trae-cn/archive/${C.reset} 以保持 AI 可读性`)
-  process.exit(0)
+  // 2026-08-19 立:warn-only 违规显式 exit 1,让 guardian-runner 计入 warned 计数
+  // (原本 exit 0 会让违规被 guardian-runner 静默吞掉,统计不可信)
+  process.exit(1)
 }
 
 console.log(`${C.green}✅ PROJECT_PLAN.md 体积信息${C.reset} ${C.dim}(${sizeKB} KB / 软参考 ${warnKB} KB, warn-only)${C.reset}`)

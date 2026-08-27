@@ -38,7 +38,7 @@ const skillsRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.body)
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
-    const skill = await updateSkill(id, body.data)
+    const skill = await updateSkill(id, body.data, request.userId)
     if (!skill) return reply.status(404).send(error(404, '技能不存在'))
     return reply.send(success({ success: true, skill }))
   })

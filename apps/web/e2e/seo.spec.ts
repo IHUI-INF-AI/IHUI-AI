@@ -86,7 +86,7 @@ test.describe.parallel('SEO 专项', () => {
 
   test('页面有语义化 HTML(header / main)', async ({ page }: { page: Page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // header: 顶部应存在 header 元素
     const header = page.locator('header').first()
     await expect(header).toBeVisible({ timeout: 5000 })

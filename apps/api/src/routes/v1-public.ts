@@ -21,6 +21,11 @@ import { join } from 'node:path'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { config } from '../config/index.js'
+import {
+  fetchProviderHealth,
+  isProviderHardUnavailable,
+  type HealthMap,
+} from '../lib/llm-provider-health.js'
 import { db, dbRead } from '../db/index.js'
 import {
   agents,
@@ -255,21 +260,37 @@ async function fetchModels(userId?: string): Promise<{
     }
 
     if (dbModels.length > 0 || byokModels.length > 0) {
-      const relayList = dbModels.map((m) => ({
-        // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
-        // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
-        // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
-        // 其他(如 openai/原生)→ 不加前缀。
-        id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
-        object: 'model' as const,
-        created: Math.floor(now / 1000),
-        owned_by: m.providerCode || m.configName || 'ihui',
-      }))
+      // P0 修复:DB 路径只上架 provider 实际可用的平台模型;
+      // 硬不可用(down/not_configured/受限态 402·401·403·429)剔除。
+      // 仅在存在上架平台模型时拉取一次 ai-service 可用性;
+      // 缓存命中 / live / 仅 BYOK 路径不打额外上游。
+      let healthMap: HealthMap = new Map()
+      if (dbModels.length > 0) {
+        try {
+          healthMap = await fetchProviderHealth()
+        } catch {
+          // 视为全部可用
+        }
+      }
+      const relayList = dbModels
+        .filter((m) => !isProviderHardUnavailable(m.providerCode, healthMap))
+        .map((m) => ({
+          // P0-5 修复(2026-07-30):返回带 LiteLLM 前缀的 model id,
+          // 客户端可直接传给 /v1/chat/completions,api 转发给 ai-service 无需二次映射。
+          // 映射规则:provider_code=stepfun → stepfun/,base_url 含 agnes-ai.com → agnes/,
+          // 其他(如 openai/原生)→ 不加前缀。
+          id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
+          object: 'model' as const,
+          created: Math.floor(now / 1000),
+          owned_by: m.providerCode || m.configName || 'ihui',
+          available: !isProviderHardUnavailable(m.providerCode, healthMap),
+        }))
       const byokList = byokModels.map((m) => ({
         id: toLiteLLMModelId(m.id, m.providerCode, m.baseUrl),
         object: 'model' as const,
         created: Math.floor(now / 1000),
         owned_by: 'byok',
+        available: true,
       }))
       const mapped: V1ModelsResponse = {
         object: 'list',
@@ -314,7 +335,7 @@ async function fetchModels(userId?: string): Promise<{
               (typeof mo.manufacturer === 'string' && mo.manufacturer) ||
               'ihui'
             const created = typeof mo.created === 'number' ? mo.created : Math.floor(now / 1000)
-            return { id, object: 'model' as const, created, owned_by: ownedBy }
+            return { id, object: 'model' as const, created, owned_by: ownedBy, available: true }
           }),
         }
         modelsCache = { data: mapped, fetchedAt: now }
@@ -328,7 +349,10 @@ async function fetchModels(userId?: string): Promise<{
   if (modelsCache) {
     return { body: modelsCache.data, source: 'cache' }
   }
-  return { body: FALLBACK_MODELS, source: 'fallback' }
+  return {
+    body: { ...FALLBACK_MODELS, data: FALLBACK_MODELS.data.map((m) => ({ ...m, available: true })) },
+    source: 'fallback',
+  }
 }
 
 // =============================================================================

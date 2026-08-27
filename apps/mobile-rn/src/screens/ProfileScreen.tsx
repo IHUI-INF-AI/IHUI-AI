@@ -25,23 +25,30 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio'
 import * as FileSystem from 'expo-file-system'
+import * as ImagePicker from 'expo-image-picker'
 import * as MediaLibrary from 'expo-media-library'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { ProfileScreen as SharedProfileScreen } from '@ihui/rn-app'
 import type { SharedMenuSection } from '@ihui/rn-app'
 import type { UserInfo } from '@ihui/types'
 import {
+  cancelRecurringContract,
   deleteConversation,
   getOrders,
+  getProfile,
+  getSubscriptionStatus,
   getUserStatistics,
   listConversations,
+  resolveFileUrl,
   updateProfile,
+  uploadFileMultipart,
   type AuthUser,
   type ConversationDetail,
   type UserStatistics,
 } from '@ihui/api-client'
 import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { useAuth } from '../context/AuthContext'
+import { rnAuthStore } from '../stores/auth-store'
 import { useTheme } from '../context/ThemeContext'
 import { useI18n } from '../i18n'
 import { LoginPopUp } from '../components/LoginPopUp'
@@ -50,6 +57,10 @@ import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
+// 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
+// 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { UserCard, type UserCardKey } from '../components/UserCard'
 import UserInfoCard from '../components/UserInfoCard'
 import {
@@ -75,15 +86,14 @@ import {
   EMPTY_TEXT_LIST,
   EMPTY_VIDEO_LIST,
   PROFILE_TAB_LIST,
-  createInitialPagination,
   extractConversationMetadata,
   type AudioContent,
-  type ContentPagination,
   type ImageContent,
   type ProfileTabId,
   type TextContent,
   type VideoContent,
 } from './profileContentTypes'
+import { rpx } from '../utils/rpx'
 
 type ProfileStackNav = NativeStackNavigationProp<MainStackParamList, 'ProfileMain'>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -116,9 +126,41 @@ function navigateRoot(nav: RootNav | undefined, route: keyof RootStackParamList)
 export function ProfileScreen() {
   const { t } = useI18n()
   const navigation = useNavigation<ProfileStackNav>()
+
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;广场/动态为 RootStack 独立路由) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('AiMain')
+        break
+      case 'home':
+        navigation.navigate('HomeMain')
+        break
+      case 'plaza':
+        rootNav?.navigate('Plaza')
+        break
+      case 'news':
+        rootNav?.navigate('News')
+        break
+      case 'mine':
+        break // 当前 Tab
+    }
+  }
   const rootNav = navigation.getParent<RootNav>()
   const { user, logout, ready } = useAuth()
   const { resolvedTheme } = useTheme()
+  // 返回顶部按钮(对齐 Uniapp user/index.vue toodown:滚动超过阈值显示,点击回顶)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const profileScrollRef = useRef<ScrollView>(null)
+  const handleProfileScroll = useCallback(
+    (e: { nativeEvent: { contentOffset: { y: number } } }) => {
+      setShowBackToTop(e.nativeEvent.contentOffset.y > 300)
+    },
+    [],
+  )
+  const handleBackToTop = useCallback(() => {
+    profileScrollRef.current?.scrollTo({ y: 0, animated: true })
+  }, [])
   const [stats, setStats] = useState<UserStatistics | null>(null)
   const [orderCount, setOrderCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -203,12 +245,23 @@ export function ProfileScreen() {
     }
   }, [drawerVisible, drawerConversationsLoaded, user, loadDrawerConversations])
 
+  // 菜单项点击跳转:所有菜单路由均注册在 RootStack(menuSections 映射时已统一为 RootRoute),
+  // 统一经父级 rootNav navigate(ProfileMain 为 Main 子 Tab,不能直接用子栈 navigation)
   const onNavigate = (item: MenuItem) => {
-    if (item.viaParent) {
-      navigateRoot(rootNav, item.key)
-    } else {
-      navigateRoot(rootNav, item.key)
+    // M4(2026-08-26):WebView 承载页需带 URL 参数,单独处理
+    if (item.key === 'WebViewPortal') {
+      rootNav?.navigate('WebView', {
+        url: 'https://aizhs.top',
+        title: t('menu.webPortal'),
+      })
+      return
     }
+    // M4.1(2026-08-26):Web 功能门户(细分 URL 列表页)
+    if (item.key === 'WebPortal') {
+      rootNav?.navigate('WebPortal')
+      return
+    }
+    navigateRoot(rootNav, item.key)
   }
 
   /** UserCard 4 宫格点击跳转(对齐 Uniapp user_cards.vue handleClick) */
@@ -260,11 +313,11 @@ export function ProfileScreen() {
     setDrawerVisible(false)
     // square/share 无对应 RN Tab,跳转独立 RootStack 页(对齐 Uniapp 广场页/资讯页)
     if (tab === 'square') {
-      rootNav?.navigate('Square')
+      rootNav?.navigate('Plaza')
       return
     }
     if (tab === 'share') {
-      rootNav?.navigate('Share')
+      rootNav?.navigate('News')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
@@ -337,6 +390,15 @@ export function ProfileScreen() {
         navigateRoot(rootNav, 'ModelPlaza')
         break
       case 'company':
+        rootNav?.navigate('Distribution')
+
+        break
+
+      case 'assistant':
+        rootNav?.navigate('Assistant')
+
+        break
+
       case 'tools':
         rootNav?.navigate('Settings')
         break
@@ -380,6 +442,34 @@ export function ProfileScreen() {
       }
     : null
 
+  /**
+   * 退订确认 — 查询当前 VIP 订阅状态(含微信周期扣款签约),有自动续费则真实解约;
+   * 无自动续费订阅(单次购买 VIP)时给出明确反馈,不再提示"开发中"。
+   */
+  const handleConfirmUnsubscribe = async () => {
+    setUnsubscribeVisible(false)
+    try {
+      const statusRes = await getSubscriptionStatus()
+      if (!statusRes.success) {
+        showFloat(statusRes.error || '查询订阅状态失败', 'warning')
+        return
+      }
+      const contract = statusRes.data.contract
+      if (contract && contract.status === 'active') {
+        const cancelRes = await cancelRecurringContract(contract.id)
+        if (cancelRes.success) {
+          showFloat('已取消自动续费,会员到期后不会续扣', 'success')
+        } else {
+          showFloat(cancelRes.error || '退订失败,请稍后重试', 'warning')
+        }
+      } else {
+        showFloat('当前无自动续费订阅,无需退订', 'info')
+      }
+    } catch {
+      showFloat('网络错误,请稍后重试', 'warning')
+    }
+  }
+
   return (
     <>
       <NavBar
@@ -394,9 +484,12 @@ export function ProfileScreen() {
         ]}
       />
       <ScrollView
+        ref={profileScrollRef}
         style={styles.screenScroll}
         contentContainerStyle={styles.screenScrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleProfileScroll}
+        scrollEventThrottle={16}
       >
         {loading ? (
           <View style={styles.loaderWrap}>
@@ -499,12 +592,18 @@ export function ProfileScreen() {
         agreeChecked={agreeChecked}
         onAgreeChange={setAgreeChecked}
       />
-      {/* FloatBox 悬浮提示(对齐 Uniapp user/index.vue 行 8 <FloatBox />) */}
+      {/* FloatBox 悬浮提示(对齐 Uniapp uni.showToast 语义) */}
       <FloatBox
         visible={floatVisible}
         type={floatType}
         message={floatMessage}
         onHide={() => setFloatVisible(false)}
+      />
+      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp user/index.vue 行 8 <FloatBox />:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => rootNav?.navigate('Promote')}
+        onConsult={() => rootNav?.navigate('CustomerService')}
+        onFeedback={() => rootNav?.navigate('Settings')}
       />
       {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
       <Drawer
@@ -523,6 +622,12 @@ export function ProfileScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 返回顶部按钮(对齐 Uniapp user/index.vue toodown) */}
+      {showBackToTop ? (
+        <TouchableOpacity style={styles.backToTopBtn} activeOpacity={0.7} onPress={handleBackToTop}>
+          <Text style={styles.backToTopIcon}>↑</Text>
+        </TouchableOpacity>
+      ) : null}
       {/* 编辑资料弹窗(对齐 Uniapp user/index.vue 编辑资料弹层,替代 ProfileEdit 跳转) */}
       {user ? (
         <EditProfileModal
@@ -541,11 +646,10 @@ export function ProfileScreen() {
       <UnsubscribeModal
         visible={unsubscribeVisible}
         onClose={() => setUnsubscribeVisible(false)}
-        onConfirm={() => {
-          setUnsubscribeVisible(false)
-          showFloat('退订功能开发中', 'info')
-        }}
+        onConfirm={handleConfirmUnsubscribe}
       />
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="mine" onChange={handleTabChange} />
     </>
   )
 }
@@ -572,7 +676,8 @@ function EditProfileModal({
   onSaved,
 }: EditProfileModalProps): React.JSX.Element {
   const [nickname, setNickname] = useState(user.nickname ?? user.username ?? '')
-  const [avatarHintVisible, setAvatarHintVisible] = useState(false)
+  const [avatarHint, setAvatarHint] = useState('')
+  const [avatarUpdating, setAvatarUpdating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
 
@@ -580,10 +685,61 @@ function EditProfileModal({
   useEffect(() => {
     if (visible) {
       setNickname(user.nickname ?? user.username ?? '')
-      setAvatarHintVisible(false)
+      setAvatarHint('')
+      setAvatarUpdating(false)
       setSaveError('')
     }
   }, [visible, user.nickname, user.username])
+
+  /**
+   * 更换头像 — 相册选图 → 上传文件 → 更新用户 avatar → 刷新全局用户态。
+   * 替代原"头像更换功能开发中"占位,走真实上传链路(uploadFileMultipart + updateProfile)。
+   */
+  const handlePickAvatar = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (perm.status !== 'granted') {
+        setAvatarHint('需要相册权限才能更换头像')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: false,
+        quality: 0.8,
+      })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+
+      setAvatarUpdating(true)
+      setAvatarHint('头像上传中...')
+      const uploadRes = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: asset.fileName ?? `avatar_${Date.now()}.jpg`,
+      })
+      if (!uploadRes.success) {
+        setAvatarHint(uploadRes.error || '头像上传失败')
+        return
+      }
+      const avatarUrl = resolveFileUrl(uploadRes.data.path)
+      const updateRes = await updateProfile({ avatar: avatarUrl })
+      if (!updateRes.success) {
+        setAvatarHint(updateRes.error || '头像更新失败')
+        return
+      }
+      // 刷新认证用户态,同步到全局展示(头像/昵称等)
+      const meRes = await getProfile()
+      if (meRes.success) {
+        rnAuthStore.getState().setUser(meRes.data)
+      }
+      setAvatarHint('头像已更新')
+    } catch {
+      setAvatarHint('网络错误,请稍后重试')
+    } finally {
+      setAvatarUpdating(false)
+    }
+  }
 
   const handleSave = async () => {
     const trimmed = nickname.trim()
@@ -613,11 +769,12 @@ function EditProfileModal({
         <View style={styles.editProfileCard}>
           <Text style={styles.editProfileTitle}>编辑资料</Text>
 
-          {/* 头像(可点击更换,占位提示) */}
+          {/* 头像(点击更换 — 相册选图 → 上传 → 更新用户信息) */}
           <View style={styles.editProfileAvatarSection}>
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => setAvatarHintVisible(true)}
+              onPress={() => void handlePickAvatar()}
+              disabled={avatarUpdating}
               style={styles.editProfileAvatarBtn}
               accessibilityLabel="更换头像"
             >
@@ -629,9 +786,7 @@ function EditProfileModal({
                 <Text style={styles.editProfileAvatarBadgeText}>+</Text>
               </View>
             </TouchableOpacity>
-            {avatarHintVisible ? (
-              <Text style={styles.editProfileAvatarHint}>头像更换功能开发中</Text>
-            ) : null}
+            {avatarHint ? <Text style={styles.editProfileAvatarHint}>{avatarHint}</Text> : null}
           </View>
 
           {/* 昵称(可编辑) */}
@@ -850,10 +1005,6 @@ function ProfileContentSection(): React.JSX.Element {
     useState<readonly VideoContent[]>(EMPTY_VIDEO_LIST)
   const [audioContentList, setAudioContentList] =
     useState<readonly AudioContent[]>(EMPTY_AUDIO_LIST)
-  const [textPagination] = useState<ContentPagination>(createInitialPagination)
-  const [imagePagination] = useState<ContentPagination>(createInitialPagination)
-  const [videoPagination] = useState<ContentPagination>(createInitialPagination)
-  const [audioPagination] = useState<ContentPagination>(createInitialPagination)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState<PreviewState>({ images: [], index: 0, visible: false })
@@ -1010,26 +1161,14 @@ function ProfileContentSection(): React.JSX.Element {
           </View>
         ) : (
           <>
-            {activeTab === 1 ? (
-              <TextTabContent list={textContentList} pagination={textPagination} />
-            ) : null}
+            {activeTab === 1 ? <TextTabContent list={textContentList} /> : null}
             {activeTab === 2 ? (
-              <ImageTabContent
-                list={imageContentList}
-                pagination={imagePagination}
-                onPreview={onImagePreview}
-              />
+              <ImageTabContent list={imageContentList} onPreview={onImagePreview} />
             ) : null}
             {activeTab === 3 ? (
-              <VideoTabContent
-                list={videoContentList}
-                pagination={videoPagination}
-                onPlay={onVideoPlay}
-              />
+              <VideoTabContent list={videoContentList} onPlay={onVideoPlay} />
             ) : null}
-            {activeTab === 4 ? (
-              <AudioTabContent list={audioContentList} pagination={audioPagination} />
-            ) : null}
+            {activeTab === 4 ? <AudioTabContent list={audioContentList} /> : null}
           </>
         )}
       </View>
@@ -1068,7 +1207,6 @@ function ProfileContentSection(): React.JSX.Element {
 
 interface TextTabProps {
   list: readonly TextContent[]
-  pagination: ContentPagination
 }
 
 function TextTabContent({ list }: TextTabProps): React.JSX.Element {
@@ -1105,7 +1243,6 @@ function TextTabContent({ list }: TextTabProps): React.JSX.Element {
 
 interface ImageTabProps {
   list: readonly ImageContent[]
-  pagination: ContentPagination
   onPreview: (images: readonly string[], index: number) => void
 }
 
@@ -1151,7 +1288,6 @@ function ImageTabContent({ list, onPreview }: ImageTabProps): React.JSX.Element 
 
 interface VideoTabProps {
   list: readonly VideoContent[]
-  pagination: ContentPagination
   onPlay: (url: string) => void
 }
 
@@ -1214,7 +1350,6 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
 
 interface AudioTabProps {
   list: readonly AudioContent[]
-  pagination: ContentPagination
 }
 
 function AudioTabContent({ list }: AudioTabProps): React.JSX.Element {
@@ -1547,7 +1682,8 @@ function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): Rea
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.videoModalOverlay}>
-          {/* 内容区阻止冒泡,避免点击视频/按钮触发遮罩关闭(对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
+          {/* 内容区阻止冒泡:onPress 空实现有意吞掉内容区点击,让遮罩 onClose 仅在点击遮罩区域时触发
+           * (对齐 Uniapp 行 220/237/243 遮罩点击关闭) */}
           <TouchableWithoutFeedback onPress={() => undefined}>
             <View style={styles.videoModalContent}>
               <View
@@ -1635,30 +1771,52 @@ const styles = StyleSheet.create({
   screenScrollContent: {
     flexGrow: 1,
   },
+  // 返回顶部按钮(对齐 Uniapp toodown,样式对齐 AgentScreen backToTopBtn)
+  backToTopBtn: {
+    position: 'absolute',
+    right: 16,
+    bottom: 76, // TabBar 上方
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 3,
+    shadowColor: tokens.gray[900],
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+  },
+  backToTopIcon: {
+    fontSize: 18,
+    color: tokens.text.secondary,
+    fontWeight: '600',
+  },
   loaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rpx(96),
   },
   userInfoCardWrap: {
-    marginTop: 8,
-    paddingHorizontal: 12,
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
   },
   contentSection: {
     // 对齐 Uniapp 20rpx(≈10px)水平 padding
-    paddingHorizontal: 10,
-    paddingBottom: 12,
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(24),
   },
   // 会员权益折叠头(对齐 Uniapp user/index.vue 行 30 toggleMembershipBenefits)
   membershipHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
     backgroundColor: tokens.surface.card,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: rpx(16),
   },
   membershipHeaderText: {
     fontSize: 15,
@@ -1673,21 +1831,21 @@ const styles = StyleSheet.create({
   },
   // 会员权益内容容器(对齐 Uniapp 10rpx(≈5px)与折叠头间距)
   membershipBenefitsWrap: {
-    marginTop: 5,
+    marginTop: rpx(10),
   },
   tabBarWrap: {
     // 对齐 Uniapp 20rpx(≈10px)Tab 区下方间距
-    marginBottom: 10,
+    marginBottom: rpx(20),
   },
   contentDisplayArea: {
     // 对齐 Uniapp(删除大容器圆角,改 minHeight + marginBottom + 紧凑 padding)
     minHeight: 100,
-    marginBottom: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 0,
+    marginBottom: rpx(20),
+    paddingHorizontal: rpx(20),
+    paddingVertical: rpx(0),
   },
   listContent: {
-    gap: 0,
+    gap: rpx(0),
   },
   itemGap: {
     height: 12,
@@ -1696,15 +1854,15 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp border-radius:20rpx(≈10px) padding:28rpx(≈14px) border:1px #EEEEEE
     borderRadius: 10,
     backgroundColor: tokens.surface.light,
-    padding: 14,
+    padding: rpx(28),
     borderWidth: 1,
     borderColor: '#EEEEEE',
   },
   copyLinkBtn: {
     alignSelf: 'center',
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    marginTop: rpx(24),
+    paddingVertical: rpx(16),
+    paddingHorizontal: rpx(32),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },
@@ -1716,8 +1874,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: rpx(16),
+    gap: rpx(16),
   },
   contentTitle: {
     flex: 1,
@@ -1731,7 +1889,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   contentBody: {
-    gap: 8,
+    gap: rpx(16),
   },
   textContent: {
     // 对齐 Uniapp font-size:28rpx(≈14px) line-height:1.8(≈25)
@@ -1740,7 +1898,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   imageColumn: {
-    gap: 8,
+    gap: rpx(16),
   },
   imageColumnItem: {
     borderRadius: 8,
@@ -1765,8 +1923,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     left: '50%',
-    marginTop: -30,
-    marginLeft: -30,
+    marginTop: rpx(-60),
+    marginLeft: rpx(-60),
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -1777,12 +1935,12 @@ const styles = StyleSheet.create({
   videoPlayIconText: {
     fontSize: 24,
     color: '#ffffff',
-    marginLeft: 4,
+    marginLeft: rpx(8),
   },
   audioPlayer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: rpx(20),
   },
   audioPlayBtn: {
     width: 36,
@@ -1795,7 +1953,7 @@ const styles = StyleSheet.create({
   audioPlayIcon: {
     fontSize: 16,
     color: tokens.surface.light,
-    marginLeft: 2,
+    marginLeft: rpx(4),
   },
   audioProgressTrack: {
     flex: 1,
@@ -1840,7 +1998,7 @@ const styles = StyleSheet.create({
     right: 72,
     zIndex: 2,
     height: 40,
-    paddingHorizontal: 14,
+    paddingHorizontal: rpx(28),
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
@@ -1886,7 +2044,7 @@ const styles = StyleSheet.create({
   },
   videoModalContent: {
     alignItems: 'center',
-    gap: 16,
+    gap: rpx(32),
   },
   videoModalClose: {
     width: 40,
@@ -1907,7 +2065,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: rpx(32),
   },
   videoEmptyText: {
     fontSize: 14,
@@ -1920,14 +2078,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: rpx(48),
   },
   sharePopupCard: {
     width: '100%',
     maxWidth: 320,
     backgroundColor: tokens.surface.card,
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
     alignItems: 'center',
   },
   sharePopupClose: {
@@ -1950,11 +2108,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 14,
+    marginBottom: rpx(28),
   },
   sharePopupImageWrap: {
     width: '100%',
-    marginBottom: 14,
+    marginBottom: rpx(28),
   },
   sharePopupImage: {
     width: '100%',
@@ -1963,7 +2121,7 @@ const styles = StyleSheet.create({
   },
   sharePopupBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rpx(24),
     alignSelf: 'stretch',
   },
   sharePopupSaveBtn: {
@@ -1971,7 +2129,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: tokens.surface.bg,
@@ -1984,7 +2142,7 @@ const styles = StyleSheet.create({
   sharePopupShareBtn: {
     flex: 1,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
     // 对齐 Uniapp popup-share-btn 黑底白字
@@ -1999,14 +2157,14 @@ const styles = StyleSheet.create({
   tabLoaderWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
+    paddingVertical: rpx(96),
   },
   tabErrorWrap: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    gap: 12,
+    paddingVertical: rpx(96),
+    paddingHorizontal: rpx(48),
+    gap: rpx(24),
   },
   tabErrorText: {
     fontSize: 14,
@@ -2014,8 +2172,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tabRetryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
+    paddingHorizontal: rpx(40),
+    paddingVertical: rpx(16),
     borderRadius: 8,
     backgroundColor: tokens.brand.DEFAULT,
   },
@@ -2027,9 +2185,9 @@ const styles = StyleSheet.create({
   // ── 等级介绍按钮(对齐 Uniapp level-intro 入口,UserInfoCard 下方独立按钮) ──
   levelIntroBtn: {
     alignSelf: 'flex-end',
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    marginTop: rpx(16),
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(12),
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   },
@@ -2047,8 +2205,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    padding: 20,
-    paddingBottom: 32,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
   },
   editProfileTitle: {
     // 对齐 Uniapp 32rpx(≈16px)标题字号
@@ -2056,12 +2214,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   editProfileAvatarSection: {
     alignItems: 'center',
-    marginBottom: 16,
-    gap: 6,
+    marginBottom: rpx(32),
+    gap: rpx(12),
   },
   editProfileAvatarBtn: {
     position: 'relative',
@@ -2099,8 +2257,8 @@ const styles = StyleSheet.create({
   },
   editProfileField: {
     // 对齐 Uniapp 30rpx(≈15px)字段间距
-    marginBottom: 15,
-    gap: 6,
+    marginBottom: rpx(30),
+    gap: rpx(12),
   },
   editProfileLabel: {
     fontSize: 13,
@@ -2110,8 +2268,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: rpx(24),
+    paddingVertical: rpx(20),
     fontSize: 14,
     color: tokens.text.primary,
     backgroundColor: tokens.surface.light,
@@ -2122,8 +2280,8 @@ const styles = StyleSheet.create({
   },
   editProfileBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+    gap: rpx(24),
+    marginTop: rpx(16),
   },
   editProfileCancelBtn: {
     flex: 1,
@@ -2131,7 +2289,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2144,7 +2302,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2159,7 +2317,7 @@ const styles = StyleSheet.create({
   editProfileError: {
     fontSize: 12,
     color: tokens.danger.DEFAULT,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   },
   // ── 等级介绍 Modal(对齐 Uniapp level-intro popup) ──
   levelIntroOverlay: {
@@ -2171,8 +2329,8 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: 12,
     borderTopRightRadius: 12,
-    padding: 20,
-    paddingBottom: 32,
+    padding: rpx(40),
+    paddingBottom: rpx(64),
     maxHeight: '80%',
   },
   levelIntroTitle: {
@@ -2180,21 +2338,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.text.primary,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   levelIntroScroll: {
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   levelIntroItem: {
     backgroundColor: tokens.surface.light,
     borderRadius: 8,
     // 对齐 Uniapp 8rpx(≈4px)benefit-item padding
-    padding: 4,
-    marginBottom: 10,
+    padding: rpx(8),
+    marginBottom: rpx(20),
   },
   levelIntroItemHeader: {
-    marginBottom: 8,
-    gap: 4,
+    marginBottom: rpx(16),
+    gap: rpx(8),
   },
   levelIntroItemLevel: {
     fontSize: 15,
@@ -2206,7 +2364,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
   },
   levelIntroBenefitList: {
-    gap: 4,
+    gap: rpx(8),
   },
   levelIntroBenefitItem: {
     // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
@@ -2217,7 +2375,7 @@ const styles = StyleSheet.create({
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2232,13 +2390,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: rpx(48),
   },
   unsubscribeCard: {
     width: '100%',
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
-    padding: 20,
+    padding: rpx(40),
     alignItems: 'center',
   },
   unsubscribeIconWrap: {
@@ -2248,7 +2406,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.danger.light,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: rpx(24),
   },
   unsubscribeIcon: {
     fontSize: 28,
@@ -2259,18 +2417,18 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: tokens.text.primary,
-    marginBottom: 8,
+    marginBottom: rpx(16),
   },
   unsubscribeDesc: {
     fontSize: 13,
     color: tokens.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 16,
+    marginBottom: rpx(32),
   },
   unsubscribeBtnRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: rpx(24),
     alignSelf: 'stretch',
   },
   unsubscribeCancelBtn: {
@@ -2279,7 +2437,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2292,7 +2450,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.danger.DEFAULT,
     borderRadius: 8,
-    paddingVertical: 12,
+    paddingVertical: rpx(24),
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -38,6 +38,16 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* ===== 页面标题(forgot.title) ===== */
+.page-title {
+  margin-top: 16rpx;
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #000;
+  text-align: center;
 }
 
 /* ===== 顶部 logo + 标题 ===== */
@@ -106,7 +116,17 @@
 .input-wbox {
   width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ===== 输入框字段标签(forgot.phone/code/newPassword/confirmPassword) ===== */
+.field-label {
+  width: 532rpx;
+  margin-bottom: 4rpx;
+  font-size: 24rpx;
+  color: #6B6980;
+  text-align: left;
 }
 
 .input-nbox {
@@ -260,9 +280,14 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding-right: 26rpx;
-  width: 50rpx;
+  padding-right: 16rpx;
   height: 50rpx;
+}
+
+.password-toggle-label {
+  font-size: 24rpx;
+  color: #847CFF;
+  margin-right: 8rpx;
 }
 
 .eye-icon {

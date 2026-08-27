@@ -41,6 +41,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
       - name: Setup pnpm
         # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取;
         # 显式 version 会触发 "Multiple versions of pnpm specified" 错误(2026-08-17 实测)
@@ -89,7 +95,20 @@ jobs:
           EXPO_PUBLIC_API_BASE_URL: https://api.aizhs.top
           EXPO_PUBLIC_WEB_URL: https://aizhs.top
         run: |
-          SCHEME=$(xcodebuild -list -json | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['project']['schemes'][0])")
+          SCHEME=$(xcodebuild -list -json | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          schemes=d['project']['schemes']
+          if not schemes:
+              print('ERROR: No Xcode schemes found', file=sys.stderr)
+              sys.exit(1)
+          app_candidates=[s for s in schemes if 'IHUI' in s or 'ihui' in s]
+          print(app_candidates[0] if app_candidates else schemes[0])
+          ")
+          if [ -z "$SCHEME" ]; then
+            echo "ERROR: Could not determine build scheme"
+            exit 1
+          fi
           echo "Using scheme: $SCHEME"
           xcodebuild \
             -workspace *.xcworkspace \
@@ -106,6 +125,11 @@ jobs:
       - name: Package .ipa (fixed filename)
         run: |
           APP_PATH=$(find apps/mobile-rn/ios/build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          if [ -z "$APP_PATH" ]; then
+            echo "ERROR: No .app bundle found in build output"
+            find apps/mobile-rn/ios/build/Build/Products/ -name "*.app" 2>/dev/null || true
+            exit 1
+          fi
           echo "App bundle: $APP_PATH"
           mkdir -p Payload
           cp -R "$APP_PATH" Payload/
@@ -119,15 +143,13 @@ jobs:
           path: ihui-ai-latest.ipa
 
       - name: Publish to GitHub Release
-        # 与安卓 workflow 同模式:
-        #   - tag 触发 → 发布到该 tag
-        #   - 手动触发 → 自动创建 nightly 标签发布
-        # 下载页固定地址(指向最新 Release,永远可用):
-        #   https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/ihui-ai-latest.ipa
+        # iOS 使用固定 tag ios-nightly,不设 make_latest(避免与 Android nightly 竞争 latest)
+        # 下载页 iOS 地址:releases/tags/ios-nightly/download/ihui-ai-latest.ipa
+        # tag 触发 → 发布到该 tag;手动/push → 发布到 ios-nightly 固定 tag
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || format('nightly-ios-{0}', github.run_id) }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'ios-nightly' }}
           files: ihui-ai-latest.ipa
           fail_on_unmatched_files: false
           generate_release_notes: false
-          make_latest: true
+          make_latest: false

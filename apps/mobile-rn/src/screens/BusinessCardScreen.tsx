@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Share } from 'react-native'
+import { Alert, Share } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, getProfile, type AuthUser } from '@ihui/api-client'
+import {
+  fetchApi,
+  getProfile,
+  resolveFileUrl,
+  uploadBusinessCard,
+  uploadFileMultipart,
+  type AuthUser,
+} from '@ihui/api-client'
 import { BusinessCardScreen as SharedBusinessCardScreen, type BusinessCardItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -87,14 +95,115 @@ export default function BusinessCardScreen() {
     }
   }, [])
 
+  /** 拼接名片分享文案(微信/朋友圈共用,对齐原项目 business-card-sharing 分享内容) */
+  const buildShareMessage = (): string =>
+    card
+      ? `${card.name} · ${card.position}\n${card.company}\n电话:${card.phone}  微信:${card.wechat}`
+      : ''
+
   const onShare = async () => {
     if (!card) return
     try {
       await Share.share({
-        message: `${card.name} · ${card.position}\n${card.company}\n电话:${card.phone}  微信:${card.wechat}`,
+        message: buildShareMessage(),
       })
     } catch {
       // ignore share errors
+    }
+  }
+
+  // 微信好友 / 朋友圈:RN 端统一走系统 Share 面板(无原生直达能力),按钮文案区分
+  const onShareWechat = async () => {
+    if (!card) return
+    try {
+      await Share.share({
+        title: '微信好友',
+        message: buildShareMessage(),
+      })
+    } catch {
+      // ignore share errors
+    }
+  }
+
+  const onShareMoments = async () => {
+    if (!card) return
+    try {
+      await Share.share({
+        title: '朋友圈',
+        message: buildShareMessage(),
+      })
+    } catch {
+      // ignore share errors
+    }
+  }
+
+  // 定制名片(对齐原项目 business-card 页 onUploadClick:选图上传 → 提交名片 → 刷新列表)
+  const onCustomize = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!perm.granted) {
+        Alert.alert('提示', '需要相册权限才能选择名片图片')
+        return
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+        base64: true,
+      })
+      if (result.canceled || result.assets.length === 0) return
+      const asset = result.assets[0]!
+      const fileName = `card-${Date.now()}.jpg`
+      // 1. 上传图片拿 URL(uploadFileMultipart 通用上传)
+      const up = await uploadFileMultipart({
+        uri: asset.uri,
+        type: asset.mimeType ?? 'image/jpeg',
+        name: fileName,
+      })
+      if (!up.success || !up.data?.path) {
+        Alert.alert('提示', '名片图片上传失败')
+        return
+      }
+      // 2. 提交名片(对齐原 uploadBusinessCard → /remote/business-card/upload)
+      const cardRes = await uploadBusinessCard({
+        imageUrl: resolveFileUrl(up.data.path),
+        name: card?.name ?? '',
+        company: card?.company ?? '',
+        title: card?.position ?? '',
+        phone: card?.phone ?? '',
+        email: card?.email ?? '',
+      })
+      if (cardRes.success) {
+        Alert.alert('成功', '名片已更新')
+        // 3. 刷新列表
+        const listRes = await fetchApi<{ list: BusinessCardListItem[] }>(
+          '/api/business-card/list?page=1&pageSize=100',
+        )
+        if (listRes.success) {
+          const profile = await getProfile()
+          if (profile.success) {
+            const mine = listRes.data.list.find((item) => item.authorId === profile.data.id)
+            if (mine) {
+              setCard({
+                id: mine.id,
+                name: mine.name,
+                position: mine.title ?? '',
+                company: mine.company ?? '',
+                phone: profile.data.phone ?? '',
+                wechat: '',
+                email: profile.data.email ?? '',
+                location: '',
+                bio: mine.intro ?? '',
+              })
+            }
+          }
+        }
+      } else {
+        Alert.alert('提示', '名片提交失败')
+      }
+    } catch {
+      Alert.alert('提示', '名片定制失败,请重试')
+    } finally {
+      // 定制完成(同步提示已由 Alert 呈现)
     }
   }
 
@@ -114,6 +223,9 @@ export default function BusinessCardScreen() {
       onSave={onSave}
       onEdit={() => navigation.goBack()}
       onBack={() => navigation.goBack()}
+      onCustomize={onCustomize}
+      onShareWechat={onShareWechat}
+      onShareMoments={onShareMoments}
     />
   )
 }

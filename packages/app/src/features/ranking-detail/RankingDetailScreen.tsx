@@ -9,7 +9,9 @@ export type { RankingDetailScreenProps }
 /**
  * 排行榜详情共享屏 — props 注入式跨端组件
  *
- * 平台无关:负责渲染详情卡片(Logo + 标题 + 排名 + 机构 + 关注度 + 简介)。
+ * 平台无关:负责渲染详情卡片(头像 + 昵称 + 排名 + 积分 + 学习时长 + 等级)。
+ * 2026-08-21 用户化:对齐列表页 /ranking(users 积分排行)语义,替代原模型形态
+ * (organization/attention/context)。
  * 平台特定(侧边 Drawer + NavBar)由 wrapper 注入渲染。
  */
 export function RankingDetailScreen({
@@ -35,18 +37,16 @@ export function RankingDetailScreen({
             <Text style={styles.title} numberOfLines={1}>
               {detail.title}
             </Text>
-            <Text style={styles.desc}>
-              {`排名:${detail.rank} · 机构:${detail.organization} · 关注度:${detail.attention}`}
-            </Text>
+            <Text style={styles.desc}>{`第${detail.rank}名 · 等级 ${detail.level}`}</Text>
           </View>
         </View>
         <View style={styles.row2}>
           <View style={styles.metric}>
             <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
-              {t('rankingDetail.attention') || '关注度'}
+              {t('rankingDetail.points') || '积分'}
             </Text>
             <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>
-              {String(detail.attention)}
+              {String(detail.points)}
             </Text>
           </View>
           <View style={styles.metric}>
@@ -60,18 +60,18 @@ export function RankingDetailScreen({
           </View>
           <View style={styles.metric}>
             <Text style={[styles.metricLabel, { color: tk.text.tertiary }]}>
-              {t('rankingDetail.organization') || '机构'}
+              {t('rankingDetail.studyHours') || '学习时长'}
             </Text>
             <Text style={[styles.metricValue, { color: tk.text.primary }]} numberOfLines={1}>
-              {detail.organization}
+              {String(detail.studyHours)}h
             </Text>
           </View>
         </View>
-        {detail.context ? (
-          <View style={styles.contextBox}>
-            <Text style={styles.contextText}>{detail.context}</Text>
-          </View>
-        ) : null}
+        <View style={styles.contextBox}>
+          <Text style={styles.contextText}>
+            {t('rankingDetail.levelDesc') || '等级'}: Lv.{detail.level}
+          </Text>
+        </View>
       </View>
     </ScrollView>
   )
