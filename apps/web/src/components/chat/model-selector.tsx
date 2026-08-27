@@ -533,7 +533,24 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     () => (isAuto ? AUTO_OPTION : options.find((m) => m.value === value)),
     [options, value, isAuto],
   )
-  const grouped = React.useMemo(() => groupByVendor(options), [options])
+  const grouped = React.useMemo(() => {
+    const all = groupByVendor(options)
+    // 2026-08-27 需求:没有配额(未配置)的模型不显示在可选择列表里。
+    // 过滤条件:配置已加载且非空才过滤(未登录/加载中显示全部,避免列表空白);
+    // 例外:当前选中的模型保留显示(trigger 与列表不一致会误导,切换后自然消失)。
+    if (cfgData === undefined || configuredTemplateCodes.size === 0) return all
+    const filtered: Array<[string, ModelOption[]]> = []
+    for (const [vendor, items] of all) {
+      const visible = items.filter((opt) => {
+        if (opt.value === value) return true // 当前选中保留
+        const code = opt.vendor ? providerToTemplateCode(opt.vendor) : null
+        // 与 ⚠ 徽章判断一致:vendor 无对应模板(code null)或模板未配置 → 无配额,隐藏
+        return code !== null && configuredTemplateCodes.has(code)
+      })
+      if (visible.length > 0) filtered.push([vendor, visible])
+    }
+    return filtered
+  }, [options, cfgData, configuredTemplateCodes, value])
 
   const currentTemplateCode = current?.vendor ? providerToTemplateCode(current.vendor) : null
   const currentConfigured = currentTemplateCode
