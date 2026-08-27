@@ -284,7 +284,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     contentInput: {
       marginTop: 8,
@@ -295,7 +295,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       minHeight: 120,
       maxHeight: 200,
     },
