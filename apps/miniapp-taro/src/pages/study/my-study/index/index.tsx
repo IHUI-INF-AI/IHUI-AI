@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
@@ -120,8 +120,13 @@ export default function MyStudy() {
         {displayList.length > 0 ? (
           displayList.map((item) => (
             <View key={item.id} className="study-card">
-              <View className="study-cover placeholder">
-                <Text className="placeholder-icon">📖</Text>
+              <View className="study-cover placeholder flex items-center justify-center">
+                <Image
+                  className="placeholder-icon"
+                  style={{ width: '40rpx', height: '40rpx' }}
+                  src="/static/images/icons/book-open.svg"
+                  mode="aspectFit"
+                />
               </View>
               <View className="study-info">
                 <Text className="study-title">
@@ -151,7 +156,12 @@ export default function MyStudy() {
           ))
         ) : (
           <View className="empty-wrapper">
-            <Text className="empty-icon">📚</Text>
+            <Image
+              className="empty-icon"
+              style={{ width: '80rpx', height: '80rpx' }}
+              src="/static/images/icons/book-open.svg"
+              mode="aspectFit"
+            />
             <Text className="empty-text">{getEmptyText(activeTab)}</Text>
           </View>
         )}

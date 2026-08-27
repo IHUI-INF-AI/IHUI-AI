@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ActivityIndicator, FlatList, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { Star } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CourseCommentScreenProps } from '../../types'
 
@@ -55,7 +56,10 @@ export function CourseCommentScreen({
           <View style={styles.card}>
             <View style={styles.row}>
               <Text style={styles.user}>{item.user}</Text>
-              <Text style={styles.rating}>★ {item.rating.toFixed(1)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Star size={12} color={'#f59e0b'} fill={'#f59e0b'} />
+                <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
+              </View>
             </View>
             <Text style={styles.content}>{item.content}</Text>
             <Text style={styles.meta}>{item.createdAt}</Text>

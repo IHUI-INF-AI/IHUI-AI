@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useI18n, useTt } from '@/i18n'
 
 export interface VipPayConfirmProps {
@@ -67,7 +67,13 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('wechat')}
           >
-            <Text className="text-sm text-foreground">💚 {tt('pay.wechat', '微信支付')}</Text>
+            <Image
+              className="mr-1"
+              style={{ width: '28rpx', height: '28rpx' }}
+              src="/static/images/icons/wallet.svg"
+              mode="aspectFit"
+            />
+            <Text className="text-sm text-foreground">{tt('pay.wechat', '微信支付')}</Text>
           </View>
           <View
             className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
@@ -75,7 +81,13 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('alipay')}
           >
-            <Text className="text-sm text-foreground">💙 {tt('pay.alipay', '支付宝')}</Text>
+            <Image
+              className="mr-1"
+              style={{ width: '28rpx', height: '28rpx' }}
+              src="/static/images/icons/wallet.svg"
+              mode="aspectFit"
+            />
+            <Text className="text-sm text-foreground">{tt('pay.alipay', '支付宝')}</Text>
           </View>
         </View>
 

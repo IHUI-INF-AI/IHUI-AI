@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { Search, X, ArrowLeft, Sparkles, Loader2 } from 'lucide-react'
+import { Search, X, ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Popover } from '@/components/feedback'
@@ -70,15 +70,15 @@ interface SlashCommandPaletteProps {
 const CATEGORY_META: Record<SlashCommandCategory, { label: string; icon: React.ReactNode }> = {
   goal: {
     label: '目标与循环',
-    icon: <span className="text-[10px]">🎯</span>,
+    icon: <Target className="h-3 w-3" />,
   },
   mode: {
     label: '模式切换',
-    icon: <span className="text-[10px]">⚡</span>,
+    icon: <Zap className="h-3 w-3" />,
   },
   permission: {
     label: '权限管理',
-    icon: <span className="text-[10px]">🔐</span>,
+    icon: <Lock className="h-3 w-3" />,
   },
   skill: {
     label: 'AI 技能',
@@ -86,7 +86,7 @@ const CATEGORY_META: Record<SlashCommandCategory, { label: string; icon: React.R
   },
   template: {
     label: '内容模板',
-    icon: <span className="text-[10px]">📝</span>,
+    icon: <FileText className="h-3 w-3" />,
   },
 }
 

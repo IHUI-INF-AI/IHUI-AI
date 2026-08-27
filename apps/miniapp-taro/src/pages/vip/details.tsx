@@ -181,7 +181,12 @@ export default function VipDetailsPage() {
                 <View className="flex flex-col gap-[10rpx]">
                   {p.benefits.map((b, i) => (
                     <View key={i} className="flex items-start">
-                      <Text className="text-[24rpx] text-warning mr-[12rpx] leading-[1.4]">✓</Text>
+                      <Image
+                        src="/static/images/icons/check.svg"
+                        mode="aspectFit"
+                        className="mr-[12rpx]"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                      />
                       <Text className="flex-1 text-[24rpx] text-foreground leading-[1.4]">{b}</Text>
                     </View>
                   ))}
