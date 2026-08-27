@@ -12,6 +12,7 @@ import { DistributionScreen as SharedDistributionScreen, type DistributionInfo }
 import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
+import { Banknote, Landmark, IdCard, BarChart3, Package } from 'lucide-react-native'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
 import { BottomPops } from '../components/BottomPops'
@@ -130,12 +131,12 @@ export function DistributionScreen() {
 
   /** FunctionBlockColumn 分销工具入口(对齐 Uniapp 分销功能块) */
   const functionBlocks: FunctionBlock[] = [
-    { id: 'withdraw', title: '提现', icon: '💰', description: '佣金提现到银行卡' },
-    { id: 'bankcard', title: '银行卡', icon: '🏦', description: '管理绑定银行卡' },
-    { id: 'realname', title: '实名认证', icon: '🪪', description: '完成实名认证' },
-    { id: 'income', title: '收入明细', icon: '📊', description: '查看收入记录' },
-    { id: 'orders', title: '分销订单', icon: '📦', description: '查看分销订单记录' },
-    { id: 'commission', title: '分佣计划', icon: '💰', description: '了解分佣规则与收益' },
+    { id: 'withdraw', title: '提现', icon: Banknote, description: '佣金提现到银行卡' },
+    { id: 'bankcard', title: '银行卡', icon: Landmark, description: '管理绑定银行卡' },
+    { id: 'realname', title: '实名认证', icon: IdCard, description: '完成实名认证' },
+    { id: 'income', title: '收入明细', icon: BarChart3, description: '查看收入记录' },
+    { id: 'orders', title: '分销订单', icon: Package, description: '查看分销订单记录' },
+    { id: 'commission', title: '分佣计划', icon: Banknote, description: '了解分佣规则与收益' },
   ]
 
   const onBlockPress = useCallback(
@@ -193,24 +194,32 @@ export function DistributionScreen() {
     try {
       const realnameRes = await fetchApi<{ authStatus?: string }>('/auth/realname/my')
       if (!realnameRes.success || realnameRes.data?.authStatus !== 'approved') {
-        Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
+        Alert.alert(
+          t('distribution.withdrawNeedRealname'),
+          t('distribution.withdrawNeedRealnameHint'),
+          [
+            { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+            {
+              text: t('distribution.withdrawRealnameGo'),
+              onPress: () => navigation.navigate('RealNameAuth' as never),
+            },
+          ],
+        )
+        return
+      }
+    } catch {
+      // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
+      Alert.alert(
+        t('distribution.withdrawNeedRealname'),
+        t('distribution.withdrawNeedRealnameHint'),
+        [
           { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
           {
             text: t('distribution.withdrawRealnameGo'),
             onPress: () => navigation.navigate('RealNameAuth' as never),
           },
-        ])
-        return
-      }
-    } catch {
-      // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
-      Alert.alert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
-        { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
-        {
-          text: t('distribution.withdrawRealnameGo'),
-          onPress: () => navigation.navigate('RealNameAuth' as never),
-        },
-      ])
+        ],
+      )
       return
     }
     setWithdrawing(true)

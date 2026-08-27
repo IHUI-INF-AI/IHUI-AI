@@ -22,12 +22,14 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import type { AppIcon } from '@ihui/types'
+import { Tag } from 'lucide-react-native'
 
 export interface CardWithListItem {
   id: string
   title: string
   subtitle?: string
-  icon?: string
+  icon?: AppIcon | string
 }
 
 export interface CardWithListProps {
@@ -55,7 +57,7 @@ const TITLE_FONT_SIZE = 16
 const MORE_FONT_SIZE = 12
 const MORE_ARROW_FONT_SIZE = 16
 
-const DEFAULT_ICON = '🏷️'
+const DEFAULT_ICON = Tag
 
 export function CardWithList({ title, items, onItemClick, onMore, moreText }: CardWithListProps) {
   return (
@@ -98,9 +100,15 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
             accessibilityLabel={item.title}
           >
             <View style={styles.iconWrap}>
-              <Text style={styles.iconText} allowFontScaling={false}>
-                {item.icon ?? DEFAULT_ICON}
-              </Text>
+              {typeof item.icon === 'string' ? (
+                <Text style={styles.iconText} allowFontScaling={false}>
+                  {item.icon}
+                </Text>
+              ) : item.icon ? (
+                <item.icon size={ICON_FONT_SIZE} color={tk.text.primary} />
+              ) : (
+                <DEFAULT_ICON size={32} color={'#6b7280'} />
+              )}
             </View>
             <Text style={styles.itemTitle} numberOfLines={1}>
               {item.title}

@@ -10,6 +10,7 @@
  * 平台特有:依赖 react-native FlatList/RefreshControl,不适合共享层。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { Star, ThumbsUp } from 'lucide-react-native'
 import {
   FlatList,
   Image,
@@ -131,11 +132,14 @@ function ShopRow({
                 accessibilityRole="button"
                 accessibilityLabel={`${item.name} 点赞`}
               >
-                <Text
-                  style={[styles.reactionText, item.isThumbs ? styles.reactionTextActive : null]}
-                >
-                  {`👍 ${item.likeCount ?? 0}`}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ThumbsUp size={12} color={item.isThumbs ? tokens.brand.DEFAULT : '#6b7280'} />
+                  <Text
+                    style={[styles.reactionText, item.isThumbs ? styles.reactionTextActive : null]}
+                  >
+                    {` ${item.likeCount ?? 0}`}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ) : null}
             {onItemCollect ? (
@@ -146,11 +150,14 @@ function ShopRow({
                 accessibilityRole="button"
                 accessibilityLabel={`${item.name} 收藏`}
               >
-                <Text
-                  style={[styles.reactionText, item.isCollect ? styles.reactionTextActive : null]}
-                >
-                  {`⭐ ${item.collectCount ?? 0}`}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Star size={12} color={item.isCollect ? tokens.brand.DEFAULT : '#6b7280'} />
+                  <Text
+                    style={[styles.reactionText, item.isCollect ? styles.reactionTextActive : null]}
+                  >
+                    {` ${item.collectCount ?? 0}`}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ) : null}
           </View>

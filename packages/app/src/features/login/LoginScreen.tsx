@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
@@ -339,7 +340,14 @@ function ThirdPartyLoginArea({
                     !!opt.brandColor && { backgroundColor: opt.brandColor },
                   ]}
                 >
-                  <Text style={{ color: tk.surface.light, fontSize: 11, fontWeight: '600', lineHeight: 13 }}>
+                  <Text
+                    style={{
+                      color: tk.surface.light,
+                      fontSize: 11,
+                      fontWeight: '600',
+                      lineHeight: 13,
+                    }}
+                  >
                     {opt.label.charAt(0).toUpperCase()}
                   </Text>
                 </View>
@@ -482,7 +490,7 @@ function PhoneTabContent({
                 accessibilityLabel="选择区号"
               >
                 <Text style={styles.areaText}>{phoneHead}</Text>
-                <Text style={styles.areaArrow}>▾</Text>
+                <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
               </Pressable>
               <TextInput
                 style={[styles.input, styles.phoneInputWithArea]}
@@ -670,8 +678,10 @@ function PasswordTabContent({
               ) : (
                 eyeIconShow
               )
+            ) : showPassword ? (
+              <EyeOff size={16} color={'#374151'} />
             ) : (
-              <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+              <Eye size={16} color={'#374151'} />
             )}
           </TouchableOpacity>
         </View>
@@ -766,7 +776,16 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
                       !!p.brandColor && { backgroundColor: p.brandColor },
                     ]}
                   >
-                    <Text style={{ color: tk.surface.light, fontSize: 9, fontWeight: '600', lineHeight: 10 }}>{p.label.charAt(0)}</Text>
+                    <Text
+                      style={{
+                        color: tk.surface.light,
+                        fontSize: 9,
+                        fontWeight: '600',
+                        lineHeight: 10,
+                      }}
+                    >
+                      {p.label.charAt(0)}
+                    </Text>
                   </View>
                 )}
                 <Text
@@ -793,7 +812,7 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
           ) : (
             // 占位:二维码图标(用文字模拟,避免新增依赖)
             <View style={styles.qrPlaceholderIcon}>
-              <Text style={styles.qrPlaceholderIconText}>{'▦'}</Text>
+              <QrCode size={56} color={tk.text.tertiary} />
             </View>
           )}
         </View>
@@ -993,7 +1012,7 @@ export function LoginScreen(props: LoginScreenProps) {
         {/* 错误提示(对齐 web ErrorAlert) */}
         {error ? (
           <View style={styles.errorAlert}>
-            <Text style={styles.errorIcon}>⚠</Text>
+            <AlertTriangle size={14} color={'rgba(220, 38, 38, 1)'} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}

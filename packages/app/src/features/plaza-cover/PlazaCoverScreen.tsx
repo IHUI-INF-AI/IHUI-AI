@@ -10,6 +10,8 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { PlazaCoverScreenProps } from '../../types'
+import type { AppIcon } from '@ihui/types'
+import { Banknote, Globe, Shield, Target, Zap } from 'lucide-react-native'
 
 /** Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlazaCoverScreenProps }
@@ -30,11 +32,11 @@ export function PlazaCoverScreen({
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
-  const FEATURES = [
-    { icon: '🎯', label: '精准匹配', desc: '智能推荐开发者' },
-    { icon: '💰', label: '透明预算', desc: '预算区间双向选择' },
-    { icon: '⚡', label: '快速响应', desc: '24h 内对接' },
-    { icon: '🛡️', label: '平台担保', desc: '资金安全保障' },
+  const FEATURES: { icon: AppIcon | string; label: string; desc: string }[] = [
+    { icon: Target, label: '精准匹配', desc: '智能推荐开发者' },
+    { icon: Banknote, label: '透明预算', desc: '预算区间双向选择' },
+    { icon: Zap, label: '快速响应', desc: '24h 内对接' },
+    { icon: Shield, label: '平台担保', desc: '资金安全保障' },
   ]
 
   return (
@@ -47,7 +49,7 @@ export function PlazaCoverScreen({
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Text style={styles.heroEmoji}>🌐</Text>
+          <Globe size={64} color={tk.text.primary} />
           <Text style={styles.heroTitle}>AI 需求广场</Text>
           <Text style={styles.heroSubtitle}>
             一站式 AI 需求发布与对接平台,连接企业与开发者,让创意快速落地
@@ -57,7 +59,11 @@ export function PlazaCoverScreen({
         <View style={styles.featureGrid}>
           {FEATURES.map((feature) => (
             <View key={feature.label} style={styles.featureCard}>
-              <Text style={styles.featureIcon}>{feature.icon}</Text>
+              {typeof feature.icon === 'string' ? (
+                <Text style={styles.featureIcon}>{feature.icon}</Text>
+              ) : (
+                <feature.icon size={32} color={tk.text.primary} />
+              )}
               <Text style={styles.featureLabel}>{feature.label}</Text>
               <Text style={styles.featureDesc}>{feature.desc}</Text>
             </View>

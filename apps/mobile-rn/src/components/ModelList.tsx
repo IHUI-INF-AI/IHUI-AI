@@ -17,6 +17,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
 import {
   Animated,
   SectionList,
@@ -47,7 +48,8 @@ export interface ModelListItem {
   id: string
   name: string
   description: string
-  icon: string
+  /** emoji 字符 或 lucide 图标组件引用(统一图标) */
+  icon: LucideIcon | string
   isFree: boolean
   /** NEW 角标(对齐 Uniapp is_new == 1) */
   isNew?: boolean
@@ -111,7 +113,7 @@ function EmptyState(): React.ReactElement {
 function Check(): React.ReactElement {
   return (
     <View style={styles.check}>
-      <Text style={styles.checkText}>✓</Text>
+      <CheckIcon size={12} color={'#ffffff'} />
     </View>
   )
 }
@@ -157,7 +159,11 @@ function Row({
         accessibilityLabel={item.name}
       >
         <View style={styles.iconWrap}>
-          <Text style={styles.iconEmoji}>{item.icon}</Text>
+          {typeof item.icon === 'string' ? (
+            <Text style={styles.iconEmoji}>{item.icon}</Text>
+          ) : (
+            <item.icon size={20} color="#6b7280" />
+          )}
         </View>
         <View style={styles.body}>
           <View style={styles.nameRow}>
@@ -213,7 +219,7 @@ function AgentModeRow({
       accessibilityLabel="Agent模式"
     >
       <View style={styles.iconWrap}>
-        <Text style={styles.iconEmoji}>🤖</Text>
+        <Bot size={20} color={'#6b7280'} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name}>Agent模式</Text>
