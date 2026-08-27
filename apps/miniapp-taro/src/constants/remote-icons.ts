@@ -120,9 +120,14 @@ const hasbuyIconIcon = '/remote-images/hasbuy_icon.png'
 
 // 2026-08-27 恢复:原 CDN(file.aizhs.top / bspapp)已退服,从原项目源码
 // (D:\历史项目存档\zhs_app-ZZ\Ai-WXMiniVue)找回的图标,拷贝至本地副本
+// (经 config/index.ts copy 规则打包进小程序包 /remote-images/ 目录)
 const aiIconLocalIcon = '/remote-images/ai-icon.png'
 const courseIconLocalIcon = '/remote-images/course-icon.png'
 const knowledgeIconLocalIcon = '/remote-images/knowledge-icon.png'
+const kingLocalIcon = '/remote-images/king.png'
+const likeLocalIcon = '/remote-images/like.png'
+const icon1LocalIcon = '/remote-images/icon1.png'
+const n8nLocalIcon = '/remote-images/n8n.png'
 
 /** 远程图标注册表:name → 资源路径(本地 import 或远程 URL) */
 export const REMOTE_ICONS: Record<string, string> = {
@@ -140,7 +145,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   carousel4Footer1Two: bspappUrl('tabbar/home/carousel4-footer1/carousel4-footer1-two.png'),
   lunbo1: bspappUrl('tabbar/home/carousel4-footer1/lunbo1.png'),
   lunbo2: bspappUrl('tabbar/home/carousel4-footer1/lunbo2.png'),
-  king: bspappUrl('tabbar/home/zhongxia/king.png'),
+  king: kingLocalIcon,
   wechatpic20250419152536: bspappUrl('tabbar/coursePlanet/微信图片_20250419152536.png'),
   down: bspappUrl('tabbar/coursePlanet/下.png'),
   drawerMenu4: drawerMenu4Icon,
@@ -165,7 +170,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   knowledgeplanet: bspappUrl('tabbar/home/xia/KnowledgePlanet.png'),
   aizhinengshe: bspappUrl('tabbar/home/zhong/aizhinengshe.png'),
   message: bspappUrl('tabbar/home/xia/message.png'),
-  like: bspappUrl('tabbar/home/xia/Like.png'),
+  like: likeLocalIcon,
   forward: bspappUrl('tabbar/home/xia/Forward.png'),
   act: bspappUrl('user/act.png'),
   courseplanet8: bspappUrl('tabbar/coursePlanet/8.png'),
@@ -230,9 +235,8 @@ export const REMOTE_ICONS: Record<string, string> = {
   sysMiniDdBg2: aizhsUrl('sys-mini/dd-bg.png'),
   xiala: aizhsUrl('sys-mini/xiala.png'),
   empty: emptyIcon,
-  noIndex: aizhsUrl('sys-mini/No${index'),
   team1: aizhsUrl('sys-mini/team1.png'),
-  icon1: bspappUrl('yongjin/icon1.png'),
+  icon1: icon1LocalIcon,
   juxing5copy22x: bspappUrl('yongjin/juxing5Copy2@2x.png'),
   money: bspappUrl('yongjin/money.png'),
   mxbackground: bspappUrl('yongjin/mxbackground.png'),
@@ -347,7 +351,7 @@ export const REMOTE_ICONS: Record<string, string> = {
   qzdy20250816161419a289: qzdy20250816161419a289Icon,
   myModel: aizhsUrl('sys-mini/xtk/my_model.png'),
   myInput: aizhsUrl('sys-mini/xtk/my_input.png'),
-  n8n: aizhsUrl('sys-mini/default/n8n.png'),
+  n8n: n8nLocalIcon,
   devCopy: aizhsUrl('sys-mini/xtk/dev_copy.png'),
   devPayBoderNomal: aizhsUrl('sys-mini/xtk/dev_pay_boder_nomal.png'),
   devPayBorderColor: aizhsUrl('sys-mini/xtk/dev_pay_border_color.png'),
