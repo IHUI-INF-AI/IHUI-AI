@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { BookOpen, Rocket, MessageCircle, Coins } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -63,14 +64,14 @@ const chapters = [
     href: '/docs/manual/getting-started',
     title: '开始使用',
     desc: '注册账号、登录、界面导览、首次对话,3 分钟上手。',
-    icon: '🚀',
+    icon: Rocket,
   },
   {
     num: '02',
     href: '/docs/manual/ai-chat',
     title: 'AI 对话',
     desc: '如何与 AI 对话、上传文件、切换模型、查看历史、分享对话。',
-    icon: '💬',
+    icon: MessageCircle,
   },
   {
     num: '03',
@@ -84,14 +85,14 @@ const chapters = [
     href: '/docs/manual/knowledge-base',
     title: '知识库',
     desc: '上传文档、检索测试、把知识库挂载到 Agent,让 AI 懂你的业务。',
-    icon: '📚',
+    icon: BookOpen,
   },
   {
     num: '05',
     href: '/docs/manual/billing',
     title: '积分与订阅',
     desc: '积分消耗规则、套餐对比、充值、发票、共享积分池。',
-    icon: '💰',
+    icon: Coins,
   },
   {
     num: '06',
@@ -120,7 +121,7 @@ export default function ManualIndexPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>📖</span>
+          <BookOpen className="h-3.5 w-3.5" />
           使用说明手册
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -140,8 +141,8 @@ export default function ManualIndexPage() {
               href={ch.href}
               className="group flex items-center gap-4 rounded-2xl border bg-card p-4 transition-colors hover:bg-accent min-[768px]:p-6"
             >
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-2xl min-[768px]:h-14 min-[768px]:w-14">
-                {ch.icon}
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary min-[768px]:h-14 min-[768px]:w-14">
+                {typeof ch.icon === 'string' ? ch.icon : <ch.icon className="h-6 w-6" />}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

@@ -53,7 +53,7 @@ export default function RequestBuilder({
   }
 
   return (
-    <div className={cn('rounded-xl border bg-card shadow', className)}>
+    <div className={cn('overflow-hidden rounded-xl border bg-card shadow', className)}>
       <div className="flex items-center gap-2 bg-muted/30 p-3">
         <select
           value={method}

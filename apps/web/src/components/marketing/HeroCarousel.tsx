@@ -104,7 +104,7 @@ export function HeroCarousel({
             <Button
               size="lg"
               variant="secondary"
-              className="bg-white/95 text-zinc-900 hover:bg-white"
+              className="bg-card/95 text-card-foreground hover:bg-card"
             >
               {t(slide.ctaKey)}
               <ArrowRight className="ml-1.5 h-4 w-4" />
@@ -134,7 +134,7 @@ export function HeroCarousel({
           >
             <span
               className={`block w-full rounded-sm transition-all ${
-                idx === current ? 'bg-white' : 'bg-white/40 hover:bg-white/70'
+                idx === current ? 'bg-card' : 'bg-card/40 hover:bg-card/70'
               }`}
             />
           </button>

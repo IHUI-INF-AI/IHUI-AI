@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ManualNav, chapters } from '../_manual-nav'
+import { Coins, MessageCircle, Lock, Wrench, Users, BarChart3, type LucideIcon } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -35,7 +36,7 @@ interface FaqItem {
 
 interface FaqGroup {
   category: string
-  icon: string
+  icon: LucideIcon | string
   items: FaqItem[]
 }
 
@@ -68,7 +69,7 @@ const faqGroups: FaqGroup[] = [
   },
   {
     category: '积分与付费',
-    icon: '💰',
+    icon: Coins,
     items: [
       {
         q: '免费用户能用 GPT-4o / Claude 吗?',
@@ -94,7 +95,7 @@ const faqGroups: FaqGroup[] = [
   },
   {
     category: '对话与模型',
-    icon: '💬',
+    icon: MessageCircle,
     items: [
       {
         q: 'AI 回复很慢怎么办?',
@@ -146,7 +147,7 @@ const faqGroups: FaqGroup[] = [
   },
   {
     category: '安全与隐私',
-    icon: '🔒',
+    icon: Lock,
     items: [
       {
         q: '我的对话会被用来训练模型吗?',
@@ -168,7 +169,7 @@ const faqGroups: FaqGroup[] = [
   },
   {
     category: '故障排查',
-    icon: '🛠️',
+    icon: Wrench,
     items: [
       {
         q: '页面打不开 / 白屏?',
@@ -207,7 +208,9 @@ export default function ManualFaqPage() {
       {faqGroups.map((group) => (
         <section key={group.category} id={group.category} className="mt-10 space-y-3">
           <h2 className="text-xl font-bold">
-            <span className="mr-2">{group.icon}</span>
+            <span className="mr-2 inline-flex">
+              {typeof group.icon === 'string' ? group.icon : <group.icon className="h-5 w-5" />}
+            </span>
             {group.category}
           </h2>
           <div className="space-y-3">
@@ -244,7 +247,10 @@ export default function ManualFaqPage() {
             href="https://aizhs.top/community"
             className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
           >
-            <p className="text-sm font-semibold">💬 社区论坛</p>
+            <p className="flex items-center text-sm font-semibold">
+              <MessageCircle className="mr-1.5 inline h-4 w-4" />
+              社区论坛
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">community.aizhs.top</p>
             <p className="mt-1 text-xs text-muted-foreground">用户互助 + 官方答疑 + 功能建议</p>
           </a>
@@ -252,7 +258,10 @@ export default function ManualFaqPage() {
             href="/"
             className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
           >
-            <p className="text-sm font-semibold">👥 飞书用户群</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Users className="mr-1.5 inline h-4 w-4" />
+              飞书用户群
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">扫码加入(首页底部二维码)</p>
             <p className="mt-1 text-xs text-muted-foreground">实时交流,最快响应</p>
           </Link>
@@ -260,7 +269,10 @@ export default function ManualFaqPage() {
             href="https://status.aizhs.top"
             className="rounded-xl border bg-card p-4 transition-colors hover:bg-accent"
           >
-            <p className="text-sm font-semibold">📊 服务状态</p>
+            <p className="flex items-center text-sm font-semibold">
+              <BarChart3 className="mr-1.5 inline h-4 w-4" />
+              服务状态
+            </p>
             <p className="mt-1 text-xs text-muted-foreground">status.aizhs.top</p>
             <p className="mt-1 text-xs text-muted-foreground">实时监控 + 故障公告 + 历史事件</p>
           </a>
