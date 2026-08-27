@@ -89,6 +89,104 @@ export interface AiModelInfoItem {
   updatedAt: string | null
   /** 积分消耗倍数(由 modelCode/code/name 推断:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
   pointsMultiplier: number
+  /** 是否可用(best-effort:由 ai-service provider 健康推导;空健康度或缺省 → 视为可用) */
+  available?: boolean
+}
+
+interface ProviderHealth {
+  status: string
+  error_type: string
+}
+
+/** ai-service provider 健康度:code -> {status, error_type};空 Map = 健康度获取失败(宽松,视为全部可用) */
+type HealthMap = Map<string, ProviderHealth>
+
+/**
+ * 拉取 ai-service provider 可用性,单次请求内调用一次。
+ * GET ${config.AI_SERVICE_URL}/llm/providers/availability
+ * 响应形如 { providers: [{ provider_code, status, error_type }] } 或 { code, data, message } 包裹。
+ * 任何失败返回空 Map(宽松:不因此清空广场)。
+ */
+async function fetchProviderHealth(): Promise<HealthMap> {
+  const empty: HealthMap = new Map()
+  const url = `${config.AI_SERVICE_URL}/llm/providers/availability`
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+  try {
+    const resp = await fetch(url, { method: 'GET', signal: controller.signal })
+    if (!resp.ok) return empty
+    const json = (await resp.json()) as
+      | { providers?: Array<ProviderHealth & { provider_code: string }> }
+      | { data?: { providers?: Array<ProviderHealth & { provider_code: string }> } }
+      // FIXME(any): ai-service 响应结构可能嵌套,放宽类型
+      | Record<string, unknown>
+    const wrapped = json as { data?: unknown }
+    const providers = Array.isArray((json as { providers?: unknown }).providers)
+      ? (json as { providers: Array<ProviderHealth & { provider_code: string }> }).providers
+      : wrapped.data &&
+          Array.isArray((wrapped.data as { providers?: unknown }).providers)
+        ? (wrapped.data as { providers: Array<ProviderHealth & { provider_code: string }> }).providers
+        : []
+    const map: HealthMap = new Map()
+    for (const p of providers) {
+      if (p && p.provider_code) {
+        map.set(p.provider_code, { status: p.status, error_type: p.error_type })
+      }
+    }
+    return map
+  } catch {
+    return empty
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** 硬不可用判定(镜像 ai-service model_availability.is_model_available) */
+function isProviderHardUnavailable(code: string | undefined, health: HealthMap): boolean {
+  if (!code || !health.has(code)) return false // 未知/未上报 → 宽松(PENDING)
+  const h = health.get(code)!
+  if (h.status === 'down' || h.status === 'not_configured') return true
+  if (
+    h.status === 'degraded' &&
+    ['payment_required', 'invalid_key', 'forbidden', 'rate_limited'].includes(h.error_type)
+  ) {
+    return true
+  }
+  return false
+}
+
+/** 由 modelCode/code/name 推断 provider_code(best-effort 前缀/关键词映射) */
+const PROVIDER_PREFIX_MAP: Array<[string, string]> = [
+  ['stepfun/', 'stepfun'],
+  ['agnes/', 'agnes'],
+  ['openrouter/', 'openrouter'],
+  ['anthropic/', 'anthropic'],
+  ['openai/', 'openai'],
+  ['groq/', 'groq'],
+  ['nvidia/', 'nvidia_nim'],
+  ['siliconcloud/', 'siliconflow'],
+  ['siliconflow/', 'siliconflow'],
+  ['bailian/', 'bailian'],
+  ['gpt-', 'openai'],
+  ['claude-', 'anthropic'],
+  ['gemini-', 'gemini'],
+  ['glm-', 'zhipu'],
+  ['deepseek', 'deepseek'],
+  ['qwen', 'qwen'],
+  ['kimi', 'kimi'],
+  ['doubao', 'doubao'],
+  ['hunyuan', 'hunyuan'],
+  ['moonshot', 'moonshot'],
+  ['zhipu', 'zhipu'],
+]
+
+function inferProviderCode(modelCode: string | null, code: string | null, name: string): string | undefined {
+  const id = (modelCode ?? code ?? name ?? '').toLowerCase()
+  if (!id) return undefined
+  for (const [prefix, provider] of PROVIDER_PREFIX_MAP) {
+    if (id.startsWith(prefix) || id.includes(prefix.replace('/', ''))) return provider
+  }
+  return undefined
 }
 
 /** 为 ai-service 返回的模型列表安全附加 points_multiplier(兼容数组 / {models|data|items: []}) */
@@ -176,6 +274,9 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       const coursePlatform = getCoursePlatform(request)
       const isSpecialUser = SPECIAL_UUIDS.includes(userUuid)
 
+      // 单次请求内拉取 ai-service provider 健康度(best-effort;失败则为空 Map)
+      const healthMap = await fetchProviderHealth()
+
       // 基础条件:status=1(可用)
       const conditions = [eq(zhsAiModelInfo.status, 1)]
 
@@ -255,9 +356,16 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         createdAt: m.createdAt ? m.createdAt.toISOString() : null,
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
         pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
+        available: !isProviderHardUnavailable(
+          inferProviderCode(m.modelCode, m.code, m.name),
+          healthMap,
+        ),
       }))
 
-      return reply.send(success({ items, total: items.length }))
+      // 铁律:仅展示可用且有额度的模型。硬死模型移除;健康度获取失败(空 Map)则宽松保留全部。
+      const filteredItems = healthMap.size === 0 ? items : items.filter((i) => i.available)
+
+      return reply.send(success({ items: filteredItems, total: filteredItems.length }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message || 'Failed to list models'))
     }
