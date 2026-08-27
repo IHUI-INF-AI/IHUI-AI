@@ -63,15 +63,20 @@ export const useSubagentDispatchStore = create<SubagentDispatchState>((set, get)
       set((s) => ({
         dispatches: [dispatch, ...s.dispatches],
         activeDispatchId: dispatch.id,
-        isCreating: false,
       }))
       // 创建后立即刷新拓扑(让 SwarmTopologyView 看到新节点)
       void get().refreshTopology()
       return { ok: true }
     } catch (e) {
-      set({ isCreating: false })
       const msg = e instanceof Error ? e.message : String(e)
       return { ok: false, error: msg }
+    } finally {
+      // 2026-08-21 修复(派单失败后永久卡死):原实现 isCreating: false 只在
+      // 成功 set() 与 catch 两条路径复位,fetchApi 正常返回但 r.success === false
+      // (服务端校验失败/业务错误)时提前 return,既不走成功 set 也不抛异常,
+      // isCreating 永久为 true → 后续所有派单被"派单提交中,请稍候"拒绝,
+      // 直到刷新页面。统一收敛到 finally 复位,任何路径都不会锁死。
+      set({ isCreating: false })
     }
   },
 

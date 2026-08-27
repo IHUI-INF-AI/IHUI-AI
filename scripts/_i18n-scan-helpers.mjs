@@ -133,6 +133,42 @@ export const OBJECT_LITERAL_KEY_RE = /\b[a-zA-Z_][a-zA-Z0-9_]*:\s*['"`]([a-zA-Z]
 // 此正则识别 `= \`prefix.${var}\`` 形式,捕获前缀 `prefix`(不含末尾点),把前缀加入 usedNamespaces,
 // 使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true(因 'order.status.pending'.startsWith('order.status.'))
 export const DYNAMIC_PREFIX_RE = /=>?\s*[`'"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)*)\.?\$\{[a-zA-Z_][a-zA-Z0-9_.]*\}[^'"`]*[`'"]/g
+// 字符串常量 return:`return 'namespace.leaf'`(2026-08-20 增强)
+// 背景:mobile-rn LiveDetailScreen.chatStatusLabelKey() 通过 switch 返回 'liveDetail.chatConnecting'
+// 等字符串常量,再由 t(statusKey) 间接引用,静态扫描器无法做值流分析,导致 5 个 liveDetail.chat* 误判为死 key。
+// 此正则捕获 `return '<多段点分 key>'` 形式(含 `=> 'x.y.z'` 精简写法),把该 key 加入 staticRefs。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const RETURN_KEY_RE = /return\s+['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 三元条件字符串字面量:`cond ? 'a.b.c' : 'd.e.f'`(2026-08-20 增强)
+// 背景:extension ComingSoonPage 用 `t(isOpenInWeb ? 'apps.openInWebDesc' : 'apps.comingSoon')`
+// 三元条件形式引用 key,直接 `t('key')` 正则(要求引号紧跟左括号)无法命中 `t(cond ? 'key'`,
+// 导致 apps.openInWebDesc / apps.comingSoon 被误判为死 key。
+// IF 分支匹配 `? 'a.b.c'`(紧跟问号),ELSE 分支匹配 `: 'a.b.c'`(紧跟冒号)。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const TERNARY_KEY_RE_IF = /\?\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+export const TERNARY_KEY_RE_ELSE = /:\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 自定义翻译包装器带 locale 参数:`translateBg(locale, 'a.b.c')`(2026-08-20 增强)
+// 背景:extension entrypoints/background.ts 用 `translateBg(locale, 'contextMenu.translate')`
+// 等自定义包装器在非 React 环境读取翻译,静态扫描只识别 t/tt/tList 名,导致 3 个 contextMenu.* 误判为死 key。
+// 匹配任意以 t 开头 XX 单词 + 元组第 2 参为多段点分 key: `wordToScan(locale, 'a.b.c')`。
+// 误报风险同 OBJECT_LITERAL_KEY_RE:命中 'foo.bar' 字面量,但只要其不在 zh-CN.json 中不影响死 key 刡定。
+export const WRAPPER_ARG_KEY_RE = /,\s*['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 2026-08-21 新增:字符串数组 i18n key 列表识别(含行首空格)
+// 背景:extension VipPage/PricingPage/MemberPage 用:
+//   const benefits = [
+//     'page.benefit1',
+//     'page.benefit2',
+//     ...
+//   ]
+// 原扫描器无法识别数组元素中的点分 key,导致 benefit1-5 误判为死 key。
+// 此正则:匹配行首(含缩进空格)的单/双引号包裹的多段点分 key(如 'page.benefit1')。
+// 注:为避免误命中非数组字符串字面量,只在行含 `[` 时启用此扫描。
+export const STRING_ARRAY_KEY_RE = /(?:^|\s)['"`]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"`]/g
+// 2026-08-21 新增:JSX prop 传递 i18n key (emptyKey/descKey/titleKey 等)
+// 背景:extension FollowingPage/FansPage 用 `<EmptyState emptyKey="page.follow.emptyFollowing" />` JSX prop 形式
+// 传递 i18n key,原扫描器只识别冒号赋值(PROP_KEY_RE)不识别等号(JSX prop),导致 emptyFollowing/emptyFans 误判。
+// 与 JSX_PROP_KEY_RE 互补:JSX_PROP_KEY_RE 只识别白名单属性(name/title/label/...),此正则识别任意属性名的等号赋值。
+export const JSX_PROP_KEY_EQ_RE = /\b[a-zA-Z][a-zA-Z0-9_]*Key\s*=\s*['"]([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)['"]/g
 
 // 2026-07-26 新增:剥离 JS/TS 注释,保持行号(把注释字符替换为等长空格)
 // 用于整文件级 STATIC_T_RE / TLIST_RE 匹配前预处理,避免命中注释行内的 t('commented.out') 等假引用。
@@ -249,6 +285,27 @@ export function scanCode(files) {
       // 2026-07-26 三次增强:对象字面量值 key: 'namespace.leaf'(mobile-rn payment/taskDispatch.status.* 引用模式)
       OBJECT_LITERAL_KEY_RE.lastIndex = 0
       while ((m = OBJECT_LITERAL_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:字符串常量 return 'a.b.c'(LiveDetailScreen.chatStatusLabelKey 引用模式)
+      RETURN_KEY_RE.lastIndex = 0
+      while ((m = RETURN_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:三元条件字符串字面量 cond ? 'a.b.c' : 'd.e.f'(extension ComingSoonPage 引用模式)
+      TERNARY_KEY_RE_IF.lastIndex = 0
+      while ((m = TERNARY_KEY_RE_IF.exec(line)) !== null) staticRefs.add(m[1])
+      TERNARY_KEY_RE_ELSE.lastIndex = 0
+      while ((m = TERNARY_KEY_RE_ELSE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-20 增强:自定义翻译包装器第二参 translateBg(locale, 'a.b.c')(extension background 引用模式)
+      WRAPPER_ARG_KEY_RE.lastIndex = 0
+      while ((m = WRAPPER_ARG_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-21 增强:字符串数组 i18n key 列表识别
+      // 背景:extension VipPage/PricingPage/MemberPage 用 const benefits = ['page.benefit1', ...] 形式引用,
+      // 扫描器需识别单/双引号包裹的多段点分 key(如 'page.benefit1'),补字符串数组元素扫描缺口。
+      // 注:误报风险极低 — 匹配多段点分 key(含至少 1 个点),只要不在 zh-CN.json 中不影响死 key 判定;
+      // 即便误命中也不会增加死 key 数(更多 staticRefs = 更少死 key,判定保守)。
+      STRING_ARRAY_KEY_RE.lastIndex = 0
+      while ((m = STRING_ARRAY_KEY_RE.exec(line)) !== null) staticRefs.add(m[1])
+      // 2026-08-21 增强:JSX prop 传递 i18n key emptyKey="page.follow.emptyFollowing"(extension FollowingPage/FansPage)
+      JSX_PROP_KEY_EQ_RE.lastIndex = 0
+      while ((m = JSX_PROP_KEY_EQ_RE.exec(line)) !== null) staticRefs.add(m[1])
       // 2026-07-26 三次增强:动态前缀拼接 `prefix.${var}`(mobile-rn order.status.* 引用模式)
       // 把前缀加入 usedNamespaces,使 isInUsedNamespace('order.status.pending', Set(['order.status'])) = true
       DYNAMIC_PREFIX_RE.lastIndex = 0
@@ -267,6 +324,10 @@ export function scanCode(files) {
       DYNAMIC_T_RE.lastIndex = 0
       while ((m = DYNAMIC_T_RE.exec(line)) !== null) {
         dynamicHits.push({ file: path.relative(ROOT, f), line: i + 1, snippet: trimmed.slice(0, 200) })
+        // 提取动态模板静态前缀 t(`order.status.${var}`) → "order.status",作为已用命名空间
+        // 使 order.status.* 等动态拼接引用的 key 不再被误判为死 key(2026-08-20 增强,对齐 DYNAMIC_PREFIX_RE 语义)
+        const prefixM = m[1].match(/^[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)*\.(?=\$\{)/)
+        if (prefixM) usedNamespaces.add(prefixM[0].replace(/\.$/, ''))
       }
     }
   }

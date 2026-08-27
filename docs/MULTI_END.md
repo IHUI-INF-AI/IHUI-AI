@@ -39,7 +39,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 | 端 | 代码路径 | 技术栈 | 端口 | 主要功能 |
 |----|----------|--------|------|----------|
 | Web | `apps/web/` | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | 8801 | 200+ 页面,主站 + 管理后台 |
-| API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | ~1080 端点,业务管理 + 多厂商代理 + 认证 + WebSocket |
+| API | `apps/api/` | Fastify 5 + Drizzle ORM 0.38 + PostgreSQL | 8802 | 4393 路由,业务管理 + 多厂商代理 + 认证 + WebSocket |
 | AI Service | `apps/ai-service/` | FastAPI + LangGraph + LiteLLM + MCP | 8803 | ~55 端点,LLM 网关 + Agent 执行 + MCP 工具 + A2A |
 | CLI | `apps/cli/` | TS(commander + inquirer + ws) | 终端 | 24 源配置导入 + subagent 并行 + ACP 协议 + TUI |
 | Desktop | `apps/desktop/` | Tauri 2.1 + React 18 + Vite | 桌面 | 系统托盘 + 深链接 + 自动更新 + 文件系统 |
@@ -65,7 +65,7 @@ IHUI-AI 是全栈 AI 平台,采用 TS Monorepo(pnpm workspace + Turborepo)组织
 - **ORM**:Drizzle ORM 0.38 + postgres-js,单库 PostgreSQL 15
 - **认证**:`@ihui/auth` 共享包(JWT HS256 + token-family + blacklist + OAuth2)
 - **验证**:Zod 3.24
-- **路由**:37 文件 447 端点,公共路由(`/api/*`)+ 管理员路由(`/api/admin/*`)
+- **路由**:267 文件 4393 路由,公共路由(`/api/*`)+ 管理员路由(`/api/admin/*`)
 - **WebSocket**:12 端点(详见 [architecture.md §3](./architecture.md))
 - **端口**:8802
 

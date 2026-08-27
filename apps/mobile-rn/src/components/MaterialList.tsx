@@ -6,6 +6,7 @@
  *   - 分类 Tab(文本 / 图片 / 视频 / 音频,由 categories prop 驱动,向后兼容 all/doc)
  *   - 单列列表:文本带 30 字预览;图片/视频真实缩略图(Image uri);音频/文档用图标
  *   - 空态 + 分页提示(loading → 加载中…;!hasMore 且列表非空 → 没有更多了)
+ *   - 长按列表项 → onDelete(item)(可选,父级弹确认框;onPress 点击选中不受影响)
  *
  * 视觉规范(rpx→dp 2:1):
  *   - 标题头 16 / 行标题 14 / 预览 12 / 时间 11 / tab 13
@@ -19,6 +20,7 @@ import { FileText, Image as ImageIcon, Music, Video } from 'lucide-react-native'
 import {
   FlatList,
   Image,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -56,6 +58,10 @@ export interface MaterialListProps {
   onCategoryChange: (key: string) => void
   items: MaterialItem[]
   onPress?: (id: string) => void
+  /** 长按列表项触发删除回调(可选;父级负责弹确认框,如 Alert.alert) */
+  onDelete?: (item: MaterialItem) => void
+  /** 点击列表项「详情」按钮触发(可选;仅触发详情,不影响 onPress 插入行为) */
+  onDetail?: (item: MaterialItem) => void
   /** 触底回调;loading=true 或 hasMore=false 时不重复触发 */
   onLoadMore?: () => void
   /** 父级声明当前是否正在分页加载 */
@@ -103,19 +109,41 @@ function emptyTextForCategory(key: string): string {
     case 'video':
       return '暂无视频内容'
     case 'audio':
-      return '暂无音频内容'
+      return '暂无音频素材'
     default:
       return '暂无内容'
   }
+}
+
+/** 行内「详情」小按钮(点击触发 onDetail,stopPropagation 避免触发外层 onPress) */
+function DetailButton({ onPress }: { onPress?: () => void }): React.JSX.Element {
+  return (
+    <Pressable
+      hitSlop={6}
+      onPress={(e) => {
+        e.stopPropagation()
+        onPress?.()
+      }}
+      style={styles.detailBtn}
+      accessibilityRole="button"
+      accessibilityLabel="查看详情"
+    >
+      <Text style={styles.detailBtnText}>详情</Text>
+    </Pressable>
+  )
 }
 
 /** 单行素材:文本带预览,图片/视频带真实缩略图,音频/文档带图标 */
 function MaterialRow({
   item,
   onPress,
+  onDelete,
+  onDetail,
 }: {
   item: MaterialItem
   onPress?: (id: string) => void
+  onDelete?: (item: MaterialItem) => void
+  onDetail?: (item: MaterialItem) => void
 }): React.JSX.Element {
   const title = item.title || defaultTitleForType(item.type)
   const time = item.createdAt ?? ''
@@ -123,12 +151,18 @@ function MaterialRow({
   // 文本:标题 + 时间 + 30 字预览(无缩略图)
   if (item.type === 'text') {
     return (
-      <TouchableOpacity activeOpacity={0.7} onPress={() => onPress?.(item.id)} style={styles.row}>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onPress?.(item.id)}
+        onLongPress={() => onDelete?.(item)}
+        style={styles.row}
+      >
         <View style={styles.rowTop}>
           <Text style={styles.rowTitle} numberOfLines={1}>
             {title}
           </Text>
           {time ? <Text style={styles.rowTime}>{time}</Text> : null}
+          {onDetail ? <DetailButton onPress={() => onDetail(item)} /> : null}
         </View>
         <Text style={styles.rowPreview} numberOfLines={1}>
           {previewText(item.text)}
@@ -159,6 +193,7 @@ function MaterialRow({
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => onPress?.(item.id)}
+      onLongPress={() => onDelete?.(item)}
       style={[styles.row, styles.rowWithThumb]}
     >
       <View style={styles.rowMain}>
@@ -166,6 +201,7 @@ function MaterialRow({
           {title}
         </Text>
         {time ? <Text style={styles.rowTime}>{time}</Text> : null}
+        {onDetail ? <DetailButton onPress={() => onDetail(item)} /> : null}
       </View>
       {thumb}
     </TouchableOpacity>
@@ -178,6 +214,8 @@ export default function MaterialList({
   onCategoryChange,
   items,
   onPress,
+  onDelete,
+  onDetail,
   onLoadMore,
   loading = false,
   hasMore = true,
@@ -198,8 +236,10 @@ export default function MaterialList({
   }, [endReachedTrigger, loading, onLoadMore])
 
   const renderItem: ListRenderItem<MaterialItem> = useCallback(
-    ({ item }) => <MaterialRow item={item} onPress={onPress} />,
-    [onPress],
+    ({ item }) => (
+      <MaterialRow item={item} onPress={onPress} onDelete={onDelete} onDetail={onDetail} />
+    ),
+    [onPress, onDelete, onDetail],
   )
 
   const emptyText = emptyTextForCategory(activeCategory)
@@ -336,6 +376,18 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginLeft: 6,
     fontSize: 11,
+    color: tokens.text.tertiary,
+  },
+  detailBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: tokens.surface.muted,
+  },
+  detailBtnText: {
+    fontSize: 11,
+    fontWeight: '500',
     color: tokens.text.tertiary,
   },
   rowPreview: {

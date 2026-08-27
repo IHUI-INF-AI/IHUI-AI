@@ -9,7 +9,7 @@ test.describe('Workspace 页面', () => {
 
   test('workspace 页面可加载(若已登录)', async ({ page }) => {
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/workspace')) {
       const main = page.locator('main, [role="main"]').first()
       await expect(main).toBeVisible({ timeout: 10000 })
@@ -18,7 +18,7 @@ test.describe('Workspace 页面', () => {
 
   test('workspace 创建项目对话框可打开(若页面可访问)', async ({ page }) => {
     await page.goto('/workspace')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (page.url().includes('/workspace')) {
       // 查找"新建项目"按钮(可能是 Button 含 Plus 图标)
       const createBtn = page

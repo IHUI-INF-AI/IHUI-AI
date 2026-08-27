@@ -136,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 12,
       paddingHorizontal: 12,
       height: 50,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     areaBox: { flexDirection: 'row', alignItems: 'center', paddingRight: 12, marginRight: 12 },
     areaText: { fontSize: 16, color: tk.text.medium },

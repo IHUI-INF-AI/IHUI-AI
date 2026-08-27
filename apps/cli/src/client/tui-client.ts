@@ -11,6 +11,7 @@ import { createRequire } from 'node:module';
 import * as readline from 'node:readline';
 import chalk from 'chalk';
 import type { AgentEvent } from '../server/agent-core.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 const dynamicRequire = createRequire(import.meta.url);
 
@@ -89,15 +90,13 @@ export async function connectToServer(opts: TuiClientOptions): Promise<TuiClient
     });
 
     ws.on('message', (data: Buffer) => {
-      try {
-        const raw = JSON.parse(data.toString('utf-8')) as { type: string } & Record<string, unknown>;
-        for (const cb of handlers) cb(raw as AgentEvent);
-        if (raw.type === 'done' || raw.type === 'error' || raw.type === 'result') {
-          const r = pendingResolvers.shift();
-          if (r) r();
-        }
-      } catch {
-        // ignore invalid JSON
+      const raw = tryParseJson(data.toString('utf-8'));
+      if (!isRecord(raw) || typeof raw.type !== 'string') return;
+      const event = raw as unknown as AgentEvent;
+      for (const cb of handlers) cb(event);
+      if (raw.type === 'done' || raw.type === 'error' || raw.type === 'result') {
+        const r = pendingResolvers.shift();
+        if (r) r();
       }
     });
 

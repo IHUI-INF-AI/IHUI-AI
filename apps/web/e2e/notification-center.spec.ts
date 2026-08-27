@@ -33,7 +33,7 @@ test.describe('通知中心', () => {
 
   test('通知列表渲染(若可访问)', async ({ page }) => {
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
     const main = page.locator('main, [role="main"]').first()
@@ -42,7 +42,7 @@ test.describe('通知中心', () => {
 
   test('已读:标记已读按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
     await page.waitForTimeout(2000)
@@ -58,7 +58,7 @@ test.describe('通知中心', () => {
 
   test('删除:删除按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
     await page.waitForTimeout(2000)
@@ -69,7 +69,7 @@ test.describe('通知中心', () => {
 
   test('筛选:筛选标签存在(若可访问)', async ({ page }) => {
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
     await page.waitForTimeout(2000)
@@ -83,7 +83,7 @@ test.describe('通知中心', () => {
 
   test('通知项可点击查看详情(若可访问)', async ({ page }) => {
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/notifications')) return
 
     await page.waitForTimeout(2000)
@@ -99,7 +99,7 @@ test.describe('通知中心', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/notifications')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

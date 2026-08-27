@@ -164,9 +164,19 @@ function getStagedAddedLines() {
   let curFile = null
   let curLine = 0
   for (const raw of output.split('\n')) {
-    if (raw.startsWith('diff --git')) {
-      const m = raw.match(/\+\+\+\s+b\/(.+)$/)
+    // 修复:`+++ b/path` 是 git diff 输出中的独立行(紧跟 `diff --git` 后),
+    // 必须单独判断;原先错误地放在 `diff --git` 块内匹配,导致 `diff --git`
+    // 行上匹配不到 `+++`(它在 `+++ b/...` 独立行上),curFile 始终为 null,
+    // addedLinesMap 始终为空 → staged 模式永远"暂存区无变更"跳过,即使有违规。
+    if (raw.startsWith('+++ b/')) {
+      const m = raw.match(/^\+\+\+\s+b\/(.+)$/)
       curFile = m ? join(ROOT, m[1]) : null
+      curLine = 0
+      continue
+    }
+    if (raw.startsWith('diff --git')) {
+      // `diff --git a/x b/x` 仅作分隔符,文件路径在下一行 `+++ b/` 上
+      curFile = null
       curLine = 0
       continue
     }

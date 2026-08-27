@@ -917,7 +917,11 @@ class TestGetRedis:
     @patch("app.services.agent_comm.aioredis")
     @pytest.mark.asyncio
     async def test_get_redis_creates_client_on_first_call(self, mock_aioredis):
-        """首次调用:from_url + ping 创建客户端。"""
+        """首次调用:from_url + ping 创建客户端。
+
+        2026-08-22 对齐:生产代码新增 protocol=2(2026-08-22 立)强制 RESP2 协议,
+        兼容老 Redis/Memurai(redis-py 8.x 默认 RESP3 HELLO 3 协商必败)。
+        """
         mock_client = AsyncMock()
         mock_client.ping = AsyncMock()
         mock_aioredis.from_url.return_value = mock_client
@@ -929,7 +933,7 @@ class TestGetRedis:
         result = await bus._get_redis()
         assert result is mock_client
         mock_aioredis.from_url.assert_called_once_with(
-            settings.redis_url, decode_responses=True,
+            settings.redis_url, decode_responses=True, protocol=2,
         )
         mock_client.ping.assert_called_once()
 

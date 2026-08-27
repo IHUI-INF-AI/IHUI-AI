@@ -65,7 +65,7 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 /* ─── Color palette ─── */
 
 const SUBJECT_COLORS = [
-  'hsl(var(--primary))',
+  'var(--primary)',
   '#10b981',
   '#f59e0b',
   '#ef4444',
@@ -254,8 +254,8 @@ export default function TrendPage() {
                   <Radar
                     name="成绩"
                     dataKey="percentage"
-                    stroke="hsl(var(--primary))"
-                    fill="hsl(var(--primary))"
+                    stroke="var(--primary)"
+                    fill="var(--primary)"
                     fillOpacity={0.2}
                   />
                 </RadarChart>

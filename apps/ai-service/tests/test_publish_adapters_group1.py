@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -76,7 +77,11 @@ def _make_playwright_chain(page_url: str = "https://example.com",
                            wait_for_url_raises: bool = False,
                            wait_for_selector_raises: bool = False,
                            wait_for_raises: bool = False):
-    """创建 Playwright mock 链,返回 (mock_async_playwright, mock_page, mock_locator)。"""
+    """创建 Playwright mock 链,返回 (mock_async_playwright, mock_page, mock_locator, mock_context)。
+
+    mock_context 供 _patch_stealth_browser 直接 patch 反风控工厂使用,
+    避免真实工厂副作用(get_account_profile / 设备图谱 Redis 绑定 / launch_persistent_context 复杂度)。
+    """
     mock_locator = MagicMock()
     mock_locator.first = mock_locator
     mock_locator.count = AsyncMock(return_value=locator_count)
@@ -97,8 +102,12 @@ def _make_playwright_chain(page_url: str = "https://example.com",
     mock_page.wait_for_timeout = AsyncMock()
     mock_page.evaluate = AsyncMock()
     mock_page.locator = MagicMock(return_value=mock_locator)
-    mock_page.keyboard = MagicMock()
+    # human_type/human_click 会对 keyboard 做 await page.keyboard.type/press,
+    # 必须配成 AsyncMock,否则 "object MagicMock can't be used in 'await' expression"。
+    mock_page.keyboard = AsyncMock()
+    mock_page.keyboard.type = AsyncMock()
     mock_page.keyboard.press = AsyncMock()
+    mock_page.keyboard.insert_text = AsyncMock()
     if wait_for_url_raises:
         mock_page.wait_for_url = AsyncMock(side_effect=Exception("timeout"))
     else:
@@ -124,7 +133,23 @@ def _make_playwright_chain(page_url: str = "https://example.com",
     mock_cm.__aenter__.return_value = mock_pw_obj
 
     mock_async_playwright = MagicMock(return_value=mock_cm)
-    return mock_async_playwright, mock_page, mock_locator
+    return mock_async_playwright, mock_page, mock_locator, mock_context
+
+
+@contextmanager
+def _patch_stealth_browser(module_path: str, mock_context):
+    """直接 patch 反风控工厂,让 Playwright 适配器测试不跑真实 create_stealth_browser_context。
+
+    真实工厂会:get_account_profile(建目录/生成指纹) → 设备图谱 Redis 绑定 →
+    launch_persistent_context(未配置时 mock 产出协程 page.url) → TLS 注入,
+    在单元测试里既慢又非确定性。参照 test_juejin.py 已通过的同一模式。
+    """
+    with patch(
+        f"{module_path}.create_stealth_browser_context",
+        AsyncMock(return_value=(None, mock_context)),
+    ):
+        with patch(f"{module_path}.close_stealth_context", AsyncMock()):
+            yield
 
 
 # =============================================================================
@@ -335,20 +360,22 @@ class TestCsdnAdapter:
     async def test_verify_credentials_success(self, monkeypatch):
         """verify_credentials 成功:page.url 不含 login → connected as <username>。"""
         monkeypatch.setattr("app.services.publish.adapters.csdn._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(page_url="https://mp.csdn.net/dashboard")
+        mock_pw, _, _, mock_context = _make_playwright_chain(page_url="https://mp.csdn.net/dashboard")
         monkeypatch.setattr("app.services.publish.adapters.csdn.async_playwright", mock_pw, raising=False)
-        adapter = CsdnAdapter()
-        ok, msg = await adapter.verify_credentials({"UserName": "testuser", "UserToken": "t"})
+        with _patch_stealth_browser("app.services.publish.adapters.csdn", mock_context):
+            adapter = CsdnAdapter()
+            ok, msg = await adapter.verify_credentials({"UserName": "testuser", "UserToken": "t"})
         assert ok is True
         assert "connected as testuser" in msg
 
     async def test_verify_credentials_login_redirect(self, monkeypatch):
         """verify_credentials cookie 过期:page.url 含 login → False。"""
         monkeypatch.setattr("app.services.publish.adapters.csdn._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(page_url="https://passport.csdn.net/login")
+        mock_pw, _, _, mock_context = _make_playwright_chain(page_url="https://passport.csdn.net/login")
         monkeypatch.setattr("app.services.publish.adapters.csdn.async_playwright", mock_pw, raising=False)
-        adapter = CsdnAdapter()
-        ok, msg = await adapter.verify_credentials({"UserName": "u", "UserToken": "t"})
+        with _patch_stealth_browser("app.services.publish.adapters.csdn", mock_context):
+            adapter = CsdnAdapter()
+            ok, msg = await adapter.verify_credentials({"UserName": "u", "UserToken": "t"})
         assert ok is False
         assert "cookie expired" in msg
 
@@ -373,17 +400,18 @@ class TestCsdnAdapter:
     async def test_publish_success(self, monkeypatch):
         """publish 成功:mock Playwright 全链路,wait_for_url 成功 → published_url。"""
         monkeypatch.setattr("app.services.publish.adapters.csdn._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://blog.csdn.net/testuser/article/details/123456",
             locator_count=1,
         )
         monkeypatch.setattr("app.services.publish.adapters.csdn.async_playwright", mock_pw, raising=False)
-        adapter = CsdnAdapter()
-        content = PublishContent(format="md", title="CSDN 文章", text="正文内容")
-        result = await adapter.publish(
-            content, {"UserName": "u", "UserToken": "t", "UserSecret": "s"},
-            {"tags": ["Python"], "category": "后端"},
-        )
+        with _patch_stealth_browser("app.services.publish.adapters.csdn", mock_context):
+            adapter = CsdnAdapter()
+            content = PublishContent(format="md", title="CSDN 文章", text="正文内容")
+            result = await adapter.publish(
+                content, {"UserName": "u", "UserToken": "t", "UserSecret": "s"},
+                {"tags": ["Python"], "category": "后端"},
+            )
         assert result.success is True
         assert "123456" in result.published_url
         assert result.platform_content_id == "123456"
@@ -584,24 +612,26 @@ class TestJuejinAdapter:
     async def test_verify_credentials_success(self, monkeypatch):
         """verify_credentials 成功:页面内容不含"登录" → connected (sessionid valid)。"""
         monkeypatch.setattr("app.services.publish.adapters.juejin._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_content="<html>欢迎,写文章</html>",
         )
         monkeypatch.setattr("app.services.publish.adapters.juejin.async_playwright", mock_pw, raising=False)
-        adapter = JuejinAdapter()
-        ok, msg = await adapter.verify_credentials({"sessionid": "sess"})
+        with _patch_stealth_browser("app.services.publish.adapters.juejin", mock_context):
+            adapter = JuejinAdapter()
+            ok, msg = await adapter.verify_credentials({"sessionid": "sess"})
         assert ok is True
         assert "connected" in msg
 
     async def test_verify_credentials_login_visible(self, monkeypatch):
         """verify_credentials cookie 过期:页面含"登录"+class="login"+无 avatar → False。"""
         monkeypatch.setattr("app.services.publish.adapters.juejin._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_content='<html>请登录</html><div class="login">登录</div>',
         )
         monkeypatch.setattr("app.services.publish.adapters.juejin.async_playwright", mock_pw, raising=False)
-        adapter = JuejinAdapter()
-        ok, msg = await adapter.verify_credentials({"sessionid": "expired"})
+        with _patch_stealth_browser("app.services.publish.adapters.juejin", mock_context):
+            adapter = JuejinAdapter()
+            ok, msg = await adapter.verify_credentials({"sessionid": "expired"})
         assert ok is False
         assert "cookie expired" in msg
 
@@ -626,17 +656,18 @@ class TestJuejinAdapter:
     async def test_publish_success(self, monkeypatch):
         """publish 成功:mock Playwright 全链路,wait_for_url 成功 → published_url。"""
         monkeypatch.setattr("app.services.publish.adapters.juejin._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://juejin.cn/post/7123456789",
             locator_count=1,
         )
         monkeypatch.setattr("app.services.publish.adapters.juejin.async_playwright", mock_pw, raising=False)
-        adapter = JuejinAdapter()
-        content = PublishContent(format="md", title="掘金文章", text="正文内容")
-        result = await adapter.publish(
-            content, {"sessionid": "s", "signatureId": "sig"},
-            {"category": "前端", "tags": ["React"]},
-        )
+        with _patch_stealth_browser("app.services.publish.adapters.juejin", mock_context):
+            adapter = JuejinAdapter()
+            content = PublishContent(format="md", title="掘金文章", text="正文内容")
+            result = await adapter.publish(
+                content, {"sessionid": "s", "signatureId": "sig"},
+                {"category": "前端", "tags": ["React"]},
+            )
         assert result.success is True
         assert "7123456789" in result.published_url
         assert result.platform_content_id == "7123456789"
@@ -952,25 +983,27 @@ class TestShipinhaoAdapter:
     async def test_verify_credentials_success(self, monkeypatch):
         """verify_credentials 成功:page.url 不含 login + content 不含"扫码" → True。"""
         monkeypatch.setattr("app.services.publish.adapters.shipinhao._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://channels.weixin.qq.com/platform/dashboard",
             page_content="<html>视频号助手</html>",
         )
         monkeypatch.setattr("app.services.publish.adapters.shipinhao.async_playwright", mock_pw, raising=False)
-        adapter = ShipinhaoAdapter()
-        ok, msg = await adapter.verify_credentials({"wechat_channels": '[{"name":"a","value":"b"}]'})
+        with _patch_stealth_browser("app.services.publish.adapters.shipinhao", mock_context):
+            adapter = ShipinhaoAdapter()
+            ok, msg = await adapter.verify_credentials({"wechat_channels": '[{"name":"a","value":"b"}]'})
         assert ok is True
         assert "connected" in msg
 
     async def test_verify_credentials_login_redirect(self, monkeypatch):
         """verify_credentials cookie 过期:page.url 含 login → False。"""
         monkeypatch.setattr("app.services.publish.adapters.shipinhao._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://channels.weixin.qq.com/login",
         )
         monkeypatch.setattr("app.services.publish.adapters.shipinhao.async_playwright", mock_pw, raising=False)
-        adapter = ShipinhaoAdapter()
-        ok, msg = await adapter.verify_credentials({"wechat_channels": '[{"name":"a","value":"b"}]'})
+        with _patch_stealth_browser("app.services.publish.adapters.shipinhao", mock_context):
+            adapter = ShipinhaoAdapter()
+            ok, msg = await adapter.verify_credentials({"wechat_channels": '[{"name":"a","value":"b"}]'})
         assert ok is False
         assert "cookie expired" in msg
 
@@ -1013,17 +1046,18 @@ class TestShipinhaoAdapter:
         monkeypatch.setattr("app.services.publish.adapters.shipinhao._HAS_PLAYWRIGHT", True)
         video_file = tmp_path / "test.mp4"
         video_file.write_bytes(b"fake video content")
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://channels.weixin.qq.com/platform/post/list",
             locator_count=1,
         )
         monkeypatch.setattr("app.services.publish.adapters.shipinhao.async_playwright", mock_pw, raising=False)
-        adapter = ShipinhaoAdapter()
-        content = PublishContent(format="video", title="视频号内容", file_path=str(video_file))
-        result = await adapter.publish(
-            content, {"wechat_channels": '[{"name":"a","value":"b"}]'},
-            {"tags": ["测试"]},
-        )
+        with _patch_stealth_browser("app.services.publish.adapters.shipinhao", mock_context):
+            adapter = ShipinhaoAdapter()
+            content = PublishContent(format="video", title="视频号内容", file_path=str(video_file))
+            result = await adapter.publish(
+                content, {"wechat_channels": '[{"name":"a","value":"b"}]'},
+                {"tags": ["测试"]},
+            )
         assert result.success is True
         assert result.platform == "shipinhao"
         assert result.payload["title"] == "视频号内容"

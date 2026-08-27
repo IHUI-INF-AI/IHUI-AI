@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getTeamMembers, getTeamStats } from '@ihui/api-client'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import {
   TeamScreen as SharedTeamScreen,
@@ -20,6 +20,8 @@ export function TeamScreen() {
   const [stats, setStats] = useState<TeamStats | null>(null)
   const [members, setMembers] = useState<TeamMember[]>([])
   const [activeTab, setActiveTab] = useState<TeamTab>('all')
+  // 搜索关键词(对齐 Uniapp distribution_personnel_list InputArea「搜索我的团友」)
+  const [keyword, setKeyword] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -29,11 +31,11 @@ export function TeamScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError('')
+      // 2026-08-21:历史 fetchApi('/team/stats'|'/team/members') 在后端不存在(404),
+      // 迁移到真实端点 /distribution/team/*(对齐 Uniapp distribution_personnel_list)。
       const [statsRes, membersRes] = await Promise.all([
-        fetchApi<TeamStats>('/team/stats'),
-        fetchApi<{ list: TeamMember[] }>('/team/members', {
-          params: { page: 1, pageSize: 20 },
-        }),
+        getTeamStats(),
+        getTeamMembers({ page: 1, pageSize: 20 }),
       ])
       if (!statsRes.success || !membersRes.success) {
         setError(t('team.loadFailed'))
@@ -41,10 +43,32 @@ export function TeamScreen() {
         setRefreshing(false)
         return
       }
-      setStats(statsRes.data ?? null)
+      const raw = statsRes.data
+      if (raw) {
+        setStats({
+          totalMembers: raw.totalMembers,
+          activeMembers: raw.activeMembers,
+          directCount: raw.directCount,
+          indirectCount: raw.indirectCount,
+          totalContribution: raw.totalContribution,
+        })
+      } else {
+        setStats(null)
+      }
       // 格式化日期字段,共享组件只负责渲染
       const rawMembers = membersRes.data?.list ?? []
-      setMembers(rawMembers.map((m) => ({ ...m, joinDate: formatDateOnly(m.joinDate) })))
+      setMembers(
+        rawMembers.map((m) => ({
+          id: m.id,
+          nickname: m.nickname,
+          avatar: m.avatar,
+          level: m.level,
+          joinDate: formatDateOnly(m.joinDate),
+          contribution: m.contribution,
+          status: m.status,
+          relation: m.relation,
+        })),
+      )
       setLoading(false)
       setRefreshing(false)
     },
@@ -61,6 +85,8 @@ export function TeamScreen() {
       stats={stats}
       members={members}
       activeTab={activeTab}
+      keyword={keyword}
+      onKeywordChange={setKeyword}
       loading={loading}
       refreshing={refreshing}
       error={error}

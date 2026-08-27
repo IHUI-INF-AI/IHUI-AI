@@ -115,6 +115,7 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 pnpm turbo build typecheck lint test          # 全量验证(必须全绿)
 pnpm --filter @ihui/api typecheck             # 单独验证后端
 pnpm --filter @ihui/web typecheck             # 单独验证前端
+cd apps/ai-service && mypy app --ignore-missing-imports --strict   # Python 类型(app 源码路径 apps/ai-service/app,继承 pyproject.toml [tool.mypy])
 pnpm dev                                       # 启动所有服务(web + api + ai-service,端口见 docs/port-management.md)
 ```
 
@@ -271,6 +272,39 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **手动构建必须遵守**:触发 web 构建前先 `node scripts/deploy-lock.mjs check`(exit 0=可构建;exit 1=有其他构建/部署进行中,等待后重试)。**禁止**绕过锁直接 `next build` 或并发触发 `build-next-prod.ps1`。
 - **锁异常处理**:超时自动报错;超过 10min 的悬挂锁(持锁进程已死)自动抢占;紧急可删项目根 `.deploy.lock`(先确认无构建进程)。`.deploy.lock/` 已 gitignore。
 - **禁止**用 `-CleanCache` 或其它参数绕过锁;多 Agent 协作时若需排队构建,等待而不是强删锁。
+
+### 12b. 协作收尾 SOP (2026-08-18 立, §22c 配套)
+
+当发现其他 agent 正在并行做同一任务时(working tree 与 origin/main 不一致, 或远端新 commit 提到类似功能), 不要立即重写对方主体逻辑, 改走协作收尾路径:
+
+1. **核查现状**: 用 `git diff HEAD --stat` + `git log origin/main..HEAD` 确认
+   - 远端是否已 commit (a01fcf4 这种情况)
+   - 本地 working tree 是否含对方未提交的改动
+   - 对方改动的完整性与正确性
+2. **不重写主体**: 仅修复对方代码中的明确缺陷(如测试用例失败、QUIET bug)
+3. **最小化改动**: 用 `git add <仅自己改的文件>` 只 stage 自己的改动
+4. **--no-verify 跳过**: 因为 hook 会被对方未 commit 的 working tree 改动误判为污染
+5. **commit message 标注**: 标题含「(协作收尾)」后缀, 描述中明确
+   「不动其他 agent 的主体逻辑」+ 列出具体修复点
+6. **push-guard 自动捎带**: push 后 push-guard 会自动捎带其他 agent 的 commit,
+   因为 git-pull-rebase --autostash 已同步
+
+### 12c. 并发 commit 防混淆 SOP (2026-08-19 立)
+
+当多个 agent 同时 commit 同一文件时, 可能出现:
+
+- 你的 commit message 描述的是 A, 但 diff 里包含 B 的修改 (race condition)
+- 因为另一个 agent 在你 commit 期间 `git add` 了相同/不同文件
+
+防混淆措施:
+
+1. **精确 add**: 用 `git add <具体路径>`, **禁止** `git add .` / `git add -A` / `git add -u`
+2. **commit 前验证**: `git diff --cached --stat` 必须与预期文件清单完全一致
+3. **commit 后审查**: `git show HEAD --stat` 立即检查 commit 内容, 若含无关文件 → `git reset HEAD~1` 重提
+4. **避免同时改同一文件**: 如果发现其他 agent 在改相同文件, 等他完成后再动
+5. **接受混合 commit**: 当混合 commit 已 push 到 main 且功能正确, 不要 force-amend, 加一个空 commit 标注"混合 commit 说明"即可
+
+历史案例: d6e8906 + f028e5517b 期间出现"scripts 改动 + api 改动 + mobile-rn 改动"被同一 commit 收录, 后续审计应见此节说明。
 
 ---
 
@@ -495,6 +529,7 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 - 扫描 `git fsck --unreachable --no-reflogs` 检测是否有悬空 commit
 - 5 段检查流程(2026-07-26 强化):reflog reset / fsck 悬空 / lost-commit tag / backup tag / 远程 tag 完整性
 - 发现 reset 操作或未备份悬空 commit → exit 1,阻塞 commit
+- **悬空 commit 备份**:被 reset / drop 的 commit 一旦出现在 `git fsck --unreachable` 输出中且无 `lost-commit/*` tag 备份,即为"未备份悬空 commit",会阻塞 commit——需先执行 `git tag lost-commit/<name> <hash> -m "lost via reset"` 永久保留(防止 git gc 清理),再重新 commit
 - 紧急跳过:`HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`
 - 详细档案:见 [docs/lost-commit-archive.md](./docs/lost-commit-archive.md)
 
@@ -513,6 +548,162 @@ reflog 记录 18:12-18:20 期间发生 **6 次 `reset: moving to HEAD~` 操作**
 ### 历史案例
 
 `.trae-cn/archive/AGENTS_history.md` 记录每次 reset 事故 + 已采取的 tag 备份措施。
+
+---
+
+## 22b. staged-typecheck 闸门:全量 include + 错误过滤(2026-08-18 立,根治改版)
+
+### 触发背景
+
+pre-commit 第 16 项「条件 typecheck 闸门」原策略:临时 tsconfig 只 include staged 文件 → 模块扩展(declare module 'fastify' 等)未被加载 → 报 TS2339 假阳性(如 `pushNotification` / `isMultipart` / `file`)。多 agent 并行时,任何 agent 改一下 ws-notifications.ts 都会让其他 agent 的 web 包 typecheck 失败 100% 误阻塞。
+
+### 核心策略(根治)
+
+`scripts/check-staged-typecheck.mjs`:
+
+- **临时 tsconfig 沿用 package 原始 tsconfig 的【全量 include】**,完整加载所有模块扩展与全局类型,消除 TS2339 假阳性。
+- **tsc 输出按行解析**,只把【错误文件属于 staged 文件】的错误视为失败;其他 agent 引入的非 staged 文件错误自动过滤、不阻塞。
+- tsc 未能真正运行(如 pnpm/tsc 未找到、进程崩溃、空输出)按失败处理,**禁止静默通过**。
+- 临时 tsconfig 清理加重试(Windows transient file lock 兼容);`.gitignore` 已加 `**/tsconfig.staged-typecheck.json` 防残留误入库。
+
+### 守门集成
+
+- `scripts/guardian-runner.mjs` 第 16 项 blocking(已有调用 `node scripts/check-staged-typecheck.mjs --staged`)
+- 跳过方法:`HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...`(应急)
+- 适用范围:任意 staged .ts/.tsx 文件(不限 apps/web)
+- 自动跳过:apps/ai-service(Python,走 mypy)、apps/desktop(无 typecheck script)、packages/eslint-config / packages/tsconfig(纯配置包)等无 typecheck script / tsconfig 的 package
+
+### 红线规则
+
+- ❌ 禁止把临时 tsconfig 的 include 缩窄到 staged 文件(会回退到旧 partial-include 假阳性 bug)
+- ❌ 禁止把 `**/tsconfig.staged-typecheck.json` 从 .gitignore 移除(Windows 偶发 unlink 失败可能残留)
+- ❌ 禁止把 `sawAnyTscError` 移除(若 tsc 未能真正运行,必须按失败处理,不能静默通过)
+- ✅ 修改 `filterTscOutputForStagedFiles` / `getOriginalInclude` 时必须同步更新 `scripts/tests/check-staged-typecheck.test.mjs`(镜像常量同步锚点:源脚本第 298-327 行 / 244-256 行)
+- ✅ 修改源脚本 `check-staged-typecheck.mjs` 的核心函数时,必须同步:
+  1. 测试文件 `scripts/tests/check-staged-typecheck.test.mjs` 中的镜像常量
+  2. 跑 `scripts/check-staged-typecheck-mirror-sync.mjs` 验证指纹一致
+
+---
+
+## 22c. 镜像常量守门模式规范(2026-08-18 立)
+
+### 背景
+
+部分核心工具脚本(如 `scripts/check-staged-typecheck.mjs`)导出大量内部辅助函数,而测试文件 `scripts/tests/*.test.mjs` 由于路径隔离 / 模块副作用 / 静态导出冲突等原因,**无法直接 `import` 源函数**。沿用"测试文件里复制一份相同实现的镜像常量"做法虽然能跑通断言,但形成两套并行真相:任何对源函数签名的修改(参数顺序、返回值结构、过滤规则常量)必须**手动同步**到测试文件;一旦遗漏,测试将持续"假绿"(通过旧逻辑断言已不存在的字段),守门形同虚设。
+
+### 根治路径(三步)
+
+1. **源函数 export**:把核心函数从源脚本顶部 export 出去,确保测试环境可解析(注意 `.mjs` 必须用 `export` 关键字,且不引入副作用代码)。
+2. **测试直接 import**:测试文件 `import { __test__ as <别名> } from '../source.mjs'`,消除"两份真相"。
+3. **守门脚本检测 export 锚点**:`scripts/check-staged-typecheck-mirror-sync.mjs` 持续校验:
+   - 源文件必须存在并 export `__test__` 对象
+   - `__test__` 必须包含指定的函数键(本场景:`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`)
+   - 测试文件必须存在对应 `import { __test__ as ... } from '../source.mjs'` 语句
+   - 任意锚点缺失即 exit 1 报错(提示"镜像常量漂移,需走 §22c 协作收尾")
+
+### 守门脚本工作机制(`check-staged-typecheck-mirror-sync.mjs`)
+
+- **阶段 A · 检测源文件存在**:确认 `scripts/check-staged-typecheck.mjs` 存在于工作区(防止路径漂移)。
+- **阶段 B · 检测 export const **test** 锚点**:用正则匹配 `export const __test__ = { ... }`,并校验三个键 (`getOriginalInclude` / `normalizePath` / `filterTscOutputForStagedFiles`) 均出现在对象字面量中(防止 export 但漏字段)。
+- **阶段 C · 检测测试文件 import**:确认 `scripts/tests/check-staged-typecheck.test.mjs` 存在 `import { __test__ as ... } from '../check-staged-typecheck.mjs'` 语句(防止 import 路径写错 / 别名错配)。
+- **触发场景**:任何对 `check-staged-typecheck.mjs` 的核心函数修改后,pre-commit hook 自动跑该守门脚本;若 export 锚点漂移,立即阻断 commit 并提示同步测试 import。
+
+### 可复用模板
+
+检测模式(正则 + 字符串匹配 + import 锚点)可复用到其他类似场景:
+
+```javascript
+// 伪代码:三阶段检测模板
+const source = readFileSync('scripts/<source>.mjs', 'utf8')
+assert(source.includes('export const __test__ = {'), 'phase B: missing __test__ export')
+const requiredKeys = ['funcA', 'funcB', 'funcC']
+for (const k of requiredKeys) assert(source.includes(`${k}:`), `phase B: missing key ${k}`)
+const test = readFileSync('scripts/tests/<source>.test.mjs', 'utf8')
+assert(
+  /import\s*\{\s*__test__\s+as\s+\w+\s*\}\s*from\s*['"]\.\.\/<source>\.mjs['"]/.test(test),
+  'phase C: missing __test__ import in test file',
+)
+```
+
+可复用到:任何"测试文件无法直接 import 源函数"的工具脚本场景(如 `scripts/check-commit-scope.mjs` / `scripts/check-staged-pollution.mjs` 等)。
+
+> 📌 配套使用: 本模板的入口守护需搭配 §22d `isDirectRun` 模式使用, 避免 import 时 main() 误触发。
+
+### 红线规则
+
+- ❌ 禁止在测试文件中**复制**源函数实现(产生镜像常量漂移风险)
+- ❌ 禁止修改源函数签名后**不更新** `__test__` 对象的导出键(守门立即失败是预期行为,不是 bug)
+- ❌ 禁止删除 `check-staged-typecheck-mirror-sync.mjs` 中的任何一项锚点检测(削弱守门强度)
+- ✅ 修改源函数后必须 `pnpm test scripts/tests/check-staged-typecheck.test.mjs` + 跑 mirror-sync 守门脚本双验证
+- ✅ 新增工具脚本若需要被测试直接 import,必须遵循"源文件 export `__test__` + 测试 import + 守门脚本三阶段检测"模板
+
+---
+
+## 22d. `isDirectRun` 模式规范:ESM 脚本"双形态"入口守护(2026-08-18 立)
+
+### 背景
+
+部分 `.mjs` 工具脚本(如 `scripts/check-staged-typecheck.mjs`)需要同时支持两种使用形态:
+
+1. **CLI 直接执行**:`node scripts/foo.mjs`(命令行手动跑 / pre-commit hook 调用 → 必须自动执行 `main()`)。
+2. **模块被 import**:`import { __test__ } from './foo.mjs'`(测试文件复用导出符号 → **绝不**触发 `main()` 副作用)。
+
+ESM(`.mjs`)模块与 CJS(`.cjs` / `.js` + `"type": "module"`)的求值模型:**顶层代码仅在被 import 时执行一次**,但**直接 `node foo.mjs` 时同样会执行顶层代码**。这意味着 — 如果脚本顶层直接写 `main().catch(...)`,测试一旦 `import` 该模块,就会**连带触发 CLI 主流程**(批量跑 typecheck、写临时 tsconfig、调 git diff),把测试环境搞炸,或更糟 — 在测试用例之间留下真实副作用(临时文件未清理、staged 状态污染)。
+
+### 根因:`import.meta.url` vs `process.argv[1]`
+
+- **`import.meta.url`**:ESM 模块加载器注入,恒为**当前模块文件**的 `file://` URL(无论是被 import 还是直接 node 执行,值都相同:指向 `foo.mjs` 自身)。
+- **`process.argv[1]`**:Node 启动时传入的第一个脚本参数,只在**直接 node 执行**时等于本模块路径;被 import 时为 undefined 或与本模块无关。
+
+因此判定**"本模块是不是被直接 node 执行"** 可用:`import.meta.url === pathToFileURL(process.argv[1]).href`。两者相等 ⇒ 直接执行,触发 `main()`;否则 ⇒ 被 import,跳过副作用。
+
+> ⚠️ **跨平台陷阱**:Windows 路径是反斜杠 `C:\foo\bar.mjs`,不能直接拼成 `file://` URL,否则 `import.meta.url`(始终是标准 `file:///`)与字符串永远不匹配。**必须**经 `node:url` 的 `pathToFileURL()` 归一化。
+
+### 可复用模板
+
+在 `.mjs` 脚本**底部顶层**(所有 export 之后)粘贴以下 4 行(已适配 Windows / Linux / macOS,推荐用项目现存形式而非手写字符串拼接):
+
+```javascript
+import { pathToFileURL } from 'node:url'
+
+const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+
+if (isDirectRun) {
+  main().catch((e) => {
+    console.error(`❌ ${e?.message ?? e}\n${e?.stack ?? ''}`)
+    process.exit(2)
+  })
+}
+
+export const __test__ = {/* 暴露给测试的核心函数 */}
+```
+
+位置约束:
+
+- `__test__` 的 `export` 必须放在 **`if (isDirectRun)` 之后**(否则 ESM 提升可能在测试 import 时机前完成,语义仍正确但不直观;且与 §22c "镜像常量守门" 的 `import { __test__ as ... }` 锚点要求一致,便于 grep)。
+- `main()` 自身声明应保持文件靠前位置(便于阅读),`if (isDirectRun)` 仅触发调用,**不**延迟或重写 `main`。
+- `process.exit(2)` 复用 §22b 中"异常 vs 失败"的退出码约定(2 = 脚本自身异常,1 = 业务失败)。
+
+### 与 §22c 的关系
+
+`isDirectRun` 是 **§22c 镜像常量守门模式的使能条件**。没有它,§22c 的"源文件 export `__test__` + 测试 import"做法会因为 `main()` 顶层自动执行而不可行 — 测试一旦 import 就会触发 CLI 主流程,副作用污染测试环境(写临时文件、调 git 改 staged 状态、写控制台横幅噪音),`vitest` / `node --test` 都会在 setup 阶段立即崩。`isDirectRun` 把"CLI 入口"和"模块导出"两种用法的副作用隔离开,使 §22c 的 export / import 双真相消除得以落地。
+
+两者协作的最小工作流:
+
+1. 源 `.mjs` 脚本加 `isDirectRun` 守护(本节模板)。
+2. 源脚本 export `__test__ = { fn1, fn2, ... }`(§22c 第 1 步)。
+3. 测试文件 `import { __test__ as X } from '../source.mjs'`(§22c 第 2 步)— 因 `isDirectRun=false`,`main()` 不执行,仅拿到导出对象。
+4. 守门脚本 `scripts/check-staged-typecheck-mirror-sync.mjs` 三阶段检测 export / key / import 锚点(§22c 第 3 步)。
+
+### 红线规则
+
+- ❌ 禁止在 **CommonJS / `.cjs`** 脚本中使用 `isDirectRun`(`.cjs` 没有 `import.meta`,需走 `require.main === module` 判定,本规范不适用;混用会导致 `SyntaxError: Cannot use 'import.meta' outside a module`)。
+- ❌ 禁止把 `main()` 写成**同步函数**后用 `if (isDirectRun) { main() }`(同步抛错会抛出 toplevel,无法被 `.catch` 包裹,且 ESLint `no-top-level-await` 外的同步 throw 在 Node 18+ 表现不一致;必须保持 `main()` 是 `async` 或返回 `Promise`)。
+- ❌ 禁止手写字符串拼接 `import.meta.url === 'file:///' + process.argv[1]` 替代 `pathToFileURL`(Windows 反斜杠永远不匹配,直接判定失败 → CLI 永不触发 main → 静默失控)。
+- ❌ 禁止把 `isDirectRun` 守卫放到 `main` 函数**内部**(局部守卫无法阻止其他顶层 import 时副作用已执行的部分,如顶层模块加载就跑了 git diff / 写了临时文件)。
+- ❌ 禁止把 `export const __test__` 移到 `if (isDirectRun)` **之前**且不放 `export`(否则测试 import 时拿到 undefined,§22c 守门 phase B 立即失败 — 这是预期行为,不是 bug)。
+- ✅ 修改源脚本的 `main()` 调用约定时必须同步 §22c 守门(双验证 `pnpm test` + `node scripts/check-staged-typecheck-mirror-sync.mjs`),否则 `__test__` 导出语义与 import 时机解耦,可能让测试在 CI 通过而在本地 import 时副作用泄漏。
+- ✅ 新增任何"需要双形态(CLI + import)"的 `.mjs` 工具脚本,必须沿用本节 4 行模板 + §22c export 规范,**不**为单次用例复制粘贴变体。
 
 ---
 
@@ -651,7 +842,15 @@ Agent 在调试 / 验证 / 探查某项功能时,常在 `apps/web/` / `apps/api/
 - **依赖治理**(38):solito 幽灵依赖回归守门(阻塞,防 P0 优化被回退)
 - **迁移完整性**(39):mobile-rn screen 迁移守门(阻塞,防独立实现回升,白名单:Debug/DevEnter/SharedDemo/profileMenuData)
 - **共享层重复**(40):端内重新实现 shared hook/util 检测(阻塞,防端内独立实现回升,白名单:web/useChat + web/useAuth + web/useAgentRuntime + web/useClipboard + web/useNotificationStore + mobile-rn/useAuth)
-- **条件**(16/16b):apps/web staged → typecheck;packages/database/src staged → build
+- **条件**(16/16b):staged-typecheck(任意 staged .ts/.tsx → 全量 include + 错误过滤,2026-08-18 根治);packages/database/src staged → build(脚本:check-staged-typecheck.mjs,详见 §22b)
+- (16c):check-staged-typecheck-mirror-sync(源/测镜像漂移防御,blocking,AGENTS.md §22b 配套,2026-08-18 立)
+- **React 事件闭包**(42):check-event-closure-leak(异步回调闭包访问 SyntheticEvent 属性检测,blocking,AGENTS.md §42 配套,2026-08-12 立)
+
+### 守门手动触发 / 紧急跳过抽查
+
+- **手动触发全量守门**:`node scripts/guardian-runner.mjs --staged`(pre-commit 模式,传给所有脚本);不带 `--staged` 为全量扫描。
+- **commit 污染防护(scope 一致性)**:`.husky/commit-msg` 的 `check-commit-scope-consistency.mjs`(AGENTS.md §16 配套);紧急跳过 `HUSKY_SKIP_SCOPE_CHECK=1 git commit ...`。
+- **commit 丢失防护**:guardian 第 30a 项 `check-commit-loss-guard.mjs`(AGENTS.md §22 配套);紧急跳过 `HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...`。
 
 > post-commit 钩子:`git-push-guard.mjs` 自动 push + 验证 local == remote(见 §20)。
 
@@ -711,9 +910,11 @@ C 盘 120 GB 频繁告急,根因排查发现:
 **查看日志**:`D:\caches\c-drive-maintain.log`
 **查看任务状态**:`Get-ScheduledTask -TaskName "IHUI-*"` / `schtasks /Query /TN "IHUI-C-Drive-AutoMaintain"`
 
-### 守门(待实现)
+### 守门(已实现,guardian-runner 第 45 项)
 
-- `scripts/check-c-drive-paths.mjs`(TODO):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档),warn-only。
+- `scripts/check-c-drive-paths.mjs`(guardian-runner 第 45 项,warn-only,2026-08-13 立):扫描 staged 文件中硬编码的 C 盘写入路径(`C:\temp\` / `C:\Users\*\AppData\Local\Temp\` 等,排除 `os.tmpdir()` / `$env:TEMP` / 注释 / 文档)。
+- **行为(与 guardian-runner.mjs 实际一致)**:本脚本违规时 exit 1(供统计),guardian-runner 以 warn 模式捕获后计为"警告"、**不阻塞 commit**;仅 blocking 项失败才 exit 1 阻塞 commit。
+- 紧急跳过(应急,默认不推荐):`HUSKY_SKIP_C_DRIVE_PATHS=1 git commit ...`
 
 ### 历史案例
 
@@ -796,6 +997,107 @@ iex "& { $(irm https://aka.ms/install-powershell.ps1) } -UseMSI"
 ### 配套
 
 - `.gitignore` 已补 `browser_test_output/`、`cookies.txt` 防回潮(未跟踪垃圾不污染 `git status`)
+
+---
+
+## 29. dangling commit 备份策略(2026-08-19 立)
+
+### 由来
+
+`commit-loss-check` 守门会拦截 dangling commits,要求先备份为 tag 再继续操作。
+本仓库实践:所有 dangling commits 备份为 `lost-commit/wip-*` tag(以 commit 短 hash 命名,
+例如 `lost-commit/0141d221`、`lost-commit/wip-batch-00f2429`)。
+
+截至 2026-08-19,本地 `lost-commit/*` tag 数量 = **4188** 个,远超 §22「已被 reset 丢失的 commit
+永久记录」清单的 3 个手工备份 tag — 绝大多数来自 `check-commit-loss-guard.mjs` 自动 fsck
+悬空检测后批量打 tag 的产物(典型为 merge commit / stash pop 失败的中间 commit)。
+
+抽样 `git show --stat lost-commit/{0141d221,02000bfd,043af88d}` 均显示为 Merge commit,
+作者 `AI智汇社 <lizong@aizhs.top>`,日期集中在 2026-08-17 — 与 §22 守门日志一致。
+
+### 保留周期
+
+建议 **30 天**。超出后一次性 GC(由仓库维护者人工触发,不在守门脚本里自动跑):
+
+```bash
+# 1. 先确认无重要未提交工作(红线!)
+git status               # 应 clean
+git stash list           # 应为空
+git diff --stat          # 应无改动
+
+# 2. 列出所有 lost-commit tag(预演,确认数量级合理)
+git tag -l 'lost-commit/*' | wc -l   # 当前 4188
+
+# 3. 本地一次性删除
+git tag -l 'lost-commit/*' | xargs git tag -d
+
+# 4. 同步删除远程 tag(仅当你确认远端也允许清理时;默认保留远端)
+#    警告:此操作会真正影响 origin ref 列表,需在 PR 中明确说明
+git tag -l 'lost-commit/*' | xargs -I{} git push origin :refs/tags/{}
+
+# 5. 验证 (强校验,任何 missing/unreachable 都应人工复核)
+git fsck --unreachable --no-reflogs
+git tag -l 'lost-commit/*' | wc -l   # 应为 0
+```
+
+### 为什么必须人工触发而不是脚本自动化
+
+- **守门不擅自删 tag**: `check-commit-loss-guard.mjs` 的职责是"检出 + 备份",
+  不应承担"GC 清理"职责 — 后者一旦误删,会真正丢失 dangling commit 的可达路径,
+  即使远端有备份也增加了恢复成本。
+- **数量级跃升需要人审**: 从 0 → 4188 是日积月累的结果,任何"一键 GC"脚本都应要求
+  人类在 PR 里显式 ack,而不是 nightly cron 自动跑。
+- **§22 守门只挡新增**: pre-commit 第 30a 项(`--blocking --filter-stash`)只关心
+  "这一次操作是否会产生 dangling",不关心历史积累。
+
+### 红线
+
+- ❌ **不要把 lost-commit tag push 到 origin 之外的 fork / mirror**(会污染外部 ref 列表)。
+  §22「自动化 tag 同步」明确禁止了向非 origin 的推送。
+- ❌ **GC 前未确认 `git status clean` + `git stash list` 为空**(会丢失未提交改动)。
+- ❌ **一次性删除超过 1000 个 tag 后不验证 `git fsck` 就 push**(可能误删有意义的 commit,
+  因为 fsck 检出的是"创建时刻"的悬挂,不代表当下已被 merge 进 main)。
+- ❌ **amend 含 dangling 备份说明的 commit**(本节一旦 commit,内容视为定稿;
+  后续 GC 时间窗的调整应新加 §29a / §29b,不要回头改这一节)。
+
+### 配套
+
+- §22「防止 commit / push / merge 提交丢失硬性规则」— 提供守门 + 备份机制
+- §22「自动化 tag 同步」(`scripts/sync-lost-commit-tags.mjs`)— 保证远端有副本
+- `docs/lost-commit-archive.md` — 丢失 commit 的永久档案(人工可读清单)
+- `.trae-cn/archive/AGENTS_history.md` — 历史 GC 案例(本节首次落地后应补一条案例)
+
+---
+
+## 42. React SyntheticEvent 闭包陷阱(强制)
+
+### 触发背景(2026-08-12 立,真实 bug)
+
+`apps/web/src/components/chat/model-selector.tsx` 原 `onMouseLeave` 在 `setTimeout` 回调闭包内访问 `e.currentTarget`:
+
+```tsx
+setTimeout(() => {
+  setPopoverAnchor((prev) => (prev?.el === e.currentTarget ? null : prev))
+}, 100)
+```
+
+React 17+ 的 SyntheticEvent 在事件处理函数返回后 `currentTarget` 会被置 `null`,异步回调触发时 `prev?.el === null` 永远为 `false`,关闭分支永远不进 → model picker 常驻显示。
+
+### 陷阱机制
+
+- React 事件处理函数(`onClick={e => ...}` 等)**同步作用域内** `e.target` / `e.currentTarget` 有效。
+- 一旦进入异步回调(`setTimeout` / `setInterval` / `requestAnimationFrame` / `requestIdleCallback` / `queueMicrotask` / 未捕获 `e` 的 promise)或 memoized / 延迟执行的闭包场景,SyntheticEvent 会被事件池复用/清空,`e.target` / `e.currentTarget` 失效或为 `null`(React 17+ 不再 pooled,但 `currentTarget` 一定在 handler 返回后置 null)。
+
+### 强制做法(违反视为 defect 事故,强制)
+
+1. **同步缓存**:在事件处理函数**同步作用域**先缓存所需字段,再在异步中使用。例:`const id = e.currentTarget.dataset.id` → 异步闭包内读 `id`,严禁直接读 `e.currentTarget.dataset.id`。
+2. **用 ref 管理 DOM**:`anchorRef.current` 替代 `e.currentTarget`,适合需在多个回调 / 清理函数中引用同一 DOM。
+3. **异步闭包内禁止访问 `e.` 任何属性/方法**(`currentTarget` / `target` / `preventDefault` / `stopPropagation`)。
+
+### 守门
+
+`scripts/check-event-closure-leak.mjs`(guardian-runner 第 42 项,blocking):用括号配对算法提取异步回调第一个参数(箭头函数体),在其内搜 `e.X` 模式,命中 → exit 1 阻塞 commit。
+参考修复:`apps/web/src/components/chat/model-selector.tsx` MemberDiscountSection。
 
 ---
 

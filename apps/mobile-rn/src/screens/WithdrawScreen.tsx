@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { Alert } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { fetchApi, getBalance } from '@ihui/api-client'
 import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -16,24 +17,28 @@ export function WithdrawScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  // 可提现金额(对齐原项目 withdrawal/index.vue 顶部余额展示;真实来源 wallet.getBalance())
+  const [balance, setBalance] = useState(0)
 
-  const handleSubmit = async () => {
+  useEffect(() => {
+    void getBalance().then((res) => {
+      if (res.success) setBalance(res.data.balance)
+    })
+  }, [])
+
+  const doWithdraw = async () => {
     const num = Number(amount)
-    if (!Number.isFinite(num) || num <= 0) {
-      setError(t('withdraw.amountInvalid'))
-      return
-    }
-    if (num < 10) {
-      setError(t('withdraw.minAmount'))
-      return
-    }
     setLoading(true)
     setError('')
     setSuccess('')
     try {
-      const resp = await fetchApi<unknown>('/wallet/withdraw', {
+      const resp = await fetchApi<unknown>('/api/wallet/withdraw', {
         method: 'POST',
-        body: JSON.stringify({ amount: num, bankCardId: bankCardId || undefined }),
+        body: JSON.stringify({
+          amount: Math.round(num),
+          account: bankCardId,
+          accountType: 'bank_card',
+        }),
       })
       if (!resp.success) throw new Error('http')
       setSuccess(t('withdraw.success'))
@@ -46,11 +51,33 @@ export function WithdrawScreen() {
     }
   }
 
+  const handleSubmit = async () => {
+    const num = Number(amount)
+    if (!Number.isFinite(num) || num <= 0) {
+      setError(t('withdraw.amountInvalid'))
+      return
+    }
+    if (num < 10) {
+      setError(t('withdraw.minAmount'))
+      return
+    }
+    // 二次确认弹窗(对齐原项目提现确认交互:先确认再发起)
+    Alert.alert(
+      t('withdraw.confirmTitle'),
+      t('withdraw.confirmMessage', { amount: num.toFixed(2) }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('common.confirm'), onPress: () => void doWithdraw() },
+      ],
+    )
+  }
+
   return (
     <SharedWithdrawScreen
       t={t}
       amount={amount}
       bankCardId={bankCardId}
+      balance={balance}
       loading={loading}
       error={error}
       success={success}

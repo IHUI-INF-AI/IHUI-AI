@@ -67,8 +67,13 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLocaleState(next)
   }
 
-  const t = (key: string, params?: Record<string, string | number>): string =>
-    translate(messages[locale], key, { fallback: messages[DEFAULT_LOCALE], params })
+  const t = (key: string, params?: Record<string, string | number>): string => {
+    const resolvedKey = key === 'course.pay' ? 'courseDetail.pay' : key
+    return translate(messages[locale], resolvedKey, {
+      fallback: messages[DEFAULT_LOCALE],
+      params,
+    })
+  }
 
   return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>
 }

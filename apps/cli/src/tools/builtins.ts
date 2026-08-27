@@ -25,6 +25,7 @@ import type { Tool, ToolContext, ToolResult } from './index.js';
 import { todo_write } from './todo-write.js';
 import { ask_user_question } from './ask-user.js';
 import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
+import { tryParseJson, isRecord } from '../util/json.js';
 import {
   terminal_open,
   terminal_send,
@@ -75,12 +76,20 @@ function execRipgrep(pattern: string, opts: { cwd: string; searchPath: string; t
   for (const line of ((result.stdout as string) ?? '').split('\n')) {
     if (!line.trim()) continue;
     try {
-      const obj = JSON.parse(line) as { type: string; data?: { path?: { text?: string }; line_number?: number; lines?: { text?: string } } };
-      if (obj.type === 'match' && obj.data?.path?.text) {
+      const obj = tryParseJson(line);
+      if (
+        isRecord(obj) &&
+        obj.type === 'match' &&
+        isRecord(obj.data) &&
+        isRecord(obj.data.path) &&
+        typeof obj.data.path.text === 'string'
+      ) {
+        const data = obj.data as { path: { text: string }; line_number?: unknown; lines?: unknown };
+        const lines = isRecord(data.lines) && typeof data.lines.text === 'string' ? data.lines.text : '';
         matches.push({
-          file: path.relative(opts.cwd, obj.data.path.text),
-          line: obj.data.line_number ?? 0,
-          text: (obj.data.lines?.text ?? '').trimEnd().slice(0, 120),
+          file: path.relative(opts.cwd, data.path.text),
+          line: typeof data.line_number === 'number' ? data.line_number : 0,
+          text: lines.trimEnd().slice(0, 120),
         });
         if (matches.length >= opts.max) break;
       }

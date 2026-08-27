@@ -97,10 +97,10 @@ export class BaseClient {
         await sleep(delay)
       }
 
-      try {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), this.timeout)
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), this.timeout)
 
+      try {
         const headers = this.buildHeaders()
         if (isFormData) {
           delete headers['Content-Type']
@@ -135,6 +135,7 @@ export class BaseClient {
         if (resp.status === 429) break
         if (resp.status < 500) break
       } catch (e) {
+        clearTimeout(timer)
         if (e instanceof SdkError) {
           lastError = e
           break

@@ -7,6 +7,11 @@ import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { inferPointsMultiplier } from './ai-vendors/proxy-llm.js'
 import { isSystemAdminUser } from '../db/queries.js'
+import {
+  fetchProviderHealth,
+  isProviderHardUnavailable,
+  inferProviderCode,
+} from '../lib/llm-provider-health.js'
 
 /**
  * 受限模型(2026-08-05 安全红线):生产真实 LLM API key(stepfun/agnes/groq/deepseek)
@@ -89,6 +94,8 @@ export interface AiModelInfoItem {
   updatedAt: string | null
   /** 积分消耗倍数(由 modelCode/code/name 推断:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
   pointsMultiplier: number
+  /** 是否可用(best-effort:由 ai-service provider 健康推导;空健康度或缺省 → 视为可用) */
+  available?: boolean
 }
 
 /** 为 ai-service 返回的模型列表安全附加 points_multiplier(兼容数组 / {models|data|items: []}) */
@@ -176,6 +183,9 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
       const coursePlatform = getCoursePlatform(request)
       const isSpecialUser = SPECIAL_UUIDS.includes(userUuid)
 
+      // 单次请求内拉取 ai-service provider 健康度(best-effort;失败则为空 Map)
+      const healthMap = await fetchProviderHealth()
+
       // 基础条件:status=1(可用)
       const conditions = [eq(zhsAiModelInfo.status, 1)]
 
@@ -255,9 +265,16 @@ export const llmModelsRoutes: FastifyPluginAsync = async (server) => {
         createdAt: m.createdAt ? m.createdAt.toISOString() : null,
         updatedAt: m.updatedAt ? m.updatedAt.toISOString() : null,
         pointsMultiplier: inferPointsMultiplier(m.modelCode ?? m.code ?? m.name),
+        available: !isProviderHardUnavailable(
+          inferProviderCode(m.modelCode, m.code, m.name),
+          healthMap,
+        ),
       }))
 
-      return reply.send(success({ items, total: items.length }))
+      // 铁律:仅展示可用且有额度的模型。硬死模型移除;健康度获取失败(空 Map)则宽松保留全部。
+      const filteredItems = healthMap.size === 0 ? items : items.filter((i) => i.available)
+
+      return reply.send(success({ items: filteredItems, total: filteredItems.length }))
     } catch (e) {
       return reply.status(500).send(error(500, (e as Error).message || 'Failed to list models'))
     }

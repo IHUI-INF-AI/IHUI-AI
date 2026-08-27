@@ -51,16 +51,16 @@
    * 值源自 packages/design-tokens/src/rn-tokens.ts(rnLightTokens)。
    * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
    * 暗色覆盖见下方 .dark 块。 */
-  --rn-purple: #7B61FF;
-  --rn-purple-light: #F5F3FF;
-  --rn-purple-soft: #FAF9FF;
-  --rn-tertiary: #9CA3AF;
+  --rn-purple: #7b61ff;
+  --rn-purple-light: #f5f3ff;
+  --rn-purple-soft: #faf9ff;
+  --rn-tertiary: #9ca3af;
   --rn-body: #374151;
-  --rn-danger: #DC2626;
-  --rn-danger-light: #FEF2F2;
-  --rn-success-light: #ECFDF5;
-  --rn-success-lighter: #D1FAE5;
-  --rn-line: #D1D5DB;
+  --rn-danger: #dc2626;
+  --rn-danger-light: #fef2f2;
+  --rn-success-light: #ecfdf5;
+  --rn-success-lighter: #d1fae5;
+  --rn-line: #d1d5db;
 
   /* 品牌色覆盖:对齐历史 Uniapp 项目 #5088fa(2026-08-13 立,H20)
    * design-tokens --color-brand = #6366f1(indigo),与 Uniapp #5088fa 不一致。
@@ -83,7 +83,7 @@
   --color-secondary-foreground: hsl(0 0% 98%);
   --color-muted: hsl(0 0% 14.9%);
   --color-muted-foreground: hsl(0 0% 63.9%);
-  --color-accent: hsl(0 0% 17%);
+  --color-accent: hsl(0 0% 24%);
   --color-accent-foreground: hsl(0 0% 98%);
   --color-destructive: hsl(0 100% 60%);
   --color-destructive-foreground: hsl(0 0% 98%);
@@ -98,16 +98,16 @@
   --color-info-foreground: hsl(0 0% 98%);
 
   /* RN 扩展语义色暗色覆盖(值源自 rnDarkTokens) */
-  --rn-purple: #7B61FF;
+  --rn-purple: #7b61ff;
   --rn-purple-light: #4c1d95;
   --rn-purple-soft: #312e81;
-  --rn-tertiary: #6B7280;
-  --rn-body: #D1D5DB;
+  --rn-tertiary: #6b7280;
+  --rn-body: #d1d5db;
   --rn-danger: #ef4444;
   --rn-danger-light: #450a0a;
   --rn-success-light: #052e16;
   --rn-success-lighter: #064e3b;
-  --rn-line: #4B5563;
+  --rn-line: #4b5563;
 
   /* 品牌色覆盖(暗色同亮色,对齐 Uniapp) */
   --rn-brand: #5088fa;

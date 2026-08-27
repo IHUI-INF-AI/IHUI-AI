@@ -41,6 +41,7 @@ export function TwoFactorAuth() {
       .then((res) => {
         if (active && res.success && res.data) setEnabled(res.data.enabled)
       })
+      .catch(() => {})
       .finally(() => active && setLoading(false))
     return () => {
       active = false

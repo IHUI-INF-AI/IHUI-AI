@@ -136,7 +136,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    rechargeBtnText: { fontSize: 16, fontWeight: '600', color: '#ffffff' },
+    rechargeBtnText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
     withdrawBtn: {
       flex: 1,
       height: 44,

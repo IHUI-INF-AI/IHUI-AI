@@ -15,6 +15,24 @@ import type { AppTopupScreenProps } from '../../types'
 /** AppTopupScreen props re-export(单一来源 @ihui/types) */
 export type { AppTopupScreenProps }
 
+/**
+ * 三档充值比例(每 1 元对应的智汇值,硬编码沿用原项目 top-up/index.vue
+ * data 初始值:denomination 20000 / denominationVip 40000 / denominationOperate 80000,
+ * 不做后台配置)。
+ */
+const TOPUP_TIERS = [
+  { key: 'normal', label: '普通用户', tokens: 20000 },
+  { key: 'vip', label: '会员', tokens: 40000 },
+  { key: 'trader', label: '操盘手', tokens: 80000 },
+] as const
+
+/** 等价 @ihui/shared/utils/formatTokenValue(≥10000 → 'X.XX万'),共享层不依赖 shared 包,内联实现 */
+function formatTokenValue(value: number): string {
+  if (value >= 100000000) return `${(value / 100000000).toFixed(2)}亿`
+  if (value >= 10000) return `${(value / 10000).toFixed(2)}万`
+  return String(Math.floor(value))
+}
+
 export function AppTopupScreen({
   t,
   selectedId,
@@ -23,6 +41,7 @@ export function AppTopupScreen({
   balance,
   refreshing,
   introVisible,
+  userTier,
   amountOptions,
   payMethods,
   onSelectAmount,
@@ -65,6 +84,18 @@ export function AppTopupScreen({
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>选择金额</Text>
+          {/* 三档比例展示(对齐原项目 top-up/index.vue 的充值比例区,当前档位高亮) */}
+          <View style={styles.rateBox}>
+            <Text style={styles.rateTitle}>充值比例</Text>
+            {TOPUP_TIERS.map((tier) => (
+              <Text
+                key={tier.key}
+                style={[styles.rateItem, userTier === tier.key && styles.rateItemActive]}
+              >
+                {tier.label} 1元={formatTokenValue(tier.tokens)}智汇值
+              </Text>
+            ))}
+          </View>
           <View style={styles.amountGrid}>
             {amountOptions.map((opt) => (
               <TouchableOpacity
@@ -173,6 +204,28 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: 12,
     },
+    rateBox: {
+      marginBottom: 12,
+      padding: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      backgroundColor: tk.surface.light,
+      gap: 4,
+    },
+    rateTitle: {
+      fontSize: 12,
+      color: tk.text.tertiary,
+      marginBottom: 4,
+    },
+    rateItem: {
+      fontSize: 12,
+      color: tk.text.secondary,
+    },
+    rateItemActive: {
+      color: tk.brand.DEFAULT,
+      fontWeight: '600',
+    },
     amountGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -201,10 +254,10 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.brand.DEFAULT,
     },
     customInput: {
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: '#eaeaea',
+      borderColor: tk.border.light,
       paddingHorizontal: 14,
       height: 50,
       fontSize: 16,

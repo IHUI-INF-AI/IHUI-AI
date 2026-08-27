@@ -1,6 +1,6 @@
 # API 完整参考(IHUI-AI)
 
-> IHUI-AI 全部 HTTP / WebSocket / SSE 端点的使用参考,涵盖 apps/api(Fastify 业务网关,~1080 端点)+ apps/ai-service(FastAPI AI 推理网关,~55 端点)。系统级架构、两 app 职责分工、启动流程见 [architecture.md](./architecture.md),本文档聚焦端点使用方法。
+> IHUI-AI 全部 HTTP / WebSocket / SSE 端点的使用参考,涵盖 apps/api(Fastify 业务网关,4393 路由)+ apps/ai-service(FastAPI AI 推理网关,55+ 端点)。系统级架构、两 app 职责分工、启动流程见 [architecture.md](./architecture.md),本文档聚焦端点使用方法。
 
 ---
 
@@ -11,7 +11,7 @@
 | 技术栈 | Fastify 5 + Drizzle ORM + @ihui/auth | FastAPI 0.115 + LangGraph + LiteLLM + MCP |
 | 职责 | 业务 CRUD + 多厂商代理 + 认证 + WebSocket + 计费 | LLM 网关 + Agent 执行 + MCP 工具 + A2A + Voice |
 | 默认端口 | 8802 | 8803 |
-| 路由文件 | `apps/api/src/routes/`(80+ 文件) | `apps/ai-service/app/routers/` |
+| 路由文件 | `apps/api/src/routes/`(267 文件) | `apps/ai-service/app/routers/` |
 | 协议 | REST + WebSocket(12 端点)+ SSE 流式 | REST + SSE 流式 + Socket.IO |
 | 鉴权 | JWT Bearer / Cookie / API Key / WS query token | 共享 JWT_SECRET,JWTAuthMiddleware |
 | 路由注册 | `apps/api/src/server.ts` 的 `registerRoutes()` | `apps/ai-service/app/main.py` 的 `create_app()` |
