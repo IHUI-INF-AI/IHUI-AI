@@ -26,7 +26,7 @@ interface Props {
 
 export function WithdrawalsTable({ items, isLoading, reviewPending, onReview, fmtDate }: Props) {
   return (
-    <div className="rounded-lg border">
+    <div className="overflow-hidden rounded-lg border">
       <Table>
         <TableHeader>
           <TableRow className="bg-muted/50">

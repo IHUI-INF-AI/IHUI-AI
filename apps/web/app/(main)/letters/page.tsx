@@ -100,7 +100,7 @@ export default function LettersPage() {
                   <p className="text-sm">{t('empty')}</p>
                 </div>
               ) : (
-                <div className="divide-y">
+                <div className="space-y-1">
                   {members.map((m) => {
                     const active = selectedId === m.counterpartId
                     return (

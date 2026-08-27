@@ -48,7 +48,25 @@ const test = base.extend<{ freshPage: Page }>({
 /**
  * 用 DOM API 点击文本匹配的按钮,绕开 nextjs-portal 拦截。
  */
-async function clickButtonByText(page: Page, text: RegExp | string): Promise<void> {
+async function clickButtonByText(
+  page: Page,
+  text: RegExp | string,
+  timeout = 10000,
+): Promise<void> {
+  // 修复竞态:页面 hydration 前按钮可能尚未渲染,静默点击 null 会导致后续断言误报。
+  // 先 waitForFunction 轮询等待按钮出现,再执行 DOM click。
+  await page.waitForFunction(
+    (t) => {
+      const re = t instanceof RegExp ? t : new RegExp(t)
+      return Array.from(document.querySelectorAll('button')).some((b) => {
+        const label = b.textContent ?? ''
+        const aria = b.getAttribute('aria-label') ?? ''
+        return re.test(label) || re.test(aria)
+      })
+    },
+    text,
+    { timeout },
+  )
   const handle = await page.evaluateHandle((t) => {
     const buttons = Array.from(document.querySelectorAll('button'))
     const re = t instanceof RegExp ? t : new RegExp(t)

@@ -199,7 +199,7 @@ export function AppQrPanel({ refreshKey }: AppQrPanelProps) {
   return (
     <div className="mx-auto flex h-[280px] w-full max-w-[280px] flex-col items-center justify-center gap-3 rounded-md border bg-card px-4">
       <div
-        className={`relative rounded-lg border border-border bg-white p-3${isExpired ? ' opacity-30' : ''}`}
+        className={`relative rounded-lg border border-border bg-popover p-3${isExpired ? ' opacity-30' : ''}`}
       >
         {qrContent && <QRCodeSVG value={qrContent} size={QR_SIZE} level="M" />}
         {isExpired && (

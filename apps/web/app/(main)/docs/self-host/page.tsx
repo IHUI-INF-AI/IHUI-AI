@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Container, BarChart3, Save } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -64,7 +65,7 @@ export default function SelfHostPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>🐳</span>
+          <Container className="h-3.5 w-3.5" />
           自托管部署
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -245,7 +246,10 @@ kubectl get ingress -n ihui`}</code>
         <h2 className="text-2xl font-bold tracking-tight">运维与监控</h2>
         <div className="grid gap-4 min-[768px]:grid-cols-2">
           <div className="rounded-2xl border bg-card p-6">
-            <h3 className="text-lg font-semibold">📊 监控</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <BarChart3 className="mr-1.5 inline h-5 w-5" />
+              监控
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>内置 Prometheus metrics(<code className="rounded bg-muted px-1">/metrics</code>)</li>
               <li>Grafana Dashboard 模板(<code className="rounded bg-muted px-1">/deploy/grafana</code>)</li>
@@ -254,7 +258,10 @@ kubectl get ingress -n ihui`}</code>
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6">
-            <h3 className="text-lg font-semibold">💾 备份</h3>
+            <h3 className="flex items-center text-lg font-semibold">
+              <Save className="mr-1.5 inline h-5 w-5" />
+              备份
+            </h3>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
               <li>PostgreSQL:<code className="rounded bg-muted px-1">pg_dump</code> 每日全量</li>
               <li>Redis:RDB 快照 + AOF</li>

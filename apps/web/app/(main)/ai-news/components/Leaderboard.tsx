@@ -15,6 +15,15 @@ import {
   Search,
   Star,
   Settings2,
+  Bot,
+  MessageSquare,
+  Palette,
+  Film,
+  Music,
+  Ruler,
+  Sparkles,
+  X,
+  Check,
 } from 'lucide-react'
 import type { LeaderboardEntry, LeaderboardCategory } from '@/lib/ai-news-api'
 import { ModelDetailDialog } from './ModelDetailDialog'
@@ -145,15 +154,19 @@ function writeColHidden(fields: string[]) {
 }
 
 /** 分类 Tab 配置(labelKey 指向 i18n 键,运行时用 t() 读取) */
-const CATEGORY_TABS: Array<{ key: LeaderboardCategory; labelKey: string; icon: string }> = [
-  { key: 'overall', labelKey: 'leaderboard.categoryOverall', icon: '🏆' },
-  { key: 'llm', labelKey: 'leaderboard.categoryLlm', icon: '💬' },
-  { key: 'image', labelKey: 'leaderboard.categoryImage', icon: '🎨' },
-  { key: 'video', labelKey: 'leaderboard.categoryVideo', icon: '🎬' },
-  { key: 'multimodal', labelKey: 'leaderboard.categoryMultimodal', icon: '🔮' },
-  { key: 'agent', labelKey: 'leaderboard.categoryAgent', icon: '🤖' },
-  { key: 'audio', labelKey: 'leaderboard.categoryAudio', icon: '🎵' },
-  { key: 'embedding', labelKey: 'leaderboard.categoryEmbedding', icon: '📐' },
+const CATEGORY_TABS: Array<{
+  key: LeaderboardCategory
+  labelKey: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
+  { key: 'overall', labelKey: 'leaderboard.categoryOverall', icon: Trophy },
+  { key: 'llm', labelKey: 'leaderboard.categoryLlm', icon: MessageSquare },
+  { key: 'image', labelKey: 'leaderboard.categoryImage', icon: Palette },
+  { key: 'video', labelKey: 'leaderboard.categoryVideo', icon: Film },
+  { key: 'multimodal', labelKey: 'leaderboard.categoryMultimodal', icon: Sparkles },
+  { key: 'agent', labelKey: 'leaderboard.categoryAgent', icon: Bot },
+  { key: 'audio', labelKey: 'leaderboard.categoryAudio', icon: Music },
+  { key: 'embedding', labelKey: 'leaderboard.categoryEmbedding', icon: Ruler },
 ]
 
 /** LLM 子分类 Tab */
@@ -462,7 +475,7 @@ export function Leaderboard({ entries }: Props) {
                 : 'text-muted-foreground hover:bg-accent hover:text-foreground'
             }`}
           >
-            <span className="text-[10px]">{tab.icon}</span>
+            <tab.icon className="h-3.5 w-3.5" />
             {t(tab.labelKey)}
           </button>
         ))}
@@ -508,7 +521,7 @@ export function Leaderboard({ entries }: Props) {
               onClick={() => setSearchQuery('')}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
             >
-              ✕
+              <X className="h-3 w-3" />
             </button>
           ) : null}
         </div>
@@ -619,7 +632,7 @@ export function Leaderboard({ entries }: Props) {
                               : 'border-muted-foreground/40'
                           }`}
                         >
-                          {visible ? '✓' : ''}
+                          {visible ? <Check className="h-2.5 w-2.5" /> : null}
                         </span>
                         {t(labelKeyMap[field])}
                       </button>

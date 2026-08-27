@@ -320,7 +320,7 @@ export default function StockAnalysePage() {
           ) : historyList.length === 0 ? (
             <Empty icon={History} title={t('noHistory')} />
           ) : (
-            <ul className="divide-y">
+            <ul className="space-y-1">
               {historyList.map((item) => (
                 <li key={item.conversationId}>
                   <button

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Users, Lock, MessageCircle, Building2 } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -64,7 +65,7 @@ export default function TeamDocsPage() {
       {/* Hero */}
       <header className="space-y-4 text-center">
         <div className="inline-flex items-center gap-2 rounded border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-          <span>👥</span>
+          <Users className="h-3.5 w-3.5" />
           团队协作
         </div>
         <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
@@ -91,7 +92,10 @@ export default function TeamDocsPage() {
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6">
-            <p className="text-sm font-semibold">👥 团队版</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Users className="mr-1.5 inline h-4 w-4" />
+              团队版
+            </p>
             <ul className="mt-2 ml-4 list-disc space-y-1 text-xs text-muted-foreground">
               <li>共享 Agent / 知识库(权限管控)</li>
               <li>共享积分池(Admin 统一充值)</li>
@@ -152,7 +156,10 @@ export default function TeamDocsPage() {
           </p>
           <div className="grid grid-cols-1 gap-3 min-[768px]:grid-cols-2">
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm font-semibold">🔐 SAML 2.0</p>
+              <p className="flex items-center text-sm font-semibold">
+                <Lock className="mr-1.5 inline h-4 w-4" />
+                SAML 2.0
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 企业级标准,支持 Azure AD / Okta / OneLogin / ADFS / 飞书 / 钉钉
               </p>
@@ -170,7 +177,10 @@ export default function TeamDocsPage() {
               </p>
             </div>
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm font-semibold">💬 扫码登录</p>
+              <p className="flex items-center text-sm font-semibold">
+                <MessageCircle className="mr-1.5 inline h-4 w-4" />
+                扫码登录
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 飞书 / 钉钉 / 企业微信 扫码直接登录,移动端友好
               </p>
@@ -287,7 +297,10 @@ export default function TeamDocsPage() {
             </ul>
           </div>
           <div className="rounded-2xl border bg-card p-6">
-            <p className="text-sm font-semibold">🏢 Enterprise</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Building2 className="mr-1.5 inline h-4 w-4" />
+              Enterprise
+            </p>
             <p className="mt-2 text-2xl font-bold">定制报价</p>
             <p className="text-xs text-muted-foreground">/ 不限人数</p>
             <ul className="mt-3 ml-4 list-disc space-y-1 text-xs text-muted-foreground">

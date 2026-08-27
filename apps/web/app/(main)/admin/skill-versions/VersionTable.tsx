@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, GitCompare, RotateCcw } from 'lucide-react'
+import { ChevronDown, ChevronRight, GitCompare, RotateCcw, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   Button,
@@ -171,7 +171,7 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                   }
                                 }}
                               >
-                                {isCompareTarget && <span className="text-[8px]">✓</span>}
+                                {isCompareTarget && <Check className="h-2.5 w-2.5" />}
                               </button>
                             )}
                             <span className="font-medium">{v.version}</span>

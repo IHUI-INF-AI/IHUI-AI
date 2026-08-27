@@ -91,7 +91,7 @@ export const HoverPreviewCard = React.memo(function HoverPreviewCard({
     <div
       ref={cardRef}
       className={cn(
-        'pointer-events-none fixed z-[1000] w-[240px] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md',
+        'pointer-events-none fixed z-popover w-[240px] rounded-md border border-border bg-popover p-2 text-popover-foreground shadow-md',
         className,
       )}
       style={{ left: position.x, top: position.y }}

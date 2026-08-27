@@ -37,7 +37,7 @@ export function OrdersTable({
 }: Props) {
   return (
     <>
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
