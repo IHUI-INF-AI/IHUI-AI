@@ -1,4 +1,4 @@
-import { View, Button, Text } from '@tarojs/components'
+import { View, Button, Text, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
@@ -118,7 +118,12 @@ export default function CustomerServiceFloat({
           sendMessageTitle={tt('common.customerService', '客服咨询')}
           sendMessagePath="/pages/index/index"
         >
-          <Text className="cs-float-icon">💬</Text>
+          <Image
+            className="cs-float-icon"
+            style={{ width: '32rpx', height: '32rpx' }}
+            src="/static/images/icons/message-circle.svg"
+            mode="aspectFit"
+          />
           <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
         </Button>
       </View>
@@ -210,7 +215,11 @@ export default function CustomerServiceFloat({
           className="flex flex-col items-center justify-center bg-warning rounded-xl shadow-lg"
           style={{ width: `${FLOAT_BTN_SIZE}px`, height: `${FLOAT_BTN_SIZE}px` }}
         >
-          <Text style={{ fontSize: '16px', lineHeight: 1 }}>💰</Text>
+          <Image
+            style={{ width: '16px', height: '16px', lineHeight: 1 }}
+            src="/static/images/icons/wallet.svg"
+            mode="aspectFit"
+          />
           {typeof commissionAmount === 'number' && (
             <Text
               className="text-warning-foreground"
@@ -247,7 +256,12 @@ export default function CustomerServiceFloat({
         sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
       >
-        <Text className="cs-float-icon">💬</Text>
+        <Image
+          className="cs-float-icon"
+          style={{ width: '32rpx', height: '32rpx' }}
+          src="/static/images/icons/message-circle.svg"
+          mode="aspectFit"
+        />
         <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
       </Button>
     </View>

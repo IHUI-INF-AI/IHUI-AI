@@ -256,19 +256,39 @@ export default function CircleDetailPage() {
 
         <View className="cd-actions">
           <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike}>
-            <Text className="cd-action-icon">{liked ? '❤' : '♡'}</Text>
+            <Image
+              className="cd-action-icon"
+              style={{ width: '36rpx', height: '36rpx' }}
+              src={liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
+              mode="aspectFit"
+            />
             <Text className="cd-action-num">{data.likes || 0}</Text>
           </View>
           <View className="cd-action">
-            <Text className="cd-action-icon">💬</Text>
+            <Image
+              className="cd-action-icon"
+              style={{ width: '36rpx', height: '36rpx' }}
+              src="/static/images/icons/message-circle.svg"
+              mode="aspectFit"
+            />
             <Text className="cd-action-num">{data.comments || 0}</Text>
           </View>
           <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite}>
-            <Text className="cd-action-icon">{favorited ? '★' : '☆'}</Text>
+            <Image
+              className="cd-action-icon"
+              style={{ width: '36rpx', height: '36rpx' }}
+              src={favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'}
+              mode="aspectFit"
+            />
             <Text className="cd-action-num">{data.favorites || 0}</Text>
           </View>
           <View className="cd-action" onClick={onShare}>
-            <Text className="cd-action-icon">↗</Text>
+            <Image
+              className="cd-action-icon"
+              style={{ width: '36rpx', height: '36rpx' }}
+              src="/static/images/icons/share-2.svg"
+              mode="aspectFit"
+            />
             <Text className="cd-action-num">{data.shares || 0}</Text>
           </View>
         </View>
@@ -298,7 +318,14 @@ export default function CircleDetailPage() {
                     <Text className="cd-comment-content">{c.content}</Text>
                     <View className="cd-comment-foot">
                       <Text className="cd-comment-time">{c.createdAt}</Text>
-                      <Text className="cd-comment-like">♡ {c.likes || 0}</Text>
+                      <View className="cd-comment-like flex items-center gap-[8rpx]">
+                        <Image
+                          src="/static/images/icons/heart.svg"
+                          mode="aspectFit"
+                          style={{ width: '24rpx', height: '24rpx' }}
+                        />
+                        <Text>{c.likes || 0}</Text>
+                      </View>
                     </View>
                   </View>
                 </View>

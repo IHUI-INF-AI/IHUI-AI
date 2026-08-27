@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useI18n, useTt } from '@/i18n'
 
 export interface LessonCompleteProps {
@@ -33,7 +33,12 @@ export default function LessonComplete({
         className="relative bg-card rounded-xl mx-8 px-6 py-6 max-w-xs w-full text-center"
         onClick={(e) => e.stopPropagation()}
       >
-        <Text className="block text-4xl mb-3">🎉</Text>
+        <Image
+          className="block mb-3 mx-auto"
+          style={{ width: '72rpx', height: '72rpx' }}
+          src="/static/images/icons/party-popper.svg"
+          mode="aspectFit"
+        />
         <Text className="block text-base font-medium text-foreground mb-1">
           {tt('lesson.complete', '学习完成!')}
         </Text>

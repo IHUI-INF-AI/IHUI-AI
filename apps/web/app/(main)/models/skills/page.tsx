@@ -1,5 +1,18 @@
 import { getTranslations } from 'next-intl/server'
-import { Search } from 'lucide-react'
+import {
+  Search,
+  CloudSun,
+  Plug,
+  Heart,
+  Zap,
+  FileText,
+  Mail,
+  BarChart3,
+  Palette,
+  Mic,
+  Calendar,
+  Database,
+} from 'lucide-react'
 
 import { Card, CardContent } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -24,7 +37,7 @@ export default async function SkillsPage() {
       author: 'yunwu',
       category: 'skills.categories.weather',
       desc: 'skills.items.weather.desc',
-      icon: '🌤️',
+      icon: CloudSun,
       installs: '12.3k',
       featured: true,
     },
@@ -33,7 +46,7 @@ export default async function SkillsPage() {
       author: 'mcp',
       category: 'skills.categories.system',
       desc: 'skills.items.nodeConnect.desc',
-      icon: '🔌',
+      icon: Plug,
       installs: '8.7k',
       featured: true,
     },
@@ -42,7 +55,7 @@ export default async function SkillsPage() {
       author: 'ops',
       category: 'skills.categories.system',
       desc: 'skills.items.healthcheck.desc',
-      icon: '❤️',
+      icon: Heart,
       installs: '5.2k',
       featured: false,
     },
@@ -51,7 +64,7 @@ export default async function SkillsPage() {
       author: 'search',
       category: 'skills.categories.search',
       desc: 'skills.items.webSearch.desc',
-      icon: '🔍',
+      icon: Search,
       installs: '24.1k',
       featured: true,
     },
@@ -60,7 +73,7 @@ export default async function SkillsPage() {
       author: 'dev',
       category: 'skills.categories.code',
       desc: 'skills.items.codeRunner.desc',
-      icon: '⚡',
+      icon: Zap,
       installs: '18.5k',
       featured: false,
     },
@@ -69,7 +82,7 @@ export default async function SkillsPage() {
       author: 'doc',
       category: 'skills.categories.productivity',
       desc: 'skills.items.pdfToolkit.desc',
-      icon: '📄',
+      icon: FileText,
       installs: '15.3k',
       featured: false,
     },
@@ -78,7 +91,7 @@ export default async function SkillsPage() {
       author: 'comm',
       category: 'skills.categories.communication',
       desc: 'skills.items.emailSender.desc',
-      icon: '📧',
+      icon: Mail,
       installs: '7.9k',
       featured: false,
     },
@@ -87,7 +100,7 @@ export default async function SkillsPage() {
       author: 'data',
       category: 'skills.categories.data',
       desc: 'skills.items.dataViz.desc',
-      icon: '📊',
+      icon: BarChart3,
       installs: '9.4k',
       featured: false,
     },
@@ -96,7 +109,7 @@ export default async function SkillsPage() {
       author: 'media',
       category: 'skills.categories.media',
       desc: 'skills.items.imageGen.desc',
-      icon: '🎨',
+      icon: Palette,
       installs: '21.8k',
       featured: true,
     },
@@ -105,7 +118,7 @@ export default async function SkillsPage() {
       author: 'media',
       category: 'skills.categories.media',
       desc: 'skills.items.audioTranscribe.desc',
-      icon: '🎙️',
+      icon: Mic,
       installs: '6.7k',
       featured: false,
     },
@@ -114,7 +127,7 @@ export default async function SkillsPage() {
       author: 'productivity',
       category: 'skills.categories.productivity',
       desc: 'skills.items.calendar.desc',
-      icon: '📅',
+      icon: Calendar,
       installs: '11.2k',
       featured: false,
     },
@@ -123,7 +136,7 @@ export default async function SkillsPage() {
       author: 'data',
       category: 'skills.categories.data',
       desc: 'skills.items.databaseQuery.desc',
-      icon: '🗄️',
+      icon: Database,
       installs: '13.6k',
       featured: false,
     },
@@ -172,7 +185,7 @@ export default async function SkillsPage() {
               >
                 <CardContent className="flex items-start gap-3 p-4">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-xl">
-                    {s.icon}
+                    <s.icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
@@ -212,7 +225,7 @@ export default async function SkillsPage() {
             >
               <CardContent className="flex flex-col items-start gap-2 p-3 min-[640px]:p-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted text-lg">
-                  {s.icon}
+                  <s.icon className="h-4 w-4" />
                 </div>
                 <h3 className="w-full truncate text-sm font-semibold">{s.name}</h3>
                 <p className="text-[10px] text-muted-foreground">@{s.author}</p>

@@ -702,7 +702,11 @@ export default function ChatPage() {
       >
         <View className="nav-left" onClick={openModelDrawer}>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
-          <Text className="nav-arrow">▾</Text>
+          <Image
+            className="nav-arrow w-[24rpx] h-[24rpx]"
+            src="/static/images/icons/chevron-down.svg"
+            mode="aspectFit"
+          />
         </View>
         <View className="nav-right">
           {agent ? (
@@ -736,7 +740,11 @@ export default function ChatPage() {
         {agent ? (
           <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
             {tishiShow ? (
-              <Text className="tishi-block-icon">✕</Text>
+              <Image
+                className="tishi-block-icon w-[28rpx] h-[28rpx]"
+                src="/static/images/icons/x.svg"
+                mode="aspectFit"
+              />
             ) : (
               <Image
                 src={tishiIcon}
@@ -873,9 +881,13 @@ export default function ChatPage() {
       {selectedMaterial ? (
         <View className="material-tag">
           <Text className="material-tag-text">{selectedMaterial.title}</Text>
-          <Text className="material-tag-close" onClick={() => setSelectedMaterial(null)}>
-            ×
-          </Text>
+          <Image
+            className="material-tag-close"
+            src="/static/images/icons/x.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+            onClick={() => setSelectedMaterial(null)}
+          />
         </View>
       ) : null}
 
@@ -1039,12 +1051,12 @@ export default function ChatPage() {
               >
                 {t('ai.chatMessageItem.thinkingProcess')}
               </Text>
-              <Text
-                style={{ fontSize: '32rpx', color: 'var(--color-muted-foreground)' }}
+              <Image
+                src="/static/images/icons/x.svg"
+                mode="aspectFit"
+                style={{ width: '32rpx', height: '32rpx' }}
                 onClick={() => setReasoningPopupVisible(false)}
-              >
-                ✕
-              </Text>
+              />
             </View>
             <Text
               style={{

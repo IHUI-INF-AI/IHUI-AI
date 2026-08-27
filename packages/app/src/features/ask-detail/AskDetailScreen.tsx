@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ScrollView, Text, TouchableOpacity, View, StyleSheet } from 'react-native'
+import { Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AskDetailScreenProps } from '../../types'
 
@@ -59,7 +60,10 @@ export function AskDetailScreen({
             <View style={styles.answerHead}>
               <Text style={styles.author}>{a.author}</Text>
               {a.isAccepted ? (
-                <Text style={styles.acceptedTag}>✓ {t('askDetail.accepted')}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Check size={12} color={tk.success.DEFAULT} strokeWidth={3} />
+                  <Text style={styles.acceptedTag}>{t('askDetail.accepted')}</Text>
+                </View>
               ) : null}
             </View>
             <Text style={styles.answerContent}>{a.content}</Text>

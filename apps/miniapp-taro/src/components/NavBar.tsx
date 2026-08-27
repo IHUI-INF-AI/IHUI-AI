@@ -181,7 +181,11 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFeedbackClick}
               >
-                <Text style={{ fontSize: rpx(28), color: textColor }}>💬</Text>
+                <Image
+                  style={{ width: '28rpx', height: '28rpx' }}
+                  src="/static/images/icons/message-circle.svg"
+                  mode="aspectFit"
+                />
               </View>
             ) : null}
             {showFenLei ? (
@@ -190,7 +194,11 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFenLeiClick}
               >
-                <Text style={{ fontSize: rpx(28), color: textColor }}>☰</Text>
+                <Image
+                  src="/static/images/icons/menu.svg"
+                  style={{ width: rpx(28), height: rpx(28) }}
+                  mode="aspectFit"
+                />
               </View>
             ) : null}
             {showSearch ? (
@@ -199,7 +207,11 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onSearchClick}
               >
-                <Text style={{ fontSize: rpx(28), color: textColor }}>🔍</Text>
+                <Image
+                  style={{ width: '28rpx', height: '28rpx' }}
+                  src="/static/images/icons/search.svg"
+                  mode="aspectFit"
+                />
               </View>
             ) : null}
             {onJoinClick ? (

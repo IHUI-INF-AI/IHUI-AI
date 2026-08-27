@@ -190,7 +190,12 @@ export default function Cart() {
                   <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
                 ) : (
                   <View className="cart-item-cover placeholder">
-                    <Text className="placeholder-icon">📦</Text>
+                    <Image
+                      className="placeholder-icon"
+                      style={{ width: '48rpx', height: '48rpx' }}
+                      src="/static/images/icons/package.svg"
+                      mode="aspectFit"
+                    />
                   </View>
                 )}
                 <View className="cart-item-info">
@@ -217,7 +222,12 @@ export default function Cart() {
           ))
         ) : (
           <View className="empty-wrapper">
-            <Text className="empty-icon">🛒</Text>
+            <Image
+              className="empty-icon"
+              style={{ width: '80rpx', height: '80rpx' }}
+              src="/static/images/icons/shopping-cart.svg"
+              mode="aspectFit"
+            />
             <Text className="empty-text">{t('cart.empty')}</Text>
           </View>
         )}
