@@ -89,6 +89,43 @@ deploy-cdn.ps1
 server-root/          ← 本仓库整个目录复制过去（含 191 张真图 + 占位结构）
 ```
 
+## 推荐路径：复用 aizhs.top 所在穿透机 + Cloudflare 回源（零证书）
+
+侦察结论（2026-08）：`aizhs.top` 已由另一台电脑经内网穿透对外提供服务，
+且 DNS 托管在 Cloudflare（`eve/micah.ns.cloudflare.com`，主域开启橙云代理）。
+此架构下 **Cloudflare 负责 HTTPS，源站只需 HTTP**，无需任何证书签发：
+
+```
+微信小程序 ──HTTPS──▶ Cloudflare(橙云) ──HTTP──▶ 穿透机:80 (cdn-server.js)
+```
+
+在承载电脑上解压 `cdn-package.zip` 后一条命令完成（防火墙规则 + 启动 + 自检）：
+
+```powershell
+.\cdn-bootstrap.ps1              # 默认 HTTP :80，自动探测 server-root
+.\cdn-bootstrap.ps1 -Install     # 另外注册开机自启计划任务 IHUI-ImageCDN
+```
+
+随后只需两处控制台操作：
+
+| 位置                             | 操作                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| Cloudflare DNS（aizhs.top zone） | 添加 `img` A/CNAME 记录 → 同穿透机，**橙云开**；SSL/TLS 模式保持 Flexible |
+| 微信公众平台                     | downloadFile 合法域名加 `https://img.aizhs.top`                           |
+
+验证：浏览器打开 `https://img.aizhs.top/tabbar/tabbar/home.png`
+（缺真图的路径返回灰底占位 PNG，响应头带 `X-Placeholder: missing-image`）。
+
+> 若不使用 Cloudflare 回源而要求源站自证 HTTPS，则回到下方 win-acme 方案。
+
+## 本地打包（在开发机生成 cdn-package.zip）
+
+```powershell
+Compress-Archive -Path deploy\cdn-server.js,deploy\deploy-cdn.ps1,`
+  deploy\cdn-bootstrap.ps1,deploy\generate-placeholders.js,deploy\server-root `
+  -DestinationPath deploy\cdn-package.zip -Force
+```
+
 ## 启动
 
 ```powershell
