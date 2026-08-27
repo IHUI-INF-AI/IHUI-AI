@@ -37,10 +37,10 @@ import pauseIcon from '@/assets/remote/images/pause.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
 import backSvg from '@/assets/remote/images/back.svg'
+import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import './index.css'
 
-const defaultAvatar =
-  'https://mp-aab956eb-2e97-4b81-823e-69195b354e49.cdn.bspapp.com/tabbar/tabbar/home.png'
+const defaultAvatar = TABBAR_HOME_ICON_URL
 
 /**
  * bindUser 请求参数(对齐原项目 onLogin L587-624 接口字段)。

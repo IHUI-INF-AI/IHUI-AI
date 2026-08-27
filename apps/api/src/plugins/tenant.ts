@@ -49,7 +49,11 @@ export function resolveTenantIdentifier(request: FastifyRequest): string | null 
   if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return null
   const parts = host.split('.')
   const firstPart = parts[0]
-  if (parts.length >= 3 && firstPart && !['www', 'api', 'admin'].includes(firstPart)) {
+  // 2026-08-27 扩展保留子域:平台自有服务/资产子域不被解析为租户 slug。
+  // file.aizhs.top = 图片/文件 CDN(经 web 反向代理到 8802 /uploads);
+  // bsm.aizhs.top = web 备用入口; ai.aizhs.top = AI 服务(云端直指 8803,本地经 8802 时也需放行)。
+  const RESERVED_SUBDOMAINS = ['www', 'api', 'admin', 'file', 'bsm', 'ai']
+  if (parts.length >= 3 && firstPart && !RESERVED_SUBDOMAINS.includes(firstPart)) {
     return firstPart
   }
   return null
