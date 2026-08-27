@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, RadioGroup, Radio } from '@tarojs/components'
+import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
@@ -76,7 +76,11 @@ export default function LanguagePage() {
     <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
       <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
         <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <Text className="text-[44rpx] leading-none">🌐</Text>
+          <Image
+            style={{ width: '44rpx', height: '44rpx' }}
+            src="/static/images/icons/globe.svg"
+            mode="aspectFit"
+          />
         </View>
         <View className="flex-1">
           <Text className="block text-[24rpx] text-muted-foreground">

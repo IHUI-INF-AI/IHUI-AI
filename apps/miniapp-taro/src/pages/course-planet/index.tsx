@@ -269,7 +269,11 @@ export default function CoursePlanet() {
                 />
               ) : (
                 <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                  <Text className="text-[48rpx]">📚</Text>
+                  <Image
+                    style={{ width: '48rpx', height: '48rpx' }}
+                    src="/static/images/icons/book-open.svg"
+                    mode="aspectFit"
+                  />
                 </View>
               )}
               <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
@@ -300,7 +304,11 @@ export default function CoursePlanet() {
           ))
         ) : (
           <View className="flex flex-col items-center py-[120rpx]">
-            <Text className="text-[80rpx] mb-[16rpx]">🪐</Text>
+            <Image
+              style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
+              src="/static/images/icons/globe.svg"
+              mode="aspectFit"
+            />
             <Text className="block text-center text-muted-foreground py-[40rpx]">
               {t('coursePlanet.empty')}
             </Text>

@@ -1,4 +1,4 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
@@ -136,7 +136,12 @@ export default function PrivilegePage() {
       <View className="header">
         <Text className="header-title">{tt('vip.privilege.title', '会员权益')}</Text>
         <View className="header-level-row">
-          <Text className="level-icon">★</Text>
+          <Image
+            className="level-icon"
+            src="/static/images/icons/star-fill.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+          />
           <View className={`level-badge ${isOpened ? '' : 'closed'}`}>{levelName}</View>
         </View>
         {isOpened && vipInfo?.expireTime ? (
@@ -153,15 +158,30 @@ export default function PrivilegePage() {
       {/* 3 个入口卡片 */}
       <View className="entry-section">
         <View className="entry-card" onClick={() => setPopup('level')}>
-          <Text className="entry-icon">◆</Text>
+          <Image
+            className="entry-icon"
+            src="/static/images/icons/gem.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+          />
           <Text className="entry-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
         </View>
         <View className="entry-card" onClick={() => setPopup('trader')}>
-          <Text className="entry-icon">▲</Text>
+          <Image
+            className="entry-icon"
+            src="/static/images/icons/chevron-up.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+          />
           <Text className="entry-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
         </View>
         <View className="entry-card" onClick={() => setPopup('privateAdvisory')}>
-          <Text className="entry-icon">●</Text>
+          <Image
+            className="entry-icon"
+            src="/static/images/icons/radio.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+          />
           <Text className="entry-title">{tt('vip.privilege.privateAdvisory', '私董会权益')}</Text>
         </View>
       </View>
@@ -171,7 +191,12 @@ export default function PrivilegePage() {
       <View className="privilege-list">
         {list.map((p) => (
           <View key={p.id} className="privilege-card">
-            <Text className="privilege-icon">★</Text>
+            <Image
+              className="privilege-icon"
+              src="/static/images/icons/star-fill.svg"
+              mode="aspectFit"
+              style={{ width: '32rpx', height: '32rpx' }}
+            />
             <View className="privilege-body">
               <Text className="privilege-title">{p.title}</Text>
               <Text className="privilege-desc">{p.desc}</Text>
@@ -270,7 +295,12 @@ export default function PrivilegePage() {
               <View className="benefit-list">
                 {TRADER_BENEFITS.map((key) => (
                   <View key={key} className="benefit-item">
-                    <Text className="benefit-check">✓</Text>
+                    <Image
+                      className="benefit-check"
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      style={{ width: '24rpx', height: '24rpx' }}
+                    />
                     <Text className="benefit-text">{tt(key, BENEFIT_FALLBACK[key] || key)}</Text>
                   </View>
                 ))}
@@ -307,7 +337,12 @@ export default function PrivilegePage() {
               <View className="benefit-list">
                 {PRIVATE_BENEFITS.map((key) => (
                   <View key={key} className="benefit-item">
-                    <Text className="benefit-check">✓</Text>
+                    <Image
+                      className="benefit-check"
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      style={{ width: '24rpx', height: '24rpx' }}
+                    />
                     <Text className="benefit-text">{tt(key, BENEFIT_FALLBACK[key] || key)}</Text>
                   </View>
                 ))}

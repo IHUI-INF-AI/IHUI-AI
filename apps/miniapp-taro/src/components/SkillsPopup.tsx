@@ -127,7 +127,12 @@ export default function SkillsPopup({
                       {agent.name}
                     </Text>
                     {selectedId === agent.id ? (
-                      <Text className="ml-2 text-xs text-primary">✓</Text>
+                      <Image
+                        className="ml-2"
+                        style={{ width: 14, height: 14 }}
+                        src="/static/images/icons/check-success.svg"
+                        mode="aspectFit"
+                      />
                     ) : null}
                   </View>
                   {agent.description ? (

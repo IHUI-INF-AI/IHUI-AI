@@ -1,5 +1,5 @@
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { voiceChat, type ChatMessage } from '@/api'
@@ -227,9 +227,11 @@ export default function VoicePage() {
             >
               {m.isVoice ? (
                 <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
-                  <Text className="text-[32rpx] text-foreground">
-                    {playingIdx === i ? '⏸' : '▶'}
-                  </Text>
+                  <Image
+                    style={{ width: '32rpx', height: '32rpx' }}
+                    src={playingIdx === i ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                    mode="aspectFit"
+                  />
                   <Text className="text-[24rpx] text-foreground">
                     {fmtDuration(m.duration || 0)}
                   </Text>

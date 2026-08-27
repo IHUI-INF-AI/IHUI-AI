@@ -157,7 +157,12 @@ export default function MaterialPopup({
                           {item.title}
                         </Text>
                         {selectedId === item.id ? (
-                          <Text className="ml-2 text-xs text-primary">✓</Text>
+                          <Image
+                            className="ml-2"
+                            style={{ width: 14, height: 14 }}
+                            src="/static/images/icons/check-success.svg"
+                            mode="aspectFit"
+                          />
                         ) : null}
                       </View>
                       {isTextTab && item.content ? (

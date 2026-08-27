@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { Play } from 'lucide-react-native'
+import { Play, Check } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   LiveDetailChatStatus,
@@ -147,7 +147,10 @@ export function LiveDetailScreen({
       <View style={styles.subscribeSection}>
         {subscribed ? (
           <View style={styles.subscribedBox}>
-            <Text style={styles.subscribedText}>✓ {t('liveDetail.subscribed')}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Check size={14} color={tk.success.deepText} strokeWidth={2.5} />
+              <Text style={styles.subscribedText}>{t('liveDetail.subscribed')}</Text>
+            </View>
           </View>
         ) : (
           <TouchableOpacity

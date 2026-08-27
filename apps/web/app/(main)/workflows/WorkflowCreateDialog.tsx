@@ -79,7 +79,11 @@ export function WorkflowCreateDialog({
           {t('create.title')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-5xl">
+      {/* 2026-08-28 根因修复:DialogContent(共享组件)本身无高度约束,内嵌 500px 高的
+          ReactFlow 编辑器后弹窗总高超过视口(720p 下 ~800px+),footer 的取消/创建
+          按钮被推出视口且无法滚动到 —— 用户无法提交/取消(E2E click 报 element is
+          outside of the viewport)。约束弹窗最大高度并允许内部滚动,footer 始终可达。 */}
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>{t('create.title')}</DialogTitle>

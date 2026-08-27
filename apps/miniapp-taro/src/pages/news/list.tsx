@@ -164,7 +164,12 @@ export default function NewsListPage() {
     <View className="page">
       {/* 搜索栏 */}
       <View className="search-bar">
-        <Text className="search-icon">🔍</Text>
+        <Image
+          className="search-icon"
+          style={{ width: '30rpx', height: '30rpx' }}
+          src="/static/images/icons/search.svg"
+          mode="aspectFit"
+        />
         <Input
           className="search-input"
           placeholder={tt('news.search', '搜索资讯')}
@@ -248,7 +253,12 @@ export default function NewsListPage() {
       {/* 状态 */}
       {!loading && !pinnedVisible && visibleList.length === 0 ? (
         <View className="empty">
-          <Text className="empty-icon">📭</Text>
+          <Image
+            className="empty-icon"
+            style={{ width: '56rpx', height: '56rpx' }}
+            src="/static/images/icons/inbox.svg"
+            mode="aspectFit"
+          />
           <Text>{tt('news.empty', '暂无资讯')}</Text>
         </View>
       ) : null}

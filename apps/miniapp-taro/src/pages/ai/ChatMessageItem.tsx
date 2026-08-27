@@ -435,9 +435,11 @@ export default function ChatMessageItem({
                   }}
                   onClick={playVoice}
                 >
-                  <Text style={{ fontSize: '32rpx', marginRight: '12rpx' }}>
-                    {voicePlaying ? '⏸' : '▶'}
-                  </Text>
+                  <Image
+                    style={{ width: '32rpx', height: '32rpx', marginRight: '12rpx' }}
+                    src={voicePlaying ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                    mode="aspectFit"
+                  />
                   <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>
                     {t('ai.chatMessageItem.voiceMessage')}
                   </Text>
@@ -558,8 +560,10 @@ export default function ChatMessageItem({
               </View>
               {/* 朗读 TTS(增强功能,历史项目无,保留) */}
               {onSpeak ? (
-                <Text
+                <View
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
                     fontSize: '24rpx',
                     color: '#1888ee',
                     marginLeft: '20rpx',
@@ -567,11 +571,17 @@ export default function ChatMessageItem({
                   }}
                   onClick={handleSpeak}
                 >
-                  {speaking ? '⏸' : '🔊'}{' '}
-                  {speaking
-                    ? t('ai.chatMessageItem.stopSpeak')
-                    : t('ai.chatMessageItem.speak')}
-                </Text>
+                  <Image
+                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                    src={speaking ? '/static/images/icons/pause.svg' : '/static/images/icons/volume-2.svg'}
+                    mode="aspectFit"
+                  />
+                  <Text>
+                    {speaking
+                      ? t('ai.chatMessageItem.stopSpeak')
+                      : t('ai.chatMessageItem.speak')}
+                  </Text>
+                </View>
               ) : null}
               {/* 重新生成(增强功能,历史项目无,保留) */}
               {onRegenerate ? (
@@ -589,17 +599,21 @@ export default function ChatMessageItem({
               ) : null}
               {/* 收藏(增强功能,历史项目无,保留) */}
               {onToggleFavorite ? (
-                <Text
+                <View
                   style={{
-                    fontSize: '24rpx',
-                    color: isFavorited ? '#ff6b6b' : '#999',
+                    display: 'flex',
+                    alignItems: 'center',
                     marginLeft: '20rpx',
                     lineHeight: '40rpx',
                   }}
                   onClick={onToggleFavorite}
                 >
-                  {isFavorited ? '♥' : '♡'}
-                </Text>
+                  <Image
+                    style={{ width: '24rpx', height: '24rpx' }}
+                    src={isFavorited ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
+                    mode="aspectFit"
+                  />
+                </View>
               ) : null}
             </View>
           </View>

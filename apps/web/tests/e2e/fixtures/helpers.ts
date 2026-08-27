@@ -49,7 +49,14 @@ export function filterRealErrors(errors: string[]): string[] {
   return errors.filter(
     (e) =>
       !e.includes('favicon') &&
-      !new RegExp(`/api/(${WHITELISTED_5XX_PATH.source})/.*\\b(5\\d{2})\\b`).test(e) &&
+      // 2026-08-28 根因修复:白名单段此前必须紧跟 /api/(如 /api/llm/...),
+      // 但 ai-service 代理端点带中间前缀(如 /api/admin/news/status 500 —
+      // next.config.ts 转发 8803,ai-service 未起时 Next rewrite 返回 500)
+      // 永远匹配不上 → 误报 e2e 失败。改为允许任意中间路径段
+      // (?:[\w-]+/)*,并兼容无尾路径(/api/news?x 500)与带尾路径两种形态。
+      !new RegExp(
+        `/api/(?:[\\w-]+/)*(?:${WHITELISTED_5XX_PATH.source})(?:[/?][^\\s]*)?\\s+5\\d{2}\\b`,
+      ).test(e) &&
       !/(\/sso\/(login|register)|\/login|\/register).*\b500\b/.test(e),
   )
 }

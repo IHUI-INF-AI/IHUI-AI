@@ -1,4 +1,4 @@
-import { View, Text, Button } from '@tarojs/components'
+import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -279,7 +279,12 @@ export default function PayIndex() {
           </View>
           <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
             {payMethod === 'wechat' && (
-              <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>
+              <Image
+                src="/static/images/icons/check.svg"
+                mode="aspectFit"
+                className="text-primary-foreground font-bold"
+                style={{ width: '24rpx', height: '24rpx' }}
+              />
             )}
           </View>
         </View>
@@ -298,7 +303,12 @@ export default function PayIndex() {
           </View>
           <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
             {payMethod === 'alipay' && (
-              <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">✓</Text>
+              <Image
+                src="/static/images/icons/check.svg"
+                mode="aspectFit"
+                className="text-primary-foreground font-bold"
+                style={{ width: '24rpx', height: '24rpx' }}
+              />
             )}
           </View>
         </View>
@@ -332,9 +342,12 @@ export default function PayIndex() {
           ) : (
             <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
               {payMethod === 'balance' && (
-                <Text className="text-primary-foreground text-[24rpx] font-bold leading-none">
-                  ✓
-                </Text>
+                <Image
+                  src="/static/images/icons/check.svg"
+                  mode="aspectFit"
+                  className="text-primary-foreground font-bold"
+                  style={{ width: '24rpx', height: '24rpx' }}
+                />
               )}
             </View>
           )}
