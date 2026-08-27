@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Heart } from 'lucide-react-native'
 import type { NoteDetailItem, NoteDetailScreenProps } from '../../types'
 
 /** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
@@ -66,7 +67,10 @@ export function NoteDetailScreen({
       ) : null}
       <Text style={styles.content}>{item.content}</Text>
       <View style={styles.statRow}>
-        <Text style={styles.stat}>❤ {item.likes}</Text>
+        <View style={styles.stat}>
+          <Heart size={12} color={tk.text.medium} />
+          <Text style={styles.statText}>{item.likes}</Text>
+        </View>
       </View>
     </ScrollView>
   )
@@ -112,12 +116,17 @@ function createStyles(tk: AppThemeTokens) {
     content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
     statRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
     stat: {
-      fontSize: 12,
-      color: tk.text.medium,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
       backgroundColor: tk.surface.card,
       paddingHorizontal: 10,
       paddingVertical: 4,
       borderRadius: 12,
+    },
+    statText: {
+      fontSize: 12,
+      color: tk.text.medium,
     },
     btn: {
       marginTop: 12,

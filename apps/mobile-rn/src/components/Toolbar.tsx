@@ -30,6 +30,20 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import {
+  Bot,
+  Film,
+  Gift,
+  Image as ImageIcon,
+  PenLine,
+  Radio,
+  Rocket,
+  Scissors,
+  Smartphone,
+  User,
+  Wrench,
+  type LucideIcon,
+} from 'lucide-react-native'
 
 /** 旧版工具按钮项(保留契约,供既有调用方使用) */
 export interface ToolbarItem {
@@ -47,7 +61,7 @@ export interface ToolbarItem {
 export interface ToolbarService {
   id: string
   title: string
-  icon: string
+  icon: LucideIcon
 }
 
 /** 工具格(6 工具入口) */
@@ -55,7 +69,7 @@ export interface ToolbarTool {
   key: string
   title: string
   description: string
-  icon: string
+  icon: LucideIcon
 }
 
 export interface ToolbarProps {
@@ -81,19 +95,19 @@ export interface ToolbarProps {
 
 /** 顶部 3 服务项(对齐 headerMenu) */
 const HOME_SERVICES: ToolbarService[] = [
-  { id: 'traffic', title: '流量运营陪跑', icon: '🚀' },
-  { id: 'device', title: '一站式设备应用', icon: '📱' },
-  { id: 'other', title: 'AI其他技术服务', icon: '🛠️' },
+  { id: 'traffic', title: '流量运营陪跑', icon: Rocket },
+  { id: 'device', title: '一站式设备应用', icon: Smartphone },
+  { id: 'other', title: 'AI其他技术服务', icon: Wrench },
 ]
 
 /** 6 工具格(对齐 secondRowList) */
 const HOME_TOOLS: ToolbarTool[] = [
-  { key: 'ai_image', title: 'AI图片创作', description: '轻松创作图片', icon: '🖼️' },
-  { key: 'ai_video', title: 'AI视频创作', description: '轻松创作视频', icon: '🎬' },
-  { key: 'ai_wenan', title: 'AI文案创作', description: '轻松创作文案', icon: '✍️' },
-  { key: 'ai_clip', title: 'AI自动剪辑', description: '轻松创作剪辑', icon: '✂️' },
-  { key: 'ai_live', title: 'AI直播', description: 'AI直播服务', icon: '📡' },
-  { key: 'ai_avatar', title: 'AI数字人', description: '制作数字人', icon: '🧑' },
+  { key: 'ai_image', title: 'AI图片创作', description: '轻松创作图片', icon: ImageIcon },
+  { key: 'ai_video', title: 'AI视频创作', description: '轻松创作视频', icon: Film },
+  { key: 'ai_wenan', title: 'AI文案创作', description: '轻松创作文案', icon: PenLine },
+  { key: 'ai_clip', title: 'AI自动剪辑', description: '轻松创作剪辑', icon: Scissors },
+  { key: 'ai_live', title: 'AI直播', description: 'AI直播服务', icon: Radio },
+  { key: 'ai_avatar', title: 'AI数字人', description: '制作数字人', icon: User },
 ]
 
 /** 判断 icon 是否为图片路径(URL / 绝对路径) */
@@ -192,9 +206,7 @@ export function Toolbar({
             style={({ pressed }) => [styles.serviceItem, pressed ? styles.pressed : null]}
           >
             <Text style={styles.serviceTitle}>{service.title}</Text>
-            <Text style={styles.serviceIcon} allowFontScaling={false}>
-              {service.icon}
-            </Text>
+            <service.icon size={24} color={'#6b7280'} />
           </Pressable>
         ))}
       </View>
@@ -223,9 +235,7 @@ export function Toolbar({
         style={({ pressed }) => [styles.bannerWrap, pressed ? styles.pressed : null]}
       >
         <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
-          <Text style={styles.bannerFloatEmoji} allowFontScaling={false}>
-            🤖
-          </Text>
+          <Bot size={64} color={'#6b7280'} />
         </Animated.View>
         <View style={styles.bannerCard}>
           <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
@@ -244,9 +254,7 @@ export function Toolbar({
             style={({ pressed }) => [styles.toolCell, pressed ? styles.pressed : null]}
           >
             <View style={styles.toolIconWrap}>
-              <Text style={styles.toolIcon} allowFontScaling={false}>
-                {tool.icon}
-              </Text>
+              <tool.icon size={20} color={'#6b7280'} />
             </View>
             <View style={styles.toolTextWrap}>
               <Text style={styles.toolTitle}>{tool.title}</Text>
@@ -264,9 +272,7 @@ export function Toolbar({
         style={({ pressed }) => [styles.customWrap, pressed ? styles.pressed : null]}
       >
         <View style={styles.customIconWrap}>
-          <Text style={styles.customIcon} allowFontScaling={false}>
-            🎁
-          </Text>
+          <Gift size={26} color={'#6b7280'} />
         </View>
         <Text style={styles.customText}>AI定制服务，满足您个性化的服务需求</Text>
       </Pressable>

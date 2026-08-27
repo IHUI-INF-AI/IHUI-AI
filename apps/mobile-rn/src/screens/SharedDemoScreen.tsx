@@ -17,6 +17,7 @@ import type {
   SharedThemeOption,
   SharedMenuItem,
 } from '@ihui/rn-app'
+import { BookOpen, Bot, Star } from 'lucide-react-native'
 import { getProfile, getUserStatistics, type AuthUser, type UserStatistics } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -66,11 +67,11 @@ export function SharedDemoScreen() {
   const menuSections: SharedMenuSection[] = [
     {
       title: t('profile.myCourses'),
-      items: [{ key: 'courses', label: t('profile.myCourses'), icon: '📚' }],
+      items: [{ key: 'courses', label: t('profile.myCourses'), icon: BookOpen }],
     },
     {
       title: t('profile.myFavorites'),
-      items: [{ key: 'favorites', label: t('profile.myFavorites'), icon: '⭐' }],
+      items: [{ key: 'favorites', label: t('profile.myFavorites'), icon: Star }],
     },
   ]
   const localeOptions: SharedLocaleOption[] = [
@@ -211,7 +212,7 @@ export function SharedDemoScreen() {
 
           <Text style={styles.sectionTitle}>Agent 卡片</Text>
           <AgentCard
-            icon="🤖"
+            icon={Bot}
             name="文案润色助手"
             description="AI 自动优化文案,支持多语气多风格"
             usageCount={1280}

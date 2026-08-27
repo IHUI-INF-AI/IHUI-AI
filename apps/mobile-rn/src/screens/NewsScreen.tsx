@@ -23,6 +23,7 @@ import Drawer, {
 } from '../components/Drawer'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar, type NavBarAction } from '../components/NavBar'
+import { Menu, ExternalLink } from 'lucide-react-native'
 // 底部导航(对齐原 customTabBar 5 主 Tab,NewsScreen 对应「动态」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
@@ -274,7 +275,7 @@ export default function NewsScreenWrapper() {
   )
 
   const leftActions = useMemo<ReadonlyArray<NavBarAction>>(
-    () => [{ icon: '☰', label: '菜单', onPress: () => setDrawerVisible(true) }],
+    () => [{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }],
     [],
   )
 
@@ -282,7 +283,7 @@ export default function NewsScreenWrapper() {
   const rightActions = useMemo<ReadonlyArray<NavBarAction>>(
     () => [
       {
-        icon: '↗',
+        icon: ExternalLink,
         label: '分享',
         onPress: () => {
           const nav = navigation.getParent<RootNav>() ?? navigation

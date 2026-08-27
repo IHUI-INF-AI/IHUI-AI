@@ -3,6 +3,7 @@
  * 展示官方联系方式与意见反馈入口(chrome.tabs.create 打开网页版反馈页)。
  */
 import { Card, CardContent } from '@ihui/ui-react'
+import { Mailbox, MessageCircle } from 'lucide-react'
 import { useI18n } from '../../../src/i18n'
 import { openInWeb } from '../../../lib/open-in-web'
 
@@ -20,12 +21,12 @@ export default function ContactPage() {
           </p>
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2">
-              <span aria-hidden>📮</span>
+              <Mailbox size={18} className="shrink-0 text-current" aria-hidden />
               <span className="text-muted-foreground shrink-0">{t('page.contact.email')}:</span>
               <span className="truncate">support@ihui-ai.com</span>
             </div>
             <div className="flex items-center gap-2">
-              <span aria-hidden>💬</span>
+              <MessageCircle size={18} className="shrink-0 text-current" aria-hidden />
               <span className="text-muted-foreground shrink-0">{t('page.contact.wechat')}:</span>
               <span>{t('page.contact.wechatValue')}</span>
             </div>

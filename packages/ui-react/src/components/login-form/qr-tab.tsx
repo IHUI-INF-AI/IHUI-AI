@@ -1,7 +1,15 @@
 'use client'
 
 import * as React from 'react'
-import { QrCode, ExternalLink, Loader2 } from 'lucide-react'
+import {
+  QrCode,
+  ExternalLink,
+  Loader2,
+  MessageCircle,
+  Building2,
+  MapPin,
+  Plane,
+} from 'lucide-react'
 
 import { Button } from '../button'
 import { cn } from '../../lib/utils'
@@ -30,25 +38,25 @@ const DEFAULT_PLATFORMS: QrPlatformConfig[] = [
   {
     key: 'wechat',
     labelKey: 'auth.wechatLogin',
-    icon: '💬',
+    icon: <MessageCircle aria-hidden className="h-4 w-4" />,
     webUrl: '/login?method=qr&platform=wechat',
   },
   {
     key: 'enterpriseWechat',
     labelKey: 'auth.enterpriseWechat',
-    icon: '🏢',
+    icon: <Building2 aria-hidden className="h-4 w-4" />,
     webUrl: '/login?method=qr&platform=enterpriseWechat',
   },
   {
     key: 'dingtalk',
     labelKey: 'auth.dingtalkLogin',
-    icon: '📌',
+    icon: <MapPin aria-hidden className="h-4 w-4" />,
     webUrl: '/login?method=qr&platform=dingtalk',
   },
   {
     key: 'feishu',
     labelKey: 'auth.feishuLogin',
-    icon: '✈️',
+    icon: <Plane aria-hidden className="h-4 w-4" />,
     webUrl: '/login?method=qr&platform=feishu',
   },
 ]
@@ -124,9 +132,13 @@ export function QrTab({
                   : 'text-muted-foreground hover:bg-card/60 hover:text-foreground',
               )}
             >
-              <span aria-hidden="true" className="text-sm leading-none">
-                {tab.icon}
-              </span>
+              {typeof tab.icon === 'string' ? (
+                <span aria-hidden="true" className="text-sm leading-none">
+                  {tab.icon}
+                </span>
+              ) : (
+                tab.icon
+              )}
               <span>{t(tab.labelKey)}</span>
             </button>
           )

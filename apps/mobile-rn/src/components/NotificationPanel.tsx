@@ -13,6 +13,7 @@ import { useEffect, useRef } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useNotificationStore } from '../stores/notification'
 import { formatShortDateTime } from '../utils/date-utils'
+import { Bell, X } from 'lucide-react-native'
 
 /**
  * 通知面板(mobile-rn 端)。
@@ -164,7 +165,7 @@ export function PushBanner({
         >
           <View style={styles.header}>
             <View style={styles.icon}>
-              <Text style={styles.iconText}>🔔</Text>
+              <Bell size={16} color="#6b7280" />
             </View>
             <View style={styles.info}>
               <Text style={styles.title} numberOfLines={1}>
@@ -184,7 +185,7 @@ export function PushBanner({
               accessibilityRole="button"
               accessibilityLabel="关闭"
             >
-              <Text style={styles.closeText}>✕</Text>
+              <X size={14} color="#9ca3af" />
             </Pressable>
           </View>
           {content ? (

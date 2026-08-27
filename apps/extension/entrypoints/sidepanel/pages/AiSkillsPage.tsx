@@ -5,6 +5,7 @@
  * 注:AiSkillMeta 未暴露调用次数/评分字段,改用 category 徽章 + tags 替代展示。
  */
 import { useEffect, useMemo, useState } from 'react'
+import { Zap } from 'lucide-react'
 import { listAiSkills, type AiSkillMeta } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle, Input } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -111,7 +112,7 @@ export default function AiSkillsPage() {
               <CardHeader className="px-3 py-2 space-y-0">
                 <div className="flex items-center gap-2">
                   <span className="text-base shrink-0" aria-hidden>
-                    {s.icon || '⚡'}
+                    {s.icon ? s.icon : <Zap size={16} className="shrink-0 text-current" />}
                   </span>
                   <CardTitle className="text-sm leading-snug flex-1 min-w-0 truncate">
                     {s.name}

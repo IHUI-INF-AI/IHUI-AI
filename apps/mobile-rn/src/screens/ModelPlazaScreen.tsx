@@ -15,6 +15,7 @@ import ModelList, { type ModelListGroup, type ModelListItem } from '../component
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { Bot, Film, Palette, type LucideIcon } from 'lucide-react-native'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -62,10 +63,10 @@ function buildProviders(models: ModelPlazaItem[]): ModelPlazaProvider[] {
 }
 
 /** 按 model.type 分配 vendor 分组图标(平台/路由 adapter 仅做简单分发) */
-function modelIcon(type: ModelPlazaModelType | string | undefined): string {
-  if (type === 'image') return '🎨'
-  if (type === 'av') return '🎬'
-  return '🤖'
+function modelIcon(type: ModelPlazaModelType | string | undefined): LucideIcon | string {
+  if (type === 'image') return Palette
+  if (type === 'av') return Film
+  return Bot
 }
 
 function toModelListItem(m: ModelPlazaItem): ModelListItem {
