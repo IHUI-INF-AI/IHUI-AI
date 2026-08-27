@@ -54,7 +54,7 @@ export function RegisterScreen({
 }: RegisterScreenProps & RegisterCodeOptions) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const onBrandText = tk.brand.DEFAULT === '#FFFFFF' ? '#000000' : '#FFFFFF'
+  const onBrandText = tk.text.primary
 
   // ===== 验证码内部兜底状态(外部注入 prop 时优先使用注入值) =====
   const [codeState, setCodeState] = useState('')
@@ -231,7 +231,7 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 12,
       paddingHorizontal: 12,
       height: 50,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       fontSize: 16,
       color: tk.text.primary,
     },
