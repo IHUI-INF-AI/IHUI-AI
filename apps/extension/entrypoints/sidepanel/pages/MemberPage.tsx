@@ -3,6 +3,7 @@
  * 展示会员权益说明与优惠券数量(GET /api/coupons/verify),并引导前往网页版开通。
  */
 import { useEffect, useState } from 'react'
+import { Gem } from 'lucide-react'
 import { getCoupons } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
@@ -43,9 +44,7 @@ export default function MemberPage() {
       <Card>
         <CardContent className="p-4 flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-2xl" aria-hidden>
-              💎
-            </span>
+            <Gem size={24} className="shrink-0" aria-hidden />
             <span className="text-sm">{t('page.member.desc')}</span>
           </div>
           <div className="flex justify-between text-sm">

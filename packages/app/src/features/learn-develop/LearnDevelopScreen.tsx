@@ -47,7 +47,11 @@ export function LearnDevelopScreen({
               accessibilityRole="button"
               accessibilityLabel={entry.title}
             >
-              <Text style={styles.entryIcon}>{entry.icon}</Text>
+              {typeof entry.icon === 'string' ? (
+                <Text style={styles.entryIcon}>{entry.icon}</Text>
+              ) : entry.icon ? (
+                <entry.icon size={32} color={tk.text.primary} />
+              ) : null}
               <Text style={styles.entryTitle} numberOfLines={1}>
                 {entry.title}
               </Text>

@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Loader2, RefreshCw, Eye, EyeOff, AlertTriangle } from 'lucide-react'
 
 import { Button } from '../button'
 import { Input } from '../input'
@@ -432,7 +432,7 @@ function ErrorAlert({ message }: { message: string }) {
       role="alert"
       className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500"
     >
-      <span className="shrink-0 leading-none">⚠</span>
+      <AlertTriangle size={16} className="shrink-0 leading-none" />
       <span className="flex-1">{message}</span>
     </div>
   )

@@ -48,6 +48,7 @@ import Drawer, {
   type DrawerExtraMenu,
   type DrawerTab,
 } from '../components/Drawer'
+import { Menu } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
@@ -296,7 +297,7 @@ export function ShareScreen() {
           <NavBar
             title={t('share.title')}
             onBack={() => navigation.goBack()}
-            leftActions={[{ icon: '☰', label: '菜单', onPress: () => setDrawerVisible(true) }]}
+            leftActions={[{ icon: Menu, label: '菜单', onPress: () => setDrawerVisible(true) }]}
           />
         )}
         renderContent={() => (

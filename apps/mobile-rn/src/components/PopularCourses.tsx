@@ -31,6 +31,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { BookOpen } from 'lucide-react-native'
 
 /** 单门课程数据(对齐历史 PopularCourses 关键字段) */
 export interface PopularCourse {
@@ -69,7 +70,7 @@ const CONTAINER_PADDING = 16
 const GRID_GAP = 8
 const THUMB_HEIGHT = 100
 const VIP_BADGE_PADDING = 4
-const DEFAULT_BOOK_ICON = '📚'
+const DEFAULT_BOOK_ICON = BookOpen
 const DEFAULT_MORE_TEXT = '查看全部'
 
 /** 双 Tab(对齐原项目 popular-courses-tab:爆款入门 / 爆款精选) */
@@ -105,7 +106,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
     >
       {/* 缩略图区 + VIP 角标 */}
       <View style={styles.thumb}>
-        <Text style={styles.thumbIcon}>{DEFAULT_BOOK_ICON}</Text>
+        <DEFAULT_BOOK_ICON size={32} color={'#6b7280'} />
         {showVip ? (
           <View style={styles.vipBadge}>
             <Text style={styles.vipBadgeText}>VIP</Text>
@@ -326,9 +327,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.muted,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  thumbIcon: {
-    fontSize: 32,
   },
   vipBadge: {
     position: 'absolute',

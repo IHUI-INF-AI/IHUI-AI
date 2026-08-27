@@ -11,16 +11,17 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { Smartphone, Users, PenLine, BarChart3, BookOpen } from 'lucide-react-native'
 import type { LearnCategory, LearnScreenProps } from '../../types'
 
 /** LearnScreen props re-export(单一来源 @ihui/types) */
 export type { LearnCategory, LearnScreenProps }
 
 const CATEGORIES: readonly LearnCategory[] = [
-  { id: 'douyin', name: '抖音运营', icon: '📱' },
-  { id: 'private', name: '私域运营', icon: '👥' },
-  { id: 'content', name: '内容创作', icon: '✍️' },
-  { id: 'data', name: '数据分析', icon: '📊' },
+  { id: 'douyin', name: '抖音运营', icon: Smartphone },
+  { id: 'private', name: '私域运营', icon: Users },
+  { id: 'content', name: '内容创作', icon: PenLine },
+  { id: 'data', name: '数据分析', icon: BarChart3 },
 ] as const
 
 function difficultyLabel(d?: string): string {
@@ -130,7 +131,7 @@ export function LearnScreen({
                             resizeMode="cover"
                           />
                         ) : (
-                          <Text style={styles.pathCoverEmoji}>📖</Text>
+                          <BookOpen size={32} color="#374151" />
                         )}
                       </View>
                       <Text style={styles.pathTitle} numberOfLines={1}>
@@ -153,7 +154,11 @@ export function LearnScreen({
                   onPress={() => onOpenCategory(cat)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                  {typeof cat.icon === 'string' ? (
+                    <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                  ) : cat.icon ? (
+                    <cat.icon size={32} color={tk.text.primary} />
+                  ) : null}
                   <Text style={styles.categoryName}>{cat.name}</Text>
                 </TouchableOpacity>
               ))}
@@ -186,7 +191,7 @@ export function LearnScreen({
                             resizeMode="cover"
                           />
                         ) : (
-                          <Text style={styles.courseImageEmoji}>📚</Text>
+                          <BookOpen size={40} color="#374151" />
                         )}
                       </View>
                       <View style={styles.courseInfo}>
@@ -321,7 +326,6 @@ function createStyles(tk: AppThemeTokens) {
       height: '100%',
       backgroundColor: tk.border.light,
     } as ImageStyle,
-    pathCoverEmoji: { fontSize: 32 } as TextStyle,
     pathTitle: {
       padding: 10,
       fontSize: 14,
@@ -369,7 +373,7 @@ function createStyles(tk: AppThemeTokens) {
       height: '100%',
       backgroundColor: tk.border.light,
     } as ImageStyle,
-    courseImageEmoji: { fontSize: 40 } as TextStyle,
+
     courseInfo: {
       flex: 1,
       padding: 12,

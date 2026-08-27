@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { Play } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LivePlaybackScreenItem, LivePlaybackScreenProps } from '../../types'
 
@@ -121,7 +122,7 @@ export function LivePlaybackScreen({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{activeItem?.title}</Text>
             <View style={styles.playerArea}>
-              <Text style={styles.playerIcon}>▶</Text>
+              <Play size={36} color={tk.surface.light} />
               <Text style={styles.playerHint}>{t('livePlayback.replayTitle')}</Text>
               {activeItem?.playUrl ? (
                 <Text style={styles.playerUrl} numberOfLines={1}>
