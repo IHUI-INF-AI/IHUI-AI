@@ -38,6 +38,7 @@
 | 7 | 📦 依赖碎片化 | check-dedupe.mjs | — | — |
 | 8 | 🔗 前端↔后端路由一致性 | check-api-routes.mjs | — | — |
 | 11 | ⭕ 容器圆角违规 | check-rounded-full.mjs | — | — |
+| 11d | 🚫 分割线违规(divide-y / divide-x) | check-no-divider.mjs | — | — |
 | 12 | 📋 交付报告一致性 | check-delivery-report-consistency.mjs | — | — |
 | 13c | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs | — | — |
 | 15 | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs | — | — |
@@ -377,6 +378,7 @@ warn-only 起步，无明确升级计划，需触发条件。
 | 7 | `code-quality/dedupe` | 📦 依赖碎片化 | check-dedupe.mjs |
 | 8 | `code-quality/api-routes` | 🔗 前端↔后端路由一致性 | check-api-routes.mjs |
 | 11 | `ui/rounded-full` | ⭕ 容器圆角违规 | check-rounded-full.mjs |
+| 11d | `ui/no-divider` | 🚫 分割线违规(divide-y / divide-x) | check-no-divider.mjs |
 | 12 | `engineering/delivery-report` | 📋 交付报告一致性 | check-delivery-report-consistency.mjs |
 | 13c | `engineering/project-plan-archive` | 🗂️  PROJECT_PLAN.md 已完成任务防误删 | check-project-plan-archive.mjs |
 | 15 | `engineering/migration-completeness` | 📊 迁移完整性(7 大类 29 子项) | check-api-migration-completeness.mjs |

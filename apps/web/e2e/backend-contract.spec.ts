@@ -72,12 +72,13 @@ test.describe.parallel('后端契约专项', () => {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     expect(response.status()).toBe(200)
+    // 契约:/api/auth/me 返回 { data: { user: { id, username, email, ... } } }(与前端 use-auth-bootstrap 一致)
     const body = (await response.json()) as {
-      data?: { id?: string | number; username?: string; email?: string }
+      data?: { user?: { id?: string | number; username?: string; email?: string } }
     }
-    expect(body.data?.id).toBeTruthy()
-    expect(body.data?.username).toBeTruthy()
-    expect(body.data?.email).toBeTruthy()
+    expect(body.data?.user?.id).toBeTruthy()
+    expect(body.data?.user?.username).toBeTruthy()
+    expect(body.data?.user?.email).toBeTruthy()
   })
 
   test('/api/users/:id 返回 id / username', async ({ request }) => {
@@ -86,15 +87,20 @@ test.describe.parallel('后端契约专项', () => {
     const meResp = await request.get('/api/auth/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
-    const me = (await meResp.json().catch(() => ({}))) as { data?: { id?: string } }
-    const userId = me.data?.id ?? '1'
+    const me = (await meResp.json().catch(() => ({}))) as {
+      data?: { user?: { id?: string } }
+    }
+    const userId = me.data?.user?.id ?? '1'
     const response = await request.get(`/api/users/${userId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     expect(response.status()).toBe(200)
-    const body = (await response.json()) as { data?: { id?: string; username?: string } }
-    expect(body.data?.id).toBeTruthy()
-    expect(body.data?.username).toBeTruthy()
+    // 契约:/api/users/:id 返回 { data: { user: { id, username, ... }, stats: {...} } }
+    const body = (await response.json()) as {
+      data?: { user?: { id?: string; username?: string } }
+    }
+    expect(body.data?.user?.id).toBeTruthy()
+    expect(body.data?.user?.username).toBeTruthy()
   })
 
   test('错误响应结构包含 code / message / error', async ({ request }) => {

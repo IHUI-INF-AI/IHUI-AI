@@ -57,7 +57,7 @@ export function BackgroundAgentsPanel({
   }, [agents])
 
   return (
-    <div className="flex flex-col rounded-lg border bg-card">
+    <div className="flex flex-col overflow-hidden rounded-lg border bg-card">
       <div className="flex items-center justify-between bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-2">
           <Cpu className="h-4 w-4 text-muted-foreground" />
