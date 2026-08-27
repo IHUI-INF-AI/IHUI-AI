@@ -499,7 +499,7 @@ function createStyles(tk: AppThemeTokens) {
     vipBadgeText: {
       fontSize: 10,
       fontWeight: '600',
-      color: '#fff',
+      color: tk.surface.light,
     } as TextStyle,
     popularBody: {
       padding: 10,
