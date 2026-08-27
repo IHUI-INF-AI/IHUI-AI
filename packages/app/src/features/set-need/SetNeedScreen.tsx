@@ -271,7 +271,7 @@ function createStyles(tk: AppThemeTokens) {
     label: { fontSize: 16, fontWeight: '600', color: tk.text.primary } as TextStyle,
     required: { fontSize: 16, color: tk.danger.DEFAULT } as TextStyle,
     input: {
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderRadius: 12,
       paddingHorizontal: 12,
       paddingVertical: 14,
