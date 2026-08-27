@@ -142,7 +142,11 @@ export default function RecruitmentIndexPage() {
                 <Image className="w-[64rpx] h-[64rpx]" src={item.icon} mode="aspectFit" />
               ) : (
                 <View className="w-[64rpx] h-[64rpx] rounded-2xl bg-[rgba(245,158,11,0.1)] flex items-center justify-center">
-                  <Text className="text-[32rpx] text-warning">★</Text>
+                  <Image
+                    src="/static/images/icons/star-fill.svg"
+                    mode="aspectFit"
+                    style={{ width: '32rpx', height: '32rpx' }}
+                  />
                 </View>
               )}
               <Text className="mt-[12rpx] text-[26rpx] text-foreground text-center">

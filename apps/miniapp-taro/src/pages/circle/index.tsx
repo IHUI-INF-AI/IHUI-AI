@@ -249,8 +249,22 @@ export default function CircleIndexPage() {
                   </View>
                 ) : null}
                 <View className="ci-item-actions">
-                  <Text className="ci-item-action">♡ {c.likes || 0}</Text>
-                  <Text className="ci-item-action">💬 {c.comments || 0}</Text>
+                <View className="ci-item-action" style={{ display: 'flex', alignItems: 'center' }}>
+                  <Image
+                    src="/static/images/icons/heart.svg"
+                    mode="aspectFit"
+                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                  />
+                  <Text>{c.likes || 0}</Text>
+                </View>
+                <View className="ci-item-action" style={{ display: 'flex', alignItems: 'center' }}>
+                  <Image
+                    src="/static/images/icons/message-circle.svg"
+                    mode="aspectFit"
+                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                  />
+                  <Text>{c.comments || 0}</Text>
+                </View>
                 </View>
               </View>
             )
@@ -260,7 +274,12 @@ export default function CircleIndexPage() {
 
       {!loading && !list.length && !error ? (
         <View className="ci-empty">
-          <Text className="ci-empty-icon">📝</Text>
+          <Image
+            className="ci-empty-icon"
+            style={{ width: '80rpx', height: '80rpx' }}
+            src="/static/images/icons/inbox.svg"
+            mode="aspectFit"
+          />
           <Text className="ci-empty-text">{tt('circle.empty', '暂无内容')}</Text>
           <View className="ci-empty-btn" onClick={goCreate}>
             <Text>{tt('circle.index.goPublish', '去发布')}</Text>
