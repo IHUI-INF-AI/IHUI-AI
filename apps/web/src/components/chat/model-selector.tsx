@@ -24,7 +24,7 @@ import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
-import { providerToTemplateCode, PRESET_TEMPLATE_CODES } from '@/lib/llm-templates'
+import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
 
 export interface ModelOption {
   value: string
@@ -444,18 +444,29 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     staleTime: 60_000,
     enabled: authedWithToken,
   })
+  // 2026-08-27 修复:configuredTemplateCodes 只含"用户真实配置 + 后端内置免费",
+  // 不再全量注入 PRESET_TEMPLATE_CODES(否则所有预置模板厂商都绕过配额过滤,
+  // "无配额模型不显示"失效——openai/anthropic 等未配 key 的模型也会被展示)。
   const configuredTemplateCodes = React.useMemo(() => {
     const set = new Set<string>()
     const list = cfgData?.list ?? []
     for (const c of list) {
       if (c.enabled || c.isBuiltin) set.add(c.providerCode)
     }
-    // 系统预置模板也视为已配置(无需用户手动创建配置即可使用)
-    for (const code of PRESET_TEMPLATE_CODES) {
+    // 后端内置免费 provider(无需用户配置 API Key 即视为有配额)
+    for (const code of BACKEND_BUILTIN_FREE_CODES) {
       set.add(code)
     }
     return set
   }, [cfgData])
+
+  // 2026-08-27 修复:已登录且 /llm/models 成功返回非空时,options 只保留后端
+  // 过滤后的模型(可用+有配额),不再混入 FALLBACK/DEMO 硬编码模型;
+  // API 空/失败才降级 FALLBACK+DEMO(由 grouped 按 configuredTemplateCodes 过滤)。
+  const [useApiOnly, setUseApiOnly] = React.useState(false)
+  // effect 依赖仅 authedWithToken,当前选中值经 ref 读取,避免切换模型触发重复拉取
+  const valueRef = React.useRef(value)
+  valueRef.current = value
 
   React.useEffect(() => {
     if (!authedWithToken) return
@@ -464,42 +475,49 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     fetchSelectorModels()
       .then((models) => {
         if (cancelled) return
-        // 合并策略(2026-08-06 升级):API + 已有(FALLBACK + DEMO 演示档位)
-        // 优先级:API > FALLBACK > DEMO;同 value 取优先级最高的(API 模型覆盖演示)
-        // 这样既保留真实可调用的模型,又确保 5 档积分 + 徽章 + 锁定演示不丢失。
+        if (models.length === 0) {
+          // API 空/失败:保留 FALLBACK + DEMO 降级列表(由 grouped 按真实配置过滤)
+          setUseApiOnly(false)
+          return
+        }
+        // 2026-08-27 修复:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
+        // 不再与 FALLBACK/DEMO 合并(原实现把 38 个硬编码 demo 模型混入列表,
+        // 含未配置厂商的 gpt-5/claude-opus 等,违反"可用且有配额才显示")。
         const merged = new Map<string, ModelOption>()
-        // 1. 先放当前 options(FALLBACK + DEMO 已经在初始 state 中)
+        for (const m of models) {
+          // 1. 已知模型查表(精确 / 子串)
+          const known = lookupKnownMeta(m.id)
+          // 2. 后端 tier → 显示小数
+          const tier =
+            typeof m.points_multiplier === 'number'
+              ? m.points_multiplier
+              : inferPointsMultiplier(m.id)
+          const display = tierToDisplayMultiplier(tier)
+          // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
+          const finalPoints =
+            typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
+          merged.set(m.id, {
+            value: m.id,
+            label: m.name || m.id,
+            vendor: m.provider || inferVendor(m.id),
+            // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
+            ...known,
+            // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
+            pointsMultiplier: finalPoints,
+            locked: known.locked ?? display.locked,
+          })
+        }
+        // 当前选中不在 API 列表时保留(trigger 与列表一致,切换后自然消失)
         setOptions((prev) => {
-          for (const o of prev) merged.set(o.value, o)
-          // 2. 再放 API 返回的模型(覆盖同 value 的旧数据)
-          for (const m of models) {
-            // 1. 已知模型查表(精确 / 子串)
-            const known = lookupKnownMeta(m.id)
-            // 2. 后端 tier → 显示小数
-            const tier =
-              typeof m.points_multiplier === 'number'
-                ? m.points_multiplier
-                : inferPointsMultiplier(m.id)
-            const display = tierToDisplayMultiplier(tier)
-            // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
-            const finalPoints =
-              typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
-            merged.set(m.id, {
-              value: m.id,
-              label: m.name || m.id,
-              vendor: m.provider || inferVendor(m.id),
-              // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
-              ...known,
-              // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
-              pointsMultiplier: finalPoints,
-              locked: known.locked ?? display.locked,
-            })
-          }
+          const cur = prev.find((o) => o.value === valueRef.current)
+          if (cur && !merged.has(cur.value)) merged.set(cur.value, cur)
           return Array.from(merged.values())
         })
+        setUseApiOnly(true)
       })
       .catch(() => {
         // 静默:保留 FALLBACK + DEMO 默认值
+        setUseApiOnly(false)
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -535,7 +553,11 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   )
   const grouped = React.useMemo(() => {
     const all = groupByVendor(options)
-    // 2026-08-27 需求:没有配额(未配置)的模型不显示在可选择列表里。
+    // 2026-08-27 修复:API 成功路径(options=后端过滤后模型)直接展示,
+    // 不再做前端配置过滤——后端 /llm/models 已保证"可用且有配额",
+    // 再按 configuredTemplateCodes 过滤会误伤 agnes 等无平台模板的真实可用模型。
+    if (useApiOnly) return all
+    // 降级路径(FALLBACK/DEMO):没有配额(未配置)的模型不显示在可选择列表里。
     // 过滤条件:配置已加载且非空才过滤(未登录/加载中显示全部,避免列表空白);
     // 例外:当前选中的模型保留显示(trigger 与列表不一致会误导,切换后自然消失)。
     if (cfgData === undefined || configuredTemplateCodes.size === 0) return all
@@ -550,12 +572,15 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
       if (visible.length > 0) filtered.push([vendor, visible])
     }
     return filtered
-  }, [options, cfgData, configuredTemplateCodes, value])
+  }, [options, cfgData, configuredTemplateCodes, value, useApiOnly])
 
   const currentTemplateCode = current?.vendor ? providerToTemplateCode(current.vendor) : null
-  const currentConfigured = currentTemplateCode
-    ? configuredTemplateCodes.has(currentTemplateCode)
-    : false
+  // API 成功路径下后端已保证模型可用,直接视为已配置(避免 agnes 等误显示 ⚠/缺失 ✅)
+  const currentConfigured = useApiOnly
+    ? true
+    : currentTemplateCode
+      ? configuredTemplateCodes.has(currentTemplateCode)
+      : false
   const showConfigBadge = cfgData !== undefined
 
   return (
@@ -658,10 +683,17 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
               </DropdownMenu.Label>
               {items.map((opt) => {
                 const active = opt.value === value && value !== AUTO_OPTION.value
-                const optTemplateCode = opt.vendor ? providerToTemplateCode(opt.vendor) : null
-                const optConfigured = optTemplateCode
-                  ? configuredTemplateCodes.has(optTemplateCode)
-                  : false
+                // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
+                const optConfigured = useApiOnly
+                  ? true
+                  : (() => {
+                      const optTemplateCode = opt.vendor
+                        ? providerToTemplateCode(opt.vendor)
+                        : null
+                      return optTemplateCode
+                        ? configuredTemplateCodes.has(optTemplateCode)
+                        : false
+                    })()
                 return (
                   <DropdownMenu.Item
                     key={opt.value}
