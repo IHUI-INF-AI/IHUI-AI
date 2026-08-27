@@ -529,9 +529,14 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <Text className={`text-[26rpx] ${mediaTextColor}`}>
-            🎵 {tt('agentDialogue.audioMessage', '音频消息')}
-          </Text>
+          <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
+            <Image
+              style={{ width: '26rpx', height: '26rpx' }}
+              src="/static/images/icons/headphones.svg"
+              mode="aspectFit"
+            />
+            <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
+          </View>
           <Text className="text-[24rpx] text-accent" onClick={() => openAudio(url)}>
             {tt('agentDialogue.clickPlay', '点击播放')}
           </Text>
@@ -542,9 +547,14 @@ export default function AgentDialogue() {
       const url = msg.mediaUrl || msg.content
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
-          <Text className={`text-[26rpx] ${mediaTextColor}`}>
-            📄 {tt('agentDialogue.fileMessage', '文件消息')}
-          </Text>
+          <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
+            <Image
+              style={{ width: '26rpx', height: '26rpx' }}
+              src="/static/images/icons/paperclip.svg"
+              mode="aspectFit"
+            />
+            <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
+          </View>
           <Text className="text-[24rpx] text-accent" onClick={() => openFile(url)}>
             {tt('agentDialogue.clickView', '点击查看')}
           </Text>
@@ -597,7 +607,7 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Text className="text-[32rpx]">👤</Text>
+                      <Image className="w-[32rpx] h-[32rpx]" src="/static/images/icons/user.svg" mode="aspectFit" />
                     )}
                   </View>
                 </>
@@ -607,7 +617,7 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Text className="text-[32rpx]">🤖</Text>
+                      <Image className="w-[32rpx] h-[32rpx]" src="/static/images/icons/bot.svg" mode="aspectFit" />
                     )}
                   </View>
                   <View

@@ -1,4 +1,4 @@
-import { View, Text } from '@tarojs/components'
+import { View, Text, Image } from '@tarojs/components'
 import { useI18n, useTt } from '@/i18n'
 
 export interface StreakDay {
@@ -31,9 +31,14 @@ export default function LearningStreak({
           <Text className="text-base font-semibold text-foreground">
             {tt('streak.title', '学习连签')}
           </Text>
-          <Text className="ml-2 text-xs text-warning">
-            🔥 {t('streak.continuousDays', { n: streakDays })}
-          </Text>
+          <View className="ml-2 flex items-center gap-1 text-xs text-warning">
+            <Image
+              style={{ width: '24rpx', height: '24rpx' }}
+              src="/static/images/icons/flame.svg"
+              mode="aspectFit"
+            />
+            <Text>{t('streak.continuousDays', { n: streakDays })}</Text>
+          </View>
         </View>
         <Text className="text-xs text-muted-foreground">
           {t('streak.totalDays', { n: totalSigned })}

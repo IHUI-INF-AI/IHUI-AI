@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ManualNav, chapters } from '../_manual-nav'
-import { Coins, MessageCircle, Lock, Wrench, Users, BarChart3, type LucideIcon } from 'lucide-react'
+import { Coins, MessageCircle, Lock, Wrench, Users, BarChart3, User, Bot, type LucideIcon } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -43,7 +43,7 @@ interface FaqGroup {
 const faqGroups: FaqGroup[] = [
   {
     category: '账号与登录',
-    icon: '👤',
+    icon: User,
     items: [
       {
         q: '忘记密码怎么办?',
@@ -121,7 +121,7 @@ const faqGroups: FaqGroup[] = [
   },
   {
     category: 'Agent 与知识库',
-    icon: '🤖',
+    icon: Bot,
     items: [
       {
         q: 'Agent 和普通对话有什么区别?',

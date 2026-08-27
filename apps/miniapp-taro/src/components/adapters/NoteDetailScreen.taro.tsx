@@ -1,6 +1,6 @@
-// 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView 组件,不适合共享层
+// 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView/Image 组件,不适合共享层
 import { useCallback } from 'react'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import type { TFunction, NoteDetailItem, NoteDetailScreenProps } from '@ihui/types'
@@ -140,6 +140,9 @@ const statRowStyle = (): CSSProperties => ({
 })
 
 const statStyle = (tk: RnThemeTokens): CSSProperties => ({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
   fontSize: toRpx(12),
   color: tk.text.medium,
   backgroundColor: tk.surface.card,
@@ -231,7 +234,14 @@ export function NoteDetailScreen({
       ) : null}
       <Text style={contentStyle(tk)}>{item.content}</Text>
       <View style={statRowStyle()}>
-        <Text style={statStyle(tk)}>❤ {item.likes}</Text>
+        <View style={statStyle(tk)}>
+          <Image
+            src="/static/images/icons/heart.svg"
+            mode="aspectFit"
+            style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }}
+          />
+          <Text style={{ fontSize: toRpx(12), color: tk.text.medium }}>{item.likes}</Text>
+        </View>
       </View>
     </ScrollView>
   )
