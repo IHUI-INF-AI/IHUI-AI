@@ -39,21 +39,21 @@ const QA_KEYS = [
 const DEV_ENTRIES = [
   {
     key: 'model',
-    icon: '🤖',
+    icon: '/static/images/icons/bot.svg',
     titleKey: 'plaza.cover.entryMyModel',
     titleFb: '我的智能体',
     target: '/pages/developer/index',
   },
   {
     key: 'income',
-    icon: '💰',
+    icon: '/static/images/icons/wallet.svg',
     titleKey: 'plaza.cover.entryModelIncome',
     titleFb: '智能体收入',
     target: '/pages/developer/income',
   },
   {
     key: 'n8n',
-    icon: '⚡',
+    icon: '/static/images/icons/zap.svg',
     titleKey: 'plaza.cover.entryN8n',
     titleFb: 'n8n 智能体',
     target: '/pages/dev-enter/n8n-model/index',
@@ -212,7 +212,11 @@ export default function PlazaCover() {
             className="flex items-center gap-[20rpx] p-[32rpx]"
             onClick={() => toEntry(e.target)}
           >
-            <Text className="text-[40rpx] leading-none">{e.icon}</Text>
+            <Image
+              style={{ width: '40rpx', height: '40rpx' }}
+              src={e.icon}
+              mode="aspectFit"
+            />
             <Text className="flex-1 text-[30rpx] text-foreground">{tt(e.titleKey, e.titleFb)}</Text>
             <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
           </View>

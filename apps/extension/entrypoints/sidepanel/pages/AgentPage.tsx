@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Star } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   getAgents,
@@ -109,7 +110,10 @@ function AgentList() {
                   <span>
                     {t('agent.useCount')} {a.useCount}
                   </span>
-                  <span className="text-primary font-semibold">★ {a.rating.toFixed(1)}</span>
+                  <span className="text-primary font-semibold">
+                    <Star className="h-3.5 w-3.5 inline-block -mt-0.5 text-amber-500" aria-hidden />{' '}
+                    {a.rating.toFixed(1)}
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -233,7 +237,10 @@ function AgentDetail({ id }: { id: string }) {
               </div>
               <div className="flex justify-between text-xs">
                 <dt className="text-muted-foreground m-0">{t('agent.rating')}</dt>
-                <dd className="m-0">★ {agent.rating.toFixed(1)}</dd>
+                <dd className="m-0">
+                  <Star className="h-3.5 w-3.5 inline-block -mt-0.5 text-amber-500" aria-hidden />{' '}
+                  {agent.rating.toFixed(1)}
+                </dd>
               </div>
               <div className="flex justify-between text-xs">
                 <dt className="text-muted-foreground m-0">{t('agent.permission')}</dt>
