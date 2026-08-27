@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "node ../../scripts/deploy-lock.mjs acquire --mode dev",
     "postinstall": "node scripts/copy-monaco-to-public.mjs",
-    "dev": "next dev --turbopack -p 8801",
+    "dev": "node ../../scripts/clean-turbopack-cache.mjs && next dev --turbopack -p 8801",
     "dev:clean": "rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev --turbopack -p 8801",
     "dev:stable": "rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev -p 8801",
     "prebuild": "node ../../scripts/deploy-lock.mjs acquire --mode build --timeout 600000 --stale 600000",
