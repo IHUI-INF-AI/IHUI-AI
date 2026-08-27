@@ -59,17 +59,17 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
             {sorted.map((entry) => (
               // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- 列表项可点击,已加 role/tabIndex/onKeyDown 提供完整键盘支持(Enter/Space 触发)
               <li
-                key={entry.id}
+                key={entry.dispatchId}
                 className="flex items-center gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent"
                 role={onItemClick ? 'button' : undefined}
                 tabIndex={onItemClick ? 0 : undefined}
-                onClick={onItemClick ? () => onItemClick(entry.id) : undefined}
+                onClick={onItemClick ? () => onItemClick(entry.dispatchId) : undefined}
                 onKeyDown={
                   onItemClick
                     ? (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
-                          onItemClick(entry.id)
+                          onItemClick(entry.dispatchId)
                         }
                       }
                     : undefined

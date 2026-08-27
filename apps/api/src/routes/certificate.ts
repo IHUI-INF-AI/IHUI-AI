@@ -78,9 +78,12 @@ const updateCertificateStatusSchema = z.object({
   status: z.number().int().min(0).max(1),
 })
 
-const verifyQuerySchema = z.object({
-  no: z.string().min(1).max(100),
-})
+const verifyQuerySchema = z
+  .object({
+    no: z.string().min(1).max(100).optional(),
+    certNo: z.string().min(1).max(100).optional(),
+  })
+  .refine((d) => d.no || d.certNo, '缺少证书编号')
 
 // =============================================================================
 // 公共路由（前缀 /api，需登录）
@@ -91,13 +94,14 @@ export const certificateRoutes: FastifyPluginAsync = async (server) => {
     if (!(await checkAuth(request, reply))) return
   })
 
-  // GET /certificates/verify - 证书验证(按证书编号查询)
+  // GET /certificates/verify - 证书验证(按证书编号查询;兼容 no 与 certNo 参数名)
   server.get('/certificates/verify', async (request, reply) => {
     const parsed = verifyQuerySchema.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const cert = await findCertificateByNo(parsed.data.no)
+    const certNo = parsed.data.no ?? parsed.data.certNo!
+    const cert = await findCertificateByNo(certNo)
     if (!cert || cert.status !== 1) {
       return reply.status(404).send(error(404, '证书不存在或已失效'))
     }

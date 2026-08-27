@@ -68,6 +68,7 @@ vi.mock('react-native', async () => {
     RefreshControl: () => null,
     useColorScheme: () => 'light',
     StyleSheet: { create: (s: Record<string, unknown>) => s },
+    TextInput: mk('input'),
   }
 })
 
@@ -182,7 +183,8 @@ describe('OrderScreen 订单状态流转', () => {
     })
     const { getByText } = render(<OrderScreen />)
 
-    await waitFor(() => expect(getByText('order.empty')).toBeTruthy())
+    // OrderScreen UNIAPP_TEXT 映射:order.empty→暂无订单信息
+    await waitFor(() => expect(getByText('暂无订单信息')).toBeTruthy())
   })
 
   it('refunded 状态金额显示正确', async () => {

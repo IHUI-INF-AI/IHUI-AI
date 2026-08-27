@@ -38,36 +38,50 @@ const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 const isExtension = TARGET === 'extension'
 const isShared = TARGET === 'shared'
 const isCli = TARGET === 'cli'
+// 2026-08-19 立:mobile-rn 端 parity 守门(原 ID 2f-mobile-rn fall through 到 web,实际检查 web 而非 mobile-rn)
+const isMobileRn = TARGET === 'mobile-rn'
 // 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
 // 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
-// (extension 用 useI18n() namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
+// (extension / mobile-rn / cli 用各自 namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
 //  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isCli || isParityOnlyFlag
+const isParityOnly = isExtension || isShared || isCli || isMobileRn || isParityOnlyFlag
 const WEB_DIR = join(ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
+// 2026-08-19:补充 mobile-rn 分支(原 fall through 到 web,守护形同虚设)
 const MESSAGES_DIR = isExtension
   ? join(ROOT, 'packages/i18n/messages/extension')
   : isShared
     ? join(ROOT, 'packages/i18n/messages/shared')
     : isCli
       ? join(ROOT, 'packages/i18n/messages/cli')
-      : join(ROOT, 'packages/i18n/messages/web')
+      : isMobileRn
+        ? join(ROOT, 'packages/i18n/messages/mobile-rn')
+        : join(ROOT, 'packages/i18n/messages/web')
 // shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
 const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
-// extension / shared 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
+// extension / shared / mobile-rn / cli 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
 // 非 shared 模式同时识别 shared/(合并集的一部分,shared 改动需触发 parity 校验)
 // shared 模式只识别 shared/
 const STAGED_MESSAGES_PREFIXES = isShared
   ? ['packages/i18n/messages/shared/']
   : isCli
     ? ['packages/i18n/messages/cli/']
-    : isExtension
-      ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
-      : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
-const STAGED_SOURCE_PREFIX = isExtension ? 'apps/extension/' : isCli ? 'apps/cli/' : 'apps/web/'
+    : isMobileRn
+      ? ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/']
+      : isExtension
+        ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
+        : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
+// 2026-08-19:补充 mobile-rn 前缀(staged mode 下识别 apps/mobile-rn/ 源码改动)
+const STAGED_SOURCE_PREFIX = isExtension
+  ? 'apps/extension/'
+  : isCli
+    ? 'apps/cli/'
+    : isMobileRn
+      ? 'apps/mobile-rn/'
+      : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules', 'tests', '__tests__', 'e2e'])
 const BASE_LANG = 'zh-CN'
 
@@ -585,12 +599,13 @@ if (untranslatedValueIssues.length > 0) {
   console.log('')
 }
 
-// 2026-07-30: missing key 在所有模式下只 warning(不阻塞 exit code)
-// 原因:历史遗漏 194 个 missing key(新功能 i18n 未同步 / namespace 重构后旧调用未更新),
-// 无法立即全修。若 staged 阻塞会导致所有触及这些文件的 commit 卡住,影响开发效率。
-// parity 保持 blocking(防止 5 语言不一致,这是硬性契约)。
-// missing key 输出 WARNING 提示开发者,后续历史 missing 清零后可恢复为 blocking。
-const shouldBlock = parityIssues.length > 0
+// 2026-08-20: missing key 收紧为 blocking(历史 194 个 missing 已清零,见 2026-07-30 遗留说明)
+// 背景:此前 missing key 只 warning 不阻塞(pre-commit 形同虚设),导致
+//   common.tools.categoryEfficiency 等"源码引用但消息缺失"的键漏到浏览器才暴露。
+//   full 扫描确认当前 0 个 missing key,收紧为 blocking 不再误伤历史 commit。
+// 策略:missing key + parity 均 blocking(源码引用的 key 必须在消息中定义,这是硬性契约)。
+//   full 模式(CI)与 staged 模式(pre-commit)都会阻塞,防止新引入未定义 i18n 键。
+const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0
 
 if (shouldBlock) {
   // 方案 A:web/extension 模式下 key 可能在 shared/(基础 key 已迁移)
@@ -607,7 +622,11 @@ if (shouldBlock) {
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
-  console.log(`${C.red}[i18n 键检查] 发现 parity 问题,拒绝提交/CI失败!${C.reset}`)
+  console.log(
+    `${C.red}[i18n 键检查] 发现 ${
+      parityIssues.length > 0 ? 'parity 问题' : '缺失键问题'
+    },拒绝提交/CI失败!${C.reset}`,
+  )
   console.log(`${C.yellow}修复方法:${C.reset}`)
   console.log(`  1. 在 ${messagesRelPath} 对应命名空间补齐缺失键`)
   console.log(`  2. 确保所有语言文件的键集与 ${BASE_LANG} 一致(parity)`)
@@ -623,9 +642,11 @@ const targetLabel = isExtension
     ? '[shared] '
     : isCli
       ? '[cli] '
-      : isParityOnlyFlag
-      ? '[parity-only] '
-      : ''
+      : isMobileRn
+        ? '[mobile-rn] '
+        : isParityOnlyFlag
+        ? '[parity-only] '
+        : ''
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
 )

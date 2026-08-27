@@ -64,6 +64,11 @@ const COMPONENT_TITLE_EXEMPT = new Set([
   'Popover', 'Dropdown', 'Tabs', 'TabsList', 'TabsTrigger', 'TabsContent',
   'FeatureCenterHeader', 'ToolCard', 'Stat', 'Chart',
   'Skeleton', 'Tooltip', 'TooltipContent',
+  // iframe/embed 包装组件:title prop 透传给底层 iframe (WCAG a11y 必需)
+  // 这些组件的 title prop 最终落到 iframe.title,等价于 <iframe title> 豁免
+  'GrafanaFrame', 'AiSkillEditor', 'DesignPreview', 'LiveEmbed',
+  'SkillCard', 'OfficeViewer', 'WebviewFrame', 'AiSkillViewer',
+  'EmbedFrame', 'PreviewFrame', 'IframeWrapper',
 ])
 
 /** HTML 原生元素 + 项目 Button 组件,凡是 title= 都视为违规 */
@@ -117,6 +122,8 @@ function isViolation(line, inJsxTag) {
   //     title={t('deleteGroup')}    (line N+2, 本行检测到 title=)
   //   >                             (line N+3, tag 关闭)
   if (inJsxTag) {
+    // 多行 <iframe title=...>(a11y 必需,WCAG) — 等价于单行豁免 2
+    if (inJsxTag.tagName === 'iframe' && /\btitle=/.test(trimmed)) return false
     if (
       /\btitle=/.test(trimmed) &&
       (inJsxTag.tagName === 'Button' || HTML_ELEMENTS_WITH_TITLE.test(inJsxTag.tagName)) &&

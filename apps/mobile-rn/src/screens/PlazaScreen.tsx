@@ -13,13 +13,27 @@
  * - FloatBox 悬浮提示
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Pressable, Text, StyleSheet, type ViewStyle, type TextStyle } from 'react-native'
+import {
+  Modal,
+  View,
+  Pressable,
+  Text,
+  Image,
+  StyleSheet,
+  type ImageStyle,
+  type ViewStyle,
+  type TextStyle,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import Clipboard from '@react-native-clipboard/clipboard'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   deleteConversation,
+  getAgentCategories,
   getPlazaList,
   listConversations,
+  type AgentCategoryItem,
   type ConversationDetail,
 } from '@ihui/api-client'
 import { PlazaScreen as SharedPlazaScreen, type PlazaScreenProps } from '@ihui/rn-app'
@@ -30,17 +44,43 @@ import Drawer, {
 } from '../components/Drawer'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { NavBar, type NavBarAction } from '../components/NavBar'
+// 底部导航(对齐原 customTabBar 5 主 Tab,PlazaScreen 对应「广场」Tab)
+import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 10
 
+/** 免费资料链接(对齐原项目 plaza/index.vue lingqu → setClipboardData) */
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
+
+const PLAZA_TASK_STATUS = {
+  waiting: 'waiting',
+  developing: 'developing',
+  completed: 'completed',
+  mine: 'mine',
+} as const
+
 const FLOAT_BOX_DEFAULT = { visible: false, type: 'info' as FloatBoxType, message: '' }
+
+/**
+ * 需求赛道 fallback(对齐原项目 plaza/index.vue category(1) → categorySaidao 首项"全公司";
+ * 与 HomeScreen AGENT_CATEGORY_FALLBACK 同源语义,API 失败时兜底避免筛选弹层为空)。
+ */
+const PLAZA_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
+  { id: '', name: '全公司' },
+  { id: 'tech', name: '技术' },
+  { id: 'design', name: '设计' },
+  { id: 'market', name: '市场' },
+  { id: 'operation', name: '运营' },
+]
 
 /**
  * 跨栈导航 helper — React Navigation v6 的 navigate 重载对 RootStackParamList
@@ -71,6 +111,26 @@ export function PlazaScreen() {
   const navigation = useNavigation<NavigationProp>()
   const rootNav = navigation.getParent<RootNav>()
 
+  /** 底部 Tab 切换(对齐原 customTabBar 5 主 Tab;Plaza 为 RootStack 独立路由,经 Main 聚焦 Tab) */
+  const handleTabChange = (key: TabBarKey): void => {
+    switch (key) {
+      case 'aiShop':
+        navigation.navigate('Main', { screen: 'AiMain' })
+        break
+      case 'home':
+        navigation.navigate('Main', { screen: 'HomeMain' })
+        break
+      case 'news':
+        navigation.navigate('News')
+        break
+      case 'mine':
+        navigation.navigate('Main', { screen: 'ProfileMain' })
+        break
+      case 'plaza':
+        break // 当前 Tab
+    }
+  }
+
   const [items, setItems] = useState<PlazaScreenProps['items']>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -78,11 +138,20 @@ export function PlazaScreen() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  const [status, setStatus] = useState('2')
+  const [status, setStatus] = useState<string>(PLAZA_TASK_STATUS.waiting)
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [floatBox, setFloatBox] = useState(FLOAT_BOX_DEFAULT)
+  // 需求赛道筛选(对齐原项目 plaza/index.vue:顶栏 showFenLei 分类按钮 → categorySaidao 赛道弹层)
+  const [trackCategories, setTrackCategories] =
+    useState<ReadonlyArray<AgentCategoryItem>>(PLAZA_CATEGORY_FALLBACK)
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const [categoryVisible, setCategoryVisible] = useState(false)
+  // 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:切换身份 Modal)
+  const [identityVisible, setIdentityVisible] = useState(false)
+  // 开发者须知弹窗(对齐原项目 L110-150:开发者须知 Modal,5 条规则)
+  const [noticeVisible, setNoticeVisible] = useState(false)
 
   // Drawer 侧滑抽屉
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -106,14 +175,16 @@ export function PlazaScreen() {
         setError('')
       }
       try {
-        const isMyTask = status === '9'
-        // 使用 PlazaScreenProps 的 items 类型
+        const isMyTask = status === PLAZA_TASK_STATUS.mine
+        // 使用 PlazaScreenProps 的 items 类型。
         const res = await getPlazaList({
           page: targetPage,
           pageSize: PAGE_SIZE,
-          status: isMyTask ? undefined : status || undefined,
+          taskStatus: isMyTask ? undefined : status || undefined,
           search: search.trim() || undefined,
           creator: isMyTask ? user?.id : undefined,
+          // 赛道筛选(对齐原项目 categorys 参数,''=全公司,非空时传单元素数组)
+          categories: selectedCategory ? [selectedCategory] : undefined,
         })
         if (!res.success) throw new Error(res.error)
         const list = (res.data.list ?? []) as PlazaScreenProps['items']
@@ -130,7 +201,7 @@ export function PlazaScreen() {
         setLoadingMore(false)
       }
     },
-    [status, search, user?.id, showFloat],
+    [status, search, selectedCategory, user?.id, showFloat],
   )
 
   useEffect(() => {
@@ -162,6 +233,32 @@ export function PlazaScreen() {
     navigation.navigate('PostDetail', { id: String(item.id) })
   }
 
+  // ── 需求赛道加载(对齐原项目 plaza/index.vue category(1) → categorySaidao) ──
+  // 数据源与 HomeScreen 复用同一 getAgentCategories API(agentCategory),
+  // 失败回退静态 5 项,保证筛选弹层非空。
+  const loadTrackCategories = useCallback(async (): Promise<void> => {
+    try {
+      const res = await getAgentCategories()
+      if (res.success && res.data && Array.isArray(res.data.agentCategory)) {
+        setTrackCategories([{ id: '', name: '全公司' }, ...res.data.agentCategory])
+        return
+      }
+    } catch {
+      // 分类加载失败:保持兜底列表,不阻塞主流程
+    }
+    setTrackCategories(PLAZA_CATEGORY_FALLBACK)
+  }, [])
+
+  useEffect(() => {
+    void loadTrackCategories()
+  }, [loadTrackCategories])
+
+  // 选择赛道(对齐原项目 changeSaidao:单选,选"全公司"清空 → reGet)
+  const onSelectCategory = (id: string): void => {
+    setSelectedCategory(id)
+    setCategoryVisible(false)
+  }
+
   // ── Drawer 回调 ──
   const loadDrawerConversations = useCallback(async () => {
     const res = await listConversations({ page: 1, pageSize: 50 })
@@ -183,11 +280,11 @@ export function PlazaScreen() {
   const handleDrawerNavigate = (tab: DrawerTab) => {
     setDrawerVisible(false)
     if (tab === 'square') {
-      navigateRoot(rootNav, 'Square')
+      navigateRoot(rootNav, 'Plaza')
       return
     }
     if (tab === 'share') {
-      navigateRoot(rootNav, 'Share')
+      navigateRoot(rootNav, 'News')
       return
     }
     rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
@@ -200,6 +297,8 @@ export function PlazaScreen() {
 
   const handleDrawerClaimFree = () => {
     setDrawerVisible(false)
+    // 真复制资料链接后再提示(对齐原项目 lingqu → setClipboardData)
+    Clipboard.setString(FREE_RESOURCE_URL)
     showFloat('链接已复制', 'success')
   }
 
@@ -260,7 +359,20 @@ export function PlazaScreen() {
         navigateRoot(rootNav, 'ModelPlaza')
         break
       case 'company':
+        navigateRoot(rootNav, 'Distribution')
+
+        break
+
+      case 'assistant':
+        navigation?.navigate('Assistant')
+
+        break
+
       case 'tools':
+        navigateRoot(rootNav, 'Settings')
+
+        break
+
       default:
         break
     }
@@ -283,6 +395,20 @@ export function PlazaScreen() {
         title="AI需求广场"
         leftActions={leftActions}
         onBack={() => navigation.goBack()}
+        rightActions={[
+          {
+            icon: '🗂️',
+            label: '分类',
+            // 对齐原项目 navigation-bars showFenLei → 赛道筛选弹层(ScrollTitle + Tab)
+            onPress: () => setCategoryVisible(true),
+          },
+          {
+            icon: '👤',
+            label: '身份',
+            // 对齐原项目 plaza/index.vue setshowBottom → 切换身份弹窗
+            onPress: () => setIdentityVisible(true),
+          },
+        ]}
         rightAction={
           <Pressable
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -335,6 +461,172 @@ export function PlazaScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 需求赛道筛选弹层(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层,
+       *  内联等价实现:居中卡片单选,选中即刷新列表) */}
+      <Modal
+        visible={categoryVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCategoryVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setCategoryVisible(false)}
+          accessibilityLabel="关闭赛道筛选"
+        >
+          <Pressable style={styles.categoryCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.categoryTitle}>选择需求赛道</Text>
+            <View style={styles.categoryList}>
+              {trackCategories.map((cat) => {
+                const active = selectedCategory === cat.id
+                return (
+                  <Pressable
+                    key={cat.id || 'all'}
+                    style={[styles.categoryItem, active ? styles.categoryItemActive : null]}
+                    onPress={() => onSelectCategory(cat.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={cat.name}
+                  >
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        active ? styles.categoryItemTextActive : null,
+                      ]}
+                    >
+                      {cat.name}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:
+       *  切换身份 → 找大佬开发(普通身份) / 我是开发者(跳开发者页);footer 打开开发者须知) */}
+      <Modal
+        visible={identityVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIdentityVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setIdentityVisible(false)}
+          accessibilityLabel="关闭身份切换"
+        >
+          <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.identityTitle}>切换身份</Text>
+            {/* 身份用户区(对齐原项目 plaza/index.vue identity-user:头像 + 昵称 + 副文案) */}
+            <View style={styles.identityUser}>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.identityAvatar} />
+              ) : (
+                <View style={[styles.identityAvatar, styles.identityAvatarFallback]}>
+                  <Text style={styles.identityAvatarFallbackText}>👤</Text>
+                </View>
+              )}
+              <View style={styles.identityUserInfo}>
+                <Text style={styles.identityNickname}>
+                  {user?.nickname || user?.username || '未登录用户'}
+                </Text>
+                <Text style={styles.identitySubtext}>选择合适的身份，更好地发布或承接需求</Text>
+              </View>
+            </View>
+            <View style={styles.identityButtons}>
+              <Pressable
+                style={[styles.identityBtn, styles.identityBtnOutline]}
+                onPress={() => {
+                  // 对齐原项目 toSet:写身份 userStatus='nomal' + 关弹窗(切换发布路径视图)
+                  setIdentityVisible(false)
+                  void AsyncStorage.setItem('userStatus', 'nomal')
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="找大佬开发"
+              >
+                <Text style={styles.identityBtnTextOutline}>找大佬开发</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
+                onPress={() => {
+                  setIdentityVisible(false)
+                  // 对齐原项目 toDev:先写身份 userStatus='developer' 再跳开发者页
+                  void AsyncStorage.setItem('userStatus', 'developer').then(() => {
+                    navigation.navigate('Developer', { id: 'self' })
+                  })
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="我是开发者"
+              >
+                <Text style={styles.identityBtnTextPrimary}>我是开发者</Text>
+              </Pressable>
+            </View>
+            <Pressable
+              style={styles.identityFooter}
+              onPress={() => {
+                setIdentityVisible(false)
+                setNoticeVisible(true)
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="开发者须知"
+            >
+              <Text style={styles.identityFooterTitle}>开发者须知</Text>
+              <Text style={styles.identityFooterText}>
+                成为开发者前，请先阅读并确认开发者须知。
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 开发者须知弹窗(对齐原项目 plaza/index.vue L110-150,5 条规则文案逐字) */}
+      <Modal
+        visible={noticeVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNoticeVisible(false)}
+      >
+        <Pressable
+          style={styles.categoryMask}
+          onPress={() => setNoticeVisible(false)}
+          accessibilityLabel="关闭开发者须知"
+        >
+          <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.identityTitle}>开发者须知</Text>
+            <View style={styles.noticeList}>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>1. 开发者责任 </Text>
+                开发者应当确保所提供的技术服务符合相关法律法规，不得提供违法违规的技术支持。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>2. 知识产权 </Text>
+                开发者应当尊重知识产权，不得侵犯他人的专利权、著作权、商标权等合法权益。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>3. 交易规范 </Text>
+                开发者与需求方的交易应当遵循公平、公正、诚信的原则，确保交易过程的透明化。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>4. 隐私保护 </Text>
+                开发者应当严格保护用户隐私，不得泄露、出售或非法使用用户个人信息。
+              </Text>
+              <Text style={styles.noticeItem}>
+                <Text style={styles.noticeBold}>5. 技术标准 </Text>
+                开发者应当提供符合行业标准的技术服务，确保技术方案的可行性和可靠性。
+              </Text>
+            </View>
+            <Pressable
+              style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
+              onPress={() => setNoticeVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="我知道了"
+            >
+              <Text style={styles.identityBtnTextPrimary}>我知道了</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
+      <TabBar activeTab="plaza" onChange={handleTabChange} />
     </View>
   )
 }
@@ -347,5 +639,109 @@ const styles = StyleSheet.create({
   navIcon: {
     fontSize: 20,
     color: '#000',
+  } as TextStyle,
+  // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
+  categoryMask: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: rpx(48),
+  } as ViewStyle,
+  categoryCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: rpx(40),
+  } as ViewStyle,
+  // ── 身份切换弹窗(对齐原项目 plaza identity-card) ──
+  identityCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: rpx(48),
+    alignItems: 'center',
+  } as ViewStyle,
+  identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: rpx(12) },
+  // ── 身份用户区(对齐原项目 plaza identity-user:头像 + 昵称 + 副文案) ──
+  identityUser: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: rpx(24),
+    marginBottom: rpx(36),
+  } as ViewStyle,
+  identityAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#f0f0f0',
+    overflow: 'hidden',
+  } as ImageStyle,
+  identityAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  identityAvatarFallbackText: {
+    fontSize: 28,
+  } as TextStyle,
+  identityUserInfo: {
+    flex: 1,
+  } as ViewStyle,
+  identityNickname: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#171717',
+    marginBottom: rpx(8),
+  } as TextStyle,
+  identitySubtext: { fontSize: 13, color: '#8a8a8a' },
+  identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
+  identityBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  identityBtnOutline: { borderColor: '#d9d9d9', backgroundColor: '#fff' },
+  identityBtnPrimary: { borderColor: '#4a6cf7', backgroundColor: '#4a6cf7' },
+  identityBtnTextOutline: { fontSize: 15, color: '#171717', fontWeight: '600' },
+  identityBtnTextPrimary: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  identityFooter: { marginTop: rpx(36), alignItems: 'center' },
+  identityFooterTitle: { fontSize: 14, color: '#4a6cf7', fontWeight: '600', marginBottom: rpx(4) },
+  identityFooterText: { fontSize: 12, color: '#a0a0a0' },
+  noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
+  noticeItem: { fontSize: 13, color: '#4a4a4a', lineHeight: 20 },
+  noticeBold: { fontWeight: '700', color: '#171717' },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111',
+    textAlign: 'center',
+    marginBottom: rpx(28),
+  } as TextStyle,
+  categoryList: {
+    gap: rpx(16),
+  } as ViewStyle,
+  categoryItem: {
+    paddingVertical: rpx(20),
+    paddingHorizontal: rpx(24),
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+  } as ViewStyle,
+  categoryItemActive: {
+    backgroundColor: '#5088fa',
+  } as ViewStyle,
+  categoryItemText: {
+    fontSize: 14,
+    color: '#333',
+  } as TextStyle,
+  categoryItemTextActive: {
+    color: '#fff',
+    fontWeight: '600',
   } as TextStyle,
 })

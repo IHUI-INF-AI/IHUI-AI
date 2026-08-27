@@ -201,7 +201,7 @@ export function PaymentScreen({
 function statusToStyle(status: PaymentOrderStatus, tk: AppThemeTokens) {
   switch (status) {
     case 'pending':
-      return { backgroundColor: tk.warning?.light ?? '#fef3c7' }
+      return { backgroundColor: tk.warning.light }
     case 'paid':
       return { backgroundColor: tk.success.light }
     case 'failed':

@@ -126,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 12,
       paddingVertical: 8,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
       fontSize: 16,

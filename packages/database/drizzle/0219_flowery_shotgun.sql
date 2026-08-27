@@ -1,0 +1,2 @@
+ALTER TABLE "zhs_demand_square" ADD COLUMN IF NOT EXISTS "task_status" varchar(20) DEFAULT 'waiting' NOT NULL;
+CREATE INDEX IF NOT EXISTS "zhs_demand_square_task_status_idx" ON "zhs_demand_square" ("task_status");

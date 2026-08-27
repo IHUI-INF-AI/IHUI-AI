@@ -65,12 +65,24 @@ export interface PlazaItem {
   id: string
   title: string
   description?: string
+  type?: string
   types?: string[]
   categories?: string[]
   status?: string
+  taskStatus?: string
+  rejectReason?: string | null
+  reviewedBy?: string | null
+  reviewedAt?: string | null
   creator?: string
   creatorAvatar?: string
   createdAt?: string
+  lowestPrice?: number | string | null
+  peakPrice?: number | string | null
+  contact?: string | null
+  cycle?: string | null
+  cycleUnit?: string | null
+  closingTime?: string | null
+  imgs?: string | string[] | null
   [key: string]: unknown
 }
 
@@ -287,15 +299,18 @@ export async function deleteTool(id: string): Promise<ApiResult<{ success: boole
 
 /** 获取广场列表 */
 export async function getPlazaList(
-  query: PageQuery & {
+  query: {
+    page?: number
+    pageSize?: number
     status?: string
+    taskStatus?: string
     search?: string
     creator?: string
     types?: string[]
     categories?: string[]
   } = {},
 ): Promise<ApiResult<PageData<PlazaItem>>> {
-  return fetchApi<PageData<PlazaItem>>(`/api/plaza${buildQs(query)}`)
+  return fetchApi<PageData<PlazaItem>>(`/api/plaza/list${buildQs(query)}`)
 }
 
 /** 获取广场详情 */
@@ -307,6 +322,13 @@ export async function getPlazaDetail(id: string): Promise<ApiResult<PlazaItem>> 
 export async function createPlaza(input: {
   title: string
   description: string
+  lowestPrice?: number
+  peakPrice?: number
+  contact?: string
+  cycle?: string
+  cycleUnit?: string
+  closingTime?: string
+  imgs?: string | string[]
   types?: string[]
   categories?: string[]
 }): Promise<ApiResult<PlazaItem>> {

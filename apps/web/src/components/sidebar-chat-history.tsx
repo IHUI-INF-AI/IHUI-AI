@@ -378,7 +378,7 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
             'before:content-[""] before:-z-10',
             active
               ? 'text-primary before:bg-primary/10'
-              : 'hover:text-foreground before:hover:bg-muted',
+              : 'hover:text-foreground hover:before:bg-muted',
           )}
         >
           {active && (

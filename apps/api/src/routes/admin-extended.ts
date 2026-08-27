@@ -13,7 +13,6 @@ import {
   updateExamine,
   deleteExamine,
 } from '../db/agents-queries.js'
-import type { UpdateExamineInput } from '../db/agents-queries.js'
 
 const menuSchema = z.object({
   name: z.string().min(1, '菜单名称不能为空').max(64),
@@ -261,8 +260,16 @@ export const adminExtendedRoutes: FastifyPluginAsync = async (server) => {
   // PUT /examine/:id — 更新
   server.put('/examine/:id', async (request, reply) => {
     const { id } = z.object({ id: z.string() }).parse(request.params)
-    const body = request.body as UpdateExamineInput
-    const record = await updateExamine(id, body)
+    const body = z
+      .object({
+        agentId: z.string().nullable().optional(),
+        userId: z.string().nullable().optional(),
+        status: z.string().optional(),
+        reason: z.string().nullable().optional(),
+      })
+      .safeParse(request.body)
+    if (!body.success) return reply.status(400).send(error(400, '参数错误'))
+    const record = await updateExamine(id, body.data)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
   })

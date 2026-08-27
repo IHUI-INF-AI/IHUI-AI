@@ -68,6 +68,9 @@ async function discoverEndpoints(issuer: string): Promise<OidcDiscovery> {
     throw new Error(`OIDC discovery 失败: HTTP ${res.status} (${url})`)
   }
   const data = (await res.json()) as OidcDiscovery
+  if (data.issuer && data.issuer.replace(/\/$/, '') !== issuer.replace(/\/$/, '')) {
+    throw new Error(`OIDC issuer 不匹配: 期望 ${issuer}, 实际 ${data.issuer}`)
+  }
   if (!data.authorization_endpoint || !data.token_endpoint || !data.userinfo_endpoint) {
     throw new Error('OIDC discovery 文档缺少必要的 endpoint 字段')
   }

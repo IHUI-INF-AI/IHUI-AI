@@ -24,7 +24,9 @@ test.describe('VIP 会员页 /vip', () => {
       .first()
     if (await subscribeBtn.isVisible()) {
       const href = await subscribeBtn.getAttribute('href')
-      expect(href).toContain('/payment/checkout')
+      // 2026-08-26 修复:未登录 /vip 显示登录墙,first() 匹配到侧边栏"会员订阅"
+      // (/member/subscription,合法订阅入口),原断言仅认 /payment/checkout(支付页)过时。
+      expect(href).toMatch(/\/(payment\/checkout|member\/subscription)/)
     }
   })
 

@@ -171,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     sendBtn: {
       paddingHorizontal: 14,

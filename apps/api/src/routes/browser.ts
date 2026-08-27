@@ -74,7 +74,7 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (json.code !== 0 || !json.data) {
-        return reply.send(error(500, json.message || '截图失败'))
+        return reply.status(502).send(error(502, json.message || '截图失败'))
       }
 
       // 转换为 camelCase 契约(与 packages/types ScreenshotResponse 一致)
@@ -120,7 +120,7 @@ export const browserRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (json.code !== 0 || !json.data) {
-        return reply.send(error(500, json.message || '探测失败'))
+        return reply.status(502).send(error(502, json.message || '探测失败'))
       }
 
       return reply.send(success({ url: json.data.url, canEmbed: json.data.can_embed }))

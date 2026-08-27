@@ -48,7 +48,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
+      const message = (e as Error).message || '操作失败,请稍后重试'
       return reply.status(statusCode).send(error(statusCode, message))
     }
   }

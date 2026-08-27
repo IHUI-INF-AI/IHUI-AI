@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import {
   View,
   Text,
+  Image,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  type ImageStyle,
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
@@ -122,7 +124,11 @@ export function LearnScreen({
                     >
                       <View style={styles.pathCover}>
                         {path.coverImage ? (
-                          <View style={styles.pathCoverImage} />
+                          <Image
+                            source={{ uri: path.coverImage }}
+                            style={styles.pathCoverImage}
+                            resizeMode="cover"
+                          />
                         ) : (
                           <Text style={styles.pathCoverEmoji}>📖</Text>
                         )}
@@ -174,7 +180,11 @@ export function LearnScreen({
                     >
                       <View style={styles.courseImageWrap}>
                         {item.coverImage ? (
-                          <View style={styles.courseImage} />
+                          <Image
+                            source={{ uri: item.coverImage }}
+                            style={styles.courseImage}
+                            resizeMode="cover"
+                          />
                         ) : (
                           <Text style={styles.courseImageEmoji}>📚</Text>
                         )}
@@ -310,7 +320,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: '100%',
       backgroundColor: tk.border.light,
-    } as ViewStyle,
+    } as ImageStyle,
     pathCoverEmoji: { fontSize: 32 } as TextStyle,
     pathTitle: {
       padding: 10,
@@ -358,7 +368,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       height: '100%',
       backgroundColor: tk.border.light,
-    } as ViewStyle,
+    } as ImageStyle,
     courseImageEmoji: { fontSize: 40 } as TextStyle,
     courseInfo: {
       flex: 1,

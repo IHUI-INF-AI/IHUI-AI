@@ -204,29 +204,42 @@ class VectorMemoryStore:
     # 持久化(JSON 文件快照)
     # ==================================================================
 
-    def _persist_sync(self) -> None:
-        """同步写盘(在 executor 中调用,避免阻塞事件循环)。"""
+    def _persist_sync(self, snapshot: dict[str, Any]) -> None:
+        """同步写盘(在 executor 中调用,避免阻塞事件循环)。
+
+        Args:
+            snapshot: 事件循环线程内预先拷贝的 entries/vectors 快照,
+                避免本线程序列化期间主线程并发增删导致
+                "dictionary changed size during iteration"。
+        """
         try:
             os.makedirs(os.path.dirname(self._persist_path), exist_ok=True)
-            data = {
-                "entries": self._entries,
-                "vectors": self._vectors,
-            }
             # 原子写:先写临时文件再 rename(避免写一半崩溃)
             tmp_path = self._persist_path + ".tmp"
             with open(tmp_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False)
+                json.dump(snapshot, f, ensure_ascii=False)
             os.replace(tmp_path, self._persist_path)
             self._dirty = False
         except Exception as e:
             logger.warning("向量记忆持久化失败: %s", e)
 
     async def _persist_async(self) -> None:
-        """异步写盘(通过 run_in_executor 避免阻塞事件循环)。"""
+        """异步写盘(通过 run_in_executor 避免阻塞事件循环)。
+
+        2026-08-21 修复(跨线程写盘竞态):先在事件循环线程内快照 entries/vectors,
+        再交给 executor 序列化写盘。原实现把 self._entries / self._vectors 直接
+        传进 executor 线程迭代,写盘期间事件循环并发 add_entry/delete/update_embedding
+        会触发 "dictionary changed size during iteration" RuntimeError,
+        导致持久化间歇性失败且 .tmp 残留。
+        """
         if not self._dirty:
             return
+        snapshot = {
+            "entries": dict(self._entries),
+            "vectors": dict(self._vectors),
+        }
         loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, self._persist_sync)
+        await loop.run_in_executor(None, self._persist_sync, snapshot)
 
     async def hydrate(self) -> int:
         """启动时从 JSON 文件加载历史向量记忆。返回加载条数。"""
@@ -236,7 +249,7 @@ class VectorMemoryStore:
         if not os.path.isfile(self._persist_path):
             return 0
         try:
-            with open(self._persist_path, "r", encoding="utf-8") as f:
+            with open(self._persist_path, encoding="utf-8") as f:
                 data = json.load(f)
             entries = data.get("entries", {})
             vectors = data.get("vectors", {})
@@ -266,7 +279,7 @@ class VectorMemoryStore:
         # (如 ada-002=1536 维 vs text-embedding-3-large=3072 维,共享缓存会致 cosine 失效)
         from ..core.config import settings
         used_model = model or getattr(settings, "embedding_model", "text-embedding-ada-002")
-        cache_key = hashlib.sha256(f"{used_model}:{text}".encode("utf-8")).hexdigest()
+        cache_key = hashlib.sha256(f"{used_model}:{text}".encode()).hexdigest()
         # 2. 查缓存,命中直接返回(embedding 确定性,同文本同向量)
         cached = await _embedding_cache.get(cache_key)
         if cached is not None:
@@ -281,7 +294,7 @@ class VectorMemoryStore:
                 await _embedding_cache.set(cache_key, embedding)
                 return embedding
         except Exception as e:
-            logger.warning("vector_memory.embed 向量计算失败,降级 hash 伪向量: %s", e, exc_info=True)
+            logger.warning("vector_memory.embed 向量计算失败,降级 hash 伪向量: %s", e)
         # 5. 降级:确定性 hash 伪向量(不缓存,hash 本身 O(1))
         return _hash_embedding(text)
 

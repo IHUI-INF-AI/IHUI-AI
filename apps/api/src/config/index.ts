@@ -23,6 +23,9 @@ const envSchema = z.object({
     .transform((v) => (v === '' ? undefined : v))
     .pipe(z.url().optional()),
   REDIS_URL: z.url().default('redis://localhost:8811'),
+  // 文件 CDN 域名(可选):上传接口返回的 path 自动加前缀,生产可指向 file.aizhs.top
+  // (需 Nginx 反代 /uploads 到本服务;未配置时返回相对路径 /uploads/<id>)
+  FILE_CDN_BASE: z.string().optional().default(''),
   JWT_SECRET: z
     .string()
     .min(32, 'JWT_SECRET 必须至少 32 字符')

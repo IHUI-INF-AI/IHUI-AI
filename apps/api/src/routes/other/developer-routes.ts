@@ -204,6 +204,14 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!body.success)
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    // 校验当前用户是否为该团队的 owner/admin
+    const [caller] = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, body.data.teamId), eq(teamMembers.userId, request.userId!)))
+      .limit(1)
+    if (!caller || (caller.role !== 'owner' && caller.role !== 'admin'))
+      return reply.status(403).send(error(403, '无权操作'))
     const [updated] = await db
       .update(teamMembers)
       .set({ role: body.data.role })
@@ -217,6 +225,16 @@ export const developerRoutes: FastifyPluginAsync = async (server) => {
   server.delete('/developer/team/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    // 先查出 teamId 以便校验权限
+    const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, id)).limit(1)
+    if (!member) return reply.status(404).send(error(404, '团队成员不存在'))
+    const [caller] = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, member.teamId), eq(teamMembers.userId, request.userId!)))
+      .limit(1)
+    if (!caller || (caller.role !== 'owner' && caller.role !== 'admin'))
+      return reply.status(403).send(error(403, '无权操作'))
     const [deleted] = await db.delete(teamMembers).where(eq(teamMembers.id, id)).returning()
     if (!deleted) return reply.status(404).send(error(404, '团队成员不存在'))
     return reply.send(success({ ok: true }))

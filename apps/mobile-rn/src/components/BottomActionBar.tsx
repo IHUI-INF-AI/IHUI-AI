@@ -21,6 +21,7 @@ import { useEffect, useRef } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   Pressable,
@@ -34,6 +35,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useI18n } from '../i18n'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -77,6 +79,8 @@ export interface BottomActionBarProps {
   onStopVoiceAnimation?: () => void
   onFunctionHandle?: () => void
   onSourceHandle?: () => void
+  /** 添加附件回调(📁 按钮;不传时降级为占位提示 Alert) */
+  onAddFile?: () => void
   onIconClick?: (type: BottomActionBarIconType) => void
   onShowModelConfig?: () => void
   onTextareaHeightChange?: (height: number) => void
@@ -293,6 +297,7 @@ interface ToggleChipConfig {
 }
 
 function ChatInputBar(props: BottomActionBarProps) {
+  const { t } = useI18n()
   const {
     prompt = '',
     onPromptChange,
@@ -313,6 +318,7 @@ function ChatInputBar(props: BottomActionBarProps) {
     onStopVoiceAnimation,
     onFunctionHandle,
     onSourceHandle,
+    onAddFile,
     onIconClick,
     onShowModelConfig,
     onTextareaHeightChange,
@@ -499,7 +505,7 @@ function ChatInputBar(props: BottomActionBarProps) {
           onContentSizeChange={(e) => {
             onTextareaHeightChange?.(e.nativeEvent.contentSize.height)
           }}
-          placeholder="输入消息..."
+          placeholder={t('chat.inputPlaceholder')}
           placeholderTextColor={tokens.text.tertiary}
           multiline
           editable={!isLoading}
@@ -525,9 +531,31 @@ function ChatInputBar(props: BottomActionBarProps) {
         ) : null}
       </View>
 
-      {/* 辅助按钮行:ƒ / 📎 / ⛶ */}
+      {/* 辅助按钮行:附件 / ƒ / 📎 / ⛶ */}
       {showSecondaryRow ? (
         <View style={styles.secondaryRow}>
+          {/* 添加附件(ChatScreen 传入 onAddFile → DocumentPicker + uploadFileMultipart 真实上传;
+              未传 onAddFile 时降级为占位提示 Alert,保持向后兼容) */}
+          <Pressable
+            style={styles.addFileBtn}
+            onPress={() => {
+              if (onAddFile) {
+                onAddFile()
+              } else {
+                Alert.alert(
+                  t('messageInput.addFile'),
+                  `${t('messageInput.document')} / ${t('messageInput.video')} 等附件选择功能待接入`,
+                )
+              }
+            }}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={t('messageInput.addFile')}
+          >
+            <Text style={styles.secondaryEmoji} allowFontScaling={false}>
+              {'📁'}
+            </Text>
+          </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
               style={styles.secondaryBtn}
@@ -922,6 +950,21 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
     alignItems: 'center',
     justifyContent: 'center',
+  } as ViewStyle,
+  // 添加附件按钮(有 onAddFile 时真实上传,否则降级占位提示)
+  addFileBtn: {
+    height: SECONDARY_BTN_SIZE,
+    minWidth: SECONDARY_BTN_SIZE,
+    paddingHorizontal: 8,
+    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 4,
   } as ViewStyle,
   secondaryEmoji: {
     fontSize: SECONDARY_BTN_EMOJI_SIZE,

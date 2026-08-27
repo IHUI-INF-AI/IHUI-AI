@@ -62,7 +62,7 @@
 客户问"多少钱"时，打开 PowerShell（Windows 终端），cd 到项目目录，运行：
 
 ```powershell
-cd d:\桌面\项目\IHUI-AI
+cd <repo-root>
 node docs/enterprise-service/quote-generator.mjs --tier=business --customers=150 --duration=12 --customer="客户公司名" --out=我的报价单.md
 ```
 
@@ -160,7 +160,7 @@ node docs/enterprise-service/quote-generator.mjs --tier=business --customers=150
 ### 第 3 步：部署上线
 
 ```powershell
-cd d:\桌面\项目\IHUI-AI
+cd <repo-root>
 # 用 docker-compose 一键部署（参考 deployment-guide.md）
 docker compose up -d
 ```

@@ -254,12 +254,21 @@ async def test_tools_analyze_code_endpoint(client):
 
 
 async def test_mcp_list_tools_endpoint(client):
-    """GET /api/mcp/tools 返回 11 个工具。"""
+    """GET /api/mcp/tools 返回全部注册工具(count 与 _TOOLS 一致)。
+
+    2026-08-22 修正:旧断言硬编码 11 已过时(_TOOLS 现已 46 个,含 browser/
+    computer 自动化、vision、dispatch_subagent 等)。对齐 test_mcp_server.py
+    的项目约定:不锁定具体数字,断言端点契约(count == len(tools) == len(_TOOLS))
+    + 下界(>= 原始 11 个),避免新增工具后 fail。
+    """
+    from app.services.mcp_server import _TOOLS
+
     resp = await client.get("/api/mcp/tools")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 11
-    assert len(data["tools"]) == 11
+    assert data["count"] == len(_TOOLS)
+    assert len(data["tools"]) == len(_TOOLS)
+    assert data["count"] >= 11  # 至少保留原始 11 个工具(与 test_mcp_server 约定一致)
 
 
 async def test_mcp_call_tool_endpoint(client):
@@ -321,12 +330,25 @@ async def test_mcp_invoke_prompt_endpoint(client):
 
 
 async def test_mcp_list_skills_endpoint(client):
-    """GET /api/mcp/skills 返回全部 skill(13 预置 + 19 AI TOP = 32)。"""
+    """GET /api/mcp/skills 返回全部 skill。
+
+    2026-08-25 加固:skill_registry 是进程级单例,构造时会扫描 app/skills/auto/*.md
+    自进化生成的 skill,其数量随运行环境波动(干净环境 0 个,全量测试批次中可能
+    被自进化逻辑写入若干个)。契约的核心是"13 预置 + 19 AI TOP = 32 个核心 skill
+    必须全部返回",故改为校验核心 skill 名全集存在 + 总数 >= 32,而非硬编码 == 32,
+    避免 auto skill 数量波动导致偶发失败。
+    """
+    from app.services.skills import _AI_TOP_SKILLS, _BUILTIN_SKILLS
+
+    expected_core = {s.name for s in _BUILTIN_SKILLS} | {s.name for s in _AI_TOP_SKILLS}
     resp = await client.get("/api/mcp/skills")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 32
-    assert len(data["skills"]) == 32
+    names = {s["name"] for s in data["skills"]}
+    assert data["count"] == len(data["skills"])
+    assert len(names) >= len(expected_core)
+    missing = expected_core - names
+    assert not missing, f"端点缺失核心 skill: {sorted(missing)}"
 
 
 async def test_mcp_get_skill_endpoint(client):

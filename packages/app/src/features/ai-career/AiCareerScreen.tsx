@@ -1,39 +1,20 @@
 import { useMemo } from 'react'
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { AiCareerScreenProps, AiCareerTrend, TFunction } from '../../types'
+import type { AiCareerScreenProps } from '../../types'
 
-/** AI 职业规划共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
+/** AI 生涯指导 — 孩子学业问卷共享屏(props 注入式跨端组件,纯 UI,不依赖平台 API) */
 export type { AiCareerScreenProps }
-
-function trendLabel(
-  trend: AiCareerTrend,
-  t: TFunction,
-  tk: AppThemeTokens,
-): { text: string; color: string; bg: string } {
-  if (trend === 'up')
-    return { text: t('aiCareer.trendUp'), color: tk.brand.DEFAULT, bg: tk.success.light }
-  if (trend === 'new')
-    return { text: t('aiCareer.trendNew'), color: tk.text.primary, bg: tk.surface.muted }
-  return { text: t('aiCareer.trendStable'), color: tk.text.secondary, bg: tk.surface.card }
-}
-
-function scoreColor(score: number, tk: AppThemeTokens): string {
-  if (score >= 85) return tk.brand.DEFAULT
-  if (score >= 70) return tk.text.primary
-  return tk.warning.DEFAULT
-}
 
 export function AiCareerScreen({
   t,
-  items,
-  loading,
-  refreshing,
+  questions,
+  formData,
   error,
-  selectedId,
-  onToggleItem,
-  onRefresh,
-  onPlan,
+  submitting,
+  onSelectOption,
+  onInputChange,
+  onSubmit,
   onBack,
   colorScheme = 'light',
 }: AiCareerScreenProps) {
@@ -43,74 +24,90 @@ export function AiCareerScreen({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
     >
       <TouchableOpacity onPress={onBack} style={styles.backBtn}>
         <Text style={styles.back}>{t('common.back')}</Text>
       </TouchableOpacity>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>{t('aiCareer.title')}</Text>
-        <Text style={styles.headerSub}>{t('aiCareer.subtitle')}</Text>
+        <Text style={styles.headerTitle}>AI生涯指导</Text>
+        <Text style={styles.headerSub}>填写孩子学业情况问卷，提交后获取 AI 学业建议</Text>
       </View>
 
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      {loading && items.length === 0 ? (
-        <Text style={styles.loadingText}>{t('common.loading')}</Text>
-      ) : null}
+      {questions.map((q) => (
+        <View
+          key={q.key}
+          style={[styles.questionCard, q.section === 'personality' && styles.personalityCard]}
+        >
+          <Text style={styles.questionTitle}>
+            {q.required ? <Text style={styles.required}>* </Text> : null}
+            {q.title}
+          </Text>
 
-      <Text style={styles.sectionTitle}>{t('aiCareer.sectionTitle')}</Text>
-      {items.map((c) => {
-        const tl = trendLabel(c.trend, t, tk)
-        const expanded = selectedId === c.id
-        return (
-          <TouchableOpacity
-            key={c.id}
-            style={[styles.careerCard, expanded && styles.careerCardActive]}
-            onPress={() => onToggleItem(c.id)}
-            activeOpacity={0.85}
-          >
-            <View style={styles.careerHead}>
-              <View style={styles.careerMain}>
-                <View style={styles.careerNameRow}>
-                  <Text style={styles.careerTitle}>{c.title}</Text>
-                  <View style={[styles.trendBadge, { backgroundColor: tl.bg }]}>
-                    <Text style={[styles.trendText, { color: tl.color }]}>{tl.text}</Text>
-                  </View>
-                </View>
-                {c.salary ? <Text style={styles.careerSalary}>{c.salary}</Text> : null}
-              </View>
-              <View style={styles.matchRing}>
-                <Text style={[styles.matchScore, { color: scoreColor(c.match, tk) }]}>
-                  {c.match}
-                </Text>
-                <Text style={styles.matchLabel}>{t('aiCareer.matchLabel')}</Text>
-              </View>
-            </View>
-            {expanded ? (
-              <View style={styles.reasonBox}>
-                <Text style={styles.reasonTitle}>{t('aiCareer.reasonTitle')}</Text>
-                {c.reasons.length > 0 ? (
-                  c.reasons.map((r) => (
-                    <Text key={r} style={styles.reasonItem}>
-                      · {r}
+          {(q.type === 'choice' || q.type === 'score') && (
+            <View style={q.type === 'score' ? styles.scoreRow : styles.optionsContainer}>
+              {(q.options ?? []).map((opt) => {
+                const active = formData[q.key] === opt.value
+                if (q.type === 'score') {
+                  return (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.scoreItem, active && styles.optionItemActive]}
+                      onPress={() => onSelectOption(q.key, opt.value)}
+                      activeOpacity={0.85}
+                    >
+                      <Text style={[styles.scoreText, active && styles.optionTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                }
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.optionItem, active && styles.optionItemActive]}
+                    onPress={() => onSelectOption(q.key, opt.value)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[styles.optionText, active && styles.optionTextActive]}>
+                      {opt.label}
                     </Text>
-                  ))
-                ) : (
-                  <Text style={styles.reasonItem}>{t('aiCareer.noReason')}</Text>
-                )}
-                <TouchableOpacity
-                  style={styles.planBtn}
-                  onPress={() => onPlan(c)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.planBtnText}>{t('aiCareer.planBtn')}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-        )
-      })}
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          )}
+
+          {(q.type === 'input' || q.type === 'textarea') && (
+            <TextInput
+              style={q.type === 'textarea' ? styles.textareaInput : styles.inputField}
+              value={formData[q.key]}
+              onChangeText={(value) => onInputChange(q.key, value)}
+              placeholder={q.placeholder}
+              placeholderTextColor={tk.text.tertiary}
+              maxLength={q.maxLength}
+              multiline={q.type === 'textarea'}
+              textAlignVertical={q.type === 'textarea' ? 'top' : 'center'}
+            />
+          )}
+        </View>
+      ))}
+
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+      <View style={styles.submitContainer}>
+        <TouchableOpacity
+          style={styles.submitBtn}
+          onPress={onSubmit}
+          disabled={submitting}
+          activeOpacity={0.9}
+        >
+          <Text style={styles.submitBtnText}>
+            {submitting ? t('common.submitting') : '提交问卷'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   )
 }
@@ -118,57 +115,99 @@ export function AiCareerScreen({
 function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
+    content: { padding: 16, paddingBottom: 32 },
     backBtn: { paddingBottom: 4 },
     back: { fontSize: 16, color: tk.text.secondary },
-    header: { paddingTop: 4, paddingBottom: 12 },
+    header: { paddingTop: 4, paddingBottom: 16 },
     headerTitle: { fontSize: 22, fontWeight: '700', color: tk.text.primary },
-    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    errorText: { color: tk.danger.DEFAULT, fontSize: 14, marginBottom: 8 },
-    loadingText: { color: tk.text.tertiary, fontSize: 14, marginBottom: 8 },
-    sectionTitle: {
-      marginTop: 12,
-      marginBottom: 10,
+    headerSub: { marginTop: 8, fontSize: 14, color: tk.text.secondary, lineHeight: 20 },
+    questionCard: {
+      padding: 16,
+      borderRadius: 12,
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      marginBottom: 12,
+    },
+    personalityCard: { backgroundColor: tk.surface.muted },
+    questionTitle: {
       fontSize: 16,
       fontWeight: '600',
       color: tk.text.primary,
+      lineHeight: 24,
+      marginBottom: 14,
     },
-    careerCard: {
-      padding: 14,
-      borderRadius: 12,
+    required: { color: tk.danger.DEFAULT },
+    optionsContainer: { gap: 10 },
+    optionItem: {
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
       borderWidth: 1,
       borderColor: tk.border.light,
-      marginBottom: 10,
-      backgroundColor: tk.surface.light,
     },
-    careerCardActive: { borderColor: tk.brand.DEFAULT },
-    careerHead: { flexDirection: 'row' },
-    careerMain: { flex: 1 },
-    careerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    careerTitle: { flex: 1, fontSize: 16, fontWeight: '600', color: tk.text.primary },
-    trendBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
-    trendText: { fontSize: 11, fontWeight: '600' },
-    careerSalary: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
-    matchRing: {
-      width: 56,
-      height: 56,
-      borderRadius: 12,
-      backgroundColor: tk.surface.muted,
+    optionItemActive: {
+      backgroundColor: tk.brand.DEFAULT,
+      borderColor: tk.brand.DEFAULT,
+    },
+    optionText: {
+      fontSize: 15,
+      color: tk.text.medium,
+      lineHeight: 22,
+    },
+    optionTextActive: { color: tk.surface.light },
+    scoreRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    scoreItem: {
+      flex: 1,
+      minWidth: 44,
       alignItems: 'center',
       justifyContent: 'center',
+      paddingVertical: 12,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
+      borderWidth: 1,
+      borderColor: tk.border.light,
     },
-    matchScore: { fontSize: 20, fontWeight: '700' },
-    matchLabel: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
-    reasonBox: { marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: tk.surface.muted },
-    reasonTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary, marginBottom: 8 },
-    reasonItem: { fontSize: 14, color: tk.gray[600], lineHeight: 20 },
-    planBtn: {
-      marginTop: 10,
+    scoreText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
+    inputField: {
       height: 44,
+      paddingHorizontal: 14,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: 15,
+      color: tk.text.primary,
+    },
+    textareaInput: {
+      minHeight: 120,
+      padding: 12,
+      borderRadius: 10,
+      backgroundColor: tk.surface.muted,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      fontSize: 15,
+      color: tk.text.primary,
+      lineHeight: 22,
+    },
+    errorText: { color: tk.danger.DEFAULT, fontSize: 14, marginBottom: 8 },
+    submitContainer: {
+      paddingVertical: 24,
+      alignItems: 'center',
+    },
+    submitBtn: {
+      width: '100%',
+      height: 48,
       borderRadius: 12,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    planBtnText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
+    submitBtnText: { fontSize: 17, fontWeight: '700', color: tk.surface.light },
   })
 }

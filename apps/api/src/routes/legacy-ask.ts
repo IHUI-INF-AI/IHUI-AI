@@ -2,8 +2,9 @@ import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { z } from 'zod'
 import { db } from '../db/index.js'
-import { sql, eq } from 'drizzle-orm'
+import { sql, eq, and } from 'drizzle-orm'
 import { asks, askAnswers } from '@ihui/database'
+import { error } from '../utils/response.js'
 
 /**
  * 历史项目缺失端点补齐 — 问答模块(D7/D8)。
@@ -68,20 +69,25 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   // ========== D8: 回答删除/更新 (2端点) ==========
-  fastify.delete('/ask/answers/:id', { preHandler: authenticate }, async (request) => {
+  fastify.delete('/ask/answers/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
-    await db.delete(askAnswers).where(eq(askAnswers.id, id))
+    const [deleted] = await db
+      .delete(askAnswers)
+      .where(and(eq(askAnswers.id, id), eq(askAnswers.userId, request.userId!)))
+      .returning()
+    if (!deleted) return reply.status(404).send(error(404, '回答不存在'))
     return { deleted: true }
   })
 
-  fastify.patch('/ask/answers/:id', { preHandler: authenticate }, async (request) => {
+  fastify.patch('/ask/answers/:id', { preHandler: authenticate }, async (request, reply) => {
     const { id } = idParam.parse(request.params)
     const { content } = z.object({ content: z.string() }).parse(request.body)
     const [updated] = await db
       .update(askAnswers)
       .set({ content })
-      .where(eq(askAnswers.id, id))
+      .where(and(eq(askAnswers.id, id), eq(askAnswers.userId, request.userId!)))
       .returning()
+    if (!updated) return reply.status(404).send(error(404, '回答不存在'))
     return updated
   })
 }

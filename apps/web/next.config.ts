@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
+import { vueToNextRedirects } from './src/config/redirects.config'
 
 // GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
@@ -193,7 +194,14 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   async redirects() {
-    return []
+    // 2026-08-25 修复:接入 vueToNextRedirects(73 条永久重定向)。
+    // 此前 src/config/redirects.config.ts 声明了 /login→/sso/login、/home→/、
+    // /landing→/、/article→/articles 等重定向但从未接线(全仓零消费者),
+    // redirects() 恒返回 [] → 生产上这些老链接全部 404/空白(实测 /login
+    // 导航到 about:blank,/sso/login 正常)。生产为服务端模式(next build+
+    // next start),redirects 原生生效;静态导出(output:'export',Tauri/
+    // GitHub Pages)不支持 redirects,返回 [] 保持原状,避免静态构建告警。
+    return isStaticExport ? [] : vueToNextRedirects
   },
   async rewrites() {
     // 2026-07-25 修复:开发模式(NEXT_PUBLIC_API_BASE_URL 加载失败时)代理 /api/* → localhost:8802

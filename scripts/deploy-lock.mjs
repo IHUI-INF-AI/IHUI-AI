@@ -13,7 +13,9 @@
  *   - 覆盖整个「构建+部署」单元:acquire 成功后持有,直到 release
  *   - build 模式:与其他 build、dev、deploy 全部互斥
  *   - dev 模式:与 build/deploy 互斥(dev+dev 放宽,与旧 check-lock 一致)
- *   - stale 清理:锁年龄超过 staleMs(默认 600s = 10min)视为悬挂锁,强制抢占
+ *   - stale 清理:持有者进程已退出(锁龄不限)即视为悬挂锁,立即强制抢占
+ *     (2026-08-27 收紧:原"锁龄>staleMs 才抢占"在强杀 dev 后立即重启时
+ *     死循环轮询 600s,已改为持有者死即抢占,消除启动卡死窗口)
  *   - 超时:acquire 等待 timeoutMs(默认 600s)后抛错退出(不覆盖不打断进行中的部署)
  *
  * 用法(CLI):
@@ -106,9 +108,14 @@ async function acquire({ mode = 'build', timeoutMs = 600_000, staleMs = 600_000 
         return true
       }
 
-      if (meta && !holderAlive && Date.now() - (meta.ts ?? 0) > staleMs) {
+      if (meta && !holderAlive) {
+        // 2026-08-27 修复:持有者已死 → 无论锁龄,立即抢占。
+        // 原逻辑要求"锁龄 > staleMs(600s)"才抢占,导致"强杀 dev 树后
+        // 立即重启 start-dev"时落入死循环轮询 500ms 直到 600s 超时抛错,
+        // 表现为启动卡死(predev 永久等待,8801 永不监听)。
+        // 持有者进程已退出 = 锁必然悬挂,抢占安全(process.kill(pid,0) 可靠)。
         console.warn(
-          `[deploy-lock] 检测到悬挂锁(pid=${holderPid} 已退出,${Math.round((Date.now() - (meta.ts ?? 0)) / 1000)}s 前),强制抢占`,
+          `[deploy-lock] 检测到悬挂锁(pid=${holderPid} 已退出,锁龄 ${Math.round((Date.now() - (meta.ts ?? 0)) / 1000)}s),立即抢占`,
         )
         removeLock(dir)
         // 2026-08-14 修复:removeLock 内部 rmSync 失败会被静默吞掉,

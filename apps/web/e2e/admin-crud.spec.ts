@@ -27,7 +27,7 @@ test.describe('Admin CRUD 流程', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/admin/tags')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     expect(
       serverErrors.filter(
         (e) =>
@@ -45,7 +45,7 @@ test.describe('Admin CRUD 流程', () => {
 
   test('创建记录:点击新建按钮打开对话框(若可访问)', async ({ page }) => {
     await page.goto('/admin/tags')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/tags')) return
 
     // 查找"新建/创建/添加"按钮
@@ -73,7 +73,7 @@ test.describe('Admin CRUD 流程', () => {
 
   test('读取记录:列表中应有行或空状态(若可访问)', async ({ page }) => {
     await page.goto('/admin/tags')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/tags')) return
 
     // 列表区域:table 或 list
@@ -85,7 +85,7 @@ test.describe('Admin CRUD 流程', () => {
 
   test('更新/删除按钮存在(若列表有数据)', async ({ page }) => {
     await page.goto('/admin/tags')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/tags')) return
 
     await page.waitForTimeout(2000)

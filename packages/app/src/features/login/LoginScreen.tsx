@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +17,7 @@ import type { LoginScreenProps, TFunction } from '../../types'
 // 故直接从源 @ihui/types 导入。
 import type {
   LoginTab,
+  NationOption,
   QrLoginConfig,
   QrLoginStatus,
   QrPlatformOption,
@@ -46,56 +48,23 @@ export type { LoginScreenProps }
 // ===== 辅助函数 =====
 
 /** image 专有 style sheet — module 顶层 const,所有子组件可直接引用
- *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表) */
+ *  (RN Image 的 style prop 拒绝 view/text style 联合,须独立成表)
+ *  注:含 tk token 的 fallback 样式已移至组件内联样式(模块顶层无法访问 tk) */
 const imageStyles = StyleSheet.create({
-  // 第三方登录图标:28×28 圆角(borderRadius 6 = rounded-md,符合圆角守门)
-  // 2026-08-04 从 44×44 圆形(borderRadius 22,违反圆角守门)缩小
   thirdPartyIcon: {
     width: 28,
     height: 28,
     borderRadius: 6,
   },
-  // 无图标 fallback:品牌色圆角背景 + 白色首字母(对齐 web ThirdPartyLoginButtons 视觉)
-  thirdPartyFallback: {
-    width: 28,
-    height: 28,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#999999',
-  },
-  thirdPartyFallbackText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 13,
-  },
   qrImage: {
     width: 200,
     height: 200,
   },
-  // QR 平台切换 tab 中的平台图标:20×20(对齐第三方登录区图标风格)
   qrPlatformIcon: {
     width: 20,
     height: 20,
     borderRadius: 4,
   },
-  // QR 平台切换 tab 中的 fallback:品牌色圆角背景 + 白色首字母
-  qrPlatformFallback: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#999999',
-  },
-  qrPlatformFallbackText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '600',
-    lineHeight: 10,
-  },
-  // logo 图片:44×44(2026-08-04 从 31×31 加大,提升移动端视觉层次)
   logoImage: {
     width: 44,
     height: 44,
@@ -174,6 +143,16 @@ interface PhoneTabContentProps extends TabContentBaseProps {
   countdown: number
   /** 手机号输入框前缀节点(区号展示,如 "+86");不传则输入框独占一行 */
   phonePrefixNode?: ReactNode
+  /** 区号选择列表(传 nations + phoneHead 则渲染可点击区号选择器,优先级高于 phonePrefixNode) */
+  nations?: NationOption[]
+  /** 当前选中区号(如 '+86') */
+  phoneHead?: string
+  /** 区号列表是否展开 */
+  nationShow?: boolean
+  /** 展开/收起区号列表回调 */
+  onToggleNationShow?: () => void
+  /** 选中区号回调 */
+  onSelectNation?: (nation: NationOption) => void
   onPhoneChange?: (text: string) => void
   onPhoneCodeChange?: (text: string) => void
   onSendCode?: () => void
@@ -349,11 +328,18 @@ function ThirdPartyLoginArea({
               ) : (
                 <View
                   style={[
-                    imageStyles.thirdPartyFallback,
+                    {
+                      width: 28,
+                      height: 28,
+                      borderRadius: 6,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: tk.text.tertiary,
+                    },
                     !!opt.brandColor && { backgroundColor: opt.brandColor },
                   ]}
                 >
-                  <Text style={imageStyles.thirdPartyFallbackText}>
+                  <Text style={{ color: tk.surface.light, fontSize: 11, fontWeight: '600', lineHeight: 13 }}>
                     {opt.label.charAt(0).toUpperCase()}
                   </Text>
                 </View>
@@ -463,6 +449,11 @@ function PhoneTabContent({
   sending,
   countdown,
   phonePrefixNode,
+  nations,
+  phoneHead,
+  nationShow,
+  onToggleNationShow,
+  onSelectNation,
   onPhoneChange,
   onPhoneCodeChange,
   onSendCode,
@@ -475,11 +466,60 @@ function PhoneTabContent({
   showAgreeErr,
 }: PhoneTabContentProps) {
   const sendDisabled = !phone || sending || countdown > 0
+  // 区号选择器模式:传入 nations + phoneHead + onToggleNationShow 时启用(优先级高于 phonePrefixNode)
+  const hasNationSelector = !!nations && !!phoneHead && !!onToggleNationShow
   return (
     <View style={styles.tabContent}>
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.phone')}</Text>
-        {phonePrefixNode ? (
+        {hasNationSelector ? (
+          <View>
+            <View style={styles.phoneRow}>
+              <Pressable
+                style={styles.areaBox}
+                onPress={onToggleNationShow}
+                accessibilityRole="button"
+                accessibilityLabel="选择区号"
+              >
+                <Text style={styles.areaText}>{phoneHead}</Text>
+                <Text style={styles.areaArrow}>▾</Text>
+              </Pressable>
+              <TextInput
+                style={[styles.input, styles.phoneInputWithArea]}
+                value={phone}
+                onChangeText={(text) => onPhoneChange?.(text.replace(/\D/g, '').slice(0, 11))}
+                placeholder={t('auth.phonePlaceholder')}
+                placeholderTextColor={tk.text.tertiary}
+                keyboardType="number-pad"
+                maxLength={11}
+                textContentType="telephoneNumber"
+              />
+            </View>
+            {nationShow ? (
+              <View style={styles.nationBox}>
+                {nations.map((n) => {
+                  const active = n.content === phoneHead
+                  return (
+                    <Pressable
+                      key={n.id}
+                      style={[styles.nationItem, active && styles.nationItemActive]}
+                      onPress={() => onSelectNation?.(n)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${n.title} ${n.content}`}
+                    >
+                      <Text style={[styles.nationTitle, active && styles.nationTitleActive]}>
+                        {n.title}
+                      </Text>
+                      <Text style={[styles.nationCode, active && styles.nationCodeActive]}>
+                        {n.content}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            ) : null}
+          </View>
+        ) : phonePrefixNode ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             {phonePrefixNode}
             <TextInput
@@ -715,11 +755,18 @@ function QrTabContent({ styles, tk, qrConfig, qrPlatforms, renderQrPanel }: QrTa
                 ) : (
                   <View
                     style={[
-                      imageStyles.qrPlatformFallback,
+                      {
+                        width: 20,
+                        height: 20,
+                        borderRadius: 4,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: tk.text.tertiary,
+                      },
                       !!p.brandColor && { backgroundColor: p.brandColor },
                     ]}
                   >
-                    <Text style={imageStyles.qrPlatformFallbackText}>{p.label.charAt(0)}</Text>
+                    <Text style={{ color: tk.surface.light, fontSize: 9, fontWeight: '600', lineHeight: 10 }}>{p.label.charAt(0)}</Text>
                   </View>
                 )}
                 <Text
@@ -847,6 +894,11 @@ export function LoginScreen(props: LoginScreenProps) {
     phoneCodeSending,
     phoneCountdown,
     phonePrefixNode,
+    nations,
+    phoneHead,
+    nationShow,
+    onToggleNationShow,
+    onSelectNation,
     onPhoneChange,
     onPhoneCodeChange,
     onSendPhoneCode,
@@ -1002,6 +1054,11 @@ export function LoginScreen(props: LoginScreenProps) {
             sending={phoneCodeSending ?? false}
             countdown={phoneCountdown ?? 0}
             phonePrefixNode={phonePrefixNode}
+            nations={nations}
+            phoneHead={phoneHead}
+            nationShow={nationShow}
+            onToggleNationShow={onToggleNationShow}
+            onSelectNation={onSelectNation}
             onPhoneChange={onPhoneChange}
             onPhoneCodeChange={onPhoneCodeChange}
             onSendCode={onSendPhoneCode}
@@ -1100,9 +1157,9 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
   // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
   const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
-  // uniapp 输入框风格:浅色 #f5f5f5 底 + #eaeaea 边框(对齐 D 盘 Ai-WXMiniVue 登录页);深色沿用 surface.card
-  const inputBg = colorScheme === 'dark' ? tk.surface.card : '#f5f5f5'
-  const inputBorder = colorScheme === 'dark' ? tk.border.medium : '#eaeaea'
+  // uniapp 输入框风格:浅色 surface.muted 底 + border.light 边框(对齐 D 盘 Ai-WXMiniVue 登录页);深色沿用 surface.card
+  const inputBg = colorScheme === 'dark' ? tk.surface.card : tk.surface.muted
+  const inputBorder = colorScheme === 'dark' ? tk.border.medium : tk.border.light
   return StyleSheet.create({
     page: {
       flex: 1,
@@ -1235,6 +1292,75 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     codeInput: {
       flex: 1,
+    },
+    // ===== 区号选择器(2026-08-20,对齐 uniapp nation-box + ChangePhone 现有模式) =====
+    // 输入行:区号按钮 + 手机号输入框,边框拼合成一个整体(区号按钮右缘无边框、输入框左圆角为 0)
+    phoneRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    areaBox: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 50,
+      paddingHorizontal: 14,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      borderRightWidth: 0,
+      borderTopLeftRadius: 12,
+      borderBottomLeftRadius: 12,
+      backgroundColor: inputBg,
+    },
+    areaText: {
+      fontSize: 18,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    areaArrow: {
+      fontSize: 10,
+      color: tk.text.tertiary,
+      marginLeft: 6,
+    },
+    phoneInputWithArea: {
+      flex: 1,
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    },
+    // 展开的区号列表:输入行下方 flow 展开(把后续内容下推,同 ChangePhone 模式)
+    nationBox: {
+      marginTop: 8,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: 12,
+      backgroundColor: tk.surface.light,
+      overflow: 'hidden',
+    },
+    nationItem: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      gap: 12,
+    },
+    nationItemActive: {
+      backgroundColor: 'rgba(141, 131, 255, 0.08)',
+    },
+    nationTitle: {
+      fontSize: 15,
+      color: tk.text.primary,
+    },
+    nationTitleActive: {
+      color: tk.brand.DEFAULT,
+      fontWeight: '500',
+    },
+    nationCode: {
+      fontSize: 15,
+      color: tk.text.tertiary,
+    },
+    nationCodeActive: {
+      color: tk.brand.DEFAULT,
+      fontWeight: '500',
     },
     sendCodeBtn: {
       height: 50,

@@ -2,6 +2,7 @@ import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
+import { FALLBACK_MODELS } from '@ihui/shared/constants'
 import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
@@ -51,176 +52,19 @@ const PROVIDER_ORDER = [
  * Mock 数据 — API 失败或返回空时使用,保证视觉演示完整(对标原项目 modelPlazaData.js)。
  * 字段含 Input/Output 价格(¥/千token)、标签、计费模式。
  */
-const MOCK_MODELS: ModelDisplay[] = [
-  {
-    id: 'm1',
-    name: 'gpt-4-turbo',
-    provider: 'OpenAI',
-    desc: '最新一代多模态大模型,支持文本/图像/代码生成',
-    inputPrice: '0.06',
-    outputPrice: '0.12',
-    tags: ['GPT-4', '128K上下文', '多模态'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 128000,
-  },
-  {
-    id: 'm2',
-    name: 'gpt-4-vision',
-    provider: 'OpenAI',
-    desc: '视觉理解模型,可解析图像内容',
-    inputPrice: '0.08',
-    outputPrice: '0.16',
-    tags: ['视觉', '多模态'],
-    payMode: '按量计费',
-    type: 'image',
-    contextLength: 128000,
-  },
-  {
-    id: 'm3',
-    name: 'dall-e-3',
-    provider: 'OpenAI',
-    desc: '高质量图像生成模型',
-    inputPrice: '0.04',
-    outputPrice: '-',
-    tags: ['绘图', '1024P'],
-    payMode: '按次计费',
-    type: 'image',
-    contextLength: 0,
-  },
-  {
-    id: 'm4',
-    name: 'claude-3-opus',
-    provider: 'Anthropic',
-    desc: 'Anthropic 旗舰大模型,长文理解优秀',
-    inputPrice: '0.015',
-    outputPrice: '0.075',
-    tags: ['Claude 3', '200K上下文'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 200000,
-  },
-  {
-    id: 'm5',
-    name: 'claude-3-sonnet',
-    provider: 'Anthropic',
-    desc: '平衡速度与能力的中间型号',
-    inputPrice: '0.003',
-    outputPrice: '0.015',
-    tags: ['Claude 3', '快速'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 200000,
-  },
-  {
-    id: 'm6',
-    name: 'gemini-1.5-pro',
-    provider: 'Google',
-    desc: 'Google 多模态大模型,支持超长上下文',
-    inputPrice: '0.0125',
-    outputPrice: '0.05',
-    tags: ['Gemini', '1M上下文', '多模态'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 1000000,
-  },
-  {
-    id: 'm7',
-    name: 'gemini-1.5-flash',
-    provider: 'Google',
-    desc: '快速响应的轻量级 Gemini 模型',
-    inputPrice: '0.0005',
-    outputPrice: '0.0015',
-    tags: ['Gemini', '快速'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 1000000,
-  },
-  {
-    id: 'm8',
-    name: 'step-2-16k',
-    provider: 'StepFun',
-    desc: '阶跃星辰大模型',
-    inputPrice: '0.005',
-    outputPrice: '0.02',
-    tags: ['Step', '16K上下文'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 16000,
-  },
-  {
-    id: 'm9',
-    name: 'qwen-max',
-    provider: '阿里云',
-    desc: '通义千问旗舰模型',
-    inputPrice: '0.04',
-    outputPrice: '0.12',
-    tags: ['Qwen', '8K上下文'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 8000,
-  },
-  {
-    id: 'm10',
-    name: 'qwen-vl-max',
-    provider: '阿里云',
-    desc: '通义千问 VL 视觉理解模型',
-    inputPrice: '0.02',
-    outputPrice: '0.06',
-    tags: ['Qwen-VL', '视觉'],
-    payMode: '按量计费',
-    type: 'image',
-    contextLength: 8000,
-  },
-  {
-    id: 'm11',
-    name: 'wenxin-4',
-    provider: '百度',
-    desc: '百度文心一言旗舰模型',
-    inputPrice: '0.03',
-    outputPrice: '0.09',
-    tags: ['ERNIE', '8K上下文'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 8000,
-  },
-  {
-    id: 'm12',
-    name: 'doubao-pro-4k',
-    provider: '字节',
-    desc: '字节豆包大模型,性价比之选',
-    inputPrice: '0.001',
-    outputPrice: '0.002',
-    tags: ['豆包', '4K上下文', '性价比'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 4000,
-  },
-  {
-    id: 'm13',
-    name: 'doubao-voice',
-    provider: '字节',
-    desc: '豆包语音合成模型',
-    inputPrice: '0.002',
-    outputPrice: '-',
-    tags: ['TTS', '语音'],
-    payMode: '按次计费',
-    type: 'av',
-    contextLength: 0,
-  },
-  {
-    id: 'm14',
-    name: 'glm-4',
-    provider: '智谱',
-    desc: '智谱清言 GLM-4 旗舰大模型',
-    inputPrice: '0.05',
-    outputPrice: '0.15',
-    tags: ['GLM-4', '128K上下文'],
-    payMode: '按量计费',
-    type: 'text',
-    contextLength: 128000,
-  },
-]
+/** 已验证兜底模型(仅后端 /llm/models 不可达或返回空时降级,映射自共享 FALLBACK_MODELS) */
+const FALLBACK_MODEL_DISPLAYS: ModelDisplay[] = FALLBACK_MODELS.map((f) => ({
+  id: f.value,
+  name: f.label,
+  provider: f.vendor,
+  desc: '',
+  inputPrice: '0',
+  outputPrice: '0',
+  tags: [],
+  payMode: '免费',
+  type: 'text',
+  contextLength: 128000,
+}))
 
 function inferType(model: LlmModel): ModelType {
   const name = (model.name || '').toLowerCase()
@@ -303,9 +147,9 @@ export default function ModelPlazaIndex() {
     try {
       const res = await fetchModels()
       const list = (res?.models || []).map(normalizeModel)
-      setModels(list.length > 0 ? list : MOCK_MODELS)
+      setModels(list.length > 0 ? list : FALLBACK_MODEL_DISPLAYS)
     } catch {
-      setModels(MOCK_MODELS)
+      setModels(FALLBACK_MODEL_DISPLAYS)
     } finally {
       setLoading(false)
     }
