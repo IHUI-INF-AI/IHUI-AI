@@ -1415,7 +1415,7 @@ export default function StudyPlanPage() {
                 <p className="text-sm">暂无学习计划</p>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="space-y-1">
                 {parentPlans.map((plan) => {
                   const children = childPlansByParent.get(plan.id) ?? []
                   const isUnsplitted = plan.planType === 'monthly' && children.length === 0
@@ -2035,7 +2035,7 @@ export default function StudyPlanPage() {
                   {completionStatsQuery.data.plans.length === 0 ? (
                     <p className="py-2 text-center text-sm text-muted-foreground">暂无计划数据</p>
                   ) : (
-                    <div className="divide-y rounded-md border">
+                    <div className="space-y-1 rounded-md border">
                       {completionStatsQuery.data.plans.map((plan) => (
                         <div
                           key={plan.planId}

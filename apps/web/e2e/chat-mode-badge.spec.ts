@@ -12,7 +12,7 @@ import { attachErrorGuards } from '../tests/e2e/fixtures/helpers'
  * + CurrentModeBadge 视觉态验证
  * + 5 语言 i18n 翻译一致性(zh-CN / en / ja / ko / zh-TW)
  *
- * 不依赖登录态(纯前端 UI 状态,useModeStore zustand),localStorage key `ihui-mode-store`。
+ * 不依赖登录态(纯前端 UI 状态,useModeStore zustand),localStorage key `ihui-mode`。
  * 触发登录弹窗时优雅 skip(避免后端不可用阻塞整个 e2e 套件)。
  *
  * DOM 锚点(与 apps/web/src/components/chat/message-input.tsx:200-227 CurrentModeBadge 一致):
@@ -60,14 +60,16 @@ const MODE_LABEL_EXPECT: Record<string, Record<Mode, string>> = {
 
 const LOCALES = Object.keys(MODE_LABEL_EXPECT) as Array<keyof typeof MODE_LABEL_EXPECT>
 
-/** 设置 zustand persist 的 mode store(让页面加载时直接进入目标 mode) */
+/** 设置 zustand persist 的 mode store(让页面加载时直接进入目标 mode)
+ *  2026-08-27 修复:真实 persist key 是 `ihui-mode`(src/stores/mode.ts:39),
+ *  原先写 `ihui-mode-store` 从未被 store 读取(静默无效,靠 fresh context 兜底)。 */
 async function setModeStore(page: Page, mode: Mode) {
   await page.evaluate((m: string) => {
-    const raw = localStorage.getItem('ihui-mode-store')
+    const raw = localStorage.getItem('ihui-mode')
     const obj = raw ? JSON.parse(raw) : { state: { currentMode: 'build' }, version: 0 }
     obj.state = obj.state || {}
     obj.state.currentMode = m
-    localStorage.setItem('ihui-mode-store', JSON.stringify(obj))
+    localStorage.setItem('ihui-mode', JSON.stringify(obj))
   }, mode)
 }
 
@@ -110,34 +112,87 @@ async function switchLocale(page: Page, locale: string) {
   }, locale)
 }
 
-/** 检测是否弹出登录模态框(若弹出,后续断言应 skip) */
-async function isLoginModalOpen(page: Page): Promise<boolean> {
+/** 检测是否弹出登录模态框(若弹出,返回命中元素描述;null 表示无)
+ *  2026-08-27 修复:只认"可见"元素 —— sidebar ASIDE 带 role="dialog" 且折叠态
+ *  display:none,隐藏元素误报会让认证页被错误 skip。 */
+async function isLoginModalOpen(page: Page): Promise<string | null> {
   return page.evaluate(() => {
     // 多种登录模态框 selector 都试一次
-    const dialogs = document.querySelectorAll(
+    const els = document.querySelectorAll(
       '[role="dialog"], [data-testid*="login"], [aria-label*="登录" i], [aria-label*="login" i]',
     )
-    if (dialogs.length === 0) return false
-    for (const d of Array.from(dialogs)) {
-      const text = d.textContent || ''
+    for (const el of Array.from(els)) {
+      const html = el as HTMLElement
+      const style = window.getComputedStyle(html)
+      const visible =
+        style.display !== 'none' &&
+        style.visibility !== 'hidden' &&
+        html.getClientRects().length > 0
+      if (!visible) continue
+      const text = html.textContent || ''
       if (
         text.includes('登录') ||
         text.includes('Login') ||
         text.includes('Sign in') ||
         text.includes('扫码')
       ) {
-        return true
+        return `HIT tag=${html.tagName} aria=${html.getAttribute('aria-label')} text=${text.slice(0, 60)}`
       }
     }
-    return false
+    return null
   })
 }
 
+/** 等登录态渲染收敛:页面初载 SSR 渲染"登录"按钮,auth/me 网络往返完成(<1s)后
+ *  被用户按钮替换。提前检测会把认证页误判为登录态(2026-08-27 实锤:登录按钮
+ *  t+0 可见、t+1s 消失)。超时不阻断(由 isLoginModalOpen 兜底判定)。 */
+async function waitForAuthResolved(page: Page) {
+  await page
+    .waitForFunction(
+      () => {
+        const btns = Array.from(document.querySelectorAll('button[aria-label="登录"]'))
+        return btns.every((b) => (b as HTMLElement).getClientRects().length === 0)
+      },
+      undefined,
+      { timeout: 10_000 },
+    )
+    .catch(() => {})
+}
+
+/** 按 Ctrl+数字 切换模式(带 hydration 容忍重试)
+ *  2026-08-27 修复:快捷键监听已移至根 Layout(GlobalHooksProvider),根级 hydration
+ *  即挂载;但 dev server 高负载编译时 React hydration 可能晚于首次 press(dev 模式
+ *  SSR HTML 先到、effect 后挂),固定 500ms 等待仍可能丢按键 → 轮询重按直至生效。
+ *  fullyParallel + workers=CPU/2 下单文件 21 用例并发打 dev server,冷编译期
+ *  hydration 可达 10s+ → 预算扩到 20s(40 × 500ms),先等 app 全局标记(客户端
+ *  bundle 已 eval)再按,验证的是"快捷键最终切到目标模式"这一用户可感知行为。 */
+async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) {
+  const badge = page.locator('[data-testid="agent-progress-trigger"]')
+  // 等客户端 bundle eval 完成(hydration 前置条件;语言 store 模块级暴露)
+  await page
+    .waitForFunction(() => !!(window as any).__IHUI_LANGUAGE_STORE__, undefined, {
+      timeout: 20_000,
+    })
+    .catch(() => {}) // 标记缺失不阻断(badge 断言仍会暴露真实问题)
+  for (let i = 0; i < 40; i++) {
+    if ((await badge.getAttribute('data-mode').catch(() => null)) === expectedMode) return
+    await page.keyboard.press(`Control+${digit}`)
+    await page.waitForTimeout(500)
+  }
+}
+
 test.describe('ChatModeBadge + 3 通道模式切换', () => {
+  // 2026-08-27 修复:并发负载下 beforeEach 双 goto + badge 等待可能超 30s 默认预算
+  // (hook 超时不受测试体内 test.setTimeout 追溯覆盖,必须在 describe 级配置)。
+  // describe 级 timeout 同时覆盖 beforeEach/afterEach 与所有测试体。
+  test.describe.configure({ timeout: 90_000 })
+
   test.beforeEach(async ({ authenticatedPage }) => {
     // 清理 localStorage,避免前一个测试残留 mode 状态污染
+    // 2026-08-27 修复:真实 persist key 是 `ihui-mode`(原 `ihui-mode-store` 无效)
     await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' }).catch(() => null)
     await authenticatedPage.evaluate(() => {
+      localStorage.removeItem('ihui-mode')
       localStorage.removeItem('ihui-mode-store')
       localStorage.removeItem('ihui-language')
     })
@@ -184,25 +239,53 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   // ============================================
   for (const mode of MODES) {
     test(`斜杠命令 ${SLASH_CMDS[mode]} 切换到 ${mode} 模式`, async ({ authenticatedPage }) => {
+      test.setTimeout(90_000) // hydration 等待 20s + fill/Enter 轮询 30s + 断言余量
       const { consoleErrors } = attachErrorGuards(authenticatedPage)
-      // 找 textarea(忽略 login modal 的 input)
-      const textarea = authenticatedPage.locator('textarea').first()
-      await textarea.fill(`${SLASH_CMDS[mode]} `)
-      // 触发发送:Enter 提交(AI 侧边栏默认 open 时 textarea 内 Enter 触发 sendMessage)
-      await textarea.press('Enter')
-      // 等待 toast 出现 + badge 更新
-      await authenticatedPage.waitForTimeout(800)
-      // 检测是否触发登录弹窗(登录弹窗弹出则跳过,避免阻塞)
-      if (await isLoginModalOpen(authenticatedPage)) {
+      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
+      // /build 的可观察前提:从非 build 态出发(默认态就是 build,重复发送无模式变化)
+      if (mode === 'build') {
+        await setModeStore(authenticatedPage, 'plan')
+        await authenticatedPage.reload({ waitUntil: 'domcontentloaded' })
+        await authenticatedPage.waitForSelector('[data-testid="agent-progress-trigger"]', {
+          timeout: 10_000,
+        })
+      }
+      // 等登录态渲染收敛(SSR 初载的"登录"按钮被用户按钮替换)再判定,避免误 skip
+      await waitForAuthResolved(authenticatedPage)
+      // 登录态页面才验证 slash(未登录渲染登录 UI 时 send 会被拦截,环境依赖 skip)
+      const modalHit = await isLoginModalOpen(authenticatedPage)
+      if (modalHit) {
+        console.log(`[slash-debug] ${SLASH_CMDS[mode]}: ${modalHit}`)
         test.skip(true, '登录模态框弹出,跳过 send 触发的 slash 命令测试')
       }
+      // 2026-08-27 修复:dev server 冷编译期 React hydration 可能晚于 fill ——
+      // onKeyDown 未挂载时 fill 的文本不进 React state,Enter 静默丢失且输入框稍后
+      // 被 hydration 重置为空(badge 不变、无 toast)。先等客户端 bundle eval 标记,
+      // 再轮询 fill+Enter 直至 badge 生效(验证"命令最终切到目标模式"的可感知行为)。
+      await authenticatedPage
+        .waitForFunction(() => !!(window as any).__IHUI_LANGUAGE_STORE__, undefined, {
+          timeout: 20_000,
+        })
+        .catch(() => {}) // 标记缺失不阻断(badge 断言仍会暴露真实问题)
+      const textarea = authenticatedPage.locator('textarea').first()
+      let switched = false
+      for (let i = 0; i < 20 && !switched; i++) {
+        await textarea.fill(`${SLASH_CMDS[mode]} `)
+        await textarea.press('Enter')
+        for (let j = 0; j < 6; j++) {
+          if ((await badge.getAttribute('data-mode').catch(() => null)) === mode) {
+            switched = true
+            break
+          }
+          await authenticatedPage.waitForTimeout(250)
+        }
+      }
       // 断言 badge 已切换
-      const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
       await expect(badge).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode])
       // 验证 toast(sonner)出现
       const toast = authenticatedPage.locator('[data-sonner-toast]').first()
-      await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode], { timeout: 2000 })
+      await expect(toast).toContainText(MODE_LABEL_EXPECT['zh-CN']![mode], { timeout: 3000 })
       // 无关键 console error(过滤已知 favicon/React DevTools)
       const real = consoleErrors.filter(
         (e) => !e.includes('favicon') && !e.includes('React DevTools'),
@@ -216,31 +299,25 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
   // ============================================
   for (const mode of MODES) {
     test(`Ctrl+${CTRL_KEY_MAP[mode]} 快捷键切换到 ${mode} 模式`, async ({ authenticatedPage }) => {
-      // 2026-08-26 修复:press 前等 500ms —— 快捷键 useEffect 监听器挂载晚于
-      // trigger 渲染(beforeEach 的 waitForSelector 返回后立即 press 会丢事件,
-      // 手动验证等 2.5s 后 press 必成功,证实为时序竞态)。
-      await authenticatedPage.waitForTimeout(500)
-      // 先 focus 到 textarea(虽然代码注释说不需 focus 在 input,这里保险起见)
+      // 2026-08-27 修复:监听已移至根 Layout,pressModeShortcut 轮询重按容忍
+      // dev server 高负载下 hydration 晚于首次 press 的时序(非固定 500ms 赌时序)
+      test.setTimeout(90_000) // 并发负载下 pressModeShortcut 预算 20s + 断言余量
       const textarea = authenticatedPage.locator('textarea').first()
       await textarea.focus()
-      // 用 authenticatedPage.keyboard.press(Playwright 原生模拟,ctrlKey 正确)
-      await authenticatedPage.keyboard.press(`Control+${CTRL_KEY_MAP[mode]}`)
-      await authenticatedPage.waitForTimeout(500)
+      await pressModeShortcut(authenticatedPage, CTRL_KEY_MAP[mode], mode)
       const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
       await expect(badge).toHaveAttribute('data-mode', mode, { timeout: 3000 })
     })
   }
 
   test('Ctrl+1-4 在 textarea 失焦时仍生效(全局 window 监听)', async ({ authenticatedPage }) => {
-    // 2026-08-26 修复:press 前等 500ms(快捷键监听器挂载时序,同上)
-    await authenticatedPage.waitForTimeout(500)
-    // 故意 blur textarea
+    // 故意 blur textarea(快捷键监听在根 Layout 的 window keydown,与焦点无关)
+    test.setTimeout(90_000) // 并发负载下 pressModeShortcut 预算 20s + 断言余量
     await authenticatedPage.evaluate(() => {
       const ta = document.querySelector('textarea') as HTMLTextAreaElement | null
       ta?.blur()
     })
-    await authenticatedPage.keyboard.press('Control+2')
-    await authenticatedPage.waitForTimeout(500)
+    await pressModeShortcut(authenticatedPage, '2', 'plan')
     const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
   })
@@ -252,6 +329,7 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     test(`关键词自动判断: "${input.slice(0, 12)}..." → ${expected}`, async ({
       authenticatedPage,
     }) => {
+      test.setTimeout(90_000) // 并发负载下 reload+轮询 16×500ms 超 30s 默认预算
       // 先重置到 build(避免前一个 case 状态污染)
       await setModeStore(authenticatedPage, 'build')
       await authenticatedPage.reload({ waitUntil: 'domcontentloaded' })
@@ -291,6 +369,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     test(`i18n ${locale}:CurrentModeBadge 在 build/plan 模式下的标签`, async ({
       authenticatedPage,
     }) => {
+      // 2026-08-27 修复:switchLocale 含多次 goto,dev server 高负载编译时
+      // 30s 默认超时不够(曾批量 page closed/timeout)→ 提到 90s
+      test.setTimeout(90_000)
       await switchLocale(authenticatedPage, locale)
       // 访问 /chat,等待 i18n 重新加载
       await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
@@ -310,9 +391,8 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
       await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.build)
-      // 切到 plan
-      await authenticatedPage.keyboard.press('Control+2')
-      await authenticatedPage.waitForTimeout(500)
+      // 切到 plan(2026-08-27:pressModeShortcut 轮询重按,容忍 hydration 时序)
+      await pressModeShortcut(authenticatedPage, '2', 'plan')
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })
       await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.plan)
       // 2026-08-26 移除 html lang 断言:客户端 setLocale 驱动 next-intl messages 重渲染

@@ -51,7 +51,7 @@ export default function ResponseViewer({
   }
 
   return (
-    <div className={cn('rounded-xl border bg-card shadow', className)}>
+    <div className={cn('overflow-hidden rounded-xl border bg-card shadow', className)}>
       <div className="flex items-center justify-between bg-muted/30 px-3 py-2">
         <div className="flex items-center gap-3 text-xs">
           <span className={cn('font-medium', statusColor(status))}>

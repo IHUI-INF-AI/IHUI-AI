@@ -67,7 +67,7 @@ function PrivacyRow({ option }: { option: PrivacyOption }) {
       >
         <span
           className={cn(
-            'absolute top-0.5 h-4 w-4 rounded-md bg-white transition-all',
+            'absolute top-0.5 h-4 w-4 rounded-md bg-popover transition-all',
             enabled ? 'left-[18px]' : 'left-0.5',
           )}
         />

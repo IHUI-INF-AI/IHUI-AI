@@ -59,7 +59,7 @@ setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
 auditStagingFiles()
 
 // 5. lint-staged：对暂存文件运行 eslint --fix 和 prettier --write
-if (!run('🎨 运行 lint-staged...', 'npx lint-staged')) {
+if (!run('🎨 运行 lint-staged...', 'npx lint-staged --max-arg-length 4096')) {
   process.exit(1)
 }
 

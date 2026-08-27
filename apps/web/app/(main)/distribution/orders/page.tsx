@@ -141,7 +141,7 @@ export default function CommissionOrdersPage() {
         </CardContent>
       </Card>
 
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
