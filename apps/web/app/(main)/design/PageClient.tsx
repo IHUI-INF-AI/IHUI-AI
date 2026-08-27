@@ -38,6 +38,7 @@ import {
   getDeviceRadius,
 } from '@/lib/design/responsive-devices'
 import type { ResponsiveDeviceIcon } from '@/lib/design/responsive-devices'
+import { ChevronRight, ChevronDown } from 'lucide-react'
 import { DESIGN_TEMPLATES } from '@/lib/design/design-templates'
 import type { DesignTemplateCategory } from '@/lib/design/design-templates'
 
@@ -438,7 +439,15 @@ function TreeView({
         }}
       >
         <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>
-          {hasChildren ? (collapsed ? '▶' : '▼') : '·'}
+          {hasChildren ? (
+            collapsed ? (
+              <ChevronRight size={10} />
+            ) : (
+              <ChevronDown size={10} />
+            )
+          ) : (
+            <span>·</span>
+          )}
         </span>
         <span style={{ fontFamily: 'monospace' }}>{label}</span>
       </button>
@@ -679,7 +688,7 @@ function CssGroupSection({
         }}
       >
         <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>
-          {collapsed ? '▶' : '▼'}
+          {collapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
         </span>
         <span>{t(group.label)}</span>
       </button>

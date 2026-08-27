@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
+import { useTranslations } from 'next-intl'
+import type { ChatMode } from '@ihui/types'
 import { useRouteAnalytics } from '@/hooks/use-route-analytics'
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts'
 import { useGlobalNotification } from '@/hooks/use-global-notification'
@@ -10,6 +12,8 @@ import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
 import { CommandPalette } from '@/components/layout/CommandPalette'
+import { toast } from '@/components/common'
+import { useModeStore } from '@/stores/mode'
 
 const SHORTCUT_ROUTES: Record<string, string> = {
   'global-shortcut:search': '/search',
@@ -18,6 +22,23 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   // 2026-07-30 用户规则:"可以做快捷键 组合键 你深度思考分析设计去做好"
   // Ctrl+, 直接打开设置(VS Code 标准,最高频入口,免命令面板搜索)
   'global-shortcut:open-settings': '/settings',
+}
+
+/** Ctrl+1/2/3/4 模式切换事件 → ChatMode(与 use-global-shortcuts DEFAULT_SHORTCUTS 对应)
+ *
+ * 2026-08-27 修复(根因):此前 `global-shortcut:mode-*` 事件由 use-global-shortcuts
+ * 全局派发但无任何消费者,实际切换逻辑只在 ai-side-panel 的条件 useEffect 里
+ * (仅 AI 面板 open 且深层组件树 hydration 完成后才挂载),导致:
+ * - 非 /chat 页面 Ctrl+1-4 被 preventDefault 却无任何功能(劫持浏览器 tab 切换)
+ * - /chat 页面 hydration 未完成时按键静默丢失(E2E 偶发失败根因)
+ * 现统一在根 Layout 的 Provider 消费事件:根级 hydration 即生效,全页面可用,
+ * 与斜杠命令 + AI 关键词自动判断三通道联动(ai-side-panel 的重复监听已移除)。
+ */
+const MODE_SHORTCUT_EVENTS: Record<string, ChatMode> = {
+  'global-shortcut:mode-build': 'build',
+  'global-shortcut:mode-plan': 'plan',
+  'global-shortcut:mode-review': 'review',
+  'global-shortcut:mode-spec': 'spec',
 }
 
 /**
@@ -33,6 +54,7 @@ const SHORTCUT_ROUTES: Record<string, string> = {
  */
 export function GlobalHooksProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const t = useTranslations('chat')
   // 性能修复(2026-07-25):useRouteAnalytics 现在是纯副作用 hook,不再返回 currentPath,
   // 避免本 Provider 因路由变化重渲染导致 <CommandPalette> + help panel 连锁重渲染。
   useRouteAnalytics()
@@ -66,6 +88,31 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
     const openChatHandler = () => setShowCommandPalette(true)
     window.addEventListener('global-shortcut:open-chat', openChatHandler)
 
+    // Ctrl+1/2/3/4 模式切换(2026-08-27 根因修复,见 MODE_SHORTCUT_EVENTS 注释):
+    // use-global-shortcuts 统一做按键匹配 + preventDefault 后派发事件,这里消费。
+    const MODE_LABEL_KEYS: Record<ChatMode, string> = {
+      build: 'modeBuild',
+      plan: 'modePlan',
+      review: 'modeReview',
+      spec: 'modeSpec',
+    }
+    const modeHandlers: Array<[string, () => void]> = Object.entries(MODE_SHORTCUT_EVENTS).map(
+      ([event, mode]) => {
+        const handler = () => {
+          const label = t(MODE_LABEL_KEYS[mode])
+          const modeStore = useModeStore.getState()
+          if (modeStore.currentMode === mode) {
+            toast.info(t('modeAlreadyActive', { mode: label }))
+            return
+          }
+          modeStore.setMode(mode)
+          toast.success(t('modeSwitched', { mode: label }))
+        }
+        window.addEventListener(event, handler)
+        return [event, handler]
+      },
+    )
+
     // inline-edit 兜底:若收到事件时焦点已离开 Monaco(竞态),回退到命令面板
     const inlineEditFallback = () => {
       const active = document.activeElement
@@ -91,8 +138,11 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
       for (const [event, handler] of handlers) {
         window.removeEventListener(event, handler)
       }
+      for (const [event, handler] of modeHandlers) {
+        window.removeEventListener(event, handler)
+      }
     }
-  }, [router])
+  }, [router, t])
 
   return (
     <>
@@ -113,7 +163,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           style={{
             position: 'fixed',
             inset: 0,
-            zIndex: 9999,
+            zIndex: 'var(--z-notification)',
             background: 'rgba(0, 0, 0, 0.4)',
             display: 'flex',
             alignItems: 'center',

@@ -126,7 +126,7 @@ export default function AdminDistributionRulesPage() {
         <Alert variant="danger" title="加载失败" description="无法获取佣金规则列表" />
       )}
 
-      <div className="rounded-lg border">
+      <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
