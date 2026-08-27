@@ -118,14 +118,14 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 30,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFAA36',
+      backgroundColor: tk.warning.amber,
       elevation: 3,
-      shadowColor: '#FFB382',
+      shadowColor: tk.warning.amberLight,
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.4,
       shadowRadius: 5,
     } as ViewStyle,
     detailsButtonPressed: { opacity: 0.8 } as ViewStyle,
-    detailsButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' } as TextStyle,
+    detailsButtonText: { fontSize: 16, fontWeight: '700', color: tk.text.primary } as TextStyle,
   })
 }
