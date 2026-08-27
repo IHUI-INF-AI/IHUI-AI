@@ -47,11 +47,13 @@ const VENDOR_TO_TEMPLATE: Record<string, string> = {
   // === 后端 /llm/models 返回的 provider_code 补充映射(2026-08-27 立)===
   // 后端 ModelAvailabilityService 的 provider_code 与前端 vendor 命名不一致:
   //  - gemini(后端 provider_code)→ google(平台模板 code)
-  //  - cloudflare_workers_ai(后端 provider_code + 内置免费)→ 自身
   // 否则这些真实可用模型会被 providerToTemplateCode 判定为 null(无模板),
   // 在降级列表过滤中被误隐藏 / 误显示"未配置"警告徽章。
+  // 注意:cloudflare_workers_ai **不**加映射——ModelsMarketplace/QuickKeyDialog
+  // 用 hasPresetTemplate() 决定是否显示"一键配置"按钮,若映射到自身会让 CF 模型
+  // 显示"一键配置"但配置中心无该模板(已移出 PRESET_TEMPLATE_CODES)→ 创建失败。
+  // CF 内置免费的配额豁免由 model-selector 的 BACKEND_BUILTIN_FREE_CODES 处理。
   gemini: 'google',
-  'cloudflare_workers_ai': 'cloudflare_workers_ai',
   // === 无预置模板的厂商(返回 null,UI 提示用自定义模板)===
   // meta / mistral / xai / cohere / nvidia / ai21 / microsoft / perplexity / ...
   // together / fireworks / huggingface / replicate / stability / inflection / ibm
