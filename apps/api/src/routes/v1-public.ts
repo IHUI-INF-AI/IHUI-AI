@@ -21,6 +21,11 @@ import { join } from 'node:path'
 import { eq, and, isNull, desc, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { config } from '../config/index.js'
+import {
+  fetchProviderHealth,
+  isProviderHardUnavailable,
+  type HealthMap,
+} from '../lib/llm-provider-health.js'
 import { db, dbRead } from '../db/index.js'
 import {
   agents,
@@ -193,66 +198,6 @@ function toLiteLLMModelId(modelId: string, providerCode: string, baseUrl: string
   return modelId
 }
 
-type ProviderHealth = { status: string; error_type: string }
-
-/**
- * 拉取 ai-service 的 provider 可用性(每个 fetchModels 调用至多一次)。
- * 失败一律返回空 Map(宽松:视为全部可用,不影响翻车前的既有行为)。
- */
-async function fetchProviderAvailability(): Promise<Map<string, ProviderHealth>> {
-  const map = new Map<string, ProviderHealth>()
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 5000)
-  try {
-    const resp = await fetch(`${config.AI_SERVICE_URL}/llm/providers/availability`, {
-      method: 'GET',
-      signal: controller.signal,
-    })
-    if (!resp.ok) return map
-    const raw = (await resp.json()) as unknown
-    let providers: Array<{ provider_code: string; status: string; error_type: string }> = []
-    if (raw && typeof raw === 'object') {
-      const obj = raw as Record<string, unknown>
-      const inner = obj.data && typeof obj.data === 'object' ? obj.data : obj
-      const p = (inner as Record<string, unknown>).providers
-      if (Array.isArray(p)) providers = p as typeof providers
-    }
-    for (const p of providers) {
-      if (typeof p.provider_code === 'string') {
-        map.set(p.provider_code, {
-          status: typeof p.status === 'string' ? p.status : '',
-          error_type: typeof p.error_type === 'string' ? p.error_type : '',
-        })
-      }
-    }
-  } catch {
-    // 网络/超时/解析失败:返回空 Map(全部视为可用)
-  } finally {
-    clearTimeout(timer)
-  }
-  return map
-}
-
-/**
- * 与 ai-service model_availability.is_model_available 对齐的硬不可用判定。
- * provider 未知(PENDING/未入网)一律视为可用(lenient)。
- */
-function isProviderHardUnavailable(
-  code: string | undefined,
-  health: Map<string, ProviderHealth>,
-): boolean {
-  if (!code || !health.has(code)) return false
-  const h = health.get(code)!
-  if (h.status === 'down' || h.status === 'not_configured') return true
-  if (
-    h.status === 'degraded' &&
-    ['payment_required', 'invalid_key', 'forbidden', 'rate_limited'].includes(h.error_type)
-  ) {
-    return true
-  }
-  return false
-}
-
 async function fetchModels(userId?: string): Promise<{
   body: V1ModelsResponse
   source: 'db' | 'live' | 'cache' | 'fallback'
@@ -319,10 +264,10 @@ async function fetchModels(userId?: string): Promise<{
       // 硬不可用(down/not_configured/受限态 402·401·403·429)剔除。
       // 仅在存在上架平台模型时拉取一次 ai-service 可用性;
       // 缓存命中 / live / 仅 BYOK 路径不打额外上游。
-      let healthMap: Map<string, ProviderHealth> = new Map()
+      let healthMap: HealthMap = new Map()
       if (dbModels.length > 0) {
         try {
-          healthMap = await fetchProviderAvailability()
+          healthMap = await fetchProviderHealth()
         } catch {
           // 视为全部可用
         }

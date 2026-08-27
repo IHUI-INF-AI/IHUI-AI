@@ -36,6 +36,11 @@ import {
   updateNewsRecommendSort,
 } from '../db/misc-extended-queries.js'
 import { success, error } from '../utils/response.js'
+import {
+  fetchProviderHealth,
+  isProviderHardUnavailable,
+  inferProviderCode,
+} from '../lib/llm-provider-health.js'
 
 // =============================================================================
 // Zod schemas
@@ -292,7 +297,20 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(zhsAiModelInfo.status, 1))
       .orderBy(desc(zhsAiModelInfo.isTop), desc(zhsAiModelInfo.isHot), asc(zhsAiModelInfo.sort))
       .limit(limit)
-    return reply.send(success({ models }))
+    // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型;
+    // health 拉取失败(空 Map)则全保留(宽松,不因瞬时抖动清空)。
+    const healthMap = await fetchProviderHealth()
+    const visibleModels =
+      healthMap.size === 0
+        ? models
+        : models.filter(
+            (m) =>
+              !isProviderHardUnavailable(
+                inferProviderCode(m.modelCode, m.code, m.name ?? ''),
+                healthMap,
+              ),
+          )
+    return reply.send(success({ models: visibleModels }))
   })
 
   // GET /news/articles/:id - 资讯详情（公开）
