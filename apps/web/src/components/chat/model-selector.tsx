@@ -403,6 +403,33 @@ function MemberDiscountSection({ opt, children }: { opt: ModelOption; children: 
   )
 }
 
+/** 初始/降级种子选项(FALLBACK + DEMO 演示档位,未登录/加载中展示) */
+function createSeedOptions(): ModelOption[] {
+  const seed = [...FALLBACK_MODELS, ...DEMO_TIER_MODELS]
+  return seed.map((m): ModelOption => ({
+    value: m.value,
+    label: m.label,
+    vendor: m.vendor,
+    descriptionKey: m.descriptionKey,
+    // FallbackModel 上 5 字段已显式提供(2026-08-06),透传
+    pointsMultiplier: m.pointsMultiplier ?? inferPointsMultiplier(m.value),
+    memberDiscountEligible: m.memberDiscountEligible,
+    isOfficial: m.isOfficial,
+    subsidy: m.subsidy,
+    locked: m.locked,
+  }))
+}
+
+/** vendor 是否视为"已配置/有配额"(降级列表过滤 + ⚠/✅ 徽章判定用)
+ *  - 后端内置免费 provider(无需配置 key)直接豁免
+ *  - 其余:vendor 映射到平台模板且模板在已配置集合内 */
+function isConfiguredVendor(vendor: string | undefined, codes: Set<string>): boolean {
+  if (!vendor) return false
+  if (BACKEND_BUILTIN_FREE_CODES.includes(vendor)) return true
+  const code = providerToTemplateCode(vendor)
+  return code !== null && codes.has(code)
+}
+
 export function ModelSelector({ value, onChange, disabled, label }: ModelSelectorProps) {
   const t = useTranslations('chat')
   const router = useRouter()
@@ -412,23 +439,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const token = useAuthStore((s) => s.token)
   const authedWithToken = isAuthenticated && !!token
-  const [options, setOptions] = React.useState<ModelOption[]>(() => {
-    // 合并 FALLBACK + DEMO:确保 5 档积分 + 徽章 + 锁定演示数据全部可见
-    // (2026-08-06 立,对齐 workbuddy 风格;详见 packages/shared/src/constants/fallback-models.ts)
-    const seed = [...FALLBACK_MODELS, ...DEMO_TIER_MODELS]
-    return seed.map((m): ModelOption => ({
-      value: m.value,
-      label: m.label,
-      vendor: m.vendor,
-      descriptionKey: m.descriptionKey,
-      // FallbackModel 上 5 字段已显式提供(2026-08-06),透传
-      pointsMultiplier: m.pointsMultiplier ?? inferPointsMultiplier(m.value),
-      memberDiscountEligible: m.memberDiscountEligible,
-      isOfficial: m.isOfficial,
-      subsidy: m.subsidy,
-      locked: m.locked,
-    }))
-  })
+  const [options, setOptions] = React.useState<ModelOption[]>(createSeedOptions)
   const [loading, setLoading] = React.useState(true)
   const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
   // 2026-08-12 bugfix:升级权益 popover 状态已收敛到 MemberDiscountSection 内部,
@@ -469,15 +480,22 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
   valueRef.current = value
 
   React.useEffect(() => {
-    if (!authedWithToken) return
+    if (!authedWithToken) {
+      // 登出/未登录:重置加载态与 API-only 标记(曾登录过的会话回到初始演示态,
+      // trigger 重新禁用,避免残留上一会话的 API 模型列表)
+      setLoading(true)
+      setUseApiOnly(false)
+      return
+    }
     let cancelled = false
     setLoading(true)
     fetchSelectorModels()
       .then((models) => {
         if (cancelled) return
         if (models.length === 0) {
-          // API 空/失败:保留 FALLBACK + DEMO 降级列表(由 grouped 按真实配置过滤)
+          // API 空/失败:恢复 FALLBACK + DEMO 降级列表(由 grouped 按真实配置过滤)
           setUseApiOnly(false)
+          setOptions(createSeedOptions())
           return
         }
         // 2026-08-27 修复:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
@@ -516,8 +534,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
         setUseApiOnly(true)
       })
       .catch(() => {
-        // 静默:保留 FALLBACK + DEMO 默认值
+        // 静默:恢复 FALLBACK + DEMO 降级列表
+        if (cancelled) return
         setUseApiOnly(false)
+        setOptions(createSeedOptions())
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -565,22 +585,19 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     for (const [vendor, items] of all) {
       const visible = items.filter((opt) => {
         if (opt.value === value) return true // 当前选中保留
-        const code = opt.vendor ? providerToTemplateCode(opt.vendor) : null
-        // 与 ⚠ 徽章判断一致:vendor 无对应模板(code null)或模板未配置 → 无配额,隐藏
-        return code !== null && configuredTemplateCodes.has(code)
+        // 与 ⚠ 徽章判断一致:内置免费 provider 直接豁免;
+        // vendor 无对应模板(code null)或模板未配置 → 无配额,隐藏
+        return isConfiguredVendor(opt.vendor, configuredTemplateCodes)
       })
       if (visible.length > 0) filtered.push([vendor, visible])
     }
     return filtered
   }, [options, cfgData, configuredTemplateCodes, value, useApiOnly])
 
-  const currentTemplateCode = current?.vendor ? providerToTemplateCode(current.vendor) : null
   // API 成功路径下后端已保证模型可用,直接视为已配置(避免 agnes 等误显示 ⚠/缺失 ✅)
   const currentConfigured = useApiOnly
     ? true
-    : currentTemplateCode
-      ? configuredTemplateCodes.has(currentTemplateCode)
-      : false
+    : isConfiguredVendor(current?.vendor, configuredTemplateCodes)
   const showConfigBadge = cfgData !== undefined
 
   return (
@@ -686,14 +703,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
                 const optConfigured = useApiOnly
                   ? true
-                  : (() => {
-                      const optTemplateCode = opt.vendor
-                        ? providerToTemplateCode(opt.vendor)
-                        : null
-                      return optTemplateCode
-                        ? configuredTemplateCodes.has(optTemplateCode)
-                        : false
-                    })()
+                  : isConfiguredVendor(opt.vendor, configuredTemplateCodes)
                 return (
                   <DropdownMenu.Item
                     key={opt.value}
