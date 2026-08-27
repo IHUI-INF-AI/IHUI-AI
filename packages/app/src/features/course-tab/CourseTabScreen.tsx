@@ -14,12 +14,14 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
+import type { AppIcon } from '@ihui/types'
+import { BarChart3, BookOpen, PenLine, Smartphone, Users } from 'lucide-react-native'
 
 /** 课程分类(对齐 Uniapp learn.vue) */
 export interface CourseCategory {
   id: string
   name: string
-  icon: string
+  icon: AppIcon | string
 }
 
 /** 学习路径卡片数据 */
@@ -82,11 +84,11 @@ export interface CourseTabScreenProps {
 }
 
 const COURSE_CATEGORIES: readonly CourseCategory[] = [
-  { id: 'douyin', name: '抖音运营', icon: '📱' },
-  { id: 'private', name: '私域运营', icon: '👥' },
-  { id: 'content', name: '内容创作', icon: '✍️' },
-  { id: 'data', name: '数据分析', icon: '📊' },
-] as const
+  { id: 'douyin', name: '抖音运营', icon: Smartphone },
+  { id: 'private', name: '私域运营', icon: Users },
+  { id: 'content', name: '内容创作', icon: PenLine },
+  { id: 'data', name: '数据分析', icon: BarChart3 },
+]
 
 function formatPrice(price: number, isFree: boolean): string {
   if (isFree || price <= 0) return '免费'
@@ -174,7 +176,7 @@ export function CourseTabScreen({
                           resizeMode="cover"
                         />
                       ) : (
-                        <Text style={styles.pathCoverEmoji}>📖</Text>
+                        <BookOpen size={32} color={'#374151'} />
                       )}
                     </View>
                     <Text style={styles.pathTitle} numberOfLines={1}>
@@ -198,7 +200,11 @@ export function CourseTabScreen({
                 onPress={() => onPressCategory(cat)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                {typeof cat.icon === 'string' ? (
+                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                ) : (
+                  <cat.icon size={32} color={tk.text.primary} />
+                )}
                 <Text style={styles.categoryName}>{cat.name}</Text>
               </TouchableOpacity>
             ))}
@@ -217,7 +223,7 @@ export function CourseTabScreen({
                 activeOpacity={0.7}
               >
                 <View style={styles.popularCover}>
-                  <Text style={styles.popularCoverEmoji}>📚</Text>
+                  <BookOpen size={32} color={'#374151'} />
                   {item.isVip && (
                     <View style={styles.vipBadge}>
                       <Text style={styles.vipBadgeText}>VIP</Text>
@@ -285,7 +291,7 @@ export function CourseTabScreen({
                     />
                   ) : (
                     <View style={[styles.courseImage, styles.courseImageFallback]}>
-                      <Text style={styles.courseImageEmoji}>📚</Text>
+                      <BookOpen size={32} color={'#374151'} />
                     </View>
                   )}
                   <View style={styles.courseInfo}>

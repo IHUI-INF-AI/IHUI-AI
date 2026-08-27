@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
+import { Heart } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { CarteCreator, CarteScreenProps, CarteWork } from '../../types'
 
@@ -140,7 +141,10 @@ export function CarteScreen({
                   <Text style={styles.tagText}>{tg}</Text>
                 </View>
               ))}
-              <Text style={styles.likesText}>♥ {item.likes}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Heart size={11} color={tk.danger.DEFAULT} />
+                <Text style={styles.likesText}>{item.likes}</Text>
+              </View>
             </View>
           </View>
         </View>

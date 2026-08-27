@@ -22,11 +22,13 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rnLightTokens as tk } from '@ihui/design-tokens'
+import { Star } from 'lucide-react-native'
+import type { AppIcon } from '@ihui/types'
 
 export interface FunctionBlock {
   id: string
   title: string
-  icon?: string
+  icon?: AppIcon | string
   description?: string
 }
 
@@ -47,7 +49,7 @@ const ICON_MARGIN_RIGHT = 12
 const TITLE_FONT_SIZE = 15
 const DESC_FONT_SIZE = 12
 
-const DEFAULT_ICON = '★'
+const DEFAULT_ICON = Star
 
 export function FunctionBlockColumn({
   blocks,
@@ -70,9 +72,15 @@ export function FunctionBlockColumn({
           accessibilityLabel={block.title}
         >
           <View style={styles.iconWrap}>
-            <Text style={styles.iconText} allowFontScaling={false}>
-              {block.icon ?? DEFAULT_ICON}
-            </Text>
+            {typeof block.icon === 'string' ? (
+              <Text style={styles.iconText} allowFontScaling={false}>
+                {block.icon}
+              </Text>
+            ) : block.icon ? (
+              <block.icon size={ICON_FONT_SIZE} color={'#6b7280'} />
+            ) : (
+              <DEFAULT_ICON size={ICON_FONT_SIZE} color={'#6b7280'} />
+            )}
           </View>
           <View style={styles.textWrap}>
             <Text style={styles.title} numberOfLines={1}>

@@ -34,6 +34,7 @@ import {
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
+import { Heart, MessageCircle } from 'lucide-react-native'
 
 type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -152,13 +153,15 @@ export function ArticleDetailScreen() {
       {article ? (
         <View style={styles.bottomBar}>
           <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
-            <Text style={[styles.actionIcon, liked ? styles.actionIconActive : null]}>
-              {liked ? '❤️' : '🤍'}
-            </Text>
+            <Heart
+              size={18}
+              color={liked ? '#f43f5e' : '#6b7280'}
+              fill={liked ? '#f43f5e' : 'transparent'}
+            />
             <Text style={styles.actionCount}>{likeCount}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleComment} activeOpacity={0.7}>
-            <Text style={styles.actionIcon}>💬</Text>
+            <MessageCircle size={18} color="#6b7280" />
             {/* 评论数:原 article.comments 字段未在后端 ArticleDetailItem 契约中,暂展示 0 */}
             <Text style={styles.actionCount}>0</Text>
           </TouchableOpacity>
@@ -243,9 +246,7 @@ export function ArticleDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="发表评论"
               >
-                <Text style={styles.commentSendText}>
-                  {commentSubmitting ? '…' : '发送'}
-                </Text>
+                <Text style={styles.commentSendText}>{commentSubmitting ? '…' : '发送'}</Text>
               </TouchableOpacity>
             </View>
           </View>
