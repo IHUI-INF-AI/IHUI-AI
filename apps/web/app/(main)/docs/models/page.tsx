@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { Monitor, Coins } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -128,7 +129,10 @@ export default function ModelsDocsPage() {
           </div>
 
           <div className="rounded-2xl border bg-card p-6">
-            <p className="text-sm font-semibold">🖥️ 本地 / 开源</p>
+            <p className="flex items-center text-sm font-semibold">
+              <Monitor className="mr-1.5 inline h-4 w-4" />
+              本地 / 开源
+            </p>
             <div className="mt-3 space-y-2">
               {[
                 ['Ollama', 'llama3.3、qwen2.5、deepseek-r1、gemma2', '本地部署'],
@@ -231,7 +235,10 @@ export default function ModelsDocsPage() {
               </pre>
             </div>
             <div className="rounded-lg border bg-background p-4">
-              <p className="text-sm font-semibold">💰 串联(Cheapest 策略)</p>
+              <p className="flex items-center text-sm font-semibold">
+                <Coins className="mr-1.5 inline h-4 w-4" />
+                串联(Cheapest 策略)
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 按价格从低到高尝试,优先用便宜模型,质量不够才升级
               </p>

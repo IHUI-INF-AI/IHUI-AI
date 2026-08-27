@@ -126,15 +126,22 @@ test.describe('模型选择器 - SSR 厂商图标渲染', () => {
 
   test('/models 页面每个厂商卡片应包含 SVG 图标', async ({ page }) => {
     await navigateToModels(page)
-    // 等待模型卡片渲染
+    // 等待页面水合(nav 为客户端组件)
     await page.waitForTimeout(1000)
 
-    // 获取所有卡片容器(通常含 role=article 或类似 class)
-    const cards = page.locator('[class*="card" i], [class*="model" i]').filter({
-      has: page.locator('svg'),
-    })
-    const cardCount = await cards.count()
-    expect(cardCount, '至少应有 10 个含 SVG 的卡片').toBeGreaterThanOrEqual(10)
+    // 2026-08-27 根因修复:模型卡片数据来自 /api/llm/models(需登录 + ai-service),
+    // 未登录时 fetchModels 有意返回空列表(helpers.ts,避免内置模型冒充真实市场),
+    // 故"含 SVG 的模型卡片"对匿名页面必然为 0,旧断言失效。
+    // 厂商图标的确定性载体是 ModelsNav 厂商 pill(a[href^="/models?provider="]),
+    // 每个 pill 内 BrandIcon 渲染厂商真实 SVG(无映射厂商回退 logo img)。
+    // href 匹配与 locale 无关(nav aria-label 已 i18n)。
+    const pills = page.locator('a[href^="/models?provider="]')
+    const pillCount = await pills.count()
+    expect(pillCount, '厂商 pill 数量应 >= 10').toBeGreaterThanOrEqual(10)
+
+    const pillsWithSvg = pills.filter({ has: page.locator('svg') })
+    const svgPillCount = await pillsWithSvg.count()
+    expect(svgPillCount, '至少应有 10 个含 SVG 图标的厂商 pill').toBeGreaterThanOrEqual(10)
   })
 })
 
@@ -164,8 +171,11 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     await expect(trigger, '登录后模型选择按钮应可用').toBeEnabled()
     // 品牌标记 + ChevronDown:默认"自动"模式品牌图标是 logo <img>(非 SVG),
     // 因此按 svg + img 总数 >= 2 判定(BrandIcon SVG 或 auto 模式 img + ChevronDown svg)
-    const brandMarks = (await trigger.locator('svg').count()) + (await trigger.locator('img').count())
-    expect(brandMarks, '触发按钮应含品牌图标 + ChevronDown(共 >= 2 个标记)').toBeGreaterThanOrEqual(2)
+    const brandMarks =
+      (await trigger.locator('svg').count()) + (await trigger.locator('img').count())
+    expect(brandMarks, '触发按钮应含品牌图标 + ChevronDown(共 >= 2 个标记)').toBeGreaterThanOrEqual(
+      2,
+    )
   })
 
   test('打开下拉菜单: 应按厂商分组,每组带 SVG 图标', async ({ authenticatedPage }) => {
@@ -218,7 +228,10 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     // 其余无配额模型必须被过滤隐藏。
     const warnBadges = menu.locator('svg.text-amber-500')
     const warnCount = await warnBadges.count()
-    expect(warnCount, `无配额模型应被过滤,⚠ 徽章最多 1(当前选中),实际 ${warnCount}`).toBeLessThanOrEqual(1)
+    expect(
+      warnCount,
+      `无配额模型应被过滤,⚠ 徽章最多 1(当前选中),实际 ${warnCount}`,
+    ).toBeLessThanOrEqual(1)
   })
 
   test('hover 态: 悬停菜单项应触发 focus:bg-accent', async ({ authenticatedPage }) => {

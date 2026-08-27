@@ -88,6 +88,18 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - 禁止 `<hr>` / `divide-y` / `divide-x` / 单边 `border-t/b/l/r` 当分割线。允许:容器完整描边(`border border-border`)、背景色对比(`bg-card` vs `bg-background`)、间距分隔(`gap-*`)。
 
+#### 单边 border 的明确区分(解决两位开发者的分歧)
+
+历史上出现两种冲突理解:一位开发者认为**所有** `border-t` 一律禁止;另一位认为显式 `border-t border-border/50` 一律允许。现统一为以下规则,**所有** `border-t/b/l/r` 用法必须归入下列两类之一,不得作为纯分割线使用:
+
+- **允许(结构性边框,非分割线)**:
+  1. 卡片/面板边缘:作为完整边框系统的一部分,例如带 `border` 的容器其 header 条用 `border-b` 作为容器底边(边框系统的收口,而非在两项之间画线);
+  2. 引用块 / 语义强调左边框:`border-l-4` 等作为语义强调(如 blockquote、强调条),而非分隔两项内容的线;
+  3. IDE diff 面板等编辑器内 chrome:有意为之的编辑器界面元素。
+- **禁止(纯分割线)**:仅在**列表项之间**或**区块之间**用 `border-t/b/l/r` 画一条分隔线,此类场景必须用 `space-y-*` 间距,或 `bg-muted` / `bg-card` 背景对比替代。
+
+> 注:低透明度单边边框(如 `border-t border-border/50`)是典型的"伪分割线",单独守门脚本 `scripts/check-no-divider.mjs` 对其作 **WARN** 告警(非阻塞),提示开发者确认是否为纯分隔用途;纯分隔线务必改用间距或背景对比。此后若确需单边边框,仅限上述"允许"三类情形。
+
 ### 禁止渐变遮罩(强制)
 
 - 任何容器禁止 `mask-image` / `-webkit-mask-image` / `linear-gradient` 用作边缘淡出。用显式 UI 元素("查看更多"按钮 / 计数徽章 / 分页)替代。
@@ -95,6 +107,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 ### 禁用原生提示窗(强制)
 
 - **禁止**使用原生浏览器提示:`title` 属性 / `alert()` / `confirm()` / `prompt()`。必须使用项目自有的 `Tooltip` 组件(`@/components/feedback`)统一提示样式。
+
+### 图标统一用图标库(强制)
+
+- **UI 图标一律用矢量图标库,禁止 emoji 充当图标。** 图标指导航项 / Tab / 按钮 / 状态指示 / 徽章 / 占位默认图标 / 关闭·发送·播放等操作图标 / 章节标题前缀 icon / 等级奖牌等界面元素。
+- **web 端**:统一 `lucide-react`(`import { X } from 'lucide-react'`),渲染 `<X className="h-4 w-4" />`;配置数组里的 `icon: 'emoji'` 须改为 `icon: LucideIcon` 组件引用后在渲染处用 `<item.icon className="..." />`。
+- **移动端(React Native)**:统一 `lucide-react-native`(`import { X } from 'lucide-react-native'`),渲染 `<X size={16} color={'#6b7280'} />`;颜色按原 `Text` 的 `text-*` 类或 style 颜色意图转十六进制,尺寸按原 fontSize(-xs→12 / -sm→14 / -lg→18 / -2xl→24)。
+- **禁止**在 UI 图标位置使用 emoji(如 🏆 🤖 🔥 ✅ ❌ 🎤 🔔 等)。新增图标须先查 `lucide-react` / `lucide-react-native` 是否有对应名称,无则用近义图标,不得回退 emoji。
+- **例外(不强制)**:文档 / 营销页正文里的装饰性 emoji(提示 💡、技术栈列表、章节叙述中的 emoji)属于内容文案,不在此限;但同一页面应风格统一,优先用图标库。
+- 守门:新增 emoji 图标会被 review 拦截;`scripts/check-no-emoji-icon.mjs`(如有)对非例外位置告警。
 
 ### 圆角容器内 absolute 子元素避让
 

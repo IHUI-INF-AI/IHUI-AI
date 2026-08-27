@@ -67,6 +67,10 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
     await expect(page).toHaveURL(/\/(sso\/)?login/, { timeout: 8000 })
     const firstInput = page.locator('input:not([type="file"]):visible').first()
     await expect(firstInput).toBeVisible({ timeout: 8000 })
+    // 默认 tab 是邮箱验证码登录(无密码框),先切到密码登录 tab 再断言密码框存在
+    const passwordTab = page.getByTestId('login-tab-password')
+    await expect(passwordTab).toBeVisible({ timeout: 5000 })
+    await passwordTab.click()
     const passwordInput = page.locator('input[type="password"]').first()
     await expect(passwordInput).toBeVisible({ timeout: 5000 })
   })

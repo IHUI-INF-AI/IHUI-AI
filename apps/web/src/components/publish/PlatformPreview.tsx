@@ -135,8 +135,11 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
       </div>
 
       <div className={cn('mx-auto overflow-hidden rounded-md border bg-background', widthClass)}>
+        {/* Simulated platform real styles: pin the preview surface to a fixed light
+            background so the brand hex colors render on their native light background
+            in both light and dark mode. */}
         <div
-          className={cn('p-4 text-sm leading-relaxed', platformClass.wrapper)}
+          className={cn('p-4 text-sm leading-relaxed bg-white text-[#222]', platformClass.wrapper)}
           dangerouslySetInnerHTML={{
             __html: `<h1 class="text-base font-bold mb-2 ${platformClass.title}">${escapeHtml(title || '无标题')}</h1>${html}`,
           }}
