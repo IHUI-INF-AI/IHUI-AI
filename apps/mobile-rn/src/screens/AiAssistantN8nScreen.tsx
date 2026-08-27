@@ -60,12 +60,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
+  fetchModels,
   formatSSEError,
   getMessages,
   getTokenBalance,
   listConversations,
   streamChat,
   type ConversationDetail,
+  type LlmModel,
 } from '@ihui/api-client'
 import { FALLBACK_MODELS } from '@ihui/shared'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -73,7 +75,7 @@ import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
-import ModelList, { type ModelListGroup } from '../components/ModelList'
+import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
 import Drawer, {
   type DrawerConversationItem,
@@ -425,7 +427,26 @@ export default function AiAssistantN8nScreen() {
   const [selectedModelId, setSelectedModelId] = useState<string>(
     route.params?.modelId ?? FALLBACK_MODELS[0]?.value ?? 'stepfun/step-router-v1',
   )
+  // 2026-08-27 修复:模型选择列表只展示后端 /llm/models 过滤后的可用模型
+  // (可用性+配额由后端保证);null=加载中/失败 → 降级 FALLBACK_MODELS(真实可用主力)
+  const [modelList, setModelList] = useState<LlmModel[] | null>(null)
   const [showModelPicker, setShowModelPicker] = useState(false)
+
+  // 模型列表加载(后端 /llm/models 已按可用性+配额过滤,与 ChatScreen 同源)
+  useEffect(() => {
+    let cancelled = false
+    fetchModels()
+      .then((res) => {
+        if (cancelled) return
+        if (res?.models?.length) setModelList(res.models)
+      })
+      .catch(() => {
+        // 静默:保持 null,展示 FALLBACK_MODELS 降级
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   // 模型配置弹层(对齐 Uniapp ModelConfigDialog:模型选择旁"配置"入口,
   // 温度/top_p/maxTokens 等参数设置,发送时透传给 streamChat)
@@ -457,27 +478,36 @@ export default function AiAssistantN8nScreen() {
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
-  // ModelList 分组数据(单 vendor 分组,FALLBACK_MODELS → ModelListItem)
+  // ModelList 分组数据:优先后端过滤模型(fetchModels),失败/加载中降级 FALLBACK_MODELS
+  const modelListItems: ModelListItem[] = useMemo(() => {
+    if (modelList && modelList.length > 0) {
+      return modelList.map((m) => ({
+        id: m.id,
+        name: m.name || m.id,
+        description: m.provider,
+        icon: '🤖',
+        // 免费模型标记:zero_cost provider 前缀(与后端 free_provider_registry 对齐)
+        isFree: /^@cf\/|^pollinations\/|^llm7\/|^aihorde\//.test(m.id),
+      }))
+    }
+    return FALLBACK_MODELS.map((m) => ({
+      id: m.value,
+      name: m.label,
+      description: m.vendor,
+      icon: '🤖',
+      isFree: (m.pointsMultiplier ?? 1) === 0,
+    }))
+  }, [modelList])
+
   const modelGroups: ModelListGroup[] = useMemo(
-    () => [
-      {
-        vendor: t('chat.modelLabel'),
-        models: FALLBACK_MODELS.map((m) => ({
-          id: m.value,
-          name: m.label,
-          description: m.vendor,
-          icon: '🤖',
-          isFree: (m.pointsMultiplier ?? 1) === 0,
-        })),
-      },
-    ],
-    [t],
+    () => [{ vendor: t('chat.modelLabel'), models: modelListItems }],
+    [t, modelListItems],
   )
 
   const selectedModelLabel = useMemo(() => {
-    const m = FALLBACK_MODELS.find((item) => item.value === selectedModelId)
-    return m?.label ?? selectedModelId
-  }, [selectedModelId])
+    const m = modelListItems.find((item) => item.id === selectedModelId)
+    return m?.name ?? selectedModelId
+  }, [modelListItems, selectedModelId])
 
   const previewSource: ImageSourcePropType | null = previewImage ? { uri: previewImage } : null
 
