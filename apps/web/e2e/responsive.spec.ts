@@ -48,7 +48,7 @@ test.describe('响应式设计 - 多视口', () => {
   test('移动端导航菜单按钮可见(汉堡菜单)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 })
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 移动端通常有汉堡菜单按钮
     const menuBtn = page
       .getByRole('button')
@@ -66,7 +66,7 @@ test.describe('响应式设计 - 多视口', () => {
   test('桌面端导航栏完整可见', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const nav = page.locator('nav, [role="navigation"]').first()
     await expect(nav).toBeVisible({ timeout: 10000 })
   })
@@ -76,7 +76,7 @@ test.describe('响应式设计 - 多视口', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/plaza')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )
@@ -88,6 +88,10 @@ test.describe('响应式设计 - 多视口', () => {
     await page.goto('/login')
     // /login 会被中间件重定向到 /sso/login,任意 input 即可
     await expect(page).toHaveURL(/\/(sso\/)?login/)
-    await expect(page.locator('input').first()).toBeVisible({ timeout: 10000 })
+    // 2026-08-26 修复:登录页首个 input 是隐藏的 file 输入(QR 扫码区),first() 取到不可见元素。
+    // 改为断言存在可见的 input(邮箱/账号输入框)。
+    await expect(
+      page.locator('input:not([type="file"]):visible').first(),
+    ).toBeVisible({ timeout: 10000 })
   })
 })

@@ -38,20 +38,24 @@ export function usePermissionRequest({ userId }: UsePermissionRequestOptions = {
     if (!userId) return
     let cancelled = false
     void (async () => {
-      const res = await listPendingPermissionRequests()
-      if (cancelled || !res.success) return
-      const items: PermissionRequestPayload[] = (res.data?.requests ?? []).map((r) => ({
-        requestId: r.requestId,
-        userId: r.userId,
-        tool: r.tool,
-        args: r.args,
-        createdAt: r.createdAt,
-      }))
-      if (items.length > 0) {
-        setPendingRequests((prev) => {
-          const known = new Set(prev.map((p) => p.requestId))
-          return [...prev, ...items.filter((i) => !known.has(i.requestId))]
-        })
+      try {
+        const res = await listPendingPermissionRequests()
+        if (cancelled || !res.success) return
+        const items: PermissionRequestPayload[] = (res.data?.requests ?? []).map((r) => ({
+          requestId: r.requestId,
+          userId: r.userId,
+          tool: r.tool,
+          args: r.args,
+          createdAt: r.createdAt,
+        }))
+        if (items.length > 0) {
+          setPendingRequests((prev) => {
+            const known = new Set(prev.map((p) => p.requestId))
+            return [...prev, ...items.filter((i) => !known.has(i.requestId))]
+          })
+        }
+      } catch {
+        // 忽略权限请求拉取错误
       }
     })()
     return () => {

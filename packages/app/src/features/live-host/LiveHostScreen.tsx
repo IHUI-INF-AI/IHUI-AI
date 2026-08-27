@@ -245,7 +245,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: 14,
       fontSize: 16,
       color: tk.text.primary,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
     },
     streamInfo: { marginTop: 8 },
     streamInfoText: { fontSize: 14, color: tk.text.tertiary, marginTop: 8 },

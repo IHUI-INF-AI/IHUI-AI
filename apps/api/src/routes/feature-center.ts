@@ -7,6 +7,7 @@ import { db } from '../db/index.js'
 import { agents, docs, sdks, aiModelConfig } from '@ihui/database'
 import { success } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
+import { fetchProviderHealth, isProviderHardUnavailable } from '../lib/llm-provider-health.js'
 
 // docs/ 目录路径(开发环境从根目录或 apps/api 启动均可,生产环境 = /app/docs)
 const DOCS_DIR = existsSync(join(process.cwd(), 'docs'))
@@ -428,7 +429,14 @@ export const featureCenterRoutes: FastifyPluginAsync = async (server) => {
         .from(aiModelConfig)
         .where(eq(aiModelConfig.enabled, true))
         .limit(200)
-      const list = rows.map((r) => ({
+      // 可用+配额铁律(2026-08-27):按 ai-service provider 健康度剔除硬不可用模型;
+      // health 拉取失败(空 Map)则全保留(宽松,不因瞬时抖动清空)。
+      const healthMap = await fetchProviderHealth()
+      const visibleRows =
+        healthMap.size === 0
+          ? rows
+          : rows.filter((r) => !isProviderHardUnavailable(r.providerCode ?? undefined, healthMap))
+      const list = visibleRows.map((r) => ({
         id: String(r.id),
         name: r.name,
         provider: r.providerCode,

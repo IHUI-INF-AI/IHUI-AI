@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
- * check-tagsview-visual.mjs — TagsView 视觉定稿守门(防回退,2026-08-17 立)
+ * check-tagsview-visual.mjs — 选中态描边定稿守门(防回退,2026-08-17 立,2026-08-18 扩全站)
  *
  * 触发背景(真实回退事故):
  * 8-13 提交 85294855d5 用户反馈"pure black/white 太突兀",active 态定稿为
@@ -10,7 +10,12 @@
  * 用户肉眼察觉"描边怎么变纯白纯黑了"。修复提交 9472c44bca 恢复定稿后,
  * 本守门在每次 commit 时跑,确保定稿不被再次静默回退。
  *
- * 守门项(定稿依据见 TagsView.tsx 注释):
+ * 2026-08-18 扩展:用户确认全站统一,其余 5 处选项选中态(agent-pill /
+ * workspace-permission-dialog / generation-type-selector / question-dialog /
+ * SpecGenerateForm)同步改为 outline-border,本守门新增全站扫描段,
+ * 任何 .tsx/.ts 代码中再出现 outline-black / dark:outline-white 即拦截。
+ *
+ * 守门项(TagsView 专项,定稿依据见 TagsView.tsx 注释):
  * 1. active 态 className 必须含 outline-2 + outline-border(同一字符串)
  * 2. 禁止 outline-black(亮色纯黑描边)
  * 3. 禁止 dark:outline-white(暗色纯白描边)
@@ -19,14 +24,18 @@
  * 6. TagsView.test.tsx 必须含反向断言 not.toContain('outline-black') /
  *    not.toContain('dark:outline-white')(防测试也被回退)
  *
+ * 守门项(全站通用):
+ * 7. apps/web 下所有 .tsx/.ts(app/ + src/)代码字符串禁止 outline-black / dark:outline-white
+ *    (仅检查引号内 className 字符串,注释/测试断言/静态产物豁免)
+ *
  * 用法:
  *   node scripts/check-tagsview-visual.mjs      # 单次守门
  *
  * 退出码: 0=通过, 1=失败(阻塞 commit)
  */
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, resolve } from 'node:path'
+import { dirname, resolve, join, relative } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -120,15 +129,57 @@ if (!existsSync(testPath)) {
   )
 }
 
+// ─── 3. 全站选中态描边守门(2026-08-18 立,2026-08-18 扩展至 apps/web 全目录) ──
+// 扫描 apps/web 下所有 .tsx/.ts(app/ + src/ 全部纳入),仅检查引号内的 className 字符串,
+// 禁止 outline-black / dark:outline-white(用户 8-13 定稿"纯黑/纯白太突兀")。
+// 豁免:__tests__/tests/e2e(测试断言故意含这些词)、out/.next(静态产物)、
+//      TagsView.tsx(专项已查,注释含历史描述)。
+const WEB_ROOT = resolve(ROOT, 'apps/web')
+const EXCLUDE_DIRS = new Set(['__tests__', 'tests', 'e2e', 'node_modules', '.next', 'out'])
+const BANNED = ['outline-black', 'dark:outline-white']
+
+function walkFiles(dir, out) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      if (!EXCLUDE_DIRS.has(entry.name)) walkFiles(join(dir, entry.name), out)
+    } else if (/\.(tsx?|jsx?)$/.test(entry.name)) {
+      out.push(join(dir, entry.name))
+    }
+  }
+}
+
+if (existsSync(WEB_ROOT)) {
+  const files = []
+  walkFiles(WEB_ROOT, files)
+  const hits = []
+  for (const file of files) {
+    if (file.endsWith('TagsView.tsx')) continue
+    const src = readFileSync(file, 'utf8')
+    const code = extractQuotedStrings(src).join('\n')
+    for (const banned of BANNED) {
+      if (code.includes(banned)) hits.push(`${relative(ROOT, file)}: ${banned}`)
+    }
+  }
+  if (hits.length > 0) {
+    errors.push(
+      `全站禁止 outline-black / dark:outline-white(选中态描边定稿),命中 ${hits.length} 处:\n    ` +
+        hits.join('\n    '),
+    )
+    console.log(`  \u2717 全站禁纯黑/纯白描边(命中 ${hits.length} 处,见错误详情)`)
+  } else {
+    console.log('  \u2713 全站禁纯黑/纯白描边(0 命中)')
+  }
+}
+
 // ─── 汇总 ─────────────────────────────────────────────────
 if (errors.length > 0) {
   console.error(
-    `\n❌ TagsView 视觉定稿守门失败(${errors.length} 项),提交已阻止。\n` +
-      '   修复方法:恢复 TagsView 视觉定稿(见 TagsView.tsx / TagsView.test.tsx 注释),' +
-      '不要用 outline-black / dark:outline-white。\n' +
+    `\n❌ 选中态描边定稿守门失败(${errors.length} 项),提交已阻止。\n` +
+      '   修复方法:恢复主题灰描边定稿(TagsView 用 outline-2 outline-border,' +
+      '其他选中态用 outline-1 outline-border),不要用 outline-black / dark:outline-white。\n' +
       '   紧急跳过:HUSKY_SKIP_TAGSVIEW_GUARD=1 git commit ...\n',
   )
   process.exit(1)
 } else {
-  console.log('  \u2713 TagsView 视觉定稿守门全部通过(主题灰描边 / 定稿 token / 测试断言完整)')
+  console.log('  \u2713 选中态描边定稿守门全部通过(主题灰描边 / 定稿 token / 测试断言完整)')
 }

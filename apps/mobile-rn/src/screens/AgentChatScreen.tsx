@@ -7,6 +7,7 @@ import { AgentChatScreen as SharedAgentChatScreen, type AgentChatMessage } from 
 import { VoiceInput } from '../components/VoiceInput'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
+import { rpx } from '../utils/rpx'
 
 type Route = RouteProp<RootStackParamList, 'AgentChat'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -99,5 +100,5 @@ export function AgentChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  voiceRow: { paddingHorizontal: 16, paddingBottom: 12 },
+  voiceRow: { paddingHorizontal: rpx(32), paddingBottom: rpx(24) },
 })

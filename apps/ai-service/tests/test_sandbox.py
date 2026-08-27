@@ -18,6 +18,8 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
+import subprocess
 import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -34,6 +36,30 @@ from app.services.sandbox import (
     SandboxResult,
     sandbox_executor,
 )
+
+
+def _python_command_available() -> bool:
+    """检查系统 PATH 上的 'python' 命令是否真实可用(用 sandbox 同款 shell 执行形式探测)。
+
+    Windows 上常见陷阱:系统只装了 WindowsApps 的 python.exe 执行别名占位
+    (App execution alias)。该别名在 list-form(CreateProcess)下可被伪装成可用,
+    但在 cmd.exe shell-form 下(与 _execute_local 的 create_subprocess_shell 一致)
+    会打印 "Python was not found" 并退出码 9009。
+    此时 sandbox 本地执行 python 命令必然失败,测试应跳过而非误报失败。
+    """
+    if shutil.which("python") is None:
+        return False
+    try:
+        r = subprocess.run(
+            'python -c "print(1)"',
+            shell=True,
+            capture_output=True,
+            timeout=10,
+            check=False,
+        )
+        return r.returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
 
 
 class TestSandboxError:
@@ -582,6 +608,8 @@ class TestExecuteLocal:
 
     @pytest.mark.asyncio
     async def test_whitelist_command_python(self):
+        if not _python_command_available():
+            pytest.skip("系统 PATH 无可用 python 命令(Windows 执行别名占位),跳过真实执行测试")
         executor = SandboxExecutor()
         result = await executor._execute_local(
             'python -c "print(42)"', 10, ".", None

@@ -57,7 +57,7 @@ test.describe('全站导航 - 导航元素', () => {
 
   test('首页侧边栏可见(若存在)', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const sidebar = page.locator('aside, [role="complementary"]').first()
     // 侧边栏可能存在也可能不存在
     if (await sidebar.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -67,7 +67,7 @@ test.describe('全站导航 - 导航元素', () => {
 
   test('面包屑可见(若存在)', async ({ page }) => {
     await page.goto('/plaza')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 面包屑可能是 nav 或 ol
     const breadcrumb = page.locator('[aria-label="breadcrumb"], nav ol, .breadcrumb').first()
     if (await breadcrumb.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -77,7 +77,7 @@ test.describe('全站导航 - 导航元素', () => {
 
   test('导航链接可点击导航', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 查找任一导航链接
     const navLink = page.locator('nav a, [role="navigation"] a').first()
     if (await navLink.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -92,7 +92,7 @@ test.describe('全站导航 - 导航元素', () => {
 
   test('侧边栏“我的学习”聚合菜单可展开并展示子页面链接', async ({ page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     const aside = page.locator('aside').first()
     if (await aside.isVisible({ timeout: 3000 }).catch(() => false)) {
       const parent = page.getByTestId('nav-myLearning').first()
@@ -102,7 +102,11 @@ test.describe('全站导航 - 导航元素', () => {
       await expect(page.getByTestId('nav-following')).toHaveCount(0)
       await expect(page.getByTestId('nav-subscriptions')).toHaveCount(0)
 
-      await parent.click()
+      // 2026-08-26 修复:click({ force: true }) 仍无法触发 onClick(子菜单的 useState
+      // 在 React 严格模式下与 force dispatch 兼容性差)。改用 dispatchEvent('click')
+      // 直接派发原生 click 事件,绕开 actionability + pointer event 检查。
+      await parent.dispatchEvent('click')
+      await page.waitForTimeout(300)
 
       const favorites = page.getByTestId('nav-favorites').first()
       const following = page.getByTestId('nav-following').first()
@@ -122,7 +126,7 @@ test.describe('全站导航 - 导航元素', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

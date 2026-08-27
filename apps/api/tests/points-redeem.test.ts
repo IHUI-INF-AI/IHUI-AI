@@ -108,7 +108,22 @@ describe('points-redeem route — /api/points/redeem', () => {
 
   it('GET /points/redeem 成功 → 200 + code:0 + list 长度 + 字段结构', async () => {
     mockAuthed()
-    enqueue([{ id: 'item-1', name: '积分商品A', points: 100, image: 'https://example.com/a.png' }])
+    // 队列顺序:商品列表查询 → findUserPoints 查询
+    enqueue(
+      [{ id: 'item-1', name: '积分商品A', points: 100, image: 'https://example.com/a.png' }],
+      [
+        {
+          id: 'up-1',
+          userId: USER_ID,
+          points: 500,
+          totalEarned: 500,
+          totalSpent: 0,
+          level: 1,
+          experience: 0,
+          updatedAt: new Date(),
+        },
+      ],
+    )
     const res = await server.inject({
       method: 'GET',
       url: `${PREFIX}/points/redeem`,
@@ -118,17 +133,38 @@ describe('points-redeem route — /api/points/redeem', () => {
     expect(body.code).toBe(0)
     expect(body.data.list).toHaveLength(1)
     expect(body.data.total).toBe(1)
+    expect(body.data.balance).toBe(500)
     expect(body.data.list[0]).toEqual({
       id: 'item-1',
       name: '积分商品A',
       points: 100,
       image: 'https://example.com/a.png',
+      // 移动端 PointsMallItem 字段兼容
+      pointsCost: 100,
+      cover: 'https://example.com/a.png',
+      description: '',
+      stock: 0,
     })
   })
 
   it('GET /points/redeem 空列表 → 200 + list:[] + total:0', async () => {
     mockAuthed()
-    enqueue([])
+    // 队列顺序:商品列表查询 → findUserPoints 查询
+    enqueue(
+      [],
+      [
+        {
+          id: 'up-1',
+          userId: USER_ID,
+          points: 0,
+          totalEarned: 0,
+          totalSpent: 0,
+          level: 0,
+          experience: 0,
+          updatedAt: new Date(),
+        },
+      ],
+    )
     const res = await server.inject({
       method: 'GET',
       url: `${PREFIX}/points/redeem`,
@@ -138,5 +174,6 @@ describe('points-redeem route — /api/points/redeem', () => {
     expect(body.code).toBe(0)
     expect(body.data.list).toEqual([])
     expect(body.data.total).toBe(0)
+    expect(body.data.balance).toBe(0)
   })
 })

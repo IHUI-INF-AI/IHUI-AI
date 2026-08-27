@@ -492,6 +492,76 @@ export async function fallbackPoints(
  *
  * 供 rewarded-video-ad 路由调用。
  */
+
+/** 首次分享标记，用于事务内幂等查重（复用 description 字段）。 */
+export const FIRST_SHARE_MARK = 'first_share'
+
+/** 查询用户是否已领取首次分享奖励。 */
+export async function hasClaimedFirstShare(memberId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: eduPointRecords.id })
+    .from(eduPointRecords)
+    .where(
+      and(
+        eq(eduPointRecords.memberId, memberId),
+        eq(eduPointRecords.description, FIRST_SHARE_MARK),
+      ),
+    )
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 发放首次分享奖励（事务 + FOR UPDATE + 事务内幂等查重）。
+ * @returns { beforeBalance, afterBalance }
+ */
+export async function awardFirstSharePoints(
+  memberId: string,
+  amount: number,
+): Promise<{ beforeBalance: number; afterBalance: number }> {
+  return db.transaction(async (tx) => {
+    // 事务内幂等查重：防止并发请求重复发放
+    const claimedRows = await tx
+      .select({ id: eduPointRecords.id })
+      .from(eduPointRecords)
+      .where(
+        and(
+          eq(eduPointRecords.memberId, memberId),
+          eq(eduPointRecords.description, FIRST_SHARE_MARK),
+        ),
+      )
+      .limit(1)
+    if (claimedRows.length > 0) {
+      throw Object.assign(new Error('已领取过首次分享奖励'), { statusCode: 409 })
+    }
+
+    // FOR UPDATE 锁定最新余额行
+    const rows = await tx
+      .select({ balance: eduPointRecords.balance })
+      .from(eduPointRecords)
+      .where(eq(eduPointRecords.memberId, memberId))
+      .orderBy(desc(eduPointRecords.createdAt))
+      .limit(1)
+      .for('update')
+    const beforeBalance = rows[0]?.balance ?? 0
+    const afterBalance = beforeBalance + amount
+
+    const inserted = await tx
+      .insert(eduPointRecords)
+      .values({
+        memberId,
+        point: amount,
+        balance: afterBalance,
+        type: 'rewarded_share_first',
+        description: FIRST_SHARE_MARK,
+      })
+      .returning()
+    const record = inserted[0]
+    if (!record) throw new Error('写入积分记录失败')
+    return { beforeBalance, afterBalance }
+  })
+}
+
 export async function awardAdPoints(
   memberId: string,
   amount: number,

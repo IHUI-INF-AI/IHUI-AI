@@ -262,14 +262,9 @@ test('staged 模式: 空暂存区(无 .ts/.tsx 变更)→ exit 0 跳过', () => 
   }
 })
 
-// TODO: 源脚本 bug,待修复
-// check-tailwind-class-conflict.mjs 的 getStagedAddedLines() 在 'diff --git' 行上
-// 匹配 /\+\+\+\s+b\/(.+)$/,但 '+++' 是 git diff 输出中的独立行(紧跟 'diff --git' 后),
-// 不在 'diff --git' 行上,导致 curFile 始终为 null → addedLinesMap 始终为空 → files
-// 为空 → 脚本始终输出 "暂存区无 .ts/.tsx/.js/.jsx 变更,跳过" 并 exit 0(即使有违规文件)。
-// 修复方法:把 '+++ b/' 解析从 'diff --git' 块中分离为独立判断
-// (参考 check-rounded-full.mjs 已修复版本,2026-07-27 修复同款 bug)。
-test('staged 模式(源脚本 bug,文档化): 暂存含 h 轴冲突违规 → 实际 exit 0 跳过(应 exit 1)', () => {
+// (2026-07-27 修复:把 '+++ b/' 解析从 'diff --git' 块中分离为独立判断,
+// 参考 check-rounded-full.mjs 已修复版本)。
+test('staged 模式: 暂存含 h 轴冲突违规 → exit 1 并报告 [h] + Bad.tsx', () => {
   const dir = createTempGitRepo({
     'apps/web/Base.tsx': `export function Base() {\n  return <div>Base</div>\n}\n`,
   })
@@ -280,19 +275,10 @@ test('staged 模式(源脚本 bug,文档化): 暂存含 h 轴冲突违规 → �
       `export function Bad({a}:{a:boolean}) {\n  return <div className={\`h-4 \${a ? '' : 'h-2'}\`}>x</div>\n}\n`,
     )
     const r = runStaged(dir)
-    // BUG: 因 curFile 始终 null,files 为空,脚本输出"跳过"并 exit 0
-    assert.equal(r.status, 0, '源脚本 bug:有违规也 exit 0(应 exit 1)')
-    assert.match(r.stdout, /跳过|暂存区无/, '源脚本 bug:输出跳过消息(应报告违规)')
+    assert.equal(r.status, 1, 'staged 模式应检测到 h 轴冲突并 exit 1')
+    assert.match(r.stdout, /\[h\]/, 'stdout 应报告 [h] 冲突')
+    assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
 })
-
-// TODO: 源脚本 bug 修复后,把本 todo 转为 regular test 并启用以下断言:
-//   const dir = createTempGitRepo({ 'apps/web/Base.tsx': `...` })
-//   stageFile(dir, 'apps/web/Bad.tsx', `...className={`h-4 ${a ? '' : 'h-2'}`}...`)
-//   const r = runStaged(dir)
-//   assert.equal(r.status, 1, 'staged 模式应检测到 h 轴冲突并 exit 1')
-//   assert.match(r.stdout, /\[h\]/, 'stdout 应报告 [h] 冲突')
-//   assert.match(r.stdout, /Bad\.tsx/, 'stdout 应列出违规文件 Bad.tsx')
-test.todo('staged 模式(源脚本 bug 修复后): 暂存含 h 轴冲突违规 → 应 exit 1')
