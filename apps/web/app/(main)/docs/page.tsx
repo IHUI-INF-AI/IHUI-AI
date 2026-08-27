@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { BackButton } from '@/components/common'
+import { BookOpen, Rocket, Container, Wrench } from 'lucide-react'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -140,7 +141,7 @@ const docSections = [
   {
     title: '使用说明手册',
     description: '面向终端用户的图文教程(无需技术背景)',
-    icon: '📖',
+    icon: BookOpen,
     items: [
       { name: '使用说明手册', href: '/docs/manual', desc: '7 章:注册 / 对话 / Agent / 知识库 / 积分 / 账户 / FAQ' },
     ],
@@ -148,7 +149,7 @@ const docSections = [
   {
     title: '快速开始',
     description: '5 分钟从注册到发布',
-    icon: '🚀',
+    icon: Rocket,
     items: [
       { name: '快速开始', href: '/docs/quickstart', desc: '5 分钟上手,在线版 + 自托管' },
     ],
@@ -156,7 +157,7 @@ const docSections = [
   {
     title: '部署与运维',
     description: '生产环境部署、监控、扩展',
-    icon: '🐳',
+    icon: Container,
     items: [
       { name: '自托管部署', href: '/docs/self-host', desc: 'Docker Compose + K8s Helm' },
     ],
@@ -176,7 +177,7 @@ const docSections = [
   {
     title: '开发者',
     description: 'API、SDK、Webhook',
-    icon: '🛠️',
+    icon: Wrench,
     items: [
       { name: 'API 参考', href: '/docs/api', desc: 'REST API + OpenAPI 3.1' },
       { name: '团队协作', href: '/docs/team', desc: 'RBAC + SSO + 审计' },
@@ -197,7 +198,9 @@ export default function DocsIndexPage() {
         {docSections.map((section) => (
           <section key={section.title} className="rounded-2xl border bg-card p-4 min-[768px]:p-6">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">{section.icon}</span>
+              <span className="text-2xl">
+                {typeof section.icon === 'string' ? section.icon : <section.icon className="h-6 w-6" />}
+              </span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">

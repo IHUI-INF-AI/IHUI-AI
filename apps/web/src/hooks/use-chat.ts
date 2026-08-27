@@ -194,43 +194,35 @@ async function tryHandleAutoTaskSlash(
 /** /plan & /act 动作型斜杠命令(2026-07-25 立,对标 Trae SOLO Plan 模式)
  * - /plan [可选说明]:切换到 ChatMode.plan(只读分析,deny write 工具)。后续说明文字被忽略(纯动作命令)。
  * - /act [可选说明]:切换到 ChatMode.build(正常执行,全工具开放,默认)。
- * - /build /review /spec 同理(2026-07-28 补全 ChatMode 4 态 / 命令通道)。
  * - 命中即返回 true,不发送给 LLM,清空输入框。toast 给反馈。
- * - 仅当输入完全匹配 /plan /act /build /review /spec 开头(后接空白或行尾)时命中,避免误伤。 */
-function tryHandlePlanModeSlash(text: string): boolean {
+ * - 仅当输入完全匹配 /plan /act 开头(后接空白或行尾)时命中,避免误伤。
+ * - 2026-08-27 修复:/build /review /spec 不再由此 handler 拦截(移交下方
+ *   tryHandleChatModeSlash)—— 原先两 handler 功能重叠,plan 版恒先命中,
+ *   ChatMode 版成死代码且 toast 硬编码中文(非 zh-CN locale 泄漏中文文案)。
+ * - t: next-intl 翻译函数(useChat 顶层 useTranslations('chat') 传入,与
+ *   tryHandleChatModeSlash 一致,toast 文案随 locale 切换)。 */
+function tryHandlePlanModeSlash(
+  text: string,
+  t: (key: string, vars?: Record<string, string>) => string,
+): boolean {
   const trimmed = text.trimStart()
-  // /plan /act /build /review /spec → ChatMode 4 态(2026-07-28 移除独立 PlanActToggle 后,/plan /act 直接走 ChatMode)
-  const m = /^\/(plan|act|build|review|spec)\b\s*/.exec(trimmed)
+  // /plan /act → ChatMode(2026-07-28 移除独立 PlanActToggle 后直接走 ChatMode;
+  // act=build 语义一致,plan=plan 语义一致)
+  const m = /^\/(plan|act)\b\s*/.exec(trimmed)
   if (!m) return false
   const raw = m[1]
-  // 映射:plan/act → ChatMode(act=build 语义一致,plan=plan 语义一致)
-  const target: ChatMode = raw === 'act' ? 'build' : (raw as ChatMode)
+  const target: ChatMode = raw === 'act' ? 'build' : 'plan'
+  const labelKey = target === 'build' ? 'modeBuild' : 'modePlan'
+  const descKey = target === 'build' ? 'modeBuildDesc' : 'modePlanDesc'
+  const label = t(labelKey)
   const modeStore = useModeStore.getState()
   if (modeStore.currentMode === target) {
     // 已是目标模式:不重复切换,仅 toast 提示当前模式
-    const label =
-      target === 'build'
-        ? '构建'
-        : target === 'plan'
-          ? '计划'
-          : target === 'review'
-            ? '审查'
-            : '规格'
-    toast.info(`当前已是${label}模式`)
+    toast.info(t('modeAlreadyActive', { mode: label }))
     return true
   }
   modeStore.setMode(target)
-  const label =
-    target === 'build' ? '构建' : target === 'plan' ? '计划' : target === 'review' ? '审查' : '规格'
-  const desc =
-    target === 'build'
-      ? 'AI 将正常执行,全工具开放(Ctrl+1 可快速切换)'
-      : target === 'plan'
-        ? 'AI 将只读分析,不执行写工具(Ctrl+2 可快速切换)'
-        : target === 'review'
-          ? 'AI 将只读审查(Ctrl+3 可快速切换)'
-          : 'AI 将从代码反向生成 spec 文档(Ctrl+4 可快速切换)'
-  toast.success(`已切换到${label}模式`, { description: desc })
+  toast.success(t('modeSwitched', { mode: label }), { description: t(descKey) })
   return true
 }
 
@@ -1131,7 +1123,7 @@ export function useChat(): UseChatReturn {
       // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 Trae SOLO Plan 模式):
       // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
       // - 命中即清空输入框 + toast 反馈
-      if (tryHandlePlanModeSlash(text)) {
+      if (tryHandlePlanModeSlash(text, t)) {
         sendInFlightRef.current = false
         return true
       }

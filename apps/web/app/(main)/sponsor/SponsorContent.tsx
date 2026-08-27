@@ -1,7 +1,19 @@
 'use client'
 
 import * as React from 'react'
-import { Heart, Check, Sparkles, Users, Code, Rocket, Coffee, Wallet } from 'lucide-react'
+import {
+  Heart,
+  Check,
+  Sparkles,
+  Users,
+  Code,
+  Rocket,
+  Coffee,
+  Wallet,
+  Medal,
+  Gem,
+  Trophy,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { Button, Card } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
@@ -12,11 +24,11 @@ const PAYPAL_LINK =
   'https://www.paypal.com/donate/?business=ok502319984@gmail.com&item_name=IHUI+AI+Donation&currency_code=USD'
 
 const TIERS = [
-  { id: 'bronze', emoji: '🥉', accent: false },
-  { id: 'silver', emoji: '🥈', accent: false },
-  { id: 'gold', emoji: '🥇', accent: true },
-  { id: 'platinum', emoji: '💎', accent: false },
-  { id: 'diamond', emoji: '🏆', accent: false },
+  { id: 'bronze', icon: Medal, accent: false },
+  { id: 'silver', icon: Medal, accent: false },
+  { id: 'gold', icon: Medal, accent: true },
+  { id: 'platinum', icon: Gem, accent: false },
+  { id: 'diamond', icon: Trophy, accent: false },
 ] as const
 
 const SPONSOR_LINK = KOFI_LINK
@@ -81,12 +93,14 @@ export function SponsorContent(): React.JSX.Element {
           {t('tiersTitle')}
         </h2>
         <div className="mt-8 grid grid-cols-1 gap-6 min-[768px]:grid-cols-2 min-[1024px]:grid-cols-3">
-          {TIERS.map(({ id, emoji, accent }) => (
+          {TIERS.map(({ id, icon: Icon, accent }) => (
             <Card
               key={id}
               className={`flex flex-col p-6 ${accent ? 'border-primary shadow-md' : ''}`}
             >
-              <div className="text-2xl min-[768px]:text-3xl">{emoji}</div>
+              <div className="text-2xl min-[768px]:text-3xl">
+                <Icon className="h-8 w-8" />
+              </div>
               <h3 className="mt-3 text-lg font-semibold">{t(`tiers.${id}.name`)}</h3>
               <div className="mt-2 text-2xl font-bold text-primary">{t(`tiers.${id}.price`)}</div>
               <ul className="mt-4 space-y-2">

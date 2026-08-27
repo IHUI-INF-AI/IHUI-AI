@@ -509,7 +509,7 @@ export default function EduAiVideoComposePage() {
           {tasks.length === 0 ? (
             <Empty icon={Clapperboard} title={t('noTasks')} />
           ) : (
-            <ul className="divide-y">
+            <ul className="space-y-1">
               {tasks.map((task) => {
                 const TaskStatusIcon = STATUS_ICON[task.status]
                 const isViewing = viewTask?.id === task.id

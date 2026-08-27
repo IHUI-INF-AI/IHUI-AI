@@ -6,8 +6,17 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Plus, Minus, Pin, PanelLeft, ChevronUp, SlidersHorizontal, SquareTerminal, PanelRight } from 'lucide-react'
-import { toast } from '@/components/common'
+import {
+  X,
+  Plus,
+  Minus,
+  Pin,
+  PanelLeft,
+  ChevronUp,
+  SlidersHorizontal,
+  SquareTerminal,
+  PanelRight,
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -581,43 +590,11 @@ export function AISidePanel() {
   }, [open])
 
   // Ctrl+1/2/3/4 切换 ChatMode 4态(2026-07-28 立,补全三通道)
-  // - 仅当 AI 面板打开时生效,避免污染其他页面
-  // - Ctrl+数字 不与打字冲突,故无需排除 textarea/input 聚焦场景
-  // - 与 /build /plan /review /spec 斜杠命令 + AI 自动判断三入口联动
-  //   (2026-07-28 移除 4 按钮后,4 按钮入口废弃,保留 /命令 + Ctrl 快捷键 + AI 自动判断)
-  // - Ctrl+数字 在浏览器默认切换 tab,需 preventDefault 阻止
-  React.useEffect(() => {
-    if (!open) return
-    const onModeShortcut = (e: KeyboardEvent) => {
-      // 仅匹配纯 Ctrl+数字(排除 Shift/Alt/Meta 组合,避免与浏览器其他快捷键冲突)
-      if (!e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
-      const keyMap: Record<string, ChatMode> = {
-        '1': 'build',
-        '2': 'plan',
-        '3': 'review',
-        '4': 'spec',
-      }
-      const target = keyMap[e.key]
-      if (!target) return
-      e.preventDefault()
-      const labelMap: Record<ChatMode, string> = {
-        build: t('modeBuild'),
-        plan: t('modePlan'),
-        review: t('modeReview'),
-        spec: t('modeSpec'),
-      }
-      const label = labelMap[target]
-      const modeStore = useModeStore.getState()
-      if (modeStore.currentMode === target) {
-        toast.info(t('modeAlreadyActive', { mode: label }))
-        return
-      }
-      modeStore.setMode(target)
-      toast.success(t('modeSwitched', { mode: label }))
-    }
-    window.addEventListener('keydown', onModeShortcut)
-    return () => window.removeEventListener('keydown', onModeShortcut)
-  }, [open, t])
+  // 2026-08-27 根因修复:此处监听移至 GlobalHooksProvider(根 Layout)统一消费
+  // `global-shortcut:mode-*` 事件 —— 原实现在本组件条件 useEffect 里(open 且深层
+  // 组件树 hydration 完成才挂载),非 /chat 页面被 use-global-shortcuts preventDefault
+  // 却无功能,且 /chat hydration 未完成时按键静默丢失(E2E 偶发失败根因)。
+  // 快捷键语义不变:Ctrl+1/2/3/4 → build/plan/review/spec,与 /命令 + AI 自动判断联动。
 
   // 拖拽调整宽度
   // 关闭态下拖拽手柄:先 openPanel 再开始 resize,实现"拖拽即打开"
@@ -928,7 +905,11 @@ export function AISidePanel() {
                       : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
                   }
             : workAreaCollapsed
-              ? { flex: '1 1 0%', width: 'auto', transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
+              ? {
+                  flex: '1 1 0%',
+                  width: 'auto',
+                  transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+                }
               : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
         }
       >
