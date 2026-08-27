@@ -47,6 +47,13 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
+.welcome-tip {
+  display: block;
+  margin-top: 32rpx;
+  font-size: 22rpx;
+  color: var(--color-muted-foreground);
+  line-height: 1.5;
+}
 .suggest-list {
   margin-top: 48rpx;
 }

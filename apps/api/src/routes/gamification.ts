@@ -10,7 +10,7 @@ import {
   findSignInHistory,
   findRecentSignInRecords,
   calculateConsecutiveDays,
-  createSignInRecord,
+  signInWithPoints,
   findLevels,
   findCurrentLevel,
 } from '../db/gamification-queries.js'
@@ -64,7 +64,7 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || 'Authentication required'
+      const message = (e as Error).message || '操作失败,请稍后重试'
       return reply.status(statusCode).send(error(statusCode, message))
     }
   })
@@ -183,14 +183,30 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       }
       const consecutiveDays = await calculateConsecutiveDays(userId, today)
       const rewardPoints = calcSignInReward(consecutiveDays)
-      const record = await createSignInRecord({
-        userId,
-        signInDate: today,
-        consecutiveDays,
-        rewardPoints,
-      })
-      const earned = await earnPoints(userId, rewardPoints, 'signin', '每日签到奖励', record.id)
-      return reply.status(201).send(success({ record, points: earned.points }))
+      try {
+        // 签到记录 + 发积分写入同一事务（signInWithPoints 内部 db.transaction）：
+        // 发积分失败则签到一并回滚，避免"已签到但永久丢积分"
+        const { record, points } = await signInWithPoints(
+          {
+            userId,
+            signInDate: today,
+            consecutiveDays,
+            rewardPoints,
+          },
+          '每日签到奖励',
+        )
+        return reply.status(201).send(success({ record, points }))
+      } catch (err) {
+        // 并发双击时 (userId, signInDate) 唯一约束兜底：唯一冲突转 409，而非 500
+        const code =
+          typeof (err as { code?: unknown })?.code === 'string'
+            ? (err as { code?: string }).code
+            : undefined
+        if (code === '23505' || /unique|duplicate/i.test(String((err as Error)?.message ?? ''))) {
+          return reply.status(409).send(error(409, '今日已签到'))
+        }
+        throw err
+      }
     },
   )
 

@@ -117,7 +117,7 @@ test.describe.parallel('WebSocket 集成专项', () => {
 
   test('断线重连(主动断开后自动重连)', async ({ page }: { page: Page }) => {
     await page.goto('/')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     // 验证页面 WS 客户端模块已加载(含重连逻辑)
     const hasWSModule = await page.evaluate(() => typeof window !== 'undefined')
     expect(hasWSModule).toBe(true)

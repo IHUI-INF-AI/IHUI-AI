@@ -45,7 +45,7 @@ const COMPRESS_DESC_DIGIT_PATTERN = /\d+/
 /** 等待 chat 页面就绪 + ContextUsageRing trigger 可见(ICU 变量插值未报错) */
 async function waitForChatWithTrigger(page: import('@playwright/test').Page): Promise<boolean> {
   await page.goto(CHAT_URL, { waitUntil: 'domcontentloaded' }).catch(() => null)
-  await page.waitForLoadState('networkidle').catch(() => {})
+  await page.waitForLoadState('domcontentloaded').catch(() => {})
   // middleware 拦截 / 后端不可用时可能跳走,允许降级
   if (!page.url().includes('/chat')) return false
 
@@ -54,10 +54,12 @@ async function waitForChatWithTrigger(page: import('@playwright/test').Page): Pr
   const trigger = page.locator('button[aria-label]').filter({
     hasText: '',
   })
-  const triggers = await trigger.evaluateAll((els) =>
-    els
-      .map((el) => el.getAttribute('aria-label') ?? '')
-      .filter((label) => TRIGGER_ARIA_LABEL_PATTERN.test(label)),
+  // evaluateAll 回调在浏览器上下文执行,闭包外部常量不可见(2026-08-26 修复:
+  // TRIGGER_ARIA_LABEL_PATTERN 原在回调内引用 → ReferenceError) → 作为第二参数传入。
+  const triggers = await trigger.evaluateAll(
+    (els, pattern) =>
+      els.map((el) => el.getAttribute('aria-label') ?? '').filter((label) => pattern.test(label)),
+    TRIGGER_ARIA_LABEL_PATTERN,
   )
   return triggers.length > 0
 }
@@ -285,7 +287,8 @@ setupTest.describe('next-intl ICU · compressResultDesc 回归', () => {
         .innerText()
         .catch(() => '')) ?? ''
     expect(
-      /404|500|Server-side Exception|找不到页面|not[-_ ]found/i.test(bodyText),
+      // 2026-08-26 修复:原正则 /500/ 误匹配价格文案"API ¥50000"(\b500\b 才匹配独立错误码)
+      /\b404\b|\b500\b|Server-side Exception|找不到页面|not[-_ ]found/i.test(bodyText),
       '页面渲染了 not-found / 500 兜底',
     ).toBe(false)
   })

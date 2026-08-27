@@ -182,25 +182,33 @@ export function useTaskReceiver(token: string | null): UseTaskReceiverReturn {
     if (!connected || wasConnected) return
     if (lastSeenTsRef.current <= 0) return
 
+    let cancelled = false
     void (async () => {
-      const since = lastSeenTsRef.current
-      const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
-        `/api/tasks?since=${since}`,
-      )
-      if (!data) return
-      const list = Array.isArray(data) ? data : (data.tasks ?? [])
-      if (list.length === 0) return
-      setTasks((prev) => {
-        const next = upsertIncremental(prev, list, deviceId, seenIds.current)
-        // 更新 lastSeenTs 为补拉任务中的最大 updatedAt
-        const maxTs = list.reduce((max, t) => Math.max(max, Date.parse(t.updatedAt) || 0), since)
-        if (maxTs > lastSeenTsRef.current) {
-          lastSeenTsRef.current = maxTs
-          saveLastSeenTs(maxTs)
-        }
-        return next
-      })
+      try {
+        const since = lastSeenTsRef.current
+        const data = await apiData<{ tasks: TaskDispatch[] } | TaskDispatch[]>(
+          `/api/tasks?since=${since}`,
+        )
+        if (cancelled || !data) return
+        const list = Array.isArray(data) ? data : (data.tasks ?? [])
+        if (list.length === 0) return
+        setTasks((prev) => {
+          const next = upsertIncremental(prev, list, deviceId, seenIds.current)
+          // 更新 lastSeenTs 为补拉任务中的最大 updatedAt
+          const maxTs = list.reduce((max, t) => Math.max(max, Date.parse(t.updatedAt) || 0), since)
+          if (maxTs > lastSeenTsRef.current) {
+            lastSeenTsRef.current = maxTs
+            saveLastSeenTs(maxTs)
+          }
+          return next
+        })
+      } catch {
+        // 忽略补拉任务错误
+      }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [connected, token, deviceId])
 
   // 消息接收 + toDevice 过滤 + upsert + task-cancelled 处理

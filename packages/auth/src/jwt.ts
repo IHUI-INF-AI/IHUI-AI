@@ -16,7 +16,7 @@ export interface JWTPayload {
 }
 
 const ISSUER = 'ihui-ai'
-const AUDIENCE = 'ihui-ai-users'
+export const AUDIENCE = 'ihui-ai-users'
 const ALG = 'HS256'
 
 /**

@@ -33,7 +33,7 @@ test.describe('分销完整流程', () => {
 
   test('申请分销:申请按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
     await page.waitForTimeout(2000)
@@ -49,7 +49,7 @@ test.describe('分销完整流程', () => {
 
   test('推广:推广链接/二维码区域存在(若已是分销员)', async ({ page }) => {
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
     await page.waitForTimeout(2000)
@@ -60,7 +60,7 @@ test.describe('分销完整流程', () => {
 
   test('佣金:佣金显示存在(若已是分销员)', async ({ page }) => {
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
     await page.waitForTimeout(2000)
@@ -71,7 +71,7 @@ test.describe('分销完整流程', () => {
 
   test('提现:提现按钮存在(若可访问)', async ({ page }) => {
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
     await page.waitForTimeout(2000)
@@ -87,7 +87,7 @@ test.describe('分销完整流程', () => {
 
   test('分销订单列表存在(若可访问)', async ({ page }) => {
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle')
+    await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/distribution')) return
 
     await page.waitForTimeout(2000)
@@ -100,7 +100,7 @@ test.describe('分销完整流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/distribution')
-    await page.waitForLoadState('networkidle').catch(() => {})
+    await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
     )

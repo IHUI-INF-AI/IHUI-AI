@@ -139,7 +139,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 48,
       height: 50,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       alignItems: 'center',
       justifyContent: 'center',
     },

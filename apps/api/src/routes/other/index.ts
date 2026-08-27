@@ -42,9 +42,7 @@ export const otherRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      return reply
-        .status(statusCode)
-        .send({ code: statusCode, message: (e as Error).message || 'Authentication required' })
+      return reply.status(statusCode).send({ code: statusCode, message: '操作失败,请稍后重试' })
     }
   })
 

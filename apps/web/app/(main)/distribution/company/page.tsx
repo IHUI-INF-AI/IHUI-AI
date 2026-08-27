@@ -49,6 +49,9 @@ async function apiDayMonth(): Promise<DayMonthSummary> {
   // 后端 day-month-summary 端点暂不可用时，降级取 commission/summary 的 day，month 暂无数据
   const fallback = await fetchApi<{ commissionDay: number }>('/api/finance/commission/summary')
   return {
+    daySummary: [],
+    monthSummary: [],
+    total: { totalAmount: 0, totalCount: 0 },
     day: fallback.success ? (fallback.data.commissionDay ?? 0) : 0,
     month: null,
   }

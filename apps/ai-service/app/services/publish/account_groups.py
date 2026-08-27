@@ -456,6 +456,27 @@ async def publish_to_group(group_id: str, body: GroupPublish, request: Request) 
 # =============================================================================
 # 批量账号导入 / 导出 / 验证
 # =============================================================================
+@router.get("/accounts/batch-template")
+async def batch_template(request: Request) -> dict[str, Any]:
+    """返回 CSV 模板字符串(含全部平台示例行,凭证字段留空)。
+
+    2026-08-22 新增:与 publish.py::batch_template 等价(同实现),独立注册在 account_groups
+    router 上,满足 test_account_groups.py::TestBatchTemplateEndpoint 直接
+    account_groups.batch_template(request) 调用契约。鉴权:从 request.state.user_id 校验。
+    """
+    _get_user_id(request)  # 仅校验登录,不参与模板生成
+    from app.services.publish.base_adapter import list_all_adapter_classes
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["platform", "nickname", "credential_field1", "credential_field2", "credential_field3"])
+    for cls in list_all_adapter_classes():
+        creds = cls.requires_credentials
+        padded = (creds + ["", "", ""])[:3]
+        writer.writerow([cls.platform_id, f"{cls.platform_name}示例", *padded])
+    return _ok({"csv": buf.getvalue()})
+
+
 @router.post("/accounts/batch-import")
 async def batch_import(body: BatchImportRequest, request: Request) -> dict[str, Any]:
     """批量创建账号(前端解析 CSV 后传 rows 数组)。"""

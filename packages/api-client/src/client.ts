@@ -2109,8 +2109,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       // 用于判断是"后端攒批"还是"前端解析/渲染批量处理"导致非逐字显示。
       const enableStreamDebug =
         typeof process !== 'undefined' &&
-        (process.env.NEXT_PUBLIC_DEBUG_SSE === 'true' ||
-          process.env.NODE_ENV?.includes('dev'))
+        (process.env.NEXT_PUBLIC_DEBUG_SSE === 'true' || process.env.NODE_ENV?.includes('dev'))
       const debugChunkTimer = enableStreamDebug
         ? (() => {
             let lastTime = performance.now()
@@ -2121,7 +2120,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
                 const interval = now - lastTime
                 lastTime = now
                 count++
-                console.log(
+                console.info(
                   `[SSE-DEBUG] #${String(count).padStart(4, '0')} ${label} interval=${interval.toFixed(1)}ms deltaLen=${delta.length} chunkLen=${line.length} delta=${JSON.stringify(delta)}`,
                 )
               },

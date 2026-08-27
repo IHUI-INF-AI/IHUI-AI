@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -75,8 +76,9 @@ def _make_playwright_chain(page_url: str = "https://example.com",
                            wait_for_url_raises: bool = False):
     """创建 Playwright mock 链。
 
-    返回 (mock_async_playwright, mock_page, mock_locator)。
+    返回 (mock_async_playwright, mock_page, mock_locator, mock_context)。
     mock_async_playwright 是可调用对象,async_playwright() 返回 async context manager。
+    mock_context 供 _patch_stealth_browser 直接 patch 反风控工厂使用,避免真实工厂副作用。
     """
     mock_locator = MagicMock()
     mock_locator.first = mock_locator
@@ -93,6 +95,12 @@ def _make_playwright_chain(page_url: str = "https://example.com",
     mock_page.wait_for_timeout = AsyncMock()
     mock_page.evaluate = AsyncMock()
     mock_page.locator = MagicMock(return_value=mock_locator)
+    # human_type/human_click 会对 keyboard 做 await page.keyboard.type/press,
+    # 显式配成 AsyncMock 保证可 await。
+    mock_page.keyboard = AsyncMock()
+    mock_page.keyboard.type = AsyncMock()
+    mock_page.keyboard.press = AsyncMock()
+    mock_page.keyboard.insert_text = AsyncMock()
     if wait_for_url_raises:
         mock_page.wait_for_url = AsyncMock(side_effect=Exception("timeout"))
     else:
@@ -114,7 +122,23 @@ def _make_playwright_chain(page_url: str = "https://example.com",
     mock_cm.__aenter__.return_value = mock_pw_obj
 
     mock_async_playwright = MagicMock(return_value=mock_cm)
-    return mock_async_playwright, mock_page, mock_locator
+    return mock_async_playwright, mock_page, mock_locator, mock_context
+
+
+@contextmanager
+def _patch_stealth_browser(module_path: str, mock_context):
+    """直接 patch 反风控工厂,让 Playwright 适配器测试不跑真实 create_stealth_browser_context。
+
+    真实工厂会:get_account_profile(建目录/生成指纹) → 设备图谱 Redis 绑定 →
+    launch_persistent_context(未配置时 mock 产出协程 page.url) → TLS 注入,
+    在单元测试里既慢又非确定性。参照 test_juejin.py 已通过的同一模式。
+    """
+    with patch(
+        f"{module_path}.create_stealth_browser_context",
+        AsyncMock(return_value=(None, mock_context)),
+    ):
+        with patch(f"{module_path}.close_stealth_context", AsyncMock()):
+            yield
 
 
 # =============================================================================
@@ -564,7 +588,8 @@ class TestWordPressAdapter:
         mock_resp = MagicMock()
         mock_resp.content = xml
         mock_resp.raise_for_status = MagicMock()
-        with patch("app.services.publish.adapters.wordpress.httpx.post", return_value=mock_resp):
+        client = _mock_async_client(post_return=mock_resp)
+        with patch("app.services.publish.adapters.wordpress.httpx.AsyncClient", return_value=client):
             adapter = WordPressAdapter()
             ok, msg = await adapter.verify_credentials({
                 "site_url": "https://blog.example.com",
@@ -594,7 +619,8 @@ class TestWordPressAdapter:
         mock_resp = MagicMock()
         mock_resp.content = xml
         mock_resp.raise_for_status = MagicMock()
-        with patch("app.services.publish.adapters.wordpress.httpx.post", return_value=mock_resp):
+        client = _mock_async_client(post_return=mock_resp)
+        with patch("app.services.publish.adapters.wordpress.httpx.AsyncClient", return_value=client):
             adapter = WordPressAdapter()
             content = PublishContent(format="html", title="WP 文章", html="<p>内容</p>")
             result = await adapter.publish(
@@ -673,24 +699,26 @@ class TestXiaohongshuAdapter:
     async def test_verify_credentials_success(self, monkeypatch):
         """verify_credentials 成功:mock Playwright → page.url 不含 login。"""
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://creator.xiaohongshu.com/creator/home",
         )
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu.async_playwright", mock_pw, raising=False)
-        adapter = XiaohongshuAdapter()
-        ok, msg = await adapter.verify_credentials({"web_session": "sess"})
+        with _patch_stealth_browser("app.services.publish.adapters.xiaohongshu", mock_context):
+            adapter = XiaohongshuAdapter()
+            ok, msg = await adapter.verify_credentials({"web_session": "sess"})
         assert ok is True
         assert "connected" in msg
 
     async def test_verify_credentials_login_redirect(self, monkeypatch):
         """verify_credentials cookie 过期:page.url 含 login → False。"""
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://creator.xiaohongshu.com/login",
         )
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu.async_playwright", mock_pw, raising=False)
-        adapter = XiaohongshuAdapter()
-        ok, msg = await adapter.verify_credentials({"web_session": "expired"})
+        with _patch_stealth_browser("app.services.publish.adapters.xiaohongshu", mock_context):
+            adapter = XiaohongshuAdapter()
+            ok, msg = await adapter.verify_credentials({"web_session": "expired"})
         assert ok is False
         assert "cookie expired" in msg
 
@@ -731,18 +759,19 @@ class TestXiaohongshuAdapter:
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu._HAS_PLAYWRIGHT", True)
         img = tmp_path / "test.jpg"
         img.write_bytes(b"fake image")
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://creator.xiaohongshu.com/publish/publish",
             locator_count=1,
             locator_tag="TEXTAREA",
         )
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu.async_playwright", mock_pw, raising=False)
-        adapter = XiaohongshuAdapter()
-        content = PublishContent(
-            format="image", title="小红书笔记", text="内容",
-            images=[str(img)],
-        )
-        result = await adapter.publish(content, {"web_session": "sess"}, {})
+        with _patch_stealth_browser("app.services.publish.adapters.xiaohongshu", mock_context):
+            adapter = XiaohongshuAdapter()
+            content = PublishContent(
+                format="image", title="小红书笔记", text="内容",
+                images=[str(img)],
+            )
+            result = await adapter.publish(content, {"web_session": "sess"}, {})
         assert result.success is True
         assert result.platform == "xiaohongshu"
         assert result.payload["images_count"] == 1
@@ -751,16 +780,17 @@ class TestXiaohongshuAdapter:
     async def test_publish_no_valid_images(self, monkeypatch):
         """publish 图片路径无效(文件不存在)→ success=False。"""
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://creator.xiaohongshu.com/publish/publish",
         )
         monkeypatch.setattr("app.services.publish.adapters.xiaohongshu.async_playwright", mock_pw, raising=False)
-        adapter = XiaohongshuAdapter()
-        content = PublishContent(
-            format="image", title="笔记", text="内容",
-            images=["/nonexistent/path.jpg"],
-        )
-        result = await adapter.publish(content, {"web_session": "sess"}, {})
+        with _patch_stealth_browser("app.services.publish.adapters.xiaohongshu", mock_context):
+            adapter = XiaohongshuAdapter()
+            content = PublishContent(
+                format="image", title="笔记", text="内容",
+                images=["/nonexistent/path.jpg"],
+            )
+            result = await adapter.publish(content, {"web_session": "sess"}, {})
         assert result.success is False
         assert "no valid image files" in result.error_message
 
@@ -954,24 +984,26 @@ class TestZhihuAdapter:
     async def test_verify_credentials_success(self, monkeypatch):
         """verify_credentials 成功:页面内容不含"登录"或含"写文章"。"""
         monkeypatch.setattr("app.services.publish.adapters.zhihu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_content="<html>欢迎,写文章</html>",
         )
         monkeypatch.setattr("app.services.publish.adapters.zhihu.async_playwright", mock_pw, raising=False)
-        adapter = ZhihuAdapter()
-        ok, msg = await adapter.verify_credentials({"z_c0": "cookie"})
+        with _patch_stealth_browser("app.services.publish.adapters.zhihu", mock_context):
+            adapter = ZhihuAdapter()
+            ok, msg = await adapter.verify_credentials({"z_c0": "cookie"})
         assert ok is True
         assert "connected" in msg
 
     async def test_verify_credentials_login_visible(self, monkeypatch):
         """verify_credentials cookie 过期:页面含"登录"且不含"写文章" → False。"""
         monkeypatch.setattr("app.services.publish.adapters.zhihu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_content="<html>请登录</html>",
         )
         monkeypatch.setattr("app.services.publish.adapters.zhihu.async_playwright", mock_pw, raising=False)
-        adapter = ZhihuAdapter()
-        ok, msg = await adapter.verify_credentials({"z_c0": "expired"})
+        with _patch_stealth_browser("app.services.publish.adapters.zhihu", mock_context):
+            adapter = ZhihuAdapter()
+            ok, msg = await adapter.verify_credentials({"z_c0": "expired"})
         assert ok is False
         assert "cookie expired or invalid" in msg
 
@@ -996,28 +1028,30 @@ class TestZhihuAdapter:
     async def test_publish_publish_button_not_found(self, monkeypatch):
         """publish 按钮未找到:publish_btn.count() == 0 → success=False。"""
         monkeypatch.setattr("app.services.publish.adapters.zhihu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://zhuanlan.zhihu.com/write",
             locator_count=0,
         )
         monkeypatch.setattr("app.services.publish.adapters.zhihu.async_playwright", mock_pw, raising=False)
-        adapter = ZhihuAdapter()
-        content = PublishContent(format="md", title="知乎文章", text="正文内容")
-        result = await adapter.publish(content, {"z_c0": "cookie"}, {})
+        with _patch_stealth_browser("app.services.publish.adapters.zhihu", mock_context):
+            adapter = ZhihuAdapter()
+            content = PublishContent(format="md", title="知乎文章", text="正文内容")
+            result = await adapter.publish(content, {"z_c0": "cookie"}, {})
         assert result.success is False
         assert "publish button not found" in result.error_message
 
     async def test_publish_success(self, monkeypatch):
         """publish 成功:mock Playwright 全链路,wait_for_url 成功 → published_url。"""
         monkeypatch.setattr("app.services.publish.adapters.zhihu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://zhuanlan.zhihu.com/p/123456",
             locator_count=1,
         )
         monkeypatch.setattr("app.services.publish.adapters.zhihu.async_playwright", mock_pw, raising=False)
-        adapter = ZhihuAdapter()
-        content = PublishContent(format="md", title="知乎文章", text="正文内容")
-        result = await adapter.publish(content, {"z_c0": "cookie"}, {})
+        with _patch_stealth_browser("app.services.publish.adapters.zhihu", mock_context):
+            adapter = ZhihuAdapter()
+            content = PublishContent(format="md", title="知乎文章", text="正文内容")
+            result = await adapter.publish(content, {"z_c0": "cookie"}, {})
         assert result.success is True
         assert "zhuanlan.zhihu.com/p/123456" in result.published_url
         assert result.platform_content_id == "123456"
@@ -1025,14 +1059,15 @@ class TestZhihuAdapter:
     async def test_publish_timeout(self, monkeypatch):
         """publish 超时:wait_for_url 抛异常 → success=False。"""
         monkeypatch.setattr("app.services.publish.adapters.zhihu._HAS_PLAYWRIGHT", True)
-        mock_pw, _, _ = _make_playwright_chain(
+        mock_pw, _, _, mock_context = _make_playwright_chain(
             page_url="https://zhuanlan.zhihu.com/write",
             locator_count=1,
             wait_for_url_raises=True,
         )
         monkeypatch.setattr("app.services.publish.adapters.zhihu.async_playwright", mock_pw, raising=False)
-        adapter = ZhihuAdapter()
-        content = PublishContent(format="md", title="知乎文章", text="正文")
-        result = await adapter.publish(content, {"z_c0": "cookie"}, {})
+        with _patch_stealth_browser("app.services.publish.adapters.zhihu", mock_context):
+            adapter = ZhihuAdapter()
+            content = PublishContent(format="md", title="知乎文章", text="正文")
+            result = await adapter.publish(content, {"z_c0": "cookie"}, {})
         assert result.success is False
         assert "publish timeout" in result.error_message

@@ -5,6 +5,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { tryParseJson, isRecord } from '../util/json.js';
 
 export interface SoulProfile {
   preferences: string[];
@@ -77,12 +78,13 @@ export class SoulMemory {
   private load(): SoulProfile {
     if (!fs.existsSync(this.filePath)) return emptyProfile();
     try {
-      const parsed = JSON.parse(fs.readFileSync(this.filePath, 'utf-8')) as Partial<SoulProfile>;
+      const parsed = tryParseJson(fs.readFileSync(this.filePath, 'utf-8'));
+      if (!isRecord(parsed)) return emptyProfile();
       return {
         preferences: Array.isArray(parsed.preferences) ? parsed.preferences : [],
         values: Array.isArray(parsed.values) ? parsed.values : [],
         goals: Array.isArray(parsed.goals) ? parsed.goals : [],
-      };
+      } as SoulProfile;
     } catch {
       return emptyProfile();
     }

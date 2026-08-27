@@ -64,6 +64,9 @@ const ALLOWED_FILES = new Set([
   '__gate_result.txt',
   // 既有跟踪脚本(chat 消息 key 校验,git 跟踪保证合法)
   'check-chat-keys.js',
+  // 测试临时产物(Pytest quick fail 日志,后台进程持有)
+  'tmp-qfr-err.log',
+  'tmp-qfr-out.log',
 ])
 
 /** 根目录合法目录(monorepo 标准结构 + 运行时目录) */
@@ -116,6 +119,11 @@ const ALLOWED_HIDDEN_DIRS = new Set([
   '.vscode',
   '.workbuddy',
   '.deploy.lock',
+  // 2026-08-19 立:React Native C++ native 模块编译 staging 产物
+  // (expo-modules-core / react-native-reanimated / react-native-screens 构建自动生成,
+  //  已被 .gitignore 忽略,不参与 git 跟踪。不加入会在每次 C++ 构建后阻塞 commit)
+  '.cxx-modules-staging',
+  '.cxx-worklets-staging',
 ])
 
 // ============================================================================

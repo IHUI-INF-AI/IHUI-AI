@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import os
-from unittest.mock import patch
 
 import pytest
 
@@ -199,21 +198,22 @@ def test_is_key_configured_local_provider():
     assert status == ProviderStatus.LOCAL
 
 
-def test_is_key_configured_not_configured():
+def test_is_key_configured_not_configured(monkeypatch):
     """未配置 key 的 provider 返回 NOT_CONFIGURED。"""
-    # 清空环境变量确保测试稳定
-    with patch.dict(os.environ, {}, clear=False):
-        for k in ("MOONSHOT_API_KEY",):
-            os.environ.pop(k, None)
-        status = free_provider_registry.is_key_configured("moonshot")
-        assert status == ProviderStatus.NOT_CONFIGURED
+    # 仅精确删除 MOONSHOT_API_KEY,不使用 patch.dict(os.environ, ...):
+    # CPython 的 patch.dict 会快照并恢复整个环境变量,本机 ACC_PRODUCT_CONFIG_V3
+    # 等值 > 32767 字符,Windows 上恢复时抛 ValueError(the environment variable
+    # is longer than 32767 characters),且崩溃时清空 os.environ 会污染后续测试。
+    monkeypatch.delenv("MOONSHOT_API_KEY", raising=False)
+    status = free_provider_registry.is_key_configured("moonshot")
+    assert status == ProviderStatus.NOT_CONFIGURED
 
 
-def test_is_key_configured_configured():
+def test_is_key_configured_configured(monkeypatch):
     """已配置 key 的 provider 返回 CONFIGURED。"""
-    with patch.dict(os.environ, {"MOONSHOT_API_KEY": "sk-test"}):
-        status = free_provider_registry.is_key_configured("moonshot")
-        assert status == ProviderStatus.CONFIGURED
+    monkeypatch.setenv("MOONSHOT_API_KEY", "sk-test")
+    status = free_provider_registry.is_key_configured("moonshot")
+    assert status == ProviderStatus.CONFIGURED
 
 
 def test_is_key_configured_unknown_provider():
@@ -226,17 +226,17 @@ def test_is_key_configured_unknown_provider():
 # =============================================================================
 
 
-def test_list_configured_returns_only_configured():
+def test_list_configured_returns_only_configured(monkeypatch):
     """list_configured 只返回 CONFIGURED 状态的 provider。"""
-    with patch.dict(os.environ, {}, clear=False):
-        # 清空所有 key 确保测试稳定
-        for k in list(os.environ.keys()):
-            if k.endswith("_API_KEY") or k.endswith("_API_TOKEN") or k.endswith("_TOKEN"):
-                os.environ.pop(k, None)
-        configured = free_provider_registry.list_configured()
-        # 本地 LLM 不算 configured(算 local),应不在 configured 列表
-        codes = [p.provider_code for p in configured]
-        assert "ollama" not in codes
+    # 仅精确删除 API key / token 类环境变量,避免 patch.dict 快照整个环境
+    # (Windows 上超长变量恢复会抛 ValueError 并清空 os.environ 污染后续测试)。
+    for k in list(os.environ.keys()):
+        if k.endswith("_API_KEY") or k.endswith("_API_TOKEN") or k.endswith("_TOKEN"):
+            monkeypatch.delenv(k, raising=False)
+    configured = free_provider_registry.list_configured()
+    # 本地 LLM 不算 configured(算 local),应不在 configured 列表
+    codes = [p.provider_code for p in configured]
+    assert "ollama" not in codes
 
 
 def test_list_not_configured_excludes_local():
@@ -356,7 +356,10 @@ def test_llm7_no_key_required():
     p = free_provider_registry.get_by_code("llm7")
     assert p is not None
     assert p.key_env_vars == [], "LLM7 应无需 key"
-    assert "gpt-4o" in p.default_models
+    # 2026-08-25 修复:模型名已从 gpt-4o(已不可用,返回 Model unavailable)更新为
+    # 实时免费模型。注册表 default_models = ['qwen3-235b','mistral-small-3.2','codestral-latest']。
+    assert "qwen3-235b" in p.default_models
+    assert len(p.default_models) >= 1
 
 
 def test_pollinations_no_key_required():

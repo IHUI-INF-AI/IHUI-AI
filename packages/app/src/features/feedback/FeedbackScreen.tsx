@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native'
 import type { FeedbackScreenProps, FeedbackType } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+
+/** 问题截图最多张数(对齐 Uniapp fankui「最多9张」) */
+const MAX_IMAGES = 9
 
 const FEEDBACK_TYPES: FeedbackType[] = ['bug', 'suggestion', 'question', 'other']
 
@@ -26,17 +29,38 @@ export function FeedbackScreen({
   t,
   onSubmit,
   onBack,
+  onPickImages,
   colorScheme = 'light',
 }: FeedbackScreenProps) {
   const [type, setType] = useState<FeedbackType>('bug')
   const [content, setContent] = useState('')
   const [contact, setContact] = useState('')
+  // 问题截图(对齐 Uniapp fankui filePaths,最多 9 张)
+  const [images, setImages] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+
+  const handlePickImages = async () => {
+    if (!onPickImages) return
+    try {
+      const picked = await onPickImages()
+      if (picked.length > 0) {
+        setImages((prev) => [...prev, ...picked].slice(0, MAX_IMAGES))
+        setError('')
+        setSuccess('')
+      }
+    } catch {
+      setError(t('feedback.imagePickFailed'))
+    }
+  }
+
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -48,11 +72,17 @@ export function FeedbackScreen({
     setError('')
     setSuccess('')
     try {
-      const ok = await onSubmit({ type, content: content.trim(), contact: contact.trim() })
+      const ok = await onSubmit({
+        type,
+        content: content.trim(),
+        contact: contact.trim(),
+        images: images.length > 0 ? images : undefined,
+      })
       if (ok) {
         setSuccess(t('feedback.success'))
         setContent('')
         setContact('')
+        setImages([])
       } else {
         setError(t('feedback.failed'))
       }
@@ -108,6 +138,38 @@ export function FeedbackScreen({
             style={styles.input}
           />
 
+          {/* 问题截图上传(对齐 Uniapp fankui「请在此上传你所遇到问题的截图(最多9张)」;未注入选图回调则不渲染) */}
+          {onPickImages ? (
+            <View style={styles.imageSection}>
+              <Text style={styles.label}>{t('feedback.imagesLabel')}</Text>
+              <View style={styles.imageRow}>
+                {images.map((img, index) => (
+                  <View key={`${img}-${index}`} style={styles.imageItem}>
+                    <Image source={{ uri: img }} style={styles.imageThumb} resizeMode="cover" />
+                    <TouchableOpacity
+                      onPress={() => handleRemoveImage(index)}
+                      style={styles.imageRemove}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                      accessibilityLabel={t('common.remove')}
+                    >
+                      <Text style={styles.imageRemoveText}>×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {images.length < MAX_IMAGES ? (
+                  <TouchableOpacity
+                    onPress={handlePickImages}
+                    style={styles.imageAdd}
+                    activeOpacity={0.7}
+                    accessibilityLabel={t('feedback.pickImages')}
+                  >
+                    <Text style={styles.imageAddText}>＋</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {success ? <Text style={styles.successText}>{success}</Text> : null}
 
@@ -162,7 +224,7 @@ function createStyles(tk: AppThemeTokens) {
       minHeight: 80,
       padding: 12,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 14,
     },
@@ -171,10 +233,42 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       paddingHorizontal: 12,
       borderRadius: 12,
-      backgroundColor: '#f5f5f5',
+      backgroundColor: tk.surface.muted,
       color: tk.text.primary,
       fontSize: 14,
     },
+    imageSection: { marginTop: 12 },
+    imageRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+    imageItem: { position: 'relative' },
+    imageThumb: {
+      width: 70, // 140rpx
+      height: 70,
+      borderRadius: 8,
+      backgroundColor: tk.surface.muted,
+    },
+    imageRemove: {
+      position: 'absolute',
+      top: -6,
+      right: -6,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: 'rgba(0,0,0,0.6)',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    imageRemoveText: { color: tk.surface.light, fontSize: 14, lineHeight: 18 },
+    imageAdd: {
+      width: 70,
+      height: 70,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderStyle: 'dashed',
+      borderColor: tk.border.light,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    imageAddText: { fontSize: 24, color: tk.text.tertiary },
     errorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     successText: { fontSize: 14, color: tk.success.DEFAULT, marginTop: 8 },
     submitBtn: {

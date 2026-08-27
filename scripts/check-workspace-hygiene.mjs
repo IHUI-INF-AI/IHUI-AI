@@ -66,6 +66,7 @@ const FILE_WHITELIST = [
   /scripts[\\/]install-g-root-guardian\.ps1$/, // v3.1: 安装脚本(引用 g-root-guardian 路径)
   /scripts[\\/]uninstall-g-root-guardian\.ps1$/, // v3.1: 卸载脚本
   /scripts[\\/]g-root-guardian-status\.ps1$/,  // v3.1: 状态查询脚本
+  /apps[\\/]web[\\/]public[\\/]vs[\\/]/,        // v3.2: Monaco Editor 第三方编译产物(writeLog 包含 projectName 字符串,非项目代码)
 ];
 
 // ===== 违规检测器(分级:blocking 阻塞 / warning 提醒) =====

@@ -155,7 +155,11 @@ describe('taroWebSocketFactory — Taro WebSocket 适配器', () => {
     const client = createNotificationClient(
       { baseUrl: 'http://localhost:8801/api', tokenProvider: () => 'test-token' },
       { onOpen },
-      { webSocketFactory: taroWebSocketFactory },
+      {
+        webSocketFactory: taroWebSocketFactory,
+        // 测试环境禁用 WS ticket 换取(避免真实 HTTP 请求),走降级直连
+        ticketProvider: () => Promise.resolve(null),
+      },
     )
     client.connect()
     await flushMicrotasks()
