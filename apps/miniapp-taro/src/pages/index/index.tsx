@@ -55,6 +55,7 @@ import closeInputPng from '@/assets/remote/images/close_input.png'
 import { rpx } from '@/utils/rpx'
 import * as api from '@/api'
 import type { ChatMessage } from '@/api'
+import { FALLBACK_MODELS } from '@ihui/shared/constants'
 
 import './index.css'
 
@@ -65,24 +66,14 @@ const DEFAULT_AVATAR =
 const SHARE_ZHZ_IMG = '/static/images/share_zhz.png'
 const QRCODE_IMG = '/static/images/qewm.png'
 
-// 本地 mock 模型列表(对齐原项目 modelList 数据源)
-const MOCK_MODELS: ModelItem[] = [
-  {
-    id: 'step-3.7-flash',
-    name: 'Step 3.7 Flash',
-    provider: 'stepfun',
-    context_length: 128000,
-    input_price: 0,
-  },
-  { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', context_length: 128000, input_price: 0 },
-  {
-    id: 'claude-3.5',
-    name: 'Claude 3.5',
-    provider: 'anthropic',
-    context_length: 200000,
-    input_price: 0,
-  },
-]
+// 已验证兜底模型(仅后端 /llm/models 不可达或返回空时降级,映射自共享 FALLBACK_MODELS)
+const FALLBACK_MODEL_ITEMS: ModelItem[] = FALLBACK_MODELS.map((f) => ({
+  id: f.value,
+  name: f.label,
+  provider: f.vendor,
+  context_length: 128000,
+  input_price: 0,
+}))
 
 // 本地 mock 智能体列表(对齐原项目 agentList 数据源)
 const MOCK_AGENTS: AgentInfo[] = [
@@ -714,7 +705,9 @@ export default function Index() {
     sessionId: '',
   }))
 
-  const [models] = useState<ModelItem[]>(MOCK_MODELS)
+  // 模型列表(唯一权威源:后端 /llm/models 已过滤"可用且有配额"模型)
+  const [models, setModels] = useState<ModelItem[]>([])
+  const [modelsLoading, setModelsLoading] = useState(false)
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
   const [inputText, setInputText] = useState('')
 
@@ -736,11 +729,29 @@ export default function Index() {
       ...s,
       isLogin: logged,
       userInfo: info,
-      // 初始化默认选中第一个模型(对齐原项目默认模型)
-      modelName: s.modelName || (MOCK_MODELS[0]?.name ?? ''),
-      selectedModelId: s.selectedModelId ?? MOCK_MODELS[0]?.id,
+      // 初始化默认选中第一个模型(后端列表未加载时用已验证兜底,id 与后端 /llm/models 一致)
+      modelName: s.modelName || (models[0]?.name ?? FALLBACK_MODEL_ITEMS[0]?.name ?? ''),
+      selectedModelId: s.selectedModelId ?? models[0]?.id ?? FALLBACK_MODEL_ITEMS[0]?.id,
     }))
   })
+
+  // 拉取模型列表(唯一权威源:后端过滤后的可用模型);失败/空时降级为共享已验证兜底
+  const loadModels = useCallback(async () => {
+    setModelsLoading(true)
+    try {
+      const res = await api.fetchModels()
+      setModels(res?.models && res.models.length > 0 ? res.models : FALLBACK_MODEL_ITEMS)
+    } catch {
+      setModels(FALLBACK_MODEL_ITEMS)
+    } finally {
+      setModelsLoading(false)
+    }
+  }, [])
+
+  // 仅在列表为空时拉取,避免 useDidShow 重复请求
+  useEffect(() => {
+    if (!models.length) loadModels()
+  }, [models.length, loadModels])
 
   // 下拉刷新(对齐原项目 onPullDownRefresh)
   usePullDownRefresh(() => {
@@ -832,11 +843,11 @@ export default function Index() {
         showMaterialList: false,
       }))
       // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
-      // 简化:从 MOCK_MODELS 取第一个作为默认选中
+      // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
       setTimeout(() => {
         setState((s) => {
           if (s.currentModelType !== type) return s // 用户已切换走,不自动选
-          const firstModel = MOCK_MODELS[0]
+          const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
           if (!firstModel) return s
           return {
             ...s,
@@ -1423,6 +1434,7 @@ export default function Index() {
                     currentType={state.currentModelType}
                     agentActive={state.agentModeActive}
                     onAgentSelect={handleAgentToggle}
+                    loading={modelsLoading}
                   />
                 </View>
               ) : null}
