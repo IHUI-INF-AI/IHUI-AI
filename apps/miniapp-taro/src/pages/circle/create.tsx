@@ -36,9 +36,9 @@ interface FormState {
 }
 
 const VIS_OPTIONS: Array<{ key: Visibility; label: string; icon: string }> = [
-  { key: 'public', label: '公开', icon: '🌍' },
-  { key: 'friends', label: '仅好友', icon: '👥' },
-  { key: 'private', label: '私密', icon: '🔒' },
+  { key: 'public', label: '公开', icon: '/static/images/icons/globe.svg' },
+  { key: 'friends', label: '仅好友', icon: '/static/images/icons/users.svg' },
+  { key: 'private', label: '私密', icon: '/static/images/icons/lock.svg' },
 ]
 
 const VIS_KEY: Record<string, string> = {
@@ -315,7 +315,12 @@ export default function CircleCreatePage() {
                 className={`cc-vis-chip${form.visibility === opt.key ? ' active' : ''}`}
                 onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
               >
-                <Text className="cc-vis-icon">{opt.icon}</Text>
+                <Image
+                  className="cc-vis-icon"
+                  style={{ width: '24rpx', height: '24rpx' }}
+                  src={opt.icon}
+                  mode="aspectFit"
+                />
                 <Text className="cc-vis-text">
                   {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}
                 </Text>

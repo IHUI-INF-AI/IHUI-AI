@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { XCircle } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TopupFailScreenProps } from '../../types'
 
@@ -32,7 +33,7 @@ export function TopupFailScreen({
         <Text style={styles.title}>充值结果</Text>
       </View>
       <View style={styles.body}>
-        <Text style={styles.icon}>❌</Text>
+        <XCircle size={64} color={tk.danger.DEFAULT} />
         <Text style={styles.titleText}>充值失败</Text>
         <View style={styles.card}>
           <Text style={styles.reason}>{reason}</Text>

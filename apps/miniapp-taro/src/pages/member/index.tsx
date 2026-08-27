@@ -285,7 +285,11 @@ export default function MemberIndexPage() {
           {benefits.map((b) => (
             <View key={b.id} className="member-benefit-item">
               <View className="member-benefit-icon">
-                <Text className="member-benefit-icon-text">★</Text>
+                <Image
+                  src="/static/images/icons/star.svg"
+                  mode="aspectFit"
+                  style={{ width: '28rpx', height: '28rpx' }}
+                />
               </View>
               <View className="member-benefit-content">
                 <Text className="member-benefit-title">{b.title}</Text>
@@ -321,7 +325,12 @@ export default function MemberIndexPage() {
       ) : isPermanentVip ? (
         <View className="member-vip-section member-vip-permanent">
           <View className="member-permanent-badge">
-            <Text className="member-crown">♛</Text>
+            <Image
+              className="member-crown"
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/gem.svg"
+              mode="aspectFit"
+            />
             <Text className="member-permanent-text">
               {tt('member.index.permanentActive', '您已是永久 VIP 会员')}
             </Text>

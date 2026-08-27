@@ -1,5 +1,5 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView 组件,不适合共享层
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import type { TFunction, NoteListScreenProps } from '@ihui/types'
@@ -96,9 +96,18 @@ export function NoteListScreen({
                 <Text style={textStyles.cardSummary(tk)}>{item.summary}</Text>
                 <View style={viewStyles.metaRow()}>
                   <Text style={textStyles.author(tk)}>{item.author}</Text>
-                  <Text style={textStyles.meta(tk)}>
-                    ❤ {item.likes} · {item.createdAt}
-                  </Text>
+                  <View
+                    style={{ ...textStyles.meta(tk), display: 'flex', flexDirection: 'row', alignItems: 'center' }}
+                  >
+                    <Image
+                      src="/static/images/icons/heart.svg"
+                      mode="aspectFit"
+                      style={{ width: toRpx(11), height: toRpx(11), marginRight: toRpx(4) }}
+                    />
+                    <Text style={textStyles.meta(tk)}>
+                      {item.likes} · {item.createdAt}
+                    </Text>
+                  </View>
                 </View>
               </View>
             ))

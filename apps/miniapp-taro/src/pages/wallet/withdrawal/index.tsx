@@ -1,4 +1,4 @@
-import { View, Text, Input, Button } from '@tarojs/components'
+import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
@@ -129,7 +129,12 @@ export default function WithdrawalPage() {
                 className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
               >
                 {method === m.value && (
-                  <Text className="text-primary-foreground text-[24rpx] font-bold">✓</Text>
+                  <Image
+                    src="/static/images/icons/check.svg"
+                    mode="aspectFit"
+                    className="text-primary-foreground font-bold"
+                    style={{ width: '24rpx', height: '24rpx' }}
+                  />
                 )}
               </View>
             </View>

@@ -87,7 +87,12 @@ export default function FollowingPage() {
           <Text className="text-[24rpx] text-muted-foreground">{tt('following.people', '人')}</Text>
         </View>
         <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx]">
-          <Text className="mr-[12rpx] text-[28rpx] text-muted-foreground shrink-0">🔍</Text>
+          <Image
+            className="mr-[12rpx] text-muted-foreground shrink-0"
+            style={{ width: '28rpx', height: '28rpx' }}
+            src="/static/images/icons/search.svg"
+            mode="aspectFit"
+          />
           <Input
             className="flex-1 text-[28rpx] text-foreground"
             value={searchText}
@@ -171,7 +176,11 @@ export default function FollowingPage() {
       {/* 空状态:暂无关注 + 去发现更多 */}
       {displayList.length === 0 && !loading ? (
         <View className="mt-[120rpx] flex flex-col items-center">
-          <Text className="text-[80rpx]">💬</Text>
+          <Image
+            style={{ width: '80rpx', height: '80rpx' }}
+            src="/static/images/icons/message-circle.svg"
+            mode="aspectFit"
+          />
           <Text className="mt-[20rpx] text-[28rpx] text-muted-foreground">
             {searchText
               ? tt('following.searchEmpty', '未找到匹配用户')

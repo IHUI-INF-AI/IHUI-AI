@@ -73,12 +73,17 @@ import {
   BookOpen,
   ChevronDown,
   Database,
+  Download,
   FileText,
   Film,
   Image as ImageIcon,
   Menu,
+  MoreHorizontal,
   Music,
+  Pause,
+  Play,
   SquarePen,
+  TriangleAlert,
 } from 'lucide-react-native'
 import Drawer, {
   type DrawerConversationItem,
@@ -955,7 +960,7 @@ function UnsubscribeModal({
       <View style={styles.unsubscribeOverlay}>
         <View style={styles.unsubscribeCard}>
           <View style={styles.unsubscribeIconWrap}>
-            <Text style={styles.unsubscribeIcon}>⚠</Text>
+            <TriangleAlert size={28} color={tokens.danger.DEFAULT} />
           </View>
           <Text style={styles.unsubscribeTitle}>确认退订</Text>
           <Text style={styles.unsubscribeDesc}>
@@ -1346,7 +1351,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                   <View style={[styles.videoPosterPlaceholder, { width: w, height: h }]} />
                 )}
                 <View style={styles.videoPlayIcon}>
-                  <Text style={styles.videoPlayIconText}>▶</Text>
+                  <Play size={24} color={'#ffffff'} style={{ marginLeft: rpx(8) }} />
                 </View>
               </TouchableOpacity>
             </View>
@@ -1458,7 +1463,11 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             activeOpacity={0.7}
             accessibilityLabel={status.playing ? '暂停' : '播放'}
           >
-            <Text style={styles.audioPlayIcon}>{status.playing ? '⏸' : '▶'}</Text>
+            {status.playing ? (
+              <Pause size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
+            ) : (
+              <Play size={16} color={tokens.surface.light} style={{ marginLeft: rpx(4) }} />
+            )}
           </TouchableOpacity>
           {/* 进度条(对齐 Uniapp 行 166-175 原生 <slider> 可拖动)。
               当前用 Pressable 仅支持点击跳转;待安装 @react-native-community/slider
@@ -1481,7 +1490,11 @@ function AudioItem({ item }: { item: AudioContent }): React.JSX.Element {
             accessibilityLabel="下载音频"
             disabled={downloading}
           >
-            <Text style={styles.audioDownloadIcon}>{downloading ? '⋯' : '⬇'}</Text>
+            {downloading ? (
+              <MoreHorizontal size={16} color={tokens.text.secondary} />
+            ) : (
+              <Download size={16} color={tokens.text.secondary} />
+            )}
           </TouchableOpacity>
         </View>
       </View>

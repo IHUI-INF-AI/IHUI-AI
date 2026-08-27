@@ -134,18 +134,33 @@ export default function CompanyPage() {
       <View className="cp-menu-card">
         <View className="cp-menu-grid">
           <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/team')}>
-            <Text className="cp-menu-icon">👥</Text>
+            <Image
+              className="cp-menu-icon"
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/users.svg"
+              mode="aspectFit"
+            />
             <Text className="cp-menu-label">{t('distribution.company.menuTeam')}</Text>
           </View>
           <View
             className="cp-menu-item"
             onClick={() => navigateTo('/pages/distribution/commission')}
           >
-            <Text className="cp-menu-icon">💰</Text>
+            <Image
+              className="cp-menu-icon"
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/wallet.svg"
+              mode="aspectFit"
+            />
             <Text className="cp-menu-label">{t('distribution.company.menuCommission')}</Text>
           </View>
           <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/withdraw')}>
-            <Text className="cp-menu-icon">💸</Text>
+            <Image
+              className="cp-menu-icon"
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/wallet.svg"
+              mode="aspectFit"
+            />
             <Text className="cp-menu-label">{t('distribution.company.menuWithdraw')}</Text>
           </View>
         </View>
