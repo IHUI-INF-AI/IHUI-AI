@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import Taro from '@tarojs/taro'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { getSystemInfoCompat } from '@/utils/system-info'
 // 对勾图标(对齐原项目 UserMembershipBenefits.vue 的 pigeona.png)
 import pigeonaImg from '@/assets/remote/images/pigeona.png'
 
@@ -330,7 +330,7 @@ export default function VipBenefitsPopup({
   // iOS 隐藏"去开通"按钮(App Store 支付合规)。useState 必须在所有条件 return 之前调用。
   const [isIOS] = useState(() => {
     try {
-      return Taro.getSystemInfoSync().platform === 'ios'
+      return getSystemInfoCompat().platform === 'ios'
     } catch {
       return false
     }

@@ -10,6 +10,7 @@ import {
   type UserInfo,
 } from '@/utils/auth'
 import { getShareInfo } from '@/utils/share'
+import { getSystemInfoCompat } from '@/utils/system-info'
 import * as api from '@/api'
 import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
@@ -183,7 +184,7 @@ export default function UserIndex() {
   // isshow: 对齐原项目，iOS 设备标识（UserCard 和会员权益在非 iOS 设备上显示）
   const [isshow] = useState<boolean>(() => {
     try {
-      const systemInfo = Taro.getSystemInfoSync()
+      const systemInfo = getSystemInfoCompat()
       return systemInfo.platform === 'ios'
     } catch {
       return false
