@@ -445,7 +445,8 @@
     "notifOn": "メッセージ通知は有効です",
     "notifOff": "メッセージ通知は無効です",
     "accountSecurity": "アカウントとセキュリティ",
-    "goSetting": "設定へ"
+    "goSetting": "設定へ",
+    "notificationEntry": "通知設定"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -3181,5 +3182,12 @@
   },
   "chat": {
     "send": "送信"
+  },
+  "tabBar": {
+    "community": "コミュニティ",
+    "agent": "AI agent",
+    "square": "スクエア",
+    "user": "マイページ",
+    "share": "シェア"
   }
 }

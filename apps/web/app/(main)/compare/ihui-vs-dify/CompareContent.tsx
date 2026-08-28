@@ -2,36 +2,12 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Check, X, Sparkles, Rocket, Layers } from 'lucide-react'
+import { Check, Sparkles, Rocket, Layers } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 
 import { COMPETITORS } from './compare-content/competitors'
-import type { CellValue, CompetitorConfig } from './compare-content/types'
-
-function Cell({
-  value,
-  isIhui,
-  dimension,
-}: {
-  value: CellValue
-  dimension: string
-  isIhui: boolean
-}) {
-  if (typeof value === 'boolean') {
-    return value ? (
-      <Check
-        className="mx-auto h-5 w-5 text-primary"
-        aria-label={`${isIhui ? 'IHUI AI' : '竞品'}支持 ${dimension}`}
-      />
-    ) : (
-      <X
-        className="mx-auto h-5 w-5 text-muted-foreground/40"
-        aria-label={`${isIhui ? 'IHUI AI' : '竞品'}不支持 ${dimension}`}
-      />
-    )
-  }
-  return <span className="text-sm font-medium">{value}</span>
-}
+import { Cell } from './compare-content/CompareCell'
+import type { CompetitorConfig } from './compare-content/types'
 
 export function CompareContent({
   competitor,
@@ -39,6 +15,22 @@ export function CompareContent({
   competitor: CompetitorConfig['id']
 }): React.JSX.Element {
   const config = COMPETITORS[competitor]
+
+  if (!config) {
+    return (
+      <main className="mx-auto w-full max-w-6xl px-4 py-8 min-[768px]:px-8 min-[768px]:py-8">
+        <section className="space-y-5 text-center">
+          <h1 className="text-2xl min-[768px]:text-4xl min-[1024px]:text-5xl font-bold tracking-tight">
+            对比页面开发中
+          </h1>
+          <p className="mx-auto max-w-3xl text-base text-muted-foreground min-[768px]:text-lg">
+            {competitor} 的详细对比内容即将上线，敬请期待。
+          </p>
+        </section>
+      </main>
+    )
+  }
+
   const yesCount = config.rows.filter((r) => r.ihui === true).length
   const competitorYesCount = config.rows.filter((r) => r.competitor === true).length
   const competitorLimitedCount = config.rows.filter(

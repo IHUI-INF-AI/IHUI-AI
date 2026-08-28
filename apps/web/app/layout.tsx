@@ -533,7 +533,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </GlobalHooksProvider>
               </TooltipProvider>
             </QueryProvider>
-            <Toaster position="top-center" richColors closeButton style={{ zIndex: 3000 }} />
+            <Toaster
+              position="top-center"
+              richColors
+              closeButton
+              style={{ zIndex: 'var(--z-notification)' }}
+            />
           </I18nProvider>
         </ThemeProvider>
         <Script

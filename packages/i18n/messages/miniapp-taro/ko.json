@@ -445,7 +445,8 @@
     "notifOn": "메시지 알림이 활성화되었습니다",
     "notifOff": "메시지 알림이 비활성화되었습니다",
     "accountSecurity": "계정 및 보안",
-    "goSetting": "설정으로 이동"
+    "goSetting": "설정으로 이동",
+    "notificationEntry": "알림"
   },
   "error": {
     "network": "네트워크 오류"
@@ -3181,5 +3182,12 @@
   },
   "chat": {
     "send": "전송"
+  },
+  "tabBar": {
+    "community": "커뮤니티",
+    "agent": "AI agent",
+    "square": "광장",
+    "user": "내 정보",
+    "share": "공유"
   }
 }

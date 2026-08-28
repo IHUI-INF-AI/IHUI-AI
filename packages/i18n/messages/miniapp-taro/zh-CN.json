@@ -427,7 +427,8 @@
     "notifOn": "已开启消息通知",
     "notifOff": "已关闭消息通知",
     "accountSecurity": "账号与安全",
-    "goSetting": "去设置"
+    "goSetting": "去设置",
+    "notificationEntry": "消息通知"
   },
   "error": {
     "network": "网络错误"
@@ -3148,5 +3149,12 @@
   },
   "chat": {
     "send": "发送"
+  },
+  "tabBar": {
+    "community": "智汇社区",
+    "agent": "AI agent",
+    "square": "广场",
+    "user": "我的",
+    "share": "分享星球"
   }
 }

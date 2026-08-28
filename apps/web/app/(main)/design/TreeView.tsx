@@ -1,0 +1,77 @@
+'use client'
+
+import { useState } from 'react'
+import { ChevronRight, ChevronDown } from 'lucide-react'
+import type { TreeNode } from './design-types'
+
+/** 递归渲染树节点(可折叠/展开,点击节点 postMessage 高亮 iframe 元素)。 */
+export function TreeView({
+  node,
+  depth,
+  selectedElementId,
+  onSelect,
+}: {
+  node: TreeNode
+  depth: number
+  selectedElementId: string
+  onSelect: (n: TreeNode) => void
+}) {
+  const [collapsed, setCollapsed] = useState(depth >= 2)
+  const hasChildren = node.children.length > 0
+  const isSelected = selectedElementId === node.id || (!selectedElementId && depth === 0)
+  const label =
+    node.tagName +
+    (node.id ? `#${node.id}` : '') +
+    (node.className ? `.${node.className.split(/\s+/)[0]}` : '')
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => {
+          onSelect(node)
+          if (hasChildren) setCollapsed((v) => !v)
+        }}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          width: '100%',
+          padding: '3px 6px',
+          border: 'none',
+          background: isSelected ? 'var(--accent-soft, rgba(0,0,0,0.06))' : 'transparent',
+          borderRadius: 4,
+          textAlign: 'left',
+          fontSize: 11,
+          cursor: 'pointer',
+          color: 'var(--text, inherit)',
+        }}
+      >
+        <span style={{ width: 10, fontSize: 10, color: 'var(--muted)' }}>
+          {hasChildren ? (
+            collapsed ? (
+              <ChevronRight size={10} />
+            ) : (
+              <ChevronDown size={10} />
+            )
+          ) : (
+            <span>·</span>
+          )}
+        </span>
+        <span style={{ fontFamily: 'monospace' }}>{label}</span>
+      </button>
+      {!collapsed && hasChildren && (
+        <div style={{ paddingLeft: 12 }}>
+          {node.children.map((child, i) => (
+            <TreeView
+              key={`${child.tagName}-${child.index}-${i}`}
+              node={child}
+              depth={depth + 1}
+              selectedElementId={selectedElementId}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

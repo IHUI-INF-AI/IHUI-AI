@@ -15,7 +15,7 @@ import type { CarouselItem } from '@ihui/types'
  * 颜色通过 `getRnTokens(colorScheme)` 共享注入,保持与 web 端主题一致。
  *
  * 自动播放:用 setInterval + setCurrentState 内联实现,等价共享 hook useAutoPlay。
- * 容器宽度用 `Taro.getSystemInfoSync().windowWidth` 替代 web window.innerWidth。
+ * 容器宽度用 `Taro.getWindowInfo().windowWidth` 替代 web window.innerWidth。
  */
 export interface CarouselProps {
   banner: CarouselItem[]
@@ -31,7 +31,7 @@ const DEFAULT_HEIGHT = 160
 function getWindowWidth(): number {
   if (typeof window === 'undefined') return 375
   // web/H5 端直接读 window.innerWidth;Taro 端调用方可在 useEffect 中通过
-  // `Taro.getSystemInfoSync()` 注入 windowWidth(典型场景:页面 onLoad 时设置全局)。
+  // `Taro.getWindowInfo()` 注入 windowWidth(典型场景:页面 onLoad 时设置全局)。
   // 适配层不直接 require('@tarojs/taro') 以保持 ESM 纯净 + 避免 SSR/单测环境找不到。
   return window.innerWidth || 375
 }
