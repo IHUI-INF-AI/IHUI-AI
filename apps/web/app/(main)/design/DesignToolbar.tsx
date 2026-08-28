@@ -61,6 +61,24 @@ export function DesignToolbar({
   onOpenTemplates,
 }: DesignToolbarProps) {
   const t = useTranslations()
+  // 设备名走静态字面量 t() 调用(死 key 扫描器只识别字面量引用),
+  // responsive-devices.ts 的 nameKey 字段是动态引用,扫描器不可见
+  const deviceLabel = (id: string): string => {
+    switch (id) {
+      case 'mobile-portrait':
+        return t('design.responsive.deviceMobilePortrait')
+      case 'mobile-landscape':
+        return t('design.responsive.deviceMobileLandscape')
+      case 'tablet-portrait':
+        return t('design.responsive.deviceTabletPortrait')
+      case 'tablet-landscape':
+        return t('design.responsive.deviceTabletLandscape')
+      case 'desktop':
+        return t('design.responsive.deviceDesktop')
+      default:
+        return t('design.responsive.deviceCustom')
+    }
+  }
   return (
     <header
       style={{
@@ -231,10 +249,8 @@ export function DesignToolbar({
           {RESPONSIVE_DEVICES.map((device) => {
             const isLandscape = device.id === 'mobile-landscape' || device.id === 'tablet-landscape'
             const isSelected = selectedDeviceId === device.id
-            const title =
-              device.width > 0
-                ? `${t(device.nameKey)} (${device.width}×${device.height})`
-                : t(device.nameKey)
+            const label = deviceLabel(device.id)
+            const title = device.width > 0 ? `${label} (${device.width}×${device.height})` : label
             return (
               <Tooltip key={device.id} content={title}>
                 <button

@@ -9054,7 +9054,13 @@
     "responsive": {
       "apply": "Apply",
       "customWidth": "Custom Width",
-      "deviceFrame": "Device Frame"
+      "deviceCustom": "Custom",
+      "deviceDesktop": "Desktop",
+      "deviceFrame": "Device Frame",
+      "deviceMobileLandscape": "Mobile Landscape",
+      "deviceMobilePortrait": "Mobile Portrait",
+      "deviceTabletLandscape": "Tablet Landscape",
+      "deviceTabletPortrait": "Tablet Portrait"
     },
     "saveFailed": "Save failed: {error}",
     "savePreview": "Save Preview",
