@@ -124,6 +124,9 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
   }
 
   test('5 语言连续切换:每次都生效,无累积状态泄漏', async ({ page }) => {
+    // 2026-08-28 修复:switchLocale 内部有界重试(4 次 × 12s),5 语言最坏 ~240s,
+    // 默认 30s 测试超时在高负载下不够 → 放宽到 150s
+    test.setTimeout(150_000)
     const { consoleErrors } = attachErrorGuards(page)
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     await page.waitForLoadState('domcontentloaded')
