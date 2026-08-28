@@ -10,6 +10,7 @@ const __dirname = dirname(__filename)
 const ROOT = resolve(__dirname, '..')
 
 const TOKENS_SOURCE = resolve(ROOT, '../../packages/design-tokens/src/styles/tokens.css')
+const BASE_CSS_SOURCE = resolve(ROOT, '../../packages/design-tokens/src/styles/base.css')
 const APP_CSS_TARGET = resolve(ROOT, 'src/app.css')
 const STYLE_TS_TARGET = resolve(ROOT, 'src/constants/style.ts')
 // COLORS 字段 → tokens.css 变量名映射表
@@ -304,6 +305,26 @@ ${formatBlock(darkLines, '  ')}
 
   newAppCss = newAppCss.replace(rootRegex, newRootBlock)
   newAppCss = newAppCss.replace(darkRegex, newDarkBlock)
+
+  // base.css 同步:把共享基础样式内联进 app.css(替换跨包 @import)。
+  // 背景:app.css 首行 @import '../../../packages/design-tokens/src/styles/base.css' 在
+  // Taro 编译时不被内联,产物 dist/app-origin.wxss 残留相对路径,微信 IDE 以 dist 为根
+  // 解析失败 → [WXSS 文件编译错误] path ... not found from ./app-origin.wxss。
+  const baseCssContent = readFileSync(BASE_CSS_SOURCE, 'utf8')
+  const baseCssBlock = `/* ===== 共享基础样式(自动同步自 packages/design-tokens/src/styles/base.css,勿手动编辑;变更后运行 sync-design-tokens.mjs)===== */
+${baseCssContent.trim()}
+/* ===== 共享基础样式结束(自动生成,勿手动编辑)===== */
+`
+  const baseImportRegex = /@import\s+['"][^'"]*packages\/design-tokens\/src\/styles\/base\.css['"];\s*/
+  const baseBlockRegex = /\/\* ===== 共享基础样式[\s\S]*?===== 共享基础样式结束\(自动生成,勿手动编辑\)===== \*\/\s*/
+  if (baseImportRegex.test(newAppCss)) {
+    newAppCss = newAppCss.replace(baseImportRegex, baseCssBlock)
+  } else if (baseBlockRegex.test(newAppCss)) {
+    newAppCss = newAppCss.replace(baseBlockRegex, baseCssBlock)
+  } else {
+    console.error('[sync-design-tokens] app.css 中未找到 base.css 的 @import 或同步块')
+    process.exit(1)
+  }
 
   // style.ts 同步:从未过滤的变量构建 Map,生成 COLORS 常量
   const themeMap = buildVarMap(themeLinesRaw)

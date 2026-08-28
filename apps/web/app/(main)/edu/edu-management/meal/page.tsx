@@ -24,7 +24,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, toast } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -925,7 +925,7 @@ export default function MealPage() {
       setShoppingListData(data)
       setShoppingListOpen(true)
     } catch (e: unknown) {
-      alert((e as { message?: string }).message ?? '生成采购清单失败')
+      toast.error((e as { message?: string }).message ?? '生成采购清单失败')
     } finally {
       setGeneratingShopping(false)
     }

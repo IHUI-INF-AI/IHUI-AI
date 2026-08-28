@@ -12,8 +12,10 @@ import { SensitiveWordDialog } from './SensitiveWordDialog'
 import { api, EMPTY } from './helpers'
 import type { SensitiveWord, SensitiveWordForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function SensitiveWordsPage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const t = useTranslations('admin.sensitiveWords')
   const tc = useTranslations('common')
   const qc = useQueryClient()
@@ -92,8 +94,8 @@ export default function SensitiveWordsPage() {
     }
     saveMut.mutate()
   }
-  function handleDelete(item: SensitiveWord) {
-    if (!confirm('确认删除该敏感词？')) return
+  async function handleDelete(item: SensitiveWord) {
+    if (!(await confirm({ title: '确认删除该敏感词？', variant: 'destructive' }))) return
     deleteMut.mutate(item.id)
   }
 
@@ -127,6 +129,7 @@ export default function SensitiveWordsPage() {
         onSubmit={submit}
         onClose={close}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }
