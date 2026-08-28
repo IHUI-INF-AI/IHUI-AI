@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useState } from 'react'
 
@@ -10,10 +11,11 @@ export interface TagInputProps {
 
 export default function TagInput({
   value = [],
-  placeholder = '输入后回车添加',
+  placeholder = t('TagInput.p1'),
   max = 10,
   onChange,
 }: TagInputProps) {
+  const tt = useTt()
   const [input, setInput] = useState('')
 
   const addTag = () => {
@@ -43,7 +45,7 @@ export default function TagInput({
       ))}
       <Input
         className="flex-1 min-w-20 text-sm"
-        placeholder={value.length >= max ? '已达上限' : placeholder}
+        placeholder={value.length >= max ? tt('TagInput.p2', '已达上限') : placeholder}
         value={input}
         onInput={(e) => setInput(e.detail.value)}
         onConfirm={addTag}

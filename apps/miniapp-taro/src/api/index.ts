@@ -1,6 +1,7 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { BASE_URL } from '../utils/api-config'
 import { getToken, type UserInfo, type LoginResult } from '../utils/auth'
@@ -301,7 +302,7 @@ export const chatStream = (
         }),
         signal,
       })
-      if (!res.ok || !res.body) throw new Error(`请求失败(${res.status})`)
+      if (!res.ok || !res.body) throw new Error(t('api.y1', { p1: res.status }))
       const reader = res.body.getReader()
       while (true) {
         const { done, value } = await reader.read()
@@ -360,7 +361,7 @@ export const chatStream = (
           }
         }
         if (res.statusCode >= 400) {
-          const err = new Error(`请求失败(${res.statusCode})`) as Error & { code: number }
+          const err = new Error(t('api.y2', { p1: res.statusCode })) as Error & { code: number }
           err.name = 'SSEError'
           err.code = res.statusCode
           cleanupAbort()

@@ -1,9 +1,9 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView 组件,不适合共享层
+import { useTt, type TtFn } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /**
  * Taro 适配层:MessageCenterScreen
@@ -63,20 +63,20 @@ const TABS: MessageTab[] = ['system', 'order', 'course', 'social']
 const toRpx = (px: number): string => `${px * 2}rpx`
 
 /** i18n 硬编码 fallback(三级降级最末层) */
-const FALLBACK: Record<string, string> = {
-  'common.back': '返回',
-  'common.loading': '加载中...',
-  'messageCenter.title': '消息中心',
-  'messageCenter.empty': '暂无消息',
-  'messageCenter.type.system': '系统',
-  'messageCenter.type.order': '订单',
-  'messageCenter.type.course': '课程',
-  'messageCenter.type.social': '社交',
-  'messageCenter.tab.system': '系统',
-  'messageCenter.tab.order': '订单',
-  'messageCenter.tab.course': '课程',
-  'messageCenter.tab.social': '社交',
-}
+const FALLBACK = (tt: TtFn): Record<string, string> => ({
+  'common.back': tt('common.back', '返回'),
+  'common.loading': tt('common.loadingShort', '加载中...'),
+  'messageCenter.title': tt('message.center', '消息中心'),
+  'messageCenter.empty': tt('message.empty', '暂无消息'),
+  'messageCenter.type.system': tt('message.tabs.system', '系统'),
+  'messageCenter.type.order': tt('order.title', '订单'),
+  'messageCenter.type.course': tt('coursePlanet.course', '课程'),
+  'messageCenter.type.social': tt('messageCenter.type.social', '社交'),
+  'messageCenter.tab.system': tt('message.tabs.system', '系统'),
+  'messageCenter.tab.order': tt('order.title', '订单'),
+  'messageCenter.tab.course': tt('coursePlanet.course', '课程'),
+  'messageCenter.tab.social': tt('messageCenter.type.social', '社交'),
+})
 
 /** 容器样式(独立函数避免 style 联合类型) */
 const viewStyles = {
@@ -257,7 +257,7 @@ export function MessageCenterScreen({
   const t: TFunction =
     tProp ??
     ((key, options) => {
-      const fb = FALLBACK[key] ?? key
+      const fb = FALLBACK(tt)[key] ?? key
       return tt(key, fb, options)
     })
 

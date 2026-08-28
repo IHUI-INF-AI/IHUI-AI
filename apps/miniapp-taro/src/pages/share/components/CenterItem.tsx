@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 
@@ -25,6 +26,7 @@ export interface CenterItemProps {
 }
 
 export default function CenterItem({ items, onItemClick }: CenterItemProps) {
+  const tt = useTt()
   if (!items.length) return null
   return (
     <View
@@ -45,7 +47,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
           display: 'block',
         }}
       >
-        推荐卡片
+        {tt('shareCenterItem.text1', '推荐卡片')}
       </Text>
       <View
         style={{
@@ -146,7 +148,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
                       color: 'var(--color-muted-foreground)',
                     }}
                   >
-                    {item.views} 浏览
+                    {item.views} {tt('shareCenterItem.z1', '浏览')}
                   </Text>
                 ) : null}
               </View>

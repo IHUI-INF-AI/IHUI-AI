@@ -1,8 +1,8 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -18,12 +18,12 @@ interface ListResponse {
 /** 文件类型 tab:全部(0)/文本(1)/音频(2)/图片(3)/视频(4) */
 type FileType = 0 | 1 | 2 | 3 | 4
 
-const FILE_TABS: { key: FileType; labelKey: string; fallback: string }[] = [
-  { key: 0, labelKey: 'ranking.tabAll', fallback: '全部' },
-  { key: 1, labelKey: 'ranking.tabText', fallback: '文本' },
-  { key: 2, labelKey: 'ranking.tabAudio', fallback: '音频' },
-  { key: 3, labelKey: 'ranking.tabImage', fallback: '图片' },
-  { key: 4, labelKey: 'ranking.tabVideo', fallback: '视频' },
+const FILE_TABS = (tt: TtFn): { key: FileType; labelKey: string; fallback: string }[] => [
+  { key: 0, labelKey: 'ranking.tabAll', fallback: tt('common.all', '全部') },
+  { key: 1, labelKey: 'ranking.tabText', fallback: tt('aigc.list.catText', '文本') },
+  { key: 2, labelKey: 'ranking.tabAudio', fallback: tt('aigc.list.catAudio', '音频') },
+  { key: 3, labelKey: 'ranking.tabImage', fallback: tt('aigc.list.catImage', '图片') },
+  { key: 4, labelKey: 'ranking.tabVideo', fallback: tt('aigc.list.catVideo', '视频') },
 ]
 
 const PAGE_SIZE = 10
@@ -152,7 +152,7 @@ export default function RankingIndex() {
       {/* 文件类型筛选 tab */}
       <ScrollView scrollX className="whitespace-nowrap bg-card">
         <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
-          {FILE_TABS.map((tab) => (
+          {FILE_TABS(tt).map((tab) => (
             <View
               key={tab.key}
               className={`inline-flex items-center justify-center py-[12rpx] px-[32rpx] mr-[16rpx] bg-background border border-border rounded-[8rpx] ${fileType === tab.key ? 'bg-primary border-primary' : ''}`}

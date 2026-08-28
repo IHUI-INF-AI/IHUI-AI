@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, getCurrentInstance } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
@@ -6,7 +7,6 @@ import { showShareMenu } from '@/utils/share'
 import { logger } from '@/utils/logger'
 import { NavBar } from '@/components'
 import ErrorView from '@/components/ErrorView'
-import { useI18n } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 
 interface ShareAnswer {

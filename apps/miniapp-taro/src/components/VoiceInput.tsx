@@ -1,7 +1,7 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import streamingRecognizer from '@/utils/streaming-recognizer'
-import { useTt } from '@/i18n'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 
 // 共享类型 VoiceInputMinimalProps 已下沉到 @ihui/types,
@@ -54,9 +54,11 @@ export default function VoiceInput({
       setRecording(true)
       timerRef.current = setInterval(() => setElapsed((n) => n + 1), 1000)
     } catch (err) {
-      cbRef.current.onError?.(String((err as Error)?.message || '录音启动失败'))
+      cbRef.current.onError?.(
+        String((err as Error)?.message || tt('VoiceInput.p1', '录音启动失败')),
+      )
     }
-  }, [disabled, recording])
+  }, [disabled, recording, tt])
 
   const stopRecord = useCallback(async () => {
     if (!recording) return

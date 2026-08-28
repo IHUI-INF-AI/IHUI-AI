@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 
 export interface ConfirmDialogProps {
@@ -12,10 +13,10 @@ export interface ConfirmDialogProps {
 
 export default function ConfirmDialog({
   visible = false,
-  title = '提示',
+  title = t('common.hint'),
   content = '',
-  confirmText = '确认',
-  cancelText = '取消',
+  confirmText = t('common.confirm'),
+  cancelText = t('common.cancel'),
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {

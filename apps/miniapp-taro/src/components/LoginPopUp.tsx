@@ -1,7 +1,7 @@
+import { useTt } from '@/i18n'
 import { useState } from 'react'
 import Taro from '@tarojs/taro'
 import { View, Text, Image, Input, Button } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 /**
  * LoginPopUp 登录弹窗 — 对齐原项目 loginPopUp/index.vue

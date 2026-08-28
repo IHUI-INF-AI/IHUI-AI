@@ -1,9 +1,9 @@
+import { useTt, useI18n, type TtFn } from '@/i18n'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import * as api from '@/api'
 import type { UserInfo } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './index.css'
 
@@ -31,29 +31,29 @@ interface FaqItem {
 }
 
 // 常见问题(硬编码占位,点击跳 webview)
-const FAQ_LIST: FaqItem[] = [
+const FAQ_LIST = (tt: TtFn): FaqItem[] => [
   {
-    title: '如何成为开发者？',
-    context: '了解开发者开通流程、权益与义务，快速加入开发者计划。',
-    btn: '查看开通流程 >',
+    title: tt('deventerCover.d1', '如何成为开发者？'),
+    context: tt('deventerCover.d2', '了解开发者开通流程、权益与义务，快速加入开发者计划。'),
+    btn: tt('deventerCover.d3', '查看开通流程 >'),
     url: 'https://blurb.kou.aizhs.top/developer.html',
   },
   {
-    title: '开发者收益如何结算？',
-    context: '了解智能体收入分成规则、提现周期与结算方式。',
-    btn: '了解收益规则 >',
+    title: tt('deventerCover.d4', '开发者收益如何结算？'),
+    context: tt('deventerCover.d5', '了解智能体收入分成规则、提现周期与结算方式。'),
+    btn: tt('deventerCover.d6', '了解收益规则 >'),
     url: 'https://blurb.kou.aizhs.top/bianxian.html',
   },
   {
-    title: '智能体审核规则',
-    context: '发布智能体的审核标准、常见拒绝原因与修改建议。',
-    btn: '查看审核规则 >',
+    title: tt('deventerCover.d7', '智能体审核规则'),
+    context: tt('deventerCover.d8', '发布智能体的审核标准、常见拒绝原因与修改建议。'),
+    btn: tt('deventerCover.d9', '查看审核规则 >'),
     url: 'https://blurb.kou.aizhs.top/shangchuan.html',
   },
   {
-    title: 'n8n 智能体说明',
-    context: 'n8n 工作流智能体的创建、参数配置与发布流程说明。',
-    btn: '了解 n8n 智能体 >',
+    title: tt('deventerCover.d10', 'n8n 智能体说明'),
+    context: tt('deventerCover.d11', 'n8n 工作流智能体的创建、参数配置与发布流程说明。'),
+    btn: tt('deventerCover.d12', '了解 n8n 智能体 >'),
     url: 'https://blurb.kou.aizhs.top/kecheng.html',
   },
 ]
@@ -290,7 +290,7 @@ export default function DevEnterCover() {
             {tt('devEnter.cover.faqTitle', '相关开发者的一系列问题解答？')}
           </Text>
           <View className="dc-faq-grid">
-            {FAQ_LIST.map((item, idx) => (
+            {FAQ_LIST(tt).map((item, idx) => (
               <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)}>
                 <Text className="dc-faq-item-title">{item.title}</Text>
                 <Text className="dc-faq-item-context">{item.context}</Text>

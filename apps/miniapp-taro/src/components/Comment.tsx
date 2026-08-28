@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import EmptyState from './EmptyState'
-import { useTt } from '@/i18n'
 
 export interface CommentItem {
   id: string

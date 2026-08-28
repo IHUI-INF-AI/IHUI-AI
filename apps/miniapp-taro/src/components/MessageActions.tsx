@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useState } from 'react'
-import { useTt } from '@/i18n'
 
 export interface MessageActionsProps {
   onMarkRead?: () => void
