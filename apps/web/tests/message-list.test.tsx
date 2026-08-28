@@ -79,10 +79,13 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
   }
 })
 
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const Icon = IconSpan
+  // 2026-08-28 修复:spread actual 兜底依赖链引入的清单外新图标(MessageCircle/Building2...)
   return {
     __esModule: true,
+    ...actual,
     Sparkles: Icon,
     AlertCircle: Icon,
     AlertTriangle: Icon,
