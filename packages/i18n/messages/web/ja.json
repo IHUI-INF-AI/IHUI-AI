@@ -9059,7 +9059,13 @@
     "responsive": {
       "apply": "適用",
       "customWidth": "カスタム幅",
-      "deviceFrame": "デバイスフレーム"
+      "deviceCustom": "カスタム",
+      "deviceDesktop": "デスクトップ",
+      "deviceFrame": "デバイスフレーム",
+      "deviceMobileLandscape": "モバイル横向き",
+      "deviceMobilePortrait": "モバイル縦向き",
+      "deviceTabletLandscape": "タブレット横向き",
+      "deviceTabletPortrait": "タブレット縦向き"
     },
     "saveFailed": "保存に失敗しました:{error}",
     "savePreview": "プレビュー保存",
