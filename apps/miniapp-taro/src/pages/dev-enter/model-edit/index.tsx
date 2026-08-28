@@ -1,21 +1,28 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 const CATEGORIES = [
-  '文案写作',
-  '图像设计',
-  '视频创作',
-  '编程开发',
-  '营销策划',
-  '办公效率',
-  '学习教育',
-  '生活助手',
+  t('deventerModeledit.r1'),
+  t('deventerModeledit.r2'),
+  t('deventerModeledit.r3'),
+  t('deventerModeledit.r4'),
+  t('deventerModeledit.r5'),
+  t('deventerModeledit.r6'),
+  t('deventerModeledit.r7'),
+  t('deventerModeledit.r8'),
 ]
-const DEPARTMENTS = ['研发部', '产品部', '设计部', '运营部', '市场部', '销售部']
+const DEPARTMENTS = [
+  '研发部',
+  t('deventerModeledit.q1'),
+  t('deventerModeledit.q2'),
+  t('deventerModeledit.q3'),
+  t('deventerModeledit.q4'),
+  t('deventerModeledit.q5'),
+]
 
 type SaleType = 'free' | 'limited' | 'paid'
 type ChargePeriod = 'monthly' | 'quarterly' | 'yearly'
@@ -69,11 +76,11 @@ export default function ModelEdit() {
         prologue: (res.prologue as string) || (res.description as string) || undefined,
       })
     } catch (e) {
-      logger.error('model-edit', '加载智能体', e)
+      logger.error('model-edit', t('deventerModeledit.q6'), e)
     } finally {
       setLoading(false)
     }
-  }, [agentId])
+  }, [agentId, t])
 
   useDidShow(() => {
     loadAgent()
@@ -178,7 +185,7 @@ export default function ModelEdit() {
         icon: 'success',
       })
     } catch (e) {
-      logger.error('model-edit', '提交收费配置', e)
+      logger.error('model-edit', t('deventerModeledit.q7'), e)
       Taro.showToast({
         title: tt('devEnter.modelEdit.mockSuccess', '接口暂未开放,已模拟提交'),
         icon: 'success',

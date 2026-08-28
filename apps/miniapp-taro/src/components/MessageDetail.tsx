@@ -1,5 +1,5 @@
-import { View, Text, Image, Textarea } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Image, Textarea } from '@tarojs/components'
 
 export interface MessageDetailItem {
   id: string

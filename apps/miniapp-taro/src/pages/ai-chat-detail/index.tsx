@@ -20,12 +20,12 @@
  * - 禁用 any,异步回调统一 unknown + 类型守卫
  * - Taro API 返回类型显式声明 chooseImageRes / chooseMessageFileRes
  */
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
 import { chat, getChatHistory, type ChatMessage } from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 
 /** Taro.chooseImage 返回类型(避免 any) */

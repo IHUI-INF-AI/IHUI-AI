@@ -1,7 +1,7 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
 
 // 权益对比数据(AI 平台场景)
 interface Benefit {

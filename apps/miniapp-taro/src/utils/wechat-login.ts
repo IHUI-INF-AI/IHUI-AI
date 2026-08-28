@@ -13,6 +13,7 @@
  * - 网络失败 / code 失效有清晰错误(错误信息 i18n 化,根据当前 locale 返回)
  * - 单元测试可独立运行(纯函数 + 注入依赖)
  */
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { loginByWechat } from '../api'
 import { setToken, setRefreshToken, setUserInfo, type UserInfo } from './auth'
@@ -101,7 +102,7 @@ export const defaultWechatClient: WechatClient = {
   getUserProfile: () =>
     new Promise<UserProfileSuccessRes>((resolve, reject) => {
       Taro.getUserProfile({
-        desc: '用于完善会员资料',
+        desc: t('utilsWechatlogin.q1'),
         success: resolve,
         fail: (err: { errMsg?: string }) =>
           reject(new Error(err.errMsg || loginT('profileFailed', '获取微信资料失败'))),
@@ -124,12 +125,12 @@ export async function wechatLogin(
   client: WechatClient = defaultWechatClient,
 ): Promise<WechatLoginResult> {
   if (!isWechatMiniProgram(client.getEnv())) {
-    throw new Error(loginT('wechatEnvError', '请在微信小程序中使用微信登录'))
+    throw new Error(loginT('wechatEnvError', t('utilsWechatlogin.q2')))
   }
 
   // 1. 拿临时 code
   const code = await client.login()
-  if (!code) throw new Error(loginT('codeEmpty', '微信登录 code 为空'))
+  if (!code) throw new Error(loginT('codeEmpty', t('utilsWechatlogin.q3')))
 
   // 2. (可选)拿用户加密资料
   let profile: UserProfileSuccessRes | undefined
@@ -152,7 +153,10 @@ export async function wechatLogin(
   const finalUser: UserInfo = {
     ...user,
     nickname:
-      user.nickname || profileNick || user.userName || loginT('defaultNickname', '微信用户'),
+      user.nickname ||
+      profileNick ||
+      user.userName ||
+      loginT('defaultNickname', t('utilsWechatlogin.q4')),
     avatar: user.avatar || profileAvatar,
   }
 

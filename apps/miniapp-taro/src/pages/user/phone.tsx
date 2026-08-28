@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
-import { useI18n } from '@/i18n'
 
 export default function Phone() {
   const { t } = useI18n()
@@ -42,7 +42,7 @@ export default function Phone() {
       // 已绑定手机号 → 进入两步流程第一步;未绑定 → 直接进入第二步绑定
       setStep(p && p.length === 11 ? 1 : 2)
     } catch (e) {
-      logger.error('user/phone', '获取用户信息', e)
+      logger.error('user/phone', t('userPhone.q1'), e)
       setStep(2)
     }
   })
@@ -85,7 +85,7 @@ export default function Phone() {
       Taro.showToast({ title: tt('user.phone.codeSent', '验证码已发送'), icon: 'success' })
       startOldCountdown()
     } catch (e) {
-      logger.error('user/phone', '发送当前手机验证码', e)
+      logger.error('user/phone', t('userPhone.q2'), e)
       Taro.showToast({ title: tt('user.phone.codeSendFailed', '验证码发送失败'), icon: 'none' })
     }
   }
@@ -124,7 +124,7 @@ export default function Phone() {
         return
       }
     } catch (e) {
-      logger.error('user/phone', '查询手机号是否已注册', e)
+      logger.error('user/phone', t('userPhone.q3'), e)
       // 查询失败不阻塞,继续发送
     }
     try {
@@ -132,7 +132,7 @@ export default function Phone() {
       Taro.showToast({ title: tt('user.phone.codeSent', '验证码已发送'), icon: 'success' })
       startNewCountdown()
     } catch (e) {
-      logger.error('user/phone', '发送新手机验证码', e)
+      logger.error('user/phone', t('userPhone.q4'), e)
       Taro.showToast({ title: tt('user.phone.codeSendFailed', '验证码发送失败'), icon: 'none' })
     }
   }
@@ -155,7 +155,7 @@ export default function Phone() {
       Taro.showToast({ title: tt('user.phone.bindSuccess', '手机号绑定成功'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      logger.error('user/phone', '绑定手机号', e)
+      logger.error('user/phone', t('user.phone.bindTitle'), e)
       Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
     } finally {
       setSubmitting(false)

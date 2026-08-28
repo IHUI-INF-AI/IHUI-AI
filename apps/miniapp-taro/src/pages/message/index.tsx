@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
@@ -30,7 +31,6 @@ import {
   type MessageDetailItem,
   type NotificationSettingItem,
 } from '@/components'
-import { useI18n } from '@/i18n'
 
 interface Room {
   id?: string

@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
-import { useTt } from '@/i18n'
 import EmptyState from './EmptyState'
 
 export interface WithdrawalRecord {
@@ -20,10 +20,10 @@ export interface WithdrawalRecordsProps {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  pending: { label: '审核中', color: 'text-warning' },
-  approved: { label: '已通过', color: 'text-primary' },
-  rejected: { label: '已驳回', color: 'text-destructive' },
-  completed: { label: '已完成', color: 'text-primary' },
+  pending: { label: t('order.refundList.stepReview'), color: 'text-warning' },
+  approved: { label: t('exam.passed'), color: 'text-primary' },
+  rejected: { label: t('WithdrawalRecords.d1'), color: 'text-destructive' },
+  completed: { label: t('plaza.index.tabDone'), color: 'text-primary' },
 }
 
 export default function WithdrawalRecords({
@@ -54,11 +54,11 @@ export default function WithdrawalRecords({
             </Text>
           </View>
         ) : records.length === 0 ? (
-          <EmptyState text="暂无提现记录" />
+          <EmptyState text={tt('tail.10', '暂无提现记录')} />
         ) : (
           records.map((record) => {
             const status = STATUS_MAP[record.status] ?? {
-              label: '未知',
+              label: t('aiAssistantN8n.statusUnknown'),
               color: 'text-muted-foreground',
             }
             return (

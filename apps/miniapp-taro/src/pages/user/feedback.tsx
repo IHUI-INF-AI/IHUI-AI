@@ -1,10 +1,10 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Button, Textarea, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { submitFeedback } from '@/api'
 import { uploadPictures } from '@/utils/upload-image'
-import { useI18n } from '@/i18n'
 
 const MAX_IMAGES = 3
 const MAX_CONTENT = 500

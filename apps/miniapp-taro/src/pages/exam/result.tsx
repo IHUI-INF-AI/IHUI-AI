@@ -1,10 +1,10 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
 import { NavBar } from '@/components'
-import { useTt } from '@/i18n'
 import './result.css'
 
 interface ExamResultInfo {

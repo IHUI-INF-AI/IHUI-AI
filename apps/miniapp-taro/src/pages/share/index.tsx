@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, {
   useDidShow,
@@ -12,7 +13,6 @@ import * as api from '@/api'
 import { NavBar, Ranking, DrawerComponent, FloatBox, type RankingItem } from '@/components'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import type { TitleSwitchScrollTitleItem } from '@ihui/types'
-import { useI18n } from '@/i18n'
 import InformationItem from './components/InformationItem'
 import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
@@ -72,7 +72,7 @@ function asString(v: unknown): string {
 function normalizeInfo(raw: Record<string, unknown>): InfoItem {
   return {
     id: (raw['id'] ?? '') as string | number,
-    title: asString(raw['title']) || asString(raw['name']) || '未命名',
+    title: asString(raw['title']) || asString(raw['name']) || t('plaza.index.untitled'),
     coverUrl: asString(raw['coverUrl']) || asString(raw['cover'] || raw['imgUrl']),
     summary: asString(raw['summary']) || asString(raw['desc']),
     content: asString(raw['content']),
@@ -83,8 +83,7 @@ function normalizeInfo(raw: Record<string, unknown>): InfoItem {
 }
 
 export default function ShareIndexPage() {
-  const { t } = useI18n()
-  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
+  const tt = useTt()
 
   const [activeNavbar, setActiveNavbar] = useState(true) // 对齐原项目：默认 true，显示主内容
   const [activeTitleIndex, setActiveTitleIndex] = useState(0) // 对齐原项目：标题切换(0=每日资讯,1=排行榜)
@@ -511,7 +510,7 @@ export default function ShareIndexPage() {
       // 按日期分组
       const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
       for (const chat of modelChats) {
-        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        const dateKey = chat.time ? chat.time.slice(0, 10) : tt('ai.agentList.tabRecent', '最近')
         if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
         dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
       }
@@ -526,7 +525,7 @@ export default function ShareIndexPage() {
     if (groups.length === 0 && chatHistory.length > 0) {
       const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
       for (const chat of chatHistory) {
-        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        const dateKey = chat.time ? chat.time.slice(0, 10) : tt('ai.agentList.tabRecent', '最近')
         if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
         dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
       }
@@ -625,7 +624,7 @@ export default function ShareIndexPage() {
           } else {
             Taro.navigateTo({
               url,
-              fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }),
+              fail: () => Taro.showToast({ title: tt('share.text1', '页面未配置'), icon: 'none' }),
             })
           }
         }}
@@ -639,7 +638,8 @@ export default function ShareIndexPage() {
             // 对齐原项目 gotocompany:跳分销页
             Taro.navigateTo({
               url: '/pages/distribution/index',
-              fail: () => Taro.showToast({ title: '分销页未配置', icon: 'none' }),
+              fail: () =>
+                Taro.showToast({ title: tt('share.text2', '分销页未配置'), icon: 'none' }),
             })
           } else if (item.key === 'freebie') {
             // 对齐原项目 lingqu:复制飞书 wiki 链接到剪贴板
@@ -649,11 +649,12 @@ export default function ShareIndexPage() {
               data: feishuUrl,
               success: () =>
                 Taro.showToast({
-                  title: '链接已复制,请在浏览器打开',
+                  title: tt('share.copy3', '链接已复制,请在浏览器打开'),
                   icon: 'none',
                   duration: 2000,
                 }),
-              fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
+              fail: () =>
+                Taro.showToast({ title: tt('share.failed4', '复制失败,请重试'), icon: 'none' }),
             })
           }
         }}
@@ -666,21 +667,24 @@ export default function ShareIndexPage() {
           // 对齐原项目 handleShowFullList:携带 chatId + title 参数
           Taro.navigateTo({
             url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-            fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+            fail: () => Taro.showToast({ title: tt('share.text5', '对话页未配置'), icon: 'none' }),
           })
         }}
         onRemoveChat={(chat) => {
           Taro.showModal({
-            title: '提示',
-            content: '确定删除此对话?',
+            title: tt('common.hint', '提示'),
+            content: tt('share.confirm6', '确定删除此对话?'),
             success: async (res) => {
               if (res.confirm) {
                 try {
                   await api.removeModelChat(String(chat.id))
-                  Taro.showToast({ title: '已删除', icon: 'success' })
+                  Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
                   void loadChatHistory()
                 } catch {
-                  Taro.showToast({ title: '删除失败', icon: 'none' })
+                  Taro.showToast({
+                    title: tt('developer.index.deleteFail', '删除失败'),
+                    icon: 'none',
+                  })
                 }
               }
             },

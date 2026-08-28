@@ -1,9 +1,9 @@
+import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
-import { useTt } from '@/i18n'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 
 /**
@@ -39,11 +39,11 @@ interface ModelEntry {
 }
 
 /** 本地默认模型入口(对标原项目 pages/table/tools/index.vue 的特殊模型聚合) */
-const DEFAULT_MODELS: ModelEntry[] = [
+const DEFAULT_MODELS = (tt: TtFn): ModelEntry[] => [
   {
     key: 'gemini-flash',
     name: 'Gemini-2.5-flash',
-    desc: 'Google Gemini 2.5 Flash 文本模型,快速响应、多模态输入',
+    desc: tt('aiSpecial.d1', 'Google Gemini 2.5 Flash 文本模型,快速响应、多模态输入'),
     icon: ICONS.aitext,
     category: 'chat',
     uses: 2300,
@@ -53,7 +53,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
   {
     key: 'httpmodel',
     name: 'HttpModel',
-    desc: '通用 HTTP 模型代理,支持自定义模型接入',
+    desc: tt('aiSpecial.d2', '通用 HTTP 模型代理,支持自定义模型接入'),
     icon: ICONS.model,
     category: 'chat',
     uses: 540,
@@ -62,7 +62,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
   {
     key: 'nanobanana',
     name: 'NanoBanana',
-    desc: 'Google 图片编辑模型,支持自然语言指令编辑图片',
+    desc: tt('aiSpecial.d3', 'Google 图片编辑模型,支持自然语言指令编辑图片'),
     icon: ICONS.imageOr,
     category: 'image',
     uses: 1280,
@@ -72,7 +72,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
   {
     key: 'veo3',
     name: 'Veo3',
-    desc: 'Google 视频生成模型,支持高质量文生视频',
+    desc: tt('aiSpecial.d4', 'Google 视频生成模型,支持高质量文生视频'),
     icon: ICONS.aiVideo,
     category: 'video',
     uses: 860,
@@ -81,8 +81,8 @@ const DEFAULT_MODELS: ModelEntry[] = [
   },
   {
     key: 'tts',
-    name: 'AI 语音',
-    desc: '文本转语音,支持多语种自然发音',
+    name: tt('ai.special.cat.voice', 'AI 语音'),
+    desc: tt('aiSpecial.d5', '文本转语音,支持多语种自然发音'),
     icon: ICONS.aimusic,
     category: 'voice',
     uses: 420,
@@ -90,8 +90,8 @@ const DEFAULT_MODELS: ModelEntry[] = [
   },
   {
     key: 'agent',
-    name: '智能体广场',
-    desc: '多场景智能体:办公/写作/编程/教育/生活',
+    name: tt('aiGroup.title', '智能体广场'),
+    desc: tt('aiSpecial.d6', '多场景智能体:办公/写作/编程/教育/生活'),
     icon: ICONS.jiqirenBig,
     category: 'agent',
     uses: 3100,
@@ -100,8 +100,8 @@ const DEFAULT_MODELS: ModelEntry[] = [
   },
   {
     key: 'plaza',
-    name: '模型广场',
-    desc: '探索更多 AI 模型与厂商能力',
+    name: tt('ai.special.cat.plaza', '模型广场'),
+    desc: tt('aiSpecial.d7', '探索更多 AI 模型与厂商能力'),
     icon: ICONS.plazaIcon01,
     category: 'plaza',
     uses: 780,
@@ -112,7 +112,7 @@ const DEFAULT_MODELS: ModelEntry[] = [
 export default function SpecialModelsPage() {
   const tt = useTt()
 
-  const [models, setModels] = useState<ModelEntry[]>(DEFAULT_MODELS)
+  const [models, setModels] = useState<ModelEntry[]>(DEFAULT_MODELS(tt))
   const [activeCategory, setActiveCategory] = useState<CategoryKey | 'all'>('all')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -131,43 +131,46 @@ export default function SpecialModelsPage() {
     { key: 'plaza', label: tt('ai.special.cat.plaza', '模型广场'), icon: ICONS.plazaIcon01 },
   ]
 
-  const load = useCallback(async (reset = false) => {
-    if (loadingRef.current) return
-    if (!reset && !hasMoreRef.current) return
-    loadingRef.current = true
-    setLoading(true)
-    if (reset) {
-      setError(false)
-      setModels(DEFAULT_MODELS)
-      hasMoreRef.current = false
-      setHasMore(false)
-    }
-    try {
-      const res = await getAgentList()
-      const agentModels: ModelEntry[] = (res.list || []).map((a) => ({
-        key: `agent-${a.id}`,
-        name: a.name,
-        desc: a.desc || '',
-        icon: ICONS.jiqiren,
-        category: 'agent',
-        uses: Number(a.uses ?? 0),
-        route: `/pages/ai/agent-detail?id=${a.id}`,
-      }))
-      setModels((prev) => {
-        const existKeys = new Set(prev.map((m) => m.key))
-        const merged = [...prev, ...agentModels.filter((m) => !existKeys.has(m.key))]
-        return merged
-      })
-      hasMoreRef.current = false
-      setHasMore(false)
-    } catch (e) {
-      logger.error('ai/special', '加载智能体列表', e)
-      setError(true)
-    } finally {
-      loadingRef.current = false
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (reset = false) => {
+      if (loadingRef.current) return
+      if (!reset && !hasMoreRef.current) return
+      loadingRef.current = true
+      setLoading(true)
+      if (reset) {
+        setError(false)
+        setModels(DEFAULT_MODELS(tt))
+        hasMoreRef.current = false
+        setHasMore(false)
+      }
+      try {
+        const res = await getAgentList()
+        const agentModels: ModelEntry[] = (res.list || []).map((a) => ({
+          key: `agent-${a.id}`,
+          name: a.name,
+          desc: a.desc || '',
+          icon: ICONS.jiqiren,
+          category: 'agent',
+          uses: Number(a.uses ?? 0),
+          route: `/pages/ai/agent-detail?id=${a.id}`,
+        }))
+        setModels((prev) => {
+          const existKeys = new Set(prev.map((m) => m.key))
+          const merged = [...prev, ...agentModels.filter((m) => !existKeys.has(m.key))]
+          return merged
+        })
+        hasMoreRef.current = false
+        setHasMore(false)
+      } catch (e) {
+        logger.error('ai/special', tt('aiSpecial.q1', '加载智能体列表'), e)
+        setError(true)
+      } finally {
+        loadingRef.current = false
+        setLoading(false)
+      }
+    },
+    [tt],
+  )
 
   useDidShow(() => {
     void load(true)
@@ -189,7 +192,7 @@ export default function SpecialModelsPage() {
     (m: ModelEntry) => {
       if (m.route) {
         Taro.navigateTo({ url: m.route }).catch((e) => {
-          logger.error('ai/special', `跳转 ${m.key}`, e)
+          logger.error('ai/special', t('aiSpecial.y1', { p1: m.key }), e)
           Taro.showToast({ title: tt('ai.special.pageError', '操作失败'), icon: 'none' })
         })
       } else {

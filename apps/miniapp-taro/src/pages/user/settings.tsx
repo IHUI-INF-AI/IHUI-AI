@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, logout, type UserInfo } from '@/api'
-import { useI18n } from '@/i18n'
 
 const VERSION = '1.0.0'
 const NOTIFICATION_KEY = 'messageNotificationEnabled'

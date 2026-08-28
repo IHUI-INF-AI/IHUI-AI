@@ -1,5 +1,5 @@
-import { View, Text, Video } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Video } from '@tarojs/components'
 
 export interface VideoPlayerProps {
   src?: string
@@ -65,7 +65,7 @@ export default function VideoPlayer({
         onPause={() => onPause?.()}
         onTimeUpdate={(e) => onTimeUpdate?.(e.detail.currentTime, e.detail.duration)}
         onEnded={() => onEnded?.()}
-        onError={(e) => onError?.(e.detail.errMsg || '播放错误')}
+        onError={(e) => onError?.(e.detail.errMsg || tt('VideoPlayer.p1', '播放错误'))}
       />
     </View>
   )

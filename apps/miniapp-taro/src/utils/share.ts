@@ -1,6 +1,6 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { getStorageSync } from '@tarojs/taro'
-import { t } from '@/i18n'
 import {
   getSharePath as sharedGetSharePath,
   getShareInfo as sharedGetShareInfo,
@@ -19,7 +19,7 @@ export type { ShareInfo, TimelineShareInfo } from '@ihui/types'
 // 下沉到 @ihui/shared/share,本文件保留端独占的 shareConfig 默认值 + getInviteCode
 // (storage 读取) + Taro API 调用(showShareMenu/hideShareMenu)。
 export const shareConfig: ShareDefaults = {
-  defaultTitle: '智汇AI',
+  defaultTitle: t('community.text2'),
   defaultImageUrl: '/static/share.png',
   fallbackPath: '/pages/index/index',
 }

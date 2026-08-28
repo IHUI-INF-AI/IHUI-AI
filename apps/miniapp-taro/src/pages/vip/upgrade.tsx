@@ -1,10 +1,10 @@
+import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
-import { useI18n } from '@/i18n'
 import './upgrade.css'
 
 type PayMethod = 'wechat' | 'alipay'
@@ -18,6 +18,7 @@ interface Plan {
 }
 
 export default function UpgradePage() {
+  const tt = useTt()
   const { t, tList } = useI18n()
   const [plans, setPlans] = useState<Plan[]>([])
   const [selected, setSelected] = useState(0)
@@ -39,7 +40,7 @@ export default function UpgradePage() {
       setPlans(list)
       if (list.length && selected >= list.length) setSelected(0)
     } catch (e) {
-      logger.error('vip/upgrade', '获取VIP等级', e)
+      logger.error('vip/upgrade', t('vipUpgrade.q1'), e)
       Taro.showToast({ title: t('vip.upgrade.loadFailed'), icon: 'none' })
     } finally {
       Taro.hideLoading()
@@ -95,7 +96,7 @@ export default function UpgradePage() {
         } catch (authErr) {
           logger.warn(
             'vip/upgrade',
-            'my.getAuthCode 失败,降级 mock 模式',
+            tt('vipUpgrade.r1', 'my.getAuthCode 失败,降级 mock 模式'),
             authErr instanceof Error ? authErr.message : String(authErr),
           )
         }
@@ -119,7 +120,7 @@ export default function UpgradePage() {
             Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }),
           )
       } catch (e) {
-        logger.error('vip/upgrade', '支付宝升级VIP', e)
+        logger.error('vip/upgrade', t('vipUpgrade.q2'), e)
         Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
       }
       return
@@ -128,10 +129,10 @@ export default function UpgradePage() {
       const res = await upgradeVip(plan.id)
       dispatchVipPay(res.payInfo, res.orderNo)
     } catch (e) {
-      logger.error('vip/upgrade', '升级VIP', e)
+      logger.error('vip/upgrade', t('vipUpgrade.q3'), e)
       Taro.showToast({ title: t('vip.upgrade.operationFailed'), icon: 'none' })
     }
-  }, [plans, selected, payMethod, dispatchVipPay, t])
+  }, [plans, selected, payMethod, dispatchVipPay, t, tt])
 
   useDidShow(load)
 

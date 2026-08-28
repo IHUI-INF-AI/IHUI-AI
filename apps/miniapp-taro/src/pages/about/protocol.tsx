@@ -1,7 +1,7 @@
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
-import { useI18n } from '@/i18n'
 
 interface ProtocolSection {
   subtitle: string
@@ -9,6 +9,9 @@ interface ProtocolSection {
 }
 
 export default function ProtocolPage() {
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.protocol.title', '用户协议') })
+  })
   const { t } = useI18n()
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -17,10 +20,6 @@ export default function ProtocolPage() {
     },
     [t],
   )
-
-  useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.protocol.title', '用户协议') })
-  })
 
   const sections: ProtocolSection[] = [
     {

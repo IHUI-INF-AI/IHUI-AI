@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { DrawerComponent, ModelList, type ModelItem } from '@/components'
-import { useI18n } from '@/i18n'
 import type { ChatMessage } from '@/api'
 
 interface MaterialItem {

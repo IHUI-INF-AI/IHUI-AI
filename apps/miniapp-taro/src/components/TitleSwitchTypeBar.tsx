@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
@@ -23,9 +24,9 @@ export interface TitleSwitchTypeBarExtendedProps extends TitleSwitchTypeBarProps
 }
 
 const DEFAULT_TABS: TitleSwitchTypeBarItem[] = [
-  { id: '1', name: '文案' },
-  { id: '2', name: '图片' },
-  { id: '3', name: '视频' },
+  { id: '1', name: t('aigcPublish.typeText') },
+  { id: '2', name: t('aigc.list.catImage') },
+  { id: '3', name: t('aigc.list.catVideo') },
 ]
 
 /**
@@ -54,6 +55,7 @@ export default function TitleSwitchTypeBar({
   onMultiChange,
   onSingleChange,
 }: TitleSwitchTypeBarExtendedProps) {
+  const tt = useTt()
   const [tabList, setTabList] = useState<TitleSwitchTypeBarItem[]>(mainList ?? DEFAULT_TABS)
   const [tabValue, setTabValue] = useState<TitleSwitchTypeBarItem[]>([])
   const [addType, setAddType] = useState(false)
@@ -167,7 +169,7 @@ export default function TitleSwitchTypeBar({
                   : '/static/images/qqb_20250816161046A276.png'
               }
             />
-            <Text>全部</Text>
+            <Text>{tt('common.all', '全部')}</Text>
           </View>
         ) : null}
 
@@ -208,7 +210,7 @@ export default function TitleSwitchTypeBar({
               className="title-switch-type-bar__icon"
               src="/static/images/szdy_20250816161421A290.png"
             />
-            <Text>自定义</Text>
+            <Text>{tt('TitleSwitchTypeBar.text1', '自定义')}</Text>
           </View>
         ) : null}
       </View>
@@ -221,17 +223,19 @@ export default function TitleSwitchTypeBar({
       {/* 自定义弹窗 */}
       {addType ? (
         <View className="title-switch-type-bar__modal">
-          <Text className="title-switch-type-bar__modal-title">请设置自定义种类</Text>
+          <Text className="title-switch-type-bar__modal-title">
+            {tt('TitleSwitchTypeBar.settings2', '请设置自定义种类')}
+          </Text>
           <Input
             className="title-switch-type-bar__modal-input"
             type="text"
             maxlength={4}
-            placeholder="请输入种类"
+            placeholder={tt('TitleSwitchTypeBar.m1', '请输入种类')}
             value={customValue}
             onInput={(e) => setCustomValue(e.detail.value)}
           />
           <View className="title-switch-type-bar__modal-btn" onClick={add}>
-            <Text>确定</Text>
+            <Text>{tt('TitleSwitchTypeBar.confirm', '确定')}</Text>
           </View>
         </View>
       ) : null}

@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useState } from 'react'
 import { rpx } from '@/utils/rpx'
@@ -26,23 +27,32 @@ export interface InterestTrackModalProps {
 }
 
 const DEFAULT_TRACKS: TrackItem[] = [
-  { id: 'ai', name: 'AI 人工智能', desc: 'AI 模型、智能体、自动化' },
-  { id: 'web3', name: 'Web3 区块链', desc: '区块链、加密货币、NFT' },
-  { id: 'saas', name: 'SaaS 企业服务', desc: '企业软件、效率工具' },
-  { id: 'ecommerce', name: '电商直播', desc: '直播带货、社交电商' },
-  { id: 'education', name: '教育培训', desc: '在线教育、职业培训' },
-  { id: 'content', name: '内容创作', desc: '自媒体、短视频、写作' },
-  { id: 'design', name: '设计创意', desc: 'UI/UX、平面、3D' },
-  { id: 'marketing', name: '营销推广', desc: '品牌、增长、SEO' },
+  { id: 'ai', name: t('shareInterestTrackModal.d1'), desc: t('shareInterestTrackModal.d2') },
+  { id: 'web3', name: t('shareInterestTrackModal.d3'), desc: t('shareInterestTrackModal.d4') },
+  { id: 'saas', name: t('shareInterestTrackModal.d5'), desc: t('shareInterestTrackModal.d6') },
+  { id: 'ecommerce', name: t('shareInterestTrackModal.d7'), desc: t('shareInterestTrackModal.d8') },
+  {
+    id: 'education',
+    name: t('shareInterestTrackModal.d9'),
+    desc: t('shareInterestTrackModal.d10'),
+  },
+  { id: 'content', name: t('shareInterestTrackModal.d11'), desc: t('shareInterestTrackModal.d12') },
+  { id: 'design', name: t('shareInterestTrackModal.d13'), desc: t('shareInterestTrackModal.d14') },
+  {
+    id: 'marketing',
+    name: t('shareInterestTrackModal.d15'),
+    desc: t('shareInterestTrackModal.d16'),
+  },
 ]
 
 export default function InterestTrackModal({
   visible = false,
   tracks = DEFAULT_TRACKS,
-  title = '选择您感兴趣的赛道',
+  title = t('shareInterestTrackModal.z1'),
   onConfirm,
   onClose,
 }: InterestTrackModalProps) {
+  const tt = useTt()
   const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set())
 
   if (!visible) return null
@@ -122,7 +132,7 @@ export default function InterestTrackModal({
               marginTop: rpx(8),
             }}
           >
-            选择感兴趣的赛道,获取个性化推荐
+            {tt('tail.14', '选择感兴趣的赛道,获取个性化推荐')}
           </Text>
         </View>
 
@@ -189,7 +199,9 @@ export default function InterestTrackModal({
             }}
             onClick={onClose}
           >
-            <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>跳过</Text>
+            <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
+              {tt('shareInterestTrackModal.text1', '跳过')}
+            </Text>
           </View>
           <View
             style={{
@@ -202,7 +214,9 @@ export default function InterestTrackModal({
             onClick={handleConfirm}
           >
             <Text style={{ fontSize: rpx(28), color: '#fff', fontWeight: 500 }}>
-              确认选择{selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+              {tt('tail.20', '确认选择{count}', {
+                count: selectedIds.size > 0 ? `(${selectedIds.size})` : '',
+              })}
             </Text>
           </View>
         </View>

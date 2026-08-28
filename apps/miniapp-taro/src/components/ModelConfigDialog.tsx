@@ -1,7 +1,7 @@
+import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useTt } from '@/i18n'
 import type { ModelConfigType } from '@ihui/types'
 import { aizhsUrl } from '@/constants/icon-urls'
 import Selecter from './Selecter'
@@ -69,15 +69,22 @@ const ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16']
 const RESOLUTIONS = ['512', '768', '1024', '1536', '2048']
 const FRAME_COUNTS = [16, 24, 30, 60]
 const TIMBRES = [
-  { id: 'longxiaoxia', name: '龙小夏' },
-  { id: 'longxiaoze', name: '龙小泽' },
-  { id: 'longchengcheng', name: '龙橙橙' },
-  { id: 'longshu', name: '龙叔' },
-  { id: 'longmom', name: '龙妈' },
+  { id: 'longxiaoxia', name: t('ModelConfigDialog.d1') },
+  { id: 'longxiaoze', name: t('ModelConfigDialog.d2') },
+  { id: 'longchengcheng', name: t('ModelConfigDialog.d3') },
+  { id: 'longshu', name: t('ModelConfigDialog.d4') },
+  { id: 'longmom', name: t('ModelConfigDialog.d5') },
 ]
 
 // aigc variant:对齐原项目 indexa.vue 的系统音色与视频比例
-const SYSTEM_VOICES = ['默认音色', '甜美女声', '成熟男声', '清澈童声', '专业播音', '情感朗读']
+const SYSTEM_VOICES = [
+  '默认音色',
+  t('ModelConfigDialog.q1'),
+  t('ModelConfigDialog.q2'),
+  t('ModelConfigDialog.q3'),
+  t('ModelConfigDialog.q4'),
+  t('ModelConfigDialog.q5'),
+]
 const VIDEO_ASPECT_RATIOS = ['1:1', '3:4', '4:3', '16:9', '9:16', '21:9']
 
 const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
@@ -216,9 +223,13 @@ export default function ModelConfigDialog({
             </View>
             {showImage && (
               <View className="mt-4 pt-2">
-                <Text className="block text-xs text-muted-foreground mb-2">图片设置</Text>
+                <Text className="block text-xs text-muted-foreground mb-2">
+                  {tt('ModelConfigDialog.settings1', '图片设置')}
+                </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">比例</Text>
+                  <Text className="block text-xs text-muted-foreground mb-1">
+                    {tt('ModelConfigDialog.text2', '比例')}
+                  </Text>
                   <View className="flex flex-wrap gap-2">
                     {ASPECT_RATIOS.map((r) => (
                       <View
@@ -236,7 +247,9 @@ export default function ModelConfigDialog({
                   </View>
                 </View>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">分辨率</Text>
+                  <Text className="block text-xs text-muted-foreground mb-1">
+                    {tt('ModelConfigDialog.text3', '分辨率')}
+                  </Text>
                   <View className="flex flex-wrap gap-2">
                     {RESOLUTIONS.map((r) => (
                       <View
@@ -257,9 +270,13 @@ export default function ModelConfigDialog({
             )}
             {showVideo && (
               <View className="mt-2 pt-2 border-t border-border">
-                <Text className="block text-xs text-muted-foreground mb-2">视频设置</Text>
+                <Text className="block text-xs text-muted-foreground mb-2">
+                  {tt('ModelConfigDialog.settings4', '视频设置')}
+                </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">帧数</Text>
+                  <Text className="block text-xs text-muted-foreground mb-1">
+                    {tt('ModelConfigDialog.text5', '帧数')}
+                  </Text>
                   <View className="flex flex-wrap gap-2">
                     {FRAME_COUNTS.map((f) => (
                       <View
@@ -280,9 +297,13 @@ export default function ModelConfigDialog({
             )}
             {showAudio && (
               <View className="mt-4 pt-2">
-                <Text className="block text-xs text-muted-foreground mb-2">音频设置</Text>
+                <Text className="block text-xs text-muted-foreground mb-2">
+                  {tt('ModelConfigDialog.settings6', '音频设置')}
+                </Text>
                 <View className="mb-3">
-                  <Text className="block text-xs text-muted-foreground mb-1">音色</Text>
+                  <Text className="block text-xs text-muted-foreground mb-1">
+                    {tt('ai.voice.timbre', '音色')}
+                  </Text>
                   <View className="flex flex-wrap gap-2">
                     {TIMBRES.map((tb) => (
                       <View
@@ -380,7 +401,7 @@ export default function ModelConfigDialog({
   const uploadItems: UploadItem[] = [
     {
       key: 'firstFrame',
-      label: '添加首帧图',
+      label: t('ModelConfigDialog.text7'),
       url: uploads.firstFrame.url,
       name: uploads.firstFrame.name,
       emptyIcon: iconAlbumPng,
@@ -388,7 +409,7 @@ export default function ModelConfigDialog({
     },
     {
       key: 'lastFrame',
-      label: '添加尾帧图',
+      label: t('ModelConfigDialog.text8'),
       url: uploads.lastFrame.url,
       name: uploads.lastFrame.name,
       emptyIcon: iconAlbumPng,
@@ -396,7 +417,7 @@ export default function ModelConfigDialog({
     },
     {
       key: 'audio',
-      label: '参考音色',
+      label: t('ModelConfigDialog.text9'),
       url: uploads.audio.url,
       name: uploads.audio.name,
       emptyIcon: iconYinpinPng,
@@ -404,7 +425,7 @@ export default function ModelConfigDialog({
     },
     {
       key: 'video',
-      label: '克隆数字人',
+      label: t('ModelConfigDialog.text10'),
       url: uploads.video.url,
       name: uploads.video.name,
       emptyIcon: iconKelongPng,
@@ -480,7 +501,9 @@ export default function ModelConfigDialog({
                 onClick={(e) => e.stopPropagation()}
               >
                 <View className="flex items-center justify-between mb-3">
-                  <Text className="text-sm font-medium">选择音色</Text>
+                  <Text className="text-sm font-medium">
+                    {tt('ModelConfigDialog.text11', '选择音色')}
+                  </Text>
                   <Text
                     className="text-sm text-muted-foreground"
                     onClick={() => setShowAudioMenu(false)}
@@ -492,8 +515,10 @@ export default function ModelConfigDialog({
                 <View className="mb-3">
                   <Text className="block text-xs text-muted-foreground mb-2">
                     {selectedVoiceIndex >= 0
-                      ? `当前：${voiceLabel(systemVoices[selectedVoiceIndex])}`
-                      : '系统音色库'}
+                      ? t('ModelConfigDialog.y1', {
+                          p1: voiceLabel(systemVoices[selectedVoiceIndex]),
+                        })
+                      : tt('ModelConfigDialog.p1', '系统音色库')}
                   </Text>
                   <Selecter
                     type="voice"
@@ -520,10 +545,12 @@ export default function ModelConfigDialog({
                   />
                   <View className="flex-1">
                     <Text className="block text-sm">
-                      {uploads.audio.name ? '当前：' + uploads.audio.name : '克隆音色'}
+                      {uploads.audio.name
+                        ? tt('ModelConfigDialog.p2', '当前：') + uploads.audio.name
+                        : tt('ModelConfigDialog.p3', '克隆音色')}
                     </Text>
                     <Text className="block text-xs text-muted-foreground">
-                      上传音频文件克隆音色
+                      {tt('ModelConfigDialog.upload12', '上传音频文件克隆音色')}
                     </Text>
                   </View>
                   <Text className="text-muted-foreground">›</Text>
@@ -579,7 +606,7 @@ export default function ModelConfigDialog({
                 <Text className="block text-xs text-muted-foreground mb-1">{item.desc}</Text>
                 <Input
                   className="w-full px-3 py-2 text-sm bg-muted rounded-lg"
-                  placeholder={`请输入${item.desc}`}
+                  placeholder={t('ModelConfigDialog.y2', { p1: item.desc })}
                   value={(configParamsObj[item.name] as string) || ''}
                   onInput={(e) => setConfigValue(item.name, e.detail.value)}
                 />
@@ -590,9 +617,13 @@ export default function ModelConfigDialog({
           {/* 视频模型额外配置(对齐原项目固定项) */}
           {isVideoModel && (
             <View className="mt-3 pt-2 border-t border-border">
-              <Text className="block text-xs text-muted-foreground mb-2">视频设置</Text>
+              <Text className="block text-xs text-muted-foreground mb-2">
+                {tt('ModelConfigDialog.settings4', '视频设置')}
+              </Text>
               <View className="mb-3">
-                <Text className="block text-xs text-muted-foreground mb-1">视频比例</Text>
+                <Text className="block text-xs text-muted-foreground mb-1">
+                  {tt('ModelConfigDialog.text14', '视频比例')}
+                </Text>
                 <Selecter
                   type="scale"
                   options={VIDEO_ASPECT_RATIOS}
@@ -600,7 +631,9 @@ export default function ModelConfigDialog({
                 />
               </View>
               <View className="mb-3">
-                <Text className="block text-xs text-muted-foreground mb-1">视频分辨率</Text>
+                <Text className="block text-xs text-muted-foreground mb-1">
+                  {tt('ModelConfigDialog.text15', '视频分辨率')}
+                </Text>
                 <Selecter
                   type="video"
                   options={[]}

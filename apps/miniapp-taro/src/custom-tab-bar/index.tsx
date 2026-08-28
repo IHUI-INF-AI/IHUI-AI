@@ -5,10 +5,10 @@
  * 小程序要求:此文件路径固定为 custom-tab-bar/index,
  * 且需要在每个 tab 页面 json 中声明 { "usingComponents": {} }。
  */
+import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { useI18n } from '@/i18n'
 
 interface TabItem {
   pagePath: string

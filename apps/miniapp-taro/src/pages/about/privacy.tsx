@@ -1,7 +1,7 @@
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
-import { useI18n } from '@/i18n'
 
 interface PrivacySection {
   subtitle: string
@@ -9,6 +9,9 @@ interface PrivacySection {
 }
 
 export default function PrivacyPage() {
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.privacy.title', '隐私政策') })
+  })
   const { t } = useI18n()
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -17,10 +20,6 @@ export default function PrivacyPage() {
     },
     [t],
   )
-
-  useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.privacy.title', '隐私政策') })
-  })
 
   const overviewParagraphs: Array<{ title?: string; text: string }> = [
     {

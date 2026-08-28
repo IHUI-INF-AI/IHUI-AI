@@ -1,10 +1,10 @@
+import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button, Image, Switch, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
 import { NavBar } from '@/components'
-import { useTt } from '@/i18n'
 import './create.css'
 
 interface FormState {
@@ -22,11 +22,11 @@ const IMAGE_MAX = 3
 const DRAFT_KEY = 'ask_create_draft'
 
 const CATEGORIES = [
-  { key: 'tech', labelKey: 'ask.create.categoryTech', fb: '技术' },
-  { key: 'product', labelKey: 'ask.create.categoryProduct', fb: '产品' },
-  { key: 'design', labelKey: 'ask.create.categoryDesign', fb: '设计' },
-  { key: 'operation', labelKey: 'ask.create.categoryOperation', fb: '运营' },
-  { key: 'other', labelKey: 'ask.create.categoryOther', fb: '其他' },
+  { key: 'tech', labelKey: 'ask.create.categoryTech', fb: t('askCreate.d1') },
+  { key: 'product', labelKey: 'ask.create.categoryProduct', fb: t('askCreate.d2') },
+  { key: 'design', labelKey: 'ask.create.categoryDesign', fb: t('pagesindexindex.d11') },
+  { key: 'operation', labelKey: 'ask.create.categoryOperation', fb: t('askCreate.d4') },
+  { key: 'other', labelKey: 'ask.create.categoryOther', fb: t('setting.other') },
 ]
 
 const REWARDS = [0, 5, 10, 20, 50]
@@ -152,7 +152,7 @@ export default function AskCreatePage() {
       Taro.showToast({ title: tt('ask.create.published', '问题已发布'), icon: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch (e) {
-      logger.error('ask/create', '发布问题', e)
+      logger.error('ask/create', t('ask.create.submit'), e)
       Taro.showToast({ title: tt('ask.create.failed', '发布失败,请重试'), icon: 'none' })
     } finally {
       setSubmitting(false)

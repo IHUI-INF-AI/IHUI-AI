@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Input, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
@@ -5,7 +6,6 @@ import { useState, useCallback, useRef } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
-import { useTt } from '@/i18n'
 
 interface TopicItem {
   id: string

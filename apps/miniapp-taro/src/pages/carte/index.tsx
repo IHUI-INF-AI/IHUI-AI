@@ -1,10 +1,10 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getBusinessCard } from '@/api'
 import { showShareMenu, getShareInfo } from '@/utils/share'
 import { saveNetworkImageToAlbum } from '@/utils/save-album'
-import { useI18n } from '@/i18n'
 
 interface CardInfo {
   name?: string

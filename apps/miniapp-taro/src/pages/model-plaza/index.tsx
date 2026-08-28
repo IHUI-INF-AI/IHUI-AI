@@ -1,9 +1,9 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
-import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -42,10 +42,10 @@ const PROVIDER_ORDER = [
   'Anthropic',
   'Google',
   'StepFun',
-  '阿里云',
-  '百度',
-  '字节',
-  '智谱',
+  t('modelplaza.r1'),
+  t('modelplaza.r2'),
+  t('modelplaza.r3'),
+  t('modelplaza.r4'),
 ]
 
 /**
@@ -61,7 +61,7 @@ const FALLBACK_MODEL_DISPLAYS: ModelDisplay[] = FALLBACK_MODELS.map((f) => ({
   inputPrice: '0',
   outputPrice: '0',
   tags: [],
-  payMode: '免费',
+  payMode: t('common.free'),
   type: 'text',
   contextLength: 128000,
 }))

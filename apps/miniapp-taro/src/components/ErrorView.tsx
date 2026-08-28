@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface ErrorViewProps {
   title?: string
@@ -8,8 +8,8 @@ export interface ErrorViewProps {
 }
 
 export default function ErrorView({
-  title = '加载失败',
-  desc = '请稍后重试',
+  title = t('common.failed'),
+  desc = t('ErrorView.p1'),
   onRetry,
 }: ErrorViewProps) {
   const tt = useTt()

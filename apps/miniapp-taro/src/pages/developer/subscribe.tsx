@@ -1,9 +1,9 @@
+import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, Switch } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 interface DevInfo {
   id: string
@@ -111,7 +111,7 @@ export default function DeveloperSubscribePage() {
         })),
       )
     } catch (e) {
-      logger.error('developer/subscribe', '加载数据', e)
+      logger.error('developer/subscribe', t('developerSubscribe.q1'), e)
     } finally {
       setLoading(false)
     }
@@ -133,12 +133,12 @@ export default function DeveloperSubscribePage() {
         Taro.showToast({ title: tt('developer.subscribe.subscribed', '已关注'), icon: 'none' })
       }
     } catch (e) {
-      logger.error('developer/subscribe', '关注操作', e)
+      logger.error('developer/subscribe', t('developerSubscribe.q2'), e)
       Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
     } finally {
       setSubscribing(false)
     }
-  }, [subscribing, dev.subscribed, devId, tt])
+  }, [subscribing, dev.subscribed, devId, tt, t])
 
   const handleUseModel = (m: DevModel) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${m.id}` })

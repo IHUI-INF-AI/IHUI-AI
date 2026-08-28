@@ -1,6 +1,6 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
-import { useTt } from '@/i18n'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
 // 原项目 ModelList.vue 静态图标(本地副本 import,对齐 zhs_app-ZZ)
@@ -38,14 +38,14 @@ export interface ModelListProps {
   onAgentSelect?: () => void
 }
 
-const TYPE_LABELS: Record<string, string> = {
-  talk: '对话',
-  image: '图像',
-  video: '视频',
-  audio: '音频',
-  videoa: '数字人',
-  other: '全能',
-}
+const TYPE_LABELS = (tt: TtFn): Record<string, string> => ({
+  talk: tt('ModelList.d1', '对话'),
+  image: tt('modelPlaza.tabImage', '图像'),
+  video: tt('aigc.list.catVideo', '视频'),
+  audio: tt('aigc.list.catAudio', '音频'),
+  videoa: tt('ai.chatMessageItem.digitalHuman', '数字人'),
+  other: tt('ModelList.d2', '全能'),
+})
 
 export default function ModelList({
   models,
@@ -119,9 +119,11 @@ export default function ModelList({
         }}
       >
         {/* 分类标题(对齐原项目 .title,display:none 在原项目但保留为视觉锚点)*/}
-        {currentType && TYPE_LABELS[currentType] ? (
+        {currentType && TYPE_LABELS(tt)[currentType] ? (
           <View style={{ padding: '0 15rpx', height: rpx(40), display: 'none' }}>
-            <Text style={{ fontSize: rpx(24), fontWeight: 600 }}>{TYPE_LABELS[currentType]}</Text>
+            <Text style={{ fontSize: rpx(24), fontWeight: 600 }}>
+              {TYPE_LABELS(tt)[currentType]}
+            </Text>
           </View>
         ) : null}
 
@@ -146,7 +148,7 @@ export default function ModelList({
                   fontWeight: agentActive ? 'bold' : 'normal',
                 }}
               >
-                Agent模式
+                {tt('ModelList.text1', 'Agent模式')}
               </Text>
               {/* chu-power 徽章:对齐原项目 mian_label.png */}
               <Image

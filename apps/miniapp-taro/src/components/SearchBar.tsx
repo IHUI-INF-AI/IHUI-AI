@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 
 export interface SearchBarProps {
@@ -10,7 +11,7 @@ export interface SearchBarProps {
 
 export default function SearchBar({
   value = '',
-  placeholder = '搜索',
+  placeholder = t('course.list.search'),
   onInput,
   onSearch,
   onClear,

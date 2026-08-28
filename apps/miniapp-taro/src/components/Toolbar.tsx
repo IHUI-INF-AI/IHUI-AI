@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
-import { useTt } from '@/i18n'
 // 本地化远程 CDN 图片:原 bspapp CDN / aizhs 图库在 H5 模式下加载失败,改为本地 SVG 占位
 import aiIconImg from '@/assets/remote-images/ai-icon.svg'
 import courseIconImg from '@/assets/remote-images/course-icon.svg'

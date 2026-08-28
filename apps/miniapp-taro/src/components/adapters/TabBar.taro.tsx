@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
@@ -44,13 +45,14 @@ const TAB_BAR_HEIGHT = 56
 const TAB_BAR_ICON_SIZE = 24
 const TAB_BAR_FONT_SIZE = 10
 const TAB_BAR_TOP_BORDER = 1
-const DEFAULT_TABS: readonly TabBarItemConfig[] = [
-  { key: 'home', label: '首页', iconInactive: '', iconActive: '' },
-  { key: 'course', label: '课程', singleTinted: true, singleIcon: '' },
-  { key: 'ai', label: 'AI', iconInactive: '', iconActive: '' },
-  { key: 'live', label: '直播', iconInactive: '', iconActive: '' },
-  { key: 'mine', label: '我的', iconInactive: '', iconActive: '' },
-] as const
+const DEFAULT_TABS = (tt: TtFn): readonly TabBarItemConfig[] =>
+  [
+    { key: 'home', label: tt('nav.home', '首页'), iconInactive: '', iconActive: '' },
+    { key: 'course', label: tt('coursePlanet.course', '课程'), singleTinted: true, singleIcon: '' },
+    { key: 'ai', label: 'AI', iconInactive: '', iconActive: '' },
+    { key: 'live', label: tt('history.type.live', '直播'), iconInactive: '', iconActive: '' },
+    { key: 'mine', label: tt('nav.profile', '我的'), iconInactive: '', iconActive: '' },
+  ] as const
 
 const toRpx = (px: number): string => `${px * 2}rpx`
 
@@ -106,8 +108,9 @@ export function TabBar({
   className,
   colorScheme = 'light',
 }: TabBarProps) {
+  const tt = useTt()
   const tk = getRnTokens(colorScheme)
-  const list: readonly TabBarItemConfig[] = items ?? DEFAULT_TABS
+  const list: readonly TabBarItemConfig[] = items ?? DEFAULT_TABS(tt)
 
   return (
     <View className={className} style={viewStyles.container(tk, safeAreaBottom)}>

@@ -1,8 +1,8 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 import { getUserInfo } from '@/utils/auth'
 import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
 import './balance.css'
@@ -34,11 +34,15 @@ type ActiveBtn = 'agent' | 'orders'
 
 const PAGE_SIZE = 20
 
-const BAR_LIST: Array<{ value: BarType; key: string; fb: string }> = [
-  { value: 'w', key: 'token.balance.bar7d', fb: '7天' },
-  { value: 'm', key: 'token.balance.bar1m', fb: '一个月' },
-  { value: 'y', key: 'token.balance.bar1y', fb: '近一年' },
-  { value: 'a', key: 'token.balance.barAll', fb: '全部' },
+const BAR_LIST = (tt: TtFn): Array<{ value: BarType; key: string; fb: string }> => [
+  {
+    value: 'w',
+    key: 'token.balance.bar7d',
+    fb: tt('devEnter.modelEdit.limitedDuration7Day', '7天'),
+  },
+  { value: 'm', key: 'token.balance.bar1m', fb: tt('tokenBalance.d1', '一个月') },
+  { value: 'y', key: 'token.balance.bar1y', fb: tt('tokenBalance.d2', '近一年') },
+  { value: 'a', key: 'token.balance.barAll', fb: tt('common.all', '全部') },
 ]
 
 function getUuid(): string {
@@ -145,7 +149,6 @@ export default function TokenBalance() {
   }
 
   useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('token.balance.title', '我的智汇值') })
     loadBalance()
     getData(true)
   })
@@ -180,7 +183,7 @@ export default function TokenBalance() {
       </View>
 
       <View className="tab-bar">
-        {BAR_LIST.map((b) => (
+        {BAR_LIST(tt).map((b) => (
           <View
             key={b.value}
             className={`tab-item${type === b.value ? ' active' : ''}`}

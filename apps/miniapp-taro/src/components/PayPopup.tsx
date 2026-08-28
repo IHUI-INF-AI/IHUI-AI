@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { useState, useCallback } from 'react'
 import { View, Text } from '@tarojs/components'
-import { useTt } from '@/i18n'
 import {
   requestPayment,
   type WechatPayParams,

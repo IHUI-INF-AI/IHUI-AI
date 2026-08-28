@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, Textarea, Button, Picker } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { post } from '@/api'
-import { useI18n } from '@/i18n'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()

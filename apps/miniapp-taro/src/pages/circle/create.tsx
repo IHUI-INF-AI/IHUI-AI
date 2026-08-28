@@ -1,10 +1,10 @@
+import { useTt, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Textarea, Image, Button, ScrollView, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
-import { useTt } from '@/i18n'
 import './create.css'
 
 const MAX_CONTENT = 500
@@ -35,10 +35,14 @@ interface FormState {
   allowComments: boolean
 }
 
-const VIS_OPTIONS: Array<{ key: Visibility; label: string; icon: string }> = [
-  { key: 'public', label: '公开', icon: '/static/images/icons/globe.svg' },
-  { key: 'friends', label: '仅好友', icon: '/static/images/icons/users.svg' },
-  { key: 'private', label: '私密', icon: '/static/images/icons/lock.svg' },
+const VIS_OPTIONS = (tt: TtFn): Array<{ key: Visibility; label: string; icon: string }> => [
+  { key: 'public', label: tt('circleCreate.d1', '公开'), icon: '/static/images/icons/globe.svg' },
+  {
+    key: 'friends',
+    label: tt('circleCreate.d2', '仅好友'),
+    icon: '/static/images/icons/users.svg',
+  },
+  { key: 'private', label: tt('circleCreate.d3', '私密'), icon: '/static/images/icons/lock.svg' },
 ]
 
 const VIS_KEY: Record<string, string> = {
@@ -309,7 +313,7 @@ export default function CircleCreatePage() {
         <View className="cc-row">
           <Text className="cc-label">{tt('circle.create.visibility', '可见范围')}</Text>
           <View className="cc-vis">
-            {VIS_OPTIONS.map((opt) => (
+            {VIS_OPTIONS(tt).map((opt) => (
               <View
                 key={opt.key}
                 className={`cc-vis-chip${form.visibility === opt.key ? ' active' : ''}`}

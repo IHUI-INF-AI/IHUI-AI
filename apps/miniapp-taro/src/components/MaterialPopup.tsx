@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 
 export type MaterialTab = 1 | 2 | 3 | 4

@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
-import { useTt } from '@/i18n'
 import { useCountdown } from '@ihui/shared/hooks'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
@@ -111,7 +111,10 @@ export default function VerifyCodeModal({
 
   if (!visible) return null
 
-  const sendText = countdown > 0 ? `${countdown}s 后重发` : '重新发送'
+  const sendText =
+    countdown > 0
+      ? `${countdown}s 后重{tt('VerifyCodeModal.p1', '发')}`
+      : tt('VerifyCodeModal.p2', '重新发送')
 
   return (
     <View className="fixed inset-0 z-[2000] flex items-center justify-center" onClick={onClose}>
@@ -125,11 +128,11 @@ export default function VerifyCodeModal({
             {tt('verify.getCode', '获取验证码')}
           </Text>
           <Text className="text-sm text-muted-foreground" onClick={onClose}>
-            关闭
+            {tt('common.close', '关闭')}
           </Text>
         </View>
         <Text className="block text-xs text-muted-foreground mb-3 leading-relaxed">
-          验证码已发送至 {phone}
+          {tt('tail.12', '验证码已发送至 {m}', { m: phone })}
         </Text>
         <View className="flex justify-between mb-3">
           {codes.map((c, idx) => (
@@ -160,7 +163,11 @@ export default function VerifyCodeModal({
             }`}
             onClick={submitting ? undefined : verifyCode}
           >
-            <Text className="text-sm text-white">{submitting ? '验证中...' : '确定'}</Text>
+            <Text className="text-sm text-white">
+              {submitting
+                ? tt('VerifyCodeModal.p3', '验证中...')
+                : tt('TitleSwitchTypeBar.confirm', '确定')}
+            </Text>
           </View>
         </View>
       </View>

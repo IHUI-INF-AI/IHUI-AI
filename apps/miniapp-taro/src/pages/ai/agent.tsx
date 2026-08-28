@@ -1,3 +1,4 @@
+import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
@@ -13,31 +14,68 @@ import {
   type ModelConfig,
   type ModelType,
 } from '@/components'
-import { useI18n } from '@/i18n'
 
 type CategoryKey = 'recommend' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 type SortKey = 'hot' | 'newest' | 'uses'
 type QuickTabKey = 'all' | 'favorites' | 'recent'
 
-const CATEGORY_KEYWORDS: Record<Exclude<CategoryKey, 'recommend'>, string[]> = {
-  office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
-  writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
+const CATEGORY_KEYWORDS = (tt: TtFn): Record<Exclude<CategoryKey, 'recommend'>, string[]> => ({
+  office: [
+    tt('ai.agentList.categories.office', '办公'),
+    tt('aiAgent.d1', '会议'),
+    tt('aiAgent.d2', '邮件'),
+    'excel',
+    'word',
+    'ppt',
+    tt('messageInput.document', '文档'),
+    tt('aiAgent.d3', '表格'),
+    'office',
+  ],
+  writing: [
+    tt('aiAgent.d4', '写'),
+    tt('aigcPublish.typeText', '文案'),
+    tt('bookmark.type.article', '文章'),
+    tt('aiAgent.d5', '创作'),
+    tt('aiAgent.d6', '小说'),
+    tt('feedback.content', '内容'),
+    tt('ai.agentList.categories.writing', '写作'),
+    tt('aiAgent.d7', '文字'),
+  ],
   coding: [
-    '代码',
-    '编程',
-    '程序',
-    '开发',
+    t('aiAgent.r1'),
+    t('ai.agentList.categories.coding'),
+    t('aiAgent.r2'),
+    t('pagesindexindex.d5'),
     'bug',
-    '函数',
-    '前端',
-    '后端',
+    t('aiAgent.r3'),
+    t('aiAgent.r4'),
+    t('aiAgent.r5'),
     'python',
     'javascript',
     'code',
   ],
-  education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
-  life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
-}
+  education: [
+    tt('aiAgent.d8', '学'),
+    tt('aiAgent.d9', '教'),
+    tt('aiAgent.d10', '课'),
+    tt('aiAgent.d11', '知识'),
+    tt('aiAgent.d12', '考试'),
+    tt('aiAgent.d13', '题'),
+    tt('ai.agentList.categories.education', '教育'),
+    tt('aiAgent.d14', '讲解'),
+    tt('aiAgent.d15', '题解'),
+  ],
+  life: [
+    tt('ai.agentList.categories.life', '生活'),
+    tt('aiAgent.d16', '健康'),
+    tt('aiAgent.d17', '美食'),
+    tt('aiAgent.d18', '旅游'),
+    tt('aiAgent.d19', '运动'),
+    tt('aiAgent.d20', '购物'),
+    tt('aiAgent.d21', '日常'),
+    'life',
+  ],
+})
 
 const CATEGORY_KEY: Record<string, string> = {
   office: 'ai.agentList.categories.office',
@@ -49,10 +87,14 @@ const CATEGORY_KEY: Record<string, string> = {
   recommend: 'ai.agentList.categories.recommend',
 }
 
-function detectCategory(name: string, desc: string): string {
+function detectCategory(
+  name: string,
+  desc: string,
+  keywords: Record<Exclude<CategoryKey, 'recommend'>, string[]>,
+): string {
   const text = `${name} ${desc}`.toLowerCase()
-  for (const key of Object.keys(CATEGORY_KEYWORDS) as Array<Exclude<CategoryKey, 'recommend'>>) {
-    if (CATEGORY_KEYWORDS[key].some((kw) => text.includes(kw.toLowerCase()))) {
+  for (const [key, kws] of Object.entries(keywords)) {
+    if (kws.some((kw) => text.includes(kw.toLowerCase()))) {
       return key
     }
   }
@@ -93,6 +135,7 @@ function readRecent(): string[] {
 }
 
 export default function AgentPage() {
+  const tt = useTt()
   const { t } = useI18n()
   const [list, setList] = useState<AgentItem[]>([])
   const [keyword, setKeyword] = useState('')
@@ -177,7 +220,7 @@ export default function AgentPage() {
         name: a.name,
         desc: a.desc,
         avatar: a.avatar,
-        category: detectCategory(a.name || '', a.desc || ''),
+        category: detectCategory(a.name || '', a.desc || '', CATEGORY_KEYWORDS(tt)),
         uses: a.uses,
         isVipExclusive: a.isVipExclusive,
       })) as AgentItem[]
@@ -190,7 +233,7 @@ export default function AgentPage() {
     // 同步本地收藏 / 最近使用
     setFavoriteIds(readFavorites())
     setRecentIds(readRecent())
-  }, [])
+  }, [tt])
 
   const goDetail = useCallback((id: string) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${id}` })
@@ -252,9 +295,24 @@ export default function AgentPage() {
       <View className="px-[20rpx] pt-[16rpx] pb-[8rpx]">
         <Carousel
           items={[
-            { id: 'b1', img: '', title: 'AI 应用商店', subtitle: '发现更多智能助手,提升工作效率' },
-            { id: 'b2', img: '', title: '开发者入驻', subtitle: '创建并发布你自己的 AI 智能体' },
-            { id: 'b3', img: '', title: '热门推荐', subtitle: '本周最受欢迎的智能体排行' },
+            {
+              id: 'b1',
+              img: '',
+              title: tt('aiAgent.text1', 'AI 应用商店'),
+              subtitle: tt('aiAgent.more2', '发现更多智能助手,提升工作效率'),
+            },
+            {
+              id: 'b2',
+              img: '',
+              title: tt('aiAgent.text3', '开发者入驻'),
+              subtitle: tt('aiAgent.text4', '创建并发布你自己的 AI 智能体'),
+            },
+            {
+              id: 'b3',
+              img: '',
+              title: tt('ai.agentList.hotRecommend', '热门推荐'),
+              subtitle: tt('aiAgent.text5', '本周最受欢迎的智能体排行'),
+            },
           ]}
         />
       </View>
@@ -437,9 +495,7 @@ export default function AgentPage() {
                           className="mr-[6rpx]"
                           style={{ width: '22rpx', height: '22rpx' }}
                         />
-                        <Text className="text-[22rpx] text-amber-500">
-                          {rating.toFixed(1)}
-                        </Text>
+                        <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
                       </View>
                     )}
                     {agent.uses !== undefined && (

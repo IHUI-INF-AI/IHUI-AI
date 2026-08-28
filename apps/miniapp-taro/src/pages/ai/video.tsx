@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
@@ -8,7 +9,6 @@ import {
   soraRequestEnd,
 } from '@/api'
 import { logger } from '@/utils/logger'
-import { useI18n } from '@/i18n'
 import VideoPlayer from '@/components/VideoPlayer'
 import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
