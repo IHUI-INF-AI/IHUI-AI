@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getCommissionRecords, getDistributionInfo } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface CommissionRecord {
   id: string

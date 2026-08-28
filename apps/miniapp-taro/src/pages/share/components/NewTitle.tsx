@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { rpx } from '@/utils/rpx'
 
@@ -20,6 +21,7 @@ export interface NewTitleProps {
 }
 
 export default function NewTitle({ items, onItemClick }: NewTitleProps) {
+  const tt = useTt()
   if (!items.length) return null
   return (
     <View
@@ -40,7 +42,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
           display: 'block',
         }}
       >
-        热门资讯
+        {tt('shareNewTitle.text1', '热门资讯')}
       </Text>
       {items.map((item) => (
         <View

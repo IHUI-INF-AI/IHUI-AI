@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
-import { useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 
 // 保留:#e8f5e9 success 浅色背景 / #ff9a3c 自定义橙(status-pending);token 系统无对应浅色背景/状态橙,保留原值

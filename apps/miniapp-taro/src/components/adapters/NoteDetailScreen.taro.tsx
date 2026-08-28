@@ -1,10 +1,10 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView/Image 组件,不适合共享层
+import { useTt, type TtFn } from '@/i18n'
 import { useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import type { TFunction, NoteDetailItem, NoteDetailScreenProps } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
 export type { NoteDetailItem, NoteDetailScreenProps }
@@ -26,12 +26,12 @@ export type { NoteDetailItem, NoteDetailScreenProps }
  */
 
 /** 硬编码中文 fallback(i18n 三级降级最末层,应对 prop t 与 I18nContext 均缺失翻译的场景) */
-const FALLBACK_TEXT: Record<string, string> = {
-  'common.loading': '加载中...',
-  'common.back': '返回',
-  'noteDetail.loadFailed': '加载笔记失败',
-  'noteDetail.views': '{count} 次阅读',
-}
+const FALLBACK_TEXT = (tt: TtFn): Record<string, string> => ({
+  'common.loading': tt('common.loadingShort', '加载中...'),
+  'common.back': tt('common.back', '返回'),
+  'noteDetail.loadFailed': tt('noteList.loadFailed', '加载笔记失败'),
+  'noteDetail.views': tt('help.viewCount', '{count} 次阅读'),
+})
 
 /** Taro `rpx` 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -182,12 +182,12 @@ export function NoteDetailScreen({
   const tt = useTt()
   const tk = getRnTokens(colorScheme)
 
-  /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT 硬编码中文 */
+  /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT(tt) 硬编码中文 */
   const tr = useCallback<TFunction>(
     (key, options) => {
       const v = t(key, options)
       if (v && v !== key) return v
-      return tt(key, FALLBACK_TEXT[key] ?? key, options)
+      return tt(key, FALLBACK_TEXT(tt)[key] ?? key, options)
     },
     [t, tt],
   )

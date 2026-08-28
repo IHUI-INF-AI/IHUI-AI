@@ -1,8 +1,8 @@
+import { useTt, useI18n, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import * as api from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './index.css'
 
@@ -24,18 +24,42 @@ interface Tab {
   fallback: string
 }
 
-const TABS: Tab[] = [
-  { value: '', labelKey: 'distribution.orderList.all', fallback: '全部' },
-  { value: 'settled', labelKey: 'distribution.orderList.settled', fallback: '已结算' },
-  { value: 'pending', labelKey: 'distribution.orderList.pending', fallback: '待结算' },
+const TABS = (tt: TtFn): Tab[] => [
+  { value: '', labelKey: 'distribution.orderList.all', fallback: tt('common.all', '全部') },
+  {
+    value: 'settled',
+    labelKey: 'distribution.orderList.settled',
+    fallback: tt('developer.income.settled', '已结算'),
+  },
+  {
+    value: 'pending',
+    labelKey: 'distribution.orderList.pending',
+    fallback: tt('distribution.pendingSettle', '待结算'),
+  },
 ]
 
-const STATUS_LABELS: Record<string, { key: string; fb: string; cls: string }> = {
-  settled: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'ol-status-settled' },
-  pending: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'ol-status-pending' },
-  paid: { key: 'distribution.orderList.settled', fb: '已结算', cls: 'ol-status-settled' },
-  unpaid: { key: 'distribution.orderList.pending', fb: '待结算', cls: 'ol-status-pending' },
-}
+const STATUS_LABELS = (tt: TtFn): Record<string, { key: string; fb: string; cls: string }> => ({
+  settled: {
+    key: 'distribution.orderList.settled',
+    fb: tt('developer.income.settled', '已结算'),
+    cls: 'ol-status-settled',
+  },
+  pending: {
+    key: 'distribution.orderList.pending',
+    fb: tt('distribution.pendingSettle', '待结算'),
+    cls: 'ol-status-pending',
+  },
+  paid: {
+    key: 'distribution.orderList.settled',
+    fb: tt('developer.income.settled', '已结算'),
+    cls: 'ol-status-settled',
+  },
+  unpaid: {
+    key: 'distribution.orderList.pending',
+    fb: tt('distribution.pendingSettle', '待结算'),
+    cls: 'ol-status-pending',
+  },
+})
 
 const PAGE_SIZE = 20
 
@@ -127,7 +151,7 @@ export default function DistributionOrderList() {
   return (
     <View className="ol-page">
       <View className="ol-tabs">
-        {TABS.map((tab) => (
+        {TABS(tt).map((tab) => (
           <View
             key={tab.value}
             className={`ol-tab ${activeTab === tab.value ? 'ol-tab-active' : ''}`}
@@ -147,7 +171,7 @@ export default function DistributionOrderList() {
       {list.length > 0 && (
         <View className="ol-list">
           {list.map((o) => {
-            const statusInfo = STATUS_LABELS[o.status] || {
+            const statusInfo = STATUS_LABELS(tt)[o.status] || {
               key: '',
               fb: o.status,
               cls: 'ol-status-pending',

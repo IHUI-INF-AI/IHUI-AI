@@ -1,10 +1,10 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import { getProfile, updateUserAvatar } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
-import { useTt } from '@/i18n'
 import './avatar.css'
 
 const DEFAULT_AVATAR = '/static/default-avatar.png'

@@ -1,15 +1,15 @@
+import { useI18n, t } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
-import { useI18n } from '@/i18n'
 
-const ICP_NO = '吉ICP备2025027274号-7A'
+const ICP_NO = t('aboutIcprecord.p1')
 
 const VALUES = [
   ICP_NO,
-  '粤公网安备44010602000001号',
-  '广州智汇科技有限公司',
-  '企业',
+  t('aboutIcprecord.r1'),
+  t('aboutIcprecord.r2'),
+  t('devEnter.modelEdit.targetGroupEnterprise'),
   'aizhs.top',
   '2026-01-15',
 ]
@@ -17,6 +17,9 @@ const VALUES = [
 const QUERY_URL = 'https://beian.miit.gov.cn/'
 
 export default function IcpRecord() {
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.icpRecord.title', 'ICP备案') })
+  })
   const { t } = useI18n()
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -25,10 +28,6 @@ export default function IcpRecord() {
     },
     [t],
   )
-
-  useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.icpRecord.title', 'ICP备案') })
-  })
 
   const labels = [
     tt('about.icpRecord.icpNo', 'ICP 备案号'),

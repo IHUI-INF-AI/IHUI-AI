@@ -1,10 +1,10 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
-import { useI18n } from '@/i18n'
 import './detail.css'
 
 /** 排行榜详情数据(字段从列表项中筛选,后端无单条详情接口时走列表 find) */
@@ -47,11 +47,11 @@ const pick = (obj: Record<string, unknown>, keys: string[]): string => {
 }
 
 /** 状态码映射:2→已发布 / 4→测试中 / 6→已下线 / 其他→未知 */
-const STATUS_MAP: Record<string, { key: string; fallback: string }> = {
-  '2': { key: 'ranking.statusPublished', fallback: '已发布' },
-  '4': { key: 'ranking.statusTesting', fallback: '测试中' },
-  '6': { key: 'ranking.statusOffline', fallback: '已下线' },
-}
+const STATUS_MAP = (tt: TtFn): Record<string, { key: string; fallback: string }> => ({
+  '2': { key: 'ranking.statusPublished', fallback: tt('developer.index.published', '已发布') },
+  '4': { key: 'ranking.statusTesting', fallback: tt('rankingDetail.d1', '测试中') },
+  '6': { key: 'ranking.statusOffline', fallback: tt('rankingDetail.d2', '已下线') },
+})
 
 /** 抽屉模式:menu=历史菜单 / fenlei=分类 */
 type DrawerMode = 'menu' | 'fenlei'
@@ -111,8 +111,8 @@ export default function RankingDetailPage() {
         name: pick(raw, ['name', 'title']),
         intro: pick(raw, ['intro', 'desc', 'description', 'summary']),
         attention: pick(raw, ['attention', 'viewCount', 'collectCount']),
-        category: pick(raw, ['category', 'cate']) || '通用助手',
-        price: pick(raw, ['price']) || '免费',
+        category: pick(raw, ['category', 'cate']) || tt('ranking.generalHelper', '通用助手'),
+        price: pick(raw, ['price']) || tt('common.free', '免费'),
         status: statusVal as number | string | undefined,
         subCategory: pick(raw, ['subCategory', 'sub_category', 'subcategory']),
         productForm: pick(raw, ['productForm', 'product_form', 'form']),
@@ -123,7 +123,7 @@ export default function RankingDetailPage() {
         content: pick(raw, ['context', 'content', 'detail', 'details', 'body']),
       })
     } catch (e) {
-      logger.error('ranking/detail', '获取详情', e)
+      logger.error('ranking/detail', tt('ranking.detail.loadFailed', '加载失败'), e)
       Taro.showToast({ title: tt('ranking.detail.loadFailed', '获取详情失败'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -161,7 +161,7 @@ export default function RankingDetailPage() {
   /** 状态文本(2→已发布 / 4→测试中 / 6→已下线 / 其他→未知) */
   const statusText = useMemo(() => {
     const code = String(data.status ?? '')
-    const cfg = STATUS_MAP[code]
+    const cfg = STATUS_MAP(tt)[code]
     if (cfg) return tt(cfg.key, cfg.fallback)
     return tt('ranking.statusUnknown', '未知')
   }, [data.status, tt])

@@ -1,4 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
+import { useTt, t } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
@@ -171,6 +172,7 @@ export function Selecter({
   onChange,
   colorScheme = 'light',
 }: SelecterProps) {
+  const tt = useTt()
   const tk = getRnTokens(colorScheme)
   const [value, setValue] = useState<number | string>('')
   const [selectedSizeIndex, setSelectedSizeIndex] = useState<number | null>(null)
@@ -252,7 +254,8 @@ export function Selecter({
     setValue('')
   }, [])
 
-  const isDisabled = (): boolean => !!(desc && desc.includes('水印') && isVip === 0)
+  const isDisabled = (): boolean =>
+    !!(desc && desc.includes(t('adaptersSelectertaro.q1')) && isVip === 0)
 
   // ===== type='scale' =====
   if (type === 'scale') {
@@ -283,9 +286,9 @@ export function Selecter({
   // ===== type='video' =====
   if (type === 'video') {
     const items: Array<{ label: string; sub: string; val: string }> = [
-      { label: '标清 480p', sub: '(640×480)', val: '480P' },
-      { label: '超清 720p', sub: '(1280×720)', val: '720P' },
-      { label: '高清 1080p', sub: '(1920×1080)', val: '1080P' },
+      { label: tt('adaptersSelectertaro.text1', '标清 480p'), sub: '(640×480)', val: '480P' },
+      { label: tt('adaptersSelectertaro.text2', '超清 720p'), sub: '(1280×720)', val: '720P' },
+      { label: tt('adaptersSelectertaro.text3', '高清 1080p'), sub: '(1920×1080)', val: '1080P' },
     ]
     return (
       <ScrollView scrollX style={viewStyles.scroll()}>
@@ -363,7 +366,9 @@ export function Selecter({
                 style={{ ...viewStyles.backBtn(), borderColor: tk.gray[500] }}
                 onTap={resetRatioSelection}
               >
-                <Text style={textStyles.backText(tk)}>← 返回</Text>
+                <Text style={textStyles.backText(tk)}>
+                  {tt('adaptersSelectertaro.back4', '← 返回')}
+                </Text>
               </View>
               <View style={viewStyles.sizeLabel()}>
                 <Text style={{ ...textStyles.sizeLabel(), color: tk.brand.DEFAULT }}>

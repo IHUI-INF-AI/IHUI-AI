@@ -1,6 +1,6 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useState } from 'react'
-import { useI18n, useTt } from '@/i18n'
 
 export interface CourseRatingProps {
   initialRating?: number

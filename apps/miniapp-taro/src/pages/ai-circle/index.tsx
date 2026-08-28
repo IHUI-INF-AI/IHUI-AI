@@ -1,9 +1,9 @@
+import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 const PAGE_SIZE = 10
 

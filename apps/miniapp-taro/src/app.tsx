@@ -1,3 +1,4 @@
+import { useI18n, I18nProvider } from '@/i18n'
 import { type PropsWithChildren } from 'react'
 import Taro, { useLaunch } from '@tarojs/taro'
 import {
@@ -26,7 +27,6 @@ import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
-import { I18nProvider, useI18n } from './i18n'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
 import './app.css'

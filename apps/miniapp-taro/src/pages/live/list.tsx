@@ -1,3 +1,4 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, {
   usePullDownRefresh,
@@ -7,7 +8,6 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',

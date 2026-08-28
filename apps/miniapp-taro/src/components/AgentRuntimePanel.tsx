@@ -1,6 +1,6 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Textarea, Button, ScrollView } from '@tarojs/components'
 import { useAgentRuntime } from '@ihui/shared'
-import { useI18n } from '@/i18n'
 import type { AgentRuntimePanelProps } from '@ihui/types'
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {

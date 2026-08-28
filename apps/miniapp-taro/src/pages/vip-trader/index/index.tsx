@@ -1,8 +1,8 @@
+import { useI18n, t } from '@/i18n'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './index.css'
 
@@ -21,21 +21,20 @@ const DEFAULT_AMOUNT = 1999
 const DEFAULT_AVATAR = '/static/default-avatar.png'
 
 const TRADER_PROFILE: TraderProfile = {
-  nickname: 'AI智汇社 操盘手',
-  title: '资深市场分析师 / 平台认证',
+  nickname: t('viptrader.d1'),
+  title: t('viptrader.d2'),
   avatar: '',
-  intro:
-    'AI智汇社认证操盘手,10 年 A 股实战经验,擅长技术面与基本面结合分析,曾管理规模超 5 亿的组合。专注趋势策略与风控体系搭建,累计服务超 2000 名学员,以严谨、专业、贴近实战著称。',
+  intro: t('viptrader.r1'),
 }
 
 // 操盘手能力标签(对标任务要求:技术分析/基本面/风控/选股等)
 const CAPABILITY_TAGS = [
-  { key: 'tech', label: '技术分析' },
-  { key: 'fundamental', label: '基本面' },
-  { key: 'risk', label: '风控' },
-  { key: 'picker', label: '选股' },
-  { key: 'quant', label: '量化' },
-  { key: 'sentiment', label: '情绪面' },
+  { key: 'tech', label: t('viptrader.d3') },
+  { key: 'fundamental', label: t('viptrader.d4') },
+  { key: 'risk', label: t('viptrader.d5') },
+  { key: 'picker', label: t('viptrader.d6') },
+  { key: 'quant', label: t('viptrader.d7') },
+  { key: 'sentiment', label: t('viptrader.d8') },
 ]
 
 // 操盘手权益(对标原 vip/trader.vue features,精选 8 项)
@@ -43,59 +42,64 @@ const TRADER_FEATURES = [
   {
     icon: '/static/images/icons/medal.svg',
     key: 'distribution_qualification',
-    title: '分销资格',
-    desc: '享受大额分销资格,入驻社区服务商名列',
+    title: t('viptrader.d9'),
+    desc: t('viptrader.d10'),
   },
   {
     icon: '/static/images/icons/graduation-cap.svg',
     key: 'ai_courses',
-    title: 'AI 课程',
-    desc: 'AI深度认知课/深度商业课/流量全链路打法课程免费观看',
+    title: t('viptrader.d11'),
+    desc: t('viptrader.d12'),
   },
   {
     icon: '/static/images/icons/handshake.svg',
     key: 'founder_qa',
-    title: '创始人答疑',
-    desc: '创始人一对一随时答疑陪跑',
+    title: t('viptrader.d13'),
+    desc: t('viptrader.d14'),
   },
   {
     icon: '/static/images/icons/flask-conical.svg',
     key: 'agent_beta',
-    title: 'Agent 内测',
-    desc: '最新研发 agent 内测资格一年',
+    title: t('viptrader.d15'),
+    desc: t('viptrader.d16'),
   },
   {
     icon: '/static/images/icons/gem.svg',
     key: 'vip_max_discount',
-    title: '顶级折扣',
-    desc: '会员等级拉满,享受全部最高折扣',
+    title: t('viptrader.d17'),
+    desc: t('viptrader.d18'),
   },
   {
     icon: '/static/images/icons/zap.svg',
     key: 'custom_agent_discount',
-    title: '定制优惠',
-    desc: '插队定制独家定制 agent 功能 8 折优惠',
+    title: t('viptrader.d19'),
+    desc: t('viptrader.d20'),
   },
   {
     icon: '/static/images/icons/rocket.svg',
     key: 'vertical_account_incubation',
-    title: '账号孵化',
-    desc: 'AI+垂类账号孵化优先陪跑机会',
+    title: t('viptrader.d21'),
+    desc: t('viptrader.d22'),
   },
   {
     icon: '/static/images/icons/lightbulb.svg',
     key: 'free_computing_power',
-    title: '赠送算力',
-    desc: '操盘手赠送 1600W 算力',
+    title: t('viptrader.d23'),
+    desc: t('viptrader.d24'),
   },
 ]
 
 // 历史业绩指标(年化收益率/胜率/最大回撤/累计收益)
 const PERFORMANCE_METRICS = [
-  { key: 'annualReturn', label: '年化收益', value: '+38.6%', tone: 'up' as const },
-  { key: 'winRate', label: '胜率', value: '72.4%', tone: 'up' as const },
-  { key: 'maxDrawdown', label: '最大回撤', value: '-12.8%', tone: 'down' as const },
-  { key: 'totalReturn', label: '累计收益', value: '+186.2%', tone: 'up' as const },
+  { key: 'annualReturn', label: t('viptrader.d25'), value: '+38.6%', tone: 'up' as const },
+  { key: 'winRate', label: t('viptrader.d26'), value: '72.4%', tone: 'up' as const },
+  { key: 'maxDrawdown', label: t('viptrader.d27'), value: '-12.8%', tone: 'down' as const },
+  {
+    key: 'totalReturn',
+    label: t('distribution.plan.totalEarnings'),
+    value: '+186.2%',
+    tone: 'up' as const,
+  },
 ]
 
 // 最近 6 月业绩柱状图(单位 %,纯 CSS 柱状图)
@@ -103,26 +107,32 @@ const PERF_BARS = [12, 18, 9, 22, 15, 28]
 
 // 服务包列表(服务名 + 价格 + 服务周期 + 订阅按钮)
 const SERVICE_PACKAGES = [
-  { id: 'sp1', name: '月度陪跑', price: 999, period: '30 天', highlight: false },
-  { id: 'sp2', name: '季度策略', price: 2699, period: '90 天', highlight: true },
-  { id: 'sp3', name: '年度会员', price: 8999, period: '365 天', highlight: false },
+  { id: 'sp1', name: t('viptrader.d28'), price: 999, period: t('viptrader.d29'), highlight: false },
+  { id: 'sp2', name: t('viptrader.d30'), price: 2699, period: t('viptrader.d31'), highlight: true },
+  {
+    id: 'sp3',
+    name: t('vip.details.yearlyPlan'),
+    price: 8999,
+    period: t('viptrader.d32'),
+    highlight: false,
+  },
 ]
 
 // 用户评价(评分 + 评价内容)
 const USER_REVIEWS = [
   {
     id: 'r1',
-    nickname: '李先生',
+    nickname: t('viptrader.d33'),
     avatar: '',
     rating: 5,
-    content: '操盘手老师讲解很到位,策略实操性强,跟着执行确实有收获。',
+    content: t('viptrader.d34'),
   },
   {
     id: 'r2',
-    nickname: '王女士',
+    nickname: t('viptrader.d35'),
     avatar: '',
     rating: 4,
-    content: '一对一答疑很负责,大盘观点对择时帮助很大,推荐。',
+    content: t('viptrader.d36'),
   },
 ]
 
@@ -145,9 +155,9 @@ export default function VipTraderIndexPage() {
         setAmount(res.amount)
       }
     } catch (e) {
-      logger.error('vip-trader', '获取操盘手价格', e)
+      logger.error('vip-trader', t('viptrader.q1'), e)
     }
-  }, [])
+  }, [t])
 
   useDidShow(load)
 

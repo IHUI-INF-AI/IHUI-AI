@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAskList, type Ask } from '@/api'
-import { useI18n } from '@/i18n'
 import './list.css'
 
 export default function AskListPage() {

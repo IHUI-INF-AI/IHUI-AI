@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { cn } from '@ihui/design-tokens'
@@ -72,7 +73,7 @@ export default function NavBar({
   variant = 'default',
   onMenuClick,
   onJoinClick,
-  joinText = '加入社区群',
+  joinText = t('NavBar.z1'),
   showFenLei,
   onFenLeiClick,
   showSearch,
@@ -83,6 +84,7 @@ export default function NavBar({
   activeTitleIndex = 0,
   onActiveNav,
 }: NavBarProps) {
+  const tt = useTt()
   const statusBarHeight = menuButton.top
   const navBarHeight = menuButton.height + 8
 
@@ -147,7 +149,7 @@ export default function NavBar({
                     textDecoration: activeTitleIndex === 0 ? 'underline' : ('none' as const),
                   }}
                 >
-                  每日资讯
+                  {tt('NavBar.text1', '每日资讯')}
                 </Text>
               </View>
               <View onClick={() => onActiveNav(1)}>
@@ -159,7 +161,7 @@ export default function NavBar({
                     textDecoration: activeTitleIndex === 1 ? 'underline' : ('none' as const),
                   }}
                 >
-                  排行榜
+                  {tt('ranking.title', '排行榜')}
                 </Text>
               </View>
             </View>

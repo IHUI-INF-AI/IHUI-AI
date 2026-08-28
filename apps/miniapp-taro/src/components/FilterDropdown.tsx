@@ -1,6 +1,6 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { useState } from 'react'
-import { useTt } from '@/i18n'
 
 export interface FilterDropdownProps {
   label?: string
@@ -10,7 +10,7 @@ export interface FilterDropdownProps {
 }
 
 export default function FilterDropdown({
-  label = '筛选',
+  label = t('FilterDropdown.p1'),
   options,
   value = '',
   onChange,
@@ -32,7 +32,9 @@ export default function FilterDropdown({
         <Image
           className="ml-1"
           style={{ width: 14, height: 14 }}
-          src={open ? '/static/images/icons/chevron-up.svg' : '/static/images/icons/chevron-down.svg'}
+          src={
+            open ? '/static/images/icons/chevron-up.svg' : '/static/images/icons/chevron-down.svg'
+          }
           mode="aspectFit"
         />
       </View>

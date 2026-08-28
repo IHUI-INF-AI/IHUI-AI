@@ -1,10 +1,10 @@
+import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
 import { getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
-import { useI18n } from '@/i18n'
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
 
 type AgentDetail = Pick<
@@ -40,30 +40,68 @@ const RECENT_MAX = 20
 
 type DetailTab = 'info' | 'runtime'
 
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
-  writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
+const CATEGORY_KEYWORDS = (tt: TtFn): Record<string, string[]> => ({
+  office: [
+    tt('ai.agentList.categories.office', '办公'),
+    tt('aiAgent.d1', '会议'),
+    tt('aiAgent.d2', '邮件'),
+    'excel',
+    'word',
+    'ppt',
+    tt('messageInput.document', '文档'),
+    tt('aiAgent.d3', '表格'),
+    'office',
+  ],
+  writing: [
+    tt('aiAgent.d4', '写'),
+    tt('aigcPublish.typeText', '文案'),
+    tt('bookmark.type.article', '文章'),
+    tt('aiAgent.d5', '创作'),
+    tt('aiAgent.d6', '小说'),
+    tt('feedback.content', '内容'),
+    tt('ai.agentList.categories.writing', '写作'),
+    tt('aiAgent.d7', '文字'),
+  ],
   coding: [
-    '代码',
-    '编程',
-    '程序',
-    '开发',
+    t('aiAgent.r1'),
+    t('ai.agentList.categories.coding'),
+    t('aiAgent.r2'),
+    t('pagesindexindex.d5'),
     'bug',
-    '函数',
-    '前端',
-    '后端',
+    t('aiAgent.r3'),
+    t('aiAgent.r4'),
+    t('aiAgent.r5'),
     'python',
     'javascript',
     'code',
   ],
-  education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
-  life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
-}
+  education: [
+    tt('aiAgent.d8', '学'),
+    tt('aiAgent.d9', '教'),
+    tt('aiAgent.d10', '课'),
+    tt('aiAgent.d11', '知识'),
+    tt('aiAgent.d12', '考试'),
+    tt('aiAgent.d13', '题'),
+    tt('ai.agentList.categories.education', '教育'),
+    tt('aiAgent.d14', '讲解'),
+    tt('aiAgent.d15', '题解'),
+  ],
+  life: [
+    tt('ai.agentList.categories.life', '生活'),
+    tt('aiAgent.d16', '健康'),
+    tt('aiAgent.d17', '美食'),
+    tt('aiAgent.d18', '旅游'),
+    tt('aiAgent.d19', '运动'),
+    tt('aiAgent.d20', '购物'),
+    tt('aiAgent.d21', '日常'),
+    'life',
+  ],
+})
 
-function detectCategory(name: string, desc: string): string {
+function detectCategory(name: string, desc: string, keywords: Record<string, string[]>): string {
   const text = `${name} ${desc}`.toLowerCase()
-  for (const key of Object.keys(CATEGORY_KEYWORDS)) {
-    if ((CATEGORY_KEYWORDS[key] || []).some((kw) => text.includes(kw.toLowerCase()))) {
+  for (const [key, kws] of Object.entries(keywords)) {
+    if ((kws || []).some((kw) => text.includes(kw.toLowerCase()))) {
       return key
     }
   }
@@ -94,10 +132,10 @@ function estimateRatingDistribution(
 }
 
 /** 从描述中提取关键词作为标签(原项目 tags 字段,API 未返回时降级提取) */
-function extractTags(name: string, desc: string): string[] {
+function extractTags(name: string, desc: string, keywords: Record<string, string[]>): string[] {
   const text = `${name} ${desc}`
   const tags: string[] = []
-  for (const [cat, kws] of Object.entries(CATEGORY_KEYWORDS)) {
+  for (const [cat, kws] of Object.entries(keywords)) {
     if (kws.some((kw) => text.toLowerCase().includes(kw.toLowerCase()))) {
       tags.push(cat)
     }
@@ -150,6 +188,7 @@ function recordRecentUse(id: string): void {
 }
 
 export default function AgentDetailPage() {
+  const tt = useTt()
   const router = useRouter()
   const { t } = useI18n()
   const [agent, setAgent] = useState<AgentDetail | null>(null)
@@ -175,7 +214,7 @@ export default function AgentDetailPage() {
         prologue: a.prologue,
         isVipExclusive: a.isVipExclusive,
       })
-      const cat = detectCategory(a.name || '', a.desc || '')
+      const cat = detectCategory(a.name || '', a.desc || '', CATEGORY_KEYWORDS(tt))
       setCategory(cat)
       try {
         const raw = Taro.getStorageSync(FAVORITE_KEY)
@@ -194,7 +233,7 @@ export default function AgentDetailPage() {
             name: x.name,
             avatar: x.avatar,
             description: x.desc,
-            category: detectCategory(x.name || '', x.desc || ''),
+            category: detectCategory(x.name || '', x.desc || '', CATEGORY_KEYWORDS(tt)),
           }))
         const rel = cat !== 'other' ? others.filter((x) => x.category === cat) : others
         setRelated(rel.slice(0, 10))
@@ -202,7 +241,7 @@ export default function AgentDetailPage() {
         setRelated([])
       }
     } catch (e) {
-      logger.error('ai/agent-detail', '获取Agent详情', e)
+      logger.error('ai/agent-detail', tt('aiAgentdetail.q1', '获取Agent详情'), e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
     setPermLoading(true)
@@ -212,13 +251,13 @@ export default function AgentDetailPage() {
     } catch (e) {
       logger.warn(
         'ai/agent-detail',
-        '获取Agent权限失败',
+        tt('aiAgentdetail.r6', '获取Agent权限失败'),
         e instanceof Error ? e.message : String(e),
       )
     } finally {
       setPermLoading(false)
     }
-  }, [router.params.id, t])
+  }, [router.params.id, t, tt])
 
   useDidShow(() => {
     load()
@@ -274,8 +313,8 @@ export default function AgentDetailPage() {
   // 派生数据:标签 / 示例对话 / 评分 / 评分分布
   const tags = useMemo(() => {
     if (!agent) return []
-    return extractTags(agent.name, agent.description)
-  }, [agent])
+    return extractTags(agent.name, agent.description, CATEGORY_KEYWORDS(tt))
+  }, [agent, tt])
 
   const exampleDialogs = useMemo(() => {
     if (!agent?.prologue) return []
@@ -346,9 +385,7 @@ export default function AgentDetailPage() {
                           className="mr-[6rpx]"
                           style={{ width: '22rpx', height: '22rpx' }}
                         />
-                        <Text className="text-[22rpx] text-amber-500">
-                          {rating.toFixed(1)}
-                        </Text>
+                        <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
                       </View>
                     )}
                     {useCount !== undefined && (

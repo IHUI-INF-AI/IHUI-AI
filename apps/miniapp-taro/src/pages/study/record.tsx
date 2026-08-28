@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
-import { useTt } from '@/i18n'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 

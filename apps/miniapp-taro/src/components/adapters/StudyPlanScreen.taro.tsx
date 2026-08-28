@@ -1,9 +1,9 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView 组件,不适合共享层
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import type { TFunction, PlanStatus, StudyPlanItem, StudyPlanScreenProps } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /** 学习计划状态/列表项/Props 类型 re-export(单一来源 @ihui/types) */
 export type { PlanStatus, StudyPlanItem, StudyPlanScreenProps }

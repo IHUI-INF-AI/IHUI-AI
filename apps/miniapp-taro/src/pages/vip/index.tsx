@@ -1,3 +1,4 @@
+import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
@@ -19,7 +20,6 @@ import {
   type VipBenefit,
   type PriceOption,
 } from '@/components'
-import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 // 4 项会员特权(对齐原项目 zhs_app-ZZ,垂直列表展示)
@@ -277,11 +277,7 @@ export default function VipIndexPage() {
           {features.map((f) => (
             <View key={f.id} className="feature-item">
               <View className="feature-icon">
-                <Image
-                  style={{ width: '40rpx', height: '40rpx' }}
-                  src={f.icon}
-                  mode="aspectFit"
-                />
+                <Image style={{ width: '40rpx', height: '40rpx' }} src={f.icon} mode="aspectFit" />
               </View>
               <View className="feature-info">
                 <Text className="feature-title">{f.title}</Text>

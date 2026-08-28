@@ -1,8 +1,8 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
-import { useTt } from '@/i18n'
 import './privilege.css'
 
 interface Privilege {
@@ -54,32 +54,32 @@ const PRIVATE_BENEFITS = [
 ]
 
 /** 矩阵/权益项中文 fallback(i18n 缺失时显示) */
-const MATRIX_FALLBACK: Record<string, string> = {
-  'vip.privilege.matrixDailyChats': '每日对话次数',
-  'vip.privilege.matrixModelAccess': '模型访问',
-  'vip.privilege.matrixBasic': '基础',
-  'vip.privilege.matrixAdvanced': '进阶',
-  'vip.privilege.matrixAll': '全部',
-  'vip.privilege.matrixExclusiveService': '专属客服',
-  'vip.privilege.matrixCourseDiscount': '课程折扣(折)',
-  'vip.privilege.matrixNone': '无',
-  'vip.privilege.matrixAgentCount': '智能体数量',
-  'vip.privilege.matrixPrice': '价格',
-  'vip.privilege.matrixFree': '免费',
-}
+const MATRIX_FALLBACK = (tt: TtFn): Record<string, string> => ({
+  'vip.privilege.matrixDailyChats': tt('vipPrivilege.d1', '每日对话次数'),
+  'vip.privilege.matrixModelAccess': tt('vip.details.features.modelAccess', '模型访问'),
+  'vip.privilege.matrixBasic': tt('vipPrivilege.d2', '基础'),
+  'vip.privilege.matrixAdvanced': tt('vipPrivilege.d3', '进阶'),
+  'vip.privilege.matrixAll': tt('common.all', '全部'),
+  'vip.privilege.matrixExclusiveService': tt('memberBenefits.d31', '专属客服'),
+  'vip.privilege.matrixCourseDiscount': tt('vipPrivilege.d5', '课程折扣(折)'),
+  'vip.privilege.matrixNone': tt('devEnter.cover.noWebsite', '无'),
+  'vip.privilege.matrixAgentCount': tt('vipPrivilege.d6', '智能体数量'),
+  'vip.privilege.matrixPrice': tt('devEnter.modelEdit.priceLabel', '价格'),
+  'vip.privilege.matrixFree': tt('common.free', '免费'),
+})
 
-const BENEFIT_FALLBACK: Record<string, string> = {
-  'vip.privilege.traderBenefit1': '专属市场数据分析工具',
-  'vip.privilege.traderBenefit2': '一对一专业指导服务',
-  'vip.privilege.traderBenefit3': '实时行情预警推送',
-  'vip.privilege.traderBenefit4': '操盘策略专属课程',
-  'vip.privilege.traderBenefit5': '优先参与平台活动',
-  'vip.privilege.privateBenefit1': '一对一专属顾问',
-  'vip.privilege.privateBenefit2': '闭门沙龙参与权',
-  'vip.privilege.privateBenefit3': '行业大咖私密交流',
-  'vip.privilege.privateBenefit4': '高端资源对接',
-  'vip.privilege.privateBenefit5': '定制化解决方案',
-}
+const BENEFIT_FALLBACK = (tt: TtFn): Record<string, string> => ({
+  'vip.privilege.traderBenefit1': tt('vipPrivilege.d7', '专属市场数据分析工具'),
+  'vip.privilege.traderBenefit2': tt('vipPrivilege.d8', '一对一专业指导服务'),
+  'vip.privilege.traderBenefit3': tt('vipPrivilege.d9', '实时行情预警推送'),
+  'vip.privilege.traderBenefit4': tt('vipPrivilege.d10', '操盘策略专属课程'),
+  'vip.privilege.traderBenefit5': tt('vipPrivilege.d11', '优先参与平台活动'),
+  'vip.privilege.privateBenefit1': tt('vipPrivilege.d12', '一对一专属顾问'),
+  'vip.privilege.privateBenefit2': tt('vipPrivilege.d13', '闭门沙龙参与权'),
+  'vip.privilege.privateBenefit3': tt('vipPrivilege.d14', '行业大咖私密交流'),
+  'vip.privilege.privateBenefit4': tt('vipPrivilege.d15', '高端资源对接'),
+  'vip.privilege.privateBenefit5': tt('vipPrivilege.d16', '定制化解决方案'),
+})
 
 export default function PrivilegePage() {
   const tt = useTt()
@@ -249,11 +249,11 @@ export default function PrivilegePage() {
                 {LEVEL_MATRIX.map((row) => (
                   <View key={row.label} className="matrix-row">
                     <Text className="matrix-cell label">
-                      {tt(row.label, MATRIX_FALLBACK[row.label] || row.label)}
+                      {tt(row.label, MATRIX_FALLBACK(tt)[row.label] || row.label)}
                     </Text>
                     {row.values.map((v, i) => (
                       <Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
-                        {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK[v] || v) : v}
+                        {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK(tt)[v] || v) : v}
                       </Text>
                     ))}
                   </View>
@@ -301,7 +301,9 @@ export default function PrivilegePage() {
                       mode="aspectFit"
                       style={{ width: '24rpx', height: '24rpx' }}
                     />
-                    <Text className="benefit-text">{tt(key, BENEFIT_FALLBACK[key] || key)}</Text>
+                    <Text className="benefit-text">
+                      {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -343,7 +345,9 @@ export default function PrivilegePage() {
                       mode="aspectFit"
                       style={{ width: '24rpx', height: '24rpx' }}
                     />
-                    <Text className="benefit-text">{tt(key, BENEFIT_FALLBACK[key] || key)}</Text>
+                    <Text className="benefit-text">
+                      {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
+                    </Text>
                   </View>
                 ))}
               </View>

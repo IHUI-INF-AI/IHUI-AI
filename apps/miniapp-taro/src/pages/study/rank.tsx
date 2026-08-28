@@ -1,8 +1,8 @@
-import { View, Text, Image } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import { useDidShow } from '@tarojs/taro'
+import { View, Text, Image } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { getStudyRank } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface RankUser {
   id: string

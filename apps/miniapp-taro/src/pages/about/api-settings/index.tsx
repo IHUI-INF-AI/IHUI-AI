@@ -1,10 +1,10 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { BASE_URL } from '@/utils/api-config'
 import { get, post } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface ApiConfig {
   version: string
@@ -180,7 +180,9 @@ export default function ApiSettings() {
             >
               <Image
                 className="w-[32rpx] h-[32rpx]"
-                src={showToken ? '/static/images/eye-slash-gray.svg' : '/static/images/eye-gray.svg'}
+                src={
+                  showToken ? '/static/images/eye-slash-gray.svg' : '/static/images/eye-gray.svg'
+                }
                 mode="aspectFit"
               />
             </View>

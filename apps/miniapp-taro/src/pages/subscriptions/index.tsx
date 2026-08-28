@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useCallback } from 'react'
 import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
-import { useI18n } from '@/i18n'
 
 const PAGE_SIZE = 20
 

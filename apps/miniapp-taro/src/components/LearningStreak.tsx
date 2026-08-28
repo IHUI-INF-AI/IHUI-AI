@@ -1,5 +1,5 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n, useTt } from '@/i18n'
 
 export interface StreakDay {
   date: string

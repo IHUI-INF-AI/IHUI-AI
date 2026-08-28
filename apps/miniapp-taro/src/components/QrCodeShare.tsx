@@ -1,6 +1,6 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useI18n, useTt } from '@/i18n'
 
 export interface QrCodeShareProps {
   title?: string
@@ -13,8 +13,8 @@ export interface QrCodeShareProps {
 }
 
 export default function QrCodeShare({
-  title = '分享海报',
-  desc = '扫码即可查看',
+  title = t('QrCodeShare.p1'),
+  desc = t('QrCodeShare.p2'),
   qrUrl = '',
   logoUrl = '',
   userName = '',
@@ -74,7 +74,7 @@ export default function QrCodeShare({
           className="flex-1 !bg-muted !text-foreground text-sm rounded-md"
           onClick={handleShare}
         >
-          分享给好友
+          {tt('wallet.recharge.success.shareFriend', '分享给好友')}
         </Button>
         <Button className="flex-1 !bg-primary !text-white text-sm rounded-md" onClick={handleSave}>
           {tt('invite.saveImage', '保存图片')}

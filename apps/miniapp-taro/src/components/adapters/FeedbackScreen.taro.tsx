@@ -1,10 +1,10 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/Input/Textarea 组件,不适合共享层
+import { useTt, type TtFn } from '@/i18n'
 import { useCallback, useState } from 'react'
 import { View, Text, Input, Textarea } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import type { FeedbackScreenProps, FeedbackType, FeedbackSubmitPayload } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /**
  * Taro 适配层:FeedbackScreen — 跨端共享「意见反馈」页。
@@ -36,24 +36,24 @@ const FEEDBACK_TYPE_KEYS: Record<FeedbackType, string> = {
 }
 
 /** 硬编码中文 fallback(i18n 三级降级最末层,应对 prop t 与 I18nContext 均缺失翻译的场景) */
-const FALLBACK_TEXT: Record<string, string> = {
-  'common.back': '返回',
-  'feedback.title': '意见反馈',
-  'feedback.type': '类型',
+const FALLBACK_TEXT = (tt: TtFn): Record<string, string> => ({
+  'common.back': tt('common.back', '返回'),
+  'feedback.title': tt('setting.feedback', '意见反馈'),
+  'feedback.type': tt('developer.index.typeLabel', '类型'),
   'feedback.typeBug': 'Bug',
-  'feedback.typeSuggestion': '建议',
-  'feedback.typeQuestion': '提问',
-  'feedback.typeOther': '其他',
-  'feedback.content': '内容',
-  'feedback.contentPlaceholder': '请输入反馈内容...',
-  'feedback.contentRequired': '请输入反馈内容',
-  'feedback.contact': '联系方式(可选)',
-  'feedback.contactPlaceholder': '请输入联系方式',
-  'feedback.submit': '提交',
-  'feedback.submitting': '提交中...',
-  'feedback.success': '提交成功,感谢您的反馈!',
-  'feedback.failed': '提交失败,请稍后重试',
-}
+  'feedback.typeSuggestion': tt('feedback.types.suggestion', '建议'),
+  'feedback.typeQuestion': tt('ask.create.pageTitle', '提问'),
+  'feedback.typeOther': tt('setting.other', '其他'),
+  'feedback.content': tt('feedback.content', '内容'),
+  'feedback.contentPlaceholder': tt('adaptersFeedbackScreentaro.d1', '请输入反馈内容...'),
+  'feedback.contentRequired': tt('feedback.enterContent', '请输入反馈内容'),
+  'feedback.contact': tt('adaptersFeedbackScreentaro.d2', '联系方式(可选)'),
+  'feedback.contactPlaceholder': tt('about.help.phoneRequired', '请输入联系方式'),
+  'feedback.submit': tt('common.submit', '提交'),
+  'feedback.submitting': tt('about.help.submitting', '提交中...'),
+  'feedback.success': tt('feedback.success', '提交成功,感谢您的反馈!'),
+  'feedback.failed': tt('feedback.failed', '提交失败,请稍后重试'),
+})
 
 /** Taro `rpx` 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -199,12 +199,12 @@ export function FeedbackScreen({
   const tt = useTt()
   const tk = getRnTokens(colorScheme)
 
-  /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT 硬编码中文 */
+  /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT(tt) 硬编码中文 */
   const tr = useCallback(
     (key: string): string => {
       const v = t(key)
       if (v && v !== key) return v
-      return tt(key, FALLBACK_TEXT[key] ?? key)
+      return tt(key, FALLBACK_TEXT(tt)[key] ?? key)
     },
     [t, tt],
   )

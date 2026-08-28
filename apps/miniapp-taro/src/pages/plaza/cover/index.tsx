@@ -1,10 +1,10 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { UserInfo, DeveloperSubscription } from '@/api'
-import { useI18n } from '@/i18n'
 import { formatDateOnly } from '@ihui/shared'
 
 /** 开发者账号信息(对标原项目 developer_info_body) */
@@ -21,11 +21,14 @@ interface QaItem {
   url: string
 }
 
-const QA_FALLBACK: QaItem[] = [
-  { title: '什么是开发者空间?', url: 'https://www.zhihui.com/developer/qa1' },
-  { title: '如何成为开发者?', url: 'https://www.zhihui.com/developer/qa2' },
-  { title: '开发者能获得什么收益?', url: 'https://www.zhihui.com/developer/qa3' },
-  { title: '智能体如何上架?', url: 'https://www.zhihui.com/developer/qa4' },
+const QA_FALLBACK = (tt: TtFn): QaItem[] => [
+  { title: tt('plazaCover.d1', '什么是开发者空间?'), url: 'https://www.zhihui.com/developer/qa1' },
+  { title: tt('plazaCover.d2', '如何成为开发者?'), url: 'https://www.zhihui.com/developer/qa2' },
+  {
+    title: tt('plazaCover.d3', '开发者能获得什么收益?'),
+    url: 'https://www.zhihui.com/developer/qa3',
+  },
+  { title: tt('plazaCover.d4', '智能体如何上架?'), url: 'https://www.zhihui.com/developer/qa4' },
 ]
 
 const QA_KEYS = [
@@ -36,26 +39,26 @@ const QA_KEYS = [
 ] as const
 
 /** 三个开发者入口(对标原项目 dev_list) */
-const DEV_ENTRIES = [
+const DEV_ENTRIES = (tt: TtFn) => [
   {
     key: 'model',
     icon: '/static/images/icons/bot.svg',
     titleKey: 'plaza.cover.entryMyModel',
-    titleFb: '我的智能体',
+    titleFb: tt('devEnter.cover.myAgents', '我的智能体'),
     target: '/pages/developer/index',
   },
   {
     key: 'income',
     icon: '/static/images/icons/wallet.svg',
     titleKey: 'plaza.cover.entryModelIncome',
-    titleFb: '智能体收入',
+    titleFb: tt('devEnter.cover.agentIncome', '智能体收入'),
     target: '/pages/developer/income',
   },
   {
     key: 'n8n',
     icon: '/static/images/icons/zap.svg',
     titleKey: 'plaza.cover.entryN8n',
-    titleFb: 'n8n 智能体',
+    titleFb: tt('plazaCover.d5', 'n8n 智能体'),
     target: '/pages/dev-enter/n8n-model/index',
   },
 ]
@@ -206,17 +209,13 @@ export default function PlazaCover() {
 
       {/* 三个入口卡片(dev_list) */}
       <View className="bg-card rounded-2xl overflow-hidden mb-[24rpx]">
-        {DEV_ENTRIES.map((e) => (
+        {DEV_ENTRIES(tt).map((e) => (
           <View
             key={e.key}
             className="flex items-center gap-[20rpx] p-[32rpx]"
             onClick={() => toEntry(e.target)}
           >
-            <Image
-              style={{ width: '40rpx', height: '40rpx' }}
-              src={e.icon}
-              mode="aspectFit"
-            />
+            <Image style={{ width: '40rpx', height: '40rpx' }} src={e.icon} mode="aspectFit" />
             <Text className="flex-1 text-[30rpx] text-foreground">{tt(e.titleKey, e.titleFb)}</Text>
             <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
           </View>
@@ -306,7 +305,7 @@ export default function PlazaCover() {
           <Text className="block text-[30rpx] font-semibold text-foreground pt-[32rpx] px-[32rpx] pb-[8rpx]">
             {tt('plaza.cover.qaTitle', '常见问题')}
           </Text>
-          {QA_FALLBACK.map((qa, i) => (
+          {QA_FALLBACK(tt).map((qa, i) => (
             <View
               key={i}
               className="flex items-center gap-[16rpx] px-[32rpx] py-[28rpx]"

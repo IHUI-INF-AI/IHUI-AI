@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getPayResult } from '@/api'
-import { useI18n } from '@/i18n'
 
 type PayStatus = 'pending' | 'paid' | 'failed'
 
