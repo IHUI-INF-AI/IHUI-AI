@@ -803,61 +803,64 @@ export default function Index() {
   }
 
   // 处理模型类型点击(sck 特殊处理→素材库,skills 特殊处理→暂不实现,其他→ModelList)
-  const handleModelTypeClick = useCallback((type: ModelType) => {
-    if (type === 'sck') {
-      // sck 类型:切换素材库弹窗(对齐原项目 toggleMaterialPopup)
-      setState((s) => {
-        if (s.currentModelType === 'sck') {
-          return { ...s, currentModelType: '', showMaterialList: false }
-        }
-        return {
-          ...s,
-          currentModelType: 'sck',
-          showMaterialList: true,
-          showModelList: false,
-          materialTab: 1,
-        }
-      })
-    } else if (type === 'skills') {
-      // skills 类型:弹出技能商店(SkillsPopup) + 显示智能体列表(对齐原项目 toggleSkillsPopup)
-      setState((s) => {
-        if (s.currentModelType === 'skills') {
-          return { ...s, currentModelType: '', showSkillsPopup: false, showAgentList: false }
-        }
-        return {
-          ...s,
-          currentModelType: 'skills',
-          showSkillsPopup: true,
-          showAgentList: true,
-          showModelList: false,
-          showMaterialList: false,
-        }
-      })
-    } else {
-      // 其他类型(talk/image/video/audio/videoa/other):切换 + 自动选第一个模型
-      // 对齐原项目 ai_index.vue L698-777:setTimeout 500ms 自动选中
-      setState((s) => ({
-        ...s,
-        currentModelType: s.currentModelType === type ? '' : type,
-        showModelList: s.currentModelType !== type,
-        showMaterialList: false,
-      }))
-      // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
-      // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
-      setTimeout(() => {
+  const handleModelTypeClick = useCallback(
+    (type: ModelType) => {
+      if (type === 'sck') {
+        // sck 类型:切换素材库弹窗(对齐原项目 toggleMaterialPopup)
         setState((s) => {
-          if (s.currentModelType !== type) return s // 用户已切换走,不自动选
-          const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
-          if (!firstModel) return s
+          if (s.currentModelType === 'sck') {
+            return { ...s, currentModelType: '', showMaterialList: false }
+          }
           return {
             ...s,
-            selectedModelId: firstModel.id,
-            modelName: firstModel.name,
+            currentModelType: 'sck',
+            showMaterialList: true,
+            showModelList: false,
+            materialTab: 1,
           }
         })
-      }, 500)
-    }
-  }, [])
+      } else if (type === 'skills') {
+        // skills 类型:弹出技能商店(SkillsPopup) + 显示智能体列表(对齐原项目 toggleSkillsPopup)
+        setState((s) => {
+          if (s.currentModelType === 'skills') {
+            return { ...s, currentModelType: '', showSkillsPopup: false, showAgentList: false }
+          }
+          return {
+            ...s,
+            currentModelType: 'skills',
+            showSkillsPopup: true,
+            showAgentList: true,
+            showModelList: false,
+            showMaterialList: false,
+          }
+        })
+      } else {
+        // 其他类型(talk/image/video/audio/videoa/other):切换 + 自动选第一个模型
+        // 对齐原项目 ai_index.vue L698-777:setTimeout 500ms 自动选中
+        setState((s) => ({
+          ...s,
+          currentModelType: s.currentModelType === type ? '' : type,
+          showModelList: s.currentModelType !== type,
+          showMaterialList: false,
+        }))
+        // 自动选第一个模型(对齐原项目,从对应分类列表取第一个)
+        // 2026-08-27:改取后端列表/已验证兜底第一个(id 与后端一致),不再用 MOCK_MODELS
+        setTimeout(() => {
+          setState((s) => {
+            if (s.currentModelType !== type) return s // 用户已切换走,不自动选
+            const firstModel = models[0] ?? FALLBACK_MODEL_ITEMS[0]
+            if (!firstModel) return s
+            return {
+              ...s,
+              selectedModelId: firstModel.id,
+              modelName: firstModel.name,
+            }
+          })
+        }, 500)
+      }
+    },
+    [models],
+  )
 
   // ===== 容器点击关闭逻辑(对齐原项目 handleContainerClick) =====
   // 点击容器空白处关闭所有弹出层(由内层组件自行 stopPropagation)
@@ -1288,7 +1291,9 @@ export default function Index() {
                 <Text style={{ fontSize: rpx(28), fontWeight: 'bold', color: '#fff' }}>
                   {tt('home.livePreview', '直播预告')}
                 </Text>
-                <Text style={{ fontSize: rpx(22), color: 'rgba(255,255,255,0.92)', marginTop: rpx(4) }}>
+                <Text
+                  style={{ fontSize: rpx(22), color: 'rgba(255,255,255,0.92)', marginTop: rpx(4) }}
+                >
                   {tt('home.startTime', '开播时间')} 20:00
                 </Text>
               </View>

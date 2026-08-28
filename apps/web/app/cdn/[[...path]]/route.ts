@@ -7,7 +7,8 @@
  *   此路由给出无需改 DNS/隧道/Cloudflare 的稳定公网入口。
  * - 安全:仅允许读取 server-root 白名单目录,严格防路径穿越(拒绝 .. / 绝对段)。
  */
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 import { existsSync, statSync } from 'node:fs'
 import { extname, resolve, sep } from 'node:path'
 
@@ -38,10 +39,7 @@ const MIME: Record<string, string> = {
   '.zip': 'application/zip',
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ path?: string[] }> },
-) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ path?: string[] }> }) {
   const { path } = await params
   if (!path || path.length === 0) {
     return new NextResponse('Not Found', { status: 404 })

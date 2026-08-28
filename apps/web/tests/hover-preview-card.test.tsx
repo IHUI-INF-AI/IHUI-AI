@@ -103,13 +103,13 @@ describe('HoverPreviewCard — 样式与定位', () => {
     expect(card.style.top).toBe('128px')
   })
 
-  it('fixed 定位 + z-index 1000(高优先级,不被其他元素遮挡)', () => {
+  it('fixed 定位 + z-popover 层级(高优先级,不被其他元素遮挡)', () => {
     const { container } = render(
       <HoverPreviewCard visible={true} position={{ x: 0, y: 0 }} content={<span>x</span>} />,
     )
     const card = container.querySelector('[data-testid="hover-preview-card"]') as HTMLElement
     expect(card.className).toContain('fixed')
-    expect(card.className).toContain('z-[1000]')
+    expect(card.className).toContain('z-popover')
   })
 
   it('pointer-events-none:不阻挡下层元素的鼠标交互', () => {
