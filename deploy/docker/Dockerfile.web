@@ -36,7 +36,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV API_URL=http://api:8802
 ENV AI_SERVICE_URL=http://ai-service:8803
 # next build 需要大内存(默认 ~2GB 会 OOM);4096 仍会 OOM,恢复到 8192(2026-07-20)
-ENV NODE_OPTIONS=--max-old-space-size=8192
+ENV NODE_OPTIONS=--max-old-space-size=16384
 # 清理可能残留的 .tsbuildinfo(2026-07-20 修复:避免 tsc 增量编译跳过文件,
 # 导致 @ihui/api-client/dist/endpoints 等产物缺失,引发 next build 模块解析失败)
 RUN find packages apps -name "*.tsbuildinfo" -type f -delete 2>/dev/null || true
