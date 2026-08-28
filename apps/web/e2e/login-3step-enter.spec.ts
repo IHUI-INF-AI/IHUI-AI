@@ -202,6 +202,9 @@ test.describe('登录弹窗 3 步 Enter 键盘交互流', () => {
 test.describe('i18n 翻译完整性守门', () => {
   // 防止 Next.js messages chunk 缓存回退到 i18n key 字符串
   test('协议通知窗在 5 个 locale 下都不显示 i18n key 字符串', async ({ page }) => {
+    // 2026-08-28 修复:循环 5 个 locale 逐个 goto + 交互等待,dev 高负载下
+    // 默认 30s 测试超时不够 → 放宽到 120s
+    test.setTimeout(120_000)
     const locales = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW'] as const
 
     for (const locale of locales) {
