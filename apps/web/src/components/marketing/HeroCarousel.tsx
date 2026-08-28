@@ -145,7 +145,7 @@ export function HeroCarousel({
       <div className="absolute bottom-0 left-0 h-1 w-full bg-black/15">
         <div
           key={current}
-          className={`h-full bg-white/85 ${paused ? '' : 'animate-hero-progress'}`}
+          className={`h-full bg-card/85 ${paused ? '' : 'animate-hero-progress'}`}
         />
       </div>
     </div>

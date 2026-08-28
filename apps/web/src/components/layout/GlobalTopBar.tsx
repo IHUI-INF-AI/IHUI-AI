@@ -578,7 +578,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                     position: 'fixed',
                     top: plusRect.top,
                     left: plusRect.left,
-                    zIndex: 50,
+                    zIndex: 'var(--z-header)',
                   }}
                   className={cn(
                     'rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md',

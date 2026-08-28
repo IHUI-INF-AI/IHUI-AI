@@ -5,12 +5,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_DETAIL, type ListData, type WithdrawalItem } from './types'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export function useWithdrawalDetail(
   enabled: boolean,
   t: (key: string, params?: Record<string, string | number>) => string,
 ) {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   const [dStatus, setDStatus] = React.useState('all')
   const [dSearch, setDSearch] = React.useState({
@@ -145,8 +147,14 @@ export function useWithdrawalDetail(
     }
     dSaveMut.mutate()
   }
-  function handleDeleteDetail(w: WithdrawalItem) {
-    if (!confirm(t('withdrawals.detail.confirmDelete', { id: w.id }))) return
+  async function handleDeleteDetail(w: WithdrawalItem) {
+    if (
+      !(await confirm({
+        title: t('withdrawals.detail.confirmDelete', { id: w.id }),
+        variant: 'destructive',
+      }))
+    )
+      return
     dDeleteMut.mutate(w.id)
   }
   function openReview(w: WithdrawalItem) {
@@ -205,5 +213,7 @@ export function useWithdrawalDetail(
     openReview,
     submitReview,
     handleResetDetail,
+    confirm,
+    ConfirmDialogRenderer,
   }
 }

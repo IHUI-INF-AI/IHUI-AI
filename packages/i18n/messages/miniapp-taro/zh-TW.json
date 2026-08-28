@@ -445,7 +445,8 @@
     "notifOn": "已開啟訊息通知",
     "notifOff": "已關閉訊息通知",
     "accountSecurity": "賬號與安全",
-    "goSetting": "前往設定"
+    "goSetting": "前往設定",
+    "notificationEntry": "訊息通知"
   },
   "error": {
     "network": "網路錯誤"
@@ -3181,5 +3182,12 @@
   },
   "chat": {
     "send": "傳送"
+  },
+  "tabBar": {
+    "community": "智匯社群",
+    "agent": "AI agent",
+    "square": "廣場",
+    "user": "我的",
+    "share": "分享星球"
   }
 }
