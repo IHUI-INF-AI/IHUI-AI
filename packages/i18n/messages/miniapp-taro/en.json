@@ -353,7 +353,6 @@
     "text1": "IHUI AI User",
     "text2": "IHUI AI",
     "text3": "AI App Store - IHUI AI Community",
-    "text4": "AI App Store - IHUI AI Community",
     "text5": "Coming soon, stay tuned",
     "failed6": "Failed to get price info",
     "like7": "Liked",
@@ -396,7 +395,6 @@
     "clearCache": "Clear cache",
     "general": "General",
     "languageSetting": "Language",
-    "languageTitle": "Language",
     "themeSetting": "Theme",
     "aboutUs": "About us",
     "logout": "Log out",
@@ -1088,8 +1086,7 @@
     "goDiscover": "Discover",
     "searchPlaceholder": "Search favorited content",
     "selectFirst": "Please select first",
-    "total": "Favorited",
-    "d1": "AI Works"
+    "total": "Favorited"
   },
   "distribution": {
     "withdraw": {
@@ -2715,15 +2712,10 @@
     },
     "member": "Member",
     "operator": "Operator",
-    "text1": "Chat page not configured",
-    "confirm2": "Delete this conversation?",
     "confirm3": "Cancel membership? You will lose member benefits.",
     "success4": "Unsubscribed successfully",
     "failed5": "Unsubscribe failed, please contact support",
-    "text6": "Level intro page not configured",
-    "d1": "More free AI assistant uses",
-    "d2": "Free access to selected courses",
-    "d3": "Build a personal knowledge base"
+    "text6": "Level intro page not configured"
   },
   "vipTrader": {
     "openTitle": "Open membership",
@@ -3301,58 +3293,7 @@
     "text1": "Trending News"
   },
   "memberBenefits": {
-    "d1": "Shopping Discount",
-    "d2": "5% off all items",
-    "d3": "Points Acceleration",
-    "d4": "1 point per ¥1 spent",
-    "d5": "Welcome Gift",
-    "d6": "Registration-exclusive gift",
-    "d7": "Daily check-in points",
-    "d8": "Deal Alerts",
-    "d9": "Promotion notifications",
-    "d10": "Silver Member",
-    "d11": "Shopping Discount",
-    "d12": "10% off all items",
-    "d13": "Points Multiplier",
-    "d14": "1.2x points acceleration",
-    "d15": "Birthday Gift",
-    "d16": "Birthday-exclusive gift",
-    "d17": "Free Shipping",
-    "d18": "3 free shipping per month",
-    "d19": "Exclusive Coupons",
-    "d20": "2 coupons per month",
-    "d21": "Double points for check-in",
-    "d22": "Gold Member",
-    "d23": "Shopping Discount",
-    "d24": "15% off all items",
-    "d25": "Points Multiplier",
-    "d26": "1.5x points acceleration",
-    "d27": "Birthday Gift",
-    "d28": "Double birthday gift",
-    "d29": "Free Shipping",
-    "d30": "Unlimited free shipping",
-    "d31": "Dedicated Support",
-    "d32": "1-on-1 exclusive service",
-    "d33": "Exclusive Coupons",
-    "d34": "5 coupons per month",
-    "d35": "Early Access",
-    "d36": "Early access to new features",
-    "d37": "Shopping Discount",
-    "d38": "20% off all items",
-    "d39": "Points Multiplier",
-    "d40": "2x points acceleration",
-    "d41": "Birthday Gift",
-    "d42": "Premium birthday gift",
-    "d43": "Free Shipping",
-    "d44": "Unlimited free shipping",
-    "d45": "Dedicated Support",
-    "d46": "7×24 dedicated butler",
-    "d47": "Exclusive Coupons",
-    "d48": "10 coupons per month",
-    "d49": "Early Access",
-    "d50": "First access to new features",
-    "d51": "Premium Events",
-    "d52": "Offline high-end events"
+    "d31": "Dedicated Support"
   },
   "VipBenefitsPopup": {
     "d1": "Unlimited daily curated news on <span style=\"font-weight: bold;\">vertical tracks</span>, far beyond others",
@@ -3372,7 +3313,6 @@
     "d15": "Access top models like GPT-4",
     "d16": "HD video generation",
     "d17": "4K quality, no watermark",
-    "d18": "Dedicated support",
     "d19": "7×24 service",
     "d20": "Member-exclusive content",
     "d21": "Unlock all paid courses",
@@ -3460,7 +3400,6 @@
     "text10": "Clone digital human",
     "text11": "Choose voice",
     "upload12": "Upload audio to clone voice",
-    "settings13": "Video settings",
     "text14": "Video ratio",
     "text15": "Video resolution",
     "p1": "System voice library",
@@ -3478,7 +3417,6 @@
     "d1": "Daily chats",
     "d2": "Basic",
     "d3": "Advanced",
-    "d4": "Dedicated support",
     "d5": "Course discount (%)",
     "d6": "Number of agents",
     "d7": "Exclusive market data analysis tools",
@@ -3500,19 +3438,15 @@
     "d5": "Machina Concept",
     "d6": "Futurist",
     "d7": "Quantum Verses",
-    "d8": "IHUI Xiaofang",
-    "d9": "Using \"data flood\" as imagery, generate a prose poem about creation in the digital age.",
     "d10": "Data flood, digital age, poetry",
     "d11": "Neon Pulse",
     "d12": "Sound Artist",
     "d13": "City of the Future",
     "d14": "Digital Painter",
     "d15": "The AI Awakening",
-    "d16": "IHUI Xiaofang",
     "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
     "d18": "AI awakening, consciousness, coexistence",
     "d19": "Echoes of Deep Space",
-    "d20": "Sound Artist",
     "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
   },
   "adaptersOrderScreentaro": {
@@ -3526,33 +3460,7 @@
     "d2": "Contact (optional)"
   },
   "aiAgentdetail": {
-    "d1": "Meetings",
-    "d2": "Email",
-    "d3": "Sheets",
-    "d4": "Writing",
-    "d5": "Creation",
-    "d6": "Novels",
-    "d7": "Text",
-    "d8": "Learning",
-    "d9": "Teaching",
-    "d10": "Lessons",
-    "d11": "Knowledge",
-    "d12": "Exams",
-    "d13": "Questions",
-    "d14": "Tutorials",
-    "d15": "Solutions",
-    "d16": "Health",
-    "d17": "Food",
-    "d18": "Travel",
-    "d19": "Sports",
-    "d20": "Shopping",
-    "d21": "Daily",
     "q1": "Get agent details",
-    "r1": "Code",
-    "r2": "Program",
-    "r3": "Function",
-    "r4": "Frontend",
-    "r5": "Backend",
     "r6": "Failed to get agent permission"
   },
   "deventerCover": {
@@ -3606,27 +3514,6 @@
     "y1": "Go to {p1}"
   },
   "aigroup": {
-    "d1": "Meetings",
-    "d2": "Email",
-    "d3": "Sheets",
-    "d4": "Writing",
-    "d5": "Creation",
-    "d6": "Novels",
-    "d7": "Text",
-    "d8": "Learning",
-    "d9": "Teaching",
-    "d10": "Lessons",
-    "d11": "Knowledge",
-    "d12": "Exams",
-    "d13": "Questions",
-    "d14": "Tutorials",
-    "d15": "Solutions",
-    "d16": "Health",
-    "d17": "Food",
-    "d18": "Travel",
-    "d19": "Sports",
-    "d20": "Shopping",
-    "d21": "Daily",
     "q1": "Load AI team",
     "r1": "Code",
     "r2": "Program",
@@ -3679,7 +3566,6 @@
   "askCreate": {
     "d1": "Tech",
     "d2": "Product",
-    "d3": "Design",
     "d4": "Operations"
   },
   "liveCalendar": {
@@ -3766,9 +3652,6 @@
     "d1": "Frontend Engineer",
     "d2": "AI Application Development",
     "d3": "Data Analyst"
-  },
-  "liveHistory": {
-    "d1": "This week"
   },
   "plazaCover": {
     "d1": "What is the Developer Space?",
@@ -3902,7 +3785,6 @@
   },
   "last": {
     "1": "AI IHUI |",
-    "2": "Remaining IHUI credits:",
     "3": "Payment integration pending backend"
   },
   "adaptersUserInfoCardtaro": {
@@ -4032,7 +3914,6 @@
     "q4": "Decline"
   },
   "utilsStreamingrecognizer": {
-    "p1": "Recording error",
     "q1": "Recognition failed"
   },
   "utilsWechatlogin": {
