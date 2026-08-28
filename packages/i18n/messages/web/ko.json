@@ -9664,6 +9664,7 @@
     "aigc": {
       "3d": "3D 모델링",
       "agent": "AI 에이전트",
+      "all": "전체",
       "allCategories": "모든 유형",
       "alternatives": "대체 도구",
       "api": "API 제공",
