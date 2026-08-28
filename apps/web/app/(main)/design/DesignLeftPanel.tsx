@@ -1,0 +1,126 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
+import type { DesignPreview } from '@ihui/shared/design/element'
+import { Tooltip } from '@/components/feedback'
+import type { TreeNode } from './design-types'
+import { TreeView } from './TreeView'
+
+interface DesignLeftPanelProps {
+  previewsLoading: boolean
+  previewsError: string
+  previews: DesignPreview[]
+  onLoadPreview: (p: DesignPreview) => void
+  currentPreviewId: string
+  dateFormatter: Intl.DateTimeFormat
+  tree: TreeNode
+  selectedElementId: string
+  onSelectTreeNode: (node: TreeNode) => void
+}
+
+export function DesignLeftPanel({
+  previewsLoading,
+  previewsError,
+  previews,
+  onLoadPreview,
+  currentPreviewId,
+  dateFormatter,
+  tree,
+  selectedElementId,
+  onSelectTreeNode,
+}: DesignLeftPanelProps) {
+  const t = useTranslations()
+  return (
+    <section
+      style={{
+        flex: '0 0 220px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          maxHeight: '40%',
+          overflow: 'auto',
+          flexShrink: 0,
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{t('design.previewList')}</h3>
+        {previewsLoading && (
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('common.loading')}</span>
+        )}
+        {previewsError && (
+          <span style={{ fontSize: 12, color: 'var(--danger, #dc2626)' }}>
+            {t('design.loadFailed')}: {previewsError}
+          </span>
+        )}
+        {!previewsLoading && !previewsError && previews.length === 0 && (
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.noPreviews')}</span>
+        )}
+        {previews.map((p) => (
+          <Tooltip key={p.id} content={t('design.loadPreview')}>
+            <button
+              type="button"
+              onClick={() => onLoadPreview(p)}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                textAlign: 'left',
+                padding: '6px 8px',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background:
+                  currentPreviewId === p.id
+                    ? 'var(--accent-soft, rgba(0,0,0,0.04))'
+                    : 'var(--card)',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 12, fontWeight: 500 }}>{p.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+                {dateFormatter.format(new Date(p.createdAt))}
+              </span>
+            </button>
+          </Tooltip>
+        ))}
+      </div>
+
+      {/* 组件树面板 */}
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          flex: 1,
+          overflow: 'auto',
+          minHeight: 0,
+        }}
+      >
+        <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
+          {t('design.componentTree.title')}
+        </h3>
+        {tree.children.length === 0 ? (
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+            {t('design.componentTree.empty')}
+          </span>
+        ) : (
+          tree.children.map((child, i) => (
+            <TreeView
+              key={`${child.tagName}-${child.index}-${i}`}
+              node={child}
+              depth={0}
+              selectedElementId={selectedElementId}
+              onSelect={onSelectTreeNode}
+            />
+          ))
+        )}
+      </div>
+    </section>
+  )
+}

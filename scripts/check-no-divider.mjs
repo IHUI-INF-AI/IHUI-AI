@@ -92,6 +92,48 @@ const LOW_OPACITY_BORDER_RE =
   /\bborder-[tblr]\b(?=[\s\S]*\bborder-border\/\d+\b)|\bborder-border\/\d+\b(?=[\s\S]*\bborder-[tblr]\b)/
 
 /**
+ * 去除行内字符串字面量与注释,用于 <hr 判定。
+ * 真实 JSX <hr 元素永远不会出现在字符串/注释内,故剥离后残留的 <hr 才属真实违规;
+ * 字符串字面量(如 markdown→HTML 的 '<hr/>')与注释中的 <hr 会被一并去除,避免误报。
+ * 注意:此剥离仅用于 <hr 检测,divide-y / 低透明度单边边框检测仍需读取 className 字符串,不受影响。
+ */
+function stripStringsAndComments(line) {
+  let out = ''
+  const n = line.length
+  let i = 0
+  while (i < n) {
+    const c = line[i]
+    const c2 = line[i + 1]
+    if (c === '/' && c2 === '//') break // 行注释:余下全部跳过
+    if (c === '/' && c2 === '*') {
+      i += 2
+      while (i < n && !(line[i] === '*' && line[i + 1] === '/')) i++
+      i += 2
+      continue
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      const quote = c
+      i++
+      while (i < n) {
+        if (line[i] === '\\') {
+          i += 2
+          continue
+        }
+        if (line[i] === quote) {
+          i++
+          break
+        }
+        i++
+      }
+      continue
+    }
+    out += c
+    i++
+  }
+  return out
+}
+
+/**
  * 豁免判定 — 返回 true 表示该行不算违规。
  * 仅豁免注释行(// 单行、/* 块注释、* 列表项、JSX {/* 块注释),
  * 以及行内 // 注释之后出现的 divide-(避免误伤说明性注释)。
@@ -223,7 +265,10 @@ const fileReports = []
 
 for (const file of files) {
   const src = readFileSync(file, 'utf8')
-  const lines = src.split('\n')
+  // 去除块注释内容(替换为空格,保留换行与行号),避免 /* ... <hr> ... */ 等多行注释误报;
+  // 行内 // 注释与字符串字面量由下方 stripStringsAndComments / isExempt 处理。
+  const srcNoBlock = src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+  const lines = srcNoBlock.split('\n')
   const findings = []
 
   lines.forEach((line, idx) => {
@@ -248,16 +293,21 @@ for (const file of files) {
     }
 
     // 2) 字面量 <hr 标签 → BLOCKING
-    const hm = HR_RE.exec(line)
-    if (hm) {
-      findings.push({
-        line: lineNumber,
-        col: hm.index + 1,
-        level: 'blocking',
-        label: '<hr>',
-        snippet: line.trim().slice(0, 140),
-      })
-      return
+    //    仅扫描 .tsx 中的真实 JSX 元素;字符串字面量(markdown→HTML 的 '<hr/>')
+    //    与注释中的 <hr 经剥离后不残留,避免误报(服务端 .ts 邮件模板天然不扫描)。
+    if (file.endsWith('.tsx')) {
+      const code = stripStringsAndComments(line)
+      const hm = HR_RE.exec(code)
+      if (hm) {
+        findings.push({
+          line: lineNumber,
+          col: hm.index + 1,
+          level: 'blocking',
+          label: '<hr>',
+          snippet: line.trim().slice(0, 140),
+        })
+        return
+      }
     }
 
     // 3) 低透明度单边边框分割线 → WARN(非阻塞)

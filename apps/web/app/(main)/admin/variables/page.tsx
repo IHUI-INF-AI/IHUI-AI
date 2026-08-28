@@ -14,8 +14,10 @@ import { VariableDialog } from './VariableDialog'
 import { EMPTY_VARIABLE_FORM, api } from './helpers'
 import type { Variable, VariableForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function AdminVariablesPage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const t = useTranslations('common')
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
@@ -97,8 +99,9 @@ export default function AdminVariablesPage() {
     }
     saveMut.mutate()
   }
-  function handleDelete(item: Variable) {
-    if (!confirm(`确认删除变量 "${item.variableName}"?`)) return
+  async function handleDelete(item: Variable) {
+    if (!(await confirm({ title: `确认删除变量 "${item.variableName}"?`, variant: 'destructive' })))
+      return
     deleteMut.mutate(item.id)
   }
 
@@ -134,6 +137,7 @@ export default function AdminVariablesPage() {
         onChange={setForm}
         onSubmit={submit}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

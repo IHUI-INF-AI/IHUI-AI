@@ -1,4 +1,5 @@
 import Taro from '@tarojs/taro'
+import { getSystemInfoCompat } from './system-info'
 
 export type KeyboardHeightCallback = (height: number) => void
 
@@ -14,7 +15,7 @@ export function offKeyboardHeightChange(): void {
 
 export function getDeviceInfo() {
   try {
-    const info = Taro.getSystemInfoSync()
+    const info = getSystemInfoCompat()
     return {
       model: info.model || '',
       brand: info.brand || '',
