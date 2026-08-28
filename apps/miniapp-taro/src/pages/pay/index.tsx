@@ -1,3 +1,4 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
@@ -10,7 +11,6 @@ import {
   post,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
-import { useI18n, useTt } from '@/i18n'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 

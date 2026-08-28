@@ -1,8 +1,8 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 import './refund-list.css'
 

@@ -1,3 +1,4 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image, Slider, CoverView } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, type ReactNode } from 'react'
@@ -12,7 +13,6 @@ import {
 import { getShareInfo } from '@/utils/share'
 import { getSystemInfoCompat } from '@/utils/system-info'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
@@ -88,9 +88,9 @@ const menus = [
 // 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)
 // i18n key 不存在时用中文 fallback(后续补 key 后自动切换)
 const membershipBenefits: ReadonlyArray<{ icon: string; key: string; fallback: string }> = [
-  { icon: aiIconLocal, key: 'user.benefits.aiAssistant', fallback: 'AI助手免费使用次数增加' },
-  { icon: courseIconLocal, key: 'user.benefits.freeCourses', fallback: '部分课程免费学习' },
-  { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: '建立专属知识库' },
+  { icon: aiIconLocal, key: 'user.benefits.aiAssistant', fallback: t('tail.21') },
+  { icon: courseIconLocal, key: 'user.benefits.freeCourses', fallback: t('tail.22') },
+  { icon: vipActIconLocal, key: 'user.benefits.knowledgeBase', fallback: t('tail.23') },
 ]
 
 // 格式化音频时间（秒 → mm:ss）
@@ -178,6 +178,7 @@ function renderMarkdown(content: string): ReactNode {
 }
 
 export default function UserIndex() {
+  const tt = useTt()
   const { t } = useI18n()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [showBenefits, setShowBenefits] = useState<boolean>(false)
@@ -237,7 +238,7 @@ export default function UserIndex() {
         Array<{ id: string; title: string; time: string; modelName?: string }>
       >()
       for (const chat of chats) {
-        const modelName = chat.modelName || '默认模型'
+        const modelName = chat.modelName || t('tail.15')
         if (!modelMap.has(modelName)) modelMap.set(modelName, [])
         modelMap.get(modelName)!.push(chat)
       }
@@ -247,7 +248,7 @@ export default function UserIndex() {
           Array<{ id: string | number; title: string; date: string }>
         >()
         for (const chat of modelChats) {
-          const dateKey = chat.time ? chat.time.slice(0, 7) : '最近' // YYYY-MM 分组
+          const dateKey = chat.time ? chat.time.slice(0, 7) : tt('ai.agentList.tabRecent', '最近') // YYYY-MM 分组
           if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
           dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
         }
@@ -260,7 +261,7 @@ export default function UserIndex() {
         }
       })
     },
-    [],
+    [t, tt],
   )
 
   // 加载历史对话(对齐原项目 loadHistoryChat)
@@ -597,10 +598,10 @@ export default function UserIndex() {
       // 对齐原项目 handleShowFullList:携带 chatId + title 参数
       Taro.navigateTo({
         url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-        fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+        fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
       })
     },
-    [toggleDrawer],
+    [toggleDrawer, tt],
   )
 
   // 会员权益点击跳转
@@ -701,16 +702,19 @@ export default function UserIndex() {
         }}
         onRemoveChat={(chat) => {
           Taro.showModal({
-            title: '提示',
-            content: '确定删除此对话?',
+            title: t('common.hint'),
+            content: t('community.confirm12'),
             success: async (res) => {
               if (res.confirm) {
                 try {
                   await api.removeModelChat(String(chat.id))
-                  Taro.showToast({ title: '已删除', icon: 'success' })
+                  Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
                   void loadHistoryChat()
                 } catch {
-                  Taro.showToast({ title: '删除失败', icon: 'none' })
+                  Taro.showToast({
+                    title: tt('developer.index.deleteFail', '删除失败'),
+                    icon: 'none',
+                  })
                 }
               }
             },
@@ -763,8 +767,8 @@ export default function UserIndex() {
                 }
                 onUnsubscribe={() =>
                   Taro.showModal({
-                    title: '提示',
-                    content: '确定退订会员吗？退订后将失去会员权益。',
+                    title: t('common.hint'),
+                    content: t('user.confirm3'),
                     success: async (res) => {
                       if (!res.confirm || !userInfo) return
                       try {
@@ -782,9 +786,12 @@ export default function UserIndex() {
                           await api.updateProfile({ isVip: false })
                         }
                         setUserInfo({ ...userInfo, isVip: false })
-                        Taro.showToast({ title: '退订成功', icon: 'success' })
+                        Taro.showToast({ title: tt('user.success4', '退订成功'), icon: 'success' })
                       } catch {
-                        Taro.showToast({ title: '退订失败，请联系客服', icon: 'none' })
+                        Taro.showToast({
+                          title: tt('user.failed5', '退订失败，请联系客服'),
+                          icon: 'none',
+                        })
                       }
                     },
                   })
@@ -793,7 +800,8 @@ export default function UserIndex() {
                 onOpenLevel={() =>
                   Taro.navigateTo({
                     url: '/pages/vip/index?type=levelPopup',
-                    fail: () => Taro.showToast({ title: '等级介绍页未配置', icon: 'none' }),
+                    fail: () =>
+                      Taro.showToast({ title: tt('user.text6', '等级介绍页未配置'), icon: 'none' }),
                   })
                 }
                 onLogin={goLogin}
@@ -919,9 +927,9 @@ export default function UserIndex() {
             }
             await api.bindUser(params)
             setUserInfo({ ...userInfo, nickname })
-            Taro.showToast({ title: '保存成功', icon: 'success' })
+            Taro.showToast({ title: tt('about.apiSettings.savedTip', '保存成功'), icon: 'success' })
           } catch {
-            Taro.showToast({ title: '保存失败', icon: 'none' })
+            Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
           }
         }}
       />

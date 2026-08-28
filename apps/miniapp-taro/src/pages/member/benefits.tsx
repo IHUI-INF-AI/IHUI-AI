@@ -1,8 +1,8 @@
-import { View, Text, Image } from '@tarojs/components'
+import { useI18n } from '@/i18n'
 import { useDidShow } from '@tarojs/taro'
+import { View, Text, Image } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)

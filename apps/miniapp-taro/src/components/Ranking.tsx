@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface RankingItem {
   id: string | number
@@ -30,7 +30,7 @@ function getValue(item: RankingItem): number {
 }
 
 function getName(item: RankingItem): string {
-  return item.nickname || item.name || '匿名'
+  return item.nickname || item.name || t('aiCircle.anonymous')
 }
 
 export default function Ranking({ list, title, unit = '', loading = false }: RankingProps) {
@@ -68,7 +68,11 @@ export default function Ranking({ list, title, unit = '', loading = false }: Ran
           >
             <View className="flex items-center justify-center w-6 mr-3">
               {idx < 3 ? (
-                <Image style={{ width: '36rpx', height: '36rpx' }} src={MEDALS[idx]!} mode="aspectFit" />
+                <Image
+                  style={{ width: '36rpx', height: '36rpx' }}
+                  src={MEDALS[idx]!}
+                  mode="aspectFit"
+                />
               ) : (
                 <Text className="text-sm font-medium text-muted-foreground">{idx + 1}</Text>
               )}

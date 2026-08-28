@@ -1,9 +1,9 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Switch } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
-import { useTt } from '@/i18n'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 

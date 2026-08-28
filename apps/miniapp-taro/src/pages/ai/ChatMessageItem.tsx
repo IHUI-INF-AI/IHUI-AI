@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
-import { useI18n } from '@/i18n'
 import sikaoIcon from '@/assets/remote/images/sikao_icon.png'
 import eyeOpenIcon from '@/assets/remote/images/eye-gray.svg'
 import eyeClosedIcon from '@/assets/remote/images/eye-slash-gray.svg'
@@ -281,7 +281,14 @@ export default function ChatMessageItem({
         <View className="question-container">
           {/* 复用按钮 fuyong-btn:100rpx×40rpx,在气泡外左侧 */}
           {onReuse ? (
-            <View style={{ marginRight: '10rpx', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <View
+              style={{
+                marginRight: '10rpx',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
               <Image
                 src={reuseBtnPng}
                 className="fuyong-btn"
@@ -437,7 +444,11 @@ export default function ChatMessageItem({
                 >
                   <Image
                     style={{ width: '32rpx', height: '32rpx', marginRight: '12rpx' }}
-                    src={voicePlaying ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                    src={
+                      voicePlaying
+                        ? '/static/images/icons/pause.svg'
+                        : '/static/images/icons/play.svg'
+                    }
                     mode="aspectFit"
                   />
                   <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>
@@ -573,13 +584,15 @@ export default function ChatMessageItem({
                 >
                   <Image
                     style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                    src={speaking ? '/static/images/icons/pause.svg' : '/static/images/icons/volume-2.svg'}
+                    src={
+                      speaking
+                        ? '/static/images/icons/pause.svg'
+                        : '/static/images/icons/volume-2.svg'
+                    }
                     mode="aspectFit"
                   />
                   <Text>
-                    {speaking
-                      ? t('ai.chatMessageItem.stopSpeak')
-                      : t('ai.chatMessageItem.speak')}
+                    {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
                   </Text>
                 </View>
               ) : null}
@@ -610,7 +623,11 @@ export default function ChatMessageItem({
                 >
                   <Image
                     style={{ width: '24rpx', height: '24rpx' }}
-                    src={isFavorited ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
+                    src={
+                      isFavorited
+                        ? '/static/images/icons/heart-fill.svg'
+                        : '/static/images/icons/heart.svg'
+                    }
                     mode="aspectFit"
                   />
                 </View>

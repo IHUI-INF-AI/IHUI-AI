@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, ScrollView, Image, Text } from '@tarojs/components'
 import { useCallback } from 'react'
 import { cn } from '@ihui/design-tokens'
 import { useAutoPlay } from '@ihui/shared'
-import { useTt } from '@/i18n'
 import type { CarouselItem } from '@ihui/types'
 
 // 共享类型 CarouselItem + 共享 hook useAutoPlay 已下沉到 packages,

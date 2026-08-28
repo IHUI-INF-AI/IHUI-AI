@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { useState, useEffect } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 
@@ -63,6 +64,7 @@ export default function Selecter({
   isVip = 0,
   onChange,
 }: SelecterProps) {
+  const tt = useTt()
   const [value, setValue] = useState<number | string>('')
   const [selectedSizeIndex, setSelectedSizeIndex] = useState<number | null>(null)
   const [selectedSize, setSelectedSize] = useState<Record<string, unknown> | null>(null)
@@ -137,7 +139,7 @@ export default function Selecter({
   }
 
   // 水印 desc + 非 VIP 时禁用
-  const isDisabled = (): boolean => !!(desc && desc.includes('水印') && isVip === 0)
+  const isDisabled = (): boolean => !!(desc && desc.includes(t('Selecter.q1')) && isVip === 0)
 
   // ===== type='scale':比例尺寸选择(带 icon) =====
   if (type === 'scale') {
@@ -179,9 +181,9 @@ export default function Selecter({
   // ===== type='video':视频分辨率选择 =====
   if (type === 'video') {
     const items = [
-      { label: '标清 480p', sub: '（640×480）', val: '480P' },
-      { label: '超清 720p', sub: '（1280×720）', val: '720P' },
-      { label: '高清 1080p', sub: '（1920×1080）', val: '1080P' },
+      { label: tt('Selecter.text1', '标清 480p'), sub: '（640×480）', val: '480P' },
+      { label: tt('Selecter.text2', '超清 720p'), sub: '（1280×720）', val: '720P' },
+      { label: tt('Selecter.text3', '高清 1080p'), sub: '（1920×1080）', val: '1080P' },
     ]
     return (
       <ScrollView scrollX className="w-full whitespace-nowrap">
@@ -274,7 +276,9 @@ export default function Selecter({
                 className={`${ITEM_BASE} border-muted-foreground`}
                 onClick={resetRatioSelection}
               >
-                <Text className="text-[29rpx] leading-[50rpx] text-muted-foreground">← 返回</Text>
+                <Text className="text-[29rpx] leading-[50rpx] text-muted-foreground">
+                  {tt('Selecter.back4', '← 返回')}
+                </Text>
               </View>
               <View className={`${ITEM_BASE} selecter-size-label`}>
                 <Text

@@ -1,10 +1,10 @@
 ﻿import { useState, useCallback } from 'react'
+import { useTt, type TtFn, t } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
-import { useTt } from '@/i18n'
 import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
 import freeUseIcon from '@/assets/remote/images/xtk/free_use_icon.png'
 import freeTimeIcon from '@/assets/remote/images/xtk/free_time_icon.png'
@@ -56,43 +56,43 @@ interface TypeConfig {
   showPurchasePopup: boolean
 }
 
-const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
+const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
   freevip: {
     bg: (tk) => tk.warning.light,
     text: (tk) => tk.warning.deep,
     icon: freeVipIcon,
-    label: '会员免费',
+    label: tt('pay.memberFree', '会员免费'),
     showPurchasePopup: false,
   },
   '1': {
     bg: (tk) => tk.indigo.light,
     text: (tk) => tk.indigo.DEFAULT,
     icon: freeUseIcon,
-    label: '免费使用',
+    label: tt('adaptersPayButtontaro.d1', '免费使用'),
     showPurchasePopup: false,
   },
   '2': {
     bg: (tk) => tk.danger.light,
     text: (tk) => tk.danger.DEFAULT,
     icon: freeTimeIcon,
-    label: '限时免费',
+    label: tt('devEnter.modelEdit.saleTypeLimited', '限时免费'),
     showPurchasePopup: false,
   },
   '3': {
     bg: (tk) => tk.brand.DEFAULT,
     text: (tk) => tk.surface.light,
     icon: buymonthIcon,
-    label: '每月',
+    label: tt('adaptersPayButtontaro.d2', '每月'),
     showPurchasePopup: true,
   },
   '4': {
     bg: (tk) => tk.gray[100],
     text: (tk) => tk.gray[500],
     icon: hasbuyIcon,
-    label: '已购买',
+    label: tt('adaptersPayButtontaro.d3', '已购买'),
     showPurchasePopup: false,
   },
-}
+})
 
 // ===== 样式函数(view/text/image 分组,避免 style 联合类型) =====
 
@@ -218,13 +218,13 @@ const textStyles = {
   }),
   payBtnText: (): CSSProperties => ({ fontSize: toRpx(14) }),
   closeBtn: (): CSSProperties => ({ fontSize: toRpx(18), color: '#999' }),
-  defaultName: (): string => 'AI 助手',
-  subscribeTip: (): string => '订阅后可无限使用',
-  priceLabelFallback: (): string => '价格',
-  perMonth: (): string => '月',
-  countLabelFallback: (): string => '数量',
-  payNow: (): string => '立即支付',
-  payDisabledToast: (): string => '支付功能待接入后端',
+  defaultName: (): string => t('ai.title'),
+  subscribeTip: (): string => t('pay.subscribeTip'),
+  priceLabelFallback: (): string => t('devEnter.modelEdit.priceLabel'),
+  perMonth: (): string => t('live.calendar.month'),
+  countLabelFallback: (): string => t('pay.countLabel'),
+  payNow: (): string => t('pay.payNow'),
+  payDisabledToast: (): string => t('last.3'),
 }
 
 const imageStyles = {
@@ -258,7 +258,7 @@ export function PayButton({
   // 默认单价 0.01 元(1 分),实际由后端 getChargeInfoById 返回
   const price = DEFAULT_PRICE
 
-  const cfg = TYPE_CONFIG[type]
+  const cfg = TYPE_CONFIG(tt)[type]
   const showToast = useCallback(
     (msg: string) => {
       if (onShowToast) onShowToast(msg)

@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getIntegral, getMemberInfo } from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 
 interface IntegralItem {

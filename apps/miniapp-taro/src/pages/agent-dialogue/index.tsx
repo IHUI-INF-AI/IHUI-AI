@@ -1,10 +1,10 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { BASE_URL } from '@/utils/api-config'
 import { View, Text, Image, Video, ScrollView, Input } from '@tarojs/components'
 import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
 
 type MsgType = 'user' | 'seller' | 'system'
@@ -607,7 +607,11 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Image className="w-[32rpx] h-[32rpx]" src="/static/images/icons/user.svg" mode="aspectFit" />
+                      <Image
+                        className="w-[32rpx] h-[32rpx]"
+                        src="/static/images/icons/user.svg"
+                        mode="aspectFit"
+                      />
                     )}
                   </View>
                 </>
@@ -617,7 +621,11 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Image className="w-[32rpx] h-[32rpx]" src="/static/images/icons/bot.svg" mode="aspectFit" />
+                      <Image
+                        className="w-[32rpx] h-[32rpx]"
+                        src="/static/images/icons/bot.svg"
+                        mode="aspectFit"
+                      />
                     )}
                   </View>
                   <View

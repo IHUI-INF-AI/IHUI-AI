@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface VipUpgradeToastProps {
   visible?: boolean
@@ -13,7 +13,7 @@ import { useState, useEffect, useRef } from 'react'
 
 export default function VipUpgradeToast({
   visible = false,
-  desc = '升级会员解锁更多功能',
+  desc = t('VipUpgradeToast.p1'),
   onUpgrade,
   onClose,
   duration = 5000,

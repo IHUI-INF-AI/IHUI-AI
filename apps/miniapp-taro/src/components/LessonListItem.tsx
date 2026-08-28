@@ -1,5 +1,5 @@
-import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
 import './LessonListItem.css'
 import { icon } from '@/constants/remote-icons'
 
@@ -108,7 +108,7 @@ export default function LessonListItem({
                 src={icon('king')}
                 mode="aspectFit"
               />
-              <Text className="lli-vip-text">VIP可看</Text>
+              <Text className="lli-vip-text">{tt('LessonListItem.text1', 'VIP可看')}</Text>
             </View>
           )}
           <View className="flex items-center">
@@ -117,7 +117,8 @@ export default function LessonListItem({
             )}
             {data.likes !== undefined && (
               <Text className="text-[24rpx] text-muted-foreground font-bold">
-                {data.likes}人已学习
+                {data.likes}
+                {tt('LessonListItem.z1', '人已学习')}
               </Text>
             )}
           </View>
@@ -175,7 +176,11 @@ export default function LessonListItem({
                 />
               )}
               <Text className="lli-pill-text">
-                {data.vipOnly ? 'VIP鍙湅' : data.price !== undefined ? '浠樿垂椤圭洰' : ''}
+                {data.vipOnly
+                  ? tt('LessonListItem.p1', 'VIP鍙湅')
+                  : data.price !== undefined
+                    ? tt('LessonListItem.p2', '浠樿垂椤圭洰')
+                    : ''}
               </Text>
             </View>
           )}
@@ -185,7 +190,8 @@ export default function LessonListItem({
             )}
             {data.likes !== undefined && (
               <Text className="text-[24rpx] text-muted-foreground font-bold">
-                {data.likes}人已学习
+                {data.likes}
+                {tt('LessonListItem.z2', '人已学习')}
               </Text>
             )}
           </View>
@@ -211,7 +217,10 @@ export default function LessonListItem({
               <Text className="lli-overlay-tag lli-overlay-tl">{data.category}</Text>
             )}
             {lessonCountVisible && data.lessonCount !== undefined && (
-              <Text className="lli-overlay-tag lli-overlay-br">共 {data.lessonCount} 课时</Text>
+              <Text className="lli-overlay-tag lli-overlay-br">
+                共 {tt('studyPlan.lessons', '课时')}
+                {data.lessonCount}
+              </Text>
             )}
           </View>
         )}
@@ -229,12 +238,14 @@ export default function LessonListItem({
                 src={icon('king')}
                 mode="aspectFit"
               />
-              <Text className="lli-vip-text">VIP可看</Text>
+              <Text className="lli-vip-text">{tt('LessonListItem.text2', 'VIP可看')}</Text>
             </View>
           )}
           {priceVisible && !data.vipOnly && data.price !== undefined && (
             <View className="lli-pill lli-pill-paid">
-              <Text className="lli-pill-text">付费可看 ¥{data.price}</Text>
+              <Text className="lli-pill-text">
+                {tt('tail.17', '付费可看 ¥{m}', { m: data.price })}
+              </Text>
             </View>
           )}
         </View>
@@ -295,10 +306,16 @@ export default function LessonListItem({
         {!compact && (data.likes !== undefined || lessonCountVisible) && (
           <View className="flex items-center mt-0.5">
             {data.likes !== undefined && (
-              <Text className="text-[20rpx] text-muted-foreground mr-3">{data.likes}人已学习</Text>
+              <Text className="text-[20rpx] text-muted-foreground mr-3">
+                {tt('LessonListItem.y1', '人已学习')}
+                {data.likes}
+              </Text>
             )}
             {lessonCountVisible && data.lessonCount !== undefined && (
-              <Text className="text-[20rpx] text-muted-foreground">{data.lessonCount}节</Text>
+              <Text className="text-[20rpx] text-muted-foreground">
+                {tt('course.lessonUnit', '节')}
+                {data.lessonCount}
+              </Text>
             )}
           </View>
         )}
