@@ -2,6 +2,7 @@
  * 跨端登录与用户资料抽象层
  * 统一封装微信小程序(weapp)与支付宝小程序(alipay)的登录 API 差异
  */
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 
 export type MiniProgramPlatform = 'weapp' | 'alipay'
@@ -51,22 +52,22 @@ export async function login(): Promise<MiniProgramLoginResult> {
   const platform = getPlatform()
   if (platform === 'weapp') {
     const res = await Taro.login()
-    if (!res.code) throw new Error('微信登录 code 为空')
+    if (!res.code) throw new Error(t('platformAuth.q1'))
     return { code: res.code, platform: 'weapp' }
   }
   if (platform === 'alipay') {
     const res = await (Taro as unknown as AlipayAuthTaro).getAuthCode({ scopes: ['auth_base'] })
-    if (!res.authCode) throw new Error('支付宝授权码为空')
+    if (!res.authCode) throw new Error(t('platformAuth.q2'))
     return { code: res.authCode, platform: 'alipay' }
   }
-  throw new Error('当前环境不支持小程序登录')
+  throw new Error(t('platformAuth.q3'))
 }
 
 /** 跨端获取用户资料:微信用 Taro.getUserProfile,支付宝用 Taro.getOpenUserInfo */
 export async function getUserProfile(): Promise<MiniProgramUserProfile> {
   const platform = getPlatform()
   if (platform === 'weapp') {
-    const res = await Taro.getUserProfile({ desc: '用于完善会员资料' })
+    const res = await Taro.getUserProfile({ desc: t('platformAuth.q4') })
     return {
       nickName: res.userInfo.nickName,
       avatarUrl: res.userInfo.avatarUrl,
@@ -81,5 +82,5 @@ export async function getUserProfile(): Promise<MiniProgramUserProfile> {
       avatarUrl: info?.avatar,
     }
   }
-  throw new Error('当前环境不支持获取用户资料')
+  throw new Error(t('platformAuth.q5'))
 }

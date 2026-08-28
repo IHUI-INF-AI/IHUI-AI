@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { ReactNode } from 'react'
-import { useTt } from '@/i18n'
 
 /**
  * 通用"标题 + 查看更多"区块头部组件。

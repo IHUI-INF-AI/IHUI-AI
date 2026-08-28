@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro, {
@@ -10,7 +11,6 @@ import Taro, {
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getTopicDetail, post, type Circle } from '@/api'
 import { NavBar } from '@/components'
-import { useTt } from '@/i18n'
 import './detail.css'
 
 interface TopicData {

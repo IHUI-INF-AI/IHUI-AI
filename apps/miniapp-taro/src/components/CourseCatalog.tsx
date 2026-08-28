@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import EmptyState from './EmptyState'
 import LessonListItem, { type LessonListItemData } from './LessonListItem'
-import { useTt } from '@/i18n'
 import { bspappUrl } from '@/constants/icon-urls'
 
 /** 知识星球卡片数据(planet variant 专用,对齐原项目 KnowledgePlanet/index.vue) */

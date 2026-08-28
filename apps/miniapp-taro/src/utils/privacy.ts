@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 
 export interface PrivacySettingResult {
@@ -35,10 +36,10 @@ export function initPrivacyGuard(): void {
 
   Taro.onNeedPrivacyAuthorization((resolve) => {
     Taro.showModal({
-      title: '隐私保护提示',
-      content: '为了向您提供更优质的服务，我们需要您同意《用户隐私保护指引》后再使用相关功能。',
-      confirmText: '查看协议',
-      cancelText: '拒绝',
+      title: t('utilsPrivacy.q1'),
+      content: t('utilsPrivacy.q2'),
+      confirmText: t('utilsPrivacy.q3'),
+      cancelText: t('utilsPrivacy.q4'),
       success: (modalRes) => {
         if (modalRes.confirm) {
           Taro.openPrivacyContract({

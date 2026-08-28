@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
@@ -12,7 +13,6 @@ import {
   type ExamRecord,
 } from '@/api'
 import { NavBar } from '@/components'
-import { useTt } from '@/i18n'
 import './detail.css'
 
 type ExamDetail = ExamPaper & {

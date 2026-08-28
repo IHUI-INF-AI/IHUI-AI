@@ -1,9 +1,9 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
-import { useTt } from '@/i18n'
 import './detail.css'
 
 interface Comment {
@@ -277,7 +277,9 @@ export default function CircleDetailPage() {
             <Image
               className="cd-action-icon"
               style={{ width: '36rpx', height: '36rpx' }}
-              src={favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'}
+              src={
+                favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'
+              }
               mode="aspectFit"
             />
             <Text className="cd-action-num">{data.favorites || 0}</Text>

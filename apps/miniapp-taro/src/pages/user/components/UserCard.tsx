@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
@@ -11,33 +12,34 @@ export interface UserCardProps {
 
 /** UserCard 组件 — 对齐原项目 user_cards.vue（订单/公司/智汇值/钱包卡片） */
 export default function UserCard({ onGoPage }: UserCardProps) {
+  const tt = useTt()
   const items = [
     {
       key: 'order',
       icon: dingdanIcon,
-      title: '我的订单',
-      desc: '查看相关订单',
+      title: tt('order.list.title', '我的订单'),
+      desc: tt('userUserCard.view1', '查看相关订单'),
       path: '/pages/user_order_list/index',
     },
     {
       key: 'distribution',
       icon: gerenIcon,
-      title: '我的公司',
-      desc: '查看员工与业绩',
+      title: tt('distribution.company.title', '我的公司'),
+      desc: tt('userUserCard.view2', '查看员工与业绩'),
       path: '/pagesA/distribution/index',
     },
     {
       key: 'token',
       icon: xianLabelIcon,
-      title: '我的智汇值',
-      desc: '智汇消耗信息',
+      title: tt('token.balance.title', '我的智汇值'),
+      desc: tt('userUserCard.text3', '智汇消耗信息'),
       path: '/pages/tools/token_value',
     },
     {
       key: 'money',
       icon: shezhiIcon,
-      title: '我的钱包',
-      desc: '查看余额与充值',
+      title: tt('wallet.title', '我的钱包'),
+      desc: tt('userUserCard.view4', '查看余额与充值'),
       path: '/pagesA/top-up/index',
     },
   ]
@@ -56,7 +58,10 @@ export default function UserCard({ onGoPage }: UserCardProps) {
             onClick={() => {
               const userInfodata = Taro.getStorageSync('data')
               if (!userInfodata) {
-                Taro.showToast({ title: '请先登录', icon: 'none' })
+                Taro.showToast({
+                  title: tt('ai.aiAssistant.pleaseLogin', '请先登录'),
+                  icon: 'none',
+                })
                 return
               }
               onGoPage(item.path)

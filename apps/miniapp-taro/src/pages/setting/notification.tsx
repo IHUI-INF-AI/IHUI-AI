@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface NotificationSettingItem {
   key: string

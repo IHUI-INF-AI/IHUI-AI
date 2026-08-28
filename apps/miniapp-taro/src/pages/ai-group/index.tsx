@@ -1,36 +1,78 @@
+import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 type CategoryKey = 'all' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 
-const CATEGORY_KEYWORDS: Record<Exclude<CategoryKey, 'all'>, string[]> = {
-  office: ['办公', '会议', '邮件', 'excel', 'word', 'ppt', '文档', '表格', 'office'],
-  writing: ['写', '文案', '文章', '创作', '小说', '内容', '写作', '文字'],
+const CATEGORY_KEYWORDS = (tt: TtFn): Record<Exclude<CategoryKey, 'all'>, string[]> => ({
+  office: [
+    tt('ai.agentList.categories.office', '办公'),
+    t('aiAgent.d1'),
+    t('aiAgent.d2'),
+    'excel',
+    'word',
+    'ppt',
+    t('messageInput.document'),
+    t('aiAgent.d3'),
+    'office',
+  ],
+  writing: [
+    tt('aiAgent.d4', '写'),
+    t('aigcPublish.typeText'),
+    t('bookmark.type.article'),
+    t('aiAgent.d5'),
+    t('aiAgent.d6'),
+    t('feedback.content'),
+    t('ai.agentList.categories.writing'),
+    t('aiAgent.d7'),
+  ],
   coding: [
-    '代码',
-    '编程',
-    '程序',
-    '开发',
+    t('aigroup.r1'),
+    t('ai.agentList.categories.coding'),
+    t('aigroup.r2'),
+    t('pagesindexindex.d5'),
     'bug',
-    '函数',
-    '前端',
-    '后端',
+    t('aigroup.r3'),
+    t('aigroup.r4'),
+    t('aigroup.r5'),
     'python',
     'javascript',
     'code',
   ],
-  education: ['学', '教', '课', '知识', '考试', '题', '教育', '讲解', '题解'],
-  life: ['生活', '健康', '美食', '旅游', '运动', '购物', '日常', 'life'],
-}
+  education: [
+    tt('aiAgent.d8', '学'),
+    t('aiAgent.d9'),
+    t('aiAgent.d10'),
+    t('aiAgent.d11'),
+    t('aiAgent.d12'),
+    t('aiAgent.d13'),
+    t('ai.agentList.categories.education'),
+    t('aiAgent.d14'),
+    t('aiAgent.d15'),
+  ],
+  life: [
+    tt('ai.agentList.categories.life', '生活'),
+    t('aiAgent.d16'),
+    t('aiAgent.d17'),
+    t('aiAgent.d18'),
+    t('aiAgent.d19'),
+    t('aiAgent.d20'),
+    t('aiAgent.d21'),
+    'life',
+  ],
+})
 
-function detectCategory(name: string, desc: string): string {
+function detectCategory(
+  name: string,
+  desc: string,
+  keywords: Record<Exclude<CategoryKey, 'all'>, string[]>,
+): string {
   const text = `${name} ${desc}`.toLowerCase()
-  for (const key of Object.keys(CATEGORY_KEYWORDS) as Array<Exclude<CategoryKey, 'all'>>) {
-    if (CATEGORY_KEYWORDS[key].some((kw) => text.includes(kw.toLowerCase()))) {
+  for (const [key, kws] of Object.entries(keywords)) {
+    if (kws.some((kw) => text.includes(kw.toLowerCase()))) {
       return key
     }
   }
@@ -52,12 +94,12 @@ export default function AiGroup() {
       const res = (await api.getAgentList()) as { list?: Array<Record<string, unknown>> }
       setList(res?.list || [])
     } catch (e) {
-      logger.error('unknown', '加载AI团队', e)
+      logger.error('unknown', t('aigroup.q1'), e)
       setError(true)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     loadData()
@@ -68,9 +110,9 @@ export default function AiGroup() {
     return list.filter((item) => {
       const name = String(item.name || '')
       const desc = String(item.desc || '')
-      return detectCategory(name, desc) === activeCategory
+      return detectCategory(name, desc, CATEGORY_KEYWORDS(tt)) === activeCategory
     })
-  }, [list, activeCategory])
+  }, [list, activeCategory, tt])
 
   const onItemClick = useCallback((id: string) => {
     Taro.navigateTo({ url: `/pages/ai/agent-detail?id=${id}` })

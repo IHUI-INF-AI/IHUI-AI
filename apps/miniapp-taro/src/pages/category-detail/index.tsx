@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import type { Agent } from '@ihui/api-client'
 import { getAgentList } from '@/api'
-import { useI18n } from '@/i18n'
 
 type AgentItem = Pick<Agent, 'id' | 'name'> & {
   description?: string

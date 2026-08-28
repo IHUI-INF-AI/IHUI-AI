@@ -1,26 +1,26 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
   const text = `${name} ${desc}`
   const tagMap: Array<{ keyword: string; tag: string }> = [
-    { keyword: '面试', tag: '面试' },
-    { keyword: '简历', tag: '简历' },
-    { keyword: '职业', tag: '职业规划' },
-    { keyword: '规划', tag: '职业规划' },
-    { keyword: '职场', tag: '职场' },
-    { keyword: '晋升', tag: '晋升' },
-    { keyword: '跳槽', tag: '跳槽' },
-    { keyword: '薪资', tag: '薪资' },
-    { keyword: '技能', tag: '技能提升' },
-    { keyword: '学习', tag: '学习' },
-    { keyword: '管理', tag: '管理' },
-    { keyword: '沟通', tag: '沟通' },
+    { keyword: t('aicareer.q1'), tag: t('aicareer.q2') },
+    { keyword: t('aicareer.q3'), tag: t('aicareer.q4') },
+    { keyword: t('aicareer.q5'), tag: t('aicareer.q6') },
+    { keyword: t('aicareer.q7'), tag: t('aicareer.q8') },
+    { keyword: t('aicareer.q9'), tag: t('aicareer.q10') },
+    { keyword: t('aicareer.q11'), tag: t('aicareer.q12') },
+    { keyword: t('aicareer.q13'), tag: t('aicareer.q14') },
+    { keyword: t('aicareer.q15'), tag: t('aicareer.q16') },
+    { keyword: t('aicareer.q17'), tag: t('aicareer.q18') },
+    { keyword: t('aiAssistant.catStudy'), tag: t('aiAssistant.catStudy') },
+    { keyword: t('favorites.manage'), tag: t('favorites.manage') },
+    { keyword: t('aicareer.q19'), tag: t('aicareer.q20') },
   ]
   const tags: string[] = []
   for (const { keyword, tag } of tagMap) {
@@ -46,12 +46,12 @@ export default function AiCareer() {
       const res = (await api.getAgentList()) as { list?: Array<Record<string, unknown>> }
       setList(res?.list || [])
     } catch (e) {
-      logger.error('unknown', '加载生涯指导', e)
+      logger.error('unknown', t('aicareer.q21'), e)
       setError(true)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useDidShow(() => {
     loadData()

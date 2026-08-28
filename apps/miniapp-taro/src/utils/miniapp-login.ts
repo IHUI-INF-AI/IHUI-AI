@@ -11,6 +11,7 @@
  * 3. (可选)合并用户资料
  * 4. 持久化 token / refreshToken / userInfo
  */
+import { t } from '@/i18n'
 import {
   login as platformLogin,
   getUserProfile as platformGetUserProfile,
@@ -44,12 +45,12 @@ export function isMiniAppEnvironment(): boolean {
  */
 export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<MiniAppLoginResult> {
   if (!isMiniAppEnvironment()) {
-    throw new Error('请在小程序中使用本登录')
+    throw new Error(t('utilsMiniapplogin.q1'))
   }
 
   // 1. 拿平台 code(微信 code 或支付宝 authCode)
   const { code, platform } = await platformLogin()
-  if (!code) throw new Error('登录授权码为空')
+  if (!code) throw new Error(t('utilsMiniapplogin.q2'))
 
   // 2. 调后端换 token(根据平台走不同接口)
   let result: LoginResult
@@ -80,7 +81,7 @@ export async function miniAppLogin(options: MiniAppLoginOptions = {}): Promise<M
       user.nickname ||
       profileNick ||
       user.userName ||
-      `${platform === 'weapp' ? '微信' : '支付宝'}用户`,
+      `${platform === 'weapp' ? t('distribution.withdraw.methodWechat') : t('utilsMiniapplogin.alipayUser')}${t('utilsMiniapplogin.p1')}`,
     avatar: user.avatar || profileAvatar,
   }
 

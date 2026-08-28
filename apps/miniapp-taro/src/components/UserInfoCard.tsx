@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import type { UserInfoCardMinimalProps } from '@ihui/types'
@@ -49,7 +50,7 @@ function formatTokenValue(v: number): string {
 
 export default function UserInfoCard({
   avatar,
-  nickname = '未登录',
+  nickname = t('profileEdit.notLoggedIn'),
   level = 0,
   levelTitle,
   isVip = false,
@@ -68,9 +69,10 @@ export default function UserInfoCard({
   onOpenLevel,
   onLogin,
 }: UserInfoCardProps) {
+  const tt = useTt()
   const displayLevel = levelTitle || (level > 0 ? `Lv.${level}` : '')
   // 未登录判定(对齐原项目:无头像 + 昵称为"未登录")
-  const isLogged = !!avatar || nickname !== '未登录'
+  const isLogged = !!avatar || nickname !== tt('profileEdit.notLoggedIn', '未登录')
   // 智汇值格式化:tokenValue 优先,无则回退 desc
   const tokenDisplay = tokenValue !== undefined ? formatTokenValue(tokenValue) : desc
   // 成长值进度比例(对齐原项目 growth-bar)
@@ -89,7 +91,9 @@ export default function UserInfoCard({
           style={{ background: 'var(--color-primary)' }}
           onClick={onLogin}
         >
-          <Text className="text-sm text-white font-medium">一键登录</Text>
+          <Text className="text-sm text-white font-medium">
+            {tt('UserInfoCard.login1', '一键登录')}
+          </Text>
         </View>
       ) : (
         <View onClick={onClick}>
@@ -130,7 +134,7 @@ export default function UserInfoCard({
                       className="text-[20rpx] font-medium"
                       style={{ color: 'var(--color-warning)' }}
                     >
-                      操盘手
+                      {tt('distribution.index.defaultName', '操盘手')}
                     </Text>
                   </View>
                 ) : null}
@@ -193,7 +197,9 @@ export default function UserInfoCard({
               {showGrowthBar ? (
                 <View className="mt-2">
                   <View className="flex items-center justify-between mb-1">
-                    <Text className="text-[20rpx] text-muted-foreground">成长值</Text>
+                    <Text className="text-[20rpx] text-muted-foreground">
+                      {tt('member.index.growth', '成长值')}
+                    </Text>
                     <Text className="text-[20rpx] text-muted-foreground">
                       {growthValue} / {growthMax}
                     </Text>
@@ -222,7 +228,9 @@ export default function UserInfoCard({
                       onOpenVip()
                     }}
                   >
-                    <Text className="text-[22rpx] text-white font-medium">开通会员</Text>
+                    <Text className="text-[22rpx] text-white font-medium">
+                      {tt('vipTrader.openTitle', '开通会员')}
+                    </Text>
                   </View>
                 ) : null}
                 {/* 退订按钮(仅 isVip 显示,对齐原项目 unsubscribe) */}
@@ -234,7 +242,9 @@ export default function UserInfoCard({
                       onUnsubscribe()
                     }}
                   >
-                    <Text className="text-[22rpx] text-muted-foreground">退订</Text>
+                    <Text className="text-[22rpx] text-muted-foreground">
+                      {tt('UserInfoCard.text2', '退订')}
+                    </Text>
                   </View>
                 ) : null}
                 {/* 充值按钮(onWallet 且智汇值行未显示时兜底) */}
@@ -246,7 +256,9 @@ export default function UserInfoCard({
                       onWallet()
                     }}
                   >
-                    <Text className="text-[22rpx] text-white font-medium">充值</Text>
+                    <Text className="text-[22rpx] text-white font-medium">
+                      {tt('wallet.recharge.submit', '充值')}
+                    </Text>
                   </View>
                 ) : null}
               </View>

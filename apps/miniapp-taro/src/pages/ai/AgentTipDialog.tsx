@@ -1,5 +1,5 @@
-import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
 import skillsIcon from '@/assets/remote/images/add/skills.svg'
 import mesgIcon from '@/assets/remote/images/default/mesg.svg'
 import picterIcon from '@/assets/remote/images/add/picter.svg'

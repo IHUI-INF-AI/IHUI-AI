@@ -1,9 +1,9 @@
+import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
-import { useTt } from '@/i18n'
 
 interface HistoryItem extends Live {
   watchDuration?: number
