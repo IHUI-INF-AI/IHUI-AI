@@ -171,7 +171,7 @@ export default function Settings() {
         <View className="bg-card rounded-[12rpx] overflow-hidden">
           <View className="flex items-center justify-between py-[28rpx] px-[24rpx] mb-[12rpx] active:bg-muted">
             <Text className="text-[28rpx] text-foreground flex-1">
-              {tt('setting.notification', '消息通知')}
+              {tt('setting.notificationEntry', '消息通知')}
             </Text>
 
             <Switch checked={notifEnabled} color="#07c160" onChange={onNotifChange} />

@@ -13,9 +13,11 @@ import { EduSettingsDialog } from './EduSettingsDialog'
 import { api, normList, parseJson, EMPTY_FORM, eduSettingToForm } from './helpers'
 import type { EduSetting, EduSettingForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function AdminEduSettingsPage() {
   const t = useTranslations('admin.eduSettings')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
   const [group, setGroup] = React.useState<'all' | string>('all')
   const [groupInput, setGroupInput] = React.useState('')
@@ -92,8 +94,8 @@ export default function AdminEduSettingsPage() {
     }
     saveMut.mutate()
   }
-  function handleDelete(c: EduSetting) {
-    if (!confirm(t('deleteConfirm'))) return
+  async function handleDelete(c: EduSetting) {
+    if (!(await confirm({ title: t('deleteConfirm'), variant: 'destructive' }))) return
     delMut.mutate(c.id)
   }
   function handleAddGroup() {
@@ -149,6 +151,7 @@ export default function AdminEduSettingsPage() {
         onSubmit={submit}
         onClose={close}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }
