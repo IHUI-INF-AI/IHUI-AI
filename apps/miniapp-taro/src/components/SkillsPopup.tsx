@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
 import { useState, useMemo, useCallback } from 'react'
 import DrawerComponent from './DrawerComponent'
 import EmptyState from './EmptyState'
-import { useI18n } from '@/i18n'
 
 export type SkillCategory = 'all' | 'text' | 'image' | 'video' | 'audio'
 

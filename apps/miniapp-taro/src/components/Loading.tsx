@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 
 export interface LoadingProps {
@@ -8,7 +9,7 @@ export interface LoadingProps {
 
 export default function Loading({
   fullScreen = false,
-  text = '加载中...',
+  text = t('common.loadingShort'),
   mask = true,
 }: LoadingProps) {
   const spinner = (

@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import audioSvg from '@/assets/images/add/audio.svg'
 import { cn } from '@ihui/design-tokens'
@@ -74,22 +75,23 @@ export interface BottomActionBarProps {
 }
 
 const DEFAULT_TOGGLE_BUTTONS: ToggleButtonItem[] = [
-  { key: 'superAgent', label: '深度思考' },
-  { key: 'mcp', label: '联网' },
-  { key: 'knowledgeBase', label: '知识库' },
-  { key: 'permanentMemory', label: '永久记忆' },
+  { key: 'superAgent', label: t('index.feature.superAgent') },
+  { key: 'mcp', label: t('index.feature.mcp') },
+  { key: 'knowledgeBase', label: t('index.feature.knowledgeBase') },
+  { key: 'permanentMemory', label: t('index.feature.permanentMemory') },
 ]
 
 // 4 个图标按钮对齐原项目 BottomActionBar.vue line 65-80:
 // 相机 / 相册 / 本地文件 / 微信文件(微信文件用 wenjian.png 区别于 floder_input.png)
 const DEFAULT_ICON_BUTTONS: IconButtonItem[] = [
-  { key: 'camera', label: '相机', icon: cammerInputPng },
-  { key: 'album', label: '相册', icon: picterInputPng },
-  { key: 'file', label: '本地文件', icon: floderInputPng },
-  { key: 'wxfile', label: '微信文件', icon: wenjianPng },
+  { key: 'camera', label: t('BottomActionBar.d1'), icon: cammerInputPng },
+  { key: 'album', label: t('BottomActionBar.d2'), icon: picterInputPng },
+  { key: 'file', label: t('BottomActionBar.d3'), icon: floderInputPng },
+  { key: 'wxfile', label: t('BottomActionBar.d4'), icon: wenjianPng },
 ]
 
 export default function BottomActionBar(props: BottomActionBarProps) {
+  const tt = useTt()
   const {
     variant = 'default',
     modelName,
@@ -103,7 +105,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
     onVoiceInputToggle,
     // 默认模式 props(解构)
     value = '',
-    placeholder = '输入消息...',
+    placeholder = tt('message.inputPlaceholder', '输入消息...'),
     disabled = false,
     showAttach = true,
     showSend = true,
@@ -224,7 +226,9 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                   color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
                 }}
               >
-                {isVoiceInput ? '语音输入中' : '语音输入'}
+                {isVoiceInput
+                  ? tt('BottomActionBar.p1', '语音输入中')
+                  : tt('BottomActionBar.p2', '语音输入')}
               </Text>
             </View>
           </View>
@@ -249,10 +253,10 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 style={{ width: rpx(24), height: rpx(24), marginRight: rpx(8) }}
                 mode="aspectFit"
               />
-              <Text>已默认自动切换深度思考</Text>
+              <Text>{tt('BottomActionBar.text1', '已默认自动切换深度思考')}</Text>
             </View>
             <View style={{ color: 'var(--color-accent-blue, #5a85ff)', fontSize: rpx(20) }}>
-              <Text>已选模型: {modelName}</Text>
+              <Text>{tt('tail.11', '已选模型: {m}', { m: modelName })}</Text>
             </View>
           </View>
         ) : null}

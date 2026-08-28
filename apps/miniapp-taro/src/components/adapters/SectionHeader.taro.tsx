@@ -1,8 +1,8 @@
+import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /**
  * Taro 适配层:SectionHeader
@@ -32,7 +32,7 @@ export interface SectionHeaderProps {
 
 const SUBTITLE_GAP = 8
 const ARROW_GAP = 4
-const DEFAULT_FALLBACK = '查看更多'
+const DEFAULT_FALLBACK = t('common.viewMore')
 
 /** 容器样式(独立函数避免联合类型) */
 const containerStyle = (): CSSProperties => ({

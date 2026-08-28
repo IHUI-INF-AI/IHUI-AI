@@ -1,10 +1,10 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, post } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
-import { useI18n } from '@/i18n'
 import './realname.css'
 
 const ID_CARD_REGEX = /^\d{17}[\dXx]$/
@@ -53,7 +53,7 @@ export default function Realname() {
         setStatus('unverified')
       }
     } catch (e) {
-      logger.error('user/realname', '获取用户信息', e)
+      logger.error('user/realname', t('userRealname.q1'), e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     }
   }, [t])
@@ -82,7 +82,7 @@ export default function Realname() {
           if (!uploaded.url) throw new Error('no url')
           setUrl(uploaded.url)
         } catch (e) {
-          logger.error('user/realname', '上传身份证照片', e)
+          logger.error('user/realname', t('userRealname.q2'), e)
           Taro.showToast({ title: tt('user.realname.uploadFailed', '上传失败'), icon: 'none' })
           setUrl('')
         } finally {
@@ -93,7 +93,7 @@ export default function Realname() {
       fail: (err) => {
         const msg = String(err?.errMsg || '').toLowerCase()
         if (msg.includes('cancel')) return
-        logger.error('user/realname', '选图失败', err)
+        logger.error('user/realname', t('user.avatar.chooseFailed'), err)
       },
     })
   }
@@ -124,7 +124,7 @@ export default function Realname() {
       setStatus('reviewing')
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
-      logger.error('user/realname', '提交实名认证', e)
+      logger.error('user/realname', t('userRealname.q3'), e)
       Taro.showToast({ title: t('common.failed'), icon: 'none' })
     } finally {
       setSubmitting(false)

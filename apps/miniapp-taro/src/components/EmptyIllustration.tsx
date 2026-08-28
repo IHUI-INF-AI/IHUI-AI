@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { icon } from '@/constants/remote-icons'
 
@@ -21,12 +22,12 @@ const ICON_EMOJIS: Record<string, string> = {
   permission: '/static/images/icons/lock.svg',
 }
 
-const DEFAULT_TEXTS: Record<string, string> = {
-  empty: '暂无数据',
-  search: '未找到相关内容',
-  network: '网络异常',
-  permission: '暂无权限',
-}
+const DEFAULT_TEXTS = (tt: TtFn): Record<string, string> => ({
+  empty: tt('common.empty', '暂无数据'),
+  search: tt('EmptyIllustration.d1', '未找到相关内容'),
+  network: tt('EmptyIllustration.d2', '网络异常'),
+  permission: tt('EmptyIllustration.d3', '暂无权限'),
+})
 
 export default function EmptyIllustration({
   type = 'empty',
@@ -35,6 +36,7 @@ export default function EmptyIllustration({
   actionText,
   onAction,
 }: EmptyIllustrationProps) {
+  const tt = useTt()
   const imgSrc = ICON_IMAGES[type]
   return (
     <View className="flex flex-col items-center justify-center py-12 px-4">
@@ -47,7 +49,7 @@ export default function EmptyIllustration({
           mode="aspectFit"
         />
       )}
-      <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS[type]}</Text>
+      <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS(tt)[type]}</Text>
       {desc && <Text className="text-xs text-muted-foreground text-center mb-3">{desc}</Text>}
       {actionText && onAction && (
         <View className="px-4 py-2 rounded-md bg-primary/10" onClick={onAction}>

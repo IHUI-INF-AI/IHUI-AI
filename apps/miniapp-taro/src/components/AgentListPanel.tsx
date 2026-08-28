@@ -1,8 +1,8 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import type { Agent } from '@ihui/api-client'
 import EmptyState from './EmptyState'
-import { useTt } from '@/i18n'
 // 原项目 AgentList.vue 头像兜底图标(本地副本 import,对齐 zhs_app-ZZ)
 import mianLabelIcon from '@/assets/remote/images/mian_label.png'
 
@@ -35,13 +35,13 @@ export interface AgentListPanelProps {
 }
 
 /** VIP 标签文案(对齐原项目 Ai-list_b.vue L43-64) */
-const VIP_TAG_LABELS: Record<VipType, string> = {
-  1: '会员免费',
-  2: '免费使用',
-  3: '限时免费',
-  4: '月费',
-  5: '已购买',
-}
+const VIP_TAG_LABELS = (tt: TtFn): Record<VipType, string> => ({
+  1: tt('pay.memberFree', '会员免费'),
+  2: tt('AgentListPanel.d1', '免费使用'),
+  3: tt('devEnter.modelEdit.saleTypeLimited', '限时免费'),
+  4: tt('AgentListPanel.d2', '月费'),
+  5: tt('AgentListPanel.d3', '已购买'),
+})
 
 /** VIP 标签样式(对齐原项目配色:金/绿/橙/蓝/灰) */
 const VIP_TAG_STYLES: Record<VipType, CSSProperties> = {
@@ -112,7 +112,7 @@ export default function AgentListPanel({
                         className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded font-medium"
                         style={VIP_TAG_STYLES[agent.vipType]}
                       >
-                        {VIP_TAG_LABELS[agent.vipType]}
+                        {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
                           ? ` ¥${formatPrice(agent.price)}/月`
                           : ''}

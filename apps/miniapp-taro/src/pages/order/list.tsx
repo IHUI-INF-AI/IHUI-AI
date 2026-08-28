@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
-import { useI18n } from '@/i18n'
 
 type OrderItem = Order & {
   outTradeNo?: string

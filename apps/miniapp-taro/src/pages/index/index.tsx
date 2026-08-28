@@ -25,6 +25,7 @@
  * - 语音输入模式(切换按钮 + 录音动画)
  * - ModelConfigDialog 模型配置弹窗
  */
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Image, Text, ScrollView, Button } from '@tarojs/components'
 import Taro, {
   useDidShow,
@@ -36,7 +37,6 @@ import Taro, {
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
 import { getSystemInfoCompat } from '@/utils/system-info'
-import { useI18n, useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
   type DrawerModelGroup,
@@ -80,43 +80,43 @@ const FALLBACK_MODEL_ITEMS: ModelItem[] = FALLBACK_MODELS.map((f) => ({
 const MOCK_AGENTS: AgentInfo[] = [
   {
     id: 'agent-1',
-    name: 'AI 写作助手',
-    description: '帮你撰写高质量文章、报告和文案',
+    name: t('pagesindexindex.d1'),
+    description: t('pagesindexindex.d2'),
     avatar: '',
     useCount: 1234,
-    category: '写作',
+    category: t('ai.agentList.categories.writing'),
   },
   {
     id: 'agent-2',
-    name: '编程助手',
-    description: '代码编写、调试和优化建议',
+    name: t('pagesindexindex.d3'),
+    description: t('pagesindexindex.d4'),
     avatar: '',
     useCount: 2341,
-    category: '开发',
+    category: t('pagesindexindex.d5'),
   },
   {
     id: 'agent-3',
-    name: '数据分析师',
-    description: '数据可视化和分析洞察',
+    name: t('pagesindexindex.d6'),
+    description: t('pagesindexindex.d7'),
     avatar: '',
     useCount: 987,
-    category: '分析',
+    category: t('pagesindexindex.d8'),
   },
   {
     id: 'agent-4',
-    name: '设计创意师',
-    description: '创意设计和视觉方案',
+    name: t('pagesindexindex.d9'),
+    description: t('pagesindexindex.d10'),
     avatar: '',
     useCount: 876,
-    category: '设计',
+    category: t('pagesindexindex.d11'),
   },
   {
     id: 'agent-5',
-    name: '翻译达人',
-    description: '多语言翻译和本地化',
+    name: t('pagesindexindex.d12'),
+    description: t('pagesindexindex.d13'),
     avatar: '',
     useCount: 765,
-    category: '工具',
+    category: t('pagesindexindex.d14'),
   },
 ]
 
@@ -124,64 +124,64 @@ const MOCK_AGENTS: AgentInfo[] = [
 const MOCK_SKILLS: AgentItem[] = [
   {
     id: 'skill-1',
-    name: '文本生成',
-    description: '高质量文本内容生成',
+    name: t('pagesindexindex.d15'),
+    description: t('pagesindexindex.d16'),
     avatar: '',
     useCount: 5678,
     category: 'text',
   },
   {
     id: 'skill-2',
-    name: '图片生成',
-    description: 'AI 绘画和图片创作',
+    name: t('pagesindexindex.d17'),
+    description: t('pagesindexindex.d18'),
     avatar: '',
     useCount: 4321,
     category: 'image',
   },
   {
     id: 'skill-3',
-    name: '视频制作',
-    description: 'AI 视频生成和编辑',
+    name: t('pagesindexindex.d19'),
+    description: t('pagesindexindex.d20'),
     avatar: '',
     useCount: 2345,
     category: 'video',
   },
   {
     id: 'skill-4',
-    name: '音频处理',
-    description: '语音合成和音频编辑',
+    name: t('pagesindexindex.d21'),
+    description: t('pagesindexindex.d22'),
     avatar: '',
     useCount: 1234,
     category: 'audio',
   },
   {
     id: 'skill-5',
-    name: '代码生成',
-    description: '多语言代码自动生成',
+    name: t('pagesindexindex.d23'),
+    description: t('pagesindexindex.d24'),
     avatar: '',
     useCount: 3456,
     category: 'text',
   },
   {
     id: 'skill-6',
-    name: '数据分析',
-    description: '数据分析和可视化',
+    name: t('pagesindexindex.d25'),
+    description: t('pagesindexindex.d26'),
     avatar: '',
     useCount: 2100,
     category: 'text',
   },
   {
     id: 'skill-7',
-    name: 'AI 绘画',
-    description: '文生图和图生图创作',
+    name: t('pagesindexindex.d27'),
+    description: t('pagesindexindex.d28'),
     avatar: '',
     useCount: 5432,
     category: 'image',
   },
   {
     id: 'skill-8',
-    name: '视频剪辑',
-    description: '智能视频剪辑和特效',
+    name: t('pagesindexindex.d29'),
+    description: t('pagesindexindex.d30'),
     avatar: '',
     useCount: 1876,
     category: 'video',
@@ -217,26 +217,26 @@ interface MaterialCard {
 const MOCK_MATERIAL_TEXT: MaterialItem[] = [
   {
     id: 't1',
-    title: 'AI 绘画入门指南',
-    content: '本文详细介绍 AI 绘画的基础知识和常用工具...',
+    title: t('pagesindexindex.d31'),
+    content: t('pagesindexindex.d32'),
     time: '2026-08-10',
   },
   {
     id: 't2',
-    title: '深度学习模型优化技巧',
-    content: '如何优化深度学习模型的训练速度和准确率...',
+    title: t('pagesindexindex.d33'),
+    content: t('pagesindexindex.d34'),
     time: '2026-08-09',
   },
   {
     id: 't3',
-    title: 'Prompt 工程最佳实践',
-    content: '掌握 Prompt 工程的核心技巧,提升 AI 输出质量...',
+    title: t('pagesindexindex.d35'),
+    content: t('pagesindexindex.d36'),
     time: '2026-08-08',
   },
   {
     id: 't4',
-    title: '多模态 AI 应用场景',
-    content: '探索多模态 AI 在医疗、教育、金融等领域的应用...',
+    title: t('pagesindexindex.d37'),
+    content: t('pagesindexindex.d38'),
     time: '2026-08-07',
   },
 ]
@@ -244,19 +244,19 @@ const MOCK_MATERIAL_TEXT: MaterialItem[] = [
 const MOCK_MATERIAL_IMAGE: MaterialItem[] = [
   {
     id: 'i1',
-    title: '山水风景画',
+    title: t('pagesindexindex.d39'),
     imageList: ['https://picsum.photos/seed/img1/300/300'],
     time: '2026-08-10',
   },
   {
     id: 'i2',
-    title: '城市夜景',
+    title: t('pagesindexindex.d40'),
     imageList: ['https://picsum.photos/seed/img2/300/300'],
     time: '2026-08-09',
   },
   {
     id: 'i3',
-    title: '抽象艺术作品',
+    title: t('pagesindexindex.d41'),
     imageList: ['https://picsum.photos/seed/img3/300/300'],
     time: '2026-08-08',
   },
@@ -265,14 +265,14 @@ const MOCK_MATERIAL_IMAGE: MaterialItem[] = [
 const MOCK_MATERIAL_VIDEO: MaterialItem[] = [
   {
     id: 'v1',
-    title: 'AI 视频生成教程',
+    title: t('pagesindexindex.d42'),
     videoUrl: 'https://example.com/video1.mp4',
     posterUrl: 'https://picsum.photos/seed/vid1/300/200',
     time: '2026-08-10',
   },
   {
     id: 'v2',
-    title: '数字人直播演示',
+    title: t('pagesindexindex.d43'),
     videoUrl: 'https://example.com/video2.mp4',
     posterUrl: 'https://picsum.photos/seed/vid2/300/200',
     time: '2026-08-09',
@@ -282,19 +282,19 @@ const MOCK_MATERIAL_VIDEO: MaterialItem[] = [
 const MOCK_MATERIAL_AUDIO: MaterialItem[] = [
   {
     id: 'a1',
-    title: 'AI 语音合成演示',
+    title: t('pagesindexindex.d44'),
     audioUrl: 'https://example.com/audio1.mp3',
     time: '2026-08-10',
   },
   {
     id: 'a2',
-    title: 'TTS 音色对比',
+    title: t('pagesindexindex.d45'),
     audioUrl: 'https://example.com/audio2.mp3',
     time: '2026-08-09',
   },
   {
     id: 'a3',
-    title: '语音克隆效果',
+    title: t('pagesindexindex.d46'),
     audioUrl: 'https://example.com/audio3.mp3',
     time: '2026-08-08',
   },
@@ -302,10 +302,10 @@ const MOCK_MATERIAL_AUDIO: MaterialItem[] = [
 
 // 素材库 tab 配置
 const MATERIAL_TABS = [
-  { id: 1, label: '文本' },
-  { id: 2, label: '图片' },
-  { id: 3, label: '视频' },
-  { id: 4, label: '音频' },
+  { id: 1, label: t('aigc.list.catText') },
+  { id: 2, label: t('aigc.list.catImage') },
+  { id: 3, label: t('aigc.list.catVideo') },
+  { id: 4, label: t('aigc.list.catAudio') },
 ] as const
 
 interface AiHomeState {
@@ -698,7 +698,7 @@ export default function Index() {
     // 输入框焦点
     isInputFocused: false,
     // 公告文本
-    announcementText: '🎉 欢迎使用智汇AI社区，新用户注册即赠5000智汇值！',
+    announcementText: t('pagesindexindex.register1'),
     // 流式对话状态
     conversationMessages: [],
     isStreaming: false,
@@ -1079,27 +1079,36 @@ export default function Index() {
     }))
   }, [])
 
-  const handleMaterialItemClick = useCallback((item: MaterialItem, type: 1 | 2 | 3 | 4) => {
-    const card: MaterialCard = {
-      type,
-      id: item.id,
-      title:
-        item.title ||
-        (type === 1 ? '文本内容' : type === 2 ? '图片内容' : type === 3 ? '视频内容' : '音频内容'),
-      content: item.content,
-      imageList: item.imageList,
-      videoUrl: item.videoUrl,
-      audioUrl: item.audioUrl,
-      posterUrl: item.posterUrl,
-      chatId: item.chatId,
-    }
-    setState((s) => ({
-      ...s,
-      materialCards: [...s.materialCards, card],
-      showMaterialList: false,
-      currentModelType: '',
-    }))
-  }, [])
+  const handleMaterialItemClick = useCallback(
+    (item: MaterialItem, type: 1 | 2 | 3 | 4) => {
+      const card: MaterialCard = {
+        type,
+        id: item.id,
+        title:
+          item.title ||
+          (type === 1
+            ? tt('aigc.list.untitled', '文本内容')
+            : type === 2
+              ? tt('pagesindexindex.p1', '图片内容')
+              : type === 3
+                ? tt('pagesindexindex.p2', '视频内容')
+                : tt('pagesindexindex.p3', '音频内容')),
+        content: item.content,
+        imageList: item.imageList,
+        videoUrl: item.videoUrl,
+        audioUrl: item.audioUrl,
+        posterUrl: item.posterUrl,
+        chatId: item.chatId,
+      }
+      setState((s) => ({
+        ...s,
+        materialCards: [...s.materialCards, card],
+        showMaterialList: false,
+        currentModelType: '',
+      }))
+    },
+    [tt],
+  )
 
   const removeMaterialCard = useCallback((index: number) => {
     setState((s) => ({
@@ -1462,7 +1471,10 @@ export default function Index() {
                       Taro.navigateTo({
                         url: `/pages/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
                         fail: () => {
-                          Taro.showToast({ title: '智能体助手页未配置', icon: 'none' })
+                          Taro.showToast({
+                            title: tt('pagesindexindex.text2', '智能体助手页未配置'),
+                            icon: 'none',
+                          })
                         },
                       })
                     }}
@@ -1605,7 +1617,9 @@ export default function Index() {
                 value: inputText,
                 onInput: setInputText,
                 onSend: handleSend,
-                placeholder: state.isLogin ? '输入消息...' : '请先登录',
+                placeholder: state.isLogin
+                  ? tt('message.inputPlaceholder', '输入消息...')
+                  : tt('ai.aiAssistant.pleaseLogin', '请先登录'),
                 onFocus: handleInputFocus,
                 onBlur: handleInputBlur,
                 onKeyboardHeightChange: handleKeyboardShow,
@@ -1689,9 +1703,12 @@ export default function Index() {
               onLongPress={() => {
                 // 长按保存二维码(对齐原项目 handleLongPressQrCode)
                 Taro.showActionSheet({
-                  itemList: ['保存图片到相册'],
+                  itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
                   success: () => {
-                    Taro.showToast({ title: '图片已保存', icon: 'success' })
+                    Taro.showToast({
+                      title: tt('pagesindexindex.save3', '图片已保存'),
+                      icon: 'success',
+                    })
                   },
                   fail: () => {
                     // 用户取消操作
