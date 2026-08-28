@@ -138,13 +138,21 @@ function getStagedLocales() {
   }
 }
 
+// 有意同值 key 白名单:语言切换页语言名在任何 UI 语言下都显示为该语言原生文字
+// (繁體中文/日本語 在 en/ko 下也是 "繁體中文"/"日本語",非未翻译)
+const INTENTIONAL_SAME_VALUE_KEYS = new Set([
+  'settingLanguage.d1', // 繁體中文(原生名,所有语言同值)
+  'settingLanguage.d2', // 日本語(原生名,所有语言同值)
+])
+
 // 判断是否为"未翻译"(值 === zh-CN 原值)
 // 对 zh-TW 跳过:简繁字形可能同形(如"登录"简繁同形),会海量误报
 // 对 ja 跳过:日文汉字词与中文同形是合法的(如 保存/通知/回答),untranslated 海量误报
 //   ja 的简体字残留由 scan-i18n-zh-residue.mjs warnOnly 模式负责
 // 对 ko/en:值 === zh-CN value 且 value 含汉字 → 未翻译
-function isUntranslated(lang, langValue, baseValue) {
+function isUntranslated(lang, langValue, baseValue, key) {
   if (lang === 'zh-TW' || lang === 'ja') return false
+  if (key && INTENTIONAL_SAME_VALUE_KEYS.has(key)) return false
   if (typeof langValue !== 'string' || typeof baseValue !== 'string') return false
   if (langValue !== baseValue) return false
   return HAN_RE.test(langValue)
@@ -199,7 +207,7 @@ function detectPending(messages, glossaryValues) {
         continue
       }
       const langValue = langMap.get(key)
-      if (isUntranslated(lang, langValue, baseValue)) {
+      if (isUntranslated(lang, langValue, baseValue, key)) {
         langPending.push({
           key,
           type: 'untranslated',

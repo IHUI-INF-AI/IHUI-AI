@@ -389,7 +389,7 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
  *
  * 守门依据:sidebar.tsx SidebarUserRow 行 760-870
  *   - 父容器:`flex justify-center px-1.5 pb-2`
- *   - 子容器 `group/row`:`inline-flex h-9 items-center gap-2 rounded-md px-2`
+ *   - 子容器 `group/row`:`inline-flex h-9 items-center gap-2 rounded-md px-6`(2026-08-28 提交 79910f7f1c:px-2 → px-6)
  *   - button:`flex h-9 w-9 shrink-0 items-center justify-center rounded-md`
  *   - span:`min-w-0 truncate text-sm font-medium text-foreground/70`
  *
@@ -679,14 +679,16 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       /rgba?\(0,\s*0,\s*0,\s*0\)|rgba?\(0\s+0\s+0\s+\/\s+0\)/,
     )
 
-    // button 应在 row 内部,不贴边(有 padding-x = 8px)
+    // avatar 应在 row 内部,不贴边(有 padding-x = 24px)
+    // 2026-08-28 修复:并发提交 79910f7f1c 将组件 padding px-2 → px-6(有意的设计变更),
+    // :521 几何测试已同步为 24px,本 hover 测试漏更导致 run 11 失败 —— 对齐契约
     expect(
       hd.btnInsideRowLeft,
-      `hover 时 button 左侧应 ≈ 8px (px-2),实际 ${hd.btnInsideRowLeft}`,
-    ).toBeCloseTo(8, 0)
+      `hover 时 avatar 左侧应 ≈ 24px (px-6),实际 ${hd.btnInsideRowLeft}`,
+    ).toBeCloseTo(24, 0)
     expect(
       hd.btnInsideRowRight,
-      `hover 时 button 右侧应 > 8px(右侧还有 span + gap + px-2),实际 ${hd.btnInsideRowRight}`,
-    ).toBeGreaterThan(8)
+      `hover 时 avatar 右侧应 > 24px(右侧还有 span + gap + px-6),实际 ${hd.btnInsideRowRight}`,
+    ).toBeGreaterThan(24)
   })
 })
