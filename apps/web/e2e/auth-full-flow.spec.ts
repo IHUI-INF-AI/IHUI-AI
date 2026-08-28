@@ -107,7 +107,9 @@ test.describe('完整认证流程', () => {
     // /forgot-password 已整合进弹窗:middleware 重定向到 / 并设置 login_redirect cookie
     // → LoginRedirectListener 触发 LoginDialog(mode='forgot')
     await page.waitForLoadState('domcontentloaded')
-    await expect(page).toHaveURL(/\/(?:$|\?)/)
+    // /forgot-password 页面是客户端 redirect(useEffect 里 router.replace('/')),
+    // 依赖 hydration 完成;dev server 高负载时 5s 默认超时不够 → 放宽到 20s
+    await expect(page).toHaveURL(/\/(?:$|\?)/, { timeout: 20000 })
     expect(
       serverErrors.filter(
         (e) =>
