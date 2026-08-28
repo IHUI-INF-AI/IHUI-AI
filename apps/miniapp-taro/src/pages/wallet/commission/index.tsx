@@ -1,9 +1,9 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
 import SectionHeader from '@/components/SectionHeader'
-import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 interface CommissionRecord {

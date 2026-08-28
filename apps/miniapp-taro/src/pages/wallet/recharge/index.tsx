@@ -1,3 +1,4 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Button, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
@@ -8,7 +9,6 @@ import {
   getProfile,
   type UserInfo,
 } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import './index.css'
 

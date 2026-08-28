@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { Agent } from '@ihui/api-client'
-import { useTt } from '@/i18n'
 
 export type AgentRef = Pick<Agent, 'id' | 'name'>
 

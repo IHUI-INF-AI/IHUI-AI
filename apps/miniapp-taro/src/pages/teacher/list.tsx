@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getTeacherList, type Teacher } from '@/api'
-import { useI18n } from '@/i18n'
 
 export default function TeacherList() {
   const { t } = useI18n()

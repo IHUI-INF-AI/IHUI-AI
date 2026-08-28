@@ -1,8 +1,8 @@
+import { useI18n, t } from '@/i18n'
 import { View, Text, Image, ScrollView, Video } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
-import { useI18n } from '@/i18n'
 import './list.css'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
@@ -39,8 +39,8 @@ const FILE_TYPE_TO_CATEGORY: Record<number, Category> = {
 const MOCK_LIST: AigcItem[] = [
   {
     id: 'm1',
-    title: '赛博城市夜景',
-    author: '智汇小方',
+    title: t('aigcList.d1'),
+    author: t('aigcList.d2'),
     coverUrl: 'https://picsum.photos/320/440?1',
     fileUrl: '',
     fileType: 0,
@@ -53,8 +53,8 @@ const MOCK_LIST: AigcItem[] = [
   },
   {
     id: 'm2',
-    title: '极光幻境',
-    author: 'AI创作家',
+    title: t('aigcList.d3'),
+    author: t('aigcList.d4'),
     coverUrl: 'https://picsum.photos/320/360?2',
     fileUrl: '',
     fileType: 0,
@@ -67,8 +67,8 @@ const MOCK_LIST: AigcItem[] = [
   },
   {
     id: 'm3',
-    title: '机械姬 Concept',
-    author: '未来派',
+    title: t('aigcList.d5'),
+    author: t('aigcList.d6'),
     coverUrl: 'https://picsum.photos/320/500?3',
     fileUrl: 'https://www.w3schools.com/html/mov_bbb.mp4',
     fileType: 1,
@@ -81,23 +81,22 @@ const MOCK_LIST: AigcItem[] = [
   },
   {
     id: 'm4',
-    title: '量子诗篇',
-    author: '智汇小方',
+    title: t('aigcList.d7'),
+    author: t('aigcList.d2'),
     coverUrl: '',
     fileUrl: '',
     fileType: 4,
-    content:
-      '在数据洪流中,我们以代码为笔,以算法为墨,描绘着数字时代的诗与远方。每一段文字都是思想的延伸,每一次生成都是创造的开始。',
-    context: '以"数据洪流"为意象,生成一段关于数字时代创作的散文诗。',
-    prompt: '数据洪流 数字时代 诗',
+    content: t('aigcList.r1'),
+    context: t('tail.16'),
+    prompt: t('aigcList.d10'),
     time: '2026-07-12 09:15',
     likes: 67,
     duration: 0,
   },
   {
     id: 'm5',
-    title: '霓虹脉搏',
-    author: '声音艺术家',
+    title: t('aigcList.d11'),
+    author: t('aigcList.d12'),
     coverUrl: 'https://picsum.photos/240/240?audio1',
     fileUrl: 'https://www.w3schools.com/html/horse.mp3',
     fileType: 3,
@@ -110,8 +109,8 @@ const MOCK_LIST: AigcItem[] = [
   },
   {
     id: 'm6',
-    title: '未来之城',
-    author: '数字画师',
+    title: t('aigcList.d13'),
+    author: t('aigcList.d14'),
     coverUrl: 'https://picsum.photos/320/440?4',
     fileUrl: '',
     fileType: 0,
@@ -124,23 +123,22 @@ const MOCK_LIST: AigcItem[] = [
   },
   {
     id: 'm7',
-    title: 'AI 觉醒录',
-    author: '智汇小方',
+    title: t('aigcList.d15'),
+    author: t('aigcList.d2'),
     coverUrl: '',
     fileUrl: '',
     fileType: 4,
-    content:
-      '当机器开始思考,人类是否做好了准备?这是一个关于意识、自由与共存的故事。在硅基生命与碳基生命的交汇处,我们重新审视"存在"的意义。',
-    context: '探讨 AI 觉醒后的人类处境,生成一段哲思短文。',
-    prompt: 'AI 觉醒 意识 共存',
+    content: t('tail.18'),
+    context: t('aigcList.d17'),
+    prompt: t('aigcList.d18'),
     time: '2026-07-09 20:30',
     likes: 198,
     duration: 0,
   },
   {
     id: 'm8',
-    title: '深空回响',
-    author: '声音艺术家',
+    title: t('aigcList.d19'),
+    author: t('aigcList.d12'),
     coverUrl: 'https://picsum.photos/240/240?audio2',
     fileUrl: 'https://www.w3schools.com/html/horse.mp3',
     fileType: 3,
@@ -451,7 +449,7 @@ export default function AigcList() {
 
   return (
     <View className="aigc-list-page">
-      {/* 顶部导航:标题="灵感"+ 返回按钮(对标原项目 v-show="!showFullScreen") */}
+      {/* 顶部导航:标题= tt('aigcList.title', '灵感')+ 返回按钮(对标原项目 v-show="!showFullScreen") */}
       <View className="page-header">
         <View className="back-btn" onClick={onBack}>
           <Text className="back-icon">‹</Text>
@@ -548,7 +546,11 @@ export default function AigcList() {
                       <Image
                         className="audio-play-icon"
                         style={{ width: '24rpx', height: '24rpx' }}
-                        src={isPlaying ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                        src={
+                          isPlaying
+                            ? '/static/images/icons/pause.svg'
+                            : '/static/images/icons/play.svg'
+                        }
                         mode="aspectFit"
                       />
                     </View>

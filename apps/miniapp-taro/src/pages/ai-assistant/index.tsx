@@ -3,13 +3,13 @@
  * 改用 Taro 现有 chatStream(SSE 流式),保留核心交互:思考进度条 + 消息列表 + 复制/预览/可见性切换 + 快捷问题 + 分享。
  * 路由注册:需在 app.config.ts pages 追加 'pages/ai-assistant/index'。
  */
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, ScrollView, Image, Input, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { chatStream, type ChatMessage } from '@/api'
 import { getToken, getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
-import { useI18n } from '@/i18n'
 
 interface QAItem {
   question: string
@@ -20,7 +20,12 @@ interface QAItem {
   visible: boolean
 }
 
-const SUGGESTED = ['写一首关于春天的诗', '生成一张猫咪图片', '推荐三本好书', '解释量子纠缠']
+const SUGGESTED = [
+  '写一首关于春天的诗',
+  t('aiassistant.q1'),
+  t('aiassistant.q2'),
+  t('aiassistant.q3'),
+]
 const IMG_EXT = /\.(jpeg|jpg|png|gif|webp|bmp|svg)(\?.*)?$/i
 const IMG_DOMAINS = ['volces.com', 'fyshark.com', 's.coze.cn', 'coze.cn']
 
@@ -42,6 +47,7 @@ function formatTokens(n?: number): string {
 }
 
 export default function AiAssistantPage() {
+  const tt = useTt()
   const router = useRouter()
   const { t } = useI18n()
   const [prompt, setPrompt] = useState('')
@@ -49,7 +55,7 @@ export default function AiAssistantPage() {
   const [loading, setLoading] = useState(false)
   const [thinking, setThinking] = useState(false)
   const [thinkingProgress, setThinkingProgress] = useState(0)
-  const [pageTitle] = useState('智汇AI助手')
+  const [pageTitle] = useState(t('aiassistant.p2'))
   const [tishiShow, setTishiShow] = useState(true)
   const [agentPrologue] = useState('')
   const [scrollTop, setScrollTop] = useState(0)
@@ -143,7 +149,7 @@ export default function AiAssistantPage() {
     shareIdxRef.current = idx
     setList((prev) => [
       ...prev,
-      { question: message, answer: '深度思考中...', images: [], videos: [], visible: true },
+      { question: message, answer: t('aiassistant.text1'), images: [], videos: [], visible: true },
     ])
     setPrompt('')
     setLoading(true)
@@ -186,7 +192,7 @@ export default function AiAssistantPage() {
           i === idx
             ? {
                 ...it,
-                answer: acc || '生成的图片:',
+                answer: acc || tt('aiassistant.p1', '生成的图片:'),
                 images: [...imgs],
                 videos: [...vids],
                 totalTokens,
@@ -198,7 +204,9 @@ export default function AiAssistantPage() {
     } catch (e) {
       logger.error('ai-assistant', 'chatStream', e)
       setList((prev) =>
-        prev.map((it, i) => (i === idx ? { ...it, answer: '生成失败,请重试', visible: true } : it)),
+        prev.map((it, i) =>
+          i === idx ? { ...it, answer: t('aiassistant.failed2'), visible: true } : it,
+        ),
       )
       Taro.showToast({ title: t('ai.aiAssistant.generateFailed'), icon: 'none' })
     } finally {
@@ -206,12 +214,12 @@ export default function AiAssistantPage() {
       stopProgress()
       scrollToBottom()
     }
-  }, [prompt, loading, list.length, startProgress, stopProgress, scrollToBottom, t])
+  }, [prompt, loading, list.length, startProgress, stopProgress, scrollToBottom, t, tt])
 
   useShareAppMessage(() => {
     const item = list[shareIdxRef.current]
     return {
-      title: item?.question || '智汇AI助手',
+      title: item?.question || tt('aiassistant.p2', '智汇AI助手'),
       path: `/pages/ai-assistant/index?souce=share&question=${encodeURIComponent(item?.question || '')}&content=${encodeURIComponent(item?.answer || '')}`,
     }
   })
@@ -235,7 +243,7 @@ export default function AiAssistantPage() {
             onClick={() => setTishiShow((v) => !v)}
           >
             <Text className="text-[52rpx] text-foreground">
-              {tishiShow ? '关闭' : '查看'}智能体引导说明
+              {tishiShow ? tt('common.close', '关闭') : tt('ai.tishi.view', '查看')}智能体引导说明
             </Text>
           </View>
           {tishiShow && agentPrologue ? (
@@ -246,7 +254,9 @@ export default function AiAssistantPage() {
 
           {list.length === 0 ? (
             <View className="flex flex-col items-center py-[160rpx]">
-              <Text className="text-[52rpx] text-muted-foreground">请在下方输入您的问题</Text>
+              <Text className="text-[52rpx] text-muted-foreground">
+                {tt('aiassistant.text3', '请在下方输入您的问题')}
+              </Text>
             </View>
           ) : (
             list.map((item, idx) => (
@@ -285,9 +295,9 @@ export default function AiAssistantPage() {
                     ))}
                     <View className="flex items-center justify-between mt-[24rpx]">
                       <Text className="text-[44rpx] text-muted-foreground">
-                        智汇AI生成
+                        {tt('aiassistant.text4', '智汇AI生成')}
                         {item.totalTokens !== undefined
-                          ? ` · 智汇值:${formatTokens(item.totalTokens)}`
+                          ? t('aiassistant.y1', { p1: formatTokens(item.totalTokens) })
                           : ''}
                       </Text>
                       <View className="flex gap-[32rpx]">
@@ -295,13 +305,13 @@ export default function AiAssistantPage() {
                           className="text-[44rpx] text-primary"
                           onClick={() => toggleVisible(idx)}
                         >
-                          隐藏
+                          {tt('forgot.hidePassword', '隐藏')}
                         </Text>
                         <Text
                           className="text-[44rpx] text-primary"
                           onClick={() => copyHandle(item.answer)}
                         >
-                          复制
+                          {tt('ai.chatMessageItem.copy', '复制')}
                         </Text>
                       </View>
                     </View>
@@ -309,7 +319,7 @@ export default function AiAssistantPage() {
                 ) : (
                   <View className="p-[40rpx] bg-card rounded-lg flex justify-center">
                     <Text className="text-[44rpx] text-primary" onClick={() => toggleVisible(idx)}>
-                      显示回答
+                      {tt('aiassistant.text5', '显示回答')}
                     </Text>
                   </View>
                 )}
@@ -322,7 +332,9 @@ export default function AiAssistantPage() {
       {thinking ? (
         <View className="px-[40rpx] py-[24rpx] bg-card border-t border-border">
           <View className="flex items-center mb-[16rpx]">
-            <Text className="text-[48rpx] text-foreground mr-[16rpx]">正在极速生成中</Text>
+            <Text className="text-[48rpx] text-foreground mr-[16rpx]">
+              {tt('aiassistant.text6', '正在极速生成中')}
+            </Text>
             <Text className="text-[48rpx] text-primary">{Math.floor(thinkingProgress)}%</Text>
           </View>
           <View className="w-full h-[16rpx] bg-muted rounded">
@@ -354,7 +366,7 @@ export default function AiAssistantPage() {
         <View className="flex items-center gap-[24rpx]">
           <Input
             className="flex-1 h-[128rpx] px-[40rpx] bg-muted rounded text-[56rpx] text-foreground"
-            placeholder="请输入描述"
+            placeholder={tt('tail.9', '请输入描述')}
             value={prompt}
             onInput={(e) => setPrompt(e.detail.value)}
             onConfirm={handleSend}
@@ -363,7 +375,9 @@ export default function AiAssistantPage() {
             className={`px-[48rpx] h-[128rpx] flex items-center justify-center rounded text-[56rpx] text-foreground ${loading ? 'bg-muted' : 'bg-primary'}`}
             onClick={handleSend}
           >
-            <Text>{loading ? '生成中' : '发送'}</Text>
+            <Text>
+              {loading ? tt('aiassistant.p3', '生成中') : tt('ai.agentDetail.runtimeSend', '发送')}
+            </Text>
           </View>
         </View>
       </View>

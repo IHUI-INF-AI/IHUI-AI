@@ -1,8 +1,8 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCouponList } from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 
 interface Coupon {
@@ -14,10 +14,14 @@ interface Coupon {
   status: string
 }
 
-const TABS = [
-  { key: 'unused', i18nKey: 'member.coupon.unused', fallback: '未使用' },
-  { key: 'used', i18nKey: 'member.coupon.used', fallback: '已使用' },
-  { key: 'expired', i18nKey: 'member.coupon.expired', fallback: '已过期' },
+const TABS = (tt: TtFn) => [
+  { key: 'unused', i18nKey: 'member.coupon.unused', fallback: tt('coupon.available', '未使用') },
+  { key: 'used', i18nKey: 'member.coupon.used', fallback: tt('coupon.used', '已使用') },
+  {
+    key: 'expired',
+    i18nKey: 'member.coupon.expired',
+    fallback: tt('member.index.expired', '已过期'),
+  },
 ]
 
 const COUPON_STATUS_KEY: Record<string, string> = {
@@ -63,7 +67,7 @@ export default function CouponPage() {
         hasMoreRef.current = items.length > PAGE_SIZE
         setShown(items.slice(0, PAGE_SIZE))
       } catch (e) {
-        logger.error('member/coupon', '获取优惠券', e)
+        logger.error('member/coupon', tt('memberCoupon.q1', '获取优惠券'), e)
         setError(true)
         setList([])
         setShown([])
@@ -71,7 +75,7 @@ export default function CouponPage() {
         setLoading(false)
       }
     },
-    [status],
+    [status, tt],
   )
 
   const switchTab = useCallback(
@@ -105,7 +109,7 @@ export default function CouponPage() {
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
       <View className="flex bg-card">
-        {TABS.map((tb) => (
+        {TABS(tt).map((tb) => (
           <Text
             key={tb.key}
             className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tb.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
@@ -165,7 +169,9 @@ export default function CouponPage() {
                   <Text className="self-end mt-[16rpx] text-[22rpx] text-muted-foreground">
                     {tt(
                       COUPON_STATUS_KEY[c.status] ?? 'member.coupon.expired',
-                      c.status === 'used' ? '已使用' : '已过期',
+                      c.status === 'used'
+                        ? tt('coupon.used', '已使用')
+                        : tt('member.index.expired', '已过期'),
                     )}
                   </Text>
                 )}

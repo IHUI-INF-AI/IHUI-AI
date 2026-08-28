@@ -1,5 +1,5 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface PriceOption {
   id: string
@@ -17,26 +17,36 @@ export interface VipPriceSelectorProps {
   onSelect?: (option: PriceOption) => void
 }
 
-const DEFAULT_OPTIONS: PriceOption[] = [
-  { id: '1', name: '月度', price: 29, period: '1个月', popular: false },
+const DEFAULT_OPTIONS = (tt: TtFn): PriceOption[] => [
+  {
+    id: '1',
+    name: tt('vip.privilege.levelMonth', '月度'),
+    price: 29,
+    period: tt('VipPriceSelector.d1', '1个月'),
+    popular: false,
+  },
   {
     id: '2',
-    name: '季度',
+    name: tt('vip.privilege.levelQuarter', '季度'),
     price: 79,
     originalPrice: 87,
-    period: '3个月',
+    period: tt('VipPriceSelector.d2', '3个月'),
     popular: true,
-    discount: '9折',
+    discount: tt('VipPriceSelector.d3', '9折'),
   },
-  { id: '3', name: '年度', price: 268, originalPrice: 348, period: '12个月', discount: '7.7折' },
+  {
+    id: '3',
+    name: tt('vip.privilege.levelYear', '年度'),
+    price: 268,
+    originalPrice: 348,
+    period: tt('VipPriceSelector.d4', '12个月'),
+    discount: tt('VipPriceSelector.d5', '7.7折'),
+  },
 ]
 
-export default function VipPriceSelector({
-  options = DEFAULT_OPTIONS,
-  selectedId = '2',
-  onSelect,
-}: VipPriceSelectorProps) {
+export default function VipPriceSelector(props: VipPriceSelectorProps) {
   const tt = useTt()
+  const { options = DEFAULT_OPTIONS(tt), selectedId = '2', onSelect } = props
   return (
     <View className="flex space-x-2 px-4 py-3">
       {options.map((opt) => {

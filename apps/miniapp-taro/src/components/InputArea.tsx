@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Textarea, ScrollView, Image, Video } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
 import voiceRecorder from '@/utils/voice-recorder'
-import { useI18n } from '@/i18n'
 import { cn } from '@ihui/design-tokens'
 // ai-home 模式图标(对齐原项目 InputArea.vue):
 // search-hua(文字模式切语音)/ input_qie(语音模式切文字)/ search-add(附件)/ sand_msg(发送)

@@ -1,7 +1,7 @@
+import { useTt, type TtFn } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { useTt } from '@/i18n'
 import { icon } from '@/constants/remote-icons'
 
 /**
@@ -48,43 +48,43 @@ interface TypeConfig {
   showPurchasePopup: boolean
 }
 
-const TYPE_CONFIG: Record<PayButtonType, TypeConfig> = {
+const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
   freevip: {
     bgClass: 'bg-warning/20',
     textClass: 'text-warning',
     icon: icon('freeVipIcon'),
-    label: '会员免费',
+    label: tt('pay.memberFree', '会员免费'),
     showPurchasePopup: false,
   },
   '1': {
     bgClass: 'bg-primary/20',
     textClass: 'text-primary',
     icon: icon('freeUseIcon'),
-    label: '免费使用',
+    label: tt('PayButton.d1', '免费使用'),
     showPurchasePopup: false,
   },
   '2': {
     bgClass: 'bg-destructive/20',
     textClass: 'text-destructive',
     icon: icon('freeTimeIcon'),
-    label: '限时免费',
+    label: tt('devEnter.modelEdit.saleTypeLimited', '限时免费'),
     showPurchasePopup: false,
   },
   '3': {
     bgClass: 'bg-primary',
     textClass: 'text-white',
     icon: icon('buymonthIcon'),
-    label: '每月',
+    label: tt('PayButton.d2', '每月'),
     showPurchasePopup: true,
   },
   '4': {
     bgClass: 'bg-muted',
     textClass: 'text-muted-foreground',
     icon: icon('hasbuyIcon'),
-    label: '已购买',
+    label: tt('PayButton.d3', '已购买'),
     showPurchasePopup: false,
   },
-}
+})
 
 export default function PayButton({
   type,
@@ -100,7 +100,7 @@ export default function PayButton({
   const [count, setCount] = useState(1)
   const [price, setPrice] = useState<number>(0.01)
 
-  const cfg = TYPE_CONFIG[type]
+  const cfg = TYPE_CONFIG(tt)[type]
 
   const handleClick = () => {
     if (disabled) return

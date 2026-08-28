@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
-import { useTt } from '@/i18n'
 import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
 import './index.css'
 

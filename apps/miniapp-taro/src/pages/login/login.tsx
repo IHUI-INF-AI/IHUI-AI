@@ -1,10 +1,10 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { useUserStore } from '@/stores/user'
 import { sendSmsCode, loginBySms, loginByPassword } from '@/api'
 import { getSsoLoginUrl } from '@/utils/sso'
-import { useI18n, useTt } from '@/i18n'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
@@ -388,7 +388,9 @@ export default function Login() {
                 <View className="icon-all-box" onClick={handleSsoLogin}>
                   <Image className="third-icon" src="/static/images/google.svg" mode="aspectFit" />
                   <Text className="third-icon-label">{tt('login.ssoLogin', 'SSO 登录')}</Text>
-                  <Text className="third-icon-hint">{tt('login.ssoLoginHint', '一键企业登录')}</Text>
+                  <Text className="third-icon-hint">
+                    {tt('login.ssoLoginHint', '一键企业登录')}
+                  </Text>
                 </View>
               </View>
             </View>

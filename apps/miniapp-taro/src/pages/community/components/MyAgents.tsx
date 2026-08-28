@@ -2,6 +2,7 @@
  * MyAgents — 我的AI APP 横向滚动列表 + "我的AI员工"团队按钮
  * 对齐原项目 zhs_app-ZZ Ai-WXMiniVue tools/components/MyAgents.vue
  */
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 
@@ -21,6 +22,7 @@ export interface MyAgentsProps {
 }
 
 export default function MyAgents({ myAgents }: MyAgentsProps) {
+  const tt = useTt()
   if (!myAgents || myAgents.length === 0) return null
 
   function goToTeam() {
@@ -30,7 +32,7 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
   function navigateTo(agent: MyAgent, idx: number) {
     const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
     if (!userData) {
-      Taro.showToast({ title: '请先登录', icon: 'none' })
+      Taro.showToast({ title: tt('ai.aiAssistant.pleaseLogin', '请先登录'), icon: 'none' })
       return
     }
     if (agent.type === 3 || agent.type === 5) {
@@ -47,9 +49,9 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
   return (
     <View className="my-agents-container">
       <View className="my-header">
-        <Text className="my-title">我的AI APP</Text>
+        <Text className="my-title">{tt('communityMyAgents.mine1', '我的AI APP')}</Text>
         <View className="team-button" onClick={goToTeam}>
-          <Text className="team-button-text">我的AI员工</Text>
+          <Text className="team-button-text">{tt('communityMyAgents.mine2', '我的AI员工')}</Text>
           <Text className="team-button-arrow">{'>'}</Text>
         </View>
       </View>

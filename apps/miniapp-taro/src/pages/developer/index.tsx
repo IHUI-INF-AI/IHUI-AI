@@ -1,8 +1,8 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
-import { useI18n, useTt } from '@/i18n'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -38,16 +38,16 @@ interface AgentItem {
 
 // 一级状态 tab(对标原 headTypes)
 const STATUS_TABS = [
-  { id: 0, key: 'developer.index.pendingPublish', name: '待发布' },
-  { id: 1, key: 'developer.index.underReview', name: '审核中' },
-  { id: 2, key: 'developer.index.published', name: '已发布' },
+  { id: 0, key: 'developer.index.pendingPublish', name: t('assistant.tabDraft') },
+  { id: 1, key: 'developer.index.underReview', name: t('order.refundList.stepReview') },
+  { id: 2, key: 'developer.index.published', name: t('developer.index.published') },
 ]
 
 // 二级 tab(对标原 tabbarList,仅 status ∈ {0,4,5} 显示)
 const SUB_TABS = [
-  { id: 0, key: 'developer.index.all', name: '全部' },
-  { id: 4, key: 'developer.index.reviewFailed', name: '审核失败' },
-  { id: 5, key: 'developer.index.offShelf', name: '已下架' },
+  { id: 0, key: 'developer.index.all', name: t('common.all') },
+  { id: 4, key: 'developer.index.reviewFailed', name: t('assistant.subTabRejected') },
+  { id: 5, key: 'developer.index.offShelf', name: t('assistant.subTabOffline') },
 ]
 
 const PAGE_SIZE = 10
@@ -175,11 +175,11 @@ export default function DeveloperIndex() {
   // 状态文案
   const statusText = (s: number) => {
     const map: Record<number, [string, string]> = {
-      0: ['developer.index.pendingPublish', '待发布'],
-      1: ['developer.index.underReview', '审核中'],
-      2: ['developer.index.published', '已发布'],
-      4: ['developer.index.reviewFailed', '审核失败'],
-      5: ['developer.index.offShelf', '已下架'],
+      0: ['developer.index.pendingPublish', t('assistant.tabDraft')],
+      1: ['developer.index.underReview', t('order.refundList.stepReview')],
+      2: ['developer.index.published', t('developer.index.published')],
+      4: ['developer.index.reviewFailed', t('assistant.subTabRejected')],
+      5: ['developer.index.offShelf', t('assistant.subTabOffline')],
     }
     const entry = map[s]
     return entry ? tt(entry[0], entry[1]) : tt('developer.index.published', '已发布')

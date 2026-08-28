@@ -58,6 +58,9 @@ export function t(key: string, params?: Record<string, string | number>): string
   return translate(messages[currentLocale], key, { fallback: messages['zh-CN'], params })
 }
 
+/** 带回退的翻译函数类型(供模块级数据工厂函数注入,避免在数据常量里调用 hook) */
+export type TtFn = (k: string, fb: string, params?: Record<string, string | number>) => string
+
 /**
  * 原生 tabBar 文案本地化(app.json 的 text 为静态配置,不支持 i18n,
  * 通过 setTabBarItem 在运行时按当前 locale 覆盖;失败静默,如非 tab 页环境)

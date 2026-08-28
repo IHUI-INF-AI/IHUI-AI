@@ -1,7 +1,7 @@
+import { useI18n, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { useI18n } from '@/i18n'
 
 const IMAGE_LIST = [
   '/static/images/modelRecord1.png',
@@ -11,14 +11,17 @@ const IMAGE_LIST = [
 ]
 
 const VALUES = [
-  '智汇AI对话大模型',
-  '粤网信备4401060000001号',
-  '广州智汇科技有限公司',
-  '生成合成类(深度合成)',
+  t('aboutModelrecord.r1'),
+  t('aboutModelrecord.r2'),
+  t('aboutModelrecord.r3'),
+  t('aboutModelrecord.r4'),
   '2026-02-20',
 ]
 
 export default function ModelRecord() {
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.modelRecord.title', '模型备案') })
+  })
   const { t } = useI18n()
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -28,10 +31,6 @@ export default function ModelRecord() {
     [t],
   )
   const [errorSet, setErrorSet] = useState<Set<number>>(new Set())
-
-  useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.modelRecord.title', '模型备案') })
-  })
 
   const labels = [
     tt('about.modelRecord.modelName', '模型名称'),

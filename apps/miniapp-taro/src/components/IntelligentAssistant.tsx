@@ -1,5 +1,5 @@
-import { View, Text, Image } from '@tarojs/components'
 import { useI18n } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
 import './IntelligentAssistant.css'
 
 export interface IntelligentAssistantProps {

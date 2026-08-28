@@ -1,7 +1,7 @@
+import { useI18n } from '@/i18n'
 import { View, Text, WebView } from '@tarojs/components'
 import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@tarojs/taro'
 import { useEffect, useRef, useState } from 'react'
-import { useI18n } from '@/i18n'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
 

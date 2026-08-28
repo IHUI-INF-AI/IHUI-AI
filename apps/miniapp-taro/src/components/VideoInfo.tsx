@@ -1,5 +1,5 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
-import { useI18n, useTt } from '@/i18n'
 
 export interface VideoInfoData {
   title?: string
@@ -21,7 +21,7 @@ export default function VideoInfo({ info = {} }: VideoInfoProps) {
   return (
     <View className="bg-card px-4 py-3">
       <Text className="block text-base font-medium text-foreground">
-        {info.title || '视频详情'}
+        {info.title || tt('VideoInfo.p1', '视频详情')}
       </Text>
       <View className="flex items-center mt-2">
         {info.teacher && (

@@ -1,10 +1,10 @@
+import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
-import { useTt } from '@/i18n'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import './index.css'
 
@@ -139,7 +139,7 @@ export default function MemberIndexPage() {
       }))
       if (list.length > 0) setBenefits(list)
     } catch (e) {
-      logger.error('member/index', '加载会员信息', e)
+      logger.error('member/index', t('member.q1'), e)
       Taro.showToast({ title: tt('member.index.loadFailed', '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -272,7 +272,7 @@ export default function MemberIndexPage() {
               ? tt('member.index.maxLevelHint', '已达成最高等级')
               : tt(
                   'member.index.nextLevelHint',
-                  `距 ${nextTier?.name ?? ''} 还差 ${nextThreshold - growth}`,
+                  t('member.y1', { p1: nextTier?.name ?? '', p2: nextThreshold - growth }),
                 )}
           </Text>
         </View>
