@@ -9661,6 +9661,7 @@
     "aigc": {
       "3d": "3D",
       "agent": "Agent",
+      "all": "All",
       "allCategories": "All categories",
       "alternatives": "Alternatives",
       "api": "API",

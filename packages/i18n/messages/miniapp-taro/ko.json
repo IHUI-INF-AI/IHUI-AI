@@ -26,7 +26,8 @@
     "success": "성공",
     "uploading": "업로드 중…",
     "user": "사용자",
-    "viewMore": "더 보기"
+    "viewMore": "더 보기",
+    "discountAmount": "할인"
   },
   "login": {
     "loginSuccess": "로그인 성공",
@@ -49,10 +50,6 @@
     "ssoLogin": "SSO 로그인",
     "ssoLoginHint": "기업 계정 원클릭 로그인",
     "agreement": "이용약관 및 개인정보처리방침에 동의합니다",
-    "smsTab": "SMS 인증 로그인",
-    "privacyPolicy": "《개인정보처리방침》",
-    "serviceAgreement": "《서비스 약관》",
-    "autoRegisterHint": "미가입 사용자는 자동으로 계정이 생성됩니다",
     "cancelAuth": "인증 취소",
     "codeCountdownSuffix": "초 후 재요청",
     "getPhoneFail": "전화번호 가져오기 실패",
@@ -61,7 +58,6 @@
     "wechatOneClick": "WeChat 원클릭 로그인"
   },
   "forgot": {
-    "title": "비밀번호 찾기",
     "step1": "1단계: 휴대폰 인증",
     "step2": "2단계: 새 비밀번호 설정",
     "phone": "휴대폰",
@@ -78,31 +74,20 @@
     "newPasswordPlaceholder": "새 비밀번호 입력",
     "confirmPassword": "비밀번호 확인",
     "confirmPasswordPlaceholder": "새 비밀번호 다시 입력",
-    "hidePassword": "숨기기",
-    "showPassword": "표시",
     "passwordTooShort": "비밀번호는 6자 이상이어야 합니다",
     "passwordMismatch": "두 비밀번호가 일치하지 않습니다",
     "resetting": "재설정 중…",
     "submit": "재설정 확인",
     "resetSuccess": "비밀번호가 재설정되었습니다",
-    "codeInvalid": "인증 코드를 입력하세요"
+    "codeInvalid": "인증 코드를 입력하세요",
+    "hidePassword": "숨기기",
+    "showPassword": "표시",
+    "title": "비밀번호 찾기"
   },
   "home": {
-    "hotCourses": "인기 강의",
-    "tapLogin": "탭하여 로그인",
-    "slogan": "IHUI AI, 더 스마트한 학습",
-    "todayMinutes": "오늘 {n}분",
-    "continuousDays": "연속 {n}일",
-    "totalMinutes": "누적 {n}분",
-    "coursesCount": "{n}개 강의",
-    "learningProgress": "학습 진행도",
     "more": "더 보기",
     "livePreview": "라이브 예정",
-    "startTime": "시작 시간",
-    "aiAppTitle": "AI 앱",
-    "knowledgePlanet": "지식 플래닛",
-    "knowledgePlanetDesc": "지식 플래닛에 가입해 크리에이터와 함께 성장하세요",
-    "planetMembers": "명"
+    "startTime": "시작 시간"
   },
   "course": {
     "learningProgress": "학습 진행도",
@@ -132,18 +117,10 @@
       "searchPlaceholder": "강의 검색",
       "search": "검색",
       "empty": "강의 없음",
-      "title": "추천 강의",
-      "subtitle": "{n}개 강의"
+      "title": "추천 강의"
     },
     "ratingTitle": "코스 평가",
-    "ratingLabels": [
-      "",
-      "매우 나쁨",
-      "나쁨",
-      "보통",
-      "좋음",
-      "매우 좋음"
-    ],
+    "ratingLabels": ["", "매우 나쁨", "나쁨", "보통", "좋음", "매우 좋음"],
     "ratingPlaceholder": "평가해주세요",
     "ratingDescLabel": "리뷰를 작성하세요",
     "ratingInputPlaceholder": "코스는 어땠나요? 생각을 공유하세요...",
@@ -242,7 +219,10 @@
     "titleRequired": "라이브 제목을 입력해 주세요",
     "startFailed": "라이브 시작 실패",
     "endFailed": "라이브 종료 실패",
-    "copySuccess": "클립보드에 복사되었습니다"
+    "copySuccess": "클립보드에 복사되었습니다",
+    "d1": "AI 강좌 패키지",
+    "d2": "멤버십 연간 카드",
+    "d3": "굿즈"
   },
   "order": {
     "title": "주문",
@@ -369,8 +349,30 @@
     }
   },
   "community": {
-    "title": "커뮤니티",
-    "posts": "게시물"
+    "posts": "게시물",
+    "text1": "지혜AI 사용자",
+    "text2": "지혜AI",
+    "text3": "AI 앱 스토어 - 지혜AI 커뮤니티",
+    "text4": "AI 앱 스토어 - 지혜AI 커뮤니티",
+    "text5": "곧 출시, 기대해 주세요",
+    "failed6": "가격 정보를 가져오지 못했습니다",
+    "like7": "좋아요 완료",
+    "text8": "페이지 미구성",
+    "copy9": "링크가 복사되었습니다, 브라우저에서 열어 주세요",
+    "failed10": "복사 실패, 다시 시도해 주세요",
+    "text11": "대화 페이지 미구성",
+    "confirm12": "이 대화를 삭제하시겠습니까?",
+    "search13": "음성 검색은 전체 버전에서 사용해 주세요",
+    "search14": "이미지 검색은 전체 버전에서 사용해 주세요",
+    "text15": "에이전트 추천",
+    "detail16": "카테고리 상세 페이지 미구성",
+    "success17": "결제 성공(mock)",
+    "pay18": "결제 매개변수 오류",
+    "m1": "AI 앱 스토어",
+    "m2": "AI 앱 스토어",
+    "m3": "검색할 에이전트 이름 입력",
+    "y1": "{p1} 시간",
+    "y2": "에이전트 구매:{p1}"
   },
   "action": {
     "like": "좋아요",
@@ -457,8 +459,6 @@
   },
   "ai": {
     "title": "AI 어시스턴트",
-    "welcomeTitle": "안녕하세요, IHUI AI 어시스턴트입니다",
-    "welcomeDesc": "무엇을 도와드릴까요?",
     "inputPlaceholder": "질문 입력…",
     "suggestions": [
       "시를 써주세요",
@@ -474,140 +474,11 @@
     "modelLoadFailed": "모델 로딩 실패",
     "materialLoadFailed": "자료 로딩 실패",
     "agentLoadFailed": "에이전트 로딩 실패",
-    "generating": "빠른 생성 중",
-    "thinkingTip": "Tips:먼저 오른쪽 상단의 점 3개를 눌러 미니프로그램을 띄워놓고 잠시 후 돌아오세요~",
-    "fileSelected": "{count}개 파일 선택됨",
-    "common": {
-      "loading": "로딩 중…"
-    },
-    "tishi": {
-      "title": "에이전트 가이드",
-      "view": "보기",
-      "close": "닫기",
-      "needInput": "더 정확한 도움을 위해 다음 정보를 입력해 주세요"
-    },
-    "chatMessageItem": {
-      "me": "나",
-      "ai": "AI",
-      "thinkingProcess": "사고 과정",
-      "noContent": "복사할 내용 없음",
-      "aiGenerated": "AI 생성",
-      "tokenCost": "토큰: {n}",
-      "reuse": "재사용",
-      "copy": "복사",
-      "favorited": "즐겨찾기됨",
-      "speak": "재생",
-      "stopSpeak": "중지",
-      "share": "공유",
-      "viewDigitalHuman": "디지털 휴먼 보기",
-      "digitalHuman": "디지털 휴먼 생성 →",
-      "voiceMessage": "음성 메시지",
-      "downloading": "다운로드 중",
-      "downloadSuccess": "앨범에 저장됨",
-      "downloadFailed": "다운로드 실패",
-      "needAlbumAuth": "이미지를 저장하려면 앨범 권한이 필요합니다. 설정에서 활성화하세요",
-      "collapse": "접기",
-      "edit": "편집",
-      "regenerate": "재생성"
-    },
-    "history": {
-      "title": "대화 기록",
-      "empty": "기록 없음",
-      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
-      "cleared": "기록이 삭제되었습니다"
-    },
-    "inputArea": {
-      "placeholder": "질문 입력…",
-      "releaseToSend": "놓으면 전송",
-      "holdToSpeak": "누르고 말하기",
-      "send": "전송"
-    },
-    "materialPopup": {
-      "title": "자료 선택",
-      "upload": "업로드",
-      "loadMore": "더 보기",
-      "noMore": "더 이상 없음",
-      "empty": "자료 없음"
-    },
-    "skillsPopup": {
-      "title": "스킬 선택",
-      "searchPlaceholder": "스킬 검색",
-      "uses": "{n}회 사용",
-      "notFound": "스킬을 찾을 수 없음",
-      "empty": "사용 가능한 스킬 없음"
-    },
-    "voice": {
-      "welcome": "안녕하세요, 아래 버튼을 길게 눌러 음성 대화 시작",
-      "voiceMessage": "[음성 메시지]",
-      "chatFailed": "대화 실패, 재시도",
-      "releaseToSend": "놓으면 전송",
-      "holdToSpeak": "누르고 말하기",
-      "recordFailed": "녹음 실패, 재시도",
-      "clearChat": "대화 비우기",
-      "speed": "말 속도",
-      "timbre": "음색",
-      "clearConfirm": "현재 대화를 지우시겠습니까?",
-      "cleared": "대화가 지워졌습니다",
-      "title": "AI 음성 대화"
-    },
-    "image": {
-      "examples": [
-        "귀여운 고양이",
-        "일몰 산 풍경",
-        "미래 도시",
-        "추상 예술"
-      ],
-      "emptyHint": "이미지 생성 설명 입력",
-      "tryThese": "이것들 시도",
-      "placeholder": "생성할 이미지 설명",
-      "generating": "생성 중…",
-      "generate": "이미지 생성",
-      "vertical": "세로 1024×1792",
-      "title": "이미지 생성",
-      "download": "다운로드",
-      "share": "공유",
-      "favorite": "즐겨찾기",
-      "favorited": "즐겨찾기됨",
-      "history": "기록",
-      "empty": "생성 기록 없음",
-      "styles": [
-        "실사",
-        "애니메이션",
-        "유화",
-        "수채화",
-        "3D",
-        "픽셀"
-      ],
-      "generateFailed": "생성 실패, 재시도",
-      "downloadSuccess": "앨범에 저장됨",
-      "downloadFailed": "다운로드 실패, 재시도",
-      "favoriteAdded": "즐겨찾기에 추가됨",
-      "favoriteRemoved": "즐겨찾기 해제됨"
-    },
-    "video": {
-      "title": "동영상 생성",
-      "promptPlaceholder": "생성할 동영상 내용을 설명...",
-      "generate": "동영상 생성",
-      "generating": "생성 중…",
-      "pending": "대기 중…",
-      "succeeded": "생성 완료",
-      "failed": "생성 실패",
-      "download": "다운로드",
-      "share": "공유",
-      "history": "기록",
-      "emptyHistory": "기록 없음",
-      "generateFailed": "생성 실패, 재시도",
-      "modelUnavailable": "이 모델 API는 아직 미지원",
-      "notAvailable": "미지원",
-      "taskSubmitted": "작업이 제출되었습니다, 기록에서 확인하세요",
-      "downloadSuccess": "앨범에 저장됨",
-      "downloadFailed": "다운로드 실패, 재시도"
-    },
     "agent": {
-      "searchPlaceholder": "에이전트 검색",
       "count": "{n}개",
       "empty": "에이전트 없음",
-      "inputPlaceholder": "질문 입력…"
+      "inputPlaceholder": "질문 입력…",
+      "searchPlaceholder": "에이전트 검색"
     },
     "agentDetail": {
       "runtimeTitle": "런타임",
@@ -623,35 +494,39 @@
       "runtimeInputPlaceholder": "메시지 입력…",
       "runtimeStop": "중지",
       "runtimeSend": "전송",
-      "promptLabel": "프롬프트",
-      "tabRuntime": "런타임",
-      "vipPermissionDenied": "이 에이전트는 VIP 필요",
-      "vipExclusive": "VIP 전용",
-      "permissionLoading": "권한 로딩 중…",
-      "permissionAllowed": "허용됨",
-      "permissionDenied": "거부됨",
-      "startChat": "채팅 시작",
+      "exampleDialog": "예시 대화",
       "favoriteAgent": "즐겨찾기",
       "favorited": "즐겨찾기됨",
+      "permissionAllowed": "허용됨",
+      "permissionDenied": "거부됨",
+      "permissionLoading": "권한 로딩 중…",
+      "prologue": "프롤로그",
+      "promptLabel": "프롬프트",
+      "ratingDistribution": "평점 분포",
+      "relatedAgents": "관련 에이전트",
+      "reviewCount": "{n}개 리뷰",
+      "reviews": "리뷰",
+      "startChat": "채팅 시작",
+      "tabRuntime": "런타임",
       "unfavorite": "즐겨찾기 해제",
       "useCount": "{n}명 사용",
-      "relatedAgents": "관련 에이전트",
-      "prologue": "프롤로그",
-      "exampleDialog": "예시 대화",
-      "reviews": "리뷰",
-      "reviewCount": "{n}개 리뷰",
-      "ratingDistribution": "평점 분포"
+      "vipExclusive": "VIP 전용",
+      "vipPermissionDenied": "이 에이전트는 VIP 필요"
     },
     "agentList": {
       "categories": {
-        "recommend": "추천",
-        "office": "오피스",
-        "writing": "작문",
         "coding": "코딩",
         "education": "교육",
-        "life": "생활"
+        "life": "생활",
+        "office": "오피스",
+        "recommend": "추천",
+        "writing": "작문"
       },
-      "useCount": "{n}명 사용",
+      "createAgent": "에이전트 생성",
+      "emptyFavorites": "즐겨찾기 에이전트 없음",
+      "emptyRecent": "최근 사용 에이전트 없음",
+      "hot": "인기",
+      "hotRecommend": "인기 추천",
       "noResult": "에이전트를 찾을 수 없음",
       "sortBy": "정렬",
       "sortHot": "인기",
@@ -660,83 +535,113 @@
       "tabAll": "전체",
       "tabFavorites": "내 즐겨찾기",
       "tabRecent": "최근 사용",
-      "hot": "인기",
-      "hotRecommend": "인기 추천",
-      "createAgent": "에이전트 생성",
-      "emptyFavorites": "즐겨찾기 에이전트 없음",
-      "emptyRecent": "최근 사용 에이전트 없음"
+      "useCount": "{n}명 사용"
     },
-    "historyPage": {
-      "empty": "대화 기록 없음",
-      "deleteOne": "이 대화 삭제",
-      "clearAll": "전체 삭제",
-      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
-      "cleared": "삭제됨",
-      "refreshSuccess": "새로고침 성공",
-      "startNew": "새 대화 시작",
-      "msgCount": "메시지 {n}개",
-      "noMore": "더 이상 없습니다",
-      "noResult": "관련 대화를 찾을 수 없습니다",
-      "searchPlaceholder": "대화 기록 검색"
-    },
-    "special": {
-      "pageError": "작업 실패",
-      "cat": {
-        "image": "AI 이미지 생성",
-        "video": "AI 동영상",
-        "voice": "AI 음성",
-        "plaza": "모델 광장",
-        "agent": "에이전트",
-        "all": "전체",
-        "chat": "AI 대화"
-      },
-      "historySoon": "히스토리가 곧 출시됩니다",
-      "featured": "추천",
-      "useBtn": "바로 사용",
-      "bannerDesc": "AI 대화/그리기/영상/음성/에이전트/모델 광장을 한곳에 모아, 엄선된 추천 기능을 바로 사용할 수 있습니다",
-      "bannerTitle": "AI 특집 모음",
-      "empty": "아직 콘텐츠가 없습니다",
-      "error": "불러오기에 실패했습니다",
-      "history": "내 사용 기록",
-      "useCount": "{n}회 사용"
+    "aiAssistant": {
+      "copyFailed": "복사에 실패했습니다",
+      "copySuccess": "복사 성공",
+      "generateFailed": "생성 실패, 재시도",
+      "goRecharge": "토큰이 부족합니다. 충전하시겠습니까?",
+      "insufficientTokens": "토큰이 부족합니다",
+      "nothingToCopy": "복사할 내용이 없습니다",
+      "pleaseInputDesc": "설명을 입력해 주세요",
+      "pleaseLogin": "먼저 로그인해 주세요",
+      "pleaseWait": "잠시만 기다려 주세요"
     },
     "chat": {
-      "agentTipTitle": "에이전트 사용 안내",
       "agentTipConfirm": "알겠습니다",
-      "agentTipSkill": "스킬 선택",
-      "agentTipSkillDesc": "좌측 상단 스킬 버튼을 눌러 해당 에이전트를 선택하세요",
-      "agentTipTalk": "대화 선택",
-      "agentTipTalkDesc": "대화 모드로 전환하여 AI와 직접 소통하세요",
+      "agentTipHistory": "기록",
+      "agentTipHistoryDesc": "대화 기록을 조회할 수 있습니다",
       "agentTipImage": "이미지 생성 선택",
       "agentTipImageDesc": "이미지 모드로 전환하여 이미지를 생성하세요",
       "agentTipInput": "질문 입력",
       "agentTipInputDesc": "하단 입력란에 질문을 입력하고 전송을 누르세요",
-      "agentTipHistory": "기록",
-      "agentTipHistoryDesc": "대화 기록을 조회할 수 있습니다"
-    },
-    "uploadMaterialTab": "{tab} 자료 업로드",
-    "messageAction": {
-      "reuse": "재사용",
-      "copy": "복사",
-      "delete": "삭제"
+      "agentTipSkill": "스킬 선택",
+      "agentTipSkillDesc": "좌측 상단 스킬 버튼을 눌러 해당 에이전트를 선택하세요",
+      "agentTipTalk": "대화 선택",
+      "agentTipTalkDesc": "대화 모드로 전환하여 AI와 직접 소통하세요",
+      "agentTipTitle": "에이전트 사용 안내"
     },
     "chatDrawers": {
-      "selectModel": "모델 선택",
-      "materialLibrary": "자료실",
       "emptyMaterial": "자료가 없습니다",
-      "skillDetail": "스킬 상세",
-      "promptLabel": "프롬프트"
+      "materialLibrary": "자료실",
+      "promptLabel": "프롬프트",
+      "selectModel": "모델 선택",
+      "skillDetail": "스킬 상세"
     },
-    "aiAssistant": {
-      "nothingToCopy": "복사할 내용이 없습니다",
-      "copySuccess": "복사 성공",
-      "pleaseInputDesc": "설명을 입력해 주세요",
-      "pleaseWait": "잠시만 기다려 주세요",
-      "insufficientTokens": "토큰이 부족합니다",
-      "goRecharge": "토큰이 부족합니다. 충전하시겠습니까?",
-      "pleaseLogin": "먼저 로그인해 주세요",
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI 생성",
+      "collapse": "접기",
+      "copy": "복사",
+      "digitalHuman": "디지털 휴먼 생성 →",
+      "downloadFailed": "다운로드 실패",
+      "downloadSuccess": "앨범에 저장됨",
+      "downloading": "다운로드 중",
+      "edit": "편집",
+      "favorited": "즐겨찾기됨",
+      "me": "나",
+      "needAlbumAuth": "이미지를 저장하려면 앨범 권한이 필요합니다. 설정에서 활성화하세요",
+      "noContent": "복사할 내용 없음",
+      "regenerate": "재생성",
+      "reuse": "재사용",
+      "share": "공유",
+      "speak": "재생",
+      "stopSpeak": "중지",
+      "thinkingProcess": "사고 과정",
+      "tokenCost": "토큰: {n}",
+      "viewDigitalHuman": "디지털 휴먼 보기",
+      "voiceMessage": "음성 메시지"
+    },
+    "common": {
+      "loading": "로딩 중…"
+    },
+    "fileSelected": "{count}개 파일 선택됨",
+    "generating": "빠른 생성 중",
+    "history": {
+      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
+      "cleared": "기록이 삭제되었습니다",
+      "empty": "기록 없음",
+      "title": "대화 기록"
+    },
+    "historyPage": {
+      "clearAll": "전체 삭제",
+      "clearConfirm": "모든 대화 기록을 삭제하시겠습니까?",
+      "cleared": "삭제됨",
+      "deleteOne": "이 대화 삭제",
+      "empty": "대화 기록 없음",
+      "msgCount": "메시지 {n}개",
+      "noMore": "더 이상 없습니다",
+      "noResult": "관련 대화를 찾을 수 없습니다",
+      "refreshSuccess": "새로고침 성공",
+      "searchPlaceholder": "대화 기록 검색",
+      "startNew": "새 대화 시작"
+    },
+    "image": {
+      "download": "다운로드",
+      "downloadFailed": "다운로드 실패, 재시도",
+      "downloadSuccess": "앨범에 저장됨",
+      "empty": "생성 기록 없음",
+      "emptyHint": "이미지 생성 설명 입력",
+      "favorite": "즐겨찾기",
+      "favoriteAdded": "즐겨찾기에 추가됨",
+      "favoriteRemoved": "즐겨찾기 해제됨",
+      "favorited": "즐겨찾기됨",
+      "generate": "이미지 생성",
       "generateFailed": "생성 실패, 재시도",
-      "copyFailed": "복사에 실패했습니다"
+      "generating": "생성 중…",
+      "history": "기록",
+      "placeholder": "생성할 이미지 설명",
+      "share": "공유",
+      "title": "이미지 생성",
+      "tryThese": "이것들 시도",
+      "vertical": "세로 1024×1792",
+      "examples": ["귀여운 고양이", "일몰 산 풍경", "미래 도시", "추상 예술"],
+      "styles": ["실사", "애니메이션", "유화", "수채화", "3D", "픽셀"]
+    },
+    "inputArea": {
+      "holdToSpeak": "누르고 말하기",
+      "releaseToSend": "놓으면 전송"
     },
     "intelligentAssistant": {
       "greeting": "안녕하세요, IHUI AI 어시스턴트입니다",
@@ -745,8 +650,48 @@
       "subtitle": "언제든지 AI 서비스를 제공합니다",
       "tokenBalance": "Token 잔액:{n}"
     },
+    "materialPopup": {
+      "empty": "자료 없음",
+      "loadMore": "더 보기",
+      "noMore": "더 이상 없음",
+      "title": "자료 선택",
+      "upload": "업로드"
+    },
+    "messageAction": {
+      "copy": "복사",
+      "delete": "삭제",
+      "reuse": "재사용"
+    },
     "share": {
       "title": "공유"
+    },
+    "skillsPopup": {
+      "empty": "사용 가능한 스킬 없음",
+      "notFound": "스킬을 찾을 수 없음",
+      "searchPlaceholder": "스킬 검색",
+      "title": "스킬 선택",
+      "uses": "{n}회 사용"
+    },
+    "special": {
+      "bannerDesc": "AI 대화/그리기/영상/음성/에이전트/모델 광장을 한곳에 모아, 엄선된 추천 기능을 바로 사용할 수 있습니다",
+      "bannerTitle": "AI 특집 모음",
+      "cat": {
+        "agent": "에이전트",
+        "all": "전체",
+        "chat": "AI 대화",
+        "image": "AI 이미지 생성",
+        "plaza": "모델 광장",
+        "video": "AI 동영상",
+        "voice": "AI 음성"
+      },
+      "empty": "아직 콘텐츠가 없습니다",
+      "error": "불러오기에 실패했습니다",
+      "featured": "추천",
+      "history": "내 사용 기록",
+      "historySoon": "히스토리가 곧 출시됩니다",
+      "pageError": "작업 실패",
+      "useBtn": "바로 사용",
+      "useCount": "{n}회 사용"
     },
     "specialModel": {
       "confirm": "전환 확인",
@@ -754,7 +699,50 @@
     },
     "switchAgent": {
       "confirm": "전환 확인"
-    }
+    },
+    "thinkingTip": "Tips:먼저 오른쪽 상단의 점 3개를 눌러 미니프로그램을 띄워놓고 잠시 후 돌아오세요~",
+    "tishi": {
+      "close": "닫기",
+      "needInput": "더 정확한 도움을 위해 다음 정보를 입력해 주세요",
+      "title": "에이전트 가이드",
+      "view": "보기"
+    },
+    "uploadMaterialTab": "{tab} 자료 업로드",
+    "video": {
+      "download": "다운로드",
+      "downloadFailed": "다운로드 실패, 재시도",
+      "downloadSuccess": "앨범에 저장됨",
+      "emptyHistory": "기록 없음",
+      "failed": "생성 실패",
+      "generate": "동영상 생성",
+      "generateFailed": "생성 실패, 재시도",
+      "generating": "생성 중…",
+      "history": "기록",
+      "modelUnavailable": "이 모델 API는 아직 미지원",
+      "notAvailable": "미지원",
+      "pending": "대기 중…",
+      "promptPlaceholder": "생성할 동영상 내용을 설명...",
+      "share": "공유",
+      "succeeded": "생성 완료",
+      "taskSubmitted": "작업이 제출되었습니다, 기록에서 확인하세요",
+      "title": "동영상 생성"
+    },
+    "voice": {
+      "chatFailed": "대화 실패, 재시도",
+      "clearChat": "대화 비우기",
+      "clearConfirm": "현재 대화를 지우시겠습니까?",
+      "cleared": "대화가 지워졌습니다",
+      "holdToSpeak": "누르고 말하기",
+      "recordFailed": "녹음 실패, 재시도",
+      "releaseToSend": "놓으면 전송",
+      "speed": "말 속도",
+      "timbre": "음색",
+      "title": "AI 음성 대화",
+      "voiceMessage": "[음성 메시지]",
+      "welcome": "안녕하세요, 아래 버튼을 길게 눌러 음성 대화 시작"
+    },
+    "welcomeDesc": "무엇을 도와드릴까요?",
+    "welcomeTitle": "안녕하세요, IHUI AI 어시스턴트입니다"
   },
   "share": {
     "appTitle": "IHUI AI — 더 스마트한 학습",
@@ -763,19 +751,12 @@
     "liveTitle": "추천 라이브: {title}",
     "index": {
       "title": "AI 뉴스",
-      "removeConfirm": "이 대화를 삭제하시겠습니까?",
       "enter": "뉴스 들어가기",
       "hotRank": "인기 순위",
-      "category": "카테고리",
       "tabLatest": "최신",
       "tabHot": "인기",
       "tabFollowing": "팔로잉",
-      "drawerTitle": "내 대화",
-      "newChat": "새 대화",
-      "goHome": "홈으로",
       "history": "대화 기록",
-      "emptyHistory": "대화 기록이 없습니다",
-      "models": "모델 목록",
       "selectCategory": "분류 선택",
       "subtitle": "최첨단 기술 뉴스 모음",
       "viewMore": "더 많은 순위 보기"
@@ -812,11 +793,11 @@
   },
   "aiCircle": {
     "title": "AI 서클",
-    "post": "게시물",
     "empty": "콘텐츠 없음",
     "loadFailed": "로딩 실패",
     "anonymous": "익명",
-    "noMore": "더 이상 없음"
+    "noMore": "더 이상 없음",
+    "post": "게시물"
   },
   "aiCareer": {
     "title": "AI 커리어",
@@ -1081,10 +1062,7 @@
       "totalScoreValue": "{n}점"
     },
     "answer": {
-      "judgmentOptions": [
-        "맞음",
-        "틀림"
-      ],
+      "judgmentOptions": ["맞음", "틀림"],
       "loadFailed": "문제 로딩 실패",
       "answerPlaceholder": "답 입력",
       "prev": "이전 문제",
@@ -1110,7 +1088,8 @@
     "goDiscover": "탐색하러 가기",
     "searchPlaceholder": "즐겨찾기한 콘텐츠 검색",
     "selectFirst": "먼저 선택해 주세요",
-    "total": "즐겨찾기됨"
+    "total": "즐겨찾기됨",
+    "d1": "AI 작품"
   },
   "distribution": {
     "withdraw": {
@@ -1185,7 +1164,6 @@
       "commissionTotal": "커미션 합계",
       "product": "상품",
       "orderNo": "주문 번호",
-      "amount": "금액",
       "commission": "수수료",
       "error": "로딩 실패",
       "retry": "탭하여 재시도",
@@ -1691,13 +1669,7 @@
       "title": "사용 규칙"
     },
     "appPermission": {
-      "names": [
-        "앨범 권한",
-        "카메라 권한",
-        "마이크 권한",
-        "위치 권한",
-        "알림 권한"
-      ],
+      "names": ["앨범 권한", "카메라 권한", "마이크 권한", "위치 권한", "알림 권한"],
       "descs": [
         "이미지를 앨범에 저장하고 업로드",
         "사진 촬영 및 동영상 녹화",
@@ -2066,18 +2038,8 @@
         "도움 요청",
         "경험 요약"
       ],
-      "levels": [
-        "초급",
-        "중급",
-        "고급",
-        "전문가"
-      ],
-      "budgets": [
-        "1000위안 이하",
-        "1000-5000위안",
-        "5000-10000위안",
-        "10000위안 이상"
-      ],
+      "levels": ["초급", "중급", "고급", "전문가"],
+      "budgets": ["1000위안 이하", "1000-5000위안", "5000-10000위안", "10000위안 이상"],
       "selectAtLeast": "최소 1개 선택",
       "saved": "저장됨",
       "directionTitle": "학습 방향",
@@ -2190,7 +2152,8 @@
     "userAgreement": "《이용약관》",
     "privacyPolicy": "《개인정보처리방침》",
     "hasAccount": "이미 계정이 있으신가요?",
-    "toLogin": "로그인으로"
+    "toLogin": "로그인으로",
+    "text1": "제3자 빠른 연동"
   },
   "message": {
     "tabs": {
@@ -2340,7 +2303,9 @@
       "diamond": "다이아몬드 회원",
       "diamondThreshold": "성장값 ≥ 10000",
       "diamondPerks": "전체 기능 잠금 해제 / VIP 대우"
-    }
+    },
+    "q1": "회원 정보 로드",
+    "y1": "{p1}까지 {p2} 남음"
   },
   "pay": {
     "result": {
@@ -2465,11 +2430,7 @@
         "도움 요청",
         "경험 요약"
       ],
-      "visibilityOptions": [
-        "공개",
-        "친구만",
-        "비공개"
-      ],
+      "visibilityOptions": ["공개", "친구만", "비공개"],
       "enterTitle": "제목 입력",
       "enterContent": "내용 입력",
       "published": "게시됨",
@@ -2747,7 +2708,16 @@
       "title": "실명 인증"
     },
     "member": "회원",
-    "operator": "오퍼레이터"
+    "operator": "오퍼레이터",
+    "text1": "대화 페이지 미구성",
+    "confirm2": "이 대화를 삭제하시겠습니까?",
+    "confirm3": "멤버십을 해지하시겠습니까? 해지 후 멤버십 혜택을 잃게 됩니다.",
+    "success4": "해지 성공",
+    "failed5": "해지 실패, 고객 서비스에 문의해 주세요",
+    "text6": "등급 소개 페이지 미구성",
+    "d1": "AI 어시스턴트 무료 이용 횟수 증가",
+    "d2": "일부 강좌 무료 학습",
+    "d3": "전용 지식 베이스 구축"
   },
   "vipTrader": {
     "openTitle": "회원 가입",
@@ -2810,14 +2780,7 @@
       "bannerTitle": "VIP로 업그레이드",
       "bannerDesc": "더 많은 전용 특권 잠금 해제",
       "rightsTitle": "회원 혜택",
-      "rights": [
-        "전용 고객지원",
-        "우선 체험",
-        "고급 기능",
-        "광고 제거",
-        "전용 배지",
-        "할인 혜택"
-      ],
+      "rights": ["전용 고객지원", "우선 체험", "고급 기능", "광고 제거", "전용 배지", "할인 혜택"],
       "loadFailed": "로딩 실패",
       "operationFailed": "작업 실패",
       "originalPrice": "원가 ¥{n}",
@@ -3089,20 +3052,15 @@
     "fullscreenHint": "전체화면 편집 모드",
     "recording": "놓으면 전송, 위로 슬라이드하여 취소",
     "voiceHint": "길게 눌러 말하기",
-    "document": "문서",
-    "video": "동영상",
-    "addFile": "첨부 파일 추가",
     "releaseToSend": "놓으면 전송",
-    "holdToSpeak": "눌러서 말하기"
+    "holdToSpeak": "눌러서 말하기",
+    "addFile": "첨부 파일 추가",
+    "document": "문서",
+    "video": "동영상"
   },
   "toolbar": {
-    "traffic-service": "트래픽 운영 코칭",
-    "device-service": "원스톱 기기 솔루션",
-    "ai-other-service": "AI 기타 기술 서비스",
     "ai": "AI 채팅",
     "course": "강의",
-    "plaza": "플라자",
-    "rank": "랭킹",
     "vip": "회원"
   },
   "index": {
@@ -3189,5 +3147,885 @@
     "square": "광장",
     "user": "내 정보",
     "share": "공유"
+  },
+  "pagesindexindex": {
+    "register1": "🎉 지혜AI 커뮤니티에 오신 것을 환영합니다! 신규 가입 시 5000 지혜값 증정!",
+    "text2": "에이전트 어시스턴트 페이지 미구성",
+    "save3": "이미지가 저장되었습니다",
+    "d1": "AI 작성 어시스턴트",
+    "d2": "고품질 기사, 보고서, 카피라이트 작성 지원",
+    "d3": "코딩 어시스턴트",
+    "d4": "코드 작성, 디버깅 및 최적화 제안",
+    "d5": "개발",
+    "d6": "데이터 분석가",
+    "d7": "데이터 시각화 및 분석 인사이트",
+    "d8": "분석",
+    "d9": "디자인 크리에이터",
+    "d10": "창의 디자인 및 비주얼 솔루션",
+    "d11": "디자인",
+    "d12": "번역 전문가",
+    "d13": "다국어 번역 및 현지화",
+    "d14": "도구",
+    "d15": "텍스트 생성",
+    "d16": "고품질 텍스트 콘텐츠 생성",
+    "d17": "이미지 생성",
+    "d18": "AI 그림 및 이미지 창작",
+    "d19": "영상 제작",
+    "d20": "AI 영상 생성 및 편집",
+    "d21": "오디오 처리",
+    "d22": "음성 합성 및 오디오 편집",
+    "d23": "코드 생성",
+    "d24": "다국어 코드 자동 생성",
+    "d25": "데이터 분석",
+    "d26": "데이터 분석 및 시각화",
+    "d27": "AI 그림",
+    "d28": "텍스트-이미지 및 이미지-이미지 창작",
+    "d29": "영상 편집",
+    "d30": "스마트 영상 편집 및 효과",
+    "d31": "AI 그림 입문 가이드",
+    "d32": "이 글은 AI 그림의 기초 지식과 흔한 도구를 자세히 소개합니다...",
+    "d33": "딥러닝 모델 최적화 팁",
+    "d34": "딥러닝 모델의 학습 속도와 정확도를 최적화하는 방법...",
+    "d35": "프롬프트 엔지니어링 모범 사례",
+    "d36": "프롬프트 엔지니어링 핵심 기술을 익혀 AI 출력 품질을 향상...",
+    "d37": "멀티모달 AI 응용 시나리오",
+    "d38": "의료·교육·금융 등에서 멀티모달 AI 응용 탐구...",
+    "d39": "산수 풍경화",
+    "d40": "도시 야경",
+    "d41": "추상 예술 작품",
+    "d42": "AI 영상 생성 튜토리얼",
+    "d43": "디지털 휴먼 라이브 데모",
+    "d44": "AI 음성 합성 데모",
+    "d45": "TTS 음색 비교",
+    "d46": "음성 클로닝 효과",
+    "p1": "이미지 콘텐츠",
+    "p2": "영상 콘텐츠",
+    "p3": "오디오 콘텐츠"
+  },
+  "aiassistant": {
+    "text1": "심층 사고 중...",
+    "failed2": "생성 실패, 다시 시도해 주세요",
+    "text3": "아래에 질문을 입력해 주세요",
+    "text4": "지혜AI 생성",
+    "text5": "답변 표시",
+    "text6": "초고속 생성 중",
+    "p1": "생성된 이미지:",
+    "p2": "지혜AI 어시스턴트",
+    "p3": "생성 중",
+    "y1": "· 지혜값:{p1}",
+    "q1": "고양이 이미지 생성",
+    "q2": "좋은 책 3권 추천",
+    "q3": "양자 얽힘 설명"
+  },
+  "aiAgent": {
+    "text1": "AI 앱 스토어",
+    "more2": "더 많은 AI 어시스턴트를 발견하여 업무 효율 향상",
+    "text3": "개발자 입점",
+    "text4": "나만의 AI 에이전트 만들고 게시하기",
+    "text5": "이번 주 인기 에이전트 순위",
+    "d1": "회의",
+    "d2": "이메일",
+    "d3": "표",
+    "d4": "작성",
+    "d5": "창작",
+    "d6": "소설",
+    "d7": "글",
+    "d8": "학습",
+    "d9": "교육",
+    "d10": "수업",
+    "d11": "지식",
+    "d12": "시험",
+    "d13": "문제",
+    "d14": "강의",
+    "d15": "풀이",
+    "d16": "건강",
+    "d17": "맛집",
+    "d18": "여행",
+    "d19": "운동",
+    "d20": "쇼핑",
+    "d21": "일상",
+    "r1": "코드",
+    "r2": "프로그램",
+    "r3": "함수",
+    "r4": "프론트엔드",
+    "r5": "백엔드"
+  },
+  "BottomActionBar": {
+    "text1": "기본적으로 심층 사고 모드로 전환됨",
+    "d1": "카메라",
+    "d2": "앨범",
+    "d3": "로컬 파일",
+    "d4": "위챗 파일"
+  },
+  "DrawerComponent": {
+    "empty1": "대화 기록 없음",
+    "d1": "앱 스토어",
+    "d2": "수요 광장",
+    "d3": "내 원맨 컴퍼니",
+    "d4": "무료 자료 받기",
+    "d5": "새 대화 만들기"
+  },
+  "userUserCard": {
+    "view1": "관련 주문 보기",
+    "view2": "직원과 실적 보기",
+    "text3": "지혜 소비 정보",
+    "view4": "잔액과 충전 보기"
+  },
+  "communityMyAgents": {
+    "mine1": "내 AI 앱",
+    "mine2": "내 AI 직원"
+  },
+  "shareCenterItem": {
+    "text1": "추천 카드"
+  },
+  "CourseHeader": {
+    "text1": "유료 항목"
+  },
+  "communityRecentAgents": {
+    "text1": "최근 사용"
+  },
+  "shareNewTitle": {
+    "text1": "인기 뉴스"
+  },
+  "memberBenefits": {
+    "d1": "쇼핑 할인",
+    "d2": "전 상품 5% 할인",
+    "d3": "포인트 가속",
+    "d4": "1원 소비 시 1포인트",
+    "d5": "신규 선물",
+    "d6": "가입 전용 선물",
+    "d7": "매일 출석 포인트",
+    "d8": "할인 정보",
+    "d9": "할인 이벤트 알림",
+    "d10": "실버 회원",
+    "d11": "쇼핑 할인",
+    "d12": "전 상품 10% 할인",
+    "d13": "포인트 배율",
+    "d14": "1.2배 포인트 가속",
+    "d15": "생일 선물",
+    "d16": "생일 전용 선물",
+    "d17": "무료배송 특권",
+    "d18": "월 3회 무료배송",
+    "d19": "전용 쿠폰",
+    "d20": "월 2장 쿠폰",
+    "d21": "출석 시 2배 포인트",
+    "d22": "골드 회원",
+    "d23": "쇼핑 할인",
+    "d24": "전 상품 15% 할인",
+    "d25": "포인트 배율",
+    "d26": "1.5배 포인트 가속",
+    "d27": "생일 선물",
+    "d28": "생일 2배 선물",
+    "d29": "무료배송 특권",
+    "d30": "무료배송 무제한",
+    "d31": "전담 고객 서비스",
+    "d32": "1:1 전담 서비스",
+    "d33": "전용 쿠폰",
+    "d34": "월 5장 쿠폰",
+    "d35": "우선 체험",
+    "d36": "신기능 우선 체험",
+    "d37": "쇼핑 할인",
+    "d38": "전 상품 20% 할인",
+    "d39": "포인트 배율",
+    "d40": "2배 포인트 가속",
+    "d41": "생일 선물",
+    "d42": "생일 럭셔리 선물",
+    "d43": "무료배송 특권",
+    "d44": "무료배송 무제한",
+    "d45": "전담 고객 서비스",
+    "d46": "7×24 전담 버틀러",
+    "d47": "전용 쿠폰",
+    "d48": "월 10장 쿠폰",
+    "d49": "우선 체험",
+    "d50": "신기능 최초 체험",
+    "d51": "프리미엄 이벤트",
+    "d52": "오프라인 고급 이벤트"
+  },
+  "VipBenefitsPopup": {
+    "d1": "<span style=\"font-weight: bold;\">수직 트랙</span> 일일 정리 정보 무제한 열람, 타인을 크게 능가",
+    "d2": "창업자 우선 상담 자격, <span style=\"font-weight: bold;\">AI</span> 창업 프로젝트 참여 자격",
+    "d3": "최신 개발 <span style=\"font-weight: bold;\">Agentic</span> 베타 이용 자격 1개월",
+    "d4": "시스템 업그레이드로 컴퓨팅 충전/강좌 개통/서비스 할인",
+    "d5": "대규모 유통 자격, <span style=\"font-weight: bold;\">입점</span> 커뮤니티 서비스 제공자 명단",
+    "d6": "회원 등급 최대, <span style=\"font-weight: bold;\">모든</span> 최고 등급 할인 혜택",
+    "d7": "2단계 유통 혜택, <span style=\"font-weight: bold;\">팀</span>과 수익 빠르게 확장, 원맨 컴퍼니 설립",
+    "d8": "창업자 <span style=\"font-weight: bold;\">1:1</span> 수시 Q&A 동반",
+    "d9": "본사 입주 및 오프라인 실습 학습 기회",
+    "d10": "<span style=\"font-weight: bold;\">혜택 1: 최상위 인맥 네트워크 연결 기회</span>",
+    "d11": "<span style=\"font-weight: bold;\">혜택 2: 우수 창업 프로젝트 공유</span>",
+    "d12": "<span style=\"font-weight: bold;\">혜택 3: 자본 매칭 혜택</span>",
+    "d13": "<span style=\"font-weight: bold;\">혜택 4: AI 업계 기술 고수와의 교류 학습 기회</span>",
+    "d14": "<span style=\"font-weight: bold;\">혜택 5: AI 오픈소스 기술 공유</span>",
+    "d15": "GPT-4 등 최고 모델 자유롭게 이용",
+    "d16": "고화질 영상 생성",
+    "d17": "4K 화질 워터마크 없음",
+    "d18": "전담 고객 서비스",
+    "d19": "7×24시간 서비스",
+    "d20": "회원 전용 콘텐츠",
+    "d21": "유료 강좌 전체 해제",
+    "rich1": "한정 특가 <span style=\"font-weight: bold;\">588</span>원, <span style=\"font-weight: bold;\">8월 8일</span>에 <span style=\"font-weight: bold;\">1288</span>원으로 복귀",
+    "rich2": "<span style=\"font-weight: bold;\">800만</span> 컴퓨팅 증정, 독점 <span style=\"font-weight: bold;\">AI</span> 모델 자유롭게 이용",
+    "rich3": "유통 권익 획득, <span style=\"font-weight: bold;\">AI</span>로 비용 절감·효율 향상",
+    "rich4": "개인 <span style=\"font-weight: bold;\">AI</span> 고객 서비스 커스터마이징 권, 나만의 전용 <span style=\"font-weight: bold;\">AI</span> 어시스턴트",
+    "rich5": "다대일 Q&A 동반:<span style=\"font-weight: bold;\">AI</span> 교육/셀프미디어 계정 구축/<span style=\"font-weight: bold;\">수익화</span>",
+    "rich6": "무료 <span style=\"font-weight: bold;\">AI</span> 내비게이션 사이트, <span style=\"font-weight: bold;\">원클릭</span>으로 모든 AI 도구",
+    "rich7": "최신 개발 <span style=\"font-weight: bold;\">agentic</span> 베타 무료 이용 자격 <span style=\"font-weight: bold;\">1개월</span>",
+    "rich8": "우선 맞춤 <span style=\"font-weight: bold;\">agent</span> 기능, <span style=\"font-weight: bold;\">독점 할인</span> 제공",
+    "rich9": "<span style=\"font-weight: bold;\">AI</span> 심층 인지 강좌/<span style=\"font-weight: bold;\">비즈니스</span> 강좌 무료 시청",
+    "rich10": "<span style=\"font-weight: bold;\">AI</span>+수직 계정 육성 우선/커뮤니티 <span style=\"font-weight: bold;\">서비스 제공자 명단</span> 참여",
+    "rich11": "우선 <span style=\"font-weight: bold;\">AI</span> 아바타/<span style=\"font-weight: bold;\">AI</span> 고객 서비스 커스터마이징",
+    "rich12": "1.<span style=\"font-weight: bold;color: #FF0000;\">588</span> 소비로 회원 개통, <span style=\"font-weight: bold;color: #FF0000;\">588</span> 성장치 획득, <span style=\"font-weight: bold;color: #FF0000;\">레벨1:알고리즘 새싹</span> 도달",
+    "rich13": "2.<span style=\"font-weight: bold;color: #FF0000;\">1500</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨2</span> 도달",
+    "rich14": "3.<span style=\"font-weight: bold;color: #FF0000;\">3000</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨3</span> 도달",
+    "rich15": "4.<span style=\"font-weight: bold;color: #FF0000;\">4500</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨4</span> 도달",
+    "rich16": "5.<span style=\"font-weight: bold;color: #FF0000;\">6000</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨5</span> 도달",
+    "rich17": "6.<span style=\"font-weight: bold;color: #FF0000;\">7500</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨6</span> 도달",
+    "rich18": "7.<span style=\"font-weight: bold;color: #FF0000;\">9000</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨7</span> 도달",
+    "rich19": "8.<span style=\"font-weight: bold;color: #FF0000;\">10500</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨8</span> 도달",
+    "rich20": "9.<span style=\"font-weight: bold;color: #FF0000;\">12000</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">레벨9</span> 도달",
+    "rich21": "10.<span style=\"font-weight: bold;color: #FF0000;\">18888</span> 지혜력으로 <span style=\"font-weight: bold;color: #FF0000;\">최고 레벨</span> 도달",
+    "z1": "............약 <span style=\"font-weight: bold;\">20</span>가지 혜택, 계속 추가 중 ↑",
+    "z2": "............약 <span style=\"font-weight: bold;\">20</span>가지 혜택, 계속 추가 중 ↑",
+    "r1": "다시 문의하기",
+    "z3": "0레벨: 지빈 방문자. 회원 업그레이드 시 모든 강의/컴퓨팅/자동화 에이전트/지식베이스/맞춤 서비스 등 할인 적용, 기능 계속 추가 중"
+  },
+  "viptrader": {
+    "d1": "AI지혜사 트레이더",
+    "d2": "시니어 시장 분석가 / 플랫폼 인증",
+    "d3": "기술 분석",
+    "d4": "펀더멘털",
+    "d5": "리스크 관리",
+    "d6": "종목 선정",
+    "d7": "퀀트",
+    "d8": "심리",
+    "d9": "유통 자격",
+    "d10": "대규모 유통 자격, 커뮤니티 서비스 제공자 명단 입점",
+    "d11": "AI 강좌",
+    "d12": "AI 심층 인지/심층 비즈니스/트래픽 전 체인 전략 강좌 무료 시청",
+    "d13": "창업자 Q&A",
+    "d14": "창업자 1:1 수시 Q&A 동반",
+    "d15": "Agent 베타",
+    "d16": "최신 에이전트 베타 자격 1년",
+    "d17": "최고 할인",
+    "d18": "회원 등급 최대, 모든 최고 할인 혜택",
+    "d19": "맞춤 혜택",
+    "d20": "우선 맞춤 에이전트 기능 20% 할인",
+    "d21": "계정 육성",
+    "d22": "AI+수직 계정 육성 우선 동반 기회",
+    "d23": "컴퓨팅 증정",
+    "d24": "트레이더에게 1600W 컴퓨팅 증정",
+    "d25": "연환산 수익률",
+    "d26": "승률",
+    "d27": "최대 손실폭",
+    "d28": "월간 동반",
+    "d29": "30일",
+    "d30": "분기 전략",
+    "d31": "90일",
+    "d32": "365일",
+    "d33": "리 씨",
+    "d34": "트레이더의 강의가 정확하고 전략 실용성이 높아 실행하면 성과가 있습니다.",
+    "d35": "왕 씨",
+    "d36": "1:1 Q&A가 꼼꼼하고 시장 관점이 타이밍 판단에 도움이 됩니다. 추천합니다.",
+    "q1": "트레이더 가격 가져오기",
+    "r1": "AI지혜사 인증 트레이더, 10년 A주 실전 경험, 기술적 분석과 펀더멘털 분석을 겸비, 5억 이상 포트폴리오 운용 경력. 트렌드 전략과 리스크 관리에 집중."
+  },
+  "ModelConfigDialog": {
+    "d1": "룽샤오샤",
+    "d2": "룽샤오저",
+    "d3": "룽청청",
+    "d4": "룽 아저씨",
+    "d5": "룽 엄마",
+    "settings1": "이미지 설정",
+    "text2": "비율",
+    "text3": "해상도",
+    "settings4": "영상 설정",
+    "text5": "프레임 수",
+    "settings6": "오디오 설정",
+    "text7": "시작 프레임 추가",
+    "text8": "끝 프레임 추가",
+    "text9": "참조 음성",
+    "text10": "디지털 휴먼 클론",
+    "text11": "음성 선택",
+    "upload12": "오디오 업로드하여 음성 클론",
+    "settings13": "영상 설정",
+    "text14": "영상 비율",
+    "text15": "영상 해상도",
+    "p1": "시스템 음성 라이브러리",
+    "p2": "현재:",
+    "p3": "음성 클론",
+    "y1": "현재:{p1}",
+    "y2": "{p1} 입력",
+    "q1": "달콤한 여성 음성",
+    "q2": "성숙한 남성 음성",
+    "q3": "맑은 아동 음성",
+    "q4": "전문 아나운서",
+    "q5": "감정을 담은 낭독"
+  },
+  "vipPrivilege": {
+    "d1": "일일 대화 횟수",
+    "d2": "베이직",
+    "d3": "어드밴스드",
+    "d4": "전담 고객 서비스",
+    "d5": "강좌 할인(할)",
+    "d6": "에이전트 수",
+    "d7": "전용 시장 데이터 분석 도구",
+    "d8": "1:1 전문 지도 서비스",
+    "d9": "실시간 시세 알림",
+    "d10": "전략 전용 강좌",
+    "d11": "플랫폼 이벤트 우선 참여",
+    "d12": "1:1 전담 컨설턴트",
+    "d13": "클로즈드 살롱 참여권",
+    "d14": "업계 고수 비공개 교류",
+    "d15": "고급 리소스 매칭",
+    "d16": "맞춤 솔루션"
+  },
+  "aigcList": {
+    "d1": "사이버 시티 야경",
+    "d2": "지혜샤오팡",
+    "d3": "오로라 환상",
+    "d4": "AI 창작가",
+    "d5": "메카 소녀 컨셉",
+    "d6": "미래주의",
+    "d7": "양자 시편",
+    "d8": "지혜샤오팡",
+    "d9": "\"데이터 홍수\"를 이미지로 삼아 디지털 시대 창작에 관한 산문시를 생성합니다.",
+    "d10": "데이터 홍수 디지털 시대 시",
+    "d11": "네온 펄스",
+    "d12": "사운드 아티스트",
+    "d13": "미래 도시",
+    "d14": "디지털 화가",
+    "d15": "AI 각성록",
+    "d16": "지혜샤오팡",
+    "d17": "AI 각성 후 인류의 처지를 탐구하며 짧은 철학 에세이를 생성합니다.",
+    "d18": "AI 각성 의식 공존",
+    "d19": "심우주 메아리",
+    "d20": "사운드 아티스트",
+    "r1": "데이터 홍수 속에서 우리는 코드를 붓으로, 알고리즘을 잉크로 삼아 디지털 시대의 시와 먼 지평선을 그린다. 모든 문장은 사고의 연장이며, 모든 생성은 창조의 시작이다."
+  },
+  "adaptersOrderScreentaro": {
+    "d1": "결제 대기",
+    "d2": "결제 완료",
+    "d3": "결제 대기",
+    "d4": "결제 완료"
+  },
+  "adaptersFeedbackScreentaro": {
+    "d1": "피드백을 입력해 주세요...",
+    "d2": "연락처(선택)"
+  },
+  "aiAgentdetail": {
+    "d1": "회의",
+    "d2": "이메일",
+    "d3": "표",
+    "d4": "작성",
+    "d5": "창작",
+    "d6": "소설",
+    "d7": "글",
+    "d8": "학습",
+    "d9": "교육",
+    "d10": "수업",
+    "d11": "지식",
+    "d12": "시험",
+    "d13": "문제",
+    "d14": "강의",
+    "d15": "풀이",
+    "d16": "건강",
+    "d17": "맛집",
+    "d18": "여행",
+    "d19": "운동",
+    "d20": "쇼핑",
+    "d21": "일상",
+    "q1": "에이전트 상세 가져오기",
+    "r1": "코드",
+    "r2": "프로그램",
+    "r3": "함수",
+    "r4": "프론트엔드",
+    "r5": "백엔드",
+    "r6": "에이전트 권한 가져오기 실패"
+  },
+  "deventerCover": {
+    "d1": "어떻게 개발자가 되나요?",
+    "d2": "개발자 개통 절차, 혜택과 의무를 알아보고 개발자 프로그램에 참여하세요.",
+    "d3": "개통 절차 보기 >",
+    "d4": "개발자 수익은 어떻게 정산되나요?",
+    "d5": "에이전트 수익 배분 규칙, 출금 주기와 정산 방식을 알아보세요.",
+    "d6": "수익 규칙 보기 >",
+    "d7": "에이전트 심사 규칙",
+    "d8": "에이전트 게시 심사 기준, 자주 거절되는 이유와 수정 제안.",
+    "d9": "심사 규칙 보기 >",
+    "d10": "n8n 에이전트 설명",
+    "d11": "n8n 워크플로 에이전트 생성·설정·게시 절차 설명.",
+    "d12": "n8n 에이전트 알아보기 >"
+  },
+  "shareInterestTrackModal": {
+    "d1": "AI 인공지능",
+    "d2": "AI 모델, 에이전트, 자동화",
+    "d3": "Web3 블록체인",
+    "d4": "블록체인, 암호화폐, NFT",
+    "d5": "SaaS 기업 서비스",
+    "d6": "기업 소프트웨어, 효율 도구",
+    "d7": "이커머스 라이브",
+    "d8": "라이브 커머스, 소셜 커머스",
+    "d9": "교육 훈련",
+    "d10": "온라인 교육, 직업 훈련",
+    "d11": "콘텐츠 창작",
+    "d12": "셀프미디어, 숏폼, 글쓰기",
+    "d13": "디자인 크리에이티브",
+    "d14": "UI/UX, 그래픽, 3D",
+    "d15": "마케팅",
+    "d16": "브랜드, 성장, SEO",
+    "text1": "건너뛰기",
+    "z1": "관심 분야를 선택하세요"
+  },
+  "adaptersPayButtontaro": {
+    "d1": "무료 사용",
+    "d2": "월 이용료",
+    "d3": "구매 완료"
+  },
+  "aiSpecial": {
+    "d1": "Google Gemini 2.5 Flash 텍스트 모델, 빠른 응답·멀티모달 입력",
+    "d2": "범용 HTTP 모델 프록시, 커스텀 모델 연동 지원",
+    "d3": "Google 이미지 편집 모델, 자연어로 이미지 편집",
+    "d4": "Google 영상 생성 모델, 고품질 텍스트-영상 생성",
+    "d5": "텍스트 음성 변환, 다국어 자연 발음 지원",
+    "d6": "멀티 시나리오 에이전트: 오피스/작성/코딩/교육/생활",
+    "d7": "더 많은 AI 모델과 업체 기능 탐색",
+    "q1": "에이전트 목록 로드",
+    "y1": "{p1}로 이동"
+  },
+  "aigroup": {
+    "d1": "회의",
+    "d2": "이메일",
+    "d3": "표",
+    "d4": "작성",
+    "d5": "창작",
+    "d6": "소설",
+    "d7": "글",
+    "d8": "학습",
+    "d9": "교육",
+    "d10": "수업",
+    "d11": "지식",
+    "d12": "시험",
+    "d13": "문제",
+    "d14": "강의",
+    "d15": "풀이",
+    "d16": "건강",
+    "d17": "맛집",
+    "d18": "여행",
+    "d19": "운동",
+    "d20": "쇼핑",
+    "d21": "일상",
+    "q1": "AI 팀 로드",
+    "r1": "코드",
+    "r2": "프로그램",
+    "r3": "함수",
+    "r4": "프론트엔드",
+    "r5": "백엔드"
+  },
+  "courseplanet": {
+    "d1": "AI 페인팅 입문: 기초부터 마스터까지",
+    "d2": "AI 연구팀",
+    "d3": "숏폼 영상 제작 전체 실전",
+    "d4": "실전 멘토",
+    "d5": "ChatGPT 프롬프트 엔지니어링",
+    "d6": "AI 연구팀",
+    "d7": "AI 사무 효율 향상 가이드",
+    "d8": "효율 전문가",
+    "d9": "LLM 애플리케이션 개발 실전",
+    "d10": "기술 전문가"
+  },
+  "aiHistory": {
+    "d1": "AI 이미지",
+    "d2": "AI 음성",
+    "d3": "이번 주",
+    "d4": "이전"
+  },
+  "ModelList": {
+    "d1": "대화",
+    "d2": "올라운드",
+    "text1": "에이전트 모드"
+  },
+  "TitleSwitchScrollPicker": {
+    "d1": "트랙 1",
+    "d2": "트랙 2",
+    "d3": "트랙 3",
+    "d4": "트랙 4",
+    "d5": "트랙 5",
+    "d6": "트랙 6",
+    "d7": "트랙 7",
+    "d8": "트랙 8"
+  },
+  "Menu": {
+    "d1": "음악"
+  },
+  "PhoneAreaCodePicker": {
+    "d1": "중국"
+  },
+  "WithdrawalRecords": {
+    "d1": "반려됨"
+  },
+  "askCreate": {
+    "d1": "기술",
+    "d2": "제품",
+    "d3": "디자인",
+    "d4": "운영"
+  },
+  "liveCalendar": {
+    "d1": "지금 시청",
+    "d2": "다시보기"
+  },
+  "orderRefund": {
+    "d1": "더 이상 필요 없음",
+    "d2": "잘못 주문/중복 주문",
+    "d3": "품질 문제",
+    "d4": "설명과 다름",
+    "d5": "기타 사유",
+    "y1": "설명:{p1}",
+    "y2": "연락처:{p1}"
+  },
+  "settingTheme": {
+    "d1": "시스템 설정에 따라 라이트/다크 자동 전환",
+    "d2": "밝은 라이트 인터페이스, 낮 시간에 적합",
+    "d3": "다크 인터페이스, 눈 보호·절전, 야간에 적합"
+  },
+  "AgentListPanel": {
+    "d1": "무료 사용",
+    "d2": "월 이용료",
+    "d3": "구매 완료"
+  },
+  "PayButton": {
+    "d1": "무료 사용",
+    "d2": "월 이용료",
+    "d3": "구매 완료"
+  },
+  "TitleSwitchOverlap": {
+    "d1": "트랙 1",
+    "d2": "트랙 2",
+    "d3": "트랙 3",
+    "d4": "트랙 4",
+    "d5": "트랙 5"
+  },
+  "TitleSwitchScrollTitle": {
+    "d1": "트랙 1",
+    "d2": "서브트랙 1-1",
+    "d3": "서브트랙 1-2",
+    "d4": "트랙 2",
+    "d5": "서브트랙 2-1",
+    "d6": "트랙 3",
+    "d7": "서브트랙 3-1",
+    "d8": "서브트랙 3-2",
+    "text1": "메인 트랙:",
+    "text2": "서브 트랙:"
+  },
+  "deventerN8nmodel": {
+    "d1": "숫자",
+    "d2": "불리언",
+    "d3": "선택"
+  },
+  "rankingDetail": {
+    "d1": "테스트 중",
+    "d2": "종료됨"
+  },
+  "EmptyIllustration": {
+    "d1": "관련 콘텐츠를 찾을 수 없음",
+    "d2": "네트워크 오류",
+    "d3": "권한 없음"
+  },
+  "SystemNotice": {
+    "d1": "업그레이드"
+  },
+  "VipPriceSelector": {
+    "d1": "1개월",
+    "d2": "3개월",
+    "d3": "10% 할인",
+    "d4": "12개월",
+    "d5": "23% 할인"
+  },
+  "settingLanguage": {
+    "d1": "繁體中文",
+    "d2": "日本語"
+  },
+  "circleCreate": {
+    "d1": "공개",
+    "d2": "친구만",
+    "d3": "비공개"
+  },
+  "learndevelop": {
+    "d1": "프론트엔드 엔지니어",
+    "d2": "AI 애플리케이션 개발",
+    "d3": "데이터 분석가"
+  },
+  "liveHistory": {
+    "d1": "이번 주"
+  },
+  "plazaCover": {
+    "d1": "개발자 스페이스란 무엇인가요?",
+    "d2": "어떻게 개발자가 되나요?",
+    "d3": "개발자는 어떤 수익을 얻을 수 있나요?",
+    "d4": "에이전트는 어떻게 등록되나요?",
+    "d5": "n8n 에이전트"
+  },
+  "tokenBalance": {
+    "d1": "1개월",
+    "d2": "최근 1년"
+  },
+  "LessonListItem": {
+    "text1": "VIP 전용",
+    "text2": "VIP 전용",
+    "y1": "명 학습 완료"
+  },
+  "UserInfoCard": {
+    "login1": "원탭 로그인",
+    "text2": "해지"
+  },
+  "Selecter": {
+    "text1": "SD 480p",
+    "text2": "HD 720p",
+    "text3": "Full HD 1080p",
+    "back4": "← 뒤로",
+    "q1": "워터마크"
+  },
+  "TitleSwitchTypeBar": {
+    "text1": "사용자 정의",
+    "settings2": "사용자 정의 종류를 설정해 주세요",
+    "confirm": "확인",
+    "m1": "종류 입력"
+  },
+  "adaptersSelectertaro": {
+    "text1": "SD 480p",
+    "text2": "HD 720p",
+    "text3": "Full HD 1080p",
+    "back4": "← 뒤로",
+    "q1": "워터마크"
+  },
+  "NavBar": {
+    "text1": "일일 뉴스",
+    "z1": "커뮤니티 그룹 가입"
+  },
+  "userNickname": {
+    "q1": "사용자 정보 가져오기",
+    "q2": "닉네임 수정",
+    "r1": "똑똑한 달인",
+    "r2": "AI 탐험가",
+    "r3": "학습 위원",
+    "r4": "지식 스펀지",
+    "r5": "심야 독서가",
+    "r6": "코드 장인",
+    "r7": "아이디어 메이커",
+    "r8": "클라우드 산책자",
+    "r9": "효율 개척자",
+    "r10": "생각하는 갈대"
+  },
+  "developerSubscribe": {
+    "q1": "데이터 로드 중",
+    "q2": "팔로우 작업"
+  },
+  "memberCoupon": {
+    "q1": "쿠폰 가져오기"
+  },
+  "userPhone": {
+    "q1": "사용자 정보 가져오기",
+    "q2": "현재 휴대폰 인증번호 전송",
+    "q3": "휴대폰 등록 여부 확인",
+    "q4": "새 휴대폰 인증번호 전송"
+  },
+  "userRealname": {
+    "q1": "사용자 정보 가져오기",
+    "q2": "신분증 사진 업로드",
+    "q3": "실명 인증 제출"
+  },
+  "vipUpgrade": {
+    "q1": "VIP 레벨 가져오기",
+    "q2": "알리페이 VIP 업그레이드",
+    "q3": "VIP 업그레이드",
+    "r1": "my.getAuthCode 실패, mock 모드로 대체"
+  },
+  "aboutUsagerules": {
+    "r1": "제정자:길림성 아이후이지 AI 인공지능 과기유한공사",
+    "r2": "회사 주소:길림성 장춘시 고신구 월달로 107호 인공지능 인재 육성 기지",
+    "r3": "고객센터:19944894487",
+    "r4": "공식 이메일:502319984@qq.com"
+  },
+  "deventerModeledit": {
+    "r1": "카피라이팅",
+    "r2": "이미지 디자인",
+    "r3": "영상 제작",
+    "r4": "프로그래밍",
+    "r5": "마케팅",
+    "r6": "사무 효율",
+    "r7": "교육 학습",
+    "r8": "생활 어시스턴트",
+    "q1": "제품부",
+    "q2": "디자인부",
+    "q3": "운영부",
+    "q4": "마케팅부",
+    "q5": "영업부",
+    "q6": "에이전트 로드",
+    "q7": "유료 설정 제출"
+  },
+  "modelplaza": {
+    "r1": "알리바바 클라우드",
+    "r2": "바이두",
+    "r3": "바이트댄스",
+    "r4": "즈푸 AI"
+  },
+  "aboutBusinesslicense": {
+    "r1": "광저우 지혜 과기유한공사",
+    "r2": "1000만 위안",
+    "r3": "2023-06-15 ~ 장기",
+    "r4": "유한책임회사",
+    "r5": "광저우시 시장감독관리국",
+    "r6": "기술 서비스, 기술 개발, 기술 자문, 기술 교류, 기술 이전, 기술 보급; 소프트웨어 개발; 시스템 통합 서비스; 정보 기술 자문; 인터넷 정보 서비스"
+  },
+  "aboutModelrecord": {
+    "r1": "지혜AI 대화 LLM",
+    "r2": "粤网信備4401060000001号",
+    "r3": "광저우 지혜 과기유한공사",
+    "r4": "생성 합성류(심층 합성)"
+  },
+  "aboutIcprecord": {
+    "r1": "粤公网安備44010602000001号",
+    "r2": "광저우 지혜 과기유한공사",
+    "p1": "Ji ICP License No. 2025027274-7A"
+  },
+  "last": {
+    "1": "AI IHUI |",
+    "2": "남은 지혜값:",
+    "3": "결제 기능은 백엔드 연동 대기 중"
+  },
+  "adaptersUserInfoCardtaro": {
+    "y1": "{p1}억",
+    "y2": "{p1}만"
+  },
+  "api": {
+    "y1": "요청 실패({p1})",
+    "y2": "요청 실패({p1})"
+  },
+  "StudyStats": {
+    "y1": "h, 완료"
+  },
+  "tail": {
+    "1": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
+    "2": "원탭 로그인",
+    "3": "편집",
+    "4": "남은 지혜값:",
+    "5": "충전",
+    "6": "데이터 없음",
+    "7": "다시 시도",
+    "8": "로딩 중...",
+    "9": "설명 입력",
+    "10": "출금 기록 없음",
+    "11": "선택 모델: {m}",
+    "12": "인증번호를 {m}로 전송했습니다",
+    "13": "{m}에 가입",
+    "14": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
+    "15": "기본 모델",
+    "16": "\"데이터 홍수\"를 이미지로 삼아 디지털 시대 창작에 관한 산문시를 생성합니다.",
+    "17": "유료 ¥{m}",
+    "18": "기계가 생각하기 시작하면 인류는 준비되어 있을까? 이것은 의식, 자유, 공존에 관한 이야기다. 실리콘 생명과 탄소 생명의 교차점에서 우리는 '존재'의 의미를 다시 바라본다.",
+    "19": "더 보기",
+    "20": "선택 확인{count}",
+    "21": "AI 어시스턴트 무료 이용 횟수 증가",
+    "22": "일부 강좌 무료 학습",
+    "23": "전용 지식 베이스 구축"
+  },
+  "newsList": {
+    "q1": "알림",
+    "q2": "혜택",
+    "q3": "방법",
+    "q4": "뉴스 목록 로드"
+  },
+  "aiVoice": {
+    "q1": "표준",
+    "q2": "빠르게",
+    "q3": "느리게",
+    "q4": "여성 음성",
+    "q5": "남성 음성",
+    "q6": "음성 대화"
+  },
+  "teacherDetail": {
+    "q1": "강사 상세 가져오기",
+    "q2": "팔로우 전환"
+  },
+  "ErrorView": {
+    "p1": "나중에 다시 시도해 주세요"
+  },
+  "FilterDropdown": {
+    "p1": "필터"
+  },
+  "InvitePoster": {
+    "p1": "친구를 초대하고 현금 보상 받기"
+  },
+  "ModelTypeButtonGroup": {
+    "m1": "스킬",
+    "m2": "음성",
+    "m3": "자료"
+  },
+  "QrCodeShare": {
+    "p1": "포스터 공유",
+    "p2": "스캔하여 보기"
+  },
+  "TagInput": {
+    "p1": "Enter 키로 추가"
+  },
+  "VipUpgradeToast": {
+    "p1": "회원 업그레이드로 더 많은 기능 해제"
+  },
+  "adaptersCarouseltaro": {
+    "q1": "캐러셀 이미지가 없습니다"
+  },
+  "aboutApppermission": {
+    "q1": "권한 상태 가져오기"
+  },
+  "aicareer": {
+    "q1": "면접",
+    "q2": "면접",
+    "q3": "이력서",
+    "q4": "이력서",
+    "q5": "직업",
+    "q6": "커리어 플랜",
+    "q7": "계획",
+    "q8": "커리어 플랜",
+    "q9": "직장",
+    "q10": "직장",
+    "q11": "승진",
+    "q12": "승진",
+    "q13": "이직",
+    "q14": "이직",
+    "q15": "급여",
+    "q16": "급여",
+    "q17": "스킬",
+    "q18": "스킬 향상",
+    "q19": "커뮤니케이션",
+    "q20": "커뮤니케이션",
+    "q21": "커리어 가이드 로드"
+  },
+  "platformAuth": {
+    "q1": "위챗 로그인 코드가 비어 있습니다",
+    "q2": "알리페이 인증 코드가 비어 있습니다",
+    "q3": "이 환경에서는 미니 프로그램 로그인을 지원하지 않습니다",
+    "q4": "회원 프로필 작성에 사용",
+    "q5": "이 환경에서는 사용자 정보 가져오기를 지원하지 않습니다"
+  },
+  "utilsMiniapplogin": {
+    "q1": "미니 프로그램에서 로그인해 주세요",
+    "q2": "로그인 인증 코드가 비어 있습니다",
+    "p1": "사용자",
+    "alipayUser": "알리페이"
+  },
+  "utilsPrivacy": {
+    "q1": "개인정보 보호 안내",
+    "q2": "더 나은 서비스를 제공하기 위해 관련 기능 사용 전 사용자 개인정보 보호 안내에 동의해 주세요.",
+    "q3": "약관 보기",
+    "q4": "거부"
+  },
+  "utilsStreamingrecognizer": {
+    "p1": "녹음 오류",
+    "q1": "인식 실패"
+  },
+  "utilsWechatlogin": {
+    "q1": "회원 프로필 작성에 사용",
+    "q2": "위챗 미니 프로그램에서 위챗 로그인을 사용해 주세요",
+    "q3": "위챗 로그인 코드가 비어 있습니다",
+    "q4": "위챗 사용자"
   }
 }

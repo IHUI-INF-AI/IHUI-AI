@@ -26,7 +26,8 @@
     "success": "Success",
     "uploading": "Uploading...",
     "user": "User",
-    "viewMore": "View More"
+    "viewMore": "View More",
+    "discountAmount": "Discount"
   },
   "login": {
     "loginSuccess": "Login successful",
@@ -49,10 +50,6 @@
     "ssoLogin": "SSO login",
     "ssoLoginHint": "One-click enterprise login",
     "agreement": "I have read and agree to the Terms of Service and Privacy Policy",
-    "smsTab": "SMS Login",
-    "privacyPolicy": "Privacy Policy",
-    "serviceAgreement": "Service Agreement",
-    "autoRegisterHint": "Unregistered users will be auto-registered",
     "cancelAuth": "Cancel Authorization",
     "codeCountdownSuffix": "s to resend",
     "getPhoneFail": "Failed to get phone number",
@@ -61,7 +58,6 @@
     "wechatOneClick": "One-click WeChat Login"
   },
   "forgot": {
-    "title": "Recover password",
     "step1": "Step 1: Verify phone",
     "step2": "Step 2: Set new password",
     "phone": "Phone",
@@ -78,31 +74,20 @@
     "newPasswordPlaceholder": "Enter new password",
     "confirmPassword": "Confirm password",
     "confirmPasswordPlaceholder": "Enter new password again",
-    "hidePassword": "Hide",
-    "showPassword": "Show",
     "passwordTooShort": "Password must be at least 6 characters",
     "passwordMismatch": "Passwords do not match",
     "resetting": "Resetting…",
     "submit": "Confirm reset",
     "resetSuccess": "Password reset successful",
-    "codeInvalid": "Please enter the verification code"
+    "codeInvalid": "Please enter the verification code",
+    "hidePassword": "Hide",
+    "showPassword": "Show",
+    "title": "Recover password"
   },
   "home": {
-    "hotCourses": "Hot courses",
-    "tapLogin": "Tap to log in",
-    "slogan": "IHUI AI — learn smarter",
-    "todayMinutes": "{n} min today",
-    "continuousDays": "{n} day streak",
-    "totalMinutes": "{n} min total",
-    "coursesCount": "{n} courses",
-    "learningProgress": "Learning progress",
     "more": "More",
     "livePreview": "Upcoming live",
-    "startTime": "Starts at",
-    "aiAppTitle": "AI Apps",
-    "knowledgePlanet": "Knowledge Planet",
-    "knowledgePlanetDesc": "Join the Knowledge Planet and grow with creators",
-    "planetMembers": "members"
+    "startTime": "Starts at"
   },
   "course": {
     "learningProgress": "Progress",
@@ -132,18 +117,10 @@
       "searchPlaceholder": "Search courses",
       "search": "Search",
       "empty": "No courses",
-      "title": "Featured Courses",
-      "subtitle": "{n} courses"
+      "title": "Featured Courses"
     },
     "ratingTitle": "Rate Course",
-    "ratingLabels": [
-      "",
-      "Very Bad",
-      "Poor",
-      "Fair",
-      "Good",
-      "Excellent"
-    ],
+    "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
     "ratingPlaceholder": "Please rate",
     "ratingDescLabel": "Write your review",
     "ratingInputPlaceholder": "How was the course? Share your thoughts...",
@@ -242,7 +219,10 @@
     "titleRequired": "Please enter a stream title",
     "startFailed": "Failed to start live",
     "endFailed": "Failed to end live",
-    "copySuccess": "Copied to clipboard"
+    "copySuccess": "Copied to clipboard",
+    "d1": "AI Course Pack",
+    "d2": "Membership Annual Card",
+    "d3": "Physical Merch"
   },
   "order": {
     "title": "Orders",
@@ -369,8 +349,30 @@
     }
   },
   "community": {
-    "title": "Community",
-    "posts": "Posts"
+    "posts": "Posts",
+    "text1": "IHUI AI User",
+    "text2": "IHUI AI",
+    "text3": "AI App Store - IHUI AI Community",
+    "text4": "AI App Store - IHUI AI Community",
+    "text5": "Coming soon, stay tuned",
+    "failed6": "Failed to get price info",
+    "like7": "Liked",
+    "text8": "Page not configured",
+    "copy9": "Link copied, please open in browser",
+    "failed10": "Copy failed, please retry",
+    "text11": "Chat page not configured",
+    "confirm12": "Delete this conversation?",
+    "search13": "Voice search is available in the full version",
+    "search14": "Image search is available in the full version",
+    "text15": "Agent recommendations",
+    "detail16": "Category detail page not configured",
+    "success17": "Payment successful (mock)",
+    "pay18": "Invalid payment parameters",
+    "m1": "AI App Store",
+    "m2": "AI App Store",
+    "m3": "Enter agent name to search",
+    "y1": "{p1} duration",
+    "y2": "Buy agent: {p1}"
   },
   "action": {
     "like": "Like",
@@ -457,8 +459,6 @@
   },
   "ai": {
     "title": "AI Assistant",
-    "welcomeTitle": "Hi, I'm your IHUI AI assistant",
-    "welcomeDesc": "How can I help you?",
     "inputPlaceholder": "Ask a question…",
     "suggestions": [
       "Write me a poem",
@@ -474,140 +474,11 @@
     "modelLoadFailed": "Model load failed",
     "materialLoadFailed": "Material load failed",
     "agentLoadFailed": "Agent load failed",
-    "generating": "Generating rapidly",
-    "thinkingTip": "Tips: You can click the three dots in the top right to float the mini program, and come back later~",
-    "fileSelected": "{count} file(s) selected",
-    "common": {
-      "loading": "Loading…"
-    },
-    "tishi": {
-      "title": "Agent guide",
-      "view": "View",
-      "close": "Close",
-      "needInput": "Please provide the following information for more precise assistance"
-    },
-    "chatMessageItem": {
-      "me": "Me",
-      "ai": "AI",
-      "thinkingProcess": "Thinking process",
-      "noContent": "Nothing to copy",
-      "aiGenerated": "AI generated",
-      "tokenCost": "Tokens: {n}",
-      "reuse": "Reuse",
-      "copy": "Copy",
-      "favorited": "Favorited",
-      "speak": "Speak",
-      "stopSpeak": "Stop",
-      "share": "Share",
-      "viewDigitalHuman": "View Digital Human",
-      "digitalHuman": "Digital Human Generation →",
-      "voiceMessage": "Voice Message",
-      "downloading": "Downloading",
-      "downloadSuccess": "Saved to album",
-      "downloadFailed": "Download failed",
-      "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
-      "collapse": "Collapse",
-      "edit": "Edit",
-      "regenerate": "Regenerate"
-    },
-    "history": {
-      "title": "Chat History",
-      "empty": "No history",
-      "clearConfirm": "Clear all chat history?",
-      "cleared": "History cleared"
-    },
-    "inputArea": {
-      "placeholder": "Ask a question…",
-      "releaseToSend": "Release to send",
-      "holdToSpeak": "Hold to speak",
-      "send": "Send"
-    },
-    "materialPopup": {
-      "title": "Select material",
-      "upload": "Upload",
-      "loadMore": "Load more",
-      "noMore": "No more",
-      "empty": "No materials"
-    },
-    "skillsPopup": {
-      "title": "Select skill",
-      "searchPlaceholder": "Search skills",
-      "uses": "{n} uses",
-      "notFound": "No skills found",
-      "empty": "No skills available"
-    },
-    "voice": {
-      "welcome": "Hi, press and hold the button below to start a voice chat",
-      "voiceMessage": "[Voice message]",
-      "chatFailed": "Chat failed, please retry",
-      "releaseToSend": "Release to send",
-      "holdToSpeak": "Hold to speak",
-      "recordFailed": "Recording failed, please retry",
-      "clearChat": "Clear conversation",
-      "speed": "Speed",
-      "timbre": "Timbre",
-      "clearConfirm": "Clear the current chat?",
-      "cleared": "Chat cleared",
-      "title": "AI Voice Chat"
-    },
-    "image": {
-      "examples": [
-        "A cute cat",
-        "Sunset mountain landscape",
-        "Futuristic city",
-        "Abstract art"
-      ],
-      "emptyHint": "Describe an image to generate",
-      "tryThese": "Try these",
-      "placeholder": "Describe the image you want",
-      "generating": "Generating…",
-      "generate": "Generate image",
-      "vertical": "Portrait 1024×1792",
-      "title": "Image Generation",
-      "download": "Download",
-      "share": "Share",
-      "favorite": "Favorite",
-      "favorited": "Favorited",
-      "history": "History",
-      "empty": "No generations yet",
-      "styles": [
-        "Realistic",
-        "Anime",
-        "Oil Painting",
-        "Watercolor",
-        "3D",
-        "Pixel"
-      ],
-      "generateFailed": "Generation failed, please retry",
-      "downloadSuccess": "Saved to album",
-      "downloadFailed": "Download failed, please retry",
-      "favoriteAdded": "Added to favorites",
-      "favoriteRemoved": "Removed from favorites"
-    },
-    "video": {
-      "title": "Video Generation",
-      "promptPlaceholder": "Describe the video you want to generate...",
-      "generate": "Generate video",
-      "generating": "Generating…",
-      "pending": "Queued…",
-      "succeeded": "Generation complete",
-      "failed": "Generation failed",
-      "download": "Download",
-      "share": "Share",
-      "history": "History",
-      "emptyHistory": "No history yet",
-      "generateFailed": "Generation failed, please retry",
-      "modelUnavailable": "This model API is not yet available",
-      "notAvailable": "Unavailable",
-      "taskSubmitted": "Task submitted, please check history later",
-      "downloadSuccess": "Saved to album",
-      "downloadFailed": "Download failed, please retry"
-    },
     "agent": {
-      "searchPlaceholder": "Search agents",
       "count": "{n}",
       "empty": "No agents",
-      "inputPlaceholder": "Ask a question…"
+      "inputPlaceholder": "Ask a question…",
+      "searchPlaceholder": "Search agents"
     },
     "agentDetail": {
       "runtimeTitle": "Runtime",
@@ -623,35 +494,39 @@
       "runtimeInputPlaceholder": "Type a message…",
       "runtimeStop": "Stop",
       "runtimeSend": "Send",
-      "promptLabel": "Prompt",
-      "tabRuntime": "Runtime",
-      "vipPermissionDenied": "This agent requires VIP",
-      "vipExclusive": "VIP only",
-      "permissionLoading": "Loading permissions…",
-      "permissionAllowed": "Allowed",
-      "permissionDenied": "Not allowed",
-      "startChat": "Start chat",
+      "exampleDialog": "Example dialog",
       "favoriteAgent": "Favorite",
       "favorited": "Favorited",
+      "permissionAllowed": "Allowed",
+      "permissionDenied": "Not allowed",
+      "permissionLoading": "Loading permissions…",
+      "prologue": "Prologue",
+      "promptLabel": "Prompt",
+      "ratingDistribution": "Rating distribution",
+      "relatedAgents": "Related agents",
+      "reviewCount": "{n} reviews",
+      "reviews": "Reviews",
+      "startChat": "Start chat",
+      "tabRuntime": "Runtime",
       "unfavorite": "Unfavorite",
       "useCount": "{n} uses",
-      "relatedAgents": "Related agents",
-      "prologue": "Prologue",
-      "exampleDialog": "Example dialog",
-      "reviews": "Reviews",
-      "reviewCount": "{n} reviews",
-      "ratingDistribution": "Rating distribution"
+      "vipExclusive": "VIP only",
+      "vipPermissionDenied": "This agent requires VIP"
     },
     "agentList": {
       "categories": {
-        "recommend": "Recommended",
-        "office": "Office",
-        "writing": "Writing",
         "coding": "Coding",
         "education": "Education",
-        "life": "Lifestyle"
+        "life": "Lifestyle",
+        "office": "Office",
+        "recommend": "Recommended",
+        "writing": "Writing"
       },
-      "useCount": "{n} uses",
+      "createAgent": "Create agent",
+      "emptyFavorites": "No favorite agents",
+      "emptyRecent": "No recently used agents",
+      "hot": "Hot",
+      "hotRecommend": "Hot recommendations",
       "noResult": "No agents found",
       "sortBy": "Sort by",
       "sortHot": "Hot",
@@ -660,83 +535,113 @@
       "tabAll": "All",
       "tabFavorites": "My favorites",
       "tabRecent": "Recent",
-      "hot": "Hot",
-      "hotRecommend": "Hot recommendations",
-      "createAgent": "Create agent",
-      "emptyFavorites": "No favorite agents",
-      "emptyRecent": "No recently used agents"
-    },
-    "historyPage": {
-      "empty": "No chat history",
-      "deleteOne": "Delete this chat",
-      "clearAll": "Clear all",
-      "clearConfirm": "Clear all chat history?",
-      "cleared": "Cleared",
-      "refreshSuccess": "Refreshed successfully",
-      "startNew": "Start new conversation",
-      "msgCount": "{n} messages",
-      "noMore": "No more",
-      "noResult": "No matching chats",
-      "searchPlaceholder": "Search chat history"
-    },
-    "special": {
-      "pageError": "Operation failed",
-      "cat": {
-        "image": "AI Drawing",
-        "video": "AI Video",
-        "voice": "AI Voice",
-        "plaza": "Model Plaza",
-        "agent": "Agents",
-        "all": "All",
-        "chat": "AI Chat"
-      },
-      "historySoon": "History coming soon",
-      "featured": "Featured",
-      "useBtn": "Use now",
-      "bannerDesc": "One-stop aggregation of AI chat/drawing/video/voice/agents/model plaza, with curated recommended capabilities ready to use instantly",
-      "bannerTitle": "AI Special Collection",
-      "empty": "No content yet",
-      "error": "Failed to load",
-      "history": "My Usage History",
       "useCount": "{n} uses"
     },
+    "aiAssistant": {
+      "copyFailed": "Copy failed",
+      "copySuccess": "Copied successfully",
+      "generateFailed": "Generation failed, please retry",
+      "goRecharge": "Insufficient tokens. Go to recharge?",
+      "insufficientTokens": "Insufficient tokens",
+      "nothingToCopy": "Nothing to copy",
+      "pleaseInputDesc": "Please enter a description",
+      "pleaseLogin": "Please log in first",
+      "pleaseWait": "Please wait"
+    },
     "chat": {
-      "agentTipTitle": "Agent Guide",
       "agentTipConfirm": "Got it",
-      "agentTipSkill": "Select Skill",
-      "agentTipSkillDesc": "Tap the skill button at top-left to choose an agent",
-      "agentTipTalk": "Select Chat",
-      "agentTipTalkDesc": "Switch to chat mode to talk with AI directly",
+      "agentTipHistory": "History",
+      "agentTipHistoryDesc": "View conversation history",
       "agentTipImage": "Select Image",
       "agentTipImageDesc": "Switch to image mode to generate images",
       "agentTipInput": "Enter Question",
       "agentTipInputDesc": "Type your question in the input box at the bottom and press send",
-      "agentTipHistory": "History",
-      "agentTipHistoryDesc": "View conversation history"
-    },
-    "uploadMaterialTab": "Upload {tab} material",
-    "messageAction": {
-      "reuse": "Reuse",
-      "copy": "Copy",
-      "delete": "Delete"
+      "agentTipSkill": "Select Skill",
+      "agentTipSkillDesc": "Tap the skill button at top-left to choose an agent",
+      "agentTipTalk": "Select Chat",
+      "agentTipTalkDesc": "Switch to chat mode to talk with AI directly",
+      "agentTipTitle": "Agent Guide"
     },
     "chatDrawers": {
-      "selectModel": "Select Model",
-      "materialLibrary": "Material Library",
       "emptyMaterial": "No materials",
-      "skillDetail": "Skill Details",
-      "promptLabel": "Prompt"
+      "materialLibrary": "Material Library",
+      "promptLabel": "Prompt",
+      "selectModel": "Select Model",
+      "skillDetail": "Skill Details"
     },
-    "aiAssistant": {
-      "nothingToCopy": "Nothing to copy",
-      "copySuccess": "Copied successfully",
-      "pleaseInputDesc": "Please enter a description",
-      "pleaseWait": "Please wait",
-      "insufficientTokens": "Insufficient tokens",
-      "goRecharge": "Insufficient tokens. Go to recharge?",
-      "pleaseLogin": "Please log in first",
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI generated",
+      "collapse": "Collapse",
+      "copy": "Copy",
+      "digitalHuman": "Digital Human Generation →",
+      "downloadFailed": "Download failed",
+      "downloadSuccess": "Saved to album",
+      "downloading": "Downloading",
+      "edit": "Edit",
+      "favorited": "Favorited",
+      "me": "Me",
+      "needAlbumAuth": "Album permission is required to save images. Please enable it in settings.",
+      "noContent": "Nothing to copy",
+      "regenerate": "Regenerate",
+      "reuse": "Reuse",
+      "share": "Share",
+      "speak": "Speak",
+      "stopSpeak": "Stop",
+      "thinkingProcess": "Thinking process",
+      "tokenCost": "Tokens: {n}",
+      "viewDigitalHuman": "View Digital Human",
+      "voiceMessage": "Voice Message"
+    },
+    "common": {
+      "loading": "Loading…"
+    },
+    "fileSelected": "{count} file(s) selected",
+    "generating": "Generating rapidly",
+    "history": {
+      "clearConfirm": "Clear all chat history?",
+      "cleared": "History cleared",
+      "empty": "No history",
+      "title": "Chat History"
+    },
+    "historyPage": {
+      "clearAll": "Clear all",
+      "clearConfirm": "Clear all chat history?",
+      "cleared": "Cleared",
+      "deleteOne": "Delete this chat",
+      "empty": "No chat history",
+      "msgCount": "{n} messages",
+      "noMore": "No more",
+      "noResult": "No matching chats",
+      "refreshSuccess": "Refreshed successfully",
+      "searchPlaceholder": "Search chat history",
+      "startNew": "Start new conversation"
+    },
+    "image": {
+      "download": "Download",
+      "downloadFailed": "Download failed, please retry",
+      "downloadSuccess": "Saved to album",
+      "empty": "No generations yet",
+      "emptyHint": "Describe an image to generate",
+      "favorite": "Favorite",
+      "favoriteAdded": "Added to favorites",
+      "favoriteRemoved": "Removed from favorites",
+      "favorited": "Favorited",
+      "generate": "Generate image",
       "generateFailed": "Generation failed, please retry",
-      "copyFailed": "Copy failed"
+      "generating": "Generating…",
+      "history": "History",
+      "placeholder": "Describe the image you want",
+      "share": "Share",
+      "title": "Image Generation",
+      "tryThese": "Try these",
+      "vertical": "Portrait 1024×1792",
+      "examples": ["A cute cat", "Sunset mountain landscape", "Futuristic city", "Abstract art"],
+      "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"]
+    },
+    "inputArea": {
+      "holdToSpeak": "Hold to speak",
+      "releaseToSend": "Release to send"
     },
     "intelligentAssistant": {
       "greeting": "Hi, I'm your IHUI AI assistant",
@@ -745,8 +650,48 @@
       "subtitle": "Here to provide AI services anytime",
       "tokenBalance": "Token Balance: {n}"
     },
+    "materialPopup": {
+      "empty": "No materials",
+      "loadMore": "Load more",
+      "noMore": "No more",
+      "title": "Select material",
+      "upload": "Upload"
+    },
+    "messageAction": {
+      "copy": "Copy",
+      "delete": "Delete",
+      "reuse": "Reuse"
+    },
     "share": {
       "title": "Share"
+    },
+    "skillsPopup": {
+      "empty": "No skills available",
+      "notFound": "No skills found",
+      "searchPlaceholder": "Search skills",
+      "title": "Select skill",
+      "uses": "{n} uses"
+    },
+    "special": {
+      "bannerDesc": "One-stop aggregation of AI chat/drawing/video/voice/agents/model plaza, with curated recommended capabilities ready to use instantly",
+      "bannerTitle": "AI Special Collection",
+      "cat": {
+        "agent": "Agents",
+        "all": "All",
+        "chat": "AI Chat",
+        "image": "AI Drawing",
+        "plaza": "Model Plaza",
+        "video": "AI Video",
+        "voice": "AI Voice"
+      },
+      "empty": "No content yet",
+      "error": "Failed to load",
+      "featured": "Featured",
+      "history": "My Usage History",
+      "historySoon": "History coming soon",
+      "pageError": "Operation failed",
+      "useBtn": "Use now",
+      "useCount": "{n} uses"
     },
     "specialModel": {
       "confirm": "Confirm Switch",
@@ -754,7 +699,50 @@
     },
     "switchAgent": {
       "confirm": "Confirm Switch"
-    }
+    },
+    "thinkingTip": "Tips: You can click the three dots in the top right to float the mini program, and come back later~",
+    "tishi": {
+      "close": "Close",
+      "needInput": "Please provide the following information for more precise assistance",
+      "title": "Agent guide",
+      "view": "View"
+    },
+    "uploadMaterialTab": "Upload {tab} material",
+    "video": {
+      "download": "Download",
+      "downloadFailed": "Download failed, please retry",
+      "downloadSuccess": "Saved to album",
+      "emptyHistory": "No history yet",
+      "failed": "Generation failed",
+      "generate": "Generate video",
+      "generateFailed": "Generation failed, please retry",
+      "generating": "Generating…",
+      "history": "History",
+      "modelUnavailable": "This model API is not yet available",
+      "notAvailable": "Unavailable",
+      "pending": "Queued…",
+      "promptPlaceholder": "Describe the video you want to generate...",
+      "share": "Share",
+      "succeeded": "Generation complete",
+      "taskSubmitted": "Task submitted, please check history later",
+      "title": "Video Generation"
+    },
+    "voice": {
+      "chatFailed": "Chat failed, please retry",
+      "clearChat": "Clear conversation",
+      "clearConfirm": "Clear the current chat?",
+      "cleared": "Chat cleared",
+      "holdToSpeak": "Hold to speak",
+      "recordFailed": "Recording failed, please retry",
+      "releaseToSend": "Release to send",
+      "speed": "Speed",
+      "timbre": "Timbre",
+      "title": "AI Voice Chat",
+      "voiceMessage": "[Voice message]",
+      "welcome": "Hi, press and hold the button below to start a voice chat"
+    },
+    "welcomeDesc": "How can I help you?",
+    "welcomeTitle": "Hi, I'm your IHUI AI assistant"
   },
   "share": {
     "appTitle": "IHUI AI — Learn smarter",
@@ -763,19 +751,12 @@
     "liveTitle": "Recommended live: {title}",
     "index": {
       "title": "AI News",
-      "removeConfirm": "Delete this conversation?",
       "enter": "Enter news",
       "hotRank": "Hot rank",
-      "category": "Category",
       "tabLatest": "Latest",
       "tabHot": "Hot",
       "tabFollowing": "Following",
-      "drawerTitle": "My conversations",
-      "newChat": "New chat",
-      "goHome": "Back home",
       "history": "History",
-      "emptyHistory": "No history",
-      "models": "Models",
       "selectCategory": "Select Category",
       "subtitle": "Curating cutting-edge tech news",
       "viewMore": "View More Rankings"
@@ -812,11 +793,11 @@
   },
   "aiCircle": {
     "title": "AI Circle",
-    "post": "Posts",
     "empty": "No content",
     "loadFailed": "Load failed",
     "anonymous": "Anonymous",
-    "noMore": "No more"
+    "noMore": "No more",
+    "post": "Posts"
   },
   "aiCareer": {
     "title": "AI Career",
@@ -1081,10 +1062,7 @@
       "totalScoreValue": "{n} points"
     },
     "answer": {
-      "judgmentOptions": [
-        "True",
-        "False"
-      ],
+      "judgmentOptions": ["True", "False"],
       "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
@@ -1110,7 +1088,8 @@
     "goDiscover": "Discover",
     "searchPlaceholder": "Search favorited content",
     "selectFirst": "Please select first",
-    "total": "Favorited"
+    "total": "Favorited",
+    "d1": "AI Works"
   },
   "distribution": {
     "withdraw": {
@@ -1185,7 +1164,6 @@
       "commissionTotal": "Total commission",
       "product": "Product",
       "orderNo": "Order No.",
-      "amount": "Amount",
       "commission": "Commission",
       "error": "Load failed",
       "retry": "Tap to retry",
@@ -2066,18 +2044,8 @@
         "Help Request",
         "Experience Summary"
       ],
-      "levels": [
-        "Beginner",
-        "Intermediate",
-        "Advanced",
-        "Expert"
-      ],
-      "budgets": [
-        "Under 1000 CNY",
-        "1000-5000 CNY",
-        "5000-10000 CNY",
-        "Over 10000 CNY"
-      ],
+      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
+      "budgets": ["Under 1000 CNY", "1000-5000 CNY", "5000-10000 CNY", "Over 10000 CNY"],
       "selectAtLeast": "Please select at least one",
       "saved": "Saved",
       "directionTitle": "Learning direction",
@@ -2190,7 +2158,8 @@
     "userAgreement": "《User Agreement》",
     "privacyPolicy": "《Privacy Policy》",
     "hasAccount": "Already have an account?",
-    "toLogin": "Log in"
+    "toLogin": "Log in",
+    "text1": "Quick third-party binding"
   },
   "message": {
     "tabs": {
@@ -2340,7 +2309,9 @@
       "diamond": "Diamond Member",
       "diamondThreshold": "Growth ≥ 8000",
       "diamondPerks": "All benefits / private council"
-    }
+    },
+    "q1": "Load member info",
+    "y1": "{p2} more to reach {p1}"
   },
   "pay": {
     "result": {
@@ -2465,11 +2436,7 @@
         "Help Request",
         "Experience Summary"
       ],
-      "visibilityOptions": [
-        "Public",
-        "Friends Only",
-        "Private"
-      ],
+      "visibilityOptions": ["Public", "Friends Only", "Private"],
       "enterTitle": "Please enter a title",
       "enterContent": "Please enter content",
       "published": "Published",
@@ -2747,7 +2714,16 @@
       "title": "Real-name Verification"
     },
     "member": "Member",
-    "operator": "Operator"
+    "operator": "Operator",
+    "text1": "Chat page not configured",
+    "confirm2": "Delete this conversation?",
+    "confirm3": "Cancel membership? You will lose member benefits.",
+    "success4": "Unsubscribed successfully",
+    "failed5": "Unsubscribe failed, please contact support",
+    "text6": "Level intro page not configured",
+    "d1": "More free AI assistant uses",
+    "d2": "Free access to selected courses",
+    "d3": "Build a personal knowledge base"
   },
   "vipTrader": {
     "openTitle": "Open membership",
@@ -3089,20 +3065,15 @@
     "fullscreenHint": "Fullscreen editing mode",
     "recording": "Release to send, slide up to cancel",
     "voiceHint": "Long press to speak",
-    "document": "Document",
-    "video": "Video",
-    "addFile": "Add file",
     "releaseToSend": "Release to send",
-    "holdToSpeak": "Hold to speak"
+    "holdToSpeak": "Hold to speak",
+    "addFile": "Add file",
+    "document": "Document",
+    "video": "Video"
   },
   "toolbar": {
-    "traffic-service": "Traffic Operations Coaching",
-    "device-service": "One-stop Device Solutions",
-    "ai-other-service": "AI Other Technical Services",
     "ai": "AI Chat",
     "course": "Courses",
-    "plaza": "Plaza",
-    "rank": "Ranking",
     "vip": "VIP"
   },
   "index": {
@@ -3189,5 +3160,885 @@
     "square": "Square",
     "user": "Me",
     "share": "Share Planet"
+  },
+  "pagesindexindex": {
+    "register1": "🎉 Welcome to IHUI AI Community! New users get 5000 IHUI credits on signup!",
+    "text2": "Agent assistant page not configured",
+    "save3": "Image saved",
+    "d1": "AI Writing Assistant",
+    "d2": "Helps you write high-quality articles, reports, and copy",
+    "d3": "Coding Assistant",
+    "d4": "Code writing, debugging, and optimization advice",
+    "d5": "Development",
+    "d6": "Data Analyst",
+    "d7": "Data visualization and analysis insights",
+    "d8": "Analysis",
+    "d9": "Design Creative",
+    "d10": "Creative design and visual solutions",
+    "d11": "Design",
+    "d12": "Translation Expert",
+    "d13": "Multilingual translation and localization",
+    "d14": "Tools",
+    "d15": "Text Generation",
+    "d16": "High-quality text content generation",
+    "d17": "Image Generation",
+    "d18": "AI painting and image creation",
+    "d19": "Video Production",
+    "d20": "AI video generation and editing",
+    "d21": "Audio Processing",
+    "d22": "Speech synthesis and audio editing",
+    "d23": "Code Generation",
+    "d24": "Automatic multilingual code generation",
+    "d25": "Data Analysis",
+    "d26": "Data analysis and visualization",
+    "d27": "AI Painting",
+    "d28": "Text-to-image and image-to-image creation",
+    "d29": "Video Editing",
+    "d30": "Smart video editing and effects",
+    "d31": "AI Painting Beginner's Guide",
+    "d32": "This article details the basics of AI painting and common tools...",
+    "d33": "Deep Learning Model Optimization Tips",
+    "d34": "How to optimize training speed and accuracy of deep learning models...",
+    "d35": "Prompt Engineering Best Practices",
+    "d36": "Master core prompt engineering skills to improve AI output quality...",
+    "d37": "Multimodal AI Use Cases",
+    "d38": "Explore multimodal AI applications in healthcare, education, finance...",
+    "d39": "Landscape Painting",
+    "d40": "City Night View",
+    "d41": "Abstract Art",
+    "d42": "AI Video Generation Tutorial",
+    "d43": "Digital Human Live Demo",
+    "d44": "AI Speech Synthesis Demo",
+    "d45": "TTS Voice Comparison",
+    "d46": "Voice Cloning Effect",
+    "p1": "Image content",
+    "p2": "Video content",
+    "p3": "Audio content"
+  },
+  "aiassistant": {
+    "text1": "Deep thinking...",
+    "failed2": "Generation failed, please retry",
+    "text3": "Enter your question below",
+    "text4": "Created by IHUI AI",
+    "text5": "Show answer",
+    "text6": "Generating at full speed",
+    "p1": "Generated image:",
+    "p2": "IHUI AI Assistant",
+    "p3": "Generating",
+    "y1": "· IHUI credits:{p1}",
+    "q1": "Generate a cat image",
+    "q2": "Recommend 3 good books",
+    "q3": "Explain quantum entanglement"
+  },
+  "aiAgent": {
+    "text1": "AI App Store",
+    "more2": "Discover more AI assistants to boost productivity",
+    "text3": "Developer onboarding",
+    "text4": "Create and publish your own AI agents",
+    "text5": "This week's most popular agents",
+    "d1": "Meetings",
+    "d2": "Email",
+    "d3": "Sheets",
+    "d4": "Writing",
+    "d5": "Creation",
+    "d6": "Novels",
+    "d7": "Text",
+    "d8": "Learning",
+    "d9": "Teaching",
+    "d10": "Lessons",
+    "d11": "Knowledge",
+    "d12": "Exams",
+    "d13": "Questions",
+    "d14": "Tutorials",
+    "d15": "Solutions",
+    "d16": "Health",
+    "d17": "Food",
+    "d18": "Travel",
+    "d19": "Sports",
+    "d20": "Shopping",
+    "d21": "Daily",
+    "r1": "Code",
+    "r2": "Program",
+    "r3": "Function",
+    "r4": "Frontend",
+    "r5": "Backend"
+  },
+  "BottomActionBar": {
+    "text1": "Deep thinking mode enabled by default",
+    "d1": "Camera",
+    "d2": "Album",
+    "d3": "Local files",
+    "d4": "WeChat files"
+  },
+  "DrawerComponent": {
+    "empty1": "No chat history",
+    "d1": "App Store",
+    "d2": "Demand Plaza",
+    "d3": "My One-Person Company",
+    "d4": "Free Resources",
+    "d5": "New Chat"
+  },
+  "userUserCard": {
+    "view1": "View related orders",
+    "view2": "View employees and performance",
+    "text3": "IHUI Usage Info",
+    "view4": "View balance and top-up"
+  },
+  "communityMyAgents": {
+    "mine1": "My AI Apps",
+    "mine2": "My AI Employees"
+  },
+  "shareCenterItem": {
+    "text1": "Recommendation Card"
+  },
+  "CourseHeader": {
+    "text1": "Paid items"
+  },
+  "communityRecentAgents": {
+    "text1": "Recently used"
+  },
+  "shareNewTitle": {
+    "text1": "Trending News"
+  },
+  "memberBenefits": {
+    "d1": "Shopping Discount",
+    "d2": "5% off all items",
+    "d3": "Points Acceleration",
+    "d4": "1 point per ¥1 spent",
+    "d5": "Welcome Gift",
+    "d6": "Registration-exclusive gift",
+    "d7": "Daily check-in points",
+    "d8": "Deal Alerts",
+    "d9": "Promotion notifications",
+    "d10": "Silver Member",
+    "d11": "Shopping Discount",
+    "d12": "10% off all items",
+    "d13": "Points Multiplier",
+    "d14": "1.2x points acceleration",
+    "d15": "Birthday Gift",
+    "d16": "Birthday-exclusive gift",
+    "d17": "Free Shipping",
+    "d18": "3 free shipping per month",
+    "d19": "Exclusive Coupons",
+    "d20": "2 coupons per month",
+    "d21": "Double points for check-in",
+    "d22": "Gold Member",
+    "d23": "Shopping Discount",
+    "d24": "15% off all items",
+    "d25": "Points Multiplier",
+    "d26": "1.5x points acceleration",
+    "d27": "Birthday Gift",
+    "d28": "Double birthday gift",
+    "d29": "Free Shipping",
+    "d30": "Unlimited free shipping",
+    "d31": "Dedicated Support",
+    "d32": "1-on-1 exclusive service",
+    "d33": "Exclusive Coupons",
+    "d34": "5 coupons per month",
+    "d35": "Early Access",
+    "d36": "Early access to new features",
+    "d37": "Shopping Discount",
+    "d38": "20% off all items",
+    "d39": "Points Multiplier",
+    "d40": "2x points acceleration",
+    "d41": "Birthday Gift",
+    "d42": "Premium birthday gift",
+    "d43": "Free Shipping",
+    "d44": "Unlimited free shipping",
+    "d45": "Dedicated Support",
+    "d46": "7×24 dedicated butler",
+    "d47": "Exclusive Coupons",
+    "d48": "10 coupons per month",
+    "d49": "Early Access",
+    "d50": "First access to new features",
+    "d51": "Premium Events",
+    "d52": "Offline high-end events"
+  },
+  "VipBenefitsPopup": {
+    "d1": "Unlimited daily curated news on <span style=\"font-weight: bold;\">vertical tracks</span>, far beyond others",
+    "d2": "Founder priority consultation, <span style=\"font-weight: bold;\">AI</span> startup project eligibility",
+    "d3": "One month of beta access to the latest <span style=\"font-weight: bold;\">Agentic</span> development",
+    "d4": "Upgrade your account for compute top-ups / course / service discounts",
+    "d5": "Large-scale distribution eligibility, <span style=\"font-weight: bold;\">join</span> the community service provider list",
+    "d6": "Max membership level with <span style=\"font-weight: bold;\">all</span> level discounts",
+    "d7": "Two-level distribution rights to grow your <span style=\"font-weight: bold;\">team</span> and income, start a one-person company",
+    "d8": "Founder <span style=\"font-weight: bold;\">1-on-1</span> Q&A support",
+    "d9": "HQ onboarding and offline hands-on training",
+    "d10": "<span style=\"font-weight: bold;\">Benefit 1: Top-tier network access</span>",
+    "d11": "<span style=\"font-weight: bold;\">Benefit 2: Quality startup projects</span>",
+    "d12": "<span style=\"font-weight: bold;\">Benefit 3: Capital matchmaking</span>",
+    "d13": "<span style=\"font-weight: bold;\">Benefit 4: Exchange with AI tech leaders</span>",
+    "d14": "<span style=\"font-weight: bold;\">Benefit 5: Open-source AI sharing</span>",
+    "d15": "Access top models like GPT-4",
+    "d16": "HD video generation",
+    "d17": "4K quality, no watermark",
+    "d18": "Dedicated support",
+    "d19": "7×24 service",
+    "d20": "Member-exclusive content",
+    "d21": "Unlock all paid courses",
+    "rich1": "Limited-time offer <span style=\"font-weight: bold;\">588</span> CNY, reverts to <span style=\"font-weight: bold;\">1288</span> on <span style=\"font-weight: bold;\">Aug 8</span>",
+    "rich2": "Get <span style=\"font-weight: bold;\">8M</span> compute, enjoy exclusive <span style=\"font-weight: bold;\">AI</span> models",
+    "rich3": "Get distribution rights, use <span style=\"font-weight: bold;\">AI</span> to cut costs and boost efficiency",
+    "rich4": "Private <span style=\"font-weight: bold;\">AI</span> customer service customization, your own private <span style=\"font-weight: bold;\">AI</span> assistant",
+    "rich5": "Multi-to-one Q&A coaching: <span style=\"font-weight: bold;\">AI</span> teaching / self-media account building / <span style=\"font-weight: bold;\">monetization</span>",
+    "rich6": "Free <span style=\"font-weight: bold;\">AI</span> navigation site, <span style=\"font-weight: bold;\">one-click</span> access to all AI tools",
+    "rich7": "Beta access to the latest <span style=\"font-weight: bold;\">agentic</span> development, free for <span style=\"font-weight: bold;\">one month</span>",
+    "rich8": "Skip-the-line custom <span style=\"font-weight: bold;\">agent</span> development with <span style=\"font-weight: bold;\">exclusive discounts</span>",
+    "rich9": "<span style=\"font-weight: bold;\">AI</span> deep cognition courses / <span style=\"font-weight: bold;\">business</span> courses free",
+    "rich10": "<span style=\"font-weight: bold;\">AI</span> + vertical account incubation priority / join <span style=\"font-weight: bold;\">community service provider list</span>",
+    "rich11": "Skip-the-line <span style=\"font-weight: bold;\">AI</span> avatar / <span style=\"font-weight: bold;\">AI</span> customer service customization",
+    "rich12": "1. Spend <span style=\"font-weight: bold;color: #FF0000;\">588</span> to unlock membership, get <span style=\"font-weight: bold;color: #FF0000;\">588</span> growth points, reach <span style=\"font-weight: bold;color: #FF0000;\">Level 1: Algorithm Sprout</span>",
+    "rich13": "2. Reach <span style=\"font-weight: bold;color: #FF0000;\">1500</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 2</span>",
+    "rich14": "3. Reach <span style=\"font-weight: bold;color: #FF0000;\">3000</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 3</span>",
+    "rich15": "4. Reach <span style=\"font-weight: bold;color: #FF0000;\">4500</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 4</span>",
+    "rich16": "5. Reach <span style=\"font-weight: bold;color: #FF0000;\">6000</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 5</span>",
+    "rich17": "6. Reach <span style=\"font-weight: bold;color: #FF0000;\">7500</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 6</span>",
+    "rich18": "7. Reach <span style=\"font-weight: bold;color: #FF0000;\">9000</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 7</span>",
+    "rich19": "8. Reach <span style=\"font-weight: bold;color: #FF0000;\">10500</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 8</span>",
+    "rich20": "9. Reach <span style=\"font-weight: bold;color: #FF0000;\">12000</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Level 9</span>",
+    "rich21": "10. Reach <span style=\"font-weight: bold;color: #FF0000;\">18888</span> IHUI Power to reach <span style=\"font-weight: bold;color: #FF0000;\">Max Level</span>",
+    "z1": "............about <span style=\"font-weight: bold;\">20</span> benefits and growing ↑",
+    "z2": "............about <span style=\"font-weight: bold;\">20</span> benefits and growing ↑",
+    "r1": "Ask again",
+    "z3": "Level 0: Zhibin visitor. Upgrade membership for discounts covering all courses/compute/automation agents/knowledge base/custom services, with more features coming"
+  },
+  "viptrader": {
+    "d1": "IHUI AI Community Trader",
+    "d2": "Senior Market Analyst / Platform Certified",
+    "d3": "Technical Analysis",
+    "d4": "Fundamentals",
+    "d5": "Risk Control",
+    "d6": "Stock Picking",
+    "d7": "Quant",
+    "d8": "Sentiment",
+    "d9": "Distribution Eligibility",
+    "d10": "Large-scale distribution eligibility, join the community service provider list",
+    "d11": "AI Courses",
+    "d12": "Free access to deep AI cognition / business / traffic courses",
+    "d13": "Founder Q&A",
+    "d14": "1-on-1 founder Q&A support anytime",
+    "d15": "Agent Beta",
+    "d16": "One year of beta access to the latest agents",
+    "d17": "Top Discounts",
+    "d18": "Max membership level with all top discounts",
+    "d19": "Custom Offers",
+    "d20": "Skip-the-line 20% off custom agent development",
+    "d21": "Account Incubation",
+    "d22": "Priority incubation for AI + vertical accounts",
+    "d23": "Compute Bonus",
+    "d24": "Traders receive 16M compute",
+    "d25": "Annualized Return",
+    "d26": "Win Rate",
+    "d27": "Max Drawdown",
+    "d28": "Monthly Coaching",
+    "d29": "30 days",
+    "d30": "Quarterly Strategy",
+    "d31": "90 days",
+    "d32": "365 days",
+    "d33": "Mr. Li",
+    "d34": "The trader explains clearly and the strategy is practical; following it really pays off.",
+    "d35": "Ms. Wang",
+    "d36": "The 1-on-1 Q&A is very attentive, and market views help with timing. Recommended.",
+    "q1": "Get trader price",
+    "r1": "IHUI AI Community certified trader with 10 years of A-share experience, skilled in combining technical and fundamental analysis, once managing portfolios over 500 million. Focused on trend strategy and risk control."
+  },
+  "ModelConfigDialog": {
+    "d1": "Long Xiaoxia",
+    "d2": "Long Xiaoze",
+    "d3": "Long Chengcheng",
+    "d4": "Uncle Long",
+    "d5": "Mom Long",
+    "settings1": "Image settings",
+    "text2": "Ratio",
+    "text3": "Resolution",
+    "settings4": "Video settings",
+    "text5": "Frames",
+    "settings6": "Audio settings",
+    "text7": "Add first frame",
+    "text8": "Add last frame",
+    "text9": "Reference voice",
+    "text10": "Clone digital human",
+    "text11": "Choose voice",
+    "upload12": "Upload audio to clone voice",
+    "settings13": "Video settings",
+    "text14": "Video ratio",
+    "text15": "Video resolution",
+    "p1": "System voice library",
+    "p2": "Current:",
+    "p3": "Clone voice",
+    "y1": "Current: {p1}",
+    "y2": "Enter {p1}",
+    "q1": "Sweet female voice",
+    "q2": "Mature male voice",
+    "q3": "Clear child voice",
+    "q4": "Professional broadcasting",
+    "q5": "Emotional reading"
+  },
+  "vipPrivilege": {
+    "d1": "Daily chats",
+    "d2": "Basic",
+    "d3": "Advanced",
+    "d4": "Dedicated support",
+    "d5": "Course discount (%)",
+    "d6": "Number of agents",
+    "d7": "Exclusive market data analysis tools",
+    "d8": "1-on-1 professional guidance",
+    "d9": "Real-time market alerts",
+    "d10": "Exclusive strategy courses",
+    "d11": "Priority access to platform events",
+    "d12": "1-on-1 dedicated advisor",
+    "d13": "Closed-door salon access",
+    "d14": "Private exchange with industry experts",
+    "d15": "Premium resource matchmaking",
+    "d16": "Customized solutions"
+  },
+  "aigcList": {
+    "d1": "Cyberpunk City Night",
+    "d2": "IHUI Xiaofang",
+    "d3": "Aurora Wonderland",
+    "d4": "AI Creator",
+    "d5": "Machina Concept",
+    "d6": "Futurist",
+    "d7": "Quantum Verses",
+    "d8": "IHUI Xiaofang",
+    "d9": "Using \"data flood\" as imagery, generate a prose poem about creation in the digital age.",
+    "d10": "Data flood, digital age, poetry",
+    "d11": "Neon Pulse",
+    "d12": "Sound Artist",
+    "d13": "City of the Future",
+    "d14": "Digital Painter",
+    "d15": "The AI Awakening",
+    "d16": "IHUI Xiaofang",
+    "d17": "Explore the human condition after AI awakens; generate a short philosophical essay.",
+    "d18": "AI awakening, consciousness, coexistence",
+    "d19": "Echoes of Deep Space",
+    "d20": "Sound Artist",
+    "r1": "In the data flood, we use code as pen and algorithms as ink, depicting poetry and horizons of the digital age. Every piece of text is an extension of thought, and every generation is the beginning of creation."
+  },
+  "adaptersOrderScreentaro": {
+    "d1": "Pending payment",
+    "d2": "Paid",
+    "d3": "Pending payment",
+    "d4": "Paid"
+  },
+  "adaptersFeedbackScreentaro": {
+    "d1": "Please enter your feedback...",
+    "d2": "Contact (optional)"
+  },
+  "aiAgentdetail": {
+    "d1": "Meetings",
+    "d2": "Email",
+    "d3": "Sheets",
+    "d4": "Writing",
+    "d5": "Creation",
+    "d6": "Novels",
+    "d7": "Text",
+    "d8": "Learning",
+    "d9": "Teaching",
+    "d10": "Lessons",
+    "d11": "Knowledge",
+    "d12": "Exams",
+    "d13": "Questions",
+    "d14": "Tutorials",
+    "d15": "Solutions",
+    "d16": "Health",
+    "d17": "Food",
+    "d18": "Travel",
+    "d19": "Sports",
+    "d20": "Shopping",
+    "d21": "Daily",
+    "q1": "Get agent details",
+    "r1": "Code",
+    "r2": "Program",
+    "r3": "Function",
+    "r4": "Frontend",
+    "r5": "Backend",
+    "r6": "Failed to get agent permission"
+  },
+  "deventerCover": {
+    "d1": "How to become a developer?",
+    "d2": "Learn the onboarding process, benefits, and obligations to join the developer program.",
+    "d3": "View onboarding process >",
+    "d4": "How is developer revenue settled?",
+    "d5": "Learn about revenue sharing, withdrawal cycles, and settlement.",
+    "d6": "View revenue rules >",
+    "d7": "Agent review rules",
+    "d8": "Review standards, common rejection reasons, and revision suggestions.",
+    "d9": "View review rules >",
+    "d10": "About n8n agents",
+    "d11": "Guide to creating, configuring, and publishing n8n workflow agents.",
+    "d12": "Learn about n8n agents >"
+  },
+  "shareInterestTrackModal": {
+    "d1": "AI & Artificial Intelligence",
+    "d2": "AI models, agents, automation",
+    "d3": "Web3 Blockchain",
+    "d4": "Blockchain, crypto, NFT",
+    "d5": "SaaS Enterprise Services",
+    "d6": "Enterprise software, productivity tools",
+    "d7": "E-commerce Live Streaming",
+    "d8": "Live commerce, social e-commerce",
+    "d9": "Education & Training",
+    "d10": "Online education, vocational training",
+    "d11": "Content Creation",
+    "d12": "Self-media, short video, writing",
+    "d13": "Design & Creativity",
+    "d14": "UI/UX, graphic, 3D",
+    "d15": "Marketing",
+    "d16": "Brand, growth, SEO",
+    "text1": "Skip",
+    "z1": "Select your track of interest"
+  },
+  "adaptersPayButtontaro": {
+    "d1": "Free to use",
+    "d2": "/month",
+    "d3": "Purchased"
+  },
+  "aiSpecial": {
+    "d1": "Google Gemini 2.5 Flash text model: fast responses, multimodal input",
+    "d2": "Universal HTTP model proxy with custom model support",
+    "d3": "Google image editing model with natural language instructions",
+    "d4": "Google video generation model for high-quality text-to-video",
+    "d5": "Text-to-speech with natural multilingual pronunciation",
+    "d6": "Multi-scenario agents: office / writing / coding / education / life",
+    "d7": "Explore more AI models and vendor capabilities",
+    "q1": "Load agent list",
+    "y1": "Go to {p1}"
+  },
+  "aigroup": {
+    "d1": "Meetings",
+    "d2": "Email",
+    "d3": "Sheets",
+    "d4": "Writing",
+    "d5": "Creation",
+    "d6": "Novels",
+    "d7": "Text",
+    "d8": "Learning",
+    "d9": "Teaching",
+    "d10": "Lessons",
+    "d11": "Knowledge",
+    "d12": "Exams",
+    "d13": "Questions",
+    "d14": "Tutorials",
+    "d15": "Solutions",
+    "d16": "Health",
+    "d17": "Food",
+    "d18": "Travel",
+    "d19": "Sports",
+    "d20": "Shopping",
+    "d21": "Daily",
+    "q1": "Load AI team",
+    "r1": "Code",
+    "r2": "Program",
+    "r3": "Function",
+    "r4": "Frontend",
+    "r5": "Backend"
+  },
+  "courseplanet": {
+    "d1": "AI Painting 101: From Zero to Mastery",
+    "d2": "AI Research Team",
+    "d3": "Short Video Production Full Workflow",
+    "d4": "Mentor",
+    "d5": "ChatGPT Prompt Engineering",
+    "d6": "AI Research Team",
+    "d7": "AI Office Productivity Guide",
+    "d8": "Efficiency Expert",
+    "d9": "LLM App Development in Practice",
+    "d10": "Tech Expert"
+  },
+  "aiHistory": {
+    "d1": "AI Image",
+    "d2": "AI Voice",
+    "d3": "This week",
+    "d4": "Earlier"
+  },
+  "ModelList": {
+    "d1": "Chat",
+    "d2": "All-round",
+    "text1": "Agent Mode"
+  },
+  "TitleSwitchScrollPicker": {
+    "d1": "Track 1",
+    "d2": "Track 2",
+    "d3": "Track 3",
+    "d4": "Track 4",
+    "d5": "Track 5",
+    "d6": "Track 6",
+    "d7": "Track 7",
+    "d8": "Track 8"
+  },
+  "Menu": {
+    "d1": "Music"
+  },
+  "PhoneAreaCodePicker": {
+    "d1": "China"
+  },
+  "WithdrawalRecords": {
+    "d1": "Rejected"
+  },
+  "askCreate": {
+    "d1": "Tech",
+    "d2": "Product",
+    "d3": "Design",
+    "d4": "Operations"
+  },
+  "liveCalendar": {
+    "d1": "Watch now",
+    "d2": "Replay"
+  },
+  "orderRefund": {
+    "d1": "Changed my mind",
+    "d2": "Ordered wrong / duplicate",
+    "d3": "Quality issue",
+    "d4": "Not as described",
+    "d5": "Other reasons",
+    "y1": "Note: {p1}",
+    "y2": "Contact: {p1}"
+  },
+  "settingTheme": {
+    "d1": "Auto switch between light and dark based on system settings",
+    "d2": "Bright light interface, ideal for daytime use",
+    "d3": "Dark interface, eye-friendly and power-saving, ideal at night"
+  },
+  "AgentListPanel": {
+    "d1": "Free to use",
+    "d2": "/month",
+    "d3": "Purchased"
+  },
+  "PayButton": {
+    "d1": "Free to use",
+    "d2": "/month",
+    "d3": "Purchased"
+  },
+  "TitleSwitchOverlap": {
+    "d1": "Track 1",
+    "d2": "Track 2",
+    "d3": "Track 3",
+    "d4": "Track 4",
+    "d5": "Track 5"
+  },
+  "TitleSwitchScrollTitle": {
+    "d1": "Track 1",
+    "d2": "Sub-track 1-1",
+    "d3": "Sub-track 1-2",
+    "d4": "Track 2",
+    "d5": "Sub-track 2-1",
+    "d6": "Track 3",
+    "d7": "Sub-track 3-1",
+    "d8": "Sub-track 3-2",
+    "text1": "Main track:",
+    "text2": "Sub-track:"
+  },
+  "deventerN8nmodel": {
+    "d1": "Number",
+    "d2": "Boolean",
+    "d3": "Select"
+  },
+  "rankingDetail": {
+    "d1": "Testing",
+    "d2": "Offline"
+  },
+  "EmptyIllustration": {
+    "d1": "No matching content found",
+    "d2": "Network error",
+    "d3": "No permission"
+  },
+  "SystemNotice": {
+    "d1": "Upgrade"
+  },
+  "VipPriceSelector": {
+    "d1": "1 month",
+    "d2": "3 months",
+    "d3": "10% off",
+    "d4": "12 months",
+    "d5": "23% off"
+  },
+  "settingLanguage": {
+    "d1": "繁體中文",
+    "d2": "日本語"
+  },
+  "circleCreate": {
+    "d1": "Public",
+    "d2": "Friends only",
+    "d3": "Private"
+  },
+  "learndevelop": {
+    "d1": "Frontend Engineer",
+    "d2": "AI Application Development",
+    "d3": "Data Analyst"
+  },
+  "liveHistory": {
+    "d1": "This week"
+  },
+  "plazaCover": {
+    "d1": "What is the Developer Space?",
+    "d2": "How to become a developer?",
+    "d3": "What benefits do developers get?",
+    "d4": "How are agents listed?",
+    "d5": "n8n Agents"
+  },
+  "tokenBalance": {
+    "d1": "One month",
+    "d2": "Past year"
+  },
+  "LessonListItem": {
+    "text1": "VIP only",
+    "text2": "VIP only",
+    "y1": "people learned"
+  },
+  "UserInfoCard": {
+    "login1": "One-tap login",
+    "text2": "Unsubscribe"
+  },
+  "Selecter": {
+    "text1": "SD 480p",
+    "text2": "HD 720p",
+    "text3": "Full HD 1080p",
+    "back4": "← Back",
+    "q1": "Watermark"
+  },
+  "TitleSwitchTypeBar": {
+    "text1": "Custom",
+    "settings2": "Please set custom types",
+    "confirm": "Confirm",
+    "m1": "Enter a type"
+  },
+  "adaptersSelectertaro": {
+    "text1": "SD 480p",
+    "text2": "HD 720p",
+    "text3": "Full HD 1080p",
+    "back4": "← Back",
+    "q1": "Watermark"
+  },
+  "NavBar": {
+    "text1": "Daily News",
+    "z1": "Join community group"
+  },
+  "userNickname": {
+    "q1": "Get user info",
+    "q2": "Update nickname",
+    "r1": "Smart Little Expert",
+    "r2": "AI Explorer",
+    "r3": "Class Monitor",
+    "r4": "Knowledge Sponge",
+    "r5": "Midnight Reader",
+    "r6": "Code Mover",
+    "r7": "Inspiration Maker",
+    "r8": "Cloud Wanderer",
+    "r9": "Efficiency Pioneer",
+    "r10": "Thinking Reed"
+  },
+  "developerSubscribe": {
+    "q1": "Loading data",
+    "q2": "Follow action"
+  },
+  "memberCoupon": {
+    "q1": "Get coupons"
+  },
+  "userPhone": {
+    "q1": "Get user info",
+    "q2": "Send current phone verification code",
+    "q3": "Check if phone is registered",
+    "q4": "Send new phone verification code"
+  },
+  "userRealname": {
+    "q1": "Get user info",
+    "q2": "Upload ID photo",
+    "q3": "Submit real-name verification"
+  },
+  "vipUpgrade": {
+    "q1": "Get VIP level",
+    "q2": "Alipay VIP upgrade",
+    "q3": "Upgrade VIP",
+    "r1": "my.getAuthCode failed, falling back to mock mode"
+  },
+  "aboutUsagerules": {
+    "r1": "Prepared by: Jilin Aihui Zhi AI Artificial Intelligence Technology Co., Ltd.",
+    "r2": "Address: AI Talent Incubation Base, No. 107 Yueda Road, High-tech Zone, Changchun, Jilin",
+    "r3": "Service hotline: 19944894487",
+    "r4": "Official email: 502319984@qq.com"
+  },
+  "deventerModeledit": {
+    "r1": "Copywriting",
+    "r2": "Image Design",
+    "r3": "Video Creation",
+    "r4": "Programming",
+    "r5": "Marketing",
+    "r6": "Office Efficiency",
+    "r7": "Education",
+    "r8": "Life Assistant",
+    "q1": "Product",
+    "q2": "Design",
+    "q3": "Operations",
+    "q4": "Marketing",
+    "q5": "Sales",
+    "q6": "Load agent",
+    "q7": "Submit paid config"
+  },
+  "modelplaza": {
+    "r1": "Alibaba Cloud",
+    "r2": "Baidu",
+    "r3": "ByteDance",
+    "r4": "Zhipu"
+  },
+  "aboutBusinesslicense": {
+    "r1": "Guangzhou Zhihui Technology Co., Ltd.",
+    "r2": "10 million RMB",
+    "r3": "2023-06-15 to long-term",
+    "r4": "Limited liability company",
+    "r5": "Guangzhou Municipal Market Supervision Administration",
+    "r6": "Technical services, technical development, technical consulting, technical exchange, technical transfer, technical promotion; software development; system integration services; IT consulting services; internet information services"
+  },
+  "aboutModelrecord": {
+    "r1": "IHUI AI Dialogue LLM",
+    "r2": "Guangdong Internet Info Filing No. 4401060000001",
+    "r3": "Guangzhou Zhihui Technology Co., Ltd.",
+    "r4": "Generative synthetic (deep synthesis)"
+  },
+  "aboutIcprecord": {
+    "r1": "Guangdong Public Security Filing No. 44010602000001",
+    "r2": "Guangzhou Zhihui Technology Co., Ltd.",
+    "p1": "Ji ICP License No. 2025027274-7A"
+  },
+  "last": {
+    "1": "AI IHUI |",
+    "2": "Remaining IHUI credits:",
+    "3": "Payment integration pending backend"
+  },
+  "adaptersUserInfoCardtaro": {
+    "y1": "{p1}B",
+    "y2": "{p1}W"
+  },
+  "api": {
+    "y1": "Request failed({p1})",
+    "y2": "Request failed({p1})"
+  },
+  "StudyStats": {
+    "y1": "h, completed"
+  },
+  "tail": {
+    "1": "Select tracks you are interested in for personalized recommendations",
+    "2": "One-tap login",
+    "3": "Edit",
+    "4": "Remaining credits:",
+    "5": "Top up",
+    "6": "No data",
+    "7": "Retry",
+    "8": "Loading...",
+    "9": "Enter a description",
+    "10": "No withdrawal records",
+    "11": "Selected model: {m}",
+    "12": "Code sent to {m}",
+    "13": "Joined on {m}",
+    "14": "Select tracks you are interested in for personalized recommendations",
+    "15": "Default model",
+    "16": "Using \"data flood\" as imagery, generate a prose poem about creation in the digital age.",
+    "17": "Paid, ¥{m}",
+    "18": "When machines begin to think, is humanity ready? This is a story about consciousness, freedom, and coexistence. At the intersection of silicon-based and carbon-based life, we re-examine the meaning of \"existence\".",
+    "19": "View more",
+    "20": "Confirm selection{count}",
+    "21": "More free AI assistant uses",
+    "22": "Free access to selected courses",
+    "23": "Build a personal knowledge base"
+  },
+  "newsList": {
+    "q1": "Notification",
+    "q2": "Benefits",
+    "q3": "How to",
+    "q4": "Load news list"
+  },
+  "aiVoice": {
+    "q1": "Standard",
+    "q2": "Fast",
+    "q3": "Slow",
+    "q4": "Female voice",
+    "q5": "Male voice",
+    "q6": "Voice chat"
+  },
+  "teacherDetail": {
+    "q1": "Get teacher details",
+    "q2": "Toggle follow"
+  },
+  "ErrorView": {
+    "p1": "Please try again later"
+  },
+  "FilterDropdown": {
+    "p1": "Filter"
+  },
+  "InvitePoster": {
+    "p1": "Invite friends to earn cash rewards"
+  },
+  "ModelTypeButtonGroup": {
+    "m1": "Skills",
+    "m2": "Voice",
+    "m3": "Assets"
+  },
+  "QrCodeShare": {
+    "p1": "Share poster",
+    "p2": "Scan to view"
+  },
+  "TagInput": {
+    "p1": "Press Enter to add"
+  },
+  "VipUpgradeToast": {
+    "p1": "Upgrade to unlock more features"
+  },
+  "adaptersCarouseltaro": {
+    "q1": "No carousel images"
+  },
+  "aboutApppermission": {
+    "q1": "Get permission status"
+  },
+  "aicareer": {
+    "q1": "Interview",
+    "q2": "Interview",
+    "q3": "Resume",
+    "q4": "Resume",
+    "q5": "Career",
+    "q6": "Career planning",
+    "q7": "Planning",
+    "q8": "Career planning",
+    "q9": "Workplace",
+    "q10": "Workplace",
+    "q11": "Promotion",
+    "q12": "Promotion",
+    "q13": "Job hopping",
+    "q14": "Job hopping",
+    "q15": "Salary",
+    "q16": "Salary",
+    "q17": "Skill",
+    "q18": "Skill improvement",
+    "q19": "Communication",
+    "q20": "Communication",
+    "q21": "Load career guidance"
+  },
+  "platformAuth": {
+    "q1": "WeChat login code is empty",
+    "q2": "Alipay auth code is empty",
+    "q3": "Mini program login is not supported in this environment",
+    "q4": "For completing member profile",
+    "q5": "Getting user profile is not supported in this environment"
+  },
+  "utilsMiniapplogin": {
+    "q1": "Please log in within the mini program",
+    "q2": "Login auth code is empty",
+    "p1": "User",
+    "alipayUser": "Alipay"
+  },
+  "utilsPrivacy": {
+    "q1": "Privacy notice",
+    "q2": "To provide you with better services, please agree to the User Privacy Protection Guide before using related features.",
+    "q3": "View agreement",
+    "q4": "Decline"
+  },
+  "utilsStreamingrecognizer": {
+    "p1": "Recording error",
+    "q1": "Recognition failed"
+  },
+  "utilsWechatlogin": {
+    "q1": "For completing member profile",
+    "q2": "Please use WeChat login in the WeChat mini program",
+    "q3": "WeChat login code is empty",
+    "q4": "WeChat user"
   }
 }
