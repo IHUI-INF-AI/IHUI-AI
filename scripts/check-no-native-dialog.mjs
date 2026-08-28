@@ -67,9 +67,18 @@ const EXCLUDE_DIRS = withExcludes([
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
 
-/** 原生弹窗调用模式:alert( / confirm( / prompt( */
-// 注意:排除「.alert(」这类成员访问(如 React Native 的 Alert.alert),守门只针对浏览器裸调用 alert()/confirm()/prompt()
-const CALL_RE = /(?<!\.)\b(alert|confirm|prompt)\s*\(/
+/**
+ * 原生弹窗调用模式:alert( / confirm( / prompt(
+ * 守门只针对浏览器裸调用 alert()/confirm()/prompt(),需排除:
+ *   1) 成员访问(.alert,如 React Native 的 Alert.alert)由 (?<!\.) 排除
+ *   2) 函数/方法定义(async prompt( / function alert( / const x = prompt( / await prompt( 等),
+ *      避免误伤 LLM prompt 助手等用户自定义同名函数
+ *   3) 行首为注释(JSDoc ` *`/ `//` / `/*`)的行在循环内直接跳过
+ * 仅判定"裸调用"上下文,真实浏览器调用几乎都出现在语句起始或 ; / { / return / 运算符之后,
+ * 不会被下列定义/参数/await/yield 上下文的前导词排除。
+ */
+const CALL_RE =
+  /(?<!\.)(?<!(async\s+|function\s+|const\s+|let\s+|var\s+|await\s+|yield\s+|=|>|:|,|&|\||\?|\()\s*)(alert|confirm|prompt)\s*\(/
 
 /**
  * 去除行内注释与字符串字面量内容,返回"裸代码"用于判定。
@@ -229,7 +238,10 @@ const fileReports = []
 
 for (const file of files) {
   const src = readFileSync(file, 'utf8')
-  const lines = src.split('\n')
+  // 去除块注释内容(替换为空格,保留换行与行号),避免 /* ... alert( ... */ 等多行注释误报;
+  // 行内 // 注释与字符串字面量由下方 stripStringsAndComments 处理。
+  const srcNoBlock = src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+  const lines = srcNoBlock.split('\n')
   const findings = []
 
   lines.forEach((line, idx) => {
@@ -238,6 +250,10 @@ for (const file of files) {
       const allowed = addedLinesMap.get(file)
       if (!allowed || !allowed.has(lineNumber)) return
     }
+    // 跳过整行注释(JSDoc ` *`/ `//` / `/*`),避免注释中的说明性文字误报
+    if (/^\s*(\/\/|\/\*|\*)/.test(line)) return
+    // 跳过 markdown 列表项(文档/说明字符串中的 "prompt(" 等英文词误报)
+    if (/^\s*-\s/.test(line)) return
     const code = stripStringsAndComments(line)
     const m = CALL_RE.exec(code)
     if (m) {

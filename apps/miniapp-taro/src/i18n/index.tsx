@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import Taro from '@tarojs/taro'
 import { mergeMessages, translate, resolveList } from '@ihui/i18n/loader'
 import type { Locale, Messages } from '@ihui/i18n/types'
@@ -58,6 +58,18 @@ export function t(key: string, params?: Record<string, string | number>): string
   return translate(messages[currentLocale], key, { fallback: messages['zh-CN'], params })
 }
 
+/**
+ * 原生 tabBar 文案本地化(app.json 的 text 为静态配置,不支持 i18n,
+ * 通过 setTabBarItem 在运行时按当前 locale 覆盖;失败静默,如非 tab 页环境)
+ */
+const TAB_BAR_ITEMS: ReadonlyArray<{ index: number; key: string; fb: string }> = [
+  { index: 0, key: 'tabBar.community', fb: '智汇社区' },
+  { index: 1, key: 'tabBar.agent', fb: 'AI agent' },
+  { index: 2, key: 'tabBar.square', fb: '广场' },
+  { index: 3, key: 'tabBar.user', fb: '我的' },
+  { index: 4, key: 'tabBar.share', fb: '分享星球' },
+]
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(() => {
     const stored = Taro.getStorageSync(LOCALE_KEY)
@@ -82,6 +94,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     (key: string) => resolveList(messages[locale], key, messages['zh-CN']),
     [locale],
   )
+
+  // locale 变化/初始化时同步原生 tabBar 文案
+  useEffect(() => {
+    for (const item of TAB_BAR_ITEMS) {
+      const text = t(item.key)
+      if (text === item.key) continue // 词典缺失时保留静态默认文案
+      Taro.setTabBarItem({ index: item.index, text }).catch(() => {})
+    }
+  }, [locale, t])
 
   return (
     <I18nContext.Provider value={{ locale, t, tList, setLocale }}>{children}</I18nContext.Provider>

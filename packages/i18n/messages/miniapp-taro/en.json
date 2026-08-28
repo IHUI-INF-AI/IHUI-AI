@@ -445,7 +445,8 @@
     "notifOn": "Notifications enabled",
     "notifOff": "Notifications disabled",
     "accountSecurity": "Account & security",
-    "goSetting": "Go to Settings"
+    "goSetting": "Go to Settings",
+    "notificationEntry": "Notifications"
   },
   "error": {
     "network": "Network error"
@@ -3181,5 +3182,12 @@
   },
   "chat": {
     "send": "Send"
+  },
+  "tabBar": {
+    "community": "Community",
+    "agent": "AI agent",
+    "square": "Square",
+    "user": "Me",
+    "share": "Share Planet"
   }
 }

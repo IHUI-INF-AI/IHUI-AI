@@ -17,10 +17,12 @@ import { FeedbackEditDialog, FeedbackCreateDialog } from './FeedbackDialog'
 import { PAGE_SIZE, EMPTY_CREATE, EMPTY_SEARCH, EMPTY_EDIT_FORM, EXPORT_COLUMNS } from './helpers'
 import type { AdminFeedbackItem, ListData, SearchState, EditForm, CreateForm } from './types'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export default function AdminFeedbacksPage() {
   const t = useTranslations('admin.feedbacks')
   const tc = useTranslations('common')
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const qc = useQueryClient()
 
   const [type, setType] = React.useState('all')
@@ -135,8 +137,11 @@ export default function AdminFeedbacksPage() {
     if (!createForm.title.trim()) return setCreateErr(t('titleRequired'))
     createMut.mutate()
   }
-  function handleDelete(fb: AdminFeedbackItem) {
-    if (!confirm(t('deleteConfirm', { title: fb.title }))) return
+  async function handleDelete(fb: AdminFeedbackItem) {
+    if (
+      !(await confirm({ title: t('deleteConfirm', { title: fb.title }), variant: 'destructive' }))
+    )
+      return
     deleteMut.mutate(fb.id)
   }
   function handleReset() {
@@ -247,6 +252,7 @@ export default function AdminFeedbacksPage() {
         onClose={closeCreate}
         onSubmit={submitCreate}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

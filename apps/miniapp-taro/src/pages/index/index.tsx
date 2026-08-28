@@ -35,6 +35,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { isLoggedIn, getUserInfo, type UserInfo } from '@/utils/auth'
+import { getSystemInfoCompat } from '@/utils/system-info'
 import { useI18n, useTt } from '@/i18n'
 import NavBar from '@/components/NavBar'
 import DrawerComponent, {
@@ -711,7 +712,7 @@ export default function Index() {
   // 输入框文本(受控,由 BottomActionBar -> InputArea 双向绑定)
   const [inputText, setInputText] = useState('')
 
-  const systemInfo = Taro.getSystemInfoSync()
+  const systemInfo = getSystemInfoCompat()
   const statusBarHeight = systemInfo.statusBarHeight || 20
 
   useDidShow(() => {
@@ -1298,7 +1299,7 @@ export default function Index() {
                 </Text>
               </View>
               <View
-                onClick={() => Taro.switchTab({ url: '/pages/live/list' })}
+                onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
                 style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
               >
                 <Text style={{ fontSize: rpx(22), color: '#fff' }}>{tt('home.more', '更多')}</Text>

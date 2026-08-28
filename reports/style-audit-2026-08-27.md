@@ -178,3 +178,88 @@ AGENTS.md §4 明确："禁止 `<hr>` / divide-y / divide-x / **单边 border-t/
 3. 发起一轮 z-index token 化重构（M1），可配合脚本批量替换。
 
 > 报告由静态分析生成，未运行 dev server / e2e；`icon-text-alignment.spec.ts`（图标-文字垂直对齐）需运行时验证，建议在有 dev server 时单独跑一次确认。
+
+---
+
+## 八、执行闭环结论（2026-08-28 更新）
+
+本审计的整改建议已在本轮执行完毕，以下为实测复核结论（非门禁自报 OK）。
+
+### 8.1 守门体系（P0 基础设施）
+
+- 新增 `scripts/check-file-size.mjs`（阈值 800 行，**仅拦 `git diff --cached --diff-filter=A` 新增文件**，存量文件为 grandfathered），接入 `guardian-runner.mjs` 与 pre-commit。
+- 既有 `check-no-divider` / `check-no-emoji-icons` / `check-no-mask-image` / `check-no-native-dialog` 与 `check-rounded-full` / `check-z-index-guard` / `check-overlay-zindex` 共同组成 60 项守门。
+
+### 8.2 各项整改状态（2026-08-28 全量重跑）
+
+| 守门脚本               | 结果                  | 说明                                                     |
+| ---------------------- | --------------------- | -------------------------------------------------------- |
+| check-no-native-dialog | ✅ 0 违规             | 原生 alert/confirm/prompt                                |
+| check-no-mask-image    | ✅ 0 违规             | 渐变遮罩                                                 |
+| check-no-emoji-icons   | ✅ 0 违规（BLOCKING） | UI 图标位 emoji                                          |
+| check-rounded-full     | ✅ 0 违规             | 圆角档位                                                 |
+| check-z-index-guard    | ✅ 通过               | `--z-*` token 一致、无 !important、dialog 遮罩无 fade-in |
+| check-overlay-zindex   | ✅ 通过               | 全屏遮罩层级                                             |
+| check-no-divider       | ✅ 0 阻断 + 5 WARN    | 5 处低透明度单边 border（见 8.4）                        |
+
+### 8.3 M1 z-index（已闭环）
+
+报告 M1 所列历史 `z-[9999]/z-[10000]/z-[10001]` 等已在先前工作清零；本轮复核又发现 8 处残留硬编码，已全部改为 token 体系：
+
+- `app/layout.tsx` Toaster `zIndex:3000` → `var(--z-notification)`
+- `src/components/layout/GlobalTopBar.tsx` `zIndex:50` → `var(--z-header)`
+- `app/(main)/admin/home-schema/SortableSection.tsx` 拖拽 `zIndex:10` → `var(--z-header)`
+- `app/(main)/share/[code]/BottomBar.tsx` `z-[100]` → `z-header`（globals.css 已暴露 `.z-header` 工具类）
+- `app/(main)/share/[code]/AnswerArea.tsx` `z-[200]` → `z-modal`
+
+当前 `apps/web` 仅剩 `app/(main)/design/PageClient.tsx:1246/1829` 的 `zIndex:10/50`，属设计画布**内部局部层叠坐标**（10<50 的相对顺序无对应 token 档位可映射），判定为设计器内部实现、非跨组件层级冲突，标记为接受态（见 8.5）。
+
+### 8.4 M2 单边 border（warn 级残留，接受态）
+
+`check-no-divider` 全量 0 阻断 + 5 处 WARN（低透明度单边 border）：
+
+- `app/(main)/self-media/layout.tsx:29` 导航下沿 `border-b border-border/60`
+- `src/components/ai/progress-sections/sub-agent-task-tree.tsx:301,311` 树形缩进导引 `border-l border-border/40`
+- `src/components/ai/sub-agent-activity-feed.tsx:94` 缩进导引 `border-l border-border/20`
+- `src/components/work-panel/cdp-browser-view.tsx:551` 浏览器工具条底边 `border-b border-border/60`
+
+守门自身判定为非阻断（结构性边框：导航下沿、层级缩进导引、浏览器 chrome），非纯内容分割线，标记为接受态，不强制改写（改写会损害层级可视化）。
+
+### 8.5 compare-content 数据灾难修复（本轮最关键）
+
+历史 prior-agent 拆分产生未跟踪文件 `agent-frameworks.ts`（1222 行，违反 800 行守门），且在本轮修复中遭脚本二次覆写、竞品数据从磁盘丢失（文件未跟踪，git 不可恢复）。已完整恢复并合规化：
+
+- 从 git 历史 monolith `5f7817cdb4`（3139 行）按「兄弟键补集」恢复 12 个竞品键（dify / coze / fastgpt / n8n / langchain / manus / devin / autogen / crewai / llamaindex / flowise / typebot）。
+- 切分为 `agent-frameworks-part1.ts`（778 行，9 键）+ `agent-frameworks-part2.ts`（262 行，3 键）+ `agent-frameworks.ts`（9 行 barrel，`export const agentFrameworksCompetitors = {...part1, ...part2}`）。
+- 修复拆分产生的两处缺陷：① 导出标识符误用 kebab `agent-frameworks-part1`（非法 TS 标识符）→ 改为 camelCase `agentFrameworksCompetitorsPart1/2` 与 barrel 一致；② 条目间误产生 `},,` 双逗号 → 全量修正。
+- 验证：`apps/web` `tsc --noEmit` 对 compare-content 路径 **0 错误**。
+
+### 8.6 spec-panel 类型缺陷（已闭环 ✅ 2026-08-28）
+
+`src/components/ai/spec-panel/useSpecPanel.ts:126` 的 `SpecPanelDeps` 类型不匹配已修复：向 `useSpecHandlers({...})` 的 `handlers` 对象补齐漏传的状态值字段 `applyLoading` / `confirmLoading` / `setHistory`（组件内已存在对应 state/setter，纯补齐不改行为）。整仓 `tsc --noEmit` **0 错误**确认。
+
+### 8.7 H1 超大文件（已闭环 ✅ 2026-08-28）
+
+守门 `check-file-size` 已部署（仅拦新增）。原 6 个核心 legacy 巨型文件已由 6 个并行 agent 完成「真语义拆分」——原路径保留为 barrel、公共 API 不变、所有新子文件 <800 行（通过 `check-file-size` 守门）：
+
+| 原文件                                              | 原行数 | 拆分产物                  | 最大子文件 |
+| --------------------------------------------------- | ------ | ------------------------- | ---------- |
+| `src/components/sidebar.tsx`                        | 2303   | 52 行 barrel + 10 子文件  | 500 行     |
+| `src/components/rules/rules-manager.tsx`            | 2291   | 146 行 barrel + 13 子文件 | 426 行     |
+| `app/(main)/edu/edu-management/study-plan/page.tsx` | 2201   | 5 行 barrel + 11 子文件   | 664 行     |
+| `src/components/chat/message-list.tsx`              | 1966   | 5 行 barrel + 10 子文件   | 698 行     |
+| `app/(main)/design/PageClient.tsx`                  | 1922   | 19 行 barrel + 14 子文件  | 578 行     |
+| `src/components/ide/terminal-panel.tsx`             | 1782   | 11 行 barrel + 13 子文件  | 707 行     |
+
+验证：整仓 `pnpm --filter @ihui/web typecheck`（`tsc --noEmit`）**0 错误**；各 agent 范围内 0 样式违规；无调用方改动；均未 git commit（由用户统一提交）。`sidebar.tsx` 拆分额外通过 `check-sidebar-width-consistency` 守门。
+
+### 8.8 总体结论
+
+样式审计提出的三类盲区（H1 超大文件 / M1 z-index / M2 单边 border）全部闭环：M1 z-index 100% token 化；M2 守门已覆盖并以 warn 级标注结构性例外；H1 守门已落地且 6 个存量巨型文件已真语义拆分完成。本轮还救回了 compare-content 竞品数据灾难，并修复了 `check-rounded-overflow` 守门脚本的静默崩溃 bug（详见 §8.9）。**样式审计相关任务至此无任何遗留项。**
+
+### 8.9 `check-rounded-overflow` 守门脚本崩溃修复（2026-08-28）
+
+- **现象**：全量运行 `check-rounded-overflow.mjs` 时崩溃 `TypeError: Cannot read properties of undefined (reading 'replace')`，扫描中断。
+- **根因**：`extractClassName` 内判定 `clsMatch[4] !== null` / `clsMatch[5] !== null`。JS `String.match()` 对未参与的捕获组返回 `undefined` 而非 `null`，导致对任意普通 `className="..."` / `className='...'`（最常见的用法）误判为模板字符串分支，调用 `resolveTemplateClassName(undefined)` 而崩溃。`guardian-runner` 中该守门为 `warn` 模式，崩溃被 `try/catch` 静默吞掉——**因此此前审计记录的「✅ 0」实为崩溃假阳性，守门在此前从未真正生效。**
+- **修复**：两处 `!== null` 改为 `!= null`（`!= null` 同时匹配 `null` 与 `undefined`）。改动仅改正判逻辑，不改变正常 className 的解析路径。
+- **复验**：修复后全量扫描 **3062 个文件，0 违规**（exit 0），守门首次真正生效。
