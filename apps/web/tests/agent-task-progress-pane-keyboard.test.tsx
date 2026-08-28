@@ -60,10 +60,14 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const Icon = IconSpan
+  // 2026-08-28 修复:组件依赖链(packages/ui-react login-form 等)会引入清单外
+  // 新图标(MessageCircle/Building2...)→ spread actual 兜底,清单仅覆盖已知图标
   return {
     __esModule: true,
+    ...actual,
     Pin: Icon,
     PinOff: Icon,
     Minimize2: Icon,

@@ -5,6 +5,10 @@ node_modules/
 *.tsbuildinfo
 .env*.local
 
+# build-static.mjs 构建期间临时移出的运行时路由目录(正常构建后自动恢复;
+# 仅进程被强杀时残留,残留时 app/cdn|uploads 显示为 deleted,勿提交)
+.static-excluded/
+
 # e2e 调试产物(其他 agent 跑 share 测试时生成的临时截图/脚本,2026-08-19)
 e2e/*.png
 e2e/test-screenshots/
