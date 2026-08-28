@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // 用 vi.hoisted 让 mock 对象在 mock factory 中可用
-const { mockConfig } = vi.hoisted(() => ({
+const { mockConfig, mockSmtpSendMail } = vi.hoisted(() => ({
   mockConfig: {
     NODE_ENV: 'test' as const,
     SMTP_HOST: 'smtp.example.com',
@@ -54,10 +54,20 @@ const { mockConfig } = vi.hoisted(() => ({
     API_LOG_FLUSH_INTERVAL_MS: 5000,
     JWT_EXPIRES_IN: '7d',
   },
+  // SMTP 兜底链路 mock:sendViaSmtp 内部 `await import('nodemailer')`
+  // 后会用 createTransport(...).sendMail(...) 真实连接 SMTP_HOST。
+  // 不 mock 时单测会真实连接 smtp.example.com:587 —— 本机 DNS 劫持返回
+  // 假 IP 导致 TCP 挂起,15s 超时(2026-08-28 pnpm test 全量失败根因)。
+  mockSmtpSendMail: vi.fn().mockResolvedValue({ messageId: '<mock@smtp>' }),
 }))
 
 vi.mock('../src/config/index.js', () => ({
   config: mockConfig,
+}))
+
+// mock nodemailer(避免单测打真实网络)
+vi.mock('nodemailer', () => ({
+  createTransport: vi.fn(() => ({ sendMail: mockSmtpSendMail })),
 }))
 
 // mock database(避免任何真实 DB 写入)
@@ -376,6 +386,9 @@ describe('email-service — sendEmail Fallback 链路', () => {
       status: 500,
       text: async () => 'internal error',
     })
+    // SMTP 兜底成功(nodemailer 已 mock,确定性 sent=true)
+    mockSmtpSendMail.mockClear()
+    mockSmtpSendMail.mockResolvedValueOnce({ messageId: '<mock-smtp-1@smtp>' })
 
     const result = await sendEmail({
       to: 'user@gmail.com',
@@ -384,16 +397,12 @@ describe('email-service — sendEmail Fallback 链路', () => {
     })
 
     // 关键断言:provider 从 resend 切换为 smtp(降级成功)
-    // sent 状态取决于当前环境 nodemailer 是否能真实连接到 smtp.example.com
-    // 在 CI / 单元测试环境,可能连接失败(sent=false),也可能成功(开发机有 mock SMTP)
-    // 两种情况都合法:只要 provider 切换发生,降级逻辑就是正确的
-    if (result.sent) {
-      expect(result.provider).toBe('smtp')
-    } else {
-      // SMTP 也失败时,provider 仍为 resend(primary),因为 fallback 失败不切换 provider
-      expect(result.provider).toBe('resend')
-      expect(result.error).toBeDefined()
-    }
+    expect(result.sent).toBe(true)
+    expect(result.provider).toBe('smtp')
+    expect(mockSmtpSendMail).toHaveBeenCalledOnce()
+    expect(mockSmtpSendMail).toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'user@gmail.com', subject: 'hello' }),
+    )
   })
 
   it('腾讯云 SES 失败:返回 sent=false + provider=tencent + 不抛错', async () => {

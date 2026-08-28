@@ -105,6 +105,17 @@ const ICU_KEYS: readonly IcuKey[] = [
 const SOURCE_FILES = [
   'src/components/ai/context-usage-ring.tsx',
   'src/components/chat/message-list.tsx',
+  // 2026-08-28:message-list.tsx 被重构为 barrel(fallbackNotice 等实现移入子目录),
+  // 反模式扫描需覆盖拆分后的全部子文件,防止反模式借重构"漂移"进新文件
+  'src/components/chat/message-list/FallbackBanner.tsx',
+  'src/components/chat/message-list/MessageList.tsx',
+  'src/components/chat/message-list/MessageItem.tsx',
+  'src/components/chat/message-list/message-item-parts.tsx',
+  'src/components/chat/message-list/use-message-list-context-menu.tsx',
+  'src/components/chat/message-list/use-message-list-derivations.ts',
+  'src/components/chat/message-list/use-message-list-scroll.ts',
+  'src/components/chat/message-list/use-message-list-search.ts',
+  'src/components/chat/message-list/EmptyState.tsx',
 ] as const
 
 // ── 工具:点分路径取值 ──────────────────────────────────────────────────────
@@ -220,8 +231,9 @@ describe('web · next-intl ICU 反模式回归', () => {
       )
     })
 
-    it('message-list.tsx 第 1346 行已修复为 t(fallbackNotice, { primary, backup })', async () => {
-      const abs = join(process.cwd(), 'src/components/chat/message-list.tsx')
+    it('message-list fallbackNotice 已修复为 t(fallbackNotice, { primary, backup })', async () => {
+      // 2026-08-28:message-list.tsx 重构为 barrel,实现移入 message-list/FallbackBanner.tsx
+      const abs = join(process.cwd(), 'src/components/chat/message-list/FallbackBanner.tsx')
       const content = await readFile(abs, 'utf-8')
       // 找修复后调用:t('fallbackNotice', { primary, backup })
       expect(content).toMatch(
