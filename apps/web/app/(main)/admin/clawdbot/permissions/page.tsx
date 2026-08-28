@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface PermissionRule {
   id: string
@@ -19,6 +20,7 @@ interface PermissionRule {
 type RulesData = { list: PermissionRule[] } | PermissionRule[]
 
 export default function ClawdbotPermissionsPage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [rules, setRules] = React.useState<PermissionRule[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
@@ -59,7 +61,7 @@ export default function ClawdbotPermissionsPage() {
   }
 
   const remove = async (id: string) => {
-    if (!confirm('确定删除此权限规则?')) return
+    if (!(await confirm({ title: '确定删除此权限规则?', variant: 'destructive' }))) return
     const res = await fetchApi(`/api/admin/clawdbot/permissions/${id}`, { method: 'DELETE' })
     if (res.success) void load()
   }
@@ -186,7 +188,7 @@ export default function ClawdbotPermissionsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-2 text-right">
-                    <Button variant="ghost" size="sm" onClick={() => remove(r.id)}>
+                    <Button variant="ghost" size="sm" onClick={async () => remove(r.id)}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </td>
@@ -233,6 +235,7 @@ export default function ClawdbotPermissionsPage() {
           </div>
         </div>
       )}
+      <ConfirmDialogRenderer />
     </div>
   )
 }

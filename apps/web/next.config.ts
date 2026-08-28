@@ -55,6 +55,13 @@ const nextConfig: NextConfig = {
   },
   webpack: (config) => {
     config.resolve.alias = config.resolve.alias || {}
+    // 2026-08-28 构建排障:Next.js 16 对 .well-known 路由的构建产物中使用了 require,
+    // 但项目是 ESM 模块("type": "module"),导致 "require is not defined"。
+    // 将 .well-known 路由排除在 webpack 构建外,由 Next.js 运行时处理。
+    config.externals = config.externals || []
+    config.externals.push({
+      '.well-known': 'commonjs .well-known',
+    })
     // (预构建 @ihui 包方案经评估放弃:tsc ESM 扩展名/subpath 迁移风险高,
     // 改用 D 盘 pagefile 扩容解决构建内存问题——见 2026-08-05 记录)
     // 2026-08-04 生产构建排障:webpack 缓存(默认 filesystem/memory)是构建期
@@ -123,13 +130,12 @@ const nextConfig: NextConfig = {
     // 整个编译(server/edge/client)在主进程内跑,V8 堆+SWC+webpack 挤同一进程,
     // 提交量爆炸到 80GB+。显式启用 webpackBuildWorker 让编译进独立 worker 进程,
     // 内存隔离,显著降低单进程提交量峰值。
-    webpackBuildWorker: true,
+    // 2026-08-28 内存排障:尝试禁用 webpackBuildWorker,看是否改善
+    webpackBuildWorker: false,
     // 2026-08-04 22:45 修正:限制 webpack 编译并行度,降低峰值内存。
     // SWC 大分配(15GB) + V8 堆组合在满并行时触发提交量上限,限 4 核压缩峰值。
-    // 2026-08-05 极致优化(实测对比):cpus=12 → 编译 2.8min(总 3:26);
-    // cpus=16 → 总 3:37(超线程争抢反而慢 11s)。cpus=12 为最优值
-    // (机器 12 物理核,20 逻辑核;编译密集型任务超线程无益)。
-    cpus: 12,
+    // 2026-08-28 内存排障:进一步降低并行度,尝试完成构建
+    cpus: 4,
     // 2026-08-04 生产构建排障(核心修复#1):Next.js 构建默认 fork 多个独立 worker
     // 进程(server/edge/client + 静态预渲染),每个进程独立 V8 堆 + SWC 实例,
     // 提交量(commit charge)叠加逼近 Windows 上限(物理31.8GB+pagefile16GB=47.8GB)
@@ -211,398 +217,889 @@ const nextConfig: NextConfig = {
     //   否则生产环境前端 /api/* 请求 404。因此移除 NODE_ENV 条件,始终启用(静态导出时 rewrites 本身不生效,无副作用)。
     return {
       beforeFiles: [
-      // ===== 2026-08-27 图片 CDN 静态资源(微信小程序远程图标) =====
-      // 背景:小程序图标原指向 file.aizhs.top(公网被指向第三方"写字楼系统")与
-      // bspapp.com(uniCloud CDN 已失效,DNS 不解析)。CDN 服务器 deploy/cdn-server.js
-      // 已在本机 :80 运行(Cloudflare Flexible 零证书,灰度占位图动态生成)。
-      // 方案:以下 184 条【精确路径】rewrite 将图标路径回源到 localhost:80,
-      // 使 https://aizhs.top/<icon-path> 直接可用,无需新增 Cloudflare 子域绑定。
-      // 精确匹配(非前缀通配)以避开 (main)/home、/user、/recruitment、/distribution
-      // 等页面路由与 [id] 动态路由。新图标加入 remote-icons.ts 后需重新生成
-      // (node deploy/generate-placeholders.js + 本段重新生成)。
-      { source: '/user/%E5%88%A0%E9%99%A4.png', destination: 'http://localhost:80/user/%E5%88%A0%E9%99%A4.png' },
-      { source: '/tabbar/home/carousel4-footer1/BottomFigure.png', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/BottomFigure.png' },
-      { source: '/recruitment/recruit2.png', destination: 'http://localhost:80/recruitment/recruit2.png' },
-      { source: '/recruitment/recruit3.png', destination: 'http://localhost:80/recruitment/recruit3.png' },
-      { source: '/tabbar/home/xia/commission.png', destination: 'http://localhost:80/tabbar/home/xia/commission.png' },
-      { source: '/card/background.png', destination: 'http://localhost:80/card/background.png' },
-      { source: '/tabbar/home/second/hello2.png', destination: 'http://localhost:80/tabbar/home/second/hello2.png' },
-      { source: '/tabbar/ai_agent/lunbo6.jpg', destination: 'http://localhost:80/tabbar/ai_agent/lunbo6.jpg' },
-      { source: '/tabbar/home/carousel4-footer1/carousel1.jpg', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel1.jpg' },
-      { source: '/tabbar/home/carousel4-footer1/carousel2.jpg', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel2.jpg' },
-      { source: '/tabbar/home/carousel4-footer1/carousel3.jpg', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel3.jpg' },
-      { source: '/tabbar/home/carousel4-footer1/carousel4-footer1-two.png', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel4-footer1-two.png' },
-      { source: '/tabbar/home/carousel4-footer1/lunbo1.png', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/lunbo1.png' },
-      { source: '/tabbar/home/carousel4-footer1/lunbo2.png', destination: 'http://localhost:80/tabbar/home/carousel4-footer1/lunbo2.png' },
-      { source: '/tabbar/home/zhongxia/king.png', destination: 'http://localhost:80/tabbar/home/zhongxia/king.png' },
-      { source: '/tabbar/coursePlanet/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20250419152536.png', destination: 'http://localhost:80/tabbar/coursePlanet/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20250419152536.png' },
-      { source: '/tabbar/coursePlanet/%E4%B8%8B.png', destination: 'http://localhost:80/tabbar/coursePlanet/%E4%B8%8B.png' },
-      { source: '/tabbar/home/zhong/right-arrow.png', destination: 'http://localhost:80/tabbar/home/zhong/right-arrow.png' },
-      { source: '/sys-mini/xtk/textareaOpen.png', destination: 'http://localhost:80/sys-mini/xtk/textareaOpen.png' },
-      { source: '/sys-mini/default/home/send.png', destination: 'http://localhost:80/sys-mini/default/home/send.png' },
-      { source: '/sys-mini/jieshaoye.jpg', destination: 'http://localhost:80/sys-mini/jieshaoye.jpg' },
-      { source: '/sys-mini/caopanshouqy.png', destination: 'http://localhost:80/sys-mini/caopanshouqy.png' },
-      { source: '/sys-mini/privateadvisory.png', destination: 'http://localhost:80/sys-mini/privateadvisory.png' },
-      { source: '/sys-mini/privateback.png', destination: 'http://localhost:80/sys-mini/privateback.png' },
-      { source: '/tabbar/home/xia/popular-courser.png', destination: 'http://localhost:80/tabbar/home/xia/popular-courser.png' },
-      { source: '/tabbar/home/xia/right-arrow.png', destination: 'http://localhost:80/tabbar/home/xia/right-arrow.png' },
-      { source: '/tabbar/home/xia/KnowledgePlanet.png', destination: 'http://localhost:80/tabbar/home/xia/KnowledgePlanet.png' },
-      { source: '/tabbar/home/zhong/aizhinengshe.png', destination: 'http://localhost:80/tabbar/home/zhong/aizhinengshe.png' },
-      { source: '/tabbar/home/xia/message.png', destination: 'http://localhost:80/tabbar/home/xia/message.png' },
-      { source: '/tabbar/home/xia/Like.png', destination: 'http://localhost:80/tabbar/home/xia/Like.png' },
-      { source: '/tabbar/home/xia/Forward.png', destination: 'http://localhost:80/tabbar/home/xia/Forward.png' },
-      { source: '/user/act.png', destination: 'http://localhost:80/user/act.png' },
-      { source: '/tabbar/coursePlanet/8.png', destination: 'http://localhost:80/tabbar/coursePlanet/8.png' },
-      { source: '/tabbar/coursePlanet/4.png', destination: 'http://localhost:80/tabbar/coursePlanet/4.png' },
-      { source: '/tabbar/coursePlanet/2.png', destination: 'http://localhost:80/tabbar/coursePlanet/2.png' },
-      { source: '/tabbar/coursePlanet/11.png', destination: 'http://localhost:80/tabbar/coursePlanet/11.png' },
-      { source: '/tabbar/coursePlanet/5.png', destination: 'http://localhost:80/tabbar/coursePlanet/5.png' },
-      { source: '/tabbar/coursePlanet/7.png', destination: 'http://localhost:80/tabbar/coursePlanet/7.png' },
-      { source: '/tabbar/coursePlanet/3.png', destination: 'http://localhost:80/tabbar/coursePlanet/3.png' },
-      { source: '/tabbar/coursePlanet/10.png', destination: 'http://localhost:80/tabbar/coursePlanet/10.png' },
-      { source: '/tabbar/coursePlanet/right.png', destination: 'http://localhost:80/tabbar/coursePlanet/right.png' },
-      { source: '/tabbar/home/zhongxia/popular-courser.png', destination: 'http://localhost:80/tabbar/home/zhongxia/popular-courser.png' },
-      { source: '/tabbar/home/zhongxia/right-arrow.png', destination: 'http://localhost:80/tabbar/home/zhongxia/right-arrow.png' },
-      { source: '/tabbar/home/zhongxia/popular-courses-nav.png', destination: 'http://localhost:80/tabbar/home/zhongxia/popular-courses-nav.png' },
-      { source: '/tabbar/course/fufei.png', destination: 'http://localhost:80/tabbar/course/fufei.png' },
-      { source: '/tabbar/ai_agent/user-avatar.png', destination: 'http://localhost:80/tabbar/ai_agent/user-avatar.png' },
-      { source: '/tabbar/ai_agent/jiqiren-big.png', destination: 'http://localhost:80/tabbar/ai_agent/jiqiren-big.png' },
-      { source: '/tabbar/home/second/hello1.png', destination: 'http://localhost:80/tabbar/home/second/hello1.png' },
-      { source: '/tabbar/home/zhong/custom-made.png', destination: 'http://localhost:80/tabbar/home/zhong/custom-made.png' },
-      { source: '/tabbar/tabbar/_20250418212023.png', destination: 'http://localhost:80/tabbar/tabbar/_20250418212023.png' },
-      { source: '/tabbar/tabbar/6.png', destination: 'http://localhost:80/tabbar/tabbar/6.png' },
-      { source: '/tabbar/tabbar/4.png', destination: 'http://localhost:80/tabbar/tabbar/4.png' },
-      { source: '/tabbar/tabbar/7.png', destination: 'http://localhost:80/tabbar/tabbar/7.png' },
-      { source: '/tabbar/tabbar/2.png', destination: 'http://localhost:80/tabbar/tabbar/2.png' },
-      { source: '/tabbar/tabbar/5.png', destination: 'http://localhost:80/tabbar/tabbar/5.png' },
-      { source: '/tabbar/tabbar/3.png', destination: 'http://localhost:80/tabbar/tabbar/3.png' },
-      { source: '/tabbar/home/zhong/backA.png', destination: 'http://localhost:80/tabbar/home/zhong/backA.png' },
-      { source: '/tabbar/tabbar/_20250418221944.png', destination: 'http://localhost:80/tabbar/tabbar/_20250418221944.png' },
-      { source: '/sys-mini/default/home/userVip_act.png', destination: 'http://localhost:80/sys-mini/default/home/userVip_act.png' },
-      { source: '/user/ai-icon.png', destination: 'http://localhost:80/user/ai-icon.png' },
-      { source: '/user/course-icon.png', destination: 'http://localhost:80/user/course-icon.png' },
-      { source: '/user/knowledge-icon.png', destination: 'http://localhost:80/user/knowledge-icon.png' },
-      { source: '/sys-mini/lingqu.png', destination: 'http://localhost:80/sys-mini/lingqu.png' },
-      { source: '/sys-mini/wenjuan.png', destination: 'http://localhost:80/sys-mini/wenjuan.png' },
-      { source: '/sys-mini/dd-bg.png', destination: 'http://localhost:80/sys-mini/dd-bg.png' },
-      { source: '/tabbar/coursePlanet/ss.png', destination: 'http://localhost:80/tabbar/coursePlanet/ss.png' },
-      { source: '/sys-mini/xiala.png', destination: 'http://localhost:80/sys-mini/xiala.png' },
-      { source: '/sys-mini/team1.png', destination: 'http://localhost:80/sys-mini/team1.png' },
-      { source: '/yongjin/icon1.png', destination: 'http://localhost:80/yongjin/icon1.png' },
-      { source: '/yongjin/juxing5Copy2@2x.png', destination: 'http://localhost:80/yongjin/juxing5Copy2@2x.png' },
-      { source: '/yongjin/money.png', destination: 'http://localhost:80/yongjin/money.png' },
-      { source: '/yongjin/mxbackground.png', destination: 'http://localhost:80/yongjin/mxbackground.png' },
-      { source: '/yongjin/date.png', destination: 'http://localhost:80/yongjin/date.png' },
-      { source: '/yongjin/qz.png', destination: 'http://localhost:80/yongjin/qz.png' },
-      { source: '/user/%E5%B7%A6.png', destination: 'http://localhost:80/user/%E5%B7%A6.png' },
-      { source: '/sys-mini/default/aihui.png', destination: 'http://localhost:80/sys-mini/default/aihui.png' },
-      { source: '/sys-mini/xtk/company.png', destination: 'http://localhost:80/sys-mini/xtk/company.png' },
-      { source: '/sys-mini/xtk/userinfo_btn_bg.png', destination: 'http://localhost:80/sys-mini/xtk/userinfo_btn_bg.png' },
-      { source: '/sys-mini/xtk/aimove.png', destination: 'http://localhost:80/sys-mini/xtk/aimove.png' },
-      { source: '/sys-mini/xtk/aimusic.png', destination: 'http://localhost:80/sys-mini/xtk/aimusic.png' },
-      { source: '/sys-mini/xtk/aiText.png', destination: 'http://localhost:80/sys-mini/xtk/aiText.png' },
-      { source: '/sys-mini/xtk/aiBk.png', destination: 'http://localhost:80/sys-mini/xtk/aiBk.png' },
-      { source: '/sys-mini/xtk/ai2.png', destination: 'http://localhost:80/sys-mini/xtk/ai2.png' },
-      { source: '/sys-mini/xtk/aiWork.png', destination: 'http://localhost:80/sys-mini/xtk/aiWork.png' },
-      { source: '/sys-mini/xtk/set_need_image.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_image.png' },
-      { source: '/sys-mini/xtk/set_need_addimage.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_addimage.png' },
-      { source: '/sys-mini/xtk/set_need_text.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_text.png' },
-      { source: '/sys-mini/xtk/set_need_work.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_work.png' },
-      { source: '/tabbar/ai_agent/%E8%83%8C%E6%99%AF%E5%92%8Clogo.png', destination: 'http://localhost:80/tabbar/ai_agent/%E8%83%8C%E6%99%AF%E5%92%8Clogo.png' },
-      { source: '/tabbar/home/zhong/ai-video.png', destination: 'http://localhost:80/tabbar/home/zhong/ai-video.png' },
-      { source: '/tabbar/home/second/jiqiren-big.png', destination: 'http://localhost:80/tabbar/home/second/jiqiren-big.png' },
-      { source: '/tabbar/home/second/hello.png', destination: 'http://localhost:80/tabbar/home/second/hello.png' },
-      { source: '/tabbar/home/second/user-avatar.jpg', destination: 'http://localhost:80/tabbar/home/second/user-avatar.jpg' },
-      { source: '/tabbar/home/second/jiqiren.png', destination: 'http://localhost:80/tabbar/home/second/jiqiren.png' },
-      { source: '/tabbar/home/second/right.png', destination: 'http://localhost:80/tabbar/home/second/right.png' },
-      { source: '/tabbar/home/second/title.png', destination: 'http://localhost:80/tabbar/home/second/title.png' },
-      { source: '/sys-mini/Wechat_white@2x.png', destination: 'http://localhost:80/sys-mini/Wechat_white@2x.png' },
-      { source: '/sys-mini/xgzt.jpg', destination: 'http://localhost:80/sys-mini/xgzt.jpg' },
-      { source: '/sys-mini/save@2x.png', destination: 'http://localhost:80/sys-mini/save@2x.png' },
-      { source: '/sys-mini/default/mingpian.jpg', destination: 'http://localhost:80/sys-mini/default/mingpian.jpg' },
-      { source: '/recruitment/xuancai@2x.png', destination: 'http://localhost:80/recruitment/xuancai@2x.png' },
-      { source: '/recruitment/ewm@2x.png', destination: 'http://localhost:80/recruitment/ewm@2x.png' },
-      { source: '/tabbar/coursePlanet/6.png', destination: 'http://localhost:80/tabbar/coursePlanet/6.png' },
-      { source: '/tabbar/coursePlanet/9.png', destination: 'http://localhost:80/tabbar/coursePlanet/9.png' },
-      { source: '/tabbar/coursePlanet/1.png', destination: 'http://localhost:80/tabbar/coursePlanet/1.png' },
-      { source: '/tabbar/ai_agent/12071746256773_.pic.jpg', destination: 'http://localhost:80/tabbar/ai_agent/12071746256773_.pic.jpg' },
-      { source: '/sys-mini/xtk/cash.png', destination: 'http://localhost:80/sys-mini/xtk/cash.png' },
-      { source: '/sys-mini/xtk/my_model_delete.png', destination: 'http://localhost:80/sys-mini/xtk/my_model_delete.png' },
-      { source: '/sys-mini/xtk/dev_pay_icon.png', destination: 'http://localhost:80/sys-mini/xtk/dev_pay_icon.png' },
-      { source: '/sys-mini/xtk/enter_page.png', destination: 'http://localhost:80/sys-mini/xtk/enter_page.png' },
-      { source: '/sys-mini/xtk/dev_pay_border_image.png', destination: 'http://localhost:80/sys-mini/xtk/dev_pay_border_image.png' },
-      { source: '/sys-mini/xtk/bumen2.png', destination: 'http://localhost:80/sys-mini/xtk/bumen2.png' },
-      { source: '/sys-mini/xtk/model_edit_down.png', destination: 'http://localhost:80/sys-mini/xtk/model_edit_down.png' },
-      { source: '/sys-mini/xtk/model_edit_yes.png', destination: 'http://localhost:80/sys-mini/xtk/model_edit_yes.png' },
-      { source: '/sys-mini/xtk/model_edit_yuan.png', destination: 'http://localhost:80/sys-mini/xtk/model_edit_yuan.png' },
-      { source: '/sys-mini/xtk/model_edit_helf.png', destination: 'http://localhost:80/sys-mini/xtk/model_edit_helf.png' },
-      { source: '/sys-mini/xtk/model_income_btn_bg.png', destination: 'http://localhost:80/sys-mini/xtk/model_income_btn_bg.png' },
-      { source: '/sys-mini/xtk/model_income_right.png', destination: 'http://localhost:80/sys-mini/xtk/model_income_right.png' },
-      { source: '/sys-mini/xtk/model_income_icon_form.png', destination: 'http://localhost:80/sys-mini/xtk/model_income_icon_form.png' },
-      { source: '/sys-mini/xtk/wx_wallet.png', destination: 'http://localhost:80/sys-mini/xtk/wx_wallet.png' },
-      { source: '/sys-mini/xtk/wx_icon.png', destination: 'http://localhost:80/sys-mini/xtk/wx_icon.png' },
-      { source: '/sys-mini/xtk/wx_btn_yes.png', destination: 'http://localhost:80/sys-mini/xtk/wx_btn_yes.png' },
-      { source: '/sys-mini/xtk/wx_btn_no.png', destination: 'http://localhost:80/sys-mini/xtk/wx_btn_no.png' },
-      { source: '/sys-backs/2025/09/24/391_42_20250924094836A218.png', destination: 'http://localhost:80/sys-backs/2025/09/24/391_42_20250924094836A218.png' },
-      { source: '/tabbar/tabbar/home.png', destination: 'http://localhost:80/tabbar/tabbar/home.png' },
-      { source: '/home/ewm.png', destination: 'http://localhost:80/home/ewm.png' },
-      { source: '/sys-mini/fasong.png', destination: 'http://localhost:80/sys-mini/fasong.png' },
-      { source: '/sys-mini/home-icon.png', destination: 'http://localhost:80/sys-mini/home-icon.png' },
-      { source: '/sys-mini/xtk/devlogo.png', destination: 'http://localhost:80/sys-mini/xtk/devlogo.png' },
-      { source: '/sys-mini/xtk/cancel.png', destination: 'http://localhost:80/sys-mini/xtk/cancel.png' },
-      { source: '/sys-mini/xtk/Welcome.png', destination: 'http://localhost:80/sys-mini/xtk/Welcome.png' },
-      { source: '/sys-mini/xtk/iHuiInfAI.png', destination: 'http://localhost:80/sys-mini/xtk/iHuiInfAI.png' },
-      { source: '/sys-mini/xtk/plaza_win_left.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_win_left.png' },
-      { source: '/sys-mini/xtk/image_or.png', destination: 'http://localhost:80/sys-mini/xtk/image_or.png' },
-      { source: '/sys-mini/xtk/plaza_win_right.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_win_right.png' },
-      { source: '/sys-mini/xtk/plaza_icon11.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon11.png' },
-      { source: '/sys-mini/xtk/plaza_icon01.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon01.png' },
-      { source: '/sys-mini/xtk/plaza_icon12.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon12.png' },
-      { source: '/sys-mini/xtk/plaza_icon02.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon02.png' },
-      { source: '/sys-mini/xtk/plaza_icon13.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon13.png' },
-      { source: '/sys-mini/xtk/plaza_icon03.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon03.png' },
-      { source: '/sys-mini/xtk/plaza_icon14.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon14.png' },
-      { source: '/sys-mini/xtk/plaza_icon04.png', destination: 'http://localhost:80/sys-mini/xtk/plaza_icon04.png' },
-      { source: '/sys-mini/xtk/my_model.png', destination: 'http://localhost:80/sys-mini/xtk/my_model.png' },
-      { source: '/sys-mini/xtk/my_input.png', destination: 'http://localhost:80/sys-mini/xtk/my_input.png' },
-      { source: '/sys-mini/default/n8n.png', destination: 'http://localhost:80/sys-mini/default/n8n.png' },
-      { source: '/sys-mini/xtk/dev_copy.png', destination: 'http://localhost:80/sys-mini/xtk/dev_copy.png' },
-      { source: '/sys-mini/xtk/dev_pay_boder_nomal.png', destination: 'http://localhost:80/sys-mini/xtk/dev_pay_boder_nomal.png' },
-      { source: '/sys-mini/xtk/dev_pay_border_color.png', destination: 'http://localhost:80/sys-mini/xtk/dev_pay_border_color.png' },
-      { source: '/sys-mini/default/bumen.png', destination: 'http://localhost:80/sys-mini/default/bumen.png' },
-      { source: '/sys-mini/xtk/set_need_time.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_time.png' },
-      { source: '/sys-mini/xtk/set_need_time_end.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_time_end.png' },
-      { source: '/sys-mini/xtk/set_need_select_down.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_select_down.png' },
-      { source: '/sys-mini/xtk/set_need_money.png', destination: 'http://localhost:80/sys-mini/xtk/set_need_money.png' },
-      { source: '/recruitment/bigtp@2x.png', destination: 'http://localhost:80/recruitment/bigtp@2x.png' },
-      { source: '/sys-mini/xtk/study_icon_add_grad.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_add_grad.png' },
-      { source: '/sys-mini/xtk/study_icon_playing.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_playing.png' },
-      { source: '/sys-mini/xtk/study_icon_right_end.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_right_end.png' },
-      { source: '/sys-mini/xtk/study_comment_info.png', destination: 'http://localhost:80/sys-mini/xtk/study_comment_info.png' },
-      { source: '/sys-mini/xtk/study_icon_video.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_video.png' },
-      { source: '/sys-mini/xtk/study_icon_blink.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_blink.png' },
-      { source: '/sys-mini/xtk/study_icon_tip.png', destination: 'http://localhost:80/sys-mini/xtk/study_icon_tip.png' },
-      { source: '/sys-mini/default/huodongBG.png', destination: 'http://localhost:80/sys-mini/default/huodongBG.png' },
-      { source: '/sys-mini/penicon.png', destination: 'http://localhost:80/sys-mini/penicon.png' },
-      { source: '/sys-mini/123444456.png', destination: 'http://localhost:80/sys-mini/123444456.png' },
-      { source: '/sys-mini/WechatIMG54.png', destination: 'http://localhost:80/sys-mini/WechatIMG54.png' },
-      { source: '/sys-mini/wallet-zf.png', destination: 'http://localhost:80/sys-mini/wallet-zf.png' },
-      { source: '/sys-mini/default/wallet.png', destination: 'http://localhost:80/sys-mini/default/wallet.png' },
-      { source: '/sys-mini/default/gold_active.png', destination: 'http://localhost:80/sys-mini/default/gold_active.png' },
-      { source: '/sys-mini/default/gold.png', destination: 'http://localhost:80/sys-mini/default/gold.png' },
-      { source: '/sys-mini/xiugai.png', destination: 'http://localhost:80/sys-mini/xiugai.png' },
-      { source: '/sys-mini/default/selected.png', destination: 'http://localhost:80/sys-mini/default/selected.png' },
-      { source: '/sys-mini/default/select.png', destination: 'http://localhost:80/sys-mini/default/select.png' },
-      { source: '/sys-mini/Emphty.png', destination: 'http://localhost:80/sys-mini/Emphty.png' },
-      { source: '/sys-mini/default/wechat.png', destination: 'http://localhost:80/sys-mini/default/wechat.png' },
-      { source: '/user/topup.png', destination: 'http://localhost:80/user/topup.png' },
-      { source: '/sys-mini/default/xing.png', destination: 'http://localhost:80/sys-mini/default/xing.png' },
-      { source: '/sys-mini/default/ljkt_icon.png', destination: 'http://localhost:80/sys-mini/default/ljkt_icon.png' },
-      { source: '/sys-mini/default/zuan.png', destination: 'http://localhost:80/sys-mini/default/zuan.png' },
-      { source: '/sys-mini/default/zuan_title.png', destination: 'http://localhost:80/sys-mini/default/zuan_title.png' },
-      { source: '/sys-mini/default/sdh_back.jpg', destination: 'http://localhost:80/sys-mini/default/sdh_back.jpg' },
-      { source: '/user/right.png', destination: 'http://localhost:80/user/right.png' },
-      { source: '/user/wxfb.png', destination: 'http://localhost:80/user/wxfb.png' },
-      { source: '/user/zfb.png', destination: 'http://localhost:80/user/zfb.png' },
+        // ===== 2026-08-27 图片 CDN 静态资源(微信小程序远程图标) =====
+        // 背景:小程序图标原指向 file.aizhs.top(公网被指向第三方"写字楼系统")与
+        // bspapp.com(uniCloud CDN 已失效,DNS 不解析)。CDN 服务器 deploy/cdn-server.js
+        // 已在本机 :80 运行(Cloudflare Flexible 零证书,灰度占位图动态生成)。
+        // 方案:以下 184 条【精确路径】rewrite 将图标路径回源到 localhost:80,
+        // 使 https://aizhs.top/<icon-path> 直接可用,无需新增 Cloudflare 子域绑定。
+        // 精确匹配(非前缀通配)以避开 (main)/home、/user、/recruitment、/distribution
+        // 等页面路由与 [id] 动态路由。新图标加入 remote-icons.ts 后需重新生成
+        // (node deploy/generate-placeholders.js + 本段重新生成)。
+        {
+          source: '/user/%E5%88%A0%E9%99%A4.png',
+          destination: 'http://localhost:80/user/%E5%88%A0%E9%99%A4.png',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/BottomFigure.png',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/BottomFigure.png',
+        },
+        {
+          source: '/recruitment/recruit2.png',
+          destination: 'http://localhost:80/recruitment/recruit2.png',
+        },
+        {
+          source: '/recruitment/recruit3.png',
+          destination: 'http://localhost:80/recruitment/recruit3.png',
+        },
+        {
+          source: '/tabbar/home/xia/commission.png',
+          destination: 'http://localhost:80/tabbar/home/xia/commission.png',
+        },
+        { source: '/card/background.png', destination: 'http://localhost:80/card/background.png' },
+        {
+          source: '/tabbar/home/second/hello2.png',
+          destination: 'http://localhost:80/tabbar/home/second/hello2.png',
+        },
+        {
+          source: '/tabbar/ai_agent/lunbo6.jpg',
+          destination: 'http://localhost:80/tabbar/ai_agent/lunbo6.jpg',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/carousel1.jpg',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel1.jpg',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/carousel2.jpg',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel2.jpg',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/carousel3.jpg',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/carousel3.jpg',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/carousel4-footer1-two.png',
+          destination:
+            'http://localhost:80/tabbar/home/carousel4-footer1/carousel4-footer1-two.png',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/lunbo1.png',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/lunbo1.png',
+        },
+        {
+          source: '/tabbar/home/carousel4-footer1/lunbo2.png',
+          destination: 'http://localhost:80/tabbar/home/carousel4-footer1/lunbo2.png',
+        },
+        {
+          source: '/tabbar/home/zhongxia/king.png',
+          destination: 'http://localhost:80/tabbar/home/zhongxia/king.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20250419152536.png',
+          destination:
+            'http://localhost:80/tabbar/coursePlanet/%E5%BE%AE%E4%BF%A1%E5%9B%BE%E7%89%87_20250419152536.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/%E4%B8%8B.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/%E4%B8%8B.png',
+        },
+        {
+          source: '/tabbar/home/zhong/right-arrow.png',
+          destination: 'http://localhost:80/tabbar/home/zhong/right-arrow.png',
+        },
+        {
+          source: '/sys-mini/xtk/textareaOpen.png',
+          destination: 'http://localhost:80/sys-mini/xtk/textareaOpen.png',
+        },
+        {
+          source: '/sys-mini/default/home/send.png',
+          destination: 'http://localhost:80/sys-mini/default/home/send.png',
+        },
+        {
+          source: '/sys-mini/jieshaoye.jpg',
+          destination: 'http://localhost:80/sys-mini/jieshaoye.jpg',
+        },
+        {
+          source: '/sys-mini/caopanshouqy.png',
+          destination: 'http://localhost:80/sys-mini/caopanshouqy.png',
+        },
+        {
+          source: '/sys-mini/privateadvisory.png',
+          destination: 'http://localhost:80/sys-mini/privateadvisory.png',
+        },
+        {
+          source: '/sys-mini/privateback.png',
+          destination: 'http://localhost:80/sys-mini/privateback.png',
+        },
+        {
+          source: '/tabbar/home/xia/popular-courser.png',
+          destination: 'http://localhost:80/tabbar/home/xia/popular-courser.png',
+        },
+        {
+          source: '/tabbar/home/xia/right-arrow.png',
+          destination: 'http://localhost:80/tabbar/home/xia/right-arrow.png',
+        },
+        {
+          source: '/tabbar/home/xia/KnowledgePlanet.png',
+          destination: 'http://localhost:80/tabbar/home/xia/KnowledgePlanet.png',
+        },
+        {
+          source: '/tabbar/home/zhong/aizhinengshe.png',
+          destination: 'http://localhost:80/tabbar/home/zhong/aizhinengshe.png',
+        },
+        {
+          source: '/tabbar/home/xia/message.png',
+          destination: 'http://localhost:80/tabbar/home/xia/message.png',
+        },
+        {
+          source: '/tabbar/home/xia/Like.png',
+          destination: 'http://localhost:80/tabbar/home/xia/Like.png',
+        },
+        {
+          source: '/tabbar/home/xia/Forward.png',
+          destination: 'http://localhost:80/tabbar/home/xia/Forward.png',
+        },
+        { source: '/user/act.png', destination: 'http://localhost:80/user/act.png' },
+        {
+          source: '/tabbar/coursePlanet/8.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/8.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/4.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/4.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/2.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/2.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/11.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/11.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/5.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/5.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/7.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/7.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/3.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/3.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/10.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/10.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/right.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/right.png',
+        },
+        {
+          source: '/tabbar/home/zhongxia/popular-courser.png',
+          destination: 'http://localhost:80/tabbar/home/zhongxia/popular-courser.png',
+        },
+        {
+          source: '/tabbar/home/zhongxia/right-arrow.png',
+          destination: 'http://localhost:80/tabbar/home/zhongxia/right-arrow.png',
+        },
+        {
+          source: '/tabbar/home/zhongxia/popular-courses-nav.png',
+          destination: 'http://localhost:80/tabbar/home/zhongxia/popular-courses-nav.png',
+        },
+        {
+          source: '/tabbar/course/fufei.png',
+          destination: 'http://localhost:80/tabbar/course/fufei.png',
+        },
+        {
+          source: '/tabbar/ai_agent/user-avatar.png',
+          destination: 'http://localhost:80/tabbar/ai_agent/user-avatar.png',
+        },
+        {
+          source: '/tabbar/ai_agent/jiqiren-big.png',
+          destination: 'http://localhost:80/tabbar/ai_agent/jiqiren-big.png',
+        },
+        {
+          source: '/tabbar/home/second/hello1.png',
+          destination: 'http://localhost:80/tabbar/home/second/hello1.png',
+        },
+        {
+          source: '/tabbar/home/zhong/custom-made.png',
+          destination: 'http://localhost:80/tabbar/home/zhong/custom-made.png',
+        },
+        {
+          source: '/tabbar/tabbar/_20250418212023.png',
+          destination: 'http://localhost:80/tabbar/tabbar/_20250418212023.png',
+        },
+        { source: '/tabbar/tabbar/6.png', destination: 'http://localhost:80/tabbar/tabbar/6.png' },
+        { source: '/tabbar/tabbar/4.png', destination: 'http://localhost:80/tabbar/tabbar/4.png' },
+        { source: '/tabbar/tabbar/7.png', destination: 'http://localhost:80/tabbar/tabbar/7.png' },
+        { source: '/tabbar/tabbar/2.png', destination: 'http://localhost:80/tabbar/tabbar/2.png' },
+        { source: '/tabbar/tabbar/5.png', destination: 'http://localhost:80/tabbar/tabbar/5.png' },
+        { source: '/tabbar/tabbar/3.png', destination: 'http://localhost:80/tabbar/tabbar/3.png' },
+        {
+          source: '/tabbar/home/zhong/backA.png',
+          destination: 'http://localhost:80/tabbar/home/zhong/backA.png',
+        },
+        {
+          source: '/tabbar/tabbar/_20250418221944.png',
+          destination: 'http://localhost:80/tabbar/tabbar/_20250418221944.png',
+        },
+        {
+          source: '/sys-mini/default/home/userVip_act.png',
+          destination: 'http://localhost:80/sys-mini/default/home/userVip_act.png',
+        },
+        { source: '/user/ai-icon.png', destination: 'http://localhost:80/user/ai-icon.png' },
+        {
+          source: '/user/course-icon.png',
+          destination: 'http://localhost:80/user/course-icon.png',
+        },
+        {
+          source: '/user/knowledge-icon.png',
+          destination: 'http://localhost:80/user/knowledge-icon.png',
+        },
+        { source: '/sys-mini/lingqu.png', destination: 'http://localhost:80/sys-mini/lingqu.png' },
+        {
+          source: '/sys-mini/wenjuan.png',
+          destination: 'http://localhost:80/sys-mini/wenjuan.png',
+        },
+        { source: '/sys-mini/dd-bg.png', destination: 'http://localhost:80/sys-mini/dd-bg.png' },
+        {
+          source: '/tabbar/coursePlanet/ss.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/ss.png',
+        },
+        { source: '/sys-mini/xiala.png', destination: 'http://localhost:80/sys-mini/xiala.png' },
+        { source: '/sys-mini/team1.png', destination: 'http://localhost:80/sys-mini/team1.png' },
+        { source: '/yongjin/icon1.png', destination: 'http://localhost:80/yongjin/icon1.png' },
+        {
+          source: '/yongjin/juxing5Copy2@2x.png',
+          destination: 'http://localhost:80/yongjin/juxing5Copy2@2x.png',
+        },
+        { source: '/yongjin/money.png', destination: 'http://localhost:80/yongjin/money.png' },
+        {
+          source: '/yongjin/mxbackground.png',
+          destination: 'http://localhost:80/yongjin/mxbackground.png',
+        },
+        { source: '/yongjin/date.png', destination: 'http://localhost:80/yongjin/date.png' },
+        { source: '/yongjin/qz.png', destination: 'http://localhost:80/yongjin/qz.png' },
+        { source: '/user/%E5%B7%A6.png', destination: 'http://localhost:80/user/%E5%B7%A6.png' },
+        {
+          source: '/sys-mini/default/aihui.png',
+          destination: 'http://localhost:80/sys-mini/default/aihui.png',
+        },
+        {
+          source: '/sys-mini/xtk/company.png',
+          destination: 'http://localhost:80/sys-mini/xtk/company.png',
+        },
+        {
+          source: '/sys-mini/xtk/userinfo_btn_bg.png',
+          destination: 'http://localhost:80/sys-mini/xtk/userinfo_btn_bg.png',
+        },
+        {
+          source: '/sys-mini/xtk/aimove.png',
+          destination: 'http://localhost:80/sys-mini/xtk/aimove.png',
+        },
+        {
+          source: '/sys-mini/xtk/aimusic.png',
+          destination: 'http://localhost:80/sys-mini/xtk/aimusic.png',
+        },
+        {
+          source: '/sys-mini/xtk/aiText.png',
+          destination: 'http://localhost:80/sys-mini/xtk/aiText.png',
+        },
+        {
+          source: '/sys-mini/xtk/aiBk.png',
+          destination: 'http://localhost:80/sys-mini/xtk/aiBk.png',
+        },
+        {
+          source: '/sys-mini/xtk/ai2.png',
+          destination: 'http://localhost:80/sys-mini/xtk/ai2.png',
+        },
+        {
+          source: '/sys-mini/xtk/aiWork.png',
+          destination: 'http://localhost:80/sys-mini/xtk/aiWork.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_image.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_image.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_addimage.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_addimage.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_text.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_text.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_work.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_work.png',
+        },
+        {
+          source: '/tabbar/ai_agent/%E8%83%8C%E6%99%AF%E5%92%8Clogo.png',
+          destination: 'http://localhost:80/tabbar/ai_agent/%E8%83%8C%E6%99%AF%E5%92%8Clogo.png',
+        },
+        {
+          source: '/tabbar/home/zhong/ai-video.png',
+          destination: 'http://localhost:80/tabbar/home/zhong/ai-video.png',
+        },
+        {
+          source: '/tabbar/home/second/jiqiren-big.png',
+          destination: 'http://localhost:80/tabbar/home/second/jiqiren-big.png',
+        },
+        {
+          source: '/tabbar/home/second/hello.png',
+          destination: 'http://localhost:80/tabbar/home/second/hello.png',
+        },
+        {
+          source: '/tabbar/home/second/user-avatar.jpg',
+          destination: 'http://localhost:80/tabbar/home/second/user-avatar.jpg',
+        },
+        {
+          source: '/tabbar/home/second/jiqiren.png',
+          destination: 'http://localhost:80/tabbar/home/second/jiqiren.png',
+        },
+        {
+          source: '/tabbar/home/second/right.png',
+          destination: 'http://localhost:80/tabbar/home/second/right.png',
+        },
+        {
+          source: '/tabbar/home/second/title.png',
+          destination: 'http://localhost:80/tabbar/home/second/title.png',
+        },
+        {
+          source: '/sys-mini/Wechat_white@2x.png',
+          destination: 'http://localhost:80/sys-mini/Wechat_white@2x.png',
+        },
+        { source: '/sys-mini/xgzt.jpg', destination: 'http://localhost:80/sys-mini/xgzt.jpg' },
+        {
+          source: '/sys-mini/save@2x.png',
+          destination: 'http://localhost:80/sys-mini/save@2x.png',
+        },
+        {
+          source: '/sys-mini/default/mingpian.jpg',
+          destination: 'http://localhost:80/sys-mini/default/mingpian.jpg',
+        },
+        {
+          source: '/recruitment/xuancai@2x.png',
+          destination: 'http://localhost:80/recruitment/xuancai@2x.png',
+        },
+        {
+          source: '/recruitment/ewm@2x.png',
+          destination: 'http://localhost:80/recruitment/ewm@2x.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/6.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/6.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/9.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/9.png',
+        },
+        {
+          source: '/tabbar/coursePlanet/1.png',
+          destination: 'http://localhost:80/tabbar/coursePlanet/1.png',
+        },
+        {
+          source: '/tabbar/ai_agent/12071746256773_.pic.jpg',
+          destination: 'http://localhost:80/tabbar/ai_agent/12071746256773_.pic.jpg',
+        },
+        {
+          source: '/sys-mini/xtk/cash.png',
+          destination: 'http://localhost:80/sys-mini/xtk/cash.png',
+        },
+        {
+          source: '/sys-mini/xtk/my_model_delete.png',
+          destination: 'http://localhost:80/sys-mini/xtk/my_model_delete.png',
+        },
+        {
+          source: '/sys-mini/xtk/dev_pay_icon.png',
+          destination: 'http://localhost:80/sys-mini/xtk/dev_pay_icon.png',
+        },
+        {
+          source: '/sys-mini/xtk/enter_page.png',
+          destination: 'http://localhost:80/sys-mini/xtk/enter_page.png',
+        },
+        {
+          source: '/sys-mini/xtk/dev_pay_border_image.png',
+          destination: 'http://localhost:80/sys-mini/xtk/dev_pay_border_image.png',
+        },
+        {
+          source: '/sys-mini/xtk/bumen2.png',
+          destination: 'http://localhost:80/sys-mini/xtk/bumen2.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_edit_down.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_edit_down.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_edit_yes.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_edit_yes.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_edit_yuan.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_edit_yuan.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_edit_helf.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_edit_helf.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_income_btn_bg.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_income_btn_bg.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_income_right.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_income_right.png',
+        },
+        {
+          source: '/sys-mini/xtk/model_income_icon_form.png',
+          destination: 'http://localhost:80/sys-mini/xtk/model_income_icon_form.png',
+        },
+        {
+          source: '/sys-mini/xtk/wx_wallet.png',
+          destination: 'http://localhost:80/sys-mini/xtk/wx_wallet.png',
+        },
+        {
+          source: '/sys-mini/xtk/wx_icon.png',
+          destination: 'http://localhost:80/sys-mini/xtk/wx_icon.png',
+        },
+        {
+          source: '/sys-mini/xtk/wx_btn_yes.png',
+          destination: 'http://localhost:80/sys-mini/xtk/wx_btn_yes.png',
+        },
+        {
+          source: '/sys-mini/xtk/wx_btn_no.png',
+          destination: 'http://localhost:80/sys-mini/xtk/wx_btn_no.png',
+        },
+        {
+          source: '/sys-backs/2025/09/24/391_42_20250924094836A218.png',
+          destination: 'http://localhost:80/sys-backs/2025/09/24/391_42_20250924094836A218.png',
+        },
+        {
+          source: '/tabbar/tabbar/home.png',
+          destination: 'http://localhost:80/tabbar/tabbar/home.png',
+        },
+        { source: '/home/ewm.png', destination: 'http://localhost:80/home/ewm.png' },
+        { source: '/sys-mini/fasong.png', destination: 'http://localhost:80/sys-mini/fasong.png' },
+        {
+          source: '/sys-mini/home-icon.png',
+          destination: 'http://localhost:80/sys-mini/home-icon.png',
+        },
+        {
+          source: '/sys-mini/xtk/devlogo.png',
+          destination: 'http://localhost:80/sys-mini/xtk/devlogo.png',
+        },
+        {
+          source: '/sys-mini/xtk/cancel.png',
+          destination: 'http://localhost:80/sys-mini/xtk/cancel.png',
+        },
+        {
+          source: '/sys-mini/xtk/Welcome.png',
+          destination: 'http://localhost:80/sys-mini/xtk/Welcome.png',
+        },
+        {
+          source: '/sys-mini/xtk/iHuiInfAI.png',
+          destination: 'http://localhost:80/sys-mini/xtk/iHuiInfAI.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_win_left.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_win_left.png',
+        },
+        {
+          source: '/sys-mini/xtk/image_or.png',
+          destination: 'http://localhost:80/sys-mini/xtk/image_or.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_win_right.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_win_right.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon11.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon11.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon01.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon01.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon12.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon12.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon02.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon02.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon13.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon13.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon03.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon03.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon14.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon14.png',
+        },
+        {
+          source: '/sys-mini/xtk/plaza_icon04.png',
+          destination: 'http://localhost:80/sys-mini/xtk/plaza_icon04.png',
+        },
+        {
+          source: '/sys-mini/xtk/my_model.png',
+          destination: 'http://localhost:80/sys-mini/xtk/my_model.png',
+        },
+        {
+          source: '/sys-mini/xtk/my_input.png',
+          destination: 'http://localhost:80/sys-mini/xtk/my_input.png',
+        },
+        {
+          source: '/sys-mini/default/n8n.png',
+          destination: 'http://localhost:80/sys-mini/default/n8n.png',
+        },
+        {
+          source: '/sys-mini/xtk/dev_copy.png',
+          destination: 'http://localhost:80/sys-mini/xtk/dev_copy.png',
+        },
+        {
+          source: '/sys-mini/xtk/dev_pay_boder_nomal.png',
+          destination: 'http://localhost:80/sys-mini/xtk/dev_pay_boder_nomal.png',
+        },
+        {
+          source: '/sys-mini/xtk/dev_pay_border_color.png',
+          destination: 'http://localhost:80/sys-mini/xtk/dev_pay_border_color.png',
+        },
+        {
+          source: '/sys-mini/default/bumen.png',
+          destination: 'http://localhost:80/sys-mini/default/bumen.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_time.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_time.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_time_end.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_time_end.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_select_down.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_select_down.png',
+        },
+        {
+          source: '/sys-mini/xtk/set_need_money.png',
+          destination: 'http://localhost:80/sys-mini/xtk/set_need_money.png',
+        },
+        {
+          source: '/recruitment/bigtp@2x.png',
+          destination: 'http://localhost:80/recruitment/bigtp@2x.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_add_grad.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_add_grad.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_playing.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_playing.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_right_end.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_right_end.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_comment_info.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_comment_info.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_video.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_video.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_blink.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_blink.png',
+        },
+        {
+          source: '/sys-mini/xtk/study_icon_tip.png',
+          destination: 'http://localhost:80/sys-mini/xtk/study_icon_tip.png',
+        },
+        {
+          source: '/sys-mini/default/huodongBG.png',
+          destination: 'http://localhost:80/sys-mini/default/huodongBG.png',
+        },
+        {
+          source: '/sys-mini/penicon.png',
+          destination: 'http://localhost:80/sys-mini/penicon.png',
+        },
+        {
+          source: '/sys-mini/123444456.png',
+          destination: 'http://localhost:80/sys-mini/123444456.png',
+        },
+        {
+          source: '/sys-mini/WechatIMG54.png',
+          destination: 'http://localhost:80/sys-mini/WechatIMG54.png',
+        },
+        {
+          source: '/sys-mini/wallet-zf.png',
+          destination: 'http://localhost:80/sys-mini/wallet-zf.png',
+        },
+        {
+          source: '/sys-mini/default/wallet.png',
+          destination: 'http://localhost:80/sys-mini/default/wallet.png',
+        },
+        {
+          source: '/sys-mini/default/gold_active.png',
+          destination: 'http://localhost:80/sys-mini/default/gold_active.png',
+        },
+        {
+          source: '/sys-mini/default/gold.png',
+          destination: 'http://localhost:80/sys-mini/default/gold.png',
+        },
+        { source: '/sys-mini/xiugai.png', destination: 'http://localhost:80/sys-mini/xiugai.png' },
+        {
+          source: '/sys-mini/default/selected.png',
+          destination: 'http://localhost:80/sys-mini/default/selected.png',
+        },
+        {
+          source: '/sys-mini/default/select.png',
+          destination: 'http://localhost:80/sys-mini/default/select.png',
+        },
+        { source: '/sys-mini/Emphty.png', destination: 'http://localhost:80/sys-mini/Emphty.png' },
+        {
+          source: '/sys-mini/default/wechat.png',
+          destination: 'http://localhost:80/sys-mini/default/wechat.png',
+        },
+        { source: '/user/topup.png', destination: 'http://localhost:80/user/topup.png' },
+        {
+          source: '/sys-mini/default/xing.png',
+          destination: 'http://localhost:80/sys-mini/default/xing.png',
+        },
+        {
+          source: '/sys-mini/default/ljkt_icon.png',
+          destination: 'http://localhost:80/sys-mini/default/ljkt_icon.png',
+        },
+        {
+          source: '/sys-mini/default/zuan.png',
+          destination: 'http://localhost:80/sys-mini/default/zuan.png',
+        },
+        {
+          source: '/sys-mini/default/zuan_title.png',
+          destination: 'http://localhost:80/sys-mini/default/zuan_title.png',
+        },
+        {
+          source: '/sys-mini/default/sdh_back.jpg',
+          destination: 'http://localhost:80/sys-mini/default/sdh_back.jpg',
+        },
+        { source: '/user/right.png', destination: 'http://localhost:80/user/right.png' },
+        { source: '/user/wxfb.png', destination: 'http://localhost:80/user/wxfb.png' },
+        { source: '/user/zfb.png', destination: 'http://localhost:80/user/zfb.png' },
       ],
       afterFiles: [
-      { source: '/yongjin/juxing5Copy2%402x.png', destination: 'http://localhost:80/yongjin/juxing5Copy2%402x.png' },
-      { source: '/sys-mini/Wechat_white%402x.png', destination: 'http://localhost:80/sys-mini/Wechat_white%402x.png' },
-      { source: '/sys-mini/save%402x.png', destination: 'http://localhost:80/sys-mini/save%402x.png' },
-      { source: '/recruitment/xuancai%402x.png', destination: 'http://localhost:80/recruitment/xuancai%402x.png' },
-      { source: '/recruitment/ewm%402x.png', destination: 'http://localhost:80/recruitment/ewm%402x.png' },
-      { source: '/recruitment/bigtp%402x.png', destination: 'http://localhost:80/recruitment/bigtp%402x.png' },
-      // 2026-08-27: 图片/文件 CDN 的 /uploads 出图已改为 web 端 route handler 托管
-      // (apps/web/app/uploads/[[...path]]/route.ts),直接从磁盘读取
-      // apps/api/uploads/public 返回,Host 无关、不依赖反代 8802,根治公网
-      // file.aizhs.top 等子域 rewrite 代理偶发失败的问题。故此处不再保留 /uploads rewrite。
-      // api.aizhs.top/uploads 由 Cloudflare 隧道直指 8802(@fastify/static),不经 web。
-      // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
-      // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
-      // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
-      // invoke 调用(POST /api/ai-skills/{id}/invoke)。
-      // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
-      // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
-      {
-        source: '/api/ai-skills/:path*',
-        destination: 'http://localhost:8803/api/ai-skills/:path*',
-      },
-      // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
-      // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
-      // 把 publish 全量转发 ai-service 8803。此后 api 端已实现完整代理
-      // (apps/api/src/routes/publish-routes.ts 16+ 端点 + publish-analytics.ts),
-      // 但 rewrites 未更新 → 浏览器所有 /api/publish/* 被劫持到 8803:
-      //   1. ai-service JWTAuthMiddleware 只认 Bearer,不认 auth_token cookie,
-      //      浏览器同源请求(主要靠 cookie)大量 401;
-      //   2. analytics 端点只在 8802 注册,走 8803 必 404/401;
-      // 删除后 /api/publish/* 回落 /api/:path* 兜底 → 8802(api 层 cookie 认证 +
-      // 统一信封 + 透传 ai-service),链路稳定。ai-service 的 publish 路由仍经
-      // 8802 proxyToAiService 访问,不受影响。
-      // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
-      // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
-      // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
-      // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
-      // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
-      // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
-      // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
-      // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
-      // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
-      {
-        source: '/api/llm/:path*',
-        destination: 'http://localhost:8803/api/llm/:path*',
-      },
-      // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
-      // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
-      // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
-      // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
-      {
-        source: '/api/mcp/:path*',
-        destination: 'http://localhost:8803/api/mcp/:path*',
-      },
-      // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
-      // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
-      // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/agent/:path*',
-        destination: 'http://localhost:8803/api/agent/:path*',
-      },
-      // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
-      // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
-      // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
-      // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
-      {
-        source: '/api/a2a/:path*',
-        destination: 'http://localhost:8803/api/a2a/:path*',
-      },
-      // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
-      // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
-      // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
-      // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
-      // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
-      // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
-      {
-        source: '/api/agents/execute/stream',
-        destination: 'http://localhost:8803/api/agents/execute/stream',
-      },
-      {
-        source: '/api/agents/execute',
-        destination: 'http://localhost:8803/api/agents/execute',
-      },
-      {
-        source: '/api/agents/running',
-        destination: 'http://localhost:8803/api/agents/running',
-      },
-      {
-        source: '/api/agents/sessions/:path*',
-        destination: 'http://localhost:8803/api/agents/sessions/:path*',
-      },
-      {
-        source: '/api/agents/memory/search',
-        destination: 'http://localhost:8803/api/agents/memory/search',
-      },
-      {
-        source: '/api/agents/:taskId/status',
-        destination: 'http://localhost:8803/api/agents/:taskId/status',
-      },
-      {
-        source: '/api/agents/:taskId/cancel',
-        destination: 'http://localhost:8803/api/agents/:taskId/cancel',
-      },
-      {
-        source: '/api/agents/skill-evolution',
-        destination: 'http://localhost:8803/api/agents/skill-evolution',
-      },
-      {
-        source: '/api/agents/debate',
-        destination: 'http://localhost:8803/api/agents/debate',
-      },
-      // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
-      // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
-      // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
-      // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
-      // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
-      // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
-      {
-        source: '/api/browser/sessions/:path*',
-        destination: 'http://localhost:8803/api/browser/sessions/:path*',
-      },
-      // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
-      // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
-      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/admin/meta-learner/:path*',
-        destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
-      },
-      // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
-      // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
-      // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
-      {
-        source: '/api/agents/tasks/stream',
-        destination: 'http://localhost:8803/api/agents/tasks/stream',
-      },
-      // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
-      // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
-      // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
-      // 数组顺序匹配,与 :agentId/stream 无冲突。
-      {
-        source: '/api/agents/:agentId/stream',
-        destination: 'http://localhost:8803/api/agents/:agentId/stream',
-      },
-      // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
-      // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
-      // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
-      {
-        source: '/api/agents/:agentId/tool-calls',
-        destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
-      },
-      {
-        source: '/api/agents/:agentId/errors',
-        destination: 'http://localhost:8803/api/agents/:agentId/errors',
-      },
-      // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
-      // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
-      // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
-      // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
-      {
-        source: '/api/agents/:agentId/sessions',
-        destination: 'http://localhost:8803/api/agents/:agentId/sessions',
-      },
-      {
-        source: '/api/agents/:agentId/token-usage',
-        destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
-      },
-      // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
-      // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
-      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/v1/ai/usage/:path*',
-        destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
-      },
-      // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
-      // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
-      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/v1/ai/eval/:path*',
-        destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
-      },
-      // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
-      // 原因:prompts router 注册在 ai-service(prefix="/api"),
-      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/prompts/:path*',
-        destination: 'http://localhost:8803/api/prompts/:path*',
-      },
-      // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
-      // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
-      // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
-      {
-        source: '/api/admin/news/:path*',
-        destination: 'http://localhost:8803/api/admin/news/:path*',
-      },
-      {
-        source: '/api/:path*',
-        destination: 'http://localhost:8802/api/:path*',
-      },
+        {
+          source: '/yongjin/juxing5Copy2%402x.png',
+          destination: 'http://localhost:80/yongjin/juxing5Copy2%402x.png',
+        },
+        {
+          source: '/sys-mini/Wechat_white%402x.png',
+          destination: 'http://localhost:80/sys-mini/Wechat_white%402x.png',
+        },
+        {
+          source: '/sys-mini/save%402x.png',
+          destination: 'http://localhost:80/sys-mini/save%402x.png',
+        },
+        {
+          source: '/recruitment/xuancai%402x.png',
+          destination: 'http://localhost:80/recruitment/xuancai%402x.png',
+        },
+        {
+          source: '/recruitment/ewm%402x.png',
+          destination: 'http://localhost:80/recruitment/ewm%402x.png',
+        },
+        {
+          source: '/recruitment/bigtp%402x.png',
+          destination: 'http://localhost:80/recruitment/bigtp%402x.png',
+        },
+        // 2026-08-27: 图片/文件 CDN 的 /uploads 出图已改为 web 端 route handler 托管
+        // (apps/web/app/uploads/[[...path]]/route.ts),直接从磁盘读取
+        // apps/api/uploads/public 返回,Host 无关、不依赖反代 8802,根治公网
+        // file.aizhs.top 等子域 rewrite 代理偶发失败的问题。故此处不再保留 /uploads rewrite。
+        // api.aizhs.top/uploads 由 Cloudflare 隧道直指 8802(@fastify/static),不经 web。
+        // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
+        // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
+        // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
+        // invoke 调用(POST /api/ai-skills/{id}/invoke)。
+        // 必须放在 /api/:path* 通配符之前(rewrites 按顺序匹配,先命中先转发)。
+        // :path* 匹配 0 个或多个路径段,覆盖 /api/ai-skills 和 /api/ai-skills/{id}/invoke。
+        {
+          source: '/api/ai-skills/:path*',
+          destination: 'http://localhost:8803/api/ai-skills/:path*',
+        },
+        // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
+        // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
+        // 把 publish 全量转发 ai-service 8803。此后 api 端已实现完整代理
+        // (apps/api/src/routes/publish-routes.ts 16+ 端点 + publish-analytics.ts),
+        // 但 rewrites 未更新 → 浏览器所有 /api/publish/* 被劫持到 8803:
+        //   1. ai-service JWTAuthMiddleware 只认 Bearer,不认 auth_token cookie,
+        //      浏览器同源请求(主要靠 cookie)大量 401;
+        //   2. analytics 端点只在 8802 注册,走 8803 必 404/401;
+        // 删除后 /api/publish/* 回落 /api/:path* 兜底 → 8802(api 层 cookie 认证 +
+        // 统一信封 + 透传 ai-service),链路稳定。ai-service 的 publish 路由仍经
+        // 8802 proxyToAiService 访问,不受影响。
+        // 2026-07-30 新增:AI 网关 Dashboard 的 /api/llm/* 路由转发到 ai-service 8803
+        // 原因:前端 api-client 调用 /llm/providers/health 等端点,normalizeUrl 会加 /api 前缀
+        // 变成 /api/llm/providers/health。若走默认 /api/:path* → 8802/api/* 会 404(api 服务无此路由,
+        // 因为 llm router 注册在 ai-service 8803 的 /api 前缀下)。
+        // 这里把 /api/llm/* 转发到 ai-service 8803 的 /api/llm/* (保留 /api 前缀,
+        // 因为 ai-service main.py 第 313 行注册 llm.router 时是 prefix="/api")。
+        // 覆盖端点:GET /llm/providers/health + GET/POST/DELETE /llm/combos + POST /llm/compaction/demo
+        // + GET /llm/compaction/metrics + GET /llm/free-providers + POST /llm/anthropic/v1/messages
+        // + POST /llm/gemini/v1beta/models/{model}:generateContent + GET /llm/models + POST /llm/complete 等
+        {
+          source: '/api/llm/:path*',
+          destination: 'http://localhost:8803/api/llm/:path*',
+        },
+        // 2026-07-31 新增:MCP 路由直接转发到 ai-service 8803
+        // 原因:MCP 工具/资源/提示词/skill/slash 命令的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE McpPane 组件调用 listMCPTools 等端点路径为 /mcp/*,normalizeUrl 加 /api 前缀后变成 /api/mcp/*,
+        // 必须直连 ai-service 8803 才能命中。必须放在 /api/:path* 通配符之前。
+        {
+          source: '/api/mcp/:path*',
+          destination: 'http://localhost:8803/api/mcp/:path*',
+        },
+        // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
+        // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
+        // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/agent/:path*',
+          destination: 'http://localhost:8803/api/agent/:path*',
+        },
+        // 2026-08-15 新增:A2A 智能体协作路由转发到 ai-service 8803
+        // 原因:a2a router 注册在 ai-service(prefix="/api",路径 /api/a2a/*),
+        // 前端 a2a 页面调用 /api/a2a/agents 等,必须直连 8803 才能命中;
+        // 否则落到 /api/:path* → 8802(api server)无此路由 → 404。
+        {
+          source: '/api/a2a/:path*',
+          destination: 'http://localhost:8803/api/a2a/:path*',
+        },
+        // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
+        // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
+        // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
+        // 2026-08-12 P0 修复:原 `/api/agents/:path*` 全量转发 8803 会劫持 api 端(8802)的
+        // CRUD 端点(agents/list、categories、settlement、examine、kanban 等)导致 404,
+        // 改为白名单只转发 ai-service 独有的执行类端点,其余回落 8802 兜底。
+        {
+          source: '/api/agents/execute/stream',
+          destination: 'http://localhost:8803/api/agents/execute/stream',
+        },
+        {
+          source: '/api/agents/execute',
+          destination: 'http://localhost:8803/api/agents/execute',
+        },
+        {
+          source: '/api/agents/running',
+          destination: 'http://localhost:8803/api/agents/running',
+        },
+        {
+          source: '/api/agents/sessions/:path*',
+          destination: 'http://localhost:8803/api/agents/sessions/:path*',
+        },
+        {
+          source: '/api/agents/memory/search',
+          destination: 'http://localhost:8803/api/agents/memory/search',
+        },
+        {
+          source: '/api/agents/:taskId/status',
+          destination: 'http://localhost:8803/api/agents/:taskId/status',
+        },
+        {
+          source: '/api/agents/:taskId/cancel',
+          destination: 'http://localhost:8803/api/agents/:taskId/cancel',
+        },
+        {
+          source: '/api/agents/skill-evolution',
+          destination: 'http://localhost:8803/api/agents/skill-evolution',
+        },
+        {
+          source: '/api/agents/debate',
+          destination: 'http://localhost:8803/api/agents/debate',
+        },
+        // 2026-07-31 新增:Browser Hub CDP 内置浏览器路由转发到 ai-service 8803
+        // 原因:browser_hub router 注册在 ai-service(prefix="/browser",应用挂载 /api 前缀),
+        // 完整路径 /api/browser/sessions/*。若走默认 /api/:path* → 8802(api server)会 404。
+        // 注意:旧的 /api/browser/screenshot 和 /api/browser/probe 仍走 8802(api server 转发),
+        // 此规则只匹配 /api/browser/sessions/*,不影响旧端点。
+        // WebSocket(/api/browser/ws/*)不走 Next.js rewrites,前端直连 ws://localhost:8803(dev)。
+        {
+          source: '/api/browser/sessions/:path*',
+          destination: 'http://localhost:8803/api/browser/sessions/:path*',
+        },
+        // 2026-08-08 新增:Meta-Learner 自进化系统路由转发到 ai-service 8803
+        // 原因:meta_learning router 注册在 ai-service(prefix="/api/admin/meta-learner"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/admin/meta-learner/:path*',
+          destination: 'http://localhost:8803/api/admin/meta-learner/:path*',
+        },
+        // 2026-08-12 新增:AgentLoopV2 实时任务事件订阅转发到 ai-service 8803
+        // 原因:agents router 注册在 ai-service(8803),workbench runtime 视图
+        // (use-agent-runtime) 的 SSE 订阅端点必须在 /api/:path* 之前匹配。
+        {
+          source: '/api/agents/tasks/stream',
+          destination: 'http://localhost:8803/api/agents/tasks/stream',
+        },
+        // 2026-08-12 新增:Agent 运行日志 SSE(AgentRuntimeLog)转发到 ai-service 8803
+        // 原因:/agents/{id}/stream 注册在 8803(新增),白名单必须覆盖,否则
+        // 落到 /api/:path* → 8802 404。注意 tasks/stream 精确规则在前,
+        // 数组顺序匹配,与 :agentId/stream 无冲突。
+        {
+          source: '/api/agents/:agentId/stream',
+          destination: 'http://localhost:8803/api/agents/:agentId/stream',
+        },
+        // 2026-08-12 新增:agent-runtime ToolCallTree/ErrorHeatmap 端点转发到 8803
+        // 原因:/agents/{id}/tool-calls + /errors 注册在 8803,白名单须覆盖,
+        // 否则落到 /api/:path* → 8802 404(此前实测页面空态)。
+        {
+          source: '/api/agents/:agentId/tool-calls',
+          destination: 'http://localhost:8803/api/agents/:agentId/tool-calls',
+        },
+        {
+          source: '/api/agents/:agentId/errors',
+          destination: 'http://localhost:8803/api/agents/:agentId/errors',
+        },
+        // 2026-08-12 新增:agent-runtime SessionTree/TokenUsageChart 端点转发到 8803
+        // 原因:/agents/{id}/sessions + /token-usage 新注册在 8803(此前双端 404),
+        // 白名单须覆盖,否则落到 /api/:path* → 8802 404。注意与 /api/agents/sessions/
+        // :path*(8802 兜底)无冲突:动态段 :agentId/ 静态段 sessions 路径不同。
+        {
+          source: '/api/agents/:agentId/sessions',
+          destination: 'http://localhost:8803/api/agents/:agentId/sessions',
+        },
+        {
+          source: '/api/agents/:agentId/token-usage',
+          destination: 'http://localhost:8803/api/agents/:agentId/token-usage',
+        },
+        // 2026-08-11 新增:LLM 用量统计 API 路由转发到 ai-service 8803
+        // 原因:usage router 注册在 ai-service(prefix="/api/v1/ai/usage"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/usage/:path*',
+          destination: 'http://localhost:8803/api/v1/ai/usage/:path*',
+        },
+        // 2026-08-11 新增:评估/评测 API 路由转发到 ai-service 8803
+        // 原因:eval router 注册在 ai-service(prefix="/api/v1/ai/eval"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/v1/ai/eval/:path*',
+          destination: 'http://localhost:8803/api/v1/ai/eval/:path*',
+        },
+        // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
+        // 原因:prompts router 注册在 ai-service(prefix="/api"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/prompts/:path*',
+          destination: 'http://localhost:8803/api/prompts/:path*',
+        },
+        // 2026-08-12 新增:News 自动刷新 admin 端点(LLM 每日生成新闻写入 news_articles)
+        // 原因:news router 注册在 ai-service 8803 (prefix="/api/admin/news"),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/admin/news/:path*',
+          destination: 'http://localhost:8803/api/admin/news/:path*',
+        },
+        {
+          source: '/api/:path*',
+          destination: 'http://localhost:8802/api/:path*',
+        },
       ],
     }
   },
