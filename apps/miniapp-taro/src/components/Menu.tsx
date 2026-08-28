@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 import type { MenuItem } from '@ihui/types'
@@ -18,23 +19,36 @@ export interface MenuProps {
 // 2026-08-27:bspapp.com 已失效,统一走 icon-urls 的 BSPAPP_BASE(现指向 https://aizhs.top,
 // 由 web 端 184 条精确 rewrite 回源本机 cdn-server 出图)
 
-const DEFAULT_ITEMS: MenuItem[] = [
-  { id: 1, name: '图片', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/8.png` },
-  { id: 2, name: '视频', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/4.png` },
-  { id: 3, name: '文案', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/2.png` },
-  { id: 4, name: '智能体', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/11.png` },
+const DEFAULT_ITEMS = (tt: TtFn): MenuItem[] => [
+  {
+    id: 1,
+    name: tt('aigc.list.catImage', '图片'),
+    icon: `${BSPAPP_BASE}/tabbar/coursePlanet/8.png`,
+  },
+  {
+    id: 2,
+    name: tt('aigc.list.catVideo', '视频'),
+    icon: `${BSPAPP_BASE}/tabbar/coursePlanet/4.png`,
+  },
+  {
+    id: 3,
+    name: tt('aigcPublish.typeText', '文案'),
+    icon: `${BSPAPP_BASE}/tabbar/coursePlanet/2.png`,
+  },
+  { id: 4, name: tt('agent.title', '智能体'), icon: `${BSPAPP_BASE}/tabbar/coursePlanet/11.png` },
   { id: 5, name: 'RPA', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/5.png` },
-  { id: 6, name: '编程', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/7.png` },
-  { id: 7, name: '音乐', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/3.png` },
-  { id: 8, name: '其他', icon: `${BSPAPP_BASE}/tabbar/coursePlanet/10.png` },
+  {
+    id: 6,
+    name: tt('ai.agentList.categories.coding', '编程'),
+    icon: `${BSPAPP_BASE}/tabbar/coursePlanet/7.png`,
+  },
+  { id: 7, name: tt('Menu.d1', '音乐'), icon: `${BSPAPP_BASE}/tabbar/coursePlanet/3.png` },
+  { id: 8, name: tt('setting.other', '其他'), icon: `${BSPAPP_BASE}/tabbar/coursePlanet/10.png` },
 ]
 
-export default function Menu({
-  items = DEFAULT_ITEMS,
-  columns = 4,
-  onItemClick,
-  className = '',
-}: MenuProps) {
+export default function Menu(props: MenuProps) {
+  const tt = useTt()
+  const { items = DEFAULT_ITEMS(tt), columns = 4, onItemClick, className = '' } = props
   return (
     <View className={cn('flex flex-wrap', className)}>
       {items.map((item, index) => (

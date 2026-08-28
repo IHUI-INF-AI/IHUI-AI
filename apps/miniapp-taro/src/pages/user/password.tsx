@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { updatePassword } from '@/api'
-import { useI18n } from '@/i18n'
 
 export default function Password() {
   const { t } = useI18n()

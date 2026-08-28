@@ -1,9 +1,9 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
-import { useTt } from '@/i18n'
 import { formatDuration } from '@ihui/shared/utils'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
@@ -14,10 +14,10 @@ interface Product {
   price: number
 }
 
-const MOCK_PRODUCTS: Product[] = [
-  { id: '1', name: 'AI 课程包', price: 199 },
-  { id: '2', name: '会员年卡', price: 365 },
-  { id: '3', name: '实体周边', price: 89 },
+const MOCK_PRODUCTS = (tt: TtFn): Product[] => [
+  { id: '1', name: tt('liveHost.d1', 'AI 课程包'), price: 199 },
+  { id: '2', name: tt('liveHost.d2', '会员年卡'), price: 365 },
+  { id: '3', name: tt('liveHost.d3', '实体周边'), price: 89 },
 ]
 
 function formatBytes(n: number | null): string {
@@ -226,10 +226,12 @@ export default function LiveHost() {
             </Text>
           </View>
         </View>
-        {MOCK_PRODUCTS.length === 0 ? (
-          <Text className="text-xs text-muted-foreground py-2 text-center">暂无商品</Text>
+        {MOCK_PRODUCTS(tt).length === 0 ? (
+          <Text className="text-xs text-muted-foreground py-2 text-center">
+            {tt('pointsMall.empty', '暂无商品')}
+          </Text>
         ) : (
-          MOCK_PRODUCTS.map((item) => (
+          MOCK_PRODUCTS(tt).map((item) => (
             <View key={item.id} className="flex items-center justify-between py-2">
               <Text className="flex-1 text-sm text-foreground">{item.name}</Text>
               <Text className="text-sm font-semibold text-red-500">¥{item.price}</Text>

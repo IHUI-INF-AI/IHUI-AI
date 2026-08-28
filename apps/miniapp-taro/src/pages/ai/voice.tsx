@@ -1,9 +1,9 @@
+import { useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { voiceChat, type ChatMessage } from '@/api'
-import { useI18n } from '@/i18n'
 
 type RecorderManager = ReturnType<typeof Taro.getRecorderManager>
 type Speed = 'normal' | 'fast' | 'slow'
@@ -18,8 +18,12 @@ interface VoiceMessage extends ChatMessage {
 const SPEEDS: Speed[] = ['normal', 'fast', 'slow']
 const TIMBRES: Timbre[] = ['female', 'male']
 
-const speedLabel: Record<Speed, string> = { normal: '标准', fast: '快速', slow: '慢速' }
-const timbreLabel: Record<Timbre, string> = { female: '女声', male: '男声' }
+const speedLabel: Record<Speed, string> = {
+  normal: t('aiVoice.q1'),
+  fast: t('aiVoice.q2'),
+  slow: t('aiVoice.q3'),
+}
+const timbreLabel: Record<Timbre, string> = { female: t('aiVoice.q4'), male: t('aiVoice.q5') }
 
 const SPEED_KEY: Record<string, string> = {
   normal: 'ai.voice.speed.normal',
@@ -102,7 +106,7 @@ export default function VoicePage() {
               ])
             })
             .catch((e) => {
-              logger.error('ai/voice', '语音对话', e)
+              logger.error('ai/voice', t('aiVoice.q6'), e)
               Taro.showToast({
                 title: tt('ai.voice.chatFailed', '对话失败,请重试'),
                 icon: 'none',
@@ -137,7 +141,7 @@ export default function VoicePage() {
       stopTimer()
       recorderRef.current = null
     }
-  }, [tt, stopTimer])
+  }, [tt, stopTimer, t])
 
   useEffect(() => {
     setScrollTop((s) => s + 100000)
@@ -220,7 +224,7 @@ export default function VoicePage() {
             <View
               className={`w-[64rpx] h-[64rpx] rounded-[16rpx] flex items-center justify-center text-[22rpx] text-foreground flex-shrink-0 ${m.role === 'user' ? 'bg-primary' : 'bg-[var(--color-wechat-green)]'}`}
             >
-              {m.role === 'user' ? '我' : 'AI'}
+              {m.role === 'user' ? tt('ai.chatMessageItem.me', '我') : 'AI'}
             </View>
             <View
               className={`max-w-[70%] mx-[20rpx] p-[20rpx] px-[24rpx] rounded-[16rpx] ${m.role === 'user' ? 'bg-primary' : 'bg-card'}`}
@@ -229,7 +233,11 @@ export default function VoicePage() {
                 <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
                   <Image
                     style={{ width: '32rpx', height: '32rpx' }}
-                    src={playingIdx === i ? '/static/images/icons/pause.svg' : '/static/images/icons/play.svg'}
+                    src={
+                      playingIdx === i
+                        ? '/static/images/icons/pause.svg'
+                        : '/static/images/icons/play.svg'
+                    }
                     mode="aspectFit"
                   />
                   <Text className="text-[24rpx] text-foreground">

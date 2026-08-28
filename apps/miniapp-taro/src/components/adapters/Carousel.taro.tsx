@@ -112,7 +112,7 @@ export function Carousel({
   if (!banner || banner.length === 0) {
     return (
       <View className={className} style={viewStyles.empty(height)}>
-        <Text style={textStyles.empty()}>{'暂无轮播图'}</Text>
+        <Text style={textStyles.empty()}>{t('adaptersCarouseltaro.q1')}</Text>
       </View>
     )
   }
@@ -152,3 +152,5 @@ export function Carousel({
     </View>
   )
 }
+
+import { t } from '@/i18n'

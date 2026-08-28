@@ -1,8 +1,8 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
-import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
 import './detail.css'
 
@@ -37,7 +37,7 @@ const formatStudents = (n: number): string => {
 
 const formatPrice = (price?: number): { text: string; free: boolean } => {
   if (price === undefined || price === null || price === 0) {
-    return { text: '免费', free: true }
+    return { text: t('common.free'), free: true }
   }
   return { text: `¥${(price / 100).toFixed(2)}`, free: false }
 }
@@ -71,7 +71,7 @@ export default function TeacherDetail() {
       setTeacher(extra)
       setFollowed(Boolean(extra.isFollowed))
     } catch (e) {
-      logger.error('teacher/detail', '获取讲师详情', e)
+      logger.error('teacher/detail', t('teacherDetail.q1'), e)
       Taro.showToast({ title: tt('common.failed', '加载失败'), icon: 'none' })
     } finally {
       setLoading(false)
@@ -108,7 +108,7 @@ export default function TeacherDetail() {
       })
     } catch (e) {
       setFollowed(!next)
-      logger.error('teacher/detail', '切换关注', e)
+      logger.error('teacher/detail', t('teacherDetail.q2'), e)
     }
   }, [teacher, followed, tt])
 

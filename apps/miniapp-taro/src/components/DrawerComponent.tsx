@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
 // 抽屉静态资源:对齐原项目 DrawerComponentall.vue,统一从 @/assets/remote/ 引入本地副本
@@ -102,23 +103,24 @@ export interface DrawerComponentProps {
 
 // 5 个菜单项图标对齐原项目 DrawerComponentall.vue line 15-32:
 // tabbar_1(应用商店) / drawer_menu2(需求广场) / linggan(灵感) / tabbar_4(动态) / kecheng(课程)
-const DEFAULT_MENU_ITEMS: DrawerMenuItem[] = [
-  { key: 'appStore', label: '应用商店', icon: tabbar1Png },
-  { key: 'demand', label: '需求广场', icon: drawerMenu2Png },
-  { key: 'inspiration', label: '灵感', icon: lingganSvg },
-  { key: 'dynamic', label: '动态', icon: tabbar4Png },
-  { key: 'course', label: '课程', icon: kechengPng },
+const DEFAULT_MENU_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
+  { key: 'appStore', label: tt('DrawerComponent.d1', '应用商店'), icon: tabbar1Png },
+  { key: 'demand', label: tt('DrawerComponent.d2', '需求广场'), icon: drawerMenu2Png },
+  { key: 'inspiration', label: tt('aigcList.title', '灵感'), icon: lingganSvg },
+  { key: 'dynamic', label: tt('bookmark.type.post', '动态'), icon: tabbar4Png },
+  { key: 'course', label: tt('coursePlanet.course', '课程'), icon: kechengPng },
 ]
 
 // 3 个标签项图标对齐原项目 DrawerComponentall.vue line 37-39:
 // gongsi(我的一人公司) / mian_label(领取免费资料) / newchat(创建新对话)
-const DEFAULT_LABEL_ITEMS: DrawerMenuItem[] = [
-  { key: 'company', label: '我的一人公司', icon: gongsiPng },
-  { key: 'freebie', label: '领取免费资料', icon: mianLabelPng },
-  { key: 'newChat', label: '创建新对话', icon: newchatSvg },
+const DEFAULT_LABEL_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
+  { key: 'company', label: tt('DrawerComponent.d3', '我的一人公司'), icon: gongsiPng },
+  { key: 'freebie', label: tt('DrawerComponent.d4', '领取免费资料'), icon: mianLabelPng },
+  { key: 'newChat', label: tt('DrawerComponent.d5', '创建新对话'), icon: newchatSvg },
 ]
 
 export default function DrawerComponent(props: DrawerComponentProps) {
+  const tt = useTt()
   const {
     visible,
     onClose,
@@ -128,8 +130,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     side = 'bottom',
     statusBarHeight = 20,
     logoUrl,
-    menuItems = DEFAULT_MENU_ITEMS,
-    labelItems = DEFAULT_LABEL_ITEMS,
+    menuItems = DEFAULT_MENU_ITEMS(tt),
+    labelItems = DEFAULT_LABEL_ITEMS(tt),
     groupedData = [],
     activeChatId,
     userinfo,
@@ -259,7 +261,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 color: 'var(--color-text-drawer, var(--color-foreground))',
               }}
             >
-              历史对话
+              {tt('share.index.history', '历史对话')}
             </Text>
           </View>
 
@@ -268,7 +270,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             {groupedData.length === 0 ? (
               <View style={{ padding: '40rpx 23rpx' }} className="text-center">
                 <Text style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)' }}>
-                  暂无历史对话
+                  {tt('DrawerComponent.empty1', '暂无历史对话')}
                 </Text>
               </View>
             ) : (
@@ -372,7 +374,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   className="ml-[12rpx]"
                   style={{ fontSize: rpx(28), color: 'var(--color-foreground)' }}
                 >
-                  {userinfo.nickname || '未登录'}
+                  {userinfo.nickname || tt('profileEdit.notLoggedIn', '未登录')}
                 </Text>
               </View>
               <View className="flex items-center gap-[16rpx]">

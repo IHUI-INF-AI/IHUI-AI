@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
-import { useI18n } from '@/i18n'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',

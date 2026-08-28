@@ -1,12 +1,12 @@
+import { useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
-import { useI18n } from '@/i18n'
 
 const REQUIRED_FLAGS = [true, false, true, false, false, true]
-const ALBUM_NAME_FB = '相册权限'
-const ALBUM_DESC_FB = '用于保存和上传图片到相册'
+const ALBUM_NAME_FB = t('about.appPermission.albumName')
+const ALBUM_DESC_FB = t('about.appPermission.albumDesc')
 
 type PermissionStatus = 'granted' | 'denied' | 'unknown'
 
@@ -66,12 +66,12 @@ export default function AppPermission() {
           result[p.scope] = 'unknown'
         }
       } catch (e) {
-        logger.error('about/app-permission', '获取权限状态', e)
+        logger.error('about/app-permission', t('aboutApppermission.q1'), e)
         result[p.scope] = 'unknown'
       }
     }
     setStatusMap(result)
-  }, [permissions])
+  }, [permissions, t])
 
   const onOpenSetting = useCallback(() => {
     Taro.openSetting({

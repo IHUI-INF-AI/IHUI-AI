@@ -1,7 +1,7 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { View, Text, Input, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
-import { useI18n } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 
@@ -33,19 +33,50 @@ interface HistoryItem {
 const HISTORY_KEY = 'ai_chat_history'
 const PAGE_SIZE = 20
 
-const FILTERS: Array<{ key: FilterType; labelKey: string; fallback: string; icon: string }> = [
-  { key: 'all', labelKey: 'ai.historyPage.filterAll', fallback: '全部', icon: ICONS.message },
-  { key: 'chat', labelKey: 'ai.historyPage.filterChat', fallback: 'AI对话', icon: ICONS.message },
-  { key: 'image', labelKey: 'ai.historyPage.filterImage', fallback: 'AI绘图', icon: ICONS.imageOr },
-  { key: 'voice', labelKey: 'ai.historyPage.filterVoice', fallback: 'AI语音', icon: ICONS.aimusic },
-  { key: 'agent', labelKey: 'ai.historyPage.filterAgent', fallback: '智能体', icon: ICONS.jiqiren },
+const FILTERS = (
+  tt: TtFn,
+): Array<{ key: FilterType; labelKey: string; fallback: string; icon: string }> => [
+  {
+    key: 'all',
+    labelKey: 'ai.historyPage.filterAll',
+    fallback: tt('common.all', '全部'),
+    icon: ICONS.message,
+  },
+  {
+    key: 'chat',
+    labelKey: 'ai.historyPage.filterChat',
+    fallback: tt('toolbar.ai', 'AI对话'),
+    icon: ICONS.message,
+  },
+  {
+    key: 'image',
+    labelKey: 'ai.historyPage.filterImage',
+    fallback: tt('aiHistory.d1', 'AI绘图'),
+    icon: ICONS.imageOr,
+  },
+  {
+    key: 'voice',
+    labelKey: 'ai.historyPage.filterVoice',
+    fallback: tt('aiHistory.d2', 'AI语音'),
+    icon: ICONS.aimusic,
+  },
+  {
+    key: 'agent',
+    labelKey: 'ai.historyPage.filterAgent',
+    fallback: tt('agent.title', '智能体'),
+    icon: ICONS.jiqiren,
+  },
 ]
 
-const GROUP_LABELS: Array<{ key: GroupKey; labelKey: string; fallback: string }> = [
-  { key: 'today', labelKey: 'ai.historyPage.today', fallback: '今天' },
-  { key: 'yesterday', labelKey: 'ai.historyPage.yesterday', fallback: '昨天' },
-  { key: 'thisWeek', labelKey: 'ai.historyPage.thisWeek', fallback: '本周' },
-  { key: 'earlier', labelKey: 'ai.historyPage.earlier', fallback: '更早' },
+const GROUP_LABELS = (tt: TtFn): Array<{ key: GroupKey; labelKey: string; fallback: string }> => [
+  { key: 'today', labelKey: 'ai.historyPage.today', fallback: tt('live.calendar.today', '今天') },
+  {
+    key: 'yesterday',
+    labelKey: 'ai.historyPage.yesterday',
+    fallback: tt('index.mock.yesterday', '昨天'),
+  },
+  { key: 'thisWeek', labelKey: 'ai.historyPage.thisWeek', fallback: tt('aiHistory.d3', '本周') },
+  { key: 'earlier', labelKey: 'ai.historyPage.earlier', fallback: tt('aiHistory.d4', '更早') },
 ]
 
 function loadAll(): HistoryItem[] {
@@ -185,7 +216,7 @@ export default function HistoryPage() {
 
   const isFiltered = keyword.trim() || filter !== 'all'
   const iconFor = (h: HistoryItem) =>
-    FILTERS.find((f) => f.key === (h.type || 'chat'))?.icon || ICONS.message
+    FILTERS(tt).find((f) => f.key === (h.type || 'chat'))?.icon || ICONS.message
 
   return (
     <View className="flex flex-col h-screen bg-background">
@@ -208,7 +239,7 @@ export default function HistoryPage() {
       </View>
 
       <View className="flex gap-[12rpx] py-[16rpx] px-[32rpx] bg-card overflow-x-auto whitespace-nowrap">
-        {FILTERS.map((f) => (
+        {FILTERS(tt).map((f) => (
           <View
             key={f.key}
             className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-[8rpx] flex-shrink-0 ${filter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
@@ -256,7 +287,7 @@ export default function HistoryPage() {
           </View>
         ) : (
           <View className="py-[24rpx] px-[32rpx]">
-            {GROUP_LABELS.map((g) => {
+            {GROUP_LABELS(tt).map((g) => {
               const items = groups[g.key]
               if (!items || items.length === 0) return null
               return (

@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
-import { useI18n } from '@/i18n'
 import {
   CourseHeader,
   CourseCatalog,
@@ -176,19 +176,31 @@ export default function CourseDetail() {
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
           <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Image style={{ width: '40rpx', height: '40rpx' }} src="/static/images/icons/book-open.svg" mode="aspectFit" />
+            <Image
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/book-open.svg"
+              mode="aspectFit"
+            />
           </View>
           <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
           <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-            <Image style={{ width: '40rpx', height: '40rpx' }} src="/static/images/icons/star-fill.svg" mode="aspectFit" />
+            <Image
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/star-fill.svg"
+              mode="aspectFit"
+            />
           </View>
           <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
         </View>
         <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
           <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Image style={{ width: '40rpx', height: '40rpx' }} src="/static/images/icons/share-2.svg" mode="aspectFit" />
+            <Image
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/share-2.svg"
+              mode="aspectFit"
+            />
           </View>
           <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
         </View>

@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -8,12 +9,12 @@ import type { TitleSwitchOverlapItem, TitleSwitchOverlapProps } from '@ihui/type
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
 export type { TitleSwitchOverlapItem, TitleSwitchOverlapProps }
 
-const DEFAULT_LIST: TitleSwitchOverlapItem[] = [
-  { name: '赛道一' },
-  { name: '赛道二' },
-  { name: '赛道三' },
-  { name: '赛道四' },
-  { name: '赛道五' },
+const DEFAULT_LIST = (tt: TtFn): TitleSwitchOverlapItem[] => [
+  { name: tt('TitleSwitchOverlap.d1', '赛道一') },
+  { name: tt('TitleSwitchOverlap.d2', '赛道二') },
+  { name: tt('TitleSwitchOverlap.d3', '赛道三') },
+  { name: tt('TitleSwitchOverlap.d4', '赛道四') },
+  { name: tt('TitleSwitchOverlap.d5', '赛道五') },
 ]
 
 /** 5 层堆叠样式:对标旧项目 active_before2/before/item/after/after2 */
@@ -61,11 +62,9 @@ function getLayerStyle(delta: number): CSSProperties {
  * - 5 层堆叠的滚动选择器,通过 scroll 位置计算 current
  * - 左右按钮可手动切换
  */
-export default function TitleSwitchOverlap({
-  mainList = DEFAULT_LIST,
-  defaultCurrent = 0,
-  onCurrentChange,
-}: TitleSwitchOverlapProps) {
+export default function TitleSwitchOverlap(props: TitleSwitchOverlapProps) {
+  const tt = useTt()
+  const { mainList = DEFAULT_LIST(tt), defaultCurrent = 0, onCurrentChange } = props
   const [current, setCurrent] = useState(defaultCurrent)
   const lockRef = useRef(false)
 

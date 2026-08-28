@@ -1,6 +1,6 @@
+import { useTt, t } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 import { getSystemInfoCompat } from '@/utils/system-info'
 // 对勾图标(对齐原项目 UserMembershipBenefits.vue 的 pigeona.png)
 import pigeonaImg from '@/assets/remote/images/pigeona.png'
@@ -50,168 +50,147 @@ export interface VipBenefitsPopupProps {
 const SINGLE_BENEFITS: VipBenefit[] = [
   {
     id: 1,
-    content:
-      '限时优惠<span style="font-weight: bold;">588</span>元,<span style="font-weight: bold;">8</span>月<span style="font-weight: bold;">8</span>日恢复<span style="font-weight: bold;">1288</span>元',
+    content: t('VipBenefitsPopup.rich1'),
   },
   {
     id: 2,
-    content:
-      '赠送<span style="font-weight: bold;">800</span>万算力,爽用独家<span style="font-weight: bold;">Agent</span>',
+    content: t('VipBenefitsPopup.rich2'),
   },
   {
     id: 3,
-    content:
-      '获得分销权益,用<span style="font-weight: bold;">AI</span>降本增效<span style="font-weight: bold;">100</span>倍赚米',
+    content: t('VipBenefitsPopup.rich3'),
   },
   {
     id: 4,
-    content:
-      '私人<span style="font-weight: bold;">AI</span>客服定制权,拥有只属于自己的私密<span style="font-weight: bold;">AI</span>',
+    content: t('VipBenefitsPopup.rich4'),
   },
   {
     id: 5,
-    content: '无限次查看<span style="font-weight: bold;">垂类赛道</span>每日整理资讯,远超他人认知',
+    content: t('VipBenefitsPopup.d1'),
   },
   {
     id: 6,
-    content: '创始人排队咨询资格,<span style="font-weight: bold;">AI</span>创业项目获取资格',
+    content: t('VipBenefitsPopup.d2'),
   },
   {
     id: 7,
-    content:
-      '多对一答疑陪跑:<span style="font-weight: bold;">AI</span>教学/自媒体账号搭建/<span style="font-weight: bold;">AI</span>+全域流量陪跑/<span style="font-weight: bold;">MCN</span>超级个人<span style="font-weight: bold;">IP</span>孵化权',
+    content: t('VipBenefitsPopup.rich5'),
   },
   {
     id: 8,
-    content:
-      '免费<span style="font-weight: bold;">AI</span>导航站,<span style="font-weight: bold;">AI</span>服务成本价,不用再被<span style="font-weight: bold;">割</span>韭菜',
+    content: t('VipBenefitsPopup.rich6'),
   },
-  { id: 9, content: '最新研发<span style="font-weight: bold;">Agentic</span>内测使用资格一个月' },
-  { id: 10, content: '升级系统增加算力充值/课程开通/服务开通折扣' },
+  { id: 9, content: t('VipBenefitsPopup.d3') },
+  { id: 10, content: t('VipBenefitsPopup.d4') },
 ]
 
 const DOUBLE_BENEFITS: VipBenefit[] = [
-  { id: 1, content: '享受大额分销资格,<span style="font-weight: bold;">入驻</span>社区服务商名列' },
-  { id: 2, content: '会员等级拉满,享受<span style="font-weight: bold;">全部</span>满级折扣等权益' },
+  { id: 1, content: t('VipBenefitsPopup.d5') },
+  { id: 2, content: t('VipBenefitsPopup.d6') },
   {
     id: 3,
-    content: '二级分销权益,快速扩张<span style="font-weight: bold;">团队</span>及收益,创办一人公司',
+    content: t('VipBenefitsPopup.d7'),
   },
   {
     id: 4,
-    content:
-      '最新研发前沿<span style="font-weight: bold;">agentic</span>内测免费使用资格<span style="font-weight: bold;">一年</span>',
+    content: t('VipBenefitsPopup.rich7'),
   },
   {
     id: 5,
-    content:
-      '插队定制独家定制<span style="font-weight: bold;">agent</span>功能<span style="font-weight: bold;">8</span>折优惠',
+    content: t('VipBenefitsPopup.rich8'),
   },
-  { id: 6, content: '创始人<span style="font-weight: bold;">一对一</span>随时答疑陪跑' },
+  { id: 6, content: t('VipBenefitsPopup.d8') },
   {
     id: 7,
-    content:
-      '<span style="font-weight: bold;">AI</span>深度认知课/<span style="font-weight: bold;">AI</span>专家一对一陪跑教学/升维课程/深度商业课/流量全链路打法课程/免费观看',
+    content: t('VipBenefitsPopup.rich9'),
   },
   {
     id: 8,
-    content:
-      '<span style="font-weight: bold;">AI</span>+垂类账号孵化优先陪跑机会/加入<span style="font-weight: bold;">MCN</span>机会',
+    content: t('VipBenefitsPopup.rich10'),
   },
-  { id: 9, content: '公司总部入驻及线下学习实操机会' },
+  { id: 9, content: t('VipBenefitsPopup.d9') },
   {
     id: 10,
-    content:
-      '插队<span style="font-weight: bold;">AI</span>分身/<span style="font-weight: bold;">AI</span>客服定制开通',
+    content: t('VipBenefitsPopup.rich11'),
   },
 ]
 
 const LEVEL_BENEFITS: VipBenefit[] = [
   {
     id: 1,
-    content:
-      '1.限时消费<span style="font-weight: bold;color: #FF0000;">588</span>开通会员,获赠<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">1级:算法萌芽</span>',
+    content: t('VipBenefitsPopup.rich12'),
   },
   {
     id: 2,
-    content:
-      '2.达到<span style="font-weight: bold;color: #FF0000;">1500</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">2级:数智启源</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">9.8</span>折',
+    content: t('VipBenefitsPopup.rich13'),
   },
   {
     id: 3,
-    content:
-      '3.达到<span style="font-weight: bold;color: #FF0000;">3000</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">3级:模型初阶</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">9.5</span>折',
+    content: t('VipBenefitsPopup.rich14'),
   },
   {
     id: 4,
-    content:
-      '4.达到<span style="font-weight: bold;color: #FF0000;">4500</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">4级:智探先驱</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">9.2</span>折',
+    content: t('VipBenefitsPopup.rich15'),
   },
   {
     id: 5,
-    content:
-      '5.达到<span style="font-weight: bold;color: #FF0000;">6000</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">5级:算构初阶</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">8.9</span>折',
+    content: t('VipBenefitsPopup.rich16'),
   },
   {
     id: 6,
-    content:
-      '6.达到<span style="font-weight: bold;color: #FF0000;">7500</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">6级:数据专家</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">8.6</span>折',
+    content: t('VipBenefitsPopup.rich17'),
   },
   {
     id: 7,
-    content:
-      '7.达到<span style="font-weight: bold;color: #FF0000;">9000</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">7级:智垒中枢</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">8.3</span>折',
+    content: t('VipBenefitsPopup.rich18'),
   },
   {
     id: 8,
-    content:
-      '8.达到<span style="font-weight: bold;color: #FF0000;">10500</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">8级:智能领航</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">8</span>折',
+    content: t('VipBenefitsPopup.rich19'),
   },
   {
     id: 9,
-    content:
-      '9.达到<span style="font-weight: bold;color: #FF0000;">12000</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">9级:量子智脑</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">7.7</span>折',
+    content: t('VipBenefitsPopup.rich20'),
   },
   {
     id: 10,
-    content:
-      '10.达到<span style="font-weight: bold;color: #FF0000;">18888</span>智汇力达到<span style="font-weight: bold;color: #FF0000;">10级:超维先知</span>,享受<span style="font-weight: bold;color: #FF0000;">588</span>点成长值,达到<span style="font-weight: bold;color: #FF0000;">7</span>折',
+    content: t('VipBenefitsPopup.rich21'),
   },
 ]
 
 const ADVISORY_BENEFITS: VipBenefit[] = [
   {
     id: 1,
-    content: '<span style="font-weight: bold;">权益一:顶流人脉资源圈链接机会</span>',
+    content: t('VipBenefitsPopup.d10'),
     color: 'rgba(255, 79, 79,0.6)',
   },
   {
     id: 2,
-    content: '<span style="font-weight: bold;">权益二:优质创业项目分享</span>',
+    content: t('VipBenefitsPopup.d11'),
     color: 'rgba(255, 79, 79,0.7)',
   },
   {
     id: 3,
-    content: '<span style="font-weight: bold;">权益三:对接资本权益</span>',
+    content: t('VipBenefitsPopup.d12'),
     color: 'rgba(255, 79, 79,0.8)',
   },
   {
     id: 4,
-    content: '<span style="font-weight: bold;">权益四:AI圈技术大佬交流学习机会</span>',
+    content: t('VipBenefitsPopup.d13'),
     color: 'rgba(255, 79, 79,0.9)',
   },
   {
     id: 5,
-    content: '<span style="font-weight: bold;">权益五:AI开源技术共享</span>',
+    content: t('VipBenefitsPopup.d14'),
     color: 'rgba(255, 79, 79,1)',
   },
 ]
 
 const DEFAULT_BENEFITS: VipBenefit[] = [
-  { id: '1', title: '无限 AI 对话', desc: '畅享 GPT-4 等顶级模型' },
-  { id: '2', title: '高清视频生成', desc: '4K 质量无水印' },
-  { id: '3', title: '专属客服', desc: '7×24 小时服务' },
-  { id: '4', title: '会员专属内容', desc: '解锁全部付费课程' },
+  { id: '1', title: t('vip.details.benefit.chat'), desc: t('VipBenefitsPopup.d15') },
+  { id: '2', title: t('VipBenefitsPopup.d16'), desc: t('VipBenefitsPopup.d17') },
+  { id: '3', title: t('memberBenefits.d31'), desc: t('VipBenefitsPopup.d19') },
+  { id: '4', title: t('VipBenefitsPopup.d20'), desc: t('VipBenefitsPopup.d21') },
 ]
 
 // 变体配置:高度 + 背景 + 是否显示"更多权益" + 是否显示服务弹窗
@@ -231,19 +210,19 @@ const VARIANT_CONFIG: Record<
   single: {
     height: '80vh',
     gradient: false,
-    moreText: '............约 <span style="font-weight: bold;">20</span> 项权益, 且持续增加 ↑',
+    moreText: t('VipBenefitsPopup.z1'),
     showServicePopup: false,
-    primaryText: '去开通',
+    primaryText: t('vip.privilege.goOpen'),
     showSecondary: false,
     iosHidePrimary: false,
   },
   double: {
     height: '80vh',
     gradient: true,
-    moreText: '............约 <span style="font-weight: bold;">20</span> 项权益, 且持续增加 ↑',
+    moreText: t('VipBenefitsPopup.z2'),
     showServicePopup: false,
-    primaryText: '加入我们',
-    secondaryText: '再咨询一下',
+    primaryText: t('recruitment.defaultTitle'),
+    secondaryText: t('VipBenefitsPopup.r1'),
     showSecondary: true,
     iosHidePrimary: false,
   },
@@ -252,7 +231,7 @@ const VARIANT_CONFIG: Record<
     gradient: true,
     moreText: '',
     showServicePopup: false,
-    primaryText: '去开通',
+    primaryText: t('vip.privilege.goOpen'),
     showSecondary: false,
     iosHidePrimary: true,
   },
@@ -261,7 +240,7 @@ const VARIANT_CONFIG: Record<
     gradient: false,
     moreText: '',
     showServicePopup: true,
-    primaryText: '加入我们',
+    primaryText: t('recruitment.defaultTitle'),
     showSecondary: false,
     iosHidePrimary: false,
   },
@@ -317,7 +296,7 @@ export default function VipBenefitsPopup({
   visible = false,
   variant = 'default',
   benefits,
-  levelIntro = '0级:智域访客,升级会员享受折扣包含全部课程/算力/自动化智能体/知识库/定制服务等,持续增加功能',
+  levelIntro = t('VipBenefitsPopup.z3'),
   moreBenefitsText,
   userInfo,
   onUpgrade,
@@ -355,7 +334,7 @@ export default function VipBenefitsPopup({
               {tt('vip.benefitsTitle', '会员权益')}
             </Text>
             <Text className="text-sm text-muted-foreground" onClick={onClose}>
-              关闭
+              {tt('common.close', '关闭')}
             </Text>
           </View>
           <ScrollView scrollY className="" style={{ maxHeight: '50vh' }}>

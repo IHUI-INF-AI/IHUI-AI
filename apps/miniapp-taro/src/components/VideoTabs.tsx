@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 
 export type VideoTabKey = 'catalog' | 'intro' | 'comment'
@@ -14,17 +15,15 @@ export interface VideoTabsProps {
   onChange?: (key: VideoTabKey) => void
 }
 
-const DEFAULT_TABS: VideoTabItem[] = [
-  { key: 'catalog', label: '目录' },
-  { key: 'intro', label: '简介' },
-  { key: 'comment', label: '评论' },
+const DEFAULT_TABS = (tt: TtFn): VideoTabItem[] => [
+  { key: 'catalog', label: tt('study.videoDetail.tabsCatalog', '目录') },
+  { key: 'intro', label: tt('carte.introLabel', '简介') },
+  { key: 'comment', label: tt('circle.detail.commentsTitle', '评论') },
 ]
 
-export default function VideoTabs({
-  tabs = DEFAULT_TABS,
-  active = 'catalog',
-  onChange,
-}: VideoTabsProps) {
+export default function VideoTabs(props: VideoTabsProps) {
+  const tt = useTt()
+  const { tabs = DEFAULT_TABS(tt), active = 'catalog', onChange } = props
   return (
     <View className="flex bg-card mb-2">
       {tabs.map((tab) => {

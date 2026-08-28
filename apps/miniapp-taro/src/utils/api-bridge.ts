@@ -5,12 +5,12 @@
  * - 401: 清理登录态 + toast + 跳转登录页
  * - 其他错误: toast 提示 + throw
  */
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import type { ApiResult } from '@ihui/types'
 import { fetchApi, type FetchApiOptions } from '@ihui/api-client'
 import { isTokenExpired } from '@ihui/shared/constants'
 import { clearAuth } from './auth'
-import { t } from '@/i18n'
 
 /** 解包 ApiResult,失败时 toast + throw(行为与原 request.ts 一致) */
 export async function unwrapApi<T>(p: Promise<ApiResult<T>>): Promise<T> {

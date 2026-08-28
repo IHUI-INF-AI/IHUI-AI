@@ -1,7 +1,7 @@
+import { useI18n, t } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
-import { useI18n } from '@/i18n'
 
 interface UsageBlock {
   subtitle?: string
@@ -14,13 +14,16 @@ interface UsageSection {
 }
 
 const FOOTER_ITEMS = [
-  '制定方：吉林省爱智汇人工智能科技有限公司',
-  '公司地址：吉林省长春市高新区越达路107号人工智能人才孵化基地',
-  '客服电话：19944894487',
-  '官方邮箱：502319984@qq.com',
+  t('aboutUsagerules.r1'),
+  t('aboutUsagerules.r2'),
+  t('aboutUsagerules.r3'),
+  t('aboutUsagerules.r4'),
 ]
 
 export default function UsageRules() {
+  useDidShow(() => {
+    Taro.setNavigationBarTitle({ title: tt('about.usageRules.title', '使用规范') })
+  })
   const { t } = useI18n()
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -29,10 +32,6 @@ export default function UsageRules() {
     },
     [t],
   )
-
-  useDidShow(() => {
-    Taro.setNavigationBarTitle({ title: tt('about.usageRules.title', '使用规范') })
-  })
 
   const introParagraphs = [
     tt(

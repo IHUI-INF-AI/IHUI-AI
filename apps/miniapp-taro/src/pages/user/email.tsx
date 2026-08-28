@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, bindEmail, post } from '@/api'
-import { useI18n } from '@/i18n'
 import './email.css'
 
 export default function Email() {

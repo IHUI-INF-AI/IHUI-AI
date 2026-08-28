@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
-import { useI18n } from '@/i18n'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -339,16 +339,16 @@ export default function PlazaIndex() {
                     {tt(
                       tr.labelKey,
                       tr.key === ''
-                        ? '全部'
+                        ? tt('common.all', '全部')
                         : tr.key === 'writing'
-                          ? '写作'
+                          ? tt('ai.agentList.categories.writing', '写作')
                           : tr.key === 'coding'
-                            ? '编程'
+                            ? tt('ai.agentList.categories.coding', '编程')
                             : tr.key === 'design'
-                              ? '设计'
+                              ? tt('pagesindexindex.d11', '设计')
                               : tr.key === 'marketing'
-                                ? '营销'
-                                : '教育',
+                                ? tt('plaza.p1', '营销')
+                                : tt('ai.agentList.categories.education', '教育'),
                     )}
                   </Text>
                 </View>

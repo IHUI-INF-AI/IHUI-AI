@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import EmptyState from './EmptyState'
-import { useTt } from '@/i18n'
 
 export interface ChapterItem {
   id: string

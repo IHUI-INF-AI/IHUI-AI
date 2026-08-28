@@ -1,3 +1,4 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, {
   usePullDownRefresh,
@@ -8,7 +9,6 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import SectionHeader from '@/components/SectionHeader'
 import ColorfulLoader from '@/components/ColorfulLoader'
 
@@ -103,7 +103,7 @@ export default function CourseList() {
       <View className="mb-3">
         <SectionHeader
           title={tt('course.list.title', '精品课程')}
-          subtitle={`${list.length} 个课程`}
+          subtitle={`${list.length} 个课{tt('courseList.p1', '程')}`}
           showMore={false}
         />
       </View>

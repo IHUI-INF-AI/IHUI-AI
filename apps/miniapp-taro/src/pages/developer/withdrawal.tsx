@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperWithdrawalList } from '@/api'
-import { useI18n } from '@/i18n'
 
 // 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
 interface WithdrawalItem {

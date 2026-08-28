@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { useState, type ReactElement } from 'react'
 
@@ -23,13 +24,13 @@ interface NationItem {
   id: number
 }
 
-const NATION_DATA: NationItem[] = [
-  { title: '中国', content: '+86', id: 1 },
-  { title: '美国', content: '+1', id: 2 },
-  { title: '台湾', content: '+886', id: 3 },
-  { title: '香港', content: '+852', id: 4 },
-  { title: '韩国', content: '+82', id: 5 },
-  { title: '日本', content: '+81', id: 6 },
+const NATION_DATA = (tt: TtFn): NationItem[] => [
+  { title: tt('PhoneAreaCodePicker.d1', '中国'), content: '+86', id: 1 },
+  { title: tt('legal.supportedRegions.regionUS', '美国'), content: '+1', id: 2 },
+  { title: tt('legal.supportedRegions.regionTaiwan', '台湾'), content: '+886', id: 3 },
+  { title: tt('legal.supportedRegions.regionHongKong', '香港'), content: '+852', id: 4 },
+  { title: tt('legal.supportedRegions.regionKorea', '韩国'), content: '+82', id: 5 },
+  { title: tt('legal.supportedRegions.regionJapan', '日本'), content: '+81', id: 6 },
 ]
 
 export default function PhoneAreaCodePicker({
@@ -37,6 +38,7 @@ export default function PhoneAreaCodePicker({
   onChange,
   focused = false,
 }: PhoneAreaCodePickerProps): ReactElement {
+  const tt = useTt()
   const [nationShow, setNationShow] = useState(false)
 
   function selectnati(code: string): void {
@@ -57,7 +59,7 @@ export default function PhoneAreaCodePicker({
         <View className="nation-box" catchMove>
           <View className="nation-boo">
             <ScrollView scrollY style={{ height: '280rpx' }}>
-              {NATION_DATA.map((item) => (
+              {NATION_DATA(tt).map((item) => (
                 <View className="nationInfo" key={item.id}>
                   <View className="nation-info1" onClick={() => selectnati(item.content)}>
                     <Text className="nation-name">{item.title}</Text>

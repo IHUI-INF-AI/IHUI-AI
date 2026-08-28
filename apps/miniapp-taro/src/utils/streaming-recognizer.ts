@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { voiceSttFromTaro } from '@ihui/api-client/endpoints/voice-stt.taro'
 
@@ -49,7 +50,7 @@ class StreamingRecognizer {
     })
     this.recorderManager.onError((err) => {
       this.isRecording = false
-      this.onError?.(err.errMsg || '录音错误')
+      this.onError?.(err.errMsg || t('utilsStreamingrecognizer.p1'))
     })
     // 流式帧上传已废弃(2026-07-28 改用整段上传 + faster-whisper 本地推理)
   }
@@ -102,7 +103,7 @@ class StreamingRecognizer {
         this.onFinalResult?.(text)
       }
     } catch {
-      this.onError?.('识别失败')
+      this.onError?.(t('utilsStreamingrecognizer.q1'))
     }
   }
 

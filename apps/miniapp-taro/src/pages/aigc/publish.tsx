@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Input, Textarea, Button, Image, ScrollView } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { publishAigc, uploadByBase64 } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface UpFile {
   url: string
