@@ -10,12 +10,14 @@ import { ConfigFilter } from './ConfigFilter'
 import { ConfigTable } from './ConfigTable'
 import { ConfigDialog } from './ConfigDialog'
 import { EMPTY_FORM, api, normList, configToForm } from './helpers'
+import { useConfirm } from '@/hooks/use-confirm'
 import type { Category, Config, ConfigForm } from './types'
 import { BackButton } from '@/components/common'
 
 export default function AdminConfigsPage() {
   const t = useTranslations('admin.configs')
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const [category, setCategory] = React.useState<'all' | Category>('all')
   const [open, setOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Config | null>(null)
@@ -77,8 +79,8 @@ export default function AdminConfigsPage() {
     }
     saveMut.mutate()
   }
-  function handleDelete(c: Config) {
-    if (!confirm(t('deleteConfirm'))) return
+  async function handleDelete(c: Config) {
+    if (!(await confirm({ title: t('deleteConfirm'), variant: 'destructive' }))) return
     delMut.mutate(c.id)
   }
 
@@ -122,6 +124,7 @@ export default function AdminConfigsPage() {
         onSubmit={submit}
         onClose={close}
       />
+      <ConfirmDialogRenderer />
     </div>
   )
 }

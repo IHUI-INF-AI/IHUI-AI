@@ -63,6 +63,9 @@ export default function AdminShopWithdrawalsPage() {
           <WithdrawalFlowDialog {...flow} />
         </>
       )}
+
+      <detail.ConfirmDialogRenderer />
+      <flow.ConfirmDialogRenderer />
     </div>
   )
 }
