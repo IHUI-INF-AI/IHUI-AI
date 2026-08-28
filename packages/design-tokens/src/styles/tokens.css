@@ -287,18 +287,26 @@
             (2) 含 span 直接子节点(文字)
    覆盖:icon+文字 / 纯文字 两种场景(2026-07-24 从 :has(>svg):has(>span) 放宽到 :has(>span),
         修复 plan-act-toggle 等纯文字按钮文字偏下问题,根治"新组件总有对齐问题")。
-   0.3px 对英文几乎无感(14px 字号肉眼阈值 1px 的 1/3),trade-off 可接受。 */
+   0.3px 对英文几乎无感(14px 字号肉眼阈值 1px 的 1/3),trade-off 可接受。
+   ★ 2026-08-28 架构修复:transform → translate 属性。
+   根因:Tailwind v4 的 translate-y-* 工具类编译为独立 CSS `translate` 属性,
+   而本规则用 `transform: translateY()`——两个不同属性同时生效会几何叠加
+   (0.3 + 0.3 = 0.6px,e2e icon-text-alignment 实测),任何同时命中两机制的
+   元素(如 nav-styles 的 [&>span]:translate-y-[...])都会被双重下推。
+   改用同一 `translate` 属性后,本规则(unlayered,优先于 @layer utilities)
+   与 Tailwind 工具类互斥覆盖,全仓永远单次生效。 */
 :where(button, a, [role='button'], [role='menuitem']):has(> span) > span {
-  transform: translateY(var(--text-vcenter-offset));
+  translate: 0 var(--text-vcenter-offset);
 }
 
 /* text-xs (12px) 字号专用偏移:glyph 中心偏移更大,需要更大幅度。
    实测 12px 字号下自然偏差 ≈ -0.79px,0.3px 仅收敛到 -0.49px;
    用 0.7px 可让 delta 收敛到 -0.09px (肉眼无感)。
    通过 button 上的 text-xs 类触发(span 继承 12px 但自身无 text-xs 类)。
-   2026-07-24 同步放宽到 :has(>span),覆盖纯文字 12px 按钮。 */
+   2026-07-24 同步放宽到 :has(>span),覆盖纯文字 12px 按钮。
+   2026-08-28 同步 transform → translate(与上方规则保持同一属性)。 */
 :where(button, a, [role='button'], [role='menuitem']).text-xs:has(> span) > span {
-  transform: translateY(0.7px);
+  translate: 0 0.7px;
 }
 
 /* color-scheme 属性(2026-07-31 对标 Trae/Codex/Claude Code):
