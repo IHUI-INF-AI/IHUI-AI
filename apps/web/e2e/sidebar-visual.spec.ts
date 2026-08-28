@@ -574,9 +574,12 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       `btn 超出 row 底部应 ≤ 0.5px,实际 ${d.btnOverRowBottom}`,
     ).toBeGreaterThanOrEqual(-0.5)
 
-    // 5. 左右 padding 对称(px-2 = 8px,左右各 8px,差 ≤ 0.5px)
-    expect(d.leftPadding, `leftPadding 应 ≈ 8px (px-2),实际 ${d.leftPadding}`).toBeCloseTo(8, 0)
-    expect(d.rightPadding, `rightPadding 应 ≈ 8px (px-2),实际 ${d.rightPadding}`).toBeCloseTo(8, 0)
+    // 5. 左右 padding 对称(px-6 = 24px,左右各 24px,差 ≤ 0.5px)
+    expect(d.leftPadding, `leftPadding 应 ≈ 24px (px-6),实际 ${d.leftPadding}`).toBeCloseTo(24, 0)
+    expect(d.rightPadding, `rightPadding 应 ≈ 24px (px-6),实际 ${d.rightPadding}`).toBeCloseTo(
+      24,
+      0,
+    )
     expect(
       d.paddingSymmetryDiff,
       `左右 padding 对称性 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`,
@@ -653,9 +656,9 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       const rowRect = row.getBoundingClientRect()
       // 2026-08-26 修复:组件重构后 .group/row 即 button(row 内无 button 子元素),
       // 用内层 Avatar span(第一 span)计算 padding 语义
-      const avatar = Array.from(row.children).find((el) => el.tagName === 'SPAN') as
-        | HTMLElement
-        | null
+      const avatar = Array.from(row.children).find(
+        (el) => el.tagName === 'SPAN',
+      ) as HTMLElement | null
       const avatarRect = avatar?.getBoundingClientRect()
       return {
         bg,
