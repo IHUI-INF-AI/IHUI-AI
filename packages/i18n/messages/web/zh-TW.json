@@ -9044,7 +9044,13 @@
     "responsive": {
       "apply": "應用",
       "customWidth": "自定義寬度",
-      "deviceFrame": "設備外框"
+      "deviceCustom": "自訂",
+      "deviceDesktop": "桌面",
+      "deviceFrame": "設備外框",
+      "deviceMobileLandscape": "手機橫向",
+      "deviceMobilePortrait": "手機縱向",
+      "deviceTabletLandscape": "平板橫向",
+      "deviceTabletPortrait": "平板縱向"
     },
     "saveFailed": "保存失敗:{error}",
     "savePreview": "保存預覽",

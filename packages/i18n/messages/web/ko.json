@@ -9057,7 +9057,13 @@
     "responsive": {
       "apply": "적용",
       "customWidth": "사용자 지정 너비",
-      "deviceFrame": "장치 프레임"
+      "deviceCustom": "사용자 지정",
+      "deviceDesktop": "데스크톱",
+      "deviceFrame": "장치 프레임",
+      "deviceMobileLandscape": "모바일 가로",
+      "deviceMobilePortrait": "모바일 세로",
+      "deviceTabletLandscape": "태블릿 가로",
+      "deviceTabletPortrait": "태블릿 세로"
     },
     "saveFailed": "저장 실패: {error}",
     "savePreview": "미리보기 저장",
