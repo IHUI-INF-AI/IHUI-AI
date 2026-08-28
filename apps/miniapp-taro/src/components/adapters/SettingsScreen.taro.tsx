@@ -1,4 +1,5 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/Switch/Input 组件,不适合共享层
+import { useTt } from '@/i18n'
 import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { View, Text, Switch, Input } from '@tarojs/components'
@@ -8,7 +9,6 @@ import type {
   SettingsScreenProps as SharedSettingsScreenProps,
   SharedNotificationToggles,
 } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /**
  * Taro 适配层:SettingsScreen

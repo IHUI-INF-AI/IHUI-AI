@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image, Input, Picker } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
-import { useTt } from '@/i18n'
 import { formatDateByTemplate } from '@ihui/shared'
 import './team.css'
 

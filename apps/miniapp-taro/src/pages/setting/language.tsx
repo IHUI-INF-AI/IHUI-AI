@@ -1,9 +1,9 @@
+import { useI18n, type TtFn, type Locale } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
-import { useI18n, type Locale } from '@/i18n'
 
 type LangItem = {
   value: Locale
@@ -12,12 +12,22 @@ type LangItem = {
   english: string
 }
 
-const LANGS: LangItem[] = [
-  { value: 'zh-CN', key: 'zhCN', native: '简体中文', english: 'Simplified Chinese' },
-  { value: 'zh-TW', key: 'zhTW', native: '繁體中文', english: 'Traditional Chinese' },
+const LANGS = (tt: TtFn): LangItem[] => [
+  {
+    value: 'zh-CN',
+    key: 'zhCN',
+    native: tt('legal.supportedRegions.languageZhCN', '简体中文'),
+    english: 'Simplified Chinese',
+  },
+  {
+    value: 'zh-TW',
+    key: 'zhTW',
+    native: tt('settingLanguage.d1', '繁體中文'),
+    english: 'Traditional Chinese',
+  },
   { value: 'en', key: 'en', native: 'English', english: 'English' },
   { value: 'ko', key: 'ko', native: '한국어', english: 'Korean' },
-  { value: 'ja', key: 'ja', native: '日本語', english: 'Japanese' },
+  { value: 'ja', key: 'ja', native: tt('settingLanguage.d2', '日本語'), english: 'Japanese' },
 ]
 
 const LANG_KEY: Record<string, string> = {
@@ -28,12 +38,12 @@ const LANG_KEY: Record<string, string> = {
   ja: 'setting.ja',
 }
 
-const DEFAULT_LANG: LangItem = {
+const DEFAULT_LANG = (tt: TtFn): LangItem => ({
   value: 'zh-CN',
   key: 'zhCN',
-  native: '简体中文',
+  native: tt('legal.supportedRegions.languageZhCN', '简体中文'),
   english: 'Simplified Chinese',
-}
+})
 
 export default function LanguagePage() {
   const { t, locale, setLocale } = useI18n()
@@ -46,9 +56,7 @@ export default function LanguagePage() {
   )
   const [current, setCurrent] = useState<Locale>(locale)
 
-  useEffect(() => {
-    Taro.setNavigationBarTitle({ title: t('setting.languageTitle') })
-  }, [t])
+  useEffect(() => {}, [t])
 
   useDidShow(() => {
     setCurrent(locale)
@@ -70,7 +78,7 @@ export default function LanguagePage() {
     [current, setLocale, tt],
   )
 
-  const currentLang = LANGS.find((l) => l.value === current) ?? DEFAULT_LANG
+  const currentLang = LANGS(tt).find((l) => l.value === current) ?? DEFAULT_LANG(tt)
 
   return (
     <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
@@ -105,7 +113,7 @@ export default function LanguagePage() {
         className="flex flex-col gap-[16rpx]"
         onChange={(e) => onSelect(e.detail.value as Locale)}
       >
-        {LANGS.map((l) => (
+        {LANGS(tt).map((l) => (
           <View
             key={l.value}
             className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}

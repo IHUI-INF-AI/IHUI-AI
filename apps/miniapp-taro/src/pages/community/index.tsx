@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, {
   useDidShow,
@@ -18,7 +19,6 @@ import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
-import { useTt } from '@/i18n'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
@@ -106,7 +106,7 @@ export default function Community() {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [categories, setCategories] = useState<CategoryItem[]>([
-    { id: 'all', name: '全部', url: '', butUrl: '' },
+    { id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' },
   ])
   const [showCategoryPopup, setShowCategoryPopup] = useState(false)
   const [showDrawer, setShowDrawer] = useState(false)
@@ -121,7 +121,7 @@ export default function Community() {
   const [drawerGroupedData, setDrawerGroupedData] = useState<DrawerModelGroup[]>([])
   const [drawerUserinfo, setDrawerUserinfo] = useState<DrawerUserInfo>({
     avatar: '',
-    nickname: '智汇AI用户',
+    nickname: tt('community.text1', '智汇AI用户'),
   })
   const scrollTopRef = useRef(0)
 
@@ -148,8 +148,8 @@ export default function Community() {
           agentName: a.name || '',
           agentAvatar: a.avatar || '',
           agentDescription: a.desc || '',
-          agentMainCategory: [{ name: '全部' }],
-          userNickname: '智汇AI',
+          agentMainCategory: [{ name: tt('common.all', '全部') }],
+          userNickname: tt('community.text2', '智汇AI'),
           userAvatar: '',
           usageCount: a.uses || 0,
           isHot: 0,
@@ -179,7 +179,7 @@ export default function Community() {
         setLoading(false)
       }
     },
-    [loading, page, hasMore],
+    [loading, page, hasMore, tt],
   )
 
   /** 加载历史对话(对齐原项目 loadHistoryChat) */
@@ -189,20 +189,20 @@ export default function Community() {
       const rawList = Array.isArray(res?.list) ? res.list : []
       const dateMap = new Map<string, Array<{ id: string | number; title: string; date: string }>>()
       for (const chat of rawList) {
-        const dateKey = chat.time ? chat.time.slice(0, 10) : '最近'
+        const dateKey = chat.time ? chat.time.slice(0, 10) : tt('ai.agentList.tabRecent', '最近')
         if (!dateMap.has(dateKey)) dateMap.set(dateKey, [])
         dateMap.get(dateKey)!.push({ id: chat.id, title: chat.title, date: chat.time })
       }
       setDrawerGroupedData([
         {
-          modelName: '历史对话',
+          modelName: tt('share.index.history', '历史对话'),
           dateGroups: Array.from(dateMap.entries()).map(([date, chats]) => ({ date, chats })),
         },
       ])
     } catch {
       setDrawerGroupedData([])
     }
-  }, [])
+  }, [tt])
 
   /** 加载首页 Banner */
   const loadBanners = useCallback(async () => {
@@ -276,7 +276,7 @@ export default function Community() {
       const catRes = await api.getAgentCategories()
       const rawList = extractList(catRes) as Array<{ id?: string; name?: string }>
       const catList: CategoryItem[] = [
-        { id: 'all', name: '全部', url: '', butUrl: '' },
+        { id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' },
         ...rawList.map((c, idx) => ({
           id: c.id || String(idx),
           name: c.name || '',
@@ -287,9 +287,9 @@ export default function Community() {
       setCategories(catList)
     } catch {
       // 降级:只保留"全部"
-      setCategories([{ id: 'all', name: '全部', url: '', butUrl: '' }])
+      setCategories([{ id: 'all', name: tt('common.all', '全部'), url: '', butUrl: '' }])
     }
-  }, [])
+  }, [tt])
 
   useDidShow(() => {
     void loadData(true)
@@ -304,7 +304,7 @@ export default function Community() {
       if (userData) {
         setDrawerUserinfo({
           avatar: userData.avatar || '',
-          nickname: userData.userName || userData.nickname || '智汇AI用户',
+          nickname: userData.userName || userData.nickname || tt('community.text1', '智汇AI用户'),
         })
       }
     } catch {
@@ -329,13 +329,13 @@ export default function Community() {
 
   // 对齐原项目 tools/index.vue onShareAppMessage / onShareTimeline
   useShareAppMessage(() => ({
-    title: 'AI 应用商店 - 智汇AI社区',
+    title: tt('community.text3', 'AI 应用商店 - 智汇AI社区'),
     path: '/pages/community/index',
     imageUrl: '/static/images/share_zhz.png',
   }))
 
   useShareTimeline(() => ({
-    title: 'AI 应用商店 - 智汇AI社区',
+    title: tt('community.text3', 'AI 应用商店 - 智汇AI社区'),
   }))
 
   /* ============ 事件处理 ============ */
@@ -344,7 +344,7 @@ export default function Community() {
     if (item.link) {
       Taro.navigateTo({ url: item.link })
     } else {
-      Taro.showToast({ title: '即将上线，敬请期待', icon: 'none' })
+      Taro.showToast({ title: tt('community.text5', '即将上线，敬请期待'), icon: 'none' })
     }
   }
 
@@ -399,31 +399,34 @@ export default function Community() {
   }
 
   /** 购买月费智能体(对齐原项目 Ai-list_b.vue L264-292 buyThisModel) */
-  const handlePurchase = useCallback(async (agent: AgentInfo) => {
-    purchasingAgentRef.current = agent
-    try {
-      const res = (await api.getChargeInfoById(agent.id)) as
-        | {
-            price?: number
-            discountPrice?: number
-            duration?: string
-            agentName?: string
-          }
-        | undefined
-      const info: PayInfo = {
-        title: res?.agentName || agent.name,
-        amount: res?.price ?? 0,
-        originalPrice: res?.discountPrice,
-        benefits: [`${res?.duration ?? '1个月'}时长`],
-        payType: 3, // 月费
-        payCrowd: 0,
+  const handlePurchase = useCallback(
+    async (agent: AgentInfo) => {
+      purchasingAgentRef.current = agent
+      try {
+        const res = (await api.getChargeInfoById(agent.id)) as
+          | {
+              price?: number
+              discountPrice?: number
+              duration?: string
+              agentName?: string
+            }
+          | undefined
+        const info: PayInfo = {
+          title: res?.agentName || agent.name,
+          amount: res?.price ?? 0,
+          originalPrice: res?.discountPrice,
+          benefits: [t('community.y1', { p1: res?.duration ?? '1个月' })],
+          payType: 3, // 月费
+          payCrowd: 0,
+        }
+        setPayInfo(info)
+        setShowPayPopup(true)
+      } catch {
+        Taro.showToast({ title: tt('community.failed6', '获取价格信息失败'), icon: 'none' })
       }
-      setPayInfo(info)
-      setShowPayPopup(true)
-    } catch {
-      Taro.showToast({ title: '获取价格信息失败', icon: 'none' })
-    }
-  }, [])
+    },
+    [tt],
+  )
 
   function onAgentListSelect(agent: AgentInfo) {
     Taro.navigateTo({
@@ -432,42 +435,52 @@ export default function Community() {
   }
 
   /** 收藏智能体 */
-  const handleAgentCollect = useCallback(async (id: string) => {
-    try {
-      await api.collectAgent(id)
-      setAgentList((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                isCollect: a.isCollect ? 0 : 1,
-                collectCount: a.collectCount + (a.isCollect ? -1 : 1),
-              }
-            : a,
-        ),
-      )
-      Taro.showToast({ title: '已收藏', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }, [])
+  const handleAgentCollect = useCallback(
+    async (id: string) => {
+      try {
+        await api.collectAgent(id)
+        setAgentList((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  isCollect: a.isCollect ? 0 : 1,
+                  collectCount: a.collectCount + (a.isCollect ? -1 : 1),
+                }
+              : a,
+          ),
+        )
+        Taro.showToast({ title: tt('ai.agentDetail.favorited', '已收藏'), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      }
+    },
+    [tt],
+  )
 
   /** 点赞智能体 */
-  const handleAgentLike = useCallback(async (id: string) => {
-    try {
-      await api.likeAgent(id)
-      setAgentList((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? { ...a, isThumbs: a.isThumbs ? 0 : 1, likeCount: a.likeCount + (a.isThumbs ? -1 : 1) }
-            : a,
-        ),
-      )
-      Taro.showToast({ title: '已点赞', icon: 'success' })
-    } catch {
-      Taro.showToast({ title: '操作失败', icon: 'none' })
-    }
-  }, [])
+  const handleAgentLike = useCallback(
+    async (id: string) => {
+      try {
+        await api.likeAgent(id)
+        setAgentList((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  isThumbs: a.isThumbs ? 0 : 1,
+                  likeCount: a.likeCount + (a.isThumbs ? -1 : 1),
+                }
+              : a,
+          ),
+        )
+        Taro.showToast({ title: tt('community.like7', '已点赞'), icon: 'success' })
+      } catch {
+        Taro.showToast({ title: tt('setting.operationFailed', '操作失败'), icon: 'none' })
+      }
+    },
+    [tt],
+  )
 
   function onTitleSwitchChange(item: TitleSwitchScrollTitleItem) {
     const matched = categories.find((c) => c.name === item.name)
@@ -491,7 +504,10 @@ export default function Community() {
       if (item.key === 'appStore') {
         Taro.switchTab({ url, fail: () => Taro.navigateTo({ url }) })
       } else {
-        Taro.navigateTo({ url, fail: () => Taro.showToast({ title: '页面未配置', icon: 'none' }) })
+        Taro.navigateTo({
+          url,
+          fail: () => Taro.showToast({ title: tt('community.text8', '页面未配置'), icon: 'none' }),
+        })
       }
     }
   }
@@ -517,8 +533,13 @@ export default function Community() {
       Taro.setClipboardData({
         data: feishuUrl,
         success: () =>
-          Taro.showToast({ title: '链接已复制,请在浏览器打开', icon: 'none', duration: 2000 }),
-        fail: () => Taro.showToast({ title: '复制失败,请重试', icon: 'none' }),
+          Taro.showToast({
+            title: tt('community.copy9', '链接已复制,请在浏览器打开'),
+            icon: 'none',
+            duration: 2000,
+          }),
+        fail: () =>
+          Taro.showToast({ title: tt('community.failed10', '复制失败,请重试'), icon: 'none' }),
       })
     }
   }
@@ -528,23 +549,23 @@ export default function Community() {
     // 对齐原项目 handleShowFullList:携带 chatId + title 参数
     Taro.navigateTo({
       url: `/pages/ai/chat?chatId=${chat.id}&title=${encodeURIComponent(chat.title)}`,
-      fail: () => Taro.showToast({ title: '对话页未配置', icon: 'none' }),
+      fail: () => Taro.showToast({ title: tt('community.text11', '对话页未配置'), icon: 'none' }),
     })
   }
 
   /** 删除历史对话 */
   function handleRemoveChat(chat: DrawerChatItem) {
     Taro.showModal({
-      title: '提示',
-      content: '确定删除此对话?',
+      title: tt('common.hint', '提示'),
+      content: tt('community.confirm12', '确定删除此对话?'),
       success: async (res) => {
         if (res.confirm) {
           try {
             await api.removeModelChat(String(chat.id))
-            Taro.showToast({ title: '已删除', icon: 'success' })
+            Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
             void loadHistoryChat()
           } catch {
-            Taro.showToast({ title: '删除失败', icon: 'none' })
+            Taro.showToast({ title: tt('developer.index.deleteFail', '删除失败'), icon: 'none' })
           }
         }
       },
@@ -559,7 +580,7 @@ export default function Community() {
   /** 映射分类到 TitleSwitchScrollTitle 格式 */
   const titleSwitchMainList: TitleSwitchScrollTitleItem[] = [
     {
-      name: '全部',
+      name: tt('common.all', '全部'),
       children: categories.map((c) => ({ name: c.name })),
     },
   ]
@@ -616,7 +637,7 @@ export default function Community() {
         <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
           <NavBar
             variant="ai-home"
-            title="A I 应用商店"
+            title={tt('community.m1', 'A I 应用商店')}
             showFenLei
             showSearch
             onFenLeiClick={handleFenLeiClick}
@@ -627,7 +648,7 @@ export default function Community() {
         <View style={{ opacity: 0 }}>
           <NavBar
             variant="ai-home"
-            title="A I 应用商店"
+            title={tt('community.m2', 'A I 应用商店')}
             showFenLei
             showSearch
             onFenLeiClick={handleFenLeiClick}
@@ -697,7 +718,9 @@ export default function Community() {
             style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
             onClick={() => setShowServicePopup(true)}
           >
-            <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>联系客服</Text>
+            <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
+              {tt('wallet.recharge.fail.contactService', '联系客服')}
+            </Text>
           </View>
 
           {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
@@ -709,7 +732,7 @@ export default function Community() {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <InputArea
                   value={searchKeyword}
-                  placeholder="请输入查找的智能体名称"
+                  placeholder={tt('community.m3', '请输入查找的智能体名称')}
                   onInput={handleSearchInput}
                   onSend={handleSearchSend}
                   variant="default"
@@ -723,7 +746,10 @@ export default function Community() {
                 src="/static/images/icons/mic.svg"
                 mode="aspectFit"
                 onClick={() => {
-                  Taro.showToast({ title: '语音搜索请在完整版使用', icon: 'none' })
+                  Taro.showToast({
+                    title: tt('community.search13', '语音搜索请在完整版使用'),
+                    icon: 'none',
+                  })
                 }}
               />
               {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
@@ -735,7 +761,10 @@ export default function Community() {
                 onClick={async () => {
                   try {
                     await chooseImages(1)
-                    Taro.showToast({ title: '图片搜索请在完整版使用', icon: 'none' })
+                    Taro.showToast({
+                      title: tt('community.search14', '图片搜索请在完整版使用'),
+                      icon: 'none',
+                    })
                   } catch {
                     // 用户取消或失败,静默
                   }
@@ -753,18 +782,24 @@ export default function Community() {
           {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
           <View className="community-ailist-content">
             <View className="community-agent-list-header">
-              <Text className="community-agent-list-title">智能体推荐</Text>
+              <Text className="community-agent-list-title">
+                {tt('community.text15', '智能体推荐')}
+              </Text>
               <Text className="community-agent-list-posts">{tt('community.posts', '帖子')}</Text>
               <Text
                 className="community-agent-list-more"
                 onClick={() =>
                   Taro.navigateTo({
                     url: '/pages/category-detail/index',
-                    fail: () => Taro.showToast({ title: '分类详情页未配置', icon: 'none' }),
+                    fail: () =>
+                      Taro.showToast({
+                        title: tt('community.detail16', '分类详情页未配置'),
+                        icon: 'none',
+                      }),
                   })
                 }
               >
-                查看更多 {'>'}
+                {tt('tail.19', '查看更多')} {'>'}
               </Text>
             </View>
             <AgentListPanel
@@ -774,10 +809,12 @@ export default function Community() {
               onSelect={onAgentListSelect}
               onPurchase={handlePurchase}
             />
-            {!loading && agentList.length === 0 ? <EmptyState text="暂无智能体" /> : null}
+            {!loading && agentList.length === 0 ? (
+              <EmptyState text={tt('agent.empty', '暂无智能体')} />
+            ) : null}
             {!loading && !hasMore && agentList.length > 0 ? (
               <View className="community-no-more">
-                <Text className="community-no-more-text">没有更多了</Text>
+                <Text className="community-no-more-text">{tt('common.noMore', '没有更多了')}</Text>
               </View>
             ) : null}
           </View>
@@ -863,7 +900,7 @@ export default function Community() {
               amount: payInfo.amount ?? 0,
               orderType: 'agent',
               productId: agent.id,
-              description: `购买智能体:${agent.name}`,
+              description: t('community.y2', { p1: agent.name }),
             })) as {
               mock?: boolean
               timeStamp?: string
@@ -874,7 +911,10 @@ export default function Community() {
             }
             // 3. mock 模式(后端未配置微信支付)
             if (payRes?.mock) {
-              Taro.showToast({ title: '支付成功(mock)', icon: 'success' })
+              Taro.showToast({
+                title: tt('community.success17', '支付成功(mock)'),
+                icon: 'success',
+              })
               setShowPayPopup(false)
               void loadData(true)
               return
@@ -887,7 +927,7 @@ export default function Community() {
               !payRes.package ||
               !payRes.signType
             ) {
-              Taro.showToast({ title: '支付参数异常', icon: 'none' })
+              Taro.showToast({ title: tt('community.pay18', '支付参数异常'), icon: 'none' })
               return
             }
             await requestPayment({
@@ -897,13 +937,13 @@ export default function Community() {
               signType: payRes.signType,
               paySign: payRes.paySign,
             })
-            Taro.showToast({ title: '支付成功', icon: 'success' })
+            Taro.showToast({ title: tt('pay.result.paid', '支付成功'), icon: 'success' })
             setShowPayPopup(false)
             void loadData(true)
           } catch (err) {
             // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
             if (err !== 'cancel') {
-              Taro.showToast({ title: '支付失败,请重试', icon: 'none' })
+              Taro.showToast({ title: tt('pay.failed', '支付失败,请重试'), icon: 'none' })
             }
           }
         }}

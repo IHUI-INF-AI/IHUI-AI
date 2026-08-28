@@ -1,15 +1,15 @@
+import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, Textarea, Input, Button, RadioGroup, Radio } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { refund, getOrderDetail, type Order } from '@/api'
-import { useTt } from '@/i18n'
 
-const REASONS: Array<{ key: string; fb: string }> = [
-  { key: 'order.refund.reasonUnwanted', fb: '不想要了' },
-  { key: 'order.refund.reasonWrongItem', fb: '拍错/多拍' },
-  { key: 'order.refund.reasonQuality', fb: '质量问题' },
-  { key: 'order.refund.reasonMismatch', fb: '与描述不符' },
-  { key: 'order.refund.reasonOther', fb: '其他原因' },
+const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
+  { key: 'order.refund.reasonUnwanted', fb: tt('orderRefund.d1', '不想要了') },
+  { key: 'order.refund.reasonWrongItem', fb: tt('orderRefund.d2', '拍错/多拍') },
+  { key: 'order.refund.reasonQuality', fb: tt('orderRefund.d3', '质量问题') },
+  { key: 'order.refund.reasonMismatch', fb: tt('orderRefund.d4', '与描述不符') },
+  { key: 'order.refund.reasonOther', fb: tt('orderRefund.d5', '其他原因') },
 ]
 
 export default function OrderRefund() {
@@ -50,9 +50,13 @@ export default function OrderRefund() {
       Taro.showToast({ title: tt('order.loadFailed', '订单信息加载失败'), icon: 'none' })
       return
     }
-    const found = REASONS.find((r) => r.key === reason)
+    const found = REASONS(tt).find((r) => r.key === reason)
     const reasonLabel = found ? tt(found.key, found.fb) : reason
-    const composed = [reasonLabel, desc && `说明:${desc}`, contact && `联系:${contact}`]
+    const composed = [
+      reasonLabel,
+      desc && t('orderRefund.y1', { p1: desc }),
+      contact && t('orderRefund.y2', { p1: contact }),
+    ]
       .filter(Boolean)
       .join(' | ')
     setSubmitting(true)
@@ -141,7 +145,7 @@ export default function OrderRefund() {
           className="flex flex-col gap-[24rpx]"
           onChange={(e) => setReason(e.detail.value)}
         >
-          {REASONS.map((r) => (
+          {REASONS(tt).map((r) => (
             <View key={r.key} className="flex items-center gap-[16rpx]">
               <Radio value={r.key} checked={reason === r.key} color="var(--color-primary)" />
               <Text className="text-[28rpx] text-foreground">{tt(r.key, r.fb)}</Text>

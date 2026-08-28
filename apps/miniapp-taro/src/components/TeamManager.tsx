@@ -1,5 +1,5 @@
-import { View, Text, ScrollView } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, ScrollView } from '@tarojs/components'
 import EmptyState from './EmptyState'
 import Avatar from './Avatar'
 
@@ -33,7 +33,10 @@ export default function TeamManager({
         <Text className="text-sm font-medium text-foreground">
           {tt('distribution.myTeam', '我的团队')}
         </Text>
-        <Text className="text-xs text-muted-foreground">{totalCount ?? members.length} 人</Text>
+        <Text className="text-xs text-muted-foreground">
+          {tt('following.people', '人')}
+          {totalCount ?? members.length}
+        </Text>
       </View>
 
       <ScrollView scrollY style={{ maxHeight: '40vh' }}>
@@ -44,7 +47,7 @@ export default function TeamManager({
             </Text>
           </View>
         ) : members.length === 0 ? (
-          <EmptyState text="暂无团队成员" />
+          <EmptyState text={tt('distribution.team.empty', '暂无团队成员')} />
         ) : (
           members.map((member) => (
             <View
@@ -66,7 +69,7 @@ export default function TeamManager({
                 </View>
                 {member.joinedAt && (
                   <Text className="block text-xs text-muted-foreground mt-0.5">
-                    加入于 {member.joinedAt}
+                    {tt('tail.13', '加入于 {m}', { m: member.joinedAt })}
                   </Text>
                 )}
               </View>
@@ -79,7 +82,9 @@ export default function TeamManager({
                 <Text
                   className={`text-xs ${member.status === 'active' ? 'text-primary' : 'text-muted-foreground'}`}
                 >
-                  {member.status === 'active' ? '活跃' : '不活跃'}
+                  {member.status === 'active'
+                    ? tt('earnings.stageActive', '活跃')
+                    : tt('TeamManager.p1', '不活跃')}
                 </Text>
               </View>
             </View>

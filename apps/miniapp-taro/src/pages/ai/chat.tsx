@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import tishiIcon from '@/assets/remote/images/tishi_icon.png'
 import floderInputIcon from '@/assets/remote/images/floder_input.png'
@@ -28,7 +29,6 @@ import {
   type MaterialTab,
   type InputFileItem,
 } from '@/components'
-import { useI18n } from '@/i18n'
 import { useUserStore } from '@/stores/user'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'

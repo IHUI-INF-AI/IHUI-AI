@@ -1,3 +1,4 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
@@ -9,7 +10,6 @@ import {
   startExamRecord,
   type QuestionType,
 } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface Question {
   id: string

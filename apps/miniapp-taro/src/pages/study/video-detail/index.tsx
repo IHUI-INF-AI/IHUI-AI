@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVideoDetail } from '@/api'
-import { useI18n } from '@/i18n'
 import {
   VideoPlayer,
   VideoInfo,

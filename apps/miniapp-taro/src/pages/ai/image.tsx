@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Textarea, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
-import { useI18n } from '@/i18n'
 import EmptyState from '@/components/EmptyState'
 import { formatDateByTemplate } from '@ihui/shared'
 

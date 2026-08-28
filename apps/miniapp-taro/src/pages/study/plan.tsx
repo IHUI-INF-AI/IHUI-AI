@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyPlan, post } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface PlanItem {
   id: string

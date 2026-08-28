@@ -1,7 +1,7 @@
+import { useTt } from '@/i18n'
 import { View, Button, Text, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Taro from '@tarojs/taro'
-import { useTt } from '@/i18n'
 import { getSystemInfoCompat } from '@/utils/system-info'
 
 export interface CustomerServiceFloatProps {
