@@ -34,7 +34,7 @@ export function SortableSection({ section, index, onToggle }: SortableSectionPro
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: isDragging ? 10 : undefined,
+    zIndex: isDragging ? 'var(--z-header)' : undefined,
   }
 
   return (

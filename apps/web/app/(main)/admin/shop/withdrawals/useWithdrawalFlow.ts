@@ -5,12 +5,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { api, PAGE_SIZE, EMPTY_FLOW, type ListData, type WithdrawalFlowItem } from './types'
+import { useConfirm } from '@/hooks/use-confirm'
 
 export function useWithdrawalFlow(
   enabled: boolean,
   t: (key: string, params?: Record<string, string | number>) => string,
 ) {
   const qc = useQueryClient()
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
 
   const [fSearch, setFSearch] = React.useState({
     userId: '',
@@ -119,8 +121,14 @@ export function useWithdrawalFlow(
     }
     fSaveMut.mutate()
   }
-  function handleDeleteFlow(w: WithdrawalFlowItem) {
-    if (!confirm(t('withdrawals.flow.confirmDelete', { id: w.id }))) return
+  async function handleDeleteFlow(w: WithdrawalFlowItem) {
+    if (
+      !(await confirm({
+        title: t('withdrawals.flow.confirmDelete', { id: w.id }),
+        variant: 'destructive',
+      }))
+    )
+      return
     fDeleteMut.mutate(w.id)
   }
   function handleResetFlow() {
@@ -165,5 +173,7 @@ export function useWithdrawalFlow(
     submitFlow,
     handleDeleteFlow,
     handleResetFlow,
+    confirm,
+    ConfirmDialogRenderer,
   }
 }
