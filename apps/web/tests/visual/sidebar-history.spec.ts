@@ -67,10 +67,26 @@ async function ensureConversationItems(page: Page, minCount = 1): Promise<number
   const count = await page.locator(CONVERSATION_ITEM_SELECTOR).count()
   if (count < minCount) {
     // 容错:会话数据创建失败时,验证空态仍渲染,再 skip(不硬抛)
-    const empty = page.locator(`${SIDEBAR_HISTORY_SELECTOR}`).first()
-    const emptyText = await empty.innerText().catch(() => '')
+    // 2026-08-28 修复:region 可能为"加载中..."态(fetch 未返回),直接断言会误报。
+    // 先等加载态结束(文本不再含"加载中"或条目出现),再取文本。
+    const region = page.locator(`${SIDEBAR_HISTORY_SELECTOR}`).first()
+    await page
+      .waitForFunction(
+        (sel) => {
+          const el = document.querySelector(sel)
+          return !!el && !/加载中/.test(el.textContent ?? '')
+        },
+        SIDEBAR_HISTORY_SELECTOR,
+        { timeout: 15000 },
+      )
+      .catch(() => {})
+    // 2026-08-28 修复:初次 count=0 可能是 fetch 未返回(加载态),等待结束后条目已出现
+    // → 必须二次计数,条目足够时直接返回,不进入空态断言
+    const recount = await page.locator(CONVERSATION_ITEM_SELECTOR).count()
+    if (recount >= minCount) return recount
+    const emptyText = await region.innerText().catch(() => '')
     expect(emptyText, '无会话时应渲染空态(暂无任务)').toContain('暂无任务')
-    test.skip(true, `历史对话项不足: 期望 >= ${minCount}, 实际 = ${count}`)
+    test.skip(true, `历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}`)
   }
   return count
 }
@@ -110,9 +126,7 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
     await expect(highlightBar, '默认态不应有 active 高亮条').toHaveCount(0)
   })
 
-  test('hover 态: 鼠标悬停后 ::before 背景不应为 transparent', async ({
-    authenticatedPage,
-  }) => {
+  test('hover 态: 鼠标悬停后 ::before 背景不应为 transparent', async ({ authenticatedPage }) => {
     const page = authenticatedPage
     await ensureConversationItems(page, 1)
     const firstItem = page.locator(CONVERSATION_ITEM_SELECTOR).first()
@@ -204,8 +218,12 @@ test.describe('侧边栏历史对话 - 三态视觉验证', () => {
     const className = await firstItem.getAttribute('class')
 
     // dark mode 下默认态 hover 触发器仍存在
-    expect(className, 'dark mode 默认态仍有 hover:text-foreground').toContain('hover:text-foreground')
-    expect(className, 'dark mode 默认态仍有 hover:before:bg-muted').toContain('hover:before:bg-muted')
+    expect(className, 'dark mode 默认态仍有 hover:text-foreground').toContain(
+      'hover:text-foreground',
+    )
+    expect(className, 'dark mode 默认态仍有 hover:before:bg-muted').toContain(
+      'hover:before:bg-muted',
+    )
 
     // 点击后验证 active 态
     await firstItem.click()

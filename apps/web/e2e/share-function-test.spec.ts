@@ -274,6 +274,19 @@ test.describe('分享功能 E2E 测试', () => {
     expect(freshUrl).toContain('/chat/share/')
     expect(freshUrl).not.toContain('/login')
 
+    // 2026-08-28 修复:与 Step 5 同类 race —— 无登录态下分享页 conversation 异步加载,
+    // 固定 2000ms 后 H1 可能仍是 fallback"分享对话" → 改用 expect.poll 轮询(最多 15s)
+    await expect
+      .poll(
+        async () => {
+          return freshPage.evaluate(() => {
+            const h1 = document.querySelector('h1')
+            return h1?.textContent?.trim() ?? ''
+          })
+        },
+        { timeout: 15000 },
+      )
+      .toBe(conversationTitle)
     const freshH1 = await freshPage.evaluate(() => {
       const h1 = document.querySelector('h1')
       return h1?.textContent?.trim() ?? ''
