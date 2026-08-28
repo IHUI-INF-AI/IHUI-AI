@@ -597,7 +597,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       },
       config: {
         // 2026-08-02 安全加固:登录端点配合账号锁定(5 次/锁定),限流收紧到 5 次/分钟。
-        rateLimit: { max: 5, timeWindow: '1 minute' },
+        // 2026-08-28 E2E 修复:全量 E2E(623 用例 + global-setup seed + 多 spec 登录)
+        // 并发打 /api/auth/login,per-IP 5 次/分钟持续触发 429(backend-contract.spec
+        // 的 7s 退避追不上 60s 窗口)。dev 放宽到 200 次/分钟;production 保持 5 次/分钟。
+        // (账号锁定防爆破机制 recordLoginFailure/getLockRemainingMs 独立生效,不受影响)
+        rateLimit:
+          process.env.NODE_ENV !== 'production'
+            ? { max: 200, timeWindow: '1 minute' }
+            : { max: 5, timeWindow: '1 minute' },
       },
     },
     async (request, reply) => {

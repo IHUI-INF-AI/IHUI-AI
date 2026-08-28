@@ -2,6 +2,13 @@ import { defineConfig } from 'vitest/config'
 import path from 'node:path'
 
 export default defineConfig({
+  // 2026-08-28 根治 "React is not defined":web 走 Next.js SWC automatic JSX runtime,
+  // 源码无需显式 import React;但 vitest esbuild 默认 classic runtime 会引用
+  // React.createElement → 46 个无 React import 的 .tsx 在测试中全数 ReferenceError。
+  // 显式对齐 automatic runtime,一处修复覆盖全部(勿用逐文件补 import 治标)。
+  esbuild: {
+    jsx: 'automatic',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
