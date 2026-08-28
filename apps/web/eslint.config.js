@@ -19,6 +19,7 @@ export default [
       // 污染真实 lint 报告。AGENTS.md §15 卫生规则要求临时文件必须项目内 .trae-cn/tmp/,
       // 故这里统一加 ignore 让 eslint 跳过。
       '.trae-cn/**',
+      'tmp/**',
     ],
   },
   {
