@@ -1,9 +1,9 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView 组件,不适合共享层
+import { useTt, type TtFn } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import type { TFunction, AppOrderStatus, OrderItem, OrderTab } from '@ihui/types'
-import { useTt } from '@/i18n'
 
 /** 订单状态/Tab/列表项类型 re-export(单一来源 @ihui/types) */
 export type { AppOrderStatus, OrderItem, OrderTab }
@@ -48,23 +48,23 @@ export interface OrderScreenProps {
 const TABS: OrderTab[] = ['all', 'pending', 'paid', 'shipped', 'completed']
 
 /** tab 标签硬编码 fallback(i18n 未命中时降级) */
-const TAB_FALLBACK: Record<string, string> = {
-  all: '全部',
-  pending: '待付款',
-  paid: '已付款',
-  shipped: '已发货',
-  completed: '已完成',
-}
+const TAB_FALLBACK = (tt: TtFn): Record<string, string> => ({
+  all: tt('common.all', '全部'),
+  pending: tt('adaptersOrderScreentaro.d1', '待付款'),
+  paid: tt('adaptersOrderScreentaro.d2', '已付款'),
+  shipped: tt('order.tab.shipped', '已发货'),
+  completed: tt('plaza.index.tabDone', '已完成'),
+})
 
 /** 订单状态标签硬编码 fallback(i18n 未命中时降级) */
-const STATUS_FALLBACK: Record<string, string> = {
-  pending: '待付款',
-  paid: '已付款',
-  shipped: '已发货',
-  completed: '已完成',
-  cancelled: '已取消',
-  refunded: '已退款',
-}
+const STATUS_FALLBACK = (tt: TtFn): Record<string, string> => ({
+  pending: tt('adaptersOrderScreentaro.d3', '待付款'),
+  paid: tt('adaptersOrderScreentaro.d4', '已付款'),
+  shipped: tt('order.tab.shipped', '已发货'),
+  completed: tt('plaza.index.tabDone', '已完成'),
+  cancelled: tt('teacher.detail.unfollowed', '已取消'),
+  refunded: tt('order.refundList.tabRefunded', '已退款'),
+})
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -284,9 +284,9 @@ export function OrderScreen({
   }
 
   const tabLabel = (tab: OrderTab): string =>
-    tr(`order.tab.${tab}`, TAB_FALLBACK[tab] ?? String(tab))
+    tr(`order.tab.${tab}`, TAB_FALLBACK(tt)[tab] ?? String(tab))
   const statusLabel = (status: AppOrderStatus): string =>
-    tr(`order.status.${status}`, STATUS_FALLBACK[status] ?? String(status))
+    tr(`order.status.${status}`, STATUS_FALLBACK(tt)[status] ?? String(status))
 
   return (
     <View style={viewStyles.container(tk)}>

@@ -1,8 +1,8 @@
+import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { requestWeappPayment, requestAlipayPayment } from '../platform/pay'
 import { getPlatform } from '../platform/auth'
 import type { PayPlatform, AnyPayParams } from '@ihui/types'
-import { t } from '@/i18n'
 // 2026-07-28 Q-5: 跨端纯逻辑(错误分类 + 参数归一化 + App 端 orderInfo 构建)
 // 下沉到 @ihui/shared/pay,消除本文件重复实现。
 import {

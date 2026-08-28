@@ -1,3 +1,4 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
@@ -42,12 +43,14 @@ export default function InformationItem({
   onCopy,
   onShare,
 }: InformationItemProps) {
+  const tt = useTt()
   const handleCopyClick = (e: { stopPropagation: () => void }) => {
     e.stopPropagation()
     Taro.setClipboardData({
       data: `${item.title}\n${item.content || ''}`,
-      success: () => Taro.showToast({ title: '已复制', icon: 'success' }),
-      fail: () => Taro.showToast({ title: '复制失败', icon: 'none' }),
+      success: () => Taro.showToast({ title: tt('success.copied', '已复制'), icon: 'success' }),
+      fail: () =>
+        Taro.showToast({ title: tt('ai.aiAssistant.copyFailed', '复制失败'), icon: 'none' }),
     })
     onCopy?.(item)
   }
@@ -161,7 +164,7 @@ export default function InformationItem({
                   color: 'var(--color-muted-foreground)',
                 }}
               >
-                {item.views} 浏览
+                {item.views} {tt('shareInformationItem.z1', '浏览')}
               </Text>
             ) : null}
           </View>

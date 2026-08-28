@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
-import { useI18n } from '@/i18n'
 
 const CATEGORY_KEYS = [
   'writing',

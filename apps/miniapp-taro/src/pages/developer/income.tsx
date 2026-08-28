@@ -1,9 +1,9 @@
+import { useTt } from '@/i18n'
 import { View, Text, Input } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
-import { useTt } from '@/i18n'
 import './income.css'
 
 interface BuyInfo {

@@ -1,9 +1,9 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
-import { useI18n } from '@/i18n'
 import './theme.css'
 
 const THEME_KEY = 'theme'
@@ -17,36 +17,36 @@ interface ThemeOption {
   desc: string
 }
 
-const AUTO_THEME: ThemeOption = {
+const AUTO_THEME = (tt: TtFn): ThemeOption => ({
   value: 'auto',
   icon: '/static/images/icons/refresh-cw.svg',
   labelKey: 'setting.theme.auto',
-  label: '跟随系统',
+  label: tt('settings.themeSystem', '跟随系统'),
   descKey: 'setting.theme.autoDesc',
-  desc: '根据系统设置自动切换浅色或深色',
-}
+  desc: tt('settingTheme.d1', '根据系统设置自动切换浅色或深色'),
+})
 
-const THEMES: ThemeOption[] = [
-  AUTO_THEME,
+const THEMES = (tt: TtFn): ThemeOption[] => [
+  AUTO_THEME(tt),
   {
     value: 'light',
     icon: '/static/images/icons/sun.svg',
     labelKey: 'setting.theme.light',
-    label: '浅色模式',
+    label: tt('themeToggle.lightMode', '浅色模式'),
     descKey: 'setting.theme.lightDesc',
-    desc: '明亮的浅色界面,适合白天使用',
+    desc: tt('settingTheme.d2', '明亮的浅色界面,适合白天使用'),
   },
   {
     value: 'dark',
     icon: '/static/images/icons/moon.svg',
     labelKey: 'setting.theme.dark',
-    label: '深色模式',
+    label: tt('themeToggle.darkMode', '深色模式'),
     descKey: 'setting.theme.darkDesc',
-    desc: '深色界面,护眼且省电,适合夜间使用',
+    desc: tt('settingTheme.d3', '深色界面,护眼且省电,适合夜间使用'),
   },
 ]
 
-const VALID_VALUES = THEMES.map((th) => th.value)
+const VALID_VALUES: readonly string[] = ['auto', 'light', 'dark']
 
 export default function ThemePage() {
   const { t } = useI18n()
@@ -70,7 +70,7 @@ export default function ThemePage() {
     }
   })
 
-  const currentOption = THEMES.find((th) => th.value === current) ?? AUTO_THEME
+  const currentOption = THEMES(tt).find((th) => th.value === current) ?? AUTO_THEME(tt)
 
   const onSelect = useCallback(
     async (v: string) => {
@@ -115,7 +115,7 @@ export default function ThemePage() {
       </View>
 
       <RadioGroup className="theme-list">
-        {THEMES.map((th) => (
+        {THEMES(tt).map((th) => (
           <View
             key={th.value}
             className={`theme-item${current === th.value ? ' active' : ''}`}
