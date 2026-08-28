@@ -230,11 +230,14 @@ const { IconSpan } = vi.hoisted(() => {
   )
   return { IconSpan }
 })
-vi.mock('lucide-react', () => {
+vi.mock('lucide-react', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
   const Icon = IconSpan
   // 常见 lucide 图标全部映射到 IconSpan,新增组件导入新图标时无需修改此处
+  // 2026-08-28 修复:spread actual 兜底依赖链引入的清单外新图标(MessageCircle/Building2...)
   return {
     __esModule: true,
+    ...actual,
     Pin: Icon,
     PinOff: Icon,
     Minimize2: Icon,

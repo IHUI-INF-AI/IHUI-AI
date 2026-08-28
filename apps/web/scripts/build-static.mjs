@@ -8,26 +8,81 @@
  *   - Tauri 桌面端(tauri.conf.json beforeBuildCommand)
  *   - GitHub Pages CI(已有 GITHUB_PAGES=true,也可直接走本脚本,幂等)
  * 生产服务端模式(next build + next start)不设 EXPORT_STATIC,走正常服务端构建。
+ *
+ * 2026-08-28 修复静态导出构建失败(output:'export' 与 force-dynamic 路由不兼容):
+ * app/cdn 与 app/uploads 是运行时磁盘读取的 force-dynamic 路由,Next 静态导出
+ * 在 Collecting page data 阶段直接报错。静态产物(Tauri WebView/GitHub Pages)
+ * 无 Node 磁盘运行时,这两个路由本就无意义,故构建期间临时移出 app 目录,
+ * 构建结束(无论成败)恢复原位。服务端构建(next build)不受影响。
  */
 process.env.EXPORT_STATIC = 'true'
 process.env.NEXT_TELEMETRY_DISABLED = '1'
 
 import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const nextBin = path.join(webRoot, 'node_modules', 'next', 'dist', 'bin', 'next')
 
-const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
-  cwd: webRoot,
-  stdio: 'inherit',
-  shell: false,
-  env: process.env,
-})
+// 静态导出必须排除的运行时路由目录(相对 app/):
+// - cdn:小程序图标 CDN,直读 deploy/server-root,依赖 Node fs
+// - uploads:用户上传文件,直读 apps/api/uploads/public,依赖 Node fs
+const RUNTIME_ONLY_ROUTE_DIRS = ['cdn', 'uploads']
+const appDir = path.join(webRoot, 'app')
+const stashDir = path.join(webRoot, '.static-excluded')
 
-if (r.error) {
-  console.error('[build-static] 启动 next build 失败:', r.error.message)
-  process.exit(1)
+/** 移出静态导出不兼容的路由目录;若上次构建崩溃遗留 stash,先恢复 */
+function excludeRuntimeRoutes() {
+  // 崩溃自愈:stash 残留且 app/ 下同名目录缺失 → 上次未恢复,先还原
+  for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
+    const stashed = path.join(stashDir, name)
+    const active = path.join(appDir, name)
+    if (existsSync(stashed) && !existsSync(active)) {
+      renameSync(stashed, active)
+    }
+  }
+  mkdirSync(stashDir, { recursive: true })
+  for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
+    renameSync(path.join(appDir, name), path.join(stashDir, name))
+  }
 }
-process.exit(r.status ?? 1)
+
+/** 恢复被移出的路由目录(幂等) */
+function restoreRuntimeRoutes() {
+  for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
+    const stashed = path.join(stashDir, name)
+    const active = path.join(appDir, name)
+    if (existsSync(stashed) && !existsSync(active)) {
+      renameSync(stashed, active)
+    }
+  }
+  if (existsSync(stashDir)) {
+    try {
+      rmSync(stashDir, { recursive: true })
+    } catch {
+      // 目录非空(异常状态)时保留,下次构建自愈逻辑会处理
+    }
+  }
+}
+
+let exitCode = 1
+excludeRuntimeRoutes()
+try {
+  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
+    cwd: webRoot,
+    stdio: 'inherit',
+    shell: false,
+    env: process.env,
+  })
+
+  if (r.error) {
+    console.error('[build-static] 启动 next build 失败:', r.error.message)
+  } else {
+    exitCode = r.status ?? 1
+  }
+} finally {
+  restoreRuntimeRoutes()
+}
+process.exit(exitCode)
