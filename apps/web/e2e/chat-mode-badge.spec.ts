@@ -390,7 +390,9 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       // build 模式(默认)
       const badge = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
       await expect(badge).toHaveAttribute('data-mode', 'build', { timeout: 5000 })
-      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.build)
+      // 2026-08-28:persist rehydrate + next-intl messages 重载在高负载下可能 >5s
+      // (zh-TW 曾命中 zh-CN 初始态"构建"而非"構建")→ 放宽到 15s
+      await expect(badge).toContainText(MODE_LABEL_EXPECT[locale]!.build, { timeout: 15000 })
       // 切到 plan(2026-08-27:pressModeShortcut 轮询重按,容忍 hydration 时序)
       await pressModeShortcut(authenticatedPage, '2', 'plan')
       await expect(badge).toHaveAttribute('data-mode', 'plan', { timeout: 3000 })

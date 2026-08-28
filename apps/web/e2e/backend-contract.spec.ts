@@ -54,9 +54,19 @@ test.describe.parallel('后端契约专项', () => {
   })
 
   test('/api/auth/login 返回 accessToken / refreshToken / user', async ({ request }) => {
-    const response = await request.post('/api/auth/login', { data: TEST_USER })
-    expect(response.status()).toBe(200)
-    const body = (await response.json()) as {
+    // 2026-08-28 修复:全量 E2E 并发 + global-setup seed 共用 /api/auth/login,
+    // 触发登录限流(429)。429 是环境噪声非契约违约 → 有界重试(退避 1s/2s/4s)
+    let response
+    for (let attempt = 0; attempt < 4; attempt++) {
+      response = await request.post('/api/auth/login', { data: TEST_USER })
+      if (response.status() === 429) {
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt))
+        continue
+      }
+      break
+    }
+    expect(response!.status()).toBe(200)
+    const body = (await response!.json()) as {
       code?: number
       data?: { accessToken?: string; refreshToken?: string; user?: unknown }
     }

@@ -103,7 +103,7 @@ export function PDFTextLayer({
   return (
     <div
       ref={containerRef}
-      className="pdf-text-layer pointer-events-auto absolute left-0 top-0 z-[5] select-text overflow-hidden"
+      className="pdf-text-layer pointer-events-auto absolute left-0 top-0 z-base select-text overflow-hidden"
       style={{ width: viewportWidth, height: viewportHeight }}
     >
       {positioned.map((t) => (

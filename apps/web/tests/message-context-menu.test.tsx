@@ -488,7 +488,7 @@ describe('MessageContextMenu — 边界检测 + 样式', () => {
     )
     const menu = screen.getByTestId('message-context-menu') as HTMLElement
     expect(menu.className).toContain('fixed')
-    expect(menu.className).toContain('z-[1100]')
+    expect(menu.className).toContain('z-popover')
     expect(menu.className).toContain('animate-in')
   })
 

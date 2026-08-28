@@ -202,8 +202,10 @@ test.describe('AgreementNoticeDialog Position Regression (issue: deltaY=406px)',
     ).toBe(false)
 
     // 5. 截图证据(用于 review / 调试)
+    // 2026-08-28 修复:Playwright cwd 是 apps/web,原路径多写了 apps/web/ 前缀,
+    // 导致生成嵌套垃圾目录 apps/web/apps/web/e2e/screenshots/ → 改为仓库内标准相对路径
     await page.screenshot({
-      path: 'apps/web/e2e/screenshots/agreement-dialog-position.png',
+      path: 'e2e/screenshots/agreement-dialog-position.png',
       fullPage: false,
     })
   })
@@ -231,7 +233,7 @@ test.describe('AgreementNoticeDialog Position Regression (issue: deltaY=406px)',
     expect(position, 'mobile computed position 应为 fixed').toBe('fixed')
 
     await page.screenshot({
-      path: 'apps/web/e2e/screenshots/agreement-dialog-position-mobile.png',
+      path: 'e2e/screenshots/agreement-dialog-position-mobile.png',
       fullPage: false,
     })
   })
