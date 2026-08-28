@@ -1,5 +1,10 @@
 import type { MetadataRoute } from 'next'
 
+// 2026-08-28 修复静态导出构建失败:output:'export' 要求所有 Route Handler 显式声明
+// force-static 或 revalidate(与 app/rss.xml/route.ts 同一模式)。manifest 内容构建时
+// 完全确定(纯字面量,无运行时依赖),force-static 在服务端/静态两种模式下均正确。
+export const dynamic = 'force-static'
+
 /**
  * PWA Manifest（Next.js 标准端点 → /manifest.webmanifest）
  *
