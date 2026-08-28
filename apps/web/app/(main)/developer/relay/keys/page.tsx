@@ -19,6 +19,7 @@ import {
 import { Alert } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface RelayKey {
   id: string
@@ -66,6 +67,7 @@ function formatBalance(cents: number): { text: string; danger: boolean } {
 }
 
 export default function RelayKeysPage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const locale = useLocale()
   const qc = useQueryClient()
   const [open, setOpen] = React.useState(false)
@@ -260,9 +262,16 @@ export default function RelayKeysPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() =>
-                          confirm('确认吊销该 Key?此操作不可撤销') && delMut.mutate(k.id)
-                        }
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: '确认吊销该 Key?此操作不可撤销',
+                              variant: 'destructive',
+                            })
+                          ) {
+                            delMut.mutate(k.id)
+                          }
+                        }}
                         disabled={delMut.isPending}
                         className="text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
                       >
@@ -327,6 +336,7 @@ export default function RelayKeysPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

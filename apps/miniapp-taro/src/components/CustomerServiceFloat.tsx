@@ -2,6 +2,7 @@ import { View, Button, Text, Image } from '@tarojs/components'
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Taro from '@tarojs/taro'
 import { useTt } from '@/i18n'
+import { getSystemInfoCompat } from '@/utils/system-info'
 
 export interface CustomerServiceFloatProps {
   visible?: boolean
@@ -38,7 +39,7 @@ const DRAG_THRESHOLD = 5
 /** 读取本地存储的位置,无则返回右下角默认值 */
 function readPosition(key: string): FloatPosition {
   try {
-    const info = Taro.getSystemInfoSync()
+    const info = getSystemInfoCompat()
     const saved: unknown = Taro.getStorageSync(key)
     if (saved) {
       const parsed: unknown = typeof saved === 'string' ? JSON.parse(saved) : saved
@@ -80,7 +81,7 @@ export default function CustomerServiceFloat({
 
   useEffect(() => {
     try {
-      const info = Taro.getSystemInfoSync()
+      const info = getSystemInfoCompat()
       screenSize.current = { width: info.windowWidth, height: info.windowHeight }
     } catch {
       // keep defaults

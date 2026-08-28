@@ -1,0 +1,52 @@
+'use client'
+
+import { useTranslations } from 'next-intl'
+import { Tooltip } from '@/components/feedback'
+
+interface HtmlSourceEditorProps {
+  html: string
+  onHtmlChange: (v: string) => void
+  onUndo: () => void
+  canUndo: boolean
+  onRedo: () => void
+  canRedo: boolean
+  onRender: () => void
+}
+
+export function HtmlSourceEditor({
+  html,
+  onHtmlChange,
+  onUndo,
+  canUndo,
+  onRedo,
+  canRedo,
+  onRender,
+}: HtmlSourceEditorProps) {
+  const t = useTranslations()
+  return (
+    <section style={{ flex: '0 0 280px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <label style={{ fontSize: 12, color: 'var(--muted)' }}>{t('design.htmlLabel')}</label>
+      <textarea
+        value={html}
+        onChange={(e) => onHtmlChange(e.target.value)}
+        spellCheck={false}
+        style={{ flex: 1, resize: 'none', fontFamily: 'monospace', fontSize: 12, minHeight: 0 }}
+      />
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Tooltip content={t('design.undo')}>
+          <button type="button" onClick={onUndo} disabled={!canUndo} style={{ flex: 1 }}>
+            {t('design.undo')}
+          </button>
+        </Tooltip>
+        <Tooltip content={t('design.redo')}>
+          <button type="button" onClick={onRedo} disabled={!canRedo} style={{ flex: 1 }}>
+            {t('design.redo')}
+          </button>
+        </Tooltip>
+        <button type="button" onClick={onRender} style={{ flex: 1 }}>
+          {t('design.render')}
+        </button>
+      </div>
+    </section>
+  )
+}

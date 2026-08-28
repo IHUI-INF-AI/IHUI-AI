@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
+import { useConfirm } from '@/hooks/use-confirm'
 
 interface BotItem {
   id: string
@@ -23,6 +24,7 @@ type BotsData = { list: BotItem[] } | BotItem[]
 const EMPTY_FORM = { name: '', description: '', model: 'gpt-4' }
 
 export default function ClawdbotBotsPage() {
+  const { confirm, ConfirmDialogRenderer } = useConfirm()
   const locale = useLocale()
   const [bots, setBots] = React.useState<BotItem[]>([])
   const [loading, setLoading] = React.useState(true)
@@ -89,7 +91,7 @@ export default function ClawdbotBotsPage() {
   }
 
   const remove = async (b: BotItem) => {
-    if (!confirm(`确定删除 Bot "${b.name}"?`)) return
+    if (!(await confirm({ title: `确定删除 Bot "${b.name}"?`, variant: 'destructive' }))) return
     const res = await fetchApi(`/api/admin/clawdbot/bots/${b.id}`, { method: 'DELETE' })
     if (res.success) void load()
   }
@@ -191,7 +193,7 @@ export default function ClawdbotBotsPage() {
                   <Button variant="ghost" size="sm" onClick={() => openEdit(b)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => remove(b)}>
+                  <Button variant="ghost" size="sm" onClick={async () => remove(b)}>
                     <Trash2 className="h-4 w-4 text-red-500" />
                   </Button>
                 </div>
@@ -200,6 +202,7 @@ export default function ClawdbotBotsPage() {
           )}
         </div>
       </div>
+      <ConfirmDialogRenderer />
     </div>
   )
 }

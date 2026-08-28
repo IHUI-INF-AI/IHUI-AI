@@ -19,7 +19,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
-import { BackButton } from '@/components/common'
+import { BackButton, toast } from '@/components/common'
 import {
   Card,
   CardContent,
@@ -678,9 +678,9 @@ export default function SchedulePage() {
         },
       )
       invalidate()
-      alert(`已复制 ${result.count} 条课程`)
+      toast.success(`已复制 ${result.count} 条课程`)
     } catch (e: unknown) {
-      alert((e as { message?: string }).message ?? '复制失败')
+      toast.error((e as { message?: string }).message ?? '复制失败')
     } finally {
       setCopyingLastWeek(false)
     }
@@ -706,7 +706,7 @@ export default function SchedulePage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e: unknown) {
-      alert((e as { message?: string }).message ?? '导出失败')
+      toast.error((e as { message?: string }).message ?? '导出失败')
     } finally {
       setExporting(false)
     }
