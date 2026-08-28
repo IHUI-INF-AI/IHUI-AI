@@ -107,12 +107,29 @@ const nextConfig: NextConfig = {
           // 2026-08-26 加固:Next.js 16 服务端模式(next start)启动时会读取根目录
           // .next/prerender-manifest.json。若某次构建因异常(如误入 export 模式、
           // 静态生成阶段被中断)未产出该文件,next start 会 ENOENT 崩溃 → NSSM 将
-          // 服务卡在 SERVICE_PAUSED,导致 8801 永久宕机。这里兜底:缺失时写入空对象,
-          // 保证 next start 必定能启动(页面退化为按需渲染,功能不受影响)。
+          // 服务卡在 SERVICE_PAUSED,导致 8801 永久宕机。这里兜底:缺失时写入
+          // 结构完整的空 manifest(与 build/index.js 空项目产物同构),保证 next
+          // start 必定能启动(页面退化为按需渲染,功能不受影响)。
           // 正常服务端构建会在 afterEmit 之后的静态生成阶段覆盖写入真实 manifest。
+          //
+          // 2026-08-29 修复静态导出构建崩溃(TypeError: reading '/404'):
+          // 静态导出模式(output:'export')下禁止写此兜底。构建早期主进程某处会
+          // require 该文件,Node require 缓存会把这个空 stub 缓存住;导出阶段
+          // (export/index.js:230 require 同一路径)命中缓存拿到无 dynamicRoutes
+          // 的对象 → `prerenderManifest.dynamicRoutes['/404']` 崩溃。且静态导出
+          // 产物根本不跑 next start,该兜底毫无意义。仅服务端模式写入。
           const prerenderPath = path.join(__dirname, '.next', 'prerender-manifest.json')
-          if (!fs.existsSync(prerenderPath)) {
-            fs.writeFileSync(prerenderPath, '{}')
+          if (!isStaticExport && !fs.existsSync(prerenderPath)) {
+            fs.writeFileSync(
+              prerenderPath,
+              JSON.stringify({
+                version: 4,
+                routes: {},
+                dynamicRoutes: {},
+                notFoundRoutes: [],
+                preview: { developmentKey: '', isPreview: false, productionKey: '' },
+              }),
+            )
           }
         })
       },
