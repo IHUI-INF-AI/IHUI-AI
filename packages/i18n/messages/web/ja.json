@@ -9666,6 +9666,7 @@
     "aigc": {
       "3d": "3D 建模",
       "agent": "AI 智能体",
+      "all": "すべて",
       "allCategories": "全部类型",
       "alternatives": "替代工具",
       "api": "提供 API",
