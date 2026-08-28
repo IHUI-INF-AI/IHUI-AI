@@ -356,7 +356,12 @@ if (isStaged) {
           return (
             !rel.startsWith('messages/') &&
             !rel.startsWith('.next/') &&
-            !rel.startsWith('node_modules/')
+            !rel.startsWith('node_modules/') &&
+            // 2026-08-29 修复:staged 模式与 collectSourceFiles(全量模式)的排除规则
+            // 对齐。原实现只排除 messages/.next/node_modules 前缀,漏掉 EXCLUDE_DIRS
+            // (tests/__tests__/e2e 等),导致测试 fixture 自造的 t('test.count') 等
+            // 假键被误判为 i18n 缺失键而阻断提交(全量模式下这些目录本就被跳过)。
+            !rel.split('/').some((seg) => EXCLUDE_DIRS.has(seg))
           )
         })
         .map((f) => join(ROOT, f))

@@ -45,7 +45,11 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build web
-        run: pnpm --filter @ihui/web build
+        # 2026-08-28:改走 build-static(与 Tauri 同一静态导出入口)。
+        # 该入口会临时移出 app/cdn|uploads 等 force-dynamic 运行时路由
+        # (output:'export' 与之不兼容,且静态站点无 Node 磁盘运行时),
+        # 直接 next build + GITHUB_PAGES=true 会在 Collecting page data 崩溃。
+        run: pnpm --filter @ihui/web build:static
         env:
           GITHUB_PAGES: 'true'
           NEXT_PUBLIC_APP_NAME: IHUI AI

@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     alias: {
       'react-native': resolve(__dirname, 'tests/__mocks__/react-native.ts'),
+      // 2026-08-28 修复:lucide-react-native(Icon.mjs)import react-native-svg,
+      // 真实包入口指向 Flow 源码导致 esbuild SyntaxError 'typeof' → 5 suite 加载失败。
+      // mock 为渲染原生 SVG DOM 标签的 stub 组件(需配合 server.deps.inline)。
+      'react-native-svg': resolve(__dirname, 'tests/__mocks__/react-native-svg.ts'),
       'react-native-safe-area-context': resolve(
         __dirname,
         'tests/__mocks__/react-native-safe-area-context.ts',
@@ -75,6 +79,11 @@ export default defineConfig({
       deps: {
         inline: [
           'react-native',
+          // lucide-react-native 是 node_modules ESM,若被 vitest 外部化,
+          // 其内部的 import 'react-native-svg' 走 node 原生解析(不经过 alias),
+          // 仍会命中真实包的 Flow 源码 → 必须与 react-native-svg 一起 inline
+          'lucide-react-native',
+          'react-native-svg',
           '@react-navigation/native',
           '@react-navigation/native-stack',
           '@ihui/api-client',
