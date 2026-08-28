@@ -1,9 +1,9 @@
+import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getAskDetail, type Ask } from '@/api'
-import { useI18n } from '@/i18n'
 
 interface AnswerItem {
   author: string

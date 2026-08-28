@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, ScrollView } from '@tarojs/components'
-import { useTt } from '@/i18n'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
 import skillsIcon from '../assets/images/add/skills.svg'
 import talkIcon from '../assets/images/add/talk.svg'
@@ -18,14 +18,14 @@ export interface ModelTypeConfig {
 }
 
 export const MODEL_TYPES: ModelTypeConfig[] = [
-  { type: 'skills', label: '技能', icon: skillsIcon },
-  { type: 'talk', label: '文本', icon: talkIcon },
-  { type: 'image', label: '图像', icon: imageIcon },
-  { type: 'video', label: '视频', icon: videoIcon },
-  { type: 'audio', label: '声音', icon: audioIcon },
-  { type: 'videoa', label: '数字人', icon: videoaIcon },
-  { type: 'other', label: '全能', icon: otherIcon },
-  { type: 'sck', label: '素材', icon: sckIcon },
+  { type: 'skills', label: t('ModelTypeButtonGroup.m1'), icon: skillsIcon },
+  { type: 'talk', label: t('aigc.list.catText'), icon: talkIcon },
+  { type: 'image', label: t('modelPlaza.tabImage'), icon: imageIcon },
+  { type: 'video', label: t('aigc.list.catVideo'), icon: videoIcon },
+  { type: 'audio', label: t('ModelTypeButtonGroup.m2'), icon: audioIcon },
+  { type: 'videoa', label: t('ai.chatMessageItem.digitalHuman'), icon: videoaIcon },
+  { type: 'other', label: t('ModelList.d2'), icon: otherIcon },
+  { type: 'sck', label: t('ModelTypeButtonGroup.m3'), icon: sckIcon },
 ]
 
 const MODEL_TYPE_KEY: Record<string, string> = {

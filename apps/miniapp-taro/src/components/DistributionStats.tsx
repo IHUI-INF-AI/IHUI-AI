@@ -1,5 +1,5 @@
-import { View, Text } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text } from '@tarojs/components'
 import ProgressBar from './ProgressBar'
 
 export type ColumnItemColor = 'default' | 'primary' | 'warning' | 'destructive'

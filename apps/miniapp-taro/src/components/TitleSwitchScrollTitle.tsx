@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Swiper, SwiperItem } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
 import type { TitleSwitchScrollTitleItem, TitleSwitchScrollTitleProps } from '@ihui/types'
@@ -10,10 +11,25 @@ export type TitleSwitchScrollSubItem = TitleSwitchScrollTitleItem
 export type TitleSwitchScrollMainItem = TitleSwitchScrollTitleItem
 export type { TitleSwitchScrollTitleProps }
 
-const DEFAULT_LIST: TitleSwitchScrollMainItem[] = [
-  { name: '赛道一', children: [{ name: '子赛道 1-1' }, { name: '子赛道 1-2' }] },
-  { name: '赛道二', children: [{ name: '子赛道 2-1' }] },
-  { name: '赛道三', children: [{ name: '子赛道 3-1' }, { name: '子赛道 3-2' }] },
+const DEFAULT_LIST = (tt: TtFn): TitleSwitchScrollMainItem[] => [
+  {
+    name: tt('TitleSwitchScrollTitle.d1', '赛道一'),
+    children: [
+      { name: tt('TitleSwitchScrollTitle.d2', '子赛道 1-1') },
+      { name: tt('TitleSwitchScrollTitle.d3', '子赛道 1-2') },
+    ],
+  },
+  {
+    name: tt('TitleSwitchScrollTitle.d4', '赛道二'),
+    children: [{ name: tt('TitleSwitchScrollTitle.d5', '子赛道 2-1') }],
+  },
+  {
+    name: tt('TitleSwitchScrollTitle.d6', '赛道三'),
+    children: [
+      { name: tt('TitleSwitchScrollTitle.d7', '子赛道 3-1') },
+      { name: tt('TitleSwitchScrollTitle.d8', '子赛道 3-2') },
+    ],
+  },
 ]
 
 /**
@@ -21,12 +37,14 @@ const DEFAULT_LIST: TitleSwitchScrollMainItem[] = [
  * - 主赛道 swiper + 子赛道 swiper(circular)
  * - 点击主赛道项切换;点击子赛道项触发 onChange
  */
-export default function TitleSwitchScrollTitle({
-  mainList = DEFAULT_LIST,
-  mainSwiperMargin = '240rpx',
-  subSwiperMargin = '240rpx',
-  onChange,
-}: TitleSwitchScrollTitleProps) {
+export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProps) {
+  const tt = useTt()
+  const {
+    mainList = DEFAULT_LIST(tt),
+    mainSwiperMargin = '240rpx',
+    subSwiperMargin = '240rpx',
+    onChange,
+  } = props
   const [current, setCurrent] = useState(0)
   const [subList, setSubList] = useState<TitleSwitchScrollSubItem[]>([])
   const [subSelected, setSubSelected] = useState<number | null>(null)
@@ -71,7 +89,9 @@ export default function TitleSwitchScrollTitle({
   return (
     <View className="w-full rounded-b-[30rpx] bg-white pb-[24rpx] shadow-[0_4px_2px_-4px_rgba(0,0,0,0.3)]">
       <View className="w-full px-[56rpx] box-border mb-[36rpx]">
-        <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">主赛道:</View>
+        <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">
+          {tt('TitleSwitchScrollTitle.text1', '主赛道:')}
+        </View>
         <Swiper
           circular
           duration={500}
@@ -99,7 +119,9 @@ export default function TitleSwitchScrollTitle({
       </View>
       {subList && subList.length > 0 ? (
         <View className="w-full px-[56rpx] box-border mb-[36rpx]">
-          <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">子赛道:</View>
+          <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">
+            {tt('TitleSwitchScrollTitle.text2', '子赛道:')}
+          </View>
           <Swiper
             circular
             duration={500}

@@ -1,5 +1,5 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface SystemNoticeItem {
   id: string
@@ -16,11 +16,11 @@ export interface SystemNoticeProps {
   onClick?: (item: SystemNoticeItem) => void
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  system: '系统',
-  activity: '活动',
-  upgrade: '升级',
-}
+const TYPE_LABEL = (tt: TtFn): Record<string, string> => ({
+  system: tt('message.tabs.system', '系统'),
+  activity: tt('news.cat.activity', '活动'),
+  upgrade: tt('SystemNotice.d1', '升级'),
+})
 
 const TYPE_STYLE: Record<string, string> = {
   system: 'bg-primary/10 text-primary',
@@ -63,7 +63,7 @@ export default function SystemNotice({ list, onClick }: SystemNoticeProps) {
                     TYPE_STYLE[item.type] || TYPE_STYLE.system
                   }`}
                 >
-                  {TYPE_LABEL[item.type] || '系统'}
+                  {TYPE_LABEL(tt)[item.type] || tt('message.tabs.system', '系统')}
                 </Text>
               )}
               <Text className="text-sm font-medium text-foreground truncate flex-1">

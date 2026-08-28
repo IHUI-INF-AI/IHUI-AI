@@ -1,9 +1,9 @@
+import { useTt, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getLiveCalendar, subscribeLive, type Live } from '@/api'
-import { useTt } from '@/i18n'
 import './calendar.css'
 
 type LiveStatus = Live['status']
@@ -17,32 +17,32 @@ interface StatusCfg {
   actionCls: string
 }
 
-const STATUS_CFG: Record<LiveStatus, StatusCfg> = {
+const STATUS_CFG = (tt: TtFn): Record<LiveStatus, StatusCfg> => ({
   upcoming: {
     labelKey: 'live.calendar.upcoming',
-    labelFb: '即将开始',
+    labelFb: tt('live.upcoming', '即将开始'),
     actionKey: 'live.subscribe.subscribe',
-    actionFb: '订阅提醒',
+    actionFb: tt('live.subscribe.subscribe', '订阅提醒'),
     badge: 'cal-badge-upcoming',
     actionCls: 'cal-action-upcoming',
   },
   living: {
     labelKey: 'live.liveNow',
-    labelFb: '进行中',
+    labelFb: tt('plaza.index.tabOngoing', '进行中'),
     actionKey: 'live.calendar.watchNow',
-    actionFb: '立即观看',
+    actionFb: tt('liveCalendar.d1', '立即观看'),
     badge: 'cal-badge-living',
     actionCls: 'cal-action-living',
   },
   ended: {
     labelKey: 'live.ended',
-    labelFb: '已结束',
+    labelFb: tt('liveHost.statusInactive', '已结束'),
     actionKey: 'live.replay',
-    actionFb: '回放',
+    actionFb: tt('liveCalendar.d2', '回放'),
     badge: 'cal-badge-ended',
     actionCls: 'cal-action-ended',
   },
-}
+})
 
 const pad = (n: number) => String(n).padStart(2, '0')
 const fmtMonth = (y: number, m: number) => `${y}-${pad(m + 1)}`
@@ -204,7 +204,7 @@ export default function LiveCalendar() {
       </Text>
       {selectedLives.length > 0 ? (
         selectedLives.map((live) => {
-          const cfg = STATUS_CFG[live.status]
+          const cfg = STATUS_CFG(tt)[live.status]
           return (
             <View key={live.id} className="cal-card">
               <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />

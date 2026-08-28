@@ -1,10 +1,10 @@
+import { useTt, useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
-import { useI18n, useTt } from '@/i18n'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -16,12 +16,12 @@ interface Param {
   defaultValue: string
 }
 
-const PARAM_TYPES: { value: ParamType; key: string; fb: string }[] = [
-  { value: 'string', key: 'devEnter.n8nModel.typeString', fb: '文本' },
-  { value: 'number', key: 'devEnter.n8nModel.typeNumber', fb: '数字' },
-  { value: 'boolean', key: 'devEnter.n8nModel.typeBoolean', fb: '布尔' },
-  { value: 'file', key: 'devEnter.n8nModel.typeFile', fb: '文件' },
-  { value: 'select', key: 'devEnter.n8nModel.typeSelect', fb: '选择' },
+const PARAM_TYPES = (tt: TtFn): { value: ParamType; key: string; fb: string }[] => [
+  { value: 'string', key: 'devEnter.n8nModel.typeString', fb: tt('aigc.list.catText', '文本') },
+  { value: 'number', key: 'devEnter.n8nModel.typeNumber', fb: tt('deventerN8nmodel.d1', '数字') },
+  { value: 'boolean', key: 'devEnter.n8nModel.typeBoolean', fb: tt('deventerN8nmodel.d2', '布尔') },
+  { value: 'file', key: 'devEnter.n8nModel.typeFile', fb: tt('search.tabs.files', '文件') },
+  { value: 'select', key: 'devEnter.n8nModel.typeSelect', fb: tt('deventerN8nmodel.d3', '选择') },
   { value: 'json', key: 'devEnter.n8nModel.typeJson', fb: 'JSON' },
 ]
 
@@ -338,7 +338,7 @@ export default function N8nModel() {
               {tt('devEnter.n8nModel.paramTypeLabel', '键值类型')}
             </Text>
             <View className="nm-type-bar">
-              {PARAM_TYPES.map((tp) => (
+              {PARAM_TYPES(tt).map((tp) => (
                 <View
                   key={tp.value}
                   className={`nm-type ${p.type === tp.value ? 'nm-type-active' : ''}`}

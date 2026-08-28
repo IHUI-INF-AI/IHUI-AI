@@ -1,17 +1,29 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
-import { useI18n } from '@/i18n'
 import { formatRelativeTime } from '@ihui/shared'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
-const TABS: Array<{ key: TabKey; labelKey: string; fallback: string }> = [
-  { key: 'inProgress', labelKey: 'study.myStudy.tabs.inProgress', fallback: '进行中' },
-  { key: 'completed', labelKey: 'study.myStudy.tabs.completed', fallback: '已完成' },
-  { key: 'favorited', labelKey: 'study.myStudy.tabs.favorited', fallback: '已收藏' },
+const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
+  {
+    key: 'inProgress',
+    labelKey: 'study.myStudy.tabs.inProgress',
+    fallback: tt('plaza.index.tabOngoing', '进行中'),
+  },
+  {
+    key: 'completed',
+    labelKey: 'study.myStudy.tabs.completed',
+    fallback: tt('plaza.index.tabDone', '已完成'),
+  },
+  {
+    key: 'favorited',
+    labelKey: 'study.myStudy.tabs.favorited',
+    fallback: tt('ai.agentDetail.favorited', '已收藏'),
+  },
 ]
 
 export default function MyStudy() {
@@ -117,7 +129,7 @@ export default function MyStudy() {
         </Text>
       </View>
       <View className="flex bg-card px-[24rpx] py-[0] flex-shrink-0">
-        {TABS.map((tab) => (
+        {TABS(tt).map((tab) => (
           <Text
             key={tab.key}
             className={`tab-item ${activeTab === tab.key ? ' text-primary font-semibold' : ''}`}

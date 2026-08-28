@@ -1,10 +1,10 @@
+import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { Course } from '@/api'
-import { useI18n } from '@/i18n'
 import aiallIcon from '@/assets/remote/images/aiall.png'
 import kechengIcon from '@/assets/remote/images/kecheng.png'
 import rankoneIcon from '@/assets/remote/images/rankone.png'
@@ -29,12 +29,12 @@ interface LearnPath {
   progress: number
 }
 
-const LEARN_PATHS: LearnPath[] = [
+const LEARN_PATHS = (tt: TtFn): LearnPath[] => [
   {
     id: 'p1',
     icon: chuangkeIcon,
     nameKey: 'learnDevelop.pathFrontend',
-    name: '前端工程师',
+    name: tt('learndevelop.d1', '前端工程师'),
     courses: 12,
     progress: 35,
   },
@@ -42,7 +42,7 @@ const LEARN_PATHS: LearnPath[] = [
     id: 'p2',
     icon: aiallIcon,
     nameKey: 'learnDevelop.pathAI',
-    name: 'AI 应用开发',
+    name: tt('learndevelop.d2', 'AI 应用开发'),
     courses: 8,
     progress: 0,
   },
@@ -50,7 +50,7 @@ const LEARN_PATHS: LearnPath[] = [
     id: 'p3',
     icon: useNumIcon,
     nameKey: 'learnDevelop.pathData',
-    name: '数据分析师',
+    name: tt('learndevelop.d3', '数据分析师'),
     courses: 15,
     progress: 60,
   },
@@ -109,7 +109,7 @@ export default function LearnDevelop() {
             {tt('learnDevelop.pathTitle', '学习路径')}
           </Text>
         </View>
-        {LEARN_PATHS.map((path) => (
+        {LEARN_PATHS(tt).map((path) => (
           <View
             key={path.id}
             className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"

@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getCouponList } from '@/api'
-import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 
 interface Coupon {

@@ -1,5 +1,5 @@
-import { View, Text, Image } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Image } from '@tarojs/components'
 import { bspappUrl } from '@/constants/icon-urls'
 
 export interface CourseHeaderData {
@@ -89,7 +89,9 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
                   className="w-[38rpx] h-[34rpx] mr-[10rpx]"
                   lazyLoad
                 />
-                <Text className="text-[20rpx] text-destructive">付费项目</Text>
+                <Text className="text-[20rpx] text-destructive">
+                  {tt('CourseHeader.text1', '付费项目')}
+                </Text>
               </View>
             )}
             <View className="flex items-baseline">

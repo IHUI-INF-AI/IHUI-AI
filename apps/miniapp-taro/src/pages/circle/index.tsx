@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
-import { useTt } from '@/i18n'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -249,22 +249,28 @@ export default function CircleIndexPage() {
                   </View>
                 ) : null}
                 <View className="ci-item-actions">
-                <View className="ci-item-action" style={{ display: 'flex', alignItems: 'center' }}>
-                  <Image
-                    src="/static/images/icons/heart.svg"
-                    mode="aspectFit"
-                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                  />
-                  <Text>{c.likes || 0}</Text>
-                </View>
-                <View className="ci-item-action" style={{ display: 'flex', alignItems: 'center' }}>
-                  <Image
-                    src="/static/images/icons/message-circle.svg"
-                    mode="aspectFit"
-                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                  />
-                  <Text>{c.comments || 0}</Text>
-                </View>
+                  <View
+                    className="ci-item-action"
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    <Image
+                      src="/static/images/icons/heart.svg"
+                      mode="aspectFit"
+                      style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                    />
+                    <Text>{c.likes || 0}</Text>
+                  </View>
+                  <View
+                    className="ci-item-action"
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    <Image
+                      src="/static/images/icons/message-circle.svg"
+                      mode="aspectFit"
+                      style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                    />
+                    <Text>{c.comments || 0}</Text>
+                  </View>
                 </View>
               </View>
             )

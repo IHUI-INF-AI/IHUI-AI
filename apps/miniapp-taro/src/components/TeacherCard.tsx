@@ -1,3 +1,4 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 
 export interface TeacherCardProps {
@@ -14,7 +15,7 @@ export interface TeacherCardProps {
 }
 
 export default function TeacherCard({
-  name = '讲师',
+  name = t('course.teacher'),
   avatar,
   title,
   bio,
@@ -25,6 +26,7 @@ export default function TeacherCard({
   onFollow,
   onClick,
 }: TeacherCardProps) {
+  const tt = useTt()
   return (
     <View className="bg-card mx-3 my-3 rounded-xl p-4" onClick={onClick}>
       <View className="flex items-center">
@@ -45,8 +47,14 @@ export default function TeacherCard({
             )}
           </View>
           <View className="flex items-center mt-1">
-            <Text className="text-xs text-muted-foreground mr-3">{courseCount} 门课</Text>
-            <Text className="text-xs text-muted-foreground mr-3">{studentCount} 学员</Text>
+            <Text className="text-xs text-muted-foreground mr-3">
+              {tt('learnDevelop.coursesUnit', '门课')}
+              {courseCount}
+            </Text>
+            <Text className="text-xs text-muted-foreground mr-3">
+              {tt('teacher.detail.students', '学员')}
+              {studentCount}
+            </Text>
             <Image
               src="/static/images/icons/star-fill.svg"
               mode="aspectFit"
@@ -64,7 +72,9 @@ export default function TeacherCard({
           }}
         >
           <Text className={`text-xs ${isFollowing ? 'text-muted-foreground' : 'text-white'}`}>
-            {isFollowing ? '已关注' : '+ 关注'}
+            {isFollowing
+              ? tt('course.followed', '已关注')
+              : tt('developer.subscribe.subscribeBtn', '+ 关注')}
           </Text>
         </View>
       </View>

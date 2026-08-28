@@ -2,6 +2,7 @@
  * RecentAgents — 最近使用的智能体横向滚动列表
  * 对齐原项目 zhs_app-ZZ Ai-WXMiniVue tools/components/RecentAgents.vue
  */
+import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 
@@ -21,12 +22,13 @@ export interface RecentAgentsProps {
 }
 
 export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
+  const tt = useTt()
   if (!recentAgents || recentAgents.length === 0) return null
 
   function navigateTo(agent: RecentAgent, idx: number) {
     const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
     if (!userData) {
-      Taro.showToast({ title: '请先登录', icon: 'none' })
+      Taro.showToast({ title: tt('ai.aiAssistant.pleaseLogin', '请先登录'), icon: 'none' })
       return
     }
     if (agent.type === 3 || agent.type === 5) {
@@ -43,7 +45,7 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
   return (
     <View className="recent-agents-container">
       <View className="recent-header">
-        <Text className="recent-title">最近使用</Text>
+        <Text className="recent-title">{tt('communityRecentAgents.text1', '最近使用')}</Text>
       </View>
       <ScrollView scrollX className="recent-scroll" showScrollbar={false}>
         <View className="recent-list">

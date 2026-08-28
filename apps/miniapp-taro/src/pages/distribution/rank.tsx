@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
-import { useTt } from '@/i18n'
 
 interface RankUser {
   id: string

@@ -1,8 +1,8 @@
+import { useTt, useI18n } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useRef, useEffect } from 'react'
 import { sendSmsCode, post } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
@@ -230,7 +230,11 @@ export default function ForgotPassword() {
                       <PasswordVisibilityToggle
                         visible={showNew}
                         onToggle={() => setShowNew((v) => !v)}
-                        label={showNew ? tt('forgot.hidePassword', '隐藏') : tt('forgot.showPassword', '显示')}
+                        label={
+                          showNew
+                            ? tt('forgot.hidePassword', '隐藏')
+                            : tt('forgot.showPassword', '显示')
+                        }
                       />
                     </View>
                   </View>
@@ -259,7 +263,11 @@ export default function ForgotPassword() {
                       <PasswordVisibilityToggle
                         visible={showConfirm}
                         onToggle={() => setShowConfirm((v) => !v)}
-                        label={showConfirm ? tt('forgot.hidePassword', '隐藏') : tt('forgot.showPassword', '显示')}
+                        label={
+                          showConfirm
+                            ? tt('forgot.hidePassword', '隐藏')
+                            : tt('forgot.showPassword', '显示')
+                        }
                       />
                     </View>
                   </View>
