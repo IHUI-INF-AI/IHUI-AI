@@ -241,6 +241,14 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   registerRoutes(server)
 
+  // 根路径健康检查(兼容 CI e2e.yml 的 curl localhost:8802/health 与 k8s/dns 存活探针)
+  // 完整就绪探针走 /api/health/ready(DB/Redis/AI service 三项连通性)
+  server.get('/health', async () => ({
+    status: 'ok',
+    service: '@ihui/api',
+    timestamp: new Date().toISOString(),
+  }))
+
   // BYOK 一键配置向导步骤 3:验证用户 API Key(POST /api/llm/verify-key)
   server.register(llmVerifyKeyRoutes, { prefix: '/api/llm' })
 
