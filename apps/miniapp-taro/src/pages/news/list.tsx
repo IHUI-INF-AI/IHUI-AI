@@ -1,9 +1,9 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
-import { useTt } from '@/i18n'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -43,15 +43,25 @@ const markRead = (id: string | number) => {
 const detectCategory = (n: NewsExt): CategoryKey => {
   if (n.category) {
     const c = String(n.category).toLowerCase()
-    if (c.includes('announce') || c.includes('公告')) return 'announce'
-    if (c.includes('activ') || c.includes('活动')) return 'activity'
-    if (c.includes('tutor') || c.includes('教程')) return 'tutorial'
-    if (c.includes('info') || c.includes('资讯')) return 'info'
+    if (c.includes('announce') || c.includes(t('news.cat.announce'))) return 'announce'
+    if (c.includes('activ') || c.includes(t('news.cat.activity'))) return 'activity'
+    if (c.includes('tutor') || c.includes(t('news.cat.tutorial'))) return 'tutorial'
+    if (c.includes('info') || c.includes(t('news.cat.info'))) return 'info'
   }
   const text = `${n.title || ''} ${n.summary || ''}`.toLowerCase()
-  if (text.includes('公告') || text.includes('通知')) return 'announce'
-  if (text.includes('活动') || text.includes('优惠') || text.includes('福利')) return 'activity'
-  if (text.includes('教程') || text.includes('指南') || text.includes('怎么')) return 'tutorial'
+  if (text.includes(t('news.cat.announce')) || text.includes(t('newsList.q1'))) return 'announce'
+  if (
+    text.includes(t('news.cat.activity')) ||
+    text.includes(t('common.discountAmount')) ||
+    text.includes(t('newsList.q2'))
+  )
+    return 'activity'
+  if (
+    text.includes(t('news.cat.tutorial')) ||
+    text.includes(t('aiCareer.guide')) ||
+    text.includes(t('newsList.q3'))
+  )
+    return 'tutorial'
   return 'info'
 }
 
@@ -109,7 +119,7 @@ export default function NewsListPage() {
         setHasMore(more)
         pageRef.current = curPage + 1
       } catch (e) {
-        logger.error('news/list', '加载新闻列表', e)
+        logger.error('news/list', t('newsList.q4'), e)
         Taro.showToast({ title: tt('common.failed', '操作失败'), icon: 'none' })
       } finally {
         loadingRef.current = false

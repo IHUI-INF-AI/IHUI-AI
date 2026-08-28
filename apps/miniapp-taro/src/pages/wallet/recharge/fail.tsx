@@ -1,7 +1,7 @@
+import { useTt } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
-import { useTt } from '@/i18n'
 
 export default function RechargeFail() {
   const tt = useTt()

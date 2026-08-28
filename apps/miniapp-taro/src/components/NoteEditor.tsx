@@ -1,6 +1,6 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Textarea } from '@tarojs/components'
 import { useState } from 'react'
-import { useTt } from '@/i18n'
 
 export interface NoteEditorProps {
   visible?: boolean
@@ -13,7 +13,7 @@ export interface NoteEditorProps {
 export default function NoteEditor({
   visible = false,
   initialContent = '',
-  title = '学习笔记',
+  title = t('study.noteTitle'),
   onSave,
   onCancel,
 }: NoteEditorProps) {

@@ -1,5 +1,5 @@
-import { View, Text, Switch } from '@tarojs/components'
 import { useTt } from '@/i18n'
+import { View, Text, Switch } from '@tarojs/components'
 
 export interface NotificationSettingItem {
   key: string

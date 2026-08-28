@@ -1,8 +1,8 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import * as api from '@/api'
-import { useTt } from '@/i18n'
 
 export default function DistributionPlan() {
   const tt = useTt()

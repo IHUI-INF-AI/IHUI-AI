@@ -1,5 +1,5 @@
+import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useTt } from '@/i18n'
 
 export interface InvitePosterProps {
   inviteCode?: string
@@ -15,8 +15,8 @@ export default function InvitePoster({
   inviteCode = '',
   inviteUrl = '',
   qrCodeUrl,
-  inviterName = '我',
-  reward = '邀请好友得现金奖励',
+  inviterName = t('ai.chatMessageItem.me'),
+  reward = t('InvitePoster.p1'),
   onSave,
   onShare,
 }: InvitePosterProps) {

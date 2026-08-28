@@ -1,8 +1,8 @@
+import { useI18n } from '@/i18n'
 import { View, Text, Image, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
-import { useI18n } from '@/i18n'
 
 export default function LiveDetail() {
   const { t } = useI18n()

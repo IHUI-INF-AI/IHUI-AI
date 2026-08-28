@@ -17,9 +17,9 @@ export type { UserInfo }
 
 /** 等价 @ihui/shared/utils/getRoleLabel */
 function getRoleLabel(isVip?: number, identityType?: number): string {
-  if (isVip === 1 && identityType === 1) return '操盘手'
-  if (isVip === 1) return '会员'
-  return '普通用户'
+  if (isVip === 1 && identityType === 1) return t('distribution.index.defaultName')
+  if (isVip === 1) return t('user.member')
+  return t('member.index.normalUser')
 }
 
 /** 等价 @ihui/shared/utils/formatTokenValue */
@@ -27,8 +27,9 @@ function formatTokenValue(value: number | string | undefined): string {
   if (value === undefined || value === null || value === '') return '0'
   const num = typeof value === 'string' ? parseFloat(value) : value
   if (isNaN(num)) return '0'
-  if (num >= 100000000) return `${(num / 100000000).toFixed(2)}亿`
-  if (num >= 10000) return `${(num / 10000).toFixed(2)}万`
+  if (num >= 100000000)
+    return t('adaptersUserInfoCardtaro.y1', { p1: (num / 100000000).toFixed(2) })
+  if (num >= 10000) return t('adaptersUserInfoCardtaro.y2', { p1: (num / 10000).toFixed(2) })
   return String(Math.floor(num))
 }
 
@@ -45,12 +46,12 @@ export interface UserInfoCardProps {
 }
 
 const DEFAULT_AVATAR = ''
-const FALLBACK_USERNAME = '用户'
-const FALLBACK_BRAND = 'AI IHUI丨'
-const FALLBACK_LOGIN_TEXT = '一键登录'
-const FALLBACK_EDIT_TEXT = '编辑'
-const FALLBACK_TOKEN_LABEL = '剩余智汇值:'
-const FALLBACK_RECHARGE_TEXT = '充值'
+const FALLBACK_USERNAME = t('tail.1')
+const FALLBACK_BRAND = t('last.1')
+const FALLBACK_LOGIN_TEXT = t('tail.2')
+const FALLBACK_EDIT_TEXT = t('tail.3')
+const FALLBACK_TOKEN_LABEL = t('tail.4')
+const FALLBACK_RECHARGE_TEXT = t('tail.5')
 
 const toRpx = (px: number): string => `${px * 2}rpx`
 
@@ -304,3 +305,5 @@ export function UserInfoCard({
     </View>
   )
 }
+
+import { t } from '@/i18n'

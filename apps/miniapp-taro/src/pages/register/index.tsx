@@ -1,8 +1,8 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { register, sendSmsCode } from '@/api'
-import { useI18n, useTt } from '@/i18n'
 import {
   useRegisterForm,
   type RegisterApiResult,
@@ -18,19 +18,22 @@ import './index.css'
 function mapRegisterErrorKey(e: string, phone: string): { key: string; fb: string } | null {
   if (e === 'auth.invalidPhone') {
     return phone.trim()
-      ? { key: 'register.phoneInvalid', fb: '请输入正确手机号' }
-      : { key: 'register.enterPhone', fb: '请输入手机号' }
+      ? { key: 'register.phoneInvalid', fb: t('register.phoneInvalid') }
+      : { key: 'register.enterPhone', fb: t('login.phonePlaceholder') }
   }
-  if (e === 'auth.codePlaceholder') return { key: 'register.incomplete', fb: '请填写完整信息' }
-  if (e === 'auth.invalidPassword') return { key: 'register.pwdLength', fb: '密码长度需为 6-20 位' }
-  if (e === 'auth.agreeRequired') return { key: 'register.agreeFirst', fb: '请先阅读并同意用户协议' }
+  if (e === 'auth.codePlaceholder')
+    return { key: 'register.incomplete', fb: t('distribution.index.fillInfo') }
+  if (e === 'auth.invalidPassword')
+    return { key: 'register.pwdLength', fb: t('register.pwdLength') }
+  if (e === 'auth.agreeRequired')
+    return { key: 'register.agreeFirst', fb: t('register.agreeFirst') }
   return null
 }
 
 /** 把共享 hook 返回的通用成功 key(auth.*)映射到本页 register.* 文案 */
 function mapRegisterInfoKey(e: string): { key: string; fb: string } | null {
-  if (e === 'auth.codeSent') return { key: 'register.codeSent', fb: '验证码已发送' }
-  if (e === 'auth.registerSuccess') return { key: 'register.success', fb: '注册成功' }
+  if (e === 'auth.codeSent') return { key: 'register.codeSent', fb: t('login.codeSent') }
+  if (e === 'auth.registerSuccess') return { key: 'register.success', fb: t('register.success') }
   return null
 }
 
@@ -100,7 +103,8 @@ export default function RegisterIndex() {
     Taro.redirectTo({ url: '/pages/login/login' })
   }
 
-  const codeBtnText = form.countdown > 0 ? `${form.countdown}秒后重新获取` : tt('register.getCode', '发送验证码')
+  const codeBtnText =
+    form.countdown > 0 ? `${form.countdown}秒后重新获取` : tt('register.getCode', '发送验证码')
 
   return (
     <View className="container-ali">
@@ -208,14 +212,18 @@ export default function RegisterIndex() {
                   />
                 </View>
               </View>
-              <Text className="field-hint">{tt('register.pwdHint', '6-20 位,建议字母和数字组合')}</Text>
+              <Text className="field-hint">
+                {tt('register.pwdHint', '6-20 位,建议字母和数字组合')}
+              </Text>
             </View>
           </View>
 
           {/* 底部:注册按钮 + 协议 + 第三方绑定 + 登录链接 */}
           <View className="bottom_box">
             <AuthButton onClick={form.register} disabled={form.submitting} variant="register">
-              {form.submitting ? tt('register.submitting', '注册中…') : tt('register.submit', '注册')}
+              {form.submitting
+                ? tt('register.submitting', '注册中…')
+                : tt('register.submit', '注册')}
             </AuthButton>
 
             {/* 协议勾选:check-circle 16.5rpx 圆形 + #847CFF checked */}
@@ -238,7 +246,7 @@ export default function RegisterIndex() {
 
             {/* 第三方快捷绑定(7 图标,wx + google 已有,其他占位) */}
             <View className="switch-login">
-              <Text>第三方快捷绑定</Text>
+              <Text>{tt('register.text1', '第三方快捷绑定')}</Text>
             </View>
             <View className="icon-all">
               <View className="icon-all-box">

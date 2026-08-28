@@ -1,6 +1,6 @@
+import { useTt } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import ProgressCircle from './ProgressCircle'
-import { useTt } from '@/i18n'
 
 export interface StudyStatsData {
   totalMinutes?: number
@@ -43,7 +43,8 @@ export default function StudyStats({ data = {} }: StudyStatsProps) {
             {Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m
           </Text>
           <Text className="block text-xs text-muted-foreground mt-1">
-            目标 {Math.floor(weekTarget / 60)}h,已完成 {Math.floor(weekPercent)}%
+            目标 {tt('StudyStats.y1', 'h,已完成')}
+            {Math.floor(weekTarget / 60)} {Math.floor(weekPercent)}%
           </Text>
         </View>
       </View>

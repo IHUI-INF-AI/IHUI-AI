@@ -1,5 +1,5 @@
-import Taro from '@tarojs/taro'
 import { t } from '@/i18n'
+import Taro from '@tarojs/taro'
 
 export function saveImageToPhotosAlbum(filePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -33,14 +33,14 @@ export async function saveNetworkImageToAlbum(imageUrl: string): Promise<void> {
   const url = String(imageUrl || '').trim()
   if (!url) {
     Taro.showToast({ title: t('album.urlEmpty'), icon: 'none' })
-    throw new Error('图片地址为空')
+    throw new Error(t('album.urlEmpty'))
   }
 
   Taro.showLoading({ title: t('album.saving') })
   try {
     const res = await Taro.downloadFile({ url })
     if (res.statusCode !== 200 || !res.tempFilePath) {
-      throw new Error('下载失败')
+      throw new Error(t('ai.chatMessageItem.downloadFailed'))
     }
     await saveImageToPhotosAlbum(res.tempFilePath)
   } catch (err) {

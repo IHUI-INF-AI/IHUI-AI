@@ -1,5 +1,5 @@
+import { useTt, useI18n, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
-import { useI18n, useTt } from '@/i18n'
 
 export interface VipPayConfirmProps {
   visible?: boolean
@@ -14,7 +14,7 @@ export interface VipPayConfirmProps {
 
 export default function VipPayConfirm({
   visible = false,
-  planName = '月度会员',
+  planName = t('vip.details.monthlyPlan'),
   price = 29,
   originalPrice,
   paymentMethod = 'wechat',

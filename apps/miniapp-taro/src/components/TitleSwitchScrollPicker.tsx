@@ -1,3 +1,4 @@
+import { useTt, type TtFn } from '@/i18n'
 import { View, PickerView, PickerViewColumn, Text } from '@tarojs/components'
 import { useState, useCallback, useEffect } from 'react'
 import type { CSSProperties } from 'react'
@@ -7,15 +8,15 @@ import type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps } from '
 // 重新导出以维持本模块公开 API(原文件 export 这些类型)。
 export type { TitleSwitchScrollPickerItem, TitleSwitchScrollPickerProps }
 
-const DEFAULT_LIST: TitleSwitchScrollPickerItem[] = [
-  { name: '赛道一' },
-  { name: '赛道二' },
-  { name: '赛道三' },
-  { name: '赛道四' },
-  { name: '赛道五' },
-  { name: '赛道六' },
-  { name: '赛道七' },
-  { name: '赛道八' },
+const DEFAULT_LIST = (tt: TtFn): TitleSwitchScrollPickerItem[] => [
+  { name: tt('TitleSwitchScrollPicker.d1', '赛道一') },
+  { name: tt('TitleSwitchScrollPicker.d2', '赛道二') },
+  { name: tt('TitleSwitchScrollPicker.d3', '赛道三') },
+  { name: tt('TitleSwitchScrollPicker.d4', '赛道四') },
+  { name: tt('TitleSwitchScrollPicker.d5', '赛道五') },
+  { name: tt('TitleSwitchScrollPicker.d6', '赛道六') },
+  { name: tt('TitleSwitchScrollPicker.d7', '赛道七') },
+  { name: tt('TitleSwitchScrollPicker.d8', '赛道八') },
 ]
 
 /** 5 层堆叠样式:对标旧项目 active_before2/before/item/after/after2 */
@@ -81,11 +82,9 @@ function getItemStyle(delta: number): CSSProperties {
  * - 用 PickerView + PickerViewColumn 实现原生滚轮选择
  * - 上/下点击区域可手动 ±1
  */
-export default function TitleSwitchScrollPicker({
-  mainList = DEFAULT_LIST,
-  defaultIndex = 0,
-  onChange,
-}: TitleSwitchScrollPickerProps) {
+export default function TitleSwitchScrollPicker(props: TitleSwitchScrollPickerProps) {
+  const tt = useTt()
+  const { mainList = DEFAULT_LIST(tt), defaultIndex = 0, onChange } = props
   const [itemIndex, setItemIndex] = useState<number[]>([defaultIndex])
 
   useEffect(() => {

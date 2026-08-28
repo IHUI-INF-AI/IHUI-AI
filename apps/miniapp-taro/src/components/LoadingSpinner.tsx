@@ -1,3 +1,4 @@
+import { t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 
 export interface LoadingSpinnerProps {
@@ -8,7 +9,7 @@ export interface LoadingSpinnerProps {
 
 export default function LoadingSpinner({
   size = 'md',
-  text = '加载中',
+  text = t('earnings.loading'),
   inline = false,
 }: LoadingSpinnerProps) {
   const sizeClass = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-8 h-8' : 'w-6 h-6'
