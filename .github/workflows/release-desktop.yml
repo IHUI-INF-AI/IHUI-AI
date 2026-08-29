@@ -86,14 +86,18 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.DESKTOP_TAURI_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'IHUI AI Desktop ${{ github.ref_name }}'
+          # workflow_dispatch 手动触发时 ref_name 是分支名,须用 inputs.tag;
+          # tag push 触发时 ref_name 即 tag 名
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'IHUI AI Desktop ${{ inputs.tag || github.ref_name }}'
           releaseBody: '桌面端安装包(Tauri 2 + Rust + React)。详见 CHANGELOG。'
           releaseDraft: false
           prerelease: false
-          # 启用自动更新 artifacts:tauri-action 会自动生成 latest.json 并上传到 Release assets
-          # updater endpoint 配置在 tauri.conf.json 指向 GitHub Releases:
-          # https://github.com/IHUI-INF-AI/IHUI-AI/releases/latest/download/latest.json
+          # 启用自动更新 artifacts:tauri-action 生成各平台 .sig 签名包并上传 Release assets;
+          # publish-updater-json job 聚合全部平台生成统一 latest.json,
+          # 并同步到固定 feed tag desktop-updater-feed(见 scripts/generate-latest-json.mjs)。
+          # updater endpoint 配置在 tauri.conf.json 指向固定 feed(避免 releases/latest 被其他 release 漂移):
+          # https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json
           updaterJsonPreferNsis: true
 
       - name: Upload bundle artifacts
@@ -135,14 +139,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: node scripts/generate-latest-json.mjs
 
       - name: Summary
         run: |
           echo "### Updater JSON 发布完成" >> $GITHUB_STEP_SUMMARY
-          echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "latest.json 已聚合所有平台签名,上传到 Release assets" >> $GITHUB_STEP_SUMMARY
+          echo "tag: ${{ inputs.tag || github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "latest.json 已聚合所有平台签名,上传到 Release assets + 固定 feed tag desktop-updater-feed" >> $GITHUB_STEP_SUMMARY
 
   # 同步构建产物到 apps/web/public/downloads/,实现"构建 → 自动同步下载包 → 自动更新 manifest"全链路
   sync-downloads:
