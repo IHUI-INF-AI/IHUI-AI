@@ -15,15 +15,38 @@
  * - 不跳独立 /login 路由(用户偏好"弹窗而非独立页",与 user profile 偏好一致)
  */
 import * as React from 'react'
+import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { MessageSquare, Sparkles } from 'lucide-react'
 
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useMounted } from '@/hooks/use-mounted'
+import { useChatStore } from '@/stores/chat'
+import { useAiPanelStore } from '@/stores/ai-panel'
 import { Button } from '@ihui/ui-react'
 
 import WorkAreaHomePage from '../home/page'
+
+/**
+ * 多会话并行(2026-08-30 立):/chat?conversationId=xxx 深链跳转。
+ * AI 面板是全局 docked 组件,由 useChatStore.conversationId 驱动 —— 设置 store 即触发
+ * 全局 AISidePanel 的 loadHistory effect 加载对应会话;多浏览器 Tab 天然并行互不阻塞。
+ * useSearchParams 需 <Suspense> 边界(output:'export' 模式),由 ChatPage 包裹。
+ */
+function ChatConversationSync() {
+  const searchParams = useSearchParams()
+  React.useEffect(() => {
+    const convId = searchParams.get('conversationId')
+    if (!convId) return
+    // 已在该会话则跳过,避免冗余重载
+    if (useChatStore.getState().conversationId === convId) return
+    useChatStore.getState().setConversationId(convId)
+    useAiPanelStore.getState().openPanel()
+  }, [searchParams])
+  return null
+}
 
 export default function ChatPage() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -70,5 +93,13 @@ export default function ChatPage() {
   }
 
   // 已登录:显示 home 内容(包含 AISidePanel)
-  return <WorkAreaHomePage />
+  return (
+    <>
+      {/* 深链同步:/chat?conversationId=xxx 跳转对应会话(useSearchParams 需 Suspense 包裹) */}
+      <Suspense fallback={null}>
+        <ChatConversationSync />
+      </Suspense>
+      <WorkAreaHomePage />
+    </>
+  )
 }
