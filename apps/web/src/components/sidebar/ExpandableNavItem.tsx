@@ -229,15 +229,20 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
           - 展开/父级激活的 font-semibold 在 parentClassName 已统一,这里只保留 min-w-0 防溢出
             与 whitespace-nowrap 避免换行
         */}
-        <span ref={textRef} className="min-w-0 whitespace-nowrap text-left">{label}</span>
+        <span ref={textRef} className="min-w-0 whitespace-nowrap text-left">
+          {label}
+        </span>
         {/*
           二级菜单底部指示符 — 对齐文字下方
           用 ref 测量文字宽度，将指示器定位到文字正中下方而非按钮居中。
-          公式：left = icon(20px) + gap(10px) + textWidth/2，再 -translate-x-1/2 居中指示器自身。
+          公式：left = 20 + textWidth/2
+          说明：indicator 用 -translate-x-1/2(-20px) 后，视觉中心 = left + 20px。
+                按钮内文字起点 = padding(10px) + icon(20px) + gap(10px) = 40px
+                文字中心 = 40 + textWidth/2
+                所以 left + 20 = 40 + textWidth/2 → left = 20 + textWidth/2
         */}
         {(() => {
-          const TEXT_LEFT = 30 // icon(20px) + gap(10px)
-          const left = TEXT_LEFT + textWidth / 2
+          const left = 20 + textWidth / 2
           return (
             <span
               aria-hidden="true"
