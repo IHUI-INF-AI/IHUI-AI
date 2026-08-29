@@ -114,6 +114,31 @@ describe('P38 共享 repairMessages(跨端同步:CLI/API/ai-service 同源)', ()
       expect(repaired).toHaveLength(1)
       expect(removed).toBe(0)
     })
+
+    it('keepTrailingUser: LLM 请求链路保留正在发送的末尾 user', () => {
+      const msgs: RepairableMessage[] = [
+        { role: 'user', content: 'q1' },
+        { role: 'assistant', content: 'a1' },
+        { role: 'user', content: '当前发送的最新输入' },
+      ]
+      const { repaired, removed } = repairMessages(msgs, { keepTrailingUser: true })
+      expect(repaired).toHaveLength(3)
+      expect(repaired[repaired.length - 1]!.role).toBe('user')
+      expect(repaired[repaired.length - 1]!.content).toBe('当前发送的最新输入')
+      expect(removed).toBe(0)
+    })
+
+    it('keepTrailingUser: 上轮残留 user 与当前输入合并后保留', () => {
+      const msgs: RepairableMessage[] = [
+        { role: 'user', content: 'q1' },
+        { role: 'assistant', content: 'a1' },
+        { role: 'user', content: '残留' },
+        { role: 'user', content: '当前发送的最新输入' },
+      ]
+      const { repaired } = repairMessages(msgs, { keepTrailingUser: true })
+      expect(repaired).toHaveLength(3)
+      expect(repaired[repaired.length - 1]!.content).toBe('残留\n\n当前发送的最新输入')
+    })
   })
 
   describe('不变性', () => {
