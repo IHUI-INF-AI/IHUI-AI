@@ -11,7 +11,12 @@ export default function ForgotPasswordPage() {
 
   useEffect(() => {
     open('forgot')
-    void router.replace('/')
+    // 延迟一帧导航(2026-08-29):与 login 页同一治理——挂载期立即 replace
+    // 会命中 Next.js Router 初始化窗口("Router action dispatched before initialization")。
+    const raf = requestAnimationFrame(() => {
+      void router.replace('/')
+    })
+    return () => cancelAnimationFrame(raf)
   }, [open, router])
 
   return null
