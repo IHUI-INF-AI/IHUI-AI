@@ -322,9 +322,19 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 阶段 1 在 web 非 Tauri 环境下移除这些工具(因 ai-service 在远程服务器无法访问本地文件);
  * 阶段 2 实现"前端工具执行代理"后,LLM 调用 fs 工具时 ai-service 通过 SSE tool-delegate
  * 事件委托前端用 FileSystemDirectoryHandle 执行,通过 POST API 回传结果,恢复 tool loop。
+ *
+ * 2026-08-29 修复(前端"一次性全显"根因):此前无条件返回 34 个 AGENT_TOOLS,
+ * 导致普通问答请求也携带 agentTools → 后端命中 `if req.agent_tools:` 走 tool loop 分支,
+ * 第一轮用非流式 complete() 等完整回复,LLM 无工具调用时把整个 content 一次性 yield,
+ * 前端收到单个超大 chunk,内容"一下全出"。
+ * 现在仅当用户显式启用插件工具(selectedTools 非空)才返回工具列表;普通问答返回空数组,
+ * 调用方不携带 agentTools 字段 → 后端直接走流式 astream()(逐 token)输出,恢复打字机效果。
+ * 带工具场景仍携带 AGENT_TOOLS + 插件工具,后端 tool loop 已兜底流式,不影响打字机。
  */
 export function mergeAgentTools(): string[] {
   const selected = useChatStore.getState().selectedTools
+  // 2026-08-29:未显式启用任何插件工具(普通问答)时不携带工具,返回空数组
+  if (selected.length === 0) return []
   const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])
   return [...new Set([...AGENT_TOOLS, ...extra])]
 }

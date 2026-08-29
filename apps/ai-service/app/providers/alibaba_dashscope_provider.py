@@ -80,12 +80,15 @@ class AlibabaDashscopeProvider(OpenAIProvider):
                         chunk = json.loads(chunk_str)
                     except json.JSONDecodeError:
                         continue
-                    choice = chunk.get("choices", [{}])[0]
-                    delta = choice.get("delta", {})
-                    if delta.get("content"):
-                        yield {"type": "chunk", "content": delta["content"]}
-                    if delta.get("tool_calls"):
-                        yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
+                    # 2026-08-29 修复:流式 usage/结束帧 choices 可能为空数组,防御越界
+                    choices = chunk.get("choices") or []
+                    if choices:
+                        choice = choices[0]
+                        delta = choice.get("delta", {})
+                        if delta.get("content"):
+                            yield {"type": "chunk", "content": delta["content"]}
+                        if delta.get("tool_calls"):
+                            yield {"type": "tool_call", "tool_calls": delta["tool_calls"]}
                     if chunk.get("usage"):
                         yield {
                             "type": "done",
