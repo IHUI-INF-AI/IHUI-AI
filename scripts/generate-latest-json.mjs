@@ -19,6 +19,7 @@
 const token = process.env.GITHUB_TOKEN
 const repo = process.env.GITHUB_REPOSITORY
 const tag = process.env.RELEASE_TAG
+const FEED_TAG = 'desktop-updater-feed'
 
 if (!token || !repo || !tag) {
   console.error('Missing required env: GITHUB_TOKEN, GITHUB_REPOSITORY, RELEASE_TAG')
@@ -50,6 +51,24 @@ async function githubApi(path, init) {
   return res.json()
 }
 
+/** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
+async function waitForRelease(tag, expectedMinAssets = 20, maxRetries = 12, retryInterval = 10000) {
+  for (let i = 0; i < maxRetries; i++) {
+    const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`)
+    const sigCount = release.assets.filter(a => a.name.endsWith('.sig')).length
+    console.log(`[poll] Attempt ${i + 1}/${maxRetries}: release has ${release.assets.length} assets, ${sigCount} sig files`)
+    if (release.assets.length >= expectedMinAssets && sigCount >= 8) {
+      console.log(`[poll] Release ready: ${release.assets.length} assets, ${sigCount} sig files`)
+      return release
+    }
+    if (i < maxRetries - 1) {
+      console.log(`[poll] Waiting ${retryInterval / 1000}s for assets to finish uploading...`)
+      await new Promise(resolve => setTimeout(resolve, retryInterval))
+    }
+  }
+  throw new Error(`Release assets not ready after ${maxRetries} retries. Expected >= ${expectedMinAssets} assets, got what was available.`)
+}
+
 // 根据 .sig 文件名推断 Tauri updater 平台标识
 function inferPlatform(sigName) {
   // Windows: exe.sig / msi.sig
@@ -68,8 +87,9 @@ function inferPlatform(sigName) {
 }
 
 async function main() {
-  // 1. 获取 Release
-  const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`)
+  // 1. 等待 release assets 全部上传完成(防止竞态条件)
+  console.log('Waiting for release assets to be ready...')
+  const release = await waitForRelease(tag)
   console.log(`Release: ${release.name} (id=${release.id}, assets=${release.assets.length})`)
 
   // 2. 遍历 .sig 文件,收集各平台 signature + url
