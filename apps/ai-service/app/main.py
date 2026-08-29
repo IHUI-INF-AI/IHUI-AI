@@ -245,6 +245,60 @@ async def lifespan(app: FastAPI) -> Any:
         except Exception as e:
             logger.warning("[scheduler_service] 启动失败(忽略): %s", e)
 
+    # 外部 MCP Server 接线(2026-08-30 立,让外部 MCP 生态真正可用)
+    # 从环境变量 MCP_SERVERS_JSON(兼容既有 settings.mcp_client_configs / MCP_CLIENT_CONFIGS)
+    # 读取外部 MCP Server 配置数组并注册连接。解析/连接失败不阻塞启动(降级为运行时管理端点注册)。
+    try:
+        from app.services.mcp_client import (
+            TRANSPORT_STDIO,
+            MCPClientConfig,
+            get_mcp_client_manager,
+        )
+
+        _mcp_manager = get_mcp_client_manager()
+        _mcp_cfg_raw = (
+            (os.getenv("MCP_SERVERS_JSON") or getattr(settings, "mcp_client_configs", "") or "")
+            .strip()
+        )
+        if _mcp_cfg_raw:
+            import json as _json
+
+            try:
+                _mcp_servers = _json.loads(_mcp_cfg_raw)
+                if isinstance(_mcp_servers, list):
+                    for _s in _mcp_servers:
+                        _name = (_s.get("name") or "").strip()
+                        if not _name or _mcp_manager.get_client(_name) is not None:
+                            continue
+                        try:
+                            _cfg = MCPClientConfig(
+                                name=_name,
+                                transport=_s.get("transport", TRANSPORT_STDIO),
+                                command=_s.get("command", ""),
+                                args=list(_s.get("args", []) or []),
+                                env=dict(_s.get("env", {}) or {}),
+                                url=_s.get("url", ""),
+                                timeout=float(_s.get("timeout", 30.0)),
+                                reconnect=bool(_s.get("reconnect", True)),
+                                max_reconnect_attempts=int(_s.get("max_reconnect_attempts", 3)),
+                            )
+                            _mcp_manager.register(_cfg)
+                            logger.info(
+                                "[mcp_client] 注册外部 MCP Server: %s[%s]", _name, _cfg.transport
+                            )
+                        except Exception as _e:
+                            logger.warning("[mcp_client] 注册 %s 失败(忽略): %s", _name, _e)
+                    await _mcp_manager.connect_all()
+                    logger.info("[mcp_client] 外部 MCP Server 连接完成: %d 个", len(_mcp_servers))
+                else:
+                    logger.warning("[mcp_client] MCP_SERVERS_JSON 不是 JSON 数组,忽略")
+            except Exception as _e:
+                logger.warning("[mcp_client] 解析 MCP_SERVERS_JSON 失败(忽略): %s", _e)
+        else:
+            logger.info("[mcp_client] 未配置外部 MCP Server(MCP_SERVERS_JSON 为空),跳过")
+    except Exception as e:
+        logger.warning("[mcp_client] 启动初始化失败(忽略): %s", e)
+
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
@@ -318,6 +372,14 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭 api-service → api 调用的共享 httpx.AsyncClient(mTLS 客户端)
     from app.services.api_client import close_api_client
     await close_api_client()
+
+    # 关闭外部 MCP Client 连接(2026-08-30 立,断开 stdio 子进程 / SSE 连接)
+    try:
+        from app.services.mcp_client import get_mcp_client_manager
+        await get_mcp_client_manager().disconnect_all()
+        logger.info("[mcp_client] 外部 MCP Client 已全部断开")
+    except Exception as e:
+        logger.warning("[mcp_client] shutdown 断开失败(忽略): %s", e)
 
     # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(app.core.db_pool)。
     # 原 14 个独立 pool 已全部复用 get_shared_pool(),此处一次 close 即可释放所有连接,
