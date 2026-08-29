@@ -10,7 +10,7 @@ import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata, replaceMessages } from '../db/chat-queries.js'
-import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -595,6 +595,45 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     }
 
     return reply.send(success({ ok: true, persisted: true }))
+  })
+
+  // POST /agent/approval-response — 工具审批响应代理(2026-08-30 立)
+  // 前端审批弹窗(组件订阅 /api/agents/tasks/stream 的 tool-approval 事件)点"批准/拒绝"后
+  // 调用 /api/ai/agent/approval-response → 本端点 → 转发到 ai-service /api/agents/approval-response。
+  // 审批注册表在 ai-service 进程内,响应写回后唤醒 agent_loop_v2 中等待的高危工具协程。
+  const approvalResponseSchema = z.object({
+    approval_id: z.string().min(1).optional(),
+    approvalId: z.string().min(1).optional(),
+    decision: z.enum(['approve', 'reject']),
+  })
+
+  server.post('/agent/approval-response', async (request, reply) => {
+    const parsed = approvalResponseSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const approvalId = parsed.data.approval_id ?? parsed.data.approvalId
+    if (!approvalId) {
+      return reply.status(400).send(error(400, 'approval_id 必填'))
+    }
+    try {
+      const resp = await aiServiceFetch(request, '/api/agents/approval-response', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: request.headers.authorization ?? '',
+        },
+        body: JSON.stringify({ approval_id: approvalId, decision: parsed.data.decision }),
+      })
+      const data = (await resp.json().catch(() => ({}))) as Record<string, unknown>
+      if (!resp.ok) {
+        return reply.status(resp.status).send(data)
+      }
+      return reply.send(data)
+    } catch (e) {
+      request.log.error({ err: e, approvalId }, 'approval-response proxy failed')
+      return reply.status(502).send(error(502, (e as Error).message))
+    }
   })
 
   // GET /api/ai/admin/ai/chat/metrics — SSE 流式对话实时指标(admin 调试用)

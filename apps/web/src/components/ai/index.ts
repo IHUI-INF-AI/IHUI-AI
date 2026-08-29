@@ -22,6 +22,11 @@ export { AgentRuntimePanel } from './agent-runtime-panel'
 export { default as AgentRuntimePanelDefault } from './agent-runtime-panel'
 export { AgentTaskProgressPane } from './agent-task-progress-pane'
 export { AgentProgressTrigger } from './agent-progress-trigger'
+export {
+  ToolApprovalDialog,
+  dispatchToolApprovalRequest,
+  TOOL_APPROVAL_EVENT,
+} from './tool-approval-dialog'
 
 // 语音组件
 export { VoiceInput } from './voice-input'
