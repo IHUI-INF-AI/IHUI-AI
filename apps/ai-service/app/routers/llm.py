@@ -680,7 +680,8 @@ async def list_models(request: Request) -> dict[str, Any]:
         pool = await get_shared_pool()
         async with pool.acquire() as conn:
             rows = await conn.fetch(
-                """SELECT m.model_id, m.display_name, m.context_length, c.provider_code
+                """SELECT m.model_id, m.display_name, m.context_length, c.provider_code,
+                          m.release_date, m.tags
                    FROM ai_model_config_models m
                    JOIN ai_model_config c ON m.config_id = c.id
                    WHERE m.enabled = true AND c.enabled = true AND m.is_relay_public = true
@@ -719,6 +720,9 @@ async def list_models(request: Request) -> dict[str, Any]:
                     "name": r["display_name"] or mid,
                     "provider": provider_code,
                     "context_length": r["context_length"] or 4096,
+                    # 分类引擎输入:用途分类需要 tags,代次判定需要 release_date
+                    "release_date": r["release_date"],
+                    "tags": list(r["tags"] or []),
                 })
                 seen.add(mid)
     except Exception as e:
@@ -754,6 +758,22 @@ async def list_models(request: Request) -> dict[str, Any]:
             m["caps"] = cap_to_dict(cap)
         # 积分消耗倍数(0.0 免费 / 1.0 经济 / 3.0 标准 / 10.0 高级 / 30.0 旗舰)
         m["points_multiplier"] = infer_points_multiplier(str(m.get("id") or ""))
+
+    # 2026-08-29 立:模型分类(用途 category + 代次 model_tier)。
+    # 解决"聊天模型选择器塞满历史过时模型"——默认只展示 model_tier=latest,
+    # 其余收进前端"历史模型"折叠区,并按用途分类标注(嵌入/语音/图像等)。
+    # 分类引擎详见 app/services/model_catalog.py;失败时降级为全部 standard,
+    # 保证老前端(不认识这两个字段)行为不变。
+    try:
+        from ..services.model_catalog import annotate_models
+
+        annotate_models(default_models)
+    except Exception as e:  # pragma: no cover - 分类失败不应让模型列表整体不可用
+        logger.warning("[llm/models] 模型分类失败,降级为全部 standard: %s", e)
+        for _m in default_models:
+            _m.setdefault("category", "chat")
+            _m.setdefault("model_tier", "standard")
+
     # 2026-08-05 安全红线:非系统内置管理员过滤受限模型(真实付费 key 模型)。
     # 与 /llm/complete(/stream) 的 _ensure_restricted_model_access、8802 列表过滤三端一致。
     # system-worker 内部凭证同样过滤(它不应出现在普通列表,8802 /models 也不用于后台任务)。

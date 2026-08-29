@@ -14,10 +14,15 @@
  * - 加载更多:onEndReached
  * - 浅色优雅风,无霓虹 / 无渐变 / 无 ttf;颜色走 @ihui/design-tokens 的 rnLightTokens
  * - 类型零 any,精确标注
+ *
+ * 2026-08-29 增补:ModelListItem 增加 category / modelTier 两个可选字段,
+ * 供 ModelPickerList 做「默认列表 / 历史模型折叠区」分区。判定逻辑一律在后端
+ * (ai-service model_catalog),本组件只透传字段,不重复实现分类规则。
  */
 import { useEffect, useRef } from 'react'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { Bot, Check as CheckIcon, type LucideIcon } from 'lucide-react-native'
+import type { ModelTier, ModelUsageCategory } from '@ihui/types'
 import {
   Animated,
   SectionList,
@@ -27,6 +32,8 @@ import {
   View,
   type SectionListData,
   type SectionListRenderItem,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native'
 
 /** 排名第一徽章金色(design-tokens 无金色,复刻 rankone 用) */
@@ -57,6 +64,10 @@ export interface ModelListItem {
   isTop?: boolean
   /** 模型类型(0 其他/1 对话/2 图片/3 视频/4 音频/5 数字人) */
   type?: number
+  /** 用途分类(后端 model_catalog 产出,可选;缺失按 chat 处理) */
+  category?: ModelUsageCategory
+  /** 代次档位(后端 model_catalog 产出,可选;缺失按 latest 处理) */
+  modelTier?: ModelTier
 }
 
 /** 模型分组(legacy 按 vendor,现支持按 type 分组标题) */
@@ -87,6 +98,11 @@ export interface ModelListProps {
   onAgentModeClick?: () => void
   /** 逐项 slideUp 入场动画(对齐 Uniapp slideUp,默认开启) */
   animateEntrance?: boolean
+  /**
+   * 外层容器样式(可选)。调用方需要把列表塞进定高/弹性容器时用,
+   * 典型如 `style={{ flex: 1 }}`(RN 0.86 Fabric:ScrollView 需要父容器有确定高度才会滚动)。
+   */
+  style?: StyleProp<ViewStyle>
 }
 
 function resolveTitle(group: ModelListGroup): string {
@@ -239,6 +255,7 @@ export default function ModelList({
   agentModeSelected = false,
   onAgentModeClick,
   animateEntrance = true,
+  style,
 }: ModelListProps): React.ReactElement {
   const selectedSet = new Set(selectedIds)
 
@@ -298,6 +315,7 @@ export default function ModelList({
 
   return (
     <SectionList<ModelListItem, { title: string }>
+      style={style}
       sections={sections}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}

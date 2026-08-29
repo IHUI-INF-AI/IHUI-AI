@@ -167,7 +167,21 @@
     "navOrder": "注文",
     "navProfile": "マイ",
     "navSettings": "設定",
-    "navLogout": "ログアウト"
+    "navLogout": "ログアウト",
+    "modelHistoryToggle": "過去のモデル",
+    "modelHistorySearch": "過去のモデルを検索",
+    "modelHistoryEmpty": "一致するモデルがありません",
+    "modelCategoryChat": "対話・推論",
+    "modelCategoryVision": "画像理解",
+    "modelCategoryEmbedding": "埋め込み",
+    "modelCategoryRerank": "リランク",
+    "modelCategoryTts": "音声合成",
+    "modelCategoryAsr": "音声認識",
+    "modelCategoryImage": "画像生成",
+    "modelCategoryVideo": "動画生成",
+    "modelCategoryGuard": "安全性審査",
+    "modelCategoryOcr": "文字認識",
+    "modelCategoryOther": "その他"
   },
   "settings": {
     "title": "設定",

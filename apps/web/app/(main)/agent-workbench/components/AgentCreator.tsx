@@ -1,12 +1,14 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
+import { History, Loader2 } from 'lucide-react'
 import {
   Button,
   Input,
   Label,
   Select,
+  SelectGroup,
+  SelectLabel,
   SelectTrigger,
   SelectContent,
   SelectItem,
@@ -21,6 +23,32 @@ import {
 } from '@ihui/ui-react'
 import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { fetchApi } from '@/lib/api'
+import {
+  isArchivedModel,
+  normalizeCategory,
+  normalizeTier,
+  type ModelTier,
+  type ModelUsageCategory,
+} from '@ihui/shared'
+
+/**
+ * 2026-08-29 立:Agent 创建器里的模型项。
+ * 后端 /llm/models 现在带用途分类与代次档位,历史过时模型和
+ * 嵌入/语音/图像等非对话专用模型默认折叠,点"历史模型"才展开。
+ */
+interface CreatorModel {
+  id: string
+  category: ModelUsageCategory
+  tier: ModelTier
+}
+
+/** API 不可达时的兜底列表(人工挑选的当前可用主力,一律按最新对话模型处理) */
+function toFallbackModels(): CreatorModel[] {
+  return FALLBACK_MODELS.map((m) => ({ id: m.value, category: 'chat', tier: 'latest' }))
+}
+
+/** "历史模型"展开按钮的哨兵 value(不会与真实模型 id 冲突,且 onSelect 被 preventDefault 拦下) */
+const HISTORY_TOGGLE_VALUE = '__ihui_show_history_models__'
 
 const ROLE_OPTIONS = [
   { value: 'researcher', label: '研究员' },
@@ -66,7 +94,11 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
   const [permissionMode, setPermissionMode] = React.useState('default')
   const [maxIterations, setMaxIterations] = React.useState(25)
   const [systemPrompt, setSystemPrompt] = React.useState('')
-  const [models, setModels] = React.useState<string[]>(FALLBACK_MODEL_VALUES)
+  // 2026-08-29 立:模型带分类字段(用途 + 代次),历史模型默认折叠
+  const [models, setModels] = React.useState<CreatorModel[]>(() =>
+    FALLBACK_MODEL_VALUES.map((id) => ({ id, category: 'chat', tier: 'latest' })),
+  )
+  const [showHistory, setShowHistory] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [err, setErr] = React.useState<string | null>(null)
 
@@ -78,17 +110,29 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<{ models?: Array<{ id: string }> }>('/api/llm/models')
+        const res = await fetchApi<{
+          models?: Array<{
+            id: string
+            category?: ModelUsageCategory
+            model_tier?: ModelTier
+          }>
+        }>('/api/llm/models')
         if (cancelled) return
         if (!res.success || !res.data) {
-          setModels(FALLBACK_MODEL_VALUES)
+          setModels(toFallbackModels())
           return
         }
-        const ids = (res.data.models ?? []).map((m) => m.id).filter(Boolean)
-        setModels(ids.length > 0 ? ids : FALLBACK_MODEL_VALUES)
+        const list = (res.data.models ?? [])
+          .filter((m) => !!m.id)
+          .map((m) => ({
+            id: m.id,
+            category: normalizeCategory(m.category),
+            tier: normalizeTier(m.model_tier),
+          }))
+        setModels(list.length > 0 ? list : toFallbackModels())
       } catch {
         if (cancelled) return
-        setModels(FALLBACK_MODEL_VALUES)
+        setModels(toFallbackModels())
       }
     })()
     return () => {
@@ -99,6 +143,17 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
   const toggleTool = (t: string) => {
     setTools((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
   }
+
+  // 2026-08-29 立:默认区(最新最强的对话模型)/ 历史模型折叠区(过时版本 + 非对话专用模型)
+  const { visibleModels, archivedModels } = React.useMemo(() => {
+    const primary: CreatorModel[] = []
+    const archived: CreatorModel[] = []
+    for (const m of models) {
+      if (isArchivedModel(m.category, m.tier)) archived.push(m)
+      else primary.push(m)
+    }
+    return { visibleModels: primary, archivedModels: archived }
+  }, [models])
 
   const reset = () => {
     setName('')
@@ -187,16 +242,52 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
             </div>
             <div className="space-y-2">
               <Label>模型</Label>
-              <Select value={model} onValueChange={setModel}>
+              <Select
+                value={model}
+                onValueChange={setModel}
+                onOpenChange={(o) => {
+                  // 每次关闭弹层都收起历史模型,回到"默认只看最新"状态
+                  if (!o) setShowHistory(false)
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {models.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
+                  {visibleModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.id}
                     </SelectItem>
                   ))}
+                  {/* 历史模型折叠区:默认只显示一个入口,点开才加载全部过时/专用模型 */}
+                  {archivedModels.length > 0 &&
+                    (showHistory ? (
+                      <SelectGroup>
+                        <SelectLabel className="text-muted-foreground">
+                          历史模型 ({archivedModels.length})
+                        </SelectLabel>
+                        {archivedModels.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.id}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    ) : (
+                      <SelectItem
+                        value={HISTORY_TOGGLE_VALUE}
+                        onSelect={(e) => {
+                          // preventDefault 阻止 Radix 关闭弹层并写入选中值
+                          e.preventDefault()
+                          setShowHistory(true)
+                        }}
+                        className="text-muted-foreground"
+                      >
+                        <span className="inline-flex items-center gap-1.5">
+                          <History className="h-3.5 w-3.5" />
+                          历史模型 ({archivedModels.length})
+                        </span>
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>
