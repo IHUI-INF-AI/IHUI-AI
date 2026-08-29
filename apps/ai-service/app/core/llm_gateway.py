@@ -1709,6 +1709,78 @@ class LLMGateway:
                 logger.warning("LLM_FALLBACK 指标记录失败(忽略): %s", metric_err)
         yield error_evt
 
+    # 2026-08-29 修复:流式 tool_calls 分片累积函数(供 astream 两条路径共用)。
+    # 此前 openai/stepfun 原生适配器把 {"type": "tool_call", "tool_calls": [分片]} 直接透传,
+    # litellm 路径直接忽略 delta.tool_calls,导致调用方拿不到完整工具参数。
+    # 统一改为按 index 累积,由 astream 在流结束前以完整 tool_calls 事件产出。
+    @staticmethod
+    def _accumulate_tool_calls(
+        acc: dict[int, dict[str, Any]],
+        fragments: list[Any],
+    ) -> None:
+        """累积流式 tool_calls 分片为完整工具调用列表。
+
+        OpenAI 流式 function calling 分片规则:
+        - 同一 index 的首个分片携带 id/type/function.name,arguments 从首段开始;
+        - 后续分片仅含该 index 的 arguments 增量片段(可能跨多个 chunk);
+        - 因此同 index 的 id/type 直接覆盖,function.name 直接覆盖,function.arguments 字符串拼接。
+
+        支持两种分片形态:
+        - provider 适配器产出的 dict 列表(openai_provider/stepfun_provider 的 tool_call 事件);
+        - litellm delta.tool_calls 对象列表(遍历时归一化为 dict 再处理)。
+
+        Args:
+            acc: 累积字典 {index: 已合并的工具调用 dict},调用方在流开始时初始化。
+            fragments: 单个 chunk 内的 tool_calls 分片列表。
+        """
+        for frag in fragments:
+            if frag is None:
+                continue
+            if not isinstance(frag, dict):
+                # litellm delta.tool_calls 为对象 → 归一化为 dict
+                fn = getattr(frag, "function", None)
+                frag = {
+                    "index": getattr(frag, "index", 0),
+                    "id": getattr(frag, "id", None),
+                    "type": getattr(frag, "type", None),
+                    "function": {
+                        "name": getattr(fn, "name", None) if fn is not None else None,
+                        "arguments": getattr(fn, "arguments", None) if fn is not None else None,
+                    },
+                }
+            try:
+                idx = int(frag.get("index", 0))
+            except (TypeError, ValueError):
+                idx = 0
+            # 2026-08-29 修复:非 OpenAI 分片格式(gemini/ollama 等)不带 index 字段,
+            # 且一次事件给完整调用。若多个调用全部落到 index 0 会互相覆盖(name 被覆盖、
+            # arguments 被错误拼接),故缺 index 时自动分配递增序号。
+            if "index" not in frag or frag.get("index") is None:
+                idx = max(acc.keys()) + 1 if acc else 0
+            entry = acc.setdefault(idx, {
+                "index": idx,
+                "id": "",
+                "type": "function",
+                "function": {"name": "", "arguments": ""},
+            })
+            if frag.get("id"):
+                entry["id"] = frag["id"]
+            if frag.get("type"):
+                entry["type"] = frag["type"]
+            fn = frag.get("function") or {}
+            if isinstance(fn, dict):
+                if fn.get("name"):
+                    entry["function"]["name"] = fn["name"]
+                arg_piece = fn.get("arguments") or ""
+                if not isinstance(arg_piece, str):
+                    # 非 OpenAI 流式分片(gemini/ollama 等)arguments 为 dict → 序列化拼接
+                    try:
+                        arg_piece = json.dumps(arg_piece, ensure_ascii=False)
+                    except (TypeError, ValueError):
+                        arg_piece = ""
+                if arg_piece:
+                    entry["function"]["arguments"] += arg_piece
+
     async def astream(
         self,
         messages: list[dict[str, Any]],
@@ -1767,6 +1839,9 @@ class LLMGateway:
                 # 本路径,流式失败时零兜底)。对齐契约:未发任何 chunk 前收到 error →
                 # _astream_fallback_events 兜底;已发 chunk 后的 error 透传(不可撤回)。
                 native_sent_content = False
+                # 2026-08-29 修复:tool_calls 分片累积(此前把分片事件直接透传,
+                # 调用方拿不到完整参数)。分片不透传,循环结束后统一 yield。
+                native_tool_acc: dict[int, dict[str, Any]] = {}
                 async for evt in astream_iter:
                     if (
                         isinstance(evt, dict)
@@ -1780,9 +1855,21 @@ class LLMGateway:
                         ):
                             yield fb_evt
                         return
+                    if isinstance(evt, dict) and evt.get("type") == "tool_call":
+                        # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
+                        self._accumulate_tool_calls(
+                            native_tool_acc, evt.get("tool_calls") or []
+                        )
+                        continue
                     if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
                         native_sent_content = True
                     yield evt
+                # 2026-08-29 修复:流结束前统一产出累积后的完整 tool_calls(按 index 排序)
+                if native_tool_acc:
+                    yield {
+                        "type": "tool_calls",
+                        "tool_calls": [native_tool_acc[k] for k in sorted(native_tool_acc)],
+                    }
                 return
 
         if self._is_stub_mode():
@@ -1851,6 +1938,9 @@ class LLMGateway:
             _stream_debug = True  # Force enable SSE debug logging
             _stream_last = time.perf_counter()
             _stream_count = 0
+            # 2026-08-29 修复:litellm 流式 tool_calls 分片累积器(带 tools 的 astream 用),
+            # 循环内累积 delta.tool_calls,流结束前统一以 tool_calls 事件产出。
+            litellm_tool_acc: dict[int, dict[str, Any]] = {}
             try:
                 async for chunk in response:
                     if hasattr(chunk, "choices") and chunk.choices:
@@ -1873,6 +1963,11 @@ class LLMGateway:
                         if reasoning_token:
                             accumulated_reasoning += reasoning_token
                             yield {"type": "reasoning", "content": reasoning_token}
+                        # 2026-08-29 修复:litellm 路径此前忽略 delta.tool_calls,
+                        # 带 tools 的 astream 拿不到 LLM 工具决策。分片按 index 累积。
+                        delta_tool_calls = getattr(delta, "tool_calls", None)
+                        if delta_tool_calls:
+                            self._accumulate_tool_calls(litellm_tool_acc, delta_tool_calls)
                     if hasattr(chunk, "usage") and chunk.usage:
                         try:
                             final_usage = (
@@ -1896,6 +1991,12 @@ class LLMGateway:
                             close()
                 except Exception:
                     pass  # 已关闭或关闭失败不阻塞
+            # 2026-08-29 修复:tool_calls 分片累积完成后,在 done 事件之前统一产出完整列表
+            if litellm_tool_acc:
+                yield {
+                    "type": "tool_calls",
+                    "tool_calls": [litellm_tool_acc[k] for k in sorted(litellm_tool_acc)],
+                }
             # provider 不返回 stream_usage(如 StepFun)时,用 litellm.token_counter 估算兜底
             if not final_usage:
                 try:
