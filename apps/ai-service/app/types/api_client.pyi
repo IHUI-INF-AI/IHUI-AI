@@ -262,7 +262,14 @@ class RepairResult(TypedDict, total=False):
     reasons: list[str]
 
 
-def repairMessages(messages: list[RepairableMessage]) -> RepairResult:
+class RepairOptions(TypedDict, total=False):
+    """repairMessages 选项(镜像 @ihui/types/message-repair RepairOptions)。"""
+    keepTrailingUser: bool
+
+
+def repairMessages(
+    messages: list[RepairableMessage], options: RepairOptions | None = None
+) -> RepairResult:
     """修复 messages 数组结构异常(stub 签名,实现见 cli 端 TS/JS 版同源逻辑)。"""
     ...
 
