@@ -82,6 +82,15 @@ const MessageItem = React.memo(function MessageItem({
   // 2026-07-28 立:Reasoning 折叠状态(2026-07-28 抽出为独立 state,供外部事件如键盘 Enter 切换)
   // 默认 false(折叠),点击展开按钮 / 收到 'ihui:toggle-reasoning' 事件时切换
   const [reasoningExpanded, setReasoningExpanded] = React.useState(false)
+  // 2026-08-29 修复:思考过程自动展开/收起生命周期
+  // - 思考中(reasoning 流式)自动展开;思考结束(正文开始输出或流结束)自动收起
+  // - autoExpandedRef 标记"本次展开是自动的":用户手动 toggle 过则不再自动收起
+  const autoExpandedRef = React.useRef(false)
+  // 统一手动 toggle 入口:清除自动标记,后续思考结束不再自动收起
+  const toggleReasoning = React.useCallback(() => {
+    autoExpandedRef.current = false
+    setReasoningExpanded((prev) => !prev)
+  }, [])
   // 监听全局 'ihui:toggle-reasoning' 事件:键盘 Enter 聚焦消息触发,只响应本条消息
   React.useEffect(() => {
     // 2026-08-02 修复: Bug 6 — 把 if (!m.reasoning) return 移到 listener 内部,
@@ -90,18 +99,28 @@ const MessageItem = React.memo(function MessageItem({
       if (!m.reasoning) return
       const detail = (e as CustomEvent<{ messageId: string }>).detail
       if (detail?.messageId !== m.id) return
-      setReasoningExpanded((prev) => !prev)
+      toggleReasoning()
     }
     window.addEventListener('ihui:toggle-reasoning', onToggle as EventListener)
     return () => window.removeEventListener('ihui:toggle-reasoning', onToggle as EventListener)
-  }, [m.id, m.reasoning])
+  }, [m.id, m.reasoning, toggleReasoning])
 
   // 流式输出时自动展开思考过程(仅在用户未手动折叠时生效)
   React.useEffect(() => {
     if (streamingThis && m.reasoning && !reasoningExpanded) {
+      autoExpandedRef.current = true
       setReasoningExpanded(true)
     }
   }, [streamingThis, m.reasoning, reasoningExpanded])
+
+  // 2026-08-29:思考结束后自动收起 — 正文开始输出(思考让位给回答)或整条流结束时,
+  // 若此前的展开是自动触发的(用户未手动操作过),则收起思考区,保持界面聚焦正文
+  React.useEffect(() => {
+    if (autoExpandedRef.current && (!streamingThis || m.content.length > 0)) {
+      autoExpandedRef.current = false
+      setReasoningExpanded(false)
+    }
+  }, [streamingThis, m.content])
 
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
@@ -367,9 +386,11 @@ const MessageItem = React.memo(function MessageItem({
               <ThinkingSection
                 content={m.reasoning}
                 currentNode={null}
-                isStreaming={streamingThis}
+                // 2026-08-29:isStreaming 收紧为"思考进行中" — 正文开始输出后思考区
+                // 立即进入已完成态(停掉"思考中..."loader / 闪烁光标 / 耗时 tick)
+                isStreaming={streamingThis && !m.content}
                 expanded={reasoningExpanded}
-                onToggle={() => setReasoningExpanded((prev) => !prev)}
+                onToggle={toggleReasoning}
               />
             )}
             {m.toolCalls?.map((tc) => {
