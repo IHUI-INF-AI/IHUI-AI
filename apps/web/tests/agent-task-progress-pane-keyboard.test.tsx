@@ -277,14 +277,15 @@ describe('FoldableSection — 键盘导航属性', () => {
     expect(btn.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('button 含 focus-visible:ring 样式类(键盘焦点可见)', () => {
+  it('button 无描边 ring,仅 outline-none(2026-08-29 用户要求去描边)', () => {
     const { container } = render(
       <FoldableSection title="测试" data-testid="kb-focus-section">
         <span>内容</span>
       </FoldableSection>,
     )
     const btn = container.querySelector('button')!
-    expect(btn.className).toContain('focus-visible:ring')
+    expect(btn.className).toContain('focus-visible:outline-none')
+    expect(btn.className).not.toContain('focus-visible:ring')
   })
 
   it('button 含 aria-label(默认=title)', () => {
