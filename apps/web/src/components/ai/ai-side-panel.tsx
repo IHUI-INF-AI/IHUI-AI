@@ -15,7 +15,6 @@ import {
   ChevronUp,
   SlidersHorizontal,
   SquareTerminal,
-  PanelRight,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -73,6 +72,28 @@ function getDefaultFloatAnchor(): { left: number; bottom: number } {
     left: rect ? rect.left + 16 : 256,
     bottom: rect ? rect.bottom - 16 : window.innerHeight - 16,
   }
+}
+
+/** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 右侧短竖线,竖线两端不贴外框 */
+function PanelRightRounded(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect width="18" height="18" x="3" y="3" rx="5" />
+      <path d="M16.5 8v8" />
+    </svg>
+  )
 }
 
 export function AISidePanel() {
@@ -1072,7 +1093,7 @@ export function AISidePanel() {
                   workAreaCollapsed && 'bg-accent text-accent-foreground',
                 )}
               >
-                <PanelRight className="h-4 w-4" />
+                <PanelRightRounded className="h-4 w-4" />
               </button>
             </Tooltip>
             <Tooltip content={tcommon('close')}>
