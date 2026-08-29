@@ -32,6 +32,7 @@ import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
 import { useMessageReferences } from '@/hooks/use-message-references'
+import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
@@ -125,6 +126,28 @@ export function MessageInput({
   // - resetReferences 发送后清空
   const { references, addFileReference, addTextReference, removeReference, resetReferences } =
     useMessageReferences()
+  // 强制加载工作区所有 agent 规则文件(AGENTS.md/CLAUDE.md 等,任意层级)作为可见参考块(2026-08-29)
+  const agentMdRefs = useAgentMdReference()
+  // 被用户手动移除的 agent 参考块 id(仅隐藏展示,不影响 workspaceContext 注入)
+  const [dismissedAgentIds, setDismissedAgentIds] = React.useState<Set<string>>(new Set())
+  const handleRemoveReference = React.useCallback(
+    (id: string) => {
+      if (id.startsWith(AGENT_REF_PREFIX)) {
+        setDismissedAgentIds((prev) => {
+          const next = new Set(prev)
+          next.add(id)
+          return next
+        })
+        return
+      }
+      removeReference(id)
+    },
+    [removeReference],
+  )
+  const allReferences = React.useMemo(() => {
+    const visibleAgentRefs = agentMdRefs.filter((r) => !dismissedAgentIds.has(r.id))
+    return [...visibleAgentRefs, ...references]
+  }, [agentMdRefs, dismissedAgentIds, references])
   // 共享层 WebInputCore 内部托管 textarea ref + 自动高度(forwardRef 暴露 focus/setSelectionRange/resize)
   const inputCoreRef = React.useRef<WebInputCoreHandle>(null)
   // 发送 / 拖拽 / 粘贴 / 文件输入 handler(2026-07-30 提取到 useMessageSend hook):
@@ -148,6 +171,9 @@ export function MessageInput({
     setValue,
     isStreaming,
     isHighRisk,
+    // 注意:agent 参考块仅用于展示,不参与发送。
+    // doSend 会把 references 转成 "> 📎 label" 附加到消息正文,
+    // agent 文件内容已通过 workspaceContext 注入 system prompt,重复传入会污染消息。
     references,
     resetReferences,
     addFileReference,
@@ -330,9 +356,9 @@ export function MessageInput({
             - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
             - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
         <HighRiskWarningBanner autoRevert={autoRevert} />
-        {references.length > 0 && (
+        {allReferences.length > 0 && (
           <div className="mb-2">
-            <ContextReferencePanel references={references} onRemove={removeReference} />
+            <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
           </div>
         )}
         {selectedToolItems.length > 0 && (
@@ -477,9 +503,9 @@ export function MessageInput({
                   router.push('/plugins')
                 }}
               />
-              {references.length > 0 && (
+              {allReferences.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {references.length} 个引用
+                  {allReferences.length} 个引用
                 </span>
               )}
             </div>
