@@ -73,8 +73,12 @@ function getDefaultFloatAnchor(): { left: number; bottom: number } {
   }
 }
 
-/** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 右侧短竖线,竖线两端不贴外框 */
-function PanelRightRounded(props: React.SVGProps<SVGSVGElement>) {
+/** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
+ *  left=false 竖线在右侧(工作区展开状态);left=true 竖线在左侧(工作区收起状态) */
+function PanelRightRounded({
+  left = false,
+  ...props
+}: React.SVGProps<SVGSVGElement> & { left?: boolean }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -90,7 +94,7 @@ function PanelRightRounded(props: React.SVGProps<SVGSVGElement>) {
       {...props}
     >
       <rect width="18" height="18" x="3" y="3" rx="5" />
-      <path d="M16.5 8v8" />
+      <path d={left ? 'M7.5 8v8' : 'M16.5 8v8'} />
     </svg>
   )
 }
@@ -575,16 +579,23 @@ export function AISidePanel() {
   const displayTitle =
     activeWorkspace?.name ?? workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
 
-  // 全局快捷键 Ctrl+Shift+N:新建任务(2026-08-29 迁移整合)
-  // 2026-08-29:面板 header"新建任务"按钮已移除,入口统一到侧边栏 SidebarQuickActions,
-  // 侧边栏按钮派发同一 global-shortcut:new-chat 事件复用 handleNewChat。
+  // 新建任务统一入口(2026-08-29 迁移整合):
+  // 面板 header"新建任务"按钮已移除,三个入口(侧边栏按钮/Ctrl+Shift+N/Tauri 桌面端快捷键)
+  // 全部通过 global-shortcut:new-chat 事件汇入本监听器,行为完全一致(DRY 单点收敛):
+  //   1. 流式中禁止新建:与侧边栏按钮 disabled={isStreaming} 语义一致,防止流式中途清空会话
+  //   2. 面板未开时自动打开:任何入口 = "打开面板 + 新建会话"
+  //   3. handleNewChat:清空消息/会话 ID/标题/分页状态(服务端历史保留,仅前端切回新会话)
   // 监听始终注册(去掉 if(!open)):面板关闭时组件仍挂载(return null,hooks/refs 存活),
   // 侧边栏"面板关闭→打开+新建"需立即收到事件,不能等面板重挂载后 effect 再注册。
   React.useEffect(() => {
-    const onNewChat = () => handleNewChat()
+    const onNewChat = () => {
+      if (useChatStore.getState().isStreaming) return
+      if (!useAiPanelStore.getState().open) openPanel()
+      handleNewChat()
+    }
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
-  }, [handleNewChat])
+  }, [handleNewChat, openPanel])
 
   // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 Trae SOLO Plan 快捷键)
   // 2026-07-28 升级:Plan/Act 概念合并到 ChatMode,Alt+P 改为在 ChatMode.plan ↔ ChatMode.build 间切换
@@ -1089,7 +1100,7 @@ export function AISidePanel() {
                   workAreaCollapsed && 'bg-accent text-accent-foreground',
                 )}
               >
-                <PanelRightRounded className="h-4 w-4" />
+                <PanelRightRounded left={workAreaCollapsed} className="h-4 w-4" />
               </button>
             </Tooltip>
             <Tooltip content={tcommon('close')}>
