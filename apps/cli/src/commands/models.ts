@@ -22,6 +22,12 @@ import type { Command } from 'commander';
 import chalk from 'chalk';
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
+import {
+  HISTORY_LABEL,
+  categoryLabel,
+  splitModelCatalog,
+} from '../lib/model-catalog.js';
+import type { ModelTier, ModelUsageCategory } from '@ihui/types';
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const apiRequest = createApiRequest('', DEFAULT_TIMEOUT_MS);
@@ -35,6 +41,10 @@ interface LlmModel {
   provider: string;
   context_length: number;
   input_price: number;
+  /** 用途分类(2026-08-29 立,ai-service model_catalog 产出;老后端可能缺失) */
+  category?: ModelUsageCategory;
+  /** 代次档位:latest 默认展示 / standard + legacy 收进历史模型折叠区 */
+  model_tier?: ModelTier;
 }
 
 interface LlmModelsData {
@@ -104,6 +114,8 @@ interface BillingPlansData {
 
 interface ListOptions {
   provider?: string;
+  /** 展开"历史模型"折叠区(默认只打印分组汇总) */
+  all?: boolean;
   json?: boolean;
 }
 
@@ -208,9 +220,17 @@ function formatTokens(n: number): string {
 
 // ==================== list ====================
 
+/** 单行模型摘要(默认列表与折叠区共用) */
+function formatModelLine(m: LlmModel): string {
+  const price = formatPrice(m.input_price);
+  const ctx = formatContext(m.context_length);
+  return `${chalk.cyan(m.id.padEnd(36).slice(0, 36))} ${chalk.bold(m.name)} ${chalk.dim(m.provider)} ${chalk.dim(ctx)} ${price}`;
+}
+
 async function listModels(
   baseUrl: string,
   providerFilter: string | undefined,
+  expandHistory: boolean,
   asJson: boolean,
   apiKey?: string,
 ): Promise<void> {
@@ -239,15 +259,37 @@ async function listModels(
     }
   }
 
+  // 默认只列出"最新 + 对话类",其余按用途分类收进历史模型折叠区
+  const split = splitModelCatalog(models);
+
   console.info('');
-  for (const m of models) {
-    const price = formatPrice(m.input_price);
-    const ctx = formatContext(m.context_length);
-    console.info(
-      `${chalk.cyan(m.id.padEnd(36).slice(0, 36))} ${chalk.bold(m.name)} ${chalk.dim(m.provider)} ${chalk.dim(ctx)} ${price}`,
-    );
+  for (const m of split.primary) {
+    console.info(formatModelLine(m));
   }
-  console.info(chalk.dim(`\n共 ${models.length} 个模型`));
+
+  if (split.archivedCount === 0) {
+    console.info(chalk.dim(`\n共 ${split.primary.length} 个模型`));
+    return;
+  }
+
+  console.info(chalk.dim(`\n${HISTORY_LABEL} (${split.archivedCount})`));
+  if (!expandHistory) {
+    const summary = split.archived.map((g) => `${categoryLabel(g.category)} ${g.items.length}`);
+    console.info(chalk.dim(`  ${summary.join(' · ')}`));
+    console.info(chalk.dim(`  加 --all 展开`));
+  } else {
+    for (const g of split.archived) {
+      console.info('');
+      console.info(chalk.bold(`${HISTORY_LABEL} · ${categoryLabel(g.category)} (${g.items.length})`));
+      for (const m of g.items) {
+        console.info(formatModelLine(m));
+      }
+    }
+  }
+
+  console.info(
+    chalk.dim(`\n共 ${split.primary.length} 个最新对话模型 · ${split.archivedCount} 个${HISTORY_LABEL}`),
+  );
 }
 
 // ==================== keys ====================
@@ -426,6 +468,7 @@ export function registerModelsCommand(program: Command): void {
     .command('list')
     .description('列出可用模型 (LLM 网关)')
     .option('--provider <p>', '按厂商过滤 (如 openai / anthropic / deepseek)')
+    .option('--all', '展开"历史模型"折叠区 (默认只展示最新对话类模型)')
     .option('--json', '以 JSON 格式输出完整响应')
     .action(async (opts: ListOptions) => {
       try {
@@ -440,7 +483,7 @@ export function registerModelsCommand(program: Command): void {
           process.exitCode = 1;
           return;
         }
-        await listModels(baseUrl, opts.provider, Boolean(opts.json), apiKey);
+        await listModels(baseUrl, opts.provider, Boolean(opts.all), Boolean(opts.json), apiKey);
       } catch (err) {
         handleError('models list', err);
       }
