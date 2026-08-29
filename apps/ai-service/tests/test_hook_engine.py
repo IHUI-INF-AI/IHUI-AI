@@ -78,9 +78,10 @@ class TestConstants:
     def test_hook_events(self):
         assert "tool.before" in HOOK_EVENTS
         assert "tool.after" in HOOK_EVENTS
+        assert "tool.approval" in HOOK_EVENTS
         assert "session.start" in HOOK_EVENTS
         assert "error" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 7
+        assert len(HOOK_EVENTS) == 8
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES
