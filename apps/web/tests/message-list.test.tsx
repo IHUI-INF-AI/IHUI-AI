@@ -762,4 +762,82 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       expect(screen.queryByTestId('message-plan-steps-a1')).toBeNull()
     })
   })
+
+  // 2026-08-29:思考过程自动展开/收起生命周期(对标主流 AI 产品:思考中展开,思考结束收起)
+  // 注意渲染路径:content 为空的"思考/等待"阶段只渲染 TypingIndicator,
+  // ThinkingSection 在正文到达后才挂载 → 生命周期断言基于真实挂载时机
+  describe('思考过程展开/收起生命周期', () => {
+    it('思考阶段(content 为空):不渲染思考区,由 TypingIndicator 展示思考预览', () => {
+      const msgs = [makeAssistantMsg('a1', '', { reasoning: '让我想一想这个问题' })]
+      render(<MessageList {...baseProps} messages={msgs} isStreaming />)
+      expect(screen.queryByTestId('thinking-section')).toBeNull()
+      expect(screen.getByText(/正在思考/)).toBeTruthy()
+    })
+
+    it('正文到达:思考区挂载后自动收起(思考结束让位给回答,不闪展开态)', () => {
+      const msgs = [makeAssistantMsg('a1', '', { reasoning: '让我想一想这个问题' })]
+      const { rerender } = render(<MessageList {...baseProps} messages={msgs} isStreaming />)
+      expect(screen.queryByTestId('thinking-section')).toBeNull()
+      // 正文第一个 token 到达 → 思考区挂载,自动展开标记生效 → 立即收起
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '答案来了', { reasoning: '让我想一想这个问题' })]}
+          isStreaming
+        />,
+      )
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'false',
+      )
+    })
+
+    it('正文流式期间 reasoning 交错到达:自动展开;流结束自动收起', () => {
+      const msgs = [makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下' })]
+      const { rerender } = render(<MessageList {...baseProps} messages={msgs} isStreaming />)
+      // 交错输出:正文已有内容但 reasoning 继续更新 → 自动展开
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下,再补充分析' })]}
+          isStreaming
+        />,
+      )
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'true',
+      )
+      // 流结束 → 自动收起
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下,再补充分析' })]}
+        />,
+      )
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'false',
+      )
+    })
+
+    it('用户手动展开后:流结束不强制收起(尊重用户操作)', () => {
+      const msgs = [makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下' })]
+      const { rerender } = render(<MessageList {...baseProps} messages={msgs} isStreaming />)
+      // 正文已在输出 → 思考区挂载即折叠;用户手动展开
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'false',
+      )
+      fireEvent.click(screen.getByTestId('thinking-toggle'))
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'true',
+      )
+      // 流结束 → 用户手动展开的保持展开
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '完整回答', { reasoning: '先想一下' })]}
+        />,
+      )
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-expanded')).toBe(
+        'true',
+      )
+    })
+  })
 })

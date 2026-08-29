@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { BTN_NEW_CONVERSATION_CLASS } from '@/lib/nav-styles'
 import { Tooltip } from '@/components/feedback'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChatStore } from '@/stores/chat'
 
 /**
  * 侧边栏顶部快捷操作区:新建任务 / 插件市场 / 自动化任务 三个按钮(展开态显示文字,折叠态只显图标)。
@@ -24,7 +25,18 @@ export function SidebarQuickActions({
   const tchat = useTranslations('aiChat')
   const pathname = usePathname()
   const aiPanelOpen = useAiPanelStore((s) => s.open)
-  const toggleAiPanel = useAiPanelStore((s) => s.togglePanel)
+  const openPanel = useAiPanelStore((s) => s.openPanel)
+  // 2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,能力统一到此按钮。
+  // isStreaming 时禁用(原 header 按钮 disabled={isStreaming} 能力)。
+  const isStreaming = useChatStore((s) => s.isStreaming)
+
+  // 新建任务 = 打开 AI 面板(若未开) + 新建会话。
+  // 会话重置逻辑复用 ai-side-panel 的 handleNewChat:派发 global-shortcut:new-chat 事件,
+  // 与 Ctrl+Shift+N 快捷键同一通路(面板内监听器已改为始终注册,面板关闭时也能触发)。
+  const handleNewTask = () => {
+    openPanel()
+    window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
+  }
 
   return (
     <>
@@ -32,16 +44,19 @@ export function SidebarQuickActions({
             2026-07-19 用户反馈:整体偏灰,不再用极端黑/白对比;
             改用 bg-foreground/10 + text-foreground,保持"亮色暗色反向对比"特性
             (亮色模式 10% 黑 = 浅灰底 + 黑字 / 暗色模式 10% 白 = 深灰底 + 白字),
-            hover 升至 /20 给出明显反馈,但整体仍不抢眼。 */}
+            hover 升至 /20 给出明显反馈,但整体仍不抢眼。
+            2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,入口统一到此按钮。
+            能力 = 打开 AI 面板 + 新建会话(handleNewTask);流式中禁用(原 header 按钮能力)。 */}
       <div className={cn('mb-1', collapsed && 'flex justify-center')}>
         {collapsed ? (
           <Tooltip content={tchat('newConversation')} side="right">
             <button
               type="button"
-              onClick={toggleAiPanel}
+              onClick={handleNewTask}
+              disabled={isStreaming}
               aria-label={tchat('newConversation')}
               aria-pressed={aiPanelOpen}
-              className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20"
+              className="flex h-9 w-9 items-center justify-center rounded-md bg-foreground/10 text-foreground transition-colors hover:bg-foreground/20 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-5 w-5" />
             </button>
@@ -49,11 +64,13 @@ export function SidebarQuickActions({
         ) : (
           <button
             type="button"
-            onClick={toggleAiPanel}
+            onClick={handleNewTask}
+            disabled={isStreaming}
             aria-pressed={aiPanelOpen}
             className={cn(
               BTN_NEW_CONVERSATION_CLASS,
               'bg-foreground/10 text-foreground hover:bg-foreground/20',
+              'disabled:cursor-not-allowed disabled:opacity-40',
             )}
           >
             <Plus className="h-5 w-5 shrink-0" />
