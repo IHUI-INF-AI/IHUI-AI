@@ -346,3 +346,41 @@ describe('P1-1 tryRecoverSessionFromCorruptedJson 损坏 JSON 恢复', () => {
     expect(recovered!.history.every((m) => ['system', 'user', 'assistant'].includes(m.role))).toBe(true)
   })
 })
+
+describe('repairSessionHistory keepTrailingUser 可选参数透传', () => {
+  it('默认 false:仍删除末尾无响应的 user(保持 /repair 清理语义不变)', () => {
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'user', content: '残留' },
+    ]
+    const { repaired, removed } = repairSessionHistory(history)
+    expect(repaired).toHaveLength(2)
+    expect(repaired[repaired.length - 1]!.role).toBe('assistant')
+    expect(removed).toBe(1)
+  })
+
+  it('keepTrailingUser: true 时保留末尾 user(供 LLM 请求链路复用)', () => {
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'user', content: '当前发送的最新输入' },
+    ]
+    const { repaired, removed } = repairSessionHistory(history, { keepTrailingUser: true })
+    expect(repaired).toHaveLength(3)
+    expect(repaired[repaired.length - 1]!.content).toBe('当前发送的最新输入')
+    expect(removed).toBe(0)
+  })
+
+  it('keepTrailingUser: true 时前置连续 user 仍被 Rule 3 合并且末尾保留', () => {
+    const history: ChatMessage[] = [
+      { role: 'user', content: 'q1' },
+      { role: 'assistant', content: 'a1' },
+      { role: 'user', content: '上轮残留' },
+      { role: 'user', content: '当前输入' },
+    ]
+    const { repaired } = repairSessionHistory(history, { keepTrailingUser: true })
+    expect(repaired).toHaveLength(3)
+    expect(repaired[repaired.length - 1]!.content).toBe('上轮残留\n\n当前输入')
+  })
+})
