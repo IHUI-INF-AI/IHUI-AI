@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 import { TruncatedText } from '@/components/common'
 import { isTauri, pickDirectory as pickTauriDirectory } from '@/lib/tauri-bridge'
 import { saveBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { loadBrowserWorkspaceContextByName } from '@/hooks/use-chat/workspace'
 import { WorkspacePermissionDialog } from './workspace-permission-dialog'
 
 interface LocalFolderPickerProps {
@@ -686,6 +687,8 @@ export function LocalFolderPicker({
         // 保存 handle 到 module-level Map,后续 use-chat.ts 用它加载工作区文件内容
         if (handle) {
           saveBrowserWorkspaceHandle(path, handle)
+          // 立即全量索引工作区(预热缓存,后续发消息/参考块直接命中)
+          void loadBrowserWorkspaceContextByName(path)
         }
       }
     } catch (err) {
