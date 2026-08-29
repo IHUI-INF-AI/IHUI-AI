@@ -104,10 +104,11 @@ async def test_dispatch_subagent_missing_params():
 async def test_tool_loop_dedup_logic(client: Any, monkeypatch):
     """模拟 LLM 重复调用同一工具,验证第二次 tool-result 事件含 repeated:True。
 
-    通过 monkeypatch 控制 llm_gateway.complete 返回值:
-    - 第 1 次:返回 tool_calls=[analyze_code({code:"x"})] → 首次执行
-    - 第 2 次:返回相同 tool_calls → 命中去重,推送 repeated:True
-    - 第 3 次:返回空 tool_calls → 跳出 loop,走 astream
+    通过 monkeypatch 控制 LLM 调用结果(2026-08-29 修复后协议):
+    - 第 1 轮(流式 astream):产出 tool_calls=[analyze_code({code:"x"})] → 首次执行
+    - 第 2 轮(complete):返回相同 tool_calls → 命中去重,推送 repeated:True
+    - 第 3 轮(complete):返回相同 tool_calls → 再次去重
+    - 第 4 轮(complete):返回空 tool_calls → 拆块流式兜底 + done
     同时 mock astream + mcp_server.call_tool 避免真实 LLM/工具调用。
     """
     from app.routers import llm as llm_router
@@ -116,7 +117,7 @@ async def test_tool_loop_dedup_logic(client: Any, monkeypatch):
     call_count = [0]
 
     async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
-        """模拟 complete:前 2 次返回相同 tool_calls,第 3 次返回空(跳出 loop)。"""
+        """模拟 complete:第 1、2 次(整体第 2、3 轮)返回相同 tool_calls,第 3 次起返回空。"""
         call_count[0] += 1
         if call_count[0] <= 2:
             return {
@@ -135,7 +136,7 @@ async def test_tool_loop_dedup_logic(client: Any, monkeypatch):
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
                 "stub": True,
             }
-        # 第 3 次起返回空 tool_calls(跳出 tool loop)
+        # 第 3 次起返回空 tool_calls(退出 tool loop)
         return {
             "content": "分析完成",
             "model": "test-model",
@@ -144,8 +145,25 @@ async def test_tool_loop_dedup_logic(client: Any, monkeypatch):
         }
 
     async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
-        """模拟 astream:产出单个 chunk + done,避免真实 LLM 调用。"""
-        yield {"type": "chunk", "content": "分析完成"}
+        """模拟第一轮流式:产出 tool_calls(替代旧版第 1 轮 complete 的工具决策)+ done。
+
+        2026-08-29 修复:tool loop 第一轮已改为流式 astream,工具决策由 astream 的
+        tool_calls 事件携带(此前由 complete() 返回)。此处把原 mock_complete 第 1 次
+        返回的 tool_calls 移到 astream,保持去重逻辑验证链路不变。
+        """
+        yield {
+            "type": "tool_calls",
+            "tool_calls": [
+                {
+                    "id": "tc_dedup_test",
+                    "type": "function",
+                    "function": {
+                        "name": "analyze_code",
+                        "arguments": json.dumps({"code": "x"}),
+                    },
+                }
+            ],
+        }
         yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
 
     async def mock_call_tool(name, arguments, **kwargs):
