@@ -21,7 +21,8 @@ export function TypingIndicator({
 
   return (
     <div className="flex items-center gap-2 py-1">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {/* 2026-08-29:文字光线扫描动效(.text-shimmer),流式等待态视觉反馈 */}
+      <span className="text-shimmer text-xs font-medium">{label}</span>
     </div>
   )
 }
