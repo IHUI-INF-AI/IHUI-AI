@@ -1,4 +1,5 @@
 import { fetchApi } from '../client'
+import type { ModelUsageCategory, ModelTier } from '@ihui/types'
 
 /** 模型能力位(Phase C+D:后端 /llm/models 返回的 caps 字段,可选,旧端点无此字段时缺失) */
 export interface LlmModelCaps {
@@ -20,6 +21,18 @@ export interface LlmModel {
   input_price: number
   /** 模型能力位(可选,后端 /llm/models 升级后返回) */
   caps?: LlmModelCaps
+  /**
+   * 用途分类(2026-08-29 立,ai-service model_catalog 产出)。
+   * 可选:老后端 / 缓存数据可能没有,消费方必须能容忍缺失。
+   */
+  category?: ModelUsageCategory
+  /**
+   * 代次档位(2026-08-29 立):latest=最新最强(默认展示)/ standard+legacy=历史模型(折叠)。
+   * 可选:缺失时消费方按"最新"处理,避免模型被误藏。
+   */
+  model_tier?: ModelTier
+  /** 系列名(如 `deepseek-v` / `claude-opus`),代次比较用,调试与分组时可参考 */
+  family?: string
 }
 
 export interface FetchModelsResult {

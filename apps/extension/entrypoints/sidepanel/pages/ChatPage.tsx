@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   streamChat,
   fetchModels,
@@ -12,6 +12,7 @@ import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared'
 import { Button, Input } from '@ihui/ui-react'
 import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
+import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { VoiceInput } from '../components/VoiceInput'
 import type { ChatMessage } from './types'
 
@@ -31,7 +32,7 @@ const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
 
 export default function ChatPage() {
   const { onLogout } = useOutletContext<Ctx>()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
@@ -40,6 +41,10 @@ export default function ChatPage() {
   const [model, setModel] = useState<string>(FALLBACK_MODELS[0]!.id)
   const [notice, setNotice] = useState('')
   const scrollRef = useRef<HTMLDivElement | null>(null)
+
+  // 默认只展示"最新 + 对话类",其余按用途分类收进"历史模型"optgroup
+  // (原生 select 无法折叠,optgroup 就是它的折叠区)
+  const split = useMemo(() => splitModelCatalog(models), [models])
 
   useEffect(() => {
     let cancelled = false
@@ -155,10 +160,22 @@ export default function ChatPage() {
           disabled={streaming}
           aria-label={t('chat.selectModel')}
         >
-          {models.map((m) => (
+          {split.primary.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name || m.id}
             </option>
+          ))}
+          {split.archived.map((g) => (
+            <optgroup
+              key={g.category}
+              label={`${historyLabel(locale)} · ${categoryLabel(g.category, locale)}`}
+            >
+              {g.items.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name || m.id}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <Button

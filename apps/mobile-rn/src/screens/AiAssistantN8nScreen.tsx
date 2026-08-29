@@ -48,6 +48,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
   type ImageSourcePropType,
   type ListRenderItem,
 } from 'react-native'
@@ -75,7 +76,7 @@ import { NavBar } from '../components/NavBar'
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
-import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
+import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
 import ImagePreviewModal from '../components/ImagePreviewModal'
 import Drawer, {
   type DrawerConversationItem,
@@ -478,7 +479,9 @@ export default function AiAssistantN8nScreen() {
   const [drawerConversations, setDrawerConversations] = useState<DrawerConversationItem[]>([])
   const [drawerConversationsLoaded, setDrawerConversationsLoaded] = useState(false)
 
-  // ModelList 分组数据:优先后端过滤模型(fetchModels),失败/加载中降级 FALLBACK_MODELS
+  // 模型选择器条目:优先后端过滤模型(fetchModels),失败/加载中降级 FALLBACK_MODELS。
+  // category / modelTier 原样透传给 ModelPickerList 做「默认列表 / 历史模型折叠区」分区;
+  // 降级模型没有这两个字段,由共享层兜底为 latest+chat,保证降级态不会被藏起来。
   const modelListItems: ModelListItem[] = useMemo(() => {
     if (modelList && modelList.length > 0) {
       return modelList.map((m) => ({
@@ -488,6 +491,8 @@ export default function AiAssistantN8nScreen() {
         icon: Bot,
         // 免费模型标记:zero_cost provider 前缀(与后端 free_provider_registry 对齐)
         isFree: /^@cf\/|^pollinations\/|^llm7\/|^aihorde\//.test(m.id),
+        category: m.category,
+        modelTier: m.model_tier,
       }))
     }
     return FALLBACK_MODELS.map((m) => ({
@@ -499,10 +504,10 @@ export default function AiAssistantN8nScreen() {
     }))
   }, [modelList])
 
-  const modelGroups: ModelListGroup[] = useMemo(
-    () => [{ vendor: t('chat.modelLabel'), models: modelListItems }],
-    [t, modelListItems],
-  )
+  // RN 0.86 Fabric:内部列表需要确定高度才能滚动。0.55 是给 sheet 自身 maxHeight:'70%'
+  // 留出头部高度的余量,避免列表被 overflow 裁掉。
+  const { height: windowHeight } = useWindowDimensions()
+  const modelPickerHeight = Math.round(windowHeight * 0.55)
 
   const selectedModelLabel = useMemo(() => {
     const m = modelListItems.find((item) => item.id === selectedModelId)
@@ -931,10 +936,9 @@ export default function AiAssistantN8nScreen() {
                 <Text style={pickerStyles.close}>{'×'}</Text>
               </TouchableOpacity>
             </View>
-            <View style={pickerStyles.listWrap}>
-              <ModelList
-                groups={modelGroups}
-                selectionMode="single"
+            <View style={[pickerStyles.listWrap, { height: modelPickerHeight }]}>
+              <ModelPickerList
+                items={modelListItems}
                 selectedIds={selectedModelId ? [selectedModelId] : []}
                 onSelectChange={handleModelSelect}
               />
@@ -1174,7 +1178,8 @@ const pickerStyles = StyleSheet.create({
     color: tokens.text.tertiary,
     lineHeight: 26,
   },
+  // 高度由 useWindowDimensions 内联传入(modelPickerHeight),此处只保留布局语义
   listWrap: {
-    height: 360,
+    width: '100%',
   },
 })
