@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { PanelLeftOpen, PanelLeftClose } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
 import { Button, ThemeLogo } from '@ihui/ui-react'
@@ -16,6 +15,33 @@ interface SidebarHeaderProps {
   collapsed: boolean
   onToggleCollapse?: () => void
   onCloseMobile?: () => void
+}
+
+/** 自定义侧边栏折叠/展开图标(对标设计稿):大圆角面板 + 左侧短竖线(两端不贴外框) + 方向箭头
+ *  open=false 箭头朝左(收起);open=true 箭头朝右(展开) */
+function PanelLeftRounded({
+  open = false,
+  ...props
+}: React.SVGProps<SVGSVGElement> & { open?: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect width="18" height="18" x="3" y="3" rx="5" />
+      <path d="M7.5 8v8" />
+      {open ? <path d="m14 9 3 3-3 3" /> : <path d="m16 15-3-3 3-3" />}
+    </svg>
+  )
 }
 
 /**
@@ -95,7 +121,7 @@ export function SidebarHeader({
           )}
           aria-label={tc('close')}
         >
-          <PanelLeftClose className="h-3.5 w-3.5" />
+          <PanelLeftRounded className="h-3.5 w-3.5" />
         </Button>
       </div>
     )
@@ -159,9 +185,9 @@ export function SidebarHeader({
         >
           {/* 图标 20px (h-5 w-5),2026-08-01 用户要求加大 */}
           {collapsed ? (
-            <PanelLeftOpen className="h-5 w-5" />
+            <PanelLeftRounded open className="h-5 w-5" />
           ) : (
-            <PanelLeftClose className="h-5 w-5" />
+            <PanelLeftRounded className="h-5 w-5" />
           )}
         </Button>
       </Tooltip>
