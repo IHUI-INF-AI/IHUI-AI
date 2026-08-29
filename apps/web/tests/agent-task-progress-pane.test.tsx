@@ -1221,14 +1221,15 @@ describe('AgentTaskProgressPane — v11 键盘导航 + ARIA', () => {
     expect(btn.getAttribute('aria-label')).toBe('自定义工具区标题')
   })
 
-  it('FoldableSection button 含 focus-visible ring 样式类', () => {
+  it('FoldableSection button 无描边 ring,仅 outline-none(2026-08-29 用户要求去描边)', () => {
     const { container } = render(
       <FoldableSection title="测试" data-testid="kb-section-4">
         <span>内容</span>
       </FoldableSection>,
     )
     const btn = container.querySelector('button')!
-    expect(btn.className).toContain('focus-visible:ring')
+    expect(btn.className).toContain('focus-visible:outline-none')
+    expect(btn.className).not.toContain('focus-visible:ring')
   })
 
   it('pane 根元素含 role=complementary + aria-label', () => {
