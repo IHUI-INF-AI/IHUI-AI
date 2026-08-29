@@ -5,6 +5,9 @@ import type {
   DangerLevel,
   SessionStatus,
   SessionState,
+  ToolApprovalDecision,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
 } from '@ihui/types'
 
 // ============================================================================
@@ -129,6 +132,9 @@ export interface AgentStreamCallbacks {
   onDelta?: (delta: string) => void
   onToolCall?: (toolCall: ToolCallInfo) => void
   onPermissionRequest?: (req: PermissionRequest) => void
+  /** 高危工具审批请求(2026-08-30 立):AgentLoopV2 审批门发起 tool-approval SSE 事件时触发。
+   *  前端据此弹窗请求用户批准/拒绝,再调 sendToolApprovalResponse 回传决策。 */
+  onApprovalRequest?: (req: ToolApprovalRequest) => void
   onPlanProposed?: (plan: PlanProposal) => void
   onDone?: (event: AgentStreamEvent) => void
   onError?: (error: string) => void
@@ -481,6 +487,9 @@ function dispatchSSEEvent(event: AgentStreamEvent, callbacks: AgentStreamCallbac
         request_id: typeof event.request_id === 'string' ? event.request_id : '',
       })
       break
+    case 'tool-approval':
+      callbacks.onApprovalRequest?.(toToolApprovalRequest(event))
+      break
     case 'done':
       callbacks.onDone?.(event)
       break
@@ -491,6 +500,24 @@ function dispatchSSEEvent(event: AgentStreamEvent, callbacks: AgentStreamCallbac
       // thinking / status / step_start / step_done / usage / trace / trace_summary / start
       // 由 onEvent 兜底处理
       break
+  }
+}
+
+/** 把 tool-approval SSE 事件(payload 内 snake_case 字段)归一化为前端 camelCase 审批请求。 */
+function toToolApprovalRequest(event: AgentStreamEvent): ToolApprovalRequest {
+  const p = (event.payload as Record<string, unknown> | undefined) ?? {}
+  return {
+    approvalId: typeof p.approval_id === 'string' ? p.approval_id : '',
+    toolName: typeof p.tool_name === 'string' ? p.tool_name : '',
+    toolCallId: typeof p.tool_call_id === 'string' ? p.tool_call_id : '',
+    argsPreview: typeof p.args_preview === 'string' ? p.args_preview : '',
+    dangerLevel: (p.danger_level as ToolApprovalRequest['dangerLevel']) ?? 'high',
+    sessionId:
+      typeof event.session_id === 'string'
+        ? event.session_id
+        : typeof p.session_id === 'string'
+          ? p.session_id
+          : '',
   }
 }
 
@@ -567,6 +594,32 @@ export async function executeAgentStream(
     const message = err instanceof Error ? err.message : '网络异常'
     callbacks.onError?.(message)
   }
+}
+
+// ============================================================================
+// 工具审批响应(2026-08-30 立,对应 AI-Service /api/agents/approval-response)
+// 前端审批弹窗 → /api/ai/agent/approval-response(api 层代理)→ ai-service
+// ============================================================================
+
+export interface SendToolApprovalParams {
+  /** 审批请求 id(tool-approval SSE 事件返回) */
+  approvalId: string
+  /** 用户决策:approve=批准 / reject=拒绝 */
+  decision: ToolApprovalDecision
+}
+
+export async function sendToolApprovalResponse(
+  params: SendToolApprovalParams,
+): Promise<ToolApprovalResponse> {
+  const res = await fetchApi<ToolApprovalResponse>('/ai/agent/approval-response', {
+    method: 'POST',
+    body: JSON.stringify({
+      approvalId: params.approvalId,
+      decision: params.decision,
+    }),
+  })
+  if (!res.success) throw new Error(res.error ?? '审批响应失败')
+  return res.data
 }
 
 // ============================================================================
