@@ -110,15 +110,20 @@ export class ApiKeyQuota {
     // 今日零点:resetAt 早于它说明跨过自然日,daily 一并重置
     const dayStart = new Date(now)
     dayStart.setHours(0, 0, 0, 0)
+    // 2026-08-29 立:raw sql 模板不能直接传 Date —— 本环境(Node 24 + postgres-js
+    // 3.4.9)原生 Date 参数序列化抛 ERR_INVALID_ARG_TYPE,必须先转 ISO 字符串
+    const nowIso = now.toISOString()
+    const nextHourIso = nextHour.toISOString()
+    const dayStartIso = dayStart.toISOString()
 
     await db
       .update(apiKeyQuotas)
       .set({
         // 跨小时(now >= resetAt)→ hourly 归零后加 cost;否则累加
-        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
+        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
         // 跨小时且跨自然日 → daily 归零后加 cost;否则累加
-        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} AND ${apiKeyQuotas.resetAt} < ${dayStart} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
-        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${nextHour} ELSE ${apiKeyQuotas.resetAt} END`,
+        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} AND ${apiKeyQuotas.resetAt} < ${dayStartIso} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
+        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} THEN ${nextHourIso} ELSE ${apiKeyQuotas.resetAt} END`,
         updatedAt: now,
       })
       .where(eq(apiKeyQuotas.apiKeyId, apiKeyId))
@@ -141,13 +146,17 @@ export class ApiKeyQuota {
     const nextHour = nextHourReset(now)
     const dayStart = new Date(now)
     dayStart.setHours(0, 0, 0, 0)
+    // 2026-08-29 立:raw sql 模板不能直接传 Date,先转 ISO 字符串(同 recordUsage)
+    const nowIso = now.toISOString()
+    const nextHourIso = nextHour.toISOString()
+    const dayStartIso = dayStart.toISOString()
 
     const updated = await db
       .update(apiKeyQuotas)
       .set({
-        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
-        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} AND ${apiKeyQuotas.resetAt} < ${dayStart} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
-        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${now} THEN ${nextHour} ELSE ${apiKeyQuotas.resetAt} END`,
+        hourlyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} THEN ${cost} ELSE ${apiKeyQuotas.hourlyUsed} + ${cost} END`,
+        dailyUsed: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} AND ${apiKeyQuotas.resetAt} < ${dayStartIso} THEN ${cost} ELSE ${apiKeyQuotas.dailyUsed} + ${cost} END`,
+        resetAt: sql`CASE WHEN ${apiKeyQuotas.resetAt} <= ${nowIso} THEN ${nextHourIso} ELSE ${apiKeyQuotas.resetAt} END`,
         updatedAt: now,
       })
       .where(
