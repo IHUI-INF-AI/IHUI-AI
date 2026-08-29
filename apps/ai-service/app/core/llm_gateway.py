@@ -638,7 +638,9 @@ def trim_messages(
 _VALID_ROLES = {"system", "user", "assistant"}
 
 
-def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int, list[str]]:
+def repair_messages(
+    messages: list[dict[str, Any]], keep_trailing_user: bool = False
+) -> tuple[list[dict[str, Any]], int, list[str]]:
     """修复 messages 数组结构异常(P38 跨端同步,与 @ihui/types/message-repair 同源)。
 
     防御性兜底:在 trim_messages 之前调用,处理来自 API 的 messages 数组结构异常,
@@ -651,6 +653,12 @@ def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
       3. 去重连续相同 role(合并 content,用 \\n\\n 连接)
       4. 确保首条是 system 或 user(丢弃开头的 assistant)
       5. 移除末尾无响应的 user 消息(前面有 assistant 响应时才移除,首轮 user 保留)
+         ⚠️ LLM 请求链路必须传 keep_trailing_user=True:末尾 user 是"当前正在发送的
+         输入"而非 interjection 残留,移除会导致模型只看到旧上下文、回复旧内容。
+
+    Args:
+        messages: 待修复的消息数组。
+        keep_trailing_user: 保留末尾的 user 消息(跳过 Rule 5)。LLM 请求链路必须为 True。
 
     Returns:
         (repaired, removed, reasons) 三元组。
@@ -693,7 +701,8 @@ def repair_messages(messages: list[dict[str, Any]]) -> tuple[list[dict[str, Any]
         removed += 1
 
     # Rule 5:移除末尾无响应的 user 消息(前面有 assistant 响应时才移除,首轮 user 保留)
-    if cleaned and cleaned[-1].get("role") == "user":
+    # LLM 请求链路必须传 keep_trailing_user=True,否则当前输入会被误删
+    if not keep_trailing_user and cleaned and cleaned[-1].get("role") == "user":
         has_assistant = any(m.get("role") == "assistant" for m in cleaned)
         if has_assistant:
             reasons.append("移除末尾无 assistant 响应的 user 消息(可能是 interjection 残留)")
@@ -1242,7 +1251,8 @@ class LLMGateway:
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
-        repaired_messages, repair_removed, _ = repair_messages(messages)
+        # keep_trailing_user=True: 末尾 user 是当前发送的输入,必须保留
+        repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
         if repair_removed > 0:
             logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
@@ -1728,7 +1738,8 @@ class LLMGateway:
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
-        repaired_messages, repair_removed, _ = repair_messages(messages)
+        # keep_trailing_user=True: 末尾 user 是当前发送的输入,必须保留
+        repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
         if repair_removed > 0:
             logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
