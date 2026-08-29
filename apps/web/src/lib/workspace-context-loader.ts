@@ -118,12 +118,15 @@ const SKIP_DIRS = new Set([
 
 /** 单文件大小上限(50KB,超出跳过) */
 const MAX_FILE_SIZE = 50 * 1024
-/** 总 context 大小上限(500KB,超出截断) */
-const MAX_TOTAL_SIZE = 500 * 1024
-/** 目录遍历最大深度(避免过深递归) */
-const MAX_DEPTH = 3
-/** 目录遍历最大条目数(避免大项目卡死) */
-const MAX_ENTRIES = 200
+/** 总 context 大小上限(2MB,超出截断) */
+const MAX_TOTAL_SIZE = 2 * 1024 * 1024
+/** 目录遍历最大深度(覆盖绝大多数项目结构) */
+const MAX_DEPTH = 8
+/** 目录遍历最大条目数(避免超大项目卡死) */
+const MAX_ENTRIES = 2000
+
+/** agent 规则文件名(任意目录层级都会被读取) */
+const AGENT_FILE_NAMES = new Set(['AGENTS.md', 'CLAUDE.md', 'agent.md', 'claude.md'])
 
 interface LoadedFile {
   path: string
@@ -196,7 +199,11 @@ export async function loadWorkspaceContext(
     entryCount++
     tree.push(entryPath)
 
-    if (totalSize >= MAX_TOTAL_SIZE) {
+    // agent 规则文件(AGENTS.md/CLAUDE.md 等)不受总大小限制,任意目录层级必读
+    const baseName = entryPath.slice(entryPath.lastIndexOf('/') + 1)
+    const isAgentFile = AGENT_FILE_NAMES.has(baseName)
+
+    if (!isAgentFile && totalSize >= MAX_TOTAL_SIZE) {
       truncated = true
       return
     }
@@ -226,16 +233,21 @@ export async function loadWorkspaceContext(
   // 目录结构
   if (tree.length > 0) {
     parts.push('## 目录结构')
-    parts.push(tree.slice(0, 100).join('\n'))
-    if (tree.length > 100) {
+    parts.push(tree.slice(0, 500).join('\n'))
+    if (tree.length > 500) {
       parts.push(`... (共 ${tree.length} 个文件,已截断)`)
     }
   }
 
-  // 文件内容
+  // 文件内容(agent 规则文件排最前,便于提取)
   if (files.length > 0) {
     parts.push('\n## 文件内容')
-    for (const f of files) {
+    const sorted = [...files].sort((a, b) => {
+      const aAgent = AGENT_FILE_NAMES.has(a.path.slice(a.path.lastIndexOf('/') + 1)) ? 0 : 1
+      const bAgent = AGENT_FILE_NAMES.has(b.path.slice(b.path.lastIndexOf('/') + 1)) ? 0 : 1
+      return aAgent - bAgent
+    })
+    for (const f of sorted) {
       parts.push(`\n### ${f.path}`)
       parts.push('```')
       parts.push(f.content)
@@ -318,4 +330,51 @@ async function walkDir(
       await callback(entryPath, entry as FileSystemFileHandle)
     }
   }
+}
+
+// =============================================================================
+// 缓存失效:agent 规则文件签名
+// =============================================================================
+
+/** agent 规则文件签名(mtime + size,用于检测变更触发重索引) */
+export interface AgentFileSignature {
+  path: string
+  lastModified: number
+  size: number
+}
+
+/**
+ * 轻量收集工作区内所有 agent 规则文件的签名(不读文件内容)。
+ * 用于缓存命中前校验:文件有增删改(mtime/size/路径集合变化)则触发全量重索引。
+ */
+export async function collectAgentFileSignatures(
+  handle: FileSystemDirectoryHandle,
+): Promise<AgentFileSignature[]> {
+  const sigs: AgentFileSignature[] = []
+  await walkDir(handle, '', 0, async (entryPath, fileHandle) => {
+    const baseName = entryPath.slice(entryPath.lastIndexOf('/') + 1)
+    if (!AGENT_FILE_NAMES.has(baseName)) return
+    try {
+      const file = await fileHandle.getFile()
+      sigs.push({ path: entryPath, lastModified: file.lastModified, size: file.size })
+    } catch {
+      // 读取失败,跳过
+    }
+  })
+  sigs.sort((a, b) => a.path.localeCompare(b.path))
+  return sigs
+}
+
+/** 比较两份签名是否一致(路径集合 + mtime + size 全等) */
+export function agentSignaturesEqual(a: AgentFileSignature[], b: AgentFileSignature[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((s, i) => {
+    const other = b[i]
+    return (
+      !!other &&
+      s.path === other.path &&
+      s.lastModified === other.lastModified &&
+      s.size === other.size
+    )
+  })
 }

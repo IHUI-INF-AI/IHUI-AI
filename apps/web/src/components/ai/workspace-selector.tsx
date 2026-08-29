@@ -14,6 +14,8 @@ import {
 
 import { cn } from '@/lib/utils'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { clearBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { invalidateBrowserWorkspaceContext } from '@/hooks/use-chat/workspace'
 import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
 
 /** AI 面板顶部"工作区选择器"(参考 Trae/Codex/Claude Code 顶部 project selector 设计)
@@ -38,6 +40,16 @@ export function WorkspaceSelector() {
   const [pickerOpen, setPickerOpen] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
 
+  /** 解绑当前工作区:清 store + 清浏览器 handle + 清 context 缓存(2026-08-29) */
+  const unbindActiveWorkspace = React.useCallback(() => {
+    const name = useAiPanelStore.getState().activeWorkspace?.name
+    if (name) {
+      clearBrowserWorkspaceHandle(name)
+      invalidateBrowserWorkspaceContext(name)
+    }
+    setActiveWorkspace(null)
+  }, [setActiveWorkspace])
+
   // 持久化的 activeWorkspace 在挂载时校验路径是否仍存在(跨机器/移动硬盘等场景)。
   // 不存在则自动解绑,避免后续 AI 调用 fs 工具时因路径无效报错。
   React.useEffect(() => {
@@ -60,7 +72,7 @@ export function WorkspaceSelector() {
         if (cancelled) return
         if (!res.success) {
           // 路径不存在或无权限 → 自动解绑
-          setActiveWorkspace(null)
+          unbindActiveWorkspace()
         }
       } catch {
         // 网络错误不解绑(避免离线时误清空用户选择)
@@ -69,7 +81,7 @@ export function WorkspaceSelector() {
     return () => {
       cancelled = true
     }
-  }, [setActiveWorkspace])
+  }, [unbindActiveWorkspace])
 
   // 拉取最近打开的工作区列表(menuOpen 时启用,避免面板打开就请求)
   const { data: recentData, isLoading: recentLoading } = useQuery({
@@ -211,7 +223,7 @@ export function WorkspaceSelector() {
               {hasActive && (
                 <DropdownMenu.Item
                   onSelect={() => {
-                    setActiveWorkspace(null)
+                    unbindActiveWorkspace()
                     setMenuOpen(false)
                   }}
                   className={cn(
