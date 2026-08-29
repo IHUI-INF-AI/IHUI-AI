@@ -31,7 +31,7 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const { trackClick } = useAnalytics()
   const trackDownload = useDownloadTrack()
   const { locale, setLocale } = useLanguageStore()
-  const { theme, setTheme } = useTheme()
+  const { resolvedTheme, setTheme } = useTheme()
   const notifications = useNotificationStore((s) => s.notifications)
   const unreadCount = useNotificationStore((s) => s.unreadCount)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
@@ -39,7 +39,9 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   // 直接用 theme 渲染 aria-label/icon 会触发 "深色模式/浅色模式" 不匹配。
   // 未挂载时渲染固定占位 (Moon + "深色模式"), 与 SSR 一致; 挂载后再切到真实态。
   const mounted = useMounted()
-  const isDark = mounted && theme === 'dark'
+  // 必须用 resolvedTheme(已按 OS 解析的真实明暗),而非 theme:
+  // 默认 'system' 时 theme==='system'(≠'dark'),用 theme 判断会导致首点设成 'dark'(=当前外观)无变化,需点两下。
+  const isDark = mounted && resolvedTheme === 'dark'
 
   const handleLocaleChange = (code: Language) => {
     if (code === locale) return
@@ -50,7 +52,8 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   }
 
   const handleToggleTheme = () => {
-    setTheme(theme === 'dark' ? 'light' : 'dark')
+    // 用 resolvedTheme 判断当前真实明暗,直接切到对立面(一次点击即可生效)
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
   }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
