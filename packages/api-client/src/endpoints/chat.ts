@@ -12,6 +12,10 @@ export interface ConversationDetail {
   lastMessageAt: string | null
   createdAt: string
   updatedAt: string
+  /** 2026-08-30 立:会话置顶标记;true=置顶(列表排最前) */
+  pinned?: boolean
+  /** 置顶时间(排序用);未置顶为 null/undefined */
+  pinnedAt?: string | null
 }
 
 /** AI 主动提问选项(与 @ihui/types QuestionOptionPayload 结构一致) */
@@ -91,6 +95,63 @@ export function listConversations(params: ListConversationsParams = {}) {
 export function getConversation(id: string) {
   return fetchApi<{ conversation: ConversationDetail }>(
     `/api/chat/conversations/${encodeURIComponent(id)}`,
+  )
+}
+
+/** 更新会话标题/模型/系统提示词/元数据/置顶状态(PATCH 增量更新) */
+export function updateConversation(
+  id: string,
+  patch: {
+    title?: string
+    model?: string
+    systemPrompt?: string
+    metadata?: unknown
+    pinned?: boolean
+  },
+) {
+  return fetchApi<{ conversation: ConversationDetail }>(
+    `/api/chat/conversations/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    },
+  )
+}
+
+/** 置顶/取消置顶会话(2026-08-30 立,复用 PATCH 端点,仅透传 pinned) */
+export function setConversationPinned(id: string, pinned: boolean) {
+  return fetchApi<{ conversation: ConversationDetail }>(
+    `/api/chat/conversations/${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ pinned }),
+    },
+  )
+}
+
+/** 重新生成对话(2026-08-30 立):删除指定 AI 消息及其之后的所有消息(后端事务) */
+export function regenerateConversation(conversationId: string, messageId: string) {
+  return fetchApi<{ regeneratedFrom: string; remainingCount: number }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/regenerate`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ messageId }),
+    },
+  )
+}
+
+/** 分支/回退(2026-08-30 立):基于指定消息之前的内容创建新会话,返回新会话 */
+export function branchConversation(
+  conversationId: string,
+  messageId: string,
+  options?: { title?: string; model?: string },
+) {
+  return fetchApi<{ conversation: ConversationDetail }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/branch`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ messageId, ...options }),
+    },
   )
 }
 

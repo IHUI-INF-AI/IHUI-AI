@@ -6,6 +6,7 @@ export type ContextMenuAction =
   | 'copy'
   | 'copyMarkdown'
   | 'regenerate'
+  | 'branch'
   | 'feedback'
   | 'share'
   | 'collapseToPlan'
