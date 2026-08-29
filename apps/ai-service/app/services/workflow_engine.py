@@ -304,6 +304,76 @@ class WorkflowEngine:
             f"工作流执行完成,状态: {inst.status}",
         )
 
+    @staticmethod
+    def _render_template(template: str, context: dict[str, Any]) -> str:
+        """渲染 {var} / {context.var} 模板(简单字符串替换,不抛异常)。
+
+        支持前端模板语法 {context.var} 与简写 {var},值取自 context dict。
+        采用两次替换:{context.key} 优先,再替换 {key},避免 key 恰好为
+        "context" 时先替换 {context} 破坏 {context.var}。
+        """
+        if not template:
+            return ""
+        text = str(template)
+        for key, value in context.items():
+            text = text.replace("{" + f"context.{key}" + "}", str(value))
+        for key, value in context.items():
+            text = text.replace("{" + str(key) + "}", str(value))
+        return text
+
+    @staticmethod
+    def _parse_tool_input(raw: Any) -> dict[str, Any]:
+        """把 tool step 的 input 解析为工具参数字典。
+
+        - dict: 原样拷贝
+        - JSON 字符串:解析为 dict(成功才用)
+        - 其他字符串:包成 {"input": s} 兜底,保证工具总能收到参数
+        """
+        if isinstance(raw, dict):
+            return dict(raw)
+        if raw is None:
+            return {}
+        s = str(raw).strip()
+        if not s:
+            return {}
+        try:
+            parsed = json.loads(s)
+            if isinstance(parsed, dict):
+                return parsed
+        except (ValueError, TypeError):
+            pass
+        return {"input": s}
+
+    async def _judge_condition(self, rendered: str) -> bool:
+        """用 LLM 判断条件表达式真假。
+
+        LLM 调用失败/返回错误/返回空内容时降级为"条件为真"(执行 thenSteps)。
+        """
+        if not rendered:
+            return True
+        try:
+            result = await llm_gateway.complete(
+                [
+                    {
+                        "role": "user",
+                        "content": f"以下条件为真还是假,只回答 true 或 false:\n{rendered}",
+                    }
+                ],
+                temperature=0.0,
+                max_tokens=10,
+            )
+        except Exception as e:
+            logger.warning("workflow_engine 条件判断 LLM 调用失败,降级为真: %s", e)
+            return True
+        if result.get("error"):
+            logger.warning(
+                "workflow_engine 条件判断 LLM 返回错误,降级为真: %s", result.get("error")
+            )
+            return True
+        content = str(result.get("content", "")).strip().lower()
+        # false / 假 → 条件为假;其余(含 true / 真 / 空)一律视为真
+        return not ("false" in content or "假" in content)
+
     async def _execute_step(
         self,
         step: dict[str, Any],
@@ -316,7 +386,11 @@ class WorkflowEngine:
         - skill: 调 skill_registry 中的 skill(通过 llm_gateway)
         - llm: 直接调 llm_gateway
         - echo: 返回输入(用于测试)
-        - tool: 调 MCP 工具(预留)
+        - condition: LLM 判断条件真假,递归执行 thenSteps/elseSteps 分支
+        - delay: 按 duration 秒延迟(默认 1,上限 300)
+        - loop: 按 count 次循环执行 steps(默认 1,上限 20),注入 loop_index
+        - parallel: asyncio.gather 并发执行 steps,单步失败不影响其他步
+        - tool: 调 mcp_server 的 MCP 工具(按 config.tool/toolName 查找)
         """
         step_type = str(step.get("type", "llm"))
         step_input = str(step.get("input", ""))
@@ -363,6 +437,114 @@ class WorkflowEngine:
                 return {"error": str(result.get("error_message", result["error"]))}
             content = str(result.get("content", "")).strip()
             return {"output": content or "（无输出）"}
+
+        if step_type == "condition":
+            condition_expr = str(step.get("condition", ""))
+            then_steps = step.get("thenSteps") or []
+            else_steps = step.get("elseSteps") or []
+            rendered = self._render_template(condition_expr, context)
+            is_true = await self._judge_condition(rendered)
+            branch = then_steps if is_true else else_steps
+            branch_results: list[dict[str, Any]] = []
+            for sub_step in branch:
+                branch_results.append(
+                    await self._execute_step(sub_step, context, instance_id)
+                )
+            return {
+                "output": json.dumps(
+                    {
+                        "condition": condition_expr,
+                        "rendered": rendered,
+                        "result": is_true,
+                        "branch": "then" if is_true else "else",
+                        "steps": branch_results,
+                    },
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "delay":
+            try:
+                duration = int(step.get("duration", 1))
+            except (TypeError, ValueError):
+                duration = 1
+            duration = max(0, min(duration, 300))
+            await asyncio.sleep(duration)
+            return {"output": f"delayed {duration}s"}
+
+        if step_type == "loop":
+            try:
+                count = int(step.get("count", 1))
+            except (TypeError, ValueError):
+                count = 1
+            if count < 1:
+                count = 1
+            count = min(count, 20)
+            loop_steps = step.get("steps") or []
+            iterations: list[list[dict[str, Any]]] = []
+            for i in range(count):
+                loop_context = dict(context)
+                loop_context["loop_index"] = i
+                iteration_results: list[dict[str, Any]] = []
+                for sub_step in loop_steps:
+                    iteration_results.append(
+                        await self._execute_step(sub_step, loop_context, instance_id)
+                    )
+                iterations.append(iteration_results)
+            return {
+                "output": json.dumps(
+                    {"count": count, "iterations": iterations},
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "parallel":
+            parallel_steps = step.get("steps") or []
+
+            async def _run_parallel_sub_step(
+                sub_step: dict[str, Any],
+            ) -> dict[str, Any]:
+                try:
+                    return await self._execute_step(sub_step, context, instance_id)
+                except Exception as e:
+                    return {"error": str(e)}
+
+            results = list(
+                await asyncio.gather(
+                    *(_run_parallel_sub_step(s) for s in parallel_steps)
+                )
+            )
+            return {
+                "output": json.dumps(
+                    {"results": results},
+                    ensure_ascii=False,
+                    default=str,
+                )
+            }
+
+        if step_type == "tool":
+            config = step.get("config") or {}
+            if not isinstance(config, dict):
+                config = {}
+            tool_name = str(config.get("tool") or config.get("toolName") or "").strip()
+            if not tool_name:
+                return {"error": "tool 类型 step 缺少 config.tool 或 config.toolName"}
+            arguments = self._parse_tool_input(step.get("input", ""))
+            try:
+                from .mcp_server import _TOOL_HANDLERS, mcp_server
+            except ImportError as e:
+                return {"error": f"mcp_server 模块不可用: {e}"}
+            if tool_name not in _TOOL_HANDLERS:
+                return {"error": f"工具不存在: {tool_name}"}
+            try:
+                result = await mcp_server.call_tool(tool_name, arguments)
+            except Exception as e:
+                return {"error": f"工具调用失败: {e}"}
+            return {
+                "output": json.dumps(result, ensure_ascii=False, default=str)
+            }
 
         return {"error": f"不支持的 step type: {step_type}"}
 
