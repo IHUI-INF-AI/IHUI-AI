@@ -21,9 +21,15 @@ export default defineConfig({
   testDir: '.',
   testMatch: ['e2e/**/*.spec.ts', 'e2e/**/*.setup.ts', 'tests/visual/**/*.spec.ts'],
   fullyParallel: true,
+  // 本地默认 workers=undefined 时 Playwright 取 CPU/2(本机 20 线程 → 10 worker),
+  // 10 个并发 chromium 压单线程 Turbopack dev server → 每请求 10-15s → 30s 超时雪崩
+  // (2026-08-29 实锤,20 用例全部 beforeEach goto 超时)。固定 2 worker,可用
+  // PLAYWRIGHT_WORKERS 覆盖;CI 保持 1 保证确定性。
+  workers: process.env.CI ? 1 : Number(process.env.PLAYWRIGHT_WORKERS ?? 2),
+  // 本地也加 1 次重试兜底环境抖动(dev 模式首访编译/后台进程抢占 CPU 导致
+  // 偶发超时;重试时页面 chunk 已编译,基本必过)。CI 保持 2。
+  retries: process.env.CI ? 2 : 1,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   // globalSetup 自动 seed test@aizhs.top,失败只 warn 不 throw(与 fixtures.ts ensureStorageState 兜底兼容);
   // globalTeardown 自动 cleanup,失败只 warn 不阻塞测试报告生成。详见 e2e/global-setup.ts / global-teardown.ts。
