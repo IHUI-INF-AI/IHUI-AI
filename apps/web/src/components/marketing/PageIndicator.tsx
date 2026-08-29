@@ -109,7 +109,7 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
       //   gap 保持 gap-0,相邻点间距仍 16px(2x 非激活态直径,垂直节奏不变)
       // 2026-08-27 v14:间距回调 — gap-1 (4px) → gap-4 (16px),用户反馈 4px 太挤
       // 2026-08-27 v15:间距回调 — gap-4 (16px) → gap-2 (8px),用户反馈 16px 太大
-      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-1 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
+      className="group/indicator fixed top-1/2 z-sticky hidden -translate-y-1/2 flex-col gap-2 rounded-md border border-foreground/8 bg-background/65 px-0.5 py-0.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:border-foreground/15 hover:bg-background/85 hover:shadow-md min-[768px]:flex"
       aria-label={t('label')}
     >
       {Array.from({ length: total }).map((_, idx) => {
@@ -134,8 +134,8 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
             //   视觉:激活态"竖向拉长棒" + 非激活态"小圆点"对比,高度差本身就是激活 vs 非激活视觉对比
             className={
               isActive
-                ? 'group flex h-9 w-3.5 items-stretch justify-center'
-                : 'group flex h-3 w-3.5 items-stretch justify-center'
+                ? 'group flex h-6 w-2.5 items-stretch justify-center'
+                : 'group flex h-2.5 w-2.5 items-stretch justify-center'
             }
           >
             <span
@@ -150,8 +150,8 @@ export function PageIndicator({ current, total, onClick }: PageIndicatorProps) {
               // 豁免 5b:竖向装饰指示器(width<=8px height>=12px rounded-full),分页指示器胶囊
               className={
                 isActive
-                  ? 'block h-9 w-3 rounded-full bg-foreground transition-all duration-300'
-                  : 'block h-3 w-3 origin-center rounded-full bg-foreground/30 transition-all duration-300 group-hover:scale-125 group-hover:bg-foreground/60'
+                  ? 'block h-6 w-2.5 rounded-full bg-foreground transition-all duration-300'
+                  : 'block h-2.5 w-2.5 origin-center rounded-full bg-foreground/30 transition-all duration-300 group-hover:scale-125 group-hover:bg-foreground/60'
               }
             />
           </button>
