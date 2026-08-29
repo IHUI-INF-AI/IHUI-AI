@@ -117,6 +117,7 @@ def _map_hook_event_to_sse(event: str) -> str:
         "session.start": "session",
         "tool.before": "tool_call",
         "tool.after": "tool_result",
+        "tool.approval": "tool-approval",  # 2026-08-30:高危工具审批请求(前端弹窗订阅)
         "error": "error",
         "message.receive": "message",
     }.get(event, event)
@@ -135,7 +136,7 @@ async def stream_agent_tasks(request: Request, agentId: str = "") -> StreamingRe
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error"):
+        for evt in ("session.start", "tool.before", "tool.after", "error", "tool.approval"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             # 心跳保活(30s) + 事件转发
@@ -187,7 +188,7 @@ async def stream_agent_logs(request: Request, agent_id: str) -> StreamingRespons
         from ..services.hook_engine import hook_engine
 
         subs: dict[str, asyncio.Queue[Any]] = {}
-        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
+        for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval"):
             subs[evt] = hook_engine.subscribe(evt)
         try:
             last_beat = asyncio.get_running_loop().time()
@@ -231,6 +232,12 @@ def _map_hook_event_to_log_entry(event: str, payload: dict[str, Any]) -> dict[st
     success: bool | None = None
     if event == "session.start":
         content = f"session {payload.get('session_id', '')} started"
+    elif event == "tool.approval":
+        content = (
+            f"工具 {payload.get('tool_name', '')} 请求审批"
+            f"(danger={payload.get('danger_level', 'high')})"
+        )
+        success = None
     elif event == "tool.before":
         tools_count = payload.get("tools_count", "")
         content = f"LLM 推理完成,准备调用工具(tools_count={tools_count})"
@@ -311,9 +318,46 @@ class MemorySearchRequest(BaseModel):
     session_id: str | None = Field(None, description="限定会话内搜索,为空则跨所有会话")
 
 
+class ApprovalResponseRequest(BaseModel):
+    """工具审批响应请求(2026-08-30 立)。"""
+
+    approval_id: str = Field(..., description="审批请求 id(tool-approval SSE 事件返回)")
+    decision: str = Field(..., description="决策: approve=批准 / reject=拒绝(其他值视为拒绝)")
+
+
 # ---------------------------------------------------------------------------
 # 端点
 # ---------------------------------------------------------------------------
+
+
+@router.post("/agents/approval-response")
+async def agent_approval_response(req: ApprovalResponseRequest) -> dict[str, Any]:
+    """工具审批响应端点(2026-08-30 立)。
+
+    前端审批弹窗点"批准/拒绝"后调用本端点,把用户决策写入审批注册表,
+    唤醒 agent_loop_v2 中阻塞等待的高危工具执行协程。
+    body: {approval_id, decision: "approve" | "reject"}
+
+    返回:
+      code=0  accepted=true  → 决策已写入,工具按决策继续/跳过
+      code=404 accepted=false → approval_id 不存在(已超时清理或从未发起)
+    """
+    from ..services.agent_loop_v2 import resolve_approval_response
+
+    decision = "approve" if req.decision.lower() in ("approve", "allow", "approved") else "reject"
+    ok = resolve_approval_response(req.approval_id, decision)
+    if not ok:
+        return {
+            "code": 404,
+            "message": "approval not found or expired",
+            "data": {"accepted": False, "approval_id": req.approval_id},
+        }
+    logger.info("工具审批响应: approval_id=%s decision=%s", req.approval_id, decision)
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {"accepted": True, "approval_id": req.approval_id, "decision": decision},
+    }
 
 
 @router.post("/agents/execute")
@@ -390,7 +434,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 )
                 # 订阅事件 → SSE(只转发本 session 的 tool/error/session 事件)
                 subs: dict[str, asyncio.Queue[Any]] = {}
-                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive"):
+                for evt in ("session.start", "tool.before", "tool.after", "error", "message.receive", "tool.approval"):
                     subs[evt] = hook_engine.subscribe(evt)
                 try:
                     # L5-10 打磨(2026-08-12):run() 与事件转发并发——
