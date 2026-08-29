@@ -33,6 +33,47 @@ export interface AgentTask {
 /** 工具调用来源(2026-07-31 立,AI 对话可视化深度接入) */
 export type ToolCallSource = 'builtin' | 'plugin' | 'mcp'
 
+// ==================== 工具调用审批流(2026-08-30 立,对标 Codex/Claude Auto mode) ====================
+// 高危工具(写文件/执行命令/删除/写库)执行前,后端通过 hook_engine 发 tool.approval 事件,
+// 前端收到后弹窗请求用户批准/拒绝,决策回填工具结果(拒绝/超时的工具不执行)。
+// 协议对齐:后端 SSE 事件 type='tool-approval',payload 字段 snake_case;前端组件消费 camelCase。
+
+/** 审批决策 */
+export type ToolApprovalDecision = 'approve' | 'reject'
+
+/** 危险等级(当前审批流仅 high,预留扩展) */
+export type ToolApprovalDangerLevel = 'high' | 'medium' | 'low'
+
+/**
+ * 工具审批请求(SSE tool-approval 事件载荷,前端弹窗展示用)。
+ * - approvalId:唯一审批 id,用户决策时随响应回传
+ * - toolName / toolCallId:目标工具名与调用 id
+ * - argsPreview:参数预览(后端截断 200 字符)
+ * - dangerLevel:危险等级(high)
+ * - sessionId:发起审批的 agent 会话 id(便于多会话区分)
+ */
+export interface ToolApprovalRequest {
+  /** 审批请求唯一 id(审批响应端点回传) */
+  approvalId: string
+  /** 目标工具名(如 write_file / run_command) */
+  toolName: string
+  /** 工具调用 id */
+  toolCallId: string
+  /** 参数预览(截断 200 字符) */
+  argsPreview: string
+  /** 危险等级 */
+  dangerLevel: ToolApprovalDangerLevel
+  /** 发起审批的 agent 会话 id */
+  sessionId?: string
+}
+
+/** 审批响应结果(前端调用审批响应端点后的回执) */
+export interface ToolApprovalResponse {
+  accepted: boolean
+  approvalId?: string
+  decision?: ToolApprovalDecision
+}
+
 /**
  * 工具调用汇总(2026-07-31 立,在 SSE 流末尾由后端聚合发出)。
  * - 未收到 tool-summary SSE 事件时,前端可降级从 message.toolCalls 数组本地聚合
