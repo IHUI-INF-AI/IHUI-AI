@@ -901,6 +901,33 @@ def test_repair_messages_preserves_first_user_without_assistant():
     assert removed == 0
 
 
+def test_repair_messages_keeps_trailing_user_when_requested():
+    """Rule 5:LLM 请求链路(keep_trailing_user=True)保留正在发送的末尾 user"""
+    msgs = [
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "user", "content": "当前发送的最新输入"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs, keep_trailing_user=True)
+    assert len(repaired) == 3
+    assert repaired[-1]["role"] == "user"
+    assert repaired[-1]["content"] == "当前发送的最新输入"
+    assert removed == 0
+
+
+def test_repair_messages_keeps_merged_trailing_user_when_requested():
+    """Rule 5+3:上轮残留 user 与当前输入合并后保留(keep_trailing_user=True)"""
+    msgs = [
+        {"role": "user", "content": "q1"},
+        {"role": "assistant", "content": "a1"},
+        {"role": "user", "content": "残留"},
+        {"role": "user", "content": "当前发送的最新输入"},
+    ]
+    repaired, removed, reasons = repair_messages(msgs, keep_trailing_user=True)
+    assert len(repaired) == 3
+    assert repaired[-1]["content"] == "残留\n\n当前发送的最新输入"
+
+
 def test_repair_messages_complex_mix():
     """复杂混合损坏:多条规则同时触发"""
     msgs = [
