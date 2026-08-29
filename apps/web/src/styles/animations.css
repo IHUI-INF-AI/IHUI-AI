@@ -2952,6 +2952,23 @@
 .animate-shimmer {
   animation: shimmer 1.5s ease-in-out infinite;
 }
+/* 文字光线扫描:高光从左到右扫过,用于"思考中/等待模型响应"等流式占位文案(2026-08-29 立)
+ * 复用 shimmer keyframes(background-position 移动),配合 background-clip: text 实现文字扫光 */
+.text-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-muted-foreground) 0%,
+    var(--color-muted-foreground) 38%,
+    var(--color-foreground) 50%,
+    var(--color-muted-foreground) 62%,
+    var(--color-muted-foreground) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer 2s linear infinite;
+}
 .animate-shimmer-btn {
   animation: shimmer-btn 2s linear infinite;
 }
