@@ -52,8 +52,13 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   }
 
   const handleToggleTheme = () => {
-    // 用 resolvedTheme 判断当前真实明暗,直接切到对立面(一次点击即可生效)
-    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+    // 底层加固(2026-08-29):以 DOM 真实状态为事实源,而非任何 React/next-themes 状态。
+    // 用户点按钮时看到的明暗 = <html> 上的 .dark class,直接取对立面,
+    // 彻底消灭 resolvedTheme 为 undefined / 状态滞后等一切时序极端情况。
+    const isDarkNow =
+      (typeof document !== 'undefined' && document.documentElement.classList.contains('dark')) ||
+      resolvedTheme === 'dark'
+    setTheme(isDarkNow ? 'light' : 'dark')
   }
 
   // store 中的 NotificationItem 映射为 NotificationCenter 所需的 NoticeItem
