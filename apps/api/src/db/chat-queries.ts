@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, ilike, sql, lt, gt, isNull, inArray } from 'drizzle-orm'
+import { eq, and, desc, asc, ilike, sql, lt, gt, gte, lte, isNull, inArray } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from './index.js'
 import {
@@ -75,6 +75,8 @@ export async function findConversationsByUser(
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
         shareToken: chatConversations.shareToken,
+        pinned: chatConversations.pinned,
+        pinnedAt: chatConversations.pinnedAt,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
@@ -86,7 +88,14 @@ export async function findConversationsByUser(
       })
       .from(chatConversations)
       .where(where)
-      .orderBy(desc(chatConversations.lastMessageAt), desc(chatConversations.updatedAt))
+      // 2026-08-30 置顶排序:pinned=true 的置顶会话按 pinnedAt 倒序排最前;
+      // 非置顶会话 pinnedAt 为 null 不影响,保持原有 lastMessageAt/updatedAt 排序(向后兼容)。
+      .orderBy(
+        desc(chatConversations.pinned),
+        desc(chatConversations.pinnedAt),
+        desc(chatConversations.lastMessageAt),
+        desc(chatConversations.updatedAt),
+      )
       .limit(opts.pageSize)
       .offset((opts.page - 1) * opts.pageSize),
     db
@@ -112,6 +121,7 @@ export interface UpdateConversationInput {
   model?: string
   systemPrompt?: string
   metadata?: unknown
+  pinned?: boolean
 }
 
 export async function updateConversation(
@@ -126,6 +136,11 @@ export async function updateConversation(
       ...(data.systemPrompt !== undefined && { systemPrompt: data.systemPrompt }),
       ...(data.metadata !== undefined && {
         metadata: data.metadata as Record<string, unknown> | null,
+      }),
+      // 置顶/取消置顶:pinned=true 记录 pinnedAt 用于置顶排序,false 清空 pinnedAt
+      ...(data.pinned !== undefined && {
+        pinned: data.pinned,
+        pinnedAt: data.pinned ? new Date() : null,
       }),
       updatedAt: new Date(),
     })
@@ -488,6 +503,119 @@ export async function clearMessages(conversationId: string): Promise<void> {
   })
 }
 
+// =============================================================================
+// 重新生成 / 分支(2026-08-30 立,AI 对话 4 项交互能力之二/三)
+// =============================================================================
+
+/**
+ * 重新生成:删除指定 AI 消息及其之后的所有消息(事务)。
+ * 保留该 AI 消息之前的所有消息,供前端"截断到该消息之前 + 重新发送前一条用户问题"。
+ * 同步更新 conversation.lastMessageAt 为剩余消息中最晚一条(无则置 null)。
+ * 返回 { regeneratedFrom: messageId, remainingCount } 由路由层包装。
+ */
+export async function regenerateConversationMessages(
+  conversationId: string,
+  messageId: string,
+): Promise<{ regeneratedFrom: string; remainingCount: number }> {
+  const target = await findMessageById(messageId)
+  if (!target || target.conversationId !== conversationId) {
+    throw new Error('消息不存在或不属于该对话')
+  }
+
+  return db.transaction(async (tx) => {
+    // 删除目标消息及之后的所有消息(createdAt >= target.createdAt)
+    await tx
+      .delete(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.conversationId, conversationId),
+          gte(chatMessages.createdAt, target.createdAt),
+        ),
+      )
+
+    // 同步 lastMessageAt 到最后一条剩余消息(或 null)
+    const last = await tx
+      .select({ createdAt: chatMessages.createdAt })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(1)
+    const lastMessageAt = last[0]?.createdAt ?? null
+    await tx
+      .update(chatConversations)
+      .set({ lastMessageAt, updatedAt: new Date() })
+      .where(eq(chatConversations.id, conversationId))
+
+    const remaining = await tx
+      .select({ count: sql<number>`COUNT(*)::int` })
+      .from(chatMessages)
+      .where(eq(chatMessages.conversationId, conversationId))
+    return { regeneratedFrom: messageId, remainingCount: Number(remaining[0]?.count ?? 0) }
+  })
+}
+
+/**
+ * 分支:基于指定消息(含该消息)之前的所有消息创建新会话(事务)。
+ * - 新会话复制源会话的 title/model/systemPrompt
+ * - 消息逐条复制到新会话(生成新 UUID 避免主键冲突,保留 createdAt 时间线)
+ * - metadata 写入 originalConversationId 供溯源
+ * 返回新创建的会话。
+ */
+export async function branchConversationFrom(
+  conversationId: string,
+  messageId: string,
+  input: { userId: string; title?: string; model?: string; systemPrompt?: string },
+): Promise<ChatConversation> {
+  const target = await findMessageById(messageId)
+  if (!target || target.conversationId !== conversationId) {
+    throw new Error('消息不存在或不属于该对话')
+  }
+  const source = await findConversationById(conversationId)
+  if (!source) throw new Error('对话不存在')
+
+  return db.transaction(async (tx) => {
+    const sourceMeta = (source.metadata as Record<string, unknown> | null) ?? {}
+    const created = await tx
+      .insert(chatConversations)
+      .values({
+        userId: input.userId,
+        title: input.title ?? source.title,
+        model: input.model ?? source.model,
+        systemPrompt: input.systemPrompt !== undefined ? input.systemPrompt : source.systemPrompt,
+        metadata: { ...sourceMeta, originalConversationId: conversationId },
+      })
+      .returning()
+    const conv = created[0]
+    if (!conv) throw new Error('创建分支对话失败')
+
+    // 复制目标消息及之前的所有消息(时间正序)
+    const history = await tx
+      .select()
+      .from(chatMessages)
+      .where(
+        and(
+          eq(chatMessages.conversationId, conversationId),
+          lte(chatMessages.createdAt, target.createdAt),
+        ),
+      )
+      .orderBy(asc(chatMessages.createdAt))
+    if (history.length > 0) {
+      await tx.insert(chatMessages).values(
+        history.map((m) => ({
+          conversationId: conv.id,
+          role: m.role,
+          content: m.content,
+          reasoning: m.reasoning ?? undefined,
+          tokens: m.tokens,
+          metadata: m.metadata as Record<string, unknown> | null,
+          createdAt: m.createdAt,
+        })),
+      )
+    }
+    return conv
+  })
+}
+
 /**
  * 原子性地替换对话的所有消息(用于自动压缩后持久化压缩结果)。
  * 事务化:删除旧消息 + 批量插入新消息,保证前后一致。
@@ -587,6 +715,8 @@ export async function findFavoriteConversations(
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
         shareToken: chatConversations.shareToken,
+        pinned: chatConversations.pinned,
+        pinnedAt: chatConversations.pinnedAt,
         messageCount: sql<number>`(
           SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
         )`,
