@@ -211,27 +211,29 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
       >
         <Icon className="h-5 w-5 shrink-0" />
         {/*
-          文字 span 故意**不**用 `flex-1`:
-          - flex-1 会让 span 被 blockified 为 display:block,内容宽度 100% 占用剩余空间
-          - 一旦父级 flex 容器或祖先元素出现 `text-align: center`(如登录按钮 / 全局规则),
-            inline text 会被居中在 span 内,导致 first-char 位置偏移(实测 29px,反复出现的对齐 bug 根因)
-          - 父级 button 已是 flex 容器,左对齐由 justify-content:flex-start 默认保证
-          - 与 NavLink 完全一致,text 始终从 icon + gap 处开始,字符越多越往右但首字符位置稳定
-          - 展开/父级激活的 font-semibold 在 parentClassName 已统一,这里只保留 min-w-0 防溢出
-            与 whitespace-nowrap 避免换行
+          文字 span 故意**不**用 `flex-1`(同 NavLink 约束):
+          - flex-1 会让内容宽度 100% 占用剩余空间,一旦祖先出现 text-align:center
+            会导致首字符位置偏移(实测 29px,反复出现的对齐 bug 根因)
+          - 在 min-w-0/whitespace-nowrap 基础上加 self-stretch + flex items-center:
+            span 高度撑满按钮 content-box(h-9 36px - py-2 16px = 20px),
+            文字在其中垂直居中 —— 视觉位置与按钮直接 items-center 居中完全一致,
+            同时为内部 absolute 指示符提供「贯穿按钮整个内容区」的定位参照。
         */}
-        <span className="relative min-w-0 whitespace-nowrap text-left">
+        <span className="relative flex min-w-0 items-center self-stretch whitespace-nowrap">
           {label}
           {/*
-            二级菜单底部指示符 — 作为文字 span 的子元素，
-            用 left-1/2 + -translate-x-1/2 自动居中在文字下方，
-            完全不需要 JS 测量文字宽度，无闪烁且自动跟随。
+            二级菜单底部指示符 — 作为文字 span 的子元素:
+            水平:left-1/2 + -translate-x-1/2 自动居中在文字正下方
+                 (纯 CSS,无 JS 测量,首帧无闪烁,自动跟随文字宽度变化)
+            垂直:span 底 = 按钮 content-box 底(距按钮底边 8px = py-2)。
+                  还原旧版 bottom-1(距按钮底边 4px)→ bottom = 4 - 8 = -4px = -bottom-1。
+                  ⚠️ 若 NAV_ITEM_BASE_CLASS 的 py-2 改动,此处需同步:bottom = 4px - padding-bottom。
           */}
           <span
             aria-hidden="true"
             data-testid={`nav-${item.labelKey}-indicator`}
             className={cn(
-              'pointer-events-none absolute bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
+              'pointer-events-none absolute -bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
               parentActive || open
                 ? 'bg-primary'
                 : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
