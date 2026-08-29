@@ -16,12 +16,17 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+import smtplib
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
+from email.mime.text import MIMEText
 from enum import Enum
 from typing import Any, Awaitable, Callable
+
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -219,14 +224,89 @@ class BaseChannel:
         """子类实现:真实发送逻辑。返回 True 成功 / False 失败。"""
         raise NotImplementedError
 
+    # ------------------------------------------------------------------
+    # 配置解析辅助(metadata + env)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _env(name: str, default: str | None = None) -> str | None:
+        """读取环境变量(与 MessageBus 的配置来源约定一致)。"""
+        return os.getenv(name, default)
+
+    def _get_webhook_urls(
+        self,
+        message: Message,
+        subscriptions: dict[str, Subscription] | None = None,
+    ) -> list[str]:
+        """从 metadata + 订阅 + env 解析 webhook URL 列表。
+
+        优先级:message.metadata['webhook_urls']/['webhook_url'] >
+        订阅的 webhook_url > env WEBHOOK_URLS(逗号分隔)。去重保序。
+        """
+        urls: list[str] = []
+        meta = message.metadata or {}
+        for key in ("webhook_urls", "webhook_url"):
+            v = meta.get(key)
+            if isinstance(v, str):
+                if v.strip():
+                    urls.append(v.strip())
+            elif isinstance(v, (list, tuple)):
+                urls.extend(u.strip() for u in v if isinstance(u, str) and u.strip())
+        if subscriptions:
+            urls.extend(s.webhook_url for s in subscriptions.values() if s.webhook_url)
+        env_urls = self._env("WEBHOOK_URLS")
+        if env_urls:
+            urls.extend(u.strip() for u in env_urls.split(",") if u.strip())
+        # 去重保序
+        seen: set[str] = set()
+        result: list[str] = []
+        for u in urls:
+            if u not in seen:
+                seen.add(u)
+                result.append(u)
+        return result
+
+    @staticmethod
+    def _get_im_webhook_url(message: Message) -> str | None:
+        """解析 IM webhook URL:metadata['webhook_url'] 优先于 env IM_WEBHOOK_URL。"""
+        meta = message.metadata or {}
+        url = meta.get("webhook_url")
+        if isinstance(url, str) and url.strip():
+            return url.strip()
+        env_url = os.getenv("IM_WEBHOOK_URL")
+        if env_url:
+            return env_url.strip()
+        return None
+
+    @staticmethod
+    def _get_recipients(message: Message) -> list[str]:
+        """解析收件人列表:metadata['to'] 支持 str(逗号分隔)或 list。"""
+        meta = message.metadata or {}
+        to = meta.get("to")
+        if not to:
+            return []
+        if isinstance(to, str):
+            return [addr.strip() for addr in to.split(",") if addr.strip()]
+        if isinstance(to, (list, tuple)):
+            return [str(a).strip() for a in to if a is not None and str(a).strip()]
+        return [str(to).strip()] if str(to).strip() else []
+
+    @staticmethod
+    def _get_sms_phone(message: Message) -> str | None:
+        """解析 SMS 手机号:metadata['phone']。"""
+        meta = message.metadata or {}
+        phone = meta.get("phone")
+        if not phone:
+            return None
+        return str(phone).strip() or None
+
 
 class IMChannel(BaseChannel):
-    """IM 通道(飞书/钉钉/微信)— Stub 实现。
+    """IM 通道(飞书/钉钉/微信)。
 
-    真实集成点:
-    - 飞书:调用 lark-im skill / 飞书 OpenAPI(/open-apis/im/v1/messages)
-    - 钉钉:调用钉钉 OpenAPI(/v1.0/robot/oToMessages/batchSend)
-    - 微信公众号:调用微信公众平台 API(/cgi-bin/message/custom/send)
+    真实集成点:通用 IM 机器人 webhook(兼容钉钉/企微/飞书机器人):
+    - 钉钉:`{"msgtype":"text","text":{"content": ...}}` POST 到机器人 webhook
+    - webhook 地址来源:message.metadata['webhook_url'] 优先,其次 env IM_WEBHOOK_URL
     """
 
     channel_type = ChannelType.IM
@@ -234,12 +314,33 @@ class IMChannel(BaseChannel):
     async def _do_send(
         self, message: Message, subscriptions: dict[str, Subscription]
     ) -> bool:
-        # 真实集成:根据 message.metadata.get('im_platform') 路由到对应 IM 平台 API
-        # 此处 stub:验证 content 非空即视为成功
         if not message.content:
+            logger.error("[IMChannel] 空内容拒绝发送: %s", message.id)
             return False
-        logger.debug("[IMChannel] stub send: %s", message.id)
-        return True
+        webhook_url = self._get_im_webhook_url(message)
+        if not webhook_url:
+            logger.error(
+                "[IMChannel] IM webhook not configured "
+                "(metadata['webhook_url'] 或 env IM_WEBHOOK_URL 均缺失): %s",
+                message.id,
+            )
+            return False
+        payload = {"msgtype": "text", "text": {"content": message.content}}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(webhook_url, json=payload)
+            if 200 <= resp.status_code < 300:
+                logger.info("[IMChannel] IM webhook 发送成功: %s", message.id)
+                return True
+            logger.error(
+                "[IMChannel] IM webhook 非 2xx: status=%s body=%s",
+                resp.status_code,
+                resp.text[:500],
+            )
+            return False
+        except Exception as e:
+            logger.error("[IMChannel] IM webhook 请求异常: %s error=%s", message.id, e)
+            return False
 
 
 class WebSocketChannel(BaseChannel):
@@ -270,10 +371,13 @@ class WebSocketChannel(BaseChannel):
 
 
 class WebhookChannel(BaseChannel):
-    """Webhook 通道 — Stub 实现。
+    """Webhook 通道 — 真实实现。
 
-    真实集成点:用 httpx.AsyncClient POST 到订阅注册的 webhook_url,
-    支持重试(3 次,指数退避)、HMAC 签名、超时控制。
+    用 httpx.AsyncClient POST JSON 到每个 webhook URL(timeout 10s):
+    - URL 来源:message.metadata['webhook_urls'/'webhook_url'] > 订阅的
+      webhook_url > env WEBHOOK_URLS(逗号分隔)
+    - 任一 URL 非 2xx 或请求异常 → 整体失败(收集错误日志)
+    - 无 URL → 视为成功(消息丢弃,与 WebSocket 无订阅者语义一致)
     """
 
     channel_type = ChannelType.WEBHOOK
@@ -281,28 +385,51 @@ class WebhookChannel(BaseChannel):
     async def _do_send(
         self, message: Message, subscriptions: dict[str, Subscription]
     ) -> bool:
-        # 真实集成:
-        #   async with httpx.AsyncClient(timeout=5.0) as client:
-        #       for sub in subscriptions.values():
-        #           if not sub.webhook_url:
-        #               continue
-        #           resp = await client.post(sub.webhook_url, json={...})
-        #           resp.raise_for_status()
-        # 此处 stub:有 webhook_url 即视为成功
-        urls = [s.webhook_url for s in subscriptions.values() if s.webhook_url]
+        urls = self._get_webhook_urls(message, subscriptions)
         if not urls:
+            logger.debug("[WebhookChannel] 无 webhook 目标,消息丢弃: %s", message.id)
             return True
-        logger.debug(
-            "[WebhookChannel] stub send to %d urls: %s", len(urls), message.id
-        )
+        payload = {
+            "message_id": message.id,
+            "content": message.content,
+            "metadata": message.metadata,
+        }
+        errors: list[str] = []
+        ok_count = 0
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                for url in urls:
+                    try:
+                        resp = await client.post(url, json=payload)
+                        if 200 <= resp.status_code < 300:
+                            ok_count += 1
+                        else:
+                            errors.append(f"{url} → HTTP {resp.status_code}")
+                    except Exception as e:
+                        errors.append(f"{url} → {e}")
+        except Exception as e:
+            logger.error("[WebhookChannel] 客户端异常: %s error=%s", message.id, e)
+            return False
+        if errors:
+            logger.error(
+                "[WebhookChannel] 发送失败 %d/%d: %s errors=%s",
+                len(errors),
+                len(urls),
+                message.id,
+                "; ".join(errors),
+            )
+            return False
+        logger.info("[WebhookChannel] 发送成功 %d 个 url: %s", ok_count, message.id)
         return True
 
 
 class EmailChannel(BaseChannel):
-    """Email 通道 — Stub 实现。
+    """Email 通道 — 真实实现(SMTP)。
 
-    真实集成点:用 aiosmtplib 发送 SMTP 邮件,
-    收件人从 message.metadata.get('to') 读取,主题从 metadata.get('subject')。
+    配置来源 env:SMTP_HOST / SMTP_PORT(默认 587) / SMTP_USER /
+    SMTP_PASSWORD / SMTP_FROM。收件人来自 message.metadata['to'](str 或 list)。
+    用标准库 smtplib + email.mime 构建文本邮件,SMTP 阻塞调用放入线程池,
+    整体 15s 超时。env 未配置 SMTP → 返回失败(不假装成功)。
     """
 
     channel_type = ChannelType.EMAIL
@@ -310,26 +437,55 @@ class EmailChannel(BaseChannel):
     async def _do_send(
         self, message: Message, subscriptions: dict[str, Subscription]
     ) -> bool:
-        # 真实集成:
-        #   import aiosmtplib
-        #   from email.mime.text import MIMEText
-        #   msg = MIMEText(message.content)
-        #   msg['Subject'] = message.metadata.get('subject', 'IHUI 通知')
-        #   msg['From'] = settings.smtp_from
-        #   msg['To'] = message.metadata.get('to')
-        #   await aiosmtplib.send(msg, hostname=settings.smtp_host, ...)
-        # 此处 stub:metadata 有 'to' 即视为成功
-        if not message.metadata.get("to"):
+        to_list = self._get_recipients(message)
+        if not to_list:
+            logger.error("[EmailChannel] 缺少收件人 metadata['to']: %s", message.id)
             return False
-        logger.debug("[EmailChannel] stub send: %s", message.id)
+
+        host = self._env("SMTP_HOST")
+        if not host:
+            logger.error("[EmailChannel] SMTP not configured (env SMTP_HOST): %s", message.id)
+            return False
+        try:
+            port = int(self._env("SMTP_PORT", "587"))
+        except (TypeError, ValueError):
+            logger.error("[EmailChannel] SMTP_PORT 非法: %s", message.id)
+            return False
+        user = self._env("SMTP_USER")
+        password = self._env("SMTP_PASSWORD")
+        from_addr = self._env("SMTP_FROM") or user or "noreply@localhost"
+        subject = (message.metadata or {}).get("subject") or "IHUI 通知"
+
+        msg = MIMEText(message.content, "plain", "utf-8")
+        msg["Subject"] = subject
+        msg["From"] = from_addr
+        msg["To"] = ", ".join(to_list)
+
+        def _send_sync() -> None:
+            with smtplib.SMTP(host, port, timeout=15) as server:
+                server.ehlo()
+                if port == 587:
+                    server.starttls()
+                    server.ehlo()
+                if user:
+                    server.login(user, password or "")
+                server.sendmail(from_addr, to_list, msg.as_string())
+
+        try:
+            await asyncio.wait_for(asyncio.to_thread(_send_sync), timeout=15)
+        except Exception as e:
+            logger.error("[EmailChannel] SMTP 发送异常: %s error=%s", message.id, e)
+            return False
+        logger.info("[EmailChannel] 邮件发送成功: %s → %s", message.id, to_list)
         return True
 
 
 class SMSChannel(BaseChannel):
-    """SMS 通道 — Stub 实现。
+    """SMS 通道 — 真实实现(HTTP 短信网关)。
 
-    真实集成点:调用阿里云/腾讯云 SMS API,
-    手机号从 message.metadata.get('phone') 读取,模板号对齐 SMS 平台模板。
+    协议:POST JSON {phone, content, sign} 到网关,网关地址 env SMS_API_URL,
+    API Key env SMS_API_KEY(放入 Authorization: Bearer),签名 env SMS_SIGN。
+    手机号来自 message.metadata['phone']。env 未配置网关 → 返回失败。
     """
 
     channel_type = ChannelType.SMS
@@ -337,14 +493,33 @@ class SMSChannel(BaseChannel):
     async def _do_send(
         self, message: Message, subscriptions: dict[str, Subscription]
     ) -> bool:
-        # 真实集成:
-        #   阿里云:调用 dysmsapi.aliyuncs.com SendSms
-        #   腾讯云:调用 sms.tencentcloudapi.com SendSms
-        # 此处 stub:metadata 有 'phone' 即视为成功
-        if not message.metadata.get("phone"):
+        phone = self._get_sms_phone(message)
+        if not phone:
+            logger.error("[SMSChannel] 缺少手机号 metadata['phone']: %s", message.id)
             return False
-        logger.debug("[SMSChannel] stub send: %s", message.id)
-        return True
+        api_url = self._env("SMS_API_URL")
+        if not api_url:
+            logger.error("[SMSChannel] SMS gateway not configured (env SMS_API_URL): %s", message.id)
+            return False
+        api_key = self._env("SMS_API_KEY")
+        sign = self._env("SMS_SIGN") or "IHUI"
+        payload = {"phone": phone, "content": message.content, "sign": sign}
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(api_url, json=payload, headers=headers)
+            if 200 <= resp.status_code < 300:
+                logger.info("[SMSChannel] 短信发送成功: %s → %s", message.id, phone)
+                return True
+            logger.error(
+                "[SMSChannel] 短信网关非 2xx: status=%s body=%s",
+                resp.status_code,
+                resp.text[:500],
+            )
+            return False
+        except Exception as e:
+            logger.error("[SMSChannel] 短信网关请求异常: %s error=%s", message.id, e)
+            return False
 
 
 # ---------------------------------------------------------------------------
