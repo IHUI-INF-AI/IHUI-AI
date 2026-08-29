@@ -84,6 +84,10 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     }
 
     let cancelled = false
+    // 2026-08-29 修复:延迟导航的 setTimeout 必须登记并在 cleanup 清理。
+    // 此前 StrictMode 双挂载/快速卸载时,800ms 定时器仍会触发二次导航
+    // (window.location.href / router.push),且 cancelled 未覆盖定时器回调。
+    const timers: ReturnType<typeof setTimeout>[] = []
     const body = JSON.stringify({ code, state })
 
     fetchApi<{ token: string; refreshToken?: string; user: unknown }>(apiPath, {
@@ -108,11 +112,19 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
         // 分域 SSO (2026-07-21):当前在认证子域,Cookie 已写在 .aizhs.top,
         // 跨域生效后跳回主域根路径,主域 useAuthBootstrap 自动读 Cookie 恢复登录态
         if (isAuthSubdomainHost()) {
-          setTimeout(() => {
-            window.location.href = buildMainDomainUrl('/')
-          }, 800)
+          timers.push(
+            setTimeout(() => {
+              if (cancelled) return
+              window.location.href = buildMainDomainUrl('/')
+            }, 800),
+          )
         } else {
-          setTimeout(() => router.push('/'), 800)
+          timers.push(
+            setTimeout(() => {
+              if (cancelled) return
+              router.push('/')
+            }, 800),
+          )
         }
       })
       .catch((e: Error) => {
@@ -123,6 +135,7 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
 
     return () => {
       cancelled = true
+      timers.forEach(clearTimeout)
     }
   }, [params, provider, router, setToken, setUser, t])
 

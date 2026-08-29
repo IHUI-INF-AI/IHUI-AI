@@ -43,15 +43,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   React.useEffect(() => {
     if (!hydrated) return // 等 hydration 完成后再判断,避免 SSR 初始值导致的误重定向
+    // 延迟一帧再导航(2026-08-29):hydration 完成瞬间同步 replace 会命中
+    // Next.js Router 初始化窗口("Router action dispatched before initialization"),
+    // 且 dev 下与 middleware/proxy 的 307 形成双重守卫竞态。下一帧 Router 必已就绪;
+    // 依赖变化导致 effect 重跑时 cleanup 取消未执行导航,避免重复跳转。
     // 未登录:middleware 应已拦截,这里作为客户端兜底
     if (!isAuthenticated) {
-      router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
-      return
+      const raf = requestAnimationFrame(() => {
+        router.replace('/sso/login?redirect=' + encodeURIComponent(window.location.pathname))
+      })
+      return () => cancelAnimationFrame(raf)
     }
     // 已登录但非管理员:跳转到 /forbidden
     if ((userRoleId ?? 0) < ADMIN_ROLE_THRESHOLD) {
-      router.replace('/forbidden')
-      return
+      const raf = requestAnimationFrame(() => {
+        router.replace('/forbidden')
+      })
+      return () => cancelAnimationFrame(raf)
     }
     setChecked(true)
   }, [hydrated, isAuthenticated, userRoleId, router])
