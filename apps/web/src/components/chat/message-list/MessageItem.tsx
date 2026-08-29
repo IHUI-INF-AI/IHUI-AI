@@ -85,9 +85,12 @@ const MessageItem = React.memo(function MessageItem({
   // 2026-08-29 修复:思考过程自动展开/收起生命周期
   // - 思考中(reasoning 流式)自动展开;思考结束(正文开始输出或流结束)自动收起
   // - autoExpandedRef 标记"本次展开是自动的":用户手动 toggle 过则不再自动收起
+  // - userTouchedRef 标记"用户手动操作过":手动收起后流式期间不再被自动展开打扰
   const autoExpandedRef = React.useRef(false)
+  const userTouchedRef = React.useRef(false)
   // 统一手动 toggle 入口:清除自动标记,后续思考结束不再自动收起
   const toggleReasoning = React.useCallback(() => {
+    userTouchedRef.current = true
     autoExpandedRef.current = false
     setReasoningExpanded((prev) => !prev)
   }, [])
@@ -105,22 +108,47 @@ const MessageItem = React.memo(function MessageItem({
     return () => window.removeEventListener('ihui:toggle-reasoning', onToggle as EventListener)
   }, [m.id, m.reasoning, toggleReasoning])
 
-  // 流式输出时自动展开思考过程(仅在用户未手动折叠时生效)
+  // 自动展开仅用于"正文输出中新思考交错到达"场景(思考区已挂载,用户可感知新思考);
+  // "先想后答"模型的思考在 TypingIndicator 阶段(content 为空)已完成,
+  // 思考区挂载时思考已结束,直接折叠 — 不做"先展开再收起",避免闪烁(用户手动操作过则不干预)
+  // 判据:正文开始时刻的 reasoning 长度基线,基线之后新增的思考才视为"新思考"
+  const reasoningBaselineRef = React.useRef<number | null>(null)
+
+  // 维护基线:正文开始时快照当前 reasoning 长度;content 清空(regenerate)时重置
   React.useEffect(() => {
-    if (streamingThis && m.reasoning && !reasoningExpanded) {
+    if (m.content.length === 0) {
+      reasoningBaselineRef.current = null
+    } else if (reasoningBaselineRef.current === null) {
+      reasoningBaselineRef.current = m.reasoning?.length ?? 0
+    }
+  }, [m.content, m.reasoning])
+
+  // 流式正文中检测到基线之外新增的 reasoning → 自动展开
+  React.useEffect(() => {
+    if (
+      streamingThis &&
+      m.reasoning &&
+      m.content.length > 0 &&
+      reasoningBaselineRef.current !== null &&
+      m.reasoning.length > reasoningBaselineRef.current &&
+      !reasoningExpanded &&
+      !userTouchedRef.current
+    ) {
       autoExpandedRef.current = true
       setReasoningExpanded(true)
     }
-  }, [streamingThis, m.reasoning, reasoningExpanded])
+  }, [streamingThis, m.reasoning, reasoningExpanded, m.content])
 
-  // 2026-08-29:思考结束后自动收起 — 正文开始输出(思考让位给回答)或整条流结束时,
-  // 若此前的展开是自动触发的(用户未手动操作过),则收起思考区,保持界面聚焦正文
+  // 2026-08-29:流结束后 — 自动展开的思考区收起(让位正文);
+  // 同时重置手动标记,使 regenerate 能恢复完整自动生命周期
   React.useEffect(() => {
-    if (autoExpandedRef.current && (!streamingThis || m.content.length > 0)) {
+    if (streamingThis) return
+    if (autoExpandedRef.current) {
       autoExpandedRef.current = false
       setReasoningExpanded(false)
     }
-  }, [streamingThis, m.content])
+    userTouchedRef.current = false
+  }, [streamingThis])
 
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
