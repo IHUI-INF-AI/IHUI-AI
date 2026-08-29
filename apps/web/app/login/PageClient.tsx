@@ -68,11 +68,17 @@ export default function LoginPageClient() {
 
     // 2. 回到前一页(保留工作展示区前一页内容)
     //    无 history(直接输入 /login / 新标签页打开)时降级到首页或 redirect
-    if (typeof window !== 'undefined' && window.history.length > 1) {
-      router.back()
-    } else {
-      router.replace(redirect || '/')
-    }
+    //    延迟一帧导航(2026-08-29):挂载期立即 back/replace 可能命中 Next.js
+    //    Router 初始化窗口("Router action dispatched before initialization")。
+    //    下一帧 Router 必已就绪;组件提前卸载时 cleanup 取消,避免幽灵导航。
+    const raf = requestAnimationFrame(() => {
+      if (typeof window !== 'undefined' && window.history.length > 1) {
+        router.back()
+      } else {
+        router.replace(redirect || '/')
+      }
+    })
+    return () => cancelAnimationFrame(raf)
   }, [router, redirect, isQrMode])
 
   // 纯二维码嵌入模式:只渲染 QrCodeLogin(280x280),无外层容器、无平台切换 tab
