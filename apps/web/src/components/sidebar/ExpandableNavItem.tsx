@@ -101,33 +101,8 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   }, [storageKey])
 
   const Icon = item.icon
-  // 测量文字宽度，用于将 indicator 定位到文字正中下方
-  const textRef = React.useRef<HTMLSpanElement>(null)
-  const [textWidth, setTextWidth] = React.useState(0)
   // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
   const label = item.dynamicLabel ?? t(item.labelKey)
-  React.useEffect(() => {
-    const el = textRef.current
-    if (!el) return
-
-    const updateWidth = () => {
-      setTextWidth(el.offsetWidth)
-    }
-
-    // 用 requestAnimationFrame 延迟测量，避免首次渲染时 offsetWidth 为 0 导致的闪烁
-    const rafId = requestAnimationFrame(() => {
-      updateWidth()
-
-      // ResizeObserver 自动跟随后续文字宽度变化（字体/字号/间距/响应式等）
-      if (typeof ResizeObserver !== 'undefined') {
-        const observer = new ResizeObserver(updateWidth)
-        observer.observe(el)
-        return () => observer.disconnect()
-      }
-    })
-
-    return () => cancelAnimationFrame(rafId)
-  }, [label])
 
   const parentClassName = cn(
     // group/exp:精简高级的二级菜单指示样式(GitHub/Linear/Notion 风格)
@@ -245,34 +220,24 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
           - 展开/父级激活的 font-semibold 在 parentClassName 已统一,这里只保留 min-w-0 防溢出
             与 whitespace-nowrap 避免换行
         */}
-        <span ref={textRef} className="min-w-0 whitespace-nowrap text-left">
+        <span className="relative min-w-0 whitespace-nowrap text-left">
           {label}
+          {/*
+            二级菜单底部指示符 — 作为文字 span 的子元素，
+            用 left-1/2 + -translate-x-1/2 自动居中在文字下方，
+            完全不需要 JS 测量文字宽度，无闪烁且自动跟随。
+          */}
+          <span
+            aria-hidden="true"
+            data-testid={`nav-${item.labelKey}-indicator`}
+            className={cn(
+              'pointer-events-none absolute bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
+              parentActive || open
+                ? 'bg-primary'
+                : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
+            )}
+          />
         </span>
-        {/*
-          二级菜单底部指示符 — 对齐文字下方
-          用 ref 测量文字宽度，将指示器定位到文字正中下方而非按钮居中。
-          公式：left = 20 + textWidth/2
-          说明：indicator 用 -translate-x-1/2(-20px) 后，视觉中心 = left + 20px。
-                按钮内文字起点 = padding(10px) + icon(20px) + gap(10px) = 40px
-                文字中心 = 40 + textWidth/2
-                所以 left + 20 = 40 + textWidth/2 → left = 20 + textWidth/2
-        */}
-        {(() => {
-          const left = 20 + textWidth / 2
-          return (
-            <span
-              aria-hidden="true"
-              data-testid={`nav-${item.labelKey}-indicator`}
-              className={cn(
-                'pointer-events-none absolute bottom-1 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
-                parentActive || open
-                  ? 'bg-primary'
-                  : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
-              )}
-              style={{ left }}
-            />
-          )
-        })()}
       </button>
       {open && <div className="mt-0.5">{childList}</div>}
     </div>
