@@ -18,7 +18,7 @@
  *   amountCents(用户充值金额,分) → USDT amount = amountCents / 100 / rate
  *   amountPaid(实收 USDT) → tokens credited = round(amountPaid × rate × 100)
  */
-import { eq, and, not, sql, desc, type SQL } from 'drizzle-orm'
+import { eq, and, not, sql, desc, gt, type SQL } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
 import type { UsdtPayment } from '@ihui/database'
@@ -603,10 +603,13 @@ export async function confirmUsdtPayment(
 export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResult> {
   const now = new Date()
   // 查询未过期的 pending 订单(status='pending' AND expires_at > now)
+  // 2026-08-29 立:不能用 raw sql 模板传 Date —— 本环境(Node 24 + postgres-js 3.4.9)
+  // 原生 Date 参数序列化会抛 ERR_INVALID_ARG_TYPE(Buffer.from 收到 Date),
+  // 必须用 drizzle 类型化操作符 gt()(drizzle 会按列映射先转 ISO 字符串)。
   const validPending = await dbRead
     .select({ orderId: usdtPayments.orderId })
     .from(usdtPayments)
-    .where(and(eq(usdtPayments.status, 'pending'), sql`${usdtPayments.expiresAt} > ${now}`))
+    .where(and(eq(usdtPayments.status, 'pending'), gt(usdtPayments.expiresAt, now)))
     .limit(batchSize)
 
   let checked = 0

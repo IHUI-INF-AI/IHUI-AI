@@ -1,4 +1,4 @@
-import { eq, and, desc, sql, ilike, isNull, isNotNull, inArray } from 'drizzle-orm'
+import { eq, and, desc, sql, ilike, isNull, isNotNull, inArray, gte } from 'drizzle-orm'
 import { db } from './index.js'
 import { skills, type Skill } from '@ihui/database'
 
@@ -244,7 +244,9 @@ export async function deleteSkillsByAuthorAndSlugs(
  */
 export async function findDeletedSkillsByUserId(userId: string, since?: Date): Promise<Skill[]> {
   const conds = [eq(skills.authorId, userId), isNotNull(skills.deletedAt)]
-  if (since) conds.push(sql`${skills.deletedAt} >= ${since}`)
+  // 2026-08-29 立:raw sql 模板不能直接传 Date(本环境 postgres-js 序列化会抛
+  // ERR_INVALID_ARG_TYPE),改用类型化操作符 gte()
+  if (since) conds.push(gte(skills.deletedAt, since))
   return db
     .select()
     .from(skills)
