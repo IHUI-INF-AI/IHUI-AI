@@ -315,6 +315,12 @@ export function compressContextIfNeeded(
   // 强制把全部非系统消息压成单条 summary,确保即便消息极少也触发压缩。
   // 之前走兜底返回 compressed:false,导致 token 一直累积、永远不压缩。
   if (!bestResult) {
+    // 2026-08-29 立:极端兜底分支会把全部消息(含末尾当前输入)摘要化,降级但内容部分保留。
+    // 打 warning 便于线上观测该路径的实际触发频率,再决定是否额外保留末尾原始消息。
+    console.warn(
+      '[Compaction] fallback: all non-system messages summarized (including trailing user input),',
+      { messageCount: nonSystem.length, originalTokens },
+    )
     const summaryParts = nonSystem.map(summarizeMessage)
     const summaryMsg: ChatMessage = {
       role: 'user',
