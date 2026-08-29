@@ -56,13 +56,15 @@ test.describe('Sidebar 视觉守门', () => {
     const asideBox = await aside.boundingBox()
     expect(asideBox).not.toBeNull()
 
-    // 找 collapse 按钮(带 PanelLeftClose/PanelLeftOpen 图标的 ghost button)
-    // 用 aria-label 更稳:i18n key 是 nav:collapse/expand
+    // 找 collapse 按钮。2026-08-29 修:图标已从 lucide PanelLeftClose/PanelLeftOpen 换成
+    // 自定义 PanelLeftRounded(纯 svg,无 lucide 类名),原 svg.lucide-* 过滤器失配,
+    // 导致本用例恒定 test.skip、守门失效。改用 getByLabel 正则定位
+    // (nav:collapse/expand → 收起/展开,兼容英文 Collapse/Expand;
+    //  aside 内无其他按钮的 aria-label 命中这两个词。
+    //  注:不能用 CSS 属性正则 button[aria-label=/…/],该语法会 SyntaxError)
     const collapseBtn = authenticatedPage
-      .locator('aside button[aria-label]')
-      .filter({
-        has: authenticatedPage.locator('svg.lucide-panel-left-close, svg.lucide-panel-left-open'),
-      })
+      .locator('aside#main-sidebar')
+      .getByLabel(/^(收起|展开|Collapse|Expand)$/i)
       .first()
 
     // 如果侧边栏是收起态,按钮可能是 open 图标;展开态是 close 图标
@@ -289,8 +291,8 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
         classes: string
       }> = []
 
-      // 新建任务按钮:第一个有 bg-foreground 的 button
-      const newChatBtn = nav.querySelector('button.bg-foreground')
+      // 新建任务按钮:侧边栏唯一带 aria-pressed 的 button
+      const newChatBtn = nav.querySelector('button[aria-pressed]')
       if (newChatBtn) {
         const rect = newChatBtn.getBoundingClientRect()
         items.push({
@@ -311,6 +313,9 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
       ) as Array<HTMLElement>
 
       for (const el of candidates) {
+        // 去重:新建任务按钮已在上方 newChatBtn 单独收集(折叠态它也有 aria-label),
+        // 避免同一按钮重复计入 count 与断言
+        if (el === newChatBtn) continue
         const ariaLabel = el.getAttribute('aria-label') || ''
         // 排除底部工具栏(语言/下载/消息/主题)和用户头像
         if (excludeLabels.some((l) => ariaLabel.includes(l))) continue
