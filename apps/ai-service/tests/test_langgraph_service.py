@@ -1,8 +1,14 @@
 """LangGraph 服务单元测试。
 
-测试条件边逻辑、服务可用性、结果构建、trace 可观测性。
+测试条件边逻辑、服务可用性、结果构建、trace 可观测性、
+编译图接入(checkpointer / 双路径流式 / 断点续跑参数)。
 不调用真实 LLM(不触发 ainvoke / complete)。
 """
+
+import asyncio
+import inspect
+
+import pytest
 
 from app.services.langgraph_service import (
     GraphState,
@@ -258,3 +264,253 @@ class TestBuildResultWithTrace:
         result = self.service._build_result_from_state({})
         assert result["trace"] == []
         assert result["trace_summary"]["total_nodes"] == 0
+
+
+# =============================================================================
+# 编译图接入:checkpointer / 双路径流式 / 断点续跑
+# =============================================================================
+
+
+class _ChunkAstream:
+    """模拟 graph.astream:按序 yield 预设 updates chunks。"""
+
+    def __init__(self, chunks: list[dict]):
+        self._chunks = chunks
+
+    def __call__(self, *args, **kwargs):
+        return self._iter()
+
+    async def _iter(self):
+        for chunk in self._chunks:
+            yield chunk
+
+
+class _RaisingAstream:
+    """模拟 graph.astream:首次迭代即抛异常(图路径失败)。"""
+
+    def __init__(self, exc: BaseException):
+        self._exc = exc
+
+    def __call__(self, *args, **kwargs):
+        return self._iter()
+
+    async def _iter(self):  # pragma: no cover - yield 使其成为 async generator
+        raise self._exc
+        yield  # pragma: no cover
+
+
+def _graph_chunks_one_step() -> list[dict]:
+    """构造一步计划的图 updates chunks(memory_load → plan → execute → summarize → memory_save)。"""
+    memory_trace = [
+        _trace_entry(
+            "memory_load", 1.0, 1.1,
+            memory_loaded=True, memory_length=5,
+        )
+    ]
+    plan_trace = memory_trace + [_trace_entry("plan", 1.1, 1.3, plan_length=1, stub=True)]
+    exec_trace = plan_trace + [_trace_entry("execute", 1.3, 1.6, step=1, total_steps=1, iterations=1)]
+    sum_trace = exec_trace + [_trace_entry("summarize", 1.6, 1.8, results_count=1, summary_length=2)]
+    save_trace = sum_trace + [_trace_entry("memory_save", 1.8, 1.9, status="ok")]
+    return [
+        {"memory_load": {"memory_context": "记忆上下文", "trace": memory_trace}},
+        {"plan": {"plan": ["步骤1"], "status": "executing", "trace": plan_trace}},
+        {
+            "execute": {
+                "plan": ["步骤1"],
+                "results": [{"step": 1, "plan": "步骤1", "result": "结果", "stub": False}],
+                "step_index": 1,
+                "iterations": 1,
+                "status": "executing",
+                "trace": exec_trace,
+            }
+        },
+        {"summarize": {"summary": "总结", "status": "completed", "trace": sum_trace}},
+        {"memory_save": {"trace": save_trace}},
+    ]
+
+
+class TestGraphCheckpointer:
+    """编译图可构建且挂载 checkpointer。"""
+
+    def setup_method(self):
+        self.service = LangGraphService()
+
+    def test_compiled_graph_has_checkpointer(self):
+        """_graph 非 None 时 checkpointer 非 None(支持 HITL / 断点续跑)。"""
+        if self.service._graph is not None:
+            assert self.service._graph.checkpointer is not None
+
+    def test_run_graph_requires_thread_config(self):
+        """checkpointer 挂载后,图执行必须带 thread_id config(_graph_config 提供)。"""
+        cfg = self.service._graph_config("sess-1")
+        assert cfg["configurable"]["thread_id"] == "sess-1"
+        assert cfg["recursion_limit"] >= 25
+        cfg2 = self.service._graph_config("sess-1", checkpoint_id="cp-1")
+        assert cfg2["configurable"]["checkpoint_id"] == "cp-1"
+
+
+class TestRunGraphStreamDualPath:
+    """run_graph_stream 双路径:优先编译图,失败降级手动状态机。"""
+
+    def setup_method(self):
+        self.service = LangGraphService()
+
+    @pytest.fixture(autouse=True)
+    def _mock_llm_and_memory(self, monkeypatch):
+        """Mock llm_gateway.complete 与 memory_store 内存模式,避免真实调用。"""
+        async def fake_complete(messages, model=None, **kwargs):
+            last = ""
+            for msg in reversed(messages):
+                if msg.get("role") == "user":
+                    last = str(msg.get("content", ""))
+                    break
+            return {"content": f"[stub] 最后一条用户消息: {last[:100]}", "stub": True}
+
+        monkeypatch.setattr(
+            "app.services.langgraph_service.llm_gateway.complete", fake_complete
+        )
+        from app.services.memory import memory_store
+
+        monkeypatch.setattr(memory_store, "_use_redis", False)
+        monkeypatch.setattr(memory_store, "_redis", None)
+
+    @pytest.mark.asyncio
+    async def test_graph_path_maps_updates_to_sse_events(self):
+        """默认调用(不传 resume_checkpoint_id)走图路径,事件序列与手动路径一致。"""
+        if self.service._graph is None:
+            pytest.skip("langgraph 不可用")
+        self.service._graph.astream = _ChunkAstream(_graph_chunks_one_step())
+
+        events = []
+        async for event in self.service.run_graph_stream(
+            goal="目标", session_id="sess-graph-1", user_id="u1"
+        ):
+            events.append(event)
+
+        types = [e["type"] for e in events]
+        assert types == [
+            "memory_context", "message", "status", "thinking",  # 前置事件
+            "trace",                                   # memory_load trace
+            "plan", "trace", "status",                 # plan + status executing
+            "step_start", "step_done", "trace",        # execute
+            "status", "thinking", "summary", "trace",  # summarize
+            "trace",                                   # memory_save
+            "status", "trace_summary",                 # 完成
+        ]
+        # 关键字段对齐手动路径格式
+        assert events[0] == {"type": "memory_context", "content": "记忆上下文"}
+        assert events[1] == {"type": "message", "role": "user", "content": "目标"}
+        assert {"type": "status", "status": "planning"} in events
+        plan_evt = next(e for e in events if e["type"] == "plan")
+        assert plan_evt["steps"] == ["步骤1"]
+        step_done = next(e for e in events if e["type"] == "step_done")
+        assert step_done["result"] == "结果"
+        summary_evt = next(e for e in events if e["type"] == "summary")
+        assert summary_evt["content"] == "总结"
+        assert events[-2]["status"] == "completed"
+        assert events[-1]["type"] == "trace_summary"
+
+    @pytest.mark.asyncio
+    async def test_fallback_to_manual_when_graph_stream_fails(self):
+        """图路径抛异常时降级为手动状态机(不产出 error,完整走手动流程)。"""
+        if self.service._graph is None:
+            pytest.skip("langgraph 不可用")
+        self.service._graph.astream = _RaisingAstream(RuntimeError("graph exploded"))
+
+        events = []
+        async for event in self.service.run_graph_stream(
+            goal="目标", session_id="sess-fallback-1"
+        ):
+            events.append(event)
+
+        types = [e["type"] for e in events]
+        # 手动路径特征事件
+        assert {"type": "status", "status": "planning"} in events
+        assert "plan" in types
+        assert "step_start" in types
+        assert "trace_summary" in types
+        assert "error" not in types
+
+
+class TestResumeCheckpoint:
+    """resume_checkpoint_id 参数与断点续跑行为。"""
+
+    def test_resume_checkpoint_id_parameter_exists(self):
+        """run_graph_stream 有 resume_checkpoint_id 参数,默认 None。"""
+        sig = inspect.signature(LangGraphService.run_graph_stream)
+        assert "resume_checkpoint_id" in sig.parameters
+        assert sig.parameters["resume_checkpoint_id"].default is None
+
+    @pytest.mark.asyncio
+    async def test_resume_passes_none_input_and_skips_plan(self):
+        """存在待执行节点时,astream input 为 None(从断点继续),不重跑 plan。"""
+        service = LangGraphService()
+        from unittest.mock import AsyncMock, MagicMock
+
+        snap = MagicMock()
+        snap.next = ("execute",)
+        snap.values = {"status": "executing", "plan": ["步骤1"], "summary": ""}
+        fake = MagicMock()
+        fake.aget_state = AsyncMock(return_value=snap)
+
+        seen: dict = {}
+        async def fake_astream(input_, config=None, **kwargs):
+            seen["input"] = input_
+            exec_trace = [_trace_entry("execute", 1.0, 1.3, step=1, total_steps=1, iterations=1)]
+            yield {
+                "execute": {
+                    "plan": ["步骤1"],
+                    "results": [{"step": 1, "plan": "步骤1", "result": "结果"}],
+                    "step_index": 1,
+                    "iterations": 1,
+                    "status": "executing",
+                    "trace": exec_trace,
+                }
+            }
+
+        fake.astream = fake_astream
+        service._graph = fake
+        service._available = True
+
+        events = []
+        async for event in service.run_graph_stream(
+            goal="目标", session_id="sess-resume-1", resume_checkpoint_id="cp-1"
+        ):
+            events.append(event)
+
+        assert seen.get("input") is None  # 恢复模式:不传入新 input
+        types = [e["type"] for e in events]
+        # 跳过 plan:无 planning / message / plan 事件
+        assert "plan" not in types
+        assert "message" not in types
+        assert "step_start" in types
+
+    @pytest.mark.asyncio
+    async def test_resume_completed_checkpoint_yields_terminal(self):
+        """checkpoint 已完整结束(无待执行节点)时,输出终态事件,不重复执行。"""
+        service = LangGraphService()
+        from unittest.mock import AsyncMock, MagicMock
+
+        snap = MagicMock()
+        snap.next = ()
+        snap.values = {
+            "status": "completed",
+            "summary": "已完成",
+            "plan": ["s1"],
+            "trace": [_trace_entry("plan", 1.0, 1.2)],
+        }
+        fake = MagicMock()
+        fake.aget_state = AsyncMock(return_value=snap)
+        service._graph = fake
+        service._available = True
+
+        events = []
+        async for event in service.run_graph_stream(
+            goal="目标", session_id="sess-resume-2", resume_checkpoint_id="cp-done"
+        ):
+            events.append(event)
+
+        types = [e["type"] for e in events]
+        assert types == ["status", "trace_summary"]
+        assert events[0]["status"] == "completed"
+        fake.astream.assert_not_called()  # 无待执行节点,不调用 astream
