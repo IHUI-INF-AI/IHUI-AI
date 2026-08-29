@@ -374,7 +374,9 @@ export function createSendAnswer(
             execResult.error,
           )
         },
-        agentTools: mergeAgentTools(),
+        // 2026-08-29 修复:与 sendMessage 对称,仅当用户显式启用插件工具时才携带 agentTools。
+        // 普通问答不携带 → 后端不命中 tool loop,走流式 astream() 恢复打字机输出(详见 tool-config.ts)
+        ...(mergeAgentTools().length > 0 ? { agentTools: mergeAgentTools() } : {}),
         onError: (errMsg, info) => {
           // #9 错误前先 flush 累积 token,避免最后一批内容丢失
           contentBatcher.flush()
