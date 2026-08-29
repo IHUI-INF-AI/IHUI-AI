@@ -150,6 +150,16 @@ const MessageItem = React.memo(function MessageItem({
     userTouchedRef.current = false
   }, [streamingThis])
 
+  // 2026-08-29 立:交错思考增长指示 — 正文流式输出期间 reasoning 超出基线继续增长,
+  // 传给 ThinkingSection 显示脉冲光标/"思考中"loader;流结束(streamingThis=false)自动消失。
+  // 渲染期读 ref 安全:m.reasoning 变化本身就会触发本组件重渲染(memo 比较失败)。
+  const reasoningGrowing =
+    streamingThis &&
+    m.content.length > 0 &&
+    !!m.reasoning &&
+    reasoningBaselineRef.current !== null &&
+    m.reasoning.length > reasoningBaselineRef.current
+
   const handleCopy = React.useCallback(
     async (e: React.MouseEvent | React.KeyboardEvent) => {
       e.stopPropagation()
@@ -417,6 +427,8 @@ const MessageItem = React.memo(function MessageItem({
                 // 2026-08-29:isStreaming 收紧为"思考进行中" — 正文开始输出后思考区
                 // 立即进入已完成态(停掉"思考中..."loader / 闪烁光标 / 耗时 tick)
                 isStreaming={streamingThis && !m.content}
+                // 2026-08-29:正文流式期间 reasoning 交错到达 → 增长指示(脉冲光标)
+                isGrowing={reasoningGrowing}
                 expanded={reasoningExpanded}
                 onToggle={toggleReasoning}
               />
