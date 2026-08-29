@@ -67,7 +67,7 @@ jobs:
           # 生产 API 基址:在 GitHub repo Settings → Secrets 配置 DESKTOP_API_URL
           # 例如 https://api.ihui.ai(不带尾部斜杠)
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DESKTOP_API_URL }}
-        run: pnpm --filter @ihui/web build
+        run: pnpm --filter @ihui/web build:static
 
       - name: Verify web output exists
         shell: bash
