@@ -6,19 +6,7 @@ import { FileText, Link as LinkIcon, Type, ImageIcon, Film, ChevronDown, X } fro
 
 import { Button } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-
-type ReferenceType = 'file' | 'url' | 'text' | 'image' | 'video'
-
-interface ReferenceItem {
-  id: string
-  type: ReferenceType
-  label: string
-  preview?: string
-  /** 图片/视频缩略图 URL(objectURL) */
-  thumbnail?: string
-  /** 原始文件大小(字节) */
-  size?: number
-}
+import type { ReferenceType, ReferenceItem } from '@/hooks/use-message-references'
 
 interface ContextReferencePanelProps {
   references: ReferenceItem[]
@@ -59,7 +47,7 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
         ) : (
           references.map((ref) => {
             const meta = TYPE_META[ref.type]
-            const Icon = meta.icon
+            const Icon = ref.icon ?? meta.icon
             const isOpen = expanded.has(ref.id)
             const hasPreview = Boolean(ref.preview) || Boolean(ref.thumbnail)
             const hasThumbnail = Boolean(ref.thumbnail)
@@ -83,7 +71,7 @@ export function ContextReferencePanel({ references, onRemove }: ContextReference
                       preload="metadata"
                     />
                   ) : (
-                    <Icon className={cn('h-4 w-4 shrink-0', meta.cls)} />
+                    <Icon className={cn('h-4 w-4 shrink-0', ref.iconColor ?? meta.cls)} />
                   )}
                   <button
                     type="button"
