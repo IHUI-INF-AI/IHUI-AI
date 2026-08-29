@@ -6,6 +6,7 @@ import {
   integer,
   timestamp,
   jsonb,
+  boolean,
   unique,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
@@ -30,6 +31,9 @@ export const chatConversations = pgTable('chat_conversations', {
   archivedAt: timestamp('archived_at', { withTimezone: true }),
   compressedAt: timestamp('compressed_at', { withTimezone: true }),
   compressedContext: text('compressed_context'),
+  // 2026-08-30 立:会话置顶。pinned=true 时按 pinnedAt 倒序排在列表最前;取消置顶置回 null。
+  pinned: boolean('pinned').default(false).notNull(),
+  pinnedAt: timestamp('pinned_at', { withTimezone: true }),
   // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
   // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
   shareToken: varchar('share_token', { length: 32 }).unique(),
