@@ -15,7 +15,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "latest"
     },
     {
       "id": "stepfun/step-3.7-flash",
@@ -43,7 +44,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "latest"
     },
     {
       "id": "agnes/agnes-2.5-pro",
@@ -57,7 +59,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "latest"
     },
     {
       "id": "gemini/gemini-2.5-flash",
@@ -71,7 +74,8 @@
         "supports_vision": true,
         "max_context": 1048576,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "standard"
     },
     {
       "id": "gemini/gemini-2.0-flash",
@@ -113,7 +117,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "standard"
     },
     {
       "id": "openrouter/auto",
@@ -127,7 +132,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "latest"
     },
     {
       "id": "gpt-4o",
@@ -1192,7 +1198,8 @@
         "supports_vision": false,
         "max_context": 128000,
         "protocol": "openai_chat"
-      }
+      },
+      "model_tier": "standard"
     },
     {
       "id": "nvidia/deepseek-ai/deepseek-v4-flash",

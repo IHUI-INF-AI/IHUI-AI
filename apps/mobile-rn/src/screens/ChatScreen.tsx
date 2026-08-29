@@ -22,7 +22,7 @@
  *
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAudioPlayer } from 'expo-audio'
 import * as DocumentPicker from 'expo-document-picker'
 import { File, Paths } from 'expo-file-system'
@@ -41,6 +41,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native'
 import type { FlatList } from 'react-native'
 import Clipboard from '@react-native-clipboard/clipboard'
@@ -120,7 +121,7 @@ import {
   type DrawerTab,
 } from '../components/Drawer'
 import { ModelConfigDialog, type ModelConfig } from '../components/ModelConfigDialog'
-import ModelList, { type ModelListGroup } from '../components/ModelList'
+import ModelPickerList, { type ModelListItem } from '../components/ModelPickerList'
 import AgentList, { type AgentListItem } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -362,6 +363,11 @@ export function ChatScreen() {
     systemPrompt: '',
     streamEnabled: true,
   })
+  // RN 0.86 Fabric:百分比 maxHeight 不会给子节点确定高度,内部列表无法滚动 →
+  // 用 useWindowDimensions 算出确定高度,并同步覆盖 listDialogContent 的 maxHeight:'70%'
+  // (两者不一致会被 maxHeight 截断,导致底部内容被 overflow:hidden 裁掉)
+  const { height: windowHeight } = useWindowDimensions()
+  const modelPickerHeight = Math.round(windowHeight * 0.7)
 
   // ── 模型/对话状态 ──
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
@@ -1736,22 +1742,23 @@ export function ChatScreen() {
   // ── 素材库列表(getMyCreation 按分类映射 agent/plugin/workflow 我的创作,对齐 Uniapp loadMaterialContent) ──
   // (materialItems/materialLoading 为 state,见组件顶部)
 
-  // ── ModelList groups(由 models 派生,对齐 Uniapp ModelList 按 vendor 分组) ──
-  const modelListGroups: ModelListGroup[] =
-    models.length > 0
-      ? [
-          {
-            vendor: '可用模型',
-            models: models.map((m) => ({
-              id: m.id,
-              name: m.name,
-              description: m.provider ?? '',
-              icon: Bot,
-              isFree: !m.input_price,
-            })),
-          },
-        ]
-      : []
+  // ── 模型选择器条目(由 models 派生) ──
+  // category / modelTier 原样透传给 ModelPickerList:默认只展示 latest + 对话/视觉类,
+  // 其余(历史版本 + embedding/rerank/TTS/ASR/图像等非对话模型)收进「历史模型」折叠区。
+  // 字段缺失(老后端/降级 FALLBACK_MODELS)时由共享层兜底为 latest+chat,不会误藏模型。
+  const modelPickerItems: ModelListItem[] = useMemo(
+    () =>
+      models.map((m) => ({
+        id: m.id,
+        name: m.name,
+        description: m.provider ?? '',
+        icon: Bot,
+        isFree: !m.input_price,
+        category: m.category,
+        modelTier: m.model_tier,
+      })),
+    [models],
+  )
 
   // ── AgentList items(由 agents 派生,对齐 Uniapp getCozeApiList → AgentList) ──
   const agentListItems: AgentListItem[] = agents.map((a) => ({
@@ -2219,9 +2226,15 @@ export function ChatScreen() {
         onRequestClose={() => setModelListVisible(false)}
       >
         <Pressable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[
+              styles.listDialogContent,
+              { height: modelPickerHeight, maxHeight: modelPickerHeight },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
-              <Text style={styles.listDialogTitle}>选择模型</Text>
+              <Text style={styles.listDialogTitle}>{t('chat.selectModel')}</Text>
               <Pressable
                 hitSlop={8}
                 onPress={() => setModelListVisible(false)}
@@ -2230,8 +2243,8 @@ export function ChatScreen() {
                 <X size={20} color={tokens.text.primary} />
               </Pressable>
             </View>
-            <ModelList
-              groups={modelListGroups}
+            <ModelPickerList
+              items={modelPickerItems}
               selectedIds={[model]}
               onSelectChange={(ids) => {
                 const next = ids[0]

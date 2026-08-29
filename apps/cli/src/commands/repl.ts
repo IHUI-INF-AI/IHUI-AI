@@ -88,16 +88,80 @@ import {
 import { PromptQueue, type PromptQueueItem } from '../prompt-queue.js';
 import { fetchModels, type LlmModel } from '@ihui/api-client';
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS } from '@ihui/shared';
+import {
+  MODEL_CATEGORY_META,
+  isArchivedModel,
+  normalizeCategory,
+  normalizeTier,
+  type ModelUsageCategory,
+} from '@ihui/shared/constants/model-catalog';
 
 // 共享层兜底模型(FallbackModel:value/label/vendor)→ LlmModel 形态
 // 2026-08-04 Phase E 收敛:17 个硬编码模型收敛到共享层 3 个(AGENTS.md §3)
+// 2026-08-29:兜底模型是人工挑选的当前可用主力,按"最新对话模型"标注
 const FALLBACK_MODELS: LlmModel[] = SHARED_FALLBACK_MODELS.map((m) => ({
   id: m.value,
   name: m.label,
   provider: m.vendor,
   context_length: 8192,
   input_price: 0,
+  category: 'chat' as ModelUsageCategory,
+  model_tier: 'latest',
 }));
+
+/** "历史模型"二级菜单入口的哨兵值(不会与真实模型 id 冲突) */
+const HISTORY_ENTRY_VALUE = '__ihui_history_models__';
+
+/**
+ * 用途分类中文标签。
+ * CLI 没有 i18n 体系(全中文输出,与该文件既有风格一致),故直接本地映射;
+ * 文案与 packages/i18n/messages/*\/chat.json 的 modelCategory* 键逐条对齐。
+ */
+const CATEGORY_LABELS: Record<ModelUsageCategory, string> = {
+  chat: '对话推理',
+  vision: '视觉理解',
+  embedding: '向量嵌入',
+  rerank: '重排序',
+  tts: '语音合成',
+  asr: '语音识别',
+  image: '图像生成',
+  video: '视频生成',
+  guard: '安全审核',
+  ocr: '文字识别',
+  other: '其他',
+};
+
+function categoryLabel(category: ModelUsageCategory): string {
+  return CATEGORY_LABELS[category] ?? CATEGORY_LABELS.other;
+}
+
+/**
+ * 按代次拆分模型(2026-08-29 立):
+ * 只有「latest + 对话类」进默认列表,其余(历史过时版本 + 嵌入/语音/图像等专用模型)
+ * 收进历史模型区,并按用途分类排序。判定规则来自后端 model_catalog,此处只做消费。
+ */
+function splitModelTiers(models: LlmModel[]): { primary: LlmModel[]; archived: LlmModel[] } {
+  const primary: LlmModel[] = [];
+  const archived: LlmModel[] = [];
+  for (const m of models) {
+    if (isArchivedModel(normalizeCategory(m.category), normalizeTier(m.model_tier))) {
+      archived.push(m);
+    } else {
+      primary.push(m);
+    }
+  }
+  // 组内:standard 在前 legacy 在后,再按名称
+  archived.sort((a, b) => {
+    const ca = MODEL_CATEGORY_META[normalizeCategory(a.category)].order;
+    const cb = MODEL_CATEGORY_META[normalizeCategory(b.category)].order;
+    if (ca !== cb) return ca - cb;
+    const ta = normalizeTier(a.model_tier);
+    const tb = normalizeTier(b.model_tier);
+    if (ta !== tb) return ta === 'legacy' ? 1 : -1;
+    return (a.name || a.id).localeCompare(b.name || b.id);
+  });
+  return { primary, archived };
+}
 
 /** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致 */
 async function loadAvailableModels(): Promise<LlmModel[]> {
@@ -783,7 +847,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
       break;
 
     case 'models':
-      await handleModelsList(state);
+      // 2026-08-29:支持 `/models --all` 查看历史/专用模型(默认只看最新最强)
+      await handleModelsList(state, args.includes('--all') || args.includes('-a'));
       break;
 
     case 'workspace':
@@ -1405,14 +1470,38 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
   }
 }
 
+/**
+ * 交互式模型选择(2026-08-29 改造)
+ *
+ * 后端 /llm/models 会返回上千个模型,绝大多数是历史过时版本和嵌入/语音/图像等
+ * 非对话专用模型。默认只列「最新最强 + 对话类」,末尾给一个"历史模型 (N)"入口,
+ * 选中后进入二级列表(标注用途分类)—— 与 Web / mobile-rn / 小程序口径一致。
+ * 后端未返回分类字段时(老后端/兜底列表)一律按最新模型处理,不隐藏任何模型。
+ */
 async function interactiveModelSelect(state: ReplState): Promise<void> {
   try {
     const models = await loadAvailableModels();
-    const choices = models.map((m) => ({
+    const { primary, archived } = splitModelTiers(models);
+
+    const toChoice = (m: LlmModel) => ({
       name: `${m.name || m.id}  ${chalk.dim(`[${m.provider}]`)}`,
       value: m.id,
       short: m.id,
-    }));
+    });
+
+    // 兜底:默认区为空时(分类字段缺失或整批被判非 latest)直接列全部,避免空菜单
+    const useTierSplit = primary.length > 0 && archived.length > 0;
+    const choices = useTierSplit
+      ? [
+          ...primary.map(toChoice),
+          {
+            name: chalk.dim(`历史模型 (${archived.length}) — 展开历史版本与专用模型`),
+            value: HISTORY_ENTRY_VALUE,
+            short: '历史模型',
+          },
+        ]
+      : models.map(toChoice);
+
     const answers = await inquirer.prompt([
       {
         type: 'select',
@@ -1423,6 +1512,26 @@ async function interactiveModelSelect(state: ReplState): Promise<void> {
         pageSize: 15,
       },
     ]);
+
+    // 选中"历史模型"入口 → 进入二级列表
+    if (answers.model === HISTORY_ENTRY_VALUE) {
+      const archivedChoices = archived.map((m) => ({
+        name: `${m.name || m.id}  ${chalk.dim(`[${m.provider} · ${categoryLabel(normalizeCategory(m.category))}]`)}`,
+        value: m.id,
+        short: m.id,
+      }));
+      const picked = await inquirer.prompt([
+        {
+          type: 'select',
+          name: 'model',
+          message: `历史模型(${archived.length} 个):`,
+          choices: archivedChoices,
+          pageSize: 15,
+        },
+      ]);
+      answers.model = picked.model;
+    }
+
     state.opts.modelId = answers.model;
     if (state.session) {
       state.session.modelId = answers.model;
@@ -1435,25 +1544,47 @@ async function interactiveModelSelect(state: ReplState): Promise<void> {
 }
 
 /** /models 命令:列出所有可用模型(从后端拉取,FALLBACK 兜底)— 与其他端模型列表展示对齐 */
-async function handleModelsList(state: ReplState): Promise<void> {
+/**
+ * /models 命令:列出可用模型(2026-08-29 改造)
+ *
+ * 默认只列「最新最强 + 对话类」并标注用途分类;历史过时版本与专用模型单独收在
+ * 末尾"历史模型"区块,不混进主列表。加 `--all` 可查看全量(与 models 命令一致)。
+ */
+async function handleModelsList(state: ReplState, showAll = false): Promise<void> {
   const models = await loadAvailableModels();
-  console.info(chalk.cyan(`\n📋 可用模型(${models.length} 个):`));
-  const byProvider = new Map<string, LlmModel[]>();
-  for (const m of models) {
-    const list = byProvider.get(m.provider) ?? [];
-    list.push(m);
-    byProvider.set(m.provider, list);
-  }
-  const providers = [...byProvider.keys()].sort();
-  for (const p of providers) {
-    const list = byProvider.get(p)!;
-    console.info(chalk.magenta(`\n  ${p} · ${list.length} 个`));
-    for (const m of list) {
-      const current = m.id === state.opts.modelId ? chalk.green(' ✓') : '';
-      const ctx = chalk.dim(` (${(m.context_length / 1000).toFixed(0)}k)`);
-      console.info(`    ${chalk.bold(m.name || m.id)}${ctx}${current}`);
-      if (m.name && m.id !== m.name) console.info(chalk.dim(`      id: ${m.id}`));
+  const { primary, archived } = splitModelTiers(models);
+  const list = showAll ? models : primary;
+
+  const renderList = (items: LlmModel[]): void => {
+    const byProvider = new Map<string, LlmModel[]>();
+    for (const m of items) {
+      const group = byProvider.get(m.provider) ?? [];
+      group.push(m);
+      byProvider.set(m.provider, group);
     }
+    for (const p of [...byProvider.keys()].sort()) {
+      const group = byProvider.get(p)!;
+      console.info(chalk.magenta(`\n  ${p} · ${group.length} 个`));
+      for (const m of group) {
+        const current = m.id === state.opts.modelId ? chalk.green(' ✓') : '';
+        const ctx = chalk.dim(` (${(m.context_length / 1000).toFixed(0)}k)`);
+        const tierTag =
+          m.model_tier === 'latest' ? '' : chalk.dim(` [${categoryLabel(normalizeCategory(m.category))}]`);
+        console.info(`    ${chalk.bold(m.name || m.id)}${ctx}${tierTag}${current}`);
+        if (m.name && m.id !== m.name) console.info(chalk.dim(`      id: ${m.id}`));
+      }
+    }
+  };
+
+  console.info(chalk.cyan(`\n📋 最新最强模型(${primary.length} 个,共 ${models.length} 个可用):`));
+  renderList(list);
+
+  if (!showAll && archived.length > 0) {
+    console.info(
+      chalk.dim(
+        `\n  另有 ${archived.length} 个历史/专用模型已折叠(过时版本 + 嵌入·语音·图像等),用 /models --all 查看`,
+      ),
+    );
   }
   console.info('');
 }

@@ -167,7 +167,21 @@
     "navOrder": "주문",
     "navProfile": "내 정보",
     "navSettings": "설정",
-    "navLogout": "로그아웃"
+    "navLogout": "로그아웃",
+    "modelHistoryToggle": "이전 모델",
+    "modelHistorySearch": "이전 모델 검색",
+    "modelHistoryEmpty": "일치하는 모델이 없습니다",
+    "modelCategoryChat": "대화·추론",
+    "modelCategoryVision": "비전 이해",
+    "modelCategoryEmbedding": "임베딩",
+    "modelCategoryRerank": "리랭크",
+    "modelCategoryTts": "음성 합성",
+    "modelCategoryAsr": "음성 인식",
+    "modelCategoryImage": "이미지 생성",
+    "modelCategoryVideo": "비디오 생성",
+    "modelCategoryGuard": "안전 필터",
+    "modelCategoryOcr": "문자 인식",
+    "modelCategoryOther": "기타"
   },
   "settings": {
     "title": "설정",
