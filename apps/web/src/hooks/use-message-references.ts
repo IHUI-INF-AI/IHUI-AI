@@ -17,6 +17,10 @@ export interface ReferenceItem {
   thumbnail?: string
   /** 原始文件大小(字节),用于在 label 中显示尺寸信息 */
   size?: number
+  /** 自定义图标(覆盖 type 默认图标) */
+  icon?: React.ComponentType<{ className?: string }>
+  /** 自定义图标颜色 class */
+  iconColor?: string
 }
 
 const MAX_LABEL_LENGTH = 30

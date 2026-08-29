@@ -170,16 +170,16 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
         {hasDetail && (
           <ChevronRight
             className={cn(
-              'h-2 w-2 shrink-0 text-muted-foreground/60 transition-transform duration-150',
+              'h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform duration-150',
               expanded && 'rotate-90',
             )}
           />
         )}
-        {!hasDetail && <span className="w-2 shrink-0" />}
-        <CatIcon className={cn('h-2.5 w-2.5 shrink-0', CATEGORY_CLS[cat])} />
+        {!hasDetail && <span className="w-3 shrink-0" />}
+        <CatIcon className={cn('h-3.5 w-3.5 shrink-0', CATEGORY_CLS[cat])} />
         <StatusIcon
           className={cn(
-            'h-2.5 w-2.5 shrink-0',
+            'h-3.5 w-3.5 shrink-0',
             TOOL_STATUS_CLS[tool.status],
             tool.status === 'running' && 'animate-spin',
           )}
@@ -187,25 +187,25 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
         {/* v15: 类别徽章(对标 Trae Work)— read/search/write/exec 紧凑色标 */}
         <span
           className={cn(
-            'shrink-0 rounded-sm px-1 text-[9px] font-medium uppercase tracking-wider',
+            'shrink-0 rounded-sm px-1 text-[10px] font-medium uppercase tracking-wider',
             CATEGORY_BADGE_CLS[cat],
           )}
           data-testid={`tool-cat-${tool.id}`}
         >
           {t(CATEGORY_TKEY[cat])}
         </span>
-        <code className="shrink-0 font-mono text-[10px] text-muted-foreground">
+        <code className="shrink-0 font-mono text-[11px] text-muted-foreground">
           {tool.toolName}
         </code>
         {argPreview && (
           <Tooltip content={argPreview}>
-            <span className="flex-1 truncate font-mono text-[10px] text-muted-foreground/70">
+            <span className="flex-1 truncate font-mono text-[11px] text-muted-foreground/70">
               {argPreview}
             </span>
           </Tooltip>
         )}
         {tool.durationMs !== undefined && tool.status !== 'running' && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground/70">
             {formatDuration(tool.durationMs)}
           </span>
         )}
@@ -217,7 +217,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
           style={{ gridTemplateRows: expanded ? '1fr' : '0fr' }}
         >
           <div className="overflow-hidden">
-            <div className="space-y-1 px-3 pb-1 pt-0.5 text-[10px] leading-relaxed">
+            <div className="space-y-1 px-3 pb-1 pt-0.5 text-[11px] leading-relaxed">
               {Object.keys(tool.args).length > 0 && (
                 <div>
                   <div className="flex items-center gap-1">
@@ -228,7 +228,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                       data-testid={`tool-copy-args-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/60 p-1 font-mono text-[10px] text-muted-foreground/90">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-muted/60 p-1 font-mono text-[11px] text-muted-foreground/90">
                     {truncateForDisplay(formatArgsJson(tool.args))}
                   </pre>
                 </div>
@@ -247,7 +247,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                   </div>
                   <pre
                     className={cn(
-                      'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[10px]',
+                      'mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm p-1 font-mono text-[11px]',
                       tool.status === 'error'
                         ? 'bg-red-500/10 text-red-500/90'
                         : 'bg-muted/60 text-muted-foreground/90',
@@ -267,7 +267,7 @@ export const ToolCallItem = React.memo(function ToolCallItem({ tool }: { tool: A
                       data-testid={`tool-copy-error-${tool.id}`}
                     />
                   </div>
-                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[10px] text-red-500/90">
+                  <pre className="mt-0.5 max-h-24 overflow-auto whitespace-pre-wrap break-all rounded-sm bg-red-500/10 p-1 font-mono text-[11px] text-red-500/90">
                     {tool.error}
                   </pre>
                 </div>
@@ -373,8 +373,8 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
       icon={Wrench}
       data-testid="tool-calls-section"
     >
-      <div className="space-y-0.5 text-[11px] leading-relaxed">
-        {summary && <div className="text-[10px] text-muted-foreground/60">{summary}</div>}
+      <div className="space-y-0.5 text-xs leading-relaxed">
+        {summary && <div className="text-[11px] text-muted-foreground/60">{summary}</div>}
         {/* v11: 状态过滤 chips(有失败/运行中时显示) */}
         {showStatusFilter && (
           <div className="flex items-center gap-0.5" data-testid="tool-status-filter">
@@ -388,7 +388,7 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
                   onClick={() => setStatusFilter(f)}
                   aria-pressed={statusFilter === f}
                   className={cn(
-                    'rounded-sm px-1 py-0.5 text-[10px] transition-colors',
+                    'rounded-sm px-1 py-0.5 text-[11px] transition-colors',
                     statusFilter === f
                       ? 'bg-primary/10 text-primary'
                       : 'text-muted-foreground/60 hover:bg-accent/40 hover:text-foreground',
@@ -404,13 +404,13 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
         {/* v9: 搜索框(工具数量>5时显示) */}
         {tools.length > 5 && (
           <div className="relative mb-1">
-            <Search className="absolute left-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-muted-foreground/60" />
+            <Search className="absolute left-1 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground/60" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t('tools.searchPlaceholder')}
-              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[10px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/50"
+              className="w-full rounded-sm border border-border/60 bg-muted/50 py-0.5 pl-5 pr-2 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring/50"
               data-testid="tool-search-input"
             />
           </div>
@@ -419,12 +419,12 @@ export const ToolCallsSection = React.memo(function ToolCallsSection({
           <ToolCallItem key={tool.id} tool={tool} />
         ))}
         {filteredTools.length > 10 && (
-          <div className="text-[10px] text-muted-foreground/60">
+          <div className="text-[11px] text-muted-foreground/60">
             {t('tools.moreItems', { n: filteredTools.length - 10 })}
           </div>
         )}
         {searchQuery && filteredTools.length === 0 && (
-          <div className="text-[10px] text-muted-foreground/60">{t('tools.noMatch')}</div>
+          <div className="text-[11px] text-muted-foreground/60">{t('tools.noMatch')}</div>
         )}
       </div>
     </FoldableSection>
