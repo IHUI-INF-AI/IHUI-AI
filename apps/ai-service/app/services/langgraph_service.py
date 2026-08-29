@@ -116,6 +116,7 @@ class LangGraphService:
         """
         try:
             from langgraph.graph import StateGraph, END
+            from langgraph.checkpoint.memory import MemorySaver
 
             # 真正构建 StateGraph
             workflow = StateGraph(GraphState)
@@ -162,8 +163,10 @@ class LangGraphService:
             # error 分支直接结束(不保存记忆,避免错误状态污染)
             workflow.add_edge("error", END)
 
-            # 编译图
-            self._graph = workflow.compile()
+            # 编译图 + 进程内 checkpointer(MemorySaver 仅内存,进程重启丢失;
+            # 生产可替换为 langgraph-checkpoint-postgres 的 PostgresSaver 做持久化,
+            # 接口一致:workflow.compile(checkpointer=postgres_saver))
+            self._graph = workflow.compile(checkpointer=MemorySaver())
             self._available = True
         except ImportError:
             self._available = False
@@ -554,22 +557,10 @@ class LangGraphService:
 
         图结构:memory_load → plan → execute* → summarize → memory_save → END
         memory_context 由 memory_load 节点填充,各节点从 state 读取。
+        checkpointer 已挂载,必须带 thread_id config(用 session_id 隔离会话)。
         """
-        initial_state: GraphState = {
-            "goal": goal,
-            "session_id": session_id,
-            "user_id": user_id,
-            "model": model,
-            "plan": [],
-            "results": [],
-            "summary": "",
-            "error": None,
-            "step_index": 0,
-            "iterations": 0,
-            "status": "planning",
-            "trace": [],
-            "memory_context": "",
-        }
+        initial_state = self._build_initial_state(goal, session_id, model, user_id)
+        config = self._graph_config(session_id)
 
         try:
             if self._graph is None:
@@ -579,7 +570,7 @@ class LangGraphService:
                     "session_id": session_id,
                     "user_id": user_id,
                 }
-            final_state = await self._graph.ainvoke(initial_state)
+            final_state = await self._graph.ainvoke(initial_state, config=config)
             return self._build_result_from_state(final_state)
         except asyncio.CancelledError:
             raise
@@ -662,18 +653,292 @@ class LangGraphService:
             state.status = "failed"
             return self._build_result(state)
 
+    # =========================================================================
+    # 编译图流式路径(checkpointer + HITL / 断点续跑)
+    # =========================================================================
+
+    def _build_initial_state(
+        self, goal: str, session_id: str, model: str | None, user_id: str
+    ) -> GraphState:
+        """构造图初始状态。"""
+        return {
+            "goal": goal,
+            "session_id": session_id,
+            "user_id": user_id,
+            "model": model,
+            "plan": [],
+            "results": [],
+            "summary": "",
+            "error": None,
+            "step_index": 0,
+            "iterations": 0,
+            "status": "planning",
+            "trace": [],
+            "memory_context": "",
+        }
+
+    def _graph_config(
+        self, session_id: str, checkpoint_id: str | None = None
+    ) -> dict[str, Any]:
+        """构造图执行 config。
+
+        - thread_id 用 session_id 隔离会话(checkpointer 要求)
+        - recursion_limit 随最大迭代次数放大,避免长计划触发超限
+        - checkpoint_id 指定断点(可选,HITL / 断点续跑用)
+        """
+        recursion_limit = max(25, (settings.max_agent_iterations + 5) * 2)
+        configurable: dict[str, Any] = {"thread_id": session_id}
+        if checkpoint_id:
+            configurable["checkpoint_id"] = checkpoint_id
+        return {"recursion_limit": recursion_limit, "configurable": configurable}
+
+    async def _stream_with_graph(
+        self,
+        goal: str,
+        session_id: str,
+        model: str | None,
+        user_id: str = "",
+        resume_checkpoint_id: str | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """图路径:真正用编译图 + checkpointer 执行,把 updates 映射为 SSE 事件。
+
+        断点续跑(HITL):
+        - resume_checkpoint_id 指定线程 checkpoint,aget_state 检查是否有待执行节点;
+        - 有待执行节点 → astream(None) 从断点继续(跳过已完成节点,自然跳过 plan);
+        - 无待执行节点且线程已结束 → 直接输出终态事件,不重复执行;
+        - 无有效状态 → 从头执行。
+        """
+        if self._graph is None:
+            raise RuntimeError("graph not initialized")
+
+        config = self._graph_config(session_id, resume_checkpoint_id)
+        initial_state = self._build_initial_state(goal, session_id, model, user_id)
+
+        graph_input: Any = initial_state
+        resuming = False
+        if resume_checkpoint_id:
+            snapshot = await self._safe_aget_state(config)
+            if snapshot is not None:
+                next_nodes = tuple(getattr(snapshot, "next", None) or ())
+                if next_nodes:
+                    # 有未完成节点 → 从断点恢复执行(不重跑 plan)
+                    resuming = True
+                    graph_input = None
+                else:
+                    values = getattr(snapshot, "values", None) or {}
+                    if values.get("status") == "completed" or values.get("summary"):
+                        # 线程已完整结束,无待执行节点 → 输出终态,不再执行
+                        trace = values.get("trace", []) or []
+                        yield {"type": "status", "status": "completed"}
+                        yield {
+                            "type": "trace_summary",
+                            "trace": trace,
+                            "total_nodes": len(trace),
+                            "total_duration_ms": round(
+                                sum(t.get("duration_ms", 0) for t in trace), 2
+                            ),
+                        }
+                        return
+
+        pre_events: list[dict[str, Any]] = []
+        if not resuming:
+            pre_events = [
+                {"type": "message", "role": "user", "content": goal},
+                {"type": "status", "status": "planning"},
+                {"type": "thinking", "message": "正在规划执行步骤..."},
+            ]
+
+        final_state: GraphState = dict(initial_state)
+        started = False
+        try:
+            async for chunk in self._graph.astream(
+                graph_input, config=config, stream_mode="updates"
+            ):
+                if not isinstance(chunk, dict):
+                    continue
+                if not started:
+                    started = True
+                    # 首个 update 通常是 memory_load:记忆上下文在 user 消息前输出
+                    first_update = next(iter(chunk.values()), None) if chunk else None
+                    if isinstance(first_update, dict) and user_id:
+                        mc = first_update.get("memory_context", "")
+                        if mc:
+                            yield {"type": "memory_context", "content": mc}
+                    for evt in pre_events:
+                        yield evt
+                for node_name, update in chunk.items():
+                    if isinstance(update, dict):
+                        final_state.update(update)
+                    async for evt in self._map_graph_update(node_name, update, user_id):
+                        yield evt
+        except asyncio.CancelledError:
+            # checkpointer 已保存已完成节点状态,后续可用 resume_checkpoint_id 续跑
+            yield {"type": "status", "status": "canceled"}
+            raise
+
+        # 图正常跑完(未抛异常)
+        if not started:
+            # 断点恢复但线程无任何新输出:无待执行节点(理论上已被 completed
+            # 分支拦截),这里兜底返回,避免产生误导性的完成事件。
+            return
+        if final_state.get("status") == "failed":
+            # error 事件已由 error 节点映射产出
+            return
+        yield {"type": "status", "status": "completed"}
+        trace = final_state.get("trace", [])
+        yield {
+            "type": "trace_summary",
+            "trace": trace,
+            "total_nodes": len(trace),
+            "total_duration_ms": round(
+                sum(t.get("duration_ms", 0) for t in trace), 2
+            ),
+        }
+
+    async def _safe_aget_state(self, config: dict[str, Any]) -> Any:
+        """带容错的 aget_state(断点检查失败不阻塞图执行)。"""
+        try:
+            return await self._graph.aget_state(config)  # type: ignore[union-attr]
+        except Exception as e:
+            logger.warning("langgraph_service.aget_state 检查断点失败: %s", e)
+            return None
+
+    async def _map_graph_update(
+        self, node: str, update: Any, user_id: str
+    ) -> AsyncIterator[dict[str, Any]]:
+        """把一个图节点 update 映射为 SSE 事件序列(对齐手动路径事件格式)。
+
+        事件顺序对齐手动路径:
+        plan → plan/trace/status executing;execute → step_start/step_done/trace;
+        summarize → status summarizing/thinking/summary/trace;
+        memory_save → trace;error → error。
+        """
+        if not isinstance(update, dict):
+            return
+        if node == "memory_load":
+            # memory_context 已在首个 update 输出;这里只补 memory_load trace
+            for evt in self._trace_event_from_update(update, "memory_load"):
+                yield evt
+        elif node == "plan":
+            yield {"type": "plan", "steps": update.get("plan", [])}
+            for evt in self._trace_event_from_update(update, "plan"):
+                yield evt
+            if update.get("plan"):
+                yield {"type": "status", "status": "executing"}
+        elif node == "execute":
+            plan = update.get("plan", []) or []
+            results = update.get("results", []) or []
+            step_num = len(results)
+            last = results[-1] if results else {}
+            yield {
+                "type": "step_start",
+                "step": step_num,
+                "total": len(plan),
+                "plan": (
+                    plan[step_num - 1]
+                    if 0 < step_num <= len(plan)
+                    else (last.get("plan") or "")
+                ),
+            }
+            yield {
+                "type": "step_done",
+                "step": step_num,
+                "result": last.get("result", ""),
+                "stub": last.get("stub", False),
+            }
+            for evt in self._trace_event_from_update(update, "execute"):
+                yield evt
+        elif node == "summarize":
+            yield {"type": "status", "status": "summarizing"}
+            yield {"type": "thinking", "message": "正在总结执行结果..."}
+            yield {"type": "summary", "content": update.get("summary", "")}
+            for evt in self._trace_event_from_update(update, "summarize"):
+                yield evt
+        elif node == "memory_save":
+            # 与手动路径一致:仅在有 user_id(记忆已启用)时输出 memory_save trace
+            if user_id:
+                for evt in self._trace_event_from_update(update, "memory_save"):
+                    yield evt
+        elif node == "error":
+            yield {"type": "error", "message": update.get("error", "未知错误")}
+
+    def _trace_event_from_update(
+        self, update: dict[str, Any], node: str
+    ) -> list[dict[str, Any]]:
+        """从节点 update 的 trace 列表中提取当前节点的 trace 事件(对齐手动格式)。
+
+        手动路径的 trace 事件只带少数字段(node/duration_ms/plan_length 等),
+        这里从 _trace_entry 记录透传同名字段,保持前端兼容。
+        """
+        trace = update.get("trace", []) if isinstance(update, dict) else []
+        entry = None
+        for t in reversed(trace):
+            if isinstance(t, dict) and t.get("node") == node:
+                entry = t
+                break
+        if entry is None:
+            return []
+        evt: dict[str, Any] = {
+            "type": "trace",
+            "node": entry.get("node", node),
+            "duration_ms": entry.get("duration_ms", 0),
+        }
+        for key in (
+            "plan_length", "stub", "step", "total_steps", "iterations",
+            "results_count", "summary_length", "status", "error",
+            "memory_loaded", "memory_length", "deep_extracted", "fallback_used",
+        ):
+            if key in entry:
+                evt[key] = entry[key]
+        return [evt]
+
     async def run_graph_stream(
         self,
         goal: str,
         session_id: str | None = None,
         model: str | None = None,
         user_id: str = "",
+        resume_checkpoint_id: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """流式运行工作流,yield 每个节点的事件(含 trace)。
 
         完整流程:memory_load → plan → execute → summarize → memory_save
+        双路径:
+        - 优先走编译图 + checkpointer(self._graph.astream),支持 HITL / 断点续跑
+          (resume_checkpoint_id 从指定 checkpoint 恢复,跳过已完成节点)。
+          图事件被映射为与手动路径一致的 SSE 事件序列。
+        - 图执行失败(异常)时降级为手动状态机(保留原逻辑作为 fallback)。
         """
         session_id = session_id or f"session-{int(datetime.utcnow().timestamp())}"
+        if self._available and self._graph:
+            try:
+                async for event in self._stream_with_graph(
+                    goal, session_id, model, user_id, resume_checkpoint_id
+                ):
+                    yield event
+                return
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(
+                    "langgraph_service.run_graph_stream 图路径失败,降级手动状态机: %s",
+                    e, exc_info=True,
+                )
+        async for event in self._stream_manual(goal, session_id, model, user_id):
+            yield event
+
+    async def _stream_manual(
+        self,
+        goal: str,
+        session_id: str,
+        model: str | None,
+        user_id: str = "",
+    ) -> AsyncIterator[dict[str, Any]]:
+        """降级路径:手动状态机流式执行(原 run_graph_stream 逻辑)。
+
+        memory_load / memory_save 只在此路径手工读写;
+        图路径的 memory_load / memory_save 由图中节点完成。
+        """
         state = WorkflowState(goal, session_id, model)
         state.user_id = user_id
 
