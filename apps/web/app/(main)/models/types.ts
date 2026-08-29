@@ -1,3 +1,5 @@
+import type { ModelTier, ModelUsageCategory } from '@ihui/shared'
+
 export type Provider =
   // 国际原厂
   | 'openai'
@@ -128,6 +130,17 @@ export interface Model {
   relayPriceMultiplier?: number
   /** 中转站展示名(为空时用 name/id) */
   relayDisplayName?: string
+  // --- 模型分类(2026-08-29 立,后端 model_catalog 产出)---
+  /**
+   * 用途分类:chat/vision/embedding/rerank/tts/asr/image/video/guard/ocr/other。
+   * 决定"这模型是干什么的",聊天场景只有 chat/vision 可用。
+   */
+  category?: ModelUsageCategory
+  /**
+   * 代次档位:latest=最新最强 / standard=可用但非最新 / legacy=已过时。
+   * 可选:老后端可能没有,缺失时按 latest 处理(宁可多显示也不误藏)。
+   */
+  modelTier?: ModelTier
 }
 
 /**

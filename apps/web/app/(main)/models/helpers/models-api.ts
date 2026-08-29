@@ -1,5 +1,7 @@
 import { fetchApi } from '@/lib/api'
+import { normalizeCategory, normalizeTier } from '@ihui/shared'
 import type { Model, Provider } from '../types'
+import type { ModelTier, ModelUsageCategory } from '@ihui/shared'
 import { HIGHLIGHT_MODEL_IDS, MODEL_DESCRIPTIONS } from './model-meta'
 
 function enrichModel(m: Model): Model {
@@ -27,6 +29,9 @@ export async function fetchModels(): Promise<Model[]> {
           provider: Provider
           context_length: number
           input_price: number
+          /** 2026-08-29 立:后端 model_catalog 分类字段(老后端无此字段) */
+          category?: ModelUsageCategory
+          model_tier?: ModelTier
         }>
       }>('/api/llm/models'),
       // P0-5g 并发拉取中转站已上架模型清单(失败时降级空清单,不阻塞主流程)
@@ -66,6 +71,9 @@ export async function fetchModels(): Promise<Model[]> {
         relayPublic: !!relay,
         relayPriceMultiplier: relay?.multiplier ?? 1,
         relayDisplayName: relay?.displayName ?? undefined,
+        // 2026-08-29 立:用途分类 + 代次档位(缺失时归一化为 chat/latest)
+        category: normalizeCategory(m.category),
+        modelTier: normalizeTier(m.model_tier),
       }
     })
     return enrichModels(list)

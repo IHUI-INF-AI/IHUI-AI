@@ -21,6 +21,7 @@ import {
   Trophy,
   Zap,
   Cable,
+  History,
 } from 'lucide-react'
 
 import {
@@ -41,6 +42,13 @@ import { providerToTemplateCode, hasPresetTemplate } from '@/lib/llm-templates'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
+import {
+  MODEL_CATEGORY_META,
+  isArchivedModel,
+  normalizeCategory,
+  normalizeTier,
+  type ModelUsageCategory,
+} from '@ihui/shared'
 
 import { ModelDetailDialog } from './ModelDetailDialog'
 import { QuickKeyDialog } from './QuickKeyDialog'
@@ -103,6 +111,12 @@ export function ModelsMarketplace({ list }: Props) {
 
   const [query, setQuery] = React.useState('')
   const [quickFilter, setQuickFilter] = React.useState<QuickFilter | 'all'>('all')
+  /**
+   * 2026-08-29 立:默认"只看最新最强"。
+   * 后端同步进来的模型有上千个,绝大多数是历史过时版本和嵌入/语音/图像等非对话专用模型,
+   * 平铺会把真正能用的旗舰模型淹掉。关闭开关即可浏览全量(含历史模型)。
+   */
+  const [latestOnly, setLatestOnly] = React.useState(true)
   const [sortKey, setSortKey] = React.useState<SortKey>('recommended')
   const [viewMode, setViewMode] = React.useState<ViewMode>('grid')
   const [visibleCount, setVisibleCount] = React.useState(INITIAL_PAGE_SIZE)
@@ -196,9 +210,12 @@ export function ModelsMarketplace({ list }: Props) {
         (PROVIDER_LABEL[m.provider] ?? '其他').toLowerCase().includes(q) ||
         m.features.some((f) => f.toLowerCase().includes(q))
       const matchFilter = matchesQuickFilter(m, quickFilter)
-      return matchQuery && matchFilter
+      // 只看最新最强:剔除历史过时版本 + 非对话专用模型
+      const matchTier =
+        !latestOnly || !isArchivedModel(normalizeCategory(m.category), normalizeTier(m.modelTier))
+      return matchQuery && matchFilter && matchTier
     })
-  }, [list, query, quickFilter, matchesQuickFilter])
+  }, [list, query, quickFilter, matchesQuickFilter, latestOnly])
   const sorted = React.useMemo(() => {
     const arr = [...filtered]
     switch (sortKey) {
@@ -230,7 +247,15 @@ export function ModelsMarketplace({ list }: Props) {
   // 筛选 / 排序变化时重置分页
   React.useEffect(() => {
     setVisibleCount(INITIAL_PAGE_SIZE)
-  }, [query, quickFilter, sortKey])
+  }, [query, quickFilter, sortKey, latestOnly])
+
+  /** 被"只看最新最强"折叠掉的模型数(历史过时版本 + 非对话专用模型) */
+  const archivedTotal = React.useMemo(
+    () =>
+      list.filter((m) => isArchivedModel(normalizeCategory(m.category), normalizeTier(m.modelTier)))
+        .length,
+    [list],
+  )
 
   const visible = React.useMemo(
     () => sorted.slice(0, Math.min(visibleCount, sorted.length)),
@@ -340,6 +365,22 @@ export function ModelsMarketplace({ list }: Props) {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 代次开关:只看最新最强 / 含历史模型(2026-08-29 立) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <FilterChip
+          active={latestOnly}
+          onClick={() => setLatestOnly(true)}
+          label={t('market.latestOnly')}
+          icon={<Sparkles className="h-3 w-3" />}
+        />
+        <FilterChip
+          active={!latestOnly}
+          onClick={() => setLatestOnly(false)}
+          label={t('market.includeHistory', { count: archivedTotal })}
+          icon={<History className="h-3 w-3" />}
+        />
       </div>
 
       {/* 快捷能力筛选 */}
@@ -477,6 +518,23 @@ export function ModelsMarketplace({ list }: Props) {
 }
 
 /* ---------------- Sub Components ---------------- */
+
+/**
+ * 用途分类徽章(2026-08-29 立)。
+ * 聊天/推理类不显示标签(避免满屏"对话推理"),只有嵌入、重排、语音、图像等
+ * 专业用途才标注,让用户一眼看出这模型不是拿来聊天的。
+ * 文案复用 chat 命名空间的 modelCategoryXxx 键(组件单独取 translator)。
+ */
+function ModelUsageBadge({ category }: { category?: ModelUsageCategory }) {
+  const t = useTranslations('chat')
+  const cat = normalizeCategory(category)
+  if (cat === 'chat') return null
+  return (
+    <span className="rounded-md bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-700 dark:text-sky-300">
+      {t(MODEL_CATEGORY_META[cat].labelKey)}
+    </span>
+  )
+}
 
 function FilterChip({
   active,
@@ -642,6 +700,8 @@ function ModelCardGrid({
           {model.relayPublic && (
             <RelayBadge multiplier={model.relayPriceMultiplier} variant="tag" />
           )}
+          {/* 2026-08-29 立:用途分类徽章(聊天类不显示,避免刷屏) */}
+          <ModelUsageBadge category={model.category} />
           {model.features.slice(0, model.relayPublic ? 3 : 4).map((f) => (
             <span
               key={f}
