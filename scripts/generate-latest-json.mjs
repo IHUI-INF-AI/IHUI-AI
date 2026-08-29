@@ -39,11 +39,22 @@ const apiHeaders = {
   'X-GitHub-Api-Version': '2022-11-28',
 }
 
-async function githubApi(path, init) {
+/** 带 rate limit handling 的 GitHub API 调用，403 时自动 exponential backoff 重试 */
+async function githubApi(path, init, attempt = 0) {
+  const MAX_RETRIES = 5
   const res = await fetch(`https://api.github.com${path}`, {
     ...init,
     headers: { ...apiHeaders, ...(init?.headers || {}) },
   })
+  if (res.status === 403) {
+    const retryAfter = res.headers.get('Retry-After')
+    const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, attempt), 30000)
+    if (attempt < MAX_RETRIES) {
+      console.log(`[api] 403 rate limited, waiting ${waitMs}ms before retry (attempt ${attempt + 1}/${MAX_RETRIES})...`)
+      await new Promise(r => setTimeout(r, waitMs))
+      return githubApi(path, init, attempt + 1)
+    }
+  }
   if (!res.ok) {
     const text = await res.text()
     throw new Error(`GitHub API ${path} failed: ${res.status} ${text}`)
