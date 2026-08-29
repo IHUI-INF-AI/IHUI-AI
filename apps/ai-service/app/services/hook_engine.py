@@ -48,6 +48,7 @@ logger = logging.getLogger(__name__)
 HOOK_EVENTS: tuple[str, ...] = (
     "tool.before",
     "tool.after",
+    "tool.approval",  # 2026-08-30:高危工具执行前请求用户审批(agent_loop_v2 审批门)
     "message.send",
     "message.receive",
     "session.start",
