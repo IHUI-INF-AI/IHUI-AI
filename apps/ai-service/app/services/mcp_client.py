@@ -514,6 +514,34 @@ class MCPClientManager:
                 pass
             logger.info("MCP Client 已注销: %s", name)
 
+    async def unregister_async(self, name: str) -> None:
+        """注销并等待断开完成(异步上下文,如 HTTP 端点)。"""
+        client = self._clients.pop(name, None)
+        if client is not None:
+            try:
+                await client.disconnect()
+            except Exception as e:
+                logger.warning("注销 %s 时断开失败: %s", name, e)
+            logger.info("MCP Client 已注销: %s", name)
+
+    def list_registered(self) -> list[dict[str, Any]]:
+        """列出所有已注册 Server 的摘要信息(含连接状态,不含 env 等敏感字段)。"""
+        servers: list[dict[str, Any]] = []
+        for client in self._clients.values():
+            cfg = client.config
+            servers.append({
+                "name": cfg.name,
+                "transport": cfg.transport,
+                "command": cfg.command,
+                "args": list(cfg.args),
+                "url": cfg.url,
+                "timeout": cfg.timeout,
+                "reconnect": cfg.reconnect,
+                "max_reconnect_attempts": cfg.max_reconnect_attempts,
+                "connected": client.is_connected(),
+            })
+        return servers
+
     async def connect_all(self) -> None:
         """连接所有已注册的 Server。"""
         tasks = [client.connect() for client in self._clients.values()]
@@ -560,3 +588,18 @@ class MCPClientManager:
         if not client.is_connected():
             return {"ok": False, "error": f"MCP Server 未连接: {server_name}"}
         return cast(dict[str, Any], await client.call_tool(tool_name, args))
+
+
+# =========================================================================
+# 模块级单例(进程内共享,仿照 services/memory.py / hook_engine.py 模式)
+# =========================================================================
+
+_mcp_client_manager: MCPClientManager | None = None
+
+
+def get_mcp_client_manager() -> MCPClientManager:
+    """返回进程级 MCPClientManager 单例(懒加载)。"""
+    global _mcp_client_manager
+    if _mcp_client_manager is None:
+        _mcp_client_manager = MCPClientManager()
+    return _mcp_client_manager
