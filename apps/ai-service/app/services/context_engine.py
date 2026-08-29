@@ -725,8 +725,16 @@ class ContextEngine:
             return conversation[:1000] + "\n...(摘要生成失败,已截断)"
 
     async def _get_embedding(self, text: str) -> Optional[list[float]]:
-        """生成 embedding(委托 llm_gateway)。"""
+        """生成 embedding(委托 llm_gateway)。
+
+        修复:stub 模式下 llm_gateway.embed 返回确定性 hash 伪向量(无语义),
+        直接拿它做 cosine 相似度是无意义检索 —— 此处返回 None,
+        由调用方跳过向量检索、优雅降级(仅文本匹配或空结果),不抛异常。
+        """
         try:
+            if llm_gateway._is_stub_mode():
+                logger.debug("embed skipped: stub 模式 hash 伪向量无语义,返回 None")
+                return None
             return await llm_gateway.embed(text)
         except Exception as e:
             logger.debug("embed failed: %s", e)

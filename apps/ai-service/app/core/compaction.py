@@ -27,6 +27,29 @@ DEFAULT_TARGET_RATIO = 0.6
 DEFAULT_KEEP_RECENT = 6
 CONTEXT_BUDGET_THRESHOLD = 0.7
 
+# 模块级 tiktoken encoder 缓存(惰性初始化;初始化失败置 None 避免重复尝试)
+_tiktoken_enc: Optional[Any] = None
+_tiktoken_enc_tried: bool = False
+
+
+def _get_tiktoken_encoder() -> Optional[Any]:
+    """获取 tiktoken cl100k_base 编码器(模块级单例,仅首次调用时初始化)。
+
+    tiktoken 初始化昂贵(首次 ~50ms),只初始化一次;
+    初始化失败返回 None,由调用方降级为字符数估算,不抛异常。
+    """
+    global _tiktoken_enc, _tiktoken_enc_tried
+    if not _tiktoken_enc_tried:
+        try:
+            import tiktoken
+
+            _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            logger.debug("tiktoken 初始化失败,降级字符数估算: %s", e)
+            _tiktoken_enc = None
+        _tiktoken_enc_tried = True
+    return _tiktoken_enc
+
 @dataclass
 class CompactionResult:
     """压缩结果。"""
@@ -226,13 +249,18 @@ class ContextCompactor:
         return "\n".join(lines)
     
     def _default_token_counter(self, text: str) -> int:
-        """默认 token 计数器(粗略估算,1 token ≈ 4 字符)。
-        生产环境应替换为 tiktoken:
-            import tiktoken
-            enc = tiktoken.encoding_for_model("gpt-4o")
-            return len(enc.encode(text))
+        """默认 token 计数器:优先 tiktoken(cl100k_base),失败降级字符数估算。
+
+        - tiktoken 可用 → len(enc.encode(text))(精确)
+        - tiktoken 初始化/encode 异常 → max(1, len(text) // 3)(粗略兜底,不抛异常)
         """
-        return max(1, len(text) // 4)
+        enc = _get_tiktoken_encoder()
+        if enc is not None:
+            try:
+                return max(1, len(enc.encode(text)))
+            except Exception:
+                pass
+        return max(1, len(text) // 3)
 
 # 模块级单例
 compactor = ContextCompactor()
