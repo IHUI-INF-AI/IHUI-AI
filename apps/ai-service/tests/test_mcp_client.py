@@ -699,3 +699,60 @@ async def test_double_connect():
 
     assert client.is_connected() is True
     await client.disconnect()
+
+
+# =============================================================================
+# 模块级单例(get_mcp_client_manager)
+# =============================================================================
+
+
+def test_get_mcp_client_manager_singleton():
+    """get_mcp_client_manager 返回进程级单例(多次调用同一实例)。"""
+    from app.services.mcp_client import get_mcp_client_manager
+
+    m1 = get_mcp_client_manager()
+    m2 = get_mcp_client_manager()
+    assert m1 is m2
+    assert isinstance(m1, MCPClientManager)
+
+
+@pytest.mark.asyncio
+async def test_list_available_tools_async_no_connections():
+    """无任何连接时 list_available_tools_async 返回空列表且不抛异常。"""
+    manager = MCPClientManager()
+    tools = await manager.list_available_tools_async()
+    assert tools == []
+
+
+@pytest.mark.asyncio
+async def test_manager_unregister_async():
+    """unregister_async 注销并等待断开完成。"""
+    manager = MCPClientManager()
+    config = MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo")
+    manager.register(config)
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n')
+    proc = _make_mock_process(reader)
+
+    with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
+        await manager.connect_all()
+        assert manager.get_client("svr1").is_connected() is True  # type: ignore[union-attr]
+        await manager.unregister_async("svr1")
+
+    assert manager.get_client("svr1") is None
+
+
+@pytest.mark.asyncio
+async def test_manager_list_registered():
+    """list_registered 返回已注册 Server 摘要(含连接状态)。"""
+    manager = MCPClientManager()
+    manager.register(MCPClientConfig(name="svr1", transport=TRANSPORT_STDIO, command="echo"))
+
+    servers = manager.list_registered()
+    assert len(servers) == 1
+    assert servers[0]["name"] == "svr1"
+    assert servers[0]["transport"] == TRANSPORT_STDIO
+    assert servers[0]["connected"] is False
+    # 敏感字段不暴露
+    assert "env" not in servers[0]

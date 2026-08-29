@@ -174,6 +174,37 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // MCP 服务器管理 — 接入 mcpServers 表 CRUD
   // ==========================================================================
 
+  // GET /ai/mcp/servers — 列出 MCP 服务器
+  // 读 mcpServers 表(与 POST 写入的表一致),并尽力合并 ai-service 外部连接状态;
+  // 表为空时返回 [] 而非 404;ai-service 不可达时降级为无连接状态。
+  server.get('/ai/mcp/servers', async (request, reply) => {
+    try {
+      const rows = await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+      try {
+        const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
+          headers: { Authorization: request.headers.authorization ?? '' },
+        })
+        if (resp.ok) {
+          const data = (await resp.json().catch(() => ({}))) as {
+            servers?: Array<{ name: string; connected?: boolean }>
+          }
+          const statusByName = new Map(
+            (data.servers ?? []).map((s) => [s.name, s.connected ?? false]),
+          )
+          for (const row of rows) {
+            ;(row as Record<string, unknown>).connected = statusByName.get(row.name) ?? null
+          }
+        }
+      } catch {
+        // ai-service 不可达,不合并连接状态
+      }
+      return reply.send(success(rows))
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '查询 MCP 服务器失败'))
+    }
+  })
+
   // POST /ai/mcp/servers — 创建 MCP 服务器
   server.post('/ai/mcp/servers', async (request, reply) => {
     const parsed = mcpServerBody.safeParse(request.body)
