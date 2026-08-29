@@ -8,9 +8,12 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   Crown,
+  History,
   Loader2,
   Lock,
+  Search,
   Settings,
   Sparkles,
   TriangleAlert,
@@ -18,6 +21,7 @@ import {
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
+import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
 import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
@@ -25,29 +29,15 @@ import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { FALLBACK_MODELS, DEMO_TIER_MODELS, VENDOR_LABEL } from '@/components/chat/fallback-models'
 import { fetchConfigs } from '@/lib/user-llm-configs'
 import { providerToTemplateCode, BACKEND_BUILTIN_FREE_CODES } from '@/lib/llm-templates'
+import {
+  groupByCategory,
+  splitByTier,
+  type ModelOption,
+  type ModelUsageCategory,
+} from '@/components/chat/model-tier-utils'
 
-export interface ModelOption {
-  value: string
-  label: string
-  descriptionKey?: string
-  /** 厂商代码,用于 BrandIcon 显示 */
-  vendor?: string
-  /** 自定义图标 URL(可选,优先于 vendor) */
-  iconUrl?: string
-  /** 积分消耗倍数(2026-08-06 立,对齐 workbuddy 风格)
-   *  - 小数显示(如 0.77x / 0.05x)
-   *  - 0 = 免费模型
-   *  - 优先取后端返回的 points_multiplier(后端 infer 5 档后映射为小数)或前端 tierToDisplayMultiplier */
-  pointsMultiplier?: number
-  /** 是否支持会员 2.5 折(显示 "会员2.5折" 红色徽章 + 升级权益 popover 触发) */
-  memberDiscountEligible?: boolean
-  /** 是否正式版(显示 "正式版" 灰色徽章) */
-  isOfficial?: boolean
-  /** 是否有专属补贴(显示 "专属补贴" 橙红徽章) */
-  subsidy?: boolean
-  /** 是否锁定(显示 🔒 锁图标,需升级才能使用) */
-  locked?: boolean
-}
+// 兼容既有外部引用(model-selector 此前直接导出这些类型)
+export type { ModelOption, ModelTier, ModelUsageCategory } from '@/components/chat/model-tier-utils'
 
 /** 自动模式(value='auto'):后端根据任务类型自动选择最优模型
  * 2026-07-30 用户反馈"智能路由"措辞太复杂,简化为"自动"
@@ -212,6 +202,80 @@ function formatMultiplier(value: number): string {
     return value.toFixed(2)
   }
   return value.toFixed(2)
+}
+
+/**
+ * 单个模型行(默认区与历史模型区共用,2026-08-29 抽出)。
+ * 左侧:选中勾 + 厂商图标 + 名称 + 未配置⚠(可选) + 用途分类徽章(可选)
+ * 右侧:会员/正式版/补贴 徽章 + 锁 + 积分倍数
+ */
+function ModelOptionRow({
+  opt,
+  active,
+  warning,
+  showCategory,
+  onSelect,
+}: {
+  opt: ModelOption
+  active: boolean
+  warning: boolean
+  /** 历史模型区需要显示用途分类(嵌入/语音/图像…),默认区都是对话类无需标注 */
+  showCategory?: boolean
+  onSelect: () => void
+}) {
+  const t = useTranslations('chat')
+  return (
+    <DropdownMenu.Item
+      onSelect={onSelect}
+      className={cn(
+        'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+        'focus:bg-accent focus:text-accent-foreground',
+      )}
+    >
+      <Check className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')} />
+      <BrandIcon
+        vendor={opt.vendor}
+        iconUrl={opt.iconUrl}
+        size={14}
+        className="shrink-0 text-muted-foreground"
+      />
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <span className="truncate font-medium">{opt.label}</span>
+        {/* 未配置时的琥珀 ⚠ 徽章(2026-08-06 调整位置:从右移到名称旁,腾出右侧给倍数) */}
+        {warning && (
+          <TriangleAlert
+            className="h-3 w-3 shrink-0 text-amber-500"
+            aria-label={t('modelNotConfigured')}
+          />
+        )}
+        {showCategory && <ModelCategoryBadge category={opt.category} />}
+      </div>
+      {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
+         2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
+         setTimeout 闭包读 e.currentTarget 失效导致 popover 常驻显示。
+         改为 MemberDiscountSection 内部自管理 hover 状态,父组件只管渲染 children。 */}
+      <MemberDiscountSection opt={opt}>
+        <ModelTierTags opt={opt} />
+      </MemberDiscountSection>
+    </DropdownMenu.Item>
+  )
+}
+
+/** 用途分类徽章(聊天类不显示,避免"对话"标签刷屏) */
+function ModelCategoryBadge({ category }: { category?: ModelUsageCategory }) {
+  const t = useTranslations('chat')
+  const cat = normalizeCategory(category)
+  if (cat === 'chat') return null
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-medium leading-tight',
+        'bg-sky-500/15 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+      )}
+    >
+      {t(MODEL_CATEGORY_META[cat].labelKey)}
+    </span>
+  )
 }
 
 /** 按厂商分组模型 */
@@ -417,6 +481,9 @@ function createSeedOptions(): ModelOption[] {
     isOfficial: m.isOfficial,
     subsidy: m.subsidy,
     locked: m.locked,
+    // 种子数据是人工挑选的当前可用主力,按"最新对话模型"处理
+    category: 'chat',
+    tier: 'latest',
   }))
 }
 
@@ -523,6 +590,10 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
             // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
             pointsMultiplier: finalPoints,
             locked: known.locked ?? display.locked,
+            // 2026-08-29 立:后端 model_catalog 产出的分类字段,驱动"默认展示 vs 历史模型折叠"
+            category: normalizeCategory(m.category),
+            tier: normalizeTier(m.model_tier),
+            family: m.family,
           })
         }
         // 当前选中不在 API 列表时保留(trigger 与列表一致,切换后自然消失)
@@ -571,8 +642,31 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
     () => (isAuto ? AUTO_OPTION : options.find((m) => m.value === value)),
     [options, value, isAuto],
   )
+  // 2026-08-29 立:默认区(最新最强)/ 历史模型区(过时版本 + 专用模型)
+  const { primary, archived } = React.useMemo(() => splitByTier(options), [options])
+  const [showHistory, setShowHistory] = React.useState(false)
+  const [historyQuery, setHistoryQuery] = React.useState('')
+  /**
+   * 派生展开态:默认列表为空时强制展开历史模型。
+   * 后端 model_tier 字段是可选的,老后端 / 缓存数据缺失时若整批被判成非 latest,
+   * 用户会看到空列表以为功能坏了 —— 这是不可接受的失败态,故用派生值兜底。
+   * 用户仍可手动收起(toggle 走 setShowHistory(!historyExpanded))。
+   */
+  const historyExpanded = showHistory || (primary.length === 0 && archived.length > 0)
+
+  /** 历史模型区:搜索过滤 + 按用途分类分组 */
+  const archivedGroups = React.useMemo(() => {
+    const q = historyQuery.trim().toLowerCase()
+    const filtered = q
+      ? archived.filter(
+          (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
+        )
+      : archived
+    return groupByCategory(filtered)
+  }, [archived, historyQuery])
+
   const grouped = React.useMemo(() => {
-    const all = groupByVendor(options)
+    const all = groupByVendor(primary)
     // 2026-08-27 修复:API 成功路径(options=后端过滤后模型)直接展示,
     // 不再做前端配置过滤——后端 /llm/models 已保证"可用且有配额",
     // 再按 configuredTemplateCodes 过滤会误伤 agnes 等无平台模板的真实可用模型。
@@ -592,7 +686,7 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
       if (visible.length > 0) filtered.push([vendor, visible])
     }
     return filtered
-  }, [options, cfgData, configuredTemplateCodes, value, useApiOnly])
+  }, [primary, cfgData, configuredTemplateCodes, value, useApiOnly])
 
   // API 成功路径下后端已保证模型可用,直接视为已配置(避免 agnes 等误显示 ⚠/缺失 ✅)
   const currentConfigured = useApiOnly
@@ -698,53 +792,112 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
                 </span>
                 {healthByVendor[vendor] && <ProviderHealthDot health={healthByVendor[vendor]} />}
               </DropdownMenu.Label>
-              {items.map((opt) => {
-                const active = opt.value === value && value !== AUTO_OPTION.value
-                // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
-                const optConfigured = useApiOnly
-                  ? true
-                  : isConfiguredVendor(opt.vendor, configuredTemplateCodes)
-                return (
-                  <DropdownMenu.Item
-                    key={opt.value}
-                    onSelect={() => onChange(opt.value)}
-                    className={cn(
-                      'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
-                      'focus:bg-accent focus:text-accent-foreground',
-                    )}
-                  >
-                    <Check
-                      className={cn('h-4 w-4 shrink-0', active ? 'opacity-100' : 'opacity-0')}
-                    />
-                    <BrandIcon
-                      vendor={opt.vendor}
-                      iconUrl={opt.iconUrl}
-                      size={14}
-                      className="shrink-0 text-muted-foreground"
-                    />
-                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                      <span className="truncate font-medium">{opt.label}</span>
-                      {/* 未配置时的琥珀 ⚠ 徽章(2026-08-06 调整位置:从右移到名称旁,腾出右侧给倍数) */}
-                      {showConfigBadge && !optConfigured && (
-                        <TriangleAlert
-                          className="h-3 w-3 shrink-0 text-amber-500"
-                          aria-label={t('modelNotConfigured')}
-                        />
-                      )}
-                    </div>
-                    {/* 右侧:会员/正式版/补贴 徽章 + 锁 + 倍数(2026-08-06 立)
-                       2026-08-12 bugfix:原 onMouseEnter/onMouseLeave 写在父 div 上,
-                       setTimeout 闭包读 e.currentTarget 失效导致 popover 常驻显示。
-                       改为 MemberDiscountSection 内部自管理 hover 状态,父组件只管渲染 children。 */}
-                    <MemberDiscountSection opt={opt}>
-                      <ModelTierTags opt={opt} />
-                    </MemberDiscountSection>
-                  </DropdownMenu.Item>
-                )
-              })}
+              {items.map((opt) => (
+                <ModelOptionRow
+                  key={opt.value}
+                  opt={opt}
+                  active={opt.value === value && value !== AUTO_OPTION.value}
+                  // API 成功路径下后端已过滤,不显示"未配置"⚠ 徽章
+                  warning={
+                    showConfigBadge &&
+                    !useApiOnly &&
+                    !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
+                  }
+                  onSelect={() => onChange(opt.value)}
+                />
+              ))}
               <DropdownMenu.Separator className="my-1 h-px bg-border/60 last:hidden" />
             </DropdownMenu.Group>
           ))}
+
+          {/* 2026-08-29 立:历史模型折叠区。默认收起,点开才显示过时版本与专用模型
+              (嵌入/重排/语音/图像等),并按用途分类分组标注,避免上千个模型糊成一片。 */}
+          {archived.length > 0 && (
+            <DropdownMenu.Group>
+              <DropdownMenu.Separator className="my-1 h-px bg-border/60" />
+              <DropdownMenu.Item
+                onSelect={(e) => {
+                  // preventDefault 阻止 Radix 选中后自动关闭菜单
+                  e.preventDefault()
+                  // 用派生值取反,保证"默认区为空被强制展开"时点一下也能收起
+                  setShowHistory(!historyExpanded)
+                  setHistoryQuery('')
+                }}
+                className={cn(
+                  'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm outline-none',
+                  'focus:bg-accent focus:text-accent-foreground',
+                  '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+                )}
+              >
+                <History className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate font-medium">{t('modelHistoryToggle')}</span>
+                <span className="shrink-0 rounded-sm bg-muted px-1 py-px text-[10px] tabular-nums text-muted-foreground">
+                  {archived.length}
+                </span>
+                {historyExpanded ? (
+                  <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                )}
+              </DropdownMenu.Item>
+
+              {historyExpanded && (
+                <>
+                  {/* 搜索框:历史模型可能上千个,没有搜索等于不可用。
+                      onKeyDown stopPropagation 防止 Radix DropdownMenu 的
+                      typeahead 键盘导航吃掉输入。 */}
+                  <div className="px-2 py-1.5">
+                    <div className="flex items-center gap-1.5 rounded-md border bg-background px-2">
+                      <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      <input
+                        value={historyQuery}
+                        onChange={(e) => setHistoryQuery(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder={t('modelHistorySearch')}
+                        aria-label={t('modelHistorySearch')}
+                        className="h-7 w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                  {archivedGroups.length === 0 ? (
+                    <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                      {t('modelHistoryEmpty')}
+                    </div>
+                  ) : (
+                    archivedGroups.map(([cat, items]) => (
+                      <DropdownMenu.Group key={cat}>
+                        <DropdownMenu.Label
+                          className={cn(
+                            'flex items-center gap-1.5 bg-card px-2 py-1.5',
+                            'text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+                          )}
+                        >
+                          <span className="flex-1 truncate">
+                            {t(MODEL_CATEGORY_META[cat].labelKey)}
+                          </span>
+                          <span className="shrink-0 tabular-nums">{items.length}</span>
+                        </DropdownMenu.Label>
+                        {items.map((opt) => (
+                          <ModelOptionRow
+                            key={opt.value}
+                            opt={opt}
+                            active={opt.value === value && value !== AUTO_OPTION.value}
+                            warning={
+                              showConfigBadge &&
+                              !useApiOnly &&
+                              !isConfiguredVendor(opt.vendor, configuredTemplateCodes)
+                            }
+                            showCategory
+                            onSelect={() => onChange(opt.value)}
+                          />
+                        ))}
+                      </DropdownMenu.Group>
+                    ))
+                  )}
+                </>
+              )}
+            </DropdownMenu.Group>
+          )}
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
       {/* 2026-08-12 bugfix:升级权益 popover 已收敛到 MemberDiscountSection 内部,
