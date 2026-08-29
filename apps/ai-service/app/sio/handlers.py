@@ -394,7 +394,13 @@ async def on_chat_message(sid: str, data: Any) -> None:
     except Exception as e:
         logger.warning("[sio] append user message to memory_store failed: %s", e)
 
-    history.append({"role": "user", "content": message})
+    # 2026-08-29 立:重复发送去重守卫 —— 若客户端传入的 history 末尾已含完全相同的
+    # 当前消息(前端重复发送/重连重放场景),跳过 append,避免依赖下游 Rule 3 合并兜底。
+    last_msg = history[-1] if history else None
+    if isinstance(last_msg, dict) and last_msg.get("role") == "user" and last_msg.get("content") == message:
+        logger.info("[sio] duplicate trailing user message detected, skip append (chat_id=%s)", chat_id)
+    else:
+        history.append({"role": "user", "content": message})
 
     # 推流:复用 llm_gateway.astream(与 /api/llm/complete/stream 同源)
     accumulated_content = ""
