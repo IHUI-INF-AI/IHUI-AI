@@ -101,8 +101,17 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   }, [storageKey])
 
   const Icon = item.icon
+  // 测量文字宽度，用于将 indicator 定位到文字正中下方
+  const textRef = React.useRef<HTMLSpanElement>(null)
+  const [textWidth, setTextWidth] = React.useState(0)
   // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
+  // 2026-08-29 修:声明必须在 useEffect 之前(此前依赖 [label] 的 effect 先于声明,TS2448 TDZ)
   const label = item.dynamicLabel ?? t(item.labelKey)
+  React.useEffect(() => {
+    if (textRef.current) {
+      setTextWidth(textRef.current.offsetWidth)
+    }
+  }, [label])
 
   const parentClassName = cn(
     // group/exp:精简高级的二级菜单指示样式(GitHub/Linear/Notion 风格)
@@ -220,37 +229,29 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
           - 展开/父级激活的 font-semibold 在 parentClassName 已统一,这里只保留 min-w-0 防溢出
             与 whitespace-nowrap 避免换行
         */}
-        <span className="min-w-0 whitespace-nowrap text-left">{label}</span>
+        <span ref={textRef} className="min-w-0 whitespace-nowrap text-left">{label}</span>
         {/*
-          二级菜单底部指示符 — 居中横线(absolute 定位在按钮内部底边)
-          设计(精简高级时尚,Linear/Notion 风格):
-            1. 位置:absolute bottom-1 left-1/2 -translate-x-1/2
-               横线完全在按钮内部,距底边 4px,水平居中
-            2. 尺寸:w-10(40px)宽 × h-[2px]细线,显眼不抢眼
-            3. 颜色(纯 background-color,无 box-shadow/光晕):
-               - 闭合态:bg-muted-foreground/40(弱化提示)
-               - 展开态:bg-primary(主色,与背景同步强化)
-               - 父级激活:bg-primary-foreground/70(在 bg-primary 上要反色)
-            4. hover 态:group-hover/exp 升至 /70 透明度,提示可点击
-            5. 无动画、无呼吸、无光晕 — 静态精致
-          合规说明:
-            - 这不是分割线(规则禁止的是 <hr>、divide-*、单边 border-t/b/l/r 作分隔)
-            - 这是 absolute 定位的装饰性横线指示符(类似 lucide 图标),居中独立元素
-            - 不使用 box-shadow,不违反"扁平化禁不必要 box-shadow"
+          二级菜单底部指示符 — 对齐文字下方
+          用 ref 测量文字宽度，将指示器定位到文字正中下方而非按钮居中。
+          公式：left = icon(20px) + gap(10px) + textWidth/2，再 -translate-x-1/2 居中指示器自身。
         */}
-        <span
-          aria-hidden="true"
-          data-testid={`nav-${item.labelKey}-indicator`}
-          className={cn(
-            'pointer-events-none absolute bottom-1 left-1/2 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
-            // 展开/父级激活:统一用主色横线(bg-primary)
-            // 旧版 parentActive 用 bg-primary-foreground/70 是因为父级背景是 bg-primary 需要反色,
-            // 但根因修复后父级已改为 bg-primary/10 浅色,主色横线在浅色背景上对比度更高、更精致。
-            parentActive || open
-              ? 'bg-primary'
-              : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
-          )}
-        />
+        {(() => {
+          const TEXT_LEFT = 30 // icon(20px) + gap(10px)
+          const left = TEXT_LEFT + textWidth / 2
+          return (
+            <span
+              aria-hidden="true"
+              data-testid={`nav-${item.labelKey}-indicator`}
+              className={cn(
+                'pointer-events-none absolute bottom-1 h-[2px] w-10 -translate-x-1/2 transition-colors duration-200',
+                parentActive || open
+                  ? 'bg-primary'
+                  : 'bg-muted-foreground/40 group-hover/exp:bg-muted-foreground/70',
+              )}
+              style={{ left }}
+            />
+          )
+        })()}
       </button>
       {open && <div className="mt-0.5">{childList}</div>}
     </div>
