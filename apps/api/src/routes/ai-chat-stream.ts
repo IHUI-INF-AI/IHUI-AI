@@ -293,7 +293,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       // P38 跨端同步:修复 messages 结构异常(非法 role/空 content/连续重复/开头 assistant/末尾无响应 user)
       // 共享函数 @ihui/types/message-repair,与 CLI repairSessionHistory / ai-service repair_messages 同源
-      const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages)
+      // keepTrailingUser: 末尾 user 是本次发送的输入,必须保留(否则模型只能看到旧上下文)
+      const { repaired: messages, removed: repairRemoved } = repairMessages(rawMessages, {
+        keepTrailingUser: true,
+      })
 
       // P39 跨端统一:88% 阈值自动压缩上下文(共享包 @ihui/context-compaction)
       // CLI / API / ai-service 共用同一套规则,前端传 contextLimit 触发,压缩结果通过 SSE 通知前端
@@ -468,7 +471,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // 把用户答案作为新 user 消息追加到 messages 末尾(在 repair 之前,让 repair 统一处理)
       const messagesWithAnswer = [...rawMessages, { role: 'user' as const, content: answer }]
 
-      const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer)
+      // keepTrailingUser: 末尾 user 是用户对 question 的回答,必须保留(否则模型答非所问)
+      const { repaired: messages, removed: repairRemoved } = repairMessages(messagesWithAnswer, {
+        keepTrailingUser: true,
+      })
 
       let finalMessages: ChatMessage[] = messages
       const extraFirstEvents: Array<{ key: string; payload: unknown }> = [

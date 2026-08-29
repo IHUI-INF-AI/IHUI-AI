@@ -46,7 +46,7 @@ export type {
 } from './notification-channels'
 
 // ===================== 消息自愈(CLI/API/ai-service 共用) =====================
-export type { RepairableMessage, RepairResult } from './message-repair'
+export type { RepairableMessage, RepairResult, RepairOptions } from './message-repair'
 export { repairMessages } from './message-repair'
 
 // ===================== 智能体运行时 =====================
