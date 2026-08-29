@@ -8,7 +8,6 @@ import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import {
   X,
-  Plus,
   Minus,
   Pin,
   PanelLeft,
@@ -576,13 +575,16 @@ export function AISidePanel() {
   const displayTitle =
     activeWorkspace?.name ?? workspaceName ?? conversationTitle ?? tc('emptyWorkspace')
 
-  // 全局快捷键 Ctrl+Shift+N:新建任务
+  // 全局快捷键 Ctrl+Shift+N:新建任务(2026-08-29 迁移整合)
+  // 2026-08-29:面板 header"新建任务"按钮已移除,入口统一到侧边栏 SidebarQuickActions,
+  // 侧边栏按钮派发同一 global-shortcut:new-chat 事件复用 handleNewChat。
+  // 监听始终注册(去掉 if(!open)):面板关闭时组件仍挂载(return null,hooks/refs 存活),
+  // 侧边栏"面板关闭→打开+新建"需立即收到事件,不能等面板重挂载后 effect 再注册。
   React.useEffect(() => {
-    if (!open) return
     const onNewChat = () => handleNewChat()
     window.addEventListener('global-shortcut:new-chat', onNewChat)
     return () => window.removeEventListener('global-shortcut:new-chat', onNewChat)
-  }, [handleNewChat, open])
+  }, [handleNewChat])
 
   // Alt+P / Option+P 快捷键:切换 Plan/Act 模式(2026-07-25 立,对标 Trae SOLO Plan 快捷键)
   // 2026-07-28 升级:Plan/Act 概念合并到 ChatMode,Alt+P 改为在 ChatMode.plan ↔ ChatMode.build 间切换
@@ -992,17 +994,11 @@ export function AISidePanel() {
               message-input.tsx 的 CurrentModeBadge 承载(输入区上方小徽章),
               切换入口:/build /plan /review /spec 斜杠命令 + Ctrl+1-4 快捷键 + AI 自动判断(发送时)。
               Alt+P 快捷键保留(plan ↔ build 二选一场景,2026-07-28 仍有效)。 */}
-            <Tooltip content={tc('newConversation')}>
-              <button
-                type="button"
-                onClick={handleNewChat}
-                disabled={isStreaming}
-                aria-label={tc('newConversation')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </Tooltip>
+            {/* 新建任务按钮(2026-08-29 移除,迁移整合):
+              入口统一到侧边栏 SidebarQuickActions"新建任务"按钮。
+              该按钮原有能力(handleNewChat 新建会话 + isStreaming 时禁用 + Tooltip 提示)
+              已完整迁移到侧边栏按钮;侧边栏通过派发 global-shortcut:new-chat 事件
+              复用本组件的 handleNewChat(监听器已改为始终注册,面板关闭时也能触发)。 */}
             {/* 派发 Subagent 按钮(2026-07-28 移除):
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
