@@ -25,16 +25,14 @@ export function SidebarQuickActions({
   const tchat = useTranslations('aiChat')
   const pathname = usePathname()
   const aiPanelOpen = useAiPanelStore((s) => s.open)
-  const openPanel = useAiPanelStore((s) => s.openPanel)
   // 2026-08-29 迁移整合:AI 面板 header"新建任务"按钮已移除,能力统一到此按钮。
   // isStreaming 时禁用(原 header 按钮 disabled={isStreaming} 能力)。
   const isStreaming = useChatStore((s) => s.isStreaming)
 
   // 新建任务 = 打开 AI 面板(若未开) + 新建会话。
-  // 会话重置逻辑复用 ai-side-panel 的 handleNewChat:派发 global-shortcut:new-chat 事件,
-  // 与 Ctrl+Shift+N 快捷键同一通路(面板内监听器已改为始终注册,面板关闭时也能触发)。
+  // 只派发 global-shortcut:new-chat 事件:streaming 门控 + 自动开面板 + 会话重置
+  // 全部由 ai-side-panel 监听器单点收敛(DRY),侧边栏/Ctrl+Shift+N/桌面端快捷键行为完全一致。
   const handleNewTask = () => {
-    openPanel()
     window.dispatchEvent(new CustomEvent('global-shortcut:new-chat'))
   }
 

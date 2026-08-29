@@ -40,6 +40,12 @@ interface ThinkingSectionProps {
   /** 是否正在流式输出 */
   isStreaming: boolean
   /**
+   * 2026-08-29 立:思考仍在增长指示 — 正文流式输出期间 reasoning 交错到达
+   * (isStreaming 已收紧为 false,但思考内容仍在增长)。
+   * 展开态显示脉冲光标、折叠态显示"思考中"loader,流结束后自动消失。
+   */
+  isGrowing?: boolean
+  /**
    * Phase 22: 受控模式 — 外部传入 expanded 值时优先使用,不读/写 localStorage。
    * 不传则走非受控模式(内部 state + localStorage 持久化)。
    */
@@ -74,6 +80,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   content,
   currentNode,
   isStreaming,
+  isGrowing = false,
   expanded: controlledExpanded,
   onToggle,
 }: ThinkingSectionProps) {
@@ -110,16 +117,17 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     })
   }, [isControlled, onToggle])
 
-  // v2: 思考耗时(从 mount 开始累积,流式时每秒 tick)
+  // v2: 思考耗时(从 mount 开始累积,流式时每秒 tick;2026-08-29:交错增长期同样 tick)
   const startTimeRef = React.useRef<number>(Date.now())
   const [elapsedMs, setElapsedMs] = React.useState<number>(0)
+  const thinkingActive = isStreaming || isGrowing
   React.useEffect(() => {
-    if (!isStreaming) return
+    if (!thinkingActive) return
     const id = window.setInterval(() => {
       setElapsedMs(Date.now() - startTimeRef.current)
     }, 500)
     return () => window.clearInterval(id)
-  }, [isStreaming])
+  }, [thinkingActive])
 
   // v2: 内容预览(折叠时显示最后 60 字符,合并空白)
   const preview = React.useMemo<string>(() => {
@@ -148,13 +156,14 @@ export const ThinkingSection = React.memo(function ThinkingSection({
     }
   }, [isStreaming, isControlled])
 
+  // 2026-08-29:交错增长期间展开态同样自动滚动到底部
   React.useEffect(() => {
-    if (!isStreaming || !expanded) return
+    if (!thinkingActive || !expanded) return
     const el = preRef.current
     if (el) {
       el.scrollTop = el.scrollHeight
     }
-  }, [content, isStreaming, expanded])
+  }, [content, thinkingActive, expanded])
 
   const onCopy = React.useCallback(async () => {
     try {
@@ -178,6 +187,8 @@ export const ThinkingSection = React.memo(function ThinkingSection({
       className="mt-1.5 rounded-sm transition-colors"
       data-testid="thinking-section"
       data-thinking-state={isStreaming ? 'streaming' : 'idle'}
+      // 2026-08-29:交错增长指示(供单测/e2e 断言)
+      data-thinking-growing={isGrowing ? 'true' : 'false'}
       data-thinking-expanded={expanded ? 'true' : 'false'}
     >
       <button
@@ -199,8 +210,8 @@ export const ThinkingSection = React.memo(function ThinkingSection({
             {currentNode}
           </span>
         )}
-        {/* v2: 折叠态流式 loader(对标 Trae Work "思考中...") */}
-        {isStreaming && !expanded && (
+        {/* v2: 折叠态流式 loader(对标 Trae Work "思考中...";2026-08-29:交错增长期同样显示) */}
+        {thinkingActive && !expanded && (
           <span
             className="inline-flex shrink-0 items-center gap-1 text-xs text-primary/70"
             data-testid="thinking-loader"
@@ -251,12 +262,13 @@ export const ThinkingSection = React.memo(function ThinkingSection({
               <pre
                 ref={preRef}
                 className="max-h-28 overflow-y-auto whitespace-pre-wrap break-all rounded-sm bg-muted/20 p-1.5 pr-7 font-mono text-xs leading-relaxed text-foreground/70"
-                aria-live={isStreaming ? 'polite' : undefined}
-                aria-atomic={isStreaming ? 'false' : undefined}
+                aria-live={thinkingActive ? 'polite' : undefined}
+                aria-atomic={thinkingActive ? 'false' : undefined}
                 data-testid="thinking-content"
               >
                 {content}
-                {isStreaming && (
+                {/* 2026-08-29:交错增长期同样显示脉冲光标(思考仍在输出) */}
+                {thinkingActive && (
                   <span
                     className="ml-0.5 inline-block w-0.5 animate-pulse bg-primary/50 align-middle"
                     style={{ height: '10px' }}

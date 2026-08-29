@@ -817,6 +817,32 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       )
     })
 
+    it('正文流式期间 reasoning 交错增长:显示增长指示(data-thinking-growing);流结束指示消失', () => {
+      const msgs = [makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下' })]
+      const { rerender } = render(<MessageList {...baseProps} messages={msgs} isStreaming />)
+      // 交错输出:reasoning 超出基线继续增长 → 自动展开 + 增长指示(2026-08-29 立)
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下,再补充分析' })]}
+          isStreaming
+        />,
+      )
+      const section = screen.getByTestId('thinking-section')
+      expect(section.getAttribute('data-thinking-growing')).toBe('true')
+      expect(section.getAttribute('data-thinking-expanded')).toBe('true')
+      // 流结束 → 增长指示自动消失
+      rerender(
+        <MessageList
+          {...baseProps}
+          messages={[makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下,再补充分析' })]}
+        />,
+      )
+      expect(screen.getByTestId('thinking-section').getAttribute('data-thinking-growing')).toBe(
+        'false',
+      )
+    })
+
     it('用户手动展开后:流结束不强制收起(尊重用户操作)', () => {
       const msgs = [makeAssistantMsg('a1', '部分回答', { reasoning: '先想一下' })]
       const { rerender } = render(<MessageList {...baseProps} messages={msgs} isStreaming />)
