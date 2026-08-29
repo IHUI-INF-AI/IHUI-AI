@@ -394,6 +394,14 @@ def test_repairmessages_empty_input():
     assert result is None
 
 
+def test_repairmessages_accepts_options():
+    """repairMessages 应接受可选 options 参数(镜像 TS 端 keepTrailingUser 契约)。"""
+    result = repairMessages(
+        [{"role": "user", "content": "hi"}], {"keepTrailingUser": True}
+    )
+    assert result is None
+
+
 # =============================================================================
 # __all__ 完整性
 # =============================================================================
