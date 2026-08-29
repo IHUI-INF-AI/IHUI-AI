@@ -105,12 +105,28 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   const textRef = React.useRef<HTMLSpanElement>(null)
   const [textWidth, setTextWidth] = React.useState(0)
   // label 优先级:dynamicLabel(admin 动态加载的路由名)> t(labelKey)(i18n 翻译)
-  // 2026-08-29 修:声明必须在 useEffect 之前(此前依赖 [label] 的 effect 先于声明,TS2448 TDZ)
   const label = item.dynamicLabel ?? t(item.labelKey)
   React.useEffect(() => {
-    if (textRef.current) {
-      setTextWidth(textRef.current.offsetWidth)
+    const el = textRef.current
+    if (!el) return
+
+    const updateWidth = () => {
+      setTextWidth(el.offsetWidth)
     }
+
+    // 用 requestAnimationFrame 延迟测量，避免首次渲染时 offsetWidth 为 0 导致的闪烁
+    const rafId = requestAnimationFrame(() => {
+      updateWidth()
+
+      // ResizeObserver 自动跟随后续文字宽度变化（字体/字号/间距/响应式等）
+      if (typeof ResizeObserver !== 'undefined') {
+        const observer = new ResizeObserver(updateWidth)
+        observer.observe(el)
+        return () => observer.disconnect()
+      }
+    })
+
+    return () => cancelAnimationFrame(rafId)
   }, [label])
 
   const parentClassName = cn(
