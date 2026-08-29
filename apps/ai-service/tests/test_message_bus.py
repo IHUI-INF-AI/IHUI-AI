@@ -77,6 +77,62 @@ def _reset_message_bus_singleton():
     message_bus._delivery_status.clear()
 
 
+@pytest.fixture(autouse=True)
+def _mock_http_client(monkeypatch):
+    """mock 全局 httpx.AsyncClient → 所有请求统一返回 200,隔离真实网络。
+
+    通道真实实现(IM/Webhook/SMS)会发起 httpx 请求;本文件测试聚焦
+    MessageBus 编排逻辑,统一 mock 掉网络层。需要断言请求 payload 或
+    特定状态码(如 5xx)的测试放在 test_message_bus_channels.py(自行覆盖)。
+    """
+    import httpx
+
+    original_client = httpx.AsyncClient
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(200, json={"ok": True})
+    )
+
+    def _factory(*args, **kwargs):
+        return original_client(transport=transport, *args, **kwargs)
+
+    monkeypatch.setattr(httpx, "AsyncClient", _factory)
+
+
+class _FakeSMTP:
+    """smtplib.SMTP 的替身:不真正连网,记录调用以便断言。
+
+    每次实例化会追加到类级 instances,测试可通过最后一个实例断言
+    sendmail 的收件人与邮件内容。
+    """
+
+    instances: list["_FakeSMTP"] = []
+
+    def __init__(self, host, port=0, timeout=10, **kwargs):
+        self.host = host
+        self.port = port
+        self.calls: list = []
+        self.sent_mail: list[tuple] = []
+        type(self).instances.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def ehlo(self):
+        self.calls.append("ehlo")
+
+    def starttls(self):
+        self.calls.append("starttls")
+
+    def login(self, user, password):
+        self.calls.append(("login", user))
+
+    def sendmail(self, from_addr, to_addrs, msg):
+        self.sent_mail.append((from_addr, to_addrs, msg))
+
+
 def _make_message(
     content: str = "hello",
     msg_id: str = "test-msg-1",
@@ -101,9 +157,13 @@ def _make_message(
 
 @pytest.mark.asyncio
 async def test_publish_to_im_succeeds() -> None:
-    """发布到 IM 通道(content 非空)→ delivered=[IM]。"""
+    """发布到 IM 通道(metadata 提供 webhook_url)→ delivered=[IM]。"""
     bus = MessageBus(rate_limit_per_sec=100)
-    msg = _make_message(content="hello world", msg_id="m-im-1")
+    msg = _make_message(
+        content="hello world",
+        msg_id="m-im-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
     result = await bus.publish(msg, [ChannelType.IM])
     assert isinstance(result, PublishResult)
     assert result.message_id == "m-im-1"
@@ -144,14 +204,30 @@ async def test_publish_to_email_without_recipient_fails() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_to_email_with_recipient_succeeds() -> None:
-    """发布到 Email 通道(metadata 有 'to')→ 成功。"""
+async def test_publish_to_email_with_recipient_succeeds(monkeypatch) -> None:
+    """发布到 Email 通道(metadata 有 'to' + SMTP 配置)→ 成功。"""
+    import smtplib
+
+    monkeypatch.setenv("SMTP_HOST", "smtp.example.com")
+    monkeypatch.setenv("SMTP_PORT", "587")
+    monkeypatch.setenv("SMTP_USER", "bot@example.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "secret")
+    monkeypatch.setenv("SMTP_FROM", "IHUI <notify@example.com>")
+    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
     bus = MessageBus(rate_limit_per_sec=100)
     msg = _make_message(
         content="email-msg", msg_id="m-em-2", metadata={"to": "user@example.com"}
     )
     result = await bus.publish(msg, [ChannelType.EMAIL])
     assert ChannelType.EMAIL in result.delivered_channels
+    # 验证真实 SMTP 发送被调用:收件人 + 邮件头部
+    assert _FakeSMTP.instances, "SMTP 未实例化,说明没走真实发送路径"
+    sent = _FakeSMTP.instances[-1].sent_mail
+    assert sent, "sendmail 未被调用"
+    assert sent[0][1] == ["user@example.com"]
+    # MIMEText 正文按 base64 编码,直接断言头部与收件人即可
+    assert "To: user@example.com" in sent[0][2]
+    assert "From: IHUI <notify@example.com>" in sent[0][2]
 
 
 @pytest.mark.asyncio
@@ -164,8 +240,9 @@ async def test_publish_to_sms_without_phone_fails() -> None:
 
 
 @pytest.mark.asyncio
-async def test_publish_to_sms_with_phone_succeeds() -> None:
-    """发布到 SMS 通道(metadata 有 'phone')→ 成功。"""
+async def test_publish_to_sms_with_phone_succeeds(monkeypatch) -> None:
+    """发布到 SMS 通道(metadata 有 'phone' + 网关配置)→ 成功。"""
+    monkeypatch.setenv("SMS_API_URL", "https://sms.example.com/api")
     bus = MessageBus(rate_limit_per_sec=100)
     msg = _make_message(
         content="sms-msg", msg_id="m-sms-2", metadata={"phone": "+8613800138000"}
@@ -178,7 +255,11 @@ async def test_publish_to_sms_with_phone_succeeds() -> None:
 async def test_publish_to_multiple_channels_all_succeed() -> None:
     """发布到多通道(全成功)→ delivered 含全部通道。"""
     bus = MessageBus(rate_limit_per_sec=100)
-    msg = _make_message(content="multi-msg", msg_id="m-multi-1")
+    msg = _make_message(
+        content="multi-msg",
+        msg_id="m-multi-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
     result = await bus.publish(
         msg, [ChannelType.IM, ChannelType.WEBSOCKET, ChannelType.WEBHOOK]
     )
@@ -320,7 +401,12 @@ async def test_batch_publish_all_succeed() -> None:
     """批量发布 3 条消息到 IM(全成功)→ total=3, succeeded=3, failed=0。"""
     bus = MessageBus(rate_limit_per_sec=100)
     messages = [
-        _make_message(content=f"batch-{i}", msg_id=f"b-1-{i}") for i in range(3)
+        _make_message(
+            content=f"batch-{i}",
+            msg_id=f"b-1-{i}",
+            metadata={"webhook_url": "https://example.com/hook"},
+        )
+        for i in range(3)
     ]
     result = await bus.batch_publish(messages, ChannelType.IM)
     assert isinstance(result, BatchResult)
@@ -338,9 +424,17 @@ async def test_batch_publish_partial_failure() -> None:
     """批量发布 3 条消息(1 条空 content)→ succeeded=2, failed=1。"""
     bus = MessageBus(rate_limit_per_sec=100)
     messages = [
-        _make_message(content="ok-1", msg_id="b-2-0"),
+        _make_message(
+            content="ok-1",
+            msg_id="b-2-0",
+            metadata={"webhook_url": "https://example.com/hook"},
+        ),
         _make_message(content="", msg_id="b-2-1"),  # IM 失败,但会降级到 WS 成功
-        _make_message(content="ok-2", msg_id="b-2-2"),
+        _make_message(
+            content="ok-2",
+            msg_id="b-2-2",
+            metadata={"webhook_url": "https://example.com/hook"},
+        ),
     ]
     result = await bus.batch_publish(messages, ChannelType.IM)
     # 空 content 的消息会降级到 WebSocket(无订阅者成功),所以 succeeded=3
@@ -376,8 +470,16 @@ async def test_rate_limit_rejects_excess() -> None:
     from app.services.message_bus import IMChannel
 
     channel = IMChannel(rate_limit_per_sec=1)
-    msg1 = _make_message(content="first", msg_id="rl-1")
-    msg2 = _make_message(content="second", msg_id="rl-2")
+    msg1 = _make_message(
+        content="first",
+        msg_id="rl-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
+    msg2 = _make_message(
+        content="second",
+        msg_id="rl-2",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
 
     ok1, status1 = await channel.send(msg1, {})
     assert ok1 is True
@@ -397,8 +499,16 @@ async def test_rate_limit_refills_over_time() -> None:
     from app.services.message_bus import IMChannel
 
     channel = IMChannel(rate_limit_per_sec=1)
-    msg1 = _make_message(content="first", msg_id="rl-r-1")
-    msg2 = _make_message(content="second", msg_id="rl-r-2")
+    msg1 = _make_message(
+        content="first",
+        msg_id="rl-r-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
+    msg2 = _make_message(
+        content="second",
+        msg_id="rl-r-2",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
 
     ok1, _ = await channel.send(msg1, {})
     assert ok1 is True
@@ -414,8 +524,16 @@ async def test_rate_limit_refills_over_time() -> None:
 async def test_rate_limit_publish_returns_rate_limited_status() -> None:
     """publish 在限流时记录 rate_limited 状态到 delivery_status。"""
     bus = MessageBus(rate_limit_per_sec=1)
-    msg1 = _make_message(content="first", msg_id="rl-pub-1")
-    msg2 = _make_message(content="second", msg_id="rl-pub-2")
+    msg1 = _make_message(
+        content="first",
+        msg_id="rl-pub-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
+    msg2 = _make_message(
+        content="second",
+        msg_id="rl-pub-2",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
 
     await bus.publish(msg1, [ChannelType.IM])
     # 第 2 条立即发送 → IM 限流 → 降级到 WebSocket(成功)
@@ -526,6 +644,7 @@ async def test_publish_with_template_renders_content() -> None:
         content="placeholder",  # 应被模板渲染覆盖
         template_id="agent_started",
         template_vars={"agent_name": "TestBot", "task": "demo"},
+        metadata={"webhook_url": "https://example.com/hook"},
     )
     result = await bus.publish(msg, [ChannelType.IM])
     assert ChannelType.IM in result.delivered_channels
@@ -653,7 +772,11 @@ async def test_websocket_handler_exception_marks_failed() -> None:
 async def test_get_delivery_status_after_publish() -> None:
     """publish 后 get_delivery_status 返回 DeliveryStatus。"""
     bus = MessageBus(rate_limit_per_sec=100)
-    msg = _make_message(content="status-test", msg_id="st-1")
+    msg = _make_message(
+        content="status-test",
+        msg_id="st-1",
+        metadata={"webhook_url": "https://example.com/hook"},
+    )
     await bus.publish(msg, [ChannelType.IM])
     status = await bus.get_delivery_status("st-1")
     assert status is not None
@@ -716,7 +839,10 @@ async def test_api_publish_endpoint(client) -> None:
     resp = await client.post(
         "/api/message-bus/publish",
         json={
-            "message": {"content": "api-test-msg"},
+            "message": {
+                "content": "api-test-msg",
+                "metadata": {"webhook_url": "https://example.com/hook"},
+            },
             "channels": ["im"],
             "priority": "normal",
         },
@@ -742,6 +868,7 @@ async def test_api_publish_endpoint_with_template(client) -> None:
                 "content": "placeholder",
                 "templateId": "agent_started",
                 "templateVars": {"agent_name": "ApiBot", "task": "测试"},
+                "metadata": {"webhook_url": "https://example.com/hook"},
             },
             "channels": ["im"],
             "priority": "high",
@@ -867,7 +994,10 @@ async def test_api_status_endpoint(client) -> None:
     pub_resp = await client.post(
         "/api/message-bus/publish",
         json={
-            "message": {"content": "status-api-test"},
+            "message": {
+                "content": "status-api-test",
+                "metadata": {"webhook_url": "https://example.com/hook"},
+            },
             "channels": ["im"],
             "priority": "normal",
         },
