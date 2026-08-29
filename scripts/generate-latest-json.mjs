@@ -52,12 +52,18 @@ async function githubApi(path, init) {
 
 // 根据 .sig 文件名推断 Tauri updater 平台标识
 function inferPlatform(sigName) {
-  if (sigName.endsWith('.msi.zip.sig')) return 'windows-x86_64'
+  // Windows: exe.sig / msi.sig
+  if (sigName.endsWith('.exe.sig')) return 'windows-x86_64'
+  if (sigName.endsWith('.msi.sig')) return 'windows-x86_64'
+  // macOS: app.tar.gz.sig (aarch64 or x64)
   if (sigName.endsWith('.app.tar.gz.sig')) {
     if (sigName.includes('aarch64') || sigName.includes('arm64')) return 'darwin-aarch64'
     return 'darwin-x86_64'
   }
-  if (sigName.endsWith('.AppImage.tar.gz.sig')) return 'linux-x86_64'
+  // Linux: AppImage.sig / deb.sig / rpm.sig
+  if (sigName.endsWith('.AppImage.sig')) return 'linux-x86_64'
+  if (sigName.endsWith('.deb.sig')) return 'linux-x86_64'
+  if (sigName.endsWith('.rpm.sig')) return 'linux-x86_64'
   return null
 }
 
