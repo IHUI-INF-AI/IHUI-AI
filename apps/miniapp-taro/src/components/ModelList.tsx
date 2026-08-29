@@ -1,6 +1,8 @@
-import { useTt, type TtFn } from '@/i18n'
+import { useState, useMemo } from 'react'
+import { useI18n, useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import type { ModelUsageCategory } from '@ihui/shared/constants'
 import type { LlmModel } from '@/api'
 import type { ModelType } from './ModelTypeButton'
 // 原项目 ModelList.vue 静态图标(本地副本 import,对齐 zhs_app-ZZ)
@@ -8,6 +10,14 @@ import mianLabelIcon from '@/assets/remote/images/default/mian_label.png'
 import selectedModelIcon from '@/assets/remote/images/selected_model.png'
 import rankoneIcon from '@/assets/remote/images/default/rankone.png'
 import { rpx } from '@/utils/rpx'
+import {
+  categoryLabel as categoryLabelOf,
+  categoryOf,
+  collapseLabel,
+  expandLabel,
+  historyLabel,
+  splitModelCatalog,
+} from '@/utils/model-catalog'
 
 export type ModelItem = LlmModel
 
@@ -58,6 +68,20 @@ export default function ModelList({
   onAgentSelect,
 }: ModelListProps) {
   const tt = useTt()
+  const { locale } = useI18n()
+  const [historyExpanded, setHistoryExpanded] = useState(false)
+
+  // 默认列表只保留"最新 + 对话类",其余全部收进历史模型折叠区(判定在后端,
+  // 分组在 packages/shared,此处只做装配 — 见 utils/model-catalog.ts)
+  const split = useMemo(() => splitModelCatalog(models), [models])
+  // 当前选中项落在折叠区时自动展开,避免用户看不到自己选中的模型
+  const selectedInArchived = useMemo(
+    () => split.archived.some((g) => g.items.some((m) => m.id === selectedId)),
+    [split.archived, selectedId],
+  )
+  const showArchived = historyExpanded || selectedInArchived
+
+  const categoryLabel = (category: ModelUsageCategory): string => categoryLabelOf(category, locale)
 
   if (variant === 'popup') {
     // ===== popup 模式:对齐原项目 ModelList.vue(分类弹出列表 + slideUp 动画)=====
@@ -178,8 +202,8 @@ export default function ModelList({
           </View>
         ) : null}
 
-        {/* 模型列表项 */}
-        {models.map((model, index) => {
+        {/* 默认模型列表项:只展示"最新 + 对话类" */}
+        {split.primary.map((model, index) => {
           const selected = model.id === selectedId
           return (
             <View
@@ -230,27 +254,133 @@ export default function ModelList({
                   style={{ width: rpx(40), height: rpx(40), marginLeft: rpx(10) }}
                 />
               </View>
-              {/* 选中态:对齐原项目 .selected-icon 32rpx 圆形 + selected_model.png 80rpx×80rpx */}
-              {selected ? (
-                <View
-                  className="flex items-center justify-center"
+              {/* 用途分类标注 + 选中态(对齐原项目 .selected-icon 32rpx + selected_model.png) */}
+              <View className="flex items-center">
+                <Text
                   style={{
-                    width: rpx(32),
-                    height: rpx(32),
-                    borderRadius: '50%',
-                    background: 'var(--color-foreground)',
+                    fontSize: rpx(20),
+                    color: 'var(--color-muted-foreground)',
+                    marginRight: rpx(12),
                   }}
                 >
-                  <Image
-                    src={selectedModelIcon}
-                    mode="widthFix"
-                    style={{ width: rpx(80), height: rpx(80) }}
-                  />
-                </View>
-              ) : null}
+                  {categoryLabel(categoryOf(model))}
+                </Text>
+                {selected ? (
+                  <View
+                    className="flex items-center justify-center"
+                    style={{
+                      width: rpx(32),
+                      height: rpx(32),
+                      borderRadius: rpx(16),
+                      background: 'var(--color-foreground)',
+                    }}
+                  >
+                    <Image
+                      src={selectedModelIcon}
+                      mode="widthFix"
+                      style={{ width: rpx(80), height: rpx(80) }}
+                    />
+                  </View>
+                ) : null}
+              </View>
             </View>
           )
         })}
+
+        {/* ===== 历史模型折叠区(默认收起,点按钮才展开) ===== */}
+        {split.archivedCount > 0 ? (
+          <View
+            className="ai-chu-row"
+            style={{ background: 'var(--color-muted)', marginTop: rpx(10) }}
+            onClick={() => setHistoryExpanded((v) => !v)}
+          >
+            <Text style={{ fontSize: rpx(26), color: 'var(--color-foreground)' }}>
+              {`${historyLabel(locale)} (${split.archivedCount})`}
+            </Text>
+            <Text style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)' }}>
+              {showArchived ? collapseLabel(locale) : expandLabel(locale)}
+            </Text>
+          </View>
+        ) : null}
+
+        {showArchived
+          ? split.archived.map((group) => (
+              <View key={`archived-${group.category}`}>
+                {/* 分组标题:用途分类 + 数量(用间距分隔,不用 border 分割线)*/}
+                <View style={{ padding: '16rpx 24rpx 4rpx' }}>
+                  <Text style={{ fontSize: rpx(22), color: 'var(--color-muted-foreground)' }}>
+                    {`${categoryLabel(group.category)} · ${group.items.length}`}
+                  </Text>
+                </View>
+                {group.items.map((model) => {
+                  const selected = model.id === selectedId
+                  return (
+                    <View
+                      key={model.id}
+                      className={cn('ai-chu-row', selected && 'ai-chu-row-active')}
+                      onClick={() => onSelect?.(model)}
+                    >
+                      <View className="flex items-center">
+                        <View
+                          className="flex items-center justify-center"
+                          style={{
+                            width: rpx(40),
+                            height: rpx(40),
+                            borderRadius: rpx(8),
+                            background: 'var(--color-muted)',
+                          }}
+                        >
+                          <Text
+                            style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}
+                          >
+                            {model.name.charAt(0)}
+                          </Text>
+                        </View>
+                        <Text
+                          className="ml-[10rpx]"
+                          style={{
+                            fontSize: rpx(26),
+                            color: 'var(--color-foreground)',
+                            fontWeight: selected ? 'bold' : 'normal',
+                          }}
+                        >
+                          {model.name}
+                        </Text>
+                      </View>
+                      <View className="flex items-center">
+                        <Text
+                          style={{
+                            fontSize: rpx(20),
+                            color: 'var(--color-muted-foreground)',
+                            marginRight: rpx(12),
+                          }}
+                        >
+                          {categoryLabel(group.category)}
+                        </Text>
+                        {selected ? (
+                          <View
+                            className="flex items-center justify-center"
+                            style={{
+                              width: rpx(32),
+                              height: rpx(32),
+                              borderRadius: rpx(16),
+                              background: 'var(--color-foreground)',
+                            }}
+                          >
+                            <Image
+                              src={selectedModelIcon}
+                              mode="widthFix"
+                              style={{ width: rpx(80), height: rpx(80) }}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                  )
+                })}
+              </View>
+            ))
+          : null}
       </View>
     )
   }
@@ -282,7 +412,8 @@ export default function ModelList({
 
   return (
     <View className="px-3 py-1">
-      {models.map((model) => {
+      {/* 默认列表:只展示"最新 + 对话类" */}
+      {split.primary.map((model) => {
         const selected = model.id === selectedId
         return (
           <View
@@ -304,9 +435,73 @@ export default function ModelList({
               </View>
               <Text className="text-xs text-muted-foreground truncate">{model.provider}</Text>
             </View>
+            <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+              {categoryLabel(categoryOf(model))}
+            </Text>
           </View>
         )
       })}
+
+      {/* ===== 历史模型折叠区(默认收起) ===== */}
+      {split.archivedCount > 0 ? (
+        <View
+          className="flex items-center justify-between px-3 py-2.5 mb-2 rounded-lg bg-muted"
+          onClick={() => setHistoryExpanded((v) => !v)}
+        >
+          <Text className="text-sm text-foreground">
+            {`${historyLabel(locale)} (${split.archivedCount})`}
+          </Text>
+          {/* 开合指示用文字而非图标字形:项目守门(11h)禁止在 UI 图标位使用
+              emoji / 符号字符做图标,小程序端也没有 lucide 可用,故用中文状态词 */}
+          <Text className="text-sm text-muted-foreground">
+            {showArchived ? collapseLabel(locale) : expandLabel(locale)}
+          </Text>
+        </View>
+      ) : null}
+
+      {showArchived
+        ? split.archived.map((group) => (
+            <View key={`archived-${group.category}`} className="mb-2">
+              <View className="px-3 pt-2 pb-1">
+                <Text className="text-xs text-muted-foreground">
+                  {`${categoryLabel(group.category)} · ${group.items.length}`}
+                </Text>
+              </View>
+              {group.items.map((model) => {
+                const selected = model.id === selectedId
+                return (
+                  <View
+                    key={model.id}
+                    className={`flex items-center py-2.5 px-3 mb-2 rounded-lg transition-colors ${
+                      selected ? 'bg-muted' : 'bg-card hover:bg-muted'
+                    }`}
+                    onClick={() => onSelect?.(model)}
+                  >
+                    <View className="flex items-center justify-center w-10 h-10 mr-3 rounded-lg bg-muted">
+                      <Text className="text-sm font-medium text-muted-foreground">
+                        {model.name.charAt(0)}
+                      </Text>
+                    </View>
+                    <View className="flex-1 min-w-0">
+                      <View className="flex items-center">
+                        <Text className="text-sm font-medium text-foreground truncate">
+                          {model.name}
+                        </Text>
+                        {selected && <Text className="ml-2 text-xs text-primary">✓</Text>}
+                      </View>
+                      <Text className="text-xs text-muted-foreground truncate">
+                        {model.provider}
+                      </Text>
+                    </View>
+                    <Text className="ml-2 text-xs text-muted-foreground shrink-0">
+                      {categoryLabel(group.category)}
+                    </Text>
+                  </View>
+                )
+              })}
+            </View>
+          ))
+        : null}
     </View>
   )
 }

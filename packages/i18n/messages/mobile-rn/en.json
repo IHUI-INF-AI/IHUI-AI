@@ -167,7 +167,21 @@
     "navOrder": "Orders",
     "navProfile": "Me",
     "navSettings": "Settings",
-    "navLogout": "Logout"
+    "navLogout": "Logout",
+    "modelHistoryToggle": "Legacy models",
+    "modelHistorySearch": "Search legacy models",
+    "modelHistoryEmpty": "No matching models",
+    "modelCategoryChat": "Chat",
+    "modelCategoryVision": "Vision",
+    "modelCategoryEmbedding": "Embedding",
+    "modelCategoryRerank": "Rerank",
+    "modelCategoryTts": "Text to speech",
+    "modelCategoryAsr": "Speech to text",
+    "modelCategoryImage": "Image generation",
+    "modelCategoryVideo": "Video generation",
+    "modelCategoryGuard": "Safety guard",
+    "modelCategoryOcr": "OCR",
+    "modelCategoryOther": "Other"
   },
   "settings": {
     "title": "Settings",
