@@ -118,14 +118,22 @@ async function main() {
   console.log('Generated latest.json:')
   console.log(jsonStr)
 
-  // 4. 删除旧的 latest.json asset(如果存在,tauri-action 已上传但只含单平台)
+  // 4. 上传到发版 Release
+  await uploadLatestJson(release, jsonStr)
+
+  // 5. 同步到固定 feed release(updater endpoint 指向它;首次运行自动创建)
+  const feedRelease = await ensureFeedRelease()
+  await uploadLatestJson(feedRelease, jsonStr)
+}
+
+/** 删除指定 release 上的旧 latest.json 并上传新内容 */
+async function uploadLatestJson(release, jsonStr) {
   const oldAsset = release.assets.find((a) => a.name === 'latest.json')
   if (oldAsset) {
     await githubApi(`/repos/${repo}/releases/assets/${oldAsset.id}`, { method: 'DELETE' })
-    console.log(`Deleted old latest.json (id=${oldAsset.id})`)
+    console.log(`Deleted old latest.json (id=${oldAsset.id}) from release ${release.tag_name}`)
   }
 
-  // 5. 上传新的 latest.json
   const uploadUrl = release.upload_url.replace('{?name,label}', '?name=latest.json')
   const buffer = Buffer.from(jsonStr, 'utf-8')
   const uploadRes = await fetch(uploadUrl, {
@@ -139,9 +147,29 @@ async function main() {
   })
   if (!uploadRes.ok) {
     const text = await uploadRes.text()
-    throw new Error(`Upload latest.json failed: ${uploadRes.status} ${text}`)
+    throw new Error(`Upload latest.json to ${release.tag_name} failed: ${uploadRes.status} ${text}`)
   }
-  console.log('Uploaded latest.json successfully')
+  console.log(`Uploaded latest.json to release ${release.tag_name} successfully`)
+}
+
+/** 获取固定 feed release;不存在则自动创建(tag 挂在默认分支) */
+async function ensureFeedRelease() {
+  try {
+    return await githubApi(`/repos/${repo}/releases/tags/${FEED_TAG}`)
+  } catch (err) {
+    if (!/\b404\b/.test(String(err))) throw err
+    console.log(`Feed release ${FEED_TAG} not found, creating...`)
+    return githubApi(`/repos/${repo}/releases`, {
+      method: 'POST',
+      body: JSON.stringify({
+        tag_name: FEED_TAG,
+        name: 'Desktop Updater Feed',
+        body: '桌面端自动更新 feed,由 release-desktop workflow 自动维护,请勿手动修改。latest.json 始终指向最新桌面版。',
+        draft: false,
+        prerelease: false,
+      }),
+    })
+  }
 }
 
 main().catch((err) => {
