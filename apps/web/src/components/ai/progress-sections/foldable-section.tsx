@@ -122,33 +122,27 @@ export function FoldableSection({
   const allDone = hasProgress && (doneCount as number) >= (count as number)
 
   return (
-    <div
-      className={cn(
-        'mx-1.5 mt-1.5 rounded-sm border border-border/30 bg-muted/15 transition-colors',
-        open && 'bg-muted/25',
-      )}
-      data-testid={testId}
-    >
+    <div className="mt-1.5 rounded-sm transition-colors" data-testid={testId}>
       <button
         type="button"
         onClick={toggle}
         aria-expanded={open}
         aria-label={ariaLabel ?? title}
         data-section-header="true"
-        className="flex w-full items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-muted-foreground/80 transition-colors hover:bg-accent/30 hover:text-foreground/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/60 focus-visible:ring-offset-0"
+        className="flex w-full items-center gap-1.5 py-1 text-left text-sm font-medium text-muted-foreground/80 transition-colors hover:text-foreground/90 focus-visible:outline-none"
       >
         <ChevronRight
           className={cn(
-            'h-2.5 w-2.5 shrink-0 text-muted-foreground/45 transition-transform duration-150',
+            'h-3.5 w-3.5 shrink-0 text-muted-foreground/50 transition-transform duration-150',
             open && 'rotate-90',
           )}
         />
-        {Icon && <Icon className="h-2.5 w-2.5 shrink-0 text-muted-foreground/45" />}
+        {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />}
         <span className="flex-1 min-w-0 text-left">{title}</span>
         {/* 借鉴 Trae Thinking Process:折叠态显示当前摘要,展开态隐藏(避免冗余) */}
         {summary && !open && (
           <span
-            className="min-w-0 max-w-[40%] truncate text-[10px] text-muted-foreground/60"
+            className="min-w-0 max-w-[40%] truncate text-xs font-normal text-muted-foreground/50"
             data-testid={`${testId ?? 'foldable'}-summary`}
           >
             {summary}
@@ -157,7 +151,7 @@ export function FoldableSection({
         {hasProgress && (
           <span
             className={cn(
-              'shrink-0 tabular-nums text-[10px] font-medium',
+              'shrink-0 tabular-nums text-xs font-medium',
               allDone ? 'text-emerald-500' : 'text-primary/80',
             )}
             data-testid={`${testId ?? 'foldable'}-progress-text`}
