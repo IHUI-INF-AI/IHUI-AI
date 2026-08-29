@@ -411,19 +411,41 @@ class MemoryService:
         embedding_str = "[" + ",".join(str(float(x)) for x in embedding) + "]"
         pool = await _get_pool()
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                """INSERT INTO agent_memory_semantic
-                   (user_id, content, embedding, importance_score, metadata)
-                   VALUES ($1, $2, $3::vector, $4, $5)
-                   RETURNING id, user_id, content,
-                             importance_score::text, metadata::text,
-                             created_at, last_accessed_at""",
-                user_id,
-                content,
-                embedding_str,
-                score,
-                json.dumps(metadata or {}, ensure_ascii=False),
-            )
+            try:
+                row = await conn.fetchrow(
+                    """INSERT INTO agent_memory_semantic
+                       (user_id, content, embedding, importance_score, metadata)
+                       VALUES ($1, $2, $3::vector, $4, $5)
+                       RETURNING id, user_id, content,
+                                 importance_score::text, metadata::text,
+                                 created_at, last_accessed_at""",
+                    user_id,
+                    content,
+                    embedding_str,
+                    score,
+                    json.dumps(metadata or {}, ensure_ascii=False),
+                )
+            except Exception as exc:
+                # 2026-08-29 立:无 pgvector 扩展的部署(如本机 Windows PG 未装扩展),
+                # embedding 列由 migration 降级为 text,::vector cast 会报
+                # "type vector does not exist" → 改为不带 cast 直接写 text 列,
+                # 检索端 _recall_fallback 内存 cosine,功能完整可用。
+                logger.warning(
+                    "add_semantic: $3::vector cast failed (%s), fallback to text column", exc,
+                )
+                row = await conn.fetchrow(
+                    """INSERT INTO agent_memory_semantic
+                       (user_id, content, embedding, importance_score, metadata)
+                       VALUES ($1, $2, $3, $4, $5)
+                       RETURNING id, user_id, content,
+                                 importance_score::text, metadata::text,
+                                 created_at, last_accessed_at""",
+                    user_id,
+                    content,
+                    embedding_str,
+                    score,
+                    json.dumps(metadata or {}, ensure_ascii=False),
+                )
         return self._row_to_semantic(row)
 
     async def recall(
