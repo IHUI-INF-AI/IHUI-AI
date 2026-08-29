@@ -1104,64 +1104,71 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     executed_tool_keys: set[str] = set()
                     injected_warning_keys: set[str] = set()
                     for _tool_iter in range(max_iterations):
-                        complete_result = await llm_gateway.complete(
-                            messages, model=req.model, owner_uuid=owner_uuid,
-                            tools=openai_tools, tool_choice="auto",
-                        )
-                        # complete() 错误检查
-                        if complete_result.get("error"):
-                            err_evt = {
-                                "type": "error",
-                                "message": complete_result.get("error_message", "LLM 调用失败"),
-                                "errorCode": complete_result.get("errorCode", "LLM_ERROR"),
-                            }
-                            yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
-                            return
+                        # ===== 第一轮:流式化(2026-08-29 修复)=====
+                        # 根因:tool loop 第一轮此前用非流式 complete(),LLM 无 tool_calls
+                        # 直接回复时一次性 yield 整个 content → 前端"内容一下全出"而非打字机。
+                        # 修复:第一轮改调带 tools 的 astream,逐 token 输出 content/reasoning,
+                        # 同时收集 astream 在流结束前统一产出的完整 tool_calls(见 llm_gateway._accumulate_tool_calls)。
+                        if _tool_iter == 0:
+                            first_round_tool_calls: list[dict[str, Any]] = []
+                            async for evt in llm_gateway.astream(
+                                messages, model=req.model, owner_uuid=owner_uuid,
+                                tools=openai_tools, tool_choice="auto",
+                            ):
+                                _evt_type = evt.get("type", "")
+                                if _evt_type == "chunk":
+                                    # 逐 token 透传 + 提问标记解析(与 1144-1146 行格式一致)
+                                    clean_text, questions = question_parser.feed(evt.get("content", ""))
+                                    for q in questions:
+                                        q_event = {"type": "question", "question": q.to_dict()}
+                                        yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                    if clean_text:
+                                        accumulated["content"] += clean_text
+                                        chunk_event = {"type": "chunk", "content": clean_text}
+                                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                elif _evt_type == "reasoning":
+                                    # 思考过程逐 token 透传(与 1129-1130 行格式一致)
+                                    _reasoning_token = evt.get("content", "")
+                                    accumulated["reasoning"] += _reasoning_token
+                                    _reasoning_evt = {"type": "reasoning", "content": _reasoning_token}
+                                    yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+                                elif _evt_type == "tool_calls":
+                                    # astream 统一在流结束前 yield 累积后的完整 tool_calls
+                                    first_round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "done":
+                                    # 记录 model/usage/stub(与 1162-1164 行一致)
+                                    accumulated["model"] = evt.get("model", req.model)
+                                    accumulated["usage"] = evt.get("usage")
+                                    accumulated["stub"] = evt.get("stub", False)
+                                elif _evt_type == "error":
+                                    # 流式错误(与 1113-1119 行一致)
+                                    err_evt = {
+                                        "type": "error",
+                                        "message": evt.get("message", "LLM 调用失败"),
+                                        "errorCode": evt.get("errorCode", "LLM_ERROR"),
+                                    }
+                                    yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                                    return
+                            # 流结束:flush 提问解析器残留(与 1154-1161 行一致)
+                            leftover, leftover_qs = question_parser.flush()
+                            if leftover:
+                                chunk_event = {"type": "chunk", "content": leftover}
+                                accumulated["content"] += leftover
+                                yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                            for q in leftover_qs:
+                                q_event = {"type": "question", "question": q.to_dict()}
+                                yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
 
-                        # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
-                        # 但不 emit reasoning SSE 事件,导致 tool loop 阶段前端 m.reasoning 永远为空,
-                        # 思考过程区只显示一个加载点(ThinkingSection 收到空 content + isStreaming=true)。
-                        # 修复:在 tool_calls_raw 处理之前,先把 complete() 返回的 reasoning 增量 emit 出去,
-                        # 累加到 accumulated 并推送到前端,与 astream() 行为对齐。
-                        _reasoning_content = complete_result.get("reasoning") or ""
-                        if _reasoning_content:
-                            accumulated["reasoning"] += _reasoning_content
-                            _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
-                            yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
-
-                        tool_calls_raw = complete_result.get("tool_calls") or []
-
-                        # 无 tool_calls:LLM 不再需要工具
-                        if not tool_calls_raw:
-                            # 第 0 轮就无 tool_calls:LLM 直接回复了 content,推送后 return(不走 astream)
-                            if _tool_iter == 0:
-                                content = complete_result.get("content", "") or ""
-                                clean_text, questions = question_parser.feed(content)
-                                for q in questions:
-                                    q_event = {"type": "question", "question": q.to_dict()}
-                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
-                                if clean_text:
-                                    chunk_event = {"type": "chunk", "content": clean_text}
-                                    accumulated["content"] += clean_text
-                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
-                                elif not accumulated["content"]:
+                            tool_calls_raw = first_round_tool_calls
+                            if not tool_calls_raw:
+                                # 无 tool_calls:内容已流式逐块输出,直接收尾(不再整体 yield)
+                                if not accumulated["content"]:
                                     # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
                                     # 不能给用户一条空消息)
                                     _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
                                     accumulated["content"] = _fallback
                                     _fallback_evt = {"type": "chunk", "content": _fallback}
                                     yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
-                                leftover, leftover_qs = question_parser.flush()
-                                if leftover:
-                                    chunk_event = {"type": "chunk", "content": leftover}
-                                    accumulated["content"] += leftover
-                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
-                                for q in leftover_qs:
-                                    q_event = {"type": "question", "question": q.to_dict()}
-                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
-                                accumulated["model"] = complete_result.get("model", req.model)
-                                accumulated["usage"] = complete_result.get("usage", {})
-                                accumulated["stub"] = complete_result.get("stub", False)
                                 done_event = {
                                     "type": "done",
                                     "model": accumulated["model"],
@@ -1182,15 +1189,113 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _pending_callbacks.add(task)
                                     task.add_done_callback(_pending_callbacks.discard)
                                 return
-                            # _tool_iter > 0:已有 tool 结果在 messages 中,跳出循环走 astream
-                            break
 
-                        # 有 tool_calls:执行工具 + 回灌结果(下方的代码会继续处理)
-                        messages.append({
-                            "role": "assistant",
-                            "content": complete_result.get("content", "") or "",
-                            "tool_calls": tool_calls_raw,
-                        })
+                            # 有 tool_calls:回灌 assistant 消息(与 1189-1193 行一致),继续公共工具执行
+                            messages.append({
+                                "role": "assistant",
+                                "content": accumulated["content"],
+                                "tool_calls": first_round_tool_calls,
+                            })
+                            # 2026-08-29 修复:第一轮改走 astream 后无 complete_result,
+                            # 合成兼容 dict 供下方公共工具执行逻辑的"全部失败"分支引用。
+                            complete_result = {
+                                "model": accumulated.get("model") or req.model,
+                                "usage": accumulated.get("usage") or {},
+                                "stub": accumulated.get("stub", False),
+                            }
+                        else:
+                            # ===== 后续轮次:保持非流式 complete() =====
+                            complete_result = await llm_gateway.complete(
+                                messages, model=req.model, owner_uuid=owner_uuid,
+                                tools=openai_tools, tool_choice="auto",
+                            )
+                            # complete() 错误检查
+                            if complete_result.get("error"):
+                                err_evt = {
+                                    "type": "error",
+                                    "message": complete_result.get("error_message", "LLM 调用失败"),
+                                    "errorCode": complete_result.get("errorCode", "LLM_ERROR"),
+                                }
+                                yield f"event: error\ndata: {json.dumps(err_evt, ensure_ascii=False)}\n\n"
+                                return
+
+                            # 2026-08-07 修复:complete() 是非流式,LLM 一次性返回完整 reasoning_content
+                            # 但不 emit reasoning SSE 事件,导致 tool loop 阶段前端 m.reasoning 永远为空,
+                            # 思考过程区只显示一个加载点(ThinkingSection 收到空 content + isStreaming=true)。
+                            # 修复:在 tool_calls_raw 处理之前,先把 complete() 返回的 reasoning 增量 emit 出去,
+                            # 累加到 accumulated 并推送到前端,与 astream() 行为对齐。
+                            _reasoning_content = complete_result.get("reasoning") or ""
+                            if _reasoning_content:
+                                accumulated["reasoning"] += _reasoning_content
+                                _reasoning_evt = {"type": "reasoning", "content": _reasoning_content}
+                                yield f"event: reasoning\ndata: {json.dumps(_reasoning_evt, ensure_ascii=False)}\n\n"
+
+                            tool_calls_raw = complete_result.get("tool_calls") or []
+
+                            # 无 tool_calls:LLM 不再需要工具
+                            if not tool_calls_raw:
+                                # 2026-08-29 修复:原 1186 行 break 改为拆块流式兜底 ——
+                                # 之前这里 break 后走归一化 + astream(多一次 LLM 往返),
+                                # 且 complete() 一次性返回的 content 未经流式,前端仍可能收到单块大内容。
+                                # 现在按 8 字符/块拆出打字机效果,且不再进入归一化 + astream。
+                                content = complete_result.get("content", "") or ""
+                                clean_text, questions = question_parser.feed(content)
+                                for q in questions:
+                                    q_event = {"type": "question", "question": q.to_dict()}
+                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                if clean_text:
+                                    for i in range(0, len(clean_text), 8):
+                                        seg = clean_text[i:i + 8]
+                                        accumulated["content"] += seg
+                                        chunk_event = {"type": "chunk", "content": seg}
+                                        yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                leftover, leftover_qs = question_parser.flush()
+                                if leftover:
+                                    chunk_event = {"type": "chunk", "content": leftover}
+                                    accumulated["content"] += leftover
+                                    yield f"event: chunk\ndata: {json.dumps(chunk_event, ensure_ascii=False)}\n\n"
+                                for q in leftover_qs:
+                                    q_event = {"type": "question", "question": q.to_dict()}
+                                    yield f"event: question\ndata: {json.dumps(q_event, ensure_ascii=False)}\n\n"
+                                if not accumulated["content"]:
+                                    # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
+                                    # 不能给用户一条空消息)
+                                    _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
+                                    accumulated["content"] = _fallback
+                                    _fallback_evt = {"type": "chunk", "content": _fallback}
+                                    yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                                accumulated["model"] = complete_result.get("model", req.model)
+                                accumulated["usage"] = complete_result.get("usage", {})
+                                accumulated["stub"] = complete_result.get("stub", False)
+                                done_event = {
+                                    "type": "done",
+                                    "model": accumulated["model"],
+                                    "usage": accumulated["usage"],
+                                    "stub": accumulated["stub"],
+                                }
+                                if req.metadata:
+                                    done_event["metadata"] = req.metadata
+                                # 2026-07-31 A2:done 之前发出 tool-summary
+                                _ts_str = _format_tool_summary_event(tool_calls_history)
+                                if _ts_str:
+                                    yield _ts_str
+                                yield f"event: done\ndata: {json.dumps(done_event, ensure_ascii=False)}\n\n"
+                                has_association = req.metadata and req.metadata.get("conversationId") and req.metadata.get("userId")
+                                if has_association and not accumulated.get("error") and not await request.is_disconnected():
+                                    url = req.callback_url or f"{settings.api_service_url}/api/ai/callback"
+                                    task = asyncio.create_task(_fire_callback(url, accumulated, req.metadata))
+                                    _pending_callbacks.add(task)
+                                    task.add_done_callback(_pending_callbacks.discard)
+                                return
+
+                            # 有 tool_calls:执行工具 + 回灌结果(下方的代码会继续处理)
+                            messages.append({
+                                "role": "assistant",
+                                "content": complete_result.get("content", "") or "",
+                                "tool_calls": tool_calls_raw,
+                            })
+
+                        # ===== 公共工具执行逻辑(两分支汇合,2026-08-29 修复保持不动)=====
                         tool_exec_tracker: list[bool] = []
                         for tc in tool_calls_raw:
                             fn = tc.get("function", {})
