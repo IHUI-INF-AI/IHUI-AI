@@ -11,6 +11,8 @@ import {
   postToolResult,
   getMessages,
   createConversation,
+  regenerateConversation,
+  branchConversation,
   type ToolDelegateEvent,
 } from '@ihui/api-client'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
@@ -42,7 +44,28 @@ import { persistMessageSafe, persistQuestionSafe } from './persistence'
 import type { PlanStep, TerminalTask } from '@ihui/types/ai'
 import type { ChatActionContext } from './types'
 
-export function createSendMessage(ctx: ChatActionContext): (content: string) => Promise<boolean> {
+// =============================================================================
+// 模块级单例注册表(2026-08-30 立,重新生成 / 分支闭环)
+// =============================================================================
+// useChat hook 全局唯一实例(ai-side-panel 单挂载),createSendMessage 每次渲染
+// 都会用最新 ctx 重建 sendMessage。这里保存最新实例,供 MessageList 等无 ctx 的
+// 组件通过 CustomEvent(ihui:regenerate-message / ihui:branch-message)触发
+// regenerate / branch 时,复用同一套流式发送逻辑,避免重写流式处理。
+export interface SendMessageOptions {
+  /** 重新生成模式(2026-08-30 立):
+   *  true 时不重复 addMessage/persist 用户消息 —— 历史已被截断到该用户消息之前,
+   *  store 中已存在该用户消息,仅需补一个 assistant 占位并走流式。 */
+  regenerate?: boolean
+}
+
+let sendMessageInstance:
+  | ((content: string, opts?: SendMessageOptions) => Promise<boolean>)
+  | null = null
+let sendActionCtx: ChatActionContext | null = null
+
+export function createSendMessage(
+  ctx: ChatActionContext,
+): (content: string, opts?: SendMessageOptions) => Promise<boolean> {
   const {
     t,
     router,
@@ -54,9 +77,15 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     streamGenerationRef,
     streamConversationRef,
   } = ctx
-  const sendMessage = async (content: string): Promise<boolean> => {
+  sendActionCtx = ctx
+  const sendMessage = async (
+    content: string,
+    opts?: SendMessageOptions,
+  ): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
+    // 重新生成模式:跳过斜杠命令拦截/AI 自动模式检测(用户问题来自历史,不应再触发)
+    const isRegenerate = opts?.regenerate === true
     // 2026-08-06 修复:入口即置在途锁,覆盖 createConversation/斜杠命令等
     // await 间隙,防止快速连按 Enter/双击重复发送(原仅靠 isStreaming 防重,
     // 但 setStreaming(true) 在网络往返之后才执行,存在竞态窗口)。
@@ -72,7 +101,8 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // /plan & /act 动作型斜杠命令拦截(2026-07-25 立,对标 Trae SOLO Plan 模式):
     // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈
-    if (tryHandlePlanModeSlash(text, t)) {
+    // 重新生成模式跳过:历史问题不应再次触发斜杠命令
+    if (!isRegenerate && tryHandlePlanModeSlash(text, t)) {
       sendInFlightRef.current = false
       return true
     }
@@ -80,7 +110,7 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // /build /review /spec 动作型斜杠命令拦截(2026-07-28 立,补全 ChatMode 4态三通道):
     // - 纯 ChatMode 切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(返回 true 与 tryHandlePlanModeSlash 一致)
-    if (tryHandleChatModeSlash(text, t)) {
+    if (!isRegenerate && tryHandleChatModeSlash(text, t)) {
       sendInFlightRef.current = false
       return true
     }
@@ -88,7 +118,7 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // /permission ask|auto|full 动作型斜杠命令拦截(2026-07-25 深化,对标 Codex approvalMode):
     // - 纯 UI 模式切换,不需要登录,不调用 LLM,不创建会话
     // - 命中即清空输入框 + toast 反馈(切 full 时弹 5s 撤销 toast)
-    if (await tryHandlePermissionSlash(text, t)) {
+    if (!isRegenerate && (await tryHandlePermissionSlash(text, t))) {
       sendInFlightRef.current = false
       return true
     }
@@ -98,7 +128,7 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // - 静默切换,无 toast(自动判断是辅助能力,反复提示会刷屏)
     // - 当前模式徽章(CurrentModeBadge)实时反映新模式,提供视觉反馈
     // - 显式 /命令优先级最高(已在上方拦截,这里只处理普通对话)
-    tryAutoDetectMode(text)
+    if (!isRegenerate) tryAutoDetectMode(text)
 
     // 未登录拦截(2026-07-24 立,修复"未登录点发送无反应"问题):
     // - 不调 createConversation(避免 401 无可见反馈)
@@ -121,17 +151,19 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // 2026-08-16 修复:命中后 assistant 消息需携带 permissionMode,
     // 且需确保 conversationId 已创建后再持久化 user/assistant(原逻辑只 addMessage 不持久化,
     // 导致刷新或跨端同步时丢失斜杠命令结果)。
-    const slashHit = await tryHandleSelfMediaSlash(text, (assistantContent) => {
-      const m = store.currentModel
-      const slashMode = useAiPanelStore.getState().activeWorkspace?.mode
-      store.addMessage({ role: 'user', content: text, model: m })
-      store.addMessage({
-        role: 'assistant',
-        content: assistantContent,
-        model: m,
-        permissionMode: slashMode,
-      })
-    })
+    const slashHit = !isRegenerate
+      ? await tryHandleSelfMediaSlash(text, (assistantContent) => {
+          const m = store.currentModel
+          const slashMode = useAiPanelStore.getState().activeWorkspace?.mode
+          store.addMessage({ role: 'user', content: text, model: m })
+          store.addMessage({
+            role: 'assistant',
+            content: assistantContent,
+            model: m,
+            permissionMode: slashMode,
+          })
+        })
+      : false
     if (slashHit) {
       // 斜杠命令路径同样需要 conversationId 才能持久化 user/assistant。
       // 若尚无会话,先创建(与下方主流程对齐,保持 fire-and-forget 后台持久化)。
@@ -231,13 +263,19 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     }
 
     // 2. 持久化用户消息(后台 fire-and-forget,不阻塞流式响应)
-    void persistMessageSafe(conversationId, text, 'user')
+    // 重新生成模式跳过:store 中已存在该用户消息(后端 /regenerate 已保留),无需重复持久化
+    if (!isRegenerate) {
+      void persistMessageSafe(conversationId, text, 'user')
+    }
 
     const history = store.messages
       .filter((m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content)
       .map((m) => ({ role: m.role, content: m.content }))
 
-    store.addMessage({ role: 'user', content: text, model })
+    // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
+    if (!isRegenerate) {
+      store.addMessage({ role: 'user', content: text, model })
+    }
     // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
     const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
@@ -336,7 +374,8 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
 
       await streamChat({
         model: effectiveModel,
-        messages: [...history, { role: 'user', content: text }],
+        // 重新生成模式:用户消息已在 store/历史中,直接作为完整上下文发送,不重复追加
+        messages: isRegenerate ? history : [...history, { role: 'user', content: text }],
         signal: controller.signal,
         metadata: {
           conversationId,
@@ -715,5 +754,100 @@ export function createSendMessage(ctx: ChatActionContext): (content: string) => 
     // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
     return true
   }
+  // 注册到模块级单例,供无 ctx 组件(MessageList)通过 CustomEvent 触发 regenerate
+  sendMessageInstance = sendMessage
   return sendMessage
+}
+
+/**
+ * 重新生成消息(2026-08-30 立)。
+ * 由 MessageList 监听 `ihui:regenerate-message` 后调用,完整闭环:
+ * 1. 调后端 POST /conversations/:id/regenerate —— 事务删除目标 AI 消息及之后所有消息(保留之前历史)
+ * 2. store.truncateMessagesFrom 同步截断前端消息列表(保留目标消息之前的内容,含前一条用户消息)
+ * 3. 复用 sendMessage(regenerate 模式)重新发送前一条用户问题 —— 不重复添加/持久化用户消息,
+ *    走既有流式链路(超时/节流/工具调用/错误重试全部复用,不重写)。
+ */
+export async function regenerateMessage(messageId: string): Promise<boolean> {
+  const sendMessage = sendMessageInstance
+  if (!sendMessage || !sendActionCtx) return false
+
+  const store = useChatStore.getState()
+  const conversationId = store.conversationId
+  if (!conversationId || store.isStreaming) return false
+
+  const messages = store.messages
+  const targetIdx = messages.findIndex((m) => m.id === messageId)
+  if (targetIdx === -1) return false
+  const target = messages[targetIdx]
+  if (!target || target.role !== 'assistant') return false
+
+  // 找到目标 AI 消息之前最近的用户消息,作为重新发送的问题
+  const userMsg = [...messages.slice(0, targetIdx)].reverse().find((m) => m.role === 'user')
+  if (!userMsg || !userMsg.content.trim()) return false
+
+  try {
+    const res = await regenerateConversation(conversationId, messageId)
+    if (!res.success) {
+      toast.error('重新生成失败', {
+        description: res.error || `服务异常(${res.status ?? '未知'})`,
+      })
+      return false
+    }
+  } catch (err) {
+    toast.error('重新生成失败', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
+
+  // 后端已删除该消息及之后内容,同步截断前端消息列表(保留该消息之前的历史)
+  useChatStore.getState().truncateMessagesFrom(messageId)
+  // 复用 sendMessage(regenerate 模式):不重复添加用户消息,直接流式生成新回复
+  return sendMessage(userMsg.content, { regenerate: true })
+}
+
+/**
+ * 分支/回退(2026-08-30 立)。
+ * 由 MessageList 监听 `ihui:branch-message` 后调用:
+ * 1. 调后端 POST /conversations/:id/branch —— 基于目标消息之前的内容创建新会话(旧会话原样保留)
+ * 2. store 切换到新会话(ai-side-panel 的 loadHistory effect 自动加载新会话消息)
+ * 3. 打开 AI 面板 + 刷新会话列表 + 更新 URL(?conversationId=)便于分享/书签
+ */
+export async function branchMessage(messageId: string): Promise<boolean> {
+  const ctx = sendActionCtx
+  if (!ctx) return false
+
+  const store = useChatStore.getState()
+  const conversationId = store.conversationId
+  if (!conversationId || store.isStreaming) return false
+
+  try {
+    const res = await branchConversation(conversationId, messageId)
+    if (!res.success) {
+      toast.error('创建分支失败', {
+        description: res.error || `服务异常(${res.status ?? '未知'})`,
+      })
+      return false
+    }
+    const newId = res.data.conversation.id
+    // 切换到新分支会话(loadHistory effect 会加载新会话消息)
+    store.setConversationId(newId)
+    // 打开面板(若当前折叠/关闭,让用户看到新分支会话)
+    useAiPanelStore.getState().openPanel()
+    // 刷新会话列表,让新分支出现在历史里
+    ctx.queryClient.invalidateQueries({ queryKey: ['chat', 'conversations'] })
+    // 更新 URL 便于分享/书签(?conversationId=)
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search)
+      sp.set('conversationId', newId)
+      ctx.router.replace(`/chat?${sp.toString()}`, { scroll: false })
+    }
+    toast.success('已创建分支会话')
+    return true
+  } catch (err) {
+    toast.error('创建分支失败', {
+      description: err instanceof Error ? err.message : String(err),
+    })
+    return false
+  }
 }

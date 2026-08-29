@@ -200,6 +200,8 @@ interface ChatState {
   updateMessageMeta: (messageId: string, meta: Record<string, unknown>) => void
   /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
   setMessages: (messages: ChatMessage[]) => void
+  /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用,保留该消息之前的历史) */
+  truncateMessagesFrom: (messageId: string) => void
   /** 设置自动压缩状态(用于在对话框底部显示压缩进度) */
   setCompactionStatus: (status: CompactionStatus) => void
 }
@@ -320,6 +322,16 @@ export const useChatStore = create<ChatState>()(
       clearMessages: () => set({ messages: [], error: null }),
       /** 替换整个消息列表(用于自动压缩后同步后端压缩结果) */
       setMessages: (messages: ChatMessage[]) => set({ messages }),
+      /** 截断消息列表:删除指定消息及其之后的所有消息(重新生成用)
+       *  2026-08-30 立,与后端 /regenerate 端点配套:
+       *  后端已删除 DB 中该消息及之后的内容,前端同步删除内存中的对应消息,
+       *  保留该消息之前的历史,然后复用 sendMessage 重新发送前一条用户问题。 */
+      truncateMessagesFrom: (messageId) =>
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === messageId)
+          if (idx === -1) return s
+          return { messages: s.messages.slice(0, idx) }
+        }),
       setCompactionStatus: (status) => set({ compactionStatus: status }),
       setStreaming: (v) => set({ isStreaming: v }),
 

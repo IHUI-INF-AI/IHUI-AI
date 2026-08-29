@@ -8,6 +8,8 @@ import {
   Archive,
   ArchiveRestore,
   Clock,
+  Pin,
+  PinOff,
   Shrink,
   FileCode,
   FileText,
@@ -48,6 +50,7 @@ import {
   batchOperateConversations,
   compressConversation,
   exportConversation,
+  setConversationPinned,
   unarchiveConversation,
   type BatchConversationAction,
 } from '@ihui/api-client'
@@ -60,6 +63,8 @@ export interface Conversation {
   messageCount: number
   favorite: boolean
   archivedAt?: string | null
+  /** 2026-08-30 立:会话置顶标记 */
+  pinned?: boolean
 }
 
 /** history 与 favorites 页共用的对话行列表,含删除 / 收藏切换 / 重命名 / 归档 / 导出 / 压缩 */
@@ -125,6 +130,29 @@ export function ConversationList({ items }: { items: Conversation[] }) {
     onError: (_e, _id, ctx) => {
       if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
       if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
+    },
+    onSettled: () => invalidateAll(),
+  })
+
+  // 置顶/取消置顶(2026-08-30 立):乐观更新 pinned,刷新会话列表(后端排序置顶优先)
+  const pinMutation = useMutation({
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      setConversationPinned(id, pinned),
+    onMutate: async ({ id, pinned }) => {
+      await queryClient.cancelQueries({ queryKey: ['chat', 'conversations'] })
+      await queryClient.cancelQueries({ queryKey: ['chat', 'favorites'] })
+      const prevConv = queryClient.getQueryData<Conversation[]>(['chat', 'conversations'])
+      const prevFav = queryClient.getQueryData<Conversation[]>(['chat', 'favorites'])
+      const apply = (list: Conversation[] | undefined) =>
+        list?.map((c) => (c.id === id ? { ...c, pinned } : c))
+      queryClient.setQueryData(['chat', 'conversations'], apply)
+      queryClient.setQueryData(['chat', 'favorites'], apply)
+      return { prevConv, prevFav }
+    },
+    onError: (_e, _id, ctx) => {
+      if (ctx?.prevConv) queryClient.setQueryData(['chat', 'conversations'], ctx.prevConv)
+      if (ctx?.prevFav) queryClient.setQueryData(['chat', 'favorites'], ctx.prevFav)
+      error(tc('toast.pinFailed'))
     },
     onSettled: () => invalidateAll(),
   })
@@ -490,6 +518,34 @@ export function ConversationList({ items }: { items: Conversation[] }) {
                   >
                     <Pencil className="mr-2 h-3.5 w-3.5" />
                     <span>{tc('actions.rename')}</span>
+                  </DropdownMenuItem>
+                  {/* 2026-08-30 立:置顶/取消置顶 */}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setBusyId(item.id)
+                      pinMutation.mutate(
+                        { id: item.id, pinned: !item.pinned },
+                        {
+                          onSettled: () => setBusyId(null),
+                          onSuccess: () =>
+                            success(item.pinned ? tc('toast.unpinned') : tc('toast.pinned')),
+                        },
+                      )
+                    }}
+                    disabled={busyId === item.id}
+                    data-testid="conversation-pin-action"
+                  >
+                    {item.pinned ? (
+                      <>
+                        <PinOff className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.unpin')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Pin className="mr-2 h-3.5 w-3.5" />
+                        <span>{tc('actions.pin')}</span>
+                      </>
+                    )}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => handleArchiveToggle(item)}
