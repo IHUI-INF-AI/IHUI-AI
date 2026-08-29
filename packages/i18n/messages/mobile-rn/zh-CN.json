@@ -167,7 +167,21 @@
     "navOrder": "订单",
     "navProfile": "我的",
     "navSettings": "设置",
-    "navLogout": "退出"
+    "navLogout": "退出",
+    "modelHistoryToggle": "历史模型",
+    "modelHistorySearch": "搜索历史模型",
+    "modelHistoryEmpty": "没有匹配的模型",
+    "modelCategoryChat": "对话推理",
+    "modelCategoryVision": "视觉理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "语音合成",
+    "modelCategoryAsr": "语音识别",
+    "modelCategoryImage": "图像生成",
+    "modelCategoryVideo": "视频生成",
+    "modelCategoryGuard": "安全审核",
+    "modelCategoryOcr": "文字识别",
+    "modelCategoryOther": "其他"
   },
   "settings": {
     "title": "设置",

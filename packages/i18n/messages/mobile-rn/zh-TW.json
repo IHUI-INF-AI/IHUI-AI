@@ -167,7 +167,21 @@
     "navOrder": "訂單",
     "navProfile": "我的",
     "navSettings": "設定",
-    "navLogout": "登出"
+    "navLogout": "登出",
+    "modelHistoryToggle": "歷史模型",
+    "modelHistorySearch": "搜尋歷史模型",
+    "modelHistoryEmpty": "沒有符合的模型",
+    "modelCategoryChat": "對話推理",
+    "modelCategoryVision": "視覺理解",
+    "modelCategoryEmbedding": "向量嵌入",
+    "modelCategoryRerank": "重排序",
+    "modelCategoryTts": "語音合成",
+    "modelCategoryAsr": "語音辨識",
+    "modelCategoryImage": "圖像生成",
+    "modelCategoryVideo": "影片生成",
+    "modelCategoryGuard": "安全審核",
+    "modelCategoryOcr": "文字辨識",
+    "modelCategoryOther": "其他"
   },
   "settings": {
     "title": "設定",

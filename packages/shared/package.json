@@ -155,6 +155,10 @@
       "types": "./src/constants.ts",
       "import": "./src/constants.ts"
     },
+    "./constants/*": {
+      "types": "./src/constants/*.ts",
+      "import": "./src/constants/*.ts"
+    },
     "./pay": {
       "types": "./src/pay/index.ts",
       "import": "./src/pay/index.ts"
