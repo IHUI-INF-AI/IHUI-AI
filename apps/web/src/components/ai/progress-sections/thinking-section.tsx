@@ -82,6 +82,10 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   // Phase 22: 受控模式(传 controlledExpanded)优先;非受控模式用内部 state + localStorage
   const isControlled = typeof controlledExpanded === 'boolean'
   const [internalExpanded, setInternalExpanded] = React.useState<boolean>(false)
+  // 2026-08-29:自动展开/收起生命周期(仅非受控模式,与 MessageItem 受控逻辑对齐)
+  // - 流式时自动展开;流式结束后若为自动展开(用户未手动 toggle 过)则自动收起
+  // - autoExpandedRef 标记"本次展开是自动的",手动 toggle 时清除
+  const autoExpandedRef = React.useRef<boolean>(false)
 
   // SSR 安全:localStorage 只在 useEffect 中读,不在 render 阶段访问
   React.useEffect(() => {
@@ -98,6 +102,7 @@ export const ThinkingSection = React.memo(function ThinkingSection({
       onToggle?.()
       return
     }
+    autoExpandedRef.current = false // 手动操作后不再自动收起
     setInternalExpanded((prev) => {
       const next = !prev
       saveExpandedToStorage(next)
@@ -127,10 +132,19 @@ export const ThinkingSection = React.memo(function ThinkingSection({
   const [copied, setCopied] = React.useState<boolean>(false)
   const preRef = React.useRef<HTMLPreElement>(null)
 
-  // 流式输出时自动展开 + 自动滚动到底部
+  // 流式输出时自动展开
   React.useEffect(() => {
     if (isStreaming && !isControlled) {
+      autoExpandedRef.current = true
       setInternalExpanded(true)
+    }
+  }, [isStreaming, isControlled])
+
+  // 流式结束后自动收起(不写 localStorage,保留用户跨会话的持久化偏好)
+  React.useEffect(() => {
+    if (!isStreaming && !isControlled && autoExpandedRef.current) {
+      autoExpandedRef.current = false
+      setInternalExpanded(false)
     }
   }, [isStreaming, isControlled])
 
@@ -193,7 +207,8 @@ export const ThinkingSection = React.memo(function ThinkingSection({
             aria-live="polite"
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-            <span>{t('thinkingStreaming')}</span>
+            {/* 2026-08-29:文字光线扫描动效(.text-shimmer) */}
+            <span className="text-shimmer">{t('thinkingStreaming')}</span>
           </span>
         )}
         {/* v2: 折叠态内容预览(1 行高度,最后 60 字符) */}
