@@ -29,7 +29,7 @@ jobs:
           - label: macos-arm64
             runner: macos-latest
           - label: macos-x64
-            runner: macos-13
+            runner: macos-15-intel # macos-13 已于 2025-12 退役,job 会永久排队;macos-15-intel 为官方 Intel 替代
           - label: linux-x64
             runner: ubuntu-latest
     steps:
