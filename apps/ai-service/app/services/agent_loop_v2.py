@@ -15,6 +15,7 @@
 import asyncio
 import json
 import logging
+import os
 import random
 import time
 import uuid
@@ -44,6 +45,92 @@ _pending_meta_eval_tasks: set[asyncio.Task[Any]] = set()
 _TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
     {"timeout", "connection", "http_5xx"}
 )
+
+# =====================================================================
+# 工具调用审批流(2026-08-30 立,对标 Codex 三档审批 + Claude Code Auto mode)。
+# 高危工具(写文件/执行命令/删除/写库等)在执行前先请求用户审批:
+#   发起 tool.approval hook 事件 → 前端弹窗 → 用户批准/拒绝 → 决策回填工具结果,
+#   拒绝/超时的工具不执行,结果以 error 返回给 LLM(LLM 感知决策)。
+# =====================================================================
+
+# 默认高危工具集合(可经 env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加,逗号分隔)
+_DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
+    # 写文件类
+    "write_file",
+    "file_edit",
+    "file_batch_edit",
+    "edit_file",
+    "create_file",
+    "delete_file",
+    # 命令类
+    "run_command",
+    "computer_mouse_click",
+    "computer_key_type",
+    "computer_screenshot",
+    # 浏览器交互类
+    "browser_click_element",
+    "browser_type_text",
+    # 删除/写库类(git_operations 含 rm / db_query 写操作由用户按参数预览自决)
+    "git_operations",
+    "db_query",
+})
+
+# 前缀高危:computer_* 系列(电脑控制)整体视为高危
+_HIGH_RISK_PREFIXES: tuple[str, ...] = ("computer_",)
+
+# 审批默认超时(秒,可经 env TOOL_APPROVAL_TIMEOUT 覆盖)
+_DEFAULT_APPROVAL_TIMEOUT = 60.0
+
+# 审批默认开关:默认开启(安全功能),env TOOL_APPROVAL_ENABLED=false 关闭
+def _approval_enabled_from_env() -> bool:
+    return os.environ.get("TOOL_APPROVAL_ENABLED", "true").strip().lower() not in (
+        "0",
+        "false",
+        "no",
+        "off",
+    )
+
+
+def _approval_timeout_from_env() -> float:
+    try:
+        return max(0.0, float(os.environ.get("TOOL_APPROVAL_TIMEOUT", "")))
+    except ValueError:
+        return _DEFAULT_APPROVAL_TIMEOUT
+
+
+def _high_risk_tools_from_env() -> frozenset[str]:
+    """env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加自定义高危工具(逗号分隔)。"""
+    extra = os.environ.get("TOOL_APPROVAL_HIGH_RISK_TOOLS", "")
+    names = {t.strip() for t in extra.split(",") if t.strip()}
+    return names or frozenset()
+
+
+# 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
+#   approval_id -> (asyncio.Event, decision|None)
+# 决策值:"approve" / "reject"。等待方超时/完成后由 _request_approval 清理条目(防内存泄漏)。
+_approval_registry: dict[str, tuple[asyncio.Event, Optional[str]]] = {}
+
+
+def resolve_approval_response(approval_id: str, decision: str) -> bool:
+    """写入审批决策并唤醒等待中的工具执行协程(由审批响应端点调用)。
+
+    Args:
+        approval_id: 审批请求 id
+        decision: "approve" 或 "reject"(其他值视为 reject)
+
+    Returns:
+        True=决策已写入且协程被唤醒;False=approval_id 不存在(已超时清理或从未发起)
+    """
+    entry = _approval_registry.get(approval_id)
+    if entry is None:
+        return False
+    ev, _ = entry
+    _approval_registry[approval_id] = (ev, decision)
+    try:
+        ev.set()
+    except Exception:
+        pass
+    return True
 
 
 @dataclass
@@ -146,6 +233,11 @@ class AgentLoopV2:
         # L5-2 错误恢复:工具瞬时失败自动重试(2026-08-12 立)
         tool_retry_max: int = 1,
         tool_retry_backoff: float = 0.5,
+        # 工具调用审批流(2026-08-30 立):高危工具执行前请求用户审批。
+        # 默认开启(env TOOL_APPROVAL_ENABLED=false 关闭),超时秒数经 env
+        # TOOL_APPROVAL_TIMEOUT 覆盖。传 None 使用 env 解析结果。
+        approval_enabled: Optional[bool] = None,
+        approval_timeout: Optional[float] = None,
     ):
         """
         Args:
@@ -183,6 +275,16 @@ class AgentLoopV2:
         # L5-2 错误恢复:工具重试配置(2026-08-12 立)
         self.tool_retry_max = tool_retry_max
         self.tool_retry_backoff = tool_retry_backoff
+
+        # 工具调用审批流配置(2026-08-30 立)
+        self._approval_enabled: bool = (
+            _approval_enabled_from_env() if approval_enabled is None else bool(approval_enabled)
+        )
+        self._approval_timeout: float = (
+            _approval_timeout_from_env() if approval_timeout is None else float(approval_timeout)
+        )
+        # 自定义高危工具集合(env 追加;实例级只读组合)
+        self._extra_high_risk_tools: frozenset[str] = _high_risk_tools_from_env()
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
@@ -919,6 +1021,75 @@ class AgentLoopV2:
             )
         return None
 
+    # ------------------------------------------------------------------
+    # 工具调用审批流(2026-08-30 立,对标 Codex 三档审批 + Claude Auto mode)
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_high_risk_tool(name: str) -> bool:
+        """判断工具是否高危(执行前需用户审批)。
+
+        高危集合(默认,可经 env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加):
+        - 写文件类:write_file / file_edit / file_batch_edit / edit_file / create_file / delete_file
+        - 命令类:run_command / computer_*(电脑控制前缀)
+        - 浏览器交互类:browser_click_element / browser_type_text
+        - 删除/写库类:git_operations(含 rm 参数) / db_query(写操作) —— 参数细节由用户按预览自决
+        其余(read_file / search / 知识查询)默认放行。
+        """
+        if name in _DEFAULT_HIGH_RISK_TOOLS:
+            return True
+        if any(name.startswith(p) for p in _HIGH_RISK_PREFIXES):
+            return True
+        return False
+
+    def _is_high_risk_tool_instance(self, name: str) -> bool:
+        """实例级高危判定(含 env 追加的自定义集合)。"""
+        return self._is_high_risk_tool(name) or name in self._extra_high_risk_tools
+
+    async def _request_approval(self, tc: ToolCall) -> Optional[str]:
+        """发起审批请求并等待用户决策(阻塞等待,超时后放弃)。
+
+        Returns:
+            None = 用户已批准,工具可继续执行;
+            "user_rejected" = 用户拒绝(工具不执行);
+            "approval_timeout" = 等待超时(默认 60s,工具不执行)。
+        """
+        approval_id = f"appr_{uuid.uuid4().hex[:12]}"
+        ev = asyncio.Event()
+        _approval_registry[approval_id] = (ev, None)
+        try:
+            # 参数预览:截断 200 字符(完整 args 不回传 SSE,避免敏感信息全量下发)
+            try:
+                args_preview = json.dumps(tc.args, ensure_ascii=False)[:200]
+            except Exception:
+                args_preview = str(tc.args)[:200]
+            # 通过 hook_engine 发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
+            # emit 内部有 _broadcast 向 SSE 订阅者推送;失败降级不抛(但审批继续等待,
+            # 若事件完全无法送达,工具会在超时后以 approval_timeout 返回,安全兜底)。
+            try:
+                await hook_engine.emit("tool.approval", {
+                    "approval_id": approval_id,
+                    "tool_name": tc.name,
+                    "tool_call_id": tc.id,
+                    "args_preview": args_preview,
+                    "danger_level": "high",
+                    "session_id": self._session_id or "",
+                })
+            except Exception as e:
+                logger.warning("hook_engine.emit(tool.approval) 失败(继续等待审批): %s", e)
+            # 等待用户决策(批准/拒绝/超时)
+            try:
+                await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
+            except asyncio.TimeoutError:
+                return "approval_timeout"
+            _, decision = _approval_registry.get(approval_id, (None, None))
+            if decision == "approve":
+                return None
+            return "user_rejected"
+        finally:
+            # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
+            _approval_registry.pop(approval_id, None)
+
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
         if self.parallel_tool_calls and len(tool_calls) > 1:
@@ -957,8 +1128,44 @@ class AgentLoopV2:
         - http_4xx 业务错误与 unknown 不重试(重试无意义且可能放大副作用);
         - 重试次数 tool_retry_max(默认 1),退避 tool_retry_backoff * attempt;
         - 非幂等工具由调用方自行权衡:默认仅 1 次且仅瞬时错误,风险可控。
+
+        审批门(2026-08-30 立):高危工具在执行前先请求用户审批。
+        - 审批只阻塞该工具自身;并行执行时非高危工具不受影响(各自独立等待)。
+        - 拒绝 → error="User rejected tool call",error_type="user_rejected"
+        - 超时 → error="Approval timeout",error_type="approval_timeout"
+        - 结果 result={"approved": False} 回填给 LLM,LLM 感知"用户拒绝了该操作"。
         """
         start = time.time()
+
+        # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)
+        if self._approval_enabled and self._is_high_risk_tool_instance(tc.name):
+            denial = await self._request_approval(tc)
+            if denial is not None:
+                if denial == "user_rejected":
+                    error_msg = "User rejected tool call"
+                    error_type = "user_rejected"
+                else:
+                    error_msg = "Approval timeout"
+                    error_type = "approval_timeout"
+                logger.info(
+                    "工具 %s 未执行(审批%s): approval denied=%s, session=%s",
+                    tc.name,
+                    "被拒绝" if denial == "user_rejected" else "超时",
+                    denial,
+                    self._session_id or "",
+                )
+                # 错误结构化上报(与工具失败同链路,审计/元学习可见)
+                self._report_tool_error(
+                    tc, error_msg, error_type, (time.time() - start) * 1000
+                )
+                return ToolResult(
+                    tool_call_id=tc.id,
+                    name=tc.name,
+                    result={"approved": False, "reason": denial},
+                    error=error_msg,
+                    duration_ms=(time.time() - start) * 1000,
+                    error_type=error_type,
+                )
 
         tool = self._tools.get(tc.name)
         if not tool:
