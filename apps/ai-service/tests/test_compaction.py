@@ -90,8 +90,8 @@ def test_should_compact_above_threshold():
     """高于触发阈值触发压缩。"""
     c = ContextCompactor()
     # max_context=100, trigger_ratio=0.88 → 阈值 88
-    # "x"*400 = 100 tokens + 4 = 104,高于 88
-    msgs = [{"role": "user", "content": "x" * 400}]
+    # "x"*800 = 100 tokens(tiktoken)+ 4 = 104,高于 88
+    msgs = [{"role": "user", "content": "x" * 800}]
     assert c.should_compact(msgs, 100) is True
 
 
@@ -99,7 +99,7 @@ def test_should_compact_max_tokens_override():
     """config.max_tokens 绝对值阈值优先于 ratio。"""
     config = CompactionConfig(max_tokens=50)
     c = ContextCompactor(config=config)
-    # "x"*400 = 104 tokens,超过 max_tokens=50
+    # "x"*400 = 50 tokens(tiktoken)+ 4 = 54,超过 max_tokens=50
     msgs = [{"role": "user", "content": "x" * 400}]
     assert c.should_compact(msgs, 100000) is True
 
@@ -123,16 +123,16 @@ def test_compact_if_needed_no_compact():
 def test_compact_if_needed_compact():
     """触发压缩 + reduction_ratio 正确。"""
     c = ContextCompactor()
-    # 20 条消息,每条 2000 chars → 500 tokens + 4 = 504 per msg → 10080 total
-    # max_context=10000, trigger=8800, target=6000
+    # 20 条消息,每条 2000 chars → 250 tokens(tiktoken)+ 4 = 254 per msg → 5080 total
+    # max_context=4000, trigger=3520, target=2400
     msgs = [{"role": "user", "content": "x" * 2000} for _ in range(20)]
-    result = c.compact_if_needed(msgs, 10000)
+    result = c.compact_if_needed(msgs, 4000)
 
     assert result.was_compacted is True
     assert result.compacted_tokens < result.original_tokens
     assert result.reduction_ratio > 0.0
     assert result.reduction_ratio < 1.0
-    assert result.original_tokens == 10080
+    assert result.original_tokens == 5080
     # 压缩后消息数应少于原始(摘要替代了中段)
     assert len(result.messages) < len(msgs)
 
@@ -206,10 +206,11 @@ def test_summarize_plain_text():
 def test_compact_keep_recent():
     """压缩后保留最近 N 条消息(同一 dict 引用)。"""
     c = ContextCompactor()
-    # 20 条消息,每条 2000 chars → 10080 tokens,max_context=10000
-    # target=6000,keep=6 时 compacted ≈ 3432 tokens ≤ 6000 → 用 keep=6
+    # 20 条消息,每条 2000 chars → 254 tokens(tiktoken)per msg → 5160 total
+    # max_context=4000, trigger=3520, target=2400
+    # keep=6 时 compacted ≈ 1800 tokens ≤ 2400 → 用 keep=6
     msgs = [{"role": "user", "content": f"msg-{i:02d}-" + "x" * 1994} for i in range(20)]
-    result = c.compact_if_needed(msgs, 10000)
+    result = c.compact_if_needed(msgs, 4000)
 
     assert result.was_compacted is True
     # 最后 6 条消息应原样保留(dict 引用相同)
@@ -226,7 +227,7 @@ def test_compact_preserves_system_messages():
     c = ContextCompactor()
     system_msg = {"role": "system", "content": "you are a helpful assistant"}
     msgs = [system_msg] + [{"role": "user", "content": "x" * 2000} for _ in range(20)]
-    result = c.compact_if_needed(msgs, 10000)
+    result = c.compact_if_needed(msgs, 4000)
 
     assert result.was_compacted is True
     # system 消息应在结果中
@@ -250,7 +251,7 @@ def test_compact_hooks():
     c.add_post_hook(lambda result: post_calls.append(result))
 
     msgs = [{"role": "user", "content": "x" * 2000} for _ in range(20)]
-    result = c.compact_if_needed(msgs, 10000)
+    result = c.compact_if_needed(msgs, 4000)
 
     assert result.was_compacted is True
     assert len(pre_calls) == 1
@@ -283,7 +284,7 @@ def test_hook_exception_does_not_break_compaction():
     c.add_post_hook(lambda result: (_ for _ in ()).throw(RuntimeError("boom")))
 
     msgs = [{"role": "user", "content": "x" * 2000} for _ in range(20)]
-    result = c.compact_if_needed(msgs, 10000)
+    result = c.compact_if_needed(msgs, 4000)
 
     # hook 异常被捕获,压缩正常完成
     assert result.was_compacted is True
@@ -341,3 +342,47 @@ def test_custom_token_counter():
     # "hello world" = 2 words → 2 + 4 = 6
     msgs = [{"role": "user", "content": "hello world"}]
     assert c.count_tokens(msgs) == 6
+
+
+# =============================================================================
+# _default_token_counter(tiktoken 优先 + 降级)
+# =============================================================================
+
+
+def test_default_token_counter_tiktoken_preferred():
+    """tiktoken 可用时按真实 token 数计算。"""
+    c = ContextCompactor()
+    # cl100k:"x"*800 = 100 tokens;"hello world" = 2 tokens
+    assert c._default_token_counter("x" * 800) == 100
+    assert c._default_token_counter("hello world") == 2
+
+
+def test_default_token_counter_fallback_when_encoder_missing(monkeypatch):
+    """tiktoken 不可用 → 降级字符数 // 3。"""
+    import app.core.compaction as compaction
+
+    monkeypatch.setattr(compaction, "_get_tiktoken_encoder", lambda: None)
+    c = ContextCompactor()
+    # "abcdefgh" 8 chars → 8 // 3 = 2
+    assert c._default_token_counter("abcdefgh") == 2
+    # 至少 1
+    assert c._default_token_counter("") == 1
+
+
+def test_default_token_counter_fallback_when_encode_fails(monkeypatch):
+    """encoder.encode 抛异常 → 降级字符数 // 3,不抛异常。"""
+    import app.core.compaction as compaction
+
+    class _BadEncoder:
+        def encode(self, text):
+            raise RuntimeError("forced")
+
+    monkeypatch.setattr(compaction, "_get_tiktoken_encoder", lambda: _BadEncoder())
+    c = ContextCompactor()
+    assert c._default_token_counter("abcdefgh") == 2
+
+
+def test_default_token_counter_still_positive_with_tiktoken():
+    """tiktoken 编码空串可能为 0 → 保证至少 1。"""
+    c = ContextCompactor()
+    assert c._default_token_counter("") == 1

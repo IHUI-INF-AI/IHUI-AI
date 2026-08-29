@@ -920,6 +920,93 @@ class TestSummarize:
 
 
 # ════════════════════════════════════════════════════════════════════════
+# 11.5 _get_embedding / _get_embedding_cached(伪向量修复)
+# ════════════════════════════════════════════════════════════════════════
+
+
+class TestGetEmbedding:
+    """_get_embedding:stub 模式/失败不再返回 hash 伪向量,返回 None 优雅降级。"""
+
+    @pytest.mark.asyncio
+    async def test_stub_mode_returns_none(self, engine):
+        """stub 模式(llm_gateway 返回 hash 伪向量)→ 返回 None,不调用 embed。"""
+        from app.services import context_engine as ce
+
+        fake_gw = MagicMock()
+        fake_gw._is_stub_mode.return_value = True
+        fake_gw.embed = AsyncMock(return_value=[0.5, 0.5])  # 不应被调用
+        with patch.object(ce, "llm_gateway", fake_gw):
+            result = await engine._get_embedding("hello")
+        assert result is None
+        fake_gw.embed.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_success_returns_embedding(self, engine):
+        """非 stub 且 embed 成功 → 返回真实向量。"""
+        from app.services import context_engine as ce
+
+        fake_gw = MagicMock()
+        fake_gw._is_stub_mode.return_value = False
+        fake_gw.embed = AsyncMock(return_value=[0.1, 0.2, 0.3])
+        with patch.object(ce, "llm_gateway", fake_gw):
+            result = await engine._get_embedding("hello")
+        assert result == [0.1, 0.2, 0.3]
+        fake_gw.embed.assert_awaited_once_with("hello")
+
+    @pytest.mark.asyncio
+    async def test_failure_returns_none(self, engine):
+        """embed 抛异常 → 返回 None,不抛给上层。"""
+        from app.services import context_engine as ce
+
+        fake_gw = MagicMock()
+        fake_gw._is_stub_mode.return_value = False
+        fake_gw.embed = AsyncMock(side_effect=Exception("boom"))
+        with patch.object(ce, "llm_gateway", fake_gw):
+            result = await engine._get_embedding("hello")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_cached_returns_none_when_embedding_none(self, engine):
+        """_get_embedding 失败 → _get_embedding_cached 返回 None,不写缓存不崩溃。"""
+        engine._get_embedding = AsyncMock(return_value=None)  # type: ignore[method-assign]
+        assert await engine._get_embedding_cached("hello") is None
+        # None 不写入缓存(避免污染 LRU)
+        assert len(engine._embedding_cache) == 0
+
+    @pytest.mark.asyncio
+    async def test_cached_success_uses_cache(self, engine):
+        """成功 → 结果缓存,第二次命中不再调 embedding。"""
+        calls: list[str] = []
+
+        async def fake_embed(text: str):
+            calls.append(text)
+            return [1.0, 0.0]
+
+        engine._get_embedding = fake_embed  # type: ignore[method-assign]
+        r1 = await engine._get_embedding_cached("hello")
+        r2 = await engine._get_embedding_cached("hello")
+        assert r1 == [1.0, 0.0]
+        assert r2 == [1.0, 0.0]
+        assert calls == ["hello"]
+
+    @pytest.mark.asyncio
+    async def test_retrieve_and_enrich_graceful_on_none_embeddings(self, engine):
+        """所有 embedding 失败 → 跳过向量检索不抛异常,仅返回 codebase 结果。"""
+        msgs = [{"role": "user", "content": "x" * 20}] * 5
+        codebase_results = [
+            RetrievedContext(content="code snippet", score=0.9, source="codebase")
+        ]
+        with patch.object(
+            engine, "_get_embedding", new=AsyncMock(return_value=None)
+        ), patch.object(
+            engine, "_search_codebase", new=AsyncMock(return_value=codebase_results)
+        ):
+            result = await engine.retrieve_and_enrich(msgs, query="test")
+        assert len(result) == 1
+        assert result[0].source == "codebase"
+
+
+# ════════════════════════════════════════════════════════════════════════
 # 12. _cosine_similarity
 # ════════════════════════════════════════════════════════════════════════
 

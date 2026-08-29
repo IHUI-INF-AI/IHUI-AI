@@ -1324,8 +1324,8 @@ class TestEstimateTokens:
 
     def test_normal_messages(self):
         msgs = [{"role": "user", "content": "abcdefghij"}]  # 10 chars
-        # 10 // 3 = 3, max(1, 3) = 3
-        assert SessionSummarizer._estimate_tokens(msgs) == 3
+        # tiktoken(cl100k):"abcdefghij" = 2 tokens
+        assert SessionSummarizer._estimate_tokens(msgs) == 2
 
     def test_non_dict_message_skipped(self):
         msgs = [None, "string", {"role": "user", "content": "abc"}]
