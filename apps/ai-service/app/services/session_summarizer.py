@@ -53,6 +53,29 @@ _MIN_MESSAGES_FOR_SUMMARY = 5
 # P0 修复:每用户内存缓存记录上限,防止 _cache 无界增长导致 OOM(防御性:目前 _cache 未被写入)
 _MAX_CACHE_ENTRIES = 500
 
+# 模块级 tiktoken encoder 缓存(惰性初始化;初始化失败置 None 避免重复尝试)
+_tiktoken_enc: Optional[Any] = None
+_tiktoken_enc_tried: bool = False
+
+
+def _get_tiktoken_encoder() -> Optional[Any]:
+    """获取 tiktoken cl100k_base 编码器(模块级单例,仅首次调用时初始化)。
+
+    tiktoken 初始化昂贵(首次 ~50ms),只初始化一次;
+    初始化失败返回 None,由调用方降级为字符数估算,不抛异常。
+    """
+    global _tiktoken_enc, _tiktoken_enc_tried
+    if not _tiktoken_enc_tried:
+        try:
+            import tiktoken
+
+            _tiktoken_enc = tiktoken.get_encoding("cl100k_base")
+        except Exception as e:
+            logger.debug("tiktoken 初始化失败,降级字符数估算: %s", e)
+            _tiktoken_enc = None
+        _tiktoken_enc_tried = True
+    return _tiktoken_enc
+
 
 # 修复(2026-07-28):复用 app.core.db_pool 共享 pool,避免 14 个独立 pool 打满 max_connections。
 # 保留 _get_pool / close_pool 函数签名(向后兼容)。
@@ -717,7 +740,21 @@ class SessionSummarizer:
 
     @staticmethod
     def _estimate_tokens(messages: list[dict[str, Any]]) -> int:
-        """粗略估算 messages 的 token 数(中文按 1.5 字/token,英文按 4 字符/token)。"""
+        """估算 messages 的 token 数:优先 tiktoken(cl100k_base),失败降级字符数粗算。
+
+        - tiktoken 可用 → 逐条 content 精确编码求和
+        - tiktoken 初始化/encode 异常 → 字符数 // 3(混合中英文经验值,不抛异常)
+        """
+        enc = _get_tiktoken_encoder()
+        if enc is not None:
+            try:
+                total = 0
+                for m in messages:
+                    content = str(m.get("content", "")) if isinstance(m, dict) else ""
+                    total += len(enc.encode(content))
+                return max(1, total)
+            except Exception:
+                pass
         total = 0
         for m in messages:
             content = str(m.get("content", "")) if isinstance(m, dict) else ""

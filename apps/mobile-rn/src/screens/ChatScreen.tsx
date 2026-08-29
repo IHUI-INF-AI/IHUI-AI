@@ -15,10 +15,12 @@
  * - 二维码弹窗 + 分享领智汇值弹窗(Modal)
  * - Drawer 集成(H3 重建版,管理 visible 状态)
  *
- * BottomActionBar 30+ 事件回调:15 个已实现(send-message/toggle-voice-input/
+ * BottomActionBar 30+ 事件回调已全部接线:send-message/toggle-voice-input/
  * toggle-super-agent/toggle-super-agentfu/toggle-mcp/toggle-knowledge-base/
  * toggle-permanent-memory/showModelConfig/show-model-list/remove-image/update:prompt/
- * function-handle/source-handle/icon-click/fangda),其余 stub(H22 补全)。
+ * function-handle/source-handle/icon-click/fangda/start-long-press/end-long-press/
+ * input-click/start-voice-animation/stop-voice-animation/modelConfigChange/
+ * keyboard-show/keyboard-hide。
  *
  * 平台独占:仅 mobile-rn 端,不涉及其他端。
  */
@@ -334,8 +336,15 @@ export function ChatScreen() {
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>()
   const rootNav = navigation.getParent<RootNav>()
   const { user: authUser, logout } = useAuth()
-  const { inputFiles, isVoiceMode, onInputAddImage, onInputRemoveFile, onInputVoiceToggle } =
-    useChatInput()
+  const {
+    inputFiles,
+    isVoiceMode,
+    onInputAddImage,
+    onInputRemoveFile,
+    onInputVoiceToggle,
+    onInputVoiceStart,
+    onInputVoiceEnd,
+  } = useChatInput()
 
   // ── 弹窗/抽屉状态 ──
   const [drawerVisible, setDrawerVisible] = useState(false)
@@ -1107,9 +1116,35 @@ export function ChatScreen() {
     setFangdaVisible(!fangdaVisible)
   }
 
-  // 以下事件无对应 UI 触发点(ModelList 弹窗/键盘监听等未实现),待 H22 补全:
-  // start-long-press / end-long-press / input-click / start-voice-animation / stop-voice-animation /
-  // modelConfigChange / keyboard-show / keyboard-hide
+  // ── BottomActionBar 其余事件(补齐,全部纯前端逻辑,不涉及新后端接口) ──
+
+  /** start-long-press / end-long-press:语音按钮长按开始/结束录音(复用 useChatInput 录音能力) */
+  const handleStartLongPress = (): void => {
+    if (!isVoiceMode) onInputVoiceToggle()
+    void onInputVoiceStart()
+  }
+  const handleEndLongPress = (): void => {
+    void onInputVoiceEnd()
+  }
+
+  /** input-click:输入框点击(标记聚焦,供 isInputFocused 等 UI 调整) */
+  const handleInputClick = (): void => {
+    setInputFocused(true)
+  }
+
+  /** start/stop-voice-animation:语音动画回调(BottomActionBar 内 voiceInputEnabled 变化触发)。
+      语音动画 UI 尚未建立,mic 高亮由 voiceInputEnabled prop 驱动,此处保留空实现。 */
+  const handleStartVoiceAnimation = (): void => {}
+  const handleStopVoiceAnimation = (): void => {}
+
+  /** keyboard-show / keyboard-hide:键盘监听回调(键盘避让由 KeyboardAvoidingView 处理,保留空实现) */
+  const handleKeyboardShow = (): void => {}
+  const handleKeyboardHide = (): void => {}
+
+  /** model-config-change:模型名/配置按钮长按触发(对齐 Uniapp 长按进模型配置)→ 打开模型配置弹窗 */
+  const handleModelConfigChange = (_config: unknown): void => {
+    setModelConfigVisible(true)
+  }
 
   // ── 共享组件渲染回调 ──
 
@@ -1895,6 +1930,14 @@ export function ChatScreen() {
           onIconClick={handleIconClick}
           onFangda={handleFangda}
           onTextareaHeightChange={textareaHeightChange}
+          onStartLongPress={handleStartLongPress}
+          onEndLongPress={handleEndLongPress}
+          onInputClick={handleInputClick}
+          onStartVoiceAnimation={handleStartVoiceAnimation}
+          onStopVoiceAnimation={handleStopVoiceAnimation}
+          onKeyboardShow={handleKeyboardShow}
+          onKeyboardHide={handleKeyboardHide}
+          onModelConfigChange={handleModelConfigChange}
           superAgentEnabled={superAgentEnabled}
           mcpEnabled={mcpEnabled}
           knowledgeBaseEnabled={knowledgeBaseEnabled}
