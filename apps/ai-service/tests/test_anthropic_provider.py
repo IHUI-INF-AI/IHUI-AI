@@ -261,7 +261,8 @@ def test_build_payload_tools_included_when_present():
         tool_choice="auto",
     )
     assert "tools" in payload
-    assert payload["tool_choice"] == "auto"
+    # OpenAI 字符串 "auto" 统一转 Anthropic 对象形态(字符串会被 API 400)
+    assert payload["tool_choice"] == {"type": "auto"}
 
 
 def test_build_payload_strips_vendor_prefix():
