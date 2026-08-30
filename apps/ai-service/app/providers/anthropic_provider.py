@@ -17,6 +17,7 @@ from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
 from ..services.tool_schema_adapter import (
     anthropic_response_to_openai,
+    anthropic_tool_choice_from_openai,
     openai_tools_to_anthropic,
 )
 
@@ -87,7 +88,11 @@ class AnthropicProvider(BaseProvider):
         if converted_tools:
             payload["tools"] = converted_tools
             if "tool_choice" in kwargs:
-                payload["tool_choice"] = kwargs.pop("tool_choice")
+                # OpenAI 字符串("auto"/"none"/"required")会被 Anthropic 400,
+                # 统一转对象形态(none → 不带)
+                converted_choice = anthropic_tool_choice_from_openai(kwargs.pop("tool_choice"))
+                if converted_choice is not None:
+                    payload["tool_choice"] = converted_choice
         if stream:
             payload["stream"] = True
         payload.update(kwargs)
