@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import {
   eq,
@@ -42,8 +42,22 @@ import {
   eduRefundRecord,
   users,
 } from '@ihui/database'
-import { requireAdmin } from '../plugins/require-permission.js'
+// 2026-08-30 教师角色 RBAC 接入:教务管理端点由 requireAdmin 改为 requirePermission('edu:manage')
+// admin(users.roleId >= 1)在 requirePermission 内自动豁免,行为不变;
+// 持有 teacher 角色的普通用户(roleId=0)经 RBAC 表校验后可访问教务管理端点
+import { requirePermission, requireAnyPermission } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+
+// 2026-08-30 教师角色 RBAC 接入:教务管理统一权限点(preHandler 工厂,模块级复用)
+// 注:包装为无 this 参数签名,便于在 handler 内直接 await 调用(实现为箭头函数,不依赖 this)
+const requireEduManage: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> =
+  requirePermission('edu:manage')
+
+// 2026-08-30 权限粒度细化:教务只读守卫,edu:view / edu:manage 任一命中即放行(可管理者必然可读)。
+// 仅用于只读 GET 端点;写端点(POST/PUT/DELETE)仍统一使用 requireEduManage。
+// admin(roleId>=1)在 requireAnyPermission 内自动豁免,与 requireEduManage 行为一致。
+const requireEduView: (request: FastifyRequest, reply: FastifyReply) => Promise<unknown> =
+  requireAnyPermission(['edu:view', 'edu:manage'])
 
 // =============================================================================
 // 通用 Zod schemas
@@ -705,12 +719,17 @@ async function paginate(
 // 路由
 // =============================================================================
 
+// 2026-08-30 安全加固:GET 端点统一补充 requireAdmin 鉴权(此前仅写操作有鉴权,
+// 存在越权读取风险);/parent/* 家长端端点保留原有"登录 + 绑定校验"鉴权不变。
+
 const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
   // 1. 学期管理 CRUD
   // ===========================================================================
 
   server.get('/term', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const { page, pageSize } = paginationSchema.parse(request.query)
     const result = await paginate(
       eduTerm,
@@ -723,6 +742,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/term/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -732,7 +753,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/term', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTermSchema.safeParse(request.body)
     if (!parsed.success)
@@ -746,7 +767,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/term/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -772,7 +793,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/term/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -792,6 +813,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/class', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = classListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -803,6 +826,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/class/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -812,7 +837,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/class', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createClassSchema.safeParse(request.body)
     if (!parsed.success)
@@ -822,7 +847,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/class/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -845,7 +870,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/class/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -865,6 +890,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/schedule', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = scheduleListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -882,6 +909,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/schedule/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -895,7 +924,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/schedule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createScheduleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -905,7 +934,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -928,7 +957,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -951,7 +980,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.post('/schedule/copy-last-week', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = copyLastWeekSchema.safeParse(request.body)
     if (!parsed.success)
@@ -986,6 +1015,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/schedule/check-teacher-conflict', async (request, reply) => {
+    // 2026-08-30 安全加固:排课冲突检测属教务管理功能,补 requireEduManage 守卫(历史遗留无鉴权)
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const parsed = checkTeacherConflictSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1018,6 +1050,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/schedule/export', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = scheduleExportQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1052,6 +1086,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/meal', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = mealListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1077,6 +1113,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/meal/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1090,7 +1128,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/meal', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createMealSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1100,7 +1138,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/meal/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1123,7 +1161,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/meal/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -1146,6 +1184,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/meal/template', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = templateListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1164,6 +1204,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/meal/template/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1177,7 +1219,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/meal/template', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTemplateSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1187,7 +1229,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/meal/template/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1210,7 +1252,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/meal/template/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -1227,7 +1269,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 应用模板到指定周
   server.post('/meal/apply-template', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = applyTemplateSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1263,7 +1305,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // 获取模板名称列表（去重）
-  server.get('/meal/template-names', async (_request, reply) => {
+  server.get('/meal/template-names', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const rows = await db
       .select({ name: eduMealWeekTemplate.name })
       .from(eduMealWeekTemplate)
@@ -1277,6 +1321,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/meal/nutrition-summary', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = nutritionSummaryQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1349,6 +1395,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/meal/generate-shopping-list', async (request, reply) => {
+    // 2026-08-30 安全加固:生成购物清单属教务管理功能,补 requireEduManage 守卫(历史遗留无鉴权)
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const parsed = generateShoppingListSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1401,7 +1450,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/meal/upload-image', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uploadImageSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1428,6 +1477,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/study-plan', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = planListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1443,6 +1494,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/study-plan/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1456,7 +1509,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/study-plan', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createPlanSchema.safeParse(request.body)
     if (!parsed.success)
@@ -1469,7 +1522,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/study-plan/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1492,7 +1545,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/study-plan/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -1512,7 +1565,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 月计划自动拆解为周计划
   server.post('/study-plan/:id/auto-split', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1580,6 +1633,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/study-plan/:id/items', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -1592,7 +1647,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/study-plan/:id/items', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1608,6 +1663,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/plan-item/:id', async (request, reply) => {
+    // 2026-08-30 安全加固:学习计划项写操作,补 requireEduManage 守卫(历史遗留无鉴权)
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -1638,6 +1696,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/plan-item/:id', async (request, reply) => {
+    // 2026-08-30 安全加固:学习计划项删除,补 requireEduManage 守卫(历史遗留无鉴权)
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -1659,6 +1720,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/study-plan/completion-stats', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = completionStatsQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1725,6 +1788,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/study-plan/progress-timeline', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = progressTimelineQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1800,7 +1865,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/study-plan-item/:id/review', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -1842,7 +1907,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 出勤统计（需在 :id 路由前注册）
   server.get('/attendance/stats', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = attendanceStatsQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -1899,7 +1964,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/attendance', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = attendanceListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -1922,6 +1987,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/attendance/check-in', async (request, reply) => {
+    // 2026-08-30 教师角色 RBAC 接入:该端点仅教务管理页调用(签到操作),补上权限守卫
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const parsed = checkInSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1970,6 +2038,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/attendance/check-out', async (request, reply) => {
+    // 2026-08-30 教师角色 RBAC 接入:该端点仅教务管理页调用(签退操作),补上权限守卫
+    await requireEduManage(request, reply)
+    if (reply.sent) return
     const parsed = checkOutSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2012,7 +2083,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/attendance/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -2043,7 +2114,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/attendance/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -2066,7 +2137,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/leave', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = leaveListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -2099,7 +2170,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/leave', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createLeaveSchema.safeParse(request.body)
     if (!parsed.success)
@@ -2109,7 +2180,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/leave/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -2132,7 +2203,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/leave/:id/approve', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -2163,7 +2234,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/leave/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -2772,6 +2843,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 成绩列表
   server.get('/exam-score', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = examScoreListQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2790,7 +2863,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 创建成绩
   server.post('/exam-score', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createExamScoreSchema.safeParse(request.body)
     if (!parsed.success)
@@ -2804,7 +2877,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 删除成绩（软删除）
   server.delete('/exam-score/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -2824,6 +2897,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 成绩统计
   server.get('/exam-score/stats', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = examScoreStatsQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2880,6 +2955,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 排名（按考试+班级聚合）
   server.get('/exam-score/ranking', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const parsed = examScoreRankingQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -2912,7 +2989,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 创建排名快照
   server.post('/exam-score/snapshot', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createSnapshotSchema.safeParse(request.body)
     if (!parsed.success)
@@ -2958,7 +3035,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/teacher-schedule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = teacherScheduleListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -2975,7 +3052,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/teacher-schedule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTeacherScheduleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -2985,7 +3062,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/teacher-schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3008,7 +3085,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/teacher-schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3028,7 +3105,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/scheduling-rule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = schedulingRuleListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3050,7 +3127,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/scheduling-rule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createSchedulingRuleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3060,7 +3137,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/scheduling-rule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3083,7 +3160,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/scheduling-rule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3107,7 +3184,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 自动排课
   server.post('/scheduling/auto-generate', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = autoGenerateSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3204,7 +3281,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 冲突检测
   server.post('/scheduling/check-conflict', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = checkConflictSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3263,7 +3340,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/schedule-change', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = scheduleChangeListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3283,7 +3360,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/schedule-change', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createScheduleChangeSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3297,7 +3374,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 审批通过
   server.put('/schedule-change/:id/approve', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3360,7 +3437,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 驳回
   server.put('/schedule-change/:id/reject', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3395,7 +3472,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/homework-submission', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = homeworkSubmissionListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3417,7 +3494,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/homework-submission', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createHomeworkSubmissionSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3428,7 +3505,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 批改作业
   server.put('/homework-submission/:id/grade', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3464,7 +3541,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 作业统计
   server.get('/homework-submission/stats', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = homeworkSubmissionStatsQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3501,7 +3578,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/lead', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = leadListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3517,7 +3594,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/lead', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createLeadSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3527,7 +3604,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/lead/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3550,7 +3627,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/lead/:id/status', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3573,7 +3650,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/lead/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3596,7 +3673,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/trial-booking', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = trialBookingListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3617,7 +3694,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/trial-booking', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTrialBookingSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3627,7 +3704,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/trial-booking/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3650,7 +3727,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/trial-booking/:id/status', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3677,7 +3754,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/enrollment', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = enrollmentListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3699,7 +3776,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/enrollment', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createEnrollmentSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3709,7 +3786,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/enrollment/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3732,7 +3809,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/enrollment/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3755,7 +3832,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/tuition-fee', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = tuitionFeeListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3776,7 +3853,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/tuition-fee', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTuitionFeeSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3786,7 +3863,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/tuition-fee/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -3809,7 +3886,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/tuition-fee/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3832,7 +3909,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/payment-record', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = paymentRecordListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3854,7 +3931,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/payment-record', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createPaymentRecordSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3865,7 +3942,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 缴费汇总
   server.get('/payment-record/summary', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = paymentRecordSummaryQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3917,7 +3994,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/payment-record/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -3940,7 +4017,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/refund-record', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduView(request, reply)
     if (reply.sent) return
     const parsed = refundRecordListQuerySchema.safeParse(request.query)
     if (!parsed.success)
@@ -3962,7 +4039,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/refund-record', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
@@ -3976,7 +4053,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 审批通过
   server.put('/refund-record/:id/approve', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4008,7 +4085,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 驳回
   server.put('/refund-record/:id/reject', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4042,7 +4119,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 批量删除课程表条目
   server.post('/course-schedule/batch-delete', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = batchDeleteSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4061,7 +4138,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 批量启用/禁用排课规则
   server.post('/scheduling-rule/batch-toggle', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = batchToggleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4080,7 +4157,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 批量更新线索状态
   server.post('/lead/batch-status', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = batchStatusSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4099,7 +4176,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // 批量更新报名状态
   server.post('/enrollment/batch-status', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = batchStatusSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4126,7 +4203,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 试听预约:前端 /trial-reservation ↔ 后端 /trial-booking ---
   server.post('/trial-reservation', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTrialBookingSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4136,7 +4213,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/trial-reservation/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4160,7 +4237,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 学费标准:前端 /tuition-standard ↔ 后端 /tuition-fee ---
   server.post('/tuition-standard', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTuitionFeeSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4170,7 +4247,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/tuition-standard/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4193,7 +4270,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/tuition-standard/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -4213,7 +4290,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 退费:前端 /refund ↔ 后端 /refund-record ---
   server.post('/refund', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createRefundRecordSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4226,7 +4303,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/refund/:id/approve', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4258,7 +4335,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 排课规则:前端 /scheduling/rule ↔ 后端 /scheduling-rule ---
   server.post('/scheduling/rule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createSchedulingRuleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4268,7 +4345,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/scheduling/rule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4291,7 +4368,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/scheduling/rule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -4311,7 +4388,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 冲突检测:前端 /scheduling/check-conflicts ↔ 后端 /scheduling/check-conflict ---
   server.post('/scheduling/check-conflicts', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = checkConflictSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4364,7 +4441,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 教师时间表:前端 /scheduling/teacher-schedule ↔ 后端 /teacher-schedule ---
   server.post('/scheduling/teacher-schedule', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = createTeacherScheduleSchema.safeParse(request.body)
     if (!parsed.success)
@@ -4374,7 +4451,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.put('/scheduling/teacher-schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4397,7 +4474,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/scheduling/teacher-schedule/:id', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success)
@@ -4414,7 +4491,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 调课审批:前端 /scheduling/change/:id/approve ↔ 后端 /schedule-change/:id/approve ---
   server.put('/scheduling/change/:id/approve', async (request, reply) => {
-    await requireAdmin(request, reply)
+    await requireEduManage(request, reply)
     if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
@@ -4593,6 +4670,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
   // --- 成绩薄弱点分析(前端 GET /exam-score/weakness/:id,此前无对应端点)---
   server.get('/exam-score/weakness/:id', async (request, reply) => {
+    await requireEduView(request, reply)
+    if (reply.sent) return
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success)
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))

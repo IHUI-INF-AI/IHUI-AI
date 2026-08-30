@@ -190,6 +190,16 @@ export const updateUserRoleSchema = z.object({
   scopeResourceId: z.string().nullable().optional(),
 })
 
+// --- 2026-08-30 角色权限点配置 schema ---
+export const rolePermissionsQuerySchema = z.object({
+  roleId: z.string().min(1),
+})
+
+export const replaceRolePermissionsSchema = z.object({
+  roleId: z.string().min(1),
+  permissionIds: z.array(z.string().min(1)).max(200),
+})
+
 // --- login-logs body schema ---
 export const createLoginLogSchema = z.object({
   loginName: z.string().max(50).optional(),

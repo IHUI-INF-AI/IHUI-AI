@@ -14,6 +14,7 @@
     "test:real": "vitest run --config vitest.real.config.ts",
     "init:vendors": "tsx scripts/init-vendor-configs.ts",
     "seed:test-users": "tsx scripts/seed-test-users.ts",
+    "seed:rbac-teacher": "tsx scripts/seed-rbac-teacher.ts",
     "reset:admin-password": "tsx scripts/reset-admin-password.ts",
     "clean": "rimraf dist .turbo node_modules"
   },
