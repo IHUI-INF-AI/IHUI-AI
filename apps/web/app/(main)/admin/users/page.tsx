@@ -86,7 +86,15 @@ function applyStoredOrder(users: AdminUser[], stored: string[]): AdminUser[] {
 export default function AdminUsersPage() {
   const t = useTranslations('admin.users')
   const locale = useLocale()
-  const { patchMut, createMut, deleteMut, resetPwdMut, invalidateUsers } = useUserMutations()
+  const {
+    patchMut,
+    createMut,
+    deleteMut,
+    resetPwdMut,
+    assignTeacherMut,
+    removeTeacherMut,
+    invalidateUsers,
+  } = useUserMutations()
   const [search, setSearch] = React.useState('')
   const [debounced, setDebounced] = React.useState('')
   const [role, setRole] = React.useState('all')
@@ -383,7 +391,17 @@ export default function AdminUsersPage() {
       <RoleAssignDialog
         user={roleUser}
         pending={patchMut.isPending}
+        teacherPending={assignTeacherMut.isPending || removeTeacherMut.isPending}
         onConfirm={handleRoleAssign}
+        onAssignTeacher={(roleId) => {
+          // 2026-08-30 教师角色入口:教师走 RBAC user-roles 关联
+          if (roleUser)
+            assignTeacherMut.mutate(
+              { userId: roleUser.id, roleId },
+              { onSuccess: () => setRoleUser(null) },
+            )
+        }}
+        onRemoveTeacher={(assocId) => removeTeacherMut.mutate(assocId)}
         onCancel={() => setRoleUser(null)}
       />
     </>

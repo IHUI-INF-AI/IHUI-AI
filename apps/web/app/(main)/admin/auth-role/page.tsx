@@ -13,6 +13,7 @@ import { Button } from '@ihui/ui-react'
 import { AuthRoleFilter } from './AuthRoleFilter'
 import { AuthRoleTable } from './AuthRoleTable'
 import { AuthRoleDialog, AuthRoleDeleteDialog } from './AuthRoleDialog'
+import { RolePermissionDialog } from './RolePermissionDialog'
 import { RESOURCE, PERM, EMPTY, EXPORT_COLS, api } from './helpers'
 import type { AuthRole, AuthRoleForm, ListData } from './types'
 import { BackButton } from '@/components/common'
@@ -27,6 +28,8 @@ export default function AuthRolePage() {
   const [editing, setEditing] = React.useState<AuthRole | null>(null)
   const [form, setForm] = React.useState<AuthRoleForm>(EMPTY)
   const [delId, setDelId] = React.useState<string | null>(null)
+  // 2026-08-30 角色权限点配置:当前配置权限的角色 ID(null=弹窗关闭)
+  const [permRoleId, setPermRoleId] = React.useState<string | null>(null)
 
   const params = React.useMemo(() => {
     const p: Record<string, string> = { pageNum: String(page), pageSize: String(pageSize) }
@@ -141,6 +144,7 @@ export default function AuthRolePage() {
         perm={PERM}
         onEdit={openEdit}
         onDelete={(id) => setDelId(id)}
+        onConfigPerms={(roleId) => setPermRoleId(roleId)}
       />
 
       {total > 0 && (
@@ -183,6 +187,15 @@ export default function AuthRolePage() {
         onCancel={() => setDelId(null)}
         onConfirm={() => delId && delMut.mutate(delId)}
       />
+
+      {/* 2026-08-30 角色权限点配置:按 roleId 挂载,切换角色时重置勾选状态 */}
+      {permRoleId && (
+        <RolePermissionDialog
+          key={permRoleId}
+          roleId={permRoleId}
+          onClose={() => setPermRoleId(null)}
+        />
+      )}
     </div>
   )
 }
