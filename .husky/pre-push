@@ -8,6 +8,12 @@ git lfs pre-push "$@"
 # 跳过的方法:HUSKY_SKIP_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)
 # 注意:用 printf >&2 替代 echo,避免 Windows git hooks stdout 关闭导致 Bad file descriptor
 #
+# 2026-08-31 改版:pnpm typecheck:full → guardian-runner --push-gate 编排
+#   - T1 = scripts/check-typecheck.mjs 包装(清缓存全量 tsc/mypy 行为不变)
+#   - staged-scope 降级:暂存区非空且全部报错文件不在暂存区(并行会话工作区噪音)→ 降级警告放行,
+#     报错文件在暂存区 → 维持阻塞(宁误拦不放过,解析不到报错文件=tsc 未真正运行按失败)
+#   - 多会话并行开发时不再被其他会话未完成文件误伤(AGENTS.md §12d 配套)
+#
 # 工作区检测(2026-07-19 优化):
 #   原行为:无脑跑全量 typecheck,工作区有未提交改动时阻塞无关 push,且无明确指引
 #   新行为:检测工作区是否干净,不干净时打印明确指引(3 个选项),再跑 typecheck
@@ -30,8 +36,8 @@ else
     printf '%s\n' "" >&2
   fi
 
-  pnpm typecheck:full || { printf '%s\n' "❌ 全量 typecheck 失败,推送已阻止" >&2; exit 1; }
-  printf '%s\n' "✅ 全量 typecheck 验证通过" >&2
+  node scripts/guardian-runner.mjs --push-gate || { printf '%s\n' "❌ push 门校验失败,推送已阻止" >&2; exit 1; }
+  printf '%s\n' "✅ push 门校验通过(staged-scope 降级已启用)" >&2
 fi
 
 # ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
