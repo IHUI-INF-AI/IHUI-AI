@@ -6,6 +6,10 @@ export const RESOURCE = '/api/admin/auth-role'
 export const PERM = 'auth:auth_role'
 export const EMPTY: AuthRoleForm = { userId: '', roleId: '', createdAt: '' }
 
+// 2026-08-30 角色权限点配置:权限点列表 / 角色-权限关联资源
+export const PERMISSIONS_RESOURCE = '/api/admin/permissions'
+export const ROLE_PERMISSIONS_RESOURCE = '/api/admin/role-permissions'
+
 export const EXPORT_COLS: ExportColumn[] = [
   { key: 'id', title: 'ID' },
   { key: 'userId', title: '用户ID' },

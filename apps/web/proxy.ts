@@ -85,6 +85,8 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // 仅匹配 /admin/*,避免匹配静态资源 / api / _next(由 Next.js 自动跳过)
-  matcher: ['/admin/:path*'],
+  // 仅匹配 /admin/* 与 /edu/edu-management/*(教务管理,后端为 admin 权限页面),
+  // 避免匹配静态资源 / api / _next(由 Next.js 自动跳过)
+  // 2026-08-30 安全加固:matcher 扩展加入教务管理路由,未登录访问 307 跳转登录(与 /admin/* 一致)
+  matcher: ['/admin/:path*', '/edu/edu-management/:path*'],
 }
