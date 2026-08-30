@@ -17,7 +17,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:17
+        # 2026-08-30 修复:postgres:17 镜像不带 pgvector 扩展,drizzle-kit push 到 vector 列会失败;
+        # 换 pgvector/pgvector:pg17(官方 pgvector 镜像,内置扩展,兼容 postgres 17)
+        image: pgvector/pgvector:pg17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

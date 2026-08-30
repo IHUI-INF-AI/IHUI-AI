@@ -13,9 +13,10 @@ interface Props {
   perm: string
   onEdit: (item: AuthRole) => void
   onDelete: (id: string) => void
+  onConfigPerms: (roleId: string) => void
 }
 
-export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete }: Props) {
+export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete, onConfigPerms }: Props) {
   const t = useTranslations('adminAuthRole')
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -52,6 +53,13 @@ export function AuthRoleTable({ list, isLoading, perm, onEdit, onDelete }: Props
                 <td className="px-4 py-2.5">{item.roleId}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{item.createdAt ?? '-'}</td>
                 <td className="px-4 py-2.5 space-x-2">
+                  {/* 2026-08-30 角色权限点配置入口(文案写死中文,不新增 i18n key) */}
+                  <button
+                    className="text-primary hover:underline"
+                    onClick={() => onConfigPerms(item.roleId)}
+                  >
+                    权限配置
+                  </button>
                   <HasPermi code={`${perm}:edit`}>
                     <button className="text-primary hover:underline" onClick={() => onEdit(item)}>
                       {t('edit')}

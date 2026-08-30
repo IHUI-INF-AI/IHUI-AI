@@ -220,6 +220,24 @@ export async function removeRolePermission(roleId: string, permissionId: string)
     .where(and(eq(rolePermissions.roleId, roleId), eq(rolePermissions.permissionId, permissionId)))
 }
 
+/**
+ * 2026-08-30 角色权限点配置:全量替换角色的权限点关联。
+ * 事务内先清空该角色旧关联,再插入新关联;permissionIds 为空即清空该角色全部权限。
+ */
+export async function replaceRolePermissions(
+  roleId: string,
+  permissionIds: string[],
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId))
+    if (permissionIds.length === 0) return
+    await tx
+      .insert(rolePermissions)
+      .values(permissionIds.map((pid) => ({ roleId, permissionId: pid })))
+      .onConflictDoNothing()
+  })
+}
+
 // =============================================================================
 // User <-> Roles
 // =============================================================================
