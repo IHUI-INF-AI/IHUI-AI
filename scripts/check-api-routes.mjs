@@ -7,6 +7,7 @@
  * 用法: node scripts/check-api-routes.mjs
  *   无参数: 全量比对，发现问题 exit 1，无问题 exit 0
  */
+import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
@@ -370,10 +371,42 @@ function pathMatches(frontendPath, backendPath) {
   return true
 }
 
+// 2026-08-31 改动:staged-scope 支持。改动原因:本脚本原先全量扫描工作区 apps/web 下所有
+// 前端文件提取 API 调用点再比对后端路由,多会话并行开发时工作区充满其他会话的未完成文件,
+// 导致提交被无关文件阻塞(真实案例:104 处"前端调用无后端路由"全部位于非暂存文件)。
+// 规则:
+//   - 暂存区非空(git diff --cached --name-only 非空)→ staged-scope:前端 API 调用点只收集
+//     位于暂存文件列表内的前端文件,调用点所在文件不在暂存区则跳过不计入失败;
+//     后端路由注册收集保持全量,保证比对基准完整。
+//   - 暂存区没有前端文件但有其他文件 → 输出"暂存区无前端文件变更,跳过前端调用比对"并以 0 退出。
+//   - 暂存区为空(无提交进行中、手动单独跑脚本)或 git 不可用 → 保持原有全量扫描行为不变。
+function getStagedFiles() {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'diff', '--cached', '--name-only'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    // git 输出为仓库根相对路径(POSIX 斜杠);Windows 下 relative() 产生反斜杠,统一为 /
+    return out
+      .split(/\r?\n/)
+      .map((l) => l.trim().replaceAll('\\', '/'))
+      .filter(Boolean)
+  } catch {
+    return null // 非 git 环境/命令失败 → 回退全量扫描(与旧行为一致)
+  }
+}
+
 // ===== 主流程 =====
 const WARN_ONLY = process.argv.includes('--warn-only')
 
-console.log(`${C.cyan}[API 路由比对] 开始检查... (mode: ${WARN_ONLY ? 'warn-only' : 'strict'})${C.reset}`)
+// 2026-08-31:staged-scope 判定(改动原因见 getStagedFiles 上方注释)
+const stagedFiles = getStagedFiles()
+const stagedScope = stagedFiles !== null && stagedFiles.length > 0
+const stagedSet = stagedScope ? new Set(stagedFiles) : null
+
+console.log(
+  `${C.cyan}[API 路由比对] 开始检查... (mode: ${WARN_ONLY ? 'warn-only' : 'strict'}${stagedScope ? ', staged 范围' : ''})${C.reset}`,
+)
 
 const { routes: backendRoutes, prefixes } = extractBackendRoutes()
 const compositePrefixes = buildCompositePrefixes(prefixes)
@@ -411,7 +444,22 @@ console.log(
 )
 
 // 提取前端调用
-const frontendFiles = collectFiles(WEB_DIR, ['.ts', '.tsx'])
+// 2026-08-31:staged-scope 时仅收集位于暂存文件列表内的前端文件(改动原因见 getStagedFiles 上方注释);
+// 非暂存文件的调用点跳过不计入失败;后端路由注册收集(extractBackendRoutes)保持全量不变。
+const frontendFilesAll = collectFiles(WEB_DIR, ['.ts', '.tsx'])
+let frontendFiles = frontendFilesAll
+if (stagedScope) {
+  frontendFiles = frontendFilesAll.filter((f) => stagedSet.has(relative(ROOT, f).replaceAll('\\', '/')))
+  if (frontendFiles.length === 0) {
+    console.log(
+      `${C.yellow}[API 路由比对] (staged 范围) 暂存区无前端文件变更,跳过前端调用比对${C.reset}`,
+    )
+    process.exit(0)
+  }
+  console.log(
+    `${C.dim}[API 路由比对] (staged 范围) 前端文件 ${frontendFiles.length}/${frontendFilesAll.length} 个位于暂存区,非暂存文件的调用点跳过不计入失败${C.reset}`,
+  )
+}
 const allCalls = []
 for (const file of frontendFiles) {
   const src = readFileSync(file, 'utf8')
