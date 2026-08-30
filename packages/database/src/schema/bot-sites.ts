@@ -1,4 +1,4 @@
-import { pgTable, serial, varchar, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, serial, varchar, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * AI 工具站点信息表（aibot_sites）。
@@ -26,20 +26,6 @@ export const aibotSites = pgTable('aibot_sites', {
  * - agents_variable: 智能体变量数组（JSON）。
  * - other_config: 其它配置（JSON 对象）。
  */
-export const simpleBotConfigs = pgTable('simple_bot_configs', {
-  botId: varchar('bot_id', { length: 64 }).primaryKey(),
-  name: varchar('name', { length: 255 }).notNull(),
-  description: text('description'),
-  shortcutCommands: jsonb('shortcut_commands').$type<unknown[]>(),
-  agentsVariable: jsonb('agents_variable').$type<unknown[]>(),
-  otherConfig: jsonb('other_config').$type<Record<string, unknown>>(),
-  shortcutCount: integer('shortcut_count').default(0).notNull(),
-  variableCount: integer('variable_count').default(0).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 export type AibotSite = typeof aibotSites.$inferSelect
 export type NewAibotSite = typeof aibotSites.$inferInsert
-export type SimpleBotConfig = typeof simpleBotConfigs.$inferSelect
-export type NewSimpleBotConfig = typeof simpleBotConfigs.$inferInsert

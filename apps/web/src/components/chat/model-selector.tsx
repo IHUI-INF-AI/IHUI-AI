@@ -270,7 +270,7 @@ function ModelOptionRow({
           </span>
         )}
         {/* 智汇 Auto-Model 专属卖点徽章:服务端随机低档池,标称倍率全场最低,省钱入口(2026-08-31 立) */}
-        {opt.id.toLowerCase() === 'ihui/auto-model' && (
+        {opt.id?.toLowerCase() === 'ihui/auto-model' && (
           <span className="inline-flex shrink-0 items-center rounded-sm bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
             {t('modelSmartSaveBadge')}
           </span>

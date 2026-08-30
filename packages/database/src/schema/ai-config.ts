@@ -213,26 +213,6 @@ export const aiModelConfigGroups = pgTable(
  * - status/type: 业务自定义状态/类型整型。
  * - max: 配额上限（bigint）。
  */
-export const userSkInfo = pgTable(
-  'user_sk_info',
-  {
-    id: serial('id').primaryKey(),
-    userUuid: varchar('user_uuid', { length: 255 }),
-    key: varchar('key', { length: 255 }),
-    status: integer('status'),
-    type: integer('type'),
-    max: bigint('max', { mode: 'number' }),
-    outTime: timestamp('out_time', { withTimezone: true }),
-    /** 用户会话密钥过期时间 (P0-4 补齐) */
-    expireAt: timestamp('expire_at', { withTimezone: true }),
-    createdTime: timestamp('created_time', { withTimezone: true }).defaultNow().notNull(),
-    updatedTime: timestamp('updated_time', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    statusIdx: index('ix_user_sk_info_status').on(t.status),
-    userUuidIdx: index('user_sk_info_user_uuid_idx').on(t.userUuid),
-  }),
-)
 
 /**
  * 视频生成任务队列表（video_generation_tasks）。
@@ -265,7 +245,5 @@ export type AiModelConfigModel = typeof aiModelConfigModels.$inferSelect
 export type NewAiModelConfigModel = typeof aiModelConfigModels.$inferInsert
 export type AiModelConfigGroup = typeof aiModelConfigGroups.$inferSelect
 export type NewAiModelConfigGroup = typeof aiModelConfigGroups.$inferInsert
-export type UserSkInfo = typeof userSkInfo.$inferSelect
-export type NewUserSkInfo = typeof userSkInfo.$inferInsert
 export type VideoGenerationTask = typeof videoGenerationTasks.$inferSelect
 export type NewVideoGenerationTask = typeof videoGenerationTasks.$inferInsert
