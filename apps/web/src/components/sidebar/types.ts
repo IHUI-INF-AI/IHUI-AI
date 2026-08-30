@@ -6,6 +6,13 @@ export interface NavItem {
   labelKey: string
   icon: React.ComponentType<{ className?: string }>
   adminOnly?: boolean
+  /**
+   * RBAC 权限点(2026-08-30 教师角色接入):持有任一权限点的用户可见(如教师持 'edu:manage' 可见教务管理)。
+   * admin 因下发通配符 '*:*:*' 自动放行。与 adminOnly 互斥使用:adminOnly 仅 admin,permission 按权限码放行。
+   * 支持数组(2026-08-30 权限粒度细化):如 ['edu:manage', 'edu:view'],任一命中即可见,
+   * 适配"只读教师(仅 edu:view)也可进入教务页"的场景。
+   */
+  permission?: string | string[]
   children?: NavItem[]
   /** 动态标签,优先级高于 labelKey。用于 admin 后端动态加载的路由名(如 'Operation Log')。 */
   dynamicLabel?: string

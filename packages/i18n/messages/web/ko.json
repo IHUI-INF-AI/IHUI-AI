@@ -6702,12 +6702,7 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": [
-        "우수(학급 상위 10%)",
-        "양호(10-30%)",
-        "보통(30-70%)",
-        "미흡(하위 30%)"
-      ],
+      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6724,12 +6719,7 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": [
-        "주요 중학교",
-        "일반 중학교",
-        "국제 학교",
-        "사립 학교"
-      ]
+      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -6816,6 +6806,7 @@
       "prConnectHint": "GitHub에 연결하여 풀 리퀘스트 상태 가져오기",
       "prNoRemote": "원격 저장소가 구성되지 않았습니다",
       "prUnavailable": "풀 리퀘스트 상태를 가져올 수 없습니다",
+      "prNone": "풀 리퀘스트 없음",
       "pullRequest": "풀 리퀘스트",
       "pushFail": "푸시 실패",
       "pushOk": "푸시 성공",
@@ -8685,58 +8676,32 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": [
-          "AI",
-          "월드",
-          "앱"
-        ],
+        "keywords": ["AI", "월드", "앱"],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": [
-          "채팅",
-          "대화",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["채팅", "대화", "AI", "chat"],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": [
-          "드라마",
-          "비디오",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["드라마", "비디오", "AI", "drama"],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": [
-          "프로필",
-          "사용자",
-          "설정"
-        ],
+        "keywords": ["프로필", "사용자", "설정"],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": [
-          "검색",
-          "찾기",
-          "search"
-        ],
+        "keywords": ["검색", "찾기", "search"],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": [
-          "설정",
-          "환경설정",
-          "구성"
-        ],
+        "keywords": ["설정", "환경설정", "구성"],
         "label": "설정"
       }
     },
@@ -10546,37 +10511,25 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ],
+          "examples": ["지식 Q&A", "프로세스 자동화"],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ],
+          "examples": ["데이터 분석", "의사결정 지원"],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ],
+          "examples": ["회의 일정", "승인 프로세스"],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ],
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10710,31 +10663,19 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ],
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ],
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ],
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -13175,15 +13116,7 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": [
-      "월",
-      "화",
-      "수",
-      "목",
-      "금",
-      "토",
-      "일"
-    ]
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
   },
   "models": {
     "aiNews": {
@@ -13918,12 +13851,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M 토큰 한도",
-          "기본 모델 사용 가능",
-          "5개 API 토큰",
-          "커뮤니티 지원"
-        ]
+        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
       }
     },
     "productSchema": {
@@ -14122,6 +14050,7 @@
     "adminThemeList": "테마 목록",
     "adminThemePresets": "프리셋",
     "adminWorkflows": "워크플로우",
+    "advancedAiTools": "고급 AI 도구",
     "agentWorkbench": "에이전트 워크벤치",
     "agents": "에이전트",
     "aiGeneration": "AI 생성",
@@ -14156,6 +14085,7 @@
     "developerSettings": "설정",
     "developerSubscription": "구독",
     "developerTeam": "팀",
+    "developerTools": "개발자 도구",
     "developerVersions": "버전",
     "developerWebhooks": "Webhooks",
     "distribution": "유통",
@@ -14872,13 +14802,7 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": [
-          "무제한 크레딧",
-          "사설 배포",
-          "SSO/SAML 2.0",
-          "감사 로그",
-          "전담 기술 지원"
-        ],
+        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
         "name": "기업판"
       },
       "free": {

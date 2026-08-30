@@ -344,12 +344,18 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       conflicted: number
       renamed: number
     }
+    lineStats: {
+      additions: number
+      deletions: number
+    }
     pullRequest: {
       state: 'open' | 'merged' | 'closed' | 'draft' | null
       number: number | null
       title: string | null
       url: string | null
     } | null
+    pullRequestFetchFailed: boolean
+    platform: 'github' | 'gitee' | 'gitlab' | 'other'
     lastCommit: {
       hash: string
       message: string
@@ -375,7 +381,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       conflicted: 0,
       renamed: 0,
     },
+    lineStats: { additions: 0, deletions: 0 },
     pullRequest: null,
+    pullRequestFetchFailed: false,
+    platform: 'other',
     lastCommit: null,
     localPath: null,
     remotes: [],
@@ -405,6 +414,15 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       }
     }
     return `git ${args.map((a) => (a.includes(' ') ? `"${a.replace(/"/g, '\\"')}"` : a)).join(' ')}`
+  }
+
+  /** 从 remote URL 推断代码托管平台(供前端展示对应品牌图标) */
+  function detectGitPlatform(remotes: GitStatusSnapshot['remotes']): GitStatusSnapshot['platform'] {
+    const joined = remotes.map((r) => r.url.toLowerCase()).join(' ')
+    if (joined.includes('github.com')) return 'github'
+    if (joined.includes('gitee.com')) return 'gitee'
+    if (joined.includes('gitlab')) return 'gitlab'
+    return 'other'
   }
 
   server.post('/git/status', async (request, reply) => {
@@ -473,6 +491,23 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         }
         void rest
       }
+      // 行级增删统计(对标 Cursor env card 的 +N/-M):已暂存 + 未暂存 diff 的 numstat 聚合,
+      // 二进制文件(列值为 '-')不计入。失败静默降级为 0,不影响主流程。
+      const lineStats = { additions: 0, deletions: 0 }
+      try {
+        const numstatRaw = await runGit(['diff', '--numstat'])
+        const numstatCachedRaw = await runGit(['diff', '--cached', '--numstat'])
+        for (const raw of [numstatRaw, numstatCachedRaw]) {
+          for (const line of raw.split('\n')) {
+            const m = /^(\d+|-)\t(\d+|-)\t/.exec(line.trim())
+            if (!m) continue
+            if (m[1] !== '-') lineStats.additions += Number.parseInt(m[1]!, 10) || 0
+            if (m[2] !== '-') lineStats.deletions += Number.parseInt(m[2]!, 10) || 0
+          }
+        }
+      } catch {
+        // 保持 0,前端按无行级数据降级
+      }
       let lastCommit: GitStatusSnapshot['lastCommit'] = null
       try {
         const logRaw = await runGit(['log', '-1', '--format=%h%n%s%n%an%n%cI'])
@@ -503,6 +538,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
         remotes = []
       }
       let pullRequest: GitStatusSnapshot['pullRequest'] = null
+      let pullRequestFetchFailed = false
       if (hasRemote && branch && githubClient.loadToken()) {
         try {
           const remote = await githubClient.detectRemote(body.workspacePath)
@@ -539,6 +575,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           }
         } catch {
           pullRequest = null
+          // 区分「查询失败」与「查到但没有 PR」:失败置位,前端据此显示不同文案
+          pullRequestFetchFailed = true
         }
       }
       return reply.send(
@@ -549,7 +587,10 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
           ahead,
           behind,
           counts,
+          lineStats,
           pullRequest,
+          pullRequestFetchFailed,
+          platform: detectGitPlatform(remotes),
           lastCommit,
           localPath,
           remotes,
