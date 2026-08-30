@@ -60,6 +60,8 @@ async function githubApi(path, init, attempt = 0) {
     const text = await res.text()
     throw new Error(`GitHub API ${path} failed: ${res.status} ${text}`)
   }
+  // 204 No Content / HEAD 等无 body 响应直接返回 undefined，避免 JSON.parse('') 报错
+  if (res.status === 204 || res.headers.get('content-length') === '0') return undefined
   return res.json()
 }
 
