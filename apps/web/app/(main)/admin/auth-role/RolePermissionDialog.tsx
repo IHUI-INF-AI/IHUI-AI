@@ -1,0 +1,131 @@
+'use client'
+
+// 2026-08-30 角色权限点配置弹窗:列出全部权限点供勾选,保存时全量替换该角色的关联(PUT role-permissions)
+
+import * as React from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  Button,
+  Checkbox,
+} from '@ihui/ui-react'
+import { api, PERMISSIONS_RESOURCE, ROLE_PERMISSIONS_RESOURCE } from './helpers'
+import type { PermissionListData } from './types'
+
+interface Props {
+  roleId: string
+  onClose: () => void
+}
+
+export function RolePermissionDialog({ roleId, onClose }: Props) {
+  const qc = useQueryClient()
+  const [selected, setSelected] = React.useState<Set<string>>(new Set())
+
+  const permsQuery = useQuery({
+    queryKey: ['admin', 'permissions'],
+    queryFn: () => api<PermissionListData>(PERMISSIONS_RESOURCE),
+  })
+  const rolePermsQuery = useQuery({
+    queryKey: ['admin', 'role-permissions', roleId],
+    queryFn: () => api<PermissionListData>(`${ROLE_PERMISSIONS_RESOURCE}?roleId=${roleId}`),
+  })
+
+  // 角色已挂权限加载完成后初始化勾选状态(组件按 roleId 重新挂载,无需处理状态复用)
+  React.useEffect(() => {
+    setSelected(new Set((rolePermsQuery.data?.list ?? []).map((p) => p.id)))
+  }, [rolePermsQuery.data])
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      api(ROLE_PERMISSIONS_RESOURCE, {
+        method: 'PUT',
+        body: JSON.stringify({ roleId, permissionIds: Array.from(selected) }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'role-permissions'] })
+      toast.success('权限配置已保存')
+      onClose()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const list = permsQuery.data?.list ?? []
+  const loading = permsQuery.isLoading || rolePermsQuery.isLoading
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(o) => {
+        if (!o) onClose()
+      }}
+    >
+      <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>权限配置</DialogTitle>
+          <DialogDescription>勾选该角色持有的权限点（角色 ID：{roleId}）</DialogDescription>
+        </DialogHeader>
+        {loading ? (
+          <div className="px-1 py-10 text-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
+            加载中...
+          </div>
+        ) : list.length === 0 ? (
+          <div className="px-1 py-10 text-center text-sm text-muted-foreground">暂无权限点</div>
+        ) : (
+          <div className="space-y-2">
+            {list.map((p) => (
+              <label
+                key={p.id}
+                className="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-muted/30"
+              >
+                <Checkbox
+                  className="mt-0.5"
+                  checked={selected.has(p.id)}
+                  onCheckedChange={() => toggle(p.id)}
+                />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium">
+                    {p.displayName}
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">{p.name}</span>
+                  </div>
+                  {p.description && (
+                    <div className="mt-0.5 text-xs text-muted-foreground">{p.description}</div>
+                  )}
+                </div>
+              </label>
+            ))}
+          </div>
+        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose} disabled={saveMut.isPending}>
+            取消
+          </Button>
+          <Button
+            type="button"
+            disabled={saveMut.isPending || loading}
+            onClick={() => saveMut.mutate()}
+          >
+            {saveMut.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            保存
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

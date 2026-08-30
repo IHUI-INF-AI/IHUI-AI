@@ -125,6 +125,10 @@ export const adminMissingRoutes: FastifyPluginAsync = async (server) => {
   const { default: userRolesRoutes } = await import('./admin/user-roles.js')
   await server.register(userRolesRoutes)
 
+  // 2026-08-30 角色权限点配置
+  const { default: rolePermissionsRoutes } = await import('./admin/role-permissions.js')
+  await server.register(rolePermissionsRoutes)
+
   const { default: memberPermissionsRoutes } = await import('./admin/member-permissions.js')
   await server.register(memberPermissionsRoutes)
 

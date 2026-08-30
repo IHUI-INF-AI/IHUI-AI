@@ -54,5 +54,40 @@ export function useUserMutations() {
     onError: (e: Error) => toast.error(e.message),
   })
 
-  return { patchMut, createMut, deleteMut, resetPwdMut, invalidateUsers }
+  // 2026-08-30 教师角色入口:教师走 RBAC(user_roles 关联),不改 users.roleId,避免提权
+  const invalidateUserRoles = () => qc.invalidateQueries({ queryKey: ['admin', 'user-roles'] })
+
+  // 2026-08-30 教师角色入口:给用户挂 teacher 角色(POST /api/admin/user-roles)
+  const assignTeacherMut = useMutation({
+    mutationFn: (p: { userId: string; roleId: string }) =>
+      api('/api/admin/user-roles', {
+        method: 'POST',
+        body: JSON.stringify({ userId: p.userId, roleId: p.roleId }),
+      }),
+    onSuccess: () => {
+      toast.success('已设为教师')
+      invalidateUserRoles()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // 2026-08-30 教师角色入口:移除用户的 teacher 角色关联(DELETE /api/admin/user-roles/:id)
+  const removeTeacherMut = useMutation({
+    mutationFn: (assocId: string) => api(`/api/admin/user-roles/${assocId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      toast.success('已取消教师角色')
+      invalidateUserRoles()
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  return {
+    patchMut,
+    createMut,
+    deleteMut,
+    resetPwdMut,
+    assignTeacherMut,
+    removeTeacherMut,
+    invalidateUsers,
+  }
 }
