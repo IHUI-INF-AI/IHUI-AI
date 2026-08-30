@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { Modal } from '@/components/feedback'
 import { useEnvironmentInfoStore } from '@/stores/environment-info'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { PlatformMark, prStateColor } from './environment-info-popover'
 import type { GitStatusSnapshot } from '@ihui/types'
 
 /**
@@ -87,7 +88,10 @@ export function EnvironmentInfoFullDialog() {
 
         {/* 主体内容 */}
         {!workspacePath && (
-          <div className="py-8 text-center text-muted-foreground/70" data-testid="env-full-no-workspace">
+          <div
+            className="py-8 text-center text-muted-foreground/70"
+            data-testid="env-full-no-workspace"
+          >
             {t('noWorkspace')}
           </div>
         )}
@@ -122,7 +126,12 @@ function FullBody({
   }
   const counts = snapshot.counts
   const totalChanges =
-    counts.added + counts.modified + counts.deleted + counts.untracked + counts.conflicted + counts.renamed
+    counts.added +
+    counts.modified +
+    counts.deleted +
+    counts.untracked +
+    counts.conflicted +
+    counts.renamed
   return (
     <div className="flex flex-col gap-3">
       {/* 工作区路径 */}
@@ -146,8 +155,14 @@ function FullBody({
                 data-testid="env-full-remote"
               >
                 <span className="shrink-0 font-medium text-foreground/80">{r.name}</span>
-                <span className="truncate font-mono text-[11px] text-muted-foreground/80">{r.url}</span>
-                {r.type && <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{r.type}</span>}
+                <span className="truncate font-mono text-[11px] text-muted-foreground/80">
+                  {r.url}
+                </span>
+                {r.type && (
+                  <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">
+                    {r.type}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -161,7 +176,11 @@ function FullBody({
       {/* 分支 + ahead/behind */}
       <Section title={t('branchDetails')} icon={<GitBranch className="h-3.5 w-3.5" aria-hidden />}>
         <div className="grid grid-cols-2 gap-2">
-          <InfoCard label={t('currentBranch')} value={snapshot.branch ?? t('detached')} testId="env-full-branch" />
+          <InfoCard
+            label={t('currentBranch')}
+            value={snapshot.branch ?? t('detached')}
+            testId="env-full-branch"
+          />
           <InfoCard
             label={t('aheadBehind')}
             value={
@@ -178,7 +197,10 @@ function FullBody({
       </Section>
 
       {/* 最近提交 */}
-      <Section title={t('lastCommitTitle')} icon={<GitCommit className="h-3.5 w-3.5" aria-hidden />}>
+      <Section
+        title={t('lastCommitTitle')}
+        icon={<GitCommit className="h-3.5 w-3.5" aria-hidden />}
+      >
         {snapshot.lastCommit ? (
           <div className="rounded-md bg-muted/40 px-2 py-1.5" data-testid="env-full-lastcommit">
             <div className="flex items-center gap-2">
@@ -199,20 +221,44 @@ function FullBody({
       {/* 变更 */}
       <Section title={t('changes')} icon={<DiffGlyph />}>
         <div className="grid grid-cols-3 gap-2" data-testid="env-full-changes">
-          <InfoCard label={t('added')} value={`+${counts.added}`} accent="text-emerald-600 dark:text-emerald-400" />
-          <InfoCard label={t('deleted')} value={`-${counts.deleted}`} accent="text-red-500 dark:text-red-400" />
+          <InfoCard
+            label={t('added')}
+            value={`+${counts.added}`}
+            accent="text-emerald-600 dark:text-emerald-400"
+          />
+          <InfoCard
+            label={t('deleted')}
+            value={`-${counts.deleted}`}
+            accent="text-red-500 dark:text-red-400"
+          />
           <InfoCard label={t('total')} value={String(totalChanges)} />
         </div>
         <div className="mt-2 grid grid-cols-3 gap-2 text-[10px] text-muted-foreground/60">
-          <span>{t('modified')}: {counts.modified}</span>
-          <span>{t('untracked')}: {counts.untracked}</span>
-          <span>{t('renamed')}: {counts.renamed}</span>
-          <span>{t('conflicted')}: {counts.conflicted}</span>
+          <span>
+            {t('modified')}: {counts.modified}
+          </span>
+          <span>
+            {t('untracked')}: {counts.untracked}
+          </span>
+          <span>
+            {t('renamed')}: {counts.renamed}
+          </span>
+          <span>
+            {t('conflicted')}: {counts.conflicted}
+          </span>
         </div>
       </Section>
 
       {/* PR 状态 */}
-      <Section title={t('pullRequest')} icon={<PrGlyph state={snapshot.pullRequest?.state ?? null} />}>
+      <Section
+        title={t('pullRequest')}
+        icon={
+          <PlatformMark
+            platform={snapshot.platform ?? 'other'}
+            className={cn('h-4 w-4', prStateColor(snapshot.pullRequest?.state ?? null))}
+          />
+        }
+      >
         {snapshot.pullRequest ? (
           <a
             href={snapshot.pullRequest.url ?? '#'}
@@ -225,7 +271,11 @@ function FullBody({
           </a>
         ) : (
           <div className="text-muted-foreground/60" data-testid="env-full-no-pr">
-            {snapshot.hasRemote ? t('prUnavailable') : t('prNoRemote')}
+            {!snapshot.hasRemote
+              ? t('prNoRemote')
+              : snapshot.pullRequestFetchFailed === true
+                ? t('prUnavailable')
+                : t('prNone')}
           </div>
         )}
       </Section>
@@ -270,17 +320,6 @@ function InfoCard({
       <span className={cn('truncate font-medium text-foreground/85', accent)}>{value}</span>
     </div>
   )
-}
-
-function PrGlyph({ state }: { state: 'open' | 'merged' | 'closed' | 'draft' | null }) {
-  const cls = cn(
-    'h-3.5 w-3.5',
-    state === 'open' && 'text-emerald-600 dark:text-emerald-400',
-    state === 'merged' && 'text-violet-500 dark:text-violet-400',
-    state === 'closed' && 'text-red-500 dark:text-red-400',
-    (state === 'draft' || state === null) && 'text-muted-foreground/80',
-  )
-  return <GitCommit className={cls} aria-hidden />
 }
 
 function DiffGlyph() {
