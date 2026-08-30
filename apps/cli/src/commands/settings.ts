@@ -51,6 +51,14 @@ export interface Settings {
   allowDangerous?: boolean;
   /** YOLO 逃生舱档位(与 IHUI_YOLO 环境变量、bypassPermissions 为 OR 语义,见 config/yolo.ts) */
   yolo?: boolean;
+  /**
+   * 原生 function calling 三态配置(默认 'auto'):
+   *   - true:强制启用,原生 tools schema 下发 + SSE tool-call 事件解析
+   *   - false:强制关闭,完全走 prompt 正则路径(不携带 tools)
+   *   - 'auto':先携带 tools 探测,provider 拒绝("not supported")时自动降级 prompt 模式
+   * 仅当调用方未显式传 providerSupportsTools 时生效(显式传参优先级更高)。
+   */
+  nativeFunctionCalling?: boolean | 'auto';
   /** 强制 plan-first 模式 */
   planFirst?: boolean;
   /** 启用 MCP 工具 */
@@ -371,6 +379,8 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     },
     locale: 'zh-CN',
     permissionMode: 'default',
+    // 原生 function calling 三态(默认 'auto':先探测,provider 拒绝时自动降级 prompt 模式)
+    nativeFunctionCalling: 'auto',
     compactionV2: {
       enabled: false,
     },
