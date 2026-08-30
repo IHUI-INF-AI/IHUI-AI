@@ -847,8 +847,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // P1-2 Compaction V2:加载 settings 一次(feature flag 默认关闭,启用后用 LLM 摘要压缩)
   const settings = loadSettings();
 
-  // 原生 function calling:true/false 显式指定;undefined/'auto' 先探测(provider 拒绝时自动降级)
-  let nativeToolsEnabled = opts.providerSupportsTools !== false;
+  // 原生 function calling 三态解析(优先级:显式 opts.providerSupportsTools > settings.nativeFunctionCalling > 'auto')
+  // 注意 false 是合法值,不能用 ?? 判断「是否显式传入」,必须用 !== undefined
+  const nativeToolsMode =
+    opts.providerSupportsTools !== undefined
+      ? opts.providerSupportsTools
+      : settings.nativeFunctionCalling ?? 'auto';
+  // true/'auto' → 携带 tools 下发;false → 完全走 prompt 正则路径;auto 探测失败自动降级
+  let nativeToolsEnabled = nativeToolsMode !== false;
 
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
