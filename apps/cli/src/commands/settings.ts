@@ -49,6 +49,8 @@ export interface Settings {
   sandbox?: SandboxSettings;
   /** 允许危险工具自动执行 */
   allowDangerous?: boolean;
+  /** YOLO 逃生舱档位(与 IHUI_YOLO 环境变量、bypassPermissions 为 OR 语义,见 config/yolo.ts) */
+  yolo?: boolean;
   /** 强制 plan-first 模式 */
   planFirst?: boolean;
   /** 启用 MCP 工具 */
