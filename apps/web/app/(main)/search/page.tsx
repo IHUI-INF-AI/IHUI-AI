@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 
 import { SearchBar } from '@/components/business'
 import { BackButton } from '@/components/common'
+import { useAnalytics } from '@/hooks/use-analytics'
 import { SearchControls } from './SearchControls'
 import { SearchResultGroups } from './SearchResultGroups'
 import { fetchSearch, sortResults } from './helpers'
@@ -19,6 +20,7 @@ function SearchContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const q = searchParams.get('q') ?? ''
+  const { track } = useAnalytics()
   const [history, setHistory] = React.useState<string[]>([])
   const validTabs: TabKey[] = ['all', 'user', 'project', 'file']
   const validSorts: SortKey[] = ['relevance', 'time', 'name', 'size']
@@ -39,6 +41,8 @@ function SearchContent() {
   }, [])
 
   const handleSearch = (kw: string) => {
+    // 埋点:站内搜索(handleSearch 非原生 form submit 回调,避免与表单自动采集重复)
+    track({ name: 'search', category: 'search', label: kw })
     const next = [kw, ...history.filter((h) => h !== kw)].slice(0, 10)
     setHistory(next)
     try {

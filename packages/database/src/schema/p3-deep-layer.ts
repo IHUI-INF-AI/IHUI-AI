@@ -42,34 +42,6 @@ import { examQuestions, examPapers } from './exam.js'
  * - status:        pending(待审核) / approved(采纳) / rejected(驳回)
  * - teacherReview: 教师审核意见(驳回/修正时填写)
  */
-export const aiGradingRecord = pgTable(
-  'ai_grading_record',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    studentId: uuid('student_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    questionId: uuid('question_id')
-      .notNull()
-      .references(() => examQuestions.id, { onDelete: 'cascade' }),
-    examId: uuid('exam_id').references(() => examPapers.id, { onDelete: 'set null' }),
-    studentAnswer: text('student_answer').notNull(),
-    aiScore: real('ai_score').notNull(),
-    aiFeedback: text('ai_feedback').notNull(),
-    rubric: jsonb('rubric'),
-    model: varchar('model', { length: 100 }),
-    status: varchar('status', { length: 20 }).default('pending').notNull(),
-    teacherReview: text('teacher_review'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    studentIdx: index('ai_grading_record_student_idx').on(t.studentId),
-    questionIdx: index('ai_grading_record_question_idx').on(t.questionId),
-    examIdx: index('ai_grading_record_exam_idx').on(t.examId),
-    statusIdx: index('ai_grading_record_status_idx').on(t.status),
-  }),
-)
 
 /**
  * AI 出题记录表(ai_generated_question)。
@@ -83,34 +55,6 @@ export const aiGradingRecord = pgTable(
  * - quality:      pending(待审) / approved(采纳) / rejected(驳回)
  * - humanReview:  人工审核意见
  */
-export const aiGeneratedQuestion = pgTable(
-  'ai_generated_question',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    subject: varchar('subject', { length: 50 }).notNull(),
-    chapter: varchar('chapter', { length: 200 }),
-    questionType: varchar('question_type', { length: 20 }).notNull(),
-    difficulty: varchar('difficulty', { length: 10 }).default('medium').notNull(),
-    questionText: text('question_text').notNull(),
-    options: jsonb('options'),
-    answer: text('answer').notNull(),
-    explanation: text('explanation'),
-    knowledgePoints: jsonb('knowledge_points'),
-    prompt: text('prompt'),
-    model: varchar('model', { length: 100 }),
-    quality: varchar('quality', { length: 20 }).default('pending').notNull(),
-    humanReview: text('human_review'),
-    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    subjectIdx: index('ai_generated_question_subject_idx').on(t.subject),
-    typeIdx: index('ai_generated_question_type_idx').on(t.questionType),
-    difficultyIdx: index('ai_generated_question_difficulty_idx').on(t.difficulty),
-    qualityIdx: index('ai_generated_question_quality_idx').on(t.quality),
-  }),
-)
 
 /**
  * 知识点表(knowledge_points)。
@@ -198,13 +142,73 @@ export const langgraphWrites = pgTable(
   }),
 )
 
-export type AiGradingRecord = typeof aiGradingRecord.$inferSelect
-export type NewAiGradingRecord = typeof aiGradingRecord.$inferInsert
-export type AiGeneratedQuestion = typeof aiGeneratedQuestion.$inferSelect
-export type NewAiGeneratedQuestion = typeof aiGeneratedQuestion.$inferInsert
 export type KnowledgePoint = typeof knowledgePoints.$inferSelect
 export type NewKnowledgePoint = typeof knowledgePoints.$inferInsert
 export type LanggraphCheckpoint = typeof langgraphCheckpoints.$inferSelect
 export type NewLanggraphCheckpoint = typeof langgraphCheckpoints.$inferInsert
 export type LanggraphWrite = typeof langgraphWrites.$inferSelect
 export type NewLanggraphWrite = typeof langgraphWrites.$inferInsert
+
+export const aiGeneratedQuestion = pgTable(
+  'ai_generated_question',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    subject: varchar('subject', { length: 50 }).notNull(),
+    chapter: varchar('chapter', { length: 200 }),
+    questionType: varchar('question_type', { length: 20 }).notNull(),
+    difficulty: varchar('difficulty', { length: 10 }).default('medium').notNull(),
+    questionText: text('question_text').notNull(),
+    options: jsonb('options'),
+    answer: text('answer').notNull(),
+    explanation: text('explanation'),
+    knowledgePoints: jsonb('knowledge_points'),
+    prompt: text('prompt'),
+    model: varchar('model', { length: 100 }),
+    quality: varchar('quality', { length: 20 }).default('pending').notNull(),
+    humanReview: text('human_review'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    subjectIdx: index('ai_generated_question_subject_idx').on(t.subject),
+    typeIdx: index('ai_generated_question_type_idx').on(t.questionType),
+    difficultyIdx: index('ai_generated_question_difficulty_idx').on(t.difficulty),
+    qualityIdx: index('ai_generated_question_quality_idx').on(t.quality),
+  }),
+)
+
+export type AiGeneratedQuestion = typeof aiGeneratedQuestion.$inferSelect
+export type NewAiGeneratedQuestion = typeof aiGeneratedQuestion.$inferInsert
+
+export const aiGradingRecord = pgTable(
+  'ai_grading_record',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    studentId: uuid('student_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    questionId: uuid('question_id')
+      .notNull()
+      .references(() => examQuestions.id, { onDelete: 'cascade' }),
+    examId: uuid('exam_id').references(() => examPapers.id, { onDelete: 'set null' }),
+    studentAnswer: text('student_answer').notNull(),
+    aiScore: real('ai_score').notNull(),
+    aiFeedback: text('ai_feedback').notNull(),
+    rubric: jsonb('rubric'),
+    model: varchar('model', { length: 100 }),
+    status: varchar('status', { length: 20 }).default('pending').notNull(),
+    teacherReview: text('teacher_review'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    studentIdx: index('ai_grading_record_student_idx').on(t.studentId),
+    questionIdx: index('ai_grading_record_question_idx').on(t.questionId),
+    examIdx: index('ai_grading_record_exam_idx').on(t.examId),
+    statusIdx: index('ai_grading_record_status_idx').on(t.status),
+  }),
+)
+
+export type AiGradingRecord = typeof aiGradingRecord.$inferSelect
+export type NewAiGradingRecord = typeof aiGradingRecord.$inferInsert

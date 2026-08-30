@@ -12,6 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useAnalytics } from '@/hooks/use-analytics'
 import { ContentEditorCard, type UploadResult, type Format } from './ContentEditorCard'
 import { PlatformSelectorCard } from './PlatformSelectorCard'
 import { ScheduleCard, type ScheduleMode } from './ScheduleCard'
@@ -66,6 +67,7 @@ function NewPublishPage() {
   const toast = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { track } = useAnalytics()
   const [accounts, setAccounts] = React.useState<Account[]>([])
   const [title, setTitle] = React.useState('')
   const [format, setFormat] = React.useState<Format>('md')
@@ -188,6 +190,8 @@ function NewPublishPage() {
         headers: { 'Content-Type': 'application/json' },
       })
       toast.success(t('new.submitSuccess'))
+      // 埋点:发布任务提交成功
+      track({ name: 'publish_success', category: 'content' })
       // 2026-08-17 修复:后端 POST /tasks 返回 task_id(字符串 pub-xxx),无数字 id。
       // 原判断 typeof resp.id === 'number' 恒不成立 → 提交后无进度轮询直接跳历史页。
       // 优先用 task_id,兼容旧返回含数字 id 的情况。
