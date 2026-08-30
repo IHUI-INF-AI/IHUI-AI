@@ -7,9 +7,14 @@
 - 池为空时返回硬兜底常量 'ihui/MiniMax-M2.7'
 - 元规则防漂移:池内每个模型倍率 <= 6 且已配 _IHUI_POINTS_MAP 映射
 - complete() 入口拦截 'ihui/auto-model',调 _resolve_ihui_auto_model 而非透传
+- astream() 入口拦截同 complete()
+- 三方一致性防漂移:default_models.json ↔ _IHUI_POINTS_MAP ↔ _IHUI_AUTO_POOL
 """
 
 from __future__ import annotations
+
+import json
+from pathlib import Path
 
 from app.core.llm_gateway import _resolve_ihui_auto_model, llm_gateway
 from app.services import free_provider_registry
@@ -134,3 +139,59 @@ async def test_astream_intercepts_auto_model(monkeypatch):
     # 拦截生效:透传的话 model 会原样保持 'ihui/Auto-Model'
     assert done["model"] == sentinel
     assert done["model"].lower() != "ihui/auto-model"
+
+
+# ---------------------------------------------------------------------------
+# 三方一致性防漂移(default_models.json ↔ _IHUI_POINTS_MAP ↔ _IHUI_AUTO_POOL)
+# ---------------------------------------------------------------------------
+
+
+def _load_ihui_json_ids() -> list[str]:
+    """从 default_models.json 提取全部 ihui/ 前缀模型 id(保留原始大小写)。"""
+    path = Path(__file__).resolve().parents[1] / "app" / "data" / "default_models.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entries = data["models"] if isinstance(data, dict) else data
+    return [e["id"] for e in entries if str(e.get("id", "")).lower().startswith("ihui/")]
+
+
+def test_default_models_json_matches_points_map():
+    """default_models.json 的 ihui 模型 ↔ _IHUI_POINTS_MAP 键双向对齐(小写比较)。
+
+    json 侧 id 大小写混合(极速API敏感)而 map 键统一小写(infer 内部先
+    lower 再查表),故以小写集合做双向相等断言:任一侧新增/删除/改名漂移
+    都会失败,防止 /llm/models 端点倍率退回关键词推断(如 minimax-m3
+    无关键词命中会按默认经济档 1x 计费,严重低估消耗)。
+    """
+    json_ids = _load_ihui_json_ids()
+    assert json_ids, "default_models.json 必须预置 ihui 模型"
+    map_keys = {k.lower() for k in free_provider_registry._IHUI_POINTS_MAP}
+    json_lower = {mid.lower() for mid in json_ids}
+    assert json_lower == map_keys, (
+        f"仅 json 有: {sorted(json_lower - map_keys)}; "
+        f"仅 map 有: {sorted(map_keys - json_lower)}"
+    )
+
+
+def test_auto_pool_models_exist_in_default_models_json():
+    """池模型必须在 json 中以精确大小写存在(极速API大小写敏感)。
+
+    _IHUI_AUTO_POOL 注释约定:ID 必须与 default_models.json 原始大小写
+    一致,透传极速API时用原样 id。此用例大小写敏感比对,防止有人把 json
+    条目改成小写导致池引用的模型在极速侧 404。
+    """
+    json_ids = set(_load_ihui_json_ids())
+    assert free_provider_registry._IHUI_AUTO_POOL, "池定义保证非空"
+    for mid in free_provider_registry._IHUI_AUTO_POOL:
+        assert mid in json_ids, f"池模型 {mid} 在 default_models.json 缺失或大小写漂移"
+
+
+def test_points_map_priority_over_keywords():
+    """映射表优先于关键词推断:每个 json ihui 模型命中精确 map 值。
+
+    若后续有人调整 infer_points_multiplier 把关键词规则挪到 map 查表之前,
+    deepseek-v4-flash-0731(含 'deepseek' 标准 3x)等会被关键词遮蔽成
+    低倍率,本用例逐模型比对实际推断值与 map 值,确保计费不被漂移。
+    """
+    for mid in _load_ihui_json_ids():
+        expected = free_provider_registry._IHUI_POINTS_MAP[mid.lower()]
+        assert infer_points_multiplier(mid) == expected, mid
