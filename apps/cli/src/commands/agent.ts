@@ -24,12 +24,15 @@ import { streamChat, setBaseUrl, setTokenProvider, formatSSEError, type SSEError
 import { loadConfig } from '../config/index.js';
 import {
   registerTools,
+  registerBrowserTools,
   listTools,
   buildSystemPrompt,
-  parseToolCalls,
   parsePlanBlock,
   executeToolCall,
   formatToolResult,
+  toolsToProviderSchema,
+  extractToolCalls,
+  type ParsedToolCall,
   clearTools,
   getTool,
   enableToolHub,
@@ -217,6 +220,8 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   registerTools(TEST_TOOLS);
   registerTools(DIAGNOSTIC_TOOLS);
   registerTools(CODEGRAPH_TOOLS);
+  // 浏览器自动化工具:注册后由模型按需调用(执行时经 MCP 连 playwright,不可用自动降级)
+  registerBrowserTools();
   // P2-3 剪贴板工具:feature flag 启用时注册(默认关闭,零回归)
   if (loadSettings().clipboard?.enabled === true) {
     registerTools(CLIPBOARD_TOOLS);
@@ -398,6 +403,13 @@ export interface RunToolLoopOptions {
    * 把失败模式沉淀为 procedural memory,让 agent 未来能规避相同陷阱(对标 Hermes Agent 反思沉淀)。
    */
   userId?: string;
+  /**
+   * 原生 function calling 支持(2026-08-31 新增):
+   *   - true:provider 明确支持 tools,原生 schema 下发 + SSE tool-call 事件解析
+   *   - false:完全走 prompt 正则路径(不携带 tools)
+   *   - 'auto' / undefined:先携带 tools 探测,provider 拒绝("not supported")时自动降级 prompt 模式
+   */
+  providerSupportsTools?: boolean | 'auto';
 }
 
 /**
@@ -597,10 +609,21 @@ interface SampleWithRetryOptions {
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
   sampler?: SamplerSettings;
+  /** 原生 function calling:附加到请求体末尾的字段(如 { tools: [...] }) */
+  extraBody?: Record<string, unknown>;
+  /** 原生 function calling:SSE tool-call 事件回调 */
+  onToolCallEvent?: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => void;
 }
 
 interface SampleWithRetryResult {
   error?: string;
+}
+
+/** 判断错误是否为 provider 不支持原生 tools(auto 探测降级依据) */
+function isToolsUnsupportedError(errMsg: string): boolean {
+  const e = errMsg.toLowerCase();
+  if (!e.includes('tool')) return false;
+  return e.includes('not supported') || e.includes('does not support') || e.includes('unsupported');
 }
 
 type RetryCallback = (
@@ -678,6 +701,8 @@ async function sampleWithRetry(
         messages: opts.messages,
         signal: opts.signal,
         onDelta: opts.onDelta,
+        ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
+        ...(opts.onToolCallEvent ? { onToolCall: opts.onToolCallEvent } : {}),
         ...(opts.sampler ?? {}),
       } as Parameters<typeof streamChat>[0]);
     } catch (e) {
@@ -822,6 +847,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // P1-2 Compaction V2:加载 settings 一次(feature flag 默认关闭,启用后用 LLM 摘要压缩)
   const settings = loadSettings();
 
+  // 原生 function calling:true/false 显式指定;undefined/'auto' 先探测(provider 拒绝时自动降级)
+  let nativeToolsEnabled = opts.providerSupportsTools !== false;
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -848,25 +876,52 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       let iterationText = '';
       let iterError = false;
 
-      // P0-3 SamplerActor:用 sampleWithRetry 包裹 streamChat,添加指数退避重试 + doom_loop 检测
-      const samplerResult = await sampleWithRetry(
-        {
-          modelId: opts.modelId,
-          messages: effectiveMessages,
-          signal: opts.signal,
-          onDelta: (delta) => {
-            iterationText += delta;
-            void opts.onDelta?.(delta);
+      // 原生 function calling:携带 tools schema 下发 + 收集 SSE tool-call 事件
+      // auto 模式下 nativeToolsEnabled 探测失败会被置 false,后续迭代永久降级 prompt 模式
+      let nativeToolEvents: ParsedToolCall[] = [];
+      const useNativeTools = nativeToolsEnabled && listTools().length > 0;
+      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(listTools()) } : undefined;
+
+      const doSample = (withTools: boolean) =>
+        sampleWithRetry(
+          {
+            modelId: opts.modelId,
+            messages: effectiveMessages,
+            signal: opts.signal,
+            onDelta: (delta) => {
+              iterationText += delta;
+              void opts.onDelta?.(delta);
+            },
+            sampler: opts.sampler,
+            ...(withTools && nativeExtraBody ? { extraBody: nativeExtraBody } : {}),
+            ...(withTools
+              ? {
+                  onToolCallEvent: (event: { type: string; toolCallId: string; toolName: string; args?: Record<string, unknown> }) => {
+                    if (event.type === 'tool-call-start') {
+                      nativeToolEvents.push({ name: event.toolName, arguments: event.args ?? {} });
+                    }
+                  },
+                }
+              : {}),
           },
-          sampler: opts.sampler,
-        },
-        (attempt, errMsg, severity, delayMs) => {
-          const formatted = formatSSEError(new Error(errMsg));
-          process.stderr.write(
-            chalk.yellow(`[retry] 第 ${attempt}/${SAMPLER_MAX_RETRIES} 次重试(${severity})${delayMs}ms 后: ${formatted.message}\n`),
-          );
-        },
-      );
+          (attempt, errMsg, severity, delayMs) => {
+            const formatted = formatSSEError(new Error(errMsg));
+            process.stderr.write(
+              chalk.yellow(`[retry] 第 ${attempt}/${SAMPLER_MAX_RETRIES} 次重试(${severity})${delayMs}ms 后: ${formatted.message}\n`),
+            );
+          },
+        );
+
+      let samplerResult = await doSample(useNativeTools);
+
+      // auto 探测降级:provider 拒绝 tools("not supported")→ 本轮降级 prompt 模式重试,后续不再携带 tools
+      if (samplerResult.error && useNativeTools && isToolsUnsupportedError(samplerResult.error)) {
+        nativeToolsEnabled = false;
+        iterationText = '';
+        nativeToolEvents = [];
+        process.stderr.write(chalk.dim('[native-fc] provider 不支持原生 tools,降级为 prompt 模式\n'));
+        samplerResult = await doSample(false);
+      }
 
       if (samplerResult.error) {
         iterError = true;
@@ -928,7 +983,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       opts.messages.push({ role: 'assistant', content: iterationText });
       assistantText += iterationText;
 
-      const toolCalls = parseToolCalls(iterationText);
+      // 工具调用提取:原生 SSE tool-call 事件优先,解析不到降级走正则(无 FC 能力模型路径)
+      const toolCalls = extractToolCalls(
+        nativeToolEvents.length > 0 ? { tool_calls: nativeToolEvents } : undefined,
+        iterationText,
+      );
 
       if (toolCalls.length === 0) {
         // P0-2 Interject:end_turn 时再 drain 一次,处理 LLM 调用期间用户输入的 interjection
@@ -967,7 +1026,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           // PlanMachine 联动:gathering → executing(解除写入硬阻断)
           // canTransition 守门:若 PlanMachine 已在 executing/done 等状态则跳过(避免抛错)
           if (opts.planMachine?.canTransition('gather_complete')) {
-            opts.planMachine.transition('gather_complete');
+            opts.planMachine.transition('gather_complete', { approved: true });
           }
           opts.messages.push({
             role: 'user',
@@ -1326,12 +1385,14 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
     }
   }
 
-  // P3-2 Telemetry:按 feature flag 启用(默认关闭,启用后 initTelemetry + session_start 事件)
-  // 关闭时 track 调用 no-op(零回归)
+  // P3-2 Telemetry:默认开启(2026-08-31 改,补全 CLI 埋点盲区)。
+  // endpoint 未配置时默认上报到项目自身 /api/analytics/track(与 web/mobile 同一张表)。
+  // 用户可在设置里 telemetry.enabled = false 显式关闭;关闭时 track 调用 no-op(零回归)。
   if (codegraphSettings.telemetry?.enabled === true) {
+    const defaultEndpoint = `${(codegraphSettings.apiUrl || 'http://localhost:8802').replace(/\/+$/, '')}/api/analytics/track`
     initTelemetry({
       enabled: true,
-      endpoint: codegraphSettings.telemetry.endpoint,
+      endpoint: codegraphSettings.telemetry.endpoint?.trim() || defaultEndpoint,
       batchSize: codegraphSettings.telemetry.batchSize,
       flushIntervalMs: codegraphSettings.telemetry.flushIntervalMs,
     });
@@ -1341,7 +1402,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       hasSession: !!opts.session,
     });
     if (!silent) {
-      console.info(chalk.dim(`  📊 telemetry 已启用(上报到 ${codegraphSettings.telemetry.endpoint ?? 'N/A'})`));
+      console.info(chalk.dim(`  📊 telemetry 已启用(上报到 ${codegraphSettings.telemetry.endpoint?.trim() || defaultEndpoint})`));
     }
   }
 

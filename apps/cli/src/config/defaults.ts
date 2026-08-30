@@ -27,6 +27,9 @@ export const DEFAULT_SETTINGS: Settings = {
   voice: { enabled: true, durationSec: 5 },
   // P3-1 Mermaid 渲染:默认关闭(零回归)
   mermaid: { enabled: false },
-  // P3-2 Telemetry:默认关闭(零回归)
-  telemetry: { enabled: false },
+  // P3-2 Telemetry:默认开启(2026-08-31 改,补全 CLI 埋点盲区)
+  // 事件仅含 session_start/session_end/tool_call/prompt_completed/error_logged,
+  // 敏感字段自动 redact;endpoint 未配置时默认上报到项目自身 /api/analytics/track(由 agent.ts 派生)。
+  // 用户可在配置中显式 telemetry.enabled = false 关闭。
+  telemetry: { enabled: true },
 }
