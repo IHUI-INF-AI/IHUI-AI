@@ -43,6 +43,28 @@ const doubaoImageEditBody = z.object({
 /** 根据 model_id 推断积分消耗倍数(5 档梯度:0x 免费 / 1x 经济 / 3x 标准 / 10x 高级 / 30x 旗舰) */
 export function inferPointsMultiplier(modelId: string): number {
   const mid = (modelId || '').toLowerCase()
+  // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
+  const IHUI_POINTS_MAP: Record<string, number> = {
+    // 倍率 = 极速扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配
+    'ihui/auto-model': 3, // 极速扣费 1:1
+    'ihui/minimax-m2.7': 6, // 极速扣费 1:2
+    'ihui/minimax-m2.7-highspeed': 15, // 极速扣费 1:5
+    'ihui/minimax-m3': 15, // 极速扣费 1:5
+    'ihui/deepseek-v4-flash-0731': 15, // 极速扣费 1:5
+    'ihui/glm-5.1': 18, // 极速扣费 1:6
+    'ihui/glm-5.2': 18, // 极速扣费 1:6
+    'ihui/glm-5.3-flash': 18, // 极速扣费 1:6
+    'ihui/kimi-k2.6': 18, // 极速扣费 1:6
+    'ihui/deepseek-v4-pro': 18, // 极速扣费 1:6
+    'ihui/deepseek-v4-pro-0813': 18, // 极速扣费 1:6
+    'ihui/grok-4.5': 18, // 极速扣费 1:6(未列套餐,按次旗舰估)
+    'ihui/glm-5.3': 30, // 极速扣费 1:10
+    'ihui/gpt-5.6': 30, // 极速扣费 1:10
+    'ihui/grok-4.6': 30, // 极速扣费 1:10
+    'ihui/qwen3.7-max': 30, // 极速扣费 1:10
+    'ihui/kimi-k2.7-code': 30, // 极速扣费 1:10
+  }
+  if (IHUI_POINTS_MAP[mid] !== undefined) return IHUI_POINTS_MAP[mid]
   // 优先 mini/nano/haiku(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
   if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
   // 旗舰(30x)
