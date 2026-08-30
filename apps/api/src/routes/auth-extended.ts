@@ -1,5 +1,6 @@
-import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
+import type { Redis } from 'ioredis'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { eq } from 'drizzle-orm'
@@ -2858,9 +2859,131 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   // 4 个社交登录 Provider handler(OIDC + Discord + LinuxDO + Telegram)
   // 与现有 POST /auth/:platform/callback(8 平台)并列,路径独立: /auth/oauth/<provider>/*
   // 复用 loginWithOAuthAccount helper(查/建用户 + 颁发 token)
-  // ⚠️ state 校验:当前未实现 cookie/Redis 持久化,仅作 CSRF 占位。
-  //    主 agent 后续可补 httpOnly cookie 持久化 + callback 时 timingSafeEqual 校验。
+  // state CSRF 校验(2026-08-31 实装,替换原占位实现):
+  // - redirect 签发随机 state → Redis 持久化(key=oauth:state:<state>,TTL 10min,
+  //   value 含 provider+userId+创建时间);Redis 不可用时降级 httpOnly cookie 承载。
+  // - callback 一次性消费(GET 命中后立即 DEL,防重放),provider 用 timingSafeEqual 比对。
+  // - 校验失败返回 401 并记 warning 日志;存量无 state 的回调走原逻辑(向后兼容)。
   // ============================================================================
+
+  /** OAuth state Redis 存储 key 前缀(一次性消费) */
+  const OAUTH_STATE_KEY_PREFIX = 'oauth:state:'
+  /** state 有效期:10 分钟(覆盖用户在 IdP 授权页的正常停留时长) */
+  const OAUTH_STATE_TTL_SECONDS = 10 * 60
+  /** Redis 不可用时的降级 httpOnly cookie 名前缀(按 provider 隔离) */
+  const OAUTH_STATE_COOKIE_PREFIX = 'oauth_state_'
+
+  // Redis 客户端获取(防御式:测试环境可能未注册 redis 插件,与 auth.ts QR 登录同模式)
+  const getRedis = (): Redis | null => (server as unknown as { redis?: Redis }).redis ?? null
+
+  /** state 持久化载荷 */
+  interface OAuthStatePayload {
+    provider: string
+    userId: string | null
+    createdAt: string
+  }
+
+  // 常量时间字符串比对(长度不等直接失败,避免 timing 攻击泄露比对进度)
+  function safeEqual(a: string, b: string): boolean {
+    const ab = Buffer.from(a)
+    const bb = Buffer.from(b)
+    if (ab.length !== bb.length) return false
+    return timingSafeEqual(ab, bb)
+  }
+
+  // state 持久化:Redis 优先(SET EX 10min);Redis 不可用/写入失败时降级 httpOnly cookie
+  // (sameSite=lax 下 OAuth 回调是顶级导航 GET,浏览器仍会携带该 cookie,可完成比对)
+  async function persistOAuthState(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    provider: string,
+    state: string,
+  ): Promise<void> {
+    const payload: OAuthStatePayload = {
+      provider,
+      userId: request.userId ?? null,
+      createdAt: new Date().toISOString(),
+    }
+    const redis = getRedis()
+    if (redis) {
+      try {
+        await redis.set(
+          OAUTH_STATE_KEY_PREFIX + state,
+          JSON.stringify(payload),
+          'EX',
+          OAUTH_STATE_TTL_SECONDS,
+        )
+        return
+      } catch (e) {
+        request.log.warn({ err: e }, '[oauth-state] redis set 失败,降级 cookie 承载')
+      }
+    }
+    reply.setCookie(OAUTH_STATE_COOKIE_PREFIX + provider, state, {
+      path: '/',
+      sameSite: 'lax',
+      httpOnly: true,
+      maxAge: OAUTH_STATE_TTL_SECONDS,
+    })
+  }
+
+  // state 校验:Redis 命中 → 先 DEL(一次性消费,并发重放至多一人成功)再比对 provider;
+  // Redis 未命中(过期/重放/降级签发)或读删异常 → 降级与 cookie 内 state timingSafeEqual 比对
+  async function verifyOAuthState(
+    request: FastifyRequest,
+    provider: string,
+    state: string,
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const redis = getRedis()
+    if (redis) {
+      try {
+        const key = OAUTH_STATE_KEY_PREFIX + state
+        const raw = await redis.get(key)
+        if (raw !== null) {
+          // 一次性消费:先删除防重放,再做内容比对
+          await redis.del(key)
+          let payload: OAuthStatePayload
+          try {
+            payload = JSON.parse(raw) as OAuthStatePayload
+          } catch {
+            return { ok: false, reason: 'state 存储内容损坏' }
+          }
+          if (!payload.provider || !safeEqual(payload.provider, provider)) {
+            return { ok: false, reason: `state provider 不匹配(期望 ${provider})` }
+          }
+          return { ok: true }
+        }
+        // Redis 未命中 → 继续尝试 cookie 兜底(覆盖降级签发后 Redis 恢复的边缘场景)
+      } catch (e) {
+        // Redis 读/删异常 → 降级 cookie 比对,不因基础设施故障拒绝合法回调
+        request.log.warn({ err: e }, '[oauth-state] redis get/del 失败,降级 cookie 比对')
+      }
+    }
+    const cookieState = request.cookies?.[OAUTH_STATE_COOKIE_PREFIX + provider]
+    if (cookieState && safeEqual(cookieState, state)) return { ok: true }
+    return { ok: false, reason: 'state 不存在、已过期或已被消费' }
+  }
+
+  // 回调入口统一 state 校验:
+  // - 携带 state(新流程)→ 强制校验,失败返回 401 + warning 日志;
+  // - 未携带 state(存量兼容)→ 走原有逻辑放行,仅记 warning,不阻断。
+  // 注:state 为空字符串不视为"未携带",必须走校验并失败,防止攻击者用空值绕过 CSRF 防护。
+  async function enforceOAuthState(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    provider: string,
+    state: string | undefined,
+  ): Promise<FastifyReply | null> {
+    if (state === undefined) {
+      request.log.warn({ provider }, '[oauth-state] 回调缺少 state,走存量兼容路径放行')
+      return null
+    }
+    const check = await verifyOAuthState(request, provider, state)
+    if (!check.ok) {
+      request.log.warn({ provider, reason: check.reason }, '[oauth-state] CSRF 校验失败,拒绝回调')
+      return reply.status(401).send(error(401, 'OAuth state 校验失败,请重新发起登录'))
+    }
+    return null
+  }
 
   // GET /auth/oauth/:provider/redirect — 统一重定向入口
   // :provider ∈ oidc/discord/linuxdo(telegram 走 /start 端点)
@@ -2923,6 +3046,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           ),
         )
     }
+    // state 持久化(Redis 优先,降级 httpOnly cookie)放在授权 URL 构造成功后,
+    // 避免构造失败的请求在 Redis 留下孤儿 state
+    await persistOAuthState(request, reply, provider, state)
     return reply.redirect(authUrl)
   })
 
@@ -2934,6 +3060,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     if (!isOidcConfigured()) return reply.status(400).send(error(400, 'OIDC 未配置'))
+    // state CSRF 校验(新流程强制;存量无 state 回调兼容放行)
+    const denied = await enforceOAuthState(request, reply, 'oidc', parsed.data.state)
+    if (denied) return denied
     try {
       const provider = createOidcProvider({
         issuer: process.env.OIDC_ISSUER!,
@@ -3008,6 +3137,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     if (!isLinuxdoConfigured()) return reply.status(400).send(error(400, 'LinuxDO 未配置'))
+    // state CSRF 校验(新流程强制;存量无 state 回调兼容放行)
+    const denied = await enforceOAuthState(request, reply, 'linuxdo', parsed.data.state)
+    if (denied) return denied
     try {
       const provider = createLinuxdoProvider({
         clientId: process.env.LINUXDO_CLIENT_ID!,

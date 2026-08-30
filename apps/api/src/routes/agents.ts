@@ -204,8 +204,11 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // GET /agents/stats - Agent 市场统计(2026-08-12 补缺:此前双端均无,前端 agents/stats 页空态)
-  server.get('/agents/stats', async (_request, reply) => {
+  // GET/POST /agents/stats - Agent 市场统计(2026-08-12 补缺:此前双端均无,前端 agents/stats 页空态)
+  // 响应契约以 CLI apps/cli/src/commands/agents.ts 的 stats 命令为权威(字段一个不能缺):
+  //   { totalAgents, totalCalls, totalUsers, avgRating, publishedCount, pendingCount }
+  // GET 供 Web stats 页与 CLI `ihui agents stats` 调用;POST 为同契约别名,便于统一走 POST 拉取
+  const handleAgentStats = async (_request: FastifyRequest, reply: FastifyReply) => {
     const [totalRow, pubRow, pendRow, usersRow, callsRow, ratingRow] = await Promise.all([
       dbRead.select({ c: sql<number>`count(*)::int` }).from(agents),
       dbRead
@@ -230,7 +233,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         avgRating: Number(ratingRow[0]?.v ?? 0),
       }),
     )
-  })
+  }
+  server.get('/agents/stats', handleAgentStats)
+  server.post('/agents/stats', handleAgentStats)
 
   // GET /agents/:agentId - 代理详情
   server.get('/agents/:agentId', async (request, reply) => {

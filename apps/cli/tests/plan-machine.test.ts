@@ -13,22 +13,35 @@ describe('PlanMachine', () => {
       expect(machine.transition('start')).toBe('gathering')
     })
 
-    it('gathering + gather_complete → executing', () => {
+    it('gathering + gather_complete(已批准)→ executing', () => {
       machine.transition('start')
-      expect(machine.transition('gather_complete')).toBe('executing')
+      expect(machine.transition('gather_complete', { approved: true })).toBe('executing')
     })
 
     it('executing + execute_complete → done', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.transition('execute_complete')).toBe('done')
     })
 
     it('完整主链 initialized→gathering→executing→done', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.getCurrentState()).toBe('done')
+    })
+  })
+
+  describe('审批门(gather_complete 强制批准)', () => {
+    it('gathering + gather_complete 未批准抛错', () => {
+      machine.transition('start')
+      expect(() => machine.transition('gather_complete')).toThrow(/Approval required/)
+      expect(machine.getCurrentState()).toBe('gathering')
+    })
+
+    it('gathering + gather_complete 已批准正常转移', () => {
+      machine.transition('start')
+      expect(machine.transition('gather_complete', { approved: true })).toBe('executing')
     })
   })
 
@@ -44,13 +57,13 @@ describe('PlanMachine', () => {
 
     it('executing + cancel → cancelled', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.transition('cancel')).toBe('cancelled')
     })
 
     it('done + cancel → cancelled', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.transition('cancel')).toBe('cancelled')
     })
@@ -69,7 +82,7 @@ describe('PlanMachine', () => {
 
     it('done + reset → initialized', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.transition('reset')).toBe('initialized')
     })
@@ -109,7 +122,7 @@ describe('PlanMachine', () => {
 
     it('done + start 抛错', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(() => machine.transition('start')).toThrow(/Invalid transition/)
     })
@@ -137,7 +150,7 @@ describe('PlanMachine', () => {
 
     it('done + reset 返回 true', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.canTransition('reset')).toBe(true)
     })
@@ -160,13 +173,13 @@ describe('PlanMachine', () => {
 
     it('executing 状态返回 false', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.isWriteBlocked()).toBe(false)
     })
 
     it('done 状态返回 false', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.isWriteBlocked()).toBe(false)
     })
