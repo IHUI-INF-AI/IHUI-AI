@@ -249,6 +249,28 @@ _REGISTRY: list[FreeProvider] = [
         notes="项目已配置 plan 套餐 key,自有模型平台,支持 agnes-2.5-flash / agnes-2.5-pro",
     ),
     FreeProvider(
+        provider_code="ihui_relay",
+        display_name="智汇AI 官方模型",
+        category=ProviderCategory.DOMESTIC,
+        # 2026-08-31 修复:元规则要求所有 provider 必须有 signup_url(管理端"去充值"降级也用它),
+        # 智汇官方中继的套餐购买/管理入口为极速API主站
+        signup_url="https://api.x5m5x.com",
+        free_quota="智汇AI 官方中转,已配置",
+        rate_limit="无限制(官方中转)",
+        default_base_url="https://api.x5m5x.com/v1",
+        key_env_vars=["IHUI_RELAY_API_KEY"],
+        default_models=[
+            "ihui/glm-5.3",
+            "ihui/deepseek-v4-flash-0731",
+            "ihui/gpt-5.6",
+            "ihui/grok-4.6",
+            "ihui/gpt-5.6-sol",
+            "ihui/MiniMax-2.7",
+        ],
+        protocol="openai_chat",
+        notes="智汇AI 官方中转 provider,OpenAI 兼容协议,聚合 GLM/DeepSeek/GPT/Grok/MiniMax 等模型,api_base 根据网络自动切换国内/海外端点",
+    ),
+    FreeProvider(
         provider_code="siliconcloud",
         display_name="SiliconCloud 硅基流动",
         category=ProviderCategory.DOMESTIC,
@@ -1045,6 +1067,43 @@ _FREE_KEYWORDS: tuple[str, ...] = (
     "ollama", "llama", "llm7", "pollinations", "aihorde", "opencode_zen",
 )
 
+# 智汇AI 官方中转模型积分倍数映射(ihui/ 前缀,付费模型)
+# 倍率 = 极速扣费比例 × 3(统一利润系数),2026-08-31 按官方套餐扣费比例重配:
+#   Auto-Model 1:1 / MiniMax-M2.7 1:2 / M2.7-highspeed+M3+flash 1:5 /
+#   glm-5.1 系 1:6 / glm-5.3+gpt-5.6+grok-4.6+qwen3.7-max+kimi-k2.7-code 1:10
+_IHUI_POINTS_MAP: dict[str, float] = {
+    "ihui/auto-model": 3.0,                # 极速扣费 1:1
+    "ihui/minimax-m2.7": 6.0,              # 极速扣费 1:2
+    "ihui/minimax-m2.7-highspeed": 15.0,   # 极速扣费 1:5
+    "ihui/minimax-m3": 15.0,               # 极速扣费 1:5
+    "ihui/deepseek-v4-flash-0731": 15.0,   # 极速扣费 1:5
+    "ihui/glm-5.1": 18.0,                  # 极速扣费 1:6
+    "ihui/glm-5.2": 18.0,                  # 极速扣费 1:6
+    "ihui/glm-5.3-flash": 18.0,            # 极速扣费 1:6
+    "ihui/kimi-k2.6": 18.0,                # 极速扣费 1:6
+    "ihui/deepseek-v4-pro": 18.0,          # 极速扣费 1:6
+    "ihui/deepseek-v4-pro-0813": 18.0,     # 极速扣费 1:6
+    "ihui/grok-4.5": 18.0,                 # 极速扣费 1:6(未列套餐,按次旗舰估)
+    "ihui/glm-5.3": 30.0,                  # 极速扣费 1:10
+    "ihui/gpt-5.6": 30.0,                  # 极速扣费 1:10
+    "ihui/grok-4.6": 30.0,                 # 极速扣费 1:10
+    "ihui/qwen3.7-max": 30.0,              # 极速扣费 1:10
+    "ihui/kimi-k2.7-code": 30.0,           # 极速扣费 1:10
+}
+
+# 智汇 Auto-Model 服务端随机池(成本可控版 Auto-Model,2026-08-31 立):
+# 极速套餐的 'Auto-Model'(1:1) 透传后由极速随机选模型,可能随机到 1:5~1:10
+# 高成本模型,按标称 3x 积分计费会压缩利润;改为服务端从低档池随机选。
+# 池准入:极速扣费 1:1~1:2(映射倍率<=6)的具体模型,Auto-Model 自身剔除。
+# 注意:ID 必须与 .env/default_models.json 原始大小写一致(极速API大小写敏感)。
+# 维护:后续若套餐新增 1:1~1:2 低档模型,往元组追加即可。
+_IHUI_AUTO_POOL: tuple[str, ...] = ("ihui/MiniMax-M2.7",)
+
+
+def get_ihui_auto_pool() -> list[str]:
+    """返回智汇 Auto-Model 服务端随机池(保留原始ID大小写)。"""
+    return [mid for mid in _IHUI_AUTO_POOL if infer_points_multiplier(mid) <= 6.0]
+
 
 def infer_points_multiplier(model_id: str) -> float:
     """根据 model_id 推断积分消耗倍数(5 档梯度)。
@@ -1078,6 +1137,9 @@ def infer_points_multiplier(model_id: str) -> float:
         1.0
     """
     mid = (model_id or "").lower()
+    # 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
+    if mid in _IHUI_POINTS_MAP:
+        return _IHUI_POINTS_MAP[mid]
     # 优先处理 mini/nano/haiku 后缀(避免 gpt-4o-mini 被标准层 gpt-4o 遮蔽,o1-mini 被 o1 遮蔽)
     # mini 版本永远归经济档(1x),不论父型号
     if "mini" in mid or "nano" in mid or "haiku" in mid:
