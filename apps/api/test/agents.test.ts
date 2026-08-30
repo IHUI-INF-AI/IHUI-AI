@@ -109,8 +109,9 @@ vi.mock('../src/db/oauth-queries.js', () => ({
 }))
 
 // db / dbRead:heat/generate 等端点直接使用,提供链式 mock 避免真实查询
-vi.mock('../src/db/index.js', () => {
-  const chain = () => {
+// dbRead.select 提升为可控 mock:stats 端点测试可覆写返回行,默认仍返回链式 Proxy(行为不变)
+const { mockDbExecute, mockDbReadSelect, makeDbChain } = vi.hoisted(() => {
+  const makeDbChain = () => {
     const obj: Record<string, ReturnType<typeof vi.fn>> = {}
     const handler: ProxyHandler<Record<string, unknown>> = {
       get(_t, prop) {
@@ -123,13 +124,21 @@ vi.mock('../src/db/index.js', () => {
     return proxy
   }
   return {
-    db: { execute: vi.fn().mockResolvedValue([]) },
+    makeDbChain,
+    mockDbExecute: vi.fn().mockResolvedValue([]),
+    mockDbReadSelect: vi.fn().mockImplementation(() => makeDbChain()),
+  }
+})
+
+vi.mock('../src/db/index.js', () => {
+  return {
+    db: { execute: mockDbExecute },
     dbRead: new Proxy(
       {},
       {
         get(_t, prop) {
-          if (prop === 'select') return vi.fn().mockReturnValue(chain())
-          return vi.fn().mockReturnValue(chain())
+          if (prop === 'select') return mockDbReadSelect
+          return vi.fn().mockReturnValue(makeDbChain())
         },
       },
     ),
@@ -160,6 +169,35 @@ function makeAgent(overrides: Record<string, unknown> = {}) {
     usageCount: 0,
     heatScore: 0,
     ...overrides,
+  }
+}
+
+// stats 端点单条聚合查询 mock:
+//   select().from(x)          → 可直接 await(无 where 的查询)
+//   select().from(x).where(c) → 返回 Promise
+// 两者均 resolve 为 rows(与 drizzle 真实行为一致)
+function statsQuery(rows: Array<Record<string, unknown>>) {
+  const fromResult = {
+    where: () => Promise.resolve(rows),
+    then: (onFulfilled: (v: unknown) => unknown) => Promise.resolve(rows).then(onFulfilled),
+  }
+  return { from: () => fromResult }
+}
+
+// 按端点内 Promise.all 的 6 条聚合查询顺序注入返回行:
+// totalAgents / publishedCount / pendingCount / totalUsers / totalCalls / avgRating
+function mockStatsRows(
+  rows: [
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+  ],
+) {
+  for (const row of rows) {
+    mockDbReadSelect.mockImplementationOnce(() => statsQuery([row]))
   }
 }
 
@@ -363,6 +401,67 @@ describe('agents routes', () => {
       expect(body.code).toBe(0)
       expect(body.data.status).toBe('ok')
       expect(body.data).toHaveProperty('timestamp')
+    })
+  })
+
+  describe('GET /api/agents/stats', () => {
+    it('市场统计公开:未登录可访问,返回 CLI 契约全部 6 字段', async () => {
+      mockStatsRows([{ c: 10 }, { c: 7 }, { c: 3 }, { c: 5 }, { c: 42 }, { v: '4.50' }])
+      const res = await app.inject({ method: 'GET', url: '/api/agents/stats' })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      // 契约字段完整性(以 apps/cli/src/commands/agents.ts AgentStats 为准,一个不能缺)
+      expect(body.data).toEqual({
+        totalAgents: 10,
+        totalCalls: 42,
+        totalUsers: 5,
+        avgRating: 4.5,
+        publishedCount: 7,
+        pendingCount: 3,
+      })
+      expect(Object.keys(body.data).sort()).toEqual(
+        [
+          'totalAgents',
+          'totalCalls',
+          'totalUsers',
+          'avgRating',
+          'publishedCount',
+          'pendingCount',
+        ].sort(),
+      )
+    })
+
+    it('空表时各字段均回落为 0', async () => {
+      mockStatsRows([{}, {}, {}, {}, {}, {}])
+      const res = await app.inject({ method: 'GET', url: '/api/agents/stats' })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().data).toEqual({
+        totalAgents: 0,
+        totalCalls: 0,
+        totalUsers: 0,
+        avgRating: 0,
+        publishedCount: 0,
+        pendingCount: 0,
+      })
+    })
+  })
+
+  describe('POST /api/agents/stats', () => {
+    it('POST 为同契约别名:未登录可访问,字段与 GET 一致', async () => {
+      mockStatsRows([{ c: 8 }, { c: 6 }, { c: 2 }, { c: 4 }, { c: 30 }, { v: '3.80' }])
+      const res = await app.inject({ method: 'POST', url: '/api/agents/stats' })
+      expect(res.statusCode).toBe(200)
+      const body = res.json()
+      expect(body.code).toBe(0)
+      expect(body.data).toEqual({
+        totalAgents: 8,
+        totalCalls: 30,
+        totalUsers: 4,
+        avgRating: 3.8,
+        publishedCount: 6,
+        pendingCount: 2,
+      })
     })
   })
 

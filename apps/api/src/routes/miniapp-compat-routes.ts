@@ -1,8 +1,14 @@
 /**
  * 小程序兼容路由(2026-07-24 立,2026-07-26 真实化 /learn/* + /study/*)
  *
+ * 2026-08-31 剩余空桩真实化:
+ *  - /model/chat POST、/model/chat/:id DELETE、/aigc/publish、/ai/kling/image、
+ *    /workflows/n8n* 接入真实逻辑(复用主路由/真实表)
+ *  - 无真实实现的桩(/distribution/wx-code、/agent/creation/share、/settings/cache/*)
+ *    保留但响应带 notAvailable: true 标记,不再返回裸空结构
+ *
  * 背景:小程序端调用了大量后端缺失的端点,导致 Taro.request fail 弹"网络异常"toast。
- * 本文件补建 49 个端点,其中 18 个 /learn/* + /study/* 已接入真实表 CRUD,
+ * 本文件补建 49 个端点,其中大部分已接入真实表 CRUD,
  * 其余保持空数据桩避免 404。
  *
  * 设计原则:
@@ -12,7 +18,7 @@
  *  - 真实化端点接入 packages/database 真实表:
  *    lessons / lessonChapters / lessonChapterSections / comments / lessonRecords / lessonRecordLogs / lessonSignUps
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
@@ -46,8 +52,47 @@ import {
   withdrawalFlows,
   newsArticles,
   orders,
+  aiGcContent,
 } from '@ihui/database'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
+import { ensureSafeFetchUrl } from '../utils/ssrf-guard.js'
+
+/**
+ * 内部路由转发:通过 server.inject 复用同进程已注册的主路由
+ * (如 /api/ai/chat、/api/chat/kling/image/generate、/cozeZhsApi/n8n/addAgent),
+ * 非跨进程 HTTP 自调用;鉴权头透传,由主路由完成参数校验与鉴权。
+ * 与 ai-frontend-routes.ts 的 proxyToSelfApi 同模式。
+ */
+async function proxyToMainRoute(
+  server: FastifyInstance,
+  method: 'GET' | 'POST',
+  path: string,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  body?: unknown,
+) {
+  try {
+    const injectOpts: {
+      method: 'GET' | 'POST'
+      url: string
+      headers: Record<string, string>
+      payload?: string
+    } = {
+      method,
+      url: path,
+      headers: { authorization: request.headers.authorization ?? '' },
+    }
+    if (method === 'POST' && body !== undefined) {
+      injectOpts.payload = JSON.stringify(body)
+      injectOpts.headers['content-type'] = 'application/json'
+    }
+    const res = await server.inject(injectOpts)
+    return reply.code(res.statusCode).send(res.json())
+  } catch (e) {
+    request.log.error(e)
+    return reply.status(502).send(error(502, `内部路由调用异常: ${(e as Error).message}`))
+  }
+}
 
 /** 分页查询参数(/agents/* + /agent/* + /agents/charge/* 真实化端点共享) */
 const pageQuerySchema = z.object({
@@ -1010,16 +1055,107 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /workflows/* (2 个,n8n 工作流 — 外部服务,n8n 独立部署,本端点仅做代理空桩)
+  // /workflows/* (2 个,n8n 工作流 — 2026-08-31 真实化,复用 n8n-proxy.ts 的接入模式)
+  // 列表:配置 N8N_DOMAIN/N8N_API_KEY 环境变量时真实 fetch n8n REST API,
+  //       否则返回带 notAvailable 标记的桩;创建:内部转发到 /cozeZhsApi/n8n/addAgent
   // ==========================================================================
-  server.get('/workflows/n8n', async (_request, reply) => {
-    // 外部 n8n 服务,需部署后接入真实 API
-    return reply.send(success({ list: [], total: 0 }))
+  server.get('/workflows/n8n', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const domain = process.env.N8N_DOMAIN
+    const key = process.env.N8N_API_KEY
+    // 无真实实现可用:未配置 n8n 环境变量,保留桩并带 notAvailable 标记(对齐 n8n-proxy.ts stub 语义)
+    if (!domain || !key) {
+      return reply.send(
+        success({
+          notAvailable: true,
+          reason: '未配置 N8N_DOMAIN/N8N_API_KEY 环境变量,n8n 工作流列表不可用',
+          list: [],
+          total: 0,
+          source: 'unconfigured',
+        }),
+      )
+    }
+    try {
+      const url = `https://${domain.replace(/^https?:\/\//, '')}/api/v1/workflows?active=true`
+      // SSRF 防护:fetch 前校验 URL,拒绝内网/保留地址(对齐 n8n-proxy.ts)
+      try {
+        await ensureSafeFetchUrl(url)
+      } catch (ssrfErr) {
+        return reply
+          .status(400)
+          .send(error(400, `n8n domain blocked: ${(ssrfErr as Error).message}`))
+      }
+      const resp = await fetch(url, {
+        method: 'GET',
+        headers: { 'X-N8N-API-KEY': key, Accept: 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      })
+      if (!resp.ok) {
+        return reply.send(
+          success({
+            notAvailable: true,
+            reason: `n8n API 返回 ${resp.status} ${resp.statusText}`,
+            list: [],
+            total: 0,
+            source: 'n8n_api_unreachable',
+          }),
+        )
+      }
+      const raw = (await resp.json()) as { data?: Array<Record<string, unknown>> }
+      const list = (raw.data ?? []).map((w) => ({
+        id: w.id,
+        name: w.name,
+        active: w.active,
+        updatedAt: w.updatedAt,
+      }))
+      return reply.send(
+        success({ notAvailable: false, list, total: list.length, source: 'n8n_live_api' }),
+      )
+    } catch (e) {
+      return reply.send(
+        success({
+          notAvailable: true,
+          reason: `调用 n8n API 失败: ${(e as Error).message}`,
+          list: [],
+          total: 0,
+          source: 'n8n_fetch_error',
+        }),
+      )
+    }
   })
 
-  server.post('/workflows/n8n/create', async (_request, reply) => {
-    // 外部 n8n 服务,需部署后接入真实 API
-    return reply.send(success({ id: Date.now().toString(), status: 'created' }))
+  // 创建:兼容字段映射后内部转发到主路由 /cozeZhsApi/n8n/addAgent
+  // (n8n-proxy.ts 真实 INSERT agents + zhs_agent_examine,提交审核)
+  server.post('/workflows/n8n/create', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const parsed = z
+      .object({
+        name: z.string().min(1).max(200).optional(),
+        agentName: z.string().min(1).max(200).optional(),
+        agent_name: z.string().min(1).max(200).optional(),
+        description: z.string().max(2000).optional(),
+        agentDescription: z.string().max(2000).optional(),
+        agent_description: z.string().max(2000).optional(),
+        model: z.string().max(128).optional(),
+        agentModel: z.string().max(128).optional(),
+        avatar: z.string().max(512).optional(),
+        agentAvatar: z.string().max(512).optional(),
+      })
+      .parse(request.body ?? {})
+    const agentName = parsed.agentName ?? parsed.agent_name ?? parsed.name
+    const agentDescription =
+      parsed.agentDescription ?? parsed.agent_description ?? parsed.description
+    if (!agentName || !agentDescription) {
+      return reply.status(400).send(error(400, 'name 与 description 必填'))
+    }
+    return proxyToMainRoute(server, 'POST', '/cozeZhsApi/n8n/addAgent', request, reply, {
+      agent_name: agentName,
+      agent_description: agentDescription,
+      connector_user_id: request.userId!,
+      agent_variables: {},
+      agent_model: parsed.agentModel ?? parsed.model ?? 'n8n',
+      agent_avatar: parsed.agentAvatar ?? parsed.avatar ?? undefined,
+    })
   })
 
   // ==========================================================================
@@ -1204,8 +1340,17 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
 
   server.get('/distribution/wx-code', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    // 微信二维码需第三方 API(AccessToken + 临时二维码),保持空桩
-    return reply.send(success({ code: '', url: '' }))
+    // 无真实实现:微信二维码需接入微信公众平台 API(AccessToken + 小程序码接口),
+    // 仓库后端未配置微信开放平台凭证,保留桩并带 notAvailable 标记
+    // (前端 distribution/index.tsx 已容错,二维码加载失败时 toast 提示)
+    return reply.send(
+      success({
+        notAvailable: true,
+        reason: '微信二维码生成需接入微信公众平台 API(AccessToken + 小程序码接口),后端暂未配置',
+        code: '',
+        url: '',
+      }),
+    )
   })
 
   server.get('/distribution/flow', async (request, reply) => {
@@ -1484,7 +1629,8 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(row ?? {}))
   })
 
-  // 注:无 shares 表,生成短期 shareId 占位;后续若引入持久化分享表可替换为 insert+returning
+  // 无真实实现:仓库无持久化分享表(shares),保留桩并带 notAvailable 标记;
+  // 仍生成短期 CSPRNG shareId 占位,后续若引入分享表可替换为 insert+returning
   server.post('/agent/creation/share', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const body = z.object({ agentId: z.string().max(64).optional() }).parse(request.body ?? {})
@@ -1492,7 +1638,14 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     // shareId 用于分享 URL,Math.random() 可预测 → 攻击者可枚举他人分享链接。
     const shareId = `${Date.now().toString(36)}-${randomBytes(4).toString('hex')}`
     const url = body.agentId ? `/agents/${body.agentId}?share=${shareId}` : ''
-    return reply.send(success({ url, id: shareId }))
+    return reply.send(
+      success({
+        notAvailable: true,
+        reason: '仓库无持久化分享表(shares),shareId 为短期占位,不入库不校验',
+        url,
+        id: shareId,
+      }),
+    )
   })
 
   // ==========================================================================
@@ -1521,7 +1674,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /model/* (3 个 — 外部 AI 模型服务,需部署 LLM 推理服务后接入真实 API)
+  // /model/* (3 个 — 2026-08-31 真实化:POST/DELETE 复用 /ai 主路由与真实表)
   // ==========================================================================
 
   // GET /model/chat — 历史对话列表查询(前端 getModelChat)
@@ -1560,23 +1713,80 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     )
   })
 
-  server.post('/model/chat', async (_request, reply) => {
-    // 外部 AI 模型服务,需对接 LLM 推理 API
-    return reply.send(success({ id: Date.now().toString() }))
+  // POST /model/chat — 发起对话(2026-08-31 真实化)
+  // 复用主路由 /api/ai/chat(ai-user-model-chat.ts):真实调用 LLM +
+  // INSERT zhsAiUserModelChatHistory + recordAiCost;请求体原样透传,由主路由校验
+  server.post('/model/chat', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    return proxyToMainRoute(server, 'POST', '/api/ai/chat', request, reply, request.body)
   })
 
+  // DELETE /model/chat/:id — 删除对话(2026-08-31 真实化)
+  // 与 GET /model/chat 同源(zhsAiUserModelChatHistory),按 id+userId 删除,
+  // 只能删除自己的对话记录(越权删除返回 404,不暴露存在性)
   server.delete('/model/chat/:id', async (request, reply) => {
-    // 外部 AI 模型服务,需对接 LLM 推理 API
-    const { id } = request.params as { id: string }
-    return reply.send(success({ id }))
+    if (!(await checkAuth(request, reply))) return
+    const parsed = idParamSchema.safeParse(request.params)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '无效的对话 ID'))
+    }
+    const userId = request.userId!
+    const deleted = await db
+      .delete(zhsAiUserModelChatHistory)
+      .where(
+        and(
+          eq(zhsAiUserModelChatHistory.id, parsed.data.id),
+          eq(zhsAiUserModelChatHistory.userId, userId),
+        ),
+      )
+      .returning({ id: zhsAiUserModelChatHistory.id })
+    if (!deleted.length) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+    return reply.send(success({ id: parsed.data.id, deleted: true }))
   })
 
   // ==========================================================================
-  // /aigc/* (1 个 — 外部 AI 生成服务,需对接 AIGC 发布 API 后真实化)
+  // /aigc/* (1 个 — 2026-08-31 真实化,写 aiGcContent 表,
+  //          对齐 content-extended.ts POST /content/aigc 的入库模式)
   // ==========================================================================
-  server.post('/aigc/publish', async (_request, reply) => {
-    // 外部 AI 生成服务,需对接 AIGC 发布 API
-    return reply.send(success({ id: Date.now().toString(), status: 'published' }))
+  server.post('/aigc/publish', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    // 前端 pages/aigc/publish.tsx 传 {contextId,title,subtitle,coverUrl,fileUrl,problem},
+    // 映射到 aiGcContent:contextId→agentId,其余元信息序列化进 content
+    const parsed = z
+      .object({
+        contextId: z.string().max(64).optional(),
+        agentId: z.string().max(64).optional(),
+        gcType: z.string().max(32).optional(),
+        title: z.string().max(200).optional(),
+        subtitle: z.string().max(500).optional(),
+        coverUrl: z.string().max(1024).optional(),
+        fileUrl: z.string().max(1024).optional(),
+        problem: z.string().max(2000).optional(),
+      })
+      .safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const meta = {
+      title: parsed.data.title,
+      subtitle: parsed.data.subtitle,
+      coverUrl: parsed.data.coverUrl,
+      fileUrl: parsed.data.fileUrl,
+      problem: parsed.data.problem,
+    }
+    const [row] = await db
+      .insert(aiGcContent)
+      .values({
+        userUuid: request.userId!,
+        agentId: parsed.data.agentId ?? parsed.data.contextId ?? null,
+        gcType: parsed.data.gcType ?? 'text',
+        content: JSON.stringify(meta),
+        status: 1, // 1=已发布
+      })
+      .returning({ id: aiGcContent.id })
+    return reply.send(success({ id: row?.id, status: 'published' }))
   })
 
   // ==========================================================================
@@ -2165,16 +2375,29 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
-  // 客户端本地缓存清理(后端无对应状态,保留空桩避免 404)
+  // 无真实实现:缓存为客户端本地存储,后端无对应状态,
+  // 保留桩并带 notAvailable 标记(避免裸空结构误导前端以为后端执行了清理)
   server.post('/settings/cache/clear', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ cleared: true }))
+    return reply.send(
+      success({
+        notAvailable: true,
+        reason: '缓存为客户端本地存储,后端无对应状态可清理,请由小程序端自行清理',
+        cleared: false,
+      }),
+    )
   })
 
-  // 客户端本地缓存大小(后端无对应状态,保留空桩避免 404)
+  // 无真实实现:同上,缓存大小由客户端本地统计,后端无对应状态
   server.get('/settings/cache/size', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ size: '0 B' }))
+    return reply.send(
+      success({
+        notAvailable: true,
+        reason: '缓存为客户端本地存储,大小需由小程序端本地统计,后端无对应状态',
+        size: null,
+      }),
+    )
   })
 
   server.post('/settings/language', async (request, reply) => {
@@ -2220,11 +2443,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // ==========================================================================
-  // /ai/kling/image (1 个,可灵图片生成,后端暂无此路由,需鉴权)
+  // /ai/kling/image (1 个,可灵图片生成 — 2026-08-31 真实化,需鉴权)
+  // 内部转发到主路由 /api/chat/kling/image/generate(chat-models.ts):
+  // 真实调用可灵 T2I API(KLING_T2I),请求体原样透传,由主路由校验+限流
   // ==========================================================================
   server.post('/ai/kling/image', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
-    return reply.send(success({ id: Date.now().toString(), status: 'pending' }))
+    return proxyToMainRoute(
+      server,
+      'POST',
+      '/api/chat/kling/image/generate',
+      request,
+      reply,
+      request.body,
+    )
   })
 
   // ==========================================================================

@@ -38,8 +38,11 @@
  *     'open'|'processing'|'closed'|'resolved')
  *
  *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
- *   - admin/stats.ts L407-438 dashboard/revenue/users 聚合端点(3 个空数据桩,
- *     返回零值 mock 数据;需补建聚合查询接 orders/users 等真实表)
+ *   - ~~admin/stats.ts L407-438 dashboard/revenue/users 聚合端点(3 个空数据桩,
+ *     返回零值 mock 数据;需补建聚合查询接 orders/users 等真实表)~~
+ *     **已完成**:三端点已升级为真实 DB 聚合(orders / visit_logs / edu_refunds /
+ *     users 表),查询失败时兜底返回零值并记录日志,不再 500;
+ *     单测见 src/routes/__tests__/admin-stats.test.ts
  *
  *   **前次审计错误纠正**(本次复核修正):
  *   - ❌ 原注释:"admin/stats.ts L58 相对路径模块 2 个无表路由(空数据桩)"
@@ -53,7 +56,7 @@
  * 已识别技术债(后续迭代补全):
  *   - admin-support-tickets.ts 需对齐 status 枚举语义后实装(可选方案:扩展
  *     customerServiceTickets.status 或新增 view 映射)
- *   - admin/stats.ts L407 聚合端点需补建物化视图或缓存表
+ *   - admin/stats.ts L407 聚合端点已实装真实查询;可选优化:物化视图或缓存表
  *   - 详见各子路由文件内  注释
  */
 import type { FastifyPluginAsync } from 'fastify'
