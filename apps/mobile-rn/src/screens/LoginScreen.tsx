@@ -37,6 +37,7 @@ import {
   loginWithGoogleRedirect,
 } from '../lib/google'
 import { rnAuthStore } from '../stores/auth-store'
+import { trackEvent } from '../lib/analytics'
 
 // 顶层类型导入(用于 navigation 类型推断)
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -215,6 +216,8 @@ export function LoginScreen() {
   const navigation = useNavigation<LoginNavigationProp>()
   const { returnUrl, setReturnUrl } = useAuth()
   const fullUserRef = useRef<AuthUser | null>(null)
+  // 埋点辅助:标记当前登录方式(onLoginSuccess 统一上报 login_success 时区分 label)
+  const loginMethodRef = useRef<'phone' | 'wechat' | 'sso'>('phone')
 
   // ===== FloatBox 非阻塞错误提示(对齐 uniapp uni.showToast,替代阻塞式 Alert.alert) =====
   const [toastVisible, setToastVisible] = useState(false)
@@ -269,6 +272,7 @@ export function LoginScreen() {
     },
     storage: credentialStorage,
     onLoginSuccess: async (accessToken, refreshToken) => {
+      trackEvent({ name: 'login_success', category: 'auth', label: loginMethodRef.current })
       const user = fullUserRef.current
       if (user) {
         await rnAuthStore.getState().setAuth({ token: accessToken, refreshToken, user })
@@ -277,6 +281,7 @@ export function LoginScreen() {
       navigateAfterLogin()
     },
     ssoLogin: async (): Promise<LoginApiResult> => {
+      loginMethodRef.current = 'sso'
       const redirectUrl = await openSsoLogin()
       if (!redirectUrl) return { success: false, error: '用户取消授权' }
       const code = extractSsoCode(redirectUrl)
@@ -388,6 +393,7 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        trackEvent({ name: 'login_success', category: 'auth', label: 'phone' })
         navigateAfterLogin()
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
@@ -441,6 +447,7 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        trackEvent({ name: 'login_success', category: 'auth', label: 'phone' })
         navigateAfterLogin()
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
@@ -455,6 +462,7 @@ export function LoginScreen() {
   // ===== password 登录回调(注入协议检查) =====
   const handlePasswordLogin = useCallback(async () => {
     if (!checkAgreement()) return
+    loginMethodRef.current = 'phone'
     await form.login()
   }, [checkAgreement, form])
 
@@ -469,6 +477,7 @@ export function LoginScreen() {
           refreshToken: res.data.refreshToken,
           user: res.data.user,
         })
+        trackEvent({ name: 'login_success', category: 'auth', label: 'sso' })
         navigateAfterLogin()
         return
       }
@@ -530,6 +539,7 @@ export function LoginScreen() {
               refreshToken: res.data.refreshToken,
               user: res.data.user,
             })
+            trackEvent({ name: 'login_success', category: 'auth', label: 'wechat' })
             navigateAfterLogin()
           } else if (isBindPhoneRequired(res.error)) {
             // 未绑定手机号:对齐 uniapp,微信登录返回"请先绑定手机号"时跳换绑页

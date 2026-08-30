@@ -39,45 +39,7 @@ export const abTests = pgTable(
   }),
 )
 
-export const abTestVariants = pgTable(
-  'ab_test_variants',
-  {
-    id: uuid('id').primaryKey().notNull(),
-    testId: uuid('test_id').notNull(),
-    name: varchar('name', { length: 255 }).notNull(),
-    description: text('description'),
-    isControl: boolean('is_control').default(false).notNull(),
-    trafficWeight: integer('traffic_weight').default(0).notNull(),
-    payload: jsonb('payload'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    testIdx: index('idx_ab_test_variants_test').on(t.testId),
-  }),
-)
-
-export const abTestResults = pgTable(
-  'ab_test_results',
-  {
-    id: uuid('id').primaryKey().notNull(),
-    testId: uuid('test_id').notNull(),
-    variantId: uuid('variant_id').notNull(),
-    bucket: varchar('bucket', { length: 64 }),
-    samples: integer('samples').default(0).notNull(),
-    conversions: integer('conversions').default(0).notNull(),
-    revenue: integer('revenue').default(0).notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    testIdx: index('idx_ab_test_results_test').on(t.testId),
-    variantIdx: index('idx_ab_test_results_variant').on(t.variantId),
-  }),
-)
 
 export type AbTest = typeof abTests.$inferSelect
 export type NewAbTest = typeof abTests.$inferInsert
-export type AbTestVariant = typeof abTestVariants.$inferSelect
-export type NewAbTestVariant = typeof abTestVariants.$inferInsert
-export type AbTestResult = typeof abTestResults.$inferSelect
-export type NewAbTestResult = typeof abTestResults.$inferInsert
+

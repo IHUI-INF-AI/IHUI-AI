@@ -10,6 +10,7 @@ import {
 
 import { useAuthStore } from '@/stores/auth'
 import { useToast } from '@/hooks/use-toast'
+import { useAnalytics } from '@/hooks/use-analytics'
 
 export interface LoginInput {
   account: string
@@ -27,6 +28,7 @@ export interface UseLoginAuthReturn {
 /** 登录认证 Hook,封装账号密码/验证码登录与注册 */
 export function useLoginAuth(): UseLoginAuthReturn {
   const toast = useToast()
+  const { track } = useAnalytics()
   const setToken = useAuthStore((s) => s.setToken)
   const setUser = useAuthStore((s) => s.setUser)
   const [loading, setLoading] = React.useState(false)
@@ -46,6 +48,8 @@ export function useLoginAuth(): UseLoginAuthReturn {
         const res = await apiLoginByAccount(input.account, input.password, input.captcha)
         if (res.success) {
           applyLogin(res.data)
+          // 转化埋点：登录成功（账号密码）
+          track({ name: 'login_success', category: 'auth', label: 'account' })
           toast.success('登录成功')
           return true
         }
@@ -55,7 +59,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
         setLoading(false)
       }
     },
-    [applyLogin, toast],
+    [applyLogin, toast, track],
   )
 
   const loginByCode = React.useCallback(
@@ -65,6 +69,8 @@ export function useLoginAuth(): UseLoginAuthReturn {
         const res = await apiLoginBySms(phone, code)
         if (res.success) {
           applyLogin(res.data)
+          // 转化埋点：登录成功（短信验证码）
+          track({ name: 'login_success', category: 'auth', label: 'sms' })
           toast.success('登录成功')
           return true
         }
@@ -74,7 +80,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
         setLoading(false)
       }
     },
-    [applyLogin, toast],
+    [applyLogin, toast, track],
   )
 
   const register = React.useCallback(
@@ -91,6 +97,8 @@ export function useLoginAuth(): UseLoginAuthReturn {
         )
         if (res.success) {
           applyLogin(res.data)
+          // 转化埋点：注册成功
+          track({ name: 'register_success', category: 'auth', label: 'register' })
           toast.success('注册成功')
           return true
         }
@@ -100,7 +108,7 @@ export function useLoginAuth(): UseLoginAuthReturn {
         setLoading(false)
       }
     },
-    [applyLogin, toast],
+    [applyLogin, toast, track],
   )
 
   return { loading, login, loginByCode, register }

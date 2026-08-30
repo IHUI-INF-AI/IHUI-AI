@@ -8,6 +8,7 @@ import { getSsoLoginUrl } from '@/utils/sso'
 import { useLoginForm, type LoginApiResult, type LoginUser } from '@ihui/shared/hooks'
 import { credentialStorage } from '@/lib/credential-storage'
 import type { UserInfo } from '@/utils/auth'
+import { trackLogin } from '@/utils/analytics'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
@@ -87,6 +88,7 @@ export default function Login() {
       const res = await loginBySms(phone, code)
       setAuth(res.accessToken, res.user, res.refreshToken)
       // 登录成功:弹出角色展示弹窗(可选增强),关闭后再跳首页
+      trackLogin('phone')
       setPopupUser(res.user ?? null)
       setShowLoginPopUp(true)
     } catch {
@@ -111,6 +113,7 @@ export default function Login() {
               avatar: res.user.avatar,
             }
           : undefined
+        trackLogin('phone')
         return {
           success: true,
           accessToken: res.accessToken,

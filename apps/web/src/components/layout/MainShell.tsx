@@ -71,7 +71,8 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           // 根因:content-visibility:auto 是已知浏览器渲染 bug 来源,
           // 部分浏览器会错误跳过应当可见的内容渲染,导致页面空白/不显示。
           // 用户反馈"点击页面按钮后右侧工作展示区显示错误,没有页面,程序崩溃"。
-          className="no-scrollbar flex-1 overflow-y-auto"
+          // 2026-08-31 修复"所有页面第一行完全贴顶"：pt-3 给内容顶部增加适度留白。
+          className="no-scrollbar flex-1 overflow-y-auto p-3"
         >
           {/* 2026-08-01 全局错误通知条:从顶部滑下,常驻直到用户关闭
               (用户需求:internet server error 这种错误提示应该从页面上面滑下来,常驻直到错误解决) */}

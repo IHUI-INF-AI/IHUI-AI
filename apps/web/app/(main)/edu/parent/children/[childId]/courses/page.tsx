@@ -1,11 +1,5 @@
 // A 套壳:静态导出要求动态路由提供 generateStaticParams,返回占位参数,运行时客户端渲染。
 // page.tsx 是 Server Component wrapper(不能 'use client'),实际页面逻辑在 PageClient.tsx。
-import PageClient from './PageClient'
-
-export function generateStaticParams() {
-  return [{ childId: '1' }]
-}
-
-export default function Page() {
-  return <PageClient />
+import PageClient from './PageClient' export function generateStaticParams() { return [{ childId: '1' }]
+} export default function Page() { return <PageClient />
 }

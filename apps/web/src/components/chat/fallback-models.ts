@@ -17,6 +17,8 @@ export { FALLBACK_MODELS, DEMO_TIER_MODELS, type FallbackModel } from '@ihui/sha
 /** 厂商代码 → i18n key(覆盖 /llm/models 动态拉取的所有 vendor + ModelsNav PROVIDER_GROUPS 全部 80+ 厂商)
  * 渲染处用 t() 转换 key 为本地化显示名;未知厂商回退到原始 provider code 字符串 */
 export const VENDOR_LABEL: Record<string, string> = {
+  // === 智汇AI 官方模型(置顶)===
+  ihui_relay: 'vendor.ihuiRelay',
   // === 项目主力(plan 套餐已接入)===
   stepfun: 'vendor.stepfun',
   cloudflare_workers_ai: 'vendor.cloudflareWorkersAi',

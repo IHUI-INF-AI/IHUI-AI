@@ -255,7 +255,7 @@ def _server_info(manager: Any, name: str) -> dict[str, Any]:
 
 
 @router.get("/mcp/external/servers", response_model=None)
-async def list_external_servers() -> dict[str, Any]:
+async def list_external_servers() -> dict[str, Any] | JSONResponse:
     """列出所有已注册的外部 MCP Server(含连接状态)。"""
     try:
         manager = get_mcp_client_manager()
@@ -346,7 +346,7 @@ async def connect_external_server(name: str) -> dict[str, Any] | JSONResponse:
 
 
 @router.get("/mcp/external/tools", response_model=None)
-async def list_external_tools() -> dict[str, Any]:
+async def list_external_tools() -> dict[str, Any] | JSONResponse:
     """列出所有已连接外部 MCP Server 的工具。"""
     try:
         manager = get_mcp_client_manager()

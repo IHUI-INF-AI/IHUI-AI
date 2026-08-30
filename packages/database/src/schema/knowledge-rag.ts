@@ -61,6 +61,7 @@ export const vector1536 = customType<{
   },
 })
 
+
 export const knowledgeDoc = pgTable(
   'zhs_knowledge_doc',
   {
@@ -106,3 +107,4 @@ export const knowledgeChunk = pgTable(
 
 export type KnowledgeDoc = typeof knowledgeDoc.$inferSelect
 export type KnowledgeChunk = typeof knowledgeChunk.$inferSelect
+

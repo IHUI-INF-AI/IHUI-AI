@@ -266,26 +266,7 @@ export type NewAgentConfig = typeof agentConfigs.$inferInsert
  * Agent 与分类的多对多关联。
  * isPrimary=true 表示为主分类。
  */
-export const agentCategoryLink = pgTable(
-  'agent_category_links',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    agentId: uuid('agent_id').references(() => agents.agentId, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id').references(() => agentCategories.categoryId, {
-      onDelete: 'cascade',
-    }),
-    isPrimary: boolean('is_primary').default(false),
-    sort: integer('sort').default(0),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    agentIdIdx: index('agent_category_links_agent_idx').on(t.agentId),
-    categoryIdIdx: index('agent_category_links_category_idx').on(t.categoryId),
-  }),
-)
 
-export type AgentCategoryLink = typeof agentCategoryLink.$inferSelect
-export type NewAgentCategoryLink = typeof agentCategoryLink.$inferInsert
 
 export const agentThumbs = pgTable(
   'zhs_agent_thumbs',
@@ -332,3 +313,4 @@ export type AgentCollect = typeof agentCollects.$inferSelect
 export type NewAgentCollect = typeof agentCollects.$inferInsert
 export type AgentUseDetail = typeof agentUseDetails.$inferSelect
 export type NewAgentUseDetail = typeof agentUseDetails.$inferInsert
+

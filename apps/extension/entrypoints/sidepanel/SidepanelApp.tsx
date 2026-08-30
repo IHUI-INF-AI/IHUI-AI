@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Bell, Bot, BookOpen, MessageCircle, Settings, User } from 'lucide-react'
-import { NavLink, Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router-dom'
+import { NavLink, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { getProfile, logout, type AuthUser, type LoginResult } from '@ihui/api-client'
 import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from '../../lib/token'
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
+import { reportVisit, trackEvent } from '../../src/lib/analytics'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
 import { useI18n } from '../../src/i18n'
@@ -74,6 +75,7 @@ function isUnauthorized(res: { success: false; error: string; status?: number })
 
 function SidepanelInner() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { t } = useI18n()
   const [ready, setReady] = useState(false)
   const [authed, setAuthed] = useState(false)
@@ -81,6 +83,11 @@ function SidepanelInner() {
   const [token, setTokenState] = useState<string | null>(null)
   const { connected: wsConnected, lastMessage } = useNotificationWebSocket(token)
   const { addFromWs, unreadCount, setVisible } = useNotificationStore()
+
+  // 页面访问埋点：路由变化自动上报 visit_logs（内部防抖，不阻塞渲染）
+  useEffect(() => {
+    if (ready && authed) void reportVisit(location.pathname)
+  }, [location.pathname, ready, authed])
 
   useEffect(() => {
     addFromWs(lastMessage)
@@ -176,6 +183,8 @@ function SidepanelInner() {
     startAutoRefresh()
     const res = await getProfile()
     if (res.success) setUser(res.data)
+    // 埋点:登录成功(不阻塞业务)
+    trackEvent({ name: 'login_success', category: 'auth', label: 'extension' })
   }
 
   const onLogout = async () => {

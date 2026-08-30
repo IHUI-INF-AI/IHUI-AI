@@ -1,60 +1,9 @@
-'use client'
-
-import * as React from 'react'
+'use client' import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { Users, Plus, History, Calendar, BarChart3 } from 'lucide-react'
-
-import { cn } from '@/lib/utils'
-
-const TABS = [
-  { href: '/publish/accounts', labelKey: 'accounts', icon: Users },
-  { href: '/publish/new', labelKey: 'new', icon: Plus },
-  { href: '/publish/history', labelKey: 'history', icon: History },
-  { href: '/publish/calendar', labelKey: 'calendar', icon: Calendar },
-  { href: '/publish/analytics', labelKey: 'analytics', icon: BarChart3 },
-] as const
-
-/**
- * 发布页 tab i18n key 静态映射表:tabs.${labelKey} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接
- */
-const TAB_KEY: Record<string, string> = Object.fromEntries(
-  TABS.map((tab) => [tab.labelKey, `tabs.${tab.labelKey}`]),
-)
-
-export default function PublishLayout({ children }: { children: React.ReactNode }) {
-  const t = useTranslations('publish')
-  const pathname = usePathname()
-
-  return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 px-4 py-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-        <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
-      </header>
-      <nav className="flex items-center gap-1 rounded-md bg-muted/30 p-1">
-        {TABS.map((tab) => {
-          const active = pathname.startsWith(tab.href)
-          const Icon = tab.icon
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors',
-                active
-                  ? 'bg-card font-medium text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{t(TAB_KEY[tab.labelKey] ?? 'tabs.unknown')}</span>
-            </Link>
-          )
-        })}
-      </nav>
-      {children}
-    </div>
-  )
+import { Users, Plus, History, Calendar, BarChart3 } from 'lucide-react' import { cn } from '@/lib/utils' const TABS = [ { href: '/publish/accounts', labelKey: 'accounts', icon: Users }, { href: '/publish/new', labelKey: 'new', icon: Plus }, { href: '/publish/history', labelKey: 'history', icon: History }, { href: '/publish/calendar', labelKey: 'calendar', icon: Calendar }, { href: '/publish/analytics', labelKey: 'analytics', icon: BarChart3 },
+] as const /** * 发布页 tab i18n key 静态映射表:tabs.${labelKey} — 用于消除 `t(\`tabs.${var}\`)` 动态拼接 */
+const TAB_KEY: Record<string, string> = Object.fromEntries( TABS.map((tab) => [tab.labelKey, `tabs.${tab.labelKey}`]),
+) export default function PublishLayout({ children }: { children: React.ReactNode }) { const t = useTranslations('publish') const pathname = usePathname() return ( <div className="mx-auto w-full max-w-6xl space-y-4 "> <header className="space-y-1"> <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1> <p className="text-xs text-muted-foreground">{t('subtitle')}</p> </header> <nav className="flex items-center gap-1 rounded-md bg-muted/30 p-1"> {TABS.map((tab) => { const active = pathname.startsWith(tab.href) const Icon = tab.icon return ( <Link key={tab.href} href={tab.href} className={cn( 'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors', active ? 'bg-card font-medium text-foreground shadow-sm' : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground', )} > <Icon className="h-4 w-4" /> <span>{t(TAB_KEY[tab.labelKey] ?? 'tabs.unknown')}</span> </Link> ) })} </nav> {children} </div> )
 }

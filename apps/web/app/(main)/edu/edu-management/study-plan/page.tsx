@@ -1,5 +1,1 @@
-'use client'
-
-import StudyPlanPage from './StudyPlanPage'
-
-export default StudyPlanPage
+'use client' import StudyPlanPage from './StudyPlanPage' export default StudyPlanPage

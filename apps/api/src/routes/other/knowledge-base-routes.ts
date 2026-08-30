@@ -1,17 +1,74 @@
 /**
  * 知识库(从 frontend-stub-other-routes.ts 拆分)。
- * GET /knowledge-base/categories, POST /knowledge-base,
+ * GET /knowledge-base, GET /knowledge-base/categories, POST /knowledge-base,
  * GET /knowledge-base/:id, PUT /knowledge-base/:id
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, asc, desc, sql, ilike, and, or } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { knowledgeBase, knowledgeBaseCategories } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
 
 export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
+  // GET /knowledge-base — 知识库列表(分页 + 搜索 + 分类筛选)【必须放在 /:id 之前，否则会被 :id 路由捕获】
+  server.get('/knowledge-base', async (request, reply) => {
+    const query = z
+      .object({
+        page: z.coerce.number().int().min(1).default(1),
+        pageSize: z.coerce.number().int().min(1).max(100).default(10),
+        search: z.string().optional(),
+        categoryId: z.string().optional(),
+      })
+      .safeParse(request.query)
+    if (!query.success)
+      return reply.status(400).send(error(400, query.error.issues[0]?.message ?? '参数错误'))
+    const { page, pageSize, search, categoryId } = query.data
+    const offset = (page - 1) * pageSize
+
+    // 构建查询条件
+    const conditions = []
+    if (search) {
+      conditions.push(
+        or(
+          ilike(knowledgeBase.title, `%${search}%`),
+          ilike(knowledgeBase.summary, `%${search}%`),
+        ),
+      )
+    }
+    if (categoryId) {
+      conditions.push(eq(knowledgeBase.categoryId, categoryId))
+    }
+
+    // 查询总数
+    const countResult = await dbRead
+      .select({ count: sql<number>`count(*)::int` })
+      .from(knowledgeBase)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+    const total = countResult[0]?.count ?? 0
+
+    // 查询列表
+    const rows = await dbRead
+      .select({
+        id: knowledgeBase.id,
+        title: knowledgeBase.title,
+        summary: knowledgeBase.summary,
+        categoryName: knowledgeBaseCategories.name,
+        authorName: sql<string>`coalesce((SELECT name FROM users WHERE id = ${knowledgeBase.authorId}), '')`,
+        viewCount: knowledgeBase.viewCount,
+        updatedAt: knowledgeBase.updatedAt,
+      })
+      .from(knowledgeBase)
+      .leftJoin(knowledgeBaseCategories, eq(knowledgeBase.categoryId, knowledgeBaseCategories.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(knowledgeBase.updatedAt), desc(knowledgeBase.id))
+      .limit(pageSize)
+      .offset(offset)
+
+    return reply.send(success({ list: rows, total }))
+  })
+
   // GET /knowledge-base/categories — 知识库分类列表(含每分类文章数)
   server.get('/knowledge-base/categories', async (_request, reply) => {
     const rows = await dbRead

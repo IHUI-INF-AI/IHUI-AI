@@ -8,6 +8,7 @@ import { RegisterScreen as SharedRegisterScreen } from '@ihui/rn-app'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
+import { trackEvent } from '../lib/analytics'
 import { VerifyCodeModal } from '../components/VerifyCodeModal'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -89,6 +90,7 @@ export function RegisterScreen() {
         return
       }
       showToast('success', t('auth.registerSuccess'))
+      trackEvent({ name: 'register_success', category: 'auth' })
       const r = await login(accountRef.current, passwordRef.current)
       if (!r.success) {
         showToast('warning', t('auth.autoLoginFailed'))

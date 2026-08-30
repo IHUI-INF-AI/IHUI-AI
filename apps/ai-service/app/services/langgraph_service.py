@@ -748,7 +748,7 @@ class LangGraphService:
                 {"type": "thinking", "message": "正在规划执行步骤..."},
             ]
 
-        final_state: GraphState = dict(initial_state)
+        final_state: dict[str, Any] = dict(initial_state)
         started = False
         try:
             async for chunk in self._graph.astream(
@@ -798,7 +798,7 @@ class LangGraphService:
     async def _safe_aget_state(self, config: dict[str, Any]) -> Any:
         """带容错的 aget_state(断点检查失败不阻塞图执行)。"""
         try:
-            return await self._graph.aget_state(config)  # type: ignore[union-attr]
+            return await self._graph.aget_state(config)
         except Exception as e:
             logger.warning("langgraph_service.aget_state 检查断点失败: %s", e)
             return None

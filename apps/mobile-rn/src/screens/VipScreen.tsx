@@ -34,6 +34,7 @@ import { PurchaseNoticePopUp } from '../components/PurchaseNoticePopUp'
 import { IntroducePopup } from '../components/IntroducePopup'
 import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 import { useI18n } from '../i18n'
+import { trackEvent } from '../lib/analytics'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
@@ -341,6 +342,7 @@ export function VipScreen() {
                   return
                 }
                 setToast(t('vipScreen.pay.success'))
+                trackEvent({ name: 'payment_success', category: 'commerce', label: 'vip' })
                 void load(true)
               } catch (err) {
                 const errMsg = err instanceof Error ? err.message : String(err)

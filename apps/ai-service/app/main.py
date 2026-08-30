@@ -182,6 +182,17 @@ async def lifespan(app: FastAPI) -> Any:
     if hydrated:
         logger.info("[vector_memory] 启动从 Redis hydrate %d 条历史记忆", hydrated)
 
+    # 启动时主动恢复 Hook 引擎配置(进程重启不丢 Hook 定义/DAG/A-B 测试)
+    # 此前为惰性加载(首次 emit 时才恢复),进程启动到首次事件之间存在空窗;
+    # hydrate() 内部 Redis 不可用时降级内存返回 0,不阻塞启动
+    from app.services.hook_engine import hook_engine as _hook_engine_singleton
+    try:
+        hook_count = await _hook_engine_singleton.hydrate()
+        if hook_count:
+            logger.info("[hook_engine] 启动恢复 %d 个 Hook 配置", hook_count)
+    except Exception as e:
+        logger.warning("[hook_engine] 启动恢复失败(降级内存,忽略): %s", e)
+
     # P1 修复:memory_decay 改为按需懒加载(首次 apply_decay/prune_decayed 时触发
     # _ensure_loaded(user_id)),不再启动时全量 hydrate 所有用户衰减状态
     # (原 load_all_states() 导致启动慢 + 内存峰值高)
@@ -309,6 +320,14 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭模型可用性服务(取消定时刷新任务,2026-07-31 立)
     from app.services.model_availability import model_availability
     await model_availability.shutdown()
+
+    # 优雅关闭 Hook 引擎:冲刷在途持久化任务(防 fire-and-forget 丢最近写入)
+    # + 关闭引擎自建的 Redis 连接(外部注入的不关闭)
+    from app.services.hook_engine import hook_engine as _hook_engine_singleton
+    try:
+        await _hook_engine_singleton.close()
+    except Exception as e:
+        logger.warning("[shutdown] hook_engine.close 失败(忽略): %s", e)
 
     # 关闭模型自动同步服务(取消定时同步任务,2026-07-31 立)
     from app.services.model_sync import model_sync_service

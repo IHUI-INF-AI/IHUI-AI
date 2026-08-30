@@ -636,6 +636,14 @@ export async function getByokCommissionRate(providerCode: string): Promise<numbe
  *
  * 幂等性:llm_call_logs 每次 call 写一行(无去重),developerApiKeys 余额原子扣减。
  * 失败容错:写流水失败不抛错(只 log),扣减失败也不抛错(避免影响已返回给用户的响应)。
+ *
+ * 【成本账本边界（2026-08-31 审计结论）】
+ * 本函数是 llm_call_logs 主账本的唯一入口，覆盖中转站/开发者 API 调用
+ * （v1-messages / v1-responses / v1-public / v1-assistants / v1-mcp-gateway / v1-midjourney /
+ * v1-batches / batch-worker 等）。成本字段 cost_cents 也冗余存于 metadata->>'costCents'。
+ * 注意：llm_call_logs 不覆盖平台内部对话/Agent 调用（ai-callback-worker / crew-llm-adapter /
+ * ai-user-model-chat 走 ai_cost_records，见 plugins/ai-cost.ts recordAiCost 注释），
+ * 两本账互补、不可互相聚合，保持现状勿删表。
  */
 export async function recordCall(input: RecordCallInput): Promise<RecordCallResult> {
   // P0 修复(2026-08-02):顶层 try/catch 统一捕获所有错误。

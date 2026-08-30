@@ -1,71 +1,11 @@
-'use client'
-
-import * as React from 'react'
+'use client' import * as React from 'react'
 import { Wallet } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-
-import { cn } from '@/lib/utils'
-
-import { useWithdrawalDetail } from './useWithdrawalDetail'
+import { useTranslations } from 'next-intl' import { cn } from '@/lib/utils' import { useWithdrawalDetail } from './useWithdrawalDetail'
 import { useWithdrawalFlow } from './useWithdrawalFlow'
 import { WithdrawalDetailTable } from './WithdrawalDetailTable'
 import { WithdrawalDetailDialog } from './WithdrawalDetailDialog'
 import { WithdrawalReviewDialog } from './WithdrawalReviewDialog'
 import { WithdrawalFlowTable } from './WithdrawalFlowTable'
 import { WithdrawalFlowDialog } from './WithdrawalFlowDialog'
-import { BackButton } from '@/components/common'
-
-export default function AdminShopWithdrawalsPage() {
-  const t = useTranslations('admin.shop')
-  const [tab, setTab] = React.useState<'detail' | 'flow'>('detail')
-  const detail = useWithdrawalDetail(tab === 'detail', t)
-  const flow = useWithdrawalFlow(tab === 'flow', t)
-
-  const tabCls = (active: boolean) =>
-    cn(
-      'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-      active
-        ? 'bg-background text-foreground shadow-sm'
-        : 'text-muted-foreground hover:text-foreground',
-    )
-
-  return (
-    <div className="space-y-4 px-4 py-6">
-      <BackButton />
-      <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Wallet className="h-6 w-6 text-primary" />
-          {t('withdrawals.title')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p>
-      </div>
-
-      <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1">
-        <button onClick={() => setTab('detail')} className={tabCls(tab === 'detail')}>
-          {t('withdrawals.tabDetail')}
-        </button>
-        <button onClick={() => setTab('flow')} className={tabCls(tab === 'flow')}>
-          {t('withdrawals.tabFlow')}
-        </button>
-      </div>
-
-      {tab === 'detail' && (
-        <>
-          <WithdrawalDetailTable {...detail} />
-          <WithdrawalDetailDialog {...detail} />
-          <WithdrawalReviewDialog {...detail} />
-        </>
-      )}
-
-      {tab === 'flow' && (
-        <>
-          <WithdrawalFlowTable {...flow} />
-          <WithdrawalFlowDialog {...flow} />
-        </>
-      )}
-
-      <detail.ConfirmDialogRenderer />
-      <flow.ConfirmDialogRenderer />
-    </div>
-  )
+import { BackButton } from '@/components/common' export default function AdminShopWithdrawalsPage() { const t = useTranslations('admin.shop') const [tab, setTab] = React.useState<'detail' | 'flow'>('detail') const detail = useWithdrawalDetail(tab === 'detail', t) const flow = useWithdrawalFlow(tab === 'flow', t) const tabCls = (active: boolean) => cn( 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors', active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground', ) return ( <div className="space-y-4 "> <BackButton /> <div> <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight"> <Wallet className="h-6 w-6 text-primary" /> {t('withdrawals.title')} </h1> <p className="mt-1 text-sm text-muted-foreground">{t('withdrawals.subtitle')}</p> </div> <div className="flex w-fit gap-1 rounded-lg border bg-muted/30 p-1"> <button onClick={() => setTab('detail')} className={tabCls(tab === 'detail')}> {t('withdrawals.tabDetail')} </button> <button onClick={() => setTab('flow')} className={tabCls(tab === 'flow')}> {t('withdrawals.tabFlow')} </button> </div> {tab === 'detail' && ( <> <WithdrawalDetailTable {...detail} /> <WithdrawalDetailDialog {...detail} /> <WithdrawalReviewDialog {...detail} /> </> )} {tab === 'flow' && ( <> <WithdrawalFlowTable {...flow} /> <WithdrawalFlowDialog {...flow} /> </> )} <detail.ConfirmDialogRenderer /> <flow.ConfirmDialogRenderer /> </div> )
 }

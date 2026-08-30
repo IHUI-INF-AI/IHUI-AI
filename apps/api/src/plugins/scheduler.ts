@@ -37,6 +37,8 @@ export type ScheduledJobName =
   | 'ai-feed-collect'
   | 'ai-feed-process'
   | 'budget-alert-check'
+  | 'log-retention-daily'
+  | 'audit-partition-daily'
 
 export interface ScheduledJobDef {
   name: ScheduledJobName
@@ -58,6 +60,11 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     description: '过期订单清理（每10分钟）',
   },
   { name: 'heat-stats-hourly', pattern: '0 * * * *', description: '热度统计聚合（每小时）' },
+  {
+    name: 'log-retention-daily',
+    pattern: '30 5 * * *',
+    description: '日志保留清理 api_logs/visit_logs/analytics_events（每日05:30,保留90天）',
+  },
   { name: 'alert-check-daily', pattern: '0 4 * * *', description: '告警噪音检查（每日04:00）' },
   { name: 'data-archive-daily', pattern: '30 4 * * *', description: '历史数据归档（每日04:30）' },
   { name: 'reconciliation-daily', pattern: '30 3 * * *', description: '支付对账（每日03:30）' },
@@ -143,6 +150,11 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'budget-alert-check',
     pattern: '*/30 * * * *',
     description: '预算告警扫描（每30分钟,80% warning/100% critical）',
+  },
+  {
+    name: 'audit-partition-daily',
+    pattern: '0 0 1 * *',
+    description: 'audit_logs 自动建月分区（每月1日00:00）',
   },
 ]
 

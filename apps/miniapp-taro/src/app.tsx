@@ -29,6 +29,7 @@ import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
+import { initAnalytics } from './utils/analytics'
 import './app.css'
 
 // 初始化 api-client:注入 Taro transport + token provider + baseUrl
@@ -41,6 +42,9 @@ setDeviceFingerprintProvider(taroDeviceFingerprintCollector)
 
 // 2026-08-06: 全局崩溃捕获上报(onError + onUnhandledRejection → /api/crash-reports)
 initCrashReport()
+
+// 2026-08-31: 全局访问/行为埋点(onRouteChange → visit_logs + analytics_events)
+initAnalytics()
 
 // 2026-08-12 修复:pageError "Object" 异常字符串化
 // 子组件 try/catch 中 console.error(throwObj) 时,React 会被事件循环还原为

@@ -272,6 +272,10 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
   // GET /models/market - 模型市场公开列表(DB 驱动 zhsAiModelInfo status=1)
   // 2026-08-05 补建:前端 models-api.ts getMarketModels 调用但路由此前不存在(404),
   // 数据由 scripts/seed-zhs-model-info.mjs 从 default_models.json seed(102 个模型)。
+  // 【模型目录决策（2026-08-31 审计）】本接口读 zhs_ai_model_info（前台模型市场目录，
+  // 运营字段 isTop/isHot/isGratis/sort 等为前端依赖，ai_model_config_models 无对应列且
+  // 语义为供应商配置子表），历史表保留、与 ai_model_config_models 并存，不迁移。见
+  // apps/api/src/routes/ai-extended.ts model-info 区块注释。
   server.get('/models/market', async (request, reply) => {
     const limitQuery = z
       .object({ limit: z.coerce.number().int().min(1).max(200).default(200) })

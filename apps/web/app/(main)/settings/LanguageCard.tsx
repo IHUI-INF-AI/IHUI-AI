@@ -1,55 +1,6 @@
-'use client'
-
-import { Languages, Globe, Check } from 'lucide-react'
+'use client' import { Languages, Globe, Check } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
-
-interface Props {
-  t: (k: string) => string
-  locale: string
-  onSelect: (l: string) => void
-}
-
-const LOCALES = [
-  { key: 'zh-CN', label: '中文' },
-  { key: 'en', label: 'English' },
-  { key: 'ja', label: '日本語' },
-  { key: 'ko', label: '한국어' },
-  { key: 'zh-TW', label: '繁體中文' },
-]
-
-export function LanguageCard({ t, locale, onSelect }: Props) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Languages className="h-4 w-4 shrink-0" />
-          <span className="whitespace-nowrap">{t('language')}</span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2">
-          {LOCALES.map((item) => {
-            const active = locale === item.key
-            return (
-              <button
-                key={item.key}
-                onClick={() => onSelect(item.key)}
-                className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors',
-                  active
-                    ? 'border-primary bg-primary/5 text-primary'
-                    : 'hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                <Globe className="h-4 w-4 shrink-0" />
-                <span className="whitespace-nowrap">{item.label}</span>
-                {active && <Check className="h-4 w-4 shrink-0" />}
-              </button>
-            )
-          })}
-        </div>
-      </CardContent>
-    </Card>
-  )
+import { cn } from '@/lib/utils' interface Props { t: (k: string) => string locale: string onSelect: (l: string) => void
+} const LOCALES = [ { key: 'zh-CN', label: '中文' }, { key: 'en', label: 'English' }, { key: 'ja', label: '日本語' }, { key: 'ko', label: '한국어' }, { key: 'zh-TW', label: '繁體中文' },
+] export function LanguageCard({ t, locale, onSelect }: Props) { return ( <Card> <CardHeader> <CardTitle className="flex items-center gap-2 text-base"> <Languages className="h-4 w-4 shrink-0" /> <span className="whitespace-nowrap">{t('language')}</span> </CardTitle> </CardHeader> <CardContent> <div className="grid grid-cols-2 gap-2"> {LOCALES.map((item) => { const active = locale === item.key return ( <button key={item.key} onClick={() => onSelect(item.key)} className={cn( 'flex items-center justify-center gap-2 rounded-lg border p-3 text-sm transition-colors', active ? 'border-primary bg-primary/5 text-primary' : 'hover:bg-accent hover:text-accent-foreground', )} > <Globe className="h-4 w-4 shrink-0" /> <span className="whitespace-nowrap">{item.label}</span> {active && <Check className="h-4 w-4 shrink-0" />} </button> ) })} </div> </CardContent> </Card> )
 }

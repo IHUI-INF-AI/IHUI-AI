@@ -1113,6 +1113,13 @@ const nextConfig: NextConfig = {
           source: '/api/admin/news/:path*',
           destination: 'http://localhost:8803/api/admin/news/:path*',
         },
+        // 2026-08-31 修复 WebSocket ticket 换取失败:ws/ticket 未被 Next.js rewrites 代理到 API 8802,
+        // 导致 POST http://localhost:8801/ws/ticket → net::ERR_ABORTED。
+        // 必须放在 /api/:path* 兜底规则之前。
+        {
+          source: '/ws/ticket',
+          destination: 'http://localhost:8802/ws/ticket',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',

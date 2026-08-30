@@ -7,7 +7,6 @@ import {
   timestamp,
   jsonb,
   index,
-  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -81,26 +80,5 @@ export type NewCertificate = typeof certificates.$inferInsert
  * 记录证书的序列号及发放对象信息。
  * status: active(有效) / revoked(已撤销) / expired(已过期)。
  */
-export const certificateSerialNumber = pgTable(
-  'certificate_serial_numbers',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    certificateId: uuid('certificate_id').references(() => certificates.id, {
-      onDelete: 'cascade',
-    }),
-    serialNumber: varchar('serial_number', { length: 64 }).notNull(),
-    issuedTo: varchar('issued_to', { length: 100 }),
-    issuedAt: timestamp('issued_at', { withTimezone: true }),
-    status: varchar('status', { length: 20 }).default('active'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    certificateIdIdx: index('certificate_serial_numbers_certificate_id_idx').on(t.certificateId),
-    serialNumberIdx: uniqueIndex('certificate_serial_numbers_serial_number_uniq').on(
-      t.serialNumber,
-    ),
-  }),
-)
 
-export type CertificateSerialNumber = typeof certificateSerialNumber.$inferSelect
-export type NewCertificateSerialNumber = typeof certificateSerialNumber.$inferInsert
+

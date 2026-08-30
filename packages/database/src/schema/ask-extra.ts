@@ -10,7 +10,6 @@ import {
   unique,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
-import { asks } from './community.js'
 
 /**
  * 问答分类表。
@@ -40,24 +39,6 @@ export const askCategories = pgTable(
 /**
  * 问题-分类多对多关联表。
  */
-export const askQuestionCategories = pgTable(
-  'ask_question_categories',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    askId: uuid('ask_id')
-      .notNull()
-      .references(() => asks.id, { onDelete: 'cascade' }),
-    categoryId: uuid('category_id')
-      .notNull()
-      .references(() => askCategories.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    askIdx: index('ask_question_categories_ask_idx').on(t.askId),
-    categoryIdx: index('ask_question_categories_category_idx').on(t.categoryId),
-    uniq: unique('ask_question_category_uniq').on(t.askId, t.categoryId),
-  }),
-)
 
 /**
  * 问答点赞表（通用：问题/回答）。
@@ -134,11 +115,10 @@ export const askComments = pgTable(
 
 export type AskCategory = typeof askCategories.$inferSelect
 export type NewAskCategory = typeof askCategories.$inferInsert
-export type AskQuestionCategory = typeof askQuestionCategories.$inferSelect
-export type NewAskQuestionCategory = typeof askQuestionCategories.$inferInsert
 export type AskLike = typeof askLikes.$inferSelect
 export type NewAskLike = typeof askLikes.$inferInsert
 export type AskFavorite = typeof askFavorites.$inferSelect
 export type NewAskFavorite = typeof askFavorites.$inferInsert
 export type AskComment = typeof askComments.$inferSelect
 export type NewAskComment = typeof askComments.$inferInsert
+

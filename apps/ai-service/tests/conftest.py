@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.llm_gateway import VENDOR_ENV_KEYS
 from app.main import app
 
 
@@ -21,30 +22,14 @@ async def client():
         yield ac
 
 
-# vendor_env_keys 列表(与 app/core/llm_gateway.py LLMGateway._is_stub_mode 同步)
-# _is_stub_mode 检查 os.environ 里这 50+ 个 key 是否有任一非空 → 否就 stub 模式
+# vendor env key 列表单一来源:app/core/llm_gateway.py 模块级 VENDOR_ENV_KEYS
+# (LLMGateway._is_stub_mode 第二层直接用它判定,2026-08-31 提取为模块级常量)。
+# _is_stub_mode 检查 os.environ 里这些 key 是否有任一非空 → 否就 stub 模式
 # app.main 启动时通过 os.environ.setdefault 把 .env 真实 key 同步到 os.environ,
 # 必须也清空这些 key,否则 _is_stub_mode 仍 False,会调真实 OpenAI API(测试无 key 必失败)
-_VENDOR_ENV_KEYS = (
-    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
-    "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
-    "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
-    "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
-    "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
-    "DASHSCOPE_API_KEY", "ZHIPUAI_API_KEY", "MOONSHOT_API_KEY",
-    "BAIDU_API_KEY", "YI_API_KEY", "MINIMAX_API_KEY", "SPARK_API_KEY",
-    "BAICHUAN_API_KEY", "HUNYUAN_API_KEY", "STEPFUN_API_KEY", "AGNES_API_KEY",
-    "DOUBAO_API_KEY", "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
-    "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
-    "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
-    "OLLAMA_API_BASE", "ANTHROPIC_VERTEX_API_KEY",
-    "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
-    "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
-    "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
-    "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
-    "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
-    "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY",
-)
+# 2026-08-31 修复:此前 conftest 维护副本漏 CLOUDFLARE_API_TOKEN / NVIDIA_API_KEY /
+# OPENCODE_ZEN_KEY / GITHUB_TOKEN 等 → .env 含这些 key 时 stub 测试被误判非 stub
+# (stream pre-flight 422 拦截)批量失败。现 import 权威列表,永不再漂移。
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +47,7 @@ def _isolate_llm_env(monkeypatch, request):
     标记 real_key_pool 的测试保留真实 select_key(内部自备 mock pool)。
     """
     # 清空 os.environ 里的 vendor key(app.main 启动时同步过)
-    for k in _VENDOR_ENV_KEYS:
+    for k in VENDOR_ENV_KEYS:
         monkeypatch.delenv(k, raising=False)
 
     # 2026-08-12 修复:COMBO_CHAINS 也会由 app.main 同步进 os.environ,

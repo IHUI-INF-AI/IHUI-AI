@@ -1,17 +1,3 @@
-'use client'
-
-import { Bot } from 'lucide-react'
-import { useTranslations } from 'next-intl'
-
-export function AgentsHeader() {
-  const t = useTranslations('agent')
-  return (
-    <header className="space-y-1">
-      <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
-        <Bot className="h-7 w-7 text-primary" />
-        {t('marketTitle')}
-      </h1>
-      <p className="text-xs text-muted-foreground">{t('marketSubtitle')}</p>
-    </header>
-  )
+'use client' import { Bot } from 'lucide-react'
+import { useTranslations } from 'next-intl' export function AgentsHeader() { const t = useTranslations('agent') return ( <header className="space-y-1"> <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl"> <Bot className="h-7 w-7 text-primary" /> {t('marketTitle')} </h1> <p className="text-xs text-muted-foreground">{t('marketSubtitle')}</p> </header> )
 }

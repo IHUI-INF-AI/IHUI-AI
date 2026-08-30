@@ -1,5 +1,2 @@
-import { redirect } from 'next/navigation'
-
-export default function Page() {
-  redirect('/admin/edu/exam')
+import { redirect } from 'next/navigation' export default function Page() { redirect('/admin/edu/exam')
 }

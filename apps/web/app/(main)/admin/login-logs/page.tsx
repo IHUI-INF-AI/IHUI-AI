@@ -1,5 +1,2 @@
-import { redirect } from 'next/navigation'
-
-export default async function Page() {
-  redirect('/admin/system/login-logs')
+import { redirect } from 'next/navigation' export default async function Page() { redirect('/admin/system/login-logs')
 }

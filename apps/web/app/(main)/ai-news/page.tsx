@@ -9,86 +9,9 @@ import { AiFeedTimeline } from './components/AiFeedTimeline'
 import { HotRanking } from './components/HotRanking'
 import { FundingSection } from './components/FundingSection'
 import { CtaSection } from './components/CtaSection'
-import {
-  fetchAiFeedItems,
-  fetchAiFeedSources,
-  fetchAiFeedHot,
-  fetchAiLiveChannels,
-  fetchAllLeaderboardEntries,
-  getFundingItems,
+import { fetchAiFeedItems, fetchAiFeedSources, fetchAiFeedHot, fetchAiLiveChannels, fetchAllLeaderboardEntries, getFundingItems,
 } from '@/lib/ai-news-api'
 import { BackButton } from '@/components/common'
-import { generateArticleSchema, type ArticleSchema } from '@/lib/seo/schema-article'
-
-export async function generateMetadata(): Promise<Metadata> {
-  const t = await getTranslations('aiNews')
-  return {
-    title: t('metaTitle'),
-    description: t('metaDescription'),
-  }
-}
-
-export default async function AiNewsPage() {
-  // allSettled 降级:任一 fetch 失败不阻塞整页,用空数组/默认值降级
-  const [feed, sources, hotRanking, channels, leaderboard, funding] = await Promise.allSettled([
-    fetchAiFeedItems(50),
-    fetchAiFeedSources(),
-    fetchAiFeedHot(10),
-    fetchAiLiveChannels(4),
-    fetchAllLeaderboardEntries(),
-    Promise.resolve(getFundingItems()),
-  ])
-
-  const feedData = feed.status === 'fulfilled' ? feed.value : { items: [], total: 0 }
-  const sourcesData = sources.status === 'fulfilled' ? sources.value : []
-  const hotData = hotRanking.status === 'fulfilled' ? hotRanking.value : []
-  const channelsData = channels.status === 'fulfilled' ? channels.value : []
-  const leaderboardData = leaderboard.status === 'fulfilled' ? leaderboard.value : []
-  const fundingData = funding.status === 'fulfilled' ? funding.value : []
-
-  // 2026-07-26 GEO 强化:Article schema(适配 AI 引擎对"AI 资讯流"页面的结构化抓取)
-  // 翻译加载失败不阻塞渲染,降级为无 schema(SEO 仍可用基础 meta)
-  let articleJsonLd: ArticleSchema | null = null
-  try {
-    const articleT = await getTranslations('aiNews.articleSchema')
-    const keywords = (articleT.raw('keywords') as string[] | undefined) ?? []
-    articleJsonLd = generateArticleSchema({
-      headline: articleT('headline'),
-      description: articleT('description'),
-      url: 'https://aizhs.top/ai-news',
-      datePublished: articleT('datePublished'),
-      authorName: articleT('author'),
-      keywords,
-      articleBody: articleT('articleBody'),
-      articleSection: articleT('articleSection'),
-      inLanguage: 'zh-CN',
-    })
-  } catch {
-    articleJsonLd = null
-  }
-
-  return (
-    <>
-      {articleJsonLd ? (
-        <script
-          type="application/ld+json"
-          // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c'),
-          }}
-        />
-      ) : null}
-      <div className="mx-auto w-full max-w-[1240px] space-y-4 px-4">
-        <BackButton />
-        <Hero />
-        <Leaderboard entries={leaderboardData} />
-        <ApiRelaysSection />
-        <LiveChannelsBlock channels={channelsData} />
-        <AiFeedTimeline items={feedData.items} sources={sourcesData} total={feedData.total} />
-        {hotData.length > 0 ? <HotRanking items={hotData} sources={sourcesData} /> : null}
-        <FundingSection items={fundingData} />
-        <CtaSection />
-      </div>
-    </>
-  )
+import { generateArticleSchema, type ArticleSchema } from '@/lib/seo/schema-article' export async function generateMetadata(): Promise<Metadata> { const t = await getTranslations('aiNews') return { title: t('metaTitle'), description: t('metaDescription'), }
+} export default async function AiNewsPage() { // allSettled 降级:任一 fetch 失败不阻塞整页,用空数组/默认值降级 const [feed, sources, hotRanking, channels, leaderboard, funding] = await Promise.allSettled([ fetchAiFeedItems(50), fetchAiFeedSources(), fetchAiFeedHot(10), fetchAiLiveChannels(4), fetchAllLeaderboardEntries(), Promise.resolve(getFundingItems()), ]) const feedData = feed.status === 'fulfilled' ? feed.value : { items: [], total: 0 } const sourcesData = sources.status === 'fulfilled' ? sources.value : [] const hotData = hotRanking.status === 'fulfilled' ? hotRanking.value : [] const channelsData = channels.status === 'fulfilled' ? channels.value : [] const leaderboardData = leaderboard.status === 'fulfilled' ? leaderboard.value : [] const fundingData = funding.status === 'fulfilled' ? funding.value : [] // 2026-07-26 GEO 强化:Article schema(适配 AI 引擎对"AI 资讯流"页面的结构化抓取) // 翻译加载失败不阻塞渲染,降级为无 schema(SEO 仍可用基础 meta) let articleJsonLd: ArticleSchema | null = null try { const articleT = await getTranslations('aiNews.articleSchema') const keywords = (articleT.raw('keywords') as string[] | undefined) ?? [] articleJsonLd = generateArticleSchema({ headline: articleT('headline'), description: articleT('description'), url: 'https://aizhs.top/ai-news', datePublished: articleT('datePublished'), authorName: articleT('author'), keywords, articleBody: articleT('articleBody'), articleSection: articleT('articleSection'), inLanguage: 'zh-CN', }) } catch { articleJsonLd = null } return ( <> {articleJsonLd ? ( <script type="application/ld+json" // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法) dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c'), }} /> ) : null} <div className="mx-auto w-full max-w-[1240px] space-y-4 "> <BackButton /> <Hero /> <Leaderboard entries={leaderboardData} /> <ApiRelaysSection /> <LiveChannelsBlock channels={channelsData} /> <AiFeedTimeline items={feedData.items} sources={sourcesData} total={feedData.total} /> {hotData.length > 0 ? <HotRanking items={hotData} sources={sourcesData} /> : null} <FundingSection items={fundingData} /> <CtaSection /> </div> </> )
 }

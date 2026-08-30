@@ -314,6 +314,16 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
  * - 若模型无定价配置，回退 0 成本并记录 warning。
  * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属，
  *   保证 admin 配额页租户维度用量与 tenant 预算检查有真实数据（2026-08-06 修复）。
+ *
+ * 【成本账本边界（2026-08-31 审计结论）】
+ * ai_cost_records 与 llm_call_logs 为互补关系，非重复冗余，均不可互删：
+ * - ai_cost_records：平台内部对话/Agent 调用的成本记录（唯一写入方即本函数，调用方
+ *   ai-callback-worker / crew-llm-adapter / ai-user-model-chat，均不写 llm_call_logs），
+ *   且带 tenant_id / cached / request_type 维度（llm_call_logs 无 tenant_id）。
+ * - llm_call_logs：中转站/开发者 API 调用的主账本（relay-billing-service.recordCall 等写入，
+ *   costCents 存 metadata->>'costCents'），不覆盖本函数路径。
+ * 因此 ai_cost_records 不可由 llm_call_logs 聚合得出，看板/预算/配额页继续读本表（高频查询，
+ * 聚合视图化存在性能权衡），保持现状。
  */
 export async function recordAiCost(input: CostRecordInput): Promise<void> {
   let cost = input.cost

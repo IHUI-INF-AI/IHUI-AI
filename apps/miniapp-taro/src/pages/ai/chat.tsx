@@ -30,6 +30,7 @@ import {
   type InputFileItem,
 } from '@/components'
 import { useUserStore } from '@/stores/user'
+import { trackEvent } from '@/utils/analytics'
 import { AI_AGENT_TIP_SHOWN_KEY } from '@/constants/storage'
 import ChatMessageItem from './ChatMessageItem'
 import { ModelDrawer, AgentDrawer, HistoryDrawer, type ChatHistoryEntry } from './ChatDrawers'
@@ -384,6 +385,8 @@ export default function ChatPage() {
             }
           },
         )
+        // 消息流完整成功(非 abort/异常),上报一次发送事件(埋点绝不阻塞业务)
+        trackEvent({ name: 'chat_send', category: 'chat', label: 'miniapp' })
       } catch (e) {
         if ((e as Error)?.name !== 'AbortError') {
           const formatted = formatSSEError(e, t('ai.serviceUnavailable') || 'AI 服务异常')

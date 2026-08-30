@@ -38,6 +38,8 @@ import {
   generateSnapshot,
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
+import { runLogRetention } from '../services/log-retention-service.js'
+import { ensureAuditLogPartitions } from '../services/audit-partition-service.js'
 
 /**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
@@ -471,6 +473,38 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             )
             try {
               server.recordJobExecution(name, result.errors.length > 0 ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'log-retention-daily': {
+            const result = await runLogRetention()
+            server.log.info(
+              {
+                apiLogsDeleted: result.apiLogsDeleted,
+                visitLogsDeleted: result.visitLogsDeleted,
+                analyticsEventsDeleted: result.analyticsEventsDeleted,
+                retentionDays: result.retentionDays,
+                errors: result.errors.length,
+              },
+              'log retention cleanup done',
+            )
+            try {
+              server.recordJobExecution(name, result.errors.length > 0 ? 'failed' : 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
+          }
+          case 'audit-partition-daily': {
+            const result = await ensureAuditLogPartitions()
+            server.log.info(
+              { created: result.created, skipped: result.skipped },
+              'audit partition daily done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }

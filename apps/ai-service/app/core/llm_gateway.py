@@ -10,6 +10,8 @@ import base64
 import json
 import logging
 import os
+import random
+import socket
 import time
 from collections.abc import AsyncIterator as AsyncIteratorType
 from contextlib import asynccontextmanager
@@ -61,6 +63,69 @@ if TYPE_CHECKING:
     from ..providers.base_provider import BaseProvider, ProviderError
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# ihui_relay api_base 自动检测(国内/海外端点竞速)
+# ============================================================================
+# 根据网络延迟自动选择更快的端点,5 分钟缓存,避免每次请求都检测
+# IHUI_RELAY_REGION=auto(默认) → TCP 竞速选最低延迟
+# IHUI_RELAY_REGION=cn         → 强制国内端点
+# IHUI_RELAY_REGION=us         → 强制海外端点
+_ihui_relay_base_cache: dict[str, Any] = {"base": None, "expires_at": 0.0}
+_IHUI_RELAY_BASE_TTL = 300  # 5 分钟
+_IHUI_RELAY_BASES = [
+    "https://api.x5m5x.com/v1",     # 国内主节点
+    "https://us-api.x5m5x.com/v1",  # 海外备用节点
+]
+
+
+def _check_tcp_latency(url: str, timeout: float = 2.0) -> float:
+    """TCP 连接延迟检测(秒),不可达返回 inf。"""
+    try:
+        parsed = httpx.URL(url)
+        host = parsed.host
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        start = time.time()
+        with socket.create_connection((host, port), timeout=timeout):
+            return time.time() - start
+    except Exception:
+        return float("inf")
+
+
+def _detect_ihui_relay_base() -> str:
+    """自动检测最佳 ihui_relay api_base。
+
+    优先级:
+    1. IHUI_RELAY_REGION=cn → 强制国内
+    2. IHUI_RELAY_REGION=us → 强制海外
+    3. auto(默认) → TCP 竞速,选延迟最低的
+    4. 全部不可达 → 默认国内
+
+    结果缓存 5 分钟,避免每次请求都检测。
+    """
+    now = time.time()
+    cached = _ihui_relay_base_cache.get("base")
+    if cached and now < _ihui_relay_base_cache.get("expires_at", 0):
+        return cast(str, cached)
+
+    region = os.environ.get("IHUI_RELAY_REGION", "auto").lower().strip()
+    if region == "cn":
+        base = _IHUI_RELAY_BASES[0]
+    elif region == "us":
+        base = _IHUI_RELAY_BASES[1]
+    else:
+        # auto: TCP 竞速两个端点
+        latencies = [(url, _check_tcp_latency(url)) for url in _IHUI_RELAY_BASES]
+        reachable = [(url, lat) for url, lat in latencies if lat < float("inf")]
+        if reachable:
+            base = min(reachable, key=lambda x: x[1])[0]
+        else:
+            base = _IHUI_RELAY_BASES[0]  # 全部不可达,默认国内
+
+    _ihui_relay_base_cache["base"] = base
+    _ihui_relay_base_cache["expires_at"] = now + _IHUI_RELAY_BASE_TTL
+    logger.info("[llm_gateway] ihui_relay 自动检测 api_base=%s (region=%s)", base, region)
+    return base
 
 # LLM 出站代理(2026-07-30 立):settings.llm_proxy_url 非空时写入 os.environ,
 # litellm 底层 httpx 自动读取 HTTP_PROXY/HTTPS_PROXY,无需在每个调用处传 proxy 参数
@@ -171,6 +236,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
+    "ihui/": "ihui_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
     "doubao-": "doubao",
@@ -366,6 +432,29 @@ def _supports_tool_calling(model_id: str) -> bool:
     return any(k in mid for k in _TOOL_CALLING_KEYWORDS)
 
 
+def _resolve_ihui_auto_model() -> str:
+    """智汇 Auto-Model 服务端随机路由(成本可控版,2026-08-31 立)。
+
+    极速套餐的 'Auto-Model'(1:1) 若透传,由极速服务端随机选模型,
+    可能随机到 1:5~1:10 高成本模型,按标称 3x 积分计费会压缩利润。
+    改为网关层拦截:从低档池(极速扣费 1:1~1:2,倍率<=6,Auto-Model 自身剔除)
+    随机选具体模型,收入 3x vs 成本最高 1:2 档,利润恒为正。
+    """
+    from ..services.free_provider_registry import get_ihui_auto_pool
+    # 延迟导入避免循环(llm_gateway ↔ model_availability),与 _resolve_auto_model 同源
+    from ..services.model_availability import model_availability
+
+    pool = [m for m in get_ihui_auto_pool() if model_availability.is_model_available(m)]
+    if not pool:
+        # 全部不可用时仍用池内定义,交由上游 provider 报错兜底
+        pool = get_ihui_auto_pool()
+    if not pool:
+        return "ihui/MiniMax-M2.7"  # 理论不可达:池定义保证非空
+    chosen = random.choice(pool)
+    logger.info("ihui Auto-Model 服务端随机路由 -> %s", chosen)
+    return chosen
+
+
 async def _resolve_auto_model(
     has_tools: bool = False,
     messages: Optional[list[dict[str, Any]]] = None,
@@ -407,6 +496,9 @@ async def _resolve_auto_model(
             for m in all_models
             if model_availability.is_model_available(m["id"])
             and not any(m["id"].startswith(p) for p in _LOCAL_PREFIXES)
+            # ihui/Auto-Model 是极速服务端自动随机模型:全局 auto 路由需选具体模型,
+            # 避免双重随机(系统 auto → ihui auto → 极速随机)导致路由行为不可预测
+            and m["id"].lower() != "ihui/auto-model"
         ]
         if not available:
             logger.info("[auto-route] 无可用模型,降级到 settings.litellm_model=%r", fallback)
@@ -810,6 +902,74 @@ async def _openrouter_proxy_context(model: str) -> AsyncIteratorType[None]:
                 os.environ.pop("HTTP_PROXY", None)
 
 
+# ============================================================================ 
+# stub 判定(第二层)厂商 env key 单一来源(2026-08-31 立)
+# ============================================================================
+# LLMGateway._is_stub_mode 的 os.environ 层与 tests/conftest.py 环境隔离共用此列表。
+# 此前 conftest 维护一份副本,漏 CLOUDFLARE_API_TOKEN / NVIDIA_API_KEY /
+# OPENCODE_ZEN_KEY / GITHUB_TOKEN 等免费 provider key → .env 含这些 key 时
+# conftest 未清空 → stub 测试被误判非 stub(pre-flight 422)而批量失败。
+# 新增厂商 key 只改这里,禁止在别处复制列表。
+VENDOR_ENV_KEYS: list[str] = [
+    # 国际原厂
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
+    "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
+    "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
+    "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
+    "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
+    # 国内厂商
+    "DASHSCOPE_API_KEY",  # 阿里通义
+    "ZHIPUAI_API_KEY",  # 智谱
+    "MOONSHOT_API_KEY",
+    "BAIDU_API_KEY",  # 文心
+    "YI_API_KEY",  # 零一万物
+    "MINIMAX_API_KEY",  # MiniMax
+    "SPARK_API_KEY",  # 讯飞星火
+    "BAICHUAN_API_KEY",
+    "HUNYUAN_API_KEY",  # 腾讯混元
+    "STEPFUN_API_KEY",
+    "AGNES_API_KEY",
+    "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
+    # 云 / 聚合平台
+    "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
+    "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
+    "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
+    "OLLAMA_API_BASE",  # 本地 ollama 不需 key,有 base 即激活
+    "ANTHROPIC_VERTEX_API_KEY",
+    # OpenAI 兼容聚合
+    "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
+    "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
+    "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
+    "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
+    "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
+    "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_BASE",
+    # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+    "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
+    "NVIDIA_API_KEY",  # NIM
+    "GITHUB_TOKEN",  # GitHub Models
+    "VERCEL_AI_GATEWAY_KEY",  # Vercel AI Gateway
+    "OPENCODE_ZEN_KEY",  # OpenCode Zen
+    "MODAL_API_KEY",  # Modal
+    "INFERENCE_NET_API_KEY",  # Inference.net
+    "NLP_CLOUD_API_KEY",  # NLP Cloud
+    "SCALEWAY_API_KEY",  # Scaleway
+    "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
+    # 2026-07-24 接入:14 个免费 LLM provider 内化
+    # CEREBRAS_API_KEY / MISTRAL_API_KEY / COHERE_API_KEY / HUGGINGFACE_API_KEY 已在上方存在,不重复加
+    "ZAI_API_KEY",  # Z.ai / 智谱 OpenAI 兼容
+    "KILO_API_BASE",  # Kilo Gateway(keyless,有 base 即激活)
+    "POLLINATIONS_API_BASE",  # Pollinations(keyless)
+    "LLM7_API_KEY",  # LLM7(可选 key)
+    "OVH_API_BASE",  # OVH AI Endpoints(keyless)
+    "AIHORDE_API_KEY",  # AI Horde(默认匿名 key)
+    "REKA_API_KEY",  # Reka(每月免费 credit)
+    "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
+    "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
+    "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
+    "IHUI_RELAY_API_KEY",  # 智汇AI 官方中转(国内/海外自动切换)
+]
+
+
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
@@ -848,64 +1008,8 @@ class LLMGateway:
         # 第二层:os.environ 检查所有 LiteLLM 一等公民厂商 key
         # 用户在 .env 直接配 GROQ_API_KEY / XAI_API_KEY / DEEPSEEK_API_KEY 等也立即激活
         # 前缀列表对应 _PREFIX_TO_PROVIDER_CODE 全部 30+ 厂商
-        vendor_env_keys = [
-            # 国际原厂
-            "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
-            "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
-            "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
-            "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
-            "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
-            # 国内厂商
-            "DASHSCOPE_API_KEY",  # 阿里通义
-            "ZHIPUAI_API_KEY",  # 智谱
-            "MOONSHOT_API_KEY",
-            "BAIDU_API_KEY",  # 文心
-            "YI_API_KEY",  # 零一万物
-            "MINIMAX_API_KEY",  # MiniMax
-            "SPARK_API_KEY",  # 讯飞星火
-            "BAICHUAN_API_KEY",
-            "HUNYUAN_API_KEY",  # 腾讯混元
-            "STEPFUN_API_KEY",
-            "AGNES_API_KEY",
-            "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
-            # 云 / 聚合平台
-            "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
-            "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
-            "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
-            "OLLAMA_API_BASE",  # 本地 ollama 不需 key,有 base 即激活
-            "ANTHROPIC_VERTEX_API_KEY",
-            # OpenAI 兼容聚合
-            "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
-            "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
-            "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
-            "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
-            "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
-            "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_BASE",
-            # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
-            "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
-            "NVIDIA_API_KEY",  # NIM
-            "GITHUB_TOKEN",  # GitHub Models
-            "VERCEL_AI_GATEWAY_KEY",  # Vercel AI Gateway
-            "OPENCODE_ZEN_KEY",  # OpenCode Zen
-            "MODAL_API_KEY",  # Modal
-            "INFERENCE_NET_API_KEY",  # Inference.net
-            "NLP_CLOUD_API_KEY",  # NLP Cloud
-            "SCALEWAY_API_KEY",  # Scaleway
-            "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
-            # 2026-07-24 接入:14 个免费 LLM provider 内化
-            # CEREBRAS_API_KEY / MISTRAL_API_KEY / COHERE_API_KEY / HUGGINGFACE_API_KEY 已在上方存在,不重复加
-            "ZAI_API_KEY",  # Z.ai / 智谱 OpenAI 兼容
-            "KILO_API_BASE",  # Kilo Gateway(keyless,有 base 即激活)
-            "POLLINATIONS_API_BASE",  # Pollinations(keyless)
-            "LLM7_API_KEY",  # LLM7(可选 key)
-            "OVH_API_BASE",  # OVH AI Endpoints(keyless)
-            "AIHORDE_API_KEY",  # AI Horde(默认匿名 key)
-            "REKA_API_KEY",  # Reka(每月免费 credit)
-            "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
-            "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
-            "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
-        ]
-        return not any(os.environ.get(k) for k in vendor_env_keys)
+        # 2026-08-31:列表提取为模块级 VENDOR_ENV_KEYS(单一来源,conftest 复用)
+        return not any(os.environ.get(k) for k in VENDOR_ENV_KEYS)
 
     @staticmethod
     def _resolve_provider(model: str) -> tuple[str | None, str | None, str | None]:
@@ -945,6 +1049,12 @@ class LLMGateway:
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
             return cfg.api_key, cfg.api_base, f"openai/{real_model}"
+        if m.startswith("ihui/"):
+            real_model = model.split("/", 1)[1]
+            cfg = settings.get_provider_config("ihui_relay")
+            # api_base 自动检测:根据网络延迟切换国内/海外端点
+            api_base = _detect_ihui_relay_base()
+            return cfg.api_key, api_base, f"openai/{real_model}"
         if m.startswith("groq/"):
             cfg = settings.get_provider_config("groq")
             return cfg.api_key, cfg.api_base or None, model
@@ -1248,6 +1358,10 @@ class LLMGateway:
                 has_tools=bool(kwargs.get("tools")),
                 messages=messages,
             )
+        elif model.lower() == "ihui/auto-model":
+            # 2026-08-31 立:智汇 Auto-Model 服务端随机(成本可控版),
+            # 不透传给极速随机,避免随机到 1:5~1:10 高成本模型压缩利润
+            used_model = _resolve_ihui_auto_model()
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
@@ -1807,6 +1921,9 @@ class LLMGateway:
                 has_tools=bool(kwargs.get("tools")),
                 messages=messages,
             )
+        elif model.lower() == "ihui/auto-model":
+            # 2026-08-31 立:智汇 Auto-Model 服务端随机(成本可控版),与 complete() 同源
+            used_model = _resolve_ihui_auto_model()
         else:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)

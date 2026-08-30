@@ -1,92 +1,9 @@
-'use client'
-
-import { useTranslations } from 'next-intl'
+'use client' import { useTranslations } from 'next-intl'
 import { LayoutGrid, Table } from 'lucide-react'
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { STATUS_TABS, TYPE_TABS, selectClass } from './helpers'
-
-interface Props {
-  status: string
-  setStatus: (v: string) => void
-  orderType: string
-  setOrderType: (v: string) => void
-  view: 'table' | 'card'
-  setView: (v: 'table' | 'card') => void
-}
-
-const TYPE_KEY: Record<string, string> = {
-  all: 'type.all',
-  course: 'type.course',
-  card: 'type.card',
-}
-
-const STATUS_KEY: Record<'all' | 'pending' | 'paid' | 'cancelled' | 'refunded', string> = {
-  all: 'status.all',
-  pending: 'status.pending',
-  paid: 'status.paid',
-  cancelled: 'status.cancelled',
-  refunded: 'status.refunded',
-}
-
-export function OrdersFilter({ status, setStatus, orderType, setOrderType, view, setView }: Props) {
-  const t = useTranslations('orders')
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={orderType} onValueChange={setOrderType}>
-        <SelectTrigger className={selectClass} aria-label={t('orderType')}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {TYPE_TABS.map((tab) => (
-            <SelectItem key={tab.value} value={tab.value}>
-              {t(TYPE_KEY[tab.labelKey] ?? 'type.unknown')}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <div className="flex flex-nowrap items-center gap-1 rounded-lg border bg-muted/30 p-1">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setStatus(tab.value)}
-            className={cn(
-              'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              status === tab.value
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {t(STATUS_KEY[tab.labelKey]!)}
-          </button>
-        ))}
-      </div>
-      <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1">
-        <button
-          onClick={() => setView('table')}
-          className={cn(
-            'rounded p-1.5 transition-colors',
-            view === 'table'
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-          aria-label="Table view"
-        >
-          <Table className="h-4 w-4" />
-        </button>
-        <button
-          onClick={() => setView('card')}
-          className={cn(
-            'rounded p-1.5 transition-colors',
-            view === 'card'
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-          aria-label="Card view"
-        >
-          <LayoutGrid className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  )
+import { STATUS_TABS, TYPE_TABS, selectClass } from './helpers' interface Props { status: string setStatus: (v: string) => void orderType: string setOrderType: (v: string) => void view: 'table' | 'card' setView: (v: 'table' | 'card') => void
+} const TYPE_KEY: Record<string, string> = { all: 'type.all', course: 'type.course', card: 'type.card',
+} const STATUS_KEY: Record<'all' | 'pending' | 'paid' | 'cancelled' | 'refunded', string> = { all: 'status.all', pending: 'status.pending', paid: 'status.paid', cancelled: 'status.cancelled', refunded: 'status.refunded',
+} export function OrdersFilter({ status, setStatus, orderType, setOrderType, view, setView }: Props) { const t = useTranslations('orders') return ( <div className="flex flex-wrap items-center gap-2"> <Select value={orderType} onValueChange={setOrderType}> <SelectTrigger className={selectClass} aria-label={t('orderType')}> <SelectValue /> </SelectTrigger> <SelectContent> {TYPE_TABS.map((tab) => ( <SelectItem key={tab.value} value={tab.value}> {t(TYPE_KEY[tab.labelKey] ?? 'type.unknown')} </SelectItem> ))} </SelectContent> </Select> <div className="flex flex-nowrap items-center gap-1 rounded-lg border bg-muted/30 p-1"> {STATUS_TABS.map((tab) => ( <button key={tab.value} onClick={() => setStatus(tab.value)} className={cn( 'shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors', status === tab.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground', )} > {t(STATUS_KEY[tab.labelKey]!)} </button> ))} </div> <div className="ml-auto flex shrink-0 flex-nowrap items-center gap-1 rounded-lg border p-1"> <button onClick={() => setView('table')} className={cn( 'rounded p-1.5 transition-colors', view === 'table' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground', )} aria-label="Table view" > <Table className="h-4 w-4" /> </button> <button onClick={() => setView('card')} className={cn( 'rounded p-1.5 transition-colors', view === 'card' ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground', )} aria-label="Card view" > <LayoutGrid className="h-4 w-4" /> </button> </div> </div> )
 }

@@ -16,6 +16,7 @@ import {
   type ToolDelegateEvent,
 } from '@ihui/api-client'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -62,6 +63,15 @@ let sendMessageInstance:
   | ((content: string, opts?: SendMessageOptions) => Promise<boolean>)
   | null = null
 let sendActionCtx: ChatActionContext | null = null
+
+// 会话创建成功埋点(本模块非 React 组件,不能调 useAnalytics hook,
+// 用 fetchApi 轻量上报,fire-and-forget 不阻塞业务,失败静默)
+function trackConversationCreate() {
+  void fetchApi('/api/analytics/track', {
+    method: 'POST',
+    body: JSON.stringify({ events: [{ name: 'conversation_create', category: 'chat' }] }),
+  })
+}
 
 export function createSendMessage(
   ctx: ChatActionContext,
@@ -193,6 +203,7 @@ export function createSendMessage(
           return false
         }
         slashCid = createRes.data.conversation.id
+        trackConversationCreate()
         store.setConversationId(slashCid)
         const sp = new URLSearchParams(window.location.search)
         sp.set('conversationId', slashCid)
@@ -255,6 +266,7 @@ export function createSendMessage(
         return false
       }
       conversationId = createRes.data.conversation.id
+      trackConversationCreate()
       store.setConversationId(conversationId)
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', conversationId)

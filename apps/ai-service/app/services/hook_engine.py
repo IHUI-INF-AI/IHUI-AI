@@ -336,8 +336,13 @@ class HookEngine:
         # Redis 客户端(可选,降级内存)
         self._redis: Any = redis_client
         self._use_redis = redis_client is not None
+        # 是否为引擎自建的 Redis 连接(从 settings 惰性创建);shutdown 时仅关闭自建连接
+        self._owns_redis = False
         # 是否已从 Redis 加载配置(惰性,首次 emit 时触发)
         self._loaded = False
+        # 在途持久化任务强引用集合(create_task 结果无引用会被 GC 中途回收,
+        # 官方文档警告;同时供 flush() 等待全部落地)
+        self._persist_tasks: set[asyncio.Task[None]] = set()
         # L5-9(2026-08-12):SSE 实时订阅器(单进程内存实现,event → [Queue])
         self._subscribers: dict[str, list[asyncio.Queue[Any]]] = {}
 
@@ -381,6 +386,7 @@ class HookEngine:
         """注入 Redis 客户端(供 main.py lifespan 或测试调用)。"""
         self._redis = client
         self._use_redis = client is not None
+        self._owns_redis = False  # 外部注入的连接不归引擎所有,close() 不关闭
         self._loaded = False  # 重置加载标记,下次 emit 重新加载
 
     async def _ensure_redis(self) -> Any:
@@ -399,6 +405,7 @@ class HookEngine:
                 self._redis = aioredis.from_url(settings.redis_url, decode_responses=True, protocol=2)
                 await self._redis.ping()
                 self._use_redis = True
+                self._owns_redis = True  # 自建连接,shutdown 时由引擎负责关闭
                 logger.info("[hook_engine] Redis 已连接,启用持久化")
             except Exception as e:
                 logger.warning("[hook_engine] Redis 不可用,降级内存: %s", e)
@@ -447,20 +454,80 @@ class HookEngine:
         except Exception as e:
             logger.warning("[hook_engine] 持久化 Hook 日志到 Redis 失败: %s", e)
 
+    async def hydrate(self) -> int:
+        """启动时主动从 Redis 恢复 Hook 配置(main.py lifespan 调用)。
+
+        与 _load_hooks 的区别:无条件重置 _loaded 强制重新加载,返回恢复条数;
+        Redis 不可用/加载失败降级内存并返回 0,不阻塞启动。
+        """
+        redis = await self._ensure_redis()
+        if redis is None:
+            return 0
+        self._loaded = True
+        try:
+            raw = await redis.get(REDIS_HOOKS_KEY)
+            if not raw:
+                return 0
+            data = json.loads(raw)
+            if not isinstance(data, dict):
+                return 0
+            self._hooks.update(data)
+            logger.info("[hook_engine] 启动恢复 %d 个 Hook 配置", len(data))
+            return len(data)
+        except Exception as e:
+            logger.warning("[hook_engine] 启动恢复 Hook 配置失败(降级内存): %s", e)
+            return 0
+
+    async def flush(self) -> None:
+        """等待所有在途持久化任务落地(优雅关闭时调用)。
+
+        超时/异常静默降级(尽力而为),避免 shutdown 被挂起的 Redis 阻塞。
+        """
+        tasks = [t for t in self._persist_tasks if not t.done()]
+        if not tasks:
+            return
+        try:
+            await asyncio.wait(tasks, timeout=5.0)
+        except Exception as e:
+            logger.warning("[hook_engine] flush 等待持久化任务失败(忽略): %s", e)
+        finally:
+            self._persist_tasks.clear()
+
+    async def close(self) -> None:
+        """优雅关闭:冲刷在途持久化 + 关闭引擎自建的 Redis 连接。
+
+        外部注入的连接(set_redis_client / 构造参数)不归引擎所有,不关闭。
+        """
+        await self.flush()
+        if self._owns_redis and self._redis is not None:
+            try:
+                await self._redis.aclose()
+                logger.info("[hook_engine] 自建 Redis 连接已关闭")
+            except Exception as e:
+                logger.warning("[hook_engine] 关闭自建 Redis 连接失败(忽略): %s", e)
+            finally:
+                self._redis = None
+                self._use_redis = False
+                self._owns_redis = False
+
     def _schedule_persist_hooks(self) -> None:
-        """调度异步持久化(fire-and-forget,无事件循环时跳过)。"""
+        """调度异步持久化(fire-and-forget,但保留强引用防 GC + 供 flush 等待)。"""
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._persist_hooks())
+            task = loop.create_task(self._persist_hooks())
+            self._persist_tasks.add(task)
+            task.add_done_callback(self._persist_tasks.discard)
         except RuntimeError:
             # 没有运行中的事件循环(如模块加载时),跳过
             pass
 
     def _schedule_persist_log(self, hook_id: str, log_entry: dict[str, Any]) -> None:
-        """调度异步日志持久化(fire-and-forget)。"""
+        """调度异步日志持久化(fire-and-forget,强引用跟踪同上)。"""
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self._persist_log(hook_id, log_entry))
+            task = loop.create_task(self._persist_log(hook_id, log_entry))
+            self._persist_tasks.add(task)
+            task.add_done_callback(self._persist_tasks.discard)
         except RuntimeError:
             pass
 

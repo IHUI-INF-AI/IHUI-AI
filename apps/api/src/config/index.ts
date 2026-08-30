@@ -148,6 +148,9 @@ const envSchema = z.object({
   API_LOG_ENABLED: booleanFromString(true),
   API_LOG_BATCH_SIZE: z.coerce.number().int().min(1).default(100),
   API_LOG_FLUSH_INTERVAL_MS: z.coerce.number().int().min(100).default(5000),
+  // 日志保留天数(2026-08-31 立):api_logs/visit_logs/analytics_events 超过此天数由
+  // log-retention-daily 任务清理;<=0 表示只记录不删除(安全阀)。
+  LOG_RETENTION_DAYS: z.coerce.number().int().default(90),
 
   // ===== 国安级安全(2026-07-24 立,E1-E5 五层防御)=====
   // E3 审计日志 HMAC 链(未配置降级为空字符串,配置时必须 ≥32 字符)

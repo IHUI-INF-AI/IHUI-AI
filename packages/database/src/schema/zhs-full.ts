@@ -119,7 +119,13 @@ export const zhsAgentNeedTask = pgTable(
   }),
 )
 
-/** AI 模型信息表（等价自旧架构 zhs_ai_model_info_unify，16 字段对齐） */
+/**
+ * AI 模型信息表（等价自旧架构 zhs_ai_model_info_unify，16 字段对齐）。
+ * 【模型目录决策（2026-08-31 审计）】本表为前台模型市场展示目录，历史表保留、
+ * 不迁移到 ai_model_config_models（语义为供应商配置子表，config_id NOT NULL，
+ * 且缺本表运营字段 icon/status/sort/is_top/is_hot/is_gratis/code/model_code 等）。
+ * 消费方：news.ts /models/market + ai-extended.ts /model-info/* CRUD + seed 脚本。
+ */
 export const zhsAiModelInfo = pgTable(
   'zhs_ai_model_info',
   {
@@ -237,20 +243,6 @@ export const zhsCategoryDictionary = pgTable(
 )
 
 /** 资讯信息表 */
-export const zhsInformation = pgTable(
-  'zhs_information',
-  {
-    id: serial('id').primaryKey(),
-    title: varchar('title', { length: 300 }),
-    content: text('content'),
-    type: integer('type'),
-    status: integer('status').default(1).notNull(),
-    sort: integer('sort').default(0).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_information_status_idx').on(t.status) }),
-)
 
 /** 产品表 */
 export const zhsProduct = pgTable(
@@ -274,23 +266,6 @@ export const zhsProduct = pgTable(
 )
 
 /** 知识星球表 */
-export const zhsKnowledgePlanet = pgTable(
-  'zhs_knowledge_planet',
-  {
-    id: serial('id').primaryKey(),
-    name: varchar('name', { length: 200 }),
-    description: text('description'),
-    cover: varchar('cover', { length: 500 }),
-    price: bigint('price', { mode: 'number' }),
-    type: varchar('type', { length: 50 }),
-    status: integer('status').default(1).notNull(),
-    sort: integer('sort').default(0).notNull(),
-    creator: varchar('creator', { length: 64 }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_knowledge_planet_status_idx').on(t.status) }),
-)
 
 // ---------------------------------------------------------------------------
 // 课程模块
@@ -317,31 +292,6 @@ export const zhsCourse = pgTable('zhs_course', {
 })
 
 /** 课程主表（新架构，UUID 主键） */
-export const zhsCourseNew = pgTable('zhs_course_new', {
-  id: serial('id').primaryKey(),
-  courseUuid: varchar('course_uuid', { length: 64 }),
-  title: varchar('title', { length: 200 }),
-  subtitle: text('subtitle'),
-  content: text('content'),
-  remarkFile: varchar('remark_file', { length: 500 }),
-  binding: varchar('binding', { length: 500 }),
-  stage: integer('stage'),
-  isHidden: integer('is_hidden').default(0).notNull(),
-  isDel: integer('is_del').default(0).notNull(),
-  sort: integer('sort').default(0).notNull(),
-  creator: varchar('creator', { length: 64 }),
-  updator: varchar('updator', { length: 64 }),
-  remark: text('remark'),
-  label: varchar('label', { length: 100 }),
-  types: varchar('types', { length: 500 }),
-  categorys: varchar('categorys', { length: 500 }),
-  platform: varchar('platform', { length: 64 }),
-  auditStatus: integer('audit_status').default(0).notNull(),
-  nickname: varchar('nickname', { length: 100 }),
-  avatar: varchar('avatar', { length: 500 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /** 课程视频表 */
 export const zhsCourseVideo = pgTable(
@@ -373,29 +323,6 @@ export const zhsCourseVideo = pgTable(
 )
 
 /** 教育课程表 */
-export const zhsEducationalCourse = pgTable(
-  'zhs_educational_course',
-  {
-    id: serial('id').primaryKey(),
-    title: varchar('title', { length: 200 }).notNull(),
-    subtitle: text('subtitle'),
-    cover: varchar('cover', { length: 500 }),
-    content: text('content'),
-    price: real('price'),
-    category: varchar('category', { length: 100 }),
-    stage: varchar('stage', { length: 50 }),
-    status: integer('status').default(1).notNull(),
-    isHidden: integer('is_hidden').default(0).notNull(),
-    isDel: integer('is_del').default(0).notNull(),
-    sort: integer('sort').default(0).notNull(),
-    creator: varchar('creator', { length: 64 }),
-    label: varchar('label', { length: 100 }),
-    auditStatus: integer('audit_status').default(0).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_educational_course_status_idx').on(t.status) }),
-)
 
 /** 教育平台表 */
 export const zhsEducationPlatform = pgTable(
@@ -508,57 +435,14 @@ export const zhsCourseVideoTemp = pgTable(
 // ---------------------------------------------------------------------------
 
 /** 平台身份扩展表 */
-export const zhsIdentityExt = pgTable('zhs_identity_ext', {
-  id: serial('id').primaryKey(),
-  uuid: varchar('uuid', { length: 64 }),
-  name: varchar('name', { length: 100 }),
-  platformId: varchar('platform_id', { length: 64 }),
-  organizationId: varchar('organization_id', { length: 64 }),
-  parentId: varchar('parent_id', { length: 64 }),
-  binding: varchar('binding', { length: 500 }),
-  isHidden: integer('is_hidden').default(0).notNull(),
-  isDel: integer('is_del').default(0).notNull(),
-  isCross: integer('is_cross').default(0).notNull(),
-  creator: varchar('creator', { length: 64 }),
-  updator: varchar('updator', { length: 64 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /** 平台机构扩展表 */
-export const zhsOrganizationExt = pgTable('zhs_organization_ext', {
-  id: serial('id').primaryKey(),
-  uuid: varchar('uuid', { length: 64 }),
-  platformId: varchar('platform_id', { length: 64 }),
-  name: varchar('name', { length: 200 }),
-  filePath: text('file_path'),
-  binding: varchar('binding', { length: 500 }),
-  isHidden: integer('is_hidden').default(0).notNull(),
-  isDel: integer('is_del').default(0).notNull(),
-  creator: varchar('creator', { length: 64 }),
-  updator: varchar('updator', { length: 64 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 // ---------------------------------------------------------------------------
 // 资源模块
 // ---------------------------------------------------------------------------
 
 /** 热门课程推荐表 */
-export const zhsPopularCourses = pgTable(
-  'zhs_popular_courses',
-  {
-    id: serial('id').primaryKey(),
-    courseId: integer('course_id').notNull(),
-    sortOrder: integer('sort_order').default(0).notNull(),
-    status: integer('status').default(1).notNull(),
-    createTime: timestamp('create_time', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_popular_courses_status_idx').on(t.status) }),
-)
 
 /** 汇率表 */
 export const zhsExchangeRate = pgTable(
@@ -577,36 +461,8 @@ export const zhsExchangeRate = pgTable(
 )
 
 /** 官方资讯/公告表 */
-export const zhsOfficialInformation = pgTable(
-  'zhs_official_information',
-  {
-    id: serial('id').primaryKey(),
-    title: varchar('title', { length: 300 }),
-    content: text('content'),
-    type: varchar('type', { length: 50 }),
-    status: integer('status').default(1).notNull(),
-    createTime: timestamp('create_time', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_official_information_status_idx').on(t.status) }),
-)
 
 /** 平台资源表 */
-export const zhsResources = pgTable(
-  'zhs_resources',
-  {
-    id: serial('id').primaryKey(),
-    resourceName: varchar('resource_name', { length: 200 }),
-    resourceType: varchar('resource_type', { length: 50 }),
-    resourceUrl: varchar('resource_url', { length: 500 }),
-    status: integer('status').default(1).notNull(),
-    createTime: timestamp('create_time', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({ statusIdx: index('zhs_resources_status_idx').on(t.status) }),
-)
 
 // ---------------------------------------------------------------------------
 // 支付模块
@@ -662,16 +518,6 @@ export const zhsOperateTokenFlow = pgTable(
 // ---------------------------------------------------------------------------
 
 /** 用户 Agent 免费次数表 */
-export const zhsUserAgentFreeTime = pgTable('zhs_user_agent_free_time', {
-  id: serial('id').primaryKey(),
-  userUuid: varchar('user_uuid', { length: 64 }).notNull(),
-  agentId: varchar('agent_id', { length: 64 }),
-  freeCount: integer('free_count').default(0).notNull(),
-  usedCount: integer('used_count').default(0).notNull(),
-  expireTime: timestamp('expire_time', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /** 用户评论操作日志表 */
 export const zhsUserCommentLog = pgTable('zhs_user_comment_log', {
@@ -780,40 +626,9 @@ export const zhsAgentExamine = pgTable(
 )
 
 /** 智能体结算表(D 盘 AgentSettlement 11 字段) */
-export const zhsAgentSettlement = pgTable(
-  'zhs_agent_settlement',
-  {
-    id: uuid('id')
-      .default(sql`gen_random_uuid()`)
-      .primaryKey(),
-    uuid: uuid('uuid'),
-    orderNo: varchar('order_no', { length: 36 }),
-    createTime: timestamp('create_time', { withTimezone: true }).defaultNow(),
-    buyUuid: uuid('buy_uuid'),
-    agentId: varchar('agent_id', { length: 64 }),
-    agentName: varchar('agent_name', { length: 128 }),
-    prologue: text('prologue'),
-    agentAvatar: varchar('agent_avatar', { length: 500 }),
-    expirationDate: timestamp('expiration_date', { withTimezone: true }),
-    settlement: varchar('settlement', { length: 2 }),
-    withdrawal: varchar('withdrawal', { length: 2 }),
-    // R80 补齐: D 盘 coze_zhs_py/models/agent_models.py:479 AgentSettlement.issue_no 期号
-    issueNo: integer('issue_no'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    orderNoIdx: index('idx_settlement_order_no').on(t.orderNo),
-    settlementIdx: index('idx_settlement_status').on(t.settlement),
-    withdrawalIdx: index('idx_settlement_withdrawal').on(t.withdrawal),
-    agentIdIdx: index('zhs_agent_settlement_agent_id_idx').on(t.agentId),
-  }),
-)
 
 export type ZhsAgentExamine = typeof zhsAgentExamine.$inferSelect
 export type NewZhsAgentExamine = typeof zhsAgentExamine.$inferInsert
-export type ZhsAgentSettlement = typeof zhsAgentSettlement.$inferSelect
-export type NewZhsAgentSettlement = typeof zhsAgentSettlement.$inferInsert
 export type ZhsAgentNeedTask = typeof zhsAgentNeedTask.$inferSelect
 export type NewZhsAgentNeedTask = typeof zhsAgentNeedTask.$inferInsert
 export type ZhsAiModelInfo = typeof zhsAiModelInfo.$inferSelect
@@ -826,20 +641,12 @@ export type ZhsBannerCarousel = typeof zhsBannerCarousel.$inferSelect
 export type NewZhsBannerCarousel = typeof zhsBannerCarousel.$inferInsert
 export type ZhsCategoryDictionary = typeof zhsCategoryDictionary.$inferSelect
 export type NewZhsCategoryDictionary = typeof zhsCategoryDictionary.$inferInsert
-export type ZhsInformation = typeof zhsInformation.$inferSelect
-export type NewZhsInformation = typeof zhsInformation.$inferInsert
 export type ZhsProduct = typeof zhsProduct.$inferSelect
 export type NewZhsProduct = typeof zhsProduct.$inferInsert
-export type ZhsKnowledgePlanet = typeof zhsKnowledgePlanet.$inferSelect
-export type NewZhsKnowledgePlanet = typeof zhsKnowledgePlanet.$inferInsert
 export type ZhsCourse = typeof zhsCourse.$inferSelect
 export type NewZhsCourse = typeof zhsCourse.$inferInsert
-export type ZhsCourseNew = typeof zhsCourseNew.$inferSelect
-export type NewZhsCourseNew = typeof zhsCourseNew.$inferInsert
 export type ZhsCourseVideo = typeof zhsCourseVideo.$inferSelect
 export type NewZhsCourseVideo = typeof zhsCourseVideo.$inferInsert
-export type ZhsEducationalCourse = typeof zhsEducationalCourse.$inferSelect
-export type NewZhsEducationalCourse = typeof zhsEducationalCourse.$inferInsert
 export type ZhsEducationPlatform = typeof zhsEducationPlatform.$inferSelect
 export type NewZhsEducationPlatform = typeof zhsEducationPlatform.$inferInsert
 export type ZhsCourseAudit = typeof zhsCourseAudit.$inferSelect
@@ -854,24 +661,12 @@ export type ZhsCourseTemp = typeof zhsCourseTemp.$inferSelect
 export type NewZhsCourseTemp = typeof zhsCourseTemp.$inferInsert
 export type ZhsCourseVideoTemp = typeof zhsCourseVideoTemp.$inferSelect
 export type NewZhsCourseVideoTemp = typeof zhsCourseVideoTemp.$inferInsert
-export type ZhsIdentityExt = typeof zhsIdentityExt.$inferSelect
-export type NewZhsIdentityExt = typeof zhsIdentityExt.$inferInsert
-export type ZhsOrganizationExt = typeof zhsOrganizationExt.$inferSelect
-export type NewZhsOrganizationExt = typeof zhsOrganizationExt.$inferInsert
-export type ZhsPopularCourses = typeof zhsPopularCourses.$inferSelect
-export type NewZhsPopularCourses = typeof zhsPopularCourses.$inferInsert
 export type ZhsExchangeRate = typeof zhsExchangeRate.$inferSelect
 export type NewZhsExchangeRate = typeof zhsExchangeRate.$inferInsert
-export type ZhsOfficialInformation = typeof zhsOfficialInformation.$inferSelect
-export type NewZhsOfficialInformation = typeof zhsOfficialInformation.$inferInsert
-export type ZhsResources = typeof zhsResources.$inferSelect
-export type NewZhsResources = typeof zhsResources.$inferInsert
 export type ZhsOrder = typeof zhsOrder.$inferSelect
 export type NewZhsOrder = typeof zhsOrder.$inferInsert
 export type ZhsOperateTokenFlow = typeof zhsOperateTokenFlow.$inferSelect
 export type NewZhsOperateTokenFlow = typeof zhsOperateTokenFlow.$inferInsert
-export type ZhsUserAgentFreeTime = typeof zhsUserAgentFreeTime.$inferSelect
-export type NewZhsUserAgentFreeTime = typeof zhsUserAgentFreeTime.$inferInsert
 export type ZhsUserCommentLog = typeof zhsUserCommentLog.$inferSelect
 export type NewZhsUserCommentLog = typeof zhsUserCommentLog.$inferInsert
 export type ZhsUserPlatform = typeof zhsUserPlatform.$inferSelect
@@ -880,3 +675,4 @@ export type ZhsUserVideoComment = typeof zhsUserVideoComment.$inferSelect
 export type NewZhsUserVideoComment = typeof zhsUserVideoComment.$inferInsert
 export type ZhsUserVideoLog = typeof zhsUserVideoLog.$inferSelect
 export type NewZhsUserVideoLog = typeof zhsUserVideoLog.$inferInsert
+

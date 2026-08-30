@@ -17,6 +17,7 @@ import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { executeAgentActionRequest } from '../lib/agent-control'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { createChromePlatform } from '@ihui/browser-platform'
+import { trackEvent } from '../src/lib/analytics'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
 import sharedEn from '@ihui/i18n/messages/shared/en.json'
@@ -386,6 +387,8 @@ function registerInstallHook(): void {
     console.info('[IHUI AI] installed:', details.reason)
     try {
       await initApi()
+      // 埋点：扩展安装/更新/浏览器启动事件（失败静默）
+      trackEvent({ name: `extension_${details.reason ?? 'install'}`, category: 'lifecycle', label: 'extension' })
       if (getToken() && getRefreshToken()) {
         const t = getToken()
         if (t) scheduleRefreshAlarm(t)
@@ -406,6 +409,7 @@ function registerInstallHook(): void {
     console.info('[IHUI AI] startup')
     void initApi()
       .then(() => {
+        trackEvent({ name: 'app_start', category: 'lifecycle', label: 'extension' })
         const t = getToken()
         if (t) scheduleRefreshAlarm(t)
       })

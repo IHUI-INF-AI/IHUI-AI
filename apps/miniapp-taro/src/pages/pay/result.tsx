@@ -3,6 +3,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getPayResult } from '@/api'
+import { trackEvent } from '@/utils/analytics'
 
 type PayStatus = 'pending' | 'paid' | 'failed'
 
@@ -57,6 +58,10 @@ export default function PayResult() {
       const res = await getPayResult(orderNoRef.current)
       setStatus(res.status)
       setAmount(res.amount)
+      // 订单状态轮询确认支付成功(同事件 10s 防抖在 trackEvent 内部,不会重复上报)
+      if (res.status === 'paid') {
+        trackEvent({ name: 'payment_success', category: 'commerce', label: 'vip' })
+      }
       return res.status
     } catch {
       return 'pending'

@@ -3,6 +3,7 @@ import { loginByAccount, logout as apiLogout, type AuthUser } from '@ihui/api-cl
 import { initApi, getRefreshToken } from '../lib/token'
 import { getInitialSsoCode, subscribeSsoDeepLink, exchangeSsoCode } from '../lib/sso'
 import { rnAuthStore, useAuthStore, hydrateAuth } from '../stores/auth-store'
+import { trackEvent } from '../lib/analytics'
 
 export type { AuthUser }
 
@@ -67,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function applySsoCode(code: string): Promise<boolean> {
     const data = await exchangeSsoCode(code)
     if (!data) return false
+    trackEvent({ name: 'login_success', category: 'auth', label: 'sso' })
     await rnAuthStore.getState().setAuth({
       token: data.accessToken,
       refreshToken: data.refreshToken,
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (account: string, password: string): Promise<LoginResult> => {
     const res = await loginByAccount(account, password)
     if (res.success) {
+      trackEvent({ name: 'login_success', category: 'auth', label: 'phone' })
       await rnAuthStore.getState().setAuth({
         token: res.data.accessToken,
         refreshToken: res.data.refreshToken,

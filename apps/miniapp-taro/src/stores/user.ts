@@ -21,6 +21,7 @@ import * as api from '../api'
 import { wechatLogin, type WechatLoginResult } from '../utils/wechat-login'
 import { miniAppLogin, type MiniAppLoginResult } from '../utils/miniapp-login'
 import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
+import { trackLogin } from '../utils/analytics'
 
 interface UserState {
   token: string
@@ -72,6 +73,7 @@ const userStoreApi = createStore<UserState>((set) => ({
   loginByWechat: async (options) => {
     const result = await wechatLogin(options ?? {})
     set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+    trackLogin('wechat')
     return result
   },
   trySilentWechatLogin: async () => {
@@ -80,6 +82,7 @@ const userStoreApi = createStore<UserState>((set) => ({
     try {
       const result = await wechatLogin({ withProfile: false })
       set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+      trackLogin('wechat')
       return result
     } catch {
       // 静默失败不抛错,用户后续可手动登录
@@ -89,6 +92,7 @@ const userStoreApi = createStore<UserState>((set) => ({
   loginByMiniApp: async (options) => {
     const result = await miniAppLogin(options ?? {})
     set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+    trackLogin('wechat')
     return result
   },
   trySilentMiniAppLogin: async () => {
@@ -97,6 +101,7 @@ const userStoreApi = createStore<UserState>((set) => ({
     try {
       const result = await miniAppLogin({ withProfile: false })
       set({ token: getToken(), user: getUserInfo(), refreshToken: getRefreshToken() })
+      trackLogin('wechat')
       return result
     } catch {
       // 静默失败不抛错,用户后续可手动登录

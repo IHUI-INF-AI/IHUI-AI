@@ -133,6 +133,7 @@ import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { useI18n } from '../i18n'
+import { trackEvent } from '../lib/analytics'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
 import { parseMessageContent } from '../utils/message-parse'
@@ -570,6 +571,7 @@ export function ChatScreen() {
     const aiMsg: ChatMessage = { id: nextId(), role: 'assistant', content: '' }
     const history = [...messages, userMsg]
     setMessages([...history, aiMsg])
+    trackEvent({ name: 'chat_send', category: 'chat', label: 'mobile' })
     setIsStreaming(true)
     const controller = new AbortController()
     abortRef.current = controller
@@ -1653,6 +1655,7 @@ export function ChatScreen() {
     showToast('success', '链接已复制到剪贴板,可在浏览器粘贴打开')
   }
   const handleDrawerCreateNewChat = (): void => {
+    trackEvent({ name: 'conversation_create', category: 'chat' })
     setMessages([])
     setPrompt('')
     setMaterialCards([])

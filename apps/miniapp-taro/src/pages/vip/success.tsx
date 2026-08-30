@@ -4,6 +4,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate } from '@ihui/shared'
+import { trackEvent } from '@/utils/analytics'
 import './success.css'
 
 /** 安全 decode router 参数 */
@@ -81,6 +82,8 @@ export default function VipSuccessPage() {
   // 首次渲染时记录一次
   useEffect(() => {
     recordPayment()
+    // 支付成功页到达即视为 VIP 支付成功(埋点不阻塞业务)
+    trackEvent({ name: 'payment_success', category: 'commerce', label: 'vip' })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 挂载时加载一次
   }, [])
 

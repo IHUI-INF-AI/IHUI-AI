@@ -31,25 +31,7 @@ export const aiGcContent = pgTable(
  * action: view(查看) / copy(复制) / share(分享) / delete(删除)。
  * gcContentId 关联 aiGcContent.id，删除内容时级联删除任务记录。
  */
-export const aiGcTask = pgTable(
-  'ai_gc_task',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    gcContentId: uuid('gc_content_id')
-      .references(() => aiGcContent.id, { onDelete: 'cascade' })
-      .notNull(),
-    userUuid: varchar('user_uuid', { length: 64 }).notNull(),
-    action: varchar('action', { length: 32 }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    gcContentIdx: index('ix_ai_gc_task_gc_content').on(t.gcContentId),
-    userUuidIdx: index('ix_ai_gc_task_user_uuid').on(t.userUuid),
-  }),
-)
 
 export type AiGcContent = typeof aiGcContent.$inferSelect
 export type NewAiGcContent = typeof aiGcContent.$inferInsert
-export type AiGcTask = typeof aiGcTask.$inferSelect
-export type NewAiGcTask = typeof aiGcTask.$inferInsert
+

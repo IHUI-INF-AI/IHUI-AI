@@ -3,6 +3,7 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { sendSmsCode, loginBySms, register, bindPhone, type UserInfo } from '@/api'
+import { trackLogin } from '@/utils/analytics'
 import { useCountdown } from '@ihui/shared/hooks'
 
 export type VerifyCodeType = 'register' | 'login' | 'changePhone'
@@ -98,6 +99,7 @@ export default function VerifyCodeModal({
         await bindPhone(phone, fullCode)
       } else {
         result = await loginBySms(phone, fullCode)
+        trackLogin('phone')
       }
       Taro.showToast({ title: tt('verify.verifySuccess', '验证成功'), icon: 'success' })
       onSuccess?.(result)

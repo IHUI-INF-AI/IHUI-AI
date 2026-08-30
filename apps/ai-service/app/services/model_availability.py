@@ -87,6 +87,7 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # === 项目主力(LLM_PROVIDERS JSON 已配置)===
     ("stepfun/", "stepfun"),
     ("agnes/", "agnes"),
+    ("ihui/", "ihui_relay"),
     # === Cloudflare Workers AI(@cf/ 前缀)===
     ("@cf/", "cloudflare_workers_ai"),
     ("cloudflare/", "cloudflare_workers_ai"),
@@ -623,7 +624,7 @@ class ModelAvailabilityService:
         # 剥离已知前缀(stepfun/agnes/gemini),模型名带 / 会被 API 拒绝
         cleaned: list[str] = []
         for mid in model_ids:
-            for prefix in ("stepfun/", "agnes/", "gemini/"):
+            for prefix in ("stepfun/", "agnes/", "gemini/", "ihui/"):
                 if mid.startswith(prefix):
                     mid = mid[len(prefix):]
                     break

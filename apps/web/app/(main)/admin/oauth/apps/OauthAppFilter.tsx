@@ -1,5 +1,2 @@
-'use client'
-
-export function OauthAppFilter() {
-  return null
+'use client' export function OauthAppFilter() { return null
 }

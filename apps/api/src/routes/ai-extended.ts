@@ -252,6 +252,18 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // -------------------------------------------------------------------------
   // ai/model_info — 统一模型信息（表 zhs_ai_model_info，尚未迁移为 Drizzle schema）
   // 旧逻辑：默认 status=1，按 sort 升序、id 降序
+  //
+  // 【模型目录决策（2026-08-31 审计）】
+  // 保留 zhs_ai_model_info，不迁移到 ai_model_config_models，原因：
+  // 1. 语义错位：ai_model_config_models 是 ai_model_config 的子表（config_id NOT NULL、
+  //    unique(config_id, model_id)），表示"供应商配置下的可调用模型"；zhs_ai_model_info
+  //    是前台模型市场展示目录（news.ts /models/market 依赖 isTop/isHot/sort/code/
+  //    modelCode/isGratis 等运营字段），迁移需伪造 config_id，破坏数据模型。
+  // 2. 字段不对齐：运营字段（icon/status/sort/type/grass_roots/is_gratis/is_new/is_top/
+  //    is_hot/course_platform/quest_type 等）在 ai_model_config_models 无对应列，塞入
+  //    extra_metadata jsonb 会丢失按 source/status 过滤与 sort 排序能力。
+  // 3. 影响面：/models/market（前端 getMarketModels）+ 本组 CRUD + tenant-audit + seed 脚本。
+  // 历史表保留，新模型统一走 ai_model_config_models（管理后台模型配置），两套并存。
   // -------------------------------------------------------------------------
   server.get('/model-info/list', async (req, reply) => {
     const q = req.query as {

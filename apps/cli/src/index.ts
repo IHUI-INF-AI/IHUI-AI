@@ -23,6 +23,7 @@ import { cliDeviceFingerprintCollector } from './lib/device-fingerprint.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat } from './commands/agent.js';
+import { track } from './telemetry/index.js';
 import { loadSkills, findSkill } from './skills/index.js';
 import {
   loadSession,
@@ -301,6 +302,22 @@ program.hook('preAction', async () => {
   if (opts.updateCheck !== false && process.env.IHUI_NO_UPDATE_CHECK !== '1') {
     notifyUpdates();
   }
+});
+
+// P3-2 命令使用埋点:postAction 在命令 action 成功完成后触发(失败/process.exit 不触发)。
+// commander 会把 program 上注册的 hook 沿祖先链传播到所有子命令,一条注册覆盖全部命令。
+// 未调用 initTelemetry 的命令(init/mcp/sessions 等)track 为 no-op,安全;
+// 已在 action 内 shutdown 的 agent/直接任务路径同样安全 no-op,不破坏既有上报链路。
+// 默认命令(直接任务/REPL)name 为根名,统一记为 'repl'。
+program.hook('postAction', (_thisCommand: Command, actionCommand: Command) => {
+  const parts: string[] = [];
+  let cur: Command | null | undefined = actionCommand;
+  while (cur && cur !== program) {
+    const name = cur.name();
+    if (name) parts.unshift(name);
+    cur = cur.parent;
+  }
+  track('command_run', { command: parts.join(' ') || 'repl' });
 });
 
 // 默认命令: 交互式 REPL 或直接执行任务

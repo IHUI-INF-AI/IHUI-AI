@@ -22,6 +22,11 @@ import {
 import { rnAuthStore } from './src/stores/auth-store'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
+import {
+  reportVisit,
+  trackEvent,
+  initCrashReporting,
+} from './src/lib/analytics'
 
 /**
  * 全局默认字体:阿里妈妈方圆体(对齐 D 盘 uniapp Ai-WXMiniVue 的 App.vue 全局字体)。
@@ -49,6 +54,13 @@ function ThemedNavigation() {
       ref={navigationRef}
       linking={linking}
       theme={resolvedTheme === 'dark' ? DarkTheme : DefaultTheme}
+      onStateChange={() => {
+        // 页面访问埋点：路由变化自动上报 visit_logs（内部防抖，不阻塞导航）
+        if (navigationRef.isReady()) {
+          const route = navigationRef.getCurrentRoute()
+          if (route?.name) void reportVisit(route.name)
+        }
+      }}
     >
       <RootNavigator />
     </NavigationContainer>
@@ -85,6 +97,10 @@ function AppContent() {
   useEffect(() => {
     let unsubOAuth: (() => void) | null = null
     void registerWechat()
+
+    // 埋点初始化：全局崩溃捕获 + 会话启动事件（失败静默，不影响启动）
+    initCrashReporting()
+    trackEvent({ name: 'app_start', category: 'lifecycle', label: 'mobile' })
 
     // 冷启动时检查 OAuth deep link + 运行时监听
     void (async () => {

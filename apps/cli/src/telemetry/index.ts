@@ -23,7 +23,8 @@ export type TelemetryEventType =
   | 'session_end'
   | 'tool_call_completed'
   | 'prompt_completed'
-  | 'error_logged';
+  | 'error_logged'
+  | 'command_run';
 
 /** Telemetry 事件 */
 export interface TelemetryEvent {

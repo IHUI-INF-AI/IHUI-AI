@@ -14,6 +14,7 @@ import { useOutletContext } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { categoryLabel, historyLabel, splitModelCatalog } from '../../../src/lib/model-catalog'
 import { VoiceInput } from '../components/VoiceInput'
+import { trackEvent } from '../../../src/lib/analytics'
 import type { ChatMessage } from './types'
 
 interface Ctx {
@@ -83,6 +84,12 @@ export default function ChatPage() {
     ]
     setMessages(next)
     setStreaming(true)
+
+    // 埋点:发送成功不阻塞业务;空会话首条消息即创建新对话
+    if (messages.length === 0) {
+      trackEvent({ name: 'conversation_create', category: 'chat' })
+    }
+    trackEvent({ name: 'chat_send', category: 'chat', label: 'extension' })
 
     const controller = new AbortController()
     const timeoutId = window.setTimeout(() => controller.abort(), 15_000)

@@ -1,63 +1,9 @@
 'use client'
 import type React from 'react'
 import { useTranslations } from 'next-intl'
-import {
-  Input,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
+import { Input, Select, SelectTrigger, SelectContent, SelectItem, SelectValue,
 } from '@ihui/ui-react'
-import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers'
-
-interface Props {
-  orderNo: string
-  setOrderNo: (v: string) => void
-  agentId: string
-  setAgentId: (v: string) => void
-  status: string
-  setStatus: (v: string) => void
-}
-
-export function SettlementFilter({
-  orderNo,
-  setOrderNo,
-  agentId,
-  setAgentId,
-  status,
-  setStatus,
-}: Props) {
-  const t = useTranslations('admin.agents.settlement')
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Input
-        value={orderNo}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderNo(e.target.value)}
-        placeholder={t('orderNoPlaceholder')}
-        className="h-9 w-full max-w-[200px]"
-        aria-label={t('colOrderNo')}
-      />
-      <Input
-        value={agentId}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgentId(e.target.value)}
-        placeholder={t('agentIdPlaceholder')}
-        className="h-9 w-full max-w-[200px]"
-        aria-label={t('colAgent')}
-      />
-      <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className={selectClass} aria-label={t('colStatus')}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">{t('allStatus')}</SelectItem>
-          {STATUS_OPTIONS.map((s) => (
-            <SelectItem key={s} value={s}>
-              {t(STATUS_KEY[s] ?? 'statusUnknown')}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  )
+import { STATUS_OPTIONS, STATUS_KEY, selectClass } from './helpers' interface Props { orderNo: string setOrderNo: (v: string) => void agentId: string setAgentId: (v: string) => void status: string setStatus: (v: string) => void
+} export function SettlementFilter({ orderNo, setOrderNo, agentId, setAgentId, status, setStatus,
+}: Props) { const t = useTranslations('admin.agents.settlement') return ( <div className="flex flex-wrap items-center gap-2"> <Input value={orderNo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOrderNo(e.target.value)} placeholder={t('orderNoPlaceholder')} className="h-9 w-full max-w-[200px]" aria-label={t('colOrderNo')} /> <Input value={agentId} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAgentId(e.target.value)} placeholder={t('agentIdPlaceholder')} className="h-9 w-full max-w-[200px]" aria-label={t('colAgent')} /> <Select value={status} onValueChange={setStatus}> <SelectTrigger className={selectClass} aria-label={t('colStatus')}> <SelectValue /> </SelectTrigger> <SelectContent> <SelectItem value="all">{t('allStatus')}</SelectItem> {STATUS_OPTIONS.map((s) => ( <SelectItem key={s} value={s}> {t(STATUS_KEY[s] ?? 'statusUnknown')} </SelectItem> ))} </SelectContent> </Select> </div> )
 }
