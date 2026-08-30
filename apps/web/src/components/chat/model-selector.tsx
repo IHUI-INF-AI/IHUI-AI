@@ -156,6 +156,28 @@ function lookupKnownMeta(modelId: string): Partial<ModelOption> {
  *  5 档:tier 0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰 */
 function inferPointsMultiplier(modelId: string): number {
   const mid = (modelId || '').toLowerCase()
+  // 智汇AI 官方中转模型(ihui/ 前缀):付费模型,按档位映射积分倍数
+  const IHUI_MAP: Record<string, number> = {
+    // 倍率 = 极速扣费比例 × 3(统一利润系数),与 proxy-llm.ts / free_provider_registry.py 同步
+    'ihui/auto-model': 3,
+    'ihui/minimax-m2.7': 6,
+    'ihui/minimax-m2.7-highspeed': 15,
+    'ihui/minimax-m3': 15,
+    'ihui/deepseek-v4-flash-0731': 15,
+    'ihui/glm-5.1': 18,
+    'ihui/glm-5.2': 18,
+    'ihui/glm-5.3-flash': 18,
+    'ihui/kimi-k2.6': 18,
+    'ihui/deepseek-v4-pro': 18,
+    'ihui/deepseek-v4-pro-0813': 18,
+    'ihui/grok-4.5': 18,
+    'ihui/glm-5.3': 30,
+    'ihui/gpt-5.6': 30,
+    'ihui/grok-4.6': 30,
+    'ihui/qwen3.7-max': 30,
+    'ihui/kimi-k2.7-code': 30,
+  }
+  if (IHUI_MAP[mid] !== undefined) return IHUI_MAP[mid]
   if (['mini', 'nano', 'haiku'].some((k) => mid.includes(k))) return 1
   if (['opus', 'thinking', 'o1', 'o3', 'gpt-5'].some((k) => mid.includes(k))) return 30
   if (['gpt-4-turbo', 'gpt-4.5', 'claude-3-opus', 'gemini-pro'].some((k) => mid.includes(k)))
@@ -241,6 +263,18 @@ function ModelOptionRow({
       />
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <span className="truncate font-medium">{opt.label}</span>
+        {/* 智汇AI 官方模型徽章 */}
+        {opt.vendor === 'ihui_relay' && (
+          <span className="inline-flex shrink-0 items-center rounded-sm bg-blue-500/10 px-1 py-px text-[10px] font-medium leading-tight text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+            {t('modelOfficialBadge')}
+          </span>
+        )}
+        {/* 智汇 Auto-Model 专属卖点徽章:服务端随机低档池,标称倍率全场最低,省钱入口(2026-08-31 立) */}
+        {opt.id.toLowerCase() === 'ihui/auto-model' && (
+          <span className="inline-flex shrink-0 items-center rounded-sm bg-emerald-500/10 px-1 py-px text-[10px] font-medium leading-tight text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400">
+            {t('modelSmartSaveBadge')}
+          </span>
+        )}
         {/* 未配置时的琥珀 ⚠ 徽章(2026-08-06 调整位置:从右移到名称旁,腾出右侧给倍数) */}
         {warning && (
           <TriangleAlert
