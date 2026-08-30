@@ -167,7 +167,7 @@ export function ToolApprovalDialog() {
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/30">
             <span className="truncate font-mono text-sm font-medium">{current.toolName}</span>
-            <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
+            <span className="shrink-0 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">
               {current.dangerLevel}
             </span>
           </div>

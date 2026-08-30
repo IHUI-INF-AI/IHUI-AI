@@ -10,6 +10,7 @@ import { QRCodeCanvas } from 'qrcode.react'
 import { Crown, Check, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { useAnalytics } from '@/hooks/use-analytics'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -66,6 +67,7 @@ function DetailsContent() {
   const [method, setMethod] = React.useState<PaymentMethod>('wechat')
   const [order, setOrder] = React.useState<OrderResult | null>(null)
   const [paid, setPaid] = React.useState(false)
+  const { track } = useAnalytics()
 
   const METHODS: { id: PaymentMethod; label: string }[] = [
     { id: 'wechat', label: tp('checkout.wechat') },
@@ -103,6 +105,13 @@ function DetailsContent() {
           const r = await api<PayStatusResult>(`/api/vip/order/${order.orderNo}/payinfo`)
           if (r.status === 'paid') {
             setPaid(true)
+            // 埋点:VIP 支付成功
+            track({
+              name: 'payment_success',
+              category: 'commerce',
+              label: 'vip',
+              props: { method },
+            })
             return
           }
         } catch {
@@ -114,7 +123,7 @@ function DetailsContent() {
     return () => {
       stop = true
     }
-  }, [order?.orderNo])
+  }, [order?.orderNo, method, track])
 
   const benefits = level && Array.isArray(level.benefits) ? level.benefits : []
 

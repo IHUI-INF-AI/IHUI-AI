@@ -13,19 +13,11 @@
  *
  * 主键用 bigserial(与 D3 edu Java bigint AUTO_INCREMENT 对齐)。
  */
-import { pgTable, bigserial, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core'
+import { pgTable, bigserial, varchar, integer, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * 学校表(D3 edu Java: t_school)
  */
-export const tSchool = pgTable('t_school', {
-  id: bigserial('id', { mode: 'number' }).primaryKey(),
-  name: varchar('name', { length: 200 }).notNull(),
-  logo: varchar('logo', { length: 512 }),
-  address: varchar('address', { length: 500 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /**
  * 年级表(D3 edu Java: t_grade)
@@ -53,35 +45,12 @@ export const tSubject = pgTable('t_subject', {
  * 班级表(D3 edu Java: t_clazz)
  * school_id → t_school.id,grade_id → t_grade.id(同文件 bigserial 外键)
  */
-export const tClazz = pgTable(
-  't_clazz',
-  {
-    id: bigserial('id', { mode: 'number' }).primaryKey(),
-    schoolId: bigserial('school_id', { mode: 'number' }).references(() => tSchool.id, {
-      onDelete: 'cascade',
-    }),
-    gradeId: bigserial('grade_id', { mode: 'number' }).references(() => tGrade.id, {
-      onDelete: 'cascade',
-    }),
-    name: varchar('name', { length: 200 }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    schoolIdx: index('t_clazz_school_idx').on(t.schoolId),
-    gradeIdx: index('t_clazz_grade_idx').on(t.gradeId),
-  }),
-)
 
 // ---------------------------------------------------------------------------
 // 类型导出
 // ---------------------------------------------------------------------------
 
-export type TSchool = typeof tSchool.$inferSelect
-export type NewTSchool = typeof tSchool.$inferInsert
 export type TGrade = typeof tGrade.$inferSelect
 export type NewTGrade = typeof tGrade.$inferInsert
 export type TSubject = typeof tSubject.$inferSelect
 export type NewTSubject = typeof tSubject.$inferInsert
-export type TClazz = typeof tClazz.$inferSelect
-export type NewTClazz = typeof tClazz.$inferInsert
