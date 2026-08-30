@@ -40,7 +40,35 @@ interface TaskResult {
   output: string;
   /** 执行耗时(ms) */
   duration: number;
+  /** 降级标记:executor 不可用回落 stub 时置 true(非失败,显式标注供上层感知) */
+  degraded?: boolean;
+  /** hierarchical 聚合时携带的组员原始结果(不静默丢弃) */
+  memberResults?: TaskResult[];
 }
+
+/**
+ * 协作任务执行器 — 由外部注入(主 agent 或 WorkerPoolExecutor 默认实现)。
+ * peer 不直接调 LLM(会与 agent.ts 冲突),统一走本接口。
+ */
+interface CollaborationExecutor {
+  /**
+   * 执行一个任务。
+   * @param role peer 角色(如 coder/reviewer)
+   * @param task 任务描述
+   * @param ctx 执行上下文(peerId/工作区/模型)
+   * @returns output 必填;degraded=true 表示降级完成
+   */
+  execute(
+    role: string,
+    task: string,
+    ctx: { peerId: string; workspacePath: string; model?: string },
+  ): Promise<{ output: string; degraded?: boolean }>;
+  /** 释放底层资源(pool 等);注入方管理的 executor 由注入方负责 */
+  shutdown?(): void;
+}
+
+/** peer 级执行器(构造时显式传入,优先级高于 manager 注入) */
+type PeerExecutor = (task: string) => Promise<{ output: string; degraded?: boolean }>;
 
 /** 冲突仲裁结果 */
 interface ConflictResolution {
@@ -84,8 +112,10 @@ class SubagentPeer {
   readonly model: string;
   readonly workspacePath: string;
 
-  /** 外部注入的任务执行器(默认 stub) */
-  private readonly executor: (task: string) => Promise<string>;
+  /** peer 级显式执行器(构造时传入,优先级最高) */
+  private readonly explicitExecutor: PeerExecutor | undefined;
+  /** manager 注入的执行器(registerPeer 时注入) */
+  private managerExecutor: CollaborationExecutor | undefined;
   /** 收到消息的 handler 列表 */
   private readonly messageHandlers: Array<(msg: PeerMessage) => Promise<void>> = [];
   /** 由 CollaborationManager 注入的消息发射器(发到内部 EventTarget 总线) */
@@ -98,15 +128,25 @@ class SubagentPeer {
     role: string;
     model: string;
     workspacePath: string;
-    /** 外部注入的执行器;不传则用 stub,主 agent 后续注入真实 LLM executor */
-    executor?: (task: string) => Promise<string>;
+    /** 外部注入的 peer 级执行器(优先于 manager 注入) */
+    executor?: PeerExecutor;
   }) {
     this.id = opts.id;
     this.role = opts.role;
     this.model = opts.model;
     this.workspacePath = opts.workspacePath;
-    this.executor = opts.executor ?? (async (task: string) =>
-      `[${this.role}] stub execution for: ${task.slice(0, 50)}`);
+    this.explicitExecutor = opts.executor;
+  }
+
+  /**
+   * 由 CollaborationManager.registerPeer 注入执行器。
+   * 仅在 peer 未显式指定 executor 时生效(显式优先)。
+   * @internal
+   */
+  _attachExecutor(executor: CollaborationExecutor): void {
+    if (this.explicitExecutor === undefined) {
+      this.managerExecutor = executor;
+    }
   }
 
   /**
@@ -171,23 +211,72 @@ class SubagentPeer {
     this.messageHandlers.push(handler);
   }
 
-  /** 执行任务(本地 executor),返回 TaskResult */
+  /**
+   * 执行任务,返回 TaskResult。
+   * 执行器优先级:peer 显式 executor > manager 注入 executor > stub(降级,degraded:true)。
+   */
   async executeTask(task: string): Promise<TaskResult> {
     const start = Date.now();
     this._executeCount += 1;
-    let status: TaskResult['status'] = 'completed';
-    let output: string;
-    try {
-      output = await this.executor(task);
-    } catch (e) {
-      status = 'failed';
-      output = e instanceof Error ? e.message : String(e);
+    const taskId = `task-${this.id}-${this._executeCount}`;
+
+    // 优先级 1:peer 显式 executor
+    if (this.explicitExecutor) {
+      try {
+        const r = await this.explicitExecutor(task);
+        return {
+          taskId,
+          assignedPeerId: this.id,
+          status: 'completed',
+          output: r.output,
+          degraded: r.degraded,
+          duration: Date.now() - start,
+        };
+      } catch (e) {
+        return {
+          taskId,
+          assignedPeerId: this.id,
+          status: 'failed',
+          output: e instanceof Error ? e.message : String(e),
+          duration: Date.now() - start,
+        };
+      }
     }
+
+    // 优先级 2:manager 注入 executor
+    if (this.managerExecutor) {
+      try {
+        const r = await this.managerExecutor.execute(this.role, task, {
+          peerId: this.id,
+          workspacePath: this.workspacePath,
+          model: this.model,
+        });
+        return {
+          taskId,
+          assignedPeerId: this.id,
+          status: 'completed',
+          output: r.output,
+          degraded: r.degraded,
+          duration: Date.now() - start,
+        };
+      } catch (e) {
+        return {
+          taskId,
+          assignedPeerId: this.id,
+          status: 'failed',
+          output: e instanceof Error ? e.message : String(e),
+          duration: Date.now() - start,
+        };
+      }
+    }
+
+    // 优先级 3:无任何 executor(未注册 manager 单独使用)→ stub + 降级标记
     return {
-      taskId: `task-${this.id}-${this._executeCount}`,
+      taskId,
       assignedPeerId: this.id,
-      status,
-      output,
+      status: 'completed',
+      output: `[${this.role}] stub execution for: ${task.slice(0, 50)}`,
+      degraded: true,
       duration: Date.now() - start,
     };
   }
@@ -224,10 +313,22 @@ class CollaborationManager {
   private readonly _blackboard: Blackboard;
   /** peer-msg 事件处理器(用于 dispose 时移除) */
   private _peerMsgHandler: ((e: Event) => void) | null = null;
+  /** 注入的 executor(外部管理生命周期) */
+  private readonly injectedExecutor: CollaborationExecutor | undefined;
+  /** 默认 executor(WorkerPool 真子进程派发,惰性创建,manager 拥有并在 dispose 关闭) */
+  private defaultExecutor: WorkerPoolCollaborationExecutor | undefined;
+  /** 死信队列:目标 peer 不存在的消息暂存,不再静默丢弃 */
+  private readonly deadLetters: PeerMessage[] = [];
 
-  constructor(opts: { workspacePath: string; topology: Topology }) {
+  constructor(opts: {
+    workspacePath: string;
+    topology: Topology;
+    /** 外部注入执行器(不传则默认走 SubagentWorkerPool 真子进程派发) */
+    executor?: CollaborationExecutor;
+  }) {
     this.workspacePath = opts.workspacePath;
     this.topology = opts.topology;
+    this.injectedExecutor = opts.executor;
     this._blackboard = this.createBlackboard();
     // 总线监听:收到 peer-msg 事件后路由到目标 peer
     this._peerMsgHandler = (e: Event) => {
@@ -239,9 +340,29 @@ class CollaborationManager {
     this.bus.addEventListener('peer-msg', this._peerMsgHandler);
   }
 
-  /** 释放资源(移除事件监听) */
+  /** 获取生效 executor:注入优先,否则惰性创建默认 WorkerPool executor */
+  private getExecutor(): CollaborationExecutor {
+    if (this.injectedExecutor) return this.injectedExecutor;
+    if (!this.defaultExecutor) {
+      this.defaultExecutor = new WorkerPoolCollaborationExecutor();
+      // 回填已注册且未显式指定 executor 的 peer
+      for (const peer of this.peers.values()) {
+        peer._attachExecutor(this.defaultExecutor);
+      }
+    }
+    return this.defaultExecutor;
+  }
+
+  /** 释放资源:移除事件监听 + 关闭 manager 自建的默认 executor(注入的不归 manager 管) */
   dispose(): void {
     this.bus.removeEventListener('peer-msg', this._peerMsgHandler);
+    this.defaultExecutor?.shutdown();
+    this.defaultExecutor = undefined;
+  }
+
+  /** 死信队列快照:目标 peer 不存在而暂存的消息 */
+  getDeadLetters(): PeerMessage[] {
+    return [...this.deadLetters];
   }
 
   /** 共享黑板(blackboard 模式,所有 peer 可读写) */
@@ -249,7 +370,7 @@ class CollaborationManager {
     return this._blackboard;
   }
 
-  /** 注册 peer:注入消息发射器,纳入拓扑 */
+  /** 注册 peer:注入消息发射器与执行器,纳入拓扑 */
   registerPeer(peer: SubagentPeer): void {
     if (!this.peers.has(peer.id)) {
       this.peerOrder.push(peer.id);
@@ -259,6 +380,9 @@ class CollaborationManager {
     peer._attachEmit((msg) => {
       this.bus.dispatchEvent(new CustomEvent<PeerMessage>('peer-msg', { detail: msg }));
     });
+    // 注入执行器:已确定的(注入式或已惰性创建的默认 executor);显式 executor 的 peer 不覆盖
+    const exec = this.injectedExecutor ?? this.defaultExecutor;
+    if (exec) peer._attachExecutor(exec);
   }
 
   /**
@@ -270,6 +394,8 @@ class CollaborationManager {
     task: string,
     opts?: { preferredRole?: string },
   ): Promise<TaskResult> {
+    // 确保 executor 就绪(默认 WorkerPool executor 惰性创建并回填已注册 peer)
+    this.getExecutor();
     switch (this.topology) {
       case 'star':
         return this.dispatchStar(task);
@@ -429,25 +555,62 @@ class CollaborationManager {
     };
   }
 
-  /** hierarchical:派给对应角色组长(首个匹配角色 peer),无偏好则取根节点(首个 peer) */
+  /**
+   * hierarchical:派给对应角色组长(首个匹配角色 peer)并分发组员并行执行,
+   * 结果聚合为摘要回流主会话(memberResults 携带组员原始结果)。
+   * 无偏好则取根节点(首个 peer);仅组长无组员时直接返回组长结果(无聚合包装)。
+   */
   private async dispatchHierarchical(
     task: string,
     opts?: { preferredRole?: string },
   ): Promise<TaskResult> {
-    if (opts?.preferredRole) {
-      const lead = [...this.peers.values()].find((p) => p.role === opts.preferredRole);
-      if (lead) return lead.executeTask(task);
-    }
-    const rootId = this.peerOrder[0];
-    if (!rootId) {
+    if (this.peerOrder.length === 0) {
       throw new Error(`hierarchical dispatch: no peers registered (workspace: ${this.workspacePath})`);
     }
-    const root = this.peers.get(rootId);
-    if (!root) {
-      throw new Error(`hierarchical dispatch: root peer missing (workspace: ${this.workspacePath})`);
+    let lead: SubagentPeer | undefined;
+    if (opts?.preferredRole) {
+      lead = [...this.peers.values()].find((p) => p.role === opts.preferredRole);
     }
-    // 完整树状分发需要组定义,当前 stub:组长执行,组员通过 handoff 通知可后续扩展
-    return root.executeTask(task);
+    if (!lead) {
+      const rootId = this.peerOrder[0]!;
+      lead = this.peers.get(rootId);
+    }
+    if (!lead) {
+      throw new Error(`hierarchical dispatch: lead peer missing (workspace: ${this.workspacePath})`);
+    }
+
+    // 同角色组员(排除组长),并行执行
+    const members = [...this.peers.values()].filter((p) => p.role === lead!.role && p.id !== lead!.id);
+    if (members.length === 0) {
+      return lead.executeTask(task);
+    }
+
+    const start = Date.now();
+    const [leadResult, ...memberResults] = await Promise.all([
+      lead.executeTask(task),
+      ...members.map((m) => m.executeTask(task)),
+    ]);
+
+    // 聚合摘要:含组长/组员标识与各自输出;degraded 透传(任一降级即整体降级)
+    const degraded = leadResult.degraded === true || memberResults.some((r) => r.degraded === true);
+    const lines = [
+      `组长+组员聚合摘要(${memberResults.length + 1} 个结果,${memberResults.length} 个组员):`,
+      `[组长 ${lead.id}] ${leadResult.output}`,
+    ];
+    memberResults.forEach((r, i) => {
+      const tag = r.degraded === true ? '[degraded]' : '';
+      lines.push(`[组员${i + 1} ${r.assignedPeerId}] ${tag}${r.output}`);
+    });
+
+    return {
+      taskId: leadResult.taskId,
+      assignedPeerId: lead.id,
+      status: leadResult.status === 'failed' ? 'failed' : 'completed',
+      output: lines.join('\n'),
+      degraded: degraded || undefined,
+      memberResults,
+      duration: Date.now() - start,
+    };
   }
 
   // ───────────────────────── 消息总线 ─────────────────────────
@@ -464,8 +627,10 @@ class CollaborationManager {
       const target = this.peers.get(msg.toPeerId);
       if (target) {
         await target._deliver(msg);
+      } else {
+        // 目标 peer 不存在:入死信队列,不再静默丢弃(上层可经 getDeadLetters() 感知并重投)
+        this.deadLetters.push(msg);
       }
-      // 目标不存在:静默丢弃(stub 行为,真实实现可上报主 agent)
     }
   }
 
@@ -555,13 +720,99 @@ class CollaborationManager {
 
 // ───────────────────────────── 公共导出 ─────────────────────────────
 
+/**
+ * 默认协作执行器 — 经 SubagentWorkerPool 真子进程并行派发任务。
+ *
+ * 与注入式 CollaborationExecutor 互补:manager 未注入 executor 时惰性创建本类,
+ * peer 角色 → persona 映射(内置角色直通,未知角色回落 general),
+ * pool 实例跨任务复用(不逐任务建池),spawn 失败/异常时降级 stub 输出(degraded:true)。
+ */
+class WorkerPoolCollaborationExecutor implements CollaborationExecutor {
+  /** 惰性创建并复用的 worker 池(不逐任务建池) */
+  private pool: SubagentWorkerPool | null = null;
+  private disposed = false;
+
+  constructor(private readonly maxWorkers = 4) {}
+
+  /** 角色 → persona:内置(researcher/coder/reviewer/planner/general)直通,未知回落 general */
+  private toPersona(role: string): SubagentSpawnRequest['persona'] {
+    switch (role) {
+      case 'researcher':
+      case 'coder':
+      case 'reviewer':
+      case 'planner':
+      case 'general':
+        return role;
+      default:
+        return 'general';
+    }
+  }
+
+  /** 惰性获取 pool(复用;dispose 后不再重建) */
+  private ensurePool(): SubagentWorkerPool | null {
+    if (this.disposed) return null;
+    if (!this.pool) {
+      this.pool = new SubagentWorkerPool(defaultWorkerPoolConfig({ maxWorkers: this.maxWorkers }));
+    }
+    return this.pool;
+  }
+
+  async execute(
+    role: string,
+    task: string,
+    ctx: { peerId: string; workspacePath: string; model?: string },
+  ): Promise<{ output: string; degraded?: boolean }> {
+    const pool = this.ensurePool();
+    if (!pool) {
+      return { output: `[${role}] stub execution for: ${task.slice(0, 50)}`, degraded: true };
+    }
+    try {
+      // 模型解析由 worker 侧负责,此处显式不传 model(undefined)以固定契约
+      const resp = await pool.spawn({
+        persona: this.toPersona(role),
+        task,
+        workspacePath: ctx.workspacePath,
+        model: undefined,
+      });
+      if (resp.status === 'failed' || resp.output === undefined) {
+        // spawn 被拒(队列满/已 shutdown)或执行失败 → 降级 stub,显式标注 degraded
+        return { output: `[${role}] stub execution for: ${task.slice(0, 50)}`, degraded: true };
+      }
+      return { output: resp.output };
+    } catch {
+      // fork 失败等异常 → 降级 stub(非失败,不中断协作流)
+      return { output: `[${role}] stub execution for: ${task.slice(0, 50)}`, degraded: true };
+    }
+  }
+
+  /** 关闭池(幂等);由拥有方(manager.dispose 或注入方)调用 */
+  shutdown(): void {
+    this.disposed = true;
+    if (this.pool) {
+      const pool = this.pool;
+      this.pool = null;
+      try {
+        // fire-and-forget:shutdown 不阻塞 dispose;兼容同步实现/非 Promise 返回/同步抛错
+        const maybe = pool.shutdown() as unknown as Promise<void> | undefined | void;
+        if (maybe && typeof maybe.catch === 'function') {
+          void maybe.catch(() => {});
+        }
+      } catch {
+        // 同步异常同样静默,dispose 必须幂等不抛
+      }
+    }
+  }
+}
+
 export {
   SubagentPeer,
   CollaborationManager,
+  WorkerPoolCollaborationExecutor,
   type Topology,
   type PeerMessage,
   type TaskResult,
   type ConflictResolution,
+  type CollaborationExecutor,
 };
 
 // ───────────────────────────── 子进程并行 spawnParallel ─────────────────────────────

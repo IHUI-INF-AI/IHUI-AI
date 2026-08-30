@@ -1117,7 +1117,7 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         state.planApproved = true;
         // gathering → executing(写入允许)
         if (state.planMachine && state.planMachine.canTransition('gather_complete')) {
-          state.planMachine.transition('gather_complete');
+          state.planMachine.transition('gather_complete', { approved: true });
         }
         console.info(chalk.green('✓ Plan 已批准,后续工具调用将直接执行(PlanMachine: executing)'));
       } else if (sub === 'reject') {
