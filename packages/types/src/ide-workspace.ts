@@ -119,6 +119,11 @@ export interface GitStatusSnapshot {
     conflicted: number
     renamed: number
   }
+  /** 行级增删统计(对标 Cursor env card 的 +N/-M,后端 git diff --numstat 聚合;老后端可能缺省) */
+  lineStats?: {
+    additions: number
+    deletions: number
+  }
   lastCommit: {
     hash: string
     message: string
@@ -131,6 +136,10 @@ export interface GitStatusSnapshot {
     url: string
     state: 'open' | 'merged' | 'closed' | 'draft'
   } | null
+  /** PR 查询是否失败(true=GitHub API 查询出错;false/缺省=查询成功但分支无 PR) */
+  pullRequestFetchFailed?: boolean
+  /** 代码托管平台(从 remote URL 推断;缺省视为 other) */
+  platform?: 'github' | 'gitee' | 'gitlab' | 'other'
   localPath: string
   remotes: Array<{
     name: string
