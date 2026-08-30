@@ -5,8 +5,6 @@ import {
   integer,
   timestamp,
   numeric,
-  decimal,
-  serial,
   index,
   unique,
 } from 'drizzle-orm/pg-core'
@@ -195,16 +193,3 @@ export type NewEduInvoiceApplication = typeof eduInvoiceApplications.$inferInser
  * - orderId: 关联 edu_orders（逻辑关联，未做物理外键）。
  * - price/subtotal: decimal(10,2)。
  */
-export const eduOrderItems = pgTable('edu_order_items', {
-  id: serial('id').primaryKey(),
-  orderId: integer('order_id').notNull(),
-  productId: integer('product_id'),
-  productName: varchar('product_name', { length: 255 }),
-  quantity: integer('quantity').default(1),
-  price: decimal('price', { precision: 10, scale: 2 }),
-  subtotal: decimal('subtotal', { precision: 10, scale: 2 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-export type EduOrderItem = typeof eduOrderItems.$inferSelect
-export type NewEduOrderItem = typeof eduOrderItems.$inferInsert

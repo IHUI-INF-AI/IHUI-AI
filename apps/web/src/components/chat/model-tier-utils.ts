@@ -22,6 +22,8 @@ import {
 export interface ModelOption {
   value: string
   label: string
+  /** 模型 id（可选，2026-08-31 补：Auto-Model 徽章等按 id 匹配的场景使用） */
+  id?: string
   descriptionKey?: string
   /** 厂商代码,用于 BrandIcon 显示 */
   vendor?: string

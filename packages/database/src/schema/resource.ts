@@ -131,19 +131,6 @@ export type NewResourceTag = typeof resourceTags.$inferInsert
 /**
  * 资源-标签关联表 - 资源与标签的多对多关联。
  */
-export const resourceTagRelations = pgTable('resource_tag_relations', {
-  id: serial('id').primaryKey(),
-  resourceId: uuid('resource_id')
-    .references(() => resources.id, { onDelete: 'cascade' })
-    .notNull(),
-  tagId: uuid('tag_id')
-    .references(() => resourceTags.id, { onDelete: 'cascade' })
-    .notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-export type ResourceTagRelation = typeof resourceTagRelations.$inferSelect
-export type NewResourceTagRelation = typeof resourceTagRelations.$inferInsert
 
 /**
  * 资源下载记录表 - 记录用户下载资源的行为。
@@ -162,18 +149,9 @@ export const resourceDownloads = pgTable('resource_downloads', {
 /**
  * 资源搜索记录表 - 记录用户的搜索行为用于分析。
  */
-export const resourceSearchLogs = pgTable('resource_search_logs', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id'),
-  keyword: varchar('keyword', { length: 255 }),
-  resultCount: integer('result_count').default(0),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 export type ResourceDownload = typeof resourceDownloads.$inferSelect
 export type NewResourceDownload = typeof resourceDownloads.$inferInsert
-export type ResourceSearchLog = typeof resourceSearchLogs.$inferSelect
-export type NewResourceSearchLog = typeof resourceSearchLogs.$inferInsert
 
 /**
  * GitHub 开源项目库表（历史 resource_github_projects）。

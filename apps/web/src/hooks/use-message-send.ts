@@ -6,6 +6,7 @@ import { toast } from '@/components/common'
 
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
 import type { ReferenceItem } from '@/hooks/use-message-references'
+import { useAnalytics } from '@/hooks/use-analytics'
 
 /** WebInputCore 句柄 — 与 message-input.tsx 的 WebInputCoreHandle 契约一致。
  * 独立声明(不依赖 message-input.tsx)以避免 hook 反向依赖组件,符合 hooks/ 目录
@@ -104,6 +105,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     draftKey,
   } = params
   const t = useTranslations('chat')
+  const { track } = useAnalytics()
   const [isDragOver, setIsDragOver] = React.useState(false)
   const [pendingMessage, setPendingMessage] = React.useState<{
     text: string
@@ -192,6 +194,8 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       const finalContent = attachmentMarkdown ? `${text}\n\n${attachmentMarkdown}` : text
       const ok = await onSend(finalContent)
       if (!ok) return false
+      // 埋点:聊天消息发送成功(web 端)
+      track({ name: 'chat_send', category: 'chat', label: 'web' })
       // 释放所有 objectURL
       refs.forEach((r) => {
         if (r.thumbnail) URL.revokeObjectURL(r.thumbnail)
@@ -202,7 +206,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       requestAnimationFrame(() => inputCoreRef.current?.resize())
       return true
     },
-    [onSend, draftKey, resetReferences, setValue, inputCoreRef],
+    [onSend, draftKey, resetReferences, setValue, inputCoreRef, track],
   )
 
   const submit = React.useCallback(async () => {
