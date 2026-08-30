@@ -810,6 +810,67 @@ async def _openrouter_proxy_context(model: str) -> AsyncIteratorType[None]:
                 os.environ.pop("HTTP_PROXY", None)
 
 
+# stub 模式判定的 vendor env key 权威列表(单一来源):
+# tests/conftest.py 直接 import 本常量做测试环境隔离,避免两处列表漂移。
+VENDOR_ENV_KEYS: list[str] = [
+    # 国际原厂
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
+    "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
+    "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
+    "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
+    "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
+    # 国内厂商
+    "DASHSCOPE_API_KEY",  # 阿里通义
+    "ZHIPUAI_API_KEY",  # 智谱
+    "MOONSHOT_API_KEY",
+    "BAIDU_API_KEY",  # 文心
+    "YI_API_KEY",  # 零一万物
+    "MINIMAX_API_KEY",  # MiniMax
+    "SPARK_API_KEY",  # 讯飞星火
+    "BAICHUAN_API_KEY",
+    "HUNYUAN_API_KEY",  # 腾讯混元
+    "STEPFUN_API_KEY",
+    "AGNES_API_KEY",
+    "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
+    # 云 / 聚合平台
+    "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
+    "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
+    "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
+    "OLLAMA_API_BASE",  # 本地 ollama 不需 key,有 base 即激活
+    "ANTHROPIC_VERTEX_API_KEY",
+    # OpenAI 兼容聚合
+    "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
+    "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
+    "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
+    "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
+    "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
+    "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_BASE",
+    # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
+    "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
+    "NVIDIA_API_KEY",  # NIM
+    "GITHUB_TOKEN",  # GitHub Models
+    "VERCEL_AI_GATEWAY_KEY",  # Vercel AI Gateway
+    "OPENCODE_ZEN_KEY",  # OpenCode Zen
+    "MODAL_API_KEY",  # Modal
+    "INFERENCE_NET_API_KEY",  # Inference.net
+    "NLP_CLOUD_API_KEY",  # NLP Cloud
+    "SCALEWAY_API_KEY",  # Scaleway
+    "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
+    # 2026-07-24 接入:14 个免费 LLM provider 内化
+    # CEREBRAS_API_KEY / MISTRAL_API_KEY / COHERE_API_KEY / HUGGINGFACE_API_KEY 已在上方存在,不重复加
+    "ZAI_API_KEY",  # Z.ai / 智谱 OpenAI 兼容
+    "KILO_API_BASE",  # Kilo Gateway(keyless,有 base 即激活)
+    "POLLINATIONS_API_BASE",  # Pollinations(keyless)
+    "LLM7_API_KEY",  # LLM7(可选 key)
+    "OVH_API_BASE",  # OVH AI Endpoints(keyless)
+    "AIHORDE_API_KEY",  # AI Horde(默认匿名 key)
+    "REKA_API_KEY",  # Reka(每月免费 credit)
+    "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
+    "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
+    "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
+]
+
+
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
@@ -848,64 +909,8 @@ class LLMGateway:
         # 第二层:os.environ 检查所有 LiteLLM 一等公民厂商 key
         # 用户在 .env 直接配 GROQ_API_KEY / XAI_API_KEY / DEEPSEEK_API_KEY 等也立即激活
         # 前缀列表对应 _PREFIX_TO_PROVIDER_CODE 全部 30+ 厂商
-        vendor_env_keys = [
-            # 国际原厂
-            "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY",
-            "OPENROUTER_API_KEY", "COHERE_API_KEY", "MISTRAL_API_KEY", "XAI_API_KEY",
-            "PERPLEXITY_API_KEY", "DEEPSEEK_API_KEY", "TOGETHERAI_API_KEY",
-            "HUGGINGFACE_API_KEY", "REPLICATE_API_KEY", "AI21_API_KEY",
-            "FIREWORKS_API_KEY", "WATSONX_API_KEY", "UPSTAGE_API_KEY",
-            # 国内厂商
-            "DASHSCOPE_API_KEY",  # 阿里通义
-            "ZHIPUAI_API_KEY",  # 智谱
-            "MOONSHOT_API_KEY",
-            "BAIDU_API_KEY",  # 文心
-            "YI_API_KEY",  # 零一万物
-            "MINIMAX_API_KEY",  # MiniMax
-            "SPARK_API_KEY",  # 讯飞星火
-            "BAICHUAN_API_KEY",
-            "HUNYUAN_API_KEY",  # 腾讯混元
-            "STEPFUN_API_KEY",
-            "AGNES_API_KEY",
-            "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
-            # 云 / 聚合平台
-            "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
-            "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
-            "VERTEX_API_KEY", "VERTEX_AI_API_KEY",
-            "OLLAMA_API_BASE",  # 本地 ollama 不需 key,有 base 即激活
-            "ANTHROPIC_VERTEX_API_KEY",
-            # OpenAI 兼容聚合
-            "NOVITA_API_KEY", "LAMBDA_API_KEY", "BASETEN_API_KEY",
-            "CEREBRAS_API_KEY", "SAMBANOVA_API_KEY", "DEEPINFRA_API_KEY",
-            "FRIENDLI_API_KEY", "ANYSCALE_API_KEY", "LEPTONAI_API_KEY",
-            "PPIO_API_KEY", "SILICONCLOUD_API_KEY", "MODELSCOPE_API_KEY",
-            "NEBIUS_API_KEY", "FEATHERLESS_API_KEY", "PARASAIL_API_KEY",
-            "OPENWEBUI_API_KEY", "LMSTUDIO_API_KEY", "LLAMACPP_API_BASE",
-            # 2026-07-22 接入:免费 / 试用 credits provider(参考 cheahjs/free-llm-api-resources)
-            "CLOUDFLARE_API_TOKEN",  # Workers AI(需配合 CLOUDFLARE_ACCOUNT_ID)
-            "NVIDIA_API_KEY",  # NIM
-            "GITHUB_TOKEN",  # GitHub Models
-            "VERCEL_AI_GATEWAY_KEY",  # Vercel AI Gateway
-            "OPENCODE_ZEN_KEY",  # OpenCode Zen
-            "MODAL_API_KEY",  # Modal
-            "INFERENCE_NET_API_KEY",  # Inference.net
-            "NLP_CLOUD_API_KEY",  # NLP Cloud
-            "SCALEWAY_API_KEY",  # Scaleway
-            "ALIBABA_INTL_API_KEY",  # Alibaba Cloud International Model Studio
-            # 2026-07-24 接入:14 个免费 LLM provider 内化
-            # CEREBRAS_API_KEY / MISTRAL_API_KEY / COHERE_API_KEY / HUGGINGFACE_API_KEY 已在上方存在,不重复加
-            "ZAI_API_KEY",  # Z.ai / 智谱 OpenAI 兼容
-            "KILO_API_BASE",  # Kilo Gateway(keyless,有 base 即激活)
-            "POLLINATIONS_API_BASE",  # Pollinations(keyless)
-            "LLM7_API_KEY",  # LLM7(可选 key)
-            "OVH_API_BASE",  # OVH AI Endpoints(keyless)
-            "AIHORDE_API_KEY",  # AI Horde(默认匿名 key)
-            "REKA_API_KEY",  # Reka(每月免费 credit)
-            "ROUTEWAY_API_KEY",  # Routeway(:free 后缀模型免费)
-            "BAZAARLINK_API_KEY",  # BazaarLink(auto:free 路由)
-            "AINATIVE_API_KEY",  # AINative Studio(每月 ~10M tokens 免费)
-        ]
-        return not any(os.environ.get(k) for k in vendor_env_keys)
+        # 第二层:vendor key 列表已提取为模块级 VENDOR_ENV_KEYS(conftest 单一来源引用)
+        return not any(os.environ.get(k) for k in VENDOR_ENV_KEYS)
 
     @staticmethod
     def _resolve_provider(model: str) -> tuple[str | None, str | None, str | None]:
