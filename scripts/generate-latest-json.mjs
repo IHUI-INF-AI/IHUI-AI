@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * generate-latest-json.mjs — 聚合多平台 .sig 文件生成 Tauri updater latest.json
+ * v0.1.14 — retry round 8
  *
  * 背景:tauri-action 在多平台矩阵构建时,每个 job 只生成当前平台的 latest.json
  * 并上传到 Release,后上传的会覆盖先上传的,最终 latest.json 只包含最后一个平台。
