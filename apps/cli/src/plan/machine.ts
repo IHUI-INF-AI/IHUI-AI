@@ -25,7 +25,15 @@ export class PlanMachine {
     this.state = initialState;
   }
 
-  transition(event: PlanEvent, _ctx?: PlanContext): PlanState {
+  /**
+   * 触发状态转移。
+   * 审批门:gathering + gather_complete 必须携带 ctx.approved=true(用户显式批准),
+   * 否则抛错拒绝转移 — 强制阻断未经批准的写执行(Plan Mode 核心安全语义)。
+   */
+  transition(event: PlanEvent, ctx?: PlanContext & { approved?: boolean }): PlanState {
+    if (event === 'gather_complete' && this.state === 'gathering' && ctx?.approved !== true) {
+      throw new Error('Approval required: gather_complete 需要用户批准(ctx.approved=true)后才能进入 executing');
+    }
     const next = TRANSITIONS[this.state][event];
     if (!next) {
       throw new Error(`Invalid transition: ${this.state} + ${event}`);
