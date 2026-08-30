@@ -90,6 +90,46 @@ def openai_tools_to_anthropic(
     return converted
 
 
+def anthropic_tool_choice_from_openai(
+    tool_choice: Any,
+) -> dict[str, Any] | str | None:
+    """OpenAI tool_choice → Anthropic tool_choice 格式。
+
+    Anthropic API 要求对象形态;OpenAI 允许字符串或对象,转换规则:
+    - "auto"       → {"type": "auto"}
+    - "none"       → None(Anthropic 无 none,直接不带 tool_choice 即默认不强制)
+    - "required"   → {"type": "any"}
+    - {"type": "function", "function": {"name": X}} → {"type": "tool", "name": X}
+    - 已是 Anthropic 形态的 dict({"type": "auto"/"any"/"tool"}) → 深拷贝透传
+    - 其他非法值 → None(不带,交给 API 默认行为)
+
+    Returns:
+        Anthropic 格式的 tool_choice dict,或 None。
+    """
+    if tool_choice is None:
+        return None
+    if isinstance(tool_choice, str):
+        s = tool_choice.strip().lower()
+        if s == "auto":
+            return {"type": "auto"}
+        if s == "required":
+            return {"type": "any"}
+        # "none" 与无法识别的字符串 → 不带 tool_choice
+        return None
+    if isinstance(tool_choice, dict):
+        t = tool_choice.get("type")
+        if t in ("auto", "any", "tool"):
+            return copy.deepcopy(tool_choice)
+        if t == "function":
+            fn = tool_choice.get("function")
+            if isinstance(fn, dict) and fn.get("name"):
+                return {"type": "tool", "name": fn.get("name")}
+        if "name" in tool_choice:
+            # 已是 {type: "tool", name} 缺 type 等残缺形态,补全
+            return {"type": "tool", "name": tool_choice.get("name")}
+    return None
+
+
 def anthropic_response_to_openai(
     response: dict[str, Any] | list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
