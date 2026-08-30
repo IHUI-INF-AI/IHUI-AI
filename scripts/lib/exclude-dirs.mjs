@@ -32,6 +32,8 @@ const EXCLUDE_DIRS = Object.freeze(new Set([
   '.git',
   // 构建产物
   'dist', 'build', 'out', '.output', '.next', '.turbo', '.wxt',
+  // 测试产物(playwright 测试报告,2026-08-31 补:与 coverage 同类,已 .gitignore)
+  'playwright-report', 'playwright-report-staging',
   // 测试覆盖率
   'coverage',
   // 缓存

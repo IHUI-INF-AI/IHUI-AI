@@ -65,6 +65,8 @@ export * from './tenant.js'
 export * from './ai-cost.js'
 export * from './ai-feed.js'
 export * from './ai-education.js'
+// P3 深度层:AI 出题(ai_generated_question) + AI 批改(ai_grading_record) 表
+export * from './p3-deep-layer.js'
 export * from './ai-gc.js'
 export * from './circle-extra.js'
 export * from './ask-extra.js'
