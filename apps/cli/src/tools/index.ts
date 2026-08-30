@@ -18,6 +18,7 @@
 import { redactSecrets } from '../redact.js';
 import { checkFolderTrust, type FolderTrustMap } from '../sandbox/index.js';
 import { checkPermission, type PermissionRules } from './permissions.js';
+import { BROWSER_TOOLS } from './browser.js';
 import {
   InMemoryRegistry,
   CompoundResolver,
@@ -134,6 +135,11 @@ export function registerTools(tools: Tool[]): void {
       hubLocalRegistry.register(wrapTool(t));
     }
   }
+}
+
+/** 注册浏览器自动化工具(幂等,重复调用仅覆盖同名工具) */
+export function registerBrowserTools(): void {
+  registerTools(BROWSER_TOOLS);
 }
 
 export function getTool(name: string): Tool | undefined {
@@ -492,5 +498,122 @@ registerMemoryTools();
 // ==================== Git 工作流深化工具(Wave 8,2026-07-22 新增,对标 OpenClaw/OpenCode)====================
 // 高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具(PR/Issue/Release)
 // 通过 git.ts 的 GIT_TOOLS 统一注册到 agent.ts,GIT_ADVANCED_TOOLS/GITHUB_PR_TOOLS 在此 re-export 供按需导入
+// ==================== 原生 Function Calling(OpenAI / Anthropic 兼容)====================
+
+/** OpenAI 兼容的 provider 工具 schema 条目 */
+export interface ProviderToolSchema {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      properties: Record<string, unknown>;
+      required: string[];
+    };
+  };
+}
+
+/** 把单个 ToolParameter 递归转换为 JSON Schema(深拷贝,不共享引用) */
+function toJsonProperty(p: ToolParameter): Record<string, unknown> {
+  const prop: Record<string, unknown> = { type: p.type, description: p.description };
+  if (p.enum) prop.enum = [...p.enum];
+  if (p.items) prop.items = toJsonProperty(p.items);
+  if (p.properties) {
+    const props: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(p.properties)) props[k] = toJsonProperty(v);
+    prop.properties = props;
+  }
+  if (p.required) prop.required = [...p.required];
+  return prop;
+}
+
+/**
+ * 把 Tool[] 转为 OpenAI 兼容的 tools schema 数组,用于原生 function calling 下发。
+ * 输出为深拷贝 — 修改 schema 不会影响原 Tool 定义。
+ */
+export function toolsToProviderSchema(tools: Tool[]): ProviderToolSchema[] {
+  return tools.map((t) => {
+    const properties: Record<string, unknown> = {};
+    for (const [name, p] of Object.entries(t.parameters)) {
+      properties[name] = toJsonProperty(p);
+    }
+    return {
+      type: 'function' as const,
+      function: {
+        name: t.name,
+        description: t.description,
+        parameters: {
+          type: 'object' as const,
+          properties,
+          required: [...t.required],
+        },
+      },
+    };
+  });
+}
+
+/** 解析 arguments 字段:JSON 字符串 / 对象 / 非法值 → {} */
+function parseToolArguments(raw: unknown): Record<string, unknown> {
+  if (raw === null || raw === undefined) return {};
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  if (typeof raw === 'object') return raw as Record<string, unknown>;
+  return {};
+}
+
+/**
+ * 按原生 content 结构解析工具调用,支持 4 种形态:
+ *   1. OpenAI 消息形态 { role:'assistant', tool_calls: [...] }(arguments 为 JSON 字符串或对象)
+ *   2. 裸 tool_calls 数组容器 { tool_calls: [...] }
+ *   3. Anthropic content block 数组([{type:'tool_use', name, input}, ...])
+ *   4. 纯文本 / null → 返回 [](非法条目安全跳过)
+ */
+export function parseNativeToolCalls(content: unknown): ParsedToolCall[] {
+  const calls: ParsedToolCall[] = [];
+  if (content === null || content === undefined) return calls;
+  // 形态 3:Anthropic content block 数组
+  if (Array.isArray(content)) {
+    for (const block of content) {
+      if (!block || typeof block !== 'object') continue;
+      const b = block as Record<string, unknown>;
+      if (b.type === 'tool_use' && typeof b.name === 'string') {
+        calls.push({ name: b.name, arguments: parseToolArguments(b.input) });
+      }
+    }
+    return calls;
+  }
+  if (typeof content !== 'object') return calls;
+  const obj = content as Record<string, unknown>;
+  if (!Array.isArray(obj.tool_calls)) return calls;
+  // 形态 1/2:OpenAI tool_calls(裸容器或完整消息)
+  for (const entry of obj.tool_calls) {
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const fn = (e.function ?? e) as Record<string, unknown> | undefined;
+    if (!fn || typeof fn !== 'object') continue;
+    const name = fn.name;
+    if (typeof name !== 'string' || name.length === 0) continue;
+    calls.push({ name, arguments: parseToolArguments(fn.arguments) });
+  }
+  return calls;
+}
+
+/**
+ * 提取工具调用:原生 content 结构解析优先,解析不到降级走 parseToolCalls 正则
+ * (兼容无 function calling 能力的模型 prompt 模式)。
+ */
+export function extractToolCalls(content: unknown, text: string): ParsedToolCall[] {
+  const native = parseNativeToolCalls(content);
+  if (native.length > 0) return native;
+  return parseToolCalls(text);
+}
+
 export { GIT_ADVANCED_TOOLS } from './git-advanced.js';
 export { GITHUB_PR_TOOLS } from './github-pr.js';
