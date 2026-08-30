@@ -183,3 +183,8 @@ export const todo_write: Tool = {
 export function readTodoList(ctx: ToolContext): TodoItem[] {
   return loadTodos(ctx);
 }
+
+/** 全量写出 todo 清单(供计划-执行闭环同步勾选使用,与 todo_write 工具同存储) */
+export function writeTodoList(ctx: ToolContext, todos: TodoItem[]): void {
+  saveTodos(ctx, todos);
+}
