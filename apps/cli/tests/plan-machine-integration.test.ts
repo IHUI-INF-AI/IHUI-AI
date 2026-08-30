@@ -30,14 +30,14 @@ describe('PlanMachine 集成:/plan 命令状态管理', () => {
   it('/plan approve:gathering → executing,isWriteBlocked=false', () => {
     const machine = new PlanMachine('gathering');
     expect(machine.canTransition('gather_complete')).toBe(true);
-    machine.transition('gather_complete');
+    machine.transition('gather_complete', { approved: true });
     expect(machine.getCurrentState()).toBe('executing');
     expect(machine.isWriteBlocked()).toBe(false);
   });
 
   it('/plan reject:reset + start → 回到 gathering,isWriteBlocked=true', () => {
     const machine = new PlanMachine('gathering');
-    machine.transition('gather_complete'); // → executing
+    machine.transition('gather_complete', { approved: true }); // → executing
     machine.reset(); // → initialized
     machine.transition('start'); // → gathering
     expect(machine.getCurrentState()).toBe('gathering');
@@ -47,7 +47,7 @@ describe('PlanMachine 集成:/plan 命令状态管理', () => {
   it('/plan show:展示 PlanMachine 状态(状态查询契约)', () => {
     const machine = new PlanMachine('gathering');
     expect(machine.getCurrentState()).toBe('gathering');
-    machine.transition('gather_complete');
+    machine.transition('gather_complete', { approved: true });
     expect(machine.getCurrentState()).toBe('executing');
     machine.transition('execute_complete');
     expect(machine.getCurrentState()).toBe('done');
@@ -55,7 +55,7 @@ describe('PlanMachine 集成:/plan 命令状态管理', () => {
 
   it('canTransition 守门:executing 状态不能 transition(gather_complete)', () => {
     const machine = new PlanMachine('gathering');
-    machine.transition('gather_complete'); // → executing
+    machine.transition('gather_complete', { approved: true }); // → executing
     expect(machine.canTransition('gather_complete')).toBe(false);
     // 调用方应先检查 canTransition,否则 transition 抛错
     expect(() => machine.transition('gather_complete')).toThrow(/Invalid transition/);
@@ -85,7 +85,7 @@ describe('PlanMachine 集成:runToolLoop 行为契约', () => {
 
   it('executing 状态:runToolLoop 应正常执行工具(无阻断)', async () => {
     const machine = new PlanMachine('gathering');
-    machine.transition('gather_complete'); // → executing
+    machine.transition('gather_complete', { approved: true }); // → executing
     expect(machine.isWriteBlocked()).toBe(false);
     const shouldSkip = machine.isWriteBlocked() && /* toolCalls.length > 0 */ true;
     expect(shouldSkip).toBe(false);
@@ -96,7 +96,7 @@ describe('PlanMachine 集成:runToolLoop 行为契约', () => {
     const machine = new PlanMachine('gathering');
     const planApproved = true; // planFirst 路径自动批准
     if (planApproved && machine.canTransition('gather_complete')) {
-      machine.transition('gather_complete');
+      machine.transition('gather_complete', { approved: true });
     }
     expect(machine.getCurrentState()).toBe('executing');
     expect(machine.isWriteBlocked()).toBe(false);
@@ -105,7 +105,7 @@ describe('PlanMachine 集成:runToolLoop 行为契约', () => {
   it('planMachine 已在 executing 时,planFirst 路径 canTransition=false 不抛错', () => {
     // 模拟二次进入 planFirst 路径(已在 executing 状态)
     const machine = new PlanMachine('gathering');
-    machine.transition('gather_complete'); // → executing
+    machine.transition('gather_complete', { approved: true }); // → executing
     // 二次调用:canTransition 守门跳过,不抛错
     if (machine.canTransition('gather_complete')) {
       machine.transition('gather_complete'); // 不会执行
@@ -152,7 +152,7 @@ describe('PlanMachine 集成:与 planFirst 共存语义', () => {
     const planFirst = true;
     const planApproved = true;
     const machine = new PlanMachine('gathering');
-    machine.transition('gather_complete'); // → executing
+    machine.transition('gather_complete', { approved: true }); // → executing
     const planFirstBlocks = planFirst && !planApproved && /* toolCalls.length > 0 */ true;
     expect(planFirstBlocks).toBe(false);
     const machineBlocks = machine.isWriteBlocked() && /* toolCalls.length > 0 */ true;

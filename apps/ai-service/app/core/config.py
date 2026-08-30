@@ -57,6 +57,10 @@ class Settings(BaseSettings):
     litellm_model: str = "stepfun/step-router-v1"
     # Agent tool loop 最大轮数(被 llm.py /llm/complete/stream 读取,2026-07-24 修复硬编码 3 的 bug)
     # 8 轮可覆盖"截图→识别→点击→再截图→输入→提交"等多步操作,同时留 2 轮余量防失控
+    # 2026-08-30 升级:两层可配置 — ① 环境变量 MAX_AGENT_ITERATIONS 覆盖默认值
+    # (pydantic-settings 大小写不敏感,写 .env 或系统环境变量即生效,无需改代码);
+    # ② 请求级覆盖:/llm/complete/stream 请求体的 max_iterations 可选字段(仅本请求生效,
+    # 见 routers/llm.py LLMCompleteRequest);两层均未配置时回退本默认值 8
     max_agent_iterations: int = 8
     # Sliding window:系统消息始终保留 + 最近 N 轮 user/assistant + 当前输入
     # 默认 6 轮,总消息数 ≤ 13(1 system + 12 turn + 1 current,实际 N*2+1)

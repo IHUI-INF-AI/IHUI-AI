@@ -30,6 +30,8 @@ export interface MessageListScrollResult {
   handleScroll: () => void
   scrollToBottom: () => void
   handleJumpToLatest: () => void
+  /** 2026-08-29 立:标记真实用户滚动意图(wheel/touch),程序自动滚底不触发 */
+  markUserIntent: () => void
   userScrolledUp: boolean
   userScrolledToTop: boolean
   setUserScrolledToTop: (v: boolean) => void
@@ -94,6 +96,27 @@ export function useMessageListScroll({
     setFocusedIndex(next)
   }, [])
   const prevMessagesLenRef = React.useRef(0)
+
+  // 2026-08-29 修复:真实用户滚动意图标记(wheel/touch)。
+  // 根因:自动滚底用 scrollIntoView({behavior:'smooth'}),smooth 动画持续触发 scroll 事件,
+  // 而 handleScroll 原先用 distanceFromBottom > 120 推断"用户上翻"——流式输出内容持续增长、
+  // smooth 动画追不上时 distanceFromBottom 变大,程序滚动被误判为手动上翻,
+  // userScrolledUpRef 被置 true → 后续 token 不再自动滚底(用户看到"内容在生成但列表不跟滚")。
+  // 修复:仅当用户真实交互(wheel/touchmove)后才允许更新上翻判定,程序滚动不参与。
+  // 标记 800ms 自动过期(连续滚动会持续刷新),避免一次轻滑长期影响。
+  const userIntentScrollRef = React.useRef(false)
+  const clearIntentTimerRef = React.useRef<number | null>(null)
+  const markUserIntent = React.useCallback(() => {
+    userIntentScrollRef.current = true
+    if (clearIntentTimerRef.current !== null) {
+      window.clearTimeout(clearIntentTimerRef.current)
+    }
+    clearIntentTimerRef.current = window.setTimeout(() => {
+      userIntentScrollRef.current = false
+      clearIntentTimerRef.current = null
+    }, 800)
+  }, [])
+
   // #9 自动滚动 50ms throttle(2026-07-25 立):
   // 用 setTimeout + timestamp 实现 leading + trailing 节流,避免每个 token 触发 scrollIntoView。
   // - leading:第一次立即滚(新消息到达时视觉跟手)
@@ -148,22 +171,31 @@ export function useMessageListScroll({
 
     // 标记用户是否向上滚动(远离底部)
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-    // P0 修复(2026-08-02):hysteresis 滞后 50px,避免边界抖动
-    // - 未显示按钮时:distanceFromBottom > 120(UPPER)才显示(向上滚超过 120px)
-    // - 已显示按钮时:distanceFromBottom > 70(LOWER)才保持显示,否则隐藏(向下滚低于 70px)
-    // - 70~120px 之间保持当前状态,用户在边界附近微小滚动不会触发按钮频繁显隐
-    const UPPER_THRESHOLD = 120
-    const LOWER_THRESHOLD = 70
-    const currentlyScrolledUp = userScrolledUp
-    const scrolledUp = currentlyScrolledUp
-      ? distanceFromBottom > LOWER_THRESHOLD
-      : distanceFromBottom > UPPER_THRESHOLD
-    userScrolledUpRef.current = scrolledUp
-    // 同步到 store(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
-    // 2026-08-25:统一走 safe 包装(与顶部按钮一致),消除对原始 setter 的依赖
-    // 同时修复 exhaustive-deps 缺失依赖警告(setter 缺失时原代码此处会直接抛错)
-    if (scrolledUp !== userScrolledUp) {
-      safeSetUserScrolledUp(scrolledUp)
+    // 2026-08-29 修复:维护贴底跟随状态(程序滚动动画期间冻结,防动画中距离暂时变大被误判)
+    if (Date.now() >= programmaticScrollUntilRef.current) {
+      pinnedToBottomRef.current = distanceFromBottom <= 120
+    }
+    // 2026-08-29 修复:上翻判定仅对真实用户滚动意图(wheel/touch)生效。
+    // 程序自动滚底(smooth 动画)触发的 scroll 事件不参与,避免流式期间
+    // userScrolledUpRef 被误置 true 导致自动滚动中断。
+    if (userIntentScrollRef.current) {
+      // P0 修复(2026-08-02):hysteresis 滞后 50px,避免边界抖动
+      // - 未显示按钮时:distanceFromBottom > 120(UPPER)才显示(向上滚超过 120px)
+      // - 已显示按钮时:distanceFromBottom > 70(LOWER)才保持显示,否则隐藏(向下滚低于 70px)
+      // - 70~120px 之间保持当前状态,用户在边界附近微小滚动不会触发按钮频繁显隐
+      const UPPER_THRESHOLD = 120
+      const LOWER_THRESHOLD = 70
+      const currentlyScrolledUp = userScrolledUp
+      const scrolledUp = currentlyScrolledUp
+        ? distanceFromBottom > LOWER_THRESHOLD
+        : distanceFromBottom > UPPER_THRESHOLD
+      userScrolledUpRef.current = scrolledUp
+      // 同步到 store(2026-07-28 立),驱动 jump-to-latest 按钮条件渲染
+      // 2026-08-25:统一走 safe 包装(与顶部按钮一致),消除对原始 setter 的依赖
+      // 同时修复 exhaustive-deps 缺失依赖警告(setter 缺失时原代码此处会直接抛错)
+      if (scrolledUp !== userScrolledUp) {
+        safeSetUserScrolledUp(scrolledUp)
+      }
     }
 
     // 顶部返回按钮:scrollTop > 200px 时显示
@@ -253,6 +285,18 @@ export function useMessageListScroll({
     safeSetUserScrolledUp,
   ])
 
+  // 2026-08-29 修复:自动滚底"差一脚"(最后一条消息停不到底,需手动再滑)
+  // 根因:scrollIntoView 的动画目标在调用瞬间一次性计算,此后内容高度再增长
+  // (流结束瞬间操作按钮行 msg-hover-reveal 才挂载 / Markdown 收尾重排 / 图片解码等),
+  // 终点即过期 → 停在离底部一小段处。
+  // 修复方案:贴底跟随(pinned-to-bottom)状态机 + ResizeObserver 自校正网
+  // - pinnedToBottomRef:最近已知位置是否处于贴底区(距底 ≤ 120px,与 userScrolledUp 滞后阈值一致)
+  // - programmaticScrollUntilRef:程序滚动动画期间冻结 pinned 判定(动画中距离暂时变大属正常,
+  //   不能误判为"用户离开底部");期间用户真实滚轮/触摸由 userIntentScrollRef + userScrolledUpRef 拦截
+  // - 内容高度一变且 pinned → 瞬时贴底,兜住一切"事后长高"(图片解码晚于流结束也能跟随)
+  const pinnedToBottomRef = React.useRef(false)
+  const programmaticScrollUntilRef = React.useRef(0)
+
   // 自动滚动到底部(流式 token 到达 + 新消息)
   // - 流式输出时强制滚到底(保持最新内容可见)
   // - 新消息到达时强制滚到底
@@ -272,10 +316,17 @@ export function useMessageListScroll({
     const doScroll = () => {
       const el = bottomRef.current
       if (!el) return
+      pinnedToBottomRef.current = true
+      programmaticScrollUntilRef.current = Date.now() + 700
       // 批量加载(切换会话/首次加载,prev=0 且 newLen>1):auto 无动画直接跳底
       // 逐条追加/streaming:smooth 平滑跟随新消息
       const behavior = prevLen === 0 && newLen > 1 ? 'auto' : 'smooth'
       el.scrollIntoView({ behavior, block: 'end' })
+      // 2026-08-29 修复:程序滚底后重置用户上翻标记。
+      // 此前 isNewMessage 强制滚动后 userScrolledUpRef 残留 true,导致后续
+      // 流式 token 不再跟随滚动(内容增长后用户看不到最新一行)。
+      userScrolledUpRef.current = false
+      safeSetUserScrolledUp(false)
     }
     const st = scrollThrottleRef.current
     const now = Date.now()
@@ -298,13 +349,42 @@ export function useMessageListScroll({
     }
   }, [messages.length, lastContent, isStreaming])
 
+  // 2026-08-29 修复(2):贴底自校正网 — 内容容器高度一变,若处于贴底跟随态则瞬时校正。
+  // 触发条件(全满足才校正,避免打扰用户阅读):
+  // - 用户无上翻动作(userScrolledUpRef)且无进行中的滚轮/触摸手势(userIntentScrollRef)
+  // - 最近已知位置处于贴底区(pinnedToBottomRef,与流式状态无关 → 图片解码等晚到长高也能跟随)
+  // 用 scrollTop = scrollHeight 瞬时贴底(小校正不可感知;smooth 动画不会重新瞄准已过期的终点)
+  const hasMessages = messages.length > 0
+  React.useEffect(() => {
+    if (!hasMessages) return
+    const container = containerRef.current
+    const content = container?.firstElementChild
+    if (!container || !content || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      if (userScrolledUpRef.current || userIntentScrollRef.current) return
+      if (!pinnedToBottomRef.current) return
+      const el = containerRef.current
+      if (!el) return
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+      if (distance <= 0) return
+      el.scrollTop = el.scrollHeight
+    })
+    ro.observe(content)
+    return () => ro.disconnect()
+  }, [hasMessages])
+
   // #9 卸载时清理 pending throttle timer(2026-07-25 立)
+  // 2026-08-29 扩展:同时清理用户滚动意图标记的过期 timer
   React.useEffect(() => {
     const st = scrollThrottleRef.current
     return () => {
       if (st.timer !== null) {
         clearTimeout(st.timer)
         st.timer = null
+      }
+      if (clearIntentTimerRef.current !== null) {
+        clearTimeout(clearIntentTimerRef.current)
+        clearIntentTimerRef.current = null
       }
     }
   }, [])
@@ -370,6 +450,8 @@ export function useMessageListScroll({
   const scrollToBottom = React.useCallback(() => {
     const el = bottomRef.current
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    pinnedToBottomRef.current = true
+    programmaticScrollUntilRef.current = Date.now() + 700
     userScrolledUpRef.current = false
     safeSetUserScrolledUp(false)
   }, [safeSetUserScrolledUp])
@@ -489,6 +571,7 @@ export function useMessageListScroll({
     handleScroll,
     scrollToBottom,
     handleJumpToLatest,
+    markUserIntent,
     userScrolledUp,
     userScrolledToTop,
     setUserScrolledToTop,

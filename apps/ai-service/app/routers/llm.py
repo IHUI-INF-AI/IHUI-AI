@@ -484,6 +484,15 @@ class LLMCompleteRequest(BaseModel):
     # plan_mode='plan' 时前置注入 Plan Mode system prompt,LLM 只制定计划不调用工具;
     # 'act' 或 None = 正常 tool loop 执行(默认)
     plan_mode: str | None = Field(None, description="Plan/Act 模式:'plan'=只制定计划,'act'=正常执行(默认)")
+    # Agent tool loop 最大轮数请求级覆盖(2026-08-30 立):
+    # None = 用 settings.max_agent_iterations(默认 8,可被 .env 的 MAX_AGENT_ITERATIONS 覆盖);
+    # 显式传入时仅本请求生效(如复杂多步浏览器任务临时调大),夹紧到 [1, 50] 防失控/防滥用
+    max_iterations: int | None = Field(
+        None,
+        ge=1,
+        le=50,
+        description="Agent tool loop 最大轮数(请求级覆盖,默认 settings.max_agent_iterations=8,范围 1-50)",
+    )
 
 
 # =============================================================================
@@ -1095,7 +1104,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 每轮:complete(tools) → 执行 tool_calls → 回灌结果
                     # 直到 LLM 不再决策 tool_calls 或达到 max_iterations → 归一化 → astream 生成最终回复
                     # 2026-07-24 修复:从 settings.max_agent_iterations 读取(原硬编码 3,无法覆盖多步操作)
-                    max_iterations = settings.max_agent_iterations
+                    # 2026-08-30 升级:支持请求级覆盖 — 请求体 max_iterations 可选字段优先
+                    # (仅本请求生效,pydantic 已夹紧到 [1,50]);未传时回退 settings.max_agent_iterations
+                    # (其本身可被环境变量 MAX_AGENT_ITERATIONS 覆盖,见 config.py)
+                    max_iterations = req.max_iterations or settings.max_agent_iterations
                     # 重复调用检测集合(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
                     # search_codebase(query="config") 8 次耗尽 max_iterations 的问题):
                     # - executed_tool_keys:本轮 tool loop 内已执行过的 (tool_name, args_hash) 集合,命中则跳过执行

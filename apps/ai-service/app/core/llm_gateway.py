@@ -810,6 +810,166 @@ async def _openrouter_proxy_context(model: str) -> AsyncIteratorType[None]:
                 os.environ.pop("HTTP_PROXY", None)
 
 
+# ============================================================================
+# P0 修复(2026-08-30):按 model 维度失败计数与熔断
+# ============================================================================
+# 原问题:routers/llm.py /llm/providers/health 硬编码 is_in_cooldown=False /
+# consecutive_failures=0,Dashboard 永远显示所有 provider 健康,无法感知真实故障。
+# 本熔断器在 llm_gateway.complete/astream 的成败路径挂钩计数:
+# - 调用失败(非配置类错误)→ 该 model 连续失败 +1(Redis 计数器带 TTL)
+# - 调用成功 → 连续失败清零(自动退出冷却)
+# - 连续失败 ≥ 阈值(3)→ 进入冷却窗口,指数退避 60s * 2^(超额失败次数),上限 30 分钟
+#   (退避曲线与 combo_router.ProviderHealthState 对齐:60s → 120s → 240s → ... → 1800s)
+# Redis 可用时用 Redis 记录(多进程/多实例共享熔断状态);不可用时降级进程内 dict。
+# Redis key 设计(TTL 防状态残留):
+# - llm_cb:fail:{model}      连续失败计数(TTL 10 分钟,无新失败自动清零)
+# - llm_cb:cooldown:{model}  冷却截止时间戳(TTL = 冷却时长,过期即自动出冷却)
+
+
+class ModelCircuitBreaker:
+    """按 model 维度的连续失败计数 + 指数退避熔断器。
+
+    用法:
+        model_circuit_breaker.mark_failure("stepfun/step-3.7-flash")  # 失败计数 +1
+        model_circuit_breaker.mark_success("stepfun/step-3.7-flash")  # 成功清零
+        model_circuit_breaker.is_in_cooldown("stepfun/step-3.7-flash")  # 冷却期内 True
+    """
+
+    # 连续失败达到该阈值进入冷却窗口
+    FAILURE_THRESHOLD: int = 3
+    # 基础冷却时长(秒),指数退避:base * 2^(连续失败 - 阈值)
+    BASE_COOLDOWN_SEC: float = 60.0
+    # 冷却时长上限(30 分钟,与 combo_router.ProviderHealthState 对齐)
+    MAX_COOLDOWN_SEC: float = 1800.0
+    # 失败计数 TTL(10 分钟无新失败自动清零,防止陈旧计数误熔断)
+    FAILURE_TTL_SEC: int = 600
+
+    def __init__(self) -> None:
+        # Redis 不可用时的进程内降级状态:model → {"failures": int, "cooldown_until": float}
+        self._local_state: dict[str, dict[str, Any]] = {}
+        self._redis: Any = None
+        self._redis_disabled: bool = False
+
+    def _get_redis(self) -> Any:
+        """懒加载 Redis 客户端(REDIS_URL 未配置/连接失败 → 降级进程内 dict,不阻塞主流程)。"""
+        if self._redis_disabled:
+            return None
+        if self._redis is None:
+            redis_url = settings.redis_url or os.getenv("REDIS_URL") or ""
+            if not redis_url:
+                self._redis_disabled = True
+                return None
+            try:
+                import redis
+
+                # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
+                # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 agent_runtime)
+                client = redis.from_url(redis_url, decode_responses=True, protocol=2)
+                client.ping()
+                self._redis = client
+            except Exception as e:
+                logger.warning("[circuit_breaker] Redis 不可用,降级进程内计数: %s", e)
+                self._redis_disabled = True
+                return None
+        return self._redis
+
+    def _cooldown_sec_for(self, failures: int) -> float:
+        """根据连续失败次数计算冷却时长(指数退避,上限 30 分钟)。"""
+        return min(
+            self.BASE_COOLDOWN_SEC * (2 ** max(0, failures - self.FAILURE_THRESHOLD)),
+            self.MAX_COOLDOWN_SEC,
+        )
+
+    def mark_failure(self, model: str) -> None:
+        """记录一次失败:连续失败 +1,达到阈值写冷却截止时间(指数退避)。"""
+        if not model:
+            return
+        r = self._get_redis()
+        if r is not None:
+            try:
+                fail_key = f"llm_cb:fail:{model}"
+                failures = int(r.incr(fail_key))
+                r.expire(fail_key, self.FAILURE_TTL_SEC)
+                if failures >= self.FAILURE_THRESHOLD:
+                    cooldown = self._cooldown_sec_for(failures)
+                    r.set(f"llm_cb:cooldown:{model}", time.time() + cooldown, ex=int(cooldown) + 1)
+                    logger.warning(
+                        "[circuit_breaker] model=%s 连续失败 %d 次,进入冷却 %.0fs(指数退避)",
+                        model, failures, cooldown,
+                    )
+                return
+            except Exception as e:
+                # Redis 中途故障 → 降级进程内计数(本次调用不重试,下次直接走进程内)
+                logger.debug("[circuit_breaker] Redis 计数失败,降级进程内: %s", e)
+                self._redis_disabled = True
+        # 进程内降级(Redis 不可用)
+        state = self._local_state.setdefault(model, {"failures": 0, "cooldown_until": 0.0})
+        state["failures"] = int(state.get("failures", 0)) + 1
+        if state["failures"] >= self.FAILURE_THRESHOLD:
+            cooldown = self._cooldown_sec_for(state["failures"])
+            state["cooldown_until"] = time.time() + cooldown
+            logger.warning(
+                "[circuit_breaker][local] model=%s 连续失败 %d 次,进入冷却 %.0fs(指数退避)",
+                model, state["failures"], cooldown,
+            )
+
+    def mark_success(self, model: str) -> None:
+        """记录一次成功:连续失败清零 + 删除冷却标记(立即退出冷却窗口)。"""
+        if not model:
+            return
+        r = self._get_redis()
+        if r is not None:
+            try:
+                r.delete(f"llm_cb:fail:{model}", f"llm_cb:cooldown:{model}")
+                return
+            except Exception as e:
+                logger.debug("[circuit_breaker] Redis 清零失败,降级进程内: %s", e)
+                self._redis_disabled = True
+        self._local_state.pop(model, None)
+
+    def is_in_cooldown(self, model: str) -> bool:
+        """该 model 是否在冷却窗口内(冷却截止时间戳未过期)。"""
+        if not model:
+            return False
+        deadline = self._cooldown_deadline(model)
+        return deadline is not None and deadline > time.time()
+
+    def get_consecutive_failures(self, model: str) -> int:
+        """该 model 当前连续失败次数(冷却期内返回计数,过期/无记录返回 0)。"""
+        if not model:
+            return 0
+        r = self._get_redis()
+        if r is not None:
+            try:
+                raw = r.get(f"llm_cb:fail:{model}")
+                return int(raw) if raw else 0
+            except Exception as e:
+                logger.debug("[circuit_breaker] Redis 读取失败,降级进程内: %s", e)
+                self._redis_disabled = True
+        state = self._local_state.get(model)
+        return int(state.get("failures", 0)) if state else 0
+
+    def _cooldown_deadline(self, model: str) -> Optional[float]:
+        """读取冷却截止时间戳(Redis 优先,降级进程内),无冷却记录返回 None。"""
+        r = self._get_redis()
+        if r is not None:
+            try:
+                raw = r.get(f"llm_cb:cooldown:{model}")
+                return float(raw) if raw else None
+            except Exception as e:
+                logger.debug("[circuit_breaker] Redis 读取冷却状态失败,降级进程内: %s", e)
+                self._redis_disabled = True
+        state = self._local_state.get(model)
+        if not state:
+            return None
+        deadline = float(state.get("cooldown_until", 0.0))
+        return deadline if deadline > 0.0 else None
+
+
+# 按 model 维度熔断器单例(供 llm_gateway 成败路径挂钩 + llm.py 健康端点读取)
+model_circuit_breaker = ModelCircuitBreaker()
+
+
 class LLMGateway:
     """LLM 调用网关,封装 LiteLLM 并提供 stub 降级。"""
 
@@ -1375,6 +1535,8 @@ class LLMGateway:
             # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
             if current_key_pool_id:
                 await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
+            # P0(2026-08-30):成功 → 清零该 model 连续失败计数(自动退出冷却窗口)
+            model_circuit_breaker.mark_success(used_model)
             return result
         except Exception as e:
             # P0-5c:号池故障转移 — 标记失败 + 递归重试(最多 3 次,换 key 再试)
@@ -1404,6 +1566,15 @@ class LLMGateway:
                     if key_field in safe_msg.lower():
                         safe_msg = f"LLM 调用失败(含敏感信息已脱敏): {type(e).__name__}"
                         break
+            # P0(2026-08-30):运行时故障(非配置类错误)→ 按 model 维度失败计数 +1,
+            # 连续 ≥3 次进入指数退避冷却(见 ModelCircuitBreaker)。放在号池重试之后
+            # (每次重试失败都会递归走本方法,只在号池重试耗尽/无号池时计一次,防重复计数);
+            # 放在 fallback/Combo 兜底之前(primary 已真实失败,即使兜底成功也应计数,
+            # 健康端点才能感知 primary 的劣化趋势)。
+            # 配置类错误(MODEL_NOT_CONFIGURED / PROVIDER_NOT_IMPLEMENTED)是部署问题
+            # 而非模型故障,不计入熔断,否则漏配 key 的 model 会被误熔断。
+            if err_code == "LLM_ERROR":
+                model_circuit_breaker.mark_failure(used_model)
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(同模型换 provider,优先于 FallbackRouter 换模型)
             # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断
@@ -1848,6 +2019,8 @@ class LLMGateway:
                         and evt.get("type") == "error"
                         and not native_sent_content
                     ):
+                        # P0(2026-08-30):原生适配器流式失败(未发 chunk)计入熔断计数
+                        model_circuit_breaker.mark_failure(used_model)
                         async for fb_evt in self._astream_fallback_events(
                             trimmed_messages,
                             used_model,
@@ -2020,6 +2193,8 @@ class LLMGateway:
             # P0-5c:号池 key 调用成功 → 标记 healthy(恢复 degraded/unknown 状态)
             if current_key_pool_id:
                 await KeyPoolSelector.mark_key_healthy(current_key_pool_id)
+            # P0(2026-08-30):成功 → 清零该 model 连续失败计数(自动退出冷却窗口)
+            model_circuit_breaker.mark_success(used_model)
             yield {
                 "type": "done",
                 "model": final_model,
@@ -2049,6 +2224,9 @@ class LLMGateway:
                 # P0-5c:号池 key 流式中断 → 仍标记失败(下次选 key 时降级)
                 if current_key_pool_id:
                     await KeyPoolSelector.mark_key_failed(current_key_pool_id, str(e))
+                # P0(2026-08-30):流式中断是真实运行时故障(已发过 chunk 说明 key 有效,
+                # 排除配置类错误),计入熔断计数
+                model_circuit_breaker.mark_failure(used_model)
                 yield {
                     "type": "partial_done",
                     "fallback_applied": False,
@@ -2079,6 +2257,10 @@ class LLMGateway:
                 ):
                     yield evt
                 return
+            # P0(2026-08-30):运行时故障(非配置类错误)→ 按 model 维度失败计数 +1
+            # (与 complete() 同策略:号池重试耗尽后只计一次,配置类错误不计入熔断)
+            if err_code == "LLM_ERROR":
+                model_circuit_breaker.mark_failure(used_model)
             # P3-3 OpenRouter 403 failover(2026-07-30):openrouter/<model> 返回 403 时,
             # 自动 failover 到 agnes/<model>(仅未发送 chunk 时,已发送 chunk 不可撤回)
             # _is_openrouter_403_error 天然防递归:agnes/ 前缀不匹配 openrouter/ 判断

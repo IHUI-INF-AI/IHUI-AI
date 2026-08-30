@@ -5,7 +5,8 @@
  *   - 转移规则用嵌套 Record 表达,零分支
  *   - isWriteBlocked 仅在 gathering 返回 true(强制阻断写操作,核心阻断语义)
  *   - 非法转移抛 Error,不静默忽略
- *   - ctx 参数为未来钩子扩展预留,当前转移规则纯静态
+ *   - 审批门:gathering → executing(gather_complete)必须携带 ctx.approved = true,
+ *     未经批准抛错拒绝转移(计划-执行闭环的关键守门)
  */
 
 import type { PlanContext, PlanEvent, PlanState } from './types.js';
@@ -25,10 +26,14 @@ export class PlanMachine {
     this.state = initialState;
   }
 
-  transition(event: PlanEvent, _ctx?: PlanContext): PlanState {
+  transition(event: PlanEvent, ctx?: PlanContext): PlanState {
     const next = TRANSITIONS[this.state][event];
     if (!next) {
       throw new Error(`Invalid transition: ${this.state} + ${event}`);
+    }
+    // 审批门:gathering → executing 必须显式批准(ctx.approved === true)
+    if (this.state === 'gathering' && event === 'gather_complete' && ctx?.approved !== true) {
+      throw new Error(`Approval required: ${this.state} + ${event} 未经批准(ctx.approved = true)`);
     }
     this.state = next;
     return this.state;

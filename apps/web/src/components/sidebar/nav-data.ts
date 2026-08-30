@@ -202,16 +202,62 @@ const EDU_ITEMS: NavItem[] = [
   { href: '/edu/certificates', labelKey: 'eduCertificates', icon: Award },
   // 课程表
   { href: '/edu/schedule', labelKey: 'eduSchedule', icon: CalendarDays },
-  { href: '/edu/edu-management/schedule', labelKey: 'eduScheduleMgr', icon: CalendarCheck },
-  // 管理功能(按使用频率从高到低)
-  { href: '/edu/edu-management/attendance', labelKey: 'eduAttendanceMgr', icon: ClipboardCheck },
-  { href: '/edu/edu-management/grades', labelKey: 'eduGradeMgr', icon: Award },
-  { href: '/edu/edu-management/homework', labelKey: 'eduHomeworkMgr', icon: FileEdit },
-  { href: '/edu/edu-management/scheduling', labelKey: 'eduSchedulingMgr', icon: CalendarRange },
-  { href: '/edu/edu-management/enrollment', labelKey: 'eduEnrollmentMgr', icon: UserPlus },
-  { href: '/edu/edu-management/finance', labelKey: 'eduFinanceMgr', icon: Landmark },
-  { href: '/edu/edu-management/meal', labelKey: 'eduMealMgr', icon: UtensilsCrossed },
-  { href: '/edu/edu-management/study-plan', labelKey: 'eduStudyPlanMgr', icon: ClipboardList },
+  // 管理功能(2026-08-30 加 adminOnly:后端 edu-ai-management 写接口全部 requireAdmin,
+  // 普通用户可见只会看到 403 报错;仅 admin 可见,与后端权限对齐)
+  {
+    href: '/edu/edu-management/schedule',
+    labelKey: 'eduScheduleMgr',
+    icon: CalendarCheck,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/attendance',
+    labelKey: 'eduAttendanceMgr',
+    icon: ClipboardCheck,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/grades',
+    labelKey: 'eduGradeMgr',
+    icon: Award,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/homework',
+    labelKey: 'eduHomeworkMgr',
+    icon: FileEdit,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/scheduling',
+    labelKey: 'eduSchedulingMgr',
+    icon: CalendarRange,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/enrollment',
+    labelKey: 'eduEnrollmentMgr',
+    icon: UserPlus,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/finance',
+    labelKey: 'eduFinanceMgr',
+    icon: Landmark,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/meal',
+    labelKey: 'eduMealMgr',
+    icon: UtensilsCrossed,
+    adminOnly: true,
+  },
+  {
+    href: '/edu/edu-management/study-plan',
+    labelKey: 'eduStudyPlanMgr',
+    icon: ClipboardList,
+    adminOnly: true,
+  },
   // 学习工具
   { href: '/edu/notes', labelKey: 'eduNotes', icon: NotebookPen },
   { href: '/edu/qa', labelKey: 'eduQa', icon: HelpCircle },
@@ -250,29 +296,12 @@ const MEMBER_ITEMS: NavItem[] = [
   { href: '/member/settings', labelKey: 'memberSettings', icon: Settings },
 ]
 
-/** /developer 14 项整合到新增"开发者"组下 */
-const DEVELOPER_ITEMS: NavItem[] = [
-  { href: '/developer', labelKey: 'developer', icon: Terminal },
-  { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
-  { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
-  // P0-5 模型 API 中转站(2026-07-29 立)
-  { href: '/developer/relay', labelKey: 'developerRelay', icon: Zap },
-  { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
-  { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
-  // P0 API 订阅包产品化(2026-07-31 立):3 档 API 订阅方案(Starter/Pro/Enterprise)
-  {
-    href: '/developer/relay/subscriptions',
-    labelKey: 'developerRelaySubscriptions',
-    icon: CreditCard,
-  },
+/** /developer 开发者工具子菜单(2026-08-30 瘦身):低频开发者工具收进可折叠子菜单 */
+const DEVELOPER_TOOLS_CHILDREN: NavItem[] = [
   // P0 Playground 内置在线测试页(2026-07-31 立):用当前用户 API Key 走 /v1/chat/completions 在线测试
   { href: '/playground', labelKey: 'playground', icon: FlaskConical },
   { href: '/developer/webhooks', labelKey: 'developerWebhooks', icon: Webhook },
   { href: '/developer/sandbox', labelKey: 'developerSandbox', icon: FlaskConical },
-  // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)
-  { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu },
-  // 2026-08-08 feature-final2:自进化系统管理(Meta-Learner)
-  { href: '/admin/meta-learner', labelKey: 'eduAiMetaLearner', icon: Brain },
   { href: '/developer/limits', labelKey: 'developerLimits', icon: Gauge },
   { href: '/developer/logs', labelKey: 'developerLogs', icon: FileText },
   { href: '/developer/versions', labelKey: 'developerVersions', icon: GitBranch },
@@ -281,6 +310,65 @@ const DEVELOPER_ITEMS: NavItem[] = [
   { href: '/developer/team', labelKey: 'developerTeam', icon: Users },
   { href: '/developer/billing', labelKey: 'developerBilling', icon: Receipt },
   { href: '/developer/settings', labelKey: 'developerSettings', icon: Settings },
+]
+
+/** /developer 项整合到"开发者"组下(2026-08-30 瘦身:19+ 项平铺对普通用户不可理解,
+ * 只保留 5 个核心项平铺,中转站密钥/用量挂为子项,其余低频工具收进"开发者工具"折叠子菜单) */
+const DEVELOPER_ITEMS: NavItem[] = [
+  { href: '/developer', labelKey: 'developer', icon: Terminal },
+  { href: '/developer/api-docs', labelKey: 'developerApiDocs', icon: Code },
+  { href: '/developer/keys', labelKey: 'developerKeys', icon: Key },
+  // P0-5 模型 API 中转站(2026-07-29 立);2026-08-30 密钥/用量挂为中转站子项
+  {
+    href: '/developer/relay',
+    labelKey: 'developerRelay',
+    icon: Zap,
+    children: [
+      { href: '/developer/relay/keys', labelKey: 'developerRelayKeys', icon: KeyRound },
+      { href: '/developer/relay/usage', labelKey: 'developerRelayUsage', icon: Activity },
+    ],
+  },
+  // P0 API 订阅包产品化(2026-07-31 立):3 档 API 订阅方案(Starter/Pro/Enterprise)
+  {
+    href: '/developer/relay/subscriptions',
+    labelKey: 'developerRelaySubscriptions',
+    icon: CreditCard,
+  },
+  // 2026-08-30 瘦身:低频开发者工具收进"开发者工具"可展开子菜单(入口保留,高级用户可展开使用)
+  {
+    href: '/developer/webhooks',
+    labelKey: 'developerTools',
+    icon: Terminal,
+    children: DEVELOPER_TOOLS_CHILDREN,
+  },
+  // 2026-08-08 feature-final2:IoT 设备管理(TBox 车载设备)——设备后台管理,仅 admin 可见
+  { href: '/edu-ai/tbox', labelKey: 'eduAiTbox', icon: Cpu, adminOnly: true },
+  // 2026-08-08 feature-final2:自进化系统管理(Meta-Learner)——/admin/* 后端 admin 权限,仅 admin 可见
+  { href: '/admin/meta-learner', labelKey: 'eduAiMetaLearner', icon: Brain, adminOnly: true },
+]
+
+/** 知识库三合一(2026-08-30):知识库/RAG/图谱 三个入口概念重叠,收进"知识库"可展开子菜单 */
+const KNOWLEDGE_CHILDREN: NavItem[] = [
+  { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
+  { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
+  { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
+]
+
+/**
+ * 高级 AI 工具(2026-08-30 新增):原 AI 分组平铺的 9 个 TRAE Work 概念入口
+ * (记忆/子智能体/上下文/规格/计划/注册中心/A2A/Personas/编排)对普通用户不可理解,
+ * 收进单个可折叠子菜单降噪;入口保留,高级用户仍可展开使用。
+ */
+const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
+  { href: '/memory', labelKey: 'memory', icon: Brain },
+  { href: '/subagents', labelKey: 'subagents', icon: Bot },
+  { href: '/context', labelKey: 'context', icon: Layers },
+  { href: '/spec', labelKey: 'spec', icon: FileCheck },
+  { href: '/plan', labelKey: 'plan', icon: ClipboardList },
+  { href: '/registry', labelKey: 'registry', icon: RefreshCw },
+  { href: '/a2a', labelKey: 'eduAiA2a', icon: Network },
+  { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
+  { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
 ]
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
@@ -315,23 +403,24 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
         icon: Globe,
         children: [{ href: '/ai-world/favorites', labelKey: 'favorites', icon: Star }],
       },
-      // 2026-07-24 对标 TRAE Work AI 工作台能力:5 个 P0 可视化页面接入
-      { href: '/memory', labelKey: 'memory', icon: Brain },
-      { href: '/subagents', labelKey: 'subagents', icon: Bot },
-      { href: '/context', labelKey: 'context', icon: Layers },
-      { href: '/spec', labelKey: 'spec', icon: FileCheck },
-      { href: '/plan', labelKey: 'plan', icon: ClipboardList },
+      // 2026-07-24 对标 TRAE Work AI 工作台能力(2026-08-30 收进"高级 AI 工具"折叠子菜单,见 ADVANCED_AI_TOOLS_CHILDREN)
+      {
+        href: '/memory',
+        labelKey: 'advancedAiTools',
+        icon: Brain,
+        children: ADVANCED_AI_TOOLS_CHILDREN,
+      },
       { href: '/workspace', labelKey: 'workspace', icon: FolderOpen },
-      { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
-      { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
-      { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
-      { href: '/registry', labelKey: 'registry', icon: RefreshCw },
-      // 2026-08-07 feature-final:A2A 智能体互联(注册智能体/派发任务)
-      { href: '/a2a', labelKey: 'eduAiA2a', icon: Network },
-      // 2026-08-07 feature-final:Personas 人设中心(查看人设契约)
-      { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
-      // 2026-08-07 feature-final:编排中心(中枢状态/仪表盘/事件流)
-      { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
+      // 知识库三合一(2026-08-30):原平铺的知识库/RAG/图谱收进可展开子菜单
+      {
+        href: '/knowledge-base',
+        labelKey: 'knowledgeBase',
+        icon: BookOpen,
+        children: KNOWLEDGE_CHILDREN,
+      },
+      // 2026-08-07 feature-final:A2A 智能体互联(注册智能体/派发任务)→ 已收进"高级 AI 工具"
+      // 2026-08-07 feature-final:Personas 人设中心(查看人设契约)→ 已收进"高级 AI 工具"
+      // 2026-08-07 feature-final:编排中心(中枢状态/仪表盘/事件流)→ 已收进"高级 AI 工具"
       // 自动化任务调度器已于 2026-07-22 移至侧边栏快捷区(插件市场按钮下方),不再占用 AI 分组位置。
     ],
   },

@@ -489,6 +489,20 @@ import { registerMemoryTools } from './memory.js';
 export { registerMemoryTools };
 registerMemoryTools();
 
+// ==================== 浏览器自动化工具(npx 按需拉起 @playwright/mcp,不可用时优雅降级)====================
+// 8 个 browser_* 工具(navigate/click/type/screenshot/get_text/press_key/scroll/wait),
+// 懒连接:注册时不 spawn 子进程,首次调用时才通过 mcp-runtime 连接 @playwright/mcp。
+// registerBrowserTools 定义在此处而非 browser.ts,避免 browser.ts ↔ index.ts 运行时循环依赖
+// (browser.ts 对本文件仅做类型导入)。
+import { BROWSER_TOOLS } from './browser.js';
+export { BROWSER_TOOLS, closeBrowserConnection } from './browser.js';
+
+/** 注册浏览器工具到全局工具注册器 */
+export function registerBrowserTools(): void {
+  registerTools(BROWSER_TOOLS);
+}
+registerBrowserTools();
+
 // ==================== Git 工作流深化工具(Wave 8,2026-07-22 新增,对标 OpenClaw/OpenCode)====================
 // 高级 Git 工具(branch/merge/rebase/stash/conflict/tag/remote)+ GitHub PR 工具(PR/Issue/Release)
 // 通过 git.ts 的 GIT_TOOLS 统一注册到 agent.ts,GIT_ADVANCED_TOOLS/GITHUB_PR_TOOLS 在此 re-export 供按需导入

@@ -189,9 +189,21 @@ const Sidebar = React.memo(function Sidebar({
       }))
   }, [isAdmin, adminLoaded, adminDynamicList])
 
+  // adminOnly 递归过滤(2026-08-30 修复):原逻辑只过滤分组一级 items,不递归过滤 item.children,
+  // adminOnly 子项挂在非 adminOnly 父项下时会对普通用户泄漏(此前仅靠 nav-data 配置约定保障)。
+  const filterByRole = React.useCallback(
+    (items: NavItem[]): NavItem[] =>
+      items
+        .filter((item) => !item.adminOnly || isAdmin)
+        .map((item) =>
+          item.children ? { ...item, children: filterByRole(item.children) } : item,
+        ),
+    [isAdmin],
+  )
+
   const visibleGroups = React.useMemo(() => {
     return NAV_GROUPS.map((g) => {
-      const filtered = g.items.filter((item) => !item.adminOnly || isAdmin)
+      const filtered = filterByRole(g.items)
       // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
       if (g.label === 'adminGroupLabel' && adminDynamicItems.length > 0) {
         const [head, ...rest] = filtered
@@ -202,7 +214,7 @@ const Sidebar = React.memo(function Sidebar({
       }
       return { ...g, items: filtered }
     }).filter((g) => g.items.length > 0)
-  }, [isAdmin, adminDynamicItems])
+  }, [filterByRole, adminDynamicItems])
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),

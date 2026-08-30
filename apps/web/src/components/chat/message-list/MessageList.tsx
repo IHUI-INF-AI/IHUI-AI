@@ -94,6 +94,7 @@ export function MessageList({
     measureItem,
     handleScroll,
     handleJumpToLatest,
+    markUserIntent,
     userScrolledUp,
     userScrolledToTop,
     setUserScrolledToTop,
@@ -263,12 +264,16 @@ export function MessageList({
     <div
       ref={containerRef}
       onScroll={handleScroll}
+      onWheel={markUserIntent}
+      onTouchMove={markUserIntent}
       id="message-list-panel-inline"
       role="tabpanel"
       className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
     >
-      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
+      {/* 2026-08-29:底部留白去掉(py-6 → pt-6)— 最后一条消息贴合滚动容器底部,
+          顶部 pt-6 保留,呼吸空间由消息项自身间距提供 */}
+      <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 pt-6">
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <FallbackBanner

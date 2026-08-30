@@ -25,6 +25,8 @@ export interface PlanContext {
   messages?: unknown[]
   planSteps?: string[]
   currentStepIndex?: number
+  /** 审批门:gathering → executing 转移必须显式批准(未批准拒绝转移) */
+  approved?: boolean
 }
 
 export type HookEvent =

@@ -179,7 +179,12 @@ export const todo_write: Tool = {
   },
 };
 
-/** 读取当前 todo 清单(供 /todo slash 命令使用) */
+/** 读取当前 todo 清单(供 /todo slash 命令与计划系统同步使用) */
 export function readTodoList(ctx: ToolContext): TodoItem[] {
   return loadTodos(ctx);
+}
+
+/** 写入 todo 清单(供计划系统复用同一持久化机制 .ihui/todos.json) */
+export function writeTodoList(ctx: ToolContext, todos: TodoItem[]): void {
+  saveTodos(ctx, todos);
 }

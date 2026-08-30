@@ -15,18 +15,18 @@ describe('PlanMachine', () => {
 
     it('gathering + gather_complete → executing', () => {
       machine.transition('start')
-      expect(machine.transition('gather_complete')).toBe('executing')
+      expect(machine.transition('gather_complete', { approved: true })).toBe('executing')
     })
 
     it('executing + execute_complete → done', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.transition('execute_complete')).toBe('done')
     })
 
     it('完整主链 initialized→gathering→executing→done', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.getCurrentState()).toBe('done')
     })
@@ -44,13 +44,13 @@ describe('PlanMachine', () => {
 
     it('executing + cancel → cancelled', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.transition('cancel')).toBe('cancelled')
     })
 
     it('done + cancel → cancelled', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.transition('cancel')).toBe('cancelled')
     })
@@ -160,13 +160,13 @@ describe('PlanMachine', () => {
 
     it('executing 状态返回 false', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       expect(machine.isWriteBlocked()).toBe(false)
     })
 
     it('done 状态返回 false', () => {
       machine.transition('start')
-      machine.transition('gather_complete')
+      machine.transition('gather_complete', { approved: true })
       machine.transition('execute_complete')
       expect(machine.isWriteBlocked()).toBe(false)
     })
@@ -220,8 +220,48 @@ describe('PlanMachine', () => {
       expect(machine.transition('start', { currentStepIndex: 0, planSteps: [], messages: [] })).toBe('gathering')
     })
 
-    it('transition 不传 ctx 也正常工作', () => {
+    it('transition 不传 ctx 也正常工作(非审批门转移)', () => {
       expect(machine.transition('start')).toBe('gathering')
+    })
+  })
+
+  describe('审批门(gathering → executing)', () => {
+    it('未经批准(ctx 缺失)拒绝转移并抛错', () => {
+      machine.transition('start')
+      expect(() => machine.transition('gather_complete')).toThrow(/Approval required/)
+      expect(machine.getCurrentState()).toBe('gathering')
+    })
+
+    it('ctx.approved = false 拒绝转移并抛错', () => {
+      machine.transition('start')
+      expect(() => machine.transition('gather_complete', { approved: false })).toThrow(/Approval required/)
+      expect(machine.getCurrentState()).toBe('gathering')
+    })
+
+    it('ctx.approved = true 允许转移到 executing', () => {
+      machine.transition('start')
+      expect(machine.transition('gather_complete', { approved: true })).toBe('executing')
+    })
+
+    it('审批门只作用于 gathering → executing,其余转移不受影响', () => {
+      // cancel 不需要审批
+      machine.transition('start')
+      expect(machine.transition('cancel')).toBe('cancelled')
+      // reset / start 同样不需要
+      expect(machine.transition('reset')).toBe('initialized')
+      expect(machine.transition('start')).toBe('gathering')
+    })
+
+    it('被拒绝后补批准可继续完成主链', () => {
+      machine.transition('start')
+      expect(() => machine.transition('gather_complete')).toThrow(/Approval required/)
+      expect(machine.transition('gather_complete', { approved: true })).toBe('executing')
+      expect(machine.transition('execute_complete')).toBe('done')
+    })
+
+    it('canTransition 不受审批门影响(仅查转移表)', () => {
+      machine.transition('start')
+      expect(machine.canTransition('gather_complete')).toBe(true)
     })
   })
 })

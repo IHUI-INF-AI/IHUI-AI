@@ -966,8 +966,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           opts.planApproved = true;
           // PlanMachine 联动:gathering → executing(解除写入硬阻断)
           // canTransition 守门:若 PlanMachine 已在 executing/done 等状态则跳过(避免抛错)
+          // 审批门:plan 块已产出并自动批准,携带 approved 通过审批门
           if (opts.planMachine?.canTransition('gather_complete')) {
-            opts.planMachine.transition('gather_complete');
+            opts.planMachine.transition('gather_complete', { approved: true });
           }
           opts.messages.push({
             role: 'user',

@@ -483,14 +483,35 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
       Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
       Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
-      // 触发滚动:距离底部 1000 - 0 - 200 = 800px > 120 → 向上滚动
+      // 2026-08-29 修复:上翻判定仅对真实用户滚动意图(wheel)生效,
+      // 先 fireEvent.wheel 标记用户意图,再触发 scroll
       await act(async () => {
+        fireEvent.wheel(panel)
         fireEvent.scroll(panel)
       })
       // rAF 后 state 更新
       await waitFor(() => {
         expect(screen.getByTestId('message-list-jump-latest')).toBeTruthy()
       })
+    })
+
+    it('程序滚动(无 wheel 意图)不触发上翻判定,不显示按钮(2026-08-29 回归)', async () => {
+      // 修复前:自动滚底的 smooth 动画触发 scroll 事件,被 distanceFromBottom 误判为
+      // "用户上翻" → userScrolledUp=true → 流式期间自动滚动中断。
+      // 修复后:仅 wheel/touch 标记用户意图才更新上翻状态,纯 scroll 事件不改变。
+      const msg = makeAssistantMsg('m1', 'hi')
+      const { container } = render(<MessageList {...baseProps} messages={[msg]} />)
+      const panel = container.querySelector(
+        '[data-testid="message-list-inline-panel"]',
+      ) as HTMLElement
+      Object.defineProperty(panel, 'scrollHeight', { value: 1000, configurable: true })
+      Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
+      Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
+      await act(async () => {
+        // 仅 scroll 事件(程序滚动),无 wheel 用户意图 → 不应触发上翻判定
+        fireEvent.scroll(panel)
+      })
+      expect(screen.queryByTestId('message-list-jump-latest')).toBeNull()
     })
 
     it('点击 jump-to-latest → 派发 ihui:jump-to-latest 事件 + 按钮消失', async () => {
@@ -505,6 +526,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       const handler = vi.fn()
       window.addEventListener('ihui:jump-to-latest', handler)
       await act(async () => {
+        fireEvent.wheel(panel)
         fireEvent.scroll(panel)
       })
       const btn = await waitFor(() => screen.getByTestId('message-list-jump-latest'))
@@ -527,6 +549,7 @@ describe('MessageList — v2 深度优化(对标 Trae Work)', () => {
       Object.defineProperty(panel, 'clientHeight', { value: 200, configurable: true })
       Object.defineProperty(panel, 'scrollTop', { value: 0, configurable: true })
       await act(async () => {
+        fireEvent.wheel(panel)
         fireEvent.scroll(panel)
       })
       await waitFor(() => {
