@@ -189,9 +189,36 @@ const Sidebar = React.memo(function Sidebar({
       }))
   }, [isAdmin, adminLoaded, adminDynamicList])
 
+  // adminOnly 递归过滤(2026-08-30 修复):原逻辑只过滤分组一级 items,不递归过滤 item.children,
+  // adminOnly 子项挂在非 adminOnly 父项下时会对普通用户泄漏(此前仅靠 nav-data 配置约定保障)。
+  // permission 过滤(2026-08-30 教师角色接入):按 RBAC 权限点放行,admin(roleId>=1)始终可见,
+  // 其余用户需持有任一权限码或通配符(与 HasPermi.checkPermission 的匹配规则一致)。
+  // permission 支持数组(2026-08-30 权限粒度细化):如 ['edu:manage','edu:view'],任一命中即可见。
+  // 仅订阅 user.permissions 单字段(而非整个 user 对象),避免 setUser 触发 Sidebar 全量重渲染。
+  const userPermissions = useAuthStore((s) => s.user?.permissions)
+  const filterByRole = React.useCallback(
+    (items: NavItem[]): NavItem[] =>
+      items
+        .filter((item) => {
+          if (item.adminOnly) return isAdmin
+          if (item.permission) {
+            if (isAdmin) return true
+            if (!userPermissions || userPermissions.length === 0) return false
+            if (userPermissions.includes('*:*:*') || userPermissions.includes('*')) {
+              return true
+            }
+            const required = Array.isArray(item.permission) ? item.permission : [item.permission]
+            return required.some((p) => userPermissions.includes(p))
+          }
+          return true
+        })
+        .map((item) => (item.children ? { ...item, children: filterByRole(item.children) } : item)),
+    [isAdmin, userPermissions],
+  )
+
   const visibleGroups = React.useMemo(() => {
     return NAV_GROUPS.map((g) => {
-      const filtered = g.items.filter((item) => !item.adminOnly || isAdmin)
+      const filtered = filterByRole(g.items)
       // 合并 admin 动态路由到"管理"分组(items[0] 是 /admin 入口,动态项插在它后面)
       if (g.label === 'adminGroupLabel' && adminDynamicItems.length > 0) {
         const [head, ...rest] = filtered
@@ -202,7 +229,7 @@ const Sidebar = React.memo(function Sidebar({
       }
       return { ...g, items: filtered }
     }).filter((g) => g.items.length > 0)
-  }, [isAdmin, adminDynamicItems])
+  }, [filterByRole, adminDynamicItems])
 
   const allVisibleItems = React.useMemo(
     () => flattenNavItems(visibleGroups.flatMap((g) => g.items)),

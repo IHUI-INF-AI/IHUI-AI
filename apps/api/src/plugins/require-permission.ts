@@ -1,6 +1,6 @@
 import type { FastifyRequest, FastifyReply, preHandlerAsyncHookHandler } from 'fastify'
 import { authenticate } from './auth.js'
-import { checkPermission } from '../db/rbac-queries.js'
+import { checkAnyPermission } from '../db/rbac-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 
 /**
@@ -21,6 +21,22 @@ const ADMIN_ROLE_ID = 1
  *   server.post('/roles', { preHandler: requirePermission('rbac:manage') }, handler)
  */
 export function requirePermission(permission: string): preHandlerAsyncHookHandler {
+  // 2026-08-30 权限粒度细化:单权限点校验委托给 requireAnyPermission,保证两者 401/403 语义完全一致
+  return requireAnyPermission([permission])
+}
+
+/**
+ * 多权限点中间件工厂（2026-08-30 权限粒度细化）。
+ *
+ * 行为（与 requirePermission 完全一致，仅权限校验改为"任一命中即放行"）：
+ *  1. 调用 authenticate 校验 JWT，失败返回 401
+ *  2. 系统管理员（jwtPayload.roleId >= ADMIN_ROLE_ID）直接放行
+ *  3. 其余用户通过 RBAC 表查询是否持有任一指定权限点，均未命中则返回 403
+ *
+ * 用法：
+ *   server.get('/term', { preHandler: requireAnyPermission(['edu:view', 'edu:manage']) }, handler)
+ */
+export function requireAnyPermission(permissions: string[]): preHandlerAsyncHookHandler {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
@@ -40,7 +56,7 @@ export function requirePermission(permission: string): preHandlerAsyncHookHandle
       return reply.status(401).send({ code: 401, message: '请先登录' })
     }
 
-    const ok = await checkPermission(userId, permission)
+    const ok = await checkAnyPermission(userId, permissions)
     if (!ok) {
       return reply.status(403).send({ code: 403, message: '权限不足' })
     }

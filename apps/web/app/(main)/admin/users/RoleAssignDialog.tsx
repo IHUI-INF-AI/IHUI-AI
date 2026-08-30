@@ -23,25 +23,45 @@ interface RbacRole {
   isSystem: boolean
 }
 
+// 2026-08-30 教师角色入口:/api/admin/user-roles 关联记录(user_roles 表)
+interface UserRoleRow {
+  id: string
+  userId: string
+  roleId: string
+}
+
 interface Props {
   user: AdminUser | null
   pending: boolean
+  // 2026-08-30 教师角色入口:教师(RBAC)关联操作 pending 状态
+  teacherPending: boolean
   onConfirm: (role: number) => void
+  // 2026-08-30 教师角色入口:挂 teacher 角色(走 RBAC,不改 users.roleId)
+  onAssignTeacher: (roleId: string) => void
+  // 2026-08-30 教师角色入口:移除 teacher 角色关联
+  onRemoveTeacher: (assocId: string) => void
   onCancel: () => void
 }
 
-const ROLE_OPTIONS: Array<{ value: number; label: string }> = [
-  { value: 0, label: '普通用户' },
-  { value: 1, label: '管理员' },
+// 2026-08-30 教师角色入口:教师为 RBAC 角色(roles.name='teacher'),用特殊值区分数值 roleId
+const TEACHER_VALUE = 'teacher'
+
+const ROLE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '0', label: '普通用户' },
+  { value: '1', label: '管理员' },
+  { value: TEACHER_VALUE, label: '教师' },
 ]
 
-export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) {
-  const initialRole = user && (user.roleId ?? 0) >= 1 ? 1 : 0
-  const [role, setRole] = React.useState<number>(initialRole)
-
-  React.useEffect(() => {
-    if (user) setRole((user.roleId ?? 0) >= 1 ? 1 : 0)
-  }, [user])
+export function RoleAssignDialog({
+  user,
+  pending,
+  teacherPending,
+  onConfirm,
+  onAssignTeacher,
+  onRemoveTeacher,
+  onCancel,
+}: Props) {
+  const [role, setRole] = React.useState<string>('0')
 
   // 复用 RBAC 角色列表作为参考展示(只读,与 users.roleId 体系独立)
   const rbacQ = useQuery({
@@ -50,6 +70,45 @@ export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) 
     enabled: !!user,
     staleTime: 60 * 1000,
   })
+
+  // 2026-08-30 教师角色入口:从 RBAC 角色列表解析 teacher 角色(以 roles.name='teacher' 为准)
+  const teacherRole = rbacQ.data?.list?.find((r) => r.name === 'teacher')
+
+  // 2026-08-30 教师角色入口:查询该用户已有 RBAC 关联,用于回显"教师"与取消关联
+  const userRolesQ = useQuery({
+    queryKey: ['admin', 'user-roles', user?.id],
+    queryFn: () => api<{ list: UserRoleRow[] }>(`/api/admin/user-roles?search=${user?.id}`),
+    enabled: !!user,
+  })
+  const teacherAssoc = teacherRole
+    ? userRolesQ.data?.list?.find((r) => r.roleId === teacherRole.id)
+    : undefined
+
+  React.useEffect(() => {
+    if (user) {
+      // 2026-08-30 教师角色入口:已有 teacher 关联时默认选中"教师",否则回落到数值 roleId
+      setRole(teacherAssoc ? TEACHER_VALUE : (user.roleId ?? 0) >= 1 ? '1' : '0')
+    }
+  }, [user, teacherAssoc])
+
+  const busy = pending || teacherPending
+
+  // 2026-08-30 教师角色入口:确认逻辑分流——教师走 RBAC 关联,普通/管理员保持原 PATCH roleId 逻辑
+  const handleConfirm = () => {
+    if (role === TEACHER_VALUE) {
+      if (!teacherRole) return
+      // 已是教师则无需变更,直接关闭
+      if (teacherAssoc) {
+        onCancel()
+        return
+      }
+      onAssignTeacher(teacherRole.id)
+      return
+    }
+    // 由教师切换回普通/管理员时,先移除 RBAC teacher 关联再改 roleId
+    if (teacherAssoc) onRemoveTeacher(teacherAssoc.id)
+    onConfirm(Number(role))
+  }
 
   return (
     <Modal
@@ -60,11 +119,11 @@ export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) 
       size="sm"
       footer={
         <>
-          <Button type="button" variant="outline" onClick={onCancel} disabled={pending}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={busy}>
             取消
           </Button>
-          <Button type="button" disabled={pending} onClick={() => onConfirm(role)}>
-            {pending ? '提交中…' : '确认分配'}
+          <Button type="button" disabled={busy} onClick={handleConfirm}>
+            {busy ? '提交中…' : '确认分配'}
           </Button>
         </>
       }
@@ -74,13 +133,18 @@ export function RoleAssignDialog({ user, pending, onConfirm, onCancel }: Props) 
           <label htmlFor="role-select" className="text-sm font-medium">
             系统角色
           </label>
-          <Select value={String(role)} onValueChange={(v) => setRole(Number(v))}>
+          <Select value={role} onValueChange={setRole}>
             <SelectTrigger id="role-select" className="h-9 w-full" aria-label="选择角色">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ROLE_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={String(o.value)}>
+                // 2026-08-30 教师角色入口:RBAC 中不存在 teacher 角色时禁用该选项
+                <SelectItem
+                  key={o.value}
+                  value={o.value}
+                  disabled={o.value === TEACHER_VALUE && !teacherRole}
+                >
                   {o.label}
                 </SelectItem>
               ))}
