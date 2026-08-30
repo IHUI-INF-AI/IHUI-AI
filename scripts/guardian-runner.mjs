@@ -8,11 +8,13 @@
  * 降低 commit 耗时,提供统一汇总输出。
  *
  * CLI 用法:
- *   node scripts/guardian-runner.mjs [--staged] [--timing] [--help]
+ *   node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
  *
- *   --staged  传递 --staged 给所有脚本(pre-commit 模式)
- *   --timing  打印每个检查的耗时
- *   --help    打印帮助和检查清单
+ *   --staged      传递 --staged 给所有脚本(pre-commit 模式)
+ *   --timing      打印每个检查的耗时
+ *   --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级,
+ *                 2026-08-31 新增,详见 pushGateChecks 定义处注释)
+ *   --help        打印帮助和检查清单
  *
  * 检查模式:
  *   blocking  失败 → 立即 exit(1),阻塞 commit
@@ -871,31 +873,51 @@ const checks = [
   },
 ]
 
+// === push 门检查集(2026-08-31 新增) ===
+// .husky/pre-push 直跑 `pnpm typecheck:full`,多会话并行时被其他会话非暂存损坏文件误伤
+// (上千个 TS1005 全部来自非暂存文件,却输出"❌ 全量 typecheck 失败,推送已阻止")。
+// 新增 scripts/check-typecheck.mjs 包装做 staged-scope 降级判定(全部报错文件均不在
+// 暂存区 → 降级为警告放行),经 --push-gate 显式启用;hook 本体不在改动允许范围内。
+const pushGateChecks = [
+  {
+    id: 'T1',
+    label: '🔍 push 门全量 typecheck(staged-scope 降级)',
+    script: 'check-typecheck.mjs',
+    args: [],
+    mode: 'blocking',
+  },
+]
+
 // === CLI 解析 ===
 
 const cliArgs = process.argv.slice(2)
 const passStaged = cliArgs.includes('--staged')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
+const pushGate = cliArgs.includes('--push-gate')
+
+// --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
+const effectiveChecks = pushGate ? pushGateChecks : checks
 
 // === Help ===
 
 if (showHelp) {
-  const blocking = checks.filter((c) => c.mode === 'blocking')
-  const warn = checks.filter((c) => c.mode === 'warn')
-  const info = checks.filter((c) => c.mode === 'info')
+  const blocking = effectiveChecks.filter((c) => c.mode === 'blocking')
+  const warn = effectiveChecks.filter((c) => c.mode === 'warn')
+  const info = effectiveChecks.filter((c) => c.mode === 'info')
   console.log(`
 guardian-runner.mjs — 守门脚本批量执行器
 
 用法:
-  node scripts/guardian-runner.mjs [--staged] [--timing] [--help]
+  node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
 
 选项:
-  --staged   传递 --staged 给所有脚本(pre-commit 模式)
-  --timing   打印每个检查的耗时
-  --help     打印此帮助
+  --staged      传递 --staged 给所有脚本(pre-commit 模式)
+  --timing      打印每个检查的耗时
+  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
+  --help        打印此帮助
 
-检查清单(${checks.length} 项):
+检查清单(${effectiveChecks.length} 项):
   blocking (${blocking.length} 项): ${blocking.map((c) => c.id).join(', ')}
   warn     (${warn.length} 项): ${warn.map((c) => c.id).join(', ')}
   info     (${info.length} 项): ${info.map((c) => c.id).join(', ')}
@@ -915,7 +937,7 @@ let warned = 0
 let failed = 0
 const startTime = Date.now()
 
-for (const check of checks) {
+for (const check of effectiveChecks) {
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
   const cmd = `node scripts/${check.script}${cmdArgs.length > 0 ? ' ' + cmdArgs.join(' ') : ''}`
@@ -945,7 +967,7 @@ for (const check of checks) {
       const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
       console.error('')
       console.error(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-      console.error(`  总检查数: ${passed + warned + failed + (checks.length - passed - warned - failed)}`)
+      console.error(`  总检查数: ${passed + warned + failed + (effectiveChecks.length - passed - warned - failed)}`)
       console.error(`  ${C.green}通过: ${passed}${C.reset}`)
       console.error(`  ${C.yellow}警告: ${warned}${C.reset}`)
       console.error(`  ${C.red}失败: ${failed}${C.reset}`)
@@ -972,7 +994,7 @@ for (const check of checks) {
 const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
 console.log('')
 console.log(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
-console.log(`  总检查数: ${checks.length}`)
+console.log(`  总检查数: ${effectiveChecks.length}`)
 console.log(`  ${C.green}通过: ${passed}${C.reset}`)
 console.log(`  ${C.yellow}警告: ${warned}${C.reset}`)
 console.log(`  ${C.red}失败: ${failed}${C.reset}`)

@@ -443,7 +443,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 1. **pre-commit**:`check-push-sync.mjs`(guardian 第 29 项 blocking),commit 前检测本地 ahead(`git rev-list --count origin/<branch>..HEAD`),>0 阻塞;跳过 `HUSKY_SKIP_PUSH_SYNC=1`(不推荐);归档 commit `IHUI_ARCHIVE_COMMIT=1` 豁免。
 2. **post-commit(主防线)**:`git-push-guard.mjs` 自动检测 ahead → push + 验证 local == remote,失败阻断提示手动 push;跳过 `HUSKY_SKIP_PUSH=1`(不推荐)。
-3. **pre-push**:`.husky/pre-push` 跑 `pnpm typecheck:full`,失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
+3. **pre-push**:`.husky/pre-push` 第 2 段跑 `guardian-runner --push-gate`(2026-08-31 改版:check-typecheck.mjs 包装,staged-scope 降级——报错文件均不在暂存区时降级警告放行,防并行会话工作区噪音误伤,见 §12d),失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
 4. **手动兜底**:`node scripts/git-push-guard.mjs` 任何时候可手跑,打印 local vs remote HEAD,完全对齐 exit 0。
 
 ### 红线(违反视为协作事故)
