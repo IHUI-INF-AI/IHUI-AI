@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Search } from 'lucide-react'
+import { GitBranch, Search } from 'lucide-react'
 import type { ChatMessage } from '@/stores/chat'
 import {
   plainTextForClipboard,
@@ -53,6 +53,14 @@ export function useMessageListContextMenu({
           action: 'regenerate',
           disabled: !isAssistant,
         },
+        // 2026-08-30 立:从此处分支(仅 assistant 消息,创建新会话而非删除旧内容)
+        {
+          id: 'branch',
+          label: t('contextMenu.branch'),
+          action: 'branch',
+          disabled: !isAssistant,
+          icon: <GitBranch className="h-3 w-3" aria-hidden />,
+        },
         {
           id: 'feedback',
           label: t('contextMenu.feedback'),
@@ -90,11 +98,18 @@ export function useMessageListContextMenu({
             toast.success(t('toast.copiedMarkdown'))
           }
         } else if (action === 'regenerate') {
-          // 重新生成:转发到全局事件,由 message-input 监听后触发 sendAnswer
+          // 重新生成:转发到全局事件,由 MessageList 监听后触发完整闭环
+          // (调后端 /regenerate 截断历史 + 复用 sendMessage 重新发送前一条用户问题)
           window.dispatchEvent(
             new CustomEvent('ihui:regenerate-message', { detail: { messageId: msg.id } }),
           )
           toast.info(t('toast.regenerating'))
+        } else if (action === 'branch') {
+          // 从此处分支:转发到全局事件,由 MessageList 监听后创建新会话并跳转
+          window.dispatchEvent(
+            new CustomEvent('ihui:branch-message', { detail: { messageId: msg.id } }),
+          )
+          toast.info(t('toast.branching'))
         } else if (action === 'feedback') {
           // 反馈:简单 toast 兜底(深度反馈系统不在本任务范围)
           toast.success(t('toast.feedbackRecorded'))
