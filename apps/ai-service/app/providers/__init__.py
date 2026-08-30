@@ -10,6 +10,7 @@ safety_settings 等),作为 LiteLLM 的可选增强。未配置时 fallback 到 
 from .base_provider import BaseProvider, ProviderError
 from .openai_provider import OpenAIProvider
 from .anthropic_provider import AnthropicProvider
+from ..services.tool_schema_adapter import is_anthropic_model
 from .gemini_provider import GeminiProvider
 from .stepfun_provider import StepfunProvider
 from .alibaba_dashscope_provider import AlibabaDashscopeProvider
@@ -67,7 +68,7 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
     if not api_key:
         return None
     m = model.lower()
-    if m.startswith(("claude-", "anthropic/")):
+    if is_anthropic_model(model):
         return AnthropicProvider(api_key, api_base)
     if m.startswith("gemini/"):
         return GeminiProvider(api_key, api_base)

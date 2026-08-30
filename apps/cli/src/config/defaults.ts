@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS: Settings = {
   sampler: { temperature: 0.7, maxTokens: 4096 },
   locale: 'zh-CN',
   permissionMode: 'default',
+  // 原生 function calling:默认 'auto'(先携带 tools 探测,provider 拒绝时自动降级 prompt 模式)
+  nativeFunctionCalling: 'auto',
   compactionV2: { enabled: false },
   fsWatcher: { enabled: false },
   announcements: { enabled: false },

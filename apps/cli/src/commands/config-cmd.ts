@@ -25,7 +25,7 @@ import {
 
 // === 允许通过 /config 修改的 key 白名单 ===
 
-type ConfigValueType = 'string' | 'number' | 'boolean' | 'enum' | 'sampler';
+type ConfigValueType = 'string' | 'number' | 'boolean' | 'enum' | 'sampler' | 'booleanOrAuto';
 
 interface ConfigFieldMeta {
   /** 字段路径(点号分隔,如 'sampler.temperature') */
@@ -166,6 +166,13 @@ function parseValue(raw: string, type: ConfigValueType, enumValues?: readonly st
         return { ok: false, error: `枚举值无效,可选: ${(enumValues ?? []).join(' | ')}` };
       }
       return { ok: true, value: trimmed };
+    }
+    case 'booleanOrAuto': {
+      if (trimmed === 'auto') return { ok: true, value: 'auto' as const };
+      const lower = trimmed.toLowerCase();
+      if (['true', '1', 'yes', 'on'].includes(lower)) return { ok: true, value: true };
+      if (['false', '0', 'no', 'off'].includes(lower)) return { ok: true, value: false };
+      return { ok: false, error: `三态值需为 true/false/auto(收到: ${raw})` };
     }
     case 'sampler':
       return { ok: false, error: 'sampler 类型字段不支持直接 set,用 sampler.temperature / sampler.maxTokens' };
