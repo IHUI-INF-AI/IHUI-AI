@@ -5,6 +5,7 @@ import { eq, desc } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tboxDevice, tboxCommand, tboxAgentChannel } from '@ihui/database'
 import { success, error, parseOrThrow } from '../utils/response.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { config as env } from '../config/index.js'
 
 const registerSchema = z.object({
@@ -41,6 +42,10 @@ const deploySchema = z.object({
 })
 
 const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
+  // 2026-08-30 安全加固:设备管理 CRUD 端点(前端 /edu-ai/tbox 为 admin 权限页面)统一补充
+  // requireAdmin 鉴权;POST /events 与 /agent/channel/deploy 为设备侧回调,
+  // 保留原有 X-Signature HMAC-SHA256 签名验证作为鉴权,不加 requireAdmin。
+
   // 捕获原始请求体用于 webhook 签名验证
   server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
     try {
@@ -53,7 +58,9 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // 设备列表
-  server.get('/devices', async (_req, reply) => {
+  server.get('/devices', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const list = await db
       .select()
       .from(tboxDevice)
@@ -64,6 +71,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 设备详情
   server.get('/devices/:id', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const { id } = req.params as { id: string }
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
@@ -72,6 +81,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 设备注册
   server.post('/devices', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const body = registerSchema.parse(req.body)
     const [device] = await db.insert(tboxDevice).values(body).returning()
     return reply.status(201).send(success(device))
@@ -79,6 +90,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 指令下发
   server.post('/devices/:id/command', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const { id } = req.params as { id: string }
     const body = commandSchema.parse(req.body)
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
@@ -98,6 +111,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 指令历史
   server.get('/devices/:id/commands', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const { id } = req.params as { id: string }
     const list = await db
       .select()
@@ -110,6 +125,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 设备信息更新(前端 POST /api/tbox/devices/:id)
   server.post('/devices/:id', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const { id } = req.params as { id: string }
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
     if (!device[0]) return reply.status(404).send(error(404, '设备不存在'))
@@ -124,6 +141,8 @@ const tboxRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 指令下发(复数路径,前端 POST /api/tbox/devices/:id/commands,与 /command 等价)
   server.post('/devices/:id/commands', async (req, reply) => {
+    await requireAdmin(req, reply)
+    if (reply.sent) return
     const { id } = req.params as { id: string }
     const body = commandSchema.parse(req.body)
     const device = await db.select().from(tboxDevice).where(eq(tboxDevice.id, id)).limit(1)
