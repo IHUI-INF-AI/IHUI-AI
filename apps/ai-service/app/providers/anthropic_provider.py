@@ -15,6 +15,10 @@ import httpx
 
 from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
+from ..services.tool_schema_adapter import (
+    anthropic_response_to_openai,
+    openai_tools_to_anthropic,
+)
 
 _ANTHROPIC_VERSION = "2023-06-01"
 
@@ -53,21 +57,12 @@ class AnthropicProvider(BaseProvider):
         return system, rest
 
     def _convert_tools(self, tools: list[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
-        """OpenAI function calling tools → Anthropic tool_use 格式(input_schema)。"""
-        if not tools:
-            return None
-        converted: list[dict[str, Any]] = []
-        for t in tools:
-            if t.get("type") == "function":
-                fn = t.get("function", {})
-                converted.append({
-                    "name": fn.get("name"),
-                    "description": fn.get("description", ""),
-                    "input_schema": fn.get("parameters", {"type": "object", "properties": {}}),
-                })
-            else:
-                converted.append(t)
-        return converted
+        """OpenAI function calling tools → Anthropic tool_use 格式(input_schema)。
+
+        委托 tool_schema_adapter.openai_tools_to_anthropic(深拷贝,
+        递归保留 input_schema 全部嵌套字段,与入参不共享引用)。
+        """
+        return openai_tools_to_anthropic(tools)
 
     def _build_payload(
         self,
@@ -99,21 +94,16 @@ class AnthropicProvider(BaseProvider):
         return payload
 
     def _parse_content_blocks(self, content: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
-        """解析 Anthropic content blocks → (text, tool_calls)。"""
+        """解析 Anthropic content blocks → (text, tool_calls)。
+
+        tool_use 块的 OpenAI 形态转换委托
+        tool_schema_adapter.anthropic_response_to_openai(统一 tool_calls 契约)。
+        """
         text_parts: list[str] = []
-        tool_calls: list[dict[str, Any]] = []
         for block in content:
             if block.get("type") == "text":
                 text_parts.append(block.get("text", ""))
-            elif block.get("type") == "tool_use":
-                tool_calls.append({
-                    "id": block.get("id"),
-                    "type": "function",
-                    "function": {
-                        "name": block.get("name"),
-                        "arguments": json.dumps(block.get("input", {}), ensure_ascii=False),
-                    },
-                })
+        tool_calls = anthropic_response_to_openai(content)
         return "".join(text_parts), tool_calls
 
     async def complete(
@@ -158,6 +148,11 @@ class AnthropicProvider(BaseProvider):
                         f"Anthropic 流式调用失败: {resp.status_code} {body[:300]!r}",
                         resp.status_code,
                     )
+                # tool_use 块累积器:index → {id, name, arguments_json}
+                # content_block_start 携带 id/name,input_json_delta 逐片拼接 arguments,
+                # content_block_stop 时以 OpenAI tool_calls 形态产出完整 tool_call 事件
+                # (供 llm_gateway._accumulate_tool_calls 归并 → SSE tool_calls 事件)。
+                pending_tool_blocks: dict[int, dict[str, Any]] = {}
                 async for line in resp.aiter_lines():
                     if not line.startswith("data: "):
                         continue
@@ -166,12 +161,37 @@ class AnthropicProvider(BaseProvider):
                     except json.JSONDecodeError:
                         continue
                     etype = event.get("type")
-                    if etype == "content_block_delta":
+                    if etype == "content_block_start":
+                        block = event.get("content_block", {}) or {}
+                        if block.get("type") == "tool_use":
+                            pending_tool_blocks[event.get("index", 0)] = {
+                                "id": block.get("id") or "",
+                                "name": block.get("name") or "",
+                                "arguments": "",
+                            }
+                    elif etype == "content_block_delta":
                         delta = event.get("delta", {})
                         if delta.get("type") == "text_delta":
                             yield {"type": "chunk", "content": delta.get("text", "")}
                         elif delta.get("type") == "input_json_delta":
-                            yield {"type": "tool_call_delta", "partial_json": delta.get("partial_json", "")}
+                            partial = delta.get("partial_json", "")
+                            block = pending_tool_blocks.get(event.get("index", 0))
+                            if block is not None and partial:
+                                block["arguments"] += partial
+                            # 兼容旧行为:逐片透传 tool_call_delta(partial_json)
+                            yield {"type": "tool_call_delta", "partial_json": partial}
+                    elif etype == "content_block_stop":
+                        block = pending_tool_blocks.pop(event.get("index", 0), None)
+                        if block is not None:
+                            # OpenAI tool_calls 形态(arguments 为 JSON 字符串,空入参兜底 "{}")
+                            yield {"type": "tool_call", "tool_calls": [{
+                                "id": block["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": block["name"],
+                                    "arguments": block["arguments"] or "{}",
+                                },
+                            }]}
                     elif etype == "message_stop":
                         yield {"type": "done", "model": model, "usage": {}, "stub": False}
         except httpx.HTTPError as e:

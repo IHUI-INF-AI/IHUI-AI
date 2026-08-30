@@ -1049,6 +1049,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
         session_id: str | None = None
         if req.workspace_context:
             session_id = str(uuid.uuid4())
+        # 2026-08-31 原生 function calling:标记服务端 agent tool loop 是否执行。
+        # 执行过则 messages 已归一化且工具循环结束,generic astream 不再带 tools;
+        # 未执行(generic 路径)则透传请求体的 tools/tool_choice 给 astream。
+        _agent_tool_loop_ran = False
         try:
             # 若发生压缩,通过 SSE 首事件通知调用方(对标 API 层的 compaction 事件)
             if compaction_info and compaction_info.get("compressed"):
@@ -1078,6 +1082,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                         })
 
                 if openai_tools:
+                    _agent_tool_loop_ran = True
                     # ===== 多 agent 编排引导注入(2026-07-24 立)=====
                     # 当 dispatch_subagent 在 agent_tools 中时,在 tool loop 开始前注入引导 system message,
                     # 引导 LLM 在复杂任务时主动派发子智能体。注入只发生一次,不随 iteration 重复。
@@ -1819,7 +1824,18 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     messages[:] = normalized_msgs  # 切片赋值:修改原列表,避免创建本地变量
                     # 继续走 astream(用归一化后的 messages,不带 tools)
 
-            async for event in llm_gateway.astream(messages, model=req.model, owner_uuid=owner_uuid):
+            # 2026-08-31 原生 function calling 透传:未走服务端 agent tool loop 时,
+            # 把请求体的 tools/tool_choice 原样传给 astream(OpenAI 兼容 schema),
+            # 由 llm_gateway 透传到上游 provider(厂商不支持时 filter_call_kwargs 兜底剔除)。
+            _native_fc_kwargs: dict[str, Any] = {}
+            if req.tools and not _agent_tool_loop_ran:
+                _native_fc_kwargs["tools"] = req.tools
+                if req.tool_choice is not None:
+                    _native_fc_kwargs["tool_choice"] = req.tool_choice
+
+            async for event in llm_gateway.astream(
+                messages, model=req.model, owner_uuid=owner_uuid, **_native_fc_kwargs
+            ):
                 if await request.is_disconnected():
                     logger.info("SSE client disconnected, stopping stream")
                     break
@@ -1842,6 +1858,32 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     continue
                 elif event_type == "reasoning":
                     accumulated["reasoning"] += event.get("content", "")
+                elif event_type == "tool_calls":
+                    # 2026-08-31 原生 function calling:上游返回 tool_calls → 转换为
+                    # tool-call-start SSE 事件(packages/api-client ToolCallEvent 契约:
+                    # type/toolCallId/toolName/args),CLI runToolLoop 通过 onToolCall
+                    # 回调接收后本地执行工具;不再向下透传原生 tool_calls 事件。
+                    for _tc in event.get("tool_calls") or []:
+                        _fn = _tc.get("function") or {}
+                        _args_raw = _fn.get("arguments")
+                        _args: dict[str, Any] | str
+                        if _args_raw is None:
+                            _args = {}
+                        elif isinstance(_args_raw, str):
+                            try:
+                                _args = json.loads(_args_raw)
+                            except (json.JSONDecodeError, ValueError):
+                                _args = _args_raw
+                        else:
+                            _args = _args_raw
+                        _tc_start = {
+                            "type": "tool-call-start",
+                            "toolCallId": _tc.get("id") or "",
+                            "toolName": _fn.get("name") or "",
+                            "args": _args,
+                        }
+                        yield f"event: tool-call-start\ndata: {json.dumps(_tc_start, ensure_ascii=False)}\n\n"
+                    continue
                 elif event_type == "done":
                     # 流结束前 flush 解析器残留(不完整标记作为普通文本输出,不吞内容)
                     leftover, leftover_qs = question_parser.flush()

@@ -47,6 +47,14 @@ const chatStreamSchema = z.object({
    * plan=只制定计划不执行工具(后端注入 Plan Mode system prompt),act=正常执行(默认)
    * 前端 extraBody 传 plan_mode(snake_case),透传到 ai-service /api/llm/complete/stream */
   plan_mode: z.string().optional(),
+  /** 原生 function calling(2026-08-31 立,OpenAI tools 格式弱类型透传):
+   *  CLI 直连 ai-service 已支持(tools + tool_choice → tool-call-start SSE 事件),
+   *  经网关中转的客户端(Web 等)同样需要透传。元素为 OpenAI tool 定义
+   *  {type:'function', function:{name, description, parameters}},结构由 ai-service
+   *  LLMCompleteRequest(tools: list[dict]) 负责校验,这里不做强 schema(strip 会丢字段)。 */
+  tools: z.array(z.record(z.string(), z.unknown())).max(200).optional(),
+  /** 工具选择策略: 'auto'/'none'/'required' 或 {type:'function',function:{name:'xxx'}} */
+  tool_choice: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
   metadata: z
     .object({
       conversationId: z.string().optional(),
@@ -115,6 +123,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       contextLimit?: number
       agentTools?: string[]
       planMode?: string
+      /** 原生 function calling(OpenAI tools 格式),undefined 时 JSON.stringify 自动省略,不注入 */
+      tools?: Array<Record<string, unknown>>
+      toolChoice?: string | Record<string, unknown>
       metadata?: { conversationId?: string; userId?: string; messageId?: string }
     },
     extraFirstEvents: Array<{ key: string; payload: unknown }> = [],
@@ -184,6 +195,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // tool loop 入口 `if req.agent_tools:` 永远 false,从未触发工具调用。
           agent_tools: opts.agentTools,
           plan_mode: opts.planMode,
+          // 原生 function calling 透传:字段名与 ai-service LLMCompleteRequest
+          // (tools: list[dict] | None, tool_choice: str | dict | None) 对齐;
+          // undefined 时 JSON.stringify 省略该 key,不会注入到上游请求。
+          tools: opts.tools,
+          tool_choice: opts.toolChoice,
           metadata: mergedMetadata,
         }),
         signal: controller.signal,
@@ -287,6 +303,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        tools,
+        tool_choice: toolChoice,
         metadata,
       } = parsed.data
       const resolvedModel = model ?? modelId
@@ -366,6 +384,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           contextLimit,
           agentTools,
           planMode,
+          tools,
+          toolChoice,
           metadata,
         },
         extraFirstEvents,
@@ -408,6 +428,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         contextLimit,
         agentTools,
         plan_mode: planMode,
+        tools,
+        tool_choice: toolChoice,
         metadata,
         questionId,
         answer,
@@ -529,6 +551,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           contextLimit,
           agentTools,
           planMode,
+          tools,
+          toolChoice,
           metadata,
         },
         extraFirstEvents,
