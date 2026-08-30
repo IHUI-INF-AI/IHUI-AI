@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, integer, timestamp, serial } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, integer, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * 会员分组表。
@@ -84,83 +84,28 @@ export type NewCompanyType = typeof companyTypes.$inferInsert
  * 企业会员关联表 - 会员与企业的关联关系。
  * - memberId: 关联 edu_members；companyId: 关联 edu_companies（逻辑关联，未做物理外键）。
  */
-export const eduMemberCompanyRelations = pgTable('edu_member_company_relations', {
-  id: serial('id').primaryKey(),
-  memberId: integer('member_id').notNull(),
-  companyId: integer('company_id').notNull(),
-  position: varchar('position', { length: 100 }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /**
  * 会员等级关联表 - 会员与等级的关联及有效期。
  * - memberId: 关联 edu_members；levelId: 关联 edu_member_levels（逻辑关联，未做物理外键）。
  */
-export const eduMemberLevelRelations = pgTable('edu_member_level_relations', {
-  id: serial('id').primaryKey(),
-  memberId: integer('member_id').notNull(),
-  levelId: integer('level_id').notNull(),
-  startDate: timestamp('start_date', { withTimezone: true }),
-  endDate: timestamp('end_date', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /**
  * 会员岗位关联表 - 会员与岗位的多对多关联。
  * - memberId: 关联 edu_members；postId: 关联 member_posts（逻辑关联，未做物理外键）。
  */
-export const eduMemberPostRelations = pgTable('edu_member_post_relations', {
-  id: serial('id').primaryKey(),
-  memberId: integer('member_id').notNull(),
-  postId: integer('post_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /**
  * 会员标签关联表 - 会员与标签的多对多关联。
  * - memberId: 关联 edu_members；tagId: 关联 member_tags（逻辑关联，未做物理外键）。
  */
-export const eduMemberTagRelations = pgTable('edu_member_tag_relations', {
-  id: serial('id').primaryKey(),
-  memberId: integer('member_id').notNull(),
-  tagId: integer('tag_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
 
 /**
  * 资源产品关联表 - 资源与产品的多对多关联。
  * - resourceId: 关联 resources；productId: 关联 resource_products（逻辑关联，未做物理外键）。
  */
-export const eduResourceProductRelations = pgTable('edu_resource_product_relations', {
-  id: serial('id').primaryKey(),
-  resourceId: integer('resource_id').notNull(),
-  productId: integer('product_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-export type EduMemberCompanyRelation = typeof eduMemberCompanyRelations.$inferSelect
-export type NewEduMemberCompanyRelation = typeof eduMemberCompanyRelations.$inferInsert
-export type EduMemberLevelRelation = typeof eduMemberLevelRelations.$inferSelect
-export type NewEduMemberLevelRelation = typeof eduMemberLevelRelations.$inferInsert
-export type EduMemberPostRelation = typeof eduMemberPostRelations.$inferSelect
-export type NewEduMemberPostRelation = typeof eduMemberPostRelations.$inferInsert
-export type EduMemberTagRelation = typeof eduMemberTagRelations.$inferSelect
-export type NewEduMemberTagRelation = typeof eduMemberTagRelations.$inferInsert
-export type EduResourceProductRelation = typeof eduResourceProductRelations.$inferSelect
-export type NewEduResourceProductRelation = typeof eduResourceProductRelations.$inferInsert
 
 /**
  * 会员分组-成员关联表 - 会员与分组的多对多关联。
  * - memberId: 关联 edu_members；groupId: 关联 member_groups（逻辑关联，未做物理外键）。
  */
-export const memberGroupMemberRelations = pgTable('member_group_member_relations', {
-  id: serial('id').primaryKey(),
-  memberId: integer('member_id').notNull(),
-  groupId: uuid('group_id')
-    .references(() => memberGroups.id, { onDelete: 'cascade' })
-    .notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-export type MemberGroupMemberRelation = typeof memberGroupMemberRelations.$inferSelect
-export type NewMemberGroupMemberRelation = typeof memberGroupMemberRelations.$inferInsert

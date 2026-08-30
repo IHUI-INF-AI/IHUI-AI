@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, integer, timestamp, serial, index } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, integer, timestamp, index } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -77,35 +77,9 @@ export type NewUserCertificate = typeof userCertificates.$inferInsert
 /**
  * 用户岗位关联表 - 用户与岗位的多对多关联。
  */
-export const userJobs = pgTable('user_jobs', {
-  id: serial('id').primaryKey(),
-  userId: integer('user_id').notNull(),
-  jobId: integer('job_id').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-})
-
-export type UserJob = typeof userJobs.$inferSelect
-export type NewUserJob = typeof userJobs.$inferInsert
 
 /**
  * 部门层级关系表 (department_relations)。
  * 记录部门间的层级关系(如父-子)。
  * relationType: 'parent-child'(父子) / 'virtual'(虚拟归属)。
  */
-export const departmentRelation = pgTable(
-  'department_relations',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    parentDeptId: uuid('parent_dept_id').references(() => departments.id, { onDelete: 'cascade' }),
-    childDeptId: uuid('child_dept_id').references(() => departments.id, { onDelete: 'cascade' }),
-    relationType: varchar('relation_type', { length: 20 }).default('parent-child'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    parentDeptIdIdx: index('department_relations_parent_idx').on(t.parentDeptId),
-    childDeptIdIdx: index('department_relations_child_idx').on(t.childDeptId),
-  }),
-)
-
-export type DepartmentRelation = typeof departmentRelation.$inferSelect
-export type NewDepartmentRelation = typeof departmentRelation.$inferInsert
