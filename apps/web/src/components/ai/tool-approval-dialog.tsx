@@ -41,7 +41,7 @@ interface ApprovalDialogState {
 const INITIAL_STATE: ApprovalDialogState = { current: null, queue: [], sending: false }
 
 export function ToolApprovalDialog() {
-  const t = useTranslations('toolApproval')
+  const t = useTranslations('editor.toolApproval')
   const [state, setState] = React.useState<ApprovalDialogState>(INITIAL_STATE)
   const stateRef = React.useRef(state)
   stateRef.current = state
