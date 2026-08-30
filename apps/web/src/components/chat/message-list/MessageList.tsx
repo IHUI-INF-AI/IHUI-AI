@@ -20,6 +20,8 @@ import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
 import { useMessageListContextMenu } from './use-message-list-context-menu'
+import { regenerateMessage, branchMessage } from '@/hooks/use-chat/send-message'
+import { ToolApprovalDialog } from '@/components/ai/tool-approval-dialog'
 
 interface MessageListProps {
   messages: ChatMessage[]
@@ -175,6 +177,27 @@ export function MessageList({
     window.addEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
     return () => window.removeEventListener('ihui:scroll-to-message', onScrollTo as EventListener)
   }, [flashHighlight, containerRef])
+
+  // 2026-08-30 立:重新生成 / 分支事件监听(MessageItem 按钮 + 右键菜单派发)。
+  // 完整闭环在 send-message.ts 的 regenerateMessage / branchMessage(复用既有流式发送逻辑)。
+  React.useEffect(() => {
+    const onRegenerate = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (!detail?.messageId) return
+      void regenerateMessage(detail.messageId)
+    }
+    const onBranch = (e: Event) => {
+      const detail = (e as CustomEvent<{ messageId: string }>).detail
+      if (!detail?.messageId) return
+      void branchMessage(detail.messageId)
+    }
+    window.addEventListener('ihui:regenerate-message', onRegenerate as EventListener)
+    window.addEventListener('ihui:branch-message', onBranch as EventListener)
+    return () => {
+      window.removeEventListener('ihui:regenerate-message', onRegenerate as EventListener)
+      window.removeEventListener('ihui:branch-message', onBranch as EventListener)
+    }
+  }, [])
 
   // Trae Work 对齐(2026-07-28):timeline 事件可点击跳转到对话流
   // 监听 planStepId / toolCallId 自定义事件 → 翻译为 messageId → 派发 ihui:scroll-to-message
@@ -371,6 +394,9 @@ export function MessageList({
         onClose={contextMenu.close}
         data-testid="message-list-context-menu"
       />
+      {/* 工具调用审批弹窗(2026-08-30 立):高危工具执行前请求用户批准/拒绝。
+          全局单实例,通过 EventSource 订阅 tool-approval SSE 事件自驱动弹窗。 */}
+      <ToolApprovalDialog />
     </div>
   )
 }
