@@ -21,6 +21,7 @@ from app.providers import AnthropicProvider, OpenAIProvider, StepfunProvider, ge
 from app.providers.anthropic_provider import AnthropicProvider as _AP
 from app.services.tool_schema_adapter import (
     anthropic_response_to_openai,
+    anthropic_tool_choice_from_openai,
     is_anthropic_model,
     openai_tools_to_anthropic,
 )
@@ -290,6 +291,64 @@ def test_provider_build_payload_uses_anthropic_tools_format():
     }]
     # 原 OpenAI 格式 tools 不被修改
     assert tools[0]["function"]["parameters"]["type"] == "object"
+
+
+# ==================== tool_choice 格式转换(OpenAI → Anthropic)====================
+
+@pytest.mark.parametrize("openai_choice,expected", [
+    ("auto", {"type": "auto"}),
+    ("required", {"type": "any"}),
+    ("none", None),  # Anthropic 无 none → 不带 tool_choice
+    ("AUTO", {"type": "auto"}),  # 大小写不敏感
+    ("unknown", None),  # 无法识别 → 不带
+    (None, None),
+])
+def test_anthropic_tool_choice_from_openai_strings(openai_choice, expected):
+    assert anthropic_tool_choice_from_openai(openai_choice) == expected
+
+
+def test_anthropic_tool_choice_from_openai_openai_function_object():
+    """OpenAI 指定函数形态 → Anthropic {type:'tool', name}。"""
+    choice = {"type": "function", "function": {"name": "get_weather"}}
+    assert anthropic_tool_choice_from_openai(choice) == {"type": "tool", "name": "get_weather"}
+
+
+def test_anthropic_tool_choice_from_openai_anthropic_dict_passthrough():
+    """已是 Anthropic 形态的 dict 深拷贝透传(不共享引用)。"""
+    choice = {"type": "auto", "disable_parallel_tool_use": True}
+    result = anthropic_tool_choice_from_openai(choice)
+    assert result == {"type": "auto", "disable_parallel_tool_use": True}
+    result["disable_parallel_tool_use"] = False
+    assert choice["disable_parallel_tool_use"] is True
+
+
+def test_anthropic_tool_choice_from_openai_invalid():
+    """非法形态(数字/空 function 等)→ None。"""
+    assert anthropic_tool_choice_from_openai(123) is None
+    assert anthropic_tool_choice_from_openai({"type": "function", "function": {}}) is None
+    assert anthropic_tool_choice_from_openai({"type": "weird"}) is None
+
+
+@pytest.mark.parametrize("openai_choice,expected", [
+    ("auto", {"type": "auto"}),
+    ("none", None),
+    ({"type": "function", "function": {"name": "search"}}, {"type": "tool", "name": "search"}),
+])
+def test_provider_build_payload_converts_tool_choice(openai_choice, expected):
+    """_build_payload:OpenAI tool_choice 统一转 Anthropic 对象形态,none 不带。"""
+    p = AnthropicProvider(api_key="k")
+    tools = [{
+        "type": "function",
+        "function": {"name": "search", "description": "d", "parameters": {"type": "object", "properties": {}}},
+    }]
+    payload = p._build_payload(
+        [{"role": "user", "content": "hi"}], "claude-3",
+        tools=tools, stream=False, tool_choice=openai_choice,
+    )
+    if expected is None:
+        assert "tool_choice" not in payload
+    else:
+        assert payload["tool_choice"] == expected
 
 
 def test_provider_parse_content_blocks_returns_openai_tool_calls():
