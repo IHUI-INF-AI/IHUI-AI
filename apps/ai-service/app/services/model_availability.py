@@ -87,6 +87,8 @@ _MODEL_PREFIX_TO_PROVIDER: list[tuple[str, str]] = [
     # === 项目主力(LLM_PROVIDERS JSON 已配置)===
     ("stepfun/", "stepfun"),
     ("agnes/", "agnes"),
+    # 2026-08-31 强化:智汇AI官方中继(极速API),健康检查/5分钟ping/模型过滤需覆盖 ihui/ 前缀
+    ("ihui/", "ihui_relay"),
     # === Cloudflare Workers AI(@cf/ 前缀)===
     ("@cf/", "cloudflare_workers_ai"),
     ("cloudflare/", "cloudflare_workers_ai"),
@@ -620,10 +622,11 @@ class ModelAvailabilityService:
             model_ids = list(provider.default_models)
         if not model_ids:
             model_ids = ["gpt-3.5-turbo"]
-        # 剥离已知前缀(stepfun/agnes/gemini),模型名带 / 会被 API 拒绝
+        # 剥离已知前缀(stepfun/agnes/gemini/ihui),模型名带 / 会被 API 拒绝
+        # 2026-08-31 强化:ihui/ 前缀剥离后用真实模型名(glm-5.3 等)调极速API,否则 400 全失败误判 DOWN
         cleaned: list[str] = []
         for mid in model_ids:
-            for prefix in ("stepfun/", "agnes/", "gemini/"):
+            for prefix in ("stepfun/", "agnes/", "gemini/", "ihui/"):
                 if mid.startswith(prefix):
                     mid = mid[len(prefix):]
                     break
