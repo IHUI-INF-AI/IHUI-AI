@@ -16,6 +16,7 @@ import {
   type ToolDelegateEvent,
 } from '@ihui/api-client'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
+import { fetchApi } from '@/lib/api'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
@@ -58,9 +59,8 @@ export interface SendMessageOptions {
   regenerate?: boolean
 }
 
-let sendMessageInstance:
-  | ((content: string, opts?: SendMessageOptions) => Promise<boolean>)
-  | null = null
+let sendMessageInstance: ((content: string, opts?: SendMessageOptions) => Promise<boolean>) | null =
+  null
 let sendActionCtx: ChatActionContext | null = null
 
 export function createSendMessage(
@@ -78,10 +78,7 @@ export function createSendMessage(
     streamConversationRef,
   } = ctx
   sendActionCtx = ctx
-  const sendMessage = async (
-    content: string,
-    opts?: SendMessageOptions,
-  ): Promise<boolean> => {
+  const sendMessage = async (content: string, opts?: SendMessageOptions): Promise<boolean> => {
     const text = content.trim()
     if (!text) return false
     // 重新生成模式:跳过斜杠命令拦截/AI 自动模式检测(用户问题来自历史,不应再触发)
@@ -255,6 +252,13 @@ export function createSendMessage(
         return false
       }
       conversationId = createRes.data.conversation.id
+      // 埋点:创建对话成功(非 React 模块,轻量上报不阻塞)
+      void fetchApi('/api/analytics/track', {
+        method: 'POST',
+        body: JSON.stringify({
+          events: [{ name: 'conversation_create', category: 'chat', props: { ts: Date.now() } }],
+        }),
+      })
       store.setConversationId(conversationId)
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', conversationId)

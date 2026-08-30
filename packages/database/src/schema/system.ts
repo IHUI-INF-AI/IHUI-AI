@@ -7,7 +7,6 @@ import {
   integer,
   timestamp,
   jsonb,
-  index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -95,22 +94,3 @@ export type NewSystemEvent = typeof systemEvents.$inferInsert
  * provider: wechat(微信) / alipay(支付宝) / stripe / other。
  * environment: production(生产) / sandbox(沙箱) / test(测试)。
  */
-export const paymentConfig = pgTable(
-  'payment_configs',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    provider: varchar('provider', { length: 32 }).notNull(),
-    configKey: varchar('config_key', { length: 100 }).notNull(),
-    configValue: text('config_value'),
-    isEnabled: boolean('is_enabled').default(true),
-    environment: varchar('environment', { length: 20 }).default('production'),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (t) => ({
-    providerIdx: index('payment_configs_provider_idx').on(t.provider),
-  }),
-)
-
-export type PaymentConfig = typeof paymentConfig.$inferSelect
-export type NewPaymentConfig = typeof paymentConfig.$inferInsert

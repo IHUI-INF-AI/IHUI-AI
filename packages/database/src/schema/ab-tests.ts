@@ -39,6 +39,9 @@ export const abTests = pgTable(
   }),
 )
 
+export type AbTest = typeof abTests.$inferSelect
+export type NewAbTest = typeof abTests.$inferInsert
+
 export const abTestVariants = pgTable(
   'ab_test_variants',
   {
@@ -56,6 +59,9 @@ export const abTestVariants = pgTable(
     testIdx: index('idx_ab_test_variants_test').on(t.testId),
   }),
 )
+
+export type AbTestVariant = typeof abTestVariants.$inferSelect
+export type NewAbTestVariant = typeof abTestVariants.$inferInsert
 
 export const abTestResults = pgTable(
   'ab_test_results',
@@ -75,9 +81,5 @@ export const abTestResults = pgTable(
   }),
 )
 
-export type AbTest = typeof abTests.$inferSelect
-export type NewAbTest = typeof abTests.$inferInsert
-export type AbTestVariant = typeof abTestVariants.$inferSelect
-export type NewAbTestVariant = typeof abTestVariants.$inferInsert
 export type AbTestResult = typeof abTestResults.$inferSelect
 export type NewAbTestResult = typeof abTestResults.$inferInsert
