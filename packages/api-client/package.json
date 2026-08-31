@@ -52,5 +52,9 @@
     "typescript": "catalog:",
     "rimraf": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top",
+  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
+  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
 }

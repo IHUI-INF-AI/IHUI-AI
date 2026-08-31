@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+
 /* eslint-disable no-console -- 守门脚本为 CLI 工具,需 console 输出诊断信息 */
 /**
  * check-shrinkable-text-button.mjs — 小高度 button + 极小字号 + 中文 span label 缺 shrink-0 / whitespace-nowrap 守门
@@ -80,7 +85,6 @@ check-shrinkable-text-button.mjs — 小高度 button + 极小字号 + 中文 sp
 }
 
 const isScan = args.includes('--scan')
-const isDryRun = args.includes('--dry-run')
 const isStrict = args.includes('--strict')
 const isQuiet = args.includes('--quiet')
 const outputIdx = args.findIndex((a) => a === '--output')
@@ -153,13 +157,6 @@ const HAS_WHITESPACE_NOWRAP = /\bwhitespace-nowrap\b/
 
 // 命中规则:有 truncate(已处理省略)
 const HAS_TRUNCATE = /\btruncate\b/
-
-// 白名单:含 w-N 指定明确宽度(放宽,> 32px)
-const HAS_FIXED_WIDTH = /\bw-(?:\[?\d+(?:\.\d+)?(?:px|rem)\]?|\d+)\b/
-
-// 白名单:inline-flex + gap + 固定宽
-const HAS_INLINE_FLEX_GAP_WIDTH = /\binline-flex\b/.test.bind(/\binline-flex\b/) // placeholder
-// 实际函数见 hasWidthEnough
 
 // 中文字符正则(基本汉字 + 标点)
 const CHINESE_TEXT_REGEX = /[\u4e00-\u9fff]{2,}/
@@ -374,11 +371,6 @@ function extractChineseLabels(body) {
   return labels
 }
 
-// ─── 判断 button 是否 icon-only(无中文 span)───────────────
-function isIconOnly(body, hasChineseLabels) {
-  return hasChineseLabels.length === 0
-}
-
 // ─── 主分析函数 ─────────────────────────────────────────────
 function analyzeButton(content, block) {
   // 1. 提取 tag 头(<button ... > 部分)
@@ -535,3 +527,4 @@ if (isScan) {
   if (isStrict) process.exit(1)
   process.exit(0)
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
