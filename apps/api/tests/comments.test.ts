@@ -1,7 +1,11 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
-// Mock config 避免导入�?env 校验触发 process.exit(1)
+// Mock config 避免导入?env 校验触发 process.exit(1)
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -19,7 +23,7 @@ vi.mock('../src/config/index.js', () => ({
 
 import { commentRoutes } from '../src/routes/comments'
 
-// comments 路由通过 preHandler 钩子统一鉴权，未登录时所有端点返�?401�?
+// comments 路由通过 preHandler 钩子统一鉴权，未登录时所有端点返?401?
 const SAMPLE_UUID = '00000000-0000-4000-8000-000000000001'
 
 describe('comment routes', () => {
@@ -29,7 +33,7 @@ describe('comment routes', () => {
     await server.close()
   })
 
-  it('GET /api/comments 未登录返�?401', async () => {
+  it('GET /api/comments 未登录返?401', async () => {
     await server.register(commentRoutes, { prefix: '/api' })
     await server.ready()
 
@@ -37,7 +41,7 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/comments 未登录返�?401', async () => {
+  it('POST /api/comments 未登录返?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/comments',
@@ -46,7 +50,7 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PATCH /api/comments/:id 未登录返�?401', async () => {
+  it('PATCH /api/comments/:id 未登录返?401', async () => {
     const res = await server.inject({
       method: 'PATCH',
       url: `/api/comments/${SAMPLE_UUID}`,
@@ -55,7 +59,7 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/comments/:id 未登录返�?401', async () => {
+  it('DELETE /api/comments/:id 未登录返?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: `/api/comments/${SAMPLE_UUID}`,
@@ -63,7 +67,7 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/comments/:id/like 未登录返�?401', async () => {
+  it('POST /api/comments/:id/like 未登录返?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: `/api/comments/${SAMPLE_UUID}/like`,
@@ -71,7 +75,7 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/feedbacks 未登录返�?401', async () => {
+  it('POST /api/feedbacks 未登录返?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/feedbacks',
@@ -80,13 +84,14 @@ describe('comment routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/feedbacks 未登录返�?401', async () => {
+  it('GET /api/feedbacks 未登录返?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/feedbacks' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/feedbacks 未登录返�?401', async () => {
+  it('GET /api/admin/feedbacks 未登录返?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/feedbacks' })
     expect(res.statusCode).toBe(401)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
