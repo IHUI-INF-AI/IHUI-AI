@@ -8546,7 +8546,8 @@
     "voiceInputStop": "音声入力を停止",
     "voiceInputNativeFallback": "ブラウザの音声サービスを利用できません。ローカル文字起こしに切り替えました。もう一度お試しください",
     "voiceInputError": "音声認識を利用できません。ネットワークを確認するか、Chrome/Edge をご利用ください",
-    "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください"
+    "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください",
+    "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください"
   },
   "chatHistory": {
     "backToHistory": "にる",
