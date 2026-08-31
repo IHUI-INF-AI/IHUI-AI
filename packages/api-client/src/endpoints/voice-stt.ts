@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:
+
 /**
  * 语音转文字(STT)—— 跨端共用封装(不含 Taro 专用实现)。
  *
@@ -36,8 +40,10 @@ export interface VoiceSttParams {
   mimeType?: string
   /** 语言提示(如 zh/en/ja,可选) */
   language?: string
-  /** ai-service 基础 URL(默认 http://localhost:8803) */
+  /** ai-service 基础 URL(默认 http://localhost:8803;也可传同源代理路径 /api/voice/stt) */
   aiServiceUrl?: string
+  /** 访问令牌(可选;ai-service 启用 JWT 鉴权后必须携带 Bearer token) */
+  token?: string
 }
 
 /** 默认 ai-service URL(与 web 端 voice-input.tsx 保持一致)。 */
@@ -60,6 +66,7 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
     mimeType = 'audio/webm',
     language = 'zh',
     aiServiceUrl = DEFAULT_AI_SERVICE_URL,
+    token,
   } = params
 
   if (!blob) return ''
@@ -71,10 +78,18 @@ export async function voiceSttFromBlob(params: VoiceSttParams): Promise<string> 
     formData.append('file', audioBlob, filename)
     if (language) formData.append('language', language)
 
-    const res = await fetch(`${aiServiceUrl}/api/voice/stt`, {
-      method: 'POST',
-      body: formData,
-    })
+    const res = await fetch(
+      // 支持完整 URL(如 http://localhost:8803)或同源代理路径(如 /api/voice/stt)
+      aiServiceUrl.endsWith('/api/voice/stt')
+        ? aiServiceUrl
+        : `${aiServiceUrl.replace(/\/+$/, '')}/api/voice/stt`,
+      {
+        method: 'POST',
+        body: formData,
+        // ai-service 启用 JWT 鉴权(2026-08 起),必须携带 Bearer token
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      },
+    )
 
     if (!res.ok) return ''
 
@@ -137,3 +152,4 @@ export async function voiceSttFromReactNative(
 
 /** 默认导出:根据环境自动选择实现(web/extension 直接用 voiceSttFromBlob)。 */
 export default voiceSttFromBlob
+//
