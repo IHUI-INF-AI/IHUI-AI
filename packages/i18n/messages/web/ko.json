@@ -8543,7 +8543,10 @@
       "zhipu": "지푸"
     },
     "voiceInputStart": "음성 입력",
-    "voiceInputStop": "음성 입력 중지"
+    "voiceInputStop": "음성 입력 중지",
+    "voiceInputNativeFallback": "브라우저 음성 서비스를 사용할 수 없습니다. 로컬 받아쓰기로 전환되었습니다. 다시 시도해 주세요",
+    "voiceInputError": "음성 인식을 사용할 수 없습니다. 네트워크를 확인하거나 Chrome/Edge를 사용해 주세요",
+    "voiceInputSttFailed": "받아쓰기에 실패했습니다. 나중에 다시 시도하거나 로컬 음성 서비스를 확인해 주세요"
   },
   "chatHistory": {
     "backToHistory": "기록으로 돌아가기",
