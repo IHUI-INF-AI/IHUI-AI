@@ -1166,7 +1166,11 @@ const nextConfig: NextConfig = {
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       {
         key: 'Permissions-Policy',
-        value: 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+        // 2026-08-31 fix: microphone 由 () 改为 (self) —— 应用自带语音输入
+        // (MediaRecorder → 本地 STT),() 会在页面级彻底禁用麦克风,getUserMedia
+        // 直接抛 Permissions policy violation,语音输入功能完全不可用。
+        // (self) 仅允许同源使用,第三方 iframe 仍被禁,安全边界不变。
+        value: 'camera=(), microphone=(self), geolocation=(), payment=(), usb=()',
       },
       {
         key: 'Content-Security-Policy',
