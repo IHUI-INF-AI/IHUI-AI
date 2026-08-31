@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
  * IHUI AI (智汇AI) 溯源水印工具
  *
@@ -184,6 +188,8 @@ function injectFile(absPath) {
   let text = buf.toString('utf8').replace(/^\uFEFF/, '') // strip BOM, 避免 shebang 检测失败
   if (INVISIBLE_RE.test(text)) return 'skip-done'
   // 残迹态(只有横幅文本、载荷被剥离):先清干净再注入,避免横幅重复
+  // 注意: 本工具自身源码包含横幅常量定义, clean 会"自噬", 故跳过自身
+  if (absPath === fileURLToPath(import.meta.url)) return 'skip-self'
   if (text.includes(BANNER_ID)) {
     try {
       cleanFile(absPath)
@@ -192,8 +198,13 @@ function injectFile(absPath) {
       /* clean 失败则继续按残迹处理 */
     }
   }
-  // XML 声明必须位于文档首位,横幅不能插在 <?xml ...?> 之前 → 跳过这类文件
-  if (/^\s*<\?xml[\s\S]*?\?>/.test(text)) return 'skip-xml-decl'
+  // XML 声明必须位于文档首位: 提取后置于横幅之前, 而不是跳过
+  let xmlDecl = ''
+  const xmlMatch = text.match(/^\s*<\?xml[\s\S]*?\?>\r?\n?/)
+  if (xmlMatch) {
+    xmlDecl = xmlMatch[0]
+    text = text.slice(xmlMatch[0].length)
+  }
 
   // 保留 shebang 行在最前
   let shebang = ''
@@ -213,7 +224,7 @@ function injectFile(absPath) {
   else tail = '/* ' + INVISIBLE_MARK + ' */\n'
 
   // 统一去末尾换行再追加,保证 L3 恒为独立末行(绝不与末行内容拼接,也不落在中间空行)
-  const body = (shebang + banner + '\n' + text).replace(/\r?\n$/, '')
+  const body = (shebang + xmlDecl + banner + '\n' + text).replace(/\r?\n$/, '')
   const out = body + '\n' + tail
   writeFileSync(absPath, out, 'utf8')
   return 'injected'
@@ -345,3 +356,4 @@ if (cmd === 'inject') {
 } else {
   console.log('用法: node scripts/watermark.mjs <inject|verify|decode|clean|clean-all> [file]')
 }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
