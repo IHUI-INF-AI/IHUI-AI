@@ -12,7 +12,7 @@
  *   POST /gen-table/tables/:id/generate  生成 TypeScript CRUD 路由模板
  *   DELETE /gen-table/tables/:id 删除导入记录(含列)
  *
- * 注意:本路由未注册到 routes/index.ts(由需求指定),测试与后续接入由调用方自行注册。
+ * 注意:本路由已注册到 routes/index.ts(prefix=/api/gen-table,commit 6af51bed3b)。
  */
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
@@ -258,7 +258,8 @@ const genTableRoutes: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (existing[0]) return reply.status(409).send(error(409, `表 ${tableName} 已导入`))
 
     const rows = (await db.execute(sql`
-      SELECT column_name, data_type, is_nullable, column_default, column_comment
+      SELECT column_name, data_type, is_nullable, column_default,
+             col_description('public.' || table_name::regclass, ordinal_position) AS column_comment
       FROM information_schema.columns
       WHERE table_schema = 'public' AND table_name = ${tableName}
       ORDER BY ordinal_position

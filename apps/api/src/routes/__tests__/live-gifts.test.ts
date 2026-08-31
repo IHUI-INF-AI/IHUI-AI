@@ -66,8 +66,14 @@ vi.mock('../../db/index.js', () => {
     })),
     delete: vi.fn(() => ({ where: vi.fn().mockResolvedValue(undefined) })),
     execute: mockExecute,
-    transaction: vi.fn(async (cb: (tx: { select: unknown; insert: unknown }) => Promise<unknown>) =>
-      cb({ select: dbMock.select, insert: dbMock.insert }),
+    transaction: vi.fn(
+      async (
+        cb: (tx: {
+          select: unknown
+          insert: unknown
+          execute: typeof mockExecute
+        }) => Promise<unknown>,
+      ) => cb({ select: dbMock.select, insert: dbMock.insert, execute: mockExecute }),
     ),
   }
   return { db: dbMock, dbRead: dbMock, dbClient: {} }
