@@ -85,7 +85,6 @@ export function MessageInput({
   modelLabel,
   floatHeader,
   onFloatDragStart,
-  onTriggerClick,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -426,18 +425,12 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
-            {/* 浮窗折叠态合并行:AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行
-                AgentProgressTrigger 传 border-0 bg-transparent px-0 → 按钮本身无描边/背景/内边距。
-                行 gap-1 提供按钮间距,floatHeader 用 Fragment + ml-auto 推到右侧(无 div 包裹)。 */}
+            {/* 浮窗折叠态合并行:floatHeader 已包含 AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行 */}
             {floatHeader && (
               <div
                 onPointerDown={onFloatDragStart}
                 className="flex cursor-move items-center gap-1 px-2 py-1"
               >
-                <AgentProgressTrigger
-                  className="border-0 bg-transparent px-0"
-                  onTriggerClick={onTriggerClick}
-                />
                 {floatHeader}
               </div>
             )}
@@ -447,7 +440,7 @@ export function MessageInput({
                 floatHeader && '!rounded-tl-none !rounded-tr-none',
               )}
             >
-              {!floatHeader && <AgentProgressTrigger />}
+              {!floatHeader && <AgentProgressTrigger iconOnly />}
               <PermissionModePopover disabled={isStreaming} />
               {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层

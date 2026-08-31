@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
+import { TooltipProvider } from '@/components/feedback'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import {
   PWAInstallPrompt,
@@ -206,11 +207,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 导致 iframe 加载的页面显示首页导航 + 任务列表,二维码面板被布局覆盖不可见。
   // 放在所有 hooks 之后,避免违反 React hooks 规则(条件 return 不能在 hooks 调用之前)。
   if (pathname === '/login') {
-    return <>{children}</>
+    return (
+      <TooltipProvider>
+        {children}
+      </TooltipProvider>
+    )
   }
 
   return (
-    <>
+    <TooltipProvider>
+      <>
       {/* 布局结构(2026-07-30 彻底根治:AI 面板从 fixed 改为 flex 流内布局):
           左列 = <Sidebar />                          全高侧边栏
           右列 = <flex-row>                           横向排列
@@ -399,6 +405,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
         点击 trigger 弹小 popover 显示 plan steps 列表,不再全局挂载底部大弹窗。
       */}
     </>
+    </TooltipProvider>
   )
 }
 
