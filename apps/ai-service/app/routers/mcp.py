@@ -267,7 +267,7 @@ async def list_external_servers() -> dict[str, Any]:
         return {"servers": servers, "count": len(servers)}
     except Exception as e:
         logger.error("列出外部 MCP Server 失败: %s", e)
-        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP Server 失败: {e}"})
+        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP Server 失败: {e}"}, headers={})  # type: ignore[return-value]
 
 
 @router.post("/mcp/external/servers", response_model=None)
@@ -358,7 +358,7 @@ async def list_external_tools() -> dict[str, Any]:
         return {"tools": [asdict(t) for t in tools], "count": len(tools)}
     except Exception as e:
         logger.error("列出外部 MCP 工具失败: %s", e)
-        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP 工具失败: {e}"})
+        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP 工具失败: {e}"}, headers={})  # type: ignore[return-value]
 
 
 @router.post("/mcp/external/tools/call", response_model=None)
