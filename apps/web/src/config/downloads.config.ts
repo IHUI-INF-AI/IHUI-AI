@@ -395,7 +395,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       assets: [
         {
           href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 1374335,
+          sizeBytes: 6498757,
           format: 'Chrome MV3 ZIP',
         },
       ],
