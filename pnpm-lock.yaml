@@ -1055,7 +1055,7 @@ importers:
         specifier: ^1.4.1
         version: 1.4.1
       lucide-react:
-        specifier: ^1.37.0
+        specifier: 1.37.0
         version: 1.37.0(react@19.2.8)
       mermaid:
         specifier: ^11.16.0
