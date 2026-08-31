@@ -8541,7 +8541,8 @@
     "voiceInputStop": "停止語音輸入",
     "voiceInputNativeFallback": "瀏覽器語音服務不可用，已切換本地轉寫，請重試",
     "voiceInputError": "語音識別不可用，請檢查網路或改用 Chrome/Edge",
-    "voiceInputSttFailed": "轉寫失敗，請稍後重試或檢查本地語音服務"
+    "voiceInputSttFailed": "轉寫失敗，請稍後重試或檢查本地語音服務",
+    "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
