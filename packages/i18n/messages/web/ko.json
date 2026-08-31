@@ -14118,7 +14118,7 @@
     "downloadDesktop": "데스크톱",
     "downloadDesktopDesc": "Windows / macOS / Linux 지원",
     "downloadDesktopInstallGuide": ".exe 또는 .msi 설치 패키지를 다운로드하고, 더블클릭하여 마법사 지시에 따라 설치. 설치 후 시작 메뉴에서 IHUI AI 실행.",
-    "downloadDesktopReleaseNotes": "Tauri 2.x 데스크톱 클라이언트 0.1.14 버전",
+    "downloadDesktopReleaseNotes": "Tauri 2.x 데스크톱 클라이언트(버전은 페이지 상단에 표시)",
     "downloadDesktopSysReq": "Windows 10/11 x64, 4GB RAM, 500MB 디스크 공간",
     "downloadDocs": "문서 보기",
     "downloadExtension": "브라우저 확장",
