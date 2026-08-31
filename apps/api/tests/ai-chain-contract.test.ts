@@ -1,8 +1,12 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 /**
- * AI 对话链路契约测试 �?防止 API �?AI-service 字段名漂�?+ /api/llm/models 路由回归
+ * AI 对话链路契约测试 ?防止 API ?AI-service 字段名漂?+ /api/llm/models 路由回归
  *
- * 背景:2026-07-17 发现 ai-chat-stream.ts �?modelId �?AI-service,
- * �?AI-service LLMCompleteRequest 期望 model,导致用户切换模型无效�? * 本测试锁定契�?API 必须�?model 字段(�?modelId),�?/api/llm/models 必须可用�? */
+ * 背景:2026-07-17 发现 ai-chat-stream.ts ?modelId ?AI-service,
+ * ?AI-service LLMCompleteRequest 期望 model,导致用户切换模型无效? * 本测试锁定契?API 必须?model 字段(?modelId),?/api/llm/models 必须可用? */
 import { describe, it, expect, afterAll, beforeAll, vi, afterEach } from 'vitest'
 import Fastify from 'fastify'
 
@@ -36,7 +40,7 @@ vi.mock('@ihui/auth', () => ({
 }))
 
 // 2026-08-06 修复:auth.ts P2-14 安全加固新增 getUserStatus 查询,
-// mock 返回 status=1(active),避免 401 '用户不存�?
+// mock 返回 status=1(active),避免 401 '用户不存?
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
 // Mock db
@@ -107,12 +111,12 @@ describe('AI 对话链路契约', () => {
       await server.close()
     })
 
-    it('未登录返�?401', async () => {
+    it('未登录返?401', async () => {
       const res = await server.inject({ method: 'GET', url: '/api/llm/models' })
       expect(res.statusCode).toBe(401)
     })
 
-    it('admin 登录后返回模型列�?代理 AI-service)', async () => {
+    it('admin 登录后返回模型列?代理 AI-service)', async () => {
       mockAdmin()
       const mockModels = {
         models: [
@@ -180,7 +184,7 @@ describe('AI 对话链路契约', () => {
     })
   })
 
-  describe('ai-chat-stream 字段名契�?model �?modelId)', () => {
+  describe('ai-chat-stream 字段名契?model ?modelId)', () => {
     const server = Fastify({ logger: false })
 
     beforeAll(async () => {
@@ -196,7 +200,7 @@ describe('AI 对话链路契约', () => {
       vi.restoreAllMocks()
     })
 
-    it('接受 model 字段(�?AI-service LLMCompleteRequest 契约对齐)', async () => {
+    it('接受 model 字段(?AI-service LLMCompleteRequest 契约对齐)', async () => {
       mockAdmin()
       const fetchCalls: unknown[] = []
       const originalFetch = globalThis.fetch
@@ -224,7 +228,7 @@ describe('AI 对话链路契约', () => {
           },
         })
         expect(res.statusCode).toBe(200)
-        // 验证传给 AI-service �?body �?model 字段(�?modelId)
+        // 验证传给 AI-service ?body ?model 字段(?modelId)
         expect(fetchCalls).toHaveLength(1)
         const sentBody = fetchCalls[0] as Record<string, unknown>
         expect(sentBody.model).toBe('gpt-4o')
@@ -264,7 +268,7 @@ describe('AI 对话链路契约', () => {
         expect(res.statusCode).toBe(200)
         expect(fetchCalls).toHaveLength(1)
         const sentBody = fetchCalls[0] as Record<string, unknown>
-        // modelId 应被映射�?model(向后兼容)
+        // modelId 应被映射?model(向后兼容)
         expect(sentBody.model).toBe('claude-3-5-sonnet')
         expect(sentBody.modelId).toBeUndefined()
       } finally {
@@ -272,7 +276,7 @@ describe('AI 对话链路契约', () => {
       }
     })
 
-    it('model 优先�?modelId(同时传时 model 胜出)', async () => {
+    it('model 优先?modelId(同时传时 model 胜出)', async () => {
       mockAdmin()
       const fetchCalls: unknown[] = []
       const originalFetch = globalThis.fetch
@@ -308,3 +312,4 @@ describe('AI 对话链路契约', () => {
     })
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
