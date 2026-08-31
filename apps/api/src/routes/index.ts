@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { type FastifyInstance } from 'fastify'
 
 import { healthRoutes } from './health.js'
@@ -88,6 +92,13 @@ import { clawdbotRoutes } from './clawdbot.js'
 import { tenantRoutes } from './tenant.js'
 import canaryRoutes from './canary.js'
 import tboxRoutes from './tbox.js'
+// 2026-08-31 六组功能:ab-testing/ai-grading/certificate-serials/gen-table/live-gifts/tbox-points
+import { abTestingRoutes } from './ab-testing.js'
+import { aiGradingRoutes } from './ai-grading.js'
+import { certificateSerialsRoutes } from './certificate-serials.js'
+import { genTableRoutes } from './gen-table.js'
+import { liveGiftsRoutes } from './live-gifts.js'
+import { tboxPointsRoutes } from './tbox-points.js'
 import stockRoutes from './stock.js'
 import agentExtendedRoutes from './agent-extended.js'
 import eduExtendedRoutes from './edu-extended.js'
@@ -604,6 +615,21 @@ export function registerRoutes(server: FastifyInstance) {
   // TBox IoT 设备管理：设备注册/查询/指令下发/事件通知接收
   server.register(tboxRoutes, { prefix: '/api/tbox' })
 
+  // 2026-08-31 六组功能路由注册（commit 291cb36c9e 声称注册但实际缺失，此处补回）
+  // A/B 测试引擎：/api/ab-testing/*
+  server.register(abTestingRoutes, { prefix: '/api' })
+  // AI 智能出题/批改：/api/ai-grading/*
+  server.register(aiGradingRoutes, { prefix: '/api' })
+  // 证书序列号：/api/certificate-serials/*
+  server.register(certificateSerialsRoutes, { prefix: '/api' })
+  // 代码生成器：/api/gen-table/*
+  server.register(genTableRoutes, { prefix: '/api/gen-table' })
+  // 直播打赏：/api/live-gifts/*
+  server.register(liveGiftsRoutes, { prefix: '/api' })
+  // TBox 积分：/api/tbox-points/*
+  // 注意:不挂 /api/tbox —— tbox.ts 已有 /events /devices 路由,同前缀会触发 FST_ERR_DUPLICATED_ROUTE
+  server.register(tboxPointsRoutes, { prefix: '/api/tbox-points' })
+
   // Stock 股票分析：Token 余额/分析/历史记录（迁移自旧架构 stock_analyse_service）
   server.register(stockRoutes, { prefix: '/api/stock' })
 
@@ -1112,3 +1138,4 @@ export function registerRoutes(server: FastifyInstance) {
   // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
   server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
 }
+⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
