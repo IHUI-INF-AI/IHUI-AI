@@ -67,16 +67,18 @@ type VoiceMode = 'native' | 'fallback' | 'unsupported'
 /**
  * VoiceInput — 语音输入组件(零成本混合策略)。
  *
- * 路径一(native):浏览器 webkitSpeechRecognition(Chrome/Edge)。
- *   - 2026-08-31 修复:该服务依赖 Google 语音服务器,国内网络不可达时 onerror 触发,
- *     不再静默失败——自动降级到本地 STT(fallback)并给出提示。
- *   - continuous=false:说完一句话自动结束并回调,无需手动点停止。
- *   - onresult 只累加 isFinal 结果,修复 continuous 模式 results 累积导致的文本重复。
- *
- * 路径二(fallback):MediaRecorder 录音 → 同源 /api/voice/stt(next rewrites 代理到
- *   ai-service)→ faster-whisper 本地 CPU 推理(完全免费,首次下载 74MB 模型后离线)。
+ * 路径一(fallback,默认优先):MediaRecorder 录音 → 同源 /api/voice/stt(next rewrites
+ *   代理到 ai-service)→ faster-whisper 本地 CPU 推理(完全免费,首次下载 74MB 模型后离线)。
  *   - 2026-08-31 修复:请求携带 Bearer access token(ai-service 已启用 JWT 鉴权,
  *     无 token 直连必 401),失败时展示错误提示而非静默丢弃。
+ *   - 2026-08-31 调整:本地转写改为默认路径。原默认的浏览器原生识别依赖 Google
+ *     语音服务器,国内网络不可达,点击后必触发 onerror 显示错误三角——用户感知
+ *     即"点一下就报错"。反转优先级后一次点击直达可用路径,native 仅作备选。
+ *
+ * 路径二(native,备选):浏览器 webkitSpeechRecognition(需 Google 服务可达)。
+ *   - 仅当浏览器不支持 MediaRecorder 时才启用。
+ *   - continuous=false:说完一句话自动结束并回调,无需手动点停止。
+ *   - onresult 只累加 isFinal 结果,修复 continuous 模式 results 累积导致的文本重复。
  *
  * 两条路径最终都调用 onTranscript(text),由父组件决定如何处理(通常追加到 textarea)。
  */
@@ -98,12 +100,13 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const chunksRef = React.useRef<Blob[]>([])
   const streamRef = React.useRef<MediaStream | null>(null)
 
-  // 挂载时探测能力:优先 native(Chrome/Edge),否则 fallback(Firefox/Safari MediaRecorder)
+  // 挂载时探测能力:本地转写(MediaRecorder→faster-whisper)优先;
+  // 浏览器原生识别依赖 Google 语音服务器(国内不可达),仅作无 MediaRecorder 时的备选
   React.useEffect(() => {
-    if (getRecognitionConstructor()) {
-      setMode('native')
-    } else if (hasMediaRecorder()) {
+    if (hasMediaRecorder()) {
       setMode('fallback')
+    } else if (getRecognitionConstructor()) {
+      setMode('native')
     } else {
       setMode('unsupported')
     }
@@ -215,6 +218,8 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         if (text) {
           onTranscriptRef.current(text)
           setError(null)
+        } else if (audioBlob.size < 2000) {
+          setError(t('voiceInputEmpty') || '未识别到语音内容,请靠近麦克风后重试')
         } else {
           setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
         }
