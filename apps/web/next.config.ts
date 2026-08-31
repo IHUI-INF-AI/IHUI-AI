@@ -1001,6 +1001,14 @@ const nextConfig: NextConfig = {
           source: '/api/a2a/:path*',
           destination: 'http://localhost:8803/api/a2a/:path*',
         },
+        // 2026-08-31 修复:知识图谱页(/(main)/knowledge-graph)前端调用 /api/ai/knowledge-graph/*,
+        // 后端实际注册在 ai-service 8803 的 /api/v1/ai/knowledge-graph/*(v1-knowledge-tools.ts 的
+        // /v1/knowledge-graph/* 需 API Key 鉴权,不适配页面登录态)。转发规则必须放在
+        // /api/:path* 通配符之前,否则浏览器同源请求落到 8802 → 404。
+        {
+          source: '/api/ai/knowledge-graph/:path*',
+          destination: 'http://localhost:8803/api/v1/ai/knowledge-graph/:path*',
+        },
         // 2026-07-31 新增:Agent 路由直接转发到 ai-service 8803
         // 原因:Agent runtime 的 router 注册在 ai-service 8803 的 /api 前缀下,
         // IDE AgentPane 组件调用 agent loop/graph 端点路径为 /agents/*,必须直连 ai-service 8803 才能命中。
@@ -1129,6 +1137,17 @@ const nextConfig: NextConfig = {
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
+        },
+        // 2026-08-31 修复:WebSocket 通知链路 404。
+        // use-websocket.ts 以 window.location.origin(8801)为 baseUrl,fetchWsTicket
+        // 换票请求 POST /ws/ticket 与 WS 连接 /ws/notifications 都打到 8801;
+        // 后端这两个端点注册在 api server 8802(ws-notifications.ts,无 /api 前缀),
+        // 此前 rewrites 无 /ws/* 规则 → /ws/ticket 404、WS 握手失败。
+        // Next.js rewrites 对 WebSocket 升级请求同样生效(dev + standalone 均可),
+        // 故一条规则同时覆盖换票 HTTP 与 WS 升级。
+        {
+          source: '/ws/:path*',
+          destination: 'http://localhost:8802/ws/:path*',
         },
       ],
     }
