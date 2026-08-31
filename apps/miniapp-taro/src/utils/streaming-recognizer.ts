@@ -5,6 +5,7 @@
 import { t } from '@/i18n'
 import Taro from '@tarojs/taro'
 import { voiceSttFromTaro } from '@ihui/api-client/endpoints/voice-stt.taro'
+import { getToken } from './auth'
 
 /**
  * 流式语音识别器(miniapp-taro)。
@@ -101,6 +102,8 @@ class StreamingRecognizer {
       const text = await voiceSttFromTaro(this.tempFilePath, {
         language: this.config.language,
         aiServiceUrl: this.config.aiServiceUrl,
+        // ai-service JWT 鉴权:必须携带 Bearer token(2026-08-31 修复)
+        token: getToken() || undefined,
       })
       if (text) {
         this.recognitionResult = text
