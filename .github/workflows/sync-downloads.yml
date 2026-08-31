@@ -49,10 +49,15 @@ jobs:
       - name: Sync downloads
         run: node scripts/sync-downloads.mjs
 
+      # 动态刷新桌面下载快照(幂等;主要刷新时机在 release-desktop.yml,
+      # 本步骤兜底 release workflow 提交失败或手动发布等情况)
+      - name: Resolve desktop download feed
+        run: node scripts/resolve-desktop-download.mjs
+
       - name: Check for changes
         id: changes
         run: |
-          if [ -z "$(git status --porcelain apps/web/public/downloads/)" ]; then
+          if [ -z "$(git status --porcelain apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts)" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
           else
             echo "changed=true" >> $GITHUB_OUTPUT
@@ -63,8 +68,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apps/web/public/downloads/
-          git commit -m "chore(downloads): auto-sync $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git add apps/web/public/downloads/ apps/web/src/config/desktop-feed.generated.ts
+          git commit -m "chore(downloads): auto-sync downloads + desktop feed $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
 
       - name: Summary
@@ -72,5 +77,6 @@ jobs:
           echo "### Downloads 同步完成" >> $GITHUB_STEP_SUMMARY
           echo "触发方式: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
           echo "extension 下载包已同步到 apps/web/public/downloads/" >> $GITHUB_STEP_SUMMARY
+          echo "桌面下载快照 desktop-feed.generated.ts 已刷新(版本/URL/大小自动解析)" >> $GITHUB_STEP_SUMMARY
           echo "变更状态: ${{ steps.changes.outputs.changed }}" >> $GITHUB_STEP_SUMMARY
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

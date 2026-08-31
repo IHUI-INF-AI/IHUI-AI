@@ -64,6 +64,9 @@
     "sync:downloads": "node scripts/sync-downloads.mjs",
     "sync:downloads:check": "node scripts/sync-downloads.mjs --check",
     "sync:downloads:dry-run": "node scripts/sync-downloads.mjs --dry-run",
+    "resolve:desktop-download": "node scripts/resolve-desktop-download.mjs",
+    "resolve:desktop-download:check": "node scripts/resolve-desktop-download.mjs --check",
+    "resolve:desktop-download:dry-run": "node scripts/resolve-desktop-download.mjs --dry-run",
     "watermark": "node scripts/watermark.mjs inject",
     "watermark:check": "node scripts/watermark.mjs verify"
   },

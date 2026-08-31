@@ -19,6 +19,8 @@
 > 📌 **2026-08-21 任务完成**: 排行榜/分销团队 mobile-rn 端接入真实 API,移除 mock 数据,后端新增 /distribution/team/* 端点,补齐 i18n keys(commit b2ddcf184c,18 文件 +435/-121)。
 >
 > 📌 **2026-08-21 任务完成**: mobile-rn 端 8 个 Screen 重写对齐 Uniapp 原项目(Agent/Carte/Chat/DevEnter/Developer/Recruitment/Share/Profile/AiAssistantN8n),新增测试 mock 与 vitest 配置,共享组件 TeamDetail/RankingDetail 补齐 loading/error 态,修复 TypeScript typecheck 错误(CarteScreen、DeveloperScreen、RecruitmentScreen 加入迁移白名单),commit c494167ab7,24 文件 +1644/-612。
+>
+> 📌 **2026-08-31 任务完成**: 桌面端下载页动态解析(零手动)。新增 `scripts/resolve-desktop-download.mjs` 从 GitHub Releases API 解析最新 `desktop-v*` release 资产,生成 `apps/web/src/config/desktop-feed.generated.ts` 入库快照;`downloads.config.ts` desktop 段改为构建期读快照(带 DESKTOP_FALLBACK 兜底);`release-desktop.yml` sync-downloads job + `sync-downloads.yml` 加 resolve 步骤并纳入自动 commit,发版后下载页自动更新 URL/大小/版本号;i18n 5 语言 `downloadDesktopReleaseNotes` 移除硬编码版本号;`.prettierignore` 豁免生成物。web typecheck/eslint/prettier/i18n 守门全绿,快照与线上幂等一致(commit 后记)。
 
 ---
 
