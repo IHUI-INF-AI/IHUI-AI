@@ -193,32 +193,41 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '余额不足'))
       }
 
-      // 原子扣减(条件 UPDATE 兜底并发)
-      const updateResult = await db.execute(
-        sql`UPDATE user_token_balance SET balance = balance - ${totalPrice}, updated_at = now() WHERE user_uuid = ${userId} AND balance >= ${totalPrice}`,
-      )
-      const affected = (updateResult as { count?: number }).count
-      if (typeof affected === 'number' && affected < 1) {
-        return reply.status(400).send(error(400, '余额不足'))
+      // 扣款 + 写打赏记录在同一事务(防止扣款成功但记录失败的资金丢失)
+      const result = await db.transaction(async (tx) => {
+        // 原子扣减(条件 UPDATE 兜底并发)
+        const updateResult = await tx.execute(
+          sql`UPDATE user_token_balance SET balance = balance - ${totalPrice}, updated_at = now() WHERE user_uuid = ${userId} AND balance >= ${totalPrice}`,
+        )
+        const affected = (updateResult as { count?: number }).count
+        if (typeof affected === 'number' && affected < 1) {
+          return { code: 400, message: '余额不足' } as const
+        }
+
+        // 写打赏记录(live_gift 表)
+        const inserted = await tx
+          .insert(liveGift)
+          .values({
+            channelId: parsed.data.liveId ?? 0,
+            userId,
+            userName: nickname,
+            giftId: gift.id,
+            giftName: gift.name,
+            giftCount: quantity,
+            totalPrice,
+          })
+          .returning()
+        const record = inserted[0]
+        if (!record) return { code: 500, message: '写入打赏记录失败' } as const
+        return { code: 0, record } as const
+      })
+
+      if (result.code !== 0) {
+        return reply.status(result.code).send(error(result.code, result.message))
       }
-
-      // 写打赏记录(live_gift 表)
-      const inserted = await db
-        .insert(liveGift)
-        .values({
-          channelId: parsed.data.liveId ?? 0,
-          userId,
-          userName: nickname,
-          giftId: gift.id,
-          giftName: gift.name,
-          giftCount: quantity,
-          totalPrice,
-        })
-        .returning()
-      const record = inserted[0]
-      if (!record) return reply.status(500).send(error(500, '写入打赏记录失败'))
-
-      return reply.send(success({ record, balanceAfter: Math.max(0, currentBalance - totalPrice) }))
+      return reply.send(
+        success({ record: result.record, balanceAfter: Math.max(0, currentBalance - totalPrice) }),
+      )
     },
   )
 
@@ -233,7 +242,7 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       db
         .select({ record: liveGift, senderName: users.nickname })
         .from(liveGift)
-        .leftJoin(users, eq(liveGift.userId, users.id))
+        .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
         .orderBy(desc(liveGift.createdAt))
         .limit(pageSize)
         .offset((page - 1) * pageSize),

@@ -324,7 +324,11 @@ export const aiGradingRoutes: FastifyPluginAsync = async (server) => {
         source = {
           stem: String(examQ.title ?? '').trim(),
           options: examQ.options,
-          correctAnswer: String(examQ.answer ?? '').trim(),
+          // jsonb 答案可能是数组/对象,String() 会得 "[object Object]",需 JSON.stringify
+          correctAnswer: (typeof examQ.answer === 'string'
+            ? examQ.answer
+            : JSON.stringify(examQ.answer ?? '')
+          ).trim(),
           analysis: String(examQ.analysis ?? '').trim(),
         }
       }

@@ -213,6 +213,8 @@ export const certificateSerialsRoutes: FastifyPluginAsync = async (server) => {
         success({
           serialNumber: serial.serialNumber,
           status: serial.status,
+          // 仅 active 视为有效(revoked/expired 前端据此提示不可用)
+          valid: serial.status === 'active',
           holderName: serial.issuedTo,
           issuedAt: serial.issuedAt,
           certificateId: serial.certificateId,
