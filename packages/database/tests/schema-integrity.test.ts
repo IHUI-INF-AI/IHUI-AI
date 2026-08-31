@@ -2,8 +2,9 @@
  * 核心高风险 schema 完整性测试。
  *
  * 覆盖 10 个高风险 schema 文件:
- *   users / auth-identity / tenant / rbac / audit /
+ *   users / tenant / rbac / audit /
  *   agent-tasks / order / wallet / learn / exam
+ *   (auth-identity 已随 2026-08-31 表治理删除,见 commit 291cb36c9e)
  *
  * 验证维度:
  *   1. 表存在且名称正确
@@ -17,7 +18,6 @@
  */
 import { describe, it, expect } from 'vitest'
 import { users, refreshTokens } from '../src/schema/users.js'
-import { authIdentities } from '../src/schema/auth-identity.js'
 import { tenants, tenantMembers, tenantQuotas } from '../src/schema/tenant.js'
 import { roles, permissions, rolePermissions } from '../src/schema/rbac.js'
 import { auditLogs, searchHistory } from '../src/schema/audit.js'
@@ -28,11 +28,7 @@ import { lessons } from '../src/schema/learn.js'
 import { examPapers, examQuestions } from '../src/schema/exam.js'
 import { plans, orders, payments, aiPricing } from '../src/schema/billing.js'
 import { wechatPayContracts } from '../src/schema/wechat-pay-contracts.js'
-import {
-  paymentCallbacks,
-  transferInfos,
-  wxPayNotifications,
-} from '../src/schema/payment-callbacks.js'
+import { wxPayNotifications } from '../src/schema/payment-callbacks.js'
 import { commissionFlows, withdrawalFlows, identityProportions } from '../src/schema/commission.js'
 import { refundAuditRecords } from '../src/schema/refund-audit.js'
 import { funds, fundNetValues } from '../src/schema/funds.js'
@@ -119,37 +115,6 @@ describe('users schema', () => {
   it('refreshTokens.userId 类型', () => {
     expect(refreshTokens.userId).toBeDefined()
     expect(getColumnType(refreshTokens.userId)).toBe('uuid')
-  })
-})
-
-// =============================================================================
-// 2. auth-identity schema (实名认证)
-// =============================================================================
-
-describe('auth-identity schema', () => {
-  it('表名正确', () => {
-    expect(getTableName(authIdentities)).toBe('auth_identities')
-  })
-
-  it('关键字段存在', () => {
-    expect(authIdentities.id).toBeDefined()
-    expect(authIdentities.userId).toBeDefined()
-    expect(authIdentities.realName).toBeDefined()
-    expect(authIdentities.idCard).toBeDefined()
-    expect(authIdentities.status).toBeDefined()
-    expect(authIdentities.type).toBeDefined()
-  })
-
-  it('字段类型正确', () => {
-    expect(getColumnType(authIdentities.realName)).toBe('varchar')
-    expect(getColumnType(authIdentities.idCard)).toBe('varchar')
-    expect(getColumnType(authIdentities.status)).toBe('integer')
-    expect(getColumnType(authIdentities.type)).toBe('integer')
-  })
-
-  it('status 默认值 0 (待审核)', () => {
-    expect(hasColumnDefault(authIdentities.status)).toBe(true)
-    expect(hasColumnDefault(authIdentities.type)).toBe(true)
   })
 })
 
@@ -486,29 +451,13 @@ describe('wechat-pay-contracts schema', () => {
 })
 
 // =============================================================================
-// 13. payment-callbacks schema (支付回调原始记录 + 转账 + 微信通知)
+// 13. payment-callbacks schema (微信支付通知)
+//    (payment_callbacks / transfer_infos 已随 2026-08-31 表治理删除,仅保留 wx_pay_notifications)
 // =============================================================================
 
 describe('payment-callbacks schema', () => {
-  it('三张表名正确', () => {
-    expect(getTableName(paymentCallbacks)).toBe('payment_callbacks')
-    expect(getTableName(transferInfos)).toBe('transfer_infos')
+  it('wxPayNotifications 表名正确', () => {
     expect(getTableName(wxPayNotifications)).toBe('wx_pay_notifications')
-  })
-
-  it('paymentCallbacks.status 默认 0 (待处理)', () => {
-    expect(paymentCallbacks.orderId).toBeDefined()
-    expect(getColumnType(paymentCallbacks.orderId)).toBe('varchar')
-    expect(paymentCallbacks.status).toBeDefined()
-    expect(hasColumnDefault(paymentCallbacks.status)).toBe(true)
-  })
-
-  it('transferInfos.transferNo NOT NULL + UNIQUE', () => {
-    expect(transferInfos.transferNo).toBeDefined()
-    expect(isColumnNotNull(transferInfos.transferNo)).toBe(true)
-    expect(getColumnType(transferInfos.transferNo)).toBe('varchar')
-    expect(transferInfos.status).toBeDefined()
-    expect(hasColumnDefault(transferInfos.status)).toBe(true)
   })
 
   it('wxPayNotifications 关键字段', () => {
