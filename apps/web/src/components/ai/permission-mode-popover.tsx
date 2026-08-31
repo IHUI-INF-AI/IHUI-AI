@@ -25,9 +25,8 @@ import {
   type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
 
-import { Popover } from '@/components/feedback'
+import { Popover, Tooltip } from '@/components/feedback'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
 import { cn } from '@/lib/utils'
 import { isFullAccessConfirmSuppressed } from './full-access-confirm-dialog'
 
@@ -494,59 +493,45 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
       portal
       onOpenChange={setIsOpen}
     >
-      <button
-        type="button"
-        disabled={disabled}
-        aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
-        className={cn(
-          // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7 + leading-none + whitespace-nowrap + shrink-0),
-          // 三个 button(权限模式/历史/添加)严丝合缝对齐,根治"h-7 / h-9 / py-1 各写各的高度参差"问题
-          INPUT_ATTACHMENT_BAR_BTN_BASE,
-          // 2026-07-25 深化:加 duration-150 ease-out 让 bypass ↔ default ↔ accept-edits
-          // 模式切换时背景色平滑过渡(原 transition-colors 无 duration 是瞬变)
-          'duration-150 ease-out',
-          // 模式风险色:default=中性 / accept-edits=绿 / bypass=琥珀
-          // 2026-07-25 深化:disabled 时(streaming)不应用 hover 类,防止 hover 变背景色
-          currentMode === 'bypass-permissions'
-            ? cn(
-                'bg-amber-500/10 text-amber-700 dark:text-amber-400',
-                !disabled && 'hover:bg-amber-500/15',
-              )
-            : currentMode === 'accept-edits'
-              ? cn(
-                  'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-                  !disabled && 'hover:bg-emerald-500/15',
-                )
-              : cn(
-                  'bg-muted text-muted-foreground',
-                  !disabled && 'hover:bg-accent hover:text-accent-foreground',
-                ),
-        )}
-      >
-        <CurrentIcon
-          // 2026-07-25 深化:加 transition-colors duration-200 让图标颜色
-          // 随 mode 切换平滑过渡(避免图标瞬变)
+      <Tooltip content={currentTitle}>
+        <button
+          type="button"
+          disabled={disabled}
+          aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
           className={cn(
-            'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
-            currentMode === 'bypass-permissions' && 'text-amber-500',
-            currentMode === 'accept-edits' && 'text-emerald-500',
-            currentMode === 'default' && 'text-muted-foreground',
+            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none whitespace-nowrap',
+            'duration-150 ease-out',
+            currentMode === 'bypass-permissions'
+              ? cn(
+                  'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                  !disabled && 'hover:bg-amber-500/15',
+                )
+              : currentMode === 'accept-edits'
+                ? cn(
+                    'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+                    !disabled && 'hover:bg-emerald-500/15',
+                  )
+                : cn(
+                    'bg-muted text-muted-foreground',
+                    !disabled && 'hover:bg-accent hover:text-accent-foreground',
+                  ),
           )}
-        />
-        <span className="min-w-0 truncate whitespace-nowrap">{currentTitle}</span>
-        {/* 屏幕阅读器公告 mode 变化(2026-07-25 深化,A11y):
-            trigger button 的 aria-label 是静态的(buttonLabel),聚焦时听不到 mode 变化;
-            aria-live="polite" + aria-atomic="true" 的 sr-only span 在 currentTitle 变化时
-            重新宣告完整 mode 名(不依赖新增 i18n 键,直接复用 t(mode.ask/auto/full)) */}
-        <span className="sr-only" aria-live="polite" aria-atomic="true">
-          {currentTitle}
-        </span>
-        {/* 高风险模式追加醒目的三角警告图标(2026-07-25 深化) */}
-        {currentMode === 'bypass-permissions' && (
-          <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" aria-hidden="true" />
-        )}
-        <Shield className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
-      </button>
+        >
+          <CurrentIcon
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 transition-colors duration-200',
+              currentMode === 'bypass-permissions' && 'text-amber-500',
+              currentMode === 'accept-edits' && 'text-emerald-500',
+              currentMode === 'default' && 'text-muted-foreground',
+            )}
+          />
+          <span className="min-w-0 truncate">{currentTitle}</span>
+          {currentMode === 'bypass-permissions' && (
+            <TriangleAlert className="h-3 w-3 shrink-0 text-amber-500" aria-hidden="true" />
+          )}
+          <Shield className="h-3 w-3 shrink-0 opacity-50" aria-hidden="true" />
+        </button>
+      </Tooltip>
       {/* 首次启用高风险模式确认弹窗(2026-07-25 深化,深度对标 Codex CLI safety guard)
           - 统一由 message-input 渲染 FullAccessConfirmDialog(共享 store,Slash/Popover/Shift+Tab 共用)
           - 本组件只负责 setPendingFullAccess(true) 触发弹窗 */}
