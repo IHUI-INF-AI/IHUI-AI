@@ -5,7 +5,7 @@
 /**
  * AI 模型管理 /ai/models(5 个端点:GET 列表/详情 + POST/PUT/DELETE CRUD)。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, asc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
@@ -25,6 +25,17 @@ const aiModelCreateSchema = z.object({
 })
 
 const aiModelUpdateSchema = aiModelCreateSchema.partial()
+
+/** 解析 bigint 型模型 ID:非数字返回 null 并发送 400(避免 NaN 查询 500) */
+function parseBigintId(request: FastifyRequest, reply: FastifyReply): number | null {
+  const rawId = parseIdParam(request, reply)
+  if (rawId === null) return null
+  if (!/^\d+$/.test(rawId)) {
+    reply.status(400).send(error(400, '无效的模型 ID'))
+    return null
+  }
+  return Number(rawId)
+}
 
 const aiModelsRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai/models', async (_request, reply) => {
@@ -47,7 +58,7 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/ai/models/:id', async (request, reply) => {
-    const id = parseIdParam(request, reply)
+    const id = parseBigintId(request, reply)
     if (id === null) return
     const [row] = await db
       .select({
@@ -62,7 +73,7 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
         modelIdForTest: aiModelConfig.modelIdForTest,
       })
       .from(aiModelConfig)
-      .where(eq(aiModelConfig.id, Number(id)))
+      .where(eq(aiModelConfig.id, id))
     if (!row) return reply.status(404).send(error(404, '模型不存在'))
     return reply.send(success({ model: row }))
   })
@@ -103,7 +114,7 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
 
   server.put('/ai/models/:id', async (request, reply) => {
     await authenticate(request)
-    const id = parseIdParam(request, reply)
+    const id = parseBigintId(request, reply)
     if (id === null) return
     const parsed = aiModelUpdateSchema.safeParse(request.body)
     if (!parsed.success) {
@@ -123,7 +134,7 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
       .set(updates)
       .where(
         and(
-          eq(aiModelConfig.id, Number(id)),
+          eq(aiModelConfig.id, id),
           // 防越权：仅允许 owner 修改自己的自定义模型（内置模型 ownerUuid 为空，同样被挡）
           eq(aiModelConfig.ownerUuid, request.userId!),
         ),
@@ -145,19 +156,19 @@ const aiModelsRoutes: FastifyPluginAsync = async (server) => {
 
   server.delete('/ai/models/:id', async (request, reply) => {
     await authenticate(request)
-    const id = parseIdParam(request, reply)
+    const id = parseBigintId(request, reply)
     if (id === null) return
     // 防越权：查询与删除均限定 owner，他人模型与内置模型统一返回 404，不泄露存在性
     const [row] = await db
       .select({ id: aiModelConfig.id, isBuiltin: aiModelConfig.isBuiltin })
       .from(aiModelConfig)
-      .where(and(eq(aiModelConfig.id, Number(id)), eq(aiModelConfig.ownerUuid, request.userId!)))
+      .where(and(eq(aiModelConfig.id, id), eq(aiModelConfig.ownerUuid, request.userId!)))
       .limit(1)
     if (!row) return reply.status(404).send(error(404, '模型不存在'))
     if (row.isBuiltin) return reply.status(403).send(error(403, '内置模型不可删除'))
     await db
       .delete(aiModelConfig)
-      .where(and(eq(aiModelConfig.id, Number(id)), eq(aiModelConfig.ownerUuid, request.userId!)))
+      .where(and(eq(aiModelConfig.id, id), eq(aiModelConfig.ownerUuid, request.userId!)))
     return reply.send(success({ success: true }))
   })
 }
