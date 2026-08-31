@@ -8541,7 +8541,8 @@
     "voiceInputStop": "停止语音输入",
     "voiceInputNativeFallback": "浏览器语音服务不可用，已切换本地转写，请重试",
     "voiceInputError": "语音识别不可用，请检查网络或换用 Chrome/Edge",
-    "voiceInputSttFailed": "转写失败，请稍后重试或检查本地语音服务"
+    "voiceInputSttFailed": "转写失败，请稍后重试或检查本地语音服务",
+    "voiceInputEmpty": "未识别到语音内容，请靠近麦克风后重试"
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",
