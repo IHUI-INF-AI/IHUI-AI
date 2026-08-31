@@ -306,9 +306,12 @@ export function resolveWechatHref(): string {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Desktop 兜底元数据(仅当快照 `desktop-feed.generated.ts` 缺失/资产为空时使用)。
+ * Desktop 兜底元数据(仅当快照 `desktop-feed.generated.ts` 的 assets 为空时使用)。
+ * 说明:快照为静态 import,构建期由 webpack 解析,文件缺失会直接构建失败(不存在
+ * 优雅降级路径)——因此快照**必须**存在,由 git 跟踪入库 + CI 发版自动刷新双重保障,
+ * 如误删请先运行 `pnpm resolve:desktop-download` 重新生成。
  * 正常流程:快照由 scripts/resolve-desktop-download.mjs 从 GitHub Releases API 动态
- * 生成并入库,发版后 CI 自动刷新提交;本常量只是离线场景的最后防线,
+ * 生成并入库,发版后 CI 自动刷新提交;本常量只是资产解析为空时的最后防线,
  * 值 = 最近一次线上解析结果(0.1.14),**不要手动更新它**,刷新请跑解析脚本。
  */
 const DESKTOP_FALLBACK = {
