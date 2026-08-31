@@ -28,6 +28,7 @@ import {
   notificationRoutes,
   ossResourceRoutes,
   pdfRoutes,
+  recruitmentRoutes,
   serviceAppointmentRoutes,
   shareRoutes,
   studentProfileRoutes,
@@ -67,6 +68,7 @@ export const otherRoutes: FastifyPluginAsync = async (server) => {
   await server.register(notificationRoutes)
   await server.register(ossResourceRoutes)
   await server.register(pdfRoutes)
+  await server.register(recruitmentRoutes)
   await server.register(serviceAppointmentRoutes)
   await server.register(shareRoutes)
   await server.register(studentProfileRoutes)
