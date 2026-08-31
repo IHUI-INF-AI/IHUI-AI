@@ -322,23 +322,26 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     desktop: {
       platform: 'desktop',
-      version: '0.1.13',
-      releaseDate: '2026-08-06',
+      version: '0.1.14',
+      releaseDate: '2026-08-30',
       systemRequirementsKey: 'downloadDesktopSysReq',
       installGuideKey: 'downloadDesktopInstallGuide',
       releaseNotesKey: 'downloadDesktopReleaseNotes',
       githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实安装包(从 apps/desktop/src-tauri/target/release/bundle/ 复制)
+      // 真实安装包(指向 GitHub Release 官方产物)。
+      // 注意:安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库
+      // apps/web/public/downloads/(已 gitignore),故 href 直接引用 release 资产 URL,
+      // 由 release-desktop.yml 构建发布,与 tauri 构建产物保持同源。
       assets: [
         {
-          href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.exe',
-          sizeBytes: 75095099,
+          href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64-setup.exe',
+          sizeBytes: 237770846,
           format: 'Windows NSIS exe',
           arch: 'x64',
         },
         {
-          href: '/downloads/desktop/IHUI-AI-Setup-0.1.13-x64.msi',
-          sizeBytes: 81514496,
+          href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64_en-US.msi',
+          sizeBytes: 246292480,
           format: 'Windows MSI',
           arch: 'x64',
         },
@@ -392,7 +395,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       assets: [
         {
           href: '/downloads/extension/IHUI-AI-Extension-chrome-v1.0.0.zip',
-          sizeBytes: 1294181,
+          sizeBytes: 1374335,
           format: 'Chrome MV3 ZIP',
         },
       ],

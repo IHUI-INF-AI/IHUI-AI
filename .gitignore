@@ -13,6 +13,9 @@ apps/web/public/vs/
 # 下载构建产物 manifest(sync-downloads.mjs 生成,含 syncedAt 时间戳,每次同步都变化;
 # 下载包 exe/msi/zip 由 sync 脚本复制到 public/downloads/,按需跟踪,manifest 不入库)
 apps/web/public/downloads/manifest.json
+# Desktop 安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库。
+# 下载按钮 href 已指向 GitHub Release 官方资产(downloads.config.ts),本地文件仅供 dev 预览。
+apps/web/public/downloads/desktop/
 # 图片 CDN 占位图骨架目录(deploy/generate-placeholders.js 生成,191 个 0 字节占位文件,
 # 不入库;新图标加入 remote-icons.ts 后重新生成)
 deploy/server-root/
