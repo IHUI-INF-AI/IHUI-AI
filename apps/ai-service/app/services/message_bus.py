@@ -451,7 +451,7 @@ class EmailChannel(BaseChannel):
             logger.error("[EmailChannel] SMTP not configured (env SMTP_HOST): %s", message.id)
             return False
         try:
-            port = int(self._env("SMTP_PORT", "587"))
+            port = int(self._env("SMTP_PORT") or "587")
         except (TypeError, ValueError):
             logger.error("[EmailChannel] SMTP_PORT 非法: %s", message.id)
             return False
