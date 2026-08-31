@@ -32,7 +32,7 @@ IHUI-AI 采用 **Git tag 驱动**的发布模型:打 tag → 触发 GitHub Actio
 | cli(scoop) | scoop manifest | 手动提交 PR | `deploy/scoop/ihui.json` |
 | cli(homebrew) | Homebrew formula | 手动提交 PR | `deploy/homebrew/ihui.rb` |
 | cli(snap) | Snapcraft | 手动 `snapcraft` | `deploy/snap/snapcraft.yaml` |
-| desktop | 手动 `tauri build`(无自动发布、无自动更新) | 手动构建 | `apps/desktop/src-tauri/tauri.conf.json` |
+| desktop | GitHub Release(6 包)+ 自动更新 feed + 下载页快照自动同步 | `desktop-v*` tag → `release-desktop.yml` | `apps/desktop/src-tauri/tauri.conf.json` + `release-desktop.yml` |
 | extension | Chrome Web Store | 手动上传 zip | `apps/extension/package.json` + `wxt.config.ts` |
 | mobile-rn | EAS + App Store + Play Store | `eas build` / `eas submit` | `apps/mobile-rn/eas.json` |
 | miniapp-taro | 微信小程序审核 | 微信开发者工具上传 | `apps/miniapp-taro/package.json` |
