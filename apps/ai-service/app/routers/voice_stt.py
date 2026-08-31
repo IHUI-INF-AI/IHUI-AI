@@ -10,7 +10,8 @@ CTranslate2 推理进行 STT 转写。完全免费、离线可用,不依赖任�
 2026-07-28 重构:从 litellm.atranscription(走 OpenAI Whisper 付费 API)迁移到
 faster-whisper 本地推理(CTranslate2 后端,base 模型 74MB,首次下载后离线)。
 - 用户硬约束:不想花一分钱
-- 模型:size="base"(74MB,精度/速度平衡),compute_type="int8"(CPU 友好)
+- 模型:size 默认 "small"(2026-08-31 从 base 升级,483MB,中文识别精度显著提升,
+  CPU int8 下短语音推理约 2-5 秒仍可接受);可用环境变量 WHISPER_MODEL_SIZE 覆盖
 - 模型缓存:首次使用自动下载到 ~/.cache/huggingface,之后永久离线
 - 线程安全:全局单例 _whisper_model,首次请求懒加载
 """
@@ -29,11 +30,14 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# STT 模型尺寸(环境变量可覆盖;small=483MB 中文精度优先,base=74MB 内存受限时回退)
+_WHISPER_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")
+
 # STT 默认模型名(用于响应字段,标识用的引擎)
-_DEFAULT_STT_MODEL = "whisper-base-local"
+_DEFAULT_STT_MODEL = f"whisper-{_WHISPER_SIZE}-local"
 
 # faster-whisper 模型单例(懒加载,线程安全)
-# 首次请求时下载/加载模型(~74MB base 模型,CPU int8 推理)
+# 首次请求时下载/加载模型(默认 small 483MB,CPU int8 推理)
 _whisper_model: Any = None
 _whisper_model_lock = Lock()
 
@@ -49,7 +53,8 @@ class STTResponse(BaseModel):
 def _get_whisper_model() -> Any:
     """懒加载 faster-whisper 模型单例(线程安全)。
 
-    使用 base 模型(74MB,精度/速度平衡)+ int8 量化(CPU 友好,零 GPU 依赖)。
+    默认 small 模型(483MB,中文精度优先)+ int8 量化(CPU 友好,零 GPU 依赖),
+    可用环境变量 WHISPER_MODEL_SIZE 覆盖(如内存受限时设为 "base")。
     首次调用时从 HuggingFace 下载模型到 ~/.cache/huggingface,之后永久离线可用。
 
     Returns:
@@ -76,9 +81,9 @@ def _get_whisper_model() -> Any:
                 "请运行:pip install faster-whisper"
             ) from e
 
-        logger.info("加载 faster-whisper base 模型(int8,CPU 推理,首次会下载 ~74MB)...")
+        logger.info("加载 faster-whisper %s 模型(int8,CPU 推理,首次会下载)...", _WHISPER_SIZE)
         _whisper_model = WhisperModel(
-            "base",
+            _WHISPER_SIZE,
             device="cpu",
             compute_type="int8",
         )
