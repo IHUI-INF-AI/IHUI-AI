@@ -575,6 +575,7 @@ git push origin desktop-v0.1.14
 ```
 
 3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(上传到发版 Release + 固定 feed tag `desktop-updater-feed`)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
+   - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。Web 下载按钮的安装包 href 指向 GitHub Release 资产(downloads.config.ts 配置),与构建产物同源,无需入库。
 4. 用户端:应用启动时 `checkForUpdate()` 拉固定 feed 的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
 
 ### 前置 Secrets(仓库 Settings → Secrets and variables → Actions)
