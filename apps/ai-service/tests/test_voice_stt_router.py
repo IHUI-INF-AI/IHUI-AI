@@ -62,7 +62,7 @@ class TestVoiceSttSuccess:
         data = resp.json()
         assert data["stub"] is False
         assert data["text"] == "你好世界"
-        assert data["model"] == "whisper-base-local"
+        assert data["model"] == voice_stt._DEFAULT_STT_MODEL
 
     async def test_returns_text_with_language_param(self, client, reset_whisper_singleton, monkeypatch):
         mock_model = _mock_whisper_model("hello")
@@ -89,7 +89,7 @@ class TestVoiceSttSuccess:
         data = resp.json()
         assert data["text"] == ""
         assert data["stub"] is True
-        assert data["model"] == "whisper-base-local"
+        assert data["model"] == voice_stt._DEFAULT_STT_MODEL
         mock_model.transcribe.assert_not_called()
 
 

@@ -115,10 +115,13 @@ export async function voiceSttFromReactNative(
   options?: {
     language?: string
     aiServiceUrl?: string
+    /** 访问令牌(ai-service 启用 JWT 鉴权后必须携带 Bearer token,2026-08-31 修复) */
+    token?: string
   },
 ): Promise<string> {
   const language = options?.language ?? 'zh'
   const aiServiceUrl = options?.aiServiceUrl ?? DEFAULT_AI_SERVICE_URL
+  const token = options?.token
 
   if (!fileUri) return ''
 
@@ -138,6 +141,7 @@ export async function voiceSttFromReactNative(
     const res = await fetch(`${aiServiceUrl}/api/voice/stt`, {
       method: 'POST',
       body: fd,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       signal: AbortSignal.timeout(30_000),
     })
 

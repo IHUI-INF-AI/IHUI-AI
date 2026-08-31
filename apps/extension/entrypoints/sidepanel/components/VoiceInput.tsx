@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useI18n } from '../../../src/i18n'
 import { voiceSttFromBlob } from '@ihui/api-client'
 import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
+import { getToken } from '../../../lib/token'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 
 /** Mic 图标 SVG(extension 端不依赖 lucide-react,保持依赖精简)。 */
@@ -166,6 +167,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           mimeType: 'audio/webm',
           language: 'zh',
           aiServiceUrl: AI_SERVICE_URL,
+          token: getToken() ?? undefined,
         })
         if (text) onTranscript(text)
         setRecording(false)
