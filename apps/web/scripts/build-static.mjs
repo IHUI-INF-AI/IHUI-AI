@@ -23,7 +23,7 @@ process.env.EXPORT_STATIC = 'true'
 process.env.NEXT_TELEMETRY_DISABLED = '1'
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, renameSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
@@ -44,12 +44,12 @@ function excludeRuntimeRoutes() {
     const stashed = path.join(stashDir, name)
     const active = path.join(appDir, name)
     if (existsSync(stashed) && !existsSync(active)) {
-      renameSync(stashed, active)
+      moveDir(stashed, active)
     }
   }
   mkdirSync(stashDir, { recursive: true })
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
-    renameSync(path.join(appDir, name), path.join(stashDir, name))
+    moveDir(path.join(appDir, name), path.join(stashDir, name))
   }
 }
 
@@ -59,7 +59,7 @@ function restoreRuntimeRoutes() {
     const stashed = path.join(stashDir, name)
     const active = path.join(appDir, name)
     if (existsSync(stashed) && !existsSync(active)) {
-      renameSync(stashed, active)
+      moveDir(stashed, active)
     }
   }
   if (existsSync(stashDir)) {
@@ -69,6 +69,17 @@ function restoreRuntimeRoutes() {
       // 目录非空(异常状态)时保留,下次构建自愈逻辑会处理
     }
   }
+}
+
+/**
+ * 移动目录。用 copy+remove 替代 renameSync(2026-08-31 改):
+ * Windows 上部分安全软件(如火绒 HIPS)拦截 rename 系统调用导致构建失败
+ * (EPERM),copy+remove 语义等价且不受拦截影响。cdn/uploads 仅含 catch-all
+ * 路由文件(几 KB),复制成本可忽略,CI 与本地行为一致。
+ */
+function moveDir(src, dest) {
+  cpSync(src, dest, { recursive: true })
+  rmSync(src, { recursive: true, force: true })
 }
 
 let exitCode = 1
