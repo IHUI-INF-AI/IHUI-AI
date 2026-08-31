@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 import { describe, it, expect, afterAll, vi } from 'vitest'
 import Fastify from 'fastify'
 
@@ -25,7 +29,7 @@ describe('admin-extended routes', () => {
     await server.close()
   })
 
-  it('GET /api/admin/menu 未登录返�?401', async () => {
+  it('GET /api/admin/menu 未登录返?401', async () => {
     await server.register(adminExtendedRoutes, { prefix: '/api/admin' })
     await server.ready()
 
@@ -33,7 +37,7 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/admin/menu 未登录返�?401', async () => {
+  it('POST /api/admin/menu 未登录返?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/admin/menu',
@@ -42,7 +46,7 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PUT /api/admin/menu/:id 未登录返�?401', async () => {
+  it('PUT /api/admin/menu/:id 未登录返?401', async () => {
     const res = await server.inject({
       method: 'PUT',
       url: '/api/admin/menu/00000000-0000-4000-8000-000000000000',
@@ -51,7 +55,7 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('DELETE /api/admin/menu/:id 未登录返�?401', async () => {
+  it('DELETE /api/admin/menu/:id 未登录返?401', async () => {
     const res = await server.inject({
       method: 'DELETE',
       url: '/api/admin/menu/00000000-0000-4000-8000-000000000000',
@@ -59,12 +63,12 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/demand-audit 未登录返�?401', async () => {
+  it('GET /api/admin/demand-audit 未登录返?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/demand-audit' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/demand-audit/:id 未登录返�?401', async () => {
+  it('GET /api/admin/demand-audit/:id 未登录返?401', async () => {
     const res = await server.inject({
       method: 'GET',
       url: '/api/admin/demand-audit/00000000-0000-4000-8000-000000000000',
@@ -72,7 +76,7 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('PUT /api/admin/demand-audit/:id/audit 未登录返�?401', async () => {
+  it('PUT /api/admin/demand-audit/:id/audit 未登录返?401', async () => {
     const res = await server.inject({
       method: 'PUT',
       url: '/api/admin/demand-audit/00000000-0000-4000-8000-000000000000/audit',
@@ -81,12 +85,12 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 
-  it('GET /api/admin/online-users 未登录返�?401', async () => {
+  it('GET /api/admin/online-users 未登录返?401', async () => {
     const res = await server.inject({ method: 'GET', url: '/api/admin/online-users' })
     expect(res.statusCode).toBe(401)
   })
 
-  it('POST /api/admin/online-users/:id/force-logout 未登录返�?401', async () => {
+  it('POST /api/admin/online-users/:id/force-logout 未登录返?401', async () => {
     const res = await server.inject({
       method: 'POST',
       url: '/api/admin/online-users/00000000-0000-4000-8000-000000000000/force-logout',
@@ -94,3 +98,4 @@ describe('admin-extended routes', () => {
     expect(res.statusCode).toBe(401)
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
