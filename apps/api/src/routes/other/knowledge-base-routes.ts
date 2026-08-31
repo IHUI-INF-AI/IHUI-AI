@@ -8,14 +8,63 @@
  * GET /knowledge-base/:id, PUT /knowledge-base/:id
  */
 import type { FastifyPluginAsync } from 'fastify'
+import type { SQL } from 'drizzle-orm'
 import { z } from 'zod'
-import { eq, asc, sql } from 'drizzle-orm'
+import { eq, asc, desc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
-import { knowledgeBase, knowledgeBaseCategories } from '@ihui/database'
+import { knowledgeBase, knowledgeBaseCategories, users } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
 
 export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
+  // GET /knowledge-base — 知识库列表(分页 + 分类/标题搜索, 前端 knowledge-base 页)
+  server.get('/knowledge-base', async (request, reply) => {
+    const {
+      page = 1,
+      pageSize = 10,
+      categoryId,
+      search,
+    } = request.query as {
+      page?: string | number
+      pageSize?: string | number
+      categoryId?: string
+      search?: string
+    }
+    const p = Math.max(1, Number(page) || 1)
+    const ps = Math.min(100, Math.max(1, Number(pageSize) || 10))
+    const conds: SQL[] = []
+    if (categoryId && categoryId !== 'all') conds.push(eq(knowledgeBase.categoryId, categoryId))
+    if (search) conds.push(sql`(title ILIKE ${`%${search}%`} OR summary ILIKE ${`%${search}%`})`)
+    const cond = conds.length
+      ? sql`${conds[0]}${conds.slice(1).map((c) => sql` AND ${c}`)}`
+      : undefined
+    const [totalRow] = await dbRead
+      .select({ cnt: sql<number>`count(*)::int` })
+      .from(knowledgeBase)
+      .where(cond)
+    const total = totalRow?.cnt ?? 0
+
+    const list = await dbRead
+      .select({
+        id: knowledgeBase.id,
+        title: knowledgeBase.title,
+        summary: knowledgeBase.summary,
+        viewCount: knowledgeBase.viewCount,
+        updatedAt: knowledgeBase.updatedAt,
+        categoryId: knowledgeBase.categoryId,
+        categoryName: knowledgeBaseCategories.name,
+        authorName: users.nickname,
+      })
+      .from(knowledgeBase)
+      .leftJoin(knowledgeBaseCategories, eq(knowledgeBase.categoryId, knowledgeBaseCategories.id))
+      .leftJoin(users, eq(knowledgeBase.authorId, users.id))
+      .where(cond)
+      .orderBy(desc(knowledgeBase.updatedAt))
+      .limit(ps)
+      .offset((p - 1) * ps)
+    return reply.send(success({ list, total }))
+  })
+
   // GET /knowledge-base/categories — 知识库分类列表(含每分类文章数)
   server.get('/knowledge-base/categories', async (_request, reply) => {
     const rows = await dbRead
