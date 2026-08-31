@@ -31,6 +31,7 @@ import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { formatShortDuration } from '@ihui/shared/utils'
 import { voiceSttFromReactNative } from '@ihui/api-client'
+import { getToken } from '../lib/token'
 import type { VoiceInputMinimalProps } from '@ihui/types'
 import { Camera, Folder, Image as ImageIcon, type LucideIcon } from 'lucide-react-native'
 
@@ -137,7 +138,11 @@ export function VoiceInput({
 
     setTranscribing(true)
     try {
-      const text = await voiceSttFromReactNative(uri, { language, aiServiceUrl })
+      const text = await voiceSttFromReactNative(uri, {
+        language,
+        aiServiceUrl,
+        token: getToken() ?? undefined,
+      })
       setLastResult(text)
       onChange?.(text)
       onComplete?.(text)
