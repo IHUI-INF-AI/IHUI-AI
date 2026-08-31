@@ -9,7 +9,8 @@ import { useTranslations } from 'next-intl'
 import { Search, X, ArrowLeft, Sparkles, Loader2, Target, Zap, Lock, FileText } from 'lucide-react'
 import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { Popover } from '@/components/feedback'
+import { Tooltip } from '@/components/feedback'
+import { createPortal } from 'react-dom'
 
 /** 命令分组(2026-07-29 立,按重要性排序)
  * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取) */
@@ -143,6 +144,100 @@ export function SlashCommandPalette({
   } | null>(null)
   const inputRef = React.useRef<HTMLInputElement>(null)
   const listRef = React.useRef<HTMLDivElement>(null)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  const rafRef = React.useRef<number | null>(null)
+
+  const updateCoords = React.useCallback(() => {
+    if (!triggerRef.current || !panelRef.current) return
+    const r = triggerRef.current.getBoundingClientRect()
+    const panelRect = panelRef.current.getBoundingClientRect()
+    const gap = 8
+    const pad = 8
+    const VW = window.innerWidth
+    const VH = window.innerHeight
+
+    let top = r.top - gap - panelRect.height
+    let left = r.right - panelRect.width
+
+    if (left + panelRect.width > VW - pad) {
+      left = VW - pad - panelRect.width
+    }
+    left = Math.max(pad, left)
+
+    if (top < pad) {
+      top = r.bottom + gap
+    }
+    top = Math.max(pad, top)
+
+    setCoords({ top, left })
+  }, [])
+
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const id = window.requestAnimationFrame(() => {
+      updateCoords()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [open, updateCoords])
+
+  React.useEffect(() => {
+    if (!open) return
+    const throttledUpdate = () => {
+      if (rafRef.current !== null) return
+      rafRef.current = window.requestAnimationFrame(() => {
+        rafRef.current = null
+        updateCoords()
+      })
+    }
+
+    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
+    window.addEventListener('resize', throttledUpdate, { passive: true })
+
+    const roTrigger = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
+
+    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
+
+    return () => {
+      if (rafRef.current !== null) window.cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', throttledUpdate, true)
+      window.removeEventListener('resize', throttledUpdate)
+      roTrigger?.disconnect()
+      roPanel?.disconnect()
+    }
+  }, [open, updateCoords])
+
+  React.useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const triggerEl = triggerRef.current
+      const contentEl = panelRef.current
+      const target = event.target as Node
+      if (triggerEl && triggerEl.contains(target)) return
+      if (contentEl && contentEl.contains(target)) return
+      onOpenChange(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [open, onOpenChange])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onOpenChange(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open, onOpenChange])
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -494,20 +589,43 @@ export function SlashCommandPalette({
     </div>
   )
 
+  const childProps = children.props as React.ButtonHTMLAttributes<HTMLButtonElement>
+  const trigger = React.cloneElement(children, {
+    ref: triggerRef,
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+      childProps.onClick?.(e)
+      onOpenChange(!open)
+    },
+    'aria-haspopup': 'dialog',
+    'aria-expanded': open,
+  })
+
+  const panelStyle: React.CSSProperties = coords
+    ? { top: coords.top, left: coords.left }
+    : { top: -9999, left: -9999 }
+
   return (
-    <Popover
-      open={open}
-      onOpenChange={onOpenChange}
-      content={content}
-      position="top"
-      align="start"
-      trigger="click"
-      portal
-      tooltip={tooltip}
-      className="w-96 overflow-hidden p-0 shadow-lg"
-    >
-      {children}
-    </Popover>
+    <div>
+      {tooltip ? (
+        <Tooltip content={tooltip}>
+          {trigger}
+        </Tooltip>
+      ) : (
+        trigger
+      )}
+      {open && createPortal(
+        <div
+          ref={panelRef}
+          style={panelStyle}
+          role="dialog"
+          aria-modal="true"
+          className="w-96 overflow-hidden p-0 shadow-lg"
+        >
+          {content}
+        </div>,
+        document.body
+      )}
+    </div>
   )
 }
 
