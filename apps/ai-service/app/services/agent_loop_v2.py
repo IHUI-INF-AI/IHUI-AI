@@ -106,7 +106,7 @@ def _high_risk_tools_from_env() -> frozenset[str]:
     """env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加自定义高危工具(逗号分隔)。"""
     extra = os.environ.get("TOOL_APPROVAL_HIGH_RISK_TOOLS", "")
     names = {t.strip() for t in extra.split(",") if t.strip()}
-    return names or frozenset()
+    return frozenset(extra.split(",")) if extra else frozenset()
 
 
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
