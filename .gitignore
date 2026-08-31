@@ -354,3 +354,5 @@ sdks/java/target/
 .cxx-worklets-staging/
 # APK 自托管分发(115MB 超 GitHub 100MB 限制,不入库,部署机从部署包获取)
 apps/web/public/apk/*.apk
+# git bundle 备份文件(并行会话产生,600MB+,防误提交)
+*.bundle

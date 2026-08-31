@@ -5,9 +5,24 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { count, sql, eq } from 'drizzle-orm'
 import { dbRead } from '../db/index.js'
-import { users, orders } from '@ihui/database'
+import { users, orders, userDevices } from '@ihui/database'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success } from '../utils/response.js'
+
+/** 30 天内活跃用户数:users 表无登录时间字段(2026-08-31 修复 500),
+ * 改用 user_devices.last_seen_at 去重统计(Drizzle ORM 版,不依赖原生 SQL)。 */
+async function countActiveUsers(): Promise<number> {
+  const [row] = await dbRead
+    .select({ cnt: countDistinctSafe() })
+    .from(userDevices)
+    .where(sql`${userDevices.lastSeenAt} > now() - interval '30 days'`)
+  return row?.cnt ?? 0
+}
+
+/** count(distinct user_id) 的 Drizzle 等价写法(避免 sql 模板注入列名歧义)。 */
+function countDistinctSafe() {
+  return sql<number>`count(distinct ${userDevices.userId})`
+}
 
 export const biDashboardRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
@@ -26,10 +41,7 @@ export const biDashboardRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(orders.status, 'paid'))
     const totalRevenue = Number(revenueRow?.total ?? 0)
 
-    const activeResult = await dbRead.execute(sql`
-      SELECT count(*)::int AS cnt FROM users WHERE last_login_at > now() - interval '30 days'
-    `)
-    const activeUsers = (activeResult[0] as { cnt: number } | undefined)?.cnt ?? 0
+    const activeUsers = await countActiveUsers()
 
     return reply.send(success({ totalUsers, totalOrders, totalRevenue, activeUsers }))
   })
@@ -48,10 +60,7 @@ export const biDashboardRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(orders.status, 'paid'))
     const totalRevenue = Number(revenueRow?.total ?? 0)
 
-    const activeResult = await dbRead.execute(sql`
-      SELECT count(*)::int AS cnt FROM users WHERE last_login_at > now() - interval '30 days'
-    `)
-    const activeUsers = (activeResult[0] as { cnt: number } | undefined)?.cnt ?? 0
+    const activeUsers = await countActiveUsers()
 
     return reply.send(success({ totalUsers, totalOrders, totalRevenue, activeUsers }))
   })

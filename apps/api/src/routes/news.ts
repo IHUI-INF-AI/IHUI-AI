@@ -111,6 +111,18 @@ const topOrRecommendSchema = z.object({
 // =============================================================================
 
 export const newsRoutes: FastifyPluginAsync = async (server) => {
+  // GET /news - 最新资讯别名端点(公开, 2026-08-31 修复 404)
+  // 前端 NewsSection(marketing/NewsSection.tsx:34)调用 /api/news?pageSize=6,
+  // 与 /news/articles 同构,返回 {list,total}。零改动前端即可恢复。
+  server.get('/news', async (request, reply) => {
+    const parsed = articlesQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const result = await findPublishedArticles(parsed.data)
+    return reply.send(success(result))
+  })
+
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
     const list = await findPublishedNewsCategories()
