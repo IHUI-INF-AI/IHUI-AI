@@ -35,7 +35,7 @@ describe('agents-queries — 真实 DB 集成测试', () => {
   beforeEach(async () => {
     await db.execute(sql`DELETE FROM agent_examines`)
     await db.execute(sql`DELETE FROM agent_settlements`)
-    await db.execute(sql`DELETE FROM agent_category_links`)
+    // agent_category_links 已随 2026-08-31 表治理删除(commit 291cb36c9e)
     await db.execute(sql`DELETE FROM agents`)
     await db.execute(sql`DELETE FROM agent_categories`)
   })
