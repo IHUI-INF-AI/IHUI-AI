@@ -575,8 +575,11 @@ git push origin desktop-v0.1.14
 ```
 
 3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(上传到发版 Release + 固定 feed tag `desktop-updater-feed`)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
-   - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。Web 下载按钮的安装包 href 指向 GitHub Release 资产(downloads.config.ts 配置),与构建产物同源,无需入库。
-4. 用户端:应用启动时 `checkForUpdate()` 拉固定 feed 的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
+   - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。
+4. `sync-downloads` job 同时运行 `scripts/resolve-desktop-download.mjs`,从 GitHub Releases API **动态解析**最新 `desktop-v*` release 的安装包(URL/大小/版本/发布日期),刷新 `apps/web/src/config/desktop-feed.generated.ts` 入库快照并随提交回 main。Web 下载页(`/download/desktop`)构建期读取该快照渲染下载按钮——**发版后下载页自动更新,无需手动改任何 URL / 大小 / 版本号**。
+5. 用户端:应用启动时 `checkForUpdate()` 拉固定 feed 的 `latest.json` → 比对版本 → 下载签名包 → `downloadAndInstall()` 验签安装 → 重启
+
+> 手动刷新快照(CI 失败兜底 / 本地调试):`node scripts/resolve-desktop-download.mjs`(有差异才写);`--check` 仅对比(有差异退出码 1);`--offline` 仅查看本地快照。
 
 ### 前置 Secrets(仓库 Settings → Secrets and variables → Actions)
 
