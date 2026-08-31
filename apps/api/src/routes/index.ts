@@ -182,7 +182,6 @@ import { educationPlatformRoutes } from './education-platform.js'
 import { remoteExtendedRoutes } from './remote-extended.js'
 import { notificationExtendedRoutes } from './notification-extended.js'
 import { contentExtendedRoutes } from './content-extended.js'
-import { organizationRoutes } from './organization.js'
 import { aiImageEditRoutes } from './ai-image-edit.js'
 
 // R68 补建：M-21 开放平台 Feature Center 后端路由
@@ -777,8 +776,6 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(notificationExtendedRoutes, { prefix: '/api' })
   // M-57: 内容管理扩展（12端点）
   server.register(contentExtendedRoutes, { prefix: '/api' })
-  // M-60: 组织管理（9端点）
-  server.register(organizationRoutes, { prefix: '/api' })
   // M-61: AI图片编辑（8端点）
   server.register(aiImageEditRoutes, { prefix: '/api' })
 
