@@ -1,3 +1,9 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
 # IHUI-AI 项目
 
 > 本文件为项目唯一任务计划文档。规则见 [AGENTS.md](./AGENTS.md)。
@@ -2902,3 +2908,4 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### WebView 会话打通(2026-08-27 04:3x 最终闭环)
 
 - [x] ✅(2026-08-27) **App→Web 会话打通(SSO 授权码链路)** — 最后遗留解决。**方案**:App 已登录 → `POST /api/auth/sso/code`(Bearer token + clientId/redirectUri,30s 一次性 code)→ WebView 打开 `<origin>/sso/mobile-auth?sso_code=xxx&redirect=<url>` → web 端消费页调 `POST /api/auth/sso/exchange`(code+clientId)→ 后端 buildTokenPair Set-Cookie auth_token/refresh_token(**httpOnly**)→ 跳转 redirect 免登录。**实现**:① api-client auth.ts 加 generateSsoCode/exchangeSsoCode(exchange 必填 clientId,首个实现漏参已修);② web 新增 apps/web/app/sso/mobile-auth/page.tsx+PageClient.tsx(读 sso_code→exchange→window.location.replace 跳转;失败显示错误+返回登录链接;5 语言 i18n sso.mobileAuth);③ mobile WebViewScreen 已登录时注入 sso_code 改走 mobile-auth(origin 从 url 解析,dev 局域网 IP/生产 aizhs.top 均正确;未登录/授权失败降级直开原 url)。**验证**:api-client/web/mobile 三端 typecheck exit 0 + mobile lint 0 + i18n parity(web 1702/mobile 1703 keys)无缺失;**dev 端到端实测通过**:登录 test@aizhs.top → sso/code 200 → mobile-auth 页 200 → exchange 200 + Set-Cookie auth_token httpOnly ✓。**要点**:seed 测试用户 apps/api/scripts/seed-test-users.ts(test@aizhs.top/Test@123456);api 8802 会被并发会话重启波动,验证脚本需带重试。
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
