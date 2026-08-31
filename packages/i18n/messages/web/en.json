@@ -8551,7 +8551,8 @@
     "voiceInputStop": "Stop Voice Input",
     "voiceInputNativeFallback": "Browser speech service unavailable. Switched to local transcription, please try again",
     "voiceInputError": "Speech recognition unavailable. Check your network or use Chrome/Edge",
-    "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service"
+    "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service",
+    "voiceInputEmpty": "No speech detected. Please speak closer to the microphone and try again"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
