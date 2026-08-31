@@ -31,8 +31,7 @@ const idParamSchema = z.object({ id: z.string().min(1) })
 // 允许访问的表名白名单（防止 sql.raw 拼接 table 参数时引入注入风险）
 const ALLOWED_TABLES = new Set([
   'zhs_agent_need_task',
-  'agent_uploads',
-  'zhs_agent_usedetail',
+  'agent_upload',
   'zhs_agent_buy',
   'zhs_agent_withdrawal_detail',
   'agent_rule',
@@ -392,13 +391,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       user_id?: string
     }
     const { page, pageSize } = parsePaging(q)
-    const conds: SQL[] = [sql`"status" = 1`]
+    const conds: SQL[] = [sql`"status" = '1'`]
     if (q.agent_id) conds.push(sql`"agent_id" = ${q.agent_id}`)
     if (q.biz_type) conds.push(sql`"biz_type" = ${q.biz_type}`)
     if (q.file_type) conds.push(sql`"file_type" = ${q.file_type}`)
     if (q.user_id) conds.push(sql`"user_id" = ${q.user_id}`)
     try {
-      const result = await rawList('agent_uploads', { page, pageSize, conds })
+      const result = await rawList('agent_upload', { page, pageSize, conds })
       return reply.send(success(result))
     } catch (e) {
       req.log.error(e)
@@ -409,7 +408,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
-      const row = await rawById('agent_uploads', parsed.data.id)
+      const row = await rawById('agent_upload', parsed.data.id)
       if (!row) return reply.status(404).send(error(404, '上传记录不存在'))
       // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
       const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
@@ -427,8 +426,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       // P1 安全修复(2026-08-02):Zod schema strip 非白名单字段 + 强制 user_id 防欺骗
       const body = uploadCreateSchema.parse(req.body)
       body.user_id = req.userId
-      if (body.status === undefined) body.status = 1
-      const row = await rawInsert('agent_uploads', uploadCols, body, reply)
+      if (body.status === undefined) body.status = '1'
+      const row = await rawInsert('agent_upload', uploadCols, body, reply)
       if (!row) return
       return reply.status(201).send(success(row))
     } catch (e) {
@@ -445,13 +444,13 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     try {
       // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
-      const existing = await rawById('agent_uploads', parsed.data.id)
+      const existing = await rawById('agent_upload', parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '上传记录不存在'))
       const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
       if (!isAdmin && existing['user_id'] !== req.userId) {
         return reply.status(403).send(error(403, '无权操作他人记录'))
       }
-      const row = await rawUpdate('agent_uploads', uploadCols, parsed.data.id, bodyParsed.data)
+      const row = await rawUpdate('agent_upload', uploadCols, parsed.data.id, bodyParsed.data)
       return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
     } catch (e) {
       req.log.error(e)
@@ -463,7 +462,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     try {
       // P1 安全修复(2026-08-02):IDOR 防护,删除前校验 ownership
-      const existing = await rawById('agent_uploads', parsed.data.id)
+      const existing = await rawById('agent_upload', parsed.data.id)
       if (!existing) return reply.status(404).send(error(404, '上传记录不存在'))
       const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
       if (!isAdmin && existing['user_id'] !== req.userId) {
@@ -471,7 +470,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       }
       // 软删除：status=0（与旧架构一致）
       await db.execute(
-        sql`UPDATE ${sql.raw('"agent_uploads"')} SET "status" = 0 WHERE "id"::text = ${parsed.data.id}`,
+        sql`UPDATE ${sql.raw('"agent_upload"')} SET "status" = 0 WHERE "id"::text = ${parsed.data.id}`,
       )
       return reply.send(success({ id: parsed.data.id, deleted: true }))
     } catch (e) {
@@ -480,133 +479,6 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
   })
 
-  // -------------------------------------------------------------------------
-  // agent_usedetail — 代理商使用明细（表 zhs_agent_usedetail，尚未迁移为 Drizzle schema）
-  // -------------------------------------------------------------------------
-  const usedetailCols = [
-    'agent_id',
-    'agent_name',
-    'user_id',
-    'user_name',
-    'type',
-    'model',
-    'tokens',
-    'amount',
-    'cost',
-    'profit',
-    'request_id',
-    'status',
-    'remark',
-  ]
-  const usedetailCreateSchema = buildInsertSchema(usedetailCols)
-  server.get('/usedetail/list', async (req, reply) => {
-    const q = req.query as {
-      page?: string
-      pageSize?: string
-      agent_id?: string
-      user_id?: string
-      type?: string
-      start_date?: string
-      end_date?: string
-    }
-    const { page, pageSize } = parsePaging(q)
-    const conds: SQL[] = []
-    // P1 安全修复(2026-08-02):非管理员强制按本人 user_id 过滤,防止跨用户数据泄露
-    // 管理员可选传 user_id 查指定用户
-    const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
-    if (!isAdmin) {
-      conds.push(sql`"user_id" = ${req.userId}`)
-    } else if (q.user_id) {
-      conds.push(sql`"user_id" = ${q.user_id}`)
-    }
-    if (q.agent_id) conds.push(sql`"agent_id" = ${q.agent_id}`)
-    if (q.type) conds.push(sql`"type" = ${q.type}`)
-    if (q.start_date) conds.push(sql`"created_at" >= ${q.start_date}::timestamp`)
-    if (q.end_date) conds.push(sql`"created_at" <= ${`${q.end_date} 23:59:59`}::timestamp`)
-    try {
-      const result = await rawList('zhs_agent_usedetail', { page, pageSize, conds })
-      return reply.send(success(result))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询使用明细失败'))
-    }
-  })
-  server.get('/usedetail/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      const row = await rawById('zhs_agent_usedetail', parsed.data.id)
-      if (!row) return reply.status(404).send(error(404, '使用明细不存在'))
-      // P1 安全修复(2026-08-02):IDOR 防护,非本人记录禁止访问(管理员 roleId >= 1 豁免)
-      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
-      if (!isAdmin && row['user_id'] !== req.userId) {
-        return reply.status(403).send(error(403, '无权访问他人记录'))
-      }
-      return reply.send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '查询使用明细失败'))
-    }
-  })
-  server.post('/usedetail', async (req, reply) => {
-    try {
-      // P1 安全修复(2026-08-02):Zod schema strip 非白名单字段 + 强制 user_id 防欺骗
-      const body = usedetailCreateSchema.parse(req.body)
-      body.user_id = req.userId
-      if (body.status === undefined) body.status = 1
-      const row = await rawInsert('zhs_agent_usedetail', usedetailCols, body, reply)
-      if (!row) return
-      return reply.status(201).send(success(row))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '创建使用明细失败'))
-    }
-  })
-  server.put('/usedetail/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    const bodyParsed = usedetailCreateSchema.safeParse(req.body ?? {})
-    if (!bodyParsed.success) {
-      return reply.status(400).send(error(400, '参数校验失败'))
-    }
-    try {
-      // P1 安全修复(2026-08-02):IDOR 防护,更新前校验 ownership
-      const existing = await rawById('zhs_agent_usedetail', parsed.data.id)
-      if (!existing) return reply.status(404).send(error(404, '使用明细不存在'))
-      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
-      if (!isAdmin && existing['user_id'] !== req.userId) {
-        return reply.status(403).send(error(403, '无权操作他人记录'))
-      }
-      const row = await rawUpdate(
-        'zhs_agent_usedetail',
-        usedetailCols,
-        parsed.data.id,
-        bodyParsed.data,
-      )
-      return reply.send(success(row ?? { id: parsed.data.id, updated: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '更新使用明细失败'))
-    }
-  })
-  server.delete('/usedetail/:id', async (req, reply) => {
-    const parsed = idParamSchema.safeParse(req.params)
-    if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
-    try {
-      // P1 安全修复(2026-08-02):IDOR 防护,删除前校验 ownership
-      const existing = await rawById('zhs_agent_usedetail', parsed.data.id)
-      if (!existing) return reply.status(404).send(error(404, '使用明细不存在'))
-      const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
-      if (!isAdmin && existing['user_id'] !== req.userId) {
-        return reply.status(403).send(error(403, '无权操作他人记录'))
-      }
-      await rawDelete('zhs_agent_usedetail', parsed.data.id)
-      return reply.send(success({ id: parsed.data.id, deleted: true }))
-    } catch (e) {
-      req.log.error(e)
-      return reply.status(500).send(error(500, '删除使用明细失败'))
-    }
-  })
   // -------------------------------------------------------------------------
   // 智能体商业化（购买/续费/提现）
   // -------------------------------------------------------------------------
