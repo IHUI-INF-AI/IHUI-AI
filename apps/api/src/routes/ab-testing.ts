@@ -18,7 +18,7 @@ import { z } from 'zod'
 import { eq, desc, count, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error, parseOrThrow } from '../utils/response.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { abTests, abTestVariants, abTestResults } from '@ihui/database'
 
 // =============================================================================
@@ -384,7 +384,7 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
   // ---------------------------------------------------------------------------
   // POST /ab-testing/assign — 加权随机分配(幂等,记录 exposure)
   // ---------------------------------------------------------------------------
-  server.post('/ab-testing/assign', async (request, reply) => {
+  server.post('/ab-testing/assign', { preHandler: requireAuth }, async (request, reply) => {
     const body = parseOrThrow(assignSchema, request.body)
     const key = cacheKey(body.userId, body.sessionId)
 
@@ -450,7 +450,7 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
   // ---------------------------------------------------------------------------
   // POST /ab-testing/track — 记录转化/点击事件
   // ---------------------------------------------------------------------------
-  server.post('/ab-testing/track', async (request, reply) => {
+  server.post('/ab-testing/track', { preHandler: requireAuth }, async (request, reply) => {
     const body = parseOrThrow(trackSchema, request.body)
 
     // 校验变体属于该实验
@@ -491,7 +491,7 @@ export const abTestingRoutes: FastifyPluginAsync = async (server) => {
   // ---------------------------------------------------------------------------
   // GET /ab-testing/stats — 按变体聚合统计
   // ---------------------------------------------------------------------------
-  server.get('/ab-testing/stats', async (request, reply) => {
+  server.get('/ab-testing/stats', { preHandler: requireAdmin }, async (request, reply) => {
     const { experimentId } = parseOrThrow(statsQuerySchema, request.query)
 
     const experiments = await db.select().from(abTests).where(eq(abTests.id, experimentId))

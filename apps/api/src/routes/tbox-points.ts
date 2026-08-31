@@ -11,11 +11,11 @@
  *   task_complete=10、login=5、activity=20。
  * 幂等:同 deviceId+eventType 30s 内重复上报不重复发分。
  *
- * 注意:本路由未注册到 routes/index.ts(由需求指定),测试与后续接入由调用方自行注册。
+ * 注意:本路由已注册到 routes/index.ts(prefix=/api/tbox-points,独立前缀避免与 tbox.ts 的 /events /devices 冲突)。
  */
 import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc, sql } from 'drizzle-orm'
+import { and, eq, desc, like, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { tboxBean, tboxDevice, tboxCommand } from '@ihui/database'
 import { success, paginatedSuccess, error, parseOrThrow } from '../utils/response.js'
@@ -72,10 +72,17 @@ function parsePointsData(raw: string | null | undefined): PointsRecord {
 
 /**
  * 拉取某设备全部积分流水(beanType='points'),返回明细数组(按时间倒序)。
- * 在内存按 deviceId 过滤——tbox_bean.bean_data 为 text 存储 JSON,简单实现优先。
+ * SQL 侧用 bean_data LIKE 粗筛(bean_data 为 JSON 文本,含 "deviceId":"xxx"),
+ * 内存再做精确过滤兜底,避免全表扫描所有设备的积分记录。
  */
 async function fetchDevicePoints(deviceId: string): Promise<Array<PointsRecord & { id: number }>> {
-  const beanRows = await db.select().from(tboxBean).where(eq(tboxBean.beanType, POINTS_BEAN_TYPE))
+  // LIKE 通配符转义,防止 deviceId 含 %/_ 时误匹配
+  const escaped = deviceId.replace(/[\\%_]/g, (m) => `\\${m}`)
+  const pattern = `%"deviceId":"${escaped}"%`
+  const beanRows = await db
+    .select()
+    .from(tboxBean)
+    .where(and(eq(tboxBean.beanType, POINTS_BEAN_TYPE), like(tboxBean.beanData, pattern)))
   return beanRows
     .map((row) => ({ id: row.id, ...parsePointsData(row.beanData) }))
     .filter((row) => row.deviceId === deviceId)
