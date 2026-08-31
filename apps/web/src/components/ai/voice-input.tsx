@@ -1,12 +1,17 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:
+
 'use client'
 
 import * as React from 'react'
-import { Mic } from 'lucide-react'
+import { Mic, AlertTriangle } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { voiceSttFromBlob } from '@ihui/api-client'
+import { useWebAuthStore } from '@/stores/auth-store'
 
 interface VoiceInputProps {
   onTranscript: (text: string) => void
@@ -19,7 +24,11 @@ interface SpeechRecognitionLike {
   interimResults: boolean
   start: () => void
   stop: () => void
-  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null
+  onresult:
+    | ((event: {
+        results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal?: boolean }>
+      }) => void)
+    | null
   onerror: (() => void) | null
   onend: (() => void) | null
 }
@@ -31,106 +40,152 @@ declare global {
   }
 }
 
-// ai-service URL(浏览器直连,与 edu-api.ts 保持一致;生产环境通过 nginx/rewrites 反代)
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
+// STT 端点策略:
+// - 显式配置 NEXT_PUBLIC_AI_SERVICE_URL(静态导出/直连场景)→ 用它直连 ai-service(带 Bearer token)
+// - 默认(dev + 生产服务端模式)→ 同源 /api/voice/stt,由 next rewrites 代理到 8803,
+//   避免浏览器直连 8803 的跨端口/CORS/鉴权问题
+const STT_ENDPOINT =
+  typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_AI_SERVICE_URL
+    ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
+    : '/api/voice/stt'
 
 function getRecognitionConstructor(): (new () => SpeechRecognitionLike) | null {
   if (typeof window === 'undefined') return null
   return window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
 }
 
+function hasMediaRecorder(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+    typeof MediaRecorder !== 'undefined'
+  )
+}
+
+type VoiceMode = 'native' | 'fallback' | 'unsupported'
+
 /**
  * VoiceInput — 语音输入组件(零成本混合策略)。
  *
- * 主路径(Chrome/Edge):浏览器原生 webkitSpeechRecognition,零延迟零后端负载。
- * Fallback(Firefox/Safari):MediaRecorder 录音 → POST ai-service /api/voice/stt
- *   → faster-whisper 本地 CPU 推理(完全免费,首次下载 74MB 模型后离线)。
+ * 路径一(native):浏览器 webkitSpeechRecognition(Chrome/Edge)。
+ *   - 2026-08-31 修复:该服务依赖 Google 语音服务器,国内网络不可达时 onerror 触发,
+ *     不再静默失败——自动降级到本地 STT(fallback)并给出提示。
+ *   - continuous=false:说完一句话自动结束并回调,无需手动点停止。
+ *   - onresult 只累加 isFinal 结果,修复 continuous 模式 results 累积导致的文本重复。
+ *
+ * 路径二(fallback):MediaRecorder 录音 → 同源 /api/voice/stt(next rewrites 代理到
+ *   ai-service)→ faster-whisper 本地 CPU 推理(完全免费,首次下载 74MB 模型后离线)。
+ *   - 2026-08-31 修复:请求携带 Bearer access token(ai-service 已启用 JWT 鉴权,
+ *     无 token 直连必 401),失败时展示错误提示而非静默丢弃。
  *
  * 两条路径最终都调用 onTranscript(text),由父组件决定如何处理(通常追加到 textarea)。
- * 语音不会直接发给 LLM,转写为文字后才进入 prompt(符合用户预期)。
  */
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const t = useTranslations('chat')
+  const accessToken = useWebAuthStore((s) => s.token)
+  const [mode, setMode] = React.useState<VoiceMode>('native')
   const [recording, setRecording] = React.useState(false)
-  const [supported, setSupported] = React.useState<'native' | 'fallback' | 'unsupported'>('native')
+  const [error, setError] = React.useState<string | null>(null)
 
-  // 原生 webkitSpeechRecognition 引用
+  // 用 ref 持有最新回调,避免父组件每次渲染传入新函数导致 effect 反复重建(中断录音)
+  const onTranscriptRef = React.useRef(onTranscript)
+  onTranscriptRef.current = onTranscript
+
   const recognitionRef = React.useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = React.useRef('')
 
-  // Fallback MediaRecorder 引用
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null)
   const chunksRef = React.useRef<Blob[]>([])
   const streamRef = React.useRef<MediaStream | null>(null)
 
+  // 挂载时探测能力:优先 native(Chrome/Edge),否则 fallback(Firefox/Safari MediaRecorder)
   React.useEffect(() => {
-    const Ctor = getRecognitionConstructor()
-    if (Ctor) {
-      setSupported('native')
-      const recognition = new Ctor()
-      recognition.lang = 'zh-CN'
-      recognition.continuous = true
-      recognition.interimResults = true
-      recognition.onresult = (event) => {
-        let text = ''
-        for (let i = 0; i < event.results.length; i++) {
-          text += event.results[i]?.[0]?.transcript ?? ''
-        }
-        transcriptRef.current = text
-      }
-      recognition.onerror = () => {
-        setRecording(false)
-      }
-      recognition.onend = () => {
-        setRecording(false)
-        if (transcriptRef.current) {
-          onTranscript(transcriptRef.current)
-          transcriptRef.current = ''
-        }
-      }
-      recognitionRef.current = recognition
-    } else if (
-      typeof navigator !== 'undefined' &&
-      typeof navigator.mediaDevices?.getUserMedia === 'function'
-    ) {
-      // Firefox/Safari:不支持 webkitSpeechRecognition,但有 MediaRecorder
-      setSupported('fallback')
+    if (getRecognitionConstructor()) {
+      setMode('native')
+    } else if (hasMediaRecorder()) {
+      setMode('fallback')
     } else {
-      setSupported('unsupported')
+      setMode('unsupported')
     }
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null
-        recognitionRef.current.onerror = null
-        recognitionRef.current.onend = null
-        try {
-          recognitionRef.current.stop()
-        } catch {
-          // ignore
-        }
+      // 卸载时清理:停识别器、停录音轨道
+      try {
+        recognitionRef.current?.stop()
+      } catch {
+        // ignore
       }
-      // 清理 MediaRecorder 资源
+      recognitionRef.current = null
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
-  }, [onTranscript])
+  }, [])
+
+  /** 构建原生识别器(供每次 start 前重建,避免复用已 end 的实例)。 */
+  const createNativeRecognition = React.useCallback(() => {
+    const Ctor = getRecognitionConstructor()
+    if (!Ctor) return null
+    const recognition = new Ctor()
+    recognition.lang = 'zh-CN'
+    // continuous=false:说完自动 end → onend 回调,无需用户手动停止
+    recognition.continuous = false
+    recognition.interimResults = true
+    recognition.onresult = (event) => {
+      // 只累加 isFinal 结果:continuous 模式下 event.results 是累积快照,
+      // 若遍历全部结果拼接会产生大量重复文本(fixed 2026-08-31)
+      let text = ''
+      for (let i = 0; i < event.results.length; i++) {
+        const r = event.results[i]
+        if (r?.[0]?.transcript && (r.isFinal || event.results.length - 1 === i)) {
+          text += r[0].transcript
+        }
+      }
+      if (text) transcriptRef.current = text
+    }
+    recognition.onerror = () => {
+      // Google 语音服务不可达(国内网络常见)→ 自动降级本地 STT
+      setRecording(false)
+      if (hasMediaRecorder()) {
+        setMode('fallback')
+        setError(t('voiceInputNativeFallback') || '浏览器语音服务不可用,已切换本地转写,请重试')
+      } else {
+        setError(t('voiceInputError') || '语音识别不可用,请检查网络或换用 Chrome/Edge')
+      }
+    }
+    recognition.onend = () => {
+      setRecording(false)
+      recognitionRef.current = null
+      const text = transcriptRef.current
+      transcriptRef.current = ''
+      if (text) onTranscriptRef.current(text)
+    }
+    return recognition
+  }, [t])
 
   const startNativeRecording = () => {
-    const recognition = recognitionRef.current
+    const recognition = createNativeRecognition()
     if (!recognition) return
+    recognitionRef.current = recognition
     transcriptRef.current = ''
-    recognition.start()
-    setRecording(true)
+    setError(null)
+    try {
+      recognition.start()
+      setRecording(true)
+    } catch {
+      setError(t('voiceInputError') || '语音识别启动失败,请重试')
+    }
   }
 
   const stopNativeRecording = () => {
-    recognitionRef.current?.stop()
-    setRecording(false)
+    try {
+      recognitionRef.current?.stop()
+    } catch {
+      // ignore
+    }
   }
 
   const startFallbackRecording = async () => {
     try {
+      setError(null)
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
       const recorder = new MediaRecorder(stream)
@@ -139,25 +194,30 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = async () => {
-        // 录音停止 → 上传到 ai-service 转写(用 packages/api-client 共用封装)
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' })
         streamRef.current?.getTracks().forEach((track) => track.stop())
         streamRef.current = null
+        mediaRecorderRef.current = null
 
         if (audioBlob.size === 0) {
           setRecording(false)
           return
         }
 
-        // 调用跨端共用封装(静默处理失败,不阻塞用户输入)
         const text = await voiceSttFromBlob({
           blob: audioBlob,
           filename: 'voice.webm',
           mimeType: 'audio/webm',
           language: 'zh',
-          aiServiceUrl: AI_SERVICE_URL,
+          aiServiceUrl: STT_ENDPOINT,
+          token: accessToken ?? undefined,
         })
-        if (text) onTranscript(text)
+        if (text) {
+          onTranscriptRef.current(text)
+          setError(null)
+        } else {
+          setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+        }
         setRecording(false)
       }
       recorder.start()
@@ -165,6 +225,7 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
       setRecording(true)
     } catch {
       setRecording(false)
+      setError('无法访问麦克风,请在浏览器设置中允许麦克风权限')
     }
   }
 
@@ -177,22 +238,20 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   }
 
   const toggle = () => {
-    if (supported === 'native') {
-      if (recording) {
-        stopNativeRecording()
-      } else {
-        startNativeRecording()
-      }
-    } else if (supported === 'fallback') {
-      if (recording) {
-        stopFallbackRecording()
-      } else {
-        void startFallbackRecording()
-      }
+    if (recording) {
+      if (mode === 'native') stopNativeRecording()
+      else stopFallbackRecording()
+      return
+    }
+    setError(null)
+    if (mode === 'native') {
+      startNativeRecording()
+    } else if (mode === 'fallback') {
+      void startFallbackRecording()
     }
   }
 
-  if (supported === 'unsupported') return null
+  if (mode === 'unsupported') return null
 
   return (
     <>
@@ -202,41 +261,48 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           to { transform: scaleY(1); }
         }
       `}</style>
-      <Tooltip content={recording ? t('voiceInputStop') : t('voiceInputStart')}>
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={disabled}
-          aria-label={recording ? t('voiceInputStop') : t('voiceInputStart')}
-          className={cn(
-            'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-            recording
-              ? 'bg-red-500 text-white hover:bg-red-500/90'
-              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            'disabled:cursor-not-allowed disabled:opacity-50',
-          )}
-        >
-          {recording ? (
-            <span className="flex h-4 items-center gap-0.5">
-              {[0, 1, 2, 3].map((i) => (
-                <span
-                  key={`bar-${i}`}
-                  className="w-0.5 rounded bg-white"
-                  style={{
-                    height: '100%',
-                    transformOrigin: 'center',
-                    animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
-                  }}
-                />
-              ))}
-            </span>
-          ) : (
-            <Mic className="h-4 w-4" />
-          )}
-        </button>
-      </Tooltip>
+      <div className="flex shrink-0 items-center gap-1">
+        <Tooltip content={error ?? (recording ? t('voiceInputStop') : t('voiceInputStart'))}>
+          <button
+            type="button"
+            onClick={toggle}
+            disabled={disabled}
+            aria-label={recording ? t('voiceInputStop') : (error ?? t('voiceInputStart'))}
+            className={cn(
+              'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+              recording
+                ? 'bg-red-500 text-white hover:bg-red-500/90'
+                : error
+                  ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+              'disabled:cursor-not-allowed disabled:opacity-50',
+            )}
+          >
+            {recording ? (
+              <span className="flex h-4 items-center gap-0.5">
+                {[0, 1, 2, 3].map((i) => (
+                  <span
+                    key={`bar-${i}`}
+                    className="w-0.5 rounded bg-white"
+                    style={{
+                      height: '100%',
+                      transformOrigin: 'center',
+                      animation: `voice-wave 0.8s ease-in-out ${i * 0.12}s infinite alternate`,
+                    }}
+                  />
+                ))}
+              </span>
+            ) : error ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <Mic className="h-4 w-4" />
+            )}
+          </button>
+        </Tooltip>
+      </div>
     </>
   )
 }
 
 export default VoiceInput
+//

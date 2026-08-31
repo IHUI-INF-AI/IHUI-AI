@@ -8547,7 +8547,10 @@
       "zhipu": "Zhipu AI"
     },
     "voiceInputStart": "Voice Input",
-    "voiceInputStop": "Stop Voice Input"
+    "voiceInputStop": "Stop Voice Input",
+    "voiceInputNativeFallback": "Browser speech service unavailable. Switched to local transcription, please try again",
+    "voiceInputError": "Speech recognition unavailable. Check your network or use Chrome/Edge",
+    "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
