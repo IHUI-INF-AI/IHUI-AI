@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:
+
 /**
  * 前端 API 调用 vs 后端路由注册比对脚本。
  *
@@ -65,6 +69,10 @@ function extractFrontendCalls(src, file) {
       if (!rawPath.startsWith('/api/')) continue
       // /api/llm/* 走 Next.js rewrite 到 ai-service (port 8000)，不在 API 路由检查范围
       if (rawPath.startsWith('/api/llm/')) continue
+      // /api/voice/* 走 Next.js rewrite 到 ai-service 8803(2026-08-31 新增),
+      // 与 /api/llm/ 同类——ai-service 路由由 router 扫描覆盖,此处纯字面量(如
+      // voice-input.tsx STT_ENDPOINT 常量)会误报 GET /api/voice/stt
+      if (rawPath.startsWith('/api/voice/')) continue
       // 推断 method: 优先 path 同行 → 向后第一个 method → 向前最近 method → 动态值用 ANY
       let method = 'GET'
       const sameLine = (lines[idx] || '').toLowerCase()
@@ -561,3 +569,4 @@ console.log(`  2. 确认 HTTP 方法是否匹配（GET/POST/PUT/PATCH/DELETE）`
 console.log(`  3. 如后端缺失，在 apps/api/src/routes/ 对应文件补建路由`)
 console.log(`  4. 如前端错误，修正前端调用路径或方法`)
 process.exit(WARN_ONLY ? 0 : 1)
+// 
