@@ -1,3 +1,7 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:
+
 import type { NextConfig } from 'next'
 import createNextIntlPlugin from 'next-intl/plugin'
 import { vueToNextRedirects } from './src/config/redirects.config'
@@ -941,6 +945,15 @@ const nextConfig: NextConfig = {
           source: '/api/ai-skills/:path*',
           destination: 'http://localhost:8803/api/ai-skills/:path*',
         },
+        // 2026-08-31 新增:语音 STT 端点转发到 ai-service 8803。
+        // 原因:voice-input 的 fallback 路径(MediaRecorder → faster-whisper)此前浏览器
+        // 直连 8803,① 跨端口无 cookie/token(ai-service JWT 鉴权 401);② 生产环境
+        // localhost 指向用户本机。改为同源 /api/voice/* 走 next rewrites 代理 +
+        // Bearer token(ai-service jwt_public_paths 已放行 /api/voice/stt 双保险)。
+        {
+          source: '/api/voice/:path*',
+          destination: 'http://localhost:8803/api/voice/:path*',
+        },
         // 2026-08-17 修复(删除原 /api/publish/:path* → 8803 转发):
         // 原规则 2026-07-29 立,当时 api server 未注册 /api/publish 路由,
         // 把 publish 全量转发 ai-service 8803。此后 api 端已实现完整代理
@@ -1178,3 +1191,4 @@ const nextConfig: NextConfig = {
 const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
 
 export default withNextIntl(nextConfig)
+//
