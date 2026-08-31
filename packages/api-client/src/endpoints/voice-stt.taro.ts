@@ -44,10 +44,13 @@ export async function voiceSttFromTaro(
   options?: {
     language?: string
     aiServiceUrl?: string
+    /** 访问令牌(ai-service 启用 JWT 鉴权后必须携带 Bearer token,2026-08-31 修复) */
+    token?: string
   },
 ): Promise<string> {
   const language = options?.language ?? 'zh'
   const aiServiceUrl = options?.aiServiceUrl ?? DEFAULT_AI_SERVICE_URL
+  const token = options?.token
 
   if (!tempFilePath) return ''
 
@@ -61,6 +64,8 @@ export async function voiceSttFromTaro(
       filePath: tempFilePath,
       name: 'file',
       formData: language ? { language } : undefined,
+      // ai-service JWT 鉴权:无 token 直连必 401(2026-08-31 修复)
+      header: token ? { Authorization: `Bearer ${token}` } : undefined,
     })
 
     if (res.statusCode !== 200) return ''
