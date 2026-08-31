@@ -18,7 +18,7 @@ import logging
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 logger = logging.getLogger(__name__)
 
@@ -752,7 +752,7 @@ class LangGraphService:
                 {"type": "thinking", "message": "正在规划执行步骤..."},
             ]
 
-        final_state: GraphState = dict(initial_state)
+        final_state: GraphState = cast(GraphState, dict(initial_state))
         started = False
         try:
             async for chunk in self._graph.astream(
@@ -772,7 +772,9 @@ class LangGraphService:
                         yield evt
                 for node_name, update in chunk.items():
                     if isinstance(update, dict):
-                        final_state.update(update)
+                        # update 是图节点的增量状态,结构与 GraphState 部分重叠但不必完全一致,
+                        # 此处仅做运行时兼容,不做结构约束。
+                        final_state.update(update)  # type: ignore[typeddict-item]
                     async for evt in self._map_graph_update(node_name, update, user_id):
                         yield evt
         except asyncio.CancelledError:
@@ -802,7 +804,7 @@ class LangGraphService:
     async def _safe_aget_state(self, config: dict[str, Any]) -> Any:
         """带容错的 aget_state(断点检查失败不阻塞图执行)。"""
         try:
-            return await self._graph.aget_state(config)  # type: ignore[union-attr]
+            return await self._graph.aget_state(config)
         except Exception as e:
             logger.warning("langgraph_service.aget_state 检查断点失败: %s", e)
             return None
