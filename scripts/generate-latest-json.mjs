@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* eslint-disable no-console -- 发布脚本为 CLI 工具,需 console 输出诊断信息 */
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
@@ -19,7 +20,7 @@
  * 环境变量:
  *   GITHUB_TOKEN      — GitHub API token(workflow 自动注入 ${{ secrets.GITHUB_TOKEN }})
  *   GITHUB_REPOSITORY — owner/repo(workflow 自动注入)
- *   RELEASE_TAG       — Release tag name(如 desktop-v0.1.13)
+ *   RELEASE_TAG       — Release tag name(如 desktop-v0.1.14)
  */
 
 const token = process.env.GITHUB_TOKEN
@@ -32,7 +33,7 @@ if (!token || !repo || !tag) {
   process.exit(1)
 }
 
-// 从 tag 提取版本号(desktop-v0.1.13 → 0.1.13)
+// 从 tag 提取版本号(desktop-v0.1.14 → 0.1.14)
 const version = tag.replace(/^desktop-v/, '')
 if (!version || version === tag) {
   console.error(`Cannot extract version from tag: ${tag}`)
@@ -88,21 +89,62 @@ async function waitForRelease(tag, expectedMinAssets = 20, maxRetries = 12, retr
   throw new Error(`Release assets not ready after ${maxRetries} retries. Expected >= ${expectedMinAssets} assets, got what was available.`)
 }
 
-// 根据 .sig 文件名推断 Tauri updater 平台标识
+// 根据 .sig 文件名推断 Tauri updater 平台标识 + 产物类型(kind)。
+// 同一平台存在多种安装包(如 Windows 的 exe/msi,Linux 的 AppImage/deb/rpm)时,
+// 由 PLATFORM_PRIORITY 决定写入 latest.json 的优先级,避免后遍历者覆盖先遍历者。
+const PLATFORM_PRIORITY = {
+  'windows-x86_64': { exe: 10, msi: 5 },
+  'linux-x86_64': { AppImage: 10, deb: 7, rpm: 5 },
+}
+
 function inferPlatform(sigName) {
-  // Windows: exe.sig / msi.sig
-  if (sigName.endsWith('.exe.sig')) return 'windows-x86_64'
-  if (sigName.endsWith('.msi.sig')) return 'windows-x86_64'
+  // Windows: exe.sig / msi.sig — 优先 NSIS exe(与 tauri-action updaterJsonPreferNsis 语义一致),
+  // MSI 仅作为无 exe 时的 fallback(MSI 需管理员权限且 NSIS/MSI 安装类型混用有已知坑)。
+  if (sigName.endsWith('.exe.sig')) return { platform: 'windows-x86_64', kind: 'exe' }
+  if (sigName.endsWith('.msi.sig')) return { platform: 'windows-x86_64', kind: 'msi' }
   // macOS: app.tar.gz.sig (aarch64 or x64)
   if (sigName.endsWith('.app.tar.gz.sig')) {
-    if (sigName.includes('aarch64') || sigName.includes('arm64')) return 'darwin-aarch64'
-    return 'darwin-x86_64'
+    if (sigName.includes('aarch64') || sigName.includes('arm64')) return { platform: 'darwin-aarch64', kind: 'app' }
+    return { platform: 'darwin-x86_64', kind: 'app' }
   }
-  // Linux: AppImage.sig / deb.sig / rpm.sig
-  if (sigName.endsWith('.AppImage.sig')) return 'linux-x86_64'
-  if (sigName.endsWith('.deb.sig')) return 'linux-x86_64'
-  if (sigName.endsWith('.rpm.sig')) return 'linux-x86_64'
+  // Linux: AppImage.sig / deb.sig / rpm.sig — 优先 AppImage(通用性最高,无需系统包管理器)
+  if (sigName.endsWith('.AppImage.sig')) return { platform: 'linux-x86_64', kind: 'AppImage' }
+  if (sigName.endsWith('.deb.sig')) return { platform: 'linux-x86_64', kind: 'deb' }
+  if (sigName.endsWith('.rpm.sig')) return { platform: 'linux-x86_64', kind: 'rpm' }
   return null
+}
+
+/**
+ * 判断新产物是否应替换已有平台条目。
+ * 规则(按优先级):
+ *  1. 产物版本与 release 版本(tag 提取)匹配的优先——同一 release 可能混有历史版本产物
+ *     (如 desktop-v0.1.14 资产中残留 0.1.13 的 exe/msi),必须选与 version 一致的;
+ *  2. 版本匹配相同时,按 PLATFORM_PRIORITY 择优(exe > msi,AppImage > deb > rpm);
+ *  3. 单产物平台(如 darwin app),保留首个。
+ * @param {string} platform
+ * @param {string} newKind
+ * @param {boolean} newVerMatch - 新产物文件名是否含 release 版本号
+ * @param {string | undefined} existingKind
+ * @param {boolean} existingVerMatch - 现有产物文件名是否含 release 版本号
+ * @returns {boolean} true 表示写入新条目
+ */
+function shouldReplacePlatform(platform, newKind, newVerMatch, existingKind, existingVerMatch) {
+  if (!existingKind) return true
+  // 版本匹配不一致时:优先版本匹配的产物(与 latest.json 的 version 保持一致)
+  if (newVerMatch !== existingVerMatch) return newVerMatch
+  const priority = PLATFORM_PRIORITY[platform]
+  if (!priority) return false // 单产物平台(如 darwin),保留首个
+  return (priority[newKind] ?? 0) > (priority[existingKind] ?? 0)
+}
+
+/**
+ * 从安装包文件名提取 SemVer 版本号(如 "IHUI.AI_0.1.14_x64-setup.exe" → "0.1.14")。
+ * @param {string} assetName
+ * @returns {string | null}
+ */
+function extractVersion(assetName) {
+  const m = assetName.match(/(\d+\.\d+\.\d+)/)
+  return m ? m[1] : null
 }
 
 async function main() {
@@ -111,13 +153,26 @@ async function main() {
   const release = await waitForRelease(tag)
   console.log(`Release: ${release.name} (id=${release.id}, assets=${release.assets.length})`)
 
-  // 2. 遍历 .sig 文件,收集各平台 signature + url
+  // 2. 遍历 .sig 文件,收集各平台 signature + url。
+  //    同平台多产物时优先版本匹配(release 版本)的,其次按 PLATFORM_PRIORITY 择优。
   const platforms = {}
+  const platformKinds = {}
+  const platformVerMatch = {}
   for (const asset of release.assets) {
     if (!asset.name.endsWith('.sig')) continue
-    const platform = inferPlatform(asset.name)
-    if (!platform) {
+    const inferred = inferPlatform(asset.name)
+    if (!inferred) {
       console.warn(`Skip unknown platform sig: ${asset.name}`)
+      continue
+    }
+    const { platform, kind } = inferred
+    // 安装包文件名(去 .sig 后缀)中的版本号,用于版本匹配判断
+    const pkgName = asset.name.replace(/\.sig$/, '')
+    const assetVersion = extractVersion(pkgName)
+    const verMatch = assetVersion === version
+    // 同平台已有更高优先级产物时跳过(如已有 0.1.14 exe 时忽略 msi/旧版 exe)
+    if (!shouldReplacePlatform(platform, kind, verMatch, platformKinds[platform], platformVerMatch[platform])) {
+      console.log(`Skip lower-priority sig: ${asset.name} (platform=${platform}, kind=${kind}, verMatch=${verMatch}, existing=${platformKinds[platform] ?? 'none'}/${platformVerMatch[platform] ?? 'none'})`)
       continue
     }
 
@@ -132,10 +187,9 @@ async function main() {
     const signature = (await sigRes.text()).trim()
 
     // 找到对应的安装包文件(去掉 .sig 后缀)
-    const urlAssetName = asset.name.replace(/\.sig$/, '')
-    const urlAsset = release.assets.find((a) => a.name === urlAssetName)
+    const urlAsset = release.assets.find((a) => a.name === pkgName)
     if (!urlAsset) {
-      console.warn(`Corresponding asset not found for ${asset.name}: ${urlAssetName}`)
+      console.warn(`Corresponding asset not found for ${asset.name}: ${pkgName}`)
       continue
     }
 
@@ -143,7 +197,9 @@ async function main() {
       signature,
       url: urlAsset.browser_download_url,
     }
-    console.log(`Added platform ${platform}: ${urlAsset.name}`)
+    platformKinds[platform] = kind
+    platformVerMatch[platform] = verMatch
+    console.log(`Added platform ${platform} (${kind}, verMatch=${verMatch}): ${urlAsset.name}`)
   }
 
   if (Object.keys(platforms).length === 0) {
