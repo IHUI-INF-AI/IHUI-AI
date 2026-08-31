@@ -77,7 +77,17 @@
  *  3. APK 直链:填 NEXT_PUBLIC_DOWNLOAD_APK_URL(或 CDN_BASE + APK_FILE_NAME)
  *  4. 微信小程序:填 NEXT_PUBLIC_DOWNLOAD_WECHAT_QR
  *  5. 各端可选补 version / releaseDate,详情页头部展示版本号与发布日期
+ *
+ * 2026-08-31 桌面端动态解析(零手动维护):
+ *  - desktop 段不再手写 GitHub Release URL / 大小 / 版本号,改为读取
+ *    `desktop-feed.generated.ts` 快照(由 scripts/resolve-desktop-download.mjs 从
+ *    GitHub Releases API 动态解析最新 desktop-v* release 资产生成,发版后 CI 自动刷新
+ *    并提交回仓库)。
+ *  - 快照缺失或资产为空时回退 `DESKTOP_FALLBACK`(最近一次已知值,仅作离线兜底)。
+ *  - 每次发版(desktop-vX.Y.Z)后,下载页自动展示新版本号、日期与安装包,无需改代码。
  */
+
+import { DESKTOP_FEED } from './desktop-feed.generated'
 
 /** 项目所有支持的下载端(8 端),与 apps/* 目录一一对应 */
 export type DownloadPlatform =
@@ -291,6 +301,57 @@ export function resolveWechatHref(): string {
 /* 8 端完整下载元数据(PLATFORM_META 兼容常量 + getPlatformMetaMap getter)    */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/* Desktop 动态解析(2026-08-31:读快照,零手动维护)                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Desktop 兜底元数据(仅当快照 `desktop-feed.generated.ts` 缺失/资产为空时使用)。
+ * 正常流程:快照由 scripts/resolve-desktop-download.mjs 从 GitHub Releases API 动态
+ * 生成并入库,发版后 CI 自动刷新提交;本常量只是离线场景的最后防线,
+ * 值 = 最近一次线上解析结果(0.1.14),**不要手动更新它**,刷新请跑解析脚本。
+ */
+const DESKTOP_FALLBACK = {
+  version: '0.1.14',
+  releaseDate: '2026-08-29',
+  githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
+  assets: [
+    {
+      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64-setup.exe',
+      sizeBytes: 237770846,
+      format: 'Windows NSIS exe',
+      arch: 'x64',
+    },
+    {
+      href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64_en-US.msi',
+      sizeBytes: 246292480,
+      format: 'Windows MSI',
+      arch: 'x64',
+    },
+  ],
+} satisfies Pick<PlatformMeta, 'version' | 'releaseDate' | 'githubReleasesUrl' | 'assets'>
+
+/**
+ * 解析 Desktop 端元数据:
+ *  - 快照(desktop-feed.generated.ts)存在且资产非空 → 用快照(version/releaseDate/githubReleasesUrl/assets 全动态);
+ *  - 否则 → 回退 DESKTOP_FALLBACK(最近一次已知值)。
+ */
+function resolveDesktopMeta(): Pick<
+  PlatformMeta,
+  'version' | 'releaseDate' | 'githubReleasesUrl' | 'assets'
+> {
+  const feed = DESKTOP_FEED
+  if (feed?.version && Array.isArray(feed.assets) && feed.assets.length > 0) {
+    return {
+      version: feed.version,
+      releaseDate: feed.releaseDate ?? '',
+      githubReleasesUrl: feed.githubReleasesUrl ?? DESKTOP_FALLBACK.githubReleasesUrl,
+      assets: feed.assets,
+    }
+  }
+  return DESKTOP_FALLBACK
+}
+
 /**
  * 由 env 计算 8 端完整元数据。
  *
@@ -304,6 +365,7 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
   const iosHref = resolveIosHref()
   const androidHref = resolveAndroidHref()
   const wechatHref = resolveWechatHref()
+  const desktopMeta = resolveDesktopMeta()
 
   return {
     web: {
@@ -322,30 +384,15 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
     },
     desktop: {
       platform: 'desktop',
-      version: '0.1.14',
-      releaseDate: '2026-08-30',
+      ...desktopMeta,
       systemRequirementsKey: 'downloadDesktopSysReq',
       installGuideKey: 'downloadDesktopInstallGuide',
       releaseNotesKey: 'downloadDesktopReleaseNotes',
-      githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
-      // 真实安装包(指向 GitHub Release 官方产物)。
-      // 注意:安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库
-      // apps/web/public/downloads/(已 gitignore),故 href 直接引用 release 资产 URL,
-      // 由 release-desktop.yml 构建发布,与 tauri 构建产物保持同源。
-      assets: [
-        {
-          href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64-setup.exe',
-          sizeBytes: 237770846,
-          format: 'Windows NSIS exe',
-          arch: 'x64',
-        },
-        {
-          href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.14/IHUI.AI_0.1.14_x64_en-US.msi',
-          sizeBytes: 246292480,
-          format: 'Windows MSI',
-          arch: 'x64',
-        },
-      ],
+      // 安装包元数据由 scripts/resolve-desktop-download.mjs 动态解析
+      // (GitHub Releases API → desktop-feed.generated.ts 快照 → 此处读取),
+      // 发版后 CI 自动刷新快照并提交,无需手动改 URL/大小/版本号。
+      // 安装包 ~230MB 超 GitHub 100MB 单文件限制不能入库,故 href 直接引用
+      // release 资产 URL(与 tauri 构建产物同源)。
     },
     ios: {
       platform: 'ios',
