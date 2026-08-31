@@ -740,10 +740,8 @@ export function ModelSelector({ value, onChange, disabled, label }: ModelSelecto
           disabled={disabled || loading}
           aria-label={label}
           className={cn(
-            'inline-flex h-9 min-w-0 items-center gap-1.5 rounded-lg border bg-card px-2.5 text-sm font-medium transition-colors',
-            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-            'disabled:cursor-not-allowed disabled:opacity-60',
-            '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+            'inline-flex h-8 min-w-0 items-center gap-1 rounded-md bg-card px-2 text-sm font-medium transition-colors',
+            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60',
           )}
         >
           <BrandIcon
