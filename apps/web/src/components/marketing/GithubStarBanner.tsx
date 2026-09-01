@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Code, MessageCircle, Star } from 'lucide-react'
 
 /**
@@ -42,6 +43,24 @@ export function GithubStarBanner(): React.JSX.Element {
       >
         <Star className="h-3.5 w-3.5" />
         <span>支持 awesome PR</span>
+      </Link>
+      <Link
+        href="https://aizhs.top"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group inline-flex items-center gap-2 rounded-lg border-2 border-[#6366f1] bg-white px-5 py-2.5 text-sm font-semibold shadow-sm transition-all hover:scale-110 hover:shadow-lg animate-[pulse_2s_ease-in-out_infinite]"
+      >
+        <Image
+          src="/images/logo.png?v=20260719-unify"
+          alt="IHUI AI"
+          width={28}
+          height={28}
+          className="h-7 w-7 rounded-lg"
+        />
+        <div className="flex flex-col items-start">
+          <span>在线体验 AI 助手</span>
+          <span className="text-xs font-normal">aizhs.top · 无需部署，开箱即用</span>
+        </div>
       </Link>
     </div>
   )
