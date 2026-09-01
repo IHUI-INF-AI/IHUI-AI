@@ -105,7 +105,7 @@ def test_store_list_initial(api_client):
         assert s["enabled"] is False
         assert s["tool_count"] == 0
         assert s["last_error"] == ""
-        assert s["server_name"] == f"mcp:{s['key']}"
+        assert s["server_name"] == s["key"]
 
 
 # =============================================================================
@@ -119,7 +119,7 @@ def test_install_success_persists(api_client, store_path, bridge_mock, clean_reg
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
-    assert body["name"] == "mcp:git"
+    assert body["name"] == "git"
     assert body["tool_count"] == 2
 
     # 持久化文件存在且记录结构正确
@@ -127,11 +127,11 @@ def test_install_success_persists(api_client, store_path, bridge_mock, clean_reg
     recs = mcp_store.list_installed()
     assert len(recs) == 1
     rec = recs[0]
-    assert rec["name"] == "mcp:git"
+    assert rec["name"] == "git"
     assert rec["key"] == "git"
     assert rec["transport"] == "stdio"
     assert rec["command"] == "npx"
-    assert rec["args"] == ["@modelcontextprotocol/server-git"]
+    assert rec["args"] == ["-y", "@modelcontextprotocol/server-git"]
     assert rec["installed"] is True
     assert rec["enabled"] is True
     assert rec["tool_count"] == 2
@@ -140,7 +140,7 @@ def test_install_success_persists(api_client, store_path, bridge_mock, clean_reg
 
     # 热挂载调用参数
     assert len(bridge_mock["add"]) == 1
-    assert bridge_mock["add"][0]["name"] == "mcp:git"
+    assert bridge_mock["add"][0]["name"] == "git"
     assert bridge_mock["add"][0]["command"] == "npx"
 
     # GET store 反映 installed
@@ -190,11 +190,11 @@ def test_install_duplicate_enabled_409(api_client, bridge_mock, clean_registry):
 def test_install_after_disable_reenables(api_client, bridge_mock, clean_registry):
     """安装后停用,再安装 → 成功(重新热挂载 + enabled 回到 True),不 409。"""
     assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
-    assert api_client.post("/api/mcp/store/mcp:git/disable").status_code == 200
+    assert api_client.post("/api/mcp/store/git/disable").status_code == 200
     r = api_client.post("/api/mcp/store/install", json={"key": "git"})
     assert r.status_code == 200
     assert r.json()["ok"] is True
-    assert mcp_store.get_installed("mcp:git")["enabled"] is True
+    assert mcp_store.get_installed("git")["enabled"] is True
     assert len(bridge_mock["add"]) == 2
 
 
@@ -206,7 +206,7 @@ def test_install_workspace_path_used(api_client, bridge_mock, clean_registry):
     )
     assert r.status_code == 200
     assert bridge_mock["add"][0]["args"][-1] == "G:/ihui"
-    assert mcp_store.get_installed("mcp:filesystem")["args"][-1] == "G:/ihui"
+    assert mcp_store.get_installed("filesystem")["args"][-1] == "G:/ihui"
 
 
 # =============================================================================
@@ -218,21 +218,21 @@ def test_uninstall_cleans_store_and_tools(api_client, store_path, bridge_mock, c
     """卸载:关闭子进程 + 从工具表清理 + 删除持久化记录。"""
     assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
     # 模拟该 server 注入过两个工具到外部工具名单
-    injected = {"mcp:git__tool1", "mcp:git__tool2"}
+    injected = {"git__tool1", "git__tool2"}
     mcp_server._EXTERNAL_TOOL_NAMES.update(injected)
 
-    r = api_client.post("/api/mcp/store/mcp:git/uninstall")
+    r = api_client.post("/api/mcp/store/git/uninstall")
     assert r.status_code == 200
     body = r.json()
     assert body["ok"] is True
     assert body["tools_removed"] == 2
 
     # remove_stdio_server 被调用
-    assert bridge_mock["remove"] == ["mcp:git"]
+    assert bridge_mock["remove"] == ["git"]
     # 外部工具名单被清理
     assert not injected & mcp_server._EXTERNAL_TOOL_NAMES
     # 持久化记录删除
-    assert mcp_store.get_installed("mcp:git") is None
+    assert mcp_store.get_installed("git") is None
     assert mcp_store.list_installed() == []
     # GET store 恢复未安装
     git = next(
@@ -242,7 +242,7 @@ def test_uninstall_cleans_store_and_tools(api_client, store_path, bridge_mock, c
 
 
 def test_uninstall_unknown_404(api_client, bridge_mock):
-    r = api_client.post("/api/mcp/store/mcp:nope/uninstall")
+    r = api_client.post("/api/mcp/store/nope/uninstall")
     assert r.status_code == 404
     assert "未安装" in r.json()["error"]
 
@@ -252,7 +252,7 @@ def test_uninstall_not_injected_tools_ok(api_client, bridge_mock, clean_registry
     assert api_client.post("/api/mcp/store/install", json={"key": "time"}).status_code == 200
     # 清掉外部工具名单模拟"重启后丢失"
     mcp_server._EXTERNAL_TOOL_NAMES.clear()
-    r = api_client.post("/api/mcp/store/mcp:time/uninstall")
+    r = api_client.post("/api/mcp/store/time/uninstall")
     assert r.status_code == 200
     assert r.json()["tools_removed"] == 0
 
@@ -267,11 +267,11 @@ def test_disable_then_enable_cycle(api_client, store_path, bridge_mock, clean_re
     assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
 
     # disable
-    r = api_client.post("/api/mcp/store/mcp:git/disable")
+    r = api_client.post("/api/mcp/store/git/disable")
     assert r.status_code == 200
     assert r.json()["enabled"] is False
-    assert bridge_mock["remove"] == ["mcp:git"]
-    assert mcp_store.get_installed("mcp:git")["enabled"] is False
+    assert bridge_mock["remove"] == ["git"]
+    assert mcp_store.get_installed("git")["enabled"] is False
     git = next(
         s for s in api_client.get("/api/mcp/store").json()["servers"] if s["key"] == "git"
     )
@@ -279,44 +279,44 @@ def test_disable_then_enable_cycle(api_client, store_path, bridge_mock, clean_re
     assert git["enabled"] is False
 
     # enable
-    r = api_client.post("/api/mcp/store/mcp:git/enable")
+    r = api_client.post("/api/mcp/store/git/enable")
     assert r.status_code == 200
     assert r.json()["enabled"] is True
     assert r.json()["tool_count"] == 2
     assert len(bridge_mock["add"]) == 2  # install 一次 + enable 一次
-    assert bridge_mock["add"][1]["name"] == "mcp:git"
-    assert mcp_store.get_installed("mcp:git")["enabled"] is True
-    assert mcp_store.get_installed("mcp:git")["tool_count"] == 2
-    assert mcp_store.get_installed("mcp:git")["last_error"] == ""
+    assert bridge_mock["add"][1]["name"] == "git"
+    assert mcp_store.get_installed("git")["enabled"] is True
+    assert mcp_store.get_installed("git")["tool_count"] == 2
+    assert mcp_store.get_installed("git")["last_error"] == ""
 
 
 def test_disable_idempotent(api_client, bridge_mock, clean_registry):
     """重复停用幂等,不重复关闭子进程。"""
     assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
-    assert api_client.post("/api/mcp/store/mcp:git/disable").status_code == 200
-    r = api_client.post("/api/mcp/store/mcp:git/disable")
+    assert api_client.post("/api/mcp/store/git/disable").status_code == 200
+    r = api_client.post("/api/mcp/store/git/disable")
     assert r.status_code == 200
     assert r.json()["enabled"] is False
-    assert bridge_mock["remove"] == ["mcp:git"]
+    assert bridge_mock["remove"] == ["git"]
 
 
 def test_enable_idempotent(api_client, bridge_mock, clean_registry):
     """已启用再 enable 幂等,不重复热挂载。"""
     assert api_client.post("/api/mcp/store/install", json={"key": "git"}).status_code == 200
-    r = api_client.post("/api/mcp/store/mcp:git/enable")
+    r = api_client.post("/api/mcp/store/git/enable")
     assert r.status_code == 200
     assert r.json()["enabled"] is True
     assert len(bridge_mock["add"]) == 1
 
 
 def test_disable_unknown_404(api_client):
-    r = api_client.post("/api/mcp/store/mcp:nope/disable")
+    r = api_client.post("/api/mcp/store/nope/disable")
     assert r.status_code == 404
     assert "未安装" in r.json()["error"]
 
 
 def test_enable_unknown_404(api_client):
-    r = api_client.post("/api/mcp/store/mcp:nope/enable")
+    r = api_client.post("/api/mcp/store/nope/enable")
     assert r.status_code == 404
     assert "未安装" in r.json()["error"]
 
@@ -330,7 +330,7 @@ def test_corrupt_json_returns_empty(store_path):
     """持久化文件损坏 → list_installed 返回空列表,不崩服务。"""
     store_path.write_text("{not valid json", encoding="utf-8")
     assert mcp_store.list_installed() == []
-    assert mcp_store.get_installed("mcp:git") is None
+    assert mcp_store.get_installed("git") is None
 
 
 def test_non_list_json_returns_empty(store_path):
@@ -344,9 +344,9 @@ def test_write_failure_returns_none(store_path, monkeypatch):
     store_path.write_text("[]", encoding="utf-8")
     # 把存储路径放到已存在文件的下级目录,迫使 mkdir 失败
     monkeypatch.setattr(mcp_store, "_STORE_PATH", store_path / "sub" / "x.json")
-    assert mcp_store.save_installed({"name": "mcp:git", "key": "git"}) is None
-    assert mcp_store.remove_installed("mcp:git") is False
+    assert mcp_store.save_installed({"name": "git", "key": "git"}) is None
+    assert mcp_store.remove_installed("git") is False
 
 
 def test_set_enabled_missing_returns_none(store_path):
-    assert mcp_store.set_enabled("mcp:git", True) is None
+    assert mcp_store.set_enabled("git", True) is None

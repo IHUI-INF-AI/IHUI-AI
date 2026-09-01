@@ -48,7 +48,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-filesystem", "/path/to/workspace"],
+        args=["-y", "@modelcontextprotocol/server-filesystem", "/path/to/workspace"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -58,7 +58,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-git"],
+        args=["-y", "@modelcontextprotocol/server-git"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -68,7 +68,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-fetch"],
+        args=["-y", "@modelcontextprotocol/server-fetch"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -78,7 +78,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-memory"],
+        args=["-y", "@modelcontextprotocol/server-memory"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -88,7 +88,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-sequential-thinking"],
+        args=["-y", "@modelcontextprotocol/server-sequential-thinking"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -98,7 +98,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-time"],
+        args=["-y", "@modelcontextprotocol/server-time"],
         env_required=[],
     ),
     DirectoryEntry(
@@ -108,7 +108,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="official",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-postgres"],
+        args=["-y", "@modelcontextprotocol/server-postgres"],
         env_required=["DATABASE_URL"],
         env_default={},
     ),
@@ -119,7 +119,7 @@ _DIRECTORY: list[DirectoryEntry] = [
         source="community",
         transport="stdio",
         command=_NPX,
-        args=["@modelcontextprotocol/server-github"],
+        args=["-y", "@modelcontextprotocol/server-github"],
         env_required=["GITHUB_PERSONAL_ACCESS_TOKEN"],
         env_default={},
     ),
@@ -170,7 +170,9 @@ def to_client_config(
         return None
     args = list(entry.args)
     if key == "filesystem" and workspace_path:
-        args = [args[0], workspace_path] if len(args) >= 1 else args
+        # args 形如 ["-y", "@modelcontextprotocol/server-filesystem", "<默认路径>"],
+        # 替换尾部路径参数,保留 -y 前缀
+        args = [args[0], args[1], workspace_path] if len(args) >= 2 else args
     env = dict(entry.env_default)
     if env_overrides:
         env.update({k: v for k, v in env_overrides.items() if v})
