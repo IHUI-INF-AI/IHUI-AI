@@ -360,12 +360,15 @@ class AgentExecutor:
                 except Exception as e:
                     logger.warning("memory_save 启动失败(降级,不阻塞): %s", e)
 
-                # P0 GraphRAG 闭环出口:开关开启时对话完成后自动抽取实体建图谱。
-                # 默认关闭(settings.auto_graph_extract_enabled,LLM NER 有 token 成本);
-                # 开启后图谱有数据,knowledge_lookup graph 源才能命中。
-                # fire-and-forget + 最近 8 条消息 + 截断 8000 字符,失败降级不阻塞。
+                # P0 GraphRAG 闭环出口:开关开启或 LLM 处于 stub 模式时,对话完成后
+                # 自动抽取实体建图谱。stub 模式(无 key)走关键词 NER 零成本,自动启用;
+                # 真实 LLM 模式默认关闭(settings.auto_graph_extract_enabled,LLM NER 有
+                # token 成本,需业务决策开启)。开启后图谱有数据,knowledge_lookup graph
+                # 源才能命中。fire-and-forget + 最近 8 条消息 + 截断 8000,失败降级。
                 try:
-                    if settings.auto_graph_extract_enabled:
+                    from ..core.llm_gateway import LLMGateway
+
+                    if settings.auto_graph_extract_enabled or LLMGateway._is_stub_mode():
                         from .knowledge_graph import knowledge_graph_service
 
                         graph_text = "\n".join(
