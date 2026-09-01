@@ -173,7 +173,12 @@
     "inputPlaceholder": "Say something...",
     "compactionNotice": "Context auto-compacted: {before} → {after} (removed {removed} messages)",
     "voiceStop": "Stop Recording",
-    "voiceStart": "Start Recording"
+    "voiceStart": "Start Recording",
+    "voiceError": "Cannot access microphone. Please allow microphone permission in browser settings",
+    "voiceSttFailed": "Transcription failed. Please retry later or check the local speech service",
+    "voiceEmpty": "No speech detected. Please speak closer to the microphone and try again",
+    "voiceUnauthorized": "Login expired. Please refresh the page and try again",
+    "voiceNetworkError": "Network error. Please check your connection and try again"
   },
   "settings": {
     "language": "Interface language",
