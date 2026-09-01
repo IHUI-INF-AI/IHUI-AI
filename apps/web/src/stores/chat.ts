@@ -78,10 +78,18 @@ export interface ChatMessage extends Omit<BaseChatMessage, 'createdAt' | 'toolCa
 /** 自动压缩上下文状态(2026-08-16 立)
  *  null = 无压缩
  *  { phase: 'compacting' } = 压缩中
- *  { phase: 'done', tokensBefore, tokensAfter, removedCount } = 压缩完成 */
+ *  { phase: 'done', tokensBefore, tokensAfter, removedCount, trigger? } = 压缩完成
+ *  trigger: 压缩触发方式(2026-09-01 立,ratio/absolute/truncated/incompressible),
+ *           truncated = 超长单条消息截断降级,前端据此展示专属提示 */
 export type CompactionStatus =
   | { phase: 'compacting' }
-  | { phase: 'done'; tokensBefore: number; tokensAfter: number; removedCount: number }
+  | {
+      phase: 'done'
+      tokensBefore: number
+      tokensAfter: number
+      removedCount: number
+      trigger?: string
+    }
   | null
 
 interface ChatState {
