@@ -22,7 +22,8 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, AsyncIterator, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
@@ -49,7 +50,7 @@ router = APIRouter(prefix="/api/langgraph", tags=["langgraph"])
 # 已编译 graph 注册表(由 main agent / 挂载方注册)
 # ----------------------------------------------------------------------
 
-_registered_graph: Optional[Any] = None
+_registered_graph: Any | None = None
 
 
 def register_langgraph_graph(graph: Any) -> None:
@@ -63,9 +64,30 @@ def register_langgraph_graph(graph: Any) -> None:
     logger.info("langgraph router 已注册编译图: %r", graph)
 
 
-def get_registered_graph() -> Optional[Any]:
+def get_registered_graph() -> Any | None:
     """获取已注册的编译图(未注册返回 None)。"""
     return _registered_graph
+
+
+def _ensure_graph() -> Any | None:
+    """懒加载:未注册时尝试编译并注册默认 LangGraph(plan→execute→summarize)。
+
+    2026-09-01 补实:此前 LangGraph 路由"宣传存在但默认不可用",需显式
+    register_langgraph_graph 才生效。现改为首次调用自动编译注册,消除
+    "名不副实"缺口;编译失败/异常降级保持 None,走既有降级路径,不阻塞。
+    """
+    if _registered_graph is not None:
+        return _registered_graph
+    try:
+        from ..services.agent_graph import build_agent_graph
+
+        graph = build_agent_graph()
+        register_langgraph_graph(graph)
+        logger.info("langgraph 懒加载注册默认图(plan→execute→summarize)")
+        return graph
+    except Exception as e:
+        logger.warning("langgraph 懒加载注册失败(降级保持未注册): %s", e)
+        return None
 
 
 def _manager() -> LangGraphCheckpointManager:
@@ -103,8 +125,8 @@ class ResumeRequest(BaseModel):
 class StreamQuery(BaseModel):
     """stream 端点 query 参数(用于 GET 透传 input)。"""
 
-    input: Optional[dict[str, Any]] = Field(default=None, description="图输入(JSON)")
-    stream_modes: Optional[list[str]] = Field(default=None, description="stream_mode 列表")
+    input: dict[str, Any] | None = Field(default=None, description="图输入(JSON)")
+    stream_modes: list[str] | None = Field(default=None, description="stream_mode 列表")
 
 
 # ----------------------------------------------------------------------
@@ -140,9 +162,9 @@ async def post_interrupt(thread_id: str, req: InterruptRequest) -> dict[str, Any
             logger.warning("interrupt 事件持久化失败: %s", e)
         return _ok(event, "interrupt triggered")
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from None
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 # ----------------------------------------------------------------------
@@ -164,7 +186,7 @@ async def post_resume(req: ResumeRequest) -> dict[str, Any]:
             resume_value=req.resume_value,
             action=req.action,
         )
-        graph = get_registered_graph()
+        graph = _ensure_graph()
         if graph is not None:
             # graph 已注册:尝试用 Command(resume=...) 触发一次 ainvoke 以推进执行
             # (非流式;流式恢复走 /stream?input=null)
@@ -193,9 +215,9 @@ async def post_resume(req: ResumeRequest) -> dict[str, Any]:
             command["invoke_skipped_reason"] = "未注册编译图"
         return _ok(command, "resume command processed")
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from None
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from None
 
 
 # ----------------------------------------------------------------------
@@ -210,10 +232,10 @@ async def get_state(thread_id: str) -> dict[str, Any]:
     try:
         latest = await manager.get_latest_checkpoint(thread_id)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from None
 
-    graph_state: Optional[dict[str, Any]] = None
-    graph = get_registered_graph()
+    graph_state: dict[str, Any] | None = None
+    graph = _ensure_graph()
     if graph is not None:
         try:
             graph_state = await manager.get_graph_state(graph, thread_id)
@@ -248,7 +270,7 @@ async def get_history(
     try:
         history = await manager.get_state_history(thread_id, limit=limit)
     except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from None
     return _ok(
         {
             "threadId": thread_id,
@@ -267,10 +289,10 @@ async def get_history(
 async def get_stream(
     thread_id: str,
     request: Request,
-    input: Optional[str] = Query(
+    input: str | None = Query(
         default=None, description="图输入 JSON 字符串(首次执行传入,恢复时省略)"
     ),
-    stream_modes: Optional[str] = Query(
+    stream_modes: str | None = Query(
         default=None,
         description="stream_mode 逗号分隔,如 updates,messages,events",
     ),
@@ -283,7 +305,7 @@ async def get_stream(
 
     SSE 输出:`event: <type>\\ndata: <json>\\n\\n`
     """
-    graph = get_registered_graph()
+    graph = _ensure_graph()
     if graph is None:
         raise HTTPException(
             status_code=503,
@@ -291,17 +313,17 @@ async def get_stream(
         )
 
     # 解析 input
-    graph_input: Optional[dict[str, Any]] = None
+    graph_input: dict[str, Any] | None = None
     if input:
         try:
             graph_input = json.loads(input)
             if not isinstance(graph_input, dict):
                 raise ValueError("input 必须是 JSON 对象")
         except (json.JSONDecodeError, ValueError) as e:
-            raise HTTPException(status_code=400, detail=f"input JSON 解析失败: {e}")
+            raise HTTPException(status_code=400, detail=f"input JSON 解析失败: {e}") from None
 
     # 解析 stream_modes
-    modes: Optional[list[str]] = None
+    modes: list[str] | None = None
     if stream_modes:
         modes = [m.strip() for m in stream_modes.split(",") if m.strip()]
         invalid = [m for m in modes if m not in VALID_STREAM_MODES]
