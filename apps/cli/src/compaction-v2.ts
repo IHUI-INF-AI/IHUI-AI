@@ -79,6 +79,11 @@ export interface CompactionV2Options {
   samplingTimeoutMs?: number;
   /** 可选 sampler,无则 fallback */
   sampler?: CompactionSampler;
+  /**
+   * 预压缩缓存命中的摘要(可选):提供且非空时跳过内部 sampler LLM 调用直接采用
+   * (缓存产物与 sampler 实时生成同源——由 primeCompactionSummary 复用同一 sampler 路径生成)。
+   */
+  cachedSummary?: string;
   /** 可选观察者 */
   observer?: CompactionObserver;
   /** 透传给 fallback 的 compressContextIfNeeded */
@@ -360,36 +365,56 @@ export async function compressContextV2(
     return fallbackToV1(messages, opts);
   }
 
-  // 3. sampler 未提供 → fallback
-  if (!opts.sampler) {
+  // 3. sampler 未提供且无缓存摘要 → fallback(缓存命中时无需 sampler)
+  if (!opts.sampler && !(typeof opts.cachedSummary === 'string' && opts.cachedSummary.trim().length > 0)) {
     return fallbackToV1(messages, opts);
   }
 
   // 4. 分割 head/tail
-  const targetTokens = Math.floor(contextLimit * targetRatio);
-  const { headToCompact, tailToKeep } = selectTurnsToCompact(messages, targetTokens, { keepRecent });
+  //    cachedSummary 命中时:强制按"非 system 除最后 6 条"切分,保证 head 与缓存摘要
+  //    的 toCompress 范围一致(prime 与 getCached 均用同一 keepRecent=6 序列化),条数标记准确。
+  const hasCachedSummary = typeof opts.cachedSummary === 'string' && opts.cachedSummary.trim().length > 0;
+  let headToCompact: ChatMessage[];
+  let tailToKeep: ChatMessage[];
+  if (hasCachedSummary) {
+    const systemMsgsAll = messages.filter((m) => m.role === 'system');
+    const nonSystem = messages.filter((m) => m.role !== 'system');
+    const split = Math.max(0, nonSystem.length - keepRecent);
+    headToCompact = nonSystem.slice(0, split);
+    tailToKeep = [...systemMsgsAll, ...nonSystem.slice(split)];
+  } else {
+    const targetTokens = Math.floor(contextLimit * targetRatio);
+    ({ headToCompact, tailToKeep } = selectTurnsToCompact(messages, targetTokens, { keepRecent }));
+  }
 
   // 5. head 过小 → fallback
   const headNonSystem = headToCompact.filter((m) => m.role !== 'system');
   const headTokens = estimateMessagesTokens(headNonSystem);
-  if (headNonSystem.length < minMessages || headTokens < minCompactableTokens) {
+  if (headNonSystem.length < 1 || (!hasCachedSummary && (headNonSystem.length < minMessages || headTokens < minCompactableTokens))) {
     return fallbackToV1(messages, opts);
   }
 
   const startTime = Date.now();
 
-  // 6. 调用 sampler(带重试)
+  // 6. 摘要生成:cachedSummary 命中 → 零 LLM 调用(70% 阶段已预生成);
+  //    未命中 → sampler 实时生成(带重试)。两种产物同源(prime 复用同一 sampler 路径)。
   let sampleResult: { response: string; attempts: number; statusLabel: string };
-  try {
-    sampleResult = await sampleWithRetry(headNonSystem, opts.sampler, {
-      maxAttempts,
-      retryDelayMs,
-      samplingTimeoutMs,
-    });
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'sampler-failed', error });
-    return fallbackToV1(messages, opts);
+  if (hasCachedSummary) {
+    sampleResult = { response: opts.cachedSummary!, attempts: 0, statusLabel: 'cache-hit' };
+  } else {
+    // 步骤 3 已守卫:走到这里 sampler 必然存在
+    const sampler = opts.sampler!;
+    try {
+      sampleResult = await sampleWithRetry(headNonSystem, sampler, {
+        maxAttempts,
+        retryDelayMs,
+        samplingTimeoutMs,
+      });
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'sampler-failed', error });
+      return fallbackToV1(messages, opts);
+    }
   }
 
   // 7. 退化检测
