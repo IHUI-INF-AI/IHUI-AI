@@ -137,7 +137,7 @@ fn localized_app_name() -> &'static str {
 fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     AppInfo {
         name: localized_app_name().to_string(),
-        // 版本以 tauri.conf.json 的 version 为准(与 package.json 一致 0.1.14),
+        // 版本以 tauri.conf.json 的 version 为准(运行时动态读取,勿在此硬编码版本号),
         // 不再用 Cargo.toml 的 CARGO_PKG_VERSION(0.1.0,二者会漂移)。
         version: app.package_info().version.to_string(),
         platform: std::env::consts::OS.to_string(),
