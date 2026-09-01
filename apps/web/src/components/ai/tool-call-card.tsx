@@ -6,7 +6,16 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink, Copy, BarChart3 } from 'lucide-react'
+import {
+  ChevronRight,
+  Loader2,
+  Check,
+  AlertCircle,
+  ExternalLink,
+  Copy,
+  BarChart3,
+} from 'lucide-react'
+import { getArtifactToken } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { useClipboard } from '@/hooks/use-clipboard'
@@ -141,10 +150,12 @@ function extractCitations(result: unknown): string[] {
 
 /** 提取图表 Artifact 路径(generate_chart 等返回本地 .html 产物)。
  *  仅接受以 .html 结尾的 file_path(单文件 ECharts HTML)。
- *  返回 { filePath: 绝对路径, fileName: 展示用文件名 },不匹配时返回 null。 */
+ *  P1-1(2026-09-01):优先读取 relative_path(相对项目根,如 tmp/charts/xxx.html),
+ *  用于换取签名 token 走 iframe 预览;仅在命中白名单目录前缀且 .html 时返回。
+ *  返回 { filePath, fileName, relativePath? },不匹配时返回 null。 */
 function extractChartArtifact(
   result: unknown,
-): { filePath: string; fileName: string } | null {
+): { filePath: string; fileName: string; relativePath?: string } | null {
   let data: unknown = result
   if (typeof result === 'string') {
     try {
@@ -155,12 +166,25 @@ function extractChartArtifact(
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return null
 
-  const filePath = (data as Record<string, unknown>).file_path
+  const obj = data as Record<string, unknown>
+  const filePath = obj.file_path
   if (typeof filePath !== 'string' || !filePath.trim()) return null
   if (!filePath.trim().toLowerCase().endsWith('.html')) return null
 
   const fileName = filePath.trim().split(/[\\/]/).pop() || filePath.trim()
-  return { filePath: filePath.trim(), fileName }
+
+  // P1-1:relative_path 仅在白名单目录(tmp/charts、tmp/artifacts)内才可用,
+  // 后端签名 token 对白名单外相对路径返回 400,前端直接降级为路径卡片。
+  const rawRelative = obj.relative_path
+  let relativePath: string | undefined
+  if (typeof rawRelative === 'string' && rawRelative.trim().toLowerCase().endsWith('.html')) {
+    const norm = rawRelative.trim().replace(/\\/g, '/')
+    if (norm.startsWith('tmp/charts/') || norm.startsWith('tmp/artifacts/')) {
+      relativePath = norm
+    }
+  }
+
+  return { filePath: filePath.trim(), fileName, relativePath }
 }
 
 /** 引用溯源标签组:展示 knowledge_lookup 等返回的图谱实体/关系来源 */
@@ -187,9 +211,18 @@ function CitationsBlock({ citations }: { citations: string[] }) {
   )
 }
 
-/** 图表 Artifact 卡片:本地 .html 图表无法在网页内直接 iframe 预览,
- *  展示文件名 + 绝对路径(一键复制)+ 打开说明,引导用户在本机浏览器查看。 */
-function ChartArtifactBlock({ filePath, fileName }: { filePath: string; fileName: string }) {
+/** 图表 Artifact 路径卡片:文件名 + 路径(一键复制)+ 打开说明,引导用户本机浏览器打开。
+ *  iframe 预览不可用(无 relative_path / 换 token 失败)时的降级视图(P1-1)。 */
+function ArtifactPathCard({
+  filePath,
+  fileName,
+  failed,
+}: {
+  filePath: string
+  fileName: string
+  /** 换 token 失败:提示改用复制路径兜底 */
+  failed?: boolean
+}) {
   const t = useTranslations('ai.toolCall')
   const { copy, copied } = useClipboard()
 
@@ -210,11 +243,7 @@ function ChartArtifactBlock({ filePath, fileName }: { filePath: string; fileName
             data-testid="tool-call-copy-path"
             className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
           >
-            {copied ? (
-              <Check className="h-3 w-3 text-green-600" />
-            ) : (
-              <Copy className="h-3 w-3" />
-            )}
+            {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
             <span>{copied ? t('pathCopied') : t('copyPath')}</span>
           </button>
         </div>
@@ -223,8 +252,74 @@ function ChartArtifactBlock({ filePath, fileName }: { filePath: string; fileName
           {filePath}
         </p>
         <p className="mt-1 text-[10px] leading-4 text-muted-foreground/60">
-          {t('chartPreviewHint')}
+          {failed ? t('chartPreviewFailed') : t('chartPreviewHint')}
         </p>
+      </div>
+    </div>
+  )
+}
+
+/** 图表 Artifact 卡片:P1-1(2026-09-01)起支持在聊天卡片内直接 iframe 预览。
+ *  挂载时用 relative_path 换取 30 分钟签名访问 token(签发端点走 JWT 保护),
+ *  iframe 以 sandbox="allow-scripts" 加载产物(禁 allow-same-origin,防越权读任意文件)。
+ *  无 relative_path / 换 token 失败 → 降级为 ArtifactPathCard(复制路径 + 本机打开)。 */
+function ChartArtifactBlock({
+  filePath,
+  fileName,
+  relativePath,
+}: {
+  filePath: string
+  fileName: string
+  relativePath?: string
+}) {
+  const t = useTranslations('ai.toolCall')
+  const [iframeSrc, setIframeSrc] = React.useState<string | null>(null)
+  const [previewFailed, setPreviewFailed] = React.useState(false)
+  const [tokenLoading, setTokenLoading] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!relativePath) return
+    let cancelled = false
+    setTokenLoading(true)
+    setPreviewFailed(false)
+    void getArtifactToken(relativePath).then((res) => {
+      if (cancelled) return
+      setTokenLoading(false)
+      if (res.success && res.data?.url) {
+        setIframeSrc(res.data.url)
+      } else {
+        // 未登录(token 端点 401)/ 相对路径被拒(400)→ 降级为路径卡片
+        setPreviewFailed(true)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [relativePath])
+
+  // 无相对路径 / 换 token 失败:降级为纯路径卡片
+  if (!relativePath || previewFailed) {
+    return <ArtifactPathCard filePath={filePath} fileName={fileName} failed={previewFailed} />
+  }
+
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('chartGenerated')}
+      </p>
+      <div className="overflow-hidden rounded-sm border border-border/40 bg-white">
+        {tokenLoading || !iframeSrc ? (
+          <div className="flex h-[280px] w-full items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <iframe
+            src={iframeSrc}
+            title={fileName}
+            sandbox="allow-scripts"
+            className="h-[280px] w-full"
+          />
+        )}
       </div>
     </div>
   )
@@ -632,6 +727,7 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                 <ChartArtifactBlock
                   filePath={chartArtifact.filePath}
                   fileName={chartArtifact.fileName}
+                  relativePath={chartArtifact.relativePath}
                 />
               ) : (
                 <>
@@ -651,7 +747,9 @@ export const ToolCallCard = React.memo(function ToolCallCard({
                   )}
                   {result !== undefined && (
                     <div>
-                      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">结果</p>
+                      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+                        结果
+                      </p>
                       <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
                         {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
                       </pre>

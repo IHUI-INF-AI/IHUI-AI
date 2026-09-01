@@ -93,12 +93,16 @@ class Settings(BaseSettings):
     # 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
+    # 2026-09-01 新增:/api/artifacts/f/ — Artifact 图表产物静态文件服务。iframe 无法
+    # 携带 Authorization header,文件访问端点用 URL 内嵌短期签名 token(30 分钟)鉴权,
+    # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
     # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
     jwt_public_paths: str = (
         "/api/health,/api/legacy,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
-        "/api/voice/stt,/api/voice/tts,/api/mcp"
+        "/api/voice/stt,/api/voice/tts,/api/mcp,"
+        "/api/artifacts/f/"
     )
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
@@ -142,6 +146,17 @@ class Settings(BaseSettings):
     # [{"name":"...", "transport":"stdio|sse", "command":"...", "args":[...], "url":"...",
     #   "timeout":30, "reconnect":true, "max_reconnect_attempts":3, "env":{...}}]
     mcp_client_configs: str = ""
+    # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
+    # 传输)启动本机 MCP server,并把它 list_tools 暴露的工具注册进内部工具表 —
+    # 即"本机 stdio MCP server 作为内部工具"接入。与 mcp_client_configs(出站客户端,
+    # 自研 stdio/SSE)双轨并存。
+    # JSON 数组格式:[{"name":"...", "command":"...", "args":[...],
+    #                "env":{...}, "description":"..."}]
+    # 默认空(不强制依赖 npx)。配置示例(代码注释,默认不启用):
+    #   [{"name":"filesystem", "command":"npx",
+    #     "args":["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+    #     "description":"官方 filesystem server,读写本机文件"}]
+    mcp_stdio_servers: str = ""
     # PUBLISH_UPLOAD_DIR:发布上传根目录,空=默认 .uploads/publish(已在 .gitignore)
     publish_upload_dir: str = ""
     # GITHUB_TOKEN:MCP review_pr 工具调 GitHub API,空=匿名调用受 rate limit(60/h)
@@ -173,10 +188,14 @@ class Settings(BaseSettings):
     token_compaction_enabled: bool = False
 
     # 2026-09-01 新增:对话完成后自动抽取实体建知识图谱(GraphRAG 闭环)。
-    # 默认关闭(真实 LLM NER 有 token 成本;开启后 agent_loop 任务完成时对最近
-    # 8 条消息 fire-and-forget 调 knowledge_graph.extract,图谱有数据后
-    # knowledge_lookup 的 graph 源才能返回命中)。
-    auto_graph_extract_enabled: bool = False
+    # 默认开启(P1-3 长期记忆自进化):stub 模式(无 LLM key)走关键词 NER 零成本,
+    # 真实 LLM 模式已有"批量异步 + 最近 8 条 + 8000 截断"成本保护。开启后
+    # agent_loop 任务完成时对最近 8 条消息 fire-and-forget 调 knowledge_graph.extract,
+    # 图谱有数据后 knowledge_lookup 的 graph 源才能返回命中。
+    # 用户可在 web 记忆页关闭"自动记忆"(user_preferences privacy.autoMemory=false),
+    # 关闭后 episodic→semantic 提炼(consolidate)跳过;管理员仍可经 .env 的
+    # AUTO_GRAPH_EXTRACT_ENABLED=false 全局关停。
+    auto_graph_extract_enabled: bool = True
     token_compaction_min_tokens: int = 2000
 
     # Combo 多级 fallback 链(2026-07-30 立,2026-07-30 修复 .env 加载断裂 Bug)

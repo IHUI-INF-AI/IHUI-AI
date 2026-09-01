@@ -53,6 +53,7 @@ from app.routers import (
     agent_runtime,
     agents,
     ai_skills,
+    artifacts,
     health,
     hooks,
     llm,
@@ -327,6 +328,43 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_client] 启动初始化失败(忽略): %s", e)
 
+    # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
+    # 传输)启动本机 MCP server,把 list_tools 暴露的工具注册进内部工具表,即"本机
+    # stdio MCP server 作为内部工具"。配置来源 settings.mcp_stdio_servers(JSON 数组,
+    # 默认空);解析/连接失败不阻塞启动(降级为后续显式 add_stdio_server_tool 注册)。
+    try:
+        from app.services.mcp_stdio_bridge import add_stdio_server_tool
+
+        _stdio_cfg_raw = (getattr(settings, "mcp_stdio_servers", "") or "").strip()
+        if _stdio_cfg_raw:
+            import json as _stdio_json
+
+            _stdio_servers = _stdio_json.loads(_stdio_cfg_raw)
+            if isinstance(_stdio_servers, list):
+                for _s in _stdio_servers:
+                    _s_name = (_s.get("name") or "").strip()
+                    if not _s_name:
+                        continue
+                    try:
+                        await add_stdio_server_tool(
+                            name=_s_name,
+                            command=str(_s.get("command", "")),
+                            args=list(_s.get("args", []) or []),
+                            env=dict(_s.get("env", {}) or {}),
+                            description=str(_s.get("description", "") or ""),
+                        )
+                        logger.info("[mcp_stdio] 启动注册 stdio server: %s", _s_name)
+                    except Exception as _e:
+                        logger.warning(
+                            "[mcp_stdio] 注册 %s 失败(忽略,不影响启动): %s", _s_name, _e
+                        )
+            else:
+                logger.warning("[mcp_stdio] MCP_STDIO_SERVERS 不是 JSON 数组,忽略")
+        else:
+            logger.info("[mcp_stdio] 未配置 stdio MCP server(MCP_STDIO_SERVERS 为空),跳过")
+    except Exception as e:
+        logger.warning("[mcp_stdio] 启动初始化失败(忽略): %s", e)
+
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
@@ -408,6 +446,14 @@ async def lifespan(app: FastAPI) -> Any:
         logger.info("[mcp_client] 外部 MCP Client 已全部断开")
     except Exception as e:
         logger.warning("[mcp_client] shutdown 断开失败(忽略): %s", e)
+
+    # 关闭 stdio MCP Server 子进程(2026-09-01 立,P1-4 配套,杀掉所有 stdio 子进程)
+    try:
+        from app.services.mcp_stdio_bridge import shutdown_all
+        await shutdown_all()
+        logger.info("[mcp_stdio] stdio MCP Server 全部关闭")
+    except Exception as e:
+        logger.warning("[mcp_stdio] shutdown 关闭失败(忽略): %s", e)
 
     # 修复(2026-07-28):统一关闭共享 asyncpg 连接池(app.core.db_pool)。
     # 原 14 个独立 pool 已全部复用 get_shared_pool(),此处一次 close 即可释放所有连接,
@@ -520,6 +566,8 @@ def create_app() -> FastAPI:
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
     app.include_router(voice_tts.router, prefix="/api", tags=["voice"])
+    # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
+    app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
     # AI Skills TOP 19 个 skill 路由(2026-07-23 新增,用户可选调用)
