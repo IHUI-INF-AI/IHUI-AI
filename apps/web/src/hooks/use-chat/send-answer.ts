@@ -190,6 +190,7 @@ export function createSendAnswer(
             tokensBefore: info.tokensBefore,
             tokensAfter: info.tokensAfter,
             removedCount: info.removedCount,
+            trigger: info.trigger,
           })
 
           // 优先使用 SSE 携带的 compressedMessages 直接更新前端,避免再调 getMessages 拿旧数据

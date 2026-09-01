@@ -678,7 +678,8 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
 
 export interface StreamChatOptions {
   model: string
-  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+  // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
+  messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>
   signal?: AbortSignal
   onDelta: (delta: string) => void
   onError?: (error: string, info?: SSEErrorInfo) => void
@@ -690,6 +691,8 @@ export interface StreamChatOptions {
     tokensAfter: number
     removedCount: number
     usageRatio: number
+    /** 压缩触发方式:ratio/absolute(常规摘要压缩)/truncated(超长单条消息截断降级)/incompressible */
+    trigger?: string
     compressedMessages?: Array<{ role: string; content: string }>
   }) => void
   /** AI 主动提问回调:LLM 在流中输出 [[ASK_USER:JSON]] 标记时触发,前端弹窗让用户回答 */
@@ -1670,6 +1673,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               tokensAfter: Number(json.compaction.tokensAfter ?? 0),
               removedCount: Number(json.compaction.removedCount ?? 0),
               usageRatio: Number(json.compaction.usageRatio ?? 0),
+              trigger:
+                typeof json.compaction.trigger === 'string' ? json.compaction.trigger : undefined,
               compressedMessages: json.compaction.compressedMessages,
             })
           }
