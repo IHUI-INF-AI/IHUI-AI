@@ -248,7 +248,9 @@ export function primeSemanticSummary(
   // fire-and-forget:调用方不 await;此处也不 await 内部任务,一切异常就地吞掉
   void (async () => {
     try {
-      const summary = await generateSemanticSummary(request, messages, model)
+      // 透传 conversationId:让 generate 内部写缓存用同一 key(不传会双写 undefined|hash,
+      // 浪费一半缓存条目且 stats 计数失真);writeSummaryCache(key) 与 generate 内部写同一 key,幂等
+      const summary = await generateSemanticSummary(request, messages, model, conversationId)
       if (summary) writeSummaryCache(key, summary)
     } catch {
       // 预压缩失败绝不影响主流程
