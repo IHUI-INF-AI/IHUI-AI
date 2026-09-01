@@ -44,6 +44,7 @@ export const SLASH_COMMANDS: readonly SlashCommandMeta[] = [
   { name: 'todo', description: '管理任务清单(显示/清除)', usage: '/todo [clear]', category: 'session' },
   { name: 'plan', description: 'Plan Mode 控制', usage: '/plan [on|off|approve|reject|edit|show]', category: 'session' },
   { name: 'context', description: '显示当前会话 token 用量', usage: '/context', category: 'session' },
+  { name: 'compact', description: '立即手动压缩当前对话上下文(无视 88% 自动阈值)', usage: '/compact', category: 'session' },
   { name: 'announcements', aliases: ['announce'], description: '查看公告', usage: '/announcements [list|unread|read <id>|read-all|refresh]', category: 'session' },
   { name: 'voice', description: '语音输入(录音+转写)', usage: '/voice [秒数]', category: 'session' },
   { name: 'queue', description: '提示词排队(agent 完成后自动执行)', usage: '/queue [list|clear|rm <id>|<prompt>]', category: 'session' },
