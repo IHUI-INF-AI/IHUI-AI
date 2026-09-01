@@ -6651,6 +6651,7 @@
     },
     "toolCall": {
       "chartGenerated": "圖表已生成",
+      "chartPreviewFailed": "圖表預覽載入失敗,請複製路徑後在本機瀏覽器開啟。",
       "chartPreviewHint": "本地圖表檔案無法在網頁內直接預覽,請複製路徑後在本機瀏覽器開啟。",
       "citationsTitle": "引用來源",
       "copyPath": "複製路徑",
@@ -20081,5 +20082,11 @@
     "submit": "發佈",
     "success": "發佈成功",
     "failed": "發佈失敗"
+  },
+  "memory": {
+    "autoMemory": "自動記憶",
+    "autoMemoryDesc": "開啟後，AI 會在對話後自動提煉重點並沉澱為長期記憶，用於後續個人化回覆。",
+    "autoMemorySaveSuccess": "設定已儲存",
+    "autoMemorySaveFailed": "儲存失敗，請重試"
   }
 }
