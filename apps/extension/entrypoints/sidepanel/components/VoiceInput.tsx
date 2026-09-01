@@ -16,8 +16,9 @@
  * 与 web 端 voice-input.tsx 共用 packages/api-client 的 voiceSttFromBlob 封装。
  */
 import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useI18n } from '../../../src/i18n'
-import { voiceSttFromBlob } from '@ihui/api-client'
+import { voiceSttFromBlob, VoiceSttHttpError } from '@ihui/api-client'
 import { DEFAULT_AI_SERVICE_URL } from '../../../lib/config'
 import { getToken } from '../../../lib/token'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
@@ -71,6 +72,9 @@ interface VoiceInputProps {
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const { t } = useI18n()
   const [recording, setRecording] = useState(false)
+  // 错误展示:登录过期/转写失败/未识别到内容等。
+  // **2026-09-01 增加**(对齐 web 端):用 try/catch 区分错误类型而不是吞错。
+  const [error, setError] = useState<string | null>(null)
   // 默认 fallback(本地转写优先);挂载后 effect 精确探测,无 MediaRecorder 才退回 native
   const [supported, setSupported] = useState<'native' | 'fallback' | 'unsupported'>('fallback')
 
@@ -171,23 +175,48 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           setRecording(false)
           return
         }
-        // 调用 packages/api-client 跨端共用封装
-        const text = await voiceSttFromBlob({
-          blob: audioBlob,
-          filename: 'voice.webm',
-          mimeType: 'audio/webm',
-          language: 'zh',
-          aiServiceUrl: AI_SERVICE_URL,
-          token: getToken() ?? undefined,
-        })
-        if (text) onTranscript(text)
+
+        // **2026-09-01 与 web 对齐**:try/catch 区分 VoiceSttHttpError/网络错误/成功空内容。
+        let text: string
+        try {
+          text = await voiceSttFromBlob({
+            blob: audioBlob,
+            filename: 'voice.webm',
+            mimeType: 'audio/webm',
+            language: 'zh',
+            aiServiceUrl: AI_SERVICE_URL,
+            token: getToken() ?? undefined,
+          })
+        } catch (e) {
+          if (e instanceof VoiceSttHttpError) {
+            if (e.status === 401 || e.status === 403) {
+              setError(t('chat.voiceUnauthorized') || '登录已过期,请刷新页面后重试')
+            } else {
+              setError(t('chat.voiceSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+            }
+          } else {
+            setError(t('chat.voiceNetworkError') || '网络异常,请检查连接后重试')
+          }
+          setRecording(false)
+          return
+        }
+
+        if (text) {
+          onTranscript(text)
+          setError(null)
+        } else {
+          // 后端 200 OK 但无内容 → 未识别到语音内容
+          setError(t('chat.voiceEmpty') || '未识别到语音内容,请靠近麦克风后重试')
+        }
         setRecording(false)
       }
       recorder.start()
       mediaRecorderRef.current = recorder
       setRecording(true)
+      setError(null)
     } catch {
       setRecording(false)
+      setError(t('chat.voiceError') || '无法访问麦克风,请在浏览器设置中允许麦克风权限')
     }
   }
 
@@ -208,7 +237,9 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
 
   if (supported === 'unsupported') return null
 
-  const buttonTitle = recording ? t('chat.voiceStop') : t('chat.voiceStart')
+  // **2026-09-01**:错误时显示 AlertTriangle 三角图标,tooltip 改为错误文案
+  // (对齐 web 端行为;用户在 hover 时能看到具体原因)
+  const buttonTitle = recording ? t('chat.voiceStop') : error ? error : t('chat.voiceStart')
 
   return (
     <TooltipProvider>
@@ -222,10 +253,16 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors ${
               recording
                 ? 'bg-red-500 text-white hover:bg-red-500/90'
-                : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                : error
+                  ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
+                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
             } disabled:cursor-not-allowed disabled:opacity-50`}
           >
-            <MicIcon className="h-4 w-4" />
+            {error && !recording ? (
+              <AlertTriangle className="h-4 w-4" />
+            ) : (
+              <MicIcon className="h-4 w-4" />
+            )}
           </button>
         </TooltipTrigger>
         <TooltipContent>{buttonTitle}</TooltipContent>
