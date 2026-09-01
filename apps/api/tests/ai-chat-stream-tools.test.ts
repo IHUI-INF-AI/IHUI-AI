@@ -63,34 +63,74 @@ vi.mock('@ihui/types', async (importOriginal) => {
   }
 })
 
-// 4. Mock @ihui/context-compaction(默认不压缩)
+// 4. Mock @ihui/context-compaction(默认不压缩;保留真实 estimateMessagesTokens 供断言,
+//    手动压缩用例可切换到真实 compressContextIfNeeded 验证伪造阈值的触发数学)
+const { mockCompressContextIfNeeded } = vi.hoisted(() => ({
+  mockCompressContextIfNeeded: vi.fn(),
+}))
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let realCompressContextIfNeeded: any = null
 vi.mock('@ihui/context-compaction', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
+  realCompressContextIfNeeded = actual.compressContextIfNeeded
   return {
     ...actual,
-    compressContextIfNeeded: () => ({
-      compressed: false,
-      messages: [],
-      originalTokens: 0,
-      compressedTokens: 0,
-      removedCount: 0,
-    }),
+    compressContextIfNeeded: mockCompressContextIfNeeded,
   }
 })
 
-// 5. Mock chat-queries(/chat/answer 持久化 + 压缩 replaceMessages)
+// 5. Mock chat-queries(/chat/answer 持久化 + 压缩 replaceMessages + chat.ts 会话查询)
+//    chat.ts import 了全部查询函数,factory 需逐一提供具名导出(缺导出会导致 named import 为 undefined)
 vi.mock('../src/db/chat-queries.js', () => ({
   createMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
   patchConversationMetadata: vi.fn().mockResolvedValue(undefined),
   replaceMessages: vi.fn().mockResolvedValue(undefined),
+  createConversation: vi.fn(),
+  findConversationsByUser: vi.fn(),
+  findConversationById: vi.fn(),
+  updateConversation: vi.fn(),
+  deleteConversation: vi.fn(),
+  deleteConversationsBatch: vi.fn(),
+  favoriteConversationsBatch: vi.fn(),
+  unfavoriteConversationsBatch: vi.fn(),
+  setConversationsArchivedBatch: vi.fn(),
+  findMessages: vi.fn(),
+  findMessageById: vi.fn(),
+  deleteMessage: vi.fn(),
+  clearMessages: vi.fn(),
+  favoriteConversation: vi.fn(),
+  unfavoriteConversation: vi.fn(),
+  findFavoriteConversations: vi.fn(),
+  archiveConversation: vi.fn(),
+  unarchiveConversation: vi.fn(),
+  findMessagesForExport: vi.fn().mockResolvedValue([]),
+  findMessagesForShare: vi.fn(),
+  saveCompressedContext: vi.fn(),
+  setConversationShareToken: vi.fn(),
+  findConversationByShareToken: vi.fn(),
+  regenerateConversationMessages: vi.fn(),
+  branchConversationFrom: vi.fn(),
 }))
+
+// 5b. Mock db 实例(conversation-archive 归档落库用;insert 失败由其内部 try/catch 降级为 console.warn)
+vi.mock('../src/db/index.js', () => ({ db: {}, dbRead: {} }))
 
 // 6. Mock ai-cost(semantic-summary 计费用;避免拉起真实 db/pricing 模块链,与 services-plugins-smoke 同策略)
 const { mockRecordAiCost } = vi.hoisted(() => ({ mockRecordAiCost: vi.fn() }))
 vi.mock('../src/plugins/ai-cost.js', () => ({ recordAiCost: mockRecordAiCost }))
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
+import { chatRoutes } from '../src/routes/chat.js'
 import type { FastifyRequest } from 'fastify'
+import {
+  estimateMessagesTokens,
+  type ChatMessage,
+} from '@ihui/context-compaction'
+import {
+  findConversationById,
+  findMessagesForExport,
+  replaceMessages,
+} from '../src/db/chat-queries.js'
 import {
   generateSemanticSummary,
   primeSemanticSummary,
