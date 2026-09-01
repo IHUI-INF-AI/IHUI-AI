@@ -6,7 +6,7 @@
  * 上下文压缩共享包 — 跨端统一 88% 阈值自动压缩。
  *
  * 跨端共享:CLI(agent runtime)+ API(/chat/stream 入口)+ ai-service(TS 边界)共用同一套规则。
- * ai-service Python 侧有等价实现(app/core/compaction.py),保持语义一致。
+ * ai-service Python 侧有等价实现(app/core/context_compaction.py),保持语义一致。
  *
  * 阈值:
  *   - DEFAULT_TRIGGER_RATIO = 0.88(88% 触发压缩,用户需求)
