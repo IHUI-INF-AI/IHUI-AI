@@ -21,7 +21,7 @@
  *
  * 容量:
  * - 最多 50 条(防无限增长),超过从最旧淘汰
- * - 与 full-access-confirm-dialog / use-permission-auto-revert 共用 localStorage 风格:
+ * - 与 full-access-confirm-dialog 共用 localStorage 风格:
  *   try/catch 包裹所有读 / 写,隐私模式 / quota 超出静默
  *
  * 不在本文件做的事:
@@ -39,7 +39,7 @@ export const PERMISSION_HISTORY_KEY = 'ihui:permission-mode-history'
 export const MAX_HISTORY_ENTRIES = 50
 
 /** 切换来源(用于历史面板展示"通过什么方式切的") */
-export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'auto-revert'
+export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
 
 export interface ModeChangeEntry {
   mode: WorkspacePermissionMode

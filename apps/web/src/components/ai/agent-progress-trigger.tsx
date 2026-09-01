@@ -51,13 +51,13 @@ export function AgentProgressTrigger({
   onTriggerClick,
   leftIcon,
   leftIconText,
+  iconOnly,
 }: {
   className?: string
   onTriggerClick?: () => void
-  /** 自定义左侧图标(默认根据 ChatMode 自动选择 Hammer/BookOpen/Search/FileText) */
   leftIcon?: React.ComponentType<{ className?: string }>
-  /** 自定义左侧图标旁的文字(默认根据 ChatMode 自动选择"构建"/"计划"等) */
   leftIconText?: string
+  iconOnly?: boolean
 } = {}) {
   const t = useTranslations('chat')
 
@@ -140,6 +140,7 @@ export function AgentProgressTrigger({
         INPUT_ATTACHMENT_BAR_BTN_BASE,
         'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground duration-150 ease-out',
         hasLiveActivity && 'text-primary',
+        iconOnly && 'h-8 w-8 justify-center p-0',
         className,
       )}
       data-testid="agent-progress-trigger"
@@ -148,7 +149,7 @@ export function AgentProgressTrigger({
       data-mode={currentMode}
     >
       <ModeIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-      <span>{modeLabel}</span>
+      {!iconOnly && <span>{modeLabel}</span>}
       {hasLiveActivity && (
         <Loader2
           className="h-3 w-3 shrink-0 animate-spin"
