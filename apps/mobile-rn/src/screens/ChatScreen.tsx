@@ -85,6 +85,7 @@ import {
 import {
   batchOperateConversations,
   claimShareFirstReward,
+  compactConversation,
   deleteAgent,
   deleteConversation,
   fetchModels,
@@ -442,6 +443,8 @@ export function ChatScreen() {
     after: number
     removed: number
   } | null>(null)
+  // 手动压缩上下文请求进行中(✂ 按钮 loading + 防重复点击)
+  const [compacting, setCompacting] = useState(false)
 
   const abortRef = useRef<AbortController | null>(null)
   const idCounter = useRef(0)
@@ -1697,6 +1700,59 @@ export function ChatScreen() {
     if (conversationId) void loadConversationMessages(conversationId)
   }, [route.params?.conversationId, loadConversationMessages])
 
+  // ── 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input.tsx compactButton):
+  // POST /api/chat/compact → compressed=true → 成功 toast + getMessages 刷新消息列表
+  //   (压缩摘要已替换旧消息,本地列表需同步;仅刷新消息,不重置输入框/素材卡);
+  // reason=too_few_messages / incompressible → info 提示;404/其他错误 → error 提示。
+  // 仅已关联后端会话(conversationId 非空,即历史对话载入)时可用;流式中/压缩中禁止触发。
+  const handleCompactContext = useCallback(async (): Promise<void> => {
+    if (compacting || isStreaming) return
+    if (!conversationId) {
+      showToast('info', t('messageInput.compactNoSession'))
+      return
+    }
+    setCompacting(true)
+    try {
+      const res = await compactConversation(conversationId)
+      if (res.success && res.data) {
+        if (res.data.compressed) {
+          showToast(
+            'success',
+            t('messageInput.compactSuccess', {
+              before: res.data.originalTokens,
+              after: res.data.compressedTokens,
+              saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
+            }),
+          )
+          const msgRes = await getMessages(conversationId, { page: 1, pageSize: 100 })
+          if (msgRes.success) {
+            setMessages(
+              msgRes.data.messages.map((m, idx) => ({
+                id: `${m.id}-${idx}`,
+                role: m.role,
+                content: m.content,
+                reasoning: m.reasoning,
+              })),
+            )
+            requestAnimationFrame(() => {
+              listRef.current?.scrollToEnd({ animated: true })
+            })
+          }
+        } else if (res.data.reason === 'too_few_messages') {
+          showToast('info', t('messageInput.compactTooFew'))
+        } else {
+          showToast('info', t('messageInput.compactIncompressible'))
+        }
+      } else {
+        showToast('error', t('messageInput.compactFailed'))
+      }
+    } catch {
+      showToast('error', t('messageInput.compactFailed'))
+    } finally {
+      setCompacting(false)
+    }
+  }, [compacting, isStreaming, conversationId, showToast, t])
+
   // ── 分享智汇值弹窗自动触发(对齐 Uniapp checkFirstShareStatus API 自动检查) ──
   // Uniapp:用户进页面时若未领过智汇值则由 API 自动弹出 share-points 弹窗。
   // mobile-rn:Share2 按钮改为跳个人中心(对齐 goToMyPage),弹窗改由本 effect 自动触发。
@@ -1933,6 +1989,8 @@ export function ChatScreen() {
           onAddFile={() => void handleFileUpload()}
           onIconClick={handleIconClick}
           onFangda={handleFangda}
+          onCompactContext={() => void handleCompactContext()}
+          compactContextLoading={compacting}
           onTextareaHeightChange={textareaHeightChange}
           onStartLongPress={handleStartLongPress}
           onEndLongPress={handleEndLongPress}
