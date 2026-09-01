@@ -113,7 +113,9 @@ declare module '../tools/index.js' {
 
 export type { ToolContext } from '../tools/index.js';
 
-type ChatRole = 'system' | 'user' | 'assistant';
+// 与 @ihui/types ChatRole 对齐(含 'tool'):repl state.history(session 持久化)与压缩
+// 结果(CompressionResult)均可能携带 tool role,窄版类型会在 decideCompaction 接线处不兼容
+type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
 type ChatMessage = { role: ChatRole; content: string };
 
 export interface AgentOptions {
