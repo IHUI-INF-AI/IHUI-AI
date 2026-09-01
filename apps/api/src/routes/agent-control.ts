@@ -20,10 +20,23 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
+import { timingSafeEqual } from 'node:crypto'
 import type { AgentActionRequest, AgentActionResponse, AgentControlCapability } from '@ihui/types'
 import { authenticate, checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
+
+/**
+ * 校验 Authorization: Bearer 是否等于内部服务密钥(时序安全比较)。
+ * 长度不一致直接 false(避免 timingSafeEqual 抛错)。
+ */
+function isInternalSecret(authHeader: string | undefined): boolean {
+  const internalSecret = process.env.AGENT_CONTROL_INTERNAL_SECRET ?? ''
+  if (!internalSecret || !authHeader?.startsWith('Bearer ')) return false
+  const bearer = authHeader.slice(7).trim()
+  if (bearer.length === 0 || bearer.length !== internalSecret.length) return false
+  return timingSafeEqual(Buffer.from(bearer, 'utf-8'), Buffer.from(internalSecret, 'utf-8'))
+}
 
 // ---------------------------------------------------------------------------
 // 状态:已注册的端 + pending requests
@@ -145,11 +158,22 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
   // POST /execute - 执行控制指令(ai-service 调用)
   // -------------------------------------------------------------------------
   server.post('/execute', async (request, reply) => {
-    // 允许 ai-service 内部调用(可选鉴权:如果有 token 则校验,否则按内部调用)
-    try {
-      await authenticate(request)
-    } catch {
-      // 内部调用(ai-service 无 token),允许继续
+    // fail-closed 认证(2026-09-01 安全修复):此前 authenticate 失败即放行 +
+    // userId 取自请求体,任何可达 8802 的进程可伪造 userId 越权控制已连接端。
+    // 现要求:① Authorization: Bearer == AGENT_CONTROL_INTERNAL_SECRET(ai-service
+    // 内部调用,ai-service 侧已带该 header);② 或携带合法用户 JWT(兼容历史)。
+    // 两者皆无 → 401 拒绝。api 侧未配置密钥时仅 JWT 路径可用。
+    let authed = isInternalSecret(request.headers.authorization)
+    if (!authed) {
+      try {
+        await authenticate(request)
+        authed = true
+      } catch {
+        authed = false
+      }
+    }
+    if (!authed) {
+      return reply.status(401).send(error(401, '未授权:缺少有效的内部密钥'))
     }
 
     const result = executeSchema.safeParse(request.body)
