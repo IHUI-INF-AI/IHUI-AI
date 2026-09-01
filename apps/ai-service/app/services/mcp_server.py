@@ -4276,6 +4276,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
 }
 
 
+# 外部注入工具名单(2026-09-02 立,P2-1):register_external_tool 注册成功的工具名集合,
+# 供卸载/停用时精确清理(_TOOLS/_TOOL_HANDLERS 还含大量本地工具,不能整表操作)。
+# 同名工具已被占用时 register 返回 False,不进入本集合。
+_EXTERNAL_TOOL_NAMES: set[str] = set()
+
+
 def register_external_tool(tool: MCPTool, handler: Any) -> bool:
     """注册外部 MCP 工具(2026-09-01 立,stdio bridge 注入外部 server 工具用)。
 
@@ -4298,7 +4304,56 @@ def register_external_tool(tool: MCPTool, handler: Any) -> bool:
         return False
     _TOOLS.append(tool)
     _TOOL_HANDLERS[tool.name] = handler
+    _EXTERNAL_TOOL_NAMES.add(tool.name)
     return True
+
+
+def unregister_external_tools(names: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    """按精确工具名批量移除外部注入的工具(2026-09-02 立,P2-1)。
+
+    只清理由 register_external_tool 注入的工具(_EXTERNAL_TOOL_NAMES 名单内的),
+    不触碰本地工具表;从 _TOOLS / _TOOL_HANDLERS / _EXTERNAL_TOOL_NAMES 三个容器
+    同步移除。幂等:目标名不存在或非外部注入时静默跳过。
+
+    Args:
+        names: 待移除的外部工具名(可迭代;空集合/未安装名均安全)
+
+    Returns:
+        实际移除的工具名列表
+    """
+    target = {n for n in names if n}
+    removed = sorted(n for n in target if n in _EXTERNAL_TOOL_NAMES)
+    if not removed:
+        return []
+    for n in removed:
+        _EXTERNAL_TOOL_NAMES.discard(n)
+        _TOOL_HANDLERS.pop(n, None)
+    _TOOLS[:] = [t for t in _TOOLS if t.name not in removed]
+    return removed
+
+
+def unregister_external_tool_by_prefix(prefix: str) -> list[str]:
+    """按工具名前缀批量移除外部注入的工具(2026-09-02 立,P2-1,幂等)。
+
+    供按 server 维度清理:外部 server 注入的工具名以统一前缀命名时,传前缀即可
+    批量移除;否则调用方应改用 unregister_external_tools(精确名单)。
+
+    Args:
+        prefix: 工具名前缀(如 "mcp:filesystem__")
+
+    Returns:
+        实际移除的工具名列表
+    """
+    target = [n for n in _EXTERNAL_TOOL_NAMES if n.startswith(prefix)]
+    return unregister_external_tools(target)
+
+
+def list_external_tools_injected() -> list[str]:
+    """返回当前由 register_external_tool 注入的外部工具名列表(2026-09-02 立,P2-1)。
+
+    只含外部注入且注册成功的工具,不含本地工具;按名排序保证输出稳定。
+    """
+    return sorted(_EXTERNAL_TOOL_NAMES)
 
 
 # ---------------------------------------------------------------------------
