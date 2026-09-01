@@ -365,6 +365,35 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_stdio] 启动初始化失败(忽略): %s", e)
 
+    # MCP 商店持久化恢复(2026-09-02 立,P2-1):重启后自动重新热挂载
+    # data/mcp_store.json 中 enabled=true 的记录,保证"安装状态持久化、重启不丢"。
+    # 与 MCP_STDIO_SERVERS 配置双轨:显式配置优先,商店记录兜底(同名 server 幂等跳过)。
+    try:
+        from app.services import mcp_store
+        from app.services.mcp_stdio_bridge import add_stdio_server_tool as _store_add
+
+        for _rec in mcp_store.list_installed():
+            if not _rec.get("enabled"):
+                continue
+            _rname = str(_rec.get("name") or "").strip()
+            if not _rname:
+                continue
+            try:
+                await _store_add(
+                    name=_rname,
+                    command=str(_rec.get("command") or ""),
+                    args=list(_rec.get("args") or []),
+                    env=dict(_rec.get("env") or {}),
+                )
+                logger.info("[mcp_store] 启动恢复已安装 server: %s", _rname)
+            except Exception as _e:
+                logger.warning(
+                    "[mcp_store] 启动恢复 %s 失败(降级为停用标记): %s", _rname, _e
+                )
+                mcp_store.set_enabled(_rname, False)
+    except Exception as e:
+        logger.warning("[mcp_store] 启动恢复初始化失败(忽略): %s", e)
+
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
