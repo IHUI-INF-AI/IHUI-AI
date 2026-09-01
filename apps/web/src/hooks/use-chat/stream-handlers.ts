@@ -8,6 +8,11 @@ import type { ToolSummaryEvent } from '@ihui/api-client'
 import { BROWSER_TOOL_NAMES, extractToolUrl } from './tool-config'
 
 export function createToolCallHandler(assistantMessageId: string) {
+  // 2026-09-01 立,工具调用过程流式可视化:SSE tool-result 事件不携带耗时字段,
+  // 需在 tool-call-start 时记录本地起点,result 到达时计算 durationMs 补写,
+  // 驱动 ToolCallCard 显示真实耗时(toolCallId 后端全局唯一,跨消息不冲突)。
+  const startTimes = new Map<string, number>()
+
   return (event: {
     type: 'tool-call-start' | 'tool-result'
     toolCallId: string
@@ -23,6 +28,7 @@ export function createToolCallHandler(assistantMessageId: string) {
     serverName?: string
   }) => {
     if (event.type === 'tool-call-start') {
+      startTimes.set(event.toolCallId, Date.now())
       useChatStore.getState().addToolCall(assistantMessageId, {
         id: event.toolCallId,
         toolName: event.toolName,
@@ -48,6 +54,12 @@ export function createToolCallHandler(assistantMessageId: string) {
         serverSource: event.serverSource,
         serverId: event.serverId,
         serverName: event.serverName,
+      }
+      // 计算耗时(工具执行期间记录起点,result 到达时相减;起始点丢失时缺省 undefined)
+      const startedAt = startTimes.get(event.toolCallId)
+      if (startedAt !== undefined) {
+        updates.durationMs = Date.now() - startedAt
+        startTimes.delete(event.toolCallId)
       }
       if (event.args) updates.args = event.args
       if (event.iteration !== undefined) updates.iteration = event.iteration

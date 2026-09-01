@@ -2924,4 +2924,11 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-09-01) **统一安全 C4(命令策略单一权威源)**:新建 `apps/ai-service/app/data/command_policy.json`(dangerous_patterns 28 条 + allowed_prefixes 31 个 + sensitive_file_markers 6 个),mcp_server.run_command 从函数内硬编码改为 `_load_command_policy()` 读取(模块级 lru_cache + 失败回退 _COMMAND_POLICY_DEFAULT 与既有行为一致);新增 `scripts/generate-command-policy-ts.mjs`(JSON → packages/shared TS 常量生成脚本,前端 dangerous-command-detector 引用,统一安全两端同步)。验证:rm 危险拦截/taskkill 白名单外拒绝/whoami 放行实测 + 205/205 mcp_server 回归全绿 + py_compile/mypy 0 错误。
 
+- [x] ✅(2026-09-01) **剩余工作全面执行(免费 TTS + 建图增强 + /execute 安全修复 + 前端 4 项,用户决策后)**:
+  ① **免费 TTS**(app/routers/voice_tts.py,edge-tts 零 key 零成本,12 声音白名单,text≤2000,失败 503 降级;pyproject 加 edge-tts 依赖;jwt_public_paths 加 /api/voice/tts config+.env;真实合成验证 200/32KB/audio-mpeg)——对标 GPT-5 Voice 的零成本方案,替代需 DashScope key 的付费 TTS;
+  ② **自动建图 stub 增强**(agent_loop.py:auto_graph_extract_enabled 或 LLM stub 模式自动启用,stub 走关键词 NER 零成本,真实 LLM 模式默认关省 token);
+  ③ **/execute 越权安全修复**(apps/api/src/routes/agent-control.ts:原 authenticate 失败即放行+userId 可伪造=任意进程可控制已连接端浏览器,改 fail-closed——校验 Authorization Bearer==AGENT_CONTROL_INTERNAL_SECRET(timingSafeEqual)或合法 JWT,皆无 401;api/.env 补同值密钥);
+  ④ **前端 4 项**(3 agent 并行):MCP 商店页(mcp-store/page.tsx+PageClient.tsx,目录列表+一键注册 env 对话框+已注册列表,api-client mcp.ts 端点,GlobalTopBar 入口,i18n 25 key×5)/引用溯源展示+Artifact 图表卡片(tool-call-card.tsx citations 徽章+图表路径卡片)/tool 流式可视化(stream-handlers.ts 工具执行秒表+MessageItem 进行中状态)。
+  验证:web/api/api-client typecheck 0 错误+web lint 0 错误+i18n parity 5 语言一致+mcp_server 205 测试全绿+api 测试 5 个存量失败(usedetail 路由不存在,与本批无关)。api 测试存量的 usedetail/list 404 失败=路由未实现,留待后续补。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
