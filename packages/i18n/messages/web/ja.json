@@ -6656,6 +6656,7 @@
     },
     "toolCall": {
       "chartGenerated": "グラフ生成済み",
+      "chartPreviewFailed": "グラフのプレビューに失敗しました。パスをコピーしてローカルブラウザで開いてください。",
       "chartPreviewHint": "ローカルのグラフファイルはウェブページ内で直接プレビューできません。パスをコピーしてローカルブラウザで開いてください。",
       "citationsTitle": "引用元",
       "copyPath": "パスをコピー",
@@ -20165,5 +20166,11 @@
     "submit": "投稿",
     "success": "投稿しました",
     "failed": "投稿に失敗しました"
+  },
+  "memory": {
+    "autoMemory": "自動記憶",
+    "autoMemoryDesc": "有効にすると、会話後にAIが要点を自動で抽出して長期記憶として蓄積し、その後のパーソナライズ応答に活用します。",
+    "autoMemorySaveSuccess": "設定を保存しました",
+    "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください"
   }
 }
