@@ -6870,7 +6870,8 @@
       "pinFailed": "置頂操作失敗"
     },
     "today": "今天",
-    "toggleWorkPanel": "切換工作展示區"
+    "openWorkPanel": "打開工作展示區",
+    "closeWorkPanel": "關閉工作展示區"
   },
   "aiCost": {
     "budgetAlerts": "預算告警",
@@ -7934,6 +7935,9 @@
     "communityPublishTitlePlaceholder": "請輸入標題",
     "communityPublishTitleRequired": "請輸入標題",
     "communityPublishing": "發布中...",
+    "compaction": {
+      "truncatedNotice": "最後一條訊息過長,已截斷內容以保持對話可用"
+    },
     "contextCompacted": "上下文已自動壓縮",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 條歷史)",
     "contextMenu": {

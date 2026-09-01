@@ -6870,7 +6870,8 @@
       "pinFailed": "置顶操作失败"
     },
     "today": "今天",
-    "toggleWorkPanel": "切换工作展示区"
+    "openWorkPanel": "打开工作展示区",
+    "closeWorkPanel": "关闭工作展示区"
   },
   "aiCost": {
     "budgetAlerts": "预算告警",
@@ -7934,6 +7935,9 @@
     "communityPublishTitlePlaceholder": "请输入标题",
     "communityPublishTitleRequired": "请输入标题",
     "communityPublishing": "发布中...",
+    "compaction": {
+      "truncatedNotice": "最后一条消息过长,已截断内容以保持对话可用"
+    },
     "contextCompacted": "上下文已自动压缩",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",
     "contextMenu": {

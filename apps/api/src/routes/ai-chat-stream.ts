@@ -15,6 +15,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata, replaceMessages } from '../db/chat-queries.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { generateSemanticSummary } from '../utils/semantic-summary.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -329,13 +330,25 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (contextLimit && contextLimit > 0) {
+        const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
+        const triggerThreshold = Math.floor(contextLimit * 0.88)
         console.warn('[Compaction] before compress:', {
           contextLimit,
           messageCount: messages.length,
-          tokens: Math.floor(estimateMessagesTokens(messages)),
-          triggerThreshold: Math.floor(contextLimit * 0.88),
+          tokens: tokensBeforeCompress,
+          triggerThreshold,
         })
-        const result = compressContextIfNeeded(messages, { contextLimit })
+        // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才调(88% 阈值与共享包
+        // DEFAULT_TRIGGER_RATIO 对齐),生成 customSummary 替代共享包内置规则摘要。
+        // 3 秒超时/失败/stub 一律返回 null → 静默降级走规则摘要,不阻塞主链路。
+        const customSummary =
+          tokensBeforeCompress >= triggerThreshold
+            ? await generateSemanticSummary(request, messages, resolvedModel)
+            : null
+        const result = compressContextIfNeeded(messages, {
+          contextLimit,
+          customSummary: customSummary ?? undefined,
+        })
         console.warn('[Compaction] result:', {
           compressed: result.compressed,
           trigger: result.trigger,
@@ -350,6 +363,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             key: 'compaction',
             payload: {
               triggered: true,
+              trigger: result.trigger,
               tokensBefore: result.originalTokens,
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
@@ -512,14 +526,24 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (contextLimit && contextLimit > 0) {
+        const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
+        const triggerThreshold = Math.floor(contextLimit * 0.88)
         // 诊断日志与 /chat/stream 主入口一致:incompressible(压不动)时 compressed=false 走原路径,防循环
         console.warn('[Compaction][answer] before compress:', {
           contextLimit,
           messageCount: messages.length,
-          tokens: Math.floor(estimateMessagesTokens(messages)),
-          triggerThreshold: Math.floor(contextLimit * 0.88),
+          tokens: tokensBeforeCompress,
+          triggerThreshold,
         })
-        const result = compressContextIfNeeded(messages, { contextLimit })
+        // LLM 语义摘要:与 /chat/stream 同一套逻辑,只在会触发压缩时调,失败静默降级(见 utils/semantic-summary.ts)
+        const customSummary =
+          tokensBeforeCompress >= triggerThreshold
+            ? await generateSemanticSummary(request, messages, resolvedModel)
+            : null
+        const result = compressContextIfNeeded(messages, {
+          contextLimit,
+          customSummary: customSummary ?? undefined,
+        })
         console.warn('[Compaction][answer] result:', {
           compressed: result.compressed,
           trigger: result.trigger,
@@ -534,6 +558,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
             key: 'compaction',
             payload: {
               triggered: true,
+              trigger: result.trigger,
               tokensBefore: result.originalTokens,
               tokensAfter: result.compressedTokens,
               removedCount: result.removedCount,
