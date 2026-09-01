@@ -38,6 +38,7 @@ from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
 from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
+from app.routers import mcp_official
 from app.routers import self_media
 from app.routers import publish
 from app.routers import opencompass
@@ -489,6 +490,7 @@ def create_app() -> FastAPI:
     app.include_router(llm.router, prefix="/api", tags=["llm"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
+    app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
