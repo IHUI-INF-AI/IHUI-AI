@@ -12,8 +12,8 @@
  * 都通过 `@ihui/api-client` 导入 getModelContextCapacity,避免重复实现。
  */
 
-/** 默认兜底上下文长度(未知模型保守值) */
-export const DEFAULT_CONTEXT_CAPACITY = 32_000
+/** 默认兜底上下文长度(未知模型)。2026 年主流模型 ≥128K,32K 兜底过保守会导致 88% 自动压缩误触发,故提升为 128K */
+export const DEFAULT_CONTEXT_CAPACITY = 128_000
 
 /** 精确模型 id → 上下文 token 数 */
 const EXACT_CAPACITY: Record<string, number> = {
@@ -111,7 +111,6 @@ const PATTERN_CAPACITY: Array<{ pattern: RegExp; capacity: number }> = [
   { pattern: /256k|256000/i, capacity: 256_000 },
   { pattern: /64k|64000/i, capacity: 64_000 },
   { pattern: /32k|32000/i, capacity: 32_000 },
-  { pattern: /8k|8000/i, capacity: 8_000 },
   // 厂商默认值
   { pattern: /^gpt-?4/, capacity: 128_000 },
   { pattern: /^gpt-?5/, capacity: 256_000 },
@@ -136,6 +135,8 @@ const PATTERN_CAPACITY: Array<{ pattern: RegExp; capacity: number }> = [
   { pattern: /sensenova/i, capacity: 32_000 },
   { pattern: /skywork/i, capacity: 32_000 },
   { pattern: /internlm/i, capacity: 32_000 },
+  // 显式含 8k/8000 词边界的模型名才是真 8K 上下文;放最后,避免版本号(如 -0802)误匹配与抢占厂商默认值
+  { pattern: /\b8k\b|\b8000\b/i, capacity: 8_000 },
 ]
 
 /**
