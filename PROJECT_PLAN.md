@@ -2933,4 +2933,6 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-09-01) **usedetail 路由补实现(消除 api 存量测试失败)**:agent-extended.ts 新增 `GET /usedetail/list`(表 zhs_agent_use_detail 加入 ALLOWED_TABLES 白名单;Bug 7 IDOR 语义——非 admin 强制按 req.userId 过滤忽略传入 user_id,admin 可指定;支持 page/pageSize/agent_id/biz_type 过滤,rawList 复用)。验证:agent-extended-idor 14/14 + agent-extended 42/42 全绿(此前 5 个存量失败全部消除);api typecheck 0 错。遗留:_server-smoke buildServer 超时=环境问题(stash 验证与 usedetail 无关,geoip 网络加载等)。
 
+- [x] ✅(2026-09-01) **实时语音免费化闭环(ws-ai.ts TTS 免费优先)**:api 侧 synthesizeTTS 改为免费 edge-tts 优先(经 ai-service /api/voice/tts 零 key,voice 映射 longxiaochun→XiaoxiaoNeural 等 5 个),DashScope 降级(有 key 才用,未配置报"免费 TTS 亦不可用")。验证:api typecheck/lint 0 错+免费 TTS 端点 8803 实测可用。统一安全 C4 架构判定:前端检测器(severity 分级,prompt 安全提示语义)与后端 run_command(白名单执行控制)语义不同,不强制合并,生成脚本作可选共享工具保留。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
