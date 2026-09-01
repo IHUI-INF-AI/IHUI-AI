@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info, Scissors, Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -41,8 +41,11 @@ import { useMessageSend } from '@/hooks/use-message-send'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
 import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
+import { toast } from '@/components/common'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
+import { compactConversation, getMessages } from '@ihui/api-client'
+import type { ApiResult } from '@ihui/types'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@plugins-data'
 import { AiSkillInvokeDialog, AiSkillResultDialog } from '@/components/chat/skill-library'
 import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoints/ai-skills'
@@ -53,6 +56,24 @@ import type { AiSkillMeta, AiSkillInvokeResponse } from '@ihui/api-client/endpoi
 // 已提取到 useSlashAction hook(2026-07-29),组件内不再持有模板常量。
 // DANGEROUS_PATTERN_KEY 已提取到 useMessageSend hook(2026-07-30)。
 // mimeToLabel / useMentionFiles / useAiSkills 已提取到 use-lazy-resource-hooks(2026-07-30)。
+
+// 手动压缩上下文(2026-09-02 立):POST /api/chat/compact 由并行分支开发中,
+// packages/api-client 合入 compactConversation 前,用模块扩展在 web 端补齐类型;
+// api-client 合入同名方法后删除本扩展即可(模块扩展会自动与真实声明合并)。
+declare module '@ihui/api-client' {
+  /** POST /api/chat/compact 响应(compressed=false 时携带 reason 说明未压缩原因) */
+  export interface ManualCompactResult {
+    compressed: boolean
+    reason?: 'too_few_messages' | 'incompressible'
+    originalTokens: number
+    compressedTokens: number
+    removedCount?: number
+    trigger?: string
+  }
+  export function compactConversation(
+    conversationId: string,
+  ): Promise<ApiResult<ManualCompactResult>>
+}
 
 interface MessageInputProps {
   /** onSend 返回 true=已提交可清空输入框,false=未发送需保留输入内容(如未登录/创建会话失败) */
@@ -215,6 +236,8 @@ export function MessageInput({
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
+  // 当前会话 ID(手动压缩上下文按钮用;未持久化会话时按钮禁用)
+  const conversationId = useChatStore((s) => s.conversationId)
   // 发送按钮可用态(2026-07-30:清除按钮已挪回 WebInputCore 内部悬浮呈现,canClear 不再需要)
   // 2026-08-14 修改:流式期间也允许发送(保存为 pending 消息,流式结束后自动发出)
   const canSend = value.trim().length > 0
@@ -319,6 +342,58 @@ export function MessageInput({
     })
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
+
+  // 手动压缩上下文(2026-09-02 立):点击触发 POST /api/chat/compact
+  // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息列表
+  //   (刷新跟随 use-chat/send-message.ts 压缩兜底的 getMessages 机制,仅仍在原会话时写回 store)
+  // - reason=too_few_messages / incompressible → info toast
+  // - 404/其他错误 → 统一错误 toast(Toaster 自动中文化)
+  const [compacting, setCompacting] = React.useState(false)
+  const handleCompact = React.useCallback(async () => {
+    const id = useChatStore.getState().conversationId
+    if (!id || compacting || isStreaming) return
+    setCompacting(true)
+    try {
+      const res = await compactConversation(id)
+      if (res.success && res.data) {
+        if (res.data.compressed) {
+          toast.success(
+            t('compaction.compactSuccess', {
+              before: res.data.originalTokens,
+              after: res.data.compressedTokens,
+              saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
+            }),
+          )
+          const result = await getMessages(id, { pageSize: 100 })
+          if (result.success && result.data && useChatStore.getState().conversationId === id) {
+            useChatStore.getState().setMessages(
+              result.data.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+                model: '',
+                reasoning: m.reasoning,
+              })),
+            )
+          }
+        } else if (res.data.reason === 'too_few_messages') {
+          toast.info(t('compaction.compactTooFew'))
+        } else {
+          toast.info(t('compaction.compactIncompressible'))
+        }
+      } else {
+        toast.error(t('compaction.compactFailed'), {
+          description: res.success ? undefined : res.error,
+        })
+      }
+    } catch (e) {
+      const msg = (e as Error).message || t('compaction.compactFailed')
+      toast.error(t('compaction.compactFailed'), { description: msg })
+    } finally {
+      setCompacting(false)
+    }
+  }, [compacting, isStreaming, t])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -665,6 +740,31 @@ export function MessageInput({
                 tabIndex={-1}
               />
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
+                {/* 手动压缩上下文(2026-09-02 立):放在 ContextUsageRing 左侧,与上下文用量/模型
+                    选择同属上下文管理入口;请求进行中显示 loading 且禁用,未创建会话/流式中禁用 */}
+                <Tooltip
+                  content={compacting ? t('compaction.compacting') : t('compaction.compactButton')}
+                >
+                  <button
+                    type="button"
+                    onClick={handleCompact}
+                    disabled={compacting || isStreaming || !conversationId}
+                    aria-label={
+                      compacting ? t('compaction.compacting') : t('compaction.compactButton')
+                    }
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                    )}
+                  >
+                    {compacting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Scissors className="h-4 w-4" />
+                    )}
+                  </button>
+                </Tooltip>
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
                   value={model}

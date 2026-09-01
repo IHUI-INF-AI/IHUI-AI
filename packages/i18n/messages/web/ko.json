@@ -6657,6 +6657,7 @@
     },
     "toolCall": {
       "chartGenerated": "차트 생성됨",
+      "chartPreviewFailed": "차트 미리보기에 실패했습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
       "chartPreviewHint": "로컬 차트 파일은 웹페이지에서 직접 미리볼 수 없습니다. 경로를 복사하여 로컬 브라우저에서 열어주세요.",
       "citationsTitle": "인용 출처",
       "copyPath": "경로 복사",
@@ -20150,5 +20151,11 @@
     "submit": "게시",
     "success": "게시 완료",
     "failed": "게시 실패"
+  },
+  "memory": {
+    "autoMemory": "자동 기억",
+    "autoMemoryDesc": "활성화하면 대화 후 AI가 핵심 내용을 자동으로 요약해 장기 기억으로 저장하며, 이후 맞춤형 답변에 활용됩니다.",
+    "autoMemorySaveSuccess": "설정이 저장되었습니다",
+    "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요"
   }
 }
