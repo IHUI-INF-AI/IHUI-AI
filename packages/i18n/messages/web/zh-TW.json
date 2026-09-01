@@ -6696,7 +6696,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6713,7 +6718,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8061,12 +8071,8 @@
     "modelTagOfficial": "正式版",
     "modelTagSubsidy": "專屬補貼",
     "permission": {
-      "autoRevertIn": "{time} 後自動切回請求批准",
-      "autoRevertedDescWithDuration": "本次完全訪問已持續 {usedMin} 分鐘,自動降級到請求批准。重新開啟完全訪問請用 Shift+Tab 或點擊權限按鈕。",
-      "autoRevertedTitle": "已自動切回請求批准",
       "buttonHintShortcut": "Shift+Tab 循環切換",
       "buttonLabel": "權限模式",
-      "cancelAutoRevert": "取消自動撤銷",
       "contextMenu": {
         "copyMarkdown": "復制 Markdown",
         "copyText": "復制文本",
@@ -8098,7 +8104,6 @@
         "rmRrfRoot": "遞歸刪除根/家目錄",
         "sudoAny": "任意 sudo 操作"
       },
-      "extendOneHour": "再保持 1 小時",
       "fallbackNotice": "主體模型 {primary} 不可用,已自動切換到 {fallback}",
       "firstTimeConfirmAcknowledge": "我瞭解上述風險,繼續啟用",
       "firstTimeConfirmBullet1": "AI 可不受限制地執行所有操作,無需逐一確認",
@@ -8124,9 +8129,6 @@
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "權限模式歷史",
-      "infoButtonLabel": "查看模式說明",
-      "infoButtonTitle": "當前模式的詳細行為",
-      "infoModalDescription": "當前模式的具體行為和風險等級",
       "infoModalTitle": "當前權限模式詳情",
       "inputWarning": "當前為完全訪問模式:AI 可不受限制地訪問文件和網絡",
       "jumpToLatest": "跳轉到最新",
@@ -8167,7 +8169,6 @@
       "popoverHintNoWorkspace": "未綁定工作區,選定後將在綁定時生效",
       "popoverTitle": "應如何批准 AI 操作?",
       "quickFullAccess": "完全訪問",
-      "reEnableAutoRevert": "重新啟用 1 小時自動撤銷",
       "resetSuppressedButton": "重新提醒高風險",
       "resetSuppressedConfirmDesc": "下次切到完全訪問模式時,將再次彈出確認彈窗。",
       "resetSuppressedConfirmTitle": "確認重新啟用高風險提醒?",
@@ -8179,13 +8180,10 @@
       "revertWarning5minTitle": "完全訪問模式即將自動降級",
       "search": "搜索",
       "shortcutsClose": "知道了",
-      "shortcutsItemAutoRevert1hKbd": "1 小時無操作後自動切回請求批准",
-      "shortcutsItemCancelAutoKbd": "橫幅「取消自動撤銷」按鈕,可永久保持完全訪問",
       "shortcutsItemChatModeDesc": "切換構建/計劃/審查/規格 4 種對話模式",
       "shortcutsItemDangerousKbd": "高風險模式發送時檢測危險命令,需二次確認",
       "shortcutsItemExtendKbd": "切到完全訪問時 toast 提供「再保持 1 小時」按鈕",
       "shortcutsItemHistoryKbd": "查看 popover 底部「歷史」按鈕看最近切換",
-      "shortcutsItemInfoKbd": "查看該模式 4 條詳細行為",
       "shortcutsItemModeBuildKbd": "切換到構建模式(正常執行,全工具開放)",
       "shortcutsItemModeCmdHint": "也可輸入 /build /plan /review /spec 斜槓命令切換",
       "shortcutsItemModePlanKbd": "切換到計劃模式(只讀分析,deny write 工具)",
@@ -8214,12 +8212,12 @@
       "switchedToAutoDesc": "僅對檢測到的風險操作請求批准",
       "switchedToFull": "已切換到完全訪問",
       "switchedToFullDesc": "AI 現在可執行任何操作,無需確認(5 秒內可撤銷,之前:{prev})",
+      "switchedToFullError": "切換失敗:{error}",
       "switchedToModeAsk": "已切換到請求批准模式",
       "switchedToModeAuto": "已切換到替我審批模式",
       "switchedToModeFull": "已切換到完全訪問模式",
       "timelineAiReply": "AI 回復",
       "timelineUserMessage": "用戶消息",
-      "titleBarAutoRevert": "⏱ {time} 後自動降級",
       "toast": {
         "copiedMarkdown": "已復制 Markdown",
         "copiedText": "已復制到剪貼板",
@@ -8542,7 +8540,9 @@
     "voiceInputNativeFallback": "瀏覽器語音服務不可用，已切換本地轉寫，請重試",
     "voiceInputError": "語音識別不可用，請檢查網路或改用 Chrome/Edge",
     "voiceInputSttFailed": "轉寫失敗，請稍後重試或檢查本地語音服務",
-    "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試"
+    "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試",
+    "voiceInputUnauthorized": "登入已過期，請刷新頁面後重試",
+    "voiceInputNetworkError": "網路異常，請檢查連線後重試"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
@@ -8678,32 +8678,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -10506,25 +10532,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10658,19 +10696,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -13103,7 +13153,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13838,7 +13896,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14789,12 +14852,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16051,7 +16126,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -18206,17 +18287,11 @@
   },
   "permission": {
     "inputWarning": "偵測到高風險操作，建議確認後繼續",
-    "autoRevertIn": "{time} 後自動恢復目前模式",
-    "cancelAutoRevert": "取消自動恢復",
-    "reEnableAutoRevert": "重新啟用自動恢復",
     "mode": {
       "full": "完整權限",
       "auto": "自動",
       "ask": "詢問"
     },
-    "infoButtonTitle": "檢視權限模式說明",
-    "infoButtonLabel": "權限模式資訊",
-    "titleBarAutoRevert": "自動恢復：{time}",
     "dangerousCommandTitle": "偵測到危險命令",
     "dangerousCommandDesc": "偵測到危險命令「{pattern}」：{reason}。是否仍然繼續執行？",
     "dangerousCommandProceed": "仍然執行",
