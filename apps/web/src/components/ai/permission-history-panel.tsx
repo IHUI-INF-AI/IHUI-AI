@@ -36,8 +36,8 @@ import { Clock4, History, Trash2, ShieldAlert, ShieldCheck, Hand, BellRing } fro
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
-import { Popover, Tooltip } from '@/components/feedback'
-import { INPUT_ATTACHMENT_BAR_BTN_BASE } from '@/lib/nav-styles'
+import { Tooltip } from '@/components/feedback'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import {
   getRecentHistory,
@@ -275,12 +275,159 @@ export function PermissionHistoryPanel() {
     toast.success(t('resetSuppressedToast'))
   }
 
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  const rafRef = React.useRef<number | null>(null)
+
+  const updateCoords = React.useCallback(() => {
+    if (!triggerRef.current || !panelRef.current) return
+    const r = triggerRef.current.getBoundingClientRect()
+    const panelRect = panelRef.current.getBoundingClientRect()
+    const gap = 8
+    const pad = 8
+    const VW = window.innerWidth
+
+    let top = r.top - gap - panelRect.height
+    let left = r.right - panelRect.width
+
+    if (left + panelRect.width > VW - pad) {
+      left = VW - pad - panelRect.width
+    }
+    left = Math.max(pad, left)
+
+    if (top < pad) {
+      top = r.bottom + gap
+    }
+    top = Math.max(pad, top)
+
+    setCoords({ top, left })
+  }, [])
+
+  React.useLayoutEffect(() => {
+    if (!open) return
+    const id = window.requestAnimationFrame(() => {
+      updateCoords()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [open, updateCoords])
+
+  React.useEffect(() => {
+    if (!open) return
+    const throttledUpdate = () => {
+      if (rafRef.current !== null) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        updateCoords()
+      })
+    }
+
+    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
+    window.addEventListener('resize', throttledUpdate, { passive: true })
+
+    const roTrigger = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
+
+    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
+
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', throttledUpdate, true)
+      window.removeEventListener('resize', throttledUpdate)
+      roTrigger?.disconnect()
+      roPanel?.disconnect()
+    }
+  }, [open, updateCoords])
+
+  React.useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const triggerEl = triggerRef.current
+      const contentEl = panelRef.current
+      const target = event.target as Node
+      if (triggerEl && triggerEl.contains(target)) return
+      if (contentEl && contentEl.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) {
+      triggerRef.current?.focus()
+      return
+    }
+    if (!panelRef.current) return
+    const focusable = Array.from(
+      panelRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    )
+    if (focusable.length === 0) return
+
+    const first = focusable[0]!
+    const last = focusable[focusable.length - 1]!
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
+  }, [open])
+
   return (
     <>
-      <Popover
-        content={
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-label={t('historyOpenExternal')}
+        data-testid="permission-history-trigger"
+        className={cn(
+          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        )}
+        onClick={() => setOpen(!open)}
+      >
+        <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
+      </button>
+      {open &&
+        createPortal(
           <div
-            className="w-[min(320px,calc(100vw-2rem))] space-y-2"
+            ref={panelRef}
+            className="w-[min(320px,calc(100vw-2rem))] space-y-2 rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={
+              coords
+                ? { top: coords.top, left: coords.left }
+                : { top: -9999, left: -9999 }
+            }
+            role="dialog"
+            aria-label={t('historyOpenExternal')}
+            tabIndex={-1}
             data-testid="permission-history-panel"
           >
             {/* 顶部标题 + 清空按钮 */}
@@ -330,33 +477,11 @@ export function PermissionHistoryPanel() {
             )}
             {/* 屏幕阅读器宣告:打开 + 空状态时宣告"暂无历史" */}
             <span className="sr-only" aria-live="polite">
-              {open && entries.length === 0 ? t('historyEmpty') : ''}
+              {entries.length === 0 ? t('historyEmpty') : ''}
             </span>
-          </div>
-        }
-        position="top"
-        align="end"
-        trigger="click"
-        portal
-        onOpenChange={setOpen}
-      >
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-label={t('historyOpenExternal')}
-          data-testid="permission-history-trigger"
-          className={cn(
-            // 2026-08-07 修:基础规格提取到 INPUT_ATTACHMENT_BAR_BTN_BASE(h-7),从原 h-9 降到 h-7 与权限/添加按钮统一;
-            // 补 w-7 形成 28×28 正方形(原 h-9 w-9 是 36×36,缩窄 8px 高度,根治三个 button 高度参差问题)
-            INPUT_ATTACHMENT_BAR_BTN_BASE,
-            'w-7 justify-center',
-            'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-          )}
-        >
-          <Clock4 className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </Popover>
+          </div>,
+          document.body,
+        )}
       <ConfirmDialogRenderer />
     </>
   )

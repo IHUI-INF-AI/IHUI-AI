@@ -50,6 +50,12 @@ const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
  *   返回,不做实际切换;FullAccessConfirmBridge 确认后会自行调 switchPermissionMode
  * - 切完模式:把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
  */
+/** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
+const UNDO_TOAST_DURATION = 5000
+
+/** 普通提示 toast 持续时间(ms) */
+const INFO_TOAST_DURATION = 2000
+
 export function usePermissionModeCycle(): {
   shortcutsOpen: boolean
   openShortcuts: () => void
@@ -147,16 +153,16 @@ export function usePermissionModeCycle(): {
       return
     }
     const previousMode = current
-    // 乐观更新 store
-    if (activeWorkspace) {
-      setActiveWorkspace({ ...activeWorkspace, mode: next })
-    }
+    const previousPath = activeWorkspace?.path
+    // 注：不在此处手动乐观更新 store，统一交由 switchPermissionMode 处理。
+    // 若此处提前 setActiveWorkspace，会导致 switchPermissionMode 读到已被污染的 previousMode，
+    // 误判 mode === previousMode 而直接返回，跳过落库与正确回滚。
     const result = await switchPermissionMode(next)
     if (!result.ok) {
-      // 2026-08-02 修复 P1 陈旧闭包:回滚时从 store 获取最新 activeWorkspace,
+      // 2026-08-02 修复 P1 陈旧闭包 + 2026-08-31 修复工作区竞态:回滚时从 store 获取最新 activeWorkspace,
       // 避免用闭包中可能已 stale 的 activeWorkspace 覆盖 await 期间用户切换到的新工作区新模式。
       const current = useAiPanelStore.getState().activeWorkspace
-      if (current && previousMode) {
+      if (current && previousMode && current.path === previousPath) {
         setActiveWorkspace({ ...current, mode: previousMode })
       }
       toast.error(t('cycleError', { error: result.error ?? '未知错误' }))
@@ -169,17 +175,29 @@ export function usePermissionModeCycle(): {
     if (next === 'bypass-permissions') {
       toast(t('switchedToFull'), {
         description: t('switchedToFullDesc', { prev: previousMode }),
-        duration: 5000,
+        duration: UNDO_TOAST_DURATION,
         action: {
           label: t('undo'),
-          onClick: () => void cyclePermissionMode(),
+          onClick: async () => {
+            // 直接切回 previousMode，而不是再次 cycle（避免中间态跳错）
+            // 实时读取 store 避免 stale closure(2026-08-31 修复)
+            const currentStore = useAiPanelStore.getState()
+            const currentModeNow = currentStore.activeWorkspace?.mode
+            if (currentModeNow === 'bypass-permissions') {
+              if (previousMode !== undefined) {
+                await switchPermissionMode(previousMode)
+              } else {
+                await switchPermissionMode('default')
+              }
+            }
+          },
         },
       })
     } else {
       // default / accept-edits → 短提示
       const labelKey = next === 'default' ? 'mode.ask' : 'mode.auto'
       toast.success(t('cycledTo', { mode: t(labelKey) }), {
-        duration: 2000,
+        duration: INFO_TOAST_DURATION,
       })
     }
   }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
