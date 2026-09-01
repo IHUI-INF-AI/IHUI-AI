@@ -51,6 +51,8 @@ export function WorkspaceSelector() {
       clearBrowserWorkspaceHandle(name)
       invalidateBrowserWorkspaceContext(name)
     }
+    // 同步清掉暂存模式,避免下次绑定误套用解绑前的暂存值(2026-08-31)
+    useAiPanelStore.getState().setPendingPermissionMode(null)
     setActiveWorkspace(null)
   }, [setActiveWorkspace])
 
@@ -108,10 +110,12 @@ export function WorkspaceSelector() {
   }
 
   const handlePickerOpened = (path: string, name: string, perm: WorkspacePermission | null) => {
+    // 读取未绑定工作区时暂存的权限模式(2026-08-31 改:store 响应式,替代 sessionStorage)
+    const pendingMode = useAiPanelStore.getState().pendingPermissionMode ?? undefined
     setActiveWorkspace({
       path,
       name,
-      mode: perm?.mode,
+      mode: pendingMode ?? perm?.mode,
       techStack: perm?.techStack
         ? perm.techStack
             .split(',')
@@ -119,9 +123,13 @@ export function WorkspaceSelector() {
             .filter(Boolean)
         : undefined,
     })
+    if (pendingMode) {
+      // 已应用暂存模式,清掉避免下次绑定时重复应用
+      useAiPanelStore.getState().setPendingPermissionMode(null)
+    }
     // 2026-07-25 深度对标 Codex:选择项目文件后,若该工作区尚未配置权限,
     // 立即弹权限确认 Dialog,让用户主动选择是否完全访问(避免 AI 静默拿到完全访问权限)。
-    if (!perm) {
+    if (!perm && !pendingMode) {
       setPendingPermissionSetup({ path, name })
     } else {
       setPendingPermissionSetup(null)
