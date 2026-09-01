@@ -102,6 +102,8 @@ export * from './endpoints/business'
 export * from './endpoints/category'
 export * from './endpoints/chat'
 export * from './endpoints/community'
+// 中文连接器端点(2026-09-02 立,P2-2 语雀/飞书/企微/钉钉文档接入)
+export * from './endpoints/connectors'
 export * from './endpoints/course'
 export * from './endpoints/crew'
 export * from './endpoints/developer'
