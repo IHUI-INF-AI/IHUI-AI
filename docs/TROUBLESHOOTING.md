@@ -488,8 +488,8 @@ pre-commit 共 23 项守门(完整清单见 [AGENTS.md §守门脚本速查](../
 | **症状** | AI 对话发送后等待 > 3s 才出第一个 token / 流式响应卡顿 |
 | **根因** | LLM provider 响应慢 / 网络延迟 / 上下文过长导致 prompt 处理慢 / 未用流式 |
 | **排查命令** | ai-service 日志的 LLM 调用耗时;`curl -N http://localhost:8803/api/v1/chat/stream`(测流式);检查 `LITELLM_MODEL` 的 provider |
-| **修复方案** | 1. 换更快的 provider / 模型(如 `stepfun/step-3.7-flash`)<br>2. 上下文压缩:`app/core/compaction.py` 压缩历史消息<br>3. 确认用流式(`stream: true`)而非等完整响应<br>4. 网络延迟:换离 LLM provider 更近的部署区域 |
-| **预防** | `test_compaction.py` 覆盖上下文压缩;SSE buffer 优化流式输出 |
+| **修复方案** | 1. 换更快的 provider / 模型(如 `stepfun/step-3.7-flash`)<br>2. 上下文压缩:`app/core/context_compaction.py` 压缩历史消息<br>3. 确认用流式(`stream: true`)而非等完整响应<br>4. 网络延迟:换离 LLM provider 更近的部署区域 |
+| **预防** | `test_context_compaction.py` 覆盖上下文压缩;SSE buffer 优化流式输出 |
 
 ---
 
