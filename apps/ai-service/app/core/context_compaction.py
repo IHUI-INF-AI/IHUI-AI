@@ -10,6 +10,7 @@
 - 默认尾部保留:6 条 non-system 消息
 - 压缩策略:保留首条 system + 尾部 N 条,中段用结构化摘要替代
 - 摘要格式:对话摘要(角色 + 内容前 200 字符)+ 上下文摘要(累积摘要)
+- 防循环:压缩后仍超阈值时返回原消息(trigger=incompressible),避免反复摘要化
 
 设计目的:
 - API 层(apps/api)在调用 ai-service 前已调用 TS 共享包压缩
@@ -187,6 +188,24 @@ def compress_messages_if_needed(
     compressed = system_msgs + [summary_msg] + tail
     compressed_tokens = estimate_messages_tokens(compressed)
     removed_count = len(head)
+
+    # 防循环保护(与 TS 共享包对齐):压缩后仍超触发阈值 → 压缩无效,
+    # 不再返回压缩结果,避免"每轮都压缩、摘要套摘要"的历史质量退化
+    if compressed_tokens >= trigger_threshold:
+        logger.warning(
+            "Context incompressible: compressed %d tokens still >= trigger threshold %d "
+            "(system/material 占用过大), skip re-summarization loop",
+            compressed_tokens,
+            trigger_threshold,
+        )
+        return messages, {
+            "compressed": False,
+            "original_tokens": original_tokens,
+            "compressed_tokens": compressed_tokens,
+            "removed_count": 0,
+            "usage_ratio": original_tokens / context_limit,
+            "trigger": "incompressible",
+        }
 
     logger.info(
         "Context compressed: %d → %d tokens (removed %d messages, ratio %.2f → %.2f)",
