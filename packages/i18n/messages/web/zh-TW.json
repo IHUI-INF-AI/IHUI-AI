@@ -6870,7 +6870,8 @@
       "pinFailed": "置頂操作失敗"
     },
     "today": "今天",
-    "toggleWorkPanel": "切換工作展示區"
+    "openWorkPanel": "打開工作展示區",
+    "closeWorkPanel": "關閉工作展示區"
   },
   "aiCost": {
     "budgetAlerts": "預算告警",
