@@ -15,6 +15,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from ..services import mcp_server as mcp_server_module
 from ..services.mcp_client import (
     DEFAULT_TIMEOUT,
     TRANSPORT_SSE,
@@ -88,6 +89,18 @@ class ExternalToolCallRequest(BaseModel):
     server: str = Field(..., min_length=1, description="外部 MCP Server 名称")
     tool: str = Field(..., min_length=1, description="工具名称")
     arguments: dict[str, Any] = Field(default_factory=dict, description="工具参数")
+
+
+class McpStoreInstallRequest(BaseModel):
+    """MCP 应用商店安装请求(2026-09-02 立,P2-1)。
+
+    从目录条目一键安装:可选 env(必需环境变量)+ workspace_path(filesystem 类
+    server 的工作区参数)。经 mcp_stdio_bridge 热挂载,工具注入对话工具表。
+    """
+
+    key: str = Field(..., min_length=1, description="目录条目 key")
+    env: dict[str, str] = Field(default_factory=dict, description="必需环境变量(如 DATABASE_URL)")
+    workspace_path: str = Field("", description="filesystem 类 server 的工作区路径")
 
 
 # ---------------------------------------------------------------------------
@@ -454,4 +467,205 @@ async def call_external_tool(req: ExternalToolCallRequest) -> dict[str, Any] | J
     except Exception as e:
         logger.error("调用外部 MCP 工具失败(%s/%s): %s", req.server, req.tool, e)
         return JSONResponse(status_code=500, content={"error": f"调用外部 MCP 工具失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# MCP 应用商店端点(2026-09-02 立,P2-1 商店闭环)
+# 安装:目录条目 → to_client_config → mcp_stdio_bridge 热挂载(官方 MCP SDK stdio)
+#       → 工具注入对话工具表(_TOOLS)→ 状态持久化到 data/mcp_store.json
+# 卸载/启停:从 stdio 单例池移除 + 关闭子进程 + 从工具注册表清理 + 更新持久化
+# 状态:GET /api/mcp/store 合并目录条目与安装状态,一个接口渲染整页
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/store", response_model=None)
+async def list_mcp_store() -> dict[str, Any]:
+    """MCP 商店合并列表:目录条目 + 安装状态(一个接口渲染整页)。"""
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_directory import get_directory
+
+        entries = get_directory()
+        installed_map = {r.get("key"): r for r in mcp_store.list_installed()}
+        servers: list[dict[str, Any]] = []
+        for e in entries:
+            rec = installed_map.get(e["key"])
+            servers.append(
+                {
+                    "key": e["key"],
+                    "server_name": f"mcp:{e['key']}",
+                    "name": e["name"],
+                    "description": e["description"],
+                    "source": e["source"],
+                    "transport": e["transport"],
+                    "env_required": e["env_required"],
+                    "installed": bool(rec and rec.get("installed")),
+                    "enabled": bool(rec and rec.get("enabled")),
+                    "tool_count": int((rec or {}).get("tool_count") or 0),
+                    "last_error": str((rec or {}).get("last_error") or ""),
+                }
+            )
+        return {"servers": servers, "count": len(servers)}
+    except Exception as e:
+        logger.error("获取 MCP 商店列表失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"获取 MCP 商店列表失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+@router.post("/mcp/store/install", response_model=None)
+async def install_mcp_store_server(
+    req: McpStoreInstallRequest,
+) -> dict[str, Any] | JSONResponse:
+    """商店安装:目录条目 → 热挂载(官方 SDK stdio)→ 持久化。
+
+    缺必需 env → 400;未知 key → 404;已安装且启用 → 409;
+    已安装但停用(disabled)→ 重新热挂载并启用(幂等语义)。
+    """
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_directory import get_entry, to_client_config
+        from ..services.mcp_stdio_bridge import add_stdio_server_tool
+
+        entry = get_entry(req.key)
+        if entry is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        cfg_dict = to_client_config(
+            req.key,
+            env_overrides=req.env or {},
+            workspace_path=req.workspace_path or "/path/to/workspace",
+        )
+        if cfg_dict is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        missing = cfg_dict.pop("_missing_env", [])
+        if missing:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
+            )
+        name = cfg_dict["name"]
+        existing = mcp_store.get_installed(name)
+        if existing and existing.get("enabled"):
+            return JSONResponse(
+                status_code=409,
+                content={"error": f"MCP Server 已安装且启用: {name}"},
+            )
+        try:
+            tool_count = await add_stdio_server_tool(
+                name=name,
+                command=cfg_dict["command"],
+                args=cfg_dict.get("args") or [],
+                env=cfg_dict.get("env") or {},
+                description=entry.description,
+            )
+        except Exception as e:
+            logger.error("商店安装热挂载失败(%s): %s", name, e)
+            return JSONResponse(
+                status_code=500,
+                content={"error": f"安装 MCP Server 失败: {e}", "last_error": str(e)},
+            )
+        record = {
+            "name": name,
+            "key": req.key,
+            "transport": cfg_dict["transport"],
+            "command": cfg_dict["command"],
+            "args": list(cfg_dict.get("args") or []),
+            "env": cfg_dict.get("env") or {},
+            "installed": True,
+            "enabled": True,
+            "installed_at": mcp_store.now_iso(),
+            "tool_count": tool_count,
+            "last_error": "",
+        }
+        mcp_store.save_installed(record)
+        logger.info("商店安装成功: %s(工具 %d)", name, tool_count)
+        return {"ok": True, "name": name, "tool_count": tool_count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("商店安装 MCP Server 失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"安装 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/uninstall", response_model=None)
+async def uninstall_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
+    """商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录。"""
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import remove_stdio_server
+
+        if mcp_store.get_installed(name) is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        tool_names = await remove_stdio_server(name)
+        removed_tools = mcp_server_module.unregister_external_tools(tool_names)
+        mcp_store.remove_installed(name)
+        logger.info("商店卸载成功: %s(清理工具 %d)", name, len(removed_tools))
+        return {"ok": True, "name": name, "tools_removed": len(removed_tools)}
+    except Exception as e:
+        logger.error("商店卸载 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"卸载 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/enable", response_model=None)
+async def enable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
+    """启用已安装但停用的 Server:重新热挂载并注入工具。"""
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import add_stdio_server_tool
+
+        rec = mcp_store.get_installed(name)
+        if rec is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        if rec.get("enabled"):
+            return {
+                "ok": True,
+                "name": name,
+                "enabled": True,
+                "tool_count": int(rec.get("tool_count") or 0),
+            }
+        try:
+            tool_count = await add_stdio_server_tool(
+                name=name,
+                command=str(rec.get("command") or ""),
+                args=list(rec.get("args") or []),
+                env=dict(rec.get("env") or {}),
+            )
+        except Exception as e:
+            logger.error("启用 MCP Server 失败(%s): %s", name, e)
+            mcp_store.save_installed({**rec, "last_error": str(e)})
+            return JSONResponse(status_code=500, content={"error": f"启用 MCP Server 失败: {e}"})
+        updated = mcp_store.set_enabled(name, True)
+        if updated is not None:
+            updated["tool_count"] = tool_count
+            updated["last_error"] = ""
+            mcp_store.save_installed(updated)
+        logger.info("启用 MCP Server 成功: %s(工具 %d)", name, tool_count)
+        return {"ok": True, "name": name, "enabled": True, "tool_count": tool_count}
+    except Exception as e:
+        logger.error("启用 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"启用 MCP Server 失败: {e}"})
+
+
+@router.post("/mcp/store/{name}/disable", response_model=None)
+async def disable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
+    """停用已启用的 Server:关闭子进程 + 移除注入工具(保留持久化记录)。"""
+    try:
+        from ..services import mcp_store
+        from ..services.mcp_stdio_bridge import remove_stdio_server
+
+        rec = mcp_store.get_installed(name)
+        if rec is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 未安装: {name}"})
+        if not rec.get("enabled"):
+            return {"ok": True, "name": name, "enabled": False}
+        tool_names = await remove_stdio_server(name)
+        removed_tools = mcp_server_module.unregister_external_tools(tool_names)
+        mcp_store.set_enabled(name, False)
+        logger.info("停用 MCP Server 成功: %s(清理工具 %d)", name, len(removed_tools))
+        return {"ok": True, "name": name, "enabled": False, "tools_removed": len(removed_tools)}
+    except Exception as e:
+        logger.error("停用 MCP Server 失败(%s): %s", name, e)
+        return JSONResponse(status_code=500, content={"error": f"停用 MCP Server 失败: {e}"})
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
