@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   parseStreamLine,
   extractAgentId,
@@ -13,6 +13,8 @@ import {
   isAbortError,
   mergeAbortSignals,
 } from '../src/client.js'
+import { setTransport, type Transport } from '../src/transport.js'
+import { compactConversation } from '../src/endpoints/chat.js'
 
 describe('parseStreamLine', () => {
   it('返回 null for 空行', () => {
@@ -86,6 +88,58 @@ describe('parseStreamLine', () => {
   it('对 code+message 格式抛错', () => {
     const line = 'data: {"code":"RATE_LIMIT","retryAfter":60,"message":"too many requests"}'
     expect(() => parseStreamLine(line)).toThrow('too many requests')
+  })
+})
+
+describe('compactConversation(POST /api/chat/compact 手动压缩)', () => {
+  afterEach(() => {
+    // 恢复默认 transport,避免污染其他用例
+    setTransport(undefined as unknown as Transport)
+  })
+
+  it('发送 POST /api/chat/compact + body {conversationId},2xx 且 code=0 时解包 data', async () => {
+    const payload = {
+      compressed: true,
+      originalTokens: 1000,
+      compressedTokens: 690,
+      removedCount: 2,
+      trigger: 'ratio',
+    }
+    const transport = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      text: async () => '',
+      json: async () => ({ code: 0, message: 'success', data: payload }),
+    }))
+    setTransport(transport as unknown as Transport)
+
+    const result = await compactConversation('conv-1')
+    expect(transport).toHaveBeenCalledTimes(1)
+    const [url, init] = transport.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/api/chat/compact')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body as string)).toEqual({ conversationId: 'conv-1' })
+    expect(result).toEqual({ success: true, data: payload })
+  })
+
+  it('404(会话不存在/无权限)→ 返回 success:false + status,不抛错', async () => {
+    const transport = vi.fn(async () => ({
+      ok: false,
+      status: 404,
+      headers: { get: () => null },
+      text: async () => JSON.stringify({ code: 404, message: '对话不存在或无权限' }),
+      json: async () => ({ code: 404, message: '对话不存在或无权限' }),
+    }))
+    setTransport(transport as unknown as Transport)
+
+    const result = await compactConversation('conv-404')
+    expect(transport).toHaveBeenCalledTimes(1)
+    expect(result).toMatchObject({
+      success: false,
+      error: '对话不存在或无权限',
+      status: 404,
+    })
   })
 })
 

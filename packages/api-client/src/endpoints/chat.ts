@@ -331,6 +331,26 @@ export function compressConversation(id: string, targetChars: 200000 | 1000000) 
   })
 }
 
+/** POST /api/chat/compact 手动压缩响应(与后端契约一致,2026-09-02 立) */
+export interface CompactConversationResult {
+  compressed: boolean
+  /** compressed=false 时的原因:too_few_messages(消息太少) / incompressible(无可压缩空间) */
+  reason?: 'too_few_messages' | 'incompressible'
+  originalTokens: number
+  compressedTokens: number
+  removedCount: number
+  /** 压缩触发方式(手动压缩伪造阈值后由共享包给出,如 'ratio'/'truncated'/'none'/'incompressible') */
+  trigger?: string
+}
+
+/** 手动压缩对话上下文(对标 CLI /compact):无视 88% 自动压缩阈值立即压缩,语义摘要 + 归档落库 */
+export function compactConversation(conversationId: string) {
+  return fetchApi<CompactConversationResult>('/api/chat/compact', {
+    method: 'POST',
+    body: JSON.stringify({ conversationId }),
+  })
+}
+
 /**
  * AI 对话选项(跨端共享,从 miniapp-taro 下沉)
  *

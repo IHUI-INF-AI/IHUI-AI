@@ -787,7 +787,7 @@ export function createCompactionSampler(model: string): CompactionSampler {
 export async function decideCompaction(
   messages: ChatMessage[],
   settings: Settings,
-  opts: { contextLimit: number; modelId: string; sessionId?: string },
+  opts: { contextLimit: number; modelId: string; sessionId?: string; triggerRatioOverride?: number },
 ): Promise<CompressionResult> {
   const v2Config = settings.compactionV2;
   if (v2Config?.enabled === true) {
@@ -822,7 +822,7 @@ export async function decideCompaction(
       const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
       const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
-        triggerRatio: v2Config.triggerRatio,
+        triggerRatio: opts.triggerRatioOverride ?? v2Config.triggerRatio,
         targetRatio: v2Config.targetRatio,
         samplingTimeoutMs: v2Config.samplingTimeoutMs,
         sampler,
@@ -840,7 +840,11 @@ export async function decideCompaction(
       console.warn(chalk.yellow(`  ⚠️ compaction-v2 failed, fallback to v1: ${err instanceof Error ? err.message : String(err)}`));
     }
   }
-  return compressContextIfNeeded(messages, { contextLimit: opts.contextLimit });
+  return compressContextIfNeeded(messages, {
+    contextLimit: opts.contextLimit,
+    // /compact 手动压缩:伪造阈值 0.87 使 ceil(t/0.87)*0.87 的 floor 恰为 t,必然触发
+    ...(opts.triggerRatioOverride != null ? { triggerRatio: opts.triggerRatioOverride } : {}),
+  });
 }
 
 /** 从压缩结果中提取摘要消息正文(去掉 '[上下文摘要 — 之前 N 条已压缩]' 标记行),供缓存回写 */
