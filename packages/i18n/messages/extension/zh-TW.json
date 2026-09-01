@@ -173,7 +173,12 @@
     "inputPlaceholder": "說點什麼...",
     "compactionNotice": "上下文已自動壓縮:{before} → {after}(移除 {removed} 條歷史)",
     "voiceStop": "停止錄音",
-    "voiceStart": "開始錄音"
+    "voiceStart": "開始錄音",
+    "voiceError": "無法存取麥克風,請在瀏覽器設定中允許麥克風權限",
+    "voiceSttFailed": "轉寫失敗,請稍後重試或檢查本地語音服務",
+    "voiceEmpty": "未識別到語音內容,請靠近麥克風後重試",
+    "voiceUnauthorized": "登入已過期,請刷新頁面後重試",
+    "voiceNetworkError": "網路異常,請檢查連線後重試"
   },
   "settings": {
     "language": "介面語言",
