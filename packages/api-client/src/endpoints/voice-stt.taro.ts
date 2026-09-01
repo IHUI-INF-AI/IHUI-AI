@@ -25,6 +25,7 @@
  */
 
 import type { VoiceSttResponse } from './voice-stt'
+import { VoiceSttHttpError } from './voice-stt'
 
 /** ai-service 基础 URL(与 web 端 voice-input.tsx 保持一致)。 */
 const DEFAULT_AI_SERVICE_URL =
@@ -37,7 +38,10 @@ const DEFAULT_AI_SERVICE_URL =
  *
  * 使用场景:小程序环境,音频是 tempFilePath。
  *
- * @returns 转写文本;stub=true 或异常时返回空字符串
+ * **2026-09-01 抛错语义改造**:HTTP 非 2xx 抛 VoiceSttHttpError;网络异常向上抛;
+ * 成功响应(200 OK)返回 `data.text`。
+ *
+ * @returns STT 转写文本。失败时**抛 Error**。
  */
 export async function voiceSttFromTaro(
   tempFilePath: string,
@@ -54,26 +58,25 @@ export async function voiceSttFromTaro(
 
   if (!tempFilePath) return ''
 
-  try {
-    // 仅在 miniapp-taro 端使用,@tarojs/taro 已在该端 node_modules 中静态可用。
-    // 此文件只通过 `@ihui/api-client/endpoints/voice-stt.taro` 深路径被 miniapp-taro 导入,
-    // 其他端永不接触,无跨端依赖冲突。
-    const Taro = (await import('@tarojs/taro')).default
-    const res = await Taro.uploadFile({
-      url: `${aiServiceUrl}/api/voice/stt`,
-      filePath: tempFilePath,
-      name: 'file',
-      formData: language ? { language } : undefined,
-      // ai-service JWT 鉴权:无 token 直连必 401(2026-08-31 修复)
-      header: token ? { Authorization: `Bearer ${token}` } : undefined,
-    })
+  // 仅在 miniapp-taro 端使用,@tarojs/taro 已在该端 node_modules 中静态可用。
+  // 此文件只通过 `@ihui/api-client/endpoints/voice-stt.taro` 深路径被 miniapp-taro 导入,
+  // 其他端永不接触,无跨端依赖冲突。
+  const Taro = (await import('@tarojs/taro')).default
+  const res = await Taro.uploadFile({
+    url: `${aiServiceUrl}/api/voice/stt`,
+    filePath: tempFilePath,
+    name: 'file',
+    formData: language ? { language } : undefined,
+    // ai-service JWT 鉴权:无 token 直连必 401(2026-08-31 修复)
+    header: token ? { Authorization: `Bearer ${token}` } : undefined,
+  })
 
-    if (res.statusCode !== 200) return ''
-
-    const data = JSON.parse(res.data) as VoiceSttResponse
-    return data.stub ? '' : (data.text ?? '')
-  } catch {
-    return ''
+  if (res.statusCode !== 200) {
+    const body = typeof res.data === 'string' ? res.data.slice(0, 500) : ''
+    throw new VoiceSttHttpError(res.statusCode, body)
   }
+
+  const data = JSON.parse(res.data) as VoiceSttResponse
+  return data.text ?? ''
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
