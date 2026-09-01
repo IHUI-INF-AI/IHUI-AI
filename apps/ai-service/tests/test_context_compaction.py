@@ -16,7 +16,11 @@
   - 压缩后仍超阈值 → 两级降级:
     - 第一级 truncate-fallback:kr=1 + 截断最后一条消息内容(trigger=truncated)
     - 第二级 incompressible:截断到最小长度仍超阈值(system 巨大)→ 返回原消息
-- 摘要内容:含 system 跳过 / 截断 200 字符 / 含角色标签
+- 摘要内容:含 system 跳过 / 标记行计数 / 截断 200 字符 / 含角色标签
+- 摘要防嵌套:历史摘要正文原样并入、条数累加,不套规则摘要
+- tool result 摘要:保留前 160 字符 + '…',空内容纯占位
+- tool_calls 配对组保护:kr 切分按组对齐,无孤 tool 消息
+  (尾部整组保留 / kr=1 整组摘要 / 单组覆盖窗口不切分 / fallback 整组保留不截 tool result)
 - info 返回字段:compressed / original_tokens / compressed_tokens / removed_count / usage_ratio / trigger
 """
 
@@ -31,8 +35,11 @@ from app.core.context_compaction import (
     DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
+    SUMMARY_MARKER,
+    TOOL_RESULT_SUMMARY_CHARS,
     TRUNCATE_MARKER,
     _build_structured_summary,
+    _split_pair_groups,
     _summarize_message,
     compress_messages_if_needed,
     estimate_messages_tokens,
@@ -199,22 +206,22 @@ def test_build_structured_summary_includes_non_system():
 
 
 def test_build_structured_summary_has_header_and_count():
-    """摘要应有标题和消息计数。"""
+    """摘要应有标记行(含消息计数)。"""
     msgs = [
         {"role": "user", "content": "u1"},
         {"role": "assistant", "content": "a1"},
     ]
     s = _build_structured_summary(msgs)
     assert "上下文摘要" in s
-    assert "2 条历史消息" in s
+    assert "之前 2 条消息已压缩" in s
 
 
 def test_build_structured_summary_only_system():
-    """只有 system 消息时摘要应为空内容(但仍有标题)。"""
+    """只有 system 消息时摘要应为空内容(但仍有标记行)。"""
     msgs = [{"role": "system", "content": "sys"}]
     s = _build_structured_summary(msgs)
     assert "上下文摘要" in s
-    assert "0 条历史消息" in s
+    assert "之前 0 条消息已压缩" in s
 
 
 # =============================================================================
@@ -390,6 +397,8 @@ def test_constants_match_ts_share_package():
     assert DEFAULT_TARGET_RATIO == 0.6
     assert DEFAULT_KEEP_RECENT == 6
     assert DEFAULT_MIN_MESSAGES == 2  # 与 TS 共享包一致(2026-08-16 起)
+    assert SUMMARY_MARKER == "[上下文摘要"
+    assert TOOL_RESULT_SUMMARY_CHARS == 160
 
 
 # =============================================================================
@@ -476,4 +485,268 @@ def test_compress_incompressible_when_system_too_large():
     # compressed_tokens 报告的是"尝试压缩后仍超标"的 token 数
     assert info["compressed_tokens"] >= trigger_threshold
     assert info["usage_ratio"] == info["original_tokens"] / context_limit
+
+
+# =============================================================================
+# tool_calls 配对组保护(P0:防孤 tool 消息)
+# =============================================================================
+
+
+def _assistant_with_tool_calls(call_ids: list[str], content: str = "") -> dict[str, Any]:
+    """构造带 tool_calls 的 assistant 消息。"""
+    return {
+        "role": "assistant",
+        "content": content,
+        "tool_calls": [
+            {
+                "id": cid,
+                "type": "function",
+                "function": {"name": "get_weather", "arguments": "{}"},
+            }
+            for cid in call_ids
+        ],
+    }
+
+
+def _tool_result(call_id: str, content: str) -> dict[str, Any]:
+    """构造 tool 结果消息。"""
+    return {"role": "tool", "tool_call_id": call_id, "content": content}
+
+
+def _assert_no_orphan_tool_messages(out: list[dict[str, Any]]) -> None:
+    """断言无孤 tool 消息:每条 role='tool' 的前一条必是含对应 tool_call_id 的 assistant。"""
+    for i, msg in enumerate(out):
+        if msg.get("role") != "tool":
+            continue
+        assert i > 0, "tool 消息不能是首条(孤 tool)"
+        prev = out[i - 1]
+        assert prev.get("role") == "assistant", "tool 消息前一条必须是 assistant"
+        tc_ids = [tc.get("id") for tc in prev.get("tool_calls") or []]
+        assert msg.get("tool_call_id") in tc_ids
+
+
+def test_split_pair_groups_basic_pairs():
+    """assistant(tool_calls) + 其 tool 结果成组,其他消息各自成组。"""
+    a = _assistant_with_tool_calls(["c1"])
+    t = _tool_result("c1", "r1")
+    user = {"role": "user", "content": "u"}
+    groups = _split_pair_groups([a, t, user])
+    assert groups == [[a, t], [user]]
+
+
+def test_split_pair_groups_multi_tool_calls_pending():
+    """assistant 多个 tool_calls 时,收集齐全部结果才结束组。"""
+    a = _assistant_with_tool_calls(["c1", "c2"])
+    t1 = _tool_result("c1", "r1")
+    t2 = _tool_result("c2", "r2")
+    groups = _split_pair_groups([a, t1, t2])
+    assert groups == [[a, t1, t2]]
+
+
+def test_split_pair_groups_orphan_tool_own_group():
+    """无归属的 tool 消息(异常序列)自成组。"""
+    orphan = {"role": "tool", "tool_call_id": "cX", "content": "orphan"}
+    user = {"role": "user", "content": "u"}
+    groups = _split_pair_groups([orphan, user])
+    assert groups == [[orphan], [user]]
+
+
+def test_split_pair_groups_tool_id_mismatch_keeps_pair_open():
+    """tool id 不匹配 → 自成组,开放组继续收集后续匹配结果;配对组先于散组落组。"""
+    a = _assistant_with_tool_calls(["c1"])
+    mismatch = {"role": "tool", "tool_call_id": "cX", "content": "wrong"}
+    t1 = _tool_result("c1", "r1")
+    groups = _split_pair_groups([a, mismatch, t1])
+    assert groups == [[a, t1], [mismatch]]
+
+
+def test_compress_pair_group_kept_intact_in_tail():
+    """kr=2 切分点落在配对组边界:配对组整组保留在尾部,无孤 tool 消息。
+
+    non_system 8 条:2 条超长 user + [A1,t1] + middle + [A2,t2] + latest;
+    kr=2 时尾部从组尾往前累计:latest(1) < 2 → [A2,t2](3) >= 2,
+    尾部保留 [A2, t2, latest],头部 5 条被摘要。
+    """
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(2)]
+        + [_assistant_with_tool_calls(["c1"]), _tool_result("c1", "r1")]
+        + [{"role": "user", "content": "middle"}]
+        + [_assistant_with_tool_calls(["c2"]), _tool_result("c2", "r2")]
+        + [{"role": "user", "content": "latest"}]
+    )
+    out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=2)
+    assert info["compressed"] is True
+    assert info["trigger"] == "ratio"
+    _assert_no_orphan_tool_messages(out)
+    # 配对组整组保留在尾部(不拆组):... A2, t2, latest
+    assert out[-1]["content"] == "latest"
+    assert out[-2]["content"] == "r2"
+    assert out[-3].get("tool_calls")
+    # 头部 5 条(x, x, A1, t1, middle)被摘要
+    assert info["removed_count"] == 5
+
+
+def test_compress_pair_group_summarized_whole_at_kr1():
+    """kr=1:尾部仅保留最后一条,两组配对整体进摘要(不产生孤 tool 消息)。"""
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(2)]
+        + [_assistant_with_tool_calls(["c1"]), _tool_result("c1", "r1")]
+        + [{"role": "user", "content": "middle"}]
+        + [_assistant_with_tool_calls(["c2"]), _tool_result("c2", "r2")]
+        + [{"role": "user", "content": "latest"}]
+    )
+    out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=1)
+    assert info["compressed"] is True
+    # 输出无任何 tool 消息(配对组整体摘要化)
+    assert all(m.get("role") != "tool" for m in out)
+    # 配对组整组摘要(tool 结果内容以 160 chars 语义保留,短结果原样)
+    assert "[tool] r1" in out[1]["content"]
+    assert "[tool] r2" in out[1]["content"]
+    # 尾部仅保留最后一条
+    assert out[-1]["content"] == "latest"
+    assert info["removed_count"] == 7
+
+
+def test_compress_single_pair_group_covers_window_no_split():
+    """单个巨大配对组覆盖整个 kr 窗口且无其他组 → 按组无法切分,不压缩。"""
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [_assistant_with_tool_calls([f"c{i}" for i in range(6)], content="x" * 5000)]
+        + [_tool_result(f"c{i}", "r" * 2000) for i in range(6)]
+    )
+    out, info = compress_messages_if_needed(msgs, context_limit=1000)
+    assert info["compressed"] is False
+    assert info["trigger"] == "none"
+    assert out is msgs  # 未拆散配对
+
+
+def test_compress_truncate_fallback_keeps_last_pair_group():
+    """truncate-fallback:最后一组是配对组 → 截断组内 assistant 内容,tool result 原样保留。
+
+    non_system 8 条:6 条超长 user + [A(c9, content=y*40000), t(c9)]。
+    kr=6 常规压缩后尾部仍含超长 assistant → 仍超触发阈值 → 走 truncate-fallback;
+    最后一组为配对组:截断目标为组内 assistant 的 str content,tool result 不截断。
+    """
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(6)]
+        + [_assistant_with_tool_calls(["c9"], content="y" * 40000)]
+        + [_tool_result("c9", "ok")]
+    )
+    context_limit = 5000
+    out, info = compress_messages_if_needed(msgs, context_limit=context_limit)
+    assert info["compressed"] is True
+    assert info["trigger"] == "truncated"
+    # 结构:system + 摘要 + [assistant(截断), tool(原样)]
+    assert len(out) == 4
+    assert out[0]["content"] == "sys"
+    assert "上下文摘要" in out[1]["content"]
+    assistant_out = out[2]
+    assert assistant_out.get("tool_calls")
+    assert assistant_out["content"].endswith(TRUNCATE_MARKER)
+    assert assistant_out["content"] != "y" * 40000
+    # 组内 tool result 不截断,且配对完整
+    assert out[3]["content"] == "ok"
+    assert out[3]["tool_call_id"] == "c9"
+    _assert_no_orphan_tool_messages(out)
+    # 原消息列表不被修改
+    assert msgs[-2]["content"] == "y" * 40000
+    assert msgs[-1]["content"] == "ok"
+    assert info["removed_count"] == 6  # 8 条 non-system - 最后一组 2 条
+    assert info["compressed_tokens"] <= int(context_limit * DEFAULT_TARGET_RATIO)
+
+
+# =============================================================================
+# 摘要防嵌套(P1)+ tool result 内容保留(P1)
+# =============================================================================
+
+
+def test_build_structured_summary_merges_nested_summary():
+    """历史摘要消息:正文原样并入 + 条数累加,不套规则摘要。"""
+    old = "[上下文摘要 — 之前 3 条消息已压缩]\n- [user] 旧问题\n- [assistant] 旧回答"
+    msgs = [
+        {"role": "user", "content": old},
+        {"role": "user", "content": "新问题"},
+        {"role": "assistant", "content": "新回答"},
+    ]
+    s = _build_structured_summary(msgs)
+    # 条数累加:旧 3 + 新 2 = 5
+    assert s.startswith("[上下文摘要 — 之前 5 条消息已压缩]")
+    # 旧正文原样保留
+    assert "- [user] 旧问题" in s
+    assert "- [assistant] 旧回答" in s
+    # 新消息正常摘要
+    assert "- [user] 新问题" in s
+    assert "- [assistant] 新回答" in s
+    # 历史摘要未被再次规则摘要(无嵌套行)
+    assert "[user] [上下文摘要" not in s
+
+
+def test_build_structured_summary_nested_marker_without_count_defaults_1():
+    """历史摘要标记行无条数(如旧格式)→ 覆盖条数按 1。"""
+    old = "[上下文摘要]\n- [user] 旧内容"
+    msgs = [{"role": "user", "content": old}, {"role": "user", "content": "新"}]
+    s = _build_structured_summary(msgs)
+    assert "之前 2 条消息已压缩" in s
+    assert "- [user] 旧内容" in s
+
+
+def test_compress_nested_summary_count_accumulates():
+    """端到端:上一轮摘要消息再压缩 → 标记条数累加、旧正文原样保留。"""
+    old_summary = (
+        "[上下文摘要 — 之前 3 条消息已压缩]\n"
+        "- [user] 旧问题一\n"
+        "- [assistant] 旧回答一"
+    )
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": old_summary}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(2)]
+        + [{"role": "user", "content": "t" * 100} for _ in range(2)]
+    )
+    out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=2)
+    assert info["compressed"] is True
+    summary_content = out[1]["content"]
+    # 条数累加:旧 3 + 新压缩 2 条非摘要消息 = 5
+    assert "之前 5 条消息已压缩" in summary_content
+    # 旧正文原样保留
+    assert "- [user] 旧问题一" in summary_content
+    assert "- [assistant] 旧回答一" in summary_content
+    # 历史摘要消息未被再次规则摘要
+    assert "[user] [上下文摘要" not in summary_content
+
+
+def test_summarize_message_tool_keeps_first_160_chars():
+    """tool result 摘要保留前 160 chars + '…'。"""
+    long_result = "r" * 300
+    s = _summarize_message({"role": "tool", "content": long_result})
+    assert s == f"[tool] {'r' * TOOL_RESULT_SUMMARY_CHARS}…"
+
+
+def test_summarize_message_tool_short_content_kept_whole():
+    """tool result 内容不超过 160 chars 时原样保留。"""
+    s = _summarize_message({"role": "tool", "content": "短结果"})
+    assert s == "[tool] 短结果"
+
+
+def test_summarize_message_tool_empty_content_placeholder():
+    """tool result 空内容才用纯占位。"""
+    assert _summarize_message({"role": "tool", "content": ""}) == "[tool] (空)"
+
+
+def test_compress_summary_keeps_tool_result_prefix():
+    """端到端:长 tool result 压缩后摘要含前 160 chars(配对组整组进摘要)。"""
+    long_result = "R" * 300
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [_assistant_with_tool_calls(["c1"])]
+        + [_tool_result("c1", long_result)]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(2)]
+        + [{"role": "user", "content": "t" * 100} for _ in range(2)]
+    )
+    out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=2)
+    assert info["compressed"] is True
+    assert f"[tool] {'R' * TOOL_RESULT_SUMMARY_CHARS}…" in out[1]["content"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
