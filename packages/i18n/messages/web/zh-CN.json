@@ -6696,7 +6696,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -6713,7 +6718,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8097,8 +8107,6 @@
       "fallbackNotice": "主体模型 {primary} 不可用,已自动切换到 {fallback}",
       "firstTimeConfirmAcknowledge": "我了解上述风险,继续启用",
       "firstTimeConfirmBullet1": "AI 可不受限制地执行所有操作,无需逐一确认",
-      "firstTimeConfirmBullet2": "1 小时无操作后会自动切回请求批准(可在顶部倒计时取消)",
-      "firstTimeConfirmBullet3": "5 秒内可通过撤销 toast 快速回退",
       "firstTimeConfirmCancel": "返回",
       "firstTimeConfirmDesc": "完全访问模式允许 AI 在未经确认的情况下执行任何操作,包括修改/删除文件、执行任意命令、访问网络。仅在完全信任的私有项目中使用。",
       "firstTimeConfirmNeverShow": "不再提醒(可在权限管理中重置)",
@@ -8135,27 +8143,6 @@
         "full": "完全访问权限",
         "fullDesc": "可不受限制地访问互联网和您电脑上的任何文件"
       },
-      "modeInfoAcknowledge": "知道了",
-      "modeInfoBullets": {
-        "accept-edits": {
-          "0": "AI 编辑文件自动应用,无需你逐个批准",
-          "1": "命令执行仍需你点击「批准」",
-          "2": "适合「信任的 AI 帮我改代码」场景",
-          "3": "不会自动撤销"
-        },
-        "bypass-permissions": {
-          "0": "AI 可执行任何操作,无需确认",
-          "1": "1 小时后自动切回请求批准(可取消/续期)",
-          "2": "适合「批量处理已知任务」场景",
-          "3": "不可逆操作的风险由你承担"
-        },
-        "default": {
-          "0": "AI 每次执行命令/编辑文件都需你点击「批准」才执行",
-          "1": "适合不熟悉的项目或敏感操作",
-          "2": "不会自动撤销(没有 1 小时倒计时)",
-          "3": "推荐在不确定的项目先用此模式"
-        }
-      },
       "popoverHintNoWorkspace": "未绑定工作区,选定后将在绑定时生效",
       "popoverTitle": "应如何批准 AI 操作?",
       "quickFullAccess": "完全访问",
@@ -8164,15 +8151,17 @@
       "resetSuppressedConfirmTitle": "确认重新启用高风险提醒?",
       "resetSuppressedToast": "已重置,下次切到完全访问将再次确认",
       "retry": "重试中…",
-      "revertWarning1minDesc": "如需继续完全访问,请立即点「再保持 1 小时」。",
-      "revertWarning1minTitle": "完全访问模式 1 分钟后自动降级",
-      "revertWarning5minDesc": "5 分钟后将自动切回请求批准模式。如需继续完全访问,请点「再保持 1 小时」。",
-      "revertWarning5minTitle": "完全访问模式即将自动降级",
       "search": "搜索",
       "shortcutsClose": "知道了",
+      "infoModalTitle": "权限模式说明",
+      "infoModalDesc": "当前为高风险模式，请了解以下行为：",
+      "infoModalBullet1": "AI 可不受限制地执行所有操作，无需逐一确认",
+      "infoModalBullet2": "可读取、修改、删除工作区内的任意文件",
+      "infoModalBullet3": "可执行任意系统命令，包括危险操作",
+      "infoModalBullet4": "可访问互联网，发送任意网络请求",
+      "infoModalClose": "知道了",
       "shortcutsItemChatModeDesc": "切换构建/计划/审查/规格 4 种对话模式",
       "shortcutsItemDangerousKbd": "高风险模式发送时检测危险命令,需二次确认",
-      "shortcutsItemExtendKbd": "切到完全访问时 toast 提供「再保持 1 小时」按钮",
       "shortcutsItemHistoryKbd": "查看 popover 底部「历史」按钮看最近切换",
       "shortcutsItemModeBuildKbd": "切换到构建模式(正常执行,全工具开放)",
       "shortcutsItemModeCmdHint": "也可输入 /build /plan /review /spec 斜杠命令切换",
@@ -8669,32 +8658,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       }
     },
@@ -10497,25 +10512,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -10649,19 +10676,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -13094,7 +13133,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13829,7 +13876,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -14780,12 +14832,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -16042,7 +16106,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
