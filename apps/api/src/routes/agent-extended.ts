@@ -34,6 +34,7 @@ const ALLOWED_TABLES = new Set([
   'agent_upload',
   'zhs_agent_buy',
   'zhs_agent_withdrawal_detail',
+  'zhs_agent_use_detail',
   'agent_rule',
   'agent_rule_param',
   'agent_heat_stats',
@@ -402,6 +403,36 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '查询上传记录失败'))
+    }
+  })
+  server.get('/usedetail/list', async (req, reply) => {
+    const q = req.query as {
+      page?: string
+      pageSize?: string
+      user_id?: string
+      agent_id?: string
+      biz_type?: string
+    }
+    const { page, pageSize } = parsePaging(q)
+    const conds: SQL[] = []
+    // Bug 7 IDOR 防护(2026-09-01 补实现):非 admin 强制按 req.userId 过滤,
+    // 忽略传入 user_id(防横向越权);admin 可传 user_id 按指定过滤(特权放行)
+    const isAdmin = (req.jwtPayload?.roleId ?? 0) >= 1
+    const effectiveUserId = isAdmin ? (q.user_id ?? req.userId) : req.userId
+    if (effectiveUserId) conds.push(sql`"user_id" = ${effectiveUserId}`)
+    if (q.agent_id) conds.push(sql`"agent_id" = ${q.agent_id}`)
+    if (q.biz_type) conds.push(sql`"biz_type" = ${q.biz_type}`)
+    try {
+      const result = await rawList('zhs_agent_use_detail', {
+        page,
+        pageSize,
+        conds,
+        orderBy: 'id_desc',
+      })
+      return reply.send(success(result))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '查询使用明细失败'))
     }
   })
   server.get('/upload/:id', async (req, reply) => {
