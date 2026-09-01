@@ -37,6 +37,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Optional, cast
 
@@ -68,6 +69,9 @@ class KnowledgeHit:
     score: float
     content: str
     raw: dict[str, Any] = field(default_factory=dict)
+    # 引用溯源元数据:如文档名/实体名/关系描述,供前端引用溯源展示
+    # (默认空列表,向后兼容:现有关键字构造不受影响)
+    citations: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -277,6 +281,7 @@ async def _query_graph(
     *,
     owner_uuid: Optional[str],
     top_k: int,
+    graph_bfs_depth: int = 2,
 ) -> list[KnowledgeHit]:
     """查知识图谱,返回 list[KnowledgeHit]。
 
@@ -285,9 +290,15 @@ async def _query_graph(
     2. graph_store.get_graph(owner_uuid):     拉取该 owner 的图谱节点 + 边
     (均为 async,内部 asyncpg / llm_gateway,直接 await,不阻塞事件循环)
 
-    命中规则:
+    命中规则(直接命中优先):
     - 图谱实体名与查询实体名(或查询文本,兜底)做子串匹配 → 直接命中
-    - 命中实体的一跳邻居(经关系边)作为语义关联补充,score 加权排序取 top_k
+      (score = 10 + frequency,最高)
+    - 从全部命中实体出发做 BFS 多跳邻域遍历(深度 graph_bfs_depth,
+      默认 2,合法范围 1-3,非法值自动回退 2):
+      1 跳邻居 score = 1 + weight;2-3 跳扩展实体逐跳 ×0.5 递减
+    - 同一实体去重(仅保留 BFS 首次到达的最短路径,即最高分),
+      按 score 降序取 top_k
+    - citations 溯源:直接命中记录"图谱实体",邻居/扩展记录关系链
     owner_uuid 为空时图谱无数据,返回空 hits(不视为错误,不阻塞其他源)。
     """
     if not owner_uuid:
@@ -340,7 +351,9 @@ async def _query_graph(
         )
         if not matched:
             continue
-        matched_entity_ids.add(ent.get("id"))
+        eid = ent.get("id")
+        if eid is not None:
+            matched_entity_ids.add(eid)
         # 基础分 10.0 + 频次(同名实体被多次抽取越可信),高于关联补充分
         score = 10.0 + float(ent.get("frequency", 0) or 0)
         hits.append(
@@ -349,30 +362,89 @@ async def _query_graph(
                 score=score,
                 content=_format_graph_entity(ent),
                 raw=dict(ent),
+                citations=[f"图谱实体: {name}"],
             )
         )
 
     if not matched_entity_ids:
-        # 图谱中无匹配实体,无关联可补全
+        # 图谱中无匹配实体(或均无 id),无关联可补全
         return []
 
-    # 3b. 关联补充:命中实体参与的关系边(语义关联,score 低于直接命中)
-    for rel in relations:
-        src_id = rel.get("source_entity_id")
-        tgt_id = rel.get("target_entity_id")
-        if src_id not in matched_entity_ids and tgt_id not in matched_entity_ids:
+    # 3b. BFS 多跳邻域遍历:从直接命中实体出发,沿关系边逐层扩展未访问实体。
+    # 深度参数防御:非整数或超出 [1,3] 一律回退默认 2(不影响调用方)。
+    try:
+        bfs_depth: int = int(graph_bfs_depth)
+    except (TypeError, ValueError):
+        bfs_depth = 2
+    if bfs_depth < 1 or bfs_depth > 3:
+        bfs_depth = 2
+
+    # visited 初始为直接命中实体,保证 BFS 不折返、邻居不重复输出;
+    # BFS 先入先出天然保证首次到达即最短路径(深度最小 = score 最高)。
+    visited: set[Any] = set(matched_entity_ids)
+    path_by_id: dict[Any, list[str]] = {
+        eid: [name_by_id.get(eid, "?")] for eid in matched_entity_ids
+    }
+    rel_types_by_id: dict[Any, list[str]] = {eid: [] for eid in matched_entity_ids}
+    queue: deque[tuple[Any, int]] = deque((eid, 0) for eid in matched_entity_ids)
+    # 扩展实体暂存:实体 id → 深度 / 到达路径 / 关系类型链 / weight
+    expansion: dict[Any, dict[str, Any]] = {}
+
+    while queue:
+        cur_id, depth = queue.popleft()
+        if depth >= bfs_depth:
             continue
-        weight = float(rel.get("weight", 0) or 0)
+        for rel in relations:
+            src_id = rel.get("source_entity_id")
+            tgt_id = rel.get("target_entity_id")
+            if src_id == cur_id:
+                nxt_id: Any = tgt_id
+            elif tgt_id == cur_id:
+                nxt_id = src_id
+            else:
+                continue
+            if nxt_id is None or nxt_id in visited:
+                continue
+            visited.add(nxt_id)
+            # 构造到达路径(实体名链)与关系类型链(与路径边一一对应)
+            nxt_name = name_by_id.get(nxt_id, "?")
+            new_path: list[str] = path_by_id[cur_id] + [nxt_name]
+            rel_type = str(rel.get("relation_type", "?"))
+            new_rel_types: list[str] = rel_types_by_id[cur_id] + [rel_type]
+            path_by_id[nxt_id] = new_path
+            rel_types_by_id[nxt_id] = new_rel_types
+            expansion[nxt_id] = {
+                "depth": depth + 1,
+                "path": new_path,
+                "rel_types": new_rel_types,
+                "weight": float(rel.get("weight", 0) or 0),
+                "src_name": name_by_id.get(src_id, "?"),
+                "tgt_name": name_by_id.get(tgt_id, "?"),
+            }
+            queue.append((nxt_id, depth + 1))
+
+    # 3c. BFS 扩展实体生成 hit(visited 已保证去重,每条只取首次到达路径)
+    for nxt_id, info in expansion.items():
+        depth = int(info["depth"])
+        weight = float(info["weight"])
+        path = list(info["path"])
+        rel_types = list(info["rel_types"])
+        name = path[-1]
+        # score:1 跳 1+weight;每多一跳 ×0.5 递减,始终低于直接命中 10+
+        score = (1.0 + weight) * (0.5 ** (depth - 1))
         hits.append(
             KnowledgeHit(
                 source="graph",
-                score=1.0 + weight,
-                content=_format_graph_relation(
-                    rel,
-                    name_by_id.get(src_id, "?"),
-                    name_by_id.get(tgt_id, "?"),
-                ),
-                raw=dict(rel),
+                score=score,
+                content=_format_graph_expansion(name, depth, rel_types, path),
+                raw={
+                    "entity_id": nxt_id,
+                    "depth": depth,
+                    "path": path,
+                    "rel_types": rel_types,
+                    "weight": weight,
+                },
+                citations=[_format_graph_path_citation(path, rel_types)],
             )
         )
 
@@ -437,17 +509,38 @@ def _format_graph_entity(e: dict[str, Any]) -> str:
     return header
 
 
-def _format_graph_relation(
-    r: dict[str, Any],
-    src_name: str,
-    tgt_name: str,
+def _format_graph_expansion(
+    name: str,
+    depth: int,
+    rel_types: list[str],
+    path: list[str],
 ) -> str:
-    """格式化图谱关系边为带元信息头的字符串。"""
-    rtype = str(r.get("relation_type", "?"))
-    weight = r.get("weight", "?")
-    desc = str(r.get("description", "")).strip()
-    header = f"[graph:relation] {src_name} -{rtype}→ {tgt_name} (weight={weight})"
-    if desc:
-        return f"{header}\n{desc}"
-    return header
+    """格式化 BFS 扩展实体为带元信息头的字符串。
+
+    1 跳邻居: [graph] 实体名(经关系: <type>)
+    多跳扩展: [graph] 实体名(N 跳, 路径: A->B->C)
+    """
+    if depth <= 1:
+        # 1 跳邻居:仅记录最后一段关系类型
+        rtype = rel_types[-1] if rel_types else "?"
+        return f"[graph] {name}(经关系: {rtype})"
+    path_str = "->".join(path)
+    return f"[graph] {name}({depth} 跳, 路径: {path_str})"
+
+
+def _format_graph_path_citation(path: list[str], rel_types: list[str]) -> str:
+    """格式化引用溯源:实体/关系链描述(供前端引用溯源展示)。
+
+    单段关系: "图谱关系: A -[uses]-> B"
+    多段路径: "图谱路径: A -[uses]-> B -[related_to]-> C"
+    """
+    if not path:
+        return "图谱实体: ?"
+    segs = [path[0]]
+    for i in range(min(len(path) - 1, len(rel_types))):
+        segs.append(f" -[{rel_types[i]}]-> {path[i + 1]}")
+    chain = "".join(segs)
+    if len(path) == 2:
+        return f"图谱关系: {chain}"
+    return f"图谱路径: {chain}"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
