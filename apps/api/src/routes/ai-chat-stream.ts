@@ -512,7 +512,22 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       }
 
       if (contextLimit && contextLimit > 0) {
+        // 诊断日志与 /chat/stream 主入口一致:incompressible(压不动)时 compressed=false 走原路径,防循环
+        console.warn('[Compaction][answer] before compress:', {
+          contextLimit,
+          messageCount: messages.length,
+          tokens: Math.floor(estimateMessagesTokens(messages)),
+          triggerThreshold: Math.floor(contextLimit * 0.88),
+        })
         const result = compressContextIfNeeded(messages, { contextLimit })
+        console.warn('[Compaction][answer] result:', {
+          compressed: result.compressed,
+          trigger: result.trigger,
+          originalTokens: result.originalTokens,
+          compressedTokens: result.compressedTokens,
+          removedCount: result.removedCount,
+          usageRatio: result.usageRatio,
+        })
         if (result.compressed) {
           finalMessages = result.messages
           extraFirstEvents.push({

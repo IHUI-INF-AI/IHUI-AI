@@ -365,7 +365,7 @@ export interface RunToolLoopOptions {
   onToolResult?: (name: string, success: boolean, output: string) => void | Promise<void>;
   onIteration?: (count: number, max: number) => void | Promise<void>;
   onError?: (message: string) => void | Promise<void>;
-  /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 8000。 */
+  /** 模型上下文窗口大小(tokens)。达 85% 自动压缩到 60%,默认 128_000(与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致)。 */
   contextLimit?: number;
   /** 是否启用 plan 强制阻断(配合 planApproved 控制) */
   planFirst?: boolean;
@@ -877,8 +877,9 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       // 让 LLM 本轮看到 tool_result + user interjection,自然响应
       drainAndAppendInterjections();
 
+      // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致,旧值 8000 会在 ~7k token 就触发 88% 自动压缩
       const compression = await decideCompaction(opts.messages, settings, {
-        contextLimit: opts.contextLimit ?? 8000,
+        contextLimit: opts.contextLimit ?? 128_000,
         modelId: opts.modelId,
       });
       const effectiveMessages = compression.messages;
@@ -1207,12 +1208,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
       // 灵感来源:参考行业 Agent 框架的 reminders 设计,让 LLM 被动接收关键状态信息
+      // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致,旧值 8000 会在 ~7k token 就触发 88% 自动压缩
       const reminders = generateReminders({
         iterations,
         maxIterations: opts.maxIterations,
         totalPromptTokens,
         totalCompletionTokens,
-        contextLimit: opts.contextLimit ?? 8000,
+        contextLimit: opts.contextLimit ?? 128_000,
         injected: reminderInjected,
       });
       for (const r of reminders) {
