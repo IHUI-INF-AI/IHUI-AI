@@ -566,13 +566,18 @@ git branch -d hotfix/v1.2.4
 
 ### 发版流程(每次桌面版发布)
 
-1. 同步递增版本号:`apps/desktop/src-tauri/tauri.conf.json` 与 `apps/desktop/package.json` 的 `version` 字段
-2. 提交后打 tag 触发:
+1. 同步递增版本号:`apps/desktop/src-tauri/tauri.conf.json` 与 `apps/desktop/package.json` 的 `version` 字段(同步更新 `docs/CHANGELOG.md` 新增版本段、`README.md` 下载矩阵中的版本号)
+2. 提交后打 tag 并**用 workflow_dispatch 手动触发 CI**:
 
 ```bash
-git tag desktop-v0.1.14
-git push origin desktop-v0.1.14
+git tag desktop-v0.1.15
+git push origin desktop-v0.1.15
 ```
+
+> ⚠️ **触发方式铁律(2026-09-01 实证)**:tag push 方式触发 `release-desktop.yml` 在历史上(#15-#22)几乎全部失败,0.1.14 与 0.1.15 均靠 **workflow_dispatch 手动触发**才成功(workflow 的 `on: push tags` 分支会走 `github.ref_name` 解析,早期步骤即失败,4 平台全挂)。正确姿势:
+>
+> - GitHub Actions 页面:Release Desktop → Run workflow → `ref=main` + 输入 `tag=desktop-vX.Y.Z`(workflow 内部用 `inputs.tag` 定位 Release)
+> - 或 API 触发:`POST /repos/IHUI-INF-AI/IHUI-AI/actions/workflows/release-desktop.yml/dispatches`,body `{"ref":"main","inputs":{"tag":"desktop-vX.Y.Z"}}`,需要 GitHub 凭据 token(`git credential fill` 提取 `gho_` token);HTTP 204 = 触发成功,随后到 Actions 页确认新 run 的 4 平台均为 in_progress(无早期失败)
 
 3. `release-desktop.yml` 自动执行:4 平台(windows-x64 / macos-arm64 / macos-x64 / linux-x64)构建 → 上传安装包 + `.sig` 签名包到 Release → `publish-updater-json` 聚合全部平台生成 `latest.json`(上传到发版 Release + 固定 feed tag `desktop-updater-feed`)→ `sync-downloads` 把产物同步到 `apps/web/public/downloads/` 并自动提交回 main
    - **注意**:桌面安装包 ~230MB,超过 GitHub 单文件 100MB 限制,`sync-downloads` 提交时**不包含** exe/msi(`apps/web/public/downloads/desktop/` 已 gitignore)。
