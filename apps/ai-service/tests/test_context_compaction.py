@@ -11,8 +11,9 @@
   - context_limit<=0 不压缩
   - 未触发阈值不压缩
   - 触发阈值 + 足够消息 → 压缩(保留 system + tail + summary)
-  - 消息数 < min_messages 不压缩
+  - 消息数 < min_messages(2) 不压缩
   - non_system <= keep_recent 不压缩
+  - 压缩后仍超阈值 → 防循环保护(trigger=incompressible),返回原消息
 - 摘要内容:含 system 跳过 / 截断 200 字符 / 含角色标签
 - info 返回字段:compressed / original_tokens / compressed_tokens / removed_count / usage_ratio / trigger
 """
@@ -246,14 +247,9 @@ def test_compress_below_threshold_no_compress():
 
 
 def test_compress_too_few_messages_no_compress():
-    """超过阈值但消息数 < min_messages(7)不压缩。"""
-    # 5 条消息,但 token 数高(模拟触发)
-    msgs = [
-        {"role": "user", "content": "x" * 5000},
-        {"role": "assistant", "content": "y" * 5000},
-        {"role": "user", "content": "z" * 5000},
-        {"role": "assistant", "content": "w" * 5000},
-    ]
+    """超过阈值但消息数 < min_messages(2)不压缩。"""
+    # 单条消息 "x"*16000 ≈ 2000 tokens > 阈值 0.88*1000=880,但 1 < min_messages(2)
+    msgs = [{"role": "user", "content": "x" * 16000}]
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     assert info["compressed"] is False
     assert info["trigger"] == "none"
@@ -276,14 +272,22 @@ def test_compress_non_system_le_keep_recent_no_compress():
 # =============================================================================
 
 
-def _make_long_messages(n: int = 10, content_len: int = 5000) -> list[dict]:
-    """构造 n 条 non-system 长消息(总 token 远超触发阈值)。"""
-    return [{"role": "user", "content": "x" * content_len} for _ in range(n)]
+def _make_head_heavy_messages(n_head: int = 4, n_tail: int = 6) -> list[dict]:
+    """构造 head 长 tail 短的触发压缩消息。
+
+    head 每条 "x"*5000(≈629 tokens)会被摘要截断为前 200 字符("x"*200 ≈ 25 tokens),
+    tail 每条 "t"*100(≈17 tokens)原样保留,
+    使 compressed_tokens 远低于触发阈值(防循环保护不误触发)。
+    """
+    return (
+        [{"role": "user", "content": "x" * 5000} for _ in range(n_head)]
+        + [{"role": "user", "content": "t" * 100} for _ in range(n_tail)]
+    )
 
 
 def test_compress_triggered_keeps_system_and_tail():
     """触发压缩:保留首条 system + 尾部 keep_recent(6)条。"""
-    msgs = [{"role": "system", "content": "sys"}] + _make_long_messages(10)
+    msgs = [{"role": "system", "content": "sys"}] + _make_head_heavy_messages(4, 6)
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"
@@ -302,7 +306,7 @@ def test_compress_triggered_keeps_system_and_tail():
 
 def test_compress_removed_count_equals_head_length():
     """removed_count = 被压缩的 head 部分消息数。"""
-    msgs = _make_long_messages(10)  # 10 non-system
+    msgs = _make_head_heavy_messages(4, 6)  # 10 non-system
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     # head = 10 - 6 = 4
     assert info["removed_count"] == 4
@@ -310,21 +314,21 @@ def test_compress_removed_count_equals_head_length():
 
 def test_compress_reduces_token_count():
     """压缩后 token 数应小于原始。"""
-    msgs = _make_long_messages(15)
+    msgs = _make_head_heavy_messages(9, 6)
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     assert info["compressed_tokens"] < info["original_tokens"]
 
 
 def test_compress_usage_ratio_uses_original_tokens():
     """usage_ratio = original_tokens / context_limit(压缩前占用率)。"""
-    msgs = _make_long_messages(10)
+    msgs = _make_head_heavy_messages(4, 6)
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     assert info["usage_ratio"] == info["original_tokens"] / 1000
 
 
 def test_compress_without_system_message():
     """无 system 消息时,首条直接是摘要。"""
-    msgs = _make_long_messages(10)
+    msgs = _make_head_heavy_messages(4, 6)
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     assert info["compressed"] is True
     # out[0] 应是摘要(user role)
@@ -334,7 +338,7 @@ def test_compress_without_system_message():
 
 def test_compress_summary_role_is_user():
     """摘要消息的 role 为 'user'。"""
-    msgs = [{"role": "system", "content": "s"}] + _make_long_messages(10)
+    msgs = [{"role": "system", "content": "s"}] + _make_head_heavy_messages(4, 6)
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
     # out[1] 是摘要
     assert out[1]["role"] == "user"
@@ -342,7 +346,7 @@ def test_compress_summary_role_is_user():
 
 def test_compress_custom_keep_recent():
     """自定义 keep_recent 应影响尾部保留数。"""
-    msgs = _make_long_messages(10)
+    msgs = _make_head_heavy_messages(8, 2)  # 10 non-system
     out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=2)
     assert info["compressed"] is True
     # head = 10 - 2 = 8,removed 8
@@ -353,17 +357,19 @@ def test_compress_custom_keep_recent():
 
 def test_compress_custom_trigger_ratio():
     """自定义 trigger_ratio 影响阈值。"""
-    # 用 trigger_ratio=0.1 让阈值很低,容易触发
-    msgs = _make_long_messages(8)
+    # head-heavy 数据:original ≈1360 tokens,compressed ≈190 tokens;
+    # limit=1000, trigger_ratio=0.5 → 阈值 500,落在两者之间,
+    # 既触发压缩又不触发防循环保护
+    msgs = _make_head_heavy_messages(2, 6)
     out, info = compress_messages_if_needed(
-        msgs, context_limit=100000, trigger_ratio=0.0001
+        msgs, context_limit=1000, trigger_ratio=0.5
     )
     assert info["compressed"] is True
 
 
 def test_compress_custom_target_ratio_param_accepted():
     """target_ratio 参数应被接受(本实现未强约束,但不应抛错)。"""
-    msgs = _make_long_messages(10)
+    msgs = _make_head_heavy_messages(4, 6)
     out, info = compress_messages_if_needed(
         msgs, context_limit=1000, target_ratio=0.5
     )
@@ -380,5 +386,36 @@ def test_constants_match_ts_share_package():
     assert DEFAULT_TRIGGER_RATIO == 0.88
     assert DEFAULT_TARGET_RATIO == 0.6
     assert DEFAULT_KEEP_RECENT == 6
-    assert DEFAULT_MIN_MESSAGES == 7  # keepRecent + 1
+    assert DEFAULT_MIN_MESSAGES == 2  # 与 TS 共享包一致(2026-08-16 起)
+
+
+# =============================================================================
+# compress_messages_if_needed — 防循环保护(incompressible)
+# =============================================================================
+
+
+def test_compress_incompressible_returns_original():
+    """防循环保护:压缩后仍 ≥ 触发阈值 → 返回原消息(trigger=incompressible)。
+
+    场景:context_limit 很小(100 → 阈值 88),system 消息本身巨大(≈629 tokens)
+    且压缩时 system 原样保留,摘要只压缩 head → 压缩后 tokens 仍远超阈值。
+    若无防循环保护,每轮都会再压缩、摘要套摘要,历史质量逐轮退化。
+    """
+    huge_system = {"role": "system", "content": "S" * 5000}
+    msgs = [huge_system] + [{"role": "user", "content": "x" * 100} for _ in range(10)]
+
+    # 前置条件确认:original 超阈值、消息数足够、non_system 足够,必然进入压缩分支
+    assert estimate_messages_tokens(msgs) > int(100 * DEFAULT_TRIGGER_RATIO)
+
+    out, info = compress_messages_if_needed(msgs, context_limit=100)
+
+    assert info["compressed"] is False
+    assert info["trigger"] == "incompressible"
+    # 返回的就是原 messages 列表(同一对象引用)
+    assert out is msgs
+    assert info["removed_count"] == 0
+    assert info["original_tokens"] == estimate_messages_tokens(msgs)
+    # compressed_tokens 报告的是"尝试压缩后仍超标"的 token 数
+    assert info["compressed_tokens"] >= int(100 * DEFAULT_TRIGGER_RATIO)
+    assert info["usage_ratio"] == info["original_tokens"] / 100
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
