@@ -6,9 +6,10 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink } from 'lucide-react'
+import { ChevronRight, Loader2, Check, AlertCircle, ExternalLink, Copy, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
+import { useClipboard } from '@/hooks/use-clipboard'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { InlineDiffCard } from './inline-diff-card'
 import type { InlineDiffInfo } from './types'
@@ -65,6 +66,13 @@ const STATUS_CONFIG = {
   error: { icon: AlertCircle, className: 'text-red-500', labelKey: 'statusFailed' },
 } as const
 
+/** 2026-09-01 立,工具调用过程流式可视化:耗时格式化
+ *  <1s 显示毫秒整数(如 "520ms"),>=1s 显示秒一位小数(如 "2.3s") */
+export function formatToolDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
 /** 浏览器类工具名(命中则视为 URL 相关,可触发 WorkPanel) */
 const BROWSER_TOOL_NAMES = new Set([
   'browser_navigate',
@@ -85,6 +93,142 @@ const IMAGE_TOOL_NAMES = new Set(['image_generation'])
 
 /** summarize_artifacts 工具名命中即渲染聚合视图 */
 const SUMMARY_TOOL_NAMES = new Set(['summarize_artifacts'])
+
+/** 引用溯源标签展示上限(防止 hits 过多时刷屏) */
+const MAX_CITATIONS = 8
+
+/** 从工具结果中提取引用溯源列表(citations)。
+ *  兼容两种后端结构:
+ *   1) 结果对象顶层直接含 citations: string[](如 MCP 工具返回结构化对象)
+ *   2) 结果对象含 hits: Array<{ citations?: string[] }>(knowledge_lookup 聚合格式)
+ *  result 为字符串时先尝试 JSON.parse,失败视为无引用。
+ *  返回去重保序后的非空字符串列表(无引用返回空数组,不影响现有渲染)。 */
+function extractCitations(result: unknown): string[] {
+  let data: unknown = result
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result)
+    } catch {
+      return []
+    }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return []
+
+  const obj = data as Record<string, unknown>
+  const out: string[] = []
+
+  // 顶层 citations
+  if (Array.isArray(obj.citations)) {
+    for (const c of obj.citations) {
+      if (typeof c === 'string' && c.trim()) out.push(c.trim())
+    }
+  }
+
+  // hits 数组逐项收集 citations(knowledge_lookup 聚合格式)
+  if (Array.isArray(obj.hits)) {
+    for (const hit of obj.hits) {
+      if (!hit || typeof hit !== 'object' || Array.isArray(hit)) continue
+      const citations = (hit as Record<string, unknown>).citations
+      if (!Array.isArray(citations)) continue
+      for (const c of citations) {
+        if (typeof c === 'string' && c.trim()) out.push(c.trim())
+      }
+    }
+  }
+
+  return Array.from(new Set(out)).slice(0, MAX_CITATIONS)
+}
+
+/** 提取图表 Artifact 路径(generate_chart 等返回本地 .html 产物)。
+ *  仅接受以 .html 结尾的 file_path(单文件 ECharts HTML)。
+ *  返回 { filePath: 绝对路径, fileName: 展示用文件名 },不匹配时返回 null。 */
+function extractChartArtifact(
+  result: unknown,
+): { filePath: string; fileName: string } | null {
+  let data: unknown = result
+  if (typeof result === 'string') {
+    try {
+      data = JSON.parse(result)
+    } catch {
+      return null
+    }
+  }
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+
+  const filePath = (data as Record<string, unknown>).file_path
+  if (typeof filePath !== 'string' || !filePath.trim()) return null
+  if (!filePath.trim().toLowerCase().endsWith('.html')) return null
+
+  const fileName = filePath.trim().split(/[\\/]/).pop() || filePath.trim()
+  return { filePath: filePath.trim(), fileName }
+}
+
+/** 引用溯源标签组:展示 knowledge_lookup 等返回的图谱实体/关系来源 */
+function CitationsBlock({ citations }: { citations: string[] }) {
+  const t = useTranslations('ai.toolCall')
+  if (citations.length === 0) return null
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('citationsTitle')}
+      </p>
+      <div className="flex flex-wrap gap-1">
+        {citations.map((c) => (
+          <span
+            key={c}
+            data-testid="tool-call-citation"
+            className="rounded-sm border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] leading-4 text-amber-700 dark:text-amber-400"
+          >
+            {c}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 图表 Artifact 卡片:本地 .html 图表无法在网页内直接 iframe 预览,
+ *  展示文件名 + 绝对路径(一键复制)+ 打开说明,引导用户在本机浏览器查看。 */
+function ChartArtifactBlock({ filePath, fileName }: { filePath: string; fileName: string }) {
+  const t = useTranslations('ai.toolCall')
+  const { copy, copied } = useClipboard()
+
+  return (
+    <div>
+      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">
+        {t('chartGenerated')}
+      </p>
+      <div className="rounded-sm border border-border/40 bg-muted/30 p-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5 text-[10px] font-medium text-foreground/80">
+            <BarChart3 className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span className="truncate">{fileName}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => void copy(filePath)}
+            data-testid="tool-call-copy-path"
+            className="inline-flex shrink-0 items-center gap-1 rounded-sm border border-border/40 bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-green-600" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+            <span>{copied ? t('pathCopied') : t('copyPath')}</span>
+          </button>
+        </div>
+        <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/70">
+          <span className="mr-1 text-muted-foreground/50">{t('filePathLabel')}:</span>
+          {filePath}
+        </p>
+        <p className="mt-1 text-[10px] leading-4 text-muted-foreground/60">
+          {t('chartPreviewHint')}
+        </p>
+      </div>
+    </div>
+  )
+}
 
 /** 从 args 中提取字符串字段(兼容 camelCase / snake_case 多种命名) */
 function pickStr(args: Record<string, unknown>, keys: string[]): string {
@@ -311,6 +455,17 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const config = STATUS_CONFIG[status]
   const StatusIcon = config.icon
 
+  // 2026-09-01 立,工具调用过程流式可视化:running 状态实时耗时 tick。
+  // tool-call-start 到达后卡片即挂载,间隔 250ms 自增一次,让用户看到"执行中"的实时进度;
+  // status 变为 success/error 后清理定时器,由后端计算出的 durationMs(duration prop)接管显示。
+  const [elapsedMs, setElapsedMs] = React.useState(0)
+  React.useEffect(() => {
+    if (status !== 'running') return
+    setElapsedMs(0)
+    const id = window.setInterval(() => setElapsedMs((v) => v + 250), 250)
+    return () => window.clearInterval(id)
+  }, [status])
+
   // 提取 URL(P2 联动 WorkPanel)
   const extractedUrl = React.useMemo(
     () => extractUrl(toolName, args, result),
@@ -334,6 +489,13 @@ export const ToolCallCard = React.memo(function ToolCallCard({
   const isSummaryTool = SUMMARY_TOOL_NAMES.has(toolName)
   const showImage = isImageTool && !!imageUrl
   const showSummary = isSummaryTool && !!summaryData
+
+  // 引用溯源 + 图表 Artifact:从 result 中解析(knowledge_lookup / generate_chart)
+  // 不依赖 toolName 判断,纯字段驱动,保证任何携带 citations/file_path 的工具都兼容
+  const citations = React.useMemo(() => extractCitations(result), [result])
+  const chartArtifact = React.useMemo(() => extractChartArtifact(result), [result])
+  // 图表 Artifact 命中时替代原始 result pre 渲染(与 image/summary 处理方式一致)
+  const showChartArtifact = !!chartArtifact && status === 'success'
 
   const handleOpenInWorkPanel = React.useCallback(() => {
     if (!extractedUrl) return
@@ -423,11 +585,20 @@ export const ToolCallCard = React.memo(function ToolCallCard({
             {errorType}
           </span>
         )}
-        {duration !== undefined && (
-          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
-            {duration}ms
+        {status === 'running' ? (
+          // 流式可视化:执行中显示实时自增耗时(替代静态"执行中"标签,秒表实时反馈)
+          <span
+            aria-label={`工具已执行 ${formatToolDuration(elapsedMs)}`}
+            className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60"
+          >
+            {formatToolDuration(elapsedMs)}
           </span>
-        )}
+        ) : duration !== undefined ? (
+          // 已返回:显示后端计算的真实耗时(tool-result 到达时前端补算)
+          <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground/60">
+            {formatToolDuration(duration)}
+          </span>
+        ) : null}
         <span className={cn('shrink-0 text-[10px]', config.className)}>{t(config.labelKey)}</span>
       </button>
       {expanded && (
@@ -454,27 +625,39 @@ export const ToolCallCard = React.memo(function ToolCallCard({
           {/* 非 diff/image/summary 工具时显示原始 args/result */}
           {!showInlineDiff && !showImage && !showSummary && (
             <>
-              <div>
-                <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">参数</p>
-                <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                  {JSON.stringify(args, null, 2)}
-                </pre>
-              </div>
-              {error && (
-                <div>
-                  <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
-                  <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
-                    {error}
-                  </pre>
-                </div>
-              )}
-              {result !== undefined && (
-                <div>
-                  <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">结果</p>
-                  <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
-                    {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
-                  </pre>
-                </div>
+              {/* 引用溯源:knowledge_lookup 等返回 citations 时渲染标签组 */}
+              {citations.length > 0 && <CitationsBlock citations={citations} />}
+              {/* 图表 Artifact:generate_chart 等返回本地 .html 时渲染产物卡片 */}
+              {showChartArtifact && chartArtifact ? (
+                <ChartArtifactBlock
+                  filePath={chartArtifact.filePath}
+                  fileName={chartArtifact.fileName}
+                />
+              ) : (
+                <>
+                  <div>
+                    <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">参数</p>
+                    <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
+                      {JSON.stringify(args, null, 2)}
+                    </pre>
+                  </div>
+                  {error && (
+                    <div>
+                      <p className="mb-0.5 text-[10px] font-medium text-red-500/80">错误</p>
+                      <pre className="overflow-x-auto rounded-sm bg-red-500/8 p-1.5 font-mono text-[10px] text-red-500/80">
+                        {error}
+                      </pre>
+                    </div>
+                  )}
+                  {result !== undefined && (
+                    <div>
+                      <p className="mb-0.5 text-[10px] font-medium text-muted-foreground/70">结果</p>
+                      <pre className="overflow-x-auto rounded-sm bg-muted/40 p-1.5 font-mono text-[10px]">
+                        {typeof result === 'string' ? result : JSON.stringify(result, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+                </>
               )}
             </>
           )}
