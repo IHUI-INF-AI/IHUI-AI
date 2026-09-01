@@ -229,7 +229,9 @@ export async function tryHandlePermissionSlash(
   }
   const targetMode = modeMap[target]
   // 已是目标模式:不重复切换,仅 toast 提示
-  const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+  // 2026-08-31:未绑定工作区时读暂存模式,避免 /permission 已激活误判
+  const st = useAiPanelStore.getState()
+  const currentMode = st.activeWorkspace?.mode ?? st.pendingPermissionMode
   const labelKey =
     target === 'ask'
       ? 'permissionLabelAsk'
