@@ -54,6 +54,7 @@ from app.routers import (
     agents,
     ai_skills,
     artifacts,
+    connectors,
     health,
     hooks,
     llm,
@@ -589,6 +590,7 @@ def create_app() -> FastAPI:
     app.include_router(tools.router, prefix="/api", tags=["tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
+    app.include_router(connectors.router, prefix="/api", tags=["connectors"])
     app.include_router(agents.router, prefix="/api", tags=["agents"])
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     app.include_router(personas.router, prefix="/api", tags=["personas"])
