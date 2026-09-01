@@ -14,6 +14,7 @@ import {
   getRecentWorkspaces,
   type RecentWorkspace,
   type WorkspacePermission,
+  type WorkspacePermissionMode,
 } from '@ihui/api-client/endpoints/workspace'
 
 import { cn } from '@/lib/utils'
@@ -108,10 +109,22 @@ export function WorkspaceSelector() {
   }
 
   const handlePickerOpened = (path: string, name: string, perm: WorkspacePermission | null) => {
+    // 读取 sessionStorage 中暂存的 pending mode（用户未绑定工作区时选择的权限模式）
+    let pendingMode: WorkspacePermissionMode | undefined
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = window.sessionStorage.getItem('ihui-pending-permission-mode')
+        if (raw === 'default' || raw === 'accept-edits' || raw === 'bypass-permissions') {
+          pendingMode = raw
+        }
+      }
+    } catch {
+      // sessionStorage 不可用（隐私模式）静默忽略
+    }
     setActiveWorkspace({
       path,
       name,
-      mode: perm?.mode,
+      mode: pendingMode ?? perm?.mode,
       techStack: perm?.techStack
         ? perm.techStack
             .split(',')
@@ -119,9 +132,19 @@ export function WorkspaceSelector() {
             .filter(Boolean)
         : undefined,
     })
+    if (pendingMode) {
+      // 已读取并应用 pending mode，清掉避免下次重复应用
+      try {
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.removeItem('ihui-pending-permission-mode')
+        }
+      } catch {
+        // 静默
+      }
+    }
     // 2026-07-25 深度对标 Codex:选择项目文件后,若该工作区尚未配置权限,
     // 立即弹权限确认 Dialog,让用户主动选择是否完全访问(避免 AI 静默拿到完全访问权限)。
-    if (!perm) {
+    if (!perm && !pendingMode) {
       setPendingPermissionSetup({ path, name })
     } else {
       setPendingPermissionSetup(null)

@@ -42,6 +42,12 @@ import { switchPermissionMode } from '@/components/ai/permission-mode-popover'
  */
 const STORAGE_KEY = 'ihui:auto-revert-bypass'
 const DEFAULT_DURATION_MS = 60 * 60 * 1000 // 1 小时
+const TICK_INTERVAL_MS = 1000 // 1 秒 tick
+const RETRY_DELAY_MS = 1500 // 落库失败重试间隔
+const TOAST_DURATION_5MIN_WARN = 10000 // 5 分钟警告 toast
+const TOAST_DURATION_1MIN_WARN = 8000 // 1 分钟紧急 toast
+const TOAST_DURATION_AUTO_REVERT = 6000 // 自动切回 toast
+const TOAST_DURATION_CANCEL_REVERT = 3000 // 取消自动撤销 toast
 
 /**
  * 2026-07-25 新增字段:
@@ -202,7 +208,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
   // 1s 触发 setState 强制重渲染剩余时间
   React.useEffect(() => {
     if (!record) return
-    const id = window.setInterval(() => setTick((n) => n + 1), 1000)
+    const id = window.setInterval(() => setTick((n) => n + 1), TICK_INTERVAL_MS)
     return () => window.clearInterval(id)
   }, [record])
 
@@ -251,7 +257,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
       warnedFiveMinRef.current = true
       toast(t('revertWarning5minTitle'), {
         description: t('revertWarning5minDesc'),
-        duration: 10000,
+        duration: TOAST_DURATION_5MIN_WARN,
         action: {
           label: t('extendOneHour'),
           onClick: () => extendRevert(DEFAULT_DURATION_MS),
@@ -261,7 +267,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
       warnedOneMinRef.current = true
       toast(t('revertWarning1minTitle'), {
         description: t('revertWarning1minDesc'),
-        duration: 8000,
+        duration: TOAST_DURATION_1MIN_WARN,
         action: {
           label: t('extendOneHour'),
           onClick: () => extendRevert(DEFAULT_DURATION_MS),
@@ -331,7 +337,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     watchedRecordRef.current = null
     toast(t('autoRevertedTitle'), {
       description: t('autoRevertedDescWithDuration', { usedMin }),
-      duration: 6000,
+      duration: TOAST_DURATION_AUTO_REVERT,
     })
     // 自动切回 → 把刚被 message-input useEffect 占位为 'popover' 的最新一条记录
     // source 改为 'auto-revert'(2026-07-25 深化,来源精细化)
@@ -350,7 +356,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
         const result = await switchPermissionMode('default')
         if (result.ok) return
         // 短暂等待再重试
-        await new Promise((r) => setTimeout(r, 1500))
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
       }
       // 2 次都失败:记录到 console(不阻塞 UI,本地已切回)
       logger.warn('[usePermissionAutoRevert] 自动切回 default 后落库失败,已本地切回')
@@ -364,7 +370,7 @@ export function usePermissionAutoRevert(durationMs: number = DEFAULT_DURATION_MS
     watchedRecordRef.current = null
     toast.success(t('cancelAutoRevert') + ' ✓', {
       description: '当前保持完全访问,关闭标签页/刷新后也不会自动降级',
-      duration: 3000,
+      duration: TOAST_DURATION_CANCEL_REVERT,
     })
   }, [t])
 

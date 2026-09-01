@@ -39,7 +39,7 @@ export const PERMISSION_HISTORY_KEY = 'ihui:permission-mode-history'
 export const MAX_HISTORY_ENTRIES = 50
 
 /** 切换来源(用于历史面板展示"通过什么方式切的") */
-export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'auto-revert'
+export type ModeChangeSource = 'popover' | 'shift-tab' | 'slash' | 'confirm-dialog' | 'auto-revert'
 
 export interface ModeChangeEntry {
   mode: WorkspacePermissionMode
