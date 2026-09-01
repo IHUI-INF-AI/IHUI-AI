@@ -37,41 +37,6 @@ from app.api.v1.router import api_v1_router
 from app.core.config import settings
 from app.core.jwt_auth import JWTAuthMiddleware
 from app.core.schema_check import check_schema, log_report
-from app.routers import a2a, agent_runtime, agents, health, llm, mcp, personas, tools, voice_stt
-from app.routers import mcp_official
-from app.routers import self_media
-from app.routers import publish
-from app.routers import opencompass
-from app.routers import screenshot
-# 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(用户可选调用)
-from app.routers import ai_skills
-# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
-from app.routers import rules, hooks, spec
-# 跨支柱编排中枢(2026-07-23 立,事件总线 + 联合决策 + 预算治理 + 统一遥测)
-from app.routers import orchestration
-# Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
-from app.services.context_engine import router as context_engine_router
-# IM 桥接服务(2026-07-31 立,消费 Redis im:inbound 队列 → LLM 回复 → 调 apps/api im-gateway/send)
-from app.services.im_bridge import im_bridge_service
-from app.routers.legacy import router as legacy_router
-# P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
-from app.routers.ai_tutor import router as ai_tutor_router
-# AI 批改(AI 自动评分练习答案,2026-08-07 立)
-from app.routers.ai_marking import router as ai_marking_router
-from app.routers.langgraph import router as langgraph_router
-# L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
-from app.routers.meta_learning import router as meta_learning_router
-# Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
-from app.routers import workflow as workflow_router
-# Harness 能力补齐:Token 用量统计(2026-08-11 立)
-from app.routers import usage as usage_router
-# Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
-from app.routers import prompts as prompts_router
-# Harness 能力补齐:评估/评测框架(2026-08-11 立)
-from app.routers import eval as eval_router
-from app.sio import sio
-from app.sio.handlers import register_handlers
-from app.telemetry import setup_telemetry, shutdown_telemetry
 from app.middleware.audit import setup_audit_middleware
 from app.middleware.input_sanitizer import (
     setup_input_sanitizer_middleware,
@@ -79,6 +44,64 @@ from app.middleware.input_sanitizer import (
 )
 from app.middleware.response_sanitizer import setup_response_sanitizer_middleware
 from app.middleware.trace_context import setup_trace_context_middleware
+
+# 2026-07-23 新增:AI Skills TOP 19 个 skill 路由(用户可选调用)
+# P3 深度层 Wave 11:6 大对标能力(2026-07-22 立,对标 Codex/Trae/Qoder)
+# 跨支柱编排中枢(2026-07-23 立,事件总线 + 联合决策 + 预算治理 + 统一遥测)
+from app.routers import (
+    a2a,
+    agent_runtime,
+    agents,
+    ai_skills,
+    health,
+    hooks,
+    llm,
+    mcp,
+    mcp_official,
+    opencompass,
+    orchestration,
+    personas,
+    publish,
+    rules,
+    screenshot,
+    self_media,
+    spec,
+    tools,
+    voice_stt,
+    voice_tts,
+)
+
+# Harness 能力补齐:评估/评测框架(2026-08-11 立)
+from app.routers import eval as eval_router
+
+# Harness 能力补齐:Prompt 版本管理(2026-08-11 立)
+from app.routers import prompts as prompts_router
+
+# Harness 能力补齐:Token 用量统计(2026-08-11 立)
+from app.routers import usage as usage_router
+
+# Phase 2:可视化工作流编辑器(2026-08-09 立,对标 Trae Work Automations / Codex Workflows)
+from app.routers import workflow as workflow_router
+
+# AI 批改(AI 自动评分练习答案,2026-08-07 立)
+from app.routers.ai_marking import router as ai_marking_router
+
+# P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
+from app.routers.ai_tutor import router as ai_tutor_router
+from app.routers.langgraph import router as langgraph_router
+from app.routers.legacy import router as legacy_router
+
+# L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
+from app.routers.meta_learning import router as meta_learning_router
+
+# Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
+from app.services.context_engine import router as context_engine_router
+
+# IM 桥接服务(2026-07-31 立,消费 Redis im:inbound 队列 → LLM 回复 → 调 apps/api im-gateway/send)
+from app.services.im_bridge import im_bridge_service
+from app.sio import sio
+from app.sio.handlers import register_handlers
+from app.telemetry import setup_telemetry, shutdown_telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -496,6 +519,7 @@ def create_app() -> FastAPI:
     app.include_router(personas.router, prefix="/api", tags=["personas"])
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
+    app.include_router(voice_tts.router, prefix="/api", tags=["voice"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
     app.include_router(self_media.router, prefix="/api", tags=["self-media"])
     # AI Skills TOP 19 个 skill 路由(2026-07-23 新增,用户可选调用)
@@ -530,7 +554,8 @@ def create_app() -> FastAPI:
     # 四层记忆 + Dream 梦境系统(2026-07-22 新增,对标 OpenClaw Mem)
     from app.api.memory import router as memory_router
     app.include_router(memory_router, prefix="/api", tags=["memory"])
-    # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,2026-07-22 新增,反超 OpenClaw 单 WS)
+    # 多通道消息总线(5 通道 + 优先级 + 降级 + 模板 + 批量 + 限流,
+    # 2026-07-22 新增,反超 OpenClaw 单 WS)
     from app.api.message_bus import router as message_bus_router
     app.include_router(message_bus_router, prefix="/api", tags=["message-bus"])
     # DAG Worker Pool(2026-07-22 立,多 agent 并行执行 — 限并发 N worker + 优先级队列 + 持久化)
@@ -546,7 +571,8 @@ def create_app() -> FastAPI:
     # 路由定义在 services/spec_generator.py 末尾,打通 api 端 spec-service.ts 转发层(2026-07-24 立)
     from app.services.spec_generator import extra_router as spec_extra_router
     app.include_router(spec_extra_router, prefix="/api", tags=["spec-extended"])
-    # P3 Wave 11:Context Engineering(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合 + token 预算分配)
+    # P3 Wave 11:Context Engineering(对标 Qoder,多维 @ 提及 +
+    # 跨会话 RAG + 多源融合 + token 预算分配)
     app.include_router(context_engine_router, prefix="/api/context", tags=["context-engine"])
     # 跨支柱编排中枢(2026-07-23 立,6 大超越支柱协同决策 + LLM 预算治理 + 统一遥测)
     app.include_router(orchestration.router, prefix="/api", tags=["orchestration"])
@@ -568,7 +594,8 @@ def create_app() -> FastAPI:
     app.include_router(eval_router.router, tags=["eval"])
     # 2026-08-12 立:资讯板块每日自动刷新(marketing page-7 magazine 数据源,
     # 用户反馈"div 没内容显示"+"希望显示每天最新新闻")。router 自带 /api/admin/news 前缀。
-    # 端点:GET /api/admin/news/status + POST /api/admin/news/refresh-daily + POST /api/admin/news/publish-recent
+    # 端点:GET /api/admin/news/status + POST /api/admin/news/refresh-daily
+    # + POST /api/admin/news/publish-recent
     from app.routers import news as news_router
     app.include_router(news_router.router, tags=["news-refresh"])
 
@@ -579,7 +606,10 @@ def create_app() -> FastAPI:
     async def audit_recent(request: Request, limit: int = 100) -> dict[str, Any] | JSONResponse:
         role_id = getattr(request.state, "role_id", 0) or 0
         if int(role_id) < 1:
-            return JSONResponse(status_code=403, content={"code": 403, "message": "仅管理员可读审计日志"})
+            return JSONResponse(
+                status_code=403,
+                content={"code": 403, "message": "仅管理员可读审计日志"},
+            )
         from app.services.audit_service import audit_service
         return {
             "code": 200,

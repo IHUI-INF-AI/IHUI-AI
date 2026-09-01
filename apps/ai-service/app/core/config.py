@@ -89,7 +89,8 @@ class Settings(BaseSettings):
     # 2026-08-31 新增:/api/voice/stt - 语音转文字本地推理(浏览器录音上传,无敏感数据,
     # 仅接收音频返回文本;前端 voiceSttFromBlob 同时携带 Bearer token 双保险)。
     # 注意:本地 CPU 推理对未认证用户开放存在 DoS 风险,单机/内网部署可接受。
-    # 2026-09-01 新增:/api/mcp(精确路径,官方 MCP 协议兼容层)— 匿名握手/工具调用,
+    # 2026-09-01 新增:/api/voice/tts(免费 TTS,edge-tts 零 key)+ /api/mcp(官方 MCP
+    # 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
     # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
@@ -97,7 +98,7 @@ class Settings(BaseSettings):
         "/api/health,/api/legacy,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
-        "/api/voice/stt,/api/mcp"
+        "/api/voice/stt,/api/voice/tts,/api/mcp"
     )
     # agent_control 内部调用密钥(ai-service → api /execute,2026-07-22)
     agent_control_internal_secret: str = ""
