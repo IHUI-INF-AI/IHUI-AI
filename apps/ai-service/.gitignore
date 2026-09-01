@@ -9,3 +9,6 @@ venv/
 .ruff_cache/
 .env*.local
 .uploads/
+
+# MCP 应用商店安装状态持久化(P2-1,运行时数据,不入库)
+data/
