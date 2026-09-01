@@ -110,7 +110,7 @@ function HeroSection({ pageIndex }: SectionProps) {
             {t('welcome.multiEnd')}
           </span>
         </RevealOnView>
-        <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[768px]:gap-3 min-[1024px]:grid-cols-6">
+        <ul className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-2 min-[640px]:grid-cols-3 min-[768px]:gap-3 min-[1024px]:grid-cols-3">
           {benefits.map((b, i) => (
             <RevealOnView
               key={i}
