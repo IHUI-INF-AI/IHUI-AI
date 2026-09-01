@@ -19,7 +19,7 @@
  * - config / @ihui/auth / @ihui/types / @ihui/context-compaction / chat-queries 全 mock
  * - global.fetch mock 捕获出站 body 并返回带 tool-call-start 的 SSE 流
  */
-import { describe, it, expect, afterAll, beforeAll, afterEach, vi } from 'vitest'
+import { describe, it, expect, afterAll, beforeAll, afterEach, beforeEach, vi } from 'vitest'
 import Fastify from 'fastify'
 
 // 1. Mock config 避免 env 校验触发 process.exit(1)
@@ -86,7 +86,12 @@ vi.mock('../src/db/chat-queries.js', () => ({
 }))
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
-import { generateSemanticSummary } from '../src/utils/semantic-summary.js'
+import {
+  generateSemanticSummary,
+  primeSemanticSummary,
+  getCachedSemanticSummary,
+  __clearSemanticSummaryCacheForTests,
+} from '../src/utils/semantic-summary.js'
 
 const USER_TOKEN = 'Bearer user-token'
 
@@ -450,6 +455,121 @@ describe('generateSemanticSummary(LLM 语义摘要辅助函数,压缩触发前�
       expect(fetchSpy).not.toHaveBeenCalled()
     } finally {
       globalThis.fetch = originalFetch
+    }
+  })
+})
+
+describe('语义摘要预压缩缓存(prime 70% 预生成 → getCached 88% 命中,后台预压缩能力)', () => {
+  beforeEach(() => {
+    __clearSemanticSummaryCacheForTests()
+  })
+
+  /** 构造 8 条非 system 消息(> keepRecent=6,toCompress 为前 2 条) */
+  function buildLongMessages() {
+    return Array.from({ length: 8 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `历史消息 ${i + 1}`,
+    }))
+  }
+
+  /** mock ai-service 摘要接口:返回固定正文,返回恢复函数 */
+  function mockSummaryFetch(content: string) {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ content, stub: false }),
+      }) as unknown as typeof globalThis.fetch
+    return () => {
+      globalThis.fetch = originalFetch
+    }
+  }
+
+  /** prime 是 fire-and-forget:让一个宏任务跑完,后台微任务链(含 mocked fetch)即全部完成 */
+  async function flushAsync() {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  it('prime 后 getCached 命中(同消息)→ 返回同摘要', async () => {
+    const restore = mockSummaryFetch('预生成的会话摘要')
+    try {
+      const messages = buildLongMessages()
+      await primeSemanticSummary(null, messages, 'test-model', 'conv-1')
+      await flushAsync()
+      expect(getCachedSemanticSummary('conv-1', messages)).toBe('预生成的会话摘要')
+    } finally {
+      restore()
+    }
+  })
+
+  it('消息变化后 hash 失效:getCached 返回 null', async () => {
+    const restore = mockSummaryFetch('旧摘要')
+    try {
+      const messages = buildLongMessages()
+      await primeSemanticSummary(null, messages, 'test-model', 'conv-1')
+      await flushAsync()
+      expect(getCachedSemanticSummary('conv-1', messages)).toBe('旧摘要')
+      // 改动 toCompress 范围内的消息(第 1 条)→ 序列化文本变化 → hash 自然失效
+      const changed = messages.map((m, i) => (i === 0 ? { ...m, content: '被编辑过的历史' } : m))
+      expect(getCachedSemanticSummary('conv-1', changed)).toBeNull()
+    } finally {
+      restore()
+    }
+  })
+
+  it('prime 阶段 LLM 失败(HTTP 500 / fetch 异常):不抛异常且缓存不写入', async () => {
+    const originalFetch = globalThis.fetch
+    try {
+      // ① HTTP 500:prime 本身正常 resolve,后台生成降级为 null → 不写缓存
+      globalThis.fetch = vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof globalThis.fetch
+      await expect(
+        primeSemanticSummary(null, buildLongMessages(), 'm', 'conv-err'),
+      ).resolves.toBeUndefined()
+      await flushAsync()
+      expect(getCachedSemanticSummary('conv-err', buildLongMessages())).toBeNull()
+
+      // ② fetch 网络异常:后台任务吞掉一切异常,不影响调用方
+      globalThis.fetch = vi
+        .fn()
+        .mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof globalThis.fetch
+      await expect(
+        primeSemanticSummary(null, buildLongMessages(), 'm', 'conv-err2'),
+      ).resolves.toBeUndefined()
+      await flushAsync()
+      expect(getCachedSemanticSummary('conv-err2', buildLongMessages())).toBeNull()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('缓存容量 200:写入 201 条后最老的条目被 FIFO 淘汰', async () => {
+    const restore = mockSummaryFetch('容量测试摘要')
+    try {
+      const messages = buildLongMessages()
+      for (let i = 0; i < 201; i++) {
+        await primeSemanticSummary(null, messages, 'm', `conv-${i}`)
+        await flushAsync()
+      }
+      // 最老(conv-0)已被淘汰,最新(conv-200)仍在
+      expect(getCachedSemanticSummary('conv-0', messages)).toBeNull()
+      expect(getCachedSemanticSummary('conv-200', messages)).toBe('容量测试摘要')
+    } finally {
+      restore()
+    }
+  })
+
+  it('conversationId 缺省(undefined):key 仍可用(undefined 串入 key)', async () => {
+    const restore = mockSummaryFetch('匿名会话摘要')
+    try {
+      const messages = buildLongMessages()
+      await primeSemanticSummary(null, messages, 'test-model')
+      await flushAsync()
+      expect(getCachedSemanticSummary(undefined, messages)).toBe('匿名会话摘要')
+    } finally {
+      restore()
     }
   })
 })

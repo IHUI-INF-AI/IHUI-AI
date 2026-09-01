@@ -148,10 +148,10 @@ describe('compressContext 集成结构化摘要', () => {
         content: `[工具结果 ✓] tool_${i}\n${'x'.repeat(200)}`,
       })
     }
-    // total=765 tokens:contextLimit=1200 → trigger=600 触发(0.5);
-    // 摘要行含 80 字符首句,每条 ~27 tokens,kr=1 最优候选 ≈593 < 600 但 > target(360)
+    // total=765 tokens;分层金字塔摘要后近层 7 条保留 200 chars → kr=1 最优候选 ≈642;
+    // contextLimit=1400 → trigger=700 触发(0.5),642 < 700 但 > target(420)
     // → 走"未达 target 但优于触发线"降级接受路径,正常返回压缩结果
-    const result = compressContextIfNeeded(msgs, { contextLimit: 1200, triggerRatio: 0.5, targetRatio: 0.3 })
+    const result = compressContextIfNeeded(msgs, { contextLimit: 1400, triggerRatio: 0.5, targetRatio: 0.3 })
     expect(result.compressed).toBe(true)
     const summaryMsg = result.messages.find(
       (m) => m.role === 'user' && m.content.includes('上下文摘要'),
