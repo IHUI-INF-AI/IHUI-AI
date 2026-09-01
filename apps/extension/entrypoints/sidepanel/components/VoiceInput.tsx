@@ -7,8 +7,11 @@
  *
  * 2026-07-28 立:扩展端补齐语音输入能力,与 web 端共用 ai-service faster-whisper。
  *
- * 主路径(Chrome/Edge):浏览器原生 webkitSpeechRecognition,零延迟零后端负载。
- * Fallback(Firefox):MediaRecorder 录音 → POST ai-service /api/voice/stt。
+ * 2026-09-01 反转优先级(对齐 web 端 2026-08-31 修复):
+ * 主路径:MediaRecorder 录音 → POST ai-service /api/voice/stt(faster-whisper small 本地推理,
+ *   零成本、国内可达)。Fallback(Firefox 无 MediaRecorder 时):浏览器原生 webkitSpeechRecognition。
+ * 原因:原 native 主路径依赖 Google 语音服务器,国内不可达 → Chrome/Edge 点击必 onerror
+ *   静默失败(无任何输出),与 web 旧版同款 bug。
  *
  * 与 web 端 voice-input.tsx 共用 packages/api-client 的 voiceSttFromBlob 封装。
  */
@@ -68,7 +71,8 @@ interface VoiceInputProps {
 export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const { t } = useI18n()
   const [recording, setRecording] = useState(false)
-  const [supported, setSupported] = useState<'native' | 'fallback' | 'unsupported'>('native')
+  // 默认 fallback(本地转写优先);挂载后 effect 精确探测,无 MediaRecorder 才退回 native
+  const [supported, setSupported] = useState<'native' | 'fallback' | 'unsupported'>('fallback')
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const transcriptRef = useRef('')
@@ -79,13 +83,25 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
   const streamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
-    const Ctor =
+    const nativeCtor =
       (typeof window !== 'undefined' &&
         (window.SpeechRecognition ?? window.webkitSpeechRecognition)) ||
       null
-    if (Ctor) {
+    const hasMediaRecorder =
+      typeof MediaRecorder !== 'undefined' &&
+      typeof navigator !== 'undefined' &&
+      typeof navigator.mediaDevices?.getUserMedia === 'function'
+
+    // 2026-09-01 反转优先级:本地转写(fallback)优先。
+    // 原 native(webkitSpeechRecognition)依赖 Google 语音服务器,国内不可达,
+    // Chrome/Edge 点击必 onerror 静默失败(无输出),与 web 旧版同款 bug。
+    // 本地 MediaRecorder → ai-service faster-whisper(small 模型)零成本、国内可用;
+    // native 仅作为无 MediaRecorder 时的备选。
+    if (hasMediaRecorder) {
+      setSupported('fallback')
+    } else if (nativeCtor) {
       setSupported('native')
-      const recognition = new Ctor()
+      const recognition = new nativeCtor()
       recognition.lang = 'zh-CN'
       recognition.continuous = true
       recognition.interimResults = true
@@ -105,11 +121,6 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
         }
       }
       recognitionRef.current = recognition
-    } else if (
-      typeof navigator !== 'undefined' &&
-      typeof navigator.mediaDevices?.getUserMedia === 'function'
-    ) {
-      setSupported('fallback')
     } else {
       setSupported('unsupported')
     }
