@@ -5,7 +5,7 @@
 """knowledge_lookup 统一知识查询门面单测。
 
 测试覆盖:
-- 三源全成功 / 各源失败降级 / 全部失败
+- 四源(含 graph)全成功 / 各源失败降级 / 全部失败
 - source_priority 自定义排序
 - user_id 为空跳过 long_term_memory
 - 同源内按 score 降序
@@ -491,8 +491,8 @@ class TestFormatters:
 
 class TestConstants:
     def test_default_priority_order(self):
-        """默认 priority: codebase → rag → long_term_memory。"""
-        assert DEFAULT_PRIORITY == ["codebase", "rag", "long_term_memory"]
+        """默认 priority: codebase → rag → graph → long_term_memory(P0 接入知识图谱第四源)。"""
+        assert DEFAULT_PRIORITY == ["codebase", "rag", "graph", "long_term_memory"]
 
     def test_dataclass_defaults(self):
         """KnowledgeLookupResult 默认值正确。"""
