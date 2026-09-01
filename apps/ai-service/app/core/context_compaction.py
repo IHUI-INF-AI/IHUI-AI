@@ -10,7 +10,8 @@
 - 默认尾部保留:6 条 non-system 消息
 - 压缩策略:保留首条 system + 尾部 N 条,中段用结构化摘要替代
 - 摘要格式:对话摘要(角色 + 内容前 200 字符)+ 上下文摘要(累积摘要)
-- 防循环:压缩后仍超阈值时返回原消息(trigger=incompressible),避免反复摘要化
+- 防循环两级降级:压缩后仍超阈值时,先截断最后一条消息内容降级(trigger=truncated);
+  截断到最小长度仍超阈值(典型:system 本身巨大)才返回原消息(trigger=incompressible)
 
 设计目的:
 - API 层(apps/api)在调用 ai-service 前已调用 TS 共享包压缩
@@ -21,6 +22,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from typing import Any
 
 import tiktoken
@@ -32,6 +34,11 @@ DEFAULT_TRIGGER_RATIO = 0.88
 DEFAULT_TARGET_RATIO = 0.6
 DEFAULT_KEEP_RECENT = 6
 DEFAULT_MIN_MESSAGES = 2  # 与 TS 共享包一致(2026-08-16 起):仅 system+1 条即可压缩;旧值 7 在短对话/历史被截断时误判"消息不足"
+
+# 截断降级(truncate-fallback)常量:常规压缩无效时对最后一条消息做内容截断
+MIN_TRUNCATE_CHARS = 100  # 截断保留的最小字符数(下限)
+TRUNCATE_MARKER = "…[已截断]"  # 截断标记(追加在被截断内容末尾)
+MAX_TRUNCATE_ATTEMPTS = 8  # 截断迭代最大次数
 
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
@@ -102,6 +109,79 @@ def _build_structured_summary(messages: list[dict[str, Any]]) -> str:
     lines.append("")
     lines.append(f"以上为 {len([m for m in messages if m.get('role') != 'system'])} 条历史消息的摘要。")
     return "\n".join(lines)
+
+
+def _truncate_fallback(
+    system_msgs: list[dict[str, Any]],
+    non_system: list[dict[str, Any]],
+    context_limit: int,
+    original_tokens: int,
+    trigger_threshold: int,
+    target_threshold: int,
+) -> tuple[list[dict[str, Any]], dict[str, Any]] | None:
+    """第一级降级:kr=1 + 最后一条消息内容截断(system 消息永不截断)。
+
+    常规摘要压缩无法达标时(典型:超长单条消息如粘贴大文件,摘要化收益不足),
+    重建 kr=1 方案(system + 摘要 + 最后一条消息),对最后一条消息做内容截断,
+    按 BPE 密度估算裁剪字符量,迭代收敛到目标阈值以下。
+
+    Returns:
+        截断后 tokens < 触发阈值 → (截断后的消息列表, info dict, trigger='truncated')
+        截断到最小长度仍 >= 触发阈值(典型:system 本身巨大)→ None(走 incompressible)
+    """
+    if not non_system:
+        return None
+
+    last_msg = non_system[-1]
+    last_content = last_msg.get("content", "")
+    if not isinstance(last_content, str) or not last_content:
+        # 非 str content(vision 等)或空内容无法安全截断 → 交给 incompressible
+        return None
+
+    # kr=1 方案:system + 摘要(除最后一条外的全部 non-system) + 最后一条消息
+    fallback_summary: dict[str, Any] = {
+        "role": "user",
+        "content": _build_structured_summary(non_system[:-1]),
+    }
+    truncated_last: dict[str, Any] = dict(last_msg)  # 拷贝,不改动原消息
+    candidate = [*system_msgs, fallback_summary, truncated_last]
+
+    keep_content = last_content
+    tokens = 0
+    for _attempt in range(MAX_TRUNCATE_ATTEMPTS):
+        truncated_last["content"] = keep_content
+        tokens = estimate_messages_tokens(candidate)
+        if tokens <= target_threshold:
+            break  # 截断成功
+        if len(keep_content) <= MIN_TRUNCATE_CHARS:
+            break  # 截到下限仍不达标
+        excess_tokens = tokens - target_threshold
+        # 每 char 的 token 数(BPE 密度),据此估算需裁剪的字符数,1.2 倍安全余量
+        density = estimate_tokens(keep_content) / max(1, len(keep_content))
+        cut_chars = math.ceil((excess_tokens / max(density, 0.01)) * 1.2)
+        keep_content = keep_content[: max(MIN_TRUNCATE_CHARS, len(keep_content) - cut_chars)] + TRUNCATE_MARKER
+
+    if tokens >= trigger_threshold:
+        # 截断到最小长度仍超触发阈值 → 第二级 incompressible
+        return None
+
+    logger.warning(
+        "[Compaction] truncate-fallback: %d → %d tokens (trigger_threshold=%d), "
+        "last message %d → %d chars",
+        original_tokens,
+        tokens,
+        trigger_threshold,
+        len(last_content),
+        len(truncated_last["content"]),
+    )
+    return candidate, {
+        "compressed": True,
+        "original_tokens": original_tokens,
+        "compressed_tokens": tokens,
+        "removed_count": len(non_system) - 1,
+        "usage_ratio": original_tokens / context_limit,
+        "trigger": "truncated",
+    }
 
 
 def compress_messages_if_needed(
@@ -189,9 +269,24 @@ def compress_messages_if_needed(
     compressed_tokens = estimate_messages_tokens(compressed)
     removed_count = len(head)
 
-    # 防循环保护(与 TS 共享包对齐):压缩后仍超触发阈值 → 压缩无效,
-    # 不再返回压缩结果,避免"每轮都压缩、摘要套摘要"的历史质量退化
+    # 防循环保护(与 TS 共享包对齐):压缩后仍超触发阈值 → 常规压缩无效,
+    # 不再返回常规压缩结果,避免"每轮都压缩、摘要套摘要"的历史质量退化。
+    # 两级降级:先截断最后一条消息内容(truncated),仍不行才判 incompressible
     if compressed_tokens >= trigger_threshold:
+        # 第一级:截断降级(超长单条消息摘要化收益不足时,截到最后一条消息上)
+        fallback = _truncate_fallback(
+            system_msgs=system_msgs,
+            non_system=non_system,
+            context_limit=context_limit,
+            original_tokens=original_tokens,
+            trigger_threshold=trigger_threshold,
+            target_threshold=int(context_limit * target_ratio),
+        )
+        if fallback is not None:
+            return fallback
+
+        # 第二级 incompressible:截断到最小长度仍超触发阈值
+        # (典型场景:system prompt 本身巨大且 system 消息永不截断)
         logger.warning(
             "Context incompressible: compressed %d tokens still >= trigger threshold %d "
             "(system/material 占用过大), skip re-summarization loop",
