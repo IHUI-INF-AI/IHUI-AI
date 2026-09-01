@@ -10,6 +10,16 @@
 3. 路由决策(复杂度高→强模型,复杂度低→快模型)
 4. 成本优化(简单任务用便宜模型,复杂任务才用贵模型)
 5. 降级策略(首选模型不可用时降级到备选)
+
+生产数据源接入(P0 补实,2026-09-01):
+- `ModelRouter.from_catalog()` 从实时模型目录构建路由实例:
+  * 模型目录: data/default_models.json(可外部传入覆盖)
+  * 分类标注: model_catalog.annotate_models()(打 category / model_tier / family)
+  * 可用性过滤: model_availability.get_available_models()(只保留可用状态的 provider 模型)
+  * 只保留对话类(chat / vision)+ model_tier=latest 的模型,避免路由到 legacy
+- 降级策略: catalog 加载 / 分类 / 可用性过滤任一步失败,或过滤后为空,
+  一律 logger.warning 并回退到 DEFAULT_MODELS 兜底,保证调用方永远拿到可用实例、绝不抛异常。
+- `route_live()` 是基于当前注册模型(由 from_catalog 构建时即实时)的便捷路由入口。
 """
 
 import logging
@@ -217,6 +227,176 @@ class ModelRouter:
     def list_models(self) -> list[ModelCapability]:
         """列出所有已注册模型。"""
         return list(self.models.values())
+    
+    # ------------------------------------------------------------------ #
+    # 生产数据源接入(from_catalog + 内部辅助)
+    # ------------------------------------------------------------------ #
+
+    @classmethod
+    def from_catalog(
+        cls,
+        models: Optional[list[dict[str, Any]]] = None,
+        *,
+        now: Any = None,
+    ) -> "ModelRouter":
+        """从生产数据源构建路由器(实时模型目录 + 可用性过滤)。
+
+        数据流:
+            模型目录(default_models.json,可外部传入 dict 列表覆盖)
+            → annotate_models() 打 category / model_tier / family 标注
+            → model_availability.get_available_models() 过滤不可用模型
+            → 只保留对话类(chat/vision)+ latest 代次
+            → 映射为 ModelCapability 实例
+
+        降级策略(绝不抛异常):
+        - catalog 加载 / 分类 / 可用性过滤任一步失败 → logger.warning,跳过对应环节
+        - 过滤后无可路由模型,或能力映射后为空 → 降级回 DEFAULT_MODELS
+        - 兜底:整体 try/except 捕获未知异常 → 返回 cls()(DEFAULT_MODELS 兜底)
+
+        Args:
+            models: 可选,外部传入的模型 dict 列表(替代从 default_models.json 加载)。
+                    dict 结构参考 data/default_models.json: id/name/provider/
+                    context_length/input_price/caps{...},annotate_models() 会补 category/tier。
+            now: 可选,分类时间基准(透传给 annotate_models(),测试注入用)。
+
+        Returns:
+            ModelRouter 实例,注册的模型为过滤后的实时可用对话模型。
+        """
+        try:
+            if models is None:
+                models = cls._load_catalog_file()
+            if not models:
+                logger.warning("[ModelRouter.from_catalog] 模型目录为空,降级到 DEFAULT_MODELS")
+                return cls()
+
+            # 1. 分类标注:给每个模型 dict 原地附加 category / model_tier / family
+            try:
+                from .model_catalog import annotate_models
+
+                annotate_models(models, now=now)
+            except Exception as e:
+                # 分类失败不阻塞:依赖 JSON 预置的 model_tier(存在时)继续走过滤
+                logger.warning("[ModelRouter.from_catalog] 模型分类失败,跳过分类过滤: %s", e)
+
+            # 2. 可用性过滤:只保留 HEALTHY / DEGRADED / LOCAL / ZERO_COST / PENDING 等可用状态
+            try:
+                from .model_availability import model_availability
+
+                models = model_availability.get_available_models(models)
+            except Exception as e:
+                logger.warning("[ModelRouter.from_catalog] 可用性过滤失败,跳过过滤: %s", e)
+
+            # 3. 只保留对话类(chat/vision)+ latest 代次
+            routable = [m for m in models if cls._is_routable(m)]
+            if not routable:
+                logger.warning("[ModelRouter.from_catalog] 无可路由模型(过滤后为空),降级到 DEFAULT_MODELS")
+                return cls()
+
+            # 4. 映射为 ModelCapability 实例(cost 等无数据字段用默认值)
+            capabilities = [c for m in routable if (c := cls._to_capability(m)) is not None]
+            if not capabilities:
+                logger.warning("[ModelRouter.from_catalog] 能力映射后为空,降级到 DEFAULT_MODELS")
+                return cls()
+
+            logger.info("[ModelRouter.from_catalog] 实时模型路由构建成功: %d 个对话模型", len(capabilities))
+            return cls(models=capabilities)
+        except Exception as e:
+            # 兜底:任何未知异常都降级回 DEFAULT_MODELS,保证调用方永远拿到可用实例
+            logger.warning("[ModelRouter.from_catalog] 生产数据源接入失败,降级到 DEFAULT_MODELS: %s", e)
+            return cls()
+
+    @staticmethod
+    def _load_catalog_file() -> list[dict[str, Any]]:
+        """从 data/default_models.json 加载模型目录(与 /llm/models 同源)。
+
+        文件不存在 / 解析失败 / 无有效条目时返回空列表(由 from_catalog 降级处理)。
+        """
+        import json
+        from pathlib import Path
+
+        catalog_path = Path(__file__).resolve().parent.parent / "data" / "default_models.json"
+        try:
+            if not catalog_path.exists():
+                logger.warning("[ModelRouter.from_catalog] 模型目录不存在: %s", catalog_path)
+                return []
+            data = json.loads(catalog_path.read_text(encoding="utf-8"))
+            raw_models = data.get("models", []) if isinstance(data, dict) else data
+            if not isinstance(raw_models, list):
+                return []
+            return [m for m in raw_models if isinstance(m, dict) and m.get("id")]
+        except Exception as e:
+            logger.warning("[ModelRouter.from_catalog] 读取模型目录失败: %s", e)
+            return []
+
+    @staticmethod
+    def _is_routable(m: dict[str, Any]) -> bool:
+        """是否可路由:对话类用途(chat/vision)且 latest 代次。
+
+        分类标注缺失时,类别默认 chat;代次取 dict 中的 model_tier(JSON 预置值),
+        未标注的按 standard 处理(不进路由,避免把过时模型引入生产路由)。
+        """
+        category = str(m.get("category") or "chat")
+        tier = str(m.get("model_tier") or "standard")
+        return category in ("chat", "vision") and tier == "latest"
+
+    @staticmethod
+    def _to_capability(m: dict[str, Any]) -> Optional[ModelCapability]:
+        """模型 dict → ModelCapability 实例。
+
+        字段映射:
+        - model_id/name: 直接取自 dict(id/name)
+        - context_length: 优先 dict.context_length,降级 caps.max_context,兜底 4096
+        - supports_tools / supports_vision: 取自 caps 声明,缺失时给宽松默认
+          (tools 默认 True 允许工具任务,vision 默认 False,由 category=vision 兜底判定)
+        - reasoning_power / speed_tps / output_price: 目录无此数据,用保守默认值,
+          避免在路由打分中失真(cost 无数据置 0,本地优先排序不受影响)
+        """
+        try:
+            mid = str(m.get("id") or "")
+            if not mid:
+                return None
+            caps = m.get("caps") or {}
+            context_length = int(m.get("context_length") or caps.get("max_context") or 4096)
+            supports_vision = bool(caps.get("supports_vision", False)) or str(m.get("category")) == "vision"
+            return ModelCapability(
+                model_id=mid,
+                name=str(m.get("name") or mid),
+                context_length=context_length,
+                reasoning_power=5,  # 目录无推理力数据,取中等默认
+                speed_tps=60,       # 目录无速度数据,取保守默认
+                input_price=float(m.get("input_price") or 0.0),
+                output_price=0.0,   # 目录无输出价格数据
+                supports_tools=bool(caps.get("supports_tools", True)),
+                supports_vision=supports_vision,
+            )
+        except (TypeError, ValueError) as e:
+            # 脏数据(字段类型异常)跳过该模型,不影响其余模型
+            logger.warning("[ModelRouter.from_catalog] 模型能力映射失败(%s),跳过: %s", m.get("id"), e)
+            return None
+
+    def route_live(
+        self,
+        prompt: str,
+        token_count: int = 0,
+        has_tools: bool = False,
+        has_code: bool = False,
+        has_vision: bool = False,
+        preferred_model: Optional[str] = None,
+    ) -> RoutingDecision:
+        """便捷路由入口:基于当前注册模型列表做路由决策。
+
+        与 `route()` 行为完全一致 —— 路由本就基于 self.models 工作,
+        由 `from_catalog()` 构建的实例注册的就是实时过滤后的模型,
+        故 route_live 仅为语义化命名,便于调用方表达"走实时模型路由"的意图。
+        """
+        return self.route(
+            prompt=prompt,
+            token_count=token_count,
+            has_tools=has_tools,
+            has_code=has_code,
+            has_vision=has_vision,
+            preferred_model=preferred_model,
+        )
 
 # 模块级单例
 model_router = ModelRouter()
