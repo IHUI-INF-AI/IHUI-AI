@@ -71,13 +71,19 @@ async function githubApi(path, init, attempt = 0) {
   return res.json()
 }
 
+// 单版本 4 平台标准产出(不含 latest.json):windows(4)+linux(6)+macos×2(3+3)=16
+// 注意:历史 Release 可能累积旧版本残留文件(如 desktop-v0.1.14 同时含 0.1.13 残留共 29),
+// 阈值须基于「单版本干净产出」设定,勿按累积 Release 设高 ——否则干净的单版本发布会因
+// assets<阈值被误判未就绪而等待 12 次超时失败(2026-09-01 实证:0.1.15 单版本仅 17 assets 却卡死)
+const EXPECTED_MIN_ASSETS = 16
+const EXPECTED_MIN_SIGS = 7
 /** 等待 release assets 达到预期数量,防止竞态条件导致 sig 文件未上传完成 */
-async function waitForRelease(tag, expectedMinAssets = 20, maxRetries = 12, retryInterval = 10000) {
+async function waitForRelease(tag, expectedMinAssets = EXPECTED_MIN_ASSETS, maxRetries = 12, retryInterval = 10000) {
   for (let i = 0; i < maxRetries; i++) {
     const release = await githubApi(`/repos/${repo}/releases/tags/${tag}`)
     const sigCount = release.assets.filter(a => a.name.endsWith('.sig')).length
     console.log(`[poll] Attempt ${i + 1}/${maxRetries}: release has ${release.assets.length} assets, ${sigCount} sig files`)
-    if (release.assets.length >= expectedMinAssets && sigCount >= 8) {
+    if (release.assets.length >= expectedMinAssets && sigCount >= EXPECTED_MIN_SIGS) {
       console.log(`[poll] Release ready: ${release.assets.length} assets, ${sigCount} sig files`)
       return release
     }
