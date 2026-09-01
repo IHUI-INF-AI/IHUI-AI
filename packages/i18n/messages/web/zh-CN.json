@@ -7936,7 +7936,11 @@
     "communityPublishTitleRequired": "请输入标题",
     "communityPublishing": "发布中...",
     "compaction": {
-      "truncatedNotice": "最后一条消息过长,已截断内容以保持对话可用"
+      "truncatedNotice": "最后一条消息过长,已截断内容以保持对话可用",
+      "viewArchived": "查看已压缩的 {count} 条原始消息",
+      "archiveTitle": "压缩归档 · 原始消息",
+      "archiveEmpty": "暂无压缩归档",
+      "archiveLoading": "加载中..."
     },
     "contextCompacted": "上下文已自动压缩",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",

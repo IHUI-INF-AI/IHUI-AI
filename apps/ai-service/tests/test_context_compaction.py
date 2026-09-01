@@ -16,9 +16,10 @@
   - 压缩后仍超阈值 → 两级降级:
     - 第一级 truncate-fallback:kr=1 + 截断最后一条消息内容(trigger=truncated)
     - 第二级 incompressible:截断到最小长度仍超阈值(system 巨大)→ 返回原消息
-- 摘要内容:含 system 跳过 / 标记行计数 / 截断 200 字符 / 含角色标签
+- 摘要内容:含 system 跳过 / 标记行计数 / 分层金字塔(近层 200 / 远层 120)/ 含角色标签
 - 摘要防嵌套:历史摘要正文原样并入、条数累加,不套规则摘要
-- tool result 摘要:保留前 160 字符 + '…',空内容纯占位
+- tool result 摘要:远层保留前 120 字符 + '…',空内容纯占位
+- custom_summary:LLM 语义摘要整段替代(不做分层),端到端透传
 - tool_calls 配对组保护:kr 切分按组对齐,无孤 tool 消息
   (尾部整组保留 / kr=1 整组摘要 / 单组覆盖窗口不切分 / fallback 整组保留不截 tool result)
 - info 返回字段:compressed / original_tokens / compressed_tokens / removed_count / usage_ratio / trigger
@@ -36,6 +37,9 @@ from app.core.context_compaction import (
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
     SUMMARY_MARKER,
+    SUMMARY_RECENT_CHARS,
+    SUMMARY_REMOTE_CHARS,
+    SUMMARY_TIER_RECENT_RATIO,
     TOOL_RESULT_SUMMARY_CHARS,
     TRUNCATE_MARKER,
     _build_structured_summary,
@@ -285,7 +289,8 @@ def test_compress_non_system_le_keep_recent_no_compress():
 def _make_head_heavy_messages(n_head: int = 4, n_tail: int = 6) -> list[dict]:
     """构造 head 长 tail 短的触发压缩消息。
 
-    head 每条 "x"*5000(≈629 tokens)会被摘要截断为前 200 字符("x"*200 ≈ 25 tokens),
+    head 每条 "x"*5000(≈629 tokens)按分层金字塔截断
+    (近层前 200 字符 / 远层前 120 字符,压缩率更高),
     tail 每条 "t"*100(≈17 tokens)原样保留,
     使 compressed_tokens 远低于触发阈值(防循环保护不误触发)。
     """
@@ -398,7 +403,12 @@ def test_constants_match_ts_share_package():
     assert DEFAULT_KEEP_RECENT == 6
     assert DEFAULT_MIN_MESSAGES == 2  # 与 TS 共享包一致(2026-08-16 起)
     assert SUMMARY_MARKER == "[上下文摘要"
-    assert TOOL_RESULT_SUMMARY_CHARS == 160
+    # 分层金字塔常量(与 TS 共享包一致)
+    assert SUMMARY_TIER_RECENT_RATIO == 0.3
+    assert SUMMARY_RECENT_CHARS == 200
+    assert SUMMARY_REMOTE_CHARS == 120
+    # 旧"统一 160"常量已收编为远层常量兼容别名
+    assert TOOL_RESULT_SUMMARY_CHARS == SUMMARY_REMOTE_CHARS
 
 
 # =============================================================================
@@ -718,15 +728,15 @@ def test_compress_nested_summary_count_accumulates():
     assert "[user] [上下文摘要" not in summary_content
 
 
-def test_summarize_message_tool_keeps_first_160_chars():
-    """tool result 摘要保留前 160 chars + '…'。"""
+def test_summarize_message_tool_keeps_remote_chars():
+    """tool result 摘要保留远层字符数(TOOL_RESULT_SUMMARY_CHARS 别名 = 120)+ '…'。"""
     long_result = "r" * 300
     s = _summarize_message({"role": "tool", "content": long_result})
     assert s == f"[tool] {'r' * TOOL_RESULT_SUMMARY_CHARS}…"
 
 
 def test_summarize_message_tool_short_content_kept_whole():
-    """tool result 内容不超过 160 chars 时原样保留。"""
+    """tool result 内容不超过保留上限(120 chars)时原样保留。"""
     s = _summarize_message({"role": "tool", "content": "短结果"})
     assert s == "[tool] 短结果"
 
@@ -737,7 +747,7 @@ def test_summarize_message_tool_empty_content_placeholder():
 
 
 def test_compress_summary_keeps_tool_result_prefix():
-    """端到端:长 tool result 压缩后摘要含前 160 chars(配对组整组进摘要)。"""
+    """端到端:长 tool result 压缩后摘要含前 120 chars(远层 tool,配对组整组进摘要)。"""
     long_result = "R" * 300
     msgs = (
         [{"role": "system", "content": "sys"}]
@@ -749,4 +759,89 @@ def test_compress_summary_keeps_tool_result_prefix():
     out, info = compress_messages_if_needed(msgs, context_limit=1000, keep_recent=2)
     assert info["compressed"] is True
     assert f"[tool] {'R' * TOOL_RESULT_SUMMARY_CHARS}…" in out[1]["content"]
+
+
+# =============================================================================
+# 分层金字塔摘要(近层保留细节 / 远层浓缩)
+# =============================================================================
+
+
+def _make_tiered_user_messages(n: int = 20, body_chars: int = 300) -> list[dict]:
+    """构造 n 条可区分的长 user 消息(唯一编号前缀 + 无标点长体)。"""
+    return [{"role": "user", "content": f"用户消息第{i}条。{'x' * body_chars}"} for i in range(n)]
+
+
+def test_build_structured_summary_recent_tier_keeps_200_chars():
+    """近层(最后 ceil(20*0.3)=6 条)摘要行保留各自前 200 chars,第 14 条(远层)不含。"""
+    msgs = _make_tiered_user_messages(20)
+    s = _build_structured_summary(msgs)
+    assert s.startswith("[上下文摘要 — 之前 20 条消息已压缩]")
+    # 近层(索引 14..19):[user] + 前 200 chars 直截 + '…'
+    for i in range(14, 20):
+        assert msgs[i]["content"][:SUMMARY_RECENT_CHARS] in s
+    # 第 14 条(索引 13,远层)浓缩到前 120 字符,不含前 200 chars 片段
+    assert msgs[13]["content"][:SUMMARY_RECENT_CHARS] not in s
+
+
+def test_build_structured_summary_remote_tier_more_condensed():
+    """远层浓缩:远层摘要行长度显著小于近层(120 字符 vs 200 字符)。"""
+    msgs = _make_tiered_user_messages(20)
+    s = _build_structured_summary(msgs)
+    lines = s.split("\n")[1:]  # 去掉标记行
+    recent_lines = [ln for ln in lines if ln.endswith("…")]  # 近层:200 chars + '…'
+    remote_lines = [ln for ln in lines if not ln.endswith("…")]  # 远层:120 chars + '...'
+    assert len(recent_lines) == 6
+    assert len(remote_lines) == 14
+    # 近层行(≈219 chars)显著长于远层行(≈141 chars)
+    assert min(len(ln) for ln in recent_lines) > max(len(ln) for ln in remote_lines)
+
+
+def test_build_structured_summary_tool_result_tiered_chars():
+    """tool result 分层:近层保留前 200 chars、远层保留前 120 chars。"""
+    recent_tool = "R" * 300
+    remote_tool = "S" * 300
+    msgs = (
+        [{"role": "user", "content": "u0"}]
+        + [_assistant_with_tool_calls(["c1"]), _tool_result("c1", remote_tool)]
+        + [{"role": "user", "content": f"u{i}"} for i in range(1, 15)]
+        + [_assistant_with_tool_calls(["c2"]), _tool_result("c2", recent_tool)]
+        + [{"role": "user", "content": f"u{i}"} for i in range(15, 18)]
+    )
+    # 22 条非摘要消息 → 近层 = 最后 ceil(22*0.3)=7 条,tool(c2) 在近层、tool(c1) 在远层
+    s = _build_structured_summary(msgs)
+    assert f"[tool] {'R' * SUMMARY_RECENT_CHARS}…" in s  # 近层 tool:200 chars
+    assert f"[tool] {'S' * SUMMARY_REMOTE_CHARS}…" in s  # 远层 tool:120 chars
+    assert "S" * (SUMMARY_REMOTE_CHARS + 1) not in s  # 远层 tool 截断在 120
+
+
+def test_build_structured_summary_custom_summary_no_tiering():
+    """custom_summary 非空时优先级最高:整段替代,无分层痕迹。"""
+    msgs = _make_tiered_user_messages(20)
+    s = _build_structured_summary(msgs, custom_summary="LLM 语义摘要正文")
+    # 标记行计数仍按防嵌套规则累计,正文整段为 custom_summary
+    assert s.startswith("[上下文摘要 — 之前 20 条消息已压缩]")
+    assert "LLM 语义摘要正文" in s
+    # 无分层痕迹:无规则摘要行(无 '[user]' 标签行)、无近层 '…' 后缀;仅标记行 + 一行正文
+    assert "[user]" not in s
+    assert "…" not in s
+    assert s.count("\n") == 1
+
+
+def test_compress_custom_summary_end_to_end():
+    """端到端:compress_messages_if_needed 传 custom_summary → 摘要正文整段用之(对齐 TS customSummary)。"""
+    msgs = [{"role": "system", "content": "sys"}] + _make_tiered_user_messages(20)
+    out, info = compress_messages_if_needed(msgs, context_limit=800, custom_summary="端到端LLM摘要")
+    assert info["compressed"] is True
+    assert info["trigger"] == "ratio"
+    summary = out[1]
+    assert summary["role"] == "user"
+    assert "端到端LLM摘要" in summary["content"]
+    assert "[user]" not in summary["content"]
+
+
+def test_summary_tier_constants_match_ts_share_package():
+    """分层常量与 TS 共享包规格一致(0.3 / 200 / 120)。"""
+    assert SUMMARY_TIER_RECENT_RATIO == 0.3
+    assert SUMMARY_RECENT_CHARS == 200
+    assert SUMMARY_REMOTE_CHARS == 120
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

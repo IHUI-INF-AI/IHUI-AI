@@ -168,7 +168,9 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
 
   it('触发压缩时执行 preCompact 和 postCompact 钩子', () => {
     const messages = buildLargeMessages(20);
-    const result = compressContextIfNeeded(messages, { contextLimit: 500 });
+    // 分层金字塔摘要后近层保留 200 chars → 压缩候选 ≈530 tokens,
+    // trigger 需 > 候选才能接受压缩:contextLimit=700 → trigger=616 > 530 ✓
+    const result = compressContextIfNeeded(messages, { contextLimit: 700 });
 
     expect(result.compressed).toBe(true);
     expect(fs.existsSync(markerPath)).toBe(true);
@@ -303,7 +305,8 @@ describe('HookContext 字段传递', () => {
         content: `Message ${i} with content for token generation. `.repeat(10),
       })),
     ];
-    const result = compressContextIfNeeded(messages, { contextLimit: 500 });
+    // 分层后压缩候选 ≈530 tokens,trigger 需 > 候选:contextLimit=700 → trigger=616 ✓
+    const result = compressContextIfNeeded(messages, { contextLimit: 700 });
 
     expect(result.compressed).toBe(true);
     expect(fs.existsSync(envPath)).toBe(true);

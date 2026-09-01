@@ -282,6 +282,41 @@ export function exportConversation(id: string, format: 'txt' | 'md' = 'md'): Pro
   return fetchText(`/api/chat/conversations/${encodeURIComponent(id)}/export?format=${format}`)
 }
 
+/** 压缩归档列表项("归档记忆" 2026-09-01 立;列表不含 messages 大字段) */
+export interface CompactionArchiveItem {
+  id: string
+  conversationId: string
+  messageCount: number
+  coveredChars: number | null
+  createdAt: string
+}
+
+/** 压缩归档详情(含被压缩的原始消息数组,结构与 replaceMessages 持久化消息一致) */
+export interface CompactionArchiveMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content: string
+  [key: string]: unknown
+}
+
+export interface CompactionArchiveDetail extends CompactionArchiveItem {
+  messages: CompactionArchiveMessage[]
+}
+
+/** 获取对话的压缩归档列表(压缩前的原始消息存档,按时间倒序) */
+export function listCompactionArchives(conversationId: string) {
+  return fetchApi<{ archives: CompactionArchiveItem[] }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/archives`,
+  )
+}
+
+/** 获取单条压缩归档详情(含被压缩的原始消息) */
+export function getCompactionArchive(conversationId: string, archiveId: string) {
+  return fetchApi<{ archive: CompactionArchiveDetail }>(
+    `/api/chat/conversations/${encodeURIComponent(conversationId)}/archives/${encodeURIComponent(archiveId)}`,
+  )
+}
+
+
 /** 压缩对话历史至目标字符数 */
 export function compressConversation(id: string, targetChars: 200000 | 1000000) {
   return fetchApi<{

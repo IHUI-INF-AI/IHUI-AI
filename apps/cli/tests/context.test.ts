@@ -9,6 +9,9 @@ import {
   summarizeMessage,
   compressContext,
   compressContextIfNeeded,
+  SUMMARY_TIER_RECENT_RATIO,
+  SUMMARY_RECENT_CHARS,
+  SUMMARY_REMOTE_CHARS,
   type ChatMessage,
 } from '../src/context.js'
 
@@ -481,15 +484,15 @@ describe('customSummary 消费', () => {
 // ==================== tool result 摘要保留内容 ====================
 
 describe('tool result 摘要保留内容', () => {
-  it('summarizeMessage:tool 消息保留前 160 chars + 省略号,空内容用占位', () => {
+  it('summarizeMessage:tool 消息保留前 120 chars(远层收编)+ 省略号,空内容用占位', () => {
     expect(summarizeMessage({ role: 'tool', content: 'x'.repeat(1000) })).toBe(
-      `[tool] ${'x'.repeat(160)}…`,
+      `[tool] ${'x'.repeat(SUMMARY_REMOTE_CHARS)}…`,
     )
     expect(summarizeMessage({ role: 'tool', content: 'ok' })).toBe('[tool] ok')
     expect(summarizeMessage({ role: 'tool', content: '' })).toBe('[tool] (空)')
   })
 
-  it('压缩后摘要含 tool result 前 160 chars 内容片段(信息保留度提升)', () => {
+  it('压缩后摘要含 tool result 前 200 chars 内容片段(近层信息保留度提升)', () => {
     const toolContent = 'TOOLRESULT'.repeat(800) // 8800 chars ≈ 2400 tokens,压缩后摘要应保留其开头
     const longContent = 'x'.repeat(8000) // 每条 ~1000 tokens
     const messages: ChatMessage[] = [
@@ -509,8 +512,114 @@ describe('tool result 摘要保留内容', () => {
       (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
     )
     expect(summary).toBeDefined()
-    expect(summary!.content).toContain(toolContent.slice(0, 160))
+    // toCompress = [u0, A(c1), tool]:tool 是最后 1 条 → 近层(ceil(3*0.3)=1)→ 保留前 200 chars
+    expect(summary!.content).toContain(toolContent.slice(0, SUMMARY_RECENT_CHARS))
     assertNoOrphanTools(r.messages)
+  })
+})
+
+// ==================== 分层金字塔摘要(近层保留细节 / 远层浓缩) ====================
+
+describe('分层金字塔摘要', () => {
+  /** 构造 n 条可区分的长 user 消息(唯一编号前缀 + 无标点长体:远层规则摘要只留首句) */
+  function buildTieredUserMessages(n: number): ChatMessage[] {
+    return Array.from({ length: n }, (_, i) => ({
+      role: 'user' as const,
+      content: `用户消息第${i}条。${'x'.repeat(300)}`,
+    }))
+  }
+
+  it('近层保留量:最后 ceil(20*0.3)=6 条摘要行含各自前 200 chars,第 14 条(远层)不含', () => {
+    // compressContext(keepRecent=0) 使 toCompress = 全部 20 条 → 近层 = 最后 6 条
+    const msgs = buildTieredUserMessages(20)
+    const r = compressContext(msgs, { maxTokens: 100, keepRecent: 0 })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    expect(summary!.content).toContain('[上下文摘要 — 之前 20 条消息已压缩]')
+    // 近层(最后 6 条,索引 14..19):摘要行 = [user] + 前 200 chars 直截
+    for (let i = 14; i < 20; i++) {
+      expect(summary!.content).toContain(msgs[i]!.content.slice(0, SUMMARY_RECENT_CHARS))
+    }
+    // 第 14 条(索引 13,远层)走规则摘要(首句浓缩),不含前 200 chars 片段
+    expect(summary!.content).not.toContain(msgs[13]!.content.slice(0, SUMMARY_RECENT_CHARS))
+  })
+
+  it('远层浓缩:远层摘要行长度显著小于近层', () => {
+    const msgs = buildTieredUserMessages(20)
+    const r = compressContext(msgs, { maxTokens: 100, keepRecent: 0 })
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )!
+    const lines = summary.content.split('\n').slice(1) // 去掉标记行
+    const recentLines = lines.filter((ln) => ln.endsWith('…')) // 近层:200 chars 直截 + '…'
+    const remoteLines = lines.filter((ln) => !ln.endsWith('…')) // 远层:规则摘要(首句浓缩)
+    expect(recentLines).toHaveLength(6)
+    expect(remoteLines).toHaveLength(14)
+    // 近层行(≈210 chars)显著长于远层规则摘要行(首句 ≤80 chars + 标签)
+    expect(Math.min(...recentLines.map((ln) => ln.length))).toBeGreaterThan(
+      Math.max(...remoteLines.map((ln) => ln.length)) * 2,
+    )
+  })
+
+  it('tool result 分层:近层保留前 200 chars、远层保留前 120 chars', () => {
+    // 22 条消息:tool(c1) 在远层(索引 2)、tool(c2) 在近层(最后 7 条 = ceil(22*0.3))
+    const remoteTool = 'S'.repeat(300)
+    const recentTool = 'R'.repeat(300)
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'u0' },
+      {
+        role: 'assistant',
+        content: 'a0',
+        tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } }],
+      },
+      { role: 'tool', content: remoteTool, tool_call_id: 'c1' },
+      ...Array.from({ length: 14 }, (_, i) => ({ role: 'user' as const, content: `u${i + 1}` })),
+      {
+        role: 'assistant',
+        content: 'a1',
+        tool_calls: [{ id: 'c2', type: 'function', function: { name: 'grep', arguments: '{}' } }],
+      },
+      { role: 'tool', content: recentTool, tool_call_id: 'c2' },
+      ...Array.from({ length: 3 }, (_, i) => ({ role: 'user' as const, content: `v${i}` })),
+    ]
+    const r = compressContext(messages, { maxTokens: 100, keepRecent: 0 })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )!
+    // 近层 tool(c2):前 200 chars
+    expect(summary.content).toContain(`[tool] ${recentTool.slice(0, SUMMARY_RECENT_CHARS)}`)
+    // 远层 tool(c1):前 120 chars,且不含第 121 chars(证明截断在 120)
+    expect(summary.content).toContain(`[tool] ${remoteTool.slice(0, SUMMARY_REMOTE_CHARS)}`)
+    expect(summary.content).not.toContain(remoteTool.slice(0, SUMMARY_REMOTE_CHARS + 1))
+  })
+
+  it('customSummary 覆盖:摘要正文为 LLM 文本,无分层痕迹', () => {
+    const msgs = buildTieredUserMessages(20)
+    const r = compressContextIfNeeded(msgs, {
+      contextLimit: 800,
+      customSummary: 'LLM 语义摘要正文',
+    })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    expect(summary!.content).toContain('LLM 语义摘要正文')
+    // 无分层痕迹:无规则摘要 role 标签行、无近层直截 '…' 后缀;结构 = 标记行 + 一行正文
+    expect(summary!.content).not.toContain('[user]')
+    expect(summary!.content).not.toContain('…')
+    expect(summary!.content.split('\n')).toHaveLength(2)
+  })
+
+  it('分层常量与规格一致', () => {
+    expect(SUMMARY_TIER_RECENT_RATIO).toBe(0.3)
+    expect(SUMMARY_RECENT_CHARS).toBe(200)
+    expect(SUMMARY_REMOTE_CHARS).toBe(120)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
