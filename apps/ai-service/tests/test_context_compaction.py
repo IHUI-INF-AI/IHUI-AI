@@ -13,7 +13,9 @@
   - 触发阈值 + 足够消息 → 压缩(保留 system + tail + summary)
   - 消息数 < min_messages(2) 不压缩
   - non_system <= keep_recent 不压缩
-  - 压缩后仍超阈值 → 防循环保护(trigger=incompressible),返回原消息
+  - 压缩后仍超阈值 → 两级降级:
+    - 第一级 truncate-fallback:kr=1 + 截断最后一条消息内容(trigger=truncated)
+    - 第二级 incompressible:截断到最小长度仍超阈值(system 巨大)→ 返回原消息
 - 摘要内容:含 system 跳过 / 截断 200 字符 / 含角色标签
 - info 返回字段:compressed / original_tokens / compressed_tokens / removed_count / usage_ratio / trigger
 """
@@ -29,6 +31,7 @@ from app.core.context_compaction import (
     DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
+    TRUNCATE_MARKER,
     _build_structured_summary,
     _summarize_message,
     compress_messages_if_needed,
@@ -390,32 +393,87 @@ def test_constants_match_ts_share_package():
 
 
 # =============================================================================
-# compress_messages_if_needed — 防循环保护(incompressible)
+# compress_messages_if_needed — 防循环保护两级降级(truncated / incompressible)
 # =============================================================================
 
 
-def test_compress_incompressible_returns_original():
-    """防循环保护:压缩后仍 ≥ 触发阈值 → 返回原消息(trigger=incompressible)。
+def test_compress_truncate_fallback_single_long_message():
+    """第一级降级:常规压缩无效 + 最后一条超长消息 → 截断降级(trigger=truncated)。
 
-    场景:context_limit 很小(100 → 阈值 88),system 消息本身巨大(≈629 tokens)
-    且压缩时 system 原样保留,摘要只压缩 head → 压缩后 tokens 仍远超阈值。
-    若无防循环保护,每轮都会再压缩、摘要套摘要,历史质量逐轮退化。
+    场景:用户粘贴大文件,最后一条消息上万 tokens,摘要化收益不足,
+    kr=6 常规压缩后仍超触发阈值 → 重建 kr=1 方案并截断最后一条消息内容,
+    压到 target 阈值以下,保证对话可用;system 消息原样保留(永不截断)。
+
+    token 基数(cl100k 实测):'y'*40000 ≈ 10000,'x'*5000 ≈ 625。
     """
-    huge_system = {"role": "system", "content": "S" * 5000}
-    msgs = [huge_system] + [{"role": "user", "content": "x" * 100} for _ in range(10)]
+    huge_last = "y" * 40000
+    msgs = (
+        [{"role": "system", "content": "sys"}]
+        + [{"role": "user", "content": "x" * 5000} for _ in range(6)]
+        + [{"role": "user", "content": huge_last}]
+    )
+    context_limit = 5000
+    trigger_threshold = int(context_limit * DEFAULT_TRIGGER_RATIO)  # 4400
+    target_threshold = int(context_limit * DEFAULT_TARGET_RATIO)  # 3000
 
-    # 前置条件确认:original 超阈值、消息数足够、non_system 足够,必然进入压缩分支
-    assert estimate_messages_tokens(msgs) > int(100 * DEFAULT_TRIGGER_RATIO)
+    # 前置条件:original 超触发阈值(tail 含超长消息,kr=6 常规压缩必然仍超标)
+    assert estimate_messages_tokens(msgs) > trigger_threshold
 
-    out, info = compress_messages_if_needed(msgs, context_limit=100)
+    out, info = compress_messages_if_needed(msgs, context_limit=context_limit)
+
+    assert info["compressed"] is True
+    assert info["trigger"] == "truncated"
+    # 压缩后 tokens <= target 阈值(自然也低于触发阈值)
+    assert info["compressed_tokens"] <= target_threshold
+    assert info["compressed_tokens"] < trigger_threshold
+    # 结构:system + 摘要 + 截断后的最后一条消息
+    assert len(out) == 3
+    assert out[0]["role"] == "system"
+    assert out[0]["content"] == "sys"  # system 永不截断
+    assert "上下文摘要" in out[1]["content"]
+    assert out[-1]["role"] == "user"
+    assert out[-1]["content"].endswith(TRUNCATE_MARKER)
+    # 原消息列表不被修改(截断发生在拷贝上)
+    assert out is not msgs
+    assert out[-1] is not msgs[-1]
+    assert msgs[-1]["content"] == huge_last
+    assert info["original_tokens"] == estimate_messages_tokens(msgs)
+    # 除最后一条外的全部 non-system 消息被摘要化
+    assert info["removed_count"] == 6
+    assert info["usage_ratio"] == info["original_tokens"] / context_limit
+
+
+def test_compress_incompressible_when_system_too_large():
+    """第二级降级:system 本身巨大(永不截断)→ 截断到最小长度仍超阈值 → incompressible。
+
+    构造:system ≈5000 tokens('A'*40000)+ 2 条普通消息(各 ≈100 tokens),
+    contextLimit=5000(触发阈值 4400):kr=1 候选含不截断的 system ≈5100 ≥ 4400,
+    最后一条 user 消息截到最小长度仍超 → 返回原消息(防循环保护)。
+    """
+    msgs = (
+        [{"role": "system", "content": "A" * 40000}]  # ≈5000 tokens
+        + [{"role": "user", "content": "x" * 800} for _ in range(2)]  # 各 ≈100 tokens
+    )
+    context_limit = 5000
+    trigger_threshold = int(context_limit * DEFAULT_TRIGGER_RATIO)  # 4400
+
+    # 前置条件:original 超阈值;keep_recent=1 使消息数足以进入压缩分支
+    assert estimate_messages_tokens(msgs) > trigger_threshold
+
+    out, info = compress_messages_if_needed(
+        msgs, context_limit=context_limit, keep_recent=1
+    )
 
     assert info["compressed"] is False
     assert info["trigger"] == "incompressible"
-    # 返回的就是原 messages 列表(同一对象引用)
+    # 消息原样返回(同一对象引用,内容未被截断)
     assert out is msgs
+    assert out[0]["content"] == "A" * 40000
+    assert out[1]["content"] == "x" * 800
+    assert out[2]["content"] == "x" * 800
     assert info["removed_count"] == 0
     assert info["original_tokens"] == estimate_messages_tokens(msgs)
     # compressed_tokens 报告的是"尝试压缩后仍超标"的 token 数
-    assert info["compressed_tokens"] >= int(100 * DEFAULT_TRIGGER_RATIO)
-    assert info["usage_ratio"] == info["original_tokens"] / 100
+    assert info["compressed_tokens"] >= trigger_threshold
+    assert info["usage_ratio"] == info["original_tokens"] / context_limit
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

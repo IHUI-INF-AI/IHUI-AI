@@ -37,6 +37,14 @@ export const DEFAULT_MAX_TOKENS = 24_000
 /** 70% 阈值提醒(与 88% 强制压缩互补) */
 export const CONTEXT_BUDGET_THRESHOLD = 0.7
 
+// 截断降级(truncate-fallback)常量:常规压缩无效时对最后一条消息做内容截断
+/** 截断保留的最小字符数(下限) */
+export const MIN_TRUNCATE_CHARS = 100
+/** 截断标记(追加在被截断内容末尾) */
+export const TRUNCATION_MARKER = '…[已截断]'
+/** 截断迭代最大次数 */
+export const MAX_TRUNCATE_ATTEMPTS = 8
+
 // ==================== Token 估算 ====================
 
 export function estimateTokens(text: string): number {
@@ -61,9 +69,10 @@ export interface CompressionResult {
    *   - 'ratio':百分比阈值触发并压缩成功
    *   - 'absolute':绝对值阈值触发并压缩成功
    *   - 'none':未达阈值,不压缩
-   *   - 'incompressible':已达触发阈值,但压缩后 token 仍 >= 触发阈值(压不动),返回原消息防循环
+   *   - 'truncated':常规摘要压缩压不动,已对最后一条消息做内容级截断降级(截断成功,保证对话可用)
+   *   - 'incompressible':截断到最小长度仍 >= 触发阈值(典型:system 本身巨大),返回原消息防循环
    */
-  trigger?: 'ratio' | 'absolute' | 'none' | 'incompressible'
+  trigger?: 'ratio' | 'absolute' | 'none' | 'truncated' | 'incompressible'
   usageRatio?: number
 }
 
@@ -89,6 +98,82 @@ export interface RatioCompressionOptions {
 export interface CompactionHooks {
   preCompact?: (ctx: { compactedTokensBefore: number }) => void
   postCompact?: (ctx: { compactedTokensBefore: number; compactedTokensAfter: number }) => void
+}
+
+/**
+ * 截断降级(truncate-fallback) — kr=1 方案 + 最后一条消息内容截断(system 消息永不截断)。
+ *
+ * 常规摘要压缩无法达标时(典型:超长单条消息如粘贴大文件,摘要化收益不足),
+ * 重建 kr=1 方案(system + 摘要 + 最后一条消息),对最后一条消息做内容截断,
+ * 按 BPE 密度估算裁剪字符量,迭代收敛到目标阈值以下。
+ *
+ * @returns 截断后 tokens < 触发阈值 → CompressionResult(trigger='truncated');
+ *          截断到最小长度仍 >= 触发阈值(典型:system 本身巨大)→ null(走 incompressible)
+ */
+function tryTruncateFallback(
+  systemMsgs: ChatMessage[],
+  nonSystem: ChatMessage[],
+  originalTokens: number,
+  triggerThreshold: number,
+  targetThreshold: number,
+  usageRatio: number,
+): CompressionResult | null {
+  if (nonSystem.length === 0) return null
+
+  const lastMsg = nonSystem[nonSystem.length - 1]!
+  if (typeof lastMsg.content !== 'string' || !lastMsg.content) {
+    // 非 str content(vision 等)或空内容无法安全截断 → 交给 incompressible
+    return null
+  }
+
+  // kr=1 方案:system + 摘要(除最后一条外的全部 non-system) + 最后一条消息
+  const toCompressAll = nonSystem.slice(0, nonSystem.length - 1)
+  const summaryParts: string[] = []
+  for (const msg of toCompressAll) {
+    summaryParts.push(summarizeMessage(msg))
+  }
+  const summaryMsg: ChatMessage = {
+    role: 'user',
+    content: `[上下文摘要 — 之前 ${toCompressAll.length} 条消息已压缩]\n${summaryParts.join('\n')}`,
+  }
+  // 拷贝最后一条消息,不改动原消息列表
+  const truncatedLast: ChatMessage = { ...lastMsg }
+  const candidate: ChatMessage[] = [...systemMsgs, summaryMsg, truncatedLast]
+
+  let keepContent = lastMsg.content
+  let tokens = 0
+  for (let attempt = 0; attempt < MAX_TRUNCATE_ATTEMPTS; attempt++) {
+    truncatedLast.content = keepContent
+    tokens = estimateMessagesTokens(candidate)
+    if (tokens <= targetThreshold) break // 截断成功
+    if (keepContent.length <= MIN_TRUNCATE_CHARS) break // 截到下限仍不达标
+    const excessTokens = tokens - targetThreshold
+    // 每 char 的 token 数(BPE 密度),据此估算需裁剪的字符数,1.2 倍安全余量
+    const density = estimateTokens(keepContent) / Math.max(1, keepContent.length)
+    const cutChars = Math.ceil((excessTokens / Math.max(density, 0.01)) * 1.2)
+    keepContent =
+      keepContent.slice(0, Math.max(MIN_TRUNCATE_CHARS, keepContent.length - cutChars)) +
+      TRUNCATION_MARKER
+  }
+
+  if (tokens >= triggerThreshold) {
+    // 截断到最小长度仍超触发阈值 → 第二级 incompressible
+    return null
+  }
+
+  console.warn(
+    `[Compaction] truncate-fallback: ${originalTokens} → ${tokens} tokens (trigger_threshold=${triggerThreshold}), ` +
+      `last message ${lastMsg.content.length} → ${truncatedLast.content.length} chars`,
+  )
+  return {
+    messages: candidate,
+    compressed: true,
+    originalTokens,
+    compressedTokens: tokens,
+    removedCount: toCompressAll.length,
+    trigger: 'truncated',
+    usageRatio,
+  }
 }
 
 // ==================== 结构化摘要 ====================
@@ -353,11 +438,23 @@ export function compressContextIfNeeded(
   }
 
   // 2026-09-01 立:防循环压缩保护 — 无达标方案时,若最优候选(压缩后 token 最小)仍 >= 触发阈值,
-  // 说明这批消息"压不动"(摘要化收益不足以降到 88% 以下)。此时若仍返回压缩结果,
+  // 说明常规摘要压缩"压不动"(摘要化收益不足以降到 88% 以下)。此时若仍返回压缩结果,
   // 下一轮会再次触发压缩并对摘要再摘要,导致信息每轮退化 + 每轮必压缩的循环。
-  // 因此返回原消息(compressed:false),由调用方保留完整上下文。
-  // 与 ai-service Python 端(app/core/context_compaction.py 的 incompressible 分支)语义对齐。
+  // 两级降级:① 截断最后一条消息内容(trigger='truncated',超长单条消息如粘贴大文件的兜底);
+  //          ② 截断到最小长度仍超阈值(典型:system 本身巨大)→ 返回原消息(trigger='incompressible')。
+  // 与 ai-service Python 端(app/core/context_compaction.py 的 _truncate_fallback)语义对齐。
   if (!bestResult && smallestCandidate!.compressedTokens >= triggerThreshold) {
+    const truncateResult = tryTruncateFallback(
+      systemMsgs, nonSystem, originalTokens, triggerThreshold, targetThreshold, usageRatio,
+    )
+    if (truncateResult) {
+      hooks?.postCompact?.({
+        compactedTokensBefore: originalTokens,
+        compactedTokensAfter: truncateResult.compressedTokens,
+      })
+      return truncateResult
+    }
+
     console.warn(
       '[Compaction] incompressible: best candidate still exceeds trigger threshold, keep original messages,',
       {

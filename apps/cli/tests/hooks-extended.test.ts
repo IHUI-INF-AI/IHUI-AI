@@ -199,9 +199,9 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     expect(postIdx).toBeGreaterThan(preIdx);
   });
 
-  it('防循环返回时仍补发 postCompact 钩子(incompressible 路径配对)', () => {
+  it('截断降级成功时正常执行 preCompact/postCompact 钩子(truncated 路径)', () => {
     // 'y' BPE 实测 0.25 token/char:每条 32000 chars ≈ 8000 tokens,2 条非 system ≈ 16015
-    // contextLimit=9000 → trigger=7920;kr=1 最优候选 ≈8040 >= 7920 压不动 → incompressible
+    // contextLimit=9000 → trigger=7920;kr=1 摘要化候选 ≈8040 >= 7920 压不动 → 截断降级成功
     const longContent = 'y'.repeat(32000);
     const messages: ChatMessage[] = [
       { role: 'system', content: 'sys' },
@@ -209,6 +209,25 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
       { role: 'assistant', content: longContent + '_a1' },
     ];
     const result = compressContextIfNeeded(messages, { contextLimit: 9000 });
+
+    expect(result.compressed).toBe(true);
+    expect(result.trigger).toBe('truncated');
+    // 截断成功走正常压缩完成路径,钩子配对触发
+    expect(fs.existsSync(markerPath)).toBe(true);
+    const content = fs.readFileSync(markerPath, 'utf-8');
+    expect(content).toContain('pre');
+    expect(content).toContain('post');
+  });
+
+  it('防循环返回时仍补发 postCompact 钩子(incompressible 路径配对)', () => {
+    // system 'A'*40000 ≈ 5100 tokens(永不截断),contextLimit=5000 → trigger=4400:
+    // 截断 user 消息到最小长度后 system 仍占 5100 ≥ 4400 → incompressible 返回原消息
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'A'.repeat(40000) },
+      { role: 'user', content: 'x'.repeat(800) },
+      { role: 'user', content: 'x'.repeat(800) },
+    ];
+    const result = compressContextIfNeeded(messages, { contextLimit: 5000 });
 
     expect(result.compressed).toBe(false);
     expect(result.trigger).toBe('incompressible');
