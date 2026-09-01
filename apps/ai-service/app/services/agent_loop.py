@@ -45,6 +45,61 @@ class AgentExecutor:
     def _new_task_id() -> str:
         return uuid.uuid4().hex[:12]
 
+    # ==================================================================
+    # P0:用户画像 + 长期记忆注入辅助(孤岛能力打通,与 agent_loop_v2 的 L1-1 记忆闭环一致)
+    # 铁律:任何失败/拿不到 user_id 都降级返回空,绝不抛异常阻塞对话
+    # ==================================================================
+
+    @staticmethod
+    def _resolve_user_id(sid: str, task_info: dict[str, Any] | None = None) -> str:
+        """解析当前任务的 user_id(供画像/长期记忆注入),拿不到返回空串。
+
+        优先级:
+        1. task 运行记录(run 前可由路由层写入 self._running[task_id]["user_id"])
+        2. session_id 复合格式前缀 user:{user_id}:{session}(冒号分隔保守解析)
+        3. 都拿不到 → 返回空串(调用方 debug 日志后跳过注入,绝不阻塞对话)
+        """
+        uid = (task_info or {}).get("user_id")
+        if uid:
+            return str(uid)
+        if sid and ":" in sid:
+            head = sid.split(":", 1)[0].strip()
+            # 排除系统前缀,避免把 session-xxx/conv-xxx 等误判为用户标识
+            if head and head.lower() not in {"session", "conv", "sess", "u", "user", "chat"}:
+                return head
+        return ""
+
+    def _build_profile_snippet(self, user_id: str) -> str:
+        """构建用户画像 system prompt 片段(同步,读内存缓存),失败返回空串。"""
+        if not user_id:
+            return ""
+        try:
+            from .user_profile import user_profile_builder
+
+            return user_profile_builder.build_system_prompt_snippet(user_id)
+        except Exception as e:
+            logger.warning(
+                "user_profile.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+            )
+            return ""
+
+    async def _load_memory_context(self, user_id: str, sid: str) -> str:
+        """加载跨会话记忆摘要(与 v2 load_context_for_conversation 同参数),失败返回空串。"""
+        if not user_id:
+            return ""
+        try:
+            from .memory_service import memory_service as _memory_svc
+
+            return await _memory_svc.load_context_for_conversation(
+                user_id=user_id,
+                session_id=sid,
+            )
+        except Exception as e:
+            logger.warning(
+                "memory_service.load_context_for_conversation 失败(降级,不阻塞): %s", e
+            )
+            return ""
+
     def list_running(self) -> dict[str, dict[str, Any]]:
         """返回所有运行中/已完成任务的快照。"""
         # 先 snapshot 再迭代,防止并发 run/cancel 修改 _running 触发
@@ -146,6 +201,18 @@ class AgentExecutor:
         error: str | None = None
 
         try:
+            # P0 注入:解析 user_id 并预加载画像/长期记忆(与 v2 L1-1 一致;
+            # 任何失败降级为空串,绝不中断对话;user_id 拿不到则 debug 日志跳过)
+            user_id = self._resolve_user_id(sid, self._running.get(task_id))
+            if not user_id:
+                logger.debug(
+                    "agent_loop 未解析到 user_id,跳过画像/长期记忆注入(sid=%s)", sid
+                )
+            profile_snippet = self._build_profile_snippet(user_id)
+            memory_context = await self._load_memory_context(user_id, sid)
+            # 循环外声明,供完成后记忆闭环(保存洞察)使用
+            messages: list[dict[str, Any]] = []
+
             for i in range(max_iter):
                 # 检查是否被取消
                 if self._running[task_id]["status"] == "canceled":
@@ -166,6 +233,11 @@ class AgentExecutor:
                     logger.warning(
                         "meta_learner.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
                     )
+                # P0 注入:追加用户画像 + 长期记忆摘要(snippet 为空时跳过,拼接格式与现有一致)
+                if profile_snippet:
+                    system_prompt_content = f"{system_prompt_content}\n\n{profile_snippet}"
+                if memory_context:
+                    system_prompt_content = f"{system_prompt_content}\n\n{memory_context}"
                 messages = [
                     {"role": "system", "content": system_prompt_content}
                 ]
@@ -262,6 +334,25 @@ class AgentExecutor:
                 task.add_done_callback(self._pending_tasks.discard)
             except Exception as e:
                 logger.warning("Skill 自进化评估启动失败: %s", e)
+
+            # P0 记忆闭环出口:completed 后提取洞察写回跨会话记忆(与 v2 的
+            # _persist_memory_insights 行为一致;fire-and-forget 不阻塞返回,
+            # user_id 缺失或失败均降级)
+            if user_id and messages:
+                try:
+                    from .memory_service import memory_service as _memory_svc
+
+                    save_task = asyncio.create_task(
+                        _memory_svc.save_insights_from_conversation(
+                            user_id=user_id,
+                            messages=messages,
+                            session_id=sid,
+                        )
+                    )
+                    self._pending_tasks.add(save_task)
+                    save_task.add_done_callback(self._pending_tasks.discard)
+                except Exception as e:
+                    logger.warning("memory_save 启动失败(降级,不阻塞): %s", e)
 
         # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
         # canceled 状态不触发(用户主动取消,非真实失败,无可学习信号)
