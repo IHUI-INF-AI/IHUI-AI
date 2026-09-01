@@ -12939,7 +12939,22 @@
     "missingEnv": "缺少必需环境变量: {env}",
     "error": "注册失败,请稍后重试",
     "loadFailed": "加载失败,请稍后重试",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "install": "安装",
+    "installing": "安装中...",
+    "uninstall": "卸载",
+    "enable": "启用",
+    "disable": "停用",
+    "running": "运行中",
+    "stopped": "已停用",
+    "notInstalled": "未安装",
+    "statusError": "错误",
+    "toolCount": "{count} 个工具",
+    "uninstallSuccess": "{name} 已卸载",
+    "enableSuccess": "{name} 已启用",
+    "disableSuccess": "{name} 已停用",
+    "actionFailed": "操作失败,请稍后重试",
+    "lastErrorText": "错误: {error}"
   },
   "member": {
     "feedback": {

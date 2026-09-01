@@ -12962,7 +12962,22 @@
     "missingEnv": "必須環境変数がありません: {env}",
     "error": "登録に失敗しました。後でもう一度お試しください",
     "loadFailed": "読み込みに失敗しました。後でもう一度お試しください",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "install": "インストール",
+    "installing": "インストール中...",
+    "uninstall": "アンインストール",
+    "enable": "有効化",
+    "disable": "停止",
+    "running": "実行中",
+    "stopped": "停止済み",
+    "notInstalled": "未インストール",
+    "statusError": "エラー",
+    "toolCount": "{count} 個のツール",
+    "uninstallSuccess": "{name} をアンインストールしました",
+    "enableSuccess": "{name} を有効化しました",
+    "disableSuccess": "{name} を停止しました",
+    "actionFailed": "操作に失敗しました。後でもう一度お試しください",
+    "lastErrorText": "エラー: {error}"
   },
   "member": {
     "feedback": {
