@@ -78,6 +78,9 @@ MIN_BALANCE_DEFAULT = 0.01
 # 并发 ping 限流(避免一次启动几十个并发请求)
 PING_CONCURRENCY = 10
 
+# 429 限流退避(秒)— provider 被 429 后,跳过 ping 的时间,避免反复触发限流
+RATE_LIMIT_BACKOFF_S = 900
+
 # zero_cost provider 集合(无需 key 即可调用,与 free_provider_registry._ZERO_COST_CODES 对齐)
 _ZERO_COST_CODES: set[str] = {"pollinations", "llm7", "aihorde", "opencode_zen"}
 
@@ -330,6 +333,8 @@ class ModelAvailabilityService:
         self._lock = asyncio.Lock()
         self._refresh_task: Optional[asyncio.Task[None]] = None
         self._initialized = False
+        # 429 限流退避记录(provider_code → 上次 429 时间戳)
+        self._rate_limit_backoff: dict[str, float] = {}
 
     async def initialize(self) -> None:
         """启动时调用:后台跑首次 ping + 启动定时刷新任务。
@@ -603,11 +608,21 @@ class ModelAvailabilityService:
         start: float,
         recharge_url: str,
     ) -> ProviderHealth:
-        """推理请求 ping:发送 max_tokens=1 的 chat 请求(消耗 1 token 实测可用性)。
+        """推理请求 ping:优先尝试 /v1/models(轻量,不消耗 quota),降级 chat/completions 推理请求。
 
-        比 /v1/models 端点更准确(/models 可能因权限不足返回 200 但实际无法推理),
-        且能识别 402 余额不足(/models 端点不返回 402)。
+        2026-08-31 优化:为避免 ihui_relay 等 provider 429 限流,
+        先尝试 GET /v1/models(仅列模型,不消耗 token),
+        - 200 + 延迟 ≤ 10s  → HEALTHY
+        - 200 + 延迟 10-30s → DEGRADED
+        - 429 → DEGRADED + RATE_LIMITED(立即返回,不消耗额外 quota)
+        - 其他错误 → 降级到 chat/completions 推理请求(max_tokens=1,消耗 1 token)
         """
+        # 策略 1:优先尝试 /v1/models(轻量,不消耗 quota)
+        models_health = await self._try_models_ping(client, code, api_key, api_base, start, recharge_url)
+        if models_health is not None:
+            return models_health
+
+        # 策略 2:/v1/models 失败,降级到 chat/completions 推理请求(消耗 1 token 实测可用性)
         url = api_base.rstrip("/")
         # 2026-08-02 修复:Google AI Studio api_base 以 /openai 结尾(非 /v1),
         # 直接接 /chat/completions(加 /v1 会变 /v1beta/openai/v1/chat/completions → 404)
@@ -743,6 +758,84 @@ class ModelAvailabilityService:
                 recharge_url=recharge_url,
             )
 
+    async def _try_models_ping(
+        self,
+        client: httpx.AsyncClient,
+        code: str,
+        api_key: str,
+        api_base: str,
+        start: float,
+        recharge_url: str,
+    ) -> Optional[ProviderHealth]:
+        """尝试 GET /v1/models(轻量,不消耗 quota)。
+
+        Returns:
+            - 成功:ProviderHealth(HEALTHY/DEGRADED)
+            - 429:ProviderHealth(DEGRADED + RATE_LIMITED)
+            - 其他 4xx/5xx:None(降级到 inference ping)
+            - 网络错误:None(降级到 inference ping)
+        """
+        models_url = api_base.rstrip("/")
+        if models_url.endswith("/v1") or models_url.endswith("/openai") or models_url.endswith("/v4"):
+            models_url = f"{models_url}/models"
+        else:
+            models_url = f"{models_url}/v1/models"
+
+        headers: dict[str, str] = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
+        try:
+            resp = await client.get(models_url, headers=headers, timeout=15.0)
+            latency = int((time.monotonic() - start) * 1000)
+
+            if resp.status_code == 200:
+                if latency > LATENCY_DOWN_MS:
+                    return ProviderHealth(
+                        status=ProviderHealthStatus.DOWN,
+                        latency_ms=latency,
+                        last_check=time.time(),
+                        error=f"latency {latency}ms > {LATENCY_DOWN_MS}ms threshold",
+                        error_type=ProviderErrorType.TIMEOUT,
+                        recharge_url=recharge_url,
+                    )
+                if latency > LATENCY_DEGRADED_MS:
+                    return ProviderHealth(
+                        status=ProviderHealthStatus.DEGRADED,
+                        latency_ms=latency,
+                        last_check=time.time(),
+                        recharge_url=recharge_url,
+                    )
+                return ProviderHealth(
+                    status=ProviderHealthStatus.HEALTHY,
+                    latency_ms=latency,
+                    last_check=time.time(),
+                    recharge_url=recharge_url,
+                )
+
+            if resp.status_code == 429:
+                return ProviderHealth(
+                    status=ProviderHealthStatus.DEGRADED,
+                    latency_ms=latency,
+                    last_check=time.time(),
+                    error=f"HTTP 429: {resp.text[:150]}",
+                    error_type=ProviderErrorType.RATE_LIMITED,
+                    recharge_url=recharge_url,
+                )
+
+            # 401/403/402/5xx 等:降级到 inference ping 进一步确认
+            logger.debug(
+                "[%s] /v1/models returned HTTP %d, fallback to inference ping",
+                code, resp.status_code,
+            )
+            return None
+        except httpx.TimeoutException:
+            logger.debug("[%s] /v1/models timeout, fallback to inference ping", code)
+            return None
+        except Exception as e:
+            logger.debug("[%s] /v1/models error (%s), fallback to inference ping", code, type(e).__name__)
+            return None
+
     @staticmethod
     def _http_status_to_error_type(status: int) -> ProviderErrorType:
         """HTTP 状态码 → ProviderErrorType 映射。"""
@@ -808,9 +901,9 @@ class ModelAvailabilityService:
 
         # 健康检查(统一规则,zero_cost 也参与):
         # - DOWN / NOT_CONFIGURED:不显示(接不通 / 没配 key)
-        # - DEGRADED + 明确错误(429 限流/配额耗尽、402 余额不足、401 key 失效):不显示
-        #   (2026-08-02 修复:调不通的免费模型不进列表,如 gemini 429 配额耗尽 / openrouter 余额不足 / aihorde 404;
-        #    恢复后 ping 成功自动重新显示)
+        # - DEGRADED + 明确错误(402 余额不足、401 key 失效、403 权限):不显示
+        # - DEGRADED + RATE_LIMITED(429 限流):非 zero_cost(即用户主动配置 key)的 provider 仍显示
+        #   (2026-08-02 修复:调不通的免费模型不进列表;2026-08-31 调整:官方中转/key 配置的 provider 限流时仍显示)
         # - DEGRADED 无错误(仅延迟高):显示(实测可调通,只是慢,如 agnes/nvidia)
         # - PENDING / None:尚未检测(启动初期),宽松显示(等首次 ping 完成)
         health = self._health.get(code)
@@ -818,17 +911,17 @@ class ModelAvailabilityService:
             return True
         if health.status in (ProviderHealthStatus.DOWN, ProviderHealthStatus.NOT_CONFIGURED):
             return False
-        if (
-            health.status == ProviderHealthStatus.DEGRADED
-            and health.error_type
-            in (
-                ProviderErrorType.RATE_LIMITED,
+        if health.status == ProviderHealthStatus.DEGRADED:
+            # 用户主动配置 key 的 provider 即使限流也显示(如智汇AI 官方中转 429 时仍应给用户使用机会)
+            # zero_cost 免费 provider 限流时仍隐藏(用户未主动配置,恢复后自动显示)
+            if health.error_type == ProviderErrorType.RATE_LIMITED:
+                return not is_zero_cost
+            if health.error_type in (
                 ProviderErrorType.PAYMENT_REQUIRED,
                 ProviderErrorType.INVALID_KEY,
                 ProviderErrorType.FORBIDDEN,
-            )
-        ):
-            return False
+            ):
+                return False
         return True
 
     def get_available_models(self, default_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
