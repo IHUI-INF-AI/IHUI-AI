@@ -228,8 +228,11 @@ async def test_post_interrupt_value_error_400(_reset_graph_and_services, monkeyp
 # =============================================================================
 
 
-async def test_post_resume_no_graph(_reset_graph_and_services):
-    """未注册 graph → invoked=False + 跳过原因。"""
+async def test_post_resume_no_graph(_reset_graph_and_services, monkeypatch):
+    """无图可用 → invoked=False + 跳过原因(懒加载失败/未注册场景)。"""
+    # _ensure_graph 懒加载可能真的编译出默认图(2026-09-01 补实后);
+    # 此处 mock 返回 None,真正模拟"无图可用"分支。
+    monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
     resp = await post_resume(ResumeRequest(thread_id="t1", interrupt_id="int-1"))
     assert resp["code"] == 0
     cmd = resp["data"]
@@ -318,8 +321,9 @@ async def test_post_resume_value_error_400(_reset_graph_and_services, monkeypatc
 # =============================================================================
 
 
-async def test_get_state_no_graph(_reset_graph_and_services):
-    """未注册 graph → graphState=None。"""
+async def test_get_state_no_graph(_reset_graph_and_services, monkeypatch):
+    """无图可用 → graphState=None(懒加载失败/未注册场景)。"""
+    monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
     resp = await get_state("t1")
     assert resp["code"] == 0
     assert resp["data"]["threadId"] == "t1"
@@ -412,6 +416,8 @@ def _stream_client(monkeypatch):
 async def test_stream_no_graph_503(monkeypatch):
     app = FastAPI()
     app.include_router(lg.router)
+    # 懒加载可能编译出默认图;mock 返回 None,真正模拟"无图可用"→503。
+    monkeypatch.setattr(lg, "_ensure_graph", lambda: None)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.get("/api/langgraph/t1/stream")
     assert resp.status_code == 503
