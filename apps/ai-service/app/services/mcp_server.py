@@ -10,10 +10,13 @@
 
 import asyncio
 import difflib
+import functools
+import json
 import os
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, cast
 from urllib.parse import parse_qs, quote_plus, urlparse
 
@@ -753,6 +756,48 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
     return env
 
 
+_COMMAND_POLICY_DEFAULT: dict[str, Any] = {
+    # 与 app/data/command_policy.json 保持一致(文件加载失败时的回退兜底)
+    "dangerous_patterns": [
+        r";\s*\S", r"&&\s*\S", r"\|\|\s*\S",
+        r"\brm\b", r"\brmdir\b", r"\bmv\b", r"\bcp\b", r"\bmkdir\b",
+        r"\btouch\b", r"\bchmod\b", r"\bchown\b",
+        r"\bcurl\b", r"\bwget\b", r"\bscp\b", r"\bssh\b",
+        r"\bdd\b", r"\bmkfs\b", r"\bshutdown\b", r"\breboot\b",
+        r"\bkill\b", r"\bkillall\b",
+        r">\s*", r">>\s*", r"<\s*", r"\|\s*",
+        r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
+    ],
+    "allowed_prefixes": [
+        "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
+        "pnpm", "tsc", "ruff", "mypy", "pytest", "find", "grep", "rg", "wc",
+        "head", "tail", "date", "whoami", "pwd", "which", "where", "env",
+        "uname", "ver", "dir", "type", "getopt",
+    ],
+    "sensitive_file_markers": [".env", ".pem", ".key", "credentials", "secret", "token"],
+}
+
+
+@functools.lru_cache(maxsize=1)
+def _load_command_policy() -> dict[str, Any]:
+    """读取命令安全策略单一权威源(app/data/command_policy.json)。
+
+    统一安全 C4(2026-09-01):策略从函数内硬编码提取为 JSON 权威源,前后端共用
+    (前端用 scripts/generate-command-policy-ts.mjs 生成 TS 常量)。文件缺失/
+    解析失败回退 _COMMAND_POLICY_DEFAULT(与既有内联行为一致),绝不抛异常。
+    """
+    try:
+        policy_path = Path(__file__).resolve().parent.parent / "data" / "command_policy.json"
+        with open(policy_path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("command_policy.json 根必须是对象")
+        return data
+    except Exception as e:  # noqa: BLE001 - 策略加载失败回退默认,不阻塞工具
+        logger.warning("command_policy.json 加载失败,回退默认策略: %s", e)
+        return _COMMAND_POLICY_DEFAULT
+
+
 async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_command: 运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,长命令不超时)。
 
@@ -815,17 +860,9 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": f"backend={sandbox_backend} exit_code={result.exit_code}",
         }
 
-    # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)
-    _DANGEROUS_PATTERNS = [
-        r";\s*\S", r"&&\s*\S", r"\|\|\s*\S",
-        r"\brm\b", r"\brmdir\b", r"\bmv\b", r"\bcp\b", r"\bmkdir\b",
-        r"\btouch\b", r"\bchmod\b", r"\bchown\b",
-        r"\bcurl\b", r"\bwget\b", r"\bscp\b", r"\bssh\b",
-        r"\bdd\b", r"\bmkfs\b", r"\bshutdown\b", r"\breboot\b",
-        r"\bkill\b", r"\bkillall\b",
-        r">\s*", r">>\s*", r"<\s*", r"\|\s*",
-        r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
-    ]
+    # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)—— 单一权威源 command_policy.json
+    _policy = _load_command_policy()
+    _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
     for pat in _DANGEROUS_PATTERNS:
         if re.search(pat, command):
             return {
@@ -836,13 +873,8 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"命令包含禁止的模式: {pat}(安全限制)",
             }
 
-    # 命令前缀白名单
-    _ALLOWED_PREFIXES = {
-        "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
-        "pnpm", "tsc", "ruff", "mypy", "pytest", "find", "grep", "rg", "wc",
-        "head", "tail", "date", "whoami", "pwd", "which", "where", "env",
-        "uname", "ver", "dir", "type", "getopt",
-    }
+    # 命令前缀白名单 —— 单一权威源 command_policy.json
+    _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
     first_token = command.split()[0] if command.split() else ""
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
     if cmd_name not in _ALLOWED_PREFIXES:
