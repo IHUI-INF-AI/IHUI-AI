@@ -8061,12 +8061,8 @@
     "modelTagOfficial": "正式版",
     "modelTagSubsidy": "专属补贴",
     "permission": {
-      "autoRevertIn": "{time} 后自动切回请求批准",
-      "autoRevertedDescWithDuration": "本次完全访问已持续 {usedMin} 分钟,自动降级到请求批准。重新开启完全访问请用 Shift+Tab 或点击权限按钮。",
-      "autoRevertedTitle": "已自动切回请求批准",
       "buttonHintShortcut": "Shift+Tab 循环切换",
       "buttonLabel": "权限模式",
-      "cancelAutoRevert": "取消自动撤销",
       "contextMenu": {
         "copyMarkdown": "复制 Markdown",
         "copyText": "复制文本",
@@ -8098,7 +8094,6 @@
         "rmRrfRoot": "递归删除根/家目录",
         "sudoAny": "任意 sudo 操作"
       },
-      "extendOneHour": "再保持 1 小时",
       "fallbackNotice": "主体模型 {primary} 不可用,已自动切换到 {fallback}",
       "firstTimeConfirmAcknowledge": "我了解上述风险,继续启用",
       "firstTimeConfirmBullet1": "AI 可不受限制地执行所有操作,无需逐一确认",
@@ -8120,14 +8115,11 @@
         "auto-revert": "自动",
         "popover": "弹窗",
         "shift-tab": "Shift+Tab",
-        "slash": "斜杠"
+        "slash": "斜杠",
+        "confirm-dialog": "确认弹窗"
       },
       "historyStatsTitle": "累计统计",
       "historyTitle": "权限模式历史",
-      "infoButtonLabel": "查看模式说明",
-      "infoButtonTitle": "当前模式的详细行为",
-      "infoModalDescription": "当前模式的具体行为和风险等级",
-      "infoModalTitle": "当前权限模式详情",
       "inputWarning": "当前为完全访问模式:AI 可不受限制地访问文件和网络",
       "jumpToLatest": "跳转到最新",
       "kbdNavigate": "切换",
@@ -8167,7 +8159,6 @@
       "popoverHintNoWorkspace": "未绑定工作区,选定后将在绑定时生效",
       "popoverTitle": "应如何批准 AI 操作?",
       "quickFullAccess": "完全访问",
-      "reEnableAutoRevert": "重新启用 1 小时自动撤销",
       "resetSuppressedButton": "重新提醒高风险",
       "resetSuppressedConfirmDesc": "下次切到完全访问模式时,将再次弹出确认弹窗。",
       "resetSuppressedConfirmTitle": "确认重新启用高风险提醒?",
@@ -8179,13 +8170,10 @@
       "revertWarning5minTitle": "完全访问模式即将自动降级",
       "search": "搜索",
       "shortcutsClose": "知道了",
-      "shortcutsItemAutoRevert1hKbd": "1 小时无操作后自动切回请求批准",
-      "shortcutsItemCancelAutoKbd": "横幅「取消自动撤销」按钮,可永久保持完全访问",
       "shortcutsItemChatModeDesc": "切换构建/计划/审查/规格 4 种对话模式",
       "shortcutsItemDangerousKbd": "高风险模式发送时检测危险命令,需二次确认",
       "shortcutsItemExtendKbd": "切到完全访问时 toast 提供「再保持 1 小时」按钮",
       "shortcutsItemHistoryKbd": "查看 popover 底部「历史」按钮看最近切换",
-      "shortcutsItemInfoKbd": "查看该模式 4 条详细行为",
       "shortcutsItemModeBuildKbd": "切换到构建模式(正常执行,全工具开放)",
       "shortcutsItemModeCmdHint": "也可输入 /build /plan /review /spec 斜杠命令切换",
       "shortcutsItemModePlanKbd": "切换到计划模式(只读分析,deny write 工具)",
@@ -8214,12 +8202,12 @@
       "switchedToAutoDesc": "仅对检测到的风险操作请求批准",
       "switchedToFull": "已切换到完全访问",
       "switchedToFullDesc": "AI 现在可执行任何操作,无需确认(5 秒内可撤销,之前:{prev})",
+      "switchedToFullError": "切换失败:{error}",
       "switchedToModeAsk": "已切换到请求批准模式",
       "switchedToModeAuto": "已切换到替我审批模式",
       "switchedToModeFull": "已切换到完全访问模式",
       "timelineAiReply": "AI 回复",
       "timelineUserMessage": "用户消息",
-      "titleBarAutoRevert": "⏱ {time} 后自动降级",
       "toast": {
         "copiedMarkdown": "已复制 Markdown",
         "copiedText": "已复制到剪贴板",
@@ -8240,7 +8228,8 @@
       "tplTranslate": "翻译",
       "tplTranslateContent": "请将以下内容翻译为英文",
       "undo": "撤销",
-      "usageHint": "用法: /permission ask | auto | full"
+      "usageHint": "用法: /permission ask | auto | full",
+      "infoModalTitle": "权限模式详情"
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
@@ -8542,7 +8531,9 @@
     "voiceInputNativeFallback": "浏览器语音服务不可用，已切换本地转写，请重试",
     "voiceInputError": "语音识别不可用，请检查网络或换用 Chrome/Edge",
     "voiceInputSttFailed": "转写失败，请稍后重试或检查本地语音服务",
-    "voiceInputEmpty": "未识别到语音内容，请靠近麦克风后重试"
+    "voiceInputEmpty": "未识别到语音内容，请靠近麦克风后重试",
+    "voiceInputUnauthorized": "登录已过期，请刷新页面后重试",
+    "voiceInputNetworkError": "网络异常，请检查连接后重试"
   },
   "chatHistory": {
     "backToHistory": "返回任务列表",
@@ -18206,17 +18197,11 @@
   },
   "permission": {
     "inputWarning": "检测到高风险操作，建议确认后继续",
-    "autoRevertIn": "{time} 后自动恢复当前模式",
-    "cancelAutoRevert": "取消自动恢复",
-    "reEnableAutoRevert": "重新启用自动恢复",
     "mode": {
       "full": "完整权限",
       "auto": "自动",
       "ask": "询问"
     },
-    "infoButtonTitle": "查看权限模式说明",
-    "infoButtonLabel": "权限模式信息",
-    "titleBarAutoRevert": "自动恢复：{time}",
     "dangerousCommandTitle": "检测到危险命令",
     "dangerousCommandDesc": "检测到危险命令「{pattern}」：{reason}。是否仍然继续执行？",
     "dangerousCommandProceed": "仍然执行",
