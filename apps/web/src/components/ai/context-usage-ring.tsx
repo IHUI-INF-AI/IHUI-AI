@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
-import { Popover } from '@/components/feedback'
+import { Tooltip } from '@/components/feedback'
+import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
 import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
@@ -292,27 +293,148 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   const compressDisabled = !conversationId || compressing || isStreaming
 
+  // 自定义弹层状态(2026-08-31:移除 Popover wrapper,改为 createPortal)
+  const [isOpen, setIsOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  const rafRef = React.useRef<number | null>(null)
+
+  const updateCoords = React.useCallback(() => {
+    if (!triggerRef.current || !panelRef.current) return
+    const r = triggerRef.current.getBoundingClientRect()
+    const panelRect = panelRef.current.getBoundingClientRect()
+    const gap = 8
+    const pad = 8
+    const VW = window.innerWidth
+
+    let top = r.top - gap - panelRect.height
+    let left = r.left
+
+    if (left + panelRect.width > VW - pad) {
+      left = VW - pad - panelRect.width
+    }
+    left = Math.max(pad, left)
+
+    if (top < pad) {
+      top = r.bottom + gap
+    }
+    top = Math.max(pad, top)
+
+    setCoords({ top, left })
+  }, [])
+
+  React.useLayoutEffect(() => {
+    if (!isOpen) return
+    const id = window.requestAnimationFrame(() => {
+      updateCoords()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [isOpen, updateCoords])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const throttledUpdate = () => {
+      if (rafRef.current !== null) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        updateCoords()
+      })
+    }
+
+    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
+    window.addEventListener('resize', throttledUpdate, { passive: true })
+
+    const roTrigger = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
+
+    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
+
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', throttledUpdate, true)
+      window.removeEventListener('resize', throttledUpdate)
+      roTrigger?.disconnect()
+      roPanel?.disconnect()
+    }
+  }, [isOpen, updateCoords])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const triggerEl = triggerRef.current
+      const contentEl = panelRef.current
+      const target = event.target as Node
+      if (triggerEl && triggerEl.contains(target)) return
+      if (contentEl && contentEl.contains(target)) return
+      setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [isOpen])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isOpen])
+
   return (
-    <Popover
-      portal
-      position="top"
-      align="center"
-      tooltip={triggerLabel}
-      content={
-        <div className="w-72">
-          {/* 标题 */}
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-semibold">{t('title')}</span>
-            <span
-              className={cn(
-                'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
-                style.bg,
-                style.text,
-              )}
-            >
-              {t(style.label)}
-            </span>
-          </div>
+    <div>
+      <Tooltip content={triggerLabel} side="top">
+        <button
+          ref={triggerRef}
+          onClick={() => setIsOpen((prev) => !prev)}
+          type="button"
+          aria-label={triggerLabel}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          className={cn(
+            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          )}
+        >
+          <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+        </button>
+      </Tooltip>
+      {isOpen &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={
+              coords
+                ? { top: coords.top, left: coords.left }
+                : { top: -9999, left: -9999 }
+            }
+            role="dialog"
+            aria-label={t('title')}
+            aria-modal="true"
+            tabIndex={-1}
+          >
+            {/* 标题 */}
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-semibold">{t('title')}</span>
+              <span
+                className={cn(
+                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  style.bg,
+                  style.text,
+                )}
+              >
+                {t(style.label)}
+              </span>
+            </div>
 
           {/* 大圆环 + 模型信息 */}
           <div className="flex items-center gap-4">
@@ -410,22 +532,11 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
             {t('disclaimer')}
           </p>
-        </div>
-      }
-      aria-label={triggerLabel}
-    >
-      <button
-        type="button"
-        aria-label={triggerLabel}
-        className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-          'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-        )}
-      >
-        <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
-      </button>
-    </Popover>
-  )
+        </div>,
+        document.body,
+      )}
+  </div>
+)
 }
 
 // ============================================================================

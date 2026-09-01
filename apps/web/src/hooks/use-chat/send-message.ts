@@ -18,6 +18,7 @@ import {
   regenerateConversation,
   branchConversation,
   type ToolDelegateEvent,
+  type WorkspacePermissionMode,
 } from '@ihui/api-client'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { fetchApi } from '@/lib/api'
@@ -155,7 +156,10 @@ export function createSendMessage(
     const slashHit = !isRegenerate
       ? await tryHandleSelfMediaSlash(text, (assistantContent) => {
           const m = store.currentModel
-          const slashMode = useAiPanelStore.getState().activeWorkspace?.mode
+          // 2026-08-31:未绑定工作区时读暂存模式,消息徽章透明性不丢失
+          const st = useAiPanelStore.getState()
+          const slashMode =
+            st.activeWorkspace?.mode ?? st.pendingPermissionMode ?? undefined
           store.addMessage({ role: 'user', content: text, model: m })
           store.addMessage({
             role: 'assistant',
@@ -286,7 +290,10 @@ export function createSendMessage(
     }
     // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
-    const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+    // 2026-08-31:未绑定工作区时读暂存模式
+    const permState = useAiPanelStore.getState()
+    const currentMode: WorkspacePermissionMode | undefined =
+      permState.activeWorkspace?.mode ?? permState.pendingPermissionMode ?? undefined
     const assistantId = store.addMessage({
       role: 'assistant',
       content: '',

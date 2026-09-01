@@ -663,12 +663,35 @@ export interface UpdateSession {
  * 返回 UpdateSession(含版本/说明 + 下载安装句柄)或 null(已是最新/检查失败)。
  *
  * check() 失败(网络错误/签名校验失败)会捕获后返回 null,避免调用方 try/catch。
+ *
+ * 2026-09-01 修复"检查更新一直转圈":
+ * 之前 check() 无超时——updater endpoint 指向 GitHub,国内网络下请求可永久挂起
+ * (TCP 层黑洞),前端 useUpdater 状态卡在 checking 转圈永不结束。
+ * 现在用 withTimeout 兜底:CHECK_UPDATE_TIMEOUT_MS 内未返回即视为检查失败,
+ * 返回 null 并告警,前端据此退出转圈进入"检查失败"提示。
  */
+const CHECK_UPDATE_TIMEOUT_MS = 15_000
+
+/** 给 Promise 加超时:超时返回 null,不抛异常,settle 后清理计时器。 */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), ms)
+  })
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timer) clearTimeout(timer)
+  })
+}
+
 export async function checkForUpdates(): Promise<UpdateSession | null> {
   if (!isTauri()) return null
   try {
     const { check } = await import('@tauri-apps/plugin-updater')
-    const update = await check()
+    const update = await withTimeout(check(), CHECK_UPDATE_TIMEOUT_MS)
+    if (update === null) {
+      console.warn(`[updater] check() 超过 ${CHECK_UPDATE_TIMEOUT_MS}ms 未返回(网络挂起),按检查失败处理`)
+      return null
+    }
     if (!update) return null
     return {
       info: {
