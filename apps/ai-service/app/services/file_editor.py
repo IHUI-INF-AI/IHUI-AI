@@ -120,8 +120,13 @@ def create_backup(file_path: str) -> str:
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     backup_dir = _BACKUP_ROOT / timestamp
     backup_dir.mkdir(parents=True, exist_ok=True)
-    backup_name = f"{src.name}.{os.getpid()}.{time.time_ns()}.bak"
-    backup_path = backup_dir / backup_name
+    # pid+nanos 后缀防并发冲突;但 Windows 上 time_ns 存在时序碰撞(两次调用
+    # 落同一时间窗口),故对已存在路径追加序号兜底,保证唯一性。
+    backup_path = backup_dir / f"{src.name}.{os.getpid()}.{time.time_ns()}.bak"
+    seq = 1
+    while backup_path.exists():
+        backup_path = backup_dir / f"{src.name}.{os.getpid()}.{time.time_ns()}.{seq}.bak"
+        seq += 1
     shutil.copy2(src, backup_path)
     return str(backup_path)
 
