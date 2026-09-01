@@ -11,6 +11,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { Sidebar } from '@/components/sidebar'
 import { AISidePanel } from '@/components/ai/ai-side-panel'
+import { TooltipProvider } from '@/components/feedback'
 import { WebWorkPanel } from '@/components/work-panel/web-work-panel'
 import {
   PWAInstallPrompt,
@@ -206,12 +207,13 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
   // 导致 iframe 加载的页面显示首页导航 + 任务列表,二维码面板被布局覆盖不可见。
   // 放在所有 hooks 之后,避免违反 React hooks 规则(条件 return 不能在 hooks 调用之前)。
   if (pathname === '/login') {
-    return <>{children}</>
+    return <TooltipProvider>{children}</TooltipProvider>
   }
 
   return (
-    <>
-      {/* 布局结构(2026-07-30 彻底根治:AI 面板从 fixed 改为 flex 流内布局):
+    <TooltipProvider>
+      <>
+        {/* 布局结构(2026-07-30 彻底根治:AI 面板从 fixed 改为 flex 流内布局):
           左列 = <Sidebar />                          全高侧边栏
           右列 = <flex-row>                           横向排列
                    <AISidePanel />                    AI 面板(flex item,open 时占 width px)
@@ -219,43 +221,43 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                    <WebWorkPanel />                   右侧内置浏览器面板
           TagsView + 窗口控制按钮由 MainShell 内部渲染,严格匹配 main 同宽容器。
           AISidePanel 不再用 fixed 定位,改为 flex 子元素自然占空间,彻底消除 padding-left 压缩问题。 */}
-      <div className="flex h-screen overflow-hidden">
-        {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
-        <React.Suspense
-          // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
-          // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
-          // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
-          // 修复:fallback 渲染等宽占位 aside,预留与真实 Sidebar 相同的空间:
-          // - width 引用 layout.tsx inline script 预设的 --sidebar-width(160-180,fallback 160;
-          //   折叠持久化时 inline script 预设 60px),与 sidebar.tsx 真实 aside 的宽度策略一致
-          // - data-viewport-collapsed="true" 复用 globals.css <1024px 强制 60px 规则,
-          //   移动端占位与真实 sidebar 行为字节级一致
-          // - bg-background 避免占位期间透出底色闪烁
-          fallback={
-            <aside
-              aria-hidden
-              data-viewport-collapsed="true"
-              className="relative h-screen shrink-0 bg-background"
-              style={{ width: 'var(--sidebar-width, 160px)' }}
+        <div className="flex h-screen overflow-hidden">
+          {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
+          <React.Suspense
+            // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
+            // 预渲染/挂起阶段不渲染,懒加载完成后才以 160px 宽度插入 flex 流,
+            // 把右列 work-area 从 x=0 全宽挤到 x=160 —— 一次性 0.30 CLS(web-vitals.spec.ts 实锤)。
+            // 修复:fallback 渲染等宽占位 aside,预留与真实 Sidebar 相同的空间:
+            // - width 引用 layout.tsx inline script 预设的 --sidebar-width(160-180,fallback 160;
+            //   折叠持久化时 inline script 预设 60px),与 sidebar.tsx 真实 aside 的宽度策略一致
+            // - data-viewport-collapsed="true" 复用 globals.css <1024px 强制 60px 规则,
+            //   移动端占位与真实 sidebar 行为字节级一致
+            // - bg-background 避免占位期间透出底色闪烁
+            fallback={
+              <aside
+                aria-hidden
+                data-viewport-collapsed="true"
+                className="relative h-screen shrink-0 bg-background"
+                style={{ width: 'var(--sidebar-width, 160px)' }}
+              />
+            }
+          >
+            <Sidebar
+              id={sidebarId}
+              collapsed={collapsed}
+              onToggleCollapse={handleToggleCollapse}
+              mobileOpen={mobileOpen}
+              onCloseMobile={handleCloseMobile}
             />
-          }
-        >
-          <Sidebar
-            id={sidebarId}
-            collapsed={collapsed}
-            onToggleCollapse={handleToggleCollapse}
-            mobileOpen={mobileOpen}
-            onCloseMobile={handleCloseMobile}
-          />
-        </React.Suspense>
+          </React.Suspense>
 
-        {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
+          {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
             2026-07-30 彻底根治:AISidePanel 从 fixed 改为 flex 子元素,
             不再需要 padding-left 避让,TagsView 永不被压缩。
             flex-row 保证三者横向并列:AISidePanel(左,可折叠)→ work-area(flex-1)→ WebWorkPanel(右)。 */}
-        <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
-          {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
-          {/*
+          <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
+            {/* output: 'export' 模式:Sidebar 内部 useSearchParams() 需 Suspense 包裹 */}
+            {/*
             AISidePanel(2026-07-30 彻底根治:从 fixed 改为 flex 流内布局)
             - 旧架构根因:AISidePanel 用 fixed 定位 + work-area-portal-root 用 padding-left 避让,
               padding-left 压缩整个 work-area(包括 TagsView),导致标签栏反复消失
@@ -263,87 +265,87 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             - flex 布局保证 AISidePanel 与 work-area-portal-root 永不重叠,TagsView 永不被压缩
             - --ai-panel-occupy CSS 变量仍同步到 :root(供 WebWorkPanel 计算最大可用宽度)
           */}
-          <React.Suspense
-            // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
-            // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
-            // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
-            // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
-            //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
-            // - hidden + min-[768px]:block 复制真实容器的响应式显隐(<768px 走浮窗不占 flex 空间)
-            // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
-            // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
-            //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
-            fallback={
-              <div
-                aria-hidden
-                className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
-                style={{ width: 'var(--ai-panel-width, 380px)' }}
-              />
-            }
-          >
-            <AISidePanel />
-          </React.Suspense>
-          {/*
+            <React.Suspense
+              // 2026-08-28 CLS 根治:与 Sidebar 同模式。此前 fallback={null},AISidePanel 挂起期间
+              // 不占空间,挂载后以 width+6px(默认 386px)插入 flex 流,把 work-area 从 1120px
+              // 压到 734px —— 一次性 0.26 CLS。修复:fallback 渲染等宽占位:
+              // - width 引用 layout.tsx inline script 预设的 --ai-panel-width(读 localStorage
+              //   ihui-ai-panel state.width,范围 320-720,fallback 380),与真实面板宽度策略一致
+              // - hidden + min-[768px]:block 复制真实容器的响应式显隐(<768px 走浮窗不占 flex 空间)
+              // - mr-1.5 py-2 shrink-0 与真实容器(展开态)class 一致,占位与实体几何对齐
+              // - open 恒为 true(store merge 强制)、floatMode/workAreaCollapsed 恒为默认 false
+              //   (不持久化),首帧占位宽度与挂载后真实宽度必然一致
+              fallback={
+                <div
+                  aria-hidden
+                  className="relative hidden h-full shrink-0 mr-1.5 py-2 min-[768px]:block"
+                  style={{ width: 'var(--ai-panel-width, 380px)' }}
+                />
+              }
+            >
+              <AISidePanel />
+            </React.Suspense>
+            {/*
             work-area-portal-root:作为 TagsView 搜索弹层(TagsViewSearchButton) 的 portal 目标。
             overflow-hidden 裁剪搜索弹层 slide-in-from-top 动画的初始 translateY(-100%)。
             flex-1 min-h-0 让内容区在 flex 容器中正确填充并允许子元素滚动。
             不再有 padding-left(AISidePanel 已移入 flex 流,自然占据空间)。
           */}
-          <div
-            id="work-area-portal-root"
-            className={cn(
-              'relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden',
-              // 2026-08-17 工作展示区折叠:true 时整个右侧内容区隐藏,AI 面板 flex-1 占满
-              workAreaCollapsed && 'hidden',
-            )}
-          >
-            {/* 全局导航进度条 + 内容区加载覆盖层(2026-08-05 立):
+            <div
+              id="work-area-portal-root"
+              className={cn(
+                'relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden',
+                // 2026-08-17 工作展示区折叠:true 时整个右侧内容区隐藏,AI 面板 flex-1 占满
+                workAreaCollapsed && 'hidden',
+              )}
+            >
+              {/* 全局导航进度条 + 内容区加载覆盖层(2026-08-05 立):
                 点击侧边栏链接时立即显示进度条 + 骨架屏覆盖内容区,
                 消除"点击后内容区无反应"的间隙。位于 work-area-portal-root 内部,
                 absolute 定位依赖父级 relative 容器。 */}
-            <NavigationProgress />
-            {/* 移动端菜单按钮(2026-07-31 第十三次重写,改用 GlobalTopBar 注入方式):
+              <NavigationProgress />
+              {/* 移动端菜单按钮(2026-07-31 第十三次重写,改用 GlobalTopBar 注入方式):
                 - 原方案:absolute left-2 top-2 z-modal,在 work-area 内绝对定位
                   → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
                     即使 z-modal 也无法在所有 stacking context 下稳定覆盖
                 - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
                 - 桌面端 min-[1024px]:flex 隐藏,移动端 lg 以下显示 */}
-            <React.Suspense fallback={null}>
-              <GlobalTopBar
-                mobileMenu={
-                  // 2026-07-31 第十八次微调(用户反馈"button 这个图标和 X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
-                  // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
-                  //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
-                  // - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
-                  //   4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
-                  // - icon 仍用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一
-                  // - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用,跟顶栏 h-9 父容器 + h-full 子元素视觉等价
-                  // - ml-1.5 (6px) 跟其他顶栏按钮 gap-1 (4px) + 按钮视觉中心对齐
-                  // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMobileOpen((o) => !o)}
-                    aria-label={t('menu')}
-                    className={cn(
-                      'ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
-                      TOPBAR_BTN_BASE,
-                      TOPBAR_BTN_W9,
-                    )}
-                  >
-                    <PanelLeftOpen className="h-3.5 w-3.5" />
-                  </Button>
-                }
-              />
-            </React.Suspense>
-            {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
+              <React.Suspense fallback={null}>
+                <GlobalTopBar
+                  mobileMenu={
+                    // 2026-07-31 第十八次微调(用户反馈"button 这个图标和 X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
+                    // - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
+                    //   的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / focus-visible:bg-accent)
+                    // - 去掉之前单独加的 `border border-border` 和 `hover:text-foreground` —— web 顶栏的
+                    //   4 类按钮都没 border,移动端"凭空多出边框"是视觉不一致的根因
+                    // - icon 仍用 h-3.5 w-3.5 (14px) 跟顶栏 Plus / 窗口控制 X 完全统一
+                    // - h-9 w-9 通过 TOPBAR_BTN_W9 自动应用,跟顶栏 h-9 父容器 + h-full 子元素视觉等价
+                    // - ml-1.5 (6px) 跟其他顶栏按钮 gap-1 (4px) + 按钮视觉中心对齐
+                    // - 跟 X 关闭按钮共用 base 后,移动端两个按钮视觉/交互/焦点环完全一致,改一处生效所有同源按钮
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setMobileOpen((o) => !o)}
+                      aria-label={t('menu')}
+                      className={cn(
+                        'ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
+                        TOPBAR_BTN_BASE,
+                        TOPBAR_BTN_W9,
+                      )}
+                    >
+                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                    </Button>
+                  }
+                />
+              </React.Suspense>
+              {/* 2026-08-01 架构改动:WebWorkPanel 从右列独立区域改为嵌入 work-area 内覆盖 children
                 (用户规则:"不允许额外出来一个窗口,所有内容必须在工作内容展示区内展示")
                 - relative 容器包裹 children + WebWorkPanel
                 - WebWorkPanel 内部 absolute inset-0 覆盖 children(MainShell 工作区卡片)
                 - open=false 时 WebWorkPanel return null,children 正常显示
                 - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
-            <div className="relative flex min-h-0 flex-1 flex-col">
-              {/*
+              <div className="relative flex min-h-0 flex-1 flex-col">
+                {/*
                 内容区加载覆盖层(2026-08-05 立,根治方案):
                 始终在 DOM 中,通过 CSS transition 控制显示/隐藏。
                 根因:条件渲染(if (!pending) return null)依赖 React 渲染周期,点击 Link 后
@@ -352,53 +354,54 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 根治:覆盖层始终在 DOM 中,opacity+pointer-events 过渡,不依赖 React 渲染周期,
                 保证点击后立即显示 skeleton 覆盖内容区,消除"无响应"空白间隙。
               */}
-              <div
-                className={cn(
-                  'absolute inset-0 z-10 bg-background transition-opacity duration-75',
-                  pending ? 'opacity-100' : 'pointer-events-none opacity-0',
-                )}
-                role="status"
-                aria-label="页面加载中"
-              >
-                <PageSkeleton />
+                <div
+                  className={cn(
+                    'absolute inset-0 z-10 bg-background transition-opacity duration-75',
+                    pending ? 'opacity-100' : 'pointer-events-none opacity-0',
+                  )}
+                  role="status"
+                  aria-label="页面加载中"
+                >
+                  <PageSkeleton />
+                </div>
+                {children}
+                <WebWorkPanel />
               </div>
-              {children}
-              <WebWorkPanel />
             </div>
           </div>
         </div>
-      </div>
-      {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
-      <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
-        <div className="pointer-events-auto">
-          <PWAInstallPrompt />
+        {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
+        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+          <div className="pointer-events-auto">
+            <PWAInstallPrompt />
+          </div>
+          <div className="pointer-events-auto">
+            <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
+          </div>
         </div>
-        <div className="pointer-events-auto">
-          <PWAUpdatePrompt onUpdate={() => window.location.reload()} />
-        </div>
-      </div>
-      {/*
+        {/*
         工作区人工审计确认弹窗(全局挂载,任意页面触发 FS 工具权限请求时弹出)。
         Dialog 内部通过 usePermissionRequest 订阅 workspace.permission.request WS 事件。
         未登录时不订阅、未挂载,登录后自动启用。
       */}
-      <WorkspacePermissionRequestDialog userId={currentUserId} />
-      {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+        <WorkspacePermissionRequestDialog userId={currentUserId} />
+        {/* 桌面端应用更新下拉提示(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
           内部调用 useUpdater hook,启动静默检查 + 监听托盘菜单 desktop-check-update 事件。 */}
-      <UpdatePrompt />
-      {/* 桌面端退出时自动更新遮罩(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
+        <UpdatePrompt />
+        {/* 桌面端退出时自动更新遮罩(平台独占:仅 Tauri 环境渲染,浏览器端 no-op)。
           拦截退出流程(Ctrl+Q / 托盘退出),自动检查+下载+安装+重启,显示全屏进度遮罩。 */}
-      <QuitUpdateOverlay />
-      {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
-      <VisitTracker />
-      {/* 全局行为埋点(2026-08-10 立):自动采集点击/搜索/下载/表单提交 → analytics_events */}
-      <AnalyticsCapture />
-      {/*
+        <QuitUpdateOverlay />
+        {/* 页面访问埋点(2026-08-10 立):全局挂载,pathname 变化自动上报 visit_logs */}
+        <VisitTracker />
+        {/* 全局行为埋点(2026-08-10 立):自动采集点击/搜索/下载/表单提交 → analytics_events */}
+        <AnalyticsCapture />
+        {/*
         Agent 任务进度 popover(2026-07-27 v6):
         trigger + popover 已内嵌到 MessageInput 输入框附加栏(上方居中),
         点击 trigger 弹小 popover 显示 plan steps 列表,不再全局挂载底部大弹窗。
       */}
-    </>
+      </>
+    </TooltipProvider>
   )
 }
 
