@@ -1209,6 +1209,8 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         contextLimit: forcedLimit,
         modelId: state.opts.modelId,
         sessionId: state.session?.id ?? state.opts.sessionId,
+        // 关键:阈值覆盖 0.87 < 0.88,否则 ceil(t/0.87)*0.88 恒 > t 永不触发(API 端点同此数学)
+        triggerRatioOverride: 0.87,
       });
       if (compactResult.compressed) {
         // 运行时安全:state.history 只含 user/assistant(tool 消息仅在 agent 循环内部,
