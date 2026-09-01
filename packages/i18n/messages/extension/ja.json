@@ -173,7 +173,12 @@
     "inputPlaceholder": "何か入力してください...",
     "compactionNotice": "コンテキストを自動圧縮しました:{before} → {after}({removed} 件の履歴を削除)",
     "voiceStop": "録音を停止",
-    "voiceStart": "録音を開始"
+    "voiceStart": "録音を開始",
+    "voiceError": "マイクにアクセスできません。ブラウザの設定でマイクの許可を有効にしてください",
+    "voiceSttFailed": "文字起こしに失敗しました。しばらくしてから再度お試しいただくか、ローカル音声サービスをご確認ください",
+    "voiceEmpty": "音声が認識できませんでした。マイクに近づいて再度お試しください",
+    "voiceUnauthorized": "ログインの有効期限が切れました。ページを更新して再度お試しください",
+    "voiceNetworkError": "ネットワークエラーが発生しました。接続を確認して再度お試しください"
   },
   "settings": {
     "language": "インターフェース言語",

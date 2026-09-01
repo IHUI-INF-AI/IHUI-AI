@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
-import { voiceSttFromBlob } from '@ihui/api-client'
+import { voiceSttFromBlob, VoiceSttHttpError } from '@ihui/api-client'
 import { useWebAuthStore } from '@/stores/auth-store'
 
 interface VoiceInputProps {
@@ -207,21 +207,42 @@ export function VoiceInput({ onTranscript, disabled }: VoiceInputProps) {
           return
         }
 
-        const text = await voiceSttFromBlob({
-          blob: audioBlob,
-          filename: 'voice.webm',
-          mimeType: 'audio/webm',
-          language: 'zh',
-          aiServiceUrl: STT_ENDPOINT,
-          token: accessToken ?? undefined,
-        })
+        // **2026-09-01 错误语义修复**:用 try/catch 区分三类失败原因,精准提示。
+        // 之前用 `audioBlob.size < 2000` 启发式猜"未识别到内容",
+        // 但环境噪音几 KB 经常 > 2000,会被误判成"转写失败"误导用户。
+        // 新策略:成功(200 OK)= true;HTTP 非 2xx → VoiceSttHttpError(带 status);
+        // 网络异常 → 普通 Error;成功但 text 为空 → "未识别到语音内容"。
+        let text: string
+        try {
+          text = await voiceSttFromBlob({
+            blob: audioBlob,
+            filename: 'voice.webm',
+            mimeType: 'audio/webm',
+            language: 'zh',
+            aiServiceUrl: STT_ENDPOINT,
+            token: accessToken ?? undefined,
+          })
+        } catch (e) {
+          if (e instanceof VoiceSttHttpError) {
+            if (e.status === 401 || e.status === 403) {
+              setError(t('voiceInputUnauthorized') || '登录已过期,请刷新页面后重试')
+            } else {
+              setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+            }
+          } else {
+            setError(t('voiceInputNetworkError') || '网络异常,请检查连接后重试')
+          }
+          setRecording(false)
+          return
+        }
+
         if (text) {
           onTranscriptRef.current(text)
           setError(null)
-        } else if (audioBlob.size < 2000) {
-          setError(t('voiceInputEmpty') || '未识别到语音内容,请靠近麦克风后重试')
         } else {
-          setError(t('voiceInputSttFailed') || '转写失败,请稍后重试或检查本地语音服务')
+          // 成功响应但空文本 → 后端判"未识别到语音内容"(噪音/静音/太短均属此类)
+          // 不再用 audioBlob.size 启发式,改为看后端真实语义
+          setError(t('voiceInputEmpty') || '未识别到语音内容,请靠近麦克风后重试')
         }
         setRecording(false)
       }

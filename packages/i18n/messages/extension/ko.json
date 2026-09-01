@@ -173,7 +173,12 @@
     "inputPlaceholder": "무언가 입력하세요...",
     "compactionNotice": "컨텍스트 자동 압축:{before} → {after}({removed}개 기록 제거)",
     "voiceStop": "녹음 중지",
-    "voiceStart": "녹음 시작"
+    "voiceStart": "녹음 시작",
+    "voiceError": "마이크에 접근할 수 없습니다. 브라우저 설정에서 마이크 권한을 허용해 주세요",
+    "voiceSttFailed": "받아쓰기에 실패했습니다. 나중에 다시 시도하거나 로컬 음성 서비스를 확인해 주세요",
+    "voiceEmpty": "음성이 인식되지 않았습니다. 마이크에 가까이서 다시 시도해 주세요",
+    "voiceUnauthorized": "로그인이 만료되었습니다. 페이지를 새로고침하고 다시 시도해 주세요",
+    "voiceNetworkError": "네트워크 오류가 발생했습니다. 연결을 확인하고 다시 시도해 주세요"
   },
   "settings": {
     "language": "인터페이스 언어",

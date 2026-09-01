@@ -8066,12 +8066,8 @@
     "modelTagOfficial": "正式版",
     "modelTagSubsidy": "専用補助金",
     "permission": {
-      "autoRevertIn": "{time} 後に毎回確認へ自動切替",
-      "autoRevertedDescWithDuration": "完全アクセスは {usedMin} 分間継続し、自動的にリクエスト承認へ降格しました。再度有効化するには Shift+Tab または権限ボタンをクリックしてください。",
-      "autoRevertedTitle": "毎回確認へ自動切替しました",
       "buttonHintShortcut": "Shift+Tab で切替",
       "buttonLabel": "承認モード",
-      "cancelAutoRevert": "自動切替をキャンセル",
       "contextMenu": {
         "copyMarkdown": "Markdownをコピー",
         "copyText": "テキストをコピー",
@@ -8103,7 +8099,6 @@
         "rmRrfRoot": "ルート/ホームディレクトリを再帰削除",
         "sudoAny": "任意の sudo 操作"
       },
-      "extendOneHour": "1時間延長",
       "fallbackNotice": "プライマリモデル {primary} は利用できません。{fallback} に自動切り替えしました",
       "firstTimeConfirmAcknowledge": "上記リスクを理解した上で続行",
       "firstTimeConfirmBullet1": "AI は操作ごとに確認なしで全てのアクションを実行可能",
@@ -8125,14 +8120,11 @@
         "auto-revert": "自動",
         "popover": "ポップオーバー",
         "shift-tab": "Shift+Tab",
-        "slash": "スラッシュ"
+        "slash": "スラッシュ",
+        "confirm-dialog": "確認ダイアログ"
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "権限モード履歴",
-      "infoButtonLabel": "モード詳細を見る",
-      "infoButtonTitle": "現在のモードの詳細動作",
-      "infoModalDescription": "現在のモードの行動とリスクレベル",
-      "infoModalTitle": "現在の権限モード詳細",
       "inputWarning": "現在完全アクセスモード:AI は確認なしでファイルとネットワークに制限なくアクセスできます",
       "jumpToLatest": "最新へ移動",
       "kbdNavigate": "切替",
@@ -8172,7 +8164,6 @@
       "popoverHintNoWorkspace": "ワークスペースが未連携です — 連携時に選択が有効になります",
       "popoverTitle": "AI の操作をどのように承認しますか?",
       "quickFullAccess": "完全アクセス",
-      "reEnableAutoRevert": "1 時間自動切替を再有効化",
       "resetSuppressedButton": "高リスク警告を再有効化",
       "resetSuppressedConfirmDesc": "次回完全アクセスに切り替える際、確認ダイアログが再度表示されます。",
       "resetSuppressedConfirmTitle": "高リスク警告を再有効化しますか?",
@@ -8184,13 +8175,10 @@
       "revertWarning5minTitle": "完全アクセスモードはまもなく自動降格します",
       "search": "検索",
       "shortcutsClose": "了解",
-      "shortcutsItemAutoRevert1hKbd": "1時間操作なしで毎回確認に自動切替",
-      "shortcutsItemCancelAutoKbd": "バナーの「自動切替取消」で完全アクセスを維持",
       "shortcutsItemChatModeDesc": "ビルド/計画/レビュー/スペック 4種のチャットモードを切替",
       "shortcutsItemDangerousKbd": "高リスクモードで危険コマンド検出時に再確認",
       "shortcutsItemExtendKbd": "切替トーストに「1時間延長」ボタン",
       "shortcutsItemHistoryKbd": "ポップオーバー下部の「履歴」ボタンで最近の切替を確認",
-      "shortcutsItemInfoKbd": "このモードの 4 つの詳細行動を表示",
       "shortcutsItemModeBuildKbd": "ビルドモードに切替(正常実行、全ツール有効)",
       "shortcutsItemModeCmdHint": "/build /plan /review /spec スラッシュコマンドでも切替可能",
       "shortcutsItemModePlanKbd": "計画モードに切替(読取専用分析、write ツール拒否)",
@@ -8219,12 +8207,12 @@
       "switchedToAutoDesc": "検出された危険な操作のみ確認します",
       "switchedToFull": "完全アクセスに切替",
       "switchedToFullDesc": "AI は確認なしで任意の操作を実行できます(5 秒以内に取り消し可能,以前:{prev})",
+      "switchedToFullError": "切り替えに失敗しました:{error}",
       "switchedToModeAsk": "リクエスト承認モードに切替",
       "switchedToModeAuto": "自動承認モードに切替",
       "switchedToModeFull": "完全アクセスモードに切替",
       "timelineAiReply": "AI返信",
       "timelineUserMessage": "ユーザーメッセージ",
-      "titleBarAutoRevert": "⏱ {time} 後に自動ダウングレード",
       "toast": {
         "copiedMarkdown": "Markdownをコピーしました",
         "copiedText": "クリップボードにコピーしました",
@@ -8245,7 +8233,8 @@
       "tplTranslate": "翻訳",
       "tplTranslateContent": "以下の内容を英語に翻訳してください",
       "undo": "元に戻す",
-      "usageHint": "使い方: /permission ask | auto | full"
+      "usageHint": "使い方: /permission ask | auto | full",
+      "infoModalTitle": "権限モードの詳細"
     },
     "permissionAlreadyActive": "現在は {mode} モードです",
     "permissionLabelAsk": "承認を求める",
@@ -8547,7 +8536,9 @@
     "voiceInputNativeFallback": "ブラウザの音声サービスを利用できません。ローカル文字起こしに切り替えました。もう一度お試しください",
     "voiceInputError": "音声認識を利用できません。ネットワークを確認するか、Chrome/Edge をご利用ください",
     "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください",
-    "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください"
+    "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください",
+    "voiceInputUnauthorized": "ログインの有効期限が切れました。ページを更新してもう一度お試しください",
+    "voiceInputNetworkError": "ネットワークエラーが発生しました。接続を確認してもう一度お試しください"
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -18290,17 +18281,11 @@
   },
   "permission": {
     "inputWarning": "高リスク操作を検出しました。確認してから続行してください",
-    "autoRevertIn": "{time} 後に現在のモードへ自動復帰します",
-    "cancelAutoRevert": "自動復帰をキャンセル",
-    "reEnableAutoRevert": "自動復帰を再度有効化",
     "mode": {
       "full": "フル",
       "auto": "自動",
       "ask": "確認"
     },
-    "infoButtonTitle": "権限モードの説明を見る",
-    "infoButtonLabel": "権限モード情報",
-    "titleBarAutoRevert": "自動復帰：{time}",
     "dangerousCommandTitle": "危険なコマンドを検出しました",
     "dangerousCommandDesc": "危険なコマンド「{pattern}」を検出：{reason}。それでも続行しますか？",
     "dangerousCommandProceed": "それでも実行",
