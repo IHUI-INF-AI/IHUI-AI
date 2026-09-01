@@ -146,6 +146,8 @@ export * from './endpoints/llm'
 export * from './endpoints/knowledge-rag'
 export * from './endpoints/member'
 export * from './endpoints/misc'
+// MCP 商店端点(2026-09-01 立,directory/register/external-servers)
+export * from './endpoints/mcp'
 export * from './endpoints/notification'
 export * from './endpoints/order'
 export * from './endpoints/payment'
