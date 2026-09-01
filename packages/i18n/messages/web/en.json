@@ -8071,12 +8071,8 @@
     "modelTagOfficial": "Stable",
     "modelTagSubsidy": "Subsidized",
     "permission": {
-      "autoRevertIn": "Auto-revert in {time}",
-      "autoRevertedDescWithDuration": "Full Access ran for {usedMin} min, auto-reverted to Ask. Use Shift+Tab or click the permission button to re-enable.",
-      "autoRevertedTitle": "Auto-reverted to ask for approval",
       "buttonHintShortcut": "Shift+Tab to cycle",
       "buttonLabel": "Approval mode",
-      "cancelAutoRevert": "Cancel auto-revert",
       "contextMenu": {
         "copyMarkdown": "Copy Markdown",
         "copyText": "Copy text",
@@ -8108,7 +8104,6 @@
         "rmRrfRoot": "Recursively delete root or home directory",
         "sudoAny": "Arbitrary sudo operation"
       },
-      "extendOneHour": "Extend 1 hour",
       "fallbackNotice": "Primary model {primary} unavailable, switched to {fallback} automatically",
       "firstTimeConfirmAcknowledge": "I understand the risks, continue",
       "firstTimeConfirmBullet1": "AI can perform all actions without per-action confirmation",
@@ -8130,14 +8125,11 @@
         "auto-revert": "Auto",
         "popover": "Popover",
         "shift-tab": "Shift+Tab",
-        "slash": "Slash"
+        "slash": "Slash",
+        "confirm-dialog": "Confirm dialog"
       },
       "historyStatsTitle": "Total usage",
       "historyTitle": "Permission mode history",
-      "infoButtonLabel": "View mode details",
-      "infoButtonTitle": "Detailed behavior of the current mode",
-      "infoModalDescription": "Behaviors and risk level of the current mode",
-      "infoModalTitle": "Current permission mode details",
       "inputWarning": "Full access mode active: AI can use the internet and any file on your computer without asking",
       "jumpToLatest": "Jump to latest",
       "kbdNavigate": "navigate",
@@ -8177,7 +8169,6 @@
       "popoverHintNoWorkspace": "No workspace bound — your selection will take effect when you bind one",
       "popoverTitle": "How should Codex approve actions?",
       "quickFullAccess": "Full access",
-      "reEnableAutoRevert": "Re-enable 1h auto-revert",
       "resetSuppressedButton": "Re-enable high-risk warning",
       "resetSuppressedConfirmDesc": "Next time you switch to full access, the confirmation dialog will appear again.",
       "resetSuppressedConfirmTitle": "Re-enable high-risk warning?",
@@ -8189,13 +8180,10 @@
       "revertWarning5minTitle": "Full Access mode will auto-revert soon",
       "search": "Search",
       "shortcutsClose": "Got it",
-      "shortcutsItemAutoRevert1hKbd": "Auto-revert to ask after 1h idle",
-      "shortcutsItemCancelAutoKbd": "Banner's Cancel auto-revert button keeps full access",
       "shortcutsItemChatModeDesc": "Switch between Build/Plan/Review/Spec 4 chat modes",
       "shortcutsItemDangerousKbd": "High-risk mode blocks dangerous commands with confirm",
       "shortcutsItemExtendKbd": "Switch toast offers an Extend 1 hour button",
       "shortcutsItemHistoryKbd": "View recent switches via popover's History button",
-      "shortcutsItemInfoKbd": "View 4 detailed behaviors of this mode",
       "shortcutsItemModeBuildKbd": "Switch to Build mode (normal execution, all tools enabled)",
       "shortcutsItemModeCmdHint": "You can also type /build /plan /review /spec slash commands",
       "shortcutsItemModePlanKbd": "Switch to Plan mode (read-only analysis, deny write tools)",
@@ -8224,12 +8212,12 @@
       "switchedToAutoDesc": "Only asks before running detected risky actions",
       "switchedToFull": "Switched to full access",
       "switchedToFullDesc": "AI can now run any action without confirmation (undo within 5s, previous:{prev})",
+      "switchedToFullError": "Switch failed: {error}",
       "switchedToModeAsk": "Switched to ask-for-approval mode",
       "switchedToModeAuto": "Switched to auto-approve mode",
       "switchedToModeFull": "Switched to full-access mode",
       "timelineAiReply": "AI reply",
       "timelineUserMessage": "User message",
-      "titleBarAutoRevert": "⏱ auto-revert in {time}",
       "toast": {
         "copiedMarkdown": "Markdown copied",
         "copiedText": "Copied to clipboard",
@@ -8250,7 +8238,8 @@
       "tplTranslate": "Translate",
       "tplTranslateContent": "Please translate the following content into English",
       "undo": "Undo",
-      "usageHint": "Usage: /permission ask | auto | full"
+      "usageHint": "Usage: /permission ask | auto | full",
+      "infoModalTitle": "Permission mode details"
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
@@ -8552,7 +8541,9 @@
     "voiceInputNativeFallback": "Browser speech service unavailable. Switched to local transcription, please try again",
     "voiceInputError": "Speech recognition unavailable. Check your network or use Chrome/Edge",
     "voiceInputSttFailed": "Transcription failed. Please retry later or check the local speech service",
-    "voiceInputEmpty": "No speech detected. Please speak closer to the microphone and try again"
+    "voiceInputEmpty": "No speech detected. Please speak closer to the microphone and try again",
+    "voiceInputUnauthorized": "Login expired. Please refresh the page and try again",
+    "voiceInputNetworkError": "Network error. Please check your connection and try again"
   },
   "chatHistory": {
     "backToHistory": "Back to History",
@@ -8688,32 +8679,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -10516,25 +10533,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10668,19 +10697,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -13113,7 +13154,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -18239,17 +18288,11 @@
   },
   "permission": {
     "inputWarning": "High-risk operation detected. Please confirm before continuing",
-    "autoRevertIn": "Auto-restore current mode in {time}",
-    "cancelAutoRevert": "Cancel auto-restore",
-    "reEnableAutoRevert": "Re-enable auto-restore",
     "mode": {
       "full": "Full",
       "auto": "Auto",
       "ask": "Ask"
     },
-    "infoButtonTitle": "View permission mode info",
-    "infoButtonLabel": "Permission mode info",
-    "titleBarAutoRevert": "Auto-restore: {time}",
     "dangerousCommandTitle": "Dangerous command detected",
     "dangerousCommandDesc": "Dangerous command \"{pattern}\" detected: {reason}. Continue anyway?",
     "dangerousCommandProceed": "Continue anyway",
