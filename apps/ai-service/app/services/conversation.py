@@ -31,10 +31,47 @@ from datetime import datetime
 from typing import Any
 
 from ..core.llm_gateway import llm_gateway
-from .memory import memory_store
 from .mcp_server import mcp_server
+from .memory import memory_store
 
 logger = logging.getLogger(__name__)
+
+# P1-2 并行工具执行:单轮最大并行数(防工具过多打爆),超出分批 gather
+MAX_PARALLEL_TOOL_CALLS = 5
+
+# 幂等只读工具:失败可安全重试 1 次(无副作用);写操作工具不重试
+_RETRYABLE_TOOLS: frozenset[str] = frozenset({
+    "web_search", "search_web", "knowledge_lookup", "read_file", "list_files",
+    "file_search", "search_codebase", "analyze_code", "parse_document",
+    "generate_chart", "summarize_artifacts",
+})
+
+
+async def _execute_tool_call(
+    tool_name: str, args: dict[str, Any]
+) -> tuple[dict[str, Any], float]:
+    """执行单个工具调用,返回 (result, duration_ms)。
+
+    - 幂等只读工具首次失败时重试 1 次(写操作工具不重试)。
+    - 异常归一化为 {"ok": False} 不向外抛 —— 保证并行批次中单工具失败
+      不中断整体(asyncio.gather(return_exceptions=True) 兜底)。
+    """
+
+    async def _once() -> tuple[dict[str, Any], float]:
+        t1 = time.monotonic()
+        try:
+            result = await mcp_server.call_tool(tool_name, args)
+        except Exception as e:
+            result = {"ok": False, "error": f"工具 {tool_name} 执行失败: {e}"}
+        return result, round((time.monotonic() - t1) * 1000, 2)
+
+    result, duration_ms = await _once()
+    if not result.get("ok") and tool_name in _RETRYABLE_TOOLS:
+        logger.debug("工具 %s 首次执行失败,重试 1 次: %s", tool_name, result.get("error"))
+        retry_result, retry_ms = await _once()
+        result = retry_result
+        duration_ms += retry_ms
+    return result, duration_ms
 
 
 def _resolve_user_id(sid: str) -> str:
@@ -142,7 +179,9 @@ class ConversationService:
             "browser_switch_tab": ["切换标签", "browser switch tab", "switch tab"],
             "browser_close_tab": ["关闭标签", "browser close tab", "close tab"],
             # AI 电脑控制(10 computer tools)
-            "computer_screenshot_screen": ["电脑截图", "屏幕截图", "screen screenshot", "desktop screenshot"],
+            "computer_screenshot_screen": [
+                "电脑截图", "屏幕截图", "screen screenshot", "desktop screenshot"
+            ],
             "computer_mouse_move": ["鼠标移动", "mouse move", "move mouse"],
             "computer_mouse_click": ["鼠标点击", "mouse click", "click mouse"],
             "computer_keyboard_type": ["键盘输入", "keyboard type", "type keyboard"],
@@ -233,7 +272,8 @@ class ConversationService:
                     "content": (
                         "你是一个能调用工具的 AI 助手。调用工具后,务必检查返回结果中的 ok 字段:\n"
                         "- ok=true:工具执行成功,可以告诉用户已完成\n"
-                        "- ok=false:工具执行失败,必须如实告知用户失败原因(包括 errorCode/error 字段),"
+                        "- ok=false:工具执行失败,必须如实告知用户失败原因"
+                        "(包括 errorCode/error 字段),"
                         "禁止声称已完成或成功\n"
                         "常见失败场景:TARGET_NOT_CONNECTED(浏览器扩展/桌面端未连接)、TIMEOUT(执行超时)、"
                         "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
@@ -347,7 +387,10 @@ class ConversationService:
                     "tool_calls": tool_calls_raw,
                 })
 
-                # 5.3 解析并执行 tool_calls
+                # 5.3 解析并执行 tool_calls —— P1-2:同轮独立工具并行执行(无依赖假设)
+                # 结果回灌顺序必须与 tool_calls_raw 顺序一致(LLM 依赖顺序结构),仅执行并发;
+                # 单工具失败不整体中断,失败项独立标注(见下方回灌错误处理)。
+                parsed_calls: list[tuple[dict[str, Any], str, dict[str, Any]]] = []
                 for tc in tool_calls_raw:
                     if not isinstance(tc, dict):
                         continue
@@ -361,16 +404,38 @@ class ConversationService:
                             args = {"_raw": raw_args}
                     else:
                         args = raw_args or {}
+                    parsed_calls.append((tc, tool_name, args))
 
-                    t1 = time.monotonic()
-                    exec_result = await mcp_server.call_tool(tool_name, args)
+                # 并行执行,单轮最大 MAX_PARALLEL_TOOL_CALLS,超出分批 gather
+                round_exec: list[
+                    tuple[dict[str, Any], str, dict[str, Any], dict[str, Any], float]
+                ] = []
+                for i in range(0, len(parsed_calls), MAX_PARALLEL_TOOL_CALLS):
+                    batch = parsed_calls[i:i + MAX_PARALLEL_TOOL_CALLS]
+                    outcomes = await asyncio.gather(
+                        *(_execute_tool_call(name, args) for _, name, args in batch),
+                        return_exceptions=True,
+                    )
+                    for (tc, tool_name, args), outcome in zip(batch, outcomes, strict=True):
+                        if isinstance(outcome, BaseException):
+                            # 防御:helper 已归一化,理论上到不了这里
+                            exec_result = {
+                                "ok": False,
+                                "error": f"工具 {tool_name} 执行失败: {outcome}",
+                            }
+                            duration_ms = 0.0
+                        else:
+                            exec_result, duration_ms = outcome
+                        round_exec.append((tc, tool_name, args, exec_result, duration_ms))
+
+                for tc, tool_name, args, exec_result, duration_ms in round_exec:
                     ok = bool(exec_result.get("ok"))
                     record = ToolCallRecord(
                         tool=tool_name,
                         arguments=args,
                         result=exec_result,
                         ok=ok,
-                        duration_ms=round((time.monotonic() - t1) * 1000, 2),
+                        duration_ms=duration_ms,
                     )
                     tool_calls.append(record)
                     # P0-7: 工具失败时在 trace 显式记录 _tool_error
@@ -380,6 +445,8 @@ class ConversationService:
                         "ok": ok,
                         "duration_ms": record.duration_ms,
                     }
+                    if len(round_exec) > 1:
+                        tool_trace["parallel"] = True
                     if not ok:
                         tool_trace["_tool_error"] = (
                             exec_result.get("error")
@@ -391,7 +458,11 @@ class ConversationService:
                     # 把工具结果回灌 — 失败时显式标注,防止 LLM 幻觉"已完成"
                     result_json = json.dumps(exec_result, ensure_ascii=False)[:4000]
                     if not ok:
-                        err_detail = exec_result.get("error") or exec_result.get("message") or "unknown error"
+                        err_detail = (
+                            exec_result.get("error")
+                            or exec_result.get("message")
+                            or "unknown error"
+                        )
                         err_code = exec_result.get("errorCode", "UNKNOWN")
                         # 嵌入 result.result 兼容 agent_control 返回格式
                         inner = exec_result.get("result", {})
@@ -400,7 +471,8 @@ class ConversationService:
                             err_detail = inner.get("error", err_detail)
                         result_json = (
                             f"TOOL EXECUTION FAILED. errorCode={err_code}. error={err_detail}. "
-                            f"You MUST tell the user the tool failed and suggest checking if the browser extension / desktop app is running. "
+                            f"You MUST tell the user the tool failed and suggest checking if the "
+                            f"browser extension / desktop app is running. "
                             f"Do NOT claim success. Raw result: {result_json}"
                         )
                     messages.append({
@@ -411,16 +483,24 @@ class ConversationService:
                     })
 
                 # 5.3.1 全部 tool 失败时直接构造失败响应,不让 LLM 总结(防止幻觉"已完成")
-                round_calls = tool_calls[-len(tool_calls_raw):] if tool_calls_raw else []
+                round_calls = tool_calls[-len(round_exec):] if round_exec else []
                 if round_calls and all(not tc.ok for tc in round_calls):
                     failed_details = []
                     for tc in round_calls:
                         inner = tc.result.get("result", {})
-                        err_code = inner.get("errorCode", tc.result.get("errorCode", "UNKNOWN")) if isinstance(inner, dict) else "UNKNOWN"
-                        err_msg = inner.get("error", tc.result.get("error", "unknown")) if isinstance(inner, dict) else "unknown"
+                        err_code = (
+                            inner.get("errorCode", tc.result.get("errorCode", "UNKNOWN"))
+                            if isinstance(inner, dict)
+                            else "UNKNOWN"
+                        )
+                        err_msg = (
+                            inner.get("error", tc.result.get("error", "unknown"))
+                            if isinstance(inner, dict)
+                            else "unknown"
+                        )
                         failed_details.append(f"- {tc.tool}: {err_code} — {err_msg}")
                     final_response = (
-                        f"工具执行失败,未能完成您的请求:\n" + "\n".join(failed_details) + "\n\n"
+                        "工具执行失败,未能完成您的请求:\n" + "\n".join(failed_details) + "\n\n"
                         "可能的原因:\n"
                         "- TARGET_NOT_CONNECTED:浏览器扩展或桌面端未启动,请确保对应端已打开并登录\n"
                         "- TIMEOUT:操作超时,请稍后重试\n"

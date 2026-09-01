@@ -6651,6 +6651,7 @@
     },
     "toolCall": {
       "chartGenerated": "图表已生成",
+      "chartPreviewFailed": "图表预览加载失败,请复制路径后在本机浏览器打开。",
       "chartPreviewHint": "本地图表文件无法在网页内直接预览,请复制路径后在本机浏览器打开。",
       "citationsTitle": "引用来源",
       "copyPath": "复制路径",
@@ -20081,5 +20082,11 @@
     "submit": "发布",
     "success": "发布成功",
     "failed": "发布失败"
+  },
+  "memory": {
+    "autoMemory": "自动记忆",
+    "autoMemoryDesc": "开启后，AI 会在对话后自动提炼要点并沉淀为长期记忆，用于后续个性化回复。",
+    "autoMemorySaveSuccess": "设置已保存",
+    "autoMemorySaveFailed": "保存失败，请重试"
   }
 }
