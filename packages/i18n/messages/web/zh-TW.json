@@ -6706,7 +6706,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6723,7 +6728,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -8190,7 +8200,7 @@
       "shortcutsSectionChatMode": "對話模式切換",
       "shortcutsSectionGuard": "高風險護欄",
       "shortcutsSectionSwitch": "模式切換",
-      "infoModalTitle": "權限模式說明",
+      "infoModalTitle": "權限模式詳情",
       "infoModalDesc": "當前為高風險模式，請瞭解以下行為：",
       "infoModalBullet1": "AI 可不受限制地執行所有操作，無需逐一確認",
       "infoModalBullet2": "可讀取、修改、刪除工作區內的任意文件",
@@ -8244,8 +8254,7 @@
       "tplTranslate": "翻譯",
       "tplTranslateContent": "請將以下內容翻譯為英文",
       "undo": "撤銷",
-      "usageHint": "用法: /permission ask | auto | full",
-      "infoModalTitle": "權限模式詳情"
+      "usageHint": "用法: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "目前已是 {mode} 模式",
     "permissionLabelAsk": "請求批准",
@@ -8685,32 +8694,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -8888,6 +8923,59 @@
     "delete": "刪除",
     "save": "儲存",
     "ok": "確定"
+  },
+  "connectors": {
+    "title": "中文連接器",
+    "subtitle": "接入語雀/飛書/企業微信/釘釘,讓對話能直接讀取中文知識平台文檔",
+    "count": "共 {count} 個連接器",
+    "add": "新增連接器",
+    "edit": "設定",
+    "cancel": "取消",
+    "submit": "儲存",
+    "typeLabel": "類型",
+    "nameLabel": "名稱",
+    "namePlaceholder": "連接器顯示名,如: 產品知識庫",
+    "yuque": "語雀",
+    "feishu": "飛書",
+    "wecom": "企業微信",
+    "dingtalk": "釘釘",
+    "yuqueHint": "公開知識庫免 token,填 owner 與 slug 即可",
+    "yuqueUserLabel": "知識庫 Owner(使用者或組織)",
+    "yuqueUserPlaceholder": "如 yuque",
+    "yuqueRepoLabel": "知識庫 Slug",
+    "yuqueRepoPlaceholder": "如 developer",
+    "appIdLabel": "App ID",
+    "appIdPlaceholder": "開放平台應用的 App ID",
+    "appSecretLabel": "App Secret",
+    "appSecretPlaceholder": "應用金鑰",
+    "secretKeepHint": "編輯時留空表示保留原金鑰",
+    "configured": "已設定",
+    "notConfigured": "未設定",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "lastSyncAt": "最近同步",
+    "neverSynced": "尚未同步",
+    "lastError": "錯誤: {error}",
+    "sync": "同步",
+    "syncing": "同步中...",
+    "syncSuccess": "同步成功,共 {count} 篇文件",
+    "syncEmpty": "同步完成,未發現文件",
+    "syncFailed": "同步失敗",
+    "docList": "文件列表",
+    "readDoc": "讀取文件",
+    "reading": "讀取中...",
+    "truncatedHint": "文件較長,已截斷為 {chars} 字元",
+    "delete": "刪除",
+    "deleteConfirmTitle": "刪除連接器",
+    "deleteConfirmDesc": "確定刪除「{name}」?此操作無法復原",
+    "deleteSuccess": "連接器已刪除",
+    "deleteFailed": "刪除失敗,請稍後重試",
+    "enableSuccess": "{name} 已啟用",
+    "disableSuccess": "{name} 已停用",
+    "actionFailed": "操作失敗,請稍後重試",
+    "loading": "載入中...",
+    "loadFailed": "載入失敗,請稍後重試",
+    "empty": "暫無連接器,點擊「新增連接器」接入你的中文知識平台"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -10513,25 +10601,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10665,19 +10765,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -13153,7 +13265,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13888,7 +14008,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14839,12 +14964,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16101,7 +16238,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"

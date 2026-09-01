@@ -6711,7 +6711,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6728,7 +6733,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8195,7 +8205,7 @@
       "shortcutsSectionChatMode": "チャットモード切替",
       "shortcutsSectionGuard": "高リスクガード",
       "shortcutsSectionSwitch": "モード切替",
-      "infoModalTitle": "権限モードの説明",
+      "infoModalTitle": "権限モードの詳細",
       "infoModalDesc": "現在は高リスクモードです。以下の動作を確認してください：",
       "infoModalBullet1": "AIは確認なしで任意の操作を実行できます",
       "infoModalBullet2": "ワークスペース内のファイルの読み取り、変更、削除が可能です",
@@ -8249,8 +8259,7 @@
       "tplTranslate": "翻訳",
       "tplTranslateContent": "以下の内容を英語に翻訳してください",
       "undo": "元に戻す",
-      "usageHint": "使い方: /permission ask | auto | full",
-      "infoModalTitle": "権限モードの詳細"
+      "usageHint": "使い方: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "現在は {mode} モードです",
     "permissionLabelAsk": "承認を求める",
@@ -8690,32 +8699,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -8903,6 +8938,59 @@
     "delete": "削除",
     "save": "保存",
     "ok": "OK"
+  },
+  "connectors": {
+    "title": "中文コネクタ",
+    "subtitle": "語雀/飛書/企業微信/钉钉を接続し、会話から中文ナレッジプラットフォームの文書を直接読めるようにします",
+    "count": "コネクタ {count} 件",
+    "add": "コネクタを追加",
+    "edit": "設定",
+    "cancel": "キャンセル",
+    "submit": "保存",
+    "typeLabel": "種類",
+    "nameLabel": "名前",
+    "namePlaceholder": "表示名(例: 製品ナレッジベース)",
+    "yuque": "語雀",
+    "feishu": "飛書",
+    "wecom": "企業微信",
+    "dingtalk": "钉钉",
+    "yuqueHint": "公開ナレッジベースはトークン不要。owner と slug を入力するだけです",
+    "yuqueUserLabel": "ナレッジベースのオーナー(ユーザーまたは組織)",
+    "yuqueUserPlaceholder": "例: yuque",
+    "yuqueRepoLabel": "ナレッジベースの Slug",
+    "yuqueRepoPlaceholder": "例: developer",
+    "appIdLabel": "App ID",
+    "appIdPlaceholder": "オープンプラットフォームアプリの App ID",
+    "appSecretLabel": "App Secret",
+    "appSecretPlaceholder": "アプリのシークレット",
+    "secretKeepHint": "空欄の場合は既存のシークレットを保持します",
+    "configured": "設定済み",
+    "notConfigured": "未設定",
+    "enabled": "有効",
+    "disabled": "無効",
+    "lastSyncAt": "最終同期",
+    "neverSynced": "未同期",
+    "lastError": "エラー: {error}",
+    "sync": "同期",
+    "syncing": "同期中...",
+    "syncSuccess": "同期に成功しました({count} 件)",
+    "syncEmpty": "同期完了、文書は見つかりませんでした",
+    "syncFailed": "同期に失敗しました",
+    "docList": "文書リスト",
+    "readDoc": "文書を読む",
+    "reading": "読み込み中...",
+    "truncatedHint": "文書が長いため、{chars} 文字に切り詰めました",
+    "delete": "削除",
+    "deleteConfirmTitle": "コネクタの削除",
+    "deleteConfirmDesc": "「{name}」を削除しますか?この操作は元に戻せません",
+    "deleteSuccess": "コネクタを削除しました",
+    "deleteFailed": "削除に失敗しました。しばらくしてからお試しください",
+    "enableSuccess": "{name} を有効にしました",
+    "disableSuccess": "{name} を無効にしました",
+    "actionFailed": "操作に失敗しました。しばらくしてからお試しください",
+    "loading": "読み込み中...",
+    "loadFailed": "読み込みに失敗しました。しばらくしてからお試しください",
+    "empty": "コネクタはまだありません。「コネクタを追加」から中文ナレッジプラットフォームに接続してください"
   },
   "contactPage": {
     "addressTitle": "会社住所",
@@ -10528,25 +10616,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10680,19 +10780,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -13176,7 +13288,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {

@@ -6706,7 +6706,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -6723,7 +6728,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8177,7 +8187,7 @@
       "shortcutsItemModeSpecKbd": "切换到规格模式(从代码反向生成 spec 文档)",
       "shortcutsItemNumberKbd": "popover 打开时按 1/2/3 直接选模式",
       "shortcutsItemQuestionMarkKbd": "唤起本快捷键面板",
-      "infoModalTitle": "权限模式说明",
+      "infoModalTitle": "权限模式详情",
       "infoModalDesc": "当前为高风险模式，请了解以下行为：",
       "infoModalBullet1": "AI 可不受限制地执行所有操作，无需逐一确认",
       "infoModalBullet2": "可读取、修改、删除工作区内的任意文件",
@@ -8244,8 +8254,7 @@
       "tplTranslate": "翻译",
       "tplTranslateContent": "请将以下内容翻译为英文",
       "undo": "撤销",
-      "usageHint": "用法: /permission ask | auto | full",
-      "infoModalTitle": "权限模式详情"
+      "usageHint": "用法: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
@@ -8685,32 +8694,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       }
     },
@@ -8888,6 +8923,59 @@
     "delete": "删除",
     "save": "保存",
     "ok": "确定"
+  },
+  "connectors": {
+    "title": "中文连接器",
+    "subtitle": "接入语雀/飞书/企业微信/钉钉,让对话能直接读取中文知识平台文档",
+    "count": "共 {count} 个连接器",
+    "add": "添加连接器",
+    "edit": "配置",
+    "cancel": "取消",
+    "submit": "保存",
+    "typeLabel": "类型",
+    "nameLabel": "名称",
+    "namePlaceholder": "连接器显示名,如: 产品知识库",
+    "yuque": "语雀",
+    "feishu": "飞书",
+    "wecom": "企业微信",
+    "dingtalk": "钉钉",
+    "yuqueHint": "公开知识库免 token,填 owner 与 slug 即可",
+    "yuqueUserLabel": "知识库 Owner(用户或组织)",
+    "yuqueUserPlaceholder": "如 yuque",
+    "yuqueRepoLabel": "知识库 Slug",
+    "yuqueRepoPlaceholder": "如 developer",
+    "appIdLabel": "App ID",
+    "appIdPlaceholder": "开放平台应用的 App ID",
+    "appSecretLabel": "App Secret",
+    "appSecretPlaceholder": "应用密钥",
+    "secretKeepHint": "编辑时留空表示保留原密钥",
+    "configured": "已配置",
+    "notConfigured": "未配置",
+    "enabled": "已启用",
+    "disabled": "已停用",
+    "lastSyncAt": "最近同步",
+    "neverSynced": "尚未同步",
+    "lastError": "错误: {error}",
+    "sync": "同步",
+    "syncing": "同步中...",
+    "syncSuccess": "同步成功,共 {count} 篇文档",
+    "syncEmpty": "同步完成,未发现文档",
+    "syncFailed": "同步失败",
+    "docList": "文档列表",
+    "readDoc": "读取文档",
+    "reading": "读取中...",
+    "truncatedHint": "文档较长,已截断为 {chars} 字符",
+    "delete": "删除",
+    "deleteConfirmTitle": "删除连接器",
+    "deleteConfirmDesc": "确定删除「{name}」?该操作不可恢复",
+    "deleteSuccess": "连接器已删除",
+    "deleteFailed": "删除失败,请稍后重试",
+    "enableSuccess": "{name} 已启用",
+    "disableSuccess": "{name} 已停用",
+    "actionFailed": "操作失败,请稍后重试",
+    "loading": "加载中...",
+    "loadFailed": "加载失败,请稍后重试",
+    "empty": "暂无连接器,点击「添加连接器」接入你的中文知识平台"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -10513,25 +10601,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -10665,19 +10765,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -13153,7 +13265,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13888,7 +14008,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -14839,12 +14964,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -16101,7 +16238,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"

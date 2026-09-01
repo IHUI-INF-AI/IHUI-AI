@@ -8200,7 +8200,7 @@
       "shortcutsSectionChatMode": "Chat Mode Switch",
       "shortcutsSectionGuard": "High-risk guardrails",
       "shortcutsSectionSwitch": "Mode switching",
-      "infoModalTitle": "Permission mode info",
+      "infoModalTitle": "Permission mode details",
       "infoModalDesc": "You are in a high-risk mode. Please understand the following behaviors:",
       "infoModalBullet1": "AI can perform any action without confirmation",
       "infoModalBullet2": "Can read, modify, or delete any file in the workspace",
@@ -8254,8 +8254,7 @@
       "tplTranslate": "Translate",
       "tplTranslateContent": "Please translate the following content into English",
       "undo": "Undo",
-      "usageHint": "Usage: /permission ask | auto | full",
-      "infoModalTitle": "Permission mode details"
+      "usageHint": "Usage: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
@@ -8695,32 +8694,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -8898,6 +8923,59 @@
     "delete": "Delete",
     "save": "Save",
     "ok": "OK"
+  },
+  "connectors": {
+    "title": "Chinese Connectors",
+    "subtitle": "Connect Yuque / Feishu / WeCom / DingTalk so conversations can read docs from Chinese knowledge platforms",
+    "count": "{count} connectors",
+    "add": "Add connector",
+    "edit": "Configure",
+    "cancel": "Cancel",
+    "submit": "Save",
+    "typeLabel": "Type",
+    "nameLabel": "Name",
+    "namePlaceholder": "Display name, e.g. Product knowledge base",
+    "yuque": "Yuque",
+    "feishu": "Feishu",
+    "wecom": "WeCom",
+    "dingtalk": "DingTalk",
+    "yuqueHint": "Public knowledge base needs no token, just enter owner and slug",
+    "yuqueUserLabel": "Knowledge base owner (user or org)",
+    "yuqueUserPlaceholder": "e.g. yuque",
+    "yuqueRepoLabel": "Knowledge base slug",
+    "yuqueRepoPlaceholder": "e.g. developer",
+    "appIdLabel": "App ID",
+    "appIdPlaceholder": "App ID of the open-platform app",
+    "appSecretLabel": "App Secret",
+    "appSecretPlaceholder": "App secret",
+    "secretKeepHint": "Leave empty to keep the existing secret",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "lastSyncAt": "Last synced",
+    "neverSynced": "Never synced",
+    "lastError": "Error: {error}",
+    "sync": "Sync",
+    "syncing": "Syncing...",
+    "syncSuccess": "Synced successfully, {count} docs",
+    "syncEmpty": "Sync complete, no docs found",
+    "syncFailed": "Sync failed",
+    "docList": "Documents",
+    "readDoc": "Read doc",
+    "reading": "Reading...",
+    "truncatedHint": "Doc is long, truncated to {chars} chars",
+    "delete": "Delete",
+    "deleteConfirmTitle": "Delete connector",
+    "deleteConfirmDesc": "Delete \"{name}\"? This cannot be undone",
+    "deleteSuccess": "Connector deleted",
+    "deleteFailed": "Delete failed, please try again",
+    "enableSuccess": "{name} enabled",
+    "disableSuccess": "{name} disabled",
+    "actionFailed": "Operation failed, please try again",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load, please try again",
+    "empty": "No connectors yet. Click \"Add connector\" to connect your Chinese knowledge platform"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -10523,25 +10601,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10675,19 +10765,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -13163,7 +13265,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
