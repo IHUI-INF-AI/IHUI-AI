@@ -14,9 +14,7 @@ import {
   X,
   Minus,
   Pin,
-  PanelLeft,
   ChevronUp,
-  SlidersHorizontal,
   SquareTerminal,
 } from 'lucide-react'
 
@@ -66,7 +64,9 @@ import { useMediaQuery } from '@/hooks/use-media-query'
  *  - left: 工作区左边缘 + 16px(紧贴 sidebar 右侧,留 16px 缓冲)
  *  - bottom: 距视口底部 16px(底部对齐,面板高度变化时顶部向上扩展 = "向上弹出"视觉效果)
  *  - 测量失败回退: left=256(sidebar 默认 240 + 16), bottom=innerHeight-16
- *  - 仅在 floatPosition.x < 0(未初始化)时使用,用户拖拽后用 floatPosition 持久化坐标 */
+ *  - 仅在 floatPosition.x < 0(未初始化)时使用,用户拖拽后用 floatPosition 持久化坐标
+ *  - 2026-09-01 fix:浮窗位置在 workAreaCollapsed 变化时不应跳变 → 用 ref 缓存,只在首次渲染时计算
+ *    (每次 render 重新 getBoundingClientRect 会因主界面 reflow 得出不同值,导致浮窗位置抖动) */
 function getDefaultFloatAnchor(): { left: number; bottom: number } {
   if (typeof window === 'undefined') return { left: 256, bottom: 1000 }
   const root = document.getElementById('work-area-portal-root')
@@ -76,6 +76,10 @@ function getDefaultFloatAnchor(): { left: number; bottom: number } {
     bottom: rect ? rect.bottom - 16 : window.innerHeight - 16,
   }
 }
+
+// 用 ref 缓存锚点,避免每次 render 重新测量导致浮窗位置跳变
+const _floatAnchor = getDefaultFloatAnchor()
+const defaultFloatAnchor = { current: _floatAnchor }
 
 /** 自定义"工作展示区"图标(对标设计稿):大圆角面板 + 短竖线,竖线两端不贴外框
  *  left=false 竖线在右侧(工作区展开状态);left=true 竖线在左侧(工作区收起状态) */
@@ -99,6 +103,39 @@ function PanelRightRounded({
     >
       <rect width="18" height="18" x="3" y="3" rx="5" />
       <path d={left ? 'M7.5 8v8' : 'M16.5 8v8'} />
+    </svg>
+  )
+}
+
+/** 自定义"环境信息"图标:大圆角面板 + 菜单三条横线,选中切换为打勾 */
+function EnvInfoRounded({
+  checked = false,
+  ...props
+}: React.SVGProps<SVGSVGElement> & { checked?: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <rect width="18" height="18" x="3" y="3" rx="5" />
+      {checked ? (
+        <path d="M8 12.5l2.5 2.5 5.5-6" />
+      ) : (
+        <>
+          <path d="M8 8h8" />
+          <path d="M8 12h8" />
+          <path d="M8 16h8" />
+        </>
+      )}
     </svg>
   )
 }
@@ -735,7 +772,7 @@ export function AISidePanel() {
             isMobileSmall
               ? undefined
               : floatPosition.x < 0
-                ? { left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                ? { left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
                 : { left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
           }
         >
@@ -772,7 +809,7 @@ export function AISidePanel() {
               isMobileSmall
                 ? undefined
                 : floatPosition.x < 0
-                  ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                  ? { width, left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
                   : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
             }
           >
@@ -931,7 +968,7 @@ export function AISidePanel() {
                 : floatPosition.x < 0
                   ? {
                       width,
-                      left: `${getDefaultFloatAnchor().left}px`,
+                      left: `${defaultFloatAnchor.current.left}px`,
                       bottom: '16px',
                       height: 'min(600px, calc(100vh - 100px))',
                       transition: isResizing
@@ -1028,7 +1065,7 @@ export function AISidePanel() {
               无需用户手动触发,移除手动派发按钮。 */}
               {/* 浮窗模式切换按钮(2026-07-30):
                 - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
-                - float 模式:显示 PanelLeft(停靠) + Minus(最小化)两个按钮 */}
+                - float 模式:显示 PanelRightRounded(停靠) + Minus(最小化)两个按钮 */}
               {floatMode ? (
                 <>
                   <Tooltip content={tc('dockPanel')}>
@@ -1041,7 +1078,7 @@ export function AISidePanel() {
                       aria-label={tc('dockPanel')}
                       className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
-                      <PanelLeft className="h-4 w-4" />
+                      <PanelRightRounded left className="h-4 w-4" />
                     </button>
                   </Tooltip>
                   <Tooltip content={tc('minimize')}>
@@ -1086,7 +1123,7 @@ export function AISidePanel() {
                     envInfoOpen && 'bg-accent text-accent-foreground',
                   )}
                 >
-                  <SlidersHorizontal className="h-4 w-4" />
+                  <EnvInfoRounded checked={envInfoOpen} className="h-4 w-4" />
                 </button>
               </Tooltip>
               <Tooltip content={tc('openTerminal')}>
@@ -1102,11 +1139,11 @@ export function AISidePanel() {
                   <SquareTerminal className="h-4 w-4" />
                 </button>
               </Tooltip>
-              <Tooltip content={tc('toggleWorkPanel')}>
+              <Tooltip content={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}>
                 <button
                   type="button"
                   onClick={toggleWorkPanel}
-                  aria-label={tc('toggleWorkPanel')}
+                  aria-label={workAreaCollapsed ? tc('openWorkPanel') : tc('closeWorkPanel')}
                   className={cn(
                     'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
                     workAreaCollapsed && 'bg-accent text-accent-foreground',
