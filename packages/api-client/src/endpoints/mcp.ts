@@ -63,6 +63,61 @@ export interface McpExternalServersResponse {
   count: number
 }
 
+/** MCP 商店条目(目录条目 + 安装状态合并,2026-09-02 立,P2-1) */
+export interface McpStoreEntry {
+  /** 唯一标识(URL path 安全,小写连字符) */
+  key: string
+  /** 安装后的完整 server 名(如 `mcp:filesystem`,启停/卸载用它) */
+  server_name: string
+  /** 展示名 */
+  name: string
+  /** 用途说明 */
+  description: string
+  /** 来源:official / community */
+  source: McpDirectorySource
+  /** 传输模式:stdio / sse */
+  transport: McpServerTransport
+  /** 需用户配置的环境变量名 */
+  env_required: string[]
+  /** 是否已安装 */
+  installed: boolean
+  /** 是否已启用(运行中) */
+  enabled: boolean
+  /** 已注入对话工具表的工具数 */
+  tool_count: number
+  /** 最近一次安装/启用的错误信息(空=正常) */
+  last_error: string
+}
+
+/** MCP 商店合并列表响应 */
+export interface McpStoreResponse {
+  servers: McpStoreEntry[]
+  count: number
+}
+
+/** 商店安装请求参数 */
+export interface InstallStoreServerInput {
+  /** 必需环境变量(如 DATABASE_URL / GITHUB_PERSONAL_ACCESS_TOKEN) */
+  env?: Record<string, string>
+  /** filesystem 类 server 的工作区路径 */
+  workspace_path?: string
+}
+
+/** 商店安装响应 */
+export interface McpStoreInstallResult {
+  ok: boolean
+  name: string
+  tool_count: number
+}
+
+/** 商店启停/卸载响应 */
+export interface McpStoreActionResult {
+  ok: boolean
+  name: string
+  enabled?: boolean
+  tools_removed?: number
+}
+
 /** 目录一键注册请求参数(后端会用目录条目 command/args 兜底,前端仅需 env 与可选 args) */
 export interface RegisterDirectoryServerInput {
   /** 注册名(通常为 `mcp:{key}`) */
@@ -98,5 +153,41 @@ export async function registerDirectoryServer(
 /** 获取已注册的外部 MCP Server 列表(含连接状态) */
 export async function listExternalServers(): Promise<ApiResult<McpExternalServersResponse>> {
   return fetchApi<McpExternalServersResponse>('/api/mcp/external/servers')
+}
+
+// ===================== MCP 应用商店(P2-1,2026-09-02 立) =====================
+
+/** 获取 MCP 商店合并列表(目录条目 + 安装状态,一个接口渲染整页) */
+export async function getMcpStore(): Promise<ApiResult<McpStoreResponse>> {
+  return fetchApi<McpStoreResponse>('/api/mcp/store')
+}
+
+/** 商店安装:目录条目 → 官方 SDK stdio 热挂载 → 状态持久化 */
+export async function installStoreServer(
+  key: string,
+  input: InstallStoreServerInput,
+): Promise<ApiResult<McpStoreInstallResult>> {
+  return fetchApi<McpStoreInstallResult>(`/api/mcp/store/install`, {
+    method: 'POST',
+    body: JSON.stringify({ key, ...input }),
+  })
+}
+
+/** 商店卸载:关闭子进程 + 移除注入工具 + 删除持久化记录 */
+export async function uninstallStoreServer(name: string): Promise<ApiResult<McpStoreActionResult>> {
+  return fetchApi<McpStoreActionResult>(`/api/mcp/store/${encodeURIComponent(name)}/uninstall`, {
+    method: 'POST',
+  })
+}
+
+/** 商店启停:enabled=true 重新热挂载注入工具;false 关闭子进程并清理工具表 */
+export async function setStoreServerEnabled(
+  name: string,
+  enabled: boolean,
+): Promise<ApiResult<McpStoreActionResult>> {
+  return fetchApi<McpStoreActionResult>(
+    `/api/mcp/store/${encodeURIComponent(name)}/${enabled ? 'enable' : 'disable'}`,
+    { method: 'POST' },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
