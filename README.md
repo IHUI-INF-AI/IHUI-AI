@@ -1116,7 +1116,7 @@ cd IHUI-AI && docker compose up -d
 
 | 端              | 下载形态                   | 版本   | 大小             | 状态        |
 | --------------- | -------------------------- | ------ | ---------------- | ----------- |
-| **Desktop**     | Windows NSIS `.exe` + MSI  | 0.1.14 | 226.8 / 234.9 MB | 🟢 已接入   |
+| **Desktop**     | Windows NSIS `.exe` + MSI  | 0.1.15 | 226.8 / 234.9 MB | 🟢 已接入   |
 | **CLI**         | `npm install -g @ihui/cli` | 1.0.0  | -                | 🟢 已接入   |
 | **Extension**   | Chrome MV3 `.zip`          | 1.0.0  | 1.31 MB          | 🟢 已接入   |
 | **Mobile RN**   | 源码构建(GitHub)           | -      | -                | 🟢 已接入   |
