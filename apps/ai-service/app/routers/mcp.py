@@ -15,9 +15,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from ..services.mcp_server import mcp_server, sampling_handler
-from ..services.skills import skill_registry
-from ..services.slash_commands import slash_command_registry
 from ..services.mcp_client import (
     DEFAULT_TIMEOUT,
     TRANSPORT_SSE,
@@ -25,6 +22,9 @@ from ..services.mcp_client import (
     MCPClientConfig,
     get_mcp_client_manager,
 )
+from ..services.mcp_server import mcp_server, sampling_handler
+from ..services.skills import skill_registry
+from ..services.slash_commands import slash_command_registry
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,10 @@ async def get_skill(name: str) -> dict[str, Any]:
 @router.get("/mcp/slash-commands")
 async def list_slash_commands() -> dict[str, Any]:
     """列出全部 slash 命令。"""
-    commands = [{"name": c.name, "description": c.description} for c in slash_command_registry.list_commands()]
+    commands = [
+        {"name": c.name, "description": c.description}
+        for c in slash_command_registry.list_commands()
+    ]
     return {"commands": commands, "count": len(commands)}
 
 
@@ -258,6 +261,76 @@ def _server_info(manager: Any, name: str) -> dict[str, Any]:
     }
 
 
+@router.get("/mcp/directory", response_model=None)
+async def list_mcp_directory() -> dict[str, Any]:
+    """内置 MCP Server 目录(MCP 应用商店种子数据,只读)。"""
+    try:
+        from ..services.mcp_directory import get_directory
+
+        entries = get_directory()
+        return {"servers": entries, "count": len(entries)}
+    except Exception as e:
+        logger.error("获取 MCP 目录失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"获取 MCP 目录失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
+
+
+@router.post("/mcp/directory/{key}/register", response_model=None)
+async def register_directory_server(
+    key: str,
+    req: ExternalServerRegisterRequest,
+) -> dict[str, Any] | JSONResponse:
+    """目录一键注册:把内置条目转换为 MCPClientConfig 并注册连接。
+
+    目录条目缺必需环境变量(如 DATABASE_URL / PAT)且未提供时返回 400。
+    """
+    try:
+        from ..services.mcp_directory import to_client_config
+
+        cfg_dict = to_client_config(
+            key,
+            env_overrides=req.env or {},
+            workspace_path=(req.args[0] if req.args else "/path/to/workspace"),
+        )
+        if cfg_dict is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {key}"})
+        missing = cfg_dict.pop("_missing_env", [])
+        if missing:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
+            )
+        name = cfg_dict["name"]
+        manager = get_mcp_client_manager()
+        if manager.get_client(name) is not None:
+            return JSONResponse(status_code=409, content={"error": f"MCP Server 已存在: {name}"})
+        cfg = MCPClientConfig(
+            name=name,
+            transport=cfg_dict["transport"],
+            command=cfg_dict["command"],
+            args=cfg_dict["args"],
+            url=cfg_dict.get("url") or "",
+            env=cfg_dict.get("env") or {},
+            timeout=DEFAULT_TIMEOUT,
+        )
+        manager.register(cfg)
+        client = manager.get_client(name)
+        if client is not None:
+            try:
+                await client.connect()
+            except Exception as e:
+                logger.warning("MCP 目录 Server 连接失败(%s): %s", name, e)
+        return JSONResponse(status_code=201, content=_server_info(manager, name))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("注册 MCP 目录 Server 失败: %s", e)
+        return JSONResponse(status_code=500, content={"error": f"注册 MCP 目录 Server 失败: {e}"})
+
+
 @router.get("/mcp/external/servers", response_model=None)
 async def list_external_servers() -> dict[str, Any]:
     """列出所有已注册的外部 MCP Server(含连接状态)。"""
@@ -267,7 +340,11 @@ async def list_external_servers() -> dict[str, Any]:
         return {"servers": servers, "count": len(servers)}
     except Exception as e:
         logger.error("列出外部 MCP Server 失败: %s", e)
-        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP Server 失败: {e}"}, headers={})  # type: ignore[return-value]
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"列出外部 MCP Server 失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
 
 
 @router.post("/mcp/external/servers", response_model=None)
@@ -358,7 +435,11 @@ async def list_external_tools() -> dict[str, Any]:
         return {"tools": [asdict(t) for t in tools], "count": len(tools)}
     except Exception as e:
         logger.error("列出外部 MCP 工具失败: %s", e)
-        return JSONResponse(status_code=500, content={"error": f"列出外部 MCP 工具失败: {e}"}, headers={})  # type: ignore[return-value]
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"列出外部 MCP 工具失败: {e}"},
+            headers={},
+        )  # type: ignore[return-value]
 
 
 @router.post("/mcp/external/tools/call", response_model=None)
