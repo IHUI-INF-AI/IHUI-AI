@@ -6880,7 +6880,8 @@
       "pinFailed": "Pin operation failed"
     },
     "today": "Today",
-    "toggleWorkPanel": "Toggle Work Panel"
+    "openWorkPanel": "Open Work Panel",
+    "closeWorkPanel": "Close Work Panel"
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
@@ -7944,6 +7945,9 @@
     "communityPublishTitlePlaceholder": "Please enter a title",
     "communityPublishTitleRequired": "Please enter a title",
     "communityPublishing": "Publishing...",
+    "compaction": {
+      "truncatedNotice": "The last message was too long and has been truncated to keep the conversation usable"
+    },
     "contextCompacted": "Context auto-compacted",
     "contextCompactedDesc": "{before} → {after} ({removed} history entries removed)",
     "contextMenu": {

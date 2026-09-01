@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest'
 import {
   estimateTokens,
   estimateMessagesTokens,
+  summarizeMessage,
   compressContext,
   compressContextIfNeeded,
+  type ChatMessage,
 } from '../src/context.js'
 
 describe('estimateTokens', () => {
@@ -300,6 +302,215 @@ describe('compressContextIfNeeded', () => {
     expect(r.removedCount).toBe(0)
     expect(r.messages).toEqual(messages)
     expect(r.compressedTokens).toBe(r.originalTokens)
+  })
+})
+
+// ==================== tool_calls 配对组保护 ====================
+
+/** 构造带两条工具链的消息:u0 → [a0(tc=c1) → t1(c1)] → u1 → [a1(tc=c2) → t2(c2)] → latest */
+function buildToolChainMessages(): ChatMessage[] {
+  const longContent = 'x'.repeat(8000) // 'x' BPE 实测 0.125 token/char,每条 ~1000 tokens
+  return [
+    { role: 'system', content: 'sys' },
+    { role: 'user', content: longContent + '_u0' },
+    {
+      role: 'assistant',
+      content: longContent + '_a0',
+      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } }],
+    },
+    { role: 'tool', content: longContent + '_t1', tool_call_id: 'c1' },
+    { role: 'user', content: longContent + '_u1' },
+    {
+      role: 'assistant',
+      content: longContent + '_a1',
+      tool_calls: [{ id: 'c2', type: 'function', function: { name: 'grep', arguments: '{}' } }],
+    },
+    { role: 'tool', content: longContent + '_t2', tool_call_id: 'c2' },
+    { role: 'user', content: 'latest question' },
+  ]
+}
+
+/** 断言无孤 tool 消息:每条 role='tool' 之前必有含对应 tool_call_id 的 assistant 消息 */
+function assertNoOrphanTools(messages: ChatMessage[]): void {
+  messages.forEach((m, i) => {
+    if (m.role !== 'tool') return
+    const owner = messages
+      .slice(0, i)
+      .reverse()
+      .find((p) => p.role === 'assistant' && p.tool_calls?.some((tc) => tc.id === m.tool_call_id))
+    expect(owner, `孤 tool 消息(tool_call_id=${m.tool_call_id})前面没有对应 tool_calls 的 assistant`).toBeDefined()
+  })
+}
+
+describe('tool_calls 配对组保护', () => {
+  it('keepRecent=1~2 触发压缩:压缩结果无孤 tool 消息,配对组整体保留或整体摘要', () => {
+    const messages = buildToolChainMessages()
+    for (const keepRecent of [1, 2]) {
+      const r = compressContextIfNeeded(messages, { contextLimit: 6000, keepRecent })
+      expect(r.compressed).toBe(true)
+      expect(r.trigger).toBe('ratio')
+      assertNoOrphanTools(r.messages)
+      // 配对组完整性:c1 组(assistant+tool)要么都出现要么都不出现,c2 组同理
+      const hasC1Assistant = r.messages.some(
+        (m) => m.role === 'assistant' && m.tool_calls?.some((tc) => tc.id === 'c1'),
+      )
+      const hasC1Tool = r.messages.some((m) => m.role === 'tool' && m.tool_call_id === 'c1')
+      expect(hasC1Assistant).toBe(hasC1Tool)
+      const hasC2Assistant = r.messages.some(
+        (m) => m.role === 'assistant' && m.tool_calls?.some((tc) => tc.id === 'c2'),
+      )
+      const hasC2Tool = r.messages.some((m) => m.role === 'tool' && m.tool_call_id === 'c2')
+      expect(hasC2Assistant).toBe(hasC2Tool)
+    }
+  })
+
+  it('切分点落在配对组中间时自动外扩到组边界(保留侧不以孤 tool 开头)', () => {
+    // keepRecent=2 时朴素 slice 会保留 [tool(c2), user] —— 孤 tool;组边界对齐后保留 [assistant(c2), tool(c2), user]
+    const messages = buildToolChainMessages()
+    const r = compressContextIfNeeded(messages, { contextLimit: 6000, keepRecent: 2 })
+    expect(r.compressed).toBe(true)
+    const firstKept = r.messages.find(
+      (m) => m.role !== 'system' && !(m.role === 'user' && m.content.startsWith('[上下文摘要')),
+    )
+    expect(firstKept?.role).not.toBe('tool')
+    // c2 组整体保留在 toKeep 侧
+    expect(r.messages.some((m) => m.role === 'assistant' && m.tool_calls?.some((tc) => tc.id === 'c2'))).toBe(true)
+    expect(r.messages.some((m) => m.role === 'tool' && m.tool_call_id === 'c2')).toBe(true)
+  })
+
+  it('截断降级:最后消息属于配对组时整组保留,只截断组内 user/assistant 内容', () => {
+    // 最后组 = [assistant(tc=c9, 超长内容), tool(短结果)]:kr 循环压不动 → 截断 assistant 内容,
+    // tool 结果完整保留(组内 tool result 不截断)
+    const longContent = 'y'.repeat(32000) // 'y' BPE ≈ 0.25 token/char,每条 ≈ 8000 tokens
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: longContent + '_u0' },
+      {
+        role: 'assistant',
+        content: longContent + '_a0',
+        tool_calls: [{ id: 'c9', type: 'function', function: { name: 'bash', arguments: '{}' } }],
+      },
+      { role: 'tool', content: 'short tool output', tool_call_id: 'c9' },
+    ]
+    const r = compressContextIfNeeded(messages, { contextLimit: 9000 })
+    expect(r.compressed).toBe(true)
+    expect(r.trigger).toBe('truncated')
+    const keptTool = r.messages.find((m) => m.role === 'tool' && m.tool_call_id === 'c9')
+    expect(keptTool?.content).toBe('short tool output')
+    const keptAssistant = r.messages.find(
+      (m) => m.role === 'assistant' && m.tool_calls?.some((tc) => tc.id === 'c9'),
+    )
+    expect(keptAssistant?.content).toContain('…[已截断]')
+    // 原消息列表零改动
+    expect(messages[2]!.content).toBe(longContent + '_a0')
+  })
+})
+
+// ==================== 摘要防嵌套 ====================
+
+describe('摘要防嵌套', () => {
+  it('历史摘要正文原样并入新摘要,标记条数 = 旧覆盖条数 + 新压缩条数', () => {
+    const longContent = 'x'.repeat(8000) // 'x' BPE 实测 0.125 token/char,每条 ~1000 tokens
+    const oldSummaryBody =
+      '历史摘要正文第一行:用户要求实现上下文压缩功能,关键决策不能丢。\n历史摘要正文第二行:多轮压缩后此正文应原样保留而非被再摘要截断。'
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: `[上下文摘要 — 之前 4 条消息已压缩]\n${oldSummaryBody}` },
+    ]
+    for (let i = 0; i < 10; i++) {
+      messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: longContent + `_m${i}` })
+    }
+    const r = compressContextIfNeeded(messages, { contextLimit: 8000, keepRecent: 1 })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    // kr=1 方案:toCompress 含旧摘要(覆盖 4 条)+ 若干新消息 → 标记条数 = 4 + 非摘要压缩条数
+    const newCompressedCount = r.removedCount - 1 // removedCount 含旧摘要消息本身
+    expect(summary!.content).toContain(`[上下文摘要 — 之前 ${4 + newCompressedCount} 条消息已压缩]`)
+    // 旧摘要正文原样保留(两行完整出现,未被 summarizeMessage 再加工为首句截断)
+    expect(summary!.content).toContain(oldSummaryBody)
+    // 旧摘要消息本身不应再出现在压缩结果中(已被并入新摘要)
+    expect(r.messages.filter((m) => m.content.startsWith('[上下文摘要')).length).toBe(1)
+  })
+})
+
+// ==================== customSummary 消费 ====================
+
+describe('customSummary 消费', () => {
+  function buildCustomSummaryMessages(): ChatMessage[] {
+    const longContent = 'x'.repeat(8000) // 'x' BPE 实测 0.125 token/char,每条 ~1000 tokens
+    const messages: ChatMessage[] = [{ role: 'system', content: 'sys' }]
+    for (let i = 0; i < 20; i++) {
+      messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: longContent + `_m${i}` })
+    }
+    return messages
+  }
+
+  it('最大保留方案(kr=keepRecent)压缩成功时摘要正文使用 customSummary 且带自动标记行', () => {
+    const messages = buildCustomSummaryMessages()
+    const r = compressContextIfNeeded(messages, {
+      contextLimit: 16000,
+      keepRecent: 6,
+      customSummary: '自定义语义摘要内容',
+    })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    expect(summary!.content).toContain('自定义语义摘要内容')
+    // 标记行仍自动生成,格式与其他方案一致
+    expect(summary!.content).toMatch(/^\[上下文摘要 — 之前 \d+ 条消息已压缩\]/)
+  })
+
+  it('不传 customSummary 时行为不受影响(仍用规则摘要)', () => {
+    const messages = buildCustomSummaryMessages()
+    const r = compressContextIfNeeded(messages, { contextLimit: 16000, keepRecent: 6 })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    expect(summary!.content).not.toContain('自定义语义摘要内容')
+    expect(summary!.content).toContain('上下文摘要')
+  })
+})
+
+// ==================== tool result 摘要保留内容 ====================
+
+describe('tool result 摘要保留内容', () => {
+  it('summarizeMessage:tool 消息保留前 160 chars + 省略号,空内容用占位', () => {
+    expect(summarizeMessage({ role: 'tool', content: 'x'.repeat(1000) })).toBe(
+      `[tool] ${'x'.repeat(160)}…`,
+    )
+    expect(summarizeMessage({ role: 'tool', content: 'ok' })).toBe('[tool] ok')
+    expect(summarizeMessage({ role: 'tool', content: '' })).toBe('[tool] (空)')
+  })
+
+  it('压缩后摘要含 tool result 前 160 chars 内容片段(信息保留度提升)', () => {
+    const toolContent = 'TOOLRESULT'.repeat(800) // 8800 chars ≈ 2400 tokens,压缩后摘要应保留其开头
+    const longContent = 'x'.repeat(8000) // 每条 ~1000 tokens
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: longContent + '_u0' },
+      {
+        role: 'assistant',
+        content: longContent + '_a0',
+        tool_calls: [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } }],
+      },
+      { role: 'tool', content: toolContent, tool_call_id: 'c1' },
+      { role: 'user', content: longContent + '_u1' },
+    ]
+    const r = compressContextIfNeeded(messages, { contextLimit: 5000, keepRecent: 1 })
+    expect(r.compressed).toBe(true)
+    const summary = r.messages.find(
+      (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+    )
+    expect(summary).toBeDefined()
+    expect(summary!.content).toContain(toolContent.slice(0, 160))
+    assertNoOrphanTools(r.messages)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
