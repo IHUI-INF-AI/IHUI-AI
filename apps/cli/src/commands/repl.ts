@@ -19,7 +19,7 @@ import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
 import { CheckpointManager } from '../checkpoints/index.js';
 import { PlanMachine } from '../plan/index.js';
-import { setupAgentTools, runToolLoop, type ToolContext, type InterjectionBlock } from './agent.js';
+import { setupAgentTools, runToolLoop, decideCompaction, type ToolContext, type InterjectionBlock } from './agent.js';
 import { InterjectionBuffer } from '../interjection.js';
 import { renderSlashHelp, suggestSlashCommands, slashCompleter } from './slash-registry.js';
 // P0 CLI 友好度优化(2026-07-31):4 个新命令模块
@@ -1190,6 +1190,42 @@ async function handleSlashCommand(input: string, state: ReplState, rl: readline.
         memoryCount: state.memory.length,
       }));
       console.info('');
+      break;
+    }
+
+    case 'compact': {
+      // /compact 手动压缩(2026-09-01 立,对标 claude-code/codex /compact + 修复 reminders.ts
+      // 提示了不存在命令的 bug):伪造 contextLimit = 当前 tokens / 0.87,使 v2/v1 触发检查
+      // 自然通过,压缩目标 = 当前 ~69%,零共享包/Python 改动。
+      if (state.history.length < 3) {
+        console.info(chalk.yellow('对话消息太少,无需压缩'));
+        break;
+      }
+      const compactSettings = loadSettings() as Settings;
+      const currentTokens = estimateMessagesTokens(state.history);
+      const forcedLimit = Math.max(2000, Math.ceil(currentTokens / 0.87));
+      console.info(chalk.dim(`  🗜️ 手动压缩中...(${currentTokens} tokens,${state.history.length} 条消息)`));
+      const compactResult = await decideCompaction(state.history, compactSettings, {
+        contextLimit: forcedLimit,
+        modelId: state.opts.modelId,
+        sessionId: state.session?.id ?? state.opts.sessionId,
+      });
+      if (compactResult.compressed) {
+        // 运行时安全:state.history 只含 user/assistant(tool 消息仅在 agent 循环内部,
+        // 不回填此处),压缩输出不会新增 tool role;shared ChatRole 含 'tool' 而此处类型较窄
+        state.history = compactResult.messages as ChatMessage[];
+        if (state.session) {
+          state.session.history = state.history;
+          saveSession(state.session);
+        }
+        const saved = compactResult.originalTokens - compactResult.compressedTokens;
+        console.info(chalk.green(
+          `✓ 压缩完成:${compactResult.originalTokens} → ${compactResult.compressedTokens} tokens` +
+          `(节省 ${saved},移除 ${compactResult.removedCount} 条原始消息,归档可查)`,
+        ));
+      } else {
+        console.info(chalk.yellow('当前上下文已无可压缩空间(结构化摘要收益不足),保持原样'));
+      }
       break;
     }
 
