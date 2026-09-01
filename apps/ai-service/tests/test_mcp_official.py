@@ -174,3 +174,20 @@ class TestEndpoint:
         assert {"code_review", "bug_fix"} <= names
         # arguments 结构完整
         assert all("arguments" in p for p in prompts)
+
+    def test_prompts_get(self):
+        r = _send("prompts/get", {"name": "bug_fix"})
+        assert r.status_code == 200
+        prompt = r.json()["result"]["prompt"]
+        assert prompt["name"] == "bug_fix"
+        assert prompt["arguments"]
+
+    def test_prompts_get_not_found(self):
+        r = _send("prompts/get", {"name": "no_such"})
+        assert r.status_code == 200
+        assert r.json()["result"]["prompt"] is None
+
+    def test_prompts_get_missing_name(self):
+        r = _send("prompts/get", {})
+        assert r.status_code == 400
+        assert r.json()["error"]["code"] == -32602
