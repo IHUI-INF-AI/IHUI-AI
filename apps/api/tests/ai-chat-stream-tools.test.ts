@@ -86,6 +86,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
 }))
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
+import { generateSemanticSummary } from '../src/utils/semantic-summary.js'
 
 const USER_TOKEN = 'Bearer user-token'
 
@@ -331,6 +332,125 @@ describe('原生 function calling 网关透传(/chat/stream + /chat/answer)', ()
         restore()
       }
     })
+  })
+})
+
+describe('generateSemanticSummary(LLM 语义摘要辅助函数,压缩触发前预生成)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** 构造 8 条非 system 消息(> keepRecent=6,有 2 条落入摘要范围) */
+  function buildLongMessages() {
+    return Array.from({ length: 8 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `历史消息 ${i + 1}`,
+    }))
+  }
+
+  it('成功:返回 LLM 摘要正文(trim),请求含 model/max_tokens=300/摘要 prompt,toCompress 为除最近 6 条外全部', async () => {
+    const captured: Array<{ url: string; body: Record<string, unknown> }> = []
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation(async (url: string, init: RequestInit) => {
+      captured.push({ url, body: JSON.parse(init.body as string) as Record<string, unknown> })
+      return {
+        ok: true,
+        json: async () => ({
+          content: '  用户在调试压缩功能,关键决策:keepRecent=6  ',
+          stub: false,
+        }),
+      }
+    }) as unknown as typeof globalThis.fetch
+    try {
+      const summary = await generateSemanticSummary(null, buildLongMessages(), 'test-model-x')
+      expect(summary).toBe('用户在调试压缩功能,关键决策:keepRecent=6')
+      expect(captured).toHaveLength(1)
+      expect(captured[0]!.url).toBe('http://mock-ai-service:8803/api/llm/complete')
+      const body = captured[0]!.body as {
+        model: string
+        max_tokens: number
+        messages: Array<{ role: string; content: string }>
+      }
+      expect(body.model).toBe('test-model-x')
+      expect(body.max_tokens).toBe(300)
+      expect(body.messages[0]!.role).toBe('system')
+      // 摘要 prompt 要求保留任务目标/关键决策/重要数据/未完成事项
+      expect(body.messages[0]!.content).toContain('任务目标')
+      expect(body.messages[0]!.content).toContain('未完成事项')
+      // toCompress = 非 system 消息除最近 6 条外(8-6=2 条:历史消息 1/2)
+      const convText = body.messages[1]!.content
+      expect(convText).toContain('历史消息 1')
+      expect(convText).toContain('历史消息 2')
+      expect(convText).not.toContain('历史消息 8')
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('超时:fetch 挂起超过 3 秒被 AbortController 中断 → 返回 null(静默降级)', async () => {
+    vi.useFakeTimers()
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi.fn().mockImplementation((_url: string, init: RequestInit) => {
+      // 永不 resolve,只在 abort 信号触发时 reject(模拟真实 fetch 的 signal 行为)
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => {
+          const err = new Error('The operation was aborted')
+          err.name = 'AbortError'
+          reject(err)
+        })
+      })
+    }) as unknown as typeof globalThis.fetch
+    try {
+      const promise = generateSemanticSummary(null, buildLongMessages(), 'test-model')
+      const summary = await vi.advanceTimersByTimeAsync(3_000).then(() => promise)
+      expect(summary).toBeNull()
+    } finally {
+      globalThis.fetch = originalFetch
+      vi.useRealTimers()
+    }
+  })
+
+  it('失败降级:HTTP 500 / stub 响应(无 LLM key)/ fetch 抛异常 → 全部返回 null', async () => {
+    const originalFetch = globalThis.fetch
+    try {
+      // ① HTTP 500:非 2xx 直接降级
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      }) as unknown as typeof globalThis.fetch
+      expect(await generateSemanticSummary(null, buildLongMessages(), 'm')).toBeNull()
+
+      // ② stub 模式(复用 batch-worker callLlmComplete 的 json.stub 判断):降级
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ content: '', stub: true }),
+      }) as unknown as typeof globalThis.fetch
+      expect(await generateSemanticSummary(null, buildLongMessages(), 'm')).toBeNull()
+
+      // ③ fetch 网络异常:降级
+      globalThis.fetch = vi
+        .fn()
+        .mockRejectedValue(new Error('ECONNREFUSED')) as unknown as typeof globalThis.fetch
+      expect(await generateSemanticSummary(null, buildLongMessages(), 'm')).toBeNull()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('keepRecent 对齐:非 system 消息 ≤ 6 条(无可摘要部分)→ 不调 LLM 直接返回 null', async () => {
+    const fetchSpy = vi.fn()
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch
+    try {
+      const messages = Array.from({ length: 6 }, (_, i) => ({
+        role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+        content: `msg ${i}`,
+      }))
+      expect(await generateSemanticSummary(null, messages, 'm')).toBeNull()
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      globalThis.fetch = originalFetch
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

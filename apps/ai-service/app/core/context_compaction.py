@@ -8,8 +8,10 @@
 - 默认触发阈值:88%(0.88)
 - 默认目标:60%(0.6)
 - 默认尾部保留:6 条 non-system 消息
-- 压缩策略:保留首条 system + 尾部 N 条,中段用结构化摘要替代
-- 摘要格式:对话摘要(角色 + 内容前 200 字符)+ 上下文摘要(累积摘要)
+- 压缩策略:保留首条 system + 尾部至少 N 条(按 tool_calls 配对组对齐),中段用结构化摘要替代
+- 摘要格式:[上下文摘要 — 之前 N 条消息已压缩] 标记行 + 对话摘要(角色 + 内容前 200 字符;tool 结果前 160 字符)
+- 摘要防嵌套:历史摘要消息(SUMMARY_MARKER 开头)再压缩时正文原样并入、条数累加,不再套规则摘要
+- tool_calls 配对保护:kr 切分按配对组对齐,assistant(tool_calls) 与其 tool 结果不拆散(防孤 tool 消息 400)
 - 防循环两级降级:压缩后仍超阈值时,先截断最后一条消息内容降级(trigger=truncated);
   截断到最小长度仍超阈值(典型:system 本身巨大)才返回原消息(trigger=incompressible)
 
@@ -23,6 +25,7 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 from typing import Any
 
 import tiktoken
@@ -39,6 +42,12 @@ DEFAULT_MIN_MESSAGES = 2  # 与 TS 共享包一致(2026-08-16 起):仅 system+1 
 MIN_TRUNCATE_CHARS = 100  # 截断保留的最小字符数(下限)
 TRUNCATE_MARKER = "…[已截断]"  # 截断标记(追加在被截断内容末尾)
 MAX_TRUNCATE_ATTEMPTS = 8  # 截断迭代最大次数
+
+# 摘要标记(与 TS 共享包 SUMMARY_MARKER 一致):历史摘要消息以此开头,
+# 再压缩时正文原样并入、条数累加(防嵌套),不再套规则摘要
+SUMMARY_MARKER = "[上下文摘要"
+# tool result 摘要保留的字符数(前 160 chars + '…';空内容才用纯占位,与 TS 端语义对齐)
+TOOL_RESULT_SUMMARY_CHARS = 160
 
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
@@ -87,28 +96,157 @@ def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
 
 
 def _summarize_message(msg: dict[str, Any], max_chars: int = 200) -> str:
-    """单条消息摘要:角色 + 内容前 N 字符。"""
+    """单条消息摘要:角色 + 内容前 N 字符。
+
+    role='tool' 的结果消息保留前 160 字符 + '…'(空内容才用纯占位),
+    不用固定占位模板,避免丢失工具结果关键信息(与 TS 共享包对齐)。
+    """
     role = msg.get("role", "unknown")
     content = msg.get("content", "")
     if not isinstance(content, str):
         content = str(content)
+    if role == "tool":
+        if not content:
+            return "[tool] (空)"
+        if len(content) > TOOL_RESULT_SUMMARY_CHARS:
+            content = content[:TOOL_RESULT_SUMMARY_CHARS] + "…"
+        return f"[{role}] {content}"
     if len(content) > max_chars:
         content = content[:max_chars] + "..."
     return f"[{role}] {content}"
 
 
+# 历史摘要标记行中的覆盖条数(与 TS 共享包格式一致)
+_SUMMARY_COUNT_RE = re.compile(r"之前 (\d+) 条消息已压缩")
+
+
+def _parse_existing_summary(content: str) -> tuple[int, str]:
+    """解析历史摘要消息:返回 (旧覆盖条数, 标记行之后的正文)。
+
+    条数解析失败按 1(防嵌套仍生效,计数保守);正文原样返回(仅去首尾空白)。
+    """
+    match = _SUMMARY_COUNT_RE.search(content)
+    covered = int(match.group(1)) if match else 1
+    newline_idx = content.find("\n")
+    body = content[newline_idx + 1 :] if newline_idx != -1 else ""
+    return covered, body.strip()
+
+
 def _build_structured_summary(messages: list[dict[str, Any]]) -> str:
-    """结构化摘要:逐条消息摘要拼接 + 累积摘要。"""
-    lines = ["# 上下文摘要(自动生成)", ""]
+    """结构化摘要:逐条消息摘要拼接 + 累积摘要(防嵌套)。
+
+    防嵌套(与 TS 共享包 SUMMARY_MARKER 语义一致):
+    - 输入中含历史摘要消息(content 以 SUMMARY_MARKER 开头)时不对其套规则摘要,
+      其标记行之后的正文原样并入新摘要
+    - 新标记行条数 = 非摘要消息条数 + 旧摘要覆盖条数之和
+    """
+    summary_lines: list[str] = []
+    old_bodies: list[str] = []
+    old_covered = 0
+    non_summary_count = 0
     for msg in messages:
         if msg.get("role") == "system":
             continue
+        content = msg.get("content", "")
+        if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+            covered, body = _parse_existing_summary(content)
+            old_covered += covered
+            if body:
+                old_bodies.append(body)
+            continue
+        non_summary_count += 1
         summary = _summarize_message(msg)
         if summary:
-            lines.append(f"- {summary}")
-    lines.append("")
-    lines.append(f"以上为 {len([m for m in messages if m.get('role') != 'system'])} 条历史消息的摘要。")
+            summary_lines.append(f"- {summary}")
+    total_covered = non_summary_count + old_covered
+    lines = [f"{SUMMARY_MARKER} — 之前 {total_covered} 条消息已压缩]"]
+    # 旧摘要正文原样并入(时序在前,不套规则摘要),新摘要行在后
+    lines.extend(old_bodies)
+    lines.extend(summary_lines)
     return "\n".join(lines)
+
+
+def _extract_tool_call_ids(tool_calls: object) -> list[str]:
+    """从 assistant 消息的 tool_calls 字段提取 tool_call id 列表(isinstance 严格守卫)。
+
+    OpenAI 格式:[{id: str, type: 'function', function: {...}}, ...]
+    非 list / 元素非 dict / 缺 id / id 不是非空 str 一律跳过(防御性,不做任何假设)。
+    """
+    if not isinstance(tool_calls, list):
+        return []
+    ids: list[str] = []
+    for tc in tool_calls:
+        if isinstance(tc, dict):
+            tc_id = tc.get("id")
+            if isinstance(tc_id, str) and tc_id:
+                ids.append(tc_id)
+    return ids
+
+
+def _split_pair_groups(
+    non_system: list[dict[str, object]],
+) -> list[list[dict[str, object]]]:
+    """把 non-system 消息切成"配对组":assistant(tool_calls) 与其 tool 结果不可拆散。
+
+    规则(与 TS 共享包语义一致):
+    - role='assistant' 且 tool_calls 非空 → 开新组
+    - 后续 role='tool' 且 tool_call_id ∈ 该 assistant 的 tool_calls[].id → 入组
+      (pending id 集合空了 → 组结束;遇到其他 role → 组结束)
+    - 其他消息各自成组;异常序列(tool 无归属)自成组
+    - 配对组开放期间遇到的无归属 tool 组延后落组(排在配对组之后),
+      保证配对组不被散组打断,摊平后消息顺序与原序一致
+    """
+    groups: list[list[dict[str, object]]] = []
+    deferred: list[list[dict[str, object]]] = []  # 配对组开放期间的无归属 tool 组
+    current: list[dict[str, object]] | None = None
+    pending: set[str] = set()
+
+    for msg in non_system:
+        role = msg.get("role")
+        if role == "assistant":
+            if current is not None:
+                # 新 assistant 结束未闭合的上一组(pending 未空也结束,保留已收集部分)
+                groups.append(current)
+                groups.extend(deferred)
+                deferred.clear()
+                current = None
+                pending = set()
+            call_ids = _extract_tool_call_ids(msg.get("tool_calls"))
+            if call_ids:
+                current = [msg]
+                pending = set(call_ids)
+            else:
+                groups.append([msg])
+            continue
+
+        if role == "tool" and current is not None:
+            tc_id = msg.get("tool_call_id")
+            if isinstance(tc_id, str) and tc_id in pending:
+                current.append(msg)
+                pending.discard(tc_id)
+                if not pending:
+                    groups.append(current)
+                    groups.extend(deferred)
+                    deferred.clear()
+                    current = None
+            else:
+                # tool 无归属(id 不匹配/缺失)→ 异常序列自成组,当前组保持开放
+                deferred.append([msg])
+            continue
+
+        # user / 其他 role → 结束开放组,自身成组
+        if current is not None:
+            groups.append(current)
+            groups.extend(deferred)
+            deferred.clear()
+            current = None
+            pending = set()
+        groups.append([msg])
+
+    if current is not None:
+        groups.append(current)
+    groups.extend(deferred)
+    return groups
 
 
 def _truncate_fallback(
@@ -119,37 +257,55 @@ def _truncate_fallback(
     trigger_threshold: int,
     target_threshold: int,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]] | None:
-    """第一级降级:kr=1 + 最后一条消息内容截断(system 消息永不截断)。
+    """第一级降级:kr=1(按配对组)+ 组内最后一条可截断消息内容截断(system 消息永不截断)。
 
     常规摘要压缩无法达标时(典型:超长单条消息如粘贴大文件,摘要化收益不足),
-    重建 kr=1 方案(system + 摘要 + 最后一条消息),对最后一条消息做内容截断,
+    重建 kr=1 方案(system + 摘要 + 最后一组消息),对组内最后一条 content 为 str 的
+    user/assistant 消息做内容截断(组内 tool result 不截断,保持 tool_calls 配对完整),
     按 BPE 密度估算裁剪字符量,迭代收敛到目标阈值以下。
+    最后一组只有一条消息时与旧行为一致。
 
     Returns:
         截断后 tokens < 触发阈值 → (截断后的消息列表, info dict, trigger='truncated')
-        截断到最小长度仍 >= 触发阈值(典型:system 本身巨大)→ None(走 incompressible)
+        组内无可安全截断的 str content 消息,或截断到最小长度仍 >= 触发阈值
+        (典型:system 本身巨大)→ None(走 incompressible)
     """
     if not non_system:
         return None
 
-    last_msg = non_system[-1]
-    last_content = last_msg.get("content", "")
-    if not isinstance(last_content, str) or not last_content:
-        # 非 str content(vision 等)或空内容无法安全截断 → 交给 incompressible
+    groups = _split_pair_groups(non_system)
+    last_group = groups[-1]
+
+    # 截断目标:组内最后一条 content 为非空 str 的 user/assistant 消息(tool result 不截断)
+    target_idx: int | None = None
+    target_content = ""
+    for idx in range(len(last_group) - 1, -1, -1):
+        msg = last_group[idx]
+        if msg.get("role") not in ("user", "assistant"):
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, str) and content:
+            target_idx = idx
+            target_content = content
+            break
+    if target_idx is None:
         return None
 
-    # kr=1 方案:system + 摘要(除最后一条外的全部 non-system) + 最后一条消息
+    # kr=1 方案:system + 摘要(最后一组之前的全部 non-system) + 最后一组(完整保留)
+    to_compress_msgs = [m for group in groups[:-1] for m in group]
     fallback_summary: dict[str, Any] = {
         "role": "user",
-        "content": _build_structured_summary(non_system[:-1]),
+        "content": _build_structured_summary(to_compress_msgs),
     }
-    truncated_last: dict[str, Any] = dict(last_msg)  # 拷贝,不改动原消息
-    candidate = [*system_msgs, fallback_summary, truncated_last]
+    kept_group = list(last_group)
+    truncated_target: dict[str, Any] = dict(last_group[target_idx])  # 拷贝,不改动原消息
+    kept_group[target_idx] = truncated_target
+    candidate = [*system_msgs, fallback_summary, *kept_group]
 
-    keep_content = last_content
+    keep_content = target_content
     tokens = 0
     for _attempt in range(MAX_TRUNCATE_ATTEMPTS):
-        truncated_last["content"] = keep_content
+        truncated_target["content"] = keep_content
         tokens = estimate_messages_tokens(candidate)
         if tokens <= target_threshold:
             break  # 截断成功
@@ -167,18 +323,18 @@ def _truncate_fallback(
 
     logger.warning(
         "[Compaction] truncate-fallback: %d → %d tokens (trigger_threshold=%d), "
-        "last message %d → %d chars",
+        "last group target message %d → %d chars",
         original_tokens,
         tokens,
         trigger_threshold,
-        len(last_content),
-        len(truncated_last["content"]),
+        len(target_content),
+        len(truncated_target["content"]),
     )
     return candidate, {
         "compressed": True,
         "original_tokens": original_tokens,
         "compressed_tokens": tokens,
-        "removed_count": len(non_system) - 1,
+        "removed_count": len(non_system) - len(last_group),
         "usage_ratio": original_tokens / context_limit,
         "trigger": "truncated",
     }
@@ -198,7 +354,7 @@ def compress_messages_if_needed(
         context_limit: 模型上下文窗口大小(tokens)
         trigger_ratio: 触发压缩的占用率(默认 0.88)
         target_ratio: 压缩后的目标占用率(默认 0.6)
-        keep_recent: 尾部保留的 non-system 消息数(默认 6)
+        keep_recent: 尾部保留的 non-system 消息数(默认 6;按配对组对齐,可能整组多保留)
 
     Returns:
         (compressed_messages, info)
@@ -254,8 +410,31 @@ def compress_messages_if_needed(
             "trigger": "none",
         }
 
-    tail = non_system[-keep_recent:]
-    head = non_system[:-keep_recent]
+    # 配对组保护:kr 切分点对齐组边界(不拆散 assistant(tool_calls) 与其 tool 结果)
+    # 从组列表尾部往前累计消息条数直到 >= keep_recent,toKeep 尾部完整组、toCompress 头部完整组
+    groups = _split_pair_groups(non_system)
+    tail_groups: list[list[dict[str, object]]] = []
+    tail_count = 0
+    for group in reversed(groups):
+        tail_groups.insert(0, group)
+        tail_count += len(group)
+        if tail_count >= keep_recent:
+            break
+    head_groups = groups[: len(groups) - len(tail_groups)]
+
+    if not head_groups:
+        # 全部组落入尾部(如单个巨大配对组覆盖整个 kr 窗口)→ 按组无法切分,不压缩
+        return messages, {
+            "compressed": False,
+            "original_tokens": original_tokens,
+            "compressed_tokens": original_tokens,
+            "removed_count": 0,
+            "usage_ratio": original_tokens / context_limit,
+            "trigger": "none",
+        }
+
+    tail = [msg for group in tail_groups for msg in group]
+    head = [msg for group in head_groups for msg in group]
 
     # 生成结构化摘要
     summary_text = _build_structured_summary(head)

@@ -609,7 +609,8 @@ const SAMPLER_RETRYABLE_SEVERITIES: ReadonlySet<string> = new Set(['ratelimit', 
 
 interface SampleWithRetryOptions {
   modelId: string;
-  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
+  // role 含 'tool':与 @ihui/context-compaction 的 ChatMessage 及 OpenAI 兼容协议对齐
+  messages: Array<{ role: 'user' | 'assistant' | 'system' | 'tool'; content: string }>;
   signal?: AbortSignal;
   onDelta: (delta: string) => void;
   sampler?: SamplerSettings;
