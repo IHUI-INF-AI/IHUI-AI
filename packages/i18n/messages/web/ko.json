@@ -7942,7 +7942,11 @@
     "communityPublishTitleRequired": "제목을 입력해 주세요",
     "communityPublishing": "게시 중...",
     "compaction": {
-      "truncatedNotice": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다"
+      "truncatedNotice": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다",
+      "viewArchived": "압축 전 원본 메시지 {count}개 보기",
+      "archiveTitle": "압축 아카이브 · 원본 메시지",
+      "archiveEmpty": "압축 아카이브가 없습니다",
+      "archiveLoading": "불러오는 중..."
     },
     "contextCompacted": "컨텍스트가 자동 압축되었습니다",
     "contextCompactedDesc": "{before} → {after}({removed}개 기록 제거)",
