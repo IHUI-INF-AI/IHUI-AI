@@ -60,6 +60,12 @@ import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
+import { CONTEXT_BUDGET_THRESHOLD } from '@ihui/context-compaction';
+import {
+  primeCompactionSummary,
+  getCachedCompactionSummary,
+  writeCompactionSummaryCache,
+} from '../compaction-cache.js';
 import { generateReminders } from '../reminders.js';
 import { loadMcpTools, loadMcpConnections } from '../tools/mcp-runtime.js';
 import { registerMcpToolsToHub } from '../tools/hub/mcp-adapter.js';
@@ -779,11 +785,12 @@ export function createCompactionSampler(model: string): CompactionSampler {
 export async function decideCompaction(
   messages: ChatMessage[],
   settings: Settings,
-  opts: { contextLimit: number; modelId: string },
+  opts: { contextLimit: number; modelId: string; sessionId?: string },
 ): Promise<CompressionResult> {
   const v2Config = settings.compactionV2;
   if (v2Config?.enabled === true) {
     try {
+      const sessionId = opts.sessionId ?? 'cli-default';
       const sampler = createCompactionSampler(v2Config.model || opts.modelId || 'default-model');
       const observer: CompactionObserver = {
         onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs }) => {
@@ -793,19 +800,55 @@ export async function decideCompaction(
           console.warn(chalk.yellow(`  ⚠️ compaction-v2 error (${statusLabel}): ${error?.message ?? 'unknown'}`));
         },
       };
-      return await compressContextV2(messages, {
+      // 70% 后台预压缩(2026-09-01 立,代差能力 A 的 CLI 同构):usageRatio ≥ 0.7 且未达触发
+      // 阈值时 fire-and-forget 预生成摘要缓存(复用同一 sampler 路径,产物与实时生成一致);
+      // 88% 真压缩时命中缓存 → compressContextV2 零 LLM 调用,首响应零摘要阻塞。
+      const triggerRatio = v2Config.triggerRatio ?? 0.88;
+      const tokensBefore = estimateMessagesTokens(messages);
+      const usageRatio = opts.contextLimit > 0 ? tokensBefore / opts.contextLimit : 0;
+      if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBefore < Math.floor(opts.contextLimit * triggerRatio)) {
+        void primeCompactionSummary(sessionId, messages, async (toCompressText) => {
+          // 复用同一 sampler 路径(与实时生成同 prompt/模型,保证缓存产物一致)
+          const r = await sampler.sampleCompaction(
+            [{ role: 'user', content: toCompressText }],
+            { timeoutMs: v2Config.samplingTimeoutMs ?? 30_000 },
+          );
+          return r.response;
+        });
+      }
+      // 88% 真压缩:缓存命中 → 跳过阻塞式 LLM 摘要;未命中 → 实时生成并回写缓存
+      const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
+      const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
         triggerRatio: v2Config.triggerRatio,
         targetRatio: v2Config.targetRatio,
         samplingTimeoutMs: v2Config.samplingTimeoutMs,
         sampler,
         observer,
+        cachedSummary,
+        sessionId,
       });
+      if (result.compressed && !cachedSummary) {
+        // 回写:把本次压缩覆盖的消息序列与摘要正文写入缓存(hash 基于除最近 6 条外的序列化,
+        // 与 prime/getCached 同 key 逻辑,下次同范围压缩直接命中)
+        writeCompactionSummaryCache(sessionId, messages, extractSummaryBody(result.messages));
+      }
+      return result;
     } catch (err) {
       console.warn(chalk.yellow(`  ⚠️ compaction-v2 failed, fallback to v1: ${err instanceof Error ? err.message : String(err)}`));
     }
   }
   return compressContextIfNeeded(messages, { contextLimit: opts.contextLimit });
+}
+
+/** 从压缩结果中提取摘要消息正文(去掉 '[上下文摘要 — 之前 N 条已压缩]' 标记行),供缓存回写 */
+function extractSummaryBody(messages: CompressionResult['messages']): string {
+  const summaryMsg = messages.find(
+    (m) => m.role === 'user' && m.content.startsWith('[上下文摘要'),
+  );
+  if (!summaryMsg) return '';
+  const markerEnd = summaryMsg.content.indexOf(']\n');
+  return markerEnd >= 0 ? summaryMsg.content.slice(markerEnd + 2) : '';
 }
 
 /** 执行多轮工具循环,直到 end_turn 或 maxIterations。messages 数组会被原地修改(追加 assistant + tool_result 消息) */
@@ -882,6 +925,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       const compression = await decideCompaction(opts.messages, settings, {
         contextLimit: opts.contextLimit ?? 128_000,
         modelId: opts.modelId,
+        sessionId: opts.sessionId,
       });
       const effectiveMessages = compression.messages;
 
