@@ -36,6 +36,7 @@ from typing import Any, Iterator, Optional, cast
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from ..core.context_compaction import SUMMARY_MARKER
 from ..core.llm_gateway import llm_gateway
 
 logger = logging.getLogger(__name__)
@@ -224,7 +225,9 @@ class ContextEngine:
 
         summary_msg: dict[str, Any] = {
             "role": "system",
-            "content": f"[上下文摘要] 以下是此前 {len(old_messages)} 条对话的摘要:\n\n{summary}",
+            # 防嵌套标记与共享包逐字节一致(SUMMARY_MARKER + "之前 N 条消息已压缩"),
+            # 保证再次压缩时 _parse_existing_summary 能解析累计条数
+            "content": f"{SUMMARY_MARKER} — 之前 {len(old_messages)} 条消息已压缩]\n\n{summary}",
         }
 
         compacted = [summary_msg] + recent_messages
