@@ -259,22 +259,42 @@ describe('compressContextIfNeeded', () => {
     expect(r.compressed).toBe(false)
   })
 
-  it('防循环保护:无达标压缩方案时返回原消息(trigger=incompressible)', () => {
+  it('截断降级:超长单条消息压不动时截断内容(trigger=truncated)', () => {
     // 'y' BPE 实测 0.25 token/char:每条 32000 chars ≈ 8000 tokens
-    // 2 条非 system 消息 ≈ 16015 tokens,contextLimit=9000 → 触发阈值 9000*0.88=7920
-    // kr=1 最优候选 ≈ system(5) + 摘要(~30) + 保留 1 条(8005) ≈ 8040 >= 7920 → 压不动
-    // 若仍返回压缩结果,下一轮会再次触发压缩并对摘要再摘要,形成每轮必压缩的循环
+    // 2 条非 system 消息 ≈ 16015 tokens,contextLimit=9000 → 触发阈值 9000*0.88=7920,target=5400
+    // kr=1 摘要化候选 ≈8040 >= 7920 常规压缩压不动 → 截断最后一条消息内容到 target 以下
     const longContent = 'y'.repeat(32000)
     const messages = [
       { role: 'system' as const, content: 'sys' },
       { role: 'user' as const, content: longContent + '_u1' },
       { role: 'assistant' as const, content: longContent + '_a1' },
     ]
-    // 注:CLI 包装层 compressContextIfNeeded(messages, opts) 不接收 hooks 第三参,
-    // 钩子配对语义(incompressible 路径补发 postCompact)由 hooks-extended.test.ts 验证
     const r = compressContextIfNeeded(messages, { contextLimit: 9000 })
     // 确实触发了压缩逻辑(而不是未达阈值直接返回)
     expect(r.usageRatio!).toBeGreaterThanOrEqual(0.88)
+    expect(r.compressed).toBe(true)
+    expect(r.trigger).toBe('truncated')
+    expect(r.removedCount).toBe(1)
+    // 压缩后 tokens <= target 阈值(5400),自然也低于触发阈值(7920)
+    expect(r.compressedTokens).toBeLessThanOrEqual(5400)
+    // 结构:system + 摘要 + 截断后的最后一条消息;原消息列表零改动
+    expect(r.messages).toHaveLength(3)
+    expect(r.messages[0]?.content).toBe('sys')
+    expect(r.messages[1]?.content).toContain('上下文摘要')
+    expect(r.messages[2]?.content).toContain('…[已截断]')
+    expect(messages[2]?.content).toBe(longContent + '_a1')
+  })
+
+  it('system 消息超长且不截断时仍返回原消息(trigger=incompressible)', () => {
+    // system 'A'*40000 ≈ 5100 tokens(永不截断),2 条普通消息各 ~100 tokens
+    // contextLimit=5000 → trigger=4400:kr=1 候选 ≈ system(5100) + 摘要 + 1 条 > 4400,
+    // 截断 user 消息到最小长度(100 chars)后 system 仍占 5100 ≥ 4400 → 压不动,返回原消息
+    const messages = [
+      { role: 'system' as const, content: 'A'.repeat(40000) },
+      { role: 'user' as const, content: 'x'.repeat(800) },
+      { role: 'user' as const, content: 'x'.repeat(800) },
+    ]
+    const r = compressContextIfNeeded(messages, { contextLimit: 5000 })
     expect(r.compressed).toBe(false)
     expect(r.trigger).toBe('incompressible')
     expect(r.removedCount).toBe(0)
