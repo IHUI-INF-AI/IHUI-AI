@@ -6876,7 +6876,8 @@
       "pinFailed": "상단 고정 실패"
     },
     "today": "오늘",
-    "toggleWorkPanel": "작업 패널 전환"
+    "openWorkPanel": "작업 패널 열기",
+    "closeWorkPanel": "작업 패널 닫기"
   },
   "aiCost": {
     "budgetAlerts": "예산 경고",
@@ -7940,6 +7941,9 @@
     "communityPublishTitlePlaceholder": "제목을 입력해 주세요",
     "communityPublishTitleRequired": "제목을 입력해 주세요",
     "communityPublishing": "게시 중...",
+    "compaction": {
+      "truncatedNotice": "마지막 메시지가 너무 길어 대화를 유지할 수 있도록 내용을 잘라냈습니다"
+    },
     "contextCompacted": "컨텍스트가 자동 압축되었습니다",
     "contextCompactedDesc": "{before} → {after}({removed}개 기록 제거)",
     "contextMenu": {
