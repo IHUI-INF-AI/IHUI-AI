@@ -759,6 +759,117 @@ class TestSave:
 
 
 # =============================================================================
+# P1-3 consolidate:episodic→semantic 记忆提炼
+# =============================================================================
+
+
+class TestConsolidate:
+    """consolidate:stub 跳过 / 用户隐私关闭跳过 / LLM 摘要写入 semantic / 失败降级。"""
+
+    def _patch_stub(self, monkeypatch, value: bool):
+        from app.core.llm_gateway import LLMGateway
+
+        return monkeypatch.setattr(LLMGateway, "_is_stub_mode", lambda: value)
+
+    async def test_consolidate_stub_mode_skips(
+        self, service, mock_gateway, mock_conn, monkeypatch
+    ):
+        """stub 模式(无 LLM key)→ skipped(stub_mode),零成本,不调 LLM 不写库。"""
+        self._patch_stub(monkeypatch, True)
+        result = await service.consolidate("u1", [{"role": "user", "content": "hi"}])
+        assert result == {"status": "skipped", "reason": "stub_mode"}
+        mock_gateway.complete.assert_not_called()
+        assert mock_conn.fetchrow.call_count == 0
+
+    async def test_consolidate_user_disabled_skips(
+        self, service, mock_gateway, monkeypatch
+    ):
+        """用户隐私开关 autoMemory=false → skipped(user_disabled)。"""
+        self._patch_stub(monkeypatch, False)
+        service._is_auto_memory_enabled = AsyncMock(return_value=False)
+        result = await service.consolidate("u1", [{"role": "user", "content": "hi"}])
+        assert result == {"status": "skipped", "reason": "user_disabled"}
+        mock_gateway.complete.assert_not_called()
+
+    async def test_consolidate_empty_input_skips(
+        self, service, mock_gateway, monkeypatch
+    ):
+        """无有效 user/assistant 消息 → skipped(empty_input)。"""
+        self._patch_stub(monkeypatch, False)
+        service._is_auto_memory_enabled = AsyncMock(return_value=True)
+        result = await service.consolidate("u1", [{"role": "tool", "content": "x"}])
+        assert result["status"] == "skipped"
+        mock_gateway.complete.assert_not_called()
+
+    async def test_consolidate_ok_writes_semantic(
+        self, service, mock_gateway, mock_conn, monkeypatch
+    ):
+        """LLM 摘要 + add_semantic 写入 → status ok + memory_id。"""
+        self._patch_stub(monkeypatch, False)
+        service._is_auto_memory_enabled = AsyncMock(return_value=True)
+        mock_gateway.complete.return_value = {
+            "content": "用户偏好用 Python 开发 AI 应用",
+            "model": "m",
+        }
+        mock_conn.fetchrow.return_value = _semantic_row(id="sem-cons-1")
+        messages = [
+            {"role": "user", "content": "我用 Python 做 AI"},
+            {"role": "assistant", "content": "明白,后续推荐 Python 工具链"},
+        ]
+        result = await service.consolidate("u1", messages, session_id="s1")
+        assert result["status"] == "ok"
+        assert result["memory_id"] == "sem-cons-1"
+        mock_gateway.complete.assert_awaited_once()
+        # add_semantic 插入的 content 是摘要文本
+        assert "Python" in mock_conn.fetchrow.call_args[0][2]
+
+    async def test_consolidate_empty_summary_skips(
+        self, service, mock_gateway, monkeypatch
+    ):
+        """LLM 返回空摘要 → skipped(empty_summary)。"""
+        self._patch_stub(monkeypatch, False)
+        service._is_auto_memory_enabled = AsyncMock(return_value=True)
+        mock_gateway.complete.return_value = {"content": "  ", "model": "m"}
+        result = await service.consolidate("u1", [{"role": "user", "content": "hi"}])
+        assert result == {"status": "skipped", "reason": "empty_summary"}
+
+    async def test_consolidate_llm_failure_degrades(
+        self, service, mock_gateway, monkeypatch
+    ):
+        """LLM 调用失败 → status error(降级,不抛出)。"""
+        self._patch_stub(monkeypatch, False)
+        service._is_auto_memory_enabled = AsyncMock(return_value=True)
+        mock_gateway.complete.side_effect = RuntimeError("llm down")
+        result = await service.consolidate("u1", [{"role": "user", "content": "hi"}])
+        assert result["status"] == "error"
+        assert "llm down" in result["reason"]
+
+
+class TestAutoMemoryPref:
+    """_is_auto_memory_enabled:user_preferences privacy.autoMemory 读取。"""
+
+    async def test_pref_default_true(self, service, mock_conn):
+        """无记录 → 默认开启。"""
+        mock_conn.fetchrow.return_value = None
+        assert await service._is_auto_memory_enabled("u1") is True
+
+    async def test_pref_false_when_explicit(self, service, mock_conn):
+        """显式 'false' → 关闭。"""
+        mock_conn.fetchrow.return_value = FakeRecord({"value": "false"})
+        assert await service._is_auto_memory_enabled("u1") is False
+
+    async def test_pref_true_on_other_values(self, service, mock_conn):
+        """'true' / 其他非 false 值 → 开启。"""
+        mock_conn.fetchrow.return_value = FakeRecord({"value": "1"})
+        assert await service._is_auto_memory_enabled("u1") is True
+
+    async def test_pref_exception_degrades_open(self, service, mock_conn):
+        """查询异常 → 降级为开启(不阻塞)。"""
+        mock_conn.fetchrow.side_effect = RuntimeError("db down")
+        assert await service._is_auto_memory_enabled("u1") is True
+
+
+# =============================================================================
 # 行转换工具
 # =============================================================================
 
