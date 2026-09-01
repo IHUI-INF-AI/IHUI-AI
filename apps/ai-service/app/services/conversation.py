@@ -37,6 +37,21 @@ from .mcp_server import mcp_server
 logger = logging.getLogger(__name__)
 
 
+def _resolve_user_id(sid: str) -> str:
+    """从 session_id 保守解析 user_id,拿不到返回空串。
+
+    conversation.chat 签名不含 user_id(v1 兼容铁律),上层调用链也未透传;
+    仅当 session_id 为冒号分隔的复合格式(如 {user_id}:{session})时提取首段,
+    否则返回空串跳过注入(调用方 debug 日志后降级,绝不阻塞对话)。
+    """
+    if sid and ":" in sid:
+        head = sid.split(":", 1)[0].strip()
+        # 排除系统前缀,避免把 conv-xxx/session-xxx 等误判为用户标识
+        if head and head.lower() not in {"session", "conv", "sess", "u", "user", "chat"}:
+            return head
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # 意图枚举(对内,LLM 输出 + 后处理)
 # ---------------------------------------------------------------------------
@@ -224,6 +239,50 @@ class ConversationService:
                         "SELECTOR_NOT_FOUND(元素未找到)。遇到这些错误时,引导用户检查对应端是否已启动。"
                     ),
                 })
+            # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
+            # 失败/拿不到 user_id 均降级不阻塞对话)
+            try:
+                user_id = _resolve_user_id(sid)
+                if not user_id:
+                    logger.debug(
+                        "conversation 未解析到 user_id,跳过画像/长期记忆注入(sid=%s)", sid
+                    )
+                else:
+                    parts: list[str] = []
+                    try:
+                        from .user_profile import user_profile_builder
+
+                        profile_snippet = user_profile_builder.build_system_prompt_snippet(user_id)
+                        if profile_snippet:
+                            parts.append(profile_snippet)
+                    except Exception as e:
+                        logger.warning(
+                            "user_profile.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+                        )
+                    try:
+                        from .memory_service import memory_service as _memory_svc
+
+                        memory_ctx = await _memory_svc.load_context_for_conversation(
+                            user_id=user_id,
+                            session_id=sid,
+                        )
+                        if memory_ctx:
+                            parts.append(memory_ctx)
+                    except Exception as e:
+                        logger.warning(
+                            "memory_service.load_context_for_conversation 失败(降级,不阻塞): %s", e
+                        )
+                    if parts:
+                        snippet = "\n\n".join(parts)
+                        if messages and messages[0].get("role") == "system":
+                            existing = messages[0].get("content", "")
+                            messages[0]["content"] = (
+                                f"{existing}\n\n{snippet}" if existing else snippet
+                            )
+                        else:
+                            messages.insert(0, {"role": "system", "content": snippet})
+            except Exception as e:
+                logger.warning("conversation 画像/记忆注入失败(降级,不阻塞): %s", e)
             for m in history[:-1]:  # 排除最后一条刚加入的 user
                 role = m.get("role")
                 content = m.get("content", "")
