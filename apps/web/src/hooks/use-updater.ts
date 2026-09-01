@@ -67,9 +67,7 @@ function isDevUpdateTest(): boolean {
   // Tauri 环境:显式参数 + 本地 origin 才视为开发测试
   if (isTauri()) return true
   // 浏览器环境:仅 localhost 允许 mock 测试
-  return (
-    window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-  )
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
 }
 
 /** 模拟更新会话(开发测试用,15.2MB 假包,~4s 下载完)。 */
@@ -283,6 +281,20 @@ export function useUpdater() {
     }, SILENT_CHECK_DELAY_MS)
     return () => clearTimeout(timer)
   }, [checkForUpdate])
+
+  // 2026-09-01 修复"检查更新一直转圈"(第二层兜底):
+  // tauri-bridge 的 check() 已有 15s 超时,这里再兜底 checking 状态本身——
+  // 若 20s 内仍未离开 checking(动态导入卡住 / 其它未知异常),强制进入 error,
+  // 保证 UI 永远不无限转圈。与 tauri-bridge 超时互为冗余防线。
+  React.useEffect(() => {
+    if (state.status !== 'checking') return
+    const timer = setTimeout(() => {
+      setState((prev) =>
+        prev.status === 'checking' ? { ...prev, status: 'error', error: 'check_timeout' } : prev,
+      )
+    }, 20_000)
+    return () => clearTimeout(timer)
+  }, [state.status])
 
   // 监听托盘菜单 "检查更新" 事件(由 useDesktopEvents 转发的 CustomEvent)
   React.useEffect(() => {
