@@ -162,7 +162,7 @@ describe('compressContextIfNeeded', () => {
       { role: 'system' as const, content: 'sys' },
       { role: 'user' as const, content: superLong },
     ]
-    // minMessages 默认 keepRecent+1=7, 2 < 7 不压缩
+    // minMessages 默认 2, 2 <= 2 不压缩
     const r = compressContextIfNeeded(messages, { contextLimit: 8000 })
     expect(r.compressed).toBe(false)
   })
@@ -234,7 +234,9 @@ describe('compressContextIfNeeded', () => {
 
   it('小 contextLimit 也能正常工作', () => {
     // contextLimit=1000, 88% = 880 tokens
-    const longContent = 'U'.repeat(500) // ~65 tokens
+    // 用 'A'(BPE 实测 ~0.128 token/char,500A≈64 tokens):kr 循环中总有达标方案,可正常压缩
+    // (此前用 'U':~0.5 token/char,压缩后仍超 880 阈值,会被防循环保护拦截返回原消息)
+    const longContent = 'A'.repeat(500)
     const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
       { role: 'system', content: 'sys' },
     ]
@@ -242,7 +244,7 @@ describe('compressContextIfNeeded', () => {
       messages.push({ role: i % 2 === 0 ? 'user' : 'assistant', content: longContent + `_${i}` })
     }
     const r = compressContextIfNeeded(messages, { contextLimit: 1000 })
-    // 30 * 65 = 1950 tokens, 1950/1000 = 1.95 > 0.88 触发
+    // 30 * 71 = 2130 tokens, 2130/1000 = 2.13 > 0.88 触发
     expect(r.usageRatio!).toBeGreaterThan(0.88)
     expect(r.compressed).toBe(true)
   })
@@ -253,8 +255,31 @@ describe('compressContextIfNeeded', () => {
       { role: 'user' as const, content: 'hello' },
     ]
     const r = compressContextIfNeeded(messages, { contextLimit: 0 })
-    // contextLimit=0 → triggerThreshold=0, 但 messages.length(2) <= minMessages(7) 不压缩
+    // messages.length(2) <= minMessages(默认 2) 不压缩
     expect(r.compressed).toBe(false)
+  })
+
+  it('防循环保护:无达标压缩方案时返回原消息(trigger=incompressible)', () => {
+    // 'y' BPE 实测 0.25 token/char:每条 32000 chars ≈ 8000 tokens
+    // 2 条非 system 消息 ≈ 16015 tokens,contextLimit=9000 → 触发阈值 9000*0.88=7920
+    // kr=1 最优候选 ≈ system(5) + 摘要(~30) + 保留 1 条(8005) ≈ 8040 >= 7920 → 压不动
+    // 若仍返回压缩结果,下一轮会再次触发压缩并对摘要再摘要,形成每轮必压缩的循环
+    const longContent = 'y'.repeat(32000)
+    const messages = [
+      { role: 'system' as const, content: 'sys' },
+      { role: 'user' as const, content: longContent + '_u1' },
+      { role: 'assistant' as const, content: longContent + '_a1' },
+    ]
+    // 注:CLI 包装层 compressContextIfNeeded(messages, opts) 不接收 hooks 第三参,
+    // 钩子配对语义(incompressible 路径补发 postCompact)由 hooks-extended.test.ts 验证
+    const r = compressContextIfNeeded(messages, { contextLimit: 9000 })
+    // 确实触发了压缩逻辑(而不是未达阈值直接返回)
+    expect(r.usageRatio!).toBeGreaterThanOrEqual(0.88)
+    expect(r.compressed).toBe(false)
+    expect(r.trigger).toBe('incompressible')
+    expect(r.removedCount).toBe(0)
+    expect(r.messages).toEqual(messages)
+    expect(r.compressedTokens).toBe(r.originalTokens)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
