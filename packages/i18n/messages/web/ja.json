@@ -6875,7 +6875,8 @@
       "pinFailed": "ピン留め操作に失敗しました"
     },
     "today": "今日",
-    "toggleWorkPanel": "ワークパネルの切り替え"
+    "openWorkPanel": "ワークパネルを開く",
+    "closeWorkPanel": "ワークパネルを閉じる"
   },
   "aiCost": {
     "budgetAlerts": "予算アラート",
@@ -7939,6 +7940,9 @@
     "communityPublishTitlePlaceholder": "タイトルを入力してください",
     "communityPublishTitleRequired": "タイトルを入力してください",
     "communityPublishing": "公開中...",
+    "compaction": {
+      "truncatedNotice": "最後のメッセージが長すぎるため、会話を維持するために内容を切り詰めました"
+    },
     "contextCompacted": "コンテキストを自動圧縮しました",
     "contextCompactedDesc": "{before} → {after}({removed} 件の履歴を削除)",
     "contextMenu": {
