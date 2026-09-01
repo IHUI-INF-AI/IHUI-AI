@@ -27,6 +27,39 @@ from .project_memory import build_system_prompt
 
 logger = logging.getLogger(__name__)
 
+# P1-2 并行工具执行:单轮最大并行数(防工具过多打爆),超出分批 gather
+MAX_PARALLEL_TOOL_CALLS = 5
+
+# 幂等只读工具:失败可安全重试 1 次(无副作用);写操作工具不重试
+_RETRYABLE_TOOLS: frozenset[str] = frozenset({
+    "web_search", "search_web", "knowledge_lookup", "read_file", "list_files",
+    "file_search", "search_codebase", "analyze_code", "parse_document",
+    "generate_chart", "summarize_artifacts",
+})
+
+
+async def _execute_tool_call(tool_name: str, args: dict[str, Any]) -> tuple[str, str]:
+    """执行单个工具调用,返回 (content, status)。
+
+    行为与串行版一致:call_tool 返回 ok=False 也序列化为 content(status="ok"),
+    仅异常时 status="error" 并把错误回填;幂等只读工具失败/异常时重试 1 次。
+    异常归一化不向外抛 —— 保证并行批次中单工具失败不中断整体。
+    """
+
+    async def _once() -> tuple[dict[str, Any] | None, str]:
+        try:
+            return await mcp_server.call_tool(tool_name, args), "ok"
+        except Exception as e:
+            return None, f"工具 {tool_name} 执行失败: {e}"
+
+    result, status = await _once()
+    if (status != "ok" or not (result or {}).get("ok")) and tool_name in _RETRYABLE_TOOLS:
+        logger.debug("工具 %s 首次执行失败,重试 1 次", tool_name)
+        result, status = await _once()
+    if status == "ok" and result is not None:
+        return json.dumps(result, ensure_ascii=False, default=str), "ok"
+    return status, "error"
+
 
 class AgentExecutor:
     """Agent 循环执行器。"""
@@ -271,11 +304,44 @@ class AgentExecutor:
                     break
 
                 # 执行工具(白名单过滤),结果回填 memory,继续下一轮迭代
-                for tc in tool_calls:
+                # P1-2:白名单内工具同轮并行执行(单轮最大 5,超出分批),
+                # steps/memory 回填顺序保持与 tool_calls 一致,单工具失败不中断整体。
+                pending: list[tuple[int, str, dict[str, Any]]] = []
+                skipped: dict[int, str] = {}
+                for idx, tc in enumerate(tool_calls):
                     tool_name = tc["name"]
                     tool_args = tc["arguments"]
                     if tool_name not in tools:
-                        skip_msg = f"工具 {tool_name} 不在白名单 {tools} 内,跳过"
+                        skipped[idx] = f"工具 {tool_name} 不在白名单 {tools} 内,跳过"
+                    else:
+                        pending.append((idx, tool_name, tool_args))
+
+                tool_outcomes: list[tuple[str, str]] = []
+                for b in range(0, len(pending), MAX_PARALLEL_TOOL_CALLS):
+                    batch = pending[b:b + MAX_PARALLEL_TOOL_CALLS]
+                    gathered = await asyncio.gather(
+                        *(_execute_tool_call(name, args) for _, name, args in batch),
+                        return_exceptions=True,
+                    )
+                    for (_idx, name, _args), outcome in zip(batch, gathered, strict=True):
+                        if isinstance(outcome, BaseException):
+                            # 防御:helper 已归一化,理论上到不了这里
+                            tool_outcomes.append((
+                                f"工具 {name} 执行失败: {outcome}",
+                                "error",
+                            ))
+                        else:
+                            tool_outcomes.append(outcome)
+
+                exec_by_idx = {
+                    pending[i][0]: (pending[i][1], pending[i][2], tool_outcomes[i])
+                    for i in range(len(pending))
+                }
+                for idx, tc in enumerate(tool_calls):
+                    if idx in skipped:
+                        tool_name = tc["name"]
+                        tool_args = tc["arguments"]
+                        skip_msg = skipped[idx]
                         steps.append({
                             "iteration": i + 1,
                             "type": "tool",
@@ -288,27 +354,20 @@ class AgentExecutor:
                             sid, "tool", skip_msg,
                             {"tool_name": tool_name, "tool_args": tool_args},
                         )
-                        continue
-                    try:
-                        tool_result = await mcp_server.call_tool(tool_name, tool_args)
-                        tool_content = json.dumps(tool_result, ensure_ascii=False, default=str)
-                        step_status = "ok"
-                    except Exception as e:
-                        # 工具执行失败: 错误回填给 LLM 让它决定下一步,不中断循环
-                        tool_content = f"工具 {tool_name} 执行失败: {e}"
-                        step_status = "error"
-                    steps.append({
-                        "iteration": i + 1,
-                        "type": "tool",
-                        "tool_name": tool_name,
-                        "tool_args": tool_args,
-                        "content": tool_content,
-                        "status": step_status,
-                    })
-                    await memory_store.add(
-                        sid, "tool", tool_content,
-                        {"tool_name": tool_name, "tool_args": tool_args},
-                    )
+                    else:
+                        tool_name, tool_args, (tool_content, step_status) = exec_by_idx[idx]
+                        steps.append({
+                            "iteration": i + 1,
+                            "type": "tool",
+                            "tool_name": tool_name,
+                            "tool_args": tool_args,
+                            "content": tool_content,
+                            "status": step_status,
+                        })
+                        await memory_store.add(
+                            sid, "tool", tool_content,
+                            {"tool_name": tool_name, "tool_args": tool_args},
+                        )
                 # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
 
             if self._running[task_id]["status"] != "canceled":
@@ -385,6 +444,26 @@ class AgentExecutor:
                             )
                             self._pending_tasks.add(graph_task)
                             graph_task.add_done_callback(self._pending_tasks.discard)
+
+                        # P1-3 记忆提炼闭环出口:与 auto graph extract 同一 gating,
+                        # 对同一批最近 8 条消息做 episodic→semantic consolidation。
+                        # stub 模式在 consolidate 内部直接 skipped(零成本);
+                        # 用户隐私开关 autoMemory(false)在 consolidate 内部校验后跳过。
+                        # fire-and-forget,失败降级不阻塞。
+                        try:
+                            from .memory_service import memory_service as _memory_svc
+
+                            consolidate_task = asyncio.create_task(
+                                _memory_svc.consolidate(
+                                    user_id=user_id,
+                                    messages=messages[-8:],
+                                    session_id=sid,
+                                )
+                            )
+                            self._pending_tasks.add(consolidate_task)
+                            consolidate_task.add_done_callback(self._pending_tasks.discard)
+                        except Exception as e:
+                            logger.warning("consolidate 启动失败(降级,不阻塞): %s", e)
                 except Exception as e:
                     logger.warning("auto graph extract 启动失败(降级,不阻塞): %s", e)
 
