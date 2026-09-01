@@ -5,11 +5,12 @@ export const DESKTOP_FEED = {
   releaseDate: '2026-09-01',
   githubReleasesUrl: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases',
   resolvedFromTag: 'desktop-v0.1.15',
-  resolvedAt: '2026-09-01T08:15:38.119Z',
+  resolvedAt: '2026-09-01T09:12:10.587Z',
   assets: [
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_x64-setup.exe', sizeBytes: 78396921, format: 'Windows NSIS exe', arch: 'x64' },
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_x64_en-US.msi', sizeBytes: 87678976, format: 'Windows MSI', arch: 'x64' },
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_x64.dmg', sizeBytes: 88519483, format: 'macOS DMG', arch: 'x64' },
+    { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_aarch64.dmg', sizeBytes: 88885183, format: 'macOS DMG', arch: 'aarch64' },
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_amd64.AppImage', sizeBytes: 163633656, format: 'Linux AppImage', arch: 'amd64' },
     { href: 'https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-v0.1.15/IHUI.AI_0.1.15_amd64.deb', sizeBytes: 89274596, format: 'Linux DEB', arch: 'amd64' },
   ],
