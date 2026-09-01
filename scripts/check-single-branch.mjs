@@ -41,8 +41,8 @@ const C = {
   reset: '\x1b[0m',
 }
 
-/** 合法分支白名单(本地 main + 远程 main:origin/upstream/gitee 镜像;gitee 为项目 sanctioned 镜像远程,main 即 main) */
-const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'gitee/main', 'HEAD'])
+/** 合法分支白名单(本地 main + 远程 main:origin/upstream/gitee/gitcode 镜像;gitee/gitcode 为项目 sanctioned 镜像远程,main 即 main) */
+const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'gitee/main', 'gitcode/main', 'HEAD'])
 
 /** origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过 */
 function isSymbolicRef(branch) {

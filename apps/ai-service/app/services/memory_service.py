@@ -27,8 +27,8 @@ import logging
 import math
 import os
 from collections import OrderedDict
-from datetime import datetime, timezone
-from typing import Any, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 
@@ -63,7 +63,7 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     """计算两个向量的余弦相似度。"""
     if not a or not b or len(a) != len(b):
         return 0.0
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     norm_a = math.sqrt(sum(x * x for x in a))
     norm_b = math.sqrt(sum(y * y for y in b))
     if norm_a == 0 or norm_b == 0:
@@ -229,7 +229,7 @@ class MemoryService:
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """向 working memory 追加一条消息(LRU 上限 50,超出丢弃最旧)。"""
-        msg_id = f"{session_id}:{datetime.now(timezone.utc).timestamp()}"
+        msg_id = f"{session_id}:{datetime.now(UTC).timestamp()}"
         msg = {
             "id": msg_id,
             "layer": "working",
@@ -237,7 +237,7 @@ class MemoryService:
             "role": role,
             "content": content,
             "metadata": metadata or {},
-            "createdAt": datetime.now(timezone.utc).isoformat(),
+            "createdAt": datetime.now(UTC).isoformat(),
         }
         async with self._working_lock:
             bucket = self._working.setdefault(session_id, OrderedDict())
@@ -835,7 +835,8 @@ class MemoryService:
         messages: list[Any],
         session_id: str | None = None,
     ) -> None:
-        """LangGraph memory_save 节点:用 LLM 从对话中提取 preference/decision/feedback 三类记忆,批量保存到 API。
+        """LangGraph memory_save 节点:用 LLM 从对话中提取
+        preference/decision/feedback 三类记忆,批量保存到 API。
 
         流程:
         1. 用 llm_gateway(模型 settings.litellm_model)从对话消息提取三类记忆(JSON 数组)
@@ -872,7 +873,8 @@ class MemoryService:
                         "- decision: 历史决策(用户做出的重要选择,如架构选型、方案取舍)\n"
                         "- feedback: 用户反馈(对 AI 回复的满意/不满意及原因,改进建议)\n\n"
                         "只提取明确、可复用、有价值的信息,忽略一次性任务细节和临时上下文。\n"
-                        "用 JSON 数组返回,每个元素 {\"type\": \"preference|decision|feedback\", \"text\": \"具体内容\"}。\n"
+                        "用 JSON 数组返回,每个元素 "
+                        "{\"type\": \"preference|decision|feedback\", \"text\": \"具体内容\"}。\n"
                         "无值得记忆的信息时返回 []。"
                     ),
                 },
@@ -955,6 +957,131 @@ class MemoryService:
             logger.warning(
                 "save_insights_from_conversation 失败(user=%s): %s", user_id, e
             )
+
+    # ------------------------------------------------------------------
+    # P1-3 长期记忆自进化:episodic→semantic 记忆提炼(consolidation)
+    # ------------------------------------------------------------------
+
+    async def _is_auto_memory_enabled(self, user_id: str) -> bool:
+        """读取用户"自动记忆"隐私开关(user_preferences group='privacy' key='autoMemory')。
+
+        默认开启:未设置或查询失败(API/DB 异常)均视为 True,不阻塞主流程;
+        仅当显式存储为 'false'(字符串小写比较)时才返回 False。
+        该表由 web 端 /settings/privacy 写,JWT 鉴权;ai-service 走同库直查,
+        避免对 settings 路由做 internal-token 访问(该路由仅 JWT 鉴权)。
+        """
+        try:
+            pool = await _get_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    """SELECT value FROM user_preferences
+                       WHERE user_id = $1::uuid AND "group" = 'privacy'
+                         AND key = 'autoMemory'""",
+                    user_id,
+                )
+            if row is not None and row["value"] is not None:
+                return str(row["value"]).lower() != "false"
+            return True
+        except Exception as e:
+            # 用户偏好表可能未就绪/用户 id 非 uuid 等,降级为开启(不阻塞记忆提炼)
+            logger.warning(
+                "读取用户 autoMemory 偏好失败(user=%s, 降级为开启): %s", user_id, e
+            )
+            return True
+
+    async def consolidate(
+        self,
+        user_id: str,
+        messages: list[dict[str, Any]],
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """episodic→semantic 记忆提炼(P1-3 长期记忆自进化)。
+
+        对话完成后调用:把最近会话提炼为一条简短语义记忆(用户长期事实/偏好/
+        已完成事项)写入 semantic 层,供后续 recall 跨会话检索。
+
+        流程:
+        1. stub 模式(未配置 LLM key)→ 直接 skipped(stub_mode),零成本
+        2. 用户隐私开关 autoMemory=false → skipped(user_disabled)
+        3. LLM 生成简短摘要 → add_semantic 写入(失败降级 error,不阻塞主流程)
+
+        Args:
+            user_id: 用户 UUID。
+            messages: 最近会话消息列表(role/content dict)。
+            session_id: 可选,当前会话 id,写入 metadata 便于追溯。
+
+        Returns:
+            {"status": "ok", "memory_id": str} | {"status": "skipped", "reason": str}
+            | {"status": "error", "reason": str}
+        """
+        if not user_id or not messages:
+            return {"status": "skipped", "reason": "no_input"}
+
+        # stub 模式(无 LLM key)直接跳过,保证零成本(关键词 NER 走 graph extract)
+        from ..core.llm_gateway import LLMGateway
+
+        if LLMGateway._is_stub_mode():
+            return {"status": "skipped", "reason": "stub_mode"}
+
+        # 用户隐私开关:autoMemory=false 时跳过
+        if not await self._is_auto_memory_enabled(user_id):
+            return {"status": "skipped", "reason": "user_disabled"}
+
+        try:
+            # 拼接对话文本(仅 user/assistant,截断 8000 与 auto graph extract 一致)
+            conversation_lines: list[str] = []
+            for m in messages:
+                if not isinstance(m, dict):
+                    continue
+                role = m.get("role", "")
+                content = str(m.get("content", "")).strip()
+                if role in ("user", "assistant") and content:
+                    conversation_lines.append(f"{role}: {content}")
+            conversation_text = "\n".join(conversation_lines)[-8000:]
+            if not conversation_text.strip():
+                return {"status": "skipped", "reason": "empty_input"}
+
+            # LLM 生成简短语义摘要
+            summarize_messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "你是记忆提炼助手。从对话中提炼值得长期记住的用户信息,包括:\n"
+                        "- 用户长期事实:职业、所在城市、技术栈、身份背景等\n"
+                        "- 用户偏好:喜欢/不喜欢的风格、工具、语言、使用习惯\n"
+                        "- 已完成事项:重要决策、项目结论、双方确认过的约定\n\n"
+                        "只提炼明确、可复用、有价值的信息,忽略一次性任务细节和临时上下文。\n"
+                        "用 1-3 句简洁中文概括,直接输出文本,不要 JSON,不要任何前缀。"
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"对话内容:\n{conversation_text}\n\n请提炼长期记忆摘要:",
+                },
+            ]
+            result = await self._gateway.complete(
+                summarize_messages, model=settings.litellm_model
+            )
+            summary = str(result.get("content", "")).strip()
+            if not summary:
+                return {"status": "skipped", "reason": "empty_summary"}
+
+            metadata: dict[str, Any] = {
+                "source": "consolidation",
+                "layer": "episodic_to_semantic",
+            }
+            if session_id:
+                metadata["sessionId"] = session_id
+            saved = await self.add_semantic(
+                user_id,
+                summary[:2000],
+                importance_score=0.7,
+                metadata=metadata,
+            )
+            return {"status": "ok", "memory_id": saved.get("id")}
+        except Exception as e:
+            logger.warning("consolidate 记忆提炼失败(user=%s): %s", user_id, e)
+            return {"status": "error", "reason": str(e)}
 
     # ------------------------------------------------------------------
     # 行转换工具
