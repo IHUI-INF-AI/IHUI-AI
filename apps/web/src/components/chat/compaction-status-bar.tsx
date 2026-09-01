@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { useChatStore } from '@/stores/chat'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +15,7 @@ import { cn } from '@/lib/utils'
  *  - 压缩完成:显示压缩结果(token 变化 + 压缩条数为摘要)
  *  - 3 秒后自动隐藏完成态 */
 export function CompactionStatusBar() {
+  const t = useTranslations('chat')
   const compactionStatus = useChatStore((s) => s.compactionStatus)
   const [visible, setVisible] = React.useState(false)
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -96,6 +98,11 @@ export function CompactionStatusBar() {
             {compactionStatus.tokensBefore} → {compactionStatus.tokensAfter} tokens (压缩{' '}
             {compactionStatus.removedCount} 条历史为摘要)
           </span>
+        )}
+
+        {/* truncated 截断降级专属提示(2026-09-01):超长单条消息被内容截断,而非摘要压缩 */}
+        {!isCompacting && compactionStatus.trigger === 'truncated' && (
+          <span className="text-muted-foreground">· {t('compaction.truncatedNotice')}</span>
         )}
 
         {/* 扫光条(压缩中:使用项目已有 shimmer 动画) */}
