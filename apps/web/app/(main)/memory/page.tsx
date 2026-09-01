@@ -7,9 +7,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Search, Loader2, Brain, AlertCircle } from 'lucide-react'
-import { Button } from '@ihui/ui-react'
+import { useTranslations } from 'next-intl'
+import { Plus, Search, Loader2, Brain, AlertCircle, Sparkles } from 'lucide-react'
+import { Button, Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react'
 import { fetchMemory, deleteMemory } from '@/lib/memory-api'
+import { fetchApi } from '@/lib/api'
 import type { MemoryEntry, MemoryScope, MemoryEntryType } from '@ihui/types'
 import { MemoryCard } from '@/components/memory/MemoryCard'
 import { MemoryScopeTabs, type ScopeFilter } from '@/components/memory/MemoryScopeTabs'
@@ -18,6 +20,7 @@ import { BackButton } from '@/components/common'
 
 export default function MemoryListPage() {
   const router = useRouter()
+  const t = useTranslations('memory')
   const [scope, setScope] = useState<ScopeFilter>('all')
   const [type, setType] = useState<TypeFilter>('all')
   const [keyword, setKeyword] = useState('')
@@ -25,6 +28,54 @@ export default function MemoryListPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [autoMemory, setAutoMemory] = useState(true)
+  const [autoMemoryLoading, setAutoMemoryLoading] = useState(true)
+  const [autoMemoryToast, setAutoMemoryToast] = useState<{
+    type: 'success' | 'error'
+    msg: string
+  } | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetchApi<{ settings: Record<string, string> }>('/settings/privacy')
+      .then((res) => {
+        if (cancelled) return
+        if (res.success) {
+          setAutoMemory(res.data.settings.autoMemory !== 'false')
+        }
+      })
+      .catch(() => {
+        // 读取失败保持默认开启,不阻塞记忆页
+      })
+      .finally(() => {
+        if (!cancelled) setAutoMemoryLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!autoMemoryToast) return
+    const timer = setTimeout(() => setAutoMemoryToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [autoMemoryToast])
+
+  async function handleAutoMemoryChange(value: boolean) {
+    setAutoMemory(value)
+    try {
+      const res = await fetchApi('/settings/privacy', {
+        method: 'PUT',
+        body: JSON.stringify({ autoMemory: String(value) }),
+      })
+      setAutoMemoryToast({
+        type: res.success ? 'success' : 'error',
+        msg: res.success ? t('autoMemorySaveSuccess') : t('autoMemorySaveFailed'),
+      })
+    } catch {
+      setAutoMemoryToast({ type: 'error', msg: t('autoMemorySaveFailed') })
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,6 +118,35 @@ export default function MemoryListPage() {
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
       <BackButton />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4" />
+            {t('autoMemory')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-3">
+            <span className="min-w-0 flex-1 text-sm text-muted-foreground">
+              {t('autoMemoryDesc')}
+            </span>
+            <Switch
+              checked={autoMemory}
+              disabled={autoMemoryLoading}
+              onCheckedChange={handleAutoMemoryChange}
+              className="shrink-0"
+            />
+          </div>
+        </CardContent>
+      </Card>
+      {autoMemoryToast && (
+        <div
+          className={`fixed right-4 top-4 z-modal rounded-md px-4 py-2 text-sm text-white shadow-lg ${autoMemoryToast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
+        >
+          {autoMemoryToast.msg}
+        </div>
+      )}
+
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-6 w-6 text-primary" />
