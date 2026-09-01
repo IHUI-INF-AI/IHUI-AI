@@ -8061,12 +8061,8 @@
     "modelTagOfficial": "正式版",
     "modelTagSubsidy": "專屬補貼",
     "permission": {
-      "autoRevertIn": "{time} 後自動切回請求批准",
-      "autoRevertedDescWithDuration": "本次完全訪問已持續 {usedMin} 分鐘,自動降級到請求批准。重新開啟完全訪問請用 Shift+Tab 或點擊權限按鈕。",
-      "autoRevertedTitle": "已自動切回請求批准",
       "buttonHintShortcut": "Shift+Tab 循環切換",
       "buttonLabel": "權限模式",
-      "cancelAutoRevert": "取消自動撤銷",
       "contextMenu": {
         "copyMarkdown": "復制 Markdown",
         "copyText": "復制文本",
@@ -8098,7 +8094,6 @@
         "rmRrfRoot": "遞歸刪除根/家目錄",
         "sudoAny": "任意 sudo 操作"
       },
-      "extendOneHour": "再保持 1 小時",
       "fallbackNotice": "主體模型 {primary} 不可用,已自動切換到 {fallback}",
       "firstTimeConfirmAcknowledge": "我瞭解上述風險,繼續啟用",
       "firstTimeConfirmBullet1": "AI 可不受限制地執行所有操作,無需逐一確認",
@@ -8120,14 +8115,11 @@
         "auto-revert": "自動",
         "popover": "彈窗",
         "shift-tab": "Shift+Tab",
-        "slash": "斜槓"
+        "slash": "斜槓",
+        "confirm-dialog": "確認彈窗"
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "權限模式歷史",
-      "infoButtonLabel": "查看模式說明",
-      "infoButtonTitle": "當前模式的詳細行為",
-      "infoModalDescription": "當前模式的具體行為和風險等級",
-      "infoModalTitle": "當前權限模式詳情",
       "inputWarning": "當前為完全訪問模式:AI 可不受限制地訪問文件和網絡",
       "jumpToLatest": "跳轉到最新",
       "kbdNavigate": "切換",
@@ -8167,7 +8159,6 @@
       "popoverHintNoWorkspace": "未綁定工作區,選定後將在綁定時生效",
       "popoverTitle": "應如何批准 AI 操作?",
       "quickFullAccess": "完全訪問",
-      "reEnableAutoRevert": "重新啟用 1 小時自動撤銷",
       "resetSuppressedButton": "重新提醒高風險",
       "resetSuppressedConfirmDesc": "下次切到完全訪問模式時,將再次彈出確認彈窗。",
       "resetSuppressedConfirmTitle": "確認重新啟用高風險提醒?",
@@ -8179,13 +8170,10 @@
       "revertWarning5minTitle": "完全訪問模式即將自動降級",
       "search": "搜索",
       "shortcutsClose": "知道了",
-      "shortcutsItemAutoRevert1hKbd": "1 小時無操作後自動切回請求批准",
-      "shortcutsItemCancelAutoKbd": "橫幅「取消自動撤銷」按鈕,可永久保持完全訪問",
       "shortcutsItemChatModeDesc": "切換構建/計劃/審查/規格 4 種對話模式",
       "shortcutsItemDangerousKbd": "高風險模式發送時檢測危險命令,需二次確認",
       "shortcutsItemExtendKbd": "切到完全訪問時 toast 提供「再保持 1 小時」按鈕",
       "shortcutsItemHistoryKbd": "查看 popover 底部「歷史」按鈕看最近切換",
-      "shortcutsItemInfoKbd": "查看該模式 4 條詳細行為",
       "shortcutsItemModeBuildKbd": "切換到構建模式(正常執行,全工具開放)",
       "shortcutsItemModeCmdHint": "也可輸入 /build /plan /review /spec 斜槓命令切換",
       "shortcutsItemModePlanKbd": "切換到計劃模式(只讀分析,deny write 工具)",
@@ -8214,12 +8202,12 @@
       "switchedToAutoDesc": "僅對檢測到的風險操作請求批准",
       "switchedToFull": "已切換到完全訪問",
       "switchedToFullDesc": "AI 現在可執行任何操作,無需確認(5 秒內可撤銷,之前:{prev})",
+      "switchedToFullError": "切換失敗:{error}",
       "switchedToModeAsk": "已切換到請求批准模式",
       "switchedToModeAuto": "已切換到替我審批模式",
       "switchedToModeFull": "已切換到完全訪問模式",
       "timelineAiReply": "AI 回復",
       "timelineUserMessage": "用戶消息",
-      "titleBarAutoRevert": "⏱ {time} 後自動降級",
       "toast": {
         "copiedMarkdown": "已復制 Markdown",
         "copiedText": "已復制到剪貼板",
@@ -8240,7 +8228,8 @@
       "tplTranslate": "翻譯",
       "tplTranslateContent": "請將以下內容翻譯為英文",
       "undo": "撤銷",
-      "usageHint": "用法: /permission ask | auto | full"
+      "usageHint": "用法: /permission ask | auto | full",
+      "infoModalTitle": "權限模式詳情"
     },
     "permissionAlreadyActive": "目前已是 {mode} 模式",
     "permissionLabelAsk": "請求批准",
@@ -8542,7 +8531,9 @@
     "voiceInputNativeFallback": "瀏覽器語音服務不可用，已切換本地轉寫，請重試",
     "voiceInputError": "語音識別不可用，請檢查網路或改用 Chrome/Edge",
     "voiceInputSttFailed": "轉寫失敗，請稍後重試或檢查本地語音服務",
-    "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試"
+    "voiceInputEmpty": "未識別到語音內容，請靠近麥克風後重試",
+    "voiceInputUnauthorized": "登入已過期，請刷新頁面後重試",
+    "voiceInputNetworkError": "網路異常，請檢查連線後重試"
   },
   "chatHistory": {
     "backToHistory": "返回任務列表",
@@ -18206,17 +18197,11 @@
   },
   "permission": {
     "inputWarning": "偵測到高風險操作，建議確認後繼續",
-    "autoRevertIn": "{time} 後自動恢復目前模式",
-    "cancelAutoRevert": "取消自動恢復",
-    "reEnableAutoRevert": "重新啟用自動恢復",
     "mode": {
       "full": "完整權限",
       "auto": "自動",
       "ask": "詢問"
     },
-    "infoButtonTitle": "檢視權限模式說明",
-    "infoButtonLabel": "權限模式資訊",
-    "titleBarAutoRevert": "自動恢復：{time}",
     "dangerousCommandTitle": "偵測到危險命令",
     "dangerousCommandDesc": "偵測到危險命令「{pattern}」：{reason}。是否仍然繼續執行？",
     "dangerousCommandProceed": "仍然執行",

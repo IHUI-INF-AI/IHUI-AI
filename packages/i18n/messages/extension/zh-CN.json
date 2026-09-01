@@ -173,7 +173,12 @@
     "inputPlaceholder": "说点什么...",
     "compactionNotice": "上下文已自动压缩:{before} → {after}(移除 {removed} 条历史)",
     "voiceStop": "停止录音",
-    "voiceStart": "开始录音"
+    "voiceStart": "开始录音",
+    "voiceError": "无法访问麦克风,请在浏览器设置中允许麦克风权限",
+    "voiceSttFailed": "转写失败,请稍后重试或检查本地语音服务",
+    "voiceEmpty": "未识别到语音内容,请靠近麦克风后重试",
+    "voiceUnauthorized": "登录已过期,请刷新页面后重试",
+    "voiceNetworkError": "网络异常,请检查连接后重试"
   },
   "settings": {
     "language": "界面语言",
