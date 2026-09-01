@@ -15,6 +15,7 @@ import {
   postToolResult,
   getMessages,
   type ToolDelegateEvent,
+  type WorkspacePermissionMode,
 } from '@ihui/api-client'
 import { logger } from '@/lib/logger'
 import { getModelContextCapacity } from '@/lib/model-context-capacity'
@@ -73,7 +74,10 @@ export function createSendAnswer(
     // UI 上把 answer 显示为 user 消息(让用户看到自己回答了什么)
     store.addMessage({ role: 'user', content: trimmed, model })
     // 记录续流时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
-    const currentMode = useAiPanelStore.getState().activeWorkspace?.mode
+    // 2026-08-31:未绑定工作区时读暂存模式
+    const permState = useAiPanelStore.getState()
+    const currentMode: WorkspacePermissionMode | undefined =
+      permState.activeWorkspace?.mode ?? permState.pendingPermissionMode ?? undefined
     const assistantId = store.addMessage({
       role: 'assistant',
       content: '',
