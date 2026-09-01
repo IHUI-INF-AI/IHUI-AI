@@ -122,6 +122,23 @@ def _handle_prompts_list() -> dict[str, Any]:
     return {"prompts": prompts}
 
 
+def _handle_prompts_get(params: dict[str, Any]) -> dict[str, Any]:
+    """prompts/get:按名称返回单个提示词定义,不存在返回 prompt=None。"""
+    name = str(params.get("name", "")).strip()
+    if not name:
+        raise ValueError("name 不能为空")
+    for p in _PROMPTS:
+        if p.name == name:
+            return {
+                "prompt": {
+                    "name": p.name,
+                    "description": p.description,
+                    "arguments": p.arguments,
+                }
+            }
+    return {"prompt": None}
+
+
 async def _handle_tools_call(
     params: dict[str, Any], *, user_id: str | None
 ) -> dict[str, Any]:
@@ -153,7 +170,7 @@ def _dispatch_method(method: str) -> tuple[str, str]:
     """方法名分类:('handler', method) / ('notification', method) / ('unknown', method)。"""
     if method in {
         "initialize", "tools/list", "tools/call", "ping",
-        "resources/list", "prompts/list",
+        "resources/list", "prompts/list", "prompts/get",
     }:
         return "handler", method
     if method.startswith("notifications/"):
@@ -213,6 +230,8 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
             result = _handle_resources_list()
         elif method == "prompts/list":
             result = _handle_prompts_list()
+        elif method == "prompts/get":
+            result = _handle_prompts_get(params)
         elif method == "tools/call":
             result = await _handle_tools_call(params, user_id=user_id)
         else:  # pragma: no cover - _dispatch_method 已过滤

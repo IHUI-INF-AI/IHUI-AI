@@ -71,7 +71,8 @@ class Settings(BaseSettings):
     # AI 回调共享密钥(可选,与后端 AI_CALLBACK_SECRET 一致;为空则不发送 X-Internal-Secret 头)
     ai_callback_secret: str = ""
 
-    # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,用于解密 ai_model_config.api_key_enc)
+    # 凭据加密密钥(与 apps/api 的 CREDENTIALS_ENCRYPTION_KEY 共享,
+    # 用于解密 ai_model_config.api_key_enc)
     credentials_encryption_key: str = ""
 
     # JWT 验证(与 apps/api 共享 JWT_SECRET,用于 SSO 跨服务认证)
@@ -169,6 +170,12 @@ class Settings(BaseSettings):
     # ③ 不含 tools 参数(保护 function calling) ④ 总 token 数 > token_compaction_min_tokens
     # 压缩失败降级用原 messages(不阻塞主流程),压缩率记录到 LLM_TOKEN_COMPACTION_RATIO metric
     token_compaction_enabled: bool = False
+
+    # 2026-09-01 新增:对话完成后自动抽取实体建知识图谱(GraphRAG 闭环)。
+    # 默认关闭(真实 LLM NER 有 token 成本;开启后 agent_loop 任务完成时对最近
+    # 8 条消息 fire-and-forget 调 knowledge_graph.extract,图谱有数据后
+    # knowledge_lookup 的 graph 源才能返回命中)。
+    auto_graph_extract_enabled: bool = False
     token_compaction_min_tokens: int = 2000
 
     # Combo 多级 fallback 链(2026-07-30 立,2026-07-30 修复 .env 加载断裂 Bug)
@@ -279,12 +286,7 @@ def _sync_env_file_to_os() -> None:
             continue
         if key.endswith(
             ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN")
-        ):
-            os.environ.setdefault(key, value)
-        # L5-10(2026-08-12):配置开关类变量同步到 os.environ
-        # (AGENT_EXECUTOR 由 routers/agents.py _is_loop_v2_enabled 直接读 os.environ,
-        #  需与 API_KEY 类同样同步,否则 .env 配置不生效)
-        elif key in ("AGENT_EXECUTOR",):
+        ) or key in ("AGENT_EXECUTOR",):
             os.environ.setdefault(key, value)
 
 

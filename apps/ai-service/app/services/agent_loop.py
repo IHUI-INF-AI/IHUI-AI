@@ -15,14 +15,14 @@ import logging
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
+from .mcp_server import mcp_server
 from .memory import memory_store
 from .meta_learner import meta_learner
-from .mcp_server import mcp_server
 from .project_memory import build_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class AgentExecutor:
 
     @staticmethod
     def _now() -> str:
-        return datetime.now(timezone.utc).isoformat()
+        return datetime.now(UTC).isoformat()
 
     @staticmethod
     def _new_task_id() -> str:
@@ -284,7 +284,10 @@ class AgentExecutor:
                             "content": skip_msg,
                             "status": "skipped",
                         })
-                        await memory_store.add(sid, "tool", skip_msg, {"tool_name": tool_name, "tool_args": tool_args})
+                        await memory_store.add(
+                            sid, "tool", skip_msg,
+                            {"tool_name": tool_name, "tool_args": tool_args},
+                        )
                         continue
                     try:
                         tool_result = await mcp_server.call_tool(tool_name, tool_args)
@@ -302,7 +305,10 @@ class AgentExecutor:
                         "content": tool_content,
                         "status": step_status,
                     })
-                    await memory_store.add(sid, "tool", tool_content, {"tool_name": tool_name, "tool_args": tool_args})
+                    await memory_store.add(
+                        sid, "tool", tool_content,
+                        {"tool_name": tool_name, "tool_args": tool_args},
+                    )
                 # 有 tool_call 已执行,继续下一轮迭代(让 LLM 基于工具结果决定下一步)
 
             if self._running[task_id]["status"] != "canceled":
@@ -353,6 +359,31 @@ class AgentExecutor:
                     save_task.add_done_callback(self._pending_tasks.discard)
                 except Exception as e:
                     logger.warning("memory_save 启动失败(降级,不阻塞): %s", e)
+
+                # P0 GraphRAG 闭环出口:开关开启时对话完成后自动抽取实体建图谱。
+                # 默认关闭(settings.auto_graph_extract_enabled,LLM NER 有 token 成本);
+                # 开启后图谱有数据,knowledge_lookup graph 源才能命中。
+                # fire-and-forget + 最近 8 条消息 + 截断 8000 字符,失败降级不阻塞。
+                try:
+                    if settings.auto_graph_extract_enabled:
+                        from .knowledge_graph import knowledge_graph_service
+
+                        graph_text = "\n".join(
+                            str(m.get("content", ""))
+                            for m in messages[-8:]
+                            if m.get("role") in ("user", "assistant")
+                        )
+                        if graph_text.strip():
+                            graph_task = asyncio.create_task(
+                                knowledge_graph_service.extract(
+                                    graph_text[-8000:],
+                                    owner_uuid=user_id,
+                                )
+                            )
+                            self._pending_tasks.add(graph_task)
+                            graph_task.add_done_callback(self._pending_tasks.discard)
+                except Exception as e:
+                    logger.warning("auto graph extract 启动失败(降级,不阻塞): %s", e)
 
         # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
         # canceled 状态不触发(用户主动取消,非真实失败,无可学习信号)
