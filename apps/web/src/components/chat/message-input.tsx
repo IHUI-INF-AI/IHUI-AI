@@ -729,6 +729,7 @@ export function MessageInput({
                   <button
                     type="button"
                     onClick={handleCompact}
+                    data-testid="compact-context-button"
                     disabled={compacting || isStreaming || !conversationId}
                     aria-label={
                       compacting ? t('compaction.compacting') : t('compaction.compactButton')
