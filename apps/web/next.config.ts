@@ -986,6 +986,12 @@ const nextConfig: NextConfig = {
           source: '/api/mcp/:path*',
           destination: 'http://localhost:8803/api/mcp/:path*',
         },
+        // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
+        // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
+        {
+          source: '/api/connectors/:path*',
+          destination: 'http://localhost:8803/api/connectors/:path*',
+        },
         // 2026-08-12 新增:Agent 轨迹可视化 API 路由转发到 ai-service 8803
         // 原因:agent/trace 端点注册在 ai-service(prefix="/api"),
         // 必须在 /api/agents/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。

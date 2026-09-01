@@ -17,7 +17,8 @@
     "installed_at": "ISO 时间",    # UTC ISO 8601
     "updated_at": "ISO 时间",
     "last_sync_at": "",           # 上次成功同步时间
-    "last_error": ""              # 上次失败原因
+    "last_error": "",             # 上次失败原因
+    "sync_items": [],             # 最近一次 sync 的文档清单 [{doc_id, title}](P2-2 立)
   }
 - 读写失败降级:读失败返回空列表/None,写失败返回 False,不抛异常不崩服务
 - 进程内加锁防止并发写坏文件(跨进程并发不在本模块职责内)
@@ -86,10 +87,13 @@ def get(key: str) -> dict[str, Any] | None:
 def save(record: dict[str, Any]) -> dict[str, Any] | None:
     """新增或覆盖(key 相同)一条连接器记录。
 
+    sync_items(最近一次同步的文档清单)缺省落空列表,保证记录结构完整。
+
     Returns:
         写成功返回入参 record;写失败返回 None。
     """
     with _LOCK:
+        record.setdefault("sync_items", [])
         records = _load()
         key = record.get("key", "")
         replaced = False
@@ -137,10 +141,17 @@ def set_enabled(key: str, enabled: bool) -> dict[str, Any] | None:
     return None
 
 
-def set_sync_state(key: str, last_sync_at: str, last_error: str) -> dict[str, Any] | None:
+def set_sync_state(
+    key: str,
+    last_sync_at: str,
+    last_error: str,
+    items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any] | None:
     """更新指定记录的同步状态并更新时间戳。
 
     成功同步时 last_error 应传空串;失败时 last_error 传失败原因。
+    items 非 None 时一并持久化 sync_items(最近一次同步的文档清单),
+    不传则保持原值(向后兼容)。
     语义对齐 set_enabled:全部字段缺失时同样补默认值。
 
     Returns:
@@ -153,6 +164,8 @@ def set_sync_state(key: str, last_sync_at: str, last_error: str) -> dict[str, An
                 rec["last_sync_at"] = last_sync_at
                 rec["last_error"] = last_error
                 rec["updated_at"] = now_iso()
+                if items is not None:
+                    rec["sync_items"] = list(items)
                 if _write(records):
                     return dict(rec)
                 return None
