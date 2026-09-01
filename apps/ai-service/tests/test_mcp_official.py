@@ -54,9 +54,10 @@ class TestDispatch:
     def test_unknown(self):
         assert _dispatch_method("bogus")[0] == "unknown"
 
-    def test_not_implemented_capabilities(self):
-        assert _dispatch_method("resources/list")[0] == "not_implemented"
-        assert _dispatch_method("prompts/list")[0] == "not_implemented"
+    def test_resources_prompts_are_handlers(self):
+        """resources/list 与 prompts/list 已是真实现(非降级)。"""
+        assert _dispatch_method("resources/list")[0] == "handler"
+        assert _dispatch_method("prompts/list")[0] == "handler"
 
 
 class TestHandlers:
@@ -155,3 +156,21 @@ class TestEndpoint:
         r = _send("tools/call", {"name": ""}, msg_id=4)
         assert r.status_code == 400
         assert r.json()["error"]["code"] == -32602
+
+    def test_resources_list(self):
+        r = _send("resources/list")
+        assert r.status_code == 200
+        resources = r.json()["result"]["resources"]
+        assert len(resources) >= 3
+        names = {x["name"] for x in resources}
+        assert {"current_memory", "available_skills", "agent_config"} <= names
+
+    def test_prompts_list(self):
+        r = _send("prompts/list")
+        assert r.status_code == 200
+        prompts = r.json()["result"]["prompts"]
+        assert len(prompts) >= 3
+        names = {x["name"] for x in prompts}
+        assert {"code_review", "bug_fix"} <= names
+        # arguments 结构完整
+        assert all("arguments" in p for p in prompts)
