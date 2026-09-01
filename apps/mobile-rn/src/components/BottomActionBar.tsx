@@ -49,6 +49,7 @@ import {
   MessageCircle,
   Mic,
   Paperclip,
+  Scissors,
   Settings,
 } from 'lucide-react-native'
 
@@ -101,6 +102,10 @@ export interface BottomActionBarProps {
   onTextareaHeightChange?: (height: number) => void
   onModelConfigChange?: (config: unknown) => void
   onFangda?: () => void
+  /** 手动压缩上下文回调(✂ 图标按钮,渲染在辅助按钮行;未传时不渲染) */
+  onCompactContext?: () => void
+  /** 压缩请求进行中(按钮切 loading 态并禁用,防重复点击) */
+  compactContextLoading?: boolean
   onKeyboardShow?: () => void
   onKeyboardHide?: () => void
   onShowModelList?: () => void
@@ -339,6 +344,8 @@ function ChatInputBar(props: BottomActionBarProps) {
     onTextareaHeightChange,
     onModelConfigChange,
     onFangda,
+    onCompactContext,
+    compactContextLoading = false,
     onKeyboardShow,
     onKeyboardHide,
     onShowModelList,
@@ -402,7 +409,10 @@ function ChatInputBar(props: BottomActionBarProps) {
   const showModelBar =
     modelName !== undefined || onShowModelList !== undefined || onShowModelConfig !== undefined
   const showSecondaryRow =
-    onFunctionHandle !== undefined || onSourceHandle !== undefined || onFangda !== undefined
+    onFunctionHandle !== undefined ||
+    onSourceHandle !== undefined ||
+    onFangda !== undefined ||
+    onCompactContext !== undefined
   const showIconGroup = isShowIcon && onIconClick !== undefined
 
   return (
@@ -598,6 +608,25 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityLabel="放大"
             >
               <Maximize size={18} color={'#6b7280'} />
+            </Pressable>
+          ) : null}
+          {/* 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input compactButton):
+              ✂ 图标 + loading 态(ActivityIndicator),请求中禁用防重复点击 */}
+          {onCompactContext !== undefined ? (
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={onCompactContext}
+              disabled={compactContextLoading}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={t('messageInput.compactButton')}
+              accessibilityState={{ busy: compactContextLoading }}
+            >
+              {compactContextLoading ? (
+                <ActivityIndicator size="small" color={'#6b7280'} />
+              ) : (
+                <Scissors size={18} color={'#6b7280'} />
+              )}
             </Pressable>
           ) : null}
         </View>
