@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -24,14 +24,12 @@ import {
   isHighRiskPermissionMode,
 } from '@/components/ai/permission-mode-popover'
 import { PermissionShortcutsModal } from '@/components/ai/permission-shortcuts-modal'
-import { PermissionModeInfoModal } from '@/components/ai/permission-mode-info-modal'
 import { PermissionHistoryPanel } from '@/components/ai/permission-history-panel'
 import { AgentProgressTrigger } from '@/components/ai/agent-progress-trigger'
 import { FullAccessConfirmBridge } from '@/components/chat/full-access-confirm-bridge'
-import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { AddMenuPopover } from '@/components/chat/add-menu-popover'
+import { HighRiskWarningBanner } from '@/components/chat/high-risk-warning-banner'
 import { INPUT_ATTACHMENT_BAR_CLASS } from '@/lib/nav-styles'
-import { usePermissionAutoRevert, formatRemaining } from '@/hooks/use-permission-auto-revert'
 import { useSlashCommands } from '@/hooks/use-slash-commands'
 import { usePermissionModeCycle } from '@/hooks/use-permission-mode-cycle'
 import { useSlashAction } from '@/hooks/use-slash-action'
@@ -39,7 +37,6 @@ import { useMessageReferences } from '@/hooks/use-message-references'
 import { useAgentMdReference, AGENT_REF_PREFIX } from '@/hooks/use-agent-md-reference'
 import { useMessageSend } from '@/hooks/use-message-send'
 import { useMentionFiles, useAiSkills } from '@/hooks/use-lazy-resource-hooks'
-import type { WorkspacePermissionMode } from '@ihui/api-client/endpoints/workspace'
 import { Tooltip } from '@/components/feedback'
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -65,9 +62,9 @@ interface MessageInputProps {
   model: string
   onModelChange: (model: string) => void
   modelLabel: string
-  /** 浮窗折叠态头部按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */
+  /** 浮窗折叠态头部按钮(展开/停靠/最小化),渲染在输入卡片顶部工具栏右侧(ml-auto) */
   floatHeader?: React.ReactNode
-  /** 浮窗折叠态拖拽回调,绑定在合并行上 */
+  /** 浮窗折叠态拖拽回调,绑定在顶部工具栏上(button 目标由 handleFloatDragStart 自行排除) */
   onFloatDragStart?: (e: React.PointerEvent) => void
   /** 浮窗折叠态点击 AgentProgressTrigger 时展开面板(setFloatCollapsed(false)) */
   onTriggerClick?: () => void
@@ -85,7 +82,6 @@ export function MessageInput({
   modelLabel,
   floatHeader,
   onFloatDragStart,
-  onTriggerClick,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -98,15 +94,11 @@ export function MessageInput({
   // 详见 apps/web/src/hooks/use-permission-mode-cycle.ts
   const { shortcutsOpen, closeShortcuts, cyclePermissionMode } = usePermissionModeCycle()
   // 当前工作区权限模式(2026-07-25 深化,高风险模式持久化视觉警告)
+  // 2026-08-31:未绑定工作区时读暂存模式,保持 amber 描边警示一致
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
-  const activeWorkspaceMode = activeWorkspace?.mode
+  const pendingPermissionMode = useAiPanelStore((s) => s.pendingPermissionMode)
+  const activeWorkspaceMode = activeWorkspace?.mode ?? pendingPermissionMode ?? undefined
   const isHighRisk = isHighRiskPermissionMode(activeWorkspaceMode)
-  // 高风险模式自动撤销倒计时(2026-07-25 深化,深度对标 Codex CLI 安全护栏):
-  // - 切到 bypass-permissions 时启动 1h 倒计时,显示剩余时间
-  // - 倒计时归零 → 自动切回 default
-  // - 用户可点"取消自动撤销"维持当前模式(但视觉警告仍存在)
-  // - 用户主动切走其他模式 → 自动清掉计时
-  const autoRevert = usePermissionAutoRevert()
   // P1 草稿自动保存(2026-07-23):刷新/路由切换不丢失未发送内容
   const DRAFT_KEY = 'chat:draft'
   const [value, setValue] = React.useState(() => {
@@ -247,9 +239,7 @@ export function MessageInput({
   }, [draftInput, clearDraftInput])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
-  // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
   // shortcutsOpen / cyclePermissionMode 已提取到 usePermissionModeCycle hook(2026-07-29)
-  const [infoMode, setInfoMode] = React.useState<WorkspacePermissionMode | null>(null)
 
   // 斜杠命令列表(2026-07-29 提取到 useSlashCommands,运行时构造逻辑下沉到 hooks/ 目录)
   const slashCommands = useSlashCommands(aiSkills, skillsLoading)
@@ -355,11 +345,6 @@ export function MessageInput({
   return (
     <div>
       <div className="mx-auto max-w-3xl px-4 py-3">
-        {/* 高风险模式持久化视觉警告(2026-07-25 深化,深度对标 Codex 高风险提示)
-            - 提取到 HighRiskWarningBanner 子组件(2026-07-30),行为零变更
-            - 内部消费 useAiPanelStore 计算 isHighRisk + useTranslations('chat')
-            - autoRevert 由主组件透传(标题栏倒计时与横幅倒计时共享同一份 tick) */}
-        <HighRiskWarningBanner autoRevert={autoRevert} />
         {allReferences.length > 0 && (
           <div className="mb-2">
             <ContextReferencePanel references={allReferences} onRemove={handleRemoveReference} />
@@ -426,28 +411,11 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
-            {/* 浮窗折叠态合并行:AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行
-                AgentProgressTrigger 传 border-0 bg-transparent px-0 → 按钮本身无描边/背景/内边距。
-                行 gap-1 提供按钮间距,floatHeader 用 Fragment + ml-auto 推到右侧(无 div 包裹)。 */}
-            {floatHeader && (
-              <div
-                onPointerDown={onFloatDragStart}
-                className="flex cursor-move items-center gap-1 px-2 py-1"
-              >
-                <AgentProgressTrigger
-                  className="border-0 bg-transparent px-0"
-                  onTriggerClick={onTriggerClick}
-                />
-                {floatHeader}
-              </div>
-            )}
-            <div
-              className={cn(
-                INPUT_ATTACHMENT_BAR_CLASS,
-                floatHeader && '!rounded-tl-none !rounded-tr-none',
-              )}
-            >
-              {!floatHeader && <AgentProgressTrigger />}
+            {/* 浮窗折叠态:floatHeader(展开/停靠/最小化)并入顶部工具栏右侧(ml-auto),
+                拖拽回调绑定在工具栏上(handleFloatDragStart 自身排除 button 目标:
+                点按钮仍是点击,拖空白处/按钮间隙才是拖动),工具栏重新成为卡片首行(圆角自然恢复) */}
+            <div onPointerDown={onFloatDragStart} className={INPUT_ATTACHMENT_BAR_CLASS}>
+              {!floatHeader && <AgentProgressTrigger iconOnly />}
               <PermissionModePopover disabled={isStreaming} />
               {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
@@ -512,6 +480,10 @@ export function MessageInput({
                   {allReferences.length} 个引用
                 </span>
               )}
+              {/* 浮窗折叠态按钮组(展开/停靠/最小化):推到工具栏右侧,cursor-move 提示可拖拽浮窗 */}
+              {floatHeader && (
+                <div className="ml-auto flex cursor-move items-center gap-1">{floatHeader}</div>
+              )}
             </div>
             {/* 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示):
                 模式切换入口:
@@ -520,70 +492,7 @@ export function MessageInput({
                 · AI 自动判断(用户输入发送时由 use-chat.ts suggestMode 触发)
                 视觉风格对齐右侧权限模式徽章:compact (h-6 px-2 text-xs)、subtle bg-muted、
                 圆角 6px(rounded-md),与 4 按钮时代风格统一。
-                权限模式徽章(2026-07-25 深化):在模式徽章右侧持续显示当前权限模式,
-                高风险时附倒计时(与顶部高风险警告横幅同步),透明性 + 时效性双指标。
                 CurrentModeBadge 已整合到 AgentProgressTrigger 按钮前部(2026-07-29)。 */}
-            {/* 权限模式标题栏(2026-08-06 修复):仅在 activeWorkspaceMode 有值时渲染,
-                避免空模式时也占用 pt-2 + flex 行高(原实现始终渲染但内容为空,
-                视觉上是无内容的 8-12px 空白条,被用户反馈"啥也没显示 + 高度太高")。
-                ml-auto 保证徽章右对齐(与底部工具栏右对齐基线一致)。 */}
-            {activeWorkspaceMode && (
-              <div className="flex items-center gap-2 px-3 pt-2">
-                <div
-                  className="ml-auto flex items-center gap-1.5"
-                  data-testid="titlebar-permission-mode"
-                >
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors',
-                      isHighRisk
-                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                        : activeWorkspaceMode === 'accept-edits'
-                          ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                          : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    <span
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-current"
-                      aria-hidden="true"
-                    />
-                    {activeWorkspaceMode === 'bypass-permissions'
-                      ? t('permission.mode.full')
-                      : activeWorkspaceMode === 'accept-edits'
-                        ? t('permission.mode.auto')
-                        : t('permission.mode.ask')}
-                  </span>
-                  {/* 高风险模式 ⓘ 详细说明按钮(2026-07-25 深化,可解释性增强):
-                    只在 bypass-permissions 模式显示,点击唤起 PermissionModeInfoModal
-                    展示 4 条该模式的详细说明 bullet,底部"知道了"关闭 */}
-                  {activeWorkspaceMode === 'bypass-permissions' && (
-                    <Tooltip content={t('permission.infoButtonTitle')}>
-                      <button
-                        type="button"
-                        onClick={() => setInfoMode('bypass-permissions')}
-                        className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-md text-amber-700 hover:bg-amber-500/15 dark:text-amber-400"
-                        aria-label={t('permission.infoButtonLabel')}
-                        data-testid="permission-mode-info-button"
-                      >
-                        <Info className="h-3 w-3" aria-hidden="true" />
-                      </button>
-                    </Tooltip>
-                  )}
-                  {/* 高风险 + 倒计时激活 → 在徽章右侧追加倒计时(2026-07-25 深化)
-                    复用 autoRevert hook 的同一份 1s tick,保证顶部警告和标题栏倒计时一致 */}
-                  {isHighRisk && autoRevert.isActive && (
-                    <span
-                      className="inline-flex items-center gap-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 font-mono text-[10px] tabular-nums text-amber-700 dark:text-amber-400"
-                      data-testid="titlebar-auto-revert"
-                    >
-                      {t('permission.titleBarAutoRevert', {
-                        time: formatRemaining(autoRevert.remainingMs),
-                      })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
             {/* 共享层 WebInputCore(textarea + 字符计数 + 清除 + 发送/停止),契约对齐 packages/types MessageInputProps */}
             <WebInputCore
               ref={inputCoreRef}
@@ -738,10 +647,6 @@ export function MessageInput({
           - 排除 textarea/input/contenteditable 内,用户打字不误触
           - 3 分组:模式切换 / 高风险护栏 / 撤销与审计 */}
       <PermissionShortcutsModal open={shortcutsOpen} onClose={closeShortcuts} />
-      {/* 权限模式详细说明 modal(2026-07-25 深化,可解释性增强):
-          - 只在高风险模式(bypass-permissions)显示 ⓘ 按钮时唤起
-          - 4 条该模式详细行为 bullet,底部"知道了"关闭 */}
-      <PermissionModeInfoModal mode={infoMode} onClose={() => setInfoMode(null)} />
       {/* 斜杠命令选中技能时触发的内联调用对话框(2026-08-08 立) */}
       {skillInvokeSkill && !skillInvokeResult && (
         <div className="mx-auto mt-2 max-w-3xl px-4">
