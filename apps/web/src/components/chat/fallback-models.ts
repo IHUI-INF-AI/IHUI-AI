@@ -22,6 +22,7 @@ export { FALLBACK_MODELS, DEMO_TIER_MODELS, type FallbackModel } from '@ihui/sha
  * 渲染处用 t() 转换 key 为本地化显示名;未知厂商回退到原始 provider code 字符串 */
 export const VENDOR_LABEL: Record<string, string> = {
   // === 项目主力(plan 套餐已接入)===
+  ihui_relay: 'vendor.ihuiRelay',
   stepfun: 'vendor.stepfun',
   cloudflare_workers_ai: 'vendor.cloudflareWorkersAi',
   agnes: 'vendor.agnes',
@@ -43,6 +44,7 @@ export const VENDOR_LABEL: Record<string, string> = {
   perplexity: 'vendor.perplexity',
   // === 国内厂商 ===
   qwen: 'vendor.qwen',
+  qwen_local: 'vendor.qwenLocal',
   zhipu: 'vendor.zhipu',
   moonshot: 'vendor.moonshot',
   doubao: 'vendor.doubao',

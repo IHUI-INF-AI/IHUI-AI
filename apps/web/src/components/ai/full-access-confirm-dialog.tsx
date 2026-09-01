@@ -110,11 +110,7 @@ export function FullAccessConfirmDialog({
     onConfirm()
   }
 
-  const bullets = [
-    t('firstTimeConfirmBullet1'),
-    t('firstTimeConfirmBullet2'),
-    t('firstTimeConfirmBullet3'),
-  ]
+  const bullets = [t('firstTimeConfirmBullet1')]
 
   return (
     <Modal

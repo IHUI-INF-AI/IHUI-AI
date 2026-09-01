@@ -52,6 +52,15 @@ interface AiPanelState {
   pendingPermissionSetup: { path: string; name: string; techStack?: string[] } | null
   /** 待确认启用完全访问模式(2026-07-25 立,首次启用高风险模式弹确认弹窗) */
   pendingFullAccess: boolean
+  /**
+   * 未绑定工作区时暂存的权限模式(2026-08-31 立,响应式)。
+   * 以前写 sessionStorage,但按钮 currentMode 不读它 → 切换后按钮文字/样式永远停在
+   * "请求批准"不变化(P0 UI bug)。改为 store 内响应式状态:
+   * - popover/Shift+Tab/斜杠命令在无 activeWorkspace 时写入此字段
+   * - 绑定工作区时由 workspace-selector 应用到 activeWorkspace.mode 并清除
+   * - 不持久化(会话级,刷新丢失可接受,与原 sessionStorage 行为一致)
+   */
+  pendingPermissionMode: 'default' | 'accept-edits' | 'bypass-permissions' | null
   /** 浮窗模式:docked(flex 流)→ floating(fixed 可拖拽) */
   floatMode: boolean
   /** 浮窗最小化:只显示 FAB 按钮,点击展开完整面板 */
@@ -72,6 +81,7 @@ interface AiPanelState {
     v: { path: string; name: string; techStack?: string[] } | null,
   ) => void
   setPendingFullAccess: (v: boolean) => void
+  setPendingPermissionMode: (v: 'default' | 'accept-edits' | 'bypass-permissions' | null) => void
   setFloatMode: (v: boolean) => void
   setFloatMinimized: (v: boolean) => void
   toggleWorkAreaCollapsed: () => void
@@ -95,6 +105,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       activeWorkspace: null,
       pendingPermissionSetup: null,
       pendingFullAccess: false,
+      pendingPermissionMode: null,
       floatMode: false,
       floatMinimized: false,
       floatCollapsed: false,
@@ -112,6 +123,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
+      setPendingPermissionMode: (v) => set({ pendingPermissionMode: v }),
       setFloatMode: (v: boolean) => set({ floatMode: v }),
       setFloatMinimized: (v: boolean) => set({ floatMinimized: v }),
       toggleWorkAreaCollapsed: () => set((s) => ({ workAreaCollapsed: !s.workAreaCollapsed })),
