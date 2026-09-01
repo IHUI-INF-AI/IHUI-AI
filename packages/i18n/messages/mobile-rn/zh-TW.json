@@ -591,7 +591,14 @@
     "voiceHint": "長按說話",
     "document": "文件",
     "video": "影片",
-    "addFile": "新增附件"
+    "addFile": "新增附件",
+    "compactButton": "壓縮上下文",
+    "compacting": "正在壓縮上下文...",
+    "compactSuccess": "上下文已壓縮: {before} → {after} tokens(節省 {saved})",
+    "compactTooFew": "對話訊息太少,無需壓縮",
+    "compactIncompressible": "目前上下文已無可壓縮空間",
+    "compactFailed": "壓縮失敗",
+    "compactNoSession": "目前對話未關聯會話,暫無法壓縮"
   },
   "share": {
     "aiContent": "AI 內容",
