@@ -10,7 +10,8 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
-import { Popover } from '@/components/feedback'
+import { Tooltip } from '@/components/feedback'
+import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
 import { compressConversation } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
@@ -292,139 +293,246 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   const compressDisabled = !conversationId || compressing || isStreaming
 
+  // 自定义弹层状态(2026-08-31:移除 Popover wrapper,改为 createPortal)
+  const [isOpen, setIsOpen] = React.useState(false)
+  const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  const rafRef = React.useRef<number | null>(null)
+
+  const updateCoords = React.useCallback(() => {
+    if (!triggerRef.current || !panelRef.current) return
+    const r = triggerRef.current.getBoundingClientRect()
+    const panelRect = panelRef.current.getBoundingClientRect()
+    const gap = 8
+    const pad = 8
+    const VW = window.innerWidth
+
+    let top = r.top - gap - panelRect.height
+    let left = r.left
+
+    if (left + panelRect.width > VW - pad) {
+      left = VW - pad - panelRect.width
+    }
+    left = Math.max(pad, left)
+
+    if (top < pad) {
+      top = r.bottom + gap
+    }
+    top = Math.max(pad, top)
+
+    setCoords({ top, left })
+  }, [])
+
+  React.useLayoutEffect(() => {
+    if (!isOpen) return
+    const id = window.requestAnimationFrame(() => {
+      updateCoords()
+    })
+    return () => window.cancelAnimationFrame(id)
+  }, [isOpen, updateCoords])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const throttledUpdate = () => {
+      if (rafRef.current !== null) return
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null
+        updateCoords()
+      })
+    }
+
+    window.addEventListener('scroll', throttledUpdate, { capture: true, passive: true })
+    window.addEventListener('resize', throttledUpdate, { passive: true })
+
+    const roTrigger =
+      typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roTrigger && triggerRef.current) roTrigger.observe(triggerRef.current)
+
+    const roPanel = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateCoords) : null
+    if (roPanel && panelRef.current) roPanel.observe(panelRef.current)
+
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('scroll', throttledUpdate, true)
+      window.removeEventListener('resize', throttledUpdate)
+      roTrigger?.disconnect()
+      roPanel?.disconnect()
+    }
+  }, [isOpen, updateCoords])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const handler = (event: MouseEvent | TouchEvent) => {
+      const triggerEl = triggerRef.current
+      const contentEl = panelRef.current
+      const target = event.target as Node
+      if (triggerEl && triggerEl.contains(target)) return
+      if (contentEl && contentEl.contains(target)) return
+      setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler)
+    }
+  }, [isOpen])
+
+  React.useEffect(() => {
+    if (!isOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isOpen])
+
   return (
-    <Popover
-      portal
-      position="top"
-      align="center"
-      tooltip={triggerLabel}
-      content={
-        <div className="w-72">
-          {/* 标题 */}
-          <div className="mb-3 flex items-center justify-between">
-            <span className="text-sm font-semibold">{t('title')}</span>
-            <span
-              className={cn(
-                'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
-                style.bg,
-                style.text,
-              )}
-            >
-              {t(style.label)}
-            </span>
-          </div>
-
-          {/* 大圆环 + 模型信息 */}
-          <div className="flex items-center gap-4">
-            <PanelRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs">
-              <StatRow label={t('currentModel')} value={model} truncate />
-              <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
-              <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
-              <StatRow label={t('messages')} value={String(messageCount)} mono />
+    <div>
+      <Tooltip content={triggerLabel} side="top">
+        <button
+          ref={triggerRef}
+          onClick={() => setIsOpen((prev) => !prev)}
+          type="button"
+          aria-label={triggerLabel}
+          aria-haspopup="dialog"
+          aria-expanded={isOpen}
+          className={cn(
+            'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+            'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+          )}
+        >
+          <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+        </button>
+      </Tooltip>
+      {isOpen &&
+        createPortal(
+          <div
+            ref={panelRef}
+            className="w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            role="dialog"
+            aria-label={t('title')}
+            aria-modal="true"
+            tabIndex={-1}
+          >
+            {/* 标题 */}
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-semibold">{t('title')}</span>
+              <span
+                className={cn(
+                  'rounded-sm px-1.5 py-0.5 text-[10px] font-medium',
+                  style.bg,
+                  style.text,
+                )}
+              >
+                {t(style.label)}
+              </span>
             </div>
-          </div>
 
-          {/* 压缩区 */}
-          <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
-              <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
-              <span>{t('compressTitle')}</span>
-            </div>
-            {!conversationId ? (
-              <p className="text-[11px] text-muted-foreground">{t('noConversation')}</p>
-            ) : (
-              <div className="grid grid-cols-2 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleCompress(200000)}
-                  disabled={compressDisabled}
-                  className={cn(
-                    'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
-                    'hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                    // 2026-07-19 中文 + 图标垂直对齐
-                    '[&>span]:translate-y-[var(--text-vcenter-offset)]',
-                  )}
-                >
-                  {compressing ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Minimize2 className="h-3 w-3" />
-                  )}
-                  <span>{t('compressTo200k')}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCompress(1000000)}
-                  disabled={compressDisabled}
-                  className={cn(
-                    'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
-                    'hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                    '[&>span]:translate-y-[var(--text-vcenter-offset)]',
-                  )}
-                >
-                  {compressing ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <Minimize2 className="h-3 w-3" />
-                  )}
-                  <span>{t('compressTo1m')}</span>
-                </button>
+            {/* 大圆环 + 模型信息 */}
+            <div className="flex items-center gap-4">
+              <PanelRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-xs">
+                <StatRow label={t('currentModel')} value={model} truncate />
+                <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
+                <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
+                <StatRow label={t('messages')} value={String(messageCount)} mono />
               </div>
-            )}
+            </div>
 
-            {/* 压缩结果 */}
-            {compressResult && (
-              <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-emerald-500/10 p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
-                <div className="min-w-0">
-                  <div className="font-medium">{t('compressSuccess')}</div>
-                  <div className="tabular-nums text-muted-foreground">
-                    {compressResult.originalChars.toLocaleString()} →{' '}
-                    {compressResult.compressedChars.toLocaleString()} · {t('ratio')}{' '}
-                    {/* 不吞负值:压缩后反而更大时如实显示负压缩率,暴露异常数据 */}
-                    {(
-                      1 -
-                      compressResult.compressedChars / Math.max(compressResult.originalChars, 1)
-                    ).toLocaleString(undefined, {
-                      style: 'percent',
-                      maximumFractionDigits: 1,
-                    })}
+            {/* 压缩区 */}
+            <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+                <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{t('compressTitle')}</span>
+              </div>
+              {!conversationId ? (
+                <p className="text-[11px] text-muted-foreground">{t('noConversation')}</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCompress(200000)}
+                    disabled={compressDisabled}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      // 2026-07-19 中文 + 图标垂直对齐
+                      '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+                    )}
+                  >
+                    {compressing ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Minimize2 className="h-3 w-3" />
+                    )}
+                    <span>{t('compressTo200k')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCompress(1000000)}
+                    disabled={compressDisabled}
+                    className={cn(
+                      'inline-flex items-center justify-center gap-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                      'hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                      '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+                    )}
+                  >
+                    {compressing ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Minimize2 className="h-3 w-3" />
+                    )}
+                    <span>{t('compressTo1m')}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* 压缩结果 */}
+              {compressResult && (
+                <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-emerald-500/10 p-1.5 text-[11px] text-emerald-700 dark:text-emerald-400">
+                  <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="font-medium">{t('compressSuccess')}</div>
+                    <div className="tabular-nums text-muted-foreground">
+                      {compressResult.originalChars.toLocaleString()} →{' '}
+                      {compressResult.compressedChars.toLocaleString()} · {t('ratio')}{' '}
+                      {/* 不吞负值:压缩后反而更大时如实显示负压缩率,暴露异常数据 */}
+                      {(
+                        1 -
+                        compressResult.compressedChars / Math.max(compressResult.originalChars, 1)
+                      ).toLocaleString(undefined, {
+                        style: 'percent',
+                        maximumFractionDigits: 1,
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 压缩错误 */}
-            {compressError && (
-              <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-red-500/10 p-1.5 text-[11px] text-red-700 dark:text-red-400">
-                <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-                <div className="min-w-0 break-words">{compressError}</div>
-              </div>
-            )}
-          </div>
+              {/* 压缩错误 */}
+              {compressError && (
+                <div className="mt-2 flex items-start gap-1.5 rounded-sm bg-red-500/10 p-1.5 text-[11px] text-red-700 dark:text-red-400">
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <div className="min-w-0 break-words">{compressError}</div>
+                </div>
+              )}
+            </div>
 
-          {/* 说明 */}
-          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-            {t('disclaimer')}
-          </p>
-        </div>
-      }
-      aria-label={triggerLabel}
-    >
-      <button
-        type="button"
-        aria-label={triggerLabel}
-        className={cn(
-          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-          'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+            {/* 说明 */}
+            <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+              {t('disclaimer')}
+            </p>
+          </div>,
+          document.body,
         )}
-      >
-        <TriggerRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
-      </button>
-    </Popover>
+    </div>
   )
 }
 

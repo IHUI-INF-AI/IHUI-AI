@@ -17,7 +17,8 @@
  * 检测逻辑:
  *   1. git branch -a 列出全部本地 + 远程分支
  *   2. 规范化:去掉当前分支星号、remotes/ 前缀
- *   3. 白名单:main / origin/main / upstream/main / HEAD
+ *   3. 白名单:main / origin/main / upstream/main / gitee/main(镜像远程)/ HEAD
+ *   4. 已 checkout 在 linked worktree 的分支豁免(AGENTS.md §12d sanctioned 并行隔离,非 feature 分支)
  *   4. 剩余分支逐一判定:
  *      - goal/* 前缀 → 检查 .trae-cn/goal-runtime/STATE.md 是否标注 active → 合法豁免
  *      - 其他 → 违规,exit 1 阻塞 commit + push
@@ -40,8 +41,8 @@ const C = {
   reset: '\x1b[0m',
 }
 
-/** 合法分支白名单(本地 main + 远程 main/upstream) */
-const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'HEAD'])
+/** 合法分支白名单(本地 main + 远程 main:origin/upstream/gitee 镜像;gitee 为项目 sanctioned 镜像远程,main 即 main) */
+const ALLOWED = new Set(['main', 'origin/main', 'upstream/main', 'gitee/main', 'HEAD'])
 
 /** origin/HEAD -> origin/main 是 git 符号引用输出,非真实分支,需跳过 */
 function isSymbolicRef(branch) {
@@ -64,12 +65,32 @@ function isActiveGoalBranch(branch) {
   }
 }
 
+/**
+ * 排除已 checkout 在 linked worktree 中的分支(AGENTS.md §12d sanctioned 并行隔离机制)。
+ * worktree 的 branch 是 agent/并行会话的"工作上下文",不是 §9b 要防范的 feature 分支;
+ * 其唯一性由 worktree 本身保证,不应在单分支守门中被误判为非法分支。
+ * 主 worktree 的 main 已在 ALLOWED 中,这里额外排除 linked worktree 的 checkout 分支。
+ */
+function getWorktreeBranches() {
+  try {
+    const raw = execSync('git worktree list --porcelain', { cwd: ROOT, encoding: 'utf8' })
+    const set = new Set()
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^branch refs\/heads\/(.+)$/)
+      if (m) set.add(m[1])
+    }
+    return set
+  } catch {
+    return new Set()
+  }
+}
+
 function listBranches() {
   try {
     const raw = execSync('git branch -a', { cwd: ROOT, encoding: 'utf8' })
     return raw
       .split('\n')
-      .map((line) => line.trim().replace(/^\*\s*/, ''))
+      .map((line) => line.trim().replace(/^[*+]\s*/, ''))
       .filter(Boolean)
       .map((line) => line.replace(/^remotes\//, ''))
   } catch {
@@ -79,7 +100,10 @@ function listBranches() {
 }
 
 const branches = listBranches()
-const illegal = branches.filter((b) => !ALLOWED.has(b) && !isSymbolicRef(b) && !isActiveGoalBranch(b))
+const worktreeBranches = getWorktreeBranches()
+const illegal = branches.filter(
+  (b) => !ALLOWED.has(b) && !isSymbolicRef(b) && !isActiveGoalBranch(b) && !worktreeBranches.has(b),
+)
 
 if (illegal.length === 0) {
   console.log(`${C.green}✅ 单分支检查通过:仅存在 main(及 goal/ 合法豁免分支)${C.reset}`)

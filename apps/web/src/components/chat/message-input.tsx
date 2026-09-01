@@ -85,7 +85,6 @@ export function MessageInput({
   modelLabel,
   floatHeader,
   onFloatDragStart,
-  onTriggerClick,
 }: MessageInputProps) {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -426,28 +425,15 @@ export function MessageInput({
                 <p className="text-sm font-medium text-primary">{t('dropAttachmentHint')}</p>
               </div>
             )}
-            {/* 浮窗折叠态合并行:AgentProgressTrigger(左) + 浮窗按钮(右),与卡片融合不占独立行
-                AgentProgressTrigger 传 border-0 bg-transparent px-0 → 按钮本身无描边/背景/内边距。
-                行 gap-1 提供按钮间距,floatHeader 用 Fragment + ml-auto 推到右侧(无 div 包裹)。 */}
-            {floatHeader && (
-              <div
-                onPointerDown={onFloatDragStart}
-                className="flex cursor-move items-center gap-1 px-2 py-1"
-              >
-                <AgentProgressTrigger
-                  className="border-0 bg-transparent px-0"
-                  onTriggerClick={onTriggerClick}
-                />
-                {floatHeader}
-              </div>
-            )}
+            {/* 浮窗折叠态:floatHeader(展开/停靠/最小化)并入顶部工具栏右侧(ml-auto),
+                拖拽回调绑定在工具栏上(handleFloatDragStart 自身排除 button 目标:
+                点按钮仍是点击,拖空白处/按钮间隙才是拖动),工具栏重新成为卡片首行(圆角自然恢复) */}
             <div
-              className={cn(
-                INPUT_ATTACHMENT_BAR_CLASS,
-                floatHeader && '!rounded-tl-none !rounded-tr-none',
-              )}
+              onPointerDown={onFloatDragStart}
+              className={INPUT_ATTACHMENT_BAR_CLASS}
+              data-toolbar-float-merged="v2"
             >
-              {!floatHeader && <AgentProgressTrigger />}
+              {!floatHeader && <AgentProgressTrigger iconOnly />}
               <PermissionModePopover disabled={isStreaming} />
               {/* 权限模式历史(2026-07-25 深化,放在附加栏跟盾牌按钮成组,与 popover 内"查看历史"互斥):
                   - trigger 按钮(Clock4 图标)作为 Popover 锚点,定位弹层
@@ -511,6 +497,10 @@ export function MessageInput({
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
                   {allReferences.length} 个引用
                 </span>
+              )}
+              {/* 浮窗折叠态按钮组(展开/停靠/最小化):推到工具栏右侧,cursor-move 提示可拖拽浮窗 */}
+              {floatHeader && (
+                <div className="ml-auto flex cursor-move items-center gap-1">{floatHeader}</div>
               )}
             </div>
             {/* 当前 ChatMode 徽章(2026-07-28 立,移除 4 按钮后改用小徽章显示):
