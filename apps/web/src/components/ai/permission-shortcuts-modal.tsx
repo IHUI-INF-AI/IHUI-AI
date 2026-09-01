@@ -22,7 +22,6 @@
  *
  * 边界:
  * - 编辑控件焦点(typing):? 键不触发,由 message-input 的 useEffect 提前拦截
- * - 与 PermissionModeInfoModal 互斥(同一时刻只一个打开)
  */
 
 import * as React from 'react'
@@ -30,12 +29,11 @@ import { useTranslations } from 'next-intl'
 import {
   X,
   Keyboard,
-  ShieldCheck,
   ShieldAlert,
+  ShieldCheck,
   History,
   Hand,
   Undo2,
-  TriangleAlert,
   SquareSlash,
   Layers,
   Hammer,
@@ -76,16 +74,12 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
   },
   {
     titleKey: 'shortcutsSectionGuard',
-    rows: [
-      { key: '?', descKey: 'shortcutsItemQuestionMarkKbd', icon: Keyboard },
-      { key: 'ⓘ', descKey: 'shortcutsItemInfoKbd', icon: ShieldAlert },
-    ],
+    rows: [{ key: '?', descKey: 'shortcutsItemQuestionMarkKbd', icon: Keyboard }],
   },
   {
     titleKey: 'shortcutsSectionAudit',
     rows: [
       { key: 'Undo 5s', descKey: 'shortcutsItemUndoKbd', icon: Undo2 },
-      { key: '1h', descKey: 'shortcutsItemAutoRevert1hKbd', icon: TriangleAlert },
       { key: '查看历史', descKey: 'shortcutsItemHistoryKbd', icon: History },
     ],
   },
