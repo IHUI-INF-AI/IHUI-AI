@@ -145,6 +145,10 @@ async def _restart_server(name: str) -> None:
     handle = _STDIO_SERVERS.get(name)
     if handle is None:
         return
+    # 2026-09-02 fix(P2-1 卸载泄漏根因):重启前保留已注入工具名单,
+    # 否则新 handle.registered_tools 为空,卸载/停用时 remove_stdio_server
+    # 返回空名单 → unregister_external_tools 清不掉 _TOOLS → 外部工具泄漏。
+    registered_tools = list(handle.registered_tools)
     try:
         await handle.stack.aclose()
     except Exception as e:  # noqa: BLE001 - 清理失败不阻断重启
@@ -152,6 +156,7 @@ async def _restart_server(name: str) -> None:
     _STDIO_SERVERS.pop(name, None)
     try:
         new_handle = await _connect_server(name, handle.command, handle.args, handle.env)
+        new_handle.registered_tools = registered_tools
         _STDIO_SERVERS[name] = new_handle
         logger.info("[mcp_stdio] server '%s' 重启成功", name)
     except Exception as e:  # noqa: BLE001 - 重启失败仅记录,后续调用会继续报错
