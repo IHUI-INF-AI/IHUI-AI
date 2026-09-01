@@ -12,6 +12,7 @@ import {
   jsonb,
   boolean,
   unique,
+  index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -61,6 +62,29 @@ export const chatMessages = pgTable('chat_messages', {
 })
 
 /**
+ * 压缩归档表(2026-09-01 立,"归档记忆"能力)。
+ * 自动上下文压缩触发时,把被压缩掉的原始消息数组整体落库归档 ——
+ * 压缩从"黑箱有损"变成"透明可逆":用户可回看压缩前的原始消息。
+ * messages 为被压缩的原始消息数组(jsonb),结构与 replaceMessages 持久化的消息一致(role/content/reasoning/tokens/metadata/createdAt)。
+ */
+export const conversationMessageArchives = pgTable(
+  'conversation_message_archives',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    conversationId: uuid('conversation_id')
+      .references(() => chatConversations.id, { onDelete: 'cascade' })
+      .notNull(),
+    messages: jsonb('messages').notNull(),
+    messageCount: integer('message_count').notNull(),
+    coveredChars: integer('covered_chars'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    idx: index('ix_conversation_message_archives_conversation').on(t.conversationId),
+  }),
+)
+
+/**
  * 收藏对话表。
  * (user_id, conversation_id) 唯一，避免重复收藏。
  */
@@ -87,4 +111,6 @@ export type ChatMessage = typeof chatMessages.$inferSelect
 export type NewChatMessage = typeof chatMessages.$inferInsert
 export type ChatFavorite = typeof chatFavorites.$inferSelect
 export type NewChatFavorite = typeof chatFavorites.$inferInsert
+export type ConversationMessageArchive = typeof conversationMessageArchives.$inferSelect
+export type NewConversationMessageArchive = typeof conversationMessageArchives.$inferInsert
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

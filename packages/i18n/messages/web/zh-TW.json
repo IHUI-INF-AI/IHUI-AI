@@ -7936,7 +7936,11 @@
     "communityPublishTitleRequired": "請輸入標題",
     "communityPublishing": "發布中...",
     "compaction": {
-      "truncatedNotice": "最後一條訊息過長,已截斷內容以保持對話可用"
+      "truncatedNotice": "最後一條訊息過長,已截斷內容以保持對話可用",
+      "viewArchived": "檢視已壓縮的 {count} 條原始訊息",
+      "archiveTitle": "壓縮歸檔 · 原始訊息",
+      "archiveEmpty": "暫無壓縮歸檔",
+      "archiveLoading": "載入中..."
     },
     "contextCompacted": "上下文已自動壓縮",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 條歷史)",

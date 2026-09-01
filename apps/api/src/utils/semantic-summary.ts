@@ -28,6 +28,56 @@ const SUMMARY_TIMEOUT_MS = 3_000
 /** 兜底模型(与 services/crew-llm-adapter.ts DEFAULT_MODEL 同源:.env LITELLM_MODEL) */
 const FALLBACK_MODEL = process.env.LITELLM_MODEL || 'stepfun/step-3.7-flash'
 
+// 后台预压缩缓存层(代差能力 A,2026-09-01 立):
+// 路由层在 70% 占用阈值(CONTEXT_BUDGET_THRESHOLD)时 fire-and-forget 调
+// primeSemanticSummary 预生成摘要;88% 真正触发压缩时 getCachedSemanticSummary
+// 直接命中缓存 → 首 token 零额外延迟(对标 Claude Code 的阻塞式压缩)。
+// - key = `${conversationId}|${hash(toCompress 序列化文本)}`:被压缩的消息没变,摘要即有效
+// - 进程内 Map,上限 200 条,FIFO 淘汰,不做持久化(hash 不匹配自然失效,无需 TTL)
+const SUMMARY_CACHE_MAX = 200
+const summaryCache = new Map<string, string>()
+
+/** djb2 字符串哈希(零依赖,base36 输出):仅用作缓存 key 指纹,非加密用途 */
+function hashText(text: string): string {
+  let hash = 5381
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0
+  }
+  return (hash >>> 0).toString(36)
+}
+
+/** 构造缓存 key;conversationId 缺省时模板串出 'undefined'(单进程内匿名会话共用,可接受) */
+function buildSummaryCacheKey(conversationId: string | undefined, toCompressText: string): string {
+  return `${conversationId}|${hashText(toCompressText)}`
+}
+
+/** FIFO 写入:满 200 条且为新 key 时,淘汰最早写入的条目(Map 迭代序 = 插入序) */
+function writeSummaryCache(key: string, summary: string): void {
+  if (!summaryCache.has(key) && summaryCache.size >= SUMMARY_CACHE_MAX) {
+    const oldest = summaryCache.keys().next().value
+    if (oldest !== undefined) summaryCache.delete(oldest)
+  }
+  summaryCache.set(key, summary)
+}
+
+/**
+ * 提取 toCompress(非 system 消息中除最近 KEEP_RECENT 条外)并序列化。
+ * generateSemanticSummary(取正文)与缓存 hash(取指纹)共用本函数,保证两处序列化严格一致。
+ * 消息不足(无可压缩部分)返回 ''。
+ */
+function buildToCompressText(messages: ChatMessage[]): string {
+  const nonSystem = messages.filter((m) => m.role !== 'system')
+  if (nonSystem.length <= KEEP_RECENT) return ''
+  const toCompress = nonSystem.slice(0, nonSystem.length - KEEP_RECENT)
+  if (toCompress.length === 0) return ''
+  return toCompress
+    .map((m) => {
+      const roleLabel = m.role === 'user' ? '用户' : m.role === 'assistant' ? '助手' : '工具'
+      return `${roleLabel}: ${m.content}`
+    })
+    .join('\n\n')
+}
+
 /**
  * 生成压缩用的 LLM 语义摘要。
  *
@@ -40,21 +90,13 @@ export async function generateSemanticSummary(
   request: FastifyRequest | null,
   messages: ChatMessage[],
   model?: string,
+  conversationId?: string,
 ): Promise<string | null> {
   try {
     // toCompress 与共享包 compressContextIfNeeded keepRecent=6 的压缩范围一致:
     // 非 system 消息中除最近 6 条外的全部(即"将被压缩成摘要"的部分)
-    const nonSystem = messages.filter((m) => m.role !== 'system')
-    if (nonSystem.length <= KEEP_RECENT) return null
-    const toCompress = nonSystem.slice(0, nonSystem.length - KEEP_RECENT)
-    if (toCompress.length === 0) return null
-
-    const conversationText = toCompress
-      .map((m) => {
-        const roleLabel = m.role === 'user' ? '用户' : m.role === 'assistant' ? '助手' : '工具'
-        return `${roleLabel}: ${m.content}`
-      })
-      .join('\n\n')
+    const conversationText = buildToCompressText(messages)
+    if (!conversationText) return null
 
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS)
@@ -94,6 +136,8 @@ export async function generateSemanticSummary(
         return null
       }
       const summary = (json.content ?? '').trim()
+      // 生成成功顺手写缓存:正常压缩路径的摘要供下次同会话复用(hash 不匹配则自然失效)
+      if (summary) writeSummaryCache(buildSummaryCacheKey(conversationId, conversationText), summary)
       return summary || null
     } finally {
       clearTimeout(timer)
@@ -107,5 +151,50 @@ export async function generateSemanticSummary(
     console.warn(`[SemanticSummary] failed: ${reason}, degrade to rule summary`)
     return null
   }
+}
+
+/**
+ * 查询预压缩摘要缓存(88% 真正触发压缩时由路由层调用,直接命中则首 token 零额外延迟)。
+ * @returns 命中返回摘要正文;未命中(未预生成/消息已变化/已被 FIFO 淘汰)返回 null
+ */
+export function getCachedSemanticSummary(
+  conversationId: string | undefined,
+  messages: ChatMessage[],
+): string | null {
+  const toCompressText = buildToCompressText(messages)
+  if (!toCompressText) return null
+  return summaryCache.get(buildSummaryCacheKey(conversationId, toCompressText)) ?? null
+}
+
+/**
+ * 后台预生成摘要(70% 占用阈值时由路由层 fire-and-forget 调用,不阻塞请求)。
+ * - 缓存已有该 hash 或消息不足(非 system ≤ 6 条,与 generateSemanticSummary 守卫一致)→ 直接返回
+ * - 后台调 generateSemanticSummary,成功后写入缓存;内部吞掉一切异常(预压缩失败绝不影响主流程)
+ */
+export function primeSemanticSummary(
+  request: FastifyRequest | null,
+  messages: ChatMessage[],
+  model?: string,
+  conversationId?: string,
+): Promise<void> {
+  const toCompressText = buildToCompressText(messages)
+  if (!toCompressText) return Promise.resolve()
+  const key = buildSummaryCacheKey(conversationId, toCompressText)
+  if (summaryCache.has(key)) return Promise.resolve()
+  // fire-and-forget:调用方不 await;此处也不 await 内部任务,一切异常就地吞掉
+  void (async () => {
+    try {
+      const summary = await generateSemanticSummary(request, messages, model)
+      if (summary) writeSummaryCache(key, summary)
+    } catch {
+      // 预压缩失败绝不影响主流程
+    }
+  })()
+  return Promise.resolve()
+}
+
+/** 测试专用:清空进程内摘要缓存 */
+export function __clearSemanticSummaryCacheForTests(): void {
+  summaryCache.clear()
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
