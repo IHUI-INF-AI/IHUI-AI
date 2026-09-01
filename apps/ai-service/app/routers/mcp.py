@@ -493,7 +493,10 @@ async def list_mcp_store() -> dict[str, Any]:
             servers.append(
                 {
                     "key": e["key"],
-                    "server_name": f"mcp:{e['key']}",
+                    # 2026-09-02 fix:stdio bridge 名必须是合法标识符(禁冒号),
+                    # 故 server_name 统一为 key 而非 mcp:{key}(外部工具命名空间前缀),
+                    # 前端启停/卸载路径参数直接用 server_name=key。
+                    "server_name": e["key"],
                     "name": e["name"],
                     "description": e["description"],
                     "source": e["source"],
@@ -545,7 +548,10 @@ async def install_mcp_store_server(
                 status_code=400,
                 content={"error": f"缺少必需环境变量: {', '.join(missing)}"},
             )
-        name = cfg_dict["name"]
+        # 2026-09-02 fix:stdio bridge 名必须是合法标识符(禁冒号,见
+        # mcp_stdio_bridge._NAME_RE),不能用 cfg_dict["name"](mcp:{key},
+        # 那是外部工具命名空间 `mcp:{server}__{tool}` 的约定)。统一用 key。
+        name = req.key
         existing = mcp_store.get_installed(name)
         if existing and existing.get("enabled"):
             return JSONResponse(

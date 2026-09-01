@@ -7,7 +7,8 @@
 - 无 DB 依赖,风格对齐 mcp_directory(纯文件读写 + 异常降级)
 - 记录结构:
   {
-    "name": "mcp:filesystem",        # 唯一标识(与 stdio 热挂载名一致)
+    "name": "filesystem",            # 唯一标识(与 stdio 热挂载名一致,2026-09-02 起用 key
+                                     # 而非 mcp:{key}——bridge 名校验禁冒号)
     "key": "filesystem",             # 目录条目 key
     "transport": "stdio",
     "command": "npx",

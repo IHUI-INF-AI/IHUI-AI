@@ -67,7 +67,10 @@ export interface McpExternalServersResponse {
 export interface McpStoreEntry {
   /** 唯一标识(URL path 安全,小写连字符) */
   key: string
-  /** 安装后的完整 server 名(如 `mcp:filesystem`,启停/卸载用它) */
+  /**
+   * 安装后的 server 名(2026-09-02 起=key,stdio 热挂载名;启停/卸载用它。
+   * 注意非 `mcp:{key}` —— 那是外部工具命名空间前缀,bridge 名禁冒号)
+   */
   server_name: string
   /** 展示名 */
   name: string
