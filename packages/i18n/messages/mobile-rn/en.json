@@ -591,7 +591,14 @@
     "voiceHint": "Long press to speak",
     "document": "Document",
     "video": "Video",
-    "addFile": "Add file"
+    "addFile": "Add file",
+    "compactButton": "Compact context",
+    "compacting": "Compacting context...",
+    "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
+    "compactTooFew": "Too few messages to compact",
+    "compactIncompressible": "Nothing left to compact in this context",
+    "compactFailed": "Compaction failed",
+    "compactNoSession": "Conversation not linked yet, compaction unavailable"
   },
   "share": {
     "aiContent": "AI Content",
