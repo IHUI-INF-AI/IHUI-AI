@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -19,15 +18,20 @@ import {
   BrainCircuit,
   Clock,
   Server,
+  Trash2,
+  Power,
+  PowerOff,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import {
-  getMcpDirectory,
-  registerDirectoryServer,
+  getMcpStore,
+  installStoreServer,
+  uninstallStoreServer,
+  setStoreServerEnabled,
   listExternalServers,
-  type McpDirectoryEntry,
-  type McpDirectoryResponse,
+  type McpStoreEntry,
+  type McpStoreResponse,
   type McpExternalServersResponse,
 } from '@ihui/api-client/endpoints/mcp'
 import { BackButton } from '@/components/common'
@@ -57,32 +61,34 @@ const KEY_ICON: Record<string, LucideIcon> = {
 }
 
 /**
- * MCP 商店页 — 2026-09-01 新增
+ * MCP 商店页 — 2026-09-01 新增(P2-1 商店闭环 2026-09-02 升级)
  *
- * 定位:展示内置 MCP Server 目录(8 个),支持一键注册 / 带环境变量注册,
- * 下半部展示已注册的 MCP Server 列表(含连接状态)。
- * 接口:GET /api/mcp/directory + POST /api/mcp/directory/{key}/register
- *       + GET /api/mcp/external/servers(均经 next rewrites → ai-service 8803)。
+ * 定位:内置 MCP Server 目录(8 个),一键安装(官方 SDK stdio 热挂载,工具注入
+ * 对话工具表,LLM 立即可调用)+ 卸载 / 启停 / 状态持久化(重启不丢)。
+ * 接口:GET /api/mcp/store(目录 + 安装状态合并,一个接口渲染整页)
+ *       + POST /api/mcp/store/install | /uninstall | /enable | /disable
+ *       + GET /api/mcp/external/servers(手动注册的外部 Server,保留原有功能)
+ *       (均经 next rewrites → ai-service 8803)。
  */
 export default function McpStorePageClient() {
   const t = useTranslations('mcpStore')
   const queryClient = useQueryClient()
 
-  // 目录列表(商店种子数据)
+  // 商店合并列表(目录 + 安装状态,唯一数据源)
   const {
-    data: directory,
-    isLoading: dirLoading,
-    error: dirError,
+    data: store,
+    isLoading,
+    error,
   } = useQuery({
-    queryKey: ['mcp-store', 'directory'],
-    queryFn: async (): Promise<McpDirectoryResponse> => {
-      const r = await getMcpDirectory()
+    queryKey: ['mcp-store', 'store'],
+    queryFn: async (): Promise<McpStoreResponse> => {
+      const r = await getMcpStore()
       if (!r.success || !r.data) throw new Error(r.error ?? 'load failed')
       return r.data
     },
   })
 
-  // 已注册 Server 列表(含连接状态)
+  // 已注册外部 Server 列表(手动注册通道,含连接状态)
   const { data: registered } = useQuery({
     queryKey: ['mcp-store', 'registered'],
     queryFn: async (): Promise<McpExternalServersResponse> => {
@@ -92,68 +98,101 @@ export default function McpStorePageClient() {
     },
   })
 
-  // 环境变量对话框状态:当前待注册条目 + 各 env 输入值
-  const [envEntry, setEnvEntry] = React.useState<McpDirectoryEntry | null>(null)
+  // 环境变量对话框状态:当前待安装条目 + 各 env 输入值
+  const [envEntry, setEnvEntry] = React.useState<McpStoreEntry | null>(null)
   const [envValues, setEnvValues] = React.useState<Record<string, string>>({})
-  const [registeringKey, setRegisteringKey] = React.useState<string | null>(null)
+  const [installingKey, setInstallingKey] = React.useState<string | null>(null)
+  const [actingName, setActingName] = React.useState<string | null>(null)
 
   /** 打开 env 对话框前初始化输入值 */
-  const openEnvDialog = (entry: McpDirectoryEntry) => {
+  const openEnvDialog = (entry: McpStoreEntry) => {
     setEnvEntry(entry)
     setEnvValues(Object.fromEntries(entry.env_required.map((k) => [k, ''])))
   }
 
-  /** 刷新已注册列表(注册成功后调用) */
-  const refreshRegistered = () => {
+  /** 刷新商店列表 + 外部 Server 列表 */
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['mcp-store', 'store'] })
     void queryClient.invalidateQueries({ queryKey: ['mcp-store', 'registered'] })
   }
 
-  /** 无必需 env 的条目直接注册 */
-  const handleQuickRegister = async (entry: McpDirectoryEntry) => {
-    await doRegister(entry, {})
-  }
-
-  /** 有必需 env 的条目:校验非空后提交注册 */
-  const handleEnvRegister = async () => {
-    if (!envEntry) return
-    const empty = envEntry.env_required.filter((k) => !envValues[k]?.trim())
-    if (empty.length > 0) {
-      toast.error(t('missingEnv', { env: empty.join(', ') }))
-      return
-    }
-    await doRegister(envEntry, envValues)
-  }
-
-  /** 统一的注册逻辑:409 已存在 / 400 缺 env / 其他错误分别提示 */
-  const doRegister = async (entry: McpDirectoryEntry, env: Record<string, string>) => {
-    if (registeringKey) return
-    setRegisteringKey(entry.key)
-    const displayName = `mcp:${entry.key}`
+  /** 统一的安装逻辑:409 已存在 / 400 缺 env / 500 热挂载失败分别提示 */
+  const handleInstall = async (entry: McpStoreEntry, env: Record<string, string>) => {
+    if (installingKey) return
+    setInstallingKey(entry.key)
     try {
-      const r = await registerDirectoryServer(entry.key, {
-        name: displayName,
-        transport: entry.transport,
-        command: 'npx',
-        args: [],
-        env,
-      })
+      const r = await installStoreServer(entry.key, { env })
       if (r.success) {
         toast.success(t('success', { name: r.data.name }))
         setEnvEntry(null)
-        refreshRegistered()
+        refresh()
       } else if (r.status === 409) {
-        toast.error(t('exists', { name: displayName }))
+        toast.error(t('exists', { name: entry.server_name }))
       } else {
         toast.error(r.error ?? t('error'))
       }
     } catch {
       toast.error(t('error'))
     } finally {
-      setRegisteringKey(null)
+      setInstallingKey(null)
     }
   }
 
-  const servers = directory?.servers ?? []
+  /** env 对话框内提交安装(校验必需 env 非空) */
+  const handleEnvInstall = async () => {
+    if (!envEntry) return
+    const empty = envEntry.env_required.filter((k) => !envValues[k]?.trim())
+    if (empty.length > 0) {
+      toast.error(t('missingEnv', { env: empty.join(', ') }))
+      return
+    }
+    await handleInstall(envEntry, envValues)
+  }
+
+  /** 启用 / 停用切换 */
+  const handleToggleEnabled = async (entry: McpStoreEntry) => {
+    if (actingName) return
+    setActingName(entry.server_name)
+    const enable = !entry.enabled
+    try {
+      const r = await setStoreServerEnabled(entry.server_name, enable)
+      if (r.success) {
+        toast.success(
+          enable
+            ? t('enableSuccess', { name: entry.name })
+            : t('disableSuccess', { name: entry.name }),
+        )
+        refresh()
+      } else {
+        toast.error(r.error ?? t('actionFailed'))
+      }
+    } catch {
+      toast.error(t('actionFailed'))
+    } finally {
+      setActingName(null)
+    }
+  }
+
+  /** 卸载:关闭子进程 + 移除注入工具 + 删除持久化记录 */
+  const handleUninstall = async (entry: McpStoreEntry) => {
+    if (actingName) return
+    setActingName(entry.server_name)
+    try {
+      const r = await uninstallStoreServer(entry.server_name)
+      if (r.success) {
+        toast.success(t('uninstallSuccess', { name: entry.name }))
+        refresh()
+      } else {
+        toast.error(r.error ?? t('actionFailed'))
+      }
+    } catch {
+      toast.error(t('actionFailed'))
+    } finally {
+      setActingName(null)
+    }
+  }
+
+  const servers = store?.servers ?? []
   const registeredServers = registered?.servers ?? []
 
   return (
@@ -164,41 +203,46 @@ export default function McpStorePageClient() {
         <div className="flex items-center gap-2">
           <Store className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold tracking-tight">{t('title')}</h1>
-          {!dirLoading && !dirError && (
-            <Badge variant="primary">{t('count', { count: directory?.count ?? servers.length })}</Badge>
+          {!isLoading && !error && (
+            <Badge variant="primary">{t('count', { count: store?.count ?? servers.length })}</Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
       </header>
 
-      {/* 目录列表 */}
-      {dirLoading && (
+      {/* 目录列表(含安装状态) */}
+      {isLoading && (
         <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>{t('loading')}</span>
         </div>
       )}
-      {dirError && (
+      {error && (
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           {t('loadFailed')}
         </div>
       )}
-      {!dirLoading && !dirError && (
+      {!isLoading && !error && (
         <div className="grid grid-cols-1 gap-3 min-[640px]:grid-cols-2 min-[1024px]:grid-cols-3">
           {servers.map((entry) => (
             <DirectoryCard
               key={entry.key}
               entry={entry}
-              registering={registeringKey === entry.key}
-              onRegister={
-                entry.env_required.length > 0 ? () => openEnvDialog(entry) : () => void handleQuickRegister(entry)
+              installing={installingKey === entry.key}
+              acting={actingName === entry.server_name}
+              onInstall={
+                entry.env_required.length > 0
+                  ? () => openEnvDialog(entry)
+                  : () => void handleInstall(entry, {})
               }
+              onToggleEnabled={() => void handleToggleEnabled(entry)}
+              onUninstall={() => void handleUninstall(entry)}
             />
           ))}
         </div>
       )}
 
-      {/* 已注册列表 */}
+      {/* 已注册外部 Server(手动注册通道,保留原有功能) */}
       <section className="space-y-3">
         <div className="flex items-center gap-1.5">
           <Server className="h-4 w-4 text-muted-foreground" />
@@ -257,11 +301,11 @@ export default function McpStorePageClient() {
             <Button variant="outline" onClick={() => setEnvEntry(null)}>
               {t('cancel')}
             </Button>
-            <Button onClick={() => void handleEnvRegister()} disabled={registeringKey !== null}>
-              {registeringKey ? (
+            <Button onClick={() => void handleEnvInstall()} disabled={installingKey !== null}>
+              {installingKey ? (
                 <>
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  {t('registering')}
+                  {t('installing')}
                 </>
               ) : (
                 t('submit')
@@ -274,15 +318,36 @@ export default function McpStorePageClient() {
   )
 }
 
-/** 单个目录条目卡片:名称/描述/source 徽章/transport/env 标识 + 注册按钮 */
+/** 安装状态徽章:未安装 / 运行中 / 已停用 / 错误(停用但有 last_error) */
+function StatusBadge({ entry }: { entry: McpStoreEntry }) {
+  const t = useTranslations('mcpStore')
+  if (!entry.installed) {
+    return <Badge variant="default">{t('notInstalled')}</Badge>
+  }
+  if (entry.enabled) {
+    return <Badge variant="success">{t('running')}</Badge>
+  }
+  if (entry.last_error) {
+    return <Badge variant="danger">{t('statusError')}</Badge>
+  }
+  return <Badge variant="default">{t('stopped')}</Badge>
+}
+
+/** 单个目录条目卡片:名称/状态徽章/描述/tool_count + 安装/启停/卸载按钮 */
 function DirectoryCard({
   entry,
-  registering,
-  onRegister,
+  installing,
+  acting,
+  onInstall,
+  onToggleEnabled,
+  onUninstall,
 }: {
-  entry: McpDirectoryEntry
-  registering: boolean
-  onRegister: () => void
+  entry: McpStoreEntry
+  installing: boolean
+  acting: boolean
+  onInstall: () => void
+  onToggleEnabled: () => void
+  onUninstall: () => void
 }) {
   const t = useTranslations('mcpStore')
   const Icon = KEY_ICON[entry.key] ?? Plug
@@ -300,6 +365,7 @@ function DirectoryCard({
             <Badge variant={entry.source === 'official' ? 'primary' : 'default'}>
               {entry.source === 'official' ? t('official') : t('community')}
             </Badge>
+            <StatusBadge entry={entry} />
           </div>
           <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-0.5">
@@ -312,29 +378,73 @@ function DirectoryCard({
                 {t('envRequired')}: {entry.env_required.join(', ')}
               </span>
             )}
+            {entry.installed && (
+              <span className="inline-flex items-center gap-0.5">
+                <Server className="h-3 w-3" />
+                {t('toolCount', { count: entry.tool_count })}
+              </span>
+            )}
           </div>
         </div>
       </div>
       <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">{entry.description}</p>
-      <Button
-        variant={needsEnv ? 'outline' : 'default'}
-        onClick={onRegister}
-        disabled={registering}
-        className="w-full"
-      >
-        {registering ? (
-          <>
-            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            {t('registering')}
-          </>
+      {entry.last_error && (
+        <p className="text-xs text-destructive">{t('lastErrorText', { error: entry.last_error })}</p>
+      )}
+      <div className="mt-auto flex gap-2">
+        {!entry.installed ? (
+          <Button
+            variant={needsEnv ? 'outline' : 'default'}
+            onClick={onInstall}
+            disabled={installing || acting}
+            className="w-full"
+          >
+            {installing ? (
+              <>
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                {t('installing')}
+              </>
+            ) : (
+              <>
+                <Store className="mr-1.5 h-3.5 w-3.5" />
+                {needsEnv ? t('registerWithEnv') : t('install')}
+              </>
+            )}
+          </Button>
         ) : (
           <>
-            <Store className="mr-1.5 h-3.5 w-3.5" />
-            {needsEnv ? t('registerWithEnv') : t('register')}
+            <Button
+              variant="outline"
+              onClick={onToggleEnabled}
+              disabled={acting}
+              className="flex-1"
+            >
+              {acting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : entry.enabled ? (
+                <>
+                  <PowerOff className="mr-1.5 h-3.5 w-3.5" />
+                  {t('disable')}
+                </>
+              ) : (
+                <>
+                  <Power className="mr-1.5 h-3.5 w-3.5" />
+                  {t('enable')}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onUninstall}
+              disabled={acting}
+              className="flex-1 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              {t('uninstall')}
+            </Button>
           </>
         )}
-      </Button>
+      </div>
     </div>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
