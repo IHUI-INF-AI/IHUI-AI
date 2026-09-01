@@ -63,6 +63,9 @@ class StdioServerHandle:
     session: Any
     tools: list[Any]
     lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    # 2026-09-02 立(P2-1):本 server 实际注册进 mcp_server 的工具名
+    # (register_external_tool 返回 True 的才记入),卸载/停用时按此名单清理。
+    registered_tools: list[str] = field(default_factory=list)
 
 
 def _validate_server_config(name: str, command: str, args: list[str] | None) -> None:
@@ -258,9 +261,54 @@ async def add_stdio_server_tool(
             )
             if registered:
                 count += 1
+                handle.registered_tools.append(tool_name)
                 logger.info("[mcp_stdio] 注册工具 %s <- server %s", tool_name, name)
         logger.info("[mcp_stdio] server '%s' 注册完成,新增 %d 个工具", name, count)
         return count
+
+
+async def remove_stdio_server(name: str) -> list[str]:
+    """移除一个 stdio server 并关闭其子进程连接(2026-09-02 立,P2-1)。
+
+    从单例池弹出句柄 → 关闭 AsyncExitStack(stdio session + 子进程)→ 返回该
+    server 实际注入的工具名列表,供调用方从 mcp_server 工具注册表清理。
+    幂等:name 未注册时返回空列表且无副作用。
+
+    Args:
+        name: 待移除的 server 名称
+
+    Returns:
+        该 server 注入过的工具名列表(可能为空)
+    """
+    handle = _STDIO_SERVERS.pop(name, None)
+    if handle is None:
+        return []
+    try:
+        await handle.stack.aclose()
+    except Exception as e:  # noqa: BLE001 - 单连接关闭失败不阻断移除
+        logger.warning("[mcp_stdio] 关闭 server %s 异常(忽略): %s", name, e)
+    tools = list(handle.registered_tools)
+    logger.info("[mcp_stdio] server '%s' 已移除,清理 %d 个工具", name, len(tools))
+    return tools
+
+
+def get_stdio_server_tools(name: str) -> list[str]:
+    """返回指定 server 当前注入的工具名列表(2026-09-02 立,P2-1)。
+
+    从未在池中注册的 server 返回空列表。只读,不产生副作用。
+    """
+    handle = _STDIO_SERVERS.get(name)
+    if handle is None:
+        return []
+    return list(handle.registered_tools)
+
+
+def is_stdio_server_registered(name: str) -> bool:
+    """判断指定 server 是否已在 stdio 单例池中注册(2026-09-02 立,P2-1)。
+
+    用于商店页区分"已热挂载(运行中)"与"仅持久化但已停用"。
+    """
+    return name in _STDIO_SERVERS
 
 
 async def shutdown_all() -> None:
