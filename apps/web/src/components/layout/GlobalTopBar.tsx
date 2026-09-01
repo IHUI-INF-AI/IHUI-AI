@@ -19,6 +19,7 @@ import {
   Bot,
   Plug,
   Sparkles,
+  Store,
   X,
   Square,
   Minus,
@@ -44,7 +45,7 @@ import { useIsMobile } from '@/hooks/use-media-query'
 
 type PlusMenuAction = {
   /** 唯一 key,i18n 标签用 `topBar.<key>` 解析 */
-  key: 'document' | 'browser' | 'terminal' | 'editor' | 'codeChanges' | 'agent' | 'mcp' | 'skill'
+  key: 'document' | 'browser' | 'terminal' | 'editor' | 'codeChanges' | 'agent' | 'mcp' | 'skill' | 'mcpStore'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
   href?: string
@@ -96,6 +97,8 @@ const PLUS_MENU_GROUPS: Array<{
     titleKey: 'groupSettings',
     items: [
       { key: 'skill', icon: Sparkles, href: '/ai-skills' },
+      // 2026-09-01 MCP 商店入口(内置 MCP Server 目录一键注册)
+      { key: 'mcpStore', icon: Store, href: '/mcp-store' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
       // 设置项已提取到左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions),
       // 不再放在本菜单内。Ctrl+, 全局快捷键仍由 useGlobalShortcuts + GlobalHooksProvider 跳转 /settings。
