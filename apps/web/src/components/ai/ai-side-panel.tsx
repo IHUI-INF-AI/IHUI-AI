@@ -38,7 +38,7 @@ import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
-import { Tooltip } from '@/components/feedback'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -757,85 +757,89 @@ export function AISidePanel() {
   // 避免小屏上小浮窗遮挡内容且难以操作。
   if (floatMode && floatCollapsed) {
     return (
-      <>
-        {workspaceNameSync}
-        <div
-          data-testid="ai-panel-root"
-          className={cn(
-            'ai-panel-root fixed z-sticky',
-            isMobileSmall
-              ? 'inset-0' // 手机:全屏覆盖
-              : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
-          )}
-          style={
-            isMobileSmall
-              ? undefined
-              : floatPosition.x < 0
-                ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
-                : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
-          }
-        >
-          <aside
-            aria-label={tc('title')}
+      <TooltipProvider>
+        <>
+          {workspaceNameSync}
+          <div
+            data-testid="ai-panel-root"
             className={cn(
-              'flex flex-col overflow-hidden bg-shell-panel',
-              isMobileSmall ? 'h-full w-full' : 'rounded-xl',
+              'ai-panel-root fixed z-sticky',
+              isMobileSmall
+                ? 'inset-0' // 手机:全屏覆盖
+                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
             )}
+            style={
+              isMobileSmall
+                ? undefined
+                : floatPosition.x < 0
+                  ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                  : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+            }
           >
-            {/* 输入区(直接渲染 MessageInput,无 MessageList)
-                floatHeader = 浮窗按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */}
-            <MessageInput
-              onSend={sendMessage}
-              onStop={stop}
-              isStreaming={isStreaming}
-              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
-              sendLabel={t('send')}
-              stopLabel={t('stop')}
-              model={currentModel}
-              onModelChange={setModel}
-              modelLabel={t('model')}
-              onFloatDragStart={handleFloatDragStart}
-              onTriggerClick={() => setFloatCollapsed(false)}
-              floatHeader={
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setFloatCollapsed(false)}
-                    aria-label={tc('floatMode')}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                    <span>{tc('floatMode')}</span>
-                  </button>
-                  <Tooltip content={tc('dockPanel')}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setFloatMode(false)
-                        setFloatCollapsed(false)
-                      }}
-                      aria-label={tc('dockPanel')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <PanelLeft className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                  <Tooltip content={tc('minimize')}>
-                    <button
-                      type="button"
-                      onClick={() => setFloatMinimized(true)}
-                      aria-label={tc('minimize')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                </>
-              }
-            />
-          </aside>
-        </div>
-      </>
+            <aside
+              aria-label={tc('title')}
+              className={cn(
+                'flex flex-col overflow-hidden bg-shell-panel',
+                isMobileSmall ? 'h-full w-full' : 'rounded-xl',
+              )}
+            >
+              {/* 输入区(直接渲染 MessageInput,无 MessageList)
+                  floatHeader = 浮窗按钮(展开/停靠/最小化),并入输入卡片顶部工具栏右侧 */}
+              <MessageInput
+                onSend={sendMessage}
+                onStop={stop}
+                isStreaming={isStreaming}
+                placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+                sendLabel={t('send')}
+                stopLabel={t('stop')}
+                model={currentModel}
+                onModelChange={setModel}
+                modelLabel={t('model')}
+                onFloatDragStart={handleFloatDragStart}
+                onTriggerClick={() => setFloatCollapsed(false)}
+                floatHeader={
+                  <>
+                    {/* 纯图标 + Tooltip(h-8 w-8 + h-3.5 图标,与工具栏 查看历史/权限模式/添加 统一) */}
+                    <Tooltip content={tc('floatMode')}>
+                      <button
+                        type="button"
+                        onClick={() => setFloatCollapsed(false)}
+                        aria-label={tc('floatMode')}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <ChevronUp className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={tc('dockPanel')}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFloatMode(false)
+                          setFloatCollapsed(false)
+                        }}
+                        aria-label={tc('dockPanel')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <PanelRightRounded className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={tc('minimize')}>
+                      <button
+                        type="button"
+                        onClick={() => setFloatMinimized(true)}
+                        aria-label={tc('minimize')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                    </Tooltip>
+                  </>
+                }
+              />
+            </aside>
+          </div>
+        </>
+      </TooltipProvider>
     )
   }
 
@@ -896,111 +900,115 @@ export function AISidePanel() {
   }
 
   return (
-    <>
-      {workspaceNameSync}
-      <div
-        // AI 面板容器(最外层,DevTools 可选中)
-        // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
-        // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
-        //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
-        // - float 模式(手机 <768px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
-        // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
-        // 2026-08-02 阈值修复:全屏覆盖仅手机(<768px)触发,平板/小窗口(768-1023px)走浮窗不全屏。
-        data-testid="ai-panel-root"
-        className={cn(
-          'ai-panel-root',
-          floatMode
-            ? isMobileSmall
-              ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
-              : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:品牌色光晕
-            : cn(
-                'relative hidden h-full min-[768px]:block mr-1.5 py-2',
-                // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
-                workAreaCollapsed ? 'flex-1 min-w-0' : 'shrink-0',
-              ),
-        )}
-        style={
-          floatMode
-            ? isMobileSmall
-              ? undefined // 手机:无定位 style,全屏由 inset-0 控制
-              : floatPosition.x < 0
+    <TooltipProvider>
+      <>
+        {workspaceNameSync}
+        <div
+          // AI 面板容器(最外层,DevTools 可选中)
+          // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
+          // - float 模式(桌面/平板):fixed 定位,z-sticky,可拖拽,品牌色微光浮窗视觉(ai-float-glow)
+          //   rounded-xl 匹配内层 aside 圆角(光晕跟随圆角呈圆弧),去掉 py-2(浮窗无需上下间距)
+          // - float 模式(手机 <768px):fixed inset-0 全屏覆盖,无光晕无圆角,最大化可用空间
+          // data-testid="ai-panel-root":全局唯一最外层容器标识,DevTools / E2E 可直接选中
+          // 2026-08-02 阈值修复:全屏覆盖仅手机(<768px)触发,平板/小窗口(768-1023px)走浮窗不全屏。
+          data-testid="ai-panel-root"
+          className={cn(
+            'ai-panel-root',
+            floatMode
+              ? isMobileSmall
+                ? 'fixed inset-0 z-sticky' // 手机浮窗:全屏覆盖
+                : 'fixed z-sticky ai-float-glow rounded-xl' // 桌面/平板浮窗:品牌色光晕
+              : cn(
+                  'relative hidden h-full min-[768px]:block mr-1.5 py-2',
+                  // 2026-08-17 工作展示区折叠:AI 面板 flex-1 占满右侧(替代固定 width)
+                  workAreaCollapsed ? 'flex-1 min-w-0' : 'shrink-0',
+                ),
+          )}
+          style={
+            floatMode
+              ? isMobileSmall
+                ? undefined // 手机:无定位 style,全屏由 inset-0 控制
+                : floatPosition.x < 0
+                  ? {
+                      width,
+                      left: `${getDefaultFloatAnchor().left}px`,
+                      bottom: '16px',
+                      height: 'min(600px, calc(100vh - 100px))',
+                      transition: isResizing
+                        ? 'none'
+                        : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    }
+                  : {
+                      width,
+                      left: `${floatPosition.x}px`,
+                      top: `${floatPosition.y}px`,
+                      height: 'min(600px, calc(100vh - 100px))',
+                      transition: isResizing
+                        ? 'none'
+                        : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    }
+              : workAreaCollapsed
                 ? {
-                    width,
-                    left: `${getDefaultFloatAnchor().left}px`,
-                    bottom: '16px',
-                    height: 'min(600px, calc(100vh - 100px))',
-                    transition: isResizing
-                      ? 'none'
-                      : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    flex: '1 1 0%',
+                    width: 'auto',
+                    transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
                   }
                 : {
                     width,
-                    left: `${floatPosition.x}px`,
-                    top: `${floatPosition.y}px`,
-                    height: 'min(600px, calc(100vh - 100px))',
-                    transition: isResizing
-                      ? 'none'
-                      : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
                   }
-            : workAreaCollapsed
-              ? {
-                  flex: '1 1 0%',
-                  width: 'auto',
-                  transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
-                }
-              : { width, transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)' }
-        }
-      >
-        <aside
-          aria-label={tc('title')}
-          // Pane 默认锚点(2026-07-29 立):AgentTaskProgressPane 用这个 data-testid 找到 AI 面板容器
-          // 作为 Pane 默认位置的视口坐标系锚点,空消息时也能定位(不再依赖 message-list-inline-panel)
-          data-testid="ai-side-panel-aside"
-          // AI 面板必须有独立 bg-shell-panel 背景:
-          // 1) 卡片感:AI 面板作为独立 flex 子元素,需要自己的背景色形成卡片视觉边界;
-          // 2) 暗色模式下的遮罩一致性:登录/SSO/认证授权弹窗打开时,z-modal=2000 遮罩(z-50 Dialog 也会盖)叠加在 AI 面板之上,
-          //    若 AI 面板透明,内容透到变暗的 work-area 上,视觉上像"AI 面板高亮"未被遮罩盖住;有 bg-shell-panel 后,
-          //    AI 面板背景独立变暗,真正"暗下去到背景里"。
-          // 之前 commit 5d378c22e 担心"深色背景下默认滚动条轨道透出深色",但 message-list 已加 hover-scroll
-          // (scrollbar-width: none + ::-webkit-scrollbar { display: none })完全隐藏滚动条,不会透色,
-          // 恢复 bg-shell-panel 安全。
-          className={cn(
-            'flex h-full flex-col overflow-hidden bg-shell-panel',
-            // 手机全屏浮窗:无圆角;桌面/平板浮窗 + docked:保持 rounded-xl
-            isMobileSmall && floatMode ? 'rounded-none' : 'rounded-xl',
-          )}
+          }
         >
-          {/* 标题栏(浮窗模式下可拖拽,手机全屏模式禁用拖拽) */}
-          <header
-            onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
+          <aside
+            aria-label={tc('title')}
+            // Pane 默认锚点(2026-07-29 立):AgentTaskProgressPane 用这个 data-testid 找到 AI 面板容器
+            // 作为 Pane 默认位置的视口坐标系锚点,空消息时也能定位(不再依赖 message-list-inline-panel)
+            data-testid="ai-side-panel-aside"
+            // AI 面板必须有独立 bg-shell-panel 背景:
+            // 1) 卡片感:AI 面板作为独立 flex 子元素,需要自己的背景色形成卡片视觉边界;
+            // 2) 暗色模式下的遮罩一致性:登录/SSO/认证授权弹窗打开时,z-modal=2000 遮罩(z-50 Dialog 也会盖)叠加在 AI 面板之上,
+            //    若 AI 面板透明,内容透到变暗的 work-area 上,视觉上像"AI 面板高亮"未被遮罩盖住;有 bg-shell-panel 后,
+            //    AI 面板背景独立变暗,真正"暗下去到背景里"。
+            // 之前 commit 5d378c22e 担心"深色背景下默认滚动条轨道透出深色",但 message-list 已加 hover-scroll
+            // (scrollbar-width: none + ::-webkit-scrollbar { display: none })完全隐藏滚动条,不会透色,
+            // 恢复 bg-shell-panel 安全。
             className={cn(
-              'flex h-14 shrink-0 items-center gap-2 px-3',
-              // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
-              '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
-              // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
-              // 移动端全屏模式:不可拖拽
-              floatMode && !isMobileSmall && 'cursor-move',
+              'flex h-full flex-col overflow-hidden bg-shell-panel',
+              // 手机全屏浮窗:无圆角;桌面/平板浮窗 + docked:保持 rounded-xl
+              isMobileSmall && floatMode ? 'rounded-none' : 'rounded-xl',
             )}
           >
-            {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
+            {/* 标题栏(浮窗模式下可拖拽,手机全屏模式禁用拖拽) */}
+            <header
+              onPointerDown={floatMode && !isMobileSmall ? handleFloatDragStart : undefined}
+              className={cn(
+                'flex h-14 shrink-0 items-center gap-2 px-3',
+                // 2026-07-19 中文 + 图标垂直对齐:主标题 span 视觉居中
+                '[&>div>span:first-child]:translate-y-[var(--text-vcenter-offset)]',
+                // 浮窗模式(桌面端):header 可拖拽,非交互区域 cursor-move
+                // 移动端全屏模式:不可拖拽
+                floatMode && !isMobileSmall && 'cursor-move',
+              )}
+            >
+              {/* 图标:使用当前模型对应的厂商图标(替代通用 Sparkles)
               用户规则:这个图标应该显示对应项目图标或者模型图标
               容器去掉背景色,只显示内部图标本体(2026-07-19 用户反馈) */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
-              <BrandIcon
-                vendor={inferVendor(currentModel)}
-                size={18}
-                className="text-foreground/80"
-              />
-            </div>
-            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-              <span className="flex min-w-0 items-center gap-1">
-                <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
-                {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground/80">
+                <BrandIcon
+                  vendor={inferVendor(currentModel)}
+                  size={18}
+                  className="text-foreground/80"
+                />
+              </div>
+              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+                <span className="flex min-w-0 items-center gap-1">
+                  <span className="min-w-0 truncate text-sm font-semibold">{displayTitle}</span>
+                  {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
-                <WorkspaceSelector />
-              </span>
-            </div>
-            {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
+                  <WorkspaceSelector />
+                </span>
+              </div>
+              {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
               2026-07-28 移除:PlanActToggle 按钮与 sidebar ModeSwitcher 4 态(ChatMode build/plan/review/spec)
               语义重叠,统一用 ModeSwitcher 控制。当前 mode 视觉指示由 sidebar ModeSwitcher 高亮态承载,
               切换入口:ModeSwitcher 4 态按钮 + Ctrl+1/2/3/4 快捷键 + /build /plan /review /spec 斜杠命令 +
@@ -1009,238 +1017,246 @@ export function AISidePanel() {
               message-input.tsx 的 CurrentModeBadge 承载(输入区上方小徽章),
               切换入口:/build /plan /review /spec 斜杠命令 + Ctrl+1-4 快捷键 + AI 自动判断(发送时)。
               Alt+P 快捷键保留(plan ↔ build 二选一场景,2026-07-28 仍有效)。 */}
-            {/* 新建任务按钮(2026-08-29 移除,迁移整合):
+              {/* 新建任务按钮(2026-08-29 移除,迁移整合):
               入口统一到侧边栏 SidebarQuickActions"新建任务"按钮。
               该按钮原有能力(handleNewChat 新建会话 + isStreaming 时禁用 + Tooltip 提示)
               已完整迁移到侧边栏按钮;侧边栏通过派发 global-shortcut:new-chat 事件
               复用本组件的 handleNewChat(监听器已改为始终注册,面板关闭时也能触发)。 */}
-            {/* 派发 Subagent 按钮(2026-07-28 移除):
+              {/* 派发 Subagent 按钮(2026-07-28 移除):
               subagent 现已改为自动派发(主 agent 在对话流中调用 dispatch_subagent 工具时,
               后端发 subagent_spawn/end SSE 事件 → 前端进度面板自动展示生命周期),
               无需用户手动触发,移除手动派发按钮。 */}
-            {/* 浮窗模式切换按钮(2026-07-30):
+              {/* 浮窗模式切换按钮(2026-07-30):
                 - docked 模式:显示 Pin 图标,点击切换到浮窗折叠态(只显示输入框)
                 - float 模式:显示 PanelLeft(停靠) + Minus(最小化)两个按钮 */}
-            {floatMode ? (
-              <>
-                <Tooltip content={tc('dockPanel')}>
+              {floatMode ? (
+                <>
+                  <Tooltip content={tc('dockPanel')}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFloatMode(false)
+                        setFloatMinimized(false)
+                      }}
+                      aria-label={tc('dockPanel')}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <PanelLeft className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip content={tc('minimize')}>
+                    <button
+                      type="button"
+                      onClick={() => setFloatMinimized(true)}
+                      aria-label={tc('minimize')}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                  </Tooltip>
+                </>
+              ) : (
+                <Tooltip content={tc('floatMode')}>
                   <button
                     type="button"
                     onClick={() => {
-                      setFloatMode(false)
+                      setFloatMode(true)
                       setFloatMinimized(false)
+                      setFloatCollapsed(true)
+                      openPanel()
                     }}
-                    aria-label={tc('dockPanel')}
+                    aria-label={tc('floatMode')}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    <PanelLeft className="h-4 w-4" />
+                    <Pin className="h-4 w-4" />
                   </button>
                 </Tooltip>
-                <Tooltip content={tc('minimize')}>
-                  <button
-                    type="button"
-                    onClick={() => setFloatMinimized(true)}
-                    aria-label={tc('minimize')}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                </Tooltip>
-              </>
-            ) : (
-              <Tooltip content={tc('floatMode')}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFloatMode(true)
-                    setFloatMinimized(false)
-                    setFloatCollapsed(true)
-                    openPanel()
-                  }}
-                  aria-label={tc('floatMode')}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Pin className="h-4 w-4" />
-                </button>
-              </Tooltip>
-            )}
-            {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
+              )}
+              {/* 2026-08-17 三按钮组(用户需求,对标 Cursor 右上角):
                 ① 环境信息(齿轮+横线 → env info popover)
                 ② 终端(打开底部 PowerShell 终端停靠面板 → AiTerminalDock)
                 ③ 工作展示区(折叠/展开整个右侧工作展示区,AI 面板占满) */}
-            <Tooltip content={tc('envInfoButton')}>
-              <button
-                type="button"
-                onClick={toggleEnvInfo}
-                aria-label={tc('envInfoButton')}
-                className={cn(
-                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                  envInfoOpen && 'bg-accent text-accent-foreground',
-                )}
-              >
-                <SlidersHorizontal className="h-4 w-4" />
-              </button>
-            </Tooltip>
-            <Tooltip content={tc('openTerminal')}>
-              <button
-                type="button"
-                onClick={toggleTerminalDock}
-                aria-label={tc('openTerminal')}
-                className={cn(
-                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                  terminalDockOpen && 'bg-accent text-accent-foreground',
-                )}
-              >
-                <SquareTerminal className="h-4 w-4" />
-              </button>
-            </Tooltip>
-            <Tooltip content={tc('toggleWorkPanel')}>
-              <button
-                type="button"
-                onClick={toggleWorkPanel}
-                aria-label={tc('toggleWorkPanel')}
-                className={cn(
-                  'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
-                  workAreaCollapsed && 'bg-accent text-accent-foreground',
-                )}
-              >
-                <PanelRightRounded left={workAreaCollapsed} className="h-4 w-4" />
-              </button>
-            </Tooltip>
-            <Tooltip content={tcommon('close')}>
-              <button
-                type="button"
-                onClick={closePanel}
-                aria-label={tcommon('close')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </Tooltip>
-          </header>
+              <Tooltip content={tc('envInfoButton')}>
+                <button
+                  type="button"
+                  onClick={toggleEnvInfo}
+                  aria-label={tc('envInfoButton')}
+                  className={cn(
+                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                    envInfoOpen && 'bg-accent text-accent-foreground',
+                  )}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <Tooltip content={tc('openTerminal')}>
+                <button
+                  type="button"
+                  onClick={toggleTerminalDock}
+                  aria-label={tc('openTerminal')}
+                  className={cn(
+                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                    terminalDockOpen && 'bg-accent text-accent-foreground',
+                  )}
+                >
+                  <SquareTerminal className="h-4 w-4" />
+                </button>
+              </Tooltip>
+              <Tooltip content={tc('toggleWorkPanel')}>
+                <button
+                  type="button"
+                  onClick={toggleWorkPanel}
+                  aria-label={tc('toggleWorkPanel')}
+                  className={cn(
+                    'inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground',
+                    workAreaCollapsed && 'bg-accent text-accent-foreground',
+                  )}
+                >
+                  <PanelRightRounded left={workAreaCollapsed} className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+              <Tooltip content={tcommon('close')}>
+                <button
+                  type="button"
+                  onClick={closePanel}
+                  aria-label={tcommon('close')}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            </header>
 
-          {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
-          <div className="relative min-h-0 flex-1">
-            <MessageList
-              messages={messages}
-              isStreaming={isStreaming}
-              isLoading={loadingHistory}
-              emptyTitle={t('empty')}
-              emptyHint={t('emptyHint')}
-              assistantLabel={t('assistant')}
-              loadingLabel={t('loading')}
-              hasMoreHistory={hasMoreHistory}
-              loadingMoreHistory={loadingMoreHistory}
-              onLoadMoreHistory={handleLoadMoreHistory}
-              onTemplateSelect={(content) => {
-                useChatStore.setState({ draftInput: content })
-              }}
-              // Phase 18.2: 传递 subAgentActivities 到 MessageList,
-              // Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
-              subAgentActivities={subAgentActivities}
-              // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
-              stepBudget={
-                subAgentActivities.length > 0
-                  ? {
-                      used: subAgentActivities.reduce((sum, a) => sum + a.completedSteps.length, 0),
-                      total: 60,
-                    }
-                  : undefined
-              }
-            />
-            {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
+            {/* 消息区(v6.3:加 relative 让 popover 可定位到本容器右上角) */}
+            <div className="relative min-h-0 flex-1">
+              <MessageList
+                messages={messages}
+                isStreaming={isStreaming}
+                isLoading={loadingHistory}
+                emptyTitle={t('empty')}
+                emptyHint={t('emptyHint')}
+                assistantLabel={t('assistant')}
+                loadingLabel={t('loading')}
+                hasMoreHistory={hasMoreHistory}
+                loadingMoreHistory={loadingMoreHistory}
+                onLoadMoreHistory={handleLoadMoreHistory}
+                onTemplateSelect={(content) => {
+                  useChatStore.setState({ draftInput: content })
+                }}
+                // Phase 18.2: 传递 subAgentActivities 到 MessageList,
+                // Trae Work 风格 inline 渲染在最后一条 AI 消息下方(而非 AI 面板底部)
+                subAgentActivities={subAgentActivities}
+                // Phase 18.4: step budget(从 store 派生,目前用固定 60 上限)
+                stepBudget={
+                  subAgentActivities.length > 0
+                    ? {
+                        used: subAgentActivities.reduce(
+                          (sum, a) => sum + a.completedSteps.length,
+                          0,
+                        ),
+                        total: 60,
+                      }
+                    : undefined
+                }
+              />
+              {/* Agent 任务进度 popover(v14:absolute 锚定到本容器右上角,不再 fixed 到视口)
                 由 store.open 联动显隐,trigger 在 MessageInput 上方居中切换 store
                 双重保险(2026-07-31):父组件 AISidePanel 也检查 isLoginOpen,
                 登录弹窗打开时不渲染 pane,避免 z-popover(2001) 浮在 z-modal(2000) 遮罩之上 */}
-            {!isLoginOpen && <AgentTaskProgressPane />}
-            {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
-            <EnvironmentInfoPopover />
-          </div>
+              {!isLoginOpen && <AgentTaskProgressPane />}
+              {/* 2026-08-17 环境信息 popover(同消息区右上角锚定,与 agent progress pane 互斥) */}
+              <EnvironmentInfoPopover />
+            </div>
 
-          {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
+            {/* Sub-agent 活动流:已移至 MessageList 中 inline 渲染(Phase 18.2,Trae Work 风格)
             历史:此区域之前独立在 AI 面板底部,但 Trae Work 的 subagent 卡片是 inline 在对话流中。
             为保持视觉一致性,所有 subagent 卡片现在统一在最后一条 AI 消息下方展示。 */}
 
-          {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
-          <CompactionStatusBar />
+            {/* 压缩状态栏(2026-08-16 立):在输入框上方显示压缩进度和结果 */}
+            <CompactionStatusBar />
 
-          {/* 输入区 */}
-          <MessageInput
-            onSend={sendMessage}
-            onStop={stop}
-            isStreaming={isStreaming}
-            // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
-            // - ChatMode.plan → placeholderPlan(只读分析提示)
-            // - 其他(build/review/spec)→ placeholder(默认)
-            placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
-            sendLabel={t('send')}
-            stopLabel={t('stop')}
-            model={currentModel}
-            onModelChange={setModel}
-            modelLabel={t('model')}
-          />
+            {/* 输入区 */}
+            <MessageInput
+              onSend={sendMessage}
+              onStop={stop}
+              isStreaming={isStreaming}
+              // 2026-07-28 升级:placeholder 切换依据从 planMode 改为 ChatMode
+              // - ChatMode.plan → placeholderPlan(只读分析提示)
+              // - 其他(build/review/spec)→ placeholder(默认)
+              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+              sendLabel={t('send')}
+              stopLabel={t('stop')}
+              model={currentModel}
+              onModelChange={setModel}
+              modelLabel={t('model')}
+            />
 
-          {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
-          <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
-          {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
+            {/* AI 主动提问弹窗:挂起对话,等用户回答后续流 */}
+            <QuestionDialog
+              question={pendingQuestion}
+              onSubmit={sendAnswer}
+              onSkip={skipQuestion}
+            />
+            {/* 工作区权限确认弹窗(2026-07-25 立,深度对标 Codex):
             用户绑定新工作区但 perm=null 时,WorkspaceSelector 写入 pendingPermissionSetup,
             这里弹 Dialog 让用户主动选择权限模式(完全访问/请求批准/替我审批),
             用户在弹窗中保存后:回写 activeWorkspace.mode + 清空 pendingPermissionSetup。 */}
-          {pendingPermissionSetup && (
-            <WorkspacePermissionDialog
-              open={!!pendingPermissionSetup}
-              onOpenChange={(open) => {
-                if (!open) setPendingPermissionSetup(null)
-              }}
-              workspacePath={pendingPermissionSetup.path}
-              workspaceName={pendingPermissionSetup.name}
-              techStack={pendingPermissionSetup.techStack}
-              onSaved={(perm) => {
-                // 弹窗保存成功:回写 store.activeWorkspace.mode(已绑定 workspace 的 mode)
-                if (activeWorkspace && activeWorkspace.path === perm.workspacePath) {
-                  setActiveWorkspace({ ...activeWorkspace, mode: perm.mode })
-                }
-                setPendingPermissionSetup(null)
-              }}
-            />
-          )}
+            {pendingPermissionSetup && (
+              <WorkspacePermissionDialog
+                open={!!pendingPermissionSetup}
+                onOpenChange={(open) => {
+                  if (!open) setPendingPermissionSetup(null)
+                }}
+                workspacePath={pendingPermissionSetup.path}
+                workspaceName={pendingPermissionSetup.name}
+                techStack={pendingPermissionSetup.techStack}
+                onSaved={(perm) => {
+                  // 弹窗保存成功:回写 store.activeWorkspace.mode(已绑定 workspace 的 mode)
+                  if (activeWorkspace && activeWorkspace.path === perm.workspacePath) {
+                    setActiveWorkspace({ ...activeWorkspace, mode: perm.mode })
+                  }
+                  setPendingPermissionSetup(null)
+                }}
+              />
+            )}
 
-          {/* 底部 PowerShell 终端停靠面板(2026-08-17 立,open=false 时渲染 null) */}
-          <AiTerminalDock />
-        </aside>
-        {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
+            {/* 底部 PowerShell 终端停靠面板(2026-08-17 立,open=false 时渲染 null) */}
+            <AiTerminalDock />
+          </aside>
+          {/* 右侧拖拽手柄:外层 8px 命中区 right-[-4px] 居中跨越 aside 右边缘(左右各 4px),
         内层 0.5px 线 left-[calc(50%-0.25px)] -translate-x-1/2 居中在命中区中心,与 aside 右边缘重合。
         手柄置于 aside 外层(父 div),避免 overflow-hidden 裁剪命中区。
         0.5px 线在 2x DPR 高分屏渲染为 1 物理像素;子像素 calc 避免奇数像素容器模糊。
         默认 opacity:0 完全隐藏,仅 hover 或拖拽时显现渐变色。 */}
-        <div
-          onPointerDown={handleResizeStart}
-          tabIndex={0}
-          role="separator"
-          aria-orientation="vertical"
-          aria-label={tcommon('resize')}
-          className={cn(
-            'group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none',
-            // 移动端浮窗全屏模式:隐藏拖拽手柄(全屏无需调整宽度)
-            isMobileSmall && floatMode && 'hidden',
-          )}
-        >
           <div
+            onPointerDown={handleResizeStart}
+            tabIndex={0}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={tcommon('resize')}
             className={cn(
-              'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
-              isResizing && 'is-resizing',
+              'group absolute right-[-4px] top-3 bottom-3 z-20 w-2 cursor-col-resize outline-none',
+              // 移动端浮窗全屏模式:隐藏拖拽手柄(全屏无需调整宽度)
+              isMobileSmall && floatMode && 'hidden',
             )}
-          />
-          {/* 打开态手柄提示:文字"拖拽调整宽度"竖向显示,默认隐藏,
+          >
+            <div
+              className={cn(
+                'absolute left-[calc(50%-0.25px)] top-0 bottom-0 w-0.5 -translate-x-1/2 resize-handle-line',
+                isResizing && 'is-resizing',
+              )}
+            />
+            {/* 打开态手柄提示:文字"拖拽调整宽度"竖向显示,默认隐藏,
             hover/focus-within 命中区时与手柄渐变线同步 fade-in + translateX 弹出。
             CSS 类 .ai-panel-resize-tooltip 在 globals.css 中定义,定位在面板内(手柄左侧)
             避免遮挡 work-area。pointer-events: none 不拦截手柄的点击/拖拽。 */}
-          <div aria-hidden="true" className="ai-panel-resize-tooltip">
-            {tc('resizeHandleHint')}
+            <div aria-hidden="true" className="ai-panel-resize-tooltip">
+              {tc('resizeHandleHint')}
+            </div>
           </div>
         </div>
-      </div>
-    </>
+      </>
+    </TooltipProvider>
   )
 }
 

@@ -49,7 +49,7 @@ export interface FallbackModel {
 
 /** 兜底模型:仅后端不可达时使用(主数据源是 /llm/models 动态拉取) */
 export const FALLBACK_MODELS: FallbackModel[] = [
-  // === 项目主力(已验证连通 + 已配置 key,与 ai-service default_models.json 对齐)===
+  // === 项目主力(plan 套餐已接入)===
   // stepfun/step-router-v1 是"自动路由"模式,无积分倍数(走任务类型自动调度)
   { value: 'stepfun/step-router-v1', label: 'Step Router v1', vendor: 'stepfun' },
   {
@@ -58,6 +58,36 @@ export const FALLBACK_MODELS: FallbackModel[] = [
     vendor: 'stepfun',
     // 0.05x + 正式版:经济型主力,免费 plan 套餐可高频调用
     pointsMultiplier: 0.05,
+    isOfficial: true,
+  },
+  // === 智汇AI(ihui_relay 主力模型,后端 relay 聚合,input_price=0)===
+  {
+    value: 'ihui/Auto-Model',
+    label: '智汇AI Auto',
+    vendor: 'ihui_relay',
+    // 自动路由模式,无固定积分倍数
+    pointsMultiplier: 0,
+    isOfficial: true,
+  },
+  {
+    value: 'ihui/glm-5.3',
+    label: 'GLM-5.3 (智汇AI)',
+    vendor: 'ihui_relay',
+    pointsMultiplier: 0,
+    isOfficial: true,
+  },
+  {
+    value: 'ihui/deepseek-v4-flash-0731',
+    label: 'DeepSeek V4 Flash (智汇AI)',
+    vendor: 'ihui_relay',
+    pointsMultiplier: 0,
+    isOfficial: true,
+  },
+  {
+    value: 'ihui/gpt-5.6',
+    label: 'GPT-5.6 (智汇AI)',
+    vendor: 'ihui_relay',
+    pointsMultiplier: 0,
     isOfficial: true,
   },
   // === Cloudflare Workers AI(免费 zero_cost,无需 key)===
