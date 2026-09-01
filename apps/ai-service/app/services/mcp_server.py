@@ -2239,6 +2239,13 @@ from .artifacts_store import (  # noqa: E402
     save_artifacts as _save_artifacts,
 )
 
+# P0 新增工具(chart_tools / document_tools,零新依赖,2026-09-01 竞品对标补齐)
+# 延迟导入避免启动期探测;工具内部异常已自兜底返回结构化错误,不抛给 MCP 层
+from ..tools import (  # noqa: E402
+    generate_chart as _generate_chart,
+    parse_document as _parse_document,
+)
+
 # 进程内调度任务列表(schedule_task 用,内存镜像;Redis 为持久化真相源)
 _SCHEDULED_TASKS: list[dict[str, Any]] = []
 
@@ -4113,6 +4120,43 @@ _TOOLS: list[MCPTool] = [
             },
         },
     ),
+    MCPTool(
+        name="generate_chart",
+        description=(
+            "生成数据图表(输出 ECharts 单文件 HTML,支持 line/bar/pie/scatter 四类,中文标题)。"
+            "用于数据分析/报表/趋势可视化。data 参数为 JSON 字符串,按类型传结构。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "chart_type": {"type": "string", "description": "图表类型:line/bar/pie/scatter"},
+                "title": {"type": "string", "description": "图表标题"},
+                "data": {
+                    "type": "string",
+                    "description": "JSON 字符串。line/bar:{\"x\":[...],\"series\":[{\"name\":\"..\",\"values\":[...]}]};pie:[{\"name\":\"..\",\"value\":n}];scatter:{\"points\":[[x,y],...]} 或 {\"series\":[{\"name\":\"s1\",\"points\":[[x,y],...]}]}",
+                },
+                "output_dir": {"type": "string", "description": "输出目录(相对项目根,默认 tmp/charts)", "default": "tmp/charts"},
+            },
+            "required": ["chart_type", "title", "data"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="parse_document",
+        description=(
+            "解析本地文档为可注入上下文的文本(支持 txt/md/csv/json/pdf/docx/xlsx)。"
+            "用于阅读上传文档、抽取表格、总结文件内容。仅限项目工作区内文件,敏感文件(密钥类)拒绝。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "文件绝对路径或相对项目根路径"},
+                "max_chars": {"type": "integer", "description": "返回内容上限,默认 20000(500-100000)", "default": 20000},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -4194,6 +4238,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "summarize_artifacts": _tool_summarize_artifacts,
     "schedule_task": _tool_schedule_task,
     "proactive_suggestion": _tool_proactive_suggestion,
+    # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
+    "generate_chart": _generate_chart,
+    "parse_document": _parse_document,
 }
 
 
