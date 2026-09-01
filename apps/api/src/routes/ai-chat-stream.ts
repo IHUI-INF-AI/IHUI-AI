@@ -8,6 +8,7 @@ import { repairMessages } from '@ihui/types'
 import {
   compressContextIfNeeded,
   estimateMessagesTokens,
+  CONTEXT_BUDGET_THRESHOLD,
   type ChatMessage,
 } from '@ihui/context-compaction'
 import { checkAuth } from '../plugins/auth.js'
@@ -15,7 +16,12 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 import { createMessage, patchConversationMetadata, replaceMessages } from '../db/chat-queries.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
-import { generateSemanticSummary } from '../utils/semantic-summary.js'
+import {
+  generateSemanticSummary,
+  getCachedSemanticSummary,
+  primeSemanticSummary,
+} from '../utils/semantic-summary.js'
+import { persistMessageArchive } from '../utils/conversation-archive.js'
 
 // P3-1 SSE 流式对话实时指标(admin 调试用,不直接进 Prometheus;Prometheus 抓取由 business-metrics.ts 负责)
 const sseMetrics = {
@@ -332,18 +338,35 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (contextLimit && contextLimit > 0) {
         const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
         const triggerThreshold = Math.floor(contextLimit * 0.88)
+        const usageRatio = tokensBeforeCompress / contextLimit
         console.warn('[Compaction] before compress:', {
           contextLimit,
           messageCount: messages.length,
           tokens: tokensBeforeCompress,
           triggerThreshold,
         })
-        // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才调(88% 阈值与共享包
-        // DEFAULT_TRIGGER_RATIO 对齐),生成 customSummary 替代共享包内置规则摘要。
-        // 3 秒超时/失败/stub 一律返回 null → 静默降级走规则摘要,不阻塞主链路。
+        // 后台预压缩(2026-09-01 立,代差能力 A):70% 占用时 fire-and-forget 预生成语义摘要
+        // 缓存(进度条阈值 CONTEXT_BUDGET_THRESHOLD 与共享包一致),到 88% 真压缩时命中缓存,
+        // 首 token 零额外延迟——对标程序(Claude Code)的压缩是阻塞式的,这是关键差异点。
+        // 预生成失败静默吞掉,绝不影响主链路。
+        if (
+          usageRatio >= CONTEXT_BUDGET_THRESHOLD &&
+          tokensBeforeCompress < triggerThreshold
+        ) {
+          void primeSemanticSummary(request, messages, resolvedModel, metadata?.conversationId)
+        }
+        // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才取(88% 阈值与共享包
+        // DEFAULT_TRIGGER_RATIO 对齐)。优先命中 70% 阶段预生成的缓存(零延迟),
+        // 未命中再实时生成(3 秒超时/失败/stub 一律 null → 静默降级规则摘要)。
         const customSummary =
           tokensBeforeCompress >= triggerThreshold
-            ? await generateSemanticSummary(request, messages, resolvedModel)
+            ? (getCachedSemanticSummary(metadata?.conversationId, messages) ??
+              (await generateSemanticSummary(
+                request,
+                messages,
+                resolvedModel,
+                metadata?.conversationId,
+              )))
             : null
         const result = compressContextIfNeeded(messages, {
           contextLimit,
@@ -378,6 +401,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
           if (metadata?.conversationId) {
             void replaceMessages(metadata.conversationId, result.messages)
+            // 归档记忆(2026-09-01 立,代差能力 C):被压缩的原始消息落库归档,
+            // 前端状态条"查看原始消息"弹层可查——压缩透明可逆而非黑箱有损。
+            // 归档失败静默降级(console.warn),绝不影响压缩主流程。
+            void persistMessageArchive(metadata.conversationId, messages)
           }
         }
       }
@@ -528,6 +555,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       if (contextLimit && contextLimit > 0) {
         const tokensBeforeCompress = Math.floor(estimateMessagesTokens(messages))
         const triggerThreshold = Math.floor(contextLimit * 0.88)
+        const usageRatio = tokensBeforeCompress / contextLimit
         // 诊断日志与 /chat/stream 主入口一致:incompressible(压不动)时 compressed=false 走原路径,防循环
         console.warn('[Compaction][answer] before compress:', {
           contextLimit,
@@ -535,10 +563,23 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           tokens: tokensBeforeCompress,
           triggerThreshold,
         })
-        // LLM 语义摘要:与 /chat/stream 同一套逻辑,只在会触发压缩时调,失败静默降级(见 utils/semantic-summary.ts)
+        // 后台预压缩:与 /chat/stream 同一策略(70% 占用 fire-and-forget 预生成摘要缓存)
+        if (
+          usageRatio >= CONTEXT_BUDGET_THRESHOLD &&
+          tokensBeforeCompress < triggerThreshold
+        ) {
+          void primeSemanticSummary(request, messages, resolvedModel, conversationId)
+        }
+        // LLM 语义摘要:与 /chat/stream 同一套逻辑(缓存优先→实时生成→失败静默降级)
         const customSummary =
           tokensBeforeCompress >= triggerThreshold
-            ? await generateSemanticSummary(request, messages, resolvedModel)
+            ? (getCachedSemanticSummary(conversationId, messages) ??
+              (await generateSemanticSummary(
+                request,
+                messages,
+                resolvedModel,
+                conversationId,
+              )))
             : null
         const result = compressContextIfNeeded(messages, {
           contextLimit,
@@ -573,6 +614,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
           if (conversationId) {
             void replaceMessages(conversationId, result.messages)
+            // 归档记忆:被压缩的原始消息落库,前端状态条可查(与 /chat/stream 一致)
+            void persistMessageArchive(conversationId, messages)
           }
         }
       }
