@@ -1081,14 +1081,29 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
     if let (Some(x), Some(y), Some(w), Some(h)) = (x, y, w, h) {
         use tauri::PhysicalPosition;
         use tauri::PhysicalSize;
+        // 2026-09-01 修复"窗口过窄":旧版本遗留的 window-state.json 可能保存过
+        // 比当前 minWidth 还小的尺寸,直接恢复会让窗口异常窄;同时屏幕分辨率变化
+        // 后旧尺寸可能超屏。统一 clamp 到 [min_inner_size, 屏幕可用区 92%]。
+        let (cw, ch) = clamp_window_size(&window, w as u32, h as u32);
+        if cw != w as u32 || ch != h as u32 {
+            log::info!(
+                "[desktop] restore window state clamped: {}x{} -> {}x{}",
+                w, h, cw, ch
+            );
+        }
         // 先设置 size,再设置 position,避免最大化状态下 set_position 失效
-        let _ = window.set_size(PhysicalSize::new(w as u32, h as u32));
+        let _ = window.set_size(PhysicalSize::new(cw, ch));
         let _ = window.set_position(PhysicalPosition::new(x as i32, y as i32));
         // 多显示器校验:窗口中心点不在任何显示器内时 fallback 到 center()
         // 场景:上次关闭时窗口在外接显示器,本次启动未接外接显示器
         if !is_window_visible_on_any_monitor(&window) {
             let _ = window.center();
         }
+    } else {
+        // 无持久化记录(首次安装 / reset_window_state 后):按屏幕可用区
+        // clamp tauri.conf.json 默认尺寸,避免 1400x900 在低分辨率屏幕上超屏。
+        // 2026-09-01 接入:此前 adapt_window_to_screen 仅定义未调用。
+        let _ = adapt_window_to_screen(&window);
     }
     Ok(OkResult { ok: true })
 }
@@ -1143,6 +1158,70 @@ fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<Ok
     store.delete(win_key(label, "maximized"));
     store.save().map_err(|e| e.to_string())?;
     Ok(OkResult { ok: true })
+}
+
+/// 将窗口尺寸限制在 [窗口最小尺寸, 屏幕可用区 92%] 之间(2026-09-01 立)。
+///
+/// 背景:用户反馈"安装后初始打开的尺寸太窄"——(a) 默认 1200 宽在侧边栏 160px +
+/// AI 面板 380px 的布局下内容区仅 ~660px;(b) 旧版本遗留的 window-state.json 可能
+/// 保存过更窄的尺寸,升级后 restore 直接恢复导致窗口过窄;(c) 低分辨率屏幕(如
+/// 1366x768)上默认 1400x900 会超出屏幕。统一在此 clamp:
+/// - 下限:窗口 min_inner_size(tauri.conf.json 的 minWidth/minHeight)
+/// - 上限:窗口所在显示器可用区的 92%(去掉任务栏/缩放余量)
+/// 返回 clamp 后的物理像素尺寸。
+fn clamp_window_size(
+    window: &tauri::WebviewWindow,
+    w: u32,
+    h: u32,
+) -> (u32, u32) {
+    // 下限:窗口 min 尺寸(逻辑像素)→ 物理像素。
+    // 优先读 tauri.conf.json 的 minWidth/minHeight(单一来源,避免硬编码漂移);
+    // 若当前窗口不在 conf 定义(如 admin 由 builder 创建)则 fallback 主窗口默认值。
+    let scale = window.scale_factor().unwrap_or(1.0);
+    let min = window
+        .app_handle()
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|c| c.label == window.label())
+        .and_then(|c| match (c.min_width, c.min_height) {
+            (Some(mw), Some(mh)) => Some(tauri::PhysicalSize::new(
+                (mw * scale) as u32,
+                (mh * scale) as u32,
+            )),
+            _ => None,
+        })
+        .unwrap_or(tauri::PhysicalSize::new(1100, 720));
+    // 上限:窗口所在显示器(优先 current,fallback primary)可用区 92%
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten());
+    if let Some(m) = monitor {
+        let msize = m.size();
+        let max_w = ((msize.width as f64) * 0.92) as u32;
+        let max_h = ((msize.height as f64) * 0.92) as u32;
+        let cw = w.clamp(min.width, max_w.max(min.width));
+        let ch = h.clamp(min.height, max_h.max(min.height));
+        return (cw, ch);
+    }
+    (w.max(min.width), h.max(min.height))
+}
+
+/// 启动时把窗口尺寸适配到屏幕(2026-09-01 立)。
+/// 无持久化窗口状态(首次安装/重置后)时,tauri.conf.json 的默认尺寸
+/// (1400x900)在低分辨率屏幕上会超出可见区,这里按屏幕可用区 clamp。
+/// 有持久化状态时由 restore_window_state 恢复(其内部同样 clamp)。
+fn adapt_window_to_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let current = window.outer_size().map_err(|e| e.to_string())?;
+    let (cw, ch) = clamp_window_size(window, current.width, current.height);
+    if cw != current.width || ch != current.height {
+        window.set_size(tauri::PhysicalSize::new(cw, ch)).map_err(|e| e.to_string())?;
+        log::info!("[desktop] window adapted to screen: {}x{} -> {}x{}", current.width, current.height, cw, ch);
+    }
+    Ok(())
 }
 
 /// 清理 WebView2 缓存(Windows)。
