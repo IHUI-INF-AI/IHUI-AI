@@ -2,8 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { useTranslations } from 'next-intl'
 import type { ChatMessage } from '@/stores/chat'
 
+/** 2026-09-01 立,工具调用过程流式可视化:i18n 化等待态文案。
+ *  依赖 message.toolCalls 中 status==='running' 的工具,让"正在调用工具 X"走 5 语言翻译。 */
 export function TypingIndicator({
   reasoning,
   toolCalls,
@@ -11,16 +14,17 @@ export function TypingIndicator({
   reasoning?: string
   toolCalls?: ChatMessage['toolCalls']
 }) {
+  const t = useTranslations('ai.toolCall')
   const runningTool = toolCalls?.find((tc) => tc.status === 'running')
 
   let label: string
   if (runningTool) {
-    label = `正在调用工具:${runningTool.toolName}`
+    label = t('callingTool', { name: runningTool.toolName })
   } else if (reasoning && reasoning.length > 0) {
     const preview = reasoning.length > 40 ? `${reasoning.slice(0, 40)}…` : reasoning
-    label = `正在思考: ${preview}`
+    label = t('thinking', { preview })
   } else {
-    label = '正在等待模型响应…'
+    label = t('waitingResponse')
   }
 
   return (
