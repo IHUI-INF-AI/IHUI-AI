@@ -63,34 +63,78 @@ vi.mock('@ihui/types', async (importOriginal) => {
   }
 })
 
-// 4. Mock @ihui/context-compaction(默认不压缩)
+// 4. Mock @ihui/context-compaction(默认不压缩;保留真实 estimateMessagesTokens 供断言,
+//    手动压缩用例可切换到真实 compressContextIfNeeded 验证伪造阈值的触发数学)
+const { mockCompressContextIfNeeded, realCompactionRef } = vi.hoisted(() => ({
+  mockCompressContextIfNeeded: vi.fn(),
+  // vi.mock factory 提升期执行,顶层 let 不可达;用 hoisted 容器持有真实实现引用
+  realCompactionRef: {
+    current: null as null | ((...args: unknown[]) => unknown),
+  },
+}))
 vi.mock('@ihui/context-compaction', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
+  realCompactionRef.current = actual.compressContextIfNeeded as (
+    ...args: unknown[]
+  ) => unknown
   return {
     ...actual,
-    compressContextIfNeeded: () => ({
-      compressed: false,
-      messages: [],
-      originalTokens: 0,
-      compressedTokens: 0,
-      removedCount: 0,
-    }),
+    compressContextIfNeeded: mockCompressContextIfNeeded,
   }
 })
 
-// 5. Mock chat-queries(/chat/answer 持久化 + 压缩 replaceMessages)
+// 5. Mock chat-queries(/chat/answer 持久化 + 压缩 replaceMessages + chat.ts 会话查询)
+//    chat.ts import 了全部查询函数,factory 需逐一提供具名导出(缺导出会导致 named import 为 undefined)
 vi.mock('../src/db/chat-queries.js', () => ({
   createMessage: vi.fn().mockResolvedValue({ id: 'mock-msg-id' }),
   patchConversationMetadata: vi.fn().mockResolvedValue(undefined),
   replaceMessages: vi.fn().mockResolvedValue(undefined),
+  createConversation: vi.fn(),
+  findConversationsByUser: vi.fn(),
+  findConversationById: vi.fn(),
+  updateConversation: vi.fn(),
+  deleteConversation: vi.fn(),
+  deleteConversationsBatch: vi.fn(),
+  favoriteConversationsBatch: vi.fn(),
+  unfavoriteConversationsBatch: vi.fn(),
+  setConversationsArchivedBatch: vi.fn(),
+  findMessages: vi.fn(),
+  findMessageById: vi.fn(),
+  deleteMessage: vi.fn(),
+  clearMessages: vi.fn(),
+  favoriteConversation: vi.fn(),
+  unfavoriteConversation: vi.fn(),
+  findFavoriteConversations: vi.fn(),
+  archiveConversation: vi.fn(),
+  unarchiveConversation: vi.fn(),
+  findMessagesForExport: vi.fn().mockResolvedValue([]),
+  findMessagesForShare: vi.fn(),
+  saveCompressedContext: vi.fn(),
+  setConversationShareToken: vi.fn(),
+  findConversationByShareToken: vi.fn(),
+  regenerateConversationMessages: vi.fn(),
+  branchConversationFrom: vi.fn(),
 }))
+
+// 5b. Mock db 实例(conversation-archive 归档落库用;insert 失败由其内部 try/catch 降级为 console.warn)
+vi.mock('../src/db/index.js', () => ({ db: {}, dbRead: {} }))
 
 // 6. Mock ai-cost(semantic-summary 计费用;避免拉起真实 db/pricing 模块链,与 services-plugins-smoke 同策略)
 const { mockRecordAiCost } = vi.hoisted(() => ({ mockRecordAiCost: vi.fn() }))
 vi.mock('../src/plugins/ai-cost.js', () => ({ recordAiCost: mockRecordAiCost }))
 
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
+import { chatRoutes } from '../src/routes/chat.js'
 import type { FastifyRequest } from 'fastify'
+import {
+  estimateMessagesTokens,
+  type ChatMessage,
+} from '@ihui/context-compaction'
+import {
+  findConversationById,
+  findMessagesForExport,
+  replaceMessages,
+} from '../src/db/chat-queries.js'
 import {
   generateSemanticSummary,
   primeSemanticSummary,
@@ -704,6 +748,235 @@ describe('语义摘要观测与计费(hit/miss 统计 + recordAiCost 配额接�
       expect(arg.promptTokens).toBeGreaterThan(0)
       expect(arg.completionTokens).toBe(Math.ceil('无 usage 的摘要'.length / 2))
       expect(arg.totalTokens).toBe(arg.promptTokens + arg.completionTokens)
+    } finally {
+      restore()
+    }
+  })
+})
+
+describe('POST /api/chat/compact — API 端手动压缩上下文', () => {
+  const CONV_ID = 'conv-compact-0001'
+  const USER_ID = '00000000-0000-4000-8000-000000000001'
+  const server = Fastify({ logger: false })
+
+  beforeAll(async () => {
+    await server.register(chatRoutes, { prefix: '/api/chat' })
+    await server.ready()
+  })
+
+  afterAll(async () => {
+    await server.close()
+  })
+
+  /** 构造 12 条长中文消息(> keepRecent=6,toCompress 为前 6 条;tokens 充足覆盖伪造 limit 的 ceil 分支) */
+  function buildLongRows() {
+    return Array.from({ length: 12 }, (_, i) => ({
+      id: `msg-${i + 1}`,
+      conversationId: CONV_ID,
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `这是第 ${i + 1} 条历史消息,围绕上下文压缩功能展开讨论并记录关键决策与未完成事项。`.repeat(
+        8,
+      ),
+    }))
+  }
+
+  /** mock ai-service 摘要接口:返回固定正文,返回恢复函数 */
+  function mockSummaryFetch(content: string) {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        json: async () => ({ content, stub: false }),
+      }) as unknown as typeof globalThis.fetch
+    return () => {
+      globalThis.fetch = originalFetch
+    }
+  }
+
+  beforeEach(() => {
+    mockUser()
+    vi.mocked(findConversationById).mockReset()
+    vi.mocked(findConversationById).mockResolvedValue({
+      id: CONV_ID,
+      userId: USER_ID,
+      model: 'test-model',
+    })
+    vi.mocked(findMessagesForExport).mockReset()
+    vi.mocked(findMessagesForExport).mockResolvedValue([])
+    vi.mocked(replaceMessages).mockReset()
+    vi.mocked(replaceMessages).mockResolvedValue(undefined)
+    __clearSemanticSummaryCacheForTests()
+    // 默认:压缩器不压缩(个别用例自行覆盖返回值/切换真实实现)
+    mockCompressContextIfNeeded.mockReset()
+    mockCompressContextIfNeeded.mockImplementation(() => ({
+      compressed: false,
+      messages: [],
+      originalTokens: 0,
+      compressedTokens: 0,
+      removedCount: 0,
+      trigger: 'none',
+    }))
+  })
+
+  it('too_few_messages:消息 < 3 条 → 200 + reason(不报错),不进压缩器不持久化', async () => {
+    vi.mocked(findMessagesForExport).mockResolvedValue([
+      { id: 'm1', role: 'user', content: '你好' },
+      { id: 'm2', role: 'assistant', content: '你好,有什么可以帮你?' },
+    ])
+    const res = await server.inject({
+      method: 'POST',
+      url: '/api/chat/compact',
+      headers: { authorization: USER_TOKEN },
+      body: { conversationId: CONV_ID },
+    })
+    expect(res.statusCode).toBe(200)
+    const data = res.json().data
+    expect(data.compressed).toBe(false)
+    expect(data.reason).toBe('too_few_messages')
+    expect(typeof data.originalTokens).toBe('number')
+    expect(data.compressedTokens).toBe(data.originalTokens)
+    expect(data.removedCount).toBe(0)
+    expect(mockCompressContextIfNeeded).not.toHaveBeenCalled()
+    expect(vi.mocked(replaceMessages)).not.toHaveBeenCalled()
+  })
+
+  it('压缩成功:完整管线(LLM 摘要 → 压缩器 → replaceMessages 持久化),伪造 contextLimit 按公式计算', async () => {
+    const rows = buildLongRows()
+    vi.mocked(findMessagesForExport).mockResolvedValue(rows)
+    const compressedMessages: ChatMessage[] = [
+      { role: 'user', content: '[上下文摘要 — 之前 6 条消息已压缩]\n手动压缩语义摘要' },
+      ...rows.slice(6).map((m) => ({ role: m.role as ChatMessage['role'], content: m.content })),
+    ]
+    mockCompressContextIfNeeded.mockImplementation(() => ({
+      compressed: true,
+      messages: compressedMessages,
+      originalTokens: 1000,
+      compressedTokens: 690,
+      removedCount: 6,
+      trigger: 'ratio',
+      usageRatio: 0.87,
+    }))
+    const restore = mockSummaryFetch('手动压缩语义摘要')
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/chat/compact',
+        headers: { authorization: USER_TOKEN },
+        body: { conversationId: CONV_ID },
+      })
+      expect(res.statusCode).toBe(200)
+      const data = res.json().data
+      expect(data).toEqual({
+        compressed: true,
+        originalTokens: 1000,
+        compressedTokens: 690,
+        removedCount: 6,
+        trigger: 'ratio',
+      })
+      // 手动压缩语义(CLI /compact 同构):contextLimit = max(2000, ceil(tokens / 0.87)),triggerRatio 固定 0.87
+      expect(mockCompressContextIfNeeded).toHaveBeenCalledTimes(1)
+      const [msgs, opts] = mockCompressContextIfNeeded.mock.calls[0]!
+      expect(opts.contextLimit).toBe(
+        Math.max(2000, Math.ceil(estimateMessagesTokens(msgs) / 0.87)),
+      )
+      expect(opts.triggerRatio).toBe(0.87)
+      // LLM 语义摘要透传给压缩器(缓存未命中 → 实时生成)
+      expect(opts.customSummary).toBe('手动压缩语义摘要')
+      // 压缩结果原子性持久化(replaceMessages);归档走旁路(db mock 失败仅 console.warn 不阻塞)
+      expect(vi.mocked(replaceMessages)).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(replaceMessages)).toHaveBeenCalledWith(CONV_ID, compressedMessages)
+    } finally {
+      restore()
+    }
+  })
+
+  it('incompressible:压缩器判定压不动 → 200 + reason,compressedTokens=originalTokens 且不持久化', async () => {
+    vi.mocked(findMessagesForExport).mockResolvedValue(buildLongRows())
+    mockCompressContextIfNeeded.mockImplementation(() => ({
+      compressed: false,
+      messages: [],
+      originalTokens: 5000,
+      compressedTokens: 5000,
+      removedCount: 0,
+      trigger: 'incompressible',
+    }))
+    const restore = mockSummaryFetch('降级摘要')
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/chat/compact',
+        headers: { authorization: USER_TOKEN },
+        body: { conversationId: CONV_ID },
+      })
+      expect(res.statusCode).toBe(200)
+      const data = res.json().data
+      expect(data.compressed).toBe(false)
+      expect(data.reason).toBe('incompressible')
+      expect(data.originalTokens).toBe(5000)
+      expect(data.compressedTokens).toBe(5000)
+      expect(data.trigger).toBe('incompressible')
+      expect(mockCompressContextIfNeeded).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(replaceMessages)).not.toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  it('404:会话不存在 / 非本人会话一律 404(不泄露存在性),不进压缩器', async () => {
+    // ① 会话不存在
+    vi.mocked(findConversationById).mockResolvedValue(undefined)
+    const resMissing = await server.inject({
+      method: 'POST',
+      url: '/api/chat/compact',
+      headers: { authorization: USER_TOKEN },
+      body: { conversationId: 'conv-missing' },
+    })
+    expect(resMissing.statusCode).toBe(404)
+    expect(resMissing.json().message).toBe('对话不存在或无权限')
+    // ② 会话存在但属于他人
+    vi.mocked(findConversationById).mockResolvedValue({
+      id: CONV_ID,
+      userId: 'someone-else-user',
+      model: null,
+    })
+    const resForbidden = await server.inject({
+      method: 'POST',
+      url: '/api/chat/compact',
+      headers: { authorization: USER_TOKEN },
+      body: { conversationId: CONV_ID },
+    })
+    expect(resForbidden.statusCode).toBe(404)
+    expect(mockCompressContextIfNeeded).not.toHaveBeenCalled()
+    expect(vi.mocked(replaceMessages)).not.toHaveBeenCalled()
+  })
+
+  it('真实压缩管线冒烟:切换真实 compressContextIfNeeded,伪造阈值使触发检查自然通过(必然压缩)', async () => {
+    vi.mocked(findMessagesForExport).mockResolvedValue(buildLongRows())
+    // 切换到真实实现,验证 max(2000, ceil(tokens/0.87)) + triggerRatio 0.87 的触发数学真正生效
+    mockCompressContextIfNeeded.mockImplementation(
+      (messages: ChatMessage[], opts: Record<string, unknown>) =>
+        realCompactionRef.current!(messages, opts),
+    )
+    const restore = mockSummaryFetch('真实管线冒烟摘要')
+    try {
+      const res = await server.inject({
+        method: 'POST',
+        url: '/api/chat/compact',
+        headers: { authorization: USER_TOKEN },
+        body: { conversationId: CONV_ID },
+      })
+      expect(res.statusCode).toBe(200)
+      const data = res.json().data
+      // 无视 88% 自动阈值:手动压缩必然压缩成功(trigger=ratio,tokens 显著下降)
+      expect(data.compressed).toBe(true)
+      expect(data.trigger).toBe('ratio')
+      expect(data.originalTokens).toBeGreaterThan(data.compressedTokens)
+      expect(data.removedCount).toBeGreaterThan(0)
+      // 压缩结果持久化:消息数变少(摘要 + 保留的最近消息)
+      expect(vi.mocked(replaceMessages)).toHaveBeenCalledTimes(1)
+      const persisted = vi.mocked(replaceMessages).mock.calls[0]![1] as ChatMessage[]
+      expect(persisted.length).toBeLessThan(12)
     } finally {
       restore()
     }
