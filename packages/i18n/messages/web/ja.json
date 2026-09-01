@@ -6701,7 +6701,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6718,7 +6723,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8066,12 +8076,8 @@
     "modelTagOfficial": "正式版",
     "modelTagSubsidy": "専用補助金",
     "permission": {
-      "autoRevertIn": "{time} 後に毎回確認へ自動切替",
-      "autoRevertedDescWithDuration": "完全アクセスは {usedMin} 分間継続し、自動的にリクエスト承認へ降格しました。再度有効化するには Shift+Tab または権限ボタンをクリックしてください。",
-      "autoRevertedTitle": "毎回確認へ自動切替しました",
       "buttonHintShortcut": "Shift+Tab で切替",
       "buttonLabel": "承認モード",
-      "cancelAutoRevert": "自動切替をキャンセル",
       "contextMenu": {
         "copyMarkdown": "Markdownをコピー",
         "copyText": "テキストをコピー",
@@ -8103,7 +8109,6 @@
         "rmRrfRoot": "ルート/ホームディレクトリを再帰削除",
         "sudoAny": "任意の sudo 操作"
       },
-      "extendOneHour": "1時間延長",
       "fallbackNotice": "プライマリモデル {primary} は利用できません。{fallback} に自動切り替えしました",
       "firstTimeConfirmAcknowledge": "上記リスクを理解した上で続行",
       "firstTimeConfirmBullet1": "AI は操作ごとに確認なしで全てのアクションを実行可能",
@@ -8129,9 +8134,6 @@
       },
       "historyStatsTitle": "累計統計",
       "historyTitle": "権限モード履歴",
-      "infoButtonLabel": "モード詳細を見る",
-      "infoButtonTitle": "現在のモードの詳細動作",
-      "infoModalDescription": "現在のモードの行動とリスクレベル",
       "infoModalTitle": "現在の権限モード詳細",
       "inputWarning": "現在完全アクセスモード:AI は確認なしでファイルとネットワークに制限なくアクセスできます",
       "jumpToLatest": "最新へ移動",
@@ -8172,7 +8174,6 @@
       "popoverHintNoWorkspace": "ワークスペースが未連携です — 連携時に選択が有効になります",
       "popoverTitle": "AI の操作をどのように承認しますか?",
       "quickFullAccess": "完全アクセス",
-      "reEnableAutoRevert": "1 時間自動切替を再有効化",
       "resetSuppressedButton": "高リスク警告を再有効化",
       "resetSuppressedConfirmDesc": "次回完全アクセスに切り替える際、確認ダイアログが再度表示されます。",
       "resetSuppressedConfirmTitle": "高リスク警告を再有効化しますか?",
@@ -8184,13 +8185,10 @@
       "revertWarning5minTitle": "完全アクセスモードはまもなく自動降格します",
       "search": "検索",
       "shortcutsClose": "了解",
-      "shortcutsItemAutoRevert1hKbd": "1時間操作なしで毎回確認に自動切替",
-      "shortcutsItemCancelAutoKbd": "バナーの「自動切替取消」で完全アクセスを維持",
       "shortcutsItemChatModeDesc": "ビルド/計画/レビュー/スペック 4種のチャットモードを切替",
       "shortcutsItemDangerousKbd": "高リスクモードで危険コマンド検出時に再確認",
       "shortcutsItemExtendKbd": "切替トーストに「1時間延長」ボタン",
       "shortcutsItemHistoryKbd": "ポップオーバー下部の「履歴」ボタンで最近の切替を確認",
-      "shortcutsItemInfoKbd": "このモードの 4 つの詳細行動を表示",
       "shortcutsItemModeBuildKbd": "ビルドモードに切替(正常実行、全ツール有効)",
       "shortcutsItemModeCmdHint": "/build /plan /review /spec スラッシュコマンドでも切替可能",
       "shortcutsItemModePlanKbd": "計画モードに切替(読取専用分析、write ツール拒否)",
@@ -8224,7 +8222,6 @@
       "switchedToModeFull": "完全アクセスモードに切替",
       "timelineAiReply": "AI返信",
       "timelineUserMessage": "ユーザーメッセージ",
-      "titleBarAutoRevert": "⏱ {time} 後に自動ダウングレード",
       "toast": {
         "copiedMarkdown": "Markdownをコピーしました",
         "copiedText": "クリップボードにコピーしました",
@@ -8547,7 +8544,9 @@
     "voiceInputNativeFallback": "ブラウザの音声サービスを利用できません。ローカル文字起こしに切り替えました。もう一度お試しください",
     "voiceInputError": "音声認識を利用できません。ネットワークを確認するか、Chrome/Edge をご利用ください",
     "voiceInputSttFailed": "文字起こしに失敗しました。後でもう一度お試しいただくか、ローカル音声サービスをご確認ください",
-    "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください"
+    "voiceInputEmpty": "音声が認識できませんでした。マイクに近づいてもう一度お試しください",
+    "voiceInputUnauthorized": "ログインの有効期限が切れました。ページを更新してもう一度お試しください",
+    "voiceInputNetworkError": "ネットワークエラーが発生しました。接続を確認してもう一度お試しください"
   },
   "chatHistory": {
     "backToHistory": "にる",
@@ -8683,32 +8682,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -10521,25 +10546,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10673,19 +10710,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -13126,7 +13175,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -18290,17 +18347,11 @@
   },
   "permission": {
     "inputWarning": "高リスク操作を検出しました。確認してから続行してください",
-    "autoRevertIn": "{time} 後に現在のモードへ自動復帰します",
-    "cancelAutoRevert": "自動復帰をキャンセル",
-    "reEnableAutoRevert": "自動復帰を再度有効化",
     "mode": {
       "full": "フル",
       "auto": "自動",
       "ask": "確認"
     },
-    "infoButtonTitle": "権限モードの説明を見る",
-    "infoButtonLabel": "権限モード情報",
-    "titleBarAutoRevert": "自動復帰：{time}",
     "dangerousCommandTitle": "危険なコマンドを検出しました",
     "dangerousCommandDesc": "危険なコマンド「{pattern}」を検出：{reason}。それでも続行しますか？",
     "dangerousCommandProceed": "それでも実行",
