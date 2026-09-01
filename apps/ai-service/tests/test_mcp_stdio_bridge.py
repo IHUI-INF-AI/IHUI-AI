@@ -291,6 +291,25 @@ async def test_call_failure_restart_recovery_fails(sdk_mock, clean_registry) -> 
     assert "重试仍失败" in result["error"]
 
 
+async def test_restart_keeps_registered_tools(sdk_mock, clean_registry) -> None:
+    """2026-09-02 回归:P2-1 卸载泄漏根因。
+
+    异常自愈重启后,新 handle 必须保留 registered_tools 名单,
+    否则卸载/停用时 remove_stdio_server 返回空名单 → _TOOLS 清不掉 → 工具泄漏。
+    """
+    sdk_mock.tools = _two_tools()
+    sdk_mock.call_config["fs_read_file"] = {"fail_once": True}
+    await mcp_stdio_bridge.add_stdio_server_tool("fs", "npx", [])
+    # 触发一次异常 → 自愈重启
+    await mcp_instance.call_tool("fs_read_file", {"path": "/tmp/a.txt"})
+    handle = mcp_stdio_bridge._STDIO_SERVERS["fs"]
+    assert sdk_mock.connects == 2  # 确认真的重启过
+    assert sorted(handle.registered_tools) == ["fs_read_file", "fs_write_file"]
+    # 卸载路径:remove 返回完整名单
+    tools = await mcp_stdio_bridge.remove_stdio_server("fs")
+    assert sorted(tools) == ["fs_read_file", "fs_write_file"]
+
+
 # ---------------------------------------------------------------------------
 # shutdown
 # ---------------------------------------------------------------------------
