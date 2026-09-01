@@ -22,10 +22,44 @@ const send = (socket: WebSocket, obj: unknown): void => {
 const DASHSCOPE_TTS =
   'https://dashscope.aliyuncs.com/api/v1/services/aigc/text2audio/audio-synthesis'
 
-/** 调用 DashScope CosyVoice 合成音频,返回二进制 Buffer. */
+/** 免费 TTS 的 DashScope voice → edge-tts voice 映射(未知 voice 用晓晓)。 */
+const FREE_TTS_VOICE_MAP: Record<string, string> = {
+  longxiaochun: 'zh-CN-XiaoxiaoNeural',
+  longxiaoxia: 'zh-CN-YunxiNeural',
+  longchuan: 'zh-CN-YunyangNeural',
+  aria: 'en-US-AriaNeural',
+  guy: 'en-US-GuyNeural',
+}
+
+/**
+ * TTS 合成(2026-09-01 免费化改造):免费 edge-tts 优先(经 ai-service /api/voice/tts,
+ * 零 key 零成本,用户决策),失败时降级 DashScope(需 DASHSCOPE_API_KEY 配置)。
+ */
 async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal): Promise<Buffer> {
+  // 1. 免费 TTS 优先(edge-tts,零 key)
+  try {
+    const aiBase = (process.env.AI_SERVICE_URL ?? 'http://localhost:8803').replace(/\/$/, '')
+    const freeVoice = FREE_TTS_VOICE_MAP[voice] ?? 'zh-CN-XiaoxiaoNeural'
+    const resp = await fetch(`${aiBase}/api/voice/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: freeVoice, rate: '+0%' }),
+      signal,
+    })
+    if (resp.ok) {
+      const ct = resp.headers.get('content-type') ?? ''
+      if (ct.includes('audio')) {
+        return Buffer.from(await resp.arrayBuffer())
+      }
+    }
+    // 免费 TTS 不可用(503/网络)→ 降级 DashScope
+  } catch {
+    // 网络/超时 → 降级 DashScope
+  }
+
+  // 2. DashScope fallback(需 DASHSCOPE_API_KEY)
   const apiKey = process.env.DASHSCOPE_API_KEY
-  if (!apiKey) throw new Error('DashScope 未配置')
+  if (!apiKey) throw new Error('DashScope 未配置(免费 TTS 亦不可用)')
   const resp = await fetch(DASHSCOPE_TTS, {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
