@@ -38,7 +38,7 @@ import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
-import { Tooltip } from '@/components/feedback'
+import { Tooltip, TooltipProvider } from '@/components/feedback'
 import { WorkspacePermissionDialog } from '@/components/workspace/workspace-permission-dialog'
 import { useChatStore, type ChatMessage } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
@@ -757,85 +757,87 @@ export function AISidePanel() {
   // 避免小屏上小浮窗遮挡内容且难以操作。
   if (floatMode && floatCollapsed) {
     return (
-      <>
-        {workspaceNameSync}
-        <div
-          data-testid="ai-panel-root"
-          className={cn(
-            'ai-panel-root fixed z-sticky',
-            isMobileSmall
-              ? 'inset-0' // 手机:全屏覆盖
-              : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
-          )}
-          style={
-            isMobileSmall
-              ? undefined
-              : floatPosition.x < 0
-                ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
-                : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
-          }
-        >
-          <aside
-            aria-label={tc('title')}
+      <TooltipProvider>
+        <>
+          {workspaceNameSync}
+          <div
+            data-testid="ai-panel-root"
             className={cn(
-              'flex flex-col overflow-hidden bg-shell-panel',
-              isMobileSmall ? 'h-full w-full' : 'rounded-xl',
+              'ai-panel-root fixed z-sticky',
+              isMobileSmall
+                ? 'inset-0' // 手机:全屏覆盖
+                : 'ai-float-glow rounded-xl', // 桌面/平板端:浮窗 + 品牌色光晕
             )}
+            style={
+              isMobileSmall
+                ? undefined
+                : floatPosition.x < 0
+                  ? { width, left: `${getDefaultFloatAnchor().left}px`, bottom: '16px' }
+                  : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+            }
           >
-            {/* 输入区(直接渲染 MessageInput,无 MessageList)
-                floatHeader = 浮窗按钮(展开/停靠/最小化),与 AgentProgressTrigger 同行渲染在输入卡片内 */}
-            <MessageInput
-              onSend={sendMessage}
-              onStop={stop}
-              isStreaming={isStreaming}
-              placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
-              sendLabel={t('send')}
-              stopLabel={t('stop')}
-              model={currentModel}
-              onModelChange={setModel}
-              modelLabel={t('model')}
-              onFloatDragStart={handleFloatDragStart}
-              onTriggerClick={() => setFloatCollapsed(false)}
-              floatHeader={
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setFloatCollapsed(false)}
-                    aria-label={tc('floatMode')}
-                    className="ml-auto inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                    <span>{tc('floatMode')}</span>
-                  </button>
-                  <Tooltip content={tc('dockPanel')}>
+            <aside
+              aria-label={tc('title')}
+              className={cn(
+                'flex flex-col overflow-hidden bg-shell-panel',
+                isMobileSmall ? 'h-full w-full' : 'rounded-xl',
+              )}
+            >
+              {/* 输入区(直接渲染 MessageInput,无 MessageList)
+                  floatHeader = 浮窗按钮(展开/停靠/最小化),并入输入卡片顶部工具栏右侧 */}
+              <MessageInput
+                onSend={sendMessage}
+                onStop={stop}
+                isStreaming={isStreaming}
+                placeholder={currentMode === 'plan' ? t('placeholderPlan') : t('placeholder')}
+                sendLabel={t('send')}
+                stopLabel={t('stop')}
+                model={currentModel}
+                onModelChange={setModel}
+                modelLabel={t('model')}
+                onFloatDragStart={handleFloatDragStart}
+                onTriggerClick={() => setFloatCollapsed(false)}
+                floatHeader={
+                  <>
                     <button
                       type="button"
-                      onClick={() => {
-                        setFloatMode(false)
-                        setFloatCollapsed(false)
-                      }}
-                      aria-label={tc('dockPanel')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => setFloatCollapsed(false)}
+                      aria-label={tc('floatMode')}
+                      className="ml-auto inline-flex items-center gap-1.5 rounded-md py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                     >
-                      <PanelLeft className="h-4 w-4" />
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      <span>{tc('floatMode')}</span>
                     </button>
-                  </Tooltip>
-                  <Tooltip content={tc('minimize')}>
-                    <button
-                      type="button"
-                      onClick={() => setFloatMinimized(true)}
-                      aria-label={tc('minimize')}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </button>
-                  </Tooltip>
-                </>
-              }
-            />
-          </aside>
-        </div>
-      </>
+                    <Tooltip content={tc('dockPanel')}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFloatMode(false)
+                          setFloatCollapsed(false)
+                        }}
+                        aria-label={tc('dockPanel')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <PanelLeft className="h-4 w-4" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip content={tc('minimize')}>
+                      <button
+                        type="button"
+                        onClick={() => setFloatMinimized(true)}
+                        aria-label={tc('minimize')}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </button>
+                    </Tooltip>
+                  </>
+                }
+              />
+            </aside>
+          </div>
+        </>
+      </TooltipProvider>
     )
   }
 
@@ -896,8 +898,9 @@ export function AISidePanel() {
   }
 
   return (
-    <>
-      {workspaceNameSync}
+    <TooltipProvider>
+      <>
+        {workspaceNameSync}
       <div
         // AI 面板容器(最外层,DevTools 可选中)
         // - docked 模式:relative + shrink-0 + py-2,flex 流内布局,mr-1.5 固定 6px 间距
@@ -1240,7 +1243,8 @@ export function AISidePanel() {
           </div>
         </div>
       </div>
-    </>
+      </>
+    </TooltipProvider>
   )
 }
 
