@@ -4276,6 +4276,31 @@ _TOOL_HANDLERS: dict[str, Any] = {
 }
 
 
+def register_external_tool(tool: MCPTool, handler: Any) -> bool:
+    """注册外部 MCP 工具(2026-09-01 立,stdio bridge 注入外部 server 工具用)。
+
+    自研工具注册表(_TOOLS + _TOOL_HANDLERS)是唯一权威工具来源,LLM tool schema、
+    mcp_official 协议层、agent loop 均从这里读取。外部 stdio MCP server 发现工具后,
+    通过本函数把远程工具包装成内部 MCPTool + 转发 handler 注入注册表,复用既有
+    权限矩阵与调用链,LLM 无需感知工具是本地实现还是外部子进程。
+
+    幂等:同名工具已注册(handler 已存在)时返回 False 且不覆盖,防止多个 stdio
+    server 或本地工具被外部工具同名覆盖。
+
+    Args:
+        tool: 待注册的 MCPTool(名称/描述/input_schema 来自外部 server 的 list_tools)
+        handler: async (arguments: dict) -> dict 转发 handler,与本地工具 handler 同签名
+
+    Returns:
+        True=注册成功;False=同名工具已存在,跳过
+    """
+    if tool.name in _TOOL_HANDLERS:
+        return False
+    _TOOLS.append(tool)
+    _TOOL_HANDLERS[tool.name] = handler
+    return True
+
+
 # ---------------------------------------------------------------------------
 # 资源(3 个)
 # ---------------------------------------------------------------------------

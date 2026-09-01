@@ -6651,6 +6651,7 @@
     },
     "toolCall": {
       "chartGenerated": "图表已生成",
+      "chartPreviewFailed": "图表预览加载失败,请复制路径后在本机浏览器打开。",
       "chartPreviewHint": "本地图表文件无法在网页内直接预览,请复制路径后在本机浏览器打开。",
       "citationsTitle": "引用来源",
       "copyPath": "复制路径",
@@ -7949,7 +7950,13 @@
       "viewArchived": "查看已压缩的 {count} 条原始消息",
       "archiveTitle": "压缩归档 · 原始消息",
       "archiveEmpty": "暂无压缩归档",
-      "archiveLoading": "加载中..."
+      "archiveLoading": "加载中...",
+      "compactButton": "压缩上下文",
+      "compacting": "正在压缩上下文...",
+      "compactSuccess": "上下文已压缩: {before} → {after} tokens(节省 {saved})",
+      "compactTooFew": "对话消息太少,无需压缩",
+      "compactIncompressible": "当前上下文已无可压缩空间",
+      "compactFailed": "压缩失败"
     },
     "contextCompacted": "上下文已自动压缩",
     "contextCompactedDesc": "{before} → {after}(移除 {removed} 条历史)",
@@ -20081,5 +20088,11 @@
     "submit": "发布",
     "success": "发布成功",
     "failed": "发布失败"
+  },
+  "memory": {
+    "autoMemory": "自动记忆",
+    "autoMemoryDesc": "开启后，AI 会在对话后自动提炼要点并沉淀为长期记忆，用于后续个性化回复。",
+    "autoMemorySaveSuccess": "设置已保存",
+    "autoMemorySaveFailed": "保存失败，请重试"
   }
 }
