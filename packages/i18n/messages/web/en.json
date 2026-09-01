@@ -6651,6 +6651,7 @@
     },
     "toolCall": {
       "chartGenerated": "Chart generated",
+      "chartPreviewFailed": "Chart preview failed. Copy the path and open it in your local browser.",
       "chartPreviewHint": "The local chart file cannot be previewed directly in the web page. Copy the path and open it in your local browser.",
       "citationsTitle": "Citation sources",
       "copyPath": "Copy path",
@@ -7959,7 +7960,13 @@
       "viewArchived": "View {count} original messages before compaction",
       "archiveTitle": "Compaction Archive · Original Messages",
       "archiveEmpty": "No compaction archives yet",
-      "archiveLoading": "Loading..."
+      "archiveLoading": "Loading...",
+      "compactButton": "Compact context",
+      "compacting": "Compacting context...",
+      "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
+      "compactTooFew": "Too few messages to compact",
+      "compactIncompressible": "Nothing left to compact in this context",
+      "compactFailed": "Compaction failed"
     },
     "contextCompacted": "Context auto-compacted",
     "contextCompactedDesc": "{before} → {after} ({removed} history entries removed)",
@@ -20114,5 +20121,11 @@
     "submit": "Publish",
     "success": "Published",
     "failed": "Publish failed"
+  },
+  "memory": {
+    "autoMemory": "Auto Memory",
+    "autoMemoryDesc": "When enabled, the AI automatically distills key points from conversations into long-term memory for personalized replies.",
+    "autoMemorySaveSuccess": "Settings saved",
+    "autoMemorySaveFailed": "Failed to save, please retry"
   }
 }
