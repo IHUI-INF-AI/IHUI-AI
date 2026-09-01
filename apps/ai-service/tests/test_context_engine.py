@@ -296,7 +296,9 @@ class TestCompact:
             result = await engine.compact(long_messages, context_limit=1000)
         summary_msg = result.messages[0]
         assert summary_msg["role"] == "system"
-        assert "[上下文摘要]" in summary_msg["content"]
+        # 标记行与共享包防嵌套格式逐字节一致: [上下文摘要 — 之前 N 条消息已压缩]
+        assert "[上下文摘要 — 之前" in summary_msg["content"]
+        assert "已压缩]" in summary_msg["content"]
         assert "ABC" in summary_msg["content"]
         # 摘要消息含原消息数
         assert str(len(long_messages) - KEEP_RECENT_COUNT) in summary_msg["content"]

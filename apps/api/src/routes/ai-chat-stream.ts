@@ -358,16 +358,38 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才取(88% 阈值与共享包
         // DEFAULT_TRIGGER_RATIO 对齐)。优先命中 70% 阶段预生成的缓存(零延迟),
         // 未命中再实时生成(3 秒超时/失败/stub 一律 null → 静默降级规则摘要)。
-        const customSummary =
-          tokensBeforeCompress >= triggerThreshold
-            ? (getCachedSemanticSummary(metadata?.conversationId, messages) ??
-              (await generateSemanticSummary(
-                request,
-                messages,
-                resolvedModel,
-                metadata?.conversationId,
-              )))
-            : null
+        // 三态观测统一前缀 [SemanticSummary] 便于 grep:cache hit(缓存命中) /
+        // generated(实时生成成功) / degraded(实时生成失败,走共享包规则摘要)。
+        let customSummary: string | null = null
+        if (tokensBeforeCompress >= triggerThreshold) {
+          const conversationTail = metadata?.conversationId?.slice(-4)
+          customSummary = getCachedSemanticSummary(metadata?.conversationId, messages)
+          if (customSummary !== null) {
+            console.warn('[SemanticSummary] cache hit:', {
+              conversationTail,
+              summaryLength: customSummary.length,
+            })
+          } else {
+            customSummary = await generateSemanticSummary(
+              request,
+              messages,
+              resolvedModel,
+              metadata?.conversationId,
+            )
+            if (customSummary !== null) {
+              console.warn('[SemanticSummary] generated:', {
+                conversationTail,
+                summaryLength: customSummary.length,
+                model: resolvedModel,
+              })
+            } else {
+              console.warn('[SemanticSummary] degraded:', {
+                conversationTail,
+                model: resolvedModel,
+              })
+            }
+          }
+        }
         const result = compressContextIfNeeded(messages, {
           contextLimit,
           customSummary: customSummary ?? undefined,
@@ -570,17 +592,38 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         ) {
           void primeSemanticSummary(request, messages, resolvedModel, conversationId)
         }
-        // LLM 语义摘要:与 /chat/stream 同一套逻辑(缓存优先→实时生成→失败静默降级)
-        const customSummary =
-          tokensBeforeCompress >= triggerThreshold
-            ? (getCachedSemanticSummary(conversationId, messages) ??
-              (await generateSemanticSummary(
-                request,
-                messages,
-                resolvedModel,
-                conversationId,
-              )))
-            : null
+        // LLM 语义摘要:与 /chat/stream 同一套逻辑(缓存优先→实时生成→失败静默降级),
+        // 三态观测统一前缀 [SemanticSummary]:cache hit / generated / degraded。
+        let customSummary: string | null = null
+        if (tokensBeforeCompress >= triggerThreshold) {
+          const conversationTail = conversationId?.slice(-4)
+          customSummary = getCachedSemanticSummary(conversationId, messages)
+          if (customSummary !== null) {
+            console.warn('[SemanticSummary] cache hit:', {
+              conversationTail,
+              summaryLength: customSummary.length,
+            })
+          } else {
+            customSummary = await generateSemanticSummary(
+              request,
+              messages,
+              resolvedModel,
+              conversationId,
+            )
+            if (customSummary !== null) {
+              console.warn('[SemanticSummary] generated:', {
+                conversationTail,
+                summaryLength: customSummary.length,
+                model: resolvedModel,
+              })
+            } else {
+              console.warn('[SemanticSummary] degraded:', {
+                conversationTail,
+                model: resolvedModel,
+              })
+            }
+          }
+        }
         const result = compressContextIfNeeded(messages, {
           contextLimit,
           customSummary: customSummary ?? undefined,
