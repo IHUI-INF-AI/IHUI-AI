@@ -49,7 +49,10 @@ function excludeRuntimeRoutes() {
   }
   mkdirSync(stashDir, { recursive: true })
   for (const name of RUNTIME_ONLY_ROUTE_DIRS) {
-    moveDir(path.join(appDir, name), path.join(stashDir, name))
+    const active = path.join(appDir, name)
+    // 目录不存在则跳过(如路由被移除);缺失时 cpSync 会抛 ENOENT 导致 CI 构建全挂(2026-09-01 事故)
+    if (!existsSync(active)) continue
+    moveDir(active, path.join(stashDir, name))
   }
 }
 
