@@ -81,6 +81,18 @@
 
 ---
 
+## [0.1.15] — 2026-09-01
+
+桌面端安装包修复版(触发方式:tag `desktop-v0.1.15`)。
+
+### Fixed
+
+- **自动更新一直转圈**:根因为更新检查 `check()` 无超时,国内网络下 GitHub → Azure CDN 链路 TCP 黑洞导致永久挂起。修复为双保险:① `tauri-bridge.ts` 检查 15s 超时兜底(超时按检查失败处理);② `use-updater.ts` checking 状态 20s 超时强制转错误;③ 超时文案映射为"检查失败"提示(`apps/web/src/lib/tauri-bridge.ts` / `apps/web/src/hooks/use-updater.ts` / `apps/web/src/components/common/UpdatePrompt.tsx`)
+- **初始窗口过窄**:默认窗口 1200×780 → 1400×900、最小 1024×680 → 1100×720;新增 `clamp_window_size()`(下限=配置最小值,上限=屏幕可用区 92%)+ `adapt_window_to_screen()`(无持久化记录时按屏幕自适应),`restore_window_state` 恢复前先 clamp 旧尺寸(`apps/desktop/src-tauri/tauri.conf.json` / `apps/desktop/src-tauri/src/lib.rs`)
+- **界面语言实证**:静态导出产物 `out/agents.html` 5 项验证全通过(`<html lang="zh-CN">` + 中文文案 + 无英文 UI 残留 + localStorage 默认语言非 en),英文界面判定为旧安装包/WebView2 缓存或手动切换语言所致,非代码缺陷
+
+---
+
 ## [0.1.0] — 2026-07-15
 
 新架构首个里程碑版本:Fastify + Next.js + FastAPI 三端落地。
