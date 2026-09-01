@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Code, MessageCircle, Star } from 'lucide-react'
+import { Code, Globe, MessageCircle, Star } from 'lucide-react'
 
 /**
  * GitHub Star 引导 banner
@@ -42,6 +42,15 @@ export function GithubStarBanner(): React.JSX.Element {
       >
         <Star className="h-3.5 w-3.5" />
         <span>支持 awesome PR</span>
+      </Link>
+      <Link
+        href="https://aizhs.top"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group inline-flex items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5"
+      >
+        <Globe className="h-3.5 w-3.5" />
+        <span>在线体验</span>
       </Link>
     </div>
   )

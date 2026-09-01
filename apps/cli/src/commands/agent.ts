@@ -1207,12 +1207,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // P1-2 Reminders:工具结果后自动注入系统提醒(context budget / iteration progress)
       // 灵感来源:参考行业 Agent 框架的 reminders 设计,让 LLM 被动接收关键状态信息
+      // 默认 128K:与 @ihui/api-client DEFAULT_CONTEXT_CAPACITY 跨端一致,旧值 8000 会在 ~7k token 就触发 88% 自动压缩
       const reminders = generateReminders({
         iterations,
         maxIterations: opts.maxIterations,
         totalPromptTokens,
         totalCompletionTokens,
-        contextLimit: opts.contextLimit ?? 8000,
+        contextLimit: opts.contextLimit ?? 128_000,
         injected: reminderInjected,
       });
       for (const r of reminders) {

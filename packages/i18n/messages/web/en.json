@@ -6880,7 +6880,8 @@
       "pinFailed": "Pin operation failed"
     },
     "today": "Today",
-    "toggleWorkPanel": "Toggle Work Panel"
+    "openWorkPanel": "Open Work Panel",
+    "closeWorkPanel": "Close Work Panel"
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
