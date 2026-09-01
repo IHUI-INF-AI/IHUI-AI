@@ -13,6 +13,10 @@
  *   - DEFAULT_TARGET_RATIO = 0.6(压缩到 60% 留出空间继续对话)
  *   - CONTEXT_BUDGET_THRESHOLD = 0.7(70% 提醒阈值,与压缩互补)
  *
+ * 分层金字塔摘要:摘要按时间距离分层 —— 最后 ceil(N * 0.3) 条(至少 1 条)为近层
+ * (保留原文前 200 chars),其余为远层(浓缩:tool result 前 120 chars / 规则摘要),
+ * 同样 token 预算下信息保留度显著更高(SUMMARY_TIER_RECENT_RATIO 等常量)。
+ *
  * 灵感来源:参考行业 Agent 框架的上下文管理机制,统一所有端的行为。
  */
 
@@ -57,6 +61,15 @@ export const TRUNCATION_MARKER = '…[已截断]'
 export const MAX_TRUNCATE_ATTEMPTS = 8
 /** 摘要消息内容前缀标记(防嵌套检测:后续压缩识别到该前缀时合并重写而非再摘要) */
 export const SUMMARY_MARKER = '[上下文摘要'
+
+// 分层金字塔摘要常量:按时间距离分层 —— 越近的保留越多细节,越远的越浓缩,
+// 同样 token 预算下信息保留度显著更高(与 ai-service Python 端逐语义一致)
+/** 近层占比:toCompress 非历史摘要消息中最后 ceil(N * ratio) 条(至少 1 条)为近层 */
+export const SUMMARY_TIER_RECENT_RATIO = 0.3
+/** 近层消息保留的字符数(user/assistant 直截 + tool result) */
+export const SUMMARY_RECENT_CHARS = 200
+/** 远层消息保留的字符数(tool result 截断 + user/assistant 规则摘要行总长上限) */
+export const SUMMARY_REMOTE_CHARS = 120
 
 // ==================== Token 估算 ====================
 
@@ -190,14 +203,30 @@ const SUMMARY_COVERED_REGEX = /之前 (\d+) 条消息已压缩/
 /**
  * 构建摘要消息(role='user',content 以 SUMMARY_MARKER 标记行开头)。
  *
- * 防嵌套:toCompress 中的历史摘要消息(SUMMARY_MARKER 开头)不套 summarizeMessage,
+ * 分层金字塔摘要:对 toCompress 中的"非历史摘要"消息按位置分层 ——
+ * 最后 ceil(N * SUMMARY_TIER_RECENT_RATIO) 条(至少 1 条)为近层,其余为远层
+ * (N 为非历史摘要消息条数)。近层保留原文细节(前 SUMMARY_RECENT_CHARS chars 直截),
+ * 远层浓缩(tool result 前 SUMMARY_REMOTE_CHARS chars / user+assistant 规则摘要),
+ * 同样 token 预算下信息保留度更高。层级只影响保留量,摘要行输出格式无层级标记。
+ *
+ * 防嵌套:toCompress 中的历史摘要消息(SUMMARY_MARKER 开头)不套摘要逻辑,
  * 而是解析其覆盖条数并把标记行之后的正文原样并入新摘要 —— 多轮压缩后摘要始终保持
  * "一层扁平结构",信息不逐轮衰减。
  * 标记行条数 = toCompress 中非摘要消息条数 + 所有旧摘要覆盖条数之和。
  *
- * @param customSummary 外部预生成的摘要正文(可选):非空时替代规则摘要正文,标记行仍自动生成
+ * @param customSummary 外部预生成的摘要正文(可选):非空时优先级最高,整段替代规则摘要
+ * 正文(LLM 已做语义浓缩,不再分层),标记行仍自动生成
  */
 function buildSummaryMessage(toCompress: ChatMessage[], customSummary?: string): ChatMessage {
+  // 预统计非历史摘要消息条数,确定近层边界(最后 ceil(N * ratio) 条,至少 1 条)
+  let nonSummaryTotal = 0
+  for (const msg of toCompress) {
+    if (msg.role === 'user' && msg.content.startsWith(SUMMARY_MARKER)) continue
+    nonSummaryTotal++
+  }
+  const recentCount = Math.max(1, Math.ceil(nonSummaryTotal * SUMMARY_TIER_RECENT_RATIO))
+  const recentFrom = nonSummaryTotal - recentCount
+
   let coveredFromOld = 0
   let nonSummaryCount = 0
   const bodyParts: string[] = []
@@ -213,8 +242,9 @@ function buildSummaryMessage(toCompress: ChatMessage[], customSummary?: string):
       }
       continue
     }
+    // 分层金字塔:按非摘要消息序号判层(近层保留原文细节,远层规则摘要浓缩)
+    bodyParts.push(summarizeAtTier(msg, nonSummaryCount >= recentFrom))
     nonSummaryCount++
-    bodyParts.push(summarizeMessage(msg))
   }
   const body =
     customSummary !== undefined && customSummary.length > 0
@@ -224,6 +254,27 @@ function buildSummaryMessage(toCompress: ChatMessage[], customSummary?: string):
     role: 'user',
     content: `[上下文摘要 — 之前 ${nonSummaryCount + coveredFromOld} 条消息已压缩]\n${body}`,
   }
+}
+
+/**
+ * 按层级生成单条消息的摘要行(分层金字塔,与 Python 端 _build_structured_summary 逐语义一致)。
+ *
+ * - 近层 tool result / user / assistant:role 标签 + content 前 SUMMARY_RECENT_CHARS chars
+ *   直截(超长加 '…',不足则全保留,无信息丢弃)
+ * - 远层 tool result:前 SUMMARY_REMOTE_CHARS chars(原 '[tool] content…' 格式)
+ * - 远层 user / assistant:summarizeMessage 规则摘要(工具调用名/代码块语言/首句,~27 tokens)
+ */
+function summarizeAtTier(msg: ChatMessage, isRecent: boolean): string {
+  const content = msg.content
+  if (!content) return `[${msg.role}] (空)`
+  if (msg.role === 'tool') {
+    const keep = isRecent ? SUMMARY_RECENT_CHARS : SUMMARY_REMOTE_CHARS
+    return content.length > keep ? `[tool] ${content.slice(0, keep)}…` : `[tool] ${content}`
+  }
+  if (!isRecent) return summarizeMessage(msg)
+  return content.length > SUMMARY_RECENT_CHARS
+    ? `[${msg.role}] ${content.slice(0, SUMMARY_RECENT_CHARS)}…`
+    : `[${msg.role}] ${content}`
 }
 
 /**
@@ -314,7 +365,6 @@ function tryTruncateFallback(
 const TOOL_CALL_REGEX = /```tool_call\s*\n([\s\S]*?)```/g
 const TOOL_RESULT_REGEX = /\[工具结果\s*[✓✗]\]\s*(\S+)/g
 const CODE_BLOCK_REGEX = /```(\w+)?/g
-const MAX_SUMMARY_LEN = 160
 
 /**
  * 从单条消息内容提取结构化关键信息(智能摘要)。
@@ -322,19 +372,21 @@ const MAX_SUMMARY_LEN = 160
  * 替代 `msg.content.slice(0, 200)` 的粗暴截断,提取:
  *   - assistant:tool_call 名称列表 + 首句决策 + 代码块语言标识
  *   - user:tool_result 状态(✓/✗)+ 工具名 + 首句
- *   - tool:content 前 160 chars 原样保留(超长截断加省略号)
+ *   - tool:content 前 SUMMARY_REMOTE_CHARS chars 原样保留(超长截断加省略号)
  *   - 其他:首句
+ *
+ * 注:旧 MAX_SUMMARY_LEN(160)常量已统一收编到分层金字塔常量 SUMMARY_REMOTE_CHARS(120)。
  */
 export function summarizeMessage(msg: ChatMessage): string {
   const role = msg.role
   const content = msg.content
   if (!content) return `[${role}] (空)`
 
-  // tool 结果消息:保留 content 前 160 chars(压缩后摘要仍含工具结果要点,信息保留度优先),
-  // 超长截断加省略号,空内容才用纯占位
+  // tool 结果消息:保留 content 前 SUMMARY_REMOTE_CHARS chars(压缩后摘要仍含工具结果要点,
+  // 信息保留度优先),超长截断加省略号,空内容才用纯占位
   if (role === 'tool') {
-    return content.length > MAX_SUMMARY_LEN
-      ? `[tool] ${content.slice(0, MAX_SUMMARY_LEN)}…`
+    return content.length > SUMMARY_REMOTE_CHARS
+      ? `[tool] ${content.slice(0, SUMMARY_REMOTE_CHARS)}…`
       : `[tool] ${content}`
   }
 
@@ -394,8 +446,8 @@ export function summarizeMessage(msg: ChatMessage): string {
   }
 
   let summary = parts.join(' ')
-  if (summary.length > MAX_SUMMARY_LEN) {
-    summary = summary.slice(0, MAX_SUMMARY_LEN - 3) + '...'
+  if (summary.length > SUMMARY_REMOTE_CHARS) {
+    summary = summary.slice(0, SUMMARY_REMOTE_CHARS - 3) + '...'
   }
   return summary
 }
