@@ -198,6 +198,26 @@ describe('compressContextIfNeeded 集成 preCompact/postCompact', () => {
     expect(preIdx).toBeGreaterThanOrEqual(0);
     expect(postIdx).toBeGreaterThan(preIdx);
   });
+
+  it('防循环返回时仍补发 postCompact 钩子(incompressible 路径配对)', () => {
+    // 'y' BPE 实测 0.25 token/char:每条 32000 chars ≈ 8000 tokens,2 条非 system ≈ 16015
+    // contextLimit=9000 → trigger=7920;kr=1 最优候选 ≈8040 >= 7920 压不动 → incompressible
+    const longContent = 'y'.repeat(32000);
+    const messages: ChatMessage[] = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: longContent + '_u1' },
+      { role: 'assistant', content: longContent + '_a1' },
+    ];
+    const result = compressContextIfNeeded(messages, { contextLimit: 9000 });
+
+    expect(result.compressed).toBe(false);
+    expect(result.trigger).toBe('incompressible');
+    // preCompact 已触发,防循环返回也补发 postCompact(after=before),保持钩子配对语义
+    expect(fs.existsSync(markerPath)).toBe(true);
+    const content = fs.readFileSync(markerPath, 'utf-8');
+    expect(content).toContain('pre');
+    expect(content).toContain('post');
+  });
 });
 
 describe('HookContext 字段传递', () => {
