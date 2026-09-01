@@ -18,6 +18,7 @@
 import type { FastifyRequest } from 'fastify'
 import type { ChatMessage } from '@ihui/context-compaction'
 import { aiServiceFetch } from './ai-service-fetch.js'
+import { recordAiCost } from '../plugins/ai-cost.js'
 
 /** 与共享包 DEFAULT_KEEP_RECENT(6) 对齐:只摘要"除最近 6 条非 system 外"的消息 */
 const KEEP_RECENT = 6
@@ -36,6 +37,8 @@ const FALLBACK_MODEL = process.env.LITELLM_MODEL || 'stepfun/step-3.7-flash'
 // - 进程内 Map,上限 200 条,FIFO 淘汰,不做持久化(hash 不匹配自然失效,无需 TTL)
 const SUMMARY_CACHE_MAX = 200
 const summaryCache = new Map<string, string>()
+/** hit/miss 观测计数器:进程生命周期累计,不持久化(getCachedSemanticSummary 内部递增) */
+const summaryCacheStats = { hits: 0, misses: 0 }
 
 /** djb2 字符串哈希(零依赖,base36 输出):仅用作缓存 key 指纹,非加密用途 */
 function hashText(text: string): string {
@@ -127,6 +130,8 @@ export async function generateSemanticSummary(
         stub?: boolean
         error?: boolean
         error_message?: string
+        // 与 ai-service app/routers/llm.py / crew-llm-adapter 的 usage 结构一致(计费透传)
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
       }
       // stub 模式(未配置 LLM key)或上游报错:复用 batch-worker / callRealLlm 的 stub 判断,静默降级
       if (json.stub || json.error) {
@@ -136,8 +141,12 @@ export async function generateSemanticSummary(
         return null
       }
       const summary = (json.content ?? '').trim()
-      // 生成成功顺手写缓存:正常压缩路径的摘要供下次同会话复用(hash 不匹配则自然失效)
-      if (summary) writeSummaryCache(buildSummaryCacheKey(conversationId, conversationText), summary)
+      if (summary) {
+        // 生成成功顺手写缓存:正常压缩路径的摘要供下次同会话复用(hash 不匹配则自然失效)
+        writeSummaryCache(buildSummaryCacheKey(conversationId, conversationText), summary)
+        // 摘要 LLM 消耗计入配额:内部 try/catch,计费失败只 warn,绝不影响摘要主流程
+        await recordSummaryCost(request, model, json.usage, conversationText, summary)
+      }
       return summary || null
     } finally {
       clearTimeout(timer)
@@ -154,6 +163,41 @@ export async function generateSemanticSummary(
 }
 
 /**
+ * 摘要 LLM 消耗计入配额(与 crew-llm-adapter G7 同源 recordAiCost,闭合"摘要消耗未计入配额"缝隙):
+ * - userId 从 request.userId 取;request 为 null(后台任务路径)或无归属用户时跳过计费
+ * - tokens 优先透传上游 usage;缺失时按字符估算(摘要以中文为主,按 ~2 字符/token 粗估,仅供账单参考)
+ * - metadata 标注 source: 'semantic-summary',便于 admin 成本账单按来源区分
+ * - 任何失败只 console.warn,绝不影响摘要主流程
+ */
+async function recordSummaryCost(
+  request: FastifyRequest | null,
+  model: string | undefined,
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
+  promptText: string,
+  completionText: string,
+): Promise<void> {
+  const userId = request?.userId
+  if (!userId) return
+  const usedModel = model || FALLBACK_MODEL
+  const promptTokens = usage?.prompt_tokens ?? Math.ceil(promptText.length / 2)
+  const completionTokens = usage?.completion_tokens ?? Math.ceil(completionText.length / 2)
+  try {
+    await recordAiCost({
+      userId,
+      model: usedModel,
+      provider: usedModel.includes('/') ? usedModel.split('/')[0]! : 'unknown',
+      promptTokens,
+      completionTokens,
+      totalTokens: usage?.total_tokens ?? promptTokens + completionTokens,
+      requestType: 'semantic-summary',
+      metadata: JSON.stringify({ source: 'semantic-summary' }),
+    })
+  } catch (e) {
+    console.warn(`[SemanticSummary] recordAiCost failed: ${(e as Error)?.message ?? String(e)}`)
+  }
+}
+
+/**
  * 查询预压缩摘要缓存(88% 真正触发压缩时由路由层调用,直接命中则首 token 零额外延迟)。
  * @returns 命中返回摘要正文;未命中(未预生成/消息已变化/已被 FIFO 淘汰)返回 null
  */
@@ -163,7 +207,27 @@ export function getCachedSemanticSummary(
 ): string | null {
   const toCompressText = buildToCompressText(messages)
   if (!toCompressText) return null
-  return summaryCache.get(buildSummaryCacheKey(conversationId, toCompressText)) ?? null
+  const hit = summaryCache.get(buildSummaryCacheKey(conversationId, toCompressText)) ?? null
+  // hit/miss 观测:进程生命周期累计(消息不足未构成真实查询的不计数)
+  if (hit !== null) {
+    summaryCacheStats.hits++
+    console.warn('[SemanticSummary] cache hit:', {
+      conversationTail: conversationId?.slice(-4),
+      hash: hashText(toCompressText).slice(0, 6),
+    })
+  } else {
+    summaryCacheStats.misses++
+  }
+  return hit
+}
+
+/** 缓存观测统计(进程生命周期累计):size=当前缓存条数,hits/misses=getCachedSemanticSummary 命中/未命中次数 */
+export function getSemanticSummaryCacheStats(): { size: number; hits: number; misses: number } {
+  return {
+    size: summaryCache.size,
+    hits: summaryCacheStats.hits,
+    misses: summaryCacheStats.misses,
+  }
 }
 
 /**
