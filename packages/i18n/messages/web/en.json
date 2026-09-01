@@ -12949,7 +12949,22 @@
     "missingEnv": "Missing required env var: {env}",
     "error": "Registration failed, please try again later",
     "loadFailed": "Failed to load, please try again later",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "install": "Install",
+    "installing": "Installing...",
+    "uninstall": "Uninstall",
+    "enable": "Enable",
+    "disable": "Disable",
+    "running": "Running",
+    "stopped": "Stopped",
+    "notInstalled": "Not installed",
+    "statusError": "Error",
+    "toolCount": "{count} tools",
+    "uninstallSuccess": "{name} uninstalled",
+    "enableSuccess": "{name} enabled",
+    "disableSuccess": "{name} disabled",
+    "actionFailed": "Action failed, please try again later",
+    "lastErrorText": "Error: {error}"
   },
   "member": {
     "feedback": {
