@@ -12960,7 +12960,22 @@
     "missingEnv": "필수 환경 변수 누락: {env}",
     "error": "등록에 실패했습니다. 나중에 다시 시도하세요",
     "loadFailed": "불러오기 실패. 나중에 다시 시도하세요",
-    "loading": "불러오는 중..."
+    "loading": "불러오는 중...",
+    "install": "설치",
+    "installing": "설치 중...",
+    "uninstall": "제거",
+    "enable": "활성화",
+    "disable": "중지",
+    "running": "실행 중",
+    "stopped": "중지됨",
+    "notInstalled": "미설치",
+    "statusError": "오류",
+    "toolCount": "{count}개 도구",
+    "uninstallSuccess": "{name} 제거됨",
+    "enableSuccess": "{name} 활성화됨",
+    "disableSuccess": "{name} 중지됨",
+    "actionFailed": "작업 실패. 나중에 다시 시도하세요",
+    "lastErrorText": "오류: {error}"
   },
   "member": {
     "feedback": {
