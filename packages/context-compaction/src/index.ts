@@ -56,7 +56,14 @@ export interface CompressionResult {
   originalTokens: number
   compressedTokens: number
   removedCount: number
-  trigger?: 'ratio' | 'absolute' | 'none'
+  /**
+   * 压缩触发方式:
+   *   - 'ratio':百分比阈值触发并压缩成功
+   *   - 'absolute':绝对值阈值触发并压缩成功
+   *   - 'none':未达阈值,不压缩
+   *   - 'incompressible':已达触发阈值,但压缩后 token 仍 >= 触发阈值(压不动),返回原消息防循环
+   */
+  trigger?: 'ratio' | 'absolute' | 'none' | 'incompressible'
   usageRatio?: number
 }
 
@@ -273,6 +280,8 @@ export function compressContextIfNeeded(
 
   // 逐步减少 keepRecent,直到 compressedTokens < targetThreshold 或 keepRecent=1
   let bestResult: CompressionResult | null = null
+  // 未达标候选中 tokens 最小的方案(循环结束后若全部未达标,用它做防循环判断与最终结果)
+  let smallestCandidate: CompressionResult | null = null
   for (let kr = Math.min(keepRecent, nonSystem.length - 1); kr >= 1; kr--) {
     if (nonSystem.length <= kr) continue
     const toCompress = nonSystem.slice(0, nonSystem.length - kr)
@@ -301,9 +310,9 @@ export function compressContextIfNeeded(
       }
       break
     }
-    // 记录最后一个候选(即使超过 target,也比不压缩好)
-    if (!bestResult) {
-      bestResult = {
+    // 记录 tokens 最小的未达标候选(即使超过 target,也比不压缩好;取最小者压缩收益最大)
+    if (!smallestCandidate || candidateTokens < smallestCandidate.compressedTokens) {
+      smallestCandidate = {
         messages: candidate,
         compressed: true,
         originalTokens,
@@ -318,7 +327,7 @@ export function compressContextIfNeeded(
   // 2026-08-16 立:极端情况下(如 nonSystem.length < 2,或循环 0 次),
   // 强制把全部非系统消息压成单条 summary,确保即便消息极少也触发压缩。
   // 之前走兜底返回 compressed:false,导致 token 一直累积、永远不压缩。
-  if (!bestResult) {
+  if (!bestResult && !smallestCandidate) {
     // 2026-08-29 立:极端兜底分支会把全部消息(含末尾当前输入)摘要化,降级但内容部分保留。
     // 打 warning 便于线上观测该路径的实际触发频率,再决定是否额外保留末尾原始消息。
     console.warn(
@@ -332,7 +341,7 @@ export function compressContextIfNeeded(
     }
     const candidate = [...systemMsgs, summaryMsg]
     const candidateTokens = estimateMessagesTokens(candidate)
-    bestResult = {
+    smallestCandidate = {
       messages: candidate,
       compressed: true,
       originalTokens,
@@ -343,10 +352,42 @@ export function compressContextIfNeeded(
     }
   }
 
+  // 2026-09-01 立:防循环压缩保护 — 无达标方案时,若最优候选(压缩后 token 最小)仍 >= 触发阈值,
+  // 说明这批消息"压不动"(摘要化收益不足以降到 88% 以下)。此时若仍返回压缩结果,
+  // 下一轮会再次触发压缩并对摘要再摘要,导致信息每轮退化 + 每轮必压缩的循环。
+  // 因此返回原消息(compressed:false),由调用方保留完整上下文。
+  // 与 ai-service Python 端(app/core/context_compaction.py 的 incompressible 分支)语义对齐。
+  if (!bestResult && smallestCandidate!.compressedTokens >= triggerThreshold) {
+    console.warn(
+      '[Compaction] incompressible: best candidate still exceeds trigger threshold, keep original messages,',
+      {
+        originalTokens,
+        candidateTokens: smallestCandidate!.compressedTokens,
+        triggerThreshold,
+        messageCount: messages.length,
+      },
+    )
+    // preCompact 已触发,补发 postCompact(after=before)保持钩子配对语义
+    hooks?.postCompact?.({
+      compactedTokensBefore: originalTokens,
+      compactedTokensAfter: originalTokens,
+    })
+    return {
+      messages,
+      compressed: false,
+      originalTokens,
+      compressedTokens: originalTokens,
+      removedCount: 0,
+      trigger: 'incompressible',
+      usageRatio,
+    }
+  }
+
+  const finalResult = bestResult ?? smallestCandidate!
   hooks?.postCompact?.({
     compactedTokensBefore: originalTokens,
-    compactedTokensAfter: bestResult.compressedTokens,
+    compactedTokensAfter: finalResult.compressedTokens,
   })
-  return bestResult
+  return finalResult
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
