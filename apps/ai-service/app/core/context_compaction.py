@@ -9,7 +9,9 @@
 - 默认目标:60%(0.6)
 - 默认尾部保留:6 条 non-system 消息
 - 压缩策略:保留首条 system + 尾部至少 N 条(按 tool_calls 配对组对齐),中段用结构化摘要替代
-- 摘要格式:[上下文摘要 — 之前 N 条消息已压缩] 标记行 + 对话摘要(角色 + 内容前 200 字符;tool 结果前 160 字符)
+- 摘要格式:[上下文摘要 — 之前 N 条消息已压缩] 标记行 + 分层金字塔摘要
+  (近层 = 最后 ceil(N*0.3) 条至少 1 条:user/assistant 与 tool result 保留前 200 字符;
+   远层 = 其余消息:user/assistant 浓缩到前 120 字符,tool result 前 120 字符)
 - 摘要防嵌套:历史摘要消息(SUMMARY_MARKER 开头)再压缩时正文原样并入、条数累加,不再套规则摘要
 - tool_calls 配对保护:kr 切分按配对组对齐,assistant(tool_calls) 与其 tool 结果不拆散(防孤 tool 消息 400)
 - 防循环两级降级:压缩后仍超阈值时,先截断最后一条消息内容降级(trigger=truncated);
@@ -46,8 +48,17 @@ MAX_TRUNCATE_ATTEMPTS = 8  # 截断迭代最大次数
 # 摘要标记(与 TS 共享包 SUMMARY_MARKER 一致):历史摘要消息以此开头,
 # 再压缩时正文原样并入、条数累加(防嵌套),不再套规则摘要
 SUMMARY_MARKER = "[上下文摘要"
-# tool result 摘要保留的字符数(前 160 chars + '…';空内容才用纯占位,与 TS 端语义对齐)
-TOOL_RESULT_SUMMARY_CHARS = 160
+
+# 分层金字塔摘要常量:按时间距离分层 —— 越近的保留越多细节,越远的越浓缩,
+# 同样 token 预算下信息保留度显著更高(与 TS 共享包 @ihui/context-compaction 逐语义一致)
+# 近层占比:非历史摘要消息中最后 ceil(N * ratio) 条(至少 1 条)为近层
+SUMMARY_TIER_RECENT_RATIO = 0.3
+# 近层消息保留的字符数(user/assistant 直截 + tool result)
+SUMMARY_RECENT_CHARS = 200
+# 远层消息保留的字符数(user/assistant 浓缩截断 + tool result 截断)
+SUMMARY_REMOTE_CHARS = 120
+# tool result 摘要保留字符数兼容别名:旧"统一 160"已收编到分层常量(远层 120)
+TOOL_RESULT_SUMMARY_CHARS = SUMMARY_REMOTE_CHARS
 
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
@@ -95,11 +106,20 @@ def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
     return total
 
 
-def _summarize_message(msg: dict[str, Any], max_chars: int = 200) -> str:
+def _summarize_message(
+    msg: dict[str, Any],
+    max_chars: int = SUMMARY_RECENT_CHARS,
+    *,
+    tool_chars: int | None = None,
+    ellipsis: str = "...",
+) -> str:
     """单条消息摘要:角色 + 内容前 N 字符。
 
-    role='tool' 的结果消息保留前 160 字符 + '…'(空内容才用纯占位),
-    不用固定占位模板,避免丢失工具结果关键信息(与 TS 共享包对齐)。
+    role='tool' 的结果消息保留前 tool_chars(默认 TOOL_RESULT_SUMMARY_CHARS = 120)字符 + '…'
+    (空内容才用纯占位),不用固定占位模板,避免丢失工具结果关键信息(与 TS 共享包对齐)。
+    user/assistant 保留前 max_chars(默认 SUMMARY_RECENT_CHARS = 200)字符:
+    - 分层近层:传 ellipsis='…' 与 TS 近层直截格式逐字一致
+    - 分层远层:传 max_chars=SUMMARY_REMOTE_CHARS(120) 浓缩
     """
     role = msg.get("role", "unknown")
     content = msg.get("content", "")
@@ -108,11 +128,12 @@ def _summarize_message(msg: dict[str, Any], max_chars: int = 200) -> str:
     if role == "tool":
         if not content:
             return "[tool] (空)"
-        if len(content) > TOOL_RESULT_SUMMARY_CHARS:
-            content = content[:TOOL_RESULT_SUMMARY_CHARS] + "…"
+        keep = TOOL_RESULT_SUMMARY_CHARS if tool_chars is None else tool_chars
+        if len(content) > keep:
+            content = content[:keep] + "…"
         return f"[{role}] {content}"
     if len(content) > max_chars:
-        content = content[:max_chars] + "..."
+        content = content[:max_chars] + ellipsis
     return f"[{role}] {content}"
 
 
@@ -132,14 +153,36 @@ def _parse_existing_summary(content: str) -> tuple[int, str]:
     return covered, body.strip()
 
 
-def _build_structured_summary(messages: list[dict[str, Any]]) -> str:
-    """结构化摘要:逐条消息摘要拼接 + 累积摘要(防嵌套)。
+def _build_structured_summary(
+    messages: list[dict[str, Any]],
+    custom_summary: str = "",
+) -> str:
+    """结构化摘要:分层金字塔摘要(近层保留细节 / 远层浓缩)+ 累积摘要(防嵌套)。
+
+    分层(与 TS 共享包 buildSummaryMessage 逐语义一致):
+    - 非历史摘要消息按位置分层:最后 ceil(N * SUMMARY_TIER_RECENT_RATIO) 条(至少 1 条)为近层
+    - 近层:user/assistant 与 tool result 都保留前 SUMMARY_RECENT_CHARS(200) 字符直截('…' 后缀)
+    - 远层:user/assistant 浓缩到前 SUMMARY_REMOTE_CHARS(120) 字符,tool result 前 120 字符
+    - 层级只影响保留量,摘要行输出格式无层级标记
+    - custom_summary 非空时(LLM 语义摘要)优先级最高:整段替代规则摘要正文,不做分层
 
     防嵌套(与 TS 共享包 SUMMARY_MARKER 语义一致):
     - 输入中含历史摘要消息(content 以 SUMMARY_MARKER 开头)时不对其套规则摘要,
       其标记行之后的正文原样并入新摘要
     - 新标记行条数 = 非摘要消息条数 + 旧摘要覆盖条数之和
     """
+    # 预统计非历史摘要消息条数,确定近层边界(最后 ceil(N * ratio) 条,至少 1 条)
+    non_summary_total = 0
+    for msg in messages:
+        if msg.get("role") == "system":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+            continue
+        non_summary_total += 1
+    recent_count = max(1, math.ceil(non_summary_total * SUMMARY_TIER_RECENT_RATIO))
+    recent_from = non_summary_total - recent_count
+
     summary_lines: list[str] = []
     old_bodies: list[str] = []
     old_covered = 0
@@ -154,12 +197,26 @@ def _build_structured_summary(messages: list[dict[str, Any]]) -> str:
             if body:
                 old_bodies.append(body)
             continue
+        is_recent = non_summary_count >= recent_from
         non_summary_count += 1
-        summary = _summarize_message(msg)
+        if msg.get("role") == "tool":
+            summary = (
+                _summarize_message(msg, tool_chars=SUMMARY_RECENT_CHARS)
+                if is_recent
+                else _summarize_message(msg)
+            )
+        elif is_recent:
+            summary = _summarize_message(msg, ellipsis="…")
+        else:
+            summary = _summarize_message(msg, max_chars=SUMMARY_REMOTE_CHARS)
         if summary:
             summary_lines.append(f"- {summary}")
     total_covered = non_summary_count + old_covered
     lines = [f"{SUMMARY_MARKER} — 之前 {total_covered} 条消息已压缩]"]
+    if custom_summary:
+        # LLM 语义摘要优先级最高:整段替代(不做分层),标记行计数仍按防嵌套规则累计
+        lines.append(custom_summary)
+        return "\n".join(lines)
     # 旧摘要正文原样并入(时序在前,不套规则摘要),新摘要行在后
     lines.extend(old_bodies)
     lines.extend(summary_lines)
@@ -346,6 +403,7 @@ def compress_messages_if_needed(
     trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
     target_ratio: float = DEFAULT_TARGET_RATIO,
     keep_recent: int = DEFAULT_KEEP_RECENT,
+    custom_summary: str = "",
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """百分比阈值自动压缩(与 TS 共享包 compressContextIfNeeded 等价)。
 
@@ -355,6 +413,8 @@ def compress_messages_if_needed(
         trigger_ratio: 触发压缩的占用率(默认 0.88)
         target_ratio: 压缩后的目标占用率(默认 0.6)
         keep_recent: 尾部保留的 non-system 消息数(默认 6;按配对组对齐,可能整组多保留)
+        custom_summary: 外部预生成的语义摘要(可选,对齐 TS customSummary):
+            非空时摘要正文整段用该文本(不做分层),标记行仍自动生成
 
     Returns:
         (compressed_messages, info)
@@ -436,8 +496,8 @@ def compress_messages_if_needed(
     tail = [msg for group in tail_groups for msg in group]
     head = [msg for group in head_groups for msg in group]
 
-    # 生成结构化摘要
-    summary_text = _build_structured_summary(head)
+    # 生成结构化摘要(custom_summary 非空时整段替代,不做分层)
+    summary_text = _build_structured_summary(head, custom_summary=custom_summary)
     summary_msg: dict[str, Any] = {
         "role": "user",
         "content": summary_text,
