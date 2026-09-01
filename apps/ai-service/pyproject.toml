@@ -46,6 +46,8 @@ dependencies = [
     "pdfplumber>=0.11.10",
     "playwright>=1.62.0",
     "slowapi>=0.1.10",
+    # 免费 TTS(2026-09-01 立):edge-tts 零 key 零成本语音合成(对标 GPT-5 Voice)
+    "edge-tts>=7.2.0",
     # 语音 STT(2026-07-28 立):faster-whisper 本地 CPU 推理,替代 litellm Whisper 付费 API
     # CTranslate2 后端,base 模型 74MB,首次下载后离线可用,零成本
     "faster-whisper>=1.2.0",
