@@ -85,11 +85,17 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
 }))
 
+// 6. Mock ai-cost(semantic-summary 计费用;避免拉起真实 db/pricing 模块链,与 services-plugins-smoke 同策略)
+const { mockRecordAiCost } = vi.hoisted(() => ({ mockRecordAiCost: vi.fn() }))
+vi.mock('../src/plugins/ai-cost.js', () => ({ recordAiCost: mockRecordAiCost }))
+
 import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
+import type { FastifyRequest } from 'fastify'
 import {
   generateSemanticSummary,
   primeSemanticSummary,
   getCachedSemanticSummary,
+  getSemanticSummaryCacheStats,
   __clearSemanticSummaryCacheForTests,
 } from '../src/utils/semantic-summary.js'
 
@@ -568,6 +574,136 @@ describe('语义摘要预压缩缓存(prime 70% 预生成 → getCached 88% 命�
       await primeSemanticSummary(null, messages, 'test-model')
       await flushAsync()
       expect(getCachedSemanticSummary(undefined, messages)).toBe('匿名会话摘要')
+    } finally {
+      restore()
+    }
+  })
+})
+
+describe('语义摘要观测与计费(hit/miss 统计 + recordAiCost 配额接入)', () => {
+  /** 构造 8 条非 system 消息(> keepRecent=6,toCompress 为前 2 条) */
+  function buildLongMessages() {
+    return Array.from({ length: 8 }, (_, i) => ({
+      role: (i % 2 === 0 ? 'user' : 'assistant') as 'user' | 'assistant',
+      content: `历史消息 ${i + 1}`,
+    }))
+  }
+
+  /** mock ai-service 摘要接口:返回完整 json(可带 usage),返回恢复函数 */
+  function mockSummaryJsonFetch(json: Record<string, unknown>) {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => json }) as unknown as typeof globalThis.fetch
+    return () => {
+      globalThis.fetch = originalFetch
+    }
+  }
+
+  /** 让一个宏任务跑完(prime fire-and-forget 的后台微任务链全部完成) */
+  async function flushAsync() {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  /** 最小 FastifyRequest 形状:aiServiceFetch 只读 headers,计费只读 userId(auth 插件挂载字段) */
+  const fakeRequest = { headers: {}, userId: 'u-semantic-1' } as unknown as FastifyRequest
+
+  beforeEach(() => {
+    __clearSemanticSummaryCacheForTests()
+    mockRecordAiCost.mockReset()
+    mockRecordAiCost.mockResolvedValue(undefined)
+  })
+
+  it('getSemanticSummaryCacheStats:未命中 +1 miss,生成成功后命中 +1 hit,size 同步增长', async () => {
+    const restore = mockSummaryJsonFetch({ content: '统计测试摘要', stub: false })
+    try {
+      const messages = buildLongMessages()
+      const before = getSemanticSummaryCacheStats()
+      // 未命中(未预生成)→ misses +1
+      expect(getCachedSemanticSummary('conv-stats', messages)).toBeNull()
+      const afterMiss = getSemanticSummaryCacheStats()
+      expect(afterMiss.misses).toBe(before.misses + 1)
+      expect(afterMiss.hits).toBe(before.hits)
+      // 生成成功写缓存(generate 内部带 conversationId 的 key)→ getCached 命中,size 精确 +1
+      await generateSemanticSummary(null, messages, 'm', 'conv-stats')
+      expect(getCachedSemanticSummary('conv-stats', messages)).toBe('统计测试摘要')
+      const afterHit = getSemanticSummaryCacheStats()
+      expect(afterHit.hits).toBe(afterMiss.hits + 1)
+      expect(afterHit.misses).toBe(afterMiss.misses)
+      expect(afterHit.size).toBe(before.size + 1)
+    } finally {
+      restore()
+    }
+  })
+
+  it('计费:生成成功后调 recordAiCost,usage 透传,metadata 标注 source=semantic-summary', async () => {
+    const restore = mockSummaryJsonFetch({
+      content: '计费测试摘要',
+      stub: false,
+      usage: { prompt_tokens: 120, completion_tokens: 30, total_tokens: 150 },
+    })
+    try {
+      const summary = await generateSemanticSummary(
+        fakeRequest,
+        buildLongMessages(),
+        'stepfun/step-3.7-flash',
+        'conv-billing',
+      )
+      expect(summary).toBe('计费测试摘要')
+      expect(mockRecordAiCost).toHaveBeenCalledTimes(1)
+      const arg = mockRecordAiCost.mock.calls[0]![0] as Record<string, unknown>
+      expect(arg).toMatchObject({
+        userId: 'u-semantic-1',
+        model: 'stepfun/step-3.7-flash',
+        provider: 'stepfun',
+        promptTokens: 120,
+        completionTokens: 30,
+        totalTokens: 150,
+        requestType: 'semantic-summary',
+      })
+      expect(JSON.parse(arg.metadata as string)).toEqual({ source: 'semantic-summary' })
+    } finally {
+      restore()
+    }
+  })
+
+  it('计费异常被吞:recordAiCost 抛异常时 generateSemanticSummary 仍正常返回摘要', async () => {
+    const restore = mockSummaryJsonFetch({ content: '异常测试摘要', stub: false })
+    try {
+      mockRecordAiCost.mockRejectedValueOnce(new Error('db down'))
+      await expect(
+        generateSemanticSummary(fakeRequest, buildLongMessages(), 'm', 'conv-err-billing'),
+      ).resolves.toBe('异常测试摘要')
+    } finally {
+      restore()
+    }
+  })
+
+  it('request 为 null(后台路径)时跳过计费且不抛异常', async () => {
+    const restore = mockSummaryJsonFetch({ content: '匿名路径摘要', stub: false })
+    try {
+      const summary = await generateSemanticSummary(null, buildLongMessages(), 'm', 'conv-null')
+      expect(summary).toBe('匿名路径摘要')
+      expect(mockRecordAiCost).not.toHaveBeenCalled()
+    } finally {
+      restore()
+    }
+  })
+
+  it('上游无 usage 字段时按字符估算 tokens(中文为主 ~2 字符/token)', async () => {
+    const restore = mockSummaryJsonFetch({ content: '无 usage 的摘要', stub: false })
+    try {
+      await generateSemanticSummary(fakeRequest, buildLongMessages(), 'm', 'conv-estimate')
+      expect(mockRecordAiCost).toHaveBeenCalledTimes(1)
+      const arg = mockRecordAiCost.mock.calls[0]![0] as {
+        promptTokens: number
+        completionTokens: number
+        totalTokens: number
+      }
+      expect(Number.isInteger(arg.promptTokens)).toBe(true)
+      expect(arg.promptTokens).toBeGreaterThan(0)
+      expect(arg.completionTokens).toBe(Math.ceil('无 usage 的摘要'.length / 2))
+      expect(arg.totalTokens).toBe(arg.promptTokens + arg.completionTokens)
     } finally {
       restore()
     }
