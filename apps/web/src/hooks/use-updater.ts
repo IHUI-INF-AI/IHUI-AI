@@ -284,6 +284,22 @@ export function useUpdater() {
     return () => clearTimeout(timer)
   }, [checkForUpdate])
 
+  // 2026-09-01 修复"检查更新一直转圈"(第二层兜底):
+  // tauri-bridge 的 check() 已有 15s 超时,这里再兜底 checking 状态本身——
+  // 若 20s 内仍未离开 checking(动态导入卡住 / 其它未知异常),强制进入 error,
+  // 保证 UI 永远不无限转圈。与 tauri-bridge 超时互为冗余防线。
+  React.useEffect(() => {
+    if (state.status !== 'checking') return
+    const timer = setTimeout(() => {
+      setState((prev) =>
+        prev.status === 'checking'
+          ? { ...prev, status: 'error', error: 'check_timeout' }
+          : prev,
+      )
+    }, 20_000)
+    return () => clearTimeout(timer)
+  }, [state.status])
+
   // 监听托盘菜单 "检查更新" 事件(由 useDesktopEvents 转发的 CustomEvent)
   React.useEffect(() => {
     if (!isTauri() && !isDevUpdateTest()) return

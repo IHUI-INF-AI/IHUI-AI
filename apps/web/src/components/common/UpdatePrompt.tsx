@@ -118,7 +118,7 @@ export function UpdatePrompt() {
           {/* 错误信息 */}
           {status === 'error' && (
             <p className="mt-2.5 text-xs leading-relaxed text-red-500/80">
-              {error === 'check_failed' ? t('checkFailed') : t('errorDesc')}
+              {error === 'check_failed' || error === 'check_timeout' ? t('checkFailed') : t('errorDesc')}
             </p>
           )}
 
@@ -208,7 +208,7 @@ export function UpdatePrompt() {
                   </>
                 ) : (
                   <span className="text-sm font-medium text-red-500">
-                    {error === 'check_failed' ? t('checkFailed') : t('errorDesc')}
+                    {error === 'check_failed' || error === 'check_timeout' ? t('checkFailed') : t('errorDesc')}
                   </span>
                 )}
               </div>
