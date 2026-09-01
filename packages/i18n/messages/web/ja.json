@@ -7941,7 +7941,11 @@
     "communityPublishTitleRequired": "タイトルを入力してください",
     "communityPublishing": "公開中...",
     "compaction": {
-      "truncatedNotice": "最後のメッセージが長すぎるため、会話を維持するために内容を切り詰めました"
+      "truncatedNotice": "最後のメッセージが長すぎるため、会話を維持するために内容を切り詰めました",
+      "viewArchived": "圧縮前の元のメッセージ（{count} 件）を表示",
+      "archiveTitle": "圧縮アーカイブ · 元のメッセージ",
+      "archiveEmpty": "圧縮アーカイブはまだありません",
+      "archiveLoading": "読み込み中..."
     },
     "contextCompacted": "コンテキストを自動圧縮しました",
     "contextCompactedDesc": "{before} → {after}({removed} 件の履歴を削除)",

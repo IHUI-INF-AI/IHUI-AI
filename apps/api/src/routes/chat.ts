@@ -36,6 +36,7 @@ import {
   branchConversationFrom,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
+import { listMessageArchives, findMessageArchive } from '../utils/conversation-archive.js'
 import { config } from '../config/index.js'
 
 // =============================================================================
@@ -1055,6 +1056,46 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(
       success({ conversation: serializeConversationPublic(conversation), messages }),
     )
+  })
+
+  // GET /conversations/:id/archives - 压缩归档列表(2026-09-01 立,"归档记忆"能力)
+  // 列出该会话每次自动压缩落库的原始消息归档(id/message_count/created_at,不含 messages 大字段)。
+  // 归属校验:不存在或不属于当前用户一律 404(不泄露会话存在性)。
+  server.get('/conversations/:id/archives', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id } = idParam.parse(request.params)
+    const conversation = await findConversationById(id)
+    if (!conversation || conversation.userId !== userId) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+
+    const archives = await listMessageArchives(id)
+    return reply.send(success({ archives }))
+  })
+
+  // GET /conversations/:id/archives/:archiveId - 压缩归档详情(含被压缩的原始消息 messages)
+  // 查询限定 conversationId + archiveId 双条件,防跨会话越权读取归档。
+  server.get('/conversations/:id/archives/:archiveId', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const { id, archiveId } = z
+      .object({ id: z.string(), archiveId: z.string() })
+      .parse(request.params)
+    const conversation = await findConversationById(id)
+    if (!conversation || conversation.userId !== userId) {
+      return reply.status(404).send(error(404, '对话不存在'))
+    }
+
+    const archive = await findMessageArchive(id, archiveId)
+    if (!archive) {
+      return reply.status(404).send(error(404, '归档不存在'))
+    }
+    return reply.send(success({ archive }))
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
