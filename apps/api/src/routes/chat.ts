@@ -5,6 +5,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { sql } from 'drizzle-orm'
+import {
+  compressContextIfNeeded,
+  estimateMessagesTokens,
+  type ChatMessage,
+} from '@ihui/context-compaction'
 import { authenticate } from '../plugins/auth.js'
 import { db } from '../db/index.js'
 import {
@@ -34,9 +39,15 @@ import {
   findConversationByShareToken,
   regenerateConversationMessages,
   branchConversationFrom,
+  replaceMessages,
 } from '../db/chat-queries.js'
 import { success, error } from '../utils/response.js'
-import { listMessageArchives, findMessageArchive } from '../utils/conversation-archive.js'
+import { generateSemanticSummary, getCachedSemanticSummary } from '../utils/semantic-summary.js'
+import {
+  listMessageArchives,
+  findMessageArchive,
+  persistMessageArchive,
+} from '../utils/conversation-archive.js'
 import { config } from '../config/index.js'
 
 // =============================================================================
@@ -144,6 +155,11 @@ const messageListSchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).default(20),
   before: z.uuid().optional(),
   after: z.uuid().optional(),
+})
+
+// POST /compact 请求体(2026-09-02 立):最简契约,仅 conversationId,无 messageRange 等可选参数
+const compactSchema = z.object({
+  conversationId: z.string().min(1),
 })
 
 const COMPRESS_TARGETS = (() => {
@@ -922,6 +938,136 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
         usage: aiResult.usage,
         originalChars: conversationText.length,
         compressedChars: content.length,
+      }),
+    )
+  })
+
+  // POST /compact — API 端手动压缩上下文(2026-09-02 立,对标 CLI /compact + /chat/stream 自动压缩)
+  // 契约:POST /api/chat/compact,body { conversationId }(web 端代理同构,字段命名保持驼峰)。
+  // 语义:无视 88% 自动压缩触发阈值立即压缩,复用 /chat/stream 自动压缩同一套管线:
+  // LLM 语义摘要(缓存命中优先)→ compressContextIfNeeded → 归档落库 → replaceMessages 持久化。
+  // 手动压缩触发方式(CLI /compact 同构):伪造 contextLimit = max(2000, ceil(tokens / 0.87))
+  // 并显式传 triggerRatio = 0.87 —— ceil(t/0.87)*0.87 ∈ [t, t+0.87) ⊂ [t, t+1),floor 后恰为 t,
+  // 触发检查 originalTokens < triggerThreshold 恒不成立 → 必然进入压缩;
+  // 压缩目标 targetRatio(0.6) × 伪造 limit ≈ 当前 ~69% tokens。
+  // 响应 schema(success.data):
+  //   - 压缩成功:{ compressed: true, originalTokens, compressedTokens, removedCount, trigger }
+  //   - 消息太少:{ compressed: false, reason: 'too_few_messages', ... }(200,前端据此提示不报错)
+  //   - 压不动:  { compressed: false, reason: 'incompressible', originalTokens, compressedTokens, ... }
+  //   - 会话不存在/无权限:404(不泄露资源存在性);归档落库失败仅 console.warn 降级不阻塞。
+  server.post('/compact', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+
+    const parsed = compactSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const conversationId = parsed.data.conversationId
+
+    // 会话归属校验:不存在或非本人会话一律 404(与现有会话端点语义一致,不泄露存在性)
+    const conversation = await findConversationById(conversationId)
+    if (!conversation || conversation.userId !== userId) {
+      return reply.status(404).send(error(404, '对话不存在或无权限'))
+    }
+
+    // 全量消息(findMessagesForExport 无分页上限),映射为压缩包 ChatMessage,
+    // 与 /chat/stream 自动压缩的输入形态一致(仅 role/content,metadata 随压缩丢弃)
+    const rows = await findMessagesForExport(conversationId)
+    const messages: ChatMessage[] = rows.map((m) => ({
+      role: m.role as ChatMessage['role'],
+      content: m.content,
+    }))
+
+    // ① 消息太少,无压缩价值:200 + reason(不报错),token 字段保持响应 schema 统一
+    if (messages.length < 3) {
+      const tokens = Math.floor(estimateMessagesTokens(messages))
+      return reply.send(
+        success({
+          compressed: false,
+          reason: 'too_few_messages',
+          originalTokens: tokens,
+          compressedTokens: tokens,
+          removedCount: 0,
+        }),
+      )
+    }
+
+    const conversationTail = conversationId.slice(-4)
+    const forcedLimit = Math.max(2000, Math.ceil(Math.floor(estimateMessagesTokens(messages)) / 0.87))
+
+    // ② LLM 语义摘要(缓存命中优先,未命中实时生成;失败返回 null → 共享包静默降级规则摘要),
+    //    与 /chat/stream 自动压缩同一套 [SemanticSummary] 管线。手动压缩立即执行,无需 70% 预热。
+    let customSummary = getCachedSemanticSummary(conversationId, messages)
+    if (customSummary !== null) {
+      console.warn('[SemanticSummary] cache hit:', {
+        conversationTail,
+        summaryLength: customSummary.length,
+      })
+    } else {
+      customSummary = await generateSemanticSummary(
+        request,
+        messages,
+        conversation.model ?? undefined,
+        conversationId,
+      )
+      console.warn(
+        customSummary !== null ? '[SemanticSummary] generated:' : '[SemanticSummary] degraded:',
+        { conversationTail, model: conversation.model ?? undefined },
+      )
+    }
+
+    // ③ 手动压缩:伪造 contextLimit + triggerRatio 0.87 使触发检查自然通过(见函数头注释)
+    const result = compressContextIfNeeded(messages, {
+      contextLimit: forcedLimit,
+      triggerRatio: 0.87,
+      customSummary: customSummary ?? undefined,
+    })
+    console.warn('[Compaction][manual] result:', {
+      conversationTail,
+      compressed: result.compressed,
+      trigger: result.trigger,
+      originalTokens: result.originalTokens,
+      compressedTokens: result.compressedTokens,
+      removedCount: result.removedCount,
+    })
+
+    // ④ 无可压缩空间(trigger 'none':伪造阈值下 tokens 仍不足,如上下文本身很小;
+    //    'incompressible':摘要/截断降级后仍压不动):200 + reason,保持原样
+    if (!result.compressed) {
+      return reply.send(
+        success({
+          compressed: false,
+          reason: 'incompressible',
+          originalTokens: result.originalTokens,
+          compressedTokens: result.compressedTokens,
+          removedCount: result.removedCount,
+          trigger: result.trigger,
+        }),
+      )
+    }
+
+    // ⑤ 原子性持久化压缩结果(与 /chat/stream 自动压缩同一套 replaceMessages 管线):
+    //    删除旧消息 + 批量插入压缩后消息。失败视为压缩未生效,返回 500 由前端提示重试
+    try {
+      await replaceMessages(conversationId, result.messages)
+    } catch (e) {
+      request.log.error({ err: e, conversationId }, '手动压缩持久化失败')
+      return reply.status(500).send(error(500, '压缩结果持久化失败'))
+    }
+
+    // ⑥ 归档记忆:被压缩的原始消息落库 conversation_message_archives,前端"查看原始消息"可查。
+    //    旁路降级:persistMessageArchive 内部吞掉一切失败(console.warn),绝不阻塞压缩返回
+    void persistMessageArchive(conversationId, messages)
+
+    return reply.send(
+      success({
+        compressed: true,
+        originalTokens: result.originalTokens,
+        compressedTokens: result.compressedTokens,
+        removedCount: result.removedCount,
+        trigger: result.trigger,
       }),
     )
   })
