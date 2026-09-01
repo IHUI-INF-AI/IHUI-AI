@@ -36,7 +36,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from ..services.mcp_server import _TOOLS, mcp_server
+from ..services.mcp_server import _PROMPTS, _RESOURCES, _TOOLS, mcp_server
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +95,33 @@ def _handle_tools_list() -> dict[str, Any]:
     return {"tools": tools}
 
 
+def _handle_resources_list() -> dict[str, Any]:
+    """resources/list:返回内部资源定义(会话记忆/skill/配置)。"""
+    resources = [
+        {
+            "uri": r.uri,
+            "name": r.name,
+            "description": r.description,
+            "mimeType": r.mime_type,
+        }
+        for r in _RESOURCES
+    ]
+    return {"resources": resources}
+
+
+def _handle_prompts_list() -> dict[str, Any]:
+    """prompts/list:返回内部提示词定义(代码审查/Bug 修复等)。"""
+    prompts = [
+        {
+            "name": p.name,
+            "description": p.description,
+            "arguments": p.arguments,
+        }
+        for p in _PROMPTS
+    ]
+    return {"prompts": prompts}
+
+
 async def _handle_tools_call(
     params: dict[str, Any], *, user_id: str | None
 ) -> dict[str, Any]:
@@ -124,12 +151,13 @@ async def _handle_tools_call(
 
 def _dispatch_method(method: str) -> tuple[str, str]:
     """方法名分类:('handler', method) / ('notification', method) / ('unknown', method)。"""
-    if method in {"initialize", "tools/list", "tools/call", "ping"}:
+    if method in {
+        "initialize", "tools/list", "tools/call", "ping",
+        "resources/list", "prompts/list",
+    }:
         return "handler", method
     if method.startswith("notifications/"):
         return "notification", method
-    if method in {"resources/list", "prompts/list"}:
-        return "not_implemented", method
     return "unknown", method
 
 
@@ -171,13 +199,6 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
         err["id"] = msg_id
         return JSONResponse(err, status_code=404)
 
-    if kind == "not_implemented":
-        # 资源/提示词能力声明但暂不暴露(兼容客户端初始化)
-        result: dict[str, Any] = (
-            {"resources": []} if method == "resources/list" else {"prompts": []}
-        )
-        return JSONResponse(_jsonrpc_result(result, msg_id), status_code=200)
-
     # 已认证用户透传(匿名为 None)
     user_id: str | None = getattr(request.state, "user_id", None)
 
@@ -188,6 +209,10 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
             result = {}
         elif method == "tools/list":
             result = _handle_tools_list()
+        elif method == "resources/list":
+            result = _handle_resources_list()
+        elif method == "prompts/list":
+            result = _handle_prompts_list()
         elif method == "tools/call":
             result = await _handle_tools_call(params, user_id=user_id)
         else:  # pragma: no cover - _dispatch_method 已过滤
