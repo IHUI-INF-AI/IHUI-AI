@@ -50,6 +50,12 @@ const PERMISSION_MEMORY_KEY = 'ihui:preferred-permission-mode'
  *   返回,不做实际切换;FullAccessConfirmBridge 确认后会自行调 switchPermissionMode
  * - 切完模式:把刚被 useEffect 占位为 'popover' 的最新一条记录 source 改为 'shift-tab'
  */
+/** 撤销 toast 持续时间(ms)。给用户足够的"哎呀我点错了"反悔窗口 */
+const UNDO_TOAST_DURATION = 5000
+
+/** 普通提示 toast 持续时间(ms) */
+const INFO_TOAST_DURATION = 2000
+
 export function usePermissionModeCycle(): {
   shortcutsOpen: boolean
   openShortcuts: () => void
@@ -61,7 +67,9 @@ export function usePermissionModeCycle(): {
   const activeWorkspace = useAiPanelStore((s) => s.activeWorkspace)
   const setActiveWorkspace = useAiPanelStore((s) => s.setActiveWorkspace)
   const setPendingFullAccess = useAiPanelStore((s) => s.setPendingFullAccess)
-  const activeWorkspaceMode = activeWorkspace?.mode
+  // 2026-08-31:未绑定工作区时读暂存模式,否则 Shift+Tab 循环永远从 default 出发(卡死)
+  const pendingPermissionMode = useAiPanelStore((s) => s.pendingPermissionMode)
+  const activeWorkspaceMode = activeWorkspace?.mode ?? pendingPermissionMode ?? undefined
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
   // - shortcutsOpen: ? 键唤起/关闭 PermissionShortcutsModal
@@ -113,7 +121,6 @@ export function usePermissionModeCycle(): {
   // - activeWorkspaceMode 变化时追加 1 条记录到 localStorage
   // - source 暂用 'popover' 作为默认,具体来源由调用方通过 __IHUI_RECORD_MODE_CHANGE__ 句柄覆盖
   // - 不在 hook 内做来源判断(避免 popover/Shift+Tab/slash 三处分别改 1 个 if)
-  // - 主动撤销 1h 计时器归零 → auto-revert 来源,由 use-permission-auto-revert 内 hook 句柄写入
   React.useEffect(() => {
     if (!activeWorkspaceMode) return
     // 首次 mount 时不记录(用户可能刚打开页面看到默认 default,记录无意义)
@@ -147,17 +154,21 @@ export function usePermissionModeCycle(): {
       return
     }
     const previousMode = current
-    // 乐观更新 store
-    if (activeWorkspace) {
-      setActiveWorkspace({ ...activeWorkspace, mode: next })
-    }
+    const previousPath = activeWorkspace?.path
+    // 注：不在此处手动乐观更新 store，统一交由 switchPermissionMode 处理。
+    // 若此处提前 setActiveWorkspace，会导致 switchPermissionMode 读到已被污染的 previousMode，
+    // 误判 mode === previousMode 而直接返回，跳过落库与正确回滚。
     const result = await switchPermissionMode(next)
     if (!result.ok) {
-      // 2026-08-02 修复 P1 陈旧闭包:回滚时从 store 获取最新 activeWorkspace,
+      // 2026-08-02 修复 P1 陈旧闭包 + 2026-08-31 修复工作区竞态:回滚时从 store 获取最新 activeWorkspace,
       // 避免用闭包中可能已 stale 的 activeWorkspace 覆盖 await 期间用户切换到的新工作区新模式。
-      const current = useAiPanelStore.getState().activeWorkspace
-      if (current && previousMode) {
+      const state = useAiPanelStore.getState()
+      const current = state.activeWorkspace
+      if (current && previousMode && current.path === previousPath) {
         setActiveWorkspace({ ...current, mode: previousMode })
+      } else if (!current) {
+        // 未绑定工作区:回滚暂存模式(2026-08-31 修复)
+        state.setPendingPermissionMode(previousMode ?? 'default')
       }
       toast.error(t('cycleError', { error: result.error ?? '未知错误' }))
       return
@@ -169,17 +180,31 @@ export function usePermissionModeCycle(): {
     if (next === 'bypass-permissions') {
       toast(t('switchedToFull'), {
         description: t('switchedToFullDesc', { prev: previousMode }),
-        duration: 5000,
+        duration: UNDO_TOAST_DURATION,
         action: {
           label: t('undo'),
-          onClick: () => void cyclePermissionMode(),
+          onClick: async () => {
+            // 直接切回 previousMode，而不是再次 cycle（避免中间态跳错）
+            // 实时读取 store 避免 stale closure(2026-08-31 修复)
+            // 2026-08-31:未绑定工作区时也检查暂存模式
+            const currentStore = useAiPanelStore.getState()
+            const currentModeNow =
+              currentStore.activeWorkspace?.mode ?? currentStore.pendingPermissionMode
+            if (currentModeNow === 'bypass-permissions') {
+              if (previousMode !== undefined) {
+                await switchPermissionMode(previousMode)
+              } else {
+                await switchPermissionMode('default')
+              }
+            }
+          },
         },
       })
     } else {
       // default / accept-edits → 短提示
       const labelKey = next === 'default' ? 'mode.ask' : 'mode.auto'
       toast.success(t('cycledTo', { mode: t(labelKey) }), {
-        duration: 2000,
+        duration: INFO_TOAST_DURATION,
       })
     }
   }, [activeWorkspace, activeWorkspaceMode, setActiveWorkspace, setPendingFullAccess, t])
