@@ -69,6 +69,7 @@ import {
   Repeat,
   Earth,
   Compass,
+  MessagesSquare,
 } from 'lucide-react-native'
 
 type ProfileRoute = keyof RootStackParamList
@@ -245,6 +246,8 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'WebViewPortal', labelKey: 'menu.webPortal', icon: Earth, viaParent: true },
       // M4.1(2026-08-26):Web 功能门户(edu-ai/教务家长/开发者/自媒体等 37 条细分入口)
       { key: 'WebPortal', labelKey: 'menu.webPortalCenter', icon: Compass, viaParent: true },
+      // P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(复用 web /chat,补齐工具能力)
+      { key: 'ChatTools', labelKey: 'menu.chatTools', icon: MessagesSquare, viaParent: true },
     ],
   },
 ]
