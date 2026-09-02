@@ -36,7 +36,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 // FunctionComponent,带 ref 时 props 会被折叠为 never(本仓库 WebViewScreen 因不用 ref 而能过 typecheck)。
 // 此处将组件放宽以接收 ref(运行时 Android/iOS 实现支持命令式 API),并按 v14 规范以
 // onNavigationStateChange 的 nav.canGoBack 跟踪可后退态,而非已移除的 ref.canGoBack()。
-type WebViewRefHandle = { canGoBack: () => boolean; goBack: () => void }
+type WebViewRefHandle = { canGoBack: () => boolean; goBack: () => void; reload: () => void }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const WebView = WebViewRN as any
 
@@ -194,6 +194,8 @@ export function ChatToolsScreen() {
               onPress={() => {
                 setFailed(false)
                 setLoading(true)
+                // key={sourceUri} 不变,必须显式 reload 才会真正重新加载
+                webViewRef.current?.reload()
               }}
               className="rounded-md bg-gray-200 px-4 py-2"
             >
