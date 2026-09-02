@@ -139,13 +139,11 @@ const ADMIN_THEME_CHILDREN: NavItem[] = [
     adminOnly: true,
   },
   { href: '/admin/theme/export', labelKey: 'adminThemeExport', icon: Download, adminOnly: true },
-  { href: '/configs', labelKey: 'adminConfigs', icon: Settings, adminOnly: true },
 ]
 
 /** /models 15 项作为 /models 的三级子菜单 */
 const MODELS_CHILDREN: NavItem[] = [
   { href: '/models/overview', labelKey: 'modelsOverview', icon: LayoutDashboard },
-  { href: '/models/market', labelKey: 'modelsMarket', icon: Bot },
   { href: '/models/channels', labelKey: 'modelsChannels', icon: Cable },
   { href: '/models/keys', labelKey: 'modelsKeys', icon: Key },
   { href: '/models/logs', labelKey: 'modelsLogs', icon: FileText },
