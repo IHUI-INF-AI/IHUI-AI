@@ -1,0 +1,35 @@
+"""迷你计算器模块(含确定性 bug,供 IHUI-Bench 修复任务使用)。"""
+
+from typing import List
+
+
+def add(a: float, b: float) -> float:
+    """两数相加。"""
+    return a + b
+
+
+def subtract(a: float, b: float) -> float:
+    """两数相减。"""
+    return a - b
+
+
+def multiply(a: float, b: float) -> float:
+    """两数相乘(注:此处为故意埋设的 bug,正确应为 a * b)。"""
+    return a + b
+
+
+def divide(a: float, b: float) -> float:
+    """两数相除(注:此处为故意埋设的 bug,除零未处理)。"""
+    return a / b
+
+
+def percentage(value: float, pct: float) -> float:
+    """计算 value 的 pct 百分比(注:此处为故意埋设的 bug,漏掉 /100)。"""
+    return value * pct
+
+
+def average(numbers: List[float]) -> float:
+    """求平均值,空列表安全返回 0.0。"""
+    if not numbers:
+        return 0.0
+    return sum(numbers) / len(numbers)

@@ -9,6 +9,7 @@
 """
 
 import asyncio
+import contextvars
 import difflib
 import functools
 import json
@@ -25,6 +26,210 @@ if TYPE_CHECKING:
 
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
+
+# ---------------------------------------------------------------------------
+# 工具层安全护栏(Phase 0 · W2:确定性防御,非审批流)
+# ---------------------------------------------------------------------------
+
+# 0-2 call_tool 出口统一输出护栏:所有工具返回结果按 token 上限截断,
+# 默认 8000 token,env TOOL_OUTPUT_MAX_TOKENS 可覆盖。
+_TOOL_OUTPUT_TRUNCATE_MARKER = "…[已截断,共截断 {n} token,可用分页/范围参数获取更多]"
+# 受保护 key:其字符串值不被截断,确保 ok/status/error 等控制字段完整
+_TRUNCATION_PROTECTED_KEYS = frozenset(
+    {"ok", "status", "error", "errorCode", "tool", "matched"}
+)
+
+
+def _get_tool_output_max_tokens() -> int:
+    """工具输出 token 上限(env TOOL_OUTPUT_MAX_TOKENS,默认 8000)。"""
+    try:
+        return max(1, int(os.environ.get("TOOL_OUTPUT_MAX_TOKENS", "8000")))
+    except (TypeError, ValueError):
+        return 8000
+
+
+def _estimate_tokens_len(text: str) -> int:
+    """轻量 token 估算:len//4(无外部依赖,与 context_compaction 降级策略一致)。"""
+    return len(text) // 4
+
+
+def _tool_result_token_estimate(obj: object) -> int:
+    """递归估算工具结果中所有字符串值的 token 总数(轻量 len//4)。"""
+    if isinstance(obj, str):
+        return _estimate_tokens_len(obj)
+    total = 0
+    if isinstance(obj, dict):
+        for v in obj.values():
+            total += _tool_result_token_estimate(v)
+    elif isinstance(obj, (list, tuple, set)):
+        for v in obj:
+            total += _tool_result_token_estimate(v)
+    return total
+
+
+def _truncate_tool_output(result: dict[str, Any]) -> dict[str, Any]:
+    """call_tool 出口统一输出护栏:将超 token 预算的字符串值截断。
+
+    策略(确定性、保持 dict 结构与控制字段完整):
+    - 总 token <= 预算 → 原样返回,不加 truncated 标志
+    - 超限 → 收集全部字符串叶子(受保护 key 除外),按长度降序贪心截断,
+      直到总 token <= 预算;每个被截断字符串追加标记,并置顶层 truncated=True
+
+    注意:截断量为近似(标记本身占少量 token),已在边界内;目的是防上下文膨胀,
+    不保证精确等于预算(误差 < 标记长度)。
+    """
+    if not isinstance(result, dict):
+        return result
+    max_tokens = _get_tool_output_max_tokens()
+    total = _tool_result_token_estimate(result)
+    if total <= max_tokens:
+        return result
+
+    # 收集 (parent_container, key, string) 引用(parent 为可变 dict/list)
+    leaves: list[tuple[Any, Any, str]] = []
+
+    def _collect(obj: Any, parent: Any, key: Any) -> None:
+        if isinstance(obj, str):
+            if isinstance(parent, dict) and key in _TRUNCATION_PROTECTED_KEYS:
+                return
+            leaves.append((parent, key, obj))
+        elif isinstance(obj, dict):
+            for k, v in obj.items():
+                _collect(v, obj, k)
+        elif isinstance(obj, list):
+            for i, v in enumerate(obj):
+                _collect(v, obj, i)
+
+    _collect(result, None, None)
+    # 按长度降序,优先截断最大块,最贴近原始信息分布
+    leaves.sort(key=lambda item: len(item[2]), reverse=True)
+
+    remaining = total - max_tokens
+    plan: list[tuple[Any, Any, int]] = []
+    truncated_tokens = 0
+    for _parent, _key, s in leaves:
+        if remaining <= 0:
+            break
+        t = _estimate_tokens_len(s)
+        if t <= 0:
+            continue
+        need = min(remaining, t)
+        allow = max(0, t - need)
+        keep_chars = allow * 4
+        # 占位估算:用单字符近似标记开销,真实标记在回填时写入
+        new_t = _estimate_tokens_len(s[:keep_chars] + "X")
+        delta = t - new_t
+        truncated_tokens += delta
+        remaining -= delta
+        plan.append((_parent, _key, keep_chars))
+
+    if not plan:
+        return result  # 边界:所有字符串均为受保护 key 或空,无法截断
+    marker = _TOOL_OUTPUT_TRUNCATE_MARKER.format(n=truncated_tokens)
+    for parent, key, keep_chars in plan:
+        parent[key] = parent[key][:keep_chars] + marker
+    result["truncated"] = True
+    return result
+
+
+# 0-5 run_command 危险命令硬门(env DANGEROUS_COMMAND_BLOCKED 默认 true)
+def _is_dangerous_command_blocked() -> bool:
+    """危险命令拦截是否开启(env DANGEROUS_COMMAND_BLOCKED,默认 true)。"""
+    val = os.environ.get("DANGEROUS_COMMAND_BLOCKED", "true").strip().lower()
+    return val not in ("0", "false", "no", "off", "")
+
+
+def _get_run_command_hard_timeout() -> int:
+    """run_command 执行硬超时上限秒(env RUN_COMMAND_TIMEOUT_S,默认 120)。"""
+    try:
+        return max(1, int(os.environ.get("RUN_COMMAND_TIMEOUT_S", "120")))
+    except (TypeError, ValueError):
+        return 120
+
+
+def _match_destructive_command(command: str) -> str | None:
+    """确定性检测破坏性命令。命中返回模式名,未命中返回 None。
+
+    覆盖 Windows(format/diskpart/reg delete/shutdown/bcdedit/vssadmin delete/
+    cipher /w/rd /s/del /f /s /q 宽路径/Remove-Item -Recurse -Force 作用于根)
+    与 Unix(rm -rf //~/rm -rf ~/mkfs/dd of=/dev//chmod -R 777 //fork bomb/shutdown)。
+    """
+    c = command or ""
+
+    def _at_start(pat: str) -> bool:
+        # 命令起始锚点:行首或空白/链分隔符(&|;`、左括号、空格)之后
+        return bool(re.search(r"(?i)(?:^|[\s&|;`(])" + pat, c))
+
+    # Windows
+    if _at_start(r"(?:cmd\s+/[cC]\s+)?format\b"):
+        return "win_format"
+    if _at_start(r"diskpart\b"):
+        return "win_diskpart"
+    if _at_start(r"reg\s+delete\b"):
+        return "win_reg_delete"
+    if _at_start(r"(?:shutdown|shutdown\.exe|halt|poweroff|reboot)\b"):
+        return "shutdown"
+    if _at_start(r"bcdedit\b"):
+        return "win_bcdedit"
+    if re.search(r"(?i)(?:^|[\s&|;`])vssadmin\b[^|]*?delete\b", c):
+        return "win_vssadmin_delete"
+    if re.search(r"(?i)(?:^|[\s&|;`])cipher\b[^|]*?/w\b", c):
+        return "win_cipher_w"
+    if re.search(r"(?i)(?:^|[\s&|;`])(?:rd|rmdir)\b[^|]*?/s\b", c):
+        return "win_rd_s"
+    # del /f /s /q(顺序无关,宽路径)
+    if _at_start(r"del\b") and all(f in c for f in ("/f", "/s", "/q")):
+        return "win_del_fsq"
+    # Remove-Item -Recurse -Force 作用于盘符/用户根/unix 根/家目录
+    # 路径可出现在 flags 之前或之后,故拆为独立条件判断(更稳健)
+    if _at_start(r"Remove-Item\b"):
+        has_recurse = re.search(r"(?i)-Recurse\b", c) is not None
+        has_force = re.search(r"(?i)-Force\b", c) is not None
+        has_root = re.search(r"(?i)(?:[a-z]:\\|C:\\Users|/|~)", c) is not None
+        if has_recurse and has_force and has_root:
+            return "win_remove_item_root"
+    # Unix
+    if re.search(
+        r"(?i)(?:^|[\s&|;`])(?:sudo\s+)?rm\b[^|]*?-[rR][fF]\b[^|]*?(?:\s/[^\s]*|\s~)",
+        c,
+    ):
+        return "unix_rm_rf_root"
+    if re.search(
+        r"(?i)(?:^|[\s&|;`])(?:sudo\s+)?rm\b[^|]*?-[rR]\s+-[fF]\b[^|]*?(?:\s/[^\s]*|\s~)",
+        c,
+    ):
+        return "unix_rm_rf_home"
+    if _at_start(r"(?:mkfs|mkfs\.\w+)\b"):
+        return "unix_mkfs"
+    if re.search(r"(?i)(?:^|[\s&|;`])dd\b[^|]*?of=/dev/", c):
+        return "unix_dd_dev"
+    if re.search(r"(?i)(?:^|[\s&|;`])chmod\b[^|]*?-R\b[^|]*?777\b[^|]*?(?:\s/|/[^|]*$)", c):
+        return "unix_chmod_777_root"
+    if ":(){ :|:& };:" in c or re.search(
+        r":\(\s*\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:", c
+    ):
+        return "unix_fork_bomb"
+    return None
+
+
+# 0-6 dispatch_subagent 治理
+# 全局并发上限(模块级 Semaphore,env SUBAGENT_MAX_CONCURRENT,默认 5)
+_SUBAGENT_MAX_CONCURRENT = max(1, int(os.environ.get("SUBAGENT_MAX_CONCURRENT", "5")))
+_SUBAGENT_SEMAPHORE = asyncio.Semaphore(_SUBAGENT_MAX_CONCURRENT)
+# 嵌套深度上限(≤2):contextvar 记录当前深度,子代理执行时 +1,超限拒绝
+_SUBAGENT_MAX_DEPTH = 2
+_subagent_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "subagent_depth", default=0
+)
+
+
+def _get_subagent_timeout() -> int:
+    """单子代理超时秒(env SUBAGENT_TIMEOUT_S,默认 300)。"""
+    try:
+        return max(1, int(os.environ.get("SUBAGENT_TIMEOUT_S", "300")))
+    except (TypeError, ValueError):
+        return 300
+
 
 from .skills import skill_registry
 
@@ -822,6 +1027,9 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
 
     max_timeout = max(1, int(arguments.get("max_timeout", 600)))
     timeout = max(1, min(int(arguments.get("timeout", 60)), max_timeout))
+    # 0-5 执行硬超时上限(env RUN_COMMAND_TIMEOUT_S,默认 120s):请求超时不得超过,
+    # 防止调用方通过 timeout/max_timeout 把执行拖到失控时长
+    timeout = min(timeout, _get_run_command_hard_timeout())
 
     if not command:
         return {
@@ -829,6 +1037,23 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
             "exit_code": -1, "stdout": "", "stderr": "",
             "ok": False, "streamed": True, "message": "命令为空",
         }
+
+    # 0-5 确定性破坏性命令硬门(默认开启,env DANGEROUS_COMMAND_BLOCKED 可关)
+    # 任何后端(local/sandbox)执行前一律拦截,命中即不执行
+    if _is_dangerous_command_blocked():
+        matched = _match_destructive_command(command)
+        if matched:
+            return {
+                "ok": False, "tool": "run_command",
+                "error": "dangerous_command_blocked",
+                "errorCode": "DANGEROUS_COMMAND_BLOCKED",
+                "matched": matched,
+                "command": command,
+                "message": (
+                    f"命令被危险命令硬门拦截:命中破坏性模式 '{matched}'"
+                    f"(安全限制,禁止执行)"
+                ),
+            }
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
@@ -2158,6 +2383,19 @@ async def _tool_dispatch_subagent(
                 # 回调失败不影响主任务执行
                 pass
 
+    # 0-6 嵌套深度护栏:顶层 depth=0 → 1(允许),子代理内 → 2(允许),
+    # 再嵌套 → 3 拒绝(阻断无限递归派发链)。contextvar 保证跨协程上下文传递。
+    current_depth = _subagent_depth.get()
+    next_depth = current_depth + 1
+    if next_depth > _SUBAGENT_MAX_DEPTH:
+        return {
+            "tool": "dispatch_subagent", "ok": False,
+            "error": (
+                f"子代理嵌套深度超过上限({_SUBAGENT_MAX_DEPTH}),"
+                f"当前深度 {current_depth},拒绝派发以阻断无限递归"
+            ),
+            "errorCode": "NESTING_DEPTH_EXCEEDED",
+        }
     has_single = bool(name) or bool(task)
     has_tasks = tasks is not None
 
@@ -2191,16 +2429,31 @@ async def _tool_dispatch_subagent(
         _emit({"phase": "parallel_started", "total": len(tasks), "max_concurrency": max_concurrency})
         try:
             orchestrator = _get_orchestrator()
-            result = await orchestrator.invoke_parallel(
-                tasks=tasks, max_concurrency=max_concurrency
-            )
+            if _SUBAGENT_SEMAPHORE.locked():
+                return {
+                    "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
+                    "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
+                    "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
+                }
+            async with _SUBAGENT_SEMAPHORE:
+                # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
+                _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+                try:
+                    result = await asyncio.wait_for(
+                        orchestrator.invoke_parallel(
+                            tasks=tasks, max_concurrency=max_concurrency
+                        ),
+                        timeout=_get_subagent_timeout(),
+                    )
+                finally:
+                    _subagent_depth.reset(_dtok)
             _emit({
                 "phase": "parallel_done",
                 "total": result.get("total", 0),
                 "succeeded": result.get("succeeded", 0),
                 "failed": result.get("failed", 0),
             })
-            return {
+            _payload = {
                 "tool": "dispatch_subagent", "mode": "parallel",
                 "ok": result.get("ok", False),
                 "total": result.get("total", 0),
@@ -2209,6 +2462,8 @@ async def _tool_dispatch_subagent(
                 "results": result.get("results", []),
                 "message": result.get("message", ""),
             }
+            # 0-6 单子代理输出限额:复用 0-2 截断助手
+            return _truncate_tool_output(_payload)
         except Exception as e:
             return {
                 "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
@@ -2226,18 +2481,33 @@ async def _tool_dispatch_subagent(
     _emit({"phase": "single_started", "agentName": name})
     try:
         orchestrator = _get_orchestrator()
-        step_result = await orchestrator.invoke(
-            agent_name=name,
-            user_input=task,
-            session_id=session_id,
-        )
+        if _SUBAGENT_SEMAPHORE.locked():
+            return {
+                "tool": "dispatch_subagent", "ok": False, "mode": "single",
+                "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
+                "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
+            }
+        async with _SUBAGENT_SEMAPHORE:
+            # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
+            _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
+            try:
+                step_result = await asyncio.wait_for(
+                    orchestrator.invoke(
+                        agent_name=name,
+                        user_input=task,
+                        session_id=session_id,
+                    ),
+                    timeout=_get_subagent_timeout(),
+                )
+            finally:
+                _subagent_depth.reset(_dtok)
         _emit({
             "phase": "single_done",
             "agentName": name,
             "iterations": step_result.iterations,
             "ok": step_result.status == "completed",
         })
-        return {
+        _payload = {
             "tool": "dispatch_subagent", "mode": "single",
             "agent": name,
             "task": task,
@@ -2248,6 +2518,8 @@ async def _tool_dispatch_subagent(
             "error": step_result.error,
             "ok": step_result.status == "completed",
         }
+        # 0-6 单子代理输出限额:复用 0-2 截断助手
+        return _truncate_tool_output(_payload)
     except Exception as e:
         return {
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
@@ -4499,7 +4771,11 @@ class MCPServer:
             args_with_role["__user_id"] = user_id
             args_with_role["__session_id"] = session_id
             # 2026-07-22 P1 鲁棒性加固:全局超时,防 handler 无限挂起
-            return await asyncio.wait_for(handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT)
+            result = await asyncio.wait_for(
+                handler(args_with_role), timeout=MCP_GLOBAL_TIMEOUT
+            )
+            # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
+            return _truncate_tool_output(result)
         except asyncio.TimeoutError:
             return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
         except Exception as e:
