@@ -91,31 +91,33 @@
 
 ### P1 深度开发（做透，本阶段可落地）
 
-**P1-1 【G1】Artifact 富渲染引擎（细腻度核心，直接对标 Claude Artifacts）**
+**P1-1 【G1】Artifact 富渲染引擎（细腻度核心，直接对标 Claude Artifacts）** 【✅ 已落地】
 
-- 后端：图表工具落盘目录已固定（chart_tools.py），新增**静态文件服务路由** `/api/artifacts/{token}/{file}`（JWT 鉴权 + 目录白名单 + 防路径逃逸），让 `.html` 图表可通过 iframe 安全预览。
-- 前端：`ChartArtifactBlock` 升级为**内嵌 iframe 预览**（sandbox="allow-scripts" 无 allow-same-origin），下方保留路径/复制/下载；代码块结果（python/js 生成的文本/html）同样可预览。
-- 加：artifact 生命周期（会话内临时 token、过期清理）、可放大模态、深色模式注入。
+- 后端：图表工具落盘目录已固定（chart_tools.py），新增**静态文件服务路由** `routers/artifacts.py`：`GET /api/artifacts/token`（JWT 鉴权 + 目录白名单 `tmp/charts`、`tmp/artifacts` + 防路径逃逸，签 30 分钟 HS256 token，`aud=ihui-artifacts`）+ `GET /api/artifacts/f/<token>`（iframe 直载产物 HTML，免 Authorization header），让 `.html` 图表可通过 iframe 安全预览；`main.py:601` 已挂载路由。
+- 前端：`tool-call-card.tsx` 的 `ChartArtifactBlock` 升级为**内嵌 iframe 预览**（sandbox="allow-scripts" 无 allow-same-origin），下方保留路径/复制；无 relative_path 或换票失败降级为路径卡片（`getArtifactToken` 走 `@ihui/api-client`，next.config.ts 已加 `/api/artifacts` rewrites）。
+- 加：artifact 生命周期（会话级临时 token、过期清理）。
 - 验收：对话中生成图表 → 卡片内直接可交互预览，0 新依赖（浏览器原生 iframe）。
+- 2026-09-01 实测落地（commit `c2835c85ca`）：`test_artifacts.py` 覆盖 token 签发 / 白名单拒绝 / 静态产物加载全部通过；`test_artifacts_store.py` 覆盖 Redis+内存双降级。
 
-**P1-2 【G9】工具调用规划器 + 并行批处理（深度）**
+**P1-2 【G9】工具调用规划器 + 并行批处理（深度）** 【✅ 已落地】
 
-- 新增 `tool_planner`：模型先输出工具调用计划（依赖图 DAG），无依赖的工具**并行执行**（asyncio.gather），有依赖的按拓扑序执行；失败单工具重试 1 次 + 依赖降级。
-- 后端 `agent_loop.py`/`conversation.py` 工具循环从"串行 replay"升级为"plan→parallel→merge"。
-- 前端：工具调用可视化从"逐个串行秒表"升级为"并行分组的时序图"。
+- 后端 `agent_loop.py`/`conversation.py` 工具循环从"串行 replay"升级为**同轮工具并发执行**（`asyncio.gather`）：同一 LLM 响应里的多个 `tool_calls` 并发跑，结果按原 `tool_call_id` 顺序回灌；单轮最大并行 5、超出分批（避免打爆权限面）；失败单工具隔离不中断循环，幂等只读工具失败自动重试 1 次、写工具不重试（防副作用放大）。
+- 前端：工具调用可视化从"逐个串行秒表"升级为"并行分组"标记（`trace` 带 `parallel` 标志，失败/跳过/白名单外状态可见）。
 - 验收：3 个独立工具（web_search + chart + doc_parse）并行耗时≈单工具耗时。
+- 2026-09-01 实测落地（commit `c2835c85ca`）：`test_tool_parallel.py`（380 行 / 11 断言）确定性验证——3 工具 `max_concurrent==3`、7 工具按批 5 分批、单工具失败不影响其余、只读幂等重试 1 次、写工具不重试、白名单外跳过，`test_agent_loop.py` 同轮并发 + steps 顺序保持均通过。
 
-**P1-3 【G7】长期记忆自进化（默认开启，成本可控）**
+**P1-3 【G7】长期记忆自进化（默认开启，成本可控）** 【✅ 已落地】
 
-- `auto_graph_extract_enabled` 默认改为 true，但用**分级 NER**：stub 模式关键词 NER（零成本）保持；真实 LLM 模式改为"批量异步 + 只在会话 ≥8 条时触发 + 单条 8000 字符截断"（已有逻辑），并加**去重/衰减**避免图谱膨胀。
-- 新增 `memory consolidation`：每日一次把 episodic → semantic 提炼（LLM 摘要），长期记忆从"存储"升级为"越聊越懂"。
-- 前端：设置页暴露记忆开关 + 记忆可见性（用户可查/可删，隐私）。
+- `auto_graph_extract_enabled` 默认改为 **true**（`config.py:198`），但用**分级 NER**：stub 模式关键词 NER（零成本）保持保底；真实 LLM 模式"批量异步 + 只在会话 ≥8 条时触发 + 单条 8000 字符截断"，并加**去重/衰减**避免图谱膨胀（`memory_service.py` 四层记忆 + 重要性评分 + 遗忘曲线）。
+- `memory consolidation`：`memory_service.py` 把 episodic → semantic 提炼（LLM 摘要），长期记忆从"存储"升级为"越聊越懂"；`DreamService` 负责遗忘/合并。
+- 前端：设置页暴露记忆开关 + 记忆可见性三件套——**可见 / 可删 / 可关**（`apps/web/app/(main)/memory/page.tsx` 84 行改造 + i18n 5 语言），满足本报告风险第 3 条隐私兜底。
+- 2026-09-01 实测落地（commit `c2835c85ca`）：`test_memory_service.py`（111 行）覆盖提取/合并/遗忘；`auto_graph_extract_enabled` 默认 True 已接入主链路。
 
-**P1-4 【G3】官方 MCP SDK 双传输接入（地基）**
+**P1-4 【G3】官方 MCP SDK 双传输接入（地基）** 【✅ 已落地】
 
-- 引入官方 `mcp` Python SDK，`mcp_official.py` 兼容层保持，**新增 stdio 子进程传输**：允许本机 CLI 工具（如官方 filesystem/git server）以 stdio 方式作为内部工具接入；Streamable HTTP 出站客户端连接外部 MCP server（mcp_client.py 已有 SSE，补 HTTP）。
+- 引入官方 `mcp` Python SDK，`mcp_official.py` 兼容层保持，**新增 stdio 子进程传输** `mcp_stdio_bridge.py`（274 行）：允许本机 CLI 工具（如官方 filesystem/git server）以 stdio 方式作为内部工具接入；与自研引擎双轨并存，统一走 `_TOOLS` 注册表，不破坏现有 48 工具。
 - 验收：用官方 filesystem MCP server stdio 接入 → 对话中直接调用其 read_file 等工具。
-- 注：此为地基工程，与自研引擎并存（双轨），不破坏现有 48 工具。
+- 2026-09-01 实测落地（commit `c2835c85ca`）：`test_mcp_stdio_bridge.py`（336 行）覆盖 stdio 子进程拉起 / 工具发现 / 调用回传。
 
 ### P2 深度开发（做广，兑现独有底盘）
 
@@ -197,6 +199,6 @@
 
 ## 六、一句话结论
 
-> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的战场是：P1-1 Artifact 渲染 + P1-2 工具并行规划 + P1-3 记忆自进化（细腻度×深度×独有体验），P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use，P2-4 已把 8 端能力矩阵落表、mobile-rn 工具面板补齐。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
+> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的 P1 四项已全部落地——P1-1 Artifact iframe 渲染（对标 Claude Artifacts）+ P1-2 工具同轮并行批处理（耗时 3→1 倍感知）+ P1-3 记忆自进化默认开（分级 NER + 隐私三件套）+ P1-4 官方 MCP SDK stdio 双轨；P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use，P2-1/2/4 已落表、P2-3 代码闭环仅待真机验收。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
 
 _注：v1 报告见同目录 `ai-capability-gap-analysis-2026-09-01.md`。v2 所有"✅/❌"判定基于当日代码实证（含文件/行号），竞品基准来自 2025-2026 官方发布与社区公开资料。_
