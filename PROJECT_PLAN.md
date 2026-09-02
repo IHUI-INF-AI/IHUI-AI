@@ -28,6 +28,27 @@
 
 <!-- 已归档至 .trae-cn/archive/PROJECT_PLAN_archive_2026-08-20.md: 已完成任务:发布文章页面全链路修复(2026-08-17 完成 ✅,跨端:apps/web + apps/api + apps/ai-service) -->
 
+## P0 AI 能力超越路线图 Phase 0:地基修正 8 项(2026-09-02 立,平台独占:apps/ai-service 为主)
+
+> 深度差距分析与完整路线图(Phase 0-3,对标 Claude Code/Codex/Trae/Qoder,2026-09 联网核实基线)见 `reports/ai-capability-gap-analysis-and-surpass-plan-2026-09-02.md`。本节仅登记 Phase 0 可执行项(2 周窗口):
+
+- [x] **0-1 真流式 agent 循环** ✅(2026-09-02):默认执行器翻转为 v2(真流式已在 v2+hook_engine 事件订阅链路存在),流式端点顺序 v2→langgraph→v1 兜底;v1 `run_stream` 标注 DEPRECATED(单轮假流式,last-resort 专用)
+- [x] **0-2 工具结果回填护栏** ✅(2026-09-02):`call_tool` 出口统一 `_truncate_tool_output`,默认 8000 token(`TOOL_OUTPUT_MAX_TOKENS` 可覆盖),控制字段(ok/status/error/tool)保护 + 顶层 `truncated: true` + 截断标记;dispatch_subagent 输出同护栏(幂等)
+- [x] **0-3 checkpoint 接入** ✅(2026-09-02):侦察发现 v2 已有 checkpoint+断点续跑(2026-07-22 Wave 9),本项落地为缺省的 `POST /agents/execute/resume` 端点(缺失 checkpoint→404)
+- [x] **0-4 plan mode** ✅(2026-09-02):`services/plan_mode.py` + `routers/agent_plan.py`(POST /agent-plan、GET /agent-plan/{id}、POST /agent-plan/{id}/decision),READONLY_TOOLS 25 个只读工具白名单(browser_click/type_text、generate_test 正确划出),执行期显式关 checkpoint/memory/approval;409=非法状态迁移。前端确认 UI 未做(后端已完成)
+- [x] **0-5 `run_command` 审批门** ✅(2026-09-02):`_match_destructive_command` 确定性检测(Windows+Unix 危险模式 18+ 样例),`DANGEROUS_COMMAND_BLOCKED` 默认 true,命中拦截返回 errorCode;`RUN_COMMAND_TIMEOUT_S` 硬超时(默认 120s,取 min 防调用方拖长);循环层 tool.approval 审批流 v2 已有(2026-08-30)
+- [x] **0-6 `dispatch_subagent` 治理** ✅(2026-09-02):模块级 Semaphore 并发上限 5(`SUBAGENT_MAX_CONCURRENT`,超限拒绝非排队)、contextvar 嵌套深度 ≤2(`NESTING_DEPTH_EXCEEDED`)、输出限额复用截断护栏、超时 300s(`SUBAGENT_TIMEOUT_S`)
+- [x] **0-7 IHUI-Bench v0** ✅(2026-09-02):`apps/ai-service/bench/`——4 个确定性 fixture 仓 + 20 任务(fix 8/test 5/refactor 4/multifile 3)+ 4 类检查器(file_contains/file_not_contains/pytest_pass/pytest_file_exists)+ run_bench.py CLI(stub/loop_v2 双执行器,fixture 副本 + MCP_WORKSPACE_ROOTS 隔离);stub 全链路冒烟通过,真实评估待 LLM key 跑 `--executor loop_v2`
+- [x] **0-8 合并 agent_loop 双轨** ✅(2026-09-02):以"默认执行器翻转"方式收口(v2 已具备 ReAct/checkpoint/审批/事件总线,v1 转为 last-resort 兜底);v2 补齐 v1 独有闭环:用户画像注入、GraphRAG 抽取、memory consolidate、Skill 自进化评估(全部 fire-and-forget 降级)。验收:受影响 11 测试文件并集 **394 passed / 0 failed**
+
+**Phase 0 完成报告(2026-09-02)**:8/8 项完成。编队 w1-loop-unify(w2-tool-guards/w3-bench-v0/w4-plan-mode 并行执行,零同文件冲突);改动 9 文件 + 新增 10 文件(bench/ 13 文件),并集回归 394 passed。遗留:① conftest AGENT_EXECUTOR 显式化已过 langgraph 路径回归,CI 全量再确认;② plan mode 前端确认 UI 待做;③ bench 真实基准数字待 LLM key;④ 多副本部署需共享 checkpoint/plan 存储。
+
+### P1 后续阶段(详见报告,不展开)
+
+- Phase 1(1-3 月):真子代理体系 / MCP tool deferral + list_changed / 语义压缩层 + 检索回捞 / token 治理面板 / SKILL.md 标准技能体系 / 后台任务 / 权限三模式
+- Phase 2(3-6 月):项目知识引擎(RepoWiki+Knowledge Card+任务经验)/ Agent 团队任务板+工作区锁 / 隔离执行环境 / 自进化闭环产品化 / 记忆质量评测
+- Phase 3(6-12 月):中文编码基准 / 8 端 Agent 一致性 / 企业治理 / 自进化技能市场
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:

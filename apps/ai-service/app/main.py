@@ -678,6 +678,10 @@ def create_app() -> FastAPI:
     from app.routers import news as news_router
     app.include_router(news_router.router, tags=["news-refresh"])
 
+    # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
+    from app.routers import agent_plan as agent_plan_router
+    app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
+
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
     # 普通登录用户无权读取。
