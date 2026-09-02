@@ -795,11 +795,26 @@ export async function decideCompaction(
       const sessionId = opts.sessionId ?? 'cli-default';
       const sampler = createCompactionSampler(v2Config.model || opts.modelId || 'default-model');
       const observer: CompactionObserver = {
-        onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs }) => {
+        onSuccess: ({ tokensBefore, tokensAfter, turnsCompacted, elapsedMs, trigger, cacheHit }) => {
           console.info(chalk.dim(`  🗜️ compaction-v2: ${tokensBefore}→${tokensAfter} tokens, ${turnsCompacted} turns, ${elapsedMs}ms`));
+          trackTelemetry('compaction_v2_success', {
+            sessionId,
+            trigger: trigger ?? 'none',
+            tokensBefore,
+            tokensAfter,
+            turnsCompacted,
+            elapsedMs,
+            cacheHit: cacheHit ?? false,
+          });
         },
-        onError: ({ statusLabel, error }) => {
+        onError: ({ statusLabel, error, trigger }) => {
           console.warn(chalk.yellow(`  ⚠️ compaction-v2 error (${statusLabel}): ${error?.message ?? 'unknown'}`));
+          trackTelemetry('compaction_v2_error', {
+            sessionId,
+            trigger: trigger ?? 'none',
+            statusLabel,
+            errorMessage: error?.message ?? null,
+          });
         },
       };
       // 70% 后台预压缩(2026-09-01 立,代差能力 A 的 CLI 同构):usageRatio ≥ 0.7 且未达触发
@@ -838,6 +853,11 @@ export async function decideCompaction(
       return result;
     } catch (err) {
       console.warn(chalk.yellow(`  ⚠️ compaction-v2 failed, fallback to v1: ${err instanceof Error ? err.message : String(err)}`));
+      trackTelemetry('compaction_v2_fallback', {
+        sessionId,
+        trigger: 'none',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return compressContextIfNeeded(messages, {

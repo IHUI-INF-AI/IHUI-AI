@@ -41,6 +41,9 @@ export function LoginDialog() {
   const setMode = useLoginDialogStore((s) => s.setMode)
 
   const { isDesktop } = useDesktop()
+  // 2026-09-02:主站登录弹窗同样受 bootstrap 异步恢复影响
+  // (已登录用户打开弹窗时,bootstrap 完成后登录态恢复,弹窗应自动关闭)
+  const { ready, isAuthenticated } = useAuthBootstrap()
 
   const showDesktopSso = isDesktop
 
@@ -77,6 +80,44 @@ export function LoginDialog() {
       : mode === 'register'
         ? t('registerSubtitle')
         : t('forgotSubtitle')
+
+  // 2026-09-02 修复:bootstrap 完成时发现已登录且弹窗处于打开状态,自动关闭弹窗
+  // 避免"已登录用户看到登录弹窗"的竞态体验
+  React.useEffect(() => {
+    if (ready && isAuthenticated && isOpen) {
+      close()
+    }
+    // ready/isAuthenticated/isOpen 变化时检查,仅依赖 close 函数引用稳定
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, isAuthenticated])
+
+  if (!ready) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
+        <DialogContent
+          data-testid="login-dialog"
+          hideCloseButton
+          className="
+            gap-0
+            p-0
+            max-w-[460px]
+            w-[calc(100%-2rem)]
+            max-h-[95vh]
+            overflow-y-auto
+            border-0 bg-transparent shadow-none
+          "
+        >
+          <DialogTitle className="sr-only">{title}</DialogTitle>
+          <DialogDescription className="sr-only">{subtitle}</DialogDescription>
+          <AuthShell onClose={close}>
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          </AuthShell>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(o) => !o && close()}>
