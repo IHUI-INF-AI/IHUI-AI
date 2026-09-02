@@ -734,6 +734,102 @@ def trim_messages(
 _VALID_ROLES = {"system", "user", "assistant"}
 
 
+def _normalize_agent_tool_calls(tool_calls: Any) -> Any:
+    """把 agent loop 自定义 tool_calls 形态 {id,name,args} 转成 OpenAI 原生形态。
+
+    OpenAI 原生: [{id, type:"function", function:{name, arguments: JSON字符串}}]
+    AgentLoopV2 自定义: [{id, name, args: dict}](消息累积与旧 checkpoint 的存储形态)
+
+    已是 OpenAI 形态(含 "function" 键)或无法识别的项原样返回,交由下游处理。
+    """
+    if not isinstance(tool_calls, list):
+        return tool_calls
+    out: list[dict[str, Any]] = []
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            out.append(tc)
+            continue
+        if "function" in tc:
+            out.append(tc)
+            continue
+        name = tc.get("name")
+        if not isinstance(name, str) or not name:
+            out.append(tc)
+            continue
+        args = tc.get("args")
+        if isinstance(args, str):
+            arguments = args
+        elif args is not None:
+            try:
+                arguments = json.dumps(args, ensure_ascii=False)
+            except (TypeError, ValueError):
+                arguments = "{}"
+        else:
+            arguments = "{}"
+        out.append({
+            "id": tc.get("id", ""),
+            "type": "function",
+            "function": {"name": name, "arguments": arguments},
+        })
+    return out
+
+
+def _is_agent_loop_messages(messages: list[dict[str, Any]]) -> bool:
+    """判定是否 agent loop 内部消息流(tool role 或自定义 assistant.tool_calls)。
+
+    tool role 只由 AgentLoopV2 累积产生(chat API 入口无 tool role);自定义
+    {id,name,args} 形态的 assistant.tool_calls 也只出现在 AgentLoopV2 消息累积
+    与旧 checkpoint。命中时 complete() 走 agent 专用修复路径(保留 tool role +
+    归一化 tool_calls),否则走原 repair_messages(过滤 tool role,兼容 chat API)。
+    """
+    for m in messages:
+        if not isinstance(m, dict):
+            continue
+        if m.get("role") == "tool":
+            return True
+        if m.get("role") == "assistant":
+            tcs = m.get("tool_calls")
+            if isinstance(tcs, list) and tcs:
+                first = tcs[0]
+                if isinstance(first, dict) and "function" not in first:
+                    return True
+    return False
+
+
+def _repair_agent_loop_messages(
+    messages: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int]:
+    """agent loop 消息流专用修复:保留 tool role 与消息次序,归一化 tool_calls 形态。
+
+    与 repair_messages(面向 chat API)的关键差异:
+    - 不按 _VALID_ROLES 过滤:tool role 必须保留,否则第 2 轮起工具结果到不了 LLM;
+    - 不去重连续相同 role:并行工具结果是连续多条 tool 消息且各自带 tool_call_id,
+      合并会打乱 tool_call_id ↔ assistant.tool_calls 的对应关系;
+    - 不重排首尾:agent loop 自建消息序,user 开头 / tool 结尾均合法;
+    - 空 content 只清 system/user(结构性垃圾),assistant 可能只带 tool_calls
+      (content 为空但必须保留以维持 tool_call 配对),tool 消息全部保留。
+
+    Returns:
+        (repaired, repair_count) — repair_count≈修复/丢弃动作数。
+    """
+    cleaned: list[dict[str, Any]] = []
+    for m in messages:
+        if not isinstance(m, dict):
+            continue  # 非 dict 结构性垃圾,丢弃(与 repair_messages 同策略)
+        role = m.get("role")
+        if role not in ("system", "user", "assistant", "tool"):
+            continue
+        if role in ("system", "user"):
+            content = m.get("content")
+            if not isinstance(content, str) or content.strip() == "":
+                continue
+        out = dict(m)
+        if role == "assistant" and out.get("tool_calls"):
+            out["tool_calls"] = _normalize_agent_tool_calls(out["tool_calls"])
+        cleaned.append(out)
+    return cleaned, len(messages) - len(cleaned)
+
+
 def repair_messages(
     messages: list[dict[str, Any]], keep_trailing_user: bool = False
 ) -> tuple[list[dict[str, Any]], int, list[str]]:
@@ -1370,9 +1466,18 @@ class LLMGateway:
             used_model = model
         # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
         # keep_trailing_user=True: 末尾 user 是当前发送的输入,必须保留
-        repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
-        if repair_removed > 0:
-            logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
+        # agent loop 内部消息流(tool role / 自定义 tool_calls)走专用修复:
+        # 保留 tool 结果并归一化 assistant.tool_calls 为 OpenAI 原生形态,否则
+        # 第 2 轮起请求必 400(此前 tool 结果被剥 + tool_calls 缺 type/function)。
+        # chat API 消息(无 tool role)走原 repair_messages,行为不变。
+        if _is_agent_loop_messages(messages):
+            repaired_messages, repair_removed = _repair_agent_loop_messages(messages)
+            if repair_removed > 0:
+                logger.info("agent_loop repair 修复 %d 条异常消息", repair_removed)
+        else:
+            repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
+            if repair_removed > 0:
+                logger.info("repair_messages 修复 %d 条异常消息", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
 
         # 可选 token 压缩(P3-1,token_compaction.py 集成):
@@ -1930,11 +2035,17 @@ class LLMGateway:
             used_model = _resolve_ihui_auto_model()
         else:
             used_model = model
-        # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 API /chat/stream 同源)
-        # keep_trailing_user=True: 末尾 user 是当前发送的输入,必须保留
-        repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
-        if repair_removed > 0:
-            logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
+        # P38 跨端同步:先修复结构异常,再修剪窗口(防御性兜底,与 complete() 同源)。
+        # agent loop 消息流(tool role / 自定义 tool_calls)走专用修复(见 complete()),
+        # chat API 消息走原 repair_messages,行为不变。
+        if _is_agent_loop_messages(messages):
+            repaired_messages, repair_removed = _repair_agent_loop_messages(messages)
+            if repair_removed > 0:
+                logger.info("agent_loop repair 修复 %d 条异常消息(astream)", repair_removed)
+        else:
+            repaired_messages, repair_removed, _ = repair_messages(messages, keep_trailing_user=True)
+            if repair_removed > 0:
+                logger.info("repair_messages 修复 %d 条异常消息(astream)", repair_removed)
         trimmed_messages = trim_messages(repaired_messages)
 
         # 可选 token 压缩(P3-1,与 complete() 同源):流式也要支持压缩
