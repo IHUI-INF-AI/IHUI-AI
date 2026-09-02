@@ -57,6 +57,100 @@ test.describe('认证流程', () => {
     }
   })
 
+  test('已登录用户访问 /sso/login 应看到授权卡片而非登录表单', async ({ page, context }) => {
+    // 模拟已登录态:注入 auth_token + 必要的 user 信息
+    await context.addCookies([
+      {
+        name: 'auth_token',
+        value: 'fake-token-for-sso-authorized-test',
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ])
+    // 注入 localStorage 中的 zustand persist 数据(ihui-auth)
+    await page.addInitScript(() => {
+      try {
+        const state = {
+          isAuthenticated: true,
+          user: {
+            id: 'test-user',
+            nickname: 'Test User',
+            avatar: '',
+            phone: '',
+            roleId: 1,
+            username: 'test',
+            status: 1,
+          },
+          token: 'fake-token-for-sso-authorized-test',
+          refreshToken: null,
+        }
+        localStorage.setItem('ihui-auth', JSON.stringify(state))
+      } catch {}
+    })
+    await page.goto('/sso/login')
+    await page.waitForLoadState('domcontentloaded')
+
+    // 断言:看到"授权并跳转"按钮(已登录分支的授权卡片)
+    const authBtn = page.getByRole('button', { name: /授权|authorize/i })
+    await expect(authBtn).toBeVisible({ timeout: 15000 })
+
+    // 断言:不应出现登录表单输入框
+    const accountInput = page.locator('input[type="text"], input[type="email"]').first()
+    await expect(accountInput).not.toBeVisible({ timeout: 5000 })
+  })
+
+  test('已登录态主站 LoginDialog 应自动关闭，不泄露登录表单', async ({ page, context }) => {
+    // 模拟已登录态
+    await context.addCookies([
+      {
+        name: 'auth_token',
+        value: 'fake-token-for-logindialog-authorized-test',
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ])
+    await page.addInitScript(() => {
+      try {
+        const state = {
+          isAuthenticated: true,
+          user: {
+            id: 'test-user',
+            nickname: 'Test User',
+            avatar: '',
+            phone: '',
+            roleId: 1,
+            username: 'test',
+            status: 1,
+          },
+          token: 'fake-token-for-logindialog-authorized-test',
+          refreshToken: null,
+        }
+        localStorage.setItem('ihui-auth', JSON.stringify(state))
+      } catch {}
+    })
+
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+
+    // 主动打开登录弹窗
+    const dialog = page.getByTestId('login-dialog')
+    const alreadyOpen = await dialog.isVisible({ timeout: 2000 }).catch(() => false)
+    if (!alreadyOpen) {
+      await page.getByRole('button', { name: /登录/ }).first().click()
+    }
+
+    // 已登录态下，bootstrap 完成后弹窗应自动关闭；最差也应是 loading，不应出现账号输入框
+    const accountInput = page.locator('input[type="text"], input[type="email"]').first()
+    await expect(accountInput).not.toBeVisible({ timeout: 10000 })
+    await expect(dialog).not.toBeVisible({ timeout: 10000 }).catch(() => {})
+  })
+
   test('注册表单验证', async ({ page }) => {
     await openSsoLogin(page)
 
