@@ -27,16 +27,15 @@ export function NavigationProgress() {
   const end = useNavigationStore((s) => s.end)
   const pathname = usePathname()
   const prevPathname = React.useRef(pathname)
-  // 兜底定时器:防止 pending 永久卡住(点击相同页面/导航失败后 pending 无法结束)
   const fallbackTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // 每次 start() 被调用(点击链接)时,设置 10s 兜底定时器
+  // 兜底定时器:防止 pending 永久卡住(导航失败后 pathname 不变、end 无法触发)。
+  // 3s 足够:超过 3s 的加载反馈已由 (main)/loading.tsx 骨架承担,进度条卡着反而掩盖真实状态。
   React.useEffect(() => {
     if (pending && !fallbackTimerRef.current) {
       fallbackTimerRef.current = setTimeout(() => {
         end()
         fallbackTimerRef.current = null
-      }, 10_000)
+      }, 3_000)
     }
     return () => {
       if (fallbackTimerRef.current) {
@@ -46,13 +45,15 @@ export function NavigationProgress() {
     }
   }, [pending, end])
 
-  // 检测 pathname 变化 → 导航完成
+  // 检测 pathname 变化 → 导航完成,立即结束。
+  // 2026-09-02 第三刀(切换慢根因修复):删除原"最小显示 200ms"人为延迟 —
+  // 预取命中时路由切换 <50ms,新页面早已渲染完成却被 GlobalShell 不透明骨架盖住
+  // 强制多等 200ms+75ms 淡出,把预取提速全部抵消。防"闪一下"的正确解法是
+  // overlay 延迟显示(GlobalShell delay-150),而非延迟隐藏。
   React.useEffect(() => {
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname
-      // 最小显示 200ms，避免"闪一下"的糟糕体验
-      const timer = setTimeout(() => end(), 200)
-      return () => clearTimeout(timer)
+      end()
     }
   }, [pathname, end])
 

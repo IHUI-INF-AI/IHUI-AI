@@ -451,7 +451,7 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
                 {t('loginRequired')}
               </div>
             )}
-            {isAuthenticated && filteredCustom.length === 0 && activeTab === 'custom' && (
+            {ready && isAuthenticated && filteredCustom.length === 0 && activeTab === 'custom' && (
               <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                 {t('emptyCustom')}
               </div>

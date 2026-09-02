@@ -341,16 +341,15 @@ export async function openExternalUrl(url: string): Promise<void> {
  *   不受网站 X-Frame-Options / 反自动化拦截。
  * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
  *
- * @returns 桌面端失败(未装 Chrome 等)返回错误消息,成功返回 null;web 端恒返回 null
+ * @returns 桌面端返回 CDP 端口号,失败返回错误消息;web 端恒返回 null
  */
-export async function openInGoogleChrome(url: string): Promise<string | null> {
+export async function openInGoogleChrome(url: string): Promise<number | string | null> {
   if (!isTauri()) {
     window.open(url, '_blank')
     return null
   }
   try {
-    await invoke('open_in_chrome', { url })
-    return null
+    return await invoke<u16>('open_in_chrome', { url })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.warn('[chrome] open_in_chrome failed:', msg)

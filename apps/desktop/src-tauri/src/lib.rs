@@ -144,13 +144,20 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+fn pick_free_port() -> std::io::Result<u16> {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    Ok(port)
+}
+
 /// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
 /// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
 ///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
 /// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
 /// - 仅允许 http/https URL(防参数注入)。
 #[tauri::command]
-fn open_in_chrome(url: String) -> Result<(), String> {
+fn open_in_chrome(url: String) -> Result<u16, String> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
         return Err("仅支持 http/https URL".into());
@@ -173,13 +180,15 @@ fn open_in_chrome(url: String) -> Result<(), String> {
     let Some(chrome) = chrome else {
         return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
     };
-    // spawn 后丢弃句柄:子进程独立运行,不等待、不 kill(--app 是长驻 Chrome 窗口)
-    let _child = std::process::Command::new(&chrome)
-        .arg(format!("--app={}", trimmed))
+
+    let port = pick_free_port().map_err(|e| format!("分配调试端口失败: {}", e))?;
+    let mut cmd = std::process::Command::new(&chrome);
+    cmd.arg(format!("--app={}", trimmed))
         .arg("--new-window")
-        .spawn()
-        .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
-    Ok(())
+        .arg(format!("--remote-debugging-port={}", port))
+        .arg("--user-data-dir=/tmp/ihui-chrome-profile");
+    let _child = cmd.spawn().map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+    Ok(port)
 }
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
@@ -502,6 +511,94 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .build(app)
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 把本应用的托盘图标写入 Windows 11 任务栏常驻(2026-09-02 #2 立)。
+///
+/// 背景:Win11 22H2+ 会把"新出现的托盘图标"默认塞进右下角隐藏溢出区,用户的
+/// "拖拽出来常驻显示"记忆按图标身份存于注册表
+/// `HKCU\Control Panel\NotifyIconSettings\<hash>\IsPromoted`(DWORD,1=任务栏常驻)。
+/// AUMID + NIF_GUID 已稳定图标身份,但身份变化(dev↔安装版路径不同、首次安装、
+/// 系统清理 IconStreams)后新身份默认仍是隐藏,用户被迫反复手动拖拽。
+///
+/// 行为:扫描 NotifyIconSettings 全部子键,按 ExecutablePath 尾段匹配本应用 exe
+/// (dev 的 ihui-desktop.exe 与安装版 IHUI AI.exe 都算),把 IsPromoted 置 1。
+/// 有实际变更时,在主线程移除并重建托盘图标——Explorer 在 NIM_ADD 时读取
+/// IsPromoted,立即常驻显示,无需重启 Explorer。幂等:已是 1 则不动。
+/// Windows 10 / Win11 22H2 之前无此键,静默跳过(仅靠 GUID 身份记忆,拖拽一次即持久)。
+#[cfg(target_os = "windows")]
+fn promote_tray_icon_on_taskbar(app: &tauri::AppHandle) {
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE};
+    use winreg::RegKey;
+
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    // dev 与安装版二进制名不同(ihui-desktop.exe / IHUI AI.exe),两者都纳入匹配
+    let mut candidates: Vec<String> = vec!["ihui-desktop.exe".into(), "ihui ai.exe".into()];
+    if let Some(name) = exe.file_name() {
+        let n = name.to_string_lossy().to_lowercase();
+        if !candidates.contains(&n) {
+            candidates.push(n);
+        }
+    }
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let Ok(root) = hkcu.open_subkey_with_flags("Control Panel\\NotifyIconSettings", KEY_READ | KEY_SET_VALUE)
+    else {
+        log::info!("[desktop] NotifyIconSettings not present, skip tray promote (pre-Win11 22H2)");
+        return;
+    };
+
+    let mut changed = false;
+    for sub in root.enum_keys().flatten() {
+        let Ok(entry) = root.open_subkey_with_flags(&sub, KEY_READ | KEY_SET_VALUE) else {
+            continue;
+        };
+        let path = entry
+            .get_value::<String, _>("ExecutablePath")
+            .map(|p| p.replace('/', "\\").to_lowercase())
+            .unwrap_or_default();
+        // 仅按最后一段文件名精确匹配,避免误提升同名前缀的其他应用
+        let last_segment = path.rsplit('\\').next().unwrap_or("").to_string();
+        if !candidates.iter().any(|c| *c == last_segment) {
+            continue;
+        }
+        if entry.get_value::<u32, _>("IsPromoted").unwrap_or(0) == 1 {
+            continue;
+        }
+        if entry.set_value("IsPromoted", &1u32).is_ok() {
+            changed = true;
+            log::info!("[desktop] tray icon promoted to taskbar: {} ({})", sub, path);
+        }
+    }
+
+    if changed {
+        // 写盘后重注册托盘(NIM_DELETE + NIM_ADD),Explorer 重新注册时读取 IsPromoted。
+        // 菜单/事件处理器由 build_tray 全量重建,与启动时行为一致。
+        let app = app.clone();
+        let _ = app.run_on_main_thread(move || {
+            let _ = app.remove_tray_by_id("main");
+            if let Err(e) = build_tray(&app) {
+                log::error!("[desktop] rebuild tray after promote failed: {}", e);
+            }
+        });
+    }
+}
+
+/// 后台延迟触发托盘常驻写入(2026-09-02 #2 立)。
+/// Explorer 在托盘图标注册后才创建 NotifyIconSettings 条目,首次安装时启动瞬间
+/// 条目尚不存在,故延迟扫描两次(1.5s / 6s)覆盖;后续启动条目已存在,首次扫描即命中。
+#[cfg(target_os = "windows")]
+fn schedule_tray_promote(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        for delay in [Duration::from_millis(1500), Duration::from_millis(6000)] {
+            std::thread::sleep(delay);
+            promote_tray_icon_on_taskbar(&handle);
+        }
+    });
 }
 
 // ================== Computer Control 命令(10 个)==================
@@ -1353,6 +1450,26 @@ async fn clipboard_set(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
+    // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
+    // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
+    // dev(target/debug/ihui-desktop.exe) 与安装版/更新版路径不同 → 被当成不同应用
+    // → 托盘显隐记忆每次重置、图标被丢进隐藏溢出区。
+    // 2026-09-02 修订:从 setup 前移到 run() 顶部——MS 要求该调用早于进程内任何窗口
+    // 创建,而 Tauri 在 setup 之前就已按 tauri.conf.json 创建 main 窗口。
+    // 注:winapi 0.3.9 与 Tauri 2.11 均未导出该 API,改用已在依赖树中的 windows-sys 调用。
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+
+        let id = "com.ihui.desktop";
+        let wide: Vec<u16> =
+            std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
+        unsafe {
+            let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
+        }
+    }
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 每次 dev 启动清空 EBWebView 目录,强制重新加载 dev server 的最新 HTML/CSS
@@ -1445,24 +1562,7 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
-            // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
-            // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
-            // dev(target/debug/ihui-desktop.exe) 与安装版/更新版路径不同 → 被当成不同应用
-            // → 托盘显隐记忆每次重置、图标被丢进隐藏溢出区。
-            // 注:winapi 0.3.9 与 Tauri 2.11 均未导出该 API,改用已在依赖树中的 windows-sys 调用。
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::ffi::OsStrExt;
-                use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
-
-                let id = "com.ihui.desktop";
-                let wide: Vec<u16> =
-                    std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
-                unsafe {
-                    let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
-                }
-            }
+            // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
 
             #[cfg(debug_assertions)]
             {
@@ -1496,6 +1596,10 @@ pub fn run() {
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
             // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
+            // 2026-09-02 #2:托盘图标写入 Win11 任务栏常驻(IsPromoted=1),
+            // 解决"新身份图标默认被丢进右下角隐藏溢出区、需反复手动拖拽"的问题
+            #[cfg(target_os = "windows")]
+            schedule_tray_promote(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
             // admin 窗口已改为 lazy create(2026-07-29),启动时不存在,
             // 标题在 open_admin_window 中通过 WebviewWindowBuilder::title 设置
