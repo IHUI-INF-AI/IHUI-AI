@@ -14112,6 +14112,25 @@
     "subtitle": "N8N workflow integration - orchestrate AI agents automatically via N8N",
     "totalBadge": "{n} Agents total"
   },
+  "agentGovernance": {
+    "title": "Agent Token Governance",
+    "subtitle": "Agent loop budget usage & 7-day trend",
+    "enabledBadge": "Governance on",
+    "disabledBadge": "Observation mode",
+    "usagePercent": "Global budget usage",
+    "todayTokens": "Tokens used today",
+    "pillarUsage": "Pillar budget usage",
+    "remainingTokens": "Pillar tokens left",
+    "degradedOn": "Auto-degrade on breach to",
+    "trendTitle": "7-day usage trend",
+    "byPillarTitle": "Today by pillar",
+    "pillarEmpty": "No usage recorded for this day",
+    "tokenShort": "tk",
+    "loading": "Loading…",
+    "empty": "No governance data",
+    "emptyHint": "AI service returned no budget data, retry later",
+    "backToCost": "Back to cost panel"
+  },
   "nav": {
     "about": "About",
     "activities": "Activities",
@@ -14157,6 +14176,7 @@
     "adminThemePresets": "Presets",
     "adminWorkflows": "Workflows",
     "advancedAiTools": "Advanced AI Tools",
+    "agentGovernance": "Agent Token Governance",
     "agentWorkbench": "Agent Workbench",
     "agents": "Agents",
     "aiGeneration": "AI Generation",
@@ -20243,3 +20263,4 @@
     "generic": "Request failed, please try again later"
   }
 }
+
