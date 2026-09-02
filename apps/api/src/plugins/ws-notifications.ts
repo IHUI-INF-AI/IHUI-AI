@@ -202,6 +202,10 @@ const wsNotificationsPlugin: FastifyPluginAsync = async (server) => {
     const userId = request.userId!
     const roleId = (request.jwtPayload as { roleId?: number } | undefined)?.roleId ?? 0
     const wsToken = await generateWsToken(userId, { roleId })
+    // 2026-09-02 修复:response-sanitizer 将字段名含 "token" 的值遮蔽为 "***",
+    // 导致本端点返回的 wsToken 恒为 "***",客户端换票后连 WS 必被 4003 拒绝。
+    // 本端点已要求 Bearer 认证,wsToken 只交付给已认证调用者,无泄露风险,端点级跳过脱敏。
+    request.skipResponseSanitization = true
     return reply.send(success({ wsToken, expiresIn: 300 }))
   })
 
