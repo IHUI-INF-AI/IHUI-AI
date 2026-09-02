@@ -14,6 +14,8 @@
     "dev:safe:stop": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Stop",
     "dev:safe:clean": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -Clean -Force",
     "dev:safe:all": "pwsh -ExecutionPolicy Bypass -File scripts/start-dev.ps1 -All",
+    "warm:routes": "node scripts/warm-dev-routes.mjs",
+    "warm:routes:all": "node scripts/warm-dev-routes.mjs --all",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "lint:strict": "turbo run lint -- --max-warnings 0",
