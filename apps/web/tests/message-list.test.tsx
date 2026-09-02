@@ -37,6 +37,12 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     retry: 'Retry',
     jumpToLatest: 'Jump to latest',
     latest: 'Latest',
+    // ai.toolCall 命名空间:2026-09-01 TypingIndicator i18n 化后用 useTranslations('ai.toolCall'),
+    // mockT 若缺 key 会回落返回原始 key 文本 → 思考预览断言(/正在思考/)失效。
+    // 此处为 zh-CN 真实译文(与 packages/i18n/messages/web/zh-CN.json 一致)。
+    callingTool: '正在调用工具 {name}',
+    thinking: '正在思考: {preview}',
+    waitingResponse: '正在等待模型响应…',
   }
   const mockT = (key: string, params?: Record<string, unknown>) => {
     let v = map[key] ?? key
