@@ -152,6 +152,8 @@ export * from './endpoints/misc'
 export * from './endpoints/mcp'
 // Artifact 预览端点(2026-09-01 立,对话生成图表 iframe 渲染)
 export * from './endpoints/artifacts'
+// Agent Plan Mode 端点(2026-09-02 立,计划模式确认 UI 后端契约)
+export * from './endpoints/agent-plan'
 export * from './endpoints/notification'
 export * from './endpoints/order'
 export * from './endpoints/payment'
