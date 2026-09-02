@@ -312,9 +312,21 @@ async function registerPlugins(server: FastifyInstance) {
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
-    origin: config.CORS_ORIGIN.split(',')
-      .map((s) => s.trim())
-      .filter(Boolean),
+    // 2026-09-02 增补:放行 chrome-extension:// 前缀(浏览器扩展 popup/sidepanel 页面)。
+    //   安全论证:该 origin 是浏览器可信边界,只有真实安装的扩展页面能产生,任意恶意网页
+    //   (origin=http(s)://site)无法伪造;扩展 service worker 免 CORS,但页面上下文 HTTP
+    //   请求必须带此 Origin,不放行则扩展端 UI 全部 API 调用失败。
+    origin: (
+      origin: string | undefined,
+      cb: (err: Error | null, allow: boolean) => void,
+    ) => {
+      if (!origin) return cb(null, true) // 非浏览器客户端(服务端/curl)允许
+      const o = origin.toLowerCase()
+      const allowed = config.CORS_ORIGIN.split(',')
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean)
+      cb(null, allowed.includes(o) || o.startsWith('chrome-extension://'))
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
@@ -422,7 +434,14 @@ async function registerPlugins(server: FastifyInstance) {
       ) => {
         const origin = (info.origin ?? '').toLowerCase()
         // 缺失 Origin(非浏览器/curl/服务端客户端):允许,依赖 JWT wsAuth
-        if (!origin || wsAllowedOrigins.has(origin)) {
+        // 2026-09-02 增补:放行 chrome-extension:// 前缀(浏览器扩展 popup/sidepanel
+        // 维护的 WS 连接,见 CORS 同名注释的安全论证 —— 该 origin 恶意网页无法伪造)。
+        // 此前仅白名单 CORS_ORIGIN,真实扩展连 WS 恒被 403 拒(1006),扩展端推送从未真通。
+        if (
+          !origin ||
+          wsAllowedOrigins.has(origin) ||
+          origin.startsWith('chrome-extension://')
+        ) {
           next(true)
         } else {
           next(false, 403, 'Origin not allowed')
