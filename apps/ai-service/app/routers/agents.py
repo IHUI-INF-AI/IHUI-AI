@@ -111,8 +111,22 @@ def _make_loop_v2_llm(model: str | None) -> Any:
 
 
 def _is_loop_v2_enabled() -> bool:
-    """生产执行器开关(默认保持 langgraph 现状,env 显式启用 loop_v2)。"""
-    return os.environ.get("AGENT_EXECUTOR", "langgraph").lower() == "loop_v2"
+    """生产执行器开关(三档语义,Phase 0 W1 默认翻转为 v2)。
+
+    env AGENT_EXECUTOR 取值:
+    - 缺省(未设置)→ True:默认启用 AgentLoopV2(完整 ReAct 循环 + checkpoint 续跑
+      + 高危工具审批流 + 记忆/画像闭环 + GraphRAG/consolidate/Skill 自进化出口)。
+    - "loop_v2" / "v2" → True:显式启用 v2。
+    - "langgraph" → False:走 LangGraph 工作流,异常时降级 v1 run_stream 兜底。
+    - "v1" / "legacy" → False:仅走 v1 单轮 run_stream(旧行为)。
+
+    任何未识别值一律视为 False(回退到 langgraph/v1 旧链路),避免误配字面量
+    直接命中 v2 主链路导致行为漂移。
+    """
+    val = os.environ.get("AGENT_EXECUTOR")
+    if val is None:
+        return True
+    return val.strip().lower() in ("loop_v2", "v2")
 
 
 def _map_hook_event_to_sse(event: str) -> str:
@@ -314,6 +328,15 @@ class AgentExecuteRequest(BaseModel):
     tools: list[str] | None = Field(None, description="允许调用的工具名列表")
 
 
+class AgentResumeRequest(BaseModel):
+    """resume agent 请求(checkpoint 断点续跑)。"""
+
+    checkpoint_id: str = Field(..., description="checkpoint id(由 pause/cancel/异常时返回)")
+    model: str | None = Field(None, description="指定模型,为空使用默认")
+    max_iterations: int | None = Field(None, description="最大迭代次数(续跑上限)")
+    tools: list[str] | None = Field(None, description="允许调用的工具名列表")
+
+
 class MemorySearchRequest(BaseModel):
     """记忆语义搜索请求。"""
 
@@ -390,8 +413,12 @@ def _format_sse(event_id: str, event: dict[str, Any]) -> str:
 async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> StreamingResponse:
     """流式执行 agent,通过 SSE 返回增量结果,支持断线重连重放。
 
-    优先使用 LangGraph 工作流(plan → execute → summarize);
-    若工作流异常则降级为 agent_executor.run_stream。
+    执行器选择顺序(Phase 0 W1 默认翻转为 v2):
+    1. AgentLoopV2(_is_loop_v2_enabled() 为 True 时,env 缺省即默认)——
+       真流式(后台 run task + hook_engine 订阅转发),含完整 ReAct + checkpoint;
+    2. LangGraph 工作流(plan → execute → summarize);
+    3. v1 agent_executor.run_stream —— last-resort 兜底(仅单轮,详见其 deprecation 注释),
+       仅当 LangGraph 工作流异常时触发。
 
     断线重连机制:
     - 每个事件携带 id 字段,客户端重连时发送 Last-Event-ID header
@@ -500,7 +527,9 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                     eid = sse_buffer.append(task_id, event)
                     yield _format_sse(eid, event)
             except Exception:
-                # 降级为 agent_executor
+                # last-resort 兜底:仅当 LangGraph 工作流异常时降级为 v1 run_stream
+                # (v1 run_stream 为单轮假流式,能力受限,详见 agent_loop.py 的 deprecation 注释;
+                # 正常路径不应到达此分支)。
                 async for event in agent_executor.run_stream(
                     goal=req.goal,
                     session_id=req.session_id,
@@ -535,6 +564,53 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
             "X-Accel-Buffering": "no",  # 禁用 Nginx 缓冲,确保实时流式
         },
     )
+
+
+@router.post("/agents/execute/resume")
+async def resume_agent_execute(req: AgentResumeRequest) -> dict[str, Any]:
+    """从 checkpoint 断点续跑 agent(MCP 工具包装 + AgentLoopV2.resume_from_checkpoint)。
+
+    与 execute/stream 的 v2 分支使用同一套 AgentLoopV2 构造方式
+    (_make_loop_v2_llm / _build_loop_v2_tools / enable_checkpoint=True),
+    重建循环后调用 resume_from_checkpoint 从 checkpoint.iteration+1 继续执行。
+
+    body: {checkpoint_id, model?, max_iterations?, tools?}
+    返回:{code:0, message:"ok", data:{success, final_response, stop_reason,
+          checkpoint_id, error, total_iterations, total_duration_ms}}
+
+    checkpoint 不存在 / 已过期 → code=404(与 v2 的 ValueError 语义对齐)。
+    """
+    from ..services.agent_loop_v2 import AgentLoopV2
+
+    loop = AgentLoopV2(
+        _make_loop_v2_llm(req.model),
+        tools=_build_loop_v2_tools(req.tools),
+        max_iterations=req.max_iterations or 8,
+        enable_checkpoint=True,
+    )
+    try:
+        result = await loop.resume_from_checkpoint(req.checkpoint_id)
+    except ValueError as e:
+        return {
+            "code": 404,
+            "message": str(e),
+            "data": None,
+        }
+    return {
+        "code": 0,
+        "message": "ok",
+        "data": {
+            "success": result.success,
+            "final_response": getattr(result, "final_response", ""),
+            "stop_reason": result.stop_reason,
+            # 续跑成功后 result.checkpoint_id 为 None(仅 pause/cancel/failed 落盘),
+            # 故回显本次 resume 请求的 checkpoint_id,便于前端对齐续跑来源。
+            "checkpoint_id": result.checkpoint_id or req.checkpoint_id,
+            "error": result.error,
+            "total_iterations": len(result.iterations),
+            "total_duration_ms": result.total_duration_ms,
+        },
+    }
 
 
 @router.get("/agents/running")

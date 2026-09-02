@@ -514,12 +514,17 @@ class AgentExecutor:
     ) -> Any:
         """流式执行 agent,yield 每一步的事件。
 
+        ⚠️ DEPRECATED(单轮假流式):本方法只调用一次 LLM 即结束,不构成真正的
+        ReAct 工具循环(max_iterations / tools 参数已弃用,仅保留签名兼容)。
+        仅作为 agents.py execute/stream 在 LangGraph 工作流异常时的 last-resort 兜底。
+        新链路默认走 AgentLoopV2(真流式 + 完整循环 + checkpoint),不要试图修复本方法。
+
         Args:
             goal: 本次 agent 的目标/用户输入。
             session_id: 会话 ID,为空则新建。
             model: 指定模型,为空使用默认。
-            max_iterations: 最大迭代次数(保留参数,当前实现单轮)。
-            tools: 允许调用的工具名列表(保留参数)。
+            max_iterations: 最大迭代次数(保留参数,当前实现单轮;已弃用)。
+            tools: 允许调用的工具名列表(保留参数;已弃用)。
 
         Yields:
             事件字典,类型包括 message/thinking/usage/status/error。
