@@ -24,7 +24,12 @@ import type {
 function getPlaygroundBaseUrl(): string {
   if (typeof window !== 'undefined') {
     if ('__TAURI_INTERNALS__' in window) {
-      return 'http://localhost:8802'
+      // 2026-09-02 SaaS 化:打包注入 env(线上)优先,未注入(本地 dev)回退 localhost:8802。
+      return (
+        process.env.NEXT_PUBLIC_STREAM_API_BASE_URL ||
+        process.env.NEXT_PUBLIC_API_BASE_URL ||
+        'http://localhost:8802'
+      )
     }
     if (window.location.hostname === 'localhost' && window.location.port === '8801') {
       return 'http://localhost:8802'
