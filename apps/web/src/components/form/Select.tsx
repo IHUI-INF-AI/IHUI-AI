@@ -150,7 +150,12 @@ export function Select({
           onKeyDown={handleTriggerKeyDown}
           className={cn(
             'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm',
-            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            // 改 focus: → focus-visible:(2026-09-02)
+            // 根因:focus 包含鼠标点击,trigger focus 后 focus:ring-2 立即显示焦点环,常驻不可消除。
+            // 自写 popover 用 useClickOutside 关闭后焦点回到 trigger 上,看似"莫名其妙的边框"。
+            // 改 focus-visible 后:鼠标点击不会显示焦点环(只有键盘 Tab 焦点或脚本式 .focus() 才显示),
+            // 符合 W3C :focus-visible 设计意图,WCAG 2.4.7 可访问性保留。
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
             'disabled:cursor-not-allowed disabled:opacity-50',
             error && 'border-destructive',
           )}
