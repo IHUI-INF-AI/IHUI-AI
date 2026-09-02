@@ -1279,7 +1279,7 @@ fn restore_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<
         }
     } else {
         // 无持久化记录(首次安装 / reset_window_state 后):按屏幕可用区
-        // clamp tauri.conf.json 默认尺寸,避免 1600x900 在低分辨率屏幕上超屏。
+        // clamp tauri.conf.json 默认尺寸,避免 1800x900 在低分辨率屏幕上超屏。
         // 2026-09-01 接入:此前 adapt_window_to_screen 仅定义未调用。
         let _ = adapt_window_to_screen(&window);
     }
@@ -1343,7 +1343,7 @@ fn reset_window_state(label: Option<String>, app: tauri::AppHandle) -> Result<Ok
 /// 背景:用户反馈"安装后初始打开的尺寸太窄"——(a) 默认 1200 宽在侧边栏 160px +
 /// AI 面板 380px 的布局下内容区仅 ~660px;(b) 旧版本遗留的 window-state.json 可能
 /// 保存过更窄的尺寸,升级后 restore 直接恢复导致窗口过窄;(c) 低分辨率屏幕(如
-/// 1366x768)上默认 1600x900 会超出屏幕。统一在此 clamp:
+/// 1366x768)上默认 1800x900 会超出屏幕。统一在此 clamp:
 /// - 下限:窗口 min_inner_size(tauri.conf.json 的 minWidth/minHeight)
 /// - 上限:窗口所在显示器可用区的 92%(去掉任务栏/缩放余量)
 /// 返回 clamp 后的物理像素尺寸。
@@ -1390,7 +1390,7 @@ fn clamp_window_size(
 
 /// 启动时把窗口尺寸适配到屏幕(2026-09-01 立)。
 /// 无持久化窗口状态(首次安装/重置后)时,tauri.conf.json 的默认尺寸
-/// (1600x900)在低分辨率屏幕上会超出可见区,这里按屏幕可用区 clamp。
+/// (1800x900)在低分辨率屏幕上会超出可见区,这里按屏幕可用区 clamp。
 /// 有持久化状态时由 restore_window_state 恢复(其内部同样 clamp)。
 fn adapt_window_to_screen(window: &tauri::WebviewWindow) -> Result<(), String> {
     let current = window.outer_size().map_err(|e| e.to_string())?;
