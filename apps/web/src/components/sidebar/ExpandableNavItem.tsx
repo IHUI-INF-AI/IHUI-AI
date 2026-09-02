@@ -6,7 +6,6 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   NAV_ITEM_BASE_CLASS,
@@ -15,6 +14,7 @@ import {
   NAV_CHILD_CLASS,
 } from '@/lib/nav-styles'
 import { Dropdown } from '@/components/feedback'
+import { useNavigateWithProgress } from '@/stores/navigation'
 import { useNotificationStore } from '@/stores/notification'
 import type { NavItem, RegisterRef } from './types'
 
@@ -30,8 +30,6 @@ interface ExpandableNavItemProps {
    * 派生 listId 必须含 scope 才能保证 HTML5 id 唯一性 + SSR/CSR 完全一致(不依赖 useId)。
    */
   scope: 'desktop' | 'mobile'
-  /** 点击导航时立即更新 active 状态不等导航完成 */
-  onBeforeNav?: (href: string) => void
 }
 
 const ExpandableNavItem = React.memo(function ExpandableNavItem({
@@ -42,9 +40,8 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
   registerRef,
   t,
   scope,
-  onBeforeNav,
 }: ExpandableNavItemProps) {
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const children = item.children ?? []
   // 性能修复:使用预计算的 activeHref 替代 pathname，避免 isHrefActive 遍历 ALL_NAV_HREFS。
   const parentActive = activeHref ? children.some((child) => child.href === activeHref) : false
@@ -146,7 +143,6 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
         const badgeCount = getBadgeCount(child.badge)
         const refCb = (el: HTMLElement | null) => registerRef(child.href, el)
         const childHandleClick = () => {
-          onBeforeNav?.(child.href)
           onCloseMobile()
         }
         return (
@@ -182,8 +178,7 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
           label: child.dynamicLabel ?? t(child.labelKey),
           icon: child.icon,
           onSelect: () => {
-            onBeforeNav?.(child.href)
-            router.push(child.href)
+            navigate(child.href)
             onCloseMobile()
           },
         }))}
