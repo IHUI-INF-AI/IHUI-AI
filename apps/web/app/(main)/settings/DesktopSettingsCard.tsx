@@ -137,7 +137,8 @@ export function DesktopSettingsCard() {
             <div className="min-w-0">
               <p className="whitespace-nowrap text-sm font-medium">托盘常驻显示</p>
               <p className="line-clamp-2 text-xs text-muted-foreground">
-                将托盘图标固定在任务栏,不收入右下角隐藏区(Windows 11)
+                将托盘图标固定在任务栏,不收入右下角隐藏区(Windows
+                11);关闭后如需恢复,请到系统"任务栏·小图标"处重新拖出
               </p>
             </div>
           </div>
