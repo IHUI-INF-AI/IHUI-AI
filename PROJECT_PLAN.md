@@ -2998,4 +2998,16 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - 前置任务「页面切换提速」已于 2026-09-02 完成(提交 9e46a06986 / 047549e42a / b48d92abd5 / a27df0fa9b / e37706ecdb),本任务为其遗留项。
 - **首轮落地已完成(2026-09-02)**:`Sidebar.tsx` 移动抽屉懒挂载(`mobileMounted` + `mobileEntered` 双状态),/dashboard HTML 401,236→297,210B(-25.9%),热态 RSC 导航 237~309ms 无回退。提交:`57ab9f862a` perf(web)。**可选后续(图标 sprite 化)已于 2026-09-02 收尾量化后关闭(见待办最后一条)**。
 
+## P1 桌面端 SaaS 化:连接线上生产后端 aizhs.top(2026-09-02 立,跨端:apps/web + apps/api + scripts,用户已拍板)
+
+### 背景与方案
+桌面端现状恒连本机 127.0.0.1:8802(本地三端套件前端壳)。用户拍板改造为 **SaaS 客户端模式**(连 https://aizhs.top 主域),跨域认证选 **refreshToken 落 Tauri store** 方案(不动 cookie:跨站请求不带 SameSite=Lax cookie,cookie 方案必挂)。
+
+### 代码改动(2026-09-02 已完成,待提交)
+- [x] ✅(2026-09-02) 前端 Tauri token vault:`apps/web/src/lib/desktop-token-vault.ts`(读写 auth.json refresh_token,浏览器空操作);`lib/api.ts` refreshAccessToken 改 body 模式(读 vault → `{refreshToken}` body,失败清 vault);`stores/auth.ts` setToken/setTokenWithPrefs/logout 同步 vault(登出从 vault 读回吊销);`sso-desktop-bridge.ts`/`playground-api.ts` 硬编码 8802 → env 尊重;web 补依赖 `@tauri-apps/plugin-store`。
+- [x] ✅(2026-09-02) 后端 CORS:`apps/api/src/server.ts` 固定放行 `http://tauri.localhost` / `tauri://localhost`(CORS 回调 + WS verifyClient,不依赖部署 env,与 chrome-extension 同安全论证);config 默认值 + .env.example/docker-compose 同步。本地 8802 预检实测 ACAO 回显通过;api/web typecheck 通过。
+- [x] ✅(2026-09-02) SaaS 构建入口:`scripts/desktop-build-saas.mjs` + `pnpm build:desktop:saas`(注入 NEXT_PUBLIC_API_BASE_URL/STREAM_API_BASE_URL/AI_SERVICE_URL=https://aizhs.top 后 tauri build)。
+- [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能)。
+
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
