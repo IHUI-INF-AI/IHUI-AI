@@ -92,3 +92,42 @@ def test_bench_tasks_structural_validity() -> None:
     assert invalid == [], f"{len(invalid)} 个任务结构无效: {invalid}"
     # 全量 20 任务全绿(结构层)
     assert len(findings) == len(tasks)
+
+
+def test_bench_gold_registry_complete() -> None:
+    """每个任务都有 gold fix,且无多余注册(2026-09-03 立)。
+
+    只校验注册表完整性(零子进程)。gold fix 的实际可解性验证
+    (修后必须全 PASS)由 `python bench/validate_bench.py --gold`
+    独立执行,含 pytest 子进程,不入单测。
+    """
+    from bench.gold_fixes import GOLD_FIXES
+    from bench.run_bench import TASKS_FILE, _load_tasks
+
+    tasks = _load_tasks(TASKS_FILE)
+    task_ids = {t["id"] for t in tasks}
+    # 双向:任务必须都有 gold,注册的 gold 必须对应真实任务
+    assert task_ids - set(GOLD_FIXES) == set(), (
+        f"缺 gold fix: {sorted(task_ids - set(GOLD_FIXES))}"
+    )
+    assert set(GOLD_FIXES) - task_ids == set(), (
+        f"多余 gold 注册: {sorted(set(GOLD_FIXES) - task_ids)}"
+    )
+
+
+def test_bench_gold_verify_file_only_task() -> None:
+    """verify_task 对纯文件检查任务可离线工作(零 pytest 子进程)。
+
+    选 fix-cli-deadcode:唯一 check 是 file_not_contains,不触发子进程,
+    可作为 verify_task 机制的快速集成验证。
+    """
+    from bench.gold_fixes import verify_task
+    from bench.run_bench import TASKS_FILE, _load_tasks
+
+    task = next(t for t in _load_tasks(TASKS_FILE) if t["id"] == "fix-cli-deadcode")
+    finding = verify_task(task)
+    assert finding["gold"] is True
+    assert finding["apply_error"] is None
+    assert finding["valid"] is True
+    assert finding["checks_passed"] == finding["checks_total"] == 1
+    assert finding["failing"] == []
