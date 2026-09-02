@@ -16,6 +16,7 @@ import {
   QrCode,
   Upload,
   ShieldCheck,
+  MoreVertical,
 } from 'lucide-react'
 import {
   Button,
@@ -42,7 +43,6 @@ import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
-import { CredentialGuide } from '@/components/publish/CredentialGuide'
 import {
   PLATFORM_SCHEMAS,
   getPlatformSchema,
@@ -117,12 +117,18 @@ export default function AccountsPage() {
     undefined,
   )
   const [batchOpen, setBatchOpen] = React.useState(false)
+  const [moreOpen, setMoreOpen] = React.useState(false)
   const [riskMap, setRiskMap] = React.useState<Record<number, RiskView>>({})
 
-  const pendingPlatforms = React.useMemo(() => {
-    const configured = new Set(accounts.map((a) => a.platform))
-    return PLATFORM_SCHEMAS.filter((s) => !configured.has(s.platformId))
-  }, [accounts])
+  React.useEffect(() => {
+    if (!moreOpen) return
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('[data-more-menu]')) setMoreOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [moreOpen])
 
   // 2026-08-17:风控评分并行拉取(失败静默,保持"未评估")
   React.useEffect(() => {
@@ -196,54 +202,55 @@ export default function AccountsPage() {
           <p className="text-xs text-muted-foreground">{t('accounts.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
+          <Button size="sm" onClick={() => openScanLogin()}>
             <QrCode className="h-4 w-4" />
             {t('accounts.scanLogin')}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
-            <Upload className="h-4 w-4" />
-            {t('accounts.batchImport')}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void batchVerify()}
-            disabled={batchVerifying || accounts.length === 0}
-          >
-            {batchVerifying ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
+          <div className="relative" data-more-menu>
+            <Button size="sm" variant="ghost" onClick={() => setMoreOpen((o) => !o)}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full z-10 mt-1 w-48 rounded-md border bg-background shadow-md">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    openAdd()
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t('accounts.advancedAdd')}
+                </button>
+                <div className="mx-2 my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    setBatchOpen(true)
+                  }}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  {t('accounts.batchImport')}
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
+                  onClick={() => {
+                    setMoreOpen(false)
+                    void batchVerify()
+                  }}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {t('accounts.batchVerify')}
+                </button>
+              </div>
             )}
-            {t('accounts.batchVerify')}
-          </Button>
-          <Button size="sm" onClick={() => openAdd()}>
-            <Plus className="h-4 w-4" />
-            {t('accounts.add')}
-          </Button>
+          </div>
         </div>
       </div>
-
-      {!loading && pendingPlatforms.length > 0 && (
-        <div className="rounded-md border border-dashed border-orange-500/30 bg-orange-500/5 p-3">
-          <div className="mb-1.5 text-xs font-medium text-orange-600 dark:text-orange-400">
-            待配置平台({pendingPlatforms.length} 个)— 点击直接配置
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {pendingPlatforms.map((s) => (
-              <button
-                key={s.platformId}
-                type="button"
-                onClick={() => openAdd(s.platformId)}
-                className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
-              >
-                <span className="font-medium">{s.platformName}</span>
-                <span className="text-muted-foreground">+ 配置</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -253,9 +260,9 @@ export default function AccountsPage() {
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <AlertCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('accounts.noAccounts')}</p>
-          <Button size="sm" variant="outline" onClick={() => openAdd()}>
-            <Plus className="h-4 w-4" />
-            {t('accounts.add')}
+          <Button size="sm" onClick={() => openScanLogin()}>
+            <QrCode className="h-4 w-4" />
+            {t('accounts.scanLogin')}
           </Button>
         </div>
       ) : (
@@ -418,12 +425,18 @@ export default function AccountsPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">{t('accounts.credentials')}</Label>
-              <CredentialGuide
-                platformId={form.platform}
-                value={credentials}
-                onChange={setCredentials}
-                disabled={saving}
+              <Input
+                type="password"
+                value={credentials.password ?? ''}
+                onChange={(e) =>
+                  setCredentials((c) => ({ ...c, password: e.target.value }))
+                }
+                placeholder={t('accounts.passwordPlaceholder')}
+                className="h-8 text-xs"
               />
+              <p className="text-[11px] text-muted-foreground">
+                {t('accounts.passwordHint')}
+              </p>
             </div>
             <DialogFooter>
               <Button
