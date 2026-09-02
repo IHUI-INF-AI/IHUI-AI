@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { waitForAuthBootstrap } from './fixtures'
 
 /**
  * 8 端关键路径 — 认证登录流程 (含 SSO)
@@ -51,6 +52,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
       if (r.status() >= 500) serverErrors.push(`${r.url()} ${r.status()}`)
     })
     await page.goto('/register')
+    await waitForAuthBootstrap(page)
     await expect(page).toHaveURL(/\/(register|sso\/register|login|sso\/login)/, {
       timeout: 8000,
     })
@@ -68,6 +70,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
 
   test('登录页(/login)被 middleware 重定向到 /sso/login,表单存在', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     await expect(page).toHaveURL(/\/(sso\/)?login/, { timeout: 8000 })
     const firstInput = page.locator('input:not([type="file"]):visible').first()
     await expect(firstInput).toBeVisible({ timeout: 8000 })
@@ -164,6 +167,7 @@ test.describe('8 端关键路径 · 认证登录流程 (SSO)', () => {
 
   test('SSO 路径:登录页有 SSO 登录入口或三方登录链接', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     await page.waitForLoadState('domcontentloaded')
     // 查找常见的 SSO/三方登录元素(WeChat / GitHub / Google / SSO 等)
     const ssoLink = page
