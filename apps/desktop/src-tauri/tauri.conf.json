@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "IHUI AI",
+  "productName": "智汇AI",
   "version": "0.1.15",
   "identifier": "com.ihui.desktop",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "IHUI AI",
+        "title": "智汇AI",
         "url": "/agents",
         "width": 1800,
         "height": 900,
@@ -63,7 +63,12 @@
       "icons/icon.ico"
     ],
     "category": "Productivity",
-    "shortDescription": "IHUI AI",
-    "longDescription": "IHUI AI 多端平台客户端,基于 Tauri 2 + WebView2"
+    "shortDescription": "智汇AI",
+    "longDescription": "智汇AI 多端平台客户端,基于 Tauri 2 + WebView2",
+    "windows": {
+      "nsis": {
+        "installerHooks": "./windows/hooks.nsi"
+      }
+    }
   }
 }
