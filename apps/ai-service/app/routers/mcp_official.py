@@ -12,17 +12,22 @@ MCP 协议(initialize / tools/list / tools/call / ping)暴露给任意 MCP 客�
 - JSON-RPC 2.0 请求/响应信封(jsonrpc/id/result 或 error)
 - 单 POST 端点,请求体为单个 JSON-RPC 消息(简化单请求-单响应)
 - initialize 握手 + notifications/initialized 确认
-- tools/list → {tools: [{name, description, inputSchema}]}(inputSchema 直接复用
-  内部 _TOOLS 的 input_schema)
+- tools/list → {tools: [{name, description, inputSchema}], toolsVersion}(inputSchema
+  直接复用内部 _TOOLS 的 input_schema,toolsVersion 为 ETag 风格版本号)
 - tools/call → {content: [{type: "text", text}], isError: bool}
 - 权限:带 Bearer 时由 JWTAuthMiddleware 注入 request.state.user_id,透传给
   mcp_server.call_tool;匿名 → user_id=None,高危工具由权限矩阵兜底拒绝(安全默认)。
 
+设计取舍(2026-09-02 立):本层是**无状态直通**,tools/list 每次实时枚举 _TOOLS,不缓存
+工具副本。故 notifications/tools/list_changed 不"失效缓存",而是自增模块级版本号
+_TOOLS_VERSION,再由 tools/list 的 toolsVersion 字段暴露给客户端比对;未知通知方法一律
+返回空 result(JSON-RPC 规范:通知不得产生 error)。
+
 方法分发:
-- initialize → 协议握手(版本 + 能力声明 + serverInfo)
-- notifications/* → 空响应(通知无 id)
+- initialize → 协议握手(版本 + 能力声明 listChanged=True + serverInfo)
+- notifications/* → 空响应(通知无 id);list_changed 触发 _TOOLS_VERSION 自增
 - ping → {}
-- tools/list → 全部工具(名称/描述/schema)
+- tools/list → 全部工具(名称/描述/schema)+ toolsVersion
 - tools/call → 执行工具(权限矩阵校验,结果序列化为 text content)
 - 其他 → JSON-RPC -32601 Method not found
 """
@@ -47,6 +52,20 @@ MCP_PROTOCOL_VERSION = "2025-06-18"
 SERVER_NAME = "ihui-ai-ai-service"
 SERVER_VERSION = "1.0.0"
 
+# 工具集版本号(2026-09-02 立):本层是无状态直通,tools/list 每次实时枚举 _TOOLS,
+# 不缓存。因此收到 notifications/tools/list_changed 时不做"缓存失效",而是把本版本号
+# 自增,tools/list 在响应中附带 toolsVersion 字段(ETag 风格),供客户端比对判断是否需要
+# 重新拉取工具集。初始为 0,每次 list_changed 通知 +1。
+_TOOLS_VERSION: int = 0
+
+
+def get_tools_version() -> int:
+    """返回当前工具集版本号(每次 tools/list_changed 通知自增)。
+
+    供测试与 MCP 客户端在 tools/list 响应的 toolsVersion 字段中比对,判断工具集变化。
+    """
+    return _TOOLS_VERSION
+
 # JSON-RPC 错误码(MCP 规范)
 ERR_PARSE = -32700
 ERR_INVALID_REQUEST = -32600
@@ -69,11 +88,15 @@ def _jsonrpc_result(result: Any, msg_id: Any | None) -> dict[str, Any]:
 
 
 def _handle_initialize(params: dict[str, Any]) -> dict[str, Any]:
-    """MCP initialize 握手:声明能力与服务器信息。"""
+    """MCP initialize 握手:声明能力与服务器信息。
+
+    声明 tools.listChanged=True,告知客户端服务端支持 tools/list_changed 通知,
+    客户端可据此在收到通知后重新拉取工具集(配合 tools/list 的 toolsVersion 字段)。
+    """
     return {
         "protocolVersion": MCP_PROTOCOL_VERSION,
         "capabilities": {
-            "tools": {"listChanged": False},
+            "tools": {"listChanged": True},
             "resources": {},
             "prompts": {},
             "logging": {},
@@ -83,7 +106,11 @@ def _handle_initialize(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _handle_tools_list() -> dict[str, Any]:
-    """tools/list:返回全部工具的官方 MCP schema。"""
+    """tools/list:返回全部工具的官方 MCP schema。
+
+    本层无状态直通(实时枚举 _TOOLS,无缓存),并附带 toolsVersion 字段(ETag 风格):
+    客户端可比对上一次的值,仅在收到 tools/list_changed 通知且版本号变化时重新拉取。
+    """
     tools = [
         {
             "name": t.name,
@@ -92,7 +119,31 @@ def _handle_tools_list() -> dict[str, Any]:
         }
         for t in _TOOLS
     ]
-    return {"tools": tools}
+    return {"tools": tools, "toolsVersion": _TOOLS_VERSION}
+
+
+def _handle_notification(method: str) -> dict[str, Any]:
+    """处理 JSON-RPC 通知(无 id,无需回包,返回空 result)。
+
+    设计取舍:本层是**无状态直通**——tools/list 每次实时枚举 _TOOLS,服务端不持有工具
+    缓存。因此 notifications/tools/list_changed 不做"缓存失效",而是把模块级版本号
+    _TOOLS_VERSION 自增,再由 tools/list 的 toolsVersion 字段(ETag 风格)暴露给客户端,
+    由客户端决定是否需要重新拉取。这等价于把"失效"语义上移到版本号比对,避免维护缓存副本。
+    未知通知名仅记录 debug 日志,一律返回空 result(符合 JSON-RPC:通知不得产生 error)。
+
+    Returns:
+        空 result(供端点回包为 {} )。
+    """
+    global _TOOLS_VERSION
+    if method == "notifications/tools/list_changed":
+        _TOOLS_VERSION += 1
+        logger.info(
+            "[mcp_official] 收到 notifications/tools/list_changed,工具版本号自增 → %d",
+            _TOOLS_VERSION,
+        )
+    else:
+        logger.debug("[mcp_official] 忽略未知通知: %s", method)
+    return {}
 
 
 def _handle_resources_list() -> dict[str, Any]:
@@ -208,7 +259,9 @@ async def mcp_official_endpoint(request: Request) -> JSONResponse:
     kind, _ = _dispatch_method(method)
 
     if kind == "notification":
-        # 通知(无 id):仅确认,返回空响应
+        # 通知(无 id):处理(如 list_changed 自增版本号)后返回空 result,
+        # 未知通知方法也返回空 result 而非 error(JSON-RPC 规范:通知不产生 error)。
+        _handle_notification(method)
         return JSONResponse({}, status_code=200)
 
     if kind == "unknown":

@@ -4461,6 +4461,25 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
+    MCPTool(
+        name="get_tool_schema",
+        description=(
+            "返回指定工具的完整参数 schema(name/description/input_schema),只读。"
+            "当工具定义被 deferral 精简(上下文只放短描述+占位参数)后,模型用本工具"
+            "按工具名取回完整参数,再决定是否调用该工具。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "要查询完整 schema 的工具名(可用 tools/list 获取全部工具名)",
+                },
+            },
+            "required": ["name"],
+        },
+    ),
 ]
 
 
@@ -4488,7 +4507,70 @@ def _normalize_tool_name(name: str) -> str:
     return _TOOL_ALIASES.get(name, name)
 
 
+# ---------------------------------------------------------------------------
+# 工具定义 deferral(瘦身)数据层(2026-09-02 立)
+# ---------------------------------------------------------------------------
+# 把"完整工具 schema"与"放进 LLM 上下文的精简定义"解耦:默认(TOOL_DEFERRAL=on)
+# 下,agent loop 只把"短描述 + 占位参数"塞进上下文,模型需要完整参数时通过内置
+# get_tool_schema 工具按需拉取,对标 Claude Code 的工具定义瘦身(上下文占比超阈值
+# 自动 deferral)。本注册表是两来源(内置 _TOOLS / 外部 register_external_tool)的统一落点。
+_DEFERRED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {}
+
+
+def _register_deferred_schema(tool: MCPTool) -> None:
+    """把单个工具的完整 schema 写入 deferral 注册表(name → 完整 schema)。"""
+    _DEFERRED_TOOL_SCHEMAS[tool.name] = {
+        "name": tool.name,
+        "description": tool.description,
+        "input_schema": tool.input_schema,
+    }
+
+
+def _populate_deferred_schemas() -> None:
+    """把当前 _TOOLS 全部内置工具的完整 schema 批量灌入注册表(幂等)。
+
+    在模块加载、_TOOLS 彻底构建完成后调用一次;外部工具走 register_external_tool
+    各自增量写入,二者共同保证注册表覆盖两来源。重复调用安全(后者覆盖前者)。
+    """
+    for t in _TOOLS:
+        _register_deferred_schema(t)
+
+
+def get_full_tool_schema(name: str) -> dict[str, Any] | None:
+    """返回 deferral 注册表中某工具的完整 schema(name/description/input_schema)。
+
+    name 不存在返回 None。供内置 get_tool_schema 工具与 agent loop 的按需展开复用。
+    """
+    return _DEFERRED_TOOL_SCHEMAS.get(name)
+
+
+def list_deferred_tool_names() -> list[str]:
+    """返回当前已登记完整 schema 的工具名列表(排序,输出稳定)。"""
+    return sorted(_DEFERRED_TOOL_SCHEMAS.keys())
+
+
+async def _tool_get_tool_schema(arguments: dict[str, Any]) -> dict[str, Any]:
+    """get_tool_schema: 返回指定工具的完整参数 schema(deferral 反查入口,只读)。
+
+    模型在工具定义被 deferral 精简后,用本工具按 name 取回完整 input_schema/描述,
+    再决定是否调用该工具。name 为空或不存在均返回 ok=False 并附带可用工具名清单。
+    """
+    name = str(arguments.get("name", "")).strip()
+    if not name:
+        return {"ok": False, "error": "name 不能为空(get_tool_schema 需要目标工具名)"}
+    schema = get_full_tool_schema(name)
+    if schema is None:
+        return {
+            "ok": False,
+            "error": f"未找到工具: {name}",
+            "available": list_deferred_tool_names(),
+        }
+    return {"ok": True, "tool": name, "schema": schema}
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
+    # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
+    "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "read_file": _tool_read_file,
@@ -4577,6 +4659,8 @@ def register_external_tool(tool: MCPTool, handler: Any) -> bool:
     _TOOLS.append(tool)
     _TOOL_HANDLERS[tool.name] = handler
     _EXTERNAL_TOOL_NAMES.add(tool.name)
+    # 同步写入 deferral 注册表:外部工具也需可被 get_tool_schema 反查完整 schema。
+    _register_deferred_schema(tool)
     return True
 
 
@@ -4600,6 +4684,7 @@ def unregister_external_tools(names: list[str] | set[str] | tuple[str, ...]) -> 
     for n in removed:
         _EXTERNAL_TOOL_NAMES.discard(n)
         _TOOL_HANDLERS.pop(n, None)
+        _DEFERRED_TOOL_SCHEMAS.pop(n, None)
     _TOOLS[:] = [t for t in _TOOLS if t.name not in removed]
     return removed
 
@@ -4866,6 +4951,10 @@ class MCPServer:
 
 
 mcp_server = MCPServer()
+
+# 模块加载末段:把全部内置工具(含本文件新增的 get_tool_schema)的完整 schema 灌入
+# deferral 注册表。外部工具在 register_external_tool 时各自增量写入,二者共同覆盖两来源。
+_populate_deferred_schemas()
 
 
 # ---------------------------------------------------------------------------
