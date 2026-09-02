@@ -15517,7 +15517,7 @@
       "delete": "Delete",
       "deleteConfirm": "Are you sure you want to delete this account?",
       "edit": "Edit",
-      "externalBrowserHint": "Log in with your system browser (for SMS/password login); after logging in, copy the site Cookie and paste it into the account form to save",
+      "externalBrowserHint": "Opens the login page in system Chrome; the account is saved automatically once login succeeds — no manual cookie copying needed",
       "lastVerified": "Last Verified",
       "minimize": "Minimize (keep waiting in background)",
       "nickname": "Nickname",
