@@ -119,13 +119,13 @@
 
 ### P2 深度开发（做广，兑现独有底盘）
 
-**P2-1 【G5】MCP 应用商店完整工作流**
+**P2-1 【G5】MCP 应用商店完整工作流** 【✅ 已落地】
 
 - mcp-store 页从"目录 + 一键注册"升级为：安装/卸载/启停/状态徽章/权限审批（高危工具需确认）/配置编辑；注册的 server 实时注入 `mcp_server` 工具列表。
 - 后端：`mcp_directory.py` 加 enabled/installed 状态持久化 + 运行时热挂载。
 - 验收：商店安装官方 filesystem → 立即出现在工具列表 → 对话可调用。
 
-**P2-2 【G6】中文生态 Connectors**
+**P2-2 【G6】中文生态 Connectors** 【✅ 已落地】
 
 - 首批 3 个：飞书文档（按 docx 解析工具复用）、企业微信/钉钉（消息推送 + 素材读取）、语雀（公开知识库拉取）；全部走"token 配置 + 拉取转 RAG 切片"模式，复用 document_tools 解析链。
 - 验收：配置飞书 token → 对话中"读取飞书文档 X" → 返回结构化内容。
@@ -135,11 +135,29 @@
 - 基于已构建的 WXT MV3 extension（browser 工具）加载真通：extension 侧截图/点击/输入经 8802 `/execute` 控制（安全已修 fail-closed）。
 - desktop（Tauri）侧补 GUI 自动化（windows-rs 或第三方 crate），优先国产软件窗口（微信/钉钉）。
 - 验收：extension 加载后，对话指令"打开 example.com 点登录" → 浏览器真执行。
+- 2026-09-02 实测闭环：ai-service `computer_*` 10 工具 → `_make_agent_control_handler` → api `POST /execute`（8802）→ `category==='computer'` 路由 `endpoint='desktop'` → WS 推送 `agent.action` → 端执行 → `POST /result` 回传；免 GUI 端到端模拟 **8/8 PASS**。
+- 🐞 修复生产 bug（commit `1f460c8899`）：全局 `response-sanitizer` 把 `/ws/ticket` 返回的 `wsToken` 遮蔽为 `***`，换票恒失败、WS 被 4003 拒绝；端点级 `skipResponseSanitization` 修复，三仓已同步。
+- ⚠️ 真机验收仍待用户：加载 extension（`apps/extension/.output/chrome-mv3`）或 `pnpm --filter @ihui/desktop dev` 登录后，驱动真实 `computer_*`/`browser_*` 确认闭环（遵守本报告"不宣传未兑现"红线）。
 
-**P2-4 【G12】8 端统一 Agent 能力矩阵**
+**P2-4 【G12】8 端统一 Agent 能力矩阵** 【✅ 已落地】
 
-- 明确各端能力档位：web（全量）/api（全量）/extension（browser 工具 + 聊天）/desktop（聊天 + 本地文件）/mobile-rn（聊天 + 常用工具）/miniapp-taro（聊天）/cli（聊天 + 工具）/ 服务端。
-- 补 mobile-rn 工具调用面板（WebView 复用 web 或原生轻量版）。
+- 明确各端能力档位（见下表）；8 端中唯一缺工具能力的 mobile-rn 已补齐：新增 `ChatToolsScreen`（210 行，`apps/mobile-rn/src/screens/ChatToolsScreen.tsx`），WebView 内嵌 web `/chat`，自动继承 MCP 商店 / 连接器 / 技能面板等全量工具能力，零双端维护负担。
+- App→Web 会话打通复用 M4 SSO 一次性码方案：`generateSsoCode('mobile-rn', redirect)` → `/sso/mobile-auth?sso_code=…&redirect=/chat` → web 消费页 Set-Cookie，WebView 内免登录；失败 / 未登录降级直开（web 登录页兜底）。
+- 接线：`RootNavigator.tsx` 双栈注册 `ChatTools` 屏；个人中心 `profileMenuData.ts:250` 菜单项 `menu.chatTools`（MessagesSquare 图标）；i18n 5 语言齐备（`webChat.*` / `menu.chatTools` / `webView.*` / `common.*`）；`tsc --noEmit` 0 错误。
+- 体验：loading 态、web 不可达错误态 + 重试、Android 返回键 WebView 内部 canGoBack 优先、未登录引导登录空态（不白屏）。
+
+**8 端 Agent 能力矩阵（v2 实证）**
+
+| 端 | 聊天 | 工具调用 / MCP | 记忆 / RAG | 计算机控制 | 备注 |
+| --- | --- | --- | --- | --- | --- |
+| web | ✅ | ✅ 全量 48 工具 | ✅ | — | 主入口，能力最全 |
+| api | ✅ | ✅（服务端，供各端调用） | ✅ | — | 统一中台 |
+| extension（MV3） | ✅ | ✅ browser 工具 | ✅ | ✅ browser_*（待真机） | 已构建未部署，需加载 |
+| desktop（Tauri） | ✅ | ✅ + 本地文件 | ✅ | ✅ computer_*（Rust enigo/screenshots） | 真通待验收 |
+| mobile-rn | ✅ | ✅（WebView 复用 web /chat，P2-4 新补） | ✅（WebView 内） | — | 2026-09-02 补齐 |
+| miniapp-taro | ✅ | — | ✅ | — | 聊天为主 |
+| cli | ✅ | ✅ 工具 | ✅ | — | 命令行 |
+| 服务端（ai-service） | — | ✅ 48 工具编排 | ✅ GraphRAG | — | 引擎层 |
 
 ### P3 做细 + 长期
 
@@ -161,8 +179,8 @@
 | **P1-4** | 官方 MCP SDK stdio      | 生态地基，社区 server 即插即用       | 中（地基工程，双轨并存）           | **排期做**                      |
 | **P2-1** | MCP 商店闭环            | 生态入口，商店即护城河               | 中                                 | 排期做                          |
 | **P2-2** | 中文 Connectors         | 独有主场，竞品进不来                 | 中（每连接器 2-3 天）              | 排期做                          |
-| **P2-3** | Computer Use 真通       | 广度招牌，但依赖 extension 加载/真机 | 高（真机联调）                     | 需用户配合加载 extension        |
-| **P2-4** | 8 端 Agent 矩阵         | 兑现独有广度                         | 中                                 | 排期做                          |
+| **P2-3** | Computer Use 真通       | 广度招牌，代码闭环 + bug 修复            | 高（真机联调）                     | 实现闭环·真机验收待用户        |
+| **P2-4** | 8 端 Agent 矩阵         | 兑现独有广度                         | 中                                 | **已落地**（mobile-rn 面板 + 8 端矩阵）|
 | P3-1~5   | 可观测/编排/语音/多模态 | 锦上添花                             | 中-高                              | 长期                            |
 
 ---
@@ -179,6 +197,6 @@
 
 ## 六、一句话结论
 
-> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的战场是：P1-1 Artifact 渲染 + P1-2 工具并行规划 + P1-3 记忆自进化（细腻度×深度×独有体验），P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
+> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的战场是：P1-1 Artifact 渲染 + P1-2 工具并行规划 + P1-3 记忆自进化（细腻度×深度×独有体验），P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use，P2-4 已把 8 端能力矩阵落表、mobile-rn 工具面板补齐。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
 
 _注：v1 报告见同目录 `ai-capability-gap-analysis-2026-09-01.md`。v2 所有"✅/❌"判定基于当日代码实证（含文件/行号），竞品基准来自 2025-2026 官方发布与社区公开资料。_
