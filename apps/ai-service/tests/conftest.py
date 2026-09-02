@@ -74,8 +74,9 @@ def _isolate_llm_env(monkeypatch, request):
 
     # 2026-08-22 修复:本地 .env 的 AGENT_EXECUTOR=loop_v2 会改变
     # /api/agents/execute/stream 的执行路径与 SSE 事件集(loop_v2 无 status/plan
-    # 事件),而测试针对默认 langgraph 路径编写。删除保证确定性。
-    monkeypatch.delenv("AGENT_EXECUTOR", raising=False)
+    # 事件),而测试针对默认 langgraph 路径编写。显式锁 langgraph 保证确定性
+    # (Phase 0 W1 已将生产默认翻转为 v2;测试里需要 v2 的用例自行 setenv/delenv)。
+    monkeypatch.setenv("AGENT_EXECUTOR", "langgraph")
 
     # 2026-08-22 修复:清空 REDIS_URL。app.main 启动时把 .env 的真实
     # REDIS_URL 同步进 os.environ → WorkerPool._init_redis 等组件拿到真实
