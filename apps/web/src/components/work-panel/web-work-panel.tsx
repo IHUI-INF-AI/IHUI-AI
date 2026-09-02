@@ -56,6 +56,7 @@ export function WebWorkPanel() {
     onLoaded,
     onFailed,
     onCdpNavigation,
+    onEmbedNavigation,
   } = useWorkPanelStore(
     useShallow((s) => ({
       open: s.open,
@@ -81,6 +82,7 @@ export function WebWorkPanel() {
       onLoaded: s.onLoaded,
       onFailed: s.onFailed,
       onCdpNavigation: s.onCdpNavigation,
+      onEmbedNavigation: s.onEmbedNavigation,
     })),
   )
 
@@ -95,9 +97,12 @@ export function WebWorkPanel() {
   const status = activeTab?.state.status ?? 'idle'
   // WebViewFrame 只支持 iframe/screenshot/external,native/cdp 映射为 external
   // cdp 模式由 CdpBrowserView 渲染(canvas + WebSocket),不走 WebViewFrame
+  // proxy 模式(2026-09-02):同源嵌入代理 iframe(后端剥 XFO/CSP),走 WebViewFrame 定制 sandbox
   const rawMode = activeTab?.state.mode ?? 'iframe'
   const sessionId = activeTab?.state.sessionId
+  const proxyUrl = activeTab?.state.proxyUrl
   const isCdpMode = rawMode === 'cdp' && !!sessionId
+  const isProxyMode = rawMode === 'proxy' && !!proxyUrl
   const mode: 'iframe' | 'screenshot' | 'external' =
     rawMode === 'native' || rawMode === 'cdp'
       ? 'external'
@@ -125,6 +130,33 @@ export function WebWorkPanel() {
     // web 端降级 window.open 新标签页。
     if (url) void openInGoogleChrome(url)
   }, [url])
+
+  // 代理 iframe 桥接(2026-09-02):监听代理页 postMessage
+  // - ihui-embed-nav:页内导航 → 同步 tab url + 地址栏
+  // - ihui-embed-proxy-error:代理取回失败 → 降级链(onFailed → CDP → 截图)
+  // 代理页为 opaque origin(iframe sandbox 无 allow-same-origin),e.origin 为 'null',
+  // 无法做同源校验;以消息 type 前缀白名单 + 字段类型校验兜底(影响面:仅地址栏显示/降级触发)
+  React.useEffect(() => {
+    if (!isProxyMode) return
+    const onMessage = (e: MessageEvent) => {
+      const d = e.data as { type?: unknown; url?: unknown; message?: unknown } | null
+      if (!d || typeof d.type !== 'string' || !d.type.startsWith('ihui-embed-')) return
+      if (d.type === 'ihui-embed-nav' && typeof d.url === 'string' && d.url) {
+        onEmbedNavigation(d.url)
+      } else if (d.type === 'ihui-embed-proxy-error') {
+        onFailed(typeof d.message === 'string' ? d.message : '嵌入代理加载失败')
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [isProxyMode, onEmbedNavigation, onFailed])
+
+  // 代理 iframe 加载超时兜底:20s 未 onLoad(强反爬挑战页/网络挂起)→ 降级 CDP
+  React.useEffect(() => {
+    if (!isProxyMode || status !== 'loading') return
+    const timer = window.setTimeout(() => onFailed('嵌入代理加载超时,已切换到截图浏览'), 20000)
+    return () => window.clearTimeout(timer)
+  }, [isProxyMode, status, onFailed, proxyUrl])
 
   // 收藏切换
   const isFavorite = favorites.some((f) => f.url === url)
@@ -186,7 +218,21 @@ export function WebWorkPanel() {
         onNewTab={() => newTab()}
         className="border-l-0"
       >
-        {isCdpMode && sessionId ? (
+        {isProxyMode && proxyUrl ? (
+          <WebViewFrame
+            url={proxyUrl}
+            mode="iframe"
+            status={status}
+            title={title}
+            error={error}
+            /* 无 allow-same-origin:代理页外部 JS 为 opaque origin,无法触碰本站 DOM/存储 */
+            sandbox="allow-scripts allow-forms allow-popups"
+            onLoad={onLoaded}
+            onError={onFailed}
+            onOpenExternal={handleOpenExternal}
+            onRetry={reload}
+          />
+        ) : isCdpMode && sessionId ? (
           <CdpBrowserView
             sessionId={sessionId}
             onNavigation={onCdpNavigation}
