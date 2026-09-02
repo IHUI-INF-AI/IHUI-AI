@@ -203,6 +203,7 @@ import { AiWorldScreen } from '../screens/AiWorldScreen'
 import { PublishScreen } from '../screens/PublishScreen'
 // M4(2026-08-26):通用 WebView 承载页
 import { WebViewScreen } from '../screens/WebViewScreen'
+import { ChatToolsScreen } from '../screens/ChatToolsScreen'
 import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
 // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体(双端功能矩阵 P0/P1 补齐)
 import { WebPortalScreen } from '../screens/WebPortalScreen'
@@ -410,6 +411,8 @@ export type RootStackParamList = {
   ImageGenHistory: undefined
   // M4(2026-08-26):通用 WebView 承载页
   WebView: { url: string; title?: string }
+  // P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(复用 web /chat,补齐工具能力)
+  ChatTools: undefined
   // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体
   WebPortal: undefined
   KnowledgeRag: undefined
@@ -666,6 +669,8 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
             {/* M4(2026-08-26):通用 WebView 承载页 */}
             <RootStack.Screen name="WebView" component={WebViewScreen} />
+            {/* P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏 */}
+            <RootStack.Screen name="ChatTools" component={ChatToolsScreen} />
             {/* M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体 */}
             <RootStack.Screen name="WebPortal" component={WebPortalScreen} />
             <RootStack.Screen name="KnowledgeRag" component={KnowledgeRagScreen} />
@@ -691,6 +696,8 @@ function RootNavigatorInner() {
           <>
             <RootStack.Screen name="Login" component={LoginScreen} />
             <RootStack.Screen name="Register" component={RegisterScreen} />
+            {/* P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(未登录时空态可达) */}
+            <RootStack.Screen name="ChatTools" component={ChatToolsScreen} />
           </>
         )}
       </RootStack.Navigator>
