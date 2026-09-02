@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { waitForAuthBootstrap } from './fixtures'
 
 test.describe('冒烟测试', () => {
   test('首页可访问', async ({ page }) => {
@@ -20,6 +21,7 @@ test.describe('冒烟测试', () => {
   test('登录页可访问', async ({ page }) => {
     // /login 会被中间件重定向到 /sso/login(统一登录);两者都接受
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     await expect(page).toHaveURL(/\/(sso\/)?login/)
     // 任意可见 input 即可(SSO 页用 type=text, 密码登录用 type=tel/password)
     await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({ timeout: 10000 })
@@ -27,6 +29,7 @@ test.describe('冒烟测试', () => {
 
   test('注册页可访问', async ({ page }) => {
     await page.goto('/register')
+    await waitForAuthBootstrap(page)
     await expect(page.locator('input:not([type="file"]):visible').first()).toBeVisible({ timeout: 10000 })
   })
 })

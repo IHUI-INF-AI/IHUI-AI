@@ -72,6 +72,8 @@
     "nickname": "ニックネーム",
     "noAccounts": "アカウントがありません",
     "openExternalBrowser": "外部ブラウザで開く",
+    "openExternalBrowserSuccess": "Chrome を開きました。ログイン後にアカウントが保存されます",
+    "openExternalBrowserWithPlatform": "右側の内蔵ブラウザで {name} のログインページを開きました。QR コードをスキャンしてログインしてください",
     "orDivider": "または",
     "platform": "プラットフォーム",
     "scan": "スキャンログイン",
@@ -88,7 +90,8 @@
     "startScanLogin": "スキャンを開始",
     "subtitle": "複数のソーシャルプラットフォームのアカウントを管理",
     "title": "アカウント管理",
-    "verify": "検証"
+    "verify": "検証",
+    "webFallbackHint": "現在 Web モードです。ログイン後に Cookie を貼り付けて手動で保存してください"
   },
   "activities": {
     "backToList": "るリスト",
@@ -15520,6 +15523,7 @@
   "publish": {
     "accounts": {
       "add": "アカウント追加",
+      "advancedAdd": "開発者用手動追加",
       "batchImport": "一括インポート",
       "batchVerify": "一括検証",
       "cancelScan": "スキャン取消",
@@ -15529,13 +15533,16 @@
       "delete": "削除",
       "deleteConfirm": "このアカウントを削除しますか?",
       "edit": "編集",
-      "externalBrowserHint": "システムブラウザでログイン(認証コード/パスワード向け);ログイン後、サイトのCookieをコピーしてアカウントフォームに貼り付けて保存",
+      "externalBrowserHint": "システムブラウザでログイン;ログイン成功後、アカウントが自動的に保存されます",
       "lastVerified": "最終認証",
       "minimize": "最小化(バックグラウンドで待機)",
       "nickname": "ニックネーム",
-      "noAccounts": "アカウントがありません。先に追加してください",
-      "openExternalBrowser": "外部ブラウザで開く",
-      "orDivider": "または",
+      "noAccounts": "アカウントがありません、先に追加してください",
+        "openExternalBrowser": "外部ブラウザで開く",
+        "openExternalBrowserSuccess": "Chrome を開きました。ログイン後にアカウントが自動保存されます",
+        "orDivider": "または",
+      "passwordPlaceholder": "パスワードを入力",
+      "passwordHint": "一般ユーザーはQRログインを使ってください。この項目は開発者向けです。",
       "platform": "プラットフォーム",
       "scan": "スキャン",
       "scanLogin": "QRコードログイン",
