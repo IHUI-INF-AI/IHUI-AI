@@ -18,6 +18,7 @@
     "warm:routes:all": "node scripts/warm-dev-routes.mjs --all",
     "build": "turbo run build",
     "build:desktop:saas": "node scripts/desktop-build-saas.mjs",
+    "dev:desktop:saas": "node scripts/desktop-dev-saas.mjs",
     "lint": "turbo run lint",
     "lint:strict": "turbo run lint -- --max-warnings 0",
     "test": "turbo run test",
