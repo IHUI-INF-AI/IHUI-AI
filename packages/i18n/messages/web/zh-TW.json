@@ -14101,7 +14101,6 @@
     "about": "關於",
     "activities": "活動",
     "admin": "管理後臺",
-    "adminConfigs": "參數配置",
     "adminDynamic": "動態路由",
     "adminGroup": {
       "aiAgent": "AI 智能體",
@@ -14335,7 +14334,6 @@
     "modelsGroups": "分組",
     "modelsKeys": "密鑰管理",
     "modelsLogs": "調用日誌",
-    "modelsMarket": "模型市場",
     "modelsOpenclaw": "OpenClaw",
     "modelsOverview": "模型總覽",
     "modelsPrompts": "Prompt 管理",
