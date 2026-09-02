@@ -166,4 +166,23 @@ export function buildBrowserWsUrl(sessionId: string): string {
   const sep = base.includes('?') ? '&' : '?'
   return `${base}${sep}token=${encodeURIComponent(currentAccessToken)}`
 }
+
+/** 外部 Chrome CDP 导入登录 Cookie 结果 */
+export interface ImportChromeResult {
+  detected: boolean
+  cookies_count: number
+  account_id: number | null
+  error: string | null
+}
+
+/** 从外部 Chrome CDP 调试端口导入 Cookie、检测登录并自动保存账号 */
+export async function importChromeCookies(
+  port: number,
+  platform: string,
+): Promise<ApiResult<ImportChromeResult>> {
+  return fetchApi<ImportChromeResult>('/api/browser/import-chrome', {
+    method: 'POST',
+    body: JSON.stringify({ port, platform }),
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
