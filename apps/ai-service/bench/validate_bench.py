@@ -17,6 +17,8 @@
     .venv/Scripts/python.exe bench/validate_bench.py            # 全量 20 任务
     .venv/Scripts/python.exe bench/validate_bench.py --task fix-calc-divzero
     .venv/Scripts/python.exe bench/validate_bench.py --json     # 机器可读输出
+    .venv/Scripts/python.exe bench/validate_bench.py --gold     # gold-fix 可解性验证
+    #                                                           (见 bench/gold_fixes.py)
 
 退出码:0=全部健全;1=发现无效任务/定义错误;2=内部错误。
 """
@@ -122,6 +124,14 @@ def validate_tasks(
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--gold" in argv:
+        # gold 可解性验证整体委托 bench/gold_fixes.py(共享 --task/--json 语法)
+        argv.remove("--gold")
+        from bench.gold_fixes import main as gold_main
+
+        return gold_main(argv)
+
     parser = argparse.ArgumentParser(description="IHUI-Bench 任务定义健全性验证")
     parser.add_argument("--task", help="只验证指定任务 id")
     parser.add_argument("--json", action="store_true", help="输出机器可读 JSON")

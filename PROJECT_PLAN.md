@@ -87,6 +87,14 @@
 > **结果**:20/20 任务定义健全 —— 首次量化确认 19 个从未跑过的任务 fixture 可复制、pytest 可收集、初始态正确 FAIL、无假阳性定义。配套 `tests/test_bench.py` 新增结构级用例(不跑 pytest 子进程,全量初始态断言由 CLI 独立执行)。
 > **验收**:bench 3 测试全过 / ruff 0 错 / mypy 0 错(1 源文件)/ CLI 全量 20/20 健全。后续:配额恢复后按 `run_bench.py` 全量真跑即有可靠基线。
 
+### IHUI-Bench gold-fix 可解性验证 ✅ 已完成(2026-09-03,健全性双向自证)
+
+> 背景:健全性验证只证明「初始态必须 FAIL」,不证明「任务真的可解」—— 若某任务无解、或验收方向写错(修对了也不 PASS),基准分数仍不可信。
+> **落地**:`apps/ai-service/bench/gold_fixes.py` —— 20 个任务各一份【金标准修复】注册表(`GOLD_FIXES`)+ 可解性验证:复制 fixture → 应用 gold fix → 重跑全部 checks → **必须全 PASS**。含 `_replace`(锚点唯一断言)/ `_write`(整文件)助手与 `verify_task`/`verify_all` 纯函数。
+> **双向自证结论**:初始态全 FAIL(validate_bench)+ 金标准修复后全 PASS(gold_fixes)⇒ fixture/检查器/验收方向三者一致有效。20/20 任务可解,零"修对了也不 PASS"的任务。
+> **接线**:`bench/validate_bench.py --gold` 委托(共享 --task/--json);`tests/test_bench.py` 新增 2 结构用例(注册表 20/20 双向完整 + 纯文件检查任务的 verify_task 快集成,零子进程)。
+> **验收**:bench 5 测试全过 / ruff 0 错 / mypy 0 错(2 源文件)/ CLI 全量 20/20 可解(exit=0)。
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
