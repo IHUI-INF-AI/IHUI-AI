@@ -15507,6 +15507,7 @@
   "publish": {
     "accounts": {
       "add": "계정 추가",
+      "advancedAdd": "개발자 수동 추가",
       "batchImport": "일괄 가져오기",
       "batchVerify": "일괄 검증",
       "cancelScan": "스캔 취소",
