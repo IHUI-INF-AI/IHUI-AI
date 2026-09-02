@@ -65,44 +65,47 @@ const Sidebar = React.memo(function Sidebar({
     }
   }, [pathname, pendingHref])
 
-  // 首屏空闲预取主路由(2026-09-02 页面切换提速·第二刀):
-  // 业务主屏(/dashboard)+ hot/ai 主分组顶层路由在页面挂载 1.5s 后主动预取进客户端缓存
-  // (staleTimes.dynamic=30s),用户在侧栏点任意主路由时命中缓存、省去一次服务端往返。
-  // 作用域:仅生产模式生效(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求,
-  // dev 每次切换必走服务端往返,这是 Next 架构性下限,非本层可解)。
-  // 交错 200ms 触发避免突发请求;路径去重;跳过当前页与根路径。
-  // 2026-09-02 第三刀:pathname 用 ref 而非依赖项,仅在首次挂载时执行一次,避免每次导航完成
-  // 都清空并重新排队全部定时器(1.5s + N×200ms),消除导航后 1.5~3s 内的预取空窗。
+  // 极致快预取(2026-09-03 页面切换提速·第四刀):
+  // 线上生产实测:同路由首跳 1766ms(目标 chunk 首次下载+解析+hydration),回访 54ms(缓存命中)。
+  // → 若让每个导航目标在页面挂载时都被预取,首次点击也能达到回访的瞬时速度。
+  // 策略:
+  //   ① 顶层路由挂载时立即预取(sidebar 可见项,首屏即可点)。
+  //   ② 全量(含 children)800ms 后交错 40ms 预取,规避突发请求与 LCP 竞争。
+  // 按角色过滤:非 admin 跳过 adminOnly/permission 项,避免对权限路由发起无效预取(403/重定向)。
+  // 作用域:仅生产模式(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求)。
+  // 仅首挂载执行一次脱离 pathname 依赖,避免每次导航重建预取。
   const navRouter = useRouter()
   const pathnameRef = React.useRef(pathname)
-  const idlePrefetchTimers = React.useRef<number[]>([])
   React.useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') return
     const currentPathname = pathnameRef.current
+    const isAdmin = (userRoleId ?? 0) >= 1
+    const isVisible = (i: NavItem) => (!i.adminOnly || isAdmin) && (!i.permission || isAdmin)
+    const visibleItems = NAV_GROUPS.flatMap((g) => g.items).filter(isVisible)
+    const topLevel = [...new Set(visibleItems.map((i) => i.href))].filter(
+      (h) => h !== currentPathname && h !== '/',
+    )
+    const all = [
+      ...new Set(visibleItems.flatMap((i) => flattenNavItems([i]).map((x) => x.href))),
+    ].filter((h) => h !== currentPathname && h !== '/')
+
+    // 批次1:顶层路由立即预取
+    topLevel.forEach((href) => {
+      if (document.visibilityState === 'visible') navRouter.prefetch(href)
+    })
+
+    // 批次2:全量(含 children)延迟交错预取
     const master = window.setTimeout(() => {
-      const mainGroups = NAV_GROUPS.filter(
-        (g) => g.label === 'hotGroupLabel' || g.label === 'aiGroupLabel',
-      )
-      const targets = [
-        ...new Set(['/dashboard', ...mainGroups.flatMap((g) => g.items.map((i) => i.href))]),
-      ].filter((h) => h !== currentPathname && h !== '/')
-      targets.forEach((href, idx) => {
-        idlePrefetchTimers.current.push(
-          window.setTimeout(
-            () => {
-              if (document.visibilityState === 'visible') navRouter.prefetch(href)
-            },
-            500 + idx * 200,
-          ),
-        )
+      all.forEach((href, idx) => {
+        window.setTimeout(() => {
+          if (document.visibilityState === 'visible') navRouter.prefetch(href)
+        }, idx * 40)
       })
-    }, 1500)
-    return () => {
-      window.clearTimeout(master)
-      idlePrefetchTimers.current.forEach((t) => window.clearTimeout(t))
-      idlePrefetchTimers.current = []
-    }
+    }, 800)
+
+    return () => window.clearTimeout(master)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // 首次挂载时执行一次,不再随 pathname 重新排队
+  }, []) // 仅首挂载一次;userRoleId 用挂载时快照,避免重建预取
 
   const startNav = useNavigationStore((s) => s.start)
 
