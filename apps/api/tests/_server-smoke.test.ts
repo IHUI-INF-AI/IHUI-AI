@@ -35,9 +35,22 @@ vi.mock('@ihui/auth', () => ({
 // mock 返回 status=1(active),避免 401 '用户不存在'
 vi.mock('../src/db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
-vi.mock('../src/db/index.js', () => ({
-  db: new Proxy({}, { get: () => () => new Proxy({}, { get: () => () => Promise.resolve([]) }) }),
-}))
+vi.mock('../src/db/index.js', () => {
+  // then 陷阱 mock:db.xxx() 返回可 await 对象(await 访问 .then → thenFn → resolve([]))
+  // 2026-09-03 修复:原嵌套 Proxy(db.execute 返回 Proxy 而非 Promise)导致
+  // live-gifts.ts 插件注册顶层 await db.execute() 永不 resolve → avvio 60s 超时。
+  const make = () => {
+    const thenFn = (resolve: (v: unknown) => void) => Promise.resolve([]).then(resolve)
+    const proxy = new Proxy({} as Record<string, unknown>, {
+      get(_target, prop: string) {
+        if (prop === 'then') return thenFn
+        return () => make()
+      },
+    })
+    return proxy
+  }
+  return { db: make(), dbRead: make() }
+})
 
 // Mock @fastify/cookie:同 csrf.test.ts,用 fastify-plugin 包装避免 encapsulation 作用域问题。
 // 仅补这一项 cookie mock,验证 buildServer 是否能在最小 cookie mock 下完整 ready。
