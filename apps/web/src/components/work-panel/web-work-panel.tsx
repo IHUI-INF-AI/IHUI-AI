@@ -139,17 +139,29 @@ export function WebWorkPanel() {
   React.useEffect(() => {
     if (!isProxyMode) return
     const onMessage = (e: MessageEvent) => {
-      const d = e.data as { type?: unknown; url?: unknown; message?: unknown } | null
+      const d = e.data as {
+        type?: unknown
+        url?: unknown
+        message?: unknown
+        title?: unknown
+      } | null
       if (!d || typeof d.type !== 'string' || !d.type.startsWith('ihui-embed-')) return
+      const title = typeof d.title === 'string' && d.title ? d.title : undefined
       if (d.type === 'ihui-embed-nav' && typeof d.url === 'string' && d.url) {
-        onEmbedNavigation(d.url)
+        onEmbedNavigation(d.url, title)
+      } else if (d.type === 'ihui-embed-loaded' && typeof d.url === 'string' && d.url) {
+        // 页面真实 <title> / 重定向落点广播:同 URL 去重压栈在 store 内处理,这里只同步
+        onEmbedNavigation(d.url, title)
+      } else if (d.type === 'ihui-embed-newtab' && typeof d.url === 'string' && d.url) {
+        // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
+        newTab(d.url)
       } else if (d.type === 'ihui-embed-proxy-error') {
         onFailed(typeof d.message === 'string' ? d.message : '嵌入代理加载失败')
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [isProxyMode, onEmbedNavigation, onFailed])
+  }, [isProxyMode, onEmbedNavigation, onFailed, newTab])
 
   // 代理 iframe 加载超时兜底:20s 未 onLoad(强反爬挑战页/网络挂起)→ 降级 CDP
   React.useEffect(() => {
