@@ -4,9 +4,10 @@
 
 """MCP Client — 连接外部 MCP Server，发现并调用工具。
 
-支持两种传输模式:
+支持三种传输模式:
 1. stdio: 子进程标准输入/输出传输
 2. SSE: Server-Sent Events 传输
+3. streamable_http: 新版 MCP Streamable HTTP 传输(单 POST / 单 GET SSE 流, 可选 OAuth)
 
 设计:
 - MCPClient 类管理单个外部 MCP Server 连接
@@ -23,14 +24,20 @@ import logging
 import os
 import sys
 import urllib.parse
+
 from dataclasses import dataclass, field
 from typing import Any, cast
+
+import httpx
+
+from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
 logger = logging.getLogger(__name__)
 
 # 传输模式
 TRANSPORT_STDIO = "stdio"
 TRANSPORT_SSE = "sse"
+TRANSPORT_STREAMABLE_HTTP = "streamable_http"
 
 # 默认超时
 DEFAULT_TIMEOUT = 30.0
@@ -51,7 +58,7 @@ class MCPClientTool:
 class MCPClientConfig:
     """MCP Client 配置。"""
     name: str
-    transport: str  # "stdio" | "sse"
+    transport: str  # "stdio" | "sse" | "streamable_http"
     command: str = ""
     args: list[str] = field(default_factory=list)
     url: str = ""
@@ -59,6 +66,10 @@ class MCPClientConfig:
     reconnect: bool = True
     max_reconnect_attempts: int = 3
     env: dict[str, str] = field(default_factory=dict)
+    # 附加 HTTP 头(streamable_http 时并入;自定义 Bearer 可直接在此给)
+    headers: dict[str, str] = field(default_factory=dict)
+    # 可选 OAuth 配置(streamable_http 时, connect 前先获取/刷新 token)
+    oauth: MCPOAuthConfig | None = None
 
 
 class MCPClient:
@@ -76,6 +87,12 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
+        # streamable_http 相关
+        self._http_client: httpx.AsyncClient | None = None
+        self._oauth_client: MCPOAuthClient | None = None
+        self._http_mode = ""  # "stream"(SSE 流) | "post"(单 POST 无状态)
+        self._http_headers: dict[str, str] = {}
+        self._stream_task: asyncio.Task[None] | None = None
 
     @property
     def config(self) -> MCPClientConfig:
@@ -92,6 +109,8 @@ class MCPClient:
             ok = await self._stdio_connect()
         elif self._config.transport == TRANSPORT_SSE:
             ok = await self._sse_connect()
+        elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+            ok = await self._http_connect()
         else:
             logger.error("未知传输模式: %s", self._config.transport)
             ok = False
@@ -102,6 +121,22 @@ class MCPClient:
     async def disconnect(self) -> None:
         """断开连接，清理资源。"""
         self._connected = False
+        # 停止 GET SSE 流与 OAuth 连接(streamable_http)
+        if self._stream_task is not None:
+            self._stream_task.cancel()
+            self._stream_task = None
+        if self._oauth_client is not None:
+            try:
+                await self._oauth_client.close()
+            except Exception:
+                pass
+            self._oauth_client = None
+        if self._http_client is not None:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
         if self._read_task is not None:
             self._read_task.cancel()
             self._read_task = None
@@ -196,6 +231,8 @@ class MCPClient:
                 await self._writer.drain()
             elif self._config.transport == TRANSPORT_SSE:
                 await self._sse_post_message(data)
+            elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+                await self._http_post_message(data)
             result = await asyncio.wait_for(fut, timeout=timeout or self._config.timeout)
             return result
         except asyncio.TimeoutError:
@@ -220,6 +257,8 @@ class MCPClient:
                 await self._writer.drain()
             elif self._config.transport == TRANSPORT_SSE:
                 await self._sse_post_message(data)
+            elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+                await self._http_post_message(data)
         except Exception as e:
             logger.warning("发送通知失败: %s", e)
 
@@ -468,6 +507,126 @@ class MCPClient:
         except Exception as e:
             logger.error("SSE POST 失败: %s", e)
             raise
+
+    # =========================================================================
+    # Streamable HTTP 传输(新版 MCP;单 POST / 单 GET SSE 流, 可选 OAuth)
+    # =========================================================================
+
+    async def _http_connect(self) -> bool:
+        """建立 Streamable HTTP 连接。
+
+        流程:
+        1. (可选)OAuth:先获取/刷新 token 并生成 Authorization 头
+        2. POST JSON-RPC initialize(带 protocolVersion/clientInfo/capabilities)
+        3. 依据响应 Content-Type 自动探测传输模式:
+           - `text/event-stream` → stream 模式(SSE 流,GET 长连接 + POST 下发)
+           - `application/json`  → post 模式(无状态,每次 POST 返回单个 JSON-RPC 响应)
+        4. 处理 `Mcp-Session-Id` 响应头(存下并在后续请求回传)
+        """
+        if not self._config.url:
+            logger.error("streamable_http 模式缺少 url")
+            return False
+        try:
+            self._http_client = httpx.AsyncClient(timeout=self._config.timeout)
+            base_headers: dict[str, str] = dict(self._config.headers)
+            # OAuth:先保证拿到有效 token 再注入 Authorization
+            if self._config.oauth is not None:
+                self._oauth_client = MCPOAuthClient(self._config.oauth)
+                try:
+                    token = await self._oauth_client.get_token()
+                    base_headers["Authorization"] = f"Bearer {token.access_token}"
+                except Exception as e:
+                    logger.error("OAuth 获取 token 失败(%s): %s", self._config.name, e)
+                    self._connected = False
+                    return False
+            self._http_headers = base_headers
+            # 先占位为已连接,以便复用 _send_request 完成 initialize
+            self._connected = True
+            self._reconnect_attempts = 0
+            init_msg = {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "ihui-ai-mcp-client", "version": "0.0.1"},
+            }
+            init_resp = await self._send_request("initialize", init_msg)
+            error = init_resp.get("error")
+            if error is not None or "result" not in init_resp:
+                self._connected = False
+                logger.error(
+                    "initialize 失败(%s): %s",
+                    self._config.name,
+                    error.get("message", "未知错误") if isinstance(error, dict) else error,
+                )
+                return False
+            # 依据 initialize POST 的响应类型决定是否启动 GET SSE 流
+            if self._http_mode == "stream":
+                self._stream_task = asyncio.create_task(self._http_stream_loop())
+            logger.info("streamable_http 握手成功(%s): 模式=%s", self._config.name, self._http_mode)
+            return True
+        except Exception as e:
+            logger.error("streamable_http 连接失败(%s): %s", self._config.url, e)
+            self._connected = False
+            return False
+
+    async def _http_post_message(self, data: str) -> None:
+        """通过 POST 发送一条 JSON-RPC 消息。
+
+        核心自动探测:
+        - 响应 Content-Type 若为 `text/event-stream` → stream 模式,把 SSE 内容喂给缓冲区
+          (响应经 GET 流或 SSE POST 体回到 _handle_message 并 resolve 对应的 future)
+        - 否则视为"单 POST 无状态"响应 → 直接把单个 JSON-RPC 响应交给 _handle_message
+        """
+        if self._http_client is None:
+            raise ConnectionError("streamable_http 未初始化 HTTP 客户端")
+        headers = dict(self._http_headers)
+        headers["Content-Type"] = "application/json"
+        headers["Accept"] = "application/json, text/event-stream"
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        resp = await self._http_client.post(
+            self._config.url, headers=headers, content=data
+        )
+        # 处理响应中的 Mcp-Session-Id(握手时可能下发)
+        sid = resp.headers.get("Mcp-Session-Id")
+        if sid:
+            self._session_id = sid
+        ctype = resp.headers.get("Content-Type", "") or ""
+        if "text/event-stream" in ctype:
+            self._http_mode = "stream"
+            if resp.content:
+                self._sse_feed_data(resp.content)
+        else:
+            body = resp.content.strip()
+            if body:
+                self._http_mode = "post"
+                self._handle_message(body.decode("utf-8", errors="replace"))
+            # 202/空体(stream 模式典型的 POST 确认):响应经由 GET 流到达
+
+    async def _http_stream_loop(self) -> None:
+        """单 GET SSE 流读取循环(stream 模式)。
+
+        用于接收 server 推送的消息/通知;结束或异常只记录状态,不强断连接——
+        单 POST 模式下的请求/响应仍由 POST 直接完成,故 EOF 不触发强制重连。
+        """
+        if self._http_client is None:
+            return
+        headers = dict(self._http_headers)
+        headers["Accept"] = "text/event-stream"
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        try:
+            async with self._http_client.stream(
+                "GET", self._config.url, headers=headers
+            ) as resp:
+                async for chunk in resp.aiter_bytes():
+                    if not self._connected:
+                        break
+                    self._sse_feed_data(chunk)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error("HTTP GET 流异常(%s): %s", self._config.name, e)
+        logger.debug("HTTP GET SSE 流已结束(%s)", self._config.name)
 
     # =========================================================================
     # 重连
