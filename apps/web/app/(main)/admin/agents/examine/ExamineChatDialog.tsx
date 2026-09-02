@@ -19,6 +19,7 @@ import {
   Label,
 } from '@ihui/ui-react'
 import { WS_URL, api } from './helpers'
+import { buildWsUrl } from '@/lib/ws-url'
 import type { Examine, ChatMsg } from './types'
 
 interface ExamineChatDialogProps {
@@ -83,7 +84,7 @@ export function ExamineChatDialog({ open, target, onClose }: ExamineChatDialogPr
     setChatInput('')
     try {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        wsRef.current = new WebSocket(WS_URL)
+        wsRef.current = new WebSocket(buildWsUrl(WS_URL))
         wsRef.current.onmessage = (ev) => {
           try {
             const d = JSON.parse(ev.data)
