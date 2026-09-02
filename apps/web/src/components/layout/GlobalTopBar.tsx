@@ -749,11 +749,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 /** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第十轮"做减法 v6"
  *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W9(36px 方块,跟搜索/Plus/chevron-down 4 类按钮全部正方形)
  *  - variant === 'close' 保留红色 hover 样式(差异项,关闭按钮需特别视觉警示)
- *  - 2026-09-02 收紧(用户反馈"关闭按钮 Hover 时图标不够红 不够明显"):
- *    亮色底 15% → 20%,暗色底 15% → 30%(暗背景下"红条"更明显);
- *    暗色文字 red-400 → red-300(浅一档,在深色背景上更易识别为"红 X")。
- *    亮色文字 red-600 保持(亮色背景上已够对比)。保留 16/64 律"克制不刺眼",不直接上满色红底+白 X 的
- *    Windows 11 风格(那会破坏 dark 模式 compact elegant 调性);红色是警示色,够明显即可,不必夺主。 */
+ *  - 2026-09-02 晚(19:31 用户反馈"背景红色不够红,图标也不够纯白或纯黑"):
+ *    推翻上午"16/64 律克制"决定,直接上实心红底 + 纯白图标 —— 与 Windows 11 原生关闭按钮
+ *    hover(#c42b1c 红底白 X)同构。背景 hover/focus-visible 用 bg-red-600(#dc2626,比 Win11
+ *    更鲜亮一档,暗色背景下仍保持"红"的辨识度),active 加深 bg-red-700;图标统一纯白
+ *    (红底白图标为 Win/macOS 通用惯例,深浅主题一致,不再用红字红条)。 */
 function WindowControlButton({
   onClick,
   ariaLabel,
@@ -774,10 +774,10 @@ function WindowControlButton({
         TOPBAR_BTN_BASE,
         TOPBAR_BTN_W9,
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
-        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
-        //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-muted
+        //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一(默认 hover:bg-accent)
+        //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-accent
         variant === 'close'
-          ? 'hover:bg-red-500/20 hover:text-red-600 dark:hover:bg-red-500/30 dark:hover:text-red-300'
+          ? 'hover:bg-red-600 hover:text-white focus-visible:bg-red-600 focus-visible:text-white active:bg-red-700'
           : '',
       )}
     >
