@@ -8,19 +8,66 @@
  * 与 API 端 apps/api/src/utils/semantic-summary.ts 同构:LRU 200 条 Map + djb2 hash,
  * 70% 占用 fire-and-forget 预生成摘要缓存,88% 真压缩命中缓存跳过阻塞式 LLM 摘要。
  *
+ * 磁盘持久化:缓存同时写入内存 Map 与磁盘 JSON 文件,跨会话恢复(进程重启后仍可命中)。
+ *
  * 与 API 版的差异:CLI 无 FastifyRequest,LLM 摘要通过 summarize 回调注入
  * (由 agent.ts 传 compaction-v2 的 sampler 路径,保证缓存产物与实时生成一致)。
  */
 
 import { type ChatMessage } from './context.js';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { mkdirSync } from 'node:fs';
 
 /** 与 compaction-v2 的 DEFAULT_KEEP_RECENT 一致(toCompress = 非 system 除最近 6 条外) */
 const KEEP_RECENT = 6;
-/** 缓存容量(FIFO 淘汰),与 API 版一致 */
-const CACHE_MAX = 200;
+/** 缓存容量上限(内存 Map 与磁盘 JSON 同一上限):超过即按 LRU 淘汰最旧条目,防止 compaction-cache.json 与内存缓存无限膨胀 */
+const MAX_CACHE_ENTRIES = 200;
+/** 磁盘缓存文件路径(~/.ihui/compaction-cache.json) */
+const CACHE_DIR = join(homedir(), '.ihui');
+const CACHE_FILE = join(CACHE_DIR, 'compaction-cache.json');
 
-/** 进程内 LRU(FIFO)缓存:key = sessionId|djb2 → 摘要正文 */
+/** 进程内 LRU 缓存(Map 迭代序 = 插入序,命中时刷新到末尾):key = sessionId|djb2 → 摘要正文 */
 const cache = new Map<string, string>();
+
+/** 从磁盘加载缓存(进程启动时调用,恢复跨会话缓存) */
+function loadCacheFromDisk(): void {
+  try {
+    if (!readFileSync(CACHE_FILE, 'utf-8').trim()) return;
+    const data = JSON.parse(readFileSync(CACHE_FILE, 'utf-8')) as Record<string, string>;
+    if (data && typeof data === 'object') {
+      const entries = Object.entries(data).filter(
+        ([key, summary]) =>
+          typeof key === 'string' && typeof summary === 'string' && summary.trim().length > 0,
+      );
+      // JSON 对象键序即写入序(旧→新,无时间戳字段):超上限时仅保留最新的 MAX_CACHE_ENTRIES 条,防止恢复后缓存膨胀
+      for (const [key, summary] of entries.slice(-MAX_CACHE_ENTRIES)) {
+        cache.set(key, summary);
+      }
+    }
+  } catch {
+    // 磁盘缓存损坏或不存在:静默忽略,使用空缓存启动
+  }
+}
+
+/** 异步写盘(不阻塞主链路) */
+function persistCacheToDisk(): void {
+  try {
+    const data: Record<string, string> = {};
+    // 按 FIFO 顺序写入(Map 迭代序 = 插入序)
+    for (const [key, summary] of cache.entries()) {
+      data[key] = summary;
+    }
+    mkdirSync(CACHE_DIR, { recursive: true });
+    writeFileSync(CACHE_FILE, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  } catch {
+    // 磁盘写入失败静默忽略:内存缓存仍正常工作
+  }
+}
+
+// 进程启动时恢复磁盘缓存
+loadCacheFromDisk();
 
 /** djb2 字符串哈希(零依赖,与 API 版一致) */
 function djb2(text: string): string {
@@ -50,7 +97,13 @@ export function getCachedCompactionSummary(
   messages: ChatMessage[],
 ): string | null {
   if (buildToCompressText(messages) === '') return null;
-  return cache.get(getCompactionCacheKey(messages, sessionId)) ?? null;
+  const key = getCompactionCacheKey(messages, sessionId);
+  const summary = cache.get(key);
+  if (summary === undefined) return null;
+  // LRU 命中刷新:先 delete 再 set,把命中条目移到插入序末尾(视为最新)
+  cache.delete(key);
+  cache.set(key, summary);
+  return summary;
 }
 
 /**
@@ -89,16 +142,24 @@ export function writeCompactionSummaryCache(
   writeCache(`${sessionId}|${djb2(toCompressText)}`, summary);
 }
 
-/** FIFO 写入:超容量淘汰最早插入条目(Map 迭代序 = 插入序) */
+/** LRU 写入:写入后若超上限,按插入序删除最旧条目(Map 迭代序 = 插入序),淘汰后的全量再落盘,保证磁盘文件不超上限 */
 function writeCache(key: string, summary: string): void {
-  if (cache.size >= CACHE_MAX) {
-    const oldest = cache.keys().next().value;
-    if (oldest !== undefined) cache.delete(oldest);
-  }
   cache.set(key, summary);
+  while (cache.size > MAX_CACHE_ENTRIES) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+  // 异步持久化到磁盘(不阻塞主链路)
+  void persistCacheToDisk();
 }
 
 /** 测试专用:清空缓存 */
 export function __clearCompactionCacheForTests(): void {
   cache.clear();
+}
+
+/** 测试专用:读取当前缓存条数(验证 LRU 上限淘汰) */
+export function __getCompactionCacheSizeForTests(): number {
+  return cache.size;
 }
