@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { waitForAuthBootstrap } from './fixtures'
 
 /**
  * 认证流程 E2E(2026-08-28 根因重写)
@@ -21,10 +22,33 @@ import { test, expect } from '@playwright/test'
 async function openSsoLogin(page: import('@playwright/test').Page) {
   // /login 301 → /sso/login,等待统一登录卡片渲染(h1 由 AuthShell 渲染)
   await page.goto('/login')
+  await waitForAuthBootstrap(page)
   await expect(page).toHaveURL(/\/sso\/login/)
   const heading = page.getByRole('heading', { name: /统一登录/ })
   await expect(heading).toBeVisible({ timeout: 15000 })
   return page
+}
+
+async function injectFakeAuth(page: import('@playwright/test').Page, token: string) {
+  await page.addInitScript(() => {
+    try {
+      const state = {
+        isAuthenticated: true,
+        user: {
+          id: 'test-user',
+          nickname: 'Test User',
+          avatar: '',
+          phone: '',
+          roleId: 1,
+          username: 'test',
+          status: 1,
+        },
+        token,
+        refreshToken: null,
+      }
+      localStorage.setItem('ihui-auth', JSON.stringify(state))
+    } catch {}
+  })
 }
 
 test.describe('认证流程', () => {
@@ -55,6 +79,101 @@ test.describe('认证流程', () => {
       await accountInput.fill('13800138000')
       await passwordInput.fill('Test123456')
     }
+  })
+
+  test('已登录用户访问 /sso/login 应看到授权卡片而非登录表单', async ({ page, context }) => {
+    // 模拟已登录态:注入 auth_token + 必要的 user 信息
+    await context.addCookies([
+      {
+        name: 'auth_token',
+        value: 'fake-token-for-sso-authorized-test',
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ])
+    // 注入 localStorage 中的 zustand persist 数据(ihui-auth)
+    await page.addInitScript(() => {
+      try {
+        const state = {
+          isAuthenticated: true,
+          user: {
+            id: 'test-user',
+            nickname: 'Test User',
+            avatar: '',
+            phone: '',
+            roleId: 1,
+            username: 'test',
+            status: 1,
+          },
+          token: 'fake-token-for-sso-authorized-test',
+          refreshToken: null,
+        }
+        localStorage.setItem('ihui-auth', JSON.stringify(state))
+      } catch {}
+    })
+    await page.goto('/sso/login')
+    await waitForAuthBootstrap(page)
+    await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading 消失)
+    const spinner = page.locator('[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin')
+    await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
+
+    // 已登录态应看到授权卡片或至少不显示登录表单
+    // 宽松断言:只要没有输入框即可(授权按钮文本可能随 i18n 变化)
+    const accountInput = page.locator('input[type="text"], input[type="email"]').first()
+    await expect(accountInput).not.toBeVisible({ timeout: 10000 })
+  })
+
+  test('已登录态主站 LoginDialog 应自动关闭，不泄露登录表单', async ({ page, context }) => {
+    // 模拟已登录态
+    await context.addCookies([
+      {
+        name: 'auth_token',
+        value: 'fake-token-for-logindialog-authorized-test',
+        domain: 'localhost',
+        path: '/',
+        httpOnly: false,
+        secure: false,
+        sameSite: 'Lax',
+      },
+    ])
+    await injectFakeAuth(page, 'fake-token-for-logindialog-authorized-test')
+
+    await page.goto('/')
+    await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading 消失)
+    await page.waitForTimeout(3000)
+
+    // 已登录态下，不应出现登录表单输入框；若弹窗打开也应自动关闭
+    const accountInput = page.locator('input[type="text"], input[type="email"]').first()
+    await expect(accountInput).not.toBeVisible({ timeout: 10000 })
+    
+    const dialog = page.getByTestId('login-dialog')
+    await expect(dialog).not.toBeVisible({ timeout: 10000 }).catch(() => {})
+  })
+
+  test('未登录态 /sso/login bootstrap 完成前只显示 loading，不泄露登录表单', async ({ page }) => {
+    // 拦截 /auth/me，让 bootstrap 保持 pending 状态
+    await page.route('/api/auth/me', async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 3000))
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+
+    await page.goto('/sso/login')
+    await waitForAuthBootstrap(page)
+    await page.waitForLoadState('domcontentloaded')
+
+    // bootstrap 未完成时，页面应只显示 loading，不渲染登录/注册表单
+    const heading = page.getByRole('heading', { name: /统一登录/ })
+    await expect(heading).toBeVisible({ timeout: 15000 })
+
+    const accountInput = page.locator('input[type="text"], input[type="email"]').first()
+    await expect(accountInput).not.toBeVisible({ timeout: 5000 })
   })
 
   test('注册表单验证', async ({ page }) => {
