@@ -15507,6 +15507,7 @@
   "publish": {
     "accounts": {
       "add": "Add Account",
+      "advancedAdd": "Advanced Add (Developer)",
       "batchImport": "Batch Import",
       "batchVerify": "Batch Verify",
       "cancelScan": "Cancel scan",

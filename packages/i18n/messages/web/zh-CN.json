@@ -15480,6 +15480,7 @@
   "publish": {
     "accounts": {
       "add": "添加账号",
+      "advancedAdd": "开发者手动添加",
       "batchImport": "批量导入",
       "batchVerify": "批量验证",
       "cancelScan": "取消扫码",

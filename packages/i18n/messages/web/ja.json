@@ -15520,6 +15520,7 @@
   "publish": {
     "accounts": {
       "add": "アカウント追加",
+      "advancedAdd": "開発者用手動追加",
       "batchImport": "一括インポート",
       "batchVerify": "一括検証",
       "cancelScan": "スキャン取消",
