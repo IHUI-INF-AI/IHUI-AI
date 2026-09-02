@@ -68,6 +68,8 @@
     "nickname": "昵称",
     "noAccounts": "暂无账号",
     "openExternalBrowser": "在外部浏览器打开",
+    "openExternalBrowserSuccess": "已打开 Chrome,登录后将自动保存账号",
+    "openExternalBrowserWithPlatform": "已在右侧内置浏览器打开 {name} 登录页,请扫码登录",
     "orDivider": "或",
     "platform": "平台",
     "scan": "扫码登录",
@@ -84,7 +86,8 @@
     "startScanLogin": "开始扫码",
     "subtitle": "管理多个社交平台账号",
     "title": "账号管理",
-    "verify": "验证"
+    "verify": "验证",
+    "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存"
   },
   "activities": {
     "backToList": "返回活动列表",
@@ -6760,7 +6763,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -6777,7 +6785,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8232,7 +8245,7 @@
       "shortcutsItemModeSpecKbd": "切换到规格模式(从代码反向生成 spec 文档)",
       "shortcutsItemNumberKbd": "popover 打开时按 1/2/3 直接选模式",
       "shortcutsItemQuestionMarkKbd": "唤起本快捷键面板",
-      "infoModalTitle": "权限模式说明",
+      "infoModalTitle": "权限模式详情",
       "infoModalDesc": "当前为高风险模式，请了解以下行为：",
       "infoModalBullet1": "AI 可不受限制地执行所有操作，无需逐一确认",
       "infoModalBullet2": "可读取、修改、删除工作区内的任意文件",
@@ -8299,8 +8312,7 @@
       "tplTranslate": "翻译",
       "tplTranslateContent": "请将以下内容翻译为英文",
       "undo": "撤销",
-      "usageHint": "用法: /permission ask | auto | full",
-      "infoModalTitle": "权限模式详情"
+      "usageHint": "用法: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
@@ -8740,32 +8752,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       }
     },
@@ -10568,25 +10606,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -10720,19 +10770,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -13209,7 +13271,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13944,7 +14014,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -14893,12 +14968,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -15480,6 +15567,7 @@
   "publish": {
     "accounts": {
       "add": "添加账号",
+      "advancedAdd": "开发者手动添加",
       "batchImport": "批量导入",
       "batchVerify": "批量验证",
       "cancelScan": "取消扫码",
@@ -15489,13 +15577,16 @@
       "delete": "删除",
       "deleteConfirm": "确定删除此账号吗?",
       "edit": "编辑",
-      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "externalBrowserHint": "用系统浏览器登录;登录成功后会自动保存账号到项目中",
       "lastVerified": "最近验证",
       "minimize": "最小化(后台继续等待)",
       "nickname": "昵称",
       "noAccounts": "暂无账号,请先添加",
       "openExternalBrowser": "在外部浏览器打开",
+      "openExternalBrowserSuccess": "已打开 Chrome,登录后将自动保存账号",
       "orDivider": "或",
+      "passwordPlaceholder": "请输入密码",
+      "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "scan": "扫码",
       "scanLogin": "扫码登录",
@@ -16155,7 +16246,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -20163,5 +20260,273 @@
     "autoMemoryDesc": "开启后，AI 会在对话后自动提炼要点并沉淀为长期记忆，用于后续个性化回复。",
     "autoMemorySaveSuccess": "设置已保存",
     "autoMemorySaveFailed": "保存失败，请重试"
+  },
+  "agentPlan": {
+    "title": {
+      "en": "Agent Plan Mode",
+      "ja": "Agent プランモード",
+      "ko": "Agent 계획 모드",
+      "zh-CN": "Agent 计划模式",
+      "zh-TW": "Agent 計畫模式"
+    },
+    "description": {
+      "en": "Let the AI draft an editable execution plan first; review and confirm before any action runs (read-only phase).",
+      "ja": "まず AI に編集可能な実行計画を作成させ、実行前に確認します(読み取り専用フェーズ)。",
+      "ko": "AI가 편집 가능한 실행 계획을 먼저 작성하고, 실행 전에 검토·확정합니다(읽기 전용 단계).",
+      "zh-CN": "先让 AI 生成可编辑的执行计划,确认后再执行(只读阶段)。",
+      "zh-TW": "先讓 AI 產生可編輯的執行計畫,確認後再執行(唯讀階段)。"
+    },
+    "goalLabel": {
+      "en": "Goal / Task description",
+      "ja": "目標 / タスクの説明",
+      "ko": "목표 / 작업 설명",
+      "zh-CN": "目标 / 任务描述",
+      "zh-TW": "目標 / 任務描述"
+    },
+    "goalPlaceholder": {
+      "en": "Describe the task you want the AI to accomplish, e.g. write unit tests for the login module",
+      "ja": "AI に実行させたいタスクを入力してください(例:ログイン機能の単体テストを作成)",
+      "ko": "AI가 수행할 작업을 설명하세요(예: 로그인 모듈 단위 테스트 작성)",
+      "zh-CN": "描述你希望 AI 完成的任务,例如:为登录模块编写单元测试",
+      "zh-TW": "描述你希望 AI 完成的任務,例如:為登入模組編寫單元測試"
+    },
+    "sessionLabel": {
+      "en": "Session ID (optional)",
+      "ja": "セッション ID(任意)",
+      "ko": "세션 ID(선택)",
+      "zh-CN": "会话 ID(可选)",
+      "zh-TW": "會話 ID(選用)"
+    },
+    "sessionPlaceholder": {
+      "en": "Link to an existing session; leave empty to start new",
+      "ja": "既存セッションに関連付けます。空欄の場合は新規作成",
+      "ko": "기존 세션에 연결합니다. 비우면 새로 생성",
+      "zh-CN": "关联已有会话,留空则新建",
+      "zh-TW": "關聯已有會話,留空則新建"
+    },
+    "modelLabel": {
+      "en": "Model (optional)",
+      "ja": "モデル(任意)",
+      "ko": "모델(선택)",
+      "zh-CN": "模型(可选)",
+      "zh-TW": "模型(選用)"
+    },
+    "modelPlaceholder": {
+      "en": "Leave empty to use the default model",
+      "ja": "空欄の場合はデフォルトモデルを使用",
+      "ko": "비우면 기본 모델 사용",
+      "zh-CN": "留空使用默认模型",
+      "zh-TW": "留空使用預設模型"
+    },
+    "generate": {
+      "en": "Generate Plan",
+      "ja": "計画を生成",
+      "ko": "계획 생성",
+      "zh-CN": "生成计划",
+      "zh-TW": "產生計畫"
+    },
+    "generating": {
+      "en": "Generating…",
+      "ja": "生成中…",
+      "ko": "생성 중…",
+      "zh-CN": "生成中…",
+      "zh-TW": "產生中…"
+    },
+    "planTitle": {
+      "en": "Execution Plan",
+      "ja": "実行計画",
+      "ko": "실행 계획",
+      "zh-CN": "执行计划",
+      "zh-TW": "執行計畫"
+    },
+    "edit": {
+      "en": "Edit",
+      "ja": "編集",
+      "ko": "편집",
+      "zh-CN": "编辑",
+      "zh-TW": "編輯"
+    },
+    "save": {
+      "en": "Save changes",
+      "ja": "変更を保存",
+      "ko": "변경 저장",
+      "zh-CN": "保存修改",
+      "zh-TW": "儲存修改"
+    },
+    "cancel": {
+      "en": "Cancel",
+      "ja": "キャンセル",
+      "ko": "취소",
+      "zh-CN": "取消",
+      "zh-TW": "取消"
+    },
+    "editHint": {
+      "en": "You can edit the plan directly. After approval, the edited version is used.",
+      "ja": "計画は直接編集できます。承認後は編集内容が採用されます。",
+      "ko": "계획을 직접 편집할 수 있습니다. 승인 시 편집한 내용이 적용됩니다.",
+      "zh-CN": "可直接编辑计划内容,批准后以编辑结果为准。",
+      "zh-TW": "可直接編輯計畫內容,確認後以編輯結果為準。"
+    },
+    "readonlyTools": {
+      "en": "Read-only tools",
+      "ja": "読み取り専用ツール",
+      "ko": "읽기 전용 도구",
+      "zh-CN": "只读工具",
+      "zh-TW": "唯讀工具"
+    },
+    "approve": {
+      "en": "Approve & Execute",
+      "ja": "承認して実行",
+      "ko": "승인 및 실행",
+      "zh-CN": "批准并执行",
+      "zh-TW": "批准並執行"
+    },
+    "reject": {
+      "en": "Reject",
+      "ja": "拒否",
+      "ko": "거절",
+      "zh-CN": "拒绝",
+      "zh-TW": "拒絕"
+    },
+    "executing": {
+      "en": "Executing, please wait… (may take several minutes)",
+      "ja": "実行中です。そのままお待ちください…(数分かかる場合があります)",
+      "ko": "실행 중입니다. 잠시 기다려 주세요…(몇 분 소요될 수 있음)",
+      "zh-CN": "执行中,请稍候…(可能耗时数分钟)",
+      "zh-TW": "執行中,請稍候…(可能耗時數分鐘)"
+    },
+    "decisionError": {
+      "en": "Action failed",
+      "ja": "操作に失敗しました",
+      "ko": "작업에 실패했습니다",
+      "zh-CN": "操作失败",
+      "zh-TW": "操作失敗"
+    },
+    "resultTitle": {
+      "en": "Execution Result",
+      "ja": "実行結果",
+      "ko": "실행 결과",
+      "zh-CN": "执行结果",
+      "zh-TW": "執行結果"
+    },
+    "planId": {
+      "en": "Plan ID",
+      "ja": "計画 ID",
+      "ko": "계획 ID",
+      "zh-CN": "计划 ID",
+      "zh-TW": "計畫 ID"
+    },
+    "finalResponse": {
+      "en": "Final response",
+      "ja": "最終応答",
+      "ko": "최종 응답",
+      "zh-CN": "最终回复",
+      "zh-TW": "最終回覆"
+    },
+    "stopReason": {
+      "en": "Stop reason",
+      "ja": "停止理由",
+      "ko": "중단 사유",
+      "zh-CN": "停止原因",
+      "zh-TW": "停止原因"
+    },
+    "iterations": {
+      "en": "Iterations",
+      "ja": "反復回数",
+      "ko": "반복 횟수",
+      "zh-CN": "迭代轮数",
+      "zh-TW": "迭代輪數"
+    },
+    "error": {
+      "en": "Error",
+      "ja": "エラー",
+      "ko": "오류",
+      "zh-CN": "错误信息",
+      "zh-TW": "錯誤資訊"
+    },
+    "reset": {
+      "en": "Start over",
+      "ja": "最初からやり直す",
+      "ko": "다시 시작",
+      "zh-CN": "再来一次",
+      "zh-TW": "再來一次"
+    },
+    "rejectedTitle": {
+      "en": "Rejected",
+      "ja": "拒否しました",
+      "ko": "거절됨",
+      "zh-CN": "已拒绝",
+      "zh-TW": "已拒絕"
+    },
+    "rejectedDesc": {
+      "en": "You rejected this plan; no actions were executed.",
+      "ja": "この計画を拒否しました。実行は行われませんでした。",
+      "ko": "이 계획을 거절했습니다. 어떤 작업도 실행되지 않았습니다.",
+      "zh-CN": "你已拒绝该计划,未执行任何操作。",
+      "zh-TW": "你已拒絕該計畫,未執行任何操作。"
+    },
+    "statusDraft": {
+      "en": "Draft",
+      "ja": "草稿",
+      "ko": "초안",
+      "zh-CN": "草稿",
+      "zh-TW": "草稿"
+    },
+    "statusApproved": {
+      "en": "Approved",
+      "ja": "承認済み",
+      "ko": "승인됨",
+      "zh-CN": "已批准",
+      "zh-TW": "已批准"
+    },
+    "statusRejected": {
+      "en": "Rejected",
+      "ja": "拒否",
+      "ko": "거절됨",
+      "zh-CN": "已拒绝",
+      "zh-TW": "已拒絕"
+    },
+    "statusExecuting": {
+      "en": "Executing",
+      "ja": "実行中",
+      "ko": "실행 중",
+      "zh-CN": "执行中",
+      "zh-TW": "執行中"
+    },
+    "statusDone": {
+      "en": "Done",
+      "ja": "完了",
+      "ko": "완료",
+      "zh-CN": "已完成",
+      "zh-TW": "已完成"
+    },
+    "statusFailed": {
+      "en": "Failed",
+      "ja": "失敗",
+      "ko": "실패",
+      "zh-CN": "失败",
+      "zh-TW": "失敗"
+    },
+    "notFound": {
+      "en": "Plan not found or expired",
+      "ja": "計画が見つからないか期限切れです",
+      "ko": "계획을 찾을 수 없거나 만료되었습니다",
+      "zh-CN": "计划不存在或已过期",
+      "zh-TW": "計畫不存在或已過期"
+    },
+    "conflict": {
+      "en": "This action is not allowed in the current plan status",
+      "ja": "現在の計画ステータスではこの操作は許可されていません",
+      "ko": "현재 계획 상태에서는 이 작업을 수행할 수 없습니다",
+      "zh-CN": "当前计划状态不允许此操作",
+      "zh-TW": "目前計畫狀態不允許此操作"
+    },
+    "generic": {
+      "en": "Request failed, please try again later",
+      "ja": "リクエストに失敗しました。後でもう一度お試しください",
+      "ko": "요청에 실패했습니다. 나중에 다시 시도하세요",
+      "zh-CN": "请求失败,请稍后重试",
+      "zh-TW": "請求失敗,請稍後重試"
+    }
   }
 }

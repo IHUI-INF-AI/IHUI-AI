@@ -49,6 +49,13 @@
 - Phase 2(3-6 月):项目知识引擎(RepoWiki+Knowledge Card+任务经验)/ Agent 团队任务板+工作区锁 / 隔离执行环境 / 自进化闭环产品化 / 记忆质量评测
 - Phase 3(6-12 月):中文编码基准 / 8 端 Agent 一致性 / 企业治理 / 自进化技能市场
 
+### P1 Phase 1 首批(2026-09-02 立,平台独占:apps/ai-service + apps/web,详见报告 §4 Phase 1)
+- [ ] **1-1 plan mode 前端确认 UI**:apps/web 独立页面(计划展示/编辑/批准拒绝/结果),api-client 走 /agent-plan* 契约,i18n 5 语言齐
+- [ ] **1-2 MCP tool deferral + list_changed**:工具定义瘦身(仅名字+短描述进上下文,完整 schema 按需取),env `TOOL_DEFERRAL` 默认开;对外 server 支持 tools list_changed 刷新
+- [ ] **1-3 权限三模式**:AgentLoopV2 构造参数 permission_mode(default/plan/auto)——plan 强制只读白名单(复用 plan_mode.READONLY_TOOLS),auto 只读免审批+写类仍走审批流
+- [ ] **1-4 bench 真实基准**:编队完成后 `--executor loop_v2 --limit 5` 跑首批真实数字(已核实 4 个 LLM key 非空),验证 Phase 0 验收指标(≥60%)
+- [ ] Phase 1 其余(后续批次):语义压缩层+检索回捞 / token 治理面板 / SKILL.md 标准技能体系 / 后台任务+IM 通知
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:

@@ -165,7 +165,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   const isMobile = useIsMobile()
   const t = useTranslations('ide')
   const tNav = useTranslations('nav')
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const setActiveTopTab = useIDEWorkspace((s) => s.setActiveTopTab)
   const toggleWorkPanel = useWorkPanelStore((s) => s.toggle)
 
@@ -292,7 +292,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
       toggleWorkPanel()
     }
     if (action.href) {
-      router.push(action.href)
+      navigate(action.href)
     }
   }
 

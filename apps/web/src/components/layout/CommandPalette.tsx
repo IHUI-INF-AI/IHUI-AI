@@ -62,7 +62,7 @@ export function CommandPalette({
   open: boolean
   onOpenChange: (v: boolean) => void
 }) {
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const t = useTranslations('commandPalette')
   const [query, setQuery] = React.useState('')
   const [activeIndex, setActiveIndex] = React.useState(0)
@@ -93,7 +93,7 @@ export function CommandPalette({
   }, [query])
 
   function execute(item: CommandItem) {
-    router.push(item.path)
+    navigate(item.path)
     onOpenChange(false)
   }
 

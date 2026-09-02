@@ -101,13 +101,17 @@ const Sidebar = React.memo(function Sidebar({
 
   const startNav = useNavigationStore((s) => s.start)
 
-  // 点击导航项时立即设置乐观路由 + 触发全局进度条
+  // 点击导航项时立即设置乐观路由 + 触发全局进度条。
+  // 2026-09-02 修复:点击当前已激活页面时直接跳过 — Next 会拒绝相同导航(pathname 不变),
+  // end() 永远不会被 NavigationProgress 的 pathname 变化检测触发,pending 只能等兜底
+  // 定时器(原 10s),骨架屏遮住真实内容整整 10 秒。
   const handleBeforeNav = React.useCallback(
     (href: string) => {
+      if (href === pathname) return
       setPendingHref(href)
       startNav()
     },
-    [startNav],
+    [startNav, pathname],
   )
 
   // 稳定引用 registerRef(2026-08-05 深度修复):
