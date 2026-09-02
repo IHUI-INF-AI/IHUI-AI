@@ -19,9 +19,10 @@ import logging
 import time
 import uuid
 from collections import Counter
-from datetime import datetime, timezone
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Body, HTTPException, Request
@@ -29,16 +30,22 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from ..core.config import settings
+from ..core.context_compaction import SUMMARY_MARKER
 from ..core.llm_gateway import llm_gateway, moa_router
-from ..core.context_compaction import compress_messages_if_needed, SUMMARY_MARKER
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
-from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
+from ..services.compact_with_llm import compact_with_llm
+from ..routers.context_compaction import record_compaction
 from ..services.context_recall import context_recall
+from ..services.mcp_server import (
+    _tool_dispatch_subagent,
+    _tool_vision_analyze,
+    get_registered_tool_names,
+)
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -630,6 +637,24 @@ def _snapshot_compaction_if_needed(
         logger.warning("压缩快照 fire-and-forget 提交失败(不影响主流程): %s", e)
 
 
+async def _compact_with_llm_auto(
+    messages: list[dict[str, Any]],
+    context_limit: int,
+    model: str | None,
+    owner_uuid: str | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """上下文超阈值时默认走 LLM 语义压缩(对标 Claude Code /compact Codex /compact)。
+
+    超阈值 → 自动调 LLM 生成语义摘要再压缩;LLM 摘要失败/无效自动降级为规则压缩,
+    保证任何情况下都返回合法压缩产物。对外契约(返回值结构与触发阈值)与原
+    compress_messages_if_needed 一致,调用方不变。
+    """
+    async def _fn(msgs: list[dict[str, Any]]) -> dict[str, Any]:
+        return await llm_gateway.complete(msgs, model=model, owner_uuid=owner_uuid)
+
+    return await compact_with_llm(messages, context_limit, llm_complete_fn=_fn)
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -640,7 +665,9 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = await _compact_with_llm_auto(
+            messages, req.context_limit, req.model, owner_uuid
+        )
         if compaction_info["compressed"]:
             logger.info(
                 "Context auto-compressed (Python fallback): %d → %d tokens, removed %d msgs",
@@ -648,6 +675,22 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
                 compaction_info["compressed_tokens"],
                 compaction_info["removed_count"],
             )
+            # P0-6b 埋点:把本次压缩写入进程内压缩历史,供 /api/context-compaction 感知与回看
+            try:
+                record_compaction(
+                    session_id=(
+                        req.metadata.get("conversationId")
+                        if isinstance(req.metadata, dict)
+                        else "default"
+                    ),
+                    original_tokens=int(compaction_info.get("original_tokens", 0)),
+                    compressed_tokens=int(compaction_info.get("compressed_tokens", 0)),
+                    summary=str(compaction_info.get("llm_summary", "")),
+                    trigger=str(compaction_info.get("trigger", "llm")),
+                    user_id=owner_uuid,
+                )
+            except Exception as e:
+                logger.warning("压缩历史回写失败(不影响主流程): %s", e)
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
@@ -1075,8 +1118,26 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = await _compact_with_llm_auto(
+            messages, req.context_limit, req.model, owner_uuid
+        )
         if compaction_info.get("compressed"):
+            # P0-6b 埋点:把本次压缩写入进程内压缩历史,供 /api/context-compaction 感知与回看
+            try:
+                record_compaction(
+                    session_id=(
+                        req.metadata.get("conversationId")
+                        if isinstance(req.metadata, dict)
+                        else "default"
+                    ),
+                    original_tokens=int(compaction_info.get("original_tokens", 0)),
+                    compressed_tokens=int(compaction_info.get("compressed_tokens", 0)),
+                    summary=str(compaction_info.get("llm_summary", "")),
+                    trigger=str(compaction_info.get("trigger", "llm")),
+                    user_id=owner_uuid,
+                )
+            except Exception as e:
+                logger.warning("压缩历史回写失败(不影响主流程): %s", e)
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
@@ -1438,7 +1499,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _sa_tasks.append({"name": str(_tk["name"]), "task": str(_tk["task"])})
                                 elif args.get("name") and args.get("task"):
                                     _sa_tasks.append({"name": str(args["name"]), "task": str(args["task"])})
-                                _spawn_now = datetime.now(timezone.utc).isoformat()
+                                _spawn_now = datetime.now(UTC).isoformat()
                                 for _sa_task in _sa_tasks:
                                     _sa_id = f"sub-{uuid.uuid4().hex[:8]}"
                                     _spawned_sub_ids.append(_sa_id)
@@ -1545,7 +1606,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # 等待前端回传结果(超时 60 秒)
                                 try:
                                     await asyncio.wait_for(_ev.wait(), timeout=_DELEGATE_TIMEOUT)
-                                except asyncio.TimeoutError:
+                                except TimeoutError:
                                     exec_result = {
                                         "tool": tool_name,
                                         "ok": False,
@@ -1684,7 +1745,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "type": "subagent_progress",
                                         "id": _sa_id,
                                         "phase": evt.get("phase", ""),
-                                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                                        "timestamp": datetime.now(UTC).isoformat(),
                                     }
                                     for _fk in ("iteration", "tool", "ok", "output_preview"):
                                         if _fk in evt:
@@ -1703,7 +1764,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
                                             if _pevt:
                                                 yield f"event: subagent_progress\ndata: {json.dumps(_pevt, ensure_ascii=False)}\n\n"
-                                        except asyncio.TimeoutError:
+                                        except TimeoutError:
                                             continue
                                     # 排水剩余事件
                                     while not _progress_queue.empty():
@@ -1779,7 +1840,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     # 2026-08-02 补充默认错误信息:当 error/message 都为空时,
                                     # 前端 markSubagentEnd 会显示"执行失败"(无原因),用户无法排查
                                     _sa_error_msg = exec_result.get("error") or exec_result.get("message") or "subagent 执行失败(无详细错误信息)"
-                                _end_now = datetime.now(timezone.utc).isoformat()
+                                _end_now = datetime.now(UTC).isoformat()
                                 for _sa_id in _spawned_sub_ids:
                                     _end_evt = {
                                         "type": "subagent_end",
@@ -2842,7 +2903,7 @@ async def list_providers_health() -> dict[str, Any]:
 
     # 合并结果
     results = checked_results + not_configured_results
-    checked_at = datetime.now(timezone.utc).isoformat()
+    checked_at = datetime.now(UTC).isoformat()
 
     # 汇总统计
     ok_count = sum(1 for r in results if r["status"] == "ok")
@@ -2914,7 +2975,7 @@ async def _check_single_provider(
         async with asyncio.timeout(5.0):
             resp = await client.get(url, headers=headers)
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
-        now_iso = datetime.now(timezone.utc).isoformat()
+        now_iso = datetime.now(UTC).isoformat()
         if resp.status_code == 200:
             # 从响应提取 model_count(OpenAI 兼容格式:{"data": [...]})
             model_count = 0
@@ -2963,7 +3024,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": "timeout (5s)",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
     except (httpx.ConnectError, httpx.HTTPError) as e:
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
@@ -2973,7 +3034,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": f"{type(e).__name__}: {str(e)[:100]}",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         latency_ms = int((asyncio.get_event_loop().time() - start) * 1000)
@@ -2983,7 +3044,7 @@ async def _check_single_provider(
             "latency_ms": latency_ms,
             "model_count": 0,
             "error": f"{type(e).__name__}: {str(e)[:100]}",
-            "last_check": datetime.now(timezone.utc).isoformat(),
+            "last_check": datetime.now(UTC).isoformat(),
         }
 
 

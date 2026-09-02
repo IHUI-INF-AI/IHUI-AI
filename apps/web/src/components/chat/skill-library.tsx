@@ -451,7 +451,8 @@ export function SkillLibrary({ onSelect, onClose, onSendToChat }: SkillLibraryPr
                 {t('loginRequired')}
               </div>
             )}
-            {isAuthenticated && filteredCustom.length === 0 && activeTab === 'custom' && (
+            {/* !error 即"数据已成功加载"(外层已保证 !loading):加载失败时不显示空态,避免误报 */}
+            {!error && isAuthenticated && filteredCustom.length === 0 && activeTab === 'custom' && (
               <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                 {t('emptyCustom')}
               </div>

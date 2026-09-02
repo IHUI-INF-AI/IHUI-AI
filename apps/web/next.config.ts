@@ -1152,6 +1152,34 @@ const nextConfig: NextConfig = {
           source: '/api/artifacts/:path*',
           destination: 'http://localhost:8803/api/artifacts/:path*',
         },
+        // 2026-09-03 新增:Deep Research 深度研究 API 路由转发到 ai-service 8803
+        // 原因:research router 注册在 ai-service(prefix="/api",路径 /api/research/*),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/research/:path*',
+          destination: 'http://localhost:8803/api/research/:path*',
+        },
+        // 2026-09-03 新增:Checkpoint/Rewind 撤销 API 路由转发到 ai-service 8803
+        // 原因:checkpoint_rewind router 注册在 ai-service(prefix="/api",路径 /api/checkpoints/*),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/checkpoints/:path*',
+          destination: 'http://localhost:8803/api/checkpoints/:path*',
+        },
+        // 2026-09-03 新增:上下文压缩感知(P0-6)API 路由转发到 ai-service 8803
+        // 原因:context_compaction router 注册在 ai-service(prefix="/api",路径 /api/context-compaction),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/context-compaction/:path*',
+          destination: 'http://localhost:8803/api/context-compaction/:path*',
+        },
+        // 2026-09-03 新增:云托管 Agent 会话历史 API 路由转发到 ai-service 8803
+        // 原因:cloud_runs router 注册在 ai-service(prefix="/api",路径 /api/cloud-runs/*),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/cloud-runs/:path*',
+          destination: 'http://localhost:8803/api/cloud-runs/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',

@@ -497,6 +497,8 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
 
     async def event_generator() -> AsyncIterator[str]:
         task_id = f"task-{asyncio.get_event_loop().time()}"
+        # P0-7 云托管会话:记录本次运行的 run_id(v2 分支以 session_id 为 run_id)
+        recorded_run_id: str | None = None
 
         # 断线重连: 先重放缺失事件
         if last_event_id:
@@ -522,6 +524,20 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 from ..services.hook_engine import hook_engine
 
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
+                # P0-7 云托管会话:记录本次运行(进程内 + data/cloud_runs.json 持久化)
+                recorded_run_id = session_id
+                try:
+                    from ..services.cloud_run_store import cloud_run_store
+
+                    cloud_run_store.start(
+                        run_id=session_id,
+                        task=req.goal,
+                        agent_type="loop_v2",
+                        session_alias=req.session_id or "",
+                        user_id=str(getattr(request.state, "user_id", "") or ""),
+                    )
+                except Exception as _se:
+                    logger.warning("cloud_run_store.start 失败(忽略): %s", _se)
                 loop = AgentLoopV2(
                     _make_loop_v2_llm(req.model),
                     tools=_build_loop_v2_tools(req.tools),
@@ -564,6 +580,19 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                                 break
                             await asyncio.sleep(0.05)
                     result = run_task.result()
+                    # P0-7 云托管会话:结束记录(最终状态 + 输出落盘)
+                    if recorded_run_id:
+                        try:
+                            from ..services.cloud_run_store import cloud_run_store
+
+                            cloud_run_store.complete(
+                                recorded_run_id,
+                                status="done" if result.success else "error",
+                                output=str(getattr(result, "final_response", "") or ""),
+                                error=str(result.error or "") if not result.success else "",
+                            )
+                        except Exception as _ce:
+                            logger.warning("cloud_run_store.complete 失败(忽略): %s", _ce)
                     # 结果事件(唯一 done,含 success/stop_reason/output)
                     result_evt = {
                         "type": "done",
@@ -614,6 +643,14 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
             eid = sse_buffer.append(task_id, done_event)
             yield _format_sse(eid, done_event)
         except Exception as e:
+            # P0-7 云托管会话:运行中途异常,标记记录为 error
+            if recorded_run_id:
+                try:
+                    from ..services.cloud_run_store import cloud_run_store
+
+                    cloud_run_store.complete(recorded_run_id, status="error", error=str(e))
+                except Exception:
+                    pass
             err_event = {"type": "error", "message": str(e)}
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)

@@ -1,4 +1,30 @@
 {
+  "cloudRuns": {
+    "title": "Cloud Hosted Agent Sessions",
+    "subtitle": "Inspired by OpenAI Codex Cloud: every agent run is persisted to disk, restorable and viewable across Web/CLI instead of living only in process memory.",
+    "refresh": "Refresh",
+    "loading": "Loading…",
+    "empty": "No runs yet",
+    "loadFailed": "Failed to load",
+    "detailTitle": "Run Details",
+    "back": "Back to list",
+    "runId": "Run ID",
+    "task": "Input Task",
+    "output": "Final Output",
+    "agentType": "Agent Type",
+    "sessionAlias": "Session Alias",
+    "startTime": "Started At",
+    "endTime": "Ended At",
+    "running": "Running",
+    "done": "Done",
+    "error": "Error",
+    "runningHint": "This session is still running…",
+    "noOutput": "No output yet",
+    "noTask": "(No task content)",
+    "prev": "Prev",
+    "next": "Next",
+    "pagination": "Page {page}/{totalPages} · {total} runs"
+  },
   "a11y": {
     "addAttachment": "Add attachment (image / video / file)",
     "breadcrumb": "Breadcrumb",
@@ -8965,6 +8991,20 @@
     "subtitle": "Business cooperation, course consultation, and enterprise service customization — feel free to contact us anytime. Our team will reply within 24 hours.",
     "title": "Get in touch with us"
   },
+  "contextCompaction": {
+    "countTimes": "times",
+    "desc": "Review how this AGENT session was compacted by LLM semantic compression",
+    "empty": "No context compaction records for this session yet",
+    "loadFailed": "Load failed",
+    "loading": "Loading…",
+    "noSession": "No session (session_id) provided. Visit with ?session_id=...",
+    "refresh": "Refresh",
+    "summaryPreview": "Summary preview",
+    "title": "Context Compaction",
+    "tokenChange": "Before → After",
+    "tokens": "tokens",
+    "totalCompactions": "Total compactions"
+  },
   "contractManager": {
     "actions": {
       "cancel": "Cancel"
@@ -14176,6 +14216,7 @@
     "adminThemePresets": "Presets",
     "adminWorkflows": "Workflows",
     "advancedAiTools": "Advanced AI Tools",
+    "deepResearch": "Deep Research",
     "agentGovernance": "Agent Token Governance",
     "agentWorkbench": "Agent Workbench",
     "agents": "Agents",
