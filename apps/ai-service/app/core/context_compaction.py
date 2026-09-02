@@ -60,6 +60,17 @@ SUMMARY_REMOTE_CHARS = 120
 # tool result 摘要保留字符数兼容别名:旧"统一 160"已收编到分层常量(远层 120)
 TOOL_RESULT_SUMMARY_CHARS = SUMMARY_REMOTE_CHARS
 
+# ==================== Token 估算开销常量(2026-09-02 跨端对齐) ====================
+# 与 TS 共享包 @ihui/context-compaction 逐常量一致
+MESSAGE_OVERHEAD_TOKENS = 4  # 单条消息固定开销(role/name 分隔)
+TOOL_CALL_OVERHEAD_TOKENS = 4  # 单条 tool_call 的固定 JSON 协议开销(name/arguments 包装)
+# 多模态图片占位估算(OpenAI low-detail ~85 / high-detail ~170 的中位值取整);
+# 对超大 base64 数据 URI 避免整段 BPE(慢且虚高)
+IMAGE_TOKEN_PLACEHOLDER = 1200
+
+# data:image/...;base64,XXX 多模态图片占位正则
+_DATA_IMAGE_RE = re.compile(r"data:image/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+")
+
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
 
@@ -76,13 +87,8 @@ def _get_encoder() -> tiktoken.Encoding:
     return _encoder
 
 
-def estimate_tokens(text: str) -> int:
-    """估算字符串的 token 数(BPE 真实分词)。
-
-    与 TS 端 gpt-tokenizer 一致(cl100k_base 编码)。
-    """
-    if not text:
-        return 0
+def _encode_len(text: str) -> int:
+    """BPE 编码长度;tiktoken 异常时降级 len//4(与旧 fallback 行为一致)。"""
     try:
         return len(_get_encoder().encode(text))
     except Exception as e:
@@ -90,19 +96,94 @@ def estimate_tokens(text: str) -> int:
         return max(1, len(text) // 4)
 
 
+def _estimate_text_with_image_placeholders(text: str) -> int:
+    """估算字符串 token 数,自动替换 base64 图片为固定占位(避免巨串 BPE)。
+
+    命中 data:image 时:每张图占 IMAGE_TOKEN_PLACEHOLDER,其余文本正常 BPE。
+    """
+    if not text:
+        return 0
+    matches = list(_DATA_IMAGE_RE.finditer(text))
+    if not matches:
+        return _encode_len(text)
+    total = 0
+    last = 0
+    for m in matches:
+        if m.start() > last:
+            total += _encode_len(text[last : m.start()])
+        total += IMAGE_TOKEN_PLACEHOLDER
+        last = m.end()
+    if last < len(text):
+        total += _encode_len(text[last:])
+    return total
+
+
+def estimate_tokens(text: str) -> int:
+    """估算字符串的 token 数(BPE 真实分词 + 图片占位短路)。
+
+    与 TS 端 gpt-tokenizer 一致(cl100k_base 编码)。
+    """
+    return _estimate_text_with_image_placeholders(text)
+
+
+def _estimate_tool_call_tokens(tc: object) -> int:
+    """估算单条 tool_call 的 token(id+type+name+arguments + 固定开销)。"""
+    if not isinstance(tc, dict):
+        return 0
+    tc_id = tc.get("id")
+    if not isinstance(tc_id, str) or not tc_id:
+        return 0
+    fn = tc.get("function")
+    fn = fn if isinstance(fn, dict) else {}
+    inner = (
+        tc_id
+        + (tc.get("type") if isinstance(tc.get("type"), str) else "")
+        + (fn.get("name") if isinstance(fn.get("name"), str) else "")
+        + (fn.get("arguments") if isinstance(fn.get("arguments"), str) else "")
+    )
+    return _estimate_text_with_image_placeholders(inner) + TOOL_CALL_OVERHEAD_TOKENS
+
+
 def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
-    """估算消息列表的 token 数(含每条 4 token overhead,与 TS 端一致)。"""
+    """估算消息列表的 token 数(与 TS 端 estimateMessagesTokens 增量规则一致)。
+
+    - 每条消息 +MESSAGE_OVERHEAD_TOKENS(4)
+    - assistant.tool_calls:每条 tool_call 计 id+type+name+arguments 的 BPE
+      + TOOL_CALL_OVERHEAD_TOKENS(4)
+    - role='tool':tool_call_id 非空 + TOOL_CALL_OVERHEAD_TOKENS(4)
+    - content 为 list(vision 格式):text part 正常 BPE,data:image part
+      计 IMAGE_TOKEN_PLACEHOLDER(1200)
+    """
     total = 0
     for msg in messages:
         content = msg.get("content", "")
         if isinstance(content, str):
-            total += estimate_tokens(content) + 4
+            total += _estimate_text_with_image_placeholders(content) + MESSAGE_OVERHEAD_TOKENS
         elif isinstance(content, list):
             # OpenAI vision 格式:list of {type, text/image_url}
             for part in content:
-                if isinstance(part, dict):
-                    text = part.get("text") or str(part.get("content", ""))
-                    total += estimate_tokens(text) + 4
+                if not isinstance(part, dict):
+                    continue
+                total += MESSAGE_OVERHEAD_TOKENS  # part 固定开销(与旧实现一致)
+                text = part.get("text") or str(part.get("content", ""))
+                if text:
+                    total += _estimate_text_with_image_placeholders(text)
+                image_url = part.get("image_url")
+                url: object = ""
+                if isinstance(image_url, dict):
+                    url = image_url.get("url") or ""
+                elif isinstance(image_url, str):
+                    url = image_url
+                if isinstance(url, str) and _DATA_IMAGE_RE.search(url):
+                    total += IMAGE_TOKEN_PLACEHOLDER
+        tool_calls = msg.get("tool_calls")
+        if isinstance(tool_calls, list):
+            for tc in tool_calls:
+                total += _estimate_tool_call_tokens(tc)
+        if msg.get("role") == "tool":
+            tc_id = msg.get("tool_call_id")
+            if isinstance(tc_id, str) and tc_id:
+                total += TOOL_CALL_OVERHEAD_TOKENS
     return total
 
 
@@ -131,6 +212,8 @@ def _summarize_message(
         keep = TOOL_RESULT_SUMMARY_CHARS if tool_chars is None else tool_chars
         if len(content) > keep:
             content = content[:keep] + "…"
+        # 换行规范化为单行空格(与 TS 共享包 summarizeMessage 逐语义一致,保证摘要一行一条消息)
+        content = content.replace("\n", " ")
         return f"[{role}] {content}"
     if len(content) > max_chars:
         content = content[:max_chars] + ellipsis
