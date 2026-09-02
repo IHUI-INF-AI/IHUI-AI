@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from ..services.eval_service import eval_service
+from ..services.memory_quality_eval import run_offline
 
 logger = logging.getLogger(__name__)
 
@@ -193,4 +194,17 @@ async def compare_eval_runs(req: CompareRunsRequest) -> dict[str, Any]:
     """对比多次评估运行的结果。"""
     result = eval_service.compare_runs(req.run_ids)
     return {"code": 0, "message": "success", "data": result}
+
+
+@router.get("/memory-quality")
+async def memory_quality_report() -> dict[str, Any]:
+    """记忆质量离线评测(2026-09-03 立)。
+
+    对内置内存存储 + 词袋伪向量跑确定性 5 维度评测
+    (write_consistency / recall_at_k / precision_at_k /
+    mutation_correct / noise_robustness),零 DB 零 LLM,毫秒级返回,
+    用于每日回归观测记忆体系基线是否劣化。
+    """
+    report = await run_offline()
+    return {"code": 0, "message": "success", "data": report.as_dict()}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
