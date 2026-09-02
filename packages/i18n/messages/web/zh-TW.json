@@ -6935,7 +6935,8 @@
     },
     "today": "今天",
     "openWorkPanel": "打開工作展示區",
-    "closeWorkPanel": "關閉工作展示區"
+    "closeWorkPanel": "關閉工作展示區",
+    "toggleWorkPanel": "切換工作展示區"
   },
   "aiCost": {
     "budgetAlerts": "預算告警",
