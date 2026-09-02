@@ -309,6 +309,10 @@ async function registerPlugins(server: FastifyInstance) {
     // helmet 默认 same-origin 会阻止浏览器读取跨域响应,即使 CORS 配置正确
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
+  // 2026-09-02 桌面端 SaaS 化:Tauri WebView2 固定 origin(生产包 frontendDist 静态页
+  // 运行于 http://tauri.localhost;macOS/Linux 兜底自定义协议 tauri://localhost)。
+  // 同时用于下方 CORS 回调与 WebSocket verifyClient 白名单,不依赖部署 env。
+  const DESKTOP_ORIGINS = ['http://tauri.localhost', 'tauri://localhost']
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
@@ -316,13 +320,20 @@ async function registerPlugins(server: FastifyInstance) {
     //   安全论证:该 origin 是浏览器可信边界,只有真实安装的扩展页面能产生,任意恶意网页
     //   (origin=http(s)://site)无法伪造;扩展 service worker 免 CORS,但页面上下文 HTTP
     //   请求必须带此 Origin,不放行则扩展端 UI 全部 API 调用失败。
+    // 2026-09-02 桌面端 SaaS 化:固定放行 Tauri WebView2 origin(见下方 DESKTOP_ORIGINS
+    //   常量)。该 Origin 只有桌面应用自身 webview 页面能产生,恶意网页无法伪造;
+    //   加入固定白名单后不依赖部署侧 CORS_ORIGIN 环境变量,生产/测试环境开箱即支持
+    //   桌面端跨域调用。
     origin: (origin: string | undefined, cb: (err: Error | null, allow: boolean) => void) => {
       if (!origin) return cb(null, true) // 非浏览器客户端(服务端/curl)允许
       const o = origin.toLowerCase()
       const allowed = config.CORS_ORIGIN.split(',')
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean)
-      cb(null, allowed.includes(o) || o.startsWith('chrome-extension://'))
+      cb(
+        null,
+        allowed.includes(o) || DESKTOP_ORIGINS.includes(o) || o.startsWith('chrome-extension://'),
+      )
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -417,11 +428,13 @@ async function registerPlugins(server: FastifyInstance) {
   // 攻击场景:恶意网站 JS 用用户浏览器发起 WebSocket 连接窃听消息。
   // 防护:Origin 必须在 CORS_ORIGIN 白名单内;缺失 Origin(非浏览器客户端)允许通过,
   // 因为 ws-chat/ws-tasks 等已有 JWT wsAuth 认证,无 cookie 自动携带风险。
-  const wsAllowedOrigins = new Set(
-    config.CORS_ORIGIN.split(',')
+  const wsAllowedOrigins = new Set([
+    ...config.CORS_ORIGIN.split(',')
       .map((o) => o.trim().toLowerCase())
       .filter(Boolean),
-  )
+    // 2026-09-02 桌面端 SaaS 化:Tauri webview WS 连接(与 CORS 同名安全论证)
+    ...DESKTOP_ORIGINS,
+  ])
   await server.register(websocket, {
     options: {
       // verifyClient callback:next(res: boolean, code?, reason?) — res=true 允许,res=false 拒绝
