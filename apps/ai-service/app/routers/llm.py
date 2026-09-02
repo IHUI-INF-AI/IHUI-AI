@@ -30,13 +30,14 @@ from pydantic import BaseModel, Field
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, moa_router
-from ..core.context_compaction import compress_messages_if_needed, SUMMARY_MARKER
+from ..core.context_compaction import SUMMARY_MARKER
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
     get_provider_cap,
 )
 from ..core.question_parser import QuestionStreamParser
+from ..services.compact_with_llm import compact_with_llm
 from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
 from ..services.context_recall import context_recall
 from ..services.project_memory import build_system_prompt
@@ -630,6 +631,24 @@ def _snapshot_compaction_if_needed(
         logger.warning("压缩快照 fire-and-forget 提交失败(不影响主流程): %s", e)
 
 
+async def _compact_with_llm_auto(
+    messages: list[dict[str, Any]],
+    context_limit: int,
+    model: str | None,
+    owner_uuid: str | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """上下文超阈值时默认走 LLM 语义压缩(对标 Claude Code /compact Codex /compact)。
+
+    超阈值 → 自动调 LLM 生成语义摘要再压缩;LLM 摘要失败/无效自动降级为规则压缩,
+    保证任何情况下都返回合法压缩产物。对外契约(返回值结构与触发阈值)与原
+    compress_messages_if_needed 一致,调用方不变。
+    """
+    async def _fn(msgs: list[dict[str, Any]]) -> dict[str, Any]:
+        return await llm_gateway.complete(msgs, model=model, owner_uuid=owner_uuid)
+
+    return await compact_with_llm(messages, context_limit, llm_complete_fn=_fn)
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -640,7 +659,9 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
     # 跨端统一 88% 阈值自动压缩(Python 端兜底,API 层未压缩时由本层保护)
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = await _compact_with_llm_auto(
+            messages, req.context_limit, req.model, owner_uuid
+        )
         if compaction_info["compressed"]:
             logger.info(
                 "Context auto-compressed (Python fallback): %d → %d tokens, removed %d msgs",
@@ -1075,7 +1096,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
     compaction_info: dict[str, Any] | None = None
     if req.context_limit and req.context_limit > 0:
         original_messages = messages
-        messages, compaction_info = compress_messages_if_needed(messages, req.context_limit)
+        messages, compaction_info = await _compact_with_llm_auto(
+            messages, req.context_limit, req.model, owner_uuid
+        )
         if compaction_info.get("compressed"):
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(

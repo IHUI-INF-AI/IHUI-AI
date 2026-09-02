@@ -30,7 +30,9 @@ import logging
 import os
 import re
 import shutil
+import threading
 import time
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +74,9 @@ _BACKUP_ROOT = Path(".trae-cn/tmp/file_edit_backup")
 
 # diff 最大行数(避免超长 diff 撑爆响应)
 MAX_DIFF_LINES = 200
+
+# 单 (session, 文件) 维度最多保留的文件版本数(余量保留,超出丢弃最旧)
+MAX_FILE_VERSIONS = 20
 
 
 # ---------------------------------------------------------------------------
@@ -330,4 +335,243 @@ def edit_file(
         "diff": diff,
         "backup_path": backup_path,
     }
+
+
+# ---------------------------------------------------------------------------
+# 文件版本快照 + 回滚(Checkpoint/Rewind 文件面)
+# ---------------------------------------------------------------------------
+# 以 (session_id, 文件绝对路径) 为维度维护内存版本表,每文件限量保留最近
+# MAX_FILE_VERSIONS(默认 20)个版本。该表独立于 edit_file 的磁盘 .bak 备份:
+# 此表保存的是"编辑前"的 content 快照,供恢复场景精确回滚到指定版本。
+# 内存内实现(进程内),并发写用 threading.Lock 保护;不依赖 Redis(开发期够用)。
+# 注意:仅可用作会话内即时恢复;进程重启后丢失,与 agent_checkpoint 的具备
+# redis 持久化不同——需要跨重启文件恢复时,后续可扩展为落盘/Redis 快照。
+
+# 版本表结构:
+#   _FILE_VERSION_STORE[(session_id, resolved_path)] -> list[dict],按 created_at 升序
+#   dict = {
+#       "version_id": str,        # uuid4.hex
+#       "session_id": str,
+#       "path": str,              # resolved 绝对路径
+#       "checkpoint_id": str|None,# 关联的 checkpoint(可选,便于按 checkpoint 回滚)
+#       "created_at": float,
+#       "content": str,           # 该版本的文件内容
+#   }
+_FILE_VERSION_STORE: dict[tuple[str, str], list[dict[str, Any]]] = {}
+_FILE_VERSION_LOCK = threading.Lock()
+
+
+def _version_key(session_id: str, resolved_path: str) -> tuple[str, str]:
+    return (session_id, resolved_path)
+
+
+def snapshot_file(
+    session_id: str, file_path: str, checkpoint_id: str | None = None
+) -> dict[str, Any]:
+    """为 (session, file) 记录当前磁盘内容的文件版本快照。
+
+    用于"编辑前调用",把编辑前的完整文件内容保存为某个版本,恢复时可回滚至此。
+
+    Args:
+        session_id: 会话 id(版本按会话隔离)
+        file_path: 目标文件路径(须在工作区白名单内)
+        checkpoint_id: 可选,关联的 checkpoint id(供按 checkpoint 一次性回滚)
+
+    Returns:
+        成功: {ok: True, version_id, path, session_id, created_at, total}
+        失败: {ok: False, errorCode, message}
+    """
+    ok, info = validate_path(file_path)
+    if not ok:
+        return {"ok": False, "errorCode": "PATH_NOT_IN_WORKSPACE", "message": info}
+    resolved = info
+    if not os.path.exists(resolved):
+        return {
+            "ok": False,
+            "errorCode": "FILE_NOT_FOUND",
+            "message": f"文件不存在: {resolved}",
+        }
+    try:
+        file_size = os.path.getsize(resolved)
+    except OSError as e:
+        return {
+            "ok": False,
+            "errorCode": "PERMISSION_DENIED",
+            "message": f"无法获取文件大小: {e}",
+        }
+    if file_size > MAX_FILE_SIZE:
+        return {
+            "ok": False,
+            "errorCode": "FILE_TOO_LARGE",
+            "message": f"文件大小 {file_size} 字节超过上限 {MAX_FILE_SIZE} 字节(1MB)",
+        }
+    try:
+        with open(resolved, "r", encoding="utf-8") as f:
+            content = f.read()
+    except UnicodeDecodeError as e:
+        return {
+            "ok": False,
+            "errorCode": "ENCODING_ERROR",
+            "message": f"文件非 UTF-8 编码: {e}",
+        }
+    except OSError as e:
+        return {
+            "ok": False,
+            "errorCode": "PERMISSION_DENIED",
+            "message": f"文件读取失败: {e}",
+        }
+
+    version = {
+        "version_id": uuid.uuid4().hex,
+        "session_id": session_id,
+        "path": resolved,
+        "checkpoint_id": checkpoint_id,
+        "created_at": time.time(),
+        "content": content,
+    }
+    key = _version_key(session_id, resolved)
+    with _FILE_VERSION_LOCK:
+        versions = _FILE_VERSION_STORE.setdefault(key, [])
+        versions.append(version)
+        # 限量保留最近 MAX_FILE_VERSIONS 个
+        if len(versions) > MAX_FILE_VERSIONS:
+            del versions[: len(versions) - MAX_FILE_VERSIONS]
+
+    logger.debug(
+        "file_editor.snapshot_file session=%s path=%s total=%d",
+        session_id,
+        resolved,
+        len(_FILE_VERSION_STORE[key]),
+    )
+    return {
+        "ok": True,
+        "version_id": version["version_id"],
+        "path": resolved,
+        "session_id": session_id,
+        "created_at": version["created_at"],
+        "total": len(_FILE_VERSION_STORE[key]),
+    }
+
+
+def list_file_versions(
+    session_id: str, file_path: str, include_content: bool = False
+) -> list[dict[str, Any]]:
+    """列出 (session, file) 的文件版本元数据(按 created_at 升序)。"""
+    ok, info = validate_path(file_path)
+    if not ok:
+        return []
+    key = _version_key(session_id, info)
+    with _FILE_VERSION_LOCK:
+        versions = list(_FILE_VERSION_STORE.get(key, []))
+    out = []
+    for v in versions:
+        item = {
+            "version_id": v["version_id"],
+            "session_id": v["session_id"],
+            "path": v["path"],
+            "checkpoint_id": v.get("checkpoint_id"),
+            "created_at": v["created_at"],
+        }
+        if include_content:
+            item["content"] = v["content"]
+        out.append(item)
+    return out
+
+
+def rollback_file(
+    session_id: str,
+    file_path: str,
+    checkpoint_id: str | None = None,
+    version_id: str | None = None,
+) -> dict[str, Any]:
+    """把文件回滚到指定版本,并写回磁盘。
+
+    目标版本定位规则(优先级高到低):
+    1. version_id:精确匹配指定版本
+    2. checkpoint_id:匹配"该 checkpoint_id 关联的最新版本"
+
+    推荐恢复路径:调用方先从 checkpoint.restore 返回的 metadata/权威文件版本
+    引用里取到 version_id,再调用本函数精确回滚(见 checkpoint_rewind 路由)。
+
+    Args:
+        session_id: 会话 id
+        file_path: 目标文件路径(须在工作区白名单内)
+        checkpoint_id: 可选,按 checkpoint 关联定位
+        version_id: 可选,精确版本
+
+    Returns:
+        成功: {ok: True, version_id, path, checkpoint_id, restored, message}
+        失败: {ok: False, errorCode, message}
+    """
+    ok, info = validate_path(file_path)
+    if not ok:
+        return {"ok": False, "errorCode": "PATH_NOT_IN_WORKSPACE", "message": info}
+    resolved = info
+
+    key = _version_key(session_id, resolved)
+    with _FILE_VERSION_LOCK:
+        versions = list(_FILE_VERSION_STORE.get(key, []))
+    if not versions:
+        return {
+            "ok": False,
+            "errorCode": "NO_FILE_VERSIONS",
+            "message": f"尚无文件版本: session={session_id} path={resolved}",
+        }
+
+    target = None
+    if version_id is not None:
+        target = next((v for v in versions if v["version_id"] == version_id), None)
+    elif checkpoint_id is not None:
+        # 取匹配该 checkpoint 的最新版本
+        target = next(
+            (v for v in reversed(versions) if v.get("checkpoint_id") == checkpoint_id),
+            None,
+        )
+    else:
+        return {
+            "ok": False,
+            "errorCode": "VERSION_SELECTOR_REQUIRED",
+            "message": "必须提供 version_id 或 checkpoint_id 之一",
+        }
+
+    if target is None:
+        return {
+            "ok": False,
+            "errorCode": "VERSION_NOT_FOUND",
+            "message": (
+                f"未找到目标版本: session={session_id} path={resolved} "
+                f"checkpoint_id={checkpoint_id} version_id={version_id}"
+            ),
+        }
+
+    try:
+        with open(resolved, "w", encoding="utf-8") as f:
+            f.write(target["content"])
+    except PermissionError as e:
+        return {
+            "ok": False,
+            "errorCode": "PERMISSION_DENIED",
+            "message": f"文件写入权限失败: {e}",
+        }
+    except OSError as e:
+        return {
+            "ok": False,
+            "errorCode": "PERMISSION_DENIED",
+            "message": f"文件写入失败: {e}",
+        }
+
+    return {
+        "ok": True,
+        "version_id": target["version_id"],
+        "path": resolved,
+        "checkpoint_id": target.get("checkpoint_id"),
+        "restored": True,
+        "message": f"文件已回滚到版本 {target['version_id']}",
+    }
+
+
+def _reset_file_version_store() -> None:
+    """(测试用)清空文件版本表。"""
+    with _FILE_VERSION_LOCK:
+        _FILE_VERSION_STORE.clear()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
