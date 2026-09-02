@@ -29,7 +29,7 @@ services:
       - PORT=8802
       - HOST=0.0.0.0
       - LOG_LEVEL=info
-      - CORS_ORIGIN=http://${DOMAIN:-localhost}
+      - CORS_ORIGIN=http://${DOMAIN:-localhost},http://tauri.localhost,tauri://localhost
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET 未配置,请在 .env 设置强密钥(≥32 字符)}
@@ -190,7 +190,7 @@ services:
       - PORT=8803
       - HOST=0.0.0.0
       - LOG_LEVEL=info
-      - CORS_ORIGIN=http://${DOMAIN:-localhost}
+      - CORS_ORIGIN=http://${DOMAIN:-localhost},http://tauri.localhost,tauri://localhost
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
