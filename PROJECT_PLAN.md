@@ -49,6 +49,16 @@
 - Phase 2(3-6 月):项目知识引擎(RepoWiki+Knowledge Card+任务经验)/ Agent 团队任务板+工作区锁 / 隔离执行环境 / 自进化闭环产品化 / 记忆质量评测
 - Phase 3(6-12 月):中文编码基准 / 8 端 Agent 一致性 / 企业治理 / 自进化技能市场
 
+### P1 Phase 1 首批(2026-09-02 立,平台独占:apps/ai-service + apps/web,详见报告 §4 Phase 1)
+
+- [x] **1-1 plan mode 前端确认 UI** ✅(2026-09-02):apps/web `/agent-plan` 独立页面(AgentPlanStudio 状态机:input→plan→result;计划等宽预览/编辑切换/readonly_tools 徽章/批准·拒绝),api-client `endpoints/agent-plan.ts` 3 端点(createAgentPlan/getAgentPlan/decideAgentPlan,统一 `{code,data}` + `fetchApi`),`fetchApi`/`fetchAiServiceJson` 增加可选 `timeoutMs`(decision 同步阻塞默认 130s);i18n 5 语言 `agentPlan` 命名空间 38 key parity OK
+- [x] **1-2 MCP tool deferral + list_changed** ✅(2026-09-02):agents.py `_build_loop_v2_tools` 工具定义瘦身(description ≤80 字符 + `〔完整参数用 get_tool_schema 查询〕` 后缀,parameters 置 `{"type":"object"}` 占位),env `TOOL_DEFERRAL` 默认 on、off 完全向后兼容;内置 `get_tool_schema` 工具(只读,返回完整 {name,description,input_schema})无论过滤与否强制纳入;mcp_server.py `_DEFERRED_TOOL_SCHEMAS` 注册表统一覆盖内置+外部工具;mcp_official.py `_TOOLS_VERSION` 自增 + tools/list 响应 `toolsVersion` + initialize 声明 `listChanged:True` + `notifications/tools/list_changed` 处理(无状态直通设计,版本号替代缓存失效)
+- [x] **1-3 权限三模式** ✅(2026-09-02):AgentLoopV2 构造参数 `permission_mode`(default/plan/auto,优先级 参数>env `AGENT_PERMISSION_MODE`>default,非法 raise ValueError)——plan:入口强制收窄 tools 为 ∩ READONLY_TOOLS(复用 plan_mode 只读白名单)+ `_execute_single` 防御性拦截(白名单外直接 error 回填不进审批,decision=plan_blocked);auto:只读工具免审批跳过 `_request_approval`(decision=auto_skip_approval);default 与现状完全一致;经 hook_engine 发 `permission.mode` 事件(HOOK_EVENTS 增注册)
+- [ ] **1-4 bench 真实基准**:编队完成后 `--executor loop_v2 --limit 5` 跑首批真实数字(已核实 4 个 LLM key 非空),验证 Phase 0 验收指标(≥60%)
+- [ ] Phase 1 其余(后续批次):语义压缩层+检索回捞 / token 治理面板 / SKILL.md 标准技能体系 / 后台任务+IM 通知
+
+**Phase 1 首批完成报告(2026-09-02)**:3/3 项完成(1-4 bench 真实基准单独跑)。编队 p1-plan-mode-web(1-1)/p1-mcp-deferral(1-2)/p1-permission-modes(1-3) 并行执行,地盘:web+api-client+i18n / mcp_server+agents+mcp_official / agent_loop_v2+hook_engine,零同文件冲突。新增 3 测试文件(test_agent_plan?— 已并入 api-client agent-plan.test.ts 7 用例 + test_mcp_tool_deferral.py 13 用例 + test_permission_modes.py 12 用例)。统一验收:ai-service 受影响 10 测试文件并集 **305 passed / 0 failed**、mypy **0 错误(341 files)**、api-client typecheck 0 错误 + **135 passed**、web typecheck 我方文件 0 报错(并行会话半编辑态错误除外)。遗留:① i18n 5 json 混入并行会话改动(accounts 扫码 3 keys + /permission 文案 + prettier classLevel 格式化),随本批整体入库;② hook_engine.py HOOK_EVENTS 增 `permission.mode`(1-3 必要最小改动);③ bench 真实数字待 1-4。
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
