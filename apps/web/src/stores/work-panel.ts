@@ -198,8 +198,9 @@ interface WorkPanelState {
   setScreenshot: (screenshot: string, title?: string) => void
   /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏) */
   onCdpNavigation: (url: string, title: string) => void
-  /** 代理 iframe 内导航完成(桥接脚本 postMessage,更新 tab url + 地址栏) */
-  onEmbedNavigation: (url: string) => void
+  /** 代理 iframe 内导航完成(桥接脚本 postMessage,更新 tab url + 地址栏 + 压入历史栈)
+   *  @param title 页面真实 <title>(代理页桥接广播),缺省时保留原标题 */
+  onEmbedNavigation: (url: string, title?: string) => void
   /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
   openCdpSession: (url: string, sessionId: string, title?: string) => void
   /** 重置到 idle */
@@ -725,16 +726,32 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         })
       },
 
-      onEmbedNavigation: (url) => {
+      onEmbedNavigation: (url, title) => {
         const { tabs, activeTabId } = get()
         if (!activeTabId) return
+        const tab = tabs.find((t) => t.id === activeTabId)
+        if (!tab) return
+
+        // 2026-09-02 浏览器体验升级:页内导航(点击链接 / pushState / 重定向落点)必须
+        // 追加进 tab.history(截断前进栈,与 navigate 语义一致),否则工具栏后退/前进
+        // 读到的是陈旧栈,表现为"点了几个链接后退按钮却回到最初 URL"。
+        // 同 URL 重复广播(点击 nav post + 新文档 loaded post)只同步 title,不重复压栈。
+        const isNewUrl = !!url && url !== tab.url
+        const nextHistory = isNewUrl
+          ? [...tab.history.slice(0, tab.historyIndex + 1), url]
+          : tab.history
+        const nextIndex = isNewUrl ? nextHistory.length - 1 : tab.historyIndex
+        const nextUrl = isNewUrl ? url : tab.url
+
         set({
-          tabs: patchActiveTabState(tabs, activeTabId, {
-            url,
-            title: url,
-            status: 'loaded',
-          }),
-          addressInput: url,
+          tabs: patchActiveTab(tabs, activeTabId, () => ({
+            url: nextUrl,
+            title: title || tab.title,
+            history: nextHistory,
+            historyIndex: nextIndex,
+            status: 'loaded' as WebViewStatus,
+          })),
+          addressInput: nextUrl,
         })
       },
 
