@@ -17,22 +17,35 @@
  *   预热在后台跑,不阻塞启动器返回;日志写 dev-logs/web-warmup.log。
  *
  * 用法:
- *   node scripts/warm-dev-routes.mjs                        # 默认 http://localhost:8801
+ *   node scripts/warm-dev-routes.mjs                        # 默认:仅高频 12 条
  *   node scripts/warm-dev-routes.mjs --base http://localhost:8801
  *   node scripts/warm-dev-routes.mjs --wait 120             # 等服务就绪秒数(默认 90)
+ *   node scripts/warm-dev-routes.mjs --top 30               # 高频 12 + 其余按序取 30
+ *   node scripts/warm-dev-routes.mjs --all                  # 侧边栏全部路由(nav-data.ts 自动解析)
  */
+
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const NAV_DATA = path.resolve(__dirname, '..', 'apps', 'web', 'src', 'components', 'sidebar', 'nav-data.ts')
 
 const args = process.argv.slice(2)
 let base = 'http://localhost:8801'
 let waitSec = 90
+let topN = 0 // 0 = 仅高频
+let all = false
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--base' && args[i + 1]) base = args[++i]
   else if (args[i] === '--wait' && args[i + 1]) waitSec = Number(args[++i]) || 90
+  else if (args[i] === '--top' && args[i + 1]) topN = Number(args[++i]) || 0
+  else if (args[i] === '--all') all = true
 }
 
 // 高频路由(与 sidebar 主导航对齐,控制在 12 条:冷缓存最坏 ~12×12s≈2.5min,
 // 常态命中 Turbopack 持久化缓存 <1min;过多会加速缓存膨胀触发 3GB 自清,得不偿失)
-const ROUTES = [
+const HIGH_FREQUENCY = [
   '/dashboard',
   '/chat',
   '/agents',
@@ -46,6 +59,26 @@ const ROUTES = [
   '/articles',
   '/wallet',
 ]
+
+// 从 nav-data.ts 运行时解析全部 href(与侧边栏单一来源同步,避免脚本清单漂移)。
+// 解析失败不阻塞:降级为仅预热高频清单。
+async function loadSidebarHrefs() {
+  try {
+    const src = await fs.readFile(NAV_DATA, 'utf8')
+    const hrefs = [...src.matchAll(/href:\s*'([^']+)'/g)].map((m) => m[1])
+    return [...new Set(hrefs)].filter((h) => h.startsWith('/') && h !== '/')
+  } catch (e) {
+    console.warn(`[warm-routes] 解析 nav-data.ts 失败,降级仅高频: ${e.message}`)
+    return []
+  }
+}
+
+const sidebarHrefs = await loadSidebarHrefs()
+const ROUTES = all
+  ? [...new Set([...HIGH_FREQUENCY, ...sidebarHrefs])]
+  : topN > 0
+    ? [...new Set([...HIGH_FREQUENCY, ...sidebarHrefs.filter((h) => !HIGH_FREQUENCY.includes(h))])].slice(0, HIGH_FREQUENCY.length + topN)
+    : HIGH_FREQUENCY
 
 const log = (...m) => console.log(`[warm-routes ${new Date().toISOString().slice(11, 19)}]`, ...m)
 
