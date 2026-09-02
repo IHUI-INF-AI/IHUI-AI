@@ -346,18 +346,20 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 - open=true 时 WebWorkPanel 替换展示工作区内容(非右列独立窗口) */}
               <div className="relative flex min-h-0 flex-1 flex-col">
                 {/*
-                内容区加载覆盖层(2026-08-05 立,根治方案):
-                始终在 DOM 中,通过 CSS transition 控制显示/隐藏。
-                根因:条件渲染(if (!pending) return null)依赖 React 渲染周期,点击 Link 后
-                客户端路由立即开始但 React 渲染可能滞后,导致覆盖层显示延迟甚至不显示。
-                用户点击后看不到任何视觉反馈,误以为"没有响应"。
-                根治:覆盖层始终在 DOM 中,opacity+pointer-events 过渡,不依赖 React 渲染周期,
-                保证点击后立即显示 skeleton 覆盖内容区,消除"无响应"空白间隙。
+                内容区加载覆盖层(2026-08-05 立,2026-09-02 第三刀重做时序):
+                始终在 DOM 中,不依赖条件渲染(点击后立即进入过渡状态,无 React 渲染滞后)。
+                时序关键:显示走 delay-150(延迟淡入),隐藏走 duration-75(立即淡出) —
+                - 预取命中时路由切换 <50ms,pending 在 150ms 内就复位,骨架淡入从未开始 → 用户直接看到新页面,零骨架、零闪烁;
+                - 真正慢的导航(>150ms)骨架才淡入,保留加载反馈;
+                - 原"pending 后立即 opacity-100"方案会让预取提速被骨架闪现完全抵消。
+                pointer-events 无 delay:pending 期间立即拦截点击,防导航中途重复触发。
               */}
                 <div
                   className={cn(
-                    'absolute inset-0 z-10 bg-background transition-opacity duration-75',
-                    pending ? 'opacity-100' : 'pointer-events-none opacity-0',
+                    'absolute inset-0 z-10 bg-background transition-opacity',
+                    pending
+                      ? 'opacity-100 duration-100 delay-150'
+                      : 'pointer-events-none opacity-0 duration-75',
                   )}
                   role="status"
                   aria-label="页面加载中"

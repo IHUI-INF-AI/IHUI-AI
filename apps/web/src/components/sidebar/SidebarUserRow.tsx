@@ -4,7 +4,7 @@
 
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import { LogIn, User, Settings, Crown, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,7 +24,7 @@ export function SidebarUserRow({
 }) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const user = useAuthStore((s) => s.user)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const logout = useAuthStore((s) => s.logout)
@@ -126,7 +126,7 @@ export function SidebarUserRow({
             label: t('user'),
             icon: User,
             onSelect: () => {
-              router.push('/user/profile')
+              navigate('/user/profile')
               onCloseMobile()
             },
           },
@@ -135,7 +135,7 @@ export function SidebarUserRow({
             label: t('settings'),
             icon: Settings,
             onSelect: () => {
-              router.push('/settings')
+              navigate('/settings')
               onCloseMobile()
             },
           },
@@ -144,7 +144,7 @@ export function SidebarUserRow({
             label: t('vip'),
             icon: Crown,
             onSelect: () => {
-              router.push('/vip')
+              navigate('/vip')
               onCloseMobile()
             },
           },
