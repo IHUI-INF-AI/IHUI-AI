@@ -18,7 +18,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(8802),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
-  CORS_ORIGIN: z.string().default('http://localhost:8801'),
+  // 2026-09-02 默认追加 Tauri 桌面端 origin(comma 分隔白名单);即便部署未设 env,
+  // server.ts 也会固定放行,此处仅保证本地/测试默认配置一致可查。
+  CORS_ORIGIN: z.string().default('http://localhost:8801,http://tauri.localhost,tauri://localhost'),
 
   DATABASE_URL: z.url(),
   DATABASE_READ_REPLICA_URL: z

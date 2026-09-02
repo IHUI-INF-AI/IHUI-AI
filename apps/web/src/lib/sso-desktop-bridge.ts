@@ -32,7 +32,9 @@ let lastProcessedCode: string | null = null
 
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    return 'http://127.0.0.1:8802'
+    // 2026-09-02 SaaS 化:打包注入 NEXT_PUBLIC_API_BASE_URL(线上)时优先,
+    // 未注入(本地 dev 三端联调)回退 127.0.0.1:8802。与 lib/api.ts 同语义。
+    return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
   }
   return process.env.NEXT_PUBLIC_API_BASE_URL || ''
 }
