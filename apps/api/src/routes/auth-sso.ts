@@ -257,16 +257,12 @@ export const authSsoRoutes: FastifyPluginAsync = async (server) => {
 
       const { code, clientId } = parsed.data
 
-      // 2026-08-01 修复:Redis 5.x 不支持 GETDEL(6.2+ 才引入),
-      // 退化为 GET + DEL 两步(非原子,但 sso_code 有 30s TTL + 一次性,
-      // 重放窗口极小,可接受;升级到 Redis 6.2+ 后可改回 getdel)。
+      // 2026-08-01 修复:退化为 GET + DEL;2026-09-02 优化:Redis 7 原生支持 GETDEL，恢复原子操作
       const redisKey = SSO_CODE_PREFIX + code
-      const stored = await server.redis.get(redisKey)
+      const stored = await server.redis.getdel(redisKey)
       if (!stored) {
         return reply.code(401).send(error(401, '授权码无效或已过期'))
       }
-      // 拿到 code 后立即删除(原子性靠 TTL + 一次性消费语义兜底)
-      await server.redis.del(redisKey)
 
       let codeData: { userId: string; clientId: string; redirectUri: string; createdAt: number }
       try {
