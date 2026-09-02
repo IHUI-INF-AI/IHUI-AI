@@ -105,19 +105,22 @@ def _check_pytest_pass(workdir: Path, params: dict[str, Any]) -> tuple[bool, str
     """在工作目录副本上运行 pytest,要求全部用例通过(exit code == 0)。"""
     path = params.get("path", ".")
     node = params.get("test")
+    # 节点选择器必须与 path 合成单个参数(f"{path}::{node}")。若分开传两个 arg,
+    # pytest 会把 "::node" 当作独立收集目标,报
+    # "directory argument cannot contain :: selection parts" → exit 4 no tests ran,
+    # 导致 agent 已修复也永远判 FAIL。
+    target = f"{path}::{node}" if node else path
     cmd = [
         sys.executable,
         "-m",
         "pytest",
-        path,
+        target,
         "-q",
         "--no-header",
         "-p",
         "no:cacheprovider",
         "--tb=short",
     ]
-    if node:
-        cmd.append(f"::{node}")
     try:
         proc = subprocess.run(
             cmd,
@@ -216,7 +219,14 @@ def _build_loop_v2_llm() -> Any:
     from app.core.llm_gateway import llm_gateway
 
     async def _llm(messages: list[dict[str, Any]], tools: Any) -> dict[str, Any]:
-        result = await llm_gateway.complete(messages)
+        # 必须把 AgentLoopV2 的 OpenAI 格式 tools(function calling schema)透传给
+        # llm_gateway.complete(kwargs → litellm)。此前丢弃 tools 导致模型看不到
+        # 任何工具 → 永不发 tool_calls → agent 首轮纯文本即 completed(1 iter,0 改动),
+        # 所有任务恒判 FAIL。tools 为 list[dict] 时直接透传,litellm 原生接受该格式。
+        kwargs: dict[str, Any] = {}
+        if tools:
+            kwargs["tools"] = tools
+        result = await llm_gateway.complete(messages, **kwargs)
         return {
             "content": result.get("content", ""),
             "tool_calls": _convert_tool_calls(result.get("tool_calls")),
@@ -286,6 +296,40 @@ async def _run_task(task: dict[str, Any], executor: str, base_workdir: Path) -> 
         duration_ms = (time.time() - start) * 1000
         iterations = len(result.iterations)
         stop_reason = result.stop_reason
+        # IHUI_BENCH_DEBUG=1 时输出每轮 tool_calls / tool_results 全量 trace,
+        # 用于定位「agent 迭代了却不改文件」等行为问题(如工具未调、参数错、路径越权)。
+        if os.environ.get("IHUI_BENCH_DEBUG"):
+            trace: list[dict[str, Any]] = []
+            for it in result.iterations:
+                trace.append({
+                    "iteration": it.iteration,
+                    "reasoning": (it.reasoning or "")[:500],
+                    "tool_calls": [
+                        {"name": tc.name, "args": tc.args} for tc in it.tool_calls
+                    ],
+                    "tool_results": [
+                        {
+                            "name": tr.name,
+                            "ok": not tr.error,
+                            "error": tr.error,
+                            "error_type": tr.error_type,
+                            "retry_count": tr.retry_count,
+                            "result_preview": (
+                                str(tr.result)[:400] if tr.result is not None else None
+                            ),
+                        }
+                        for tr in it.tool_results
+                    ],
+                })
+            print(
+                "BENCH_TRACE " + json.dumps({
+                    "task": task["id"], "stop_reason": stop_reason,
+                    "success": result.success,
+                    "final_response": (result.final_response or "")[:500],
+                    "iterations": trace,
+                }, ensure_ascii=False),
+                flush=True,
+            )
     finally:
         if prev_roots is None:
             os.environ.pop("MCP_WORKSPACE_ROOTS", None)
