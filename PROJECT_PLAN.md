@@ -2946,6 +2946,13 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
       ④ **P1-4 官方 MCP SDK stdio 双轨**— 新 `app/services/mcp_stdio_bridge.py`:官方 `mcp` SDK(2.1.1)stdio 子进程传输,`add_stdio_server_tool` 白名单式注册(名称正则+拒绝 shell 元字符),经 `mcp_server.register_external_tool` 注入 `_TOOLS`+`_TOOL_HANDLERS` 唯一注册表(同名已注册返回 False 不覆盖,幂等);异常自愈(重启一次+重试一次);`__` 前缀内部参数剥离;`config.py` `mcp_stdio_servers` 默认空 JSON;main.py lifespan 解析注册,失败不阻塞启动;pyproject 加 `mcp>=1.0`(uv sync 2.1.1)。测试 `tests/test_mcp_stdio_bridge.py` 14 用例含真实 npx 拉起官方 filesystem server 冒烟。
       验证:ai-service 全量回归 **8950 passed / 1 failed**;修复 3 个 langgraph 断言过时(懒加载默认图后"无图"测试 mock `_ensure_graph`)+ 1 个 create_backup 时序碰撞加固(pid+nanos 已存在追加序号),全绿后 **8950 passed / 0 failed**;web typecheck 0 错;新增文件 mypy 0 错 + ruff 全绿。遗留:8801/8803 端到端 curl 补验(服务重启后)、Extension 浏览器加载(用户操作)。
 
+- [x] ✅(2026-09-02) **竞品对标 P2 战场执行(4 并行 agent + lead 收尾,任务 #1-12)**:v2 报告 P2 战场四项全部落地并入库,提交均在 main、三仓(origin/gitee/gitcode)同步至 cbe2dd2f08:
+      ① **P2-1 MCP 应用商店完整工作流**(#1-6)— `mcp_store.py` 状态持久化 + `mcp_server.py` 工具注销/查询 + `mcp_stdio_bridge.py` 移除能力 + `routers/mcp.py` 商店端点(安装/卸载/启停,工具热挂载注入对话)+ 前端 mcp-store 页 + api-client + i18n。提交 `5850ab1d0d`(商店闭环)+ `088ccd786f`(端到端验收修复 4 项,商店安装闭环彻底打通)。
+      ② **P2-2 中文 Connectors(飞书/企微/钉钉/语雀)**(#7-11)— `connector_store.py` 持久化 + 语雀免 token 真通(`870e482970`);`connectors/{feishu,wecom,dingtalk}.py` 三模块(`4d9cfc7545`);`routers/connectors.py` + web rewrites + 路由测试(`cb636a5083`);web 配置页 + api-client + i18n(`a38eed6d3d`)。含独立验收(#10)。
+      ③ **P2-3 Computer Use 真通** — `/execute` fail-closed 安全修复(`2503ca61c7`,Bearer==AGENT_CONTROL_INTERNAL_SECRET timingSafeEqual 或合法 JWT,缺则 401)+ ws-ticket 脱敏修复(`1f460c8899`,wsToken 被 response-sanitizer 遮蔽为 *** 致 WS 换票恒失败);lead 新增 `scripts/check-p2-3-acceptance.mjs` 服务端编排一键验收(脚本模拟桌面端:login→/ws/ticket→WS→capability→execute→result)**实测 6/6 通过**,wsToken 明文返回确认修复生效(`cbe2dd2f08`)。**遗留:真实 GUI(扩展 .output/chrome-mv3 或桌面端)加载登录后驱动 computer__/browser__ 终验 = 用户操作**(编排层已证全通,仅差端接入)。
+      ④ **P2-4 8 端统一 Agent 能力矩阵** — mobile-rn WebView 承载屏复用 web /chat 补齐工具能力(#12):`ChatToolsScreen.tsx` + ChatTools 导航入口 + menu.chatTools i18n(`cf147a843b`/`f077ef4239`/`6f46bd1acd`)+ 压缩功能防回归 E2E(`3b4ca4eaf7`);8 端能力矩阵实证入库(`33b83d5749`)。盘点口径:web/api 全量、extension browser 工具+聊天、desktop 聊天+本地、mobile-rn 经 WebView 继承全量、cli/miniapp-taro 按定位覆盖。
+      验证:各工作流独立验证全绿(见各 commit 说明);lead 本地 git 审计(task 清单 12/12 completed + 提交存在性 + 关键文件抽查)确认交付完整。
+
 ---
 
 ## P2 首屏 HTML 体积优化(2026-09-02 立,平台独占:apps/web,AGENTS.md §9 显式标注)
