@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   NAV_ITEM_BASE_CLASS,
@@ -44,11 +45,22 @@ const NavLink = React.memo(function NavLink({
     collapsed ? NAV_ITEM_COLLAPSED_CLASS : NAV_ITEM_EXPANDED_CLASS,
   )
   const refCb = (el: HTMLElement | null) => registerRef(item.href, el)
+  const router = useRouter()
 
   const handleClick = React.useCallback(() => {
     onBeforeNav?.(item.href)
     onCloseMobile()
   }, [onBeforeNav, item.href, onCloseMobile])
+
+  // 悬停/聚焦即显式预取(2026-09-02 页面切换提速·第二刀):
+  // <Link> 仅对"视口内"链接自动预取(生产);折叠态/子菜单/未入视口链接在点击时才发 RSC 请求。
+  // 此处 onPointerEnter/onFocus 触发 useRouter().prefetch:生产模式把目标路由 RSC 拉进
+  // 客户端缓存(staleTimes.dynamic=30s),点击命中即瞬时切换;幂等,Next 内部去重。
+  // 注:dev 模式 Next 16 有 cache-bypass-in-dev 机制,预取请求被显式绕过(实测 0 请求),
+  // 本逻辑对 dev 无效果也无开销;dev 切换延迟是 Next 架构性下限(每次必走服务端往返)。
+  const prefetchTarget = React.useCallback(() => {
+    router.prefetch(item.href)
+  }, [router, item.href])
 
   if (collapsed) {
     return (
@@ -57,6 +69,8 @@ const NavLink = React.memo(function NavLink({
           href={item.href}
           ref={refCb}
           onClick={handleClick}
+          onPointerEnter={prefetchTarget}
+          onFocus={prefetchTarget}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           data-testid={`nav-${item.labelKey}`}
@@ -77,6 +91,8 @@ const NavLink = React.memo(function NavLink({
       href={item.href}
       ref={refCb}
       onClick={handleClick}
+      onPointerEnter={prefetchTarget}
+      onFocus={prefetchTarget}
       aria-current={active ? 'page' : undefined}
       data-testid={`nav-${item.labelKey}`}
       className={className}
