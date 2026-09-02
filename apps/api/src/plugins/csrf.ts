@@ -76,6 +76,11 @@ const PUBLIC_PREFIXES = [
   // CSRF 校验在此是冗余(主要防 csrf 利用已登录 cookie,但 browse 无副作用可攻击),
   // 跨端口 fetch 8801->8802 cookie 传递链路脆弱,直接豁免避免误伤合法用户
   '/api/workspace/fs/',
+  // 同源嵌入代理(2026-09-02 立,WorkPanel 内嵌浏览器):无状态开放代理,仅取回并重写目标页,
+  // 不写库/不改状态/不读本站 cookie;POST 仅供嵌入式第三方页面表单提交(iframe 拿不到 CSRF token)。
+  // 若依赖已登录豁免,反而会在嵌入第三方站点时把本站 cookie 带到请求里,语义更差;
+  // 现有防线已足够:SSRF 主机拦截(localhost/私网/链路本地/ULA,含重定向落点复检)+ 每 IP 60s/120 次限流。
+  '/api/embed-proxy',
 ]
 
 function secret(): string {

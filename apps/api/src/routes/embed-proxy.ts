@@ -8,6 +8,10 @@
  *
  * 数据流:iframe(/api/embed-proxy/raw?url=X) → api 取回 X 剥头重写 → 同源 HTML
  *        → 页面内 a/form 经重写回到代理;子资源(img/css/js)经 <base> 直连目标站。
+ * 表单语义(2026-09-02 增强):GET 表单字段由浏览器追加到代理查询串,服务端剥离 url 参数
+ *       后合并回目标 URL;POST 表单同源 POST 代理,urlencoded/JSON body 转发 → 目标站收到
+ *       真实 method + 字段(搜索/登录等表单可用)。已知局限:multipart 文件上传表单不支持
+ *       (@fastify/multipart 全局解析后不填充 request.body,无法原样转发),返回提示页。
  *
  * 安全设计(免鉴权的原因:iframe 加载无法附带 Bearer token):
  * - SSRF 防护:仅 http/https,拦截 localhost/私网/链路本地/ULA/保留地址(含重定向落点复检)
@@ -109,14 +113,19 @@ const BRIDGE_SCRIPT = [
   "var P='/api/embed-proxy/raw?url=';",
   "var isP=function(h){return typeof h==='string'&&h.indexOf(P)===0};",
   "var dec=function(h){var i=h.indexOf('url=');return i<0?h:decodeURIComponent(h.slice(i+4))};",
-  // location.href 是绝对地址(indexOf(P) 永不 ===0),必须用 pathname+search(保持相对形态)判 isP
-  'var cur=function(){var p=location.pathname+location.search;return isP(p)?dec(p):location.href};',
+  // 当前文档真实 URL = 服务端注入的 <base href="最终URL">(fetch 已跟随重定向 + 合并 GET 字段),
+  // 它比 decode(代理 url 参数)更准:302 落点与表单提交后的 ?q=... 都能反映到地址栏。
+  // 注意不能用 location.href(绝对地址,isP 前缀永不可能匹配)或代理 URL(会泄漏进 tab 状态)。
+  'var cur=function(){var b=document.baseURI||"";return /^https?:/i.test(b)?b:location.href};',
+  // 绝对同源前缀:代理路径是相对形式,赋值 location/提交表单会被注入的 <base>(目标站)错误解析,
+  // 必须以 location.origin 拼接成绝对 URL(iframe 与父页同源,origin 即本站,不受 base 影响)
+  'var O=(location.origin||"");',
   'var push=history.pushState,rep=history.replaceState;',
   'history.pushState=function(){var a=[].slice.call(arguments),u=a[2];',
   'var abs=u!==undefined&&u!==null?new URL(String(u),document.baseURI).href:cur();',
   'try{push.apply(this,a)}catch(e){}',
   "post('ihui-embed-nav',abs,document.title);",
-  'if(/^https?:/i.test(abs)){try{location.href=P+encodeURIComponent(abs)}catch(e){}}};',
+  'if(/^https?:/i.test(abs)){try{location.href=O+P+encodeURIComponent(abs)}catch(e){}}};',
   'history.replaceState=function(){var a=[].slice.call(arguments),u=a[2];',
   'var abs=u!==undefined&&u!==null?new URL(String(u),document.baseURI).href:cur();',
   'try{rep.apply(this,a)}catch(e){}',
@@ -129,11 +138,21 @@ const BRIDGE_SCRIPT = [
   'if(/^(javascript|mailto|tel|data):/i.test(href))return;',
   // Ctrl/Cmd+点击代理链接 → 通知父页面在应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
   'if(isP(href)&&(e.ctrlKey||e.metaKey)){e.preventDefault();post("ihui-embed-newtab",dec(href));return}',
-  'if(isP(href)){e.preventDefault();post("ihui-embed-nav",dec(href),document.title);location.href=href;return}',
+  'if(isP(href)){e.preventDefault();post("ihui-embed-nav",dec(href),document.title);location.href=O+href;return}',
   'var abs;try{abs=new URL(href,document.baseURI).href}catch(err){return}',
   'if(!/^https?:/i.test(abs))return;',
   'e.preventDefault();post("ihui-embed-nav",abs,document.title);',
-  'location.href=P+encodeURIComponent(abs)',
+  'location.href=O+P+encodeURIComponent(abs)',
+  '},true);',
+  // 表单提交拦截:action 已被重写为相对代理路径,直接提交会按 <base>(目标站)解析成错误地址;
+  // 拼接绝对同源前缀后放行原生提交(f.submit() 不触发 submit 事件,不会递归)
+  "document.addEventListener('submit',function(e){",
+  'var f=e.target;if(!f||!f.getAttribute)return;',
+  'var act=f.getAttribute("action");',
+  'if(!isP(act))return;',
+  'e.preventDefault();',
+  'f.setAttribute("action",O+act);',
+  'f.submit();',
   '},true);',
   // 文档就绪(桥接脚本注入于 </body> 前)广播当前地址 + 真实 <title>,父页面同步 tab 标题
   "post('ihui-embed-loaded',cur(),document.title);",
@@ -174,7 +193,10 @@ function rewriteHtml(html: string, baseUrl: string): string {
     return `<a${newAttrs}>`
   })
 
-  // 4. <form action> 改写回代理,去掉 method(强制 GET,代理仅支持 GET)
+  // 4. <form action> 改写回代理,保留 method/enctype(不再强制 GET):
+  //    - GET 表单:浏览器把字段追加到代理 action 查询串,服务端 mergeProxyQuery 合并回目标 URL;
+  //    - POST 表单:同源 POST 代理,body 由路由转发(见下方 POST 支持);
+  //    仅去除 target(避免提交弹出不受控新窗口)。
   out = out.replace(/<form\b([^>]*)>/gi, (_m, attrs: string) => {
     const action = /action\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(attrs)
     let abs = baseUrl
@@ -188,7 +210,7 @@ function rewriteHtml(html: string, baseUrl: string): string {
     }
     const newAttrs = attrs
       .replace(/\saction\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, ` action="${proxyUrlFor(abs)}"`)
-      .replace(/\smethod\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\starget\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     return `<form${newAttrs}>`
   })
 
@@ -216,100 +238,162 @@ function errorPage(message: string): string {
 
 const rawQuerySchema = z.object({ url: z.string().min(1) })
 
+/** 代理查询串剥离 url 参数后合并回目标 URL(支撑 GET 表单字段透传) */
+function mergeProxyQuery(target: URL, query: unknown): URL {
+  if (!query || typeof query !== 'object') return target
+  const merged = new URL(target.href)
+  for (const [key, value] of Object.entries(query as Record<string, unknown>)) {
+    if (key === 'url') continue
+    if (typeof value === 'string') merged.searchParams.append(key, value)
+    else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === 'string') merged.searchParams.append(key, item)
+      }
+    }
+  }
+  return merged
+}
+
 export const embedProxyRoutes: FastifyPluginAsync = async (server) => {
-  server.get('/raw', async (request, reply) => {
-    // iframe 加载不带 token,本路由免鉴权,以 SSRF 防护 + 限流兜底
-    if (isRateLimited(request.ip)) {
-      return reply.status(429).send(error(429, '嵌入代理请求过于频繁,请稍后再试'))
-    }
+  // GET:页面/子资源加载 + GET 表单;POST:POST 表单同源提交(method/body 原样转发)
+  server.route({
+    method: ['GET', 'POST'],
+    url: '/raw',
+    handler: async (request, reply) => {
+      // iframe 加载不带 token,本路由免鉴权,以 SSRF 防护 + 限流兜底
+      if (isRateLimited(request.ip)) {
+        return reply.status(429).send(error(429, '嵌入代理请求过于频繁,请稍后再试'))
+      }
 
-    const parsed = rawQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, '缺少 url 参数'))
-    }
+      const parsed = rawQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, '缺少 url 参数'))
+      }
 
-    let target: URL
-    try {
-      target = new URL(parsed.data.url)
-    } catch {
-      return reply.status(400).send(error(400, 'url 参数格式非法'))
-    }
-    if (!/^https?:$/.test(target.protocol) || isForbiddenHost(target.hostname)) {
-      return reply.status(403).send(error(403, '该地址不允许通过嵌入代理访问'))
-    }
+      let target: URL
+      try {
+        target = new URL(parsed.data.url)
+      } catch {
+        return reply.status(400).send(error(400, 'url 参数格式非法'))
+      }
+      if (!/^https?:$/.test(target.protocol) || isForbiddenHost(target.hostname)) {
+        return reply.status(403).send(error(403, '该地址不允许通过嵌入代理访问'))
+      }
 
-    let upstream: Response
-    try {
-      upstream = await fetch(target.href, {
+      const isPost = request.method === 'POST'
+      const fetchHeaders: Record<string, string> = {
+        'user-agent': DEFAULT_UA,
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+        'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      }
+      const init: RequestInit = {
         redirect: 'follow',
         signal: AbortSignal.timeout(PROXY_TIMEOUT_MS),
-        headers: {
-          'user-agent': DEFAULT_UA,
-          accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-        },
-      })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      reply.type('text/html; charset=utf-8')
-      return reply.send(errorPage(`嵌入代理取回页面失败: ${msg}`))
-    }
-
-    // 重定向落点复检(防止 302 跳内网)
-    let finalUrl = target.href
-    try {
-      const landed = new URL(upstream.url)
-      if (isForbiddenHost(landed.hostname)) {
-        reply.type('text/html; charset=utf-8')
-        return reply.send(errorPage('目标重定向到了内网地址,已被拦截'))
+        headers: fetchHeaders,
       }
-      finalUrl = upstream.url
-    } catch {
-      // 保留 target.href
-    }
 
-    reply.header('cache-control', 'no-store')
-    reply.header('x-content-type-options', 'nosniff')
-    for (const [name, value] of upstream.headers.entries()) {
-      if (STRIP_HEADERS.has(name)) continue
+      if (isPost) {
+        init.method = 'POST'
+        const rawCtype = request.headers['content-type']
+        const ctype = typeof rawCtype === 'string' ? rawCtype : ''
+        if (ctype.startsWith('application/x-www-form-urlencoded')) {
+          // 全局 parser 已把 urlencoded body 解析为对象,重编码后转发(保留字段语义)
+          fetchHeaders['content-type'] = 'application/x-www-form-urlencoded'
+          const params = new URLSearchParams()
+          for (const [key, value] of Object.entries((request.body ?? {}) as Record<string, unknown>)) {
+            if (value === undefined || value === null) continue
+            if (Array.isArray(value)) {
+              for (const item of value) if (typeof item === 'string') params.append(key, item)
+            } else {
+              params.append(key, String(value))
+            }
+          }
+          init.body = params.toString()
+        } else if (ctype.includes('application/json')) {
+          // SPA 页面里 fetch JSON(如登录接口)直连目标被 CORS 拦,此处兜底支持手工 JSON POST
+          fetchHeaders['content-type'] = 'application/json'
+          init.body = JSON.stringify(request.body ?? null)
+        } else if (ctype.includes('multipart/form-data')) {
+          // @fastify/multipart(全局注册)已消费流且不填充 request.body,无法原样转发 → 明确提示
+          reply.type('text/html; charset=utf-8')
+          return reply.send(errorPage('该页面表单含文件上传(multipart),嵌入代理暂不支持,请用外部浏览器打开'))
+        } else {
+          // text/plain 等已解析类型原样转发;未注册 content-type 的 POST 已被 Fastify 415 拦截
+          const rawBody = request.body
+          if (ctype) fetchHeaders['content-type'] = ctype
+          if (rawBody === null || rawBody === undefined) init.body = ''
+          else if (typeof rawBody === 'string') init.body = rawBody
+          else if (Buffer.isBuffer(rawBody)) init.body = rawBody
+          else init.body = JSON.stringify(rawBody)
+        }
+      } else {
+        target = mergeProxyQuery(target, request.query)
+      }
+
+      let upstream: Response
       try {
-        reply.header(name, value)
+        upstream = await fetch(target.href, init)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        reply.type('text/html; charset=utf-8')
+        return reply.send(errorPage(`嵌入代理取回页面失败: ${msg}`))
+      }
+
+      // 重定向落点复检(防止 302 跳内网)
+      let finalUrl = target.href
+      try {
+        const landed = new URL(upstream.url)
+        if (isForbiddenHost(landed.hostname)) {
+          reply.type('text/html; charset=utf-8')
+          return reply.send(errorPage('目标重定向到了内网地址,已被拦截'))
+        }
+        finalUrl = upstream.url
       } catch {
-        // 个别非法头名跳过
+        // 保留 target.href
       }
-    }
 
-    const contentType = upstream.headers.get('content-type') ?? ''
-    if (!contentType.includes('text/html')) {
-      // 非文档资源(css/js/img/字体)直接流式透传
-      if (!upstream.body) {
-        return reply.status(502).send(error(502, '上游无响应体'))
+      reply.header('cache-control', 'no-store')
+      reply.header('x-content-type-options', 'nosniff')
+      for (const [name, value] of upstream.headers.entries()) {
+        if (STRIP_HEADERS.has(name)) continue
+        try {
+          reply.header(name, value)
+        } catch {
+          // 个别非法头名跳过
+        }
       }
-      return reply.send(Readable.fromWeb(upstream.body as NodeWebReadableStream))
-    }
 
-    // HTML:全量读入 → 剥 CSP 头已在上方 → 重写后同源输出
-    const declaredLength = Number(upstream.headers.get('content-length') ?? '0')
-    if (declaredLength > MAX_HTML_BYTES) {
-      reply.type('text/html; charset=utf-8')
-      return reply.send(errorPage('页面过大,嵌入代理不支持(请用外部浏览器打开)'))
-    }
-    let html: string
-    try {
-      const buf = await upstream.arrayBuffer()
-      if (buf.byteLength > MAX_HTML_BYTES) {
+      const contentType = upstream.headers.get('content-type') ?? ''
+      if (!contentType.includes('text/html')) {
+        // 非文档资源(css/js/img/字体)直接流式透传
+        if (!upstream.body) {
+          return reply.status(502).send(error(502, '上游无响应体'))
+        }
+        return reply.send(Readable.fromWeb(upstream.body as NodeWebReadableStream))
+      }
+
+      // HTML:全量读入 → 剥 CSP 头已在上方 → 重写后同源输出
+      const declaredLength = Number(upstream.headers.get('content-length') ?? '0')
+      if (declaredLength > MAX_HTML_BYTES) {
         reply.type('text/html; charset=utf-8')
         return reply.send(errorPage('页面过大,嵌入代理不支持(请用外部浏览器打开)'))
       }
-      html = new TextDecoder('utf-8', { fatal: false }).decode(buf)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      reply.type('text/html; charset=utf-8')
-      return reply.send(errorPage(`读取页面失败: ${msg}`))
-    }
+      let html: string
+      try {
+        const buf = await upstream.arrayBuffer()
+        if (buf.byteLength > MAX_HTML_BYTES) {
+          reply.type('text/html; charset=utf-8')
+          return reply.send(errorPage('页面过大,嵌入代理不支持(请用外部浏览器打开)'))
+        }
+        html = new TextDecoder('utf-8', { fatal: false }).decode(buf)
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        reply.type('text/html; charset=utf-8')
+        return reply.send(errorPage(`读取页面失败: ${msg}`))
+      }
 
-    reply.type('text/html; charset=utf-8')
-    return reply.send(rewriteHtml(html, finalUrl))
+      reply.type('text/html; charset=utf-8')
+      return reply.send(rewriteHtml(html, finalUrl))
+    },
   })
 }

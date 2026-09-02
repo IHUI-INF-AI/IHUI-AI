@@ -17,6 +17,7 @@ import {
   createBrowserSession,
   closeBrowserSession,
   detectLoginFromCdp,
+  importChromeCookies,
   listScanLoginPlatforms,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
@@ -70,6 +71,7 @@ export function ScanLoginDialog({
   const [countdownSeconds, setCountdownSeconds] = React.useState<number>(TIMEOUT_SECONDS)
   const startTimeRef = React.useRef<number>(0)
   const pollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  const chromePollTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
 
   React.useEffect(() => {
     if (defaultPlatform) setPlatform(defaultPlatform)
@@ -94,6 +96,7 @@ export function ScanLoginDialog({
   React.useEffect(() => {
     return () => {
       stopPolling()
+      stopChromePolling()
       if (sessionId) void closeBrowserSession(sessionId)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -110,6 +113,13 @@ export function ScanLoginDialog({
     if (pollTimerRef.current) {
       clearInterval(pollTimerRef.current)
       pollTimerRef.current = null
+    }
+  }
+
+  function stopChromePolling() {
+    if (chromePollTimerRef.current) {
+      clearInterval(chromePollTimerRef.current)
+      chromePollTimerRef.current = null
     }
   }
 
@@ -147,7 +157,9 @@ export function ScanLoginDialog({
       openCdpSession(plat.login_url, sid, plat.name)
       setPhase('polling')
       onOpenChange(false)
-      toast.success(`已在右侧内置浏览器打开 ${plat.name} 登录页,请扫码登录`)
+      toast.success(
+        t('accounts.openExternalBrowserWithPlatform', { name: plat.name })
+      )
       startPolling(sid, platform)
     } catch (e) {
       setErrorMsg((e as Error).message)
@@ -182,11 +194,35 @@ export function ScanLoginDialog({
 
   function handleCancel() {
     stopPolling()
+    stopChromePolling()
     if (sessionId) {
       void closeBrowserSession(sessionId)
       setSessionId('')
     }
     setPhase('idle')
+  }
+
+  function startChromePolling(port: number, plat: string) {
+    stopChromePolling()
+    chromePollTimerRef.current = setInterval(async () => {
+      if (Date.now() - startTimeRef.current > TIMEOUT_MS) {
+        failSession(t('accounts.scanLoginTimeout'))
+        return
+      }
+      try {
+        const r = await importChromeCookies(port, plat)
+        if (r.success && r.data?.detected) {
+          stopChromePolling()
+          setPhase('success')
+          toast.success(`${t('accounts.scanLoginSuccess')} (${r.data.cookies_count} cookies)`)
+          onSuccess?.()
+        } else if (r.success && r.data?.error) {
+          failSession(r.data.error)
+        }
+      } catch {
+        /* 网络错误静默,继续轮询 */
+      }
+    }, POLL_INTERVAL_MS)
   }
 
   const platformName = platforms.find((p) => p.platform === platform)?.name ?? platform
@@ -245,12 +281,23 @@ export function ScanLoginDialog({
                 className="w-full"
                 disabled={!platform || isBusy}
                 onClick={async () => {
-                  // 2026-08-17:内置浏览器仅用于扫码展示;验证码/密码登录用 Google Chrome
-                  // --app 模式打开(桌面端)或系统浏览器新标签(web 端),登录后粘贴 Cookie 保存。
                   const plat = platforms.find((p) => p.platform === platform)
                   if (!plat?.login_url) return
-                  const err = await openInGoogleChrome(plat.login_url)
-                  if (err) toast.error(err)
+                  const result = await openInGoogleChrome(plat.login_url)
+                  if (typeof result === 'string') {
+                    toast.error(result)
+                    return
+                  }
+                  if (typeof result === 'number' && result > 0) {
+                    setPhase('polling')
+                    startTimeRef.current = Date.now()
+                    startChromePolling(result, platform)
+                    onOpenChange(false)
+                    toast.success(t('accounts.openExternalBrowserSuccess'))
+                  } else {
+                    // web 端降级:仍按原提示走
+                    toast.info(t('accounts.webFallbackHint'))
+                  }
                 }}
               >
                 <ExternalLink className="h-4 w-4" />

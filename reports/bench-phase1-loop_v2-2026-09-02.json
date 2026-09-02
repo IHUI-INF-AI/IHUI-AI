@@ -1,0 +1,447 @@
+{
+  "total": 20,
+  "passed": 12,
+  "pass_rate": 0.6,
+  "tasks": [
+    {
+      "id": "fix-calc-divzero",
+      "title": "修复计算器除零崩溃",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 6,
+      "duration_ms": 30350.4,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-calc-divzero"
+    },
+    {
+      "id": "fix-calc-percent",
+      "title": "修复百分比计算放大 100 倍",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 8,
+      "duration_ms": 47750.5,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-calc-percent"
+    },
+    {
+      "id": "fix-calc-multiply",
+      "title": "修复乘法写成加法",
+      "category": "fix",
+      "fixture": "fixture_calculator",
+      "iterations": 8,
+      "duration_ms": 57845.4,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed in 0.26s)"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-calc-multiply"
+    },
+    {
+      "id": "fix-cli-import",
+      "title": "移除坏 import 让模块可导入",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 6,
+      "duration_ms": 39197.9,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (2 passed in 0.01s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-cli-import"
+    },
+    {
+      "id": "fix-cli-deadcode",
+      "title": "删除死代码函数",
+      "category": "fix",
+      "fixture": "fixture_cli_tools",
+      "iterations": 4,
+      "duration_ms": 19920.7,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "file_not_contains",
+          "pass": true,
+          "detail": "不包含子串: 'dead_code_helper'"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-cli-deadcode"
+    },
+    {
+      "id": "fix-text-reverse",
+      "title": "修复字符串反转步长",
+      "category": "fix",
+      "fixture": "fixture_text_utils",
+      "iterations": 8,
+      "duration_ms": 58223.1,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-text-reverse"
+    },
+    {
+      "id": "fix-report-avg",
+      "title": "修复平均金额除以 1 的 bug",
+      "category": "fix",
+      "fixture": "fixture_data_report",
+      "iterations": 4,
+      "duration_ms": 26570.6,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-report-avg"
+    },
+    {
+      "id": "fix-report-total",
+      "title": "修复合计 off-by-one 累加",
+      "category": "fix",
+      "fixture": "fixture_data_report",
+      "iterations": 6,
+      "duration_ms": 31902.2,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (1 passed in 0.02s)"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_fix-report-total"
+    },
+    {
+      "id": "test-text-slugify",
+      "title": "为 slugify 补测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 10,
+      "duration_ms": 39799.8,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def test_slugify'"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_test-text-slugify"
+    },
+    {
+      "id": "test-calc-edge",
+      "title": "为计算器补充边界测试",
+      "category": "test",
+      "fixture": "fixture_calculator",
+      "iterations": 10,
+      "duration_ms": 183315.5,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": true,
+          "detail": "存在: tests/test_calc_edge.py"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_test-calc-edge"
+    },
+    {
+      "id": "test-cli-errors",
+      "title": "为 CLI 错误路径补测试",
+      "category": "test",
+      "fixture": "fixture_cli_tools",
+      "iterations": 2,
+      "duration_ms": 17333.9,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_cli_errors.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_test-cli-errors"
+    },
+    {
+      "id": "test-report-empty",
+      "title": "为数据汇总补空输入测试",
+      "category": "test",
+      "fixture": "fixture_data_report",
+      "iterations": 10,
+      "duration_ms": 78332.0,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": true,
+          "detail": "存在: tests/test_report_empty.py"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 1,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_test-report-empty"
+    },
+    {
+      "id": "test-text-wordcount",
+      "title": "为词数统计补更多测试",
+      "category": "test",
+      "fixture": "fixture_text_utils",
+      "iterations": 10,
+      "duration_ms": 91965.5,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_file_exists",
+          "pass": false,
+          "detail": "不存在: tests/test_text_wordcount.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 1,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_test-text-wordcount"
+    },
+    {
+      "id": "refactor-report-common",
+      "title": "提取重复的货币格式化逻辑",
+      "category": "refactor",
+      "fixture": "fixture_data_report",
+      "iterations": 10,
+      "duration_ms": 69468.1,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (2 failed, 2 passed in 0.27s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def format_currency'"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_refactor-report-common"
+    },
+    {
+      "id": "refactor-calc-validate",
+      "title": "提取数值校验辅助函数",
+      "category": "refactor",
+      "fixture": "fixture_calculator",
+      "iterations": 10,
+      "duration_ms": 73952.2,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (3 failed, 5 passed in 0.35s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def _is_number'"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_refactor-calc-validate"
+    },
+    {
+      "id": "refactor-cli-dispatch",
+      "title": "提取命令分发逻辑",
+      "category": "refactor",
+      "fixture": "fixture_cli_tools",
+      "iterations": 10,
+      "duration_ms": 44515.6,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=2 (1 error in 0.38s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def dispatch'"
+        }
+      ],
+      "checks_passed": 1,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_refactor-cli-dispatch"
+    },
+    {
+      "id": "refactor-text-normalize",
+      "title": "提取空白归一化辅助函数",
+      "category": "refactor",
+      "fixture": "fixture_text_utils",
+      "iterations": 10,
+      "duration_ms": 90073.8,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (1 failed, 3 passed in 0.30s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "不包含子串: 'def normalize_whitespace'"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 2,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_refactor-text-normalize"
+    },
+    {
+      "id": "multifile-report-split",
+      "title": "拆分报表为数据与格式化两个模块",
+      "category": "multifile",
+      "fixture": "fixture_data_report",
+      "iterations": 11,
+      "duration_ms": 151833.9,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": false,
+          "detail": "exit=1 (2 failed, 2 passed in 0.30s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: data.py"
+        },
+        {
+          "type": "file_contains",
+          "pass": false,
+          "detail": "文件不存在: format.py"
+        }
+      ],
+      "checks_passed": 0,
+      "checks_total": 3,
+      "pass": false,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_multifile-report-split"
+    },
+    {
+      "id": "multifile-cli-parser",
+      "title": "将参数解析移到独立模块",
+      "category": "multifile",
+      "fixture": "fixture_cli_tools",
+      "iterations": 11,
+      "duration_ms": 83689.2,
+      "stop_reason": "completed",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (2 passed in 0.02s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def parse_args'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_multifile-cli-parser"
+    },
+    {
+      "id": "multifile-calc-split",
+      "title": "拆分计算器为运算与 IO 两模块",
+      "category": "multifile",
+      "fixture": "fixture_calculator",
+      "iterations": 12,
+      "duration_ms": 68772.4,
+      "stop_reason": "max_iterations",
+      "checks": [
+        {
+          "type": "pytest_pass",
+          "pass": true,
+          "detail": "exit=0 (8 passed in 0.04s)"
+        },
+        {
+          "type": "file_contains",
+          "pass": true,
+          "detail": "包含子串: 'def add'"
+        }
+      ],
+      "checks_passed": 2,
+      "checks_total": 2,
+      "pass": true,
+      "workdir": "D:\\caches\\Temp\\ihui_bench_haw28wvy\\task_multifile-calc-split"
+    }
+  ]
+}
