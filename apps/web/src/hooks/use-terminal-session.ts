@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useTerminalStore } from '@/stores/terminal'
 import type { TerminalSplitDirection } from '@/stores/terminal'
 import { fetchApi } from '@/lib/api'
+import { buildWsUrl as buildWs } from '@/lib/ws-url'
 import type {
   TerminalSession,
   TerminalCreateInput,
@@ -90,8 +91,7 @@ export interface TerminalWSHandle {
 
 /** 创建 WebSocket URL(同 use-task-websocket.ts 模式) */
 function buildWsUrl(sessionId: string, token: string): string {
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/ws/terminal/${sessionId}?token=${encodeURIComponent(token)}`
+  return buildWs(`/ws/terminal/${sessionId}`, token)
 }
 
 export function useTerminalSession() {
