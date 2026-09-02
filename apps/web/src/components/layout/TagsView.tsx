@@ -378,12 +378,11 @@ export function TagsView() {
       e.preventDefault()
       removeTag(current)
       const next = useTagsViewStore.getState().activePath
-      if (next) router.push(next)
-      else router.push('/')
+      navigate(next ?? '/')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [router, removeTag])
+  }, [navigate, removeTag])
 
   const handleClose = (e: React.MouseEvent, path: string) => {
     e.preventDefault()
@@ -392,8 +391,7 @@ export function TagsView() {
     removeTag(path)
     if (willNavigate) {
       const next = useTagsViewStore.getState().activePath
-      if (next) router.push(next)
-      else router.push('/')
+      navigate(next ?? '/')
     }
   }
 

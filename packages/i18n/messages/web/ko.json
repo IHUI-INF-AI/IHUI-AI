@@ -73,6 +73,8 @@
     "nickname": "닉네임",
     "noAccounts": "계정 없음",
     "openExternalBrowser": "외부 브라우저에서 열기",
+    "openExternalBrowserSuccess": "Chrome이 열렸습니다. 로그인 후 계정이 저장됩니다",
+    "openExternalBrowserWithPlatform": "오른쪽 내장 브라우저에서 {name} 로그인 페이지를 열었습니다. QR 코드를 스캔하여 로그인하세요",
     "orDivider": "또는",
     "platform": "플랫폼",
     "scan": "QR 로그인",
@@ -89,7 +91,8 @@
     "startScanLogin": "스캔 시작",
     "subtitle": "여러 소셜 플랫폼 계정 관리",
     "title": "계정 관리",
-    "verify": "검증"
+    "verify": "검증",
+    "webFallbackHint": "현재 웹 모드입니다. 로그인 후 Cookie를 붙여넣어 수동으로 저장하세요"
   },
   "activities": {
     "backToList": "목록으로 돌아가기",
@@ -6766,7 +6769,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6783,7 +6791,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -8203,7 +8216,7 @@
       },
       "historyStatsTitle": "누적 통계",
       "historyTitle": "권한 모드 기록",
-      "infoModalTitle": "현재 권한 모드 상세",
+      "infoModalTitle": "권한 모드 설명",
       "inputWarning": "현재 전체 액세스 모드: AI가 확인 없이 파일과 네트워크에 제한 없이 액세스할 수 있습니다",
       "jumpToLatest": "최신으로 이동",
       "kbdNavigate": "전환",
@@ -8252,7 +8265,6 @@
       "shortcutsSectionChatMode": "대화 모드 전환",
       "shortcutsSectionGuard": "고위험 보호장치",
       "shortcutsSectionSwitch": "모드 전환",
-      "infoModalTitle": "권한 모드 설명",
       "infoModalDesc": "현재 고위험 모드입니다. 다음 동작을 이해해 주세요:",
       "infoModalBullet1": "AI가 확인 없이 모든 작업을 실행할 수 있습니다",
       "infoModalBullet2": "워크스페이스 내 모든 파일을 읽고, 수정하고, 삭제할 수 있습니다",
@@ -8746,32 +8758,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -10581,25 +10619,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10733,19 +10783,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -13230,7 +13292,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13965,7 +14035,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14914,7 +14989,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -15507,6 +15588,7 @@
   "publish": {
     "accounts": {
       "add": "계정 추가",
+      "advancedAdd": "개발자 수동 추가",
       "batchImport": "일괄 가져오기",
       "batchVerify": "일괄 검증",
       "cancelScan": "스캔 취소",
@@ -15516,13 +15598,16 @@
       "delete": "삭제",
       "deleteConfirm": "이 계정을 삭제하시겠습니까?",
       "edit": "편집",
-      "externalBrowserHint": "시스템 브라우저로 로그인(인증번호/비밀번호용); 로그인 후 사이트 쿠키를 복사해 계정 양식에 붙여넣어 저장하세요",
+      "externalBrowserHint": "시스템 브라우저로 로그인; 로그인 후 계정이 자동으로 저장됩니다",
       "lastVerified": "최근 인증",
       "minimize": "최소화(백그라운드 대기)",
       "nickname": "닉네임",
-      "noAccounts": "계정이 없습니다. 먼저 추가하세요",
+      "noAccounts": "계정이 없습니다. 먼저 추가하세요.",
       "openExternalBrowser": "외부 브라우저에서 열기",
+      "openExternalBrowserSuccess": "Chrome이 열렸습니다. 로그인 후 계정이 자동 저장됩니다",
       "orDivider": "또는",
+      "passwordPlaceholder": "비밀번호 입력",
+      "passwordHint": "일반 사용자는 QR 로그인을 사용하세요. 이 필드는 개발자 전용입니다.",
       "platform": "플랫폼",
       "scan": "스캔",
       "scanLogin": "QR 로그인",
@@ -20232,5 +20317,273 @@
     "autoMemoryDesc": "활성화하면 대화 후 AI가 핵심 내용을 자동으로 요약해 장기 기억으로 저장하며, 이후 맞춤형 답변에 활용됩니다.",
     "autoMemorySaveSuccess": "설정이 저장되었습니다",
     "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요"
+  },
+  "agentPlan": {
+    "title": {
+      "en": "Agent Plan Mode",
+      "ja": "Agent プランモード",
+      "ko": "Agent 계획 모드",
+      "zh-CN": "Agent 计划模式",
+      "zh-TW": "Agent 計畫模式"
+    },
+    "description": {
+      "en": "Let the AI draft an editable execution plan first; review and confirm before any action runs (read-only phase).",
+      "ja": "まず AI に編集可能な実行計画を作成させ、実行前に確認します(読み取り専用フェーズ)。",
+      "ko": "AI가 편집 가능한 실행 계획을 먼저 작성하고, 실행 전에 검토·확정합니다(읽기 전용 단계).",
+      "zh-CN": "先让 AI 生成可编辑的执行计划,确认后再执行(只读阶段)。",
+      "zh-TW": "先讓 AI 產生可編輯的執行計畫,確認後再執行(唯讀階段)。"
+    },
+    "goalLabel": {
+      "en": "Goal / Task description",
+      "ja": "目標 / タスクの説明",
+      "ko": "목표 / 작업 설명",
+      "zh-CN": "目标 / 任务描述",
+      "zh-TW": "目標 / 任務描述"
+    },
+    "goalPlaceholder": {
+      "en": "Describe the task you want the AI to accomplish, e.g. write unit tests for the login module",
+      "ja": "AI に実行させたいタスクを入力してください(例:ログイン機能の単体テストを作成)",
+      "ko": "AI가 수행할 작업을 설명하세요(예: 로그인 모듈 단위 테스트 작성)",
+      "zh-CN": "描述你希望 AI 完成的任务,例如:为登录模块编写单元测试",
+      "zh-TW": "描述你希望 AI 完成的任務,例如:為登入模組編寫單元測試"
+    },
+    "sessionLabel": {
+      "en": "Session ID (optional)",
+      "ja": "セッション ID(任意)",
+      "ko": "세션 ID(선택)",
+      "zh-CN": "会话 ID(可选)",
+      "zh-TW": "會話 ID(選用)"
+    },
+    "sessionPlaceholder": {
+      "en": "Link to an existing session; leave empty to start new",
+      "ja": "既存セッションに関連付けます。空欄の場合は新規作成",
+      "ko": "기존 세션에 연결합니다. 비우면 새로 생성",
+      "zh-CN": "关联已有会话,留空则新建",
+      "zh-TW": "關聯已有會話,留空則新建"
+    },
+    "modelLabel": {
+      "en": "Model (optional)",
+      "ja": "モデル(任意)",
+      "ko": "모델(선택)",
+      "zh-CN": "模型(可选)",
+      "zh-TW": "模型(選用)"
+    },
+    "modelPlaceholder": {
+      "en": "Leave empty to use the default model",
+      "ja": "空欄の場合はデフォルトモデルを使用",
+      "ko": "비우면 기본 모델 사용",
+      "zh-CN": "留空使用默认模型",
+      "zh-TW": "留空使用預設模型"
+    },
+    "generate": {
+      "en": "Generate Plan",
+      "ja": "計画を生成",
+      "ko": "계획 생성",
+      "zh-CN": "生成计划",
+      "zh-TW": "產生計畫"
+    },
+    "generating": {
+      "en": "Generating…",
+      "ja": "生成中…",
+      "ko": "생성 중…",
+      "zh-CN": "生成中…",
+      "zh-TW": "產生中…"
+    },
+    "planTitle": {
+      "en": "Execution Plan",
+      "ja": "実行計画",
+      "ko": "실행 계획",
+      "zh-CN": "执行计划",
+      "zh-TW": "執行計畫"
+    },
+    "edit": {
+      "en": "Edit",
+      "ja": "編集",
+      "ko": "편집",
+      "zh-CN": "编辑",
+      "zh-TW": "編輯"
+    },
+    "save": {
+      "en": "Save changes",
+      "ja": "変更を保存",
+      "ko": "변경 저장",
+      "zh-CN": "保存修改",
+      "zh-TW": "儲存修改"
+    },
+    "cancel": {
+      "en": "Cancel",
+      "ja": "キャンセル",
+      "ko": "취소",
+      "zh-CN": "取消",
+      "zh-TW": "取消"
+    },
+    "editHint": {
+      "en": "You can edit the plan directly. After approval, the edited version is used.",
+      "ja": "計画は直接編集できます。承認後は編集内容が採用されます。",
+      "ko": "계획을 직접 편집할 수 있습니다. 승인 시 편집한 내용이 적용됩니다.",
+      "zh-CN": "可直接编辑计划内容,批准后以编辑结果为准。",
+      "zh-TW": "可直接編輯計畫內容,確認後以編輯結果為準。"
+    },
+    "readonlyTools": {
+      "en": "Read-only tools",
+      "ja": "読み取り専用ツール",
+      "ko": "읽기 전용 도구",
+      "zh-CN": "只读工具",
+      "zh-TW": "唯讀工具"
+    },
+    "approve": {
+      "en": "Approve & Execute",
+      "ja": "承認して実行",
+      "ko": "승인 및 실행",
+      "zh-CN": "批准并执行",
+      "zh-TW": "批准並執行"
+    },
+    "reject": {
+      "en": "Reject",
+      "ja": "拒否",
+      "ko": "거절",
+      "zh-CN": "拒绝",
+      "zh-TW": "拒絕"
+    },
+    "executing": {
+      "en": "Executing, please wait… (may take several minutes)",
+      "ja": "実行中です。そのままお待ちください…(数分かかる場合があります)",
+      "ko": "실행 중입니다. 잠시 기다려 주세요…(몇 분 소요될 수 있음)",
+      "zh-CN": "执行中,请稍候…(可能耗时数分钟)",
+      "zh-TW": "執行中,請稍候…(可能耗時數分鐘)"
+    },
+    "decisionError": {
+      "en": "Action failed",
+      "ja": "操作に失敗しました",
+      "ko": "작업에 실패했습니다",
+      "zh-CN": "操作失败",
+      "zh-TW": "操作失敗"
+    },
+    "resultTitle": {
+      "en": "Execution Result",
+      "ja": "実行結果",
+      "ko": "실행 결과",
+      "zh-CN": "执行结果",
+      "zh-TW": "執行結果"
+    },
+    "planId": {
+      "en": "Plan ID",
+      "ja": "計画 ID",
+      "ko": "계획 ID",
+      "zh-CN": "计划 ID",
+      "zh-TW": "計畫 ID"
+    },
+    "finalResponse": {
+      "en": "Final response",
+      "ja": "最終応答",
+      "ko": "최종 응답",
+      "zh-CN": "最终回复",
+      "zh-TW": "最終回覆"
+    },
+    "stopReason": {
+      "en": "Stop reason",
+      "ja": "停止理由",
+      "ko": "중단 사유",
+      "zh-CN": "停止原因",
+      "zh-TW": "停止原因"
+    },
+    "iterations": {
+      "en": "Iterations",
+      "ja": "反復回数",
+      "ko": "반복 횟수",
+      "zh-CN": "迭代轮数",
+      "zh-TW": "迭代輪數"
+    },
+    "error": {
+      "en": "Error",
+      "ja": "エラー",
+      "ko": "오류",
+      "zh-CN": "错误信息",
+      "zh-TW": "錯誤資訊"
+    },
+    "reset": {
+      "en": "Start over",
+      "ja": "最初からやり直す",
+      "ko": "다시 시작",
+      "zh-CN": "再来一次",
+      "zh-TW": "再來一次"
+    },
+    "rejectedTitle": {
+      "en": "Rejected",
+      "ja": "拒否しました",
+      "ko": "거절됨",
+      "zh-CN": "已拒绝",
+      "zh-TW": "已拒絕"
+    },
+    "rejectedDesc": {
+      "en": "You rejected this plan; no actions were executed.",
+      "ja": "この計画を拒否しました。実行は行われませんでした。",
+      "ko": "이 계획을 거절했습니다. 어떤 작업도 실행되지 않았습니다.",
+      "zh-CN": "你已拒绝该计划,未执行任何操作。",
+      "zh-TW": "你已拒絕該計畫,未執行任何操作。"
+    },
+    "statusDraft": {
+      "en": "Draft",
+      "ja": "草稿",
+      "ko": "초안",
+      "zh-CN": "草稿",
+      "zh-TW": "草稿"
+    },
+    "statusApproved": {
+      "en": "Approved",
+      "ja": "承認済み",
+      "ko": "승인됨",
+      "zh-CN": "已批准",
+      "zh-TW": "已批准"
+    },
+    "statusRejected": {
+      "en": "Rejected",
+      "ja": "拒否",
+      "ko": "거절됨",
+      "zh-CN": "已拒绝",
+      "zh-TW": "已拒絕"
+    },
+    "statusExecuting": {
+      "en": "Executing",
+      "ja": "実行中",
+      "ko": "실행 중",
+      "zh-CN": "执行中",
+      "zh-TW": "執行中"
+    },
+    "statusDone": {
+      "en": "Done",
+      "ja": "完了",
+      "ko": "완료",
+      "zh-CN": "已完成",
+      "zh-TW": "已完成"
+    },
+    "statusFailed": {
+      "en": "Failed",
+      "ja": "失敗",
+      "ko": "실패",
+      "zh-CN": "失败",
+      "zh-TW": "失敗"
+    },
+    "notFound": {
+      "en": "Plan not found or expired",
+      "ja": "計画が見つからないか期限切れです",
+      "ko": "계획을 찾을 수 없거나 만료되었습니다",
+      "zh-CN": "计划不存在或已过期",
+      "zh-TW": "計畫不存在或已過期"
+    },
+    "conflict": {
+      "en": "This action is not allowed in the current plan status",
+      "ja": "現在の計画ステータスではこの操作は許可されていません",
+      "ko": "현재 계획 상태에서는 이 작업을 수행할 수 없습니다",
+      "zh-CN": "当前计划状态不允许此操作",
+      "zh-TW": "目前計畫狀態不允許此操作"
+    },
+    "generic": {
+      "en": "Request failed, please try again later",
+      "ja": "リクエストに失敗しました。後でもう一度お試しください",
+      "ko": "요청에 실패했습니다. 나중에 다시 시도하세요",
+      "zh-CN": "请求失败,请稍后重试",
+      "zh-TW": "請求失敗,請稍後重試"
+    }
   }
 }
