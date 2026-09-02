@@ -573,6 +573,10 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
                 aria-label={plusLabel}
                 aria-haspopup="menu"
                 aria-expanded={plusOpen}
+                // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+                // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
+                // 焦点环常驻。详见 scripts/check-popover-trigger-data-state.mjs。
+                data-state={plusOpen ? 'open' : 'closed'}
                 // 2026-07-30 第十轮"做减法 v6"(用户反馈"Plus/chevron-down/窗口控制 按钮应跟搜索按钮一致"):
                 // - 改 w-7 → w-9(36px) 跟搜索按钮对齐,4 类按钮全部 36x36 正方形
                 // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
