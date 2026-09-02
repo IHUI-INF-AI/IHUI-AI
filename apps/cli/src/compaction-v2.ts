@@ -50,8 +50,18 @@ export interface CompactionObserver {
     tokensAfter: number;
     turnsCompacted: number;
     elapsedMs: number;
+    /** 本次压缩触发类型(ratio/absolute/none) */
+    trigger?: CompactionTrigger;
+    /** 是否命中预压缩缓存(跳过 sampler 实时生成) */
+    cacheHit?: boolean;
   }): void;
-  onError(opts: { target: string; statusLabel: string; error?: Error }): void;
+  onError(opts: {
+    target: string;
+    statusLabel: string;
+    error?: Error;
+    /** 本次压缩触发类型 */
+    trigger?: CompactionTrigger;
+  }): void;
 }
 
 export interface CompactionV2Options {
@@ -412,14 +422,14 @@ export async function compressContextV2(
       });
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'sampler-failed', error });
+      opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'sampler-failed', error, trigger: trigger.trigger });
       return fallbackToV1(messages, opts);
     }
   }
 
   // 7. 退化检测
   if (isDegenerateSummary(sampleResult.response, minSummarySeedChars)) {
-    opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'degenerate-summary' });
+    opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'degenerate-summary', trigger: trigger.trigger });
     return fallbackToV1(messages, opts);
   }
 
@@ -439,7 +449,7 @@ export async function compressContextV2(
   // 10. reduction guard
   const guard = reductionGuard(originalTokens, compressedTokens, maxReductionRatio);
   if (!guard.accepted) {
-    opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'reduction-rejected' });
+    opts.observer?.onError({ target: 'compaction-v2', statusLabel: 'reduction-rejected', trigger: trigger.trigger });
     return fallbackToV1(messages, opts);
   }
 
@@ -451,6 +461,8 @@ export async function compressContextV2(
     tokensAfter: compressedTokens,
     turnsCompacted: headNonSystem.length,
     elapsedMs,
+    trigger: trigger.trigger,
+    cacheHit: Boolean(opts.cachedSummary),
   });
 
   return {

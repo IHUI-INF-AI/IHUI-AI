@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -64,6 +64,37 @@ const Sidebar = React.memo(function Sidebar({
       setPendingHref(null)
     }
   }, [pathname, pendingHref])
+
+  // 首屏空闲预取主路由(2026-09-02 页面切换提速·第二刀):
+  // 业务主屏(/dashboard)+ hot/ai 主分组顶层路由在页面挂载 1.5s 后主动预取进客户端缓存
+  // (staleTimes.dynamic=30s),用户在侧栏点任意主路由时命中缓存、省去一次服务端往返。
+  // 作用域:仅生产模式生效(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求,
+  // dev 每次切换必走服务端往返,这是 Next 架构性下限,非本层可解)。
+  // 交错 200ms 触发避免突发请求;路径去重;跳过当前页与根路径。
+  const navRouter = useRouter()
+  const idlePrefetchTimers = React.useRef<number[]>([])
+  React.useEffect(() => {
+    const master = window.setTimeout(() => {
+      const mainGroups = NAV_GROUPS.filter(
+        (g) => g.label === 'hotGroupLabel' || g.label === 'aiGroupLabel',
+      )
+      const targets = [
+        ...new Set(['/dashboard', ...mainGroups.flatMap((g) => g.items.map((i) => i.href))]),
+      ].filter((h) => h !== pathname && h !== '/')
+      targets.forEach((href, idx) => {
+        idlePrefetchTimers.current.push(
+          window.setTimeout(() => {
+            if (document.visibilityState === 'visible') navRouter.prefetch(href)
+          }, 500 + idx * 200),
+        )
+      })
+    }, 1500)
+    return () => {
+      window.clearTimeout(master)
+      idlePrefetchTimers.current.forEach((t) => window.clearTimeout(t))
+      idlePrefetchTimers.current = []
+    }
+  }, [navRouter, pathname])
 
   const startNav = useNavigationStore((s) => s.start)
 
