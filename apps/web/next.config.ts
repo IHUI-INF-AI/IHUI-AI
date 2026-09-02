@@ -1152,6 +1152,20 @@ const nextConfig: NextConfig = {
           source: '/api/artifacts/:path*',
           destination: 'http://localhost:8803/api/artifacts/:path*',
         },
+        // 2026-09-03 新增:Deep Research 深度研究 API 路由转发到 ai-service 8803
+        // 原因:research router 注册在 ai-service(prefix="/api",路径 /api/research/*),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/research/:path*',
+          destination: 'http://localhost:8803/api/research/:path*',
+        },
+        // 2026-09-03 新增:Checkpoint/Rewind 撤销 API 路由转发到 ai-service 8803
+        // 原因:checkpoint_rewind router 注册在 ai-service(prefix="/api",路径 /api/checkpoints/*),
+        // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。
+        {
+          source: '/api/checkpoints/:path*',
+          destination: 'http://localhost:8803/api/checkpoints/:path*',
+        },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
