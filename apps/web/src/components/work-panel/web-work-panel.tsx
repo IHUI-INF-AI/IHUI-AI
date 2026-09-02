@@ -148,10 +148,12 @@ export function WebWorkPanel() {
       if (!d || typeof d.type !== 'string' || !d.type.startsWith('ihui-embed-')) return
       const title = typeof d.title === 'string' && d.title ? d.title : undefined
       if (d.type === 'ihui-embed-nav' && typeof d.url === 'string' && d.url) {
-        onEmbedNavigation(d.url, title)
+        // 用户发起导航(链接点击 / pushState,桥接在跳转前广播)→ 压入历史栈
+        onEmbedNavigation(d.url, title, 'nav')
       } else if (d.type === 'ihui-embed-loaded' && typeof d.url === 'string' && d.url) {
-        // 页面真实 <title> / 重定向落点广播:同 URL 去重压栈在 store 内处理,这里只同步
-        onEmbedNavigation(d.url, title)
+        // 文档就绪 / 重定向落点广播(每次代理文档加载都会发,url=最终落点)
+        // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
+        onEmbedNavigation(d.url, title, 'loaded')
       } else if (d.type === 'ihui-embed-newtab' && typeof d.url === 'string' && d.url) {
         // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
         newTab(d.url)
@@ -181,6 +183,50 @@ export function WebWorkPanel() {
     }
   }, [url, title, isFavorite, addFavorite, removeFavorite])
 
+  // 键盘快捷键(2026-09-02,对标 Cursor/Trae 内嵌浏览器):
+  // 仅在焦点位于面板 chrome(工具栏/地址栏)时生效——代理 iframe 为跨源 sandbox(opaque origin),
+  // 其键盘事件被隔离不会冒泡到父文档,这是沙箱固有限制(与 Cursor/Trae 一致)。
+  // 组合:Alt+←/→ 后退/前进、Ctrl/Cmd+R 或 F5 重载、Ctrl/Cmd+L 聚焦地址栏。
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const handlePanelKeyDown = React.useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const mod = e.ctrlKey || e.metaKey
+      if (e.altKey && e.key === 'ArrowLeft') {
+        if (canBack) {
+          e.preventDefault()
+          back()
+        }
+        return
+      }
+      if (e.altKey && e.key === 'ArrowRight') {
+        if (canForward) {
+          e.preventDefault()
+          forward()
+        }
+        return
+      }
+      if (mod && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        reload()
+        return
+      }
+      if (e.key === 'F5') {
+        e.preventDefault()
+        reload()
+        return
+      }
+      if (mod && (e.key === 'l' || e.key === 'L')) {
+        e.preventDefault()
+        const input = panelRef.current?.querySelector(
+          'input[type="text"]',
+        ) as HTMLInputElement | null
+        input?.focus()
+        input?.select()
+      }
+    },
+    [canBack, canForward, back, forward, reload],
+  )
+
   if (!effectiveOpen) return null
 
   return (
@@ -196,7 +242,10 @@ export function WebWorkPanel() {
     // - WorkPanel 的 border-l(左边框)在嵌入场景不需要,用 className='border-l-0' 覆盖
     // - bottom-2(8px):底部留间距对齐 AISidePanel 底部(AISidePanel 上下各 8px 间距,
     //   WebWorkPanel 外层 absolute 默认 bottom:0 贴 viewport 边缘,比 AISidePanel 低 8px)
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 容器级快捷键捕获层(Alt+←/→ 前进后退、mod+r/F5 刷新、mod+l 聚焦地址栏);快捷键需焦点在面板内任意原生控件时生效,容器本身刻意不可聚焦,键盘用户经 Tab 到按钮 Enter/Space 等价可达
     <div
+      ref={panelRef}
+      onKeyDown={handlePanelKeyDown}
       className="absolute inset-x-0 top-0 bottom-2 z-30 rounded-xl bg-shell-panel"
       data-testid="web-work-panel"
     >
