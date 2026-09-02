@@ -71,16 +71,20 @@ const Sidebar = React.memo(function Sidebar({
   // 作用域:仅生产模式生效(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求,
   // dev 每次切换必走服务端往返,这是 Next 架构性下限,非本层可解)。
   // 交错 200ms 触发避免突发请求;路径去重;跳过当前页与根路径。
+  // 2026-09-02 第三刀:pathname 用 ref 而非依赖项,仅在首次挂载时执行一次,避免每次导航完成
+  // 都清空并重新排队全部定时器(1.5s + N×200ms),消除导航后 1.5~3s 内的预取空窗。
   const navRouter = useRouter()
+  const pathnameRef = React.useRef(pathname)
   const idlePrefetchTimers = React.useRef<number[]>([])
   React.useEffect(() => {
+    const currentPathname = pathnameRef.current
     const master = window.setTimeout(() => {
       const mainGroups = NAV_GROUPS.filter(
         (g) => g.label === 'hotGroupLabel' || g.label === 'aiGroupLabel',
       )
       const targets = [
         ...new Set(['/dashboard', ...mainGroups.flatMap((g) => g.items.map((i) => i.href))]),
-      ].filter((h) => h !== pathname && h !== '/')
+      ].filter((h) => h !== currentPathname && h !== '/')
       targets.forEach((href, idx) => {
         idlePrefetchTimers.current.push(
           window.setTimeout(
@@ -97,17 +101,22 @@ const Sidebar = React.memo(function Sidebar({
       idlePrefetchTimers.current.forEach((t) => window.clearTimeout(t))
       idlePrefetchTimers.current = []
     }
-  }, [navRouter, pathname])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // 首次挂载时执行一次,不再随 pathname 重新排队
 
   const startNav = useNavigationStore((s) => s.start)
 
-  // 点击导航项时立即设置乐观路由 + 触发全局进度条
+  // 点击导航项时立即设置乐观路由 + 触发全局进度条。
+  // 2026-09-02 修复:点击当前已激活页面时直接跳过 — Next 会拒绝相同导航(pathname 不变),
+  // end() 永远不会被 NavigationProgress 的 pathname 变化检测触发,pending 只能等兜底
+  // 定时器(原 10s),骨架屏遮住真实内容整整 10 秒。
   const handleBeforeNav = React.useCallback(
     (href: string) => {
+      if (href === pathname) return
       setPendingHref(href)
       startNav()
     },
-    [startNav],
+    [startNav, pathname],
   )
 
   // 稳定引用 registerRef(2026-08-05 深度修复):

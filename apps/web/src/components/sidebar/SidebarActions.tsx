@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import { Flag, Download, Bell, Sun, Moon, Settings } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -33,7 +33,7 @@ import { LANGUAGES } from './nav-data'
 export function SidebarActions({ collapsed }: { collapsed: boolean }) {
   const t = useTranslations('nav')
   const tt = useTranslations('themeToggle')
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const { resolvedTheme, setTheme } = useTheme()
   // hydration-safe: next-themes 的 theme 在 SSR 返回 undefined, 客户端才返回真实值,
   // 直接用 theme 渲染 aria-label/icon 会触发 "深色模式/浅色模式" 不匹配。
@@ -94,7 +94,7 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
           variant="ghost"
           size="icon"
           className={SIDEBAR_BTN_CLASS}
-          onClick={() => router.push('/settings')}
+          onClick={() => navigate('/settings')}
           aria-label={t('settings')}
         >
           <Settings className="h-5 w-5" />
