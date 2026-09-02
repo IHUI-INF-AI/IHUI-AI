@@ -520,7 +520,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
         // (MainShell 工作卡片外层 pr-2 = 8px 缓冲;此前顶栏缺水平 padding 导致关闭按钮贴边凸出 8px)。
         // 仅补右侧,左侧不动:桌面端 --topbar-content-left=0、移动端动态测量 46px,顶栏搜索按钮与工作卡片
         // 左缘已自洽对齐,加 pl 反而会破坏左侧对齐。
-        className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-default"
+        // 2026-09-02 修复(用户反馈"鼠标移入这个区域时为什么不显示拖拽图标可以直接拖拽"):
+        // cursor-default → cursor-move。Windows 标准"窗口可拖动"语义,四向箭头明示该区域
+        // 250ms 长按启动拖拽(详见 handleDragRegionMouseDown)。交互子元素(Plus/搜索/chevron/
+        // 标签 a/Min/Max/Close)均自带 cursor-pointer,自动覆盖父级 move 指针:
+        // 空白区 → move 提示可拖;按钮/链接 → pointer 提示可点。
+        className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-move"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
@@ -743,7 +748,12 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 
 /** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第十轮"做减法 v6"
  *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W9(36px 方块,跟搜索/Plus/chevron-down 4 类按钮全部正方形)
- *  - variant === 'close' 保留红色 hover 样式(差异项,关闭按钮需特别视觉警示) */
+ *  - variant === 'close' 保留红色 hover 样式(差异项,关闭按钮需特别视觉警示)
+ *  - 2026-09-02 收紧(用户反馈"关闭按钮 Hover 时图标不够红 不够明显"):
+ *    亮色底 15% → 20%,暗色底 15% → 30%(暗背景下"红条"更明显);
+ *    暗色文字 red-400 → red-300(浅一档,在深色背景上更易识别为"红 X")。
+ *    亮色文字 red-600 保持(亮色背景上已够对比)。保留 16/64 律"克制不刺眼",不直接上满色红底+白 X 的
+ *    Windows 11 风格(那会破坏 dark 模式 compact elegant 调性);红色是警示色,够明显即可,不必夺主。 */
 function WindowControlButton({
   onClick,
   ariaLabel,
@@ -766,7 +776,9 @@ function WindowControlButton({
         // 2026-07-30 用户规则:"应该有背景色设定啊 全局统一 hover时突出"
         //   - 默认 bg + hover 已提到 TOPBAR_BTN_BASE 统一
         //   - close 变体保留红色 hover(差异项:关闭按钮需特别视觉警示),覆盖默认 hover:bg-muted
-        variant === 'close' ? 'hover:bg-red-500/15 hover:text-red-600 dark:hover:text-red-400' : '',
+        variant === 'close'
+          ? 'hover:bg-red-500/20 hover:text-red-600 dark:hover:bg-red-500/30 dark:hover:text-red-300'
+          : '',
       )}
     >
       {icon}
