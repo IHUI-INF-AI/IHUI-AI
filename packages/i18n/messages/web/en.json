@@ -68,6 +68,8 @@
     "nickname": "Nickname",
     "noAccounts": "No accounts",
     "openExternalBrowser": "Open in external browser",
+    "openExternalBrowserSuccess": "Chrome opened; account will be saved after login",
+    "openExternalBrowserWithPlatform": "Opened {name} login page in the built-in browser on the right, please scan to log in",
     "orDivider": "OR",
     "platform": "Platform",
     "scan": "Scan Login",
@@ -84,7 +86,8 @@
     "startScanLogin": "Start Scanning",
     "subtitle": "Manage multiple social platform accounts",
     "title": "Account Management",
-    "verify": "Verify"
+    "verify": "Verify",
+    "webFallbackHint": "Currently in web mode, please log in and paste Cookie to save manually"
   },
   "activities": {
     "backToList": "Back to activities",
@@ -15507,6 +15510,7 @@
   "publish": {
     "accounts": {
       "add": "Add Account",
+      "advancedAdd": "Advanced Add (Developer)",
       "batchImport": "Batch Import",
       "batchVerify": "Batch Verify",
       "cancelScan": "Cancel scan",
@@ -15516,13 +15520,16 @@
       "delete": "Delete",
       "deleteConfirm": "Are you sure you want to delete this account?",
       "edit": "Edit",
-      "externalBrowserHint": "Log in with your system browser (for SMS/password login); after logging in, copy the site Cookie and paste it into the account form to save",
+      "externalBrowserHint": "Log in with your system browser; account will be saved automatically after login",
       "lastVerified": "Last Verified",
       "minimize": "Minimize (keep waiting in background)",
       "nickname": "Nickname",
       "noAccounts": "No accounts yet, please add one first",
-      "openExternalBrowser": "Open in external browser",
-      "orDivider": "or",
+        "openExternalBrowser": "Open in external browser",
+        "openExternalBrowserSuccess": "Chrome opened, account will be saved after login",
+        "orDivider": "or",
+      "passwordPlaceholder": "Enter password",
+      "passwordHint": "Normal users should use scan login. This field is for developers only.",
       "platform": "Platform",
       "scan": "Scan",
       "scanLogin": "Scan Login",

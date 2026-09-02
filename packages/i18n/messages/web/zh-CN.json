@@ -68,6 +68,8 @@
     "nickname": "昵称",
     "noAccounts": "暂无账号",
     "openExternalBrowser": "在外部浏览器打开",
+    "openExternalBrowserSuccess": "已打开 Chrome,登录后将自动保存账号",
+    "openExternalBrowserWithPlatform": "已在右侧内置浏览器打开 {name} 登录页,请扫码登录",
     "orDivider": "或",
     "platform": "平台",
     "scan": "扫码登录",
@@ -84,7 +86,8 @@
     "startScanLogin": "开始扫码",
     "subtitle": "管理多个社交平台账号",
     "title": "账号管理",
-    "verify": "验证"
+    "verify": "验证",
+    "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存"
   },
   "activities": {
     "backToList": "返回活动列表",
@@ -15480,6 +15483,7 @@
   "publish": {
     "accounts": {
       "add": "添加账号",
+      "advancedAdd": "开发者手动添加",
       "batchImport": "批量导入",
       "batchVerify": "批量验证",
       "cancelScan": "取消扫码",
@@ -15489,13 +15493,16 @@
       "delete": "删除",
       "deleteConfirm": "确定删除此账号吗?",
       "edit": "编辑",
-      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "externalBrowserHint": "用系统浏览器登录;登录成功后会自动保存账号到项目中",
       "lastVerified": "最近验证",
       "minimize": "最小化(后台继续等待)",
       "nickname": "昵称",
       "noAccounts": "暂无账号,请先添加",
       "openExternalBrowser": "在外部浏览器打开",
+      "openExternalBrowserSuccess": "已打开 Chrome,登录后将自动保存账号",
       "orDivider": "或",
+      "passwordPlaceholder": "请输入密码",
+      "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "scan": "扫码",
       "scanLogin": "扫码登录",
