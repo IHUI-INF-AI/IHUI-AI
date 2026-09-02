@@ -9,6 +9,7 @@ import { toast } from '@/components/common'
 
 import { type AIWSProvider, PROVIDER_PATHS } from '@/hooks/use-ai-websocket'
 import { useAuthStore } from '@/stores/auth'
+import { buildWsUrl } from '@/lib/ws-url'
 
 // R76 修复: 统一从 types/ai-talk.ts re-export, 避免 use-ai-ws-business.ts 重复定义
 // 此前本地 7 变体 AiModelKey 与 types/ai-talk.ts 的 16 变体产生 TypeScript 冲突, 已闭环。
@@ -501,10 +502,9 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         toast.error('请先登录')
         return
       }
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const provider = modelToProvider(name)
       const path = wsPath !== DEFAULT_WS_PATH ? wsPath : PROVIDER_PATHS[provider]
-      const socketUrl = `${proto}//${window.location.host}${path}?token=${encodeURIComponent(token)}`
+      const socketUrl = buildWsUrl(path, token)
 
       let ws: WebSocket
       try {
