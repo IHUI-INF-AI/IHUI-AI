@@ -7,6 +7,7 @@
 import * as React from 'react'
 
 import { createWebSocketHook } from '@/hooks/create-websocket-hook'
+import { buildWsUrl } from '@/lib/ws-url'
 
 export type ImMessageType = 'text' | 'image' | 'file' | 'system'
 
@@ -45,8 +46,7 @@ function imMessageGuard(v: unknown): v is ImMessage {
 
 function buildImWsUrl(token: string | null): string {
   if (typeof window === 'undefined' || !token) return ''
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${window.location.host}/ws/messages?token=${encodeURIComponent(token)}`
+  return buildWsUrl('/ws/messages', token)
 }
 
 const useImWS = createWebSocketHook<ImMessage>({

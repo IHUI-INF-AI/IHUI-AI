@@ -46,6 +46,18 @@
       ],
       "outputs": []
     },
+    "eval:compaction": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "src/**",
+        "scripts/**",
+        "tests/**",
+        "test/**",
+        "vitest.config.*",
+        "package.json"
+      ],
+      "outputs": []
+    },
     "test:e2e": {
       "dependsOn": ["^build"],
       "inputs": ["e2e/**", "playwright.config.*", "package.json"],
