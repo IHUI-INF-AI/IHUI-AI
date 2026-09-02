@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { Button } from '@ihui/ui-react'
 import { Loader2, ArrowRight } from 'lucide-react'
@@ -44,6 +45,9 @@ export default function SsoLoginPage() {
   const clientId = searchParams.get('client_id') || 'web'
 
   const { token, user } = useAuthStore()
+  // 取全局 auth bootstrap 的 ready(根 layout 的 GlobalHooksProvider 已触发副作用,此处仅读状态;
+  // 竞态根因与渲染门详见下方 `if (!ready)` 注释)
+  const { ready } = useAuthBootstrap()
   const mode = useLoginDialogStore((s) => s.mode)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const [exchanging, setExchanging] = React.useState(false)
@@ -122,6 +126,26 @@ export default function SsoLoginPage() {
             )}
             {tSso('authorizeAndRedirect')}
           </Button>
+        </AuthShell>
+      </AuthShellPage>
+    )
+  }
+
+  // 2026-09-02 修复"登录弹窗按钮点不了":已登录用户访问本页时,useAuthBootstrap
+  // 异步恢复 token 前会先渲染未登录表单,恢复完成后表单被"已登录"卡片中途替换
+  // (点击竞态:点 tab 实际命中替换后的授权按钮 → 意外跳转,感知为按钮全部失灵)。
+  // bootstrap 就绪前渲染 loading 骨架,杜绝表单闪现与点击错位。
+  if (!ready) {
+    return (
+      <AuthShellPage onClose={handleClose}>
+        <AuthShell
+          title={tSso('title')}
+          subtitle={tSso('subtitle', { clientId })}
+          onClose={handleClose}
+        >
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
         </AuthShell>
       </AuthShellPage>
     )
