@@ -43,6 +43,9 @@ image = { version = "0.24", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase", "handleapi", "winnls"] }
+# 2026-09-02:显式固定进程级 AppUserModelID,修复 Windows 通知区托盘图标显隐记忆在
+# dev 重编译/更新后被重置的问题(SetCurrentProcessExplicitAppUserModelID 所在模块)。
+windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
 
 [profile.release]
 panic = "abort"

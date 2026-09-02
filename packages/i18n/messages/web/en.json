@@ -6945,7 +6945,8 @@
     },
     "today": "Today",
     "openWorkPanel": "Open Work Panel",
-    "closeWorkPanel": "Close Work Panel"
+    "closeWorkPanel": "Close Work Panel",
+    "toggleWorkPanel": "Toggle Work Panel"
   },
   "aiCost": {
     "budgetAlerts": "Budget Alerts",
