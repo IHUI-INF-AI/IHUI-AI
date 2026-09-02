@@ -8,6 +8,7 @@
  */
 import { createElement, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { isComponentType } from '../../lib/is-component-type'
 
 export interface QuickActionButtonProps {
   label: string
@@ -47,7 +48,7 @@ export function QuickActionButton({
       data-ihui-action={label}
     >
       <span className="text-base leading-none shrink-0" aria-hidden>
-        {typeof icon === 'function'
+        {isComponentType(icon)
           ? createElement(icon as LucideIcon, { size: 16, className: 'shrink-0' })
           : icon}
       </span>
