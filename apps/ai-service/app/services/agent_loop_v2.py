@@ -14,6 +14,24 @@
 - 提前终止条件(LLM 返回无 tool_calls / 用户中断 / max_iterations)
 - 2026-07-22 Wave 9: checkpoint + 断点续跑(每轮 iteration 后保存,
   异常/暂停/取消时保存,可从 checkpoint_id 恢复继续执行)
+
+权限三模式(2026-09-02 立,对标 Claude Code 的 permission modes):
+通过构造参数 `permission_mode`(默认取自 env `AGENT_PERMISSION_MODE`,再回退
+"default")切换,取值 default / plan / auto,非法值 raise ValueError。
+
+| 模式     | 何时用                                   | 工具集(给 LLM)          | 写/执行类工具                 | 只读工具(READONLY_TOOLS)     | 与 approval 审批流的交互                                  |
+|----------|------------------------------------------|-------------------------|------------------------------|------------------------------|----------------------------------------------------------|
+| default  | 常规任务,安全由审批流兜底(回归红线)      | 全量                    | 走现有高危审批流(可批准/拒绝) | 走现有高危审批流(本就放行)   | 完全不变:`_request_approval` 按现状触发                   |
+| plan     | 只读探查/审计/计划阶段,严禁任何副作用    | 收窄为 传入 tools ∩ READONLY_TOOLS | 直接拦截:返回 error「permission_mode=plan:工具 X 不在只读白名单」,不执行、不进审批 | 正常执行                     | 审批流对白名单外工具彻底不触发(防御性再校验在入口拦截)    |
+| auto     | 信任环境,只读工具免打扰,写工具仍受控    | 全量                    | 走现有高危审批流(不变)        | 免审批直接执行(跳过 `_request_approval`) | 只读工具跳过审批;其余维持 default 行为                   |
+
+与 `/agent-plan` 端点族的关系:端点是「计划文档 + 确认门」流程(plan_mode.py 的
+state machine:draft→approved→executing),强调用户确认后再执行;本 permission_mode=plan
+是**循环层强制只读执行**,可独立使用、也可在端点生成计划阶段叠加,二者正交、互不依赖。
+
+模式生效事件:每当工具被跳过/免审批时,通过现有 hook_engine 发 `permission.mode`
+事件(payload 含 mode/tool/decision),复用既有事件发射模式;该事件类型不影响
+routers/agents.py 的固定 SSE 订阅列表(它只订阅 tool.before/after 等)。
 """
 
 import asyncio
@@ -37,6 +55,7 @@ if TYPE_CHECKING:
     from .memory_service import MemoryService
 
 from .hook_engine import HookEngine, hook_engine
+from .plan_mode import READONLY_TOOLS, is_readonly_tool
 
 logger = logging.getLogger(__name__)
 
@@ -246,6 +265,10 @@ class AgentLoopV2:
         # TOOL_APPROVAL_TIMEOUT 覆盖。传 None 使用 env 解析结果。
         approval_enabled: Optional[bool] = None,
         approval_timeout: Optional[float] = None,
+        # 权限三模式(2026-09-02 立,对标 Claude Code permission modes):
+        # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
+        # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
+        permission_mode: Optional[str] = None,
     ):
         """
         Args:
@@ -269,6 +292,9 @@ class AgentLoopV2:
             tool_retry_max: 工具瞬时失败(timeout/connection/http_5xx)自动重试次数(默认 1,0=不重试;
                              http_4xx 业务错误与 unknown 不重试)
             tool_retry_backoff: 工具重试固定退避秒(默认 0.5,实际等待 = base * attempt)
+            permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
+                强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
+                再回退 "default";非法值 raise ValueError。
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
@@ -293,6 +319,27 @@ class AgentLoopV2:
         )
         # 自定义高危工具集合(env 追加;实例级只读组合)
         self._extra_high_risk_tools: frozenset[str] = _high_risk_tools_from_env()
+
+        # 权限三模式(2026-09-02 立,对标 Claude Code permission modes)。
+        # 优先级:构造参数 > env AGENT_PERMISSION_MODE > "default";非法值 raise ValueError。
+        _resolved_mode = (
+            permission_mode
+            if permission_mode is not None
+            else os.environ.get("AGENT_PERMISSION_MODE", "default")
+        )
+        if _resolved_mode not in ("default", "plan", "auto"):
+            raise ValueError(
+                f"非法 permission_mode: {_resolved_mode!r},"
+                " 取值必须为 'default' / 'plan' / 'auto'"
+            )
+        self._permission_mode: str = _resolved_mode
+
+        # plan 模式:循环入口强制收窄工具集为「传入 tools ∩ READONLY_TOOLS」,
+        # LLM schema 也仅暴露只读工具(双保险:既收窄可见工具,又在执行入口做防御性再校验)。
+        if self._permission_mode == "plan":
+            self._tools = {
+                name: td for name, td in self._tools.items() if name in READONLY_TOOLS
+            }
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
@@ -1258,6 +1305,29 @@ class AgentLoopV2:
             # 防内存泄漏:无论批准/拒绝/超时,清理注册表条目
             _approval_registry.pop(approval_id, None)
 
+    async def _emit_permission_mode_event(self, tool_name: str, decision: str) -> None:
+        """模式生效时发 `permission.mode` 事件(复用 hook_engine.emit 现有发射模式)。
+
+        触发时机(工具被跳过/免审批):
+        - plan 模式拦截白名单外工具 → decision="plan_blocked"
+        - auto 模式只读工具免审批直接执行 → decision="auto_skip_approval"
+
+        payload 含 mode/tool/decision/session_id。失败仅 warning 降级,绝不阻塞主链路。
+
+        Args:
+            tool_name: 触发事件时涉及的工具名
+            decision: 决策标签(plan_blocked / auto_skip_approval)
+        """
+        try:
+            await hook_engine.emit("permission.mode", {
+                "mode": self._permission_mode,
+                "tool": tool_name,
+                "decision": decision,
+                "session_id": self._session_id or "",
+            })
+        except Exception:
+            logger.warning("hook_engine.emit(permission.mode) 失败(降级,不阻塞)")
+
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
         if self.parallel_tool_calls and len(tool_calls) > 1:
@@ -1302,11 +1372,48 @@ class AgentLoopV2:
         - 拒绝 → error="User rejected tool call",error_type="user_rejected"
         - 超时 → error="Approval timeout",error_type="approval_timeout"
         - 结果 result={"approved": False} 回填给 LLM,LLM 感知"用户拒绝了该操作"。
+
+        权限三模式(2026-09-02 立,对标 Claude Code permission modes):
+        - plan 模式:入口强制收窄为只读白名单,白名单外工具直接拦截(error 回填),
+          不执行、不进审批流(防御性再校验,理论上已被构造期收窄覆盖)。
+        - auto 模式:只读白名单工具直接执行,跳过 _request_approval 审批门。
+        - default 模式:本方法行为与现状完全一致(回归红线)。
         """
         start = time.time()
 
-        # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)
-        if self._approval_enabled and self._is_high_risk_tool_instance(tc.name):
+        # plan 模式:白名单外工具防御性拦截(不执行、不进审批流、直接 error 回填)。
+        # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
+        if self._permission_mode == "plan" and not is_readonly_tool(tc.name):
+            msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
+            logger.info("plan 模式拦截工具 %s(不在只读白名单), session=%s", tc.name, self._session_id or "")
+            # 错误结构化上报(与工具失败同链路,审计/元学习可见)
+            self._report_tool_error(tc, msg, "permission_denied", 0.0)
+            # 模式生效事件:工具被跳过(plan_blocked)
+            await self._emit_permission_mode_event(tc.name, "plan_blocked")
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result=None,
+                error=msg,
+                duration_ms=0,
+                error_type="permission_denied",
+            )
+
+        # 审批门:高危工具执行前请求用户批准(审批等待不阻塞非高危工具)。
+        # auto 模式:只读白名单工具免审批直接执行(跳过 _request_approval)。
+        needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
+        if self._permission_mode == "auto" and is_readonly_tool(tc.name):
+            if needs_approval:
+                logger.info(
+                    "auto 模式:只读工具 %s 免审批直接执行, session=%s",
+                    tc.name,
+                    self._session_id or "",
+                )
+                # 模式生效事件:工具免审批(auto_skip_approval)
+                await self._emit_permission_mode_event(tc.name, "auto_skip_approval")
+            needs_approval = False
+
+        if needs_approval:
             denial = await self._request_approval(tc)
             if denial is not None:
                 if denial == "user_rejected":
