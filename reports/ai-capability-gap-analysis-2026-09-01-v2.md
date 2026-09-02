@@ -138,6 +138,7 @@
 - desktop（Tauri）侧补 GUI 自动化（windows-rs 或第三方 crate），优先国产软件窗口（微信/钉钉）。
 - 验收：extension 加载后，对话指令"打开 example.com 点登录" → 浏览器真执行。
 - 2026-09-02 实测闭环：ai-service `computer_*` 10 工具 → `_make_agent_control_handler` → api `POST /execute`（8802）→ `category==='computer'` 路由 `endpoint='desktop'` → WS 推送 `agent.action` → 端执行 → `POST /result` 回传；免 GUI 端到端模拟 **8/8 PASS**。
+- 2026-09-02 收尾：一键复验脚本 `scripts/check-p2-3-acceptance.mjs`（commit `cbe2dd2f08`）——脚本模拟桌面端走 login → `/ws/ticket` → WS 连接 → capability 上报 → execute 推送 → result 回传全闭环，**实测 6/6 PASS**，并断言 wsToken 明文返回（脱敏修复生效）；回归一行命令即验。
 - 🐞 修复生产 bug（commit `1f460c8899`）：全局 `response-sanitizer` 把 `/ws/ticket` 返回的 `wsToken` 遮蔽为 `***`，换票恒失败、WS 被 4003 拒绝；端点级 `skipResponseSanitization` 修复，三仓已同步。
 - ⚠️ 真机验收仍待用户：加载 extension（`apps/extension/.output/chrome-mv3`）或 `pnpm --filter @ihui/desktop dev` 登录后，驱动真实 `computer_*`/`browser_*` 确认闭环（遵守本报告"不宣传未兑现"红线）。
 
