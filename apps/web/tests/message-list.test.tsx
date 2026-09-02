@@ -31,6 +31,10 @@ const { mockT, toastMock, IconSpan } = vi.hoisted(() => {
     showReasoning: '显示推理过程',
     loading: '加载任务中...',
     fallbackNotice: '已切换到备用模型 {backup}',
+    // 2026-09-01 TypingIndicator i18n 化(useTranslations('ai.toolCall'))后补齐的 mock key
+    thinking: '正在思考: {preview}',
+    callingTool: '正在调用工具 {name}',
+    waitingResponse: '正在等待模型响应…',
     copy: 'Copy',
     copied: 'Copied',
     copyFailed: 'Copy failed',
