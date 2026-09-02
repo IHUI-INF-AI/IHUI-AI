@@ -144,13 +144,20 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+fn pick_free_port() -> std::io::Result<u16> {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    Ok(port)
+}
+
 /// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
 /// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
 ///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
 /// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
 /// - 仅允许 http/https URL(防参数注入)。
 #[tauri::command]
-fn open_in_chrome(url: String) -> Result<(), String> {
+fn open_in_chrome(url: String) -> Result<u16, String> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
         return Err("仅支持 http/https URL".into());
@@ -173,13 +180,15 @@ fn open_in_chrome(url: String) -> Result<(), String> {
     let Some(chrome) = chrome else {
         return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
     };
-    // spawn 后丢弃句柄:子进程独立运行,不等待、不 kill(--app 是长驻 Chrome 窗口)
-    let _child = std::process::Command::new(&chrome)
-        .arg(format!("--app={}", trimmed))
+
+    let port = pick_free_port().map_err(|e| format!("分配调试端口失败: {}", e))?;
+    let mut cmd = std::process::Command::new(&chrome);
+    cmd.arg(format!("--app={}", trimmed))
         .arg("--new-window")
-        .spawn()
-        .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
-    Ok(())
+        .arg(format!("--remote-debugging-port={}", port))
+        .arg("--user-data-dir=/tmp/ihui-chrome-profile");
+    let _child = cmd.spawn().map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+    Ok(port)
 }
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
@@ -502,6 +511,175 @@ fn build_tray(app: &tauri::AppHandle) -> Result<(), String> {
         .build(app)
         .map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 托盘常驻本地配置(2026-09-02 #2 立,存于 <app_config_dir>/tray-settings.json)。
+/// - always_visible:用户开关,"托盘图标常驻任务栏"(默认开)。
+/// - promoted_keys:已处理过的 NotifyIconSettings 注册表键名(hash,纯数字字符串)。
+///   每个键只在首次出现时自动写一次 IsPromoted=1;之后用户在任务栏设置里
+///   手动隐藏该图标的选择会被永久尊重(不再每次启动强制拉回)。
+///   键级粒度优于 exe 级:同一 exe 可能同时存在多条历史/当前身份键,
+///   exe 级记录会把"另一条新键"误判为已处理而永远跳过(2026-09-02 修复)。
+///   旧版 exe 尾段记录(promoted_identities)反序列化时被 serde 忽略作废,自动迁移。
+#[cfg(target_os = "windows")]
+#[derive(serde::Deserialize, serde::Serialize, Clone)]
+#[serde(default)]
+struct TraySettings {
+    always_visible: bool,
+    #[serde(default)]
+    promoted_keys: Vec<String>,
+}
+
+// 手写 Default:bool 的派生 Default 是 false,会导致默认开关被静默关闭(2026-09-02 修复)
+#[cfg(target_os = "windows")]
+impl Default for TraySettings {
+    fn default() -> Self {
+        Self { always_visible: true, promoted_keys: Vec::new() }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn tray_config_path(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("tray-settings.json"))
+}
+
+/// 读取托盘常驻配置,缺失/损坏时回退默认值(always_visible=true)。
+#[cfg(target_os = "windows")]
+fn load_tray_settings(app: &tauri::AppHandle) -> TraySettings {
+    let Some(path) = tray_config_path(app) else { return TraySettings::default() };
+    std::fs::read(&path)
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+/// 写回托盘常驻配置(目录不存在则创建,失败仅记日志,不影响主流程)。
+#[cfg(target_os = "windows")]
+fn save_tray_settings(app: &tauri::AppHandle, settings: &TraySettings) {
+    let Some(path) = tray_config_path(app) else { return };
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    match serde_json::to_vec_pretty(settings) {
+        Ok(bytes) => {
+            if let Err(e) = std::fs::write(&path, bytes) {
+                log::warn!("[desktop] save tray settings failed: {}", e);
+            }
+        }
+        Err(e) => log::warn!("[desktop] serialize tray settings failed: {}", e),
+    }
+}
+
+/// 扫描 Win11 注册表 NotifyIconSettings,按 ExecutablePath 尾段匹配本应用托盘身份
+/// (dev 的 ihui-desktop.exe 与安装版 IHUI AI.exe 都算),把 IsPromoted 写为 target
+/// (1=任务栏常驻 / 0=收入右下角隐藏溢出区)。
+///
+/// 机制(2026-09-02 #2 立):Win11 22H2+ 把"新出现的托盘图标"默认塞进隐藏溢出区,
+/// 用户"拖拽出来常驻"的记忆按图标身份存于 `HKCU\Control Panel\NotifyIconSettings\
+/// <hash>\IsPromoted`。AUMID + NIF_GUID 已稳定图标身份,但身份首次出现(dev↔安装版、
+/// 首次安装、系统清理)时默认仍是隐藏,用户被迫反复手动拖拽——本函数自动补写。
+///
+/// force=false(启动自动路径):仅处理 promoted_keys 里未记录的新键,
+///   每个键只写一次,此后尊重用户手动调整(含手动隐藏)。
+/// force=true(设置开关显式操作):忽略记录,全部匹配键强制写 target。
+///
+/// 返回是否有注册表写盘 —— 有则在主线程移除并重建托盘图标(NIM_DELETE+NIM_ADD),
+/// Explorer 在 NIM_ADD 时读取 IsPromoted,立即生效,无需重启 Explorer。
+/// Windows 10 / Win11 22H2 之前无此键,静默跳过(仅靠 GUID 身份记忆,拖拽一次即持久)。
+#[cfg(target_os = "windows")]
+fn apply_tray_promotion(app: &tauri::AppHandle, target: u32, force: bool) -> bool {
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE};
+    use winreg::RegKey;
+
+    // 0) 开关关闭且非显式强制 → 不做任何事
+    let mut settings = load_tray_settings(app);
+    if !force && !settings.always_visible {
+        return false;
+    }
+
+    // 1) 候选身份 = dev/安装版二进制名 ∪ 当前进程 exe 名(仅尾段精确匹配,防误伤同名前缀应用)
+    let exe = match std::env::current_exe() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    let mut candidates: Vec<String> = vec!["ihui-desktop.exe".into(), "ihui ai.exe".into()];
+    if let Some(name) = exe.file_name() {
+        let n = name.to_string_lossy().to_lowercase();
+        if !candidates.contains(&n) {
+            candidates.push(n);
+        }
+    }
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let Ok(root) =
+        hkcu.open_subkey_with_flags("Control Panel\\NotifyIconSettings", KEY_READ | KEY_SET_VALUE)
+    else {
+        log::info!("[desktop] NotifyIconSettings not present, skip tray promote (pre-Win11 22H2)");
+        return false;
+    };
+
+    let mut changed = false;
+    for sub in root.enum_keys().flatten() {
+        let Ok(entry) = root.open_subkey_with_flags(&sub, KEY_READ | KEY_SET_VALUE) else {
+            continue;
+        };
+        let path = entry
+            .get_value::<String, _>("ExecutablePath")
+            .map(|p| p.replace('/', "\\").to_lowercase())
+            .unwrap_or_default();
+        let last_segment = path.rsplit('\\').next().unwrap_or("");
+        if !candidates.iter().any(|c| c == last_segment) {
+            continue;
+        }
+        // 尊重用户选择:该注册表键已处理过且非显式强制 → 跳过
+        if !force && settings.promoted_keys.iter().any(|k| k == &sub) {
+            continue;
+        }
+        if entry.get_value::<u32, _>("IsPromoted").unwrap_or(0) != target
+            && entry.set_value("IsPromoted", &target).is_ok()
+        {
+            changed = true;
+            log::info!("[desktop] tray icon IsPromoted={} written: {} ({})", target, sub, path);
+        }
+        // 记录已处理键名(幂等去重)
+        if !settings.promoted_keys.iter().any(|k| k == &sub) {
+            settings.promoted_keys.push(sub.clone());
+        }
+    }
+
+    if !settings.promoted_keys.is_empty() {
+        save_tray_settings(app, &settings);
+    }
+    changed
+}
+
+/// 在主线程移除并重建托盘图标,使注册表 IsPromoted 变更即时生效(2026-09-02 #2 立)。
+/// 菜单/事件处理器由 build_tray 全量重建,与启动时行为一致。
+#[cfg(target_os = "windows")]
+fn rebuild_tray_on_main_thread(app: &tauri::AppHandle) {
+    let app = app.clone();
+    let _ = app.clone().run_on_main_thread(move || {
+        let _ = app.remove_tray_by_id("main");
+        if let Err(e) = build_tray(&app) {
+            log::error!("[desktop] rebuild tray after promote failed: {}", e);
+        }
+    });
+}
+
+/// 后台延迟触发托盘常驻写入(2026-09-02 #2 立,target=1,尊重身份记录与开关)。
+/// Explorer 在托盘图标注册后才创建 NotifyIconSettings 条目,首次安装时启动瞬间
+/// 条目尚不存在,故延迟扫描两次(1.5s / 6s)覆盖;后续启动条目已存在,首次扫描即命中。
+#[cfg(target_os = "windows")]
+fn schedule_tray_promote(app: &tauri::AppHandle) {
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        for delay in [Duration::from_millis(1500), Duration::from_millis(6000)] {
+            std::thread::sleep(delay);
+            if apply_tray_promotion(&handle, 1, false) {
+                rebuild_tray_on_main_thread(&handle);
+            }
+        }
+    });
 }
 
 // ================== Computer Control 命令(10 个)==================
@@ -1290,6 +1468,43 @@ fn set_tray_status(app: tauri::AppHandle, status: String) -> Result<(), String> 
     Ok(())
 }
 
+/// 查询"托盘图标常驻任务栏"开关状态(2026-09-02 #2 立)。
+/// 非 Windows 平台无 NotifyIconSettings 概念,恒返回 true(开关显示为开、操作为 no-op)。
+#[tauri::command]
+fn get_tray_always_visible(app: tauri::AppHandle) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        load_tray_settings(&app).always_visible
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = &app;
+        true
+    }
+}
+
+/// 设置"托盘图标常驻任务栏"开关(2026-09-02 #2 立)。
+/// enabled=true:立即把本应用全部托盘身份 IsPromoted 置 1 并重建托盘(即时常驻),
+///   同时记录身份,后续启动不再重复打扰;
+/// enabled=false:置 0 并重建托盘(收入溢出区),且后续启动不再强制常驻。
+#[tauri::command]
+fn set_tray_always_visible(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let mut settings = load_tray_settings(&app);
+        settings.always_visible = enabled;
+        save_tray_settings(&app, &settings);
+        if apply_tray_promotion(&app, if enabled { 1 } else { 0 }, true) {
+            rebuild_tray_on_main_thread(&app);
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (&app, enabled);
+    }
+    Ok(())
+}
+
 #[tauri::command]
 async fn clipboard_get(format: Option<String>) -> Result<ClipboardResult, String> {
     let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
@@ -1353,6 +1568,26 @@ async fn clipboard_set(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
+    // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
+    // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
+    // dev(target/debug/ihui-desktop.exe) 与安装版/更新版路径不同 → 被当成不同应用
+    // → 托盘显隐记忆每次重置、图标被丢进隐藏溢出区。
+    // 2026-09-02 修订:从 setup 前移到 run() 顶部——MS 要求该调用早于进程内任何窗口
+    // 创建,而 Tauri 在 setup 之前就已按 tauri.conf.json 创建 main 窗口。
+    // 注:winapi 0.3.9 与 Tauri 2.11 均未导出该 API,改用已在依赖树中的 windows-sys 调用。
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+
+        let id = "com.ihui.desktop";
+        let wide: Vec<u16> =
+            std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
+        unsafe {
+            let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
+        }
+    }
     // 2026-07-26 立:启动时清理 WebView2 缓存(Windows),彻底杜绝桌面端样式不同步问题
     // - 用户反馈"样式没同步":web dev 已更新,但 Tauri WebView2 缓存了旧 CSS chunk
     // - 每次 dev 启动清空 EBWebView 目录,强制重新加载 dev server 的最新 HTML/CSS
@@ -1445,24 +1680,7 @@ pub fn run() {
             }
         })
         .setup(|app| {
-            // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
-            // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
-            // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
-            // dev(target/debug/ihui-desktop.exe) 与安装版/更新版路径不同 → 被当成不同应用
-            // → 托盘显隐记忆每次重置、图标被丢进隐藏溢出区。
-            // 注:winapi 0.3.9 与 Tauri 2.11 均未导出该 API,改用已在依赖树中的 windows-sys 调用。
-            #[cfg(target_os = "windows")]
-            {
-                use std::os::windows::ffi::OsStrExt;
-                use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
-
-                let id = "com.ihui.desktop";
-                let wide: Vec<u16> =
-                    std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
-                unsafe {
-                    let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
-                }
-            }
+            // AUMID 已前移到 run() 顶部(2026-09-02,须早于任何窗口创建)
 
             #[cfg(debug_assertions)]
             {
@@ -1496,6 +1714,10 @@ pub fn run() {
             // 2026-07-25 修订:不再调用 build_app_menu(已删除),菜单全部走 web 端 HTML 顶栏
             // let _ = build_app_menu(app.handle().clone());
             let _ = build_tray(app.handle());
+            // 2026-09-02 #2:托盘图标写入 Win11 任务栏常驻(IsPromoted=1),
+            // 解决"新身份图标默认被丢进右下角隐藏溢出区、需反复手动拖拽"的问题
+            #[cfg(target_os = "windows")]
+            schedule_tray_promote(app.handle());
             // 启动时设置本地化窗口标题(中文系统 → 智汇AI,其他 → IHUI AI)
             // admin 窗口已改为 lazy create(2026-07-29),启动时不存在,
             // 标题在 open_admin_window 中通过 WebviewWindowBuilder::title 设置
@@ -1582,7 +1804,9 @@ pub fn run() {
             restore_window_state,
             reset_window_state,
             clear_webview_cache,
-            set_tray_status
+            set_tray_status,
+            get_tray_always_visible,
+            set_tray_always_visible
         ])
         .run(tauri::generate_context!())
         .unwrap_or_else(|e| {

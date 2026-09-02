@@ -15,6 +15,8 @@ import {
   isAutostartEnabled,
   enableAutostart,
   disableAutostart,
+  isTrayAlwaysVisible,
+  setTrayAlwaysVisible,
   resetWindowState,
   sendDesktopNotification,
   getSystemTheme,
@@ -31,7 +33,8 @@ import {
  * - appInfo:客户端应用信息(名称/版本/平台)
  * - isMaximized:主窗口是否最大化(实时同步)
  * - autostartEnabled:开机自启状态
- * - 操作:minimize / toggleMaximize / close / toggleAutostart / resetWindow / notify
+ * - trayAlwaysVisible:托盘图标是否常驻任务栏(2026-09-02 #2 立)
+ * - 操作:minimize / toggleMaximize / close / toggleAutostart / toggleTrayAlwaysVisible / resetWindow / notify
  *
  * 浏览器环境下 isDesktop=false,所有操作为 no-op,appInfo=null。
  * 组件可根据 isDesktop 决定是否渲染客户端独占 UI。
@@ -48,6 +51,7 @@ export function useDesktop() {
   const [appInfo, setAppInfo] = React.useState<DesktopAppInfo | null>(null)
   const [isMaximized, setIsMaximized] = React.useState(false)
   const [autostartEnabled, setAutostartEnabled] = React.useState(false)
+  const [trayAlwaysVisible, setTrayAlwaysVisibleState] = React.useState(true)
   const [loading, setLoading] = React.useState(true)
 
   // 初始化:挂载后探测 Tauri(避免 hydration mismatch)
@@ -87,15 +91,17 @@ export function useDesktop() {
     let cancelled = false
     void (async () => {
       try {
-        const [info, maximized, autostart] = await Promise.all([
+        const [info, maximized, autostart, trayVisible] = await Promise.all([
           getDesktopAppInfo(),
           isWindowMaximized(),
           isAutostartEnabled(),
+          isTrayAlwaysVisible().catch(() => true),
         ])
         if (cancelled) return
         setAppInfo(info)
         setIsMaximized(maximized)
         setAutostartEnabled(autostart)
+        setTrayAlwaysVisibleState(trayVisible)
       } catch {
         // 忽略桌面 API 错误
       } finally {
@@ -148,6 +154,22 @@ export function useDesktop() {
     }
   }, [autostartEnabled])
 
+  /**
+   * 切换"托盘图标常驻任务栏"(2026-09-02 #2 立)。
+   * 返回切换后的状态,供调用方 toast 提示;旧客户端(未含新命令)回退本地翻转。
+   */
+  const toggleTrayAlwaysVisible = React.useCallback(async () => {
+    const current = await isTrayAlwaysVisible().catch(() => true)
+    const next = !current
+    try {
+      await setTrayAlwaysVisible(next)
+    } catch {
+      // 旧版本后端无此命令时静默降级(仅本地状态翻转)
+    }
+    setTrayAlwaysVisibleState(next)
+    return next
+  }, [])
+
   const resetWindow = React.useCallback(async () => {
     await resetWindowState()
   }, [])
@@ -161,11 +183,13 @@ export function useDesktop() {
     appInfo,
     isMaximized,
     autostartEnabled,
+    trayAlwaysVisible,
     loading,
     minimize,
     toggleMaximize,
     close,
     toggleAutostart,
+    toggleTrayAlwaysVisible,
     resetWindow,
     notify,
   }

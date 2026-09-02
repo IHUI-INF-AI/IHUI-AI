@@ -72,6 +72,27 @@ export async function isAutostartEnabled(): Promise<boolean> {
   return await invoke<boolean>('plugin:autostart|is_enabled')
 }
 
+// ================== 托盘常驻 ==================
+
+/**
+ * 查询"托盘图标常驻任务栏"开关状态(2026-09-02 #2 立)。
+ * 仅 Windows 11 22H2+ 有实际效果(写 NotifyIconSettings\IsPromoted),
+ * 其他平台后端恒返回 true(开关显示为开,操作为 no-op)。
+ */
+export async function isTrayAlwaysVisible(): Promise<boolean> {
+  if (!isTauri()) return true
+  return await invoke<boolean>('get_tray_always_visible')
+}
+
+/**
+ * 设置"托盘图标常驻任务栏"开关(2026-09-02 #2 立)。
+ * true=立即常驻任务栏;false=收入右下角隐藏溢出区,且后续启动不再强制常驻。
+ */
+export async function setTrayAlwaysVisible(enabled: boolean): Promise<void> {
+  if (!isTauri()) return
+  await invoke('set_tray_always_visible', { enabled })
+}
+
 // ================== 窗口控制 ==================
 
 /** 显示主窗口(用于 TS 侧主动唤起,如托盘菜单的 TS 调用)。 */
@@ -341,16 +362,15 @@ export async function openExternalUrl(url: string): Promise<void> {
  *   不受网站 X-Frame-Options / 反自动化拦截。
  * - web 端(普通浏览器):降级为 window.open 新标签页(浏览器沙箱无法启动本机程序)。
  *
- * @returns 桌面端失败(未装 Chrome 等)返回错误消息,成功返回 null;web 端恒返回 null
+ * @returns 桌面端返回 CDP 端口号,失败返回错误消息;web 端恒返回 null
  */
-export async function openInGoogleChrome(url: string): Promise<string | null> {
+export async function openInGoogleChrome(url: string): Promise<number | string | null> {
   if (!isTauri()) {
     window.open(url, '_blank')
     return null
   }
   try {
-    await invoke('open_in_chrome', { url })
-    return null
+    return await invoke<number>('open_in_chrome', { url })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.warn('[chrome] open_in_chrome failed:', msg)

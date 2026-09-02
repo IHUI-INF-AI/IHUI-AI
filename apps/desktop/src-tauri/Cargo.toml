@@ -46,6 +46,9 @@ winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "winbase
 # 2026-09-02:显式固定进程级 AppUserModelID,修复 Windows 通知区托盘图标显隐记忆在
 # dev 重编译/更新后被重置的问题(SetCurrentProcessExplicitAppUserModelID 所在模块)。
 windows-sys = { version = "0.52", features = ["Win32_UI_Shell"] }
+# 2026-09-02 #2:启动时把托盘图标写入 Win11 任务栏常驻(NotifyIconSettings\IsPromoted=1)。
+# 0.55 已在依赖树中(tauri 插件引用),不增加编译产物。
+winreg = "0.55"
 
 [profile.release]
 panic = "abort"
