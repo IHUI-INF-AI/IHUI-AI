@@ -14125,6 +14125,25 @@
     "subtitle": "N8N ワークフロー連携 - N8N経由でAIエージェントを自動オーケストレーション",
     "totalBadge": "合計 {n} エージェント"
   },
+  "agentGovernance": {
+    "title": "Agent Token ガバナンス",
+    "subtitle": "Agent メインループの予算使用量と直近7日間の推移",
+    "enabledBadge": "ガバナンス有効",
+    "disabledBadge": "観測モード",
+    "usagePercent": "全体予算使用率",
+    "todayTokens": "本日の消費 Tokens",
+    "pillarUsage": "現在の柱の使用率",
+    "remainingTokens": "柱の残り Tokens",
+    "degradedOn": "超過時に自動降格先",
+    "trendTitle": "直近7日間の使用推移",
+    "byPillarTitle": "本日の柱別使用量",
+    "pillarEmpty": "この日の記録はありません",
+    "tokenShort": "tk",
+    "loading": "読み込み中…",
+    "empty": "ガバナンスデータなし",
+    "emptyHint": "AI サービスが予算データを返しませんでした。後で再試行してください",
+    "backToCost": "コストパネルへ戻る"
+  },
   "nav": {
     "about": "概要",
     "activities": "アクティビティ",
@@ -14170,6 +14189,7 @@
     "adminThemePresets": "プリセット",
     "adminWorkflows": "ワークフロー",
     "advancedAiTools": "高度な AI ツール",
+    "agentGovernance": "Agent Token ガバナンス",
     "agentWorkbench": "エージェントワークベンチ",
     "agents": "エージェント",
     "aiGeneration": "AI生成",
@@ -20294,3 +20314,4 @@
     "generic": "リクエストに失敗しました。後でもう一度お試しください"
   }
 }
+
