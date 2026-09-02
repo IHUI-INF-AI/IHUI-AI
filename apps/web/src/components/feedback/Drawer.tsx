@@ -9,6 +9,29 @@ import { useTranslations } from 'next-intl'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+/**
+ * Drawer 抽屉组件(关闭时焦点归还约束)
+ *
+ * **使用方必读(2026-09-02 治理)**:
+ * Drawer 打开时记录当前 activeElement 作为 triggerRef,关闭时(第 88 行
+ * triggerRef.current?.focus())把焦点归还给该元素。该元素通常是打开
+ * Drawer 的按钮——若该按钮有 `focus-visible:ring-*` 样式,关闭后焦点
+ * 环会常驻显示(浏览器 Chrome 122+ 对 .focus() 程序性触发也会显示
+ * focus-visible ring)。
+ *
+ * 触发 Drawer 的按钮必须满足下列**任一**条件:
+ * 1. 使用 Radix Dialog/DropdownMenu/Popover(自带 data-state="closed"),
+ *    命中 globals.css:1090 `button[data-state='closed']:focus-visible { box-shadow: none }`
+ * 2. 自写按钮但加了 `data-state={open ? 'open' : 'closed'}`(参考
+ *    apps/web/src/components/ai/permission-history-panel.tsx)
+ * 3. 焦点环样式使用 `focus-visible:ring-*` 而非 `focus:ring-*`
+ *    (`:focus-visible` 只对键盘 Tab / 脚本式 .focus() 显示,鼠标点击
+ *    关闭 Drawer 后浏览器判定为 mouse-initiated focus,不显示 ring)
+ *
+ * 守门:scripts/check-popover-trigger-data-state.mjs 会在 CI 拦截
+ * 自写 popover + createPortal 但无 data-state 的 trigger(2026-09-02 立)。
+ */
+
 type DrawerSide = 'left' | 'right' | 'top' | 'bottom'
 
 interface DrawerProps {

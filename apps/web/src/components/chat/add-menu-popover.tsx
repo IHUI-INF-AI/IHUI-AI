@@ -186,6 +186,10 @@ export function AddMenuPopover(props: {
           aria-label={t('addMenuLabel')}
           aria-haspopup="menu"
           aria-expanded={open}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          // 详见 scripts/check-popover-trigger-data-state.mjs。
+          data-state={open ? 'open' : 'closed'}
           disabled={isStreaming}
           onClick={() => onOpenChange(!open)}
           className={cn(
