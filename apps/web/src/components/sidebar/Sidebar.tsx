@@ -92,6 +92,33 @@ const Sidebar = React.memo(function Sidebar({
   const mobileNavRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
+  // 移动抽屉懒挂载(2026-09-02 P2 首屏 HTML 体积优化):
+  // 原实现:移动抽屉 <aside> 常驻 DOM,仅靠 -translate-x-full 移出屏幕。
+  //   SSR 阶段无媒体查询生效 → 桌面 + 移动两套完整导航同时输出,
+  //   290 个内联 SVG 图标 + Tailwind class 字符串双份(~120KB 冗余)。
+  // 现实现:首次打开前不挂载(SSR/首屏零移动导航开销,桌面端 ≥1024px 永不打开则永不挂载);
+  //   首次打开先以 -translate-x-full 挂载,下一帧再置 mobileEntered,
+  //   让 CSS transition 播放滑入动画;此后保持挂载,开合动画与旧实现一致。
+  const [mobileMounted, setMobileMounted] = React.useState(false)
+  const [mobileEntered, setMobileEntered] = React.useState(false)
+
+  // 挂载闩:首次打开前不挂载,首次打开后保持挂载(供后续开合动画)
+  React.useEffect(() => {
+    if (mobileOpen && !mobileMounted) setMobileMounted(true)
+  }, [mobileOpen, mobileMounted])
+
+  // 滑入位:挂载后经一帧再置 0,保证浏览器先绘制 -translate-x-full 帧,
+  // CSS transition 才有起始值可播放滑入动画(直接同帧置 0 会闪现无动画)。
+  React.useEffect(() => {
+    if (!mobileOpen) {
+      setMobileEntered(false) // 关闭:滑出(-translate-x-full)
+      return
+    }
+    if (!mobileMounted) return // 等挂载帧
+    const raf = requestAnimationFrame(() => setMobileEntered(true))
+    return () => cancelAnimationFrame(raf)
+  }, [mobileOpen, mobileMounted])
+
   // 桌面端展开态拖拽调整宽度(160-180px,2026-08-01 最小宽度从 130 加大到 160),localStorage 持久化。
   // 2026-07-22 修复首屏 width 闪烁(2026-08-01 修订,根治残留闪烁):
   // - layout.tsx inline script 在 React hydrate 前同步预设 :root --sidebar-width CSS 变量
@@ -401,7 +428,9 @@ const Sidebar = React.memo(function Sidebar({
           - 加 resize 手柄(结构跟 desktop 一致:外层 w-2 命中区 + 内层 w-0.5 可见细线)
           - 跟 desktop aside 共享 sidebarWidth state + localStorage 持久化
             (用户在任一端拖过宽度,另一端下次打开自动同步)
-          - 仍走 transition-transform 200ms 从左滑出,resize 时 width 200ms 平滑过渡 */}
+          - 仍走 transition-transform 200ms 从左滑出,resize 时 width 200ms 平滑过渡
+          - 2026-09-02 P2 优化:mobileMounted 懒挂载(见上),SSR/首屏不含移动导航副本 */}
+      {mobileMounted && (
       <aside
         aria-modal="true"
         aria-label={t('mainNav')}
@@ -412,7 +441,7 @@ const Sidebar = React.memo(function Sidebar({
           // 之前 aside 整体 overflow-y-auto,内容超长时 footer 被推下屏幕外不可见
           // 现在 footer (shrink-0) 固定在底部,nav (flex-1 overflow-y-auto) 独立滚动
           'fixed inset-y-0 left-0 z-modal flex flex-col overflow-hidden bg-background shadow-xl transition-transform duration-200 ease-out min-[1024px]:hidden',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full',
+          mobileEntered ? 'translate-x-0' : '-translate-x-full',
         )}
         style={{
           width: sidebarWidth,
@@ -444,6 +473,7 @@ const Sidebar = React.memo(function Sidebar({
           />
         </div>
       </aside>
+      )}
     </>
   )
 })

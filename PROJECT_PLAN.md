@@ -21,6 +21,8 @@
 > 📌 **2026-08-21 任务完成**: mobile-rn 端 8 个 Screen 重写对齐 Uniapp 原项目(Agent/Carte/Chat/DevEnter/Developer/Recruitment/Share/Profile/AiAssistantN8n),新增测试 mock 与 vitest 配置,共享组件 TeamDetail/RankingDetail 补齐 loading/error 态,修复 TypeScript typecheck 错误(CarteScreen、DeveloperScreen、RecruitmentScreen 加入迁移白名单),commit c494167ab7,24 文件 +1644/-612。
 >
 > 📌 **2026-08-31 任务完成**: 桌面端下载页动态解析(零手动)。新增 `scripts/resolve-desktop-download.mjs` 从 GitHub Releases API 解析最新 `desktop-v*` release 资产,生成 `apps/web/src/config/desktop-feed.generated.ts` 入库快照;`downloads.config.ts` desktop 段改为构建期读快照(带 DESKTOP_FALLBACK 兜底);`release-desktop.yml` sync-downloads job + `sync-downloads.yml` 加 resolve 步骤并纳入自动 commit,发版后下载页自动更新 URL/大小/版本号;i18n 5 语言 `downloadDesktopReleaseNotes` 移除硬编码版本号;`.prettierignore` 豁免生成物。web typecheck/eslint/prettier/i18n 守门全绿,快照与线上幂等一致(commit 后记)。
+>
+> 📌 **2026-09-02 任务完成**: 页面切换提速(根因双叠加,实测收口)。**根因 ①**:`apps/web/src/components/sidebar/NavLink.tsx` 两个 `<Link>` 分支均带 `prefetch={false}`(2026-08-28 c1c8ad79e6 引入),关死视口预取 → 生产环境点击后才发 RSC 请求;**根因 ②**:dev 下 Turbopack 按需编译,冷编译 9.8~16.2s/页(最慢 `/announcements` 39.8s)。注:此前"页面切换极致优化"提交 `cd38ddb62` 已永久丢失(对象被 gc,4265 个 `lost-commit/*` 备份 tag 内亦无),仅剩 NavigationProgress 进度条与 `onBeforeNav` 乐观高亮等观感改动,故未真正提速。**修复**:① NavLink 移除 `prefetch={false}` 恢复默认视口预取(Next **dev 模式不启用 prefetch**,故 dev 提速靠预热、生产提速靠预取,两者不可互相替代);② 新增 `scripts/warm-dev-routes.mjs`,`start-dev.ps1` 在 web 自检 PASS 后后台调用,把按需编译提前到启动阶段;支持 `--all` / `--top N`,运行时正则解析 `nav-data.ts` 保持与侧边栏单一来源同步(解析失败降级仅高频 12 条);健康探测 8s + 单路由 90s `AbortSignal` 超时(修服务器重负载期挂死)。**实测(dev 8801,RSC 导航路径)**:预热前冷编译 9.8~39.8s;全量预热 184 条(9m14s,**全部 200 零 404**)后 RSC TTFB 稳定在 **96~189ms**(`/news` 28.9s→121ms、`/announcements` 39.8s→119ms、`/models/eval` 21.4s→136ms)。**顺带修复**:全量预热暴露 2 条 404 死链 `/configs`、`/models/market`(`nav-data.ts` 有导航项但 `apps/web/app/(main)/` 下无对应 page 文件,全库零其他引用)→ 删 2 条导航项 + 5 语言孤儿 key `nav.adminConfigs` / `nav.modelsMarket`。**新增基建**:`pnpm warm:routes`(高频 12 条)/ `pnpm warm:routes:all`(全量)/ `pnpm check:nav-dead-links`(`scripts/check-nav-dead-links.mjs`,静态比对 nav-data href 与 `apps/web/app` 各级 page 文件,支持 `[param]`/`[...slug]` 动态段、跳过 `(group)` 路由组与 `_private`,死链 exit 1,已纳入 `pnpm check:all` 防回归);当前基线 180 href / 836 页面路由 / 死链 0。**提交**:9e46a06986、047549e42a、b48d92abd5、a27df0fa9b、e37706ecdb;三仓(origin/gitee/gitcode)已全部同步至 33b83d5749。**遗留**:`/dashboard` 完整 HTML 达 405KB(内联 SVG 290 个占 45.3% + Tailwind class 串占 45.2%),因桌面/移动两套 aside 常驻 DOM(仅 CSS 隐藏)导致导航图标输出两遍;仅影响 F5 首屏加载、不影响客户端切换(切换走 RSC 载荷),列为 P2 待优化。
 
 ---
 
@@ -2943,5 +2945,48 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
       ③ **P1-3 记忆自进化默认开**— `config.py` `auto_graph_extract_enabled` False→True(隐私开关 `user_preferences.privacy.autoMemory=false` 可关,PG 直查异常降级 True);`agent_loop.py` 追加 `_memory_svc.consolidate(user_id, messages[-8:], session_id)`(与 auto graph extract 同 gating 同 fire-and-forget);`memory_service.py` 新增 `consolidate()`:stub→skipped,LLM 摘要→`add_semantic(importance=0.7, metadata={source:"consolidation", layer:"episodic_to_semantic"})`,8000 截断/2000 上限,失败降级 error;web 记忆页新增"自动记忆"Switch(读 /settings/privacy 写 autoMemory 默认开)。测试 `tests/test_memory_service.py` 扩展。
       ④ **P1-4 官方 MCP SDK stdio 双轨**— 新 `app/services/mcp_stdio_bridge.py`:官方 `mcp` SDK(2.1.1)stdio 子进程传输,`add_stdio_server_tool` 白名单式注册(名称正则+拒绝 shell 元字符),经 `mcp_server.register_external_tool` 注入 `_TOOLS`+`_TOOL_HANDLERS` 唯一注册表(同名已注册返回 False 不覆盖,幂等);异常自愈(重启一次+重试一次);`__` 前缀内部参数剥离;`config.py` `mcp_stdio_servers` 默认空 JSON;main.py lifespan 解析注册,失败不阻塞启动;pyproject 加 `mcp>=1.0`(uv sync 2.1.1)。测试 `tests/test_mcp_stdio_bridge.py` 14 用例含真实 npx 拉起官方 filesystem server 冒烟。
       验证:ai-service 全量回归 **8950 passed / 1 failed**;修复 3 个 langgraph 断言过时(懒加载默认图后"无图"测试 mock `_ensure_graph`)+ 1 个 create_backup 时序碰撞加固(pid+nanos 已存在追加序号),全绿后 **8950 passed / 0 failed**;web typecheck 0 错;新增文件 mypy 0 错 + ruff 全绿。遗留:8801/8803 端到端 curl 补验(服务重启后)、Extension 浏览器加载(用户操作)。
+
+---
+
+## P2 首屏 HTML 体积优化(2026-09-02 立,平台独占:apps/web,AGENTS.md §9 显式标注)
+
+> AGENTS.md §9 平台独占豁免:本任务仅触及 `apps/web/src/components/sidebar/**`(及可能的 `apps/web/src/components/layout/**`),不参与 api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli 跨端契约同步。
+
+### 背景(2026-09-02 页面切换提速排查时的副产物,已实测量化)
+
+页面切换提速已完成(RSC 导航 96~189ms),但实测发现 `/dashboard` **完整 HTML 达 405,769 bytes**,体积构成:
+
+| 构成 | 字符数 | 占 markup 比 |
+|---|---|---|
+| 内联 SVG(290 个 lucide 图标) | 122,238 | 45.3% |
+| Tailwind class 属性字符串 | 121,822 | 45.2% |
+| 内联 `<script>`(127 个,含 RSC flight 数据) | 125,593 | 31.3%(占总 HTML) |
+| `<path>` 元素(SVG 子集) | 35,280 | 13.1% |
+
+### 根因(已定位,未修)
+
+`apps/web/src/components/sidebar/Sidebar.tsx` 中**桌面 aside 与移动 aside 两套导航常驻 DOM**,仅靠 CSS 隐藏:
+
+- 桌面 aside(line ~332)外层 `shrink-0 hidden min-[1024px]:block`(line ~309)
+- 移动抽屉 aside(line ~405)`fixed inset-y-0 left-0 z-modal ... min-[1024px]:hidden`
+
+二者互斥显示,但**都被 SSR 渲染进 HTML**,导致 180 条导航的图标 + class 字符串输出两遍。
+
+### 影响边界(重要,避免误判优先级)
+
+- **不影响客户端页面切换**:切换走 RSC 载荷而非完整 HTML,实测 96~189ms 已达标。
+- **影响 F5 首屏整页加载**:405KB HTML 直接拉长首屏 TTFB(实测 0.8~1.0s)与传输时间。
+- 生产环境经 HTML 压缩后 class 字符串/SVG 路径不可压缩,收益有限但仍有。
+
+### 待办
+
+- [ ] 方案评估:① 移动抽屉 aside 改为按需挂载(首次打开抽屉时 mount,保留 transition 动画)vs ② 导航图标改为 sprite/CSS 变量复用 vs ③ 侧边栏长列表虚拟化
+- [ ] 方案 ①需评估抽屉滑入动画在 mount 首帧是否掉帧,以及 e2e 测试(apps/web/e2e)中依赖移动端 aside 常驻的用例
+- [ ] 落地后复测 `/dashboard` HTML 体积,目标 ≤250KB
+- [ ] 复测 RSC 导航耗时不回退(基线 96~189ms)
+
+### 关联
+
+- 前置任务「页面切换提速」已于 2026-09-02 完成(提交 9e46a06986 / 047549e42a / b48d92abd5 / a27df0fa9b / e37706ecdb),本任务为其遗留项。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
