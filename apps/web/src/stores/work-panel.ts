@@ -9,6 +9,7 @@ import {
   browserHubBack,
   browserHubForward,
   browserHubReload,
+  buildEmbedProxyUrl,
   closeBrowserSession,
   createBrowserSession,
   probeEmbed,
@@ -41,6 +42,9 @@ const MAX_FAVORITES = 100
 let _inFlightUrl: string | null = null
 let _inFlightTs = 0
 const IN_FLIGHT_TTL_MS = 10000 // 10s 超时自动释放(防死锁)
+
+/** onFailed 降级链(CDP → 截图)in-flight 标志:防代理错误 postMessage + 超时双重触发 */
+let _degradingToCdp = false
 
 /** 收藏项 */
 export interface FavoriteItem {
@@ -194,6 +198,8 @@ interface WorkPanelState {
   setScreenshot: (screenshot: string, title?: string) => void
   /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏) */
   onCdpNavigation: (url: string, title: string) => void
+  /** 代理 iframe 内导航完成(桥接脚本 postMessage,更新 tab url + 地址栏) */
+  onEmbedNavigation: (url: string) => void
   /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
   openCdpSession: (url: string, sessionId: string, title?: string) => void
   /** 重置到 idle */
@@ -334,71 +340,29 @@ export const useWorkPanelStore = create<WorkPanelState>()(
               return
             }
 
-            // 不可嵌入 → CDP 模式(可交互,对标 Trae/Cursor 内置浏览器)
-            const { tabs: preTabs, activeTabId: preId } = get()
-            if (!preId) return
+            // 不可嵌入 → 同源嵌入代理优先(2026-09-02):后端剥 XFO/CSP 后以同源响应喂 iframe,
+            // 真实 HTML 渲染(可交互/可选中)。代理失败(错误页 postMessage / 20s 超时)
+            // → onFailed 链降级:CDP 截图流 → 静态截图 → external
+            const { tabs: proxyTabs, activeTabId: proxyId } = get()
+            if (!proxyId) return
 
             // 先关闭旧 CDP 会话(同 tab 重新导航时)
-            const preTab = preTabs.find((t) => t.id === preId)
+            const preTab = proxyTabs.find((t) => t.id === proxyId)
             if (preTab?.state.sessionId) {
               void closeBrowserSession(preTab.state.sessionId)
             }
 
-            const cdpResult = await createBrowserSession({
-              url,
-              viewport_width: 1280,
-              viewport_height: 720,
+            set({
+              tabs: patchActiveTabState(proxyTabs, proxyId, {
+                status: 'loading',
+                mode: 'proxy',
+                proxyUrl: buildEmbedProxyUrl(url),
+                sessionId: undefined,
+                error: undefined,
+                screenshot: undefined,
+              }),
             })
-
-            const { tabs: cdpTabs, activeTabId: cdpId } = get()
-            if (!cdpId) return
-
-            if (cdpResult.success && cdpResult.data?.session_id) {
-              set({
-                tabs: patchActiveTabState(cdpTabs, cdpId, {
-                  status: 'loaded',
-                  mode: 'cdp',
-                  sessionId: cdpResult.data.session_id,
-                  title: cdpResult.data.title || url,
-                  error: undefined,
-                  screenshot: undefined,
-                }),
-              })
-              return
-            }
-
-            // CDP 失败 → 降级到截图模式(保证可用性)
-            const result = await takeScreenshot({
-              url,
-              width: 1280,
-              height: 720,
-              fullPage: false,
-              waitUntil: 'load',
-              timeout: 15000,
-            })
-
-            const { tabs, activeTabId } = get()
-            if (!activeTabId) return
-
-            if (result.success && result.data?.screenshot) {
-              set({
-                tabs: patchActiveTabState(tabs, activeTabId, {
-                  status: 'screenshot',
-                  mode: 'screenshot',
-                  screenshot: result.data.screenshot,
-                  title: result.data.title,
-                  error: undefined,
-                }),
-              })
-            } else {
-              set({
-                tabs: patchActiveTabState(tabs, activeTabId, {
-                  status: 'failed',
-                  mode: 'external',
-                  error: result.error || 'CDP 和截图均失败,该网站禁止嵌入',
-                }),
-              })
-            }
+            return
           } finally {
             // 释放锁:无论成功/失败/异常,都清除 in-flight 状态
             if (_inFlightUrl === url) {
@@ -657,6 +621,11 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           return
         }
 
+        // 防重入:代理页错误 postMessage 与 20s 超时可能接连触发 onFailed,
+        // 用 in-flight 标志保证降级链(CDP → 截图)只跑一次
+        if (_degradingToCdp) return
+        _degradingToCdp = true
+
         // 保留 loading 状态(CDP/截图期间仍显示 loading)
         set({
           tabs: patchActiveTabState(tabs, activeTabId, {
@@ -667,61 +636,65 @@ export const useWorkPanelStore = create<WorkPanelState>()(
 
         const url = tab.url
         void (async () => {
-          // CDP 模式优先(可交互,对标 Trae/Cursor)
-          const cdpResult = await createBrowserSession({
-            url,
-            viewport_width: 1280,
-            viewport_height: 720,
-          })
-
-          const { tabs: curTabs, activeTabId: curId } = get()
-          if (!curId) return
-
-          if (cdpResult.success && cdpResult.data?.session_id) {
-            set({
-              tabs: patchActiveTabState(curTabs, curId, {
-                status: 'loaded',
-                mode: 'cdp',
-                sessionId: cdpResult.data.session_id,
-                title: cdpResult.data.title || url,
-                error: undefined,
-                screenshot: undefined,
-              }),
+          try {
+            // CDP 模式优先(可交互,对标 Trae/Cursor)
+            const cdpResult = await createBrowserSession({
+              url,
+              viewport_width: 1280,
+              viewport_height: 720,
             })
-            return
-          }
 
-          // CDP 失败 → 降级截图
-          const result = await takeScreenshot({
-            url,
-            width: 1280,
-            height: 720,
-            fullPage: false,
-            waitUntil: 'load',
-            timeout: 15000,
-          })
+            const { tabs: curTabs, activeTabId: curId } = get()
+            if (!curId) return
 
-          const { tabs: failTabs, activeTabId: failId } = get()
-          if (!failId) return
+            if (cdpResult.success && cdpResult.data?.session_id) {
+              set({
+                tabs: patchActiveTabState(curTabs, curId, {
+                  status: 'loaded',
+                  mode: 'cdp',
+                  sessionId: cdpResult.data.session_id,
+                  title: cdpResult.data.title || url,
+                  error: undefined,
+                  screenshot: undefined,
+                }),
+              })
+              return
+            }
 
-          if (result.success && result.data?.screenshot) {
-            set({
-              tabs: patchActiveTabState(failTabs, failId, {
-                status: 'screenshot',
-                mode: 'screenshot',
-                screenshot: result.data.screenshot,
-                title: result.data.title,
-                error: undefined,
-              }),
+            // CDP 失败 → 降级截图
+            const result = await takeScreenshot({
+              url,
+              width: 1280,
+              height: 720,
+              fullPage: false,
+              waitUntil: 'load',
+              timeout: 15000,
             })
-          } else {
-            set({
-              tabs: patchActiveTabState(failTabs, failId, {
-                status: 'failed',
-                mode: 'external',
-                error: result.error || error || 'CDP 和截图均失败,该网站禁止嵌入',
-              }),
-            })
+
+            const { tabs: failTabs, activeTabId: failId } = get()
+            if (!failId) return
+
+            if (result.success && result.data?.screenshot) {
+              set({
+                tabs: patchActiveTabState(failTabs, failId, {
+                  status: 'screenshot',
+                  mode: 'screenshot',
+                  screenshot: result.data.screenshot,
+                  title: result.data.title,
+                  error: undefined,
+                }),
+              })
+            } else {
+              set({
+                tabs: patchActiveTabState(failTabs, failId, {
+                  status: 'failed',
+                  mode: 'external',
+                  error: result.error || error || 'CDP 和截图均失败,该网站禁止嵌入',
+                }),
+              })
+            }
+          } finally {
+            _degradingToCdp = false
           }
         })()
       },
@@ -746,6 +719,19 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           tabs: patchActiveTabState(tabs, activeTabId, {
             url,
             title: title || url,
+            status: 'loaded',
+          }),
+          addressInput: url,
+        })
+      },
+
+      onEmbedNavigation: (url) => {
+        const { tabs, activeTabId } = get()
+        if (!activeTabId) return
+        set({
+          tabs: patchActiveTabState(tabs, activeTabId, {
+            url,
+            title: url,
             status: 'loaded',
           }),
           addressInput: url,
