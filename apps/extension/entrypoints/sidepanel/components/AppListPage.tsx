@@ -16,6 +16,7 @@
  */
 import { type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { isComponentType } from '../../../lib/is-component-type'
 import { useNavigate } from 'react-router-dom'
 import { useI18n } from '../../../src/i18n'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
@@ -82,7 +83,7 @@ export function AppListPage({ titleKey, items }: AppListPageProps) {
             >
               <div className="flex items-center gap-2 w-full">
                 <span className="text-xl leading-none shrink-0" aria-hidden>
-                  {typeof item.icon === 'function' ? (
+                  {isComponentType(item.icon) ? (
                     <item.icon size={20} className="shrink-0" />
                   ) : (
                     item.icon
