@@ -7,6 +7,7 @@
 import * as React from 'react'
 
 import { useAuthStore } from '@/stores/auth'
+import { buildWsUrl } from '@/lib/ws-url'
 
 export interface TaskWsMessage {
   taskId: string
@@ -79,12 +80,9 @@ export function useTaskWebsocket(): UseTaskWebsocketReturn {
       wsRef.current?.close()
       clearTimers()
 
-      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       let ws: WebSocket
       try {
-        ws = new WebSocket(
-          `${proto}//${window.location.host}/ws/tasks/${taskId}?token=${encodeURIComponent(token)}`,
-        )
+        ws = new WebSocket(buildWsUrl(`/ws/tasks/${taskId}`, token))
       } catch (e) {
         setError(e instanceof Error ? e.message : 'WebSocket 连接失败')
         return
