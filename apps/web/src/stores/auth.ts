@@ -13,10 +13,26 @@ import {
   clearRefreshTokenCookie,
   REMEMBER_MAX_AGE,
 } from '@/lib/cookie-utils'
+import {
+  isDesktopEnv,
+  getDesktopRefreshToken,
+  setDesktopRefreshToken,
+} from '@/lib/desktop-token-vault'
 import { createPersistConfig } from './persist-helpers'
 
 /** 与共享层 @ihui/api-client AuthUser 完全一致,确保 5 端用户类型统一 */
 export type AuthUser = ApiAuthUser
+
+/**
+ * Desktop(SaaS)模式:refreshToken 同步到 Tauri store(auth.json)。
+ * 浏览器模式 isDesktopEnv()=false 空操作 —— cookie 链路完全不动。
+ * 2026-09-02 桌面端 SaaS 化:跨站请求不带 SameSite=Lax cookie,登录/轮换的
+ * refreshToken 必须落 Tauri store,刷新时由 api.ts 从 vault 读出发 body 模式。
+ */
+function syncDesktopRefreshToken(refreshToken: string | null): void {
+  if (!isDesktopEnv()) return
+  void setDesktopRefreshToken(refreshToken)
+}
 
 interface AuthState {
   token: string | null
@@ -48,6 +64,9 @@ export const useAuthStore = create<AuthState>()(
         if (refreshOrPair === null || refreshOrPair === undefined) {
           clearRefreshTokenCookie()
           set({ token, isAuthenticated: !!token, refreshToken: null, expiresIn: null })
+          // 仅显式登出式调用(token 为空)才清 vault;token 有效但未带 refresh 的
+          // 兼容调用保留既有 vault 值,避免误伤桌面端已落盘的 refreshToken。
+          if (!token) syncDesktopRefreshToken(null)
           return
         }
         if (typeof refreshOrPair === 'string') {
@@ -59,6 +78,7 @@ export const useAuthStore = create<AuthState>()(
             refreshToken: refreshOrPair || null,
             expiresIn: null,
           })
+          syncDesktopRefreshToken(refreshOrPair || null)
           return
         }
         setRefreshTokenCookie(refreshOrPair.refreshToken ?? null)
@@ -68,6 +88,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: refreshOrPair.refreshToken ?? null,
           expiresIn: refreshOrPair.expiresIn ?? null,
         })
+        syncDesktopRefreshToken(refreshOrPair.refreshToken ?? null)
       },
       setTokenWithPrefs: (token, refreshOrPair, autoLogin) => {
         const refreshToken =
@@ -78,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
         setAuthCookie(token, { maxAge: cookieMaxAge })
         setRefreshTokenCookie(refreshToken ?? null, { maxAge: cookieMaxAge })
         set({ token, isAuthenticated: !!token, refreshToken: refreshToken ?? null, expiresIn })
+        syncDesktopRefreshToken(refreshToken ?? null)
       },
       hydrateRefreshToken: () => {
         const { refreshToken } = get()
@@ -94,9 +116,20 @@ export const useAuthStore = create<AuthState>()(
         const { refreshToken } = get()
         // P2-18:httpOnly cookie 由后端管理,登出必须调后端接口(响应清 cookie);
         // 内存有 refreshToken 时携带 body 吊销,后端同时 clearAuthCookies。
-        if (refreshToken) {
-          void apiLogout(refreshToken).catch(() => {})
-        }
+        // 2026-09-02 桌面 SaaS:应用重启后内存 refreshToken 为空,但 vault 仍持有,
+        // 需从 vault 读回再吊销,最后清空 vault —— 否则后端会话残留 30 天。
+        void (async () => {
+          const vaultToken = isDesktopEnv() ? await getDesktopRefreshToken() : null
+          const rt = refreshToken ?? vaultToken
+          if (rt) {
+            try {
+              await apiLogout(rt)
+            } catch {
+              // 吊销失败(如已离线)不阻塞本地登出
+            }
+          }
+          if (isDesktopEnv()) await setDesktopRefreshToken(null)
+        })()
         setAuthCookie(null)
         clearRefreshTokenCookie()
         set({
