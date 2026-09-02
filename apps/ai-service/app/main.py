@@ -682,6 +682,26 @@ def create_app() -> FastAPI:
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
 
+    # P0-2 Checkpoint/Rewind 撤销端点族(对标 Claude Code /rewind,端点 /api/checkpoints*)
+    from app.routers import checkpoint_rewind as checkpoint_rewind_router
+    app.include_router(checkpoint_rewind_router.router, prefix="/api", tags=["checkpoints"])
+
+    # P0-6 上下文压缩感知(让用户感知并回看会话被 LLM 语义压缩的历史,只读端点
+    # /api/context-compaction,进程内存储 + record_compaction 回写入口)
+    from app.routers import context_compaction as context_compaction_router
+    app.include_router(
+        context_compaction_router.router, prefix="/api", tags=["context-compaction"]
+    )
+
+    # P0-4 Deep Research 深度研究端点族(对标 Deep Research,端点 /api/research*)
+    from app.routers import research as research_router
+    app.include_router(research_router.router, prefix="/api", tags=["research"])
+
+    # P0-7 云托管 Agent 会话历史(2026-09-03 立,对标 OpenAI Codex Cloud,端点 /api/cloud-runs*)
+    # 持久化:data/cloud_runs.json(进程内 dict + 文件落盘),见 services/cloud_run_store.py
+    from app.routers import cloud_runs as cloud_runs_router
+    app.include_router(cloud_runs_router.router, prefix="/api", tags=["cloud-runs"])
+
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
     # 普通登录用户无权读取。

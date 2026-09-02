@@ -1,4 +1,30 @@
 {
+  "cloudRuns": {
+    "title": "クラウドホスト Agent セッション",
+    "subtitle": "OpenAI Codex Cloud に相当：各 Agent 実行はディスクに永続化され、Web/CLI をまたいで復元・履歴閲覧が可能。プロセスメモリ内だけでなく永続化します。",
+    "refresh": "更新",
+    "loading": "読み込み中…",
+    "empty": "実行記録はまだありません",
+    "loadFailed": "読み込みに失敗しました",
+    "detailTitle": "実行詳細",
+    "back": "一覧に戻る",
+    "runId": "実行 ID",
+    "task": "入力タスク",
+    "output": "最終出力",
+    "agentType": "Agent 種類",
+    "sessionAlias": "セッション別名",
+    "startTime": "開始時刻",
+    "endTime": "終了時刻",
+    "running": "実行中",
+    "done": "完了",
+    "error": "エラー",
+    "runningHint": "このセッションはまだ実行中です…",
+    "noOutput": "出力はまだありません",
+    "noTask": "（タスク内容なし）",
+    "prev": "前のページ",
+    "next": "次のページ",
+    "pagination": "{page}/{totalPages} ページ · 全 {total} 件"
+  },
   "a11y": {
     "addAttachment": "添付ファイルを追加(画像/動画/ファイル)",
     "breadcrumb": "パンくずナビ",
@@ -8970,6 +8996,20 @@
     "subtitle": "ビジネス提携、コース相談、エンタープライズサービスのカスタマイズなど、お気軽にお問い合わせください。チームが24時間以内に返信します。",
     "title": "お問い合わせ"
   },
+  "contextCompaction": {
+    "countTimes": "回",
+    "desc": "この AGENT セッションが LLM による意味圧縮で圧縮された履歴を振り返ります",
+    "empty": "このセッションのコンテキスト圧縮記録はまだありません",
+    "loadFailed": "読み込み失敗",
+    "loading": "読み込み中…",
+    "noSession": "セッション(session_id)が指定されていません。?session_id=... を付けてアクセスしてください",
+    "refresh": "更新",
+    "summaryPreview": "要約プレビュー",
+    "title": "コンテキスト圧縮",
+    "tokenChange": "圧縮前後",
+    "tokens": "tokens",
+    "totalCompactions": "累計圧縮回数"
+  },
   "contractManager": {
     "actions": {
       "cancel": "解約"
@@ -14189,6 +14229,7 @@
     "adminThemePresets": "プリセット",
     "adminWorkflows": "ワークフロー",
     "advancedAiTools": "高度な AI ツール",
+    "deepResearch": "ディープリサーチ",
     "agentGovernance": "Agent Token ガバナンス",
     "agentWorkbench": "エージェントワークベンチ",
     "agents": "エージェント",

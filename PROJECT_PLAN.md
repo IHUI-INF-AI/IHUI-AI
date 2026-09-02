@@ -80,6 +80,13 @@
 > **测试**:`tests/test_memory_quality_eval.py` 18 用例(词袋语义/存储实现/search 排序阈值/delete/update/clear/5 维度打分/报告结构/embed 降级不抛/注入存储真实使用/幂等/并发安全)。
 > **验收**:18 新测试 + test_eval.py 回归并集 **32 passed / 0 failed**;ruff 0 错;mypy 0 错(2 源文件);离线基线分 1.00/1.00(内存伪实现满分下限,真实后端评测将暴露真实缺陷)。遗留:B904×2 为 eval.py 既有违规(HEAD 同报),本批未代修。
 
+### IHUI-Bench 任务定义健全性验证 ✅ 已完成(2026-09-03,评测基准无数字真空的前置补齐)
+
+> 背景:tasks_v0.json 定义 20 任务(8 fix / 5 test / 4 refactor / 3 multifile)但只跑通过 1 个,其余 19 个 fixture/checker/参数从未被验证;真实 LLM 评测受配额限制无法高频全跑。
+> **落地**:`apps/ai-service/bench/validate_bench.py`(零 LLM 纯机械验证器)。核心不变量:① fixture 目录存在;② checker 类型在 `_CHECKERS` 且 params 齐全;③ **每任务初始态必须 FAIL 全部 checks**(任何 check 初始态 PASS = "未修即通过"的假阳性任务,判定无效)。CLI:`python bench/validate_bench.py`(支持 --task/--json);纯函数 `validate_tasks()` 供测试直接调用。
+> **结果**:20/20 任务定义健全 —— 首次量化确认 19 个从未跑过的任务 fixture 可复制、pytest 可收集、初始态正确 FAIL、无假阳性定义。配套 `tests/test_bench.py` 新增结构级用例(不跑 pytest 子进程,全量初始态断言由 CLI 独立执行)。
+> **验收**:bench 3 测试全过 / ruff 0 错 / mypy 0 错(1 源文件)/ CLI 全量 20/20 健全。后续:配额恢复后按 `run_bench.py` 全量真跑即有可靠基线。
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:

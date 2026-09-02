@@ -1,4 +1,30 @@
 {
+  "cloudRuns": {
+    "title": "云托管 Agent 会话",
+    "subtitle": "对标 OpenAI Codex Cloud：每次 Agent 运行被持久化落盘，跨端（Web/CLI）可恢复与查看历史，而非仅当前进程内存态。",
+    "refresh": "刷新",
+    "loading": "加载中…",
+    "empty": "暂无运行记录",
+    "loadFailed": "加载失败",
+    "detailTitle": "运行详情",
+    "back": "返回列表",
+    "runId": "运行 ID",
+    "task": "输入任务",
+    "output": "最终输出",
+    "agentType": "Agent 类型",
+    "sessionAlias": "会话别名",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
+    "running": "运行中",
+    "done": "已完成",
+    "error": "出错",
+    "runningHint": "该会话仍在运行中…",
+    "noOutput": "暂无输出",
+    "noTask": "（无任务内容）",
+    "prev": "上一页",
+    "next": "下一页",
+    "pagination": "第 {page}/{totalPages} 页 · 共 {total} 条"
+  },
   "a11y": {
     "addAttachment": "添加附件（图片/视频/文件）",
     "breadcrumb": "面包屑导航",
@@ -8955,6 +8981,20 @@
     "subtitle": "商务合作、课程咨询、企业服务定制,欢迎随时联系我们。我们的团队会在 24 小时内回复。",
     "title": "与我们取得联系"
   },
+  "contextCompaction": {
+    "countTimes": "次",
+    "desc": "回看当前 AGENT 会话被 LLM 语义压缩的历史",
+    "empty": "该会话暂无上下文压缩记录",
+    "loadFailed": "加载失败",
+    "loading": "加载中…",
+    "noSession": "未指定会话(session_id),请携带 ?session_id=... 访问",
+    "refresh": "刷新",
+    "summaryPreview": "摘要预览",
+    "title": "上下文压缩感知",
+    "tokenChange": "压缩前后",
+    "tokens": "tokens",
+    "totalCompactions": "累计压缩次数"
+  },
   "contractManager": {
     "actions": {
       "cancel": "解约"
@@ -14161,6 +14201,7 @@
     "adminThemePresets": "主题预设",
     "adminWorkflows": "工作流",
     "advancedAiTools": "高级 AI 工具",
+    "deepResearch": "深度研究",
     "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能体工作台",
     "agents": "智能体",
