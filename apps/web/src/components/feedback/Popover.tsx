@@ -264,6 +264,11 @@ export function Popover({
   // 2026-07-31 React 19 兼容:原 `children.ref` 在 React 19 标记 deprecated(console.error
   // "Accessing element.ref was removed in React 19"),改为 `children.props.ref` 兼容两版。
   // React 16.3+ forwardRef 起所有 React 元素都能从 props 访问 ref,所以两版等价。
+  // 2026-09-02 治理:同时注入 data-state={open ? 'open' : 'closed'} 让 trigger 自动命中
+  // globals.css:1090 `button[data-state='closed']:focus-visible { box-shadow: none }`,
+  // 关闭弹层后 triggerElRef.current?.focus() 归还焦点时不再常驻 focus-visible ring。
+  // 保留 children 已有的 data-state(允许调用方显式覆盖,与 Radix 一致)。
+  const existingDataState = (children.props as Record<string, unknown>)['data-state']
   const childWithRef = React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
     ref: (node: HTMLElement | null) => {
       triggerElRef.current = node
@@ -275,6 +280,7 @@ export function Popover({
         ;(childRef as React.MutableRefObject<HTMLElement | null>).current = node
       }
     },
+    'data-state': existingDataState ?? (open ? 'open' : 'closed'),
   })
 
   // 可选:用 Radix Tooltip 包裹 trigger,实现 hover 提示(与 click Popover 共存)

@@ -411,6 +411,11 @@ export function PermissionHistoryPanel() {
         type="button"
         aria-label={t('historyOpenExternal')}
         data-testid="permission-history-trigger"
+        // 与 Radix trigger 行为对齐(2026-09-02):本组件自写 popover 而非 Radix,
+        // 需手动加 data-state 才能命中 globals.css:1090 的
+        // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
+        // 否则面板关闭后 useEffect 把焦点归还到 trigger,焦点环会常驻显示。
+        data-state={open ? 'open' : 'closed'}
         className={cn(
           'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
           'text-muted-foreground hover:bg-accent hover:text-accent-foreground',

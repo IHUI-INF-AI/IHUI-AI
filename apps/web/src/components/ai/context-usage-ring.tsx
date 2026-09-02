@@ -400,6 +400,11 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
+          // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
+          // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
+          data-state={isOpen ? 'open' : 'closed'}
           className={cn(
             'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
             'hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
