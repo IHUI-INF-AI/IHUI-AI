@@ -148,10 +148,12 @@ export function WebWorkPanel() {
       if (!d || typeof d.type !== 'string' || !d.type.startsWith('ihui-embed-')) return
       const title = typeof d.title === 'string' && d.title ? d.title : undefined
       if (d.type === 'ihui-embed-nav' && typeof d.url === 'string' && d.url) {
-        onEmbedNavigation(d.url, title)
+        // 用户发起导航(链接点击 / pushState,桥接在跳转前广播)→ 压入历史栈
+        onEmbedNavigation(d.url, title, 'nav')
       } else if (d.type === 'ihui-embed-loaded' && typeof d.url === 'string' && d.url) {
-        // 页面真实 <title> / 重定向落点广播:同 URL 去重压栈在 store 内处理,这里只同步
-        onEmbedNavigation(d.url, title)
+        // 文档就绪 / 重定向落点广播(每次代理文档加载都会发,url=最终落点)
+        // → 只修正当前历史条目,绝不压栈(否则 302 落点二次压栈 + 后退弹回)
+        onEmbedNavigation(d.url, title, 'loaded')
       } else if (d.type === 'ihui-embed-newtab' && typeof d.url === 'string' && d.url) {
         // Ctrl/Cmd+点击代理链接 → 应用内新开 WorkPanel 标签页(对标 Cursor/Trae 浏览器)
         newTab(d.url)

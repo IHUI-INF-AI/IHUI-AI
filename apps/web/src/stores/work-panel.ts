@@ -198,9 +198,12 @@ interface WorkPanelState {
   setScreenshot: (screenshot: string, title?: string) => void
   /** CDP 浏览器导航完成(后端推送 navigation 事件时调用,更新 tab url + title + 地址栏) */
   onCdpNavigation: (url: string, title: string) => void
-  /** 代理 iframe 内导航完成(桥接脚本 postMessage,更新 tab url + 地址栏 + 压入历史栈)
-   *  @param title 页面真实 <title>(代理页桥接广播),缺省时保留原标题 */
-  onEmbedNavigation: (url: string, title?: string) => void
+  /** 代理 iframe 内导航桥接(代理页 postMessage,更新 tab url + 地址栏 + 历史栈)
+   *  @param title 页面真实 <title>(代理页桥接广播),缺省时保留原标题
+   *  @param kind 'nav' = 用户发起导航(链接点击/pushState → 压入历史栈,默认);
+   *              'loaded' = 文档就绪/重定向落点广播 → 只把当前条目修正为真实落点 URL,绝不压栈
+   *              (否则每次 302/301 落点都会被当"新导航"二次压栈 + 后退弹回) */
+  onEmbedNavigation: (url: string, title?: string, kind?: 'nav' | 'loaded') => void
   /** 直接用已有 sessionId 打开 CDP tab(扫码登录用,跳过 probeEmbed 探测 + createBrowserSession) */
   openCdpSession: (url: string, sessionId: string, title?: string) => void
   /** 重置到 idle */
@@ -268,12 +271,18 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         }
 
         // 更新 active tab:截断前进栈 + push url + state 重置
+        // 2026-09-02 fix:重复提交当前 URL → 截断前进栈但不压重复条目(浏览器语义:
+        // 同 URL 导航 = 重载当前页,不产生新历史条目,避免地址栏 Enter 同 URL 出现 [A,A])
         const newTabs = patchActiveTab(tabs, activeTabId, (tab) => {
-          const newHistory = [...tab.history.slice(0, tab.historyIndex + 1), url]
+          const isSameUrl = url === tab.url
+          const newHistory = isSameUrl
+            ? tab.history.slice(0, tab.historyIndex + 1)
+            : [...tab.history.slice(0, tab.historyIndex + 1), url]
           return {
             url,
             title: url,
             history: newHistory,
+            // 两分支末位索引一致:same → slice 后长度 = idx+1,末位 = idx;非 same → 追加后末位
             historyIndex: newHistory.length - 1,
             state: {
               status: 'loading' as WebViewStatus,
@@ -385,9 +394,32 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           return
         }
 
-        // iframe 模式:本地历史栈
         const newIndex = tab.historyIndex - 1
         const url = tab.history[newIndex]!
+
+        // proxy 模式(2026-09-02 fix):保持代理通道,直接换 proxyUrl
+        // (WebViewFrame key={proxyUrl} 变化 → iframe 重建加载)。不能回落 iframe + loadUrl 重探测:
+        // ① XFO/CSP 站点直嵌白屏;② loadUrl 去重锁 10s 内同 URL 直接跳过,state 停在 iframe 而
+        // proxyUrl 未设置 → 渲染分支错乱;③ 落点页 loaded 广播把 idx 弹回(压栈误判)。
+        if (tab.state.mode === 'proxy') {
+          set({
+            tabs: patchActiveTab(tabs, activeTabId, () => ({
+              url,
+              historyIndex: newIndex,
+              state: {
+                status: 'loading' as WebViewStatus,
+                url,
+                mode: 'proxy' as WebViewMode,
+                proxyUrl: buildEmbedProxyUrl(url),
+              },
+            })),
+            addressInput: url,
+          })
+          return
+        }
+
+        // iframe / 截图降级等模式:本地历史栈重置 iframe + loadUrl(loadUrl 会重新探测嵌入能力,
+        // 可嵌入保持 iframe,不可嵌入自动切 proxy / CDP)
         set({
           tabs: patchActiveTab(tabs, activeTabId, () => ({
             url,
@@ -415,9 +447,28 @@ export const useWorkPanelStore = create<WorkPanelState>()(
           return
         }
 
-        // iframe 模式:本地历史栈
         const newIndex = tab.historyIndex + 1
         const url = tab.history[newIndex]!
+
+        // proxy 模式(2026-09-02 fix):与 back() 同规则,保持代理通道直接换 proxyUrl
+        if (tab.state.mode === 'proxy') {
+          set({
+            tabs: patchActiveTab(tabs, activeTabId, () => ({
+              url,
+              historyIndex: newIndex,
+              state: {
+                status: 'loading' as WebViewStatus,
+                url,
+                mode: 'proxy' as WebViewMode,
+                proxyUrl: buildEmbedProxyUrl(url),
+              },
+            })),
+            addressInput: url,
+          })
+          return
+        }
+
+        // iframe / 截图降级等模式:本地历史栈重置 iframe + loadUrl
         set({
           tabs: patchActiveTab(tabs, activeTabId, () => ({
             url,
@@ -726,32 +777,63 @@ export const useWorkPanelStore = create<WorkPanelState>()(
         })
       },
 
-      onEmbedNavigation: (url, title) => {
+      onEmbedNavigation: (url, title, kind = 'nav') => {
         const { tabs, activeTabId } = get()
         if (!activeTabId) return
         const tab = tabs.find((t) => t.id === activeTabId)
         if (!tab) return
 
-        // 2026-09-02 浏览器体验升级:页内导航(点击链接 / pushState / 重定向落点)必须
-        // 追加进 tab.history(截断前进栈,与 navigate 语义一致),否则工具栏后退/前进
-        // 读到的是陈旧栈,表现为"点了几个链接后退按钮却回到最初 URL"。
-        // 同 URL 重复广播(点击 nav post + 新文档 loaded post)只同步 title,不重复压栈。
-        const isNewUrl = !!url && url !== tab.url
+        // kind='loaded'(2026-09-02 fix):每次代理文档就绪广播(初次加载 / 点击落点 /
+        // back/forward remount)。url = cur() = 服务端注入 <base> = fetch 跟随重定向后的
+        // **最终落点**。按"新 URL"压栈是 back() 零变化的根因:后退目标 302 回当前页时,
+        // 落点广播把 idx 弹回。浏览器语义 = 重定向不产生新历史条目 → 只把当前条目原地
+        // 修正为真实 URL;同 URL 仅同步 title。
+        if (kind === 'loaded') {
+          const idx = tab.historyIndex
+          let nextHistory = tab.history
+          let nextIndex = idx
+          if (url !== tab.history[idx]) {
+            nextHistory = [...tab.history.slice(0, idx), url, ...tab.history.slice(idx + 1)]
+            // 修正后与前一条目相同(点链接又重定向回上一页)→ 合并,不留 [.., A, A] 死条目
+            if (idx > 0 && nextHistory[idx - 1] === url) {
+              nextHistory = [...nextHistory.slice(0, idx), ...nextHistory.slice(idx + 1)]
+              nextIndex = idx - 1
+            }
+          }
+          set({
+            tabs: patchActiveTab(tabs, activeTabId, () => ({
+              url,
+              title: title || tab.title,
+              history: nextHistory,
+              historyIndex: nextIndex,
+              // 2026-09-02 fix(单测捕获):status 必须写进 state.status(渲染层读 activeTab.state.status),
+              // 旧代码写在 tab 顶层 → 状态机死水,工具栏 loading/loaded 永远不随页内导航变化
+              state: { ...tab.state, status: 'loaded' as WebViewStatus, url },
+            })),
+            addressInput: url,
+          })
+          return
+        }
+
+        // kind='nav'(默认):页内导航(链接点击 / pushState / popstate)。桥接脚本在跳转
+        // **前**同步广播 → 截断前进栈压入新条目(与 navigate 语义一致);同 URL 导航
+        // (重定向回自身 / popstate 同步)不重复压栈,仅标记加载中(点击同 URL 链接会真实
+        // 触发 iframe 重载,loading 状态由随后的 loaded 清除)。
+        const isNewUrl = url !== tab.url
         const nextHistory = isNewUrl
           ? [...tab.history.slice(0, tab.historyIndex + 1), url]
           : tab.history
         const nextIndex = isNewUrl ? nextHistory.length - 1 : tab.historyIndex
-        const nextUrl = isNewUrl ? url : tab.url
 
         set({
           tabs: patchActiveTab(tabs, activeTabId, () => ({
-            url: nextUrl,
+            url,
             title: title || tab.title,
             history: nextHistory,
             historyIndex: nextIndex,
-            status: 'loaded' as WebViewStatus,
+            state: { ...tab.state, status: 'loading' as WebViewStatus, url },
           })),
-          addressInput: nextUrl,
+          addressInput: url,
         })
       },
 

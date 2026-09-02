@@ -24,6 +24,9 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
+# 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
+from .context_recall import context_recall
+
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
 
@@ -3634,7 +3637,122 @@ async def _tool_proactive_suggestion(arguments: dict[str, Any]) -> dict[str, Any
     }
 
 
+# ---------------------------------------------------------------------------
+# 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)
+# ---------------------------------------------------------------------------
+# run_in_background:立即返回 task_id,后台执行,完成后经 message_bus 推送 IM 通知;
+# bg_task_status:查询单个任务状态或列出某用户任务。两工具只读/低危,不进 _ADMIN_ONLY_TOOLS。
+#
+# 内置任务实现注册表 _BG_TASK_IMPLS:task 名 → 接收参数字典、返回结果协程的异步函数。
+# 扩展点:后续批次在此注册真实长任务(如 codebase_indexer / spec_generator / 长搜索),
+# 仅需实现 async(args: dict) -> Any 并加入本字典,task 名即进入白名单。
+async def _bg_impl_sleep(args: dict[str, Any]) -> Any:
+    """演示实现:休眠指定秒数(测试 / 占位用)。"""
+    seconds = float(args.get("seconds", 0))
+    await asyncio.sleep(seconds)
+    return {"slept_seconds": seconds}
+
+
+async def _bg_impl_echo(args: dict[str, Any]) -> Any:
+    """演示实现:回显消息(测试 / 占位用)。"""
+    return {"echo": args.get("message", "")}
+
+
+_BG_TASK_IMPLS: dict[str, Callable[[dict[str, Any]], Awaitable[Any]]] = {
+    "sleep": _bg_impl_sleep,
+    "echo": _bg_impl_echo,
+}
+
+
+async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
+    """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
+
+    仅接受 _BG_TASK_IMPLS 白名单内的 task 类型,防任意代码注入。
+    完成后若 notify_on_done,经 message_bus 的 IM 通道给调用用户推送完成通知。
+    """
+    task = str(arguments.get("task", "")).strip()
+    raw_args = arguments.get("arguments")
+    task_args = raw_args if isinstance(raw_args, dict) else {}
+    notify = bool(arguments.get("notify_on_done", True))
+    timeout_s = arguments.get("timeout_s")
+    timeout_s = max(1, int(timeout_s)) if timeout_s is not None else 300
+    name = str(arguments.get("name") or task or "background_task")
+
+    impl = _BG_TASK_IMPLS.get(task)
+    if impl is None:
+        return {
+            "ok": False,
+            "error": f"未知后台任务类型: {task}",
+            "available": sorted(_BG_TASK_IMPLS.keys()),
+        }
+
+    # 调用者身份由 call_tool 注入(LLM 不可控),用于归属与通知推送
+    user_id = arguments.get("__user_id")
+    session_id = arguments.get("__session_id")
+
+    from .background_tasks import background_task_manager
+
+    def coro_factory() -> Awaitable[Any]:
+        return impl(task_args)
+
+    submit_result = await background_task_manager.submit(
+        coro_factory,
+        name=name,
+        user_id=user_id,
+        session_id=session_id,
+        notify_on_done=notify,
+        timeout_s=timeout_s,
+    )
+    if isinstance(submit_result, dict) and submit_result.get("error"):
+        return {"ok": False, "tool": "run_in_background", **submit_result}
+    return {
+        "ok": True,
+        "tool": "run_in_background",
+        "task_id": submit_result,
+        "name": name,
+        "task_type": task,
+        "notify_on_done": notify,
+        "message": "后台任务已提交,用 bg_task_status 凭 task_id 查询结果",
+    }
+
+
+async def _tool_bg_task_status(arguments: dict[str, Any]) -> dict[str, Any]:
+    """bg_task_status:查询单个后台任务状态,或不传 task_id 时列出某用户的任务。"""
+    from .background_tasks import background_task_manager
+
+    task_id = arguments.get("task_id")
+    if task_id:
+        status = await background_task_manager.get_status(str(task_id))
+        if status is None:
+            return {"ok": False, "error": f"任务不存在: {task_id}"}
+        return {"ok": True, "task": status}
+
+    # 列表模式:user_id 可选过滤(来自调用者身份,或显式传入)
+    user_id = arguments.get("user_id") or arguments.get("__user_id")
+    limit = int(arguments.get("limit", 20))
+    tasks = await background_task_manager.list_tasks(user_id=user_id, limit=limit)
+    return {"ok": True, "tasks": tasks, "count": len(tasks)}
+
+
 # 工具注册表
+async def _tool_context_recall(arguments: dict[str, Any]) -> dict[str, Any]:
+    """context_recall: 语义检索回捞被压缩丢弃的旧消息(只读,不修改任何状态)。"""
+    query = arguments.get("query", "")
+    session_id = arguments.get("session_id")
+    top_k = arguments.get("top_k", 8)
+    if not isinstance(top_k, int) or top_k <= 0:
+        top_k = 8
+    try:
+        return await context_recall.recall(
+            session_id=session_id if isinstance(session_id, str) else None,
+            query=query if isinstance(query, str) else "",
+            top_k=top_k,
+        )
+    except Exception as e:
+        logger.warning("context_recall 工具执行异常: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -3660,6 +3778,20 @@ _TOOLS: list[MCPTool] = [
             "properties": {
                 "query": {"type": "string", "description": "自然语言查询,如 '用户认证逻辑实现' 或 'JWT 相关代码'"},
                 "top_k_per_source": {"type": "integer", "description": "每个源返回 top-K,默认 5(范围 1-20)", "default": 5, "minimum": 1, "maximum": 20},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="context_recall",
+        description="语义回捞被上下文压缩丢弃的旧消息(只读)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "自然语言查询,用于语义匹配被压缩丢弃的旧消息原文"},
+                "session_id": {"type": "string", "description": "会话 id(可选,限定检索范围;为空则全库检索)"},
+                "top_k": {"type": "integer", "description": "返回条数上限,默认 8", "default": 8, "minimum": 1, "maximum": 50},
             },
             "required": ["query"],
             "additionalProperties": False,
@@ -4480,6 +4612,60 @@ _TOOLS: list[MCPTool] = [
             "required": ["name"],
         },
     ),
+    # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
+    MCPTool(
+        name="run_in_background",
+        description="提交后台任务并立即返回 task_id(不阻塞循环),完成后经 IM 推送完成通知。支持 sleep/echo(可扩展)",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "后台任务类型(白名单:sleep/echo;后续批次扩展真实长任务)",
+                },
+                "arguments": {
+                    "type": "object",
+                    "description": "任务参数,如 sleep 的 {seconds:number},echo 的 {message:string}",
+                },
+                "name": {"type": "string", "description": "任务显示名(可选,默认=task)"},
+                "notify_on_done": {
+                    "type": "boolean",
+                    "description": "完成后经 message_bus 推送 IM 通知(默认 true)",
+                    "default": True,
+                },
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "任务超时秒数(默认 300,最小 1)",
+                    "default": 300,
+                },
+            },
+            "required": ["task"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="bg_task_status",
+        description="查询后台任务状态(凭 task_id)或列出某用户的任务;只读,不阻塞循环",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "查询指定任务状态(不传则进入列表模式)",
+                },
+                "user_id": {
+                    "type": "string",
+                    "description": "列表模式下按用户过滤(可选,默认取调用者身份)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "列表返回上限(默认 20)",
+                    "default": 20,
+                },
+            },
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -4573,6 +4759,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
+    "context_recall": _tool_context_recall,
     "read_file": _tool_read_file,
     "list_files": _tool_list_files,
     "write_file": _tool_write_file,
@@ -4627,6 +4814,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== P0 新增工具(2026-09-01,竞品对标:图表生成 + 文档解析)=====
     "generate_chart": _generate_chart,
     "parse_document": _parse_document,
+    # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
+    "run_in_background": _tool_run_in_background,
+    "bg_task_status": _tool_bg_task_status,
 }
 
 

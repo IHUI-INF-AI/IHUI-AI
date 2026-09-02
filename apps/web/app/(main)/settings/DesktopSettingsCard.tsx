@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Monitor, Power, Keyboard, RotateCcw, Bell, Minimize, Maximize2, X } from 'lucide-react'
+import { Monitor, Power, Keyboard, RotateCcw, Bell, Minimize, Maximize2, X, Pin } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent, Switch, Button } from '@ihui/ui-react'
 import { useDesktop } from '@/hooks/use-desktop'
 import { getLocalizedAppName } from '@/lib/tauri-bridge'
@@ -19,6 +19,7 @@ import { toast } from 'sonner'
  * 内容:
  * - 客户端版本 / 平台信息
  * - 开机自启开关(Switch)
+ * - 托盘常驻显示开关(Switch,2026-09-02 #2 立)
  * - 全局快捷键说明(Ctrl+Shift+I 唤起/隐藏)
  * - 窗口控制快捷入口(最小化/最大化/关闭)
  * - 重置窗口状态按钮
@@ -38,8 +39,10 @@ export function DesktopSettingsCard() {
     appInfo,
     isMaximized,
     autostartEnabled,
+    trayAlwaysVisible,
     loading,
     toggleAutostart,
+    toggleTrayAlwaysVisible,
     resetWindow,
     notify,
     minimize,
@@ -113,6 +116,30 @@ export function DesktopSettingsCard() {
             }}
             disabled={loading}
             aria-label="开机自启"
+            className="shrink-0"
+          />
+        </div>
+
+        {/* 托盘常驻开关(2026-09-02 #2 立) */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Pin className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="whitespace-nowrap text-sm font-medium">托盘常驻显示</p>
+              <p className="line-clamp-2 text-xs text-muted-foreground">
+                将托盘图标固定在任务栏,不收入右下角隐藏区(Windows 11)
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={trayAlwaysVisible}
+            onCheckedChange={() => {
+              void toggleTrayAlwaysVisible().then((next) => {
+                toast.success(next ? '托盘图标已常驻任务栏' : '托盘图标已收入隐藏区')
+              })
+            }}
+            disabled={loading}
+            aria-label="托盘常驻显示"
             className="shrink-0"
           />
         </div>

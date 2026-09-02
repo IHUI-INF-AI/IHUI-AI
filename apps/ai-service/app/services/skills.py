@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from .skill_md import parse_skill_md
+
 logger = logging.getLogger(__name__)
 
 

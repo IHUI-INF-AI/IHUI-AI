@@ -55,6 +55,10 @@ if TYPE_CHECKING:
     from .memory_service import MemoryService
 
 from .hook_engine import HookEngine, hook_engine
+from .llm_budget_governor import (
+    BudgetExceededError,
+    llm_budget_governor,
+)
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 
 logger = logging.getLogger(__name__)
@@ -130,6 +134,42 @@ def _high_risk_tools_from_env() -> frozenset[str]:
     extra = os.environ.get("TOOL_APPROVAL_HIGH_RISK_TOOLS", "")
     names = {t.strip() for t in extra.split(",") if t.strip()}
     return frozenset(extra.split(",")) if extra else frozenset()
+
+
+# ---------------------------------------------------------------------------
+# 1-6 token 治理:LLM 预算治理器接入主循环(2026-09-02 立)
+# ---------------------------------------------------------------------------
+
+
+def _agent_budget_enabled_from_env() -> bool:
+    """Agent 主循环预算硬约束总开关(env AGENT_BUDGET_ENABLED)。
+
+    默认 off:Phase 1 剩余项未验收,避免线上突变;设为 on/1/true/yes 时完全生效。
+    """
+    return os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _agent_budget_pillar_from_env() -> str:
+    """Agent 主循环预算支柱(env AGENT_BUDGET_PILLAR)。
+
+    默认 "terminal":agent 主循环语义上属于 terminal 执行支柱(governor 文档
+    Terminal: suggest/diagnose),复用现有 pillar 不新增,避免改动 _VALID_PILLARS
+    及其测试。如需独立核算可经 env 切换(值须 ∈ _VALID_PILLARS)。
+    """
+    return os.environ.get("AGENT_BUDGET_PILLAR", "terminal").strip().lower() or "terminal"
+
+
+def _agent_budget_max_token_estimate_from_env() -> int:
+    """每轮 check 的粗估 token 上限(env AGENT_BUDGET_MAX_TOKEN_ESTIMATE)。
+
+    无精确 usage 数据时作为 check_budget 的 estimated_tokens 入参;默认 4000。
+    """
+    try:
+        return max(0, int(os.environ.get("AGENT_BUDGET_MAX_TOKEN_ESTIMATE", "4000")))
+    except ValueError:
+        return 4000
 
 
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):

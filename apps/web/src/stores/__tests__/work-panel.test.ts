@@ -6,11 +6,14 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 // mock api-client,避免 work-panel 拉真实后端
+// 注意:proxy 模式 back/forward 同步调用 buildEmbedProxyUrl,工厂必须提供(纯函数,内联实现)
 vi.mock('@ihui/api-client', () => ({
   probeEmbed: vi.fn().mockResolvedValue({ success: true, data: { canEmbed: true } }),
   takeScreenshot: vi.fn().mockResolvedValue({ success: true, data: { screenshot: '' } }),
+  buildEmbedProxyUrl: (targetUrl: string) => `/api/embed-proxy/raw?url=${encodeURIComponent(targetUrl)}`,
 }))
 
+import { probeEmbed } from '@ihui/api-client'
 import { useWorkPanelStore, WORK_PANEL_DEFAULT_WIDTH } from '../work-panel'
 
 /** 清空 localStorage + 重置 store */
@@ -462,6 +465,134 @@ describe('useWorkPanelStore - back / forward / reload / stop', () => {
     useWorkPanelStore.getState().navigate('https://a.com', 'user')
     useWorkPanelStore.getState().stop()
     expect(useWorkPanelStore.getState().tabs[0]?.state.status).toBe('idle')
+  })
+})
+
+describe('useWorkPanelStore - 代理导航历史语义(2026-09-02 fix)', () => {
+  beforeEach(() => {
+    resetStore()
+    // 清掉 mock 调用记录(navigate 的 probeEmbed),proxy back 断言"不触发重探测"用
+    vi.mocked(probeEmbed).mockClear()
+  })
+
+  /** 直接播种一条已加载 tab(绕过 loadUrl,避免 navigate 的 iframe 路径干扰) */
+  function seed(history: string[], historyIndex: number, mode: 'proxy' | 'iframe' = 'proxy') {
+    const url = history[historyIndex] ?? history[history.length - 1] ?? ''
+    useWorkPanelStore.setState({
+      open: true,
+      addressInput: url,
+      activeTabId: 'tab-seed',
+      tabs: [
+        {
+          id: 'tab-seed',
+          type: 'browser' as const,
+          title: url,
+          url,
+          history,
+          historyIndex,
+          state: {
+            status: 'loaded' as const,
+            url,
+            mode,
+            ...(mode === 'proxy'
+              ? { proxyUrl: `/api/embed-proxy/raw?url=${encodeURIComponent(url)}` }
+              : {}),
+          },
+          closable: true,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    })
+  }
+
+  const tab = () => useWorkPanelStore.getState().tabs[0]!
+
+  it("loaded 广播(302 落点)修正当前条目为真实 URL,不压栈", () => {
+    seed(['https://a.com/', 'https://iana.org/domains/example'], 1)
+    useWorkPanelStore
+      .getState()
+      .onEmbedNavigation('http://www.iana.org/help/example-domains', '落点标题', 'loaded')
+    expect(tab().url).toBe('http://www.iana.org/help/example-domains')
+    expect(tab().history).toEqual([
+      'https://a.com/',
+      'http://www.iana.org/help/example-domains',
+    ])
+    expect(tab().historyIndex).toBe(1) // 长度不变,只替换
+    expect(tab().title).toBe('落点标题')
+    expect(tab().state.status).toBe('loaded')
+    expect(useWorkPanelStore.getState().addressInput).toBe(
+      'http://www.iana.org/help/example-domains',
+    )
+  })
+
+  it('loaded 广播同 URL(初次加载/无重定向)只同步 title,历史不变', () => {
+    seed(['https://a.com/', 'https://b.com'], 1)
+    useWorkPanelStore.getState().onEmbedNavigation('https://b.com', 'B 站标题', 'loaded')
+    expect(tab().history).toEqual(['https://a.com/', 'https://b.com'])
+    expect(tab().historyIndex).toBe(1)
+    expect(tab().url).toBe('https://b.com')
+    expect(tab().title).toBe('B 站标题')
+  })
+
+  it('nav 广播(链接点击)截断前进栈压入新条目,状态 loading', () => {
+    seed(['https://a.com', 'https://b.com', 'https://c.com'], 1) // 有前进栈
+    useWorkPanelStore.getState().onEmbedNavigation('https://d.com', undefined, 'nav')
+    expect(tab().history).toEqual(['https://a.com', 'https://b.com', 'https://d.com'])
+    expect(tab().historyIndex).toBe(2)
+    expect(tab().url).toBe('https://d.com')
+    expect(tab().state.status).toBe('loading') // 落点 loaded 会再清回 loaded
+  })
+
+  it('点击后重定向回上一页 → loaded 合并当前条目,不产生 [.., A, A]', () => {
+    seed(['https://a.com', 'https://b.com'], 1)
+    useWorkPanelStore.getState().onEmbedNavigation('https://c.com', undefined, 'nav')
+    expect(tab().history).toEqual(['https://a.com', 'https://b.com', 'https://c.com'])
+    useWorkPanelStore.getState().onEmbedNavigation('https://b.com', undefined, 'loaded')
+    expect(tab().history).toEqual(['https://a.com', 'https://b.com'])
+    expect(tab().historyIndex).toBe(1)
+    expect(tab().url).toBe('https://b.com')
+  })
+
+  it('proxy 模式 back 保持代理通道(换 proxyUrl),不回落 iframe + 重探测', () => {
+    seed(['https://a.com', 'https://b.com'], 1, 'proxy')
+    useWorkPanelStore.getState().back()
+    const t = tab()
+    expect(t.url).toBe('https://a.com')
+    expect(t.historyIndex).toBe(0)
+    expect(t.state.mode).toBe('proxy')
+    expect(t.state.proxyUrl).toBe('/api/embed-proxy/raw?url=https%3A%2F%2Fa.com')
+    expect(t.state.status).toBe('loading')
+    expect(useWorkPanelStore.getState().addressInput).toBe('https://a.com')
+    expect(probeEmbed).not.toHaveBeenCalled() // 未走 loadUrl 重探测
+  })
+
+  it('proxy 模式 forward 保持代理通道', () => {
+    seed(['https://a.com', 'https://b.com'], 0, 'proxy')
+    useWorkPanelStore.getState().forward()
+    const t = tab()
+    expect(t.url).toBe('https://b.com')
+    expect(t.historyIndex).toBe(1)
+    expect(t.state.mode).toBe('proxy')
+    expect(t.state.proxyUrl).toBe('/api/embed-proxy/raw?url=https%3A%2F%2Fb.com')
+    expect(probeEmbed).not.toHaveBeenCalled()
+  })
+
+  it('proxy back 在 historyIndex=0 时 no-op', () => {
+    seed(['https://a.com'], 0, 'proxy')
+    useWorkPanelStore.getState().back()
+    expect(tab().historyIndex).toBe(0)
+    expect(tab().url).toBe('https://a.com')
+  })
+
+  it('navigate 重复提交当前 URL 不压重复条目(截断前进栈)', () => {
+    useWorkPanelStore.getState().navigate('https://a.com', 'user')
+    useWorkPanelStore.getState().navigate('https://b.com', 'user')
+    useWorkPanelStore.getState().back() // idx 回 0
+    useWorkPanelStore.getState().navigate('https://a.com', 'user') // 与当前相同
+    expect(useWorkPanelStore.getState().tabs[0]?.history).toEqual(['https://a.com'])
+    expect(useWorkPanelStore.getState().tabs[0]?.historyIndex).toBe(0)
+    expect(useWorkPanelStore.getState().tabs[0]?.url).toBe('https://a.com')
   })
 })
 

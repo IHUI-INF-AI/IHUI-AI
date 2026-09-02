@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 
 from ..core.config import settings
 from ..core.llm_gateway import llm_gateway, moa_router
-from ..core.context_compaction import compress_messages_if_needed
+from ..core.context_compaction import compress_messages_if_needed, SUMMARY_MARKER
 from ..core.provider_caps import (
     cap_to_dict,
     cap_with_max_context,
@@ -38,6 +38,7 @@ from ..core.provider_caps import (
 )
 from ..core.question_parser import QuestionStreamParser
 from ..services.mcp_server import _tool_dispatch_subagent, _tool_vision_analyze, get_registered_tool_names
+from ..services.context_recall import context_recall
 from ..services.project_memory import build_system_prompt
 
 router = APIRouter()
@@ -45,6 +46,9 @@ logger = logging.getLogger(__name__)
 
 # 持有待完成的回调 task 引用,防止 CPython GC 回收未持有的 task
 _pending_callbacks: set[asyncio.Task[None]] = set()
+
+# 持有压缩回捞快照的 fire-and-forget task 引用(防止 GC 回收未持有 task)
+_pending_compaction_snapshots: set[asyncio.Task[Any]] = set()
 
 # 浏览器端工具委托 session 管理(2026-08-02 立,阶段 2)
 # 每个 /llm/complete/stream 请求(workspace_context 模式)生成一个 session_id,
@@ -579,6 +583,51 @@ def _resolve_user_role(request: Request) -> int:
         return int(raw or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _snapshot_compaction_if_needed(
+    messages: list[dict[str, Any]],
+    compressed_messages: list[dict[str, Any]],
+    compaction_info: dict[str, Any],
+    session_id: str | None,
+    user_id: str | None,
+) -> None:
+    """压缩发生后异步回捞快照:抽取被移除消息,fire-and-forget 写入向量库。
+
+    不在压缩调用点阻塞主请求;embed / 写盘失败由 context_recall 内部降级,
+    不会冒泡到请求链路。task 引用存入 _pending_compaction_snapshots 防止 GC 提前回收。
+
+    被移除消息的判定:context_compaction 返回的压缩产物 = system + 摘要(summary,新消息)
+    + 尾部保留(tail,复用原消息同一 dict 对象)。因此 removed = 原 messages 中未出现在
+    compressed_messages 的消息,用对象身份(is)比对,精确且不受内容重复干扰。
+    """
+    if not compaction_info.get("compressed"):
+        return
+    removed = [m for m in messages if all(m is not c for c in compressed_messages)]
+    if not removed:
+        return
+    # 摘要文本:压缩产物中 content 以 SUMMARY_MARKER 开头的消息
+    summary_text: str | None = None
+    for m in compressed_messages:
+        content = m.get("content") if isinstance(m, dict) else None
+        if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+            summary_text = content
+            break
+    sid = session_id or (f"chat:{user_id}" if user_id else "global")
+    try:
+        task = asyncio.create_task(
+            context_recall.snapshot_compacted(
+                session_id=sid,
+                user_id=user_id,
+                removed_messages=removed,
+                summary=summary_text,
+                reason=str(compaction_info.get("trigger", "compaction")),
+            )
+        )
+        _pending_compaction_snapshots.add(task)
+        task.add_done_callback(_pending_compaction_snapshots.discard)
+    except Exception as e:
+        logger.warning("压缩快照 fire-and-forget 提交失败(不影响主流程): %s", e)
 
 
 @router.post("/llm/complete", response_model=None)
