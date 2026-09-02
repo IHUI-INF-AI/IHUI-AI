@@ -15490,7 +15490,7 @@
       "delete": "删除",
       "deleteConfirm": "确定删除此账号吗?",
       "edit": "编辑",
-      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "externalBrowserHint": "用系统 Chrome 打开登录页,登录成功后自动保存账号,无需手动复制 Cookie",
       "lastVerified": "最近验证",
       "minimize": "最小化(后台继续等待)",
       "nickname": "昵称",
