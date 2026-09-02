@@ -248,7 +248,8 @@
     "webPortal": "Web Version",
     "webPortalCenter": "Web Feature Portal",
     "knowledgeRag": "RAG Knowledge",
-    "subagents": "Subagents"
+    "subagents": "Subagents",
+    "chatTools": "AI Chat / Tools"
   },
   "error": {
     "network": "Network error, please retry"
@@ -2086,6 +2087,11 @@
   "webView": {
     "loadFailed": "Failed to load page",
     "retry": "Retry"
+  },
+  "webChat": {
+    "title": "AI Chat / Tools",
+    "loginRequired": "Sign in to use AI chat and all tools (MCP store, connectors, skill panel, etc.)",
+    "loginButton": "Sign in"
   },
   "webViewPortal": {
     "title": "Web Feature Portal",
