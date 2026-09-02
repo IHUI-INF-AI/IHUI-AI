@@ -10,6 +10,7 @@
  */
 import { createElement, useEffect, useState } from 'react'
 import { User, type LucideIcon } from 'lucide-react'
+import { isComponentType } from '../../../lib/is-component-type'
 import type { ApiResult } from '@ihui/types'
 import { type FollowUser, type PageData, type PageQuery } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
@@ -83,7 +84,7 @@ export function FollowListPage({ titleKey, emptyKey, icon, fetchList }: FollowLi
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 text-center text-muted-foreground py-10 px-4 text-sm">
           <span className="text-3xl" aria-hidden>
-            {typeof icon === 'function'
+            {isComponentType(icon)
               ? createElement(icon as LucideIcon, { size: 28, className: 'shrink-0' })
               : icon}
           </span>
