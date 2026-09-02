@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
@@ -67,31 +68,96 @@ def _convert_openai_tool_calls(
     return result or None
 
 
+def _shorten_description(desc: str, limit: int = 80) -> str:
+    """把工具完整描述压缩成一行短描述(deferral 用,返回长度 ≤ limit 字符)。
+
+    规则:
+    - 取首行(按 \\n 切分)并去首尾空白,避免把多行说明/参数细节塞进上下文;
+    - 去掉常见 markdown 前缀符号(# * ` > -)与行内 ` * _ 包裹,降低噪声;
+    - 若清洗后为空(原文为空或纯 markdown 符号),回退为通用占位,
+      避免在上下文里塞入空串导致模型误判;
+    - 超长(>limit)截断并在尾部加 "…",保证返回长度严格 ≤ limit。
+    """
+    placeholder = "（工具描述暂无）"
+    if not desc:
+        return placeholder[:limit]
+    first_line = desc.split("\n", 1)[0].strip()
+    # 去除行首 markdown 前缀符号
+    cleaned = re.sub(r"^[\s#*>`\-]+", "", first_line)
+    # 去除行内 ` * _ 包裹符号
+    cleaned = re.sub(r"[`*_]{1,2}", "", cleaned).strip()
+    if not cleaned:
+        return placeholder[:limit]
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: max(1, limit - 1)].rstrip() + "…"
+
+
+# deferral 模式下,精简工具描述尾部统一追加的"取完整参数"提示(配合内置
+# get_tool_schema 工具)。长度固定,供 _build_loop_v2_tools 预留尾部空间。
+_TOOL_DEFERRAL_SUFFIX = " 〔完整参数用 get_tool_schema 查询〕"
+
+
+def _is_tool_deferral_enabled() -> bool:
+    """工具定义 deferral 开关(env TOOL_DEFERRAL,默认 on)。
+
+    on/1/true/yes → 启用(只把短描述+占位参数放进上下文,完整 schema 按需反查);
+    其他值(如 off)→ 关闭,行为与历史完全一致(完整 description + 完整 parameters)。
+    """
+    return os.environ.get("TOOL_DEFERRAL", "on").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
 def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
     """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
 
     工具执行器走 mcp_server.call_tool(与 v1 agent_executor 同源),
     失败抛异常由 AgentLoopV2 的瞬时错误重试/错误分类机制处理。
+
+    工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,除 get_tool_schema
+    自身外,所有工具的 description 替换为 ≤limit 的短描述、parameters 置为最小占位
+    ("type": "object"),并在描述尾部追加"用 get_tool_schema 查询完整参数"的提示,
+    从而大幅压低进入上下文的工具定义 token 占用(对标 Claude Code 的 deferral)。
+    get_tool_schema 必须保持完整 schema 且无论 tool_names 过滤如何都强制纳入,
+    否则模型无法反查其他工具的完整参数。env 关闭时行为与历史完全一致。
     """
     from ..services.agent_loop_v2 import ToolDefinition
     from ..services.mcp_server import mcp_server
 
+    defer = _is_tool_deferral_enabled()
     tools: list[Any] = []
+    # deferral 开启时,get_tool_schema 自身必须保持完整 schema,故强制纳入。
+    forced = {"get_tool_schema"} if defer else set()
+
     for mt in mcp_server.list_tools():
-        if tool_names and mt.name not in tool_names:
+        if tool_names and mt.name not in tool_names and mt.name not in forced:
             continue
 
         async def _exec(args: dict[str, Any], _name: str = mt.name) -> Any:
             return await mcp_server.call_tool(_name, args)
 
-        tools.append(
-            ToolDefinition(
-                name=mt.name,
-                description=mt.description,
-                parameters=mt.input_schema,
-                executor=_exec,
+        if defer and mt.name != "get_tool_schema":
+            short = _shorten_description(
+                mt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
             )
-        )
+            tools.append(
+                ToolDefinition(
+                    name=mt.name,
+                    description=short + _TOOL_DEFERRAL_SUFFIX,
+                    parameters={"type": "object"},
+                    executor=_exec,
+                )
+            )
+        else:
+            tools.append(
+                ToolDefinition(
+                    name=mt.name,
+                    description=mt.description,
+                    parameters=mt.input_schema,
+                    executor=_exec,
+                )
+            )
     return tools
 
 
