@@ -56,6 +56,7 @@ const EXCLUDE_DIRS = new Set([
   '.output', '.wxt', 'coverage', 'out',
   'target', // Rust/Cargo 构建输出(rustdoc 生成的 JS 含 HTML 模板字符串,非 JSX,gitignored)
   'public', // Next.js 静态资源目录(内含 monaco editor minified JS,含 'title=' 字面量但非 JSX)
+  'playwright-report', 'test-results', // Playwright 产物(编译后 React bundle 含 title= 字面量误报,gitignored,2026-09-02 立)
 ])
 
 const SCAN_EXTS = ['.ts', '.tsx', '.js', '.jsx']
