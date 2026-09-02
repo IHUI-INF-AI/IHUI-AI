@@ -138,6 +138,29 @@ def test_estimate_messages_tokens_list_content_vision():
     assert n == expected
 
 
+def test_estimate_messages_tokens_list_content_vision_data_image():
+    """list content 含 data:image base64 时,该 part 计 IMAGE_TOKEN_PLACEHOLDER(1200)。"""
+    from app.core.context_compaction import IMAGE_TOKEN_PLACEHOLDER
+
+    msgs = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "看这张图"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "data:image/png;base64,iVBORw0KGgo="},
+                },
+            ],
+        }
+    ]
+    n = estimate_messages_tokens(msgs)
+    # text part: estimate_tokens("看这张图") + 4
+    # image part: 4(part 开销) + IMAGE_TOKEN_PLACEHOLDER(base64 不做 BPE)
+    expected = estimate_tokens("看这张图") + 4 + 4 + IMAGE_TOKEN_PLACEHOLDER
+    assert n == expected
+
+
 def test_estimate_messages_tokens_missing_content():
     """缺 content 字段当空字符串处理。"""
     msgs = [{"role": "system"}]
