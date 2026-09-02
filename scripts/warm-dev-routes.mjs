@@ -86,10 +86,12 @@ async function waitUntilUp() {
   const deadline = Date.now() + waitSec * 1000
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(base, { redirect: 'manual' })
+      // 单次探测 8s 超时:dev server 重负载期(Turbopack 缓存压缩/大页编译)可能
+      // 接受连接但长时间不响应,无超时会挂死整个轮询循环(2026-09-02 实测踩坑)
+      const res = await fetch(base, { redirect: 'manual', signal: AbortSignal.timeout(8000) })
       if (res.status < 600) return true
     } catch {
-      /* 未就绪,继续等 */
+      /* 未就绪/超时,继续等 */
     }
     await new Promise((r) => setTimeout(r, 2000))
   }
@@ -107,13 +109,17 @@ for (const route of ROUTES) {
   const t0 = Date.now()
   let ms, status
   try {
-    const res = await fetch(base + route, { headers: { 'user-agent': 'ihui-warm-dev-routes' } })
+    // 单路由 90s 超时:个别路由冷编译超长时跳过而非挂死整个预热队列
+    const res = await fetch(base + route, {
+      headers: { 'user-agent': 'ihui-warm-dev-routes' },
+      signal: AbortSignal.timeout(90000),
+    })
     await res.arrayBuffer() // 必须读完 body,RSC 渲染才真正完成
     ms = Date.now() - t0
     status = res.status
   } catch (e) {
     ms = Date.now() - t0
-    status = `ERR:${e.message.slice(0, 40)}`
+    status = e.name === 'TimeoutError' ? 'TIMEOUT' : `ERR:${e.message.slice(0, 40)}`
   }
   results.push({ route, ms, status })
   log(`${String(ms).padStart(6)}ms  ${status}  ${route}`)
