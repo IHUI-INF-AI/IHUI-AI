@@ -127,6 +127,26 @@ export default function SsoLoginPage() {
     )
   }
 
+  // 2026-09-02 修复"登录弹窗按钮点不了":已登录用户访问本页时,useAuthBootstrap
+  // 异步恢复 token 前会先渲染未登录表单,恢复完成后表单被"已登录"卡片中途替换
+  // (点击竞态:点 tab 实际命中替换后的授权按钮 → 意外跳转,感知为按钮全部失灵)。
+  // bootstrap 就绪前渲染 loading 骨架,杜绝表单闪现与点击错位。
+  if (!ready) {
+    return (
+      <AuthShellPage onClose={handleClose}>
+        <AuthShell
+          title={tSso('title')}
+          subtitle={tSso('subtitle', { clientId })}
+          onClose={handleClose}
+        >
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </AuthShell>
+      </AuthShellPage>
+    )
+  }
+
   // 未登录分支:根据 mode 切换 login/register/forgot(复用主站 LoginFormContent 等)
   const title =
     mode === 'login'
