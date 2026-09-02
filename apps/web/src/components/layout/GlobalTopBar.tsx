@@ -511,7 +511,11 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
           移动端总高 44px = 4(pt-1) + 36(h-9) + 4(pb-1),更紧凑(2026-08-01 移动端适配)。
           垂直间距统一归 GlobalTopBar 管理(MainShell 注释契约:顶部间距由 GlobalTopBar 提供)。 */}
       <div
-        className="pt-1 pb-1 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-default"
+        // 2026-09-02 修复:补 pr-2,使右上角窗口控制(关闭)按钮右缘与下方工作展示区卡片右缘对齐
+        // (MainShell 工作卡片外层 pr-2 = 8px 缓冲;此前顶栏缺水平 padding 导致关闭按钮贴边凸出 8px)。
+        // 仅补右侧,左侧不动:桌面端 --topbar-content-left=0、移动端动态测量 46px,顶栏搜索按钮与工作卡片
+        // 左缘已自洽对齐,加 pl 反而会破坏左侧对齐。
+        className="pt-1 pb-1 pr-2 min-[1024px]:pt-2 min-[1024px]:pb-1.5 shrink-0 select-none cursor-default"
         onMouseDown={handleDragRegionMouseDown}
         onMouseUp={cancelDragTimer}
         onMouseLeave={cancelDragTimer}
