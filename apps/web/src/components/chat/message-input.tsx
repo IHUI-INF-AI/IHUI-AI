@@ -683,32 +683,34 @@ export function MessageInput({
               </SlashCommandPalette>
               {/* @ 独立按钮:点击在 textarea 末尾插入 @ 字符并触发 FileMentionPopover */}
               <Tooltip content={tA11y('mentionFile')}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isStreaming) return
-                    const next = (
-                      value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
-                    ).slice(0, MAX_LENGTH)
-                    setValue(next)
-                    setMentionOpen(true)
-                    requestAnimationFrame(() => {
-                      inputCoreRef.current?.focus()
-                      const pos = next.length
-                      inputCoreRef.current?.setSelectionRange(pos, pos)
-                      inputCoreRef.current?.resize()
-                    })
-                  }}
-                  disabled={isStreaming}
-                  aria-label={tA11y('mentionFile')}
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                    'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                    'disabled:cursor-not-allowed disabled:opacity-50',
-                  )}
-                >
-                  <AtSign className="h-4 w-4" />
-                </button>
+                <span className="inline-flex">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isStreaming) return
+                      const next = (
+                        value.endsWith(' ') || value === '' ? `${value}@` : `${value} @`
+                      ).slice(0, MAX_LENGTH)
+                      setValue(next)
+                      setMentionOpen(true)
+                      requestAnimationFrame(() => {
+                        inputCoreRef.current?.focus()
+                        const pos = next.length
+                        inputCoreRef.current?.setSelectionRange(pos, pos)
+                        inputCoreRef.current?.resize()
+                      })
+                    }}
+                    disabled={isStreaming}
+                    aria-label={tA11y('mentionFile')}
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                    )}
+                  >
+                    <AtSign className="h-4 w-4" />
+                  </button>
+                </span>
               </Tooltip>
               <input
                 ref={fileInputRef}
@@ -726,26 +728,28 @@ export function MessageInput({
                 <Tooltip
                   content={compacting ? t('compaction.compacting') : t('compaction.compactButton')}
                 >
-                  <button
-                    type="button"
-                    onClick={handleCompact}
-                    data-testid="compact-context-button"
-                    disabled={compacting || isStreaming || !conversationId}
-                    aria-label={
-                      compacting ? t('compaction.compacting') : t('compaction.compactButton')
-                    }
-                    className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                      'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                      'disabled:cursor-not-allowed disabled:opacity-50',
-                    )}
-                  >
-                    {compacting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Scissors className="h-4 w-4" />
-                    )}
-                  </button>
+                  <span className="inline-flex">
+                    <button
+                      type="button"
+                      onClick={handleCompact}
+                      data-testid="compact-context-button"
+                      disabled={compacting || isStreaming || !conversationId}
+                      aria-label={
+                        compacting ? t('compaction.compacting') : t('compaction.compactButton')
+                      }
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
+                        'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                        'disabled:cursor-not-allowed disabled:opacity-50',
+                      )}
+                    >
+                      {compacting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Scissors className="h-4 w-4" />
+                      )}
+                    </button>
+                  </span>
                 </Tooltip>
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
@@ -772,20 +776,22 @@ export function MessageInput({
                   </Tooltip>
                 ) : (
                   <Tooltip content={sendLabel ?? t('send')}>
-                    <button
-                      type="button"
-                      onClick={submit}
-                      disabled={!canSend}
-                      className={cn(
-                        'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
-                        canSend
-                          ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                          : 'cursor-not-allowed bg-muted text-muted-foreground/50',
-                      )}
-                      aria-label={sendLabel ?? t('send')}
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                    </button>
+                    <span className="inline-flex">
+                      <button
+                        type="button"
+                        onClick={submit}
+                        disabled={!canSend}
+                        className={cn(
+                          'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
+                          canSend
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : 'cursor-not-allowed bg-muted text-muted-foreground/50',
+                        )}
+                        aria-label={sendLabel ?? t('send')}
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
                   </Tooltip>
                 )}
                 {/* 流式生成指示已移除(2026-08-01 立,用户规则):
