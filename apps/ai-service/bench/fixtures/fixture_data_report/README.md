@@ -1,0 +1,10 @@
+# fixture_data_report
+
+数据汇总模块(确定性,无网络),含**跨 2 文件的重复逻辑**与 2 个确定性 bug,
+供重构 / 多文件 / 修复类任务使用。
+
+- `report.py`:`generate_report` 汇总 + `format_currency` 格式化(含 off-by bug)。
+- `aggregate.py`:`summarize` 汇总,**重复实现了 `format_currency`**。
+- `avg_amount` 函数除以 `1`(应为 `len(rows)`),是修复类任务的 bug。
+
+`tests/test_report.py` 基于**行为**断言,重构后仍应全部通过。

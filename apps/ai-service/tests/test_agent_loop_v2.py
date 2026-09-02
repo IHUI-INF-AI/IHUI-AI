@@ -922,4 +922,144 @@ async def test_metrics_recorded_for_run_and_error(monkeypatch):
         _get("ihui_agent_loop_errors_total", {"error_type": "connection"})
         == base_errs_conn + 1
     )
+
+
+# =============================================================================
+# W1(2026-09):v2 特性闭环补齐(用户画像注入 + 完成后出口 GraphRAG/consolidate/Skill)
+# 对照 v1 agent_loop.py 移植到 v2.run() 完成路径,全部 fire-and-forget + 降级不阻塞
+# =============================================================================
+
+
+async def test_user_profile_injected_into_system_on_run(monkeypatch):
+    """W1:user_id + enable_memory 时,run() 入口把 user_profile snippet 注入 system prompt。
+
+    复用 v1 AgentExecutor 的 _resolve_user_id/_build_profile_snippet 实现,
+    v2 不应重复实现;断言 LLM 第一轮即可见注入的画像 snippet。
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    monkeypatch.setattr(
+        "app.services.user_profile.user_profile_builder.build_system_prompt_snippet",
+        lambda uid: f"## 用户画像\n- 用户 {uid} 偏好简洁回复",
+    )
+    mem_svc = MagicMock()
+    mem_svc.save_insights_from_conversation = AsyncMock(return_value={"status": "ok"})
+    mem_svc.load_context_for_conversation = AsyncMock(return_value="")
+
+    async def ok_llm(messages, tools):
+        sys_msgs = [m for m in messages if isinstance(m, dict) and m.get("role") == "system"]
+        assert sys_msgs, "应存在 system prompt"
+        assert "用户画像" in sys_msgs[0]["content"], "system prompt 应含用户画像 snippet"
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        ok_llm,
+        [],
+        max_iterations=3,
+        user_id="u-profile",
+        enable_memory=True,
+        memory_svc=mem_svc,
+    )
+    result = await loop.run(_default_messages())
+    assert result.success is True
+    assert result.stop_reason == "completed"
+
+
+async def test_user_profile_skipped_without_user_id(monkeypatch):
+    """W1:无 user_id 时,run() 不注入用户画像(与 v1 行为一致,debug 跳过)。"""
+    from unittest.mock import AsyncMock, MagicMock
+
+    profile_mock = MagicMock(return_value="## 用户画像\n- 隐私偏好")
+    monkeypatch.setattr(
+        "app.services.user_profile.user_profile_builder.build_system_prompt_snippet",
+        profile_mock,
+    )
+    mem_svc = MagicMock()
+    mem_svc.save_insights_from_conversation = AsyncMock(return_value={"status": "ok"})
+    mem_svc.load_context_for_conversation = AsyncMock(return_value="")
+
+    async def ok_llm(messages, tools):
+        sys_msgs = [m for m in messages if isinstance(m, dict) and m.get("role") == "system"]
+        assert sys_msgs
+        assert "用户画像" not in sys_msgs[0]["content"]
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(ok_llm, [], max_iterations=3, enable_memory=True, memory_svc=mem_svc)
+    result = await loop.run(_default_messages())
+    assert result.success is True
+    profile_mock.assert_not_called()
+
+
+async def test_post_success_closures_fired_graph_consolidate_skill(monkeypatch):
+    """W1:run() 成功后触发 GraphRAG 抽取 + memory consolidate + Skill 自进化评估。
+
+    用注入的 mock memory_svc 隔离记忆闭环,全局 mock knowledge_graph / skills;
+    fire-and-forget 任务在 run() 返回后由事件循环驱动,await asyncio.sleep(0) 后断言调用发生。
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    mem_svc = MagicMock()
+    mem_svc.save_insights_from_conversation = AsyncMock(return_value={"status": "ok"})
+    mem_svc.consolidate = AsyncMock(return_value={"status": "ok"})
+
+    extract_mock = AsyncMock(return_value={"status": "ok"})
+    monkeypatch.setattr(
+        "app.services.knowledge_graph.knowledge_graph_service.extract", extract_mock
+    )
+    evaluate_mock = AsyncMock(return_value={"status": "ok", "evolved": False})
+    monkeypatch.setattr(
+        "app.services.skills.SkillEvolutionService.evaluate", evaluate_mock
+    )
+
+    async def ok_llm(messages, tools):
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(
+        ok_llm,
+        [],
+        max_iterations=3,
+        user_id="u-w1",
+        enable_memory=True,
+        memory_svc=mem_svc,
+    )
+    result = await loop.run(_default_messages())
+    assert result.success is True
+
+    # 让 fire-and-forget 闭环任务执行
+    await asyncio.sleep(0)
+
+    extract_mock.assert_called_once()
+    mem_svc.consolidate.assert_called_once()
+    evaluate_mock.assert_called_once()
+    # consolidate 传参校验:user_id 透传 + 最近 8 条消息
+    _, kwargs = mem_svc.consolidate.call_args
+    assert kwargs["user_id"] == "u-w1"
+    assert len(kwargs["messages"]) <= 8
+    # graph extract 截断 8000 且带 owner_uuid
+    _, gkwargs = extract_mock.call_args
+    assert gkwargs["owner_uuid"] == "u-w1"
+
+
+async def test_post_success_closures_skipped_without_user_id(monkeypatch):
+    """W1:无 user_id 时,run() 成功也不触发 GraphRAG/consolidate/Skill 闭环。"""
+    from unittest.mock import AsyncMock
+
+    extract_mock = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.knowledge_graph.knowledge_graph_service.extract", extract_mock
+    )
+    evaluate_mock = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.skills.SkillEvolutionService.evaluate", evaluate_mock
+    )
+
+    async def ok_llm(messages, tools):
+        return {"content": "完成", "tool_calls": None}
+
+    loop = AgentLoopV2(ok_llm, [], max_iterations=3)  # 无 user_id → _enable_memory False
+    result = await loop.run(_default_messages())
+    assert result.success is True
+    await asyncio.sleep(0)
+    extract_mock.assert_not_called()
+    evaluate_mock.assert_not_called()
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
