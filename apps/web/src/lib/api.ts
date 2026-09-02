@@ -13,6 +13,7 @@ import type { ApiResult } from '@ihui/types'
 import { useAuthStore } from '@/stores/auth'
 import { openLoginDialogOnce } from '@/lib/login-dialog-trigger'
 import { getAuthCookie } from '@/lib/cookie-utils'
+import { getDesktopRefreshToken, setDesktopRefreshToken } from '@/lib/desktop-token-vault'
 import { webDeviceFingerprintCollector } from '@/hooks/use-device-fingerprint'
 
 // 2026-07-25 修复 CSRF:内存 token 为 null 时从 auth_token cookie 兜底读取。
@@ -25,16 +26,25 @@ setTokenProvider({
   // 此回调,用 httpOnly refresh_token cookie(30 天)静默换取新 access token。
   // 走 fetchApi 自身(经 isAuthEndpoint 判断 /auth/refresh 不递归续期)。
   // 刷新失败(401,refresh token 也失效)→ 返回 null → 调用方按登录过期处理。
+  // 2026-09-02 桌面端 SaaS 化:跨站(tauri.localhost → aizhs.top)请求不带 SameSite=Lax
+  // cookie,改从 Tauri store(auth.json)读 refreshToken 走 body 模式(后端 /auth/refresh
+  // bodyToken 优先于 cookieToken);轮转写入由 stores/auth.ts setToken 统一落 vault。
   refreshAccessToken: async () => {
+    const storedRefresh = await getDesktopRefreshToken() // 浏览器返回 null → cookie 模式不变
     const res = await fetchApiShared<{
       accessToken: string
       refreshToken?: string | null
-    }>('/auth/refresh', { method: 'POST', body: JSON.stringify({}) })
+    }>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify(storedRefresh ? { refreshToken: storedRefresh } : {}),
+    })
     if (res.success && res.data?.accessToken) {
-      // 更新内存 token;refreshToken 由后端 httpOnly cookie 轮转,前端不落地
+      // 更新内存 token;新 refreshToken 由 setToken 写回 vault(桌面)或仅内存(浏览器 cookie 轮转)
       useAuthStore.getState().setToken(res.data.accessToken, res.data.refreshToken ?? null)
       return res.data.accessToken
     }
+    // 刷新失败 = refreshToken 已失效:清空桌面 vault,避免每次启动重复失败空转
+    if (storedRefresh) await setDesktopRefreshToken(null)
     return null
   },
 })
