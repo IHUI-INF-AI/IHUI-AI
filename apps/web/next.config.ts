@@ -173,9 +173,12 @@ const nextConfig: NextConfig = {
     // 更保守,降低并发 worker 叠加的提交量峰值。
     memoryBasedWorkersCount: true,
     // 2026-08-05 客户端路由缓存:staleTimes 让 Next.js 16 的客户端导航缓存 RSC 数据,
-    // 避免同一页面在导航中反复重新请求。dynamic=30s,static=5min 提供即时返回体验。
+    // 避免同一页面在导航中反复重新请求。dynamic 30→120s(2026-09-02 页面切换提速·第二刀):
+    // dev 实测每次导航都是服务端往返(Next 16 cache-bypass-in-dev,无客户端缓存),
+    // 生产模式预取+导航缓存是切换即时的核心;dynamic 120s 让预取/访问过的页面在 2 分钟内
+    // 往返切换全部命中客户端缓存(动态数据由 Next 后台重验证,最多 2 分钟陈旧,工作台可接受)。
     staleTimes: {
-      dynamic: 30,
+      dynamic: 120,
       static: 300,
     },
     // 2026-08-05 00:15 生产构建排障(P0 项,官方 memory-usage 文档):
