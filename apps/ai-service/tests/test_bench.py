@@ -16,8 +16,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 
 def _run_bench(args: list[str]) -> subprocess.CompletedProcess:
     """以子进程运行 bench,继承当前 python 解释器与 cwd。"""
@@ -74,3 +72,23 @@ def test_bench_smoke_stub() -> None:
                 assert "pass" in c
 
         # 明确不断言 pass_rate(本测试只验证链路与结构)
+
+
+def test_bench_tasks_structural_validity() -> None:
+    """全部 20 个任务定义结构健全(2026-09-03 立)。
+
+    只做结构校验(不跑 pytest 子进程):fixture 存在、checker 类型受支持、
+    参数齐全、每任务至少 1 个 check。完整初始态 FAIL 断言由
+    `python bench/validate_bench.py` 独立执行(含 14 个 pytest 子进程,
+    不入单测,避免拖慢 CI)。
+    """
+    from bench.run_bench import TASKS_FILE, _load_tasks
+    from bench.validate_bench import validate_tasks
+
+    tasks = _load_tasks(TASKS_FILE)
+    assert len(tasks) >= 20, f"任务数萎缩: {len(tasks)}"
+    findings = validate_tasks(tasks, include_initial_state=False)
+    invalid = [f for f in findings if not f["valid"]]
+    assert invalid == [], f"{len(invalid)} 个任务结构无效: {invalid}"
+    # 全量 20 任务全绿(结构层)
+    assert len(findings) == len(tasks)
