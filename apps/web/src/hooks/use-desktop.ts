@@ -15,6 +15,8 @@ import {
   isAutostartEnabled,
   enableAutostart,
   disableAutostart,
+  isTrayAlwaysVisible,
+  setTrayAlwaysVisible,
   resetWindowState,
   sendDesktopNotification,
   getSystemTheme,
@@ -48,6 +50,7 @@ export function useDesktop() {
   const [appInfo, setAppInfo] = React.useState<DesktopAppInfo | null>(null)
   const [isMaximized, setIsMaximized] = React.useState(false)
   const [autostartEnabled, setAutostartEnabled] = React.useState(false)
+  const [trayAlwaysVisible, setTrayAlwaysVisibleState] = React.useState(true)
   const [loading, setLoading] = React.useState(true)
 
   // 初始化:挂载后探测 Tauri(避免 hydration mismatch)
