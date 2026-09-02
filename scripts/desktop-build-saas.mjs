@@ -25,11 +25,15 @@ const apiBase = (process.env.NEXT_PUBLIC_API_BASE_URL || 'https://aizhs.top').re
 
 process.env.NEXT_PUBLIC_API_BASE_URL = apiBase
 process.env.NEXT_PUBLIC_STREAM_API_BASE_URL = process.env.NEXT_PUBLIC_STREAM_API_BASE_URL || apiBase
+// WS 默认走 api 子域:主域 aizhs.top 对 /cozeZhsApi/*、/v1/ai/capabilities/* 的 WebSocket
+// 升级失败(000),api.aizhs.top 全路径 101(见 apps/web/src/lib/ws-url.ts 注释)。
+process.env.NEXT_PUBLIC_WS_BASE_URL = process.env.NEXT_PUBLIC_WS_BASE_URL || 'https://api.aizhs.top'
 process.env.NEXT_PUBLIC_AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || apiBase
 
 console.log('[desktop-build-saas] 烘焙线上后端地址:')
 console.log(`  NEXT_PUBLIC_API_BASE_URL       = ${process.env.NEXT_PUBLIC_API_BASE_URL}`)
 console.log(`  NEXT_PUBLIC_STREAM_API_BASE_URL = ${process.env.NEXT_PUBLIC_STREAM_API_BASE_URL}`)
+console.log(`  NEXT_PUBLIC_WS_BASE_URL         = ${process.env.NEXT_PUBLIC_WS_BASE_URL}`)
 console.log(`  NEXT_PUBLIC_AI_SERVICE_URL      = ${process.env.NEXT_PUBLIC_AI_SERVICE_URL}`)
 
 // 走与 pnpm 脚本相同的执行器:pnpm 运行时 npm_execpath 指向 pnpm 本体(node 直跑),
