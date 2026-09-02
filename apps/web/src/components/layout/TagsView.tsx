@@ -244,6 +244,10 @@ export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
         aria-label={tNav('search')}
         aria-haspopup="dialog"
         aria-expanded={open}
+        // 2026-09-02 治理:自写 popover(非 Radix)trigger 加 data-state,
+        // 让 globals.css:1090 `button[data-state='closed']:focus-visible { box-shadow: none }`
+        // 抑制关闭后焦点环常驻。详见 scripts/check-popover-trigger-data-state.mjs。
+        data-state={open ? 'open' : 'closed'}
         onClick={() => setOpen((o) => !o)}
         // 2026-07-30 第九轮"做减法 v5 根治"(用户反馈"搜索按钮容器不是正方形,没贴最左侧"):
         // - 加 w-9(36px):搜索按钮 36x36 正方形(配合父 h-full=36px 形成完美正方形)
