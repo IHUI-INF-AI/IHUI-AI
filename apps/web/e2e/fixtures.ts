@@ -507,7 +507,18 @@ const test = base.extend<{ authenticatedPage: Page; adminPage: Page }>({
 export const setupTest = test
 // 2026-08-26:同时导出 test 本身,spec 可 import { test } from './fixtures'
 // 直接使用 authenticatedPage / adminPage 扩展 fixture(如 chat-mode-badge 迁移)。
-export { test }
+export { test, expect }
+
+/**
+ * 等待认证页面 bootstrap 完成（loading spinner 消失）。
+ * 用于 /login、/register、/sso/login 等认证页面加载后等待初始化完成。
+ */
+async function waitForAuthBootstrap(page: Page) {
+  const spinner = page.locator(
+    '[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin',
+  )
+  await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
+}
 
 // 导出登录辅助函数与路径
 export {
@@ -518,8 +529,6 @@ export {
   ADMIN_USER,
   USER_STORAGE_STATE,
   ADMIN_STORAGE_STATE,
+  waitForAuthBootstrap,
 }
-
-// 重新导出 expect 方便使用
-export { expect }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
