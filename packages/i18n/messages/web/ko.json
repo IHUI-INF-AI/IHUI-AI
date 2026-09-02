@@ -6941,7 +6941,8 @@
     },
     "today": "오늘",
     "openWorkPanel": "작업 패널 열기",
-    "closeWorkPanel": "작업 패널 닫기"
+    "closeWorkPanel": "작업 패널 닫기",
+    "toggleWorkPanel": "작업 패널 전환"
   },
   "aiCost": {
     "budgetAlerts": "예산 경고",
