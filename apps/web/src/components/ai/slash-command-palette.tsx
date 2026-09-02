@@ -590,6 +590,7 @@ export function SlashCommandPalette({
   )
 
   const child = children as React.ReactElement<React.ButtonHTMLAttributes<HTMLButtonElement>>
+  const existingDataState = (child.props as Record<string, unknown>)['data-state']
   const trigger = React.cloneElement(child, {
     ref: triggerRef,
     onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -598,6 +599,10 @@ export function SlashCommandPalette({
     },
     'aria-haspopup': 'dialog',
     'aria-expanded': open,
+    // 2026-09-02 治理:自写 popover trigger 自动注入 data-state,让 globals.css:1090
+    // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+    // 保留 children 已有的 data-state(允许调用方显式覆盖)。
+    'data-state': existingDataState ?? (open ? 'open' : 'closed'),
   } as React.HTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> })
 
   const panelStyle: React.CSSProperties = coords
