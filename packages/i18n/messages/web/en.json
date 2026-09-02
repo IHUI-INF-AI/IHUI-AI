@@ -8255,7 +8255,7 @@
       "shortcutsSectionChatMode": "Chat Mode Switch",
       "shortcutsSectionGuard": "High-risk guardrails",
       "shortcutsSectionSwitch": "Mode switching",
-      "infoModalTitle": "Permission mode info",
+      "infoModalTitle": "Permission mode details",
       "infoModalDesc": "You are in a high-risk mode. Please understand the following behaviors:",
       "infoModalBullet1": "AI can perform any action without confirmation",
       "infoModalBullet2": "Can read, modify, or delete any file in the workspace",
@@ -8309,8 +8309,7 @@
       "tplTranslate": "Translate",
       "tplTranslateContent": "Please translate the following content into English",
       "undo": "Undo",
-      "usageHint": "Usage: /permission ask | auto | full",
-      "infoModalTitle": "Permission mode details"
+      "usageHint": "Usage: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "Already in {mode} mode",
     "permissionLabelAsk": "Ask for approval",
@@ -8750,32 +8749,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -10578,25 +10603,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10730,19 +10767,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -13219,7 +13268,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -15507,6 +15564,7 @@
   "publish": {
     "accounts": {
       "add": "Add Account",
+      "advancedAdd": "Advanced Add (Developer)",
       "batchImport": "Batch Import",
       "batchVerify": "Batch Verify",
       "cancelScan": "Cancel scan",
@@ -15516,13 +15574,16 @@
       "delete": "Delete",
       "deleteConfirm": "Are you sure you want to delete this account?",
       "edit": "Edit",
-      "externalBrowserHint": "Log in with your system browser (for SMS/password login); after logging in, copy the site Cookie and paste it into the account form to save",
+      "externalBrowserHint": "Log in with your system browser; account will be saved automatically after login",
       "lastVerified": "Last Verified",
       "minimize": "Minimize (keep waiting in background)",
       "nickname": "Nickname",
       "noAccounts": "No accounts yet, please add one first",
       "openExternalBrowser": "Open in external browser",
+      "openExternalBrowserSuccess": "Chrome opened; account will be saved after login",
       "orDivider": "or",
+      "passwordPlaceholder": "Enter password",
+      "passwordHint": "Normal users should use scan login. This field is for developers only.",
       "platform": "Platform",
       "scan": "Scan",
       "scanLogin": "Scan Login",
@@ -15547,7 +15608,9 @@
       "verify": "Test Connection",
       "verifyFailed": "Connection Failed",
       "verifySuccess": "Connection Successful",
-      "waitingForScan": "Waiting for {platform} app to scan..."
+      "waitingForScan": "Waiting for {platform} app to scan...",
+      "openExternalBrowserWithPlatform": "Opened {name} login page in the built-in browser on the right, please scan to log in",
+      "webFallbackHint": "Currently in web mode, please log in and paste Cookie to save manually"
     },
     "ai": {
       "analyzeAll": "Batch Analysis",
@@ -20196,5 +20259,45 @@
     "autoMemoryDesc": "When enabled, the AI automatically distills key points from conversations into long-term memory for personalized replies.",
     "autoMemorySaveSuccess": "Settings saved",
     "autoMemorySaveFailed": "Failed to save, please retry"
+  },
+  "agentPlan": {
+    "title": "Agent Plan Mode",
+    "description": "Let the AI draft an editable execution plan first; review and confirm before any action runs (read-only phase).",
+    "goalLabel": "Goal / Task description",
+    "goalPlaceholder": "Describe the task you want the AI to accomplish, e.g. write unit tests for the login module",
+    "sessionLabel": "Session ID (optional)",
+    "sessionPlaceholder": "Link to an existing session; leave empty to start new",
+    "modelLabel": "Model (optional)",
+    "modelPlaceholder": "Leave empty to use the default model",
+    "generate": "Generate Plan",
+    "generating": "Generating…",
+    "planTitle": "Execution Plan",
+    "edit": "Edit",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "editHint": "You can edit the plan directly. After approval, the edited version is used.",
+    "readonlyTools": "Read-only tools",
+    "approve": "Approve & Execute",
+    "reject": "Reject",
+    "executing": "Executing, please wait… (may take several minutes)",
+    "decisionError": "Action failed",
+    "resultTitle": "Execution Result",
+    "planId": "Plan ID",
+    "finalResponse": "Final response",
+    "stopReason": "Stop reason",
+    "iterations": "Iterations",
+    "error": "Error",
+    "reset": "Start over",
+    "rejectedTitle": "Rejected",
+    "rejectedDesc": "You rejected this plan; no actions were executed.",
+    "statusDraft": "Draft",
+    "statusApproved": "Approved",
+    "statusRejected": "Rejected",
+    "statusExecuting": "Executing",
+    "statusDone": "Done",
+    "statusFailed": "Failed",
+    "notFound": "Plan not found or expired",
+    "conflict": "This action is not allowed in the current plan status",
+    "generic": "Request failed, please try again later"
   }
 }
