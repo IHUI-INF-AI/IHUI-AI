@@ -15490,7 +15490,7 @@
       "delete": "刪除",
       "deleteConfirm": "確定刪除此賬號嗎?",
       "edit": "編輯",
-      "externalBrowserHint": "用系統瀏覽器登入(適合驗證碼/密碼登入);登入後複製該網站 Cookie 貼到帳號表單儲存",
+      "externalBrowserHint": "用系統 Chrome 開啟登入頁,登入成功後自動儲存帳號,無需手動複製 Cookie",
       "lastVerified": "最近驗證",
       "minimize": "最小化(後臺繼續等待)",
       "nickname": "暱稱",

@@ -158,6 +158,34 @@ def _find_chromium_executable() -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# 外部 Chrome 查找(2026-09-02 新增,与 desktop 端 lib.rs open_in_chrome 同路径候选)
+# ---------------------------------------------------------------------------
+def _find_system_chrome() -> str | None:
+    """查找系统安装的 Google Chrome。找不到返回 None。"""
+    import os
+    from pathlib import Path
+
+    candidates = []
+    local = os.environ.get("LOCALAPPDATA")
+    if local:
+        candidates.append(Path(local) / "Google" / "Chrome" / "Application" / "chrome.exe")
+    pf = os.environ.get("PROGRAMFILES")
+    if pf:
+        candidates.append(Path(pf) / "Google" / "Chrome" / "Application" / "chrome.exe")
+    pf86 = os.environ.get("PROGRAMFILES(X86)")
+    if pf86:
+        candidates.append(Path(pf86) / "Google" / "Chrome" / "Application" / "chrome.exe")
+    candidates += [
+        Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+        Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 键名 → Windows Virtual Key Code 映射(常用键)
 # ---------------------------------------------------------------------------
 def _key_to_vk_code(key: str) -> int:
@@ -533,6 +561,8 @@ class BrowserHub:
         self._main_loop: asyncio.AbstractEventLoop | None = None
         # URL → (session_id, timestamp) 幂等去重表,防止前端重复请求创建多个会话
         self._recent_creations: dict[str, tuple[str, float]] = {}
+        # 外部 Chrome 扫码会话:session_id → (subprocess, connected Browser, 临时 profile 目录)
+        self._external_procs: dict[str, tuple[Any, Any, str]] = {}
 
     async def start(self) -> None:
         """启动 Chromium 实例(应用启动时调用)。"""
@@ -725,6 +755,78 @@ class BrowserHub:
     def get_session(self, session_id: str) -> BrowserSession | None:
         return self._sessions.get(session_id)
 
+    # ---- 外部 Chrome 扫码登录(2026-09-02 新增)----
+    async def launch_external_chrome(self, url: str) -> BrowserSession:
+        """用系统 Chrome 以 --app 模式打开 URL,并通过 CDP 附着,注册为 hub session。
+
+        - 必须用独立临时 --user-data-dir:① 避免与用户日常 Chrome 实例冲突
+          (同 profile 时 Chrome 只会往已有实例开新窗口,调试端口不生效);
+          ② Chrome 136+ 禁止在默认 profile 上开 --remote-debugging-port。
+        - 登录完成后 close_session 会终止该 Chrome 进程 + 清理临时 profile。
+        """
+        import socket
+        import subprocess
+        import tempfile
+
+        chrome_path = _find_system_chrome()
+        if not chrome_path:
+            raise RuntimeError("未找到 Google Chrome,请先安装 Chrome 浏览器")
+
+        # 挑空闲端口
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+
+        profile_dir = tempfile.mkdtemp(prefix="ihui-chrome-scan-")
+        if not self._started or not self._playwright:
+            await self.start()
+        assert self._main_loop is not None
+        self._main_loop = asyncio.get_running_loop()
+
+        def _sync_launch() -> tuple[subprocess.Popen, Any, BrowserContext, Page]:
+            proc = subprocess.Popen([
+                chrome_path,
+                f"--app={url}",
+                "--new-window",
+                f"--remote-debugging-port={port}",
+                f"--user-data-dir={profile_dir}",
+                "--no-first-run",
+                "--no-default-browser-check",
+            ])
+            # 等待 CDP 端口就绪(Chrome 启动需要一点时间)
+            browser = None
+            last_err: Exception | None = None
+            for _ in range(30):
+                try:
+                    browser = self._playwright.chromium.connect_over_cdp(
+                        f"http://127.0.0.1:{port}", timeout=2000
+                    )
+                    break
+                except Exception as e:  # noqa: PERF203
+                    last_err = e
+                    import time as _time
+                    _time.sleep(1.0)
+            if browser is None:
+                proc.terminate()
+                raise RuntimeError(f"连接外部 Chrome CDP 失败: {last_err}")
+            context = browser.contexts[0] if browser.contexts else browser.new_context()
+            page = context.pages[0] if context.pages else context.new_page()
+            return proc, browser, context, page
+
+        proc, ext_browser, context, page = await self._main_loop.run_in_executor(
+            self._executor, _sync_launch
+        )
+        session_id = str(uuid.uuid4())
+        ua = (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        session = BrowserSession(session_id, context, page, self._executor, self._main_loop, ua)
+        self._sessions[session_id] = session
+        self._external_procs[session_id] = (proc, ext_browser, profile_dir)
+        logger.info(f"[browser_hub] 外部 Chrome session {session_id} 已附着 (url={url}, port={port})")
+        return session
+
     def list_sessions(self) -> list[str]:
         return list(self._sessions.keys())
 
@@ -743,6 +845,29 @@ class BrowserHub:
         for u in stale_urls:
             self._recent_creations.pop(u, None)
         await session.close()
+        # 外部 Chrome 扫码会话:终止 Chrome 进程 + 清理临时 profile
+        ext = self._external_procs.pop(session_id, None)
+        if ext:
+            proc, ext_browser, profile_dir = ext
+
+            def _sync_cleanup_external() -> None:
+                try:
+                    ext_browser.close()  # connect_over_cdp 只断开连接,不杀浏览器
+                except Exception:
+                    pass
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+                try:
+                    import shutil
+                    shutil.rmtree(profile_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+            if self._main_loop:
+                await self._main_loop.run_in_executor(self._executor, _sync_cleanup_external)
+            logger.info(f"[browser_hub] 外部 Chrome session {session_id} 已关闭并清理")
         logger.info(f"[browser_hub] 关闭 session {session_id}")
         return True
 
