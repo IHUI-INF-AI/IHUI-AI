@@ -248,7 +248,8 @@
     "webPortal": "网页版",
     "webPortalCenter": "Web 功能门户",
     "knowledgeRag": "RAG 知识库",
-    "subagents": "子智能体"
+    "subagents": "子智能体",
+    "chatTools": "AI 对话 / 工具"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -2086,6 +2087,11 @@
   "webView": {
     "loadFailed": "页面加载失败",
     "retry": "重试"
+  },
+  "webChat": {
+    "title": "AI 对话 / 工具",
+    "loginRequired": "登录后即可使用 AI 对话与全部工具(MCP 商店、连接器、技能面板等)",
+    "loginButton": "去登录"
   },
   "webViewPortal": {
     "title": "Web 功能门户",
