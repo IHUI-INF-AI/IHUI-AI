@@ -682,6 +682,14 @@ def create_app() -> FastAPI:
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
 
+    # P0-2 Checkpoint/Rewind 撤销端点族(对标 Claude Code /rewind,端点 /api/checkpoints*)
+    from app.routers import checkpoint_rewind as checkpoint_rewind_router
+    app.include_router(checkpoint_rewind_router.router, prefix="/api", tags=["checkpoints"])
+
+    # P0-4 Deep Research 深度研究端点族(对标 Deep Research,端点 /api/research*)
+    from app.routers import research as research_router
+    app.include_router(research_router.router, prefix="/api", tags=["research"])
+
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
     # 普通登录用户无权读取。

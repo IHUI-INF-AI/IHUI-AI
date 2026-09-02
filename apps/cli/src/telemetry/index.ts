@@ -27,7 +27,10 @@ export type TelemetryEventType =
   | 'session_end'
   | 'tool_call_completed'
   | 'prompt_completed'
-  | 'error_logged';
+  | 'error_logged'
+  | 'compaction_v2_success'
+  | 'compaction_v2_error'
+  | 'compaction_v2_fallback';
 
 /** Telemetry 事件 */
 export interface TelemetryEvent {
