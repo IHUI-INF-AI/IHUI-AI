@@ -23,6 +23,11 @@ test.describe('完整认证流程', () => {
     })
     await page.goto('/register')
     await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading spinner 消失)
+    const spinner = page.locator('[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin')
+    await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
+
     expect(
       serverErrors.filter(
         (e) =>
@@ -62,6 +67,10 @@ test.describe('完整认证流程', () => {
   test('登录页可访问且表单存在', async ({ page }) => {
     await page.goto('/login')
     await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading spinner 消失)
+    const spinner = page.locator('[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin')
+    await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
 
     // /login 会被中间件重定向到 /sso/login;SSO 登录页第一个 input 即可
     await expect(page).toHaveURL(/\/(sso\/)?login/)

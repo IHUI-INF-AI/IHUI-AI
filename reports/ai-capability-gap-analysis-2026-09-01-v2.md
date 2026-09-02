@@ -140,7 +140,8 @@
 - 2026-09-02 实测闭环：ai-service `computer_*` 10 工具 → `_make_agent_control_handler` → api `POST /execute`（8802）→ `category==='computer'` 路由 `endpoint='desktop'` → WS 推送 `agent.action` → 端执行 → `POST /result` 回传；免 GUI 端到端模拟 **8/8 PASS**。
 - 2026-09-02 收尾：一键复验脚本 `scripts/check-p2-3-acceptance.mjs`（commit `cbe2dd2f08`）——脚本模拟桌面端走 login → `/ws/ticket` → WS 连接 → capability 上报 → execute 推送 → result 回传全闭环，**实测 6/6 PASS**，并断言 wsToken 明文返回（脱敏修复生效）；回归一行命令即验。
 - 🐞 修复生产 bug（commit `1f460c8899`）：全局 `response-sanitizer` 把 `/ws/ticket` 返回的 `wsToken` 遮蔽为 `***`，换票恒失败、WS 被 4003 拒绝；端点级 `skipResponseSanitization` 修复，三仓已同步。
-- ⚠️ 真机验收仍待用户：加载 extension（`apps/extension/.output/chrome-mv3`）或 `pnpm --filter @ihui/desktop dev` 登录后，驱动真实 `computer_*`/`browser_*` 确认闭环（遵守本报告"不宣传未兑现"红线）。
+- ✅ 2026-09-02 真机终验完成（lead 亲执，非模拟）：真实 Edge Chromium 加载真实扩展产物（`apps/extension/.output/chrome-mv3`）→ 扩展 SW 真实注册 capability（**12 actions**）→ 页面环境持 wsToken 连 WS → execute 推送 → **SW bridge 真实执行 `chrome.tabs.switch_tab`**（返回真实 `{url:"about:blank",title:"about:blank",index:0}`）→ result 回传，**7/7 PASS**。复验脚本 `scripts/check-p2-3-extension-real.cjs`（自动解析 playwright + Edge 参数化，一键回归）。
+- 🐞 真机验收暴露真实产品缺陷（此前模拟脚本因无 Origin 而假绿）：`chrome-extension://<id>` 不在 api CORS/WS 白名单 → 扩展页面 HTTP 请求全被拒（SW 免 CORS 故上报能过，但 UI/WS 全断）、WS 恒 403（浏览器表现为 1006）。修复（commit `af830ad280`，三仓已同步）：`apps/api/src/server.ts` CORS origin 回调 + WS `verifyClient` 双处函数式放行 `chrome-extension://` 前缀（该 origin 是浏览器可信边界，仅真实安装的扩展页面能产生，任意恶意网页无法伪造）。修复后 Node 验收脚本 6/6 回归不破。
 
 **P2-4 【G12】8 端统一 Agent 能力矩阵** 【✅ 已落地】
 
@@ -155,7 +156,7 @@
 | -------------------- | ---- | --------------------------------------- | ---------------- | --------------------------------------- | -------------------- |
 | web                  | ✅   | ✅ 全量 48 工具                         | ✅               | —                                       | 主入口，能力最全     |
 | api                  | ✅   | ✅（服务端，供各端调用）                | ✅               | —                                       | 统一中台             |
-| extension（MV3）     | ✅   | ✅ browser 工具                         | ✅               | ✅ browser_*（待真机）                  | 已构建未部署，需加载 |
+| extension（MV3）     | ✅   | ✅ browser 工具                         | ✅               | ✅ browser_*（真机 7/7 PASS）          | 真机已加载验收通过  |
 | desktop（Tauri）     | ✅   | ✅ + 本地文件                           | ✅               | ✅ computer_*（Rust enigo/screenshots） | 真通待验收           |
 | mobile-rn            | ✅   | ✅（WebView 复用 web /chat，P2-4 新补） | ✅（WebView 内） | —                                       | 2026-09-02 补齐      |
 | miniapp-taro         | ✅   | —                                       | ✅               | —                                       | 聊天为主             |
