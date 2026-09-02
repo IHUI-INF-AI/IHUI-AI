@@ -4,17 +4,23 @@
 
 /**
  * compaction-cache 单元测试 — CLI 端 70% 预压缩摘要缓存。
- * 覆盖:命中/失效/prime 异常吞掉/FIFO 淘汰/cachedSummary 跳过 sampler。
+ * 覆盖:命中/失效/prime 异常吞掉/FIFO 淘汰/cachedSummary 跳过 sampler/磁盘持久化与跨会话恢复。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   primeCompactionSummary,
   getCachedCompactionSummary,
   writeCompactionSummaryCache,
+  getCompactionCacheKey,
   __clearCompactionCacheForTests,
 } from '../src/compaction-cache.js';
 import { compressContextV2, type CompactionSampler } from '../src/compaction-v2.js';
 import type { ChatMessage } from '../src/context.js';
+import { readFileSync, unlinkSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
+
+const DISK_CACHE_FILE = join(homedir(), '.ihui', 'compaction-cache.json');
 
 function buildMessages(count: number, chars = 600): ChatMessage[] {
   const messages: ChatMessage[] = [{ role: 'system', content: 'system prompt' }];
@@ -27,9 +33,17 @@ function buildMessages(count: number, chars = 600): ChatMessage[] {
 describe('compaction-cache(70% 预压缩缓存)', () => {
   beforeEach(() => {
     __clearCompactionCacheForTests();
+    // 清理磁盘缓存文件,确保测试隔离
+    if (existsSync(DISK_CACHE_FILE)) {
+      try { unlinkSync(DISK_CACHE_FILE); } catch { /* ignore */ }
+    }
   });
   afterEach(() => {
     vi.restoreAllMocks();
+    // 清理磁盘缓存文件
+    if (existsSync(DISK_CACHE_FILE)) {
+      try { unlinkSync(DISK_CACHE_FILE); } catch { /* ignore */ }
+    }
   });
 
   it('prime 后同消息查询命中同一摘要', async () => {
@@ -100,5 +114,30 @@ describe('compaction-cache(70% 预压缩缓存)', () => {
     );
     expect(summaryMsg).toBeDefined();
     expect(summaryMsg!.content).toContain('来自缓存的结构化摘要');
+  });
+
+  it('writeCache 后磁盘文件存在且内容正确', async () => {
+    const messages = buildMessages(12);
+    const key = getCompactionCacheKey(messages, 'sess-disk');
+    writeCompactionSummaryCache('sess-disk', messages, '磁盘持久化测试摘要');
+    // 等待异步写盘完成
+    await new Promise((r) => setTimeout(r, 50));
+    expect(existsSync(DISK_CACHE_FILE)).toBe(true);
+    const raw = readFileSync(DISK_CACHE_FILE, 'utf-8');
+    const data = JSON.parse(raw) as Record<string, string>;
+    expect(data[key]).toBe('磁盘持久化测试摘要');
+  });
+
+  it('进程重启后磁盘缓存恢复(跨会话命中)', async () => {
+    const messages = buildMessages(12);
+    const key = getCompactionCacheKey(messages, 'sess-reload');
+    writeCompactionSummaryCache('sess-reload', messages, '跨会话恢复摘要');
+    await new Promise((r) => setTimeout(r, 50));
+    // 模拟进程重启:清空内存缓存,重新加载磁盘
+    __clearCompactionCacheForTests();
+    // 重新导入模块触发 loadCacheFromDisk
+    vi.resetModules();
+    const { getCachedCompactionSummary: getAfterReload } = await import('../src/compaction-cache.js');
+    expect(getAfterReload('sess-reload', messages)).toBe('跨会话恢复摘要');
   });
 });
