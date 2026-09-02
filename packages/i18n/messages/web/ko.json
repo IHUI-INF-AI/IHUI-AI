@@ -15517,7 +15517,7 @@
       "delete": "삭제",
       "deleteConfirm": "이 계정을 삭제하시겠습니까?",
       "edit": "편집",
-      "externalBrowserHint": "시스템 브라우저로 로그인(인증번호/비밀번호용); 로그인 후 사이트 쿠키를 복사해 계정 양식에 붙여넣어 저장하세요",
+      "externalBrowserHint": "시스템 Chrome 으로 로그인 페이지를 열고, 로그인 성공 시 계정이 자동 저장됩니다(쿠키 수동 복사 불필요)",
       "lastVerified": "최근 인증",
       "minimize": "최소화(백그라운드 대기)",
       "nickname": "닉네임",

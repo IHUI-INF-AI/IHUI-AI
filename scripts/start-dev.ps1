@@ -647,4 +647,31 @@ foreach ($name in $toStart) {
     Write-Host "          ↳ 请检查日志: $LogDir\$name.log(.err)" -ForegroundColor DarkGray
   }
 }
+
+# ============================================================
+# 后台预热高频路由(2026-09-02 页面切换提速):
+# dev 模式 Turbopack 按需编译,首次点击导航实测 9.8~11.1s/页(见 web.log
+# "○ Compiling /publish/history" → 11.8s)。启动器在 web 自检 PASS 后后台
+# 顺序 GET 12 条高频路由,把编译提前到启动阶段。不阻塞启动器,日志:
+#   $LogDir\web-warmup.log
+# ============================================================
+if ($toStart -contains 'web') {
+  $warmLog = Join-Path $LogDir 'web-warmup.log'
+  $nodeCmd = (Get-Command node -ErrorAction SilentlyContinue).Source
+  if ($nodeCmd) {
+    try {
+      Start-Process -FilePath $nodeCmd `
+        -ArgumentList @((Join-Path $RepoRoot 'scripts\warm-dev-routes.mjs')) `
+        -WorkingDirectory $RepoRoot `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $warmLog `
+        -RedirectStandardError "$warmLog.err" | Out-Null
+      Write-Ok "web 高频路由预热已后台启动(日志: $warmLog)"
+    } catch {
+      Write-Warn "路由预热启动失败(不影响 dev):$($_.Exception.Message)"
+    }
+  } else {
+    Write-Warn "未找到 node,跳过路由预热"
+  }
+}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
