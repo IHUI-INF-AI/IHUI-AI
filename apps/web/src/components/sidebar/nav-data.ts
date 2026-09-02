@@ -374,6 +374,8 @@ const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/a2a', labelKey: 'eduAiA2a', icon: Network },
   { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
   { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
+  // P0-4 Deep Research 多轮深度研究(2026-09-03 立):对标 Deep Research 杀手锏能力
+  { href: '/deep-research', labelKey: 'deepResearch', icon: Rocket },
 ]
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
