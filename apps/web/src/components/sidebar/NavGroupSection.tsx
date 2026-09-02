@@ -140,7 +140,6 @@ const NavGroupSection = React.memo(function NavGroupSection({
           registerRef={registerRef}
           t={t}
           scope={scope}
-          onBeforeNav={onBeforeNav}
         />
       )
     }
