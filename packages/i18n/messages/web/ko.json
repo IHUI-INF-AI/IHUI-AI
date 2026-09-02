@@ -14122,7 +14122,6 @@
     "about": "소개",
     "activities": "활동",
     "admin": "관리",
-    "adminConfigs": "설정",
     "adminDynamic": "동적 라우트",
     "adminGroup": {
       "aiAgent": "AI 에이전트",
@@ -14356,7 +14355,6 @@
     "modelsGroups": "그룹",
     "modelsKeys": "키",
     "modelsLogs": "로그",
-    "modelsMarket": "마켓",
     "modelsOpenclaw": "OpenClaw",
     "modelsOverview": "개요",
     "modelsPrompts": "프롬프트 관리",
