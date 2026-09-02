@@ -23,8 +23,12 @@ export type WebViewStatus =
   | 'failed' // 加载失败
   | 'blocked' // URL 不安全被拦截
 
-/** WebView 嵌入模式(由前端探测决定) */
-export type WebViewMode = 'iframe' | 'screenshot' | 'native' | 'external' | 'cdp'
+/**
+ * WebView 嵌入模式(由前端探测决定)
+ * proxy(2026-09-02):同源嵌入代理 —— 后端剥离 X-Frame-Options/CSP 后以同源响应喂给 iframe,
+ * 真实 HTML 渲染(可交互/可选中/矢量清晰),失败降级 CDP 截图流
+ */
+export type WebViewMode = 'iframe' | 'proxy' | 'screenshot' | 'native' | 'external' | 'cdp'
 
 /** 工作展示区单个 Tab */
 export interface WorkPanelTab {
@@ -68,6 +72,8 @@ export interface WebViewState {
   progress?: number
   /** CDP 会话 ID(mode='cdp' 时使用,Browser Hub 后端会话标识) */
   sessionId?: string
+  /** 代理 iframe URL(mode='proxy' 时使用,指向 /api/embed-proxy/raw) */
+  proxyUrl?: string
 }
 
 /** 导航选项 */
