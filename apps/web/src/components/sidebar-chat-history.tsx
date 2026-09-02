@@ -33,6 +33,7 @@ import {
 import { useChatStore } from '@/stores/chat'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useToast } from '@/hooks/use-toast'
 import { ConfirmDialog } from '@/components/feedback/ConfirmDialog'
 import {
@@ -118,6 +119,9 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
   const queryClient = useQueryClient()
   const { success, error } = useToast()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  // 2026-09-02 ready 来源补充:bootstrap 未就绪时 isAuthenticated 可能是 localStorage
+  // 残留的 true,需等 ready 后再按真实登录态渲染(与 LoginDialog/PageClient 同模式)。
+  const { ready } = useAuthBootstrap()
   const currentConversationId = useChatStore((s) => s.conversationId)
   const openPanel = useAiPanelStore((s) => s.openPanel)
 
@@ -237,9 +241,10 @@ export function SidebarChatHistory({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) return null
 
-  // 未登录态:仍渲染容器(保持视觉占位,避免用户以为"任务列表丢了"),
-  // 内容为"请先登录"纯提示文字(登录入口由底部 SidebarUserRow 提供,不重复造按钮)。
-  if (!isAuthenticated) {
+  // 2026-09-02 修复:bootstrap 未就绪时,即使 localStorage 残留 isAuthenticated=true,
+  // token 仍为 null,直接渲染对话列表会导致 401 或空状态闪现。
+  // 等待 ready 后再按真实登录态渲染。
+  if (!ready || !isAuthenticated) {
     return (
       <div
         role="region"
