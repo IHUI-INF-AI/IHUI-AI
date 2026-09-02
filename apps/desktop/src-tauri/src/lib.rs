@@ -144,13 +144,20 @@ fn get_app_info(app: tauri::AppHandle) -> AppInfo {
     }
 }
 
+fn pick_free_port() -> std::io::Result<u16> {
+    let listener = std::net::TcpListener::bind(("127.0.0.1", 0))?;
+    let port = listener.local_addr()?.port();
+    drop(listener);
+    Ok(port)
+}
+
 /// 2026-08-17:用系统 Google Chrome 以 --app 模式打开 URL(独立无边框窗口,完整浏览器功能)。
 /// - 用户要求"内置浏览器要谷歌 Chrome,不要 Edge"——Tauri 内嵌只能用 WebView2(Edge 壳),
 ///   而 Chrome --app 是"Google Chrome 本体 + 独立窗口",登录/点击/输入/视频全支持。
 /// - Chrome 常见安装路径探测,找不到返回错误(前端提示安装 Chrome)。
 /// - 仅允许 http/https URL(防参数注入)。
 #[tauri::command]
-fn open_in_chrome(url: String) -> Result<(), String> {
+fn open_in_chrome(url: String) -> Result<u16, String> {
     let trimmed = url.trim();
     if !(trimmed.starts_with("http://") || trimmed.starts_with("https://")) {
         return Err("仅支持 http/https URL".into());
@@ -173,13 +180,15 @@ fn open_in_chrome(url: String) -> Result<(), String> {
     let Some(chrome) = chrome else {
         return Err("未找到 Google Chrome,请先安装 Chrome 浏览器".into());
     };
-    // spawn 后丢弃句柄:子进程独立运行,不等待、不 kill(--app 是长驻 Chrome 窗口)
-    let _child = std::process::Command::new(&chrome)
-        .arg(format!("--app={}", trimmed))
+
+    let port = pick_free_port().map_err(|e| format!("分配调试端口失败: {}", e))?;
+    let mut cmd = std::process::Command::new(&chrome);
+    cmd.arg(format!("--app={}", trimmed))
         .arg("--new-window")
-        .spawn()
-        .map_err(|e| format!("启动 Chrome 失败: {}", e))?;
-    Ok(())
+        .arg(format!("--remote-debugging-port={}", port))
+        .arg("--user-data-dir=/tmp/ihui-chrome-profile");
+    let _child = cmd.spawn().map_err(|e| format!("启动 Chrome 失败: {}", e))?;
+    Ok(port)
 }
 
 /// 启动窗口 resize(P0-1:8 方向边缘缩放,2026-07-27 立)。
