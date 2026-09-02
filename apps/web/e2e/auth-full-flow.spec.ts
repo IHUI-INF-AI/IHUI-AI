@@ -3,6 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { test, expect } from '@playwright/test'
+import { waitForAuthBootstrap } from './fixtures'
 
 /**
  * 完整认证流程测试。
@@ -22,7 +23,13 @@ test.describe('完整认证流程', () => {
       if (resp.status() >= 500) serverErrors.push(`${resp.url()} ${resp.status()}`)
     })
     await page.goto('/register')
+    await waitForAuthBootstrap(page)
     await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading spinner 消失)
+    const spinner = page.locator('[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin')
+    await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
+
     expect(
       serverErrors.filter(
         (e) =>
@@ -46,6 +53,7 @@ test.describe('完整认证流程', () => {
 
   test('注册表单可填写', async ({ page }) => {
     await page.goto('/register')
+    await waitForAuthBootstrap(page)
     const phoneInput = page.locator('input:not([type="file"]):visible').first()
     const passwordInput = page.locator('input[type="password"]').first()
 
@@ -61,7 +69,12 @@ test.describe('完整认证流程', () => {
 
   test('登录页可访问且表单存在', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     await page.waitForLoadState('domcontentloaded')
+
+    // 等待 bootstrap 完成(loading spinner 消失)
+    const spinner = page.locator('[data-testid="auth-shell"] svg.animate-spin, [data-testid="auth-shell"] .animate-spin')
+    await spinner.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {})
 
     // /login 会被中间件重定向到 /sso/login;SSO 登录页第一个 input 即可
     await expect(page).toHaveURL(/\/(sso\/)?login/)
@@ -71,6 +84,7 @@ test.describe('完整认证流程', () => {
 
   test('登录表单可填写并提交', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     // 2026-08-26 修复:goto 后等加载完成,否则 dev 首屏编译中 fill 等待元素稳定 30s 超时
     await page.waitForLoadState('domcontentloaded')
     const accountInput = page.locator('input:not([type="file"]):visible').first()
@@ -94,6 +108,7 @@ test.describe('完整认证流程', () => {
 
   test('忘记密码:链接存在(若可访问)', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     const forgotLink = page.getByRole('link', { name: /忘记|找回|forgot|reset/i }).first()
     if (await forgotLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       await forgotLink.click()
@@ -126,6 +141,7 @@ test.describe('完整认证流程', () => {
 
   test('登录注册页面可切换', async ({ page }) => {
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     const registerLink = page.getByRole('link', { name: /注册|register|sign up/i }).first()
     if (await registerLink.isVisible({ timeout: 3000 }).catch(() => false)) {
       // 2026-08-26 修复:link 可见但点击时可能被动画/overlay 短暂遮挡(click 稳定等待超时),
@@ -140,6 +156,7 @@ test.describe('完整认证流程', () => {
     const consoleErrors: string[] = []
     page.on('pageerror', (err) => consoleErrors.push(err.message))
     await page.goto('/login')
+    await waitForAuthBootstrap(page)
     await page.waitForLoadState('domcontentloaded').catch(() => {})
     const realErrors = consoleErrors.filter(
       (e) => !e.includes('favicon') && !e.includes('React DevTools'),
