@@ -60,6 +60,15 @@ SUMMARY_REMOTE_CHARS = 120
 # tool result 摘要保留字符数兼容别名:旧"统一 160"已收编到分层常量(远层 120)
 TOOL_RESULT_SUMMARY_CHARS = SUMMARY_REMOTE_CHARS
 
+# ==================== Token 估算开销常量(2026-09-02 跨端对齐) ====================
+# 与 TS 共享包 @ihui/context-compaction 逐值一致
+MESSAGE_OVERHEAD_TOKENS = 4  # 单条消息固定开销(role/name 分隔)
+TOOL_CALL_OVERHEAD_TOKENS = 4  # 单条 tool_call 固定 JSON 协议开销
+IMAGE_TOKEN_PLACEHOLDER = 1200  # 多模态图片占位估算(每张图)
+
+# data:image/...;base64,XXX 多模态图片占位正则
+_DATA_IMAGE_RE = re.compile(r"data:image/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+")
+
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
 

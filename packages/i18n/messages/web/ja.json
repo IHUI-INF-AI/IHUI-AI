@@ -15530,7 +15530,7 @@
       "delete": "削除",
       "deleteConfirm": "このアカウントを削除しますか?",
       "edit": "編集",
-      "externalBrowserHint": "システムブラウザでログイン(認証コード/パスワード向け);ログイン後、サイトのCookieをコピーしてアカウントフォームに貼り付けて保存",
+      "externalBrowserHint": "システム Chrome でログインページを開き、ログイン成功後にアカウントを自動保存(Cookie の手動コピー不要)",
       "lastVerified": "最終認証",
       "minimize": "最小化(バックグラウンドで待機)",
       "nickname": "ニックネーム",

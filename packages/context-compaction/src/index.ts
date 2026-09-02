@@ -29,14 +29,80 @@ export interface ChatMessageToolCall {
   function?: { name?: string; arguments?: string }
 }
 
-/** 跨端共享的聊天消息结构(与 @ihui/types/message-repair 的 RepairableMessage 兼容) */
-export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant' | 'tool'
-  content: string
-  /** assistant 发起的工具调用列表(存在时与其后的 tool 结果消息构成配对组,压缩不拆散) */
-  tool_calls?: ChatMessageToolCall[]
-  /** tool 结果消息对应的 tool_call id(与前面 assistant 的 tool_calls[].id 配对) */
-  tool_call_id?: string
+// ==================== Token 估算开销常量(2026-09-02 跨端对齐) ====================
+/** 单条消息固定开销(role/name 分隔),与 OpenAI/Anthropic 协议一致 */
+export const MESSAGE_OVERHEAD_TOKENS = 4
+/** 单条 tool_call 的固定 JSON 协议开销(name/arguments 包装) */
+export const TOOL_CALL_OVERHEAD_TOKENS = 4
+/** 多模态图片占位估算(每张图按 OpenAI low-detail ~85 tokens、high-detail ~170 tokens 的中位值取整);
+ *  对超大 base64 数据 URI,避免对整段 base64 做 BPE(慢且虚高) */
+export const IMAGE_TOKEN_PLACEHOLDER = 1200
+
+/** data:image/...;base64,XXX 多模态图片占位正则(全局) */
+const DATA_IMAGE_RE = /data:image\/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+/g
+
+/** 估算字符串 token 数,自动替换 base64 图片为固定占位(避免巨串 BPE) */
+function estimateTextWithImagePlaceholders(text: string): number {
+  if (!text) return 0
+  // 命中图片时:每张图占 IMAGE_TOKEN_PLACEHOLDER,其余文本正常 BPE
+  if (DATA_IMAGE_RE.test(text)) {
+    DATA_IMAGE_RE.lastIndex = 0
+    let total = 0
+    let lastIndex = 0
+    let m: RegExpExecArray | null
+    while ((m = DATA_IMAGE_RE.exec(text)) !== null) {
+      if (m.index > lastIndex) {
+        total += encode(text.slice(lastIndex, m.index)).length
+      }
+      total += IMAGE_TOKEN_PLACEHOLDER
+      lastIndex = m.index + m[0].length
+    }
+    if (lastIndex < text.length) {
+      total += encode(text.slice(lastIndex)).length
+    }
+    return total
+  }
+  return encode(text).length
+}
+
+/** 估算单条 tool_call 的 token(id+type+name+arguments + 固定开销) */
+function estimateToolCallTokens(tc: ChatMessageToolCall): number {
+  if (!tc || typeof tc.id !== 'string') return 0
+  let inner =
+    tc.id +
+    (typeof tc.type === 'string' ? tc.type : '') +
+    (tc.function && typeof tc.function.name === 'string'
+      ? tc.function.name
+      : '') +
+    (tc.function && typeof tc.function.arguments === 'string'
+      ? tc.function.arguments
+      : '')
+  return estimateTextWithImagePlaceholders(inner) + TOOL_CALL_OVERHEAD_TOKENS
+}
+
+/** 估算字符串 token 数(BPE);含图片占位短路。导出供跨端共享。 */
+export function estimateTokens(text: string): number {
+  return estimateTextWithImagePlaceholders(text)
+}
+
+/** 估算消息列表总 token 数(content + tool_calls.arguments + tool_call_id + 每条固定开销)
+ *  跨端对齐:与 Python 端 estimate_messages_tokens 增量规则一致
+ *  (tool_calls 参数计 +TOOL_CALL_OVERHEAD_TOKENS;tool 消息 +TOOL_CALL_OVERHEAD_TOKENS;每消息 +MESSAGE_OVERHEAD_TOKENS) */
+export function estimateMessagesTokens(messages: ChatMessage[]): number {
+  let total = 0
+  for (const m of messages) {
+    total += MESSAGE_OVERHEAD_TOKENS
+    total += estimateTokens(m.content ?? '')
+    if (Array.isArray(m.tool_calls)) {
+      for (const tc of m.tool_calls) {
+        total += estimateToolCallTokens(tc)
+      }
+    }
+    if (m.role === 'tool' && typeof m.tool_call_id === 'string' && m.tool_call_id) {
+      total += TOOL_CALL_OVERHEAD_TOKENS
+    }
+  }
+  return total
 }
 
 // ==================== 跨端统一常量 ====================
@@ -71,16 +137,7 @@ export const SUMMARY_RECENT_CHARS = 200
 /** 远层消息保留的字符数(tool result 截断 + user/assistant 规则摘要行总长上限) */
 export const SUMMARY_REMOTE_CHARS = 120
 
-// ==================== Token 估算 ====================
-
-export function estimateTokens(text: string): number {
-  if (!text) return 0
-  return encode(text).length
-}
-
-export function estimateMessagesTokens(messages: ChatMessage[]): number {
-  return messages.reduce((sum, m) => sum + estimateTokens(m.content) + 4, 0)
-}
+// ==================== Token 估算常量(同上,保留以便 README/外部文档参考) ====================
 
 // ==================== 压缩结果类型 ====================
 
