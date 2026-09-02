@@ -482,6 +482,12 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           aria-label={`${t('buttonLabel')} · ${t('buttonHintShortcut')}`}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          // 与 Radix trigger 行为对齐(2026-09-02):本组件自写 popover 而非 Radix,
+          // 需手动加 data-state 才能命中 globals.css:1090 的
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制规则,
+          // 否则 Esc 关闭后 triggerRef.current?.focus() 触发 focus-visible ring(本组件
+          // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
+          data-state={isOpen ? 'open' : 'closed'}
           className={cn(
             'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none whitespace-nowrap',
             'duration-150 ease-out',
