@@ -48,40 +48,40 @@
 
 ### 1.2 仍存在的不足/缺口（❌/⚠️ — v2 真正要打的地方）
 
-| #   | 缺口                                     | 现状                                                                                                            | 竞品基准                                                | 差距等级                                      |
-| --- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------- |
-| G1  | **Artifact 富渲染（iframe 预览缺失）**   | 图表仅展示路径卡片，代码块不可运行预览；`tool-call-card.tsx:190` 明示"本地 .html 无法在网页内直接 iframe 预览"  | Claude Artifacts 可渲染/可编辑/可运行；ChatGPT Canvas   | **大**（细腻度核心）                          |
-| G2  | **实时语音闭环（流式对话 UX）**          | TTS 免费已通、STT 本地已通，但无"边说边识别→打断→流式回复→流式合成"的实时通话级 UX                              | GPT-5 Voice / Gemini Live 原生实时语音                  | 中-大（体验代差）                             |
-| G3  | **官方 MCP SDK 迁移（非兼容层）**        | 自研 JSON-RPC + 官方协议兼容层（HTTP 单入口），未引入官方 `mcp` Python SDK；stdio/Streamable HTTP 双传输未全    | Claude 官方 SDK + 社区海量 server 即插即用              | 中（当前兼容层已能接客户端，缺 SDK 生态便利） |
-| G4  | **Computer Use 桌面真通**                | browser__/computer__ 22 工具存在且 admin 权限矩阵，但依赖端进程未真跑通（extension 已构建未加载；desktop 空壳） | Claude Computer Use 真能控电脑                          | 大（广度招牌）                                |
-| G5  | **MCP 应用商店完整工作流**               | 有目录种子 + 一键注册，但缺安装/卸载/启停/状态/权限审批 UI 闭环                                                 | Claude MCP 商店 / Dify 插件市场                         | 中                                            |
-| G6  | **中文生态 Connectors**                  | 无飞书/钉钉/企业微信/语雀等国产数据源连接器                                                                     | ChatGPT Connectors（GDrive/Notion/Slack）               | 中（主场未占）                                |
-| G7  | **长期记忆自进化（默认关）**             | `auto_graph_extract_enabled` 默认 false（LLM NER 有 token 成本）；记忆有存储但"自整理/自提炼"进化闭环未全       | ChatGPT Projects / Claude CLAUDE.md 跨会话人格          | 中                                            |
-| G8  | **MCP prompts 薄**                       | 仅 3 个 prompts（resources 3 个）                                                                               | Claude 官方 server 每个都带丰富 prompt 模板             | 小-中                                         |
-| G9  | **工具调用规划/并行批处理**              | 工具循环是串行"call→execute→replay"，无规划器（planner）先行分解并行                                            | Claude/GPT 已支持并行工具调用；OpenAI AgentKit 有规划器 | 中（深度）                                    |
-| G10 | **Agent 可观测性/追踪**                  | 无 trace/span/耗时分布面板（有前端秒表但无后端链路追踪）                                                        | LangSmith / OpenAI tracing / Dify 日志                  | 中                                            |
-| G11 | **可视化拖拽编排**                       | orchestration 支柱联动是真，但无拖拽工作流编辑器                                                                | Dify / Coze 可视化编排                                  | 大（P2）                                      |
-| G12 | **8 端统一 Agent 内核一致性**            | desktop 空壳、extension 已构建未部署、mobile-rn 能力子集                                                        | 竞品单端无此问题，但我们有 8 端却未全量同权             | 中（广度独有优势未兑现）                      |
-| G13 | **多模态补全（图像/视频/文件上传对话）** | 视觉理解有（vision content block）、图像生成 stepfun/agnes 有，但对话中多模态上传/上下文引用 UX 一般            | GPT-5 原生多模态输入                                    | 小-中                                         |
-| G14 | **长上下文工程**                         | 窗口截断 + token 压缩，无长上下文缓存/上下文压缩摘要链                                                          | 1M 上下文（Gemini）+ Anthropic prompt caching           | 中（受限于上游模型）                          |
+| #   | 缺口                                     | 现状                                                                                                                                                                                          | 竞品基准                                                | 差距等级                                       |
+| --- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------- |
+| G1  | **Artifact 富渲染（iframe 预览缺失）**   | 图表仅展示路径卡片，代码块不可运行预览；`tool-call-card.tsx:190` 明示"本地 .html 无法在网页内直接 iframe 预览"                                                                                | Claude Artifacts 可渲染/可编辑/可运行；ChatGPT Canvas   | **大**（细腻度核心）                           |
+| G2  | **实时语音闭环（流式对话 UX）**          | TTS 免费已通、STT 本地已通，但无"边说边识别→打断→流式回复→流式合成"的实时通话级 UX                                                                                                            | GPT-5 Voice / Gemini Live 原生实时语音                  | 中-大（体验代差）                              |
+| G3  | **官方 MCP SDK 迁移（非兼容层）**        | 自研 JSON-RPC + 官方协议兼容层（HTTP 单入口），未引入官方 `mcp` Python SDK；stdio/Streamable HTTP 双传输未全                                                                                  | Claude 官方 SDK + 社区海量 server 即插即用              | 中（当前兼容层已能接客户端，缺 SDK 生态便利）  |
+| G4  | **Computer Use 桌面真通**                | browser__/computer__ 22 工具存在且 admin 权限矩阵；extension 侧**已真机闭环 8/8 PASS**（真实 Edge 加载 → SW 注册 12 actions → WS → bridge 真实执行 switch_tab），desktop（Tauri）空壳仍待验收 | Claude Computer Use 真能控电脑                          | 大（广度招牌；extension 半落地，desktop 待续） |
+| G5  | **MCP 应用商店完整工作流**               | 有目录种子 + 一键注册，但缺安装/卸载/启停/状态/权限审批 UI 闭环                                                                                                                               | Claude MCP 商店 / Dify 插件市场                         | 中                                             |
+| G6  | **中文生态 Connectors**                  | 无飞书/钉钉/企业微信/语雀等国产数据源连接器                                                                                                                                                   | ChatGPT Connectors（GDrive/Notion/Slack）               | 中（主场未占）                                 |
+| G7  | **长期记忆自进化（默认关）**             | `auto_graph_extract_enabled` 默认 false（LLM NER 有 token 成本）；记忆有存储但"自整理/自提炼"进化闭环未全                                                                                     | ChatGPT Projects / Claude CLAUDE.md 跨会话人格          | 中                                             |
+| G8  | **MCP prompts 薄**                       | 仅 3 个 prompts（resources 3 个）                                                                                                                                                             | Claude 官方 server 每个都带丰富 prompt 模板             | 小-中                                          |
+| G9  | **工具调用规划/并行批处理**              | 工具循环是串行"call→execute→replay"，无规划器（planner）先行分解并行                                                                                                                          | Claude/GPT 已支持并行工具调用；OpenAI AgentKit 有规划器 | 中（深度）                                     |
+| G10 | **Agent 可观测性/追踪**                  | 无 trace/span/耗时分布面板（有前端秒表但无后端链路追踪）                                                                                                                                      | LangSmith / OpenAI tracing / Dify 日志                  | 中                                             |
+| G11 | **可视化拖拽编排**                       | orchestration 支柱联动是真，但无拖拽工作流编辑器                                                                                                                                              | Dify / Coze 可视化编排                                  | 大（P2）                                       |
+| G12 | **8 端统一 Agent 内核一致性**            | extension 已真机验收（P2-3 闭环）、mobile-rn 已补面板（P2-4），desktop 空壳仍在建（并行会话推进 SaaS 化）                                                                                     | 竞品单端无此问题，但我们有 8 端却未全量同权             | 中（广度独有优势兑现中）                       |
+| G13 | **多模态补全（图像/视频/文件上传对话）** | 视觉理解有（vision content block）、图像生成 stepfun/agnes 有，但对话中多模态上传/上下文引用 UX 一般                                                                                          | GPT-5 原生多模态输入                                    | 小-中                                          |
+| G14 | **长上下文工程**                         | 窗口截断 + token 压缩，无长上下文缓存/上下文压缩摘要链                                                                                                                                        | 1M 上下文（Gemini）+ Anthropic prompt caching           | 中（受限于上游模型）                           |
 
 ---
 
 ## 二、逐维对标差距（v2 更新）
 
-| 维度         | 本项目（v2）                                   | 竞品标杆                         | 差距                              | 方向           |
-| ------------ | ---------------------------------------------- | -------------------------------- | --------------------------------- | -------------- |
-| MCP 生态     | 官方协议兼容层 + 48 工具 + 8 server 目录种子   | Claude 原生 MCP + SDK + 社区海量 | 中（兼容层已通，缺 SDK/商店闭环） | 深度开发 G3/G5 |
-| 工具调用     | 48 工具真执行 + 权限矩阵 + 流式可视化          | Claude/GPT 并行调用 + 规划器     | 中（串行 vs 并行规划）            | 深度开发 G9    |
-| 记忆/RAG     | 四层记忆 + 图谱 BFS + 画像注入，**已通主链路** | ChatGPT Projects / CLAUDE.md     | **小（已追平）**                  | 深耕 G7 自进化 |
-| 语音         | STT 本地 + TTS 免费，无实时闭环                | GPT-5 Voice / Gemini Live        | 中-大                             | 深度开发 G2    |
-| Computer Use | 22 工具 + admin 矩阵，未真通                   | Claude Computer Use              | 大                                | 深度开发 G4    |
-| Artifact     | 图表卡片 + 引用徽章                            | Claude Artifacts 全渲染          | 大                                | 深度开发 G1    |
-| 编排         | LangGraph 懒加载 + 多 Agent 10+5               | LangGraph 1.0 / Dify             | 小-中                             | G10/G11        |
-| 安全         | 统一策略单一权威源 + fail-closed               | 各竞品自有                       | **领先**                          | 保持           |
-| 成本/私有化  | 本地可部署 + 多 provider + 免费 TTS            | 闭源高价                         | **领先（优势）**                  | 保持           |
-| 端覆盖       | 8 端（含 miniapp-taro/desktop/extension）      | 单端                             | **领先（优势）**                  | 兑现 G12       |
-| 中文生态     | 中文 UI 全量 + 中文模型接入                    | 弱                               | **领先（优势）**                  | 兑现 G6        |
+| 维度         | 本项目（v2）                                                | 竞品标杆                         | 差距                              | 方向           |
+| ------------ | ----------------------------------------------------------- | -------------------------------- | --------------------------------- | -------------- |
+| MCP 生态     | 官方协议兼容层 + 48 工具 + 8 server 目录种子                | Claude 原生 MCP + SDK + 社区海量 | 中（兼容层已通，缺 SDK/商店闭环） | 深度开发 G3/G5 |
+| 工具调用     | 48 工具真执行 + 权限矩阵 + 流式可视化                       | Claude/GPT 并行调用 + 规划器     | 中（串行 vs 并行规划）            | 深度开发 G9    |
+| 记忆/RAG     | 四层记忆 + 图谱 BFS + 画像注入，**已通主链路**              | ChatGPT Projects / CLAUDE.md     | **小（已追平）**                  | 深耕 G7 自进化 |
+| 语音         | STT 本地 + TTS 免费，无实时闭环                             | GPT-5 Voice / Gemini Live        | 中-大                             | 深度开发 G2    |
+| Computer Use | 22 工具 + admin 矩阵；extension 真机 8/8 闭环，desktop 待续 | Claude Computer Use              | 中-大（extension 已通）           | 深度开发 G4    |
+| Artifact     | 图表卡片 + 引用徽章                                         | Claude Artifacts 全渲染          | 大                                | 深度开发 G1    |
+| 编排         | LangGraph 懒加载 + 多 Agent 10+5                            | LangGraph 1.0 / Dify             | 小-中                             | G10/G11        |
+| 安全         | 统一策略单一权威源 + fail-closed                            | 各竞品自有                       | **领先**                          | 保持           |
+| 成本/私有化  | 本地可部署 + 多 provider + 免费 TTS                         | 闭源高价                         | **领先（优势）**                  | 保持           |
+| 端覆盖       | 8 端（含 miniapp-taro/desktop/extension）                   | 单端                             | **领先（优势）**                  | 兑现 G12       |
+| 中文生态     | 中文 UI 全量 + 中文模型接入                                 | 弱                               | **领先（优势）**                  | 兑现 G6        |
 
 ---
 
@@ -157,7 +157,7 @@
 | -------------------- | ---- | --------------------------------------- | ---------------- | --------------------------------------- | ------------------ |
 | web                  | ✅   | ✅ 全量 48 工具                         | ✅               | —                                       | 主入口，能力最全   |
 | api                  | ✅   | ✅（服务端，供各端调用）                | ✅               | —                                       | 统一中台           |
-| extension（MV3）     | ✅   | ✅ browser 工具                         | ✅               | ✅ browser_*（真机 7/7 PASS）           | 真机已加载验收通过 |
+| extension（MV3）     | ✅   | ✅ browser 工具                         | ✅               | ✅ browser_*（真机 8/8 PASS）           | 真机已加载验收通过 |
 | desktop（Tauri）     | ✅   | ✅ + 本地文件                           | ✅               | ✅ computer_*（Rust enigo/screenshots） | 真通待验收         |
 | mobile-rn            | ✅   | ✅（WebView 复用 web /chat，P2-4 新补） | ✅（WebView 内） | —                                       | 2026-09-02 补齐    |
 | miniapp-taro         | ✅   | —                                       | ✅               | —                                       | 聊天为主           |
@@ -184,7 +184,7 @@
 | **P1-4** | 官方 MCP SDK stdio      | 生态地基，社区 server 即插即用      | 中（地基工程，双轨并存）           | **排期做**                              |
 | **P2-1** | MCP 商店闭环            | 生态入口，商店即护城河              | 中                                 | 排期做                                  |
 | **P2-2** | 中文 Connectors         | 独有主场，竞品进不来                | 中（每连接器 2-3 天）              | 排期做                                  |
-| **P2-3** | Computer Use 真通       | 广度招牌，代码闭环 + bug 修复       | 高（真机联调）                     | 实现闭环·真机验收待用户                 |
+| **P2-3** | Computer Use 真通       | 广度招牌，代码闭环 + 真机 8/8 PASS  | 高（真机联调）                     | **已落地**（扩展真机闭环 + #31 修复）   |
 | **P2-4** | 8 端 Agent 矩阵         | 兑现独有广度                        | 中                                 | **已落地**（mobile-rn 面板 + 8 端矩阵） |
 | P3-1~5   | 可观测/编排/语音/多模态 | 锦上添花                            | 中-高                              | 长期                                    |
 
@@ -202,6 +202,6 @@
 
 ## 六、一句话结论
 
-> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的 P1 四项已全部落地——P1-1 Artifact iframe 渲染（对标 Claude Artifacts）+ P1-2 工具同轮并行批处理（耗时 3→1 倍感知）+ P1-3 记忆自进化默认开（分级 NER + 隐私三件套）+ P1-4 官方 MCP SDK stdio 双轨；P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use，P2-1/2/4 已落表、P2-3 代码闭环仅待真机验收。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
+> **v1 的"补实/通孤岛"已收官，底盘真实。v2 的 P1 四项已全部落地——P1-1 Artifact iframe 渲染（对标 Claude Artifacts）+ P1-2 工具同轮并行批处理（耗时 3→1 倍感知）+ P1-3 记忆自进化默认开（分级 NER + 隐私三件套）+ P1-4 官方 MCP SDK stdio 双轨；P2 把 8 端×中文×私有化底盘兑现成 MCP 商店 + 中文 Connectors + Computer Use，P2-1/2/4 已落表、P2-3 真机终验 8/8 PASS（真实 Edge 加载扩展产物 → SW 注册 capability → WS 推送 → bridge 真实执行 switch_tab）。竞品有的我们追平，竞品没有的（8 端 + 中文 + 免费 TTS + 私有化）我们做满——这就是"远超"。**
 
 _注：v1 报告见同目录 `ai-capability-gap-analysis-2026-09-01.md`。v2 所有"✅/❌"判定基于当日代码实证（含文件/行号），竞品基准来自 2025-2026 官方发布与社区公开资料。_
