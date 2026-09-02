@@ -11,6 +11,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { X, ChevronDown, XCircle, Search, Pin, PinOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTagsViewStore, type TagItem } from '@/stores/tags-view'
 import { Dropdown } from '@/components/feedback'
 import { SearchBar } from '@/components/business'
@@ -75,7 +76,7 @@ interface CtxMenuState {
  * 提交后跳 /search?q=...。点击外部 / Esc 键 / 路由变化均会关闭弹层。
  */
 export const TagsViewSearchButton = React.memo(function TagsViewSearchButton() {
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   const tNav = useTranslations('nav')
   const tCommon = useTranslations('common')
   const tSearch = useTranslations('search')
@@ -337,7 +338,7 @@ export const TagsViewChevronButton = React.memo(function TagsViewChevronButton()
 export function TagsView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const router = useRouter()
+  const navigate = useNavigateWithProgress()
   // 性能修复(2026-07-25):原 TagsView 顶层声明 22 个 useTranslations 调用,
   // 每次路由切换 / Sidebar 拖拽 / AI 面板 toggle 触发 TagsView 重渲染时,
   // 22 个 translator 实例全部重新初始化。改为:
@@ -378,12 +379,11 @@ export function TagsView() {
       e.preventDefault()
       removeTag(current)
       const next = useTagsViewStore.getState().activePath
-      if (next) router.push(next)
-      else router.push('/')
+      navigate(next ?? '/')
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [router, removeTag])
+  }, [navigate, removeTag])
 
   const handleClose = (e: React.MouseEvent, path: string) => {
     e.preventDefault()
@@ -392,8 +392,7 @@ export function TagsView() {
     removeTag(path)
     if (willNavigate) {
       const next = useTagsViewStore.getState().activePath
-      if (next) router.push(next)
-      else router.push('/')
+      navigate(next ?? '/')
     }
   }
 
