@@ -57,7 +57,6 @@ const NavLink = React.memo(function NavLink({
           href={item.href}
           ref={refCb}
           onClick={handleClick}
-          prefetch={false}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           data-testid={`nav-${item.labelKey}`}
@@ -69,13 +68,15 @@ const NavLink = React.memo(function NavLink({
     )
   }
 
+  // 不设 prefetch={false}:保留 Next 默认视口预取(2026-09-02 页面切换提速)。
+  // 旧代码显式禁用预取,导致生产模式点击导航后才发 RSC 请求,切换必须等一个网络往返;
+  // dev 模式 Next 本就不预取,恢复默认对 dev 零影响。
   return (
     <Link
       key={item.href}
       href={item.href}
       ref={refCb}
       onClick={handleClick}
-      prefetch={false}
       aria-current={active ? 'page' : undefined}
       data-testid={`nav-${item.labelKey}`}
       className={className}
