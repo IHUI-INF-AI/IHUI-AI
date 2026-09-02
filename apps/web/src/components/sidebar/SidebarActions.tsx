@@ -235,6 +235,9 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
           aria-label={t('language')}
           aria-haspopup="menu"
           aria-expanded={langOpen}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          data-state={langOpen ? 'open' : 'closed'}
           onClick={() => setLangOpen((prev) => !prev)}
         >
           <Flag className="h-[18px] w-[18px]" />
@@ -383,6 +386,9 @@ function DownloadPopover({ collapsed }: { collapsed: boolean }) {
           aria-label={t('downloadClient')}
           aria-haspopup="dialog"
           aria-expanded={dlOpen}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          data-state={dlOpen ? 'open' : 'closed'}
           onClick={() => setDlOpen((prev) => !prev)}
         >
           <Download className="h-5 w-5" />
