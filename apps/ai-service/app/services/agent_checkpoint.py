@@ -34,6 +34,21 @@ DEFAULT_CHECKPOINT_TTL = 24 * 60 * 60
 # 默认内存上限 1000 个 checkpoint
 DEFAULT_MAX_IN_MEMORY = 1000
 
+# metadata 中记录文件快照引用的固定键名(restore 时据此执行文件回滚)
+FILE_VERSIONS_META_KEY = "_file_versions"
+
+
+class CheckpointError(Exception):
+    """checkpoint 领域错误基类。"""
+
+
+class CheckpointNotFoundError(CheckpointError):
+    """checkpoint 不存在或已过期。"""
+
+
+class CheckpointSessionMismatchError(CheckpointError):
+    """checkpoint 属于其他会话,拒绝恢复(防跨会话回滚)。"""
+
 # redis 包未安装时降级为纯内存模式
 try:
     import redis.asyncio as aioredis
@@ -88,6 +103,46 @@ class AgentLoopCheckpoint:
         """检查是否已过期。"""
         current = now if now is not None else time.time()
         return self.expires_at <= current
+
+
+@dataclass
+class CheckpointMeta:
+    """checkpoint 的元数据(供清单列出,不含完整消息历史以减小载荷)。"""
+
+    checkpoint_id: str
+    session_id: str
+    iteration: int
+    status: str
+    created_at: float
+    expires_at: float
+    message_count: int
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_checkpoint(cls, cp: "AgentLoopCheckpoint") -> "CheckpointMeta":
+        """从完整 checkpoint 映射为元数据。"""
+        return cls(
+            checkpoint_id=cp.checkpoint_id,
+            session_id=cp.session_id,
+            iteration=cp.iteration,
+            status=cp.status,
+            created_at=cp.created_at,
+            expires_at=cp.expires_at,
+            message_count=len(cp.messages),
+            metadata=dict(cp.metadata or {}),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "session_id": self.session_id,
+            "iteration": self.iteration,
+            "status": self.status,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+            "message_count": self.message_count,
+            "metadata": self.metadata,
+        }
 
 
 class AgentCheckpointManager:
