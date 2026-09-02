@@ -66,6 +66,12 @@
 
 **Phase 1 批次2 完成报告(2026-09-02)**:4/4 项完成(1-5 回捞侧 / 1-6 / 1-7 / 1-8)。编队 p1-batch2(ctx-recall / token-budget / skill-std / bg-task 并行),文件域零重叠:llm.py+context_recall+plan_mode / agent_loop_v2+usage / skill_md+skills / background_tasks+mcp_server+message_bus,零同文件冲突(mcp_server 三方行级追加由 lead 统一验收)。中途事件:ctx-recall 与 token-budget 在最终验证阶段撞 **429 限流**(重置 2026-09-03 20:35),但实现+测试已全量落盘,由 lead 接管验证与收口。统一验收(lead 实测):13 批内文件语法全绿;新 4 测试 + skills 回归并集 **335 passed / 0 failed**(全量 conftest 收集,消除队员当时 --noconftest 盲区);ruff 新文件 0 错(lead 代清理 19 处遗留:import 排序/未用导入/嵌套 with 合并/长行);mypy --strict 9 个改动模块 0 错误。遗留:① 1-5 压缩执行层(阈值 0.88→LLM 摘要+规则降级)仍在并行会话 context_compaction.py,回捞侧已就绪待其合流联调;② token 治理前端面板(/context)与技能市场属 Phase 1 后续;③ agent_loop_v2.py +208 行预算区已跑受影响测试集,待并行会话合流后全量回归。
 
+### Phase 1 批次3 候选:token/context 治理面板(实施规格,2026-09-03 立,待并行会话 index 稳定后执行)
+
+> 数据源已就绪(批次2 后端已落地,面板零后端改动):`GET /api/v1/ai/usage/agent`(1-6 新增,返回 enabled/pillar/usage_percent/today_tokens/pillar_usage_percent/remaining_tokens/degraded_model/trend 7 日趋势);1-5 context_recall 快照在 vector_memory(可补 1 个只读 stats 方法暴露 snapshot/recall 计数)。
+> **为何延迟**:并行会话当前对共享 git index 高频 `reset` 手术(reflog 铁证:本批 commit 后连续 2 次 `reset: moving to HEAD` 清空暂存),web/i18n/导航文件(i18n json 5 语言、sidebar nav、GlobalShell 等)在其热区;此面板必然触碰 i18n 5 json + 导航注册,此刻实施无法干净提交且会混入其改动。
+> **执行清单**(实施时按序):① packages/api-client 增 usage-agent 端点(新文件优先,遵循 endpoints/*.ts `{code,data}`+fetchApi 约定);② 新路由页 `apps/web/app/(main)/admin/agent-governance/page.tsx`(自包含 client 组件,展示:预算开关/支柱 usage_percent 环形或进度条(涨红跌绿不适用,纯用量用品牌色)/today_tokens/remaining/degraded_model 徽章/7 日趋势 Sparkline + context 快照计数区);③ i18n 5 json 增 `agentGovernance` 命名空间(对齐 agentPlan 38 key 做法)+ nav 注册;④ 遵守 AGENTS.md UI 铁律(禁 divider/rounded-full/emoji 图标,icon-text 对齐,页面 <250 行,ui-react 组件);⑤ 守门 `pnpm check:i18n-parity` + typecheck + e2e icon-text-alignment。窗口:并行会话停手或本会话以 GIT_INDEX_FILE 隔离 index 提交(已验证可行)。
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
