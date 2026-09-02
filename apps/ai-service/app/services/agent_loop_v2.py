@@ -44,6 +44,10 @@ logger = logging.getLogger(__name__)
 # 防止 CPython GC 在 task 完成前回收(与 agent_loop.py 的 _pending_tasks 同模式)
 _pending_meta_eval_tasks: set[asyncio.Task[Any]] = set()
 
+# W1(2026-09):完成后出口闭环(GraphRAG / consolidate / Skill 自进化)的
+# fire-and-forget task 引用集合,同样防 GC 提前回收(与上面同模式)。
+_pending_closure_tasks: set[asyncio.Task[Any]] = set()
+
 # L5-2 错误恢复:工具瞬时失败自动重试的错误分类(2026-08-12 立)。
 # 只重试网络/超时类瞬时故障(重试语义安全);http_4xx 业务错误与 unknown 不重试。
 _TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
@@ -375,6 +379,8 @@ class AgentLoopV2:
         self._messages = messages
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
         await self._inject_memory_context(messages)
+        # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
+        await self._inject_user_profile(messages)
         # L4 自进化:注入 meta_lessons 避坑指南到 system prompt(失败降级,不阻塞)
         # build_system_prompt_snippet 是同步方法(读内存缓存),失败只 warning
         try:
@@ -427,6 +433,10 @@ class AgentLoopV2:
         # L1-1 出口:成功完成后保存记忆(失败不阻塞,不覆盖 result)
         if result.success:
             await self._persist_memory_insights(messages)
+            # W1(2026-09):v1 特性闭环移植(对标 agent_loop.py L422-466 完成后出口)。
+            # GraphRAG / memory consolidate / Skill 自进化评估,全部 fire-and-forget
+            # + 失败 logger.warning 降级,绝不阻塞主链路 / 不覆盖已生成的 result。
+            self._fire_post_success_closures(messages)
         # L4 自进化:后置自评 fire-and-forget(成功/失败都触发,不阻塞主链路)
         # paused/cancelled 状态不触发(用户主动操作,非真实失败,无可学习信号)
         if result.stop_reason in {"completed", "error", "max_iterations"}:
@@ -520,6 +530,54 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("memory_context 注入失败(user=%s): %s", self._user_id, e)
 
+    async def _inject_user_profile(self, messages: list[dict[str, Any]]) -> None:
+        """入口:用户画像注入(对标 v1 L237-273 的 P0 注入,与 _inject_memory_context 同源)。
+
+        复用 v1 AgentExecutor 的 _resolve_user_id / _build_profile_snippet 实现,
+        避免重复实现;失败降级不阻塞主循环。仅在记忆闭环启用(_enable_memory)时注入,
+        与 v1 行为一致(user_id 缺失则 debug 跳过)。
+        """
+        if not self._enable_memory:
+            return
+        # user_id 优先用构造注入;否则复用 v1 的 session_id 复合前缀解析逻辑
+        user_id = self._user_id or ""
+        try:
+            from .agent_loop import AgentExecutor
+
+            resolved = AgentExecutor._resolve_user_id(
+                self._session_id or "", {"user_id": self._user_id}
+            )
+            if resolved:
+                user_id = resolved
+        except Exception:
+            pass
+        if not user_id:
+            return
+        snippet = ""
+        try:
+            from .agent_loop import AgentExecutor
+
+            snippet = AgentExecutor._build_profile_snippet(AgentExecutor(), user_id)
+        except Exception as e:
+            logger.warning(
+                "user_profile.build_system_prompt_snippet 失败(降级,不阻塞): %s", e
+            )
+            return
+        if not snippet:
+            return
+        try:
+            if (
+                messages
+                and isinstance(messages[0], dict)
+                and messages[0].get("role") == "system"
+            ):
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = f"{existing}\n\n{snippet}" if existing else snippet
+            else:
+                messages.insert(0, {"role": "system", "content": snippet})
+        except Exception as e:
+            logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
+
     async def _persist_memory_insights(self, messages: list[dict[str, Any]]) -> None:
         """出口:从对话提取记忆写回 API(仅 run() 成功时调用)。
 
@@ -538,6 +596,112 @@ class AgentLoopV2:
             )
         except Exception as e:
             logger.warning("memory_save 失败(user=%s): %s", self._user_id, e)
+
+    # ------------------------------------------------------------------
+    # W1(2026-09)完成后出口闭环辅助(对标 v1 L384-468,移植到 v2 完成路径)
+    # 设计铁律:全部 fire-and-forget + 失败 logger.warning 降级,绝不阻塞主链路
+    # ------------------------------------------------------------------
+
+    def _fire_closure_task(self, coro: Any) -> None:
+        """fire-and-forget 启动一个闭环协程(失败降级,不阻塞主链路)。
+
+        复用 _pending_closure_tasks 持有 task 引用,防 CPython GC 在 task 完成前
+        提前回收(与 _pending_meta_eval_tasks 同模式)。coro 创建/调度失败也仅 warning。
+        """
+        try:
+            task = asyncio.create_task(coro)
+            _pending_closure_tasks.add(task)
+            task.add_done_callback(_pending_closure_tasks.discard)
+        except Exception as e:
+            logger.warning("闭环 task 启动失败(降级,不阻塞): %s", e)
+
+    def _fire_post_success_closures(self, messages: list[dict[str, Any]]) -> None:
+        """run() 成功后出口闭环(对标 v1 的 GraphRAG / consolidate / Skill 自进化评估)。
+
+        仅在已解析到 user_id 时触发;全部 fire-and-forget,失败仅 logger.warning,
+        绝不阻塞主链路 / 不覆盖已生成的 result。gating 与 v1 完全一致:
+        auto_graph_extract_enabled 或 LLM stub 模式才抽取图谱;consolidate 同 gating。
+        """
+        if not self._user_id:
+            return
+        user_id = self._user_id
+        session_id = self._conversation_id or self._session_id or ""
+
+        # P0 GraphRAG 闭环:开关开启或 stub 模式抽取实体建图谱(与 v1 L427-446 同 gating)
+        try:
+            from ..core.config import settings
+            from ..core.llm_gateway import LLMGateway
+
+            if settings.auto_graph_extract_enabled or LLMGateway._is_stub_mode():
+                from .knowledge_graph import knowledge_graph_service
+
+                graph_text = "\n".join(
+                    str(m.get("content", ""))
+                    for m in messages[-8:]
+                    if isinstance(m, dict) and m.get("role") in ("user", "assistant")
+                )
+                if graph_text.strip():
+                    self._fire_closure_task(
+                        knowledge_graph_service.extract(graph_text[-8000:], owner_uuid=user_id)
+                    )
+        except Exception as e:
+            logger.warning("auto graph extract 启动失败(降级,不阻塞): %s", e)
+
+        # P1-3 记忆提炼闭环:与 auto graph extract 同一 gating,episodic→semantic consolidate
+        try:
+            from ..core.config import settings
+            from ..core.llm_gateway import LLMGateway
+
+            if settings.auto_graph_extract_enabled or LLMGateway._is_stub_mode():
+                svc = self._resolve_memory_service()
+                if svc is not None:
+                    self._fire_closure_task(
+                        svc.consolidate(
+                            user_id=user_id,
+                            messages=messages[-8:],
+                            session_id=session_id,
+                        )
+                    )
+        except Exception as e:
+            logger.warning("consolidate 启动失败(降级,不阻塞): %s", e)
+
+        # L4 Skill 自进化评估(对标 v1 L384-401)
+        try:
+            from .skills import SkillEvolutionService, skill_registry
+
+            evolution = SkillEvolutionService()
+            goal = ""
+            for m in messages:
+                if isinstance(m, dict) and m.get("role") == "user":
+                    goal = str(m.get("content", ""))
+                    break
+            final_content = ""
+            if (
+                messages
+                and isinstance(messages[-1], dict)
+                and messages[-1].get("role") == "assistant"
+            ):
+                final_content = str(messages[-1].get("content", ""))
+            steps = [
+                {
+                    "iteration": i + 1,
+                    "role": mm.get("role") if isinstance(mm, dict) else None,
+                    "content": mm.get("content") if isinstance(mm, dict) else None,
+                }
+                for i, mm in enumerate(messages)
+            ]
+            self._fire_closure_task(
+                evolution.evaluate({
+                    "taskId": self._session_id or "",
+                    "sessionId": session_id,
+                    "goal": goal,
+                    "steps": steps,
+                    "finalResult": final_content,
+                    "existingSkills": [s.name for s in skill_registry.list_skills()],
+                })
+            )
+        except Exception as e:
+            logger.warning("Skill 自进化评估启动失败(降级,不阻塞): %s", e)
 
     async def _llm_call_with_retry(
         self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]]
