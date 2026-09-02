@@ -14097,6 +14097,25 @@
     "subtitle": "N8N 工作流集成 - 通过 N8N 自动化编排 AI agent",
     "totalBadge": "共 {n} 个 Agent"
   },
+  "agentGovernance": {
+    "title": "Agent Token 治理",
+    "subtitle": "Agent 主循环预算用量与近 7 日趋势",
+    "enabledBadge": "治理已开启",
+    "disabledBadge": "观测模式",
+    "usagePercent": "全局预算用量",
+    "todayTokens": "今日消耗 Tokens",
+    "pillarUsage": "当前支柱用量",
+    "remainingTokens": "支柱剩余 Tokens",
+    "degradedOn": "超限自动降级至",
+    "trendTitle": "近 7 日用量趋势",
+    "byPillarTitle": "今日各支柱用量",
+    "pillarEmpty": "当日暂无用量记录",
+    "tokenShort": "tk",
+    "loading": "加载中…",
+    "empty": "暂无治理数据",
+    "emptyHint": "AI 服务暂未返回预算数据,请稍后重试",
+    "backToCost": "返回成本面板"
+  },
   "nav": {
     "about": "关于",
     "activities": "活动",
@@ -14142,6 +14161,7 @@
     "adminThemePresets": "主题预设",
     "adminWorkflows": "工作流",
     "advancedAiTools": "高级 AI 工具",
+    "agentGovernance": "Agent Token 治理",
     "agentWorkbench": "智能体工作台",
     "agents": "智能体",
     "aiGeneration": "AI 生成",
@@ -20210,3 +20230,4 @@
     "generic": "请求失败,请稍后重试"
   }
 }
+
