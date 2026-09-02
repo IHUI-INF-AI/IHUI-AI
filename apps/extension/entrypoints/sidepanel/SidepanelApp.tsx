@@ -11,6 +11,7 @@ import { initApi, getToken, getRefreshToken, setTokenPair, clearAllTokens } from
 import { startAutoRefresh, scheduleRefreshAlarm, doRefresh } from '../../lib/token-utils'
 import { useNotificationWebSocket } from '../../lib/use-websocket'
 import { NotificationProvider, useNotificationStore } from '../../lib/notification-store'
+import { isComponentType } from '../../lib/is-component-type'
 import { useI18n } from '../../src/i18n'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import LoginPage from './pages/LoginPage'
@@ -268,7 +269,7 @@ function SidepanelInner() {
               }
             >
               <span className="text-lg leading-none" aria-hidden>
-                {typeof tab.icon === 'function' ? (
+                {isComponentType(tab.icon) ? (
                   <tab.icon size={18} className="shrink-0" />
                 ) : (
                   tab.icon
