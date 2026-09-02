@@ -15480,6 +15480,7 @@
   "publish": {
     "accounts": {
       "add": "添加账号",
+      "advancedAdd": "开发者手动添加",
       "batchImport": "批量导入",
       "batchVerify": "批量验证",
       "cancelScan": "取消扫码",
@@ -15496,6 +15497,8 @@
       "noAccounts": "暂无账号,请先添加",
       "openExternalBrowser": "在外部浏览器打开",
       "orDivider": "或",
+      "passwordPlaceholder": "请输入密码",
+      "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "scan": "扫码",
       "scanLogin": "扫码登录",

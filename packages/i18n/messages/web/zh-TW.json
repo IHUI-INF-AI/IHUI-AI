@@ -15480,6 +15480,7 @@
   "publish": {
     "accounts": {
       "add": "添加賬號",
+      "advancedAdd": "開發者手動添加",
       "batchImport": "批量導入",
       "batchVerify": "批量驗證",
       "cancelScan": "取消掃碼",
@@ -15496,6 +15497,8 @@
       "noAccounts": "暫無賬號,請先添加",
       "openExternalBrowser": "在外部瀏覽器開啟",
       "orDivider": "或",
+      "passwordPlaceholder": "請輸入密碼",
+      "passwordHint": "普通用戶建議使用掃碼登錄,此處僅開發者備用。",
       "platform": "平臺",
       "scan": "掃碼",
       "scanLogin": "掃碼登錄",
