@@ -14129,7 +14129,6 @@
     "about": "概要",
     "activities": "アクティビティ",
     "admin": "管理",
-    "adminConfigs": "設定",
     "adminDynamic": "動的ルート",
     "adminGroup": {
       "aiAgent": "AI エージェント",
@@ -14363,7 +14362,6 @@
     "modelsGroups": "グループ",
     "modelsKeys": "キー",
     "modelsLogs": "ログ",
-    "modelsMarket": "マーケット",
     "modelsOpenclaw": "OpenClaw",
     "modelsOverview": "概要",
     "modelsPrompts": "プロンプト管理",
