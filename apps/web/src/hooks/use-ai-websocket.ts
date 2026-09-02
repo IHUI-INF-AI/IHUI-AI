@@ -7,6 +7,7 @@
 import * as React from 'react'
 
 import { createWebSocketHook, type WebSocketHookResult } from '@/hooks/create-websocket-hook'
+import { buildWsUrl as buildWs } from '@/lib/ws-url'
 
 export type AIWSProvider = 'qwen' | 'zhipu' | 'deepseek' | 'doubao' | 'generic'
 
@@ -46,9 +47,8 @@ function aiMessageGuard(v: unknown): v is AIWSMessage {
 
 function buildWsUrl(provider: AIWSProvider, token: string | null): string {
   if (typeof window === 'undefined' || !token) return ''
-  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const path = PROVIDER_PATHS[provider]
-  return `${proto}//${window.location.host}${path}?token=${encodeURIComponent(token)}`
+  // WS 源统一由 @/lib/ws-url 解析:桌面端指向线上(或显式 NEXT_PUBLIC_WS_BASE_URL),浏览器保持同源
+  return buildWs(PROVIDER_PATHS[provider], token)
 }
 
 /**
