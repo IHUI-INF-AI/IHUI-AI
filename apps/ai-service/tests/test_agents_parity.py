@@ -256,4 +256,99 @@ async def test_parity_done_event_contract(monkeypatch):
     assert evt["success"] is True
     assert evt["stop_reason"] == "completed"
     assert evt["output"] == "你好,我是助手"
+
+
+# =============================================================================
+# 6. W1(2026-09):默认执行器翻转为 v2 + env 显式回退
+# =============================================================================
+
+
+def test_default_executor_resolves_to_v2(monkeypatch):
+    """W1:env 缺省时 _is_loop_v2_enabled() 返回 True(默认 v2)。"""
+    from app.routers.agents import _is_loop_v2_enabled
+
+    monkeypatch.delenv("AGENT_EXECUTOR", raising=False)
+    assert _is_loop_v2_enabled() is True
+
+
+def test_env_explicit_fallback_to_legacy(monkeypatch):
+    """W1:env 显式 langgraph/v1/legacy → False;loop_v2/v2 → True;未知值 → False。"""
+    from app.routers.agents import _is_loop_v2_enabled
+
+    for val in ("langgraph", "v1", "legacy", "bogus-value"):
+        monkeypatch.setenv("AGENT_EXECUTOR", val)
+        assert _is_loop_v2_enabled() is False, val
+    for val in ("loop_v2", "v2"):
+        monkeypatch.setenv("AGENT_EXECUTOR", val)
+        assert _is_loop_v2_enabled() is True, val
+
+
+# =============================================================================
+# 7. W1(2026-09):POST /agents/execute/resume 断点续跑接线冒烟
+# =============================================================================
+
+
+async def test_resume_endpoint_resumes_from_checkpoint(monkeypatch):
+    """POST /agents/execute/resume 真实接线:构造 loop 跑出 checkpoint → 端点续跑成功。
+
+    与 execute/stream 的 v2 分支使用同一套 AgentLoopV2 构造
+    (_make_loop_v2_llm / enable_checkpoint=True),rebuild 后调 resume_from_checkpoint。
+    """
+    import uuid
+
+    from app.routers.agents import AgentResumeRequest, resume_agent_execute
+    from app.services.agent_loop_v2 import AgentLoopV2
+
+    session_id = f"resume-smoke-{uuid.uuid4().hex}"
+    call = {"n": 0}
+
+    async def fake_complete(messages, model=None, **kwargs):
+        call["n"] += 1
+        return {"content": f"续跑第{call['n']}轮完成", "tool_calls": None}
+
+    import app.core.llm_gateway as lg
+
+    monkeypatch.setattr(lg.llm_gateway, "complete", fake_complete)
+
+    # 1) 用同一全局 checkpoint manager 跑一次并 pause 出 checkpoint
+    loop_a = AgentLoopV2(
+        _make_loop_v2_llm("smoke-model"),
+        tools=[],
+        session_id=session_id,
+        max_iterations=8,
+        enable_checkpoint=True,
+    )
+    res_a = await loop_a.run([{"role": "user", "content": "任务开始"}])
+    assert res_a.success is True
+    cp_id = await loop_a.pause()
+    assert cp_id
+
+    # 2) 端点续跑(端点内部重建 loop,从 checkpoint 续跑)
+    resp = await resume_agent_execute(
+        AgentResumeRequest(checkpoint_id=cp_id, model="smoke-model")
+    )
+    assert resp["code"] == 0
+    assert resp["data"]["checkpoint_id"] == cp_id
+    assert resp["data"]["success"] is True
+    assert resp["data"]["stop_reason"] in ("completed", "max_iterations")
+
+
+async def test_resume_endpoint_404_for_missing_checkpoint(monkeypatch):
+    """POST /agents/execute/resume 对不存在的 checkpoint_id 返回 code=404。"""
+    import uuid
+
+    from app.routers.agents import AgentResumeRequest, resume_agent_execute
+
+    async def fake_complete(messages, model=None, **kwargs):
+        return {"content": "完成", "tool_calls": None}
+
+    import app.core.llm_gateway as lg
+
+    monkeypatch.setattr(lg.llm_gateway, "complete", fake_complete)
+
+    resp = await resume_agent_execute(
+        AgentResumeRequest(checkpoint_id=f"cp-missing-{uuid.uuid4().hex}", model="m")
+    )
+    assert resp["code"] == 404
+    assert resp["data"] is None
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1,0 +1,250 @@
+[
+  {
+    "id": "fix-calc-divzero",
+    "title": "修复计算器除零崩溃",
+    "category": "fix",
+    "fixture": "fixture_calculator",
+    "instructions": "在 calc.py 中修复 divide 函数:当除数为 0 时安全返回 0.0,而不是抛出 ZeroDivisionError。保持其他行为不变。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_calc.py", "test": "test_divide_by_zero"}}
+    ]
+  },
+  {
+    "id": "fix-calc-percent",
+    "title": "修复百分比计算放大 100 倍",
+    "category": "fix",
+    "fixture": "fixture_calculator",
+    "instructions": "在 calc.py 中修复 percentage 函数:当前返回 value * pct,应为 value * pct / 100。例如 percentage(50, 10) 应等于 5.0。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_calc.py", "test": "test_percentage"}}
+    ]
+  },
+  {
+    "id": "fix-calc-multiply",
+    "title": "修复乘法写成加法",
+    "category": "fix",
+    "fixture": "fixture_calculator",
+    "instructions": "在 calc.py 中修复 multiply 函数:当前误写成 a + b,应返回 a * b。例如 multiply(3, 4) 应等于 12。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_calc.py", "test": "test_multiply"}}
+    ]
+  },
+  {
+    "id": "fix-cli-import",
+    "title": "移除坏 import 让模块可导入",
+    "category": "fix",
+    "fixture": "fixture_cli_tools",
+    "instructions": "在 cli.py 中删除那行 `import nonexistent_fake_module`(该模块不存在,导致整个模块 ImportError)。其余代码保持不变,使 `from cli import greet` 可以成功。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_cli.py"}}
+    ]
+  },
+  {
+    "id": "fix-cli-deadcode",
+    "title": "删除死代码函数",
+    "category": "fix",
+    "fixture": "fixture_cli_tools",
+    "instructions": "在 cli.py 中删除从未被调用的 dead_code_helper 函数(连同其定义),保持 greet/main 行为不变。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "file_not_contains", "params": {"path": "cli.py", "substring": "dead_code_helper"}}
+    ]
+  },
+  {
+    "id": "fix-text-reverse",
+    "title": "修复字符串反转步长",
+    "category": "fix",
+    "fixture": "fixture_text_utils",
+    "instructions": "在 text_utils.py 中修复 reverse 函数:当前 return text[::1] 不反转,应改为 return text[::-1]。例如 reverse('abc') 应等于 'cba'。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_text_utils.py", "test": "test_reverse"}}
+    ]
+  },
+  {
+    "id": "fix-report-avg",
+    "title": "修复平均金额除以 1 的 bug",
+    "category": "fix",
+    "fixture": "fixture_data_report",
+    "instructions": "在 report.py 的 avg_amount 函数中,当前返回 total / 1,应返回 total / len(rows)。例如 avg_amount([{amount:10},{amount:20}]) 应等于 15.0。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_report.py", "test": "test_avg_amount"}}
+    ]
+  },
+  {
+    "id": "fix-report-total",
+    "title": "修复合计 off-by-one 累加",
+    "category": "fix",
+    "fixture": "fixture_data_report",
+    "instructions": "在 report.py 的 generate_report 函数中,循环内当前写 total = total + 1(每个 row 多 +1),应改为 total += r['amount']。例如两行 10/20 的合计应为 ¥30.00。",
+    "max_iterations": 8,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_report.py", "test": "test_generate_report"}}
+    ]
+  },
+  {
+    "id": "test-text-slugify",
+    "title": "为 slugify 补测试",
+    "category": "test",
+    "fixture": "fixture_text_utils",
+    "instructions": "在 tests/test_text_utils.py 中补充 slugify 的测试用例:覆盖普通文本(如 'Hello World' -> 'hello-world')与含多余空格的文本。文件应当包含对 slugify 的测试。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "file_contains", "params": {"path": "tests/test_text_utils.py", "substring": "def test_slugify"}}
+    ]
+  },
+  {
+    "id": "test-calc-edge",
+    "title": "为计算器补充边界测试",
+    "category": "test",
+    "fixture": "fixture_calculator",
+    "instructions": "新建文件 tests/test_calc_edge.py,为 calc.py 的 add/subtract 补充边界用例(如负数、零),并 import calc 模块运行。确保文件存在且可被 pytest 收集。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_file_exists", "params": {"path": "tests/test_calc_edge.py"}}
+    ]
+  },
+  {
+    "id": "test-cli-errors",
+    "title": "为 CLI 错误路径补测试",
+    "category": "test",
+    "fixture": "fixture_cli_tools",
+    "instructions": "新建文件 tests/test_cli_errors.py,测试 cli.main 在无参数时返回 1(退出码),并 import cli 模块。确保文件存在且可被 pytest 收集。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_file_exists", "params": {"path": "tests/test_cli_errors.py"}}
+    ]
+  },
+  {
+    "id": "test-report-empty",
+    "title": "为数据汇总补空输入测试",
+    "category": "test",
+    "fixture": "fixture_data_report",
+    "instructions": "新建文件 tests/test_report_empty.py,测试 report.generate_report([]) 与 aggregate.summarize([]) 在空输入下的行为(不应抛异常),并 import 相应模块。确保文件存在。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_file_exists", "params": {"path": "tests/test_report_empty.py"}}
+    ]
+  },
+  {
+    "id": "test-text-wordcount",
+    "title": "为词数统计补更多测试",
+    "category": "test",
+    "fixture": "fixture_text_utils",
+    "instructions": "新建文件 tests/test_text_wordcount.py,为 text_utils.word_count 补充用例(如多个连续空格、含标点的句子),并 import text_utils。确保文件存在且可被 pytest 收集。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_file_exists", "params": {"path": "tests/test_text_wordcount.py"}}
+    ]
+  },
+  {
+    "id": "refactor-report-common",
+    "title": "提取重复的货币格式化逻辑",
+    "category": "refactor",
+    "fixture": "fixture_data_report",
+    "instructions": "report.py 与 aggregate.py 都实现了 format_currency,存在重复。请提取到新文件 common.py 中,并让 report.py 与 aggregate.py 改为从 common 导入。重构后原有测试必须仍然全部通过。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_report.py"}},
+      {"type": "file_contains", "params": {"path": "common.py", "substring": "def format_currency"}}
+    ]
+  },
+  {
+    "id": "refactor-calc-validate",
+    "title": "提取数值校验辅助函数",
+    "category": "refactor",
+    "fixture": "fixture_calculator",
+    "instructions": "为 calc.py 提取一个 _is_number 辅助函数用于校验输入是否为合法数值,并在现有函数中复用(保持行为不变)。重构后测试必须仍然通过。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_calc.py"}},
+      {"type": "file_contains", "params": {"path": "calc.py", "substring": "def _is_number"}}
+    ]
+  },
+  {
+    "id": "refactor-cli-dispatch",
+    "title": "提取命令分发逻辑",
+    "category": "refactor",
+    "fixture": "fixture_cli_tools",
+    "instructions": "将 cli.py 中 main 的参数处理逻辑提取为 dispatch(argv) 函数,main 仅做入口调用。保持 greet 输出与退出码行为不变。重构后测试必须仍然通过。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_cli.py"}},
+      {"type": "file_contains", "params": {"path": "cli.py", "substring": "def dispatch"}}
+    ]
+  },
+  {
+    "id": "refactor-text-normalize",
+    "title": "提取空白归一化辅助函数",
+    "category": "refactor",
+    "fixture": "fixture_text_utils",
+    "instructions": "为 text_utils.py 提取一个 normalize_whitespace 辅助函数(压缩多余空白),并让 word_count / slugify 复用它。保持现有行为不变,测试必须仍然通过。",
+    "max_iterations": 10,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_text_utils.py"}},
+      {"type": "file_contains", "params": {"path": "text_utils.py", "substring": "def normalize_whitespace"}}
+    ]
+  },
+  {
+    "id": "multifile-report-split",
+    "title": "拆分报表为数据与格式化两个模块",
+    "category": "multifile",
+    "fixture": "fixture_data_report",
+    "instructions": "将 fixture_data_report 拆分为:data.py 负责数据汇总逻辑(generate_report/summarize/avg_amount),format.py 负责格式化(format_currency),report.py 改为从这两个模块导入并转发。重构后原有测试必须仍然全部通过。",
+    "max_iterations": 12,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_report.py"}},
+      {"type": "file_contains", "params": {"path": "data.py", "substring": "def generate_report"}},
+      {"type": "file_contains", "params": {"path": "format.py", "substring": "def format_currency"}}
+    ]
+  },
+  {
+    "id": "multifile-cli-parser",
+    "title": "将参数解析移到独立模块",
+    "category": "multifile",
+    "fixture": "fixture_cli_tools",
+    "instructions": "新建 parser.py,把 cli.py 中解析 argv 的逻辑(无参返回 usage/1、有参取出名字)迁移到 parser.py 的 parse_args(argv) 函数,cli.py 改为从 parser 导入。保持 greet 输出与退出码不变,测试必须仍然通过。",
+    "max_iterations": 12,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_cli.py"}},
+      {"type": "file_contains", "params": {"path": "parser.py", "substring": "def parse_args"}}
+    ]
+  },
+  {
+    "id": "multifile-calc-split",
+    "title": "拆分计算器为运算与 IO 两模块",
+    "category": "multifile",
+    "fixture": "fixture_calculator",
+    "instructions": "新建 ops.py 承载全部运算函数(add/subtract/multiply/divide/percentage/average),calc.py 改为从 ops 导入并仅保留(可选)IO 入口。重构后 tests/test_calc.py 必须仍然全部通过。",
+    "max_iterations": 12,
+    "allowed_tools": ["read_file", "list_files", "write_file", "file_edit", "run_command"],
+    "checks": [
+      {"type": "pytest_pass", "params": {"path": "tests/test_calc.py"}},
+      {"type": "file_contains", "params": {"path": "ops.py", "substring": "def add"}}
+    ]
+  }
+]
