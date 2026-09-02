@@ -195,6 +195,7 @@ import { agentControlRoutes } from './agent-control.js'
 
 // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:截图 + 探测)
 import { browserRoutes } from './browser.js'
+import { embedProxyRoutes } from './embed-proxy.js'
 // 统一记忆读写路由(P0-3,cli/ai-service/api 三端记忆同步中枢)
 import { memoryRoutes } from './memory.js'
 // Skill 持久化路由(P0-2,管理自进化生成的 skill)
@@ -791,6 +792,9 @@ export function registerRoutes(server: FastifyInstance) {
 
   // 浏览器降级路由(2026-07-22 立,P1 WorkPanel iframe 降级:POST /screenshot + POST /probe)
   server.register(browserRoutes, { prefix: '/api/browser' })
+
+  // 同源嵌入代理(2026-09-02 立,WorkPanel 真实内嵌:GET /raw?url= 剥 XFO/CSP 喂 iframe)
+  server.register(embedProxyRoutes, { prefix: '/api/embed-proxy' })
 
   // 统一记忆读写(2026-07-22 立,P0-3:GET/POST/DELETE /api/memory)
   server.register(memoryRoutes, { prefix: '/api' })
