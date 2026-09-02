@@ -8,6 +8,7 @@ import {
   filterRealErrors,
   I18N_KEYWORDS,
   waitForAnyText,
+  waitForAuthBootstrap,
 } from '../tests/e2e/fixtures/helpers'
 
 /**
@@ -150,6 +151,7 @@ test.describe('8 端关键路径 · 5 语言切换', () => {
     await page.waitForLoadState('domcontentloaded')
     await switchLocale(page, 'en')
     await page.goto('/login', { waitUntil: 'domcontentloaded' })
+    await waitForAuthBootstrap(page)
     await page.waitForLoadState('domcontentloaded')
     // 英文关键字应出现在 /login 页面(可能重定向到 /sso/login)
     const hit = await waitForAnyText(page, I18N_KEYWORDS.en ?? [], 8000)

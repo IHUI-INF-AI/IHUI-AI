@@ -15507,6 +15507,7 @@
   "publish": {
     "accounts": {
       "add": "Add Account",
+      "advancedAdd": "Advanced Add (Developer)",
       "batchImport": "Batch Import",
       "batchVerify": "Batch Verify",
       "cancelScan": "Cancel scan",
@@ -15523,6 +15524,8 @@
       "noAccounts": "No accounts yet, please add one first",
       "openExternalBrowser": "Open in external browser",
       "orDivider": "or",
+      "passwordPlaceholder": "Enter password",
+      "passwordHint": "Normal users should use scan login. This field is for developers only.",
       "platform": "Platform",
       "scan": "Scan",
       "scanLogin": "Scan Login",
