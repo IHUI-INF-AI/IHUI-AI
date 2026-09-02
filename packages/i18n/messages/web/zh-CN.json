@@ -6760,7 +6760,12 @@
       "targetPlaceholder": "如:重点高中、985大学"
     },
     "options": {
-      "classLevel": ["优秀(班级前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(后 30%)"],
+      "classLevel": [
+        "优秀(班级前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(后 30%)"
+      ],
       "difficulty": [
         "语文阅读理解",
         "英语听力口语",
@@ -6777,7 +6782,12 @@
         "考试焦虑",
         "家庭环境影响"
       ],
-      "school": ["重点中学", "普通中学", "国际学校", "私立学校"]
+      "school": [
+        "重点中学",
+        "普通中学",
+        "国际学校",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析失败",
@@ -8232,7 +8242,7 @@
       "shortcutsItemModeSpecKbd": "切换到规格模式(从代码反向生成 spec 文档)",
       "shortcutsItemNumberKbd": "popover 打开时按 1/2/3 直接选模式",
       "shortcutsItemQuestionMarkKbd": "唤起本快捷键面板",
-      "infoModalTitle": "权限模式说明",
+      "infoModalTitle": "权限模式详情",
       "infoModalDesc": "当前为高风险模式，请了解以下行为：",
       "infoModalBullet1": "AI 可不受限制地执行所有操作，无需逐一确认",
       "infoModalBullet2": "可读取、修改、删除工作区内的任意文件",
@@ -8299,8 +8309,7 @@
       "tplTranslate": "翻译",
       "tplTranslateContent": "请将以下内容翻译为英文",
       "undo": "撤销",
-      "usageHint": "用法: /permission ask | auto | full",
-      "infoModalTitle": "权限模式详情"
+      "usageHint": "用法: /permission ask | auto | full"
     },
     "permissionAlreadyActive": "当前已是 {mode} 模式",
     "permissionLabelAsk": "请求批准",
@@ -8740,32 +8749,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 应用世界",
-        "keywords": ["AI", "世界", "应用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "应用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "与 AI 助手开始对话",
-        "keywords": ["对话", "聊天", "AI", "chat"],
+        "keywords": [
+          "对话",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 对话"
       },
       "drama": {
         "description": "AI 生成的精彩短剧",
-        "keywords": ["短剧", "视频", "AI", "drama"],
+        "keywords": [
+          "短剧",
+          "视频",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短剧"
       },
       "profile": {
         "description": "管理个人资料和设置",
-        "keywords": ["个人", "资料", "设置"],
+        "keywords": [
+          "个人",
+          "资料",
+          "设置"
+        ],
         "label": "个人中心"
       },
       "search": {
         "description": "全局内容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系统偏好与配置",
-        "keywords": ["设置", "偏好", "配置"],
+        "keywords": [
+          "设置",
+          "偏好",
+          "配置"
+        ],
         "label": "系统设置"
       }
     },
@@ -10568,25 +10603,37 @@
       "quadrants": [
         {
           "description": "简单决策 + 简单执行,快速部署高频应用",
-          "examples": ["知识问答", "流程自动化"],
+          "examples": [
+            "知识问答",
+            "流程自动化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "复杂决策 + 简单执行,提供深度分析与建议",
-          "examples": ["数据分析", "决策支持"],
+          "examples": [
+            "数据分析",
+            "决策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顾问"
         },
         {
           "description": "简单决策 + 复杂执行,处理跨系统复杂任务",
-          "examples": ["会议安排", "审批流程"],
+          "examples": [
+            "会议安排",
+            "审批流程"
+          ],
           "tag": "Q3",
           "title": "执行专家"
         },
         {
           "description": "复杂决策 + 复杂执行,自主规划与多智能体协作",
-          "examples": ["营销自动化", "多智能体协同"],
+          "examples": [
+            "营销自动化",
+            "多智能体协同"
+          ],
           "tag": "Q4",
           "title": "全能专家"
         }
@@ -10720,19 +10767,31 @@
       "items": [
         {
           "description": "线下课程、探索活动与互助社群,深度链接志同道合的决策者",
-          "features": ["系统化课程", "实践探索", "社群互助"],
+          "features": [
+            "系统化课程",
+            "实践探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在线交流平台,随时随地获取信息与支持",
-          "features": ["交流平台", "经验共享", "资源对接"],
+          "features": [
+            "交流平台",
+            "经验共享",
+            "资源对接"
+          ],
           "tag": "MODULE 02",
           "title": "线上社群"
         },
         {
           "description": "专业大模型与智能体服务,提供深度AI化咨询与支持",
-          "features": ["专业大模型", "智能体服务", "咨询服务"],
+          "features": [
+            "专业大模型",
+            "智能体服务",
+            "咨询服务"
+          ],
           "tag": "MODULE 03",
           "title": "AI专业服务"
         }
@@ -13209,7 +13268,15 @@
       "title": "Top 5 页面",
       "visitsHeader": "访问数"
     },
-    "weekdays": ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+    "weekdays": [
+      "周一",
+      "周二",
+      "周三",
+      "周四",
+      "周五",
+      "周六",
+      "周日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13944,7 +14011,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 额度", "基础模型可用", "5 个 API 令牌", "社区支持"]
+        "features": [
+          "1M tokens 额度",
+          "基础模型可用",
+          "5 个 API 令牌",
+          "社区支持"
+        ]
       }
     },
     "productSchema": {
@@ -14893,12 +14965,24 @@
       "enterprise": {
         "contactSales": "联系销售",
         "cta": "联系销售",
-        "features": ["不限积分", "私有化部署", "SSO/SAML 2.0", "审计日志", "专属技术支持"],
+        "features": [
+          "不限积分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "审计日志",
+          "专属技术支持"
+        ],
         "name": "企业版"
       },
       "free": {
         "cta": "立即开始",
-        "features": ["每月 1000 积分", "所有 AI 模型", "所有 6 个客户端", "API 访问", "社区支持"],
+        "features": [
+          "每月 1000 积分",
+          "所有 AI 模型",
+          "所有 6 个客户端",
+          "API 访问",
+          "社区支持"
+        ],
         "name": "免费版"
       },
       "pro": {
@@ -15480,6 +15564,7 @@
   "publish": {
     "accounts": {
       "add": "添加账号",
+      "advancedAdd": "开发者手动添加",
       "batchImport": "批量导入",
       "batchVerify": "批量验证",
       "cancelScan": "取消扫码",
@@ -15489,13 +15574,16 @@
       "delete": "删除",
       "deleteConfirm": "确定删除此账号吗?",
       "edit": "编辑",
-      "externalBrowserHint": "用系统浏览器登录(适合验证码/密码登录);登录后复制该网站 Cookie 粘贴到账号表单保存",
+      "externalBrowserHint": "用系统浏览器登录;登录成功后会自动保存账号到项目中",
       "lastVerified": "最近验证",
       "minimize": "最小化(后台继续等待)",
       "nickname": "昵称",
       "noAccounts": "暂无账号,请先添加",
       "openExternalBrowser": "在外部浏览器打开",
+      "openExternalBrowserSuccess": "已打开 Chrome,登录后将自动保存账号",
       "orDivider": "或",
+      "passwordPlaceholder": "请输入密码",
+      "passwordHint": "普通用户建议使用扫码登录,此处仅开发者备用。",
       "platform": "平台",
       "scan": "扫码",
       "scanLogin": "扫码登录",
@@ -15520,7 +15608,9 @@
       "verify": "测试连接",
       "verifyFailed": "连接失败",
       "verifySuccess": "连接成功",
-      "waitingForScan": "等待 {platform} App 扫码..."
+      "waitingForScan": "等待 {platform} App 扫码...",
+      "openExternalBrowserWithPlatform": "已在右侧内置浏览器打开 {name} 登录页,请扫码登录",
+      "webFallbackHint": "当前为 web 端,请登录后手动粘贴 Cookie 保存"
     },
     "ai": {
       "analyzeAll": "批量分析",
@@ -16155,7 +16245,13 @@
     "cards": {
       "consulting": {
         "desc": "架构咨询 / 技术选型 / 代码 review",
-        "features": ["视频会议 / 远程桌面", "2 小时起", "故障排查", "增值税发票", "响应 SLA 24h"],
+        "features": [
+          "视频会议 / 远程桌面",
+          "2 小时起",
+          "故障排查",
+          "增值税发票",
+          "响应 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技术咨询",
         "unit": "/小时"
@@ -20163,5 +20259,45 @@
     "autoMemoryDesc": "开启后，AI 会在对话后自动提炼要点并沉淀为长期记忆，用于后续个性化回复。",
     "autoMemorySaveSuccess": "设置已保存",
     "autoMemorySaveFailed": "保存失败，请重试"
+  },
+  "agentPlan": {
+    "title": "Agent 计划模式",
+    "description": "先让 AI 起草一份可编辑的执行计划;任何动作执行前先审阅确认(只读阶段)。",
+    "goalLabel": "目标 / 任务描述",
+    "goalPlaceholder": "描述你希望 AI 完成的任务,例如:为登录模块编写单元测试",
+    "sessionLabel": "会话 ID(可选)",
+    "sessionPlaceholder": "关联一个已有会话;留空则新建会话",
+    "modelLabel": "模型(可选)",
+    "modelPlaceholder": "留空使用默认模型",
+    "generate": "生成计划",
+    "generating": "生成中…",
+    "planTitle": "执行计划",
+    "edit": "编辑",
+    "save": "保存修改",
+    "cancel": "取消",
+    "editHint": "你可以直接编辑计划。批准后将以编辑后的版本执行。",
+    "readonlyTools": "只读工具",
+    "approve": "批准并执行",
+    "reject": "拒绝",
+    "executing": "执行中,请稍候…(可能耗时数分钟)",
+    "decisionError": "操作失败",
+    "resultTitle": "执行结果",
+    "planId": "计划 ID",
+    "finalResponse": "最终回复",
+    "stopReason": "停止原因",
+    "iterations": "迭代轮数",
+    "error": "错误信息",
+    "reset": "再来一次",
+    "rejectedTitle": "已拒绝",
+    "rejectedDesc": "你已拒绝该计划;未执行任何操作。",
+    "statusDraft": "草稿",
+    "statusApproved": "已批准",
+    "statusRejected": "已拒绝",
+    "statusExecuting": "执行中",
+    "statusDone": "已完成",
+    "statusFailed": "失败",
+    "notFound": "计划不存在或已过期",
+    "conflict": "当前计划状态下不允许此操作",
+    "generic": "请求失败,请稍后重试"
   }
 }

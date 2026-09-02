@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
+import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { TOPBAR_BTN_BASE, TOPBAR_BTN_W9 } from '@/lib/nav-styles'
@@ -99,7 +100,7 @@ export function SidebarHeader({
           width={80}
           height={26}
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => router.push('/')}
+          onClick={() => navigate('/')}
         />
         {/* 2026-07-31 第十八次微调(用户反馈"X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
             - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
@@ -162,7 +163,7 @@ export function SidebarHeader({
           width={80}
           height={26}
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => router.push('/')}
+          onClick={() => navigate('/')}
         />
       )}
       <Tooltip content={collapsed ? t('expand') : t('collapse')} side="right">
