@@ -1445,6 +1445,25 @@ pub fn run() {
             }
         })
         .setup(|app| {
+            // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
+            // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
+            // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
+            // dev(target/debug/ihui-desktop.exe) 与安装版/更新版路径不同 → 被当成不同应用
+            // → 托盘显隐记忆每次重置、图标被丢进隐藏溢出区。
+            // 注:winapi 0.3.9 与 Tauri 2.11 均未导出该 API,改用已在依赖树中的 windows-sys 调用。
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::ffi::OsStrExt;
+                use windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID;
+
+                let id = "com.ihui.desktop";
+                let wide: Vec<u16> =
+                    std::ffi::OsStr::new(id).encode_wide().chain(std::iter::once(0)).collect();
+                unsafe {
+                    let _ = SetCurrentProcessExplicitAppUserModelID(wide.as_ptr());
+                }
+            }
+
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = app.get_webview_window("main") {
