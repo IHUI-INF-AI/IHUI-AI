@@ -58,6 +58,7 @@ HOOK_EVENTS: tuple[str, ...] = (
     "session.start",
     "session.end",
     "error",
+    "permission.mode",  # 2026-09-02:权限三模式生效事件(plan 拦截/auto 免审批,agent_loop_v2 发出)
 )
 
 HOOK_ACTION_TYPES: tuple[str, ...] = ("webhook", "script", "log", "notify")

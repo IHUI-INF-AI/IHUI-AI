@@ -35,6 +35,12 @@ export type DeviceFingerprintProvider = DeviceFingerprintCollector
 /** fetchApi 扩展选项:在 RequestInit 基础上追加 `params`(自动拼 query string) */
 export type FetchApiOptions = RequestInit & {
   params?: Record<string, string | number | boolean | undefined | null>
+  /**
+   * 自定义请求超时(毫秒)。默认 30_000。
+   * 用于同步阻塞、耗时可达分钟级的端点(如 agent plan 的批准执行 decision),
+   * 调用方按需调大(建议 >=120_000)。<=0 时回退到默认 30s。
+   */
+  timeoutMs?: number
 }
 
 let tokenProvider: TokenProvider = { getToken: () => null }
@@ -408,7 +414,7 @@ export async function fetchApi<T>(
   // 2026-07-22 P0 Round 4 鲁棒性加固:默认 30s 超时,防止请求无限挂起
   // 调用方传入的 signal 与超时 signal 合并(AbortSignal.any),任一触发都中止
   // streamChat SSE 流场景不经过 fetchApi(走独立 streamText),不受此超时影响
-  const DEFAULT_TIMEOUT_MS = 30_000
+  const DEFAULT_TIMEOUT_MS = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 30_000
   const timeoutController = new AbortController()
   const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
   const userSignal = restOptions.signal
@@ -587,7 +593,7 @@ export async function fetchAiServiceJson<T>(
     // 指纹采集失败(非 abort):静默降级继续
   }
 
-  const DEFAULT_TIMEOUT_MS = 30_000
+  const DEFAULT_TIMEOUT_MS = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 30_000
   const timeoutController = new AbortController()
   const timeoutId = setTimeout(() => timeoutController.abort(), DEFAULT_TIMEOUT_MS)
   const userSignal = restOptions.signal
