@@ -131,12 +131,17 @@ const PLUS_MENU_GROUPS: Array<{
  *   全部跟原 MainShell 保持一致,只是位置上移到 GlobalTopBar。
  *
  * 布局:
- *   <div h-9 px-4 select-none cursor-default>          ← 外层容器(单层 h-9 = 36px,水平 16px 与 main p-4 对齐)
- *     <TagsView flex-1 />                                ← 标签栏
- *     <Plus 弹窗按钮>                                    ← 8 项菜单(文档/浏览器/终端/编辑/代码变更/Agent/MCP/Skill)
- *     <WindowControls>                                   ← 仅桌面端:Min/Max/Close
- *     注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions)。
+ *   <div pt-1/pr-2/min-[1024px]:pt-2… shrink-0 select-none cursor-default>   ← 外层透明容器:仅管理垂直间距 + 右侧缓冲
+ *     <div flex h-9 items-center gap-1>                                      ← 内层 flex(总高拆解见下方 JSX 注释)
+ *       <TagsViewSearchButton 36x36 />                                       ← 搜索
+ *       <Plus 36x36 />                                                       ← 添加视图(8 项菜单)
+ *       <TagsViewChevronButton 36x36 />                                      ← 关闭其他/全部(tags 为空不渲染)
+ *       <TagsView flex-1 />                                                  ← 标签栏(a 标签)
+ *       <WindowControls>                                                     ← 仅桌面端:Min/Max/Close
+ *     </div>
  *   </div>
+ *   桌面端总高 50px = pt-2(8) + h-9(36) + pb-1.5(6);右缘 pr-2 与下方工作展示区卡片右缘对齐(2026-09-02 修,不再用水平 16px)。
+ *   注:设置按钮不在顶栏 —— 2026-08-14 用户指定放左侧侧边栏底部"明暗切换按钮右侧"(sidebar.tsx SidebarActions)。
  *
  * 与 MainShell 的分工:
  * - GlobalTopBar:负责全站顶栏(标签 + Plus 弹窗 + 窗口控制 + 桌面端拖拽/resize)
