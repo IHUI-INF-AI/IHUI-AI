@@ -248,7 +248,8 @@
     "webPortal": "ウェブ版",
     "webPortalCenter": "Web 機能ポータル",
     "knowledgeRag": "RAG 知識ベース",
-    "subagents": "サブエージェント"
+    "subagents": "サブエージェント",
+    "chatTools": "AI チャット / ツール"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -2086,6 +2087,11 @@
   "webView": {
     "loadFailed": "ページの読み込みに失敗",
     "retry": "再試行"
+  },
+  "webChat": {
+    "title": "AI チャット / ツール",
+    "loginRequired": "ログインすると AI チャットと全ツール（MCP ストア、コネクター、スキルパネル等）が利用できます",
+    "loginButton": "ログイン"
   },
   "webViewPortal": {
     "title": "Web 機能ポータル",
