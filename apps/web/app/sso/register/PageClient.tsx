@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
+import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { fetchApi } from '@/lib/api'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Loader2, ArrowRight, Check } from 'lucide-react'
@@ -35,6 +36,7 @@ export default function SsoRegisterPage() {
   const clientId = searchParams.get('client_id') || 'web'
 
   const { token, user } = useAuthStore()
+  const { ready } = useAuthBootstrap()
   const [phone, setPhone] = React.useState('')
   const [code, setCode] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -149,6 +151,26 @@ export default function SsoRegisterPage() {
     } finally {
       setExchanging(false)
     }
+  }
+
+  // 2026-09-02 修复"注册页表单闪现/按钮错位":bootstrap 异步恢复 token 期间
+  // 若先渲染注册表单,恢复完成后被"已登录授权卡片"中途替换,导致点击失效。
+  // ready 就绪前渲染同一外壳的 loading 骨架,杜绝表单闪现与点击错位。
+  if (!ready) {
+    return (
+      <AuthShellPage onClose={handleClose}>
+        <AuthShell
+          title={t('registerTitle')}
+          subtitle={t('subtitle', { clientId })}
+          onClose={handleClose}
+          footer={t('footerHint')}
+        >
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </AuthShell>
+      </AuthShellPage>
+    )
   }
 
   // 已登录分支:授权跳转卡片
