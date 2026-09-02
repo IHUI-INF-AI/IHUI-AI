@@ -30,8 +30,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from .skill_md import parse_skill_md
-
 logger = logging.getLogger(__name__)
 
 
@@ -659,34 +657,13 @@ _AI_TOP_SKILLS: list[Skill] = [
 
 
 class SkillRegistry:
-    """Skill 注册表,管理预置 skill + auto 目录自进化 skill + AI Skills TOP 的查询。
-
-    1-7 标准化(2026-09):
-    - 解析委托 :func:`app.services.skill_md.parse_skill_md`(兼容 Anthropic 风格 +
-      宽松逐行、多行 description、引号剥除、extra 保留)。
-    - 热加载增量:mtime 驱动,仅重载变更/新增文件,删除文件对应 skill 同步移除。
-    - 扫描源可配:默认仅 ``app/skills/auto/*.md``;业务技能目录(koubo_workflow /
-      content_engine/skills/*)作为只读 catalog,默认不纳入执行扫描(避免内容工作流
-      技能被误当 agent 技能执行)。可用 ``IHUI_SKILL_SCAN_ROOTS``(逗号分隔目录)
-      环境变量叠加额外扫描根。
-    """
-
-    # 1-7:业务技能目录(只读 catalog,默认不纳入执行扫描)
-    BUSINESS_SKILL_DIRS: tuple[str, ...] = (
-        os.path.join(os.path.dirname(__file__), "..", "skills", "koubo_workflow"),
-        os.path.join(os.path.dirname(__file__), "..", "skills", "content_engine"),
-    )
+    """Skill 注册表,管理预置 skill + auto 目录自进化 skill + AI Skills TOP 的查询。"""
 
     def __init__(self) -> None:
         self._skills: dict[str, Skill] = {s.name: s for s in _BUILTIN_SKILLS}
         # 2026-07-23:合并 19 个 AI Skills TOP(覆盖同名时 builtin 优先,保持向后兼容)
         for s in _AI_TOP_SKILLS:
             self._skills.setdefault(s.name, s)
-        # 1-7:mtime 增量热加载状态 + 诊断字段
-        self._auto_files: dict[str, tuple[float, str]] = {}  # path -> (mtime, name)
-        self._auto_names: set[str] = set()  # 来自 auto/扫描源的 skill 名(用于删除时精准移除)
-        self.last_reload: float | None = None
-        self.source_dirs: list[str] = []
         self._load_auto_skills()
 
     @staticmethod
@@ -696,84 +673,43 @@ class SkillRegistry:
 
     @staticmethod
     def _parse_skill_md(content: str) -> tuple[str, str, str]:
-        """解析 SKILL.md frontmatter + 正文,返回 (name, description, instructions)。
-
-        2026-09(1-7)起委托 :func:`parse_skill_md`,兼容多行 description / 引号 /
-        额外字段保留;无 frontmatter 时返回 ("", "", content)(向后兼容)。
-        """
-        parsed = parse_skill_md(content)
-        return parsed.name, parsed.description, parsed.instructions
-
-    def _iter_skill_files(self) -> list[str]:
-        """枚举待加载的 skill md 文件路径(默认 auto 目录,可叠加 env 扫描根)。
-
-        默认扫描 ``app/skills/auto/*.md``;若设置环境变量 ``IHUI_SKILL_SCAN_ROOTS``
-        (逗号分隔目录),额外扫描这些根下的 ``*.md``(仅读取,不覆盖 builtin/ai-top
-        执行语义)。业务技能目录默认不在扫描范围,作为只读 catalog 审计。
-        """
-        roots = [self._auto_dir()]
-        env = os.environ.get("IHUI_SKILL_SCAN_ROOTS", "")
-        if env:
-            roots = roots + [p.strip() for p in env.split(",") if p.strip()]
-        self.source_dirs = roots
-        files: list[str] = []
-        for root in roots:
-            if not os.path.isdir(root):
-                continue
-            for fname in sorted(os.listdir(root)):
-                if not fname.endswith(".md"):
-                    continue
-                path = os.path.join(root, fname)
-                if os.path.isfile(path):
-                    files.append(path)
-        return files
+        """解析 SKILL.md frontmatter + 正文,返回 (name, description, instructions)。"""
+        if not content.startswith("---"):
+            return "", "", content
+        match = re.match(r"^---\n(.*?)\n---\n?(.*)$", content, re.DOTALL)
+        if not match:
+            return "", "", content
+        frontmatter, body = match.group(1), match.group(2)
+        name = desc = ""
+        for line in frontmatter.split("\n"):
+            if line.startswith("name:"):
+                name = line.split(":", 1)[1].strip()
+            elif line.startswith("description:"):
+                desc = line.split(":", 1)[1].strip()
+        return name, desc, body
 
     def _load_auto_skills(self) -> None:
-        """增量扫描并注册 skill(自进化生成的 skill + 可配扫描源)。
-
-        mtime 驱动:仅重载变更/新增文件;已删除文件对应的 skill 同步移除
-        (仅移除 source=auto 者,不误删 builtin/ai-top)。无参调用幂等。
-        """
-        seen_paths: set[str] = set()
-        for path in self._iter_skill_files():
-            seen_paths.add(path)
-            try:
-                mtime = os.path.getmtime(path)
-            except OSError:
+        """扫描 app/skills/auto/*.md 并注册(自进化生成的 skill)。"""
+        auto_dir = self._auto_dir()
+        if not os.path.isdir(auto_dir):
+            return
+        for fname in os.listdir(auto_dir):
+            if not fname.endswith(".md"):
                 continue
-            prev = self._auto_files.get(path)
-            if prev is not None and prev[0] == mtime:
-                continue  # 未变更,跳过
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(os.path.join(auto_dir, fname), "r", encoding="utf-8") as f:
                     content = f.read()
-            except OSError as e:
-                logger.warning("skills._load_auto_skills 读取 skill 文件失败(path=%s): %s", path, e, exc_info=True)
+                name, desc, instructions = self._parse_skill_md(content)
+                if name:
+                    self._skills[name] = Skill(
+                        name=name, description=desc, prompt_template=instructions
+                    )
+            except Exception as e:
+                logger.warning("skills._load_auto_skills 加载 skill 文件失败(path=%s): %s", fname, e, exc_info=True)
                 continue
-            name, desc, instructions = self._parse_skill_md(content)
-            if not name:
-                logger.warning("skills._load_auto_skills 跳过无 name 的 skill(path=%s)", path)
-                self._auto_files.pop(path, None)
-                continue
-            self._skills[name] = Skill(
-                name=name,
-                description=desc,
-                prompt_template=instructions,
-                source="auto",
-                category="auto",
-            )
-            self._auto_names.add(name)
-            self._auto_files[path] = (mtime, name)
-        # 增量移除已删除文件对应的 skill(仅 auto 来源)
-        for path in [p for p in self._auto_files if p not in seen_paths]:
-            _mtime, name = self._auto_files.pop(path)
-            self._auto_names.discard(name)
-            if name in self._skills and self._skills[name].source == "auto":
-                del self._skills[name]
-        self.last_reload = datetime.now(timezone.utc).timestamp()
 
     def reload_auto(self) -> None:
-        """重新加载(增量:mtime 驱动,无参幂等,兼容旧调用方)。"""
+        """重新加载 auto 目录(自进化写入新 skill 后调用)。"""
         self._load_auto_skills()
 
     def list_skills(self) -> list[Skill]:

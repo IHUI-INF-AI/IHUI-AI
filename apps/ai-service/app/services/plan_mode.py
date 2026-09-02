@@ -74,8 +74,6 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "knowledge_lookup",
         "current_memory",
         "available_skills",
-        # 压缩回捞(只读:语义检索被压缩丢弃的旧消息,不改写任何状态)
-        "context_recall",
         # 文档/产物
         "parse_document",
         "generate_chart",

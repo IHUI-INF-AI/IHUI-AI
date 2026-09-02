@@ -55,10 +55,6 @@ if TYPE_CHECKING:
     from .memory_service import MemoryService
 
 from .hook_engine import HookEngine, hook_engine
-from .llm_budget_governor import (
-    BudgetExceededError,
-    llm_budget_governor,
-)
 from .plan_mode import READONLY_TOOLS, is_readonly_tool
 
 logger = logging.getLogger(__name__)
@@ -134,42 +130,6 @@ def _high_risk_tools_from_env() -> frozenset[str]:
     extra = os.environ.get("TOOL_APPROVAL_HIGH_RISK_TOOLS", "")
     names = {t.strip() for t in extra.split(",") if t.strip()}
     return frozenset(extra.split(",")) if extra else frozenset()
-
-
-# ---------------------------------------------------------------------------
-# 1-6 token 治理:LLM 预算治理器接入主循环(2026-09-02 立)
-# ---------------------------------------------------------------------------
-
-
-def _agent_budget_enabled_from_env() -> bool:
-    """Agent 主循环预算硬约束总开关(env AGENT_BUDGET_ENABLED)。
-
-    默认 off:Phase 1 剩余项未验收,避免线上突变;设为 on/1/true/yes 时完全生效。
-    """
-    return os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
-        "on", "1", "true", "yes",
-    )
-
-
-def _agent_budget_pillar_from_env() -> str:
-    """Agent 主循环预算支柱(env AGENT_BUDGET_PILLAR)。
-
-    默认 "terminal":agent 主循环语义上属于 terminal 执行支柱(governor 文档
-    Terminal: suggest/diagnose),复用现有 pillar 不新增,避免改动 _VALID_PILLARS
-    及其测试。如需独立核算可经 env 切换(值须 ∈ _VALID_PILLARS)。
-    """
-    return os.environ.get("AGENT_BUDGET_PILLAR", "terminal").strip().lower() or "terminal"
-
-
-def _agent_budget_max_token_estimate_from_env() -> int:
-    """每轮 check 的粗估 token 上限(env AGENT_BUDGET_MAX_TOKEN_ESTIMATE)。
-
-    无精确 usage 数据时作为 check_budget 的 estimated_tokens 入参;默认 4000。
-    """
-    try:
-        return max(0, int(os.environ.get("AGENT_BUDGET_MAX_TOKEN_ESTIMATE", "4000")))
-    except ValueError:
-        return 4000
 
 
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
@@ -257,12 +217,10 @@ class AgentLoopResult:
     iterations: list[LoopIteration]
     total_duration_ms: float
     total_tokens_used: int  # 估算
-    stop_reason: str  # completed / max_iterations / error / no_tools / paused / cancelled / budget_exceeded
+    stop_reason: str  # completed / max_iterations / error / no_tools / paused / cancelled
     error: Optional[str] = None
     # Wave 9:暂停/取消/失败时保存的 checkpoint_id(便于后续 resume),正常完成时为 None
     checkpoint_id: Optional[str] = None
-    # 1-6 token 治理:预算治理摘要(主循环接入 budget governor 后填充;budget off 时为 None)
-    budget: Optional[dict[str, Any]] = None
 
 
 class AgentLoopV2:
@@ -311,15 +269,6 @@ class AgentLoopV2:
         # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
         # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
         permission_mode: Optional[str] = None,
-        # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
-        # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
-        #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
-        # budget_pillar:check_budget/record_usage 使用的预算支柱(默认 terminal,见
-        #   _agent_budget_pillar_from_env 注释;值须 ∈ _VALID_PILLARS)。
-        # budget_max_token_estimate:无精确 usage 时每轮 check 的粗估 token 上限。
-        budget_enabled: Optional[bool] = None,
-        budget_pillar: Optional[str] = None,
-        budget_max_token_estimate: Optional[int] = None,
     ):
         """
         Args:
@@ -391,20 +340,6 @@ class AgentLoopV2:
             self._tools = {
                 name: td for name, td in self._tools.items() if name in READONLY_TOOLS
             }
-
-        # 1-6 token 治理:预算硬约束开关/支柱/粗估 token(2026-09-02 立)。
-        # 优先级:构造参数 > env;默认 off(向后兼容,避免 Phase 1 未验收线上突变)。
-        self._budget_enabled: bool = (
-            _agent_budget_enabled_from_env() if budget_enabled is None else bool(budget_enabled)
-        )
-        self._budget_pillar: str = (
-            _agent_budget_pillar_from_env() if budget_pillar is None else (budget_pillar or "terminal")
-        )
-        self._budget_max_token_estimate: int = (
-            _agent_budget_max_token_estimate_from_env()
-            if budget_max_token_estimate is None
-            else max(0, int(budget_max_token_estimate))
-        )
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
@@ -542,24 +477,6 @@ class AgentLoopV2:
             prior_tokens=0,
             start_time=datetime.now(timezone.utc),
         )
-        # 1-6 token 治理:填充预算摘要(budget_exceeded 分支已在 return 内设置;
-        # 此处为正常/其它停止原因补摘要,供未来 web 面板接数据)。失败降级不阻塞。
-        if self._budget_enabled and result.budget is None:
-            try:
-                summary = await llm_budget_governor.get_usage_summary("today")
-                pillar_budget = await llm_budget_governor.get_pillar_budget(self._budget_pillar)
-                result.budget = {
-                    "enabled": True,
-                    "pillar": self._budget_pillar,
-                    "usage_percent": summary["usage_percent"],
-                    "today_tokens": summary["total_tokens"],
-                    "pillar_usage_percent": pillar_budget["usage_percent"],
-                    "degraded_model": pillar_budget.get("degraded_model"),
-                    "stopped_at_iteration": None,
-                }
-            except Exception as e:
-                logger.warning("budget 摘要获取失败(降级): %s", e)
-                result.budget = {"enabled": True, "pillar": self._budget_pillar, "error": str(e)}
         # L1-1 出口:成功完成后保存记忆(失败不阻塞,不覆盖 result)
         if result.success:
             await self._persist_memory_insights(messages)
@@ -943,88 +860,6 @@ class AgentLoopV2:
         except Exception:
             logger.debug("audit_service.log_tool_execution 失败(降级,不阻塞)")
 
-    # ------------------------------------------------------------------
-    # 1-6 token 治理:预算硬约束辅助(2026-09-02 立)
-    # ------------------------------------------------------------------
-
-    async def _check_budget_safe(self) -> tuple[bool, str, float, int]:
-        """每轮 LLM 调用前的预算硬约束检查(安全版,永不阻塞主循环)。
-
-        Returns:
-            (是否硬停止, 原因, usage_percent, remaining_tokens)
-
-        语义:
-        - check_budget 抛 BudgetExceededError → 视为硬停止(allowed=False 同处理)。
-        - check_budget 返回 allowed=False(已达 hard_stop)→ 硬停止,优雅中断循环。
-        - 返回 allowed=True 但 degrade_to_model 非空 → 仅记日志提示,不中断(软降级)。
-        - 任何其它异常 → 降级放行(不阻塞),记录 warning。
-        """
-        if not self._budget_enabled:
-            return False, "", 0.0, 0
-        try:
-            budget_check = await llm_budget_governor.check_budget(
-                self._budget_pillar,
-                estimated_tokens=self._budget_max_token_estimate,
-            )
-        except BudgetExceededError as e:
-            return (
-                True,
-                str(e),
-                getattr(e, "usage_percent", 0.0),
-                getattr(e, "remaining_tokens", 0),
-            )
-        except Exception as e:
-            logger.warning("budget_governor.check_budget 调用失败(降级放行,不阻塞): %s", e)
-            return False, "", 0.0, 0
-        if not budget_check.allowed:
-            return (
-                True,
-                budget_check.reason,
-                budget_check.usage_percent,
-                budget_check.remaining_tokens,
-            )
-        # 软降级:仅记录提示,不中断循环
-        if budget_check.degrade_to_model:
-            logger.info(
-                "budget_governor 建议降级到 %s(pillar=%s, 用量 %.1f%%): %s",
-                budget_check.degrade_to_model,
-                self._budget_pillar,
-                budget_check.usage_percent * 100,
-                budget_check.reason,
-            )
-        return False, "", budget_check.usage_percent, budget_check.remaining_tokens
-
-    async def _record_budget_usage_safe(
-        self, content: str, usage: Any, model: str
-    ) -> None:
-        """记录本轮 LLM 用量到 budget governor(失败仅 log,绝不阻塞主循环)。
-
-        token 数优先取自 llm_response 的 usage(input_tokens/output_tokens 或
-        prompt_tokens/completion_tokens);无精确 usage 时按内容粗估(与 total_tokens
-        估算同口径:len(content)//4 + 50),保证 budget on 时每轮都有计量。
-        """
-        if not self._budget_enabled:
-            return
-        input_tokens = 0
-        output_tokens = 0
-        if isinstance(usage, dict):
-            input_tokens = int(usage.get("input_tokens") or usage.get("prompt_tokens") or 0)
-            output_tokens = int(usage.get("output_tokens") or usage.get("completion_tokens") or 0)
-        # 无精确 usage 时按内容粗估
-        if input_tokens <= 0 and output_tokens <= 0:
-            input_tokens = max(0, len(content) // 4 + 50)
-        try:
-            await llm_budget_governor.record_usage(
-                pillar=self._budget_pillar,
-                model=model or "",
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                action="agent_loop",
-                request_id=self._session_id or "",
-            )
-        except Exception as e:
-            logger.warning("budget_governor.record_usage 失败(降级,不阻塞): %s", e)
-
     async def _run_loop(
         self,
         messages: list[dict[str, Any]],
@@ -1082,40 +917,6 @@ class AgentLoopV2:
                 )
 
             self._current_iteration = i
-
-            # 1-6 token 治理:每轮 LLM 调用前预算硬约束检查(与暂停/取消检查并列)
-            if self._budget_enabled:
-                (
-                    budget_stopped,
-                    budget_reason,
-                    budget_pct,
-                    budget_rem,
-                ) = await self._check_budget_safe()
-                if budget_stopped:
-                    # 优雅中断:保留已完成 iterations、不抛未捕获异常、落 checkpoint
-                    checkpoint_id = await self._save_checkpoint_safe(
-                        iteration=i - 1, messages=messages, status="budget_exceeded",
-                    )
-                    return AgentLoopResult(
-                        success=False,
-                        final_response="",
-                        iterations=iterations,
-                        total_duration_ms=(
-                            (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
-                        ),
-                        total_tokens_used=total_tokens,
-                        stop_reason="budget_exceeded",
-                        error=budget_reason,
-                        checkpoint_id=checkpoint_id,
-                        budget={
-                            "enabled": True,
-                            "pillar": self._budget_pillar,
-                            "usage_percent": budget_pct,
-                            "remaining_tokens": budget_rem,
-                            "stopped_at_iteration": i,
-                        },
-                    )
-
             iter_start = datetime.now(timezone.utc)
             iteration = LoopIteration(iteration=i, start_time=iter_start.isoformat())
 
@@ -1140,14 +941,6 @@ class AgentLoopV2:
 
                 # 估算 token(粗略)
                 total_tokens += len(content) // 4 + 50
-
-                # 1-6 token 治理:记录本轮 LLM 用量(失败降级不阻塞)
-                if self._budget_enabled:
-                    await self._record_budget_usage_safe(
-                        content=content,
-                        usage=llm_response.get("usage"),
-                        model=llm_response.get("model", ""),
-                    )
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:

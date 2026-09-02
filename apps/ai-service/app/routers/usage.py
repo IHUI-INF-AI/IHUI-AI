@@ -8,15 +8,11 @@
 """
 from __future__ import annotations
 
-import logging
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.services.llm_usage_service import usage_service
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/ai/usage", tags=["ai-usage"])
 
@@ -88,47 +84,6 @@ async def record_usage(
         "data": {
             "id": record.id,
             "estimated_cost": record.estimated_cost,
-        },
-    }
-
-
-@router.get("/agent")
-async def get_agent_budget_usage() -> dict[str, Any]:
-    """Agent 主循环预算治理摘要(供 web 面板未来接入)。
-
-    数据源:budget governor 全局单例(LLM 成本预算 + 6 大支柱分配 + 趋势)。
-    返回 {enabled, pillar, usage_percent, today_tokens, pillar_usage_percent,
-          remaining_tokens, degraded_model, trend}。
-    """
-    enabled = os.environ.get("AGENT_BUDGET_ENABLED", "false").strip().lower() in (
-        "on", "1", "true", "yes",
-    )
-    pillar = os.environ.get("AGENT_BUDGET_PILLAR", "terminal").strip().lower() or "terminal"
-    try:
-        from app.services.llm_budget_governor import llm_budget_governor
-
-        summary = await llm_budget_governor.get_usage_summary("today")
-        pillar_budget = await llm_budget_governor.get_pillar_budget(pillar)
-        trend = await llm_budget_governor.get_usage_trend(7)
-    except Exception as e:
-        logger.warning("budget governor 摘要获取失败(降级): %s", e)
-        return {
-            "code": 0,
-            "message": "ok",
-            "data": {"enabled": enabled, "pillar": pillar, "error": str(e)},
-        }
-    return {
-        "code": 0,
-        "message": "ok",
-        "data": {
-            "enabled": enabled,
-            "pillar": pillar,
-            "usage_percent": summary["usage_percent"],
-            "today_tokens": summary["total_tokens"],
-            "pillar_usage_percent": pillar_budget["usage_percent"],
-            "remaining_tokens": pillar_budget["remaining"]["tokens"],
-            "degraded_model": pillar_budget.get("degraded_model"),
-            "trend": trend,
         },
     }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
