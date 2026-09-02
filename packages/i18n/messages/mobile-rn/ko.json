@@ -248,7 +248,8 @@
     "webPortal": "웹 버전",
     "webPortalCenter": "웹 기능 포털",
     "knowledgeRag": "RAG 지식 베이스",
-    "subagents": "서브 에이전트"
+    "subagents": "서브 에이전트",
+    "chatTools": "AI 채팅 / 도구"
   },
   "error": {
     "network": "네트워크 오류"
@@ -2086,6 +2087,11 @@
   "webView": {
     "loadFailed": "페이지 로드 실패",
     "retry": "재시도"
+  },
+  "webChat": {
+    "title": "AI 채팅 / 도구",
+    "loginRequired": "로그인하면 AI 채팅과 모든 도구(MCP 스토어, 커넥터, 스킬 패널 등)를 사용할 수 있습니다",
+    "loginButton": "로그인"
   },
   "webViewPortal": {
     "title": "웹 기능 포털",
