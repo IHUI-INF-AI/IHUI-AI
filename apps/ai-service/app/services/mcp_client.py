@@ -4,9 +4,10 @@
 
 """MCP Client — 连接外部 MCP Server，发现并调用工具。
 
-支持两种传输模式:
+支持三种传输模式:
 1. stdio: 子进程标准输入/输出传输
 2. SSE: Server-Sent Events 传输
+3. streamable-http: MCP Streamable HTTP(JSON-RPC over HTTP + SSE)
 
 设计:
 - MCPClient 类管理单个外部 MCP Server 连接
@@ -18,19 +19,25 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
-import sys
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Any, cast
+
+import httpx
+
+from app.core.tunables import DEFAULT_PROTOCOL_VERSION, SUPPORTED_PROTOCOL_VERSIONS
+from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
 logger = logging.getLogger(__name__)
 
 # 传输模式
 TRANSPORT_STDIO = "stdio"
 TRANSPORT_SSE = "sse"
+TRANSPORT_STREAMABLE_HTTP = "streamable-http"
 
 # 默认超时
 DEFAULT_TIMEOUT = 30.0
@@ -51,7 +58,7 @@ class MCPClientTool:
 class MCPClientConfig:
     """MCP Client 配置。"""
     name: str
-    transport: str  # "stdio" | "sse"
+    transport: str  # "stdio" | "sse" | "streamable-http"
     command: str = ""
     args: list[str] = field(default_factory=list)
     url: str = ""
@@ -59,6 +66,11 @@ class MCPClientConfig:
     reconnect: bool = True
     max_reconnect_attempts: int = 3
     env: dict[str, str] = field(default_factory=dict)
+    # streamable-http 可选的 OAuth 配置(或已实例化的 MCPOAuthClient)
+    oauth: MCPOAuthConfig | MCPOAuthClient | None = None
+    # streamable-http initialize 握手打招呼携带的协议版本(默认旧兼容版;
+    # 可覆盖为更高版本以协商到更新协议)
+    protocol_version: str = DEFAULT_PROTOCOL_VERSION
 
 
 class MCPClient:
@@ -76,6 +88,17 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
+        # streamable-http 状态
+        self._http_headers: dict[str, str] = {}
+        self._http_mode = "post"
+        self._http_client: httpx.AsyncClient | None = None
+        self._http_sse_task: asyncio.Task[None] | None = None
+        self._oauth_client: MCPOAuthClient | None = None
+        self._oauth_client_owned = False
+        # 协议版本协商 + 服务器能力/身份探测结果(connect 成功后填充)
+        self._negotiated_protocol = ""
+        self._server_info: dict[str, Any] = {}
+        self._capabilities: dict[str, Any] = {}
 
     @property
     def config(self) -> MCPClientConfig:
@@ -83,6 +106,18 @@ class MCPClient:
 
     def is_connected(self) -> bool:
         return self._connected
+
+    def negotiated_protocol(self) -> str:
+        """connect 后与服务器协商确定的 MCP 协议版本(未连接为空串)。"""
+        return self._negotiated_protocol
+
+    def server_info(self) -> dict[str, Any]:
+        """服务器在 initialize result 返回的 serverInfo({name, version, ...})。"""
+        return self._server_info
+
+    def capabilities(self) -> dict[str, Any]:
+        """服务器在 initialize result 返回的 capabilities(tools/prompts/resources/...)。"""
+        return self._capabilities
 
     async def connect(self) -> None:
         """连接外部 MCP Server。"""
@@ -92,6 +127,8 @@ class MCPClient:
             ok = await self._stdio_connect()
         elif self._config.transport == TRANSPORT_SSE:
             ok = await self._sse_connect()
+        elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+            ok = await self._http_connect()
         else:
             logger.error("未知传输模式: %s", self._config.transport)
             ok = False
@@ -102,6 +139,24 @@ class MCPClient:
     async def disconnect(self) -> None:
         """断开连接，清理资源。"""
         self._connected = False
+        # streamable-http 资源:SSE 流 + HTTP 客户端 + 自建 OAuth 客户端
+        if self._http_sse_task is not None:
+            self._http_sse_task.cancel()
+            try:
+                await self._http_sse_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+            self._http_sse_task = None
+        if self._http_client is not None:
+            with contextlib.suppress(Exception):
+                await self._http_client.aclose()
+            self._http_client = None
+        if self._oauth_client is not None and self._oauth_client_owned:
+            with contextlib.suppress(Exception):
+                await self._oauth_client.close()
+            self._oauth_client = None
         if self._read_task is not None:
             self._read_task.cancel()
             self._read_task = None
@@ -186,6 +241,19 @@ class MCPClient:
         msg: dict[str, Any] = {"jsonrpc": "2.0", "id": req_id, "method": method}
         if params is not None:
             msg["params"] = params
+        if self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+            # streamable-http:响应随 HTTP 调用同步返回,不走内部 pending 队列
+            try:
+                result = await asyncio.wait_for(
+                    self._http_send(msg), timeout=timeout or self._config.timeout,
+                )
+                return result
+            except TimeoutError:
+                logger.error("请求超时(%.1fs): %s", timeout or self._config.timeout, method)
+                return {"error": {"code": -32001, "message": f"请求超时({method})"}}
+            except Exception as e:
+                logger.error("请求异常: %s", e)
+                return {"error": {"code": -32002, "message": str(e)}}
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._pending[req_id] = fut
@@ -198,7 +266,7 @@ class MCPClient:
                 await self._sse_post_message(data)
             result = await asyncio.wait_for(fut, timeout=timeout or self._config.timeout)
             return result
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error("请求超时(%.1fs): %s", timeout or self._config.timeout, method)
             self._pending.pop(req_id, None)
             return {"error": {"code": -32001, "message": f"请求超时({method})"}}
@@ -220,6 +288,9 @@ class MCPClient:
                 await self._writer.drain()
             elif self._config.transport == TRANSPORT_SSE:
                 await self._sse_post_message(data)
+            elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+                if self._http_client is not None:
+                    await self._http_send(msg)
         except Exception as e:
             logger.warning("发送通知失败: %s", e)
 
@@ -293,7 +364,7 @@ class MCPClient:
                 raw = line.decode("utf-8", errors="replace").strip()
                 if raw:
                     self._handle_message(raw)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("stdio 读取超时(%s)", self._config.name)
         except asyncio.CancelledError:
             pass
@@ -362,7 +433,11 @@ class MCPClient:
             self._connected = True
             self._reconnect_attempts = 0
             # 处理响应头中已附带的数据
-            remaining = header_bytes.split(b"\r\n\r\n", 1)[1] if b"\r\n\r\n" in header_bytes else b""
+            remaining = (
+                header_bytes.split(b"\r\n\r\n", 1)[1]
+                if b"\r\n\r\n" in header_bytes
+                else b""
+            )
             if remaining:
                 self._sse_feed_data(remaining)
             self._read_task = asyncio.create_task(self._sse_read_loop())
@@ -384,7 +459,7 @@ class MCPClient:
                 if not chunk:
                     break
                 self._sse_feed_data(chunk)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning("SSE 读取超时(%s)", self._config.name)
         except asyncio.CancelledError:
             pass
@@ -470,20 +545,228 @@ class MCPClient:
             raise
 
     # =========================================================================
+    # Streamable HTTP 传输(JSON-RPC over HTTP + SSE)
+    # =========================================================================
+
+    @staticmethod
+    def _compare_protocol_versions(a: str, b: str) -> int:
+        """按 YYYY-MM-DD 语义比较两个协议版本;无法解析的串按\"最旧\"处理。"""
+        def key(v: str) -> tuple[int, int, int]:
+            parts = v.strip().split("-")
+            if len(parts) == 3 and all(p.isdigit() for p in parts):
+                return (int(parts[0]), int(parts[1]), int(parts[2]))
+            return (-1, -1, -1)
+
+        a_key = key(a)
+        b_key = key(b)
+        if a_key < b_key:
+            return -1
+        if a_key > b_key:
+            return 1
+        return 0
+
+    def _negotiate_protocol(self, offered: str, server_version: str | None) -> str:
+        """依据服务器 initialize result 回告的 protocolVersion 确定最终协商版本。
+
+        规则(确保不静默错发/静默降级,均有明确日志):
+        - server_version 为空或等于 offered:直接采用 offered;
+        - server_version 在客户端已知受支持列表中(无论新旧):采纳服务器版本;
+        - server_version 比本地最高支持版本更新(未知新协议):客户端无法执行该
+          版本,保持本地最高支持版本,并 warning 记录服务器想要的版本;
+        - 其余(无法解析/未知旧值):warning 并降级回退到 offered。
+        """
+        if not server_version or server_version == offered:
+            return offered
+        if server_version in SUPPORTED_PROTOCOL_VERSIONS:
+            logger.info("MCP 协议协商成功: 使用服务器版本 %s", server_version)
+            return server_version
+        latest = SUPPORTED_PROTOCOL_VERSIONS[-1]
+        if self._compare_protocol_versions(server_version, latest) > 0:
+            logger.warning(
+                "MCP 服务器要求未知新版协议 %s,客户端无法执行;保持在本地最高支持版本 %s",
+                server_version, latest,
+            )
+            return latest
+        logger.warning(
+            "MCP 服务器回告未知协议版本 %s,已降级回退到 %s", server_version, offered,
+        )
+        return offered
+
+    async def _http_connect(self) -> bool:
+        """连接 streamable-http MCP Server。
+
+        1. 若有 OAuth 配置,先取 token 并注入 Bearer 头
+        2. POST initialize 握手,从响应头解析 Mcp-Session-Id,并据 content-type 判定模式
+           (application/json -> post;text/event-stream -> stream)
+        3. stream 模式下额外拉起 GET SSE 长连接(保持连接/keepalive)
+        """
+        if not self._config.url:
+            logger.error("streamable-http 模式缺少 url")
+            return False
+        self._http_client = httpx.AsyncClient(timeout=httpx.Timeout(self._config.timeout))
+        headers: dict[str, str] = {"Accept": "application/json, text/event-stream"}
+        # OAuth:连接前先取 token,注入 Authorization: Bearer <token>
+        self._oauth_client_owned = False
+        self._oauth_client = None
+        oauth = self._config.oauth
+        if oauth is not None:
+            if isinstance(oauth, MCPOAuthConfig):
+                self._oauth_client = MCPOAuthClient(oauth)
+                self._oauth_client_owned = True
+            else:
+                self._oauth_client = oauth  # 外部传入的 MCPOAuthClient 实例
+            try:
+                token = await self._oauth_client.get_token()
+                headers["Authorization"] = (
+                    f"{token.token_type or 'Bearer'} {token.access_token}"
+                )
+            except Exception as e:  # noqa: BLE001 - OAuth 失败则无鉴权头继续
+                logger.error("OAuth 获取 token 失败(%s): %s", self._config.name, e)
+                headers.pop("Authorization", None)
+        self._http_headers = headers
+        try:
+            offered = self._config.protocol_version or DEFAULT_PROTOCOL_VERSION
+            init_msg: dict[str, Any] = {
+                "jsonrpc": "2.0",
+                "id": self._next_id(),
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": offered,
+                    "capabilities": {},
+                    "clientInfo": {"name": "ihui-ai", "version": "1.0.0"},
+                },
+            }
+            resp = await self._http_send(init_msg)
+            result = resp.get("result")
+            if result is None:
+                raise ConnectionError(f"initialize 失败: {resp.get('error', resp)}")
+            # 协议版本协商 + 服务器能力/身份探测
+            self._negotiated_protocol = self._negotiate_protocol(
+                offered, result.get("protocolVersion")
+            )
+            self._server_info = result.get("serverInfo") or {}
+            self._capabilities = result.get("capabilities") or {}
+            self._connected = True
+            self._reconnect_attempts = 0
+            if self._http_mode == "stream":
+                self._http_sse_task = asyncio.create_task(self._http_sse_loop())
+            return True
+        except Exception as e:
+            logger.error("streamable-http 连接失败(%s): %s", self._config.url, e)
+            if self._http_client is not None:
+                with contextlib.suppress(Exception):
+                    await self._http_client.aclose()
+                self._http_client = None
+            self._connected = False
+            return False
+
+    async def _http_send(
+        self, msg: dict[str, Any], *, timeout: float | None = None,
+    ) -> dict[str, Any]:
+        """发送 JSON-RPC(POST);据 content-type 判定 post/stream 模式。"""
+        if self._http_client is None:
+            return {"error": {"code": -32002, "message": "HTTP 客户端未就绪"}}
+        headers = dict(self._http_headers)
+        headers["Content-Type"] = "application/json"
+        if self._session_id:
+            headers["Mcp-Session-Id"] = self._session_id
+        try:
+            resp = await self._http_client.post(
+                self._config.url,
+                headers=headers,
+                json=msg,
+                timeout=httpx.Timeout(timeout or self._config.timeout),
+            )
+        except Exception as e:
+            logger.error("streamable-http 请求失败: %s", e)
+            return {"error": {"code": -32002, "message": str(e)}}
+        sid = resp.headers.get("Mcp-Session-Id")
+        if sid:
+            self._session_id = sid
+        ctype = resp.headers.get("Content-Type", "").lower()
+        if "text/event-stream" in ctype:
+            self._http_mode = "stream"
+            return self._parse_sse_response(resp)
+        self._http_mode = "post"
+        try:
+            data = resp.json()
+        except Exception:  # noqa: BLE001
+            return {"error": {"code": -32005, "message": "HTTP 响应非 JSON"}}
+        if not isinstance(data, dict):
+            return {"error": {"code": -32005, "message": "HTTP 响应非法"}}
+        return data
+
+    @staticmethod
+    def _parse_sse_response(resp: httpx.Response) -> dict[str, Any]:
+        """从 SSE 响应体解析 JSON-RPC 消息(兼容 event: message / data: {...} 格式)。"""
+        data_lines: list[str] = []
+        for line in resp.text.splitlines():
+            line = line.strip()
+            if line.startswith("data:"):
+                data_lines.append(line[5:].strip())
+        data_str = "\n".join(data_lines).strip()
+        if not data_str:
+            return {"error": {"code": -32002, "message": "SSE 响应无 data"}}
+        try:
+            data = json.loads(data_str)
+        except json.JSONDecodeError:
+            logger.warning("SSE data 非 JSON: %s", data_str[:200])
+            return {"error": {"code": -32002, "message": "SSE data 非 JSON"}}
+        if not isinstance(data, dict):
+            return {"error": {"code": -32002, "message": "SSE data 非对象"}}
+        return data
+
+    async def _http_sse_loop(self) -> None:
+        """stream 模式:维持 GET SSE 长连接(keepalive 等),响应随 POST 返回,此处仅维持。"""
+        if self._http_client is None:
+            return
+        stream_headers = dict(self._http_headers)
+        if self._session_id:
+            stream_headers["Mcp-Session-Id"] = self._session_id
+        try:
+            timeout = httpx.Timeout(self._config.timeout * 2, connect=self._config.timeout)
+            async with self._http_client.stream(
+                "GET", self._config.url, headers=stream_headers, timeout=timeout,
+            ) as resp:
+                ctype = resp.headers.get("Content-Type", "").lower()
+                if "text/event-stream" not in ctype:
+                    return
+                self._http_mode = "stream"
+                async for line in resp.aiter_lines():
+                    line = line.strip()
+                    if line.startswith(":"):
+                        continue  # keepalive 注释行
+                    if line.startswith("data:"):
+                        self._handle_message(line[5:].strip())
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:  # noqa: BLE001 - 流中断属正常,记录后静默退出
+            logger.debug("streamable-http GET SSE 流结束(%s): %s", self._config.name, e)
+
+    # =========================================================================
     # 重连
     # =========================================================================
 
     async def _reconnect(self) -> None:
         """指数退避重连。"""
         if self._reconnect_attempts >= self._config.max_reconnect_attempts:
-            logger.warning("重连已达上限(%d),放弃: %s", self._config.max_reconnect_attempts, self._config.name)
+            logger.warning(
+                "重连已达上限(%d),放弃: %s",
+                self._config.max_reconnect_attempts,
+                self._config.name,
+            )
             return
         self._reconnect_attempts += 1
         delay = min(
             DEFAULT_RECONNECT_DELAY * (2 ** (self._reconnect_attempts - 1)),
             MAX_RECONNECT_DELAY,
         )
-        logger.info("重连 %s (第 %d 次, %.1fs 后)...", self._config.name, self._reconnect_attempts, delay)
+        logger.info(
+            "重连 %s (第 %d 次, %.1fs 后)...",
+            self._config.name,
+            self._reconnect_attempts,
+            delay,
+        )
         await asyncio.sleep(delay)
         try:
             await self.connect()
@@ -528,23 +811,41 @@ class MCPClientManager:
                 logger.warning("注销 %s 时断开失败: %s", name, e)
             logger.info("MCP Client 已注销: %s", name)
 
+    def client_status(self, name: str) -> dict[str, Any] | None:
+        """返回单个已注册 Client 的完整摘要(含协商能力/协议/身份),不存在返回 None。
+
+        增量字段(2026-09-03 立,可观测闭环:上层/前端可展示某个 MCP Server
+        实际协商到的协议版本与能力,不含 env 等敏感字段):
+        - negotiatedProtocol: connect 后与服务器协商确定的 MCP 协议版本(未连接为空串)
+        - serverInfo: initialize result 回告的服务器身份 {name, version, ...}
+        - capabilities: initialize result 回告的能力声明(tools/prompts/resources/...)
+        """
+        client = self._clients.get(name)
+        if client is None:
+            return None
+        cfg = client.config
+        return {
+            "name": cfg.name,
+            "transport": cfg.transport,
+            "command": cfg.command,
+            "args": list(cfg.args),
+            "url": cfg.url,
+            "timeout": cfg.timeout,
+            "reconnect": cfg.reconnect,
+            "max_reconnect_attempts": cfg.max_reconnect_attempts,
+            "connected": client.is_connected(),
+            "negotiatedProtocol": client.negotiated_protocol(),
+            "serverInfo": client.server_info(),
+            "capabilities": client.capabilities(),
+        }
+
     def list_registered(self) -> list[dict[str, Any]]:
         """列出所有已注册 Server 的摘要信息(含连接状态,不含 env 等敏感字段)。"""
-        servers: list[dict[str, Any]] = []
-        for client in self._clients.values():
-            cfg = client.config
-            servers.append({
-                "name": cfg.name,
-                "transport": cfg.transport,
-                "command": cfg.command,
-                "args": list(cfg.args),
-                "url": cfg.url,
-                "timeout": cfg.timeout,
-                "reconnect": cfg.reconnect,
-                "max_reconnect_attempts": cfg.max_reconnect_attempts,
-                "connected": client.is_connected(),
-            })
-        return servers
+        return [
+            status
+            for name in self._clients
+            if (status := self.client_status(name)) is not None
+        ]
 
     async def connect_all(self) -> None:
         """连接所有已注册的 Server。"""
@@ -584,7 +885,9 @@ class MCPClientManager:
                     logger.warning("获取 %s 工具列表失败: %s", client.config.name, e)
         return tools
 
-    async def call_external_tool(self, server_name: str, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    async def call_external_tool(
+        self, server_name: str, tool_name: str, args: dict[str, Any]
+    ) -> dict[str, Any]:
         """调用指定 Server 的工具。"""
         client = self._clients.get(server_name)
         if client is None:

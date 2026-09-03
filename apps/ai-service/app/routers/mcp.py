@@ -256,22 +256,9 @@ async def mcp_sampling_audit_logs() -> dict[str, Any]:
 
 
 def _server_info(manager: Any, name: str) -> dict[str, Any]:
-    """构造单个已注册 Server 的摘要信息。"""
-    client = manager.get_client(name)
-    if client is None:
-        return {}
-    cfg = client.config
-    return {
-        "name": cfg.name,
-        "transport": cfg.transport,
-        "command": cfg.command,
-        "args": list(cfg.args),
-        "url": cfg.url,
-        "timeout": cfg.timeout,
-        "reconnect": cfg.reconnect,
-        "max_reconnect_attempts": cfg.max_reconnect_attempts,
-        "connected": client.is_connected(),
-    }
+    """构造单个已注册 Server 的摘要信息(含协商能力/协议/身份)。"""
+    status = manager.client_status(name)
+    return status if status is not None else {}
 
 
 @router.get("/mcp/directory", response_model=None)
@@ -437,6 +424,27 @@ async def connect_external_server(name: str) -> dict[str, Any] | JSONResponse:
     except Exception as e:
         logger.error("连接外部 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"连接外部 MCP Server 失败: {e}"})
+
+
+@router.get("/mcp/external/servers/{name}/capabilities", response_model=None)
+async def get_external_server_capabilities(name: str) -> dict[str, Any] | JSONResponse:
+    """查询单个外部 MCP Server 协商到的协议版本与能力(可观测闭环)。
+
+    返回该连接实例调用 negotiated_protocol()/server_info()/capabilities() 的
+    结果(negotiatedProtocol/serverInfo/capabilities)+ 传输/连接状态等摘要。
+    未连接或未完成 initialize 握手 → connected:false 且协商字段为空,不抛错。
+    不存在该 Server → 404。
+    """
+    try:
+        manager = get_mcp_client_manager()
+        status = manager.client_status(name)
+        if status is None:
+            return JSONResponse(status_code=404, content={"error": f"MCP Server 不存在: {name}"})
+        return status
+    except Exception as e:
+        logger.error("查询外部 MCP Server 能力失败(%s): %s", name, e)
+        msg = f"查询外部 MCP Server 能力失败: {e}"
+        return JSONResponse(status_code=500, content={"error": msg})
 
 
 @router.get("/mcp/external/tools", response_model=None)
