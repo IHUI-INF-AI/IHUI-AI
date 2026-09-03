@@ -15,22 +15,24 @@ from __future__ import annotations
 import asyncio
 import json
 import os as _os
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from app.services.mcp_client import (
+    DEFAULT_PROTOCOL_VERSION,
+    DEFAULT_TIMEOUT,
+    SUPPORTED_PROTOCOL_VERSIONS,
+    TRANSPORT_SSE,
+    TRANSPORT_STDIO,
+    MCPClient,
+    MCPClientConfig,
+    MCPClientManager,
+    MCPClientTool,
+)
 
 # 项目根目录(tests/ -> ai-service/ -> IHUI-AI/)
 _REPO = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-
-from app.services.mcp_client import (
-    MCPClientTool,
-    MCPClientConfig,
-    MCPClient,
-    MCPClientManager,
-    TRANSPORT_STDIO,
-    TRANSPORT_SSE,
-    DEFAULT_TIMEOUT,
-)
-
 
 # =============================================================================
 # 辅助函数
@@ -134,6 +136,55 @@ def test_mcp_client_config_sse():
     assert c.reconnect is False
 
 
+def test_mcp_client_config_protocol_version_default():
+    """MCPClientConfig 默认协议版本兼容旧端点(2025-03-26),可覆盖为更高版本。"""
+    c = MCPClientConfig(
+        name="test", transport=TRANSPORT_STDIO, command="echo",
+    )
+    assert c.protocol_version == DEFAULT_PROTOCOL_VERSION
+    assert c.protocol_version == "2025-03-26"
+    assert SUPPORTED_PROTOCOL_VERSIONS[-1] == "2025-11-25"
+    c2 = MCPClientConfig(
+        name="test2", transport=TRANSPORT_STDIO, command="echo",
+        protocol_version="2025-11-25",
+    )
+    assert c2.protocol_version == "2025-11-25"
+
+
+def test_protocol_negotiation_helper():
+    """_negotiate_protocol 的分支逻辑(已知更高/未知更新/未知旧值/空值)。"""
+    client = MCPClient(
+        MCPClientConfig(name="t", transport=TRANSPORT_STDIO, command="echo")
+    )
+
+    def neg(offered: str, server: str | None) -> str:
+        return client._negotiate_protocol(offered, server)
+
+    # 服务器回告我们已知且比发送更高的受支持版本 → 采纳
+    assert neg("2025-03-26", "2025-11-25") == "2025-11-25"
+    # 服务器回告比本地最高还新的未知版本 → 回退到本地最高支持版本
+    assert neg("2025-03-26", "2026-07-28") == SUPPORTED_PROTOCOL_VERSIONS[-1]
+    assert neg("2025-03-26", "2099-01-01") == "2025-11-25"
+    # 服务器回告无法解析的版本 → 降级回退到 offered
+    assert neg("2025-03-26", "bogus") == "2025-03-26"
+    # 空值或等于 offered → 采用 offered
+    assert neg("2025-03-26", None) == "2025-03-26"
+    assert neg("2025-03-26", "") == "2025-03-26"
+    assert neg("2025-11-25", "2025-11-25") == "2025-11-25"
+
+
+def test_compare_protocol_versions_helper():
+    """_compare_protocol_versions 对日期版本与未知串的比较语义。"""
+    cmp = MCPClient._compare_protocol_versions
+    assert cmp("2025-03-26", "2025-03-26") == 0
+    assert cmp("2025-03-26", "2025-11-25") == -1
+    assert cmp("2025-11-25", "2025-03-26") == 1
+    # 未知串按最旧处理,不把 "zzz" 之类误判为更高
+    assert cmp("zzz", "2025-03-26") == -1
+    assert cmp("2025-03-26", "zzz") == 1
+    assert cmp("zzz", "bogus") == 0
+
+
 # =============================================================================
 # MCPClient 初始化
 # =============================================================================
@@ -174,7 +225,10 @@ async def test_stdio_connect_failure():
     config = MCPClientConfig(name="test", transport=TRANSPORT_STDIO, command="nonexistent_cmd_xyz")
     client = MCPClient(config)
 
-    with patch("asyncio.create_subprocess_exec", AsyncMock(side_effect=FileNotFoundError("命令不存在"))):
+    with patch(
+        "asyncio.create_subprocess_exec",
+        AsyncMock(side_effect=FileNotFoundError("命令不存在")),
+    ):
         await client.connect()
 
     assert client.is_connected() is False
@@ -205,7 +259,7 @@ async def test_stdio_list_tools():
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await client.connect()
         # 延迟喂响应数据，确保 _pending 已注册
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{tools_response}\n".encode()),
         )
         tools = await client.list_tools()
@@ -240,7 +294,7 @@ async def test_stdio_call_tool():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await client.connect()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{call_response}\n".encode()),
         )
         result = await client.call_tool("test_tool", {"param": "value"})
@@ -265,7 +319,7 @@ async def test_list_tools_empty_response():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await client.connect()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{resp}\n".encode()),
         )
         tools = await client.list_tools()
@@ -293,7 +347,7 @@ async def test_call_tool_error():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await client.connect()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{error_resp}\n".encode()),
         )
         result = await client.call_tool("bad_tool", {})
@@ -320,7 +374,7 @@ async def test_ping_success():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await client.connect()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{pong}\n".encode()),
         )
         ok = await client.ping()
@@ -609,7 +663,9 @@ async def test_manager_disconnect_all():
 async def test_manager_call_external_tool():
     """通过 Manager 调用外部工具。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0))
+    manager.register(
+        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    )
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
     call_resp = json.dumps({
@@ -624,7 +680,7 @@ async def test_manager_call_external_tool():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await manager.connect_all()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{call_resp}\n".encode()),
         )
         result = await manager.call_external_tool("svr", "my_tool", {"x": 1})
@@ -657,7 +713,9 @@ async def test_manager_call_external_tool_not_connected():
 async def test_manager_list_available_tools_async():
     """异步列出所有已连接的工具。"""
     manager = MCPClientManager()
-    manager.register(MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0))
+    manager.register(
+        MCPClientConfig(name="svr", transport=TRANSPORT_STDIO, command="echo", timeout=5.0)
+    )
 
     notification = b'{"jsonrpc":"2.0","method":"notifications/initialized"}\n'
     tools_resp = json.dumps({
@@ -674,7 +732,7 @@ async def test_manager_list_available_tools_async():
 
     with patch("asyncio.create_subprocess_exec", AsyncMock(return_value=proc)):
         await manager.connect_all()
-        feed_task = asyncio.create_task(
+        asyncio.create_task(
             _feed_after_delay(reader, f"{tools_resp}\n".encode()),
         )
         tools = await manager.list_available_tools_async()
