@@ -41,6 +41,14 @@ except ImportError:
     aioredis = None  # type: ignore[assignment]
 
 
+class CheckpointNotFoundError(Exception):
+    """目标 checkpoint 不存在或已过期/被清理。"""
+
+
+class CheckpointSessionMismatchError(Exception):
+    """checkpoint 归属会话与请求会话不一致(防跨会话回滚)。"""
+
+
 @dataclass
 class AgentLoopCheckpoint:
     """单次 agent loop checkpoint。"""
@@ -284,6 +292,49 @@ class AgentCheckpointManager:
         # 按 created_at 升序
         cps.sort(key=lambda c: c.created_at)
         return cps
+
+    async def list_for_session(self, session_id: str) -> list[AgentLoopCheckpoint]:
+        """列出指定会话的 checkpoint 元数据快照(供 Checkpoint/Rewind 面板展示)。
+
+        仅返回轻量元数据(不含完整 messages,避免大响应),按 created_at 升序。
+        """
+        all_cps = await self.list_checkpoints(session_id=session_id)
+        # 过滤出轻量元数据视图:messages 保留条数(不整体返回)
+        for cp in all_cps:
+            cp.messages = []
+        return all_cps
+
+    async def restore(
+        self, session_id: str, checkpoint_id: str
+    ) -> dict[str, Any]:
+        """把会话恢复到指定 checkpoint。
+
+        返回包含 messages 的完整会话快照,供调用方写回会话运行时存储。
+        Raises:
+            CheckpointNotFoundError: checkpoint 不存在/过期
+            CheckpointSessionMismatchError: checkpoint 归属其他会话
+        """
+        cp = await self.load_checkpoint(checkpoint_id)
+        if cp is None:
+            raise CheckpointNotFoundError(
+                f"checkpoint {checkpoint_id} 不存在或已过期,请联系用户重新生成"
+            )
+        if cp.session_id != session_id:
+            raise CheckpointSessionMismatchError(
+                f"checkpoint {checkpoint_id} 属于会话 {cp.session_id},不能恢复到会话 {session_id}"
+            )
+
+        return {
+            "checkpoint_id": cp.checkpoint_id,
+            "session_id": cp.session_id,
+            "iteration": cp.iteration,
+            "status": cp.status,
+            "restored_message_count": len(cp.messages),
+            "messages": cp.messages,
+            "tool_state": cp.tool_state,
+            "metadata": cp.metadata,
+            "file_versions": cp.metadata.get("file_versions", []),
+        }
 
     def _delete_locked(self, checkpoint_id: str) -> bool:
         """(必须持锁)从内存删除 checkpoint。返回是否删除成功。"""
