@@ -756,7 +756,7 @@ export default function UserIndex() {
         {/* ===== 用户信息头部 ===== */}
         <View
           className="pt-[120rpx] px-[20rpx] pb-[48rpx]"
-          style={{ background: 'var(--color-primary)' }}
+          style={{ background: 'var(--color-background)' }}
         >
           {userInfo ? (
             <View className="flex items-center">
@@ -831,12 +831,12 @@ export default function UserIndex() {
               </View>
               {/* 分享按钮 */}
               <View
-                className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
-                style={{ background: 'rgba(255,255,255,0.2)' }}
+                className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center border border-solid border-[var(--color-border)]"
+                style={{ background: 'var(--color-card)' }}
                 onClick={openSharePopup}
               >
                 <Image
-                  className="text-[32rpx] text-white"
+                  className="text-[32rpx] text-primary"
                   style={{ width: '32rpx', height: '32rpx' }}
                   src="/static/images/icons/share-2.svg"
                   mode="aspectFit"
@@ -846,15 +846,15 @@ export default function UserIndex() {
           ) : (
             <View className="flex items-center" onClick={goLogin}>
               <Image
-                className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
+                className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary"
                 src={defaultAvatar}
                 mode="aspectFill"
               />
               <View className="ml-[24rpx]">
-                <Text className="block text-primary-foreground text-[36rpx] font-semibold">
+                <Text className="block text-foreground text-[36rpx] font-semibold">
                   {t('user.tapLogin')}
                 </Text>
-                <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
+                <Text className="block mt-[8rpx] text-foreground text-[24rpx] opacity-85">
                   {t('user.loginHint')}
                 </Text>
               </View>
@@ -1190,7 +1190,7 @@ export default function UserIndex() {
                             min={0}
                             max={100}
                             activeColor="var(--color-primary)"
-                            backgroundColor="rgba(255,255,255,0.15)"
+                            backgroundColor="var(--color-muted)"
                             blockSize={12}
                             blockColor="var(--color-primary)"
                             onChange={(e) => onAudioProgressChange(index, e)}
@@ -1296,7 +1296,7 @@ export default function UserIndex() {
               >
                 <CoverView
                   style={{
-                    color: 'var(--color-foreground)',
+                    color: '#fff',
                     fontSize: '40rpx',
                     fontWeight: 'bold',
                     lineHeight: '60rpx',
