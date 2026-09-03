@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFollowing, unfollowUser, type FollowingItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -129,49 +130,53 @@ export default function FollowingPage() {
             const name = item.nickname || item.username
             const initial = (name || '?').charAt(0)
             return (
-              <View
-                key={item.id}
-                className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
-              >
-                {item.avatar ? (
-                  <Image
-                    className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
-                    src={item.avatar || defaultAvatar}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
-                    <Text className="text-[32rpx] font-semibold text-primary">{initial}</Text>
-                  </View>
-                )}
-                <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
-                  <View className="flex items-center justify-between">
-                    <Text className="text-[30rpx] font-semibold text-foreground truncate">
-                      {name}
-                    </Text>
-                    <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-[6rpx]">
-                      <Text className="text-[20rpx] text-primary">
-                        {tt('following.following', '已关注')}
+              <ThemeRoot key={item.id}>
+                <View
+                  key={item.id}
+                  className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                >
+                  {item.avatar ? (
+                    <Image
+                      className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
+                      src={item.avatar || defaultAvatar}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="w-[96rpx] h-[96rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
+                      <Text className="text-[32rpx] font-semibold text-primary">{initial}</Text>
+                    </View>
+                  )}
+                  <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
+                    <View className="flex items-center justify-between">
+                      <Text className="text-[30rpx] font-semibold text-foreground truncate">
+                        {name}
+                      </Text>
+                      <View className="py-[4rpx] px-[12rpx] bg-primary/10 border-[2rpx] border-primary/30 rounded-[6rpx]">
+                        <Text className="text-[20rpx] text-primary">
+                          {tt('following.following', '已关注')}
+                        </Text>
+                      </View>
+                    </View>
+                    {item.bio ? (
+                      <Text className="text-[24rpx] text-muted-foreground truncate">
+                        {item.bio}
+                      </Text>
+                    ) : null}
+                    <View className="flex items-center justify-between">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('following.followedAt', '关注于')}{' '}
+                        {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
+                      </Text>
+                      <Text
+                        className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
+                        onClick={() => handleUnfollow(item)}
+                      >
+                        {tt('following.delete', '取消关注')}
                       </Text>
                     </View>
                   </View>
-                  {item.bio ? (
-                    <Text className="text-[24rpx] text-muted-foreground truncate">{item.bio}</Text>
-                  ) : null}
-                  <View className="flex items-center justify-between">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('following.followedAt', '关注于')}{' '}
-                      {formatDateByTemplate(item.followedAt, 'YYYY-MM-DD') || '-'}
-                    </Text>
-                    <Text
-                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
-                      onClick={() => handleUnfollow(item)}
-                    >
-                      {tt('following.delete', '取消关注')}
-                    </Text>
-                  </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

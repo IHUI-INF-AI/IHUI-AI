@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type CategoryKey = 'all' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 
@@ -181,43 +182,43 @@ export default function AiGroup() {
               const uses = Number(item.uses || 0)
               const isVip = Boolean(item.isVipExclusive)
               return (
-                <View
-                  key={id}
-                  className="flex items-center p-[24rpx] bg-card rounded-[12rpx]"
-                  onClick={() => onItemClick(id)}
-                >
-                  <Image
-                    className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background shrink-0"
-                    src={avatar}
-                    mode="aspectFill"
-                  />
-                  <View className="flex-1 min-w-0 ml-[24rpx]">
-                    <View className="flex items-center">
-                      <Text className="text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
-                        {name || t('aiGroup.agent')}
-                      </Text>
-                      {isVip ? (
-                        // 保留:#d97706 为 VIP 深金色(amber-600),tokens.css 仅有亮金 --color-vip-gold-start(#ffd700)/--color-vip-gold-end(#ffaa00),深金≠亮金,替换会降低浅底对比度且无对应 rgba 背景 token,保留原值
-                        <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
-                          VIP
+                <ThemeRoot key={id} className="flex items-center p-[24rpx] bg-card rounded-[12rpx]">
+                  <View key={id} onClick={() => onItemClick(id)}>
+                    <Image
+                      className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background shrink-0"
+                      src={avatar}
+                      mode="aspectFill"
+                    />
+                    <View className="flex-1 min-w-0 ml-[24rpx]">
+                      <View className="flex items-center">
+                        <Text className="text-[30rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                          {name || t('aiGroup.agent')}
+                        </Text>
+                        {isVip ? (
+                          // 保留:#d97706 为 VIP 深金色(amber-600),tokens.css 仅有亮金 --color-vip-gold-start(#ffd700)/--color-vip-gold-end(#ffaa00),深金≠亮金,替换会降低浅底对比度且无对应 rgba 背景 token,保留原值
+                          <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
+                            VIP
+                          </Text>
+                        ) : null}
+                      </View>
+                      {desc ? (
+                        <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                          {desc}
                         </Text>
                       ) : null}
+                      <View className="flex items-center mt-[8rpx]">
+                        {uses > 0 ? (
+                          <Text className="text-[22rpx] text-primary">
+                            {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                    {desc ? (
-                      <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground overflow-hidden text-ellipsis whitespace-nowrap">
-                        {desc}
-                      </Text>
-                    ) : null}
-                    <View className="flex items-center mt-[8rpx]">
-                      {uses > 0 ? (
-                        <Text className="text-[22rpx] text-primary">
-                          {tt('aiGroup.useCount', '{n}人使用', { n: uses })}
-                        </Text>
-                      ) : null}
-                    </View>
+                    <Text className="ml-[16rpx] text-[32rpx] text-muted-foreground shrink-0">
+                      ›
+                    </Text>
                   </View>
-                  <Text className="ml-[16rpx] text-[32rpx] text-muted-foreground shrink-0">›</Text>
-                </View>
+                </ThemeRoot>
               )
             })}
           </View>

@@ -14,7 +14,7 @@
   margin-bottom: 24rpx;
   padding: 32rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .nick-row {
   display: flex;
@@ -46,7 +46,7 @@
   height: 72rpx;
   padding: 0 20rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
   box-sizing: border-box;
 }
@@ -60,13 +60,13 @@
   font-size: 24rpx;
   color: var(--color-primary);
   background: var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .nick-rules {
   margin-bottom: 32rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .nick-rules-title {
   display: block;
@@ -88,7 +88,7 @@
   background: var(--color-primary);
   color: var(--color-foreground);
   font-size: 30rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .nick-submit.disabled {
   opacity: 0.5;

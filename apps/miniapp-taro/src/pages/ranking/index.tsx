@@ -7,6 +7,7 @@ import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -185,40 +186,41 @@ export default function RankingIndex() {
               pick(raw, ['category', 'cate']) || tt('ranking.generalHelper', '通用助手')
             const price = pick(raw, ['price']) || tt('ranking.free', '免费')
             return (
-              <View
-                key={item.id}
-                className="flex items-start bg-card border border-border rounded-[12rpx] p-[24rpx] mb-[16rpx]"
-                onClick={() => goDetail(item.id)}
-              >
-                {logo ? (
-                  <Image
-                    className="w-[120rpx] h-[120rpx] rounded-[12rpx] bg-background shrink-0"
-                    src={logo}
-                    mode="aspectFill"
-                  />
-                ) : null}
-                <View className="flex-1 ml-[24rpx] overflow-hidden flex flex-col gap-[8rpx]">
-                  <Text className="text-[30rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
-                    {name || '-'}
-                  </Text>
-                  {desc ? (
-                    <Text className="text-[24rpx] text-muted-foreground leading-[1.5] line-clamp-2">
-                      {desc}
-                    </Text>
+              <ThemeRoot key={item.id}>
+                <View
+                  className="flex items-start bg-card border border-border rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+                  onClick={() => goDetail(item.id)}
+                >
+                  {logo ? (
+                    <Image
+                      className="w-[120rpx] h-[120rpx] rounded-[12rpx] bg-background shrink-0"
+                      src={logo}
+                      mode="aspectFill"
+                    />
                   ) : null}
-                  <View className="flex flex-wrap gap-[8rpx_20rpx] mt-[4rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
+                  <View className="flex-1 ml-[24rpx] overflow-hidden flex flex-col gap-[8rpx]">
+                    <Text className="text-[30rpx] font-semibold text-foreground leading-[1.4] line-clamp-1">
+                      {name || '-'}
                     </Text>
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('ranking.detail.category', '类别')}: {category}
-                    </Text>
-                    <Text className="text-[22rpx] text-accent">
-                      {tt('ranking.detail.price', '价格')}: {price}
-                    </Text>
+                    {desc ? (
+                      <Text className="text-[24rpx] text-muted-foreground leading-[1.5] line-clamp-2">
+                        {desc}
+                      </Text>
+                    ) : null}
+                    <View className="flex flex-wrap gap-[8rpx_20rpx] mt-[4rpx]">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('ranking.detail.attention', '关注度')}: {attention || '-'}
+                      </Text>
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('ranking.detail.category', '类别')}: {category}
+                      </Text>
+                      <Text className="text-[22rpx] text-accent">
+                        {tt('ranking.detail.price', '价格')}: {price}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

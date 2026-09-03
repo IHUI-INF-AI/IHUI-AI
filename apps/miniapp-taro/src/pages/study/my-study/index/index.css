@@ -49,7 +49,7 @@
   width: 48rpx;
   height: 4rpx;
   background: var(--color-primary);
-  border-radius: 2rpx;
+  border-radius: var(--radius-sm);
 }
 
 /* 内容区 */
@@ -87,7 +87,7 @@
   background: var(--color-primary);
   color: var(--color-foreground);
   text-align: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
 }
 
@@ -96,13 +96,13 @@
   display: flex;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 16rpx;
 }
 .study-cover {
   width: 160rpx;
   height: 100rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   background: var(--color-muted);
 }
@@ -141,14 +141,14 @@
   flex: 1;
   height: 8rpx;
   background: var(--color-muted);
-  border-radius: 4rpx;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   margin-right: 12rpx;
 }
 .progress-bar-inner {
   height: 100%;
   background: var(--color-primary);
-  border-radius: 4rpx;
+  border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
 .progress-text {
@@ -170,7 +170,7 @@
   padding: 8rpx 32rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 24rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

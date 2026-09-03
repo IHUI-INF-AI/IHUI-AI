@@ -77,7 +77,7 @@
 }
 
 /* ===== 黑底半透明角标(对齐 list2/UpToDate 顶左角分类 + 底右角课时)=====
- * 原项目用 rgba(0,0,0,0.3) + color:white + padding:4rpx 20rpx + border-radius:20rpx + font-size:24rpx
+ * 原项目用 rgba(0,0,0,0.3) + color:white + padding:4rpx 20rpx + border-radius:var(--radius-xl) + font-size:24rpx
  */
 .lli-overlay-tag {
   position: absolute;
@@ -85,7 +85,7 @@
   padding: 2px 10px;
   border-radius: 10px; /* 对齐 20rpx */
   background-color: rgba(0, 0, 0, 0.4);
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 24rpx; /* 对齐原项目 24rpx */
   line-height: 1.4;
 }
@@ -103,7 +103,7 @@
 }
 
 /* ===== 价格角标(对齐 list2 .price-tag:底右角红底白字)=====
- * 原项目用 rgba(255,0,0,0.8) + border-top-left-radius:12rpx
+ * 原项目用 rgba(255,0,0,0.8) + border-top-left-radius:var(--radius-md)
  */
 .lli-price-tag {
   position: absolute;
@@ -113,7 +113,7 @@
   padding: 2px 10px;
   border-top-left-radius: 6px; /* 对齐 12rpx */
   background-color: var(--color-destructive);
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1.4;
@@ -132,7 +132,7 @@
   margin-bottom: 10px;
 }
 
-/* carousel 封面圆角(对齐 UpToDate border-radius:24rpx) */
+/* carousel 封面圆角(对齐 UpToDate border-radius:var(--radius-xl)) */
 .lli-carousel .lli-thumb {
   border-radius: 12px; /* 对齐 24rpx */
 }
