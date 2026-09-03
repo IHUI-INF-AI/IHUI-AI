@@ -247,7 +247,7 @@ function LanguageSwitcher({ collapsed }: { collapsed: boolean }) {
         createPortal(
           <div
             ref={langPanelRef}
-            className="flex w-36 flex-col gap-px rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="fixed z-popover flex w-36 flex-col gap-px rounded-md border bg-popover p-2 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               langCoords
                 ? { top: langCoords.top, left: langCoords.left }
@@ -398,7 +398,7 @@ function DownloadPopover({ collapsed }: { collapsed: boolean }) {
         createPortal(
           <div
             ref={dlPanelRef}
-            className="w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="fixed z-popover w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               dlCoords ? { top: dlCoords.top, left: dlCoords.left } : { top: -9999, left: -9999 }
             }
@@ -536,8 +536,19 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
   const msgRafRef = React.useRef<number | null>(null)
 
   const updateMsgCoords = React.useCallback(() => {
-    if (!msgTriggerRef.current || !msgPanelRef.current) return
+    if (!msgTriggerRef.current) {
+      return
+    }
     const r = msgTriggerRef.current.getBoundingClientRect()
+
+    // If panel ref is not ready yet, use trigger position as fallback
+    if (!msgPanelRef.current) {
+      const fallbackLeft = Math.min(r.right + 8, window.innerWidth - 328)
+      const fallbackTop = Math.max(r.bottom + 8, 8)
+      setMsgCoords({ top: fallbackTop, left: fallbackLeft })
+      return
+    }
+
     const panelRect = msgPanelRef.current.getBoundingClientRect()
     const gap = 8
     const pad = 8
@@ -623,7 +634,13 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
           aria-label={t('messages')}
           aria-haspopup="dialog"
           aria-expanded={msgOpen}
-          onClick={() => setMsgOpen((prev) => !prev)}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          data-state={msgOpen ? 'open' : 'closed'}
+          onClick={(e) => {
+            e.stopPropagation()
+            setMsgOpen((prev) => !prev)
+          }}
         >
           <Bell className="h-[18px] w-[18px]" />
           {unreadCount > 0 && (
@@ -637,7 +654,7 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
         createPortal(
           <div
             ref={msgPanelRef}
-            className="w-80 max-w-[calc(100vw-2rem)] rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="fixed z-popover w-80 max-w-[calc(100vw-2rem)] rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
             style={
               msgCoords ? { top: msgCoords.top, left: msgCoords.left } : { top: -9999, left: -9999 }
             }
