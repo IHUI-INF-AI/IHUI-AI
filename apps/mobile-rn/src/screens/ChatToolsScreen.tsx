@@ -26,6 +26,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { MessagesSquare, LogIn } from 'lucide-react-native'
 import { generateSsoCode } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuthStore } from '../stores/auth-store'
@@ -131,7 +132,7 @@ export function ChatToolsScreen() {
         <View
           className={`mb-5 flex h-16 w-16 items-center justify-center rounded-2xl ${dark ? 'bg-neutral-800' : 'bg-gray-100'}`}
         >
-          <MessagesSquare size={32} color={dark ? '#e5e5e5' : '#404040'} />
+          <MessagesSquare size={32} color={dark ? tokens.gray.200 : tokens.text.medium} />
         </View>
         <Text
           className={`text-center text-base font-semibold ${dark ? 'text-neutral-100' : 'text-gray-900'}`}
@@ -148,7 +149,7 @@ export function ChatToolsScreen() {
           className="mt-6 flex-row items-center gap-2 rounded-lg bg-gray-900 px-6 py-3 dark:bg-white"
           accessibilityRole="button"
         >
-          <LogIn size={18} color={dark ? '#171717' : '#ffffff'} />
+          <LogIn size={18} color={dark ? tokens.gray.900 : tokens.surface.light} />
           <Text className={`text-sm font-medium ${dark ? 'text-neutral-900' : 'text-white'}`}>
             {t('webChat.loginButton')}
           </Text>
