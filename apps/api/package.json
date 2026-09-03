@@ -53,6 +53,7 @@
     "exceljs": "^4.4.0",
     "fastify": "^5.11.2",
     "fastify-plugin": "^6.0.0",
+    "hyparquet": "^1.29.2",
     "ioredis": "^6.0.0",
     "jose": "^6.2.7",
     "mammoth": "^1.12.0",
