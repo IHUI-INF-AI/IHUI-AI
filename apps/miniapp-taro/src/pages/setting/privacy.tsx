@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Switch, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 import './privacy.css'
 
 // 系统权限项配置:label 走 i18n(settingPrivacy.permissions.<key>)
@@ -109,72 +110,74 @@ export default function PrivacySettingPage() {
     t(PRIVACY_STATUS_KEY[s || 'unknown'] ?? 'settingPrivacy.status.unknown')
 
   return (
-    <View className="page">
-      {/* 系统权限引导 */}
-      <View className="group-title">{t('settingPrivacy.systemPermissions')}</View>
-      <View className="list">
-        {PERMISSIONS.map((item) => (
-          <View className="perm-item" key={item.key}>
-            <View className="perm-info">
-              <Text className="perm-label">
-                {t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}
-              </Text>
-              <Text className={`perm-status ${permStatus[item.key] || 'unknown'}`}>
-                {statusText(permStatus[item.key] || 'unknown')}
-              </Text>
+    <ThemeRoot>
+      <View className="page">
+        {/* 系统权限引导 */}
+        <View className="group-title">{t('settingPrivacy.systemPermissions')}</View>
+        <View className="list">
+          {PERMISSIONS.map((item) => (
+            <View className="perm-item" key={item.key}>
+              <View className="perm-info">
+                <Text className="perm-label">
+                  {t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}
+                </Text>
+                <Text className={`perm-status ${permStatus[item.key] || 'unknown'}`}>
+                  {statusText(permStatus[item.key] || 'unknown')}
+                </Text>
+              </View>
+              <Button className="setting-btn" size="mini" onClick={onOpenSetting}>
+                {t('settingPrivacy.goSetting')}
+              </Button>
             </View>
-            <Button className="setting-btn" size="mini" onClick={onOpenSetting}>
-              {t('settingPrivacy.goSetting')}
-            </Button>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
 
-      {/* 隐私设置选项 */}
-      <View className="group-title">{t('settingPrivacy.privacySettings')}</View>
-      <View className="list">
-        <View className="switch-item">
-          <View className="switch-info">
-            <Text className="switch-label">{t('settingPrivacy.mute')}</Text>
-            <Text className="switch-desc">{t('settingPrivacy.muteDesc')}</Text>
+        {/* 隐私设置选项 */}
+        <View className="group-title">{t('settingPrivacy.privacySettings')}</View>
+        <View className="list">
+          <View className="switch-item">
+            <View className="switch-info">
+              <Text className="switch-label">{t('settingPrivacy.mute')}</Text>
+              <Text className="switch-desc">{t('settingPrivacy.muteDesc')}</Text>
+            </View>
+            <Switch
+              checked={mute}
+              color="var(--color-primary)"
+              onChange={(e) => onToggle('mute', e.detail.value)}
+            />
           </View>
-          <Switch
-            checked={mute}
-            color="var(--color-primary)"
-            onChange={(e) => onToggle('mute', e.detail.value)}
-          />
-        </View>
-        <View className="switch-item">
-          <View className="switch-info">
-            <Text className="switch-label">{t('settingPrivacy.recommend')}</Text>
-            <Text className="switch-desc">{t('settingPrivacy.recommendDesc')}</Text>
+          <View className="switch-item">
+            <View className="switch-info">
+              <Text className="switch-label">{t('settingPrivacy.recommend')}</Text>
+              <Text className="switch-desc">{t('settingPrivacy.recommendDesc')}</Text>
+            </View>
+            <Switch
+              checked={recommend}
+              color="var(--color-primary)"
+              onChange={(e) => onToggle('recommend', e.detail.value)}
+            />
           </View>
-          <Switch
-            checked={recommend}
-            color="var(--color-primary)"
-            onChange={(e) => onToggle('recommend', e.detail.value)}
-          />
-        </View>
-        <View className="switch-item">
-          <View className="switch-info">
-            <Text className="switch-label">{t('settingPrivacy.personalize')}</Text>
-            <Text className="switch-desc">{t('settingPrivacy.personalizeDesc')}</Text>
+          <View className="switch-item">
+            <View className="switch-info">
+              <Text className="switch-label">{t('settingPrivacy.personalize')}</Text>
+              <Text className="switch-desc">{t('settingPrivacy.personalizeDesc')}</Text>
+            </View>
+            <Switch
+              checked={personalize}
+              color="var(--color-primary)"
+              onChange={(e) => onToggle('personalize', e.detail.value)}
+            />
           </View>
-          <Switch
-            checked={personalize}
-            color="var(--color-primary)"
-            onChange={(e) => onToggle('personalize', e.detail.value)}
-          />
         </View>
-      </View>
 
-      {/* 底部隐私政策链接 */}
-      <View className="footer">
-        <Text className="policy-link" onClick={onPrivacyPolicy}>
-          {t('settingPrivacy.privacyPolicy')}
-        </Text>
+        {/* 底部隐私政策链接 */}
+        <View className="footer">
+          <Text className="policy-link" onClick={onPrivacyPolicy}>
+            {t('settingPrivacy.privacyPolicy')}
+          </Text>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

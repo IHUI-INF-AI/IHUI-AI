@@ -65,7 +65,7 @@ export default function NewTitle({ items, onItemClick }: NewTitleProps) {
               width: rpx(20),
               height: rpx(20),
               borderRadius: '50%',
-              background: '#9f9f9f',
+              background: 'var(--color-muted)',
               marginRight: rpx(16),
               flexShrink: 0,
             }}

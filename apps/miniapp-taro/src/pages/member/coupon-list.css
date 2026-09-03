@@ -35,7 +35,7 @@
 .coupon {
   display: flex;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .coupon-left {
@@ -96,7 +96,7 @@
   font-size: 24rpx;
   color: var(--color-primary-foreground);
   background: var(--color-primary);
-  border-radius: 28rpx;
+  border-radius: var(--radius-2xl);
   padding: 0 28rpx;
   line-height: 56rpx;
 }

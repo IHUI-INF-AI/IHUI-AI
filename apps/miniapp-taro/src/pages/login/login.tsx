@@ -16,6 +16,7 @@ import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
 import LoginPopUp from '@/components/LoginPopUp'
+import ThemeRoot from '@/components/ThemeRoot'
 import './login.css'
 
 export default function Login() {
@@ -205,7 +206,7 @@ export default function Login() {
     typeof popupUserExt?.identityTypy === 'number' ? popupUserExt.identityTypy : 0
 
   return (
-    <View className="container-ali">
+    <ThemeRoot className="container-ali">
       <View className="container1">
         <Image className="bg-image" src="/static/images/loginbackk.png" mode="aspectFill" />
         <View className="container-box">
@@ -267,7 +268,7 @@ export default function Login() {
                       type="number"
                       maxlength={11}
                       placeholder={tt('login.phonePlaceholder', '手机号码')}
-                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      placeholderStyle="color: var(--color-muted-foreground);font-size: 36rpx;font-weight: normal;"
                       value={accountValue}
                       onInput={onAccountInput}
                       onFocus={() => setIsPhoneFocused(true)}
@@ -288,7 +289,7 @@ export default function Login() {
                       className="input iponeinput input-text"
                       type="text"
                       placeholder={tt('login.phonePlaceholder', '手机号码')}
-                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      placeholderStyle="color: var(--color-muted-foreground);font-size: 36rpx;font-weight: normal;"
                       value={accountValue}
                       onInput={onAccountInput}
                       onFocus={() => setIsAccountFocused(true)}
@@ -312,7 +313,7 @@ export default function Login() {
                       className="input iponeinput input-text"
                       password={!showPwd}
                       placeholder={tt('login.passwordPlaceholder', '密码')}
-                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      placeholderStyle="color: var(--color-muted-foreground);font-size: 36rpx;font-weight: normal;"
                       value={form.password}
                       onInput={(e) => form.setPassword(e.detail.value)}
                       onFocus={() => setIsPwdFocused(true)}
@@ -349,7 +350,7 @@ export default function Login() {
                       type="number"
                       maxlength={6}
                       placeholder={tt('login.codePlaceholder', '验证码')}
-                      placeholderStyle="color:#6B6980;font-size: 36rpx;font-weight: normal;"
+                      placeholderStyle="color: var(--color-muted-foreground);font-size: 36rpx;font-weight: normal;"
                       value={code}
                       onInput={(e) => setCode(e.detail.value)}
                       onFocus={() => setIsCodeFocused(true)}
@@ -432,7 +433,7 @@ export default function Login() {
           Taro.navigateTo({ url: '/pages/vip/index' })
         }}
       />
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

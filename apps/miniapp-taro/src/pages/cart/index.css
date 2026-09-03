@@ -50,7 +50,7 @@
   background: var(--color-primary);
   color: var(--color-foreground);
   text-align: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
 }
 .btn.disabled {
@@ -62,7 +62,7 @@
   position: relative;
   margin-bottom: 16rpx;
   overflow: hidden;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .cart-item {
   position: relative;
@@ -71,7 +71,7 @@
   align-items: center;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   transition: transform 0.2s ease;
 }
 .cart-item.swiped {
@@ -87,7 +87,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-destructive);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .delete-action-text {
   color: var(--color-destructive-foreground);
@@ -99,7 +99,7 @@
   width: 40rpx;
   height: 40rpx;
   border: 2rpx solid var(--color-muted-foreground);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -120,7 +120,7 @@
 .cart-item-cover {
   width: 140rpx;
   height: 140rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   background: var(--color-muted);
 }
@@ -171,7 +171,7 @@
   align-items: center;
   justify-content: center;
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 32rpx;
   color: var(--color-foreground);
   background: var(--color-card);

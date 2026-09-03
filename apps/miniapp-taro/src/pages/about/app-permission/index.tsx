@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REQUIRED_FLAGS = [true, false, true, false, false, true]
 const ALBUM_NAME_FB = t('about.appPermission.albumName')
@@ -109,66 +110,68 @@ export default function AppPermission() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
-      <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
-        <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">
-          {t('about.appPermission.intro')}
-        </Text>
-      </View>
-
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        {permissions.map((p, idx) => (
-          <View
-            key={p.scope}
-            className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
-          >
-            <View className="flex-1 mr-[16rpx]">
-              <View className="flex items-center flex-wrap gap-[12rpx]">
-                <Text className="text-[28rpx] text-foreground font-medium">{p.name}</Text>
-                {p.required ? (
-                  <Text className="text-[20rpx] text-white bg-destructive py-[2rpx] px-[12rpx] rounded-[6rpx]">
-                    {t('about.appPermission.required')}
-                  </Text>
-                ) : (
-                  <Text className="text-[20rpx] text-white bg-muted py-[2rpx] px-[12rpx] rounded-[6rpx]">
-                    {t('about.appPermission.optional')}
-                  </Text>
-                )}
-                <Text className={statusClass(p.scope)}>{statusText(p.scope)}</Text>
-              </View>
-              <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] leading-[1.6]">
-                {p.desc}
-              </Text>
-            </View>
-            <Button
-              className="flex-shrink-0 text-[24rpx] bg-primary text-white rounded-[8rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0"
-              size="mini"
-              onClick={onOpenSetting}
-            >
-              {tt('about.appPermission.goSetting', '去设置')}
-            </Button>
-          </View>
-        ))}
-      </View>
-
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View
-          className="flex items-center py-[28rpx] px-[32rpx] active:bg-background"
-          onClick={onOpenSetting}
-        >
-          <Text className="text-[28rpx] text-foreground">
-            {tt('about.appPermission.openAllSetting', '打开系统设置')}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[60rpx]">
+        <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
+          <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">
+            {t('about.appPermission.intro')}
           </Text>
-          <Text className="text-muted-foreground text-[32rpx] ml-auto">›</Text>
+        </View>
+
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          {permissions.map((p, idx) => (
+            <View
+              key={p.scope}
+              className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
+            >
+              <View className="flex-1 mr-[16rpx]">
+                <View className="flex items-center flex-wrap gap-[12rpx]">
+                  <Text className="text-[28rpx] text-foreground font-medium">{p.name}</Text>
+                  {p.required ? (
+                    <Text className="text-[20rpx] text-white bg-destructive py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                      {t('about.appPermission.required')}
+                    </Text>
+                  ) : (
+                    <Text className="text-[20rpx] text-white bg-muted py-[2rpx] px-[12rpx] rounded-[6rpx]">
+                      {t('about.appPermission.optional')}
+                    </Text>
+                  )}
+                  <Text className={statusClass(p.scope)}>{statusText(p.scope)}</Text>
+                </View>
+                <Text className="block text-[24rpx] text-muted-foreground mt-[8rpx] leading-[1.6]">
+                  {p.desc}
+                </Text>
+              </View>
+              <Button
+                className="flex-shrink-0 text-[24rpx] bg-primary text-white rounded-[8rpx] px-[20rpx] leading-[56rpx] m-0 after:border-0"
+                size="mini"
+                onClick={onOpenSetting}
+              >
+                {tt('about.appPermission.goSetting', '去设置')}
+              </Button>
+            </View>
+          ))}
+        </View>
+
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View
+            className="flex items-center py-[28rpx] px-[32rpx] active:bg-background"
+            onClick={onOpenSetting}
+          >
+            <Text className="text-[28rpx] text-foreground">
+              {tt('about.appPermission.openAllSetting', '打开系统设置')}
+            </Text>
+            <Text className="text-muted-foreground text-[32rpx] ml-auto">›</Text>
+          </View>
+        </View>
+
+        <View className="text-center p-[32rpx]">
+          <Text className="text-[22rpx] text-muted-foreground">
+            {t('about.appPermission.footer')}
+          </Text>
         </View>
       </View>
-
-      <View className="text-center p-[32rpx]">
-        <Text className="text-[22rpx] text-muted-foreground">
-          {t('about.appPermission.footer')}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -209,217 +210,223 @@ export default function PlazaIndex() {
   }, [])
 
   const renderCard = (item: PlazaItem) => (
-    <View className="pza-card" onClick={() => onItemClick(item)}>
-      {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
-      <View className="pza-info">
-        <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
-        {item.desc ? <Text className="pza-desc">{item.desc}</Text> : null}
-        <View className="pza-meta">
-          <Text className="pza-author">{item.author || tt('plaza.index.anonymous', '匿名')}</Text>
-          <Text className="pza-status">{statusText(item.status)}</Text>
-        </View>
-        <View className="pza-tags">
-          {item.track ? <Text className="pza-track">{item.track}</Text> : null}
-          {(item.attention ?? 0) > 0 ? (
-            <View className="pza-attention" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image
-                src="/static/images/icons/heart-fill.svg"
-                mode="aspectFit"
-                style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
-              />
-              <Text>{item.attention}</Text>
-            </View>
-          ) : null}
+    <ThemeRoot>
+      <View className="pza-card" onClick={() => onItemClick(item)}>
+        {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
+        <View className="pza-info">
+          <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
+          {item.desc ? <Text className="pza-desc">{item.desc}</Text> : null}
+          <View className="pza-meta">
+            <Text className="pza-author">{item.author || tt('plaza.index.anonymous', '匿名')}</Text>
+            <Text className="pza-status">{statusText(item.status)}</Text>
+          </View>
+          <View className="pza-tags">
+            {item.track ? <Text className="pza-track">{item.track}</Text> : null}
+            {(item.attention ?? 0) > 0 ? (
+              <View className="pza-attention" style={{ display: 'flex', alignItems: 'center' }}>
+                <Image
+                  src="/static/images/icons/heart-fill.svg"
+                  mode="aspectFit"
+                  style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+                />
+                <Text>{item.attention}</Text>
+              </View>
+            ) : null}
+          </View>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 
   return (
-    <View className="pza-page">
-      <View className="pza-header">
-        <Text className="pza-page-title">{tt('plaza.index.title', 'AI需求广场')}</Text>
-        <View className="pza-nav-btns">
-          <Text className="pza-nav-btn" onClick={() => setSearchOpen((v) => !v)}>
-            {tt('plaza.index.navSearch', '搜索')}
-          </Text>
-          <Text className="pza-nav-btn" onClick={() => setShowBottom(true)}>
-            {tt('plaza.index.navMenu', '菜单')}
-          </Text>
-          <Text className="pza-nav-btn" onClick={() => setDrawerVisible(true)}>
-            {tt('plaza.index.navCategory', '分类')}
-          </Text>
+    <ThemeRoot>
+      <View className="pza-page">
+        <View className="pza-header">
+          <Text className="pza-page-title">{tt('plaza.index.title', 'AI需求广场')}</Text>
+          <View className="pza-nav-btns">
+            <Text className="pza-nav-btn" onClick={() => setSearchOpen((v) => !v)}>
+              {tt('plaza.index.navSearch', '搜索')}
+            </Text>
+            <Text className="pza-nav-btn" onClick={() => setShowBottom(true)}>
+              {tt('plaza.index.navMenu', '菜单')}
+            </Text>
+            <Text className="pza-nav-btn" onClick={() => setDrawerVisible(true)}>
+              {tt('plaza.index.navCategory', '分类')}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      {searchOpen ? (
-        <View className="pza-search">
-          <Input
-            className="pza-search-input"
-            type="text"
-            placeholder={tt('plaza.index.searchPlaceholder', '搜索需求')}
-            value={search}
-            onInput={(e) => setSearch(e.detail.value)}
-            onConfirm={onSearchConfirm}
-            confirmType="search"
-          />
-        </View>
-      ) : null}
-
-      {/* 状态筛选 tab */}
-      <ScrollView scrollX className="pza-tabs">
-        {STATUS_TABS.map((tab) => (
-          <View
-            key={tab.key}
-            className={`pza-tab${status === tab.key ? ' active' : ''}`}
-            onClick={() => onStatusChange(tab.key)}
-          >
-            <Text>
-              {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
-            </Text>
+        {searchOpen ? (
+          <View className="pza-search">
+            <Input
+              className="pza-search-input"
+              type="text"
+              placeholder={tt('plaza.index.searchPlaceholder', '搜索需求')}
+              value={search}
+              onInput={(e) => setSearch(e.detail.value)}
+              onConfirm={onSearchConfirm}
+              confirmType="search"
+            />
           </View>
-        ))}
-      </ScrollView>
-
-      {/* 瀑布流双列 */}
-      <ScrollView scrollY className="pza-scroll">
-        {loading && leftList.length === 0 ? (
-          <View className="pza-empty">
-            <Text>{tt('common.loading', '加载中…')}</Text>
-          </View>
-        ) : leftList.length === 0 && rightList.length === 0 ? (
-          <View className="pza-empty">
-            <Text className="pza-empty-main">
-              {tt('plaza.index.emptyMain', '当前赛道千万级空白市场')}
-            </Text>
-            <Text className="pza-empty-sub">
-              {tt('plaza.index.emptySub', '不会开发?发布需求快来抢占市场!')}
-            </Text>
-          </View>
-        ) : (
-          <View className="pza-cols">
-            <View className="pza-col">{leftList.map(renderCard)}</View>
-            <View className="pza-col">{rightList.map(renderCard)}</View>
-          </View>
-        )}
-        {loading && leftList.length > 0 ? (
-          <Text className="pza-load-more">{tt('common.loading', '加载中…')}</Text>
         ) : null}
-        {!hasMore && leftList.length > 0 ? (
-          <Text className="pza-load-more">{tt('common.noMore', '没有更多了')}</Text>
-        ) : null}
-        <View className="pza-bottom-space" />
-      </ScrollView>
 
-      {/* 悬浮发布按钮 */}
-      <View className="pza-fab" onClick={onSetNeed}>
-        <Text className="pza-fab-icon">+</Text>
-      </View>
-
-      {/* 赛道分类弹窗 */}
-      {drawerVisible ? (
-        <View className="pza-mask" onClick={() => setDrawerVisible(false)}>
-          <View className="pza-drawer" catchMove>
-            <View className="pza-drawer-head">
-              <Text className="pza-drawer-title">
-                {tt('plaza.index.categoryTitle', '赛道分类')}
+        {/* 状态筛选 tab */}
+        <ScrollView scrollX className="pza-tabs">
+          {STATUS_TABS.map((tab) => (
+            <View
+              key={tab.key}
+              className={`pza-tab${status === tab.key ? ' active' : ''}`}
+              onClick={() => onStatusChange(tab.key)}
+            >
+              <Text>
+                {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
               </Text>
-              <Image
-                className="pza-drawer-close"
-                src="/static/images/icons/x.svg"
-                mode="aspectFit"
-                style={{ width: '40rpx', height: '40rpx' }}
-                onClick={() => setDrawerVisible(false)}
-              />
             </View>
-            <ScrollView scrollX className="pza-track-scroll">
-              {TRACKS.map((tr) => (
-                <View
-                  key={tr.key || 'all'}
-                  className={`pza-track${track === tr.key ? ' active' : ''}`}
-                  onClick={() => onTrackSelect(tr.key)}
-                >
-                  <Text>
-                    {tt(
-                      tr.labelKey,
-                      tr.key === ''
-                        ? tt('common.all', '全部')
-                        : tr.key === 'writing'
-                          ? tt('ai.agentList.categories.writing', '写作')
-                          : tr.key === 'coding'
-                            ? tt('ai.agentList.categories.coding', '编程')
-                            : tr.key === 'design'
-                              ? tt('pagesindexindex.d11', '设计')
-                              : tr.key === 'marketing'
-                                ? tt('plaza.p1', '营销')
-                                : tt('ai.agentList.categories.education', '教育'),
-                    )}
+          ))}
+        </ScrollView>
+
+        {/* 瀑布流双列 */}
+        <ScrollView scrollY className="pza-scroll">
+          {loading && leftList.length === 0 ? (
+            <View className="pza-empty">
+              <Text>{tt('common.loading', '加载中…')}</Text>
+            </View>
+          ) : leftList.length === 0 && rightList.length === 0 ? (
+            <View className="pza-empty">
+              <Text className="pza-empty-main">
+                {tt('plaza.index.emptyMain', '当前赛道千万级空白市场')}
+              </Text>
+              <Text className="pza-empty-sub">
+                {tt('plaza.index.emptySub', '不会开发?发布需求快来抢占市场!')}
+              </Text>
+            </View>
+          ) : (
+            <View className="pza-cols">
+              <View className="pza-col">{leftList.map(renderCard)}</View>
+              <View className="pza-col">{rightList.map(renderCard)}</View>
+            </View>
+          )}
+          {loading && leftList.length > 0 ? (
+            <Text className="pza-load-more">{tt('common.loading', '加载中…')}</Text>
+          ) : null}
+          {!hasMore && leftList.length > 0 ? (
+            <Text className="pza-load-more">{tt('common.noMore', '没有更多了')}</Text>
+          ) : null}
+          <View className="pza-bottom-space" />
+        </ScrollView>
+
+        {/* 悬浮发布按钮 */}
+        <View className="pza-fab" onClick={onSetNeed}>
+          <Text className="pza-fab-icon">+</Text>
+        </View>
+
+        {/* 赛道分类弹窗 */}
+        {drawerVisible ? (
+          <View className="pza-mask" onClick={() => setDrawerVisible(false)}>
+            <View className="pza-drawer" catchMove>
+              <View className="pza-drawer-head">
+                <Text className="pza-drawer-title">
+                  {tt('plaza.index.categoryTitle', '赛道分类')}
+                </Text>
+                <Image
+                  className="pza-drawer-close"
+                  src="/static/images/icons/x.svg"
+                  mode="aspectFit"
+                  style={{ width: '40rpx', height: '40rpx' }}
+                  onClick={() => setDrawerVisible(false)}
+                />
+              </View>
+              <ScrollView scrollX className="pza-track-scroll">
+                {TRACKS.map((tr) => (
+                  <View
+                    key={tr.key || 'all'}
+                    className={`pza-track${track === tr.key ? ' active' : ''}`}
+                    onClick={() => onTrackSelect(tr.key)}
+                  >
+                    <Text>
+                      {tt(
+                        tr.labelKey,
+                        tr.key === ''
+                          ? tt('common.all', '全部')
+                          : tr.key === 'writing'
+                            ? tt('ai.agentList.categories.writing', '写作')
+                            : tr.key === 'coding'
+                              ? tt('ai.agentList.categories.coding', '编程')
+                              : tr.key === 'design'
+                                ? tt('pagesindexindex.d11', '设计')
+                                : tr.key === 'marketing'
+                                  ? tt('plaza.p1', '营销')
+                                  : tt('ai.agentList.categories.education', '教育'),
+                      )}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 卡片详情居中弹窗 */}
+        {showCenter && detail ? (
+          <View className="pza-mask" onClick={() => setShowCenter(false)}>
+            <View className="pza-center" catchMove>
+              <View className="pza-center-head">
+                <Text className="pza-center-title">{detail.title}</Text>
+                <Image
+                  className="pza-center-close"
+                  src="/static/images/icons/x.svg"
+                  mode="aspectFit"
+                  style={{ width: '40rpx', height: '40rpx' }}
+                  onClick={() => setShowCenter(false)}
+                />
+              </View>
+              <ScrollView scrollY className="pza-center-body">
+                {detail.coverUrl ? (
+                  <Image className="pza-center-cover" src={detail.coverUrl} mode="widthFix" />
+                ) : null}
+                {detail.desc ? <Text className="pza-center-desc">{detail.desc}</Text> : null}
+                <View className="pza-center-meta">
+                  <Text className="pza-center-label">
+                    {tt('plaza.index.detailTrack', '赛道')}:{detail.track || '-'}
+                  </Text>
+                  <Text className="pza-center-label">
+                    {tt('plaza.index.detailStatus', '状态')}:{statusText(detail.status)}
                   </Text>
                 </View>
+                <View className="pza-center-meta">
+                  <Text className="pza-center-label">
+                    {tt('plaza.index.detailAuthor', '发布人')}:
+                    {detail.author || tt('plaza.index.anonymous', '匿名')}
+                  </Text>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 身份切换弹窗 */}
+        {showBottom ? (
+          <View className="pza-mask" onClick={() => setShowBottom(false)}>
+            <View className="pza-bottom-sheet" catchMove>
+              <View className="pza-sheet-head">
+                <Text className="pza-sheet-title">
+                  {tt('plaza.index.identityTitle', '切换身份')}
+                </Text>
+              </View>
+              {IDENTITIES.map((it) => (
+                <View
+                  key={it.key}
+                  className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
+                  onClick={() => onIdentityChange(it.key)}
+                >
+                  <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
+                </View>
               ))}
-            </ScrollView>
-          </View>
-        </View>
-      ) : null}
-
-      {/* 卡片详情居中弹窗 */}
-      {showCenter && detail ? (
-        <View className="pza-mask" onClick={() => setShowCenter(false)}>
-          <View className="pza-center" catchMove>
-            <View className="pza-center-head">
-              <Text className="pza-center-title">{detail.title}</Text>
-              <Image
-                className="pza-center-close"
-                src="/static/images/icons/x.svg"
-                mode="aspectFit"
-                style={{ width: '40rpx', height: '40rpx' }}
-                onClick={() => setShowCenter(false)}
-              />
             </View>
-            <ScrollView scrollY className="pza-center-body">
-              {detail.coverUrl ? (
-                <Image className="pza-center-cover" src={detail.coverUrl} mode="widthFix" />
-              ) : null}
-              {detail.desc ? <Text className="pza-center-desc">{detail.desc}</Text> : null}
-              <View className="pza-center-meta">
-                <Text className="pza-center-label">
-                  {tt('plaza.index.detailTrack', '赛道')}:{detail.track || '-'}
-                </Text>
-                <Text className="pza-center-label">
-                  {tt('plaza.index.detailStatus', '状态')}:{statusText(detail.status)}
-                </Text>
-              </View>
-              <View className="pza-center-meta">
-                <Text className="pza-center-label">
-                  {tt('plaza.index.detailAuthor', '发布人')}:
-                  {detail.author || tt('plaza.index.anonymous', '匿名')}
-                </Text>
-              </View>
-            </ScrollView>
           </View>
-        </View>
-      ) : null}
-
-      {/* 身份切换弹窗 */}
-      {showBottom ? (
-        <View className="pza-mask" onClick={() => setShowBottom(false)}>
-          <View className="pza-bottom-sheet" catchMove>
-            <View className="pza-sheet-head">
-              <Text className="pza-sheet-title">{tt('plaza.index.identityTitle', '切换身份')}</Text>
-            </View>
-            {IDENTITIES.map((it) => (
-              <View
-                key={it.key}
-                className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
-                onClick={() => onIdentityChange(it.key)}
-              >
-                <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

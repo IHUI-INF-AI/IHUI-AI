@@ -18,7 +18,7 @@
   flex-direction: column;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx 24rpx;
 }
 .tdetail-header-top {
@@ -28,7 +28,7 @@
 .tdetail-avatar {
   width: 120rpx;
   height: 120rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -66,9 +66,9 @@
   padding: 2rpx 12rpx;
   font-size: 20rpx;
   font-weight: 600;
-  color: #5a4500;
+  color: rgba(90, 69, 0, 1);
   background: var(--color-rank-gold);
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 .tdetail-title {
@@ -83,7 +83,7 @@
   color: var(--color-primary);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 .tdetail-follow-btn-active {
@@ -98,7 +98,7 @@
   display: flex;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx 16rpx;
   gap: 12rpx;
 }
@@ -125,7 +125,7 @@
   margin-top: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx;
 }
 .tdetail-section-title {
@@ -167,13 +167,13 @@
   display: flex;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 20rpx;
 }
 .tdetail-course-cover {
   width: 160rpx;
   height: 120rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -222,13 +222,13 @@
   display: flex;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 20rpx;
 }
 .tdetail-review-avatar {
   width: 72rpx;
   height: 72rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -286,7 +286,7 @@
   justify-content: center;
   height: 80rpx;
   font-size: 28rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .tdetail-action-primary {
   color: var(--color-primary-foreground);

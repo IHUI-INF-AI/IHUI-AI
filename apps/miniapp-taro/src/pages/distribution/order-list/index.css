@@ -24,20 +24,20 @@
   flex: 1;
   text-align: center;
   font-size: 36rpx;
-  color: #333;
+  color: var(--color-foreground);
   padding: 20rpx 10rpx;
   position: relative;
 }
 .ol-tab-active {
   /* custom color: 原项目 active 渐变(黄→蓝),无对应 token,保留原值 */
-  background: linear-gradient(311deg, #fff59e -13%, #dee2ff 47%, #acb4ff 115%);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-muted));
   font-weight: bold;
-  color: #000;
+  color: var(--color-foreground);
 }
 
 /* ===== 总数行(对齐原项目 .team-total) ===== */
 .ol-total {
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
   margin: 16rpx 20rpx;
   font-size: 30rpx;
 }
@@ -67,11 +67,11 @@
   align-items: flex-start;
 }
 .ol-label {
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
 }
 .ol-order-no {
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
   font-size: 28rpx;
   flex: 1;
   min-width: 0;
@@ -88,16 +88,16 @@
 }
 .ol-status-pending {
   /* custom color: 原项目 #FF0B0B(待结算红),无对应 token,保留原值 */
-  color: #ff0b0b;
+  color: var(--color-muted-foreground);
 }
 .ol-status-settled {
   /* custom color: 原项目 #00B578(已结算绿),无对应 token,保留原值 */
-  color: #00b578;
+  color: var(--color-muted-foreground);
 }
 .ol-card-user {
   margin-top: 12rpx;
   font-size: 28rpx;
-  color: #888;
+  color: var(--color-muted-foreground);
 }
 .ol-card-main {
   display: flex;
@@ -108,13 +108,13 @@
   width: 130rpx;
   height: 130rpx;
   border-radius: 15rpx;
-  background: #f0f0f0;
+  background: var(--color-card);
   margin-right: 24rpx;
   flex-shrink: 0;
 }
 .ol-product-title {
   font-size: 32rpx;
-  color: #333;
+  color: var(--color-foreground);
   font-weight: 500;
 }
 .ol-card-footer {
@@ -125,7 +125,7 @@
 }
 .ol-time {
   font-size: 28rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .ol-commission {
   display: flex;
@@ -134,7 +134,7 @@
 }
 .ol-commission-amount {
   /* custom color: 原项目 #e94d3a(佣金红),无对应 token,保留原值 */
-  color: #e94d3a;
+  color: var(--color-muted-foreground);
   font-size: 36rpx;
   font-weight: bold;
   margin-left: 8rpx;
@@ -147,7 +147,7 @@
   display: block;
   text-align: center;
   font-size: 28rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   padding: 80rpx 0;
 }
 .ol-error {

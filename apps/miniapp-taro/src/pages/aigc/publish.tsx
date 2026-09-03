@@ -7,6 +7,7 @@ import { View, Text, Input, Textarea, Button, Image, ScrollView } from '@tarojs/
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { publishAigc, uploadByBase64 } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface UpFile {
   url: string
@@ -129,7 +130,7 @@ export default function AigcPublish() {
   }, [validate, params.contextId, title, desc, coverUrl, fileList, prompt, t])
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot className="min-h-screen bg-background flex flex-col">
       <View className="py-[24rpx] px-[30rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">{t('aigc.publish.title')}</Text>
       </View>
@@ -221,7 +222,7 @@ export default function AigcPublish() {
           <View className="h-[60rpx]" />
         </View>
       </ScrollView>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

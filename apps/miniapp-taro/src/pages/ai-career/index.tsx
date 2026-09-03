@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -99,46 +100,44 @@ export default function AiCareer() {
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
-                  onClick={() => onItemClick(id)}
-                >
-                  <View className="flex items-start">
-                    <Image
-                      className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0"
-                      src={avatar}
-                      mode="aspectFill"
-                    />
-                    <View className="flex-1 min-w-0 ml-[24rpx]">
-                      <Text className="text-[30rpx] font-semibold text-foreground">
-                        {name || t('aiCareer.guide')}
-                      </Text>
-                      {desc ? (
-                        <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">
-                          {desc}
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+                  <View key={id} onClick={() => onItemClick(id)}>
+                    <View className="flex items-start">
+                      <Image
+                        className="w-[96rpx] h-[96rpx] rounded-[12rpx] bg-background flex-shrink-0"
+                        src={avatar}
+                        mode="aspectFill"
+                      />
+                      <View className="flex-1 min-w-0 ml-[24rpx]">
+                        <Text className="text-[30rpx] font-semibold text-foreground">
+                          {name || t('aiCareer.guide')}
                         </Text>
-                      ) : null}
+                        {desc ? (
+                          <Text className="mt-[8rpx] text-[24rpx] text-muted-foreground line-clamp-2">
+                            {desc}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
+                    {(tags.length > 0 || uses > 0) && (
+                      <View className="flex items-center flex-wrap gap-[12rpx] mt-[16rpx]">
+                        {tags.map((tag, idx) => (
+                          <Text
+                            key={idx}
+                            className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]"
+                          >
+                            {tag}
+                          </Text>
+                        ))}
+                        {uses > 0 ? (
+                          <Text className="text-[22rpx] text-muted-foreground ml-auto">
+                            {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
+                          </Text>
+                        ) : null}
+                      </View>
+                    )}
                   </View>
-                  {(tags.length > 0 || uses > 0) && (
-                    <View className="flex items-center flex-wrap gap-[12rpx] mt-[16rpx]">
-                      {tags.map((tag, idx) => (
-                        <Text
-                          key={idx}
-                          className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]"
-                        >
-                          {tag}
-                        </Text>
-                      ))}
-                      {uses > 0 ? (
-                        <Text className="text-[22rpx] text-muted-foreground ml-auto">
-                          {tt('aiCareer.useCount', '{n}人使用', { n: uses })}
-                        </Text>
-                      ) : null}
-                    </View>
-                  )}
-                </View>
+                </ThemeRoot>
               )
             })}
           </View>

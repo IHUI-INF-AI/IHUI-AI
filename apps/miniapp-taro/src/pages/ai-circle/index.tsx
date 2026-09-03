@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 10
 
@@ -114,69 +115,67 @@ export default function AiCircle() {
               const comments = Number(item.comments || 0)
               const images = (item.images as string[]) || []
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
-                  onClick={() => onItemClick(id)}
-                >
-                  <View className="flex items-center">
-                    <Image
-                      className="w-[72rpx] h-[72rpx] rounded-[12rpx] bg-background flex-shrink-0"
-                      src={avatar}
-                      mode="aspectFill"
-                    />
-                    <View className="flex-1 min-w-0 ml-[16rpx] flex flex-col">
-                      <Text className="text-[28rpx] font-semibold text-foreground">{author}</Text>
-                      {createTime ? (
-                        <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
-                          {createTime}
-                        </Text>
-                      ) : null}
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+                  <View key={id} onClick={() => onItemClick(id)}>
+                    <View className="flex items-center">
+                      <Image
+                        className="w-[72rpx] h-[72rpx] rounded-[12rpx] bg-background flex-shrink-0"
+                        src={avatar}
+                        mode="aspectFill"
+                      />
+                      <View className="flex-1 min-w-0 ml-[16rpx] flex flex-col">
+                        <Text className="text-[28rpx] font-semibold text-foreground">{author}</Text>
+                        {createTime ? (
+                          <Text className="text-[22rpx] text-muted-foreground mt-[4rpx]">
+                            {createTime}
+                          </Text>
+                        ) : null}
+                      </View>
                     </View>
-                  </View>
-                  {title ? (
-                    <Text className="block mt-[16rpx] text-[30rpx] font-semibold text-foreground">
-                      {title}
-                    </Text>
-                  ) : null}
-                  {content ? (
-                    <Text className="block mt-[12rpx] text-[26rpx] text-foreground line-clamp-4">
-                      {content}
-                    </Text>
-                  ) : null}
-                  {images.length > 0 ? (
-                    <View className="flex gap-[12rpx] mt-[16rpx]">
-                      {images.slice(0, 3).map((img, i) => (
+                    {title ? (
+                      <Text className="block mt-[16rpx] text-[30rpx] font-semibold text-foreground">
+                        {title}
+                      </Text>
+                    ) : null}
+                    {content ? (
+                      <Text className="block mt-[12rpx] text-[26rpx] text-foreground line-clamp-4">
+                        {content}
+                      </Text>
+                    ) : null}
+                    {images.length > 0 ? (
+                      <View className="flex gap-[12rpx] mt-[16rpx]">
+                        {images.slice(0, 3).map((img, i) => (
+                          <Image
+                            key={i}
+                            className="w-[200rpx] h-[200rpx] rounded-[8rpx] bg-background"
+                            src={img}
+                            mode="aspectFill"
+                          />
+                        ))}
+                      </View>
+                    ) : null}
+                    <View className="flex items-center gap-[32rpx] mt-[16rpx]">
+                      <View className="flex items-center">
                         <Image
-                          key={i}
-                          className="w-[200rpx] h-[200rpx] rounded-[8rpx] bg-background"
-                          src={img}
-                          mode="aspectFill"
+                          src="/static/images/icons/heart.svg"
+                          mode="aspectFit"
+                          className="mr-[6rpx]"
+                          style={{ width: '24rpx', height: '24rpx' }}
                         />
-                      ))}
-                    </View>
-                  ) : null}
-                  <View className="flex items-center gap-[32rpx] mt-[16rpx]">
-                    <View className="flex items-center">
-                      <Image
-                        src="/static/images/icons/heart.svg"
-                        mode="aspectFit"
-                        className="mr-[6rpx]"
-                        style={{ width: '24rpx', height: '24rpx' }}
-                      />
-                      <Text className="text-[24rpx] text-muted-foreground">{likes}</Text>
-                    </View>
-                    <View className="flex items-center">
-                      <Image
-                        src="/static/images/icons/message-circle.svg"
-                        mode="aspectFit"
-                        className="mr-[6rpx]"
-                        style={{ width: '24rpx', height: '24rpx' }}
-                      />
-                      <Text className="text-[24rpx] text-muted-foreground">{comments}</Text>
+                        <Text className="text-[24rpx] text-muted-foreground">{likes}</Text>
+                      </View>
+                      <View className="flex items-center">
+                        <Image
+                          src="/static/images/icons/message-circle.svg"
+                          mode="aspectFit"
+                          className="mr-[6rpx]"
+                          style={{ width: '24rpx', height: '24rpx' }}
+                        />
+                        <Text className="text-[24rpx] text-muted-foreground">{comments}</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                </ThemeRoot>
               )
             })}
             {loadingMore ? (

@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface VipPriceData {
@@ -199,178 +200,180 @@ export default function VipTraderIndexPage() {
   const avatar = TRADER_PROFILE.avatar || DEFAULT_AVATAR
 
   return (
-    <View className="vip-trader-page">
-      <ScrollView scrollY className="trader-scroll">
-        {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
-        <View className="trader-header">
-          <View className="trader-header-main">
-            <Image className="trader-avatar" src={avatar} mode="aspectFill" />
-            <View className="trader-header-info">
-              <View className="trader-name-row">
-                <Text className="trader-name">{TRADER_PROFILE.nickname}</Text>
-                <View className="trader-badge">
-                  <Text className="trader-badge-text">{tt('vipTrader.verified', '认证')}</Text>
+    <ThemeRoot>
+      <View className="vip-trader-page">
+        <ScrollView scrollY className="trader-scroll">
+          {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
+          <View className="trader-header">
+            <View className="trader-header-main">
+              <Image className="trader-avatar" src={avatar} mode="aspectFill" />
+              <View className="trader-header-info">
+                <View className="trader-name-row">
+                  <Text className="trader-name">{TRADER_PROFILE.nickname}</Text>
+                  <View className="trader-badge">
+                    <Text className="trader-badge-text">{tt('vipTrader.verified', '认证')}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text className="trader-title-text">{TRADER_PROFILE.title}</Text>
-              <View className="trader-price-wrap">
-                <Text className="trader-price-symbol">¥</Text>
-                <Text className="trader-price">{amount}</Text>
-                <Text className="trader-price-suffix">
-                  {tt('vipTrader.oncePay', '一次性支付,')}
-                  {tt('vipTrader.lifetimeUse', '终身使用')}
-                </Text>
+                <Text className="trader-title-text">{TRADER_PROFILE.title}</Text>
+                <View className="trader-price-wrap">
+                  <Text className="trader-price-symbol">¥</Text>
+                  <Text className="trader-price">{amount}</Text>
+                  <Text className="trader-price-suffix">
+                    {tt('vipTrader.oncePay', '一次性支付,')}
+                    {tt('vipTrader.lifetimeUse', '终身使用')}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* 操盘手简介(展开/收起) */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.introSection', '操盘手简介')}</Text>
-          <Text className={`trader-intro ${introExpanded ? 'trader-intro-expanded' : ''}`}>
-            {TRADER_PROFILE.intro}
-          </Text>
-          <View className="trader-intro-toggle" onClick={() => setIntroExpanded((v) => !v)}>
-            <Text className="trader-intro-toggle-text">
-              {introExpanded
-                ? tt('vipTrader.collapse', '收起')
-                : tt('vipTrader.expand', '展开全部')}
+          {/* 操盘手简介(展开/收起) */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.introSection', '操盘手简介')}</Text>
+            <Text className={`trader-intro ${introExpanded ? 'trader-intro-expanded' : ''}`}>
+              {TRADER_PROFILE.intro}
             </Text>
+            <View className="trader-intro-toggle" onClick={() => setIntroExpanded((v) => !v)}>
+              <Text className="trader-intro-toggle-text">
+                {introExpanded
+                  ? tt('vipTrader.collapse', '收起')
+                  : tt('vipTrader.expand', '展开全部')}
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {/* 核心能力标签 */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.capabilitySection', '核心能力')}</Text>
-          <View className="trader-tags">
-            {CAPABILITY_TAGS.map((tag) => (
-              <View key={tag.key} className="trader-tag">
-                <Text className="trader-tag-text">{tag.label}</Text>
-              </View>
-            ))}
+          {/* 核心能力标签 */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.capabilitySection', '核心能力')}</Text>
+            <View className="trader-tags">
+              {CAPABILITY_TAGS.map((tag) => (
+                <View key={tag.key} className="trader-tag">
+                  <Text className="trader-tag-text">{tag.label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
 
-        {/* 历史业绩 + 业绩柱状图 */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.performanceSection', '历史业绩')}</Text>
-          <View className="trader-metrics">
-            {PERFORMANCE_METRICS.map((m) => (
-              <View key={m.key} className="trader-metric">
-                <Text
-                  className={`trader-metric-value ${m.tone === 'up' ? 'trader-metric-up' : 'trader-metric-down'}`}
+          {/* 历史业绩 + 业绩柱状图 */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.performanceSection', '历史业绩')}</Text>
+            <View className="trader-metrics">
+              {PERFORMANCE_METRICS.map((m) => (
+                <View key={m.key} className="trader-metric">
+                  <Text
+                    className={`trader-metric-value ${m.tone === 'up' ? 'trader-metric-up' : 'trader-metric-down'}`}
+                  >
+                    {m.value}
+                  </Text>
+                  <Text className="trader-metric-label">{m.label}</Text>
+                </View>
+              ))}
+            </View>
+            <View className="trader-chart">
+              {PERF_BARS.map((h, idx) => (
+                <View key={idx} className="trader-chart-col">
+                  <View className="trader-chart-bar" style={{ height: `${h * 2}rpx` }} />
+                  <Text className="trader-chart-label">M{idx + 1}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* 操盘手权益(对标 trader.vue features) */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.featureSection', '操盘手权益')}</Text>
+            <View className="feature-list">
+              {TRADER_FEATURES.map((f) => (
+                <View key={f.key} className="feature-item">
+                  <View className="feature-icon">
+                    <Image
+                      src={f.icon}
+                      mode="aspectFit"
+                      style={{ width: '36rpx', height: '36rpx' }}
+                    />
+                  </View>
+                  <View className="feature-content">
+                    <Text className="feature-title">{f.title}</Text>
+                    <Text className="feature-desc">{f.desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* 服务包列表 */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.serviceSection', '服务包')}</Text>
+            <View className="trader-packages">
+              {SERVICE_PACKAGES.map((pkg) => (
+                <View
+                  key={pkg.id}
+                  className={`trader-package ${pkg.highlight ? 'trader-package-highlight' : ''}`}
                 >
-                  {m.value}
-                </Text>
-                <Text className="trader-metric-label">{m.label}</Text>
-              </View>
-            ))}
+                  <View className="trader-package-head">
+                    <Text className="trader-package-name">{pkg.name}</Text>
+                    {pkg.highlight ? (
+                      <View className="trader-package-tag">
+                        <Text className="trader-package-tag-text">
+                          {tt('vipTrader.recommended', '推荐')}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text className="trader-package-period">{pkg.period}</Text>
+                  <View className="trader-package-price-row">
+                    <Text className="trader-package-symbol">¥</Text>
+                    <Text className="trader-package-price">{pkg.price}</Text>
+                  </View>
+                  <Button
+                    className={`trader-package-btn ${pkg.highlight ? 'trader-package-btn-primary' : ''}`}
+                    onClick={() => handleSubscribe(pkg.name, pkg.price)}
+                  >
+                    {tt('vipTrader.subscribe', '订阅')}
+                  </Button>
+                </View>
+              ))}
+            </View>
           </View>
-          <View className="trader-chart">
-            {PERF_BARS.map((h, idx) => (
-              <View key={idx} className="trader-chart-col">
-                <View className="trader-chart-bar" style={{ height: `${h * 2}rpx` }} />
-                <Text className="trader-chart-label">M{idx + 1}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
 
-        {/* 操盘手权益(对标 trader.vue features) */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.featureSection', '操盘手权益')}</Text>
-          <View className="feature-list">
-            {TRADER_FEATURES.map((f) => (
-              <View key={f.key} className="feature-item">
-                <View className="feature-icon">
+          {/* 用户评价 */}
+          <View className="trader-section">
+            <Text className="section-title">{tt('vipTrader.reviewsSection', '用户评价')}</Text>
+            <View className="trader-reviews">
+              {USER_REVIEWS.map((r) => (
+                <View key={r.id} className="trader-review">
                   <Image
-                    src={f.icon}
-                    mode="aspectFit"
-                    style={{ width: '36rpx', height: '36rpx' }}
+                    className="trader-review-avatar"
+                    src={r.avatar || DEFAULT_AVATAR}
+                    mode="aspectFill"
                   />
-                </View>
-                <View className="feature-content">
-                  <Text className="feature-title">{f.title}</Text>
-                  <Text className="feature-desc">{f.desc}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* 服务包列表 */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.serviceSection', '服务包')}</Text>
-          <View className="trader-packages">
-            {SERVICE_PACKAGES.map((pkg) => (
-              <View
-                key={pkg.id}
-                className={`trader-package ${pkg.highlight ? 'trader-package-highlight' : ''}`}
-              >
-                <View className="trader-package-head">
-                  <Text className="trader-package-name">{pkg.name}</Text>
-                  {pkg.highlight ? (
-                    <View className="trader-package-tag">
-                      <Text className="trader-package-tag-text">
-                        {tt('vipTrader.recommended', '推荐')}
+                  <View className="trader-review-main">
+                    <View className="trader-review-head">
+                      <Text className="trader-review-name">{r.nickname}</Text>
+                      <Text className="trader-review-stars">
+                        {'★'.repeat(r.rating)}
+                        {'☆'.repeat(5 - r.rating)}
                       </Text>
                     </View>
-                  ) : null}
-                </View>
-                <Text className="trader-package-period">{pkg.period}</Text>
-                <View className="trader-package-price-row">
-                  <Text className="trader-package-symbol">¥</Text>
-                  <Text className="trader-package-price">{pkg.price}</Text>
-                </View>
-                <Button
-                  className={`trader-package-btn ${pkg.highlight ? 'trader-package-btn-primary' : ''}`}
-                  onClick={() => handleSubscribe(pkg.name, pkg.price)}
-                >
-                  {tt('vipTrader.subscribe', '订阅')}
-                </Button>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* 用户评价 */}
-        <View className="trader-section">
-          <Text className="section-title">{tt('vipTrader.reviewsSection', '用户评价')}</Text>
-          <View className="trader-reviews">
-            {USER_REVIEWS.map((r) => (
-              <View key={r.id} className="trader-review">
-                <Image
-                  className="trader-review-avatar"
-                  src={r.avatar || DEFAULT_AVATAR}
-                  mode="aspectFill"
-                />
-                <View className="trader-review-main">
-                  <View className="trader-review-head">
-                    <Text className="trader-review-name">{r.nickname}</Text>
-                    <Text className="trader-review-stars">
-                      {'★'.repeat(r.rating)}
-                      {'☆'.repeat(5 - r.rating)}
-                    </Text>
+                    <Text className="trader-review-content">{r.content}</Text>
                   </View>
-                  <Text className="trader-review-content">{r.content}</Text>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
 
-      {/* 底部固定操作栏:立即咨询 + 一键开通 */}
-      <View className="trader-footer">
-        <Button className="footer-btn footer-btn-ghost" onClick={handleConsult}>
-          {tt('vipTrader.consult', '立即咨询')}
-        </Button>
-        <Button className="footer-btn footer-btn-primary" onClick={openPopup}>
-          {tt('vipTrader.openNow', '一键开通会员')}
-        </Button>
+        {/* 底部固定操作栏:立即咨询 + 一键开通 */}
+        <View className="trader-footer">
+          <Button className="footer-btn footer-btn-ghost" onClick={handleConsult}>
+            {tt('vipTrader.consult', '立即咨询')}
+          </Button>
+          <Button className="footer-btn footer-btn-primary" onClick={openPopup}>
+            {tt('vipTrader.openNow', '一键开通会员')}
+          </Button>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

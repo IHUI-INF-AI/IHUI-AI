@@ -13,6 +13,7 @@ import aiallIcon from '@/assets/remote/images/aiall.png'
 import kechengIcon from '@/assets/remote/images/kecheng.png'
 import rankoneIcon from '@/assets/remote/images/rankone.png'
 import useNumIcon from '@/assets/remote/images/useNum.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // chuangke.png 体积 644 KB,直接 import 会被打包进 chunk 导致页面体积 887 KB。
 // 改为字符串路径,Taro copy 配置(src/static/ → dist/static/)会将其复制到
@@ -100,129 +101,135 @@ export default function LearnDevelop() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">
-          {t('learnDevelop.title')}
-        </Text>
-      </View>
-      <View className="p-[24rpx]">
-        {/* 学习路径 */}
-        <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-          <Text className="text-[32rpx] font-semibold text-foreground">
-            {tt('learnDevelop.pathTitle', '学习路径')}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="p-[24rpx] bg-card">
+          <Text className="text-[36rpx] font-semibold text-foreground">
+            {t('learnDevelop.title')}
           </Text>
         </View>
-        {LEARN_PATHS(tt).map((path) => (
-          <View
-            key={path.id}
-            className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
-          >
-            <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[16rpx]">
-              {isImagePath(path.icon) ? (
-                <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
-              ) : (
-                <Text className="text-[48rpx]">{path.icon}</Text>
-              )}
-            </View>
-            <View className="flex-1 flex flex-col">
-              <Text className="text-[30rpx] font-semibold text-foreground">
-                {tt(path.nameKey, path.name)}
-              </Text>
-              <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
-                {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
-                {tt('learnDevelop.progress', '进度')} {path.progress}%
-              </Text>
-              <View className="h-[8rpx] bg-muted rounded-[4rpx] mt-[12rpx] overflow-hidden">
-                <View
-                  className="h-full bg-primary rounded-[4rpx]"
-                  style={{ width: `${path.progress}%` }}
-                />
-              </View>
-            </View>
-          </View>
-        ))}
-
-        {/* 推荐课程 */}
-        <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
-          <Text className="text-[32rpx] font-semibold text-foreground">
-            {tt('learnDevelop.recommend', '推荐课程')}
-          </Text>
-        </View>
-        {loading && courseList.length === 0 ? (
-          <Text className="block text-center text-muted-foreground py-[80rpx]">
-            {t('common.loading')}
-          </Text>
-        ) : error && courseList.length === 0 ? (
-          <View className="flex flex-col items-center py-[40rpx]">
-            <Text className="block text-center text-muted-foreground py-[40rpx]">
-              {tt('learnDevelop.loadFailed', '加载失败')}
-            </Text>
-            <Text
-              className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
-              onClick={loadData}
-            >
-              {t('common.retry')}
+        <View className="p-[24rpx]">
+          {/* 学习路径 */}
+          <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
+            <Text className="text-[32rpx] font-semibold text-foreground">
+              {tt('learnDevelop.pathTitle', '学习路径')}
             </Text>
           </View>
-        ) : courseList.length > 0 ? (
-          courseList.map((item) => (
+          {LEARN_PATHS(tt).map((path) => (
             <View
-              key={item.id}
-              className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
-              onClick={() => onItemClick(item.id)}
+              key={path.id}
+              className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
             >
-              {item.coverUrl ? (
-                <Image
-                  className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
-                  src={item.coverUrl}
-                  mode="aspectFill"
-                />
-              ) : (
-                <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                  <Image src={kechengIcon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
-                </View>
-              )}
-              <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
-                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
-                  {item.title}
+              <View className="w-[88rpx] h-[88rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[16rpx]">
+                {isImagePath(path.icon) ? (
+                  <Image src={path.icon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
+                ) : (
+                  <Text className="text-[48rpx]">{path.icon}</Text>
+                )}
+              </View>
+              <View className="flex-1 flex flex-col">
+                <Text className="text-[30rpx] font-semibold text-foreground">
+                  {tt(path.nameKey, path.name)}
                 </Text>
-                {item.teacher ? (
-                  <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
-                    {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
-                  </Text>
-                ) : null}
-                {item.price !== null && item.price !== undefined ? (
-                  <Text className="text-[32rpx] text-destructive font-bold">
-                    {item.price === 0
-                      ? tt('learnDevelop.free', '免费')
-                      : `¥${item.price.toFixed(2)}`}
-                  </Text>
-                ) : null}
+                <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                  {path.courses} {tt('learnDevelop.coursesUnit', '门课')} ·{' '}
+                  {tt('learnDevelop.progress', '进度')} {path.progress}%
+                </Text>
+                <View className="h-[8rpx] bg-muted rounded-[4rpx] mt-[12rpx] overflow-hidden">
+                  <View
+                    className="h-full bg-primary rounded-[4rpx]"
+                    style={{ width: `${path.progress}%` }}
+                  />
+                </View>
               </View>
             </View>
-          ))
-        ) : (
-          <Text className="block text-center text-muted-foreground py-[40rpx]">
-            {t('learnDevelop.empty')}
-          </Text>
-        )}
+          ))}
 
-        {/* 学习排行榜入口 */}
-        <View
-          className="flex items-center justify-between p-[24rpx] bg-card rounded-[12rpx] mt-[24rpx]"
-          onClick={onGoRank}
-        >
-          <View className="flex items-center">
-            <Image src={rankoneIcon} className="w-[40rpx] h-[40rpx] mr-[16rpx]" mode="aspectFit" />
-            <Text className="text-[28rpx] text-foreground font-semibold">
-              {tt('learnDevelop.rankEntry', '学习排行榜')}
+          {/* 推荐课程 */}
+          <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
+            <Text className="text-[32rpx] font-semibold text-foreground">
+              {tt('learnDevelop.recommend', '推荐课程')}
             </Text>
           </View>
-          <Text className="text-[36rpx] text-muted-foreground">›</Text>
+          {loading && courseList.length === 0 ? (
+            <Text className="block text-center text-muted-foreground py-[80rpx]">
+              {t('common.loading')}
+            </Text>
+          ) : error && courseList.length === 0 ? (
+            <View className="flex flex-col items-center py-[40rpx]">
+              <Text className="block text-center text-muted-foreground py-[40rpx]">
+                {tt('learnDevelop.loadFailed', '加载失败')}
+              </Text>
+              <Text
+                className="inline-block mt-[24rpx] py-[16rpx] px-[48rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+                onClick={loadData}
+              >
+                {t('common.retry')}
+              </Text>
+            </View>
+          ) : courseList.length > 0 ? (
+            courseList.map((item) => (
+              <View
+                key={item.id}
+                className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
+                onClick={() => onItemClick(item.id)}
+              >
+                {item.coverUrl ? (
+                  <Image
+                    className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
+                    src={item.coverUrl}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                    <Image src={kechengIcon} className="w-[48rpx] h-[48rpx]" mode="aspectFit" />
+                  </View>
+                )}
+                <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
+                  <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2 overflow-hidden">
+                    {item.title}
+                  </Text>
+                  {item.teacher ? (
+                    <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                      {tt('learnDevelop.teacher', '讲师')}: {item.teacher}
+                    </Text>
+                  ) : null}
+                  {item.price !== null && item.price !== undefined ? (
+                    <Text className="text-[32rpx] text-destructive font-bold">
+                      {item.price === 0
+                        ? tt('learnDevelop.free', '免费')
+                        : `¥${item.price.toFixed(2)}`}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text className="block text-center text-muted-foreground py-[40rpx]">
+              {t('learnDevelop.empty')}
+            </Text>
+          )}
+
+          {/* 学习排行榜入口 */}
+          <View
+            className="flex items-center justify-between p-[24rpx] bg-card rounded-[12rpx] mt-[24rpx]"
+            onClick={onGoRank}
+          >
+            <View className="flex items-center">
+              <Image
+                src={rankoneIcon}
+                className="w-[40rpx] h-[40rpx] mr-[16rpx]"
+                mode="aspectFit"
+              />
+              <Text className="text-[28rpx] text-foreground font-semibold">
+                {tt('learnDevelop.rankEntry', '学习排行榜')}
+              </Text>
+            </View>
+            <Text className="text-[36rpx] text-muted-foreground">›</Text>
+          </View>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

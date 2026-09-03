@@ -21,7 +21,7 @@
   display: flex;
   margin: 20rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx 0;
 }
 .summary-item {
@@ -48,7 +48,7 @@
   align-items: center;
   justify-content: space-between;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -76,14 +76,14 @@
 .withdrawal-status {
   font-size: 24rpx;
   padding: 6rpx 16rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
 }
 .status-pending {
   color: var(--color-warning);
   background: rgba(255, 149, 0, 0.1);
 }
 .status-processing {
-  color: #007aff;
+  color: rgba(0, 122, 255, 1);
   /* custom color: iOS 蓝,无对应 token */
   background: rgba(0, 122, 255, 0.1);
 }
