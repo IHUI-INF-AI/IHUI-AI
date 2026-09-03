@@ -9049,7 +9049,20 @@
     "recentRuns": "直近 5 件の実行",
     "specificPlaceholder": "{min}-{max}, カンマ区切り",
     "stepPrefix": "毎",
-    "title": "Cron 式エディタ"
+    "title": "Cron 式エディタ",
+    "field": {
+      "minute": "分",
+      "hour": "時",
+      "day": "日",
+      "month": "月",
+      "weekday": "曜日"
+    },
+    "mode": {
+      "every": "毎回",
+      "step": "間隔",
+      "range": "範囲",
+      "specific": "指定"
+    }
   },
   "crypto": {
     "bitcoin": {
@@ -16211,7 +16224,31 @@
       "titleTemplatePlaceholder": "例:今日の AI ニュース {date}",
       "toggleAriaLabel": "タスクを有効化/無効化",
       "triggerNow": "今すぐトリガー",
-      "useRefTemplate": "このテンプレートを参考にする"
+      "useRefTemplate": "このテンプレートを参考にする",
+      "example1Name": "WeChat毎日更新",
+      "example1Desc": "毎日自動でWeChat公式アカウント記事を生成・投稿",
+      "example1Schedule": "毎日 09:00 に実行",
+      "example1Output": "当日のAIニュース記事を生成しWeChat下書きに投稿",
+      "example2Name": "動画スクリプト生成",
+      "example2Desc": "毎日自動で動画スクリプトを生成",
+      "example2Schedule": "毎日 08:00 に実行",
+      "example2Output": "3本の動画スクリプト生成 + デュアルゲート検証",
+      "example3Name": "コンテンツ監視",
+      "example3Desc": "競合コンテンツの動向を監視",
+      "example3Schedule": "毎時実行",
+      "example3Output": "競合の最新投稿を監視・汇总",
+      "example4Name": "データレポート",
+      "example4Desc": "データ分析レポートを自動生成",
+      "example4Schedule": "毎週月曜 09:00 に実行",
+      "example4Output": "先週のデータまとめレポートを生成",
+      "example5Name": "競合追跡",
+      "example5Desc": "競合の最新動向を追跡",
+      "example5Schedule": "毎日 10:00 に実行",
+      "example5Output": "競合のコンテンツと戦略の変化を追跡",
+      "example6Name": "メール日報",
+      "example6Desc": "毎日AIニュースをメールで配信",
+      "example6Schedule": "毎日 07:00 に実行",
+      "example6Output": "AI業界の日刊ニュースレターを作成・配信"
     },
     "koubo": "ナレーション",
     "kouboPage": {
