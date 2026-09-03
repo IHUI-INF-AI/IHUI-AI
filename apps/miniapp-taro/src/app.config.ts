@@ -159,22 +159,27 @@ export default defineAppConfig({
       pages: ['index', 'notification', 'cache', 'language', 'theme', 'privacy'],
     },
   ],
+  // 微信原生 darkmode:theme.json 提供 light/dark 两组变量,auto 模式运行期由
+  // 系统实时切换原生 chrome(导航栏/窗口/tabBar),与 src/lib/theme.ts JS 层互补
+  darkmode: true,
+  themeLocation: 'theme.json',
   window: {
-    backgroundTextStyle: 'light',
-    navigationBarBackgroundColor: '#ffffff',
+    backgroundTextStyle: '@bgTxtStyle',
+    navigationBarBackgroundColor: '@navBgColor',
     navigationBarTitleText: '智汇AI',
-    navigationBarTextStyle: 'black',
-    backgroundColor: '#f5f5f5',
+    navigationBarTextStyle: '@navTxtStyle',
+    backgroundColor: '@bgColor',
   },
   tabBar: {
     // Taro 4 Vite 编译不输出 custom-tab-bar(GitHub #17978/#18415),暂用原生 tabBar
     // 后续改 webpack5 编译器后可恢复 custom: true
     // 2026-08-28:亮色 tabBar(对齐全站亮色 CSS 变量体系),图标由 gen-tabbar-icons.mjs 生成
+    // 2026-09-03:颜色改 @变量 引用 theme.json(配合 darkmode: true),色值与 src/lib/theme.ts THEME_CHROME 对齐
     custom: false,
-    color: '#9CA3AF',
-    selectedColor: '#6366F1',
-    borderStyle: 'white',
-    backgroundColor: '#ffffff',
+    color: '@tabColor',
+    selectedColor: '@tabSelectedColor',
+    borderStyle: '@tabBorderStyle' as 'white' | 'black', // Taro 类型窄化为字面量,运行时 @变量 引用合法(原生 darkmode)
+    backgroundColor: '@tabBgColor',
     list: [
       {
         pagePath: 'pages/index/index',
