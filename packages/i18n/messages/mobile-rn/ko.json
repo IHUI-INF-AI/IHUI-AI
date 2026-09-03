@@ -594,7 +594,6 @@
     "video": "동영상",
     "addFile": "파일 추가",
     "compactButton": "컨텍스트 압축",
-    "compacting": "컨텍스트 압축 중...",
     "compactSuccess": "컨텍스트가 압축되었습니다: {before} → {after} 토큰({saved} 절약)",
     "compactTooFew": "메시지가 너무 적어 압축할 필요가 없습니다",
     "compactIncompressible": "더 이상 압축할 수 있는 컨텍스트가 없습니다",

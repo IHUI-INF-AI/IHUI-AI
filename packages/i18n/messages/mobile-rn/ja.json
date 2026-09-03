@@ -594,7 +594,6 @@
     "video": "動画",
     "addFile": "添付ファイルを追加",
     "compactButton": "コンテキストを圧縮",
-    "compacting": "コンテキストを圧縮中...",
     "compactSuccess": "コンテキストを圧縮しました: {before} → {after} トークン（{saved} 節約）",
     "compactTooFew": "メッセージが少ないため圧縮は不要です",
     "compactIncompressible": "圧縮できるコンテキストはもうありません",

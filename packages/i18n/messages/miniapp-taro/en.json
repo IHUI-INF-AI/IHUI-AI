@@ -3064,9 +3064,7 @@
     "video": "Video"
   },
   "toolbar": {
-    "ai": "AI Chat",
-    "course": "Courses",
-    "vip": "VIP"
+    "ai": "AI Chat"
   },
   "index": {
     "mock": {
@@ -3672,13 +3670,6 @@
   "UserInfoCard": {
     "login1": "One-tap login",
     "text2": "Unsubscribe"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "Full HD 1080p",
-    "back4": "← Back",
-    "q1": "Watermark"
   },
   "TitleSwitchTypeBar": {
     "text1": "Custom",
