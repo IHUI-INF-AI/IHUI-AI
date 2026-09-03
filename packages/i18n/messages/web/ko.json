@@ -2,10 +2,10 @@
   "a11y": {
     "addAttachment": "첨부 파일 추가(이미지/비디오/파일)",
     "breadcrumb": "빵 부스러기 탐색",
+    "searchOption": "옵션 검색",
     "lineChart": "꺾은선 차트",
     "openCustomerService": "고객센터 열기",
     "radarChart": "방사형 차트",
-    "searchOption": "옵션 검색",
     "send": "보내기"
   },
   "about": {
@@ -17,7 +17,6 @@
     "heroSubtitle": "IHUI AI는 오픈 소스 풀스택 AI 운영 체제로, Agent 설계, 지식 베이스, 다중 모델 스케줄링, 크로스 플랫폼 협업 및 팀 운영을 하나의 플랫폼에 통합합니다.",
     "heroTitle": "하나의 코드, 6개 클라이언트, 하나의 AI",
     "metaDescription": "IHUI AI(지후이 AI)는 원스톱 풀스택 AI 운영 체제: Agent 마켓, 지식 베이스 RAG, 다중 모델 통합 스케줄링, MCP 도구 프로토콜을 통합하며, Web / Desktop / 미니프로그램 / 브라우저 확장 / React Native / CLI 6개 클라이언트를 하나의 코드베이스로 지원, Apache 2.0 오픈 소스.",
-    "metaTitle": "회사 소개 — IHUI AI",
     "numbersTitle": "숫자가 증명합니다",
     "platformAgentsDesc": "시각적 드래그 앤 드롭으로 AI Agent 구축, 200+ 템플릿, 플러그인/MCP 도구, 원클릭 배포.",
     "platformAgentsTitle": "Agent 마켓플레이스 & 오케스트레이션",
@@ -58,7 +57,8 @@
     "officialSite": "공식 사이트",
     "contactEmail": "연락 이메일",
     "license": "라이선스",
-    "title": "회사 소개"
+    "title": "회사 소개",
+    "metaTitle": "회사 소개 — IHUI AI"
   },
   "accounts": {
     "add": "계정 추가",
@@ -5259,7 +5259,17 @@
       "trigger_webhook": "웹훅",
       "view": "보기",
       "viewTitle": "워크플로우 상세"
-    }
+    },
+    "title": "관리자",
+    "oauthApps": "OAuth 앱",
+    "pointsMall": "포인트몰",
+    "post": "포스트 관리",
+    "promotionRule": "프로모션 규칙",
+    "providersHealth": "제공자 건강",
+    "relayOverview": "릴레이 개요",
+    "themeEdit": "테마 편집기",
+    "unauthorized": "승인되지 않음",
+    "userMargin": "사용자 여백"
   },
   "connectors": {
     "title": "중국 커넥터",
@@ -6297,7 +6307,8 @@
     "viewDetail": "보기상세",
     "viewPermissionExample": "권한 확인 예시 보기",
     "vipExclusive": "VIP 전용",
-    "config": "설정"
+    "config": "설정",
+    "dispatchSubagent": "배포 하위 에이전트"
   },
   "agentRuntimePanel": {
     "cancelledBody": "현재 실행이 중지되었습니다. 계속하려면 입력을 수정한 후 다시 실행하세요.",
@@ -6415,8 +6426,8 @@
     "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
     "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
     "staticContent3": "에게，플랫폼 상담원。",
-    "subtitle": "읽음 가져오기",
     "title": "및",
+    "subtitle": "읽음 가져오기",
     "userAgreement": "사용자"
   },
   "ai": {
@@ -7313,7 +7324,8 @@
       "rankDelta": "순위 변동",
       "stable": "안정",
       "subtitle": "7/14일 인기 트렌드 곡선"
-    }
+    },
+    "title": "AI 뉴스"
   },
   "aiSkillDetail": {
     "addToAgent": "Agent에 추가",
@@ -7443,7 +7455,8 @@
         },
         "title": "AI 월드 사이트 관리"
       }
-    }
+    },
+    "title": "AI 월드"
   },
   "aiWorldCreatePage": {
     "back": "뒤로",
@@ -7619,7 +7632,9 @@
     "title": "제목",
     "titlePlaceholder": "질문 제목을 입력해 주세요",
     "unresolved": "미해결",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "detail": "질문 세부 정보",
+    "edit": "질문 편집"
   },
   "asksEditFormPage": {
     "cancel": "취소",
@@ -8203,7 +8218,6 @@
       },
       "historyStatsTitle": "누적 통계",
       "historyTitle": "권한 모드 기록",
-      "infoModalTitle": "권한 모드 설명",
       "inputWarning": "현재 전체 액세스 모드: AI가 확인 없이 파일과 네트워크에 제한 없이 액세스할 수 있습니다",
       "jumpToLatest": "최신으로 이동",
       "kbdNavigate": "전환",
@@ -8239,19 +8253,7 @@
       "shortcutsItemModeSpecKbd": "스펙 모드로 전환(코드에서 spec 문서 역방향 생성)",
       "shortcutsItemNumberKbd": "팝오버 열림 시 1/2/3 으로 직접 선택",
       "shortcutsItemQuestionMarkKbd": "이 단축키 패널 열기",
-      "shortcutsItemShiftTabKbd": "3가지 모드를 순환 전환",
-      "shortcutsItemSlashAskKbd": "요청 승인 모드로 전환",
-      "shortcutsItemSlashAutoKbd": "자동 승인 모드로 전환",
-      "shortcutsItemSlashFullKbd": "전체 접근 모드로 전환",
-      "shortcutsItemUndoKbd": "전체 액세스 전환 후 5초 내 실행 취소 가능",
-      "shortcutsItemWarn1minKbd": "1분 남음 긴급 토스트",
-      "shortcutsItemWarn5minKbd": "5분 남음 경고 토스트, 원클릭으로 연장",
-      "shortcutsLearnMore": "안전 설계 자세히 보기",
-      "shortcutsModalTitle": "권한 모드 단축키",
-      "shortcutsSectionAudit": "실행 취소 및 감사",
-      "shortcutsSectionChatMode": "대화 모드 전환",
-      "shortcutsSectionGuard": "고위험 보호장치",
-      "shortcutsSectionSwitch": "모드 전환",
+      "infoModalTitle": "권한 모드 설명",
       "infoModalDesc": "현재 고위험 모드입니다. 다음 동작을 이해해 주세요:",
       "infoModalBullet1": "AI가 확인 없이 모든 작업을 실행할 수 있습니다",
       "infoModalBullet2": "워크스페이스 내 모든 파일을 읽고, 수정하고, 삭제할 수 있습니다",
@@ -8271,6 +8273,19 @@
       "revertWarning1minDesc": "전체 액세스 모드가 1분 후 자동으로 다운그레이드됩니다. 클릭하여 1시간 연장.",
       "autoRevertedTitle": "자동 복원됨",
       "autoRevertedDescWithDuration": "전체 액세스가 {usedMin}분 지속되었으며 다운그레이드되었습니다",
+      "shortcutsItemShiftTabKbd": "3가지 모드를 순환 전환",
+      "shortcutsItemSlashAskKbd": "요청 승인 모드로 전환",
+      "shortcutsItemSlashAutoKbd": "자동 승인 모드로 전환",
+      "shortcutsItemSlashFullKbd": "전체 접근 모드로 전환",
+      "shortcutsItemUndoKbd": "전체 액세스 전환 후 5초 내 실행 취소 가능",
+      "shortcutsItemWarn1minKbd": "1분 남음 긴급 토스트",
+      "shortcutsItemWarn5minKbd": "5분 남음 경고 토스트, 원클릭으로 연장",
+      "shortcutsLearnMore": "안전 설계 자세히 보기",
+      "shortcutsModalTitle": "권한 모드 단축키",
+      "shortcutsSectionAudit": "실행 취소 및 감사",
+      "shortcutsSectionChatMode": "대화 모드 전환",
+      "shortcutsSectionGuard": "고위험 보호장치",
+      "shortcutsSectionSwitch": "모드 전환",
       "stepAnswer": "답변",
       "stepThinking": "생각 중",
       "switchedToAsk": "승인 요청으로 전환됨",
@@ -8685,7 +8700,8 @@
     },
     "postCount": "{count}개 게시물",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "커뮤니티"
+    "title": "커뮤니티",
+    "detail": "그룹 세부 정보"
   },
   "cliImport": {
     "commit": "가져오기 확정",
@@ -8790,7 +8806,8 @@
     "replyPlaceholder": "답장 내용을 입력하세요",
     "replyTitle": "관리자 답변",
     "submitReply": "제출답장",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "title": "댓글"
   },
   "commissionPlan": {
     "commissionRate": "수수료율",
@@ -8882,11 +8899,8 @@
     "confirm": "확인",
     "confirmTitle": "확인",
     "copyPath": "경로 복사",
-    "create": "생성",
-    "deleteSuccess": "삭제 성공",
     "dismiss": "닫기",
     "empty": "기록 없음",
-    "errorDescription": "페이지를 로드하는 중 오류가 발생했습니다. 다시 시도해 주세요.",
     "exportSuccess": "내보내기 성공",
     "loadFailed": "로딩 실패",
     "mcp": {
@@ -8894,9 +8908,7 @@
       "title": "MCP 프로젝트"
     },
     "moreActions": "더 보기",
-    "noAnswers": "답변 없음",
     "noData": "데이터 없음",
-    "noPosts": "아직 게시물이 없습니다",
     "notFoundTitle": "페이지를 찾을 수 없습니다",
     "originalPrice": "원가",
     "payTime": "결제 시간",
@@ -8904,7 +8916,6 @@
     "reasonRequired": "사유를 입력해 주세요",
     "refresh": "새로고침",
     "refundTime": "환불 시간",
-    "reset": "재설정",
     "resize": "드래그하여 너비 조절",
     "searchHistory": "검색 기록",
     "tools": {
@@ -8914,9 +8925,9 @@
       "empty": "도구가 없습니다",
       "loading": "로딩 중...",
       "subtitle": "플랫폼에서 제공하는 다양한 도구를 탐색하고 사용",
-      "title": "도구 센터"
+      "title": "도구 센터",
+      "pdf": "PDF 도구"
     },
-    "total": "총",
     "unpin": "고정 해제",
     "unsaved": "저장되지 않음",
     "update": {
@@ -8954,7 +8965,21 @@
     "show": "표시",
     "delete": "삭제",
     "save": "저장",
-    "ok": "확인"
+    "ok": "확인",
+    "create": "생성",
+    "agentKanban": "칸반 요원",
+    "callback": "전화 회신",
+    "title": "페이지",
+    "forbidden": "금지된 접근",
+    "forgotPassword": "비밀번호 분실",
+    "login": "로그인",
+    "status": "상태",
+    "deleteSuccess": "삭제 성공",
+    "errorDescription": "페이지를 로드하는 중 오류가 발생했습니다. 다시 시도해 주세요.",
+    "noAnswers": "답변 없음",
+    "noPosts": "아직 게시물이 없습니다",
+    "reset": "재설정",
+    "total": "총"
   },
   "contactPage": {
     "addressTitle": "회사 주소",
@@ -9177,7 +9202,8 @@
       "title": "템플릿"
     },
     "title": "디자인 모드",
-    "undo": "실행 취소"
+    "undo": "실행 취소",
+    "system": "설계 시스템"
   },
   "detail": {
     "activate": "활성화",
@@ -9746,7 +9772,8 @@
       "statusPending": "미답변",
       "subtitle": "학습 중인 궁금증을 질문하고 답변",
       "title": "Q&A 센터"
-    }
+    },
+    "ai": "AI 교육"
   },
   "eduAi": {
     "a2a": {
@@ -10769,7 +10796,8 @@
       "label": "핵심 포지셔닝",
       "tags": [],
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티"
-    }
+    },
+    "inquiry": "비즈니스 컨설팅"
   },
   "enterpriseTools": {
     "categories": {
@@ -10976,8 +11004,6 @@
   "faq": {
     "categoryDeploy": "배포 & 운영",
     "categoryGeneral": "플랫폼",
-    "categoryPricing": "가격 & 과금",
-    "categoryPrivacy": "데이터 & 보안",
     "categoryTech": "기술 & 개발",
     "ctaButton": "기술 지원 문의",
     "ctaDesc": "기술팀에 문의해 주세요, 2시간 이내에 답변드립니다.",
@@ -11010,7 +11036,9 @@
     "q8Answer": "크레딧은 모델 호출당 청구되며, 모델마다 소비율이 다릅니다(가격 페이지 참조). 충전 크레딧: 미사용 시 7일 이내 전액 환불, 사용분은 비례 환불. 구독 플랜: 미사용 월은 비례 환불. 자세한 내용은 환불 정책 참조.",
     "q8Question": "크레딧은 어떻게 계산되나요? 환불 가능한가요?",
     "q9Answer": "예, Apache 2.0 오픈 소스, 자체 호스팅 라이선스 비용 0원. 단일 노드 Docker Compose 원클릭 배포(5분), 다중 노드 Kubernetes 배포(Helm Chart 지원). Enterprise 버전은 추가로 고가용성, 백업 & 복구, 카나리 업그레이드, 전담 기술 지원 제공.",
-    "q9Question": "자체 호스팅이 지원되나요?"
+    "q9Question": "자체 호스팅이 지원되나요?",
+    "categoryPricing": "가격 & 과금",
+    "categoryPrivacy": "데이터 & 보안"
   },
   "favorites": {
     "empty": "콘텐츠가 없습니다",
@@ -11100,19 +11128,19 @@
     "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요",
     "notFound": "찾을 수 없음",
     "required": "제목과 내용은 필수입니다",
-    "subtitle": "포괄적인의개발문서및API참조",
     "tab_list": "목록",
     "tab_new": "최신",
-    "title": "AI인마음페이스테스트",
     "titlePlaceholder": "titleRequired",
     "contentRequired": "피드백 내용을 입력하세요",
     "success": "제출되었습니다",
     "failed": "제출 실패",
+    "title": "AI인마음페이스테스트",
     "type": "피드백 유형",
     "content": "피드백 내용",
     "contact": "연락처",
     "submitting": "제출 중…",
-    "submit": "제출"
+    "submit": "제출",
+    "subtitle": "포괄적인의개발문서및API참조"
   },
   "fields": {
     "applyTime": "신청 시간",
@@ -11418,20 +11446,21 @@
     "wechatShareTip": "우측 상단 ···을 눌러 \"친구에게 공유\"를 선택하거나 링크를 복사해 보내주세요"
   },
   "help": {
-    "allArticles": "전체 문서",
     "backToList": "목록으로 돌아가기",
     "contactSupport": "고객 지원",
     "empty": "기사가 없습니다",
-    "next": "다음",
     "notFound": "찾을 수 없음",
-    "prev": "이전",
     "related": "관련 문서",
-    "searchPlaceholder": "기사 검색",
-    "subtitle": "포괄적인의개발문서및API참조",
-    "title": "AI인마음페이스테스트",
     "toc": "목차",
     "updatedAt": "업데이트시간",
-    "viewCount": "{count}회 조회"
+    "viewCount": "{count}회 조회",
+    "title": "AI인마음페이스테스트",
+    "loading": "설정( S)...",
+    "allArticles": "전체 문서",
+    "next": "다음",
+    "prev": "이전",
+    "searchPlaceholder": "기사 검색",
+    "subtitle": "포괄적인의개발문서및API참조"
   },
   "home": {
     "announcement": {
@@ -11525,7 +11554,8 @@
     "recommend": "추천 콘텐츠"
   },
   "hooks": {
-    "deleteConfirm": "Hook \"{name}\"을(를) 삭제하시겠습니까?"
+    "deleteConfirm": "Hook \"{name}\"을(를) 삭제하시겠습니까?",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12052,7 +12082,10 @@
       "title": "업로드",
       "titleLabel": "제목(선택)",
       "titlePlaceholder": "비워두면 파일명 사용"
-    }
+    },
+    "title": "KB",
+    "edit": "지식 편집",
+    "search": "지식 검색"
   },
   "learn": {
     "allCategories": "All categories",
@@ -12092,7 +12125,10 @@
         }
       }
     },
-    "total": "총 {total}개"
+    "total": "총 {total}개",
+    "buyConfirm": "구매 확인",
+    "paymentConfirm": "결제 확인",
+    "review": "editorial content attribute"
   },
   "learnBuyConfirmPage": {
     "actualPay": "실결제",
@@ -12366,7 +12402,8 @@
         "importSuccess": "{providers}개 프로바이더 / {models}개 모델 가져옴",
         "importTitle": "설정 가져오기",
         "invalidJson": "잘못된 JSON입니다. 파일을 확인하세요",
-        "title": "일괄 가져오기/내보내기"
+        "title": "일괄 가져오기/내보내기",
+        "a": "일괄 작업"
       },
       "compare": "비교",
       "compareDialog": {
@@ -13212,7 +13249,8 @@
   "messages": {
     "empty": "없음메시지",
     "loading": "로딩 중...",
-    "noData": "없음메시지"
+    "noData": "없음메시지",
+    "title": "뉴스"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13952,7 +13990,8 @@
     "view": {
       "grid": "그리드 보기",
       "list": "리스트 보기"
-    }
+    },
+    "pricing": "모델 가격 책정"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 지난달",
@@ -14130,25 +14169,6 @@
     "runCountLabel": "실행 횟수",
     "subtitle": "N8N 워크플로 연동 - N8N을 통해 AI 에이전트 자동 오케스트레이션",
     "totalBadge": "총 {n}개 에이전트"
-  },
-  "agentGovernance": {
-    "title": "Agent Token 거버넌스",
-    "subtitle": "Agent 메인 루프 예산 사용량 및 최근 7일 추이",
-    "enabledBadge": "거버넌스 켜짐",
-    "disabledBadge": "관측 모드",
-    "usagePercent": "전체 예산 사용량",
-    "todayTokens": "오늘 사용 Tokens",
-    "pillarUsage": "현재 필러 사용량",
-    "remainingTokens": "필러 남은 Tokens",
-    "degradedOn": "초과 시 자동 다운그레이드 대상",
-    "trendTitle": "최근 7일 사용 추이",
-    "byPillarTitle": "오늘 필러별 사용량",
-    "pillarEmpty": "이 날짜의 기록이 없습니다",
-    "tokenShort": "tk",
-    "loading": "로딩 중…",
-    "empty": "거버넌스 데이터 없음",
-    "emptyHint": "AI 서비스가 예산 데이터를 반환하지 않았습니다. 나중에 다시 시도하세요",
-    "backToCost": "비용 패널로 돌아가기"
   },
   "cloudRuns": {
     "title": "클라우드 에이전트 실행",
@@ -14496,7 +14516,9 @@
     "userSubscription": "구독",
     "vip": "VIP",
     "workspace": "워크스페이스",
-    "courses": "강의"
+    "courses": "강의",
+    "faq": "FAQ",
+    "home": "Home"
   },
   "news": {
     "allCategories": "All categories",
@@ -14529,7 +14551,8 @@
     "tags": "태그:",
     "title": "새관리",
     "total": "총 {total}편",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "page": "뉴스 페이지"
   },
   "newsletter": {
     "articles": {
@@ -14586,7 +14609,8 @@
       "desc": "이메일을 확인하여 구독을 완료해 주세요. 다음 호는 금요일에 발송됩니다",
       "recommended": "추천 글",
       "title": "구독 완료!"
-    }
+    },
+    "title": "뉴스레터 구독"
   },
   "notes": {
     "attachmentsField": "첨부파일",
@@ -16085,7 +16109,9 @@
     "subtitle": "포괄적인의개발문서및API참조",
     "title": "리소스센터",
     "total": "총 {total}개",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "affiliates": "제휴 마케팅",
+    "edit": "리소스 편집"
   },
   "resourcesEditPage": {
     "backToList": "리소스 목록으로 돌아가기",
@@ -16097,10 +16123,6 @@
     "errTitleRequired": "제목을 입력해 주세요",
     "errTypeRequired": "리소스 유형을 선택해 주세요",
     "loading": "로딩 중..."
-  },
-  "routes": {
-    "aboutUs": "회사 소개",
-    "userAgreement": "사용자"
   },
   "schedule": {
     "disabled": "비활성화됨",
@@ -16153,13 +16175,14 @@
     },
     "title": "검색",
     "placeholder": "키워드를 입력하세요",
-    "empty": "검색 결과 없음"
+    "empty": "검색 결과 없음",
+    "q": "검색"
   },
   "searchHistory": {
     "clearAll": "지우기모든",
+    "subtitle": "포괄적인의개발문서및API참조",
     "empty": "콘텐츠가 없습니다",
     "resultCount": "{count}건 결과",
-    "subtitle": "포괄적인의개발문서및API참조",
     "title": "AI인마음페이스테스트"
   },
   "securityAuditPage": {
@@ -16455,7 +16478,8 @@
       "deployments": "배포 사례",
       "satisfaction": "평균 만족도",
       "title": "서비스 제공 고객"
-    }
+    },
+    "title": "봉사"
   },
   "settings": {
     "accountDeletionCancel": "삭제 취소",
@@ -16463,18 +16487,14 @@
     "accountDeletionCodePlaceholder": "인증 코드 입력",
     "accountDeletionCodeSendFailed": "인증코드 발송 실패",
     "accountDeletionCodeSent": "인증코드가 발송되었습니다",
-    "accountDeletionConfirm": "결과를 이해하고 계정 삭제를 확인합니다",
-    "accountDeletionDesc": "계정 및 관련 데이터를 영구적으로 삭제합니다",
     "accountDeletionFailed": "삭제 실패, 다시 시도해 주세요",
     "accountDeletionPhonePlaceholder": "전화번호를 입력하세요",
     "accountDeletionResend": "{seconds}초 후 다시 보내기",
     "accountDeletionSendCode": "코드 전송",
-    "accountDeletionStatusScheduled": "계정 삭제가 예약되어 있습니다",
     "accountDeletionSubmit": "삭제 확인",
     "accountDeletionSuccess": "계정이 삭제되었습니다. 로그인 페이지로 이동합니다",
     "accountDeletionTitle": "계정 삭제",
     "accountDeletionWarning": "이 작업은 되돌릴 수 없으며 모든 데이터가 영구적으로 손실됩니다.",
-    "activityDesc": "계정 활동 기록을 확인하세요",
     "activityEmpty": "활동 기록이 없습니다",
     "activityLoadFailed": "불러오기 실패, 잠시 후 다시 시도해 주세요",
     "activityLoading": "로딩 중...",
@@ -16483,7 +16503,6 @@
     "activityPrev": "이전",
     "activityTitle": "활동 기록",
     "adTracking": "광고 추적",
-    "adTrackingDesc": "활동 기반 맞춤 광고 허용",
     "apiKeysNavTitle": "API 키",
     "appearance": "외관",
     "authorizationsDesc": "활성 로그인 세션을 조회하고 관리",
@@ -16491,7 +16510,6 @@
     "authorizedAt": "로그인 시간",
     "billingAmount": "금액",
     "billingCreatedAt": "생성 시간",
-    "billingDesc": "청구서 및 결제 기록을 확인하세요",
     "billingInvoiceNo": "청구서 번호",
     "billingInvoiceType": "청구서 유형",
     "billingInvoices": "청구서 신청",
@@ -16513,13 +16531,10 @@
     "cliImportDesc": "CLI 설정 및 자격 증명 가져오기",
     "cliImportTitle": "CLI 가져오기",
     "connectedAccountsBoundAt": "연결 시간",
-    "connectedAccountsDesc": "연결된 타사 계정을 관리하세요",
-    "connectedAccountsLoading": "불러오는 중...",
     "connectedAccountsPlatform": "플랫폼 계정",
     "connectedAccountsTitle": "연결된 계정",
     "connectedAccountsUnbindConfirm": "{platform} 계정을 연결 해제하시겠습니까?",
     "connectedAccountsUnbindFail": "연결 해제 실패",
-    "connectedAccountsUnbindSuccess": "연결 해제 성공",
     "connectedAccountsUnbound": "연결되지 않음",
     "dashboardDesc": "모든 설정 옵션에 빠르게 액세스",
     "dashboardTitle": "대시보드",
@@ -16536,7 +16551,6 @@
       "title": "기기 관리"
     },
     "emailNotif": "이메일 알림",
-    "emailNotifDesc": "이메일로 중요 알림 수신",
     "event2faEnabled": "2FA 활성화",
     "eventAbnormalLogin": "비정상 로그인",
     "eventLogin": "로그인",
@@ -16757,18 +16771,11 @@
     "navPreferences": "환경설정",
     "navSecurity": "보안",
     "noAuthorizations": "활성 세션이 없습니다",
-    "notificationsDesc": "알림 설정을 관리하세요",
-    "notificationsLoadFailed": "설정 불러오기 실패",
     "notificationsSaveFailed": "저장 실패",
-    "notificationsSaveSuccess": "저장됨",
     "notificationsTitle": "알림 설정",
     "personalizedRecommendation": "맞춤 추천",
-    "preferencesDesc": "앱 환경을 맞춤 설정하세요",
     "preferencesTitle": "환경설정",
-    "privacyDesc": "데이터 가시성 및 개인정보 설정 관리",
-    "privacyLoadFailed": "설정 불러오기 실패",
     "privacySaveFailed": "저장 실패",
-    "privacySaveSuccess": "저장됨",
     "privacyTitle": "개인정보 설정",
     "profileDesc": "개인정보 보기 및 편집",
     "profileTitle": "프로필",
@@ -16807,15 +16814,12 @@
     "subPagesTitle": "더보기 설정",
     "subtitle": "계정, 보안, 환경설정 및 개발자 설정 관리",
     "systemNotif": "시스템 알림",
-    "theme": "주제:",
     "themeBackup": {
       "desc": "문의하기의고객 서비스팀획득도움",
       "export": "내보내기",
       "import": "가져오기",
       "title": "AI인마음페이스테스트"
     },
-    "themeDark": "깊은색템플릿방식",
-    "themeLight": "라이트템플릿방식",
     "themeSystem": "시스템",
     "title": "설정",
     "twofa": {
@@ -16850,10 +16854,30 @@
     "notifMessage": "메시지 알림",
     "notifEmail": "이메일 알림",
     "language": "언어",
+    "theme": "주제:",
     "notification": "알림 설정",
     "account": "계정",
     "version": "버전",
-    "usageRules": "이용 규칙"
+    "usageRules": "이용 규칙",
+    "connectedAccountsUnbindSuccess": "연결 해제 성공",
+    "notificationsLoadFailed": "설정 불러오기 실패",
+    "privacyLoadFailed": "설정 불러오기 실패",
+    "accountDeletionConfirm": "결과를 이해하고 계정 삭제를 확인합니다",
+    "accountDeletionDesc": "계정 및 관련 데이터를 영구적으로 삭제합니다",
+    "accountDeletionStatusScheduled": "계정 삭제가 예약되어 있습니다",
+    "activityDesc": "계정 활동 기록을 확인하세요",
+    "adTrackingDesc": "활동 기반 맞춤 광고 허용",
+    "billingDesc": "청구서 및 결제 기록을 확인하세요",
+    "connectedAccountsDesc": "연결된 타사 계정을 관리하세요",
+    "connectedAccountsLoading": "불러오는 중...",
+    "emailNotifDesc": "이메일로 중요 알림 수신",
+    "notificationsDesc": "알림 설정을 관리하세요",
+    "notificationsSaveSuccess": "저장됨",
+    "preferencesDesc": "앱 환경을 맞춤 설정하세요",
+    "privacyDesc": "데이터 가시성 및 개인정보 설정 관리",
+    "privacySaveSuccess": "저장됨",
+    "themeDark": "깊은색템플릿방식",
+    "themeLight": "라이트템플릿방식"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 생성",
@@ -17010,7 +17034,8 @@
       }
     },
     "tiersTitle": "후원 등급",
-    "whyTitle": "왜 IHUI AI를 후원해야 할까요"
+    "whyTitle": "왜 IHUI AI를 후원해야 할까요",
+    "title": "후원"
   },
   "sso": {
     "alreadyLoggedIn": "이미 로그인됨",
@@ -17055,8 +17080,10 @@
       "missingCode": "인증 코드가 없습니다. 앱에서 열어주세요",
       "exchangeFailed": "인증에 실패했습니다. 다시 시도하거나 로그인하세요",
       "networkError": "네트워크 오류입니다. 다시 시도하세요",
-      "backToLogin": "로그인으로 돌아가기"
-    }
+      "backToLogin": "로그인으로 돌아가기",
+      "sso_code": "SSO 인증 코드"
+    },
+    "platform": "플랫폼"
   },
   "statistics": {
     "actions": "작업",
@@ -17528,7 +17555,9 @@
     "submit": "분할",
     "submitting": "분할 중...",
     "title": "PDF 분할",
-    "uploadLabel": "PDF 파일을 클릭하거나 드래그하여 업로드"
+    "uploadLabel": "PDF 파일을 클릭하거나 드래그하여 업로드",
+    "convert": "변환",
+    "merge": "반영하기"
   },
   "topics": {
     "empty": "주의제가 없습니다",
@@ -17676,7 +17705,6 @@
       "justNow": "방금",
       "markAllRead": "모두 읽음으로 표시",
       "minutesAgo": "{min}분 전",
-      "noData": "없음알림",
       "tab": {
         "all": "전체",
         "comment": "댓글",
@@ -17686,18 +17714,16 @@
         "system": "시스템"
       },
       "title": "알림",
-      "unreadCount": "{count}개 안 읽음",
       "viewList": "목록 보기",
-      "viewTimeline": "타임라인 보기"
+      "viewTimeline": "타임라인 보기",
+      "noData": "없음알림",
+      "unreadCount": "{count}개 안 읽음"
     },
     "profile": {
       "accountInfo": "계정 정보",
       "aiUsage": "AI 사용량 통계",
-      "avatar": "변경아바타",
       "avatarHint": "JPG / PNG, 200x200 권장",
-      "bio": "자기소개",
       "bioError": "소개는 200자 이내여야 합니다",
-      "bioPlaceholder": "자기소개를 해주세요",
       "cancel": "취소",
       "changePhone": "전화번호 변경",
       "changePhoneDesc": "기존 전화번호 인증 후 새 전화번호 설정",
@@ -17738,20 +17764,23 @@
       "oldCodeInvalid": "6자리 기존 전화번호 인증코드 입력",
       "oldCodeSent": "기존 전화번호 인증코드 발송",
       "oldPhone": "현재 전화번호",
-      "phone": "전화",
       "phoneChanged": "전화번호 변경 성공",
       "promptTokens": "프롬프트",
       "resend": "{seconds}초 후 재시도",
       "routines": "루틴",
-      "saving": "저장중간",
       "sendCodeFailed": "인증코드 발송 실패, 잠시 후 재시도",
       "sendNewCode": "새 코드 받기",
       "sendOldCode": "기존 코드 받기",
-      "subtitle": "포괄적인의개발문서및API참조",
-      "title": "개인",
       "totalTokens": "합계",
       "userId": "사용자 ID",
-      "voiceRecord": "음성 녹음"
+      "voiceRecord": "음성 녹음",
+      "avatar": "변경아바타",
+      "bio": "자기소개",
+      "bioPlaceholder": "자기소개를 해주세요",
+      "phone": "전화",
+      "saving": "저장중간",
+      "subtitle": "포괄적인의개발문서및API참조",
+      "title": "개인"
     },
     "public": {
       "follow": "팔로우",
@@ -17853,7 +17882,6 @@
       "expireTime": "만료 시간",
       "manage": "관리",
       "nextCharge": "다음 결제:",
-      "notSubscribed": "VIP 미구독",
       "notSubscribedHint": "VIP에 가입하여 더 많은 혜택을 누리세요",
       "openAutoRenew": "자동 갱신 활성화",
       "openAutoRenewFailed": "자동 갱신 활성화 실패",
@@ -17867,7 +17895,8 @@
       "renewNow": "지금 갱신",
       "renewTitle": "구독 갱신",
       "success": "갱신 성공",
-      "wechat": "위챗페이"
+      "wechat": "위챗페이",
+      "notSubscribed": "VIP 미구독"
     },
     "subtitle": "개인정보, 콘텐츠, 상호작용 관리",
     "title": "개인 센터"
@@ -18215,7 +18244,8 @@
       "schedule": "스케줄",
       "unknown": "알 수 없는 트리거",
       "webhook": "웹훅"
-    }
+    },
+    "instance": "워크플로우 인스턴스"
   },
   "workspace": {
     "actions": "작업",
@@ -18405,7 +18435,9 @@
     "stepThinking": "생각 중",
     "reasoningCopied": "추론을 복사했습니다",
     "reasoningCopyFailed": "추론 복사에 실패했습니다",
-    "copyReasoning": "추론 복사"
+    "copyReasoning": "추론 복사",
+    "detail": "플랜 세부 정보",
+    "new": "새 배열"
   },
   "subagent": {
     "toolCallsTitle": "도구 호출 {n}회",
@@ -19157,7 +19189,8 @@
     "certTitle": "인증서 이름",
     "certNo": "인증서 번호",
     "holderName": "소지자",
-    "issueDate": "발급일"
+    "issueDate": "발급일",
+    "notfound": "인증서를 찾을 수 없습니다"
   },
   "courseCatalog": {
     "title": "강의 목차",
@@ -19836,7 +19869,8 @@
     "url": "공유 링크",
     "code": "공유 코드",
     "expireAt": "만료 시간",
-    "shareNow": "지금 공유"
+    "shareNow": "지금 공유",
+    "detail": "세부 사항 제출하기"
   },
   "vipBenefit": {
     "title": "VIP 혜택"
@@ -20336,7 +20370,10 @@
     "autoMemory": "자동 기억",
     "autoMemoryDesc": "활성화하면 대화 후 AI가 핵심 내용을 자동으로 요약해 장기 기억으로 저장하며, 이후 맞춤형 답변에 활용됩니다.",
     "autoMemorySaveSuccess": "설정이 저장되었습니다",
-    "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요"
+    "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요",
+    "manager": "메모리 관리",
+    "title": "기억",
+    "new": "새 메모리"
   },
   "agentPlan": {
     "title": "Agent 계획 모드",
@@ -20376,6 +20413,103 @@
     "statusFailed": "실패",
     "notFound": "계획을 찾을 수 없거나 만료되었습니다",
     "conflict": "현재 계획 상태에서는 이 작업이 허용되지 않습니다",
-    "generic": "요청에 실패했습니다. 잠시 후 다시 시도하세요"
+    "generic": "요청에 실패했습니다. 잠시 후 다시 시도하세요",
+    "progress": "진행상태"
+  },
+  "compare": {
+    "title": "제품 비교",
+    "subtitle": "IHUI AI와 주류 AI 플랫폼의 심층 비교",
+    "description": "IHUI AI와 다양한 차원의 주류 AI 플랫폼 비교"
+  },
+  "useCases": {
+    "title": "사용 시나리오",
+    "subtitle": "다양한 시나리오에서 IHUI AI의 적용 사례 살펴보기",
+    "description": "IHUI AI가 다양한 비즈니스 시나리오를 지원하는 방법 알아보기"
+  },
+  "context": {
+    "title": "컨텍스트 관리",
+    "compression": "컨텍스트 압축",
+    "mentions": "멘션 관리",
+    "visualization": "상황별 시각화"
+  },
+  "spec": {
+    "title": "요구 사항 사양",
+    "detail": "사양",
+    "generate": "사양 생성",
+    "templates": "사양 템플릿"
+  },
+  "subagents": {
+    "title": "서브 에이전트",
+    "detail": "하위 에이전트 세부 정보",
+    "dispatch": "작업 배포",
+    "topology": "토폴로지"
+  },
+  "aiSkills": {
+    "title": "AI 기술",
+    "detail": "스킬 세부 정보",
+    "description": "AI 기술 관리"
+  },
+  "download": {
+    "title": "다운로드",
+    "description": "IHUI AI 클라이언트 다운로드",
+    "id": "플랫폼 다운로드"
+  },
+  "agentRuntime": {
+    "title": "상담원 런타임",
+    "description": "에이전트 런타임 모니터링 및 관리"
+  },
+  "agentStepRecorder": {
+    "title": "상담원 단계별 기록",
+    "description": "상담원 실행 단계 기록"
+  },
+  "apple": {
+    "callback": "Apple 로그인 콜백"
+  },
+  "costDashboard": {
+    "title": "비용 칸반",
+    "description": "AI 비용 모니터링 보드"
+  },
+  "developers": {
+    "title": "개발자",
+    "description": "개발자 문서 및 리소스"
+  },
+  "google": {
+    "callback": "구글 로그인 콜백"
+  },
+  "h5": {
+    "title": "H5 페이지",
+    "share": "페이지 공유"
+  },
+  "legal": {
+    "title": "법적 정보",
+    "serviceSpecificTerms": {
+      "title": "서비스별 약관"
+    },
+    "supportedRegions": {
+      "title": "지원 지역"
+    },
+    "terms": {
+      "title": "서비스 약관"
+    },
+    "usagePolicy": {
+      "title": "사용 정책"
+    }
+  },
+  "mcpProjects": {
+    "title": "MCP 프로젝트",
+    "store": "MCP 스토어",
+    "description": "모델 컨텍스트 프로토콜 프로젝트 관리"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n 자동화된 워크플로 에이전트"
+  },
+  "rules": {
+    "title": "규칙",
+    "description": "플랫폼 규칙 및 사양"
+  },
+  "routes": {
+    "aboutUs": "회사 소개",
+    "userAgreement": "사용자"
   }
 }
