@@ -7,6 +7,7 @@ import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'r
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -169,7 +170,7 @@ export function AiWorldScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={dark ? '#a3a3a3' : '#737373'}
+              tintColor={dark ? tokens.text.tertiary : tokens.text.secondary}
             />
           }
           ListEmptyComponent={

@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   card: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#DADADA',
+    borderColor: tokens.gray.300,
     borderRadius: 15,
     marginTop: rpx(18),
     backgroundColor: tokens.surface.card,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   offlineBtn: {
     fontSize: 14,
-    color: '#7B61FF',
+    color: tokens.purple.DEFAULT,
     fontWeight: '500',
     textDecorationLine: 'underline',
   } as TextStyle,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   metaLine: {
     fontSize: 12,
-    color: '#3D3D3D',
+    color: tokens.text.medium,
   } as TextStyle,
   footerText: {
     textAlign: 'center',
@@ -565,18 +565,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   promptCancel: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.light,
   } as ViewStyle,
   promptConfirm: {
     backgroundColor: '#CFCEFF',
   } as ViewStyle,
   promptCancelText: {
     fontSize: 12,
-    color: '#3D3D3D',
+    color: tokens.text.medium,
   } as TextStyle,
   promptConfirmText: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: tokens.surface.light,
   } as TextStyle,
 })
 
