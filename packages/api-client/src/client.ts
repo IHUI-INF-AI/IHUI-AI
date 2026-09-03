@@ -46,6 +46,15 @@ export type FetchApiOptions = RequestInit & {
 let tokenProvider: TokenProvider = { getToken: () => null }
 // 401 自动续期的并发去重:多个请求同时 401 时只刷新一次,共享同一 promise
 let refreshInFlight: Promise<string | null> | null = null
+// 2026-09-04 根治刷新风暴:刷新失败后的冷却窗口(毫秒)。
+// refresh token 已失效时,每次 401 都会触发一次 refresh(后端单次轮转 + RFC 6749 §10.4
+// family 吊销),并发业务请求各 401 → 各触发一次 → 形成 6+ 次串行 /auth/refresh 风暴,
+// 且反复用已吊销 token 重放会加剧 family 吊销。失败后进入冷却,窗口内直接返回 null,
+// 由调用方按"登录过期"处理,不再空转重复刷新。
+const REFRESH_FAIL_COOLDOWN_MS = 5000
+// 冷却期内共享的失败结果 promise(避免多个等待方各拿一份 null 后立即重试)
+let refreshFailCooldown: Promise<string | null> | null = null
+let refreshFailCooldownTimer: ReturnType<typeof setTimeout> | null = null
 // 2026-08-02 设备维度风控:默认空采集器,各端启动时注入实现
 let deviceFingerprintProvider: DeviceFingerprintProvider = nullDeviceFingerprintCollector
 let baseUrl: string = ''
@@ -164,18 +173,62 @@ export function getToken(): string | null {
  * 2026-08-14 导出:useAuthBootstrap(web)复用本单例做启动期静默刷新,
  * 使 bootstrap 与 401 拦截器共享同一 in-flight 请求 —— 后端 refresh token 单次轮转,
  * 若两者并发各发一次,后者必 401 且触发 RFC 6749 §10.4 family 吊销,自动登录在刷新后丢失。
+ *
+ * 2026-09-04 失败冷却(根治刷新风暴):refresh 失败(refresh token 已失效)后,
+ * REFRESH_FAIL_COOLDOWN_MS 窗口内后续调用直接复用同一个失败 promise,不再重复发起
+ * /auth/refresh。此前失败后 refreshInFlight 立即清空,并发 401 的业务请求会串行
+ * 各触发一次 refresh,形成 6+ 次重复请求风暴(见内存日志 3004/3017/3089/3214/3227/3242ms)。
  */
 export async function refreshAccessTokenOnce(): Promise<string | null> {
   if (!tokenProvider.refreshAccessToken) return null
+  // 失败冷却期内:直接返回共享的失败 promise,不重复发起 refresh
+  if (refreshFailCooldown) return refreshFailCooldown
   if (refreshInFlight) return refreshInFlight
   refreshInFlight = Promise.resolve()
     .then(() => tokenProvider.refreshAccessToken!())
-    .then((t) => t ?? null)
-    .catch(() => null)
+    .then((t) => {
+      // 刷新成功:清空冷却态(如有),返回新 token
+      clearRefreshFailCooldown()
+      return t ?? null
+    })
+    .catch(() => {
+      // 刷新失败:进入冷却窗口,阻止后续 401 在窗口内重复刷新
+      startRefreshFailCooldown()
+      return null
+    })
     .finally(() => {
       refreshInFlight = null
     })
   return refreshInFlight
+}
+
+/** 启动失败冷却窗口:窗口内 refreshAccessTokenOnce 直接返回共享失败 promise */
+function startRefreshFailCooldown(): void {
+  if (refreshFailCooldown) return
+  refreshFailCooldown = Promise.resolve(null)
+  refreshFailCooldownTimer = setTimeout(() => {
+    refreshFailCooldown = null
+    refreshFailCooldownTimer = null
+  }, REFRESH_FAIL_COOLDOWN_MS)
+}
+
+/** 清空失败冷却态(刷新成功时调用,避免成功后仍被冷却窗口短暂拦截) */
+function clearRefreshFailCooldown(): void {
+  if (refreshFailCooldownTimer) {
+    clearTimeout(refreshFailCooldownTimer)
+    refreshFailCooldownTimer = null
+  }
+  refreshFailCooldown = null
+}
+
+/**
+ * 重置刷新相关模块级状态(仅供测试用)。
+ * 暴露此函数是因为 refreshInFlight / refreshFailCooldown 是模块级单例,
+ * 测试间需要隔离,避免失败冷却态跨用例泄漏导致后续用例的 refresh mock 不被调用。
+ */
+export function __resetRefreshStateForTest(): void {
+  refreshInFlight = null
+  clearRefreshFailCooldown()
 }
 
 /**
