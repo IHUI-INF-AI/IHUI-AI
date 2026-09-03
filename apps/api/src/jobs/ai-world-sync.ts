@@ -1207,7 +1207,11 @@ interface LmArenaDatasetRow {
   leaderboard_publish_date?: string | null
 }
 
-/** LMArena 数据集 category → 本项目 lmsys 榜单 category 映射(未匹配的原样小写保留) */
+/**
+ * LMArena 数据集 category → 本项目 lmsys 榜单 category 白名单。
+ * 数据集含 40+ 分类(行业榜/小语种/exclude_ties 等),全部入库会把前端分类栏撑爆;
+ * 仅保留产品有意义且前端 RankingTable KNOWN_CATS 认识的类别,未匹配的一律丢弃。
+ */
 const LMARENA_CATEGORY_MAP: Record<string, string> = {
   overall: 'overall',
   coding: 'coding',
@@ -1225,6 +1229,11 @@ const LMARENA_CATEGORY_MAP: Record<string, string> = {
   'hard prompts': 'hard-prompts',
   'hard-prompts': 'hard-prompts',
   expert: 'expert',
+  chinese: 'chinese',
+  english: 'english',
+  multi_turn: 'multiturn',
+  'multi turn': 'multiturn',
+  multiturn: 'multiturn',
 }
 
 /** 下载并解析 LMArena 最新榜单 parquet(镜像优先,主站回退) */
@@ -1271,7 +1280,8 @@ async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
     const publishDates = new Set<string>()
     for (const row of rows) {
       const rawCat = (row.category ?? '').toLowerCase().trim()
-      const category = LMARENA_CATEGORY_MAP[rawCat] ?? rawCat
+      // 白名单映射:未匹配的分类(行业榜/小语种等)直接丢弃,避免前端分类栏爆炸
+      const category = LMARENA_CATEGORY_MAP[rawCat]
       if (!category) continue
       const rank =
         typeof row.rank === 'number' ? row.rank : Number.parseInt(String(row.rank ?? ''), 10)
