@@ -1152,6 +1152,15 @@ const nextConfig: NextConfig = {
           source: '/api/artifacts/:path*',
           destination: 'http://localhost:8803/api/artifacts/:path*',
         },
+        // 2026-09-03 新增:对标杀手锏四件套 + Computer Use 路由直连 ai-service 8803。
+        // 原因:research / checkpoints / cloud-runs / context-compaction / computer-use
+        // router 均注册在 ai-service(prefix="/api"),必须直连 8803 才能命中,
+        // 且要放在 /api/:path* 通配符(→8802)之前,否则被 api server 吞掉返回 404/401。
+        { source: '/api/research/:path*', destination: 'http://localhost:8803/api/research/:path*' },
+        { source: '/api/checkpoints/:path*', destination: 'http://localhost:8803/api/checkpoints/:path*' },
+        { source: '/api/cloud-runs/:path*', destination: 'http://localhost:8803/api/cloud-runs/:path*' },
+        { source: '/api/context-compaction/:path*', destination: 'http://localhost:8803/api/context-compaction/:path*' },
+        { source: '/api/computer-use/:path*', destination: 'http://localhost:8803/api/computer-use/:path*' },
         {
           source: '/api/:path*',
           destination: 'http://localhost:8802/api/:path*',
