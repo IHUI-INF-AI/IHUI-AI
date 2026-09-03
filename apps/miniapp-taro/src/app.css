@@ -63,63 +63,58 @@ page {
 /* ===== 阿里妈妈方圆体 VF — 统一项目字体 (对齐原项目) =====
    @font-face 通过 JS 动态注入 (app.tsx),避免 webpack CSS url() 解析错误 */
 
-/* ===== 页面根节点 — 深色科技风 (对齐原项目 uni.scss) ===== */
-page {
-  background-color: #121217;
-  font-family: 'AlimamaFangYuanTi' !important;
-  font-variation-settings: 'BEVL' 100;
-  color: #ffffff;
-  --tabbar-border-color: rgba(0, 242, 255, 0.5);
+/* ===== 页面根节点(2026-09-03 两端一致性重构)=====
+   历史遗留的 page{background:#121217;color:#fff;font:AlimamaFangYuanTi !important}
+   与 *{font-family !important} 深色科技风强制覆盖已删除(根治):
+   - 背景与文字色由上方共享 base.css 绑定 var(--color-background/foreground),
+     与 web 端完全同源,亮/暗主题可切换。
+   - 字体统一走 --font-sans 栈(web 首选自托管 HarmonyOS Sans SC,小程序降级
+     系统中文栈 — 平台必需差异:小程序无法自托管 woff2,7.4MB 本地 TTF 不可接受)。
+   - 主题根容器 .theme-root 供 src/lib/theme.ts 挂载 .dark 类(变量随子树继承)。 */
+.theme-root {
+  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  box-sizing: border-box;
 }
 
-/* 所有元素统一字体 */
-* {
-  font-family: 'AlimamaFangYuanTi' !important;
-  font-variation-settings: 'BEVL' 100;
-  -webkit-tap-highlight-color: transparent;
-  tap-highlight-color: transparent;
-  outline: none;
-}
-
-/* ===== H5 轮播图渐变背景兜底 (2026-08-12) =====
-   Taro H5 构建时 inline style.backgroundImage(linear-gradient) 偶发被样式序列化丢弃，
-   导致 banner 首屏只剩浅灰 bg-muted。
-   这里写死 3 套全局深色渐变 class(深蓝/深红/深绿)作为强兜底。 */
+/* ===== H5 轮播图渐变背景兜底(2026-09-03 亮色化)=====
+   Taro H5 构建时 inline style.backgroundImage(linear-gradient)偶发被样式序列化丢弃,
+   导致 banner 首屏只剩纯色。兜底渐变统一亮色 token 同族(与 web 端 bg-muted 兜底同族),
+   不再使用深色科技风渐变(旧 #1a1a3e/#3e1a1a/#0a3a2a 已删)。 */
 .carousel-fallback.carousel-fallback-0 {
-  background-color: #1a1a3e !important;
-  background-image: linear-gradient(135deg, #1a1a3e 0%, #2d2d6b 50%, #667eea 100%) !important;
+  background-color: var(--color-muted);
+  background-image: linear-gradient(135deg, var(--color-muted) 0%, var(--color-secondary) 50%, var(--color-accent) 100%);
   background-size: cover;
   background-position: center;
 }
 .carousel-fallback.carousel-fallback-1 {
-  background-color: #3e1a1a !important;
-  background-image: linear-gradient(135deg, #3e1a1a 0%, #6b2d2d 50%, #f5576c 100%) !important;
+  background-color: var(--color-secondary);
+  background-image: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-accent) 50%, var(--color-muted) 100%);
   background-size: cover;
   background-position: center;
 }
 .carousel-fallback.carousel-fallback-2 {
-  background-color: #0a3a2a !important;
-  background-image: linear-gradient(135deg, #0a3a2a 0%, #1a5a4a 50%, #00d4aa 100%) !important;
+  background-color: var(--color-accent);
+  background-image: linear-gradient(135deg, var(--color-accent) 0%, var(--color-muted) 50%, var(--color-secondary) 100%);
   background-size: cover;
   background-position: center;
 }
 /* 兼容 Taro 编译后的核心标签选择器 taro-view-core */
 taro-view-core.carousel-fallback.carousel-fallback-0,
-.carousel-fallback.carousel-fallback-0 taro-view-core,
-.carousel-fallback.carousel-fallback-0 > taro-view-core,
-taro-view-core.taro_view_core.carousel-fallback-0 {
-  background-color: #1a1a3e !important;
-  background-image: linear-gradient(135deg, #1a1a3e 0%, #2d2d6b 50%, #667eea 100%) !important;
+.taro_view_core.carousel-fallback-0 {
+  background-color: var(--color-muted);
+  background-image: linear-gradient(135deg, var(--color-muted) 0%, var(--color-secondary) 50%, var(--color-accent) 100%);
 }
 taro-view-core.carousel-fallback.carousel-fallback-1,
-taro-view-core.taro_view_core.carousel-fallback-1 {
-  background-color: #3e1a1a !important;
-  background-image: linear-gradient(135deg, #3e1a1a 0%, #6b2d2d 50%, #f5576c 100%) !important;
+.taro_view_core.carousel-fallback-1 {
+  background-color: var(--color-secondary);
+  background-image: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-accent) 50%, var(--color-muted) 100%);
 }
 taro-view-core.carousel-fallback.carousel-fallback-2,
-taro-view-core.taro_view_core.carousel-fallback-2 {
-  background-color: #0a3a2a !important;
-  background-image: linear-gradient(135deg, #0a3a2a 0%, #1a5a4a 50%, #00d4aa 100%) !important;
+.taro_view_core.carousel-fallback-2 {
+  background-color: var(--color-accent);
+  background-image: linear-gradient(135deg, var(--color-accent) 0%, var(--color-muted) 50%, var(--color-secondary) 100%);
 }
 
 /*
@@ -133,7 +128,9 @@ taro-view-core.taro_view_core.carousel-fallback-2 {
  * 改 token 改 tokens.css 一处,然后运行同步脚本,本文件随之更新。
  * pre-commit hook 会自动校验,发现漂移则阻塞 commit。
  *
- * 视觉语言:深色科技风(对齐原项目 Ai-WXMiniVue uni.scss 设计变量)。
+ * 视觉语言:与 web 端完全同源(2026-09-03 重构,原"深色科技风 uni.scss 遗留"已清除)。
+ * 守门:scripts/check-miniapp-taro-style-parity.mjs 校验本文件无 Tailwind 同名
+ * utility 覆盖、页面级 css 无硬编码色值。
  */
 
 /* 兜底隐藏 react-refresh / webpack-dev-server 的 ErrorOverlay iframe
@@ -351,26 +348,15 @@ iframe#webpack-dev-server-client-overlay {
   animation: none !important;
 }
 
-.input-area-back {
-  width: 100%;
-  background: #1f1f28;
-  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.3);
-  border-radius: 24rpx 24rpx 0 0;
-}
-
 .search-box {
   display: flex;
   flex-direction: row;
   align-items: center;
   width: 100%;
   flex-wrap: wrap;
-  border-radius: 30rpx;
+  border-radius: var(--radius-xl);
   padding: 8rpx 16rpx;
   position: relative;
-}
-
-.search-box-bor {
-  border: 4rpx solid #cdd0ff;
 }
 
 .search-box-active {
@@ -477,7 +463,6 @@ iframe#webpack-dev-server-client-overlay {
   overflow-x: auto;
   white-space: nowrap;
   padding: 8rpx 0;
-  border-bottom: 1rpx solid rgba(0, 242, 255, 0.15);
   width: 100%;
   flex-basis: 100%;
 }
@@ -486,15 +471,15 @@ iframe#webpack-dev-server-client-overlay {
   position: relative;
   display: inline-block;
   margin-right: 12rpx;
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
 .imgs-list-item-img {
   width: 213rpx;
   height: 120rpx;
-  border-radius: 15rpx;
-  background: #1a1a23;
+  border-radius: var(--radius-lg);
+  background: var(--color-muted);
 }
 
 .imgs-list-close {
@@ -544,7 +529,7 @@ iframe#webpack-dev-server-client-overlay {
 .voice-bar-animation .line {
   width: 4rpx;
   height: 30rpx;
-  background: linear-gradient(180deg, #8d83ff, #5a85ff);
+  background: var(--color-brand);
   border-radius: 2rpx;
   transform-origin: center;
   transform: scaleY(0.3);
@@ -651,25 +636,13 @@ iframe#webpack-dev-server-client-overlay {
   }
 }
 
-/* input-area 呼吸阴影动画 */
-@keyframes inputAreaBackAnimation {
-  0%,
-  100% {
-    box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.3);
-  }
-  50% {
-    box-shadow: 0 -4rpx 30rpx rgba(0, 242, 255, 0.15);
-  }
-}
-
-.input-area-back {
-  animation: inputAreaBackAnimation 3s ease-in-out infinite;
-}
-
-/* ===== 统一卡片样式 (对齐原项目 App.vue .card) ===== */
+/* ===== 统一卡片样式(2026-09-03 token 化:与 web 端 Card 视觉同源)=====
+   白底(--color-card)+ 8px 圆角(--radius-lg),亮/暗主题自动跟随。
+   旧深色 #1f1f28 与霓虹/赛博/科技装饰类(card-neon/cyber-card/tech-card,
+   实测零引用)已删除。 */
 .card {
-  background-color: #1f1f28;
-  border-radius: 16rpx;
+  background-color: var(--color-card);
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   position: relative;
   overflow: hidden;
@@ -680,244 +653,39 @@ iframe#webpack-dev-server-client-overlay {
   transform: scale(0.98);
 }
 
-/* 霓虹卡片 - 青蓝发光边框 */
-.card-neon {
-  box-shadow: 0 0 10rpx rgba(0, 242, 255, 0.5);
-  border: 1rpx solid rgba(0, 242, 255, 0.3);
-  position: relative;
-}
-
-.card-neon::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 60%;
-  height: 3rpx;
-  background: linear-gradient(to right, #00f2ff, transparent);
-}
-
-.card-neon::after {
-  content: '';
-  position: absolute;
-  top: 3rpx;
-  left: 0;
-  width: 3rpx;
-  height: 30%;
-  background: linear-gradient(to bottom, #00f2ff, transparent);
-}
-
-/* 赛博卡片 - 顶部渐变线 */
-.cyber-card {
-  border: 1rpx solid rgba(0, 242, 255, 0.2);
-  background: #1f1f28;
-  position: relative;
-}
-
-.cyber-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 1rpx;
-  background: linear-gradient(to right, transparent, rgba(0, 242, 255, 0.8), transparent);
-}
-
-/* 科技卡片 - 紫色标签 */
-.tech-card {
-  background-color: #1f1f28;
-  border: 1rpx solid rgba(139, 92, 246, 0.2);
-}
-
-.tech-card::before {
-  content: '';
-  position: absolute;
-  top: -2rpx;
-  right: 20rpx;
-  width: 30rpx;
-  height: 5rpx;
-  background-color: #8b5cf6;
-  border-radius: 0 0 3rpx 3rpx;
-}
-
-/* ===== 统一按钮样式 (对齐原项目 App.vue .btn) ===== */
+/* ===== 统一按钮样式(2026-09-03 token 化:与 web 端 Button 视觉同源)=====
+   主按钮 = 纯黑底白字(--color-primary),与 web 完全一致。
+   旧青色渐变(#00f2ff)/紫色渐变(#8b5cf6)/扫光 ::after 动画已删除
+   (违反 AGENTS §4 禁渐变装饰;btn-accent 零引用一并删除)。 */
 .btn {
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   transition: all 0.2s;
   position: relative;
   overflow: hidden;
 }
 
-.btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: all 0.6s;
-}
-
 .btn:active {
   transform: scale(0.95);
 }
 
-.btn:active::after {
-  left: 100%;
-}
-
 .btn-primary {
-  background: linear-gradient(90deg, #00f2ff, #33f5ff);
-  color: #121217;
-}
-
-.btn-primary:active {
-  background: linear-gradient(90deg, #00d9e6, #00f2ff);
-}
-
-.btn-accent {
-  background: linear-gradient(90deg, #8b5cf6, #a78bfa);
-  color: #ffffff;
-}
-
-.btn-accent:active {
-  background: linear-gradient(90deg, #7c3aed, #8b5cf6);
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
 }
 
 .btn-outline {
   background-color: transparent;
-  border: 1rpx solid #00f2ff;
-  color: #00f2ff;
-}
-
-.btn-outline:active {
-  background-color: rgba(0, 242, 255, 0.05);
+  border: 1rpx solid var(--color-border);
+  color: var(--color-foreground);
 }
 
 .btn-ghost {
-  background-color: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: #ffffff;
-  border: 1rpx solid rgba(255, 255, 255, 0.1);
-}
-
-.btn-ghost:active {
-  background-color: rgba(255, 255, 255, 0.12);
-}
-
-/* ===== 统一色彩文字 ===== */
-.text-primary {
-  color: #00f2ff;
-}
-.text-accent {
-  color: #8b5cf6;
-}
-.text-light {
-  color: rgba(255, 255, 255, 0.7);
-}
-.text-success {
-  color: #22c55e;
-}
-.text-warning {
-  color: #f59e0b;
-}
-.text-error {
-  color: #ff3b3b;
-}
-.text-info {
-  color: #3b82f6;
-}
-.text-neon {
-  color: #00f2ff;
-  text-shadow: 0 0 10rpx rgba(0, 242, 255, 0.8);
-}
-
-/* ===== 科技感元素 ===== */
-.tech-border {
-  position: relative;
-  border: 1rpx solid rgba(0, 242, 255, 0.15);
-  border-radius: 16rpx;
-}
-
-.tech-border::before {
-  content: '';
-  position: absolute;
-  top: -1rpx;
-  left: -1rpx;
-  width: calc(100% + 2rpx);
-  height: calc(100% + 2rpx);
-  border-radius: 16rpx;
-  border: 1rpx solid transparent;
-  background: linear-gradient(90deg, #00f2ff, #8b5cf6) border-box;
-  mask:
-    linear-gradient(#fff 0 0) padding-box,
-    linear-gradient(#fff 0 0);
-  -webkit-mask-composite: destination-out;
-  mask-composite: exclude;
-}
-
-.tech-loading {
-  position: relative;
-  width: 60rpx;
-  height: 60rpx;
-}
-
-.tech-loading::before,
-.tech-loading::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 2rpx solid transparent;
-  border-top-color: #00f2ff;
-  animation: spin 1s linear infinite;
-}
-
-.tech-loading::after {
-  border-top-color: transparent;
-  border-right-color: #00f2ff;
-  animation-duration: 1.5s;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ===== 玻璃拟态 ===== */
-.glass {
-  background: rgba(30, 31, 37, 0.5);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border-radius: 16rpx;
-  border: 1rpx solid rgba(0, 242, 255, 0.15);
-}
-
-/* ===== 渐变文字 ===== */
-.gradient-primary {
-  background: linear-gradient(135deg, #00f2ff, #8b5cf6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ===== 科技网格背景 ===== */
-.tech-grid {
-  background-image:
-    linear-gradient(rgba(0, 242, 255, 0.1) 1rpx, transparent 1rpx),
-    linear-gradient(90deg, rgba(0, 242, 255, 0.1) 1rpx, transparent 1rpx);
-  background-size: 20rpx 20rpx;
+  background-color: var(--color-muted);
+  color: var(--color-foreground);
 }
 
 /* ===== TabBar 样式 ===== */

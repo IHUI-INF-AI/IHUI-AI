@@ -4,9 +4,10 @@
 
 """MCP Client — 连接外部 MCP Server，发现并调用工具。
 
-支持两种传输模式:
+支持三种传输模式:
 1. stdio: 子进程标准输入/输出传输
 2. SSE: Server-Sent Events 传输
+3. streamable-http: MCP Streamable HTTP(JSON-RPC over HTTP + SSE)
 
 设计:
 - MCPClient 类管理单个外部 MCP Server 连接
@@ -23,14 +24,19 @@ import logging
 import os
 import sys
 import urllib.parse
+
+import httpx
 from dataclasses import dataclass, field
 from typing import Any, cast
+
+from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig
 
 logger = logging.getLogger(__name__)
 
 # 传输模式
 TRANSPORT_STDIO = "stdio"
 TRANSPORT_SSE = "sse"
+TRANSPORT_STREAMABLE_HTTP = "streamable-http"
 
 # 默认超时
 DEFAULT_TIMEOUT = 30.0
@@ -51,7 +57,7 @@ class MCPClientTool:
 class MCPClientConfig:
     """MCP Client 配置。"""
     name: str
-    transport: str  # "stdio" | "sse"
+    transport: str  # "stdio" | "sse" | "streamable-http"
     command: str = ""
     args: list[str] = field(default_factory=list)
     url: str = ""
@@ -59,6 +65,8 @@ class MCPClientConfig:
     reconnect: bool = True
     max_reconnect_attempts: int = 3
     env: dict[str, str] = field(default_factory=dict)
+    # streamable-http 可选的 OAuth 配置(或已实例化的 MCPOAuthClient)
+    oauth: MCPOAuthConfig | MCPOAuthClient | None = None
 
 
 class MCPClient:
@@ -76,6 +84,13 @@ class MCPClient:
         self._reconnect_attempts = 0
         self._sse_buffer = b""
         self._session_id = ""
+        # streamable-http 状态
+        self._http_headers: dict[str, str] = {}
+        self._http_mode = "post"
+        self._http_client: httpx.AsyncClient | None = None
+        self._http_sse_task: asyncio.Task[None] | None = None
+        self._oauth_client: MCPOAuthClient | None = None
+        self._oauth_client_owned = False
 
     @property
     def config(self) -> MCPClientConfig:
@@ -92,6 +107,8 @@ class MCPClient:
             ok = await self._stdio_connect()
         elif self._config.transport == TRANSPORT_SSE:
             ok = await self._sse_connect()
+        elif self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+            ok = await self._http_connect()
         else:
             logger.error("未知传输模式: %s", self._config.transport)
             ok = False
@@ -102,6 +119,28 @@ class MCPClient:
     async def disconnect(self) -> None:
         """断开连接，清理资源。"""
         self._connected = False
+        # streamable-http 资源:SSE 流 + HTTP 客户端 + 自建 OAuth 客户端
+        if self._http_sse_task is not None:
+            self._http_sse_task.cancel()
+            try:
+                await self._http_sse_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:
+                pass
+            self._http_sse_task = None
+        if self._http_client is not None:
+            try:
+                await self._http_client.aclose()
+            except Exception:
+                pass
+            self._http_client = None
+        if self._oauth_client is not None and self._oauth_client_owned:
+            try:
+                await self._oauth_client.close()
+            except Exception:
+                pass
+            self._oauth_client = None
         if self._read_task is not None:
             self._read_task.cancel()
             self._read_task = None
@@ -186,6 +225,19 @@ class MCPClient:
         msg: dict[str, Any] = {"jsonrpc": "2.0", "id": req_id, "method": method}
         if params is not None:
             msg["params"] = params
+        if self._config.transport == TRANSPORT_STREAMABLE_HTTP:
+            # streamable-http:响应随 HTTP 调用同步返回,不走内部 pending 队列
+            try:
+                result = await asyncio.wait_for(
+                    self._http_send(msg), timeout=timeout or self._config.timeout,
+                )
+                return result
+            except asyncio.TimeoutError:
+                logger.error("请求超时(%.1fs): %s", timeout or self._config.timeout, method)
+                return {"error": {"code": -32001, "message": f"请求超时({method})"}}
+            except Exception as e:
+                logger.error("请求异常: %s", e)
+                return {"error": {"code": -32002, "message": str(e)}}
         loop = asyncio.get_running_loop()
         fut: asyncio.Future[dict[str, Any]] = loop.create_future()
         self._pending[req_id] = fut
