@@ -19,11 +19,22 @@
 通过构造参数 `permission_mode`(默认取自 env `AGENT_PERMISSION_MODE`,再回退
 "default")切换,取值 default / plan / auto,非法值 raise ValueError。
 
-| 模式     | 何时用                                   | 工具集(给 LLM)          | 写/执行类工具                 | 只读工具(READONLY_TOOLS)     | 与 approval 审批流的交互                                  |
-|----------|------------------------------------------|-------------------------|------------------------------|------------------------------|----------------------------------------------------------|
-| default  | 常规任务,安全由审批流兜底(回归红线)      | 全量                    | 走现有高危审批流(可批准/拒绝) | 走现有高危审批流(本就放行)   | 完全不变:`_request_approval` 按现状触发                   |
-| plan     | 只读探查/审计/计划阶段,严禁任何副作用    | 收窄为 传入 tools ∩ READONLY_TOOLS | 直接拦截:返回 error「permission_mode=plan:工具 X 不在只读白名单」,不执行、不进审批 | 正常执行                     | 审批流对白名单外工具彻底不触发(防御性再校验在入口拦截)    |
-| auto     | 信任环境,只读工具免打扰,写工具仍受控    | 全量                    | 走现有高危审批流(不变)        | 免审批直接执行(跳过 `_request_approval`) | 只读工具跳过审批;其余维持 default 行为                   |
+各模式说明:
+
+- default(常规任务,安全由审批流兜底,回归红线):
+  工具集=全量;写/执行类工具走现有高危审批流(可批准/拒绝);
+  只读工具也走现有高危审批流(本就放行);
+  与 approval 审批流的交互完全不变:`_request_approval` 按现状触发。
+- plan(只读探查/审计/计划阶段,严禁任何副作用):
+  工具集收窄为「传入 tools ∩ READONLY_TOOLS」;
+  写/执行类工具直接拦截:返回 error「permission_mode=plan:工具 X
+  不在只读白名单」,不执行、不进审批;
+  只读工具正常执行;
+  审批流对白名单外工具彻底不触发(防御性再校验在入口拦截)。
+- auto(信任环境,只读工具免打扰,写工具仍受控):
+  工具集=全量;写/执行类工具走现有高危审批流(不变);
+  只读工具(READONLY_TOOLS)免审批直接执行(跳过 `_request_approval`);
+  与 approval 审批流的交互:只读工具跳过审批;其余维持 default 行为。
 
 与 `/agent-plan` 端点族的关系:端点是「计划文档 + 确认门」流程(plan_mode.py 的
 state machine:draft→approved→executing),强调用户确认后再执行;本 permission_mode=plan
@@ -35,15 +46,17 @@ routers/agents.py 的固定 SSE 订阅列表(它只订阅 tool.before/after 等)
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import os
 import random
 import time
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable, Optional, cast
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any, Optional, cast
 
 from .agent_checkpoint import (
     AgentCheckpointManager,
@@ -54,7 +67,7 @@ from .agent_checkpoint import (
 if TYPE_CHECKING:
     from .memory_service import MemoryService
 
-from .hook_engine import HookEngine, hook_engine
+from .hook_engine import hook_engine
 from .llm_budget_governor import (
     BudgetExceededError,
     llm_budget_governor,
@@ -76,6 +89,19 @@ _pending_closure_tasks: set[asyncio.Task[Any]] = set()
 _TOOL_RETRYABLE_ERRORS: frozenset[str] = frozenset(
     {"timeout", "connection", "http_5xx"}
 )
+
+# 可观测录制:step 入参/结果摘要的截断上限(2026-09-03 立)
+_STEP_SUMMARY_LIMIT = 800
+
+
+def _summarize_step(value: Any) -> str:
+    """把工具入参/结果转紧凑摘要文本(供 step 录制;超长截断)。"""
+    try:
+        text = json.dumps(value, ensure_ascii=False, default=str)
+    except Exception:
+        text = str(value)
+    return f"{text[: _STEP_SUMMARY_LIMIT]}…" if len(text) > _STEP_SUMMARY_LIMIT else text
+
 
 # =====================================================================
 # 工具调用审批流(2026-08-30 立,对标 Codex 三档审批 + Claude Code Auto mode)。
@@ -132,7 +158,6 @@ def _approval_timeout_from_env() -> float:
 def _high_risk_tools_from_env() -> frozenset[str]:
     """env TOOL_APPROVAL_HIGH_RISK_TOOLS 追加自定义高危工具(逗号分隔)。"""
     extra = os.environ.get("TOOL_APPROVAL_HIGH_RISK_TOOLS", "")
-    names = {t.strip() for t in extra.split(",") if t.strip()}
     return frozenset(extra.split(",")) if extra else frozenset()
 
 
@@ -172,10 +197,56 @@ def _agent_budget_max_token_estimate_from_env() -> int:
         return 4000
 
 
+# ---------------------------------------------------------------------------
+# 1-7 团队接力(Team Relay)开关:P3-3 Agent Teams 聚合摘要回传主循环(2026-09-03 立)
+# ---------------------------------------------------------------------------
+
+# AgentBlackboard 上承载"团队上一轮聚合摘要"的默认 key(写入方/读取方约定一致即可)
+TEAM_RELAY_BLACKBOARD_KEY = "team.relay.summary"
+
+# 注入 system prompt 的接力摘要正文最大长度(超长截断,防上下文膨胀)
+TEAM_RELAY_SUMMARY_MAX = 4000
+
+
+def _team_relay_enabled_from_env() -> bool:
+    """团队接力总开关(env AGENT_TEAM_RELAY_ENABLED)。
+
+    默认 off:默认路径与现状逐零差异(隔离 P3-3 演进,避免线上突变);
+    设为 on/1/true/yes 时,主导 agent 每轮进入前若存在上一轮团队聚合摘要则注入。
+    """
+    return os.environ.get("AGENT_TEAM_RELAY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
+    """把显式/黑板传入的团队上下文规范为 (summary_text, meta)。
+
+    接受两种形态:
+    - 纯文本 str:仅作为摘要正文,无附加元信息
+    - 结构化 dict:取 summary_context 为正文,附带 objective/strategy/round_index/
+      round_count/contributors/succeeded/failed 等元信息(缺失均忽略)
+    """
+    if isinstance(context, str):
+        return context, {}
+    if isinstance(context, dict):
+        summary = str(context.get("summary_context", "") or "")
+        meta = {
+            k: context[k]
+            for k in (
+                "objective", "strategy", "round_index", "round_count",
+                "contributors", "succeeded", "failed",
+            )
+            if k in context
+        }
+        return summary, meta
+    return "", {}
+
+
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
 #   approval_id -> (asyncio.Event, decision|None)
 # 决策值:"approve" / "reject"。等待方超时/完成后由 _request_approval 清理条目(防内存泄漏)。
-_approval_registry: dict[str, tuple[asyncio.Event, Optional[str]]] = {}
+_approval_registry: dict[str, tuple[asyncio.Event, str | None]] = {}
 
 
 def resolve_approval_response(approval_id: str, decision: str) -> bool:
@@ -193,10 +264,8 @@ def resolve_approval_response(approval_id: str, decision: str) -> bool:
         return False
     ev, _ = entry
     _approval_registry[approval_id] = (ev, decision)
-    try:
+    with contextlib.suppress(Exception):
         ev.set()
-    except Exception:
-        pass
     return True
 
 
@@ -226,13 +295,13 @@ class ToolResult:
     tool_call_id: str
     name: str
     result: Any
-    error: Optional[str] = None
+    error: str | None = None
     duration_ms: float = 0.0
     # L5-2 错误恢复:瞬时失败自动重试次数记录(2026-08-12 立)
     retry_count: int = 0
     # L5-8 错误恢复:失败的错误分类(timeout/connection/http_5xx/http_4xx/unknown,
     # 2026-08-12 立,供前端展示与可观测;成功为 None)
-    error_type: Optional[str] = None
+    error_type: str | None = None
 
 
 @dataclass
@@ -243,8 +312,8 @@ class LoopIteration:
     reasoning: str = ""  # LLM 的思考(assistant message content),run() 内回填
     tool_calls: list[ToolCall] = field(default_factory=list)
     tool_results: list[ToolResult] = field(default_factory=list)
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
+    start_time: str | None = None
+    end_time: str | None = None
     duration_ms: float = 0.0
 
 
@@ -257,12 +326,17 @@ class AgentLoopResult:
     iterations: list[LoopIteration]
     total_duration_ms: float
     total_tokens_used: int  # 估算
-    stop_reason: str  # completed / max_iterations / error / no_tools / paused / cancelled / budget_exceeded
-    error: Optional[str] = None
+    # completed / max_iterations / error / no_tools / paused / cancelled / budget_exceeded
+    stop_reason: str
+    error: str | None = None
     # Wave 9:暂停/取消/失败时保存的 checkpoint_id(便于后续 resume),正常完成时为 None
-    checkpoint_id: Optional[str] = None
+    checkpoint_id: str | None = None
     # 1-6 token 治理:预算治理摘要(主循环接入 budget governor 后填充;budget off 时为 None)
-    budget: Optional[dict[str, Any]] = None
+    budget: dict[str, Any] | None = None
+    # 1-7 团队接力(P3-3,2026-09-03 立):启用且尝试注入时,记录团队上一轮聚合摘要
+    # 的注入元信息(参与了哪些子 agent、轮次、摘要是否截断、是否注入成功);
+    # 未启用 / 无接力上下文时保持 None(默认路径与现状逐零差异)。
+    team_relay: dict[str, Any] | None = None
 
 
 class AgentLoopV2:
@@ -289,11 +363,11 @@ class AgentLoopV2:
         tool_timeout: float = 60.0,
         parallel_tool_calls: bool = True,
         enable_checkpoint: bool = True,
-        session_id: Optional[str] = None,
-        checkpoint_manager: Optional[AgentCheckpointManager] = None,
+        session_id: str | None = None,
+        checkpoint_manager: AgentCheckpointManager | None = None,
         # L1-1 记忆闭环接入(2026-07-25 立,对标 Hermes Agent 默认在线记忆)
-        user_id: Optional[str] = None,
-        conversation_id: Optional[str] = None,
+        user_id: str | None = None,
+        conversation_id: str | None = None,
         enable_memory: bool = True,
         memory_svc: Optional["MemoryService"] = None,
         # L5-1 错误恢复:LLM 调用指数退避重试(2026-08-12 立)
@@ -305,21 +379,33 @@ class AgentLoopV2:
         # 工具调用审批流(2026-08-30 立):高危工具执行前请求用户审批。
         # 默认开启(env TOOL_APPROVAL_ENABLED=false 关闭),超时秒数经 env
         # TOOL_APPROVAL_TIMEOUT 覆盖。传 None 使用 env 解析结果。
-        approval_enabled: Optional[bool] = None,
-        approval_timeout: Optional[float] = None,
+        approval_enabled: bool | None = None,
+        approval_timeout: float | None = None,
         # 权限三模式(2026-09-02 立,对标 Claude Code permission modes):
         # default=与现状完全一致(回归红线);plan=循环层强制只读;auto=只读工具免审批。
         # 默认 None 时取自 env AGENT_PERMISSION_MODE,再回退 "default";构造参数优先于 env。
-        permission_mode: Optional[str] = None,
+        permission_mode: str | None = None,
         # 1-6 token 治理:LLM 预算硬约束接入主循环(2026-09-02 立)。
         # budget_enabled:总开关,默认 None 时取 env AGENT_BUDGET_ENABLED(默认 off);
         #   构造参数优先于 env。on 时每轮 check_budget 硬停止 + record_usage 记录。
         # budget_pillar:check_budget/record_usage 使用的预算支柱(默认 terminal,见
         #   _agent_budget_pillar_from_env 注释;值须 ∈ _VALID_PILLARS)。
         # budget_max_token_estimate:无精确 usage 时每轮 check 的粗估 token 上限。
-        budget_enabled: Optional[bool] = None,
-        budget_pillar: Optional[str] = None,
-        budget_max_token_estimate: Optional[int] = None,
+        budget_enabled: bool | None = None,
+        budget_pillar: str | None = None,
+        budget_max_token_estimate: int | None = None,
+        # 1-7 团队接力(P3-3,2026-09-03 立):把上一轮团队聚合摘要注入主导 agent 上下文。
+        # team_relay_enabled:总开关,默认 None 时取 env AGENT_TEAM_RELAY_ENABLED(默认 off);
+        #   构造参数优先于 env;off 时默认路径与现状逐零差异。
+        # team_context:显式传入的团队上一轮摘要(结构化 dict 或纯文本 str),二者传递其一即可,
+        #   与 agent_comm.AgentBlackboard 作为共享接力载体二选一,避免强耦合。
+        team_relay_enabled: bool | None = None,
+        team_context: Any | None = None,
+        team_blackboard: Any | None = None,
+        # 可观测录制(2026-09-03 立,对标 WorkBuddy/Codex 可复现审计):
+        # recorder=AgentStepRecorder 实例(等价接口即可)可选注入。None 时本循环
+        # 不接入录制,默认路径与现状逐零差异;注入后每次工具调用 append 一步。
+        recorder: Any | None = None,
     ):
         """
         Args:
@@ -346,6 +432,14 @@ class AgentLoopV2:
             permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
                 强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
                 再回退 "default";非法值 raise ValueError。
+            team_relay_enabled: 团队接力总开关(默认 None 取 env AGENT_TEAM_RELAY_ENABLED,
+                默认 off,与现状逐零差异)。on 时主导 agent 进入循环前注入团队上一轮摘要。
+            team_context: 团队上一轮聚合上下文(结构化 dict 或纯文本 str),显式传递;
+                None 时可经 team_blackboard 读取,二者选一(与 AgentBlackboard 弱耦合)。
+            team_blackboard: 共享黑板(agent_comm.AgentBlackboard 实例);传 team_context
+                则此参数可省略。loop 每轮从黑板默认 key(TEAM_RELAY_BLACKBOARD_KEY)读取摘要。
+            recorder: AgentStepRecorder(或等价接口)实例,可选注入;None 时默认路径
+                与现状逐零差异(不产生任何 step 记录)。注入后每次工具调用 append 一步。
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
@@ -398,7 +492,9 @@ class AgentLoopV2:
             _agent_budget_enabled_from_env() if budget_enabled is None else bool(budget_enabled)
         )
         self._budget_pillar: str = (
-            _agent_budget_pillar_from_env() if budget_pillar is None else (budget_pillar or "terminal")
+            _agent_budget_pillar_from_env()
+            if budget_pillar is None
+            else (budget_pillar or "terminal")
         )
         self._budget_max_token_estimate: int = (
             _agent_budget_max_token_estimate_from_env()
@@ -408,7 +504,7 @@ class AgentLoopV2:
 
         # Wave 9 checkpoint 配置
         self.enable_checkpoint = enable_checkpoint
-        self._session_id: Optional[str] = session_id
+        self._session_id: str | None = session_id
         self._checkpoint_manager: AgentCheckpointManager = (
             checkpoint_manager
             if checkpoint_manager is not None
@@ -416,18 +512,34 @@ class AgentLoopV2:
         )
 
         # L1-1 记忆闭环配置(对标 Hermes Agent 默认在线记忆)
-        self._user_id: Optional[str] = user_id
-        self._conversation_id: Optional[str] = conversation_id
+        self._user_id: str | None = user_id
+        self._conversation_id: str | None = conversation_id
         # enable_memory 仅在 user_id 存在时才真正生效
         self._enable_memory: bool = bool(enable_memory and user_id)
-        self._memory_svc: Optional["MemoryService"] = memory_svc
+        self._memory_svc: MemoryService | None = memory_svc
+
+        # 1-7 团队接力配置(2026-09-03 立)。优先级:构造参数 > env AGENT_TEAM_RELAY_ENABLED
+        # (默认 off,向后兼容:off 时默认路径与现状逐零差异)。team_context 显式传入优先,
+        # 否则可经 team_blackboard(AgentBlackboard)从默认 key 读取,二者弱耦合。
+        self._team_relay_enabled: bool = (
+            _team_relay_enabled_from_env()
+            if team_relay_enabled is None
+            else bool(team_relay_enabled)
+        )
+        self._team_context: Any | None = team_context
+        self._team_blackboard: Any | None = team_blackboard
+        # 可观测录制(2026-09-03 立):默认 None 时零开销,不接入任何录制器
+        # (默认路径与现状逐零差异)。
+        self._step_recorder: Any | None = recorder
 
         # 运行时状态(每次 run() 开始时重置)
-        self._messages: Optional[list[dict[str, Any]]] = None
+        self._messages: list[dict[str, Any]] | None = None
         self._current_iteration: int = 0
         self._tool_state: dict[str, Any] = {}
         self._pause_requested: bool = False
         self._cancel_requested: bool = False
+        # 1-7 团队接力:本次 run 的注入元信息(供可观测;未启用/无接力为 None)
+        self._team_relay_info: dict[str, Any] | None = None
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -440,14 +552,16 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
+        self._team_relay_info = None
 
     async def _save_checkpoint_safe(
         self,
         iteration: int,
         messages: list[dict[str, Any]],
         status: str,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> Optional[str]:
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None:
         """安全保存 checkpoint(失败只 log warning,不阻塞 loop)。返回 checkpoint_id 或 None。"""
         if not self.enable_checkpoint:
             return None
@@ -462,7 +576,12 @@ class AgentLoopV2:
                 metadata=metadata,
             )
         except Exception as e:
-            logger.warning("Agent 循环 checkpoint 保存失败(iter=%d status=%s): %s", iteration, status, e)
+            logger.warning(
+                "Agent 循环 checkpoint 保存失败(iter=%d status=%s): %s",
+                iteration,
+                status,
+                e,
+            )
             return None
 
     async def run(self, messages: list[dict[str, Any]]) -> AgentLoopResult:
@@ -493,6 +612,9 @@ class AgentLoopV2:
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
         await self._inject_user_profile(messages)
+        # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
+        # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
+        await self._inject_team_relay_context(messages)
         # L4 自进化:注入 meta_lessons 避坑指南到 system prompt(失败降级,不阻塞)
         # build_system_prompt_snippet 是同步方法(读内存缓存),失败只 warning
         try:
@@ -540,8 +662,12 @@ class AgentLoopV2:
             start_iteration=1,
             prior_iterations=[],
             prior_tokens=0,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
         )
+        # 1-7 团队接力(2026-09-03 立):把本次 run 的接力注入元信息挂到产物,供上层读取。
+        # 未启用 / 无接力上下文时 _team_relay_info 为 None,result.team_relay 保持 None(零差异)。
+        if self._team_relay_info is not None:
+            result.team_relay = dict(self._team_relay_info)
         # 1-6 token 治理:填充预算摘要(budget_exceeded 分支已在 return 内设置;
         # 此处为正常/其它停止原因补摘要,供未来 web 面板接数据)。失败降级不阻塞。
         if self._budget_enabled and result.budget is None:
@@ -572,6 +698,7 @@ class AgentLoopV2:
         if result.stop_reason in {"completed", "error", "max_iterations"}:
             try:
                 from dataclasses import asdict
+
                 from .meta_learner import meta_learner
                 task_input_text = ""
                 if messages and isinstance(messages[0], dict):
@@ -708,6 +835,130 @@ class AgentLoopV2:
         except Exception as e:
             logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
 
+    # ------------------------------------------------------------------
+    # 1-7 团队接力辅助(P3-3,2026-09-03 立;对标 meta_learner/metacognition 注入模式)
+    # 设计铁律:默认关闭;开启且存在接力上下文才改动 system prompt;任何异常静默降级,
+    # 绝不阻塞主循环、不改动默认路径。结果写入 _team_relay_info 供可观测。
+    # ------------------------------------------------------------------
+
+    async def _resolve_team_relay_context(self) -> tuple[str, dict[str, Any]]:
+        """解析团队上一轮接力上下文,返回 (summary_text, meta)。
+
+        优先显式注入的 `team_context`(弱耦合,与黑板书任意一种即可):
+        - 结构化 dict / 纯文本 str → 直接规范化
+        - 否则若注入 `team_blackboard`(AgentBlackboard),从默认 key 读取(支持
+          JSON 或纯文本 value)。无结果 → ("", {})。
+        """
+        if self._team_context is not None:
+            return _normalize_team_relay_context(self._team_context)
+        if self._team_blackboard is not None:
+            try:
+                entry = await self._team_blackboard.read(
+                    TEAM_RELAY_BLACKBOARD_KEY, "agent_loop"
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"team_blackboard 读取「{TEAM_RELAY_BLACKBOARD_KEY}」失败: {e}"
+                ) from e
+            if entry is None or not entry.value:
+                return "", {}
+            value = entry.value
+            try:
+                parsed = json.loads(value) if isinstance(value, str) else value
+            except (ValueError, TypeError):
+                return str(value or ""), {}
+            if isinstance(parsed, dict):
+                return _normalize_team_relay_context(parsed)
+            return str(parsed or ""), {}
+        return "", {}
+
+    @staticmethod
+    def _build_team_relay_block(summary: str, meta: dict[str, Any]) -> str:
+        """把团队上一轮聚合摘要组装为结构化上下文块,追加到 system prompt。"""
+        lines: list[str] = [
+            "## 团队接力摘要 (Team Relay)",
+            "以下为上一轮团队协作聚合结果,请据此继续决策:",
+        ]
+        if meta.get("objective"):
+            lines.append(f"目标: {meta['objective']}")
+        parts: list[str] = []
+        if "round_index" in meta and "round_count" in meta:
+            parts.append(
+                f"round {int(meta['round_index']) + 1}/{int(meta['round_count'])}"
+            )
+        if "strategy" in meta:
+            parts.append(f"策略 {meta['strategy']}")
+        if "succeeded" in meta:
+            parts.append(f"成功 {meta['succeeded']}")
+        if "failed" in meta:
+            parts.append(f"失败 {meta['failed']}")
+        if parts:
+            lines.append(" | ".join(parts))
+        if meta.get("contributors"):
+            names = meta["contributors"]
+            if isinstance(names, list):
+                names = ", ".join(str(n) for n in names)
+            lines.append(f"参与 agent: {names}")
+        lines.append("--- 聚合摘要内容 ---")
+        lines.append(summary)
+        return "\n".join(lines)
+
+    async def _inject_team_relay_context(self, messages: list[dict[str, Any]]) -> None:
+        """入口:把团队上一轮聚合摘要注入 system prompt(默认关闭,失败静默降级)。
+
+        行为:
+        - 总开关关闭(_team_relay_enabled=False)→ no-op,默认路径与现状逐零差异。
+        - 开启但无接力上下文 → 记录 injected=False(空摘要,正常运行),不炸主循环。
+        - 开启且有摘要 → 追加"团队接力摘要"段到首条 system 消息 content。
+        - 任何异常 → logger.warning + 记录 error,injected=False,不阻塞主循环。
+        注入元信息写入 self._team_relay_info,由 run() 回填到 result.team_relay。
+        """
+        info: dict[str, Any] = {"enabled": True, "injected": False}
+        if not self._team_relay_enabled:
+            # 未启用:直接返回,不写入 _team_relay_info(确保 result.team_relay 为 None)
+            return
+        try:
+            summary, meta = await self._resolve_team_relay_context()
+        except Exception as e:
+            info["error"] = str(e)
+            self._team_relay_info = info
+            logger.warning("team_relay 上下文解析失败(降级,不阻塞): %s", e)
+            return
+        if not summary or not summary.strip():
+            # 无接力摘要:正常运行(注入未发生),不炸主循环。
+            self._team_relay_info = info
+            return
+        # 摘要截断(防上下文膨胀),并记录元信息
+        truncated = len(summary) > TEAM_RELAY_SUMMARY_MAX
+        body = summary[:TEAM_RELAY_SUMMARY_MAX]
+        info.update({
+            "round_index": meta.get("round_index"),
+            "round_count": meta.get("round_count"),
+            "strategy": meta.get("strategy"),
+            "contributors": meta.get("contributors"),
+            "summary_length": len(summary),
+            "summary_truncated": truncated,
+        })
+        # 组装 + 写入统一守卫:block 构建或注入写失败均静默降级,绝不阻塞主循环。
+        try:
+            block = self._build_team_relay_block(body, meta)
+            if (
+                messages
+                and isinstance(messages[0], dict)
+                and messages[0].get("role") == "system"
+            ):
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = (
+                    f"{existing}\n\n{block}" if existing else block
+                )
+            else:
+                messages.insert(0, {"role": "system", "content": block})
+            info["injected"] = True
+        except Exception as e:
+            info["error"] = str(e)
+            logger.warning("team_relay 摘要注入失败(降级,不阻塞): %s", e)
+        self._team_relay_info = info
+
     async def _persist_memory_insights(self, messages: list[dict[str, Any]]) -> None:
         """出口:从对话提取记忆写回 API(仅 run() 成功时调用)。
 
@@ -842,7 +1093,7 @@ class AgentLoopV2:
         重试耗尽后抛原始异常,由上层走 checkpoint(failed) 失败链路。
         asyncio.CancelledError 不重试(用户取消必须立即生效)。
         """
-        last_exc: Optional[BaseException] = None
+        last_exc: BaseException | None = None
         for attempt in range(self.llm_retry_max + 1):
             try:
                 return cast(dict[str, Any], await self._llm_complete(messages, tools_schema))
@@ -1057,7 +1308,7 @@ class AgentLoopV2:
                     final_response="",
                     iterations=iterations,
                     total_duration_ms=(
-                        (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                        (datetime.now(UTC) - start_time).total_seconds() * 1000
                     ),
                     total_tokens_used=total_tokens,
                     stop_reason="cancelled",
@@ -1073,7 +1324,7 @@ class AgentLoopV2:
                     final_response="",
                     iterations=iterations,
                     total_duration_ms=(
-                        (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                        (datetime.now(UTC) - start_time).total_seconds() * 1000
                     ),
                     total_tokens_used=total_tokens,
                     stop_reason="paused",
@@ -1101,7 +1352,7 @@ class AgentLoopV2:
                         final_response="",
                         iterations=iterations,
                         total_duration_ms=(
-                            (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                            (datetime.now(UTC) - start_time).total_seconds() * 1000
                         ),
                         total_tokens_used=total_tokens,
                         stop_reason="budget_exceeded",
@@ -1116,7 +1367,7 @@ class AgentLoopV2:
                         },
                     )
 
-            iter_start = datetime.now(timezone.utc)
+            iter_start = datetime.now(UTC)
             iteration = LoopIteration(iteration=i, start_time=iter_start.isoformat())
 
             try:
@@ -1151,9 +1402,9 @@ class AgentLoopV2:
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:
-                    iteration.end_time = datetime.now(timezone.utc).isoformat()
+                    iteration.end_time = datetime.now(UTC).isoformat()
                     iteration.duration_ms = (
-                        (datetime.now(timezone.utc) - iter_start).total_seconds() * 1000
+                        (datetime.now(UTC) - iter_start).total_seconds() * 1000
                     )
                     iterations.append(iteration)
 
@@ -1183,7 +1434,7 @@ class AgentLoopV2:
                         final_response=content,
                         iterations=iterations,
                         total_duration_ms=(
-                            (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                            (datetime.now(UTC) - start_time).total_seconds() * 1000
                         ),
                         total_tokens_used=total_tokens,
                         stop_reason="completed",
@@ -1194,8 +1445,9 @@ class AgentLoopV2:
                 for tc_raw in tool_calls_raw:
                     tc = ToolCall(
                         # 2026-08-01 P1 修复:LLM 未返回 id 时用 uuid 生成唯一 ID,
-                        # 原 f"call_{len(tool_calls)}" 会导致跨迭代 ID 碰撞(每次迭代都从 call_0 开始),
-                        # OpenAI/Anthropic API 要求 tool_call_id 在会话内全局唯一,碰撞会 400 或错配结果。
+                        # 原 f"call_{len(tool_calls)}" 会导致跨迭代 ID 碰撞
+                        # (每次迭代都从 call_0 开始),OpenAI/Anthropic API 要求
+                        # tool_call_id 在会话内全局唯一,碰撞会 400 或错配结果。
                         id=tc_raw.get("id") or f"call_{uuid.uuid4().hex[:8]}",
                         name=tc_raw.get("name", ""),
                         args=tc_raw.get("args", {}),
@@ -1256,9 +1508,9 @@ class AgentLoopV2:
                         }
                     )
 
-                iteration.end_time = datetime.now(timezone.utc).isoformat()
+                iteration.end_time = datetime.now(UTC).isoformat()
                 iteration.duration_ms = (
-                    (datetime.now(timezone.utc) - iter_start).total_seconds() * 1000
+                    (datetime.now(UTC) - iter_start).total_seconds() * 1000
                 )
                 iterations.append(iteration)
 
@@ -1285,19 +1537,17 @@ class AgentLoopV2:
                     pass
                 # L5-3 错误恢复:结构化上报审计服务(2026-08-12 立)
                 self._report_agent_error(i, str(e), error_type)
-                # Hook 引擎: error
-                try:
+                # Hook 引擎: error(异常中 emit 失败不记录日志,避免日志级联)
+                with contextlib.suppress(Exception):
                     await hook_engine.emit("error", {
                         "session_id": self._session_id or "",
                         "iteration": i,
                         "error": str(e),
                         "error_type": error_type,
                     })
-                except Exception:
-                    pass  # 异常中 emit 失败不记录日志(避免日志级联)
-                iteration.end_time = datetime.now(timezone.utc).isoformat()
+                iteration.end_time = datetime.now(UTC).isoformat()
                 iteration.duration_ms = (
-                    (datetime.now(timezone.utc) - iter_start).total_seconds() * 1000
+                    (datetime.now(UTC) - iter_start).total_seconds() * 1000
                 )
                 iterations.append(iteration)
 
@@ -1313,7 +1563,7 @@ class AgentLoopV2:
                     final_response="",
                     iterations=iterations,
                     total_duration_ms=(
-                        (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                        (datetime.now(UTC) - start_time).total_seconds() * 1000
                     ),
                     total_tokens_used=total_tokens,
                     stop_reason="error",
@@ -1327,7 +1577,7 @@ class AgentLoopV2:
             final_response="",
             iterations=iterations,
             total_duration_ms=(
-                (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+                (datetime.now(UTC) - start_time).total_seconds() * 1000
             ),
             total_tokens_used=total_tokens,
             stop_reason="max_iterations",
@@ -1347,7 +1597,7 @@ class AgentLoopV2:
         Raises:
             ValueError: checkpoint 不存在或已过期
         """
-        checkpoint: Optional[AgentLoopCheckpoint] = await self._checkpoint_manager.load_checkpoint(
+        checkpoint: AgentLoopCheckpoint | None = await self._checkpoint_manager.load_checkpoint(
             checkpoint_id
         )
         if checkpoint is None:
@@ -1367,7 +1617,10 @@ class AgentLoopV2:
             )
 
         if checkpoint.status == "cancelled":
-            logger.warning("checkpoint %s 状态为 cancelled,仍允许续跑(用户显式 resume)", checkpoint_id)
+            logger.warning(
+                "checkpoint %s 状态为 cancelled,仍允许续跑(用户显式 resume)",
+                checkpoint_id,
+            )
 
         # 恢复状态
         self._session_id = checkpoint.session_id
@@ -1386,7 +1639,10 @@ class AgentLoopV2:
                 total_duration_ms=0.0,
                 total_tokens_used=0,
                 stop_reason="max_iterations",
-                error=f"checkpoint iteration {checkpoint.iteration} 已达 max_iterations {self.max_iterations}",
+                error=(
+                    f"checkpoint iteration {checkpoint.iteration} "
+                    f"已达 max_iterations {self.max_iterations}"
+                ),
                 checkpoint_id=checkpoint_id,
             )
 
@@ -1402,10 +1658,10 @@ class AgentLoopV2:
             start_iteration=start_iteration,
             prior_iterations=[],
             prior_tokens=0,
-            start_time=datetime.now(timezone.utc),
+            start_time=datetime.now(UTC),
         )
 
-    async def pause(self) -> Optional[str]:
+    async def pause(self) -> str | None:
         """暂停当前 loop。
 
         若 loop 正在运行:设置 _pause_requested 标志,loop 在下一轮 iteration 开始前
@@ -1424,7 +1680,7 @@ class AgentLoopV2:
             )
         return None
 
-    async def cancel(self) -> Optional[str]:
+    async def cancel(self) -> str | None:
         """取消当前 loop。
 
         若 loop 正在运行:设置 _cancel_requested 标志,loop 在下一轮 iteration 开始前
@@ -1460,15 +1716,13 @@ class AgentLoopV2:
         """
         if name in _DEFAULT_HIGH_RISK_TOOLS:
             return True
-        if any(name.startswith(p) for p in _HIGH_RISK_PREFIXES):
-            return True
-        return False
+        return any(name.startswith(p) for p in _HIGH_RISK_PREFIXES)
 
     def _is_high_risk_tool_instance(self, name: str) -> bool:
         """实例级高危判定(含 env 追加的自定义集合)。"""
         return self._is_high_risk_tool(name) or name in self._extra_high_risk_tools
 
-    async def _request_approval(self, tc: ToolCall) -> Optional[str]:
+    async def _request_approval(self, tc: ToolCall) -> str | None:
         """发起审批请求并等待用户决策(阻塞等待,超时后放弃)。
 
         Returns:
@@ -1502,7 +1756,7 @@ class AgentLoopV2:
             # 等待用户决策(批准/拒绝/超时)
             try:
                 await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return "approval_timeout"
             _, decision = _approval_registry.get(approval_id, (None, None))
             if decision == "approve":
@@ -1544,18 +1798,21 @@ class AgentLoopV2:
             tasks = [self._execute_single(tc) for tc in tool_calls]
             gathered_raw = await asyncio.gather(*tasks, return_exceptions=True)
             results: list[ToolResult] = []
-            for tc, item in zip(tool_calls, gathered_raw):
+            for tc, item in zip(tool_calls, gathered_raw, strict=False):
                 if isinstance(item, BaseException):
                     logger.error("工具 %s 未捕获异常: %s", tc.name, item)
-                    results.append(ToolResult(
+                    tr = ToolResult(
                         tool_call_id=tc.id,
                         name=tc.name,
                         result=None,
                         error=f"工具未捕获异常: {item}",
                         duration_ms=0,
-                    ))
+                    )
+                    results.append(tr)
+                    self._maybe_record_step(tc, tr)
                 else:
                     results.append(item)
+                    self._maybe_record_step(tc, item)
             return results
         else:
             # 串行执行(2026-08-01 P1 修复:变量名改为 serial_results,避免与并行分支的 results 重定义)
@@ -1563,7 +1820,37 @@ class AgentLoopV2:
             for tc in tool_calls:
                 result = await self._execute_single(tc)
                 serial_results.append(result)
+                self._maybe_record_step(tc, result)
             return serial_results
+
+    def _maybe_record_step(self, tc: ToolCall, tr: ToolResult) -> None:
+        """工具调用可观测录制(2026-09-03 立):每次工具执行后 append 一步。
+
+        recorder 未注入(getattr 取不到 self._step_recorder)时立即返回,默认路径
+        零差异;录制失败仅 log warning 降级,绝不阻塞主链路。
+        run_id 优先取 recorder 自带上下文(生产由调用方绑定 cloud run_id),
+        否则回退 session_id 作为运行标识。
+        """
+        rec = getattr(self, "_step_recorder", None)
+        if rec is None:
+            return
+        run_id = getattr(rec, "run_id", None) or self._session_id or ""
+        try:
+            rec.append_step(
+                run_id,
+                {
+                    "type": "tool",
+                    "tool_name": tr.name or tc.name,
+                    "input_summary": _summarize_step(tc.args),
+                    "result_summary": _summarize_step(
+                        {"error": tr.error} if tr.error else tr.result
+                    ),
+                    "status": "error" if tr.error else "ok",
+                    "duration_ms": round(float(tr.duration_ms or 0.0), 2),
+                },
+            )
+        except Exception as e:
+            logger.warning("agent step 录制失败(降级,不阻塞): %s", e)
 
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
@@ -1592,7 +1879,11 @@ class AgentLoopV2:
         # 构造期已将工具集收窄为「传入 tools ∩ READONLY_TOOLS」,此处为双保险再校验。
         if self._permission_mode == "plan" and not is_readonly_tool(tc.name):
             msg = f"permission_mode=plan:工具 {tc.name} 不在只读白名单"
-            logger.info("plan 模式拦截工具 %s(不在只读白名单), session=%s", tc.name, self._session_id or "")
+            logger.info(
+                "plan 模式拦截工具 %s(不在只读白名单), session=%s",
+                tc.name,
+                self._session_id or "",
+            )
             # 错误结构化上报(与工具失败同链路,审计/元学习可见)
             self._report_tool_error(tc, msg, "permission_denied", 0.0)
             # 模式生效事件:工具被跳过(plan_blocked)
@@ -1674,7 +1965,7 @@ class AgentLoopV2:
                     duration_ms=(time.time() - start) * 1000,
                     retry_count=retry_count,
                 )
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 error_msg = f"工具执行超时({self.tool_timeout}s)"
                 error_type = "timeout"
             except Exception as e:
