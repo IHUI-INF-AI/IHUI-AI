@@ -31,6 +31,41 @@
     "loadFailed": "加载课程失败",
     "playError": "播放出错"
   },
+  "teacher": {
+    "list": {
+      "title": "讲师",
+      "searchPlaceholder": "搜索讲师",
+      "courseCount": "{n} 门课程",
+      "studentCount": "{n} 位学员",
+      "empty": "暂无讲师"
+    },
+    "detail": {
+      "courses": "课程",
+      "students": "学员",
+      "intro": "简介",
+      "viewCourses": "查看课程",
+      "unfollowed": "已取消",
+      "contactMessage": "发消息",
+      "contactPhone": "电话联系",
+      "phoneHint": "已复制联系方式",
+      "fans": "粉丝",
+      "goldBadge": "金牌讲师",
+      "collapse": "收起",
+      "expand": "展开",
+      "courseSection": "主讲课程",
+      "learnUnit": "人学习",
+      "noCourses": "暂无课程",
+      "reviewSection": "学员评价",
+      "noReviews": "暂无评价",
+      "contact": "联系讲师",
+      "follow": "+ 关注",
+      "followed": "已关注",
+      "following": "已关注",
+      "imSoon": "私信功能即将开放",
+      "notFound": "讲师不存在",
+      "rating": "评分"
+    }
+  },
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人观看",
