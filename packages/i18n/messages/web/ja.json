@@ -5258,7 +5258,17 @@
       "trigger_webhook": "ウェブフック",
       "view": "テーブル",
       "viewTitle": "ワークフロー"
-    }
+    },
+    "title": "管理后台",
+    "oauthApps": "OAuth 应用",
+    "pointsMall": "积分商城",
+    "post": "帖子管理",
+    "promotionRule": "推广规则",
+    "providersHealth": "服务商健康度",
+    "relayOverview": "中继概览",
+    "themeEdit": "主题编辑",
+    "unauthorized": "未授权",
+    "userMargin": "用户保证金"
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -6296,7 +6306,8 @@
     "viewDetail": "テーブル",
     "viewPermissionExample": "を",
     "vipExclusive": "VIP専用",
-    "config": "設定"
+    "config": "設定",
+    "dispatchSubagent": "分发子代理"
   },
   "agentRuntimePanel": {
     "cancelledBody": "現在の実行を停止しました。続行するには入力を編集して再度実行してください。",
@@ -7312,7 +7323,8 @@
       "rankDelta": "順位変動",
       "stable": "安定",
       "subtitle": "7/14 日ホット度トレンド曲線"
-    }
+    },
+    "title": "AI 资讯"
   },
   "aiSkillDetail": {
     "addToAgent": "Agentに追加",
@@ -7442,7 +7454,8 @@
         },
         "title": "AI ワールドサイト管理"
       }
-    }
+    },
+    "title": "AI 世界"
   },
   "aiWorldCreatePage": {
     "back": "戻る",
@@ -7618,7 +7631,9 @@
     "title": "タイトル",
     "titlePlaceholder": "タイトルをしてください",
     "unresolved": "未解决",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "detail": "提问详情",
+    "edit": "编辑提问"
   },
   "asksEditFormPage": {
     "cancel": "キャンセル",
@@ -8684,7 +8699,8 @@
     },
     "postCount": "{count}の",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "コミュニティ"
+    "title": "コミュニティ",
+    "detail": "圈子详情"
   },
   "cliImport": {
     "commit": "インポート確定",
@@ -8789,7 +8805,8 @@
     "replyPlaceholder": "ごコンテンツ",
     "replyTitle": "管理者返信",
     "submitReply": "送信返信",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "title": "评论"
   },
   "commissionPlan": {
     "commissionRate": "コミッション率",
@@ -8916,7 +8933,8 @@
       "empty": "ツールがありません",
       "loading": "読み込み中...",
       "subtitle": "プラットフォームが提供するツールを閲覧・使用",
-      "title": "ツールセンター"
+      "title": "ツールセンター",
+      "pdf": "PDF 工具"
     },
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
@@ -8956,7 +8974,15 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
-    "ok": "OK"
+    "ok": "OK",
+    "create": "创建",
+    "agentKanban": "Agent 看板",
+    "callback": "回调",
+    "title": "页面",
+    "forbidden": "禁止访问",
+    "forgotPassword": "忘记密码",
+    "login": "登录",
+    "status": "状态"
   },
   "contactPage": {
     "addressTitle": "会社住所",
@@ -9179,7 +9205,8 @@
       "title": "テンプレート"
     },
     "title": "デザインモード",
-    "undo": "元に戻す"
+    "undo": "元に戻す",
+    "system": "设计系统"
   },
   "detail": {
     "activate": "有効化",
@@ -9748,7 +9775,8 @@
       "statusPending": "未回答",
       "subtitle": "学習の疑問を質問・回答",
       "title": "Q&A センター"
-    }
+    },
+    "ai": "AI 教育"
   },
   "eduAi": {
     "a2a": {
@@ -10771,7 +10799,8 @@
       "label": "コアポジショニング",
       "tags": [],
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ"
-    }
+    },
+    "inquiry": "企业咨询"
   },
   "enterpriseTools": {
     "categories": {
@@ -11433,7 +11462,8 @@
     "title": "APIテスト",
     "toc": "目次",
     "updatedAt": "しいしい",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "loading": "加载中"
   },
   "home": {
     "announcement": {
@@ -11527,7 +11557,8 @@
     "recommend": "おすすめ"
   },
   "hooks": {
-    "deleteConfirm": "Hook \"{name}\" を削除してもよろしいですか？"
+    "deleteConfirm": "Hook \"{name}\" を削除してもよろしいですか？",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12054,7 +12085,10 @@
       "title": "アップロード",
       "titleLabel": "タイトル(任意)",
       "titlePlaceholder": "空欄の場合ファイル名を使用"
-    }
+    },
+    "title": "知识库",
+    "edit": "编辑知识",
+    "search": "搜索知识"
   },
   "learn": {
     "allCategories": "All categories",
@@ -12094,7 +12128,10 @@
         }
       }
     },
-    "total": "合計 {total} 節"
+    "total": "合計 {total} 節",
+    "buyConfirm": "购买确认",
+    "paymentConfirm": "支付确认",
+    "review": "评价"
   },
   "learnBuyConfirmPage": {
     "actualPay": "支払額",
@@ -12368,7 +12405,8 @@
         "importSuccess": "{providers} プロバイダー / {models} モデルをインポートしました",
         "importTitle": "設定をインポート",
         "invalidJson": "無効な JSON です。ファイルを確認してください",
-        "title": "一括インポート/エクスポート"
+        "title": "一括インポート/エクスポート",
+        "a": "批量操作"
       },
       "compare": "比較",
       "compareDialog": {
@@ -13214,7 +13252,8 @@
   "messages": {
     "empty": "なしメッセージ",
     "loading": "読み込み中...",
-    "noData": "なしメッセージ"
+    "noData": "なしメッセージ",
+    "title": "消息"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13954,7 +13993,8 @@
     "view": {
       "grid": "グリッド表示",
       "list": "リスト表示"
-    }
+    },
+    "pricing": "模型定价"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 先月",
@@ -14137,25 +14177,6 @@
     "runCountLabel": "実行回数",
     "subtitle": "N8N ワークフロー連携 - N8N経由でAIエージェントを自動オーケストレーション",
     "totalBadge": "合計 {n} エージェント"
-  },
-  "agentGovernance": {
-    "title": "Agent Token ガバナンス",
-    "subtitle": "Agent メインループの予算使用量と直近7日間の推移",
-    "enabledBadge": "ガバナンス有効",
-    "disabledBadge": "観測モード",
-    "usagePercent": "全体予算使用率",
-    "todayTokens": "本日の消費 Tokens",
-    "pillarUsage": "現在の柱の使用率",
-    "remainingTokens": "柱の残り Tokens",
-    "degradedOn": "超過時に自動降格先",
-    "trendTitle": "直近7日間の使用推移",
-    "byPillarTitle": "本日の柱別使用量",
-    "pillarEmpty": "この日の記録はありません",
-    "tokenShort": "tk",
-    "loading": "読み込み中…",
-    "empty": "ガバナンスデータなし",
-    "emptyHint": "AI サービスが予算データを返しませんでした。後で再試行してください",
-    "backToCost": "コストパネルへ戻る"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
@@ -14503,7 +14524,9 @@
     "userSubscription": "購読",
     "vip": "VIP",
     "workspace": "ワークスペース",
-    "courses": "コース"
+    "courses": "コース",
+    "faq": "常见问题",
+    "home": "首页"
   },
   "news": {
     "allCategories": "All categories",
@@ -14536,7 +14559,8 @@
     "tags": "タグ:",
     "title": "プラットフォームニュース",
     "total": "合計 {total} 篇",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "page": "新闻页"
   },
   "newsletter": {
     "articles": {
@@ -14593,7 +14617,8 @@
       "desc": "メールボックスを確認して購読を確定してください。次回ニュースレターは金曜日に配信されます。",
       "recommended": "おすすめ記事",
       "title": "購読成功!"
-    }
+    },
+    "title": "订阅简报"
   },
   "notes": {
     "attachmentsField": "添付ファイル",
@@ -16098,7 +16123,9 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "リソースセンター",
     "total": "合計 {total} 個",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "affiliates": "联盟营销",
+    "edit": "编辑资源"
   },
   "resourcesEditPage": {
     "backToList": "リソース一覧に戻る",
@@ -16167,7 +16194,8 @@
     },
     "title": "検索",
     "placeholder": "キーワードを入力",
-    "empty": "検索結果はありません"
+    "empty": "検索結果はありません",
+    "q": "搜索"
   },
   "searchHistory": {
     "clearAll": "クリアて",
@@ -16469,7 +16497,8 @@
       "deployments": "デプロイ事例",
       "satisfaction": "平均満足度",
       "title": "サービス提供済み顧客"
-    }
+    },
+    "title": "服务"
   },
   "settings": {
     "accountDeletionCancel": "削除を取り消す",
@@ -16866,7 +16895,9 @@
     "notification": "通知設定",
     "account": "アカウント",
     "version": "バージョン",
-    "usageRules": "利用規約"
+    "usageRules": "利用規約",
+    "notificationsLoadFailed": "通知加载失败",
+    "privacyLoadFailed": "隐私设置加载失败"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
@@ -17023,7 +17054,8 @@
       }
     },
     "tiersTitle": "スポンサープラン",
-    "whyTitle": "なぜ IHUI AI を支援するのか"
+    "whyTitle": "なぜ IHUI AI を支援するのか",
+    "title": "赞助"
   },
   "sso": {
     "alreadyLoggedIn": "ログインみ",
@@ -17068,8 +17100,10 @@
       "missingCode": "認証コードがありません。アプリから開いてください",
       "exchangeFailed": "認証に失敗しました。再試行または再ログインしてください",
       "networkError": "ネットワークエラーです。再試行してください",
-      "backToLogin": "ログインに戻る"
-    }
+      "backToLogin": "ログインに戻る",
+      "sso_code": "SSO 授權碼"
+    },
+    "platform": "平台"
   },
   "statistics": {
     "actions": "操作",
@@ -17541,7 +17575,9 @@
     "submit": "分割",
     "submitting": "分割中...",
     "title": "PDF 分割",
-    "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード"
+    "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード",
+    "convert": "转换",
+    "merge": "合并"
   },
   "topics": {
     "empty": "トピックはありません",
@@ -18230,7 +18266,8 @@
       "schedule": "スケジュール",
       "unknown": "不明なトリガー",
       "webhook": "ウェブフック"
-    }
+    },
+    "instance": "工作流实例"
   },
   "workspace": {
     "actions": "操作",
@@ -18420,7 +18457,9 @@
     "stepThinking": "思考中",
     "reasoningCopied": "推論をコピーしました",
     "reasoningCopyFailed": "推論のコピーに失敗しました",
-    "copyReasoning": "推論をコピー"
+    "copyReasoning": "推論をコピー",
+    "detail": "方案详情",
+    "new": "新建方案"
   },
   "subagent": {
     "toolCallsTitle": "{n} 回のツール呼び出し",
@@ -19172,7 +19211,8 @@
     "certTitle": "証明書名",
     "certNo": "証明書番号",
     "holderName": "氏名",
-    "issueDate": "発行日"
+    "issueDate": "発行日",
+    "notfound": "证书未找到"
   },
   "courseCatalog": {
     "title": "コース目次",
@@ -19851,7 +19891,8 @@
     "url": "共有リンク",
     "code": "共有コード",
     "expireAt": "有効期限",
-    "shareNow": "今すぐ共有"
+    "shareNow": "今すぐ共有",
+    "detail": "分享详情"
   },
   "vipBenefit": {
     "title": "VIP 特典"
@@ -20351,7 +20392,10 @@
     "autoMemory": "自動記憶",
     "autoMemoryDesc": "有効にすると、会話後にAIが要点を自動で抽出して長期記憶として蓄積し、その後のパーソナライズ応答に活用します。",
     "autoMemorySaveSuccess": "設定を保存しました",
-    "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください"
+    "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください",
+    "manager": "记忆管理",
+    "title": "记忆",
+    "new": "新建记忆"
   },
   "agentPlan": {
     "title": "Agent プランモード",
@@ -20391,6 +20435,99 @@
     "statusFailed": "失敗",
     "notFound": "計画が見つからないか、期限切れです",
     "conflict": "現在の計画状態ではこの操作は許可されていません",
-    "generic": "リクエストに失敗しました。後でもう一度お試しください"
+    "generic": "リクエストに失敗しました。後でもう一度お試しください",
+    "progress": "进度"
+  },
+  "compare": {
+    "title": "产品对比",
+    "subtitle": "IHUI AI 与主流 AI 平台的深度对比",
+    "description": "从多个维度对比 IHUI AI 与主流 AI 平台"
+  },
+  "useCases": {
+    "title": "使用场景",
+    "subtitle": "探索 IHUI AI 在不同场景下的应用",
+    "description": "了解 IHUI AI 如何赋能各类业务场景"
+  },
+  "context": {
+    "title": "上下文管理",
+    "compression": "上下文压缩",
+    "mentions": "提及管理",
+    "visualization": "上下文可视化"
+  },
+  "spec": {
+    "title": "需求规格",
+    "detail": "规格详情",
+    "generate": "生成规格",
+    "templates": "规格模板"
+  },
+  "subagents": {
+    "title": "子代理",
+    "detail": "子代理详情",
+    "dispatch": "分发任务",
+    "topology": "拓扑结构"
+  },
+  "aiSkills": {
+    "title": "AI 技能",
+    "detail": "技能详情",
+    "description": "AI 技能管理"
+  },
+  "download": {
+    "title": "下载",
+    "description": "下载 IHUI AI 客户端",
+    "id": "平台下载"
+  },
+  "agentRuntime": {
+    "title": "Agent 运行时",
+    "description": "Agent 运行时监控与管理"
+  },
+  "agentStepRecorder": {
+    "title": "Agent 步骤记录",
+    "description": "记录 Agent 执行步骤"
+  },
+  "apple": {
+    "callback": "Apple 登录回调"
+  },
+  "costDashboard": {
+    "title": "成本看板",
+    "description": "AI 成本监控看板"
+  },
+  "developers": {
+    "title": "开发者",
+    "description": "开发者文档与资源"
+  },
+  "google": {
+    "callback": "Google 登录回调"
+  },
+  "h5": {
+    "title": "H5 页面",
+    "share": "分享页面"
+  },
+  "legal": {
+    "title": "法律信息",
+    "serviceSpecificTerms": {
+      "title": "服务特定条款"
+    },
+    "supportedRegions": {
+      "title": "支持地区"
+    },
+    "terms": {
+      "title": "服务条款"
+    },
+    "usagePolicy": {
+      "title": "使用政策"
+    }
+  },
+  "mcpProjects": {
+    "title": "MCP 项目",
+    "store": "MCP 商店",
+    "description": "Model Context Protocol 项目管理"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n 自动化工作流 Agent"
+  },
+  "rules": {
+    "title": "规则",
+    "description": "平台规则与规范"
   }
 }
