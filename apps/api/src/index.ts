@@ -81,6 +81,16 @@ async function start() {
     } catch (e) {
       logger.warn('stopAiWorldSyncScheduler failed', { err: e })
     }
+    try {
+      stopRankingScheduler()
+    } catch (e) {
+      logger.warn('stopRankingScheduler failed', { err: e })
+    }
+    try {
+      stopTrendingScheduler()
+    } catch (e) {
+      logger.warn('stopTrendingScheduler failed', { err: e })
+    }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
       stopAutoRollbackMonitor()
