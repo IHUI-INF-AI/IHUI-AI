@@ -630,6 +630,39 @@ def _snapshot_compaction_if_needed(
         logger.warning("压缩快照 fire-and-forget 提交失败(不影响主流程): %s", e)
 
 
+def _record_compaction_step(
+    compressed_messages: list[dict[str, Any]],
+    compaction_info: dict[str, Any],
+    session_id: str | None,
+    user_id: str | None,
+) -> None:
+    """把一次真实发生的上下文语义压缩登记到 /api/context-compaction 感知队列。
+
+    P0-1 LLM 语义压缩闭环:llm 压缩命中时,除向量回捞外还要把 original/compressed
+    tokens + 摘要写进 context_compaction 的进程内历史,供"上下文压缩感知"面板读取。
+    用延迟 import 规避 llm.py 顶层导入环路;失败仅 warning,绝不影响主请求链路。
+    """
+    try:
+        from .context_compaction import record_compaction as _record
+
+        summary_text = ""
+        for m in compressed_messages:
+            content = m.get("content") if isinstance(m, dict) else None
+            if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+                summary_text = content
+                break
+        _record(
+            session_id or (f"chat:{user_id}" if user_id else "global"),
+            original_tokens=int(compaction_info.get("original_tokens") or 0),
+            compressed_tokens=int(compaction_info.get("compressed_tokens") or 0),
+            summary=summary_text[:500],
+            trigger=str(compaction_info.get("trigger") or "llm"),
+            user_id=user_id or "",
+        )
+    except Exception as e:
+        logger.warning("record_compaction 登记失败(不影响主流程): %s", e)
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -651,6 +684,17 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
+                compressed_messages=messages,
+                compaction_info=compaction_info,
+                session_id=(
+                    req.metadata.get("conversationId")
+                    if isinstance(req.metadata, dict)
+                    else None
+                ),
+                user_id=owner_uuid,
+            )
+            # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
                 session_id=(
@@ -1080,6 +1124,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
+                compressed_messages=messages,
+                compaction_info=compaction_info,
+                session_id=(
+                    req.metadata.get("conversationId")
+                    if isinstance(req.metadata, dict)
+                    else None
+                ),
+                user_id=owner_uuid,
+            )
+            # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
                 session_id=(

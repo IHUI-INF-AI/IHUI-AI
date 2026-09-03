@@ -747,6 +747,35 @@ async function sampleWithRetry(
 }
 
 /**
+ * COMPACTION_SUMMARY_PROMPT — 结构化四段式压缩摘要 system prompt(2026-09-02 升级)。
+ *
+ * 设计动机:对齐行业第一梯队的上下文压缩信息密度 —— 泛化的"保留请求/决策/文件"清单
+ * 导致 LLM 输出空洞套话;四段式强制结构化输出,每段有明确写法要求,信息密度显著更高。
+ * 500 字符下限与 compaction-v2 的 isDegenerateSummary 阈值对齐(不达标即 fallback V1)。
+ */
+export const COMPACTION_SUMMARY_PROMPT = [
+  '你是上下文压缩器。把以下对话历史压缩为结构化摘要,严格按以下四个 markdown 段落输出(段名原样保留,段落间用一个空行分隔):',
+  '',
+  '## 任务目标',
+  '用户会话要达成的核心目标,包括原始请求的完整语义与约束条件。',
+  '',
+  '## 已做决策',
+  '会话中确定的技术选择及其理由(选型、方案、取舍),每条决策一行,写明"选了什么+为什么"。',
+  '',
+  '## 文件与工具变更',
+  '涉及的文件路径(原样保留路径原文)、改动要点、调用的工具名及结果成败(✓/✗)。',
+  '',
+  '## 未完成事项与下一步',
+  '遗留问题、失败未解决的操作、建议的下一步行动,按优先级排列。',
+  '',
+  '硬性要求:',
+  '1. 总输出不少于 500 字符(不足视为退化摘要);',
+  '2. 不输出 <analysis>/<summary>/<thinking> 等任何控制标签;',
+  '3. 文件路径、工具名、命令保留原文,不要意译;',
+  '4. 只写事实性内容(发生了什么/决定了什么/改了什么/还差什么),不写空洞套话与客套语。',
+].join('\n');
+
+/**
  * createCompactionSampler:基于 streamChat 构造真实 LLM CompactionSampler。
  * 复用 packages/api-client 的 streamChat(流式 + onDelta 回调),不重新实现 LLM 调用。
  * 超时由 AbortController 触发,V2 的 classifyError 会分类为瞬态 → sampleWithRetry 重试。
@@ -761,7 +790,7 @@ export function createCompactionSampler(model: string): CompactionSampler {
         await streamChat({
           model,
           messages: [
-            { role: 'system', content: '你是上下文压缩器。把以下对话历史压缩为结构化摘要,保留:1) 用户主要请求 2) 关键技术决策 3) 涉及的文件路径与代码段 4) 当前工作进度 5) 待办任务。输出纯文本,不要 <analysis> 等标签。' },
+            { role: 'system', content: COMPACTION_SUMMARY_PROMPT },
             ...messages.map(m => ({ role: m.role, content: m.content })),
           ],
           signal: controller.signal,

@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -236,7 +237,7 @@ export default function NewsListPage() {
           {visibleList.map((n) => {
             const isRead = readIds.has(String(n.id))
             return (
-              <View
+              <ThemeRoot><View
                 key={n.id}
                 className={`item${isRead ? ' item-read' : ''}`}
                 onClick={() => goDetail(n.id)}
@@ -259,7 +260,7 @@ export default function NewsListPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}

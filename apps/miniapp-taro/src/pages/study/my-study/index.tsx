@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
 const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
@@ -87,7 +88,7 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="flex flex-col h-screen bg-background">
+      <ThemeRoot><View className="flex flex-col h-screen bg-background">
         <View className="p-[24rpx] bg-card flex-shrink-0">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
@@ -99,12 +100,12 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="flex flex-col h-screen bg-background">
+      <ThemeRoot><View className="flex flex-col h-screen bg-background">
         <View className="p-[24rpx] bg-card flex-shrink-0">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
@@ -122,11 +123,11 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="flex flex-col h-screen bg-background">
+    <ThemeRoot><View className="flex flex-col h-screen bg-background">
       <View className="p-[24rpx] bg-card flex-shrink-0">
         <Text className="text-[36rpx] font-semibold text-foreground">
           {t('study.myStudy.title')}
@@ -199,6 +200,6 @@ export default function MyStudy() {
         </View>
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

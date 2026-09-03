@@ -129,6 +129,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
 - 拖拽手柄用双层 div 结构(外层命中区 + 内层可见细线),**禁止** `before:` 伪元素方案。
 
+### 跨端样式同步铁律(强制)
+
+- web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。
+- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `scripts/sync-design-tokens.mjs` 自动同步,**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 校验同步一致性。
+- **主题系统**:miniapp-taro 主题根为 `ThemeRoot`(`@/components/ThemeRoot`,内部调用 `useThemeRoot()`),每个路由页 .tsx 顶层须 `<ThemeRoot>...</ThemeRoot>`。设置页切换主题必须调用 `@/lib/theme` 的 `setThemePreference`(同步原生导航栏/tabBar 配色 + 广播事件),**禁止**只用 `Taro.setStorageSync('theme', ...)` 而不同步原生 chrome(否则导航栏/tabBar 不变色)。
+- **禁止深色科技风回潮**:app.css 不得再出现 `page{background:#121217}` / `*{font-family!important}` 等全局深色强制覆盖;页面/组件 CSS 不得硬编码禁用色板(`#00f2ff`/`#121217`/`#1f1f28`/`#1a1a2e` 等),一律改用 `var(--color-*`)。
+- **禁止同名工具类冲突**:miniapp-taro 的 `app.css` 不得重定义 `.text-primary`/`.mt-*`/`.flex*`/`.align-*`/`.justify-*` 等与 web 端 Tailwind 同名同义类(语义冲突),局部样式用语义化类名 + `var(--color-*`)。
+- **守门**:`scripts/check-miniapp-taro-style-parity.mjs`(RULE-1~5:禁用色板 BLOCK / 其他 hex WARN / app.css 回归 BLOCK / 路由页 ThemeRoot BLOCK / tsx 内联 hex WARN / 已删除装饰类复用 BLOCK),接入 pre-commit(`HUSKY_SKIP_MINIAPP_PARITY=1` 跳过)+ `pnpm check:all`。新增路由页忘挂 `ThemeRoot`、改回深色科技风、复用已删装饰类,均会阻塞提交。
+
 ---
 
 ## 5. 后端约束
@@ -344,7 +353,8 @@ pnpm dev                                       # 启动所有服务(web + api + 
   - 完成后回主 worktree `git cherry-pick <sha>` 收编,随主 worktree push
   - 收编后立即 `git worktree remove ../IHUI-AI-wt-<任务名>` + `git worktree prune`
 - **worktree 内约束**:venv/node_modules 各自安装;端口不得冲突(docs/port-management.md 注册表);共享 DB/Redis 时 schema 迁移互斥。
-- **守门兜底(2026-08-31 已落地)**:即使未用 worktree,守门已支持 staged-scope 降级防误伤——① `check-api-routes.mjs`(pre-commit 第 8 项)仅收集暂存区前端文件调用点,暂存区无前端文件→跳过,暂存区为空(手动跑)→保持全量;② 新增 `scripts/check-typecheck.mjs` 包装 push 门全量 typecheck(tsc/mypy 报错文件均不在暂存区→降级警告放行;解析不到报错文件=tsc 未真正运行→按失败,宁误拦不放过);③ `.husky/pre-push` 第 2 段接入 `node scripts/guardian-runner.mjs --push-gate` 编排。自检:`node scripts/check-typecheck.mjs --self-test`。
+- **守门兜底(2026-08-31 已落地)**:即使未用 worktree,守门已支持 staged-scope 降级防误伤——① `check-api-routes.mjs`(pre-commit 第 8 项)仅收集暂存区前端文件调用点,暂存区无前端文件→跳过,暂存区为空(手动跑)→保持全量;② 新增 `scripts/check-typecheck.mjs` 包装 push 门全量 typecheck(**判据 = 本次改动范围**:优先 `PUSH_SCOPE_FILES`(pre-push 依 git 传入的 remote_sha..local_sha 计算),暂存区仅兜底;报错文件均不在改动范围内→降级警告放行;解析不到报错文件=tsc 未真正运行→按失败,宁误拦不放过);③ `.husky/pre-push` 第 2 段接入 `node scripts/guardian-runner.mjs --push-gate` 编排。自检:`node scripts/check-typecheck.mjs --self-test`(新增样例 8-12 覆盖 refspec push 与 Next.js 路由组括号路径)。
+  - **2026-09-03 push-scope 修复(必读,曾致 push 反复被硬拦)**:原判据只用暂存区,而 `git push <sha>:<ref>` 这类 refspec 推送**不产生暂存区**,若此刻他人也没 staged 文件,降级直接失效 → 他人并行会话的半编辑态报错(实测 miniapp-taro TS1005、web TS2345,单独复验均 0 错误)会硬拦本次 push。故 pre-push 先缓冲 stdin(`PUSH_REFS="$(cat)"`)再回喂 git-lfs,并据 `remote_sha..local_sha` 计算改动文件导出 `PUSH_SCOPE_FILES`;改动文件 >300 时清空该变量退回暂存区兜底(env 有长度上限,截断会漏判→宁可不降级)。同修一处不安全缺陷:tsc 报错正则原排除括号,把 `app/(main)/xxx.tsx` 截断成 `/xxx.tsx`,导致范围内文件匹配不上而**误放行**,现改为「扩展名 + `(\d+,\d+):`」双锚定。
 - **全流程已实战演练验证(2026-08-31,主仓零残留)**:worktree add --detach(9785 文件)→worktree 内 commit(--no-verify)→主仓 `cherry-pick --no-commit` 收编验证无冲突→`git restore --staged -- <file>` + 删除文件精准撤销→`git worktree remove` + `git worktree prune`。细则:① cherry-pick --no-commit 验证后**必须立即撤销**,验证/撤销对在同一 git-lock 单元内紧凑完成,防暂存文件被并行会话的 commit 卷入;② 演练/临时文件删除用 `Remove-Item -LiteralPath`(回收站式删除会失败)。
 - **应急:主 index 写锁/损坏时用 GIT_INDEX_FILE 旁路提交**(2026-08-31 实战验证,d22d233091 即此法提交):症状为 `fatal: Could not write new index file.`(objects 可写、磁盘充足、无 index.lock)→ 主 index 被外部句柄锁定。手法:`$env:GIT_INDEX_FILE = "$env:TEMP\ihui-index-recover"` 后照常跑 safe-commit 全流程(写入临时 index,主 index 不被触碰);旁路期间 staged-scope 守门读到的暂存区恰为本次声明文件,反而更精准。收尾:`Remove-Item Env:\GIT_INDEX_FILE` 必须清除防污染后续命令;事后 `git reset` 修复主 index(`git write-tree` 应返回非空树)。
 - **stash 清理零损失流程(2026-08-31 实例:backup/stash-temp-other-sessions-8e1863c)**:`git tag backup/stash-<名>-<sha7> '<stash-ref>'` → `git rev-parse` 验证 tag 与 stash SHA 一致 → `git stash drop '<stash-ref>'`。tag 指向原 stash commit,内容永不丢失,随时 `git stash apply <tag>` 可恢复。
@@ -470,7 +480,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 
 1. **pre-commit**:`check-push-sync.mjs`(guardian 第 29 项 blocking),commit 前检测本地 ahead(`git rev-list --count origin/<branch>..HEAD`),>0 阻塞;跳过 `HUSKY_SKIP_PUSH_SYNC=1`(不推荐);归档 commit `IHUI_ARCHIVE_COMMIT=1` 豁免。
 2. **post-commit(主防线)**:`git-push-guard.mjs` 自动检测 ahead → push + 验证 local == remote,失败阻断提示手动 push;跳过 `HUSKY_SKIP_PUSH=1`(不推荐)。
-3. **pre-push**:`.husky/pre-push` 第 2 段跑 `guardian-runner --push-gate`(2026-08-31 改版:check-typecheck.mjs 包装,staged-scope 降级——报错文件均不在暂存区时降级警告放行,防并行会话工作区噪音误伤,见 §12d),失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
+3. **pre-push**:`.husky/pre-push` 第 2 段跑 `guardian-runner --push-gate`(2026-08-31 改版 / 2026-09-03 push-scope 增强:check-typecheck.mjs 包装,**判据优先 PUSH_SCOPE_FILES 本次推送改动范围,暂存区兜底**——报错文件均不在改动范围内时降级警告放行,防并行会话工作区噪音误伤,见 §12d),失败阻止 push(commit 仍本地保留);跳过 `HUSKY_SKIP_TYPECHECK=1`(不推荐)。
 4. **手动兜底**:`node scripts/git-push-guard.mjs` 任何时候可手跑,打印 local vs remote HEAD,完全对齐 exit 0。
 
 ### 红线(违反视为协作事故)

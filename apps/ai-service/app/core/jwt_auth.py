@@ -63,10 +63,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                status_code=401,
-                content={"code": 401, "message": "Authentication required"},
-            )
+            # 前端 Next.js 代理到本服务时,内存 token 为空可能仅携带 cookie。
+            # 优先读 Authorization: Bearer,兜底读 HttpOnly cookie 的 auth_token。
+            cookie_token = request.cookies.get("auth_token")
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+            else:
+                return JSONResponse(
+                    status_code=401,
+                    content={"code": 401, "message": "Authentication required"},
+                )
 
         token = auth_header[7:].strip()
         payload = self._verify_token(token)
