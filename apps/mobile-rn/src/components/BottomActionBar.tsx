@@ -49,6 +49,7 @@ import {
   MessageCircle,
   Mic,
   Paperclip,
+  Plus,
   Scissors,
   Settings,
 } from 'lucide-react-native'
@@ -106,6 +107,11 @@ export interface BottomActionBarProps {
   onCompactContext?: () => void
   /** 压缩请求进行中(按钮切 loading 态并禁用,防重复点击) */
   compactContextLoading?: boolean
+  /** 输入行内「+」按钮回调(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换。
+   *  提供后在发送按钮左侧渲染「+」;未提供时不渲染。滑出区(辅助行 + 图标按钮组)由 isShowIcon 驱动) */
+  onPlusToggle?: () => void
+  /** 「+」按钮激活态(与 isShowIcon 同源:滑出区展开时高亮 + 旋转 45°,对齐 Uniapp rotate-icon) */
+  plusActive?: boolean
   onKeyboardShow?: () => void
   onKeyboardHide?: () => void
   onShowModelList?: () => void
@@ -116,6 +122,9 @@ export interface BottomActionBarProps {
   knowledgeBaseEnabled?: boolean
   permanentMemoryEnabled?: boolean
   voiceInputEnabled?: boolean
+  /** Toggle 开关行(智能体/MCP/知识库/记忆 chips)是否渲染。
+   *  对齐历史 uniapp ToggleButtonGroup.vue 根节点 v-if="false":默认隐藏,显式传 true 才渲染 */
+  showToggleChips?: boolean
 
   // ── UI 扩展(功能对齐所需) ──
   /** 图片预览列表(绑定 onRemoveImage)*/
@@ -346,6 +355,8 @@ function ChatInputBar(props: BottomActionBarProps) {
     onFangda,
     onCompactContext,
     compactContextLoading = false,
+    onPlusToggle,
+    plusActive = false,
     onKeyboardShow,
     onKeyboardHide,
     onShowModelList,
@@ -354,6 +365,7 @@ function ChatInputBar(props: BottomActionBarProps) {
     knowledgeBaseEnabled = false,
     permanentMemoryEnabled = false,
     voiceInputEnabled = false,
+    showToggleChips = false,
     images,
     modelName,
     isLoading = false,
@@ -408,11 +420,14 @@ function ChatInputBar(props: BottomActionBarProps) {
 
   const showModelBar =
     modelName !== undefined || onShowModelList !== undefined || onShowModelConfig !== undefined
+  // 滑出区联动(对齐 Uniapp isShowIcon):辅助按钮行与图标按钮组都随「+」展开/收起,默认隐藏
   const showSecondaryRow =
-    onFunctionHandle !== undefined ||
-    onSourceHandle !== undefined ||
-    onFangda !== undefined ||
-    onCompactContext !== undefined
+    isShowIcon &&
+    (onFunctionHandle !== undefined ||
+      onSourceHandle !== undefined ||
+      onFangda !== undefined ||
+      onCompactContext !== undefined ||
+      onAddFile !== undefined)
   const showIconGroup = isShowIcon && onIconClick !== undefined
 
   return (
@@ -464,8 +479,8 @@ function ChatInputBar(props: BottomActionBarProps) {
         </View>
       ) : null}
 
-      {/* Toggle chips 行 */}
-      {visibleChips.length > 0 ? (
+      {/* Toggle chips 行(对齐历史 uniapp ToggleButtonGroup v-if="false":默认隐藏,显式开启才渲染) */}
+      {showToggleChips && visibleChips.length > 0 ? (
         <View style={styles.toggleRow}>
           {visibleChips.map((chip) => (
             <ToggleChip
@@ -531,6 +546,23 @@ function ChatInputBar(props: BottomActionBarProps) {
           multiline
           editable={!isLoading}
         />
+
+        {/* 「+」按钮(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换滑出区;
+            激活时旋转 45° + 品牌色高亮,对齐 Uniapp rotate-icon 动画) */}
+        {onPlusToggle !== undefined ? (
+          <Pressable
+            style={[styles.plusBtn, plusActive ? styles.plusBtnActive : null]}
+            onPress={onPlusToggle}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={plusActive ? '收起面板' : '展开面板'}
+            accessibilityState={{ expanded: plusActive }}
+          >
+            <View style={{ transform: [{ rotate: plusActive ? '45deg' : '0deg' }] }}>
+              <Plus size={20} color={plusActive ? tokens.surface.light : '#6b7280'} />
+            </View>
+          </Pressable>
+        ) : null}
 
         {onSend !== undefined ? (
           <Pressable
@@ -951,6 +983,21 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.brand.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
+  } as ViewStyle,
+  // 「+」按钮(滑出区开关;激活态品牌色底,对齐 Uniapp search-box2 active)
+  plusBtn: {
+    width: SECONDARY_BTN_SIZE,
+    height: SECONDARY_BTN_SIZE,
+    borderRadius: SECONDARY_BTN_SIZE / 2,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    backgroundColor: tokens.surface.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  plusBtnActive: {
+    backgroundColor: tokens.brand.DEFAULT,
+    borderColor: tokens.brand.DEFAULT,
   } as ViewStyle,
   sendBtnDisabled: {
     opacity: 0.6,
