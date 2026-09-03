@@ -225,7 +225,7 @@ export default function DeveloperScreen() {
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: '#FF7272' }]}>到期时间</Text>
+              <Text style={[styles.infoLabel, { color: tokens.danger.bright }]}>到期时间</Text>
               <Text style={[styles.infoValue, { color: '#FF7272' }]} numberOfLines={1}>
                 {subscription.endTime ? new Date(subscription.endTime).toLocaleDateString() : '-'}
               </Text>
