@@ -9,6 +9,7 @@ import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
 import { getAgentList } from '@/api'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -280,9 +281,8 @@ export default function SpecialModelsPage() {
           {categories.map((c) => {
             const active = activeCategory === c.key
             return (
-              <View
-                key={c.key}
-                className={`inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}`}
+              <ThemeRoot key={c.key} className="inline-flex items-center gap-[6rpx] h-[64rpx] px-[24rpx] mr-[12rpx] bg-card border-[2rpx] rounded-[10rpx] align-middle ${active ? 'bg-primary/10 border-primary' : 'border-border'}">
+      <View key={c.key}
                 onClick={() => setActiveCategory(c.key)}
               >
                 <Image src={c.icon} className="w-[32rpx] h-[32rpx]" mode="aspectFit" />
@@ -292,6 +292,7 @@ export default function SpecialModelsPage() {
                   {c.label}
                 </Text>
               </View>
+    </ThemeRoot>
             )
           })}
         </View>

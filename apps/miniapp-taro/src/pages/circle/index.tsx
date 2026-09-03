@@ -7,6 +7,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -221,7 +222,7 @@ export default function CircleIndexPage() {
           {list.map((c) => {
             const imgs = c.images || []
             return (
-              <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
+              <ThemeRoot key={c.id}><View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
                 <View className="ci-item-head">
                   <Image className="ci-avatar" src={c.avatar || defaultAvatar} mode="aspectFill" />
                   <Text className="ci-author">
@@ -277,7 +278,7 @@ export default function CircleIndexPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}

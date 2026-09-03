@@ -8,6 +8,7 @@ import { View, Text, Image, Switch } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -86,7 +87,7 @@ export default function LiveSubscribe() {
   const statusText = (s: Live['status']) => tt(STATUS_LABEL[s].key, STATUS_LABEL[s].fb)
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       <View className="flex items-baseline text-[28rpx] text-foreground">
         <Text>{tt('live.subscribe.count', '已订阅')}</Text>
         <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
@@ -167,6 +168,6 @@ export default function LiveSubscribe() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

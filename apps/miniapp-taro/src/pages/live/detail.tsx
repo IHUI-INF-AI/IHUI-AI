@@ -7,6 +7,7 @@ import { View, Text, Image, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function LiveDetail() {
   const { t } = useI18n()
@@ -67,14 +68,14 @@ export default function LiveDetail() {
 
   if (!live) {
     return (
-      <View className="flex items-center justify-center h-screen text-muted-foreground">
+      <ThemeRoot><View className="flex items-center justify-center h-screen text-muted-foreground">
         <Text>{t('live.detail.loading')}</Text>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-screen">
+    <ThemeRoot><View className="min-h-screen">
       {/* 播放区 */}
       <View className="w-full h-[420rpx] bg-black">
         {live.playUrl ? (
@@ -144,6 +145,6 @@ export default function LiveDetail() {
         ) : null}
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,6 +8,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** n8n 工作流状态映射 */
 function getStatusInfo(
@@ -110,9 +111,8 @@ export default function AiAssistantN8n() {
               const desc = String(item.description || item.desc || '')
               const statusInfo = getStatusInfo(item.status, tt)
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+      <View key={id}
                   onClick={() => onItemClick(item)}
                 >
                   <View className="flex items-center justify-between">
@@ -136,6 +136,7 @@ export default function AiAssistantN8n() {
                     </Text>
                   </View>
                 </View>
+    </ThemeRoot>
               )
             })}
           </View>

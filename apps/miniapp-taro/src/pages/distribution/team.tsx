@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
 import './team.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface TeamMember {
   id: string
@@ -202,7 +203,8 @@ export default function DistributionTeam() {
           {displayList.map((m, idx) => {
             const rank = idx + 1
             return (
-              <View key={m.id} className="team-card">
+              <ThemeRoot key={m.id} className="team-card">
+      <View key={m.id}>
                 <View className="team-card-left">
                   <View className="team-avatar-wrap">
                     {m.avatar ? (
@@ -253,6 +255,7 @@ export default function DistributionTeam() {
                   </View>
                 </View>
               </View>
+    </ThemeRoot>
             )
           })}
         </View>

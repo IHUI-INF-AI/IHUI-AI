@@ -15,6 +15,7 @@ import {
   post,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 
@@ -214,7 +215,7 @@ export default function PayIndex() {
   const radioOn = 'border-primary bg-primary'
 
   return (
-    <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
+    <ThemeRoot><View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
       <View
         className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}
       >
@@ -390,6 +391,6 @@ export default function PayIndex() {
           : `${t('pay.confirm')} ¥${priceFmt.format(finalAmount)}`}
       </Button>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { formatDuration } from '@ihui/shared/utils'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -124,7 +125,7 @@ export default function LiveHost() {
   ]
 
   return (
-    <View className="min-h-screen p-3">
+    <ThemeRoot><View className="min-h-screen p-3">
       <View className="flex items-center justify-end mb-2">
         <View className={`px-2 py-0.5 rounded-md ${badgeCls}`}>
           <Text className="text-xs text-white">{badgeText}</Text>
@@ -244,6 +245,6 @@ export default function LiveHost() {
         )}
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

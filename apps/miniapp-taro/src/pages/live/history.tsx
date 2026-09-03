@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface HistoryItem extends Live {
   watchDuration?: number
@@ -136,8 +137,7 @@ export default function LiveHistory() {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View
-                key={item.id}
+              <ThemeRoot key={item.id}><View
                 className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => goDetail(item.id)}
               >
@@ -179,7 +179,7 @@ export default function LiveHistory() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}

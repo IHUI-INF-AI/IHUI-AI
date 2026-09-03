@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
+import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
 
 const MAX_CONTENT = 500
@@ -209,7 +210,7 @@ export default function CircleCreatePage() {
   }, [form, tt])
 
   return (
-    <View className="cc-page">
+    <ThemeRoot><View className="cc-page">
       <View className="cc-card cc-main">
         <Textarea
           className="cc-content"
@@ -340,7 +341,7 @@ export default function CircleCreatePage() {
           <Text className="cc-label">{tt('circle.create.allowComments', '允许评论')}</Text>
           <Switch
             checked={form.allowComments}
-            color="#07c160"
+            color="var(--color-wechat-green)"
             onChange={(e) => setForm((f) => ({ ...f, allowComments: e.detail.value }))}
           />
         </View>
@@ -357,6 +358,6 @@ export default function CircleCreatePage() {
         </Button>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

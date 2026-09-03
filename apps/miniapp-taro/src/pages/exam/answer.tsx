@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   getExamPaper,
   getExamQuestions,
@@ -127,25 +128,25 @@ export default function ExamAnswer() {
     const ans = answers[current.id]
     if (current.type === 'fill_blank') {
       return (
-        <Input
+        <ThemeRoot><Input
           className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl"
           type="text"
           placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}
         />
-      )
+      </ThemeRoot>)
     }
     if (current.type === 'subjective') {
       return (
-        <Textarea
+        <ThemeRoot><Textarea
           className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
           placeholder={t('exam.answer.answerPlaceholder')}
           value={typeof ans === 'string' ? ans : ''}
           onInput={(e) => select(e.detail.value)}
           maxlength={1000}
         />
-      )
+      </ThemeRoot>)
     }
     const opts = current.type === 'judgment' ? judgmentOptions : current.options || []
     const isMulti = current.type === 'multi_choice'
@@ -157,7 +158,7 @@ export default function ExamAnswer() {
           : ans === i
       const val: AnswerValue = current.type === 'judgment' ? i === 0 : i
       return (
-        <View
+        <ThemeRoot key={i}><View
           key={i}
           className={`flex items-center p-3 border rounded-xl mb-2 ${
             selected ? 'border-primary bg-[var(--color-muted)]' : 'border-[var(--color-border)]'
@@ -177,12 +178,12 @@ export default function ExamAnswer() {
           </View>
           <Text className="flex-1 ml-3 text-sm text-foreground">{opt}</Text>
         </View>
-      )
+      </ThemeRoot>)
     })
   }
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="flex justify-between p-3 bg-card">
         <Text className="text-base text-destructive font-bold">{formatTime(remain)}</Text>
         <Text className="text-sm text-muted-foreground">
@@ -216,6 +217,6 @@ export default function ExamAnswer() {
         )}
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
