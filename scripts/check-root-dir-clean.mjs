@@ -43,9 +43,6 @@ const ALLOWED_FILES = new Set([
   // 项目强制文档
   'AGENTS.md',
   'PROJECT_PLAN.md',
-  // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
-  'STATE.md',
-  'loop-run-log.md',
   // 开源标准文档(GitHub 官方识别)
   'README.md',
   'README.en.md',
