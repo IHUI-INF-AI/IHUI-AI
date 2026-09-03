@@ -9,6 +9,7 @@
 - POST /api/mcp/external/servers       注册 + 连接(校验缺失字段 400 / 重复 409)
 - DELETE /api/mcp/external/servers/{name} 注销
 - POST /api/mcp/external/servers/{name}/connect 重连
+- GET  /api/mcp/external/servers/{name}/capabilities 查询协商能力(protocol/serverInfo/capabilities)
 - GET  /api/mcp/external/tools         列出已连接服务器的工具
 - POST /api/mcp/external/tools/call    调用外部工具(未注册 server 返回错误)
 
@@ -24,7 +25,6 @@ from httpx import ASGITransport, AsyncClient
 
 from app.routers import mcp as mcp_router
 from app.services.mcp_client import MCPClientConfig, MCPClientManager
-
 
 # =============================================================================
 # fixtures
@@ -244,6 +244,89 @@ async def test_connect_known_server(ac, monkeypatch):
 # =============================================================================
 # GET /mcp/external/tools
 # =============================================================================
+
+
+# =============================================================================
+# GET /mcp/external/servers/{name}/capabilities(协商能力透出,2026-09-03 立)
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_capabilities_unknown_server_404(ac):
+    """查询不存在 server 的能力返回 404。"""
+    res = await ac.get("/api/mcp/external/servers/nope/capabilities")
+    assert res.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_capabilities_not_connected(ac, manager):
+    """已注册但未连接/未握手 → connected:false 且协商字段为空,不抛错。"""
+    manager.register(
+        MCPClientConfig(name="svr1", transport="stdio", command="echo")
+    )
+    res = await ac.get("/api/mcp/external/servers/svr1/capabilities")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["name"] == "svr1"
+    assert body["connected"] is False
+    assert body["negotiatedProtocol"] == ""
+    assert body["serverInfo"] == {}
+    assert body["capabilities"] == {}
+
+
+@pytest.mark.asyncio
+async def test_capabilities_exposes_negotiated(ac, manager, monkeypatch):
+    """已握手实例透出协商的协议版本/服务器身份/能力。"""
+    manager.register(
+        MCPClientConfig(name="svr1", transport="stdio", command="echo")
+    )
+    client = manager.get_client("svr1")
+    client._connected = True
+    client._negotiated_protocol = "2025-11-25"
+    client._server_info = {"name": "echo-server", "version": "1.0.0"}
+    client._capabilities = {
+        "tools": {"listChanged": True},
+        "resources": {"subscribe": True},
+        "experimental": {"custom": 1},
+    }
+
+    res = await ac.get("/api/mcp/external/servers/svr1/capabilities")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["connected"] is True
+    assert body["transport"] == "stdio"
+    assert body["negotiatedProtocol"] == "2025-11-25"
+    assert body["serverInfo"] == {"name": "echo-server", "version": "1.0.0"}
+    assert body["capabilities"]["tools"]["listChanged"] is True
+    assert body["capabilities"]["resources"]["subscribe"] is True
+    assert body["capabilities"]["experimental"] == {"custom": 1}
+
+
+@pytest.mark.asyncio
+async def test_list_servers_exposes_negotiated(ac, manager, monkeypatch):
+    """连接列表增量带出协商能力,既有结构字段保持。"""
+    manager.register(
+        MCPClientConfig(name="svr1", transport="stdio", command="echo")
+    )
+    client = manager.get_client("svr1")
+    client._connected = True
+    client._negotiated_protocol = "2025-06-18"
+    client._server_info = {"name": "s", "version": "2"}
+    client._capabilities = {"tools": {}}
+
+    res = await ac.get("/api/mcp/external/servers")
+    assert res.status_code == 200
+    s = res.json()["servers"][0]
+    assert s["connected"] is True
+    assert s["negotiatedProtocol"] == "2025-06-18"
+    assert s["serverInfo"] == {"name": "s", "version": "2"}
+    assert s["capabilities"] == {"tools": {}}
+    # 既有结构字段保持
+    for key in ("name", "transport", "command", "args", "url", "timeout",
+                "reconnect", "max_reconnect_attempts"):
+        assert key in s
+    # 敏感字段不暴露
+    assert "env" not in s
 
 
 @pytest.mark.asyncio

@@ -18,6 +18,7 @@ import {
   CircleIcon,
   ClipboardCheck,
   ClipboardList,
+  Cloud,
   Code,
   Cpu,
   CreditCard,
@@ -51,6 +52,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Mic,
+  MonitorSmartphone,
   Moon,
   Network,
   Newspaper,
@@ -374,6 +376,10 @@ const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/a2a', labelKey: 'eduAiA2a', icon: Network },
   { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
   { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
+  { href: '/deep-research', labelKey: 'deepResearch', icon: Rocket },
+  { href: '/cloud-agent', labelKey: 'cloudAgent', icon: Cloud },
+  { href: '/context-compaction', labelKey: 'contextCompaction', icon: Layers },
+  { href: '/computer-use', labelKey: 'computerUse', icon: MonitorSmartphone },
 ]
 
 export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
