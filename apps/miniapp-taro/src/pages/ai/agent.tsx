@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
 import Carousel from '@/components/Carousel'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   SearchBar,
   ModelTypeButtonGroup,
@@ -459,58 +460,56 @@ export default function AgentPage() {
           {filtered.map((agent) => {
             const rating = estimateRating(agent.uses)
             return (
-              <View
-                key={agent.id}
-                className="flex items-center bg-card rounded-lg p-3 mb-3"
-                onClick={() => goDetail(agent.id)}
-              >
-                <Image
-                  className="w-[100rpx] h-[100rpx] rounded-lg bg-muted"
-                  src={agent.avatar || '/static/default-agent.png'}
-                  mode="aspectFill"
-                />
-                <View className="flex-1 ml-3 min-w-0">
-                  <View className="flex items-center">
-                    <Text className="text-[30rpx] text-foreground font-semibold truncate">
-                      {agent.name}
-                    </Text>
-                    {agent.isVipExclusive && (
-                      <Text className="ml-2 text-[20rpx] px-[8rpx] py-[2rpx] rounded bg-amber-50 text-amber-600">
-                        VIP
+              <ThemeRoot key={agent.id} className="flex items-center bg-card rounded-lg p-3 mb-3">
+                <View key={agent.id} onClick={() => goDetail(agent.id)}>
+                  <Image
+                    className="w-[100rpx] h-[100rpx] rounded-lg bg-muted"
+                    src={agent.avatar || '/static/default-agent.png'}
+                    mode="aspectFill"
+                  />
+                  <View className="flex-1 ml-3 min-w-0">
+                    <View className="flex items-center">
+                      <Text className="text-[30rpx] text-foreground font-semibold truncate">
+                        {agent.name}
+                      </Text>
+                      {agent.isVipExclusive && (
+                        <Text className="ml-2 text-[20rpx] px-[8rpx] py-[2rpx] rounded bg-amber-50 text-amber-600">
+                          VIP
+                        </Text>
+                      )}
+                    </View>
+                    {agent.desc && (
+                      <Text className="block text-[24rpx] text-muted-foreground mt-1 truncate">
+                        {agent.desc}
                       </Text>
                     )}
+                    <View className="flex items-center mt-1">
+                      {agent.category && agent.category !== 'other' && (
+                        <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-2 rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                          {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
+                        </Text>
+                      )}
+                      {rating > 0 && (
+                        <View className="flex items-center mr-2">
+                          <Image
+                            src="/static/images/icons/star-fill.svg"
+                            mode="aspectFit"
+                            className="mr-[6rpx]"
+                            style={{ width: '22rpx', height: '22rpx' }}
+                          />
+                          <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
+                        </View>
+                      )}
+                      {agent.uses !== undefined && (
+                        <Text className="text-[22rpx] text-muted-foreground">
+                          {t('ai.agentList.useCount', { n: agent.uses })}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                  {agent.desc && (
-                    <Text className="block text-[24rpx] text-muted-foreground mt-1 truncate">
-                      {agent.desc}
-                    </Text>
-                  )}
-                  <View className="flex items-center mt-1">
-                    {agent.category && agent.category !== 'other' && (
-                      <Text className="text-[20rpx] px-[8rpx] py-[2rpx] mr-2 rounded bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-                        {t(CATEGORY_KEY[agent.category] ?? 'ai.agentList.categories.other')}
-                      </Text>
-                    )}
-                    {rating > 0 && (
-                      <View className="flex items-center mr-2">
-                        <Image
-                          src="/static/images/icons/star-fill.svg"
-                          mode="aspectFit"
-                          className="mr-[6rpx]"
-                          style={{ width: '22rpx', height: '22rpx' }}
-                        />
-                        <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
-                      </View>
-                    )}
-                    {agent.uses !== undefined && (
-                      <Text className="text-[22rpx] text-muted-foreground">
-                        {t('ai.agentList.useCount', { n: agent.uses })}
-                      </Text>
-                    )}
-                  </View>
+                  <Text className="text-muted-foreground ml-2">›</Text>
                 </View>
-                <Text className="text-muted-foreground ml-2">›</Text>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>
