@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
 import './team.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface TeamMember {
   id: string
@@ -202,57 +203,61 @@ export default function DistributionTeam() {
           {displayList.map((m, idx) => {
             const rank = idx + 1
             return (
-              <View key={m.id} className="team-card">
-                <View className="team-card-left">
-                  <View className="team-avatar-wrap">
-                    {m.avatar ? (
-                      <Image className="team-avatar" src={m.avatar} mode="aspectFill" />
-                    ) : (
-                      <View className="team-avatar team-avatar-fallback">
-                        <Text className="team-avatar-text">{m.nickname.charAt(0) || '?'}</Text>
+              <ThemeRoot key={m.id} className="team-card">
+                <View key={m.id}>
+                  <View className="team-card-left">
+                    <View className="team-avatar-wrap">
+                      {m.avatar ? (
+                        <Image className="team-avatar" src={m.avatar} mode="aspectFill" />
+                      ) : (
+                        <View className="team-avatar team-avatar-fallback">
+                          <Text className="team-avatar-text">{m.nickname.charAt(0) || '?'}</Text>
+                        </View>
+                      )}
+                      <View className={medalClass(rank)}>
+                        <Text>{medalText(rank)}</Text>
                       </View>
-                    )}
-                    <View className={medalClass(rank)}>
-                      <Text>{medalText(rank)}</Text>
                     </View>
+                    <Text className="team-nickname">{m.nickname}</Text>
                   </View>
-                  <Text className="team-nickname">{m.nickname}</Text>
-                </View>
 
-                <View className="team-info">
-                  <View className="team-info-row">
-                    <View className="team-info-group">
-                      <Text className="team-info-label">
-                        {tt('distribution.team.transactionVolume', '成交额')}
-                      </Text>
-                      <Text className="team-info-value">¥{formatToYuan(m.transactionVolume)}</Text>
+                  <View className="team-info">
+                    <View className="team-info-row">
+                      <View className="team-info-group">
+                        <Text className="team-info-label">
+                          {tt('distribution.team.transactionVolume', '成交额')}
+                        </Text>
+                        <Text className="team-info-value">
+                          ¥{formatToYuan(m.transactionVolume)}
+                        </Text>
+                      </View>
+                      <View className="team-info-group">
+                        <Text className="team-info-label">
+                          {tt('distribution.team.commission', '获取佣金')}
+                        </Text>
+                        <Text className="team-info-value">¥{formatToYuan(m.commission)}</Text>
+                      </View>
                     </View>
-                    <View className="team-info-group">
-                      <Text className="team-info-label">
-                        {tt('distribution.team.commission', '获取佣金')}
-                      </Text>
-                      <Text className="team-info-value">¥{formatToYuan(m.commission)}</Text>
+                    <View className="team-info-row">
+                      <View className="team-info-group">
+                        <Text className="team-info-label">
+                          {tt('distribution.team.orderNum', '成交订单数')}
+                        </Text>
+                        <Text className="team-info-value">{m.orderNum}</Text>
+                      </View>
                     </View>
-                  </View>
-                  <View className="team-info-row">
-                    <View className="team-info-group">
-                      <Text className="team-info-label">
-                        {tt('distribution.team.orderNum', '成交订单数')}
+                    <View className="team-info-row">
+                      <Text className="team-info-time">
+                        {tt('distribution.team.joinTime', '邀请时间')}:{' '}
+                        {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
                       </Text>
-                      <Text className="team-info-value">{m.orderNum}</Text>
+                      <Text className="team-sub-btn" onClick={() => goSubordinates(m.id)}>
+                        {tt('distribution.team.viewSubordinates', '查看下级')}
+                      </Text>
                     </View>
-                  </View>
-                  <View className="team-info-row">
-                    <Text className="team-info-time">
-                      {tt('distribution.team.joinTime', '邀请时间')}:{' '}
-                      {formatDateByTemplate(m.createdAt, 'YYYY-MM-DD') || '-'}
-                    </Text>
-                    <Text className="team-sub-btn" onClick={() => goSubordinates(m.id)}>
-                      {tt('distribution.team.viewSubordinates', '查看下级')}
-                    </Text>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>
