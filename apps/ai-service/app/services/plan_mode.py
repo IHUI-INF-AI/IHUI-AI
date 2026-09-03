@@ -13,17 +13,21 @@
 设计要点:
 - 计划阶段只许"看"、不许"改"。READONLY_TOOLS 只包含读/查询/分析类工具,
   写文件、执行命令、数据库写、子 agent 派发、电脑控制、排程等一律排除。
-- 状态机: draft ->(批准) executing -> done|failed ; draft ->(拒绝) rejected。
+- 状态机(审批门控闭环): draft|pending_approval ->(批准) executing -> done|failed;
+  pending_approval ->(拒绝) rejected;pending_approval ->(改签) pending_approval(新版本)。
+  每次细化作新版(version bump + reason),可审计"最终执行的是哪个版本、为何"。
   非法迁移(如对 rejected/done 再次 decision)抛 ValueError,由路由层转 409。
 """
 
 from __future__ import annotations
 
+import difflib
+import re
 import time
 import uuid
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from typing import Any
 
 from ..core.llm_gateway import llm_gateway
 
@@ -123,17 +127,25 @@ def is_readonly_tool(name: str) -> bool:
 # 计划记录与状态机
 # ---------------------------------------------------------------------------
 
-# 合法状态集合
+# 合法状态集合(含审批门控 pending_approval;draft 为旧别名,兼容既有迁移)
 PLAN_STATUSES: frozenset[str] = frozenset(
-    {"draft", "approved", "rejected", "executing", "done", "failed"}
+    {"draft", "pending_approval", "approved", "rejected", "executing", "done", "failed"}
 )
 
 # 合法状态迁移表(键=当前状态,值=允许迁移到的目标状态集合)
+# 审批门控闭环:
+#   draft/pending_approval -> executing(批准即执行,兼容既有单步行为)
+#   draft/pending_approval -> approved(仅批准门,不立即执行,待后续 executing 启动)
+#   pending_approval -> rejected(拒绝)
+#   pending_approval -> pending_approval(改签:细化新版本后重新回到待审批)
+#   rejected -> pending_approval(拒绝后可基于新版本重提)
+#   approved -> executing(启动执行)/ rejected(事后否决)/ pending_approval(撤回修改)
 _PLAN_TRANSITIONS: dict[str, frozenset[str]] = {
-    "draft": frozenset({"executing", "rejected"}),
-    "approved": frozenset({"executing", "done", "failed"}),
-    "rejected": frozenset(),
-    "executing": frozenset({"done", "failed"}),
+    "draft": frozenset({"pending_approval", "approved", "executing", "rejected"}),
+    "pending_approval": frozenset({"approved", "rejected", "executing", "pending_approval"}),
+    "approved": frozenset({"executing", "rejected", "pending_approval"}),
+    "rejected": frozenset({"pending_approval"}),
+    "executing": frozenset({"done", "failed", "rejected"}),
     "done": frozenset(),
     "failed": frozenset(),
 }
@@ -160,17 +172,27 @@ def validate_transition(current: str, target: str) -> None:
 
 @dataclass
 class PlanRecord:
-    """计划记录(进程内,带 TTL)。"""
+    """计划记录(进程内,带 TTL)。
+
+    版本与任务追踪字段:
+    - version / version_history:每次细化(批准时改签 / 拒绝改稿 / revise)会 version bump
+      + 记录 reason,历史可追溯 "最终执行的是哪个版本、为何"。
+    - tasks:把获批计划展开为可勾选 task 序列(pending/done/blocked),供前端展示进度。
+    """
 
     plan_id: str
     goal: str
     plan_md: str
     readonly_tools: frozenset[str]
-    session_id: Optional[str]
-    status: str  # draft|approved|rejected|executing|done|failed
+    session_id: str | None
+    status: str  # draft|pending_approval|approved|rejected|executing|done|failed
     created_at: str  # ISO8601
-    result: Optional[dict[str, Any]] = None
-    updated_at: Optional[str] = None
+    result: dict[str, Any] | None = None
+    updated_at: str | None = None
+    version: int = 1
+    # 每个条目: {version, reason, channel, plan_md, created_at}(含当前版本,末项即最新)
+    version_history: list[dict[str, Any]] = field(default_factory=list)
+    tasks: list[dict[str, Any]] = field(default_factory=list)
 
 
 class PlanStore:
@@ -209,9 +231,7 @@ class PlanStore:
         if not self._created_at:
             return
         now = time.time()
-        expired = [
-            pid for pid, ts in self._created_at.items() if now - ts > self._ttl
-        ]
+        expired = [pid for pid, ts in self._created_at.items() if now - ts > self._ttl]
         for pid in expired:
             self._store.pop(pid, None)
             self._created_at.pop(pid, None)
@@ -264,8 +284,8 @@ def _placeholder_plan(goal: str) -> str:
 
 async def create_draft(
     goal: str,
-    session_id: Optional[str] = None,
-    model: Optional[str] = None,
+    session_id: str | None = None,
+    model: str | None = None,
 ) -> PlanRecord:
     """创建计划草稿(只读阶段,不执行任何工具)。
 
@@ -278,7 +298,7 @@ async def create_draft(
         model: 指定模型(可选)
 
     Returns:
-        PlanRecord: 刚创建的草稿(状态 draft)
+        PlanRecord: 刚创建的草稿(状态 pending_approval,暂停待审批)
     """
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPT},
@@ -290,14 +310,186 @@ async def create_draft(
     else:
         plan_md = (result.get("content") or "").strip() or _placeholder_plan(goal)
 
+    created_at = datetime.now(UTC).isoformat()
     record = PlanRecord(
         plan_id=uuid.uuid4().hex,
         goal=goal,
         plan_md=plan_md,
         readonly_tools=READONLY_TOOLS,
         session_id=session_id,
-        status="draft",
-        created_at=datetime.now(timezone.utc).isoformat(),
+        status="pending_approval",
+        created_at=created_at,
+        version=1,
+        version_history=[
+            {
+                "version": 1,
+                "reason": "initial",
+                "channel": "llm",
+                "plan_md": plan_md,
+                "created_at": created_at,
+            }
+        ],
     )
     plan_store.save(record)
     return record
+
+
+# ---------------------------------------------------------------------------
+# 版本变更与可追溯(每次细化 -> 新版 version bump + reason)
+# ---------------------------------------------------------------------------
+
+_RULES_STEP_RE = re.compile(r"^\s*(\d+)[.、]\s*(.*)$")
+
+
+def refine_plan(
+    rec: PlanRecord,
+    updated_plan_md: str | None,
+    reason: str,
+    channel: str = "user",
+) -> PlanRecord:
+    """细化计划:version bump + reason 记录到版本历史。
+
+    若 updated_plan_md 为空或与当前内容一致,则仅记录 reason(不产生新内容版本);
+    否则追加新版到 version_history 并把 rec.plan_md/version 推进到最新。
+
+    Returns:
+        原 rec(就地修改,便于链式调用)。
+    """
+    now = datetime.now(UTC).isoformat()
+    new_md = (updated_plan_md or "").strip()
+    if new_md and new_md != rec.plan_md.strip():
+        rec.version += 1
+        rec.plan_md = new_md
+        rec.version_history.append(
+            {
+                "version": rec.version,
+                "reason": reason,
+                "channel": channel,
+                "plan_md": new_md,
+                "created_at": now,
+            }
+        )
+    elif reason:
+        # 无内容变更但给了 reason:补充最近一版的可追溯说明
+        if rec.version_history:
+            rec.version_history[-1]["reason"] = f"{rec.version_history[-1]['reason']} / {reason}"
+    rec.updated_at = now
+    return rec
+
+
+def list_versions(rec: PlanRecord, include_plan_md: bool = True) -> list[dict[str, Any]]:
+    """返回版本历史(含当前版本,按 version 升序)。
+
+    Args:
+        rec: 计划记录
+        include_plan_md: 是否携带 plan_md(列表默认不带,避免大文本)
+
+    Returns:
+        [{version, reason, channel, created_at, plan_md?}, ...]
+    """
+    out: list[dict[str, Any]] = []
+    for entry in rec.version_history:
+        item: dict[str, Any] = {
+            "version": entry["version"],
+            "reason": entry["reason"],
+            "channel": entry["channel"],
+            "created_at": entry["created_at"],
+        }
+        if include_plan_md:
+            item["plan_md"] = entry["plan_md"]
+        out.append(item)
+    return out
+
+
+def _versions_index(rec: PlanRecord) -> dict[int, dict[str, Any]]:
+    return {e["version"]: e for e in rec.version_history}
+
+
+def diff_versions(rec: PlanRecord, from_version: int, to_version: int) -> str:
+    """对两个历史版本做轻量行级 unified diff(用于审计最终执行的是哪个版本)。
+
+    Raises:
+        ValueError: 版本号不在历史中,或 from/to 相当。
+    """
+    index = _versions_index(rec)
+    if from_version not in index:
+        raise ValueError(f"版本不存在: v{from_version}(可用: {sorted(index)})")
+    if to_version not in index:
+        raise ValueError(f"版本不存在: v{to_version}(可用: {sorted(index)})")
+    if from_version == to_version:
+        return ""
+    old = index[from_version]["plan_md"].splitlines()
+    new = index[to_version]["plan_md"].splitlines()
+    diff = difflib.unified_diff(
+        old, new, fromfile=f"v{from_version}", tofile=f"v{to_version}", lineterm=""
+    )
+    return "\n".join(diff)
+
+
+# ---------------------------------------------------------------------------
+# 任务化执行(plan tasks):把获批计划展开为可勾选 task 序列
+# ---------------------------------------------------------------------------
+
+TASK_STATUSES: frozenset[str] = frozenset({"pending", "done", "blocked"})
+
+
+def derive_tasks(plan_md: str) -> list[dict[str, Any]]:
+    """从计划 markdown 的 `## 步骤` 编号列表展开为 task 序列。
+
+    返回 [{task_id, order, title, status}] ;status 默认 pending。
+    """
+    tasks: list[dict[str, Any]] = []
+    lines = plan_md.splitlines()
+    in_steps = False
+    order = 0
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## 步骤"):
+            in_steps = True
+            continue
+        if stripped.startswith("## "):
+            in_steps = False
+            continue
+        if not in_steps:
+            continue
+        m = _RULES_STEP_RE.match(stripped)
+        if m is None:
+            continue
+        order += 1
+        tasks.append(
+            {
+                "task_id": f"task-{order}",
+                "order": order,
+                "title": m.group(2).strip(),
+                "status": "pending",
+            }
+        )
+    return tasks
+
+
+def sync_tasks(rec: PlanRecord) -> list[dict[str, Any]]:
+    """按当前计划内容重新派生 task 序列,保留同名任务的已有勾选状态。"""
+    current = {t["task_id"]: t.get("status", "pending") for t in rec.tasks}
+    new_tasks = derive_tasks(rec.plan_md)
+    for task in new_tasks:
+        old = current.get(task["task_id"])
+        if old in TASK_STATUSES:
+            task["status"] = old
+    rec.tasks = new_tasks
+    return rec.tasks
+
+
+def update_task_status(rec: PlanRecord, task_id: str, status: str) -> bool:
+    """更新单个 task 状态(done/pending/blocked)。
+
+    Returns:
+        True 更新成功;False task 不存在或状态非法。
+    """
+    if status not in TASK_STATUSES:
+        return False
+    for task in rec.tasks:
+        if task.get("task_id") == task_id:
+            task["status"] = status
+            rec.updated_at = datetime.now(UTC).isoformat()
+            return True
+    return False
