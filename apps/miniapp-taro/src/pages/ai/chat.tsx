@@ -1035,8 +1035,7 @@ export default function ChatPage() {
             style={{
               width: 'calc(100% - 80rpx)',
               maxHeight: '50vh',
-              background:
-                'linear-gradient(101deg, rgba(205, 208, 255, 0.3) 4%, rgba(253, 255, 225, 0.3) 104%)',
+              background: 'var(--color-card)',
               borderRadius: '20rpx',
               padding: '20rpx',
               overflow: 'auto',
