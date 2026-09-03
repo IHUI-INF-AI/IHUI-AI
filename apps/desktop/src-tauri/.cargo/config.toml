@@ -1,0 +1,9 @@
+# 智汇AI (IHUI AI) 桌面端 — Cargo 全局配置 (src-tauri)
+#
+# 根治背景:tauri build 默认以多核并发调用 rustc/LLVM 编译本 crate,
+# 在 lto=thin + opt-level=s 的大 crate 链接期峰值内存极高,与机器上其他
+# 进程(Web 构建 / 虚拟机等)竞争时会触发 `rustc-LLVM ERROR: out of memory`
+# 或 `STATUS_ILLEGAL_INSTRUCTION(0xc000001d)` 导致打包失败。
+# 实测 `-j 1` 可稳定通过,故在此固化单并行度编译,杜绝打包再次 OOM。
+[build]
+jobs = 1
