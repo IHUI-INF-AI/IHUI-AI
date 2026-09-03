@@ -25,6 +25,16 @@
  *     因为文件 PATH 仍在快照中,只是内容更新;
  *   - 还原使用 `git restore --staged <file>`(git 2.23+),非破坏性,working tree 保留。
  *
+ * GIT_INDEX_FILE 隔离通道防护(2026-09-03 立,真实事故):
+ *   并行会话共用同一份 .git/index,commit 时会互相污染暂存区。AGENTS.md §20 推荐的
+ *   隔离通道是:`GIT_INDEX_FILE=<tmp> git read-tree HEAD && git add <本任务文件>`。
+ *   但 git/husky 在运行 pre-commit hook 时可能改写 GIT_INDEX_FILE(指向 git 自身的
+ *   临时索引),导致 takeStagingSnapshot() 与 restoreStaging() 读到的不是同一个索引:
+ *   快照里只有本任务的 N 个文件,还原时却读到"本任务 N 个 + 共享索引 M 个",于是把
+ *   共享索引里**其他会话的 M 个文件**当成"hook 期间新增"误 unstage。
+ *   防护:快照记录当时的 GIT_INDEX_FILE,还原时若检测到索引路径变化则**跳过还原**
+ *   (保守策略 — 宁可漏还原,也绝不误伤其他会话的暂存区)。
+ *
  * 文件扩展名说明:使用 .js 而非 .cjs,因为 .gitignore 第 129 行 `*.cjs` 规则忽略所有 .cjs 文件。
  * 根 package.json 无 "type": "module",所以 .js 文件按 CommonJS 处理,可使用 require/module.exports。
  *
