@@ -3101,4 +3101,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 > ⚠️ 遗留(非本任务引入):`agentGovernance.*` 17 个死 key(web 管理页源码已删,keys 存于 HEAD 与 5 个 web 语言 JSON,JSON 正被并行 AI 可观测性会话活跃编辑)。已用文档化 `HUSKY_SKIP_I18N_DEAD_KEY=1` 跳过(pre-commit:153),清理待并行会话收尾后执行。
 
+## P1 mobile-rn HomeScreen 底部输入框折叠态(2026-09-03 立并完成 ✅,提交 52c920d1c2,平台独占:apps/mobile-rn,已推三仓)
+
+> 用户 bug 报:"移动端界面的底部输入框怎么乱七八糟的,该默认隐藏的、点击后滑出的逻辑怎么都没了"。定位:**真正对象是 HomeScreen 的自研 `InputArea`(非 ChatScreen `BottomActionBar`,后者 4afa6ef724 已修)**——固定底部常驻、无折叠/展开逻辑。用户经 AskUserQuestion 拍板:**InputArea 加 collapsible 折叠态(默认 FAB + 点击展开 + × 折叠)**。
+
+- [x] ✅(2026-09-03) `apps/mobile-rn/src/components/InputArea.tsx` 新增 collapsible 体系:props `collapsible?/defaultCollapsed?/onCollapsedChange?/collapsedFabLabel?/collapseButtonLabel?`;状态 `useSafeAreaInsets` + `internalCollapsed`;折叠态早返回浮动 FAB(底部中央 `left:'50%', marginLeft:-28`,避开右下角 GlobalFloatBox 遮挡;`zIndex:9999 + elevation` 浮于内容之上),FAB 点击展开、完整态右上「×」折叠
+- [x] ✅(2026-09-03) `apps/mobile-rn/src/screens/HomeScreen.tsx` 启用 `<InputArea collapsible defaultCollapsed />`(HomeScreen 1669-1676 行)
+- [x] ✅(2026-09-03) `apps/mobile-rn/metro.config.cjs` 补回 SVG transformer 三件套(assetExts 剔 svg / sourceExts +svg / babelTransformerPath),必须置于 withNativeWind 包装前,否则 .svg 触发红屏
+- [x] ✅(2026-09-03) 设备级物理验证闭环(Android 模拟器 emulator-5554 软渲染):FAB 默认底部中央显示 → 点击展开完整输入栏 → × 折叠回 FAB,全链路目检通过;tsc 0 错误、调试残留清零。**踩坑沉淀**:① Metro 增量缓存不刷新 → 必须 kill Metro PID + `expo start --reset-cache` 强重启,curl bundle grep 关键字验证新代码进场;② 模拟器访问宿主机后端需 `adb reverse tcp:8802 tcp:8802`(`pm clear` 后规则丢失需重设);③ FAB 右下角被 GlobalFloatBox 拦截事件 → 改底部中央根治
+- [x] ✅(2026-09-03) 提交 `52c920d1c2` + 推三仓对齐(origin/gitee = 52c920d1c2;gitcode = 60b3abe707 并行会话追加,本提交为祖先)
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
