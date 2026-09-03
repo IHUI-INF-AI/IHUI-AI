@@ -649,11 +649,17 @@ foreach ($name in $toStart) {
 }
 
 # ============================================================
-# 后台预热高频路由(2026-09-02 页面切换提速):
+# 后台预热全量 nav 路由(2026-09-02 立 · 2026-09-03 升级为 --all):
 # dev 模式 Turbopack 按需编译,首次点击导航实测 9.8~11.1s/页(见 web.log
 # "○ Compiling /publish/history" → 11.8s)。启动器在 web 自检 PASS 后后台
-# 顺序 GET 12 条高频路由,把编译提前到启动阶段。不阻塞启动器,日志:
-#   $LogDir\web-warmup.log
+# 顺序 GET 全量 nav 路由(nav-data.ts 自动解析,184 条),把编译提前到启动阶段,
+# 用户首次点击命中已编译路由(~1s dev 固有开销,非冷编译 3~36s)。
+# 2026-09-03 升级:原仅 12 条高频 → 漏编译的第 13~184 条首次点击仍冷(用户实测
+# "根本没达到极致")。改为 --all 全量预热,彻底消除时机依赖;客户端 Sidebar 第七刀
+# 仅作直接 `next dev`(不经本启动器)路径的兜底,主路径以本启动预热为准。
+# 不阻塞启动器,日志: $LogDir\web-warmup.log
+# 缓存说明:Turbopack 缓存运行中增长(当前可达数十 GB),下次 `pnpm dev` 由
+# clean-turbopack-cache.mjs 前置清至 3GB 以下并重暖,会话内全量预热始终生效。
 # ============================================================
 if ($toStart -contains 'web') {
   $warmLog = Join-Path $LogDir 'web-warmup.log'
@@ -661,7 +667,7 @@ if ($toStart -contains 'web') {
   if ($nodeCmd) {
     try {
       Start-Process -FilePath $nodeCmd `
-        -ArgumentList @((Join-Path $RepoRoot 'scripts\warm-dev-routes.mjs')) `
+        -ArgumentList @((Join-Path $RepoRoot 'scripts\warm-dev-routes.mjs'), '--all') `
         -WorkingDirectory $RepoRoot `
         -WindowStyle Hidden `
         -RedirectStandardOutput $warmLog `
