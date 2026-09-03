@@ -8,14 +8,14 @@
    局部 CSS 变量仅作用于 .vip-page,不污染全局 tokens */
 
 .vip-page {
-  --vip-bg-dark: #0f1623;
-  --vip-bg-dark-2: #1f2937;
+  --vip-bg-dark: rgba(15, 22, 35, 1);
+  --vip-bg-dark-2: rgba(31, 41, 55, 1);
 /* 已接入 token:var(--color-vip-gold-start)(#ffd700);其余局部金/橙/深色变量无对应 token,保留原值 */
   --vip-gold: var(--color-vip-gold-start);
-  --vip-gold-2: #ffa500;
-  --vip-gold-hover: #ffc700;
-  --vip-gold-hover-2: #ff9500;
-  --vip-text: #ffffff;
+  --vip-gold-2: var(--color-brand-orange);
+  --vip-gold-hover: rgba(255, 199, 0, 1);
+  --vip-gold-hover-2: rgba(255, 149, 0, 1);
+  --vip-text: var(--color-foreground);
   --vip-text-muted: rgba(255, 255, 255, 0.6);
   --vip-border: rgba(255, 255, 255, 0.1);
   --vip-card-bg: rgba(255, 255, 255, 0.05);
@@ -87,7 +87,7 @@
   padding: 8rpx 20rpx;
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .expire-row {
   padding: 8rpx 40rpx 0;
@@ -120,7 +120,7 @@
   gap: 24rpx;
   padding: 24rpx;
   background: var(--vip-card-bg);
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--vip-border);
 }
 .feature-icon {
@@ -128,7 +128,7 @@
   width: 80rpx;
   height: 80rpx;
   background: var(--vip-card-bg-hover);
-  border-radius: 30rpx;
+  border-radius: var(--radius-xl);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -152,7 +152,7 @@
 .feature-tag {
   padding: 4rpx 16rpx;
   background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 20rpx;
   color: var(--vip-bg-dark-2);
   font-weight: bold;
@@ -166,7 +166,7 @@
   color: var(--vip-gold);
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 
 /* ===== 套餐卡 + 自动续费 + 会员说明 ===== */
@@ -175,7 +175,7 @@
   padding: 32rpx;
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 
 /* VipPriceSelector 深色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖) */
@@ -215,7 +215,7 @@
   align-items: center;
   justify-content: center;
   border: 2rpx solid var(--vip-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   background: var(--vip-card-bg);
   flex-shrink: 0;
 }
@@ -243,7 +243,7 @@
   margin-top: 24rpx;
   padding: 24rpx;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .desc-text {
   display: block;
@@ -291,7 +291,7 @@
   flex: 1;
   padding: 20rpx 48rpx;
   background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-radius: 30rpx;
+  border-radius: var(--radius-xl);
   font-size: 32rpx;
   color: var(--vip-bg-dark-2);
   font-weight: bold;
@@ -324,7 +324,7 @@
   width: 600rpx;
   background: linear-gradient(160deg, var(--vip-bg-dark-2), var(--vip-bg-dark));
   border: 1px solid var(--vip-border);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   padding: 40rpx;
 }
 .pp-title {
@@ -352,7 +352,7 @@
   color: var(--vip-bg-dark-2);
   font-size: 32rpx;
   font-weight: 700;
-  border-radius: 30rpx;
+  border-radius: var(--radius-xl);
   border: none;
   text-align: center;
   padding: 0;
@@ -370,7 +370,7 @@
   padding: 24rpx;
   background: var(--vip-card-bg);
   border: 1px solid var(--vip-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .pp-plan-name {
   font-size: 32rpx;
@@ -397,7 +397,7 @@
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--vip-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-right: 16rpx;
   display: flex;
   align-items: center;
@@ -424,7 +424,7 @@
   align-items: center;
   padding: 24rpx;
   background: var(--vip-card-bg);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 16rpx;
   border: 1px solid var(--vip-border);
 }
@@ -435,22 +435,22 @@
 .pp-pay-icon {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 20rpx;
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 28rpx;
   font-weight: 700;
   flex-shrink: 0;
 }
 /* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝/#ffffff 白字(在 .pp-pay-icon 中),无对应 token,保留原值 */
 .pp-pay-icon.wechat {
-  background: #09bb07;
+  background: rgba(9, 187, 7, 1);
 }
 .pp-pay-icon.alipay {
-  background: #1677ff;
+  background: rgba(22, 119, 255, 1);
 }
 .pp-pay-name {
   flex: 1;
@@ -469,7 +469,7 @@
   text-align: center;
   margin: 0 auto 24rpx;
   background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   color: var(--vip-bg-dark-2);
   font-size: 48rpx;
   font-weight: 700;

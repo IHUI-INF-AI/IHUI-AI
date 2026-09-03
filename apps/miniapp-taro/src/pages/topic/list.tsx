@@ -10,6 +10,7 @@ import { useState, useCallback, useRef } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface TopicItem {
   id: string
@@ -125,7 +126,7 @@ export default function TopicListPage() {
   ]
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <NavBar title={tt('topic.list.pageTitle', '话题')} showBack />
       <ScrollView scrollY className="flex-1 box-border">
         <View className="p-[24rpx] pb-[60rpx]">
@@ -247,6 +248,6 @@ export default function TopicListPage() {
         </View>
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

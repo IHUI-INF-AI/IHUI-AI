@@ -8,6 +8,7 @@ import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type LangItem = {
   value: Locale
@@ -85,7 +86,7 @@ export default function LanguagePage() {
   const currentLang = LANGS(tt).find((l) => l.value === current) ?? DEFAULT_LANG(tt)
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
       <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
         <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Image
@@ -149,6 +150,6 @@ export default function LanguagePage() {
         </Text>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

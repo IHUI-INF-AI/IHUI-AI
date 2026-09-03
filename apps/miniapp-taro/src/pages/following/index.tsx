@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFollowing, unfollowUser, type FollowingItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 const defaultAvatar = '/static/default-avatar.png'
@@ -129,7 +130,7 @@ export default function FollowingPage() {
             const name = item.nickname || item.username
             const initial = (name || '?').charAt(0)
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
               >
@@ -172,7 +173,7 @@ export default function FollowingPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}

@@ -17,6 +17,7 @@ import {
 } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   NavBar,
   MessageTabs,
@@ -342,27 +343,27 @@ export default function MessageIndex() {
   const renderTabContent = () => {
     if (activeTab === 'system') {
       return (
-        <SystemNotice
+        <ThemeRoot><SystemNotice
           list={systemList}
           onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
         />
-      )
+      </ThemeRoot>)
     }
     if (activeTab === 'interaction') {
       return (
-        <InteractionMessage
+        <ThemeRoot><InteractionMessage
           list={defaultInteraction}
           onClick={(item) =>
             Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
           }
         />
-      )
+      </ThemeRoot>)
     }
     if (activeTab === 'private') {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
     return (
-      <View className="p-[24rpx]">
+      <ThemeRoot><View className="p-[24rpx]">
         <SearchBar
           value={keyword}
           placeholder={t('message.search')}
@@ -409,12 +410,12 @@ export default function MessageIndex() {
           </Text>
         )}
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (selectedPrivate) {
     return (
-      <View className="min-h-screen bg-background">
+      <ThemeRoot><View className="min-h-screen bg-background">
         <NavBar title={selectedPrivate.userName} showBack onBack={() => setSelectedPrivate(null)} />
         <View style={{ height: `${menuButton.top + menuButton.height + 8}px` }} />
         <View style={{ height: 'calc(100vh - 60px)' }}>
@@ -428,11 +429,11 @@ export default function MessageIndex() {
           />
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <NavBar
         title={t('message.center')}
         showBack={false}
@@ -468,6 +469,6 @@ export default function MessageIndex() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

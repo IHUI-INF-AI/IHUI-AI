@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 
@@ -246,7 +247,7 @@ export default function FavoritesPage() {
           {displayList.map((item) => {
             const checked = selectedIds.has(item.id)
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
@@ -293,7 +294,7 @@ export default function FavoritesPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}
