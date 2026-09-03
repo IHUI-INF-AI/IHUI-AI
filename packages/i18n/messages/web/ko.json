@@ -9047,7 +9047,20 @@
     "recentRuns": "최근 5회 실행",
     "specificPlaceholder": "{min}-{max}, 쉼표로 구분",
     "stepPrefix": "매 ",
-    "title": "Cron 식 편집기"
+    "title": "Cron 식 편집기",
+    "field": {
+      "minute": "분",
+      "hour": "시",
+      "day": "일",
+      "month": "월",
+      "weekday": "요일"
+    },
+    "mode": {
+      "every": "매번",
+      "step": "간격",
+      "range": "범위",
+      "specific": "지정"
+    }
   },
   "crypto": {
     "bitcoin": {
@@ -16197,7 +16210,31 @@
       "titleTemplatePlaceholder": "예: 오늘의 AI 뉴스 {date}",
       "toggleAriaLabel": "작업 활성화/비활성화",
       "triggerNow": "즉시 트리거",
-      "useRefTemplate": "이 템플릿 참조"
+      "useRefTemplate": "이 템플릿 참조",
+      "example1Name": "WeChat 일일 업데이트",
+      "example1Desc": "매일 WeChat 공식 계정 게시물을 자동 생성 및 푸시",
+      "example1Schedule": "매일 09:00에 실행",
+      "example1Output": "당일 AI 뉴스 게시물을 생성하여 WeChat 초안으로 푸시",
+      "example2Name": "영상 스크립트 생성",
+      "example2Desc": "매일 영상 스크립트 자동 생성",
+      "example2Schedule": "매일 08:00에 실행",
+      "example2Output": "3개 영상 스크립트 생성 + 이중 게이트 검증",
+      "example3Name": "콘텐츠 모니터링",
+      "example3Desc": "경쟁사 콘텐츠 동향 모니터링",
+      "example3Schedule": "매시간 실행",
+      "example3Output": "경쟁사 최신 게시물 모니터링 및 요약",
+      "example4Name": "데이터 보고서",
+      "example4Desc": "데이터 분석 보고서 자동 생성",
+      "example4Schedule": "매주 월요일 09:00에 실행",
+      "example4Output": "지난주 데이터 요약 보고서 생성",
+      "example5Name": "경쟁사 추적",
+      "example5Desc": "경쟁사 최신 동향 추적",
+      "example5Schedule": "매일 10:00에 실행",
+      "example5Output": "경쟁사 콘텐츠 및 전략 변화 추적",
+      "example6Name": "이메일 일일",
+      "example6Desc": "매일 AI 뉴스를 이메일로 발송",
+      "example6Schedule": "매일 07:00에 실행",
+      "example6Output": "AI 산업 일간 뉴스레터 작성 및 발송"
     },
     "koubo": "나레이션",
     "kouboPage": {
