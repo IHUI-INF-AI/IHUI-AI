@@ -32,6 +32,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import { MoreTitles } from '../components/MoreTitles'
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
   // 项目未引入渐变库,取两端混合色 #C1DAFE 纯色近似
   root: {
     flex: 1,
-    backgroundColor: '#C1DAFE',
+    backgroundColor: tokens.indigo.light,
   },
   scroll: {
     flex: 1,
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#D9534F',
+    color: tokens.danger.DEFAULT,
     textAlign: 'center',
     paddingVertical: rpx(16),
   },
@@ -237,14 +238,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 4,
   },
   backToTopIcon: {
     fontSize: 18,
-    color: '#333',
+    color: tokens.text.medium,
     includeFontPadding: false,
   },
 })

@@ -20,6 +20,7 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -170,7 +171,7 @@ function buildThirdPartyOptions(locale: string): ThirdPartyLoginOption[] {
         label: 'Apple',
         iconSource: THIRD_PARTY_ICONS.apple,
         enabled: true,
-        brandColor: '#000000',
+        brandColor: tokens.gray.black,
       },
       ...domesticOptions,
     ]
@@ -808,7 +809,7 @@ const styles = StyleSheet.create({
   devFillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: tokens.surface.light,
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
