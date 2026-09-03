@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     paddingTop: CARD_PADDING_VERTICAL,
     paddingBottom: CARD_PADDING_VERTICAL,
     // iOS 阴影
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,

@@ -252,7 +252,7 @@ export function LoginPopUp({
               {showAgreementRow ? (
                 <Pressable style={styles.agreementRow} onPress={handleAgreeToggle}>
                   <View style={[styles.checkbox, agreeChecked ? styles.checkboxChecked : null]}>
-                    {agreeChecked ? <Check size={11} color={'#ffffff'} /> : null}
+                    {agreeChecked ? <Check size={11} color={tokens.surface.light} /> : null}
                   </View>
                   <Text style={styles.agreementText}>
                     <Text style={styles.agreementLink}>《用户协议》</Text>
