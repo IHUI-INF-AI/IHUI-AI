@@ -13,11 +13,11 @@
   height: 100vh;
 }
 
-/* ===== 操盘手头部 ===== */
-/* custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
+/* ===== 操盘手头部(浅色化:对齐 web 白卡,金色仅作点缀)===== */
 .trader-header {
   padding: 60rpx 32rpx 40rpx;
-  background: linear-gradient(135deg, rgba(248, 212, 134, 1), var(--color-warning));
+  background: var(--color-card);
+  border-bottom: 2rpx solid var(--color-border);
 }
 .trader-header-main {
   display: flex;
@@ -27,7 +27,7 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--color-muted);
   margin-right: 24rpx;
   flex-shrink: 0;
 }
@@ -49,7 +49,7 @@
 .trader-badge {
   margin-left: 12rpx;
   padding: 4rpx 12rpx;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(245, 158, 11, 0.12);
   border-radius: var(--radius-sm);
 }
 .trader-badge-text {
@@ -60,7 +60,7 @@
 .trader-title-text {
   margin-top: 8rpx;
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--color-muted-foreground);
 }
 .trader-price-wrap {
   margin-top: 12rpx;
@@ -83,7 +83,7 @@
 .trader-price-suffix {
   margin-left: 8rpx;
   font-size: 22rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 通用 Section ===== */
@@ -187,8 +187,7 @@
 }
 .trader-chart-bar {
   width: 32rpx;
-  /* custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
-  background: linear-gradient(180deg, rgba(248, 212, 134, 1), var(--color-warning));
+  background: var(--color-warning);
   border-radius: var(--radius-sm) 6rpx 0 0;
 }
 .trader-chart-label {
@@ -305,9 +304,9 @@
   border-radius: var(--radius-md);
 }
 .trader-package-btn-primary {
-  color: var(--color-foreground);
-  background: var(--color-warning);
-  border-color: var(--color-warning);
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 /* ===== 用户评价 ===== */
@@ -383,7 +382,7 @@
   background: rgba(245, 158, 11, 0.1);
 }
 .footer-btn-primary {
-  color: var(--color-foreground);
-  background: var(--color-warning);
+  color: var(--color-primary-foreground);
+  background: var(--color-primary);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

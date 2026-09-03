@@ -95,7 +95,7 @@
   left: 32rpx;
   right: 32rpx;
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-primary-foreground);
   border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 700;

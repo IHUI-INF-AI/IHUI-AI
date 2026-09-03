@@ -4,7 +4,6 @@
 
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
-import type { CSSProperties } from 'react'
 import type { Agent } from '@ihui/api-client'
 import EmptyState from './EmptyState'
 // 原项目 AgentList.vue 头像兜底图标(本地副本 import,对齐 zhs_app-ZZ)
@@ -47,13 +46,13 @@ const VIP_TAG_LABELS = (tt: TtFn): Record<VipType, string> => ({
   5: tt('AgentListPanel.d3', '已购买'),
 })
 
-/** VIP 标签样式(对齐原项目配色:金/绿/橙/蓝/灰) */
-const VIP_TAG_STYLES: Record<VipType, CSSProperties> = {
-  1: { background: 'rgba(251, 191, 36, 0.15)', color: '#fbbf24' },
-  2: { background: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' },
-  3: { background: 'rgba(249, 115, 22, 0.15)', color: '#f97316' },
-  4: { background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' },
-  5: { background: 'rgba(156, 163, 175, 0.15)', color: '#9ca3af' },
+/** VIP 标签样式(对齐原项目配色:金/绿/橙/蓝/灰;用 tailwind 色板与 web 端色彩语言一致) */
+const VIP_TAG_CLASSES: Record<VipType, string> = {
+  1: 'bg-amber-400/15 text-amber-400',
+  2: 'bg-green-500/15 text-green-500',
+  3: 'bg-orange-500/15 text-orange-500',
+  4: 'bg-blue-500/15 text-blue-500',
+  5: 'bg-gray-400/15 text-gray-400',
 }
 
 /** 价格格式化(分 → 元,如 990 → "9.9",1000 → "10") */
@@ -113,8 +112,7 @@ export default function AgentListPanel({
                     </Text>
                     {agent.vipType ? (
                       <Text
-                        className="ml-2 text-[20rpx] px-1.5 py-0.5 rounded font-medium"
-                        style={VIP_TAG_STYLES[agent.vipType]}
+                        className={`ml-2 text-[20rpx] px-1.5 py-0.5 rounded font-medium ${VIP_TAG_CLASSES[agent.vipType]}`}
                       >
                         {VIP_TAG_LABELS(tt)[agent.vipType]}
                         {agent.vipType === 4 && agent.price
