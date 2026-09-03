@@ -6765,7 +6765,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6782,7 +6787,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8744,32 +8754,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -9049,7 +9085,20 @@
     "recentRuns": "直近 5 件の実行",
     "specificPlaceholder": "{min}-{max}, カンマ区切り",
     "stepPrefix": "毎",
-    "title": "Cron 式エディタ"
+    "title": "Cron 式エディタ",
+    "field": {
+      "minute": "分",
+      "hour": "時",
+      "day": "日",
+      "month": "月",
+      "weekday": "曜日"
+    },
+    "mode": {
+      "every": "毎回",
+      "step": "間隔",
+      "range": "範囲",
+      "specific": "指定"
+    }
   },
   "crypto": {
     "bitcoin": {
@@ -10582,25 +10631,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10734,19 +10795,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -13231,7 +13304,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -16211,7 +16292,31 @@
       "titleTemplatePlaceholder": "例:今日の AI ニュース {date}",
       "toggleAriaLabel": "タスクを有効化/無効化",
       "triggerNow": "今すぐトリガー",
-      "useRefTemplate": "このテンプレートを参考にする"
+      "useRefTemplate": "このテンプレートを参考にする",
+      "example1Name": "WeChat毎日更新",
+      "example1Desc": "毎日自動でWeChat公式アカウント記事を生成・投稿",
+      "example1Schedule": "毎日 09:00 に実行",
+      "example1Output": "当日のAIニュース記事を生成しWeChat下書きに投稿",
+      "example2Name": "動画スクリプト生成",
+      "example2Desc": "毎日自動で動画スクリプトを生成",
+      "example2Schedule": "毎日 08:00 に実行",
+      "example2Output": "3本の動画スクリプト生成 + デュアルゲート検証",
+      "example3Name": "コンテンツ監視",
+      "example3Desc": "競合コンテンツの動向を監視",
+      "example3Schedule": "毎時実行",
+      "example3Output": "競合の最新投稿を監視・汇总",
+      "example4Name": "データレポート",
+      "example4Desc": "データ分析レポートを自動生成",
+      "example4Schedule": "毎週月曜 09:00 に実行",
+      "example4Output": "先週のデータまとめレポートを生成",
+      "example5Name": "競合追跡",
+      "example5Desc": "競合の最新動向を追跡",
+      "example5Schedule": "毎日 10:00 に実行",
+      "example5Output": "競合のコンテンツと戦略の変化を追跡",
+      "example6Name": "メール日報",
+      "example6Desc": "毎日AIニュースをメールで配信",
+      "example6Schedule": "毎日 07:00 に実行",
+      "example6Output": "AI業界の日刊ニュースレターを作成・配信"
     },
     "koubo": "ナレーション",
     "kouboPage": {

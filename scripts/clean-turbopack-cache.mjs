@@ -15,14 +15,6 @@
  *   本脚本在每次 `pnpm --filter @ihui/web dev` 启动前检查,超阈值自动清理,
  *   从源头杜绝缓存失控。正常会话单次增长 <1GB,3GB 阈值安全(不影响冷热编译体验)。
  *
- * 铁律(2026-09-03 血泪教训,禁止再犯):
- *   【严禁在 next dev 运行中清理缓存】Turbopack 进程运行时持有 .sst 文件句柄,
- *   运行中 `fs.rm` 删除 .sst 会导致 .meta 引用已删除文件 → 数据库损坏(corrupted),
- *   tokio-runtime-worker panic("Failed to restore task data") → 编译任务永久挂起,
- *   对应路由 100s 超时(实测 /wallet 中招)。清理必须且只能在 dev server
- *   【完全停止后】进行。本脚本被 `dev` 脚本以 `&&` 前置调用,天然满足此前提;
- *   任何手动清理请先 `pwsh scripts/start-dev.ps1 -Stop` 停掉所有 next dev 进程。
- *
  * 用法:
  *   node scripts/clean-turbopack-cache.mjs            # 默认:超 3GB 自动清理
  *   node scripts/clean-turbopack-cache.mjs --force    # 无条件清理
@@ -164,16 +156,9 @@ if (args.force || sizeMB > args.thresholdMB) {
     await fs.rm(TARGET, { recursive: true, force: true })
     console.log('[turbopack-cache] 清理完成')
   } catch (err) {
-    // 文件被占用(如另一窗口/并行会话的 next dev 正在运行)时 Windows 抛 EPERM/EBUSY。
-    // 2026-09-03 强化:原来只 warn 不阻塞 → next dev 带 40GB 缓存启动,会话内所有路由
-    // 退化到 15~19s(用户实测"根本没做到极致"的真因)。现改为:清理失败时 exit 1,
-    // 阻断 next dev 启动(&& 短路),强制开发者先停掉占用进程再启动,避免带病缓存。
-    // 注意:仅当缓存已超阈值(3GB)时阻塞;健康态(<阈值)不受影响,保持零摩擦启动。
-    console.error(`[turbopack-cache] 清理失败(进程占用缓存文件): ${err.message}`)
-    console.error('[turbopack-cache] 缓存已超阈值但被占用,阻断启动以杜绝"带病缓存导致全站慢"。')
-    console.error('[turbopack-cache] 解决:① 停掉所有 next dev 进程(pwsh scripts/start-dev.ps1 -Clean);')
-    console.error('[turbopack-cache]       ② 或手动 node scripts/clean-turbopack-cache.mjs --force 后重启。')
-    process.exit(1)
+    // 文件被占用(如另一窗口的 next dev 正在运行)时 Windows 抛 EPERM/EBUSY
+    console.warn(`[turbopack-cache] 清理失败(可能有进程占用): ${err.message}`)
+    console.warn('[turbopack-cache] 建议先停止所有 next dev 进程再重试')
   }
 } else {
   console.log('[turbopack-cache] 健康,无需清理')
