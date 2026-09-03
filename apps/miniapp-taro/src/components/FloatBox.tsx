@@ -74,7 +74,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           bottom: '9%',
           width: '118rpx',
           minHeight: '340rpx',
-          backgroundColor: '#fff',
+          backgroundColor: 'var(--color-card)',
           borderRadius: '30rpx',
           boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
           transition: 'right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1)',
@@ -108,7 +108,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           <Text
             style={{
               fontSize: '36rpx',
-              color: '#333',
+              color: 'var(--color-foreground)',
               fontWeight: 'bold',
             }}
           >
@@ -151,7 +151,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 style={{
                   fontSize: '28rpx',
                   fontWeight: 'bold',
-                  color: '#ff0000',
+                  color: 'var(--color-destructive)',
                   letterSpacing: '2rpx',
                 }}
               >
@@ -181,7 +181,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 style={{
                   fontSize: '28rpx',
                   fontWeight: 'bold',
-                  color: '#222',
+                  color: 'var(--color-foreground)',
                   letterSpacing: '2rpx',
                 }}
               >
@@ -211,7 +211,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
                 style={{
                   fontSize: '28rpx',
                   fontWeight: 'bold',
-                  color: '#222',
+                  color: 'var(--color-foreground)',
                   letterSpacing: '2rpx',
                 }}
               >

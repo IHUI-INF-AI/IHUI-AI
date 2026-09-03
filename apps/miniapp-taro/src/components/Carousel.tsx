@@ -84,20 +84,15 @@ export default function Carousel({
         <View style={{ display: 'flex', width: `${total * 100}%` }}>
           {items.map((item, index) => {
             const meta = variant === 'course' ? courseMeta[index] : undefined
-            // 修复 (2026-08-12 v2):img 为空 → 渐变 banner fallback。
+            // 修复 (2026-08-12 v2 + 2026-09-03 亮色化):img 为空 → 渐变 banner fallback。
             //   H5 实测 inline backgroundImage 会被 Taro 样式序列化丢弃，导致首屏只剩浅灰。
-            //   方案:① className 绑定 carousel-fallback-0/1/2（由 app.css 全局写死 linear-gradient）；
-            //        ② 同时给一个深色 solid backgroundColor 兜底，避免任何情况下出现浅灰；
-            //        ③ 保留 inline backgroundImage 作为额外保险。
+            //   方案:① className 绑定 carousel-fallback-0/1/2（由 app.css 全局写死亮色 token
+            //        linear-gradient，与 web 端 bg-muted/bg-card 亮色兜底同族，两端一致）；
+            //        ② 不再内联深色科技风 solid/gradient（曾致微信端深色残留，2026-09-03 已删，
+            //        与 app.css .carousel-fallback-* 亮色定义保持一致）。
             const hasImg = !!item.img
             const FALLBACK_COUNT = 3
             const fbIndex = index % FALLBACK_COUNT
-            const FALLBACK_SOLID = ['#1a1a3e', '#3e1a1a', '#0a3a2a']
-            const FALLBACK_GRAD = [
-              'linear-gradient(135deg, #1a1a3e 0%, #2d2d6b 50%, #667eea 100%)',
-              'linear-gradient(135deg, #3e1a1a 0%, #6b2d2d 50%, #f5576c 100%)',
-              'linear-gradient(135deg, #0a3a2a 0%, #1a5a4a 50%, #00d4aa 100%)',
-            ]
             return (
               <View
                 key={index}
@@ -113,13 +108,11 @@ export default function Carousel({
                 style={{
                   width: `${100 / total}%`,
                   // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
-                  // 显式设置高度,保证 banner 的深色渐变/纯色完整铺满可见区域。
+                  // 显式设置高度,保证 banner 的渐变/纯色完整铺满可见区域。
+                  // 背景色/渐变全部由 className 的 .carousel-fallback-* 提供(亮色 token),
+                  // 不再内联深色兜底(2026-09-03 与 web 亮色一致化)。
                   height: heightStyle,
                   flex: '0 0 auto',
-                  backgroundColor: hasImg ? undefined : FALLBACK_SOLID[fbIndex],
-                  backgroundImage: hasImg ? undefined : FALLBACK_GRAD[fbIndex],
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
                 }}
                 onClick={() => onItemClick?.(item, index)}
               >
@@ -128,13 +121,14 @@ export default function Carousel({
                 ) : null}
                 {!hasImg && (item.title || item.subtitle) ? (
                   <View className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                    {/* 亮色 fallback(2026-09-03):浅色 token 渐变底 → 文字用深色,与 web 端 bg-muted 兜底同族 */}
                     {item.title ? (
-                      <Text className="text-xl font-bold text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] text-center mb-2">
+                      <Text className="text-xl font-bold text-foreground drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] text-center mb-2">
                         {item.title}
                       </Text>
                     ) : null}
                     {item.subtitle ? (
-                      <Text className="text-sm text-white/95 drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] text-center">
+                      <Text className="text-sm text-muted-foreground drop-shadow-[0_1px_3px_rgba(0,0,0,0.1)] text-center">
                         {item.subtitle}
                       </Text>
                     ) : null}
@@ -176,7 +170,7 @@ export default function Carousel({
               onClick={() => goTo(index)}
               className={cn(
                 'h-1.5 rounded-sm transition-all',
-                current === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50',
+                current === index ? 'w-4 bg-foreground/80' : 'w-1.5 bg-foreground/30',
               )}
             />
           ))}

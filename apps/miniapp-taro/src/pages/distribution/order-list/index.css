@@ -55,7 +55,7 @@
   position: relative;
   padding: 24rpx;
   /* custom color: 原项目 order-card 渐变(浅紫→浅黄),无对应 token,保留原值 */
-  background: linear-gradient(114deg, rgba(205, 208, 255, 0.3) 3%, rgba(253, 255, 225, 0.3) 104%);
+  background: var(--color-card);
   box-shadow: 0 0 2rpx 0 rgba(0, 0, 0, 0.3);
   border-radius: 30rpx;
   overflow: hidden;

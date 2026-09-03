@@ -58,7 +58,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               key={item.key}
               className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               style={{
-                background: 'rgba(0,4,255,0.03)',
+                background: 'var(--color-card)',
                 boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)',
               }}
               onClick={() => {

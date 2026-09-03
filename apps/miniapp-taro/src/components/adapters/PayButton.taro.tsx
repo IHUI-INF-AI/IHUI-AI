@@ -221,7 +221,7 @@ const textStyles = {
     fontSize: toRpx(14),
   }),
   payBtnText: (): CSSProperties => ({ fontSize: toRpx(14) }),
-  closeBtn: (): CSSProperties => ({ fontSize: toRpx(18), color: '#999' }),
+  closeBtn: (): CSSProperties => ({ fontSize: toRpx(18), color: 'var(--color-muted-foreground)' }),
   defaultName: (): string => t('ai.title'),
   subscribeTip: (): string => t('pay.subscribeTip'),
   priceLabelFallback: (): string => t('devEnter.modelEdit.priceLabel'),

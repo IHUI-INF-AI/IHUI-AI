@@ -300,7 +300,7 @@ export default function ChatMessageItem({
                 onClick={handleReuse}
               />
               <Text
-                style={{ fontSize: '20rpx', color: '#1888ee', marginTop: '4rpx' }}
+                style={{ fontSize: '20rpx', color: 'var(--color-link)', marginTop: '4rpx' }}
                 onClick={handleReuse}
               >
                 {t('ai.chatMessageItem.reuse')}
@@ -390,7 +390,7 @@ export default function ChatMessageItem({
                   </Text>
                 )
               })}
-              {/* 代码块(保留当前 codeCollapsed 逻辑) */}
+              {/* 代码块(保留当前 codeCollapsed 逻辑;2026-09-03 浅色化:对齐 web oneLight,代码块 bg=var(--color-muted)) */}
               {msg.codeContent ? (
                 <View style={{ marginTop: '12rpx' }}>
                   <View
@@ -399,18 +399,21 @@ export default function ChatMessageItem({
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       padding: '12rpx 16rpx',
-                      background: '#282c34',
-                      borderRadius: '8rpx',
+                      background: 'var(--color-muted)',
+                      borderRadius: '8rpx 8rpx 0 0',
                     }}
                     onClick={() => setCodeCollapsed((v) => !v)}
                   >
-                    <Text style={{ fontSize: '24rpx', color: '#abb2bf' }}>
+                    <Text style={{ fontSize: '24rpx', color: 'var(--color-muted-foreground)' }}>
                       {codeCollapsed ? '▸' : '▾'} code
                     </Text>
-                    <Text style={{ fontSize: '22rpx', color: '#abb2bf' }}>
+                    <Text style={{ fontSize: '22rpx', color: 'var(--color-muted-foreground)' }}>
                       {t('ai.chatMessageItem.collapse')}
                     </Text>
-                    <Text style={{ fontSize: '24rpx', color: '#61dafb' }} onClick={copyCode}>
+                    <Text
+                      style={{ fontSize: '24rpx', color: 'var(--color-link)' }}
+                      onClick={copyCode}
+                    >
                       {codeCopied ? t('success.copied') : t('ai.chatMessageItem.copy')}
                     </Text>
                   </View>
@@ -421,8 +424,10 @@ export default function ChatMessageItem({
                         padding: '16rpx',
                         fontFamily: 'monospace',
                         fontSize: '24rpx',
-                        color: '#abb2bf',
-                        background: '#282c34',
+                        color: 'var(--color-foreground)',
+                        background: 'var(--color-muted)',
+                        borderRadius: '0 0 8rpx 8rpx',
+                        borderTop: '1rpx solid var(--color-border)',
                         whiteSpace: 'pre-wrap',
                         wordBreak: 'break-all',
                       }}
@@ -440,9 +445,9 @@ export default function ChatMessageItem({
                     alignItems: 'center',
                     marginTop: '12rpx',
                     padding: '12rpx 20rpx',
-                    background: '#9a99f3',
+                    background: 'var(--color-muted)',
                     borderRadius: '30rpx',
-                    color: '#fff',
+                    color: 'var(--color-foreground)',
                   }}
                   onClick={playVoice}
                 >
@@ -469,9 +474,9 @@ export default function ChatMessageItem({
                   style={{
                     marginTop: '12rpx',
                     padding: '10rpx 20rpx',
-                    background: '#9a99f3',
+                    background: 'var(--color-link)',
                     borderRadius: '15rpx',
-                    color: '#fff',
+                    color: 'var(--color-card)',
                     display: 'inline-block',
                   }}
                   onClick={goDigitalHuman}
@@ -487,7 +492,7 @@ export default function ChatMessageItem({
             </View>
           ) : (
             <View style={{ padding: '20rpx', textAlign: 'center' }}>
-              <Text style={{ color: '#999', fontSize: '24rpx' }}>···</Text>
+              <Text style={{ color: 'var(--color-muted-foreground)', fontSize: '24rpx' }}>···</Text>
             </View>
           )}
 
@@ -532,7 +537,7 @@ export default function ChatMessageItem({
                 opacity: answerHidden ? 0 : 1,
                 marginRight: '10rpx',
                 fontSize: '24rpx',
-                color: '#999',
+                color: 'var(--color-muted-foreground)',
                 lineHeight: '40rpx',
               }}
             >
@@ -580,7 +585,7 @@ export default function ChatMessageItem({
                     display: 'flex',
                     alignItems: 'center',
                     fontSize: '24rpx',
-                    color: '#1888ee',
+                    color: 'var(--color-link)',
                     marginLeft: '20rpx',
                     lineHeight: '40rpx',
                   }}
@@ -605,7 +610,7 @@ export default function ChatMessageItem({
                 <Text
                   style={{
                     fontSize: '24rpx',
-                    color: '#1888ee',
+                    color: 'var(--color-link)',
                     marginLeft: '20rpx',
                     lineHeight: '40rpx',
                   }}
