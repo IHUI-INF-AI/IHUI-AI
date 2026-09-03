@@ -1,4 +1,32 @@
 {
+  "search": {
+    "title": "検索",
+    "placeholder": "コース・講師・コンテンツを検索",
+    "empty": "関連コンテンツが見つかりません",
+    "failed": "検索に失敗しました",
+    "type": {
+      "course": "コース",
+      "article": "記事",
+      "post": "投稿",
+      "note": "ノート",
+      "agent": "エージェント"
+    }
+  },
+  "taskCenter": {
+    "title": "ミッションセンター",
+    "subtitle": "タスクをこなして報酬をゲット",
+    "retry": "再試行",
+    "empty": "受けられるタスクはありません",
+    "claimed": "受取済み",
+    "claim": "受け取る",
+    "goToDo": "完了する",
+    "progress": "{current}/{target}",
+    "claimFailed": "受取に失敗しました",
+    "loadFailed": "タスクの読み込みに失敗しました",
+    "tab_daily": "デイリー",
+    "tab_weekly": "ウィークリー",
+    "tab_newbie": "ビギナー"
+  },
   "nav": {
     "profile": "マイページ",
     "community": "コミュニティ"

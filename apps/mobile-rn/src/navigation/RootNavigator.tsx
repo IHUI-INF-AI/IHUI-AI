@@ -174,6 +174,8 @@ import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
 import { MoreCourseScreen } from '../screens/MoreCourseScreen'
 // H20 补齐:类型已声明但未注册的路由对应 Screen(此前 navigate 即崩)
 import { CourseDetailScreen } from '../screens/CourseDetailScreen'
+import { TeacherListScreen } from '../screens/TeacherListScreen'
+import { TeacherDetailScreen } from '../screens/TeacherDetailScreen'
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
 import { LiveDetailScreen } from '../screens/LiveDetailScreen'
 import { OrderScreen } from '../screens/OrderScreen'
@@ -417,6 +419,9 @@ export type RootStackParamList = {
   WebPortal: undefined
   KnowledgeRag: undefined
   Subagents: undefined
+  // P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路)
+  TeacherList: undefined
+  TeacherDetail: { id: string }
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -691,6 +696,9 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
             <RootStack.Screen name="Agent" component={AgentScreen} />
+            {/* P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路) */}
+            <RootStack.Screen name="TeacherList" component={TeacherListScreen} />
+            <RootStack.Screen name="TeacherDetail" component={TeacherDetailScreen} />
           </>
         ) : (
           <>

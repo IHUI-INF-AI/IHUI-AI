@@ -1,4 +1,32 @@
 {
+  "search": {
+    "title": "Search",
+    "placeholder": "Search courses, instructors, content",
+    "empty": "No results found",
+    "failed": "Search failed",
+    "type": {
+      "course": "Course",
+      "article": "Article",
+      "post": "Post",
+      "note": "Note",
+      "agent": "Agent"
+    }
+  },
+  "taskCenter": {
+    "title": "Task Center",
+    "subtitle": "Complete tasks, earn rewards",
+    "retry": "Retry",
+    "empty": "No tasks available",
+    "claimed": "Claimed",
+    "claim": "Claim",
+    "goToDo": "Go",
+    "progress": "{current}/{target}",
+    "claimFailed": "Failed to claim",
+    "loadFailed": "Failed to load tasks",
+    "tab_daily": "Daily",
+    "tab_weekly": "Weekly",
+    "tab_newbie": "Newbie"
+  },
   "nav": {
     "profile": "Profile",
     "community": "Community"
