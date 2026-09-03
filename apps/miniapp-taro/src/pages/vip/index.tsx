@@ -17,6 +17,7 @@ import {
   type VipPayInfo,
 } from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   VipBenefitsPopup,
   VipPriceSelector,
@@ -250,236 +251,242 @@ export default function VipIndexPage() {
   const currentPrice = selectedPlan?.price ?? 0
 
   return (
-    <View className="vip-page">
-      {/* 头部 400rpx + vip_back.png 背景 */}
-      <View className="header">
-        <Image className="bg-image" src="/static/images/vip_back.png" mode="aspectFill" />
-        <View className="content">
-          <View className="title">{tt('vip.index.brandTitle', 'AI智汇社 VIP会员')}</View>
-          <View className="subtitle">{t('vip.openHint')}</View>
-          <View className="price-box">
-            <Text className="current-price">¥{currentPrice}</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* 状态行:等级 + 等级介绍入口 */}
-      <View className="status-bar">
-        <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
-        <Text className="intro-link" onClick={onIntroduceClick}>
-          {t('vip.index.introduce')}
-        </Text>
-      </View>
-      {info.expireTime ? (
-        <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
-      ) : null}
-
-      {/* 特权列表(垂直 4 项) */}
-      <View className="features">
-        <View className="section-title">{t('vip.privileges')}</View>
-        <View className="feature-list">
-          {features.map((f) => (
-            <View key={f.id} className="feature-item">
-              <View className="feature-icon">
-                <Image style={{ width: '40rpx', height: '40rpx' }} src={f.icon} mode="aspectFit" />
-              </View>
-              <View className="feature-info">
-                <Text className="feature-title">{f.title}</Text>
-                <Text className="feature-desc">{f.desc}</Text>
-              </View>
-              <Text className="feature-tag">VIP</Text>
+    <ThemeRoot>
+      <View className="vip-page">
+        {/* 头部 400rpx + vip_back.png 背景 */}
+        <View className="header">
+          <Image className="bg-image" src="/static/images/vip_back.png" mode="aspectFill" />
+          <View className="content">
+            <View className="title">{tt('vip.index.brandTitle', 'AI智汇社 VIP会员')}</View>
+            <View className="subtitle">{t('vip.openHint')}</View>
+            <View className="price-box">
+              <Text className="current-price">¥{currentPrice}</Text>
             </View>
-          ))}
-        </View>
-        <View className="more-btn" onClick={onBenefitsClick}>
-          <Text>{t('vip.viewAllBenefits')}</Text>
-        </View>
-      </View>
-
-      {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
-      <View className="plans-card">
-        <View className="section-title">{t('vip.plans')}</View>
-        <VipPriceSelector
-          options={priceOptions}
-          selectedId={selectedPlan?.id || ''}
-          onSelect={onSelectPlan}
-        />
-        <View className="auto-renew" onClick={() => setAutoRenew((v) => !v)}>
-          <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
-            {autoRenew ? <Text className="auto-mark">✓</Text> : null}
-          </View>
-          <Text className="auto-text">{t('vip.index.autoRenew')}</Text>
-        </View>
-        <View
-          className="manage-link"
-          onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
-        >
-          <Text>{t('vip.index.manageAutoRenew')}</Text>
-        </View>
-        <View className="member-desc">
-          <View className="section-title small">{t('vip.memberDesc')}</View>
-          <Text className="desc-text">{t('vip.memberDescText')}</Text>
-        </View>
-      </View>
-
-      {/* 底部购买区 fixed */}
-      <View className="buy-section">
-        <View className="price-info">
-          <View className="price">
-            <Text className="symbol">¥</Text>
-            <Text className="number">{currentPrice}</Text>
           </View>
         </View>
-        <Button className="buy-btn" onClick={onUpgradeClick}>
-          {t('vip.subscribe')}
-        </Button>
-      </View>
 
-      <VipBenefitsPopup
-        visible={showBenefits}
-        benefits={benefits}
-        onUpgrade={() => {
-          setShowBenefits(false)
-          setShowPayConfirm(true)
-        }}
-        onClose={() => setShowBenefits(false)}
-      />
-
-      <VipPayConfirm
-        visible={showPayConfirm}
-        planName={selectedPlan ? `${selectedPlan.name}VIP` : t('vip.index.memberFallback')}
-        price={selectedPlan?.price}
-        originalPrice={selectedPlan?.originalPrice}
-        paymentMethod={payMethod}
-        onConfirm={onConfirmPay}
-        onCancel={() => setShowPayConfirm(false)}
-        onMethodChange={setPayMethod}
-      />
-
-      {/* 弹窗1: 等级介绍 */}
-      {showIntroduce ? (
-        <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
-          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
-            <View className="pp-title">{t('vip.index.introduceTitle')}</View>
-            <View className="pp-body">
-              <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
-            </View>
-            <Button className="pp-btn" onClick={onIntroduceSubscribe}>
-              {t('vip.subscribe')}
-            </Button>
-          </View>
+        {/* 状态行:等级 + 等级介绍入口 */}
+        <View className="status-bar">
+          <View className="status-level">{info.level ? info.name : t('vip.notOpened')}</View>
+          <Text className="intro-link" onClick={onIntroduceClick}>
+            {t('vip.index.introduce')}
+          </Text>
         </View>
-      ) : null}
+        {info.expireTime ? (
+          <View className="expire-row">{t('vip.expireTime', { time: info.expireTime })}</View>
+        ) : null}
 
-      {/* 弹窗2: 确认购买 */}
-      {showConfirm && selectedPlan ? (
-        <View className="pp-mask" onClick={() => setShowConfirm(false)}>
-          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
-            <View className="pp-title">{t('vip.index.confirmTitle')}</View>
-            <View className="pp-body">
-              <View className="pp-plan">
-                <Text className="pp-plan-name">{selectedPlan.name} VIP</Text>
-                <Text className="pp-plan-price">¥{selectedPlan.price}</Text>
-                <Text className="pp-plan-period">{selectedPlan.period}</Text>
-              </View>
-            </View>
-            <Button className="pp-btn" onClick={onConfirmNext}>
-              {t('vip.index.payNow')} ¥{selectedPlan.price}
-            </Button>
-          </View>
-        </View>
-      ) : null}
-
-      {/* 弹窗3: 购买须知 */}
-      {showNotice ? (
-        <View className="pp-mask" onClick={() => setShowNotice(false)}>
-          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
-            <View className="pp-title">{t('vip.index.noticeTitle')}</View>
-            <View className="pp-body">
-              <Text className="pp-text">{t('vip.index.noticeRule1')}</Text>
-              <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
-              <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
-              <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
-              <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
-                <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
-                  {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
+        {/* 特权列表(垂直 4 项) */}
+        <View className="features">
+          <View className="section-title">{t('vip.privileges')}</View>
+          <View className="feature-list">
+            {features.map((f) => (
+              <View key={f.id} className="feature-item">
+                <View className="feature-icon">
+                  <Image
+                    style={{ width: '40rpx', height: '40rpx' }}
+                    src={f.icon}
+                    mode="aspectFit"
+                  />
                 </View>
-                <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
+                <View className="feature-info">
+                  <Text className="feature-title">{f.title}</Text>
+                  <Text className="feature-desc">{f.desc}</Text>
+                </View>
+                <Text className="feature-tag">VIP</Text>
               </View>
-            </View>
-            <Button className="pp-btn" onClick={onNoticeAgree}>
-              {t('vip.index.continuePay')}
-            </Button>
+            ))}
+          </View>
+          <View className="more-btn" onClick={onBenefitsClick}>
+            <Text>{t('vip.viewAllBenefits')}</Text>
           </View>
         </View>
-      ) : null}
 
-      {/* 弹窗4: 支付方式选择 */}
-      {showPayMethod ? (
-        <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
-          <View className="pp-card" onClick={(e) => e.stopPropagation()}>
-            <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
-            <View className="pp-body">
-              <View
-                className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
-                onClick={() => setPayMethod('wechat')}
-              >
-                <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
-                <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
-                {payMethod === 'wechat' ? (
-                  <Image
-                    className="pp-pay-check"
-                    src="/static/images/icons/check.svg"
-                    mode="aspectFit"
-                    style={{ width: '32rpx', height: '32rpx' }}
-                  />
-                ) : null}
-              </View>
-              <View
-                className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
-                onClick={() => setPayMethod('alipay')}
-              >
-                <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
-                <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
-                {payMethod === 'alipay' ? (
-                  <Image
-                    className="pp-pay-check"
-                    src="/static/images/icons/check.svg"
-                    mode="aspectFit"
-                    style={{ width: '32rpx', height: '32rpx' }}
-                  />
-                ) : null}
-              </View>
+        {/* 套餐选择 + 自动续费 + 会员说明(深色卡片) */}
+        <View className="plans-card">
+          <View className="section-title">{t('vip.plans')}</View>
+          <VipPriceSelector
+            options={priceOptions}
+            selectedId={selectedPlan?.id || ''}
+            onSelect={onSelectPlan}
+          />
+          <View className="auto-renew" onClick={() => setAutoRenew((v) => !v)}>
+            <View className={`auto-check ${autoRenew ? 'checked' : ''}`}>
+              {autoRenew ? <Text className="auto-mark">✓</Text> : null}
             </View>
-            <Button className="pp-btn" onClick={onPayMethodConfirm}>
-              {t('vip.index.confirmPay')}
-            </Button>
+            <Text className="auto-text">{t('vip.index.autoRenew')}</Text>
+          </View>
+          <View
+            className="manage-link"
+            onClick={() => Taro.navigateTo({ url: '/pages/subscription/contracts/index' })}
+          >
+            <Text>{t('vip.index.manageAutoRenew')}</Text>
+          </View>
+          <View className="member-desc">
+            <View className="section-title small">{t('vip.memberDesc')}</View>
+            <Text className="desc-text">{t('vip.memberDescText')}</Text>
           </View>
         </View>
-      ) : null}
 
-      {/* 弹窗5: 开通成功 */}
-      {showSuccess ? (
-        <View className="pp-mask">
-          <View className="pp-card">
-            <View className="pp-success-icon">
-              <Image
-                src="/static/images/icons/check-success.svg"
-                mode="aspectFit"
-                style={{ width: '64rpx', height: '64rpx' }}
-              />
+        {/* 底部购买区 fixed */}
+        <View className="buy-section">
+          <View className="price-info">
+            <View className="price">
+              <Text className="symbol">¥</Text>
+              <Text className="number">{currentPrice}</Text>
             </View>
-            <View className="pp-title">{t('vip.index.successTitle')}</View>
-            <View className="pp-body">
-              <Text className="pp-text">{t('vip.index.successDesc')}</Text>
-            </View>
-            <Button className="pp-btn" onClick={onSuccessViewBenefits}>
-              {t('vip.index.viewBenefits')}
-            </Button>
           </View>
+          <Button className="buy-btn" onClick={onUpgradeClick}>
+            {t('vip.subscribe')}
+          </Button>
         </View>
-      ) : null}
-    </View>
+
+        <VipBenefitsPopup
+          visible={showBenefits}
+          benefits={benefits}
+          onUpgrade={() => {
+            setShowBenefits(false)
+            setShowPayConfirm(true)
+          }}
+          onClose={() => setShowBenefits(false)}
+        />
+
+        <VipPayConfirm
+          visible={showPayConfirm}
+          planName={selectedPlan ? `${selectedPlan.name}VIP` : t('vip.index.memberFallback')}
+          price={selectedPlan?.price}
+          originalPrice={selectedPlan?.originalPrice}
+          paymentMethod={payMethod}
+          onConfirm={onConfirmPay}
+          onCancel={() => setShowPayConfirm(false)}
+          onMethodChange={setPayMethod}
+        />
+
+        {/* 弹窗1: 等级介绍 */}
+        {showIntroduce ? (
+          <View className="pp-mask" onClick={() => setShowIntroduce(false)}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+              <View className="pp-title">{t('vip.index.introduceTitle')}</View>
+              <View className="pp-body">
+                <Text className="pp-text">{t('vip.index.introduceDesc')}</Text>
+              </View>
+              <Button className="pp-btn" onClick={onIntroduceSubscribe}>
+                {t('vip.subscribe')}
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 弹窗2: 确认购买 */}
+        {showConfirm && selectedPlan ? (
+          <View className="pp-mask" onClick={() => setShowConfirm(false)}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+              <View className="pp-title">{t('vip.index.confirmTitle')}</View>
+              <View className="pp-body">
+                <View className="pp-plan">
+                  <Text className="pp-plan-name">{selectedPlan.name} VIP</Text>
+                  <Text className="pp-plan-price">¥{selectedPlan.price}</Text>
+                  <Text className="pp-plan-period">{selectedPlan.period}</Text>
+                </View>
+              </View>
+              <Button className="pp-btn" onClick={onConfirmNext}>
+                {t('vip.index.payNow')} ¥{selectedPlan.price}
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 弹窗3: 购买须知 */}
+        {showNotice ? (
+          <View className="pp-mask" onClick={() => setShowNotice(false)}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+              <View className="pp-title">{t('vip.index.noticeTitle')}</View>
+              <View className="pp-body">
+                <Text className="pp-text">{t('vip.index.noticeRule1')}</Text>
+                <Text className="pp-text">{t('vip.index.noticeRule2')}</Text>
+                <Text className="pp-text">{t('vip.index.noticeRule3')}</Text>
+                <Text className="pp-text">{t('vip.index.noticeRule4')}</Text>
+                <View className="pp-check" onClick={() => setNoticeAgreed(!noticeAgreed)}>
+                  <View className={`pp-checkbox ${noticeAgreed ? 'checked' : ''}`}>
+                    {noticeAgreed ? <Text className="pp-check-mark">✓</Text> : null}
+                  </View>
+                  <Text className="pp-check-text">{t('vip.index.noticeAgree')}</Text>
+                </View>
+              </View>
+              <Button className="pp-btn" onClick={onNoticeAgree}>
+                {t('vip.index.continuePay')}
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 弹窗4: 支付方式选择 */}
+        {showPayMethod ? (
+          <View className="pp-mask" onClick={() => setShowPayMethod(false)}>
+            <View className="pp-card" onClick={(e) => e.stopPropagation()}>
+              <View className="pp-title">{t('vip.index.payMethodTitle')}</View>
+              <View className="pp-body">
+                <View
+                  className={`pp-pay-item ${payMethod === 'wechat' ? 'active' : ''}`}
+                  onClick={() => setPayMethod('wechat')}
+                >
+                  <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
+                  <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
+                  {payMethod === 'wechat' ? (
+                    <Image
+                      className="pp-pay-check"
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      style={{ width: '32rpx', height: '32rpx' }}
+                    />
+                  ) : null}
+                </View>
+                <View
+                  className={`pp-pay-item ${payMethod === 'alipay' ? 'active' : ''}`}
+                  onClick={() => setPayMethod('alipay')}
+                >
+                  <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
+                  <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
+                  {payMethod === 'alipay' ? (
+                    <Image
+                      className="pp-pay-check"
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      style={{ width: '32rpx', height: '32rpx' }}
+                    />
+                  ) : null}
+                </View>
+              </View>
+              <Button className="pp-btn" onClick={onPayMethodConfirm}>
+                {t('vip.index.confirmPay')}
+              </Button>
+            </View>
+          </View>
+        ) : null}
+
+        {/* 弹窗5: 开通成功 */}
+        {showSuccess ? (
+          <View className="pp-mask">
+            <View className="pp-card">
+              <View className="pp-success-icon">
+                <Image
+                  src="/static/images/icons/check-success.svg"
+                  mode="aspectFit"
+                  style={{ width: '64rpx', height: '64rpx' }}
+                />
+              </View>
+              <View className="pp-title">{t('vip.index.successTitle')}</View>
+              <View className="pp-body">
+                <Text className="pp-text">{t('vip.index.successDesc')}</Text>
+              </View>
+              <Button className="pp-btn" onClick={onSuccessViewBenefits}>
+                {t('vip.index.viewBenefits')}
+              </Button>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

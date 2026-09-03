@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PrivacySection {
   subtitle: string
@@ -519,40 +520,22 @@ export default function PrivacyPage() {
   ]
 
   return (
-    <ScrollView className="h-screen bg-card" scrollY>
-      <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
-        <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[20rpx]">
-          {tt('about.privacy.mainTitle', '隐私政策')}
-        </Text>
-        <Text className="block text-[24rpx] text-muted-foreground text-center mb-[12rpx]">
-          {tt('about.privacy.updateDate', '更新日期: 2025年06月21日')}
-        </Text>
-        <Text className="block text-[24rpx] text-muted-foreground text-center mb-[12rpx]">
-          {tt('about.privacy.effectiveDate', '生效日期: 2025年06月21日')}
-        </Text>
+    <ThemeRoot>
+      <ScrollView className="h-screen bg-card" scrollY>
+        <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
+          <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[20rpx]">
+            {tt('about.privacy.mainTitle', '隐私政策')}
+          </Text>
+          <Text className="block text-[24rpx] text-muted-foreground text-center mb-[12rpx]">
+            {tt('about.privacy.updateDate', '更新日期: 2025年06月21日')}
+          </Text>
+          <Text className="block text-[24rpx] text-muted-foreground text-center mb-[12rpx]">
+            {tt('about.privacy.effectiveDate', '生效日期: 2025年06月21日')}
+          </Text>
 
-        <View className="mb-[40rpx]">
-          {overviewParagraphs.map((p, idx) => (
-            <View key={idx} className="mb-[20rpx]">
-              {p.title ? (
-                <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
-                  {p.title}
-                </Text>
-              ) : null}
-              <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">
-                {p.text}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {sections.map((section, sIdx) => (
-          <View key={sIdx} className="mb-[40rpx]">
-            <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">
-              {section.subtitle}
-            </Text>
-            {section.paragraphs.map((p, pIdx) => (
-              <View key={pIdx} className="mb-[20rpx]">
+          <View className="mb-[40rpx]">
+            {overviewParagraphs.map((p, idx) => (
+              <View key={idx} className="mb-[20rpx]">
                 {p.title ? (
                   <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
                     {p.title}
@@ -564,9 +547,29 @@ export default function PrivacyPage() {
               </View>
             ))}
           </View>
-        ))}
-      </View>
-    </ScrollView>
+
+          {sections.map((section, sIdx) => (
+            <View key={sIdx} className="mb-[40rpx]">
+              <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">
+                {section.subtitle}
+              </Text>
+              {section.paragraphs.map((p, pIdx) => (
+                <View key={pIdx} className="mb-[20rpx]">
+                  {p.title ? (
+                    <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
+                      {p.title}
+                    </Text>
+                  ) : null}
+                  <Text className="block text-[28rpx] text-foreground leading-[1.8] text-justify">
+                    {p.text}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

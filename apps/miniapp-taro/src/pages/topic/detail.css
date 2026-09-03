@@ -63,7 +63,7 @@
   font-size: 26rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   border: none;
   font-weight: 600;
 }
@@ -103,7 +103,7 @@
   font-size: 24rpx;
   color: var(--color-primary);
   background: var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-weight: 600;
 }
 
@@ -114,7 +114,7 @@
 
 .topic-detail-post {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }
@@ -129,7 +129,7 @@
 .topic-detail-avatar {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -180,7 +180,7 @@
 .topic-detail-post-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 
@@ -191,9 +191,9 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: #fff;
+  color: var(--color-foreground);
   font-size: 28rpx;
   font-weight: 600;
 }

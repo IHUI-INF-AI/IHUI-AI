@@ -7,6 +7,7 @@ import { View, Text, Input, Image } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAskList, type Ask } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './list.css'
 
 export default function AskListPage() {
@@ -72,65 +73,67 @@ export default function AskListPage() {
   }, [])
 
   return (
-    <View className="page">
-      <View className="search-bar">
-        <Input
-          className="search-input"
-          placeholder={t('ask.search')}
-          value={keyword}
-          onInput={(e) => setKeyword(e.detail.value)}
-          onConfirm={onSearchConfirm}
-        />
-      </View>
+    <ThemeRoot>
+      <View className="page">
+        <View className="search-bar">
+          <Input
+            className="search-input"
+            placeholder={t('ask.search')}
+            value={keyword}
+            onInput={(e) => setKeyword(e.detail.value)}
+            onConfirm={onSearchConfirm}
+          />
+        </View>
 
-      <View className="tabs">
-        <Text className={`tab${tab === 'new' ? ' active' : ''}`} onClick={() => switchTab('new')}>
-          {t('ask.tabs.new')}
-        </Text>
-        <Text className={`tab${tab === 'hot' ? ' active' : ''}`} onClick={() => switchTab('hot')}>
-          {t('ask.tabs.hot')}
-        </Text>
-        <Text
-          className={`tab${tab === 'unanswered' ? ' active' : ''}`}
-          onClick={() => switchTab('unanswered')}
-        >
-          {t('ask.tabs.unanswered')}
-        </Text>
-      </View>
+        <View className="tabs">
+          <Text className={`tab${tab === 'new' ? ' active' : ''}`} onClick={() => switchTab('new')}>
+            {t('ask.tabs.new')}
+          </Text>
+          <Text className={`tab${tab === 'hot' ? ' active' : ''}`} onClick={() => switchTab('hot')}>
+            {t('ask.tabs.hot')}
+          </Text>
+          <Text
+            className={`tab${tab === 'unanswered' ? ' active' : ''}`}
+            onClick={() => switchTab('unanswered')}
+          >
+            {t('ask.tabs.unanswered')}
+          </Text>
+        </View>
 
-      {list.length ? (
-        <View className="list">
-          {list.map((a) => (
-            <View key={a.id} className="item" onClick={() => goDetail(a.id)}>
-              <Text className="title">{a.title}</Text>
-              <Text className="content">{a.content}</Text>
-              <View className="meta">
-                <Image
-                  className="avatar"
-                  src={a.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
-                <Text className="author">{a.author}</Text>
-                <Text className="time">{a.createTime}</Text>
-                <Text className={`answers${a.adopted ? ' adopted' : ''}`}>
-                  {t('ask.answers', { n: a.answers || 0 })}
-                </Text>
+        {list.length ? (
+          <View className="list">
+            {list.map((a) => (
+              <View key={a.id} className="item" onClick={() => goDetail(a.id)}>
+                <Text className="title">{a.title}</Text>
+                <Text className="content">{a.content}</Text>
+                <View className="meta">
+                  <Image
+                    className="avatar"
+                    src={a.avatar || '/static/default-avatar.png'}
+                    mode="aspectFill"
+                  />
+                  <Text className="author">{a.author}</Text>
+                  <Text className="time">{a.createTime}</Text>
+                  <Text className={`answers${a.adopted ? ' adopted' : ''}`}>
+                    {t('ask.answers', { n: a.answers || 0 })}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
+            ))}
+          </View>
+        ) : null}
 
-      {!loading && !list.length ? (
-        <View className="empty">
-          <Text>{t('ask.empty')}</Text>
-        </View>
-      ) : null}
+        {!loading && !list.length ? (
+          <View className="empty">
+            <Text>{t('ask.empty')}</Text>
+          </View>
+        ) : null}
 
-      <View className="fab" onClick={goCreate}>
-        +
+        <View className="fab" onClick={goCreate}>
+          +
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

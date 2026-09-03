@@ -19,7 +19,7 @@
   height: 85rpx;
   padding: 0 24rpx;
   background: rgba(206, 203, 241, 0.25);
-  border: 2rpx solid #b7b5ca;
+  border: 2rpx solid var(--color-border);
   border-radius: 15rpx;
   margin-bottom: 18rpx;
 }
@@ -32,14 +32,14 @@
 .team-search-input {
   flex: 1;
   font-size: 30rpx;
-  color: #444;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 团队总人数(对齐原项目 #3D3D3D + 36rpx) ===== */
 .team-total {
   margin-top: 27rpx;
   font-size: 36rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .team-total-num {
   font-weight: bold;
@@ -64,15 +64,15 @@
   box-sizing: border-box;
   font-size: 30rpx;
   font-weight: bold;
-  color: #d1d1d1;
-  background: #fff;
-  border: 2rpx solid #d1d1d1;
+  color: var(--color-foreground);
+  background: var(--color-card);
+  border: 2rpx solid var(--color-border);
   border-radius: 15rpx;
   min-width: 0;
 }
 .team-sort-btn-active {
-  color: #000;
-  border-color: #000;
+  color: var(--color-foreground);
+  border-color: var(--color-border);
 }
 .team-sort-arrow {
   margin-left: 8rpx;
@@ -94,7 +94,9 @@
   /* custom color: 原项目 person-card 渐变(紫蓝→米黄),无对应 token,保留原值 */
   background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
   border-radius: 30rpx;
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.3), 0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 0 10rpx 0 rgba(0, 0, 0, 0.3),
+    0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
 }
 .team-card-left {
   display: flex;
@@ -113,7 +115,7 @@
   height: 170rpx;
   border-radius: 50%;
   background: var(--color-muted);
-  border: 4rpx solid #fff;
+  border: 4rpx solid var(--color-border);
   box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.08);
 }
 .team-avatar-fallback {
@@ -144,15 +146,15 @@
 /* 排名奖牌金/银/铜色已接入 token:var(--color-rank-gold/silver/bronze)(#ffd700/#c0c0c0/#cd7f32);文字色 #5a4500/#3a3a3a/#fff 为奖牌上文字深色/纯白,无对应 token,保留原值 */
 .team-medal-gold {
   background: var(--color-rank-gold);
-  color: #5a4500;
+  color: var(--color-muted-foreground);
 }
 .team-medal-silver {
   background: var(--color-rank-silver);
-  color: #3a3a3a;
+  color: var(--color-muted-foreground);
 }
 .team-medal-bronze {
   background: var(--color-rank-bronze);
-  color: #fff;
+  color: var(--color-foreground);
 }
 .team-medal-normal {
   background: var(--color-muted);
@@ -161,7 +163,7 @@
 .team-nickname {
   margin-top: 12rpx;
   font-size: 30rpx;
-  color: #333;
+  color: var(--color-foreground);
   max-width: 170rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -178,7 +180,7 @@
   gap: 8rpx;
   margin-top: 4rpx;
   font-size: 28rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .team-info-row {
   display: flex;
@@ -192,20 +194,20 @@
 }
 .team-info-label {
   font-size: 28rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .team-info-value {
   /* custom color: 原项目 highlight #ff9800 + 42rpx,无对应 token,保留原值 */
   font-size: 42rpx;
   font-weight: bold;
-  color: #ff9800;
+  color: var(--color-foreground);
 }
 .team-info-time {
   /* 对齐原项目 .bold(邀请时间):30rpx + bold + #222 */
   margin-top: 10rpx;
   font-size: 30rpx;
   font-weight: bold;
-  color: #222;
+  color: var(--color-foreground);
 }
 .team-sub-btn {
   padding: 8rpx 20rpx;
@@ -223,7 +225,7 @@
   display: block;
   text-align: center;
   font-size: 28rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   padding: 100rpx 0;
 }
 .team-error {
