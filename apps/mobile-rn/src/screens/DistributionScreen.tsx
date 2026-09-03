@@ -412,7 +412,7 @@ const shellStyles = {
   statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
   functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
   withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
-  withdrawDetailText: { fontSize: 14, color: '#333' } as const,
+  withdrawDetailText: { fontSize: 14, color: tokens.text.medium } as const,
   shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
   shareBtn: {
     height: 44,
