@@ -6,6 +6,7 @@ import { useTt, t } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
 
 /**
@@ -86,10 +87,12 @@ export function SectionHeader({
   onMore,
   extra,
   className,
-  colorScheme = 'light',
+  colorScheme,
   t: tProp,
 }: SectionHeaderProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
   // 优先用 prop 注入的 t,其次用 I18nContext 的 tt(支持 fallback),最末硬编码中文
   const tFn: TFunction | undefined =

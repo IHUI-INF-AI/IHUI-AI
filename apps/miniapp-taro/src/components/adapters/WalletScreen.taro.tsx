@@ -6,7 +6,8 @@
 import { useTt } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction, WalletScreenProps } from '@ihui/types'
 
 /** 钱包/Props 类型 re-export(单一来源 @ihui/types) */
@@ -47,9 +48,11 @@ export function WalletScreen({
   onRefresh,
   onAction,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: WalletScreenProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
 
   // i18n 三级降级:prop t > I18nContext tt > 硬编码中文(WalletScreenProps.t 必填,useTt 防御性兜底)

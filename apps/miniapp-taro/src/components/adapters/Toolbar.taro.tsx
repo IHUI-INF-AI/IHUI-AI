@@ -6,6 +6,7 @@ import { useMemo } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 /**
  * Taro 适配层:Toolbar
@@ -93,14 +94,10 @@ const textStyles = {
   }),
 }
 
-export function Toolbar({
-  items,
-  separators,
-  activeKey,
-  className,
-  colorScheme = 'light',
-}: ToolbarProps) {
-  const tk = getRnTokens(colorScheme)
+export function Toolbar({ items, separators, activeKey, className, colorScheme }: ToolbarProps) {
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const separatorSet = useMemo<Set<string>>(() => new Set(separators ?? []), [separators])
 
   return (

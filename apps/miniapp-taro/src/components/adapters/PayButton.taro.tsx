@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
 import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
 import freeUseIcon from '@/assets/remote/images/xtk/free_use_icon.png'
@@ -254,11 +255,13 @@ export function PayButton({
   disabled = false,
   onClick,
   onFetchPrice,
-  colorScheme = 'light',
+  colorScheme,
   t: tProp,
   onShowToast,
 }: PayButtonProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
   const [popupVisible, setPopupVisible] = useState(false)
   const [count, setCount] = useState(1)

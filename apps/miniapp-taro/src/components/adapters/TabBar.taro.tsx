@@ -6,6 +6,7 @@ import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 /**
  * Taro 适配层:TabBar
@@ -110,10 +111,12 @@ export function TabBar({
   items,
   safeAreaBottom = 0,
   className,
-  colorScheme = 'light',
+  colorScheme,
 }: TabBarProps) {
   const tt = useTt()
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const list: readonly TabBarItemConfig[] = items ?? DEFAULT_TABS(tt)
 
   return (
