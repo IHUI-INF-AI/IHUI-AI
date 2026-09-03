@@ -763,13 +763,15 @@ function resetLlmErrorFlag(): void {
  * 调用项目内 ai-service 的 /llm/complete 接口
  * 与 ai-feed-service.ts callLlm 保持一致
  */
-async function callLlm(prompt: string, content: string, timeoutMs = 15000): Promise<string | null> {
+async function callLlm(prompt: string, content: string, timeoutMs = 90000): Promise<string | null> {
   const baseUrl = process.env.AI_SERVICE_URL
   if (!baseUrl) return null
   try {
-    // 2026-09-04 修复:两处问题导致 LLM 摘要改写自 jwt_auth 上线起静默失效——
-    // ① 路径 '/llm/complete' 缺 /api 前缀(ai-service 实际路由为 /api/llm/complete,与 ai-feed-service 一致);
-    // ② aiServiceFetch(null) 不带 Authorization → ai-service JWT 中间件 401。
+    // 2026-09-04 修复:三处问题导致 LLM 摘要改写自 jwt_auth 上线起静默失效——
+    // ① 路径 '/llm/complete' 缺 /api 前缀(ai-service 实际路由为 /api/llm/complete);
+    // ② aiServiceFetch(null) 不带 Authorization → ai-service JWT 中间件 401;
+    // ③ 请求体 {prompt,content} 不符 LLMCompleteRequest schema(要求 messages 数组)→ 422。
+    // 现对齐 ai-feed-service.ts callLlm 的可用实现(messages + 系统 token + 90s 超时)。
     const systemToken = await getSystemAccessToken()
     const res = await aiServiceFetch(null, '/api/llm/complete', {
       method: 'POST',
@@ -777,7 +779,12 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
         'Content-Type': 'application/json',
         Authorization: `Bearer ${systemToken}`,
       },
-      body: JSON.stringify({ prompt, content }),
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: prompt },
+          { role: 'user', content },
+        ],
+      }),
       signal: AbortSignal.timeout(timeoutMs),
     })
     if (!res.ok) {
@@ -787,10 +794,28 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
       }
       return null
     }
-    const json = (await res.json()) as { data?: { content?: string } | string; content?: string }
-    const text =
-      typeof json.data === 'string' ? json.data : (json.data?.content ?? json.content ?? '')
-    return text.trim() || null
+    // /llm/complete 返回 {content, model, usage, stub, error?, error_message?}
+    const json = (await res.json()) as {
+      content?: string
+      error?: boolean
+      error_message?: string
+      stub?: boolean
+    }
+    if (json.error) {
+      if (!llmErrorLogged) {
+        logger.warn(`[ai-world-sync] LLM 返回错误: ${json.error_message ?? 'unknown'}(后续静默)`)
+        llmErrorLogged = true
+      }
+      return null
+    }
+    if (json.stub) {
+      if (!llmErrorLogged) {
+        logger.warn('[ai-world-sync] LLM stub 模式返回(无真实 API key),跳过(后续静默)')
+        llmErrorLogged = true
+      }
+      return null
+    }
+    return (json.content ?? '').trim() || null
   } catch (err) {
     if (!llmErrorLogged) {
       logger.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, {
@@ -877,17 +902,19 @@ async function upsertItem(item: FetchedItem): Promise<UpsertResult> {
   if (titleKey && seenTitlesInRound.has(titleKey)) return 'skipped'
   if (titleKey) seenTitlesInRound.add(titleKey)
 
-  // 并行:LLM 改写 + 分类关联
-  const [summary, categoryId] = await Promise.all([
-    rewriteSummaryWithLLM(item),
-    item.categorySlug ? getCategoryIdBySlug(item.categorySlug) : Promise.resolve(null),
-  ])
-
   const existing = await db
-    .select({ id: aiWorldItems.id })
+    .select({ id: aiWorldItems.id, summary: aiWorldItems.summary })
     .from(aiWorldItems)
     .where(and(eq(aiWorldItems.kind, item.kind), eq(aiWorldItems.sourceUrl, item.sourceUrl)))
     .limit(1)
+  // 2026-09-04 优化:仅新条目或无摘要的旧条目才调 LLM 改写;已有摘要的旧条目复用原摘要。
+  // 否则每轮对全部已入库条目重复调用 LLM(条目串行处理,~25s/条),一轮 cron 会拖到数小时。
+  const [summary, categoryId] = await Promise.all([
+    existing.length > 0 && existing[0]!.summary
+      ? Promise.resolve(existing[0]!.summary)
+      : rewriteSummaryWithLLM(item),
+    item.categorySlug ? getCategoryIdBySlug(item.categorySlug) : Promise.resolve(null),
+  ])
   const payload: NewAiWorldItem = {
     kind: item.kind,
     categoryId,
