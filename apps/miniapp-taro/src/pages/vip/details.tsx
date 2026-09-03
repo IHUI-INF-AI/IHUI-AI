@@ -117,7 +117,7 @@ export default function VipDetailsPage() {
 
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
-      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[linear-gradient(135deg,rgba(248, 212, 134, 1),var(--color-warning))] text-foreground">
+      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[rgba(245,158,11,0.1)] text-foreground">
         <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
           <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>
           <Text className="text-[28rpx] text-foreground">{tt('common.back', '返回')}</Text>
@@ -240,7 +240,7 @@ export default function VipDetailsPage() {
       </View>
 
       <Button
-        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-warning text-foreground rounded-[16rpx] text-[32rpx] font-semibold"
+        className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[16rpx] text-[32rpx] font-semibold"
         onClick={goUpgrade}
       >
         {t('vip.details.upgrade')}

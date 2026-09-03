@@ -105,15 +105,14 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
           onChange={mainChange}
           className="w-[calc(100vw-60px)] box-border h-[120rpx]"
         >
-          {/* custom color: #7361FF 紫色品牌色,无对应 token,保留原值 */}
+          {/* 当前赛道高亮:品牌 indigo(--color-brand),与 web 强调色一致 */}
           {mainList.map((item, index) => (
             <SwiperItem
               key={index}
-              className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-black ${
-                current === index
-                  ? 'font-bold text-[#7361FF] border-[14rpx] border-transparent'
-                  : ''
+              className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-foreground ${
+                current === index ? 'font-bold border-[14rpx] border-transparent' : ''
               }`}
+              style={current === index ? { color: 'var(--color-brand)' } : undefined}
               onClick={() => selectMain(index)}
             >
               <View className="flex-none">{item.name}</View>
@@ -138,11 +137,10 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
             {subList.map((item, index) => (
               <SwiperItem
                 key={index}
-                className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-black ${
-                  subSelected === index
-                    ? 'font-bold text-[#7361FF] border-[14rpx] border-transparent'
-                    : ''
+                className={`flex items-center justify-center h-[92rpx] mr-[60rpx] box-border rounded-[12rpx] whitespace-nowrap text-[48rpx] text-foreground ${
+                  subSelected === index ? 'font-bold border-[14rpx] border-transparent' : ''
                 }`}
+                style={subSelected === index ? { color: 'var(--color-brand)' } : undefined}
                 onClick={() => selectSub(index)}
               >
                 <View className="flex-none">{item.name}</View>
