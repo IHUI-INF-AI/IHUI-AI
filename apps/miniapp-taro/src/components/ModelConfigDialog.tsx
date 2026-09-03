@@ -8,7 +8,7 @@ import { View, Text, Input, Switch, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import type { ModelConfigType } from '@ihui/types'
 import { aizhsUrl } from '@/constants/icon-urls'
-import Selecter from './Selecter'
+import { Selecter } from './adapters/Selecter.taro'
 import './ModelConfigDialog.css'
 
 // aigc variant 上传按钮图标(对齐原项目 ModelConfigDialog/indexa.vue):
