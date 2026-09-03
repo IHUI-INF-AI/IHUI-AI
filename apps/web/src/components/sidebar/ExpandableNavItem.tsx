@@ -152,7 +152,6 @@ const ExpandableNavItem = React.memo(function ExpandableNavItem({
             href={child.href}
             ref={refCb}
             onClick={childHandleClick}
-            prefetch={false}
             aria-current={active ? 'page' : undefined}
             className={childClassName(active)}
           >
