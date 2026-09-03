@@ -39,6 +39,8 @@ export default defineConfig(async (merge) => {
         { from: 'src/assets/tabbar/', to: `${outputRoot}/assets/tabbar/` },
         { from: 'src/assets/remote/images/', to: `${outputRoot}/remote-images/` },
         { from: 'src/mini.project.json', to: `${outputRoot}/mini.project.json` },
+        // 微信原生 darkmode:Taro vite-runner 从 src/theme.json 读取,copy 保证与 dist/app.json 同级(themeLocation 引用)
+        { from: 'src/theme.json', to: `${outputRoot}/theme.json` },
       ],
       options: {},
     },
