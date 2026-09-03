@@ -6,6 +6,7 @@ import { useI18n, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const IMAGE_LIST = [
   '/static/images/modelRecord1.png',
@@ -65,7 +66,7 @@ export default function ModelRecord() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[48rpx]">
       <View className="pt-[32rpx] px-[32rpx]">
         <Text className="text-[30rpx] text-foreground font-semibold">
           {tt('about.modelRecord.tableTitle', '大模型备案信息')}
@@ -74,7 +75,7 @@ export default function ModelRecord() {
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {info.map((item, idx) => (
-          <View
+          <ThemeRoot><View
             key={item.label}
             className={`flex items-start py-[28rpx] px-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
           >
@@ -83,7 +84,7 @@ export default function ModelRecord() {
             </Text>
             <Text className="flex-1 text-[26rpx] text-foreground break-all">{item.value}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
@@ -121,7 +122,7 @@ export default function ModelRecord() {
         <Text className="text-[22rpx] text-muted-foreground">
           {tt('about.modelRecord.footer', '模型信息仅供参考')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

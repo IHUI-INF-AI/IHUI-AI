@@ -6,6 +6,7 @@ import { useI18n, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const LICENSE_IMAGE = '/static/images/yyzz.jpg'
 
@@ -45,7 +46,7 @@ export default function BusinessLicense() {
   }, [imgError])
 
   return (
-    <View className="min-h-screen bg-background pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[48rpx]">
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
         {!imgError ? (
           <Image
@@ -69,7 +70,7 @@ export default function BusinessLicense() {
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {info.map((item, idx) => (
-          <View
+          <ThemeRoot><View
             key={item.label}
             className={`flex justify-between items-center p-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
           >
@@ -78,7 +79,7 @@ export default function BusinessLicense() {
               {item.value}
             </Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
@@ -92,7 +93,7 @@ export default function BusinessLicense() {
         <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">
           {tt('about.businessLicense.footer', '以上信息仅供参考,以工商登记为准')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

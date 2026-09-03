@@ -8,6 +8,7 @@ import { View, Text, Image, Button, ScrollView, Input } from '@tarojs/components
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface Comment {
@@ -197,7 +198,7 @@ export default function CircleDetailPage() {
   const imgCount = data.images?.length || 0
 
   return (
-    <View className="cd-page">
+    <ThemeRoot><View className="cd-page">
       <ScrollView scrollY className="cd-scroll">
         {data.author ? (
           <View className="cd-head">
@@ -226,14 +227,14 @@ export default function CircleDetailPage() {
             {imgCount ? (
               <View className={`cd-images cd-images-${imgCount === 1 ? 'single' : 'multi'}`}>
                 {data.images?.map((img, i) => (
-                  <Image
+                  <ThemeRoot><Image
                     key={i}
                     className="cd-img"
                     src={img}
                     mode="aspectFill"
                     onClick={() => previewImg(i)}
                   />
-                ))}
+                </ThemeRoot>))}
               </View>
             ) : null}
 
@@ -313,7 +314,7 @@ export default function CircleDetailPage() {
           {comments.length ? (
             <View className="cd-comments">
               {comments.map((c) => (
-                <View key={c.id} className="cd-comment">
+                <ThemeRoot><View key={c.id} className="cd-comment">
                   <Image
                     className="cd-comment-avatar"
                     src={c.avatar || defaultAvatar}
@@ -335,7 +336,7 @@ export default function CircleDetailPage() {
                     </View>
                   </View>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </View>
           ) : (
             <View className="cd-comments-empty">
@@ -362,7 +363,7 @@ export default function CircleDetailPage() {
           onClick={onSendComment}
         >
           {tt('circle.detail.send', '发送')}
-        </Button>
+</ThemeRoot>        </Button>
       </View>
     </View>
   )

@@ -7,6 +7,7 @@ import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -135,7 +136,7 @@ export default function RankingIndex() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[48rpx]">
       <View className="pt-[24rpx] px-[32rpx] pb-[16rpx] bg-card">
         <Text className="text-[36rpx] font-semibold text-primary">
           {tt('ranking.listTitle', 'AI榜单')}
@@ -157,7 +158,7 @@ export default function RankingIndex() {
       <ScrollView scrollX className="whitespace-nowrap bg-card">
         <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
           {FILE_TABS(tt).map((tab) => (
-            <View
+            <ThemeRoot><View
               key={tab.key}
               className={`inline-flex items-center justify-center py-[12rpx] px-[32rpx] mr-[16rpx] bg-background border border-border rounded-[8rpx] ${fileType === tab.key ? 'bg-primary border-primary' : ''}`}
               onClick={() => onTabChange(tab.key)}
@@ -168,7 +169,7 @@ export default function RankingIndex() {
                 {tt(tab.labelKey, tab.fallback)}
               </Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </ScrollView>
 
@@ -185,7 +186,7 @@ export default function RankingIndex() {
               pick(raw, ['category', 'cate']) || tt('ranking.generalHelper', '通用助手')
             const price = pick(raw, ['price']) || tt('ranking.free', '免费')
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex items-start bg-card border border-border rounded-[12rpx] p-[24rpx] mb-[16rpx]"
                 onClick={() => goDetail(item.id)}
@@ -219,7 +220,7 @@ export default function RankingIndex() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}
@@ -233,7 +234,7 @@ export default function RankingIndex() {
       {loading ? (
         <View className="block text-center py-[80rpx] text-[28rpx] text-muted-foreground">
           <Text>{tt('common.loading', '加载中...')}</Text>
-        </View>
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

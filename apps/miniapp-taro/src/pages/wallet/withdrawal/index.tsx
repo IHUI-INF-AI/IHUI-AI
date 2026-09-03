@@ -7,6 +7,7 @@ import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -80,7 +81,7 @@ export default function WithdrawalPage() {
   })
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx]">
       {/* 可提现金额卡片 — 对齐原项目 content-wrap 紫色渐变 */}
       <View className="p-[48rpx_32rpx] rounded-[24rpx] shadow-sm bg-primary/10 border-[2rpx] border-primary/20">
         <Text className="block text-[26rpx] text-muted-foreground">
@@ -118,7 +119,7 @@ export default function WithdrawalPage() {
         </Text>
         <View className="flex gap-[16rpx]">
           {methods.map((m) => (
-            <View
+            <ThemeRoot><View
               key={m.value}
               className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
               onClick={() => setMethod(m.value)}
@@ -142,7 +143,7 @@ export default function WithdrawalPage() {
                 )}
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -160,7 +161,7 @@ export default function WithdrawalPage() {
         onClick={goRecords}
       >
         <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -170,11 +171,11 @@ export default function StudyRecord() {
   ]
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 学习统计卡 */}
       <View className="flex bg-card border-[2rpx] border-primary/20 rounded-[16rpx] py-[28rpx] px-[16rpx] gap-[12rpx]">
         {stats.map((s) => (
-          <View key={s.key} className="flex-1 flex flex-col items-center">
+          <ThemeRoot><View key={s.key} className="flex-1 flex flex-col items-center">
             <View className="flex items-baseline justify-center">
               <Text className="text-[40rpx] font-bold text-primary leading-[1.2]">{s.num}</Text>
               {s.unit && (
@@ -185,20 +186,20 @@ export default function StudyRecord() {
             </View>
             <Text className="mt-[8rpx] text-[22rpx] text-muted-foreground">{s.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 状态筛选 tab */}
       <View className="flex mt-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[6rpx]">
         {tabs.map((tb) => (
-          <View
+          <ThemeRoot><View
             key={tb.key}
             className={`${TAB_BASE} ${activeTab === tb.key ? TAB_ACTIVE : ''}`}
             onClick={() => setActiveTab(tb.key)}
           >
             <Text>{tb.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 学习记录列表 */}
@@ -207,7 +208,7 @@ export default function StudyRecord() {
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View
+              <ThemeRoot><View
                 key={r.id}
                 className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]"
                 onClick={() => goCourse(r.courseId)}
@@ -246,7 +247,7 @@ export default function StudyRecord() {
                   </Text>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}
@@ -265,7 +266,7 @@ export default function StudyRecord() {
       )}
       {loading && <Text className={STATE_TEXT}>{tt('common.loading', '加载中...')}</Text>}
       {!loading && !hasMore && displayList.length > 0 && (
-        <Text className={STATE_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
+        <Text className={STAT</ThemeRoot>E_TEXT}>{tt('common.noMore', '没有更多了')}</Text>
       )}
     </View>
   )

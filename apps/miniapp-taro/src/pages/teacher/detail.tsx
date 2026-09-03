@@ -8,6 +8,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface TeacherCourse {
@@ -163,7 +164,7 @@ export default function TeacherDetail() {
   ]
 
   return (
-    <View className="tdetail-page">
+    <ThemeRoot><View className="tdetail-page">
       {loading && <Text className="tdetail-skeleton">{tt('common.loading', '加载中...')}</Text>}
 
       {!loading && teacher && (
@@ -203,13 +204,13 @@ export default function TeacherDetail() {
           {/* 数据统计 */}
           <View className="tdetail-stats">
             {stats.map((s, idx) => (
-              <View key={idx} className="tdetail-stat-item">
+              <ThemeRoot><View key={idx} className="tdetail-stat-item">
                 <Text className="tdetail-stat-num">
                   {idx === 3 ? s.num.toFixed(1) : formatStudents(s.num)}
                 </Text>
                 <Text className="tdetail-stat-label">{s.label}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
 
           {/* 教师简介 */}
@@ -241,7 +242,7 @@ export default function TeacherDetail() {
                 {courses.map((c) => {
                   const price = formatPrice(c.price)
                   return (
-                    <View
+                    <ThemeRoot><View
                       key={c.id}
                       className="tdetail-course-card"
                       onClick={() => onOpenCourse(c.id)}
@@ -270,7 +271,7 @@ export default function TeacherDetail() {
                         </View>
                       </View>
                     </View>
-                  )
+                  </ThemeRoot>)
                 })}
               </View>
             ) : (
@@ -286,7 +287,7 @@ export default function TeacherDetail() {
             {reviews.length > 0 ? (
               <View className="tdetail-review-list">
                 {reviews.map((rv) => (
-                  <View key={rv.id} className="tdetail-review-card">
+                  <ThemeRoot><View key={rv.id} className="tdetail-review-card">
                     {rv.avatar ? (
                       <Image className="tdetail-review-avatar" src={rv.avatar} mode="aspectFill" />
                     ) : (
@@ -303,7 +304,7 @@ export default function TeacherDetail() {
                       <Text className="tdetail-review-time">{rv.time}</Text>
                     </View>
                   </View>
-                ))}
+                </ThemeRoot>))}
               </View>
             ) : (
               <Text className="tdetail-empty">{tt('teacher.detail.noReviews', '暂无评价')}</Text>
@@ -323,7 +324,7 @@ export default function TeacherDetail() {
       )}
 
       {!loading && !teacher && (
-        <Text className="tdetail-skeleton">{tt('teacher.detail.notFound', '讲师不存在')}</Text>
+        <Text className="tdetail-skeleton">{t</ThemeRoot>t('teacher.detail.notFound', '讲师不存在')}</Text>
       )}
     </View>
   )

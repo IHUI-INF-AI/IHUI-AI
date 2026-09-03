@@ -8,6 +8,7 @@ import { View, Text, Image, Button, Switch } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface DevInfo {
   id: string
@@ -160,7 +161,7 @@ export default function DeveloperSubscribePage() {
   }
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[60rpx]">
       <View className="flex items-start gap-[24rpx] px-[28rpx] py-[32rpx] m-[24rpx] bg-secondary border border-border rounded-[12rpx]">
         <View className="flex-shrink-0">
           {dev.avatar ? (
@@ -222,7 +223,7 @@ export default function DeveloperSubscribePage() {
         {models.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
             {models.map((m) => (
-              <View
+              <ThemeRoot><View
                 key={m.id}
                 className="flex items-center gap-[20rpx] p-[24rpx] bg-card border border-border rounded-[12rpx]"
               >
@@ -257,7 +258,7 @@ export default function DeveloperSubscribePage() {
                   {tt('developer.subscribe.use', '使用')}
                 </Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         ) : (
           <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">
@@ -299,7 +300,7 @@ export default function DeveloperSubscribePage() {
         {posts.length > 0 ? (
           <View className="flex flex-col gap-[16rpx]">
             {posts.map((p) => (
-              <View key={p.id} className="p-[24rpx] bg-card border border-border rounded-[10rpx]">
+              <ThemeRoot><View key={p.id} className="p-[24rpx] bg-card border border-border rounded-[10rpx]">
                 <Text className="block text-[28rpx] font-semibold text-foreground">{p.title}</Text>
                 <Text className="block mt-[8rpx] text-[24rpx] text-muted-foreground leading-[1.5]">
                   {p.content}
@@ -308,7 +309,7 @@ export default function DeveloperSubscribePage() {
                   {p.createTime}
                 </Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         ) : (
           <Text className="block text-center text-[26rpx] text-muted-foreground py-[60rpx]">
@@ -326,7 +327,7 @@ export default function DeveloperSubscribePage() {
 
       {loading && (
         <Text className="block text-center text-[26rpx] text-muted-foreground py-[40rpx]">
-          {tt('common.loading', '加载中…')}
+          {tt('common.loading', '加</ThemeRoot>载中…')}
         </Text>
       )}
     </View>

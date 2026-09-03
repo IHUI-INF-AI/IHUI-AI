@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback, useState } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REQUIRED_FLAGS = [true, false, true, false, false, true]
 const ALBUM_NAME_FB = t('about.appPermission.albumName')
@@ -109,7 +110,7 @@ export default function AppPermission() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[60rpx]">
       <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
         <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">
           {t('about.appPermission.intro')}
@@ -118,7 +119,7 @@ export default function AppPermission() {
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
         {permissions.map((p, idx) => (
-          <View
+          <ThemeRoot><View
             key={p.scope}
             className={`flex items-center py-[28rpx] px-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
           >
@@ -148,7 +149,7 @@ export default function AppPermission() {
               {tt('about.appPermission.goSetting', '去设置')}
             </Button>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
@@ -167,7 +168,7 @@ export default function AppPermission() {
         <Text className="text-[22rpx] text-muted-foreground">
           {t('about.appPermission.footer')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

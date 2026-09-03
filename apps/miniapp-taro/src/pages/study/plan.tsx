@@ -7,6 +7,7 @@ import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyPlan, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanItem {
   id: string
@@ -67,11 +68,11 @@ export default function StudyPlan() {
   })
 
   return (
-    <View className="min-h-screen bg-background pb-[120rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[120rpx]">
       {list.length > 0 && (
         <View className="p-3">
           {list.map((p) => (
-            <View key={p.id} className="bg-card rounded-2xl p-3 mb-3">
+            <ThemeRoot><View key={p.id} className="bg-card rounded-2xl p-3 mb-3">
               <View className="flex justify-between items-center">
                 <Text className="text-sm text-foreground font-semibold">{p.title}</Text>
                 <Text className="text-xs text-muted-foreground">
@@ -95,7 +96,7 @@ export default function StudyPlan() {
                 </Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       )}
       {!loading && list.length === 0 && (
@@ -155,7 +156,7 @@ export default function StudyPlan() {
             </View>
           </View>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

@@ -78,7 +78,7 @@
   line-height: 80rpx;
   padding: 0;
 }
-.action-btn::after {
+.action-btn: :after {
   border: none;
 }
 .upload-placeholder {

@@ -8,14 +8,14 @@
    局部 CSS 变量仅作用于 .vip-page,不污染全局 tokens */
 
 .vip-page {
-  --vip-bg-dark: #0f1623;
-  --vip-bg-dark-2: #1f2937;
+  --vip-bg-dark: rgba(15, 22, 35, 1);
+  --vip-bg-dark-2: rgba(31, 41, 55, 1);
 /* 已接入 token:var(--color-vip-gold-start)(#ffd700);其余局部金/橙/深色变量无对应 token,保留原值 */
   --vip-gold: var(--color-vip-gold-start);
-  --vip-gold-2: #ffa500;
-  --vip-gold-hover: #ffc700;
-  --vip-gold-hover-2: #ff9500;
-  --vip-text: #ffffff;
+  --vip-gold-2: var(--color-brand-orange);
+  --vip-gold-hover: rgba(255, 199, 0, 1);
+  --vip-gold-hover-2: rgba(255, 149, 0, 1);
+  --vip-text: var(--color-foreground);
   --vip-text-muted: rgba(255, 255, 255, 0.6);
   --vip-border: rgba(255, 255, 255, 0.1);
   --vip-card-bg: rgba(255, 255, 255, 0.05);
@@ -299,10 +299,10 @@
   text-align: center;
   line-height: 1.4;
 }
-.buy-btn::after {
+.buy-btn: :after {
   border: none;
 }
-.buy-btn:active {
+.buy-btn: active {
   transform: scale(0.98);
   background: linear-gradient(135deg, var(--vip-gold-hover), var(--vip-gold-hover-2));
 }
@@ -357,10 +357,10 @@
   text-align: center;
   padding: 0;
 }
-.pp-btn::after {
+.pp-btn: :after {
   border: none;
 }
-.pp-btn:active {
+.pp-btn: active {
   transform: scale(0.98);
 }
 .pp-plan {
@@ -440,17 +440,17 @@
   align-items: center;
   justify-content: center;
   margin-right: 20rpx;
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 28rpx;
   font-weight: 700;
   flex-shrink: 0;
 }
 /* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝/#ffffff 白字(在 .pp-pay-icon 中),无对应 token,保留原值 */
 .pp-pay-icon.wechat {
-  background: #09bb07;
+  background: rgba(9, 187, 7, 1);
 }
 .pp-pay-icon.alipay {
-  background: #1677ff;
+  background: rgba(22, 119, 255, 1);
 }
 .pp-pay-name {
   flex: 1;

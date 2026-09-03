@@ -8,6 +8,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getCouponList } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface Coupon {
   id: string
@@ -62,7 +63,7 @@ export default function CouponListPage() {
   )
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
       {loading ? (
         <View className="flex flex-col items-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('common.loading')}</Text>
@@ -80,7 +81,7 @@ export default function CouponListPage() {
       ) : list.length ? (
         <View className="flex flex-col gap-[24rpx]">
           {list.map((c) => (
-            <View key={c.id} className="flex bg-card rounded-[16rpx] overflow-hidden">
+            <ThemeRoot><View key={c.id} className="flex bg-card rounded-[16rpx] overflow-hidden">
               <View className="w-[200rpx] bg-[linear-gradient(135deg,var(--color-primary),var(--color-accent))] text-white flex flex-col items-center justify-center py-[24rpx]">
                 <View className="flex items-baseline">
                   <Text className="text-[60rpx] font-bold">{c.amount}</Text>
@@ -110,13 +111,13 @@ export default function CouponListPage() {
                 </Button>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : (
         <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{tt('member.couponList.empty', '暂无可领取优惠券')}</Text>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

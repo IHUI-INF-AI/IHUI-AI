@@ -12,9 +12,9 @@
 /* ===== 顶部 header(对齐原项目 PersonalInformationCard:深色渐变) ===== */
 .cp-header {
   /* custom color: 原项目品牌深灰渐变,无对应 token,保留原值 */
-  background: linear-gradient(180deg, #1f2937 0%, #374151 100%);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
   padding: 60rpx 32rpx 48rpx;
-  color: #fff;
+  color: var(--color-foreground);
 }
 .cp-header-title {
   display: block;
@@ -113,7 +113,7 @@
 }
 .cp-member-level {
   font-size: 24rpx;
-  color: #ff9800;
+  color: var(--color-foreground);
   font-weight: bold;
 }
 .cp-loading-row {
@@ -168,7 +168,7 @@
 }
 .cp-menu-label {
   font-size: 24rpx;
-  color: #333;
+  color: var(--color-foreground);
   margin-top: 8rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

@@ -8,6 +8,7 @@ import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getHelp, submitFeedback } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface HelpItem {
   id: string
@@ -95,7 +96,7 @@ export default function HelpPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[60rpx]">
       <View className="py-[24rpx] px-[32rpx]">
         <Input
           className="h-[72rpx] px-[24rpx] bg-card rounded-[36rpx] text-[26rpx] text-foreground"
@@ -112,7 +113,7 @@ export default function HelpPage() {
       {filtered.length ? (
         <View className="px-[24rpx]">
           {filtered.map((h) => (
-            <View
+            <ThemeRoot><View
               key={h.id}
               className="bg-card rounded-[16rpx] mb-[16rpx] overflow-hidden"
               onClick={() => toggle(h.id)}
@@ -131,7 +132,7 @@ export default function HelpPage() {
                 </View>
               ) : null}
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : null}
 
@@ -204,7 +205,7 @@ export default function HelpPage() {
             {tt('about.help.submitFailed', '反馈提交失败,请稍后重试')}
           </Text>
         ) : null}
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

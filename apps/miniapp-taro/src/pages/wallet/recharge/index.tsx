@@ -14,6 +14,7 @@ import {
   type UserInfo,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
@@ -148,15 +149,15 @@ export default function RechargePage() {
 
   if (loading) {
     return (
-      <View className="rc-loading-mask">
+      <ThemeRoot><View className="rc-loading-mask">
         <View className="rc-loading-spinner" />
         <Text className="rc-loading-text">{tt('common.loading', '加载中…')}</Text>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="rc-page">
+    <ThemeRoot><View className="rc-page">
       {submitting && (
         <View className="rc-loading-mask">
           <View className="rc-loading-spinner" />
@@ -186,14 +187,14 @@ export default function RechargePage() {
         <Text className="rc-section-title">{tt('wallet.recharge.amount', '充值金额')}</Text>
         <View className="rc-presets">
           {PRESET_AMOUNTS.map((v) => (
-            <View
+            <ThemeRoot><View
               key={v}
               className={`rc-preset ${!useCustom && preset === v ? 'rc-preset--active' : ''}`}
               onClick={() => onSelectPreset(v)}
             >
               <Text className="rc-preset-text">¥{v}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
         <View className="rc-custom">
           <Text className="rc-custom-label">
@@ -277,7 +278,7 @@ export default function RechargePage() {
         {submitting
           ? tt('wallet.recharge.submitting', '充值中…')
           : `${tt('wallet.recharge.submit', '充值')} ¥${priceFmt.format(finalAmount || 0)}`}
-      </Button>
+      <</ThemeRoot>/Button>
     </View>
   )
 }

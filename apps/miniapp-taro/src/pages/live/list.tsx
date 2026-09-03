@@ -12,6 +12,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -103,7 +104,7 @@ export default function LiveList() {
   }))
 
   return (
-    <View className="min-h-screen p-3">
+    <ThemeRoot><View className="min-h-screen p-3">
       <View className="flex mb-3 gap-2">
         <View
           className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
@@ -130,20 +131,20 @@ export default function LiveList() {
       </View>
       <View className="flex mb-3 bg-card rounded-xl">
         {tabs.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchStatus(tab.key)}
           >
             <Text>{t(tab.labelKey)}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {list.length > 0 && (
         <View>
           {list.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
@@ -178,7 +179,7 @@ export default function LiveList() {
                 )}
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       )}
 
@@ -190,7 +191,7 @@ export default function LiveList() {
 
       {loading && (
         <View className="text-center py-16 text-muted-foreground text-sm">
-          <Text>{t('common.loading')}</Text>
+          <Text>{t('common.loading')}<</ThemeRoot>/Text>
         </View>
       )}
     </View>

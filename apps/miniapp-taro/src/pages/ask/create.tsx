@@ -9,6 +9,7 @@ import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
 
 interface FormState {
@@ -166,7 +167,7 @@ export default function AskCreatePage() {
   const canSubmit = form.title.trim().length > 0 && form.content.trim().length >= 5
 
   return (
-    <View className="ask-create-page">
+    <ThemeRoot><View className="ask-create-page">
       <NavBar title={tt('ask.create.pageTitle', '提问')} showBack />
       <ScrollView scrollY className="ask-create-body">
         {/* 标题 */}
@@ -226,14 +227,14 @@ export default function AskCreatePage() {
           <Text className="ask-create-label">{tt('ask.create.rewardLabel', '悬赏积分')}</Text>
           <View className="ask-create-rewards">
             {REWARDS.map((r) => (
-              <View
+              <ThemeRoot><View
                 key={r}
                 className={`ask-create-reward${form.reward === r ? ' active' : ''}`}
                 onClick={() => updateForm({ reward: r })}
               >
                 <Text>{r}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
 
@@ -242,13 +243,13 @@ export default function AskCreatePage() {
           <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
           <View className="ask-create-images">
             {form.images.map((img, i) => (
-              <View key={i} className="ask-create-img-item">
+              <ThemeRoot><View key={i} className="ask-create-img-item">
                 <Image className="ask-create-img" src={img} mode="aspectFill" />
                 <View className="ask-create-img-del" onClick={() => removeImage(i)}>
                   <Text>×</Text>
                 </View>
               </View>
-            ))}
+            </ThemeRoot>))}
             {form.images.length < IMAGE_MAX ? (
               <View className="ask-create-img-add" onClick={addImage}>
                 <Text className="ask-create-img-add-icon">+</Text>
@@ -300,7 +301,7 @@ export default function AskCreatePage() {
               </Text>
             </View>
             {CATEGORIES.map((c) => (
-              <View
+              <ThemeRoot><View
                 key={c.key}
                 className={`ask-create-sheet-item${form.category === c.key ? ' active' : ''}`}
                 onClick={() => pickCategory(c.key)}
@@ -308,7 +309,7 @@ export default function AskCreatePage() {
                 <Text>{tt(c.labelKey, c.fb)}</Text>
                 {form.category === c.key ? <Text className="ask-create-sheet-check">✓</Text> : null}
               </View>
-            ))}
+            </ThemeRoot</ThemeRoot>>))}
           </View>
         </View>
       ) : null}

@@ -7,6 +7,7 @@ import { useDidShow } from '@tarojs/taro'
 import { View, Text, Image } from '@tarojs/components'
 import { useState, useCallback } from 'react'
 import { getStudyRank } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface RankUser {
   id: string
@@ -36,7 +37,7 @@ export default function StudyRank() {
   })
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="p-6 text-center bg-primary">
         <Text className="block text-primary-foreground text-lg font-bold">
           {t('study.rankPage.title')}
@@ -97,7 +98,7 @@ export default function StudyRank() {
       {list.length > 3 && (
         <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
           {list.slice(3).map((u, i) => (
-            <View key={u.id} className="flex items-center p-3">
+            <ThemeRoot><View key={u.id} className="flex items-center p-3">
               <Text className="w-8 text-sm text-muted-foreground">{i + 4}</Text>
               <Image
                 className="w-[60rpx] h-[60rpx] rounded-md bg-muted"
@@ -109,7 +110,7 @@ export default function StudyRank() {
                 {t('study.rankPage.minutes', { n: u.minutes })}
               </Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       )}
 
@@ -117,7 +118,7 @@ export default function StudyRank() {
         <View className="text-center py-16 text-muted-foreground">
           <Text>{t('study.rankPage.empty')}</Text>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

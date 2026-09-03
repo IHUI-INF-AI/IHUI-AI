@@ -9,6 +9,7 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
 import './index.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface OrderItem {
   id: string
@@ -181,7 +182,8 @@ export default function DistributionOrderList() {
               cls: 'ol-status-pending',
             }
             return (
-              <View key={o.id} className="ol-card" onClick={() => onItemClick(o.id)}>
+              <ThemeRoot className="ol-card">
+      <View key={o.id} onClick={() => onItemClick(o.id)}>
                 <View className="ol-card-header">
                   <Text className="ol-order-no">
                     {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
@@ -203,6 +205,7 @@ export default function DistributionOrderList() {
                   </View>
                 </View>
               </View>
+    </ThemeRoot>
             )
           })}
         </View>

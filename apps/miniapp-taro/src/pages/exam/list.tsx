@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type Tab = 'all' | 'pending' | 'completed'
 
@@ -55,7 +56,7 @@ export default function ExamList() {
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
 
   const renderPaper = (e: Exam) => (
-    <View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
+    <ThemeRoot><View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
       <View className="flex justify-between items-center">
         <Text className="text-base text-foreground font-semibold">{e.title}</Text>
         {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
@@ -75,12 +76,12 @@ export default function ExamList() {
         </Text>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 
   const renderRecord = (r: ExamRecord) => {
     const paper = paperMap.get(r.paperId)
     return (
-      <View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
+      <ThemeRoot><View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
         <View className="flex justify-between items-center">
           <Text className="text-base text-foreground font-semibold">
             {paper?.title ?? t('exam.removedPaper')}
@@ -101,7 +102,7 @@ export default function ExamList() {
           )}
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   const curList = tab === 'completed' ? records : tab === 'pending' ? pendingList : papers
@@ -113,10 +114,10 @@ export default function ExamList() {
         : 'exam.empty.all'
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="flex bg-card">
         {TAB_KEYS.map((item) => (
-          <View
+          <ThemeRoot><View
             key={item.key}
             className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => setTab(item.key)}
@@ -127,7 +128,7 @@ export default function ExamList() {
               {t(item.labelKey)}
             </View>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="p-3">
@@ -142,7 +143,7 @@ export default function ExamList() {
         <View className="text-center py-16 text-muted-foreground">
           <Text>{t(emptyKey)}</Text>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

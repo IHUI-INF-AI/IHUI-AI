@@ -10,6 +10,7 @@ import { useState, useCallback, useRef } from 'react'
 import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface TopicItem {
   id: string
@@ -125,7 +126,7 @@ export default function TopicListPage() {
   ]
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <NavBar title={tt('topic.list.pageTitle', '话题')} showBack />
       <ScrollView scrollY className="flex-1 box-border">
         <View className="p-[24rpx] pb-[60rpx]">
@@ -150,21 +151,21 @@ export default function TopicListPage() {
           {/* 分类 tab */}
           <View className="flex gap-[16rpx] mb-[20rpx]">
             {tabs.map((tab) => (
-              <View
+              <ThemeRoot><View
                 key={tab.key}
                 className={`flex-1 flex items-center justify-center h-[64rpx] text-[26rpx] rounded-[10rpx] ${activeTab === tab.key ? 'text-primary bg-primary/10 font-semibold' : 'text-muted-foreground bg-card'}`}
                 onClick={() => switchTab(tab.key)}
               >
                 <Text>{tt(tab.label, tab.fb)}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
 
           {/* 话题列表 */}
           {list.length > 0 ? (
             <View className="flex flex-col gap-[16rpx]">
               {list.map((item) => (
-                <View
+                <ThemeRoot><View
                   key={item.id}
                   className="flex items-center bg-card rounded-[16rpx] p-[24rpx]"
                   onClick={() => goDetail(item.id)}
@@ -202,7 +203,7 @@ export default function TopicListPage() {
                   </View>
                   <Text className="text-[32rpx] text-muted-foreground ml-[16rpx] shrink-0">›</Text>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </View>
           ) : null}
 
@@ -244,7 +245,7 @@ export default function TopicListPage() {
               <Text>{tt('topic.list.noMore', '没有更多了')}</Text>
             </View>
           ) : null}
-        </View>
+    </ThemeRoot>    </View>
       </ScrollView>
     </View>
   )

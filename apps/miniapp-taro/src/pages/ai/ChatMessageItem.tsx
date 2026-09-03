@@ -367,7 +367,7 @@ export default function ChatMessageItem({
                   return (
                     <Text
                       key={idx}
-                      style={{ color: '#1888ee' }}
+                      style={{ color: 'var(--color-link)' }}
                       onClick={() => handleSegmentClick(seg)}
                     >
                       {seg.url}

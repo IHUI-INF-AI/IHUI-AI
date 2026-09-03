@@ -8,6 +8,7 @@ import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -154,16 +155,16 @@ export default function ModelEdit() {
   ]
 
   const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void) => (
-    <View className="flex flex-wrap gap-[16rpx]">
+    <ThemeRoot><View className="flex flex-wrap gap-[16rpx]">
       {opts.map((o) => (
-        <View
+        <ThemeRoot><View
           key={o.value}
           className={`${OPT_BASE} ${current === o.value ? OPT_ACTIVE : ''}`}
           onClick={() => onSelect(o.value)}
         >
           <Text>{o.label}</Text>
         </View>
-      ))}
+      </Theme</ThemeRoot>Root>))}
     </View>
   )
 
@@ -201,7 +202,7 @@ export default function ModelEdit() {
   }
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <View className="flex items-center p-[24rpx] bg-card gap-[24rpx]">
         <Text className="text-[28rpx] text-primary" onClick={() => Taro.navigateBack()}>
           {t('common.back')}
@@ -250,14 +251,14 @@ export default function ModelEdit() {
           </Text>
           <View className="flex flex-wrap gap-[16rpx]">
             {CATEGORIES.map((c) => (
-              <View
+              <ThemeRoot><View
                 key={c}
                 className={`${TAG_BASE} ${categories.includes(c) ? TAG_ACTIVE : ''}`}
                 onClick={() => toggleCategory(c)}
               >
                 <Text>{c}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
 
           {/* 2. 部门 */}
@@ -354,7 +355,7 @@ export default function ModelEdit() {
           </View>
           <View className="h-[60rpx]" />
         </View>
-      </ScrollView>
+      </Scr</ThemeRoot>ollView>
     </View>
   )
 }
