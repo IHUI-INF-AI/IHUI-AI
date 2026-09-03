@@ -39,6 +39,8 @@ export interface PayButtonProps {
   /** 是否禁用 */
   disabled?: boolean
   onClick?: (type: PayButtonType, agentId?: string) => void
+  /** 动态价格获取函数(传入 agentId 返回价格);不传则用默认值(对齐 packages/app 契约) */
+  onFetchPrice?: (agentId: string) => Promise<number>
   /** 已解析主题,默认 'light' */
   colorScheme?: RnThemeMode
   /** i18n 翻译函数(可选) */
@@ -251,6 +253,7 @@ export function PayButton({
   agentAvatar = '',
   disabled = false,
   onClick,
+  onFetchPrice,
   colorScheme = 'light',
   t: tProp,
   onShowToast,
@@ -259,8 +262,8 @@ export function PayButton({
   const tt = useTt()
   const [popupVisible, setPopupVisible] = useState(false)
   const [count, setCount] = useState(1)
-  // 默认单价 0.01 元(1 分),实际由后端 getChargeInfoById 返回
-  const price = DEFAULT_PRICE
+  // 默认单价 0.01 元(1 分),打开购买弹窗时由 onFetchPrice 动态获取
+  const [price, setPrice] = useState<number>(DEFAULT_PRICE)
 
   const cfg = TYPE_CONFIG(tt)[type]
   const showToast = useCallback(
@@ -275,6 +278,11 @@ export function PayButton({
     if (disabled) return
     if (cfg.showPurchasePopup) {
       setPopupVisible(true)
+      if (onFetchPrice && agentId) {
+        onFetchPrice(agentId)
+          .then(setPrice)
+          .catch(() => setPrice(DEFAULT_PRICE))
+      }
       return
     }
     onClick?.(type, agentId)
