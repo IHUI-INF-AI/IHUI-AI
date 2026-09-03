@@ -434,6 +434,17 @@ function resolveManual(moduleName, originDir, platform) {
 // 副作用:CSS 变更不触发 Fast Refresh,需手动 reload;JS Fast Refresh 不受影响。
 // 长期方案:升级到 nativewind 5.0 stable(已重写不依赖 _fileSystem)。
 const isWatchMode = process.env.CI !== 'true'
+
+// SVG transformer(2026-09-03 复位,补回 metro.config.cjs;reset-cache 暴露 wx.svg 等 SVG 资源
+// "unsupported file type" 红屏。react-native-svg-transformer 已安装在 devDependencies,需在
+// withNativeWind 包装之前注入 assetExts/sourceExts/babelTransformerPath 三件套,
+// 否则 metro 把 .svg 当 asset 处理,image-size 包拿不到 png/jpg 头部字节报错。
+// 对齐 skill:mobile-rn-android-emulator §坑 1。)
+const { assetExts, sourceExts } = config.resolver
+config.resolver.assetExts = assetExts.filter((ext) => ext !== 'svg')
+config.resolver.sourceExts = [...sourceExts, 'svg']
+config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer')
+
 module.exports = withNativeWind(config, {
   input: './global.css',
   ...(isWatchMode ? { forceWriteFileSystem: true } : {}),
