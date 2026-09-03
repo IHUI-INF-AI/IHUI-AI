@@ -9,6 +9,7 @@ import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
 
 interface FormState {
@@ -166,153 +167,167 @@ export default function AskCreatePage() {
   const canSubmit = form.title.trim().length > 0 && form.content.trim().length >= 5
 
   return (
-    <View className="ask-create-page">
-      <NavBar title={tt('ask.create.pageTitle', '提问')} showBack />
-      <ScrollView scrollY className="ask-create-body">
-        {/* 标题 */}
-        <View className="ask-create-card">
-          <View className="ask-create-label-row">
-            <Text className="ask-create-label">{tt('ask.create.titleLabel', '标题')}</Text>
-            <Text className="ask-create-counter">
-              {tt('ask.create.titleCount', '{n}/50', { n: form.title.length })}
-            </Text>
-          </View>
-          <Input
-            className="ask-create-input"
-            value={form.title}
-            placeholder={tt('ask.create.titlePlaceholder', '一句话描述你的问题')}
-            maxlength={TITLE_MAX}
-            onInput={(e) => updateForm({ title: e.detail.value })}
-          />
-        </View>
-
-        {/* 详细描述 */}
-        <View className="ask-create-card">
-          <View className="ask-create-label-row">
-            <Text className="ask-create-label">{tt('ask.create.detailLabel', '详细描述')}</Text>
-            <Text className="ask-create-counter">
-              {tt('ask.create.contentCount', '{n}/500', { n: form.content.length })}
-            </Text>
-          </View>
-          <Textarea
-            className="ask-create-textarea"
-            value={form.content}
-            placeholder={tt(
-              'ask.create.detailPlaceholder',
-              '详细描述你的问题,越详细越容易得到回答',
-            )}
-            maxlength={CONTENT_MAX}
-            onInput={(e) => updateForm({ content: e.detail.value })}
-          />
-        </View>
-
-        {/* 分类选择 */}
-        <View className="ask-create-card">
-          <Text className="ask-create-label">{tt('ask.create.categoryLabel', '分类')}</Text>
-          <View className="ask-create-picker" onClick={() => setShowCategorySheet(true)}>
-            <Text
-              className={`ask-create-picker-value${form.category ? '' : ' ask-create-picker-placeholder'}`}
-            >
-              {form.category
-                ? getCategoryLabel(form.category)
-                : tt('ask.create.categoryPlaceholder', '选择分类')}
-            </Text>
-            <Text className="ask-create-picker-arrow">›</Text>
-          </View>
-        </View>
-
-        {/* 悬赏积分 */}
-        <View className="ask-create-card">
-          <Text className="ask-create-label">{tt('ask.create.rewardLabel', '悬赏积分')}</Text>
-          <View className="ask-create-rewards">
-            {REWARDS.map((r) => (
-              <View
-                key={r}
-                className={`ask-create-reward${form.reward === r ? ' active' : ''}`}
-                onClick={() => updateForm({ reward: r })}
-              >
-                <Text>{r}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* 配图 */}
-        <View className="ask-create-card">
-          <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
-          <View className="ask-create-images">
-            {form.images.map((img, i) => (
-              <View key={i} className="ask-create-img-item">
-                <Image className="ask-create-img" src={img} mode="aspectFill" />
-                <View className="ask-create-img-del" onClick={() => removeImage(i)}>
-                  <Text>×</Text>
-                </View>
-              </View>
-            ))}
-            {form.images.length < IMAGE_MAX ? (
-              <View className="ask-create-img-add" onClick={addImage}>
-                <Text className="ask-create-img-add-icon">+</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-
-        {/* 匿名发布 */}
-        <View className="ask-create-card ask-create-switch-row">
-          <View className="ask-create-switch-info">
-            <Text className="ask-create-label">{tt('ask.create.anonymousLabel', '匿名发布')}</Text>
-            <Text className="ask-create-switch-desc">
-              {tt('ask.create.anonymousDesc', '不显示你的昵称')}
-            </Text>
-          </View>
-          <Switch
-            checked={form.anonymous}
-            color="var(--color-primary)"
-            onChange={(e) => updateForm({ anonymous: e.detail.value })}
-          />
-        </View>
-      </ScrollView>
-
-      {/* 提交按钮 */}
-      <View className="ask-create-footer">
-        <Button
-          className="ask-create-submit"
-          loading={submitting}
-          disabled={!canSubmit || submitting}
-          onClick={onSubmit}
-        >
-          {submitting
-            ? tt('ask.create.submitting', '发布中…')
-            : tt('ask.create.submit', '发布问题')}
-        </Button>
-      </View>
-
-      {/* 分类选择弹层 */}
-      {showCategorySheet ? (
-        <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)}>
-          <View className="ask-create-sheet" catchMove onClick={(e) => e.stopPropagation()}>
-            <View className="ask-create-sheet-header">
-              <Text className="ask-create-sheet-title">
-                {tt('ask.create.categoryLabel', '分类')}
-              </Text>
-              <Text className="ask-create-sheet-close" onClick={() => setShowCategorySheet(false)}>
-                ×
+    <ThemeRoot>
+      <View className="ask-create-page">
+        <NavBar title={tt('ask.create.pageTitle', '提问')} showBack />
+        <ScrollView scrollY className="ask-create-body">
+          {/* 标题 */}
+          <View className="ask-create-card">
+            <View className="ask-create-label-row">
+              <Text className="ask-create-label">{tt('ask.create.titleLabel', '标题')}</Text>
+              <Text className="ask-create-counter">
+                {tt('ask.create.titleCount', '{n}/50', { n: form.title.length })}
               </Text>
             </View>
-            {CATEGORIES.map((c) => (
-              <View
-                key={c.key}
-                className={`ask-create-sheet-item${form.category === c.key ? ' active' : ''}`}
-                onClick={() => pickCategory(c.key)}
-              >
-                <Text>{tt(c.labelKey, c.fb)}</Text>
-                {form.category === c.key ? <Text className="ask-create-sheet-check">✓</Text> : null}
-              </View>
-            ))}
+            <Input
+              className="ask-create-input"
+              value={form.title}
+              placeholder={tt('ask.create.titlePlaceholder', '一句话描述你的问题')}
+              maxlength={TITLE_MAX}
+              onInput={(e) => updateForm({ title: e.detail.value })}
+            />
           </View>
+
+          {/* 详细描述 */}
+          <View className="ask-create-card">
+            <View className="ask-create-label-row">
+              <Text className="ask-create-label">{tt('ask.create.detailLabel', '详细描述')}</Text>
+              <Text className="ask-create-counter">
+                {tt('ask.create.contentCount', '{n}/500', { n: form.content.length })}
+              </Text>
+            </View>
+            <Textarea
+              className="ask-create-textarea"
+              value={form.content}
+              placeholder={tt(
+                'ask.create.detailPlaceholder',
+                '详细描述你的问题,越详细越容易得到回答',
+              )}
+              maxlength={CONTENT_MAX}
+              onInput={(e) => updateForm({ content: e.detail.value })}
+            />
+          </View>
+
+          {/* 分类选择 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.categoryLabel', '分类')}</Text>
+            <View className="ask-create-picker" onClick={() => setShowCategorySheet(true)}>
+              <Text
+                className={`ask-create-picker-value${form.category ? '' : ' ask-create-picker-placeholder'}`}
+              >
+                {form.category
+                  ? getCategoryLabel(form.category)
+                  : tt('ask.create.categoryPlaceholder', '选择分类')}
+              </Text>
+              <Text className="ask-create-picker-arrow">›</Text>
+            </View>
+          </View>
+
+          {/* 悬赏积分 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.rewardLabel', '悬赏积分')}</Text>
+            <View className="ask-create-rewards">
+              {REWARDS.map((r) => (
+                <View
+                  key={r}
+                  className={`ask-create-reward${form.reward === r ? ' active' : ''}`}
+                  onClick={() => updateForm({ reward: r })}
+                >
+                  <Text>{r}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* 配图 */}
+          <View className="ask-create-card">
+            <Text className="ask-create-label">{tt('ask.create.imageLabel', '配图')}</Text>
+            <View className="ask-create-images">
+              {form.images.map((img, i) => (
+                <View key={i} className="ask-create-img-item">
+                  <Image className="ask-create-img" src={img} mode="aspectFill" />
+                  <View className="ask-create-img-del" onClick={() => removeImage(i)}>
+                    <Text>×</Text>
+                  </View>
+                </View>
+              ))}
+              {form.images.length < IMAGE_MAX ? (
+                <View className="ask-create-img-add" onClick={addImage}>
+                  <Text className="ask-create-img-add-icon">+</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          {/* 匿名发布 */}
+          <View className="ask-create-card ask-create-switch-row">
+            <View className="ask-create-switch-info">
+              <Text className="ask-create-label">
+                {tt('ask.create.anonymousLabel', '匿名发布')}
+              </Text>
+              <Text className="ask-create-switch-desc">
+                {tt('ask.create.anonymousDesc', '不显示你的昵称')}
+              </Text>
+            </View>
+            <Switch
+              checked={form.anonymous}
+              color="var(--color-primary)"
+              onChange={(e) => updateForm({ anonymous: e.detail.value })}
+            />
+          </View>
+        </ScrollView>
+
+        {/* 提交按钮 */}
+        <View className="ask-create-footer">
+          <Button
+            className="ask-create-submit"
+            loading={submitting}
+            disabled={!canSubmit || submitting}
+            onClick={onSubmit}
+          >
+            {submitting
+              ? tt('ask.create.submitting', '发布中…')
+              : tt('ask.create.submit', '发布问题')}
+          </Button>
         </View>
-      ) : null}
-    </View>
+
+        {/* 分类选择弹层 */}
+        {showCategorySheet ? (
+          <View className="ask-create-mask" onClick={() => setShowCategorySheet(false)}>
+            <View className="ask-create-sheet" catchMove onClick={(e) => e.stopPropagation()}>
+              <View className="ask-create-sheet-header">
+                <Text className="ask-create-sheet-title">
+                  {tt('ask.create.categoryLabel', '分类')}
+                </Text>
+                <Text
+                  className="ask-create-sheet-close"
+                  onClick={() => setShowCategorySheet(false)}
+                >
+                  ×
+                </Text>
+              </View>
+              {CATEGORIES.map((c) => (
+                <View
+                  key={c.key}
+                  className={`ask-create-sheet-item${form.category === c.key ? ' active' : ''}`}
+                  onClick={() => pickCategory(c.key)}
+                >
+                  <Text>{tt(c.labelKey, c.fb)}</Text>
+                  {form.category === c.key ? (
+                    <Image
+                      className="ask-create-sheet-check"
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      style={{ width: '28rpx', height: '28rpx' }}
+                    />
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -7,6 +7,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -221,62 +222,68 @@ export default function CircleIndexPage() {
           {list.map((c) => {
             const imgs = c.images || []
             return (
-              <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
-                <View className="ci-item-head">
-                  <Image className="ci-avatar" src={c.avatar || defaultAvatar} mode="aspectFill" />
-                  <Text className="ci-author">
-                    {c.author || tt('circle.index.anonymous', '匿名用户')}
-                  </Text>
-                  <Text className="ci-time">{c.createTime}</Text>
-                </View>
-                {c.title ? <Text className="ci-title">{c.title}</Text> : null}
-                <Text className="ci-content">{c.content}</Text>
-                {imgs.length ? (
-                  <View className="ci-images">
-                    {imgs.slice(0, 3).map((img, i) => (
+              <ThemeRoot key={c.id}>
+                <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
+                  <View className="ci-item-head">
+                    <Image
+                      className="ci-avatar"
+                      src={c.avatar || defaultAvatar}
+                      mode="aspectFill"
+                    />
+                    <Text className="ci-author">
+                      {c.author || tt('circle.index.anonymous', '匿名用户')}
+                    </Text>
+                    <Text className="ci-time">{c.createTime}</Text>
+                  </View>
+                  {c.title ? <Text className="ci-title">{c.title}</Text> : null}
+                  <Text className="ci-content">{c.content}</Text>
+                  {imgs.length ? (
+                    <View className="ci-images">
+                      {imgs.slice(0, 3).map((img, i) => (
+                        <Image
+                          key={i}
+                          className="ci-img"
+                          src={img}
+                          mode="aspectFill"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            previewImgs(imgs, i)
+                          }}
+                        />
+                      ))}
+                      {imgs.length > 3 ? (
+                        <View className="ci-img ci-img-more">
+                          <Text className="ci-img-more-text">+{imgs.length - 3}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  <View className="ci-item-actions">
+                    <View
+                      className="ci-item-action"
+                      style={{ display: 'flex', alignItems: 'center' }}
+                    >
                       <Image
-                        key={i}
-                        className="ci-img"
-                        src={img}
-                        mode="aspectFill"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          previewImgs(imgs, i)
-                        }}
+                        src="/static/images/icons/heart.svg"
+                        mode="aspectFit"
+                        style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
                       />
-                    ))}
-                    {imgs.length > 3 ? (
-                      <View className="ci-img ci-img-more">
-                        <Text className="ci-img-more-text">+{imgs.length - 3}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
-                <View className="ci-item-actions">
-                  <View
-                    className="ci-item-action"
-                    style={{ display: 'flex', alignItems: 'center' }}
-                  >
-                    <Image
-                      src="/static/images/icons/heart.svg"
-                      mode="aspectFit"
-                      style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                    />
-                    <Text>{c.likes || 0}</Text>
-                  </View>
-                  <View
-                    className="ci-item-action"
-                    style={{ display: 'flex', alignItems: 'center' }}
-                  >
-                    <Image
-                      src="/static/images/icons/message-circle.svg"
-                      mode="aspectFit"
-                      style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                    />
-                    <Text>{c.comments || 0}</Text>
+                      <Text>{c.likes || 0}</Text>
+                    </View>
+                    <View
+                      className="ci-item-action"
+                      style={{ display: 'flex', alignItems: 'center' }}
+                    >
+                      <Image
+                        src="/static/images/icons/message-circle.svg"
+                        mode="aspectFit"
+                        style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                      />
+                      <Text>{c.comments || 0}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

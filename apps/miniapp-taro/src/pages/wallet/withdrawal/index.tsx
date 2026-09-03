@@ -7,6 +7,7 @@ import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -80,88 +81,90 @@ export default function WithdrawalPage() {
   })
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx]">
-      {/* 可提现金额卡片 — 对齐原项目 content-wrap 紫色渐变 */}
-      <View className="p-[48rpx_32rpx] rounded-[24rpx] shadow-sm bg-primary/10 border-[2rpx] border-primary/20">
-        <Text className="block text-[26rpx] text-muted-foreground">
-          {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
-        </Text>
-        <Text className="block text-[64rpx] font-bold text-foreground mt-[12rpx]">
-          {priceFmt.format(available)}
-        </Text>
-      </View>
-
-      {/* 提现金额 + 提现方式卡片 — 对齐原项目 withdrawalMethods 渐变容器 */}
-      <View className="mt-[24rpx] p-[32rpx] bg-card rounded-[20rpx]">
-        <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx]">
-          {tt('wallet.withdrawal.amountLabel', '提现金额')}
-        </Text>
-        <View className="flex items-center py-[20rpx] border-b-[2rpx] border-border">
-          <Text className="text-[40rpx] font-semibold text-destructive">¥</Text>
-          <Input
-            className="flex-1 text-[40rpx] text-destructive font-bold ml-[12rpx]"
-            type="digit"
-            value={amount}
-            onInput={(e) => setAmount(e.detail.value)}
-            placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
-          />
-          <Text
-            className="text-[26rpx] text-warning py-[8rpx] px-[16rpx] underline"
-            onClick={fillAll}
-          >
-            {tt('distribution.withdraw.all', '全部提现')}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background p-[24rpx]">
+        {/* 可提现金额卡片 — 对齐原项目 content-wrap 紫色渐变 */}
+        <View className="p-[48rpx_32rpx] rounded-[24rpx] shadow-sm bg-primary/10 border-[2rpx] border-primary/20">
+          <Text className="block text-[26rpx] text-muted-foreground">
+            {tt('wallet.withdrawal.availableYuan', '可提现金额(元)')}
+          </Text>
+          <Text className="block text-[64rpx] font-bold text-foreground mt-[12rpx]">
+            {priceFmt.format(available)}
           </Text>
         </View>
 
-        <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx] mt-[32rpx]">
-          {tt('distribution.withdraw.method', '提现方式')}
-        </Text>
-        <View className="flex gap-[16rpx]">
-          {methods.map((m) => (
-            <View
-              key={m.value}
-              className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
-              onClick={() => setMethod(m.value)}
+        {/* 提现金额 + 提现方式卡片 — 对齐原项目 withdrawalMethods 渐变容器 */}
+        <View className="mt-[24rpx] p-[32rpx] bg-card rounded-[20rpx]">
+          <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx]">
+            {tt('wallet.withdrawal.amountLabel', '提现金额')}
+          </Text>
+          <View className="flex items-center py-[20rpx] border-b-[2rpx] border-border">
+            <Text className="text-[40rpx] font-semibold text-destructive">¥</Text>
+            <Input
+              className="flex-1 text-[40rpx] text-destructive font-bold ml-[12rpx]"
+              type="digit"
+              value={amount}
+              onInput={(e) => setAmount(e.detail.value)}
+              placeholder={tt('distribution.withdraw.amountPlaceholder', '请输入提现金额')}
+            />
+            <Text
+              className="text-[26rpx] text-warning py-[8rpx] px-[16rpx] underline"
+              onClick={fillAll}
             >
+              {tt('distribution.withdraw.all', '全部提现')}
+            </Text>
+          </View>
+
+          <Text className="block text-[26rpx] text-muted-foreground mb-[16rpx] mt-[32rpx]">
+            {tt('distribution.withdraw.method', '提现方式')}
+          </Text>
+          <View className="flex gap-[16rpx]">
+            {methods.map((m) => (
               <View
-                className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[#1677ff]'}`}
+                key={m.value}
+                className={`flex-1 flex items-center p-[20rpx] border-[2rpx] rounded-[12rpx] ${method === m.value ? 'bg-primary/10 border-primary/40' : 'bg-muted border-transparent'}`}
+                onClick={() => setMethod(m.value)}
               >
-                {m.icon}
+                <View
+                  className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[rgba(22, 119, 255, 1)]'}`}
+                >
+                  {m.icon}
+                </View>
+                <Text className="flex-1 text-[28rpx] text-foreground">{m.label}</Text>
+                <View
+                  className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
+                >
+                  {method === m.value && (
+                    <Image
+                      src="/static/images/icons/check.svg"
+                      mode="aspectFit"
+                      className="text-primary-foreground font-bold"
+                      style={{ width: '24rpx', height: '24rpx' }}
+                    />
+                  )}
+                </View>
               </View>
-              <Text className="flex-1 text-[28rpx] text-foreground">{m.label}</Text>
-              <View
-                className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
-              >
-                {method === m.value && (
-                  <Image
-                    src="/static/images/icons/check.svg"
-                    mode="aspectFit"
-                    className="text-primary-foreground font-bold"
-                    style={{ width: '24rpx', height: '24rpx' }}
-                  />
-                )}
-              </View>
-            </View>
-          ))}
+            ))}
+          </View>
+        </View>
+
+        <Button
+          className="mt-[40rpx] bg-primary text-primary-foreground rounded-[30rpx] text-[32rpx] font-bold"
+          loading={submitting}
+          disabled={submitting}
+          onClick={onSubmit}
+        >
+          {tt('distribution.withdraw.submit', '提交申请')}
+        </Button>
+
+        <View
+          className="mt-[32rpx] text-center text-[26rpx] text-muted-foreground"
+          onClick={goRecords}
+        >
+          <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
         </View>
       </View>
-
-      <Button
-        className="mt-[40rpx] bg-primary text-primary-foreground rounded-[30rpx] text-[32rpx] font-bold"
-        loading={submitting}
-        disabled={submitting}
-        onClick={onSubmit}
-      >
-        {tt('distribution.withdraw.submit', '提交申请')}
-      </Button>
-
-      <View
-        className="mt-[32rpx] text-center text-[26rpx] text-muted-foreground"
-        onClick={goRecords}
-      >
-        <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

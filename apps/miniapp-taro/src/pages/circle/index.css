@@ -44,7 +44,7 @@
   width: 48rpx;
   height: 6rpx;
   background: var(--color-primary);
-  border-radius: 4rpx;
+  border-radius: var(--radius-sm);
 }
 
 /* ===== 热门话题 ===== */
@@ -68,7 +68,7 @@
   padding: 0 20rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 .ci-hottopic-hash {
@@ -110,14 +110,14 @@
   padding: 24rpx 16rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
   gap: 8rpx;
 }
 .ci-user-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .ci-user-name {
@@ -146,7 +146,7 @@
   height: 48rpx;
   padding: 0 24rpx;
   background: var(--color-primary);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-top: 4rpx;
 }
 .ci-user-follow Text {
@@ -172,7 +172,7 @@
 .ci-item {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
 }
 .ci-item-head {
@@ -183,7 +183,7 @@
 .ci-avatar {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -227,7 +227,7 @@
 .ci-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .ci-img-more {
@@ -239,7 +239,7 @@
 /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .ci-img-more-text {
   font-size: 32rpx;
-  color: #fff;
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .ci-item-actions {
@@ -274,7 +274,7 @@
   height: 64rpx;
   padding: 0 40rpx;
   background: var(--color-primary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   margin-top: 8rpx;
 }
 .ci-empty-btn Text {
@@ -317,7 +317,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-primary);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   box-shadow: 0 8rpx 24rpx rgba(7, 193, 96, 0.35);
   z-index: 10;
 }

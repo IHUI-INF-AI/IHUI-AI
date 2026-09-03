@@ -13,6 +13,7 @@ import qqIcon from '@/assets/remote/images/QQ.svg'
 import wxIcon from '@/assets/remote/images/wx.svg'
 import gongsiIcon from '@/assets/remote/images/gongsi.png'
 import sandMsgIcon from '@/assets/remote/images/sand_msg.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
@@ -131,113 +132,115 @@ export default function ContactPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
-      <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
-        <Text className="block text-[36rpx] font-semibold text-foreground">
-          {tt('about.contact.title', '联系我们')}
-        </Text>
-        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
-          {tt('about.contact.headerSub', '我们随时为您提供帮助')}
-        </Text>
-      </View>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[60rpx]">
+        <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
+          <Text className="block text-[36rpx] font-semibold text-foreground">
+            {tt('about.contact.title', '联系我们')}
+          </Text>
+          <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx]">
+            {tt('about.contact.headerSub', '我们随时为您提供帮助')}
+          </Text>
+        </View>
 
-      {contactItems.length > 0 ? (
-        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          {contactItems.map((item, idx) => (
+        {contactItems.length > 0 ? (
+          <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+            {contactItems.map((item, idx) => (
+              <View
+                key={item.key}
+                className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
+                onClick={() =>
+                  item.actionType === 'call' ? call(item.value) : copy(item.value, item.label)
+                }
+              >
+                {isImagePath(item.icon) ? (
+                  <Image
+                    src={item.icon}
+                    className="w-[40rpx] h-[40rpx] flex-shrink-0"
+                    mode="aspectFit"
+                  />
+                ) : (
+                  <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
+                )}
+                <View className="flex-1 ml-[24rpx] mr-[16rpx]">
+                  <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
+                  <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
+                    {item.value}
+                  </Text>
+                </View>
+                <Text className="text-[24rpx] text-primary flex-shrink-0">
+                  {item.actionType === 'call'
+                    ? tt('about.contact.callBtn', '拨打')
+                    : tt('about.contact.copyBtn', '复制')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {info.address ? (
+          <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
             <View
-              key={item.key}
-              className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
-              onClick={() =>
-                item.actionType === 'call' ? call(item.value) : copy(item.value, item.label)
-              }
+              className="flex items-center p-[32rpx] active:bg-background"
+              onClick={() => openLocation(info.address)}
             >
-              {isImagePath(item.icon) ? (
-                <Image
-                  src={item.icon}
-                  className="w-[40rpx] h-[40rpx] flex-shrink-0"
-                  mode="aspectFit"
-                />
-              ) : (
-                <Text className="text-[40rpx] flex-shrink-0">{item.icon}</Text>
-              )}
+              <Image
+                src={gongsiIcon}
+                className="w-[40rpx] h-[40rpx] flex-shrink-0"
+                mode="aspectFit"
+              />
               <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-                <Text className="block text-[22rpx] text-muted-foreground">{item.label}</Text>
+                <Text className="block text-[22rpx] text-muted-foreground">
+                  {tt('about.contact.address', '地址')}
+                </Text>
                 <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
-                  {item.value}
+                  {info.address}
                 </Text>
               </View>
               <Text className="text-[24rpx] text-primary flex-shrink-0">
-                {item.actionType === 'call'
-                  ? tt('about.contact.callBtn', '拨打')
-                  : tt('about.contact.copyBtn', '复制')}
+                {tt('about.contact.copyBtn', '复制')}
               </Text>
             </View>
-          ))}
-        </View>
-      ) : null}
+          </View>
+        ) : null}
 
-      {info.address ? (
         <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-          <View
-            className="flex items-center p-[32rpx] active:bg-background"
-            onClick={() => openLocation(info.address)}
-          >
-            <Image
-              src={gongsiIcon}
-              className="w-[40rpx] h-[40rpx] flex-shrink-0"
-              mode="aspectFit"
-            />
-            <View className="flex-1 ml-[24rpx] mr-[16rpx]">
-              <Text className="block text-[22rpx] text-muted-foreground">
-                {tt('about.contact.address', '地址')}
-              </Text>
-              <Text className="block text-[28rpx] text-foreground mt-[4rpx] break-all">
-                {info.address}
-              </Text>
-            </View>
-            <Text className="text-[24rpx] text-primary flex-shrink-0">
-              {tt('about.contact.copyBtn', '复制')}
+          <View className="flex justify-between items-center py-[28rpx] px-[32rpx]">
+            <Text className="text-[28rpx] text-foreground">
+              {tt('about.contact.workTimeLabel', '工作时间')}
+            </Text>
+            <Text className="text-[26rpx] text-muted-foreground text-right">
+              {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
+            </Text>
+          </View>
+          <View className="flex justify-between items-center py-[28rpx] px-[32rpx] mt-[16rpx]">
+            <Text className="text-[28rpx] text-foreground">
+              {tt('about.contact.responseLabel', '响应时间')}
+            </Text>
+            <Text className="text-[26rpx] text-muted-foreground text-right">
+              {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
             </Text>
           </View>
         </View>
-      ) : null}
 
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex justify-between items-center py-[28rpx] px-[32rpx]">
-          <Text className="text-[28rpx] text-foreground">
-            {tt('about.contact.workTimeLabel', '工作时间')}
-          </Text>
-          <Text className="text-[26rpx] text-muted-foreground text-right">
-            {tt('about.contact.workTime', '周一至周五 9:00-18:00')}
-          </Text>
-        </View>
-        <View className="flex justify-between items-center py-[28rpx] px-[32rpx] mt-[16rpx]">
-          <Text className="text-[28rpx] text-foreground">
-            {tt('about.contact.responseLabel', '响应时间')}
-          </Text>
-          <Text className="text-[26rpx] text-muted-foreground text-right">
-            {tt('about.contact.responseTime', '工作日内 24 小时内回复')}
+        {info.phone ? (
+          <View className="pt-[32rpx] px-[24rpx] pb-[16rpx]">
+            <Button
+              className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0"
+              onClick={() => call(info.phone)}
+            >
+              {tt('about.contact.callNow', '立即拨打客服')}
+            </Button>
+          </View>
+        ) : null}
+
+        <View className="text-center p-[32rpx]">
+          <Text className="text-[22rpx] text-muted-foreground">
+            {tt('about.contact.footer', '感谢您选择智汇 AI')}
           </Text>
         </View>
       </View>
-
-      {info.phone ? (
-        <View className="pt-[32rpx] px-[24rpx] pb-[16rpx]">
-          <Button
-            className="w-full h-[88rpx] leading-[88rpx] bg-primary text-white text-[30rpx] rounded-[12rpx] m-0 after:border-0"
-            onClick={() => call(info.phone)}
-          >
-            {tt('about.contact.callNow', '立即拨打客服')}
-          </Button>
-        </View>
-      ) : null}
-
-      <View className="text-center p-[32rpx]">
-        <Text className="text-[22rpx] text-muted-foreground">
-          {tt('about.contact.footer', '感谢您选择智汇 AI')}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

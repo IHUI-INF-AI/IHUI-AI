@@ -44,7 +44,7 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-secondary);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 1rpx solid transparent;
   transition: all 0.2s ease;
 }
@@ -66,7 +66,7 @@
   padding: 28rpx 24rpx 20rpx;
   background: var(--color-card);
   margin: 16rpx 20rpx 0;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 1rpx solid var(--color-border);
 }
 .provider-header .provider-name {
@@ -94,7 +94,7 @@
   font-size: 26rpx;
   color: var(--color-muted-foreground);
   background: var(--color-card);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   border: 1rpx solid var(--color-border);
   transition: all 0.2s ease;
 }
@@ -110,7 +110,7 @@
 }
 .model-card {
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx;
   margin-bottom: 16rpx;
   display: flex;
@@ -139,7 +139,7 @@
 .model-type-tag {
   font-size: 22rpx;
   padding: 4rpx 14rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   margin-left: 12rpx;
 }
@@ -154,7 +154,7 @@
 .model-type-tag.type-av {
   background: var(--color-accent);
   /* custom color: #b89dff 紫色品牌色,无对应 token,保留原值 */
-  color: #b89dff;
+  color: rgba(184, 157, 255, 1);
 }
 
 /* 价格行 */
@@ -210,7 +210,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-secondary);
   padding: 4rpx 12rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
 }
 
 .card-footer {

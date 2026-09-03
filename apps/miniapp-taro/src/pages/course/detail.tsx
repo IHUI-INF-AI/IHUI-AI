@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   CourseHeader,
   CourseCatalog,
@@ -131,9 +132,11 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <View className="flex items-center justify-center h-screen text-muted-foreground">
-        <Text>{t('common.loading')}</Text>
-      </View>
+      <ThemeRoot>
+        <View className="flex items-center justify-center h-screen text-muted-foreground">
+          <Text>{t('common.loading')}</Text>
+        </View>
+      </ThemeRoot>
     )
   }
 
@@ -167,164 +170,168 @@ export default function CourseDetail() {
   ]
 
   return (
-    <View className="min-h-screen pb-[120rpx] bg-background">
-      <CourseHeader
-        data={headerData}
-        onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
-      />
+    <ThemeRoot>
+      <View className="min-h-screen pb-[120rpx] bg-background">
+        <CourseHeader
+          data={headerData}
+          onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
+        />
 
-      <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-4">
-        <View className="flex flex-col items-center">
-          <ProgressCircle percent={learningProgress} size={60} />
-          <Text className="text-xs text-muted-foreground mt-2">{t('course.learningProgress')}</Text>
-        </View>
-        <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
-          <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Image
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/book-open.svg"
-              mode="aspectFit"
-            />
+        <View className="flex items-center justify-around mx-3 my-3 bg-card rounded-xl p-4">
+          <View className="flex flex-col items-center">
+            <ProgressCircle percent={learningProgress} size={60} />
+            <Text className="text-xs text-muted-foreground mt-2">
+              {t('course.learningProgress')}
+            </Text>
           </View>
-          <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
-        </View>
-        <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
-          <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-            <Image
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/star-fill.svg"
-              mode="aspectFit"
-            />
+          <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
+            <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Image
+                style={{ width: '40rpx', height: '40rpx' }}
+                src="/static/images/icons/book-open.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
           </View>
-          <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
-        </View>
-        <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
-          <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Image
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/share-2.svg"
-              mode="aspectFit"
-            />
+          <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
+            <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
+              <Image
+                style={{ width: '40rpx', height: '40rpx' }}
+                src="/static/images/icons/star-fill.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
           </View>
-          <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
+          <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
+            <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Image
+                style={{ width: '40rpx', height: '40rpx' }}
+                src="/static/images/icons/share-2.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
+          </View>
         </View>
-      </View>
 
-      <LearningStreak
-        streakDays={3}
-        totalSigned={15}
-        weekDays={weekDays}
-        signedToday={false}
-        onSign={handleSign}
-      />
+        <LearningStreak
+          streakDays={3}
+          totalSigned={15}
+          weekDays={weekDays}
+          signedToday={false}
+          onSign={handleSign}
+        />
 
-      <StudyStats
-        data={{
-          totalMinutes: 480,
-          totalLessons: Math.floor((learningProgress / 100) * (course.outline?.length || 0)),
-          streakDays: 3,
-          weekMinutes: 180,
-          weekTarget: 300,
-        }}
-      />
-
-      <TeacherCard
-        name={course.teacher || t('course.teacher')}
-        title={t('course.goldTeacher')}
-        bio={course.subtitle}
-        courseCount={12}
-        studentCount={1280}
-        rating={4.8}
-        isFollowing={false}
-        onFollow={() => Taro.showToast({ title: t('course.followed'), icon: 'success' })}
-        onClick={handleTeacherClick}
-      />
-
-      <CourseIntro
-        data={{
-          description: course.description || t('course.noIntro'),
-          objectives: tList('course.objectives'),
-          suitableFor: tList('course.suitableFor'),
-          highlights: tList('course.highlights'),
-        }}
-      />
-
-      <CourseCatalog
-        lessons={lessons}
-        currentId={String(Math.floor((learningProgress / 100) * (course.outline?.length || 0)))}
-        onLessonClick={handleLessonClick}
-      />
-
-      <View className="mx-3 my-3">
-        <LessonListItem
+        <StudyStats
           data={{
-            id: 'next',
-            title: t('course.nextLesson', {
-              title: course.outline?.[0]?.title || t('course.startLearning'),
-            }),
-            type: 'video',
-            duration: '15:30',
+            totalMinutes: 480,
+            totalLessons: Math.floor((learningProgress / 100) * (course.outline?.length || 0)),
+            streakDays: 3,
+            weekMinutes: 180,
+            weekTarget: 300,
           }}
-          index={0}
-          active
-          onClick={() => setShowComplete(true)}
+        />
+
+        <TeacherCard
+          name={course.teacher || t('course.teacher')}
+          title={t('course.goldTeacher')}
+          bio={course.subtitle}
+          courseCount={12}
+          studentCount={1280}
+          rating={4.8}
+          isFollowing={false}
+          onFollow={() => Taro.showToast({ title: t('course.followed'), icon: 'success' })}
+          onClick={handleTeacherClick}
+        />
+
+        <CourseIntro
+          data={{
+            description: course.description || t('course.noIntro'),
+            objectives: tList('course.objectives'),
+            suitableFor: tList('course.suitableFor'),
+            highlights: tList('course.highlights'),
+          }}
+        />
+
+        <CourseCatalog
+          lessons={lessons}
+          currentId={String(Math.floor((learningProgress / 100) * (course.outline?.length || 0)))}
+          onLessonClick={handleLessonClick}
+        />
+
+        <View className="mx-3 my-3">
+          <LessonListItem
+            data={{
+              id: 'next',
+              title: t('course.nextLesson', {
+                title: course.outline?.[0]?.title || t('course.startLearning'),
+              }),
+              type: 'video',
+              duration: '15:30',
+            }}
+            index={0}
+            active
+            onClick={() => setShowComplete(true)}
+          />
+        </View>
+
+        <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
+          <View className="flex-1">
+            <Text className="text-sm text-primary">¥</Text>
+            <Text className="text-2xl text-primary font-bold">{course.price ?? 0}</Text>
+          </View>
+          <View
+            className="px-7 h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-lg text-sm"
+            onClick={handleBuy}
+          >
+            <Text>{t('course.buyNow')}</Text>
+          </View>
+        </View>
+
+        <NoteEditor
+          visible={showNote}
+          initialContent={noteContent}
+          title={t('course.noteTitle', { title: course.title })}
+          onSave={handleSaveNote}
+          onCancel={() => setShowNote(false)}
+        />
+
+        <CourseRating visible={showRating} initialRating={0} onSubmit={handleSubmitRating} />
+
+        {showShare && (
+          <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowShare(false)}>
+            <View
+              className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <QrCodeShare
+                title={course.title}
+                desc={t('course.scanCourse')}
+                userName=""
+                onSave={() => setShowShare(false)}
+                onShare={() => {
+                  Taro.showShareMenu({ withShareTicket: true })
+                  setShowShare(false)
+                }}
+              />
+            </View>
+          </View>
+        )}
+
+        <LessonComplete
+          visible={showComplete}
+          lessonTitle={course.outline?.[0]?.title || course.title}
+          duration="15:30"
+          points={10}
+          nextLessonTitle={course.outline?.[1]?.title}
+          onContinue={handleLessonComplete}
+          onShare={() => Taro.showShareMenu({ withShareTicket: true })}
+          onClose={() => setShowComplete(false)}
         />
       </View>
-
-      <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
-        <View className="flex-1">
-          <Text className="text-sm text-primary">¥</Text>
-          <Text className="text-2xl text-primary font-bold">{course.price ?? 0}</Text>
-        </View>
-        <View
-          className="px-7 h-[80rpx] leading-[80rpx] bg-primary text-primary-foreground rounded-lg text-sm"
-          onClick={handleBuy}
-        >
-          <Text>{t('course.buyNow')}</Text>
-        </View>
-      </View>
-
-      <NoteEditor
-        visible={showNote}
-        initialContent={noteContent}
-        title={t('course.noteTitle', { title: course.title })}
-        onSave={handleSaveNote}
-        onCancel={() => setShowNote(false)}
-      />
-
-      <CourseRating visible={showRating} initialRating={0} onSubmit={handleSubmitRating} />
-
-      {showShare && (
-        <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowShare(false)}>
-          <View
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <QrCodeShare
-              title={course.title}
-              desc={t('course.scanCourse')}
-              userName=""
-              onSave={() => setShowShare(false)}
-              onShare={() => {
-                Taro.showShareMenu({ withShareTicket: true })
-                setShowShare(false)
-              }}
-            />
-          </View>
-        </View>
-      )}
-
-      <LessonComplete
-        visible={showComplete}
-        lessonTitle={course.outline?.[0]?.title || course.title}
-        duration="15:30"
-        points={10}
-        nextLessonTitle={course.outline?.[1]?.title}
-        onContinue={handleLessonComplete}
-        onShare={() => Taro.showShareMenu({ withShareTicket: true })}
-        onClose={() => setShowComplete(false)}
-      />
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

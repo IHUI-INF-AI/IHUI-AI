@@ -8,6 +8,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo } from 'react'
 import { getOrderDetail, closeOrder, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',
@@ -91,68 +92,70 @@ export default function OrderDetail() {
   }
 
   return (
-    <View className="min-h-screen bg-background pb-[120rpx]">
-      <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-        <View className="text-[32rpx] text-foreground font-semibold pb-[24rpx] mb-[8rpx]">
-          {order.title}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[120rpx]">
+        <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+          <View className="text-[32rpx] text-foreground font-semibold pb-[24rpx] mb-[8rpx]">
+            {order.title}
+          </View>
+          <View className="flex justify-between py-[24rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderNo')}</Text>
+            <Text className="text-[26rpx] text-foreground">{order.orderNo}</Text>
+          </View>
+          <View className="flex justify-between py-[24rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">{t('order.createTime')}</Text>
+            <Text className="text-[26rpx] text-foreground">{order.createTime}</Text>
+          </View>
+          <View className="flex justify-between py-[24rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderType')}</Text>
+            <Text className="text-[26rpx] text-foreground">{order.type}</Text>
+          </View>
+          <View className="flex justify-between py-[24rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderStatus')}</Text>
+            <Text className={`text-[26rpx] ${STATUS_COLOR[order.status] || 'text-foreground'}`}>
+              {statusText}
+            </Text>
+          </View>
+          <View className="flex justify-between py-[24rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">{t('order.orderAmount')}</Text>
+            <Text className="text-[32rpx] text-destructive font-semibold">¥{order.amount}</Text>
+          </View>
         </View>
-        <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{t('order.orderNo')}</Text>
-          <Text className="text-[26rpx] text-foreground">{order.orderNo}</Text>
-        </View>
-        <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{t('order.createTime')}</Text>
-          <Text className="text-[26rpx] text-foreground">{order.createTime}</Text>
-        </View>
-        <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{t('order.orderType')}</Text>
-          <Text className="text-[26rpx] text-foreground">{order.type}</Text>
-        </View>
-        <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{t('order.orderStatus')}</Text>
-          <Text className={`text-[26rpx] ${STATUS_COLOR[order.status] || 'text-foreground'}`}>
-            {statusText}
-          </Text>
-        </View>
-        <View className="flex justify-between py-[24rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{t('order.orderAmount')}</Text>
-          <Text className="text-[32rpx] text-destructive font-semibold">¥{order.amount}</Text>
-        </View>
-      </View>
-      <View className="px-[32rpx]">
-        {order.status === 'pending' && (
-          <>
+        <View className="px-[32rpx]">
+          {order.status === 'pending' && (
+            <>
+              <Button
+                className="mt-[24rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
+                onClick={goPay}
+              >
+                {t('order.goPay')}
+              </Button>
+              <Button
+                className={`mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx] ${canceling ? 'opacity-50' : ''}`}
+                disabled={canceling}
+                onClick={onCancel}
+              >
+                {t('order.cancel')}
+              </Button>
+            </>
+          )}
+          {order.status === 'paid' && (
             <Button
-              className="mt-[24rpx] bg-primary text-white rounded-[16rpx] text-[30rpx]"
-              onClick={goPay}
+              className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
+              onClick={goRefund}
             >
-              {t('order.goPay')}
+              {t('order.applyRefund')}
             </Button>
-            <Button
-              className={`mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx] ${canceling ? 'opacity-50' : ''}`}
-              disabled={canceling}
-              onClick={onCancel}
-            >
-              {t('order.cancel')}
-            </Button>
-          </>
-        )}
-        {order.status === 'paid' && (
+          )}
           <Button
             className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
-            onClick={goRefund}
+            onClick={goList}
           >
-            {t('order.applyRefund')}
+            {t('order.title')}
           </Button>
-        )}
-        <Button
-          className="mt-[24rpx] bg-card text-foreground rounded-[16rpx] text-[30rpx]"
-          onClick={goList}
-        >
-          {t('order.title')}
-        </Button>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

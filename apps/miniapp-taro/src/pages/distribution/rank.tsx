@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionRank } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface RankUser {
   id: string
@@ -52,8 +53,8 @@ export default function DistributionRank() {
   const rest = list.slice(3)
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[#ff8e53]">
+    <ThemeRoot className="min-h-screen bg-background">
+      <View className="py-[40rpx] text-center bg-gradient-to-b from-[var(--color-brand-orange)] to-[var(--color-warning)]">
         <Text className="text-primary-foreground text-[36rpx] font-bold">
           {tt('distribution.rankTitle', '分销排行榜')}
         </Text>
@@ -136,7 +137,7 @@ export default function DistributionRank() {
           <Text>{tt('distribution.rankEmpty', '暂无排行数据')}</Text>
         </View>
       )}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

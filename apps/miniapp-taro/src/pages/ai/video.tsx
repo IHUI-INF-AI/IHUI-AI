@@ -17,6 +17,7 @@ import VideoPlayer from '@/components/VideoPlayer'
 import EmptyState from '@/components/EmptyState'
 import ErrorView from '@/components/ErrorView'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type Vendor = 'sora2' | 'kling' | 'doubao' | 'dashscope'
 type Status = 'idle' | 'pending' | 'running' | 'succeeded' | 'failed'
@@ -220,7 +221,7 @@ export default function VideoPage() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot className="min-h-screen bg-background">
       <ScrollView scrollY className="h-screen">
         <View className="flex gap-2 px-3 py-3 bg-card">
           {VENDORS.map((v) => (
@@ -340,7 +341,7 @@ export default function VideoPage() {
           )}
         </View>
       </ScrollView>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
