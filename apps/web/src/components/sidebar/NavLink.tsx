@@ -71,7 +71,6 @@ const NavLink = React.memo(function NavLink({
           onClick={handleClick}
           onPointerEnter={prefetchTarget}
           onFocus={prefetchTarget}
-          prefetch={false}
           aria-label={label}
           aria-current={active ? 'page' : undefined}
           data-testid={`nav-${item.labelKey}`}
@@ -83,13 +82,10 @@ const NavLink = React.memo(function NavLink({
     )
   }
 
-  // prefetch={false} 禁用 Next 默认视口预取(2026-09-03 根治"点击后不立马响应"):
-  // 实测发现 <Link> 默认视口预取在每次导航后,把视口内 40 条侧边栏链接全部重新预取一遍,
-  // 产生 25+ 个串行 RSC 请求抢占网络/主线程,把目标路由挤到队尾(点击 /models 时
-  // 冒出 /learn /live /exam 等 25 个无关请求,导航拖到 1.6s)。dev 模式 cache-bypass-in-dev
-  // 使这些请求只发不缓存,纯属浪费;生产模式与 onPointerEnter 的 router.prefetch 重复。
-  // 禁用后请求从 25 降到 1(仅目标路由),/models 切换 654ms→437ms(33% 提升)。
-  // 按需预取由 onPointerEnter/onFocus 的 router.prefetch 承担(悬停才触发,精准且幂等)。
+  // 保留 Next 默认视口预取(生产模式 prefetchRsc 缓存命中,点击瞬时;2026-09-04 实测
+  // 悬停预取后点击 314ms→143ms,预取是"立马响应"的关键)。dev 模式 cache-bypass 使预取
+  // 请求不缓存,但 Next 内部去重 + pingVisibleLinks 多数情况不重复发请求;悬停/聚焦
+  // 再叠加 onPointerEnter 的 router.prefetch 精准预取。两者并存不冲突(Next 幂等去重)。
   return (
     <Link
       key={item.href}
@@ -98,7 +94,6 @@ const NavLink = React.memo(function NavLink({
       onClick={handleClick}
       onPointerEnter={prefetchTarget}
       onFocus={prefetchTarget}
-      prefetch={false}
       aria-current={active ? 'page' : undefined}
       data-testid={`nav-${item.labelKey}`}
       className={className}
