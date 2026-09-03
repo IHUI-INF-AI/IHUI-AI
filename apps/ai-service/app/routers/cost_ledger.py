@@ -10,10 +10,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
@@ -165,7 +164,7 @@ async def cost_top_tools(
     return {"code": 0, "message": "ok", "data": data}
 
 
-@router.get("/timeseries")
+@router.get("/timeseries", response_model=None)
 async def cost_timeseries(
     granularity: str = "hour",
     user_id: str | None = None,
