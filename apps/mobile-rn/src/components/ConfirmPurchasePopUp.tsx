@@ -217,9 +217,9 @@ export function ConfirmPurchasePopUp({
                   {product.icon}
                 </Text>
               ) : product.icon ? (
-                <product.icon size={24} color={'#6b7280'} />
+                <product.icon size={24} color={tokens.text.secondary} />
               ) : (
-                <ShoppingCart size={24} color={'#6b7280'} />
+                <ShoppingCart size={24} color={tokens.text.secondary} />
               )}
             </View>
             <View style={styles.productInfo}>
@@ -248,7 +248,7 @@ export function ConfirmPurchasePopUp({
                 const isLast = i === benefits.length - 1
                 return (
                   <View key={`${b}-${i}`} style={styles.benefitItem}>
-                    <Check size={14} color={'#16a34a'} />
+                    <Check size={14} color={tokens.success.deep} />
                     <Text style={[styles.benefitText, isLast ? styles.benefitTextHighlight : null]}>
                       {b}
                     </Text>
