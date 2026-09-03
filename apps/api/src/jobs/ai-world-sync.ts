@@ -24,6 +24,7 @@ import cron, { type ScheduledTask } from 'node-cron'
 import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
 import { parquetReadObjects } from 'hyparquet'
+import { ProxyAgent } from 'undici'
 import { and, eq, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
@@ -545,10 +546,39 @@ const fetchWithTimeout = async (
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
+    // 2026-09-04:本机网络阻断大量国外数据源(huggingface/lmarena/suno/mistral 等 50+ 站)。
+    // 配置 SYNC_PROXY_URL(如 http://127.0.0.1:7897)后,同步抓取走出站代理;
+    // 不配置则行为不变。localhost/内网地址永不走代理(ai-service 本地调用不受影响)。
+    const proxyUrl = process.env.SYNC_PROXY_URL
+    const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
+    if (proxyUrl && !isLocal) {
+      const dispatcher = getSyncProxyAgent(proxyUrl)
+      return await fetch(url, {
+        ...opts,
+        signal: controller.signal,
+        ...(dispatcher ? ({ dispatcher } as unknown as RequestInit) : {}),
+      })
+    }
     return await fetch(url, { ...opts, signal: controller.signal })
   } finally {
     clearTimeout(timer)
   }
+}
+
+/** SYNC_PROXY_URL 对应的 ProxyAgent 单例(懒加载,进程内复用连接池) */
+let syncProxyAgent: ProxyAgent | null | undefined
+function getSyncProxyAgent(proxyUrl: string): ProxyAgent | null {
+  if (syncProxyAgent === undefined) {
+    try {
+      syncProxyAgent = new ProxyAgent(proxyUrl)
+    } catch (err) {
+      logger.warn('[ai-world-sync] SYNC_PROXY_URL 无效,忽略代理:', {
+        error: err instanceof Error ? err.message : err,
+      })
+      syncProxyAgent = null
+    }
+  }
+  return syncProxyAgent
 }
 
 /** 清洗 HTML 标签 + 截断 */
@@ -999,9 +1029,14 @@ async function syncOneSourceWithRetry(
           failCount++
         }
       }
-      // status:全失败且 items>0 → failed;有成功有失败 → partial;否则 success
+      // status:全失败且 items>0 → failed;有失败 → partial;全部 skipped(dedup)或空 → success
+      // (2026-09-04 修复:全部 dedup 跳过说明条目已入库,此前误记为 failed 造成日志噪音)
       const status: SyncSourceResult['status'] =
-        successCount === 0 && items.length > 0 ? 'failed' : failCount > 0 ? 'partial' : 'success'
+        successCount === 0 && failCount > 0 && items.length > 0
+          ? 'failed'
+          : failCount > 0
+            ? 'partial'
+            : 'success'
       const errorParts: string[] = []
       if (failCount > 0) errorParts.push(`${failCount} failed`)
       if (skippedCount > 0) errorParts.push(`${skippedCount} skipped(dedup)`)
