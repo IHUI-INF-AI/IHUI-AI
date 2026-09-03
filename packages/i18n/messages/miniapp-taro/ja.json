@@ -3051,9 +3051,7 @@
     "holdToSpeak": "押して話す"
   },
   "toolbar": {
-    "ai": "AIチャット",
-    "course": "コース",
-    "vip": "会員"
+    "ai": "AIチャット"
   },
   "index": {
     "mock": {
@@ -3659,13 +3657,6 @@
   "UserInfoCard": {
     "login1": "ワンタップログイン",
     "text2": "退会"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "フルHD 1080p",
-    "back4": "← 戻る",
-    "q1": "透かし"
   },
   "TitleSwitchTypeBar": {
     "text1": "カスタム",

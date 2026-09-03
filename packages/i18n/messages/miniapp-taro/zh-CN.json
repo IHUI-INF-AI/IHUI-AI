@@ -3032,9 +3032,7 @@
     "video": "视频"
   },
   "toolbar": {
-    "ai": "AI对话",
-    "course": "课程",
-    "vip": "会员"
+    "ai": "AI对话"
   },
   "index": {
     "mock": {
@@ -3640,13 +3638,6 @@
   "UserInfoCard": {
     "login1": "一键登录",
     "text2": "退订"
-  },
-  "Selecter": {
-    "text1": "标清 480p",
-    "text2": "超清 720p",
-    "text3": "高清 1080p",
-    "back4": "← 返回",
-    "q1": "水印"
   },
   "TitleSwitchTypeBar": {
     "text1": "自定义",

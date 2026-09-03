@@ -649,7 +649,8 @@
         "thu": "Thu",
         "tue": "Tue",
         "wed": "Wed"
-      }
+      },
+      "title": "User Behavior"
     },
     "carousel": {
       "cancel": "Cancel",
@@ -2761,7 +2762,8 @@
         "title": "Teacher Management",
         "totalItems": "Total {total} items",
         "updateSuccess": "Updated successfully"
-      }
+      },
+      "title": "Education Management"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "Award conditions are required",
@@ -3274,7 +3276,8 @@
       "titleRequired": "Course title cannot be empty",
       "unpublished": "Unpublished",
       "updateStatus": "Update Status",
-      "updateSuccess": "Updated successfully"
+      "updateSuccess": "Updated successfully",
+      "title": "Learning Management"
     },
     "live": {
       "allCategories": "All Categories",
@@ -8700,7 +8703,8 @@
       "selectCircle": "Select Circle",
       "selectCirclePlaceholder": "Please select a circle",
       "titleLabel": "Title",
-      "titlePlaceholder": "Enter post title"
+      "titlePlaceholder": "Enter post title",
+      "title": "Post"
     },
     "postCount": "{count} posts",
     "subtitle": "Join interest circles and connect with peers",
@@ -12011,7 +12015,8 @@
       "notFound": "Document not found",
       "showLess": "Collapse",
       "showMore": "Expand",
-      "totalCount": "{count} chunks in total"
+      "totalCount": "{count} chunks in total",
+      "title": "Knowledge Chunks"
     },
     "detail": {
       "backToList": "Back to list",
@@ -12022,7 +12027,8 @@
       "related": "Related documents",
       "relatedEmpty": "No related documents",
       "sourceType": "Source type",
-      "viewChunks": "View chunks"
+      "viewChunks": "View chunks",
+      "title": "Knowledge Detail"
     },
     "list": {
       "chunkCount": "{count} chunks",
@@ -16741,7 +16747,8 @@
       "autoRenewTitle": "Auto-renew",
       "rememberDays": "Remember for {days} days",
       "saveFailed": "Save failed, please retry",
-      "saveSuccess": "Login preferences saved"
+      "saveSuccess": "Login preferences saved",
+      "title": "Login Security"
     },
     "loginSecurityDesc": "Auto-login and token renewal preferences",
     "loginSecurityTitle": "Login management",
@@ -17753,7 +17760,8 @@
       "sendOldCode": "Get Old Code",
       "totalTokens": "Total",
       "userId": "User ID",
-      "voiceRecord": "Voice Recording"
+      "voiceRecord": "Voice Recording",
+      "title": "User Profile"
     },
     "public": {
       "follow": "Follow",
@@ -18147,7 +18155,8 @@
       "trigger": "Trigger",
       "triggerType": "Trigger Type",
       "updateSuccess": "Updated successfully",
-      "viewInstance": "View"
+      "viewInstance": "View",
+      "title": "Workflow Detail"
     },
     "editor": {
       "cancel": "Cancel",
@@ -18231,7 +18240,8 @@
     "description": "Description",
     "descriptionPlaceholder": "Enter project description (optional)",
     "detail": {
-      "previewFailed": "Preview failed"
+      "previewFailed": "Preview failed",
+      "title": "Workspace Detail"
     },
     "dismiss": "Dismiss",
     "download": "Download",
