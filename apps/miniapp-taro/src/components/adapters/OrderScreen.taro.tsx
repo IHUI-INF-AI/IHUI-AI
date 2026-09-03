@@ -7,6 +7,7 @@ import { useTt, type TtFn } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction, AppOrderStatus, OrderItem, OrderTab } from '@ihui/types'
 
 /** 订单状态/Tab/列表项类型 re-export(单一来源 @ihui/types) */
@@ -272,9 +273,11 @@ export function OrderScreen({
   onRefresh,
   onPressItem,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: OrderScreenProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
 
   // i18n 三级降级:t prop → useTt() I18nContext → 硬编码中文 fallback

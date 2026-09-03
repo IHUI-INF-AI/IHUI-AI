@@ -8,6 +8,7 @@ import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { View, Text, Switch, Input } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type {
   TFunction,
   SettingsScreenProps as SharedSettingsScreenProps,
@@ -31,7 +32,7 @@ import type {
 export type SettingsScreenProps = Omit<SharedSettingsScreenProps, 't' | 'colorScheme'> & {
   /** i18n 翻译函数(可选);未传则用 I18nContext useTt,再降级硬编码中文 */
   t?: TFunction
-  /** 已解析主题,默认 'light' */
+  /** 显式覆盖主题(缺省时跟随小程序全局主题 useAppTheme) */
   colorScheme?: RnThemeMode
 }
 
@@ -291,7 +292,7 @@ export function SettingsScreen({
   onMenuPress,
   appVersion,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: SettingsScreenProps) {
   const [pwdModalVisible, setPwdModalVisible] = useState(false)
   const [oldPwd, setOldPwd] = useState('')
@@ -299,7 +300,9 @@ export function SettingsScreen({
   const [confirmPwd, setConfirmPwd] = useState('')
   const [changingPwd, setChangingPwd] = useState(false)
 
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
 
   // i18n 三级降级:t prop → useTt() I18nContext → 硬编码中文 fallback
