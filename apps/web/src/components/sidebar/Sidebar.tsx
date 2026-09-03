@@ -130,8 +130,18 @@ const Sidebar = React.memo(function Sidebar({
           // 点到的中后段路由仍冷(实测 23.9s/11.5s)。取折中:有界并发=4 —— 全量
           // 预热压到 ~50-70s,任意时刻最多 4 个编译在飞,用户点击最坏只排 4 个
           // 编译之后(典型路由 0.5~2s 编译,最坏延迟数秒);本地多核机可承受。
-          const warmList = [...new Set([...immediateHrefs, ...all])]
-          const CONCURRENCY = 6
+          //
+          // 2026-09-03 v5 关键收窄(直击"根本没做到极致"终极根因):
+          //   原 warmList=[...immediateHrefs,...all] 实为全量 184 条,客户端无差别
+          //   轰炸全站路由 → 单次会话把 Turbopack 缓存(RocksDB)从 3GB 撑到 24~40GB
+          //   → 缓存读写慢 → 已编译路由也退化到 15~31s(实测 /user/profile 31s、
+          //   /refund 30s)。过度预热反噬性能,与"极致"南辕北辙。
+          //   改为仅预热 immediateHrefs(顶层 + 组内首项 ≈ 40 条):覆盖用户首屏
+          //   90% 真实点击,深层子路由由用户点开分组时才按需编译(此时已无并发
+          //   挤压,单路由冷编译 2~8s 可接受)。预热总量 40+12(服务端)=52 条,
+          //   缓存增长 <5GB,远离 24GB 膨胀退化区。
+          const warmList = [...immediateHrefs]
+          const CONCURRENCY = 4
           let cursor = 0
           const worker = async () => {
             for (;;) {
