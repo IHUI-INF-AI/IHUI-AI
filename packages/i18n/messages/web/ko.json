@@ -654,7 +654,8 @@
         "thu": "목",
         "tue": "화",
         "wed": "수"
-      }
+      },
+      "title": "사용자 행동"
     },
     "carousel": {
       "cancel": "취소",
@@ -2766,7 +2767,8 @@
         "title": "강사 관리",
         "totalItems": "총 {total}건",
         "updateSuccess": "업데이트 성공"
-      }
+      },
+      "title": "교육 관리"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "수여 조건은 필수입니다",
@@ -3279,7 +3281,8 @@
       "titleRequired": "titleRequired",
       "unpublished": "미발행",
       "updateStatus": "상태 업데이트",
-      "updateSuccess": "업데이트성공"
+      "updateSuccess": "업데이트성공",
+      "title": "학습 관리"
     },
     "live": {
       "allCategories": "All categories",
@@ -6423,12 +6426,12 @@
   },
   "agreement": {
     "effectiveDate": "시행일",
-    "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
+    "staticContent1": "본 플랫폼에 오신 것을 환영합니다. 본 플랫폼의 서비스를 이용하면 본 약관의 모든 조항에 동의하는 것으로 간주됩니다.",
     "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
-    "staticContent3": "에게，플랫폼 상담원。",
-    "title": "및",
-    "subtitle": "읽음 가져오기",
-    "userAgreement": "사용자"
+    "staticContent3": "본 약관에 관한 문의 사항이 있으시면 플랫폼 고객 지원에 문의해 주십시오.",
+    "title": "약관 및 정책",
+    "subtitle": "다음 약관을 주의 깊게 읽어 주십시오",
+    "userAgreement": "사용자 약관"
   },
   "ai": {
     "agentManager": {
@@ -6777,7 +6780,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6794,7 +6802,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -7657,7 +7670,7 @@
   "auth": {
     "account": "계정",
     "accountHistory": "계정 기록",
-    "accountPlaceholder": "계정 입력",
+    "accountPlaceholder": "전화번호 / 이메일 / 계정명",
     "agreePrefix": "내완료채점읽음동시함께의",
     "agreeRequired": "이용약관을 읽고 동의해 주세요",
     "agreementNoticeAgree": "동의하고 계속",
@@ -7682,12 +7695,12 @@
     "code": "코드",
     "codePlaceholder": "인증 코드를 입력하세요",
     "codeSent": "인증 코드가 전송되었습니다, 문자를 확인하세요",
-    "confirmPassword": "confirmPassword",
-    "dingtalkLogin": "딩톡",
+    "confirmPassword": "비밀번호 확인",
+    "dingtalkLogin": "DingTalk",
     "email": "이메일",
-    "emailLogin": "이메일",
+    "emailLogin": "이메일 로그인",
     "emailPlaceholder": "이메일을 입력하세요",
-    "emailRegister": "이메일",
+    "emailRegister": "이메일 회원가입",
     "enterCode": "인증 코드를 입력하세요",
     "enterNewPassword": "새 비밀번호를 입력하세요",
     "enterPhone": "휴대전화번호를 입력하세요",
@@ -7695,11 +7708,11 @@
     "errors": {
       "bootstrapFailed": "부트스트랩 실패"
     },
-    "feishuLogin": "페이슈",
+    "feishuLogin": "Feishu",
     "forgotPassword": "비밀번호 찾기",
     "forgotSubtitle": "비밀번호 재설정",
     "getVerificationCode": "코드 받기",
-    "githubLogin": "깃허브",
+    "githubLogin": "GitHub",
     "googleLogin": "Google로그인",
     "googleNotConfigured": "Google 로그인 미설정",
     "hasAccount": "이미 계정이 있으신가요?",
@@ -7716,22 +7729,22 @@
     "loginSubtitle": "계정에 로그인하여 계속",
     "loginSuccess": "로그인 성공",
     "loginTitle": "돌아오신 것을 환영합니다",
-    "newPassword": "newPassword",
+    "newPassword": "새 비밀번호",
     "noAccount": "계정이 없으신가요?",
     "noHistory": "기록 없음",
     "password": "비밀번호",
-    "passwordLogin": "비밀번호",
+    "passwordLogin": "비밀번호 로그인",
     "passwordMedium": "보통",
     "passwordMismatch": "두 번 입력한 비밀번호가 일치하지 않습니다",
     "passwordPlaceholder": "비밀번호를 입력하세요",
     "passwordStrong": "강함",
     "passwordWeak": "약함",
     "phone": "전화",
-    "phoneCodeLogin": "핸드폰",
+    "phoneCodeLogin": "인증 코드 로그인",
     "phonePlaceholder": "휴대전화번호를 입력하세요",
-    "phoneRegister": "전화번호",
+    "phoneRegister": "전화번호 회원가입",
     "privacyPolicy": "개인정보처리방침",
-    "qrLogin": "QR코드",
+    "qrLogin": "QR 코드 로그인",
     "qrNotConfigured": "{platform} 스캔 로그인이 설정되지 않았습니다, 관리자에게 문의하세요",
     "qrRefresh": "QR코드 새로고침",
     "qrScanTipPlatform": "{platform} 앱으로 QR 코드를 스캔하여 로그인하세요",
@@ -7739,15 +7752,15 @@
     "qrSwitchMethod": "로그인 방법 전환",
     "registerBtn": "신청",
     "registerFailed": "가입 실패, 다시 시도하세요",
-    "registerNow": "신청",
+    "registerNow": "지금 회원가입",
     "registerSubtitle": "새 계정 등록",
-    "registerSuccess": "register성공",
-    "registerTitle": "가입",
+    "registerSuccess": "회원가입이 완료되었습니다. 로그인해 주십시오",
+    "registerTitle": "계정 만들기",
     "rememberPassword": "비밀번호 기억하기",
     "removeAccount": "계정 삭제",
     "resendCode": "{seconds}s 후 재전송",
     "resetPassword": "초기화비밀번호",
-    "resetSuccess": "Presets reset",
+    "resetSuccess": "비밀번호 재설정이 완료되었습니다. 다시 로그인해 주십시오",
     "sendCode": "전송인증 코드",
     "showPassword": "비밀번호 표시",
     "termsOfService": "서비스 약관",
@@ -7787,7 +7800,7 @@
     "twoFactorTitle": "2단계 인증",
     "username": "사용자 이름",
     "usernamePlaceholder": "사사용자 이름을 입력하세요",
-    "wechatLogin": "위챗"
+    "wechatLogin": "WeChat"
   },
   "behavior": {
     "createdAt": "생성시간",
@@ -8696,7 +8709,8 @@
       "selectCircle": "서클 선택",
       "selectCirclePlaceholder": "서클을 선택해 주세요",
       "titleLabel": "제목",
-      "titlePlaceholder": "게시물 제목을 입력하세요"
+      "titlePlaceholder": "게시물 제목을 입력하세요",
+      "title": "게시물"
     },
     "postCount": "{count}개 게시물",
     "subtitle": "포괄적인의개발문서및API참조",
@@ -8761,32 +8775,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -10620,25 +10660,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10772,19 +10824,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -11003,7 +11067,7 @@
   },
   "faq": {
     "categoryDeploy": "배포 & 운영",
-    "categoryGeneral": "플랫폼",
+    "categoryGeneral": "플랫폼 소개",
     "categoryTech": "기술 & 개발",
     "ctaButton": "기술 지원 문의",
     "ctaDesc": "기술팀에 문의해 주세요, 2시간 이내에 답변드립니다.",
@@ -11126,14 +11190,14 @@
     "field_status": "상태",
     "field_title": "제목",
     "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요",
-    "notFound": "찾을 수 없음",
+    "notFound": "피드백이 존재하지 않거나 접근 권한이 없습니다",
     "required": "제목과 내용은 필수입니다",
     "tab_list": "목록",
     "tab_new": "최신",
     "titlePlaceholder": "titleRequired",
     "contentRequired": "피드백 내용을 입력하세요",
-    "success": "제출되었습니다",
-    "failed": "제출 실패",
+    "success": "제출 성공, 피드백 감사합니다!",
+    "failed": "제출 실패, 잠시 후 다시 시도해 주세요",
     "title": "AI인마음페이스테스트",
     "type": "피드백 유형",
     "content": "피드백 내용",
@@ -11449,7 +11513,7 @@
     "backToList": "목록으로 돌아가기",
     "contactSupport": "고객 지원",
     "empty": "기사가 없습니다",
-    "notFound": "찾을 수 없음",
+    "notFound": "글이 존재하지 않거나 게시가 종료되었습니다",
     "related": "관련 문서",
     "toc": "목차",
     "updatedAt": "업데이트시간",
@@ -12021,7 +12085,8 @@
       "notFound": "문서를 찾을 수 없습니다",
       "showLess": "접기",
       "showMore": "펼치기",
-      "totalCount": "총 {count}개 청크"
+      "totalCount": "총 {count}개 청크",
+      "title": "지식 청크"
     },
     "detail": {
       "backToList": "목록으로",
@@ -12032,7 +12097,8 @@
       "related": "관련 문서",
       "relatedEmpty": "관련 문서가 없습니다",
       "sourceType": "소스 유형",
-      "viewChunks": "청크 보기"
+      "viewChunks": "청크 보기",
+      "title": "지식 상세"
     },
     "list": {
       "chunkCount": "청크 {count}개",
@@ -13280,7 +13346,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14016,7 +14090,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14286,7 +14365,7 @@
     "developerLimits": "속도 제한",
     "developerLogs": "호출 로그",
     "developerNotifications": "알림",
-    "developerRelay": "릴레이",
+    "developerRelay": "API 릴레이",
     "developerRelayKeys": "API 키",
     "developerRelayUsage": "사용량",
     "developerSandbox": "샌드박스",
@@ -15013,7 +15092,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -16179,7 +16264,7 @@
     "q": "검색"
   },
   "searchHistory": {
-    "clearAll": "지우기모든",
+    "clearAll": "기록 모두 지우기",
     "subtitle": "포괄적인의개발문서및API참조",
     "empty": "콘텐츠가 없습니다",
     "resultCount": "{count}건 결과",
@@ -16484,7 +16569,7 @@
   "settings": {
     "accountDeletionCancel": "삭제 취소",
     "accountDeletionCodeLabel": "인증번호",
-    "accountDeletionCodePlaceholder": "인증 코드 입력",
+    "accountDeletionCodePlaceholder": "인증 코드를 입력해 주십시오",
     "accountDeletionCodeSendFailed": "인증코드 발송 실패",
     "accountDeletionCodeSent": "인증코드가 발송되었습니다",
     "accountDeletionFailed": "삭제 실패, 다시 시도해 주세요",
@@ -16566,7 +16651,7 @@
     "exportNoHistory": "내보내기 기록 없음",
     "exportScope": "내보내기 범위",
     "exportScopeDesc": "프로필, 채팅 기록, 주문, 사용 통계 등 포함",
-    "exportSuccess": "내보내기 완료",
+    "exportSuccess": "내보내기 파일이 준비되었습니다",
     "gateway": {
       "combos": {
         "chain": "호출 체인 (한 줄에 하나)",
@@ -16743,7 +16828,8 @@
       "autoRenewTitle": "자동 갱신",
       "rememberDays": "{days}일 기억",
       "saveFailed": "저장 실패, 다시 시도해 주세요",
-      "saveSuccess": "로그인 환경설정이 저장되었습니다"
+      "saveSuccess": "로그인 환경설정이 저장되었습니다",
+      "title": "로그인 보안"
     },
     "loginSecurityDesc": "자동 로그인 및 토큰 갱신 환경설정",
     "loginSecurityTitle": "로그인 관리",
@@ -16774,7 +16860,7 @@
     "notificationsSaveFailed": "저장 실패",
     "notificationsTitle": "알림 설정",
     "personalizedRecommendation": "맞춤 추천",
-    "preferencesTitle": "환경설정",
+    "preferencesTitle": "일반 환경설정",
     "privacySaveFailed": "저장 실패",
     "privacyTitle": "개인정보 설정",
     "profileDesc": "개인정보 보기 및 편집",
@@ -16820,7 +16906,7 @@
       "import": "가져오기",
       "title": "AI인마음페이스테스트"
     },
-    "themeSystem": "시스템",
+    "themeSystem": "시스템 따르기",
     "title": "설정",
     "twofa": {
       "backupDesc": "다음 복구 코드를 안전하게 보관하세요. 2단계 인증 기기를 분실한 경우 로그인에 사용할 수 있습니다",
@@ -16872,10 +16958,10 @@
     "connectedAccountsLoading": "불러오는 중...",
     "emailNotifDesc": "이메일로 중요 알림 수신",
     "notificationsDesc": "알림 설정을 관리하세요",
-    "notificationsSaveSuccess": "저장됨",
+    "notificationsSaveSuccess": "저장되었습니다",
     "preferencesDesc": "앱 환경을 맞춤 설정하세요",
     "privacyDesc": "데이터 가시성 및 개인정보 설정 관리",
-    "privacySaveSuccess": "저장됨",
+    "privacySaveSuccess": "저장되었습니다",
     "themeDark": "깊은색템플릿방식",
     "themeLight": "라이트템플릿방식"
   },
@@ -17716,7 +17802,7 @@
       "title": "알림",
       "viewList": "목록 보기",
       "viewTimeline": "타임라인 보기",
-      "noData": "없음알림",
+      "noData": "알림이 없습니다",
       "unreadCount": "{count}개 안 읽음"
     },
     "profile": {
@@ -17778,15 +17864,15 @@
       "bio": "자기소개",
       "bioPlaceholder": "자기소개를 해주세요",
       "phone": "전화",
-      "saving": "저장중간",
+      "saving": "저장 중...",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "개인"
+      "title": "프로필"
     },
     "public": {
       "follow": "팔로우",
       "isYou": "본인입니다",
       "loading": "로딩 중...",
-      "notFound": "찾을 수 없음",
+      "notFound": "사용자가 존재하지 않거나 접근 권한이 없습니다",
       "sendMessage": "메시지 보내기",
       "statsFavorites": "즐겨찾기",
       "statsFollowers": "팔로워",
@@ -17836,11 +17922,11 @@
       "confirmPassword": "새 비밀번호를 다시 입력하세요",
       "currentDevice": "현재 기기",
       "currentPassword": "현재 비밀번호",
-      "devices": "기기",
+      "devices": "로그인 기기",
       "devicesEmpty": "데이터 없음",
       "devicesLoading": "로딩 중...",
       "logout": "로그아웃",
-      "newPassword": "newPassword",
+      "newPassword": "새 비밀번호",
       "newPhone": "새 휴대폰 번호",
       "newPhonePlaceholder": "새 휴대폰 번호를 입력하세요",
       "password": "수정변경비밀번호",
@@ -17959,7 +18045,7 @@
     "renewNow": "지금 갱신",
     "subscribe": "구독",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "VIP",
+    "title": "VIP 회원",
     "traderPlan": "트레이더 플랜",
     "retry": "다시 시도",
     "daysRemaining": "남은 {count}일",
@@ -18175,7 +18261,8 @@
       "trigger": "트리거",
       "triggerType": "트리거 유형",
       "updateSuccess": "업데이트 성공",
-      "viewInstance": "보기"
+      "viewInstance": "보기",
+      "title": "워크플로 상세"
     },
     "editor": {
       "cancel": "취소",
@@ -18259,7 +18346,8 @@
     "description": "설명",
     "descriptionPlaceholder": "에이전트 소개를 입력하세요",
     "detail": {
-      "previewFailed": "미리보기 실패"
+      "previewFailed": "미리보기 실패",
+      "title": "워크스페이스 상세"
     },
     "dismiss": "닫기",
     "download": "다운로드",
@@ -18643,7 +18731,7 @@
     "subtitle": "텍스트, 이미지, 오디오를 한 번에 생성",
     "switchModel": "모델 전환",
     "noModels": "사용 가능한 모델 없음",
-    "empty": "콘텐츠 없음",
+    "empty": "첫 대화를 시작해 보세요",
     "inputPlaceholder": "창작 내용을 입력하세요…",
     "send": "보내기",
     "clear": "지우기"
@@ -18701,7 +18789,7 @@
     "score": "점수",
     "issuedAt": "발급일",
     "expiredAt": "만료일",
-    "verify": "검증"
+    "verify": "증명서 검증"
   },
   "circleChat": {
     "empty": "메시지 없음",
@@ -18821,7 +18909,7 @@
     "viewerCount": "시청자 {count}명",
     "play": "재생",
     "noReplay": "다시보기 없음",
-    "replayTitle": "다시보기"
+    "replayTitle": "다시보기 플레이어"
   },
   "note": {
     "title": "메모",
@@ -18861,7 +18949,7 @@
   "privacy": {
     "sectionData": "데이터 수집",
     "sectionDataBody": "본 서비스 제공에 필요한 개인정보만 최소 필요 원칙에 따라 수집하며, 동의 없이 다른 목적에 사용하지 않습니다.",
-    "sectionCookie": "쿠키 사용",
+    "sectionCookie": "Cookie 사용",
     "sectionCookieBody": "이용 경험 개선과 트래픽 분석을 위해 기기에 쿠키를 저장하며, 브라우저 설정에서 관리할 수 있습니다.",
     "sectionThirdParty": "제3자 서비스",
     "sectionThirdPartyBody": "본 플랫폼은 결제·로그인 등 제3자 서비스와 연동될 수 있으며, 제3자는 각자의 개인정보 처리방침에 따라 정보를 처리합니다.",
@@ -19293,12 +19381,12 @@
     "viewerCount": "{count}명 시청"
   },
   "messageDirect": {
-    "title": "쪽지",
-    "empty": "쪽지가 없습니다"
+    "title": "다이렉트 메시지",
+    "empty": "다이렉트 메시지가 없습니다"
   },
   "modelEdit": {
     "headerTitle": "모델 편집",
-    "labelCategory": "분류",
+    "labelCategory": "콘텐츠 유형(다중 선택)",
     "labelDept": "적용 부서",
     "labelSaleType": "판매 방식",
     "labelCycle": "결제 주기",
@@ -19620,9 +19708,9 @@
   },
   "aiAssistant": {
     "title": "AI 어시스턴트",
-    "subtitle": "지능형 대화 어시스턴트",
-    "searchPlaceholder": "어시스턴트 검색",
-    "empty": "어시스턴트 없음",
+    "subtitle": "스마트 어시스턴트를 선택하여 대화를 시작하세요",
+    "searchPlaceholder": "어시스턴트 이름 또는 기능 검색",
+    "empty": "일치하는 어시스턴트가 없습니다",
     "useCount": "{count}회 사용",
     "favoriteCount": "즐겨찾기 {count}",
     "startChat": "대화 시작"
@@ -19634,8 +19722,8 @@
     "detailMembers": "멤버 {count}명",
     "memberRole": "역할 {role}",
     "detailRecent": "최근 메시지",
-    "previewHello": "안녕하세요",
-    "previewMine": "나",
+    "previewHello": "안녕하세요, 이번 협업을 시작하겠습니다. 먼저 목표와 역할 분담을 확인해요.",
+    "previewMine": "알겠습니다. 저는 조사를 시작하겠습니다.",
     "detailEnter": "그룹 입장",
     "enterMine": "내 정보로",
     "enterDiscover": "발견으로",
@@ -19738,7 +19826,7 @@
   },
   "feedbackHistory": {
     "title": "피드백 기록",
-    "empty": "피드백 없음",
+    "empty": "피드백 기록이 없습니다",
     "createdAt": "제출 시각"
   },
   "liveChat": {
@@ -19753,7 +19841,7 @@
     "lecturer": "강사",
     "startAt": "시작 시간",
     "subscribed": "구독됨",
-    "subscribing": "구독 중",
+    "subscribing": "구독 중...",
     "subscribe": "구독"
   },
   "messageChat": {
@@ -19763,7 +19851,7 @@
   },
   "messageGroup": {
     "title": "메시지 그룹",
-    "empty": "그룹 없음"
+    "empty": "그룹 채팅이 없습니다"
   },
   "modelPlaza": {
     "title": "모델 마켓",
@@ -19775,13 +19863,13 @@
     "input": "입력",
     "priceUnit": "¥{price}",
     "output": "출력",
-    "perCall": "호출당"
+    "perCall": "(건당 과금)"
   },
   "n8nModel": {
     "title": "n8n 모델",
     "create": "생성",
-    "searchPlaceholder": "모델 검색",
-    "empty": "모델 없음",
+    "searchPlaceholder": "워크플로우 이름 또는 설명 검색",
+    "empty": "n8n 워크플로우 없음",
     "running": "실행 중",
     "stopped": "중지됨",
     "calls": "{count}회 호출",
@@ -19803,7 +19891,7 @@
   },
   "pointRule": {
     "title": "포인트 규칙",
-    "empty": "규칙 없음"
+    "empty": "포인트 규정 없음"
   },
   "pointsMall": {
     "title": "포인트 몰",
@@ -19846,7 +19934,7 @@
     "subtitle": "학습 랭킹",
     "retry": "다시 시도",
     "anonymous": "익명 사용자",
-    "empty": "랭킹 없음",
+    "empty": "랭킹 데이터 없음",
     "me": "나",
     "studyHours": "{count} 학습 시간"
   },
@@ -19864,7 +19952,7 @@
   "share": {
     "title": "공유",
     "remark": "메모",
-    "remarkPlaceholder": "메모 추가",
+    "remarkPlaceholder": "메모 입력(선택)",
     "create": "공유 만들기",
     "url": "공유 링크",
     "code": "공유 코드",
@@ -20032,7 +20120,7 @@
     "send": "보내기"
   },
   "agentDetail": {
-    "loadFailed": "로딩 실패",
+    "loadFailed": "Agent 로드 실패",
     "description": "소개",
     "creator": "만든이",
     "uses": "사용 횟수",
@@ -20050,13 +20138,13 @@
     "save": "저장"
   },
   "aigcCover": {
-    "loading": "로딩 중…",
+    "loading": "불러오는 중...",
     "back": "뒤로",
     "title": "커버 설정",
     "subtitle": "\"{title}\" 커버 생성",
-    "empty": "커버가 없습니다",
-    "aiGenBtn": "AI 생성",
-    "confirmBtn": "확인"
+    "empty": "표지가 없습니다. 먼저 생성해 주세요",
+    "aiGenBtn": "✨ AI로 새 표지 생성",
+    "confirmBtn": "이 표지 적용"
   },
   "announcement": {
     "title": "공지사항",
@@ -20182,8 +20270,8 @@
     "accumulated": "누적 수익",
     "yuan": "위안",
     "withdrawBtn": "출금",
-    "withdrawable": "출금 가능",
-    "withdrawn": "출금 완료",
+    "withdrawable": "출금 가능(위안)",
+    "withdrawn": "출금 완료(위안)",
     "today": "오늘",
     "pending": "정산 대기",
     "tip": "수익은 오늘·어제·거래 내역으로 표시되며, 출금 후 1~3 영업일 내 입금됩니다",
@@ -20191,7 +20279,7 @@
     "orderLabel": "주문 번호",
     "rateLabel": "분배 비율",
     "withdrawModal": {
-      "title": "출금",
+      "title": "출금 방법 선택",
       "close": "닫기",
       "subtitle": "출금 가능 금액",
       "wechat": "위챗",
@@ -20486,7 +20574,7 @@
       "title": "서비스별 약관"
     },
     "supportedRegions": {
-      "title": "지원 지역"
+      "title": "지원 국가 및 지역"
     },
     "terms": {
       "title": "서비스 약관"
@@ -20510,6 +20598,6 @@
   },
   "routes": {
     "aboutUs": "회사 소개",
-    "userAgreement": "사용자"
+    "userAgreement": "사용자 약관"
   }
 }
