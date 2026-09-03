@@ -47,6 +47,7 @@ import {
 import { useI18n } from '../i18n'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, Mic, Music, Plus, Square, X } from 'lucide-react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 // 共享类型(ModelConfigType)从 packages/types 下沉,两端复用。
 // 保留 ModelType 别名以维持本模块对外 API 向后兼容(虽然当前 mobile-rn 内部无外部引用,
@@ -1031,7 +1032,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       }
                     >
                       {isRecording ? (
-                        <Square size={24} color={'#ffffff'} />
+                        <Square size={24} color={tokens.surface.light} />
                       ) : (
                         <Mic size={24} color={'#ffffff'} />
                       )}
@@ -1074,7 +1075,7 @@ function UploadButton({
         className="items-center rounded-lg border border-dashed border-emerald-200 bg-emerald-50 py-2"
       >
         <View className="mb-1 h-8 w-8 items-center justify-center">
-          {url ? <Check size={18} color={'#6b7280'} /> : <Plus size={18} color={'#6b7280'} />}
+          {url ? <Check size={18} color={tokens.text.secondary} /> : <Plus size={18} color={tokens.text.secondary} />}
         </View>
         <Text className="text-xs text-gray-600" numberOfLines={1}>
           {label}
