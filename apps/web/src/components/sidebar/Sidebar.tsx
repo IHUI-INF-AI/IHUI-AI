@@ -85,12 +85,22 @@ const Sidebar = React.memo(function Sidebar({
     const topLevel = [...new Set(visibleItems.map((i) => i.href))].filter(
       (h) => h !== currentPathname && h !== '/',
     )
+    // 批次1覆盖升级(2026-09-03 ·页面切换提速·第五刀·组内首项):
+    // 顶层路由外,把"可展开项的默认落点"(children[0],如 /models→/models/overview)也并入立即预取。
+    // 实测 /models/overview 这类组内首项此前只走批次2(800ms 延迟窗口),用户进入子菜单后首开即点会错过
+    // 预取 → 206~514ms。用户点开可展开项后大概率命中第一项(分组默认落点),把它提前到"立即"消除偏高项。
+    const landingHrefs = new Set<string>()
+    for (const item of visibleItems) {
+      const first = item.children?.[0]?.href
+      if (first && first !== currentPathname && first !== '/') landingHrefs.add(first)
+    }
+    const immediateHrefs = [...new Set([...topLevel, ...landingHrefs])]
     const all = [
       ...new Set(visibleItems.flatMap((i) => flattenNavItems([i]).map((x) => x.href))),
     ].filter((h) => h !== currentPathname && h !== '/')
 
-    // 批次1:顶层路由立即预取
-    topLevel.forEach((href) => {
+    // 批次1:顶层 + 组内首项立即预取
+    immediateHrefs.forEach((href) => {
       if (document.visibilityState === 'visible') navRouter.prefetch(href)
     })
 
