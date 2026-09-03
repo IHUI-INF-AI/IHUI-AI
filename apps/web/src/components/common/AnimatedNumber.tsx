@@ -23,12 +23,15 @@ export function AnimatedNumber({
   suffix = '',
   className,
 }: AnimatedNumberProps) {
-  const [display, setDisplay] = React.useState(0)
-  const fromRef = React.useRef(0)
+  // 首帧直接显示终值,避免每次挂载都从 0 滚一遍(rAF 48 帧 × 多个实例的无意义浪费)
+  const [display, setDisplay] = React.useState(value)
+  const fromRef = React.useRef(value)
   const rafRef = React.useRef<number>(0)
 
   React.useEffect(() => {
     const from = fromRef.current
+    // 首次挂载时 from === value,动画一帧即结束(立即显示终值,无跳动)
+    if (from === value) return
     const start = performance.now()
 
     const tick = (now: number) => {
