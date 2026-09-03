@@ -378,7 +378,7 @@ export function HandPlatePops({
                       accessibilityState={{ checked: isAgreed }}
                       accessibilityLabel={purchase.agreementText}
                     >
-                      {isAgreed ? <Check size={11} color={'#ffffff'} /> : null}
+                      {isAgreed ? <Check size={11} color={tokens.surface.light} /> : null}
                     </Pressable>
                     <Pressable
                       style={styles.purchaseAgreementTextWrap}
