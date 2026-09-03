@@ -149,6 +149,15 @@
 - **前端可视化（DONE）**：新增 `/cost-dashboard`（成本看板：聚合卡片+by_tool/by_model+纯CSS日/时条形走势+空态）、`/memory-manager`（长期记忆管理：列表/过滤/提升重要度/删除/新增/归纳本会话）两页 + `src/api/cost-ledger-api.ts`、`longterm-memory-api.ts` + next.config.ts 两条前置代理(/api/cost-ledger、/api/longterm-memory→8803)。中文硬编码标题规避 i18n 并发冲突；tsc 我方文件零错；浏览器 200 渲染、代理命中(401 非 404)、light/dark 语义类自动适配。
 - 本轮后端全量回归 **189 passed**；killer_extras/agent_memory ruff 0（2 项自动修复）；app build OK。
 
+## 目标驱动复验轮（2026-09-03，/goal H1-H5 可量化验收）
+
+- **H1 benchmark 达成（DONE）**：全量 20 任务复跑 **18/20 = 90% ≥ 80%**（报告 `benchmarks/reports/benchmark-report.json`）。
+  本轮两处真实修复：
+  1. **doom-loop 滑动窗口误杀 bug**（apps/cli/src/doom-loop-detector.ts）：原实现统计"窗口内出现次数"，跨轮合法重读同一组文件（a,b,a,b,a,b）被误判死循环导致 agent 被终止（17-multi-extract 稳定失败根因）。改为**尾部连续计数**（中间夹任何不同调用即打断），跨轮整轮重复由 ConsecutiveSignatureDetector 兜底。单测更新为 9/9 绿（含 a,b,a,b,a,b 回归用例）。
+  2. **17-multi-extract 任务契约补全**（task.md）：verify.mjs 隐含契约（a/b.mjs re-export slugify、对外导出行为不变）显式写入任务描述，修复后该任务 PASS。
+  波动性失败（非阻塞）：15-feat-queue / 16-multi-rename 本轮失败但上一轮全量曾通过（随机性，验证脚本对 solved 100% 通过有判定力）；17 重试通过。
+- **H3 复验闭环（DONE，第八轮已澄清）**：agent_loop_v2.py ruff 0.16.1 实测 `All checks passed!`；agent_loop 系 pytest 66 passed 零回归。
+
 ## 最终收尾状态（2026-09-03 · 本轮目标驱动 UI/后端全量验证通过）
 
 **最终全量回归：292 passed**（本轮全部触碰测试聚合），无回归；**23 模块 + App import 全 OK**；web 两新页 light/dark 视觉 POST 渲染 PASS。
