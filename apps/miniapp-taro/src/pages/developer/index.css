@@ -22,7 +22,7 @@
 .subscribe-entry {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, #4e8cff, #6a5cff);
+  background: linear-gradient(135deg, rgba(78, 140, 255, 1), rgba(106, 92, 255, 1));
   /* custom color: 蓝紫渐变,无对应 token */
   margin: 20rpx;
   padding: 28rpx 30rpx;

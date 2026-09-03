@@ -69,7 +69,7 @@
   border-radius: 8rpx;
   border: none;
 }
-.dev-sub-btn::after {
+.dev-sub-btn: :after {
   border: none;
 }
 .dev-sub-btn[disabled] {
@@ -251,7 +251,7 @@
   border-radius: 10rpx;
   border: none;
 }
-.dev-contact-btn::after {
+.dev-contact-btn: :after {
   border: none;
 }
 .dev-empty {

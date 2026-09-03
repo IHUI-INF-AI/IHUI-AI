@@ -40,7 +40,7 @@
   color: var(--color-primary);
   font-weight: 600;
 }
-.tab-item.active::after {
+.tab-item.active: :after {
   content: '';
   position: absolute;
   bottom: 0;

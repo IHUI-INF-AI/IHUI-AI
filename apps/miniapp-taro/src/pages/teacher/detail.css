@@ -66,7 +66,7 @@
   padding: 2rpx 12rpx;
   font-size: 20rpx;
   font-weight: 600;
-  color: #5a4500;
+  color: rgba(90, 69, 0, 1);
   background: var(--color-rank-gold);
   border-radius: 6rpx;
   flex-shrink: 0;

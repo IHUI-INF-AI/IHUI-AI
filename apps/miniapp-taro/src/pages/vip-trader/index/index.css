@@ -17,7 +17,7 @@
 /* custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
 .trader-header {
   padding: 60rpx 32rpx 40rpx;
-  background: linear-gradient(135deg, #f8d486, var(--color-warning));
+  background: linear-gradient(135deg, rgba(248, 212, 134, 1), var(--color-warning));
 }
 .trader-header-main {
   display: flex;
@@ -188,7 +188,7 @@
 .trader-chart-bar {
   width: 32rpx;
   /* custom color: #f8d486 VIP 品牌金色,无对应 token,保留原值 */
-  background: linear-gradient(180deg, #f8d486, var(--color-warning));
+  background: linear-gradient(180deg, rgba(248, 212, 134, 1), var(--color-warning));
   border-radius: 6rpx 6rpx 0 0;
 }
 .trader-chart-label {

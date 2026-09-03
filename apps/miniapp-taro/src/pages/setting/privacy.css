@@ -73,7 +73,7 @@
   border: 1px solid var(--color-border);
   border-radius: 8rpx;
 }
-.setting-btn::after {
+.setting-btn: :after {
   border: none;
 }
 
