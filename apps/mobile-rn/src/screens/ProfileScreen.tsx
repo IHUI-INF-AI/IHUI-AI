@@ -1355,7 +1355,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                   <View style={[styles.videoPosterPlaceholder, { width: w, height: h }]} />
                 )}
                 <View style={styles.videoPlayIcon}>
-                  <Play size={24} color={'#ffffff'} style={{ marginLeft: rpx(8) }} />
+                  <Play size={24} color={tokens.surface.light} style={{ marginLeft: rpx(8) }} />
                 </View>
               </TouchableOpacity>
             </View>
@@ -1884,7 +1884,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     padding: rpx(28),
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: tokens.border.light,
   },
   copyLinkBtn: {
     alignSelf: 'center',
@@ -1962,7 +1962,7 @@ const styles = StyleSheet.create({
   },
   videoPlayIconText: {
     fontSize: 24,
-    color: '#ffffff',
+    color: tokens.surface.light,
     marginLeft: rpx(8),
   },
   audioPlayer: {
@@ -2034,7 +2034,7 @@ const styles = StyleSheet.create({
   },
   previewShareText: {
     fontSize: 14,
-    color: '#ffffff',
+    color: tokens.surface.light,
   },
   previewCloseBtn: {
     position: 'absolute',
@@ -2050,7 +2050,7 @@ const styles = StyleSheet.create({
   },
   previewCloseText: {
     fontSize: 30,
-    color: '#ffffff',
+    color: tokens.surface.light,
     lineHeight: 30,
   },
   previewListContent: {
@@ -2084,7 +2084,7 @@ const styles = StyleSheet.create({
   },
   videoModalCloseText: {
     fontSize: 30,
-    color: '#ffffff',
+    color: tokens.surface.light,
     lineHeight: 30,
   },
   // ── 视频空态(对齐 Uniapp video-popup,无有效视频源时弹窗内提示) ──
@@ -2174,12 +2174,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // 对齐 Uniapp popup-share-btn 黑底白字
-    backgroundColor: '#000000',
+    backgroundColor: tokens.gray.black,
   },
   sharePopupShareBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ffffff',
+    color: tokens.surface.light,
   },
   // ── 4 Tab 加载/错误状态(对齐 Uniapp loadContentByTab 加载体验) ──
   tabLoaderWrap: {
