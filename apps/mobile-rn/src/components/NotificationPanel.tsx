@@ -169,7 +169,7 @@ export function PushBanner({
         >
           <View style={styles.header}>
             <View style={styles.icon}>
-              <Bell size={16} color="#6b7280" />
+              <Bell size={16} color={tokens.text.secondary} />
             </View>
             <View style={styles.info}>
               <Text style={styles.title} numberOfLines={1}>
@@ -189,7 +189,7 @@ export function PushBanner({
               accessibilityRole="button"
               accessibilityLabel="关闭"
             >
-              <X size={14} color="#9ca3af" />
+              <X size={14} color={tokens.text.tertiary} />
             </Pressable>
           </View>
           {content ? (
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.light,
     borderRadius: 12,
     padding: 12,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOpacity: 0.1,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
