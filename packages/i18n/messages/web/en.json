@@ -5254,7 +5254,17 @@
       "trigger_webhook": "Webhook",
       "view": "View",
       "viewTitle": "Workflow Details"
-    }
+    },
+    "title": "Admin Dashboard",
+    "oauthApps": "OAuth Apps",
+    "pointsMall": "Points Mall",
+    "post": "Post Management",
+    "promotionRule": "Promotion Rule",
+    "providersHealth": "Providers Health",
+    "relayOverview": "Relay Overview",
+    "themeEdit": "Theme Edit",
+    "unauthorized": "Unauthorized",
+    "userMargin": "User Margin"
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -6292,7 +6302,8 @@
     "viewDetail": "View detail",
     "viewPermissionExample": "View Permission Example",
     "vipExclusive": "VIP Exclusive",
-    "config": "Configuration"
+    "config": "Configuration",
+    "dispatchSubagent": "Dispatch Subagent"
   },
   "agentRuntimePanel": {
     "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
@@ -7317,7 +7328,8 @@
       "rankDelta": "Rank change",
       "stable": "Stable",
       "subtitle": "7/14 day hotness trend curve"
-    }
+    },
+    "title": "AI News"
   },
   "aiSkillDetail": {
     "addToAgent": "Add to Agent",
@@ -7447,7 +7459,8 @@
         },
         "title": "AI World Site Management"
       }
-    }
+    },
+    "title": "AI World"
   },
   "aiWorldCreatePage": {
     "back": "Back",
@@ -7623,7 +7636,9 @@
     "title": "Title",
     "titlePlaceholder": "Enter question title",
     "unresolved": "Unresolved",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "detail": "Ask Detail",
+    "edit": "Edit Ask"
   },
   "asksEditFormPage": {
     "cancel": "Cancel",
@@ -8242,19 +8257,6 @@
       "shortcutsItemModeSpecKbd": "Switch to Spec mode (reverse-generate spec docs from code)",
       "shortcutsItemNumberKbd": "Press 1/2/3 in popover to pick mode directly",
       "shortcutsItemQuestionMarkKbd": "Open this shortcuts panel",
-      "shortcutsItemShiftTabKbd": "Cycle through 3 modes",
-      "shortcutsItemSlashAskKbd": "Switch to Ask mode",
-      "shortcutsItemSlashAutoKbd": "Switch to Auto mode",
-      "shortcutsItemSlashFullKbd": "Switch to Full mode",
-      "shortcutsItemUndoKbd": "5s undo window after switching to full access",
-      "shortcutsItemWarn1minKbd": "1-minute urgent toast",
-      "shortcutsItemWarn5minKbd": "5-minute warning toast with one-click extend",
-      "shortcutsLearnMore": "Learn more about security design",
-      "shortcutsModalTitle": "Permission mode shortcuts",
-      "shortcutsSectionAudit": "Undo & audit",
-      "shortcutsSectionChatMode": "Chat Mode Switch",
-      "shortcutsSectionGuard": "High-risk guardrails",
-      "shortcutsSectionSwitch": "Mode switching",
       "infoModalTitle": "Permission mode details",
       "infoModalDesc": "You are in a high-risk mode. Please understand the following behaviors:",
       "infoModalBullet1": "AI can perform any action without confirmation",
@@ -8275,6 +8277,19 @@
       "revertWarning1minDesc": "Full-access mode will downgrade in 1 minute. Click to extend 1 hour.",
       "autoRevertedTitle": "Auto-reverted",
       "autoRevertedDescWithDuration": "Full-access lasted {usedMin} minutes, now downgraded",
+      "shortcutsItemShiftTabKbd": "Cycle through 3 modes",
+      "shortcutsItemSlashAskKbd": "Switch to Ask mode",
+      "shortcutsItemSlashAutoKbd": "Switch to Auto mode",
+      "shortcutsItemSlashFullKbd": "Switch to Full mode",
+      "shortcutsItemUndoKbd": "5s undo window after switching to full access",
+      "shortcutsItemWarn1minKbd": "1-minute urgent toast",
+      "shortcutsItemWarn5minKbd": "5-minute warning toast with one-click extend",
+      "shortcutsLearnMore": "Learn more about security design",
+      "shortcutsModalTitle": "Permission mode shortcuts",
+      "shortcutsSectionAudit": "Undo & audit",
+      "shortcutsSectionChatMode": "Chat Mode Switch",
+      "shortcutsSectionGuard": "High-risk guardrails",
+      "shortcutsSectionSwitch": "Mode switching",
       "stepAnswer": "Answer",
       "stepThinking": "Thinking",
       "switchedToAsk": "Switched to ask for approval",
@@ -8689,7 +8704,8 @@
     },
     "postCount": "{count} posts",
     "subtitle": "Join interest circles and connect with peers",
-    "title": "Circles"
+    "title": "Circles",
+    "detail": "Circle Detail"
   },
   "cliImport": {
     "commit": "Commit Import",
@@ -8749,32 +8765,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -8794,7 +8836,8 @@
     "replyPlaceholder": "Enter your reply...",
     "replyTitle": "Admin Reply",
     "submitReply": "Submit Reply",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "title": "Comments"
   },
   "commissionPlan": {
     "commissionRate": "Commission Rate",
@@ -8912,7 +8955,8 @@
       "empty": "No tools available",
       "loading": "Loading...",
       "subtitle": "Browse and use various tools provided by the platform",
-      "title": "Tools"
+      "title": "Tools",
+      "pdf": "PDF Tools"
     },
     "unpin": "Unpin",
     "unsaved": "Unsaved",
@@ -8951,7 +8995,15 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
-    "ok": "OK"
+    "ok": "OK",
+    "create": "Create",
+    "agentKanban": "Agent Kanban",
+    "callback": "Callback",
+    "title": "Page",
+    "forbidden": "Forbidden",
+    "forgotPassword": "Forgot Password",
+    "login": "Login",
+    "status": "Status"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -9174,7 +9226,8 @@
       "title": "Templates"
     },
     "title": "Design Mode",
-    "undo": "Undo"
+    "undo": "Undo",
+    "system": "Design System"
   },
   "detail": {
     "activate": "Activate",
@@ -9743,7 +9796,8 @@
       "statusPending": "Pending",
       "subtitle": "Ask and answer learning questions",
       "title": "Q&A Center"
-    }
+    },
+    "ai": "AI Education"
   },
   "eduAi": {
     "a2a": {
@@ -10590,25 +10644,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10742,19 +10808,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -10766,7 +10844,8 @@
       "label": "Core Positioning",
       "tags": [],
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era"
-    }
+    },
+    "inquiry": "Enterprise Inquiry"
   },
   "enterpriseTools": {
     "categories": {
@@ -11420,7 +11499,8 @@
     "toc": "On this page",
     "updatedAt": "Updated",
     "viewCount": "{count} views",
-    "title": "Help center"
+    "title": "Help center",
+    "loading": "Loading"
   },
   "home": {
     "announcement": {
@@ -11514,7 +11594,8 @@
     "recommend": "Recommended for You"
   },
   "hooks": {
-    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?"
+    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12041,7 +12122,10 @@
       "title": "Upload Document",
       "titleLabel": "Title (optional)",
       "titlePlaceholder": "Defaults to filename if empty"
-    }
+    },
+    "title": "Knowledge Base",
+    "edit": "Edit Knowledge",
+    "search": "Search Knowledge"
   },
   "learn": {
     "allCategories": "All Categories",
@@ -12081,7 +12165,10 @@
         }
       }
     },
-    "total": "{total} total"
+    "total": "{total} total",
+    "buyConfirm": "Buy Confirm",
+    "paymentConfirm": "Payment Confirm",
+    "review": "Review"
   },
   "learnBuyConfirmPage": {
     "actualPay": "Actual Pay",
@@ -12355,7 +12442,8 @@
         "importSuccess": "Imported {providers} providers / {models} models",
         "importTitle": "Import Configs",
         "invalidJson": "Invalid JSON, please check the file",
-        "title": "Bulk Import/Export"
+        "title": "Bulk Import/Export",
+        "a": "Bulk Operation"
       },
       "compare": "Compare",
       "compareDialog": {
@@ -13201,7 +13289,8 @@
   "messages": {
     "empty": "No messages",
     "loading": "Loading...",
-    "noData": "No messages"
+    "noData": "No messages",
+    "title": "Messages"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13231,7 +13320,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13941,7 +14038,8 @@
     "view": {
       "grid": "Grid View",
       "list": "List View"
-    }
+    },
+    "pricing": "Model Pricing"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
@@ -14124,25 +14222,6 @@
     "runCountLabel": "Run count",
     "subtitle": "N8N workflow integration - orchestrate AI agents automatically via N8N",
     "totalBadge": "{n} Agents total"
-  },
-  "agentGovernance": {
-    "title": "Agent Token Governance",
-    "subtitle": "Agent loop budget usage & 7-day trend",
-    "enabledBadge": "Governance on",
-    "disabledBadge": "Observation mode",
-    "usagePercent": "Global budget usage",
-    "todayTokens": "Tokens used today",
-    "pillarUsage": "Pillar budget usage",
-    "remainingTokens": "Pillar tokens left",
-    "degradedOn": "Auto-degrade on breach to",
-    "trendTitle": "7-day usage trend",
-    "byPillarTitle": "Today by pillar",
-    "pillarEmpty": "No usage recorded for this day",
-    "tokenShort": "tk",
-    "loading": "Loading…",
-    "empty": "No governance data",
-    "emptyHint": "AI service returned no budget data, retry later",
-    "backToCost": "Back to cost panel"
   },
   "cloudRuns": {
     "title": "Cloud Agent Runs",
@@ -14490,7 +14569,9 @@
     "userSubscription": "Subscription",
     "vip": "VIP Membership",
     "workspace": "Workspace",
-    "courses": "Courses"
+    "courses": "Courses",
+    "faq": "FAQ",
+    "home": "Home"
   },
   "news": {
     "allCategories": "All Categories",
@@ -14523,7 +14604,8 @@
     "tags": "Tags:",
     "title": "News",
     "total": "{total} articles",
-    "viewCount": "{count} reads"
+    "viewCount": "{count} reads",
+    "page": "News Page"
   },
   "newsletter": {
     "articles": {
@@ -14580,7 +14662,8 @@
       "desc": "Please check your email to confirm your subscription. The next weekly issue will be sent on Friday.",
       "recommended": "Recommended Reading",
       "title": "Subscription Successful!"
-    }
+    },
+    "title": "Newsletter"
   },
   "notes": {
     "attachmentsField": "Attachments",
@@ -16085,7 +16168,9 @@
     "subtitle": "Download learning resources",
     "title": "Resource Center",
     "total": "{total} total",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "affiliates": "Affiliates",
+    "edit": "Edit Resource"
   },
   "resourcesEditPage": {
     "backToList": "Back to Resources",
@@ -16149,7 +16234,8 @@
     },
     "title": "Search",
     "placeholder": "Enter keywords",
-    "empty": "No results"
+    "empty": "No results",
+    "q": "Search"
   },
   "searchHistory": {
     "clearAll": "Clear All",
@@ -16448,7 +16534,8 @@
       "deployments": "Deployments",
       "satisfaction": "Avg. Satisfaction",
       "title": "Clients Served"
-    }
+    },
+    "title": "Services"
   },
   "settings": {
     "accountDeletionCancel": "Cancel Deletion",
@@ -16827,7 +16914,10 @@
     "notification": "Notifications",
     "account": "Account",
     "version": "Version",
-    "usageRules": "Usage Rules"
+    "usageRules": "Usage Rules",
+    "connectedAccountsUnbindSuccess": "Unbind Success",
+    "notificationsLoadFailed": "Notification load failed",
+    "privacyLoadFailed": "Privacy settings load failed"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -16984,7 +17074,8 @@
       }
     },
     "tiersTitle": "Sponsorship Tiers",
-    "whyTitle": "Why Sponsor IHUI AI"
+    "whyTitle": "Why Sponsor IHUI AI",
+    "title": "Sponsor"
   },
   "sso": {
     "alreadyLoggedIn": "Already signed in",
@@ -17029,8 +17120,10 @@
       "missingCode": "Missing auth code, open from the app",
       "exchangeFailed": "Authorization failed, retry or sign in again",
       "networkError": "Network error, please retry",
-      "backToLogin": "Back to sign in"
-    }
+      "backToLogin": "Back to sign in",
+      "sso_code": "SSO Code"
+    },
+    "platform": "Platform"
   },
   "statistics": {
     "actions": "Actions",
@@ -17502,7 +17595,9 @@
     "submit": "Split",
     "submitting": "Splitting...",
     "title": "PDF Split",
-    "uploadLabel": "Click or drag a PDF file here to upload"
+    "uploadLabel": "Click or drag a PDF file here to upload",
+    "convert": "Convert",
+    "merge": "Merge"
   },
   "topics": {
     "empty": "No topics",
@@ -18179,7 +18274,8 @@
       "schedule": "Schedule",
       "unknown": "Unknown Trigger",
       "webhook": "Webhook"
-    }
+    },
+    "instance": "Workflow Instance"
   },
   "workspace": {
     "actions": "Actions",
@@ -18369,7 +18465,9 @@
     "stepThinking": "Thinking",
     "reasoningCopied": "Reasoning copied",
     "reasoningCopyFailed": "Failed to copy reasoning",
-    "copyReasoning": "Copy reasoning"
+    "copyReasoning": "Copy reasoning",
+    "detail": "Plan Detail",
+    "new": "New Plan"
   },
   "subagent": {
     "toolCallsTitle": "{n} tool calls",
@@ -19121,7 +19219,8 @@
     "certTitle": "Certificate",
     "certNo": "Number",
     "holderName": "Holder",
-    "issueDate": "Issue date"
+    "issueDate": "Issue date",
+    "notfound": "Certificate Not Found"
   },
   "courseCatalog": {
     "title": "Course catalog",
@@ -19800,7 +19899,8 @@
     "url": "Share link",
     "code": "Share code",
     "expireAt": "Expiry time",
-    "shareNow": "Share now"
+    "shareNow": "Share now",
+    "detail": "Share Detail"
   },
   "vipBenefit": {
     "title": "VIP Benefits"
@@ -20300,7 +20400,10 @@
     "autoMemory": "Auto Memory",
     "autoMemoryDesc": "When enabled, the AI automatically distills key points from conversations into long-term memory for personalized replies.",
     "autoMemorySaveSuccess": "Settings saved",
-    "autoMemorySaveFailed": "Failed to save, please retry"
+    "autoMemorySaveFailed": "Failed to save, please retry",
+    "manager": "Memory Manager",
+    "title": "Memory",
+    "new": "New Memory"
   },
   "agentPlan": {
     "title": "Agent Plan Mode",
@@ -20340,6 +20443,99 @@
     "statusFailed": "Failed",
     "notFound": "Plan not found or expired",
     "conflict": "This action is not allowed in the current plan status",
-    "generic": "Request failed, please try again later"
+    "generic": "Request failed, please try again later",
+    "progress": "Progress"
+  },
+  "compare": {
+    "title": "Product Comparison",
+    "subtitle": "In-depth comparison between IHUI AI and mainstream AI platforms",
+    "description": "Compare IHUI AI with mainstream AI platforms across multiple dimensions"
+  },
+  "useCases": {
+    "title": "Use Cases",
+    "subtitle": "Explore IHUI AI applications in various scenarios",
+    "description": "Learn how IHUI AI empowers various business scenarios"
+  },
+  "context": {
+    "title": "Context Management",
+    "compression": "Context Compression",
+    "mentions": "Mention Management",
+    "visualization": "Context Visualization"
+  },
+  "spec": {
+    "title": "Requirements Specification",
+    "detail": "Specification Details",
+    "generate": "Generate Specification",
+    "templates": "Specification Templates"
+  },
+  "subagents": {
+    "title": "Subagents",
+    "detail": "Subagent Details",
+    "dispatch": "Dispatch Tasks",
+    "topology": "Topology"
+  },
+  "aiSkills": {
+    "title": "AI Skills",
+    "detail": "Skill Details",
+    "description": "AI Skill Management"
+  },
+  "download": {
+    "title": "Download",
+    "description": "Download IHUI AI Client",
+    "id": "Platform Download"
+  },
+  "agentRuntime": {
+    "title": "Agent Runtime",
+    "description": "Agent runtime monitoring and management"
+  },
+  "agentStepRecorder": {
+    "title": "Agent Step Recorder",
+    "description": "Record Agent execution steps"
+  },
+  "apple": {
+    "callback": "Apple Sign-in Callback"
+  },
+  "costDashboard": {
+    "title": "Cost Dashboard",
+    "description": "AI cost monitoring dashboard"
+  },
+  "developers": {
+    "title": "Developers",
+    "description": "Developer documentation and resources"
+  },
+  "google": {
+    "callback": "Google Sign-in Callback"
+  },
+  "h5": {
+    "title": "H5 Page",
+    "share": "Share Page"
+  },
+  "legal": {
+    "title": "Legal Information",
+    "serviceSpecificTerms": {
+      "title": "Service-Specific Terms"
+    },
+    "supportedRegions": {
+      "title": "Supported Regions"
+    },
+    "terms": {
+      "title": "Terms of Service"
+    },
+    "usagePolicy": {
+      "title": "Usage Policy"
+    }
+  },
+  "mcpProjects": {
+    "title": "MCP Projects",
+    "store": "MCP Store",
+    "description": "Model Context Protocol project management"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n automated workflow Agent"
+  },
+  "rules": {
+    "title": "Rules",
+    "description": "Platform rules and regulations"
   }
 }
