@@ -47,6 +47,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   FileText,
@@ -136,6 +137,20 @@ export interface InputAreaProps {
   onPageAgentVariablesChange?: (value: string, componentIndex: number, groupIndex: number) => void
   /** 参数变量「图片类型」添加回调(groupIndex, componentIndex)。待接后端/原生模块 */
   onParamImageAdd?: (groupIndex: number, componentIndex: number) => void
+
+  // ── collapsible 折叠态(可选,默认 false 不破坏现有调用方)─────────────────
+  /** 启用折叠态:首次进入折叠,FAB 浮动按钮位于右下角;点击 FAB 展开完整输入栏,
+   *  完整栏顶部右上角有「×」按钮可折叠回。HomeScreen 等场景用此获得默认隐藏 +
+   *  点击 + 滑出的交互(对齐历史 Uniapp 抽屉式输入)。 */
+  collapsible?: boolean
+  /** collapsible=true 时,初始是否折叠(默认 true)。HomeScreen 默认折叠让首屏更整洁 */
+  defaultCollapsed?: boolean
+  /** 折叠态切换通知(展开→true=折叠中 / false=展开中),非受控 */
+  onCollapsedChange?: (collapsed: boolean) => void
+  /** 折叠态 FAB 按钮的可访问标签(供 i18n 注入);未提供时回退「提问」 */
+  collapsedFabLabel?: string
+  /** 折叠按钮(完整态右上「×」)的可访问标签;未提供时回退「收起输入区」 */
+  collapseButtonLabel?: string
 }
 
 const DEFAULT_MAX_LENGTH = 500
@@ -242,7 +257,13 @@ export function InputArea({
   pageAgentVariables,
   onPageAgentVariablesChange,
   onParamImageAdd,
+  collapsible = false,
+  defaultCollapsed = true,
+  onCollapsedChange,
+  collapsedFabLabel,
+  collapseButtonLabel,
 }: InputAreaProps) {
+  const insets = useSafeAreaInsets()
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -254,6 +275,10 @@ export function InputArea({
   const inputHeight = isExpanded
     ? Math.max(MIN_INPUT_HEIGHT, contentHeight)
     : Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
+
+  // collapsible 折叠态:非受控(defaultCollapsed 默认 true → 首屏折叠)
+  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
+  const isCollapsed = collapsible ? internalCollapsed : false
 
   const hasImages = (images?.length ?? 0) > 0
   const hasParams = (pageAgentVariables?.length ?? 0) > 0
@@ -276,6 +301,37 @@ export function InputArea({
   const handleContentSizeChange = useCallback((_w: number, h: number): void => {
     setContentHeight(h)
   }, [])
+
+  // 折叠/展开切换(collapsible=true 时生效)
+  const handleCollapseToggle = useCallback((): void => {
+    setInternalCollapsed((v) => {
+      const next = !v
+      onCollapsedChange?.(next)
+      return next
+    })
+  }, [onCollapsedChange])
+
+  // 折叠态早返回:FAB 浮动按钮(底部中央,绝对定位),对齐历史 Uniapp 抽屉式输入
+  // P1-2:避开 HomeScreen 右下角 GlobalFloatBox(赚米/客服/反馈)遮挡,FAB 居中放
+  if (collapsible && isCollapsed) {
+    return (
+      <View style={[styles.collapsedWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
+        <Pressable
+          style={styles.collapsedFab}
+          onPress={() => {
+            setInternalCollapsed(false)
+            onCollapsedChange?.(false)
+          }}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
+          accessibilityState={{ expanded: false }}
+        >
+          <Plus size={26} color={tokens.surface.light} />
+        </Pressable>
+      </View>
+    )
+  }
 
   const renderThumb = (item: InputImageItem, index: number) => {
     const isDoc = item.type === 'document'
@@ -323,6 +379,19 @@ export function InputArea({
 
   return (
     <View style={styles.container}>
+      {/* collapsible=true 时,完整态右上角加「×」按钮,折叠回 FAB 态 */}
+      {collapsible ? (
+        <TouchableOpacity
+          style={styles.collapseBtn}
+          onPress={handleCollapseToggle}
+          activeOpacity={0.7}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={collapseButtonLabel ?? '收起输入区'}
+        >
+          <X size={14} color={tokens.text.secondary} />
+        </TouchableOpacity>
+      ) : null}
       <View style={styles.main}>
         {/* 图片/视频/文档缩略图列表(imgs_list) */}
         {hasImages ? (
@@ -772,6 +841,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: tokens.surface.light,
     fontWeight: '600',
+  },
+
+  // ── collapsible 折叠态(底部中央浮动 FAB,绝对定位,避开 GlobalFloatBox 右侧) ──
+  collapsedWrap: {
+    position: 'absolute',
+    // 屏幕水平居中,减去 FAB 一半宽度(28)使按钮中心对齐屏幕中线
+    left: '50%',
+    marginLeft: -28,
+    // bottom 在 JSX 内根据 insets.bottom 计算,这里只设兜底
+    bottom: 24,
+    // zIndex/elevation 必须高于 GlobalFloatBox,避免被遮挡
+    zIndex: 9999,
+    elevation: 24,
+  },
+  collapsedFab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28, // 56/2,合规(头像/红点豁免圆形)
+    backgroundColor: tokens.brand.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // shadow(iOS)
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    // shadow(Android)
+  },
+  // 完整态右上角「×」折叠按钮(absolute 覆盖在 main 顶部右上)
+  collapseBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
 })
 
