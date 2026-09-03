@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   CourseHeader,
   CourseCatalog,
@@ -131,10 +132,10 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <View className="flex items-center justify-center h-screen text-muted-foreground">
+      <ThemeRoot><View className="flex items-center justify-center h-screen text-muted-foreground">
         <Text>{t('common.loading')}</Text>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   const headerData: CourseHeaderData = {
@@ -167,7 +168,7 @@ export default function CourseDetail() {
   ]
 
   return (
-    <View className="min-h-screen pb-[120rpx] bg-background">
+    <ThemeRoot><View className="min-h-screen pb-[120rpx] bg-background">
       <CourseHeader
         data={headerData}
         onTeacherClick={() => Taro.showToast({ title: t('course.viewTeacher'), icon: 'none' })}
@@ -325,6 +326,6 @@ export default function CourseDetail() {
         onClose={() => setShowComplete(false)}
       />
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

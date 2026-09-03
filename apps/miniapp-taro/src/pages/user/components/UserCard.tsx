@@ -9,6 +9,7 @@ import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
 import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import xianLabelIcon from '@/assets/remote/images/xian_label.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export interface UserCardProps {
   onGoPage: (path: string) => void
@@ -52,7 +53,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
       {items.map((item, idx) => {
         const isFullWidth = idx === 3 // 钱包占整行
         return (
-          <View
+          <ThemeRoot key={item.key}><View
             key={item.key}
             className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
             style={{
@@ -79,7 +80,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
             </View>
           </View>
-        )
+        </ThemeRoot>)
       })}
     </View>
   )

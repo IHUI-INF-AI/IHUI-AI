@@ -8,6 +8,7 @@ import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORIES = [
   t('deventerModeledit.r1'),
@@ -154,7 +155,7 @@ export default function ModelEdit() {
   ]
 
   const renderOpts = (opts: Opt[], current: string, onSelect: (v: string) => void) => (
-    <View className="flex flex-wrap gap-[16rpx]">
+    <ThemeRoot><View className="flex flex-wrap gap-[16rpx]">
       {opts.map((o) => (
         <View
           key={o.value}
@@ -165,7 +166,7 @@ export default function ModelEdit() {
         </View>
       ))}
     </View>
-  )
+  </ThemeRoot>)
 
   const onSubmit = async () => {
     if (submitting) return
@@ -201,7 +202,7 @@ export default function ModelEdit() {
   }
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <View className="flex items-center p-[24rpx] bg-card gap-[24rpx]">
         <Text className="text-[28rpx] text-primary" onClick={() => Taro.navigateBack()}>
           {t('common.back')}
@@ -356,6 +357,6 @@ export default function ModelEdit() {
         </View>
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

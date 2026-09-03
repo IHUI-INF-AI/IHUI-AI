@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 10
 
@@ -114,9 +115,8 @@ export default function AiCircle() {
               const comments = Number(item.comments || 0)
               const images = (item.images as string[]) || []
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+      <View key={id}
                   onClick={() => onItemClick(id)}
                 >
                   <View className="flex items-center">
@@ -177,6 +177,7 @@ export default function AiCircle() {
                     </View>
                   </View>
                 </View>
+    </ThemeRoot>
               )
             })}
             {loadingMore ? (

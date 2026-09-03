@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
 import './list.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
 type Category = 'all' | 'text' | 'image' | 'video' | 'audio'
@@ -527,7 +528,8 @@ export default function AigcList() {
               const idStr = String(item.id)
               const isPlaying = audioPlayingId === idStr
               return (
-                <View key={idStr} className="audio-card">
+                <ThemeRoot key={item.id} className="audio-card">
+      <View key={idStr}>
                   <View className="audio-record-wrap" onClick={() => toggleAudio(item)}>
                     {/* 旋转层:封面/占位 */}
                     <View className={`audio-record${isPlaying ? ' rotating' : ''}`}>
@@ -575,6 +577,7 @@ export default function AigcList() {
                     </View>
                   </View>
                 </View>
+    </ThemeRoot>
               )
             })}
           </View>

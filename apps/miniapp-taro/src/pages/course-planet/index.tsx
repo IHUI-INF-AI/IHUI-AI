@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import Carousel from '@/components/Carousel'
 import SectionHeader from '@/components/SectionHeader'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanetCourse {
   id: string
@@ -177,7 +178,7 @@ export default function CoursePlanet() {
 
   if (loading && allList.length === 0) {
     return (
-      <View className="min-h-screen bg-background">
+      <ThemeRoot><View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
@@ -189,12 +190,12 @@ export default function CoursePlanet() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && allList.length === 0) {
     return (
-      <View className="min-h-screen bg-background">
+      <ThemeRoot><View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
@@ -212,11 +213,11 @@ export default function CoursePlanet() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="p-[24rpx] bg-card">
         <Text className="text-[36rpx] font-semibold text-foreground">
           {t('coursePlanet.title')}
@@ -330,6 +331,6 @@ export default function CoursePlanet() {
         ) : null}
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
