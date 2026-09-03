@@ -8,6 +8,9 @@
  * 扫码登录弹窗(2026-07-31 CDP 模式):用 BrowserHub CDP 在 WorkPanel 内置浏览器打开真实登录页,
  * 用户在 CDP 画面里直接扫码/操作,后端轮询检测 cookies 自动保存。超时 5 分钟(CountdownTimer + 轮询双保险)。
  * 弹窗关闭后轮询继续,用户重新打开可查看进度/取消。
+ *
+ * 2026-09-02:新增"外部 Chrome 自动闭环"——系统 Chrome 带 CDP 调试端口打开登录页,
+ * 同样走 detect-from-cdp 轮询,登录成功自动保存账号并关闭外部 Chrome(见 startPolling 复用)。
  */
 
 import * as React from 'react'
@@ -18,6 +21,7 @@ import {
   closeBrowserSession,
   detectLoginFromCdp,
   listScanLoginPlatforms,
+  startExternalScanLogin,
   type ScanLoginPlatform,
 } from '@ihui/api-client'
 import { useToast } from '@/hooks/use-toast'
@@ -245,12 +249,32 @@ export function ScanLoginDialog({
                 className="w-full"
                 disabled={!platform || isBusy}
                 onClick={async () => {
-                  // 2026-08-17:内置浏览器仅用于扫码展示;验证码/密码登录用 Google Chrome
-                  // --app 模式打开(桌面端)或系统浏览器新标签(web 端),登录后粘贴 Cookie 保存。
+                  // 2026-09-02:外部 Chrome 自动闭环——ai-service 用系统 Chrome(带 CDP 调试端口
+                  // + 独立临时 profile)打开登录页并附着,复用 detect-from-cdp 轮询,
+                  // 登录成功自动保存账号 + 关闭外部 Chrome;失败降级为纯手动模式(旧行为)。
                   const plat = platforms.find((p) => p.platform === platform)
                   if (!plat?.login_url) return
-                  const err = await openInGoogleChrome(plat.login_url)
-                  if (err) toast.error(err)
+                  setPhase('starting')
+                  setErrorMsg('')
+                  try {
+                    const r = await startExternalScanLogin(platform)
+                    if (!r.success || !r.data?.session_id) {
+                      throw new Error(r.error || '启动外部 Chrome 失败')
+                    }
+                    const sid = r.data.session_id
+                    setSessionId(sid)
+                    startTimeRef.current = Date.now()
+                    setPhase('polling')
+                    onOpenChange(false)
+                    toast.success(`已用系统 Chrome 打开 ${plat.name} 登录页,登录成功后自动保存账号`)
+                    startPolling(sid, platform)
+                  } catch (e) {
+                    // 降级:ai-service 不可用/未装 Chrome → 旧手动模式(打开登录页,手动粘贴 Cookie)
+                    const fallbackErr = await openInGoogleChrome(plat.login_url)
+                    toast.error(`${(e as Error).message},已打开登录页;请登录后手动复制 Cookie 保存`)
+                    if (fallbackErr) toast.error(fallbackErr)
+                    setPhase('idle')
+                  }
                 }}
               >
                 <ExternalLink className="h-4 w-4" />
@@ -275,7 +299,7 @@ export function ScanLoginDialog({
               <div className="space-y-1 text-center">
                 <p className="text-sm font-medium">正在等待扫码登录</p>
                 <p className="text-xs text-muted-foreground">
-                  用手机扫右侧二维码即可,页面无需点击;检测到登录后自动保存账号
+                  在浏览器窗口中完成扫码/登录即可,无需点击;检测到登录后自动保存账号
                 </p>
               </div>
               <CountdownTimer
