@@ -47,6 +47,9 @@ const ALLOWED_FILES = new Set([
   // /goal 模式运行时文件(AGENTS.md §1 唯一例外条款:goal-runtime 状态与运行日志)
   'STATE.md',
   'loop-run-log.md',
+  // 2026-09-03 显式审批:/goal 模式「远超对标程序」路线图权威收敛文档(创建 2026-09-03,
+  // 长期存在的合法一级文档;若后续要求严格结构可迁至 .trae-cn/goal-runtime/)
+  'GAP-PLAN.md',
   // 开源标准文档(GitHub 官方识别)
   'README.md',
   'README.en.md',
@@ -88,6 +91,8 @@ const ALLOWED_DIRS = new Set([
   'monitoring',
   'reports',
   'sdks',
+  // 2026-09-03 显式审批:评测基准套件(run.mjs/gen.mjs/tasks/reports),长期存在的合法一级目录
+  'benchmarks',
   'cert',
   'products',
   'logs',
