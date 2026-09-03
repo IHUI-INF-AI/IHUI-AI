@@ -73,7 +73,7 @@ const LEVEL_LABEL: Record<MembershipLevel, string> = {
 }
 
 /** 会员金色(对齐 uniapp VIP 金色语义;禁用 purple/indigo) */
-const GOLD = '#FFD700'
+const GOLD = tokens.vip.gold
 
 const LEVEL_COLOR: Record<MembershipLevel, string> = {
   normal: tokens.text.secondary,
