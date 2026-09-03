@@ -120,10 +120,9 @@ function CourseCard({
           typeof item.icon === 'string' ? (
             <Text style={indexStyles.thumbIcon}>{item.icon}</Text>
           ) : (
-            <item.icon size={36} color={'#6b7280'} />
-          )
-        ) : (
-          <DEFAULT_ICON size={36} color={'#6b7280'} />
+            <item.icon size={36} color={tokens.text.secondary} />
+          ) : (
+          <DEFAULT_ICON size={36} color={tokens.text.secondary} />
         )}
       </View>
 
@@ -250,10 +249,10 @@ function UpToDateCard({
               typeof item.icon === 'string' ? (
                 <Text style={uptodateStyles.thumbIcon}>{item.icon}</Text>
               ) : (
-                <item.icon size={32} color={'#6b7280'} />
+                <item.icon size={32} color={tokens.text.secondary} />
               )
             ) : (
-              <DEFAULT_ICON size={32} color={'#6b7280'} />
+              <DEFAULT_ICON size={32} color={tokens.text.secondary} />
             )}
           </View>
         )}
@@ -472,10 +471,10 @@ function ListCard({
               typeof item.icon === 'string' ? (
                 <Text style={listStyles.thumbIcon}>{item.icon}</Text>
               ) : (
-                <item.icon size={28} color={'#6b7280'} />
+                <item.icon size={28} color={tokens.text.secondary} />
               )
             ) : (
-              <DEFAULT_ICON size={28} color={'#6b7280'} />
+              <DEFAULT_ICON size={28} color={tokens.text.secondary} />
             )}
           </View>
         )}
