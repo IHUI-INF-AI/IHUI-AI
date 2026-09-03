@@ -5258,7 +5258,17 @@
       "trigger_webhook": "ウェブフック",
       "view": "テーブル",
       "viewTitle": "ワークフロー"
-    }
+    },
+    "title": "管理ダッシュボード",
+    "oauthApps": "OAuth アプリ",
+    "pointsMall": "ポイントモール",
+    "post": "投稿管理",
+    "promotionRule": "プロモーションルール",
+    "providersHealth": "プロバイダー正常性",
+    "relayOverview": "リレー概要",
+    "themeEdit": "テーマ編集",
+    "unauthorized": "未許可",
+    "userMargin": "ユーザーマージン"
   },
   "connectors": {
     "title": "中文コネクタ",
@@ -6296,7 +6306,8 @@
     "viewDetail": "テーブル",
     "viewPermissionExample": "を",
     "vipExclusive": "VIP専用",
-    "config": "設定"
+    "config": "設定",
+    "dispatchSubagent": "サブエージェント配信"
   },
   "agentRuntimePanel": {
     "cancelledBody": "現在の実行を停止しました。続行するには入力を編集して再度実行してください。",
@@ -6765,7 +6776,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6782,7 +6798,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -7312,7 +7333,8 @@
       "rankDelta": "順位変動",
       "stable": "安定",
       "subtitle": "7/14 日ホット度トレンド曲線"
-    }
+    },
+    "title": "AI ニュース"
   },
   "aiSkillDetail": {
     "addToAgent": "Agentに追加",
@@ -7442,7 +7464,8 @@
         },
         "title": "AI ワールドサイト管理"
       }
-    }
+    },
+    "title": "AI ワールド"
   },
   "aiWorldCreatePage": {
     "back": "戻る",
@@ -7618,7 +7641,9 @@
     "title": "タイトル",
     "titlePlaceholder": "タイトルをしてください",
     "unresolved": "未解决",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "detail": "質問詳細",
+    "edit": "質問編集"
   },
   "asksEditFormPage": {
     "cancel": "キャンセル",
@@ -8684,7 +8709,8 @@
     },
     "postCount": "{count}の",
     "subtitle": "のなドキュメントとAPIリファレンス",
-    "title": "コミュニティ"
+    "title": "コミュニティ",
+    "detail": "サークル詳細"
   },
   "cliImport": {
     "commit": "インポート確定",
@@ -8744,32 +8770,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -8789,7 +8841,8 @@
     "replyPlaceholder": "ごコンテンツ",
     "replyTitle": "管理者返信",
     "submitReply": "送信返信",
-    "submitting": "送信中..."
+    "submitting": "送信中...",
+    "title": "コメント"
   },
   "commissionPlan": {
     "commissionRate": "コミッション率",
@@ -8909,15 +8962,7 @@
     "refundTime": "返金日時",
     "resize": "ドラッグで幅を調整",
     "searchHistory": "検索履歴",
-    "tools": {
-      "categoryAi": "AI ツール",
-      "categoryDev": "開発",
-      "categoryEfficiency": "効率ツール",
-      "empty": "ツールがありません",
-      "loading": "読み込み中...",
-      "subtitle": "プラットフォームが提供するツールを閲覧・使用",
-      "title": "ツールセンター"
-    },
+    "tools": "PDF ツール",
     "unpin": "ピン留め解除",
     "unsaved": "未保存",
     "update": {
@@ -8956,7 +9001,15 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
-    "ok": "OK"
+    "ok": "OK",
+    "create": "作成",
+    "agentKanban": "エージェントかんばん",
+    "callback": "コールバック",
+    "title": "ページ",
+    "forbidden": "アクセス拒否",
+    "forgotPassword": "パスワード忘れ",
+    "login": "ログイン",
+    "status": "ステータス"
   },
   "contactPage": {
     "addressTitle": "会社住所",
@@ -9179,7 +9232,8 @@
       "title": "テンプレート"
     },
     "title": "デザインモード",
-    "undo": "元に戻す"
+    "undo": "元に戻す",
+    "system": "デザインシステム"
   },
   "detail": {
     "activate": "有効化",
@@ -9748,7 +9802,8 @@
       "statusPending": "未回答",
       "subtitle": "学習の疑問を質問・回答",
       "title": "Q&A センター"
-    }
+    },
+    "ai": "AI 教育"
   },
   "eduAi": {
     "a2a": {
@@ -10595,25 +10650,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10747,19 +10814,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -10771,7 +10850,8 @@
       "label": "コアポジショニング",
       "tags": [],
       "title": "AI時代の企業合理的効率サービスと相互支援コミュニティ"
-    }
+    },
+    "inquiry": "企業問い合わせ"
   },
   "enterpriseTools": {
     "categories": {
@@ -11433,7 +11513,8 @@
     "title": "APIテスト",
     "toc": "目次",
     "updatedAt": "しいしい",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "loading": "読み込み中"
   },
   "home": {
     "announcement": {
@@ -11527,7 +11608,8 @@
     "recommend": "おすすめ"
   },
   "hooks": {
-    "deleteConfirm": "Hook \"{name}\" を削除してもよろしいですか？"
+    "deleteConfirm": "Hook \"{name}\" を削除してもよろしいですか？",
+    "title": "フック"
   },
   "ide": {
     "activityBar": {
@@ -12054,7 +12136,10 @@
       "title": "アップロード",
       "titleLabel": "タイトル(任意)",
       "titlePlaceholder": "空欄の場合ファイル名を使用"
-    }
+    },
+    "title": "ナレッジベース",
+    "edit": "ナレッジ編集",
+    "search": "ナレッジ検索"
   },
   "learn": {
     "allCategories": "All categories",
@@ -12094,7 +12179,10 @@
         }
       }
     },
-    "total": "合計 {total} 節"
+    "total": "合計 {total} 節",
+    "buyConfirm": "購入確認",
+    "paymentConfirm": "支払い確認",
+    "review": "レビュー"
   },
   "learnBuyConfirmPage": {
     "actualPay": "支払額",
@@ -12344,222 +12432,7 @@
     "securityNotice": "APIキーはAES-256で暗号化され、ご自身のアカウントのみ閲覧可能です。各プラットフォームのURL、プロトコル、ヘッダーは公式仕様に従って内蔵されています。",
     "subtitle": "各AIプラットフォームごとにAPIキー、モデルID、コンテキスト長を保存します。15以上のテンプレートを内蔵し、認証情報のみ入力してください。",
     "title": "マイLLM設定",
-    "v2": {
-      "addFirstModel": "最初のモデルを追加",
-      "addModel": "モデルを追加",
-      "baseUrl": "ベース URL",
-      "bulk": {
-        "cancel": "キャンセル",
-        "export": "エクスポート",
-        "exportBtn": "JSON をエクスポート",
-        "exportDesc": "全てのプロバイダー + モデルを JSON ファイルにエクスポート。API キーは自動的にマスクされます。",
-        "exportEnv": ".env 形式",
-        "exportJson": "JSON 形式",
-        "exportSuccess": "{count} プロバイダー / {models} モデルをエクスポートしました",
-        "exportTitle": "設定をエクスポート",
-        "formatLabel": "エクスポート形式",
-        "import": "インポート",
-        "importConfirmDesc": "{providers} 個のプロバイダーと {models} 個のモデルを作成します。API キーは空白のままです。",
-        "importDesc": "JSON ファイルからプロバイダー + モデルをインポート。API キーは空白のままになり、手動で入力する必要があります。",
-        "importFailed": "インポート失敗:{error}",
-        "importFile": "JSON ファイルをアップロード",
-        "importPlaceholder": "または JSON 内容をここに貼り付け...",
-        "importSubmit": "インポート開始",
-        "importSuccess": "{providers} プロバイダー / {models} モデルをインポートしました",
-        "importTitle": "設定をインポート",
-        "invalidJson": "無効な JSON です。ファイルを確認してください",
-        "title": "一括インポート/エクスポート"
-      },
-      "compare": "比較",
-      "compareDialog": {
-        "close": "閉じる",
-        "colDimension": "ディメンション",
-        "empty": "比較するには少なくとも 2 つのモデルを選択してください",
-        "noModels": "比較可能なモデルがありません",
-        "noParams": "(なし)",
-        "pickHint": "比較するモデルを選択(プロバイダー間、最大 {max} 個)",
-        "remove": "削除",
-        "rowContext": "コンテキスト",
-        "rowCost30d": "30日コスト",
-        "rowDefault": "デフォルト",
-        "rowEnabled": "有効",
-        "rowFormat": "プロトコル",
-        "rowHealth": "ヘルス",
-        "rowInputPrice": "入力 $/1K",
-        "rowOutputPrice": "出力 $/1K",
-        "rowParams": "デフォルトパラメータ",
-        "rowProvider": "プロバイダー",
-        "rowUsage30d": "30日トークン",
-        "selectedCount": "{count}/{max} 選択中",
-        "title": "モデル比較"
-      },
-      "copyDialog": {
-        "cancel": "キャンセル",
-        "confirm": "コピー",
-        "desc": "ターゲットプロバイダーとコピーするフィールドを選択。modelId には競合を避けるため -copy サフィックスが自動的に付加されます。",
-        "failed": "コピー失敗",
-        "fieldContext": "コンテキスト長",
-        "fieldDefault": "デフォルトフラグ",
-        "fieldDisplayName": "表示名",
-        "fieldEnabled": "有効状態",
-        "fieldParams": "デフォルトパラメータ",
-        "fieldPrice": "価格",
-        "fields": "コピーするフィールド",
-        "noTargets": "利用可能なターゲットプロバイダーがありません",
-        "pickTarget": "まずターゲットプロバイダーを選択してください",
-        "sourceModel": "ソースモデル",
-        "sourceProvider": "ソースプロバイダー",
-        "success": "ターゲットプロバイダーにコピーしました",
-        "targetProvider": "ターゲットプロバイダー",
-        "title": "他のプロバイダーにモデルをコピー"
-      },
-      "copyToProvider": "他のプロバイダーにコピー",
-      "cost30d": "30日コスト",
-      "delete": "削除",
-      "deleteFailed": "削除失敗",
-      "deleteModelConfirm": "モデル「{id}」を削除しますか?",
-      "deleteProviderConfirm": "プロバイダー「{name}」を削除しますか?紐づくモデルも全て削除されます。",
-      "disabled": "無効",
-      "disabledToast": "無効化しました",
-      "edit": "編集",
-      "emptyDesc": "下のボタンをクリックして最初のAIプラットフォームプロバイダーを追加してください。各プロバイダーは複数のモデルをホストでき、ヘルスステータス、30日間の使用量、バルクインポート/エクスポート、プロバイダー間モデル比較、ワンクリックコピー機能をサポートします。",
-      "emptyTitle": "プロバイダーがまだありません",
-      "enabled": "有効",
-      "enabledToast": "有効化しました",
-      "fetchFailed": "取得失敗",
-      "fetchModels": "アップストリームモデルを取得",
-      "fetchSuccess": "{total} モデルを取得しました",
-      "fetching": "取得中...",
-      "firstProvider": "最初のプロバイダーを追加",
-      "hideModels": "モデルを隠す",
-      "lastTest": "最終テスト",
-      "listCount": "全 {total} プロバイダー · 有効 {enabledCount}",
-      "loading": "読み込み中...",
-      "modelDeleted": "モデルを削除しました",
-      "modelDialog": {
-        "cancel": "キャンセル",
-        "contextLength": "コンテキスト長",
-        "create": "作成",
-        "created": "作成しました",
-        "defaultParams": "デフォルトパラメータ",
-        "displayName": "表示名",
-        "displayNamePlaceholder": "例: GPT-4o フラッグシップ",
-        "editTitle": "モデルを編集",
-        "enableModel": "このモデルを有効化",
-        "enableModelDesc": "無効化されたモデルは選択できません",
-        "inputPrice": "入力価格(1K トークンあたり、セント)",
-        "invalidJson": "詳細 JSON の解析に失敗しました。構文を確認してください",
-        "modelId": "モデル ID",
-        "modelIdRequired": "モデル ID は必須です",
-        "newTitle": "新規モデル",
-        "outputPrice": "出力価格(1K トークンあたり、セント)",
-        "save": "保存",
-        "saveFailed": "保存失敗",
-        "saved": "保存しました",
-        "setDefault": "プロバイダーのデフォルトモデルに設定",
-        "setDefaultDesc": "デフォルトモデルは新しい会話で優先されます"
-      },
-      "modelParams": {
-        "advancedHint": "詳細 JSON が優先されます(空でない場合は構造化フィールドを完全に上書き)。空のままにすると上記の構造化パラメータが使用されます。",
-        "copied": "JSON をクリップボードにコピーしました",
-        "copyAsJson": "JSON としてコピー",
-        "frequencyPenalty": "Frequency Penalty",
-        "frequencyPenaltyHelp": "頻度ペナルティ -2〜2。正の値で繰り返しを削減。",
-        "hideAdvanced": "詳細 JSON を隠す",
-        "maxTokens": "Max Tokens",
-        "maxTokensHelp": "レスポンスの最大トークン数",
-        "presencePenalty": "Presence Penalty",
-        "presencePenaltyHelp": "存在ペナルティ -2〜2。正の値で新しい話題を促進。",
-        "presetApplied": "プリセットを適用しました",
-        "presets": "プリセット",
-        "responseFormat": "Response Format",
-        "showAdvanced": "詳細 JSON を表示",
-        "systemPrompt": "System Prompt",
-        "systemPromptPlaceholder": "あなたは役立つアシスタントです...",
-        "temperature": "Temperature",
-        "temperatureHelp": "サンプリング温度 0〜2。低いほど決定的、高いほど多様。",
-        "title": "デフォルトパラメータ",
-        "topP": "Top P",
-        "topPHelp": "核サンプリング閾値 0〜1。確率上位のトークンのみを考慮。"
-      },
-      "modelsCount": "{count} モデル",
-      "more": "他 {total} 件(省略)",
-      "needKeyFirst": "まず API キーを設定してください",
-      "newProvider": "プロバイダーを追加",
-      "noKey": "キー未設定",
-      "noModels": "このプロバイダーにモデルがまだありません",
-      "noModelsReturned": "モデルが返されませんでした",
-      "providerDeleted": "プロバイダーを削除しました",
-      "providerDialog": {
-        "apiKey": "API キー",
-        "baseUrl": "ベース URL",
-        "baseUrlRequired": "ベース URL は必須です",
-        "cancel": "キャンセル",
-        "create": "作成",
-        "created": "作成しました",
-        "defaultGroup": "デフォルトグループ",
-        "description": "メモ",
-        "descriptionPlaceholder": "用途メモ...",
-        "docs": "ドキュメント",
-        "editTitle": "プロバイダーを編集",
-        "enableConfig": "このプロバイダーを有効化",
-        "enableConfigDesc": "無効化されたプロバイダーは選択できません。既存のリクエストには影響しません。",
-        "group": "グループ",
-        "groupPlaceholder": "グループを選択",
-        "hideKey": "キーを隠す",
-        "keyKeepEmpty": "(空のままにすると変更されません)",
-        "keyPlaceholderEdit": "•••••••(暗号化済み)",
-        "keyPlaceholderNew": "sk-...",
-        "keyRequired": "API キーは必須です",
-        "name": "プロバイダー名",
-        "namePlaceholder": "私の OpenAI",
-        "nameRequired": "プロバイダー名は必須です",
-        "newTitle": "新規プロバイダー",
-        "optional": "オプション",
-        "pasteEmpty": "クリップボードが空です",
-        "pasteFailed": "クリップボードの読み取りに失敗しました。手動で貼り付けてください。",
-        "pasteFromClipboard": "クリップボードから API Key を貼り付け",
-        "pasteSuccess": "クリップボードから貼り付けました",
-        "platform": "プラットフォームテンプレート",
-        "platformPlaceholder": "プラットフォームテンプレートを選択",
-        "protocol": "プロトコル",
-        "protocolPlaceholder": "プロトコルを選択",
-        "save": "保存",
-        "saveFailed": "保存失敗",
-        "saved": "保存しました",
-        "showKey": "キーを表示",
-        "templatesEmpty": "利用可能なプラットフォームテンプレートがありません",
-        "templatesLoadError": "プラットフォームテンプレートの読み込みに失敗しました",
-        "templatesLoading": "プラットフォームテンプレートを読み込み中...",
-        "templatesNotReady": "プラットフォームテンプレートが準備できていません。しばらくしてから再試行してください"
-      },
-      "quickStartTitle": "人気のプラットフォーム(クリックして開始):",
-      "sidebar": {
-        "add": "追加",
-        "addGroup": "グループを追加",
-        "all": "全て",
-        "cancel": "キャンセル",
-        "createFailed": "作成失敗",
-        "deleteFailed": "削除失敗",
-        "deleteGroup": "グループを削除",
-        "deleteGroupConfirm": "グループ「{name}」を削除しますか?",
-        "groupCreated": "グループ「{name}」を作成しました",
-        "groupDeleteNotSupported": "先に全てのプロバイダーをグループから移動してください",
-        "groupDeleted": "グループを削除しました",
-        "groupNotEmpty": "グループに {count} 個のプロバイダーが残っています。先に移動してください。",
-        "groupPlaceholder": "グループ名を入力...",
-        "title": "グループ",
-        "ungrouped": "未分類"
-      },
-      "test": "テスト",
-      "testFailed": "接続失敗",
-      "testFailedWithTime": "失敗 · {date}",
-      "testSuccess": "接続成功",
-      "testSuccessWithTime": "成功 {ms}ms · {date}",
-      "testTimeOnly": "{ms}ms",
-      "untested": "未テスト",
-      "usage30d": "30日トークン"
-    }
+    "v2": "一括操作"
   },
   "market": {
     "allCapabilities": "すべての機能",
@@ -13214,7 +13087,8 @@
   "messages": {
     "empty": "なしメッセージ",
     "loading": "読み込み中...",
-    "noData": "なしメッセージ"
+    "noData": "なしメッセージ",
+    "title": "メッセージ"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13244,7 +13118,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13954,7 +13836,8 @@
     "view": {
       "grid": "グリッド表示",
       "list": "リスト表示"
-    }
+    },
+    "pricing": "モデル料金"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 先月",
@@ -14503,7 +14386,9 @@
     "userSubscription": "購読",
     "vip": "VIP",
     "workspace": "ワークスペース",
-    "courses": "コース"
+    "courses": "コース",
+    "faq": "よくある質問",
+    "home": "ホーム"
   },
   "news": {
     "allCategories": "All categories",
@@ -14536,7 +14421,8 @@
     "tags": "タグ:",
     "title": "プラットフォームニュース",
     "total": "合計 {total} 篇",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "page": "ニュースページ"
   },
   "newsletter": {
     "articles": {
@@ -14593,7 +14479,8 @@
       "desc": "メールボックスを確認して購読を確定してください。次回ニュースレターは金曜日に配信されます。",
       "recommended": "おすすめ記事",
       "title": "購読成功!"
-    }
+    },
+    "title": "ニュースレター"
   },
   "notes": {
     "attachmentsField": "添付ファイル",
@@ -16098,7 +15985,9 @@
     "subtitle": "のなドキュメントとAPIリファレンス",
     "title": "リソースセンター",
     "total": "合計 {total} 個",
-    "viewCount": "{count}"
+    "viewCount": "{count}",
+    "affiliates": "アフィリエイト",
+    "edit": "リソース編集"
   },
   "resourcesEditPage": {
     "backToList": "リソース一覧に戻る",
@@ -16167,7 +16056,8 @@
     },
     "title": "検索",
     "placeholder": "キーワードを入力",
-    "empty": "検索結果はありません"
+    "empty": "検索結果はありません",
+    "q": "検索"
   },
   "searchHistory": {
     "clearAll": "クリアて",
@@ -16469,7 +16359,8 @@
       "deployments": "デプロイ事例",
       "satisfaction": "平均満足度",
       "title": "サービス提供済み顧客"
-    }
+    },
+    "title": "サービス"
   },
   "settings": {
     "accountDeletionCancel": "削除を取り消す",
@@ -16866,7 +16757,9 @@
     "notification": "通知設定",
     "account": "アカウント",
     "version": "バージョン",
-    "usageRules": "利用規約"
+    "usageRules": "利用規約",
+    "notificationsLoadFailed": "通知の読み込みに失敗",
+    "privacyLoadFailed": "プライバシー設定の読み込みに失敗"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI 生成",
@@ -17023,7 +16916,8 @@
       }
     },
     "tiersTitle": "スポンサープラン",
-    "whyTitle": "なぜ IHUI AI を支援するのか"
+    "whyTitle": "なぜ IHUI AI を支援するのか",
+    "title": "スポンサー"
   },
   "sso": {
     "alreadyLoggedIn": "ログインみ",
@@ -17062,14 +16956,8 @@
     "sendCodeFailed": "認証コードの送信に失敗しました",
     "subtitle": "ログインに {clientId} へのとリダイレクトをいます",
     "title": "ログイン",
-    "mobileAuth": {
-      "title": "モバイル認証",
-      "processing": "ログイン状態を確認中…",
-      "missingCode": "認証コードがありません。アプリから開いてください",
-      "exchangeFailed": "認証に失敗しました。再試行または再ログインしてください",
-      "networkError": "ネットワークエラーです。再試行してください",
-      "backToLogin": "ログインに戻る"
-    }
+    "mobileAuth": "SSO コード",
+    "platform": "プラットフォーム"
   },
   "statistics": {
     "actions": "操作",
@@ -17541,7 +17429,9 @@
     "submit": "分割",
     "submitting": "分割中...",
     "title": "PDF 分割",
-    "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード"
+    "uploadLabel": "クリックまたは PDF ファイルをドラッグしてアップロード",
+    "convert": "変換",
+    "merge": "結合"
   },
   "topics": {
     "empty": "トピックはありません",
@@ -18230,7 +18120,8 @@
       "schedule": "スケジュール",
       "unknown": "不明なトリガー",
       "webhook": "ウェブフック"
-    }
+    },
+    "instance": "ワークフローインスタンス"
   },
   "workspace": {
     "actions": "操作",
@@ -18420,7 +18311,9 @@
     "stepThinking": "思考中",
     "reasoningCopied": "推論をコピーしました",
     "reasoningCopyFailed": "推論のコピーに失敗しました",
-    "copyReasoning": "推論をコピー"
+    "copyReasoning": "推論をコピー",
+    "detail": "プラン詳細",
+    "new": "新規プラン"
   },
   "subagent": {
     "toolCallsTitle": "{n} 回のツール呼び出し",
@@ -19172,7 +19065,8 @@
     "certTitle": "証明書名",
     "certNo": "証明書番号",
     "holderName": "氏名",
-    "issueDate": "発行日"
+    "issueDate": "発行日",
+    "notfound": "証明書が見つかりません"
   },
   "courseCatalog": {
     "title": "コース目次",
@@ -19851,7 +19745,8 @@
     "url": "共有リンク",
     "code": "共有コード",
     "expireAt": "有効期限",
-    "shareNow": "今すぐ共有"
+    "shareNow": "今すぐ共有",
+    "detail": "共有詳細"
   },
   "vipBenefit": {
     "title": "VIP 特典"
@@ -20351,7 +20246,10 @@
     "autoMemory": "自動記憶",
     "autoMemoryDesc": "有効にすると、会話後にAIが要点を自動で抽出して長期記憶として蓄積し、その後のパーソナライズ応答に活用します。",
     "autoMemorySaveSuccess": "設定を保存しました",
-    "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください"
+    "autoMemorySaveFailed": "保存に失敗しました。もう一度お試しください",
+    "manager": "メモリマネージャー",
+    "title": "メモリ",
+    "new": "新規メモリ"
   },
   "agentPlan": {
     "title": "Agent プランモード",
@@ -20391,6 +20289,103 @@
     "statusFailed": "失敗",
     "notFound": "計画が見つからないか、期限切れです",
     "conflict": "現在の計画状態ではこの操作は許可されていません",
-    "generic": "リクエストに失敗しました。後でもう一度お試しください"
+    "generic": "リクエストに失敗しました。後でもう一度お試しください",
+    "progress": "進捗"
+  },
+  "compare": {
+    "title": "製品比較",
+    "subtitle": "IHUI AI とメインストリーム AI プラットフォームの詳細比較",
+    "description": "複数の側面から IHUI AI とメインストリーム AI プラットフォームを比較"
+  },
+  "useCases": {
+    "title": "使用事例",
+    "subtitle": "IHUI AI の異なるシナリオでの応用を探る",
+    "description": "IHUI AI が各種ビジネスシナリオをどのように強化するかを学ぶ"
+  },
+  "context": {
+    "title": "コンテキスト管理",
+    "compression": "コンテキスト圧縮",
+    "mentions": "言及管理",
+    "visualization": "コンテキスト可視化"
+  },
+  "spec": {
+    "title": "仕様",
+    "detail": "仕様詳細",
+    "generate": "仕様生成",
+    "templates": "仕様テンプレート"
+  },
+  "subagents": {
+    "title": "サブエージェント",
+    "detail": "サブエージェント詳細",
+    "dispatch": "タスク分配",
+    "topology": "トポロジー"
+  },
+  "aiSkills": {
+    "title": "AI スキル",
+    "detail": "スキル詳細",
+    "description": "AI スキル管理"
+  },
+  "download": {
+    "title": "ダウンロード",
+    "description": "IHUI AI クライアントをダウンロード",
+    "id": "プラットフォームダウンロード"
+  },
+  "agentRuntime": {
+    "title": "エージェントランタイム",
+    "description": "エージェントランタイムの監視と管理"
+  },
+  "agentStepRecorder": {
+    "title": "エージェントステップレコーダー",
+    "description": "エージェントの実行ステップを記録"
+  },
+  "apple": {
+    "callback": "Apple サインインコールバック"
+  },
+  "costDashboard": {
+    "title": "コストダッシュボード",
+    "description": "AI コスト監視ダッシュボード"
+  },
+  "developers": {
+    "title": "開発者",
+    "description": "開発者ドキュメントとリソース"
+  },
+  "google": {
+    "callback": "Google サインインコールバック"
+  },
+  "h5": {
+    "title": "H5 ページ",
+    "share": "共有ページ"
+  },
+  "legal": {
+    "title": "法的情報",
+    "serviceSpecificTerms": {
+      "title": "サービス固有条款"
+    },
+    "supportedRegions": {
+      "title": "対応地域"
+    },
+    "terms": {
+      "title": "利用規約"
+    },
+    "usagePolicy": {
+      "title": "使用ポリシー"
+    }
+  },
+  "legal.serviceSpecificTerms": {},
+  "legal.supportedRegions": {},
+  "legal.terms": {},
+  "legal.usagePolicy": {},
+  "mcpProjects": {
+    "title": "MCP プロジェクト",
+    "store": "MCP ストア",
+    "description": "Model Context Protocol プロジェクト管理"
+  },
+  "n8nAgents": {
+    "title": "n8n エージェント",
+    "description": "n8n 自動化ワークフローエージェント"
+  },
+  "rules": {
+    "title": "ルール",
+    "description": "プラットフォームルールとガイドライン"
   }
 }

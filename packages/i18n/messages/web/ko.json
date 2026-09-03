@@ -5259,7 +5259,17 @@
       "trigger_webhook": "웹훅",
       "view": "보기",
       "viewTitle": "워크플로우 상세"
-    }
+    },
+    "title": "관리 대시보드",
+    "oauthApps": "OAuth 앱",
+    "pointsMall": "포인트 몰",
+    "post": "게시물 관리",
+    "promotionRule": "프로모션 규칙",
+    "providersHealth": "제공자 상태",
+    "relayOverview": "릴레이 개요",
+    "themeEdit": "테마 편집",
+    "unauthorized": "미승인",
+    "userMargin": "사용자 마진"
   },
   "connectors": {
     "title": "중국 커넥터",
@@ -6297,7 +6307,8 @@
     "viewDetail": "보기상세",
     "viewPermissionExample": "권한 확인 예시 보기",
     "vipExclusive": "VIP 전용",
-    "config": "설정"
+    "config": "설정",
+    "dispatchSubagent": "하위 에이전트 디스패치"
   },
   "agentRuntimePanel": {
     "cancelledBody": "현재 실행이 중지되었습니다. 계속하려면 입력을 수정한 후 다시 실행하세요.",
@@ -6766,7 +6777,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6783,7 +6799,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -7313,7 +7334,8 @@
       "rankDelta": "순위 변동",
       "stable": "안정",
       "subtitle": "7/14일 인기 트렌드 곡선"
-    }
+    },
+    "title": "AI 뉴스"
   },
   "aiSkillDetail": {
     "addToAgent": "Agent에 추가",
@@ -7443,7 +7465,8 @@
         },
         "title": "AI 월드 사이트 관리"
       }
-    }
+    },
+    "title": "AI 월드"
   },
   "aiWorldCreatePage": {
     "back": "뒤로",
@@ -7619,7 +7642,9 @@
     "title": "제목",
     "titlePlaceholder": "질문 제목을 입력해 주세요",
     "unresolved": "미해결",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "detail": "질문 상세",
+    "edit": "질문 수정"
   },
   "asksEditFormPage": {
     "cancel": "취소",
@@ -8685,7 +8710,8 @@
     },
     "postCount": "{count}개 게시물",
     "subtitle": "포괄적인의개발문서및API참조",
-    "title": "커뮤니티"
+    "title": "커뮤니티",
+    "detail": "서클 상세"
   },
   "cliImport": {
     "commit": "가져오기 확정",
@@ -8745,32 +8771,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -8790,7 +8842,8 @@
     "replyPlaceholder": "답장 내용을 입력하세요",
     "replyTitle": "관리자 답변",
     "submitReply": "제출답장",
-    "submitting": "제출 중..."
+    "submitting": "제출 중...",
+    "title": "댓글"
   },
   "commissionPlan": {
     "commissionRate": "수수료율",
@@ -8907,15 +8960,7 @@
     "reset": "재설정",
     "resize": "드래그하여 너비 조절",
     "searchHistory": "검색 기록",
-    "tools": {
-      "categoryAi": "AI 도구",
-      "categoryDev": "개발",
-      "categoryEfficiency": "효율 도구",
-      "empty": "도구가 없습니다",
-      "loading": "로딩 중...",
-      "subtitle": "플랫폼에서 제공하는 다양한 도구를 탐색하고 사용",
-      "title": "도구 센터"
-    },
+    "tools": "PDF 도구",
     "total": "총",
     "unpin": "고정 해제",
     "unsaved": "저장되지 않음",
@@ -8954,7 +8999,14 @@
     "show": "표시",
     "delete": "삭제",
     "save": "저장",
-    "ok": "확인"
+    "ok": "확인",
+    "agentKanban": "Agent 칸반",
+    "callback": "콜백",
+    "title": "페이지",
+    "forbidden": "접근 금지",
+    "forgotPassword": "비밀번호 찾기",
+    "login": "로그인",
+    "status": "상태"
   },
   "contactPage": {
     "addressTitle": "회사 주소",
@@ -9177,7 +9229,8 @@
       "title": "템플릿"
     },
     "title": "디자인 모드",
-    "undo": "실행 취소"
+    "undo": "실행 취소",
+    "system": "디자인 시스템"
   },
   "detail": {
     "activate": "활성화",
@@ -9746,7 +9799,8 @@
       "statusPending": "미답변",
       "subtitle": "학습 중인 궁금증을 질문하고 답변",
       "title": "Q&A 센터"
-    }
+    },
+    "ai": "AI 교육"
   },
   "eduAi": {
     "a2a": {
@@ -10593,25 +10647,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10745,19 +10811,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -10769,7 +10847,8 @@
       "label": "핵심 포지셔닝",
       "tags": [],
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티"
-    }
+    },
+    "inquiry": "기업 문의"
   },
   "enterpriseTools": {
     "categories": {
@@ -11431,7 +11510,8 @@
     "title": "AI인마음페이스테스트",
     "toc": "목차",
     "updatedAt": "업데이트시간",
-    "viewCount": "{count}회 조회"
+    "viewCount": "{count}회 조회",
+    "loading": "로딩 중"
   },
   "home": {
     "announcement": {
@@ -11525,7 +11605,8 @@
     "recommend": "추천 콘텐츠"
   },
   "hooks": {
-    "deleteConfirm": "Hook \"{name}\"을(를) 삭제하시겠습니까?"
+    "deleteConfirm": "Hook \"{name}\"을(를) 삭제하시겠습니까?",
+    "title": "훅"
   },
   "ide": {
     "activityBar": {
@@ -12052,7 +12133,10 @@
       "title": "업로드",
       "titleLabel": "제목(선택)",
       "titlePlaceholder": "비워두면 파일명 사용"
-    }
+    },
+    "title": "지식 베이스",
+    "edit": "지식 편집",
+    "search": "지식 검색"
   },
   "learn": {
     "allCategories": "All categories",
@@ -12092,7 +12176,10 @@
         }
       }
     },
-    "total": "총 {total}개"
+    "total": "총 {total}개",
+    "buyConfirm": "구매 확인",
+    "paymentConfirm": "결제 확인",
+    "review": "리뷰"
   },
   "learnBuyConfirmPage": {
     "actualPay": "실결제",
@@ -12342,222 +12429,7 @@
     "securityNotice": "API 키는 AES-256으로 암호화되어 본인 계정만 볼 수 있습니다. 각 플랫폼의 URL, 프로토콜, 헤더는 공식 사양에 따라 내장되어 있습니다.",
     "subtitle": "각 AI 플랫폼별로 API 키, 모델 ID, 컨텍스트 길이를 저장합니다. 15개 이상의 템플릿이 내장되어 있어 인증 정보만 입력하면 됩니다.",
     "title": "내 LLM 설정",
-    "v2": {
-      "addFirstModel": "첫 모델 추가",
-      "addModel": "모델 추가",
-      "baseUrl": "기본 URL",
-      "bulk": {
-        "cancel": "취소",
-        "export": "내보내기",
-        "exportBtn": "JSON 내보내기",
-        "exportDesc": "모든 프로바이더 + 모델을 JSON 파일로 내보냅니다. API 키는 자동으로 마스킹됩니다.",
-        "exportEnv": ".env 형식",
-        "exportJson": "JSON 형식",
-        "exportSuccess": "{count}개 프로바이더 / {models}개 모델 내보냄",
-        "exportTitle": "설정 내보내기",
-        "formatLabel": "내보내기 형식",
-        "import": "가져오기",
-        "importConfirmDesc": "{providers}개 프로바이더와 {models}개 모델이 생성됩니다. API 키는 비어 있습니다.",
-        "importDesc": "JSON 파일에서 프로바이더 + 모델을 가져옵니다. API 키는 비워지며 수동으로 입력해야 합니다.",
-        "importFailed": "가져오기 실패: {error}",
-        "importFile": "JSON 파일 업로드",
-        "importPlaceholder": "또는 여기에 JSON 내용을 붙여넣기...",
-        "importSubmit": "가져오기 시작",
-        "importSuccess": "{providers}개 프로바이더 / {models}개 모델 가져옴",
-        "importTitle": "설정 가져오기",
-        "invalidJson": "잘못된 JSON입니다. 파일을 확인하세요",
-        "title": "일괄 가져오기/내보내기"
-      },
-      "compare": "비교",
-      "compareDialog": {
-        "close": "닫기",
-        "colDimension": "차원",
-        "empty": "비교를 시작하려면 최소 2개의 모델을 선택하세요",
-        "noModels": "비교할 모델이 없습니다",
-        "noParams": "(없음)",
-        "pickHint": "비교할 모델 선택 (프로바이더 간, 최대 {max}개)",
-        "remove": "제거",
-        "rowContext": "컨텍스트",
-        "rowCost30d": "30일 비용",
-        "rowDefault": "기본",
-        "rowEnabled": "활성화",
-        "rowFormat": "프로토콜",
-        "rowHealth": "상태",
-        "rowInputPrice": "입력 $/1K",
-        "rowOutputPrice": "출력 $/1K",
-        "rowParams": "기본 파라미터",
-        "rowProvider": "프로바이더",
-        "rowUsage30d": "30일 토큰",
-        "selectedCount": "{count}/{max} 선택됨",
-        "title": "모델 비교"
-      },
-      "copyDialog": {
-        "cancel": "취소",
-        "confirm": "복사",
-        "desc": "대상 프로바이더와 복사할 필드를 선택하세요. modelId는 충돌을 방지하기 위해 자동으로 -copy 접미사가 추가됩니다.",
-        "failed": "복사 실패",
-        "fieldContext": "컨텍스트 길이",
-        "fieldDefault": "기본 플래그",
-        "fieldDisplayName": "표시 이름",
-        "fieldEnabled": "활성화 상태",
-        "fieldParams": "기본 파라미터",
-        "fieldPrice": "가격",
-        "fields": "복사할 필드",
-        "noTargets": "사용 가능한 대상 프로바이더가 없습니다",
-        "pickTarget": "먼저 대상 프로바이더를 선택하세요",
-        "sourceModel": "소스 모델",
-        "sourceProvider": "소스 프로바이더",
-        "success": "대상 프로바이더로 복사됨",
-        "targetProvider": "대상 프로바이더",
-        "title": "다른 프로바이더로 모델 복사"
-      },
-      "copyToProvider": "다른 프로바이더로 복사",
-      "cost30d": "30일 비용",
-      "delete": "삭제",
-      "deleteFailed": "삭제 실패",
-      "deleteModelConfirm": "모델 \"{id}\"을(를) 삭제하시겠습니까?",
-      "deleteProviderConfirm": "프로바이더 \"{name}\"을(를) 삭제하시겠습니까? 연결된 모든 모델도 삭제됩니다.",
-      "disabled": "비활성화",
-      "disabledToast": "비활성화됨",
-      "edit": "편집",
-      "emptyDesc": "아래 버튼을 클릭하여 첫 번째 AI 플랫폼 프로바이더를 추가하세요. 각 프로바이더는 여러 모델을 호스팅할 수 있으며, 상태 모니터링, 30일 사용량, 일괄 가져오기/내보내기, 프로바이더 간 모델 비교, 원클릭 복사 기능을 지원합니다.",
-      "emptyTitle": "프로바이더가 없습니다",
-      "enabled": "활성화",
-      "enabledToast": "활성화됨",
-      "fetchFailed": "가져오기 실패",
-      "fetchModels": "업스트림 모델 가져오기",
-      "fetchSuccess": "{total}개 모델을 가져왔습니다",
-      "fetching": "가져오는 중...",
-      "firstProvider": "첫 프로바이더 추가",
-      "hideModels": "모델 숨기기",
-      "lastTest": "최근 테스트",
-      "listCount": "총 {total}개 프로바이더 · 활성화 {enabledCount}개",
-      "loading": "로딩 중...",
-      "modelDeleted": "모델 삭제됨",
-      "modelDialog": {
-        "cancel": "취소",
-        "contextLength": "컨텍스트 길이",
-        "create": "생성",
-        "created": "생성됨",
-        "defaultParams": "기본 파라미터",
-        "displayName": "표시 이름",
-        "displayNamePlaceholder": "예: GPT-4o 플래그십",
-        "editTitle": "모델 편집",
-        "enableModel": "이 모델 활성화",
-        "enableModelDesc": "비활성화된 모델은 선택할 수 없습니다",
-        "inputPrice": "입력 가격 (1K 토큰당, 센트)",
-        "invalidJson": "고급 JSON 파싱 실패, 구문을 확인하세요",
-        "modelId": "모델 ID",
-        "modelIdRequired": "모델 ID는 필수입니다",
-        "newTitle": "새 모델",
-        "outputPrice": "출력 가격 (1K 토큰당, 센트)",
-        "save": "저장",
-        "saveFailed": "저장 실패",
-        "saved": "저장됨",
-        "setDefault": "프로바이더 기본 모델로 설정",
-        "setDefaultDesc": "기본 모델은 새 대화에서 우선 선택됩니다"
-      },
-      "modelParams": {
-        "advancedHint": "고급 JSON이 우선 적용됩니다 (비어있지 않으면 구조화된 필드를 완전히 덮어씀). 비워두면 위의 구조화된 파라미터가 사용됩니다.",
-        "copied": "JSON이 클립보드에 복사되었습니다",
-        "copyAsJson": "JSON으로 복사",
-        "frequencyPenalty": "Frequency Penalty",
-        "frequencyPenaltyHelp": "빈도 페널티 -2~2. 양수 값은 반복을 줄임.",
-        "hideAdvanced": "고급 JSON 숨기기",
-        "maxTokens": "Max Tokens",
-        "maxTokensHelp": "응답당 최대 토큰 수",
-        "presencePenalty": "Presence Penalty",
-        "presencePenaltyHelp": "존재 페널티 -2~2. 양수 값은 새로운 주제를 유도.",
-        "presetApplied": "프리셋이 적용되었습니다",
-        "presets": "프리셋",
-        "responseFormat": "Response Format",
-        "showAdvanced": "고급 JSON 표시",
-        "systemPrompt": "System Prompt",
-        "systemPromptPlaceholder": "당신은 도움이 되는 어시스턴트입니다...",
-        "temperature": "Temperature",
-        "temperatureHelp": "샘플링 온도 0~2. 낮을수록 결정적, 높을수록 다양.",
-        "title": "기본 파라미터",
-        "topP": "Top P",
-        "topPHelp": "핵 샘플링 임계값 0~1. 상위 확률 토큰만 고려."
-      },
-      "modelsCount": "모델 {count}개",
-      "more": "외 {total}개 (생략)",
-      "needKeyFirst": "먼저 API 키를 설정하세요",
-      "newProvider": "프로바이더 추가",
-      "noKey": "키 미설정",
-      "noModels": "이 프로바이더에 연결된 모델이 없습니다",
-      "noModelsReturned": "반환된 모델이 없습니다",
-      "providerDeleted": "프로바이더 삭제됨",
-      "providerDialog": {
-        "apiKey": "API 키",
-        "baseUrl": "기본 URL",
-        "baseUrlRequired": "기본 URL은 필수입니다",
-        "cancel": "취소",
-        "create": "생성",
-        "created": "생성됨",
-        "defaultGroup": "기본 그룹",
-        "description": "메모",
-        "descriptionPlaceholder": "용도 메모...",
-        "docs": "문서",
-        "editTitle": "프로바이더 편집",
-        "enableConfig": "이 프로바이더 활성화",
-        "enableConfigDesc": "비활성화된 프로바이더는 선택할 수 없습니다. 기존 요청에는 영향을 주지 않습니다.",
-        "group": "그룹",
-        "groupPlaceholder": "그룹 선택",
-        "hideKey": "숨김",
-        "keyKeepEmpty": "(비워두면 변경 안 함)",
-        "keyPlaceholderEdit": "•••••••(암호화됨)",
-        "keyPlaceholderNew": "sk-...",
-        "keyRequired": "API 키는 필수입니다",
-        "name": "프로바이더 이름",
-        "namePlaceholder": "내 OpenAI",
-        "nameRequired": "프로바이더 이름은 필수입니다",
-        "newTitle": "새 프로바이더",
-        "optional": "선택사항",
-        "pasteEmpty": "클립보드가 비어 있습니다",
-        "pasteFailed": "클립보드 읽기 실패, 수동으로 붙여넣어 주세요",
-        "pasteFromClipboard": "클립보드에서 API Key 붙여넣기",
-        "pasteSuccess": "클립보드에서 붙여넣었습니다",
-        "platform": "플랫폼 템플릿",
-        "platformPlaceholder": "플랫폼 템플릿 선택",
-        "protocol": "프로토콜",
-        "protocolPlaceholder": "프로토콜 선택",
-        "save": "저장",
-        "saveFailed": "저장 실패",
-        "saved": "저장됨",
-        "showKey": "표시",
-        "templatesEmpty": "사용 가능한 플랫폼 템플릿이 없습니다",
-        "templatesLoadError": "플랫폼 템플릿을 불러오지 못했습니다",
-        "templatesLoading": "플랫폼 템플릿을 불러오는 중...",
-        "templatesNotReady": "플랫폼 템플릿이 준비되지 않았습니다. 잠시 후 다시 시도해 주세요"
-      },
-      "quickStartTitle": "인기 플랫폼 (클릭하여 시작):",
-      "sidebar": {
-        "add": "추가",
-        "addGroup": "그룹 추가",
-        "all": "전체",
-        "cancel": "취소",
-        "createFailed": "생성 실패",
-        "deleteFailed": "삭제 실패",
-        "deleteGroup": "그룹 삭제",
-        "deleteGroupConfirm": "그룹 \"{name}\"을(를) 삭제하시겠습니까?",
-        "groupCreated": "그룹 \"{name}\"이(가) 생성되었습니다",
-        "groupDeleteNotSupported": "먼저 모든 프로바이더를 그룹 밖으로 이동하세요",
-        "groupDeleted": "그룹이 삭제되었습니다",
-        "groupNotEmpty": "그룹에 {count}개의 프로바이더가 있습니다. 먼저 이동하세요.",
-        "groupPlaceholder": "그룹 이름 입력...",
-        "title": "그룹",
-        "ungrouped": "미분류"
-      },
-      "test": "테스트",
-      "testFailed": "연결 실패",
-      "testFailedWithTime": "실패 · {date}",
-      "testSuccess": "연결 성공",
-      "testSuccessWithTime": "성공 {ms}ms · {date}",
-      "testTimeOnly": "{ms}ms",
-      "untested": "테스트 안 함",
-      "usage30d": "30일 토큰"
-    }
+    "v2": "일괄 작업"
   },
   "market": {
     "allCapabilities": "모든 기능",
@@ -13212,7 +13084,8 @@
   "messages": {
     "empty": "없음메시지",
     "loading": "로딩 중...",
-    "noData": "없음메시지"
+    "noData": "없음메시지",
+    "title": "메시지"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13242,7 +13115,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13952,7 +13833,8 @@
     "view": {
       "grid": "그리드 보기",
       "list": "리스트 보기"
-    }
+    },
+    "pricing": "모델 가격"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 지난달",
@@ -13977,7 +13859,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14496,7 +14383,9 @@
     "userSubscription": "구독",
     "vip": "VIP",
     "workspace": "워크스페이스",
-    "courses": "강의"
+    "courses": "강의",
+    "faq": "자주 묻는 질문",
+    "home": "홈"
   },
   "news": {
     "allCategories": "All categories",
@@ -14529,7 +14418,8 @@
     "tags": "태그:",
     "title": "새관리",
     "total": "총 {total}편",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "page": "뉴스 페이지"
   },
   "newsletter": {
     "articles": {
@@ -14586,7 +14476,8 @@
       "desc": "이메일을 확인하여 구독을 완료해 주세요. 다음 호는 금요일에 발송됩니다",
       "recommended": "추천 글",
       "title": "구독 완료!"
-    }
+    },
+    "title": "뉴스레터"
   },
   "notes": {
     "attachmentsField": "첨부파일",
@@ -14989,7 +14880,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -16085,7 +15982,9 @@
     "subtitle": "포괄적인의개발문서및API참조",
     "title": "리소스센터",
     "total": "총 {total}개",
-    "viewCount": "{count} 조회"
+    "viewCount": "{count} 조회",
+    "affiliates": "제휴",
+    "edit": "리소스 편집"
   },
   "resourcesEditPage": {
     "backToList": "리소스 목록으로 돌아가기",
@@ -16153,7 +16052,8 @@
     },
     "title": "검색",
     "placeholder": "키워드를 입력하세요",
-    "empty": "검색 결과 없음"
+    "empty": "검색 결과 없음",
+    "q": "검색"
   },
   "searchHistory": {
     "clearAll": "지우기모든",
@@ -16455,7 +16355,8 @@
       "deployments": "배포 사례",
       "satisfaction": "평균 만족도",
       "title": "서비스 제공 고객"
-    }
+    },
+    "title": "서비스"
   },
   "settings": {
     "accountDeletionCancel": "삭제 취소",
@@ -17010,7 +16911,8 @@
       }
     },
     "tiersTitle": "후원 등급",
-    "whyTitle": "왜 IHUI AI를 후원해야 할까요"
+    "whyTitle": "왜 IHUI AI를 후원해야 할까요",
+    "title": "스폰서"
   },
   "sso": {
     "alreadyLoggedIn": "이미 로그인됨",
@@ -17049,14 +16951,8 @@
     "sendCodeFailed": "인증 코드 전송 실패",
     "subtitle": "로그인 후 {clientId}에 대한 인증 및 리디렉션",
     "title": "통합 로그인",
-    "mobileAuth": {
-      "title": "모바일 인증",
-      "processing": "로그인 상태 확인 중…",
-      "missingCode": "인증 코드가 없습니다. 앱에서 열어주세요",
-      "exchangeFailed": "인증에 실패했습니다. 다시 시도하거나 로그인하세요",
-      "networkError": "네트워크 오류입니다. 다시 시도하세요",
-      "backToLogin": "로그인으로 돌아가기"
-    }
+    "mobileAuth": "SSO 코드",
+    "platform": "플랫폼"
   },
   "statistics": {
     "actions": "작업",
@@ -17528,7 +17424,9 @@
     "submit": "분할",
     "submitting": "분할 중...",
     "title": "PDF 분할",
-    "uploadLabel": "PDF 파일을 클릭하거나 드래그하여 업로드"
+    "uploadLabel": "PDF 파일을 클릭하거나 드래그하여 업로드",
+    "convert": "변환",
+    "merge": "병합"
   },
   "topics": {
     "empty": "주의제가 없습니다",
@@ -18215,7 +18113,8 @@
       "schedule": "스케줄",
       "unknown": "알 수 없는 트리거",
       "webhook": "웹훅"
-    }
+    },
+    "instance": "워크플로 인스턴스"
   },
   "workspace": {
     "actions": "작업",
@@ -18405,7 +18304,9 @@
     "stepThinking": "생각 중",
     "reasoningCopied": "추론을 복사했습니다",
     "reasoningCopyFailed": "추론 복사에 실패했습니다",
-    "copyReasoning": "추론 복사"
+    "copyReasoning": "추론 복사",
+    "detail": "플랜 상세",
+    "new": "새 플랜"
   },
   "subagent": {
     "toolCallsTitle": "도구 호출 {n}회",
@@ -19157,7 +19058,8 @@
     "certTitle": "인증서 이름",
     "certNo": "인증서 번호",
     "holderName": "소지자",
-    "issueDate": "발급일"
+    "issueDate": "발급일",
+    "notfound": "인증서를 찾을 수 없습니다"
   },
   "courseCatalog": {
     "title": "강의 목차",
@@ -19836,7 +19738,8 @@
     "url": "공유 링크",
     "code": "공유 코드",
     "expireAt": "만료 시간",
-    "shareNow": "지금 공유"
+    "shareNow": "지금 공유",
+    "detail": "공유 상세"
   },
   "vipBenefit": {
     "title": "VIP 혜택"
@@ -20336,7 +20239,10 @@
     "autoMemory": "자동 기억",
     "autoMemoryDesc": "활성화하면 대화 후 AI가 핵심 내용을 자동으로 요약해 장기 기억으로 저장하며, 이후 맞춤형 답변에 활용됩니다.",
     "autoMemorySaveSuccess": "설정이 저장되었습니다",
-    "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요"
+    "autoMemorySaveFailed": "저장에 실패했습니다. 다시 시도해 주세요",
+    "manager": "메모리 매니저",
+    "title": "메모리",
+    "new": "새 메모리"
   },
   "agentPlan": {
     "title": "Agent 계획 모드",
@@ -20376,6 +20282,103 @@
     "statusFailed": "실패",
     "notFound": "계획을 찾을 수 없거나 만료되었습니다",
     "conflict": "현재 계획 상태에서는 이 작업이 허용되지 않습니다",
-    "generic": "요청에 실패했습니다. 잠시 후 다시 시도하세요"
+    "generic": "요청에 실패했습니다. 잠시 후 다시 시도하세요",
+    "progress": "진행률"
+  },
+  "compare": {
+    "title": "제품 비교",
+    "subtitle": "IHUI AI와 주류 AI 플랫폼의 심층 비교",
+    "description": "여러 차원에서 IHUI AI와 주류 AI 플랫폼 비교"
+  },
+  "useCases": {
+    "title": "사용 사례",
+    "subtitle": "IHUI AI의 다양한 시나리오 응용 탐색",
+    "description": "IHUI AI가 다양한 비즈니스 시나리오를 지원하는 방법 학습"
+  },
+  "context": {
+    "title": "컨텍스트 관리",
+    "compression": "컨텍스트 압축",
+    "mentions": "언급 관리",
+    "visualization": "컨텍스트 시각화"
+  },
+  "spec": {
+    "title": "사양",
+    "detail": "사양 세부 정보",
+    "generate": "사양 생성",
+    "templates": "사양 템플릿"
+  },
+  "subagents": {
+    "title": "하위 에이전트",
+    "detail": "하위 에이전트 세부 정보",
+    "dispatch": "태스크 디스패치",
+    "topology": "토폴로지"
+  },
+  "aiSkills": {
+    "title": "AI 스킬",
+    "detail": "스킬 세부 정보",
+    "description": "AI 스킬 관리"
+  },
+  "download": {
+    "title": "다운로드",
+    "description": "IHUI AI 클라이언트 다운로드",
+    "id": "플랫폼 다운로드"
+  },
+  "agentRuntime": {
+    "title": "에이전트 런타임",
+    "description": "에이전트 런타임 모니터링 및 관리"
+  },
+  "agentStepRecorder": {
+    "title": "에이전트 스텝 레코더",
+    "description": "에이전트 실행 단계 기록"
+  },
+  "apple": {
+    "callback": "Apple 로그인 콜백"
+  },
+  "costDashboard": {
+    "title": "비용 대시보드",
+    "description": "AI 비용 모니터링 대시보드"
+  },
+  "developers": {
+    "title": "개발자",
+    "description": "개발자 문서 및 리소스"
+  },
+  "google": {
+    "callback": "Google 로그인 콜백"
+  },
+  "h5": {
+    "title": "H5 페이지",
+    "share": "공유 페이지"
+  },
+  "legal": {
+    "title": "법적 정보",
+    "serviceSpecificTerms": {
+      "title": "서비스별 약관"
+    },
+    "supportedRegions": {
+      "title": "지원 지역"
+    },
+    "terms": {
+      "title": "서비스 약관"
+    },
+    "usagePolicy": {
+      "title": "사용 정책"
+    }
+  },
+  "legal.serviceSpecificTerms": {},
+  "legal.supportedRegions": {},
+  "legal.terms": {},
+  "legal.usagePolicy": {},
+  "mcpProjects": {
+    "title": "MCP 프로젝트",
+    "store": "MCP 스토어",
+    "description": "Model Context Protocol 프로젝트 관리"
+  },
+  "n8nAgents": {
+    "title": "n8n 에이전트",
+    "description": "n8n 자동화 워크플로 에이전트"
+  },
+  "rules": {
+    "title": "규칙",
+    "description": "플랫폼 규칙 및 가이드라인"
   }
 }

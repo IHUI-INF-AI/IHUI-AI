@@ -5254,7 +5254,17 @@
       "trigger_webhook": "Webhook",
       "view": "View",
       "viewTitle": "Workflow Details"
-    }
+    },
+    "title": "Admin Dashboard",
+    "oauthApps": "OAuth Apps",
+    "pointsMall": "Points Mall",
+    "post": "Post Management",
+    "promotionRule": "Promotion Rule",
+    "providersHealth": "Providers Health",
+    "relayOverview": "Relay Overview",
+    "themeEdit": "Theme Edit",
+    "unauthorized": "Unauthorized",
+    "userMargin": "User Margin"
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -6292,7 +6302,8 @@
     "viewDetail": "View detail",
     "viewPermissionExample": "View Permission Example",
     "vipExclusive": "VIP Exclusive",
-    "config": "Configuration"
+    "config": "Configuration",
+    "dispatchSubagent": "Dispatch Subagent"
   },
   "agentRuntimePanel": {
     "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
@@ -7317,7 +7328,8 @@
       "rankDelta": "Rank change",
       "stable": "Stable",
       "subtitle": "7/14 day hotness trend curve"
-    }
+    },
+    "title": "AI News"
   },
   "aiSkillDetail": {
     "addToAgent": "Add to Agent",
@@ -7447,7 +7459,8 @@
         },
         "title": "AI World Site Management"
       }
-    }
+    },
+    "title": "AI World"
   },
   "aiWorldCreatePage": {
     "back": "Back",
@@ -7623,7 +7636,9 @@
     "title": "Title",
     "titlePlaceholder": "Enter question title",
     "unresolved": "Unresolved",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "detail": "Ask Detail",
+    "edit": "Edit Ask"
   },
   "asksEditFormPage": {
     "cancel": "Cancel",
@@ -8689,7 +8704,8 @@
     },
     "postCount": "{count} posts",
     "subtitle": "Join interest circles and connect with peers",
-    "title": "Circles"
+    "title": "Circles",
+    "detail": "Circle Detail"
   },
   "cliImport": {
     "commit": "Commit Import",
@@ -8749,32 +8765,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -8794,7 +8836,8 @@
     "replyPlaceholder": "Enter your reply...",
     "replyTitle": "Admin Reply",
     "submitReply": "Submit Reply",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "title": "Comments"
   },
   "commissionPlan": {
     "commissionRate": "Commission Rate",
@@ -8905,15 +8948,7 @@
     "refundTime": "Refund Time",
     "resize": "Drag to resize",
     "searchHistory": "Search History",
-    "tools": {
-      "categoryAi": "AI Tools",
-      "categoryDev": "Development",
-      "categoryEfficiency": "Efficiency",
-      "empty": "No tools available",
-      "loading": "Loading...",
-      "subtitle": "Browse and use various tools provided by the platform",
-      "title": "Tools"
-    },
+    "tools": "PDF Tools",
     "unpin": "Unpin",
     "unsaved": "Unsaved",
     "update": {
@@ -8951,7 +8986,15 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
-    "ok": "OK"
+    "ok": "OK",
+    "create": "Create",
+    "agentKanban": "Agent Kanban",
+    "callback": "Callback",
+    "title": "Page",
+    "forbidden": "Forbidden",
+    "forgotPassword": "Forgot Password",
+    "login": "Login",
+    "status": "Status"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -9174,7 +9217,8 @@
       "title": "Templates"
     },
     "title": "Design Mode",
-    "undo": "Undo"
+    "undo": "Undo",
+    "system": "Design System"
   },
   "detail": {
     "activate": "Activate",
@@ -9743,7 +9787,8 @@
       "statusPending": "Pending",
       "subtitle": "Ask and answer learning questions",
       "title": "Q&A Center"
-    }
+    },
+    "ai": "AI Education"
   },
   "eduAi": {
     "a2a": {
@@ -10590,25 +10635,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10742,19 +10799,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -10766,7 +10835,8 @@
       "label": "Core Positioning",
       "tags": [],
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era"
-    }
+    },
+    "inquiry": "Enterprise Inquiry"
   },
   "enterpriseTools": {
     "categories": {
@@ -11420,7 +11490,8 @@
     "toc": "On this page",
     "updatedAt": "Updated",
     "viewCount": "{count} views",
-    "title": "Help center"
+    "title": "Help center",
+    "loading": "Loading"
   },
   "home": {
     "announcement": {
@@ -11514,7 +11585,8 @@
     "recommend": "Recommended for You"
   },
   "hooks": {
-    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?"
+    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12041,7 +12113,10 @@
       "title": "Upload Document",
       "titleLabel": "Title (optional)",
       "titlePlaceholder": "Defaults to filename if empty"
-    }
+    },
+    "title": "Knowledge Base",
+    "edit": "Edit Knowledge",
+    "search": "Search Knowledge"
   },
   "learn": {
     "allCategories": "All Categories",
@@ -12081,7 +12156,10 @@
         }
       }
     },
-    "total": "{total} total"
+    "total": "{total} total",
+    "buyConfirm": "Buy Confirm",
+    "paymentConfirm": "Payment Confirm",
+    "review": "Review"
   },
   "learnBuyConfirmPage": {
     "actualPay": "Actual Pay",
@@ -12331,222 +12409,7 @@
     "securityNotice": "API Keys are encrypted with AES-256 and visible only to your account. Each platform's URL, protocol, and headers are preconfigured per official docs, no manual setup required.",
     "subtitle": "Save independent API Key, model ID, and context length for each AI platform. 15+ templates are preconfigured; you only need to fill in your credentials.",
     "title": "My LLM Configs",
-    "v2": {
-      "addFirstModel": "Add your first model",
-      "addModel": "Add Model",
-      "baseUrl": "Base URL",
-      "bulk": {
-        "cancel": "Cancel",
-        "export": "Export",
-        "exportBtn": "Export JSON",
-        "exportDesc": "Export all providers + models as a JSON file. API keys are automatically masked.",
-        "exportEnv": ".env Format",
-        "exportJson": "JSON Format",
-        "exportSuccess": "Exported {count} providers / {models} models",
-        "exportTitle": "Export Configs",
-        "formatLabel": "Export Format",
-        "import": "Import",
-        "importConfirmDesc": "Will create {providers} providers and {models} models. API keys are left blank.",
-        "importDesc": "Import providers + models from a JSON file. API keys are left blank and must be filled in manually.",
-        "importFailed": "Import failed: {error}",
-        "importFile": "Upload JSON file",
-        "importPlaceholder": "Or paste JSON content here...",
-        "importSubmit": "Start import",
-        "importSuccess": "Imported {providers} providers / {models} models",
-        "importTitle": "Import Configs",
-        "invalidJson": "Invalid JSON, please check the file",
-        "title": "Bulk Import/Export"
-      },
-      "compare": "Compare",
-      "compareDialog": {
-        "close": "Close",
-        "colDimension": "Dimension",
-        "empty": "Select at least 2 models to start comparing",
-        "noModels": "No models available to compare",
-        "noParams": "(none)",
-        "pickHint": "Pick models to compare (cross-provider, up to {max})",
-        "remove": "Remove",
-        "rowContext": "Context",
-        "rowCost30d": "30d Cost",
-        "rowDefault": "Default",
-        "rowEnabled": "Enabled",
-        "rowFormat": "Protocol",
-        "rowHealth": "Health",
-        "rowInputPrice": "Input $/1K",
-        "rowOutputPrice": "Output $/1K",
-        "rowParams": "Default Params",
-        "rowProvider": "Provider",
-        "rowUsage30d": "30d Tokens",
-        "selectedCount": "Selected {count}/{max}",
-        "title": "Model Comparison"
-      },
-      "copyDialog": {
-        "cancel": "Cancel",
-        "confirm": "Copy",
-        "desc": "Pick a target provider and the fields to copy. The modelId will get a -copy suffix to avoid conflicts.",
-        "failed": "Copy failed",
-        "fieldContext": "Context Length",
-        "fieldDefault": "Default flag",
-        "fieldDisplayName": "Display name",
-        "fieldEnabled": "Enabled state",
-        "fieldParams": "Default params",
-        "fieldPrice": "Price",
-        "fields": "Fields to copy",
-        "noTargets": "No target providers available",
-        "pickTarget": "Pick a target provider first",
-        "sourceModel": "Source model",
-        "sourceProvider": "Source provider",
-        "success": "Copied to target provider",
-        "targetProvider": "Target provider",
-        "title": "Copy Model to Another Provider"
-      },
-      "copyToProvider": "Copy to other provider",
-      "cost30d": "30d Cost",
-      "delete": "Delete",
-      "deleteFailed": "Delete failed",
-      "deleteModelConfirm": "Delete model \"{id}\"?",
-      "deleteProviderConfirm": "Delete provider \"{name}\"? All attached models will be removed too.",
-      "disabled": "Disabled",
-      "disabledToast": "Disabled",
-      "edit": "Edit",
-      "emptyDesc": "Click below to add your first AI platform provider. Each provider can host multiple models with health status, 30-day usage, bulk import/export, cross-provider model comparison, and one-click copy.",
-      "emptyTitle": "No providers yet",
-      "enabled": "Enabled",
-      "enabledToast": "Enabled",
-      "fetchFailed": "Fetch failed",
-      "fetchModels": "Fetch upstream models",
-      "fetchSuccess": "Fetched {total} models",
-      "fetching": "Fetching...",
-      "firstProvider": "Add your first provider",
-      "hideModels": "Hide models",
-      "lastTest": "Last Test",
-      "listCount": "{total} providers · {enabledCount} enabled",
-      "loading": "Loading...",
-      "modelDeleted": "Model deleted",
-      "modelDialog": {
-        "cancel": "Cancel",
-        "contextLength": "Context Length",
-        "create": "Create",
-        "created": "Created",
-        "defaultParams": "Default params",
-        "displayName": "Display name",
-        "displayNamePlaceholder": "e.g. GPT-4o flagship",
-        "editTitle": "Edit Model",
-        "enableModel": "Enable this model",
-        "enableModelDesc": "Disabled models can't be selected",
-        "inputPrice": "Input price (per 1K tokens, cents)",
-        "invalidJson": "Advanced JSON parse failed, please check syntax",
-        "modelId": "Model ID",
-        "modelIdRequired": "Model ID is required",
-        "newTitle": "New Model",
-        "outputPrice": "Output price (per 1K tokens, cents)",
-        "save": "Save",
-        "saveFailed": "Save failed",
-        "saved": "Saved",
-        "setDefault": "Set as provider default model",
-        "setDefaultDesc": "Default model is preferred for new conversations"
-      },
-      "modelParams": {
-        "advancedHint": "Advanced JSON takes precedence (non-empty fully overrides structured fields). Leave empty to use the structured params above.",
-        "copied": "JSON copied to clipboard",
-        "copyAsJson": "Copy as JSON",
-        "frequencyPenalty": "Frequency Penalty",
-        "frequencyPenaltyHelp": "Frequency penalty, -2 to 2. Positive values reduce repetition.",
-        "hideAdvanced": "Hide advanced JSON",
-        "maxTokens": "Max Tokens",
-        "maxTokensHelp": "Maximum tokens per response",
-        "presencePenalty": "Presence Penalty",
-        "presencePenaltyHelp": "Presence penalty, -2 to 2. Positive values encourage new topics.",
-        "presetApplied": "Preset applied",
-        "presets": "Presets",
-        "responseFormat": "Response Format",
-        "showAdvanced": "Show advanced JSON",
-        "systemPrompt": "System Prompt",
-        "systemPromptPlaceholder": "You are a helpful assistant...",
-        "temperature": "Temperature",
-        "temperatureHelp": "Sampling temperature, 0-2. Lower = more deterministic, higher = more diverse.",
-        "title": "Default Params",
-        "topP": "Top P",
-        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered."
-      },
-      "modelsCount": "{count} models",
-      "more": "{total} more, truncated",
-      "needKeyFirst": "Configure API Key first",
-      "newProvider": "Add Provider",
-      "noKey": "No Key",
-      "noModels": "No models attached to this provider",
-      "noModelsReturned": "No models returned",
-      "providerDeleted": "Provider deleted",
-      "providerDialog": {
-        "apiKey": "API Key",
-        "baseUrl": "Base URL",
-        "baseUrlRequired": "Base URL is required",
-        "cancel": "Cancel",
-        "create": "Create",
-        "created": "Created",
-        "defaultGroup": "Default group",
-        "description": "Notes",
-        "descriptionPlaceholder": "Usage notes...",
-        "docs": "Docs",
-        "editTitle": "Edit Provider",
-        "enableConfig": "Enable this provider",
-        "enableConfigDesc": "Disabled providers can't be selected. Existing requests are unaffected.",
-        "group": "Group",
-        "groupPlaceholder": "Select a group",
-        "hideKey": "Hide",
-        "keyKeepEmpty": "(leave empty to keep current)",
-        "keyPlaceholderEdit": "•••••••(encrypted)",
-        "keyPlaceholderNew": "sk-...",
-        "keyRequired": "API Key is required",
-        "name": "Provider name",
-        "namePlaceholder": "My OpenAI",
-        "nameRequired": "Provider name is required",
-        "newTitle": "New Provider",
-        "optional": "optional",
-        "pasteEmpty": "Clipboard is empty",
-        "pasteFailed": "Clipboard read failed, please paste manually",
-        "pasteFromClipboard": "Paste API Key from clipboard",
-        "pasteSuccess": "Pasted from clipboard",
-        "platform": "Platform template",
-        "platformPlaceholder": "Select a platform template",
-        "protocol": "Protocol",
-        "protocolPlaceholder": "Select a protocol",
-        "save": "Save",
-        "saveFailed": "Save failed",
-        "saved": "Saved",
-        "showKey": "Show",
-        "templatesEmpty": "No platform templates available",
-        "templatesLoadError": "Failed to load platform templates",
-        "templatesLoading": "Loading platform templates...",
-        "templatesNotReady": "Platform templates not ready, please retry later"
-      },
-      "quickStartTitle": "Popular platforms (click to start):",
-      "sidebar": {
-        "add": "Add",
-        "addGroup": "Add group",
-        "all": "All",
-        "cancel": "Cancel",
-        "createFailed": "Create failed",
-        "deleteFailed": "Delete failed",
-        "deleteGroup": "Delete group",
-        "deleteGroupConfirm": "Delete group \"{name}\"?",
-        "groupCreated": "Group \"{name}\" created",
-        "groupDeleteNotSupported": "Move all providers out of the group first",
-        "groupDeleted": "Group deleted",
-        "groupNotEmpty": "Group still has {count} providers. Move them first.",
-        "groupPlaceholder": "Enter group name...",
-        "title": "Groups",
-        "ungrouped": "Ungrouped"
-      },
-      "test": "Test",
-      "testFailed": "Connection failed",
-      "testFailedWithTime": "Failed · {date}",
-      "testSuccess": "Connected",
-      "testSuccessWithTime": "OK {ms}ms · {date}",
-      "testTimeOnly": "{ms}ms",
-      "untested": "Untested",
-      "usage30d": "30d Tokens"
-    }
+    "v2": "Bulk Operation"
   },
   "market": {
     "allCapabilities": "All Capabilities",
@@ -13201,7 +13064,8 @@
   "messages": {
     "empty": "No messages",
     "loading": "Loading...",
-    "noData": "No messages"
+    "noData": "No messages",
+    "title": "Messages"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13231,7 +13095,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13941,7 +13813,8 @@
     "view": {
       "grid": "Grid View",
       "list": "List View"
-    }
+    },
+    "pricing": "Model Pricing"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
@@ -14490,7 +14363,9 @@
     "userSubscription": "Subscription",
     "vip": "VIP Membership",
     "workspace": "Workspace",
-    "courses": "Courses"
+    "courses": "Courses",
+    "faq": "FAQ",
+    "home": "Home"
   },
   "news": {
     "allCategories": "All Categories",
@@ -14523,7 +14398,8 @@
     "tags": "Tags:",
     "title": "News",
     "total": "{total} articles",
-    "viewCount": "{count} reads"
+    "viewCount": "{count} reads",
+    "page": "News Page"
   },
   "newsletter": {
     "articles": {
@@ -14580,7 +14456,8 @@
       "desc": "Please check your email to confirm your subscription. The next weekly issue will be sent on Friday.",
       "recommended": "Recommended Reading",
       "title": "Subscription Successful!"
-    }
+    },
+    "title": "Newsletter"
   },
   "notes": {
     "attachmentsField": "Attachments",
@@ -16085,7 +15962,9 @@
     "subtitle": "Download learning resources",
     "title": "Resource Center",
     "total": "{total} total",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "affiliates": "Affiliates",
+    "edit": "Edit Resource"
   },
   "resourcesEditPage": {
     "backToList": "Back to Resources",
@@ -16149,7 +16028,8 @@
     },
     "title": "Search",
     "placeholder": "Enter keywords",
-    "empty": "No results"
+    "empty": "No results",
+    "q": "Search"
   },
   "searchHistory": {
     "clearAll": "Clear All",
@@ -16448,7 +16328,8 @@
       "deployments": "Deployments",
       "satisfaction": "Avg. Satisfaction",
       "title": "Clients Served"
-    }
+    },
+    "title": "Services"
   },
   "settings": {
     "accountDeletionCancel": "Cancel Deletion",
@@ -16827,7 +16708,10 @@
     "notification": "Notifications",
     "account": "Account",
     "version": "Version",
-    "usageRules": "Usage Rules"
+    "usageRules": "Usage Rules",
+    "connectedAccountsUnbindSuccess": "Unbind Success",
+    "notificationsLoadFailed": "Notifications Load Failed",
+    "privacyLoadFailed": "Privacy Load Failed"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -16984,7 +16868,8 @@
       }
     },
     "tiersTitle": "Sponsorship Tiers",
-    "whyTitle": "Why Sponsor IHUI AI"
+    "whyTitle": "Why Sponsor IHUI AI",
+    "title": "Sponsor"
   },
   "sso": {
     "alreadyLoggedIn": "Already signed in",
@@ -17023,14 +16908,8 @@
     "sendCodeFailed": "Failed to send verification code",
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
-    "mobileAuth": {
-      "title": "Mobile Authorization",
-      "processing": "Verifying login…",
-      "missingCode": "Missing auth code, open from the app",
-      "exchangeFailed": "Authorization failed, retry or sign in again",
-      "networkError": "Network error, please retry",
-      "backToLogin": "Back to sign in"
-    }
+    "mobileAuth": "SSO Code",
+    "platform": "Platform"
   },
   "statistics": {
     "actions": "Actions",
@@ -17502,7 +17381,9 @@
     "submit": "Split",
     "submitting": "Splitting...",
     "title": "PDF Split",
-    "uploadLabel": "Click or drag a PDF file here to upload"
+    "uploadLabel": "Click or drag a PDF file here to upload",
+    "convert": "Convert",
+    "merge": "Merge"
   },
   "topics": {
     "empty": "No topics",
@@ -18179,7 +18060,8 @@
       "schedule": "Schedule",
       "unknown": "Unknown Trigger",
       "webhook": "Webhook"
-    }
+    },
+    "instance": "Workflow Instance"
   },
   "workspace": {
     "actions": "Actions",
@@ -18369,7 +18251,9 @@
     "stepThinking": "Thinking",
     "reasoningCopied": "Reasoning copied",
     "reasoningCopyFailed": "Failed to copy reasoning",
-    "copyReasoning": "Copy reasoning"
+    "copyReasoning": "Copy reasoning",
+    "detail": "Plan Detail",
+    "new": "New Plan"
   },
   "subagent": {
     "toolCallsTitle": "{n} tool calls",
@@ -19121,7 +19005,8 @@
     "certTitle": "Certificate",
     "certNo": "Number",
     "holderName": "Holder",
-    "issueDate": "Issue date"
+    "issueDate": "Issue date",
+    "notfound": "Certificate Not Found"
   },
   "courseCatalog": {
     "title": "Course catalog",
@@ -19800,7 +19685,8 @@
     "url": "Share link",
     "code": "Share code",
     "expireAt": "Expiry time",
-    "shareNow": "Share now"
+    "shareNow": "Share now",
+    "detail": "Share Detail"
   },
   "vipBenefit": {
     "title": "VIP Benefits"
@@ -20300,7 +20186,10 @@
     "autoMemory": "Auto Memory",
     "autoMemoryDesc": "When enabled, the AI automatically distills key points from conversations into long-term memory for personalized replies.",
     "autoMemorySaveSuccess": "Settings saved",
-    "autoMemorySaveFailed": "Failed to save, please retry"
+    "autoMemorySaveFailed": "Failed to save, please retry",
+    "manager": "Memory Manager",
+    "title": "Memory",
+    "new": "New Memory"
   },
   "agentPlan": {
     "title": "Agent Plan Mode",
@@ -20340,6 +20229,103 @@
     "statusFailed": "Failed",
     "notFound": "Plan not found or expired",
     "conflict": "This action is not allowed in the current plan status",
-    "generic": "Request failed, please try again later"
+    "generic": "Request failed, please try again later",
+    "progress": "Progress"
+  },
+  "compare": {
+    "title": "Compare",
+    "subtitle": "Deep comparison of IHUI AI with mainstream AI platforms",
+    "description": "Compare IHUI AI with mainstream AI platforms across multiple dimensions"
+  },
+  "useCases": {
+    "title": "Use Cases",
+    "subtitle": "Explore IHUI AI applications in different scenarios",
+    "description": "Learn how IHUI AI empowers various business scenarios"
+  },
+  "context": {
+    "title": "Context Management",
+    "compression": "Context Compression",
+    "mentions": "Mentions Management",
+    "visualization": "Context Visualization"
+  },
+  "spec": {
+    "title": "Specifications",
+    "detail": "Spec Detail",
+    "generate": "Generate Spec",
+    "templates": "Spec Templates"
+  },
+  "subagents": {
+    "title": "Subagents",
+    "detail": "Subagent Detail",
+    "dispatch": "Dispatch Task",
+    "topology": "Topology"
+  },
+  "aiSkills": {
+    "title": "AI Skills",
+    "detail": "Skill Detail",
+    "description": "AI Skill Management"
+  },
+  "download": {
+    "title": "Download",
+    "description": "Download IHUI AI clients",
+    "id": "Platform Download"
+  },
+  "agentRuntime": {
+    "title": "Agent Runtime",
+    "description": "Agent runtime monitoring and management"
+  },
+  "agentStepRecorder": {
+    "title": "Agent Step Recorder",
+    "description": "Record agent execution steps"
+  },
+  "apple": {
+    "callback": "Apple Sign-in Callback"
+  },
+  "costDashboard": {
+    "title": "Cost Dashboard",
+    "description": "AI cost monitoring dashboard"
+  },
+  "developers": {
+    "title": "Developers",
+    "description": "Developer documentation and resources"
+  },
+  "google": {
+    "callback": "Google Sign-in Callback"
+  },
+  "h5": {
+    "title": "H5 Page",
+    "share": "Share Page"
+  },
+  "legal": {
+    "title": "Legal",
+    "serviceSpecificTerms": {
+      "title": "Service-Specific Terms"
+    },
+    "supportedRegions": {
+      "title": "Supported Regions"
+    },
+    "terms": {
+      "title": "Terms of Service"
+    },
+    "usagePolicy": {
+      "title": "Usage Policy"
+    }
+  },
+  "legal.serviceSpecificTerms": {},
+  "legal.supportedRegions": {},
+  "legal.terms": {},
+  "legal.usagePolicy": {},
+  "mcpProjects": {
+    "title": "MCP Projects",
+    "store": "MCP Store",
+    "description": "Model Context Protocol project management"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n automation workflow Agent"
+  },
+  "rules": {
+    "title": "Rules",
+    "description": "Platform rules and guidelines"
   }
 }

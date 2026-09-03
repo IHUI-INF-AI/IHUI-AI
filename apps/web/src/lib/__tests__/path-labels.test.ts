@@ -102,5 +102,34 @@ describe('resolvePathLabelSpec i18n 路由前缀剥离', () => {
       key: 'automation',
     })
   })
+
+  it('/compare 精确命中 compare.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/compare')).toEqual({ ns: 'compare', key: 'title' })
+  })
+
+  it('/use-cases/ai-design 精确命中 useCases.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/use-cases/ai-design')).toEqual({
+      ns: 'useCases',
+      key: 'title',
+    })
+  })
+
+  it('/legal/terms 精确命中 legal.terms.title(新建法律子命名空间)', () => {
+    expect(resolvePathLabelSpec('/legal/terms')).toEqual({
+      ns: 'legal.terms',
+      key: 'title',
+    })
+  })
+
+  it('/admin/ai-skills 精确命中 adminAiSkills.skillName(现有命名空间新 key)', () => {
+    expect(resolvePathLabelSpec('/admin/ai-skills')).toEqual({
+      ns: 'adminAiSkills',
+      key: 'skillName',
+    })
+  })
+
+  it('/download 精确命中 download.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/download')).toEqual({ ns: 'download', key: 'title' })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
