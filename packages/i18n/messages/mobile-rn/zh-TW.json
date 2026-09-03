@@ -594,7 +594,6 @@
     "video": "影片",
     "addFile": "新增附件",
     "compactButton": "壓縮上下文",
-    "compacting": "正在壓縮上下文...",
     "compactSuccess": "上下文已壓縮: {before} → {after} tokens(節省 {saved})",
     "compactTooFew": "對話訊息太少,無需壓縮",
     "compactIncompressible": "目前上下文已無可壓縮空間",
@@ -2099,10 +2098,10 @@
     "sections": {
       "eduAi": "教育 AI",
       "edu": "教務管理 / 家長端",
-      "developer": "開發者平台",
+      "developer": "開發者平臺",
       "selfMedia": "自媒體運營",
       "knowledgeTools": "知識圖譜與工具",
-      "models": "模型平台",
+      "models": "模型平臺",
       "more": "更多功能"
     },
     "eduAi": {
