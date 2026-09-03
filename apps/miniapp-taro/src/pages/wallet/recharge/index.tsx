@@ -14,6 +14,7 @@ import {
   type UserInfo,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
@@ -148,15 +149,15 @@ export default function RechargePage() {
 
   if (loading) {
     return (
-      <View className="rc-loading-mask">
+      <ThemeRoot><View className="rc-loading-mask">
         <View className="rc-loading-spinner" />
         <Text className="rc-loading-text">{tt('common.loading', '加载中…')}</Text>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="rc-page">
+    <ThemeRoot><View className="rc-page">
       {submitting && (
         <View className="rc-loading-mask">
           <View className="rc-loading-spinner" />
@@ -279,6 +280,6 @@ export default function RechargePage() {
           : `${tt('wallet.recharge.submit', '充值')} ¥${priceFmt.format(finalAmount || 0)}`}
       </Button>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

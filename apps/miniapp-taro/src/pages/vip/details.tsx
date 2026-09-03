@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 权益对比数据(AI 平台场景)
 interface Benefit {
@@ -116,7 +117,7 @@ export default function VipDetailsPage() {
 
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
-      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[linear-gradient(135deg,#f8d486,var(--color-warning))] text-foreground">
+      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[linear-gradient(135deg,rgba(248, 212, 134, 1),var(--color-warning))] text-foreground">
         <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
           <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>
           <Text className="text-[28rpx] text-foreground">{tt('common.back', '返回')}</Text>
@@ -157,7 +158,7 @@ export default function VipDetailsPage() {
           {PLANS.map((p) => {
             const active = selectedPlan === p.type
             return (
-              <View
+              <ThemeRoot><View
                 key={p.type}
                 className={`flex-1 relative bg-card border-[2rpx] rounded-[16rpx] py-[28rpx] px-[24rpx] ${active ? (p.type === 'yearly' ? 'border-warning bg-[rgba(245,158,11,0.1)]' : 'border-warning bg-[rgba(245,158,11,0.06)]') : 'border-border'}`}
                 onClick={() => selectPlan(p.type)}
@@ -196,7 +197,7 @@ export default function VipDetailsPage() {
                   ))}
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       </View>

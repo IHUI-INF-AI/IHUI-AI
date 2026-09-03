@@ -7,6 +7,7 @@ import { View, Text, Textarea, Input, Button, RadioGroup, Radio } from '@tarojs/
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { refund, getOrderDetail, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REASONS = (tt: TtFn): Array<{ key: string; fb: string }> => [
   { key: 'order.refund.reasonUnwanted', fb: tt('orderRefund.d1', '不想要了') },
@@ -78,7 +79,7 @@ export default function OrderRefund() {
   const disabled = !reason || submitting || !order?.id
 
   return (
-    <View className="min-h-screen bg-background pt-[24rpx] pr-[24rpx] pb-[160rpx] pl-[24rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pt-[24rpx] pr-[24rpx] pb-[160rpx] pl-[24rpx]">
       <View className="bg-card rounded-[16rpx] p-[32rpx]">
         <View className="text-[32rpx] font-semibold text-foreground mb-[24rpx]">
           {tt('order.refund.title', '申请退款')}
@@ -194,6 +195,6 @@ export default function OrderRefund() {
           : tt('order.refund.submit', '提交申请')}
       </Button>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

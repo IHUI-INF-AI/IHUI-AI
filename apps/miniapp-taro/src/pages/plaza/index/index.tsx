@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -209,7 +210,7 @@ export default function PlazaIndex() {
   }, [])
 
   const renderCard = (item: PlazaItem) => (
-    <View className="pza-card" onClick={() => onItemClick(item)}>
+    <ThemeRoot><View className="pza-card" onClick={() => onItemClick(item)}>
       {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
       <View className="pza-info">
         <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
@@ -233,10 +234,10 @@ export default function PlazaIndex() {
         </View>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 
   return (
-    <View className="pza-page">
+    <ThemeRoot><View className="pza-page">
       <View className="pza-header">
         <Text className="pza-page-title">{tt('plaza.index.title', 'AI需求广场')}</Text>
         <View className="pza-nav-btns">
@@ -420,6 +421,6 @@ export default function PlazaIndex() {
         </View>
       ) : null}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

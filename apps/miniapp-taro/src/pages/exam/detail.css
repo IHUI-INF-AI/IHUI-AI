@@ -28,7 +28,7 @@
 /* 标题区 */
 .exam-detail-header {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 20rpx;
 }
@@ -54,7 +54,7 @@
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx 16rpx;
   margin-bottom: 20rpx;
 }
@@ -82,7 +82,7 @@
 /* 通用卡片 */
 .exam-detail-card {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -235,7 +235,7 @@
   line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 600;
   border: none;

@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './refund-list.css'
 
 type RefundStatus = 'refunding' | 'refunded' | 'rejected'
@@ -186,7 +187,7 @@ export default function RefundList() {
             {displayList.map((item) => {
               const opened = expandedId === item.id
               return (
-                <View key={item.id} className="refund-card">
+                <ThemeRoot><View key={item.id} className="refund-card">
                   <View className="refund-card-head">
                     <Text className="refund-order-no">
                       {t('order.refundList.orderNo', { no: item.orderNo })}
@@ -248,7 +249,7 @@ export default function RefundList() {
                     </View>
                   )}
                 </View>
-              )
+              </ThemeRoot>)
             })}
           </View>
         )}

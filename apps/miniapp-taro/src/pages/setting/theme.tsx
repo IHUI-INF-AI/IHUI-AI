@@ -8,9 +8,11 @@ import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
+import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
+import ThemeRoot from '@/components/ThemeRoot'
 import './theme.css'
 
-const THEME_KEY = 'theme'
+const THEME_KEY = THEME_STORAGE_KEY
 
 interface ThemeOption {
   value: string
@@ -81,7 +83,8 @@ export default function ThemePage() {
       if (!VALID_VALUES.includes(v) || v === current) return
       setCurrent(v)
       try {
-        Taro.setStorageSync(THEME_KEY, v)
+        // 写入本地存储 + 同步原生导航栏/tabBar 配色 + 广播主题变更事件
+        setThemePreference(v as ThemePreference)
       } catch {
         // ignore
       }
@@ -100,7 +103,7 @@ export default function ThemePage() {
   )
 
   return (
-    <View className="theme-page">
+    <ThemeRoot><View className="theme-page">
       <View className="theme-current">
         <Image
           className="theme-current-icon"
@@ -140,7 +143,7 @@ export default function ThemePage() {
               className="theme-radio"
               value={th.value}
               checked={current === th.value}
-              color="#07c160"
+              color="var(--color-wechat-green)"
               disabled={submitting}
             />
           </View>
@@ -157,6 +160,6 @@ export default function ThemePage() {
         </Text>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
