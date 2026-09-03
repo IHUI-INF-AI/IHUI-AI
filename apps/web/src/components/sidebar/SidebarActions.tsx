@@ -623,7 +623,15 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
           aria-label={t('messages')}
           aria-haspopup="dialog"
           aria-expanded={msgOpen}
-          onClick={() => setMsgOpen((prev) => !prev)}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          data-state={msgOpen ? 'open' : 'closed'}
+          onClick={(e) => {
+            e.stopPropagation()
+            console.log('[MessageCenter] button clicked, current msgOpen:', msgOpen)
+            setMsgOpen((prev) => !prev)
+            console.log('[MessageCenter] setMsgOpen called, toggling to:', !prev)
+          }}
         >
           <Bell className="h-[18px] w-[18px]" />
           {unreadCount > 0 && (
