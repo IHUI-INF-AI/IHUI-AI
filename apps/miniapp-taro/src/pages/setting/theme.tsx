@@ -8,9 +8,11 @@ import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
+import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
+import ThemeRoot from '@/components/ThemeRoot'
 import './theme.css'
 
-const THEME_KEY = 'theme'
+const THEME_KEY = THEME_STORAGE_KEY
 
 interface ThemeOption {
   value: string
@@ -81,7 +83,8 @@ export default function ThemePage() {
       if (!VALID_VALUES.includes(v) || v === current) return
       setCurrent(v)
       try {
-        Taro.setStorageSync(THEME_KEY, v)
+        // 写入本地存储 + 同步原生导航栏/tabBar 配色 + 广播主题变更事件
+        setThemePreference(v as ThemePreference)
       } catch {
         // ignore
       }
@@ -100,63 +103,65 @@ export default function ThemePage() {
   )
 
   return (
-    <View className="theme-page">
-      <View className="theme-current">
-        <Image
-          className="theme-current-icon"
-          style={{ width: '64rpx', height: '64rpx' }}
-          src={currentOption.icon}
-          mode="aspectFit"
-        />
-        <View className="theme-current-info">
-          <Text className="theme-current-name">
-            {tt(currentOption.labelKey, currentOption.label)}
+    <ThemeRoot>
+      <View className="theme-page">
+        <View className="theme-current">
+          <Image
+            className="theme-current-icon"
+            style={{ width: '64rpx', height: '64rpx' }}
+            src={currentOption.icon}
+            mode="aspectFit"
+          />
+          <View className="theme-current-info">
+            <Text className="theme-current-name">
+              {tt(currentOption.labelKey, currentOption.label)}
+            </Text>
+            <Text className="theme-current-desc">
+              {tt(currentOption.descKey, currentOption.desc)}
+            </Text>
+          </View>
+        </View>
+
+        <RadioGroup className="theme-list">
+          {THEMES(tt).map((th) => (
+            <View
+              key={th.value}
+              className={`theme-item${current === th.value ? ' active' : ''}`}
+              onClick={() => onSelect(th.value)}
+            >
+              <Image
+                className="theme-item-icon"
+                style={{ width: '44rpx', height: '44rpx' }}
+                src={th.icon}
+                mode="aspectFit"
+              />
+              <View className="theme-item-info">
+                <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>
+                <Text className="theme-item-desc">{tt(th.descKey, th.desc)}</Text>
+              </View>
+
+              <Radio
+                className="theme-radio"
+                value={th.value}
+                checked={current === th.value}
+                color="var(--color-wechat-green)"
+                disabled={submitting}
+              />
+            </View>
+          ))}
+        </RadioGroup>
+
+        <View className="theme-hint">
+          <Text className="theme-hint-title">{tt('setting.theme.hintTitle', '主题说明')}</Text>
+          <Text className="theme-hint-line">
+            {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
           </Text>
-          <Text className="theme-current-desc">
-            {tt(currentOption.descKey, currentOption.desc)}
+          <Text className="theme-hint-line">
+            {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
           </Text>
         </View>
       </View>
-
-      <RadioGroup className="theme-list">
-        {THEMES(tt).map((th) => (
-          <View
-            key={th.value}
-            className={`theme-item${current === th.value ? ' active' : ''}`}
-            onClick={() => onSelect(th.value)}
-          >
-            <Image
-              className="theme-item-icon"
-              style={{ width: '44rpx', height: '44rpx' }}
-              src={th.icon}
-              mode="aspectFit"
-            />
-            <View className="theme-item-info">
-              <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>
-              <Text className="theme-item-desc">{tt(th.descKey, th.desc)}</Text>
-            </View>
-
-            <Radio
-              className="theme-radio"
-              value={th.value}
-              checked={current === th.value}
-              color="#07c160"
-              disabled={submitting}
-            />
-          </View>
-        ))}
-      </RadioGroup>
-
-      <View className="theme-hint">
-        <Text className="theme-hint-title">{tt('setting.theme.hintTitle', '主题说明')}</Text>
-        <Text className="theme-hint-line">
-          {tt('setting.theme.switchHint', '切换主题后将立即保存并应用到全局界面')}
-        </Text>
-        <Text className="theme-hint-line">
-          {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

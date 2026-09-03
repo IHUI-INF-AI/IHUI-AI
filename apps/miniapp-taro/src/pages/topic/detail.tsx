@@ -15,6 +15,7 @@ import Taro, {
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getTopicDetail, post, type Circle } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface TopicData {
@@ -151,138 +152,144 @@ export default function TopicDetailPage() {
   }
 
   return (
-    <View className="topic-detail-page">
-      <NavBar title={tt('topic.detail.pageTitle', '话题详情')} showBack />
-      <ScrollView scrollY className="topic-detail-body">
-        {/* 话题头部 */}
-        {topic.name ? (
-          <View className="topic-detail-header">
-            <View className="topic-detail-info">
-              <Text className="topic-detail-name">#{topic.name}</Text>
-              {topic.description ? (
-                <Text className="topic-detail-desc">{topic.description}</Text>
-              ) : null}
-              <Text className="topic-detail-followers">
-                {tt('topic.detail.followers', '{n} 人关注', {
-                  n: topic.followerCount || 0,
-                })}
-              </Text>
-            </View>
-            <Button
-              className={`topic-detail-follow-btn${topic.isFollowed ? ' followed' : ''}`}
-              disabled={following}
-              onClick={onFollow}
-            >
-              {topic.isFollowed
-                ? tt('topic.detail.following', '已关注')
-                : tt('topic.detail.follow', '关注')}
-            </Button>
-          </View>
-        ) : null}
-
-        {/* 发布入口 */}
-        {topic.name ? (
-          <View className="topic-detail-publish" onClick={goPublish}>
-            <Image
-              className="topic-detail-publish-icon"
-              src="/static/images/icons/pencil.svg"
-              mode="aspectFit"
-              style={{ width: '28rpx', height: '28rpx' }}
-            />
-            <Text className="topic-detail-publish-text">
-              {tt('topic.detail.publishPlaceholder', '分享你对这个话题的看法…')}
-            </Text>
-            <Text className="topic-detail-publish-btn">{tt('topic.detail.publish', '发帖')}</Text>
-          </View>
-        ) : null}
-
-        {/* 帖子列表 */}
-        {loading ? (
-          <View className="topic-detail-state">
-            <Text>{tt('topic.detail.loading', '加载中…')}</Text>
-          </View>
-        ) : null}
-
-        {!loading && displayPosts.length > 0 ? (
-          <View className="topic-detail-list">
-            {displayPosts.map((p) => (
-              <View key={p.id} className="topic-detail-post" onClick={() => goCircle(String(p.id))}>
-                <View className="topic-detail-post-user">
-                  <Image
-                    className="topic-detail-avatar"
-                    src={p.avatar || '/static/default-avatar.png'}
-                    mode="aspectFill"
-                  />
-                  <View className="topic-detail-user-info">
-                    <Text className="topic-detail-author">
-                      {p.author || tt('topic.detail.anonymous', '匿名用户')}
-                    </Text>
-                    <Text className="topic-detail-time">{formatTime(p.createTime)}</Text>
-                  </View>
-                </View>
-                <Text className="topic-detail-post-title">{p.title}</Text>
-                <Text className="topic-detail-post-content">{p.content}</Text>
-                {p.images && p.images.length > 0 ? (
-                  <View className="topic-detail-post-images">
-                    {p.images.slice(0, 3).map((img, i) => (
-                      <Image
-                        key={i}
-                        className="topic-detail-post-img"
-                        src={img}
-                        mode="aspectFill"
-                      />
-                    ))}
-                    {p.images.length > 3 ? (
-                      <View className="topic-detail-post-img-more">
-                        <Text>+{p.images.length - 3}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+    <ThemeRoot>
+      <View className="topic-detail-page">
+        <NavBar title={tt('topic.detail.pageTitle', '话题详情')} showBack />
+        <ScrollView scrollY className="topic-detail-body">
+          {/* 话题头部 */}
+          {topic.name ? (
+            <View className="topic-detail-header">
+              <View className="topic-detail-info">
+                <Text className="topic-detail-name">#{topic.name}</Text>
+                {topic.description ? (
+                  <Text className="topic-detail-desc">{topic.description}</Text>
                 ) : null}
-                <View className="topic-detail-post-footer">
-                  <View className="topic-detail-post-stat">
+                <Text className="topic-detail-followers">
+                  {tt('topic.detail.followers', '{n} 人关注', {
+                    n: topic.followerCount || 0,
+                  })}
+                </Text>
+              </View>
+              <Button
+                className={`topic-detail-follow-btn${topic.isFollowed ? ' followed' : ''}`}
+                disabled={following}
+                onClick={onFollow}
+              >
+                {topic.isFollowed
+                  ? tt('topic.detail.following', '已关注')
+                  : tt('topic.detail.follow', '关注')}
+              </Button>
+            </View>
+          ) : null}
+
+          {/* 发布入口 */}
+          {topic.name ? (
+            <View className="topic-detail-publish" onClick={goPublish}>
+              <Image
+                className="topic-detail-publish-icon"
+                src="/static/images/icons/pencil.svg"
+                mode="aspectFit"
+                style={{ width: '28rpx', height: '28rpx' }}
+              />
+              <Text className="topic-detail-publish-text">
+                {tt('topic.detail.publishPlaceholder', '分享你对这个话题的看法…')}
+              </Text>
+              <Text className="topic-detail-publish-btn">{tt('topic.detail.publish', '发帖')}</Text>
+            </View>
+          ) : null}
+
+          {/* 帖子列表 */}
+          {loading ? (
+            <View className="topic-detail-state">
+              <Text>{tt('topic.detail.loading', '加载中…')}</Text>
+            </View>
+          ) : null}
+
+          {!loading && displayPosts.length > 0 ? (
+            <View className="topic-detail-list">
+              {displayPosts.map((p) => (
+                <View
+                  key={p.id}
+                  className="topic-detail-post"
+                  onClick={() => goCircle(String(p.id))}
+                >
+                  <View className="topic-detail-post-user">
                     <Image
-                      className="topic-detail-post-stat-icon"
-                      src="/static/images/icons/heart.svg"
-                      mode="aspectFit"
-                      style={{ width: '26rpx', height: '26rpx' }}
+                      className="topic-detail-avatar"
+                      src={p.avatar || '/static/default-avatar.png'}
+                      mode="aspectFill"
                     />
-                    <Text className="topic-detail-post-stat-num">{p.likes || 0}</Text>
+                    <View className="topic-detail-user-info">
+                      <Text className="topic-detail-author">
+                        {p.author || tt('topic.detail.anonymous', '匿名用户')}
+                      </Text>
+                      <Text className="topic-detail-time">{formatTime(p.createTime)}</Text>
+                    </View>
                   </View>
-                  <View className="topic-detail-post-stat">
-                    <Image
-                      className="topic-detail-post-stat-icon"
-                      src="/static/images/icons/message-circle.svg"
-                      mode="aspectFit"
-                      style={{ width: '26rpx', height: '26rpx' }}
-                    />
-                    <Text className="topic-detail-post-stat-num">{p.comments || 0}</Text>
+                  <Text className="topic-detail-post-title">{p.title}</Text>
+                  <Text className="topic-detail-post-content">{p.content}</Text>
+                  {p.images && p.images.length > 0 ? (
+                    <View className="topic-detail-post-images">
+                      {p.images.slice(0, 3).map((img, i) => (
+                        <Image
+                          key={i}
+                          className="topic-detail-post-img"
+                          src={img}
+                          mode="aspectFill"
+                        />
+                      ))}
+                      {p.images.length > 3 ? (
+                        <View className="topic-detail-post-img-more">
+                          <Text>+{p.images.length - 3}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                  <View className="topic-detail-post-footer">
+                    <View className="topic-detail-post-stat">
+                      <Image
+                        className="topic-detail-post-stat-icon"
+                        src="/static/images/icons/heart.svg"
+                        mode="aspectFit"
+                        style={{ width: '26rpx', height: '26rpx' }}
+                      />
+                      <Text className="topic-detail-post-stat-num">{p.likes || 0}</Text>
+                    </View>
+                    <View className="topic-detail-post-stat">
+                      <Image
+                        className="topic-detail-post-stat-icon"
+                        src="/static/images/icons/message-circle.svg"
+                        mode="aspectFit"
+                        style={{ width: '26rpx', height: '26rpx' }}
+                      />
+                      <Text className="topic-detail-post-stat-num">{p.comments || 0}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
+              ))}
+            </View>
+          ) : null}
 
-        {!loading && displayPosts.length === 0 ? (
-          <View className="topic-detail-state">
-            <Text>{tt('topic.detail.empty', '暂无帖子,快来发布第一条吧')}</Text>
-          </View>
-        ) : null}
+          {!loading && displayPosts.length === 0 ? (
+            <View className="topic-detail-state">
+              <Text>{tt('topic.detail.empty', '暂无帖子,快来发布第一条吧')}</Text>
+            </View>
+          ) : null}
 
-        {!loading && loadingMore ? (
-          <View className="topic-detail-state">
-            <Text>{tt('topic.detail.loadingMore', '加载中…')}</Text>
-          </View>
-        ) : null}
+          {!loading && loadingMore ? (
+            <View className="topic-detail-state">
+              <Text>{tt('topic.detail.loadingMore', '加载中…')}</Text>
+            </View>
+          ) : null}
 
-        {!loading && !hasMore && displayPosts.length > 0 ? (
-          <View className="topic-detail-state">
-            <Text>{tt('topic.detail.noMore', '没有更多了')}</Text>
-          </View>
-        ) : null}
-      </ScrollView>
-    </View>
+          {!loading && !hasMore && displayPosts.length > 0 ? (
+            <View className="topic-detail-state">
+              <Text>{tt('topic.detail.noMore', '没有更多了')}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

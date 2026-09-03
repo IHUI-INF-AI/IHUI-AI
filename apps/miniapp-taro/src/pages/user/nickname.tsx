@@ -8,6 +8,7 @@ import { View, Text, Input, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { updateUserNickname, getProfile } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './nickname.css'
 
 const MIN_LENGTH = 2
@@ -94,55 +95,59 @@ export default function Nickname() {
   const canSubmit = !err && !submitting
 
   return (
-    <View className="nick-page">
-      <View className="nick-card">
-        <View className="nick-row">
-          <Text className="nick-label">{t('user.nickname.current')}</Text>
-          <Text className="nick-value">{original || t('user.profile.notSet')}</Text>
+    <ThemeRoot>
+      <View className="nick-page">
+        <View className="nick-card">
+          <View className="nick-row">
+            <Text className="nick-label">{t('user.nickname.current')}</Text>
+            <Text className="nick-value">{original || t('user.profile.notSet')}</Text>
+          </View>
         </View>
-      </View>
 
-      <View className="nick-card">
-        <View className="nick-input-head">
-          <Text className="nick-label">{t('user.nickname.newNickname')}</Text>
-          <Text className="nick-count">
-            {nickname.length}/{MAX_LENGTH}
+        <View className="nick-card">
+          <View className="nick-input-head">
+            <Text className="nick-label">{t('user.nickname.newNickname')}</Text>
+            <Text className="nick-count">
+              {nickname.length}/{MAX_LENGTH}
+            </Text>
+          </View>
+          <Input
+            className="nick-input"
+            type="text"
+            maxlength={MAX_LENGTH}
+            placeholder={t('user.nickname.nicknamePlaceholder')}
+            value={nickname}
+            onInput={onInput}
+          />
+          <View className="nick-random" onClick={fillRandom}>
+            <Text className="nick-random-text">
+              {tt('user.nickname.randomNickname', '🎲 随机推荐昵称')}
+            </Text>
+          </View>
+        </View>
+
+        <View className="nick-rules">
+          <Text className="nick-rules-title">{tt('user.nickname.rulesTitle', '昵称规则')}</Text>
+          <Text className="nick-rules-line">
+            • {tt('user.nickname.ruleLength', `${MIN_LENGTH}-${MAX_LENGTH} 个字符`)}
+          </Text>
+          <Text className="nick-rules-line">
+            • {tt('user.nickname.ruleChar', '支持中英文、数字')}
+          </Text>
+          <Text className="nick-rules-line">
+            • {tt('user.nickname.ruleSymbol', '禁止特殊符号')}
           </Text>
         </View>
-        <Input
-          className="nick-input"
-          type="text"
-          maxlength={MAX_LENGTH}
-          placeholder={t('user.nickname.nicknamePlaceholder')}
-          value={nickname}
-          onInput={onInput}
-        />
-        <View className="nick-random" onClick={fillRandom}>
-          <Text className="nick-random-text">
-            {tt('user.nickname.randomNickname', '🎲 随机推荐昵称')}
-          </Text>
-        </View>
-      </View>
 
-      <View className="nick-rules">
-        <Text className="nick-rules-title">{tt('user.nickname.rulesTitle', '昵称规则')}</Text>
-        <Text className="nick-rules-line">
-          • {tt('user.nickname.ruleLength', `${MIN_LENGTH}-${MAX_LENGTH} 个字符`)}
-        </Text>
-        <Text className="nick-rules-line">
-          • {tt('user.nickname.ruleChar', '支持中英文、数字')}
-        </Text>
-        <Text className="nick-rules-line">• {tt('user.nickname.ruleSymbol', '禁止特殊符号')}</Text>
+        <Button
+          className={`nick-submit${canSubmit ? '' : ' disabled'}`}
+          disabled={!canSubmit}
+          onClick={onSubmit}
+        >
+          {submitting ? tt('user.nickname.saving', '保存中…') : t('user.nickname.save')}
+        </Button>
       </View>
-
-      <Button
-        className={`nick-submit${canSubmit ? '' : ' disabled'}`}
-        disabled={!canSubmit}
-        onClick={onSubmit}
-      >
-        {submitting ? tt('user.nickname.saving', '保存中…') : t('user.nickname.save')}
-      </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

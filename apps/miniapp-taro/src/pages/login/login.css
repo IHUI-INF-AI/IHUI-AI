@@ -5,17 +5,17 @@
 */
 
 /* login.css — 对齐 zhs_app-ZZ login.vue 样式(完整视觉迁移)
- * 原项目硬编码颜色直接保留(#847CFF/#409EFF/#f5f5f5/#979797 等)
+ * 原项目硬编码颜色已迁移为语义 token(基准 = web 端亮色 token 体系)
  * 背景:loginbackk.png(Image 组件作背景层,兼容微信小程序)
  * 按钮:zcbutton.png(AuthButton 组件 Image 背景层)
- * 强调色:#847CFF 紫色(send-code/forgot-pwd-btn)
+ * 强调色:#847CFF 紫色 → var(--color-brand)
  */
 
 /* ===== 容器与背景 ===== */
 .container-ali {
   width: 100%;
   min-height: 100vh;
-  background-color: #fff;
+  background-color: var(--color-card);
 }
 
 .container1 {
@@ -101,13 +101,13 @@
 .brand-caption-name {
   font-size: 30rpx;
   font-weight: bold;
-  color: #000;
+  color: var(--color-foreground);
 }
 
 .brand-caption-slogan {
   margin-top: 4rpx;
   font-size: 22rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 中部内容 ===== */
@@ -131,8 +131,8 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  background: #f5f5f5;
-  border-radius: 12rpx;
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
   padding: 6rpx;
 }
 
@@ -142,16 +142,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10rpx;
+  border-radius: var(--radius-sm);
   font-size: 28rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
   font-weight: bold;
   transition: all 0.2s ease;
 }
 
 .login-type-tab-active {
-  background: #fff;
-  color: #000;
+  background: var(--color-card);
+  color: var(--color-foreground);
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
 }
 
@@ -173,15 +173,15 @@
   width: 650rpx;
   height: 99rpx;
   margin-top: 30rpx;
-  border-radius: 12rpx;
-  background: #f5f5f5;
-  border: 1px solid #eaeaea;
+  border-radius: var(--radius-md);
+  background: var(--color-muted);
+  border: 1px solid var(--color-border);
   transition: background 0.15s ease-out;
   position: relative;
 }
 
 .input-nbox-focused {
-  background: #FFFFFF;
+  background: var(--color-card);
   border-color: transparent;
 }
 
@@ -192,22 +192,22 @@
   left: 0;
   right: 0;
   bottom: 0;
-  border-radius: 12rpx;
-  border: 1.5px solid #000;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--color-foreground);
   pointer-events: none;
 }
 
 .input-box {
   width: 100%;
   height: 100%;
-  background: #f5f5f5;
-  border-radius: 12rpx;
+  background: var(--color-muted);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
 }
 
 .input-nbox-focused .input-box {
-  background: #FFFFFF;
+  background: var(--color-card);
 }
 
 .input-icon {
@@ -222,7 +222,7 @@
 
 .input-area-code {
   letter-spacing: 0rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
   font-size: 36rpx;
   font-weight: normal;
 }
@@ -239,7 +239,7 @@
   font-size: 36rpx;
   font-weight: 300;
   letter-spacing: 0rpx;
-  color: #000;
+  color: var(--color-foreground);
 }
 
 .iponeinput {
@@ -254,12 +254,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-right: 1px solid #979797;
+  border-right: 1px solid var(--color-border);
   transition: border-color 0.15s ease-out;
 }
 
 .xiaicc-focused {
-  border-right: 1px solid #000;
+  border-right: 1px solid var(--color-foreground);
 }
 
 .xiaicc-img {
@@ -267,7 +267,7 @@
   height: 0;
   border-left: 5rpx solid transparent;
   border-right: 5rpx solid transparent;
-  border-top: 9rpx solid #979797;
+  border-top: 9rpx solid var(--color-muted-foreground);
   margin-left: 3rpx;
 }
 
@@ -276,24 +276,24 @@
   width: 95%;
   bottom: 72rpx;
   right: 0;
-  border-radius: 0 0 20rpx 20rpx;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   padding: 1rpx;
-  background: linear-gradient(180deg, #EEF4FF 0%, #409EFF 100%);
+  background: linear-gradient(180deg, var(--color-link-bg) 0%, var(--color-link) 100%);
   z-index: 100;
 }
 
 .nation-boo {
   width: 100%;
   height: 100%;
-  background: #F7F8FF;
-  border-radius: 0 0 20rpx 20rpx;
+  background: var(--color-link-bg);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 .nationInfo {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .nation-info1 {
@@ -307,14 +307,14 @@
 
 .nation-name {
   font-size: 28rpx;
-  color: #3D3D3D;
+  color: var(--color-foreground);
   font-weight: 400;
   flex-shrink: 0;
 }
 
 .nation-code {
   font-size: 28rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
   font-weight: 400;
   flex-shrink: 0;
 }
@@ -324,7 +324,7 @@
   font-size: 32rpx;
   font-weight: bold;
   line-height: 25rpx;
-  color: #847CFF;
+  color: var(--color-brand);
   margin-left: -15px;
   padding-right: 16rpx;
   white-space: nowrap;
@@ -356,7 +356,7 @@
 
 .forgot-pwd-btn {
   font-size: 26rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 底部 ===== */
@@ -408,19 +408,19 @@
 }
 
 .btn-login {
-  border-radius: 30rpx;
-  background-color: #000;
+  border-radius: var(--radius-xl);
+  background-color: var(--color-foreground);
   font-size: 60rpx;
-  color: #fff;
+  color: var(--color-card);
   font-weight: 500;
   text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
 }
 
 .btn-register {
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
   background-color: transparent;
   font-size: 60rpx;
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--color-muted-foreground);
   font-weight: 500;
   text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
 }
@@ -435,7 +435,7 @@
   text-align: center;
   margin-top: 40rpx;
   font-size: 22rpx;
-  color: #757171;
+  color: var(--color-muted-foreground);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -444,14 +444,14 @@
 .switch-login-line {
   flex: 1;
   height: 1rpx;
-  background: #979797;
+  background: var(--color-border);
   margin: 0 20rpx;
   max-width: 150rpx;
 }
 
 .switch-login-text {
   font-size: 28rpx;
-  color: #757171;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 第三方登录图标 ===== */
@@ -481,13 +481,13 @@
 .third-icon-label {
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
 }
 
 .third-icon-hint {
   margin-top: 2rpx;
   font-size: 20rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
 }
 
 /* ===== 协议勾选 ===== */
@@ -522,25 +522,25 @@
 .checkmark {
   width: 24rpx;
   height: 24rpx;
-  border: 3rpx solid #000;
-  border-radius: 8rpx;
+  border: 3rpx solid var(--color-foreground);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #fff;
+  background-color: var(--color-card);
   transition: all 0.3s ease-in-out;
 }
 
 .checkmark::before {
   content: '✓';
   font-size: 14rpx;
-  color: #fff;
+  color: var(--color-card);
   opacity: 0;
 }
 
 .checkmark.checked {
-  background-color: #000;
-  border-color: #000;
+  background-color: var(--color-foreground);
+  border-color: var(--color-foreground);
   transform: scale(1.1) rotateZ(360deg);
 }
 
@@ -553,10 +553,10 @@
   font-size: 26rpx;
   font-weight: normal;
   line-height: 36rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
 }
 
 .textItem {
-  color: #409EFF;
+  color: var(--color-link);
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

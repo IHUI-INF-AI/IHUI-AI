@@ -8,6 +8,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface TeacherCourse {
@@ -241,35 +242,33 @@ export default function TeacherDetail() {
                 {courses.map((c) => {
                   const price = formatPrice(c.price)
                   return (
-                    <View
-                      key={c.id}
-                      className="tdetail-course-card"
-                      onClick={() => onOpenCourse(c.id)}
-                    >
-                      {c.coverUrl ? (
-                        <Image
-                          className="tdetail-course-cover"
-                          src={c.coverUrl}
-                          mode="aspectFill"
-                        />
-                      ) : (
-                        <View className="tdetail-course-cover" />
-                      )}
-                      <View className="tdetail-course-body">
-                        <Text className="tdetail-course-title">{c.title}</Text>
-                        <View className="tdetail-course-meta">
-                          <Text
-                            className={`tdetail-course-price ${price.free ? 'tdetail-course-price-free' : ''}`}
-                          >
-                            {price.text}
-                          </Text>
-                          <Text className="tdetail-course-students">
-                            {formatStudents(c.students ?? 0)}
-                            {tt('teacher.detail.learnUnit', '人学习')}
-                          </Text>
+                    <ThemeRoot key={c.id}>
+                      <View className="tdetail-course-card" onClick={() => onOpenCourse(c.id)}>
+                        {c.coverUrl ? (
+                          <Image
+                            className="tdetail-course-cover"
+                            src={c.coverUrl}
+                            mode="aspectFill"
+                          />
+                        ) : (
+                          <View className="tdetail-course-cover" />
+                        )}
+                        <View className="tdetail-course-body">
+                          <Text className="tdetail-course-title">{c.title}</Text>
+                          <View className="tdetail-course-meta">
+                            <Text
+                              className={`tdetail-course-price ${price.free ? 'tdetail-course-price-free' : ''}`}
+                            >
+                              {price.text}
+                            </Text>
+                            <Text className="tdetail-course-students">
+                              {formatStudents(c.students ?? 0)}
+                              {tt('teacher.detail.learnUnit', '人学习')}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
+                    </ThemeRoot>
                   )
                 })}
               </View>

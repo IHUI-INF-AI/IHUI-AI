@@ -26,14 +26,14 @@
   height: 64rpx;
   border: 6rpx solid rgba(255, 255, 255, 0.25);
   border-top-color: var(--color-primary);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   animation: rc-spin 0.8s linear infinite;
 }
 .rc-loading-text {
   margin-top: 20rpx;
   font-size: 26rpx;
   /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: #fff;
+  color: var(--color-foreground);
 }
 @keyframes rc-spin {
   to {
@@ -46,12 +46,12 @@
   align-items: center;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .rc-user-avatar {
   width: 80rpx;
   height: 80rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-muted);
 }
 .rc-user-avatar--placeholder {
@@ -82,7 +82,7 @@
   margin-top: 24rpx;
   padding: 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
 }
 .rc-section-title {
@@ -101,7 +101,7 @@
   width: 200rpx;
   padding: 24rpx 0;
   text-align: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 2rpx solid var(--color-border);
   background: var(--color-secondary);
 }
@@ -129,7 +129,7 @@
   padding: 0 24rpx;
   font-size: 28rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-secondary);
   color: var(--color-foreground);
 }
@@ -146,7 +146,7 @@
 
 .rc-activity {
   margin-top: 24rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
   border: 2rpx solid var(--color-ring);
@@ -188,7 +188,7 @@
   margin-top: 20rpx;
   background: var(--color-primary);
   color: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 30rpx;
   font-weight: 700;
 }
@@ -197,7 +197,7 @@
   display: flex;
   align-items: center;
   padding: 16rpx 12rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 2rpx solid transparent;
 }
 .rc-method--active {
@@ -209,16 +209,16 @@
   height: 60rpx;
   line-height: 60rpx;
   text-align: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   background: var(--color-muted);
 }
 /* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝,无对应 token,保留原值 */
 .rc-method-icon--wx {
-  color: #09bb07;
+  color: rgba(9, 187, 7, 1);
 }
 .rc-method-icon--ali {
-  color: #1677ff;
+  color: rgba(22, 119, 255, 1);
 }
 .rc-method-name {
   flex: 1;
@@ -230,7 +230,7 @@
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   background: var(--color-secondary);
   display: flex;
   align-items: center;
@@ -254,7 +254,7 @@
   right: 32rpx;
   background: var(--color-primary);
   color: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 700;
 }

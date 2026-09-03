@@ -16,7 +16,7 @@
 .cc-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 24rpx;
 }
@@ -69,7 +69,7 @@
 .cc-img {
   width: 200rpx;
   height: 200rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .cc-del {
@@ -82,12 +82,12 @@
   align-items: center;
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   z-index: 2;
 }
 /* custom color: #fff 白色图标在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .cc-del-icon {
-  color: #fff;
+  color: var(--color-foreground);
   font-size: 28rpx;
   line-height: 1;
 }
@@ -101,7 +101,7 @@
   gap: 8rpx;
   background: var(--color-background);
   border: 2rpx dashed var(--color-ring);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .cc-add-icon {
   font-size: 56rpx;
@@ -122,7 +122,7 @@
   margin-right: 16rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 24rpx;
   color: var(--color-primary);
   flex-shrink: 0;
@@ -159,7 +159,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-background);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
@@ -171,7 +171,7 @@
   padding: 0 24rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .cc-aigc-picked-title {
   flex: 1;
@@ -203,7 +203,7 @@
   width: 100%;
   max-height: 70vh;
   background: var(--color-card);
-  border-radius: 24rpx 24rpx 0 0;
+  border-radius: var(--radius-xl) 24rpx 0 0;
   display: flex;
   flex-direction: column;
 }
@@ -236,7 +236,7 @@
 .cc-aigc-cover {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -284,7 +284,7 @@
   padding: 0 20rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 24rpx;
   color: var(--color-muted-foreground);
 }
@@ -318,7 +318,7 @@
   line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 600;
 }

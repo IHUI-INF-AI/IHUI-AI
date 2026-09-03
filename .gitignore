@@ -359,3 +359,6 @@ sdks/java/target/
 apps/web/public/apk/*.apk
 # git bundle 备份文件(并行会话产生,600MB+,防误提交)
 *.bundle
+# 并行会话导航/登录探测临时目录(2026-09-03:探针脚本 + 结果 JSON 就地生成,
+# 根目录整洁守门[44]按 git 官方 check-ignore 精确豁免,不入库防误 git add)
+.nav-probe/

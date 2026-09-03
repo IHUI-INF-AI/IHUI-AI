@@ -7,6 +7,7 @@ import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyPlan, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanItem {
   id: string
@@ -67,96 +68,98 @@ export default function StudyPlan() {
   })
 
   return (
-    <View className="min-h-screen bg-background pb-[120rpx]">
-      {list.length > 0 && (
-        <View className="p-3">
-          {list.map((p) => (
-            <View key={p.id} className="bg-card rounded-2xl p-3 mb-3">
-              <View className="flex justify-between items-center">
-                <Text className="text-sm text-foreground font-semibold">{p.title}</Text>
-                <Text className="text-xs text-muted-foreground">
-                  {t('study.planPage.target', { n: p.target })}
-                </Text>
-              </View>
-              <View className="h-1.5 bg-muted rounded mt-2">
-                <View className="h-full bg-primary rounded" style={{ width: `${p.progress}%` }} />
-              </View>
-              <View className="flex justify-between mt-1.5">
-                <Text className="text-xs text-muted-foreground">
-                  {t('study.planPage.completed', { n: p.progress })}
-                </Text>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[120rpx]">
+        {list.length > 0 && (
+          <View className="p-3">
+            {list.map((p) => (
+              <View key={p.id} className="bg-card rounded-2xl p-3 mb-3">
+                <View className="flex justify-between items-center">
+                  <Text className="text-sm text-foreground font-semibold">{p.title}</Text>
+                  <Text className="text-xs text-muted-foreground">
+                    {t('study.planPage.target', { n: p.target })}
+                  </Text>
+                </View>
+                <View className="h-1.5 bg-muted rounded mt-2">
+                  <View className="h-full bg-primary rounded" style={{ width: `${p.progress}%` }} />
+                </View>
+                <View className="flex justify-between mt-1.5">
+                  <Text className="text-xs text-muted-foreground">
+                    {t('study.planPage.completed', { n: p.progress })}
+                  </Text>
 
-                <Text
-                  className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[#ff9a3c]'}`}
-                >
-                  {p.progress >= p.target
-                    ? t('study.planPage.statusDone')
-                    : t('study.planPage.statusInProgress')}
-                </Text>
+                  <Text
+                    className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[rgba(255, 154, 60, 1)]'}`}
+                  >
+                    {p.progress >= p.target
+                      ? t('study.planPage.statusDone')
+                      : t('study.planPage.statusInProgress')}
+                  </Text>
+                </View>
               </View>
-            </View>
-          ))}
-        </View>
-      )}
-      {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-muted-foreground">
-          <Text>{t('study.planPage.empty')}</Text>
-        </View>
-      )}
-      <Button
-        className="fixed bottom-4 left-4 right-4 bg-primary text-white rounded-md text-sm"
-        onClick={onAdd}
-      >
-        {t('study.planPage.add')}
-      </Button>
-
-      {showAdd && (
-        <View
-          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
-          onClick={() => setShowAdd(false)}
+            ))}
+          </View>
+        )}
+        {!loading && list.length === 0 && (
+          <View className="text-center py-16 text-muted-foreground">
+            <Text>{t('study.planPage.empty')}</Text>
+          </View>
+        )}
+        <Button
+          className="fixed bottom-4 left-4 right-4 bg-primary text-white rounded-md text-sm"
+          onClick={onAdd}
         >
+          {t('study.planPage.add')}
+        </Button>
+
+        {showAdd && (
           <View
-            className="mx-6 w-full max-w-[600rpx] bg-card rounded-xl p-4"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40"
+            onClick={() => setShowAdd(false)}
           >
-            <Text className="block text-base text-foreground font-semibold mb-3">
-              {t('study.planPage.add')}
-            </Text>
-            <Input
-              className="h-9 px-3 bg-background rounded-md text-sm mb-3"
-              placeholder={t('study.publish.titlePlaceholder')}
-              value={newTitle}
-              onInput={(e) => setNewTitle(e.detail.value)}
-            />
-            <View className="flex items-center mb-3">
+            <View
+              className="mx-6 w-full max-w-[600rpx] bg-card rounded-xl p-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Text className="block text-base text-foreground font-semibold mb-3">
+                {t('study.planPage.add')}
+              </Text>
               <Input
-                className="h-9 px-3 bg-background rounded-md text-sm flex-1"
-                type="number"
-                placeholder={t('study.planPage.target', { n: 30 })}
-                value={newTarget}
-                onInput={(e) => setNewTarget(e.detail.value)}
+                className="h-9 px-3 bg-background rounded-md text-sm mb-3"
+                placeholder={t('study.publish.titlePlaceholder')}
+                value={newTitle}
+                onInput={(e) => setNewTitle(e.detail.value)}
               />
-            </View>
-            <View className="flex gap-3">
-              <Button
-                className="flex-1 h-9 leading-9 bg-muted text-foreground rounded-md text-sm"
-                onClick={() => setShowAdd(false)}
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                className="flex-1 h-9 leading-9 bg-primary text-white rounded-md text-sm"
-                loading={saving}
-                disabled={saving}
-                onClick={submitAdd}
-              >
-                {t('common.confirm')}
-              </Button>
+              <View className="flex items-center mb-3">
+                <Input
+                  className="h-9 px-3 bg-background rounded-md text-sm flex-1"
+                  type="number"
+                  placeholder={t('study.planPage.target', { n: 30 })}
+                  value={newTarget}
+                  onInput={(e) => setNewTarget(e.detail.value)}
+                />
+              </View>
+              <View className="flex gap-3">
+                <Button
+                  className="flex-1 h-9 leading-9 bg-muted text-foreground rounded-md text-sm"
+                  onClick={() => setShowAdd(false)}
+                >
+                  {t('common.cancel')}
+                </Button>
+                <Button
+                  className="flex-1 h-9 leading-9 bg-primary text-white rounded-md text-sm"
+                  loading={saving}
+                  disabled={saving}
+                  onClick={submitAdd}
+                >
+                  {t('common.confirm')}
+                </Button>
+              </View>
             </View>
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

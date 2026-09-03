@@ -8,6 +8,7 @@ import { View, Text, Image, Switch } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -86,87 +87,91 @@ export default function LiveSubscribe() {
   const statusText = (s: Live['status']) => tt(STATUS_LABEL[s].key, STATUS_LABEL[s].fb)
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
-      <View className="flex items-baseline text-[28rpx] text-foreground">
-        <Text>{tt('live.subscribe.count', '已订阅')}</Text>
-        <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
-        <Text>{tt('live.subscribe.unit', '场')}</Text>
-      </View>
-
-      <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[12rpx]">
-        <View>
-          <Text className="text-[28rpx] text-foreground">
-            {tt('live.subscribe.reminder', '开播前提醒')}
-          </Text>
-          <Text className="text-[24rpx] text-muted-foreground mt-[6rpx]">
-            {tt('live.subscribe.reminderDesc', '订阅直播开播前 10 分钟通知')}
-          </Text>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+        <View className="flex items-baseline text-[28rpx] text-foreground">
+          <Text>{tt('live.subscribe.count', '已订阅')}</Text>
+          <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
+          <Text>{tt('live.subscribe.unit', '场')}</Text>
         </View>
-        <Switch checked={reminder} onChange={(e) => toggleReminder(e.detail.value)} />
-      </View>
 
-      {list.length > 0 ? (
-        <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
-          {list.map((l) => (
-            <View
-              key={l.id}
-              className="flex items-stretch p-[20rpx] bg-card border border-border rounded-[12rpx]"
-            >
-              <Image
-                className="w-[160rpx] h-[120rpx] shrink-0 bg-muted rounded-[8rpx]"
-                src={l.coverUrl}
-                mode="aspectFill"
-                onClick={() => goDetail(l.id)}
-              />
+        <View className="mt-[20rpx] flex items-center justify-between p-[24rpx] bg-card border border-border rounded-[12rpx]">
+          <View>
+            <Text className="text-[28rpx] text-foreground">
+              {tt('live.subscribe.reminder', '开播前提醒')}
+            </Text>
+            <Text className="text-[24rpx] text-muted-foreground mt-[6rpx]">
+              {tt('live.subscribe.reminderDesc', '订阅直播开播前 10 分钟通知')}
+            </Text>
+          </View>
+          <Switch checked={reminder} onChange={(e) => toggleReminder(e.detail.value)} />
+        </View>
+
+        {list.length > 0 ? (
+          <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
+            {list.map((l) => (
               <View
-                className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between"
-                onClick={() => goDetail(l.id)}
+                key={l.id}
+                className="flex items-stretch p-[20rpx] bg-card border border-border rounded-[12rpx]"
               >
-                <Text className="text-[28rpx] font-semibold text-foreground">{l.title}</Text>
-                {l.anchor && <Text className="text-[24rpx] text-muted-foreground">{l.anchor}</Text>}
-                {l.startTime && (
-                  <Text className="text-[24rpx] text-muted-foreground">{l.startTime}</Text>
-                )}
-                <View className="flex items-center justify-between">
-                  <Text
-                    className={`px-[12rpx] py-[4rpx] rounded-[6rpx] text-[22rpx] ${STATUS_BADGE[l.status]}`}
-                  >
-                    {statusText(l.status)}
-                  </Text>
-                  <Text
-                    className="px-[20rpx] py-[8rpx] text-[24rpx] text-destructive bg-[rgba(221,82,77,0.08)] border-[2rpx] border-[rgba(221,82,77,0.25)] rounded-[8rpx]"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onUnsubscribe(l.id)
-                    }}
-                  >
-                    {tt('live.subscribe.unsubscribe', '取消订阅')}
-                  </Text>
+                <Image
+                  className="w-[160rpx] h-[120rpx] shrink-0 bg-muted rounded-[8rpx]"
+                  src={l.coverUrl}
+                  mode="aspectFill"
+                  onClick={() => goDetail(l.id)}
+                />
+                <View
+                  className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between"
+                  onClick={() => goDetail(l.id)}
+                >
+                  <Text className="text-[28rpx] font-semibold text-foreground">{l.title}</Text>
+                  {l.anchor && (
+                    <Text className="text-[24rpx] text-muted-foreground">{l.anchor}</Text>
+                  )}
+                  {l.startTime && (
+                    <Text className="text-[24rpx] text-muted-foreground">{l.startTime}</Text>
+                  )}
+                  <View className="flex items-center justify-between">
+                    <Text
+                      className={`px-[12rpx] py-[4rpx] rounded-[6rpx] text-[22rpx] ${STATUS_BADGE[l.status]}`}
+                    >
+                      {statusText(l.status)}
+                    </Text>
+                    <Text
+                      className="px-[20rpx] py-[8rpx] text-[24rpx] text-destructive bg-[rgba(221,82,77,0.08)] border-[2rpx] border-[rgba(221,82,77,0.25)] rounded-[8rpx]"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onUnsubscribe(l.id)
+                      }}
+                    >
+                      {tt('live.subscribe.unsubscribe', '取消订阅')}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <View className="flex flex-col items-center py-[120rpx]">
-          <Text className="text-[28rpx] text-muted-foreground">
-            {tt('live.subscribe.empty', '暂无订阅')}
-          </Text>
-          <Text
-            className="mt-[24rpx] px-[48rpx] py-[16rpx] text-[28rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]"
-            onClick={goDiscover}
-          >
-            {tt('live.subscribe.discover', '去发现直播')}
-          </Text>
-        </View>
-      )}
+            ))}
+          </View>
+        ) : (
+          <View className="flex flex-col items-center py-[120rpx]">
+            <Text className="text-[28rpx] text-muted-foreground">
+              {tt('live.subscribe.empty', '暂无订阅')}
+            </Text>
+            <Text
+              className="mt-[24rpx] px-[48rpx] py-[16rpx] text-[28rpx] text-primary bg-primary/10 border border-primary rounded-[8rpx]"
+              onClick={goDiscover}
+            >
+              {tt('live.subscribe.discover', '去发现直播')}
+            </Text>
+          </View>
+        )}
 
-      {loading && (
-        <View className="text-center text-[26rpx] text-muted-foreground py-[60rpx]">
-          <Text>{tt('common.loading', '加载中…')}</Text>
-        </View>
-      )}
-    </View>
+        {loading && (
+          <View className="text-center text-[26rpx] text-muted-foreground py-[60rpx]">
+            <Text>{tt('common.loading', '加载中…')}</Text>
+          </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

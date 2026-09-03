@@ -7,6 +7,7 @@ import { View } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVideoDetail } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   VideoPlayer,
   VideoInfo,
@@ -125,77 +126,79 @@ export default function VideoDetailPage() {
   }
 
   return (
-    <View className="min-h-screen bg-background">
-      <VideoPlayer src={info.playUrl} poster={info.coverUrl} loading={loading} />
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <VideoPlayer src={info.playUrl} poster={info.coverUrl} loading={loading} />
 
-      <VideoInfo
-        info={{
-          title: info.title,
-          description: info.description,
-          teacher: info.teacher,
-          duration: info.duration,
-          chapterCount: info.chapters?.length,
-          tags: info.tags,
-        }}
-      />
-
-      <LikeFavoriteShare
-        likeCount={likeCount}
-        favoriteCount={favoriteCount}
-        shareCount={shareCount}
-        liked={liked}
-        favorited={favorited}
-        onLike={handleLike}
-        onFavorite={handleFavorite}
-        onShare={handleShare}
-      />
-
-      <View className="mx-3 mt-3 bg-card rounded-xl overflow-hidden">
-        <VideoTabs
-          tabs={[
-            {
-              key: 'catalog',
-              label: t('study.videoDetail.tabsCatalog'),
-              count: info.chapters?.length,
-            },
-            { key: 'intro', label: t('study.videoDetail.tabsIntro') },
-            { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
-          ]}
-          active={activeTab}
-          onChange={setActiveTab}
+        <VideoInfo
+          info={{
+            title: info.title,
+            description: info.description,
+            teacher: info.teacher,
+            duration: info.duration,
+            chapterCount: info.chapters?.length,
+            tags: info.tags,
+          }}
         />
 
-        {activeTab === 'catalog' && (
-          <Catalog
-            chapters={info.chapters}
-            currentId={currentChapter}
-            loading={loading}
-            onSelect={handleChapterSelect}
-          />
-        )}
+        <LikeFavoriteShare
+          likeCount={likeCount}
+          favoriteCount={favoriteCount}
+          shareCount={shareCount}
+          liked={liked}
+          favorited={favorited}
+          onLike={handleLike}
+          onFavorite={handleFavorite}
+          onShare={handleShare}
+        />
 
-        {activeTab === 'intro' && <Introduction content={info.description} />}
-
-        {activeTab === 'comment' && (
-          <Comment
-            comments={comments}
-            inputValue={commentInput}
-            onInput={setCommentInput}
-            onSubmit={handleSubmitComment}
+        <View className="mx-3 mt-3 bg-card rounded-xl overflow-hidden">
+          <VideoTabs
+            tabs={[
+              {
+                key: 'catalog',
+                label: t('study.videoDetail.tabsCatalog'),
+                count: info.chapters?.length,
+              },
+              { key: 'intro', label: t('study.videoDetail.tabsIntro') },
+              { key: 'comment', label: t('study.videoDetail.tabsComment'), count: comments.length },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
           />
-        )}
+
+          {activeTab === 'catalog' && (
+            <Catalog
+              chapters={info.chapters}
+              currentId={currentChapter}
+              loading={loading}
+              onSelect={handleChapterSelect}
+            />
+          )}
+
+          {activeTab === 'intro' && <Introduction content={info.description} />}
+
+          {activeTab === 'comment' && (
+            <Comment
+              comments={comments}
+              inputValue={commentInput}
+              onInput={setCommentInput}
+              onSubmit={handleSubmitComment}
+            />
+          )}
+        </View>
+
+        <PayPopup
+          visible={showPay}
+          pay={payInfo}
+          onClose={() => setShowPay(false)}
+          onPay={() => {
+            setShowPay(false)
+            Taro.navigateTo({ url: '/pages/pay/index' })
+          }}
+        />
       </View>
-
-      <PayPopup
-        visible={showPay}
-        pay={payInfo}
-        onClose={() => setShowPay(false)}
-        onPay={() => {
-          setShowPay(false)
-          Taro.navigateTo({ url: '/pages/pay/index' })
-        }}
-      />
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

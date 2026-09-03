@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperWithdrawalList } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
 interface WithdrawalItem {
@@ -90,7 +91,7 @@ export default function DeveloperWithdrawal() {
     // 保留:#007aff iOS 蓝(processing 状态);token 系统无对应 iOS 平台蓝,保留原值
     const styles: Record<string, string> = {
       pending: 'text-warning bg-[rgba(255,149,0,0.1)]',
-      processing: 'text-[#007aff] bg-[rgba(0,122,255,0.1)]',
+      processing: 'text-[rgba(0, 122, 255, 1)] bg-[rgba(0,122,255,0.1)]',
       success: 'text-success bg-[rgba(52,199,89,0.1)]',
       failed: 'text-destructive bg-[rgba(255,59,48,0.1)]',
     }
@@ -114,64 +115,66 @@ export default function DeveloperWithdrawal() {
   )
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="px-[30rpx] py-[20rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">
-          {t('developer.withdrawal.title')}
-        </Text>
-      </View>
-      <View className="flex mx-[20rpx] my-[20rpx] bg-card rounded-[12rpx] py-[24rpx]">
-        <View className="flex-1 flex flex-col items-center">
-          <Text className="text-[22rpx] text-muted-foreground">
-            {t('developer.income.withdrawnYuan')}
-          </Text>
-          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
-            {loading ? '--' : totalAmount}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="px-[30rpx] py-[20rpx] bg-card">
+          <Text className="text-[36rpx] font-bold text-foreground">
+            {t('developer.withdrawal.title')}
           </Text>
         </View>
-        <View className="flex-1 flex flex-col items-center">
-          <Text className="text-[22rpx] text-muted-foreground">
-            {t('developer.income.withdrawn')}
-          </Text>
-          <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
-            {loading ? '--' : totalSuccess}
-          </Text>
+        <View className="flex mx-[20rpx] my-[20rpx] bg-card rounded-[12rpx] py-[24rpx]">
+          <View className="flex-1 flex flex-col items-center">
+            <Text className="text-[22rpx] text-muted-foreground">
+              {t('developer.income.withdrawnYuan')}
+            </Text>
+            <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+              {loading ? '--' : totalAmount}
+            </Text>
+          </View>
+          <View className="flex-1 flex flex-col items-center">
+            <Text className="text-[22rpx] text-muted-foreground">
+              {t('developer.income.withdrawn')}
+            </Text>
+            <Text className="text-[34rpx] font-semibold text-foreground mt-[8rpx]">
+              {loading ? '--' : totalSuccess}
+            </Text>
+          </View>
         </View>
-      </View>
-      <View className="p-[20rpx]">
-        {loading ? (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
-            {t('common.loading')}
-          </Text>
-        ) : list.length ? (
-          list.map((item) => (
-            <View
-              key={item.id}
-              className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
-            >
-              <View className="flex-1">
-                <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">
-                  ¥{item.amount}
-                </Text>
-                <Text className="block text-[24rpx] text-muted-foreground">
-                  {displayTime(item)}
-                </Text>
-                {displayReason(item) ? (
-                  <Text className="block text-[22rpx] text-destructive mt-[6rpx]">
-                    {displayReason(item)}
+        <View className="p-[20rpx]">
+          {loading ? (
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+              {t('common.loading')}
+            </Text>
+          ) : list.length ? (
+            list.map((item) => (
+              <View
+                key={item.id}
+                className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+              >
+                <View className="flex-1">
+                  <Text className="block text-[32rpx] text-foreground font-semibold mb-[8rpx]">
+                    ¥{item.amount}
                   </Text>
-                ) : null}
+                  <Text className="block text-[24rpx] text-muted-foreground">
+                    {displayTime(item)}
+                  </Text>
+                  {displayReason(item) ? (
+                    <Text className="block text-[22rpx] text-destructive mt-[6rpx]">
+                      {displayReason(item)}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text className={statusClass(item)}>{item.statusText || statusText(item)}</Text>
               </View>
-              <Text className={statusClass(item)}>{item.statusText || statusText(item)}</Text>
-            </View>
-          ))
-        ) : (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
-            {t('developer.withdrawal.empty')}
-          </Text>
-        )}
+            ))
+          ) : (
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+              {t('developer.withdrawal.empty')}
+            </Text>
+          )}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

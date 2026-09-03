@@ -50,7 +50,7 @@
   margin: 20rpx;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .section-title {
   font-size: 32rpx;
@@ -112,7 +112,7 @@
 .priv-icon-default {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: rgba(245, 158, 11, 0.1);
   display: flex;
   align-items: center;
@@ -184,7 +184,7 @@
   background: var(--color-primary);
   color: var(--color-foreground);
   font-size: 32rpx;
-  border-radius: 44rpx;
+  border-radius: var(--radius-2xl);
   display: flex;
   align-items: center;
   justify-content: center;

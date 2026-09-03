@@ -15,7 +15,7 @@
   margin-bottom: 24rpx;
   padding: 20rpx 32rpx;
   background: var(--color-secondary);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 2rpx solid var(--color-border);
   text-align: center;
 }
@@ -35,7 +35,7 @@
 .py-amount-card {
   padding: 40rpx 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
   text-align: center;
 }
@@ -62,7 +62,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
 }
 .py-order-row {
@@ -88,7 +88,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
 }
 .py-section-title {
@@ -102,7 +102,7 @@
   display: flex;
   align-items: center;
   padding: 20rpx 12rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 2rpx solid transparent;
 }
 .py-method--active {
@@ -114,7 +114,7 @@
   height: 64rpx;
   line-height: 64rpx;
   text-align: center;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   background: var(--color-muted);
   font-weight: 700;
@@ -148,13 +148,13 @@
   font-size: 24rpx;
   color: var(--color-primary);
   border: 2rpx solid var(--color-primary);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .py-radio {
   width: 36rpx;
   height: 36rpx;
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   background: var(--color-secondary);
   display: flex;
   align-items: center;
@@ -178,7 +178,7 @@
   margin-top: 24rpx;
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
 }
 .py-coupon-label {
@@ -211,7 +211,7 @@
   right: 32rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 700;
 }
