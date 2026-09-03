@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { CarouselItem } from '@ihui/types'
 
 /**
@@ -91,10 +92,12 @@ export function Carousel({
   autoplayInterval = 3000,
   onItemPress,
   className,
-  colorScheme = 'light',
+  colorScheme,
 }: CarouselProps) {
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
   // 触发主题 token 解析,确保 brand 颜色被引用
-  void getRnTokens(colorScheme)
+  void getRnTokens(effectiveScheme)
   const [current, setCurrent] = useState(0)
   const [windowWidth, setWindowWidth] = useState<number>(getWindowWidth)
 
