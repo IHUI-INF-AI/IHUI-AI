@@ -31,6 +31,41 @@
     "loadFailed": "강좌 불러오기 실패",
     "playError": "재생 오류"
   },
+  "teacher": {
+    "list": {
+      "title": "강사",
+      "searchPlaceholder": "강사 검색",
+      "courseCount": "{n}개 강의",
+      "studentCount": "{n}명",
+      "empty": "강사 없음"
+    },
+    "detail": {
+      "courses": "강의",
+      "students": "학생",
+      "intro": "소개",
+      "viewCourses": "강의 보기",
+      "unfollowed": "취소됨",
+      "contactMessage": "메시지 보내기",
+      "contactPhone": "전화 연락",
+      "phoneHint": "연락처가 복사되었습니다",
+      "fans": "팬",
+      "goldBadge": "골드 강사",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "courseSection": "담당 강의",
+      "learnUnit": "명 학습",
+      "noCourses": "강의가 없습니다",
+      "reviewSection": "수강생 평가",
+      "noReviews": "평가가 없습니다",
+      "contact": "강사에게 연락",
+      "follow": "+ 팔로우",
+      "followed": "팔로우됨",
+      "following": "팔로우 중",
+      "imSoon": "쪽지 기능 곧 오픈 예정",
+      "notFound": "강사를 찾을 수 없습니다",
+      "rating": "평점"
+    }
+  },
   "live": {
     "title": "라이브",
     "viewerCount": "{count}명 시청 중",
