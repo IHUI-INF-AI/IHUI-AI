@@ -31,13 +31,44 @@ import {
   SIDEBAR_WIDTH_STORAGE_KEY,
 } from '../sidebar'
 
-const Sidebar = React.memo(function Sidebar({
-  id,
-  collapsed,
-  onToggleCollapse,
-  mobileOpen,
-  onCloseMobile,
-}: SidebarProps) {
+const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: SidebarProps) {
+  // 性能优化(2026-09-04 用户授权"最快速度"):折叠状态 collapsed 从 GlobalShell 下沉到 Sidebar 内部。
+  // 根因:collapsed 原先在 GlobalShell 顶层 useState,点击折叠 → setCollapsed → GlobalShell 重渲染 →
+  // 整个应用(当前页面 children + AISidePanel + WebWorkPanel + 顶层 TooltipProvider)全部重渲染。
+  // 下沉后折叠只触发 Sidebar 自身重渲染(这是必要的,折叠需切换导航项图标态),不牵连应用其余部分。
+  // 宽度仍由 CSS 变量 --sidebar-width 驱动(下方 effect 设置),CSS 自动处理布局,无需 React 重排右列。
+  const [collapsed, setCollapsed] = React.useState(false)
+  const onToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
+
+  // 挂载时从 localStorage 恢复折叠偏好(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved === 'true') setCollapsed(true)
+    } catch {
+      // localStorage 不可用
+    }
+  }, [])
+
+  // 持久化折叠偏好(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', String(collapsed))
+    } catch {
+      // localStorage 不可用
+    }
+  }, [collapsed])
+
+  // 跨标签页同步:其他标签页切换折叠时,本标签页跟随(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
+      setCollapsed(e.newValue === 'true')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const t = useTranslations('nav')
   const tc = useTranslations('common')
   const pathname = usePathname()
