@@ -119,7 +119,7 @@ async def test_first_round_streaming_no_tool_calls(client: AsyncClient, monkeypa
 # =============================================================================
 
 async def test_first_round_streaming_with_tool_calls(client: AsyncClient, monkeypatch):
-    """第一轮流式携带 tool_calls → 工具执行(tool-call-start/tool-result)→ 后续轮 complete → done。"""
+    """第一轮流式携带 tool_calls → 工具执行 → 后续轮 complete → done。"""
     from app.routers import llm as llm_router
     from app.services.mcp_server import mcp_server as _mcp_inst
 
@@ -202,7 +202,7 @@ async def test_subsequent_round_complete_chunked_fallback(client: AsyncClient, m
     from app.routers import llm as llm_router
     from app.services.mcp_server import mcp_server as _mcp_inst
 
-    LONG_CONTENT = "这是一段用于验证拆块流式输出的较长的中文测试内容。"
+    long_content = "这是一段用于验证拆块流式输出的较长的中文测试内容。"
 
     async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
         """第一轮:仅产出 tool_calls(无 content),触发工具执行。"""
@@ -222,7 +222,7 @@ async def test_subsequent_round_complete_chunked_fallback(client: AsyncClient, m
     async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
         """第二轮 complete:返回长 content 且无 tool_calls → 应触发拆块兜底。"""
         return {
-            "content": LONG_CONTENT,
+            "content": long_content,
             "model": "test-model",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
             "stub": True,
@@ -256,7 +256,7 @@ async def test_subsequent_round_complete_chunked_fallback(client: AsyncClient, m
 
     # 累计 content 完整
     chunk_text = "".join(e["data"].get("content", "") for e in chunk_events)
-    assert chunk_text == LONG_CONTENT
+    assert chunk_text == long_content
 
     # 最终 done
     done_events = [e for e in events if e["event"] == "done"]
@@ -357,4 +357,104 @@ async def test_astream_litellm_accumulates_tool_call_fragments(monkeypatch):
 
     # done 为最后一个事件
     assert events[-1]["type"] == "done"
+
+
+# =============================================================================
+# 5. 工具循环后续轮 complete 空 content → 不再插入"抱歉"假文案(2026-09-03 修复)
+# =============================================================================
+
+FALLBACK_TEXT = "抱歉,未能生成有效回复,请换个说法重试一下。"
+
+
+async def test_subsequent_round_empty_content_no_fallback_after_tools(
+    client: AsyncClient, monkeypatch
+):
+    """工具已执行(tool_calls_history 非空)后 complete 返回空 content → 流中不出现假文案 chunk。
+
+    2026-09-03 修复(llm.py tool loop 兜底):此前无条件插入"抱歉,未能生成有效回复"假文案,
+    会被 CLI 拼接进 assistantText 存入 assistant 消息回传 provider,污染对话上下文。
+    修复后仅当本轮循环未执行过任何工具时才兜底(对齐 generic astream 的 _had_tools 模式)。
+    """
+    from app.routers import llm as llm_router
+    from app.services.mcp_server import mcp_server as _mcp_inst
+
+    async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
+        """第一轮:仅产出 tool_calls(无 content),触发工具执行。"""
+        yield {
+            "type": "tool_calls",
+            "tool_calls": [
+                {
+                    "index": 0,
+                    "id": "c3",
+                    "type": "function",
+                    "function": {"name": "web_search", "arguments": '{"q":"空回复"}'},
+                }
+            ],
+        }
+        yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+    async def mock_complete(messages, model=None, owner_uuid=None, **kwargs):
+        """第二轮 complete:返回空 content(agent 场景正常形态)→ 不得插入假文案。"""
+        return {
+            "content": "",
+            "model": "test-model",
+            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "stub": True,
+        }
+
+    async def mock_call_tool(name, arguments, **kwargs):
+        return {"tool": name, "ok": True, "mock": True, "message": f"mock execution of {name}"}
+
+    monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
+    monkeypatch.setattr(llm_router.llm_gateway, "complete", mock_complete)
+    monkeypatch.setattr(_mcp_inst, "call_tool", mock_call_tool)
+
+    raw = await _stream_chat(client, {
+        "messages": [{"role": "user", "content": "搜索后空回复"}],
+        "model": "test-model",
+        "agent_tools": ["web_search"],
+    })
+    events = _parse_sse_events(raw)
+
+    # 工具确实执行过(前置条件:tool_calls_history 非空)
+    tool_result_events = [e for e in events if e["event"] == "tool-result"]
+    assert len(tool_result_events) == 1
+
+    # 关键断言:流中不出现假文案(既无完全匹配,也无任何 chunk 拼出该文案)
+    chunk_text = "".join(
+        e["data"].get("content", "") for e in events if e["event"] == "chunk"
+    )
+    assert FALLBACK_TEXT not in chunk_text
+    assert "未能生成有效回复" not in chunk_text
+
+    # 流正常收尾(仍产出 done,不因空 content 中断)
+    done_events = [e for e in events if e["event"] == "done"]
+    assert len(done_events) == 1
+
+
+async def test_empty_content_fallback_when_no_tools_executed(
+    client: AsyncClient, monkeypatch
+):
+    """未执行任何工具 + LLM 真正空回复 → 兜底假文案仍然生效(用户不至于收到空消息)。"""
+    from app.routers import llm as llm_router
+
+    async def mock_astream(messages, model=None, owner_uuid=None, **kwargs):
+        """第一轮流式:既无 content 也无 tool_calls(真正空输出)。"""
+        yield {"type": "done", "model": "test-model", "usage": {}, "stub": True}
+
+    monkeypatch.setattr(llm_router.llm_gateway, "astream", mock_astream)
+
+    raw = await _stream_chat(client, {
+        "messages": [{"role": "user", "content": "你好"}],
+        "model": "test-model",
+        "agent_tools": ["web_search"],
+    })
+    events = _parse_sse_events(raw)
+
+    # 关键断言:无工具执行的空回复仍走兜底,用户能收到提示文案
+    chunk_text = "".join(
+        e["data"].get("content", "") for e in events if e["event"] == "chunk"
+    )
+    assert FALLBACK_TEXT in chunk_text
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
