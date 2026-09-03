@@ -19,6 +19,7 @@ import DrawerComponent from '@/components/DrawerComponent'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
+import ThemeRoot from '@/components/ThemeRoot'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
@@ -609,13 +610,13 @@ export default function Community() {
   }))
 
   return (
-    <View
-      className="community-out-container"
-      style={{
-        height: showCategoryPopup ? '100vh' : 'auto',
-        overflowY: showCategoryPopup ? 'hidden' : 'auto',
-      }}
-    >
+    <ThemeRoot className="community-out-container">
+      <View
+        style={{
+          height: showCategoryPopup ? '100vh' : 'auto',
+          overflowY: showCategoryPopup ? 'hidden' : 'auto',
+        }}
+      >
       {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
       <DrawerComponent
         visible={showDrawer}
@@ -633,7 +634,7 @@ export default function Community() {
         }}
       />
 
-      <View className="community-main-container" style={{ color: 'white' }}>
+      <View className="community-main-container" style={{ color: 'var(--color-foreground)' }}>
         {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
         <FloatBox />
 
@@ -952,7 +953,8 @@ export default function Community() {
           }
         }}
       />
-    </View>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

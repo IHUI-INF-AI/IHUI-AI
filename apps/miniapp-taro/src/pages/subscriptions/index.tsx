@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useCallback } from 'react'
 import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 
@@ -78,7 +79,7 @@ export default function SubscriptionsPage() {
             const title = item.title || item.name || targetTypeLabel(item.targetType)
             const sub = item.description || targetTypeLabel(item.targetType)
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center justify-between"
               >
@@ -106,7 +107,7 @@ export default function SubscriptionsPage() {
                   {t('subscriptions.delete')}
                 </Text>
               </View>
-            )
+            </ThemeRoot>)
           })}
           <View className="text-center py-[32rpx]">
             {loading ? (

@@ -7,6 +7,7 @@ import { View, Text, Input, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** AI 工具榜单条目(后端字段命名不统一,pick 函数兼容多命名) */
 interface ToolItem {
@@ -185,7 +186,7 @@ export default function RankingIndex() {
               pick(raw, ['category', 'cate']) || tt('ranking.generalHelper', '通用助手')
             const price = pick(raw, ['price']) || tt('ranking.free', '免费')
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex items-start bg-card border border-border rounded-[12rpx] p-[24rpx] mb-[16rpx]"
                 onClick={() => goDetail(item.id)}
@@ -219,7 +220,7 @@ export default function RankingIndex() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}

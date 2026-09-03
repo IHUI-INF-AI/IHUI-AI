@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -207,7 +208,7 @@ export default function StudyRecord() {
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View
+              <ThemeRoot><View
                 key={r.id}
                 className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]"
                 onClick={() => goCourse(r.courseId)}
@@ -246,7 +247,7 @@ export default function StudyRecord() {
                   </Text>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}

@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
+import ThemeRoot from '@/components/ThemeRoot'
 import './income.css'
 
 interface BuyInfo {
@@ -271,7 +272,7 @@ export default function DeveloperIncome() {
   ]
 
   return (
-    <View className="income-page">
+    <ThemeRoot><View className="income-page">
       <View className="income-header">
         <Text className="income-back" onClick={onBack}>
           ‹
@@ -406,8 +407,8 @@ export default function DeveloperIncome() {
                   height: '44rpx',
                   lineHeight: '44rpx',
                   textAlign: 'center',
-                  background: '#7b61ff',
-                  color: '#fff',
+                  background: 'rgba(123, 97, 255, 1)',
+                  color: 'var(--color-foreground)',
                   borderRadius: '10rpx',
                   fontSize: '24rpx',
                   marginRight: '16rpx',
@@ -429,7 +430,7 @@ export default function DeveloperIncome() {
                 alignItems: 'center',
                 width: '100%',
                 padding: '20rpx',
-                background: incomeType === 'wechat' ? '#f3eeff' : 'var(--color-background)',
+                background: incomeType === 'wechat' ? 'rgba(243, 238, 255, 1)' : 'var(--color-background)',
                 borderRadius: '12rpx',
                 marginBottom: '28rpx',
                 boxSizing: 'border-box',
@@ -443,7 +444,7 @@ export default function DeveloperIncome() {
                   lineHeight: '48rpx',
                   textAlign: 'center',
                   background: 'var(--color-wechat-green)',
-                  color: '#fff',
+                  color: 'var(--color-foreground)',
                   borderRadius: '10rpx',
                   fontSize: '24rpx',
                   marginRight: '16rpx',
@@ -613,6 +614,6 @@ export default function DeveloperIncome() {
         </View>
       ) : null}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

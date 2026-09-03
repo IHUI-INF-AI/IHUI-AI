@@ -16,7 +16,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
 }
 .tabs {
@@ -39,7 +39,7 @@
 }
 .item {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 24rpx;
 }
@@ -100,7 +100,7 @@
   text-align: center;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 60rpx;
   box-shadow: 0 4rpx 20rpx rgba(7, 193, 96, 0.4);
 }
