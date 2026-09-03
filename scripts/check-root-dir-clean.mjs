@@ -23,6 +23,7 @@
  * 守门范围,由 .gitignore 与各自的临时产物目录语义兜底。
  */
 import { readdirSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -135,12 +136,69 @@ const ALLOWED_HIDDEN_DIRS = new Set([
 ])
 
 // ============================================================================
+// 精确豁免(2026-09-03)
+//
+// 背景:守门原只按白名单硬匹配,导致两类「合法且必然存在」的一级条目被误报,
+//       使所有人 commit 被无谓阻塞(曾连撞 .next + .wt6):
+//   ① .next —— 已在 .gitignore 且 git 未跟踪的构建产物(跑过 next dev/build 必有);
+//   ② .wt6  —— git worktree 目录,而 AGENTS.md §12d 明确鼓励用 worktree 做多会话隔离,
+//              守门把它当垃圾目录与项目规范自相矛盾。
+// 判定一律走 git 官方机制(check-ignore / worktree list),不靠名字猜测:
+//   仍被拦截的是「未忽略、非 worktree 的白名单外条目」,即真正的随手垃圾。
+// ============================================================================
+
+/** git 已忽略的一级条目(.gitignore 覆盖 → 不参与跟踪,不该阻塞 commit) */
+function getIgnoredEntries(names) {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'check-ignore', '--stdin', '-z'], {
+      input: names.join('\0'),
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore'],
+    })
+    return new Set(out.split('\0').filter(Boolean))
+  } catch {
+    // check-ignore 无匹配时 exit 1;git 不可用同理 → 空集合(维持原拦截行为)
+    return new Set()
+  }
+}
+
+/** git worktree 注册目录(仅取一级子目录,主 worktree 自身不计) */
+function getWorktreeDirNames() {
+  try {
+    const out = execFileSync('git', ['-C', ROOT, 'worktree', 'list', '--porcelain'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    const rootPosix = ROOT.split('\\').join('/')
+    const names = new Set()
+    for (const line of out.split('\n')) {
+      if (!line.startsWith('worktree ')) continue
+      const p = line.slice('worktree '.length).trim().split('\\').join('/')
+      if (p === rootPosix) continue // 主 worktree 自身
+      if (!p.startsWith(rootPosix + '/')) continue // 仓库外的 worktree,不在一级目录范围
+      const rel = p.slice(rootPosix.length + 1)
+      if (rel && !rel.includes('/')) names.add(rel)
+    }
+    return names
+  } catch {
+    return new Set()
+  }
+}
+
+// ============================================================================
 // 扫描
 // ============================================================================
 
+const entries = readdirSync(ROOT)
+const ignoredEntries = getIgnoredEntries(entries)
+const worktreeDirs = getWorktreeDirNames()
+
 const violations = []
 
-for (const name of readdirSync(ROOT)) {
+for (const name of entries) {
+  // 精确豁免:git 已忽略的产物 / git worktree 注册目录(见上「精确豁免」注释)
+  if (ignoredEntries.has(name) || worktreeDirs.has(name)) continue
+
   const isHidden = name.startsWith('.')
   const isDir = statSync(join(ROOT, name)).isDirectory()
 
