@@ -61,15 +61,15 @@ import { startAutoRefresh } from '@/lib/tokenUtils'
  * - MainShell:仅负责 (main) 路由组的工作区面板样式(圆角卡片 + padding + TagsView)
  *   现已精简,不再渲染 Sidebar/AISidePanel,避免与 GlobalShell 重复挂载
  *
- * sidebar-collapsed 状态同步:
- * - localStorage 持久化(桌面端折叠态)
- * - storage 事件跨标签页同步
+ * sidebar-collapsed 状态同步(2026-09-04 下沉到 Sidebar 内部):
+ * - collapsed 状态原在 GlobalShell,现下沉到 Sidebar 内部(性能优化:折叠只重渲染 Sidebar,
+ *   不牵连 GlobalShell 的 children/AISidePanel/WebWorkPanel)
+ * - localStorage 持久化 + storage 事件跨标签页同步均由 Sidebar 内部管理
  * - 折叠/展开/拖拽宽度通过 :root --sidebar-width CSS 变量传递给 AISidePanel
- *   (见 sidebar.tsx 第 1117 行 useEffect)
+ *   (见 sidebar.tsx 的 useEffect)
  */
 export function GlobalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const [collapsed, setCollapsed] = React.useState(false)
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const t = useTranslations('a11y')
   // 静态 ID(非 useId),避免 React 18 useId 在 SSR/CSR 之间偶尔漂移导致 hydration mismatch。
@@ -113,26 +113,16 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
     document.documentElement.style.setProperty('--ai-panel-occupy', `${occupy}px`)
   }, [aiOpen, aiWidth, aiFloatMode, aiFloatMinimized])
 
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem('sidebar-collapsed')
-      if (saved === 'true') setCollapsed(true)
-    } catch {
-      // localStorage 不可用
-    }
-  }, [])
-
   // 小尺寸侧边栏折叠改用纯 CSS 方案(2026-08-02 修订):
   // - 旧方案用 useIsMobile + setCollapsed effect,但 useIsMobile SSR 返回 false / CSR 返回 true
   //   导致 hydration mismatch + 闪烁(首帧展开态 → effect 跑 setCollapsed(true) → 重渲染折叠态)
   // - 新方案:不在 JS 层强制 collapsed,改由 sidebar.tsx aside 加 CSS 媒体查询类
   //   `max-[1023px]:!w-[60px]` 在小尺寸下强制 60px 折叠宽度,导航项用 collapsed prop 控制图标态
-  // - collapsed prop 仍由用户手动折叠按钮控制(持久化 localStorage),小尺寸 CSS 只覆盖宽度
-  //   不改 collapsed state,避免 hydration 问题和 JS 时序闪烁
+  // - collapsed 状态已下沉到 Sidebar 内部(2026-09-04 性能优化),GlobalShell 不再持有。
+  //   小尺寸 CSS 只覆盖宽度,不改 collapsed state,避免 hydration 问题和 JS 时序闪烁。
 
   // 2026-08-05 性能优化:useCallback 稳定回调引用,配合 React.memo(Sidebar) 防止
   // GlobalShell 重渲染时 Sidebar 因 props 引用变化而跟随重渲染。
-  const handleToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
   const handleCloseMobile = React.useCallback(() => setMobileOpen(false), [])
 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -173,24 +163,6 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
       }
     }
   }, [mounted, isAuthenticated, token, refreshToken])
-
-  React.useEffect(() => {
-    try {
-      localStorage.setItem('sidebar-collapsed', String(collapsed))
-    } catch {
-      // localStorage 不可用
-    }
-  }, [collapsed])
-
-  // 侧边栏折叠状态跨标签页同步:其他标签页切换折叠时,本标签页跟随
-  React.useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
-      setCollapsed(e.newValue === 'true')
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
 
   React.useEffect(() => {
     if (!mobileOpen) return
@@ -242,13 +214,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
               />
             }
           >
-            <Sidebar
-              id={sidebarId}
-              collapsed={collapsed}
-              onToggleCollapse={handleToggleCollapse}
-              mobileOpen={mobileOpen}
-              onCloseMobile={handleCloseMobile}
-            />
+            <Sidebar id={sidebarId} mobileOpen={mobileOpen} onCloseMobile={handleCloseMobile} />
           </React.Suspense>
 
           {/* 右列:flex-row 横向排列(AISidePanel + work-area + WebWorkPanel)
