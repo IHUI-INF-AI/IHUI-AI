@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import Carousel from '@/components/Carousel'
 import SectionHeader from '@/components/SectionHeader'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanetCourse {
   id: string
@@ -177,159 +178,165 @@ export default function CoursePlanet() {
 
   if (loading && allList.length === 0) {
     return (
-      <View className="min-h-screen bg-background">
-        <View className="p-[24rpx] bg-card">
-          <Text className="text-[36rpx] font-semibold text-foreground">
-            {t('coursePlanet.title')}
-          </Text>
+      <ThemeRoot>
+        <View className="min-h-screen bg-background">
+          <View className="p-[24rpx] bg-card">
+            <Text className="text-[36rpx] font-semibold text-foreground">
+              {t('coursePlanet.title')}
+            </Text>
+          </View>
+          <View className="p-[24rpx]">
+            <Text className="block text-center text-muted-foreground py-[80rpx]">
+              {t('common.loading')}
+            </Text>
+          </View>
         </View>
-        <View className="p-[24rpx]">
-          <Text className="block text-center text-muted-foreground py-[80rpx]">
-            {t('common.loading')}
-          </Text>
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   if (error && allList.length === 0) {
     return (
+      <ThemeRoot>
+        <View className="min-h-screen bg-background">
+          <View className="p-[24rpx] bg-card">
+            <Text className="text-[36rpx] font-semibold text-foreground">
+              {t('coursePlanet.title')}
+            </Text>
+          </View>
+          <View className="p-[24rpx]">
+            <Text className="block text-center text-muted-foreground py-[40rpx]">
+              {tt('coursePlanet.loadFailed', '加载失败')}
+            </Text>
+            <Text
+              className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+              onClick={loadData}
+            >
+              {t('common.retry')}
+            </Text>
+          </View>
+        </View>
+      </ThemeRoot>
+    )
+  }
+
+  return (
+    <ThemeRoot>
       <View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
           </Text>
         </View>
-        <View className="p-[24rpx]">
-          <Text className="block text-center text-muted-foreground py-[40rpx]">
-            {tt('coursePlanet.loadFailed', '加载失败')}
-          </Text>
-          <Text
-            className="inline-block mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
-            onClick={loadData}
-          >
-            {t('common.retry')}
-          </Text>
-        </View>
-      </View>
-    )
-  }
-
-  return (
-    <View className="min-h-screen bg-background">
-      <View className="p-[24rpx] bg-card">
-        <Text className="text-[36rpx] font-semibold text-foreground">
-          {t('coursePlanet.title')}
-        </Text>
-      </View>
-      <ScrollView scrollX className="whitespace-nowrap bg-card">
-        <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
-          {CATEGORY_KEYS.map((cat) => (
-            <Text
-              key={cat.key}
-              className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
-              onClick={() => onCategoryChange(cat.key)}
-            >
-              {tt(cat.label, cat.key)}
-            </Text>
-          ))}
-        </View>
-      </ScrollView>
-      {displayList.length > 0 && (
-        <View className="px-[24rpx] mb-[16rpx]">
-          <SectionHeader title={tt('coursePlanet.featured', '精选推荐')} showMore={false} />
-        </View>
-      )}
-      {displayList.length > 0 && (
-        <View className="px-[24rpx] mb-[24rpx]">
-          <Carousel
-            variant="course"
-            items={displayList.slice(0, 5).map((item) => ({ img: item.coverUrl || '' }))}
-            courseMeta={displayList.slice(0, 5).map((item) => ({
-              title: item.title,
-              price: item.price,
-              isFree: item.price === 0,
-            }))}
-            autoplay
-            interval={4000}
-            height={300}
-            onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
-          />
-        </View>
-      )}
-      <View className="p-[24rpx]">
-        {displayList.length ? (
-          displayList.map((item) => (
-            <View
-              key={item.id}
-              className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
-              onClick={() => onItemClick(item.id)}
-            >
-              {item.coverUrl ? (
-                <Image
-                  className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
-                  src={item.coverUrl}
-                  mode="aspectFill"
-                />
-              ) : (
-                <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                  <Image
-                    style={{ width: '48rpx', height: '48rpx' }}
-                    src="/static/images/icons/book-open.svg"
-                    mode="aspectFit"
-                  />
-                </View>
-              )}
-              <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
-                <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
-                  {item.title}
-                </Text>
-                {item.teacher ? (
-                  <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
-                    {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
-                  </Text>
-                ) : null}
-                <View className="flex items-center justify-between mt-[8rpx]">
-                  {item.price !== null && item.price !== undefined ? (
-                    <Text className="text-[32rpx] text-destructive font-bold">
-                      {item.price === 0
-                        ? tt('coursePlanet.free', '免费')
-                        : `¥${item.price.toFixed(2)}`}
-                    </Text>
-                  ) : null}
-                  {item.students !== null && item.students !== undefined ? (
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-          ))
-        ) : (
-          <View className="flex flex-col items-center py-[120rpx]">
-            <Image
-              style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
-              src="/static/images/icons/globe.svg"
-              mode="aspectFit"
-            />
-            <Text className="block text-center text-muted-foreground py-[40rpx]">
-              {t('coursePlanet.empty')}
-            </Text>
+        <ScrollView scrollX className="whitespace-nowrap bg-card">
+          <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
+            {CATEGORY_KEYS.map((cat) => (
+              <Text
+                key={cat.key}
+                className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
+                onClick={() => onCategoryChange(cat.key)}
+              >
+                {tt(cat.label, cat.key)}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
+        {displayList.length > 0 && (
+          <View className="px-[24rpx] mb-[16rpx]">
+            <SectionHeader title={tt('coursePlanet.featured', '精选推荐')} showMore={false} />
           </View>
         )}
-        {hasMore && displayList.length > 0 ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
-            {tt('coursePlanet.loadingMore', '加载中…')}
-          </Text>
-        ) : null}
-        {!hasMore && displayList.length > 0 ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
-            {t('common.noMore')}
-          </Text>
-        ) : null}
+        {displayList.length > 0 && (
+          <View className="px-[24rpx] mb-[24rpx]">
+            <Carousel
+              variant="course"
+              items={displayList.slice(0, 5).map((item) => ({ img: item.coverUrl || '' }))}
+              courseMeta={displayList.slice(0, 5).map((item) => ({
+                title: item.title,
+                price: item.price,
+                isFree: item.price === 0,
+              }))}
+              autoplay
+              interval={4000}
+              height={300}
+              onItemClick={(_item, idx) => onItemClick(displayList[idx]?.id ?? '')}
+            />
+          </View>
+        )}
+        <View className="p-[24rpx]">
+          {displayList.length ? (
+            displayList.map((item) => (
+              <View
+                key={item.id}
+                className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
+                onClick={() => onItemClick(item.id)}
+              >
+                {item.coverUrl ? (
+                  <Image
+                    className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted"
+                    src={item.coverUrl}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
+                    <Image
+                      style={{ width: '48rpx', height: '48rpx' }}
+                      src="/static/images/icons/book-open.svg"
+                      mode="aspectFit"
+                    />
+                  </View>
+                )}
+                <View className="flex-1 ml-[16rpx] flex flex-col justify-between min-h-[130rpx]">
+                  <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] line-clamp-2">
+                    {item.title}
+                  </Text>
+                  {item.teacher ? (
+                    <Text className="text-[24rpx] text-muted-foreground mt-[8rpx]">
+                      {tt('coursePlanet.teacher', '讲师')}: {item.teacher}
+                    </Text>
+                  ) : null}
+                  <View className="flex items-center justify-between mt-[8rpx]">
+                    {item.price !== null && item.price !== undefined ? (
+                      <Text className="text-[32rpx] text-destructive font-bold">
+                        {item.price === 0
+                          ? tt('coursePlanet.free', '免费')
+                          : `¥${item.price.toFixed(2)}`}
+                      </Text>
+                    ) : null}
+                    {item.students !== null && item.students !== undefined ? (
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {item.students} {tt('coursePlanet.studentsUnit', '人学习')}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View className="flex flex-col items-center py-[120rpx]">
+              <Image
+                style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
+                src="/static/images/icons/globe.svg"
+                mode="aspectFit"
+              />
+              <Text className="block text-center text-muted-foreground py-[40rpx]">
+                {t('coursePlanet.empty')}
+              </Text>
+            </View>
+          )}
+          {hasMore && displayList.length > 0 ? (
+            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+              {tt('coursePlanet.loadingMore', '加载中…')}
+            </Text>
+          ) : null}
+          {!hasMore && displayList.length > 0 ? (
+            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+              {t('common.noMore')}
+            </Text>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

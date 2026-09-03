@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -305,36 +306,40 @@ export default function HistoryPage() {
                     const preview =
                       h.messages?.[h.messages.length - 1]?.content || t('ai.historyPage.empty')
                     return (
-                      <View
+                      <ThemeRoot
                         key={h.id}
                         className="flex items-start p-[24rpx] mb-[16rpx] bg-card rounded-[16rpx]"
-                        onClick={() => goChat(h)}
-                        onLongPress={() => onDeleteOne(h)}
                       >
-                        <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[20rpx]">
-                          <Image
-                            src={iconFor(h)}
-                            className="w-[40rpx] h-[40rpx]"
-                            mode="aspectFit"
-                          />
-                        </View>
-                        <View className="flex-1 min-w-0">
-                          <View className="flex items-center justify-between gap-[16rpx]">
-                            <Text className="text-[30rpx] text-foreground font-semibold flex-1 truncate">
-                              {h.title}
+                        <View
+                          key={h.id}
+                          onClick={() => goChat(h)}
+                          onLongPress={() => onDeleteOne(h)}
+                        >
+                          <View className="w-[64rpx] h-[64rpx] flex items-center justify-center bg-background rounded-[12rpx] flex-shrink-0 mr-[20rpx]">
+                            <Image
+                              src={iconFor(h)}
+                              className="w-[40rpx] h-[40rpx]"
+                              mode="aspectFit"
+                            />
+                          </View>
+                          <View className="flex-1 min-w-0">
+                            <View className="flex items-center justify-between gap-[16rpx]">
+                              <Text className="text-[30rpx] text-foreground font-semibold flex-1 truncate">
+                                {h.title}
+                              </Text>
+                              <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
+                                {fmtTime(ts)}
+                              </Text>
+                            </View>
+                            <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
+                              {preview}
                             </Text>
-                            <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
-                              {fmtTime(ts)}
+                            <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
+                              {t('ai.historyPage.msgCount', { n: count })}
                             </Text>
                           </View>
-                          <Text className="block text-[26rpx] text-muted-foreground mt-[8rpx] leading-[1.4] truncate">
-                            {preview}
-                          </Text>
-                          <Text className="block text-[22rpx] text-muted-foreground mt-[12rpx]">
-                            {t('ai.historyPage.msgCount', { n: count })}
-                          </Text>
                         </View>
-                      </View>
+                      </ThemeRoot>
                     )
                   })}
                 </View>

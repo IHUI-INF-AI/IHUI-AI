@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getLiveCalendar, subscribeLive, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './calendar.css'
 
 type LiveStatus = Live['status']
@@ -192,14 +193,16 @@ export default function LiveCalendar() {
           const has = liveMap.has(ds)
           const active = ds === selected
           return (
-            <View
-              key={i}
-              className={`cal-cell${active ? ' cal-cell-active' : ''}`}
-              onClick={() => setSelected(ds)}
-            >
-              <Text className="cal-cell-num">{d}</Text>
-              {has && <View className="cal-dot" />}
-            </View>
+            <ThemeRoot key={i}>
+              <View
+                key={i}
+                className={`cal-cell${active ? ' cal-cell-active' : ''}`}
+                onClick={() => setSelected(ds)}
+              >
+                <Text className="cal-cell-num">{d}</Text>
+                {has && <View className="cal-dot" />}
+              </View>
+            </ThemeRoot>
           )
         })}
       </View>
@@ -210,24 +213,26 @@ export default function LiveCalendar() {
         selectedLives.map((live) => {
           const cfg = STATUS_CFG(tt)[live.status]
           return (
-            <View key={live.id} className="cal-card">
-              <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
-              <View className="cal-card-row">
-                <Text className="cal-card-title">{live.title}</Text>
-                <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
+            <ThemeRoot key={live.id}>
+              <View key={live.id} className="cal-card">
+                <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
+                <View className="cal-card-row">
+                  <Text className="cal-card-title">{live.title}</Text>
+                  <Text className={`cal-badge ${cfg.badge}`}>{tt(cfg.labelKey, cfg.labelFb)}</Text>
+                </View>
+                <View className="cal-card-meta">
+                  {live.anchor && (
+                    <Text>
+                      {tt('live.calendar.anchor', '主播')}: {live.anchor}
+                    </Text>
+                  )}
+                  {live.startTime && <Text>{live.startTime}</Text>}
+                </View>
+                <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
+                  {tt(cfg.actionKey, cfg.actionFb)}
+                </Text>
               </View>
-              <View className="cal-card-meta">
-                {live.anchor && (
-                  <Text>
-                    {tt('live.calendar.anchor', '主播')}: {live.anchor}
-                  </Text>
-                )}
-                {live.startTime && <Text>{live.startTime}</Text>}
-              </View>
-              <Text className={`cal-action ${cfg.actionCls}`} onClick={() => onAction(live)}>
-                {tt(cfg.actionKey, cfg.actionFb)}
-              </Text>
-            </View>
+            </ThemeRoot>
           )
         })
       ) : (

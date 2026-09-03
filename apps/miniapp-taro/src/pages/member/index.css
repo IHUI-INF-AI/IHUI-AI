@@ -16,7 +16,12 @@
 .member-header {
   padding: 60rpx 40rpx 40rpx;
   /* custom color: VIP 金色渐变(#ffd700→#ffc107→#ff6b00),无对应 token,保留原值 */
-  background: linear-gradient(135deg, #ffd700 0%, #ffc107 50%, #ff6b00 100%);
+  background: linear-gradient(
+    135deg,
+    var(--color-warning) 0%,
+    rgba(255, 193, 7, 1) 50%,
+    rgba(255, 107, 0, 1) 100%
+  );
 }
 .member-user {
   display: flex;
@@ -27,7 +32,7 @@
   height: 120rpx;
   border-radius: 50%;
   background: var(--color-card);
-  border: 4rpx solid #fff;
+  border: 4rpx solid var(--color-border);
   box-shadow: 0 0 12rpx rgba(0, 0, 0, 0.15);
   margin-right: 24rpx;
   flex-shrink: 0;
@@ -57,7 +62,7 @@
   font-size: 24rpx;
   font-weight: 700;
   padding: 4rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin-right: 12rpx;
 }
 .member-vip-expire {
@@ -75,7 +80,7 @@
   padding: 32rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .member-card-title {
   display: block;
@@ -97,7 +102,7 @@
   padding: 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   box-sizing: border-box;
 }
 .member-level-current {
@@ -107,7 +112,7 @@
   box-shadow: 0 0 12rpx rgba(255, 215, 0, 0.3);
 }
 .member-level-current .member-level-name {
-  color: #d4a017;
+  color: rgba(212, 160, 23, 1);
 }
 .member-level-name {
   display: block;
@@ -131,7 +136,7 @@
   color: var(--color-muted-foreground);
 }
 .member-level-gold .member-level-name {
-  color: #d4a017;
+  color: rgba(212, 160, 23, 1);
 }
 .member-level-diamond .member-level-name {
   color: var(--color-brand);
@@ -170,7 +175,7 @@
   padding: 16rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   box-sizing: border-box;
 }
 .member-benefit-icon {
@@ -178,7 +183,7 @@
   height: 56rpx;
   margin-right: 12rpx;
   background: var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -228,7 +233,7 @@
   padding: 32rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
 }
 .member-vip-info {
   margin-bottom: 24rpx;
@@ -263,7 +268,7 @@
 .member-current-price {
   font-size: 40rpx;
   font-weight: 700;
-  color: #ff6b00;
+  color: rgba(255, 107, 0, 1);
   /* custom color: 品牌橙 */
   margin-right: 16rpx;
 }
@@ -281,7 +286,7 @@
   line-height: 80rpx;
   font-size: 30rpx;
   font-weight: 700;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .member-cta-outlined {
   background: transparent;
@@ -290,7 +295,7 @@
 }
 .member-vip-permanent {
   /* 渐变多段色保留原值;边框已接入 token:var(--color-vip-gold-start) */
-  background: linear-gradient(135deg, #ffd700, #ffc107);
+  background: linear-gradient(135deg, var(--color-warning), rgba(255, 193, 7, 1));
   border-color: var(--color-vip-gold-start);
 }
 .member-permanent-badge {
@@ -321,7 +326,7 @@
   margin: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .member-menu-item {
@@ -381,20 +386,20 @@
 .member-progress-current {
   font-size: 28rpx;
   font-weight: 700;
-  color: #d4a017;
+  color: rgba(212, 160, 23, 1);
 }
 .member-progress-bar {
   width: 100%;
   height: 16rpx;
   background: var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .member-progress-fill {
   height: 100%;
   /* custom color: 金色渐变进度填充,无对应 token,保留原值 */
-  background: linear-gradient(90deg, #ffd700, #ff6b00);
-  border-radius: 8rpx;
+  background: linear-gradient(90deg, var(--color-warning), rgba(255, 107, 0, 1));
+  border-radius: var(--radius-sm);
   transition: width 0.3s ease;
 }
 .member-progress-hint {

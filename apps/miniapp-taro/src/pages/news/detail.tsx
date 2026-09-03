@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
 type NewsApiExt = {
@@ -111,116 +112,120 @@ export default function NewsDetailPage() {
   }))
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
-      <NavBar showBack />
-      {loading ? (
-        <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>{tt('common.loading', '加载中…')}</Text>
-        </View>
-      ) : null}
-
-      {!loading && news.title ? (
-        <View className="bg-card p-[32rpx] mb-[24rpx]">
-          <Text className="block text-[40rpx] text-foreground font-bold leading-[1.4]">
-            {news.title}
-          </Text>
-          <View className="flex gap-[24rpx] mt-[24rpx] text-[22rpx] text-muted-foreground">
-            <Text>{news.createTime}</Text>
-            <Text>{tt('news.readCount', '{n}阅读', { n: news.views || 0 })}</Text>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[140rpx]">
+        <NavBar showBack />
+        {loading ? (
+          <View className="text-center py-[120rpx] text-muted-foreground">
+            <Text>{tt('common.loading', '加载中…')}</Text>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {!loading && news.content ? (
-        <View className="bg-card p-[32rpx] text-[30rpx] text-foreground leading-[1.8] mb-[24rpx]">
-          <RichText nodes={news.content} />
-        </View>
-      ) : null}
+        {!loading && news.title ? (
+          <View className="bg-card p-[32rpx] mb-[24rpx]">
+            <Text className="block text-[40rpx] text-foreground font-bold leading-[1.4]">
+              {news.title}
+            </Text>
+            <View className="flex gap-[24rpx] mt-[24rpx] text-[22rpx] text-muted-foreground">
+              <Text>{news.createTime}</Text>
+              <Text>{tt('news.readCount', '{n}阅读', { n: news.views || 0 })}</Text>
+            </View>
+          </View>
+        ) : null}
 
-      {!loading && related.length ? (
-        <View className="bg-card p-[32rpx]">
-          <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
-            {tt('news.detail.related', '相关推荐')}
-          </Text>
-          <View className="flex flex-col gap-[24rpx]">
-            {related.map((r) => (
-              <View
-                key={r.id}
-                className="flex gap-[24rpx] p-[16rpx] bg-background rounded-[12rpx]"
-                onClick={() => goRelated(r.id)}
-              >
-                {r.coverUrl ? (
-                  <Image
-                    className="w-[200rpx] h-[140rpx] rounded-[8rpx] shrink-0 bg-secondary"
-                    src={r.coverUrl}
-                    mode="aspectFill"
-                  />
-                ) : null}
-                <View className="flex-1 flex flex-col justify-between py-[4rpx] min-w-0">
-                  <Text className="text-[26rpx] text-foreground font-medium leading-[1.4] line-clamp-2">
-                    {r.title}
-                  </Text>
-                  <View className="flex gap-[16rpx] mt-[12rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground">{r.createTime}</Text>
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
+        {!loading && news.content ? (
+          <View className="bg-card p-[32rpx] text-[30rpx] text-foreground leading-[1.8] mb-[24rpx]">
+            <RichText nodes={news.content} />
+          </View>
+        ) : null}
+
+        {!loading && related.length ? (
+          <View className="bg-card p-[32rpx]">
+            <Text className="block text-[30rpx] text-foreground font-semibold mb-[24rpx]">
+              {tt('news.detail.related', '相关推荐')}
+            </Text>
+            <View className="flex flex-col gap-[24rpx]">
+              {related.map((r) => (
+                <View
+                  key={r.id}
+                  className="flex gap-[24rpx] p-[16rpx] bg-background rounded-[12rpx]"
+                  onClick={() => goRelated(r.id)}
+                >
+                  {r.coverUrl ? (
+                    <Image
+                      className="w-[200rpx] h-[140rpx] rounded-[8rpx] shrink-0 bg-secondary"
+                      src={r.coverUrl}
+                      mode="aspectFill"
+                    />
+                  ) : null}
+                  <View className="flex-1 flex flex-col justify-between py-[4rpx] min-w-0">
+                    <Text className="text-[26rpx] text-foreground font-medium leading-[1.4] line-clamp-2">
+                      {r.title}
                     </Text>
+                    <View className="flex gap-[16rpx] mt-[12rpx]">
+                      <Text className="text-[22rpx] text-muted-foreground">{r.createTime}</Text>
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('news.readCount', '{n}阅读', { n: r.views || 0 })}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              ))}
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {!loading && !news.title ? (
-        <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>{tt('common.empty', '暂无数据')}</Text>
-        </View>
-      ) : null}
+        {!loading && !news.title ? (
+          <View className="text-center py-[120rpx] text-muted-foreground">
+            <Text>{tt('common.empty', '暂无数据')}</Text>
+          </View>
+        ) : null}
 
-      {!loading && news.title ? (
-        <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.25)]">
-          <View
-            className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
-            onClick={onLike}
-          >
-            <Image
-              style={{ width: '32rpx', height: '32rpx' }}
-              src={liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
-              mode="aspectFit"
-            />
-            <Text className="text-[24rpx] leading-none">
-              {likes > 0 ? likes : tt('news.detail.like', '点赞')}
-            </Text>
+        {!loading && news.title ? (
+          <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.25)]">
+            <View
+              className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
+              onClick={onLike}
+            >
+              <Image
+                style={{ width: '32rpx', height: '32rpx' }}
+                src={
+                  liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'
+                }
+                mode="aspectFit"
+              />
+              <Text className="text-[24rpx] leading-none">
+                {likes > 0 ? likes : tt('news.detail.like', '点赞')}
+              </Text>
+            </View>
+            <View
+              className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+              onClick={onComment}
+            >
+              <Image
+                style={{ width: '32rpx', height: '32rpx' }}
+                src="/static/images/icons/message-circle.svg"
+                mode="aspectFit"
+              />
+              <Text className="text-[24rpx] leading-none">
+                {comments > 0 ? comments : tt('news.detail.comment', '评论')}
+              </Text>
+            </View>
+            <View
+              className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
+              onClick={onShare}
+            >
+              <Image
+                style={{ width: '32rpx', height: '32rpx' }}
+                src="/static/images/icons/share-2.svg"
+                mode="aspectFit"
+              />
+              <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
+            </View>
           </View>
-          <View
-            className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
-            onClick={onComment}
-          >
-            <Image
-              style={{ width: '32rpx', height: '32rpx' }}
-              src="/static/images/icons/message-circle.svg"
-              mode="aspectFit"
-            />
-            <Text className="text-[24rpx] leading-none">
-              {comments > 0 ? comments : tt('news.detail.comment', '评论')}
-            </Text>
-          </View>
-          <View
-            className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
-            onClick={onShare}
-          >
-            <Image
-              style={{ width: '32rpx', height: '32rpx' }}
-              src="/static/images/icons/share-2.svg"
-              mode="aspectFit"
-            />
-            <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
-          </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

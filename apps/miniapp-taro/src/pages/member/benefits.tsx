@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
 // 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
 const shoppingIcon = '/static/images/benefits/shopping.png'
@@ -270,10 +271,13 @@ const TIERS: Tier[] = [
 
 // 保留:等级渐变背景 8 段色(normal/silver/gold/diamond 各 2 段);装饰性品牌等级色,渐变值无法用单一 token 表达,保留原逻辑
 const TIER_HEAD_CLASS: Record<string, string> = {
-  normal: 'bg-[linear-gradient(135deg,#6b7280,#9ca3af)] text-primary-foreground',
-  silver: 'bg-[linear-gradient(135deg,#b8c0c8,#e8edf2)] text-foreground',
-  gold: 'bg-[linear-gradient(135deg,#d4af6a,#f5d98a)] text-foreground',
-  diamond: 'bg-[linear-gradient(135deg,#6ec1e4,#b9f2ff)] text-foreground',
+  normal:
+    'bg-[linear-gradient(135deg,rgba(107, 114, 128, 1),rgba(156, 163, 175, 1))] text-primary-foreground',
+  silver:
+    'bg-[linear-gradient(135deg,rgba(184, 192, 200, 1),rgba(232, 237, 242, 1))] text-foreground',
+  gold: 'bg-[linear-gradient(135deg,rgba(212, 175, 106, 1),rgba(245, 217, 138, 1))] text-foreground',
+  diamond:
+    'bg-[linear-gradient(135deg,rgba(110, 193, 228, 1),rgba(185, 242, 255, 1))] text-foreground',
 }
 
 export default function BenefitsPage() {
@@ -308,93 +312,99 @@ export default function BenefitsPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
-      <View className="text-[30rpx] font-semibold text-foreground mt-[8rpx] mx-[8rpx] mb-[16rpx]">
-        {tt('member.benefits.myBenefits', '我的专属权益')}
-      </View>
-      {loading ? (
-        <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
-          <Text>{t('common.loading')}</Text>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
+        <View className="text-[30rpx] font-semibold text-foreground mt-[8rpx] mx-[8rpx] mb-[16rpx]">
+          {tt('member.benefits.myBenefits', '我的专属权益')}
         </View>
-      ) : error ? (
-        <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
-          <Text>{tt('member.benefits.loadFailed', '加载失败')}</Text>
-          <Text
-            className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[24rpx] text-primary"
-            onClick={load}
-          >
-            {t('common.retry')}
-          </Text>
-        </View>
-      ) : list.length ? (
-        <View className="flex flex-wrap gap-[16rpx]">
-          {list.map((b) => (
-            <View
-              key={b.id}
-              className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
-            >
-              {b.icon ? (
-                <Text className="block text-[48rpx]">{b.icon}</Text>
-              ) : (
-                <Image
-                  src="/static/images/icons/star-fill.svg"
-                  mode="aspectFit"
-                  className="mx-auto"
-                  style={{ width: '48rpx', height: '48rpx' }}
-                />
-              )}
-              {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}
-              {b.icon && isImagePath(b.icon) ? (
-                <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
-              ) : null}
-              <Text className="block mt-[12rpx] text-[28rpx] font-semibold text-foreground">
-                {b.title}
-              </Text>
-              <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">{b.desc}</Text>
-            </View>
-          ))}
-        </View>
-      ) : (
-        <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
-          <Text>{tt('member.benefits.empty', '暂无权益')}</Text>
-        </View>
-      )}
-
-      <View className="text-[30rpx] font-semibold text-foreground mt-[24rpx] mx-[8rpx] mb-[16rpx]">
-        {tt('member.benefits.tierCatalog', '等级权益')}
-      </View>
-      {TIERS.map((tier) => (
-        <View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
-          <View className={`flex items-center px-[32rpx] py-[24rpx] ${TIER_HEAD_CLASS[tier.key]}`}>
-            {isImagePath(tier.icon) ? (
-              <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
-            ) : (
-              <Text className="text-[40rpx] mr-[16rpx]">{tier.icon}</Text>
-            )}
-            <Text className="text-[30rpx] font-bold">{tt(tier.nk, tier.nf)}</Text>
+        {loading ? (
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+            <Text>{t('common.loading')}</Text>
           </View>
-          <View className="py-[8rpx]">
-            {tier.benefits.map((b, i) => (
-              <View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
-                {isImagePath(b.icon) ? (
-                  <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
+        ) : error ? (
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+            <Text>{tt('member.benefits.loadFailed', '加载失败')}</Text>
+            <Text
+              className="mt-[16rpx] px-[32rpx] py-[8rpx] text-[24rpx] text-primary"
+              onClick={load}
+            >
+              {t('common.retry')}
+            </Text>
+          </View>
+        ) : list.length ? (
+          <View className="flex flex-wrap gap-[16rpx]">
+            {list.map((b) => (
+              <View
+                key={b.id}
+                className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
+              >
+                {b.icon ? (
+                  <Text className="block text-[48rpx]">{b.icon}</Text>
                 ) : (
-                  <Text className="text-[36rpx] w-[48rpx] text-center flex-shrink-0">{b.icon}</Text>
+                  <Image
+                    src="/static/images/icons/star-fill.svg"
+                    mode="aspectFit"
+                    className="mx-auto"
+                    style={{ width: '48rpx', height: '48rpx' }}
+                  />
                 )}
-                <View className="flex-1 ml-[16rpx]">
-                  <Text className="block text-[28rpx] text-foreground font-medium">
-                    {tt(b.tk, b.tf)}
-                  </Text>
-                  <Text className="block mt-[6rpx] text-[22rpx] text-muted-foreground">
-                    {tt(b.dk, b.df)}
-                  </Text>
-                </View>
+                {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}
+                {b.icon && isImagePath(b.icon) ? (
+                  <Image src={b.icon} className="w-12 h-12 mx-auto mt-[8rpx]" mode="aspectFit" />
+                ) : null}
+                <Text className="block mt-[12rpx] text-[28rpx] font-semibold text-foreground">
+                  {b.title}
+                </Text>
+                <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">{b.desc}</Text>
               </View>
             ))}
           </View>
+        ) : (
+          <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
+            <Text>{tt('member.benefits.empty', '暂无权益')}</Text>
+          </View>
+        )}
+
+        <View className="text-[30rpx] font-semibold text-foreground mt-[24rpx] mx-[8rpx] mb-[16rpx]">
+          {tt('member.benefits.tierCatalog', '等级权益')}
         </View>
-      ))}
-    </View>
+        {TIERS.map((tier) => (
+          <View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
+            <View
+              className={`flex items-center px-[32rpx] py-[24rpx] ${TIER_HEAD_CLASS[tier.key]}`}
+            >
+              {isImagePath(tier.icon) ? (
+                <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
+              ) : (
+                <Text className="text-[40rpx] mr-[16rpx]">{tier.icon}</Text>
+              )}
+              <Text className="text-[30rpx] font-bold">{tt(tier.nk, tier.nf)}</Text>
+            </View>
+            <View className="py-[8rpx]">
+              {tier.benefits.map((b, i) => (
+                <View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
+                  {isImagePath(b.icon) ? (
+                    <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
+                  ) : (
+                    <Text className="text-[36rpx] w-[48rpx] text-center flex-shrink-0">
+                      {b.icon}
+                    </Text>
+                  )}
+                  <View className="flex-1 ml-[16rpx]">
+                    <Text className="block text-[28rpx] text-foreground font-medium">
+                      {tt(b.tk, b.tf)}
+                    </Text>
+                    <Text className="block mt-[6rpx] text-[22rpx] text-muted-foreground">
+                      {tt(b.dk, b.df)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

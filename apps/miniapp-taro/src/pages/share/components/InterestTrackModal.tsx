@@ -166,7 +166,7 @@ export default function InterestTrackModal({
                     style={{
                       fontSize: rpx(28),
                       fontWeight: 500,
-                      color: isSelected ? '#fff' : 'var(--color-foreground)',
+                      color: isSelected ? 'var(--color-foreground)' : 'var(--color-foreground)',
                     }}
                   >
                     {track.name}
@@ -217,7 +217,7 @@ export default function InterestTrackModal({
             }}
             onClick={handleConfirm}
           >
-            <Text style={{ fontSize: rpx(28), color: '#fff', fontWeight: 500 }}>
+            <Text style={{ fontSize: rpx(28), color: 'var(--color-foreground)', fontWeight: 500 }}>
               {tt('tail.20', '确认选择{count}', {
                 count: selectedIds.size > 0 ? `(${selectedIds.size})` : '',
               })}

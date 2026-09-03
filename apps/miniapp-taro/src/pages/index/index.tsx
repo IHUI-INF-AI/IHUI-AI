@@ -62,6 +62,7 @@ import * as api from '@/api'
 import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+import ThemeRoot from '@/components/ThemeRoot'
 
 import './index.css'
 
@@ -403,10 +404,7 @@ function MaterialCards({
 }) {
   if (cards.length === 0) return null
   return (
-    <View
-      className="material-cards-wrap"
-      style={{ background: 'var(--color-card-subtle, #fafafa)' }}
-    >
+    <View className="material-cards-wrap" style={{ background: 'var(--color-card-subtle)' }}>
       <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
         <View
           className="material-cards-list"
@@ -451,7 +449,7 @@ function MaterialCards({
                   </Text>
                   <Text
                     className="material-card-preview"
-                    style={{ fontSize: rpx(20), color: '#888' }}
+                    style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}
                   >
                     {(card.content || '').slice(0, 20)}
                     {card.content && card.content.length > 20 ? '...' : ''}
@@ -474,7 +472,7 @@ function MaterialCards({
                       fontSize: rpx(22),
                       padding: rpx(6),
                       background: 'rgba(0,0,0,0.5)',
-                      color: '#fff',
+                      color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
                       left: 0,
@@ -501,7 +499,7 @@ function MaterialCards({
                       fontSize: rpx(22),
                       padding: rpx(6),
                       background: 'rgba(0,0,0,0.5)',
-                      color: '#fff',
+                      color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
                       left: 0,
@@ -534,7 +532,11 @@ function MaterialCards({
                   </Text>
                   <Text
                     className="material-card-preview"
-                    style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}
+                    style={{
+                      fontSize: rpx(20),
+                      color: 'var(--color-muted-foreground)',
+                      marginTop: rpx(6),
+                    }}
                   >
                     {tt('index.material.audio', '音频')}
                   </Text>
@@ -591,7 +593,7 @@ function VoiceAnimationOverlay({
             style={{
               width: rpx(8),
               height: rpx(60),
-              background: 'var(--color-brand-cyan, #93d2f3)',
+              background: 'var(--color-brand-cyan)',
               borderRadius: rpx(4),
               animationDelay: `${i * 0.1}s`,
               animationDuration: `${0.5 + i * 0.1}s`,
@@ -599,7 +601,9 @@ function VoiceAnimationOverlay({
           />
         ))}
       </View>
-      <Text style={{ fontSize: rpx(24), color: '#888', marginTop: rpx(16) }}>
+      <Text
+        style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)', marginTop: rpx(16) }}
+      >
         {tt('index.voice.tapToStop', '点击停止录音')}
       </Text>
     </View>
@@ -1202,551 +1206,571 @@ export default function Index() {
   ])
 
   return (
-    <View
-      className="ai-home-page min-h-screen"
-      style={{ background: 'var(--color-background)' }}
-      onClick={handleContainerClick}
-    >
-      {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
-      <PushNotification />
+    <ThemeRoot className="ai-home-page min-h-screen">
+      <View style={{ background: 'var(--color-background)' }} onClick={handleContainerClick}>
+        {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
+        <PushNotification />
 
-      {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
-      <DrawerComponent
-        side="left"
-        visible={state.drawerVisible}
-        onClose={handleDrawerClose}
-        statusBarHeight={statusBarHeight}
-        groupedData={state.groupedData}
-        userinfo={drawerUserinfo}
-        activeChatId={state.selectedModelId}
-        onMenuItemClick={handleMenuItemClick}
-        onChatItemClick={handleChatItemClick}
-        onCreateChat={handleCreateNewChat}
-      />
-
-      {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
-      <FloatBox />
-
-      {/* ===== container 主容器(对齐原项目 container) ===== */}
-      <View className="container" style={{ padding: 0 }}>
-        {/* ===== NavBar(导航栏,对齐原项目 navigation-bars) ===== */}
-        <NavBar
-          variant="ai-home"
-          title={tt('index.title', '智汇AI社区')}
-          bgColor="var(--color-card)"
-          textColor="var(--color-foreground)"
-          onMenuClick={handleMenuClick}
-          onJoinClick={handleJoinClick}
+        {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
+        <DrawerComponent
+          side="left"
+          visible={state.drawerVisible}
+          onClose={handleDrawerClose}
+          statusBarHeight={statusBarHeight}
+          groupedData={state.groupedData}
+          userinfo={drawerUserinfo}
+          activeChatId={state.selectedModelId}
+          onMenuItemClick={handleMenuItemClick}
+          onChatItemClick={handleChatItemClick}
+          onCreateChat={handleCreateNewChat}
         />
 
-        {/* ===== top_box(对齐原项目,改为消息列表区)===== */}
-        <View
-          className="top_box"
-          style={{
-            padding: '0 20rpx',
-            height: 'calc(100vh - 120rpx - env(safe-area-inset-bottom))',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
-          {/* 顶部 share-image(缩小为右上角小图标,对齐原项目 titlebox-right)*/}
+        {/* ===== FloatBox 悬浮侧边栏(对齐原项目 float-box) ===== */}
+        <FloatBox />
+
+        {/* ===== container 主容器(对齐原项目 container) ===== */}
+        <View className="container" style={{ padding: 0 }}>
+          {/* ===== NavBar(导航栏,对齐原项目 navigation-bars) ===== */}
+          <NavBar
+            variant="ai-home"
+            title={tt('index.title', '智汇AI社区')}
+            bgColor="var(--color-card)"
+            textColor="var(--color-foreground)"
+            onMenuClick={handleMenuClick}
+            onJoinClick={handleJoinClick}
+          />
+
+          {/* ===== top_box(对齐原项目,改为消息列表区)===== */}
           <View
-            className="titlebox"
+            className="top_box"
             style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              marginBottom: rpx(10),
+              padding: '0 20rpx',
+              height: 'calc(100vh - 120rpx - env(safe-area-inset-bottom))',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
-            <View className="titlebox-right">
-              <Image
-                className="share-image"
-                style={{ width: rpx(80), height: rpx(80) }}
-                src="/static/images/share_zhuanmi.png"
-                mode="widthFix"
-                onClick={() => {
-                  Taro.switchTab({
-                    url: '/pages/user/index',
-                    success: () => {
-                      setTimeout(() => {
-                        Taro.eventCenter.trigger('showImageSharePopup', { current: 0 })
-                      }, 500)
-                    },
-                  })
-                }}
-              />
-            </View>
-          </View>
-
-          {/* 消息列表(对标原项目 conversationMessages 渲染)*/}
-          <ScrollView
-            scrollY
-            className="conversation-list"
-            style={{ flex: 1, height: 'calc(100% - 100rpx)' }}
-            onScrollToLower={() => {}}
-          >
-            {/* 直播预告 banner(对齐 home.livePreview/startTime/more) */}
+            {/* 顶部 share-image(缩小为右上角小图标,对齐原项目 titlebox-right)*/}
             <View
-              className="live-preview-banner"
+              className="titlebox"
               style={{
+                width: '100%',
                 display: 'flex',
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: `${rpx(16)} ${rpx(20)}`,
-                marginBottom: rpx(16),
-                background:
-                  'linear-gradient(90deg, var(--color-brand-cyan, #93d2f3), var(--color-primary))',
-                borderRadius: rpx(16),
+                justifyContent: 'flex-end',
+                marginBottom: rpx(10),
               }}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: rpx(28), fontWeight: 'bold', color: '#fff' }}>
-                  {tt('home.livePreview', '直播预告')}
-                </Text>
-                <Text
-                  style={{ fontSize: rpx(22), color: 'rgba(255,255,255,0.92)', marginTop: rpx(4) }}
-                >
-                  {tt('home.startTime', '开播时间')} 20:00
-                </Text>
-              </View>
-              <View
-                onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
-                style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
-              >
-                <Text style={{ fontSize: rpx(22), color: '#fff' }}>{tt('home.more', '更多')}</Text>
+              <View className="titlebox-right">
+                <Image
+                  className="share-image"
+                  style={{ width: rpx(80), height: rpx(80) }}
+                  src="/static/images/share_zhuanmi.png"
+                  mode="widthFix"
+                  onClick={() => {
+                    Taro.switchTab({
+                      url: '/pages/user/index',
+                      success: () => {
+                        setTimeout(() => {
+                          Taro.eventCenter.trigger('showImageSharePopup', { current: 0 })
+                        }, 500)
+                      },
+                    })
+                  }}
+                />
               </View>
             </View>
-            {state.conversationMessages.length === 0 && !state.isStreaming ? (
+
+            {/* 消息列表(对标原项目 conversationMessages 渲染)*/}
+            <ScrollView
+              scrollY
+              className="conversation-list"
+              style={{ flex: 1, height: 'calc(100% - 100rpx)' }}
+              onScrollToLower={() => {}}
+            >
+              {/* 直播预告 banner(对齐 home.livePreview/startTime/more) */}
               <View
-                className="flex flex-col items-center justify-center"
-                style={{ paddingTop: rpx(200) }}
+                className="live-preview-banner"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: `${rpx(16)} ${rpx(20)}`,
+                  marginBottom: rpx(16),
+                  background:
+                    'linear-gradient(90deg, var(--color-brand-cyan), var(--color-primary))',
+                  borderRadius: rpx(16),
+                }}
               >
-                <Text
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontSize: rpx(28),
+                      fontWeight: 'bold',
+                      color: 'var(--color-foreground)',
+                    }}
+                  >
+                    {tt('home.livePreview', '直播预告')}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: rpx(22),
+                      color: 'rgba(255,255,255,0.92)',
+                      marginTop: rpx(4),
+                    }}
+                  >
+                    {tt('home.startTime', '开播时间')} 20:00
+                  </Text>
+                </View>
+                <View
+                  onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
+                  style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
+                >
+                  <Text style={{ fontSize: rpx(22), color: 'var(--color-foreground)' }}>
+                    {tt('home.more', '更多')}
+                  </Text>
+                </View>
+              </View>
+              {state.conversationMessages.length === 0 && !state.isStreaming ? (
+                <View
+                  className="flex flex-col items-center justify-center"
+                  style={{ paddingTop: rpx(200) }}
+                >
+                  <Text
+                    style={{
+                      fontSize: rpx(32),
+                      color: 'var(--color-muted-foreground)',
+                      marginBottom: rpx(16),
+                    }}
+                  >
+                    {tt('index.welcome', '欢迎使用智汇AI社区')}
+                  </Text>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date)' }}>
+                    {tt('index.welcomeHint', '输入消息开始对话')}
+                  </Text>
+                </View>
+              ) : null}
+              {state.conversationMessages.map((msg, idx) => (
+                <View
+                  key={idx}
+                  className={`conversation-msg ${msg.role === 'user' ? 'msg-user' : 'msg-assistant'}`}
                   style={{
-                    fontSize: rpx(32),
-                    color: 'var(--color-muted-foreground)',
+                    display: 'flex',
+                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                     marginBottom: rpx(16),
                   }}
                 >
-                  {tt('index.welcome', '欢迎使用智汇AI社区')}
-                </Text>
-                <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date, #888)' }}>
-                  {tt('index.welcomeHint', '输入消息开始对话')}
-                </Text>
-              </View>
-            ) : null}
-            {state.conversationMessages.map((msg, idx) => (
-              <View
-                key={idx}
-                className={`conversation-msg ${msg.role === 'user' ? 'msg-user' : 'msg-assistant'}`}
-                style={{
-                  display: 'flex',
-                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  marginBottom: rpx(16),
-                }}
-              >
-                <View
-                  style={{
-                    maxWidth: '80%',
-                    padding: `${rpx(16)} ${rpx(20)}`,
-                    borderRadius: rpx(16),
-                    background:
-                      msg.role === 'user'
-                        ? 'var(--color-brand-cyan, #93d2f3)'
-                        : 'var(--color-card)',
-                    color: msg.role === 'user' ? '#000' : 'var(--color-foreground)',
-                    fontSize: rpx(28),
-                    lineHeight: 1.6,
-                    boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
-                  }}
-                >
-                  <Text>{msg.content}</Text>
-                </View>
-              </View>
-            ))}
-            {/* 流式接收中的消息 */}
-            {state.isStreaming && state.streamingContent ? (
-              <View
-                className="conversation-msg msg-assistant"
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-start',
-                  marginBottom: rpx(16),
-                }}
-              >
-                <View
-                  style={{
-                    maxWidth: '80%',
-                    padding: `${rpx(16)} ${rpx(20)}`,
-                    borderRadius: rpx(16),
-                    background: 'var(--color-card)',
-                    color: 'var(--color-foreground)',
-                    fontSize: rpx(28),
-                    lineHeight: 1.6,
-                  }}
-                >
-                  <Text>{state.streamingContent}</Text>
-                  <Text
+                  <View
                     style={{
-                      display: 'inline-block',
-                      width: rpx(8),
-                      height: rpx(28),
-                      background: 'var(--color-brand-cyan, #93d2f3)',
-                      marginLeft: rpx(4),
-                      animation: 'blink 1s infinite',
+                      maxWidth: '80%',
+                      padding: `${rpx(16)} ${rpx(20)}`,
+                      borderRadius: rpx(16),
+                      background:
+                        msg.role === 'user' ? 'var(--color-brand-cyan)' : 'var(--color-card)',
+                      color: 'var(--color-foreground)',
+                      fontSize: rpx(28),
+                      lineHeight: 1.6,
+                      boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
                     }}
                   >
-                    |
-                  </Text>
+                    <Text>{msg.content}</Text>
+                  </View>
                 </View>
-              </View>
-            ) : null}
-            {/* loading 占位(流式刚开始,onChunk 还未到)*/}
-            {state.isStreaming && !state.streamingContent ? (
-              <View
-                style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: rpx(16) }}
-              >
+              ))}
+              {/* 流式接收中的消息 */}
+              {state.isStreaming && state.streamingContent ? (
                 <View
+                  className="conversation-msg msg-assistant"
                   style={{
-                    padding: `${rpx(16)} ${rpx(20)}`,
-                    borderRadius: rpx(16),
-                    background: 'var(--color-card)',
+                    display: 'flex',
+                    justifyContent: 'flex-start',
+                    marginBottom: rpx(16),
                   }}
                 >
-                  <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
-                    {tt('index.thinking', '思考中...')}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-          </ScrollView>
-        </View>
-
-        {/* ===== input_box_content(底部输入区,fixed 贴底,对齐原项目) ===== */}
-        <View
-          className="input_box_content"
-          style={{
-            position: 'fixed',
-            bottom: computedContainerBottom,
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-          }}
-        >
-          {/* ===== posi_angeetlis(对齐原项目,包裹 ModelList/AgentList/MaterialList + ModelType 按钮) ===== */}
-          <View className="posi_angeetlis">
-            {/* ModelList/AgentList/MaterialList 区域(对齐原项目 padding 0 20rpx) */}
-            <View style={{ padding: '0 20rpx' }}>
-              {/* ModelList 模型列表 */}
-              {state.showModelList &&
-              state.currentModelType &&
-              state.currentModelType !== 'skills' &&
-              state.currentModelType !== 'sck' ? (
-                <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-                  <ModelList
-                    variant="popup"
-                    models={filteredModels}
-                    selectedId={state.selectedModelId}
-                    onSelect={handleModelSelect}
-                    currentType={state.currentModelType}
-                    agentActive={state.agentModeActive}
-                    onAgentSelect={handleAgentToggle}
-                    loading={modelsLoading}
-                  />
-                </View>
-              ) : null}
-              {/* AgentList 智能体列表(对齐原项目 AgentList) */}
-              {state.showAgentList ? (
-                <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-                  <AgentListPanel
-                    visible={state.showAgentList}
-                    agents={MOCK_AGENTS}
-                    loading={false}
-                    onSelect={(agent) => {
-                      setState((s) => ({
-                        ...s,
-                        selectedModelId: agent.id,
-                        modelName: agent.name,
-                        showAgentList: false,
-                      }))
-                      // 对齐原项目 handleAgentPitch:跳转到智能体助手页
-                      Taro.navigateTo({
-                        url: `/pages/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
-                        fail: () => {
-                          Taro.showToast({
-                            title: tt('pagesindexindex.text2', '智能体助手页未配置'),
-                            icon: 'none',
-                          })
-                        },
-                      })
-                    }}
-                  />
-                </View>
-              ) : null}
-              {/* MaterialList 素材库弹窗(对齐原项目 MaterialList) */}
-              {state.showMaterialList ? (
-                <View
-                  className="material-list-container"
-                  onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
-                >
-                  {/* Tab 栏:文本/图片/视频/音频 */}
-                  <View className="material-tabs">
-                    {MATERIAL_TABS.map((tab) => (
-                      <View
-                        key={tab.id}
-                        className={`material-tab ${state.materialTab === tab.id ? 'material-tab-active' : ''}`}
-                        onClick={() => handleMaterialTabChange(tab.id)}
-                      >
-                        <Text className="material-tab-text">{tab.label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                  {/* 素材列表 */}
-                  <ScrollView
-                    scrollY
-                    className="material-list-scroll"
-                    style={{ maxHeight: rpx(500) }}
-                    onScrollToLower={() => {
-                      // 加载更多(暂用 mock 数据,不重复加载)
+                  <View
+                    style={{
+                      maxWidth: '80%',
+                      padding: `${rpx(16)} ${rpx(20)}`,
+                      borderRadius: rpx(16),
+                      background: 'var(--color-card)',
+                      color: 'var(--color-foreground)',
+                      fontSize: rpx(28),
+                      lineHeight: 1.6,
                     }}
                   >
-                    {currentMaterialList.length === 0 ? (
-                      <View className="flex items-center justify-center py-[40rpx]">
-                        <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date, #888)' }}>
-                          {tt('index.material.empty', '暂无素材')}
-                        </Text>
-                      </View>
-                    ) : (
-                      currentMaterialList.map((item) => (
-                        <View
-                          key={item.id}
-                          className="material-list-item"
-                          onClick={() => handleMaterialItemClick(item, state.materialTab)}
-                        >
-                          {/* 文本类型:显示标题 + 内容预览 */}
-                          {state.materialTab === 1 && (
-                            <View className="material-item-text">
-                              <Text className="material-item-title">{item.title}</Text>
-                              {item.content && (
-                                <Text className="material-item-preview">
-                                  {(item.content || '').slice(0, 40)}
-                                  {item.content && item.content.length > 40 ? '...' : ''}
-                                </Text>
-                              )}
-                            </View>
-                          )}
-                          {/* 图片类型:显示缩略图 + 标题 */}
-                          {state.materialTab === 2 && item.imageList && item.imageList[0] && (
-                            <View className="material-item-image">
-                              <Image
-                                src={item.imageList[0]}
-                                className="material-item-thumb"
-                                mode="aspectFill"
-                                style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
-                              />
-                              <Text className="material-item-title">{item.title}</Text>
-                            </View>
-                          )}
-                          {/* 视频类型:显示封面 + 标题 */}
-                          {state.materialTab === 3 && (
-                            <View className="material-item-video">
-                              <Image
-                                src={item.posterUrl || item.videoUrl || ''}
-                                className="material-item-thumb"
-                                mode="aspectFill"
-                                style={{ width: rpx(120), height: rpx(120), borderRadius: rpx(12) }}
-                              />
-                              <Text className="material-item-title">{item.title}</Text>
-                            </View>
-                          )}
-                          {/* 音频类型:显示标题 */}
-                          {state.materialTab === 4 && (
-                            <View className="material-item-audio">
-                              <Text className="material-item-title">{item.title}</Text>
-                              <Text className="material-item-preview">
-                                {tt('index.material.audio', '音频')}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      ))
-                    )}
-                  </ScrollView>
+                    <Text>{state.streamingContent}</Text>
+                    <Text
+                      style={{
+                        display: 'inline-block',
+                        width: rpx(8),
+                        height: rpx(28),
+                        background: 'var(--color-brand-cyan)',
+                        marginLeft: rpx(4),
+                        animation: 'blink 1s infinite',
+                      }}
+                    >
+                      |
+                    </Text>
+                  </View>
                 </View>
               ) : null}
+              {/* loading 占位(流式刚开始,onChunk 还未到)*/}
+              {state.isStreaming && !state.streamingContent ? (
+                <View
+                  style={{ display: 'flex', justifyContent: 'flex-start', marginBottom: rpx(16) }}
+                >
+                  <View
+                    style={{
+                      padding: `${rpx(16)} ${rpx(20)}`,
+                      borderRadius: rpx(16),
+                      background: 'var(--color-card)',
+                    }}
+                  >
+                    <Text style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}>
+                      {tt('index.thinking', '思考中...')}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+            </ScrollView>
+          </View>
+
+          {/* ===== input_box_content(底部输入区,fixed 贴底,对齐原项目) ===== */}
+          <View
+            className="input_box_content"
+            style={{
+              position: 'fixed',
+              bottom: computedContainerBottom,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+            }}
+          >
+            {/* ===== posi_angeetlis(对齐原项目,包裹 ModelList/AgentList/MaterialList + ModelType 按钮) ===== */}
+            <View className="posi_angeetlis">
+              {/* ModelList/AgentList/MaterialList 区域(对齐原项目 padding 0 20rpx) */}
+              <View style={{ padding: '0 20rpx' }}>
+                {/* ModelList 模型列表 */}
+                {state.showModelList &&
+                state.currentModelType &&
+                state.currentModelType !== 'skills' &&
+                state.currentModelType !== 'sck' ? (
+                  <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                    <ModelList
+                      variant="popup"
+                      models={filteredModels}
+                      selectedId={state.selectedModelId}
+                      onSelect={handleModelSelect}
+                      currentType={state.currentModelType}
+                      agentActive={state.agentModeActive}
+                      onAgentSelect={handleAgentToggle}
+                      loading={modelsLoading}
+                    />
+                  </View>
+                ) : null}
+                {/* AgentList 智能体列表(对齐原项目 AgentList) */}
+                {state.showAgentList ? (
+                  <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                    <AgentListPanel
+                      visible={state.showAgentList}
+                      agents={MOCK_AGENTS}
+                      loading={false}
+                      onSelect={(agent) => {
+                        setState((s) => ({
+                          ...s,
+                          selectedModelId: agent.id,
+                          modelName: agent.name,
+                          showAgentList: false,
+                        }))
+                        // 对齐原项目 handleAgentPitch:跳转到智能体助手页
+                        Taro.navigateTo({
+                          url: `/pages/ai/agent?id=${agent.id}&name=${encodeURIComponent(agent.name)}`,
+                          fail: () => {
+                            Taro.showToast({
+                              title: tt('pagesindexindex.text2', '智能体助手页未配置'),
+                              icon: 'none',
+                            })
+                          },
+                        })
+                      }}
+                    />
+                  </View>
+                ) : null}
+                {/* MaterialList 素材库弹窗(对齐原项目 MaterialList) */}
+                {state.showMaterialList ? (
+                  <View
+                    className="material-list-container"
+                    onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+                  >
+                    {/* Tab 栏:文本/图片/视频/音频 */}
+                    <View className="material-tabs">
+                      {MATERIAL_TABS.map((tab) => (
+                        <View
+                          key={tab.id}
+                          className={`material-tab ${state.materialTab === tab.id ? 'material-tab-active' : ''}`}
+                          onClick={() => handleMaterialTabChange(tab.id)}
+                        >
+                          <Text className="material-tab-text">{tab.label}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    {/* 素材列表 */}
+                    <ScrollView
+                      scrollY
+                      className="material-list-scroll"
+                      style={{ maxHeight: rpx(500) }}
+                      onScrollToLower={() => {
+                        // 加载更多(暂用 mock 数据,不重复加载)
+                      }}
+                    >
+                      {currentMaterialList.length === 0 ? (
+                        <View className="flex items-center justify-center py-[40rpx]">
+                          <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date)' }}>
+                            {tt('index.material.empty', '暂无素材')}
+                          </Text>
+                        </View>
+                      ) : (
+                        currentMaterialList.map((item) => (
+                          <View
+                            key={item.id}
+                            className="material-list-item"
+                            onClick={() => handleMaterialItemClick(item, state.materialTab)}
+                          >
+                            {/* 文本类型:显示标题 + 内容预览 */}
+                            {state.materialTab === 1 && (
+                              <View className="material-item-text">
+                                <Text className="material-item-title">{item.title}</Text>
+                                {item.content && (
+                                  <Text className="material-item-preview">
+                                    {(item.content || '').slice(0, 40)}
+                                    {item.content && item.content.length > 40 ? '...' : ''}
+                                  </Text>
+                                )}
+                              </View>
+                            )}
+                            {/* 图片类型:显示缩略图 + 标题 */}
+                            {state.materialTab === 2 && item.imageList && item.imageList[0] && (
+                              <View className="material-item-image">
+                                <Image
+                                  src={item.imageList[0]}
+                                  className="material-item-thumb"
+                                  mode="aspectFill"
+                                  style={{
+                                    width: rpx(120),
+                                    height: rpx(120),
+                                    borderRadius: rpx(12),
+                                  }}
+                                />
+                                <Text className="material-item-title">{item.title}</Text>
+                              </View>
+                            )}
+                            {/* 视频类型:显示封面 + 标题 */}
+                            {state.materialTab === 3 && (
+                              <View className="material-item-video">
+                                <Image
+                                  src={item.posterUrl || item.videoUrl || ''}
+                                  className="material-item-thumb"
+                                  mode="aspectFill"
+                                  style={{
+                                    width: rpx(120),
+                                    height: rpx(120),
+                                    borderRadius: rpx(12),
+                                  }}
+                                />
+                                <Text className="material-item-title">{item.title}</Text>
+                              </View>
+                            )}
+                            {/* 音频类型:显示标题 */}
+                            {state.materialTab === 4 && (
+                              <View className="material-item-audio">
+                                <Text className="material-item-title">{item.title}</Text>
+                                <Text className="material-item-preview">
+                                  {tt('index.material.audio', '音频')}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        ))
+                      )}
+                    </ScrollView>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* ModelType 按钮区域(对齐原项目,使用 ModelTypeButtonGroup 组件) */}
+              <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
+                <ModelTypeButtonGroup
+                  variant="wide"
+                  activeType={state.currentModelType}
+                  onSelect={(type) => handleModelTypeClick(type)}
+                />
+              </View>
             </View>
 
-            {/* ModelType 按钮区域(对齐原项目,使用 ModelTypeButtonGroup 组件) */}
-            <View onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}>
-              <ModelTypeButtonGroup
-                variant="wide"
-                activeType={state.currentModelType}
-                onSelect={(type) => handleModelTypeClick(type)}
+            {/* ModelConfigDialog 模型配置弹窗(在 ModelList 和 MaterialCards 之间) */}
+            {state.showModelConfig && (
+              <ModelConfigDialog
+                visible
+                variant="default"
+                config={state.modelConfig}
+                onChange={handleModelConfigChange}
+                onClose={handleModelConfigClose}
+              />
+            )}
+
+            {/* MaterialCards 素材卡片流(在 ModelConfigDialog 和 BottomActionBar 之间) */}
+            <MaterialCards cards={state.materialCards} onRemove={removeMaterialCard} tt={tt} />
+
+            {/* BottomActionBar 底部操作栏(对齐原项目) */}
+            <View
+              style={{
+                background: 'var(--color-card)',
+                paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
+                boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
+              }}
+            >
+              <BottomActionBar
+                variant="ai-home"
+                modelName={state.modelName}
+                showIconButtons
+                isVoiceInput={state.isVoiceInput}
+                onVoiceInputToggle={toggleVoiceInput}
+                toggleButtons={state.toggleButtons}
+                inputAreaProps={{
+                  value: inputText,
+                  onInput: setInputText,
+                  onSend: handleSend,
+                  placeholder: state.isLogin
+                    ? tt('message.inputPlaceholder', '输入消息...')
+                    : tt('ai.aiAssistant.pleaseLogin', '请先登录'),
+                  onFocus: handleInputFocus,
+                  onBlur: handleInputBlur,
+                  onKeyboardHeightChange: handleKeyboardShow,
+                }}
+                onToggle={handleToggleButtonClick}
               />
             </View>
           </View>
-
-          {/* ModelConfigDialog 模型配置弹窗(在 ModelList 和 MaterialCards 之间) */}
-          {state.showModelConfig && (
-            <ModelConfigDialog
-              visible
-              variant="default"
-              config={state.modelConfig}
-              onChange={handleModelConfigChange}
-              onClose={handleModelConfigClose}
-            />
-          )}
-
-          {/* MaterialCards 素材卡片流(在 ModelConfigDialog 和 BottomActionBar 之间) */}
-          <MaterialCards cards={state.materialCards} onRemove={removeMaterialCard} tt={tt} />
-
-          {/* BottomActionBar 底部操作栏(对齐原项目) */}
-          <View
-            style={{
-              background: 'var(--color-card)',
-              paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
-              boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
-            }}
-          >
-            <BottomActionBar
-              variant="ai-home"
-              modelName={state.modelName}
-              showIconButtons
-              isVoiceInput={state.isVoiceInput}
-              onVoiceInputToggle={toggleVoiceInput}
-              toggleButtons={state.toggleButtons}
-              inputAreaProps={{
-                value: inputText,
-                onInput: setInputText,
-                onSend: handleSend,
-                placeholder: state.isLogin
-                  ? tt('message.inputPlaceholder', '输入消息...')
-                  : tt('ai.aiAssistant.pleaseLogin', '请先登录'),
-                onFocus: handleInputFocus,
-                onBlur: handleInputBlur,
-                onKeyboardHeightChange: handleKeyboardShow,
-              }}
-              onToggle={handleToggleButtonClick}
-            />
-          </View>
         </View>
-      </View>
 
-      {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup,在 input_box_content 之外) ===== */}
-      <SkillsPopup
-        visible={state.showSkillsPopup}
-        agents={MOCK_SKILLS}
-        loading={false}
-        selectedId={state.selectedModelId as string | undefined}
-        onSelect={handleSkillSelect}
-        onClose={handleSkillsClose}
-      />
+        {/* ===== SkillsPopup 技能商店弹窗(对齐原项目 skills popup,在 input_box_content 之外) ===== */}
+        <SkillsPopup
+          visible={state.showSkillsPopup}
+          agents={MOCK_SKILLS}
+          loading={false}
+          selectedId={state.selectedModelId as string | undefined}
+          onSelect={handleSkillSelect}
+          onClose={handleSkillsClose}
+        />
 
-      {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay,提取为子组件) ===== */}
-      <VoiceAnimationOverlay
-        visible={state.isVoiceAnimationActive}
-        tt={tt}
-        onClose={() =>
-          setState((s) => ({
-            ...s,
-            isVoiceAnimationActive: false,
-            isVoiceInput: false,
-            isRecording: false,
-          }))
-        }
-      />
+        {/* ===== 语音输入动画覆盖层(对齐原项目 .voice-animation-overlay,提取为子组件) ===== */}
+        <VoiceAnimationOverlay
+          visible={state.isVoiceAnimationActive}
+          tt={tt}
+          onClose={() =>
+            setState((s) => ({
+              ...s,
+              isVoiceAnimationActive: false,
+              isVoiceInput: false,
+              isRecording: false,
+            }))
+          }
+        />
 
-      {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if,在 input_box_content 之外) ===== */}
-      {state.showSharePointsPopup ? (
-        <View
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          onClick={handleSharePointsClose}
-        >
-          <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.5)' }} />
+        {/* ===== share-points-popup(分享领智汇值弹窗,对齐原项目 v-if,在 input_box_content 之外) ===== */}
+        {state.showSharePointsPopup ? (
           <View
-            className="ai-flip-in relative z-10 flex flex-col items-center"
-            onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            onClick={handleSharePointsClose}
           >
-            <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
-            {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
-            <Button
-              openType="share"
-              className="absolute inset-0 w-full h-full"
-              style={{ opacity: 0, zIndex: 10 }}
-              onClick={() => {
-                // 分享成功后弹出下一轮分享提示
-                setState((s) => ({ ...s, showSharePointsPopup: false }))
-              }}
-            />
-          </View>
-        </View>
-      ) : null}
-
-      {/* ===== qr-code-modal(二维码弹窗,在 input_box_content 之外) ===== */}
-      {state.showQrCodeModal ? (
-        <View
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
-          onClick={handleQrCodeClose}
-          style={{ background: 'rgba(0, 0, 0, 0.7)' }}
-        >
-          <View
-            className="ai-popup-fade-in flex flex-col items-center"
-            style={{
-              background: 'var(--color-card)',
-              borderRadius: rpx(20),
-              padding: '50rpx 40rpx 20rpx',
-            }}
-            onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
-          >
-            <Image
-              src={QRCODE_IMG}
-              style={{ width: rpx(600), height: rpx(600) }}
-              mode="aspectFit"
-              onLongPress={() => {
-                // 长按保存二维码(对齐原项目 handleLongPressQrCode)
-                Taro.showActionSheet({
-                  itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
-                  success: () => {
-                    Taro.showToast({
-                      title: tt('pagesindexindex.save3', '图片已保存'),
-                      icon: 'success',
-                    })
-                  },
-                  fail: () => {
-                    // 用户取消操作
-                  },
-                }).catch(() => {})
-              }}
-            />
-            <Text
-              style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}
-            >
-              {tt('index.qrCodeHint', '扫描二维码加入社区')}
-            </Text>
-            {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
+            <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.5)' }} />
             <View
-              className="ai-close-btn"
-              style={{
-                top: rpx(10),
-                right: rpx(10),
-                width: rpx(60),
-                height: rpx(60),
-                border: '1px solid #000',
-              }}
-              onClick={handleQrCodeClose}
+              className="ai-flip-in relative z-10 flex flex-col items-center"
+              onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
             >
-              <Text
-                style={{ fontSize: rpx(60), lineHeight: rpx(60), color: 'var(--color-foreground)' }}
-              >
-                ×
-              </Text>
+              <Image src={SHARE_ZHZ_IMG} style={{ width: rpx(440) }} mode="widthFix" />
+              {/* 分享按钮(对齐原项目 popup-share-btn,open-type="share" 用于微信小程序) */}
+              <Button
+                openType="share"
+                className="absolute inset-0 w-full h-full"
+                style={{ opacity: 0, zIndex: 10 }}
+                onClick={() => {
+                  // 分享成功后弹出下一轮分享提示
+                  setState((s) => ({ ...s, showSharePointsPopup: false }))
+                }}
+              />
             </View>
           </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+
+        {/* ===== qr-code-modal(二维码弹窗,在 input_box_content 之外) ===== */}
+        {state.showQrCodeModal ? (
+          <View
+            className="fixed inset-0 z-[9999] flex items-center justify-center"
+            onClick={handleQrCodeClose}
+            style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+          >
+            <View
+              className="ai-popup-fade-in flex flex-col items-center"
+              style={{
+                background: 'var(--color-card)',
+                borderRadius: rpx(20),
+                padding: '50rpx 40rpx 20rpx',
+              }}
+              onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
+            >
+              <Image
+                src={QRCODE_IMG}
+                style={{ width: rpx(600), height: rpx(600) }}
+                mode="aspectFit"
+                onLongPress={() => {
+                  // 长按保存二维码(对齐原项目 handleLongPressQrCode)
+                  Taro.showActionSheet({
+                    itemList: [tt('pagesindexindex.r1', '保存图片到相册')],
+                    success: () => {
+                      Taro.showToast({
+                        title: tt('pagesindexindex.save3', '图片已保存'),
+                        icon: 'success',
+                      })
+                    },
+                    fail: () => {
+                      // 用户取消操作
+                    },
+                  }).catch(() => {})
+                }}
+              />
+              <Text
+                style={{ fontSize: rpx(32), color: 'var(--color-foreground)', marginTop: rpx(20) }}
+              >
+                {tt('index.qrCodeHint', '扫描二维码加入社区')}
+              </Text>
+              {/* 关闭按钮(对齐原项目 .qr-code-close:60rpx×60rpx,圆形,AGENTS 豁免)*/}
+              <View
+                className="ai-close-btn"
+                style={{
+                  top: rpx(10),
+                  right: rpx(10),
+                  width: rpx(60),
+                  height: rpx(60),
+                  border: '1px solid var(--color-foreground)',
+                }}
+                onClick={handleQrCodeClose}
+              >
+                <Text
+                  style={{
+                    fontSize: rpx(60),
+                    lineHeight: rpx(60),
+                    color: 'var(--color-foreground)',
+                  }}
+                >
+                  ×
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -14,6 +14,7 @@ import NavBar from '@/components/NavBar'
 import DistributionStats, { type ColumnItem } from '@/components/DistributionStats'
 import CustomerServiceFloat from '@/components/CustomerServiceFloat'
 import './index.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface OperatorStats {
   dayEarnings?: number
@@ -222,7 +223,7 @@ export default function DistributionIndex() {
   const initial = nickname.charAt(0) || 'U'
 
   return (
-    <View className="dist-page">
+    <ThemeRoot className="dist-page">
       <NavBar
         title={tt('distribution.index.title', '我的公司')}
         bgColor="var(--color-secondary)"
@@ -402,7 +403,7 @@ export default function DistributionIndex() {
           </View>
         </View>
       ) : null}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

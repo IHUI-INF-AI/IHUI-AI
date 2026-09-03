@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -215,121 +216,123 @@ export default function ModelPlazaIndex() {
   const currentProviderCount = models.filter((m) => m.provider === providerId).length
 
   return (
-    <View className="model-plaza-page">
-      <View className="page-header">
-        <Text className="page-title">{t('modelPlaza.title')}</Text>
-      </View>
+    <ThemeRoot>
+      <View className="model-plaza-page">
+        <View className="page-header">
+          <Text className="page-title">{t('modelPlaza.title')}</Text>
+        </View>
 
-      {/* 厂商分类横向滚动 */}
-      <View className="provider-section">
-        <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="provider-tabs">
-          <View className="provider-tabs-inner">
-            {providers.map((p) => (
-              <View
-                key={p}
-                className={`provider-tab${providerId === p ? ' active' : ''}`}
-                onClick={() => setProviderId(p)}
-              >
-                <Image
-                  className="provider-icon"
-                  src={PROVIDER_ICONS[p] || '/static/images/icons/bot.svg'}
-                  mode="aspectFit"
-                />
-                <Text className="provider-name">{p}</Text>
-              </View>
-            ))}
-          </View>
-        </ScrollView>
-      </View>
-
-      {/* 厂商头部 */}
-      <View className="provider-header">
-        <Text className="provider-name">{providerId || '-'}</Text>
-        <Text className="provider-meta">
-          {t('modelPlaza.modelCount', { n: currentProviderCount })}
-          {currentProviderCount > filteredList.length
-            ? t('modelPlaza.synced', { n: filteredList.length })
-            : ''}
-        </Text>
-      </View>
-
-      {/* type tab */}
-      <View className="type-tabs">
-        {TYPE_TABS.map((tab) => (
-          <View
-            key={tab.key}
-            className={`type-tab${typeFilter === tab.key ? ' active' : ''}`}
-            onClick={() => setTypeFilter(tab.key)}
-          >
-            <Text>{tab.label}</Text>
-          </View>
-        ))}
-      </View>
-
-      {/* 模型列表 */}
-      <View className="model-list">
-        {loading ? (
-          <View className="state-wrap">
-            <Text className="state-text">{t('common.loading')}</Text>
-          </View>
-        ) : visibleList.length === 0 ? (
-          <View className="state-wrap">
-            <Text className="state-text">{t('modelPlaza.empty')}</Text>
-          </View>
-        ) : (
-          visibleList.map((m) => (
-            <View key={`${m.provider}-${m.id}`} className="model-card">
-              <View className="card-top">
-                <Text className="model-name">{m.name}</Text>
-                <Text className={`model-type-tag type-${m.type}`}>{typeLabel(m.type)}</Text>
-              </View>
-              <View className="card-price">
-                <Text className="price-label">Input</Text>
-                <Text className="price-value">
-                  ¥{m.inputPrice}/{tt('modelPlaza.perKTokens', '千token')}
-                </Text>
-                {m.outputPrice !== '-' ? (
-                  <>
-                    <Text className="price-divider">|</Text>
-                    <Text className="price-label">Output</Text>
-                    <Text className="price-value">
-                      ¥{m.outputPrice}/{tt('modelPlaza.perKTokens', '千token')}
-                    </Text>
-                  </>
-                ) : (
-                  <Text className="price-extra">({m.payMode})</Text>
-                )}
-              </View>
-              {m.desc ? <Text className="card-desc">{m.desc}</Text> : null}
-              {m.tags.length > 0 ? (
-                <View className="card-tags">
-                  {m.tags.map((tag, i) => (
-                    <Text key={i} className="tag-item">
-                      {tag}
-                    </Text>
-                  ))}
+        {/* 厂商分类横向滚动 */}
+        <View className="provider-section">
+          <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="provider-tabs">
+            <View className="provider-tabs-inner">
+              {providers.map((p) => (
+                <View
+                  key={p}
+                  className={`provider-tab${providerId === p ? ' active' : ''}`}
+                  onClick={() => setProviderId(p)}
+                >
+                  <Image
+                    className="provider-icon"
+                    src={PROVIDER_ICONS[p] || '/static/images/icons/bot.svg'}
+                    mode="aspectFit"
+                  />
+                  <Text className="provider-name">{p}</Text>
                 </View>
-              ) : null}
-              <View className="card-footer">
-                <Text className="pay-mode">{m.payMode}</Text>
-              </View>
+              ))}
             </View>
-          ))
-        )}
+          </ScrollView>
+        </View>
 
-        {!loading && hasMore ? (
-          <View className="state-wrap small">
-            <Text className="state-text">{t('common.loading')}</Text>
-          </View>
-        ) : null}
+        {/* 厂商头部 */}
+        <View className="provider-header">
+          <Text className="provider-name">{providerId || '-'}</Text>
+          <Text className="provider-meta">
+            {t('modelPlaza.modelCount', { n: currentProviderCount })}
+            {currentProviderCount > filteredList.length
+              ? t('modelPlaza.synced', { n: filteredList.length })
+              : ''}
+          </Text>
+        </View>
 
-        {!loading && !hasMore && visibleList.length > 0 ? (
-          <View className="state-wrap small">
-            <Text className="state-text">{tt('modelPlaza.noMore', '— 没有更多了 —')}</Text>
-          </View>
-        ) : null}
+        {/* type tab */}
+        <View className="type-tabs">
+          {TYPE_TABS.map((tab) => (
+            <View
+              key={tab.key}
+              className={`type-tab${typeFilter === tab.key ? ' active' : ''}`}
+              onClick={() => setTypeFilter(tab.key)}
+            >
+              <Text>{tab.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 模型列表 */}
+        <View className="model-list">
+          {loading ? (
+            <View className="state-wrap">
+              <Text className="state-text">{t('common.loading')}</Text>
+            </View>
+          ) : visibleList.length === 0 ? (
+            <View className="state-wrap">
+              <Text className="state-text">{t('modelPlaza.empty')}</Text>
+            </View>
+          ) : (
+            visibleList.map((m) => (
+              <View key={`${m.provider}-${m.id}`} className="model-card">
+                <View className="card-top">
+                  <Text className="model-name">{m.name}</Text>
+                  <Text className={`model-type-tag type-${m.type}`}>{typeLabel(m.type)}</Text>
+                </View>
+                <View className="card-price">
+                  <Text className="price-label">Input</Text>
+                  <Text className="price-value">
+                    ¥{m.inputPrice}/{tt('modelPlaza.perKTokens', '千token')}
+                  </Text>
+                  {m.outputPrice !== '-' ? (
+                    <>
+                      <Text className="price-divider">|</Text>
+                      <Text className="price-label">Output</Text>
+                      <Text className="price-value">
+                        ¥{m.outputPrice}/{tt('modelPlaza.perKTokens', '千token')}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text className="price-extra">({m.payMode})</Text>
+                  )}
+                </View>
+                {m.desc ? <Text className="card-desc">{m.desc}</Text> : null}
+                {m.tags.length > 0 ? (
+                  <View className="card-tags">
+                    {m.tags.map((tag, i) => (
+                      <Text key={i} className="tag-item">
+                        {tag}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                <View className="card-footer">
+                  <Text className="pay-mode">{m.payMode}</Text>
+                </View>
+              </View>
+            ))
+          )}
+
+          {!loading && hasMore ? (
+            <View className="state-wrap small">
+              <Text className="state-text">{t('common.loading')}</Text>
+            </View>
+          ) : null}
+
+          {!loading && !hasMore && visibleList.length > 0 ? (
+            <View className="state-wrap small">
+              <Text className="state-text">{tt('modelPlaza.noMore', '— 没有更多了 —')}</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

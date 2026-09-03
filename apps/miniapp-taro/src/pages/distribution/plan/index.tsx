@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function DistributionPlan() {
   const tt = useTt()
@@ -50,7 +51,7 @@ export default function DistributionPlan() {
   ]
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[200rpx]">
+    <ThemeRoot className="min-h-screen bg-background p-[24rpx] pb-[200rpx]">
       <View className="bg-card border border-border rounded-[16rpx] py-[40rpx] px-[32rpx] mb-[24rpx]">
         <Text className="block text-[36rpx] font-bold text-foreground">
           {tt('distribution.plan.introTitle', '邀请好友,赚取佣金')}
@@ -106,7 +107,7 @@ export default function DistributionPlan() {
           <Text>{tt('distribution.plan.openVipBtn', '开通VIP会员 参与分佣计划')}</Text>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

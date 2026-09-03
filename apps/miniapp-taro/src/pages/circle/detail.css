@@ -24,7 +24,7 @@
 .cd-avatar {
   width: 88rpx;
   height: 88rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -51,7 +51,7 @@
   background: var(--color-primary);
   color: var(--color-primary-foreground);
   font-size: 24rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin: 0;
   padding: 0 24rpx;
   height: 56rpx;
@@ -101,7 +101,7 @@
   height: 218rpx;
 }
 .cd-img {
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 
@@ -113,13 +113,13 @@
   padding: 20rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   gap: 20rpx;
 }
 .cd-aigc-cover {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -155,7 +155,7 @@
   padding: 0 20rpx;
   background: var(--color-border);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .cd-topic-text {
   font-size: 26rpx;
@@ -222,7 +222,7 @@
 .cd-comment-avatar {
   width: 64rpx;
   height: 64rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
   flex-shrink: 0;
 }
@@ -286,7 +286,7 @@
   padding: 0 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-foreground);
 }
@@ -294,7 +294,7 @@
   background: var(--color-primary);
   color: var(--color-primary-foreground);
   font-size: 26rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin: 0;
   padding: 0 28rpx;
   height: 72rpx;

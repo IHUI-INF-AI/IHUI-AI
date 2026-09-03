@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import './upgrade.css'
 
 type PayMethod = 'wechat' | 'alipay'
@@ -141,70 +142,74 @@ export default function UpgradePage() {
   useDidShow(load)
 
   return (
-    <View className="page">
-      <View className="banner">
-        <View className="banner-title">{t('vip.upgrade.bannerTitle')}</View>
-        <View className="banner-desc">{t('vip.upgrade.bannerDesc')}</View>
-      </View>
-      <View className="plans">
-        {plans.map((p, i) => (
-          <View
-            key={p.id}
-            className={`plan${selected === i ? ' active' : ''}`}
-            onClick={() => setSelected(i)}
-          >
-            {p.tag ? <View className="plan-tag">{p.tag}</View> : null}
-            <Text className="plan-name">{p.name}</Text>
-            <Text className="plan-price">¥{p.price}</Text>
-            {p.origin ? (
-              <Text className="plan-orig">{t('vip.upgrade.originalPrice', { n: p.origin })}</Text>
-            ) : null}
-          </View>
-        ))}
-      </View>
-      <View className="rights">
-        <View className="rights-title">{t('vip.upgrade.rightsTitle')}</View>
-        {rights.map((r, i) => (
-          <View key={i} className="rights-item">
-            · {r}
-          </View>
-        ))}
-      </View>
-      <View className="rights" style={{ marginTop: '24rpx' }}>
-        <View className="rights-title">{t('pay.selectMethod')}</View>
-        <View style={{ display: 'flex', gap: '16rpx', marginTop: '16rpx' }}>
-          <View
-            style={{
-              flex: 1,
-              padding: '20rpx 0',
-              textAlign: 'center',
-              borderRadius: '12rpx',
-              border: `2rpx solid ${payMethod === 'wechat' ? 'var(--color-warning)' : 'var(--color-border)'}`,
-              background: payMethod === 'wechat' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
-            }}
-            onClick={() => setPayMethod('wechat')}
-          >
-            <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodWechat')}</Text>
-          </View>
-          <View
-            style={{
-              flex: 1,
-              padding: '20rpx 0',
-              textAlign: 'center',
-              borderRadius: '12rpx',
-              border: `2rpx solid ${payMethod === 'alipay' ? 'var(--color-warning)' : 'var(--color-border)'}`,
-              background: payMethod === 'alipay' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
-            }}
-            onClick={() => setPayMethod('alipay')}
-          >
-            <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodAlipay')}</Text>
+    <ThemeRoot>
+      <View className="page">
+        <View className="banner">
+          <View className="banner-title">{t('vip.upgrade.bannerTitle')}</View>
+          <View className="banner-desc">{t('vip.upgrade.bannerDesc')}</View>
+        </View>
+        <View className="plans">
+          {plans.map((p, i) => (
+            <View
+              key={p.id}
+              className={`plan${selected === i ? ' active' : ''}`}
+              onClick={() => setSelected(i)}
+            >
+              {p.tag ? <View className="plan-tag">{p.tag}</View> : null}
+              <Text className="plan-name">{p.name}</Text>
+              <Text className="plan-price">¥{p.price}</Text>
+              {p.origin ? (
+                <Text className="plan-orig">{t('vip.upgrade.originalPrice', { n: p.origin })}</Text>
+              ) : null}
+            </View>
+          ))}
+        </View>
+        <View className="rights">
+          <View className="rights-title">{t('vip.upgrade.rightsTitle')}</View>
+          {rights.map((r, i) => (
+            <View key={i} className="rights-item">
+              · {r}
+            </View>
+          ))}
+        </View>
+        <View className="rights" style={{ marginTop: '24rpx' }}>
+          <View className="rights-title">{t('pay.selectMethod')}</View>
+          <View style={{ display: 'flex', gap: '16rpx', marginTop: '16rpx' }}>
+            <View
+              style={{
+                flex: 1,
+                padding: '20rpx 0',
+                textAlign: 'center',
+                borderRadius: '12rpx',
+                border: `2rpx solid ${payMethod === 'wechat' ? 'var(--color-warning)' : 'var(--color-border)'}`,
+                background:
+                  payMethod === 'wechat' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+              }}
+              onClick={() => setPayMethod('wechat')}
+            >
+              <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodWechat')}</Text>
+            </View>
+            <View
+              style={{
+                flex: 1,
+                padding: '20rpx 0',
+                textAlign: 'center',
+                borderRadius: '12rpx',
+                border: `2rpx solid ${payMethod === 'alipay' ? 'var(--color-warning)' : 'var(--color-border)'}`,
+                background:
+                  payMethod === 'alipay' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+              }}
+              onClick={() => setPayMethod('alipay')}
+            >
+              <Text style={{ fontSize: '28rpx' }}>{t('wallet.recharge.methodAlipay')}</Text>
+            </View>
           </View>
         </View>
+        <Button className="btn" onClick={onUpgrade}>
+          {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected].price}` : ''}
+        </Button>
       </View>
-      <Button className="btn" onClick={onUpgrade}>
-        {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected].price}` : ''}
-      </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

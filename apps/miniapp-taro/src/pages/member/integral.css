@@ -12,20 +12,20 @@
 /* custom color: #2c2c2c/#1a1a1a 暗色渐变/#ffffff 白字/#d4af6a 金色 为积分品牌色,无对应 token,保留原值 */
 .balance {
   padding: 60rpx 40rpx;
-  background: linear-gradient(135deg, #2c2c2c, #1a1a1a);
+  background: linear-gradient(135deg, var(--color-background), var(--color-card));
   text-align: center;
 }
 .balance-num {
   display: block;
   font-size: 60rpx;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--color-foreground);
 }
 .balance-label {
   display: block;
   margin-top: 12rpx;
   font-size: 26rpx;
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
 }
 
 .list {
@@ -37,7 +37,7 @@
   justify-content: space-between;
   align-items: center;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx 24rpx;
   margin-bottom: 16rpx;
 }

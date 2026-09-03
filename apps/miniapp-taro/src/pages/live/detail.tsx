@@ -7,6 +7,7 @@ import { View, Text, Image, Video } from '@tarojs/components'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getLiveDetail, subscribeLive, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function LiveDetail() {
   const { t } = useI18n()
@@ -67,83 +68,87 @@ export default function LiveDetail() {
 
   if (!live) {
     return (
-      <View className="flex items-center justify-center h-screen text-muted-foreground">
-        <Text>{t('live.detail.loading')}</Text>
-      </View>
+      <ThemeRoot>
+        <View className="flex items-center justify-center h-screen text-muted-foreground">
+          <Text>{t('live.detail.loading')}</Text>
+        </View>
+      </ThemeRoot>
     )
   }
 
   return (
-    <View className="min-h-screen">
-      {/* 播放区 */}
-      <View className="w-full h-[420rpx] bg-black">
-        {live.playUrl ? (
-          <Video
-            className="w-full h-full"
-            src={live.playUrl}
-            autoplay
-            controls
-            objectFit="contain"
-          />
-        ) : (
-          <View className="relative w-full h-full">
-            <Image className="w-full h-full opacity-60" src={live.coverUrl} mode="aspectFill" />
-            {live.status === 'living' && (
-              <View className="absolute inset-0 flex items-center justify-center">
-                <View
-                  className="px-7 py-2.5 bg-destructive text-white rounded-md text-sm"
-                  onClick={enterLive}
-                >
-                  <Text>{t('live.detail.enter')}</Text>
+    <ThemeRoot>
+      <View className="min-h-screen">
+        {/* 播放区 */}
+        <View className="w-full h-[420rpx] bg-black">
+          {live.playUrl ? (
+            <Video
+              className="w-full h-full"
+              src={live.playUrl}
+              autoplay
+              controls
+              objectFit="contain"
+            />
+          ) : (
+            <View className="relative w-full h-full">
+              <Image className="w-full h-full opacity-60" src={live.coverUrl} mode="aspectFill" />
+              {live.status === 'living' && (
+                <View className="absolute inset-0 flex items-center justify-center">
+                  <View
+                    className="px-7 py-2.5 bg-destructive text-white rounded-md text-sm"
+                    onClick={enterLive}
+                  >
+                    <Text>{t('live.detail.enter')}</Text>
+                  </View>
                 </View>
-              </View>
-            )}
-            {live.status === 'ended' && (
-              <View className="absolute inset-0 flex flex-col items-center justify-center text-white text-sm">
-                <Text>{t('live.detail.ended')}</Text>
-              </View>
-            )}
-            {live.status === 'upcoming' && (
-              <View className="absolute inset-0 flex flex-col items-center justify-center text-white text-sm">
-                <Text>{t('live.detail.notStarted')}</Text>
-                {live.startTime && (
-                  <Text className="mt-2 text-xs opacity-80">{live.startTime}</Text>
-                )}
-              </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* 直播信息 */}
-      <View className="p-3">
-        <Text className="text-lg text-foreground font-semibold">{live.title}</Text>
-        <View className="flex justify-between items-center mt-2">
-          {live.anchor && (
-            <Text className="text-sm text-primary">
-              {t('live.detail.anchor', { name: live.anchor })}
-            </Text>
+              )}
+              {live.status === 'ended' && (
+                <View className="absolute inset-0 flex flex-col items-center justify-center text-white text-sm">
+                  <Text>{t('live.detail.ended')}</Text>
+                </View>
+              )}
+              {live.status === 'upcoming' && (
+                <View className="absolute inset-0 flex flex-col items-center justify-center text-white text-sm">
+                  <Text>{t('live.detail.notStarted')}</Text>
+                  {live.startTime && (
+                    <Text className="mt-2 text-xs opacity-80">{live.startTime}</Text>
+                  )}
+                </View>
+              )}
+            </View>
           )}
-          {live.watchCount !== undefined ? (
-            <Text className="text-sm text-muted-foreground">
-              {t('live.viewers', { n: live.watchCount })}
-            </Text>
+        </View>
+
+        {/* 直播信息 */}
+        <View className="p-3">
+          <Text className="text-lg text-foreground font-semibold">{live.title}</Text>
+          <View className="flex justify-between items-center mt-2">
+            {live.anchor && (
+              <Text className="text-sm text-primary">
+                {t('live.detail.anchor', { name: live.anchor })}
+              </Text>
+            )}
+            {live.watchCount !== undefined ? (
+              <Text className="text-sm text-muted-foreground">
+                {t('live.viewers', { n: live.watchCount })}
+              </Text>
+            ) : null}
+          </View>
+          {live.status === 'upcoming' ? (
+            <View
+              className={`mt-3 h-9 leading-9 text-center text-white text-sm rounded-md ${
+                subscribed ? 'bg-muted' : 'bg-primary'
+              }`}
+              onClick={handleSubscribe}
+            >
+              <Text>
+                {subscribed ? t('live.subscribe.subscribed') : t('live.subscribe.subscribe')}
+              </Text>
+            </View>
           ) : null}
         </View>
-        {live.status === 'upcoming' ? (
-          <View
-            className={`mt-3 h-9 leading-9 text-center text-white text-sm rounded-md ${
-              subscribed ? 'bg-muted' : 'bg-primary'
-            }`}
-            onClick={handleSubscribe}
-          >
-            <Text>
-              {subscribed ? t('live.subscribe.subscribed') : t('live.subscribe.subscribe')}
-            </Text>
-          </View>
-        ) : null}
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

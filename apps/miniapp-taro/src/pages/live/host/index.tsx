@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { formatDuration } from '@ihui/shared/utils'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -124,126 +125,128 @@ export default function LiveHost() {
   ]
 
   return (
-    <View className="min-h-screen p-3">
-      <View className="flex items-center justify-end mb-2">
-        <View className={`px-2 py-0.5 rounded-md ${badgeCls}`}>
-          <Text className="text-xs text-white">{badgeText}</Text>
+    <ThemeRoot>
+      <View className="min-h-screen p-3">
+        <View className="flex items-center justify-end mb-2">
+          <View className={`px-2 py-0.5 rounded-md ${badgeCls}`}>
+            <Text className="text-xs text-white">{badgeText}</Text>
+          </View>
         </View>
-      </View>
 
-      {error ? (
-        <View className="mb-2">
-          <Text className="text-xs text-red-600">{error}</Text>
-        </View>
-      ) : null}
-
-      <View className="h-44 rounded-xl bg-neutral-900 flex items-center justify-center mb-3">
-        <Text className="text-sm text-neutral-400">
-          {status === 'active'
-            ? tt('liveHost.cameraPreviewActive', '直播推流中')
-            : tt('liveHost.cameraPreview', '摄像头预览')}
-        </Text>
-      </View>
-
-      <View className="p-3 rounded-xl border border-border mb-3">
-        <Text className="text-xs text-muted-foreground mb-1">
-          {tt('liveHost.streamTitle', '直播标题')}
-        </Text>
-        <Input
-          className="rounded-lg border border-border px-3 py-2 text-sm text-foreground"
-          value={streamTitle}
-          onInput={(e) => setStreamTitle(e.detail.value)}
-          placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}
-          disabled={status !== 'idle'}
-        />
-        {stream ? (
-          <View className="mt-2">
-            <View onClick={() => stream.pushUrl && copyText(stream.pushUrl)}>
-              <Text className="text-xs text-muted-foreground">
-                {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}
-              </Text>
-            </View>
-            <View className="mt-1" onClick={() => copyText(stream.streamKey)}>
-              <Text className="text-xs text-muted-foreground">
-                {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}
-              </Text>
-            </View>
+        {error ? (
+          <View className="mb-2">
+            <Text className="text-xs text-red-600">{error}</Text>
           </View>
         ) : null}
-      </View>
 
-      <View className="flex gap-3 mb-3">
-        <View
-          className={`flex-1 rounded-lg py-3 items-center ${status === 'idle' ? 'bg-emerald-500' : 'bg-muted'}`}
-          onClick={startLive}
-        >
-          <Text className="text-sm font-semibold text-white">
-            {loading && status === 'idle'
-              ? tt('liveHost.starting', '开启中...')
-              : tt('liveHost.startLive', '开始直播')}
+        <View className="h-44 rounded-xl bg-neutral-900 flex items-center justify-center mb-3">
+          <Text className="text-sm text-neutral-400">
+            {status === 'active'
+              ? tt('liveHost.cameraPreviewActive', '直播推流中')
+              : tt('liveHost.cameraPreview', '摄像头预览')}
           </Text>
         </View>
-        <View
-          className={`flex-1 rounded-lg py-3 items-center ${status === 'active' ? 'bg-red-500' : 'bg-muted'}`}
-          onClick={endLive}
-        >
-          <Text className="text-sm font-semibold text-white">
-            {loading && status === 'active'
-              ? tt('liveHost.ending', '结束中...')
-              : tt('liveHost.endLive', '结束直播')}
-          </Text>
-        </View>
-      </View>
 
-      <View className="p-3 rounded-xl border border-border mb-3">
-        <Text className="text-sm font-semibold text-foreground mb-2">
-          {tt('liveHost.liveData', '直播数据')}
-        </Text>
-        <View className="flex flex-wrap">
-          {stats.map((s) => (
-            <View key={s.label} className="w-1/2 mb-2">
-              <Text className="text-xs text-muted-foreground">{s.label}</Text>
-              <Text className={`text-sm font-semibold text-foreground ${s.valueCls || ''}`}>
-                {s.value}
-              </Text>
+        <View className="p-3 rounded-xl border border-border mb-3">
+          <Text className="text-xs text-muted-foreground mb-1">
+            {tt('liveHost.streamTitle', '直播标题')}
+          </Text>
+          <Input
+            className="rounded-lg border border-border px-3 py-2 text-sm text-foreground"
+            value={streamTitle}
+            onInput={(e) => setStreamTitle(e.detail.value)}
+            placeholder={tt('liveHost.streamTitlePlaceholder', '请输入直播标题')}
+            disabled={status !== 'idle'}
+          />
+          {stream ? (
+            <View className="mt-2">
+              <View onClick={() => stream.pushUrl && copyText(stream.pushUrl)}>
+                <Text className="text-xs text-muted-foreground">
+                  {tt('liveHost.pushUrl', '推流地址')}:{stream.pushUrl || '—'}
+                </Text>
+              </View>
+              <View className="mt-1" onClick={() => copyText(stream.streamKey)}>
+                <Text className="text-xs text-muted-foreground">
+                  {tt('liveHost.streamKey', '流密钥')}:{stream.streamKey}
+                </Text>
+              </View>
             </View>
-          ))}
+          ) : null}
         </View>
-      </View>
 
-      <View className="p-3 rounded-xl border border-border mb-8">
-        <View className="flex items-center justify-between mb-2">
-          <Text className="text-sm font-semibold text-foreground">
-            {tt('liveHost.productManagement', '商品管理')}
-          </Text>
+        <View className="flex gap-3 mb-3">
           <View
-            className="rounded-lg bg-muted px-2 py-1"
-            onClick={() =>
-              Taro.showToast({
-                title: tt('liveHost.addProductToast', '商品添加功能待接入'),
-                icon: 'none',
-              })
-            }
+            className={`flex-1 rounded-lg py-3 items-center ${status === 'idle' ? 'bg-emerald-500' : 'bg-muted'}`}
+            onClick={startLive}
           >
-            <Text className="text-xs text-emerald-600">
-              {tt('liveHost.addProduct', '+ 添加商品')}
+            <Text className="text-sm font-semibold text-white">
+              {loading && status === 'idle'
+                ? tt('liveHost.starting', '开启中...')
+                : tt('liveHost.startLive', '开始直播')}
+            </Text>
+          </View>
+          <View
+            className={`flex-1 rounded-lg py-3 items-center ${status === 'active' ? 'bg-red-500' : 'bg-muted'}`}
+            onClick={endLive}
+          >
+            <Text className="text-sm font-semibold text-white">
+              {loading && status === 'active'
+                ? tt('liveHost.ending', '结束中...')
+                : tt('liveHost.endLive', '结束直播')}
             </Text>
           </View>
         </View>
-        {MOCK_PRODUCTS(tt).length === 0 ? (
-          <Text className="text-xs text-muted-foreground py-2 text-center">
-            {tt('pointsMall.empty', '暂无商品')}
+
+        <View className="p-3 rounded-xl border border-border mb-3">
+          <Text className="text-sm font-semibold text-foreground mb-2">
+            {tt('liveHost.liveData', '直播数据')}
           </Text>
-        ) : (
-          MOCK_PRODUCTS(tt).map((item) => (
-            <View key={item.id} className="flex items-center justify-between py-2">
-              <Text className="flex-1 text-sm text-foreground">{item.name}</Text>
-              <Text className="text-sm font-semibold text-red-500">¥{item.price}</Text>
+          <View className="flex flex-wrap">
+            {stats.map((s) => (
+              <View key={s.label} className="w-1/2 mb-2">
+                <Text className="text-xs text-muted-foreground">{s.label}</Text>
+                <Text className={`text-sm font-semibold text-foreground ${s.valueCls || ''}`}>
+                  {s.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View className="p-3 rounded-xl border border-border mb-8">
+          <View className="flex items-center justify-between mb-2">
+            <Text className="text-sm font-semibold text-foreground">
+              {tt('liveHost.productManagement', '商品管理')}
+            </Text>
+            <View
+              className="rounded-lg bg-muted px-2 py-1"
+              onClick={() =>
+                Taro.showToast({
+                  title: tt('liveHost.addProductToast', '商品添加功能待接入'),
+                  icon: 'none',
+                })
+              }
+            >
+              <Text className="text-xs text-emerald-600">
+                {tt('liveHost.addProduct', '+ 添加商品')}
+              </Text>
             </View>
-          ))
-        )}
+          </View>
+          {MOCK_PRODUCTS(tt).length === 0 ? (
+            <Text className="text-xs text-muted-foreground py-2 text-center">
+              {tt('pointsMall.empty', '暂无商品')}
+            </Text>
+          ) : (
+            MOCK_PRODUCTS(tt).map((item) => (
+              <View key={item.id} className="flex items-center justify-between py-2">
+                <Text className="flex-1 text-sm text-foreground">{item.name}</Text>
+                <Text className="text-sm font-semibold text-red-500">¥{item.price}</Text>
+              </View>
+            ))
+          )}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

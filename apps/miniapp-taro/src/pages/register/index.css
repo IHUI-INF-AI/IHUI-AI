@@ -5,17 +5,17 @@
 */
 
 /* register/index.css — 对齐 zhs_app-ZZ register.vue 样式(完整视觉迁移)
- * 输入框:conic-gradient 紫蓝渐变描边 + bg #fff + box-shadow
+ * 输入框:渐变描边 + bg #fff + box-shadow(已迁移为语义 token)
  * 协议勾选:check-circle 16.5rpx 圆形(装饰点豁免)
  * 注册按钮:zcbutton.png + border-radius 15rpx + color rgba(0,0,0,0.5)
- * 强调色:#847CFF 紫色(send-code/已有账户登录链接)、#409EFF 蓝色(协议链接)
+ * 强调色:#847CFF 紫色 → var(--color-brand)、#409EFF 蓝色 → var(--color-link)
  */
 
 /* ===== 容器与背景 ===== */
 .container-ali {
   width: 100%;
   min-height: 100vh;
-  background-color: #fff;
+  background-color: var(--color-card);
 }
 
 .container1 {
@@ -91,7 +91,7 @@
   margin-top: 16rpx;
   font-size: 40rpx;
   font-weight: bold;
-  color: #000;
+  color: var(--color-foreground);
   text-align: center;
 }
 
@@ -100,7 +100,7 @@
   height: 354rpx;
 }
 
-/* ===== 输入框容器(conic-gradient 紫蓝渐变描边) ===== */
+/* ===== 输入框容器(conic-gradient 紫蓝渐变描边 → token 边框) ===== */
 .input-wbox {
   width: 100%;
   display: flex;
@@ -113,7 +113,7 @@
   width: 532rpx;
   margin-bottom: 4rpx;
   font-size: 24rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
   text-align: left;
 }
 
@@ -122,7 +122,7 @@
   width: 532rpx;
   margin-top: 8rpx;
   font-size: 22rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
   text-align: left;
 }
 
@@ -131,20 +131,20 @@
   width: 532rpx;
   height: 79rpx;
   margin-top: 30rpx;
-  border-radius: 12rpx;
-  background: conic-gradient(from 180deg at 50% 50%, #CCDAF4 -8deg, #E6CBF9 0deg, #CCDAF4 352deg, #E6CBF9 360deg);
+  border-radius: var(--radius-md);
+  background: var(--color-border);
   position: relative;
 }
 
 .input-nbox-focused {
-  background: conic-gradient(from 180deg at 50% 50%, #847CFF -8deg, #B59CFF 0deg, #847CFF 352deg, #B59CFF 360deg);
+  background: var(--color-brand);
 }
 
 .input-box {
   width: 100%;
   height: 100%;
-  background: #fff;
-  border-radius: 12rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   box-shadow: 0 0 6rpx 0 rgba(0, 0, 0, 0.3);
@@ -162,7 +162,7 @@
 
 .input-area-code {
   letter-spacing: 0rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
   font-size: 26rpx;
   font-weight: normal;
 }
@@ -179,7 +179,7 @@
   font-size: 24rpx;
   font-weight: 300;
   letter-spacing: 0rpx;
-  color: #000;
+  color: var(--color-foreground);
 }
 
 .iponeinput {
@@ -194,11 +194,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-right: 1px solid #979797;
+  border-right: 1px solid var(--color-border);
 }
 
 .xiaicc-focused {
-  border-right: 1px solid #000;
+  border-right: 1px solid var(--color-foreground);
 }
 
 .xiaicc-img {
@@ -206,7 +206,7 @@
   height: 0;
   border-left: 5rpx solid transparent;
   border-right: 5rpx solid transparent;
-  border-top: 9rpx solid #979797;
+  border-top: 9rpx solid var(--color-muted-foreground);
   margin-left: 3rpx;
 }
 
@@ -215,17 +215,17 @@
   width: 95%;
   bottom: 72rpx;
   right: 0;
-  border-radius: 0 0 20rpx 20rpx;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
   padding: 1rpx;
-  background: linear-gradient(180deg, #EEF4FF 0%, #409EFF 100%);
+  background: linear-gradient(180deg, var(--color-link-bg) 0%, var(--color-link) 100%);
   z-index: 100;
 }
 
 .nation-boo {
   width: 100%;
   height: 100%;
-  background: #F7F8FF;
-  border-radius: 0 0 20rpx 20rpx;
+  background: var(--color-link-bg);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 .nationInfo {
@@ -233,7 +233,7 @@
   justify-content: center;
   align-items: center;
   padding: 5px 5px;
-  border-bottom: 1rpx solid #D8D8D8;
+  border-bottom: 1rpx solid var(--color-border);
 }
 
 .nation-info1 {
@@ -245,14 +245,14 @@
 
 .nation-name {
   font-size: 28rpx;
-  color: #3D3D3D;
+  color: var(--color-foreground);
   font-weight: 400;
   flex-shrink: 0;
 }
 
 .nation-code {
   font-size: 28rpx;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
   font-weight: 400;
   flex-shrink: 0;
 }
@@ -262,7 +262,7 @@
   font-size: 24rpx;
   font-weight: bold;
   line-height: 25rpx;
-  color: #847CFF;
+  color: var(--color-brand);
   padding-right: 16rpx;
   white-space: nowrap;
 }
@@ -279,7 +279,7 @@
 
 .password-toggle-label {
   font-size: 24rpx;
-  color: #847CFF;
+  color: var(--color-brand);
   margin-right: 8rpx;
 }
 
@@ -307,14 +307,14 @@
 .check-circle {
   width: 16.5rpx;
   height: 16.5rpx;
-  border: 2rpx solid #bbb;
+  border: 2rpx solid var(--color-border);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24rpx;
-  color: #fff;
-  background: #fff;
+  color: var(--color-card);
+  background: var(--color-card);
   transition: all 0.2s;
   flex-shrink: 0;
   margin-top: 6rpx;
@@ -322,12 +322,12 @@
 }
 
 .check-circle.checked {
-  border-color: #847CFF;
-  background: #847CFF;
+  border-color: var(--color-brand);
+  background: var(--color-brand);
 }
 
 .check-icon {
-  color: #fff;
+  color: var(--color-card);
   font-size: 14.5rpx;
 }
 
@@ -335,11 +335,11 @@
   font-size: 18rpx;
   font-weight: normal;
   line-height: 30rpx;
-  color: #979797;
+  color: var(--color-muted-foreground);
 }
 
 .textItem {
-  color: #409EFF;
+  color: var(--color-link);
 }
 
 /* ===== 底部 ===== */
@@ -383,19 +383,19 @@
 }
 
 .btn-login {
-  border-radius: 30rpx;
-  background-color: #000;
+  border-radius: var(--radius-xl);
+  background-color: var(--color-foreground);
   font-size: 60rpx;
-  color: #fff;
+  color: var(--color-card);
   font-weight: 500;
   text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
 }
 
 .btn-register {
-  border-radius: 15rpx;
+  border-radius: var(--radius-lg);
   background-color: transparent;
   font-size: 60rpx;
-  color: rgba(0, 0, 0, 0.5);
+  color: var(--color-muted-foreground);
   font-weight: 500;
   text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
 }
@@ -410,7 +410,7 @@
   text-align: center;
   margin-top: 5rpx;
   font-size: 22rpx;
-  color: #757171;
+  color: var(--color-muted-foreground);
 }
 
 .icon-all {
@@ -453,13 +453,13 @@
 .has-account {
   font-size: 24rpx;
   font-weight: normal;
-  color: #6B6980;
+  color: var(--color-muted-foreground);
 }
 
 .to-login {
   font-size: 36rpx;
   font-weight: bold;
-  color: #847CFF;
+  color: var(--color-brand);
   margin-left: 8rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

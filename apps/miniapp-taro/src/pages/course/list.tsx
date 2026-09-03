@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
 import SectionHeader from '@/components/SectionHeader'
 import ColorfulLoader from '@/components/ColorfulLoader'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function CourseList() {
   const { t } = useI18n()
@@ -89,73 +90,75 @@ export default function CourseList() {
   }))
 
   return (
-    <View className="min-h-screen p-3">
-      <View className="flex items-center mb-3">
-        <Input
-          className="flex-1 h-9 px-3 bg-card rounded-lg text-sm"
-          type="text"
-          placeholder={t('course.list.searchPlaceholder')}
-          value={keyword}
-          onInput={(e) => setKeyword(e.detail.value)}
-          onConfirm={onSearch}
-        />
-        <View className="ml-2 px-3 h-9 leading-9 text-primary text-sm" onClick={onSearch}>
-          <Text>{t('course.list.search')}</Text>
+    <ThemeRoot>
+      <View className="min-h-screen p-3">
+        <View className="flex items-center mb-3">
+          <Input
+            className="flex-1 h-9 px-3 bg-card rounded-lg text-sm"
+            type="text"
+            placeholder={t('course.list.searchPlaceholder')}
+            value={keyword}
+            onInput={(e) => setKeyword(e.detail.value)}
+            onConfirm={onSearch}
+          />
+          <View className="ml-2 px-3 h-9 leading-9 text-primary text-sm" onClick={onSearch}>
+            <Text>{t('course.list.search')}</Text>
+          </View>
         </View>
-      </View>
 
-      <View className="mb-3">
-        <SectionHeader
-          title={tt('course.list.title', '精品课程')}
-          subtitle={`${list.length} 个课{tt('courseList.p1', '程')}`}
-          showMore={false}
-        />
-      </View>
+        <View className="mb-3">
+          <SectionHeader
+            title={tt('course.list.title', '精品课程')}
+            subtitle={`${list.length} 个课{tt('courseList.p1', '程')}`}
+            showMore={false}
+          />
+        </View>
 
-      {list.length > 0 && (
-        <View>
-          {list.map((item) => (
-            <View
-              key={item.id}
-              className="flex bg-card rounded-2xl overflow-hidden mb-3"
-              onClick={() => goDetail(item.id)}
-            >
-              <Image
-                className="w-[220rpx] h-[160rpx] flex-shrink-0"
-                src={item.coverUrl}
-                mode="aspectFill"
-              />
-              <View className="flex-1 p-2 flex flex-col justify-between">
-                <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
-                {item.subtitle && (
-                  <Text className="text-xs text-muted-foreground mt-1">{item.subtitle}</Text>
-                )}
-                <View className="flex justify-between items-center mt-2">
-                  {item.teacher && (
-                    <Text className="text-xs text-muted-foreground">{item.teacher}</Text>
+        {list.length > 0 && (
+          <View>
+            {list.map((item) => (
+              <View
+                key={item.id}
+                className="flex bg-card rounded-2xl overflow-hidden mb-3"
+                onClick={() => goDetail(item.id)}
+              >
+                <Image
+                  className="w-[220rpx] h-[160rpx] flex-shrink-0"
+                  src={item.coverUrl}
+                  mode="aspectFill"
+                />
+                <View className="flex-1 p-2 flex flex-col justify-between">
+                  <Text className="text-[30rpx] text-foreground font-semibold">{item.title}</Text>
+                  {item.subtitle && (
+                    <Text className="text-xs text-muted-foreground mt-1">{item.subtitle}</Text>
                   )}
-                  <Text className="text-base text-destructive font-semibold">
-                    ¥{item.price ?? 0}
-                  </Text>
+                  <View className="flex justify-between items-center mt-2">
+                    {item.teacher && (
+                      <Text className="text-xs text-muted-foreground">{item.teacher}</Text>
+                    )}
+                    <Text className="text-base text-destructive font-semibold">
+                      ¥{item.price ?? 0}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))}
-        </View>
-      )}
+            ))}
+          </View>
+        )}
 
-      {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-muted-foreground text-sm">
-          <Text>{t('course.list.empty')}</Text>
-        </View>
-      )}
+        {!loading && list.length === 0 && (
+          <View className="text-center py-16 text-muted-foreground text-sm">
+            <Text>{t('course.list.empty')}</Text>
+          </View>
+        )}
 
-      {loading && (
-        <View className="flex justify-center items-center py-16">
-          <ColorfulLoader size={80} />
-        </View>
-      )}
-    </View>
+        {loading && (
+          <View className="flex justify-center items-center py-16">
+            <ColorfulLoader size={80} />
+          </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

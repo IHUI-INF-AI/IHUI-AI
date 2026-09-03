@@ -8,6 +8,7 @@ import { View, Text, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useCallback } from 'react'
 import { getProfile, bindEmail, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './email.css'
 
 export default function Email() {
@@ -119,59 +120,61 @@ export default function Email() {
   }
 
   return (
-    <View className="email-page">
-      {currentEmail ? (
-        <View className="email-intro">
-          <Text className="email-intro-title">{tt('user.email.changeTitle', '更换邮箱')}</Text>
-          <Text className="email-intro-desc">
-            {tt('user.email.currentLabel', '当前邮箱')}: {maskedEmail}
-          </Text>
-        </View>
-      ) : (
-        <View className="email-intro">
-          <Text className="email-intro-title">{tt('user.email.bindTitle', '绑定邮箱')}</Text>
-          <Text className="email-intro-desc">
-            {tt('user.email.bindDesc', '绑定后可用于找回密码、接收通知')}
-          </Text>
-        </View>
-      )}
-      <View className="email-card">
-        <View className="email-row email-row-divider">
-          <Text className="email-label">{tt('user.email.email', '邮箱')}</Text>
-          <Input
-            className="email-input"
-            type="text"
-            placeholder={tt('user.email.emailPlaceholder', '请输入邮箱')}
-            value={email}
-            onInput={(e) => setEmail(e.detail.value)}
-          />
-        </View>
-        <View className="email-row">
-          <Text className="email-label">{tt('user.email.code', '验证码')}</Text>
-          <View className="email-input-wrap">
-            <Input
-              className="email-input email-code-input"
-              type="number"
-              maxlength={6}
-              placeholder={tt('user.email.codePlaceholder', '请输入验证码')}
-              value={code}
-              onInput={(e) => setCode(e.detail.value)}
-            />
-            <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
-              {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
+    <ThemeRoot>
+      <View className="email-page">
+        {currentEmail ? (
+          <View className="email-intro">
+            <Text className="email-intro-title">{tt('user.email.changeTitle', '更换邮箱')}</Text>
+            <Text className="email-intro-desc">
+              {tt('user.email.currentLabel', '当前邮箱')}: {maskedEmail}
             </Text>
           </View>
+        ) : (
+          <View className="email-intro">
+            <Text className="email-intro-title">{tt('user.email.bindTitle', '绑定邮箱')}</Text>
+            <Text className="email-intro-desc">
+              {tt('user.email.bindDesc', '绑定后可用于找回密码、接收通知')}
+            </Text>
+          </View>
+        )}
+        <View className="email-card">
+          <View className="email-row email-row-divider">
+            <Text className="email-label">{tt('user.email.email', '邮箱')}</Text>
+            <Input
+              className="email-input"
+              type="text"
+              placeholder={tt('user.email.emailPlaceholder', '请输入邮箱')}
+              value={email}
+              onInput={(e) => setEmail(e.detail.value)}
+            />
+          </View>
+          <View className="email-row">
+            <Text className="email-label">{tt('user.email.code', '验证码')}</Text>
+            <View className="email-input-wrap">
+              <Input
+                className="email-input email-code-input"
+                type="number"
+                maxlength={6}
+                placeholder={tt('user.email.codePlaceholder', '请输入验证码')}
+                value={code}
+                onInput={(e) => setCode(e.detail.value)}
+              />
+              <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
+                {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View
+          className={`email-submit ${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim()) && code.trim().length === 6 && !submitting ? '' : 'disabled'}`}
+          onClick={onSubmit}
+        >
+          <Text>
+            {submitting ? tt('user.email.binding', '绑定中…') : tt('user.email.bind', '绑定')}
+          </Text>
         </View>
       </View>
-      <View
-        className={`email-submit ${/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((email || '').trim()) && code.trim().length === 6 && !submitting ? '' : 'disabled'}`}
-        onClick={onSubmit}
-      >
-        <Text>
-          {submitting ? tt('user.email.binding', '绑定中…') : tt('user.email.bind', '绑定')}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

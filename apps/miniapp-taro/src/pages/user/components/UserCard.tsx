@@ -9,6 +9,7 @@ import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
 import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import xianLabelIcon from '@/assets/remote/images/xian_label.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export interface UserCardProps {
   onGoPage: (path: string) => void
@@ -52,33 +53,35 @@ export default function UserCard({ onGoPage }: UserCardProps) {
       {items.map((item, idx) => {
         const isFullWidth = idx === 3 // 钱包占整行
         return (
-          <View
-            key={item.key}
-            className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
-            style={{
-              background: 'rgba(0,4,255,0.03)',
-              boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)',
-            }}
-            onClick={() => {
-              const userInfodata = Taro.getStorageSync('data')
-              if (!userInfodata) {
-                Taro.showToast({
-                  title: tt('ai.aiAssistant.pleaseLogin', '请先登录'),
-                  icon: 'none',
-                })
-                return
-              }
-              onGoPage(item.path)
-            }}
-          >
-            <View className="w-[90rpx] h-[90rpx] mr-[15rpx] flex-shrink-0">
-              <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
+          <ThemeRoot key={item.key}>
+            <View
+              key={item.key}
+              className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
+              style={{
+                background: 'rgba(0,4,255,0.03)',
+                boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)',
+              }}
+              onClick={() => {
+                const userInfodata = Taro.getStorageSync('data')
+                if (!userInfodata) {
+                  Taro.showToast({
+                    title: tt('ai.aiAssistant.pleaseLogin', '请先登录'),
+                    icon: 'none',
+                  })
+                  return
+                }
+                onGoPage(item.path)
+              }}
+            >
+              <View className="w-[90rpx] h-[90rpx] mr-[15rpx] flex-shrink-0">
+                <Image src={item.icon} className="w-full h-full" mode="aspectFill" />
+              </View>
+              <View>
+                <Text className="text-[32rpx] text-foreground">{item.title}</Text>
+                <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
+              </View>
             </View>
-            <View>
-              <Text className="text-[32rpx] text-foreground">{item.title}</Text>
-              <Text className="text-[26rpx] text-muted-foreground">{item.desc}</Text>
-            </View>
-          </View>
+          </ThemeRoot>
         )
       })}
     </View>

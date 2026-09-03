@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button } from '@tarojs/components'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   getExamPaper,
   getExamQuestions,
@@ -127,24 +128,28 @@ export default function ExamAnswer() {
     const ans = answers[current.id]
     if (current.type === 'fill_blank') {
       return (
-        <Input
-          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl"
-          type="text"
-          placeholder={t('exam.answer.answerPlaceholder')}
-          value={typeof ans === 'string' ? ans : ''}
-          onInput={(e) => select(e.detail.value)}
-        />
+        <ThemeRoot>
+          <Input
+            className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl"
+            type="text"
+            placeholder={t('exam.answer.answerPlaceholder')}
+            value={typeof ans === 'string' ? ans : ''}
+            onInput={(e) => select(e.detail.value)}
+          />
+        </ThemeRoot>
       )
     }
     if (current.type === 'subjective') {
       return (
-        <Textarea
-          className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
-          placeholder={t('exam.answer.answerPlaceholder')}
-          value={typeof ans === 'string' ? ans : ''}
-          onInput={(e) => select(e.detail.value)}
-          maxlength={1000}
-        />
+        <ThemeRoot>
+          <Textarea
+            className="w-full text-sm text-foreground p-3 border border-[var(--color-border)] rounded-xl min-h-[320rpx]"
+            placeholder={t('exam.answer.answerPlaceholder')}
+            value={typeof ans === 'string' ? ans : ''}
+            onInput={(e) => select(e.detail.value)}
+            maxlength={1000}
+          />
+        </ThemeRoot>
       )
     }
     const opts = current.type === 'judgment' ? judgmentOptions : current.options || []
@@ -157,65 +162,69 @@ export default function ExamAnswer() {
           : ans === i
       const val: AnswerValue = current.type === 'judgment' ? i === 0 : i
       return (
-        <View
-          key={i}
-          className={`flex items-center p-3 border rounded-xl mb-2 ${
-            selected ? 'border-primary bg-[var(--color-muted)]' : 'border-[var(--color-border)]'
-          }`}
-          onClick={() => select(val)}
-        >
+        <ThemeRoot key={i}>
           <View
-            className={`w-7 h-7 leading-7 text-center border text-sm ${
-              isMulti ? 'rounded-md' : 'rounded-md'
-            } ${
-              selected
-                ? 'border-primary bg-primary text-white'
-                : 'border-muted text-muted-foreground'
+            key={i}
+            className={`flex items-center p-3 border rounded-xl mb-2 ${
+              selected ? 'border-primary bg-[var(--color-muted)]' : 'border-[var(--color-border)]'
             }`}
+            onClick={() => select(val)}
           >
-            {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
+            <View
+              className={`w-7 h-7 leading-7 text-center border text-sm ${
+                isMulti ? 'rounded-md' : 'rounded-md'
+              } ${
+                selected
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-muted text-muted-foreground'
+              }`}
+            >
+              {current.type === 'judgment' ? (i === 0 ? '√' : '×') : String.fromCharCode(65 + i)}
+            </View>
+            <Text className="flex-1 ml-3 text-sm text-foreground">{opt}</Text>
           </View>
-          <Text className="flex-1 ml-3 text-sm text-foreground">{opt}</Text>
-        </View>
+        </ThemeRoot>
       )
     })
   }
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="flex justify-between p-3 bg-card">
-        <Text className="text-base text-destructive font-bold">{formatTime(remain)}</Text>
-        <Text className="text-sm text-muted-foreground">
-          {currentIdx + 1}/{questions.length}
-        </Text>
-      </View>
-
-      {current && (
-        <View className="m-3 p-4 bg-card rounded-2xl">
-          <Text className="text-base text-foreground font-semibold leading-relaxed">
-            {currentIdx + 1}. {current.title}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="flex justify-between p-3 bg-card">
+          <Text className="text-base text-destructive font-bold">{formatTime(remain)}</Text>
+          <Text className="text-sm text-muted-foreground">
+            {currentIdx + 1}/{questions.length}
           </Text>
-          <View className="mt-4">{renderAnswer()}</View>
         </View>
-      )}
 
-      <View className="fixed bottom-4 left-4 right-4 flex gap-3">
-        {currentIdx > 0 && (
-          <Button className="flex-1 bg-card text-foreground rounded-md text-sm" onClick={prev}>
-            {t('exam.answer.prev')}
-          </Button>
+        {current && (
+          <View className="m-3 p-4 bg-card rounded-2xl">
+            <Text className="text-base text-foreground font-semibold leading-relaxed">
+              {currentIdx + 1}. {current.title}
+            </Text>
+            <View className="mt-4">{renderAnswer()}</View>
+          </View>
         )}
-        {currentIdx < questions.length - 1 ? (
-          <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={next}>
-            {t('exam.answer.next')}
-          </Button>
-        ) : (
-          <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={onSubmit}>
-            {t('exam.answer.submit')}
-          </Button>
-        )}
+
+        <View className="fixed bottom-4 left-4 right-4 flex gap-3">
+          {currentIdx > 0 && (
+            <Button className="flex-1 bg-card text-foreground rounded-md text-sm" onClick={prev}>
+              {t('exam.answer.prev')}
+            </Button>
+          )}
+          {currentIdx < questions.length - 1 ? (
+            <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={next}>
+              {t('exam.answer.next')}
+            </Button>
+          ) : (
+            <Button className="flex-1 bg-primary text-white rounded-md text-sm" onClick={onSubmit}>
+              {t('exam.answer.submit')}
+            </Button>
+          )}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
