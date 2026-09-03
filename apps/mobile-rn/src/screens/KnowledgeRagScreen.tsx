@@ -26,6 +26,7 @@ import {
   type KnowledgeDocSummary,
   type KnowledgeSearchHit,
 } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -202,7 +203,7 @@ export function KnowledgeRagScreen() {
         value={query}
         onChangeText={setQuery}
         placeholder={t('common.searchPlaceholder')}
-        placeholderTextColor={dark ? '#666' : '#aaa'}
+        placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
         returnKeyType="search"
         onSubmitEditing={() => {
           void onSearch()
