@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, updateUserAvatar, type UserInfo } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './profile.css'
 
 export default function Profile() {
@@ -93,7 +94,7 @@ export default function Profile() {
   ]
 
   return (
-    <View className="pf-page">
+    <ThemeRoot><View className="pf-page">
       {/* 身份标签行(对齐原项目 identity-tag) */}
       <View className="pf-identity-row">
         <Text className="pf-identity-label">{t('user.identity')}</Text>
@@ -136,14 +137,14 @@ export default function Profile() {
         <Text className="pf-section-title">{tt('user.profile.accountInfo', '账号信息')}</Text>
         <View className="pf-section-card">
           {accountRows.map((row) => (
-            <View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
+            <ThemeRoot><View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
               <Text className="pf-item-label">{row.label}</Text>
               <View className="pf-item-right">
                 <Text className="pf-item-value">{row.value}</Text>
                 <Text className="pf-arrow">›</Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -152,14 +153,14 @@ export default function Profile() {
         <Text className="pf-section-title">{tt('user.profile.security', '安全设置')}</Text>
         <View className="pf-section-card">
           {securityRows.map((row) => (
-            <View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
+            <ThemeRoot><View key={row.path} className="pf-item" onClick={() => navigate(row.path)}>
               <Text className="pf-item-label">{row.label}</Text>
               <View className="pf-item-right">
                 {row.value ? <Text className="pf-item-value">{row.value}</Text> : null}
                 <Text className="pf-arrow">›</Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -172,7 +173,7 @@ export default function Profile() {
             <View className="pf-item-right">
               <Text className="pf-arrow">›</Text>
             </View>
-          </View>
+          </View</ThemeRoot>>
         </View>
       </View>
     </View>

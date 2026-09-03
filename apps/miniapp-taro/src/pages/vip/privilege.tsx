@@ -7,6 +7,7 @@ import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './privilege.css'
 
 interface Privilege {
@@ -135,7 +136,7 @@ export default function PrivilegePage() {
   const isOpened = !!(vipInfo && vipInfo.level)
 
   return (
-    <View className="page">
+    <ThemeRoot><View className="page">
       {/* 顶部会员等级展示区 */}
       <View className="header">
         <Text className="header-title">{tt('vip.privilege.title', '会员权益')}</Text>
@@ -194,7 +195,7 @@ export default function PrivilegePage() {
       <Text className="section-title">{tt('vip.privilege.privilegeList', '专属权益')}</Text>
       <View className="privilege-list">
         {list.map((p) => (
-          <View key={p.id} className="privilege-card">
+          <ThemeRoot><View key={p.id} className="privilege-card">
             <Image
               className="privilege-icon"
               src="/static/images/icons/star-fill.svg"
@@ -206,7 +207,7 @@ export default function PrivilegePage() {
               <Text className="privilege-desc">{p.desc}</Text>
             </View>
           </View>
-        ))}
+        </ThemeRoot>))}
         {!loading && !list.length ? (
           <View className="empty-state">
             <Text>{tt('vip.privilege.empty', '暂无权益')}</Text>
@@ -251,16 +252,16 @@ export default function PrivilegePage() {
                   </Text>
                 </View>
                 {LEVEL_MATRIX.map((row) => (
-                  <View key={row.label} className="matrix-row">
+                  <ThemeRoot><View key={row.label} className="matrix-row">
                     <Text className="matrix-cell label">
                       {tt(row.label, MATRIX_FALLBACK(tt)[row.label] || row.label)}
                     </Text>
                     {row.values.map((v, i) => (
-                      <Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
+                      <ThemeRoot><Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
                         {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK(tt)[v] || v) : v}
                       </Text>
-                    ))}
-                  </View>
+                    </ThemeRoot>))}
+                  <</ThemeRoot>/View>
                 ))}
               </View>
               <Text className="matrix-desc">
@@ -298,7 +299,7 @@ export default function PrivilegePage() {
               </Text>
               <View className="benefit-list">
                 {TRADER_BENEFITS.map((key) => (
-                  <View key={key} className="benefit-item">
+                  <ThemeRoot><View key={key} className="benefit-item">
                     <Image
                       className="benefit-check"
                       src="/static/images/icons/check.svg"
@@ -309,7 +310,7 @@ export default function PrivilegePage() {
                       {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
                     </Text>
                   </View>
-                ))}
+                </ThemeRoot>))}
               </View>
             </View>
             <View className="popup-footer">
@@ -342,7 +343,7 @@ export default function PrivilegePage() {
               </Text>
               <View className="benefit-list">
                 {PRIVATE_BENEFITS.map((key) => (
-                  <View key={key} className="benefit-item">
+                  <ThemeRoot><View key={key} className="benefit-item">
                     <Image
                       className="benefit-check"
                       src="/static/images/icons/check.svg"
@@ -353,12 +354,12 @@ export default function PrivilegePage() {
                       {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
                     </Text>
                   </View>
-                ))}
+                </ThemeRoot>))}
               </View>
             </View>
             <View className="popup-footer">
               <Button className="popup-action-btn" onClick={goUpgrade}>
-                {tt('vip.privilege.goOpen', '去开通')}
+                {tt('vip.privilege.goO</ThemeRoot>pen', '去开通')}
               </Button>
             </View>
           </View>

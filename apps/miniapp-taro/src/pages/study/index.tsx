@@ -13,6 +13,7 @@ import kechengIcon from '@/assets/remote/images/kecheng.png'
 const recordBackIcon = '/static/images/record_back.png'
 import studyIconAddIcon from '@/assets/remote/images/study_icon_add.png'
 import wenjianIcon from '@/assets/remote/images/wenjian.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
@@ -76,7 +77,7 @@ export default function StudyIndex() {
   ]
 
   return (
-    <View className="min-h-screen bg-background pb-[144rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[144rpx]">
       <View className="p-6 bg-primary">
         <View className="flex flex-wrap">
           <View className="w-1/2 text-center mb-3 text-primary-foreground">
@@ -100,7 +101,7 @@ export default function StudyIndex() {
 
       <View className="m-3 bg-card rounded-2xl p-2 flex flex-col gap-1">
         {entries.map((e) => (
-          <View key={e.url} className="flex items-center p-3" onClick={() => navigate(e.url)}>
+          <ThemeRoot><View key={e.url} className="flex items-center p-3" onClick={() => navigate(e.url)}>
             {isImagePath(e.icon) ? (
               <Image src={e.icon} className="w-[40rpx] h-[40rpx]" mode="aspectFit" />
             ) : (
@@ -109,7 +110,7 @@ export default function StudyIndex() {
             <Text className="flex-1 ml-3 text-sm text-foreground">{t(e.labelKey)}</Text>
             <Text className="text-muted-foreground">›</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="m-3 p-4 bg-card rounded-2xl">
@@ -123,7 +124,7 @@ export default function StudyIndex() {
         ) : recent.length > 0 ? (
           <View className="flex flex-col gap-1">
             {recent.map((r) => (
-              <View key={r.id} className="flex items-center p-2" onClick={() => goVideo(r)}>
+              <ThemeRoot><View key={r.id} className="flex items-center p-2" onClick={() => goVideo(r)}>
                 <View className="flex-1">
                   <Text className="block text-sm text-foreground">{r.courseTitle}</Text>
                   <Text className="block text-xs text-muted-foreground mt-1">
@@ -132,7 +133,7 @@ export default function StudyIndex() {
                 </View>
                 <Text className="text-muted-foreground">›</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         ) : (
           <View className="text-center py-6 text-muted-foreground">
@@ -145,7 +146,7 @@ export default function StudyIndex() {
         className="fixed bottom-5 right-4 w-12 h-12 bg-primary text-primary-foreground rounded-2xl flex items-center justify-center text-xl shadow-md"
         onClick={() => navigate('/pages/study/publish/index')}
       >
-        <Text>+</Text>
+     </ThemeRoot>   <Text>+</Text>
       </View>
     </View>
   )

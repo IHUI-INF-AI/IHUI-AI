@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react'
 import { useDidShow, useReachBottom, navigateBack, showToast } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { getUserInfo } from '@/utils/auth'
+import ThemeRoot from '@/components/ThemeRoot'
 import './income.css'
 
 interface BuyInfo {
@@ -271,7 +272,7 @@ export default function DeveloperIncome() {
   ]
 
   return (
-    <View className="income-page">
+    <ThemeRoot><View className="income-page">
       <View className="income-header">
         <Text className="income-back" onClick={onBack}>
           ‹
@@ -337,14 +338,14 @@ export default function DeveloperIncome() {
 
           <View className="income-tabs">
             {tabs.map((tab) => (
-              <View
+              <ThemeRoot><View
                 key={tab.id || 'all'}
                 className={`income-tab${settlement === tab.id ? ' active' : ''}`}
                 onClick={() => onChangeSettlement(tab.id)}
               >
                 <Text>{tab.name}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
 
           <View className="income-list">
@@ -352,7 +353,7 @@ export default function DeveloperIncome() {
               <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
             ) : incomeList.length ? (
               incomeList.map((item, idx) => (
-                <View key={item.id ?? idx} className="income-list-item">
+                <ThemeRoot><View key={item.id ?? idx} className="income-list-item">
                   <View>
                     <Text className="income-item-title">{displayTitle(item)}</Text>
                     <Text className="income-item-time">{displayTime(item)}</Text>
@@ -364,7 +365,7 @@ export default function DeveloperIncome() {
                     ) : null}
                   </View>
                 </View>
-              ))
+              </ThemeRoot>))
             ) : (
               <Text className="income-empty">{tt('developer.income.empty', '暂无收入记录')}</Text>
             )}
@@ -382,14 +383,14 @@ export default function DeveloperIncome() {
             <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
           ) : cashList.length ? (
             cashList.map((item, idx) => (
-              <View key={item.id ?? idx} className="cash-item">
+              <ThemeRoot><View key={item.id ?? idx} className="cash-item">
                 <View>
                   <Text className="income-item-amount">-¥{Number(item.amount ?? 0)}</Text>
                   <Text className="income-item-time">{cashTime(item)}</Text>
                 </View>
                 <Text className="income-item-time">{cashStatusText(item)}</Text>
               </View>
-            ))
+            </ThemeRoot>))
           ) : (
             <Text className="income-empty">{tt('developer.income.cashEmpty', '暂无提现明细')}</Text>
           )}
@@ -608,7 +609,7 @@ export default function DeveloperIncome() {
                   {submitting ? tt('common.loading', '加载中…') : tt('common.confirm', '确认')}
                 </Text>
               </View>
-            </View>
+            </V</ThemeRoot>iew>
           </View>
         </View>
       ) : null}

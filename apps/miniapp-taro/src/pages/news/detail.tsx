@@ -10,6 +10,7 @@ import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
 type NewsApiExt = {
@@ -111,7 +112,7 @@ export default function NewsDetailPage() {
   }))
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[140rpx]">
       <NavBar showBack />
       {loading ? (
         <View className="text-center py-[120rpx] text-muted-foreground">
@@ -144,7 +145,7 @@ export default function NewsDetailPage() {
           </Text>
           <View className="flex flex-col gap-[24rpx]">
             {related.map((r) => (
-              <View
+              <ThemeRoot><View
                 key={r.id}
                 className="flex gap-[24rpx] p-[16rpx] bg-background rounded-[12rpx]"
                 onClick={() => goRelated(r.id)}
@@ -168,7 +169,7 @@ export default function NewsDetailPage() {
                   </View>
                 </View>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
       ) : null}
@@ -219,7 +220,7 @@ export default function NewsDetailPage() {
             <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
           </View>
         </View>
-      ) : null}
+      )</ThemeRoot> : null}
     </View>
   )
 }

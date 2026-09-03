@@ -15,6 +15,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
 import SectionHeader from '@/components/SectionHeader'
 import ColorfulLoader from '@/components/ColorfulLoader'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function CourseList() {
   const { t } = useI18n()
@@ -89,7 +90,7 @@ export default function CourseList() {
   }))
 
   return (
-    <View className="min-h-screen p-3">
+    <ThemeRoot><View className="min-h-screen p-3">
       <View className="flex items-center mb-3">
         <Input
           className="flex-1 h-9 px-3 bg-card rounded-lg text-sm"
@@ -115,7 +116,7 @@ export default function CourseList() {
       {list.length > 0 && (
         <View>
           {list.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="flex bg-card rounded-2xl overflow-hidden mb-3"
               onClick={() => goDetail(item.id)}
@@ -140,7 +141,7 @@ export default function CourseList() {
                 </View>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       )}
 
@@ -154,7 +155,7 @@ export default function CourseList() {
         <View className="flex justify-center items-center py-16">
           <ColorfulLoader size={80} />
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

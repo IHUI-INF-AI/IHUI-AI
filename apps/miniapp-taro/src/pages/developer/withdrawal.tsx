@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getDeveloperWithdrawalList } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 开发者提现记录项(getDeveloperWithdrawalList 后端未类型化,按页面使用字段定义)
 interface WithdrawalItem {
@@ -114,7 +115,7 @@ export default function DeveloperWithdrawal() {
   )
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="px-[30rpx] py-[20rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">
           {t('developer.withdrawal.title')}
@@ -145,7 +146,7 @@ export default function DeveloperWithdrawal() {
           </Text>
         ) : list.length ? (
           list.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="flex items-center justify-between bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
             >
@@ -164,13 +165,13 @@ export default function DeveloperWithdrawal() {
               </View>
               <Text className={statusClass(item)}>{item.statusText || statusText(item)}</Text>
             </View>
-          ))
+          </ThemeRoot>))
         ) : (
           <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
             {t('developer.withdrawal.empty')}
           </Text>
         )}
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

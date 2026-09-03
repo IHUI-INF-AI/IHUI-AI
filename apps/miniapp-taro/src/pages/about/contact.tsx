@@ -13,6 +13,7 @@ import qqIcon from '@/assets/remote/images/QQ.svg'
 import wxIcon from '@/assets/remote/images/wx.svg'
 import gongsiIcon from '@/assets/remote/images/gongsi.png'
 import sandMsgIcon from '@/assets/remote/images/sand_msg.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 function isImagePath(s: string): boolean {
   return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
@@ -131,7 +132,7 @@ export default function ContactPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[60rpx]">
       <View className="pt-[60rpx] px-[32rpx] pb-[40rpx] text-center bg-card">
         <Text className="block text-[36rpx] font-semibold text-foreground">
           {tt('about.contact.title', '联系我们')}
@@ -144,7 +145,7 @@ export default function ContactPage() {
       {contactItems.length > 0 ? (
         <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
           {contactItems.map((item, idx) => (
-            <View
+            <ThemeRoot><View
               key={item.key}
               className={`flex items-center p-[32rpx] active:bg-background${idx > 0 ? ' mt-[16rpx]' : ''}`}
               onClick={() =>
@@ -172,7 +173,7 @@ export default function ContactPage() {
                   : tt('about.contact.copyBtn', '复制')}
               </Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : null}
 
@@ -236,7 +237,7 @@ export default function ContactPage() {
         <Text className="text-[22rpx] text-muted-foreground">
           {tt('about.contact.footer', '感谢您选择智汇 AI')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

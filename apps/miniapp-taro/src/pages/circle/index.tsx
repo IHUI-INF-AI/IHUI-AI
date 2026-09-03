@@ -7,6 +7,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -161,29 +162,29 @@ export default function CircleIndexPage() {
   }, [])
 
   return (
-    <View className="ci-page">
+    <ThemeRoot><View className="ci-page">
       <View className="ci-tabs">
         {TABS.map((tabItem) => (
-          <View
+          <ThemeRoot><View
             key={tabItem.key}
             className={`ci-tab${tab === tabItem.key ? ' active' : ''}`}
             onClick={() => switchTab(tabItem.key)}
           >
             <Text className="ci-tab-text">{tt(tabItem.i18nKey, tabItem.fallback)}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {hotTopics.length ? (
         <ScrollView scrollX enhanced showScrollbar={false} className="ci-hottopic-scroll">
           <View className="ci-hottopic-list">
             {hotTopics.map((topic) => (
-              <View key={topic.id} className="ci-hottopic-chip" onClick={() => goTopic(topic.id)}>
+              <ThemeRoot><View key={topic.id} className="ci-hottopic-chip" onClick={() => goTopic(topic.id)}>
                 <Text className="ci-hottopic-hash">#</Text>
                 <Text className="ci-hottopic-name">{topic.name}</Text>
                 <Text className="ci-hottopic-count">{topic.count}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </ScrollView>
       ) : null}
@@ -192,7 +193,7 @@ export default function CircleIndexPage() {
         <ScrollView scrollX enhanced showScrollbar={false} className="ci-users-scroll">
           <View className="ci-users-list">
             {recommendUsers.map((u) => (
-              <View key={u.id} className="ci-user-card">
+              <ThemeRoot><View key={u.id} className="ci-user-card">
                 <Image
                   className="ci-user-avatar"
                   src={u.avatar || defaultAvatar}
@@ -211,7 +212,7 @@ export default function CircleIndexPage() {
                   </Text>
                 </View>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </ScrollView>
       ) : null}
@@ -221,7 +222,7 @@ export default function CircleIndexPage() {
           {list.map((c) => {
             const imgs = c.images || []
             return (
-              <View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
+              <ThemeRoot><View key={c.id} className="ci-item" onClick={() => goDetail(c.id)}>
                 <View className="ci-item-head">
                   <Image className="ci-avatar" src={c.avatar || defaultAvatar} mode="aspectFill" />
                   <Text className="ci-author">
@@ -234,7 +235,7 @@ export default function CircleIndexPage() {
                 {imgs.length ? (
                   <View className="ci-images">
                     {imgs.slice(0, 3).map((img, i) => (
-                      <Image
+                      <ThemeRoot><Image
                         key={i}
                         className="ci-img"
                         src={img}
@@ -244,7 +245,7 @@ export default function CircleIndexPage() {
                           previewImgs(imgs, i)
                         }}
                       />
-                    ))}
+                    </ThemeRoot>))}
                     {imgs.length > 3 ? (
                       <View className="ci-img ci-img-more">
                         <Text className="ci-img-more-text">+{imgs.length - 3}</Text>
@@ -276,7 +277,7 @@ export default function CircleIndexPage() {
                     <Text>{c.comments || 0}</Text>
                   </View>
                 </View>
-              </View>
+           </ThemeRoot>   </View>
             )
           })}
         </View>
@@ -312,7 +313,7 @@ export default function CircleIndexPage() {
         <Text className="ci-status">{tt('circle.index.noMore', '没有更多了')}</Text>
       ) : null}
 
-      <View className="ci-fab" onClick={goCreate}>
+      <View</ThemeRoot> className="ci-fab" onClick={goCreate}>
         <Text className="ci-fab-icon">+</Text>
       </View>
     </View>

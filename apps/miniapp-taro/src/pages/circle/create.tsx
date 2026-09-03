@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
+import ThemeRoot from '@/components/ThemeRoot'
 import './create.css'
 
 const MAX_CONTENT = 500
@@ -209,7 +210,7 @@ export default function CircleCreatePage() {
   }, [form, tt])
 
   return (
-    <View className="cc-page">
+    <ThemeRoot><View className="cc-page">
       <View className="cc-card cc-main">
         <Textarea
           className="cc-content"
@@ -228,13 +229,13 @@ export default function CircleCreatePage() {
         <Text className="cc-section-title">{tt('circle.create.imagesLabel', '图片')}</Text>
         <View className="cc-images">
           {form.images.map((img, i) => (
-            <View key={i} className="cc-img-item">
+            <ThemeRoot><View key={i} className="cc-img-item">
               <Image className="cc-img" src={img} mode="aspectFill" onClick={() => previewImg(i)} />
               <View className="cc-del" onClick={() => removeImg(i)}>
                 <Text className="cc-del-icon">×</Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
           {form.images.length < MAX_IMAGES ? (
             <View className="cc-add-img" onClick={addImg}>
               <Text className="cc-add-icon">+</Text>
@@ -257,10 +258,10 @@ export default function CircleCreatePage() {
         <ScrollView scrollX enhanced showScrollbar={false} className="cc-topic-scroll">
           <View className="cc-topic-list">
             {hotTopics.map((topic) => (
-              <View key={topic.id} className="cc-topic-chip" onClick={() => selectTopic(topic)}>
+              <ThemeRoot><View key={topic.id} className="cc-topic-chip" onClick={() => selectTopic(topic)}>
                 <Text>#{topic.name}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
             <View className="cc-topic-chip cc-topic-more" onClick={goTopicList}>
               <Text>{tt('circle.create.moreTopics', '更多')} ›</Text>
             </View>
@@ -296,13 +297,13 @@ export default function CircleCreatePage() {
             <ScrollView scrollY className="cc-sheet-list">
               {aigcWorks.length ? (
                 aigcWorks.map((w) => (
-                  <View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)}>
+                  <ThemeRoot><View key={w.id} className="cc-aigc-option" onClick={() => pickAigc(w)}>
                     {w.coverUrl ? (
                       <Image className="cc-aigc-cover" src={w.coverUrl} mode="aspectFill" />
                     ) : null}
                     <Text className="cc-aigc-option-title">{w.title}</Text>
                   </View>
-                ))
+                </ThemeRoot>))
               ) : (
                 <View className="cc-aigc-empty">
                   <Text>{tt('circle.create.noAigc', '暂无可关联的 AI 作品')}</Text>
@@ -318,7 +319,7 @@ export default function CircleCreatePage() {
           <Text className="cc-label">{tt('circle.create.visibility', '可见范围')}</Text>
           <View className="cc-vis">
             {VIS_OPTIONS(tt).map((opt) => (
-              <View
+              <ThemeRoot><View
                 key={opt.key}
                 className={`cc-vis-chip${form.visibility === opt.key ? ' active' : ''}`}
                 onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
@@ -333,7 +334,7 @@ export default function CircleCreatePage() {
                   {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}
                 </Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
         <View className="cc-row">
@@ -353,7 +354,7 @@ export default function CircleCreatePage() {
           disabled={!form.content.trim() || submitting}
           onClick={onSubmit}
         >
-          {tt('circle.createForm.publish', '发布')}
+    </ThemeRoot>      {tt('circle.createForm.publish', '发布')}
         </Button>
       </View>
     </View>

@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface VipPriceData {
@@ -199,7 +200,7 @@ export default function VipTraderIndexPage() {
   const avatar = TRADER_PROFILE.avatar || DEFAULT_AVATAR
 
   return (
-    <View className="vip-trader-page">
+    <ThemeRoot><View className="vip-trader-page">
       <ScrollView scrollY className="trader-scroll">
         {/* 操盘手头部:头像 + 姓名 + 头衔 + 认证徽章 + 会员价 */}
         <View className="trader-header">
@@ -245,10 +246,10 @@ export default function VipTraderIndexPage() {
           <Text className="section-title">{tt('vipTrader.capabilitySection', '核心能力')}</Text>
           <View className="trader-tags">
             {CAPABILITY_TAGS.map((tag) => (
-              <View key={tag.key} className="trader-tag">
+              <ThemeRoot><View key={tag.key} className="trader-tag">
                 <Text className="trader-tag-text">{tag.label}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
 
@@ -257,7 +258,7 @@ export default function VipTraderIndexPage() {
           <Text className="section-title">{tt('vipTrader.performanceSection', '历史业绩')}</Text>
           <View className="trader-metrics">
             {PERFORMANCE_METRICS.map((m) => (
-              <View key={m.key} className="trader-metric">
+              <ThemeRoot><View key={m.key} className="trader-metric">
                 <Text
                   className={`trader-metric-value ${m.tone === 'up' ? 'trader-metric-up' : 'trader-metric-down'}`}
                 >
@@ -265,15 +266,15 @@ export default function VipTraderIndexPage() {
                 </Text>
                 <Text className="trader-metric-label">{m.label}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
           <View className="trader-chart">
             {PERF_BARS.map((h, idx) => (
-              <View key={idx} className="trader-chart-col">
+              <ThemeRoot><View key={idx} className="trader-chart-col">
                 <View className="trader-chart-bar" style={{ height: `${h * 2}rpx` }} />
                 <Text className="trader-chart-label">M{idx + 1}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
 
@@ -282,7 +283,7 @@ export default function VipTraderIndexPage() {
           <Text className="section-title">{tt('vipTrader.featureSection', '操盘手权益')}</Text>
           <View className="feature-list">
             {TRADER_FEATURES.map((f) => (
-              <View key={f.key} className="feature-item">
+              <ThemeRoot><View key={f.key} className="feature-item">
                 <View className="feature-icon">
                   <Image
                     src={f.icon}
@@ -295,7 +296,7 @@ export default function VipTraderIndexPage() {
                   <Text className="feature-desc">{f.desc}</Text>
                 </View>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
 
@@ -304,7 +305,7 @@ export default function VipTraderIndexPage() {
           <Text className="section-title">{tt('vipTrader.serviceSection', '服务包')}</Text>
           <View className="trader-packages">
             {SERVICE_PACKAGES.map((pkg) => (
-              <View
+              <ThemeRoot><View
                 key={pkg.id}
                 className={`trader-package ${pkg.highlight ? 'trader-package-highlight' : ''}`}
               >
@@ -330,7 +331,7 @@ export default function VipTraderIndexPage() {
                   {tt('vipTrader.subscribe', '订阅')}
                 </Button>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
 
@@ -339,7 +340,7 @@ export default function VipTraderIndexPage() {
           <Text className="section-title">{tt('vipTrader.reviewsSection', '用户评价')}</Text>
           <View className="trader-reviews">
             {USER_REVIEWS.map((r) => (
-              <View key={r.id} className="trader-review">
+              <ThemeRoot><View key={r.id} className="trader-review">
                 <Image
                   className="trader-review-avatar"
                   src={r.avatar || DEFAULT_AVATAR}
@@ -356,7 +357,7 @@ export default function VipTraderIndexPage() {
                   <Text className="trader-review-content">{r.content}</Text>
                 </View>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </View>
       </ScrollView>
@@ -366,7 +367,7 @@ export default function VipTraderIndexPage() {
         <Button className="footer-btn footer-btn-ghost" onClick={handleConsult}>
           {tt('vipTrader.consult', '立即咨询')}
         </Button>
-        <Button className="footer-btn footer-btn-primary" onClick={openPopup}>
+        <Button className="footer</ThemeRoot>-btn footer-btn-primary" onClick={openPopup}>
           {tt('vipTrader.openNow', '一键开通会员')}
         </Button>
       </View>

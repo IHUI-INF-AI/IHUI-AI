@@ -63,7 +63,7 @@
   font-weight: 600;
   text-align: center;
 }
-.dc-become-btn:active {
+.dc-become-btn: active {
   background: var(--color-border);
 }
 
@@ -87,7 +87,7 @@
   padding: 12rpx 8rpx;
   gap: 12rpx;
 }
-.dc-entry-item:active {
+.dc-entry-item: active {
   background: var(--color-secondary);
   border-radius: 10rpx;
 }
@@ -148,7 +148,7 @@
   font-size: 24rpx;
   color: var(--color-primary);
 }
-.dc-copy-btn:active {
+.dc-copy-btn: active {
   background: var(--color-border);
 }
 .dc-renew-btn {
@@ -161,7 +161,7 @@
   color: var(--color-primary);
   font-weight: 600;
 }
-.dc-renew-btn:active {
+.dc-renew-btn: active {
   background: var(--color-border);
 }
 
@@ -188,7 +188,7 @@
   font-weight: 600;
   text-align: center;
 }
-.dc-plaza-btn:active {
+.dc-plaza-btn: active {
   opacity: 0.85;
 }
 
@@ -222,7 +222,7 @@
   flex-direction: column;
   gap: 12rpx;
 }
-.dc-faq-item:active {
+.dc-faq-item: active {
   background: var(--color-secondary);
 }
 .dc-faq-item-title {

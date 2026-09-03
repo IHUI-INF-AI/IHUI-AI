@@ -13,6 +13,7 @@ import aiallIcon from '@/assets/remote/images/aiall.png'
 import kechengIcon from '@/assets/remote/images/kecheng.png'
 import rankoneIcon from '@/assets/remote/images/rankone.png'
 import useNumIcon from '@/assets/remote/images/useNum.png'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // chuangke.png 体积 644 KB,直接 import 会被打包进 chunk 导致页面体积 887 KB。
 // 改为字符串路径,Taro copy 配置(src/static/ → dist/static/)会将其复制到
@@ -100,7 +101,7 @@ export default function LearnDevelop() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="p-[24rpx] bg-card">
         <Text className="text-[36rpx] font-semibold text-foreground">
           {t('learnDevelop.title')}
@@ -114,7 +115,7 @@ export default function LearnDevelop() {
           </Text>
         </View>
         {LEARN_PATHS(tt).map((path) => (
-          <View
+          <ThemeRoot><View
             key={path.id}
             className="flex items-center p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
           >
@@ -141,7 +142,7 @@ export default function LearnDevelop() {
               </View>
             </View>
           </View>
-        ))}
+        </ThemeRoot>))}
 
         {/* 推荐课程 */}
         <View className="first:mt-0 mt-[24rpx] mb-[16rpx]">
@@ -167,7 +168,7 @@ export default function LearnDevelop() {
           </View>
         ) : courseList.length > 0 ? (
           courseList.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
               onClick={() => onItemClick(item.id)}
@@ -201,7 +202,7 @@ export default function LearnDevelop() {
                 ) : null}
               </View>
             </View>
-          ))
+          </ThemeRoot>))
         ) : (
           <Text className="block text-center text-muted-foreground py-[40rpx]">
             {t('learnDevelop.empty')}
@@ -219,7 +220,7 @@ export default function LearnDevelop() {
               {tt('learnDevelop.rankEntry', '学习排行榜')}
             </Text>
           </View>
-          <Text className="text-[36rpx] text-muted-foreground">›</Text>
+          <Text className="text-[36rpx] text-muted-foreground">›</Text</ThemeRoot>>
         </View>
       </View>
     </View>

@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'inProgress' | 'completed' | 'favorited'
@@ -89,7 +90,7 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('study.myStudy.title')}</Text>
         </View>
@@ -97,12 +98,12 @@ export default function MyStudy() {
           <Text className="loading-text">{t('common.loading')}</Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('study.myStudy.title')}</Text>
         </View>
@@ -113,29 +114,29 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="page-container">
+    <ThemeRoot><View className="page-container">
       <View className="page-header">
         <Text className="page-title">{t('study.myStudy.title')}</Text>
       </View>
       <View className="tab-bar">
         {TABS(tt).map((tab) => (
-          <Text
+          <ThemeRoot><Text
             key={tab.key}
             className={`tab-item ${activeTab === tab.key ? 'active' : ''}`}
             onClick={() => onTabChange(tab.key)}
           >
             {tt(tab.labelKey, tab.fallback)}
           </Text>
-        ))}
+        </ThemeRoot>))}
       </View>
       <ScrollView scrollY className="page-content">
         {displayList.length > 0 ? (
           displayList.map((item) => (
-            <View key={item.id} className="study-card">
+            <ThemeRoot><View key={item.id} className="study-card">
               <View className="study-cover placeholder flex items-center justify-center">
                 <Image
                   className="placeholder-icon"
@@ -169,7 +170,7 @@ export default function MyStudy() {
                 </Text>
               </View>
             </View>
-          ))
+          </ThemeRoot>))
         ) : (
           <View className="empty-wrapper">
             <Image
@@ -179,7 +180,7 @@ export default function MyStudy() {
               mode="aspectFit"
             />
             <Text className="empty-text">{getEmptyText(activeTab)}</Text>
-          </View>
+          </View></ThemeRoot>
         )}
       </ScrollView>
     </View>

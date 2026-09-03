@@ -85,7 +85,7 @@
   padding: 2px 10px;
   border-radius: 10px; /* 对齐 20rpx */
   background-color: rgba(0, 0, 0, 0.4);
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 24rpx; /* 对齐原项目 24rpx */
   line-height: 1.4;
 }
@@ -113,7 +113,7 @@
   padding: 2px 10px;
   border-top-left-radius: 6px; /* 对齐 12rpx */
   background-color: var(--color-destructive);
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1.4;

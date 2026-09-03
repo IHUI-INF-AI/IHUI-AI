@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import './upgrade.css'
 
 type PayMethod = 'wechat' | 'alipay'
@@ -141,14 +142,14 @@ export default function UpgradePage() {
   useDidShow(load)
 
   return (
-    <View className="page">
+    <ThemeRoot><View className="page">
       <View className="banner">
         <View className="banner-title">{t('vip.upgrade.bannerTitle')}</View>
         <View className="banner-desc">{t('vip.upgrade.bannerDesc')}</View>
       </View>
       <View className="plans">
         {plans.map((p, i) => (
-          <View
+          <ThemeRoot><View
             key={p.id}
             className={`plan${selected === i ? ' active' : ''}`}
             onClick={() => setSelected(i)}
@@ -160,15 +161,15 @@ export default function UpgradePage() {
               <Text className="plan-orig">{t('vip.upgrade.originalPrice', { n: p.origin })}</Text>
             ) : null}
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
       <View className="rights">
         <View className="rights-title">{t('vip.upgrade.rightsTitle')}</View>
         {rights.map((r, i) => (
-          <View key={i} className="rights-item">
+          <ThemeRoot><View key={i} className="rights-item">
             · {r}
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
       <View className="rights" style={{ marginTop: '24rpx' }}>
         <View className="rights-title">{t('pay.selectMethod')}</View>
@@ -202,7 +203,7 @@ export default function UpgradePage() {
         </View>
       </View>
       <Button className="btn" onClick={onUpgrade}>
-        {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected].price}` : ''}
+        {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected</ThemeRoot>].price}` : ''}
       </Button>
     </View>
   )

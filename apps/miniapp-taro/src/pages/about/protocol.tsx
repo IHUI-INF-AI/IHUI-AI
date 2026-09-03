@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface ProtocolSection {
   subtitle: string
@@ -515,18 +516,18 @@ export default function ProtocolPage() {
   ]
 
   return (
-    <ScrollView className="h-screen bg-card" scrollY>
+    <ThemeRoot><ScrollView className="h-screen bg-card" scrollY>
       <View className="px-[32rpx] pt-[32rpx] pb-[60rpx]">
         <Text className="block text-[40rpx] font-bold text-foreground text-center mb-[32rpx]">
           {tt('about.protocol.mainTitle', '服务协议')}
         </Text>
         {sections.map((section, sIdx) => (
-          <View key={sIdx} className="mb-[40rpx]">
+          <ThemeRoot><View key={sIdx} className="mb-[40rpx]">
             <Text className="block text-[32rpx] font-bold text-foreground mb-[20rpx]">
               {section.subtitle}
             </Text>
             {section.paragraphs.map((p, pIdx) => (
-              <View key={pIdx} className="mb-[20rpx]">
+              <ThemeRoot><View key={pIdx} className="mb-[20rpx]">
                 {p.title ? (
                   <Text className="block text-[30rpx] font-bold text-foreground mb-[20rpx]">
                     {p.title}
@@ -536,9 +537,9 @@ export default function ProtocolPage() {
                   {p.text}
                 </Text>
               </View>
-            ))}
-          </View>
-        ))}
+            </ThemeRoot>))}
+   </ThemeRoot>       </View>
+</ThemeRoot>        ))}
       </View>
     </ScrollView>
   )

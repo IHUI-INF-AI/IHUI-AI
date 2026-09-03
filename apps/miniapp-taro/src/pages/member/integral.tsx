@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef, useCallback } from 'react'
 import { getIntegral, getMemberInfo } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface IntegralItem {
   id: string
@@ -89,7 +90,7 @@ export default function IntegralPage() {
   )
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="py-[60rpx] px-[40rpx] bg-[linear-gradient(135deg,#2c2c2c,#1a1a1a)] text-center">
         <Text className="block text-[60rpx] font-bold text-white">{total}</Text>
         <Text className="block mt-[12rpx] text-[26rpx] text-[#d4af6a]">
@@ -98,7 +99,7 @@ export default function IntegralPage() {
       </View>
       <View className="p-[24rpx]">
         {list.map((it) => (
-          <View
+          <ThemeRoot><View
             key={it.id}
             className="flex justify-between items-center bg-card rounded-[16rpx] py-[28rpx] px-[24rpx] mb-[16rpx]"
           >
@@ -113,7 +114,7 @@ export default function IntegralPage() {
               {it.amount}
             </Text>
           </View>
-        ))}
+        </ThemeRoot>))}
         {loading && !list.length ? (
           <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
             <Text>{t('common.loading')}</Text>
@@ -145,7 +146,7 @@ export default function IntegralPage() {
             <Text>{tt('member.integral.noMore', '没有更多了')}</Text>
           </View>
         ) : null}
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

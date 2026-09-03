@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface HistoryItem extends Live {
   watchDuration?: number
@@ -117,17 +118,17 @@ export default function LiveHistory() {
   }
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       <View className="flex gap-[16rpx] mb-[24rpx]">
         {FILTER_TABS.map((tab) => (
-          <Text
+          <ThemeRoot><Text
             key={tab.key}
             className={`flex-1 text-center h-[64rpx] leading-[64rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx]${filter === tab.key ? ' text-primary border-primary font-semibold' : ''}`}
             onClick={() => setFilter(tab.key)}
           >
             {tt(tab.i18nKey, tab.fb)}
           </Text>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {displayList.length > 0 && (
@@ -136,7 +137,7 @@ export default function LiveHistory() {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => goDetail(item.id)}
@@ -179,7 +180,7 @@ export default function LiveHistory() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}
@@ -198,7 +199,7 @@ export default function LiveHistory() {
 
       {!loading && !hasMore && displayList.length > 0 && (
         <View className="block text-center text-[26rpx] text-muted-foreground py-[80rpx]">
-          <Text>{tt('common.noMore', '没有更多了')}</Text>
+          <Text>{tt('common.noMore', '没有更多了')}<</ThemeRoot>/Text>
         </View>
       )}
     </View>

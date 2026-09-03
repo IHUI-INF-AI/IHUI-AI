@@ -55,7 +55,7 @@
   width: 100%;
   border-radius: 10rpx;
   padding: 24rpx 18rpx;
-  background-color: #fff;
+  background-color: var(--color-card);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -70,17 +70,17 @@
 }
 .income-acc-label {
   font-size: 24rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
   flex: 1;
 }
 .income-acc-value {
   font-size: 36rpx;
   font-weight: 700;
-  color: #7b61ff;
+  color: rgba(123, 97, 255, 1);
 }
 .income-acc-unit {
   font-size: 24rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .income-withdraw-btn {
   position: absolute;
@@ -88,7 +88,7 @@
   right: 40rpx;
   font-size: 27rpx;
   font-weight: 500;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 
 .income-stats-row {
@@ -100,17 +100,17 @@
 .income-stat-item {
   margin-right: 18rpx;
 }
-.income-stat-item:last-child {
+.income-stat-item: last-child {
   margin-right: 0;
 }
 .income-stat-label {
   font-size: 24rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .income-stat-value {
   font-size: 36rpx;
   font-weight: 700;
-  color: #000;
+  color: var(--color-foreground);
 }
 
 /* 底部今日/待结算栏(对标原项目 card_bottom 浅灰背景) */
@@ -137,15 +137,15 @@
   width: 100%;
   box-sizing: border-box;
   font-size: 20rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
 }
 .income-fee-icon {
   width: 35rpx;
   height: 31rpx;
   margin-right: 6rpx;
-  background: #7b61ff;
+  background: rgba(123, 97, 255, 1);
   border-radius: 4rpx;
-  color: #fff;
+  color: var(--color-foreground);
   font-size: 20rpx;
   display: flex;
   align-items: center;
@@ -158,7 +158,7 @@
   margin: 0 20rpx;
   padding: 8rpx;
   box-sizing: border-box;
-  background: #ebeef5;
+  background: rgba(235, 238, 245, 1);
   border-radius: 15rpx;
   display: flex;
   align-items: center;
@@ -169,15 +169,15 @@
   width: 150rpx;
   height: 56rpx;
   border-radius: 15rpx;
-  color: #3d3d3d;
+  color: var(--color-muted-foreground);
   font-size: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .income-tab.active {
-  background-color: #fff;
-  color: #3d3d3d;
+  background-color: var(--color-card);
+  color: var(--color-muted-foreground);
   font-weight: 700;
 }
 
@@ -216,11 +216,11 @@
   border-radius: 8rpx;
 }
 .income-item-badge.settled {
-  background: #e9f7ef;
+  background: rgba(233, 247, 239, 1);
   color: var(--color-success);
 }
 .income-item-badge.pending {
-  background: #fff4e6;
+  background: rgba(255, 244, 230, 1);
   color: var(--color-warning);
 }
 
@@ -261,7 +261,7 @@
 }
 .income-popup {
   width: 600rpx;
-  background: #fff;
+  background: var(--color-card);
   border-radius: 24rpx;
   padding: 32rpx 40rpx;
   display: flex;

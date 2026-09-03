@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
 const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
@@ -87,7 +88,7 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="flex flex-col h-screen bg-background">
+      <ThemeRoot><View className="flex flex-col h-screen bg-background">
         <View className="p-[24rpx] bg-card flex-shrink-0">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
@@ -99,12 +100,12 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="flex flex-col h-screen bg-background">
+      <ThemeRoot><View className="flex flex-col h-screen bg-background">
         <View className="p-[24rpx] bg-card flex-shrink-0">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
@@ -122,11 +123,11 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="flex flex-col h-screen bg-background">
+    <ThemeRoot><View className="flex flex-col h-screen bg-background">
       <View className="p-[24rpx] bg-card flex-shrink-0">
         <Text className="text-[36rpx] font-semibold text-foreground">
           {t('study.myStudy.title')}
@@ -134,20 +135,20 @@ export default function MyStudy() {
       </View>
       <View className="flex bg-card px-[24rpx] py-[0] flex-shrink-0">
         {TABS(tt).map((tab) => (
-          <Text
+          <ThemeRoot><Text
             key={tab.key}
             className={`tab-item ${activeTab === tab.key ? ' text-primary font-semibold' : ''}`}
             onClick={() => onTabChange(tab.key)}
           >
             {tt(tab.labelKey, tab.fallback)}
           </Text>
-        ))}
+        </ThemeRoot>))}
       </View>
       <ScrollView scrollY className="flex-1 min-h-[0]">
         <View className="p-[24rpx]">
           {displayList.length > 0 ? (
             displayList.map((item) => (
-              <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
+              <ThemeRoot><View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
                 <View className="w-[160rpx] h-[100rpx] rounded-[8rpx] flex-shrink-0 bg-muted placeholder flex items-center justify-center">
                   <Image
                     style={{ width: '40rpx', height: '40rpx' }}
@@ -183,7 +184,7 @@ export default function MyStudy() {
                   </Text>
                 </View>
               </View>
-            ))
+            </ThemeRoot>))
           ) : (
             <View className="flex flex-col items-center px-[0] py-[120rpx]">
               <Image
@@ -196,7 +197,7 @@ export default function MyStudy() {
               </Text>
             </View>
           )}
-        </View>
+    </ThemeRoot>    </View>
       </ScrollView>
     </View>
   )

@@ -177,7 +177,7 @@
 .nm-param-field {
   margin-bottom: 20rpx;
 }
-.nm-param-field:last-child {
+.nm-param-field: last-child {
   margin-bottom: 0;
 }
 .nm-field-label {

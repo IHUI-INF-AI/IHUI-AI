@@ -8,6 +8,7 @@ import { logger } from '@/utils/logger'
 import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 export default function StudyPublish() {
   const { t, tList } = useI18n()
@@ -49,7 +50,7 @@ export default function StudyPublish() {
   }, [title, content, category, visibility, tags, categories, visibilityOptions, t])
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[140rpx]">
       <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
         <Input
           className="text-[32rpx] text-foreground"
@@ -125,6 +126,6 @@ export default function StudyPublish() {
         {t('study.publish.submit')}
       </Button>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

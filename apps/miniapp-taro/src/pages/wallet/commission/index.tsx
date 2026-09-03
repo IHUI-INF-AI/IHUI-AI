@@ -8,6 +8,7 @@ import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
 import SectionHeader from '@/components/SectionHeader'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface CommissionRecord {
@@ -93,7 +94,7 @@ export default function CommissionPage() {
   }
 
   return (
-    <View className="wc-page">
+    <ThemeRoot><View className="wc-page">
       <SectionHeader
         title={tt('wallet.commission.title', '佣金明细')}
         showMore={false}
@@ -119,7 +120,7 @@ export default function CommissionPage() {
         {list.length > 0 && (
           <View className="wc-list">
             {list.map((r) => (
-              <View key={r.id} className="wc-item">
+              <ThemeRoot><View key={r.id} className="wc-item">
                 <View className="wc-item-info">
                   <Text className="wc-item-type">{r.type}</Text>
                   <Text className="wc-item-time">
@@ -131,7 +132,7 @@ export default function CommissionPage() {
                   {r.amount > 0 ? '+' : ''}¥{r.amount}
                 </Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         )}
         {list.length === 0 && !loading && (
@@ -142,7 +143,7 @@ export default function CommissionPage() {
 
       <Button className="wc-withdraw-btn" onClick={goWithdraw}>
         {t('developer.income.withdraw')}
-      </Button>
+      <</ThemeRoot>/Button>
     </View>
   )
 }

@@ -43,6 +43,7 @@ import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
 import backSvg from '@/assets/remote/images/back.svg'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
@@ -126,7 +127,7 @@ function renderMarkdown(content: string): ReactNode {
     // 代码块 ```...```
     if (line.startsWith('```')) {
       return (
-        <View
+        <ThemeRoot><View
           key={idx}
           style={{
             background: 'var(--color-muted)',
@@ -142,13 +143,13 @@ function renderMarkdown(content: string): ReactNode {
             {line.replace(/```/g, '')}
           </Text>
         </View>
-      )
+      </ThemeRoot>)
     }
     // 加粗 **text**
     const boldParts = line.split(/\*\*(.+?)\*\*/)
     if (boldParts.length > 1) {
       return (
-        <Text
+        <ThemeRoot><Text
           key={idx}
           style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
         >
@@ -162,11 +163,11 @@ function renderMarkdown(content: string): ReactNode {
             ),
           )}
         </Text>
-      )
+      </ThemeRoot>)
     }
     // 普通行
     return (
-      <Text
+      <ThemeRoot><Text
         key={idx}
         style={{
           fontSize: rpx(26),
@@ -177,7 +178,7 @@ function renderMarkdown(content: string): ReactNode {
       >
         {line || ' '}
       </Text>
-    )
+    </ThemeRoot>)
   })
 }
 
@@ -664,7 +665,7 @@ export default function UserIndex() {
   }))
 
   return (
-    <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+    <ThemeRoot><View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
       {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
       <DrawerComponent
         visible={showDrawer}
@@ -959,13 +960,13 @@ export default function UserIndex() {
             <View className="membership-benefits-content">
               <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
                 {membershipBenefits.map((b) => (
-                  <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
+                  <ThemeRoot><View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
                     {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
                     <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
                       {tf(b.key, b.fallback)}
                     </Text>
                   </View>
-                ))}
+                </ThemeRoot>))}
               </View>
             </View>
           ) : null}
@@ -998,7 +999,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 textContentList.map((item, index) => (
-                  <View
+                  <ThemeRoot><View
                     key={index}
                     className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text"
                   >
@@ -1010,7 +1011,7 @@ export default function UserIndex() {
                     </View>
                     {renderMarkdown(item.content)}
                   </View>
-                ))
+                </ThemeRoot>))
               )}
             </View>
           )}
@@ -1026,7 +1027,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 imageContentList.map((item, index) => (
-                  <View
+                  <ThemeRoot><View
                     key={index}
                     className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image"
                   >
@@ -1038,16 +1039,16 @@ export default function UserIndex() {
                     </View>
                     <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
                       {(item.imageList || []).map((imgUrl, imgIdx) => (
-                        <Image
+                        <ThemeRoot><Image
                           key={imgIdx}
                           src={imgUrl}
                           mode="aspectFill"
                           style={{ width: rpx(200), height: rpx(200), borderRadius: rpx(12) }}
                           onClick={() => previewImage(imgUrl, item.imageList)}
                         />
-                      ))}
+                      </ThemeRoot>))}
                     </View>
-                  </View>
+                  <</ThemeRoot>/View>
                 ))
               )}
             </View>
@@ -1064,7 +1065,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 videoContentList.map((item, index) => (
-                  <View
+                  <ThemeRoot><View
                     key={index}
                     className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video"
                   >
@@ -1094,7 +1095,7 @@ export default function UserIndex() {
                       </View>
                     </View>
                   </View>
-                ))
+                </ThemeRoot>))
               )}
             </View>
           )}
@@ -1110,7 +1111,7 @@ export default function UserIndex() {
                 </View>
               ) : (
                 audioContentList.map((item, index) => (
-                  <View
+                  <ThemeRoot><View
                     key={index}
                     className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio"
                   >
@@ -1163,7 +1164,7 @@ export default function UserIndex() {
                       />
                     </View>
                   </View>
-                ))
+                </ThemeRoot>))
               )}
             </View>
           )}
@@ -1174,7 +1175,7 @@ export default function UserIndex() {
       <View className="mx-[20rpx] my-[24rpx] py-[28rpx]">
         <View className="flex">
           {quickEntries.map((entry) => (
-            <View
+            <ThemeRoot><View
               key={entry.path}
               className="flex-1 flex flex-col items-center"
               onClick={() => goPage(entry.path)}
@@ -1182,14 +1183,14 @@ export default function UserIndex() {
               {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
               <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
       {/* 功能列表 */}
       <View className="mx-[20rpx] my-[24rpx] overflow-hidden">
         {menus.map((item, idx) => (
-          <View
+          <ThemeRoot><View
             key={item.path}
             className={`flex items-center px-[32rpx] py-[32rpx] ${
               idx < menus.length - 1 ? 'mb-[8rpx]' : ''
@@ -1200,7 +1201,7 @@ export default function UserIndex() {
             <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
             <Text className="text-[26rpx] text-[var(--color-primary)]">{'>'}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 退出登录 */}
@@ -1306,7 +1307,7 @@ export default function UserIndex() {
                         }),
                     })
                     closeSharePopup()
-                  },
+                </ThemeRoot>  },
                 })
               }}
             >

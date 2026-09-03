@@ -17,6 +17,7 @@ import {
   type VipPayInfo,
 } from '@/api'
 import { requestWxPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   VipBenefitsPopup,
   VipPriceSelector,
@@ -250,7 +251,7 @@ export default function VipIndexPage() {
   const currentPrice = selectedPlan?.price ?? 0
 
   return (
-    <View className="vip-page">
+    <ThemeRoot><View className="vip-page">
       {/* 头部 400rpx + vip_back.png 背景 */}
       <View className="header">
         <Image className="bg-image" src="/static/images/vip_back.png" mode="aspectFill" />
@@ -279,7 +280,7 @@ export default function VipIndexPage() {
         <View className="section-title">{t('vip.privileges')}</View>
         <View className="feature-list">
           {features.map((f) => (
-            <View key={f.id} className="feature-item">
+            <ThemeRoot><View key={f.id} className="feature-item">
               <View className="feature-icon">
                 <Image style={{ width: '40rpx', height: '40rpx' }} src={f.icon} mode="aspectFit" />
               </View>
@@ -289,7 +290,7 @@ export default function VipIndexPage() {
               </View>
               <Text className="feature-tag">VIP</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
         <View className="more-btn" onClick={onBenefitsClick}>
           <Text>{t('vip.viewAllBenefits')}</Text>
@@ -478,7 +479,7 @@ export default function VipIndexPage() {
             </Button>
           </View>
         </View>
-      ) : null}
+      )</ThemeRoot> : null}
     </View>
   )
 }

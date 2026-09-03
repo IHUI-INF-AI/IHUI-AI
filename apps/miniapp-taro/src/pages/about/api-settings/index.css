@@ -106,7 +106,7 @@
   margin: 0;
   padding: 0;
 }
-.btn::after {
+.btn: :after {
   border: none;
 }
 .btn-primary {
@@ -138,7 +138,7 @@
   border-radius: 8rpx;
   margin: 0;
 }
-.test-btn::after {
+.test-btn: :after {
   border: none;
 }
 .test-btn[disabled] {

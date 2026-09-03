@@ -130,7 +130,7 @@
   margin-bottom: 16rpx;
 }
 
-.exam-detail-rule-item:last-child {
+.exam-detail-rule-item: last-child {
   margin-bottom: 0;
 }
 
@@ -156,7 +156,7 @@
   padding: 20rpx 0;
 }
 
-.exam-detail-history-item:not(:last-child) {
+.exam-detail-history-item: not(:last-child) {
   margin-bottom: 12rpx;
 }
 

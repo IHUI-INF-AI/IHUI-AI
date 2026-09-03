@@ -9,6 +9,7 @@ import { useState, useRef, useCallback } from 'react'
 import * as api from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
+import ThemeRoot from '@/components/ThemeRoot'
 import './balance.css'
 
 interface ZhRecord {
@@ -165,7 +166,7 @@ export default function TokenBalance() {
   const showEmpty = !loading && zhList.length === 0
 
   return (
-    <View className="token-page">
+    <ThemeRoot><View className="token-page">
       <View className="balance-card">
         <Text className="balance-label">{tt('token.balance.title', '我的智汇值')}</Text>
         <Text className="balance-value">{balance === null ? '--' : balanceValue}</Text>
@@ -188,14 +189,14 @@ export default function TokenBalance() {
 
       <View className="tab-bar">
         {BAR_LIST(tt).map((b) => (
-          <View
+          <ThemeRoot><View
             key={b.value}
             className={`tab-item${type === b.value ? ' active' : ''}`}
             onClick={() => onTabChange(b.value)}
           >
             <Text>{tt(b.key, b.fb)}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="records-section">
@@ -207,7 +208,7 @@ export default function TokenBalance() {
             const time = it.create_at || it.createdAt || it.time || ''
             const tokenNum = Number(it.token ?? it.amount ?? 0)
             return (
-              <View key={it.id || idx} className="record-item">
+              <ThemeRoot><View key={it.id || idx} className="record-item">
                 <Text className="record-title">{title}</Text>
                 <View className="record-content">
                   <Text className="record-time">
@@ -217,7 +218,7 @@ export default function TokenBalance() {
                   <Text className="record-count">{tokenNum > 0 ? `-${tokenNum}` : tokenNum}</Text>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })
         )}
         {loading && zhList.length > 0 ? (
@@ -229,7 +230,7 @@ export default function TokenBalance() {
           <View className="load-more">
             <Text>{tt('token.balance.noMore', '没有更多了')}</Text>
           </View>
-        ) : null}
+</ThemeRoot>        ) : null}
       </View>
     </View>
   )

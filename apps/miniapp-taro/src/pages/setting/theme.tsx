@@ -8,9 +8,11 @@ import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
+import { setThemePreference, THEME_STORAGE_KEY, type ThemePreference } from '@/lib/theme'
+import ThemeRoot from '@/components/ThemeRoot'
 import './theme.css'
 
-const THEME_KEY = 'theme'
+const THEME_KEY = THEME_STORAGE_KEY
 
 interface ThemeOption {
   value: string
@@ -80,11 +82,9 @@ export default function ThemePage() {
     async (v: string) => {
       if (!VALID_VALUES.includes(v) || v === current) return
       setCurrent(v)
-      try {
-        Taro.setStorageSync(THEME_KEY, v)
-      } catch {
-        // ignore
-      }
+      // 2026-09-03 根治:此前仅写 storage 无消费方,主题设置从未生效。
+      // setThemePreference = storage + 原生 chrome 切换 + eventCenter 广播(ThemeRoot 消费)
+      setThemePreference(v as ThemePreference)
       setSubmitting(true)
       try {
         await setTheme(v)
@@ -100,7 +100,7 @@ export default function ThemePage() {
   )
 
   return (
-    <View className="theme-page">
+    <ThemeRoot><View className="theme-page">
       <View className="theme-current">
         <Image
           className="theme-current-icon"
@@ -120,7 +120,7 @@ export default function ThemePage() {
 
       <RadioGroup className="theme-list">
         {THEMES(tt).map((th) => (
-          <View
+          <ThemeRoot><View
             key={th.value}
             className={`theme-item${current === th.value ? ' active' : ''}`}
             onClick={() => onSelect(th.value)}
@@ -140,11 +140,11 @@ export default function ThemePage() {
               className="theme-radio"
               value={th.value}
               checked={current === th.value}
-              color="#07c160"
+              color="#6366f1"
               disabled={submitting}
             />
           </View>
-        ))}
+        </ThemeRoot>))}
       </RadioGroup>
 
       <View className="theme-hint">
@@ -155,7 +155,7 @@ export default function ThemePage() {
         <Text className="theme-hint-line">
           {tt('setting.theme.autoHint', '「跟随系统」将随设备深浅色设置自动变化')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

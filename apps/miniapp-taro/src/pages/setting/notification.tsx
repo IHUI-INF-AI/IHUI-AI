@@ -8,6 +8,7 @@ import { View, Text, Switch } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getNotificationSettings, updateNotificationSettings } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface NotificationSettingItem {
   key: string
@@ -60,7 +61,7 @@ export default function NotificationPage() {
   }, [])
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="px-[32rpx] pt-[32rpx] pb-[16rpx]">
         <Text className="text-[24rpx] text-muted-foreground">
           {tt('setting.notification.categoryTitle', '通知分类')}
@@ -81,7 +82,7 @@ export default function NotificationPage() {
           </View>
         ) : (
           list.map((item, idx) => (
-            <View
+            <ThemeRoot><View
               key={item.key}
               className={`flex items-center justify-between px-[32rpx] py-[28rpx]${idx > 0 ? ' mt-[16rpx]' : ''}`}
             >
@@ -95,7 +96,7 @@ export default function NotificationPage() {
                 onChange={(e) => onToggle(item.key, e.detail.value)}
               />
             </View>
-          ))
+          </ThemeRoot>))
         )}
       </View>
 
@@ -119,7 +120,7 @@ export default function NotificationPage() {
           </View>
           <Text className="text-[32rpx] text-muted-foreground">›</Text>
         </View>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

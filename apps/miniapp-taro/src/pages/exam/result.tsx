@@ -9,6 +9,7 @@ import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './result.css'
 
 interface ExamResultInfo {
@@ -122,7 +123,7 @@ export default function ExamResult() {
   ]
 
   return (
-    <View className="exam-result-page">
+    <ThemeRoot><View className="exam-result-page">
       <NavBar title={tt('exam.result.pageTitle', '考试结果')} showBack />
       <ScrollView scrollY className="exam-result-body">
         {loading ? (
@@ -178,11 +179,11 @@ export default function ExamResult() {
             {/* 答题统计 */}
             <View className="exam-result-stats">
               {stats.map((s, i) => (
-                <View key={i} className="exam-result-stat-item">
+                <ThemeRoot><View key={i} className="exam-result-stat-item">
                   <Text className={`exam-result-stat-value ${s.cls}`}>{s.value}</Text>
                   <Text className="exam-result-stat-label">{s.label}</Text>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </View>
 
             {/* 题目回顾 */}
@@ -192,7 +193,7 @@ export default function ExamResult() {
               </Text>
               {reviews.length > 0 ? (
                 reviews.map((q, idx) => (
-                  <View key={q.id || idx} className="exam-result-review-item">
+                  <ThemeRoot><View key={q.id || idx} className="exam-result-review-item">
                     <View className="exam-result-review-header">
                       <Text className="exam-result-review-idx">
                         {tt('exam.result.questionIdx', '第 {n} 题', { n: idx + 1 })}
@@ -238,7 +239,7 @@ export default function ExamResult() {
                       </View>
                     ) : null}
                   </View>
-                ))
+                </ThemeRoot>))
               ) : (
                 <Text className="exam-result-review-empty">
                   {tt('exam.result.noReview', '暂无题目回顾')}
@@ -265,7 +266,7 @@ export default function ExamResult() {
           >
             {tt('exam.result.share', '分享成绩')}
           </Button>
-        </View>
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

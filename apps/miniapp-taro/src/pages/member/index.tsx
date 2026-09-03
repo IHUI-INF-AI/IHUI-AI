@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface BenefitItem {
@@ -196,7 +197,7 @@ export default function MemberIndexPage() {
   }
 
   return (
-    <ScrollView scrollY className="member-page">
+    <ThemeRoot><ScrollView scrollY className="member-page">
       {/* ===== Header:用户信息 + VIP 状态 ===== */}
       <View className="member-header">
         <View className="member-user">
@@ -228,7 +229,7 @@ export default function MemberIndexPage() {
         <Text className="member-card-title">{tt('member.index.levelIntro', '会员等级介绍')}</Text>
         <View className="member-level-grid">
           {levelTiers.map((tier) => (
-            <View
+            <ThemeRoot><View
               key={tier.key}
               className={`member-level-item member-level-${tier.key} ${
                 tier.key === currentLevelKey ? 'member-level-current' : ''
@@ -238,7 +239,7 @@ export default function MemberIndexPage() {
               <Text className="member-level-threshold">{tier.threshold}</Text>
               <Text className="member-level-perks">{tier.perks}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -287,7 +288,7 @@ export default function MemberIndexPage() {
         <Text className="member-card-title">{tt('member.index.privileges', '会员特权')}</Text>
         <View className="member-benefits">
           {benefits.map((b) => (
-            <View key={b.id} className="member-benefit-item">
+            <ThemeRoot><View key={b.id} className="member-benefit-item">
               <View className="member-benefit-icon">
                 <Image
                   src="/static/images/icons/star.svg"
@@ -305,7 +306,7 @@ export default function MemberIndexPage() {
                   : tt('member.index.notOpened', '未开通')}
               </Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -401,7 +402,7 @@ export default function MemberIndexPage() {
 
       {loading && (
         <View className="member-loading">
-          <Text>{tt('member.index.loading', '加载中…')}</Text>
+          <Text>{tt('member.index.loading', '加载中…')}</Text></ThemeRoot>
         </View>
       )}
     </ScrollView>
