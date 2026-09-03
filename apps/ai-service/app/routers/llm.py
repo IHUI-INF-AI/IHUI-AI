@@ -630,6 +630,39 @@ def _snapshot_compaction_if_needed(
         logger.warning("压缩快照 fire-and-forget 提交失败(不影响主流程): %s", e)
 
 
+def _record_compaction_step(
+    compressed_messages: list[dict[str, Any]],
+    compaction_info: dict[str, Any],
+    session_id: str | None,
+    user_id: str | None,
+) -> None:
+    """把一次真实发生的上下文语义压缩登记到 /api/context-compaction 感知队列。
+
+    P0-1 LLM 语义压缩闭环:llm 压缩命中时,除向量回捞外还要把 original/compressed
+    tokens + 摘要写进 context_compaction 的进程内历史,供"上下文压缩感知"面板读取。
+    用延迟 import 规避 llm.py 顶层导入环路;失败仅 warning,绝不影响主请求链路。
+    """
+    try:
+        from .context_compaction import record_compaction as _record
+
+        summary_text = ""
+        for m in compressed_messages:
+            content = m.get("content") if isinstance(m, dict) else None
+            if isinstance(content, str) and content.startswith(SUMMARY_MARKER):
+                summary_text = content
+                break
+        _record(
+            session_id or (f"chat:{user_id}" if user_id else "global"),
+            original_tokens=int(compaction_info.get("original_tokens") or 0),
+            compressed_tokens=int(compaction_info.get("compressed_tokens") or 0),
+            summary=summary_text[:500],
+            trigger=str(compaction_info.get("trigger") or "llm"),
+            user_id=user_id or "",
+        )
+    except Exception as e:
+        logger.warning("record_compaction 登记失败(不影响主流程): %s", e)
+
+
 @router.post("/llm/complete", response_model=None)
 async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, Any] | JSONResponse:
     """直接调用 LLM 完成对话(支持 function calling)。"""
@@ -651,6 +684,17 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
+                compressed_messages=messages,
+                compaction_info=compaction_info,
+                session_id=(
+                    req.metadata.get("conversationId")
+                    if isinstance(req.metadata, dict)
+                    else None
+                ),
+                user_id=owner_uuid,
+            )
+            # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
                 session_id=(
@@ -1080,6 +1124,17 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
             # 压缩回捞:把被移除旧消息异步快照入向量库(不阻塞主链路)
             _snapshot_compaction_if_needed(
                 original_messages=original_messages,
+                compressed_messages=messages,
+                compaction_info=compaction_info,
+                session_id=(
+                    req.metadata.get("conversationId")
+                    if isinstance(req.metadata, dict)
+                    else None
+                ),
+                user_id=owner_uuid,
+            )
+            # P0-1 压缩闭环:登记到 /api/context-compaction 感知面板
+            _record_compaction_step(
                 compressed_messages=messages,
                 compaction_info=compaction_info,
                 session_id=(
@@ -1912,6 +1967,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 _native_fc_kwargs["tools"] = req.tools
                 if req.tool_choice is not None:
                     _native_fc_kwargs["tool_choice"] = req.tool_choice
+            # 2026-09-03 修复(agent 通道污染):原生 FC 本轮是否已发出 tool-call-start。
+            # agent 场景模型常返回 tool_calls + 0 content,下方空回复兜底若不排除该情况,
+            # 会往流里插一条"抱歉,未能生成有效回复"假文案,被 CLI 存入 assistant 消息回传 provider,污染上下文。
+            _native_fc_emitted_tools = False
 
             async for event in llm_gateway.astream(
                 messages, model=req.model, owner_uuid=owner_uuid, **_native_fc_kwargs
@@ -1943,6 +2002,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # tool-call-start SSE 事件(packages/api-client ToolCallEvent 契约:
                     # type/toolCallId/toolName/args),CLI runToolLoop 通过 onToolCall
                     # 回调接收后本地执行工具;不再向下透传原生 tool_calls 事件。
+                    _native_fc_emitted_tools = True
                     for _tc in event.get("tool_calls") or []:
                         _fn = _tc.get("function") or {}
                         _args_raw = _fn.get("arguments")
@@ -1958,7 +2018,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             _args = _args_raw
                         _tc_start = {
                             "type": "tool-call-start",
-                            "toolCallId": _tc.get("id") or "",
+                            # 2026-09-03:strip 工具 id(个别 provider 返回的 id 尾部带换行,
+                            # CLI 回传 tool_call_id 时不匹配会被 provider 拒绝)
+                            "toolCallId": (_tc.get("id") or "").strip(),
                             "toolName": _fn.get("name") or "",
                             "args": _args,
                         }
@@ -1988,16 +2050,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     # 2026-08-06 修复:空回复兜底 —— 模型可能返回 0 content
                     # (step_plan 只返回 tool_calls 或空文本),不能给用户一条空消息。
                     # 此时通常已发生工具调用,提示用户可基于工具结果重试。
+                    # 2026-09-03 修复:本轮已发出 tool-call-start 时不兜底(原生 FC agent 场景,
+                    # tool_calls+0 content 是正常形态,插假文案会污染 CLI 回传的对话上下文)。
                     if not accumulated["content"] and not accumulated.get("error"):
-                        _had_tools = bool(tool_calls_history)
-                        _fallback = (
-                            "抱歉,未能生成有效回复。"
-                            + ("模型已完成工具调用但未产出文本,请重试或补充说明。" if _had_tools
-                               else "请换个说法重试一下。")
-                        )
-                        accumulated["content"] = _fallback
-                        _fallback_evt = {"type": "chunk", "content": _fallback}
-                        yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                        _had_tools = bool(tool_calls_history) or _native_fc_emitted_tools
+                        if not _had_tools:
+                            _fallback = "抱歉,未能生成有效回复。请换个说法重试一下。"
+                            accumulated["content"] = _fallback
+                            _fallback_evt = {"type": "chunk", "content": _fallback}
+                            yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
                 yield f"event: {event_type}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
         except asyncio.CancelledError:
             logger.info("SSE generator cancelled by client disconnect")
