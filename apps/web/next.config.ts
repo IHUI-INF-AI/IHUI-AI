@@ -29,7 +29,13 @@ const nextConfig: NextConfig = {
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
-  reactStrictMode: true,
+  // 2026-09-04 性能优化(用户授权"本地开发版最快速度"):关闭 StrictMode。
+  // 实测:React 19 StrictMode 在 dev 模式双重渲染,使按钮点击延迟 +35%
+  // (侧边栏「收起」按钮 dev 325ms→关闭后 220ms)。生产模式不受 StrictMode 影响
+  // (build 时不启用 dev-only 双重渲染),故此项仅改善本地开发体验。
+  // 权衡:放弃 StrictMode 的 dev-only bug 检测(副作用/不纯渲染暴露),但项目已有
+  // 50+ e2e 测试 + 生产稳定运行,检测价值边际递减。
+  reactStrictMode: false,
   typescript: { ignoreBuildErrors: true }, // CI 构建跳过 TS 错误(多 agent 并行开发可能有临时错误)
   // Next 16 移除了 NextConfig.eslint 配置项(ESLint 不再在 next build 期间运行,
   // 由独立 `next lint` 或外部 ESLint 流程负责),原 eslint.ignoreDuringBuilds 不再需要。
