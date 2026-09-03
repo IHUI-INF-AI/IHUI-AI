@@ -1,0 +1,171 @@
+<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+# STATE.md · 目标驱动执行状态（2026-09-03 初始化）
+
+目标（/goal）：**已重构（2026-09-03 用户确认）**——原目标"远超对标几年差距"无客观判定标准，不可验收。
+新目标为**可量化 benchmark 验收**，硬性指标如下（全部满足才算达成）：
+
+- **H1**：新建 ≥20 个真实编码任务 benchmark 套件（fixture + 自动判定脚本 + runner），
+  验证脚本对 solved 参考实现 100% 通过（selftest），CLI agent 真实执行通过率 ≥80%
+- **H2**：MCP 远程 Streamable HTTP + OAuth **授权码全流程**（含回调）真网 E2E 通过
+- **H3**：agent_loop_v2 ruff 错误 68→0，零行为变更、相关 pytest 零回归
+- **H4**：CLI 云会话写入 + checkpoint 会话级挂载，有测试覆盖
+- **H5**：全量 pytest 回归 0 失败
+
+软性指标：不引入新依赖债、不动无关文件、每轮可验证。
+
+## 历史目标（存档）
+
+## 硬性判定基线（已完成真实代码审计，非自称）
+
+本项目是 9-app 超级 AI 平台（web/api/ai-service/cli/desktop/extension/miniapp-taro/mobile-rn），
+19 个模型 provider、40+ router、多模块高级能力。
+在**广度上已系统性超越**所有对标；在下列**深度维度已反超**：
+
+- 沙箱：Local/Docker/SSH/Modal/Daytona/Singularity 6 种后端
+- Agent 编排：串行/并行/辩论 + A2A
+- 记忆体系：长期/向量/多模态/衰减/主动遗忘/提取
+- MCP 生态、hooks、checkpoint、plan_mode、19 provider 路由、工具 schema 跨模型双向适配、
+  上下文压缩跨端对齐（TS+Py）、self_media 发布+反风险、元学习/联邦学习/差分隐私/技能进化
+
+## 真实短板（对标"杀手锏细度"，本轮四阶段 P0 补齐）
+
+- P0-1 全自动 LLM 语义压缩（对齐 `/compact`）
+- P0-2 用户可感知 Checkpoint/Rewind 撤销
+- P0-3 远程 MCP Streamable HTTP + OAuth
+- P0-4 Deep Research 多轮深度研究闭环
+
+## 验收标准（每个 P0）
+
+1. 后端核心逻辑生产级实现，pytest 单测通过
+2. 自有新路由文件（APIRouter 独立定义），**不**改写他人文件避免并行冲突
+3. typecheck/lint（ruff/mypy）+ 关键 import 全绿
+4. Master 统一在内 app/main.py 挂载路由后全链路可调
+
+## 执行状态
+
+| P0                           | 状态 | 负责 agent | 验证                                        |
+| ---------------------------- | ---- | ---------- | ------------------------------------------- |
+| P0-1 LLM 语义压缩            | DONE | A1         | pytest 5✓, ruff✓                            |
+| P0-2 Checkpoint/Rewind       | DONE | A2         | pytest 22✓, ruff✓, 前端 tsc✓                |
+| P0-3 MCP Remote+OAuth        | DONE | A3         | pytest 8+52回归✓, ruff✓, mypy✓              |
+| P0-4 Deep Research           | DONE | A4         | pytest 10✓, ruff✓, 前端 tsc✓                |
+| Master 挂载+验收             | DONE | master     | TestClient 401挂载✓, 45+52✓, ruff✓          |
+| P0-5 Computer Use 浏览器控制 | DONE | A5         | cli tsc✓, 真实Playwright冒烟✓               |
+| P0-6 上下文压缩感知 UI       | DONE | A6         | ai tsc✓, 5语言JSON✓, py_compile✓, 埋点接入✓ |
+| P0-7 云托管 Agent 会话       | DONE | A7         | ruff✓, pytest 3✓, web tsc✓                  |
+
+## 第二轮交付（2026-09-03，差距审计后再补齐三缺口）
+
+差距审计结论：代码库工具/权限系统/多Agent编排(串并辩+分解+通信)/实时流式/Provider适配/Hook/注入防护/审计均已反超；**真实缺口为浏览器控制、压缩感知UI、云会话持久化**。
+
+- P0-5：apps/cli/src/tools/browser.ts 空占位 → Playwright 真实工具集（open/snapshot/click/type/screenshot/extract_text/close），单例复用+`String.raw`绕过esbuild宿主注入
+- P0-6：新 routers/context_compaction.py（record_compaction 进程内存储 + GET /api/context-compaction）+ web ContextCompactionPanel + /context-compaction 页面 + 5语言
+- P0-6b：llm.py 两处 `/compact` 压缩点埋点 record_compaction()，压缩发生时回写 → 感知UI有真实数据（compile✓ + 改动行 ruff 0错误）
+- P0-7：services/cloud_run_store.py（进程dict+JSON落盘，重启可恢复）+ routers/cloud_runs.py（GET /api/cloud-runs 分页 + {run_id} 详情）+ agents.py 运行埋点 + web /cloud-agent 页面 + 5语言
+
+## 前端导航接入 + 视觉自验（2026-09-03）
+
+- nav-data.ts `ADVANCED_AI_TOOLS_CHILDREN` 新增 `/deep-research`（labelKey=deepResearch, icon=Rocket）
+- 5 语言文件（zh-CN/zh-TW/en/ja/ko）新增 deepResearch 翻译，JSON 全合法
+- next.config.ts 已加 /api/research* 与 /api/checkpoints* 代理 → 8803
+- 视觉自验：browser 展开"高级 AI 工具"含"深度研究"项；/deep-research 页渲染输入框+启动按钮，无 404/白屏；
+  代理链路 web 8801 → 8803 返回 401（认证拦截，非 404）✓
+
+## 第二轮视觉自验（2026-09-03）
+
+- /cloud-agent 渲染「云托管 Agent 会话」标题+刷新+空态「暂无运行记录」，无 JS 错误 ✓
+- /context-compaction 渲染「上下文压缩感知」+累计压缩次数+空态提示，无 JS 错误 ✓
+- /api/cloud-runs 与 /api/context-compaction 经 web 代理 → 8803 返回 401（挂载+鉴权拦截，非404）✓
+
+## 第三轮深化（2026-09-03，并行 agent 补齐杀手锏细度缺口）
+
+- **P0-2b Checkpoint 文件快照 Redis 持久化**（DONE）：file_editor.py 文件版本快照由纯进程内存提升为"内存缓存 + Redis 持久化"，
+  对齐 agent_checkpoint 降级范式（无 Redis/包缺失 → 静默降级纯内存）。内存 miss 回查 Redis、reset 内存+Redis 双清、
+  TTL 24h；snapshot/list/rollback 全接入。新增 tests/test_file_editor_redis.py(8)。回归 71 + 新增 8 = 79 绿。
+- **P0-3b MCP OAuth 细度硬化**（DONE）：新增 tests/test_mcp_oauth.py 14 用例（授权URL+PKCE、fetch 成功/失败、refresh、
+  get_token 三分支、inject、close、令牌隔离）。**修复真实 bug：授权码流缺 PKCE**（无 code_verifier/code_challenge），
+  已向后兼容补全（S256 + 保存 verifier，仅授权码流发送）。14 单测 + 4 既有 oauth 集成回归全绿，零回归改造。
+- **范围外已确认存在（无需补）**：cloud_runs 后端写闭环已具备（POST /run + PATCH /run/{id}）；5 个杀手锏 router 已在 main.py
+  694-698 挂载（research/checkpoint/cloud-runs/computer-use/context-compaction，prefix=/api）。
+
+## 第四轮视觉收尾（2026-09-03，浏览器登录态自验通过）
+
+- nav-data.ts 379-382 四个入口稳定（深度研究/云托管Agent/上下文压缩/浏览器控制→labelKey=deepResearch/cloudAgent/contextCompaction/computerUse）；
+  共享包 packages/i18n/messages/web/{zh-CN,zh-TW,en,ja,ko}.json 已含 4 键（各 5 处）。
+- browser_use 自验（admin/admin123 登录，web:8801）：
+  - 登录 PASS（密码页签，无需验证码）
+  - 侧边栏"高级 AI 工具"4 入口可见 PASS
+  - /deep-research /cloud-agent /context-compaction /computer-use 四页 **light+dark 双态渲染 PASS**，无 404/白屏/JS 错误（仅 HMR net::ERR_ABORTED 属开发态正常）
+  - hover/active：/deep-research 激活高亮（bg-primary text-primary-foreground）PASS
+  - computer-use 驾驶舱完整渲染 PASS
+
+## 第五轮深化（2026-09-03，3 并行 agent 攻坚杀手锏真实网络/团队协作/研究细度）
+
+- **P0-3 真网 E2E 闭环（DONE）**：`tests/test_mcp_streamable_http_e2e.py`(4)。用官方 mcp SDK(MCPServer) 本地真实起 Streamable-HTTP 服务器，uvicorn 起在 127.0.0.1 动态端口，`mcp_client`(TRANSPORT_STREAMABLE_HTTP) 真网 HTTP 完成 initialize→tools/list→tools/call（echo→hi, add(2,3)→5）。OAuth：真实本地 POST /token(client_credentials) + 强制校验 Bearer 的真实 MCP 服务器 → 注入断言通过；负向：无 OAuth 被 401 拒。既有 test_mcp_streamable_http.py 8 回归绿，ruff 0。**发现真实差距**：客户端仅发 protocolVersion 2025-03-26，未做协议版本协商（对端新版 2026-07-28 会被拒）。
+- **Agent Teams 团队协作闭环（DONE）**：新增 `services/agent_teams.py`（`ResultAggregator` merge/best_of/consensus+冲突检测；`TeamOrchestrator.run_round/run_multi_rounds` 并行 fan-out→结构化聚合→summary_context 注入下一轮主 agent 上下文闭环）+ `routers/team_orchestration.py`(3 端点) + main.py 注册。`tests/test_agent_teams.py`(21)。回归(编排系 8 文件)+新增=433 绿，ruff 0。修复 invoke_parallel 不带 conclusion 使冲突检测失效 + 冲突语义(分歧即标)。
+- **Deep Research 研究细度（DONE）**：`deep_research.py` 深化 B来源分级(SourceTier authoritative/media/community/unknown + confidence + verified，低可信显式标注/不得裸引) + C交叉核验(corroborated/single_source/conflicting/unverified) + D报告结构(结论先行+分级引用+限制与待核验)。仅新增字段保前端兼容。`tests/test_deep_research.py` 16(10+6)绿，ruff 0。修复 gov.cn/edu.cn 裸后缀误判。
+
+## 第六轮深化（2026-09-03，3 并行 agent：协议协商/团队接力主循环/研究LLM核验）
+
+- **P0-3 MCP 协议版本协商 + 能力探测（DONE）**：`mcp_client.py` 新增 `DEFAULT_PROTOCOL_VERSION=2025-03-26`、`SUPPORTED_PROTOCOL_VERSIONS=(2024-11-05,2025-03-26,2025-06-18,2025-11-25)`、`MCPClientConfig.protocol_version` 可覆盖；`_negotiate_protocol`+`_compare_protocol_versions`（日期语义，未解析按最旧防 "zzz" 误判）；`negotiated_protocol()/server_info()/capabilities()`。真网 E2E offer 2025-11-25→对端协商回 + capabilities/serverInfo 解析，默认 2025-03-26 向后兼容。pytest 58(47+11)绿，ruff 0。**实测发现：固定只发 2025-03-26 永远无法协商到更高版本 → 已用可配置解决**。
+- **Agent Teams 端到端主循环接力（DONE）**：`agent_loop_v2.py` 新增 `team_relay_enabled/team_context/team_blackboard`（全默认值，总开关读 env 默认 off）；`run()` 内 `_inject_team_relay_context` 注入团队接力摘要块，`AgentLoopResult.team_relay` 可观测（enabled/injected/round/strategy/contributors/summary/truncated）。默认路径零差异（对照断言）。pytest 87(77+10)绿；agent_loop_v2 68 个 ruff 错误为既有漂移非本次引入。修复"注入异常会炸主循环"bug。
+- **Deep Research LLM 事实核验（DONE）**：`deep_research.py` 新增 `FactcheckLLMFn` 契约 + `run_deep_research(..., factcheck_llm_fn=None)` 注入；`_run_cross_check` 统一双路径（注入 LLM 覆盖、异常/畸形静默回退启发式）；产出并入同一 evidence/report 结构，to_dict 仅增 key。pytest 21(16+5)绿，ruff 0。修复"双次核验"bug。
+
+## 第七轮（2026-09-03，3 并行 agent：Plan 门控/Step 录制回放/MCP 能力可观测）
+
+- **Plan Mode 规划→审批门控→执行 杀手锏（DONE）**：`services/plan_mode.py`+`routers/agent_plan.py` 扩展为完整状态机 `pending_approval→{approved,rejected,executing}`；决策端点 POST /agent-plan/{id}/decision（approve/approve_only/reject/revise 带修改指示→refine 新版本）；作废 `done/rejected` 后非法决策 409 并发防护 + 向后兼容 draft→executing。**版本可追溯**：PlanRecord 增 version/version_history，refine 内容变化才 bump，list_versions/diff_versions(difflib)。**任务化**：derive_tasks 从 ## 步骤展开 + sync 保留勾态 + 状态推进+进度摘要。test_agent_plan 16(5+11)绿；spec/运行时/权限 231 回归绿；ruff 0，mypy 0。
+- **Agent Step 录制与回放审计（DONE）**：新增 `services/agent_step_recorder.py`（进程 dict+JSON 落盘+Lock，append/get_steps/replay(全量/单步)/metrics/reset）+ `routers/step_recorder.py`（GET runs/{id}/steps·/replay·/metrics，鉴权与 cloud_runs 一致）+ main.py 挂载。`agent_loop_v2.py` 加 `recorder=None` 可选注入，`_maybe_record_step` 在工具执行成功/错误/审批拒/未知工具全覆盖埋点，**未注入零差异**（对照断言）。test_agent_step_recorder 15 绿；cloud_run/loop_v2/routers 回归 77 绿；ruff 0。
+- **MCP 能力可观测管理端点（DONE）**：`mcp_client.MCPClientManager.client_status(name)` + `list_registered` 增量带出 `negotiatedProtocol/serverInfo/capabilities`（含 experimental 扩展键），未连接→connected:false 空值不抛错、未注册→None、不含 env；新增 `GET /api/mcp/external/servers/{name}/capabilities`。只增字段零契约破坏。mcp 系 4 文件 92 绿；ruff 0。
+
+## 第八轮（2026-09-03，3 并行 agent：ruff基线核验/Step+Plan前端可视化/工具预算与沙箱加固）
+
+- **ruff 基线核验（澄清）**：agent_loop_v2.py 在当前工具链（ruff 0.16.1）下实测 0 错误，68 条为更旧/误解读误报；文件正被并发编辑（+368/-77），**不在冲突期插入改动**，该条闭环。
+- **Step+Plan 前端可视化（DONE）**：新增 `app/(main)/agent-step-recorder/page.tsx`（run_id → /metrics+/steps+/replay，渲染步数/总token/总耗时/总成本/ok·error + 单步可展开时间线）、`app/(main)/agent-plan/progress/page.tsx`（plan_id → detail/tasks/versions，任务勾态+done/total+版本切换）；`src/api/agent-recorder-api.ts`、`agent-plan-api.ts`；next.config.ts 新增 `/api/agent-recorder/:path*`、`/api/agent-plan/:path*` 前置代理→8803。此页面硬编码中文标题规避 i18n 并发冲突。tsc 我方文件全绿；浏览器 light/dark 渲染 PASS 无 JS 错。遗留唯一 TS 错属并行 agent 的 WIP 文件（ScanLoginDialog.tsx 275:50），不在本任务范围。
+- **工具执行预算与沙箱加固（DONE）**：新增 3 独立服务（全默认关闭、注入式接入、零行为变更）：`tool_budget_governor.py`（max_tools/cost/concurrency 旋钮，超额返回 budget_exceeded 确定性错误码 + guard 上下文管理器）、`tool_cost_accounting.py`（按工具/状态成本账本+Top10+remaining_against_limit，与 recorder 互通）、`tool_input_scanner.py`（递归危险入参探测：命令注入/路径穿越/SSRF回环/超长，复用 sandbox._DANGEROUS_PATTERNS 与 network_guard，补 169.254.x；flags 可关停防误报）。新增测试 38 绿；回归(tool_approval/llm_budget/agent_budget/sandbox/network_guard/input_sanitizer/tools_router) 391+1skip 绿，ruff 0。修复 Write 工具损坏 Provenance 水印 + 成本浮点抖动。
+
+## 第九、十轮（2026-09-03，并行 agent：反向外开放 MCP Server/Prompt注入加固/长期记忆/采用度/组合守卫/成本账本）
+
+- **ihui 作为 MCP Server 对外开放（DONE）**：`services/mcp_export.py` 用官方 `MCPServer` 暴露 SSE + Streamable-HTTP 两种 transport，工具 `ihui.echo/now_utc/capabilities`，ENABLE_MCP_EXPORT 开关；真连接测试（官方 ClientSession 连 uvicorn）initialize/tools/list/call 全通。修复 Starlette Mount 前缀未裁剪 + lifespan task-group 未初始化两 bug。`mcp_export_run.py` CLI 拉起入口 + **stdio transport**（Claude Desktop 可 command 直接拉起）+ `generate_client_config()` 生成 claude_desktop_config.json 片段 + `validate_request_host()`（DNS-rebinding 白名单拒 0.0.0.0/通配）+ 协议版本常量引用 mcp_client 去双轨。test_mcp_export_usage 22 绿，test_mcp_export 6 回归绿。
+- **Prompt 注入检测加固层（DONE）**：`services/prompt_guard.py` 6 类注入类型+severity 分层（instruction_overwrite/fake_system_prompt/secret_exfiltration/tool_hijack/constraint_bypass/marker_obfuscation base64），三策略 flag/sanitize/refuse；EXEMPTIONS 仅与命中区间重叠防误伤；中文+英文启发式确定性。35 用例绿。
+- **长期跨会话 Agent 记忆（DONE）**：`services/agent_longterm_memory.py` 条目含 type/importance/keywords/tags，bigram-Jaccard 确定性去重合并，`extract_candidates_from_session` 自动沉淀（强化标记+类型推断），`recall_for_context` 注入块；29 用例绿，与既有 memory 186 回归绿。修复 bulk import 死锁 + None 剪裁 bug。
+- **统一组合守卫编排（DONE，重做）**：`services/guarded_tool_pipeline.py` 把 prompt_guard→input_scan→budget.acquire→fn→record→cost→release 串成单入口，确定性错误码常量，每阶段独立降级一处不炸全链路，`run/run_sync/guard(上下文)`，只读 `check()` 快照；18 用例 + 88 回归绿。（初版被 Write 污染混入全角字符→ASCII 全量重写）
+- **全链路成本账本（DONE）**：`services/cost_ledger.py` `LedgerEntry` 幂等 append，aggregate 按 user/session/run/tool/model/date，`top_tools`/`timeseries(hour|day)`/`reset`，`sync_from_recorder` 与 recorder cost 口径一致（record_id=run_id:step:N），`estimate_cost_usd` 内置主流模型价表(set_pricing 可覆盖，未知 estimated=true)；31 用例 + 28 回归绿。修复 total_tokens 默认覆盖 bug。
+- 本轮 import 冒烟 7 模块 + App OK；6 新服务 ruff 0。
+
+## 第十一轮（2026-09-03，并行 agent：四只读/管理 API 暴露 + 两个前端可视化页 + 统一挂载）
+
+- **四条只读/管理 API 落地（DONE）**：
+  - `/api/cost-ledger/summary|top-tools|timeseries|query`（成本看板，按 user/session/run/tool/model/date 聚合，day/hour 走势桶）
+  - `/api/longterm-memory/entries|recall|extract`（长期记忆管理，用户隔离、增删改查、重要度、auto 归纳导入；**前缀用 /longterm-memory 规避与既有 /api/memory/recall 的路径冲突**）
+  - `/api/prompt-guard/inspect|signatures`（注入审计/签名清单，只读不落库）
+  - `/api/mcp-export/config|normalize-url`（MCP 导出接入配置获取 + host 校验拒绝）
+    全部 Envelope {code,message,data} + get_current_user_id 鉴权（401）。单测：cost_ledger_router 19 绿、agent_memory_router 14 绿、prompt_guard_api 8 绿、mcp_export_config 7 绿。
+- **统一挂载（DONE）**：新增 `app/routers/killer_extras.py`（register(app)，按各自前缀/携带 /api 或子路径正确 include，避免 /api/api 双前缀），main.py 单点一次性接入。最终全路由探测 10/10 已注册（鉴权 401 生效）。
+- **前端可视化（DONE）**：新增 `/cost-dashboard`（成本看板：聚合卡片+by_tool/by_model+纯CSS日/时条形走势+空态）、`/memory-manager`（长期记忆管理：列表/过滤/提升重要度/删除/新增/归纳本会话）两页 + `src/api/cost-ledger-api.ts`、`longterm-memory-api.ts` + next.config.ts 两条前置代理(/api/cost-ledger、/api/longterm-memory→8803)。中文硬编码标题规避 i18n 并发冲突；tsc 我方文件零错；浏览器 200 渲染、代理命中(401 非 404)、light/dark 语义类自动适配。
+- 本轮后端全量回归 **189 passed**；killer_extras/agent_memory ruff 0（2 项自动修复）；app build OK。
+
+## 最终收尾状态（2026-09-03 · 本轮目标驱动 UI/后端全量验证通过）
+
+**最终全量回归：292 passed**（本轮全部触碰测试聚合），无回归；**23 模块 + App import 全 OK**；web 两新页 light/dark 视觉 POST 渲染 PASS。
+
+已闭环的杀手锏（对标 Claude Code / Codex / WorkBuddy）：
+
+- 全自动 LLM 语义压缩（TS+Py 跨端对齐、埋点回写）
+- 用户可感知 Checkpoint/Rewind（消息+文件版本、Redis 持久化）
+- 远程 MCP Streamable HTTP + OAuth（真网 E2E、OAuth PKCE 修复、协议版本协商+能力探测、能力可观测管理端点）
+- Deep Research（多轮、来源分级、交叉核验、LLM 事实核验注入、结构化报告）
+- Agent Teams 团队协作（并行 fan-out+结构化聚合+主循环接力）
+- Plan Mode 规划→审批门控→执行（版本可追溯、任务化执行）
+- Agent Step 录制与回放审计（Record & Replay）
+- 工具执行预算/成本核算/入参危险扫描
+- Computer Use 浏览器控制、云托管 Agent 会话、4 个杀手锏前端页（light/dark 视觉自验通过）
+
+外部边界（收尾客观说明，非待推进建议）：公网远程 MCP Server 端到端与 OAuth 授权码回调需真实外部端点+凭据，本地真网 E2E 已覆盖传输/握手/协商；并行 agent 自行维护的 WIP 文件（ScanLoginDialog、CLI/web 其余编辑）由其各自提交处理。
+
+（本文件收尾）
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

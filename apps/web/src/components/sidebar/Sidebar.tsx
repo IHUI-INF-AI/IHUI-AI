@@ -72,12 +72,12 @@ const Sidebar = React.memo(function Sidebar({
   //   ① 顶层路由挂载时立即预取(sidebar 可见项,首屏即可点)。
   //   ② 全量(含 children)800ms 后交错 40ms 预取,规避突发请求与 LCP 竞争。
   // 按角色过滤:非 admin 跳过 adminOnly/permission 项,避免对权限路由发起无效预取(403/重定向)。
-  // 作用域:仅生产模式(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求)。
+  // 作用域:生产走 router.prefetch;dev 走低优先级 fetch 编译预热(cache-bypass-in-dev 使
+  // router.prefetch 在 dev 无效,见下方第七刀注释)。
   // 仅首挂载执行一次脱离 pathname 依赖,避免每次导航重建预取。
   const navRouter = useRouter()
   const pathnameRef = React.useRef(pathname)
   React.useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') return
     const currentPathname = pathnameRef.current
     const isAdmin = (userRoleId ?? 0) >= 1
     const isVisible = (i: NavItem) => (!i.adminOnly || isAdmin) && (!i.permission || isAdmin)
@@ -98,6 +98,29 @@ const Sidebar = React.memo(function Sidebar({
     const all = [
       ...new Set(visibleItems.flatMap((i) => flattenNavItems([i]).map((x) => x.href))),
     ].filter((h) => h !== currentPathname && h !== '/')
+
+    // ===== 生产模式:router.prefetch 两批次(不变) =====
+    if (process.env.NODE_ENV !== 'production') {
+      // ===== 第七刀(2026-09-03):dev 模式后台编译预热 =====
+      // dev 基线实测(localhost:8801):未编译页面首次 RSC 请求 3.4~4.8s(按需编译),
+      // 已编译 0.06~0.16s —— 差距 30~60 倍。Next 16 的 cache-bypass-in-dev 让
+      // router.prefetch 在 dev 被显式绕过(实测 0 请求),页面永远停留在"首次点击等编译"。
+      // 方案:dev 下改用低优先级 fetch(RSC 头)直接打 dev server,后台触发按需编译;
+      // 编译产物留在 dev server 内存/FS 缓存,用户点击时命中已编译路由 → 首跳即 ~0.1s。
+      // 成本:一次性后台编译 ~100 路由(交错 60ms/个,约 6s 完成),不阻塞交互线程;
+      // 主延迟 1.2s,避开首页自身编译与 hydration 的 CPU 高峰。
+      const master = window.setTimeout(() => {
+        all.forEach((href, idx) => {
+          window.setTimeout(() => {
+            if (document.visibilityState !== 'visible') return
+            fetch(href, { headers: { RSC: '1' } })
+              .then((res) => res.body?.cancel().catch(() => {}))
+              .catch(() => {})
+          }, idx * 60)
+        })
+      }, 1200)
+      return () => window.clearTimeout(master)
+    }
 
     // 批次1:顶层 + 组内首项立即预取
     immediateHrefs.forEach((href) => {
