@@ -19,6 +19,7 @@ import DrawerComponent from '@/components/DrawerComponent'
 import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
+import ThemeRoot from '@/components/ThemeRoot'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
@@ -609,350 +610,358 @@ export default function Community() {
   }))
 
   return (
-    <View
-      className="community-out-container"
-      style={{
-        height: showCategoryPopup ? '100vh' : 'auto',
-        overflowY: showCategoryPopup ? 'hidden' : 'auto',
-      }}
-    >
-      {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
-      <DrawerComponent
-        visible={showDrawer}
-        onClose={() => setShowDrawer(false)}
-        side="left"
-        groupedData={drawerGroupedData}
-        userinfo={drawerUserinfo}
-        onMenuItemClick={handleDrawerGoPage}
-        onLabelItemClick={handleDrawerLabelClick}
-        onChatItemClick={handleDrawerChatClick}
-        onRemoveChat={handleRemoveChat}
-        onCreateChat={() => {
-          setShowDrawer(false)
-          Taro.navigateTo({ url: '/pages/ai/chat' })
+    <ThemeRoot className="community-out-container">
+      <View
+        style={{
+          height: showCategoryPopup ? '100vh' : 'auto',
+          overflowY: showCategoryPopup ? 'hidden' : 'auto',
         }}
-      />
+      >
+        {/* DrawerComponent 抽屉 — 对齐原项目放在最外层 */}
+        <DrawerComponent
+          visible={showDrawer}
+          onClose={() => setShowDrawer(false)}
+          side="left"
+          groupedData={drawerGroupedData}
+          userinfo={drawerUserinfo}
+          onMenuItemClick={handleDrawerGoPage}
+          onLabelItemClick={handleDrawerLabelClick}
+          onChatItemClick={handleDrawerChatClick}
+          onRemoveChat={handleRemoveChat}
+          onCreateChat={() => {
+            setShowDrawer(false)
+            Taro.navigateTo({ url: '/pages/ai/chat' })
+          }}
+        />
 
-      <View className="community-main-container" style={{ color: 'white' }}>
-        {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
-        <FloatBox />
+        <View className="community-main-container" style={{ color: 'var(--color-foreground)' }}>
+          {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
+          <FloatBox />
 
-        {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
-        <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
-          <NavBar
-            variant="ai-home"
-            title={tt('community.m1', 'A I 应用商店')}
-            showFenLei
-            showSearch
-            onFenLeiClick={handleFenLeiClick}
-            onMenuClick={handleMenuClick}
-            onSearchClick={handleSearchClick}
-          />
-        </View>
-        <View style={{ opacity: 0 }}>
-          <NavBar
-            variant="ai-home"
-            title={tt('community.m2', 'A I 应用商店')}
-            showFenLei
-            showSearch
-            onFenLeiClick={handleFenLeiClick}
-            onMenuClick={handleMenuClick}
-            onSearchClick={handleSearchClick}
-          />
-        </View>
-
-        {/* mask — 分类弹层遮罩(对齐原项目) */}
-        {showCategoryPopup ? (
-          <View className="community-mask" onClick={() => setShowCategoryPopup(false)} />
-        ) : null}
-
-        {/* s_t_b — 分类弹层(对齐原项目 tagWrapShow 时的弹层) */}
-        {showCategoryPopup ? (
-          <View className="community-s-t-b">
-            <TitleSwitchScrollTitle
-              mainList={titleSwitchMainList}
-              mainSwiperMargin="120rpx"
-              subSwiperMargin="120rpx"
-              onChange={onTitleSwitchChange}
+          {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
+          <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
+            <NavBar
+              variant="ai-home"
+              title={tt('community.m1', 'A I 应用商店')}
+              showFenLei
+              showSearch
+              onFenLeiClick={handleFenLeiClick}
+              onMenuClick={handleMenuClick}
+              onSearchClick={handleSearchClick}
             />
-            {/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */}
-            <View className="community-fenlei-overlay">
-              <View className="community-fenlei-inner">
-                {categories.map((item, index) => (
-                  <View
-                    key={item.id}
-                    className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
-                    onClick={() => handleFenleiBtnClick(index, item)}
-                  >
-                    <Image
-                      className="fenlei_icon"
-                      src={fenleiActive.includes(index) ? item.butUrl : item.url}
-                      mode="widthFix"
-                    />
-                    <Text className="community-fenlei-btn-text">{item.name}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
           </View>
-        ) : null}
-
-        {/* 页面内容(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) */}
-        <View
-          className="community-content-area"
-          style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx' }}
-        >
-          {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
-          <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
-            <View className="community-carousel-gradient">
-              <View className="community-carousel-inner">
-                <Carousel
-                  items={banners}
-                  height={160}
-                  autoplay
-                  interval={3000}
-                  onItemClick={onBannerClick}
-                />
-              </View>
-            </View>
+          <View style={{ opacity: 0 }}>
+            <NavBar
+              variant="ai-home"
+              title={tt('community.m2', 'A I 应用商店')}
+              showFenLei
+              showSearch
+              onFenLeiClick={handleFenLeiClick}
+              onMenuClick={handleMenuClick}
+              onSearchClick={handleSearchClick}
+            />
           </View>
 
-          {/* 客服按钮(对齐原项目服务弹窗入口)*/}
-          <View
-            style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
-            onClick={() => setShowServicePopup(true)}
-          >
-            <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
-              {tt('wallet.recharge.fail.contactService', '联系客服')}
-            </Text>
-          </View>
+          {/* mask — 分类弹层遮罩(对齐原项目) */}
+          {showCategoryPopup ? (
+            <View className="community-mask" onClick={() => setShowCategoryPopup(false)} />
+          ) : null}
 
-          {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
-          {showSearch ? (
-            <View
-              className="community-search-area"
-              style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: rpx(12) }}
-            >
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <InputArea
-                  value={searchKeyword}
-                  placeholder={tt('community.m3', '请输入查找的智能体名称')}
-                  onInput={handleSearchInput}
-                  onSend={handleSearchSend}
-                  variant="default"
-                />
-              </View>
-              {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
-                 语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
-                  统一提示该能力在完整版提供,避免「开发中」误导) */}
-              <Image
-                style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
-                src="/static/images/icons/mic.svg"
-                mode="aspectFit"
-                onClick={() => {
-                  Taro.showToast({
-                    title: tt('community.search13', '语音搜索请在完整版使用'),
-                    icon: 'none',
-                  })
-                }}
+          {/* s_t_b — 分类弹层(对齐原项目 tagWrapShow 时的弹层) */}
+          {showCategoryPopup ? (
+            <View className="community-s-t-b">
+              <TitleSwitchScrollTitle
+                mainList={titleSwitchMainList}
+                mainSwiperMargin="120rpx"
+                subSwiperMargin="120rpx"
+                onChange={onTitleSwitchChange}
               />
-              {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
-                 后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
-              <Image
-                style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
-                src="/static/images/icons/search.svg"
-                mode="aspectFit"
-                onClick={async () => {
-                  try {
-                    await chooseImages(1)
-                    Taro.showToast({
-                      title: tt('community.search14', '图片搜索请在完整版使用'),
-                      icon: 'none',
-                    })
-                  } catch {
-                    // 用户取消或失败,静默
-                  }
-                }}
-              />
+              {/* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */}
+              <View className="community-fenlei-overlay">
+                <View className="community-fenlei-inner">
+                  {categories.map((item, index) => (
+                    <View
+                      key={item.id}
+                      className={`community-fenlei-btn ${fenleiActive.includes(index) ? 'active' : ''}`}
+                      onClick={() => handleFenleiBtnClick(index, item)}
+                    >
+                      <Image
+                        className="fenlei_icon"
+                        src={fenleiActive.includes(index) ? item.butUrl : item.url}
+                        mode="widthFix"
+                      />
+                      <Text className="community-fenlei-btn-text">{item.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
             </View>
           ) : null}
 
-          {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
-          {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
+          {/* 页面内容(对齐原项目 padding: var(--app-top-bar-height) 20rpx 40rpx) */}
+          <View
+            className="community-content-area"
+            style={{ padding: 'var(--app-top-bar-height) 20rpx 40rpx' }}
+          >
+            {/* 轮播图(对齐原项目 gradient-border + carousel-inner) */}
+            <View className="community-carousel-wrapper" style={{ margin: '18rpx 0 0 0' }}>
+              <View className="community-carousel-gradient">
+                <View className="community-carousel-inner">
+                  <Carousel
+                    items={banners}
+                    height={160}
+                    autoplay
+                    interval={3000}
+                    onItemClick={onBannerClick}
+                  />
+                </View>
+              </View>
+            </View>
 
-          {/* MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0) */}
-          {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
-
-          {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
-          <View className="community-ailist-content">
-            <View className="community-agent-list-header">
-              <Text className="community-agent-list-title">
-                {tt('community.text15', '智能体推荐')}
-              </Text>
-              <Text className="community-agent-list-posts">{tt('community.posts', '帖子')}</Text>
-              <Text
-                className="community-agent-list-more"
-                onClick={() =>
-                  Taro.navigateTo({
-                    url: '/pages/category-detail/index',
-                    fail: () =>
-                      Taro.showToast({
-                        title: tt('community.detail16', '分类详情页未配置'),
-                        icon: 'none',
-                      }),
-                  })
-                }
-              >
-                {tt('tail.19', '查看更多')} {'>'}
+            {/* 客服按钮(对齐原项目服务弹窗入口)*/}
+            <View
+              style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: rpx(10) }}
+              onClick={() => setShowServicePopup(true)}
+            >
+              <Text style={{ fontSize: rpx(24), color: 'var(--color-primary)' }}>
+                {tt('wallet.recharge.fail.contactService', '联系客服')}
               </Text>
             </View>
-            <AgentListPanel
-              visible
-              agents={agentInfoList}
-              loading={loading}
-              onSelect={onAgentListSelect}
-              onPurchase={handlePurchase}
-            />
-            {!loading && agentList.length === 0 ? (
-              <EmptyState text={tt('agent.empty', '暂无智能体')} />
-            ) : null}
-            {!loading && !hasMore && agentList.length > 0 ? (
-              <View className="community-no-more">
-                <Text className="community-no-more-text">{tt('common.noMore', '没有更多了')}</Text>
+
+            {/* InputArea 搜索框(对齐原项目 showSearchBox 条件渲染)+ 语音/图片按钮 */}
+            {showSearch ? (
+              <View
+                className="community-search-area"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: rpx(12),
+                }}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <InputArea
+                    value={searchKeyword}
+                    placeholder={tt('community.m3', '请输入查找的智能体名称')}
+                    onInput={handleSearchInput}
+                    onSend={handleSearchSend}
+                    variant="default"
+                  />
+                </View>
+                {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
+                 语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
+                  统一提示该能力在完整版提供,避免「开发中」误导) */}
+                <Image
+                  style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
+                  src="/static/images/icons/mic.svg"
+                  mode="aspectFit"
+                  onClick={() => {
+                    Taro.showToast({
+                      title: tt('community.search13', '语音搜索请在完整版使用'),
+                      icon: 'none',
+                    })
+                  }}
+                />
+                {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
+                 后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
+                <Image
+                  style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
+                  src="/static/images/icons/search.svg"
+                  mode="aspectFit"
+                  onClick={async () => {
+                    try {
+                      await chooseImages(1)
+                      Taro.showToast({
+                        title: tt('community.search14', '图片搜索请在完整版使用'),
+                        icon: 'none',
+                      })
+                    } catch {
+                      // 用户取消或失败,静默
+                    }
+                  }}
+                />
               </View>
             ) : null}
+
+            {/* RecentAgents 最近使用(对齐原项目, v-if recentAgents.length > 0) */}
+            {recentAgents.length > 0 ? <RecentAgents recentAgents={recentAgents} /> : null}
+
+            {/* MyAgents 我的AI APP(对齐原项目, v-if myAgents.length > 0) */}
+            {myAgents.length > 0 ? <MyAgents myAgents={myAgents} /> : null}
+
+            {/* ai-list 智能体列表(对齐原项目 ailist_content) */}
+            <View className="community-ailist-content">
+              <View className="community-agent-list-header">
+                <Text className="community-agent-list-title">
+                  {tt('community.text15', '智能体推荐')}
+                </Text>
+                <Text className="community-agent-list-posts">{tt('community.posts', '帖子')}</Text>
+                <Text
+                  className="community-agent-list-more"
+                  onClick={() =>
+                    Taro.navigateTo({
+                      url: '/pages/category-detail/index',
+                      fail: () =>
+                        Taro.showToast({
+                          title: tt('community.detail16', '分类详情页未配置'),
+                          icon: 'none',
+                        }),
+                    })
+                  }
+                >
+                  {tt('tail.19', '查看更多')} {'>'}
+                </Text>
+              </View>
+              <AgentListPanel
+                visible
+                agents={agentInfoList}
+                loading={loading}
+                onSelect={onAgentListSelect}
+                onPurchase={handlePurchase}
+              />
+              {!loading && agentList.length === 0 ? (
+                <EmptyState text={tt('agent.empty', '暂无智能体')} />
+              ) : null}
+              {!loading && !hasMore && agentList.length > 0 ? (
+                <View className="community-no-more">
+                  <Text className="community-no-more-text">
+                    {tt('common.noMore', '没有更多了')}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </View>
+
+          {/* toodown 返回顶部按钮(对齐原项目, 用 back.svg) */}
+          {showBackTop ? (
+            <View className="community-toodown-wrapper">
+              <View className="community-toodown" onClick={backToTop}>
+                <Image src={backSvg} className="community-toodown-img" mode="aspectFit" />
+              </View>
+            </View>
+          ) : null}
         </View>
 
-        {/* toodown 返回顶部按钮(对齐原项目, 用 back.svg) */}
-        {showBackTop ? (
-          <View className="community-toodown-wrapper">
-            <View className="community-toodown" onClick={backToTop}>
-              <Image src={backSvg} className="community-toodown-img" mode="aspectFit" />
+        {/* 服务弹窗(二维码名片,对齐原项目 Ai-list_b.vue L213-227 isServicePopupVisible) */}
+        {showServicePopup ? (
+          <View
+            className="fixed inset-0 z-[2000] flex items-center justify-center"
+            style={{ background: 'rgba(0,0,0,0.6)' }}
+            onClick={() => setShowServicePopup(false)}
+          >
+            <View
+              className="relative"
+              style={{
+                padding: rpx(20),
+                borderRadius: rpx(30),
+                background: 'var(--color-card)',
+                maxWidth: '85%',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 名片图片(对齐原项目 mingpian.png) */}
+              <Image
+                src={mingpianImg}
+                mode="widthFix"
+                style={{ width: '100%', borderRadius: rpx(20), marginBottom: rpx(16) }}
+              />
+              {/* 二维码图片(对齐原项目 erweima.png) */}
+              <Image
+                src={erweimaImg}
+                mode="widthFix"
+                style={{ width: '60%', display: 'block', margin: '0 auto' }}
+                showMenuByLongpress
+              />
+              {/* 关闭按钮 */}
+              <View
+                className="absolute"
+                style={{
+                  top: rpx(10),
+                  right: rpx(10),
+                  width: rpx(60),
+                  height: rpx(60),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onClick={() => setShowServicePopup(false)}
+              >
+                <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
+              </View>
             </View>
           </View>
         ) : null}
-      </View>
 
-      {/* 服务弹窗(二维码名片,对齐原项目 Ai-list_b.vue L213-227 isServicePopupVisible) */}
-      {showServicePopup ? (
-        <View
-          className="fixed inset-0 z-[2000] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.6)' }}
-          onClick={() => setShowServicePopup(false)}
-        >
-          <View
-            className="relative"
-            style={{
-              padding: rpx(20),
-              borderRadius: rpx(30),
-              background: 'var(--color-card)',
-              maxWidth: '85%',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* 名片图片(对齐原项目 mingpian.png) */}
-            <Image
-              src={mingpianImg}
-              mode="widthFix"
-              style={{ width: '100%', borderRadius: rpx(20), marginBottom: rpx(16) }}
-            />
-            {/* 二维码图片(对齐原项目 erweima.png) */}
-            <Image
-              src={erweimaImg}
-              mode="widthFix"
-              style={{ width: '60%', display: 'block', margin: '0 auto' }}
-              showMenuByLongpress
-            />
-            {/* 关闭按钮 */}
-            <View
-              className="absolute"
-              style={{
-                top: rpx(10),
-                right: rpx(10),
-                width: rpx(60),
-                height: rpx(60),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => setShowServicePopup(false)}
-            >
-              <Text style={{ fontSize: rpx(40), color: 'var(--color-foreground)' }}>×</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* PayPopup 支付弹窗(对齐原项目 Ai-list_b.vue L264-292) */}
-      <PayPopup
-        visible={showPayPopup}
-        pay={payInfo ?? {}}
-        payButtonType="subscription"
-        onClose={() => setShowPayPopup(false)}
-        onPay={async () => {
-          const agent = purchasingAgentRef.current
-          if (!agent || !payInfo) return
-          try {
-            // 1. 创建支付记录
-            await api.createPayHistory({
-              agentId: agent.id,
-              amount: payInfo.amount ?? 0,
-            })
-            // 2. 调微信支付 JSAPI 获取支付参数
-            const payRes = (await api.wechatPay({
-              amount: payInfo.amount ?? 0,
-              orderType: 'agent',
-              productId: agent.id,
-              description: t('community.y2', { p1: agent.name }),
-            })) as {
-              mock?: boolean
-              timeStamp?: string
-              nonceStr?: string
-              package?: string
-              signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
-              paySign?: string
-            }
-            // 3. mock 模式(后端未配置微信支付)
-            if (payRes?.mock) {
-              Taro.showToast({
-                title: tt('community.success17', '支付成功(mock)'),
-                icon: 'success',
+        {/* PayPopup 支付弹窗(对齐原项目 Ai-list_b.vue L264-292) */}
+        <PayPopup
+          visible={showPayPopup}
+          pay={payInfo ?? {}}
+          payButtonType="subscription"
+          onClose={() => setShowPayPopup(false)}
+          onPay={async () => {
+            const agent = purchasingAgentRef.current
+            if (!agent || !payInfo) return
+            try {
+              // 1. 创建支付记录
+              await api.createPayHistory({
+                agentId: agent.id,
+                amount: payInfo.amount ?? 0,
               })
+              // 2. 调微信支付 JSAPI 获取支付参数
+              const payRes = (await api.wechatPay({
+                amount: payInfo.amount ?? 0,
+                orderType: 'agent',
+                productId: agent.id,
+                description: t('community.y2', { p1: agent.name }),
+              })) as {
+                mock?: boolean
+                timeStamp?: string
+                nonceStr?: string
+                package?: string
+                signType?: 'RSA' | 'MD5' | 'HMAC-SHA256'
+                paySign?: string
+              }
+              // 3. mock 模式(后端未配置微信支付)
+              if (payRes?.mock) {
+                Taro.showToast({
+                  title: tt('community.success17', '支付成功(mock)'),
+                  icon: 'success',
+                })
+                setShowPayPopup(false)
+                void loadData(true)
+                return
+              }
+              // 4. 调起微信支付
+              if (
+                !payRes?.paySign ||
+                !payRes.timeStamp ||
+                !payRes.nonceStr ||
+                !payRes.package ||
+                !payRes.signType
+              ) {
+                Taro.showToast({ title: tt('community.pay18', '支付参数异常'), icon: 'none' })
+                return
+              }
+              await requestPayment({
+                timeStamp: payRes.timeStamp,
+                nonceStr: payRes.nonceStr,
+                package: payRes.package,
+                signType: payRes.signType,
+                paySign: payRes.paySign,
+              })
+              Taro.showToast({ title: tt('pay.result.paid', '支付成功'), icon: 'success' })
               setShowPayPopup(false)
               void loadData(true)
-              return
+            } catch (err) {
+              // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
+              if (err !== 'cancel') {
+                Taro.showToast({ title: tt('pay.failed', '支付失败,请重试'), icon: 'none' })
+              }
             }
-            // 4. 调起微信支付
-            if (
-              !payRes?.paySign ||
-              !payRes.timeStamp ||
-              !payRes.nonceStr ||
-              !payRes.package ||
-              !payRes.signType
-            ) {
-              Taro.showToast({ title: tt('community.pay18', '支付参数异常'), icon: 'none' })
-              return
-            }
-            await requestPayment({
-              timeStamp: payRes.timeStamp,
-              nonceStr: payRes.nonceStr,
-              package: payRes.package,
-              signType: payRes.signType,
-              paySign: payRes.paySign,
-            })
-            Taro.showToast({ title: tt('pay.result.paid', '支付成功'), icon: 'success' })
-            setShowPayPopup(false)
-            void loadData(true)
-          } catch (err) {
-            // requestPayment 已处理 cancel/fail 的 toast;unwrapApi 已处理 API 失败 toast
-            if (err !== 'cancel') {
-              Taro.showToast({ title: tt('pay.failed', '支付失败,请重试'), icon: 'none' })
-            }
-          }
-        }}
-      />
-    </View>
+          }}
+        />
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
