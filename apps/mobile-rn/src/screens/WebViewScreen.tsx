@@ -8,6 +8,7 @@ import { WebView, type WebViewNavigation } from 'react-native-webview'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { generateSsoCode } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuthStore } from '../stores/auth-store'
@@ -112,7 +113,7 @@ export function WebViewScreen() {
         <WebView
           key={sourceUri}
           source={{ uri: sourceUri }}
-          style={{ flex: 1, backgroundColor: dark ? '#171717' : '#ffffff' }}
+          style={{ flex: 1, backgroundColor: dark ? tokens.gray[900] : tokens.surface.light }}
           onNavigationStateChange={onNavigationStateChange}
           onError={onError}
           onHttpError={onError}
