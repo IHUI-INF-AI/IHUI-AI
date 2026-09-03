@@ -1400,10 +1400,15 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 if not accumulated["content"]:
                                     # 2026-08-06 修复:空回复兜底(step_plan 等模型可能返回空 content,
                                     # 不能给用户一条空消息)
-                                    _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
-                                    accumulated["content"] = _fallback
-                                    _fallback_evt = {"type": "chunk", "content": _fallback}
-                                    yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
+                                    # 2026-09-03 修复(agent 通道污染):工具循环已执行过工具时不再兜底 ——
+                                    # 工具结果后 0 content 是 agent 场景的正常形态,插"抱歉,未能生成有效回复"
+                                    # 假文案会被 CLI 存入 assistant 消息回传 provider,污染对话上下文
+                                    # (对齐 generic astream 路径 done 事件的 _had_tools 修复)。
+                                    if not tool_calls_history:
+                                        _fallback = "抱歉,未能生成有效回复,请换个说法重试一下。"
+                                        accumulated["content"] = _fallback
+                                        _fallback_evt = {"type": "chunk", "content": _fallback}
+                                        yield f"event: chunk\ndata: {json.dumps(_fallback_evt, ensure_ascii=False)}\n\n"
                                 accumulated["model"] = complete_result.get("model", req.model)
                                 accumulated["usage"] = complete_result.get("usage", {})
                                 accumulated["stub"] = complete_result.get("stub", False)

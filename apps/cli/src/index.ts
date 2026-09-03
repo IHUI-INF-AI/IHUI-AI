@@ -58,6 +58,7 @@ import { registerMcpMarketCommand } from './commands/mcp-market.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerSecurityCommand } from './commands/security.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
+import { startCloudRun, completeCloudRun } from './cloud-run.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
 import { registerImportCommand } from './commands/import.js';
@@ -247,26 +248,59 @@ async function runAgentAndExit(
       sessionId: session.id,
       workspacePath: opts.workspace,
     });
-    const result = await runAgent({
-      prompt,
-      modelId: cfg.model,
-      workspacePath: opts.workspace,
-      apiUrl: cfg.apiUrl,
-      apiKey: cfg.apiKey,
-      maxIterations: cfg.maxIterations,
-      jsonMode,
-      outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
-      checkpoints,
-      enableMcp: cfg.enableMcp,
-      allowDangerous: cfg.allowDangerous,
-      session,
-      signal: abort.signal,
-      planFirst: cfg.planFirst,
-      sampler: cfg.sampler,
-      permissions: resolvePermissions(opts),
-      permissionMode: cfg.permissionMode,
-    });
-    process.exitCode = stopReasonToExitCode(result.stopReason);
+    // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),
+    // 全程静默降级绝不影响主流程;start 与 runAgent 并发,网络等待不叠加到任务耗时。
+    const cloudStartPromise = cfg.apiKey
+      ? startCloudRun({
+          task: prompt,
+          sessionAlias: session.id,
+          apiKey: cfg.apiKey,
+        })
+      : Promise.resolve(null);
+    let cloudStatus: 'done' | 'error' = 'done';
+    let cloudOutput = '';
+    try {
+      const result = await runAgent({
+        prompt,
+        modelId: cfg.model,
+        workspacePath: opts.workspace,
+        apiUrl: cfg.apiUrl,
+        apiKey: cfg.apiKey,
+        maxIterations: cfg.maxIterations,
+        jsonMode,
+        outputFormat: opts.outputFormat ? parseOutputFormat(opts.outputFormat) : undefined,
+        checkpoints,
+        enableMcp: cfg.enableMcp,
+        allowDangerous: cfg.allowDangerous,
+        session,
+        signal: abort.signal,
+        planFirst: cfg.planFirst,
+        sampler: cfg.sampler,
+        permissions: resolvePermissions(opts),
+        permissionMode: cfg.permissionMode,
+      });
+      process.exitCode = stopReasonToExitCode(result.stopReason);
+      cloudOutput = result.assistantText;
+      if (result.stopReason === 'error') {
+        cloudStatus = 'error';
+      }
+    } catch (err) {
+      cloudStatus = 'error';
+      cloudOutput = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      // 云会话收尾:start 成功登记过才补写终态(失败/未登录静默跳过)
+      const cloudRunId = await cloudStartPromise;
+      if (cloudRunId) {
+        await completeCloudRun({
+          runId: cloudRunId,
+          status: cloudStatus,
+          output: cloudOutput,
+          error: cloudStatus === 'error' ? cloudOutput : undefined,
+          apiKey: cfg.apiKey,
+        });
+      }
+    }
   } finally {
     process.off('SIGINT', onSigint);
   }
