@@ -19,14 +19,14 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 100vh;
-  background-color: var(--color-background, #121217);
+  background-color: var(--color-background);
 }
 
 /* ===== main-container(对齐原项目) ===== */
 
 .community-main-container {
   position: relative;
-  color: white;
+  color: var(--color-foreground);
 }
 
 /* ===== mask(对齐原项目 .mask) ===== */
@@ -54,7 +54,7 @@
 /* fenlei_btn_list_overlay — 赛道弹层内的分类主按钮列表(对齐原项目) */
 .community-fenlei-overlay {
   width: 100%;
-  background-color: #fff;
+  background-color: var(--color-card);
   box-sizing: border-box;
   padding: 0 20rpx 10rpx;
 }
@@ -72,24 +72,24 @@
 
 .community-fenlei-btn {
   flex: none;
-  color: rgba(0, 0, 0, 0.6);
+  color: var(--color-muted-foreground);
   margin-right: 6rpx;
   height: 44rpx;
   padding: 0 8rpx 0 3rpx;
   line-height: 44rpx;
   border-radius: 8rpx;
-  border: 1px solid #fff;
+  border: 1px solid var(--color-border);
   font-size: 26rpx;
   white-space: nowrap;
 }
 
 .community-fenlei-btn.active {
-  color: #000;
+  color: var(--color-foreground);
   border-bottom: none;
   box-shadow: 0 0 5rpx 0 rgba(0, 0, 0, 0.3);
   font-weight: bold;
   backdrop-filter: blur(10rpx);
-  border: 1px solid #e0e8ff !important;
+  border: 1px solid var(--color-border) !important;
   background: rgba(248, 249, 252, 0.65) !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06) !important;
 }
@@ -122,7 +122,6 @@
 .community-carousel-wrapper {
   width: 100%;
   border: 1px solid rgba(156, 156, 156, 0.3);
-  box-shadow: 0px 0px 6rpx 0px rgba(86, 71, 250, 0.3);
   border-radius: 30rpx;
   overflow: hidden;
   box-sizing: border-box;
@@ -132,8 +131,15 @@
   position: relative;
   width: 100%;
   border-radius: 30rpx;
-  background: linear-gradient(235deg, #D19EFF 6%, rgba(255, 242, 0, 0.3) 31%, rgba(146, 146, 146, 0.3) 52%, rgba(255, 242, 0, 0.3) 73%, #CD96FF 93%);
-  box-shadow: 0 0 16rpx rgba(0,0,0,0.08);
+  background: linear-gradient(
+    235deg,
+    var(--color-accent) 6%,
+    var(--color-secondary) 31%,
+    var(--color-muted) 52%,
+    var(--color-secondary) 73%,
+    var(--color-accent) 93%
+  );
+  box-shadow: 0 0 16rpx rgba(0, 0, 0, 0.08);
   box-sizing: border-box;
 }
 
@@ -141,7 +147,7 @@
   width: 100%;
   border-radius: 30rpx;
   overflow: hidden;
-  background: #fff;
+  background: var(--color-card);
   box-sizing: border-box;
 }
 
@@ -167,7 +173,7 @@
 .agent-h-scroll-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
 }
 
 .team-button {
@@ -175,19 +181,19 @@
   align-items: center;
   gap: 6rpx;
   padding: 6rpx 16rpx;
-  background-color: var(--color-muted, #232330);
+  background-color: var(--color-muted);
   border-radius: 20rpx;
-  border: 1px solid var(--color-border, rgba(0, 242, 255, 0.15));
+  border: 1px solid var(--color-border, var(--color-border));
 }
 
 .team-button-text {
   font-size: 24rpx;
-  color: var(--color-primary, #00F2FF);
+  color: var(--color-primary);
 }
 
 .team-button-arrow {
   font-size: 22rpx;
-  color: var(--color-primary, #00F2FF);
+  color: var(--color-primary);
 }
 
 .agent-h-scroll {
@@ -215,8 +221,8 @@
   height: 88rpx;
   border-radius: 44rpx;
   overflow: hidden;
-  background-color: var(--color-muted, #232330);
-  border: 2rpx solid var(--color-border, rgba(0, 242, 255, 0.15));
+  background-color: var(--color-muted);
+  border: 2rpx solid var(--color-border, var(--color-border));
 }
 
 .agent-h-avatar {
@@ -230,18 +236,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
 }
 
 .agent-h-avatar-text {
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--color-background, #121217);
+  color: var(--color-background);
 }
 
 .agent-h-name {
   font-size: 22rpx;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
   text-align: center;
   width: 100%;
   overflow: hidden;
@@ -264,7 +270,7 @@
 .recent-title {
   font-size: 32rpx;
   font-weight: bold;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
 }
 
 .recent-scroll {
@@ -286,13 +292,13 @@
   min-width: 120rpx;
   padding: 20rpx 10rpx;
   border-radius: 16rpx;
-  background: var(--color-muted, #232330);
+  background: var(--color-muted);
   transition: all 0.3s ease;
 }
 
 .recent-item:active {
   transform: scale(0.95);
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-muted);
 }
 
 .recent-item .agent-avatar {
@@ -300,14 +306,14 @@
   height: 80rpx;
   border-radius: 10rpx;
   margin-bottom: 12rpx;
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-muted);
 }
 
 .recent-item .agent-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-radius: 10rpx;
   width: 80rpx;
   height: 80rpx;
@@ -317,12 +323,12 @@
 .recent-item .agent-avatar-fallback-text {
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--color-background, #121217);
+  color: var(--color-background);
 }
 
 .recent-item .agent-name {
   font-size: 24rpx;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
   text-align: center;
   max-width: 100rpx;
   overflow: hidden;
@@ -348,7 +354,7 @@
 .my-title {
   font-size: 32rpx;
   font-weight: bold;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
 }
 
 .my-scroll {
@@ -370,13 +376,13 @@
   min-width: 120rpx;
   padding: 20rpx 10rpx;
   border-radius: 16rpx;
-  background: var(--color-muted, #232330);
+  background: var(--color-muted);
   transition: all 0.3s ease;
 }
 
 .my-item:active {
   transform: scale(0.95);
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-muted);
 }
 
 .my-item .agent-avatar {
@@ -384,14 +390,14 @@
   height: 80rpx;
   border-radius: 10rpx;
   margin-bottom: 12rpx;
-  background: rgba(0, 242, 255, 0.1);
+  background: var(--color-muted);
 }
 
 .my-item .agent-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary, #00F2FF), rgba(0, 242, 255, 0.3));
+  background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
   border-radius: 10rpx;
   width: 80rpx;
   height: 80rpx;
@@ -401,12 +407,12 @@
 .my-item .agent-avatar-fallback-text {
   font-size: 32rpx;
   font-weight: 600;
-  color: var(--color-background, #121217);
+  color: var(--color-background);
 }
 
 .my-item .agent-name {
   font-size: 24rpx;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
   text-align: center;
   max-width: 100rpx;
   overflow: hidden;
@@ -430,7 +436,7 @@
 .community-agent-list-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
 }
 
 .community-agent-list-posts {
@@ -440,7 +446,7 @@
 
 .community-agent-list-more {
   font-size: 24rpx;
-  color: var(--color-primary, #00F2FF);
+  color: var(--color-primary);
 }
 
 /* ===== 加载 / 空 / 没有更多 ===== */
@@ -499,7 +505,7 @@
   z-index: 2;
   transition: all 0.2s ease-in-out;
   padding-top: 60rpx;
-  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(to top, var(--color-background) 0%, rgba(255, 255, 255, 0) 100%);
   position: fixed;
   left: 0;
   right: 0;
@@ -519,19 +525,19 @@
   border-radius: 8rpx;
   margin: 0 auto;
   pointer-events: auto;
-  background: var(--color-card, #1F1F28);
-  border: 1px solid var(--color-border, rgba(0, 242, 255, 0.2));
+  background: var(--color-card);
+  border: 1px solid var(--color-border, var(--color-border));
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
 }
 
 .community-toodown:active {
-  background-color: rgba(0, 242, 255, 0.1);
-  border-color: var(--color-primary, #00F2FF);
+  background-color: var(--color-muted);
+  border-color: var(--color-primary);
 }
 
 .community-toodown-icon {
   font-size: 32rpx;
-  color: var(--color-primary, #00F2FF);
+  color: var(--color-primary);
   font-weight: 700;
   transform: rotate(90deg);
   display: block;
@@ -565,7 +571,7 @@
   bottom: 9%;
   width: 118rpx;
   min-height: 340rpx;
-  background-color: var(--color-card, #1F1F28);
+  background-color: var(--color-card);
   border-radius: 30rpx;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   transition: right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1);
@@ -598,7 +604,7 @@
 
 .community-float-arrow-text {
   font-size: 40rpx;
-  color: var(--color-primary, #00F2FF);
+  color: var(--color-primary);
   font-weight: bold;
 }
 
@@ -629,18 +635,18 @@
 .community-float-item-text {
   font-size: 22rpx;
   font-weight: bold;
-  color: var(--color-foreground, #FFFFFF);
+  color: var(--color-foreground);
   letter-spacing: 2rpx;
 }
 
 .community-float-item-text-red {
-  color: #ff0000;
+  color: var(--color-destructive);
 }
 
 /* ===== 分类弹层 TitleSwitchScrollTitle 适配 ===== */
 
 .community-s-t-b .w-full.rounded-b-\[30rpx\] {
-  background-color: var(--color-card, #1F1F28);
+  background-color: var(--color-card);
   border-radius: 0 0 16rpx 16rpx;
   padding-bottom: 16rpx;
 }
@@ -651,15 +657,7 @@
 }
 
 .community-s-t-b .text-black {
-  color: var(--color-foreground, #FFFFFF);
-}
-
-.community-s-t-b .text-\[\#7361FF\] {
-  color: var(--color-primary, #00F2FF);
-}
-
-.community-s-t-b .border-\[\#7361FF\] {
-  border-color: var(--color-primary, #00F2FF);
+  color: var(--color-foreground);
 }
 
 /* 去除 ScrollTitle 内部的 tag-wrap 边框 */

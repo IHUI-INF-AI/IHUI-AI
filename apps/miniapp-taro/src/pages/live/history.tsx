@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { getLiveHistory, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface HistoryItem extends Live {
   watchDuration?: number
@@ -136,49 +137,50 @@ export default function LiveHistory() {
             const progress = item.progress ?? 0
             const completed = progress >= 100
             return (
-              <View
-                key={item.id}
-                className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
-                onClick={() => goDetail(item.id)}
-              >
-                <Image
-                  className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]"
-                  src={item.coverUrl}
-                  mode="aspectFill"
-                />
-                <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
-                  <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
-                  {item.anchor && (
-                    <Text className="text-[24rpx] text-muted-foreground">
-                      {tt('live.history.anchorLabel', '主播')}: {item.anchor}
-                    </Text>
-                  )}
-                  <View className="h-[6rpx] bg-muted rounded-[3rpx] mt-[8rpx] overflow-hidden">
-                    <View
-                      className="h-full bg-primary rounded-[3rpx]"
-                      style={`width: ${Math.min(progress, 100)}%`}
-                    />
-                  </View>
-                  <View className="flex items-center justify-between mt-[8rpx]">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {item.watchDuration
-                        ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
-                        : item.watchTime || item.startTime || ''}
-                    </Text>
-                    <Text
-                      className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx]"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        goDetail(item.id)
-                      }}
-                    >
-                      {completed
-                        ? tt('live.history.rewatch', '重新观看')
-                        : tt('live.history.continue', '继续观看')}
-                    </Text>
+              <ThemeRoot key={item.id}>
+                <View
+                  className="flex p-[20rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                  onClick={() => goDetail(item.id)}
+                >
+                  <Image
+                    className="w-[200rpx] h-[130rpx] flex-shrink-0 bg-muted rounded-[8rpx]"
+                    src={item.coverUrl}
+                    mode="aspectFill"
+                  />
+                  <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col justify-between">
+                    <Text className="text-[28rpx] font-semibold text-foreground">{item.title}</Text>
+                    {item.anchor && (
+                      <Text className="text-[24rpx] text-muted-foreground">
+                        {tt('live.history.anchorLabel', '主播')}: {item.anchor}
+                      </Text>
+                    )}
+                    <View className="h-[6rpx] bg-muted rounded-[3rpx] mt-[8rpx] overflow-hidden">
+                      <View
+                        className="h-full bg-primary rounded-[3rpx]"
+                        style={`width: ${Math.min(progress, 100)}%`}
+                      />
+                    </View>
+                    <View className="flex items-center justify-between mt-[8rpx]">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {item.watchDuration
+                          ? `${tt('live.history.watchDuration', '观看')} ${formatDuration(item.watchDuration)}`
+                          : item.watchTime || item.startTime || ''}
+                      </Text>
+                      <Text
+                        className="py-[8rpx] px-[20rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx]"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          goDetail(item.id)
+                        }}
+                      >
+                        {completed
+                          ? tt('live.history.rewatch', '重新观看')
+                          : tt('live.history.continue', '继续观看')}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>
