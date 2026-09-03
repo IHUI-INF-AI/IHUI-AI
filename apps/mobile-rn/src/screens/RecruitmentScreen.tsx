@@ -28,6 +28,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 
@@ -99,7 +100,7 @@ const styles = StyleSheet.create({
     top: rpx(20),
     left: 0,
     right: 0,
-    color: '#FFFFFF',
+    color: tokens.surface.light,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -133,7 +134,7 @@ const styles = StyleSheet.create({
   founder: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#000000',
+    color: tokens.gray.black,
     marginTop: rpx(10),
   } as TextStyle,
   recommend: {
