@@ -5,6 +5,7 @@
 import { View, Text, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { UserInfo } from '@ihui/types'
 
 /**
@@ -143,7 +144,7 @@ const viewStyles = {
     backgroundColor: isVip ? tk.warning.light : tk.surface.card,
     borderRadius: toRpx(2),
   }),
-  tokenRow: (): CSSProperties => ({
+  tokenRow: (tk: RnThemeTokens): CSSProperties => ({
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -153,7 +154,7 @@ const viewStyles = {
     paddingRight: toRpx(8),
     paddingTop: toRpx(6),
     paddingBottom: toRpx(6),
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: tk.surface.muted,
     borderRadius: toRpx(6),
   }),
   tokenLabelWrap: (): CSSProperties => ({
@@ -231,10 +232,12 @@ export function UserInfoCard({
   onLogin,
   defaultAvatarUrl = DEFAULT_AVATAR,
   className,
-  colorScheme = 'light',
+  colorScheme,
   t,
 }: UserInfoCardProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
 
   // 未登录态
   if (!userInfo.uuid) {
@@ -291,7 +294,7 @@ export function UserInfoCard({
       </View>
 
       {/* 智汇值 + 充值按钮 */}
-      <View style={viewStyles.tokenRow()}>
+      <View style={viewStyles.tokenRow(tk)}>
         <View style={viewStyles.tokenLabelWrap()}>
           <Text style={textStyles.tokenLabel(tk)}>
             {trOrFallback(t, 'user.tokenLabel', FALLBACK_TOKEN_LABEL)}
