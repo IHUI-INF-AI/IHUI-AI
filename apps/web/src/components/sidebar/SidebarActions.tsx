@@ -535,6 +535,11 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
   const [msgCoords, setMsgCoords] = React.useState<{ top: number; left: number } | null>(null)
   const msgRafRef = React.useRef<number | null>(null)
 
+  // Debug: 监听状态变化
+  React.useEffect(() => {
+    console.log('[MessageCenter] msgOpen changed:', msgOpen)
+  }, [msgOpen])
+
   const updateMsgCoords = React.useCallback(() => {
     if (!msgTriggerRef.current || !msgPanelRef.current) return
     const r = msgTriggerRef.current.getBoundingClientRect()
@@ -623,7 +628,13 @@ function MessageCenter({ collapsed }: { collapsed: boolean }) {
           aria-label={t('messages')}
           aria-haspopup="dialog"
           aria-expanded={msgOpen}
-          onClick={() => setMsgOpen((prev) => !prev)}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
+          data-state={msgOpen ? 'open' : 'closed'}
+          onClick={(e) => {
+            e.stopPropagation()
+            setMsgOpen((prev) => !prev)
+          }}
         >
           <Bell className="h-[18px] w-[18px]" />
           {unreadCount > 0 && (

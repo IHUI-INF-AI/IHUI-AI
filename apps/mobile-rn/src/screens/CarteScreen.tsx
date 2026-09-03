@@ -26,6 +26,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { rpx } from '../utils/rpx'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 /** 原页面图片资源(CDN,与 Uniapp 一致) */
 const AVATAR_IMAGE =
@@ -62,7 +63,7 @@ export default function CarteScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.surface.light,
   } as ViewStyle,
   bottom: {
     position: 'absolute',
@@ -94,18 +95,18 @@ const styles = StyleSheet.create({
   founder: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#000000',
+    color: tokens.gray.black,
     marginTop: rpx(12),
   } as TextStyle,
   recommend: {
     fontSize: 13,
-    color: '#333333',
+    color: tokens.text.medium,
     marginTop: 2,
   } as TextStyle,
   intro: {
     marginTop: rpx(20),
     paddingHorizontal: rpx(40),
-    color: '#A52A2A',
+    color: tokens.danger.DEFAULT,
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
