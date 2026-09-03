@@ -331,7 +331,7 @@ export default function InputArea({
               isFangdaActive ? 'search-box-active' : '',
             )}
             style={{
-              backgroundColor: mode === 'voice' ? '#ECEDFC' : '#fff',
+              backgroundColor: mode === 'voice' ? 'var(--color-link-bg)' : 'var(--color-card)',
             }}
           >
             {/* 附件列表 imgs-list(对标原项目 .imgs_list,横向滚动,底部 1px 灰线分隔) */}
@@ -495,7 +495,7 @@ export default function InputArea({
                     maxHeight: isFangdaActive ? 'none' : rpx(500),
                     padding: textareaPadding,
                     fontSize: rpx(36),
-                    color: 'rgba(0, 0, 0)',
+                    color: 'var(--color-foreground)',
                     lineHeight: rpx(40),
                     flex: 1,
                     minHeight: rpx(44),
@@ -503,7 +503,7 @@ export default function InputArea({
                 }
                 value={value}
                 placeholder={placeholder || t('messageInput.placeholder')}
-                placeholderStyle="color: #999999; font-size: 28rpx;"
+                placeholderStyle="color: var(--color-muted-foreground); font-size: 28rpx;"
                 maxlength={maxLength}
                 autoFocus={autoFocus}
                 autoHeight
@@ -700,7 +700,7 @@ export default function InputArea({
               style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
               value={value}
               placeholder={placeholder || t('messageInput.placeholder')}
-              placeholderStyle="color: #999999; font-size: 28rpx;"
+              placeholderStyle="color: var(--color-muted-foreground); font-size: 28rpx;"
               maxlength={maxLength}
               autoFocus={autoFocus}
               autoHeight

@@ -34,14 +34,14 @@
   font-size: 22rpx;
 }
 .pf-tag-vip {
-  /* custom color: 原项目 identity-vip #716fff/#f0eeff,无对应 token,保留原值 */
-  color: var(--color-brand);
-  background: rgba(240, 238, 255, 1);
+  /* 对齐 web:VIP 金标,浅金底 + 深金文字(原项目 #716fff/#f0eeff 紫无对应语义,改为 gold 语义) */
+  color: var(--color-warning);
+  background: rgba(255, 215, 0, 0.15);
 }
 .pf-tag-admin {
-  /* custom color: 原项目 identity-trader #7ca500/#f0f8e8,无对应 token,保留原值 */
-  color: rgba(124, 165, 0, 1);
-  background: rgba(240, 248, 232, 1);
+  /* 对齐 web:实名/交易身份标,成功绿淡底 + 深绿文字(原 #7ca500/#f0f8e8 橄榄绿→success 语义) */
+  color: var(--color-success);
+  background: rgba(34, 197, 94, 0.1);
 }
 .pf-tag-normal {
   color: var(--color-muted-foreground);

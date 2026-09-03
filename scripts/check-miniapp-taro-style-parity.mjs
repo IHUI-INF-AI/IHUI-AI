@@ -14,11 +14,11 @@
  * 校验内容(RULE-1~5):
  *   RULE-1a (BLOCK): 页面/组件 CSS 规则中出现深色科技风禁用色板
  *                    (#00f2ff/#121217/#1f1f28/#1a1a2e/#1a1a23/#12121a/#0a0a0f/#1e1e2e/#2a2a3e)。
- *   RULE-1b (WARN) : 页面/组件 CSS 规则中其他硬编码 #hex(建议改用 design-tokens 变量)。
+ *   RULE-1b (BLOCK): 页面/组件 CSS 中非平台白名单 #hex 硬编码。
  *   RULE-2  (BLOCK): app.css 回归 —— 不得再出现深色科技风全局覆盖
  *                    (禁用色板 / page{...!important 字体} / *{font-family!important})。
  *   RULE-3  (BLOCK): app.config.ts 中每个路由页 .tsx 必须挂载 <ThemeRoot>(主题根节点)。
- *   RULE-4  (WARN) : tsx 内联硬编码色值(style color/backgroundColor/fill/stroke)建议改用 token。
+ *   RULE-4  (BLOCK): tsx 内联非平台白名单 #hex;tsx/css 出现紫青残留/深海军蓝页底/半成品 var。
  *   RULE-5  (BLOCK): 已删除的深色科技装饰类(card-neon/cyber-card/tech-card/tech-border/
  *                    tech-grid/tech-loading/glass/gradient-primary/text-light/text-neon/
  *                    text-error/list-cell/uni-tabbar/btn-accent)不得被重新引用。
@@ -63,10 +63,10 @@ check-miniapp-taro-style-parity.mjs — miniapp-taro 跨端样式一致性守门
 
 校验内容:
   RULE-1a (BLOCK) 页面/组件 CSS 禁用深色科技风色板
-  RULE-1b (WARN)  页面/组件 CSS 其他硬编码 #hex
+  RULE-1b (BLOCK) 页面/组件 CSS 非平台白名单 #hex
   RULE-2  (BLOCK) app.css 深色科技风全局覆盖回归
   RULE-3  (BLOCK) 路由页必须挂载 <ThemeRoot>
-  RULE-4  (WARN)  tsx 内联硬编码色值
+  RULE-4  (BLOCK) tsx 内联非白名单 hex / 紫青·深海军蓝·半成品 var 残留
   RULE-5  (BLOCK) 已删除的科技装饰类被重新引用
   RULE-6  (BLOCK) CSS 伪类带空格(: active 导致构建失败)
 
@@ -140,6 +140,7 @@ const PLATFORM_COLORS = new Set([
   '#ffffff',
   '#000',
   '#000000',
+  '#9ca3af', // 与 web 共享层 Carousel 空态文字逐字一致(gray-400),两端必须同步使用
   '#f0f8e8',
   '#f0eeff',
   '#7ca500',
@@ -204,7 +205,7 @@ function extractHexes(cleanText) {
 function main() {
   if (!quiet) console.log('[check-miniapp-taro-style-parity] 跨端样式一致性守门...')
   let blocking = 0
-  let warnings = 0
+  const warnings = 0
 
   const pageCss = walk(PAGES_DIR, ['css'])
   const compCss = walk(COMPONENTS_DIR, ['css'])
@@ -234,22 +235,19 @@ function main() {
   } else if (!quiet) {
     console.log('[PASS] RULE-1a: 无深色科技风禁用色板回潮')
   }
-  let otherTotal = 0
-  for (const set of otherHex.values()) otherTotal += set.size
-  if (otherTotal > 0) {
-    warnings++
-    if (!quiet) {
-      console.log(`[WARN] RULE-1b: ${otherTotal} 处其他硬编码 #hex(建议改用 design-tokens 变量):`)
-      let shown = 0
-      for (const [f, set] of otherHex) {
-        if (shown >= 15) break
-        console.log(`    ${f.replace(SRC + '/', '')}: ${[...set].join(' ')}`)
-        shown++
-      }
-      if (otherHex.size > 15) console.log(`  ... 共 ${otherHex.size} 个文件`)
+  // RULE-1b:页面/组件 CSS 中非平台白名单 #hex -> BLOCK(token 化铁律,防止回潮)
+  const cssHexOff = []
+  for (const [f, set] of otherHex) {
+    for (const hex of set) {
+      if (!PLATFORM_COLORS.has(hex)) cssHexOff.push(`${f.replace(SRC + '/', '')}: ${hex}`)
     }
+  }
+  if (cssHexOff.length > 0) {
+    blocking++
+    console.error(`[FAIL] RULE-1b: ${cssHexOff.length} 处非白名单 #hex 硬编码(必须改用 design-tokens 变量):`)
+    for (const h of cssHexOff.slice(0, 30)) console.error(`    ${h}`)
   } else if (!quiet) {
-    console.log('[PASS] RULE-1b: 页面/组件 CSS 无硬编码 #hex')
+    console.log('[PASS] RULE-1b: 页面/组件 CSS 无非白名单硬编码 #hex')
   }
 
   // ── RULE-2:app.css 深色科技风回归 ──
@@ -301,11 +299,10 @@ function main() {
     console.log('[SKIP] RULE-3: app.config.ts 不存在,跳过')
   }
 
-  // ── RULE-4:tsx 内联硬编码色值(WARN) ──
+  // ── RULE-4a:tsx 内联非白名单 #hex -> BLOCK ──
   const inlineColorRe =
     /(color|backgroundColor|fill|stroke|borderColor)\s*[:=]\s*["'](#[0-9a-fA-F]{3,8})["']/g
-  let inlineCount = 0
-  const inlineSamples = []
+  const inlineOff = []
   for (const f of allTsx) {
     const clean = stripTsComments(readText(f))
     let m
@@ -313,20 +310,55 @@ function main() {
     while ((m = re.exec(clean)) !== null) {
       const hex = m[2].toLowerCase()
       if (PLATFORM_COLORS.has(hex)) continue
-      inlineCount++
-      if (inlineSamples.length < 15)
-        inlineSamples.push(`${f.replace(SRC + '/', '')}:${m[1]}=${m[2]}`)
+      inlineOff.push(`${f.replace(SRC + '/', '')}:${m[1]}=${m[2]}`)
     }
   }
-  if (inlineCount > 0) {
-    warnings++
-    if (!quiet) {
-      console.log(`[WARN] RULE-4: ${inlineCount} 处 tsx 内联硬编码色值(非平台色,建议改用 token):`)
-      for (const s of inlineSamples) console.log(`    ${s}`)
-      if (inlineCount > 15) console.log(`  ... 共 ${inlineCount} 处`)
-    }
+  if (inlineOff.length > 0) {
+    blocking++
+    console.error(`[FAIL] RULE-4a: ${inlineOff.length} 处 tsx 内联非白名单 #hex(必须改用 token):`)
+    for (const s of inlineOff.slice(0, 30)) console.error(`    ${s}`)
   } else if (!quiet) {
-    console.log('[PASS] RULE-4: tsx 无非常规内联硬编码色值')
+    console.log('[PASS] RULE-4a: tsx 无内联非白名单 #hex')
+  }
+
+  // ── RULE-4b:紫青残留 / 深海军蓝页底 / 半成品 var -> BLOCK(2026-09-03 曾漏网根因) ──
+  const RESIDUE_PATTERNS = [
+    [/rgba\(\s*205\s*,\s*208\s*,\s*255/i, '紫青残留 lavender rgba(205,208,255)'],
+    [/rgba\(\s*253\s*,\s*255\s*,\s*225/i, '米黄残留 rgba(253,255,225)'],
+    [/rgba\(\s*223\s*,\s*138\s*,\s*248/i, '紫描边 rgba(223,138,248)'],
+    [/rgba\(\s*169\s*,\s*165\s*,\s*255/i, '紫阴影 rgba(169,165,255)'],
+    [/#93d2f3/i, '青色残留 #93d2f3'],
+    [/--color-brand-cyan\b/, '半成品 var --color-brand-cyan'],
+    [/--color-accent-blue\b/, '半成品 var --color-accent-blue'],
+    [/--color-text-selected\b/, '半成品 var --color-text-selected'],
+    [/--color-text-date\b/, '半成品 var --color-text-date'],
+    [/--color-text-icon-label\b/, '半成品 var --color-text-icon-label'],
+    [/--color-text-drawer\b/, '半成品 var --color-text-drawer'],
+  ]
+  const NAVY_PATTERNS = [
+    [/rgba\(\s*15\s*,\s*22\s*,\s*35/i, '深海军蓝 rgba(15,22,35)'],
+    [/rgba\(\s*31\s*,\s*41\s*,\s*55/i, '深灰蓝 rgba(31,41,55)'],
+    [/rgba\(\s*3\s*,\s*10\s*,\s*28/i, '深海军蓝 rgba(3,10,28)'],
+    [/rgba\(\s*8\s*,\s*20\s*,\s*40/i, '深蓝 rgba(8,20,40)'],
+    [/rgba\(\s*26\s*,\s*26\s*,\s*46/i, '深紫蓝 rgba(26,26,46)'],
+    [/rgba\(\s*31\s*,\s*31\s*,\s*40/i, '深灰 rgba(31,31,40)'],
+    [/rgba\(\s*15\s*,\s*23\s*,\s*42/i, '深蓝 rgba(15,23,42)'],
+  ]
+  const resHits = []
+  for (const f of [...allTsx, ...allCss]) {
+    const clean = f.endsWith('.css')
+      ? stripCssComments(readText(f))
+      : stripTsComments(readText(f))
+    for (const [re, label] of [...RESIDUE_PATTERNS, ...NAVY_PATTERNS]) {
+      if (re.test(clean)) resHits.push(`${f.replace(SRC + '/', '')} :: ${label}`)
+    }
+  }
+  if (resHits.length > 0) {
+    blocking++
+    console.error(`[FAIL] RULE-4b: ${resHits.length} 处紫青/深海军蓝/半成品 var 残留(必须 token 化):`)
+    for (const h of [...new Set(resHits)].slice(0, 40)) console.error(`    ${h}`)
+  } else if (!quiet) {
+    console.log('[PASS] RULE-4b: 无紫青残留/深海军蓝页底/半成品 var')
   }
 
   // ── RULE-5:已删除科技装饰类被重新引用(BLOCK) ──

@@ -146,10 +146,8 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     borderRadius: rpx(15),
                     fontSize: rpx(28),
                     padding: '12rpx 0',
-                    background: active
-                      ? 'var(--color-brand-cyan, #93d2f3)'
-                      : 'rgba(205, 208, 255, 0.3)',
-                    color: 'var(--color-foreground)',
+                    background: active ? 'var(--color-brand)' : 'var(--color-muted)',
+                    color: active ? '#fff' : 'var(--color-foreground)',
                   }}
                   onClick={() => {
                     btn.onToggle?.()
@@ -183,8 +181,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 style={{
                   width: rpx(160),
                   height: rpx(150),
-                  background:
-                    'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
+                  background: 'var(--color-muted)',
                   borderRadius: rpx(30),
                   border: '6rpx solid var(--color-card)',
                 }}
@@ -198,7 +195,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                 <Text
                   style={{
                     fontSize: rpx(20),
-                    color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
+                    color: 'var(--color-foreground)',
                   }}
                 >
                   {btn.label}
@@ -211,9 +208,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               style={{
                 width: rpx(160),
                 height: rpx(150),
-                background: isVoiceInput
-                  ? 'var(--color-brand-cyan, #93d2f3)'
-                  : 'linear-gradient(135deg, rgba(205, 208, 255, 0.3), rgba(253, 255, 225, 0.3))',
+                background: isVoiceInput ? 'var(--color-brand)' : 'var(--color-muted)',
                 borderRadius: rpx(30),
                 border: '6rpx solid var(--color-card)',
               }}
@@ -227,7 +222,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               <Text
                 style={{
                   fontSize: rpx(20),
-                  color: 'var(--color-text-icon-label, rgba(0,0,0,0.9))',
+                  color: isVoiceInput ? '#fff' : 'var(--color-foreground)',
                 }}
               >
                 {isVoiceInput
@@ -259,7 +254,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               />
               <Text>{tt('BottomActionBar.text1', '已默认自动切换深度思考')}</Text>
             </View>
-            <View style={{ color: 'var(--color-accent-blue, #5a85ff)', fontSize: rpx(20) }}>
+            <View style={{ color: 'var(--color-link)', fontSize: rpx(20) }}>
               <Text>{tt('tail.11', '已选模型: {m}', { m: modelName })}</Text>
             </View>
           </View>
