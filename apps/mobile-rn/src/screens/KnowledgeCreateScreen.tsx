@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useAuthStore } from '../stores/auth-store'
 import { ingestKnowledgeText } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -73,7 +74,7 @@ export function KnowledgeCreateScreen() {
           value={title}
           onChangeText={setTitle}
           placeholder={t('knowledgeCreate.titlePlaceholder')}
-          placeholderTextColor={dark ? '#666' : '#aaa'}
+          placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
           maxLength={200}
           className={`mb-4 rounded-md border p-3 text-base ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
         />
@@ -84,7 +85,7 @@ export function KnowledgeCreateScreen() {
           value={text}
           onChangeText={setText}
           placeholder={t('knowledgeCreate.textPlaceholder')}
-          placeholderTextColor={dark ? '#666' : '#aaa'}
+          placeholderTextColor={dark ? tokens.text.secondary : tokens.text.tertiary}
           multiline
           textAlignVertical="top"
           className={`min-h-[220px] rounded-md border p-3 text-base ${dark ? 'border-neutral-700 bg-neutral-800 text-white' : 'border-gray-300 bg-white text-black'}`}
