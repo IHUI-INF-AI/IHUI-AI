@@ -262,7 +262,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               className="font-bold"
               style={{
                 fontSize: rpx(28),
-                color: 'var(--color-text-drawer, var(--color-foreground))',
+                color: 'var(--color-foreground)',
               }}
             >
               {tt('share.index.history', '历史对话')}
@@ -301,7 +301,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                         <Text
                           style={{
                             fontSize: rpx(22),
-                            color: 'var(--color-text-date, var(--color-muted-foreground))',
+                            color: 'var(--color-muted-foreground)',
                           }}
                         >
                           {dateGroup.date}
@@ -325,7 +325,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                               style={{
                                 fontSize: rpx(30),
                                 color: isActive
-                                  ? 'var(--color-text-selected, #0d11fc)'
+                                  ? 'var(--color-primary)'
                                   : 'var(--color-foreground)',
                                 fontWeight: isActive ? 'bold' : 'normal',
                               }}
@@ -365,7 +365,6 @@ export default function DrawerComponent(props: DrawerComponentProps) {
               style={{
                 padding: '12rpx 13rpx',
                 background: 'var(--color-card)',
-                borderTop: '1px solid rgba(239, 239, 239, 0.18)',
               }}
             >
               <View className="flex items-center">
