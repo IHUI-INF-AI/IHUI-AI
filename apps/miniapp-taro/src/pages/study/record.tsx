@@ -7,6 +7,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getStudyRecords, getStudyInfo, type StudyRecord } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type FilterTab = 'all' | 'learning' | 'completed' | 'abandoned'
 
@@ -207,45 +208,46 @@ export default function StudyRecord() {
           {displayList.map((r) => {
             const st = deriveStatus(r.progress)
             return (
-              <View
-                key={r.id}
-                className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]"
-                onClick={() => goCourse(r.courseId)}
-              >
-                {r.coverUrl ? (
-                  <Image
-                    className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0"
-                    src={r.coverUrl}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
-                    <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
-                  </View>
-                )}
-                <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
-                  <Text className="text-[28rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
-                    {r.courseTitle}
-                  </Text>
-                  <View className="mt-[12rpx]">
-                    <View className="h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden">
-                      <View
-                        className="h-full bg-primary rounded-[4rpx]"
-                        style={{ width: `${Math.min(100, Math.max(0, r.progress))}%` }}
-                      />
+              <ThemeRoot key={r.id}>
+                <View
+                  className="flex bg-card border-[2rpx] border-primary/20 rounded-[12rpx] p-[20rpx]"
+                  onClick={() => goCourse(r.courseId)}
+                >
+                  {r.coverUrl ? (
+                    <Image
+                      className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0"
+                      src={r.coverUrl}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="w-[160rpx] h-[120rpx] rounded-[10rpx] bg-muted flex-shrink-0 flex items-center justify-center text-[22rpx] text-muted-foreground">
+                      <Text>{tt('study.recordPage.coverFallback', '课程')}</Text>
                     </View>
-                  </View>
-                  <View className="mt-[10rpx] flex items-center justify-between">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('study.recordPage.lastTime', '上次学习')}: {r.time}
+                  )}
+                  <View className="flex-1 min-w-0 ml-[20rpx] flex flex-col">
+                    <Text className="text-[28rpx] font-semibold text-foreground overflow-hidden text-ellipsis whitespace-nowrap">
+                      {r.courseTitle}
                     </Text>
-                    <Text className={statusClass(st)}>{statusLabel(st)}</Text>
+                    <View className="mt-[12rpx]">
+                      <View className="h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden">
+                        <View
+                          className="h-full bg-primary rounded-[4rpx]"
+                          style={{ width: `${Math.min(100, Math.max(0, r.progress))}%` }}
+                        />
+                      </View>
+                    </View>
+                    <View className="mt-[10rpx] flex items-center justify-between">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('study.recordPage.lastTime', '上次学习')}: {r.time}
+                      </Text>
+                      <Text className={statusClass(st)}>{statusLabel(st)}</Text>
+                    </View>
+                    <Text className="mt-[12rpx] self-end py-[8rpx] px-[24rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx] leading-[1.4]">
+                      {tt('study.recordPage.continue', '继续学习')}
+                    </Text>
                   </View>
-                  <Text className="mt-[12rpx] self-end py-[8rpx] px-[24rpx] text-[24rpx] text-primary bg-primary/10 border-[2rpx] border-primary/40 rounded-[8rpx] leading-[1.4]">
-                    {tt('study.recordPage.continue', '继续学习')}
-                  </Text>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

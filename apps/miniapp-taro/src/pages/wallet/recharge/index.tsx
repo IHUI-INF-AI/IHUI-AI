@@ -14,6 +14,7 @@ import {
   type UserInfo,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const PRESET_AMOUNTS = [10, 50, 100, 500, 1000]
@@ -148,137 +149,141 @@ export default function RechargePage() {
 
   if (loading) {
     return (
-      <View className="rc-loading-mask">
-        <View className="rc-loading-spinner" />
-        <Text className="rc-loading-text">{tt('common.loading', '加载中…')}</Text>
-      </View>
+      <ThemeRoot>
+        <View className="rc-loading-mask">
+          <View className="rc-loading-spinner" />
+          <Text className="rc-loading-text">{tt('common.loading', '加载中…')}</Text>
+        </View>
+      </ThemeRoot>
     )
   }
 
   return (
-    <View className="rc-page">
-      {submitting && (
-        <View className="rc-loading-mask">
-          <View className="rc-loading-spinner" />
-          <Text className="rc-loading-text">{tt('wallet.recharge.submitting', '充值中…')}</Text>
-        </View>
-      )}
-
-      {user && (
-        <View className="rc-user-card">
-          {user.avatar ? (
-            <Image className="rc-user-avatar" src={user.avatar} mode="aspectFill" />
-          ) : (
-            <View className="rc-user-avatar rc-user-avatar--placeholder">
-              <Text>{(user.nickname || 'U').slice(0, 1)}</Text>
-            </View>
-          )}
-          <View className="rc-user-info">
-            <Text className="rc-user-name">
-              {user.nickname || tt('wallet.recharge.guest', '游客')}
-            </Text>
-            {user.phone && <Text className="rc-user-sub">{user.phone}</Text>}
+    <ThemeRoot>
+      <View className="rc-page">
+        {submitting && (
+          <View className="rc-loading-mask">
+            <View className="rc-loading-spinner" />
+            <Text className="rc-loading-text">{tt('wallet.recharge.submitting', '充值中…')}</Text>
           </View>
-        </View>
-      )}
+        )}
 
-      <View className="rc-card">
-        <Text className="rc-section-title">{tt('wallet.recharge.amount', '充值金额')}</Text>
-        <View className="rc-presets">
-          {PRESET_AMOUNTS.map((v) => (
-            <View
-              key={v}
-              className={`rc-preset ${!useCustom && preset === v ? 'rc-preset--active' : ''}`}
-              onClick={() => onSelectPreset(v)}
-            >
-              <Text className="rc-preset-text">¥{v}</Text>
-            </View>
-          ))}
-        </View>
-        <View className="rc-custom">
-          <Text className="rc-custom-label">
-            {tt('wallet.recharge.customAmount', '自定义金额')}
-          </Text>
-          <Input
-            className={`rc-input ${useCustom ? 'rc-input--active' : ''}`}
-            type="digit"
-            placeholder={tt('wallet.recharge.customPlaceholder', '请输入金额')}
-            value={custom}
-            onInput={onInputCustom}
-          />
-        </View>
-        <Text className="rc-token-tip">{t('wallet.recharge.tokenRate', { n: tokenRate })}</Text>
-      </View>
-
-      {activity && (
-        <View className="rc-activity">
-          {activity.backgroundImage && (
-            <Image className="rc-activity-bg" src={activity.backgroundImage} mode="aspectFill" />
-          )}
-          <View className="rc-activity-body">
-            <Text className="rc-activity-title">
-              {tt('wallet.recharge.activityTitle', '限时活动')}
-            </Text>
-            {activity.activityRule && (
-              <Text className="rc-activity-rule">{activity.activityRule}</Text>
+        {user && (
+          <View className="rc-user-card">
+            {user.avatar ? (
+              <Image className="rc-user-avatar" src={user.avatar} mode="aspectFill" />
+            ) : (
+              <View className="rc-user-avatar rc-user-avatar--placeholder">
+                <Text>{(user.nickname || 'U').slice(0, 1)}</Text>
+              </View>
             )}
-            <Text className="rc-activity-rate">
-              {t('wallet.recharge.tokenRate', { n: activity.computing ?? TOKEN_RATE })}
+            <View className="rc-user-info">
+              <Text className="rc-user-name">
+                {user.nickname || tt('wallet.recharge.guest', '游客')}
+              </Text>
+              {user.phone && <Text className="rc-user-sub">{user.phone}</Text>}
+            </View>
+          </View>
+        )}
+
+        <View className="rc-card">
+          <Text className="rc-section-title">{tt('wallet.recharge.amount', '充值金额')}</Text>
+          <View className="rc-presets">
+            {PRESET_AMOUNTS.map((v) => (
+              <View
+                key={v}
+                className={`rc-preset ${!useCustom && preset === v ? 'rc-preset--active' : ''}`}
+                onClick={() => onSelectPreset(v)}
+              >
+                <Text className="rc-preset-text">¥{v}</Text>
+              </View>
+            ))}
+          </View>
+          <View className="rc-custom">
+            <Text className="rc-custom-label">
+              {tt('wallet.recharge.customAmount', '自定义金额')}
             </Text>
             <Input
-              className="rc-input rc-activity-input"
+              className={`rc-input ${useCustom ? 'rc-input--active' : ''}`}
               type="digit"
-              placeholder={tt('wallet.recharge.activityPlaceholder', '请输入活动充值金额')}
-              value={activityAmount}
-              onInput={(e) => setActivityAmount(e.detail.value)}
+              placeholder={tt('wallet.recharge.customPlaceholder', '请输入金额')}
+              value={custom}
+              onInput={onInputCustom}
             />
-            <Button
-              className="rc-activity-btn"
-              loading={submitting}
-              disabled={submitting || !activityAmount}
-              onClick={onActivitySubmit}
-            >
-              {tt('wallet.recharge.activitySubmit', '限时 优惠充值')}
-            </Button>
           </View>
+          <Text className="rc-token-tip">{t('wallet.recharge.tokenRate', { n: tokenRate })}</Text>
         </View>
-      )}
 
-      <View className="rc-card">
-        <Text className="rc-section-title">{tt('wallet.recharge.method', '充值方式')}</Text>
-        <View
-          className={`rc-method ${payMethod === 'wechat' ? 'rc-method--active' : ''}`}
-          onClick={() => onSelectMethod('wechat')}
-        >
-          <View className="rc-method-icon rc-method-icon--wx">{tt('pay.wechat', '微')}</View>
-          <Text className="rc-method-name">{tt('wallet.recharge.methodWechat', '微信支付')}</Text>
-          <View className={`rc-radio ${payMethod === 'wechat' ? 'rc-radio--on' : ''}`}>
-            {payMethod === 'wechat' && <Text className="rc-radio-mark">✓</Text>}
+        {activity && (
+          <View className="rc-activity">
+            {activity.backgroundImage && (
+              <Image className="rc-activity-bg" src={activity.backgroundImage} mode="aspectFill" />
+            )}
+            <View className="rc-activity-body">
+              <Text className="rc-activity-title">
+                {tt('wallet.recharge.activityTitle', '限时活动')}
+              </Text>
+              {activity.activityRule && (
+                <Text className="rc-activity-rule">{activity.activityRule}</Text>
+              )}
+              <Text className="rc-activity-rate">
+                {t('wallet.recharge.tokenRate', { n: activity.computing ?? TOKEN_RATE })}
+              </Text>
+              <Input
+                className="rc-input rc-activity-input"
+                type="digit"
+                placeholder={tt('wallet.recharge.activityPlaceholder', '请输入活动充值金额')}
+                value={activityAmount}
+                onInput={(e) => setActivityAmount(e.detail.value)}
+              />
+              <Button
+                className="rc-activity-btn"
+                loading={submitting}
+                disabled={submitting || !activityAmount}
+                onClick={onActivitySubmit}
+              >
+                {tt('wallet.recharge.activitySubmit', '限时 优惠充值')}
+              </Button>
+            </View>
+          </View>
+        )}
+
+        <View className="rc-card">
+          <Text className="rc-section-title">{tt('wallet.recharge.method', '充值方式')}</Text>
+          <View
+            className={`rc-method ${payMethod === 'wechat' ? 'rc-method--active' : ''}`}
+            onClick={() => onSelectMethod('wechat')}
+          >
+            <View className="rc-method-icon rc-method-icon--wx">{tt('pay.wechat', '微')}</View>
+            <Text className="rc-method-name">{tt('wallet.recharge.methodWechat', '微信支付')}</Text>
+            <View className={`rc-radio ${payMethod === 'wechat' ? 'rc-radio--on' : ''}`}>
+              {payMethod === 'wechat' && <Text className="rc-radio-mark">✓</Text>}
+            </View>
+          </View>
+          <View
+            className={`rc-method ${payMethod === 'alipay' ? 'rc-method--active' : ''}`}
+            onClick={() => onSelectMethod('alipay')}
+          >
+            <View className="rc-method-icon rc-method-icon--ali">{tt('pay.alipay', '支')}</View>
+            <Text className="rc-method-name">{tt('wallet.recharge.methodAlipay', '支付宝')}</Text>
+            <View className={`rc-radio ${payMethod === 'alipay' ? 'rc-radio--on' : ''}`}>
+              {payMethod === 'alipay' && <Text className="rc-radio-mark">✓</Text>}
+            </View>
           </View>
         </View>
-        <View
-          className={`rc-method ${payMethod === 'alipay' ? 'rc-method--active' : ''}`}
-          onClick={() => onSelectMethod('alipay')}
+
+        <Button
+          className="rc-submit"
+          loading={submitting}
+          disabled={submitting || !finalAmount}
+          onClick={onSubmit}
         >
-          <View className="rc-method-icon rc-method-icon--ali">{tt('pay.alipay', '支')}</View>
-          <Text className="rc-method-name">{tt('wallet.recharge.methodAlipay', '支付宝')}</Text>
-          <View className={`rc-radio ${payMethod === 'alipay' ? 'rc-radio--on' : ''}`}>
-            {payMethod === 'alipay' && <Text className="rc-radio-mark">✓</Text>}
-          </View>
-        </View>
+          {submitting
+            ? tt('wallet.recharge.submitting', '充值中…')
+            : `${tt('wallet.recharge.submit', '充值')} ¥${priceFmt.format(finalAmount || 0)}`}
+        </Button>
       </View>
-
-      <Button
-        className="rc-submit"
-        loading={submitting}
-        disabled={submitting || !finalAmount}
-        onClick={onSubmit}
-      >
-        {submitting
-          ? tt('wallet.recharge.submitting', '充值中…')
-          : `${tt('wallet.recharge.submit', '充值')} ¥${priceFmt.format(finalAmount || 0)}`}
-      </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

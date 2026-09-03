@@ -8,6 +8,7 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { clearCache } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
 const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
@@ -129,60 +130,62 @@ export default function CachePage() {
   useDidShow(() => loadSize())
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex justify-between items-center p-[32rpx]">
-          <Text className="text-[28rpx] text-foreground">{t('setting.cache.current')}</Text>
-          <Text className="text-[28rpx] text-primary">{size}</Text>
-        </View>
-      </View>
-
-      {clearing ? (
-        <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
-          <View className="w-full h-[12rpx] bg-border rounded-[6rpx] overflow-hidden">
-            <View
-              className="h-full bg-primary transition-[width] duration-100"
-              style={{ width: `${progress}%` }}
-            />
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="flex justify-between items-center p-[32rpx]">
+            <Text className="text-[28rpx] text-foreground">{t('setting.cache.current')}</Text>
+            <Text className="text-[28rpx] text-primary">{size}</Text>
           </View>
-          <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx] text-center">
-            {tt('setting.cache.clearing', '清理中')} {progress}%
+        </View>
+
+        {clearing ? (
+          <View className="m-[24rpx] p-[32rpx] bg-card rounded-[16rpx]">
+            <View className="w-full h-[12rpx] bg-border rounded-[6rpx] overflow-hidden">
+              <View
+                className="h-full bg-primary transition-[width] duration-100"
+                style={{ width: `${progress}%` }}
+              />
+            </View>
+            <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx] text-center">
+              {tt('setting.cache.clearing', '清理中')} {progress}%
+            </Text>
+          </View>
+        ) : null}
+
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          <View className="flex justify-between items-center p-[32rpx]" onClick={onClearImage}>
+            <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearImage')}</Text>
+            <Text className="text-muted-foreground">›</Text>
+          </View>
+          <View
+            className="flex justify-between items-center p-[32rpx] mt-[16rpx]"
+            onClick={onClearFile}
+          >
+            <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearFile')}</Text>
+            <Text className="text-muted-foreground">›</Text>
+          </View>
+        </View>
+
+        <Button
+          className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[16rpx] text-[32rpx] disabled:opacity-60"
+          onClick={onClearAll}
+          disabled={clearing}
+          loading={clearing}
+        >
+          {t('setting.cache.clearAll')}
+        </Button>
+
+        <View className="px-[32rpx]">
+          <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+            {t('setting.cache.tip1')}
+          </Text>
+          <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
+            {t('setting.cache.tip2')}
           </Text>
         </View>
-      ) : null}
-
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        <View className="flex justify-between items-center p-[32rpx]" onClick={onClearImage}>
-          <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearImage')}</Text>
-          <Text className="text-muted-foreground">›</Text>
-        </View>
-        <View
-          className="flex justify-between items-center p-[32rpx] mt-[16rpx]"
-          onClick={onClearFile}
-        >
-          <Text className="text-[28rpx] text-foreground">{t('setting.cache.clearFile')}</Text>
-          <Text className="text-muted-foreground">›</Text>
-        </View>
       </View>
-
-      <Button
-        className="mx-[32rpx] my-[60rpx] bg-primary text-foreground rounded-[16rpx] text-[32rpx] disabled:opacity-60"
-        onClick={onClearAll}
-        disabled={clearing}
-        loading={clearing}
-      >
-        {t('setting.cache.clearAll')}
-      </Button>
-
-      <View className="px-[32rpx]">
-        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
-          {t('setting.cache.tip1')}
-        </Text>
-        <Text className="block text-[22rpx] text-muted-foreground leading-[1.8]">
-          {t('setting.cache.tip2')}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
