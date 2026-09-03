@@ -416,9 +416,9 @@ export function InputArea({
               accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
             >
               {voiceActive || voiceInput ? (
-                <Keyboard size={20} color={'#6b7280'} />
+                <Keyboard size={20} color={tokens.text.secondary} />
               ) : (
-                <Mic size={20} color={'#6b7280'} />
+                <Mic size={20} color={tokens.text.secondary} />
               )}
             </TouchableOpacity>
           ) : null}
@@ -863,7 +863,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // shadow(iOS)
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,

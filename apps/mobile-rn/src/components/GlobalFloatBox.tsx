@@ -18,6 +18,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 export interface GlobalFloatBoxProps {
   /** 赚米按钮回调(分享/推广) */
@@ -148,13 +149,13 @@ const styles = StyleSheet.create({
   },
   floatBox: {
     width: FLOAT_BOX_WIDTH,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
     borderRadius: BORDER_RADIUS,
     paddingVertical: CONTENT_PADDING,
     alignItems: 'center',
     justifyContent: 'center',
     // 阴影(对齐 uniapp box-shadow 0 1px 3px rgba(0,0,0,0.06))
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 3,
