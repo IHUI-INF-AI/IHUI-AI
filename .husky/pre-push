@@ -1,6 +1,13 @@
 #!/bin/sh
 command -v git-lfs >/dev/null 2>&1 || { printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path. If you no longer wish to use Git LFS, remove this hook by deleting the 'pre-push' file in the hooks directory (set by 'core.hookspath'; usually '.git/hooks')."; exit 2; }
-git lfs pre-push "$@"
+# 缓冲 git 传入的推送 ref 列表(stdin),再回喂给 git-lfs —— lfs 会消费 stdin,
+# 必须先缓冲,否则后续无法据此计算「本次推送的改动文件范围」(2026-09-03 push-scope 修复)
+PUSH_REFS="$(cat)"
+if [ -z "$PUSH_REFS" ]; then
+  git lfs pre-push "$@" </dev/null
+else
+  printf '%s\n' "$PUSH_REFS" | git lfs pre-push "$@"
+fi
 
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
@@ -36,8 +43,48 @@ else
     printf '%s\n' "" >&2
   fi
 
+  # ─── 计算本次推送的改动文件范围(2026-09-03 push-scope 修复) ──────────
+  # 背景:降级判据原只用暂存区推断「我的改动范围」。但 `git push <sha>:<ref>` 这类
+  #       refspec 推送不产生暂存区,若此刻他人也没 staged 文件,降级直接失效 →
+  #       他人并行会话的半编辑态报错会硬拦本次 push(实测连撞 miniapp-taro TS1005、
+  #       web TS2345,单独复验均为 0 错误,属窗口期假报错)。
+  # 修复:优先用 git 传入的 remote_sha..local_sha 计算真实改动文件,导出 PUSH_SCOPE_FILES;
+  #       暂存区仅作兜底(判定逻辑见 scripts/check-typecheck.mjs)。
+  PUSH_SCOPE_FILES=""
+  if [ -n "$PUSH_REFS" ]; then
+    PUSH_SCOPE_FILES="$(
+      printf '%s\n' "$PUSH_REFS" | while IFS=' ' read -r _lref lsha _rref rsha; do
+        [ -z "$lsha" ] && continue
+        # 删除分支(local 全 0)→ 无改动文件
+        case "$lsha" in 0000000000000000000000000000000000000000) continue ;; esac
+        case "$rsha" in
+          0000000000000000000000000000000000000000)
+            # 新分支:仅取该 commit 自身改动
+            git show --name-only --format= "$lsha" 2>/dev/null
+            ;;
+          *)
+            git diff --name-only "$rsha" "$lsha" 2>/dev/null
+            ;;
+        esac
+      # 注:不做反斜杠归一化 —— check-typecheck.mjs 内 getScopeFiles() 已统一
+      #     replaceAll('\\','/')(shell 侧 sed 转义在 sh/hook 双重解析下极易写错,已踩坑)
+      done | grep -v '^$' | sort -u
+    )"
+  fi
+  # 安全阀:改动文件过多时清空 → 退回暂存区兜底。
+  # 原因:env 有长度上限,截断会让「实际在推送范围内的报错文件」漏出列表,导致本该
+  #       阻塞的错误被误判为他人噪音而放行 —— 宁可不降级,不可放过真实错误。
+  if [ -n "$PUSH_SCOPE_FILES" ]; then
+    _scope_count="$(printf '%s\n' "$PUSH_SCOPE_FILES" | grep -c .)"
+    if [ "$_scope_count" -gt 300 ]; then
+      PUSH_SCOPE_FILES=""
+      printf '%s\n' "ℹ️  推送改动文件 ${_scope_count} 个 > 300,放弃 push-scope 判据(退回暂存区兜底)" >&2
+    fi
+  fi
+  export PUSH_SCOPE_FILES
+
   node scripts/guardian-runner.mjs --push-gate || { printf '%s\n' "❌ push 门校验失败,推送已阻止" >&2; exit 1; }
-  printf '%s\n' "✅ push 门校验通过(staged-scope 降级已启用)" >&2
+  printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
 fi
 
 # ─── i18n 死 key 审计警告(2026-07-26 集成,非阻塞) ─────────────────────
