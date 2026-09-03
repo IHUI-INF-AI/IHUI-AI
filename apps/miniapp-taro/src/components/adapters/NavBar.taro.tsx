@@ -5,6 +5,7 @@
 import { View, Text } from '@tarojs/components'
 import type { CSSProperties, ReactNode } from 'react'
 import { getRnTokens, type RnThemeMode, type RnThemeTokens } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 /**
  * Taro 适配层:NavBar
@@ -111,9 +112,11 @@ export function NavBar({
   transparent = false,
   statusBarHeight = 0,
   className,
-  colorScheme = 'light',
+  colorScheme,
 }: NavBarProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
 
   return (
