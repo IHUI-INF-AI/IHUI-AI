@@ -884,7 +884,7 @@ export default function AiAssistantN8nScreen() {
             accessibilityRole="button"
             accessibilityLabel={t('agent.config')}
           >
-            <Settings size={12} color="#6b7280" />
+            <Settings size={12} color={tokens.text.secondary} />
             <Text style={styles.modelConfigBtnLabel}>{t('agent.config')}</Text>
           </TouchableOpacity>
           <Text style={styles.modelBarArrow}>{'›'}</Text>

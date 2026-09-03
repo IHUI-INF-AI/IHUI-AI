@@ -473,7 +473,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="模型配置"
             >
-              <Settings size={16} color={'#6b7280'} />
+              <Settings size={16} color={tokens.text.secondary} />
             </Pressable>
           ) : null}
         </View>
@@ -527,7 +527,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="语音输入"
           >
-            <Mic size={18} color={'#6b7280'} />
+            <Mic size={18} color={tokens.text.secondary} />
           </Pressable>
         ) : null}
 
@@ -559,7 +559,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityState={{ expanded: plusActive }}
           >
             <View style={{ transform: [{ rotate: plusActive ? '45deg' : '0deg' }] }}>
-              <Plus size={20} color={plusActive ? tokens.surface.light : '#6b7280'} />
+              <Plus size={20} color={plusActive ? tokens.surface.light : tokens.text.secondary} />
             </View>
           </Pressable>
         ) : null}
@@ -605,7 +605,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel={t('messageInput.addFile')}
           >
-            <Folder size={18} color={'#6b7280'} />
+            <Folder size={18} color={tokens.text.secondary} />
           </Pressable>
           {onFunctionHandle !== undefined ? (
             <Pressable
@@ -628,7 +628,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="来源"
             >
-              <Paperclip size={18} color={'#6b7280'} />
+              <Paperclip size={18} color={tokens.text.secondary} />
             </Pressable>
           ) : null}
           {onFangda !== undefined ? (
@@ -639,7 +639,7 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityRole="button"
               accessibilityLabel="放大"
             >
-              <Maximize size={18} color={'#6b7280'} />
+              <Maximize size={18} color={tokens.text.secondary} />
             </Pressable>
           ) : null}
           {/* 手动压缩上下文(2026-09-02 立,对齐 web 端 message-input compactButton):
@@ -655,9 +655,9 @@ function ChatInputBar(props: BottomActionBarProps) {
               accessibilityState={{ busy: compactContextLoading }}
             >
               {compactContextLoading ? (
-                <ActivityIndicator size="small" color={'#6b7280'} />
+                <ActivityIndicator size="small" color={tokens.text.secondary} />
               ) : (
-                <Scissors size={18} color={'#6b7280'} />
+                <Scissors size={18} color={tokens.text.secondary} />
               )}
             </Pressable>
           ) : null}
@@ -673,7 +673,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="相机"
           >
-            <Camera size={24} color={'#6b7280'} />
+            <Camera size={24} color={tokens.text.secondary} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'相机'}
             </Text>
@@ -684,7 +684,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="相册"
           >
-            <ImageIcon size={24} color={'#6b7280'} />
+            <ImageIcon size={24} color={tokens.text.secondary} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'相册'}
             </Text>
@@ -695,7 +695,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="本地文件"
           >
-            <Folder size={24} color={'#6b7280'} />
+            <Folder size={24} color={tokens.text.secondary} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'本地文件'}
             </Text>
@@ -706,7 +706,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityRole="button"
             accessibilityLabel="微信文件"
           >
-            <MessageCircle size={24} color={'#6b7280'} />
+            <MessageCircle size={24} color={tokens.text.secondary} />
             <Text style={styles.iconGroupLabel} numberOfLines={1}>
               {'微信文件'}
             </Text>
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
     borderRadius: INPUT_BORDER_RADIUS,
     borderWidth: 1,
     borderColor: tokens.border.light,
-    backgroundColor: '#E6F3FA',
+    backgroundColor: tokens.surface.inputBg,
     paddingHorizontal: INPUT_PADDING_HORIZONTAL,
     paddingVertical: 10,
     fontSize: INPUT_FONT_SIZE,

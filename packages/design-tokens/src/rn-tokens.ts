@@ -49,6 +49,12 @@ export type RnDangerTokens = {
   bright: string
 }
 
+/** VIP 会员金色(对齐 miniapp-taro --color-vip-gold-start/end #ffd700/#ffaa00,明暗同值)。 */
+export type RnVipTokens = {
+  gold: string
+  goldEnd: string
+}
+
 /** RN 端基础 tokens(向后兼容 RootNavigator Tab Bar)
  *  brand.DEFAULT = #000000 对齐 web 亮色 --color-primary(2026-07-24 用户要求消除绿色)。 */
 export const rnTokens = {
@@ -61,6 +67,8 @@ export const rnTokens = {
     muted: '#F9FAFB',
     card: '#F3F4F6',
     dark: '#1F2937',
+    /** 输入框背景:对齐 miniapp --color-input-bg(亮 #f0f7ff / 暗 rgba(78,163,245,0.15))。 */
+    inputBg: '#f0f7ff',
   },
   text: {
     primary: '#111827',
@@ -110,10 +118,15 @@ export const rnTokens = {
     DEFAULT: '#dc2626',
     bright: '#ef4444',
   } satisfies RnDangerTokens,
+  vip: {
+    gold: '#FFD700',
+    goldEnd: '#FFAA00',
+  } satisfies RnVipTokens,
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
     200: '#e5e7eb',
+    300: '#d1d5db',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
@@ -132,7 +145,7 @@ export type RnThemeMode = 'light' | 'dark'
 /** 动态主题 token 集。相比 base tokens 增加 surface.bg(主背景),其余字段对齐。 */
 export type RnThemeTokens = {
   brand: { DEFAULT: string; dark: string }
-  surface: { bg: string; light: string; muted: string; card: string; dark: string }
+  surface: { bg: string; light: string; muted: string; card: string; dark: string; inputBg: string }
   text: { primary: string; secondary: string; tertiary: string; medium: string }
   border: { light: string; medium: string }
   error: { bg: string; text: string }
@@ -142,10 +155,12 @@ export type RnThemeTokens = {
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
+  vip: RnVipTokens
   gray: {
     50: string
     100: string
     200: string
+    300: string
     400: string
     500: string
     600: string
@@ -163,7 +178,14 @@ export type RnThemeTokens = {
  */
 export const rnLightTokens: RnThemeTokens = {
   brand: { DEFAULT: '#000000', dark: '#34D399' },
-  surface: { bg: '#FFFFFF', light: '#FFFFFF', muted: '#F9FAFB', card: '#F3F4F6', dark: '#1F2937' },
+  surface: {
+    bg: '#FFFFFF',
+    light: '#FFFFFF',
+    muted: '#F9FAFB',
+    card: '#F3F4F6',
+    dark: '#1F2937',
+    inputBg: '#f0f7ff',
+  },
   text: { primary: '#111827', secondary: '#6B7280', tertiary: '#9CA3AF', medium: '#374151' },
   border: { light: '#E5E7EB', medium: '#D1D5DB' },
   error: { bg: '#FEE2E2', text: '#B91C1C' },
@@ -188,10 +210,12 @@ export const rnLightTokens: RnThemeTokens = {
     deepText: '#065F46',
   },
   danger: { light: '#fef2f2', DEFAULT: '#dc2626', bright: '#ef4444' },
+  vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
     200: '#e5e7eb',
+    300: '#d1d5db',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',
@@ -212,7 +236,14 @@ export const rnLightTokens: RnThemeTokens = {
  */
 export const rnDarkTokens: RnThemeTokens = {
   brand: { DEFAULT: '#FFFFFF', dark: '#34D399' },
-  surface: { bg: '#1F2937', light: '#FFFFFF', muted: '#111827', card: '#374151', dark: '#0F172A' },
+  surface: {
+    bg: '#1F2937',
+    light: '#FFFFFF',
+    muted: '#111827',
+    card: '#374151',
+    dark: '#0F172A',
+    inputBg: 'rgba(78,163,245,0.15)',
+  },
   text: { primary: '#F9FAFB', secondary: '#9CA3AF', tertiary: '#6B7280', medium: '#D1D5DB' },
   border: { light: '#374151', medium: '#4B5563' },
   error: { bg: '#7F1D1D', text: '#FCA5A5' },
@@ -237,10 +268,12 @@ export const rnDarkTokens: RnThemeTokens = {
     deepText: '#86efac',
   },
   danger: { light: '#450a0a', DEFAULT: '#ef4444', bright: '#f87171' },
+  vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
     200: '#e5e7eb',
+    300: '#d1d5db',
     400: '#9ca3af',
     500: '#6b7280',
     600: '#4b5563',

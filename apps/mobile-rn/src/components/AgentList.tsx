@@ -114,7 +114,7 @@ function Row({
       <View style={styles.rowRight}>
         {selected ? (
           <Animated.View style={[styles.selectedIcon, { transform: [{ scale }] }]}>
-            <Check size={11} color={'#ffffff'} />
+            <Check size={11} color={tokens.surface.light} />
           </Animated.View>
         ) : null}
       </View>

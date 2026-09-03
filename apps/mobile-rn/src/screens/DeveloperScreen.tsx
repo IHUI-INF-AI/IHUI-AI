@@ -225,8 +225,8 @@ export default function DeveloperScreen() {
               </Text>
             </View>
             <View style={styles.infoRow}>
-              <Text style={[styles.infoLabel, { color: '#FF7272' }]}>到期时间</Text>
-              <Text style={[styles.infoValue, { color: '#FF7272' }]} numberOfLines={1}>
+              <Text style={[styles.infoLabel, { color: tokens.danger.bright }]}>到期时间</Text>
+              <Text style={[styles.infoValue, { color: tokens.danger.bright }]} numberOfLines={1}>
                 {subscription.endTime ? new Date(subscription.endTime).toLocaleDateString() : '-'}
               </Text>
               <TouchableOpacity onPress={handleOpenCover} hitSlop={8}>
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   infoRenew: {
     fontSize: 12,
-    color: '#FF7272',
+    color: tokens.danger.bright,
     fontWeight: '600',
     paddingHorizontal: 4,
   } as TextStyle,

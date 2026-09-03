@@ -159,18 +159,18 @@ export function ArticleDetailScreen() {
           <TouchableOpacity style={styles.actionItem} onPress={handleLike} activeOpacity={0.7}>
             <Heart
               size={18}
-              color={liked ? '#f43f5e' : '#6b7280'}
-              fill={liked ? '#f43f5e' : 'transparent'}
+              color={liked ? tokens.danger.bright : tokens.text.secondary}
+              fill={liked ? tokens.danger.bright : 'transparent'}
             />
             <Text style={styles.actionCount}>{likeCount}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleComment} activeOpacity={0.7}>
-            <MessageCircle size={18} color="#6b7280" />
+            <MessageCircle size={18} color={tokens.text.secondary} />
             {/* 评论数:原 article.comments 字段未在后端 ArticleDetailItem 契约中,暂展示 0 */}
             <Text style={styles.actionCount}>0</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionItem} onPress={handleShare} activeOpacity={0.7}>
-            <Share2 size={18} color="#6b7280" />
+            <Share2 size={18} color={tokens.text.secondary} />
             <Text style={styles.actionLabel}>分享</Text>
           </TouchableOpacity>
         </View>
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   actionIconActive: {
-    color: '#FF3B3B',
+    color: tokens.danger.bright,
   } as TextStyle,
   actionCount: {
     fontSize: 13,
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentAvatarText: {
     fontSize: 13,
-    color: '#fff',
+    color: tokens.surface.light,
     fontWeight: '600',
   } as TextStyle,
   commentBody: {
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   commentSendText: {
     fontSize: 14,
-    color: '#fff',
+    color: tokens.surface.light,
     fontWeight: '600',
   } as TextStyle,
 })
