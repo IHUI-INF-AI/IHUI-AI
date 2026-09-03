@@ -7,6 +7,7 @@ import { useTt, type TtFn } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
 
 /**
@@ -252,9 +253,11 @@ export function MessageCenterScreen({
   onRefresh,
   onPressItem,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: MessageCenterScreenProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
 
   // i18n 三级降级:t prop → useTt() I18nContext → 硬编码中文 fallback

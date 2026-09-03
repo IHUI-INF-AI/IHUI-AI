@@ -6,7 +6,8 @@
 import { useTt } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction, NoteListScreenProps } from '@ihui/types'
 
 /** 笔记列表项/Props 类型 re-export(单一来源 @ihui/types) */
@@ -41,9 +42,11 @@ export function NoteListScreen({
   onPressItem,
   onCreate,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: NoteListScreenProps) {
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const tt = useTt()
 
   // i18n 三级降级:prop t > I18nContext tt > 硬编码中文(NoteListScreenProps.t 必填,useTt 防御性兜底)
