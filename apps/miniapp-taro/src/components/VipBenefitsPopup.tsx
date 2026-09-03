@@ -163,31 +163,11 @@ const LEVEL_BENEFITS: VipBenefit[] = [
 ]
 
 const ADVISORY_BENEFITS: VipBenefit[] = [
-  {
-    id: 1,
-    content: t('VipBenefitsPopup.d10'),
-    color: 'rgba(255, 79, 79,0.6)',
-  },
-  {
-    id: 2,
-    content: t('VipBenefitsPopup.d11'),
-    color: 'rgba(255, 79, 79,0.7)',
-  },
-  {
-    id: 3,
-    content: t('VipBenefitsPopup.d12'),
-    color: 'rgba(255, 79, 79,0.8)',
-  },
-  {
-    id: 4,
-    content: t('VipBenefitsPopup.d13'),
-    color: 'rgba(255, 79, 79,0.9)',
-  },
-  {
-    id: 5,
-    content: t('VipBenefitsPopup.d14'),
-    color: 'rgba(255, 79, 79,1)',
-  },
+  { id: 1, content: t('VipBenefitsPopup.d10'), color: 'var(--color-destructive)' },
+  { id: 2, content: t('VipBenefitsPopup.d11'), color: 'var(--color-destructive)' },
+  { id: 3, content: t('VipBenefitsPopup.d12'), color: 'var(--color-destructive)' },
+  { id: 4, content: t('VipBenefitsPopup.d13'), color: 'var(--color-destructive)' },
+  { id: 5, content: t('VipBenefitsPopup.d14'), color: 'var(--color-destructive)' },
 ]
 
 const DEFAULT_BENEFITS: VipBenefit[] = [
@@ -361,7 +341,7 @@ export default function VipBenefitsPopup({
           <View className="px-4 py-3">
             <View
               className="w-full py-3 rounded-md text-center"
-              style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}
+              style={{ background: 'var(--color-warning)' }}
               onClick={onUpgrade}
             >
               <Text className="text-sm text-white font-medium">
@@ -405,10 +385,8 @@ export default function VipBenefitsPopup({
     onClose?.()
   }
 
-  // 弹窗背景:gradient=true 用渐变,false 用纯色
-  const popupBg = cfg.gradient
-    ? 'linear-gradient(to bottom right, rgba(205, 208, 255, 0.7) 0%, rgba(253, 255, 225, 0.7) 100%)'
-    : 'var(--color-muted)'
+  // 弹窗背景:gradient=true 用白卡,false 用纯灰(对齐 web 浅色弹窗语言)
+  const popupBg = cfg.gradient ? 'var(--color-card)' : 'var(--color-muted)'
 
   return (
     <View className="fixed inset-0 z-[9999] flex items-end" onClick={onClose}>
@@ -498,7 +476,7 @@ export default function VipBenefitsPopup({
                   fontSize: '30rpx',
                   fontWeight: 500,
                   color: 'var(--color-foreground)',
-                  border: '1rpx solid rgba(255, 255, 255, 0.8)',
+                  border: '1rpx solid var(--color-border)',
                   background: 'linear-gradient(to bottom, var(--color-card), var(--color-muted))',
                   boxShadow:
                     '0 4rpx 10rpx rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1)',
@@ -537,7 +515,7 @@ export default function VipBenefitsPopup({
             className="fixed inset-0 flex justify-center items-center"
             style={{
               zIndex: 99999,
-              backgroundColor: 'rgba(255, 255, 255, 0.3)',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
               backdropFilter: 'blur(3px)',
               WebkitBackdropFilter: 'blur(3px)',
             }}
@@ -548,9 +526,9 @@ export default function VipBenefitsPopup({
               style={{
                 padding: '20rpx',
                 borderRadius: '30rpx',
-                background: 'rgba(255, 255, 255, 0.4)',
+                background: 'var(--color-card)',
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0px 6px 6px 0px rgba(169, 165, 255, 0.6)',
+                boxShadow: '0px 6px 12px 0px rgba(0, 0, 0, 0.15)',
               }}
               onClick={(e) => e.stopPropagation()}
             >

@@ -87,7 +87,7 @@ const viewStyles = {
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: tk.border.light,
-    backgroundColor: 'rgba(195, 190, 255, 0.15)',
+    backgroundColor: tk.surface.light,
   }),
   header: (): CSSProperties => ({
     display: 'flex',

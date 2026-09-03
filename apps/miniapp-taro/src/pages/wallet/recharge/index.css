@@ -25,15 +25,14 @@
   width: 64rpx;
   height: 64rpx;
   border: 6rpx solid rgba(255, 255, 255, 0.25);
-  border-top-color: var(--color-primary);
+  border-top-color: var(--color-primary-foreground);
   border-radius: var(--radius-lg);
   animation: rc-spin 0.8s linear infinite;
 }
 .rc-loading-text {
   margin-top: 20rpx;
   font-size: 26rpx;
-  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
 }
 @keyframes rc-spin {
   to {
@@ -187,7 +186,7 @@
 .rc-activity-btn {
   margin-top: 20rpx;
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-primary-foreground);
   border-radius: var(--radius-md);
   font-size: 30rpx;
   font-weight: 700;
@@ -253,7 +252,7 @@
   left: 32rpx;
   right: 32rpx;
   background: var(--color-primary);
-  color: var(--color-background);
+  color: var(--color-primary-foreground);
   border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 700;

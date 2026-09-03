@@ -18,17 +18,6 @@
 /* ===== 首页局部 CSS 变量(对齐原项目硬编码颜色 → 语义 token)===== */
 .ai-home-page {
   /* 品牌色(原青色系 → 对齐 web 端亮色 token:蓝/品牌语义) */
-  --color-brand-cyan: var(--color-link);
-  --color-brand-cyan-light: var(--color-link-bg);
-  --color-brand-cyan-active: var(--color-link);
-  --color-brand-cyan-bg: var(--color-link-bg);
-  --color-brand-cyan-disabled: var(--color-link-bg);
-  --color-brand-cyan-teal: var(--color-link-bg);
-  --color-brand-cyan-pale: var(--color-link-bg);
-  --color-brand-cyan-opacity-10: var(--color-black-5);
-  --color-brand-cyan-opacity-30: var(--color-black-10);
-  --color-brand-cyan-opacity-50: var(--color-black-20);
-  --color-brand-cyan-opacity-90: var(--color-link-bg);
 
   /* 容器 / 背景色 */
   --color-nav-bg: var(--color-link-bg);
@@ -39,10 +28,6 @@
   --color-bg-warm: var(--color-background);
 
   /* 文字色 */
-  --color-text-date: var(--color-muted-foreground);
-  --color-text-drawer: var(--color-foreground);
-  --color-text-selected: var(--color-link);
-  --color-text-icon-label: var(--color-foreground);
 
   /* 边框色 */
   --color-border-list-item: var(--color-border);
@@ -52,7 +37,6 @@
   /* 强调色 */
   --color-brand-purple-bright: var(--color-brand);
   --color-brand-purple-soft: var(--color-brand);
-  --color-accent-blue: var(--color-link);
   --color-ios-blue: var(--color-link);
 
   /* 遮罩(黑/白透明度与主题无关,保留) */
@@ -298,12 +282,12 @@
 
 .material-tab-text {
   font-size: 28rpx;
-  color: var(--color-text-date);
+  color: var(--color-muted-foreground);
   transition: color 0.2s ease;
 }
 
 .material-tab-active .material-tab-text {
-  color: var(--color-brand-cyan);
+  color: var(--color-link);
   font-weight: bold;
 }
 
@@ -314,7 +298,7 @@
   left: 20%;
   right: 20%;
   height: 4rpx;
-  background: var(--color-brand-cyan);
+  background: var(--color-link);
   border-radius: 2rpx;
 }
 
@@ -335,7 +319,7 @@
 }
 
 .material-list-item:active {
-  background: var(--color-brand-cyan-opacity-10);
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .material-list-item:last-child {
@@ -361,7 +345,7 @@
 
 .material-item-preview {
   font-size: 22rpx;
-  color: var(--color-text-date);
+  color: var(--color-muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -468,7 +452,7 @@
 .voice-wave-bar {
   width: 8rpx;
   height: 60rpx;
-  background: var(--color-brand-cyan);
+  background: var(--color-link);
   border-radius: 4rpx;
 }
 
@@ -509,7 +493,7 @@
 
 /* ===== 模型列表选中样式增强 ===== */
 .ai-chu-row-selected {
-  border-color: var(--color-brand-cyan) !important;
+  border-color: var(--color-link) !important;
   background: linear-gradient(135deg, var(--color-link-bg), var(--color-muted)) !important;
   box-shadow: none !important;
 }

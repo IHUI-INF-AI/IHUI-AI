@@ -1185,7 +1185,7 @@
 /* ============ search-box 紫色描边圆角(对标原 .search_box_bor) ============ */
 .search-box-bor {
   padding: 10rpx 15rpx 10rpx 25rpx;
-  border: 1px solid rgba(223, 138, 248, 0.384);
+  border: 1px solid var(--color-input);
 }
 
 /* 放大态 search-box 子容器(对标原 .search_boxa:height 100% + space-between + flex-end) */
@@ -1228,7 +1228,7 @@
 /* ============ textarea 补充属性(对标原 .search-input) ============ */
 .search-input {
   font-size: 36rpx;
-  color: rgba(0, 0, 0) !important;
+  color: var(--color-foreground) !important;
   font-family:
     'AlimamaFangYuanTi',
     -apple-system,
