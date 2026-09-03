@@ -12,6 +12,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -103,97 +104,99 @@ export default function LiveList() {
   }))
 
   return (
-    <View className="min-h-screen p-3">
-      <View className="flex mb-3 gap-2">
-        <View
-          className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
-          onClick={() => Taro.navigateTo({ url: '/pages/live/host/index' })}
-        >
-          <Text className="text-sm text-primary-foreground">
-            {tt('live.startLiveBtn', '📺 我要开播')}
-          </Text>
-        </View>
-        <View
-          className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
-          onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
-        >
-          <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
-        </View>
-        <View
-          className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
-          onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
-        >
-          <Text className="text-sm text-foreground">
-            {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
-          </Text>
-        </View>
-      </View>
-      <View className="flex mb-3 bg-card rounded-xl">
-        {tabs.map((tab) => (
+    <ThemeRoot>
+      <View className="min-h-screen p-3">
+        <View className="flex mb-3 gap-2">
           <View
-            key={tab.key}
-            className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
-            onClick={() => switchStatus(tab.key)}
+            className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
+            onClick={() => Taro.navigateTo({ url: '/pages/live/host/index' })}
           >
-            <Text>{t(tab.labelKey)}</Text>
+            <Text className="text-sm text-primary-foreground">
+              {tt('live.startLiveBtn', '📺 我要开播')}
+            </Text>
           </View>
-        ))}
-      </View>
-
-      {list.length > 0 && (
-        <View>
-          {list.map((item) => (
+          <View
+            className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+            onClick={() => Taro.navigateTo({ url: '/pages/live/calendar' })}
+          >
+            <Text className="text-sm text-foreground">{tt('live.calendarBtn', '📅 日历')}</Text>
+          </View>
+          <View
+            className="flex-1 bg-card rounded-xl py-2.5 flex items-center justify-center"
+            onClick={() => Taro.navigateTo({ url: '/pages/live/subscribe' })}
+          >
+            <Text className="text-sm text-foreground">
+              {tt('live.mySubscriptionBtn', '🔔 我的订阅')}
+            </Text>
+          </View>
+        </View>
+        <View className="flex mb-3 bg-card rounded-xl">
+          {tabs.map((tab) => (
             <View
-              key={item.id}
-              className="bg-card rounded-2xl overflow-hidden mb-3"
-              onClick={() => goDetail(item.id)}
+              key={tab.key}
+              className={`flex-1 text-center py-2.5 text-sm ${status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              onClick={() => switchStatus(tab.key)}
             >
-              <View className="relative w-full h-[320rpx]">
-                <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
-
-                <View
-                  className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${
-                    item.status === 'living'
-                      ? 'bg-destructive text-white'
-                      : item.status === 'upcoming'
-                        ? 'bg-[#f0ad4e] text-white'
-                        : 'bg-black/50 text-white'
-                  }`}
-                >
-                  <Text>{statusText(item.status)}</Text>
-                </View>
-              </View>
-              <View className="p-2.5">
-                <Text className="text-base text-foreground font-semibold">{item.title}</Text>
-                <View className="flex justify-between mt-1.5">
-                  {item.anchor && <Text className="text-xs text-primary">{item.anchor}</Text>}
-                  {item.startTime && (
-                    <Text className="text-xs text-muted-foreground">{item.startTime}</Text>
-                  )}
-                </View>
-                {item.watchCount !== undefined && (
-                  <Text className="block mt-1 text-xs text-muted-foreground">
-                    {t('live.viewers', { n: item.watchCount })}
-                  </Text>
-                )}
-              </View>
+              <Text>{t(tab.labelKey)}</Text>
             </View>
           ))}
         </View>
-      )}
 
-      {!loading && list.length === 0 && (
-        <View className="text-center py-16 text-muted-foreground text-sm">
-          <Text>{t('live.empty')}</Text>
-        </View>
-      )}
+        {list.length > 0 && (
+          <View>
+            {list.map((item) => (
+              <View
+                key={item.id}
+                className="bg-card rounded-2xl overflow-hidden mb-3"
+                onClick={() => goDetail(item.id)}
+              >
+                <View className="relative w-full h-[320rpx]">
+                  <Image className="w-full h-full" src={item.coverUrl} mode="aspectFill" />
 
-      {loading && (
-        <View className="text-center py-16 text-muted-foreground text-sm">
-          <Text>{t('common.loading')}</Text>
-        </View>
-      )}
-    </View>
+                  <View
+                    className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-xs ${
+                      item.status === 'living'
+                        ? 'bg-destructive text-white'
+                        : item.status === 'upcoming'
+                          ? 'bg-[rgba(240, 173, 78, 1)] text-white'
+                          : 'bg-black/50 text-white'
+                    }`}
+                  >
+                    <Text>{statusText(item.status)}</Text>
+                  </View>
+                </View>
+                <View className="p-2.5">
+                  <Text className="text-base text-foreground font-semibold">{item.title}</Text>
+                  <View className="flex justify-between mt-1.5">
+                    {item.anchor && <Text className="text-xs text-primary">{item.anchor}</Text>}
+                    {item.startTime && (
+                      <Text className="text-xs text-muted-foreground">{item.startTime}</Text>
+                    )}
+                  </View>
+                  {item.watchCount !== undefined && (
+                    <Text className="block mt-1 text-xs text-muted-foreground">
+                      {t('live.viewers', { n: item.watchCount })}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {!loading && list.length === 0 && (
+          <View className="text-center py-16 text-muted-foreground text-sm">
+            <Text>{t('live.empty')}</Text>
+          </View>
+        )}
+
+        {loading && (
+          <View className="text-center py-16 text-muted-foreground text-sm">
+            <Text>{t('common.loading')}</Text>
+          </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -16,6 +16,7 @@ import {
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 /** 把共享 hook 返回的通用错误 key(auth.*)映射到本页 register.* 文案(仅本页面用) */
@@ -111,7 +112,7 @@ export default function RegisterIndex() {
     form.countdown > 0 ? `${form.countdown}秒后重新获取` : tt('register.getCode', '发送验证码')
 
   return (
-    <View className="container-ali">
+    <ThemeRoot className="container-ali">
       <View className="container1">
         <Image className="bg-image" src="/static/images/loginbackk.png" mode="aspectFill" />
         <View className="container-box">
@@ -152,7 +153,7 @@ export default function RegisterIndex() {
                     type="number"
                     maxlength={11}
                     placeholder={tt('register.phonePlaceholder', '请输入手机号')}
-                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    placeholderStyle="color: var(--color-muted-foreground);font-size: 22rpx;font-weight: normal;"
                     value={form.values.phone}
                     onInput={(e) => form.setPhone(e.detail.value)}
                     onFocus={() => setIsPhoneFocused(true)}
@@ -176,7 +177,7 @@ export default function RegisterIndex() {
                     type="number"
                     maxlength={6}
                     placeholder={tt('register.codePlaceholder', '请输入验证码')}
-                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    placeholderStyle="color: var(--color-muted-foreground);font-size: 22rpx;font-weight: normal;"
                     value={form.values.code}
                     onInput={(e) => form.setCode(e.detail.value)}
                     onFocus={() => setIsCodeFocused(true)}
@@ -203,7 +204,7 @@ export default function RegisterIndex() {
                     password={!showPwd}
                     maxlength={20}
                     placeholder={tt('register.passwordPlaceholder', '请输入密码')}
-                    placeholderStyle="color:#6B6980;font-size: 22rpx;font-weight: normal;"
+                    placeholderStyle="color: var(--color-muted-foreground);font-size: 22rpx;font-weight: normal;"
                     value={form.values.password}
                     onInput={(e) => form.setPassword(e.detail.value)}
                     onFocus={() => setIsPwdFocused(true)}
@@ -288,7 +289,7 @@ export default function RegisterIndex() {
           </View>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

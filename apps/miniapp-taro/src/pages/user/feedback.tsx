@@ -9,6 +9,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { submitFeedback } from '@/api'
 import { uploadPictures } from '@/utils/upload-image'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const MAX_IMAGES = 3
 const MAX_CONTENT = 500
@@ -83,102 +84,106 @@ export default function Feedback() {
   }, [content, contact, images, tt])
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-          {tt('feedback.type', '类型')}
-        </Text>
-        <View className="flex flex-wrap gap-[16rpx]">
-          {types.map((item) => (
-            <View
-              key={item.key}
-              className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
-                activeType === item.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
-              }`}
-              onClick={() => setActiveType(item.key)}
-            >
-              <Text>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-        <View className="flex items-center justify-between mb-[24rpx]">
-          <Text className="text-[28rpx] text-foreground">{tt('feedback.content', '内容')}</Text>
-          <Text className="text-[24rpx] text-muted-foreground">
-            {content.length}/{MAX_CONTENT}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
+            {tt('feedback.type', '类型')}
           </Text>
-        </View>
-        <Textarea
-          className="w-full text-[28rpx] min-h-[240rpx]"
-          placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
-          value={content}
-          onInput={(e) => setContent(e.detail.value)}
-          maxlength={MAX_CONTENT}
-        />
-      </View>
-      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-          {tt('feedback.images', `图片(最多${MAX_IMAGES}张)`)}
-        </Text>
-        <View className="flex flex-wrap gap-[16rpx]">
-          {images.map((url, idx) => (
-            <View
-              key={url + idx}
-              className="relative w-[144rpx] h-[144rpx] rounded-[12rpx] overflow-hidden"
-              onClick={() => onPreviewImage(idx)}
-            >
-              <Image className="w-full h-full" src={url} mode="aspectFill" />
+          <View className="flex flex-wrap gap-[16rpx]">
+            {types.map((item) => (
               <View
-                className="absolute top-0 right-0 w-[40rpx] h-[40rpx] bg-[rgba(0,0,0,0.6)] rounded-md flex items-center justify-center"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRemoveImage(idx)
-                }}
+                key={item.key}
+                className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
+                  activeType === item.key
+                    ? 'bg-primary text-white'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+                onClick={() => setActiveType(item.key)}
               >
-                <Text className="text-white text-[24rpx] leading-none">×</Text>
+                <Text>{item.label}</Text>
               </View>
-            </View>
-          ))}
-          {images.length < MAX_IMAGES && (
-            <View
-              className="w-[144rpx] h-[144rpx] rounded-[12rpx] bg-muted flex items-center justify-center"
-              onClick={onPickImages}
-            >
-              <Text className="text-[48rpx] text-muted-foreground leading-none">
-                {uploading ? '...' : '+'}
-              </Text>
-            </View>
+            ))}
+          </View>
+        </View>
+        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
+          <View className="flex items-center justify-between mb-[24rpx]">
+            <Text className="text-[28rpx] text-foreground">{tt('feedback.content', '内容')}</Text>
+            <Text className="text-[24rpx] text-muted-foreground">
+              {content.length}/{MAX_CONTENT}
+            </Text>
+          </View>
+          <Textarea
+            className="w-full text-[28rpx] min-h-[240rpx]"
+            placeholder={tt('feedback.contentPlaceholder', '请输入反馈详情')}
+            value={content}
+            onInput={(e) => setContent(e.detail.value)}
+            maxlength={MAX_CONTENT}
+          />
+        </View>
+        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
+            {tt('feedback.images', `图片(最多${MAX_IMAGES}张)`)}
+          </Text>
+          <View className="flex flex-wrap gap-[16rpx]">
+            {images.map((url, idx) => (
+              <View
+                key={url + idx}
+                className="relative w-[144rpx] h-[144rpx] rounded-[12rpx] overflow-hidden"
+                onClick={() => onPreviewImage(idx)}
+              >
+                <Image className="w-full h-full" src={url} mode="aspectFill" />
+                <View
+                  className="absolute top-0 right-0 w-[40rpx] h-[40rpx] bg-[rgba(0,0,0,0.6)] rounded-md flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onRemoveImage(idx)
+                  }}
+                >
+                  <Text className="text-white text-[24rpx] leading-none">×</Text>
+                </View>
+              </View>
+            ))}
+            {images.length < MAX_IMAGES && (
+              <View
+                className="w-[144rpx] h-[144rpx] rounded-[12rpx] bg-muted flex items-center justify-center"
+                onClick={onPickImages}
+              >
+                <Text className="text-[48rpx] text-muted-foreground leading-none">
+                  {uploading ? '...' : '+'}
+                </Text>
+              </View>
+            )}
+          </View>
+          {uploading && (
+            <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx]">
+              {tt('feedback.uploading', '上传中')}
+            </Text>
           )}
         </View>
-        {uploading && (
-          <Text className="block text-[24rpx] text-muted-foreground mt-[16rpx]">
-            {tt('feedback.uploading', '上传中')}
+        <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
+          <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
+            {tt('feedback.contact', '联系方式')}
           </Text>
-        )}
+          <Input
+            className="w-full text-[28rpx]"
+            type="text"
+            placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
+            value={contact}
+            onInput={(e) => setContact(e.detail.value)}
+          />
+        </View>
+        <Button
+          className={`mx-[32rpx] mt-[60rpx] rounded-[12rpx] text-[32rpx] ${
+            content.trim() ? 'bg-primary text-white' : 'bg-muted text-white'
+          }`}
+          disabled={!content.trim()}
+          onClick={onSubmit}
+        >
+          {tt('feedback.submit', '提交反馈')}
+        </Button>
       </View>
-      <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
-        <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
-          {tt('feedback.contact', '联系方式')}
-        </Text>
-        <Input
-          className="w-full text-[28rpx]"
-          type="text"
-          placeholder={tt('feedback.contactPlaceholder', '请输入联系方式(选填)')}
-          value={contact}
-          onInput={(e) => setContact(e.detail.value)}
-        />
-      </View>
-      <Button
-        className={`mx-[32rpx] mt-[60rpx] rounded-[12rpx] text-[32rpx] ${
-          content.trim() ? 'bg-primary text-white' : 'bg-muted text-white'
-        }`}
-        disabled={!content.trim()}
-        onClick={onSubmit}
-      >
-        {tt('feedback.submit', '提交反馈')}
-      </Button>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

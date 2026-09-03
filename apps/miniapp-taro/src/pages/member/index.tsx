@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
 import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo } from '@/api'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface BenefitItem {
@@ -196,215 +197,223 @@ export default function MemberIndexPage() {
   }
 
   return (
-    <ScrollView scrollY className="member-page">
-      {/* ===== Header:用户信息 + VIP 状态 ===== */}
-      <View className="member-header">
-        <View className="member-user">
-          <Image
-            className="member-avatar"
-            src={profile.avatar || '/static/default-avatar.png'}
-            mode="aspectFill"
-          />
-          <View className="member-user-detail">
-            <Text className="member-nickname">
-              {profile.nickname || tt('member.index.guest', '游客')}
-            </Text>
-            {isVip ? (
-              <View className="member-vip-badge">
-                <Text className="member-vip-text">VIP</Text>
-                <Text className="member-vip-expire">{expireText}</Text>
-              </View>
-            ) : (
-              <Text className="member-normal-user">
-                {tt('member.index.normalUser', '普通用户')}
-              </Text>
-            )}
-          </View>
-        </View>
-      </View>
-
-      {/* ===== 会员等级梯度 ===== */}
-      <View className="member-card">
-        <Text className="member-card-title">{tt('member.index.levelIntro', '会员等级介绍')}</Text>
-        <View className="member-level-grid">
-          {levelTiers.map((tier) => (
-            <View
-              key={tier.key}
-              className={`member-level-item member-level-${tier.key} ${
-                tier.key === currentLevelKey ? 'member-level-current' : ''
-              }`}
-            >
-              <Text className="member-level-name">{tier.name}</Text>
-              <Text className="member-level-threshold">{tier.threshold}</Text>
-              <Text className="member-level-perks">{tier.perks}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* ===== 使用统计 ===== */}
-      <View className="member-card">
-        <Text className="member-card-title">{tt('member.index.usageStats', '使用统计')}</Text>
-        <View className="member-stats">
-          <View className="member-stat">
-            <Text className="member-stat-num">{info.integral || 0}</Text>
-            <Text className="member-stat-label">{tt('member.index.integral', '积分')}</Text>
-          </View>
-          <View className="member-stat">
-            <Text className="member-stat-num">{info.growth || 0}</Text>
-            <Text className="member-stat-label">{tt('member.index.growth', '成长值')}</Text>
-          </View>
-          <View className="member-stat">
-            <Text className="member-stat-num">{info.coupons || 0}</Text>
-            <Text className="member-stat-label">{tt('member.index.coupons', '优惠券')}</Text>
-          </View>
-        </View>
-
-        {/* 成长值进度条:当前等级 → 下一等级 */}
-        <View className="member-progress">
-          <View className="member-progress-header">
-            <Text>{tt('member.index.currentLevel', '当前等级')}</Text>
-            <Text className="member-progress-current">
-              {isMaxLevel ? tt('member.index.maxLevel', '已满级') : `${growth} / ${nextThreshold}`}
-            </Text>
-          </View>
-          <View className="member-progress-bar">
-            <View className="member-progress-fill" style={{ width: `${progressPercent}%` }} />
-          </View>
-          <Text className="member-progress-hint">
-            {isMaxLevel
-              ? tt('member.index.maxLevelHint', '已达成最高等级')
-              : tt(
-                  'member.index.nextLevelHint',
-                  t('member.y1', { p1: nextTier?.name ?? '', p2: nextThreshold - growth }),
-                )}
-          </Text>
-        </View>
-      </View>
-
-      {/* ===== 会员特权列表 ===== */}
-      <View className="member-card">
-        <Text className="member-card-title">{tt('member.index.privileges', '会员特权')}</Text>
-        <View className="member-benefits">
-          {benefits.map((b) => (
-            <View key={b.id} className="member-benefit-item">
-              <View className="member-benefit-icon">
-                <Image
-                  src="/static/images/icons/star.svg"
-                  mode="aspectFit"
-                  style={{ width: '28rpx', height: '28rpx' }}
-                />
-              </View>
-              <View className="member-benefit-content">
-                <Text className="member-benefit-title">{b.title}</Text>
-                <Text className="member-benefit-desc">{b.desc}</Text>
-              </View>
-              <Text className={`member-benefit-status ${isVip ? 'member-benefit-active' : ''}`}>
-                {isVip
-                  ? tt('member.index.opened', '已开通')
-                  : tt('member.index.notOpened', '未开通')}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* ===== VIP CTA(三态) ===== */}
-      {!isVip ? (
-        <View className="member-vip-cta">
-          <View className="member-vip-info">
-            <Text className="member-vip-title">{tt('member.index.openVip', '开通 VIP 会员')}</Text>
-            <Text className="member-vip-desc">
-              {tt('member.index.openVipDesc', '享受更多特权,提升 AI 体验')}
-            </Text>
-            <View className="member-vip-price">
-              <Text className="member-current-price">¥588</Text>
-              <Text className="member-original-price">¥1288</Text>
-            </View>
-          </View>
-          <Button className="member-vip-button" onClick={goToPayment}>
-            {tt('member.index.openNow', '立即开通')}
-          </Button>
-        </View>
-      ) : isPermanentVip ? (
-        <View className="member-vip-section member-vip-permanent">
-          <View className="member-permanent-badge">
+    <ThemeRoot>
+      <ScrollView scrollY className="member-page">
+        {/* ===== Header:用户信息 + VIP 状态 ===== */}
+        <View className="member-header">
+          <View className="member-user">
             <Image
-              className="member-crown"
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/gem.svg"
-              mode="aspectFit"
+              className="member-avatar"
+              src={profile.avatar || '/static/default-avatar.png'}
+              mode="aspectFill"
             />
-            <Text className="member-permanent-text">
-              {tt('member.index.permanentActive', '您已是永久 VIP 会员')}
-            </Text>
-          </View>
-          <Text className="member-cta-text">
-            {tt('member.index.allPrivileges', '已享有全部特权')}
-          </Text>
-        </View>
-      ) : (
-        <View className="member-vip-section">
-          <View className="member-vip-price">
-            <Text className="member-price-label">
-              {tt('member.index.upgradePermanent', '升级永久 VIP 会员')}
-            </Text>
-            <View className="member-price-display">
-              <Text className="member-current-price">¥588</Text>
-              <Text className="member-original-price">¥1288</Text>
+            <View className="member-user-detail">
+              <Text className="member-nickname">
+                {profile.nickname || tt('member.index.guest', '游客')}
+              </Text>
+              {isVip ? (
+                <View className="member-vip-badge">
+                  <Text className="member-vip-text">VIP</Text>
+                  <Text className="member-vip-expire">{expireText}</Text>
+                </View>
+              ) : (
+                <Text className="member-normal-user">
+                  {tt('member.index.normalUser', '普通用户')}
+                </Text>
+              )}
             </View>
           </View>
-          <Text className="member-cta-text">
-            {tt('member.index.upgradeHint', '您已是 VIP 会员,可升级为永久 VIP')}
+        </View>
+
+        {/* ===== 会员等级梯度 ===== */}
+        <View className="member-card">
+          <Text className="member-card-title">{tt('member.index.levelIntro', '会员等级介绍')}</Text>
+          <View className="member-level-grid">
+            {levelTiers.map((tier) => (
+              <View
+                key={tier.key}
+                className={`member-level-item member-level-${tier.key} ${
+                  tier.key === currentLevelKey ? 'member-level-current' : ''
+                }`}
+              >
+                <Text className="member-level-name">{tier.name}</Text>
+                <Text className="member-level-threshold">{tier.threshold}</Text>
+                <Text className="member-level-perks">{tier.perks}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ===== 使用统计 ===== */}
+        <View className="member-card">
+          <Text className="member-card-title">{tt('member.index.usageStats', '使用统计')}</Text>
+          <View className="member-stats">
+            <View className="member-stat">
+              <Text className="member-stat-num">{info.integral || 0}</Text>
+              <Text className="member-stat-label">{tt('member.index.integral', '积分')}</Text>
+            </View>
+            <View className="member-stat">
+              <Text className="member-stat-num">{info.growth || 0}</Text>
+              <Text className="member-stat-label">{tt('member.index.growth', '成长值')}</Text>
+            </View>
+            <View className="member-stat">
+              <Text className="member-stat-num">{info.coupons || 0}</Text>
+              <Text className="member-stat-label">{tt('member.index.coupons', '优惠券')}</Text>
+            </View>
+          </View>
+
+          {/* 成长值进度条:当前等级 → 下一等级 */}
+          <View className="member-progress">
+            <View className="member-progress-header">
+              <Text>{tt('member.index.currentLevel', '当前等级')}</Text>
+              <Text className="member-progress-current">
+                {isMaxLevel
+                  ? tt('member.index.maxLevel', '已满级')
+                  : `${growth} / ${nextThreshold}`}
+              </Text>
+            </View>
+            <View className="member-progress-bar">
+              <View className="member-progress-fill" style={{ width: `${progressPercent}%` }} />
+            </View>
+            <Text className="member-progress-hint">
+              {isMaxLevel
+                ? tt('member.index.maxLevelHint', '已达成最高等级')
+                : tt(
+                    'member.index.nextLevelHint',
+                    t('member.y1', { p1: nextTier?.name ?? '', p2: nextThreshold - growth }),
+                  )}
+            </Text>
+          </View>
+        </View>
+
+        {/* ===== 会员特权列表 ===== */}
+        <View className="member-card">
+          <Text className="member-card-title">{tt('member.index.privileges', '会员特权')}</Text>
+          <View className="member-benefits">
+            {benefits.map((b) => (
+              <View key={b.id} className="member-benefit-item">
+                <View className="member-benefit-icon">
+                  <Image
+                    src="/static/images/icons/star.svg"
+                    mode="aspectFit"
+                    style={{ width: '28rpx', height: '28rpx' }}
+                  />
+                </View>
+                <View className="member-benefit-content">
+                  <Text className="member-benefit-title">{b.title}</Text>
+                  <Text className="member-benefit-desc">{b.desc}</Text>
+                </View>
+                <Text className={`member-benefit-status ${isVip ? 'member-benefit-active' : ''}`}>
+                  {isVip
+                    ? tt('member.index.opened', '已开通')
+                    : tt('member.index.notOpened', '未开通')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* ===== VIP CTA(三态) ===== */}
+        {!isVip ? (
+          <View className="member-vip-cta">
+            <View className="member-vip-info">
+              <Text className="member-vip-title">
+                {tt('member.index.openVip', '开通 VIP 会员')}
+              </Text>
+              <Text className="member-vip-desc">
+                {tt('member.index.openVipDesc', '享受更多特权,提升 AI 体验')}
+              </Text>
+              <View className="member-vip-price">
+                <Text className="member-current-price">¥588</Text>
+                <Text className="member-original-price">¥1288</Text>
+              </View>
+            </View>
+            <Button className="member-vip-button" onClick={goToPayment}>
+              {tt('member.index.openNow', '立即开通')}
+            </Button>
+          </View>
+        ) : isPermanentVip ? (
+          <View className="member-vip-section member-vip-permanent">
+            <View className="member-permanent-badge">
+              <Image
+                className="member-crown"
+                style={{ width: '40rpx', height: '40rpx' }}
+                src="/static/images/icons/gem.svg"
+                mode="aspectFit"
+              />
+              <Text className="member-permanent-text">
+                {tt('member.index.permanentActive', '您已是永久 VIP 会员')}
+              </Text>
+            </View>
+            <Text className="member-cta-text">
+              {tt('member.index.allPrivileges', '已享有全部特权')}
+            </Text>
+          </View>
+        ) : (
+          <View className="member-vip-section">
+            <View className="member-vip-price">
+              <Text className="member-price-label">
+                {tt('member.index.upgradePermanent', '升级永久 VIP 会员')}
+              </Text>
+              <View className="member-price-display">
+                <Text className="member-current-price">¥588</Text>
+                <Text className="member-original-price">¥1288</Text>
+              </View>
+            </View>
+            <Text className="member-cta-text">
+              {tt('member.index.upgradeHint', '您已是 VIP 会员,可升级为永久 VIP')}
+            </Text>
+            <Button className="member-cta-button member-cta-outlined" onClick={goToPayment}>
+              {tt('member.index.upgradeNow', '升级永久 VIP')}
+            </Button>
+          </View>
+        )}
+
+        {/* ===== 快捷入口 ===== */}
+        <View className="member-menu">
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/benefits')}>
+            <Text>{tt('member.index.benefits', '会员权益')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/integral')}>
+            <Text>{tt('member.index.integralDetail', '积分明细')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon')}>
+            <Text>{tt('member.index.myCoupons', '我的优惠券')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+          <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon-list')}>
+            <Text>{tt('member.index.couponCenter', '领券中心')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+          <View className="member-menu-item" onClick={() => navigate('/pages/vip/index')}>
+            <Text>{tt('member.index.vip', 'VIP 会员')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+          <View className="member-menu-item" onClick={goToShare}>
+            <Text>{tt('member.index.share', '分享赚佣金')}</Text>
+            <Text className="member-arrow">›</Text>
+          </View>
+        </View>
+
+        {/* ===== 联系客服 ===== */}
+        <View className="member-contact">
+          <Text className="member-contact-title">
+            {tt('member.index.contactTitle', '遇到问题?')}
           </Text>
-          <Button className="member-cta-button member-cta-outlined" onClick={goToPayment}>
-            {tt('member.index.upgradeNow', '升级永久 VIP')}
-          </Button>
+          <Text className="member-contact-text">
+            {tt('member.index.contactText', '联系客服微信:AIXHS_Service')}
+          </Text>
         </View>
-      )}
 
-      {/* ===== 快捷入口 ===== */}
-      <View className="member-menu">
-        <View className="member-menu-item" onClick={() => navigate('/pages/member/benefits')}>
-          <Text>{tt('member.index.benefits', '会员权益')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-        <View className="member-menu-item" onClick={() => navigate('/pages/member/integral')}>
-          <Text>{tt('member.index.integralDetail', '积分明细')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-        <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon')}>
-          <Text>{tt('member.index.myCoupons', '我的优惠券')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-        <View className="member-menu-item" onClick={() => navigate('/pages/member/coupon-list')}>
-          <Text>{tt('member.index.couponCenter', '领券中心')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-        <View className="member-menu-item" onClick={() => navigate('/pages/vip/index')}>
-          <Text>{tt('member.index.vip', 'VIP 会员')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-        <View className="member-menu-item" onClick={goToShare}>
-          <Text>{tt('member.index.share', '分享赚佣金')}</Text>
-          <Text className="member-arrow">›</Text>
-        </View>
-      </View>
-
-      {/* ===== 联系客服 ===== */}
-      <View className="member-contact">
-        <Text className="member-contact-title">{tt('member.index.contactTitle', '遇到问题?')}</Text>
-        <Text className="member-contact-text">
-          {tt('member.index.contactText', '联系客服微信:AIXHS_Service')}
-        </Text>
-      </View>
-
-      {loading && (
-        <View className="member-loading">
-          <Text>{tt('member.index.loading', '加载中…')}</Text>
-        </View>
-      )}
-    </ScrollView>
+        {loading && (
+          <View className="member-loading">
+            <Text>{tt('member.index.loading', '加载中…')}</Text>
+          </View>
+        )}
+      </ScrollView>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
