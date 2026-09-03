@@ -62,7 +62,8 @@ const KNOWN_CATS = [
   'intelligence',
   'agentic',
 ]
-const REFRESH_MS = 5 * 60 * 1000
+// 排行榜数据每日 06:00 更新一次，30 分钟轮询足够（5 分钟太频繁且浪费）
+const REFRESH_MS = 30 * 60 * 1000
 
 function rankBadgeClass(rank: number): string {
   if (rank === 1) return 'text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-950/40'
