@@ -97,7 +97,7 @@ export default function VipPayConfirm({
 
         <View
           className="w-full py-3 rounded-md text-center"
-          style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}
+          style={{ background: 'var(--color-warning)' }}
           onClick={onConfirm}
         >
           <Text className="text-sm text-white font-medium">{t('pay.confirmPay', { price })}</Text>

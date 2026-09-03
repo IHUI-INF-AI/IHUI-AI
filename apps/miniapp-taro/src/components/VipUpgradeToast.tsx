@@ -46,7 +46,10 @@ export default function VipUpgradeToast({
     <View className="fixed top-4 left-0 right-0 z-40 flex justify-center px-4">
       <View
         className="flex items-center px-4 py-2.5 rounded-md shadow-lg"
-        style={{ background: 'linear-gradient(90deg, #fef3c7, #fde68a)' }}
+        style={{
+          background:
+            'linear-gradient(90deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05))',
+        }}
       >
         <Image
           className="mr-2"
@@ -58,7 +61,7 @@ export default function VipUpgradeToast({
 
         <View
           className="px-3 py-1 rounded-md"
-          style={{ background: 'linear-gradient(90deg, var(--color-warning), #d97706)' }}
+          style={{ background: 'var(--color-warning)' }}
           onClick={onUpgrade}
         >
           <Text className="text-xs text-white font-medium">{tt('vip.upgradeNow', '升级')}</Text>

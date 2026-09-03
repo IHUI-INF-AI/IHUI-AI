@@ -1,34 +1,29 @@
 /*
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
   Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-/* VIP 页 — 深色主题 + 金色强调(对齐原项目 zhs_app-ZZ)
-   局部 CSS 变量仅作用于 .vip-page,不污染全局 tokens */
+/* VIP 页 — 浅色 amber 语言(对齐 web 端 vip 主页,2026-09-03 亮色化)
+   表面一律用 token(亮/暗自动跟随);amber 仅作点缀(边框/淡底/图标/徽章),
+   主 CTA 黑底白字。头部 vip_back.png 为深色背景素材,图上方保留白字保证可读。 */
 
 .vip-page {
-  --vip-bg-dark: rgba(15, 22, 35, 1);
-  --vip-bg-dark-2: rgba(31, 41, 55, 1);
-  /* 已接入 token:var(--color-vip-gold-start)(#ffd700);其余局部金/橙/深色变量无对应 token,保留原值 */
-  --vip-gold: var(--color-vip-gold-start);
-  --vip-gold-2: var(--color-brand-orange);
-  --vip-gold-hover: rgba(255, 199, 0, 1);
-  --vip-gold-hover-2: rgba(255, 149, 0, 1);
+  --vip-gold: var(--color-warning);
   --vip-text: var(--color-foreground);
-  --vip-text-muted: rgba(255, 255, 255, 0.6);
-  --vip-border: rgba(255, 255, 255, 0.1);
-  --vip-card-bg: rgba(255, 255, 255, 0.05);
-  --vip-card-bg-hover: rgba(255, 255, 255, 0.1);
-  --vip-buy-bg: rgba(15, 23, 42, 0.95);
+  --vip-text-muted: var(--color-muted-foreground);
+  --vip-border: var(--color-border);
+  --vip-card-bg: var(--color-card);
+  --vip-card-bg-hover: var(--color-muted);
+  --vip-buy-bg: var(--color-card);
 
   min-height: 100vh;
-  background: linear-gradient(135deg, var(--vip-bg-dark), var(--vip-bg-dark-2));
+  background: var(--color-background);
   padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
   color: var(--vip-text);
 }
 
-/* ===== 头部 400rpx ===== */
+/* ===== 头部 400rpx(依赖 vip_back.png 深色背景图,图上方保留白字) ===== */
 .header {
   position: relative;
   height: 400rpx;
@@ -44,17 +39,18 @@
   position: relative;
   z-index: 2;
   padding: 60rpx 40rpx;
-  color: var(--vip-text);
+  color: #fff;
 }
 .title {
   font-size: 48rpx;
   font-weight: bold;
   margin-bottom: 16rpx;
+  color: #fff;
   text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3);
 }
 .subtitle {
   font-size: 28rpx;
-  opacity: 0.9;
+  color: rgba(255, 255, 255, 0.85);
   margin-bottom: 40rpx;
 }
 .price-box {
@@ -66,7 +62,6 @@
   font-size: 64rpx;
   font-weight: bold;
   color: var(--vip-gold);
-  text-shadow: 0 2rpx 10rpx rgba(255, 215, 0, 0.3);
 }
 
 /* ===== 状态行(等级 + 介绍入口 + 到期) ===== */
@@ -95,7 +90,7 @@
   color: var(--vip-text-muted);
 }
 
-/* ===== 特权列表(垂直 4 项) ===== */
+/* ===== 特权列表(垂直 6 项) ===== */
 .features {
   padding: 40rpx;
 }
@@ -151,10 +146,10 @@
 }
 .feature-tag {
   padding: 4rpx 16rpx;
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
+  background: var(--vip-gold);
   border-radius: var(--radius-md);
   font-size: 20rpx;
-  color: var(--vip-bg-dark-2);
+  color: var(--color-primary-foreground);
   font-weight: bold;
   flex-shrink: 0;
 }
@@ -178,21 +173,21 @@
   border-radius: var(--radius-lg);
 }
 
-/* VipPriceSelector 深色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖) */
+/* VipPriceSelector 浅色覆盖(组件用 Tailwind 类 + CSS 变量,不可改组件,父级覆盖) */
 .vip-page .border-yellow-400 {
-  border-color: var(--vip-gold);
+  border-color: var(--color-warning);
 }
 .vip-page .bg-yellow-50 {
-  background: rgba(255, 215, 0, 0.1);
+  background: rgba(245, 158, 11, 0.08);
 }
 .vip-page .text-yellow-700 {
-  color: var(--vip-gold);
+  color: var(--color-warning);
 }
 .vip-page .border-border {
   border-color: var(--vip-border);
 }
 .vip-page .bg-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-card);
 }
 .vip-page .text-foreground {
   color: var(--vip-text);
@@ -220,11 +215,11 @@
   flex-shrink: 0;
 }
 .auto-check.checked {
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-color: var(--vip-gold);
+  background: var(--color-warning);
+  border-color: var(--color-warning);
 }
 .auto-mark {
-  color: var(--vip-bg-dark-2);
+  color: var(--color-primary-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -242,7 +237,7 @@
 .member-desc {
   margin-top: 24rpx;
   padding: 24rpx;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-muted);
   border-radius: var(--radius-md);
 }
 .desc-text {
@@ -264,6 +259,7 @@
   background: var(--vip-buy-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--vip-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -290,10 +286,10 @@
 .buy-btn {
   flex: 1;
   padding: 20rpx 48rpx;
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
+  background: var(--color-primary);
   border-radius: var(--radius-xl);
   font-size: 32rpx;
-  color: var(--vip-bg-dark-2);
+  color: var(--color-primary-foreground);
   font-weight: bold;
   border: none;
   text-align: center;
@@ -304,10 +300,9 @@
 }
 .buy-btn:active {
   transform: scale(0.98);
-  background: linear-gradient(135deg, var(--vip-gold-hover), var(--vip-gold-hover-2));
 }
 
-/* ===== 5 弹窗(深色主题) ===== */
+/* ===== 5 弹窗(浅色卡片) ===== */
 .pp-mask {
   position: fixed;
   top: 0;
@@ -322,7 +317,7 @@
 }
 .pp-card {
   width: 600rpx;
-  background: linear-gradient(160deg, var(--vip-bg-dark-2), var(--vip-bg-dark));
+  background: var(--color-card);
   border: 1px solid var(--vip-border);
   border-radius: var(--radius-xl);
   padding: 40rpx;
@@ -348,8 +343,8 @@
   width: 100%;
   height: 88rpx;
   line-height: 88rpx;
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  color: var(--vip-bg-dark-2);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
   font-size: 32rpx;
   font-weight: 700;
   border-radius: var(--radius-xl);
@@ -406,11 +401,11 @@
   flex-shrink: 0;
 }
 .pp-checkbox.checked {
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
-  border-color: var(--vip-gold);
+  background: var(--color-warning);
+  border-color: var(--color-warning);
 }
 .pp-check-mark {
-  color: var(--vip-bg-dark-2);
+  color: var(--color-primary-foreground);
   font-size: 24rpx;
   font-weight: 700;
   line-height: 1;
@@ -429,8 +424,8 @@
   border: 1px solid var(--vip-border);
 }
 .pp-pay-item.active {
-  background: rgba(255, 215, 0, 0.1);
-  border-color: var(--vip-gold);
+  background: rgba(245, 158, 11, 0.1);
+  border-color: var(--color-warning);
 }
 .pp-pay-icon {
   width: 64rpx;
@@ -445,7 +440,7 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-/* custom color: #09bb07 微信品牌绿/#1677ff 支付宝品牌蓝/#ffffff 白字(在 .pp-pay-icon 中),无对应 token,保留原值 */
+/* 品牌支付渠道色(微信绿/支付宝蓝)保留,无对应 token */
 .pp-pay-icon.wechat {
   background: rgba(9, 187, 7, 1);
 }
@@ -468,10 +463,10 @@
   line-height: 96rpx;
   text-align: center;
   margin: 0 auto 24rpx;
-  background: linear-gradient(135deg, var(--vip-gold), var(--vip-gold-2));
+  background: var(--color-warning);
   border-radius: var(--radius-lg);
-  color: var(--vip-bg-dark-2);
+  color: var(--color-primary-foreground);
   font-size: 48rpx;
   font-weight: 700;
 }
-/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */
+/* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
