@@ -137,7 +137,10 @@ function ShopRow({
                 accessibilityLabel={`${item.name} 点赞`}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <ThumbsUp size={12} color={item.isThumbs ? tokens.brand.DEFAULT : '#6b7280'} />
+                  <ThumbsUp
+                    size={12}
+                    color={item.isThumbs ? tokens.brand.DEFAULT : tokens.text.secondary}
+                  />
                   <Text
                     style={[styles.reactionText, item.isThumbs ? styles.reactionTextActive : null]}
                   >
@@ -155,7 +158,10 @@ function ShopRow({
                 accessibilityLabel={`${item.name} 收藏`}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Star size={12} color={item.isCollect ? tokens.brand.DEFAULT : '#6b7280'} />
+                  <Star
+                    size={12}
+                    color={item.isCollect ? tokens.brand.DEFAULT : tokens.text.secondary}
+                  />
                   <Text
                     style={[styles.reactionText, item.isCollect ? styles.reactionTextActive : null]}
                   >
@@ -231,7 +237,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.light,
     padding: 12,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 3,

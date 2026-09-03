@@ -163,7 +163,7 @@ function TipBanner({ onPressMyModel }: { onPressMyModel: () => void }) {
   return (
     <View style={styles.tipOuter}>
       <View style={styles.tipInner}>
-        <Lightbulb size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
+        <Lightbulb size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
         <View style={styles.tipScrollContainer}>
           <Animated.View
             style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
@@ -548,7 +548,7 @@ export function StudyIndexScreen() {
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Flame size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
+                <Flame size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
               <Pressable
@@ -565,7 +565,7 @@ export function StudyIndexScreen() {
               previewModels.map((m) => (
                 <View key={m.id} style={styles.previewModelRow}>
                   <View style={styles.previewModelIcon}>
-                    <Bot size={18} color={'#6b7280'} />
+                    <Bot size={18} color={tk.text.secondary} />
                   </View>
                   <View style={styles.previewModelBody}>
                     <Text style={styles.previewModelName} numberOfLines={1}>
@@ -601,7 +601,7 @@ export function StudyIndexScreen() {
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Film size={18} color={'#6b7280'} style={{ marginRight: rpx(12) }} />
+                <Film size={18} color={tk.text.secondary} style={{ marginRight: rpx(12) }} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
               <Pressable
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: GRID_COVER_HEIGHT,
     borderRadius: 7,
-    backgroundColor: '#000',
+    backgroundColor: tk.gray.black,
   } as ImageStyle,
   gridCoverPlaceholder: {
     width: '100%',
@@ -882,18 +882,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 9,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tk.surface.light,
   } as TextStyle,
   gridCoverDate: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tk.surface.light,
     marginLeft: rpx(8),
   } as TextStyle,
   // 下方课程名(对齐 Uniapp .title {{ item.name }}:24rpx≈12dp,#3D3D3D)
   gridTitle: {
     fontSize: 12,
-    color: '#3D3D3D',
+    color: tk.text.medium,
     marginTop: rpx(8),
     marginBottom: rpx(8),
   } as TextStyle,
@@ -915,7 +915,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // Tip 提示横幅(对齐 Uniapp tip.vue)
   tipOuter: {
-    backgroundColor: '#d9e6fd',
+    backgroundColor: tk.indigo.light,
     padding: rpx(2),
     borderRadius: 7,
     marginBottom: rpx(18),
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
   tipInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eee',
+    backgroundColor: tk.border.light,
     borderRadius: 7,
     paddingVertical: rpx(4),
     paddingHorizontal: rpx(6),
@@ -944,7 +944,7 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#666666',
+    color: tk.text.secondary,
     paddingRight: rpx(20),
   } as TextStyle,
   tipMyModel: {
@@ -952,8 +952,8 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#518dfd',
-    backgroundColor: '#d9e6fd',
+    borderColor: tk.indigo.DEFAULT,
+    backgroundColor: tk.indigo.light,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: rpx(8),
@@ -961,7 +961,7 @@ const styles = StyleSheet.create({
   tipMyModelText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#000',
+    color: tk.gray.black,
   } as TextStyle,
   // 没有更多了(对齐 Uniapp study_list .line + .no-more-text)
   noMoreWrap: {
@@ -974,11 +974,11 @@ const styles = StyleSheet.create({
   noMoreLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: tk.border.light,
   } as ViewStyle,
   noMoreText: {
     marginHorizontal: rpx(20),
-    color: '#767676',
+    color: tk.text.tertiary,
     fontSize: 12,
   } as TextStyle,
   // 模型列表容器
