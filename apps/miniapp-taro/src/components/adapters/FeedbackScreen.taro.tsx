@@ -7,7 +7,8 @@ import { useTt, type TtFn } from '@/i18n'
 import { useCallback, useState } from 'react'
 import { View, Text, Input, Textarea } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { FeedbackScreenProps, FeedbackType, FeedbackSubmitPayload } from '@ihui/types'
 
 /**
@@ -191,7 +192,7 @@ export function FeedbackScreen({
   t,
   onSubmit,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: FeedbackScreenProps) {
   const [type, setType] = useState<FeedbackType>('bug')
   const [content, setContent] = useState('')
@@ -201,7 +202,9 @@ export function FeedbackScreen({
   const [success, setSuccess] = useState('')
 
   const tt = useTt()
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
 
   /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT(tt) 硬编码中文 */
   const tr = useCallback(
