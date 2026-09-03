@@ -8,6 +8,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** n8n 工作流状态映射 */
 function getStatusInfo(
@@ -110,32 +111,30 @@ export default function AiAssistantN8n() {
               const desc = String(item.description || item.desc || '')
               const statusInfo = getStatusInfo(item.status, tt)
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
-                  onClick={() => onItemClick(item)}
-                >
-                  <View className="flex items-center justify-between">
-                    <Text className="text-[30rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
-                      {name}
-                    </Text>
-                    <Text
-                      className={`py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
-                    >
-                      {statusInfo.label}
-                    </Text>
+                <ThemeRoot key={id} className="p-[24rpx] bg-card rounded-[12rpx]">
+                  <View key={id} onClick={() => onItemClick(item)}>
+                    <View className="flex items-center justify-between">
+                      <Text className="text-[30rpx] font-semibold text-foreground flex-1 min-w-0 truncate">
+                        {name}
+                      </Text>
+                      <Text
+                        className={`py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] flex-shrink-0 ml-[16rpx] ${statusInfo.cls}`}
+                      >
+                        {statusInfo.label}
+                      </Text>
+                    </View>
+                    {desc ? (
+                      <Text className="block mt-[12rpx] text-[24rpx] text-muted-foreground line-clamp-2">
+                        {desc}
+                      </Text>
+                    ) : null}
+                    <View className="mt-[16rpx]">
+                      <Text className="text-[24rpx] text-primary">
+                        {tt('aiAssistantN8n.openWorkflow', '打开工作流')} →
+                      </Text>
+                    </View>
                   </View>
-                  {desc ? (
-                    <Text className="block mt-[12rpx] text-[24rpx] text-muted-foreground line-clamp-2">
-                      {desc}
-                    </Text>
-                  ) : null}
-                  <View className="mt-[16rpx]">
-                    <Text className="text-[24rpx] text-primary">
-                      {tt('aiAssistantN8n.openWorkflow', '打开工作流')} →
-                    </Text>
-                  </View>
-                </View>
+                </ThemeRoot>
               )
             })}
           </View>

@@ -7,6 +7,7 @@ import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -155,7 +156,7 @@ export default function DeveloperIndex() {
       content: `${tt('developer.index.deleteConfirm', '确认删除智能体')}「${name}」?`,
       confirmText: tt('developer.index.deleteBtn', '删除'),
       // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-      confirmColor: '#dd524d',
+      confirmColor: 'rgba(221, 82, 77, 1)',
       success: async (res) => {
         if (!res.confirm) return
         try {
@@ -223,134 +224,136 @@ export default function DeveloperIndex() {
   }
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
-      <View className="px-[30rpx] py-[20rpx] bg-card">
-        <Text className="text-[36rpx] font-bold text-foreground">
-          {tt('developer.index.myAgents', '我的智能体')}
-        </Text>
-      </View>
-
-      <View
-        className="flex items-center bg-[linear-gradient(135deg,#4e8cff,#6a5cff)] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
-        onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
-      >
-        <View className="flex-1">
-          <Text className="block text-[32rpx] font-semibold text-foreground">
-            {t('developer.index.subscribeTitle')}
-          </Text>
-          <Text className="block text-[24rpx] text-[rgba(255,255,255,0.85)] mt-[8rpx]">
-            {t('developer.index.subscribeDesc')}
+    <ThemeRoot>
+      <View className="min-h-screen bg-background flex flex-col">
+        <View className="px-[30rpx] py-[20rpx] bg-card">
+          <Text className="text-[36rpx] font-bold text-foreground">
+            {tt('developer.index.myAgents', '我的智能体')}
           </Text>
         </View>
-        <Text className="text-[40rpx] text-foreground opacity-80">›</Text>
-      </View>
 
-      <View className="flex mx-[20rpx] p-[8rpx] bg-muted rounded-[12rpx]">
-        {STATUS_TABS.map((tab) => (
-          <View
-            key={tab.id}
-            className={`flex-1 h-[56rpx] leading-[56rpx] text-center text-[28rpx] text-foreground rounded-[8rpx]${mainTabActive(tab.id) ? ' bg-card font-semibold' : ''}`}
-            onClick={() => onChangeStatus(tab.id)}
-          >
-            <Text>{tt(tab.key, tab.name)}</Text>
+        <View
+          className="flex items-center bg-[linear-gradient(135deg,rgba(78, 140, 255, 1),rgba(106, 92, 255, 1))] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
+          onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
+        >
+          <View className="flex-1">
+            <Text className="block text-[32rpx] font-semibold text-foreground">
+              {t('developer.index.subscribeTitle')}
+            </Text>
+            <Text className="block text-[24rpx] text-[rgba(255,255,255,0.85)] mt-[8rpx]">
+              {t('developer.index.subscribeDesc')}
+            </Text>
           </View>
-        ))}
-      </View>
+          <Text className="text-[40rpx] text-foreground opacity-80">›</Text>
+        </View>
 
-      <View className="mx-[20rpx] my-[20rpx] px-[24rpx] bg-card rounded-[12rpx]">
-        <Input
-          className="h-[72rpx] text-[28rpx] text-foreground"
-          type="text"
-          placeholder={tt('developer.index.searchPlaceholder', '搜索智能体名称')}
-          value={search}
-          onInput={(e) => setSearch(e.detail.value)}
-          onConfirm={onSearchConfirm}
-        />
-      </View>
-
-      {showSubTabs ? (
-        <View className="flex mx-[20rpx] mb-[12rpx] gap-[36rpx]">
-          {SUB_TABS.map((tab) => (
+        <View className="flex mx-[20rpx] p-[8rpx] bg-muted rounded-[12rpx]">
+          {STATUS_TABS.map((tab) => (
             <View
               key={tab.id}
-              className={`text-[28rpx] text-muted-foreground py-[8rpx]${status === tab.id ? ' text-primary font-semibold' : ''}`}
+              className={`flex-1 h-[56rpx] leading-[56rpx] text-center text-[28rpx] text-foreground rounded-[8rpx]${mainTabActive(tab.id) ? ' bg-card font-semibold' : ''}`}
               onClick={() => onChangeStatus(tab.id)}
             >
               <Text>{tt(tab.key, tab.name)}</Text>
             </View>
           ))}
         </View>
-      ) : null}
 
-      <ScrollView
-        className="flex-1 h-0 px-[20rpx] pb-[20rpx]"
-        scrollY
-        lowerThreshold={50}
-        onScrollToLower={onScrollToLower}
-      >
-        {loading && list.length === 0 ? (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
-            {t('common.loading')}
-          </Text>
-        ) : list.length ? (
-          list.map((agent) => (
-            <View
-              key={String(agent.agent_id ?? agent.id)}
-              className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
-            >
-              <Image
-                className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-background flex-shrink-0"
-                src={agent.agent_avatar || '/static/default-agent.png'}
-                mode="aspectFill"
-              />
-              <View className="flex-1 ml-[20rpx] min-w-0">
-                <Text className="block text-[30rpx] text-foreground font-medium mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-                  {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
-                </Text>
-                {agent.prologue ? (
-                  <Text className="block text-[24rpx] text-muted-foreground mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-                    {agent.prologue}
-                  </Text>
-                ) : null}
-                <Text className="text-[24rpx] text-muted-foreground">
-                  {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
-                </Text>
+        <View className="mx-[20rpx] my-[20rpx] px-[24rpx] bg-card rounded-[12rpx]">
+          <Input
+            className="h-[72rpx] text-[28rpx] text-foreground"
+            type="text"
+            placeholder={tt('developer.index.searchPlaceholder', '搜索智能体名称')}
+            value={search}
+            onInput={(e) => setSearch(e.detail.value)}
+            onConfirm={onSearchConfirm}
+          />
+        </View>
+
+        {showSubTabs ? (
+          <View className="flex mx-[20rpx] mb-[12rpx] gap-[36rpx]">
+            {SUB_TABS.map((tab) => (
+              <View
+                key={tab.id}
+                className={`text-[28rpx] text-muted-foreground py-[8rpx]${status === tab.id ? ' text-primary font-semibold' : ''}`}
+                onClick={() => onChangeStatus(tab.id)}
+              >
+                <Text>{tt(tab.key, tab.name)}</Text>
               </View>
-              <View className="flex flex-col items-end gap-[12rpx] flex-shrink-0 ml-[16rpx]">
-                <Text className={agentStatusClass(agent.status ?? status)}>
-                  {statusText(agent.status ?? status)}
-                </Text>
-                <View className="flex gap-[16rpx]">
-                  <Text
-                    className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-[rgba(78,140,255,0.1)]"
-                    onClick={() => onEdit(agent)}
-                  >
-                    {status === 2
-                      ? tt('developer.index.editBtn2', '修改')
-                      : tt('developer.index.editBtn', '设置')}
+            ))}
+          </View>
+        ) : null}
+
+        <ScrollView
+          className="flex-1 h-0 px-[20rpx] pb-[20rpx]"
+          scrollY
+          lowerThreshold={50}
+          onScrollToLower={onScrollToLower}
+        >
+          {loading && list.length === 0 ? (
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+              {t('common.loading')}
+            </Text>
+          ) : list.length ? (
+            list.map((agent) => (
+              <View
+                key={String(agent.agent_id ?? agent.id)}
+                className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+              >
+                <Image
+                  className="w-[80rpx] h-[80rpx] rounded-[8rpx] bg-background flex-shrink-0"
+                  src={agent.agent_avatar || '/static/default-agent.png'}
+                  mode="aspectFill"
+                />
+                <View className="flex-1 ml-[20rpx] min-w-0">
+                  <Text className="block text-[30rpx] text-foreground font-medium mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                    {agent.agent_name || tt('developer.index.unnamedAgent', '未命名智能体')}
                   </Text>
-                  <Text
-                    className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]"
-                    onClick={() => onDelete(agent)}
-                  >
-                    {tt('developer.index.deleteBtn', '删除')}
+                  {agent.prologue ? (
+                    <Text className="block text-[24rpx] text-muted-foreground mb-[8rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+                      {agent.prologue}
+                    </Text>
+                  ) : null}
+                  <Text className="text-[24rpx] text-muted-foreground">
+                    {tt('developer.index.typeLabel', '类型')}：{getTypeText(agent)}
                   </Text>
                 </View>
+                <View className="flex flex-col items-end gap-[12rpx] flex-shrink-0 ml-[16rpx]">
+                  <Text className={agentStatusClass(agent.status ?? status)}>
+                    {statusText(agent.status ?? status)}
+                  </Text>
+                  <View className="flex gap-[16rpx]">
+                    <Text
+                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-[rgba(78,140,255,0.1)]"
+                      onClick={() => onEdit(agent)}
+                    >
+                      {status === 2
+                        ? tt('developer.index.editBtn2', '修改')
+                        : tt('developer.index.editBtn', '设置')}
+                    </Text>
+                    <Text
+                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]"
+                      onClick={() => onDelete(agent)}
+                    >
+                      {tt('developer.index.deleteBtn', '删除')}
+                    </Text>
+                  </View>
+                </View>
               </View>
-            </View>
-          ))
-        ) : (
-          <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
-            {t('developer.index.empty')}
-          </Text>
-        )}
-        {list.length > 0 && !hasMore ? (
-          <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
-            {tt('developer.index.noMore', '没有更多了')}
-          </Text>
-        ) : null}
-      </ScrollView>
-    </View>
+            ))
+          ) : (
+            <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
+              {t('developer.index.empty')}
+            </Text>
+          )}
+          {list.length > 0 && !hasMore ? (
+            <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
+              {tt('developer.index.noMore', '没有更多了')}
+            </Text>
+          ) : null}
+        </ScrollView>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

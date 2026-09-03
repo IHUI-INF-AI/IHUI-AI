@@ -10,6 +10,7 @@ import { sendSmsCode, post } from '@/api'
 import PhoneAreaCodePicker from '@/components/PhoneAreaCodePicker'
 import PasswordVisibilityToggle from '@/components/PasswordVisibilityToggle'
 import AuthButton from '@/components/AuthButton'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 /**
@@ -122,7 +123,7 @@ export default function ForgotPassword() {
   }
 
   return (
-    <View className="container-ali">
+    <ThemeRoot className="container-ali">
       <View className="container1">
         <Image className="bg-image" src="/static/images/loginbackk.png" mode="aspectFill" />
         <View className="container-box">
@@ -172,7 +173,7 @@ export default function ForgotPassword() {
                         type="number"
                         maxlength={11}
                         placeholder={t('forgot.phonePlaceholder')}
-                        placeholderStyle="color:#6B6980;font-size: 24rpx;font-weight: normal;"
+                        placeholderStyle="color: var(--color-muted-foreground);font-size: 24rpx;font-weight: normal;"
                         value={phone}
                         onInput={(e) => setPhone(e.detail.value)}
                         onFocus={() => setIsPhoneFocused(true)}
@@ -196,7 +197,7 @@ export default function ForgotPassword() {
                         type="number"
                         maxlength={6}
                         placeholder={t('forgot.codePlaceholder')}
-                        placeholderStyle="color:#6B6980;font-size: 24rpx;font-weight: normal;"
+                        placeholderStyle="color: var(--color-muted-foreground);font-size: 24rpx;font-weight: normal;"
                         value={code}
                         onInput={(e) => setCode(e.detail.value)}
                         onFocus={() => setIsCodeFocused(true)}
@@ -225,7 +226,7 @@ export default function ForgotPassword() {
                         password={!showNew}
                         maxlength={20}
                         placeholder={t('forgot.newPasswordPlaceholder')}
-                        placeholderStyle="color:#6B6980;font-size: 24rpx;font-weight: normal;"
+                        placeholderStyle="color: var(--color-muted-foreground);font-size: 24rpx;font-weight: normal;"
                         value={newPassword}
                         onInput={(e) => setNewPassword(e.detail.value)}
                         onFocus={() => setIsNewPwdFocused(true)}
@@ -258,7 +259,7 @@ export default function ForgotPassword() {
                         password={!showConfirm}
                         maxlength={20}
                         placeholder={t('forgot.confirmPasswordPlaceholder')}
-                        placeholderStyle="color:#6B6980;font-size: 24rpx;font-weight: normal;"
+                        placeholderStyle="color: var(--color-muted-foreground);font-size: 24rpx;font-weight: normal;"
                         value={confirmPassword}
                         onInput={(e) => setConfirmPassword(e.detail.value)}
                         onFocus={() => setIsConfirmPwdFocused(true)}
@@ -307,7 +308,7 @@ export default function ForgotPassword() {
           </View>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

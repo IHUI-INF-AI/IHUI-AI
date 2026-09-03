@@ -10,6 +10,7 @@ import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
 import { AGENT_DIALOGUE_DATA_KEY } from '@/constants/storage'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type MsgType = 'user' | 'seller' | 'system'
 type MediaType = 'image' | 'audio' | 'video' | 'file' | null
@@ -573,7 +574,7 @@ export default function AgentDialogue() {
   }
 
   return (
-    <View className="flex flex-col h-screen bg-background">
+    <ThemeRoot className="flex flex-col h-screen bg-background">
       <ScrollView
         className="flex-1 min-h-0 pb-[180rpx]"
         scrollY
@@ -664,7 +665,7 @@ export default function AgentDialogue() {
           <Text className="text-[28rpx] text-primary-foreground">{t('chat.send')}</Text>
         </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

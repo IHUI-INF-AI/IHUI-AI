@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -236,29 +237,32 @@ export default function NewsListPage() {
           {visibleList.map((n) => {
             const isRead = readIds.has(String(n.id))
             return (
-              <View
-                key={n.id}
-                className={`item${isRead ? ' item-read' : ''}`}
-                onClick={() => goDetail(n.id)}
-              >
-                {n.coverUrl ? <Image className="cover" src={n.coverUrl} mode="aspectFill" /> : null}
-                <View className="body">
-                  <View className="title-row">
-                    {!isRead ? <Text className="unread-dot" /> : null}
-                    <Text className="title">{n.title}</Text>
-                  </View>
-                  {n.summary ? <Text className="summary">{n.summary}</Text> : null}
-                  <View className="meta">
-                    <Text className="time">{n.createTime}</Text>
-                    <Text className="views">
-                      {tt('news.readCount', '{n}阅读', {
-                        n: formatViews(Number(n.views ?? 0)),
-                      })}
-                    </Text>
-                    {n.source ? <Text className="source">{n.source}</Text> : null}
+              <ThemeRoot key={n.id}>
+                <View
+                  className={`item${isRead ? ' item-read' : ''}`}
+                  onClick={() => goDetail(n.id)}
+                >
+                  {n.coverUrl ? (
+                    <Image className="cover" src={n.coverUrl} mode="aspectFill" />
+                  ) : null}
+                  <View className="body">
+                    <View className="title-row">
+                      {!isRead ? <Text className="unread-dot" /> : null}
+                      <Text className="title">{n.title}</Text>
+                    </View>
+                    {n.summary ? <Text className="summary">{n.summary}</Text> : null}
+                    <View className="meta">
+                      <Text className="time">{n.createTime}</Text>
+                      <Text className="views">
+                        {tt('news.readCount', '{n}阅读', {
+                          n: formatViews(Number(n.views ?? 0)),
+                        })}
+                      </Text>
+                      {n.source ? <Text className="source">{n.source}</Text> : null}
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

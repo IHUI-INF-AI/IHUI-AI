@@ -31,17 +31,17 @@
   flex-direction: column;
   align-items: center;
   padding: 48rpx 32rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   margin-bottom: 20rpx;
 }
 
 .exam-result-hero.passed {
-  background: linear-gradient(135deg, #4caf50, #66bb6a);
+  background: linear-gradient(135deg, rgba(76, 175, 80, 1), rgba(102, 187, 106, 1));
   /* custom color: 成绩通过渐变绿色 */
 }
 
 .exam-result-hero.failed {
-  background: linear-gradient(135deg, #dd524d, #e57373);
+  background: linear-gradient(135deg, rgba(221, 82, 77, 1), rgba(229, 115, 115, 1));
   /* custom color: 成绩未通过渐变红色 */
 }
 
@@ -52,7 +52,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.25);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 48rpx;
   color: var(--color-primary-foreground);
   font-weight: 700;
@@ -89,7 +89,7 @@
   display: flex;
   flex-wrap: wrap;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx 16rpx;
   margin-bottom: 20rpx;
 }
@@ -132,7 +132,7 @@
 /* 通用卡片 */
 .exam-result-card {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -170,7 +170,7 @@
 .exam-result-review-status {
   font-size: 22rpx;
   padding: 4rpx 16rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
 }
 
 .exam-result-review-status.correct {
@@ -225,7 +225,7 @@
 
 .exam-result-review-analysis {
   background: var(--color-background);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   padding: 16rpx;
   margin-top: 12rpx;
 }
@@ -272,7 +272,7 @@
   height: 80rpx;
   line-height: 80rpx;
   font-size: 28rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   border: none;
   padding: 0;
 }

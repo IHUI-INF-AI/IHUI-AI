@@ -189,6 +189,28 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '1') {
   console.log('⏭  4 端 i18n 死 key 扫描(HUSKY_SKIP_I18N_DEAD_KEY_OTHER=1, 跳过)')
 }
 
+// 🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)
+// 背景:web 与 miniapp-taro 必须视觉一致。本次重构建立守门,防止深色科技风回潮、
+//       路由页漏挂 <ThemeRoot>、已删除装饰类重新引用、app.css token 块被手改。
+// 阻塞规则:RULE-1a(禁用色板)/RULE-2(app.css 回归)/RULE-3(路由页 ThemeRoot)/RULE-5(删除类复用)。
+// WARN 规则:RULE-1b(其他 hex)/RULE-4(tsx 内联 hex)不阻塞提交。
+// 跳过方法(紧急):HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...
+if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
+  if (
+    !run(
+      '🎨 miniapp-taro 跨端样式一致性守门(2026-09-03 立)',
+      'node scripts/check-miniapp-taro-style-parity.mjs',
+    )
+  ) {
+    console.error('❌ miniapp-taro 跨端样式一致性守门失败,提交已阻止')
+    console.error('   修复方法:见脚本输出定位 BLOCK 级问题(禁用色板/路由页 ThemeRoot/删除类复用/app.css 回归)')
+    console.error('   紧急跳过: HUSKY_SKIP_MINIAPP_PARITY=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  miniapp-taro 跨端样式一致性守门(HUSKY_SKIP_MINIAPP_PARITY=1, 跳过)')
+}
+
 // 16. staged typecheck 闸门(全端,2026-07-30 立,2026-08-18 根治)
 // 全量 typecheck 的"失败阻塞"只针对 staged 文件:scripts/check-staged-typecheck.mjs
 // 按 package 分组 + 临时 tsconfig 沿用全量 include(加载完整模块扩展,避免 TS2339

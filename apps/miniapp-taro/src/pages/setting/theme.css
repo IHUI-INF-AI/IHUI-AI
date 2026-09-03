@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .theme-current-icon {
   margin-right: 24rpx;
@@ -53,7 +53,7 @@
   align-items: center;
   padding: 28rpx 32rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .theme-item.active {
   background: var(--color-border);
@@ -87,7 +87,7 @@
 .theme-hint {
   padding: 24rpx 32rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .theme-hint-title {
   display: block;

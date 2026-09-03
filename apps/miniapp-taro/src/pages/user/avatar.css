@@ -22,7 +22,7 @@
   position: relative;
   width: 200rpx;
   height: 200rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
@@ -45,7 +45,7 @@
 .avatar-preview-tip-text {
   font-size: 22rpx;
   /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: #fff;
+  color: var(--color-foreground);
 }
 .avatar-nickname {
   margin-top: 24rpx;
@@ -67,13 +67,13 @@
   line-height: 88rpx;
   font-size: 30rpx;
   font-weight: 600;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   text-align: center;
 }
 .avatar-btn-primary {
   background: var(--color-primary);
   /* custom color: #1a1a2e 深色文字在主色按钮上,无对应 token,保留原值 */
-  color: #1a1a2e;
+  color: rgba(26, 26, 46, 1);
 }
 .avatar-btn-outline {
   background: transparent;
@@ -116,7 +116,7 @@
 .avatar-loading-text {
   padding: 24rpx 48rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-foreground);
 }

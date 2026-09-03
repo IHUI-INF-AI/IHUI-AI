@@ -15,6 +15,7 @@ import {
   post,
 } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type PayMethod = 'wechat' | 'alipay' | 'balance'
 
@@ -214,138 +215,78 @@ export default function PayIndex() {
   const radioOn = 'border-primary bg-primary'
 
   return (
-    <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
-      <View
-        className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}
-      >
-        <Text
-          className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}
-        >
-          {expired
-            ? tt('pay.orderExpired', '订单已超时')
-            : t('pay.countdownTip', { time: formatTime(remaining) })}
-        </Text>
-      </View>
-
-      <View className="px-[32rpx] py-[40rpx] bg-card rounded-2xl border-[2rpx] border-border text-center">
-        <Text className="block text-[26rpx] text-muted-foreground">{t('pay.orderAmount')}</Text>
-        <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">
-          ¥{priceFmt.format(finalAmount)}
-        </Text>
-        {couponDiscount > 0 && (
-          <Text className="block mt-[12rpx] text-[24rpx] text-success">
-            {t('pay.couponSaved', { n: priceFmt.format(couponDiscount) })}
-          </Text>
-        )}
-      </View>
-
-      <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
-        <View className="flex items-center justify-between py-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">{tt('pay.orderNo', '订单号')}</Text>
-          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-            {orderNo || '—'}
-          </Text>
-        </View>
-        <View className="flex items-center justify-between py-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">
-            {tt('pay.goodsName', '商品名称')}
-          </Text>
-          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-            {orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅')}
-          </Text>
-        </View>
-        <View className="flex items-center justify-between py-[12rpx]">
-          <Text className="text-[26rpx] text-muted-foreground">
-            {tt('pay.createTime', '下单时间')}
-          </Text>
-          <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
-            {orderDetail.createTime || '—'}
-          </Text>
-        </View>
-      </View>
-
-      <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
-        <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
-          {t('pay.selectMethod')}
-        </Text>
-
+    <ThemeRoot>
+      <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
         <View
-          className={`${methodBase}${payMethod === 'wechat' ? ` ${methodActive}` : ''}`}
-          onClick={() => onSelectMethod('wechat')}
+          className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}
         >
-          <View
-            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.wechat}`}
+          <Text
+            className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}
           >
-            {tt('pay.wechat', '微')}
-          </View>
-          <View className="flex-1 ml-[24rpx] flex flex-col">
-            <Text className="text-[28rpx] text-foreground">{t('pay.wechat')}</Text>
-          </View>
-          <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
-            {payMethod === 'wechat' && (
-              <Image
-                src="/static/images/icons/check.svg"
-                mode="aspectFit"
-                className="text-primary-foreground font-bold"
-                style={{ width: '24rpx', height: '24rpx' }}
-              />
-            )}
-          </View>
+            {expired
+              ? tt('pay.orderExpired', '订单已超时')
+              : t('pay.countdownTip', { time: formatTime(remaining) })}
+          </Text>
         </View>
 
-        <View
-          className={`${methodBase}${payMethod === 'alipay' ? ` ${methodActive}` : ''}`}
-          onClick={() => onSelectMethod('alipay')}
-        >
-          <View
-            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.alipay}`}
-          >
-            {tt('pay.alipay', '支')}
-          </View>
-          <View className="flex-1 ml-[24rpx] flex flex-col">
-            <Text className="text-[28rpx] text-foreground">{tt('pay.alipay', '支付宝')}</Text>
-          </View>
-          <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
-            {payMethod === 'alipay' && (
-              <Image
-                src="/static/images/icons/check.svg"
-                mode="aspectFit"
-                className="text-primary-foreground font-bold"
-                style={{ width: '24rpx', height: '24rpx' }}
-              />
-            )}
-          </View>
+        <View className="px-[32rpx] py-[40rpx] bg-card rounded-2xl border-[2rpx] border-border text-center">
+          <Text className="block text-[26rpx] text-muted-foreground">{t('pay.orderAmount')}</Text>
+          <Text className="block mt-[16rpx] text-[64rpx] text-destructive font-bold">
+            ¥{priceFmt.format(finalAmount)}
+          </Text>
+          {couponDiscount > 0 && (
+            <Text className="block mt-[12rpx] text-[24rpx] text-success">
+              {t('pay.couponSaved', { n: priceFmt.format(couponDiscount) })}
+            </Text>
+          )}
         </View>
 
-        <View
-          className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
-          onClick={() => onSelectMethod('balance')}
-        >
-          <View
-            className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.balance}`}
-          >
-            {tt('pay.balance', '余')}
-          </View>
-          <View className="flex-1 ml-[24rpx] flex flex-col">
-            <Text className="text-[28rpx] text-foreground">{tt('pay.balance', '余额支付')}</Text>
-            <Text className="mt-[6rpx] text-[24rpx] text-muted-foreground">
-              {t('pay.balanceAmount', { n: priceFmt.format(balance) })}
-              {balanceInsufficient ? ` · ${tt('pay.balanceInsufficient', '余额不足,请充值')}` : ''}
+        <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
+          <View className="flex items-center justify-between py-[12rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">
+              {tt('pay.orderNo', '订单号')}
+            </Text>
+            <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+              {orderNo || '—'}
             </Text>
           </View>
-          {balanceInsufficient ? (
-            <Text
-              className="px-[20rpx] py-[8rpx] text-[24rpx] text-primary border-[2rpx] border-primary rounded-lg"
-              onClick={(e) => {
-                e.stopPropagation()
-                goRecharge()
-              }}
+          <View className="flex items-center justify-between py-[12rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">
+              {tt('pay.goodsName', '商品名称')}
+            </Text>
+            <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+              {orderDetail.goodsName || tt('pay.vipSubscription', '会员订阅')}
+            </Text>
+          </View>
+          <View className="flex items-center justify-between py-[12rpx]">
+            <Text className="text-[26rpx] text-muted-foreground">
+              {tt('pay.createTime', '下单时间')}
+            </Text>
+            <Text className="text-[26rpx] text-foreground max-w-[360rpx] overflow-hidden text-ellipsis whitespace-nowrap">
+              {orderDetail.createTime || '—'}
+            </Text>
+          </View>
+        </View>
+
+        <View className="mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border">
+          <Text className="block text-[28rpx] text-foreground font-semibold mb-[16rpx]">
+            {t('pay.selectMethod')}
+          </Text>
+
+          <View
+            className={`${methodBase}${payMethod === 'wechat' ? ` ${methodActive}` : ''}`}
+            onClick={() => onSelectMethod('wechat')}
+          >
+            <View
+              className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.wechat}`}
             >
-              {tt('pay.recharge', '充值')}
-            </Text>
-          ) : (
-            <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
-              {payMethod === 'balance' && (
+              {tt('pay.wechat', '微')}
+            </View>
+            <View className="flex-1 ml-[24rpx] flex flex-col">
+              <Text className="text-[28rpx] text-foreground">{t('pay.wechat')}</Text>
+            </View>
+            <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
+              {payMethod === 'wechat' && (
                 <Image
                   src="/static/images/icons/check.svg"
                   mode="aspectFit"
@@ -354,42 +295,108 @@ export default function PayIndex() {
                 />
               )}
             </View>
-          )}
-        </View>
-      </View>
+          </View>
 
-      <View
-        className="flex items-center justify-between mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border"
-        onClick={onSelectCoupon}
-      >
-        <Text className="text-[28rpx] text-foreground">{tt('pay.coupon', '优惠券')}</Text>
-        <View className="flex items-center">
-          {selectedCoupon ? (
-            <Text className="text-[28rpx] text-destructive font-semibold">
-              -¥{priceFmt.format(selectedCoupon.amount)}
-            </Text>
-          ) : (
-            <Text className="text-[26rpx] text-muted-foreground">
-              {coupons.length > 0
-                ? t('pay.couponAvailable', { n: coupons.length })
-                : tt('pay.noCoupon', '暂无可用优惠券')}
-            </Text>
-          )}
-          <Text className="ml-[12rpx] text-[32rpx] text-muted-foreground">›</Text>
-        </View>
-      </View>
+          <View
+            className={`${methodBase}${payMethod === 'alipay' ? ` ${methodActive}` : ''}`}
+            onClick={() => onSelectMethod('alipay')}
+          >
+            <View
+              className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.alipay}`}
+            >
+              {tt('pay.alipay', '支')}
+            </View>
+            <View className="flex-1 ml-[24rpx] flex flex-col">
+              <Text className="text-[28rpx] text-foreground">{tt('pay.alipay', '支付宝')}</Text>
+            </View>
+            <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
+              {payMethod === 'alipay' && (
+                <Image
+                  src="/static/images/icons/check.svg"
+                  mode="aspectFit"
+                  className="text-primary-foreground font-bold"
+                  style={{ width: '24rpx', height: '24rpx' }}
+                />
+              )}
+            </View>
+          </View>
 
-      <Button
-        className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-2xl text-[32rpx] font-bold${payDisabled ? ' opacity-50' : ''}`}
-        loading={submitting}
-        disabled={payDisabled}
-        onClick={onPay}
-      >
-        {expired
-          ? tt('pay.orderExpired', '订单已超时')
-          : `${t('pay.confirm')} ¥${priceFmt.format(finalAmount)}`}
-      </Button>
-    </View>
+          <View
+            className={`${methodBase}${payMethod === 'balance' ? ` ${methodActive}` : ''}`}
+            onClick={() => onSelectMethod('balance')}
+          >
+            <View
+              className={`w-[64rpx] h-[64rpx] leading-[64rpx] text-center rounded-xl text-[28rpx] bg-muted font-bold ${METHOD_ICON_COLOR.balance}`}
+            >
+              {tt('pay.balance', '余')}
+            </View>
+            <View className="flex-1 ml-[24rpx] flex flex-col">
+              <Text className="text-[28rpx] text-foreground">{tt('pay.balance', '余额支付')}</Text>
+              <Text className="mt-[6rpx] text-[24rpx] text-muted-foreground">
+                {t('pay.balanceAmount', { n: priceFmt.format(balance) })}
+                {balanceInsufficient
+                  ? ` · ${tt('pay.balanceInsufficient', '余额不足,请充值')}`
+                  : ''}
+              </Text>
+            </View>
+            {balanceInsufficient ? (
+              <Text
+                className="px-[20rpx] py-[8rpx] text-[24rpx] text-primary border-[2rpx] border-primary rounded-lg"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  goRecharge()
+                }}
+              >
+                {tt('pay.recharge', '充值')}
+              </Text>
+            ) : (
+              <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
+                {payMethod === 'balance' && (
+                  <Image
+                    src="/static/images/icons/check.svg"
+                    mode="aspectFit"
+                    className="text-primary-foreground font-bold"
+                    style={{ width: '24rpx', height: '24rpx' }}
+                  />
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View
+          className="flex items-center justify-between mt-[24rpx] px-[32rpx] py-[24rpx] bg-card rounded-2xl border-[2rpx] border-border"
+          onClick={onSelectCoupon}
+        >
+          <Text className="text-[28rpx] text-foreground">{tt('pay.coupon', '优惠券')}</Text>
+          <View className="flex items-center">
+            {selectedCoupon ? (
+              <Text className="text-[28rpx] text-destructive font-semibold">
+                -¥{priceFmt.format(selectedCoupon.amount)}
+              </Text>
+            ) : (
+              <Text className="text-[26rpx] text-muted-foreground">
+                {coupons.length > 0
+                  ? t('pay.couponAvailable', { n: coupons.length })
+                  : tt('pay.noCoupon', '暂无可用优惠券')}
+              </Text>
+            )}
+            <Text className="ml-[12rpx] text-[32rpx] text-muted-foreground">›</Text>
+          </View>
+        </View>
+
+        <Button
+          className={`fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-2xl text-[32rpx] font-bold${payDisabled ? ' opacity-50' : ''}`}
+          loading={submitting}
+          disabled={payDisabled}
+          onClick={onPay}
+        >
+          {expired
+            ? tt('pay.orderExpired', '订单已超时')
+            : `${t('pay.confirm')} ¥${priceFmt.format(finalAmount)}`}
+        </Button>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
