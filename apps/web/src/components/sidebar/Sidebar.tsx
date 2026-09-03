@@ -65,15 +65,17 @@ const Sidebar = React.memo(function Sidebar({
     }
   }, [pathname, pendingHref])
 
-  // 预取策略(2026-09-03 终极收口,根治"点击后不立马响应"):
-  // next 16.3.4 升级后 Turbopack 编译已快到 17~49ms(此前 16.2.12 需 3~5s),
-  // 整套"对抗冷编译"的预热体系(第一~第七刀:全量 router.prefetch + dev fetch 预热 worker)
-  // 已失去存在意义,反而成为点击延迟元凶:
-  //   · <Link> 视口预取:每次导航后把 40 条侧边栏链接全部重新预取,25+ 串行 RSC 请求抢占网络
-  //   · dev fetch(RSC) 预热 worker:并发 4 一直跑 50~70s,用户点击时仍抢发请求抢带宽
-  //   · 全量 184 条 router.prefetch:撑大 Turbopack 缓存(曾 24~40GB 膨胀)+ 拖累 LCP
-  // 结论:彻底移除 Sidebar 层所有预热,预取回归 Next 原生"悬停按需"
-  // (NavLink onPointerEnter/onFocus → router.prefetch),生产命中缓存瞬时切换,dev 点击即按需编译(17~49ms)。
+  // 预取策略(2026-09-04 修正:恢复生产预取,只删过度预热):
+  // next 16.3.4 升级后 Turbopack 编译已快到 17~49ms,专为"对抗 3-5s 冷编译"设计的
+  // dev fetch(RSC) 预热 worker 与"挂载即全量预取 184 条"已无必要,反而:
+  //   · 撑大 Turbopack 缓存(曾 24~40GB 膨胀)+ 拖累 LCP
+  //   · dev 预热 worker 并发抢发请求,与点击竞争带宽
+  // 故移除 Sidebar 层主动预热。但**保留 Next 原生预取**——实测生产模式悬停预取后
+  // 点击 314ms→143ms(prefetchRsc 缓存命中),这是"立马响应"的关键:
+  //   · <Link> 默认视口预取(NavLink/ExpandableNavItem 不设 prefetch={false})
+  //   · NavLink onPointerEnter/onFocus → router.prefetch(悬停按需,精准幂等)
+  // dev 模式 cache-bypass 使预取缓存失效(点击仍走 RSC 往返,~350-850ms 为 Next dev 架构下限),
+  // 但预取请求由 Next 内部去重,不构成额外负担。
   const startNav = useNavigationStore((s) => s.start)
 
   // 点击导航项时立即设置乐观路由 + 触发全局进度条。
