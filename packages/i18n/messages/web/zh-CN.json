@@ -649,7 +649,8 @@
         "thu": "周四",
         "tue": "周二",
         "wed": "周三"
-      }
+      },
+      "title": "用户行为"
     },
     "carousel": {
       "cancel": "取消",
@@ -2761,7 +2762,8 @@
         "title": "讲师管理",
         "totalItems": "共 {total} 条",
         "updateSuccess": "更新成功"
-      }
+      },
+      "title": "教育管理"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "颁发条件不能为空",
@@ -3274,7 +3276,8 @@
       "titleRequired": "课程标题不能为空",
       "unpublished": "未发布",
       "updateStatus": "更新状态",
-      "updateSuccess": "更新成功"
+      "updateSuccess": "更新成功",
+      "title": "学习管理"
     },
     "live": {
       "allCategories": "全部分类",
@@ -8690,7 +8693,8 @@
       "selectCircle": "选择圈子",
       "selectCirclePlaceholder": "请选择圈子",
       "titleLabel": "标题",
-      "titlePlaceholder": "请输入帖子标题"
+      "titlePlaceholder": "请输入帖子标题",
+      "title": "帖子"
     },
     "postCount": "{count} 帖子",
     "subtitle": "加入兴趣圈子，与同好交流",
@@ -12001,7 +12005,8 @@
       "notFound": "文档不存在",
       "showLess": "收起",
       "showMore": "展开",
-      "totalCount": "共 {count} 个切片"
+      "totalCount": "共 {count} 个切片",
+      "title": "知识分块"
     },
     "detail": {
       "backToList": "返回列表",
@@ -12012,7 +12017,8 @@
       "related": "相关文档",
       "relatedEmpty": "暂无相关文档",
       "sourceType": "来源类型",
-      "viewChunks": "查看切片"
+      "viewChunks": "查看切片",
+      "title": "知识库详情"
     },
     "list": {
       "chunkCount": "{count} 个切片",
@@ -16708,7 +16714,8 @@
       "autoRenewTitle": "自动续期",
       "rememberDays": "记住 {days} 天",
       "saveFailed": "保存失败，请重试",
-      "saveSuccess": "登录偏好已保存"
+      "saveSuccess": "登录偏好已保存",
+      "title": "登录安全"
     },
     "loginSecurityDesc": "自动登录与 token 续期偏好",
     "loginSecurityTitle": "登录管理",
@@ -17720,7 +17727,8 @@
       "sendOldCode": "获取旧验证码",
       "totalTokens": "总计",
       "userId": "用户 ID",
-      "voiceRecord": "语音录制"
+      "voiceRecord": "语音录制",
+      "title": "用户资料"
     },
     "public": {
       "follow": "关注",
@@ -18114,7 +18122,8 @@
       "trigger": "触发",
       "triggerType": "触发类型",
       "updateSuccess": "更新成功",
-      "viewInstance": "查看详情"
+      "viewInstance": "查看详情",
+      "title": "工作流详情"
     },
     "editor": {
       "cancel": "取消",
@@ -18198,7 +18207,8 @@
     "description": "项目描述",
     "descriptionPlaceholder": "请输入项目描述（可选）",
     "detail": {
-      "previewFailed": "预览失败"
+      "previewFailed": "预览失败",
+      "title": "工作区详情"
     },
     "dismiss": "关闭",
     "download": "下载",
