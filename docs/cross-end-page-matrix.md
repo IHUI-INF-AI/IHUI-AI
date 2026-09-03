@@ -38,7 +38,7 @@
 | `pages/share/index` ↔ ShareScreen | ShareScreen | ✅ | ✅ | Tab「分享星球」 |
 | `pages/webview/index` ↔ WebViewScreen | WebViewScreen | ✅ | ✅ | 通用 WebView |
 | — ↔ SearchScreen | SearchScreen | — | 🔴 | 全局搜索页小程序缺失，社区/课程均依赖搜索，应补齐 |
-| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | ❓ | HistoryScreen 语义模糊（搜索历史 or AI 会话历史），需确认归属 |
+| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | 🟡 | 已核销：同名不同义——RN 调 `/api/history` 为全站浏览历史，小程序该页读本地 `ai_chat_history` 为 AI 会话历史，各为本端合理实现 |
 | — ↔ LiveScreen | LiveScreen | — | 🟡 | 直播 Tab 聚合入口，小程序直播列表即入口，合理 |
 | — ↔ SubPackageIndexScreen | SubPackageIndexScreen | — | ⚪ | RN 分包占位页 |
 | — ↔ SharedDemoScreen | SharedDemoScreen | — | ⚪ | 演示页 |
@@ -206,11 +206,11 @@
 | — ↔ AnnouncementScreen | AnnouncementScreen | — | 🔴 | 公告列表小程序缺失 |
 | — ↔ AnnouncementDetailScreen | AnnouncementDetailScreen | — | 🔴 | 公告详情小程序缺失 |
 | — ↔ ActivityScreen | ActivityScreen | — | 🔴 | 活动页小程序缺失 |
-| — ↔ PostDetailScreen | PostDetailScreen | — | ❓ | 帖子详情，小程序是否内嵌于社区页需确认 |
-| — ↔ PostCreateScreen | PostCreateScreen | — | ❓ | 发帖页，同上 |
+| — ↔ PostDetailScreen | PostDetailScreen | — | 🔴 | 已核销：调 getPlazaDetail 展示需求报价/周期/联系人，实为广场需求详情页，小程序无独立需求详情页，撮合链路环节应补齐 |
+| — ↔ PostCreateScreen | PostCreateScreen | — | 🔴 | 已核销：调 POST `/api/community/posts` 发帖（title/content/circleId/tags），小程序无发帖页（ask/create 为提问、set-need 为需求发布），社区基础能力应补齐 |
 | — ↔ CircleMemberScreen | CircleMemberScreen | — | 🟡 | 圈子成员细分页 |
 | — ↔ CircleChatScreen | CircleChatScreen | — | 🟡 | 圈子聊天细分页 |
-| — ↔ FollowScreen | FollowScreen | — | ❓ | 与 FollowingScreen（粉丝/关注双向？）关系需确认 |
+| — ↔ FollowScreen | FollowScreen | — | 🟡 | 已核销：关注+粉丝双向列表（getFans+getFollowing 切换），功能包含 FollowingScreen（仅 getFollowing），建议 RN 内部合并，小程序由 following 页承接 |
 | — ↔ NotificationListScreen | NotificationListScreen | — | 🟡 | 通知列表与消息中心部分重叠 |
 | — ↔ MessageSystemScreen | MessageSystemScreen | — | 🟡 | 系统消息细分页 |
 | — ↔ MessageGroupScreen | MessageGroupScreen | — | 🟡 | 群消息细分页 |
@@ -307,7 +307,7 @@
 
 ## 结论
 
-### 🔴 真缺失清单（44 项）
+### 🔴 真缺失清单（46 项）
 
 **RN 端缺失（小程序有 → RN，15 项）**
 
@@ -362,11 +362,13 @@
 | 27 | AiWorldScreen | AI | AI 世界 |
 | 28 | AiSkillScreen | AI | AI 技能中心 |
 | 29 | AiSkillDetailScreen | AI | AI 技能详情 |
+| 30 | PostDetailScreen | 社区/广场 | 广场需求详情（❓核销新增） |
+| 31 | PostCreateScreen | 社区 | 社区发帖（❓核销新增） |
 
 ### 补齐优先级建议
 
 - **P0 — 交易与核心闭环（先补）**：`cart`（→RN）、`pay/result`（→RN）、SearchScreen（→miniapp）、`teacher/list`+`teacher/detail`（→RN）、CheckIn+TaskCenter（→miniapp）。均为下单/留存主链路，缺失直接影响转化与活跃。
-- **P1 — 内容与社区生态**：`topic/list`+`topic/detail`、`circle/index`（→RN）；Announcement+AnnouncementDetail、`ai-circle`、AiSkill+AiSkillDetail、Activity（→miniapp）。社区内容完整性问题。
+- **P1 — 内容与社区生态**：`topic/list`+`topic/detail`、`circle/index`（→RN）；Announcement+AnnouncementDetail、`ai-circle`、AiSkill+AiSkillDetail、Activity、PostDetailScreen+PostCreateScreen（→miniapp，❓核销新增：社区发帖与需求详情为内容生态基础能力）。社区内容完整性问题。
 - **P2 — 增长与运营配置**：`distribution/rank`、`study/rank`、`exam/detail`、`live/calendar`、`developer/subscribe`（→RN）；PointsMall+PointRule+PointHistory、`forgot-password`、`user/email`（→miniapp）。
 - **P3 — 特色功能域（按 roadmap 排期）**：Knowledge 域 5 页、Note 域 4 页、Certificate 域 5 页（→miniapp）；Memory、AiWorld、Bookmark（→miniapp）。
 
@@ -375,3 +377,24 @@
 1. **合并疑似重复页**：FavoriteScreen↔FavoritesScreen、PromoteScreen↔PromotionScreen、AssistantScreen↔AiAssistantScreen、ArticleListScreen↔NewsScreen，减少维护面。
 2. **确认 16 个 ❓ 项**（ai/history 归属、member/index 与 Vip 体系关系、PostDetail/PostCreate 小程序承接方式、FinanceScreen/IncomeScreen 职责等），确认后升级为 ✅/🔴。
 3. **统一支付结果承接**：小程序有 `pay/result` 与 `vip/success`、`wallet/recharge/success|fail` 三套结果页，RN 仅充值结果页；建议两端收敛为统一支付结果页 + 业务回跳参数。
+
+### ❓核销结果（2026-09-04，16 项全部闭环）
+
+| # | 页面 | 结论 | 一句话依据（代码证据） |
+| --- | --- | --- | --- |
+| 1 | HistoryScreen ↔ `pages/ai/history` | 🟡 | RN 调 `/api/history` 按 targetType 跳课程/文章/帖子详情＝全站浏览历史；小程序读本地 `ai_chat_history`＝AI 会话历史，同名不同义，各为本端合理实现 |
+| 2 | IdentityVerifyScreen | 🟡 | 调 `/user/identity-verify`（unverified/pending 状态机），与 RealNameAuth（`/user/real-name`）API 不同，属认证细分页，小程序并入 realname 状态展示 |
+| 3 | ReferrerScreen | 🟡 | 调 `/user/referrer` 查询/绑定推荐码，与 `distribution/member-detail`（团队统计）无关；小程序可并入分销中心承接 |
+| 4 | `pages/ai/history` | 🟡 | 见第 1 项：AI 会话历史（本地存储 + chat/image/voice/agent 筛选），RN 无独立会话历史页，属合理平台差异 |
+| 5 | `pages/ai/special` | 🟡 | AI 模型专题聚合页（Gemini-2.5-flash/NanoBanana/Veo3 等本地聚合，chat/image/video/agent 分类），RN 由 ModelPlazaScreen 承接同类场景 |
+| 6 | AigcCoverScreen | 🟡 | 调 getAigcTasks 选封面（work/ai 双来源），为 AIGC 发布流程子步骤，小程序内嵌于 aigc/publish |
+| 7 | AssistantScreen | 🟡 | 调 getAgents(tab=draft) 管理自己的智能体并跳 ModelEdit 编辑；AiAssistantScreen 调 getAgentCategories 分类浏览市场——职责不同，**非重复、不应合并** |
+| 8 | PublishScreen | ⚪ | 调 listPublishTasks（发布历史+任务状态查询），源码注释明确为 web /publish 的移动端原生入口，小程序无对应业务规划 |
+| 9 | LearnScreen | 🟡 | 调 getHotLearnCourses/getRecommendLearnCourses/getStudyStatistics 的四分类课程运营页；learn-develop 仅为导航聚合（其「学习中心」入口即指向本页），小程序由 study/index+course/list 组合承接 |
+| 10 | FinanceScreen | 🟡 | 仅调 `/wallet/balance` 展示余额概览，与 WalletScreen（充值）重叠，建议并入钱包页 |
+| 11 | PostDetailScreen | 🔴 | 调 getPlazaDetail 展示需求报价（lowest/peakPrice）/周期/联系人＝广场需求详情页，小程序无独立需求详情页，撮合链路环节应补齐 |
+| 12 | PostCreateScreen | 🔴 | 调 POST `/api/community/posts` 发帖（title/content/circleId/tags），小程序无发帖页（ask/create 为提问、set-need 为需求发布），社区基础能力应补齐 |
+| 13 | FollowScreen | 🟡 | 调 getFans+getFollowing 关注/粉丝双向切换，功能包含 FollowingScreen（仅 getFollowing），建议 RN 内部合并，小程序由 following 页承接 |
+| 14 | `pages/member/index` | 🟡 | 调 getMemberInfo/getMemberBenefits 的成长值等级中心（normal/silver/gold/diamond），与 vip/index 付费购买互补非重复；RN 由 Vip 套件等价承接 |
+| 15 | `pages/distribution/company/index` | 🟡 | 调 getDistributionInfo+getDistributionTeam 展示企业分销等级/佣金/团队，与 distribution/index 数据重叠，RN 由 DistributionScreen 并入承接 |
+| 16 | IncomeScreen | 🟡 | 调佣金列表+日月汇总+概览+提现记录 4 个 API，较 ModelIncomeScreen 多提现记录（由 Withdraw 承接）；EarnCommissionScreen 仅调 getOverview 概览，三者不重复但建议 RN 收敛为 ModelIncome+Withdraw |
