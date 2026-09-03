@@ -32,13 +32,16 @@ from typing import Any
 
 import tiktoken
 
+from .tunables import (
+    DEFAULT_KEEP_RECENT,
+    DEFAULT_MIN_MESSAGES,
+    DEFAULT_TARGET_RATIO,
+    DEFAULT_TRIGGER_RATIO,
+)
+
 logger = logging.getLogger(__name__)
 
-# 跨端统一常量(与 @ihui/context-compaction 一致)
-DEFAULT_TRIGGER_RATIO = 0.88
-DEFAULT_TARGET_RATIO = 0.6
-DEFAULT_KEEP_RECENT = 6
-DEFAULT_MIN_MESSAGES = 2  # 与 TS 共享包一致(2026-08-16 起):仅 system+1 条即可压缩;旧值 7 在短对话/历史被截断时误判"消息不足"
+# 跨端统一阈值/保留策略:唯一真源在 app.core.tunables(TS 镜像 packages/shared/src/constants.ts)
 
 # 截断降级(truncate-fallback)常量:常规压缩无效时对最后一条消息做内容截断
 MIN_TRUNCATE_CHARS = 100  # 截断保留的最小字符数(下限)
@@ -60,6 +63,15 @@ SUMMARY_REMOTE_CHARS = 120
 # tool result 摘要保留字符数兼容别名:旧"统一 160"已收编到分层常量(远层 120)
 TOOL_RESULT_SUMMARY_CHARS = SUMMARY_REMOTE_CHARS
 
+# ==================== Token 估算开销常量(2026-09-02 跨端对齐) ====================
+# 与 TS 共享包 @ihui/context-compaction 逐值一致
+MESSAGE_OVERHEAD_TOKENS = 4  # 单条消息固定开销(role/name 分隔)
+TOOL_CALL_OVERHEAD_TOKENS = 4  # 单条 tool_call 固定 JSON 协议开销
+IMAGE_TOKEN_PLACEHOLDER = 1200  # 多模态图片占位估算(每张图)
+
+# data:image/...;base64,XXX 多模态图片占位正则
+_DATA_IMAGE_RE = re.compile(r"data:image/[a-zA-Z0-9+.-]+;base64,[A-Za-z0-9+/=]+")
+
 # 模块级 encoder 缓存(CI 502 修复:lazy 加载避免 import 时报错)
 _encoder: tiktoken.Encoding | None = None
 
@@ -76,33 +88,101 @@ def _get_encoder() -> tiktoken.Encoding:
     return _encoder
 
 
-def estimate_tokens(text: str) -> int:
-    """估算字符串的 token 数(BPE 真实分词)。
+def _estimate_text_with_image_placeholders(text: str) -> int:
+    """估算字符串 token,命中 data:image base64 时按 IMAGE_TOKEN_PLACEHOLDER 占位短路。
 
-    与 TS 端 gpt-tokenizer 一致(cl100k_base 编码)。
+    跨端对齐:与 TS 共享包 estimateTextWithImagePlaceholders 行为一致,
+    避免对超大 base64 段做完整 BPE(慢且虚高)。
     """
     if not text:
         return 0
+    matches = list(_DATA_IMAGE_RE.finditer(text))
+    if not matches:
+        try:
+            return len(_get_encoder().encode(text))
+        except Exception as e:
+            logger.debug("tiktoken encode failed: %s, fallback to len/4", e)
+            return max(1, len(text) // 4)
+    total = 0
+    cursor = 0
     try:
-        return len(_get_encoder().encode(text))
+        enc = _get_encoder()
     except Exception as e:
-        logger.debug("tiktoken encode failed: %s, fallback to len/4", e)
-        return max(1, len(text) // 4)
+        logger.debug("tiktoken encoder unavailable: %s, fallback to len/4", e)
+        enc = None
+    for m in matches:
+        if m.start() > cursor:
+            seg = text[cursor:m.start()]
+            if enc is not None:
+                total += len(enc.encode(seg))
+            else:
+                total += max(1, len(seg) // 4)
+        total += IMAGE_TOKEN_PLACEHOLDER
+        cursor = m.end()
+    if cursor < len(text):
+        seg = text[cursor:]
+        if enc is not None:
+            total += len(enc.encode(seg))
+        else:
+            total += max(1, len(seg) // 4)
+    return total
+
+
+def _estimate_tool_call_tokens(tc: Any) -> int:
+    """估算单条 tool_call 的 token 数(id+type+name+arguments + 固定开销)。
+
+    跨端对齐:与 TS 共享包 estimateToolCallTokens 行为一致。
+    """
+    if not isinstance(tc, dict):
+        return 0
+    tc_id = tc.get("id")
+    if not isinstance(tc_id, str):
+        return 0
+    fn = tc.get("function") or {}
+    inner = tc_id + (tc.get("type") or "") + (fn.get("name") or "") + (fn.get("arguments") or "")
+    return _estimate_text_with_image_placeholders(inner) + TOOL_CALL_OVERHEAD_TOKENS
+
+
+def estimate_tokens(text: str) -> int:
+    """估算字符串的 token 数(BPE 真实分词),与 TS 端 gpt-tokenizer 一致(cl100k_base)。
+
+    含 data:image base64 占位短路(与 TS 共享包 estimateTokens 一致)。
+    """
+    return _estimate_text_with_image_placeholders(text)
 
 
 def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
-    """估算消息列表的 token 数(含每条 4 token overhead,与 TS 端一致)。"""
+    """估算消息列表的 token 数(2026-09-02 跨端对齐)。
+
+    增量规则(与 TS 共享包一致):
+    - 每条消息 +MESSAGE_OVERHEAD_TOKENS
+    - assistant tool_calls[].function.arguments 等同字符串参与 BPE,+TOOL_CALL_OVERHEAD_TOKENS/条
+    - tool 消息若有 tool_call_id,+TOOL_CALL_OVERHEAD_TOKENS
+    - content 中的 data:image base64 段按 IMAGE_TOKEN_PLACEHOLDER 占位
+    - OpenAI vision list-of-parts 格式逐 part 估 +MESSAGE_OVERHEAD_TOKENS
+    """
     total = 0
     for msg in messages:
         content = msg.get("content", "")
         if isinstance(content, str):
-            total += estimate_tokens(content) + 4
+            # str 内容(含缺失时默认 ''):+1 条消息 overhead + 内容 token
+            total += MESSAGE_OVERHEAD_TOKENS + estimate_tokens(content)
         elif isinstance(content, list):
-            # OpenAI vision 格式:list of {type, text/image_url}
+            # OpenAI vision 格式:list of {type, text/image_url},逐 part 估
+            # overhead 按 part 计(不再额外加消息级 overhead,避免与 TS 不一致)
             for part in content:
                 if isinstance(part, dict):
                     text = part.get("text") or str(part.get("content", ""))
-                    total += estimate_tokens(text) + 4
+                    total += estimate_tokens(text) + MESSAGE_OVERHEAD_TOKENS
+        # content 非 str 非 list(如数字)→ 跳过,不贡献任何 token/overhead
+        # tool_calls 参数(token 增量,与 TS 一致)
+        tool_calls = msg.get("tool_calls")
+        if isinstance(tool_calls, list):
+            for tc in tool_calls:
+                total += _estimate_tool_call_tokens(tc)
+        # tool 消息的 tool_call_id(与 TS 一致)
+        if msg.get("role") == "tool" and isinstance(msg.get("tool_call_id"), str) and msg.get("tool_call_id"):
+            total += TOOL_CALL_OVERHEAD_TOKENS
     return total
 
 
