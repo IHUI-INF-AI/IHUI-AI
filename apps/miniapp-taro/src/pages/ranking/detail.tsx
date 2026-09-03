@@ -9,6 +9,7 @@ import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import { DrawerComponent } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 /** 排行榜详情数据(字段从列表项中筛选,后端无单条详情接口时走列表 find) */
@@ -178,15 +179,17 @@ export default function RankingDetailPage() {
 
   if (loading) {
     return (
-      <View className="detail-page">
-        <View className="detail-nav">
-          <View className="detail-nav-back" onClick={backPage}>
-            <Text>{'‹'}</Text>
+      <ThemeRoot>
+        <View className="detail-page">
+          <View className="detail-nav">
+            <View className="detail-nav-back" onClick={backPage}>
+              <Text>{'‹'}</Text>
+            </View>
+            <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
           </View>
-          <Text className="detail-nav-title">{tt('ranking.detailTitle', '详情页')}</Text>
+          <Text className="loading-text">{tt('common.loading', '加载中...')}</Text>
         </View>
-        <Text className="loading-text">{tt('common.loading', '加载中...')}</Text>
-      </View>
+      </ThemeRoot>
     )
   }
 
@@ -309,18 +312,19 @@ export default function RankingDetailPage() {
                 const raw = it as Record<string, unknown>
                 const name = pick(raw, ['name', 'title'])
                 return (
-                  <View
-                    key={String(it.id)}
-                    className="drawer-item"
-                    onClick={() => {
-                      const itemId = it.id
-                      if (itemId === undefined) return
-                      closeDrawer()
-                      Taro.redirectTo({ url: `/pages/ranking/detail?id=${itemId}` })
-                    }}
-                  >
-                    <Text className="drawer-item-text">{name || '-'}</Text>
-                  </View>
+                  <ThemeRoot key={String(it.id)}>
+                    <View
+                      className="drawer-item"
+                      onClick={() => {
+                        const itemId = it.id
+                        if (itemId === undefined) return
+                        closeDrawer()
+                        Taro.redirectTo({ url: `/pages/ranking/detail?id=${itemId}` })
+                      }}
+                    >
+                      <Text className="drawer-item-text">{name || '-'}</Text>
+                    </View>
+                  </ThemeRoot>
                 )
               })}
             </ScrollView>
