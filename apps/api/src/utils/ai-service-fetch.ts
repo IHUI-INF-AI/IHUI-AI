@@ -75,22 +75,27 @@ export async function aiServiceFetch(
   }
   // 透传鉴权凭证给 ai-service：
   // - HTTP 场景:透传 request.headers.authorization
-  // - WS 场景:鉴权 token 位于 query 参数(query.token),同样透传为 Bearer,
-  //   使后端 ai-service 的 JWT 中间件能完成鉴权(修复 WS 对话 api→ai-service 401)。
-  // 后台任务(request 为 null)或两者皆无时,不注入凭证(由调用方自行决定)。
-  if (request && !userHeaders.Authorization && !userHeaders.authorization) {
-    const authHeader = request.headers.authorization
-    if (authHeader) {
-      headers.Authorization = authHeader
-    } else {
-      // WS 场景:鉴权凭证位于 query.token,但它是 ws 专用票据(type='ws'),
-      // ai-service 的 JWT 中间件只接受 type='access' 且 aud='ihui-ai-users' 的 token,
-      // 直接透传会被 401。改用内部系统 token 调用 ai-service;真实 userId 已通过
-      // 请求体(user_id)透传(见 ws-ai.ts),身份语义不丢失。
-      const queryToken = (request.query as Record<string, unknown> | undefined)?.token
-      if (typeof queryToken === 'string' && queryToken.length > 0) {
-        headers.Authorization = `Bearer ${await getSystemAccessToken()}`
+  // - WS 场景:鉴权 token 位于 query 参数(query.token),它是 ws 专用票据(type='ws'),
+  //   ai-service 的 JWT 中间件只接受 type='access' 且 aud='ihui-ai-users' 的 token,
+  //   直接透传会被 401。改用内部系统 token 调用 ai-service;真实 userId 已通过
+  //   请求体(user_id)透传(见 ws-ai.ts),身份语义不丢失。
+  // - 后台任务(request 为 null)且调用方未显式提供凭证:注入系统 access token。
+  //   2026-09-04:ai-service jwt_auth 上线后,无凭证调用一律 401,后台任务的
+  //   LLM/上下文/OpenCompass 抓取等调用全部静默失效;系统 token 身份为
+  //   agent='system',与后台任务语义一致(此前仅 ai-feed-service 自行修复过)。
+  if (!userHeaders.Authorization && !userHeaders.authorization) {
+    if (request) {
+      const authHeader = request.headers.authorization
+      if (authHeader) {
+        headers.Authorization = authHeader
+      } else {
+        const queryToken = (request.query as Record<string, unknown> | undefined)?.token
+        if (typeof queryToken === 'string' && queryToken.length > 0) {
+          headers.Authorization = `Bearer ${await getSystemAccessToken()}`
+        }
       }
+    } else {
+      headers.Authorization = `Bearer ${await getSystemAccessToken()}`
     }
   }
   const url = `${config.AI_SERVICE_URL}${path}`
