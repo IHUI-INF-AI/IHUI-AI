@@ -5,6 +5,7 @@
 import { View } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 /**
  * Taro 适配层:ColorfulLoader
@@ -72,18 +73,24 @@ export function ColorfulLoader({
   size = DEFAULT_SIZE,
   visible = true,
   className,
-  colorScheme = 'light',
+  colorScheme,
 }: ColorfulLoaderProps) {
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+
   if (!visible) return null
 
   // 触发主题 token 解析,即使未在 JS 中读取,主题色被打包进入 inline style
-  void getRnTokens(colorScheme)
+  void getRnTokens(effectiveScheme)
 
   const radius = size / 2
   const dotSize = Math.max(2, size / 20)
 
   return (
-    <View className={`animate-spin ${className ?? ''}`} style={containerStyle(size, colorScheme)}>
+    <View
+      className={`animate-spin ${className ?? ''}`}
+      style={containerStyle(size, effectiveScheme)}
+    >
       {Array.from({ length: DOT_COUNT }).map((_, i) => {
         const angle = (360 / DOT_COUNT) * i
         const color = `hsl(${i * 5}, 70%, 60%)`

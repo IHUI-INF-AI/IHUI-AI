@@ -7,6 +7,7 @@ import { useTt, t } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, ScrollView } from '@tarojs/components'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 
 /**
  * Taro 适配层:Selecter
@@ -34,7 +35,7 @@ export interface SelecterProps {
   desc?: string
   isVip?: number
   onChange?: (val: unknown, index?: number) => void
-  /** 已解析主题,默认 'light' */
+  /** 显式覆盖主题(缺省时跟随小程序全局主题 useAppTheme) */
   colorScheme?: RnThemeMode
 }
 
@@ -174,10 +175,12 @@ export function Selecter({
   desc,
   isVip = 0,
   onChange,
-  colorScheme = 'light',
+  colorScheme,
 }: SelecterProps) {
   const tt = useTt()
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
   const [value, setValue] = useState<number | string>('')
   const [selectedSizeIndex, setSelectedSizeIndex] = useState<number | null>(null)
   const [selectedSize, setSelectedSize] = useState<Record<string, unknown> | null>(null)

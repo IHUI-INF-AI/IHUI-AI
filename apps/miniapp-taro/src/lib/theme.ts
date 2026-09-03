@@ -169,6 +169,28 @@ export function initTheme(): void {
   }
 }
 
+/* ─── 非 chrome 组件消费主题 hook(叶子组件用,无副作用)─── */
+
+export function useAppTheme(): { resolved: ResolvedTheme } {
+  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(getThemePreference()))
+
+  useEffect(() => {
+    const handler = (next: unknown) => {
+      if (next === 'dark' || next === 'light') setResolved(next)
+    }
+    Taro.eventCenter.on(THEME_EVENT, handler)
+    return () => {
+      try {
+        Taro.eventCenter.off(THEME_EVENT, handler)
+      } catch {
+        // ignore
+      }
+    }
+  }, [])
+
+  return { resolved }
+}
+
 /* ─── 页面根容器 hook(ThemeRoot 使用)─── */
 
 export function useThemeRoot(): {
