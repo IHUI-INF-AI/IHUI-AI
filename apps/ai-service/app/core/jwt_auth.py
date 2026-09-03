@@ -124,6 +124,15 @@ async def get_current_user_id(request: Request) -> str:
     return cast(str, user_id)
 
 
+def get_current_user_id_sync(request: Request) -> str:
+    """同步版：供非依赖注入的同步辅助函数(如 checkpoint_rewind / context_compaction)
+    直接读取 request.state.user_id,行为与 get_current_user_id 完全一致(缺失则 401)。"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return cast(str, user_id)
+
+
 def verify_access_token(token: str) -> Optional[dict[str, Any]]:
     """模块级 access token 校验(供 WebSocket 握手等非 HTTP 场景手动调用)。
 

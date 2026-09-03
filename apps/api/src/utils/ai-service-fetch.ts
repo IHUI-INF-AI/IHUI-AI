@@ -25,6 +25,7 @@ import {
   getTraceparentFromRequest,
   childTraceparent,
 } from './trace-context.js'
+import { getSystemAccessToken } from './system-access-token.js'
 
 export interface AiServiceFetchOptions extends Omit<RequestInit, 'headers'> {
   /** 额外 headers，会与 traceparent 头合并（traceparent / X-Trace-Id 优先级最高，不被覆盖）。 */
@@ -72,14 +73,25 @@ export async function aiServiceFetch(
     traceparent,
     'X-Trace-Id': traceId,
   }
-  // 透传原始 Authorization 头（若 request 提供 且 init.headers 没显式给）
-  if (
-    request &&
-    !userHeaders.Authorization &&
-    !userHeaders.authorization &&
-    request.headers.authorization
-  ) {
-    headers.Authorization = request.headers.authorization
+  // 透传鉴权凭证给 ai-service：
+  // - HTTP 场景:透传 request.headers.authorization
+  // - WS 场景:鉴权 token 位于 query 参数(query.token),同样透传为 Bearer,
+  //   使后端 ai-service 的 JWT 中间件能完成鉴权(修复 WS 对话 api→ai-service 401)。
+  // 后台任务(request 为 null)或两者皆无时,不注入凭证(由调用方自行决定)。
+  if (request && !userHeaders.Authorization && !userHeaders.authorization) {
+    const authHeader = request.headers.authorization
+    if (authHeader) {
+      headers.Authorization = authHeader
+    } else {
+      // WS 场景:鉴权凭证位于 query.token,但它是 ws 专用票据(type='ws'),
+      // ai-service 的 JWT 中间件只接受 type='access' 且 aud='ihui-ai-users' 的 token,
+      // 直接透传会被 401。改用内部系统 token 调用 ai-service;真实 userId 已通过
+      // 请求体(user_id)透传(见 ws-ai.ts),身份语义不丢失。
+      const queryToken = (request.query as Record<string, unknown> | undefined)?.token
+      if (typeof queryToken === 'string' && queryToken.length > 0) {
+        headers.Authorization = `Bearer ${await getSystemAccessToken()}`
+      }
+    }
   }
   const url = `${config.AI_SERVICE_URL}${path}`
   return fetch(url, {
