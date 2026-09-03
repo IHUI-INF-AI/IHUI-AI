@@ -68,6 +68,7 @@ from app.routers import (
     screenshot,
     self_media,
     spec,
+    team_orchestration,
     tools,
     voice_stt,
     voice_tts,
@@ -90,11 +91,19 @@ from app.routers.ai_marking import router as ai_marking_router
 
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
+from app.routers.checkpoint_rewind import router as checkpoint_rewind_router
+from app.routers.cloud_runs import router as cloud_runs_router
+from app.routers.computer_use import router as computer_use_router
+from app.routers.context_compaction import router as context_compaction_router
 from app.routers.langgraph import router as langgraph_router
 from app.routers.legacy import router as legacy_router
 
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
+
+# 对标杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Trae / Qoder / WorkBuddy):
+# Deep Research 多轮深度研究 / Checkpoint+Rewind / 云托管会话 / Computer Use 驾驶舱 / 上下文压缩感知
+from app.routers.research import router as research_router
 
 # Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
 from app.services.context_engine import router as context_engine_router
@@ -655,6 +664,9 @@ def create_app() -> FastAPI:
     app.include_router(context_engine_router, prefix="/api/context", tags=["context-engine"])
     # 跨支柱编排中枢(2026-07-23 立,6 大超越支柱协同决策 + LLM 预算治理 + 统一遥测)
     app.include_router(orchestration.router, prefix="/api", tags=["orchestration"])
+    app.include_router(
+        team_orchestration.router, prefix="/api", tags=["orchestration-teams"]
+    )
     app.include_router(legacy_router)
     # P3 深度层:AI 助教(学科讲解/提示/出题)+ LangGraph(interrupt/resume/state/history/stream)
     app.include_router(ai_tutor_router)
@@ -681,6 +693,13 @@ def create_app() -> FastAPI:
     # W4(Phase 0):Plan Mode 计划模式端点族(对标 Claude Code Plan Mode,全新端点 /api/agent-plan*)
     from app.routers import agent_plan as agent_plan_router
     app.include_router(agent_plan_router.router, prefix="/api", tags=["agent-plan"])
+
+    # 对标杀手锏四件套路由(2026-09-03 立)——见上方 import
+    app.include_router(research_router, prefix="/api", tags=["research"])
+    app.include_router(checkpoint_rewind_router, prefix="/api", tags=["checkpoint-rewind"])
+    app.include_router(cloud_runs_router, prefix="/api", tags=["cloud-runs"])
+    app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
+    app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
 
     # 审计日志查询端点(调试用,返回最近审计记录,2026-07-22 立)
     # P2-8 修复(2026-08-06):审计记录含 agent 行为明细,限系统管理员(role_id >= 1)访问,
