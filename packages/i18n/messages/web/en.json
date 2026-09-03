@@ -5254,7 +5254,17 @@
       "trigger_webhook": "Webhook",
       "view": "View",
       "viewTitle": "Workflow Details"
-    }
+    },
+    "title": "Admin Dashboard",
+    "oauthApps": "OAuth Apps",
+    "pointsMall": "Points Mall",
+    "post": "Post Management",
+    "promotionRule": "Promotion Rule",
+    "providersHealth": "Providers Health",
+    "relayOverview": "Relay Overview",
+    "themeEdit": "Theme Edit",
+    "unauthorized": "Unauthorized",
+    "userMargin": "User Margin"
   },
   "connectors": {
     "title": "Chinese Connectors",
@@ -6292,7 +6302,8 @@
     "viewDetail": "View detail",
     "viewPermissionExample": "View Permission Example",
     "vipExclusive": "VIP Exclusive",
-    "config": "Configuration"
+    "config": "Configuration",
+    "dispatchSubagent": "Dispatch Subagent"
   },
   "agentRuntimePanel": {
     "cancelledBody": "Current execution stopped. To continue, modify your input and run again.",
@@ -7317,7 +7328,8 @@
       "rankDelta": "Rank change",
       "stable": "Stable",
       "subtitle": "7/14 day hotness trend curve"
-    }
+    },
+    "title": "AI News"
   },
   "aiSkillDetail": {
     "addToAgent": "Add to Agent",
@@ -7447,7 +7459,8 @@
         },
         "title": "AI World Site Management"
       }
-    }
+    },
+    "title": "AI World"
   },
   "aiWorldCreatePage": {
     "back": "Back",
@@ -7623,7 +7636,9 @@
     "title": "Title",
     "titlePlaceholder": "Enter question title",
     "unresolved": "Unresolved",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "detail": "Ask Detail",
+    "edit": "Edit Ask"
   },
   "asksEditFormPage": {
     "cancel": "Cancel",
@@ -8689,7 +8704,8 @@
     },
     "postCount": "{count} posts",
     "subtitle": "Join interest circles and connect with peers",
-    "title": "Circles"
+    "title": "Circles",
+    "detail": "Circle Detail"
   },
   "cliImport": {
     "commit": "Commit Import",
@@ -8749,32 +8765,58 @@
     "commands": {
       "ai-world": {
         "description": "Explore the world of AI applications",
-        "keywords": ["AI", "world", "apps"],
+        "keywords": [
+          "AI",
+          "world",
+          "apps"
+        ],
         "label": "AI World"
       },
       "chat": {
         "description": "Start a conversation with AI assistant",
-        "keywords": ["chat", "talk", "AI", "conversation"],
+        "keywords": [
+          "chat",
+          "talk",
+          "AI",
+          "conversation"
+        ],
         "label": "AI Chat"
       },
       "drama": {
         "description": "AI-generated short dramas",
-        "keywords": ["drama", "video", "AI", "show"],
+        "keywords": [
+          "drama",
+          "video",
+          "AI",
+          "show"
+        ],
         "label": "AI Drama"
       },
       "profile": {
         "description": "Manage your profile and settings",
-        "keywords": ["profile", "user", "settings"],
+        "keywords": [
+          "profile",
+          "user",
+          "settings"
+        ],
         "label": "Profile"
       },
       "search": {
         "description": "Global content search",
-        "keywords": ["search", "find", "query"],
+        "keywords": [
+          "search",
+          "find",
+          "query"
+        ],
         "label": "Search"
       },
       "settings": {
         "description": "System preferences and configuration",
-        "keywords": ["settings", "preferences", "config"],
+        "keywords": [
+          "settings",
+          "preferences",
+          "config"
+        ],
         "label": "Settings"
       }
     },
@@ -8794,7 +8836,8 @@
     "replyPlaceholder": "Enter your reply...",
     "replyTitle": "Admin Reply",
     "submitReply": "Submit Reply",
-    "submitting": "Submitting..."
+    "submitting": "Submitting...",
+    "title": "Comments"
   },
   "commissionPlan": {
     "commissionRate": "Commission Rate",
@@ -8906,13 +8949,142 @@
     "resize": "Drag to resize",
     "searchHistory": "Search History",
     "tools": {
-      "categoryAi": "AI Tools",
-      "categoryDev": "Development",
-      "categoryEfficiency": "Efficiency",
-      "empty": "No tools available",
+      "actions": "Action",
+      "aiWorld": {
+        "hotApps": "Popular AI Apps",
+        "rankings": {
+          "categories": {
+            "agent": "Agent",
+            "chinese": "Chinese",
+            "coding": "Coding",
+            "creative": "Creative",
+            "english": "English",
+            "expert": "Expert",
+            "hard-prompts": "Hard Prompts",
+            "instruction": "Instruction",
+            "knowledge": "Knowledge",
+            "long-text": "Long Text",
+            "longer-query": "Longer Query",
+            "math": "Math",
+            "multimodal": "Multimodal",
+            "multiturn": "Multiturn",
+            "open-source": "Open Source",
+            "overall": "Overall",
+            "reasoning": "Reasoning",
+            "safety": "Safety"
+          },
+          "columns": {
+            "details": "Details",
+            "fetchedAt": "Updated",
+            "model": "Model",
+            "provider": "Provider",
+            "rank": "Rank",
+            "score": "Score"
+          },
+          "empty": "No ranking data yet, waiting for next sync",
+          "leaderboards": {
+            "artificial-analysis": "Artificial Analysis",
+            "hf-open-llm": "HF Open LLM",
+            "lmsys": "LMSYS Arena",
+            "opencompass": "OpenCompass",
+            "superclue": "SuperCLUE"
+          },
+          "refresh": "Auto-refresh every 5 minutes",
+          "subtitle": "Real-time rankings from 5 authoritative leaderboards",
+          "title": "Model Leaderboard"
+        },
+        "subtitle": "Explore AI applications and start your creative journey",
+        "title": "AI World",
+        "trending": {
+          "githubForks": "GitHub Forks",
+          "githubStars": "GitHub Stars",
+          "score": "Trending",
+          "updatedAt": "Updated"
+        }
+      },
+      "backHome": "Back to Home",
+      "batchDelete": "Batch Delete",
+      "cancel": "Cancel",
+      "cancelTime": "Cancel Time",
+      "close": "Close",
+      "closeAll": "Close All",
+      "colToken": "Tokens",
+      "comingSoon": "Coming Soon",
+      "confirm": "Confirm",
+      "confirmTitle": "Confirm",
+      "copyPath": "Copy Path",
+      "dismiss": "Dismiss",
+      "empty": "No records",
+      "exportSuccess": "Export succeeded",
+      "loadFailed": "Load Failed",
+      "mcp": {
+        "subtitle": "Manage Model Context Protocol projects",
+        "title": "MCP Projects"
+      },
+      "moreActions": "MoreActions",
+      "noData": "No Data",
+      "notFoundTitle": "Page Not Found",
+      "originalPrice": "Original Price",
+      "payTime": "Pay Time",
+      "pin": "Pin",
+      "reasonRequired": "Reason is required",
+      "refresh": "Refresh",
+      "refundTime": "Refund Time",
+      "resize": "Drag to resize",
+      "searchHistory": "Search History",
+      "tools": {
+        "categoryAi": "AI Tools",
+        "categoryDev": "Development",
+        "categoryEfficiency": "Efficiency",
+        "empty": "No tools available",
+        "loading": "Loading...",
+        "subtitle": "Browse and use various tools provided by the platform",
+        "title": "Tools"
+      },
+      "unpin": "Unpin",
+      "unsaved": "Unsaved",
+      "update": {
+        "autoRestartIn": "Auto-restarting in {countdown}s...",
+        "autoRetrying": "Update failed, auto-retrying...",
+        "available": "New Version Available",
+        "checkFailed": "Failed to check for updates. Please check your network.",
+        "dismiss": "Close",
+        "done": "Update Complete",
+        "downloading": "Downloading",
+        "error": "Update Failed",
+        "errorDesc": "An error occurred during the update. Please retry.",
+        "installing": "Installing",
+        "preparing": "Preparing update...",
+        "quitChecking": "Checking for updates...",
+        "quitDownloading": "Downloading update...",
+        "quitQuitting": "Quitting...",
+        "quitRestarting": "Update complete, restarting...",
+        "quitSkip": "Skip and quit",
+        "restart": "Restart App",
+        "restartLater": "Restart later",
+        "restartNow": "Restart now",
+        "retry": "Retry",
+        "updateNow": "Update Now"
+      },
+      "viewDetail": "View Details",
+      "viewMore": "View more",
+      "back": "Back",
       "loading": "Loading...",
-      "subtitle": "Browse and use various tools provided by the platform",
-      "title": "Tools"
+      "search": "Search",
+      "submitting": "Submitting...",
+      "retry": "Retry",
+      "gotIt": "Got it",
+      "hide": "Hide",
+      "show": "Show",
+      "delete": "Delete",
+      "save": "Save",
+      "ok": "OK",
+      "categoryAi": "AI 工具",
+      "categoryDev": "开发工具",
+      "categoryEfficiency": "效率工具",
+      "subtitle": "浏览并使用平台提供的各类工具",
+      "title": "工具中心",
+      "pdf": "PDF 工具"
     },
     "unpin": "Unpin",
     "unsaved": "Unsaved",
@@ -8951,7 +9123,15 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
-    "ok": "OK"
+    "ok": "OK",
+    "create": "Create",
+    "agentKanban": "Agent Kanban",
+    "callback": "Callback",
+    "title": "Page",
+    "forbidden": "Forbidden",
+    "forgotPassword": "Forgot Password",
+    "login": "Login",
+    "status": "Status"
   },
   "contactPage": {
     "addressTitle": "Company address",
@@ -9174,7 +9354,8 @@
       "title": "Templates"
     },
     "title": "Design Mode",
-    "undo": "Undo"
+    "undo": "Undo",
+    "system": "Design System"
   },
   "detail": {
     "activate": "Activate",
@@ -9743,7 +9924,8 @@
       "statusPending": "Pending",
       "subtitle": "Ask and answer learning questions",
       "title": "Q&A Center"
-    }
+    },
+    "ai": "AI Education"
   },
   "eduAi": {
     "a2a": {
@@ -10590,25 +10772,37 @@
       "quadrants": [
         {
           "description": "Simple decisions + simple execution, rapid deployment of high-frequency applications",
-          "examples": ["Knowledge Q&A", "Process automation"],
+          "examples": [
+            "Knowledge Q&A",
+            "Process automation"
+          ],
           "tag": "Q1",
           "title": "Efficient Assistant"
         },
         {
           "description": "Complex decisions + simple execution, providing in-depth analysis and recommendations",
-          "examples": ["Data analysis", "Decision support"],
+          "examples": [
+            "Data analysis",
+            "Decision support"
+          ],
           "tag": "Q2",
           "title": "Smart Advisor"
         },
         {
           "description": "Simple decisions + complex execution, handling cross-system complex tasks",
-          "examples": ["Meeting scheduling", "Approval workflows"],
+          "examples": [
+            "Meeting scheduling",
+            "Approval workflows"
+          ],
           "tag": "Q3",
           "title": "Execution Expert"
         },
         {
           "description": "Complex decisions + complex execution, autonomous planning and multi-agent collaboration",
-          "examples": ["Marketing automation", "Multi-agent collaboration"],
+          "examples": [
+            "Marketing automation",
+            "Multi-agent collaboration"
+          ],
           "tag": "Q4",
           "title": "All-round Expert"
         }
@@ -10742,19 +10936,31 @@
       "items": [
         {
           "description": "Offline courses, exploration activities, and a mutual-aid community, deeply connecting like-minded decision-makers",
-          "features": ["Systematic courses", "Hands-on exploration", "Community mutual aid"],
+          "features": [
+            "Systematic courses",
+            "Hands-on exploration",
+            "Community mutual aid"
+          ],
           "tag": "MODULE 01",
           "title": "Local Community"
         },
         {
           "description": "A convenient online communication platform, accessing information and support anytime, anywhere",
-          "features": ["Communication platform", "Experience sharing", "Resource matching"],
+          "features": [
+            "Communication platform",
+            "Experience sharing",
+            "Resource matching"
+          ],
           "tag": "MODULE 02",
           "title": "Online Community"
         },
         {
           "description": "Professional large models and agent services, providing in-depth AI transformation consulting and support",
-          "features": ["Professional LLMs", "Agent services", "Consulting services"],
+          "features": [
+            "Professional LLMs",
+            "Agent services",
+            "Consulting services"
+          ],
           "tag": "MODULE 03",
           "title": "AI Professional Services"
         }
@@ -10766,7 +10972,8 @@
       "label": "Core Positioning",
       "tags": [],
       "title": "Rational efficiency services and a mutual-aid community for enterprises in the AI era"
-    }
+    },
+    "inquiry": "Enterprise Inquiry"
   },
   "enterpriseTools": {
     "categories": {
@@ -11420,7 +11627,8 @@
     "toc": "On this page",
     "updatedAt": "Updated",
     "viewCount": "{count} views",
-    "title": "Help center"
+    "title": "Help center",
+    "loading": "Loading"
   },
   "home": {
     "announcement": {
@@ -11514,7 +11722,8 @@
     "recommend": "Recommended for You"
   },
   "hooks": {
-    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?"
+    "deleteConfirm": "Are you sure you want to delete Hook \"{name}\"?",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12041,7 +12250,10 @@
       "title": "Upload Document",
       "titleLabel": "Title (optional)",
       "titlePlaceholder": "Defaults to filename if empty"
-    }
+    },
+    "title": "Knowledge Base",
+    "edit": "Edit Knowledge",
+    "search": "Search Knowledge"
   },
   "learn": {
     "allCategories": "All Categories",
@@ -12081,7 +12293,10 @@
         }
       }
     },
-    "total": "{total} total"
+    "total": "{total} total",
+    "buyConfirm": "Buy Confirm",
+    "paymentConfirm": "Payment Confirm",
+    "review": "Review"
   },
   "learnBuyConfirmPage": {
     "actualPay": "Actual Pay",
@@ -12332,220 +12547,523 @@
     "subtitle": "Save independent API Key, model ID, and context length for each AI platform. 15+ templates are preconfigured; you only need to fill in your credentials.",
     "title": "My LLM Configs",
     "v2": {
-      "addFirstModel": "Add your first model",
-      "addModel": "Add Model",
+      "card": {
+        "apiKey": "API Key",
+        "baseUrl": "Base URL",
+        "clickToFetch": "Click below to fetch",
+        "context": "Context",
+        "delete": "Delete",
+        "deleteConfirm": "Delete \"{name}\"?",
+        "deleteFailed": "Delete failed",
+        "deletedToast": "Deleted",
+        "disabled": "Disabled",
+        "disabledToast": "Disabled",
+        "edit": "Edit",
+        "enabled": "Enabled",
+        "enabledToast": "Enabled",
+        "fetchFailed": "Fetch failed",
+        "fetchModels": "Fetch Models",
+        "fetchSuccess": "Fetched {total} models",
+        "fetching": "Fetching...",
+        "hideKey": "Hide",
+        "hideModels": "Hide Models",
+        "lastTest": "Last Test",
+        "model": "Model",
+        "more": "{total} more, truncated",
+        "needKeyFirst": "Configure API Key first",
+        "noKey": "No Key",
+        "noModelsReturned": "No models returned",
+        "refetch": "Refetch",
+        "showKey": "Show",
+        "test": "Test",
+        "testFailed": "Connection failed",
+        "testFailedWithTime": "Failed · {date}",
+        "testSuccess": "Connected",
+        "testSuccessWithTime": "OK {ms}ms · {date}",
+        "testTimeOnly": "{ms}ms",
+        "untested": "Untested"
+      },
+      "dialog": {
+        "apiKeyLabel": "API Key",
+        "baseUrlLabel": "Base URL:",
+        "baseUrlOptional": "Base URL (optional, overrides default)",
+        "baseUrlRequired": "Base URL (required)",
+        "cancel": "Cancel",
+        "contextLabel": "Context Length",
+        "copied": "Copied: {id}",
+        "copyModelId": "Copy model ID",
+        "copyTip": "Click the copy icon next to a model ID to fill the Model ID field",
+        "create": "Create",
+        "description": "Pick a platform template, then fill in API Key, model ID, and context length. The system follows each platform's protocol automatically.",
+        "descriptionLabel": "Notes (optional)",
+        "descriptionPlaceholder": "Usage notes...",
+        "docsLabel": "Docs",
+        "editTitle": "Edit LLM Config",
+        "enableConfig": "Enable this config",
+        "fetchUpstream": "Fetch Upstream Models",
+        "filterModels": "Filter models...",
+        "hideKey": "Hide Key",
+        "keepEmpty": "(leave empty to keep current)",
+        "keyPlaceholderEdit": "•••••••(encrypted)",
+        "keyPlaceholderNew": "sk-...",
+        "modelIdLabel": "Model ID",
+        "nameLabel": "Config Name",
+        "namePlaceholder": "My config",
+        "needSelfUrl": "(required)",
+        "newTitle": "New LLM Config",
+        "noMatch": "No matching models",
+        "official": "Official",
+        "previewTest": "Test",
+        "previewTestFailed": "Connection failed",
+        "previewTestKey": "Enter API Key first",
+        "previewTestModel": "Enter model ID first",
+        "previewTestSelect": "Select a platform template first",
+        "previewTestSuccess": "Connected",
+        "protocolLabel": "Protocol:",
+        "save": "Save",
+        "saveBeforeFetch": "Save first to fetch upstream models",
+        "saveBeforeFetchErr": "Save the config first, then fetch models",
+        "self": "Custom",
+        "showKey": "Show Key",
+        "templateLabel": "Platform Template"
+      },
+      "importCliConfig": "Import CLI Config",
+      "infoDesc": "Platform URL and protocol are preconfigured. You only need to fill in API Key, model ID, and context length. After saving you can test connectivity or fetch all upstream models. Each account's config is isolated and encrypted.",
+      "infoTitle": "Configuration Notes",
+      "listCount": "{total} configs · {enabledCount} enabled",
+      "loading": "Loading...",
+      "quickStartTitle": "Popular platforms (click to start):",
+      "securityNotice": "API Keys are encrypted with AES-256 and visible only to your account. Each platform's URL, protocol, and headers are preconfigured per official docs, no manual setup required.",
+      "subtitle": "Save independent API Key, model ID, and context length for each AI platform. 15+ templates are preconfigured; you only need to fill in your credentials.",
+      "title": "My LLM Configs",
+      "v2": {
+        "addFirstModel": "Add your first model",
+        "addModel": "Add Model",
+        "baseUrl": "Base URL",
+        "bulk": {
+          "cancel": "Cancel",
+          "export": "Export",
+          "exportBtn": "Export JSON",
+          "exportDesc": "Export all providers + models as a JSON file. API keys are automatically masked.",
+          "exportEnv": ".env Format",
+          "exportJson": "JSON Format",
+          "exportSuccess": "Exported {count} providers / {models} models",
+          "exportTitle": "Export Configs",
+          "formatLabel": "Export Format",
+          "import": "Import",
+          "importConfirmDesc": "Will create {providers} providers and {models} models. API keys are left blank.",
+          "importDesc": "Import providers + models from a JSON file. API keys are left blank and must be filled in manually.",
+          "importFailed": "Import failed: {error}",
+          "importFile": "Upload JSON file",
+          "importPlaceholder": "Or paste JSON content here...",
+          "importSubmit": "Start import",
+          "importSuccess": "Imported {providers} providers / {models} models",
+          "importTitle": "Import Configs",
+          "invalidJson": "Invalid JSON, please check the file",
+          "title": "Bulk Import/Export"
+        },
+        "compare": "Compare",
+        "compareDialog": {
+          "close": "Close",
+          "colDimension": "Dimension",
+          "empty": "Select at least 2 models to start comparing",
+          "noModels": "No models available to compare",
+          "noParams": "(none)",
+          "pickHint": "Pick models to compare (cross-provider, up to {max})",
+          "remove": "Remove",
+          "rowContext": "Context",
+          "rowCost30d": "30d Cost",
+          "rowDefault": "Default",
+          "rowEnabled": "Enabled",
+          "rowFormat": "Protocol",
+          "rowHealth": "Health",
+          "rowInputPrice": "Input $/1K",
+          "rowOutputPrice": "Output $/1K",
+          "rowParams": "Default Params",
+          "rowProvider": "Provider",
+          "rowUsage30d": "30d Tokens",
+          "selectedCount": "Selected {count}/{max}",
+          "title": "Model Comparison"
+        },
+        "copyDialog": {
+          "cancel": "Cancel",
+          "confirm": "Copy",
+          "desc": "Pick a target provider and the fields to copy. The modelId will get a -copy suffix to avoid conflicts.",
+          "failed": "Copy failed",
+          "fieldContext": "Context Length",
+          "fieldDefault": "Default flag",
+          "fieldDisplayName": "Display name",
+          "fieldEnabled": "Enabled state",
+          "fieldParams": "Default params",
+          "fieldPrice": "Price",
+          "fields": "Fields to copy",
+          "noTargets": "No target providers available",
+          "pickTarget": "Pick a target provider first",
+          "sourceModel": "Source model",
+          "sourceProvider": "Source provider",
+          "success": "Copied to target provider",
+          "targetProvider": "Target provider",
+          "title": "Copy Model to Another Provider"
+        },
+        "copyToProvider": "Copy to other provider",
+        "cost30d": "30d Cost",
+        "delete": "Delete",
+        "deleteFailed": "Delete failed",
+        "deleteModelConfirm": "Delete model \"{id}\"?",
+        "deleteProviderConfirm": "Delete provider \"{name}\"? All attached models will be removed too.",
+        "disabled": "Disabled",
+        "disabledToast": "Disabled",
+        "edit": "Edit",
+        "emptyDesc": "Click below to add your first AI platform provider. Each provider can host multiple models with health status, 30-day usage, bulk import/export, cross-provider model comparison, and one-click copy.",
+        "emptyTitle": "No providers yet",
+        "enabled": "Enabled",
+        "enabledToast": "Enabled",
+        "fetchFailed": "Fetch failed",
+        "fetchModels": "Fetch upstream models",
+        "fetchSuccess": "Fetched {total} models",
+        "fetching": "Fetching...",
+        "firstProvider": "Add your first provider",
+        "hideModels": "Hide models",
+        "lastTest": "Last Test",
+        "listCount": "{total} providers · {enabledCount} enabled",
+        "loading": "Loading...",
+        "modelDeleted": "Model deleted",
+        "modelDialog": {
+          "cancel": "Cancel",
+          "contextLength": "Context Length",
+          "create": "Create",
+          "created": "Created",
+          "defaultParams": "Default params",
+          "displayName": "Display name",
+          "displayNamePlaceholder": "e.g. GPT-4o flagship",
+          "editTitle": "Edit Model",
+          "enableModel": "Enable this model",
+          "enableModelDesc": "Disabled models can't be selected",
+          "inputPrice": "Input price (per 1K tokens, cents)",
+          "invalidJson": "Advanced JSON parse failed, please check syntax",
+          "modelId": "Model ID",
+          "modelIdRequired": "Model ID is required",
+          "newTitle": "New Model",
+          "outputPrice": "Output price (per 1K tokens, cents)",
+          "save": "Save",
+          "saveFailed": "Save failed",
+          "saved": "Saved",
+          "setDefault": "Set as provider default model",
+          "setDefaultDesc": "Default model is preferred for new conversations"
+        },
+        "modelParams": {
+          "advancedHint": "Advanced JSON takes precedence (non-empty fully overrides structured fields). Leave empty to use the structured params above.",
+          "copied": "JSON copied to clipboard",
+          "copyAsJson": "Copy as JSON",
+          "frequencyPenalty": "Frequency Penalty",
+          "frequencyPenaltyHelp": "Frequency penalty, -2 to 2. Positive values reduce repetition.",
+          "hideAdvanced": "Hide advanced JSON",
+          "maxTokens": "Max Tokens",
+          "maxTokensHelp": "Maximum tokens per response",
+          "presencePenalty": "Presence Penalty",
+          "presencePenaltyHelp": "Presence penalty, -2 to 2. Positive values encourage new topics.",
+          "presetApplied": "Preset applied",
+          "presets": "Presets",
+          "responseFormat": "Response Format",
+          "showAdvanced": "Show advanced JSON",
+          "systemPrompt": "System Prompt",
+          "systemPromptPlaceholder": "You are a helpful assistant...",
+          "temperature": "Temperature",
+          "temperatureHelp": "Sampling temperature, 0-2. Lower = more deterministic, higher = more diverse.",
+          "title": "Default Params",
+          "topP": "Top P",
+          "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered."
+        },
+        "modelsCount": "{count} models",
+        "more": "{total} more, truncated",
+        "needKeyFirst": "Configure API Key first",
+        "newProvider": "Add Provider",
+        "noKey": "No Key",
+        "noModels": "No models attached to this provider",
+        "noModelsReturned": "No models returned",
+        "providerDeleted": "Provider deleted",
+        "providerDialog": {
+          "apiKey": "API Key",
+          "baseUrl": "Base URL",
+          "baseUrlRequired": "Base URL is required",
+          "cancel": "Cancel",
+          "create": "Create",
+          "created": "Created",
+          "defaultGroup": "Default group",
+          "description": "Notes",
+          "descriptionPlaceholder": "Usage notes...",
+          "docs": "Docs",
+          "editTitle": "Edit Provider",
+          "enableConfig": "Enable this provider",
+          "enableConfigDesc": "Disabled providers can't be selected. Existing requests are unaffected.",
+          "group": "Group",
+          "groupPlaceholder": "Select a group",
+          "hideKey": "Hide",
+          "keyKeepEmpty": "(leave empty to keep current)",
+          "keyPlaceholderEdit": "•••••••(encrypted)",
+          "keyPlaceholderNew": "sk-...",
+          "keyRequired": "API Key is required",
+          "name": "Provider name",
+          "namePlaceholder": "My OpenAI",
+          "nameRequired": "Provider name is required",
+          "newTitle": "New Provider",
+          "optional": "optional",
+          "pasteEmpty": "Clipboard is empty",
+          "pasteFailed": "Clipboard read failed, please paste manually",
+          "pasteFromClipboard": "Paste API Key from clipboard",
+          "pasteSuccess": "Pasted from clipboard",
+          "platform": "Platform template",
+          "platformPlaceholder": "Select a platform template",
+          "protocol": "Protocol",
+          "protocolPlaceholder": "Select a protocol",
+          "save": "Save",
+          "saveFailed": "Save failed",
+          "saved": "Saved",
+          "showKey": "Show",
+          "templatesEmpty": "No platform templates available",
+          "templatesLoadError": "Failed to load platform templates",
+          "templatesLoading": "Loading platform templates...",
+          "templatesNotReady": "Platform templates not ready, please retry later"
+        },
+        "quickStartTitle": "Popular platforms (click to start):",
+        "sidebar": {
+          "add": "Add",
+          "addGroup": "Add group",
+          "all": "All",
+          "cancel": "Cancel",
+          "createFailed": "Create failed",
+          "deleteFailed": "Delete failed",
+          "deleteGroup": "Delete group",
+          "deleteGroupConfirm": "Delete group \"{name}\"?",
+          "groupCreated": "Group \"{name}\" created",
+          "groupDeleteNotSupported": "Move all providers out of the group first",
+          "groupDeleted": "Group deleted",
+          "groupNotEmpty": "Group still has {count} providers. Move them first.",
+          "groupPlaceholder": "Enter group name...",
+          "title": "Groups",
+          "ungrouped": "Ungrouped"
+        },
+        "test": "Test",
+        "testFailed": "Connection failed",
+        "testFailedWithTime": "Failed · {date}",
+        "testSuccess": "Connected",
+        "testSuccessWithTime": "OK {ms}ms · {date}",
+        "testTimeOnly": "{ms}ms",
+        "untested": "Untested",
+        "usage30d": "30d Tokens"
+      },
+      "addFirstModel": "添加第一个模型",
+      "addModel": "添加模型",
       "baseUrl": "Base URL",
       "bulk": {
-        "cancel": "Cancel",
-        "export": "Export",
-        "exportBtn": "Export JSON",
-        "exportDesc": "Export all providers + models as a JSON file. API keys are automatically masked.",
-        "exportEnv": ".env Format",
-        "exportJson": "JSON Format",
-        "exportSuccess": "Exported {count} providers / {models} models",
-        "exportTitle": "Export Configs",
-        "formatLabel": "Export Format",
-        "import": "Import",
-        "importConfirmDesc": "Will create {providers} providers and {models} models. API keys are left blank.",
-        "importDesc": "Import providers + models from a JSON file. API keys are left blank and must be filled in manually.",
-        "importFailed": "Import failed: {error}",
-        "importFile": "Upload JSON file",
-        "importPlaceholder": "Or paste JSON content here...",
-        "importSubmit": "Start import",
-        "importSuccess": "Imported {providers} providers / {models} models",
-        "importTitle": "Import Configs",
-        "invalidJson": "Invalid JSON, please check the file",
-        "title": "Bulk Import/Export"
+        "cancel": "取消",
+        "export": "导出",
+        "exportBtn": "导出 JSON",
+        "exportDesc": "导出所有服务商 + 模型为 JSON 文件,API Key 自动脱敏",
+        "exportEnv": ".env 格式",
+        "exportJson": "JSON 格式",
+        "exportSuccess": "已导出 {count} 个服务商 / {models} 个模型",
+        "exportTitle": "导出配置",
+        "formatLabel": "导出格式",
+        "import": "导入",
+        "importConfirmDesc": "将创建 {providers} 个服务商和 {models} 个模型,API Key 留空",
+        "importDesc": "从 JSON 文件导入服务商 + 模型,API Key 留空,需手动补填",
+        "importFailed": "导入失败:{error}",
+        "importFile": "上传 JSON 文件",
+        "importPlaceholder": "或粘贴 JSON 内容到这里...",
+        "importSubmit": "开始导入",
+        "importSuccess": "成功导入 {providers} 个服务商 / {models} 个模型",
+        "importTitle": "导入配置",
+        "invalidJson": "JSON 格式错误,请检查文件内容",
+        "title": "批量导入/导出",
+        "a": "批量操作"
       },
-      "compare": "Compare",
+      "compare": "加入对比",
       "compareDialog": {
-        "close": "Close",
-        "colDimension": "Dimension",
-        "empty": "Select at least 2 models to start comparing",
-        "noModels": "No models available to compare",
-        "noParams": "(none)",
-        "pickHint": "Pick models to compare (cross-provider, up to {max})",
-        "remove": "Remove",
+        "close": "关闭",
+        "colDimension": "维度",
+        "empty": "请勾选至少 2 个模型开始对比",
+        "noModels": "暂无可对比的模型",
+        "noParams": "(无)",
+        "pickHint": "从下方勾选要对比的模型(跨服务商,最多 {max} 个)",
+        "remove": "移除",
         "rowContext": "Context",
         "rowCost30d": "30d Cost",
-        "rowDefault": "Default",
-        "rowEnabled": "Enabled",
-        "rowFormat": "Protocol",
-        "rowHealth": "Health",
+        "rowDefault": "默认",
+        "rowEnabled": "已启用",
+        "rowFormat": "协议",
+        "rowHealth": "健康",
         "rowInputPrice": "Input $/1K",
         "rowOutputPrice": "Output $/1K",
-        "rowParams": "Default Params",
-        "rowProvider": "Provider",
+        "rowParams": "默认参数",
+        "rowProvider": "服务商",
         "rowUsage30d": "30d Tokens",
-        "selectedCount": "Selected {count}/{max}",
-        "title": "Model Comparison"
+        "selectedCount": "已选 {count}/{max}",
+        "title": "模型对比"
       },
       "copyDialog": {
-        "cancel": "Cancel",
-        "confirm": "Copy",
-        "desc": "Pick a target provider and the fields to copy. The modelId will get a -copy suffix to avoid conflicts.",
-        "failed": "Copy failed",
+        "cancel": "取消",
+        "confirm": "确认复制",
+        "desc": "选择一个目标服务商,选择要复制的字段,modelId 会自动添加 -copy 后缀避免冲突",
+        "failed": "复制失败",
         "fieldContext": "Context Length",
-        "fieldDefault": "Default flag",
-        "fieldDisplayName": "Display name",
-        "fieldEnabled": "Enabled state",
-        "fieldParams": "Default params",
-        "fieldPrice": "Price",
-        "fields": "Fields to copy",
-        "noTargets": "No target providers available",
-        "pickTarget": "Pick a target provider first",
-        "sourceModel": "Source model",
-        "sourceProvider": "Source provider",
-        "success": "Copied to target provider",
-        "targetProvider": "Target provider",
-        "title": "Copy Model to Another Provider"
+        "fieldDefault": "默认标记",
+        "fieldDisplayName": "显示名",
+        "fieldEnabled": "启用状态",
+        "fieldParams": "默认参数",
+        "fieldPrice": "价格",
+        "fields": "要复制的字段",
+        "noTargets": "暂无可用目标服务商",
+        "pickTarget": "请先选择目标服务商",
+        "sourceModel": "源模型",
+        "sourceProvider": "源服务商",
+        "success": "已复制到目标服务商",
+        "targetProvider": "目标服务商",
+        "title": "复制模型到其他服务商"
       },
-      "copyToProvider": "Copy to other provider",
-      "cost30d": "30d Cost",
-      "delete": "Delete",
-      "deleteFailed": "Delete failed",
-      "deleteModelConfirm": "Delete model \"{id}\"?",
-      "deleteProviderConfirm": "Delete provider \"{name}\"? All attached models will be removed too.",
-      "disabled": "Disabled",
-      "disabledToast": "Disabled",
-      "edit": "Edit",
-      "emptyDesc": "Click below to add your first AI platform provider. Each provider can host multiple models with health status, 30-day usage, bulk import/export, cross-provider model comparison, and one-click copy.",
-      "emptyTitle": "No providers yet",
-      "enabled": "Enabled",
-      "enabledToast": "Enabled",
-      "fetchFailed": "Fetch failed",
-      "fetchModels": "Fetch upstream models",
-      "fetchSuccess": "Fetched {total} models",
-      "fetching": "Fetching...",
-      "firstProvider": "Add your first provider",
-      "hideModels": "Hide models",
-      "lastTest": "Last Test",
-      "listCount": "{total} providers · {enabledCount} enabled",
-      "loading": "Loading...",
-      "modelDeleted": "Model deleted",
+      "copyToProvider": "复制到其他服务商",
+      "cost30d": "30 天费用",
+      "delete": "删除",
+      "deleteFailed": "删除失败",
+      "deleteModelConfirm": "确认删除模型「{id}」?",
+      "deleteProviderConfirm": "确认删除服务商「{name}」?其下所有模型也会被删除。",
+      "disabled": "已停用",
+      "disabledToast": "已停用",
+      "edit": "编辑",
+      "emptyDesc": "点击下方按钮添加第一个 AI 平台服务商。每个服务商可挂载多个模型,支持健康状态、30 天用量、批量导入导出、跨服务商模型对比、一键复制。",
+      "emptyTitle": "还没有服务商",
+      "enabled": "启用",
+      "enabledToast": "已启用",
+      "fetchFailed": "拉取失败",
+      "fetchModels": "拉取上游模型",
+      "fetchSuccess": "已拉取 {total} 个模型",
+      "fetching": "拉取中...",
+      "firstProvider": "添加第一个服务商",
+      "hideModels": "隐藏模型",
+      "lastTest": "最近测试",
+      "modelDeleted": "模型已删除",
       "modelDialog": {
-        "cancel": "Cancel",
+        "cancel": "取消",
         "contextLength": "Context Length",
-        "create": "Create",
-        "created": "Created",
-        "defaultParams": "Default params",
-        "displayName": "Display name",
-        "displayNamePlaceholder": "e.g. GPT-4o flagship",
-        "editTitle": "Edit Model",
-        "enableModel": "Enable this model",
-        "enableModelDesc": "Disabled models can't be selected",
-        "inputPrice": "Input price (per 1K tokens, cents)",
-        "invalidJson": "Advanced JSON parse failed, please check syntax",
+        "create": "创建",
+        "created": "已创建",
+        "defaultParams": "默认参数",
+        "displayName": "显示名",
+        "displayNamePlaceholder": "如 GPT-4o 旗舰版",
+        "editTitle": "编辑模型",
+        "enableModel": "启用此模型",
+        "enableModelDesc": "禁用后无法被选择",
+        "inputPrice": "Input 价格(每 1K tokens,分)",
+        "invalidJson": "高级 JSON 解析失败,请检查语法",
         "modelId": "Model ID",
-        "modelIdRequired": "Model ID is required",
-        "newTitle": "New Model",
-        "outputPrice": "Output price (per 1K tokens, cents)",
-        "save": "Save",
-        "saveFailed": "Save failed",
-        "saved": "Saved",
-        "setDefault": "Set as provider default model",
-        "setDefaultDesc": "Default model is preferred for new conversations"
+        "modelIdRequired": "请填写 Model ID",
+        "newTitle": "新增模型",
+        "outputPrice": "Output 价格(每 1K tokens,分)",
+        "save": "保存",
+        "saveFailed": "保存失败",
+        "saved": "已保存",
+        "setDefault": "设为服务商默认模型",
+        "setDefaultDesc": "默认模型会在新对话中被优先选中"
       },
       "modelParams": {
-        "advancedHint": "Advanced JSON takes precedence (non-empty fully overrides structured fields). Leave empty to use the structured params above.",
-        "copied": "JSON copied to clipboard",
-        "copyAsJson": "Copy as JSON",
+        "advancedHint": "高级 JSON 优先(非空时完全覆盖结构化字段),留空则使用上方结构化参数",
+        "copied": "已复制 JSON 到剪贴板",
+        "copyAsJson": "复制为 JSON",
         "frequencyPenalty": "Frequency Penalty",
-        "frequencyPenaltyHelp": "Frequency penalty, -2 to 2. Positive values reduce repetition.",
-        "hideAdvanced": "Hide advanced JSON",
+        "frequencyPenaltyHelp": "频率惩罚,-2~2,正值降低重复",
+        "hideAdvanced": "隐藏高级 JSON",
         "maxTokens": "Max Tokens",
-        "maxTokensHelp": "Maximum tokens per response",
+        "maxTokensHelp": "单次响应最大 token 数",
         "presencePenalty": "Presence Penalty",
-        "presencePenaltyHelp": "Presence penalty, -2 to 2. Positive values encourage new topics.",
-        "presetApplied": "Preset applied",
-        "presets": "Presets",
+        "presencePenaltyHelp": "存在惩罚,-2~2,正值鼓励新话题",
+        "presetApplied": "已应用预设",
+        "presets": "预设模板",
         "responseFormat": "Response Format",
-        "showAdvanced": "Show advanced JSON",
+        "showAdvanced": "显示高级 JSON",
         "systemPrompt": "System Prompt",
-        "systemPromptPlaceholder": "You are a helpful assistant...",
+        "systemPromptPlaceholder": "你是一个有帮助的助手...",
         "temperature": "Temperature",
-        "temperatureHelp": "Sampling temperature, 0-2. Lower = more deterministic, higher = more diverse.",
-        "title": "Default Params",
+        "temperatureHelp": "采样温度,0~2,越低越确定,越高越发散",
+        "title": "默认参数",
         "topP": "Top P",
-        "topPHelp": "Nucleus sampling threshold, 0-1. Only top probability tokens are considered."
+        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token"
       },
-      "modelsCount": "{count} models",
-      "more": "{total} more, truncated",
-      "needKeyFirst": "Configure API Key first",
-      "newProvider": "Add Provider",
-      "noKey": "No Key",
-      "noModels": "No models attached to this provider",
-      "noModelsReturned": "No models returned",
-      "providerDeleted": "Provider deleted",
+      "modelsCount": "{count} 个模型",
+      "more": "共 {total} 个,展开省略",
+      "needKeyFirst": "请先配置 API Key",
+      "newProvider": "新增服务商",
+      "noKey": "未配置 Key",
+      "noModels": "该服务商暂未挂载模型",
+      "noModelsReturned": "该平台未返回模型",
+      "providerDeleted": "服务商已删除",
       "providerDialog": {
         "apiKey": "API Key",
         "baseUrl": "Base URL",
-        "baseUrlRequired": "Base URL is required",
-        "cancel": "Cancel",
-        "create": "Create",
-        "created": "Created",
-        "defaultGroup": "Default group",
-        "description": "Notes",
-        "descriptionPlaceholder": "Usage notes...",
-        "docs": "Docs",
-        "editTitle": "Edit Provider",
-        "enableConfig": "Enable this provider",
-        "enableConfigDesc": "Disabled providers can't be selected. Existing requests are unaffected.",
-        "group": "Group",
-        "groupPlaceholder": "Select a group",
-        "hideKey": "Hide",
-        "keyKeepEmpty": "(leave empty to keep current)",
-        "keyPlaceholderEdit": "•••••••(encrypted)",
+        "baseUrlRequired": "请填写 Base URL",
+        "cancel": "取消",
+        "create": "创建",
+        "created": "已创建",
+        "defaultGroup": "默认分组",
+        "description": "备注",
+        "descriptionPlaceholder": "用途说明...",
+        "docs": "文档",
+        "editTitle": "编辑服务商",
+        "enableConfig": "启用此服务商",
+        "enableConfigDesc": "禁用后无法被选择,已发出的请求不受影响",
+        "group": "分组",
+        "groupPlaceholder": "请选择分组",
+        "hideKey": "隐藏密钥",
+        "keyKeepEmpty": "(留空不修改)",
+        "keyPlaceholderEdit": "•••••••(已加密存储)",
         "keyPlaceholderNew": "sk-...",
-        "keyRequired": "API Key is required",
-        "name": "Provider name",
-        "namePlaceholder": "My OpenAI",
-        "nameRequired": "Provider name is required",
-        "newTitle": "New Provider",
-        "optional": "optional",
-        "pasteEmpty": "Clipboard is empty",
-        "pasteFailed": "Clipboard read failed, please paste manually",
-        "pasteFromClipboard": "Paste API Key from clipboard",
-        "pasteSuccess": "Pasted from clipboard",
-        "platform": "Platform template",
-        "platformPlaceholder": "Select a platform template",
-        "protocol": "Protocol",
-        "protocolPlaceholder": "Select a protocol",
-        "save": "Save",
-        "saveFailed": "Save failed",
-        "saved": "Saved",
-        "showKey": "Show",
-        "templatesEmpty": "No platform templates available",
-        "templatesLoadError": "Failed to load platform templates",
-        "templatesLoading": "Loading platform templates...",
-        "templatesNotReady": "Platform templates not ready, please retry later"
+        "keyRequired": "请填写 API Key",
+        "name": "配置名称",
+        "namePlaceholder": "我的 OpenAI",
+        "nameRequired": "请填写服务商名称",
+        "newTitle": "新增服务商",
+        "optional": "可选",
+        "pasteEmpty": "剪贴板为空",
+        "pasteFailed": "剪贴板读取失败,请手动粘贴",
+        "pasteFromClipboard": "从剪贴板粘贴 API Key",
+        "pasteSuccess": "已从剪贴板粘贴",
+        "platform": "平台模板",
+        "platformPlaceholder": "请选择平台模板",
+        "protocol": "协议",
+        "protocolPlaceholder": "请选择协议",
+        "save": "保存",
+        "saveFailed": "保存失败",
+        "saved": "已保存",
+        "showKey": "显示密钥",
+        "templatesEmpty": "暂无可用平台模板",
+        "templatesLoadError": "加载平台模板失败",
+        "templatesLoading": "正在加载平台模板...",
+        "templatesNotReady": "平台模板未就绪,请稍后重试"
       },
-      "quickStartTitle": "Popular platforms (click to start):",
       "sidebar": {
-        "add": "Add",
-        "addGroup": "Add group",
-        "all": "All",
-        "cancel": "Cancel",
-        "createFailed": "Create failed",
-        "deleteFailed": "Delete failed",
-        "deleteGroup": "Delete group",
-        "deleteGroupConfirm": "Delete group \"{name}\"?",
-        "groupCreated": "Group \"{name}\" created",
-        "groupDeleteNotSupported": "Move all providers out of the group first",
-        "groupDeleted": "Group deleted",
-        "groupNotEmpty": "Group still has {count} providers. Move them first.",
-        "groupPlaceholder": "Enter group name...",
-        "title": "Groups",
-        "ungrouped": "Ungrouped"
+        "add": "添加",
+        "addGroup": "添加分组",
+        "all": "全部",
+        "cancel": "取消",
+        "createFailed": "创建失败",
+        "deleteFailed": "删除失败",
+        "deleteGroup": "删除分组",
+        "deleteGroupConfirm": "确认删除分组「{name}」?",
+        "groupCreated": "已创建分组「{name}」",
+        "groupDeleteNotSupported": "分组删除需在服务商全部移走后再操作",
+        "groupDeleted": "已删除分组",
+        "groupNotEmpty": "该分组下还有 {count} 个服务商,请先移走再删",
+        "groupPlaceholder": "输入分组名...",
+        "title": "分组",
+        "ungrouped": "未分组"
       },
-      "test": "Test",
-      "testFailed": "Connection failed",
-      "testFailedWithTime": "Failed · {date}",
-      "testSuccess": "Connected",
-      "testSuccessWithTime": "OK {ms}ms · {date}",
-      "testTimeOnly": "{ms}ms",
-      "untested": "Untested",
-      "usage30d": "30d Tokens"
+      "test": "测试",
+      "testFailed": "连通失败",
+      "testFailedWithTime": "失败 · {date}",
+      "testSuccess": "连通成功",
+      "testSuccessWithTime": "成功 {ms}ms · {date}",
+      "testTimeOnly": "耗时 {ms}ms",
+      "untested": "未测试",
+      "usage30d": "30 天 Token"
     }
   },
   "market": {
@@ -13201,7 +13719,8 @@
   "messages": {
     "empty": "No messages",
     "loading": "Loading...",
-    "noData": "No messages"
+    "noData": "No messages",
+    "title": "Messages"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13231,7 +13750,15 @@
       "title": "Top 5 Pages",
       "visitsHeader": "Visits"
     },
-    "weekdays": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    "weekdays": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri",
+      "Sat",
+      "Sun"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13941,7 +14468,8 @@
     "view": {
       "grid": "Grid View",
       "list": "List View"
-    }
+    },
+    "pricing": "Model Pricing"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs last month",
@@ -14490,7 +15018,9 @@
     "userSubscription": "Subscription",
     "vip": "VIP Membership",
     "workspace": "Workspace",
-    "courses": "Courses"
+    "courses": "Courses",
+    "faq": "FAQ",
+    "home": "Home"
   },
   "news": {
     "allCategories": "All Categories",
@@ -14523,7 +15053,8 @@
     "tags": "Tags:",
     "title": "News",
     "total": "{total} articles",
-    "viewCount": "{count} reads"
+    "viewCount": "{count} reads",
+    "page": "News Page"
   },
   "newsletter": {
     "articles": {
@@ -14580,7 +15111,8 @@
       "desc": "Please check your email to confirm your subscription. The next weekly issue will be sent on Friday.",
       "recommended": "Recommended Reading",
       "title": "Subscription Successful!"
-    }
+    },
+    "title": "Newsletter"
   },
   "notes": {
     "attachmentsField": "Attachments",
@@ -16085,7 +16617,9 @@
     "subtitle": "Download learning resources",
     "title": "Resource Center",
     "total": "{total} total",
-    "viewCount": "{count} views"
+    "viewCount": "{count} views",
+    "affiliates": "Affiliates",
+    "edit": "Edit Resource"
   },
   "resourcesEditPage": {
     "backToList": "Back to Resources",
@@ -16149,7 +16683,8 @@
     },
     "title": "Search",
     "placeholder": "Enter keywords",
-    "empty": "No results"
+    "empty": "No results",
+    "q": "Search"
   },
   "searchHistory": {
     "clearAll": "Clear All",
@@ -16448,7 +16983,8 @@
       "deployments": "Deployments",
       "satisfaction": "Avg. Satisfaction",
       "title": "Clients Served"
-    }
+    },
+    "title": "Services"
   },
   "settings": {
     "accountDeletionCancel": "Cancel Deletion",
@@ -16827,7 +17363,10 @@
     "notification": "Notifications",
     "account": "Account",
     "version": "Version",
-    "usageRules": "Usage Rules"
+    "usageRules": "Usage Rules",
+    "connectedAccountsUnbindSuccess": "Unbind Success",
+    "notificationsLoadFailed": "Notifications Load Failed",
+    "privacyLoadFailed": "Privacy Load Failed"
   },
   "shareContentPage": {
     "aiGenerated": "Zhihui AI Generated",
@@ -16984,7 +17523,8 @@
       }
     },
     "tiersTitle": "Sponsorship Tiers",
-    "whyTitle": "Why Sponsor IHUI AI"
+    "whyTitle": "Why Sponsor IHUI AI",
+    "title": "Sponsor"
   },
   "sso": {
     "alreadyLoggedIn": "Already signed in",
@@ -17024,13 +17564,58 @@
     "subtitle": "Authorize and redirect to {clientId} after login",
     "title": "Unified Login",
     "mobileAuth": {
-      "title": "Mobile Authorization",
-      "processing": "Verifying login…",
-      "missingCode": "Missing auth code, open from the app",
-      "exchangeFailed": "Authorization failed, retry or sign in again",
-      "networkError": "Network error, please retry",
-      "backToLogin": "Back to sign in"
-    }
+      "alreadyLoggedIn": "Already signed in",
+      "authFailed": "Failed to start authorization",
+      "authorizeAndRedirect": "Authorize & Redirect",
+      "authorizing": "Authorizing for {clientId}…",
+      "code": "Verification code",
+      "codePlaceholder": "Enter verification code",
+      "codeRequired": "Please enter the verification code",
+      "codeSent": "Verification code sent",
+      "confirmPassword": "Confirm password",
+      "confirmPasswordPlaceholder": "Re-enter password",
+      "footerHint": "You will be redirected back to the target app after authorization. The login state will be shared across all sub-projects.",
+      "generateCodeFailed": "Failed to generate authorization code",
+      "getCode": "Get code",
+      "invalidPhone": "Please enter a valid phone number",
+      "invalidPlatform": "Unknown login platform, returning to main site",
+      "mustAgree": "Please agree to the terms first",
+      "password": "Password",
+      "passwordMismatch": "Passwords do not match",
+      "passwordPlaceholder": "Enter password",
+      "passwordTooShort": "Password must be at least 6 characters",
+      "phone": "Phone",
+      "phonePlaceholder": "Enter phone number",
+      "redirect": {
+        "notAllowed": "Redirect target is not allowed",
+        "notAllowedDesc": "For security reasons, only whitelisted redirect targets are allowed.",
+        "title": "Unified Login Redirect"
+      },
+      "redirecting": "Redirecting to authorization…",
+      "redirectingDesc": "Opening {platform} authorization page",
+      "registerBtn": "Sign Up & Authorize",
+      "registerFailed": "Registration failed",
+      "registerSuccess": "Registration successful",
+      "registerTitle": "Unified Register",
+      "sendCodeFailed": "Failed to send verification code",
+      "subtitle": "Authorize and redirect to {clientId} after login",
+      "title": "Unified Login",
+      "mobileAuth": {
+        "title": "Mobile Authorization",
+        "processing": "Verifying login…",
+        "missingCode": "Missing auth code, open from the app",
+        "exchangeFailed": "Authorization failed, retry or sign in again",
+        "networkError": "Network error, please retry",
+        "backToLogin": "Back to sign in"
+      },
+      "processing": "正在验证登录状态…",
+      "missingCode": "缺少授权码，请从 App 内打开",
+      "exchangeFailed": "授权失败，请重试或重新登录",
+      "networkError": "网络异常，请重试",
+      "backToLogin": "返回登录",
+      "sso_code": "SSO 授權碼"
+    },
+    "platform": "Platform"
   },
   "statistics": {
     "actions": "Actions",
@@ -17502,7 +18087,9 @@
     "submit": "Split",
     "submitting": "Splitting...",
     "title": "PDF Split",
-    "uploadLabel": "Click or drag a PDF file here to upload"
+    "uploadLabel": "Click or drag a PDF file here to upload",
+    "convert": "Convert",
+    "merge": "Merge"
   },
   "topics": {
     "empty": "No topics",
@@ -18179,7 +18766,8 @@
       "schedule": "Schedule",
       "unknown": "Unknown Trigger",
       "webhook": "Webhook"
-    }
+    },
+    "instance": "Workflow Instance"
   },
   "workspace": {
     "actions": "Actions",
@@ -18369,7 +18957,9 @@
     "stepThinking": "Thinking",
     "reasoningCopied": "Reasoning copied",
     "reasoningCopyFailed": "Failed to copy reasoning",
-    "copyReasoning": "Copy reasoning"
+    "copyReasoning": "Copy reasoning",
+    "detail": "Plan Detail",
+    "new": "New Plan"
   },
   "subagent": {
     "toolCallsTitle": "{n} tool calls",
@@ -19121,7 +19711,8 @@
     "certTitle": "Certificate",
     "certNo": "Number",
     "holderName": "Holder",
-    "issueDate": "Issue date"
+    "issueDate": "Issue date",
+    "notfound": "Certificate Not Found"
   },
   "courseCatalog": {
     "title": "Course catalog",
@@ -19800,7 +20391,8 @@
     "url": "Share link",
     "code": "Share code",
     "expireAt": "Expiry time",
-    "shareNow": "Share now"
+    "shareNow": "Share now",
+    "detail": "Share Detail"
   },
   "vipBenefit": {
     "title": "VIP Benefits"
@@ -20300,7 +20892,10 @@
     "autoMemory": "Auto Memory",
     "autoMemoryDesc": "When enabled, the AI automatically distills key points from conversations into long-term memory for personalized replies.",
     "autoMemorySaveSuccess": "Settings saved",
-    "autoMemorySaveFailed": "Failed to save, please retry"
+    "autoMemorySaveFailed": "Failed to save, please retry",
+    "manager": "Memory Manager",
+    "title": "Memory",
+    "new": "New Memory"
   },
   "agentPlan": {
     "title": "Agent Plan Mode",
@@ -20340,6 +20935,103 @@
     "statusFailed": "Failed",
     "notFound": "Plan not found or expired",
     "conflict": "This action is not allowed in the current plan status",
-    "generic": "Request failed, please try again later"
+    "generic": "Request failed, please try again later",
+    "progress": "Progress"
+  },
+  "compare": {
+    "title": "Compare",
+    "subtitle": "Deep comparison of IHUI AI with mainstream AI platforms",
+    "description": "Compare IHUI AI with mainstream AI platforms across multiple dimensions"
+  },
+  "useCases": {
+    "title": "Use Cases",
+    "subtitle": "Explore IHUI AI applications in different scenarios",
+    "description": "Learn how IHUI AI empowers various business scenarios"
+  },
+  "context": {
+    "title": "Context Management",
+    "compression": "Context Compression",
+    "mentions": "Mentions Management",
+    "visualization": "Context Visualization"
+  },
+  "spec": {
+    "title": "Specifications",
+    "detail": "Spec Detail",
+    "generate": "Generate Spec",
+    "templates": "Spec Templates"
+  },
+  "subagents": {
+    "title": "Subagents",
+    "detail": "Subagent Detail",
+    "dispatch": "Dispatch Task",
+    "topology": "Topology"
+  },
+  "aiSkills": {
+    "title": "AI Skills",
+    "detail": "Skill Detail",
+    "description": "AI Skill Management"
+  },
+  "download": {
+    "title": "Download",
+    "description": "Download IHUI AI clients",
+    "id": "Platform Download"
+  },
+  "agentRuntime": {
+    "title": "Agent Runtime",
+    "description": "Agent runtime monitoring and management"
+  },
+  "agentStepRecorder": {
+    "title": "Agent Step Recorder",
+    "description": "Record agent execution steps"
+  },
+  "apple": {
+    "callback": "Apple Sign-in Callback"
+  },
+  "costDashboard": {
+    "title": "Cost Dashboard",
+    "description": "AI cost monitoring dashboard"
+  },
+  "developers": {
+    "title": "Developers",
+    "description": "Developer documentation and resources"
+  },
+  "google": {
+    "callback": "Google Sign-in Callback"
+  },
+  "h5": {
+    "title": "H5 Page",
+    "share": "Share Page"
+  },
+  "legal": {
+    "title": "Legal",
+    "serviceSpecificTerms": {
+      "title": "Service-Specific Terms"
+    },
+    "supportedRegions": {
+      "title": "Supported Regions"
+    },
+    "terms": {
+      "title": "Terms of Service"
+    },
+    "usagePolicy": {
+      "title": "Usage Policy"
+    }
+  },
+  "legal.serviceSpecificTerms": {},
+  "legal.supportedRegions": {},
+  "legal.terms": {},
+  "legal.usagePolicy": {},
+  "mcpProjects": {
+    "title": "MCP Projects",
+    "store": "MCP Store",
+    "description": "Model Context Protocol project management"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n automation workflow Agent"
+  },
+  "rules": {
+    "title": "Rules",
+    "description": "Platform rules and guidelines"
   }
 }

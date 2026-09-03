@@ -5254,7 +5254,17 @@
       "trigger_webhook": "Webhook",
       "view": "查看",
       "viewTitle": "工作流詳情"
-    }
+    },
+    "title": "管理後台",
+    "oauthApps": "OAuth 應用",
+    "pointsMall": "積分商城",
+    "post": "帖子管理",
+    "promotionRule": "推廣規則",
+    "providersHealth": "服務商健康度",
+    "relayOverview": "中繼概覽",
+    "themeEdit": "主題編輯",
+    "unauthorized": "未授權",
+    "userMargin": "使用者保證金"
   },
   "connectors": {
     "title": "中文連接器",
@@ -6292,7 +6302,8 @@
     "viewDetail": "查看詳情",
     "viewPermissionExample": "查看權限確認示例",
     "vipExclusive": "VIP 專享",
-    "config": "設定"
+    "config": "設定",
+    "dispatchSubagent": "分發子代理"
   },
   "agentRuntimePanel": {
     "cancelledBody": "已停止當前執行。如需繼續，請修改輸入後再次執行。",
@@ -6760,7 +6771,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6777,7 +6793,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -7307,7 +7328,8 @@
       "rankDelta": "排名變化",
       "stable": "平穩",
       "subtitle": "7/14 天熱度趨勢曲線"
-    }
+    },
+    "title": "AI 資訊"
   },
   "aiSkillDetail": {
     "addToAgent": "添加到Agent",
@@ -7437,7 +7459,8 @@
         },
         "title": "AI 世界站點管理"
       }
-    }
+    },
+    "title": "AI 世界"
   },
   "aiWorldCreatePage": {
     "back": "返回",
@@ -7613,7 +7636,9 @@
     "title": "標題",
     "titlePlaceholder": "請輸入問題標題",
     "unresolved": "未解決",
-    "viewCount": "{count} 瀏覽"
+    "viewCount": "{count} 瀏覽",
+    "detail": "提問詳情",
+    "edit": "編輯提問"
   },
   "asksEditFormPage": {
     "cancel": "取消",
@@ -8679,7 +8704,8 @@
     },
     "postCount": "{count} 帖子",
     "subtitle": "加入興趣圈子，與同好交流",
-    "title": "圈子"
+    "title": "圈子",
+    "detail": "圈子詳情"
   },
   "cliImport": {
     "commit": "確認導入",
@@ -8739,32 +8765,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -8784,7 +8836,8 @@
     "replyPlaceholder": "請輸入回復內容...",
     "replyTitle": "管理員回復",
     "submitReply": "提交回復",
-    "submitting": "提交中..."
+    "submitting": "提交中...",
+    "title": "評論"
   },
   "commissionPlan": {
     "commissionRate": "傭金比例",
@@ -8896,13 +8949,142 @@
     "resize": "拖動調整寬度",
     "searchHistory": "搜索歷史",
     "tools": {
+      "actions": "操作",
+      "aiWorld": {
+        "hotApps": "熱門 AI 應用",
+        "rankings": {
+          "categories": {
+            "agent": "Agent 智能體",
+            "chinese": "中文",
+            "coding": "編程",
+            "creative": "創意",
+            "english": "英文",
+            "expert": "專家級",
+            "hard-prompts": "硬提示",
+            "instruction": "指令遵循",
+            "knowledge": "知識",
+            "long-text": "長文本",
+            "longer-query": "長查詢",
+            "math": "數學",
+            "multimodal": "多模態",
+            "multiturn": "多輪對話",
+            "open-source": "開源",
+            "overall": "綜合",
+            "reasoning": "推理",
+            "safety": "安全"
+          },
+          "columns": {
+            "details": "多維分數",
+            "fetchedAt": "更新時間",
+            "model": "模型",
+            "provider": "提供方",
+            "rank": "排名",
+            "score": "分數"
+          },
+          "empty": "暫無排行數據,等待下次同步",
+          "leaderboards": {
+            "artificial-analysis": "Artificial Analysis",
+            "hf-open-llm": "Hugging Face 開源榜",
+            "lmsys": "LMSYS 競技場",
+            "opencompass": "OpenCompass 司南",
+            "superclue": "SuperCLUE"
+          },
+          "refresh": "5 分鐘自動刷新",
+          "subtitle": "5 大權威榜單實時排名",
+          "title": "模型排行榜"
+        },
+        "subtitle": "探索 AI 應用，開啟智能創作之旅",
+        "title": "AI 世界",
+        "trending": {
+          "githubForks": "GitHub Forks",
+          "githubStars": "GitHub Stars",
+          "score": "熱度",
+          "updatedAt": "更新時間"
+        }
+      },
+      "backHome": "返回首頁",
+      "batchDelete": "批量刪除",
+      "cancel": "取消",
+      "cancelTime": "取消時間",
+      "close": "關閉",
+      "closeAll": "關閉全部",
+      "colToken": "Tokens",
+      "comingSoon": "敬請期待",
+      "confirm": "確認",
+      "confirmTitle": "確認操作",
+      "copyPath": "復制路徑",
+      "dismiss": "忽略",
+      "empty": "暫無記錄",
+      "exportSuccess": "導出成功",
+      "loadFailed": "加載失敗",
+      "mcp": {
+        "subtitle": "管理 Model Context Protocol 項目",
+        "title": "MCP 項目"
+      },
+      "moreActions": "更多操作",
+      "noData": "暫無數據",
+      "notFoundTitle": "頁面未找到",
+      "originalPrice": "原價",
+      "payTime": "支付時間",
+      "pin": "固定",
+      "reasonRequired": "請填寫原因",
+      "refresh": "刷新",
+      "refundTime": "退款時間",
+      "resize": "拖動調整寬度",
+      "searchHistory": "搜索歷史",
+      "tools": {
+        "categoryAi": "AI 工具",
+        "categoryDev": "開發工具",
+        "categoryEfficiency": "效率工具",
+        "empty": "暫無工具",
+        "loading": "加載中...",
+        "subtitle": "瀏覽並使用平臺提供的各類工具",
+        "title": "工具中心"
+      },
+      "unpin": "取消固定",
+      "unsaved": "未保存",
+      "update": {
+        "autoRestartIn": "即將自動重啟...({countdown} 秒後)",
+        "autoRetrying": "更新失敗，自動重試中...",
+        "available": "發現新版本",
+        "checkFailed": "檢查更新失敗,請檢查網絡後重試",
+        "dismiss": "關閉",
+        "done": "更新完成",
+        "downloading": "下載中",
+        "error": "更新失敗",
+        "errorDesc": "更新過程中出現錯誤,請重試",
+        "installing": "安裝中",
+        "preparing": "正在準備更新...",
+        "quitChecking": "正在檢查更新...",
+        "quitDownloading": "正在下載更新...",
+        "quitQuitting": "正在退出...",
+        "quitRestarting": "更新完成，正在重啟...",
+        "quitSkip": "跳過，直接退出",
+        "restart": "重啟應用",
+        "restartLater": "稍後重啟",
+        "restartNow": "立即重啟",
+        "retry": "重試",
+        "updateNow": "立即更新"
+      },
+      "viewDetail": "查看詳情",
+      "viewMore": "查看更多",
+      "back": "返回",
+      "loading": "載入中...",
+      "search": "搜尋",
+      "submitting": "提交中...",
+      "retry": "重試",
+      "gotIt": "知道了",
+      "hide": "隱藏",
+      "show": "顯示",
+      "delete": "刪除",
+      "save": "儲存",
+      "ok": "確定",
       "categoryAi": "AI 工具",
-      "categoryDev": "開發工具",
+      "categoryDev": "开发工具",
       "categoryEfficiency": "效率工具",
-      "empty": "暫無工具",
-      "loading": "加載中...",
-      "subtitle": "瀏覽並使用平臺提供的各類工具",
-      "title": "工具中心"
+      "subtitle": "浏览并使用平台提供的各类工具",
+      "title": "工具中心",
+      "pdf": "PDF 工具"
     },
     "unpin": "取消固定",
     "unsaved": "未保存",
@@ -8941,7 +9123,15 @@
     "show": "顯示",
     "delete": "刪除",
     "save": "儲存",
-    "ok": "確定"
+    "ok": "確定",
+    "create": "建立",
+    "agentKanban": "Agent 看板",
+    "callback": "回調",
+    "title": "頁面",
+    "forbidden": "禁止訪問",
+    "forgotPassword": "忘記密碼",
+    "login": "登入",
+    "status": "狀態"
   },
   "contactPage": {
     "addressTitle": "公司地址",
@@ -9164,7 +9354,8 @@
       "title": "模板"
     },
     "title": "設計模式",
-    "undo": "撤銷"
+    "undo": "撤銷",
+    "system": "設計系統"
   },
   "detail": {
     "activate": "啟用",
@@ -9733,7 +9924,8 @@
       "statusPending": "待回答",
       "subtitle": "提問與解答學習中的疑問",
       "title": "問答中心"
-    }
+    },
+    "ai": "AI 教育"
   },
   "eduAi": {
     "a2a": {
@@ -10580,25 +10772,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10732,19 +10936,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -10756,7 +10972,8 @@
       "label": "核心定位",
       "tags": [],
       "title": "AI時代企業理性效率服務與互助社群"
-    }
+    },
+    "inquiry": "企業諮詢"
   },
   "enterpriseTools": {
     "categories": {
@@ -11410,7 +11627,8 @@
     "toc": "本頁目錄",
     "updatedAt": "更新於",
     "viewCount": "{count} 次瀏覽",
-    "title": "說明中心"
+    "title": "說明中心",
+    "loading": "載入中"
   },
   "home": {
     "announcement": {
@@ -11504,7 +11722,8 @@
     "recommend": "推薦內容"
   },
   "hooks": {
-    "deleteConfirm": "確定刪除 Hook \"{name}\" 嗎？"
+    "deleteConfirm": "確定刪除 Hook \"{name}\" 嗎？",
+    "title": "Hooks"
   },
   "ide": {
     "activityBar": {
@@ -12031,7 +12250,10 @@
       "title": "上傳文檔",
       "titleLabel": "標題(可選)",
       "titlePlaceholder": "留空則使用文件名"
-    }
+    },
+    "title": "知識庫",
+    "edit": "編輯知識",
+    "search": "搜尋知識"
   },
   "learn": {
     "allCategories": "全部分類",
@@ -12071,7 +12293,10 @@
         }
       }
     },
-    "total": "共 {total} 節"
+    "total": "共 {total} 節",
+    "buyConfirm": "購買確認",
+    "paymentConfirm": "付款確認",
+    "review": "評價"
   },
   "learnBuyConfirmPage": {
     "actualPay": "實付",
@@ -12322,219 +12547,522 @@
     "subtitle": "為每個 AI 平臺保存獨立的 API Key、模型 ID 與上下文長度。系統已預置 15+ 平臺模板,只需填寫授權信息。",
     "title": "我的 LLM 配置",
     "v2": {
-      "addFirstModel": "添加第一個模型",
+      "card": {
+        "apiKey": "API Key",
+        "baseUrl": "Base URL",
+        "clickToFetch": "點擊下方按鈕拉取",
+        "context": "上下文",
+        "delete": "刪除",
+        "deleteConfirm": "確認刪除「{name}」?",
+        "deleteFailed": "刪除失敗",
+        "deletedToast": "已刪除",
+        "disabled": "已停用",
+        "disabledToast": "已停用",
+        "edit": "編輯",
+        "enabled": "啟用",
+        "enabledToast": "已啟用",
+        "fetchFailed": "拉取失敗",
+        "fetchModels": "拉取模型",
+        "fetchSuccess": "已拉取 {total} 個模型",
+        "fetching": "拉取中...",
+        "hideKey": "隱藏",
+        "hideModels": "隱藏模型",
+        "lastTest": "最近測試",
+        "model": "模型",
+        "more": "共 {total} 個,展開省略",
+        "needKeyFirst": "請先配置 API Key",
+        "noKey": "未配置 Key",
+        "noModelsReturned": "該平臺未返回模型",
+        "refetch": "重新拉取",
+        "showKey": "顯示",
+        "test": "測試",
+        "testFailed": "連通失敗",
+        "testFailedWithTime": "失敗 · {date}",
+        "testSuccess": "連通成功",
+        "testSuccessWithTime": "成功 {ms}ms · {date}",
+        "testTimeOnly": "耗時 {ms}ms",
+        "untested": "未測試"
+      },
+      "dialog": {
+        "apiKeyLabel": "API Key",
+        "baseUrlLabel": "Base URL:",
+        "baseUrlOptional": "Base URL(可選,覆蓋默認)",
+        "baseUrlRequired": "Base URL(必填)",
+        "cancel": "取消",
+        "contextLabel": "上下文長度",
+        "copied": "已復制: {id}",
+        "copyModelId": "復制模型 ID",
+        "copyTip": "點擊模型 ID 旁的復制按鈕,可填入「模型 ID」字段",
+        "create": "創建",
+        "description": "選擇平臺模板,只需填寫 API Key、模型 ID 與上下文長度,系統自動按平臺協議調用。",
+        "descriptionLabel": "備注(可選)",
+        "descriptionPlaceholder": "用途說明...",
+        "docsLabel": "文檔",
+        "editTitle": "編輯 LLM 配置",
+        "enableConfig": "啟用此配置",
+        "fetchUpstream": "獲取上游模型",
+        "filterModels": "過濾模型...",
+        "hideKey": "隱藏 Key",
+        "keepEmpty": "(留空不修改)",
+        "keyPlaceholderEdit": "•••••••(已加密存儲)",
+        "keyPlaceholderNew": "sk-...",
+        "modelIdLabel": "模型 ID",
+        "nameLabel": "配置名稱",
+        "namePlaceholder": "我的配置",
+        "needSelfUrl": "(需自填)",
+        "newTitle": "新增 LLM 配置",
+        "noMatch": "無匹配模型",
+        "official": "官方",
+        "previewTest": "測試連通",
+        "previewTestFailed": "連通失敗",
+        "previewTestKey": "請先填寫 API Key",
+        "previewTestModel": "請先填寫模型 ID",
+        "previewTestSelect": "請選擇平臺模板",
+        "previewTestSuccess": "連通成功",
+        "protocolLabel": "協議:",
+        "save": "保存",
+        "saveBeforeFetch": "保存後可拉取上游模型",
+        "saveBeforeFetchErr": "請先保存配置,再拉取模型",
+        "self": "自建",
+        "showKey": "顯示 Key",
+        "templateLabel": "平臺模板"
+      },
+      "importCliConfig": "導入 CLI 配置",
+      "infoDesc": "平臺 URL 與協議已預置,您只需填寫 API Key、模型 ID 和上下文支持數。保存後可一鍵測試連通,或拉取上游所有模型 ID。每個賬號的配置互相獨立、加密存儲。",
+      "infoTitle": "配置說明",
+      "listCount": "共 {total} 個配置 · {enabledCount} 個已啟用",
+      "loading": "加載中...",
+      "quickStartTitle": "常用平臺(點擊快速開始):",
+      "securityNotice": "API Key 使用 AES-256 加密存儲,僅本賬號可見。每個平臺的 URL、協議、Headers 已按官方規範預置,無需您手動配置。",
+      "subtitle": "為每個 AI 平臺保存獨立的 API Key、模型 ID 與上下文長度。系統已預置 15+ 平臺模板,只需填寫授權信息。",
+      "title": "我的 LLM 配置",
+      "v2": {
+        "addFirstModel": "添加第一個模型",
+        "addModel": "添加模型",
+        "baseUrl": "Base URL",
+        "bulk": {
+          "cancel": "取消",
+          "export": "導出",
+          "exportBtn": "導出 JSON",
+          "exportDesc": "導出所有服務商 + 模型為 JSON 文件,API Key 自動脫敏",
+          "exportEnv": ".env 格式",
+          "exportJson": "JSON 格式",
+          "exportSuccess": "已導出 {count} 個服務商 / {models} 個模型",
+          "exportTitle": "導出配置",
+          "formatLabel": "導出格式",
+          "import": "導入",
+          "importConfirmDesc": "將創建 {providers} 個服務商和 {models} 個模型,API Key 留空",
+          "importDesc": "從 JSON 文件導入服務商 + 模型,API Key 留空,需手動補填",
+          "importFailed": "導入失敗:{error}",
+          "importFile": "上傳 JSON 文件",
+          "importPlaceholder": "或粘貼 JSON 內容到這裡...",
+          "importSubmit": "開始導入",
+          "importSuccess": "成功導入 {providers} 個服務商 / {models} 個模型",
+          "importTitle": "導入配置",
+          "invalidJson": "JSON 格式錯誤,請檢查文件內容",
+          "title": "批量導入/導出"
+        },
+        "compare": "加入對比",
+        "compareDialog": {
+          "close": "關閉",
+          "colDimension": "維度",
+          "empty": "請勾選至少 2 個模型開始對比",
+          "noModels": "暫無可對比的模型",
+          "noParams": "(無)",
+          "pickHint": "從下方勾選要對比的模型(跨服務商,最多 {max} 個)",
+          "remove": "移除",
+          "rowContext": "Context",
+          "rowCost30d": "30d Cost",
+          "rowDefault": "默認",
+          "rowEnabled": "已啟用",
+          "rowFormat": "協議",
+          "rowHealth": "健康",
+          "rowInputPrice": "Input $/1K",
+          "rowOutputPrice": "Output $/1K",
+          "rowParams": "默認參數",
+          "rowProvider": "服務商",
+          "rowUsage30d": "30d Tokens",
+          "selectedCount": "已選 {count}/{max}",
+          "title": "模型對比"
+        },
+        "copyDialog": {
+          "cancel": "取消",
+          "confirm": "確認復制",
+          "desc": "選擇一個目標服務商,選擇要復制的字段,modelId 會自動添加 -copy 後綴避免沖突",
+          "failed": "復制失敗",
+          "fieldContext": "Context Length",
+          "fieldDefault": "默認標記",
+          "fieldDisplayName": "顯示名",
+          "fieldEnabled": "啟用狀態",
+          "fieldParams": "默認參數",
+          "fieldPrice": "價格",
+          "fields": "要復制的字段",
+          "noTargets": "暫無可用目標服務商",
+          "pickTarget": "請先選擇目標服務商",
+          "sourceModel": "源模型",
+          "sourceProvider": "源服務商",
+          "success": "已復制到目標服務商",
+          "targetProvider": "目標服務商",
+          "title": "復制模型到其他服務商"
+        },
+        "copyToProvider": "復制到其他服務商",
+        "cost30d": "30 天費用",
+        "delete": "刪除",
+        "deleteFailed": "刪除失敗",
+        "deleteModelConfirm": "確認刪除模型「{id}」?",
+        "deleteProviderConfirm": "確認刪除服務商「{name}」?其下所有模型也會被刪除。",
+        "disabled": "已停用",
+        "disabledToast": "已停用",
+        "edit": "編輯",
+        "emptyDesc": "點擊下方按鈕添加第一個 AI 平臺服務商。每個服務商可掛載多個模型,支持健康狀態、30 天用量、批量導入導出、跨服務商模型對比、一鍵復制。",
+        "emptyTitle": "還沒有服務商",
+        "enabled": "啟用",
+        "enabledToast": "已啟用",
+        "fetchFailed": "拉取失敗",
+        "fetchModels": "拉取上游模型",
+        "fetchSuccess": "已拉取 {total} 個模型",
+        "fetching": "拉取中...",
+        "firstProvider": "添加第一個服務商",
+        "hideModels": "隱藏模型",
+        "lastTest": "最近測試",
+        "listCount": "共 {total} 個服務商 · {enabledCount} 個已啟用",
+        "loading": "加載中...",
+        "modelDeleted": "模型已刪除",
+        "modelDialog": {
+          "cancel": "取消",
+          "contextLength": "Context Length",
+          "create": "創建",
+          "created": "已創建",
+          "defaultParams": "默認參數",
+          "displayName": "顯示名",
+          "displayNamePlaceholder": "如 GPT-4o 旗艦版",
+          "editTitle": "編輯模型",
+          "enableModel": "啟用此模型",
+          "enableModelDesc": "禁用後無法被選擇",
+          "inputPrice": "Input 價格(每 1K tokens,分)",
+          "invalidJson": "高級 JSON 解析失敗,請檢查語法",
+          "modelId": "Model ID",
+          "modelIdRequired": "請填寫 Model ID",
+          "newTitle": "新增模型",
+          "outputPrice": "Output 價格(每 1K tokens,分)",
+          "save": "保存",
+          "saveFailed": "保存失敗",
+          "saved": "已保存",
+          "setDefault": "設為服務商默認模型",
+          "setDefaultDesc": "默認模型會在新對話中被優先選中"
+        },
+        "modelParams": {
+          "advancedHint": "高級 JSON 優先(非空時完全覆蓋結構化字段),留空則使用上方結構化參數",
+          "copied": "已復制 JSON 到剪貼板",
+          "copyAsJson": "復制為 JSON",
+          "frequencyPenalty": "Frequency Penalty",
+          "frequencyPenaltyHelp": "頻率懲罰,-2~2,正值降低重復",
+          "hideAdvanced": "隱藏高級 JSON",
+          "maxTokens": "Max Tokens",
+          "maxTokensHelp": "單次響應最大 token 數",
+          "presencePenalty": "Presence Penalty",
+          "presencePenaltyHelp": "存在懲罰,-2~2,正值鼓勵新話題",
+          "presetApplied": "已應用預設",
+          "presets": "預設模板",
+          "responseFormat": "Response Format",
+          "showAdvanced": "顯示高級 JSON",
+          "systemPrompt": "System Prompt",
+          "systemPromptPlaceholder": "你是一個有幫助的助手...",
+          "temperature": "Temperature",
+          "temperatureHelp": "採樣溫度,0~2,越低越確定,越高越發散",
+          "title": "默認參數",
+          "topP": "Top P",
+          "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token"
+        },
+        "modelsCount": "{count} 個模型",
+        "more": "共 {total} 個,展開省略",
+        "needKeyFirst": "請先配置 API Key",
+        "newProvider": "新增服務商",
+        "noKey": "未配置 Key",
+        "noModels": "該服務商暫未掛載模型",
+        "noModelsReturned": "該平臺未返回模型",
+        "providerDeleted": "服務商已刪除",
+        "providerDialog": {
+          "apiKey": "API Key",
+          "baseUrl": "Base URL",
+          "baseUrlRequired": "請填寫 Base URL",
+          "cancel": "取消",
+          "create": "創建",
+          "created": "已創建",
+          "defaultGroup": "默認分組",
+          "description": "備注",
+          "descriptionPlaceholder": "用途說明...",
+          "docs": "文檔",
+          "editTitle": "編輯服務商",
+          "enableConfig": "啟用此服務商",
+          "enableConfigDesc": "禁用後無法被選擇,已發出的請求不受影響",
+          "group": "分組",
+          "groupPlaceholder": "請選擇分組",
+          "hideKey": "隱藏密鑰",
+          "keyKeepEmpty": "(留空不修改)",
+          "keyPlaceholderEdit": "•••••••(已加密存儲)",
+          "keyPlaceholderNew": "sk-...",
+          "keyRequired": "請填寫 API Key",
+          "name": "配置名稱",
+          "namePlaceholder": "我的 OpenAI",
+          "nameRequired": "請填寫服務商名稱",
+          "newTitle": "新增服務商",
+          "optional": "可選",
+          "pasteEmpty": "剪貼板為空",
+          "pasteFailed": "剪貼板讀取失敗,請手動粘貼",
+          "pasteFromClipboard": "從剪貼板粘貼 API Key",
+          "pasteSuccess": "已從剪貼板粘貼",
+          "platform": "平臺模板",
+          "platformPlaceholder": "請選擇平臺模板",
+          "protocol": "協議",
+          "protocolPlaceholder": "請選擇協議",
+          "save": "保存",
+          "saveFailed": "保存失敗",
+          "saved": "已保存",
+          "showKey": "顯示密鑰",
+          "templatesEmpty": "暫無可用平臺模板",
+          "templatesLoadError": "加載平臺模板失敗",
+          "templatesLoading": "正在加載平臺模板...",
+          "templatesNotReady": "平臺模板未就緒,請稍後重試"
+        },
+        "quickStartTitle": "常用平臺(點擊快速開始):",
+        "sidebar": {
+          "add": "添加",
+          "addGroup": "添加分組",
+          "all": "全部",
+          "cancel": "取消",
+          "createFailed": "創建失敗",
+          "deleteFailed": "刪除失敗",
+          "deleteGroup": "刪除分組",
+          "deleteGroupConfirm": "確認刪除分組「{name}」?",
+          "groupCreated": "已創建分組「{name}」",
+          "groupDeleteNotSupported": "分組刪除需在服務商全部移走後再操作",
+          "groupDeleted": "已刪除分組",
+          "groupNotEmpty": "該分組下還有 {count} 個服務商,請先移走再刪",
+          "groupPlaceholder": "輸入分組名...",
+          "title": "分組",
+          "ungrouped": "未分組"
+        },
+        "test": "測試",
+        "testFailed": "連通失敗",
+        "testFailedWithTime": "失敗 · {date}",
+        "testSuccess": "連通成功",
+        "testSuccessWithTime": "成功 {ms}ms · {date}",
+        "testTimeOnly": "耗時 {ms}ms",
+        "untested": "未測試",
+        "usage30d": "30 天 Token"
+      },
+      "addFirstModel": "添加第一个模型",
       "addModel": "添加模型",
       "baseUrl": "Base URL",
       "bulk": {
         "cancel": "取消",
-        "export": "導出",
-        "exportBtn": "導出 JSON",
-        "exportDesc": "導出所有服務商 + 模型為 JSON 文件,API Key 自動脫敏",
+        "export": "导出",
+        "exportBtn": "导出 JSON",
+        "exportDesc": "导出所有服务商 + 模型为 JSON 文件,API Key 自动脱敏",
         "exportEnv": ".env 格式",
         "exportJson": "JSON 格式",
-        "exportSuccess": "已導出 {count} 個服務商 / {models} 個模型",
-        "exportTitle": "導出配置",
-        "formatLabel": "導出格式",
-        "import": "導入",
-        "importConfirmDesc": "將創建 {providers} 個服務商和 {models} 個模型,API Key 留空",
-        "importDesc": "從 JSON 文件導入服務商 + 模型,API Key 留空,需手動補填",
-        "importFailed": "導入失敗:{error}",
-        "importFile": "上傳 JSON 文件",
-        "importPlaceholder": "或粘貼 JSON 內容到這裡...",
-        "importSubmit": "開始導入",
-        "importSuccess": "成功導入 {providers} 個服務商 / {models} 個模型",
-        "importTitle": "導入配置",
-        "invalidJson": "JSON 格式錯誤,請檢查文件內容",
-        "title": "批量導入/導出"
+        "exportSuccess": "已导出 {count} 个服务商 / {models} 个模型",
+        "exportTitle": "导出配置",
+        "formatLabel": "导出格式",
+        "import": "导入",
+        "importConfirmDesc": "将创建 {providers} 个服务商和 {models} 个模型,API Key 留空",
+        "importDesc": "从 JSON 文件导入服务商 + 模型,API Key 留空,需手动补填",
+        "importFailed": "导入失败:{error}",
+        "importFile": "上传 JSON 文件",
+        "importPlaceholder": "或粘贴 JSON 内容到这里...",
+        "importSubmit": "开始导入",
+        "importSuccess": "成功导入 {providers} 个服务商 / {models} 个模型",
+        "importTitle": "导入配置",
+        "invalidJson": "JSON 格式错误,请检查文件内容",
+        "title": "批量导入/导出",
+        "a": "批量操作"
       },
-      "compare": "加入對比",
+      "compare": "加入对比",
       "compareDialog": {
-        "close": "關閉",
-        "colDimension": "維度",
-        "empty": "請勾選至少 2 個模型開始對比",
-        "noModels": "暫無可對比的模型",
-        "noParams": "(無)",
-        "pickHint": "從下方勾選要對比的模型(跨服務商,最多 {max} 個)",
+        "close": "关闭",
+        "colDimension": "维度",
+        "empty": "请勾选至少 2 个模型开始对比",
+        "noModels": "暂无可对比的模型",
+        "noParams": "(无)",
+        "pickHint": "从下方勾选要对比的模型(跨服务商,最多 {max} 个)",
         "remove": "移除",
         "rowContext": "Context",
         "rowCost30d": "30d Cost",
-        "rowDefault": "默認",
-        "rowEnabled": "已啟用",
-        "rowFormat": "協議",
+        "rowDefault": "默认",
+        "rowEnabled": "已启用",
+        "rowFormat": "协议",
         "rowHealth": "健康",
         "rowInputPrice": "Input $/1K",
         "rowOutputPrice": "Output $/1K",
-        "rowParams": "默認參數",
-        "rowProvider": "服務商",
+        "rowParams": "默认参数",
+        "rowProvider": "服务商",
         "rowUsage30d": "30d Tokens",
-        "selectedCount": "已選 {count}/{max}",
-        "title": "模型對比"
+        "selectedCount": "已选 {count}/{max}",
+        "title": "模型对比"
       },
       "copyDialog": {
         "cancel": "取消",
-        "confirm": "確認復制",
-        "desc": "選擇一個目標服務商,選擇要復制的字段,modelId 會自動添加 -copy 後綴避免沖突",
-        "failed": "復制失敗",
+        "confirm": "确认复制",
+        "desc": "选择一个目标服务商,选择要复制的字段,modelId 会自动添加 -copy 后缀避免冲突",
+        "failed": "复制失败",
         "fieldContext": "Context Length",
-        "fieldDefault": "默認標記",
-        "fieldDisplayName": "顯示名",
-        "fieldEnabled": "啟用狀態",
-        "fieldParams": "默認參數",
-        "fieldPrice": "價格",
-        "fields": "要復制的字段",
-        "noTargets": "暫無可用目標服務商",
-        "pickTarget": "請先選擇目標服務商",
+        "fieldDefault": "默认标记",
+        "fieldDisplayName": "显示名",
+        "fieldEnabled": "启用状态",
+        "fieldParams": "默认参数",
+        "fieldPrice": "价格",
+        "fields": "要复制的字段",
+        "noTargets": "暂无可用目标服务商",
+        "pickTarget": "请先选择目标服务商",
         "sourceModel": "源模型",
-        "sourceProvider": "源服務商",
-        "success": "已復制到目標服務商",
-        "targetProvider": "目標服務商",
-        "title": "復制模型到其他服務商"
+        "sourceProvider": "源服务商",
+        "success": "已复制到目标服务商",
+        "targetProvider": "目标服务商",
+        "title": "复制模型到其他服务商"
       },
-      "copyToProvider": "復制到其他服務商",
-      "cost30d": "30 天費用",
-      "delete": "刪除",
-      "deleteFailed": "刪除失敗",
-      "deleteModelConfirm": "確認刪除模型「{id}」?",
-      "deleteProviderConfirm": "確認刪除服務商「{name}」?其下所有模型也會被刪除。",
+      "copyToProvider": "复制到其他服务商",
+      "cost30d": "30 天费用",
+      "delete": "删除",
+      "deleteFailed": "删除失败",
+      "deleteModelConfirm": "确认删除模型「{id}」?",
+      "deleteProviderConfirm": "确认删除服务商「{name}」?其下所有模型也会被删除。",
       "disabled": "已停用",
       "disabledToast": "已停用",
-      "edit": "編輯",
-      "emptyDesc": "點擊下方按鈕添加第一個 AI 平臺服務商。每個服務商可掛載多個模型,支持健康狀態、30 天用量、批量導入導出、跨服務商模型對比、一鍵復制。",
-      "emptyTitle": "還沒有服務商",
-      "enabled": "啟用",
-      "enabledToast": "已啟用",
-      "fetchFailed": "拉取失敗",
+      "edit": "编辑",
+      "emptyDesc": "点击下方按钮添加第一个 AI 平台服务商。每个服务商可挂载多个模型,支持健康状态、30 天用量、批量导入导出、跨服务商模型对比、一键复制。",
+      "emptyTitle": "还没有服务商",
+      "enabled": "启用",
+      "enabledToast": "已启用",
+      "fetchFailed": "拉取失败",
       "fetchModels": "拉取上游模型",
-      "fetchSuccess": "已拉取 {total} 個模型",
+      "fetchSuccess": "已拉取 {total} 个模型",
       "fetching": "拉取中...",
-      "firstProvider": "添加第一個服務商",
-      "hideModels": "隱藏模型",
-      "lastTest": "最近測試",
-      "listCount": "共 {total} 個服務商 · {enabledCount} 個已啟用",
-      "loading": "加載中...",
-      "modelDeleted": "模型已刪除",
+      "firstProvider": "添加第一个服务商",
+      "hideModels": "隐藏模型",
+      "lastTest": "最近测试",
+      "modelDeleted": "模型已删除",
       "modelDialog": {
         "cancel": "取消",
         "contextLength": "Context Length",
-        "create": "創建",
-        "created": "已創建",
-        "defaultParams": "默認參數",
-        "displayName": "顯示名",
-        "displayNamePlaceholder": "如 GPT-4o 旗艦版",
-        "editTitle": "編輯模型",
-        "enableModel": "啟用此模型",
-        "enableModelDesc": "禁用後無法被選擇",
-        "inputPrice": "Input 價格(每 1K tokens,分)",
-        "invalidJson": "高級 JSON 解析失敗,請檢查語法",
+        "create": "创建",
+        "created": "已创建",
+        "defaultParams": "默认参数",
+        "displayName": "显示名",
+        "displayNamePlaceholder": "如 GPT-4o 旗舰版",
+        "editTitle": "编辑模型",
+        "enableModel": "启用此模型",
+        "enableModelDesc": "禁用后无法被选择",
+        "inputPrice": "Input 价格(每 1K tokens,分)",
+        "invalidJson": "高级 JSON 解析失败,请检查语法",
         "modelId": "Model ID",
-        "modelIdRequired": "請填寫 Model ID",
+        "modelIdRequired": "请填写 Model ID",
         "newTitle": "新增模型",
-        "outputPrice": "Output 價格(每 1K tokens,分)",
+        "outputPrice": "Output 价格(每 1K tokens,分)",
         "save": "保存",
-        "saveFailed": "保存失敗",
+        "saveFailed": "保存失败",
         "saved": "已保存",
-        "setDefault": "設為服務商默認模型",
-        "setDefaultDesc": "默認模型會在新對話中被優先選中"
+        "setDefault": "设为服务商默认模型",
+        "setDefaultDesc": "默认模型会在新对话中被优先选中"
       },
       "modelParams": {
-        "advancedHint": "高級 JSON 優先(非空時完全覆蓋結構化字段),留空則使用上方結構化參數",
-        "copied": "已復制 JSON 到剪貼板",
-        "copyAsJson": "復制為 JSON",
+        "advancedHint": "高级 JSON 优先(非空时完全覆盖结构化字段),留空则使用上方结构化参数",
+        "copied": "已复制 JSON 到剪贴板",
+        "copyAsJson": "复制为 JSON",
         "frequencyPenalty": "Frequency Penalty",
-        "frequencyPenaltyHelp": "頻率懲罰,-2~2,正值降低重復",
-        "hideAdvanced": "隱藏高級 JSON",
+        "frequencyPenaltyHelp": "频率惩罚,-2~2,正值降低重复",
+        "hideAdvanced": "隐藏高级 JSON",
         "maxTokens": "Max Tokens",
-        "maxTokensHelp": "單次響應最大 token 數",
+        "maxTokensHelp": "单次响应最大 token 数",
         "presencePenalty": "Presence Penalty",
-        "presencePenaltyHelp": "存在懲罰,-2~2,正值鼓勵新話題",
-        "presetApplied": "已應用預設",
-        "presets": "預設模板",
+        "presencePenaltyHelp": "存在惩罚,-2~2,正值鼓励新话题",
+        "presetApplied": "已应用预设",
+        "presets": "预设模板",
         "responseFormat": "Response Format",
-        "showAdvanced": "顯示高級 JSON",
+        "showAdvanced": "显示高级 JSON",
         "systemPrompt": "System Prompt",
-        "systemPromptPlaceholder": "你是一個有幫助的助手...",
+        "systemPromptPlaceholder": "你是一个有帮助的助手...",
         "temperature": "Temperature",
-        "temperatureHelp": "採樣溫度,0~2,越低越確定,越高越發散",
-        "title": "默認參數",
+        "temperatureHelp": "采样温度,0~2,越低越确定,越高越发散",
+        "title": "默认参数",
         "topP": "Top P",
-        "topPHelp": "核採樣閾值,0~1,只考慮概率最高的 token"
+        "topPHelp": "核采样阈值,0~1,只考虑概率最高的 token"
       },
-      "modelsCount": "{count} 個模型",
-      "more": "共 {total} 個,展開省略",
-      "needKeyFirst": "請先配置 API Key",
-      "newProvider": "新增服務商",
+      "modelsCount": "{count} 个模型",
+      "more": "共 {total} 个,展开省略",
+      "needKeyFirst": "请先配置 API Key",
+      "newProvider": "新增服务商",
       "noKey": "未配置 Key",
-      "noModels": "該服務商暫未掛載模型",
-      "noModelsReturned": "該平臺未返回模型",
-      "providerDeleted": "服務商已刪除",
+      "noModels": "该服务商暂未挂载模型",
+      "noModelsReturned": "该平台未返回模型",
+      "providerDeleted": "服务商已删除",
       "providerDialog": {
         "apiKey": "API Key",
         "baseUrl": "Base URL",
-        "baseUrlRequired": "請填寫 Base URL",
+        "baseUrlRequired": "请填写 Base URL",
         "cancel": "取消",
-        "create": "創建",
-        "created": "已創建",
-        "defaultGroup": "默認分組",
-        "description": "備注",
-        "descriptionPlaceholder": "用途說明...",
-        "docs": "文檔",
-        "editTitle": "編輯服務商",
-        "enableConfig": "啟用此服務商",
-        "enableConfigDesc": "禁用後無法被選擇,已發出的請求不受影響",
-        "group": "分組",
-        "groupPlaceholder": "請選擇分組",
-        "hideKey": "隱藏密鑰",
+        "create": "创建",
+        "created": "已创建",
+        "defaultGroup": "默认分组",
+        "description": "备注",
+        "descriptionPlaceholder": "用途说明...",
+        "docs": "文档",
+        "editTitle": "编辑服务商",
+        "enableConfig": "启用此服务商",
+        "enableConfigDesc": "禁用后无法被选择,已发出的请求不受影响",
+        "group": "分组",
+        "groupPlaceholder": "请选择分组",
+        "hideKey": "隐藏密钥",
         "keyKeepEmpty": "(留空不修改)",
-        "keyPlaceholderEdit": "•••••••(已加密存儲)",
+        "keyPlaceholderEdit": "•••••••(已加密存储)",
         "keyPlaceholderNew": "sk-...",
-        "keyRequired": "請填寫 API Key",
-        "name": "配置名稱",
+        "keyRequired": "请填写 API Key",
+        "name": "配置名称",
         "namePlaceholder": "我的 OpenAI",
-        "nameRequired": "請填寫服務商名稱",
-        "newTitle": "新增服務商",
-        "optional": "可選",
-        "pasteEmpty": "剪貼板為空",
-        "pasteFailed": "剪貼板讀取失敗,請手動粘貼",
-        "pasteFromClipboard": "從剪貼板粘貼 API Key",
-        "pasteSuccess": "已從剪貼板粘貼",
-        "platform": "平臺模板",
-        "platformPlaceholder": "請選擇平臺模板",
-        "protocol": "協議",
-        "protocolPlaceholder": "請選擇協議",
+        "nameRequired": "请填写服务商名称",
+        "newTitle": "新增服务商",
+        "optional": "可选",
+        "pasteEmpty": "剪贴板为空",
+        "pasteFailed": "剪贴板读取失败,请手动粘贴",
+        "pasteFromClipboard": "从剪贴板粘贴 API Key",
+        "pasteSuccess": "已从剪贴板粘贴",
+        "platform": "平台模板",
+        "platformPlaceholder": "请选择平台模板",
+        "protocol": "协议",
+        "protocolPlaceholder": "请选择协议",
         "save": "保存",
-        "saveFailed": "保存失敗",
+        "saveFailed": "保存失败",
         "saved": "已保存",
-        "showKey": "顯示密鑰",
-        "templatesEmpty": "暫無可用平臺模板",
-        "templatesLoadError": "加載平臺模板失敗",
-        "templatesLoading": "正在加載平臺模板...",
-        "templatesNotReady": "平臺模板未就緒,請稍後重試"
+        "showKey": "显示密钥",
+        "templatesEmpty": "暂无可用平台模板",
+        "templatesLoadError": "加载平台模板失败",
+        "templatesLoading": "正在加载平台模板...",
+        "templatesNotReady": "平台模板未就绪,请稍后重试"
       },
-      "quickStartTitle": "常用平臺(點擊快速開始):",
       "sidebar": {
         "add": "添加",
-        "addGroup": "添加分組",
+        "addGroup": "添加分组",
         "all": "全部",
         "cancel": "取消",
-        "createFailed": "創建失敗",
-        "deleteFailed": "刪除失敗",
-        "deleteGroup": "刪除分組",
-        "deleteGroupConfirm": "確認刪除分組「{name}」?",
-        "groupCreated": "已創建分組「{name}」",
-        "groupDeleteNotSupported": "分組刪除需在服務商全部移走後再操作",
-        "groupDeleted": "已刪除分組",
-        "groupNotEmpty": "該分組下還有 {count} 個服務商,請先移走再刪",
-        "groupPlaceholder": "輸入分組名...",
-        "title": "分組",
-        "ungrouped": "未分組"
+        "createFailed": "创建失败",
+        "deleteFailed": "删除失败",
+        "deleteGroup": "删除分组",
+        "deleteGroupConfirm": "确认删除分组「{name}」?",
+        "groupCreated": "已创建分组「{name}」",
+        "groupDeleteNotSupported": "分组删除需在服务商全部移走后再操作",
+        "groupDeleted": "已删除分组",
+        "groupNotEmpty": "该分组下还有 {count} 个服务商,请先移走再删",
+        "groupPlaceholder": "输入分组名...",
+        "title": "分组",
+        "ungrouped": "未分组"
       },
-      "test": "測試",
-      "testFailed": "連通失敗",
-      "testFailedWithTime": "失敗 · {date}",
-      "testSuccess": "連通成功",
+      "test": "测试",
+      "testFailed": "连通失败",
+      "testFailedWithTime": "失败 · {date}",
+      "testSuccess": "连通成功",
       "testSuccessWithTime": "成功 {ms}ms · {date}",
-      "testTimeOnly": "耗時 {ms}ms",
-      "untested": "未測試",
+      "testTimeOnly": "耗时 {ms}ms",
+      "untested": "未测试",
       "usage30d": "30 天 Token"
     }
   },
@@ -13191,7 +13719,8 @@
   "messages": {
     "empty": "暫無消息",
     "loading": "加載中...",
-    "noData": "暫無消息"
+    "noData": "暫無消息",
+    "title": "消息"
   },
   "mobileDashboardPage": {
     "dauTrend": {
@@ -13221,7 +13750,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13931,7 +14468,8 @@
     "view": {
       "grid": "網格視圖",
       "list": "列表視圖"
-    }
+    },
+    "pricing": "模型定價"
   },
   "modelsBillingPage": {
     "consumeTrend": "+{n}% vs 上月",
@@ -13956,7 +14494,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14475,7 +15018,9 @@
     "userSubscription": "訂閱",
     "vip": "VIP 會員",
     "workspace": "工作空間",
-    "courses": "課程"
+    "courses": "課程",
+    "faq": "常見問題",
+    "home": "首頁"
   },
   "news": {
     "allCategories": "全部分類",
@@ -14508,7 +15053,8 @@
     "tags": "標簽:",
     "title": "平臺資訊",
     "total": "共 {total} 篇",
-    "viewCount": "{count} 閱讀"
+    "viewCount": "{count} 閱讀",
+    "page": "新聞頁"
   },
   "newsletter": {
     "articles": {
@@ -14565,7 +15111,8 @@
       "desc": "請檢查您的郵箱確認訂閱。下一期周報將於週五發送。",
       "recommended": "推薦閱讀",
       "title": "訂閱成功!"
-    }
+    },
+    "title": "訂閱簡報"
   },
   "notes": {
     "attachmentsField": "附件",
@@ -14968,12 +15515,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16058,7 +16617,9 @@
     "subtitle": "下載學習資源",
     "title": "資源中心",
     "total": "共 {total} 個",
-    "viewCount": "{count} 瀏覽"
+    "viewCount": "{count} 瀏覽",
+    "affiliates": "聯盟行銷",
+    "edit": "編輯資源"
   },
   "resourcesEditPage": {
     "backToList": "返回資源列表",
@@ -16122,7 +16683,8 @@
     },
     "title": "搜尋",
     "placeholder": "請輸入關鍵字",
-    "empty": "暫無搜尋結果"
+    "empty": "暫無搜尋結果",
+    "q": "搜尋"
   },
   "searchHistory": {
     "clearAll": "清空",
@@ -16260,7 +16822,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -16415,7 +16983,8 @@
       "deployments": "部署案例",
       "satisfaction": "平均滿意度",
       "title": "已服務客戶"
-    }
+    },
+    "title": "服務"
   },
   "settings": {
     "accountDeletionCancel": "取消刪除",
@@ -16794,7 +17363,10 @@
     "notification": "通知設定",
     "account": "帳號",
     "version": "版本",
-    "usageRules": "使用規範"
+    "usageRules": "使用規範",
+    "connectedAccountsUnbindSuccess": "解綁成功",
+    "notificationsLoadFailed": "通知載入失敗",
+    "privacyLoadFailed": "隱私設定載入失敗"
   },
   "shareContentPage": {
     "aiGenerated": "智匯 AI 生成",
@@ -16951,7 +17523,8 @@
       }
     },
     "tiersTitle": "贊助等級",
-    "whyTitle": "為什麼贊助 IHUI AI"
+    "whyTitle": "為什麼贊助 IHUI AI",
+    "title": "贊助"
   },
   "sso": {
     "alreadyLoggedIn": "已登錄",
@@ -16991,13 +17564,58 @@
     "subtitle": "登錄後將為 {clientId} 授權並跳轉",
     "title": "統一登錄",
     "mobileAuth": {
-      "title": "行動裝置授權",
-      "processing": "正在驗證登入狀態…",
-      "missingCode": "缺少授權碼，請從 App 內開啟",
-      "exchangeFailed": "授權失敗，請重試或重新登入",
-      "networkError": "網路異常，請重試",
-      "backToLogin": "返回登入"
-    }
+      "alreadyLoggedIn": "已登錄",
+      "authFailed": "授權啟動失敗",
+      "authorizeAndRedirect": "授權並跳轉",
+      "authorizing": "正在為 {clientId} 授權…",
+      "code": "驗證碼",
+      "codePlaceholder": "請輸入驗證碼",
+      "codeRequired": "請輸入驗證碼",
+      "codeSent": "驗證碼已發送",
+      "confirmPassword": "確認密碼",
+      "confirmPasswordPlaceholder": "請再次輸入密碼",
+      "footerHint": "授權後將自動跳轉回目標應用，登錄態將在各子項目間共享。",
+      "generateCodeFailed": "生成授權碼失敗",
+      "getCode": "獲取驗證碼",
+      "invalidPhone": "請輸入正確的手機號",
+      "invalidPlatform": "未知登錄平臺，正在返回主站",
+      "mustAgree": "請先同意服務條款",
+      "password": "密碼",
+      "passwordMismatch": "兩次密碼不一致",
+      "passwordPlaceholder": "請輸入密碼",
+      "passwordTooShort": "密碼至少 6 位",
+      "phone": "手機號",
+      "phonePlaceholder": "請輸入手機號",
+      "redirect": {
+        "notAllowed": "跳轉地址不被允許",
+        "notAllowedDesc": "出於安全考慮，僅允許白名單內的跳轉目標。",
+        "title": "統一登錄跳轉"
+      },
+      "redirecting": "正在跳轉授權…",
+      "redirectingDesc": "即將打開 {platform} 授權頁",
+      "registerBtn": "注冊並授權",
+      "registerFailed": "注冊失敗",
+      "registerSuccess": "注冊成功",
+      "registerTitle": "統一注冊",
+      "sendCodeFailed": "驗證碼發送失敗",
+      "subtitle": "登錄後將為 {clientId} 授權並跳轉",
+      "title": "統一登錄",
+      "mobileAuth": {
+        "title": "行動裝置授權",
+        "processing": "正在驗證登入狀態…",
+        "missingCode": "缺少授權碼，請從 App 內開啟",
+        "exchangeFailed": "授權失敗，請重試或重新登入",
+        "networkError": "網路異常，請重試",
+        "backToLogin": "返回登入"
+      },
+      "processing": "正在验证登录状态…",
+      "missingCode": "缺少授权码，请从 App 内打开",
+      "exchangeFailed": "授权失败，请重试或重新登录",
+      "networkError": "网络异常，请重试",
+      "backToLogin": "返回登录",
+      "sso_code": "SSO 授權碼"
+    },
+    "platform": "平台"
   },
   "statistics": {
     "actions": "操作",
@@ -17469,7 +18087,9 @@
     "submit": "拆分",
     "submitting": "拆分中...",
     "title": "PDF 拆分",
-    "uploadLabel": "點擊或拖拽一個 PDF 文件到此處上傳"
+    "uploadLabel": "點擊或拖拽一個 PDF 文件到此處上傳",
+    "convert": "轉換",
+    "merge": "合併"
   },
   "topics": {
     "empty": "暫無專題",
@@ -18146,7 +18766,8 @@
       "schedule": "定時",
       "unknown": "未知觸發類型",
       "webhook": "Webhook"
-    }
+    },
+    "instance": "工作流實例"
   },
   "workspace": {
     "actions": "操作",
@@ -18336,7 +18957,9 @@
     "stepThinking": "思考",
     "reasoningCopied": "已複製推理過程",
     "reasoningCopyFailed": "複製推理過程失敗",
-    "copyReasoning": "複製推理過程"
+    "copyReasoning": "複製推理過程",
+    "detail": "方案詳情",
+    "new": "新建方案"
   },
   "subagent": {
     "toolCallsTitle": "{n} 次工具呼叫",
@@ -19088,7 +19711,8 @@
     "certTitle": "證書名稱",
     "certNo": "證書編號",
     "holderName": "持證姓名",
-    "issueDate": "簽發日期"
+    "issueDate": "簽發日期",
+    "notfound": "憑證未找到"
   },
   "courseCatalog": {
     "title": "課程目錄",
@@ -19767,7 +20391,8 @@
     "url": "分享連結",
     "code": "分享口令",
     "expireAt": "過期時間",
-    "shareNow": "立即分享"
+    "shareNow": "立即分享",
+    "detail": "分享詳情"
   },
   "vipBenefit": {
     "title": "VIP 權益"
@@ -20267,7 +20892,10 @@
     "autoMemory": "自動記憶",
     "autoMemoryDesc": "開啟後，AI 會在對話後自動提煉重點並沉澱為長期記憶，用於後續個人化回覆。",
     "autoMemorySaveSuccess": "設定已儲存",
-    "autoMemorySaveFailed": "儲存失敗，請重試"
+    "autoMemorySaveFailed": "儲存失敗，請重試",
+    "manager": "記憶管理",
+    "title": "記憶",
+    "new": "新建記憶"
   },
   "agentPlan": {
     "title": "Agent 計畫模式",
@@ -20307,6 +20935,103 @@
     "statusFailed": "失敗",
     "notFound": "計畫不存在或已過期",
     "conflict": "目前計畫狀態下不允許此操作",
-    "generic": "請求失敗,請稍後重試"
+    "generic": "請求失敗,請稍後重試",
+    "progress": "進度"
+  },
+  "compare": {
+    "title": "產品對比",
+    "subtitle": "IHUI AI 與主流 AI 平台的深度對比",
+    "description": "從多個維度對比 IHUI AI 與主流 AI 平台"
+  },
+  "useCases": {
+    "title": "使用場景",
+    "subtitle": "探索 IHUI AI 在不同場景下的應用",
+    "description": "了解 IHUI AI 如何賦能各類業務場景"
+  },
+  "context": {
+    "title": "上下文管理",
+    "compression": "上下文壓縮",
+    "mentions": "提及管理",
+    "visualization": "上下文可視化"
+  },
+  "spec": {
+    "title": "需求規格",
+    "detail": "規格詳情",
+    "generate": "生成規格",
+    "templates": "規格模板"
+  },
+  "subagents": {
+    "title": "子代理",
+    "detail": "子代理詳情",
+    "dispatch": "分發任務",
+    "topology": "拓撲結構"
+  },
+  "aiSkills": {
+    "title": "AI 技能",
+    "detail": "技能詳情",
+    "description": "AI 技能管理"
+  },
+  "download": {
+    "title": "下載",
+    "description": "下載 IHUI AI 客戶端",
+    "id": "平台下載"
+  },
+  "agentRuntime": {
+    "title": "Agent 運行時",
+    "description": "Agent 運行時監控與管理"
+  },
+  "agentStepRecorder": {
+    "title": "Agent 步驟記錄",
+    "description": "記錄 Agent 執行步驟"
+  },
+  "apple": {
+    "callback": "Apple 登入回調"
+  },
+  "costDashboard": {
+    "title": "成本看板",
+    "description": "AI 成本監控看板"
+  },
+  "developers": {
+    "title": "開發者",
+    "description": "開發者文件與資源"
+  },
+  "google": {
+    "callback": "Google 登入回調"
+  },
+  "h5": {
+    "title": "H5 頁面",
+    "share": "分享頁面"
+  },
+  "legal": {
+    "title": "法律資訊",
+    "serviceSpecificTerms": {
+      "title": "服務特定條款"
+    },
+    "supportedRegions": {
+      "title": "支持地區"
+    },
+    "terms": {
+      "title": "服務條款"
+    },
+    "usagePolicy": {
+      "title": "使用政策"
+    }
+  },
+  "legal.serviceSpecificTerms": {},
+  "legal.supportedRegions": {},
+  "legal.terms": {},
+  "legal.usagePolicy": {},
+  "mcpProjects": {
+    "title": "MCP 項目",
+    "store": "MCP 商店",
+    "description": "Model Context Protocol 項目管理"
+  },
+  "n8nAgents": {
+    "title": "n8n Agent",
+    "description": "n8n 自動化工作流 Agent"
+  },
+  "rules": {
+    "title": "規則",
+    "description": "平台規則與規範"
   }
 }
