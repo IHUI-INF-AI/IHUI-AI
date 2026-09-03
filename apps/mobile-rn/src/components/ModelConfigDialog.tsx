@@ -47,6 +47,7 @@ import {
 import { useI18n } from '../i18n'
 import type { ModelConfigType } from '@ihui/ui-native'
 import { Check, Mic, Music, Plus, Square, X } from 'lucide-react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 // 共享类型(ModelConfigType)从 packages/types 下沉,两端复用。
 // 保留 ModelType 别名以维持本模块对外 API 向后兼容(虽然当前 mobile-rn 内部无外部引用,
@@ -943,14 +944,14 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
               <View className="flex-row items-center justify-between px-5 py-4">
                 <Text className="text-sm font-semibold text-gray-900">选择音色</Text>
                 <Pressable onPress={() => setShowAudioMenu(false)} hitSlop={8}>
-                  <X size={12} color={'#6b7280'} />
+                  <X size={12} color={tokens.text.secondary} />
                 </Pressable>
               </View>
 
               {/* 菜单项 */}
               <Pressable onPress={handleSelectVoice} className="flex-row items-center px-5 py-3">
                 <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                  <Music size={18} color={'#6b7280'} />
+                  <Music size={18} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-xs font-medium text-gray-900">选择音色</Text>
@@ -963,7 +964,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
 
               <Pressable onPress={handleCloneVoice} className="flex-row items-center px-5 py-3">
                 <View className="mr-3 h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-                  <Mic size={18} color={'#6b7280'} />
+                  <Mic size={18} color={tokens.text.secondary} />
                 </View>
                 <View className="flex-1">
                   <Text className="text-xs font-medium text-gray-900">克隆音色</Text>
@@ -998,7 +999,7 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                 <View className="flex-row items-center justify-between px-5 py-4">
                   <Text className="text-sm font-semibold text-gray-900">音色克隆</Text>
                   <Pressable onPress={handleCloseRecordDialog} hitSlop={8}>
-                    <X size={12} color={'#6b7280'} />
+                    <X size={12} color={tokens.text.secondary} />
                   </Pressable>
                 </View>
 
@@ -1031,9 +1032,9 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
                       }
                     >
                       {isRecording ? (
-                        <Square size={24} color={'#ffffff'} />
+                        <Square size={24} color={tokens.surface.light} />
                       ) : (
-                        <Mic size={24} color={'#ffffff'} />
+                        <Mic size={24} color={tokens.surface.light} />
                       )}
                     </Pressable>
                     <Text className="mt-2 text-xs text-gray-500">
@@ -1074,7 +1075,7 @@ function UploadButton({
         className="items-center rounded-lg border border-dashed border-emerald-200 bg-emerald-50 py-2"
       >
         <View className="mb-1 h-8 w-8 items-center justify-center">
-          {url ? <Check size={18} color={'#6b7280'} /> : <Plus size={18} color={'#6b7280'} />}
+          {url ? <Check size={18} color={tokens.text.secondary} /> : <Plus size={18} color={tokens.text.secondary} />}
         </View>
         <Text className="text-xs text-gray-600" numberOfLines={1}>
           {label}

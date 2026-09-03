@@ -654,7 +654,8 @@
         "thu": "목",
         "tue": "화",
         "wed": "수"
-      }
+      },
+      "title": "사용자 행동"
     },
     "carousel": {
       "cancel": "취소",
@@ -2766,7 +2767,8 @@
         "title": "강사 관리",
         "totalItems": "총 {total}건",
         "updateSuccess": "업데이트 성공"
-      }
+      },
+      "title": "교육 관리"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "수여 조건은 필수입니다",
@@ -3279,7 +3281,8 @@
       "titleRequired": "titleRequired",
       "unpublished": "미발행",
       "updateStatus": "상태 업데이트",
-      "updateSuccess": "업데이트성공"
+      "updateSuccess": "업데이트성공",
+      "title": "학습 관리"
     },
     "live": {
       "allCategories": "All categories",
@@ -6423,11 +6426,7 @@
   },
   "agreement": {
     "effectiveDate": "시행일",
-    "staticContent1": "환영애플사용플랫폼。애플사용플랫폼서비스동의 전체。",
     "staticContent2": "개인 메시지 센터，의 개인정보 보호 정책에 동의합니다。",
-    "staticContent3": "에게，플랫폼 상담원。",
-    "title": "및",
-    "subtitle": "읽음 가져오기",
     "userAgreement": "사용자"
   },
   "ai": {
@@ -6777,7 +6776,12 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
+      "classLevel": [
+        "우수(학급 상위 10%)",
+        "양호(10-30%)",
+        "보통(30-70%)",
+        "미흡(하위 30%)"
+      ],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6794,7 +6798,12 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
+      "school": [
+        "주요 중학교",
+        "일반 중학교",
+        "국제 학교",
+        "사립 학교"
+      ]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -7657,7 +7666,6 @@
   "auth": {
     "account": "계정",
     "accountHistory": "계정 기록",
-    "accountPlaceholder": "계정 입력",
     "agreePrefix": "내완료채점읽음동시함께의",
     "agreeRequired": "이용약관을 읽고 동의해 주세요",
     "agreementNoticeAgree": "동의하고 계속",
@@ -7682,12 +7690,8 @@
     "code": "코드",
     "codePlaceholder": "인증 코드를 입력하세요",
     "codeSent": "인증 코드가 전송되었습니다, 문자를 확인하세요",
-    "confirmPassword": "confirmPassword",
-    "dingtalkLogin": "딩톡",
     "email": "이메일",
-    "emailLogin": "이메일",
     "emailPlaceholder": "이메일을 입력하세요",
-    "emailRegister": "이메일",
     "enterCode": "인증 코드를 입력하세요",
     "enterNewPassword": "새 비밀번호를 입력하세요",
     "enterPhone": "휴대전화번호를 입력하세요",
@@ -7716,7 +7720,6 @@
     "loginSubtitle": "계정에 로그인하여 계속",
     "loginSuccess": "로그인 성공",
     "loginTitle": "돌아오신 것을 환영합니다",
-    "newPassword": "newPassword",
     "noAccount": "계정이 없으신가요?",
     "noHistory": "기록 없음",
     "password": "비밀번호",
@@ -7727,11 +7730,8 @@
     "passwordStrong": "강함",
     "passwordWeak": "약함",
     "phone": "전화",
-    "phoneCodeLogin": "핸드폰",
     "phonePlaceholder": "휴대전화번호를 입력하세요",
-    "phoneRegister": "전화번호",
     "privacyPolicy": "개인정보처리방침",
-    "qrLogin": "QR코드",
     "qrNotConfigured": "{platform} 스캔 로그인이 설정되지 않았습니다, 관리자에게 문의하세요",
     "qrRefresh": "QR코드 새로고침",
     "qrScanTipPlatform": "{platform} 앱으로 QR 코드를 스캔하여 로그인하세요",
@@ -7739,15 +7739,11 @@
     "qrSwitchMethod": "로그인 방법 전환",
     "registerBtn": "신청",
     "registerFailed": "가입 실패, 다시 시도하세요",
-    "registerNow": "신청",
     "registerSubtitle": "새 계정 등록",
-    "registerSuccess": "register성공",
-    "registerTitle": "가입",
     "rememberPassword": "비밀번호 기억하기",
     "removeAccount": "계정 삭제",
     "resendCode": "{seconds}s 후 재전송",
     "resetPassword": "초기화비밀번호",
-    "resetSuccess": "Presets reset",
     "sendCode": "전송인증 코드",
     "showPassword": "비밀번호 표시",
     "termsOfService": "서비스 약관",
@@ -7786,8 +7782,7 @@
     "twoFactorSubmit": "확인 및 로그인",
     "twoFactorTitle": "2단계 인증",
     "username": "사용자 이름",
-    "usernamePlaceholder": "사사용자 이름을 입력하세요",
-    "wechatLogin": "위챗"
+    "usernamePlaceholder": "사사용자 이름을 입력하세요"
   },
   "behavior": {
     "createdAt": "생성시간",
@@ -8696,7 +8691,8 @@
       "selectCircle": "서클 선택",
       "selectCirclePlaceholder": "서클을 선택해 주세요",
       "titleLabel": "제목",
-      "titlePlaceholder": "게시물 제목을 입력하세요"
+      "titlePlaceholder": "게시물 제목을 입력하세요",
+      "title": "게시물"
     },
     "postCount": "{count}개 게시물",
     "subtitle": "포괄적인의개발문서및API참조",
@@ -8761,32 +8757,58 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": ["AI", "월드", "앱"],
+        "keywords": [
+          "AI",
+          "월드",
+          "앱"
+        ],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": ["채팅", "대화", "AI", "chat"],
+        "keywords": [
+          "채팅",
+          "대화",
+          "AI",
+          "chat"
+        ],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": ["드라마", "비디오", "AI", "drama"],
+        "keywords": [
+          "드라마",
+          "비디오",
+          "AI",
+          "drama"
+        ],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": ["프로필", "사용자", "설정"],
+        "keywords": [
+          "프로필",
+          "사용자",
+          "설정"
+        ],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": ["검색", "찾기", "search"],
+        "keywords": [
+          "검색",
+          "찾기",
+          "search"
+        ],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": ["설정", "환경설정", "구성"],
+        "keywords": [
+          "설정",
+          "환경설정",
+          "구성"
+        ],
         "label": "설정"
       }
     },
@@ -10564,17 +10586,12 @@
     "noClass": "수업 없음",
     "subtitle": "이번 주 수업 일정",
     "title": "시간표",
-    "today": "오늘",
-    "weekdays": []
+    "today": "오늘"
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": [],
-      "effectMetrics": [],
       "effectTitle": "AI화 효과",
-      "infoAdvanced": [],
       "infoAdvancedLabel": "고급 정보 세계",
-      "infoBasic": [],
       "infoBasicLabel": "초급 정보 세계",
       "infoTitle": "정보 세계",
       "label": "기업 AI화 서비스 아키텍처",
@@ -10620,25 +10637,37 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": ["지식 Q&A", "프로세스 자동화"],
+          "examples": [
+            "지식 Q&A",
+            "프로세스 자동화"
+          ],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": ["데이터 분석", "의사결정 지원"],
+          "examples": [
+            "데이터 분석",
+            "의사결정 지원"
+          ],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": ["회의 일정", "승인 프로세스"],
+          "examples": [
+            "회의 일정",
+            "승인 프로세스"
+          ],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
+          "examples": [
+            "마케팅 자동화",
+            "멀티에이전트 협업"
+          ],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10759,7 +10788,6 @@
       "title": "IHUI AI 기업 서비스"
     },
     "join": {
-      "benefits": [],
       "consultHint": "스캔하여 상담하거나 직접 문의하세요",
       "joinNow": "지금 가입",
       "label": "IHUI AI 커뮤니티 가입",
@@ -10772,19 +10800,31 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
+          "features": [
+            "체계적 과정",
+            "실천 탐구",
+            "커뮤니티 상호 지원"
+          ],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
+          "features": [
+            "소통 플랫폼",
+            "경험 공유",
+            "자원 연결"
+          ],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
+          "features": [
+            "전문 대형 모델",
+            "에이전트 서비스",
+            "컨설팅 서비스"
+          ],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -10794,7 +10834,6 @@
     "positioning": {
       "description": "IHUI AI 커뮤니티는 기업 의사결정자가 AI와 기업의 관계를 깊이 이해하도록 돕는 데 전념합니다. 체계적인 과정, 실천 탐구, 커뮤니티 상호 지원을 통해 인간-기계 협업 슈퍼 조직을 구축하고 기업의 합리적 효율 향상을 실현합니다.",
       "label": "핵심 포지셔닝",
-      "tags": [],
       "title": "AI 시대 기업 합리적 효율 서비스 및 상호 지원 커뮤니티"
     },
     "inquiry": "비즈니스 컨설팅"
@@ -11126,14 +11165,11 @@
     "field_status": "상태",
     "field_title": "제목",
     "imagesPlaceholder": "이미지를 붙여넣거나 드래그하세요",
-    "notFound": "찾을 수 없음",
     "required": "제목과 내용은 필수입니다",
     "tab_list": "목록",
     "tab_new": "최신",
     "titlePlaceholder": "titleRequired",
     "contentRequired": "피드백 내용을 입력하세요",
-    "success": "제출되었습니다",
-    "failed": "제출 실패",
     "title": "AI인마음페이스테스트",
     "type": "피드백 유형",
     "content": "피드백 내용",
@@ -11449,7 +11485,6 @@
     "backToList": "목록으로 돌아가기",
     "contactSupport": "고객 지원",
     "empty": "기사가 없습니다",
-    "notFound": "찾을 수 없음",
     "related": "관련 문서",
     "toc": "목차",
     "updatedAt": "업데이트시간",
@@ -12021,7 +12056,8 @@
       "notFound": "문서를 찾을 수 없습니다",
       "showLess": "접기",
       "showMore": "펼치기",
-      "totalCount": "총 {count}개 청크"
+      "totalCount": "총 {count}개 청크",
+      "title": "지식 청크"
     },
     "detail": {
       "backToList": "목록으로",
@@ -12032,7 +12068,8 @@
       "related": "관련 문서",
       "relatedEmpty": "관련 문서가 없습니다",
       "sourceType": "소스 유형",
-      "viewChunks": "청크 보기"
+      "viewChunks": "청크 보기",
+      "title": "지식 상세"
     },
     "list": {
       "chunkCount": "청크 {count}개",
@@ -13280,7 +13317,15 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
+    "weekdays": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금",
+      "토",
+      "일"
+    ]
   },
   "models": {
     "aiNews": {
@@ -14016,7 +14061,12 @@
         ]
       },
       "starter": {
-        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
+        "features": [
+          "1M 토큰 한도",
+          "기본 모델 사용 가능",
+          "5개 API 토큰",
+          "커뮤니티 지원"
+        ]
       }
     },
     "productSchema": {
@@ -14286,7 +14336,6 @@
     "developerLimits": "속도 제한",
     "developerLogs": "호출 로그",
     "developerNotifications": "알림",
-    "developerRelay": "릴레이",
     "developerRelayKeys": "API 키",
     "developerRelayUsage": "사용량",
     "developerSandbox": "샌드박스",
@@ -15013,7 +15062,13 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
+        "features": [
+          "무제한 크레딧",
+          "사설 배포",
+          "SSO/SAML 2.0",
+          "감사 로그",
+          "전담 기술 지원"
+        ],
         "name": "기업판"
       },
       "free": {
@@ -16566,7 +16621,6 @@
     "exportNoHistory": "내보내기 기록 없음",
     "exportScope": "내보내기 범위",
     "exportScopeDesc": "프로필, 채팅 기록, 주문, 사용 통계 등 포함",
-    "exportSuccess": "내보내기 완료",
     "gateway": {
       "combos": {
         "chain": "호출 체인 (한 줄에 하나)",
@@ -16743,7 +16797,8 @@
       "autoRenewTitle": "자동 갱신",
       "rememberDays": "{days}일 기억",
       "saveFailed": "저장 실패, 다시 시도해 주세요",
-      "saveSuccess": "로그인 환경설정이 저장되었습니다"
+      "saveSuccess": "로그인 환경설정이 저장되었습니다",
+      "title": "로그인 보안"
     },
     "loginSecurityDesc": "자동 로그인 및 토큰 갱신 환경설정",
     "loginSecurityTitle": "로그인 관리",
@@ -16820,7 +16875,6 @@
       "import": "가져오기",
       "title": "AI인마음페이스테스트"
     },
-    "themeSystem": "시스템",
     "title": "설정",
     "twofa": {
       "backupDesc": "다음 복구 코드를 안전하게 보관하세요. 2단계 인증 기기를 분실한 경우 로그인에 사용할 수 있습니다",
@@ -16872,10 +16926,8 @@
     "connectedAccountsLoading": "불러오는 중...",
     "emailNotifDesc": "이메일로 중요 알림 수신",
     "notificationsDesc": "알림 설정을 관리하세요",
-    "notificationsSaveSuccess": "저장됨",
     "preferencesDesc": "앱 환경을 맞춤 설정하세요",
     "privacyDesc": "데이터 가시성 및 개인정보 설정 관리",
-    "privacySaveSuccess": "저장됨",
     "themeDark": "깊은색템플릿방식",
     "themeLight": "라이트템플릿방식"
   },
@@ -17780,13 +17832,12 @@
       "phone": "전화",
       "saving": "저장중간",
       "subtitle": "포괄적인의개발문서및API참조",
-      "title": "개인"
+      "title": "프로필"
     },
     "public": {
       "follow": "팔로우",
       "isYou": "본인입니다",
       "loading": "로딩 중...",
-      "notFound": "찾을 수 없음",
       "sendMessage": "메시지 보내기",
       "statsFavorites": "즐겨찾기",
       "statsFollowers": "팔로워",
@@ -17836,11 +17887,9 @@
       "confirmPassword": "새 비밀번호를 다시 입력하세요",
       "currentDevice": "현재 기기",
       "currentPassword": "현재 비밀번호",
-      "devices": "기기",
       "devicesEmpty": "데이터 없음",
       "devicesLoading": "로딩 중...",
       "logout": "로그아웃",
-      "newPassword": "newPassword",
       "newPhone": "새 휴대폰 번호",
       "newPhonePlaceholder": "새 휴대폰 번호를 입력하세요",
       "password": "수정변경비밀번호",
@@ -18175,7 +18224,8 @@
       "trigger": "트리거",
       "triggerType": "트리거 유형",
       "updateSuccess": "업데이트 성공",
-      "viewInstance": "보기"
+      "viewInstance": "보기",
+      "title": "워크플로 상세"
     },
     "editor": {
       "cancel": "취소",
@@ -18259,7 +18309,8 @@
     "description": "설명",
     "descriptionPlaceholder": "에이전트 소개를 입력하세요",
     "detail": {
-      "previewFailed": "미리보기 실패"
+      "previewFailed": "미리보기 실패",
+      "title": "워크스페이스 상세"
     },
     "dismiss": "닫기",
     "download": "다운로드",
@@ -18643,7 +18694,6 @@
     "subtitle": "텍스트, 이미지, 오디오를 한 번에 생성",
     "switchModel": "모델 전환",
     "noModels": "사용 가능한 모델 없음",
-    "empty": "콘텐츠 없음",
     "inputPlaceholder": "창작 내용을 입력하세요…",
     "send": "보내기",
     "clear": "지우기"
@@ -18700,8 +18750,7 @@
     "issuer": "발급 기관",
     "score": "점수",
     "issuedAt": "발급일",
-    "expiredAt": "만료일",
-    "verify": "검증"
+    "expiredAt": "만료일"
   },
   "circleChat": {
     "empty": "메시지 없음",
@@ -18820,8 +18869,7 @@
     "duration": "길이",
     "viewerCount": "시청자 {count}명",
     "play": "재생",
-    "noReplay": "다시보기 없음",
-    "replayTitle": "다시보기"
+    "noReplay": "다시보기 없음"
   },
   "note": {
     "title": "메모",
@@ -19293,12 +19341,10 @@
     "viewerCount": "{count}명 시청"
   },
   "messageDirect": {
-    "title": "쪽지",
     "empty": "쪽지가 없습니다"
   },
   "modelEdit": {
     "headerTitle": "모델 편집",
-    "labelCategory": "분류",
     "labelDept": "적용 부서",
     "labelSaleType": "판매 방식",
     "labelCycle": "결제 주기",
@@ -19620,8 +19666,6 @@
   },
   "aiAssistant": {
     "title": "AI 어시스턴트",
-    "subtitle": "지능형 대화 어시스턴트",
-    "searchPlaceholder": "어시스턴트 검색",
     "empty": "어시스턴트 없음",
     "useCount": "{count}회 사용",
     "favoriteCount": "즐겨찾기 {count}",
@@ -19634,8 +19678,6 @@
     "detailMembers": "멤버 {count}명",
     "memberRole": "역할 {role}",
     "detailRecent": "최근 메시지",
-    "previewHello": "안녕하세요",
-    "previewMine": "나",
     "detailEnter": "그룹 입장",
     "enterMine": "내 정보로",
     "enterDiscover": "발견으로",
@@ -19762,8 +19804,7 @@
     "send": "전송"
   },
   "messageGroup": {
-    "title": "메시지 그룹",
-    "empty": "그룹 없음"
+    "title": "메시지 그룹"
   },
   "modelPlaza": {
     "title": "모델 마켓",
@@ -19774,14 +19815,11 @@
     "emptyType": "이 유형에는 모델이 없습니다",
     "input": "입력",
     "priceUnit": "¥{price}",
-    "output": "출력",
-    "perCall": "호출당"
+    "output": "출력"
   },
   "n8nModel": {
     "title": "n8n 모델",
     "create": "생성",
-    "searchPlaceholder": "모델 검색",
-    "empty": "모델 없음",
     "running": "실행 중",
     "stopped": "중지됨",
     "calls": "{count}회 호출",
@@ -20032,7 +20070,6 @@
     "send": "보내기"
   },
   "agentDetail": {
-    "loadFailed": "로딩 실패",
     "description": "소개",
     "creator": "만든이",
     "uses": "사용 횟수",
@@ -20053,10 +20090,7 @@
     "loading": "로딩 중…",
     "back": "뒤로",
     "title": "커버 설정",
-    "subtitle": "\"{title}\" 커버 생성",
-    "empty": "커버가 없습니다",
-    "aiGenBtn": "AI 생성",
-    "confirmBtn": "확인"
+    "subtitle": "\"{title}\" 커버 생성"
   },
   "announcement": {
     "title": "공지사항",
@@ -20191,7 +20225,6 @@
     "orderLabel": "주문 번호",
     "rateLabel": "분배 비율",
     "withdrawModal": {
-      "title": "출금",
       "close": "닫기",
       "subtitle": "출금 가능 금액",
       "wechat": "위챗",

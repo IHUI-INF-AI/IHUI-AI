@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
@@ -40,6 +40,14 @@ const Sidebar = React.memo(function Sidebar({
 }: SidebarProps) {
   const t = useTranslations('nav')
   const tc = useTranslations('common')
+  // 性能修复(2026-09-04 深挖"所有按钮都慢"定位):
+  // useTranslations 返回的 t 函数引用不稳定,每次 Sidebar 重渲染都产生新引用 →
+  // 传给 React.memo(NavGroupSection/ExpandableNavItem) 时引用变化 → memo 失效 →
+  // 80+ 导航项 + Radix Tooltip 组件链全量重渲染(实测 TooltipProvider 283ms + Sidebar 208ms)。
+  // 用 useLocale 作为唯一依赖稳定 t 引用:locale 不变时 t 功能等价(同 messages),memo 可正确跳过。
+  const locale = useLocale()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- t 功能仅依赖 locale,稳定引用是本次性能修复的核心目的
+  const stableT = React.useMemo(() => t, [locale])
   const pathname = usePathname()
   // 性能修复(2026-07-25):仅订阅 user.roleId 单字段,而非整个 user 对象。
   // 原全对象订阅导致任何 setUser(登录/profile 刷新/auth bootstrap/persist hydration)
@@ -331,7 +339,7 @@ const Sidebar = React.memo(function Sidebar({
           activeHref={activeHref}
           onCloseMobile={onCloseMobile}
           registerRef={registerRef}
-          t={t}
+          t={stableT}
           scope={scope}
           isFirst={gi === 0}
           onBeforeNav={handleBeforeNav}

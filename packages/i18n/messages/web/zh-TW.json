@@ -649,7 +649,8 @@
         "thu": "週四",
         "tue": "週二",
         "wed": "週三"
-      }
+      },
+      "title": "使用者行為"
     },
     "carousel": {
       "cancel": "取消",
@@ -2761,7 +2762,8 @@
         "title": "講師管理",
         "totalItems": "共 {total} 條",
         "updateSuccess": "更新成功"
-      }
+      },
+      "title": "教育管理"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "頒發條件不能為空",
@@ -3274,7 +3276,8 @@
       "titleRequired": "課程標題不能為空",
       "unpublished": "未發布",
       "updateStatus": "更新狀態",
-      "updateSuccess": "更新成功"
+      "updateSuccess": "更新成功",
+      "title": "學習管理"
     },
     "live": {
       "allCategories": "全部分類",
@@ -6771,7 +6774,12 @@
       "targetPlaceholder": "如:重點高中、985大學"
     },
     "options": {
-      "classLevel": ["優秀(班級前 10%)", "良好(10-30%)", "中等(30-70%)", "一般(後 30%)"],
+      "classLevel": [
+        "優秀(班級前 10%)",
+        "良好(10-30%)",
+        "中等(30-70%)",
+        "一般(後 30%)"
+      ],
       "difficulty": [
         "語文閱讀理解",
         "英語聽力口語",
@@ -6788,7 +6796,12 @@
         "考試焦慮",
         "家庭環境影響"
       ],
-      "school": ["重點中學", "普通中學", "國際學校", "私立學校"]
+      "school": [
+        "重點中學",
+        "普通中學",
+        "國際學校",
+        "私立學校"
+      ]
     },
     "result": {
       "failed": "AI 分析失敗",
@@ -7727,7 +7740,6 @@
     "privacyPolicy": "隱私政策",
     "qrLogin": "掃碼",
     "qrNotConfigured": "{platform} 掃碼登入未設定,請聯絡管理員",
-    "qrRefresh": "刷新二維碼",
     "qrScanTipPlatform": "請使用{platform}掃描二維碼",
     "qrSdkLoadFailed": "二維碼元件載入失敗",
     "qrSwitchMethod": "切換登錄方式",
@@ -8690,7 +8702,8 @@
       "selectCircle": "選擇圈子",
       "selectCirclePlaceholder": "請選擇圈子",
       "titleLabel": "標題",
-      "titlePlaceholder": "請輸入帖子標題"
+      "titlePlaceholder": "請輸入帖子標題",
+      "title": "帖子"
     },
     "postCount": "{count} 帖子",
     "subtitle": "加入興趣圈子，與同好交流",
@@ -8755,32 +8768,58 @@
     "commands": {
       "ai-world": {
         "description": "探索 AI 應用世界",
-        "keywords": ["AI", "世界", "應用"],
+        "keywords": [
+          "AI",
+          "世界",
+          "應用"
+        ],
         "label": "AI 世界"
       },
       "chat": {
         "description": "與 AI 助手開始對話",
-        "keywords": ["對話", "聊天", "AI", "chat"],
+        "keywords": [
+          "對話",
+          "聊天",
+          "AI",
+          "chat"
+        ],
         "label": "AI 對話"
       },
       "drama": {
         "description": "AI 生成的精彩短劇",
-        "keywords": ["短劇", "視頻", "AI", "drama"],
+        "keywords": [
+          "短劇",
+          "視頻",
+          "AI",
+          "drama"
+        ],
         "label": "AI 短劇"
       },
       "profile": {
         "description": "管理個人資料和設置",
-        "keywords": ["個人", "資料", "設置"],
+        "keywords": [
+          "個人",
+          "資料",
+          "設置"
+        ],
         "label": "個人中心"
       },
       "search": {
         "description": "全局內容搜索",
-        "keywords": ["搜索", "查找", "search"],
+        "keywords": [
+          "搜索",
+          "查找",
+          "search"
+        ],
         "label": "搜索"
       },
       "settings": {
         "description": "系統偏好與配置",
-        "keywords": ["設置", "偏好", "配置"],
+        "keywords": [
+          "設置",
+          "偏好",
+          "配置"
+        ],
         "label": "系統設置"
       }
     },
@@ -10552,17 +10591,12 @@
     "noClass": "無課",
     "subtitle": "本週課程安排一覽",
     "title": "課程表",
-    "today": "今天",
-    "weekdays": []
+    "today": "今天"
   },
   "enterprise": {
     "architecture": {
-      "effectFlow": [],
-      "effectMetrics": [],
       "effectTitle": "AI化效果",
-      "infoAdvanced": [],
       "infoAdvancedLabel": "高級信息世界",
-      "infoBasic": [],
       "infoBasicLabel": "初級信息世界",
       "infoTitle": "信息世界",
       "label": "企業AI化服務架構",
@@ -10608,25 +10642,37 @@
       "quadrants": [
         {
           "description": "簡單決策 + 簡單執行,快速部署高頻應用",
-          "examples": ["知識問答", "流程自動化"],
+          "examples": [
+            "知識問答",
+            "流程自動化"
+          ],
           "tag": "Q1",
           "title": "高效助手"
         },
         {
           "description": "復雜決策 + 簡單執行,提供深度分析與建議",
-          "examples": ["數據分析", "決策支持"],
+          "examples": [
+            "數據分析",
+            "決策支持"
+          ],
           "tag": "Q2",
           "title": "智慧顧問"
         },
         {
           "description": "簡單決策 + 復雜執行,處理跨系統復雜任務",
-          "examples": ["會議安排", "審批流程"],
+          "examples": [
+            "會議安排",
+            "審批流程"
+          ],
           "tag": "Q3",
           "title": "執行專家"
         },
         {
           "description": "復雜決策 + 復雜執行,自主規劃與多智能體協作",
-          "examples": ["營銷自動化", "多智能體協同"],
+          "examples": [
+            "營銷自動化",
+            "多智能體協同"
+          ],
           "tag": "Q4",
           "title": "全能專家"
         }
@@ -10747,7 +10793,6 @@
       "title": "智匯 AI企業服務"
     },
     "join": {
-      "benefits": [],
       "consultHint": "掃碼諮詢或直接聯系我們",
       "joinNow": "立即加入",
       "label": "加入智匯 AI社",
@@ -10760,19 +10805,31 @@
       "items": [
         {
           "description": "線下課程、探索活動與互助社群,深度鏈接志同道合的決策者",
-          "features": ["系統化課程", "實踐探索", "社群互助"],
+          "features": [
+            "系統化課程",
+            "實踐探索",
+            "社群互助"
+          ],
           "tag": "MODULE 01",
           "title": "在地社群"
         },
         {
           "description": "便捷的在線交流平臺,隨時隨地獲取信息與支持",
-          "features": ["交流平臺", "經驗共享", "資源對接"],
+          "features": [
+            "交流平臺",
+            "經驗共享",
+            "資源對接"
+          ],
           "tag": "MODULE 02",
           "title": "線上社群"
         },
         {
           "description": "專業大模型與智能體服務,提供深度AI化諮詢與支持",
-          "features": ["專業大模型", "智能體服務", "諮詢服務"],
+          "features": [
+            "專業大模型",
+            "智能體服務",
+            "諮詢服務"
+          ],
           "tag": "MODULE 03",
           "title": "AI專業服務"
         }
@@ -10782,7 +10839,6 @@
     "positioning": {
       "description": "智匯 AI社致力於幫助企業決策者深度理解AI與企業的關系,通過系統化的課程、實踐探索和社群互助,構建人機協同的超級組織,實現企業的理性效率提升。",
       "label": "核心定位",
-      "tags": [],
       "title": "AI時代企業理性效率服務與互助社群"
     },
     "inquiry": "企業諮詢"
@@ -11118,8 +11174,6 @@
     "tab_new": "最新",
     "titlePlaceholder": "請輸入標題",
     "contentRequired": "請填寫回饋內容",
-    "success": "提交成功",
-    "failed": "提交失敗",
     "title": "意見回饋",
     "type": "回饋類型",
     "content": "回饋內容",
@@ -12001,7 +12055,8 @@
       "notFound": "文檔不存在",
       "showLess": "收起",
       "showMore": "展開",
-      "totalCount": "共 {count} 個切片"
+      "totalCount": "共 {count} 個切片",
+      "title": "知識分塊"
     },
     "detail": {
       "backToList": "返回列表",
@@ -12012,7 +12067,8 @@
       "related": "相關文檔",
       "relatedEmpty": "暫無相關文檔",
       "sourceType": "來源類型",
-      "viewChunks": "查看切片"
+      "viewChunks": "查看切片",
+      "title": "知識庫詳情"
     },
     "list": {
       "chunkCount": "{count} 個切片",
@@ -13260,7 +13316,15 @@
       "title": "Top 5 頁面",
       "visitsHeader": "訪問數"
     },
-    "weekdays": ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+    "weekdays": [
+      "週一",
+      "週二",
+      "週三",
+      "週四",
+      "週五",
+      "週六",
+      "週日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -13996,7 +14060,12 @@
         ]
       },
       "starter": {
-        "features": ["1M tokens 額度", "基礎模型可用", "5 個 API 令牌", "社區支持"]
+        "features": [
+          "1M tokens 額度",
+          "基礎模型可用",
+          "5 個 API 令牌",
+          "社區支持"
+        ]
       }
     },
     "productSchema": {
@@ -14266,7 +14335,6 @@
     "developerLimits": "限流",
     "developerLogs": "調用日誌",
     "developerNotifications": "通知",
-    "developerRelay": "中轉站",
     "developerRelayKeys": "API 密鑰",
     "developerRelayUsage": "用量明細",
     "developerSandbox": "沙箱",
@@ -14993,12 +15061,24 @@
       "enterprise": {
         "contactSales": "聯系銷售",
         "cta": "聯系銷售",
-        "features": ["不限積分", "私有化部署", "SSO/SAML 2.0", "審計日誌", "專屬技術支持"],
+        "features": [
+          "不限積分",
+          "私有化部署",
+          "SSO/SAML 2.0",
+          "審計日誌",
+          "專屬技術支持"
+        ],
         "name": "企業版"
       },
       "free": {
         "cta": "立即開始",
-        "features": ["每月 1000 積分", "所有 AI 模型", "所有 6 個客戶端", "API 訪問", "社區支持"],
+        "features": [
+          "每月 1000 積分",
+          "所有 AI 模型",
+          "所有 6 個客戶端",
+          "API 訪問",
+          "社區支持"
+        ],
         "name": "免費版"
       },
       "pro": {
@@ -16288,7 +16368,13 @@
     "cards": {
       "consulting": {
         "desc": "架構諮詢 / 技術選型 / 代碼 review",
-        "features": ["視頻會議 / 遠程桌面", "2 小時起", "故障排查", "增值稅發票", "響應 SLA 24h"],
+        "features": [
+          "視頻會議 / 遠程桌面",
+          "2 小時起",
+          "故障排查",
+          "增值稅發票",
+          "響應 SLA 24h"
+        ],
         "price": "¥999",
         "title": "技術諮詢",
         "unit": "/小時"
@@ -16708,7 +16794,8 @@
       "autoRenewTitle": "自動續期",
       "rememberDays": "記住 {days} 天",
       "saveFailed": "保存失敗，請重試",
-      "saveSuccess": "登錄偏好已保存"
+      "saveSuccess": "登錄偏好已保存",
+      "title": "登入安全"
     },
     "loginSecurityDesc": "自動登錄與 token 續期偏好",
     "loginSecurityTitle": "登錄管理",
@@ -17474,7 +17561,6 @@
     "title": "我的智匯值",
     "totalEarned": "累計獲得",
     "totalUsed": "累計使用",
-    "balanceLabel": "目前餘額",
     "frozen": "凍結",
     "totalCost": "累計消耗",
     "packagesTitle": "儲值方案",
@@ -17720,7 +17806,8 @@
       "sendOldCode": "獲取舊驗證碼",
       "totalTokens": "總計",
       "userId": "用戶 ID",
-      "voiceRecord": "語音錄制"
+      "voiceRecord": "語音錄制",
+      "title": "使用者個人資料"
     },
     "public": {
       "follow": "關注",
@@ -18114,7 +18201,8 @@
       "trigger": "觸發",
       "triggerType": "觸發類型",
       "updateSuccess": "更新成功",
-      "viewInstance": "查看詳情"
+      "viewInstance": "查看詳情",
+      "title": "工作流程詳情"
     },
     "editor": {
       "cancel": "取消",
@@ -18198,7 +18286,8 @@
     "description": "項目描述",
     "descriptionPlaceholder": "請輸入項目描述（可選）",
     "detail": {
-      "previewFailed": "預覽失敗"
+      "previewFailed": "預覽失敗",
+      "title": "工作區詳情"
     },
     "dismiss": "關閉",
     "download": "下載",
@@ -18582,7 +18671,6 @@
     "subtitle": "文字、圖像、音訊一站式產生",
     "switchModel": "切換模型",
     "noModels": "暫無可用模型",
-    "empty": "暫無內容",
     "inputPlaceholder": "輸入你的創作描述…",
     "send": "傳送",
     "clear": "清空"
@@ -18593,8 +18681,7 @@
     "videoBadge": "影片",
     "title": "我的創作",
     "subtitle": "管理你的 AI 生成內容",
-    "empty": "暫無創作內容",
-    "publish": "發布"
+    "empty": "暫無創作內容"
   },
   "appPermission": {
     "title": "應用權限說明",
@@ -19237,14 +19324,12 @@
   },
   "modelEdit": {
     "headerTitle": "編輯模型",
-    "labelCategory": "分類",
     "labelDept": "適用部門",
     "labelSaleType": "販售方式",
     "labelCycle": "計費週期",
     "labelPrice": "{cycle} 價格",
     "pricePlaceholder": "請輸入價格",
     "labelFreeDur": "免費時長",
-    "labelDiscount": "折扣",
     "labelAudience": "適用對象",
     "submitting": "儲存中...",
     "submit": "儲存"
@@ -19559,8 +19644,6 @@
   },
   "aiAssistant": {
     "title": "AI 助手",
-    "subtitle": "智慧對話助手",
-    "searchPlaceholder": "搜尋助手",
     "empty": "暫無助手",
     "useCount": "使用 {count} 次",
     "favoriteCount": "收藏 {count}",
@@ -19573,8 +19656,6 @@
     "detailMembers": "{count} 位成員",
     "memberRole": "角色 {role}",
     "detailRecent": "最近訊息",
-    "previewHello": "你好",
-    "previewMine": "我",
     "detailEnter": "進入群聊",
     "enterMine": "進入我的",
     "enterDiscover": "進入發現",
@@ -19709,7 +19790,6 @@
     "compareBtn": "比對",
     "selectProviderLabel": "選擇服務商",
     "providerTotal": "共 {count} 個模型",
-    "loadFailed": "載入失敗",
     "emptyType": "該類型暫無模型",
     "input": "輸入",
     "priceUnit": "¥{price}",
@@ -19719,8 +19799,6 @@
   "n8nModel": {
     "title": "n8n 模型",
     "create": "建立",
-    "searchPlaceholder": "搜尋模型",
-    "empty": "暫無模型",
     "running": "執行中",
     "stopped": "已停止",
     "calls": "呼叫 {count} 次",
@@ -19803,7 +19881,6 @@
   "share": {
     "title": "分享",
     "remark": "備註",
-    "remarkPlaceholder": "新增備註",
     "create": "建立分享",
     "url": "分享連結",
     "code": "分享口令",
@@ -19971,7 +20048,6 @@
     "send": "傳送"
   },
   "agentDetail": {
-    "loadFailed": "載入失敗",
     "description": "簡介",
     "creator": "建立者",
     "uses": "使用次數",
@@ -19993,8 +20069,6 @@
     "back": "返回",
     "title": "封面設定",
     "subtitle": "為「{title}」生成封面",
-    "empty": "暫無封面",
-    "aiGenBtn": "AI 生成",
     "confirmBtn": "確認"
   },
   "announcement": {
@@ -20130,7 +20204,6 @@
     "orderLabel": "訂單號",
     "rateLabel": "分潤比例",
     "withdrawModal": {
-      "title": "提現",
       "close": "關閉",
       "subtitle": "可提現金額",
       "wechat": "微信",
