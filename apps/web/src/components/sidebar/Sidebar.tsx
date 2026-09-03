@@ -105,13 +105,15 @@ const Sidebar = React.memo(function Sidebar({
     })
 
     // 批次2:全量(含 children)延迟交错预取
+    // 2026-09-03 ·第六刀:批次2主延迟 800ms→400ms,把"剩余深层 children 预热"从 ~1s 提前到 ~0.4s 起。
+    // 批次1已覆盖顶层+组内首项;批次2兜底其余深层项。prefetch 为低优先级请求,提前后需复测确认不拖累 LCP。
     const master = window.setTimeout(() => {
       all.forEach((href, idx) => {
         window.setTimeout(() => {
           if (document.visibilityState === 'visible') navRouter.prefetch(href)
         }, idx * 40)
       })
-    }, 800)
+    }, 400)
 
     return () => window.clearTimeout(master)
     // eslint-disable-next-line react-hooks/exhaustive-deps
