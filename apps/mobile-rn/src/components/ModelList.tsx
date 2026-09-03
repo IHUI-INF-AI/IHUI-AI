@@ -40,9 +40,9 @@ import {
   type ViewStyle,
 } from 'react-native'
 
-/** 排名第一徽章金色(design-tokens 无金色,复刻 rankone 用) */
+/** 排名第一徽章金色(design-tokens 无同值金色,复刻 rankone 用;文字用品牌对比白) */
 const RANK_GOLD_BG = '#F5B301'
-const RANK_GOLD_TEXT = '#FFFFFF'
+const RANK_GOLD_TEXT = tokens.surface.light
 
 /** 模型类型分组标题(对齐 Uniapp ModelList.vue type 0-5) */
 const MODEL_TYPE_TITLES: Readonly<Record<number, string>> = {
@@ -182,7 +182,7 @@ function Row({
           {typeof item.icon === 'string' ? (
             <Text style={styles.iconEmoji}>{item.icon}</Text>
           ) : (
-            <item.icon size={20} color="#6b7280" />
+            <item.icon size={20} color={tokens.text.secondary} />
           )}
         </View>
         <View style={styles.body}>
@@ -239,7 +239,7 @@ function AgentModeRow({
       accessibilityLabel="Agent模式"
     >
       <View style={styles.iconWrap}>
-        <Bot size={20} color={'#6b7280'} />
+        <Bot size={20} color={tokens.text.secondary} />
       </View>
       <View style={styles.body}>
         <Text style={styles.name}>Agent模式</Text>
