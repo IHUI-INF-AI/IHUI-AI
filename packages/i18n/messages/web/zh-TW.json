@@ -9034,7 +9034,20 @@
     "recentRuns": "最近 5 次執行",
     "specificPlaceholder": "{min}-{max}, 逗號分隔",
     "stepPrefix": "每",
-    "title": "Cron 表達式編輯器"
+    "title": "Cron 表達式編輯器",
+    "field": {
+      "minute": "分鐘",
+      "hour": "小時",
+      "day": "日",
+      "month": "月",
+      "weekday": "星期"
+    },
+    "mode": {
+      "every": "每次",
+      "step": "每隔",
+      "range": "範圍",
+      "specific": "指定"
+    }
   },
   "crypto": {
     "bitcoin": {
@@ -16163,7 +16176,31 @@
       "titleTemplatePlaceholder": "如:今日 AI 資訊 {date}",
       "toggleAriaLabel": "啟用/禁用任務",
       "triggerNow": "立即觸發",
-      "useRefTemplate": "參考此模板"
+      "useRefTemplate": "參考此模板",
+      "example1Name": "WeChat 每日更新",
+      "example1Desc": "每日自動生成並推送 WeChat 公眾號文章",
+      "example1Schedule": "每天 09:00 執行",
+      "example1Output": "生成當日 AI 資訊文章並推送至 WeChat 草稿箱",
+      "example2Name": "口播稿生成",
+      "example2Desc": "每日自動生成口播視頻腳本",
+      "example2Schedule": "每天 08:00 執行",
+      "example2Output": "生成 3 篇口播稿 + 雙門禁驗證",
+      "example3Name": "內容監控",
+      "example3Desc": "監控競品內容動態",
+      "example3Schedule": "每小時執行",
+      "example3Output": "監控並匯總競品最新發布內容",
+      "example4Name": "數據報告",
+      "example4Desc": "自動生成數據分析報告",
+      "example4Schedule": "每週一 09:00 執行",
+      "example4Output": "生成上週數據總結報告",
+      "example5Name": "競品追蹤",
+      "example5Desc": "追蹤競品最新動態",
+      "example5Schedule": "每天 10:00 執行",
+      "example5Output": "追蹤競品發布內容與策略變化",
+      "example6Name": "郵件日報",
+      "example6Desc": "每日發送 AI 資訊郵件",
+      "example6Schedule": "每天 07:00 執行",
+      "example6Output": "整理並發送 AI 領域日報"
     },
     "koubo": "口播",
     "kouboPage": {

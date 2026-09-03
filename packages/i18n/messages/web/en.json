@@ -9044,7 +9044,20 @@
     "recentRuns": "Recent 5 runs",
     "specificPlaceholder": "{min}-{max}, comma separated",
     "stepPrefix": "Every ",
-    "title": "Cron Expression Editor"
+    "title": "Cron Expression Editor",
+    "field": {
+      "minute": "Minute",
+      "hour": "Hour",
+      "day": "Day",
+      "month": "Month",
+      "weekday": "Weekday"
+    },
+    "mode": {
+      "every": "Every",
+      "step": "Every Nth",
+      "range": "Range",
+      "specific": "Specific"
+    }
   },
   "crypto": {
     "bitcoin": {
@@ -16190,7 +16203,31 @@
       "titleTemplatePlaceholder": "e.g., Today's AI News {date}",
       "toggleAriaLabel": "Enable/Disable task",
       "triggerNow": "Trigger Now",
-      "useRefTemplate": "Use This Template"
+      "useRefTemplate": "Use This Template",
+      "example1Name": "WeChat Daily Post",
+      "example1Desc": "Auto-generate and push WeChat Official Account articles daily",
+      "example1Schedule": "Runs daily at 09:00",
+      "example1Output": "Generate daily AI news and push to WeChat drafts",
+      "example2Name": "Video Script Generation",
+      "example2Desc": "Auto-generate video scripts daily",
+      "example2Schedule": "Runs daily at 08:00",
+      "example2Output": "Generate 3 video scripts with dual-gate verification",
+      "example3Name": "Content Monitoring",
+      "example3Desc": "Monitor competitor content updates",
+      "example3Schedule": "Runs every hour",
+      "example3Output": "Monitor and summarize latest competitor publications",
+      "example4Name": "Data Report",
+      "example4Desc": "Auto-generate data analysis reports",
+      "example4Schedule": "Runs weekly on Monday at 09:00",
+      "example4Output": "Generate last week data summary report",
+      "example5Name": "Competitor Tracking",
+      "example5Desc": "Track competitor latest moves",
+      "example5Schedule": "Runs daily at 10:00",
+      "example5Output": "Track competitor content and strategy changes",
+      "example6Name": "Email Daily",
+      "example6Desc": "Send daily AI news via email",
+      "example6Schedule": "Runs daily at 07:00",
+      "example6Output": "Compile and send daily AI industry newsletter"
     },
     "koubo": "Voiceover",
     "kouboPage": {

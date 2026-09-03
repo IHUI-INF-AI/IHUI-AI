@@ -220,6 +220,7 @@ const EXTRA_PATH_LABELS: PathLabelEntry[] = [
   { href: '/wallet/recharge', spec: { ns: 'wallet', key: 'recharge' } },
   { href: '/wallet/withdraw', spec: { ns: 'wallet', key: 'withdraw' } },
   { href: '/workspace/permissions', spec: { ns: 'workspace', key: 'permissionsPage' } },
+  { href: '/self-media/automation', spec: { ns: 'selfMedia', key: 'automation' } },
 ]
 
 /** 合并所有路由 → 标签规格映射 */
