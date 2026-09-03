@@ -172,6 +172,52 @@ def _agent_budget_max_token_estimate_from_env() -> int:
         return 4000
 
 
+# ---------------------------------------------------------------------------
+# 1-7 团队接力(Team Relay)开关:P3-3 Agent Teams 聚合摘要回传主循环(2026-09-03 立)
+# ---------------------------------------------------------------------------
+
+# AgentBlackboard 上承载"团队上一轮聚合摘要"的默认 key(写入方/读取方约定一致即可)
+TEAM_RELAY_BLACKBOARD_KEY = "team.relay.summary"
+
+# 注入 system prompt 的接力摘要正文最大长度(超长截断,防上下文膨胀)
+TEAM_RELAY_SUMMARY_MAX = 4000
+
+
+def _team_relay_enabled_from_env() -> bool:
+    """团队接力总开关(env AGENT_TEAM_RELAY_ENABLED)。
+
+    默认 off:默认路径与现状逐零差异(隔离 P3-3 演进,避免线上突变);
+    设为 on/1/true/yes 时,主导 agent 每轮进入前若存在上一轮团队聚合摘要则注入。
+    """
+    return os.environ.get("AGENT_TEAM_RELAY_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _normalize_team_relay_context(context: Any) -> tuple[str, dict[str, Any]]:
+    """把显式/黑板传入的团队上下文规范为 (summary_text, meta)。
+
+    接受两种形态:
+    - 纯文本 str:仅作为摘要正文,无附加元信息
+    - 结构化 dict:取 summary_context 为正文,附带 objective/strategy/round_index/
+      round_count/contributors/succeeded/failed 等元信息(缺失均忽略)
+    """
+    if isinstance(context, str):
+        return context, {}
+    if isinstance(context, dict):
+        summary = str(context.get("summary_context", "") or "")
+        meta = {
+            k: context[k]
+            for k in (
+                "objective", "strategy", "round_index", "round_count",
+                "contributors", "succeeded", "failed",
+            )
+            if k in context
+        }
+        return summary, meta
+    return "", {}
+
+
 # 审批响应注册表(模块级,供 SSE 端点写入决策后唤醒等待协程):
 #   approval_id -> (asyncio.Event, decision|None)
 # 决策值:"approve" / "reject"。等待方超时/完成后由 _request_approval 清理条目(防内存泄漏)。
@@ -263,6 +309,10 @@ class AgentLoopResult:
     checkpoint_id: Optional[str] = None
     # 1-6 token 治理:预算治理摘要(主循环接入 budget governor 后填充;budget off 时为 None)
     budget: Optional[dict[str, Any]] = None
+    # 1-7 团队接力(P3-3,2026-09-03 立):启用且尝试注入时,记录团队上一轮聚合摘要
+    # 的注入元信息(参与了哪些子 agent、轮次、摘要是否截断、是否注入成功);
+    # 未启用 / 无接力上下文时保持 None(默认路径与现状逐零差异)。
+    team_relay: Optional[dict[str, Any]] = None
 
 
 class AgentLoopV2:
@@ -320,6 +370,14 @@ class AgentLoopV2:
         budget_enabled: Optional[bool] = None,
         budget_pillar: Optional[str] = None,
         budget_max_token_estimate: Optional[int] = None,
+        # 1-7 团队接力(P3-3,2026-09-03 立):把上一轮团队聚合摘要注入主导 agent 上下文。
+        # team_relay_enabled:总开关,默认 None 时取 env AGENT_TEAM_RELAY_ENABLED(默认 off);
+        #   构造参数优先于 env;off 时默认路径与现状逐零差异。
+        # team_context:显式传入的团队上一轮摘要(结构化 dict 或纯文本 str),二者传递其一即可,
+        #   与 agent_comm.AgentBlackboard 作为共享接力载体二选一,避免强耦合。
+        team_relay_enabled: Optional[bool] = None,
+        team_context: Optional[Any] = None,
+        team_blackboard: Optional[Any] = None,
     ):
         """
         Args:
@@ -346,6 +404,12 @@ class AgentLoopV2:
             permission_mode: 权限三模式 "default"(默认,与现状一致) / "plan"(循环层
                 强制只读) / "auto"(只读工具免审批)。None 时取 env AGENT_PERMISSION_MODE,
                 再回退 "default";非法值 raise ValueError。
+            team_relay_enabled: 团队接力总开关(默认 None 取 env AGENT_TEAM_RELAY_ENABLED,
+                默认 off,与现状逐零差异)。on 时主导 agent 进入循环前注入团队上一轮摘要。
+            team_context: 团队上一轮聚合上下文(结构化 dict 或纯文本 str),显式传递;
+                None 时可经 team_blackboard 读取,二者选一(与 AgentBlackboard 弱耦合)。
+            team_blackboard: 共享黑板(agent_comm.AgentBlackboard 实例);传 team_context
+                则此参数可省略。loop 每轮从黑板默认 key(TEAM_RELAY_BLACKBOARD_KEY)读取摘要。
         """
         self._llm_complete = llm_complete_fn
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
@@ -422,12 +486,25 @@ class AgentLoopV2:
         self._enable_memory: bool = bool(enable_memory and user_id)
         self._memory_svc: Optional["MemoryService"] = memory_svc
 
+        # 1-7 团队接力配置(2026-09-03 立)。优先级:构造参数 > env AGENT_TEAM_RELAY_ENABLED
+        # (默认 off,向后兼容:off 时默认路径与现状逐零差异)。team_context 显式传入优先,
+        # 否则可经 team_blackboard(AgentBlackboard)从默认 key 读取,二者弱耦合。
+        self._team_relay_enabled: bool = (
+            _team_relay_enabled_from_env()
+            if team_relay_enabled is None
+            else bool(team_relay_enabled)
+        )
+        self._team_context: Optional[Any] = team_context
+        self._team_blackboard: Optional[Any] = team_blackboard
+
         # 运行时状态(每次 run() 开始时重置)
         self._messages: Optional[list[dict[str, Any]]] = None
         self._current_iteration: int = 0
         self._tool_state: dict[str, Any] = {}
         self._pause_requested: bool = False
         self._cancel_requested: bool = False
+        # 1-7 团队接力:本次 run 的注入元信息(供可观测;未启用/无接力为 None)
+        self._team_relay_info: Optional[dict[str, Any]] = None
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -440,6 +517,8 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
+        self._team_relay_info = None
 
     async def _save_checkpoint_safe(
         self,
@@ -493,6 +572,9 @@ class AgentLoopV2:
         await self._inject_memory_context(messages)
         # W1(2026-09):入口:注入用户画像 snippet(对标 v1 P0 注入,复用 v1 实现)
         await self._inject_user_profile(messages)
+        # 1-7 团队接力(P3-3,2026-09-03 立):入口:注入团队上一轮聚合摘要。
+        # 默认关闭;开启且存在接力上下文时才改动 system prompt,否则为 no-op(零差异)。
+        await self._inject_team_relay_context(messages)
         # L4 自进化:注入 meta_lessons 避坑指南到 system prompt(失败降级,不阻塞)
         # build_system_prompt_snippet 是同步方法(读内存缓存),失败只 warning
         try:
@@ -542,6 +624,10 @@ class AgentLoopV2:
             prior_tokens=0,
             start_time=datetime.now(timezone.utc),
         )
+        # 1-7 团队接力(2026-09-03 立):把本次 run 的接力注入元信息挂到产物,供上层读取。
+        # 未启用 / 无接力上下文时 _team_relay_info 为 None,result.team_relay 保持 None(零差异)。
+        if self._team_relay_info is not None:
+            result.team_relay = dict(self._team_relay_info)
         # 1-6 token 治理:填充预算摘要(budget_exceeded 分支已在 return 内设置;
         # 此处为正常/其它停止原因补摘要,供未来 web 面板接数据)。失败降级不阻塞。
         if self._budget_enabled and result.budget is None:
@@ -707,6 +793,130 @@ class AgentLoopV2:
                 messages.insert(0, {"role": "system", "content": snippet})
         except Exception as e:
             logger.warning("user_profile snippet 注入失败(降级,不阻塞): %s", e)
+
+    # ------------------------------------------------------------------
+    # 1-7 团队接力辅助(P3-3,2026-09-03 立;对标 meta_learner/metacognition 注入模式)
+    # 设计铁律:默认关闭;开启且存在接力上下文才改动 system prompt;任何异常静默降级,
+    # 绝不阻塞主循环、不改动默认路径。结果写入 _team_relay_info 供可观测。
+    # ------------------------------------------------------------------
+
+    async def _resolve_team_relay_context(self) -> tuple[str, dict[str, Any]]:
+        """解析团队上一轮接力上下文,返回 (summary_text, meta)。
+
+        优先显式注入的 `team_context`(弱耦合,与黑板书任意一种即可):
+        - 结构化 dict / 纯文本 str → 直接规范化
+        - 否则若注入 `team_blackboard`(AgentBlackboard),从默认 key 读取(支持
+          JSON 或纯文本 value)。无结果 → ("", {})。
+        """
+        if self._team_context is not None:
+            return _normalize_team_relay_context(self._team_context)
+        if self._team_blackboard is not None:
+            try:
+                entry = await self._team_blackboard.read(
+                    TEAM_RELAY_BLACKBOARD_KEY, "agent_loop"
+                )
+            except Exception as e:
+                raise RuntimeError(
+                    f"team_blackboard 读取「{TEAM_RELAY_BLACKBOARD_KEY}」失败: {e}"
+                ) from e
+            if entry is None or not entry.value:
+                return "", {}
+            value = entry.value
+            try:
+                parsed = json.loads(value) if isinstance(value, str) else value
+            except (ValueError, TypeError):
+                return str(value or ""), {}
+            if isinstance(parsed, dict):
+                return _normalize_team_relay_context(parsed)
+            return str(parsed or ""), {}
+        return "", {}
+
+    @staticmethod
+    def _build_team_relay_block(summary: str, meta: dict[str, Any]) -> str:
+        """把团队上一轮聚合摘要组装为结构化上下文块,追加到 system prompt。"""
+        lines: list[str] = [
+            "## 团队接力摘要 (Team Relay)",
+            "以下为上一轮团队协作聚合结果,请据此继续决策:",
+        ]
+        if meta.get("objective"):
+            lines.append(f"目标: {meta['objective']}")
+        parts: list[str] = []
+        if "round_index" in meta and "round_count" in meta:
+            parts.append(
+                f"round {int(meta['round_index']) + 1}/{int(meta['round_count'])}"
+            )
+        if "strategy" in meta:
+            parts.append(f"策略 {meta['strategy']}")
+        if "succeeded" in meta:
+            parts.append(f"成功 {meta['succeeded']}")
+        if "failed" in meta:
+            parts.append(f"失败 {meta['failed']}")
+        if parts:
+            lines.append(" | ".join(parts))
+        if meta.get("contributors"):
+            names = meta["contributors"]
+            if isinstance(names, list):
+                names = ", ".join(str(n) for n in names)
+            lines.append(f"参与 agent: {names}")
+        lines.append("--- 聚合摘要内容 ---")
+        lines.append(summary)
+        return "\n".join(lines)
+
+    async def _inject_team_relay_context(self, messages: list[dict[str, Any]]) -> None:
+        """入口:把团队上一轮聚合摘要注入 system prompt(默认关闭,失败静默降级)。
+
+        行为:
+        - 总开关关闭(_team_relay_enabled=False)→ no-op,默认路径与现状逐零差异。
+        - 开启但无接力上下文 → 记录 injected=False(空摘要,正常运行),不炸主循环。
+        - 开启且有摘要 → 追加"团队接力摘要"段到首条 system 消息 content。
+        - 任何异常 → logger.warning + 记录 error,injected=False,不阻塞主循环。
+        注入元信息写入 self._team_relay_info,由 run() 回填到 result.team_relay。
+        """
+        info: dict[str, Any] = {"enabled": True, "injected": False}
+        if not self._team_relay_enabled:
+            # 未启用:直接返回,不写入 _team_relay_info(确保 result.team_relay 为 None)
+            return
+        try:
+            summary, meta = await self._resolve_team_relay_context()
+        except Exception as e:
+            info["error"] = str(e)
+            self._team_relay_info = info
+            logger.warning("team_relay 上下文解析失败(降级,不阻塞): %s", e)
+            return
+        if not summary or not summary.strip():
+            # 无接力摘要:正常运行(注入未发生),不炸主循环。
+            self._team_relay_info = info
+            return
+        # 摘要截断(防上下文膨胀),并记录元信息
+        truncated = len(summary) > TEAM_RELAY_SUMMARY_MAX
+        body = summary[:TEAM_RELAY_SUMMARY_MAX]
+        info.update({
+            "round_index": meta.get("round_index"),
+            "round_count": meta.get("round_count"),
+            "strategy": meta.get("strategy"),
+            "contributors": meta.get("contributors"),
+            "summary_length": len(summary),
+            "summary_truncated": truncated,
+        })
+        # 组装 + 写入统一守卫:block 构建或注入写失败均静默降级,绝不阻塞主循环。
+        try:
+            block = self._build_team_relay_block(body, meta)
+            if (
+                messages
+                and isinstance(messages[0], dict)
+                and messages[0].get("role") == "system"
+            ):
+                existing = messages[0].get("content", "")
+                messages[0]["content"] = (
+                    f"{existing}\n\n{block}" if existing else block
+                )
+            else:
+                messages.insert(0, {"role": "system", "content": block})
+            info["injected"] = True
+        except Exception as e:
+            info["error"] = str(e)
+            logger.warning("team_relay 摘要注入失败(降级,不阻塞): %s", e)
+        self._team_relay_info = info
 
     async def _persist_memory_insights(self, messages: list[dict[str, Any]]) -> None:
         """出口:从对话提取记忆写回 API(仅 run() 成功时调用)。
