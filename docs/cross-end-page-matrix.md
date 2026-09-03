@@ -38,7 +38,7 @@
 | `pages/share/index` ↔ ShareScreen | ShareScreen | ✅ | ✅ | Tab「分享星球」 |
 | `pages/webview/index` ↔ WebViewScreen | WebViewScreen | ✅ | ✅ | 通用 WebView |
 | — ↔ SearchScreen | SearchScreen | — | 🔴 | 全局搜索页小程序缺失，社区/课程均依赖搜索，应补齐 |
-| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | ❓ | HistoryScreen 语义模糊（搜索历史 or AI 会话历史），需确认归属 |
+| — ↔ HistoryScreen | HistoryScreen | `pages/ai/history` | 🟡 | 已核销：同名不同义——RN 调 `/api/history` 为全站浏览历史，小程序该页读本地 `ai_chat_history` 为 AI 会话历史，各为本端合理实现 |
 | — ↔ LiveScreen | LiveScreen | — | 🟡 | 直播 Tab 聚合入口，小程序直播列表即入口，合理 |
 | — ↔ SubPackageIndexScreen | SubPackageIndexScreen | — | ⚪ | RN 分包占位页 |
 | — ↔ SharedDemoScreen | SharedDemoScreen | — | ⚪ | 演示页 |
