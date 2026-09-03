@@ -196,7 +196,11 @@ export default function AiModelCard({
                 accessibilityRole="button"
                 accessibilityLabel={action.label}
               >
-                <action.glyph size={16} color={'#6b7280'} style={styles.groupActionIcon} />
+                <action.glyph
+                  size={16}
+                  color={tokens.text.secondary}
+                  style={styles.groupActionIcon}
+                />
               </TouchableOpacity>
             ))}
             {type === 'buy' ? (

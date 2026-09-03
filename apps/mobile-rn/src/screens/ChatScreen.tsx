@@ -2548,7 +2548,7 @@ export function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel="关闭预览"
           >
-            <X size={26} color="#fff" />
+            <X size={26} color={tokens.surface.light} />
           </Pressable>
         </View>
       </Modal>
@@ -2973,7 +2973,7 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#000',
+    borderColor: tokens.gray.black,
     alignItems: 'center',
     justifyContent: 'center',
   },

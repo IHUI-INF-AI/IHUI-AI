@@ -7,6 +7,7 @@ import { FlatList, Image, RefreshControl, Text, TouchableOpacity, View } from 'r
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -107,7 +108,9 @@ export function AiWorldScreen() {
 
   if (loading && !feed) {
     return (
-      <View className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
+      <View
+        className={`flex-1 items-center justify-center ${dark ? 'bg-neutral-900' : 'bg-white'}`}
+      >
         <Text className="text-gray-500">{t('common.loading')}</Text>
       </View>
     )
@@ -169,7 +172,7 @@ export function AiWorldScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={dark ? '#a3a3a3' : '#737373'}
+              tintColor={dark ? tokens.text.tertiary : tokens.text.secondary}
             />
           }
           ListEmptyComponent={
@@ -205,7 +208,9 @@ export function AiWorldScreen() {
                     <Text className="text-xs text-gray-400">
                       {item.viewCount} {t('aiWorld.viewCount')}
                     </Text>
-                    {item.source ? <Text className="text-xs text-gray-400">@{item.source}</Text> : null}
+                    {item.source ? (
+                      <Text className="text-xs text-gray-400">@{item.source}</Text>
+                    ) : null}
                   </View>
                 </View>
               </View>
