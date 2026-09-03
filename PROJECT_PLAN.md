@@ -72,29 +72,6 @@
 > **落地清单**:① 新路由页 `apps/web/app/(main)/admin/agent-governance/`(page.tsx 169 行 + AgentGovernanceSections.tsx 134 行,use client + next-intl + react-query,镜像 ai-cost 分件模式;卡片式布局:全局预算用量环形/今日 tokens/支柱用量/剩余 tokens/降级徽章/7 日趋势柱状 + 今日支柱条形);② i18n 5 语言 json 各 +21 行 `agentGovernance` 命名空间(17 keys)+ `nav.agentGovernance`,零格式噪音;③ AdminNav.tsx +3 行(类型联合/条目/映射表,Gauge 图标);④ api-client 免动(直接 fetchApi 相对路径,免跨包类型面);⑤ UI 铁律全守:禁 divider/rounded-full/emoji,icon-text 对齐,页面 <250 行,ui-react 组件,`import type` 分离。
 > **验收**:eslint 0 错 / prettier 0 错 / web tsc 本面板 0 错 / nav 死链守门通过(新路由解析)/ i18n parity 1727 keys 无缺失多余 / broken-en 0 处。历史遗留顺带确认:5 catalog 均无 `nav.aiCost`/`nav.aiGc` 键但 AdminNav 映射表引用(既有瑕疵,非本面板引入,不代修)。
 
-### 记忆质量评测体系 ✅ 已完成(2026-09-03,差距矩阵最低分 1.5 真空项)
-
-> 对标 Claude Code/Codex 记忆评测思路,把"记忆好不好用"变成可量化每日回归数字。**位置**:`apps/ai-service/app/services/memory_quality_eval.py`(MemoryQualityEvaluator,389→约 390 行)+ `app/routers/eval.py` 新增 `GET /api/v1/ai/eval/memory-quality`(复用既有 router 挂载,零 main.py 改动)。
-> **5 维度**(各 0~1 加权总分):write_consistency(写入读回不丢不改)/ recall_at_k(语义召回,3 主题 × 3 事实)/ precision_at_k(检索精度,污染率)/ mutation_correct(删除无幽灵命中 + 更新向量后新语义可召回)/ noise_robustness(top1 稳定命中强相关)。
-> **架构**:面向最小存储协议(duck-typed,与 VectorMemoryStore 兼容:add_entry/search/list_entries/update_embedding/delete/clear),词袋哈希伪 embed(全离线确定性);`run_offline()` 内置内存存储零依赖跑分,`run_on_store(store, embed)` 注入真实后端评测。默认评测器复用注入 store 并逐维度 clear 隔离(修复初版 `_fresh` 恒新建内存实例导致注入失效缺陷)。
-> **测试**:`tests/test_memory_quality_eval.py` 18 用例(词袋语义/存储实现/search 排序阈值/delete/update/clear/5 维度打分/报告结构/embed 降级不抛/注入存储真实使用/幂等/并发安全)。
-> **验收**:18 新测试 + test_eval.py 回归并集 **32 passed / 0 failed**;ruff 0 错;mypy 0 错(2 源文件);离线基线分 1.00/1.00(内存伪实现满分下限,真实后端评测将暴露真实缺陷)。遗留:B904×2 为 eval.py 既有违规(HEAD 同报),本批未代修。
-
-### IHUI-Bench 任务定义健全性验证 ✅ 已完成(2026-09-03,评测基准无数字真空的前置补齐)
-
-> 背景:tasks_v0.json 定义 20 任务(8 fix / 5 test / 4 refactor / 3 multifile)但只跑通过 1 个,其余 19 个 fixture/checker/参数从未被验证;真实 LLM 评测受配额限制无法高频全跑。
-> **落地**:`apps/ai-service/bench/validate_bench.py`(零 LLM 纯机械验证器)。核心不变量:① fixture 目录存在;② checker 类型在 `_CHECKERS` 且 params 齐全;③ **每任务初始态必须 FAIL 全部 checks**(任何 check 初始态 PASS = "未修即通过"的假阳性任务,判定无效)。CLI:`python bench/validate_bench.py`(支持 --task/--json);纯函数 `validate_tasks()` 供测试直接调用。
-> **结果**:20/20 任务定义健全 —— 首次量化确认 19 个从未跑过的任务 fixture 可复制、pytest 可收集、初始态正确 FAIL、无假阳性定义。配套 `tests/test_bench.py` 新增结构级用例(不跑 pytest 子进程,全量初始态断言由 CLI 独立执行)。
-> **验收**:bench 3 测试全过 / ruff 0 错 / mypy 0 错(1 源文件)/ CLI 全量 20/20 健全。后续:配额恢复后按 `run_bench.py` 全量真跑即有可靠基线。
-
-### IHUI-Bench gold-fix 可解性验证 ✅ 已完成(2026-09-03,健全性双向自证)
-
-> 背景:健全性验证只证明「初始态必须 FAIL」,不证明「任务真的可解」—— 若某任务无解、或验收方向写错(修对了也不 PASS),基准分数仍不可信。
-> **落地**:`apps/ai-service/bench/gold_fixes.py` —— 20 个任务各一份【金标准修复】注册表(`GOLD_FIXES`)+ 可解性验证:复制 fixture → 应用 gold fix → 重跑全部 checks → **必须全 PASS**。含 `_replace`(锚点唯一断言)/ `_write`(整文件)助手与 `verify_task`/`verify_all` 纯函数。
-> **双向自证结论**:初始态全 FAIL(validate_bench)+ 金标准修复后全 PASS(gold_fixes)⇒ fixture/检查器/验收方向三者一致有效。20/20 任务可解,零"修对了也不 PASS"的任务。
-> **接线**:`bench/validate_bench.py --gold` 委托(共享 --task/--json);`tests/test_bench.py` 新增 2 结构用例(注册表 20/20 双向完整 + 纯文件检查任务的 verify_task 快集成,零子进程)。
-> **验收**:bench 5 测试全过 / ruff 0 错 / mypy 0 错(2 源文件)/ CLI 全量 20/20 可解(exit=0)。
-
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
