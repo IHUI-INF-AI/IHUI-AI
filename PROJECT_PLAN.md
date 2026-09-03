@@ -3116,6 +3116,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 ### 提交与守门
 
 - [x] ✅(2026-09-03) **页面切换极致优化闭环**:commit `6902f0dff5`(7 files,235+/3-),GIT_INDEX_FILE 隔离 index 仅暂存 7 文件;三环境守门走官方 SKIP 开关(非 --no-verify):`HUSKY_SKIP_TYPECHECK=1`(跳并行会话 `ScanLoginDialog.tsx:275` 半编辑态)/`HUSKY_SKIP_ROOT_DIR_GUARD=1`(跳 benchmarks/·GAP-PLAN.md 环境存量,先例 60b3abe707)/`HUSKY_SKIP_I18N_DEAD_KEY=1`(跳 17 web 现存死 key);**保留 staged-typecheck 门**验证本批 0 类型错误(修复 `Sidebar.tsx:148` TS2769 `warmList[i]` `string|undefined` → `if(!href) return` 守卫)。守门 67 过/5 警/0 败。
+- [x] ✅(2026-09-03 晚) **dev 启动预热升级为全量(--all),真消除时机依赖**:用户复核"根本没达到极致"——根因有二:① `start-dev.ps1` 默认仅预热 `warm-dev-routes.mjs` 的 12 条高频路由,第 13~~184 条 nav 路由首次点击仍走冷编译(3~~36s);② 客户端第七刀仅页面加载后 50-70s 渐进预热(时机依赖,且并发=6 与用户点击争用编译槽)。**改法**:`start-dev.ps1` 调用 `warm-dev-routes.mjs --all`,启动期后台顺序预热 `nav-data.ts` 全量 184 条路由(不阻塞启动器,日志 web-warmup.log)。**实测(server 空闲,RSC 导航)**:全部 nav 路由 <0.4s(冷态曾 3~36s),dev 首次点击编译等待彻底归零;动态路由(如 /personas,不在 nav)仍走按需编译,由客户端第七刀兜底。客户端 Sidebar 第七刀降级为直接 `next dev`(不经启动器)路径的兜底,主路径以启动预热为准。**关键定理**:`warm-dev-routes.mjs` 用普通 GET 预热即可覆盖 RSC 导航路径(Turbopack 编译一次路由模块,HTML/RSC 共用);验证时若预热进程仍在打压 server,测得的高耗时属争用干扰非冷编译(须 server 空闲复测)。
 - [x] ✅(2026-09-03) 环境存量后续根治:`95ccbb30d5` chore 已把 benchmarks/·GAP-PLAN.md 正式加入根目录整洁白名单(根目录守门不再需 SKIP);i18n 17 死 key 仍属现存债,留作明确遗留项。
 
 ### 关联
