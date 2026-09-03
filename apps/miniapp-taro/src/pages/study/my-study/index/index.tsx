@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'inProgress' | 'completed' | 'favorited'
@@ -89,7 +90,7 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('study.myStudy.title')}</Text>
         </View>
@@ -97,12 +98,12 @@ export default function MyStudy() {
           <Text className="loading-text">{t('common.loading')}</Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('study.myStudy.title')}</Text>
         </View>
@@ -113,11 +114,11 @@ export default function MyStudy() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="page-container">
+    <ThemeRoot><View className="page-container">
       <View className="page-header">
         <Text className="page-title">{t('study.myStudy.title')}</Text>
       </View>
@@ -183,6 +184,6 @@ export default function MyStudy() {
         )}
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

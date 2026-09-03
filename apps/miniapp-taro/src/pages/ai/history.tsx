@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -305,9 +306,8 @@ export default function HistoryPage() {
                     const preview =
                       h.messages?.[h.messages.length - 1]?.content || t('ai.historyPage.empty')
                     return (
-                      <View
-                        key={h.id}
-                        className="flex items-start p-[24rpx] mb-[16rpx] bg-card rounded-[16rpx]"
+                      <ThemeRoot key={h.id} className="flex items-start p-[24rpx] mb-[16rpx] bg-card rounded-[16rpx]">
+      <View key={h.id}
                         onClick={() => goChat(h)}
                         onLongPress={() => onDeleteOne(h)}
                       >
@@ -335,6 +335,7 @@ export default function HistoryPage() {
                           </Text>
                         </View>
                       </View>
+    </ThemeRoot>
                     )
                   })}
                 </View>

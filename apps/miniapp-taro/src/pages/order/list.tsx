@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type OrderItem = Order & {
   outTradeNo?: string
@@ -246,8 +247,7 @@ export default function OrderList() {
             const createTimeText = formatTimestamp(o.createdAt || o.createTime)
             const refundTimeText = o.refundTime ? formatTimestamp(o.refundTime) : ''
             return (
-              <View
-                key={o.id}
+              <ThemeRoot key={o.id}><View
                 className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
                 onClick={() => goDetail(o.id)}
               >
@@ -321,7 +321,7 @@ export default function OrderList() {
                   </View>
                 )}
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}

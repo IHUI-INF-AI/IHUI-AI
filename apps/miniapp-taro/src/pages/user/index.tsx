@@ -43,6 +43,7 @@ import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
 import backSvg from '@/assets/remote/images/back.svg'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
@@ -126,7 +127,7 @@ function renderMarkdown(content: string): ReactNode {
     // 代码块 ```...```
     if (line.startsWith('```')) {
       return (
-        <View
+        <ThemeRoot key={idx}><View
           key={idx}
           style={{
             background: 'var(--color-muted)',
@@ -142,13 +143,13 @@ function renderMarkdown(content: string): ReactNode {
             {line.replace(/```/g, '')}
           </Text>
         </View>
-      )
+      </ThemeRoot>)
     }
     // 加粗 **text**
     const boldParts = line.split(/\*\*(.+?)\*\*/)
     if (boldParts.length > 1) {
       return (
-        <Text
+        <ThemeRoot key={idx}><Text
           key={idx}
           style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
         >
@@ -162,11 +163,11 @@ function renderMarkdown(content: string): ReactNode {
             ),
           )}
         </Text>
-      )
+      </ThemeRoot>)
     }
     // 普通行
     return (
-      <Text
+      <ThemeRoot key={idx}><Text
         key={idx}
         style={{
           fontSize: rpx(26),
@@ -177,7 +178,7 @@ function renderMarkdown(content: string): ReactNode {
       >
         {line || ' '}
       </Text>
-    )
+    </ThemeRoot>)
   })
 }
 
@@ -664,7 +665,7 @@ export default function UserIndex() {
   }))
 
   return (
-    <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+    <ThemeRoot><View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
       {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
       <DrawerComponent
         visible={showDrawer}
@@ -734,7 +735,7 @@ export default function UserIndex() {
         variant="ai-home"
         title={tf('user.title', '我的')}
         bgColor="transparent"
-        textColor="#fff"
+        textColor="var(--color-foreground)"
         showFeedback
         onMenuClick={toggleDrawer}
         onFeedbackClick={handleFeedbackClick}
@@ -982,7 +983,7 @@ export default function UserIndex() {
           {/* 加载状态(对齐原项目 contentLoading) */}
           {contentLoading ? (
             <View className="py-[40rpx] flex items-center justify-center">
-              <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+              <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, var(--color-muted-foreground))' }}>
                 {tf('common.loading', '加载中...')}
               </Text>
             </View>
@@ -992,7 +993,7 @@ export default function UserIndex() {
             <View>
               {textContentList.length === 0 ? (
                 <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, var(--color-muted-foreground))' }}>
                     {tf('user.empty.text', '暂无文本内容')}
                   </Text>
                 </View>
@@ -1020,7 +1021,7 @@ export default function UserIndex() {
             <View>
               {imageContentList.length === 0 ? (
                 <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, var(--color-muted-foreground))' }}>
                     {tf('user.empty.image', '暂无图片内容')}
                   </Text>
                 </View>
@@ -1058,7 +1059,7 @@ export default function UserIndex() {
             <View>
               {videoContentList.length === 0 ? (
                 <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, var(--color-muted-foreground))' }}>
                     {tf('user.empty.video', '暂无视频内容')}
                   </Text>
                 </View>
@@ -1104,7 +1105,7 @@ export default function UserIndex() {
             <View>
               {audioContentList.length === 0 ? (
                 <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, var(--color-muted-foreground))' }}>
                     {tf('user.empty.audio', '暂无音频内容')}
                   </Text>
                 </View>
@@ -1241,7 +1242,7 @@ export default function UserIndex() {
             >
               <CoverView
                 style={{
-                  color: '#fff',
+                  color: 'var(--color-foreground)',
                   fontSize: '40rpx',
                   fontWeight: 'bold',
                   lineHeight: '60rpx',
@@ -1316,6 +1317,6 @@ export default function UserIndex() {
         </View>
       ) : null}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getLiveCalendar, subscribeLive, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './calendar.css'
 
 type LiveStatus = Live['status']
@@ -192,7 +193,7 @@ export default function LiveCalendar() {
           const has = liveMap.has(ds)
           const active = ds === selected
           return (
-            <View
+            <ThemeRoot key={i}><View
               key={i}
               className={`cal-cell${active ? ' cal-cell-active' : ''}`}
               onClick={() => setSelected(ds)}
@@ -200,7 +201,7 @@ export default function LiveCalendar() {
               <Text className="cal-cell-num">{d}</Text>
               {has && <View className="cal-dot" />}
             </View>
-          )
+          </ThemeRoot>)
         })}
       </View>
       <Text className="cal-section-title">
@@ -210,7 +211,7 @@ export default function LiveCalendar() {
         selectedLives.map((live) => {
           const cfg = STATUS_CFG(tt)[live.status]
           return (
-            <View key={live.id} className="cal-card">
+            <ThemeRoot key={live.id}><View key={live.id} className="cal-card">
               <Image className="cal-card-cover" src={live.coverUrl} mode="aspectFill" />
               <View className="cal-card-row">
                 <Text className="cal-card-title">{live.title}</Text>
@@ -228,7 +229,7 @@ export default function LiveCalendar() {
                 {tt(cfg.actionKey, cfg.actionFb)}
               </Text>
             </View>
-          )
+          </ThemeRoot>)
         })
       ) : (
         <View className="cal-empty">
