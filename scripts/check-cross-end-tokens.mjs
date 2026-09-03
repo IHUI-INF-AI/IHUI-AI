@@ -12,7 +12,8 @@
  * 映射表只收"确定语义相同"的色值对(宁缺毋滥),每条注明取值依据。
  * 任何映射对值不一致 → ❌ + exit 1(阻塞),防止跨端颜色漂移。
  *
- * 比对规则:统一小写 + 去除内部空白;rgba/hsl 不做色值转换,按原格式比对
+ * 比对规则:比对前归一为统一格式 —— HEX 原样保留(小写+去空白);
+ * hsl(h s% l%) / hsl(h, s%, l%) 转换为 #rrggbb 后比对;rgba/hsla 保持原样不转换
  * (rn rgba(78,163,245,0.15) 与 css rgba(78, 163, 245, 0.15) 视为相等)。
  * tokens.css .dark 未覆盖的变量按 CSS cascade 回退到亮色值参与暗色比对。
  *
@@ -72,6 +73,18 @@ const MAPPINGS = [
     rn: { dark: ['rnDarkTokens', 'indigo', 'DEFAULT'] },
     css: { dark: '--color-brand' },
     basis: 'rn-tokens.ts rnDarkTokens L251 indigo.DEFAULT = #6366f1;tokens.css L414 .dark --color-brand: #818cf8 —— 若红灯即两端暗色品牌色真实漂移,需人工决策',
+  },
+  {
+    label: 'brand.DEFAULT (light) ↔ --color-primary (:root/@theme)',
+    rn: { light: ['rnLightTokens', 'brand', 'DEFAULT'] },
+    css: { light: '--color-primary' },
+    basis: 'rn-tokens.ts L14/L59/L177 注释「brand.DEFAULT = #000000 对齐 web 亮色 --color-primary」;tokens.css @theme L50 --color-primary: hsl(0 0% 0%)(HSL→HEX 归一后 #000000)',
+  },
+  {
+    label: 'brand.DEFAULT (dark) ↔ --color-primary (.dark)',
+    rn: { dark: ['rnDarkTokens', 'brand', 'DEFAULT'] },
+    css: { dark: '--color-primary' },
+    basis: 'rn-tokens.ts L15/L231 注释「brand.DEFAULT = #FFFFFF 对齐 web 暗色 --color-primary(纯白底)」;tokens.css L354 .dark --color-primary: hsl(0 0% 100%)(有覆盖,HSL→HEX 归一后 #ffffff)',
   },
 ]
 
@@ -164,9 +177,28 @@ function mergeCssVars(css, selectors) {
 
 // ─── 比对 ───
 
-/** 归一化:小写 + 去除全部内部空白(hex/rgba/hsl 均适用,不做色值转换)。 */
-function norm(v) {
-  return v.toLowerCase().replace(/\s+/g, '')
+/** hsl(h s% l%) / hsl(h, s%, l%) → '#rrggbb'。s=0 时 a=0、f(n)=l,灰度边界天然正确。 */
+function hslToHex(h, s, l) {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100)
+  const f = n => {
+    const k = (n + h / 30) % 12
+    return l / 100 - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)))
+  }
+  const hex = x => Math.round(x * 255).toString(16).padStart(2, '0')
+  return `#${hex(f(0))}${hex(f(8))}${hex(f(4))}`
+}
+
+/**
+ * 归一化比对值:HEX 原样保留(小写+去空白);hsl(h s% l%) / hsl(h, s%, l%)
+ * 转换为 #rrggbb;rgba/hsla 保持原样不转换(仅小写+去空白)。
+ * 注意:必须先提取 hsl 再处理空白 —— 空格分隔格式 `hsl(0 0% 0%)` 一旦
+ * 去空白会破坏参数边界,导致无法解析。
+ */
+function normalizeColor(v) {
+  const compact = v.trim().replace(/\s+/g, ' ').toLowerCase()
+  const m = /^hsla?\(\s*([\d.]+)\s*(?:deg)?\s*[, ]\s*([\d.]+)%\s*[, ]\s*([\d.]+)%\s*\)$/.exec(compact)
+  if (m) return hslToHex(parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]))
+  return compact.replace(/\s+/g, '')
 }
 
 // ─── Main ───
@@ -212,7 +244,7 @@ for (const mp of MAPPINGS) {
       failures.push({ tag, detail: `提取失败: rn='${rnVal ?? '<missing>'}' css='${cssVal ?? '<missing>'}'` })
       continue
     }
-    if (norm(rnVal) !== norm(cssVal))
+    if (normalizeColor(rnVal) !== normalizeColor(cssVal))
       failures.push({ tag, detail: `rn='${rnVal}' vs css='${cssVal}'` })
   }
 }
