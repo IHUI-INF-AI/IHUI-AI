@@ -72,12 +72,12 @@ const Sidebar = React.memo(function Sidebar({
   //   ① 顶层路由挂载时立即预取(sidebar 可见项,首屏即可点)。
   //   ② 全量(含 children)800ms 后交错 40ms 预取,规避突发请求与 LCP 竞争。
   // 按角色过滤:非 admin 跳过 adminOnly/permission 项,避免对权限路由发起无效预取(403/重定向)。
-  // 作用域:仅生产模式(dev 有 cache-bypass-in-dev,预取被显式绕过,实测 0 请求)。
+  // 作用域:生产走 router.prefetch;dev 走低优先级 fetch 编译预热(cache-bypass-in-dev 使
+  // router.prefetch 在 dev 无效,见下方第七刀注释)。
   // 仅首挂载执行一次脱离 pathname 依赖,避免每次导航重建预取。
   const navRouter = useRouter()
   const pathnameRef = React.useRef(pathname)
   React.useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') return
     const currentPathname = pathnameRef.current
     const isAdmin = (userRoleId ?? 0) >= 1
     const isVisible = (i: NavItem) => (!i.adminOnly || isAdmin) && (!i.permission || isAdmin)
@@ -98,6 +98,69 @@ const Sidebar = React.memo(function Sidebar({
     const all = [
       ...new Set(visibleItems.flatMap((i) => flattenNavItems([i]).map((x) => x.href))),
     ].filter((h) => h !== currentPathname && h !== '/')
+
+    // ===== 生产模式:router.prefetch 两批次(不变) =====
+    if (process.env.NODE_ENV !== 'production') {
+      // ===== 第七刀(2026-09-03):dev 模式后台编译预热 =====
+      // dev 基线实测(localhost:8801):未编译页面首次 RSC 请求 3.4~4.8s(按需编译),
+      // 已编译 0.06~0.16s —— 差距 30~60 倍。Next 16 的 cache-bypass-in-dev 让
+      // router.prefetch 在 dev 被显式绕过(实测 0 请求),页面永远停留在"首次点击等编译"。
+      // 方案:dev 下改用低优先级 fetch(RSC 头)直接打 dev server,后台触发按需编译;
+      // 编译产物留在 dev server 内存/FS 缓存,用户点击时命中已编译路由 → 首跳即 ~0.1s。
+      // 成本:一次性后台编译 ~100 路由。串行链式执行(2026-09-03 实测定版):
+      // v1 曾用 60ms 交错并发,~100 路由同时挤进 Turbopack 编译队列,用户真实点击
+      // 排在队尾(实测 goto 排队 53s)。串行化后任意时刻最多 1 个编译在飞,
+      // 用户点击最多排在 1 个编译之后即被服务。
+      // 主延迟 1.2s,避开首页自身编译与 hydration 的 CPU 高峰。
+      let stopWarmup = () => {}
+      const master = window.setTimeout(() => {
+        // 逃生口:localStorage 设 ihui-nav-warmup=0 可关闭 dev 预热(预热异常时自查用)
+        if (window.localStorage.getItem('ihui-nav-warmup') === '0') return
+        let cancelled = false
+        stopWarmup = () => {
+          cancelled = true
+        }
+        void (async () => {
+          // 预热顺序 = 用户点击概率序(2026-09-03 v3 实测修正):
+          // 顶层 + 组内首项(immediateHrefs)最先 —— 用户首屏最可能点;
+          // 深层 children 随后兜底。
+          // 并发度(2026-09-03 v4 实测调参):v1 用 60ms 交错无界并发 → ~100 路由
+          // 同挤 Turbopack 编译队列,用户点击排到队尾(goto 排队 53s);v3 改纯串行
+          // (并发1)虽不饿死点击,但全量 100 路由串行需 ~3.5min,会话前 100s 内
+          // 点到的中后段路由仍冷(实测 23.9s/11.5s)。取折中:有界并发=4 —— 全量
+          // 预热压到 ~50-70s,任意时刻最多 4 个编译在飞,用户点击最坏只排 4 个
+          // 编译之后(典型路由 0.5~2s 编译,最坏延迟数秒);本地多核机可承受。
+          const warmList = [...new Set([...immediateHrefs, ...all])]
+          const CONCURRENCY = 6
+          let cursor = 0
+          const worker = async () => {
+            for (;;) {
+              if (cancelled) return
+              // 页签不可见时挂起(退让 CPU),恢复可见后继续
+              while (!cancelled && document.visibilityState !== 'visible') {
+                await new Promise((r) => window.setTimeout(r, 500))
+              }
+              if (cancelled) return
+              const i = cursor++
+              if (i >= warmList.length) return
+              const href = warmList[i]
+              if (!href) return
+              try {
+                const res = await fetch(href, { headers: { RSC: '1' } })
+                res.body?.cancel().catch(() => {})
+              } catch {
+                /* dev server 重启等瞬态,忽略继续 */
+              }
+            }
+          }
+          await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
+        })()
+      }, 1200)
+      return () => {
+        window.clearTimeout(master)
+        stopWarmup()
+      }
+    }
 
     // 批次1:顶层 + 组内首项立即预取
     immediateHrefs.forEach((href) => {
@@ -424,7 +487,7 @@ const Sidebar = React.memo(function Sidebar({
         aria-label={t('mainNav')}
         data-viewport-collapsed="true"
         className={cn(
-          'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex',
+          'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex z-popover',
           collapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
