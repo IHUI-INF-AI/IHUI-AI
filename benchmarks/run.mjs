@@ -12,6 +12,7 @@
 // 环境变量:
 //   IHUI_CMD           自定义 CLI 命令(空格分隔, 如 "node g:/x/dist/index.js")
 //   BENCH_TIMEOUT_MS   单任务 agent 超时(默认 300000)
+//   BENCH_MODEL        agent 模型(如 agnes/agnes-2.5-flash),缺省用 CLI 默认模型
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -102,9 +103,12 @@ async function run(ids) {
     let agentExit = null;
     try {
       cpSync(join(taskDir, 'workspace'), workDir, { recursive: true });
+      // BENCH_MODEL: 指定 agent 模型(如 agnes/agnes-2.5-flash)。IHUI_DEFAULT_MODEL 环境变量
+      // 在一次性 agent 命令路径不生效(settings.json defaultModel 优先),故显式传 -m。
+      const modelArgs = process.env.BENCH_MODEL ? ['-m', process.env.BENCH_MODEL] : [];
       const r = spawnSync(
         cmd[0],
-        [...cmd.slice(1), 'agent', prompt, '--output-format', 'json', '--permission-mode', 'bypassPermissions', '--allow-dangerous'],
+        [...cmd.slice(1), 'agent', prompt, ...modelArgs, '--output-format', 'json', '--permission-mode', 'bypassPermissions', '--allow-dangerous'],
         {
           cwd: workDir,
           encoding: 'utf8',
