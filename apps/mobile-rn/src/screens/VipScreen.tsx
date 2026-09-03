@@ -682,7 +682,7 @@ const QR_CLOSE_BUTTON_RADIUS = 8
 const QR_CLOSE_FONT_SIZE = 13
 
 // 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量
-const ACCENT_COLOR = '#5088fa'
+const ACCENT_COLOR = tokens.indigo.DEFAULT
 
 const styles = StyleSheet.create({
   screen: {
