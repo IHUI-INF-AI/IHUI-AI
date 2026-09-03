@@ -23,6 +23,7 @@
 import cron, { type ScheduledTask } from 'node-cron'
 import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
+import { parquetReadObjects } from 'hyparquet'
 import { and, eq, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
@@ -36,6 +37,7 @@ import {
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
+import { getSystemAccessToken } from '../utils/system-access-token.js'
 
 // ===== 类型定义 =====
 
@@ -765,9 +767,16 @@ async function callLlm(prompt: string, content: string, timeoutMs = 15000): Prom
   const baseUrl = process.env.AI_SERVICE_URL
   if (!baseUrl) return null
   try {
-    const res = await aiServiceFetch(null, '/llm/complete', {
+    // 2026-09-04 修复:两处问题导致 LLM 摘要改写自 jwt_auth 上线起静默失效——
+    // ① 路径 '/llm/complete' 缺 /api 前缀(ai-service 实际路由为 /api/llm/complete,与 ai-feed-service 一致);
+    // ② aiServiceFetch(null) 不带 Authorization → ai-service JWT 中间件 401。
+    const systemToken = await getSystemAccessToken()
+    const res = await aiServiceFetch(null, '/api/llm/complete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${systemToken}`,
+      },
       body: JSON.stringify({ prompt, content }),
       signal: AbortSignal.timeout(timeoutMs),
     })
@@ -1147,152 +1156,132 @@ export function stopAiWorldSyncScheduler(): void {
 
 const LEADERBOARD_USER_AGENT = 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)'
 
-/** 从 HTML 表格行提取数据,返回字符串二维数组(每行一个 cells 数组) */
-function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
-  const rows: string[][] = []
-  const selectors = [
-    'table tbody tr',
-    'table thead + tbody tr',
-    '.table tbody tr',
-    '[class*="leaderboard"] table tbody tr',
-    '[class*="table"] tbody tr',
-  ]
-  for (const sel of selectors) {
-    $(sel).each((_, tr) => {
-      const cells: string[] = []
-      $(tr)
-        .find('td')
-        .each((_, td) => {
-          cells.push($(td).text().trim())
-        })
-      if (cells.length >= 2) rows.push(cells)
-    })
-    if (rows.length > 0) break
-  }
-  return rows.slice(0, maxRows)
-}
-
-/** LMArena 子分类映射(表头 → category slug) */
-const LMARENA_CATEGORIES = [
-  'overall', // Overall
-  'expert', // Expert
-  'hard-prompts', // Hard Prompts
-  'coding', // Coding
-  'math', // Math
-  'creative', // Creative Writing
-  'instruction', // Instruction Following
-  'longer-query', // Longer Query
-] as const
-
 /**
  * 抓 LMArena(原 LMSYS Chatbot Arena)排行榜
- * 数据源:https://lmarena.ai/leaderboard — HTML 表格,672 模型,8 子分类
- * 表格结构:第 0 行表头(Model | Overall | Expert | Hard Prompts | Coding | Math | Creative Writing | Instruction Following | Longer Query)
- * 第 1+ 行:Provider+Model | rank_overall | rank_expert | ... | rank_longer_query
- * Provider+Model 格式如 "Anthropicclaude-fable-5" → provider="Anthropic", model="claude-fable-5"
+ * 数据源(2026-09-04 变更):LMArena 官方 HuggingFace 数据集 lmarena-ai/leaderboard-dataset
+ *   config=text(文本竞技场) + split=latest(最近一期发布,官方随榜单更新)
+ *   列:model_name/organization/license/rating/rating_lower/rating_upper/vote_count/rank/category/leaderboard_publish_date
+ * 变更原因:lmarena.ai/leaderboard 为 JS 渲染 SPA 且主站在本部署网络不可达(HTTP 000),
+ *   旧 HTML 抓取自 2026-09 起稳定失败("no table rows")。
+ * 下载走 hf-mirror.com(HF 国内镜像,与 huggingface.co 数据一致),失败回退主站。
+ * 解析用 hyparquet(纯 JS,零原生依赖)。
  */
+/** LMArena 数据集行结构(仅声明用到的列) */
+interface LmArenaDatasetRow {
+  model_name?: string
+  organization?: string | null
+  license?: string | null
+  rating?: number | null
+  rating_lower?: number | null
+  rating_upper?: number | null
+  vote_count?: number | null
+  rank?: number | null
+  category?: string | null
+  leaderboard_publish_date?: string | null
+}
+
+/** LMArena 数据集 category → 本项目 lmsys 榜单 category 映射(未匹配的原样小写保留) */
+const LMARENA_CATEGORY_MAP: Record<string, string> = {
+  overall: 'overall',
+  coding: 'coding',
+  math: 'math',
+  creative_writing: 'creative',
+  'creative writing': 'creative',
+  creative: 'creative',
+  instruction_following: 'instruction',
+  'instruction following': 'instruction',
+  instruction: 'instruction',
+  longer_query: 'longer-query',
+  'longer query': 'longer-query',
+  'longer-query': 'longer-query',
+  hard_prompts: 'hard-prompts',
+  'hard prompts': 'hard-prompts',
+  'hard-prompts': 'hard-prompts',
+  expert: 'expert',
+}
+
+/** 下载并解析 LMArena 最新榜单 parquet(镜像优先,主站回退) */
+async function downloadLmArenaDataset(): Promise<LmArenaDatasetRow[]> {
+  const sources = [
+    'https://hf-mirror.com/api/datasets/lmarena-ai/leaderboard-dataset/parquet/text/latest/0.parquet',
+    'https://huggingface.co/api/datasets/lmarena-ai/leaderboard-dataset/parquet/text/latest/0.parquet',
+  ]
+  for (const url of sources) {
+    const host = new URL(url).host
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/octet-stream' } },
+        60000,
+      )
+      if (!res.ok) {
+        logger.warn(`[ai-world-sync] LMArena dataset HTTP ${res.status} from ${host}, try next`)
+        continue
+      }
+      const buf = await res.arrayBuffer()
+      if (buf.byteLength === 0) {
+        logger.warn(`[ai-world-sync] LMArena dataset empty body from ${host}, try next`)
+        continue
+      }
+      return (await parquetReadObjects({ file: buf })) as LmArenaDatasetRow[]
+    } catch (err) {
+      logger.warn(`[ai-world-sync] LMArena dataset fetch/parse failed from ${host}:`, {
+        error: err instanceof Error ? err.message : err,
+      })
+    }
+  }
+  return []
+}
+
 async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
   try {
-    const res = await fetchWithTimeout(
-      'https://lmarena.ai/leaderboard',
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'text/html' } },
-      30000,
-    )
-    if (!res.ok) {
-      logger.warn(`[ai-world-sync] LMArena leaderboard HTTP ${res.status}, skip`)
-      return []
-    }
-    const html = await res.text()
-    const $ = cheerio.load(html)
-    const rows = extractTableRows($, 200) // LMArena 有 672 行,取前 200
+    const rows = await downloadLmArenaDataset()
     if (rows.length === 0) {
-      logger.warn('[ai-world-sync] LMArena leaderboard no table rows, skip')
+      logger.warn('[ai-world-sync] LMArena leaderboard no dataset rows, skip')
       return []
     }
     const entries: LeaderboardEntry[] = []
-    const now = new Date()
-    rows.forEach((cells) => {
-      // 第 0 列是 "Provider+Model" 拼接(如 "Anthropicclaude-fable-5")
-      const rawName = (cells[0] ?? '').trim()
-      if (!rawName || rawName === 'Model') return
-      // 尝试分离 provider 和 model:找已知 provider 前缀
-      const knownProviders = [
-        'Anthropic',
-        'OpenAI',
-        'Google',
-        'Meta',
-        'Mistral',
-        'Cohere',
-        'Alibaba',
-        'Baidu',
-        'Tencent',
-        'ByteDance',
-        'DeepSeek',
-        'Nvidia',
-        'Microsoft',
-        'Amazon',
-        'Apple',
-        'Samsung',
-        'xAI',
-        'Perplexity',
-        'Reka',
-        'Zhipu',
-        'Minimax',
-        'Baichuan',
-        'Yi',
-        '01-AI',
-        'HuggingFace',
-        'Together',
-        'Anyscale',
-        'Saama',
-        'Nomic',
-        'Databricks',
-      ]
-      let provider: string | undefined
-      let modelName: string = rawName
-      for (const p of knownProviders) {
-        if (rawName.startsWith(p)) {
-          provider = p
-          modelName = rawName.slice(p.length)
-          break
+    const publishDates = new Set<string>()
+    for (const row of rows) {
+      const rawCat = (row.category ?? '').toLowerCase().trim()
+      const category = LMARENA_CATEGORY_MAP[rawCat] ?? rawCat
+      if (!category) continue
+      const rank =
+        typeof row.rank === 'number' ? row.rank : Number.parseInt(String(row.rank ?? ''), 10)
+      if (!Number.isFinite(rank) || rank <= 0) continue
+      const modelName = (row.model_name ?? '').trim()
+      if (!modelName) continue
+      // 只取 overall top 50 + 其他子分类 top 20(与旧 HTML 抓取口径一致,避免数据量过大)
+      const maxRank = category === 'overall' ? 50 : 20
+      if (rank > maxRank) continue
+      let publishedAt = new Date()
+      if (row.leaderboard_publish_date) {
+        const parsed = new Date(row.leaderboard_publish_date)
+        if (!Number.isNaN(parsed.getTime())) {
+          publishedAt = parsed
+          publishDates.add(row.leaderboard_publish_date)
         }
       }
-      // 如果没匹配到 provider,用首字母大写部分作 provider
-      if (!provider) {
-        const match = rawName.match(/^([A-Z][a-z]+)(.+)/)
-        if (match && match[1] && match[2]) {
-          provider = match[1]
-          modelName = match[2]
-        }
-      }
-      // 8 个子分类各取 rank(cells[1]-cells[8])
-      for (
-        let catIdx = 0;
-        catIdx < LMARENA_CATEGORIES.length && catIdx + 1 < cells.length;
-        catIdx++
-      ) {
-        const category = LMARENA_CATEGORIES[catIdx]
-        if (!category) continue
-        const rankStr = cells[catIdx + 1]?.trim() ?? ''
-        const rank = parseInt(rankStr.replace(/[^\d]/g, ''), 10)
-        if (!Number.isFinite(rank) || rank <= 0) continue
-        // 只取 overall top 50 + 其他子分类 top 20(避免数据量过大)
-        const maxRank = catIdx === 0 ? 50 : 20
-        if (rank > maxRank) continue
-        entries.push({
-          leaderboard: 'lmsys',
-          category,
-          rank,
-          modelName: modelName.slice(0, 200),
-          provider,
-          score: rankStr,
-          scores: { rank, source: 'lmarena-ai' },
-          publishedAt: now,
-        })
-      }
-    })
+      entries.push({
+        leaderboard: 'lmsys',
+        category,
+        rank,
+        modelName: modelName.slice(0, 200),
+        provider: row.organization ?? undefined,
+        score: typeof row.rating === 'number' ? row.rating.toFixed(4) : undefined,
+        scores: {
+          rating: row.rating,
+          rating_lower: row.rating_lower,
+          rating_upper: row.rating_upper,
+          votes: row.vote_count,
+          license: row.license,
+          source: 'lmarena-leaderboard-dataset',
+        },
+        publishedAt,
+      })
+    }
     logger.info(
-      `[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`,
+      `[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} dataset rows (publish date: ${[...publishDates].join(',') || 'unknown'})`,
     )
     return entries
   } catch (err) {
@@ -1341,9 +1330,15 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
     return []
   }
   try {
+    // 2026-09-04 修复:后台任务无用户上下文,aiServiceFetch(null) 不带 Authorization →
+    // ai-service JWT 中间件 401("Authentication required"),OpenCompass 榜单自 jwt_auth 上线起静默失效。
+    const systemToken = await getSystemAccessToken()
     const res = await aiServiceFetch(null, '/api/opencompass/scrape', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${systemToken}`,
+      },
       body: JSON.stringify({}),
       signal: AbortSignal.timeout(180000), // Playwright 渲染 OpenCompass 司南 SPA 较慢,180s 超时
     })
@@ -1459,26 +1454,44 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
  * 多分类(2026-07-22 立):基于 tags + 模型名特征拆 6 类(overall/chat/coding/instruction/reasoning/open-source)
  */
 async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
+  // 2026-09-04:huggingface.co 在本部署网络常不可达(HTTP 000,直连超时),新增 hf-mirror.com
+  // (HF 国内镜像,数据与主站一致)作回退;主站可达时仍优先主站。
+  const hfUrls = [
+    'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation',
+    'https://hf-mirror.com/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation',
+  ]
   try {
-    const url =
-      'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation'
-    const res = await fetchWithTimeout(
-      url,
-      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
-      30000,
-    )
-    if (!res.ok) {
-      logger.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status}, skip`)
-      return []
-    }
-    const data = (await res.json()) as Array<{
+    let data: Array<{
       id: string
       downloads: number
       likes: number
       pipeline_tag?: string
       lastModified?: string
       tags?: string[]
-    }>
+    }> | undefined
+    for (const url of hfUrls) {
+      const host = new URL(url).host
+      try {
+        const res = await fetchWithTimeout(
+          url,
+          { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
+          30000,
+        )
+        if (res.ok) {
+          data = (await res.json()) as NonNullable<typeof data>
+          break
+        }
+        logger.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status} from ${host}, try next`)
+      } catch (err) {
+        logger.warn(`[ai-world-sync] HF Hub models API fetch failed from ${host}:`, {
+          error: err instanceof Error ? err.message : err,
+        })
+      }
+    }
+    if (!data) {
+      logger.warn('[ai-world-sync] HF Hub models API all sources failed, skip')
+      return []
+    }
     const now = new Date()
     const filtered = data.filter((m) => m.id && typeof m.downloads === 'number')
     const baseEntry = (
