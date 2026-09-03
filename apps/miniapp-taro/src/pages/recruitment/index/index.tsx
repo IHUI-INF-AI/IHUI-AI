@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface Requirement {
   id: string
@@ -78,26 +79,26 @@ export default function RecruitmentIndexPage() {
 
   if (loading && !info) {
     return (
-      <View className="min-h-[100vh] bg-background pb-[140rpx]">
+      <ThemeRoot><View className="min-h-[100vh] bg-background pb-[140rpx]">
         <View className="text-center text-muted-foreground py-[120rpx] text-[28rpx]">
           <Text>{t('common.loading')}</Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (!info) {
     return (
-      <View className="min-h-[100vh] bg-background pb-[140rpx]">
+      <ThemeRoot><View className="min-h-[100vh] bg-background pb-[140rpx]">
         <View className="text-center text-muted-foreground py-[120rpx] text-[28rpx]">
           <Text>{t('recruitment.empty')}</Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-[100vh] bg-background pb-[140rpx]">
+    <ThemeRoot><View className="min-h-[100vh] bg-background pb-[140rpx]">
       <View className="relative w-full h-[320rpx] bg-primary overflow-hidden">
         {info.banner ? (
           <Image
@@ -200,6 +201,6 @@ export default function RecruitmentIndexPage() {
         </View>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

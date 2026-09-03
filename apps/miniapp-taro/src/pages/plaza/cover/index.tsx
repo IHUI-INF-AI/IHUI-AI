@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { UserInfo, DeveloperSubscription } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 开发者账号信息(对标原项目 developer_info_body) */
 interface DeveloperInfo {
@@ -151,7 +152,7 @@ export default function PlazaCover() {
   const expiresAtStr = formatExpires(subscription?.endTime)
 
   return (
-    <View className="min-h-[100vh] bg-background px-[24rpx] pt-[24rpx] pb-[160rpx]">
+    <ThemeRoot><View className="min-h-[100vh] bg-background px-[24rpx] pt-[24rpx] pb-[160rpx]">
       {/* 未开发者入口引导(entry) */}
       {!isDev ? (
         <View className="bg-card rounded-2xl py-[40rpx] px-[32rpx] mb-[24rpx]">
@@ -324,6 +325,6 @@ export default function PlazaCover() {
         </View>
       ) : null}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

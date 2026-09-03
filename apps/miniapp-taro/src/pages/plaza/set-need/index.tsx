@@ -8,6 +8,7 @@ import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const CATEGORY_KEYS = [
   'writing',
@@ -81,8 +82,7 @@ export default function SetNeed() {
             const key = CATEGORY_KEYS[i] || label
             const active = selected.includes(key)
             return (
-              <View
-                key={key}
+              <ThemeRoot key={key}><View
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => toggleCategory(key)}
               >
@@ -92,7 +92,7 @@ export default function SetNeed() {
                   {label}
                 </Text>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       </View>
@@ -105,8 +105,7 @@ export default function SetNeed() {
           {levels.map((lv) => {
             const active = level === lv
             return (
-              <View
-                key={lv}
+              <ThemeRoot key={lv}><View
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setLevel(lv)}
               >
@@ -116,7 +115,7 @@ export default function SetNeed() {
                   {lv}
                 </Text>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       </View>
@@ -129,8 +128,7 @@ export default function SetNeed() {
           {budgets.map((b) => {
             const active = budget === b
             return (
-              <View
-                key={b}
+              <ThemeRoot key={b}><View
                 className={`px-[32rpx] py-[16rpx] rounded-[8rpx] ${active ? 'bg-success/10' : 'bg-background'}`}
                 onClick={() => setBudget(b)}
               >
@@ -140,7 +138,7 @@ export default function SetNeed() {
                   {b}
                 </Text>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       </View>

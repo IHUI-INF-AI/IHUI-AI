@@ -18,8 +18,8 @@
 }
 
 .share-popup-content {
-  background: var(--color-card, #1F1F28);
-  border-radius: 24rpx;
+  background: var(--color-card, rgba(31, 31, 40, 1));
+  border-radius: var(--radius-xl);
   padding: 40rpx 32rpx;
   width: 85%;
   max-width: 600rpx;
@@ -42,9 +42,9 @@
 .share-popup-image {
   width: 100%;
   height: 360rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   margin-bottom: 24rpx;
-  background: linear-gradient(135deg, var(--color-primary, #00F2FF) 0%, #7B61FF 100%);
+  background: linear-gradient(135deg, var(--color-primary, var(--color-primary)) 0%, rgba(123, 97, 255, 1) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -55,7 +55,7 @@
 .share-popup-title {
   font-size: 32rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-foreground);
   text-align: center;
 }
 
@@ -70,11 +70,11 @@
   height: 88rpx;
   line-height: 88rpx;
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 28rpx;
   font-weight: 600;
-  background: var(--color-primary, #00F2FF);
-  color: var(--color-primary-foreground, #000);
+  background: var(--color-primary, var(--color-primary));
+  color: var(--color-primary-foreground, var(--color-foreground));
   margin-top: 16rpx;
 }
 
@@ -201,23 +201,23 @@
   left: 0;
   right: 0;
   height: 4rpx;
-  border-radius: 20rpx 20rpx 0 0;
+  border-radius: var(--radius-xl) 20rpx 0 0;
 }
 
 .user-content-text::before {
-  background: linear-gradient(90deg, #4A90E2, #6BA5F2);
+  background: linear-gradient(90deg, rgba(74, 144, 226, 1), rgba(107, 165, 242, 1));
 }
 
 .user-content-image::before {
-  background: linear-gradient(90deg, #FF6B9D, #FF8FB1);
+  background: linear-gradient(90deg, rgba(255, 107, 157, 1), rgba(255, 143, 177, 1));
 }
 
 .user-content-video::before {
-  background: linear-gradient(90deg, #9A99F3, #B8B7F7);
+  background: linear-gradient(90deg, rgba(154, 153, 243, 1), rgba(184, 183, 247, 1));
 }
 
 .user-content-audio::before {
-  background: linear-gradient(90deg, #FFD700, #FFE45C);
+  background: linear-gradient(90deg, var(--color-warning), rgba(255, 228, 92, 1));
 }
 
 /* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")

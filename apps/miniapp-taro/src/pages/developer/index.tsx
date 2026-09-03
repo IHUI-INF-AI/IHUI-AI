@@ -7,6 +7,7 @@ import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -155,7 +156,7 @@ export default function DeveloperIndex() {
       content: `${tt('developer.index.deleteConfirm', '确认删除智能体')}「${name}」?`,
       confirmText: tt('developer.index.deleteBtn', '删除'),
       // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-      confirmColor: '#dd524d',
+      confirmColor: 'rgba(221, 82, 77, 1)',
       success: async (res) => {
         if (!res.confirm) return
         try {
@@ -223,7 +224,7 @@ export default function DeveloperIndex() {
   }
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <View className="px-[30rpx] py-[20rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">
           {tt('developer.index.myAgents', '我的智能体')}
@@ -231,7 +232,7 @@ export default function DeveloperIndex() {
       </View>
 
       <View
-        className="flex items-center bg-[linear-gradient(135deg,#4e8cff,#6a5cff)] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
+        className="flex items-center bg-[linear-gradient(135deg,rgba(78, 140, 255, 1),rgba(106, 92, 255, 1))] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
         onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
       >
         <View className="flex-1">
@@ -351,6 +352,6 @@ export default function DeveloperIndex() {
         ) : null}
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

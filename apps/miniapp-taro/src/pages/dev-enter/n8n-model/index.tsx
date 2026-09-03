@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -263,7 +264,7 @@ export default function N8nModel() {
     const setVal = (v: string) => updateParam(which, index, { defaultValue: v })
     if (p.type === 'boolean') {
       return (
-        <View className="nm-bool">
+        <ThemeRoot><View className="nm-bool">
           {(['true', 'false'] as const).map((v) => (
             <View
               key={v}
@@ -278,31 +279,31 @@ export default function N8nModel() {
             </View>
           ))}
         </View>
-      )
+      </ThemeRoot>)
     }
     if (p.type === 'json') {
       return (
-        <Textarea
+        <ThemeRoot><Textarea
           className="nm-field-textarea"
           value={p.defaultValue}
           placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
           onInput={(e) => setVal(e.detail.value)}
         />
-      )
+      </ThemeRoot>)
     }
     return (
-      <Input
+      <ThemeRoot><Input
         className="nm-field-input"
         type={p.type === 'number' ? 'digit' : 'text'}
         value={p.defaultValue}
         placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
         onInput={(e) => setVal(e.detail.value)}
       />
-    )
+    </ThemeRoot>)
   }
 
   const renderParamList = (params: Param[], which: 'in' | 'out') => (
-    <View className="nm-params">
+    <ThemeRoot><View className="nm-params">
       {params.map((p, index) => (
         <View key={index} className="nm-param">
           <View className="nm-param-head">
@@ -370,12 +371,12 @@ export default function N8nModel() {
         <Text>+ {tt('devEnter.n8nModel.addParam', '添加参数')}</Text>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 
   // ===== 列表视图 =====
   if (view === 'list') {
     return (
-      <View className="nm-page">
+      <ThemeRoot><View className="nm-page">
         <View className="nm-header">
           <Text className="nm-title">{t('devEnter.n8nModel.title')}</Text>
           <Text className="nm-create-btn" onClick={onCreate}>
@@ -404,12 +405,12 @@ export default function N8nModel() {
           )}
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   // ===== 创建表单视图 =====
   return (
-    <View className="nm-page">
+    <ThemeRoot><View className="nm-page">
       <View className="nm-header">
         <Text className="nm-back" onClick={() => setView('list')}>
           {t('common.back')}
@@ -496,6 +497,6 @@ export default function N8nModel() {
         <View className="nm-bottom-space" />
       </ScrollView>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

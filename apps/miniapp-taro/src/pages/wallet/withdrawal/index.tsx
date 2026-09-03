@@ -7,6 +7,7 @@ import { View, Text, Input, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const priceFmt = new Intl.NumberFormat('zh-CN', {
   minimumFractionDigits: 2,
@@ -80,7 +81,7 @@ export default function WithdrawalPage() {
   })
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx]">
       {/* 可提现金额卡片 — 对齐原项目 content-wrap 紫色渐变 */}
       <View className="p-[48rpx_32rpx] rounded-[24rpx] shadow-sm bg-primary/10 border-[2rpx] border-primary/20">
         <Text className="block text-[26rpx] text-muted-foreground">
@@ -124,7 +125,7 @@ export default function WithdrawalPage() {
               onClick={() => setMethod(m.value)}
             >
               <View
-                className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[#1677ff]'}`}
+                className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[rgba(22, 119, 255, 1)]'}`}
               >
                 {m.icon}
               </View>
@@ -162,6 +163,6 @@ export default function WithdrawalPage() {
         <Text>{tt('wallet.withdrawal.records', '提现记录')}</Text>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

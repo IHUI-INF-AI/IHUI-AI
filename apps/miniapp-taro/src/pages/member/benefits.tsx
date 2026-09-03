@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
 // 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
 const shoppingIcon = '/static/images/benefits/shopping.png'
@@ -270,10 +271,10 @@ const TIERS: Tier[] = [
 
 // 保留:等级渐变背景 8 段色(normal/silver/gold/diamond 各 2 段);装饰性品牌等级色,渐变值无法用单一 token 表达,保留原逻辑
 const TIER_HEAD_CLASS: Record<string, string> = {
-  normal: 'bg-[linear-gradient(135deg,#6b7280,#9ca3af)] text-primary-foreground',
-  silver: 'bg-[linear-gradient(135deg,#b8c0c8,#e8edf2)] text-foreground',
-  gold: 'bg-[linear-gradient(135deg,#d4af6a,#f5d98a)] text-foreground',
-  diamond: 'bg-[linear-gradient(135deg,#6ec1e4,#b9f2ff)] text-foreground',
+  normal: 'bg-[linear-gradient(135deg,rgba(107, 114, 128, 1),rgba(156, 163, 175, 1))] text-primary-foreground',
+  silver: 'bg-[linear-gradient(135deg,rgba(184, 192, 200, 1),rgba(232, 237, 242, 1))] text-foreground',
+  gold: 'bg-[linear-gradient(135deg,rgba(212, 175, 106, 1),rgba(245, 217, 138, 1))] text-foreground',
+  diamond: 'bg-[linear-gradient(135deg,rgba(110, 193, 228, 1),rgba(185, 242, 255, 1))] text-foreground',
 }
 
 export default function BenefitsPage() {
@@ -308,7 +309,7 @@ export default function BenefitsPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
       <View className="text-[30rpx] font-semibold text-foreground mt-[8rpx] mx-[8rpx] mb-[16rpx]">
         {tt('member.benefits.myBenefits', '我的专属权益')}
       </View>
@@ -395,6 +396,6 @@ export default function BenefitsPage() {
         </View>
       ))}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

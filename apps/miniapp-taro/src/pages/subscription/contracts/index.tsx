@@ -8,11 +8,12 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 保留:#e8f5e9 success 浅色背景 / #ff9a3c 自定义橙(status-pending);token 系统无对应浅色背景/状态橙,保留原值
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
-  active: 'bg-[#e8f5e9] text-success',
-  pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[#ff9a3c]',
+  active: 'bg-[rgba(232, 245, 233, 1)] text-success',
+  pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[rgba(255, 154, 60, 1)]',
   cancelled: 'bg-muted text-muted-foreground',
   expired: 'bg-muted text-muted-foreground',
 }
@@ -61,7 +62,7 @@ export default function SubscriptionContractsPage() {
         confirmText: tt('subscription.cancelConfirmBtn', '确认解约'),
         cancelText: tt('subscription.cancelThinkBtn', '再想想'),
         // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-        confirmColor: '#dd524d',
+        confirmColor: 'rgba(221, 82, 77, 1)',
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           Taro.showLoading({ title: tt('subscription.processing', '处理中'), mask: true })
@@ -89,7 +90,7 @@ export default function SubscriptionContractsPage() {
   })
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="px-[24rpx] pt-[24rpx] pb-[16rpx]">
         <Text className="text-[28rpx] text-foreground font-semibold">
           {tt('subscription.contractsTitle', '自动续费管理')}
@@ -168,6 +169,6 @@ export default function SubscriptionContractsPage() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

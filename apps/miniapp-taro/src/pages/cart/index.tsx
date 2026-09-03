@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface CartItem {
@@ -143,7 +144,7 @@ export default function Cart() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('cart.title')}</Text>
         </View>
@@ -151,12 +152,12 @@ export default function Cart() {
           <Text className="loading-text">{t('cart.loading')}</Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="page-container">
+      <ThemeRoot><View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('cart.title')}</Text>
         </View>
@@ -167,11 +168,11 @@ export default function Cart() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="page-container">
+    <ThemeRoot><View className="page-container">
       <View className="page-header">
         <Text className="page-title">{t('cart.title')}</Text>
       </View>
@@ -257,6 +258,6 @@ export default function Cart() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
