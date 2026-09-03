@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 type TabKey = 'inProgress' | 'completed' | 'favorited'
 
 const TABS = (tt: TtFn): Array<{ key: TabKey; labelKey: string; fallback: string }> => [
@@ -87,118 +88,124 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="flex flex-col h-screen bg-background">
-        <View className="p-[24rpx] bg-card flex-shrink-0">
-          <Text className="text-[36rpx] font-semibold text-foreground">
-            {t('study.myStudy.title')}
-          </Text>
+      <ThemeRoot>
+        <View className="flex flex-col h-screen bg-background">
+          <View className="p-[24rpx] bg-card flex-shrink-0">
+            <Text className="text-[36rpx] font-semibold text-foreground">
+              {t('study.myStudy.title')}
+            </Text>
+          </View>
+          <View className="flex-1 min-h-[0] p-[24rpx]">
+            <Text className="block text-center text-muted-foreground px-[0] py-[80rpx]">
+              {t('common.loading')}
+            </Text>
+          </View>
         </View>
-        <View className="flex-1 min-h-[0] p-[24rpx]">
-          <Text className="block text-center text-muted-foreground px-[0] py-[80rpx]">
-            {t('common.loading')}
-          </Text>
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   if (error && list.length === 0) {
     return (
+      <ThemeRoot>
+        <View className="flex flex-col h-screen bg-background">
+          <View className="p-[24rpx] bg-card flex-shrink-0">
+            <Text className="text-[36rpx] font-semibold text-foreground">
+              {t('study.myStudy.title')}
+            </Text>
+          </View>
+          <View className="flex-1 min-h-[0] p-[24rpx]">
+            <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">
+              {tt('study.myStudy.loadFailed', '加载失败')}
+            </Text>
+            <Text
+              className="inline-block m-[24rpx auto 0] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+              onClick={loadData}
+            >
+              {t('common.retry')}
+            </Text>
+          </View>
+        </View>
+      </ThemeRoot>
+    )
+  }
+
+  return (
+    <ThemeRoot>
       <View className="flex flex-col h-screen bg-background">
         <View className="p-[24rpx] bg-card flex-shrink-0">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('study.myStudy.title')}
           </Text>
         </View>
-        <View className="flex-1 min-h-[0] p-[24rpx]">
-          <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">
-            {tt('study.myStudy.loadFailed', '加载失败')}
-          </Text>
-          <Text
-            className="inline-block m-[24rpx auto 0] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
-            onClick={loadData}
-          >
-            {t('common.retry')}
-          </Text>
+        <View className="flex bg-card px-[24rpx] py-[0] flex-shrink-0">
+          {TABS(tt).map((tab) => (
+            <Text
+              key={tab.key}
+              className={`tab-item ${activeTab === tab.key ? ' text-primary font-semibold' : ''}`}
+              onClick={() => onTabChange(tab.key)}
+            >
+              {tt(tab.labelKey, tab.fallback)}
+            </Text>
+          ))}
         </View>
-      </View>
-    )
-  }
-
-  return (
-    <View className="flex flex-col h-screen bg-background">
-      <View className="p-[24rpx] bg-card flex-shrink-0">
-        <Text className="text-[36rpx] font-semibold text-foreground">
-          {t('study.myStudy.title')}
-        </Text>
-      </View>
-      <View className="flex bg-card px-[24rpx] py-[0] flex-shrink-0">
-        {TABS(tt).map((tab) => (
-          <Text
-            key={tab.key}
-            className={`tab-item ${activeTab === tab.key ? ' text-primary font-semibold' : ''}`}
-            onClick={() => onTabChange(tab.key)}
-          >
-            {tt(tab.labelKey, tab.fallback)}
-          </Text>
-        ))}
-      </View>
-      <ScrollView scrollY className="flex-1 min-h-[0]">
-        <View className="p-[24rpx]">
-          {displayList.length > 0 ? (
-            displayList.map((item) => (
-              <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
-                <View className="w-[160rpx] h-[100rpx] rounded-[8rpx] flex-shrink-0 bg-muted placeholder flex items-center justify-center">
-                  <Image
-                    style={{ width: '40rpx', height: '40rpx' }}
-                    src="/static/images/icons/book-open.svg"
-                    mode="aspectFit"
-                  />
-                </View>
-                <View className="flex-1 ml-[16rpx] flex flex-col">
-                  <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] overflow-hidden">
-                    {item.courseTitle || t('study.myStudy.courseFallback')}
-                  </Text>
-                  <View className="flex items-center mt-[12rpx]">
-                    <View className="flex-1 h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden mr-[12rpx]">
-                      <View
-                        className="h-full bg-primary rounded-[4rpx] transition-all"
-                        style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
-                      />
+        <ScrollView scrollY className="flex-1 min-h-[0]">
+          <View className="p-[24rpx]">
+            {displayList.length > 0 ? (
+              displayList.map((item) => (
+                <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
+                  <View className="w-[160rpx] h-[100rpx] rounded-[8rpx] flex-shrink-0 bg-muted placeholder flex items-center justify-center">
+                    <Image
+                      style={{ width: '40rpx', height: '40rpx' }}
+                      src="/static/images/icons/book-open.svg"
+                      mode="aspectFit"
+                    />
+                  </View>
+                  <View className="flex-1 ml-[16rpx] flex flex-col">
+                    <Text className="text-[28rpx] text-foreground font-semibold leading-[1.4] overflow-hidden">
+                      {item.courseTitle || t('study.myStudy.courseFallback')}
+                    </Text>
+                    <View className="flex items-center mt-[12rpx]">
+                      <View className="flex-1 h-[8rpx] bg-muted rounded-[4rpx] overflow-hidden mr-[12rpx]">
+                        <View
+                          className="h-full bg-primary rounded-[4rpx] transition-all"
+                          style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
+                        />
+                      </View>
+                      <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
+                        {tt('study.myStudy.progress', '进度')} {item.progress}%
+                      </Text>
                     </View>
-                    <Text className="text-[22rpx] text-muted-foreground flex-shrink-0">
-                      {tt('study.myStudy.progress', '进度')} {item.progress}%
+                    {item.time ? (
+                      <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
+                        {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
+                      </Text>
+                    ) : null}
+                    <Text
+                      className="continue-inline-block m-[24rpx auto 0] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
+                      onClick={() => onContinue(item)}
+                    >
+                      {t('study.continueLearning')}
                     </Text>
                   </View>
-                  {item.time ? (
-                    <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
-                      {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
-                    </Text>
-                  ) : null}
-                  <Text
-                    className="continue-inline-block m-[24rpx auto 0] px-[48rpx] py-[16rpx] bg-primary text-foreground text-center rounded-[12rpx] text-[28rpx]"
-                    onClick={() => onContinue(item)}
-                  >
-                    {t('study.continueLearning')}
-                  </Text>
                 </View>
+              ))
+            ) : (
+              <View className="flex flex-col items-center px-[0] py-[120rpx]">
+                <Image
+                  style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
+                  src="/static/images/icons/book-open.svg"
+                  mode="aspectFit"
+                />
+                <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">
+                  {getEmptyText(activeTab)}
+                </Text>
               </View>
-            ))
-          ) : (
-            <View className="flex flex-col items-center px-[0] py-[120rpx]">
-              <Image
-                style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
-                src="/static/images/icons/book-open.svg"
-                mode="aspectFit"
-              />
-              <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">
-                {getEmptyText(activeTab)}
-              </Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
-    </View>
+            )}
+          </View>
+        </ScrollView>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

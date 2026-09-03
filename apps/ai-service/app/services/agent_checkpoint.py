@@ -41,6 +41,14 @@ except ImportError:
     aioredis = None  # type: ignore[assignment]
 
 
+class CheckpointNotFoundError(Exception):
+    """目标 checkpoint 不存在或已过期/被清理。"""
+
+
+class CheckpointSessionMismatchError(Exception):
+    """checkpoint 归属会话与请求会话不一致(防跨会话回滚)。"""
+
+
 @dataclass
 class AgentLoopCheckpoint:
     """单次 agent loop checkpoint。"""
@@ -88,6 +96,34 @@ class AgentLoopCheckpoint:
         """检查是否已过期。"""
         current = now if now is not None else time.time()
         return self.expires_at <= current
+
+
+@dataclass
+class CheckpointMeta:
+    """checkpoint 的轻量元数据视图(供 Checkpoint/Rewind 列表展示)。
+
+    不含完整 messages(避免大响应),只保留定位字段与 message_count。
+    列表/HTTP 层用 to_dict() 序列化,天然不泄漏消息内容。
+    """
+
+    checkpoint_id: str
+    session_id: str
+    iteration: int
+    status: str
+    created_at: float
+    expires_at: float
+    message_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "checkpoint_id": self.checkpoint_id,
+            "session_id": self.session_id,
+            "iteration": self.iteration,
+            "status": self.status,
+            "created_at": self.created_at,
+            "expires_at": self.expires_at,
+            "message_count": self.message_count,
+        }
 
 
 class AgentCheckpointManager:
@@ -139,6 +175,7 @@ class AgentCheckpointManager:
         tool_state: dict[str, Any],
         status: str = "running",
         metadata: Optional[dict[str, Any]] = None,
+        file_snapshots: Optional[list[dict[str, Any]]] = None,
     ) -> str:
         """保存 checkpoint,返回 checkpoint_id。
 
@@ -149,12 +186,27 @@ class AgentCheckpointManager:
             tool_state: 工具状态(任意可 JSON 化 dict)
             status: running / paused / completed / failed / cancelled
             metadata: 额外元数据(model/prompt/等)
+            file_snapshots: 可选的已捕获文件快照引用列表,每项形如
+                {"path": <绝对路径>, "version_id": <file_editor.snapshot_file 返回的版本 id>}。
+                会以 file_versions 键落入 metadata,供 restore 返回后做文件回滚。
 
         Returns:
             checkpoint_id (uuid4 hex)
         """
         now = time.time()
         checkpoint_id = uuid.uuid4().hex
+        meta = json.loads(json.dumps(metadata or {}, ensure_ascii=False))
+        if file_snapshots:
+            # 已捕获的文件快照引用:restore 时以 file_versions 对外暴露,驱动文件回滚。
+            # 自动补齐 session_id 与 checkpoint_id,便于反查与跨会话隔离。
+            meta["file_versions"] = [
+                {
+                    **json.loads(json.dumps(snap, ensure_ascii=False)),
+                    "session_id": session_id,
+                    "checkpoint_id": checkpoint_id,
+                }
+                for snap in file_snapshots
+            ]
         checkpoint = AgentLoopCheckpoint(
             checkpoint_id=checkpoint_id,
             session_id=session_id,
@@ -165,7 +217,7 @@ class AgentCheckpointManager:
             status=status,
             created_at=now,
             expires_at=now + self._ttl,
-            metadata=json.loads(json.dumps(metadata or {}, ensure_ascii=False)),
+            metadata=meta,
         )
 
         async with self._lock:
@@ -284,6 +336,62 @@ class AgentCheckpointManager:
         # 按 created_at 升序
         cps.sort(key=lambda c: c.created_at)
         return cps
+
+    async def list_for_session(
+        self, session_id: str
+    ) -> list[CheckpointMeta]:
+        """列出指定会话的 checkpoint 轻量元数据(供 Checkpoint/Rewind 面板展示)。
+
+        仅返回定位字段 + message_count,不含完整 messages(避免大响应),
+        按 created_at 升序。列表/HTTP 层以 to_dict() 序列化即不泄漏消息内容。
+        """
+        all_cps = await self.list_checkpoints(session_id=session_id)
+        return [
+            CheckpointMeta(
+                checkpoint_id=cp.checkpoint_id,
+                session_id=cp.session_id,
+                iteration=cp.iteration,
+                status=cp.status,
+                created_at=cp.created_at,
+                expires_at=cp.expires_at,
+                message_count=len(cp.messages),
+            )
+            for cp in all_cps
+        ]
+
+    async def restore(
+        self, session_id: str, checkpoint_id: str
+    ) -> dict[str, Any]:
+        """把会话恢复到指定 checkpoint。
+
+        返回包含 messages 的完整会话快照,供调用方写回会话运行时存储。
+        Raises:
+            CheckpointNotFoundError: checkpoint 不存在/过期
+            CheckpointSessionMismatchError: checkpoint 归属其他会话
+        """
+        cp = await self.load_checkpoint(checkpoint_id)
+        if cp is None:
+            raise CheckpointNotFoundError(
+                f"checkpoint {checkpoint_id} 不存在或已过期,请联系用户重新生成"
+            )
+        if cp.session_id != session_id:
+            raise CheckpointSessionMismatchError(
+                f"checkpoint {checkpoint_id} 属于会话 {cp.session_id},不能恢复到会话 {session_id}"
+            )
+
+        return {
+            "checkpoint_id": cp.checkpoint_id,
+            "session_id": cp.session_id,
+            "iteration": cp.iteration,
+            "status": cp.status,
+            "restored_message_count": len(cp.messages),
+            # 深拷贝消息历史:调用方修改返回的列表/消息不得污染 checkpoint 快照
+            # (Rewind 面板展示 + 会话写回都建立在"原快照不可变"之上)
+            "messages": json.loads(json.dumps(cp.messages, ensure_ascii=False)),
+            "tool_state": cp.tool_state,
+            "metadata": cp.metadata,
+            "file_versions": cp.metadata.get("file_versions", []),
+        }
 
     def _delete_locked(self, checkpoint_id: str) -> bool:
         """(必须持锁)从内存删除 checkpoint。返回是否删除成功。"""

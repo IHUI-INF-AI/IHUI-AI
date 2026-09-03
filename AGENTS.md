@@ -129,6 +129,15 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 - 父容器 `rounded-xl` + `overflow-hidden` 时,贴边子元素**禁止** `h-full`/`w-full`,用 `top-<radius> bottom-<radius>`(纵向)或 `left-<radius> right-<radius>`(横向)替代。映射:`rounded-lg`→`top-2 bottom-2` / `rounded-xl`→`top-3 bottom-3` / `rounded-2xl`→`top-4 bottom-4`。
 - 拖拽手柄用双层 div 结构(外层命中区 + 内层可见细线),**禁止** `before:` 伪元素方案。
 
+### 跨端样式同步铁律(强制)
+
+- web 与 miniapp-taro 视觉必须完全一致(除平台独占差异:登录页小程序端无、rem2rpx 自适应缩放、原生导航栏/tabBar 用 `Taro.setNavigationBarColor`/`setTabBarStyle` 而非 CSS var 等)。**任何一端改了样式/组件/主题,必须同步另一端**——这是交付门槛,不是可选项。
+- **单一真相源**:design-tokens 在 `packages/design-tokens/src/styles/tokens.css`(`@theme` + `:root` + `.dark`)。miniapp-taro 的 `app.css :root/.dark` 由 `scripts/sync-design-tokens.mjs` 自动同步,**禁止手改 app.css 的 token 块**;改 token 改源头 + 跑同步。另有 `scripts/check-miniapp-taro-design-tokens.mjs` 校验同步一致性。
+- **主题系统**:miniapp-taro 主题根为 `ThemeRoot`(`@/components/ThemeRoot`,内部调用 `useThemeRoot()`),每个路由页 .tsx 顶层须 `<ThemeRoot>...</ThemeRoot>`。设置页切换主题必须调用 `@/lib/theme` 的 `setThemePreference`(同步原生导航栏/tabBar 配色 + 广播事件),**禁止**只用 `Taro.setStorageSync('theme', ...)` 而不同步原生 chrome(否则导航栏/tabBar 不变色)。
+- **禁止深色科技风回潮**:app.css 不得再出现 `page{background:#121217}` / `*{font-family!important}` 等全局深色强制覆盖;页面/组件 CSS 不得硬编码禁用色板(`#00f2ff`/`#121217`/`#1f1f28`/`#1a1a2e` 等),一律改用 `var(--color-*`)。
+- **禁止同名工具类冲突**:miniapp-taro 的 `app.css` 不得重定义 `.text-primary`/`.mt-*`/`.flex*`/`.align-*`/`.justify-*` 等与 web 端 Tailwind 同名同义类(语义冲突),局部样式用语义化类名 + `var(--color-*`)。
+- **守门**:`scripts/check-miniapp-taro-style-parity.mjs`(RULE-1~5:禁用色板 BLOCK / 其他 hex WARN / app.css 回归 BLOCK / 路由页 ThemeRoot BLOCK / tsx 内联 hex WARN / 已删除装饰类复用 BLOCK),接入 pre-commit(`HUSKY_SKIP_MINIAPP_PARITY=1` 跳过)+ `pnpm check:all`。新增路由页忘挂 `ThemeRoot`、改回深色科技风、复用已删装饰类,均会阻塞提交。
+
 ---
 
 ## 5. 后端约束
