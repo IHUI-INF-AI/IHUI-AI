@@ -383,6 +383,25 @@ export const glob: Tool = {
       return options.flatMap((opt) => expandBraces(prefix + opt + suffix))
     }
     const patterns = expandBraces(pattern)
+    // 2026-09-03 修复: 原 impl 只用纯文件名匹配 pattern,导致 **/stats.mjs 这类含路径的 pattern 永远失配。
+    // 新语义: pattern 含 '/' → 按相对路径匹配(**/ 可匹配零目录, * 不跨目录段); 不含 '/' → 沿用任意深度文件名匹配。
+    const matchers = patterns.map((p) => {
+      if (!p.includes('/')) {
+        const re = new RegExp('^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$');
+        return (relPath: string, fileName: string) => re.test(fileName);
+      }
+      const re = new RegExp(
+        '^' +
+          p
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*\*\//g, '(?:.*/)?') // **/ 可匹配零目录(**/stats.mjs 命中根目录 stats.mjs)
+            .replace(/\*\*/g, '.*')
+            .replace(/\*/g, '[^/]*')
+            .replace(/\?/g, '[^/]') +
+          '$',
+      );
+      return (relPath: string, _fileName: string) => re.test(relPath);
+    });
     const results: string[] = [];
     function walk(dir: string): void {
       if (results.length >= MAX_GLOB_RESULTS) return;
@@ -393,13 +412,7 @@ export const glob: Tool = {
         if (entry.isDirectory()) {
           if (IGNORED_DIRS.has(entry.name)) continue;
           walk(path.join(dir, entry.name));
-        } else if (patterns.some((p) => {
-          const regexStr = p
-            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-            .replace(/\*/g, '.*')
-            .replace(/\?/g, '.');
-          return new RegExp(`^${regexStr}$`).test(entry.name);
-        })) {
+        } else if (matchers.some((m) => m(relativePath(ctx, path.join(dir, entry.name)).replace(/\\/g, '/'), entry.name))) {
           results.push(relativePath(ctx, path.join(dir, entry.name)));
         }
       }
