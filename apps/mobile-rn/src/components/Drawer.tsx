@@ -630,7 +630,7 @@ export function Drawer(props: DrawerProps) {
                       className="rounded-xl items-center justify-center bg-gray-50 mb-1"
                       style={{ width: 30, height: 30 }}
                     >
-                      <Icon size={22} color="#6b7280" />
+                      <Icon size={22} color={tokens.text.secondary} />
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
                   </Pressable>

@@ -81,9 +81,9 @@ export function FunctionBlockColumn({
                 {block.icon}
               </Text>
             ) : block.icon ? (
-              <block.icon size={ICON_FONT_SIZE} color={'#6b7280'} />
+              <block.icon size={ICON_FONT_SIZE} color={tk.text.secondary} />
             ) : (
-              <DEFAULT_ICON size={ICON_FONT_SIZE} color={'#6b7280'} />
+            <DEFAULT_ICON size={ICON_FONT_SIZE} color={tk.text.secondary} />
             )}
           </View>
           <View style={styles.textWrap}>

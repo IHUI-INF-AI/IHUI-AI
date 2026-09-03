@@ -653,7 +653,8 @@
         "thu": "木",
         "tue": "火",
         "wed": "水"
-      }
+      },
+      "title": "ユーザーの動作"
     },
     "carousel": {
       "cancel": "キャンセル",
@@ -2765,7 +2766,8 @@
         "title": "講師管理",
         "totalItems": "{total}",
         "updateSuccess": "しました"
-      }
+      },
+      "title": "教育管理"
     },
     "eduCertTemplate": {
       "awardConditionsRequired": "授与条件は必須です",
@@ -3278,7 +3280,8 @@
       "titleRequired": "titleRequired",
       "unpublished": "き",
       "updateStatus": "ステータス更新",
-      "updateSuccess": "更新しました"
+      "updateSuccess": "更新しました",
+      "title": "学習管理"
     },
     "live": {
       "allCategories": "All categories",
@@ -6776,7 +6779,12 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
+      "classLevel": [
+        "優秀(クラス上位 10%)",
+        "良好(10-30%)",
+        "普通(30-70%)",
+        "やや劣る(下位 30%)"
+      ],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6793,7 +6801,12 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
+      "school": [
+        "重点中学校",
+        "普通中学校",
+        "インターナショナルスクール",
+        "私立学校"
+      ]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -8695,7 +8708,8 @@
       "selectCircle": "サークルを選択",
       "selectCirclePlaceholder": "サークルを選択してください",
       "titleLabel": "タイトル",
-      "titlePlaceholder": "投稿タイトルを入力"
+      "titlePlaceholder": "投稿タイトルを入力",
+      "title": "投稿"
     },
     "postCount": "{count}の",
     "subtitle": "のなドキュメントとAPIリファレンス",
@@ -8760,32 +8774,58 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": ["AI", "ワールド", "アプリ"],
+        "keywords": [
+          "AI",
+          "ワールド",
+          "アプリ"
+        ],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": ["チャット", "会話", "AI", "chat"],
+        "keywords": [
+          "チャット",
+          "会話",
+          "AI",
+          "chat"
+        ],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
+        "keywords": [
+          "ドラマ",
+          "ビデオ",
+          "AI",
+          "drama"
+        ],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": ["プロフィール", "ユーザー", "設定"],
+        "keywords": [
+          "プロフィール",
+          "ユーザー",
+          "設定"
+        ],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": ["検索", "search", "search"],
+        "keywords": [
+          "検索",
+          "search",
+          "search"
+        ],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": ["設定", "環境設定", "構成"],
+        "keywords": [
+          "設定",
+          "環境設定",
+          "構成"
+        ],
         "label": "設定"
       }
     },
@@ -10623,25 +10663,37 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": ["ナレッジQ&A", "プロセス自動化"],
+          "examples": [
+            "ナレッジQ&A",
+            "プロセス自動化"
+          ],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": ["データ分析", "意思決定サポート"],
+          "examples": [
+            "データ分析",
+            "意思決定サポート"
+          ],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": ["会議調整", "承認プロセス"],
+          "examples": [
+            "会議調整",
+            "承認プロセス"
+          ],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": ["マーケティング自動化", "マルチエージェント連携"],
+          "examples": [
+            "マーケティング自動化",
+            "マルチエージェント連携"
+          ],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10775,19 +10827,31 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
+          "features": [
+            "体系化コース",
+            "実践探求",
+            "コミュニティ相互支援"
+          ],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
+          "features": [
+            "交流プラットフォーム",
+            "経験共有",
+            "リソースマッチング"
+          ],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
+          "features": [
+            "プロの大規模モデル",
+            "エージェントサービス",
+            "コンサルティングサービス"
+          ],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -12024,7 +12088,8 @@
       "notFound": "文書が見つかりません",
       "showLess": "折りたたみ",
       "showMore": "展開",
-      "totalCount": "全 {count} チャンク"
+      "totalCount": "全 {count} チャンク",
+      "title": "ナレッジチャンク"
     },
     "detail": {
       "backToList": "一覧に戻る",
@@ -12035,7 +12100,8 @@
       "related": "関連文書",
       "relatedEmpty": "関連文書がありません",
       "sourceType": "ソース種別",
-      "viewChunks": "チャンクを見る"
+      "viewChunks": "チャンクを見る",
+      "title": "ナレッジ詳細"
     },
     "list": {
       "chunkCount": "{count} チャンク",
@@ -13283,7 +13349,15 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
+    "weekdays": [
+      "月",
+      "火",
+      "水",
+      "木",
+      "金",
+      "土",
+      "日"
+    ]
   },
   "models": {
     "aiNews": {
@@ -16776,7 +16850,8 @@
       "autoRenewTitle": "自動更新",
       "rememberDays": "{days}日間記憶",
       "saveFailed": "保存に失敗しました。もう一度お試しください",
-      "saveSuccess": "ログイン設定を保存しました"
+      "saveSuccess": "ログイン設定を保存しました",
+      "title": "ログインセキュリティ"
     },
     "loginSecurityDesc": "自動ログインとトークン更新の設定",
     "loginSecurityTitle": "ログイン管理",
@@ -17799,7 +17874,8 @@
       "subtitle": "のなドキュメントとAPIリファレンス",
       "totalTokens": "合計",
       "userId": "ユーザー ID",
-      "voiceRecord": "音声録音"
+      "voiceRecord": "音声録音",
+      "title": "プロフィール"
     },
     "public": {
       "follow": "フォロー",
@@ -18197,7 +18273,8 @@
       "trigger": "トリガー",
       "triggerType": "トリガータイプ",
       "updateSuccess": "更新しました",
-      "viewInstance": "テーブル"
+      "viewInstance": "テーブル",
+      "title": "ワークフロー詳細"
     },
     "editor": {
       "cancel": "キャンセル",
@@ -18281,7 +18358,8 @@
     "description": "プロジェクト",
     "descriptionPlaceholder": "ごエージェント",
     "detail": {
-      "previewFailed": "プレビュー"
+      "previewFailed": "プレビュー",
+      "title": "ワークスペース詳細"
     },
     "dismiss": "閉じる",
     "download": "ダウンロード",

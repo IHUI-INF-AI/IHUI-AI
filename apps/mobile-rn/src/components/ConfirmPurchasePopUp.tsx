@@ -217,9 +217,9 @@ export function ConfirmPurchasePopUp({
                   {product.icon}
                 </Text>
               ) : product.icon ? (
-                <product.icon size={24} color={'#6b7280'} />
+                <product.icon size={24} color={tokens.text.secondary} />
               ) : (
-                <ShoppingCart size={24} color={'#6b7280'} />
+                <ShoppingCart size={24} color={tokens.text.secondary} />
               )}
             </View>
             <View style={styles.productInfo}>
