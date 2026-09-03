@@ -7,6 +7,7 @@ import { View, Text } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getOrderList, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_COLOR: Record<string, string> = {
   paid: 'text-primary',
@@ -104,11 +105,11 @@ export default function Orders() {
   ]
 
   return (
-    <View className="min-h-screen px-[32rpx] py-[24rpx]">
+    <ThemeRoot><View className="min-h-screen px-[32rpx] py-[24rpx]">
       {/* 状态筛选 */}
       <View className="flex mb-[24rpx] bg-card rounded-[12rpx]">
         {tabs.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`flex-1 text-center py-[20rpx] text-[26rpx] ${
               status === tab.key ? 'text-primary font-semibold' : 'text-muted-foreground'
@@ -117,14 +118,14 @@ export default function Orders() {
           >
             <Text>{tab.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 订单列表 */}
       {list.length > 0 ? (
         <View>
           {list.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="bg-card rounded-[16rpx] px-[24rpx] py-[24rpx] mb-[24rpx]"
               onClick={() => goDetail(item)}
@@ -163,7 +164,7 @@ export default function Orders() {
                 ) : null}
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : null}
 
@@ -175,7 +176,7 @@ export default function Orders() {
       {loading ? (
         <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
           <Text>{t('common.loading')}</Text>
-        </View>
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

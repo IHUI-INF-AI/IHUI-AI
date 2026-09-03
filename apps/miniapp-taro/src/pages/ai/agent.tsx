@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
 import Carousel from '@/components/Carousel'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   SearchBar,
   ModelTypeButtonGroup,
@@ -459,9 +460,8 @@ export default function AgentPage() {
           {filtered.map((agent) => {
             const rating = estimateRating(agent.uses)
             return (
-              <View
-                key={agent.id}
-                className="flex items-center bg-card rounded-lg p-3 mb-3"
+              <ThemeRoot className="flex items-center bg-card rounded-lg p-3 mb-3">
+      <View key={agent.id}
                 onClick={() => goDetail(agent.id)}
               >
                 <Image
@@ -511,6 +511,7 @@ export default function AgentPage() {
                 </View>
                 <Text className="text-muted-foreground ml-2">›</Text>
               </View>
+    </ThemeRoot>
             )
           })}
         </View>

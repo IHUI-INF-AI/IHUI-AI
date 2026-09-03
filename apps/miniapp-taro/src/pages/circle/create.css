@@ -87,7 +87,7 @@
 }
 /* custom color: #fff 白色图标在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .cc-del-icon {
-  color: #fff;
+  color: var(--color-foreground);
   font-size: 28rpx;
   line-height: 1;
 }

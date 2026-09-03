@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -175,7 +176,7 @@ export default function NewsListPage() {
     : false
 
   return (
-    <View className="page">
+    <ThemeRoot><View className="page">
       {/* 搜索栏 */}
       <View className="search-bar">
         <Image
@@ -197,14 +198,14 @@ export default function NewsListPage() {
       {/* 分类 Tab */}
       <ScrollView scrollX className="tabs" enhanced showScrollbar={false}>
         {categories.map((c) => (
-          <View
+          <ThemeRoot><View
             key={c.key}
             className={`tab${activeCategory === c.key ? ' tab-active' : ''}`}
             onClick={() => setActiveCategory(c.key)}
           >
             <Text className="tab-label">{c.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </ScrollView>
 
       {/* 置顶新闻 */}
@@ -236,7 +237,7 @@ export default function NewsListPage() {
           {visibleList.map((n) => {
             const isRead = readIds.has(String(n.id))
             return (
-              <View
+              <ThemeRoot><View
                 key={n.id}
                 className={`item${isRead ? ' item-read' : ''}`}
                 onClick={() => goDetail(n.id)}
@@ -259,7 +260,7 @@ export default function NewsListPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}
@@ -286,7 +287,7 @@ export default function NewsListPage() {
       {!loading && !hasMore && visibleList.length > 0 ? (
         <View className="no-more">
           <Text>{tt('common.noMore', '没有更多了')}</Text>
-        </View>
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

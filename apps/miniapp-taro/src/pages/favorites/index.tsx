@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 
@@ -159,7 +160,7 @@ export default function FavoritesPage() {
   const allChecked = displayList.length > 0 && displayList.every((it) => selectedIds.has(it.id))
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       {/* 顶部:统计 + 搜索 + 管理按钮 */}
       <View className="flex flex-col gap-[16rpx]">
         <View className="flex items-baseline">
@@ -199,14 +200,14 @@ export default function FavoritesPage() {
       {/* 分类 Tab:横向滚动 */}
       <ScrollView scrollX className="mt-[20rpx] whitespace-nowrap w-full">
         {CATEGORY_TABS.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`inline-flex items-center justify-center h-[60rpx] px-[24rpx] mr-[12rpx] text-[26rpx] text-muted-foreground bg-card border-[2rpx] border-primary/20 rounded-[10rpx] ${activeTab === tab.key ? 'text-primary border-primary font-semibold' : ''}`}
             onClick={() => setActiveTab(tab.key)}
           >
             <Text>{tt(tab.labelKey, tab.fallback)}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </ScrollView>
 
       {/* 批量操作栏 */}
@@ -246,7 +247,7 @@ export default function FavoritesPage() {
           {displayList.map((item) => {
             const checked = selectedIds.has(item.id)
             return (
-              <View
+              <ThemeRoot><View
                 key={item.id}
                 className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
                 onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
@@ -293,7 +294,7 @@ export default function FavoritesPage() {
                   </View>
                 </View>
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       ) : null}
@@ -336,7 +337,7 @@ export default function FavoritesPage() {
       {!loading && !hasMore && displayList.length > 0 ? (
         <View className="text-center py-[40rpx] text-[24rpx] text-muted-foreground">
           <Text>{tt('favorites.noMore', '没有更多了')}</Text>
-        </View>
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

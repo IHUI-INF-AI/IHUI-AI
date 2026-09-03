@@ -9,6 +9,7 @@ import Taro from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { submitFeedback } from '@/api'
 import { uploadPictures } from '@/utils/upload-image'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const MAX_IMAGES = 3
 const MAX_CONTENT = 500
@@ -83,14 +84,14 @@ export default function Feedback() {
   }, [content, contact, images, tt])
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
         <Text className="block text-[28rpx] text-foreground mb-[24rpx]">
           {tt('feedback.type', '类型')}
         </Text>
         <View className="flex flex-wrap gap-[16rpx]">
           {types.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.key}
               className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
                 activeType === item.key ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'
@@ -99,7 +100,7 @@ export default function Feedback() {
             >
               <Text>{item.label}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
       <View className="mx-[24rpx] mt-[24rpx] px-[32rpx] py-[32rpx] bg-card rounded-[16rpx]">
@@ -123,7 +124,7 @@ export default function Feedback() {
         </Text>
         <View className="flex flex-wrap gap-[16rpx]">
           {images.map((url, idx) => (
-            <View
+            <ThemeRoot><View
               key={url + idx}
               className="relative w-[144rpx] h-[144rpx] rounded-[12rpx] overflow-hidden"
               onClick={() => onPreviewImage(idx)}
@@ -139,7 +140,7 @@ export default function Feedback() {
                 <Text className="text-white text-[24rpx] leading-none">×</Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
           {images.length < MAX_IMAGES && (
             <View
               className="w-[144rpx] h-[144rpx] rounded-[12rpx] bg-muted flex items-center justify-center"
@@ -176,7 +177,7 @@ export default function Feedback() {
         disabled={!content.trim()}
         onClick={onSubmit}
       >
-        {tt('feedback.submit', '提交反馈')}
+        {tt('feedback.su</ThemeRoot>bmit', '提交反馈')}
       </Button>
     </View>
   )

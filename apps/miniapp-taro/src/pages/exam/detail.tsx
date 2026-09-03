@@ -17,6 +17,7 @@ import {
   type ExamRecord,
 } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 type ExamDetail = ExamPaper & {
@@ -126,7 +127,7 @@ export default function ExamDetail() {
   ]
 
   return (
-    <View className="exam-detail-page">
+    <ThemeRoot><View className="exam-detail-page">
       <NavBar title={tt('exam.detail.pageTitle', '考试详情')} showBack />
       <ScrollView scrollY className="exam-detail-body">
         {loading ? (
@@ -148,11 +149,11 @@ export default function ExamDetail() {
             {/* 考试信息统计 */}
             <View className="exam-detail-stats">
               {stats.map((s, i) => (
-                <View key={i} className="exam-detail-stat-item">
+                <ThemeRoot><View key={i} className="exam-detail-stat-item">
                   <Text className="exam-detail-stat-value">{s.value}</Text>
                   <Text className="exam-detail-stat-label">{s.label}</Text>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </View>
 
             {/* 参与情况 */}
@@ -179,11 +180,11 @@ export default function ExamDetail() {
                 {tt('exam.detail.rulesTitle', '考试规则')}
               </Text>
               {rules.map((rule, i) => (
-                <View key={i} className="exam-detail-rule-item">
+                <ThemeRoot><View key={i} className="exam-detail-rule-item">
                   <Text className="exam-detail-rule-dot">•</Text>
                   <Text className="exam-detail-rule-text">{rule}</Text>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </View>
 
             {/* 历史成绩 */}
@@ -193,7 +194,7 @@ export default function ExamDetail() {
               </Text>
               {history.length > 0 ? (
                 history.map((h, i) => (
-                  <View key={h.id || i} className="exam-detail-history-item">
+                  <ThemeRoot><View key={h.id || i} className="exam-detail-history-item">
                     <View className="exam-detail-history-info">
                       <Text
                         className={`exam-detail-history-status${h.isPassed ? ' passed' : ' failed'}`}
@@ -214,7 +215,7 @@ export default function ExamDetail() {
                       })}
                     </Text>
                   </View>
-                ))
+                </ThemeRoot>))
               ) : (
                 <Text className="exam-detail-history-empty">
                   {tt('exam.detail.historyEmpty', '暂无历史成绩')}
@@ -245,7 +246,7 @@ export default function ExamDetail() {
           >
             {starting
               ? tt('exam.detail.starting', '正在进入考试…')
-              : tt('exam.detail.start', '开始考试')}
+              : tt('exam.detail.start', '开始考试'</ThemeRoot>)}
           </Button>
         </View>
       ) : null}

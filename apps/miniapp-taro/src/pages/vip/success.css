@@ -8,7 +8,7 @@
 
 .vs-page {
   min-height: 100vh;
-  background: #030a1c;
+  background: rgba(3, 10, 28, 1);
   padding: 60rpx 30rpx;
   display: flex;
   flex-direction: column;
@@ -31,7 +31,7 @@
 }
 .vs-icon {
   font-size: 120rpx;
-  color: #4caf50;
+  color: rgba(76, 175, 80, 1);
   font-weight: 700;
   text-shadow: 0 0 20rpx rgba(76, 175, 80, 0.6);
 }
@@ -40,7 +40,7 @@
   display: block;
   font-size: 48rpx;
   font-weight: 700;
-  color: #fff;
+  color: var(--color-foreground);
   margin-bottom: 50rpx;
   text-shadow: 0 0 15rpx rgba(5, 122, 255, 0.6);
 }
@@ -74,7 +74,7 @@
 .vs-info-row + .vs-info-row {
   margin-top: 0;
 }
-.vs-info-row:last-child {
+.vs-info-row: last-child {
   margin-bottom: 0;
   padding-bottom: 0;
 }
@@ -86,7 +86,7 @@
 }
 .vs-info-value {
   font-size: 30rpx;
-  color: #fff;
+  color: var(--color-foreground);
   font-weight: 500;
   text-align: right;
   flex: 1;
@@ -95,7 +95,7 @@
   white-space: nowrap;
 }
 .vs-amount {
-  color: #fff;
+  color: var(--color-foreground);
   font-weight: 700;
   font-size: 32rpx;
 }
@@ -117,13 +117,13 @@
   border-radius: 30rpx;
   font-size: 32rpx;
   margin-bottom: 30rpx;
-  background: linear-gradient(135deg, #0550d0, #057aff);
-  color: #fff;
+  background: linear-gradient(135deg, rgba(5, 80, 208, 1), rgba(5, 122, 255, 1));
+  color: var(--color-foreground);
   border: 1rpx solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 0 15rpx rgba(5, 122, 255, 0.4), 0 0 30rpx rgba(5, 122, 255, 0.2);
   padding: 0;
 }
-.vs-btn-primary::after {
+.vs-btn-primary: :after {
   border: none;
 }
 .vs-btn-outline {
@@ -135,11 +135,11 @@
   font-size: 32rpx;
   margin-bottom: 30rpx;
   background: transparent;
-  color: #fff;
+  color: var(--color-foreground);
   border: 1rpx solid rgba(5, 122, 255, 0.4);
   padding: 0;
 }
-.vs-btn-outline::after {
+.vs-btn-outline: :after {
   border: none;
 }
 

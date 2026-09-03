@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useCallback, useRef } from 'react'
 import { getCouponList } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface Coupon {
   id: string
@@ -111,17 +112,17 @@ export default function CouponPage() {
   usePullDownRefresh(() => load().finally(() => Taro.stopPullDownRefresh()))
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[140rpx]">
       <View className="flex bg-card">
         {TABS(tt).map((tb) => (
-          <Text
+          <ThemeRoot><Text
             key={tb.key}
             className={`flex-1 text-center text-[26rpx] py-[24rpx] ${status === tb.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tb.key)}
           >
             {tt(tb.i18nKey, tb.fallback)}
           </Text>
-        ))}
+        </ThemeRoot>))}
       </View>
       {loading ? (
         <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
@@ -140,7 +141,7 @@ export default function CouponPage() {
       ) : shown.length ? (
         <View className="p-[24rpx]">
           {shown.map((c) => (
-            <View
+            <ThemeRoot><View
               key={c.id}
               className={`flex bg-card rounded-[16rpx] overflow-hidden mb-[24rpx] ${c.status !== 'unused' ? 'opacity-50' : ''}`}
             >
@@ -181,7 +182,7 @@ export default function CouponPage() {
                 )}
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
           {hasMoreRef.current ? (
             <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
               <Text>{tt('member.coupon.loadMore', '上拉加载更多')}</Text>
@@ -197,7 +198,7 @@ export default function CouponPage() {
         className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-primary text-primary-foreground rounded-[16rpx] text-[28rpx]"
         onClick={goList}
       >
-        {tt('member.coupon.couponCenter', '领券中心')}
+        {tt('member.coupon.couponCe</ThemeRoot>nter', '领券中心')}
       </Button>
     </View>
   )

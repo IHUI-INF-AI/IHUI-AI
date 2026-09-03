@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type OrderItem = Order & {
   outTradeNo?: string
@@ -197,7 +198,7 @@ export default function OrderList() {
   })
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="flex items-center bg-card px-[24rpx] py-[20rpx]">
         <View className="w-[80rpx] text-[40rpx] text-foreground" onClick={goBack}>
           <Text>‹</Text>
@@ -214,14 +215,14 @@ export default function OrderList() {
 
       <View className="flex mx-[24rpx] mt-[16rpx] bg-muted rounded-lg overflow-hidden">
         {TABS.map((tab) => (
-          <Text
+          <ThemeRoot><Text
             key={tab.value}
             className={`flex-1 text-center text-[28rpx] py-[20rpx] ${status === tab.value ? 'bg-card text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tab.value)}
           >
             {tt(tab.labelKey, tab.fallback)}
           </Text>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {showSearch && (
@@ -246,7 +247,7 @@ export default function OrderList() {
             const createTimeText = formatTimestamp(o.createdAt || o.createTime)
             const refundTimeText = o.refundTime ? formatTimestamp(o.refundTime) : ''
             return (
-              <View
+              <ThemeRoot><View
                 key={o.id}
                 className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
                 onClick={() => goDetail(o.id)}
@@ -321,7 +322,7 @@ export default function OrderList() {
                   </View>
                 )}
               </View>
-            )
+            </ThemeRoot>)
           })}
         </View>
       )}
@@ -336,7 +337,7 @@ export default function OrderList() {
       )}
       {loading && (
         <View className="text-center py-[120rpx] text-muted-foreground">
-          <Text>{tt('common.loading', '加载中...')}</Text>
+          <Text>{tt('common.loading', '加载中...')}<</ThemeRoot>/Text>
         </View>
       )}
     </View>

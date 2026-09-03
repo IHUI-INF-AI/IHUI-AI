@@ -83,7 +83,7 @@
   background: rgba(255, 149, 0, 0.1);
 }
 .status-processing {
-  color: #007aff;
+  color: rgba(0, 122, 255, 1);
   /* custom color: iOS 蓝,无对应 token */
   background: rgba(0, 122, 255, 0.1);
 }

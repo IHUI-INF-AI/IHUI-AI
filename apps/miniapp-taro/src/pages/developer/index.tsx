@@ -7,6 +7,7 @@ import { View, Text, Input, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow, navigateTo } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 智能体小类(对标原 category() 返回的 modelTypes)
 interface ModelType {
@@ -223,7 +224,7 @@ export default function DeveloperIndex() {
   }
 
   return (
-    <View className="min-h-screen bg-background flex flex-col">
+    <ThemeRoot><View className="min-h-screen bg-background flex flex-col">
       <View className="px-[30rpx] py-[20rpx] bg-card">
         <Text className="text-[36rpx] font-bold text-foreground">
           {tt('developer.index.myAgents', '我的智能体')}
@@ -247,14 +248,14 @@ export default function DeveloperIndex() {
 
       <View className="flex mx-[20rpx] p-[8rpx] bg-muted rounded-[12rpx]">
         {STATUS_TABS.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.id}
             className={`flex-1 h-[56rpx] leading-[56rpx] text-center text-[28rpx] text-foreground rounded-[8rpx]${mainTabActive(tab.id) ? ' bg-card font-semibold' : ''}`}
             onClick={() => onChangeStatus(tab.id)}
           >
             <Text>{tt(tab.key, tab.name)}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="mx-[20rpx] my-[20rpx] px-[24rpx] bg-card rounded-[12rpx]">
@@ -271,14 +272,14 @@ export default function DeveloperIndex() {
       {showSubTabs ? (
         <View className="flex mx-[20rpx] mb-[12rpx] gap-[36rpx]">
           {SUB_TABS.map((tab) => (
-            <View
+            <ThemeRoot><View
               key={tab.id}
               className={`text-[28rpx] text-muted-foreground py-[8rpx]${status === tab.id ? ' text-primary font-semibold' : ''}`}
               onClick={() => onChangeStatus(tab.id)}
             >
               <Text>{tt(tab.key, tab.name)}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : null}
 
@@ -294,7 +295,7 @@ export default function DeveloperIndex() {
           </Text>
         ) : list.length ? (
           list.map((agent) => (
-            <View
+            <ThemeRoot><View
               key={String(agent.agent_id ?? agent.id)}
               className="flex items-center bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
             >
@@ -338,7 +339,7 @@ export default function DeveloperIndex() {
                 </View>
               </View>
             </View>
-          ))
+          </ThemeRoot>))
         ) : (
           <Text className="block text-center text-muted-foreground text-[28rpx] py-[60rpx]">
             {t('developer.index.empty')}
@@ -347,7 +348,7 @@ export default function DeveloperIndex() {
         {list.length > 0 && !hasMore ? (
           <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
             {tt('developer.index.noMore', '没有更多了')}
-          </Text>
+ </ThemeRoot>         </Text>
         ) : null}
       </ScrollView>
     </View>

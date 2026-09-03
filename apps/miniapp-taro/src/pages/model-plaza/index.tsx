@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -215,7 +216,7 @@ export default function ModelPlazaIndex() {
   const currentProviderCount = models.filter((m) => m.provider === providerId).length
 
   return (
-    <View className="model-plaza-page">
+    <ThemeRoot><View className="model-plaza-page">
       <View className="page-header">
         <Text className="page-title">{t('modelPlaza.title')}</Text>
       </View>
@@ -225,7 +226,7 @@ export default function ModelPlazaIndex() {
         <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="provider-tabs">
           <View className="provider-tabs-inner">
             {providers.map((p) => (
-              <View
+              <ThemeRoot><View
                 key={p}
                 className={`provider-tab${providerId === p ? ' active' : ''}`}
                 onClick={() => setProviderId(p)}
@@ -237,7 +238,7 @@ export default function ModelPlazaIndex() {
                 />
                 <Text className="provider-name">{p}</Text>
               </View>
-            ))}
+            </ThemeRoot>))}
           </View>
         </ScrollView>
       </View>
@@ -256,14 +257,14 @@ export default function ModelPlazaIndex() {
       {/* type tab */}
       <View className="type-tabs">
         {TYPE_TABS.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`type-tab${typeFilter === tab.key ? ' active' : ''}`}
             onClick={() => setTypeFilter(tab.key)}
           >
             <Text>{tab.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 模型列表 */}
@@ -278,7 +279,7 @@ export default function ModelPlazaIndex() {
           </View>
         ) : (
           visibleList.map((m) => (
-            <View key={`${m.provider}-${m.id}`} className="model-card">
+            <ThemeRoot><View key={`${m.provider}-${m.id}`} className="model-card">
               <View className="card-top">
                 <Text className="model-name">{m.name}</Text>
                 <Text className={`model-type-tag type-${m.type}`}>{typeLabel(m.type)}</Text>
@@ -304,16 +305,16 @@ export default function ModelPlazaIndex() {
               {m.tags.length > 0 ? (
                 <View className="card-tags">
                   {m.tags.map((tag, i) => (
-                    <Text key={i} className="tag-item">
+                    <ThemeRoot><Text key={i} className="tag-item">
                       {tag}
                     </Text>
-                  ))}
+                  </ThemeRoot>))}
                 </View>
               ) : null}
               <View className="card-footer">
                 <Text className="pay-mode">{m.payMode}</Text>
               </View>
-            </View>
+       </ThemeRoot>     </View>
           ))
         )}
 
@@ -325,7 +326,7 @@ export default function ModelPlazaIndex() {
 
         {!loading && !hasMore && visibleList.length > 0 ? (
           <View className="state-wrap small">
-            <Text className="state-text">{tt('modelPlaza.noMore', '— 没有更多了 —')}</Text>
+            <Text className="state-text">{tt('modelPlaza.no</ThemeRoot>More', '— 没有更多了 —')}</Text>
           </View>
         ) : null}
       </View>

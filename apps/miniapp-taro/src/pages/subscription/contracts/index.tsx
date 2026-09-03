@@ -8,6 +8,7 @@ import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { listRecurringContracts, cancelRecurringContract, type WechatPayContract } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 保留:#e8f5e9 success 浅色背景 / #ff9a3c 自定义橙(status-pending);token 系统无对应浅色背景/状态橙,保留原值
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
@@ -89,7 +90,7 @@ export default function SubscriptionContractsPage() {
   })
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="px-[24rpx] pt-[24rpx] pb-[16rpx]">
         <Text className="text-[28rpx] text-foreground font-semibold">
           {tt('subscription.contractsTitle', '自动续费管理')}
@@ -98,7 +99,7 @@ export default function SubscriptionContractsPage() {
       {list.length > 0 && (
         <View className="px-[24rpx] pb-[24rpx]">
           {list.map((c) => (
-            <View key={c.id} className="bg-card rounded-[16rpx] p-[32rpx] mb-[24rpx]">
+            <ThemeRoot><View key={c.id} className="bg-card rounded-[16rpx] p-[32rpx] mb-[24rpx]">
               <View className="flex justify-between items-center">
                 <Text className="text-[30rpx] text-foreground font-semibold">
                   {c.planId
@@ -152,7 +153,7 @@ export default function SubscriptionContractsPage() {
                 </View>
               )}
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       )}
       {list.length === 0 && !loading && (
@@ -166,7 +167,7 @@ export default function SubscriptionContractsPage() {
         <View className="text-center py-[120rpx] text-muted-foreground">
           <Text className="text-[26rpx]">{tt('subscription.loadingText', '加载中...')}</Text>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

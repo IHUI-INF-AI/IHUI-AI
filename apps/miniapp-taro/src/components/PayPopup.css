@@ -39,12 +39,11 @@
 .pp-pay-button {
   position: relative;
   cursor: pointer;
-  transition:
-    opacity 0.15s ease,
+  transition: opacity 0.15s ease,
     transform 0.15s ease;
 }
 
-.pp-pay-button:active {
+.pp-pay-button: active {
   opacity: 0.9;
   transform: scale(0.98);
 }

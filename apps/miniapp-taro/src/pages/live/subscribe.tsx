@@ -8,6 +8,7 @@ import { View, Text, Image, Switch } from '@tarojs/components'
 import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getLiveList, del, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const REMINDER_KEY = 'live_reminder_enabled'
 
@@ -86,7 +87,7 @@ export default function LiveSubscribe() {
   const statusText = (s: Live['status']) => tt(STATUS_LABEL[s].key, STATUS_LABEL[s].fb)
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[60rpx] box-border">
       <View className="flex items-baseline text-[28rpx] text-foreground">
         <Text>{tt('live.subscribe.count', '已订阅')}</Text>
         <Text className="font-bold text-[40rpx] text-primary mx-[8rpx]">{list.length}</Text>
@@ -108,7 +109,7 @@ export default function LiveSubscribe() {
       {list.length > 0 ? (
         <View className="mt-[24rpx] flex flex-col gap-[16rpx]">
           {list.map((l) => (
-            <View
+            <ThemeRoot><View
               key={l.id}
               className="flex items-stretch p-[20rpx] bg-card border border-border rounded-[12rpx]"
             >
@@ -145,7 +146,7 @@ export default function LiveSubscribe() {
                 </View>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : (
         <View className="flex flex-col items-center py-[120rpx]">
@@ -165,7 +166,7 @@ export default function LiveSubscribe() {
         <View className="text-center text-[26rpx] text-muted-foreground py-[60rpx]">
           <Text>{tt('common.loading', '加载中…')}</Text>
         </View>
-      )}
+</ThemeRoot>      )}
     </View>
   )
 }

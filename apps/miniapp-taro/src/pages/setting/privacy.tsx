@@ -7,6 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Switch, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 import './privacy.css'
 
 // 系统权限项配置:label 走 i18n(settingPrivacy.permissions.<key>)
@@ -109,12 +110,12 @@ export default function PrivacySettingPage() {
     t(PRIVACY_STATUS_KEY[s || 'unknown'] ?? 'settingPrivacy.status.unknown')
 
   return (
-    <View className="page">
+    <ThemeRoot><View className="page">
       {/* 系统权限引导 */}
       <View className="group-title">{t('settingPrivacy.systemPermissions')}</View>
       <View className="list">
         {PERMISSIONS.map((item) => (
-          <View className="perm-item" key={item.key}>
+          <ThemeRoot><View className="perm-item" key={item.key}>
             <View className="perm-info">
               <Text className="perm-label">
                 {t(PERMISSION_KEY[item.key] ?? 'settingPrivacy.permissions.record')}
@@ -127,7 +128,7 @@ export default function PrivacySettingPage() {
               {t('settingPrivacy.goSetting')}
             </Button>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 隐私设置选项 */}
@@ -173,7 +174,7 @@ export default function PrivacySettingPage() {
         <Text className="policy-link" onClick={onPrivacyPolicy}>
           {t('settingPrivacy.privacyPolicy')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

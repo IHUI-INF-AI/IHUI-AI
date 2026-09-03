@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 // 权益对比数据(AI 平台场景)
 interface Benefit {
@@ -115,7 +116,7 @@ export default function VipDetailsPage() {
       : tt('vip.details.monthlyPlan', '月度会员')
 
   return (
-    <View className="min-h-screen bg-background pb-[140rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[140rpx]">
       <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[linear-gradient(135deg,#f8d486,var(--color-warning))] text-foreground">
         <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
           <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>
@@ -133,7 +134,7 @@ export default function VipDetailsPage() {
         </Text>
         <View className="flex flex-col gap-[16rpx]">
           {BENEFIT_DETAILS.map((b) => (
-            <View key={b.title} className="flex items-start bg-card rounded-[16rpx] p-[24rpx]">
+            <ThemeRoot><View key={b.title} className="flex items-start bg-card rounded-[16rpx] p-[24rpx]">
               <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[rgba(245,158,11,0.1)] flex items-center justify-center mr-[20rpx] shrink-0">
                 <Image src={b.icon} className="w-[36rpx] h-[36rpx]" mode="aspectFit" />
               </View>
@@ -144,7 +145,7 @@ export default function VipDetailsPage() {
                 </Text>
               </View>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -157,7 +158,7 @@ export default function VipDetailsPage() {
           {PLANS.map((p) => {
             const active = selectedPlan === p.type
             return (
-              <View
+              <ThemeRoot><View
                 key={p.type}
                 className={`flex-1 relative bg-card border-[2rpx] rounded-[16rpx] py-[28rpx] px-[24rpx] ${active ? (p.type === 'yearly' ? 'border-warning bg-[rgba(245,158,11,0.1)]' : 'border-warning bg-[rgba(245,158,11,0.06)]') : 'border-border'}`}
                 onClick={() => selectPlan(p.type)}
@@ -184,7 +185,7 @@ export default function VipDetailsPage() {
                 </View>
                 <View className="flex flex-col gap-[10rpx]">
                   {p.benefits.map((b, i) => (
-                    <View key={i} className="flex items-start">
+                    <ThemeRoot><View key={i} className="flex items-start">
                       <Image
                         src="/static/images/icons/check.svg"
                         mode="aspectFit"
@@ -193,9 +194,9 @@ export default function VipDetailsPage() {
                       />
                       <Text className="flex-1 text-[24rpx] text-foreground leading-[1.4]">{b}</Text>
                     </View>
-                  ))}
+                  </ThemeRoot>))}
                 </View>
-              </View>
+           </ThemeRoot>   </View>
             )
           })}
         </View>
@@ -215,7 +216,7 @@ export default function VipDetailsPage() {
           </Text>
         </View>
         {BENEFITS.map((b, i) => (
-          <View
+          <ThemeRoot><View
             key={b.label}
             className={`flex items-stretch ${i % 2 === 0 ? 'bg-background' : ''}`}
           >
@@ -229,12 +230,12 @@ export default function VipDetailsPage() {
               {b.vip}
             </Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <Button
         className="fixed bottom-[32rpx] left-[32rpx] right-[32rpx] bg-warning text-foreground rounded-[16rpx] text-[32rpx] font-semibold"
-        onClick={goUpgrade}
+        o</ThemeRoot>nClick={goUpgrade}
       >
         {t('vip.details.upgrade')}
       </Button>

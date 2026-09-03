@@ -9,7 +9,7 @@
 
 .share-page {
   min-height: 100vh;
-  background: #121217;
+  background: var(--color-card);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -48,8 +48,8 @@
 .share-rank-title {
   font-size: 40rpx;
   font-weight: 700;
-  color: #FFFFFF;
-  background: linear-gradient(135deg, #00F2FF 0%, #00A3FF 100%);
+  color: var(--color-foreground);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -63,18 +63,17 @@
   align-items: center;
   gap: 8rpx;
   padding: 16rpx 28rpx;
-  background: linear-gradient(135deg, #00F2FF 0%, #00A3FF 100%);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
   border-radius: 40rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 242, 255, 0.3);
 }
 .share-rank-enter-text {
   font-size: 26rpx;
-  color: #121217;
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .share-rank-enter-arrow {
   font-size: 24rpx;
-  color: #121217;
+  color: var(--color-foreground);
   transition: transform 0.2s;
 }
 .share-rank-enter:active .share-rank-enter-arrow {
@@ -83,7 +82,7 @@
 
 .share-rank-card {
   margin: 0 24rpx 32rpx;
-  background: linear-gradient(135deg, #1F1F28 0%, #1A1A24 100%);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
   border-radius: 20rpx;
   overflow: hidden;
   box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.3), 0 0 40rpx rgba(0, 242, 255, 0.05);
@@ -98,7 +97,7 @@
 .share-rank-card-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--color-foreground);
 }
 .share-rank-card-unit {
   font-size: 22rpx;
@@ -111,7 +110,7 @@
 }
 .share-rank-more-text {
   font-size: 24rpx;
-  color: #00F2FF;
+  color: var(--color-primary);
   opacity: 0.8;
 }
 
@@ -142,7 +141,7 @@
   text-align: center;
   font-size: 32rpx;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--color-foreground);
 }
 .share-navbar-btn {
   display: flex;
@@ -151,7 +150,7 @@
   width: 64rpx;
   height: 64rpx;
   font-size: 36rpx;
-  color: #FFFFFF;
+  color: var(--color-foreground);
 }
 .share-navbar-btn-icon {
   font-size: 40rpx;
@@ -179,15 +178,15 @@
   transition: color 0.2s;
 }
 .share-navbar-title-link--active {
-  color: #00F2FF;
+  color: var(--color-primary);
   font-weight: 600;
-  border-bottom: 4rpx solid #00F2FF;
+  border-bottom: 4rpx solid var(--color-primary);
 }
 
 /* ===== Tabs(对标原 TitleSwitch) ===== */
 .share-tabs {
   display: flex;
-  background: #1F1F28;
+  background: var(--color-card);
   padding: 0 24rpx;
   border-bottom: 1rpx solid rgba(255, 255, 255, 0.06);
 }
@@ -201,7 +200,7 @@
   transition: color 0.2s;
 }
 .share-tab.active {
-  color: #00F2FF;
+  color: var(--color-primary);
   font-weight: 600;
 }
 .share-tab.active::after {
@@ -212,9 +211,8 @@
   transform: translateX(-50%);
   width: 48rpx;
   height: 4rpx;
-  background: #00F2FF;
+  background: var(--color-primary);
   border-radius: 2rpx;
-  box-shadow: 0 0 12rpx rgba(0, 242, 255, 0.5);
 }
 
 /* ===== 资讯列表 ===== */
@@ -225,7 +223,7 @@
 /* 搜索栏 */
 .share-search {
   padding: 16rpx 24rpx;
-  background: #1F1F28;
+  background: var(--color-card);
 }
 .share-search-input {
   height: 72rpx;
@@ -233,7 +231,7 @@
   background: rgba(255, 255, 255, 0.06);
   border-radius: 36rpx;
   font-size: 26rpx;
-  color: #FFFFFF;
+  color: var(--color-foreground);
   border: 1rpx solid rgba(255, 255, 255, 0.08);
 }
 .share-search-input::placeholder {
@@ -261,7 +259,7 @@
 .share-loading-dot {
   width: 12rpx;
   height: 12rpx;
-  background: #00F2FF;
+  background: var(--color-primary);
   border-radius: 50%;
   animation: shareLoadingBounce 1.4s ease-in-out infinite both;
 }
@@ -310,7 +308,7 @@
   z-index: 91;
   width: 80%;
   max-width: 600rpx;
-  background: #1F1F28;
+  background: var(--color-card);
   display: flex;
   flex-direction: column;
   transform: translateX(-100%);
@@ -329,7 +327,7 @@
 .share-drawer-title {
   font-size: 30rpx;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--color-foreground);
 }
 .share-drawer-close {
   font-size: 40rpx;
@@ -345,8 +343,8 @@
   flex: 1;
   text-align: center;
   padding: 18rpx 0;
-  background: linear-gradient(135deg, #00F2FF 0%, #00A3FF 100%);
-  color: #121217;
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
+  color: var(--color-foreground);
   font-size: 26rpx;
   font-weight: 600;
   border-radius: 10rpx;
@@ -400,11 +398,11 @@
   left: 0;
   right: 0;
   z-index: 90;
-  background: #1F1F28;
+  background: var(--color-card);
   padding: 0;
   animation: shareSlideDown 0.25s ease;
   box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.4);
-  border-bottom: 1rpx solid rgba(0, 242, 255, 0.1);
+  border-bottom: 1rpx solid var(--color-muted);
 }
 .share-tag-panel-header {
   padding: 28rpx 28rpx 16rpx;
@@ -413,7 +411,7 @@
 .share-tag-panel-title {
   font-size: 28rpx;
   font-weight: 600;
-  color: #FFFFFF;
+  color: var(--color-foreground);
 }
 .share-tag-list {
   display: flex;
@@ -436,11 +434,10 @@
   transition: all 0.2s;
 }
 .share-tag-item.active {
-  background: linear-gradient(135deg, #00F2FF 0%, #00A3FF 100%);
-  color: #121217;
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
+  color: var(--color-foreground);
   font-weight: 600;
   border-color: transparent;
-  box-shadow: 0 4rpx 16rpx rgba(0, 242, 255, 0.3);
 }
 .share-tag-item-text {
   font-size: 24rpx;
@@ -481,18 +478,18 @@
   z-index: 60;
   width: 88rpx;
   height: 88rpx;
-  background: #1F1F28;
+  background: var(--color-card);
   border-radius: 44rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.3);
-  border: 1rpx solid rgba(0, 242, 255, 0.15);
+  border: 1rpx solid var(--color-border);
   animation: shareFadeIn 0.2s ease;
 }
 .share-float-box-icon {
   font-size: 36rpx;
-  color: #00F2FF;
+  color: var(--color-primary);
 }
 .share-float-box:active {
   transform: scale(0.92);
@@ -502,7 +499,7 @@
 .share-tag-scroll-title-wrap {
   padding: 0;
   overflow: hidden;
-  background: #1F1F28;
+  background: var(--color-card);
 }
 .share-tag-scroll-title-wrap .share-tag-panel {
   animation: shareSlideDown 0.25s ease;
@@ -539,7 +536,7 @@
   z-index: 2;
   transform: translateX(-50%);
   padding-top: 60rpx;
-  background: linear-gradient(to top, #fff 0%, rgba(255, 255, 255, 0) 100%);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
 }
 
 .share-toodown {
@@ -559,7 +556,7 @@
 
 .share-toodown-arrow {
   font-size: 32rpx;
-  color: #333;
+  color: var(--color-foreground);
   transform: rotate(90deg);
   transition: transform 0.2s ease;
 }

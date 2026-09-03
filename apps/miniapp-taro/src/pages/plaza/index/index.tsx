@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView, Input } from '@tarojs/components'
 import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -209,7 +210,7 @@ export default function PlazaIndex() {
   }, [])
 
   const renderCard = (item: PlazaItem) => (
-    <View className="pza-card" onClick={() => onItemClick(item)}>
+    <ThemeRoot><View className="pza-card" onClick={() => onItemClick(item)}>
       {item.coverUrl ? <Image className="pza-cover" src={item.coverUrl} mode="widthFix" /> : null}
       <View className="pza-info">
         <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
@@ -233,10 +234,10 @@ export default function PlazaIndex() {
         </View>
       </View>
     </View>
-  )
+  </ThemeRoot>)
 
   return (
-    <View className="pza-page">
+    <ThemeRoot><View className="pza-page">
       <View className="pza-header">
         <Text className="pza-page-title">{tt('plaza.index.title', 'AI需求广场')}</Text>
         <View className="pza-nav-btns">
@@ -269,7 +270,7 @@ export default function PlazaIndex() {
       {/* 状态筛选 tab */}
       <ScrollView scrollX className="pza-tabs">
         {STATUS_TABS.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`pza-tab${status === tab.key ? ' active' : ''}`}
             onClick={() => onStatusChange(tab.key)}
@@ -278,7 +279,7 @@ export default function PlazaIndex() {
               {tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成')}
             </Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </ScrollView>
 
       {/* 瀑布流双列 */}
@@ -334,7 +335,7 @@ export default function PlazaIndex() {
             </View>
             <ScrollView scrollX className="pza-track-scroll">
               {TRACKS.map((tr) => (
-                <View
+                <ThemeRoot><View
                   key={tr.key || 'all'}
                   className={`pza-track${track === tr.key ? ' active' : ''}`}
                   onClick={() => onTrackSelect(tr.key)}
@@ -356,7 +357,7 @@ export default function PlazaIndex() {
                     )}
                   </Text>
                 </View>
-              ))}
+              </ThemeRoot>))}
             </ScrollView>
           </View>
         </View>
@@ -408,14 +409,14 @@ export default function PlazaIndex() {
               <Text className="pza-sheet-title">{tt('plaza.index.identityTitle', '切换身份')}</Text>
             </View>
             {IDENTITIES.map((it) => (
-              <View
+              <ThemeRoot><View
                 key={it.key}
                 className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
                 onClick={() => onIdentityChange(it.key)}
               >
                 <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
               </View>
-            ))}
+            </ThemeRoot</ThemeRoot>>))}
           </View>
         </View>
       ) : null}

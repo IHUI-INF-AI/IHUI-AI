@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getAbout } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface AboutInfo {
   name: string
@@ -97,7 +98,7 @@ export default function AboutIndexPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background pb-[60rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[60rpx]">
       {info.name ? (
         <View className="pt-[80rpx] pb-[60rpx] text-center bg-card">
           <Image
@@ -122,7 +123,7 @@ export default function AboutIndexPage() {
 
       <View className="m-[24rpx] bg-card rounded-[12rpx] overflow-hidden">
         {menus.map((m, idx) => (
-          <View
+          <ThemeRoot><View
             key={m.key}
             className={`flex items-center justify-between py-[28rpx] px-[24rpx] active:bg-muted${idx < menus.length - 1 ? ' mb-[12rpx]' : ''}`}
             onClick={() => navigate(m.url)}
@@ -130,14 +131,14 @@ export default function AboutIndexPage() {
             <Text className="text-[28rpx] text-foreground flex-1">{m.label}</Text>
             <Text className="text-[36rpx] text-muted-foreground font-light leading-none">›</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <View className="text-center pt-[40rpx] px-[24rpx] pb-[20rpx]">
         <Text className="text-[22rpx] text-muted-foreground">
           {tt('about.copyright', '© 2026 智汇 AI. 保留所有权利')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

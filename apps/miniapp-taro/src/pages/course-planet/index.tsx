@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import Carousel from '@/components/Carousel'
 import SectionHeader from '@/components/SectionHeader'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanetCourse {
   id: string
@@ -177,7 +178,7 @@ export default function CoursePlanet() {
 
   if (loading && allList.length === 0) {
     return (
-      <View className="min-h-screen bg-background">
+      <ThemeRoot><View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
@@ -189,12 +190,12 @@ export default function CoursePlanet() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   if (error && allList.length === 0) {
     return (
-      <View className="min-h-screen bg-background">
+      <ThemeRoot><View className="min-h-screen bg-background">
         <View className="p-[24rpx] bg-card">
           <Text className="text-[36rpx] font-semibold text-foreground">
             {t('coursePlanet.title')}
@@ -212,11 +213,11 @@ export default function CoursePlanet() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-screen bg-background">
+    <ThemeRoot><View className="min-h-screen bg-background">
       <View className="p-[24rpx] bg-card">
         <Text className="text-[36rpx] font-semibold text-foreground">
           {t('coursePlanet.title')}
@@ -225,14 +226,14 @@ export default function CoursePlanet() {
       <ScrollView scrollX className="whitespace-nowrap bg-card">
         <View className="whitespace-nowrap py-[16rpx] px-[24rpx]">
           {CATEGORY_KEYS.map((cat) => (
-            <Text
+            <ThemeRoot><Text
               key={cat.key}
               className={`inline-block py-[12rpx] px-[32rpx] mr-[16rpx] text-[26rpx] text-muted-foreground bg-background rounded-[8rpx] ${activeCategory === cat.key ? 'text-foreground bg-primary font-semibold' : ''}`}
               onClick={() => onCategoryChange(cat.key)}
             >
               {tt(cat.label, cat.key)}
             </Text>
-          ))}
+          </ThemeRoot>))}
         </View>
       </ScrollView>
       {displayList.length > 0 && (
@@ -260,7 +261,7 @@ export default function CoursePlanet() {
       <View className="p-[24rpx]">
         {displayList.length ? (
           displayList.map((item) => (
-            <View
+            <ThemeRoot><View
               key={item.id}
               className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]"
               onClick={() => onItemClick(item.id)}
@@ -305,7 +306,7 @@ export default function CoursePlanet() {
                 </View>
               </View>
             </View>
-          ))
+          </ThemeRoot>))
         ) : (
           <View className="flex flex-col items-center py-[120rpx]">
             <Image
@@ -327,7 +328,7 @@ export default function CoursePlanet() {
           <Text className="block text-center text-muted-foreground text-[24rpx] py-[24rpx]">
             {t('common.noMore')}
           </Text>
-        ) : null}
+</ThemeRoot>        ) : null}
       </View>
     </View>
   )

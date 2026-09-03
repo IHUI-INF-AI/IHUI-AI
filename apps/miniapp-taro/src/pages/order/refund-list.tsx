@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './refund-list.css'
 
 type RefundStatus = 'refunding' | 'refunded' | 'rejected'
@@ -159,17 +160,17 @@ export default function RefundList() {
   }
 
   return (
-    <View className="refund-page">
+    <ThemeRoot><View className="refund-page">
       <View className="refund-tabs">
         {tabs.map((tab) => (
-          <View
+          <ThemeRoot><View
             key={tab.key}
             className={`refund-tab${activeTab === tab.key ? ' refund-tab-active' : ''}`}
             onClick={() => setActiveTab(tab.key)}
           >
             <Text>{tab.label}</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       <ScrollView
@@ -186,7 +187,7 @@ export default function RefundList() {
             {displayList.map((item) => {
               const opened = expandedId === item.id
               return (
-                <View key={item.id} className="refund-card">
+                <ThemeRoot><View key={item.id} className="refund-card">
                   <View className="refund-card-head">
                     <Text className="refund-order-no">
                       {t('order.refundList.orderNo', { no: item.orderNo })}
@@ -232,7 +233,7 @@ export default function RefundList() {
                   {opened && (
                     <View className="refund-timeline">
                       {buildTimeline(item).map((step, idx, arr) => (
-                        <View key={idx} className={`refund-step refund-step-${step.state}`}>
+                        <ThemeRoot><View key={idx} className={`refund-step refund-step-${step.state}`}>
                           <View className="refund-step-indicator">
                             <View className="refund-step-dot" />
                             {idx < arr.length - 1 && <View className="refund-step-line" />}
@@ -244,10 +245,10 @@ export default function RefundList() {
                             ) : null}
                           </View>
                         </View>
-                      ))}
+                      </ThemeRoot>))}
                     </View>
                   )}
-                </View>
+               </ThemeRoot> </View>
               )
             })}
           </View>
@@ -268,7 +269,7 @@ export default function RefundList() {
         )}
         {loading && <Text className="refund-loading">{tt('common.loading', '加载中…')}</Text>}
         {!loading && !hasMore && displayList.length > 0 && (
-          <Text className="refund-no-more">{tt('order.refundList.noMore', '没有更多了')}</Text>
+          <Text className="refund-no-more">{tt('order.refundList.no</ThemeRoot>More', '没有更多了')}</Text>
         )}
       </ScrollView>
     </View>

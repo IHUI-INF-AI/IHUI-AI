@@ -36,7 +36,7 @@
   box-sizing: border-box;
 }
 
-.title-switch-type-bar__item:last-child {
+.title-switch-type-bar__item: last-child {
   margin-right: 0;
 }
 

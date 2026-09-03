@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createSrsStream, updateSrsStream, type SrsStream } from '@ihui/api-client'
 import { unwrapApi } from '@/utils/api-bridge'
 import { formatDuration } from '@ihui/shared/utils'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type StreamStatus = 'idle' | 'active' | 'inactive'
 
@@ -124,7 +125,7 @@ export default function LiveHost() {
   ]
 
   return (
-    <View className="min-h-screen p-3">
+    <ThemeRoot><View className="min-h-screen p-3">
       <View className="flex items-center justify-end mb-2">
         <View className={`px-2 py-0.5 rounded-md ${badgeCls}`}>
           <Text className="text-xs text-white">{badgeText}</Text>
@@ -201,13 +202,13 @@ export default function LiveHost() {
         </Text>
         <View className="flex flex-wrap">
           {stats.map((s) => (
-            <View key={s.label} className="w-1/2 mb-2">
+            <ThemeRoot><View key={s.label} className="w-1/2 mb-2">
               <Text className="text-xs text-muted-foreground">{s.label}</Text>
               <Text className={`text-sm font-semibold text-foreground ${s.valueCls || ''}`}>
                 {s.value}
               </Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       </View>
 
@@ -236,11 +237,11 @@ export default function LiveHost() {
           </Text>
         ) : (
           MOCK_PRODUCTS(tt).map((item) => (
-            <View key={item.id} className="flex items-center justify-between py-2">
+            <ThemeRoot><View key={item.id} className="flex items-center justify-between py-2">
               <Text className="flex-1 text-sm text-foreground">{item.name}</Text>
               <Text className="text-sm font-semibold text-red-500">¥{item.price}</Text>
             </View>
-          ))
+          </ThemeR</ThemeRoot>oot>))
         )}
       </View>
     </View>

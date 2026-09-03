@@ -9,6 +9,7 @@ import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
 import { logger } from '@/utils/logger'
 import { REMOTE_ICONS, icon } from '@/constants/remote-icons'
+import ThemeRoot from '@/components/ThemeRoot'
 // 会员权益主题图标(2026-07-30 生成,扁平化设计统一风格)
 // 用字符串路径让 Taro copy 到 dist/static/ 而非打包进 benefits.js chunk(11 个图标 ~1MB,base64 内联会让 chunk 暴涨)
 const shoppingIcon = '/static/images/benefits/shopping.png'
@@ -308,7 +309,7 @@ export default function BenefitsPage() {
   useDidShow(() => load())
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[48rpx]">
       <View className="text-[30rpx] font-semibold text-foreground mt-[8rpx] mx-[8rpx] mb-[16rpx]">
         {tt('member.benefits.myBenefits', '我的专属权益')}
       </View>
@@ -329,7 +330,7 @@ export default function BenefitsPage() {
       ) : list.length ? (
         <View className="flex flex-wrap gap-[16rpx]">
           {list.map((b) => (
-            <View
+            <ThemeRoot><View
               key={b.id}
               className="w-[calc(50%-8rpx)] bg-card rounded-[16rpx] py-[24rpx] px-[16rpx] text-center"
             >
@@ -352,7 +353,7 @@ export default function BenefitsPage() {
               </Text>
               <Text className="block mt-[8rpx] text-[22rpx] text-muted-foreground">{b.desc}</Text>
             </View>
-          ))}
+          </ThemeRoot>))}
         </View>
       ) : (
         <View className="flex flex-col items-center py-[60rpx] text-muted-foreground text-[26rpx]">
@@ -364,7 +365,7 @@ export default function BenefitsPage() {
         {tt('member.benefits.tierCatalog', '等级权益')}
       </View>
       {TIERS.map((tier) => (
-        <View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
+        <ThemeRoot><View key={tier.key} className="bg-card rounded-[16rpx] overflow-hidden mb-[24rpx]">
           <View className={`flex items-center px-[32rpx] py-[24rpx] ${TIER_HEAD_CLASS[tier.key]}`}>
             {isImagePath(tier.icon) ? (
               <Image src={tier.icon} className="w-6 h-6 mr-[16rpx]" mode="aspectFit" />
@@ -375,7 +376,7 @@ export default function BenefitsPage() {
           </View>
           <View className="py-[8rpx]">
             {tier.benefits.map((b, i) => (
-              <View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
+              <ThemeRoot><View key={i} className="flex items-center px-[32rpx] py-[20rpx]">
                 {isImagePath(b.icon) ? (
                   <Image src={b.icon} className="w-5 h-5 flex-shrink-0" mode="aspectFit" />
                 ) : (
@@ -390,8 +391,8 @@ export default function BenefitsPage() {
                   </Text>
                 </View>
               </View>
-            ))}
-          </View>
+            </ThemeRoot>))}
+ </ThemeRoot>         </View></ThemeRoot>
         </View>
       ))}
     </View>

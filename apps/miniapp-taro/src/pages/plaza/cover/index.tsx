@@ -10,6 +10,7 @@ import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import type { UserInfo, DeveloperSubscription } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 开发者账号信息(对标原项目 developer_info_body) */
 interface DeveloperInfo {
@@ -151,7 +152,7 @@ export default function PlazaCover() {
   const expiresAtStr = formatExpires(subscription?.endTime)
 
   return (
-    <View className="min-h-[100vh] bg-background px-[24rpx] pt-[24rpx] pb-[160rpx]">
+    <ThemeRoot><View className="min-h-[100vh] bg-background px-[24rpx] pt-[24rpx] pb-[160rpx]">
       {/* 未开发者入口引导(entry) */}
       {!isDev ? (
         <View className="bg-card rounded-2xl py-[40rpx] px-[32rpx] mb-[24rpx]">
@@ -214,7 +215,7 @@ export default function PlazaCover() {
       {/* 三个入口卡片(dev_list) */}
       <View className="bg-card rounded-2xl overflow-hidden mb-[24rpx]">
         {DEV_ENTRIES(tt).map((e) => (
-          <View
+          <ThemeRoot><View
             key={e.key}
             className="flex items-center gap-[20rpx] p-[32rpx]"
             onClick={() => toEntry(e.target)}
@@ -223,7 +224,7 @@ export default function PlazaCover() {
             <Text className="flex-1 text-[30rpx] text-foreground">{tt(e.titleKey, e.titleFb)}</Text>
             <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
           </View>
-        ))}
+        </ThemeRoot>))}
       </View>
 
       {/* 开发者信息卡(developer_info_body) */}
@@ -310,7 +311,7 @@ export default function PlazaCover() {
             {tt('plaza.cover.qaTitle', '常见问题')}
           </Text>
           {QA_FALLBACK(tt).map((qa, i) => (
-            <View
+            <ThemeRoot><View
               key={i}
               className="flex items-center gap-[16rpx] px-[32rpx] py-[28rpx]"
               onClick={() => toWeb(qa.url)}
@@ -320,8 +321,8 @@ export default function PlazaCover() {
               </Text>
               <Text className="text-[36rpx] text-muted-foreground leading-none">›</Text>
             </View>
-          ))}
-        </View>
+          </ThemeRoot>))}
+</ThemeRoot>        </View>
       ) : null}
     </View>
   )

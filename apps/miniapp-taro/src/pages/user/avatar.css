@@ -45,7 +45,7 @@
 .avatar-preview-tip-text {
   font-size: 22rpx;
   /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: #fff;
+  color: var(--color-foreground);
 }
 .avatar-nickname {
   margin-top: 24rpx;
@@ -73,7 +73,7 @@
 .avatar-btn-primary {
   background: var(--color-primary);
   /* custom color: #1a1a2e 深色文字在主色按钮上,无对应 token,保留原值 */
-  color: #1a1a2e;
+  color: rgba(26, 26, 46, 1);
 }
 .avatar-btn-outline {
   background: transparent;

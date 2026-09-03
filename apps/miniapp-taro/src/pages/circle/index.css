@@ -35,7 +35,7 @@
   color: var(--color-primary);
   font-weight: 600;
 }
-.ci-tab.active::after {
+.ci-tab.active: :after {
   content: '';
   position: absolute;
   bottom: 12rpx;
@@ -239,7 +239,7 @@
 /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .ci-img-more-text {
   font-size: 32rpx;
-  color: #fff;
+  color: var(--color-foreground);
   font-weight: 600;
 }
 .ci-item-actions {

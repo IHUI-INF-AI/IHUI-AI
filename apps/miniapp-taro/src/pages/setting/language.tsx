@@ -8,6 +8,7 @@ import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { setLanguage } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type LangItem = {
   value: Locale
@@ -85,7 +86,7 @@ export default function LanguagePage() {
   const currentLang = LANGS(tt).find((l) => l.value === current) ?? DEFAULT_LANG(tt)
 
   return (
-    <View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background p-[24rpx] pb-[80rpx]">
       <View className="flex items-center p-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]">
         <View className="w-[88rpx] h-[88rpx] rounded-[12rpx] bg-primary/10 flex items-center justify-center flex-shrink-0">
           <Image
@@ -118,7 +119,7 @@ export default function LanguagePage() {
         onChange={(e) => onSelect(e.detail.value as Locale)}
       >
         {LANGS(tt).map((l) => (
-          <View
+          <ThemeRoot><View
             key={l.value}
             className={`flex items-center justify-between py-[28rpx] px-[32rpx] bg-card rounded-[16rpx] gap-[24rpx]${current === l.value ? ' bg-primary/10' : ''}`}
           >
@@ -137,7 +138,7 @@ export default function LanguagePage() {
               className="flex-shrink-0"
             />
           </View>
-        ))}
+        </ThemeRoot>))}
       </RadioGroup>
 
       <View className="py-[32rpx] px-[8rpx]">
@@ -147,7 +148,7 @@ export default function LanguagePage() {
         <Text className="block text-[22rpx] text-muted-foreground leading-[1.6] mt-[8rpx] opacity-80">
           {tt('setting.language.note', '部分内容可能仍以原文显示,我们正在持续完善多语言支持。')}
         </Text>
-      </View>
+     </ThemeRoot> </View>
     </View>
   )
 }

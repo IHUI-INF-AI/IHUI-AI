@@ -16,7 +16,7 @@
 /* ============ 顶部会员等级展示区 ============ */
 .header {
   padding: 60rpx 40rpx 48rpx;
-  background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
+  background: linear-gradient(135deg, var(--color-background) 0%, var(--color-card) 100%);
 }
 .header-title {
   display: block;
@@ -33,8 +33,8 @@
   display: inline-flex;
   align-items: center;
   padding: 8rpx 24rpx;
-  background: linear-gradient(135deg, #f8d486 0%, #d4af6a 100%);
-  color: #1a1a1a;
+  background: linear-gradient(135deg, rgba(248, 212, 134, 1) 0%, rgba(212, 175, 106, 1) 100%);
+  color: var(--color-foreground);
   font-size: 28rpx;
   font-weight: 600;
   border-radius: 8rpx;
@@ -49,7 +49,7 @@
   line-height: 48rpx;
   text-align: center;
   font-size: 32rpx;
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
   margin-right: 12rpx;
 }
 .header-expire {
@@ -83,7 +83,7 @@
   text-align: center;
   font-size: 36rpx;
   background: rgba(212, 175, 106, 0.12);
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
   border-radius: 12rpx;
   margin-bottom: 12rpx;
 }
@@ -119,7 +119,7 @@
   line-height: 56rpx;
   text-align: center;
   font-size: 32rpx;
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
   background: rgba(212, 175, 106, 0.1);
   border-radius: 10rpx;
   margin-right: 20rpx;
@@ -164,7 +164,7 @@
   width: 100%;
   height: 88rpx;
   line-height: 88rpx;
-  background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
+  background: linear-gradient(135deg, rgba(248, 212, 134, 1) 0%, rgba(184, 134, 11, 1) 100%);
   color: var(--color-primary-foreground);
   font-size: 32rpx;
   font-weight: 600;
@@ -228,7 +228,7 @@
   width: 100%;
   height: 84rpx;
   line-height: 84rpx;
-  background: linear-gradient(135deg, #f8d486 0%, #b8860b 100%);
+  background: linear-gradient(135deg, rgba(248, 212, 134, 1) 0%, rgba(184, 134, 11, 1) 100%);
   color: var(--color-primary-foreground);
   font-size: 30rpx;
   font-weight: 600;
@@ -266,10 +266,10 @@
 }
 .matrix-cell.level-cell {
   font-weight: 600;
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
 }
 .matrix-cell.highlight {
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
   font-weight: 600;
 }
 .matrix-desc {
@@ -299,7 +299,7 @@
   line-height: 36rpx;
   text-align: center;
   font-size: 24rpx;
-  color: #d4af6a;
+  color: rgba(212, 175, 106, 1);
   margin-right: 16rpx;
   flex-shrink: 0;
 }

@@ -15,6 +15,7 @@ import Taro, {
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getTopicDetail, post, type Circle } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface TopicData {
@@ -151,7 +152,7 @@ export default function TopicDetailPage() {
   }
 
   return (
-    <View className="topic-detail-page">
+    <ThemeRoot><View className="topic-detail-page">
       <NavBar title={tt('topic.detail.pageTitle', '话题详情')} showBack />
       <ScrollView scrollY className="topic-detail-body">
         {/* 话题头部 */}
@@ -206,7 +207,7 @@ export default function TopicDetailPage() {
         {!loading && displayPosts.length > 0 ? (
           <View className="topic-detail-list">
             {displayPosts.map((p) => (
-              <View key={p.id} className="topic-detail-post" onClick={() => goCircle(String(p.id))}>
+              <ThemeRoot><View key={p.id} className="topic-detail-post" onClick={() => goCircle(String(p.id))}>
                 <View className="topic-detail-post-user">
                   <Image
                     className="topic-detail-avatar"
@@ -225,13 +226,13 @@ export default function TopicDetailPage() {
                 {p.images && p.images.length > 0 ? (
                   <View className="topic-detail-post-images">
                     {p.images.slice(0, 3).map((img, i) => (
-                      <Image
+                      <ThemeRoot><Image
                         key={i}
                         className="topic-detail-post-img"
                         src={img}
                         mode="aspectFill"
                       />
-                    ))}
+                    </ThemeRoot>))}
                     {p.images.length > 3 ? (
                       <View className="topic-detail-post-img-more">
                         <Text>+{p.images.length - 3}</Text>
@@ -259,7 +260,7 @@ export default function TopicDetailPage() {
                     <Text className="topic-detail-post-stat-num">{p.comments || 0}</Text>
                   </View>
                 </View>
-              </View>
+           </ThemeRoot>   </View>
             ))}
           </View>
         ) : null}
@@ -280,7 +281,7 @@ export default function TopicDetailPage() {
           <View className="topic-detail-state">
             <Text>{tt('topic.detail.noMore', '没有更多了')}</Text>
           </View>
-        ) : null}
+      </ThemeRoot>  ) : null}
       </ScrollView>
     </View>
   )
