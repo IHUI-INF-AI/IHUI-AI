@@ -325,6 +325,7 @@
 - **[x] ✅ user 页 6 文件**:profile/realname/avatar/index/UserCard 深色残留与半成品 var 清理
 - **[x] ✅ 无主项 3 处**(RULE-4b 升级后新暴露,lead 直改):index.css/.tsx「命名壳别名」16 定义行删除 + 13 消费处内联真 token(`--color-brand-cyan`→`var(--color-link)` 等,视觉零变化)、DrawerComponent fallback var 内联、distribution/order-list 紫青→米黄渐变→`var(--color-card)`
 - **[x] ✅ 守门升级**:`scripts/check-miniapp-taro-style-parity.mjs` RULE-1b(非白名单 CSS hex)WARN→BLOCK;RULE-4 拆 4a(tsx 内联非白名单 hex BLOCK)+ 4b(紫青 rgba(205,208,255)/rgba(253,255,225)/rgba(223,138,248)/rgba(169,165,255)/#93d2f3 + 深海军蓝 rgba(15,22,35)/rgba(31,41,55)/rgba(3,10,28)/rgba(8,20,40)/rgba(26,26,46)/rgba(31,31,40)/rgba(15,23,42) + 半成品 var 六名 → BLOCK)
+- **[x] ✅ build 崩溃根治(收尾发现)**:agent 编辑时把 4 个 vip CSS(vip/{index,privilege,success,upgrade}.css)文件尾水印注释闭合 `*/` 弄丢 → postcss-pxtransform 抛 `Cannot read properties of undefined (reading 'source')`;Python 补 ` */\n` 恢复 HEAD 形态,76 CSS 全量注释平衡扫描 0 失衡
 
 ### 验收(全链,0 FAIL)
 
@@ -332,13 +333,16 @@
 - hex 复扫:深色科技风残留 0;残余 hex 仅豁免(白名单:微信绿/链接蓝/VIP 金/状态色/纯黑白的 5 处共享层一致项)
 - design-tokens sync:PASS(108 变量,miniapp app.css 与 tokens.css 全同步)
 - guardian-runner:`: active` 伪类零违规
-- typecheck:tsc --noEmit 0 错误(此提交前另跑 weapp build 收尾确认)
+- typecheck:tsc --noEmit 0 错误
+- weapp build:`pnpm --filter @ihui/miniapp-taro build` ✓ EXIT=0(修复注释后复跑,产物级通过)
+- 落地:commit `60b3abe707`(45 files:+393/−634)已推三仓(origin/gitee/gitcode 均含),经 [44] 根目录整洁守门逃生口(并行会话 `benchmarks/` 未提交产物)+ i18n 死 key 逃生口(并行会话 web `agentGovernance.*` 17 死 key,与本批零关联)
 
 ### 经验沉淀
 
 - **命名壳别名是隐性债**:index.css 曾用 `.ai-home-page { --color-brand-cyan: var(--color-link) }` 做"向后兼容别名层",守门按字符串匹配会把定义行一起判 BLOCK——根治=删定义行 + 消费处内联真 token,不留中间层。
 - **守门口径必须覆盖 rgba 形态**:残留色若只以 `#hex` 正则拦截,rgba()/linear-gradient 形态全会漏;且必须穷举"深色科技风家族色"的 rgba 等价形态。
 - **文件写入防竞态**:多 agent 并行编辑时 Edit 工具偶发"返回成功但未落盘"(并发写回覆盖),落盘后须立即 grep 核验;失败改用 Python 内联替换(UTF-8,newline='')。
+- **CSS 文件尾水印注释是闭合敏感区**:agent 大改 CSS 后可能丢文件尾 `/* ... */` 的 `*/`(postcss 解析崩溃,报错却指向 undefined source,需字符级定位);修复后全量跑注释平衡扫描(count(`/*`)≠count(`*/`)即 UNBALANCED)兜底。
 
 ---
 
