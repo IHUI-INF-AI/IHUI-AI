@@ -20,6 +20,7 @@ import {
   type ConversationDetail,
   type Knowledge,
 } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -451,7 +452,7 @@ export default function NewsScreenWrapper() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: tokens.surface.muted,
   } as ViewStyle,
 })
 

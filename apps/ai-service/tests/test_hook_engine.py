@@ -85,7 +85,9 @@ class TestConstants:
         assert "tool.approval" in HOOK_EVENTS
         assert "session.start" in HOOK_EVENTS
         assert "error" in HOOK_EVENTS
-        assert len(HOOK_EVENTS) == 8
+        # 9 个事件:8e37213ae3 新增 permission.mode(权限三模式生效事件)后未同步本断言
+        assert "permission.mode" in HOOK_EVENTS
+        assert len(HOOK_EVENTS) == 9
 
     def test_action_types(self):
         assert "webhook" in HOOK_ACTION_TYPES

@@ -29,4 +29,19 @@ export * from './constants/theme'
 
 // 统一 re-export constants/ 目录下所有常量
 export * from './constants/index'
+
+/**
+ * 杀手锏常量跨端只读镜像(web / cli / miniapp 与 Python 之间必须逐值一致)。
+ * 唯一真源(Py)在 apps/ai-service/app/core/tunables.py —— 改动真源时必须同步本段,
+ * 否则 ai-service 的 tests/test_killer_parity.py 以"漂移即失败"拦截。
+ */
+export const MAX_STEPS_PER_RUN = 2000
+export const DEFAULT_CHECKPOINT_TTL = 86400
+export const FILE_VERSION_REDIS_TTL = 86400
+export const DEFAULT_TRIGGER_RATIO = 0.88
+export const DEFAULT_TARGET_RATIO = 0.6
+export const DEFAULT_KEEP_RECENT = 6
+export const DEFAULT_MIN_MESSAGES = 2
+export const DEFAULT_PROTOCOL_VERSION = '2025-03-26'
+export const SUPPORTED_PROTOCOL_VERSIONS = ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25'] as const
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
