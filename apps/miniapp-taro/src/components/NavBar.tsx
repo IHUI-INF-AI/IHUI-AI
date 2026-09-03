@@ -147,10 +147,12 @@ export default function NavBar({
               <View onClick={() => onActiveNav(0)}>
                 <Text
                   style={{
-                    color: activeTitleIndex === 0 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                    color:
+                      activeTitleIndex === 0
+                        ? 'var(--color-primary)'
+                        : 'var(--color-muted-foreground)',
                     fontSize: rpx(28),
                     fontWeight: activeTitleIndex === 0 ? '600' : ('normal' as const),
-                    textDecoration: activeTitleIndex === 0 ? 'underline' : ('none' as const),
                   }}
                 >
                   {tt('NavBar.text1', '每日资讯')}
@@ -159,10 +161,12 @@ export default function NavBar({
               <View onClick={() => onActiveNav(1)}>
                 <Text
                   style={{
-                    color: activeTitleIndex === 1 ? '#00F2FF' : 'rgba(255,255,255,0.6)',
+                    color:
+                      activeTitleIndex === 1
+                        ? 'var(--color-primary)'
+                        : 'var(--color-muted-foreground)',
                     fontSize: rpx(28),
                     fontWeight: activeTitleIndex === 1 ? '600' : ('normal' as const),
-                    textDecoration: activeTitleIndex === 1 ? 'underline' : ('none' as const),
                   }}
                 >
                   {tt('ranking.title', '排行榜')}

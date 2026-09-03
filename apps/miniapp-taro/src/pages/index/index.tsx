@@ -593,7 +593,7 @@ function VoiceAnimationOverlay({
             style={{
               width: rpx(8),
               height: rpx(60),
-              background: 'var(--color-brand-cyan)',
+              background: 'var(--color-link)',
               borderRadius: rpx(4),
               animationDelay: `${i * 0.1}s`,
               animationDuration: `${0.5 + i * 0.1}s`,
@@ -1297,8 +1297,7 @@ export default function Index() {
                   justifyContent: 'space-between',
                   padding: `${rpx(16)} ${rpx(20)}`,
                   marginBottom: rpx(16),
-                  background:
-                    'linear-gradient(90deg, var(--color-brand-cyan), var(--color-primary))',
+                  background: 'linear-gradient(90deg, var(--color-link), var(--color-primary))',
                   borderRadius: rpx(16),
                 }}
               >
@@ -1345,7 +1344,7 @@ export default function Index() {
                   >
                     {tt('index.welcome', '欢迎使用智汇AI社区')}
                   </Text>
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date)' }}>
+                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)' }}>
                     {tt('index.welcomeHint', '输入消息开始对话')}
                   </Text>
                 </View>
@@ -1365,8 +1364,7 @@ export default function Index() {
                       maxWidth: '80%',
                       padding: `${rpx(16)} ${rpx(20)}`,
                       borderRadius: rpx(16),
-                      background:
-                        msg.role === 'user' ? 'var(--color-brand-cyan)' : 'var(--color-card)',
+                      background: msg.role === 'user' ? 'var(--color-link)' : 'var(--color-card)',
                       color: 'var(--color-foreground)',
                       fontSize: rpx(28),
                       lineHeight: 1.6,
@@ -1404,7 +1402,7 @@ export default function Index() {
                         display: 'inline-block',
                         width: rpx(8),
                         height: rpx(28),
-                        background: 'var(--color-brand-cyan)',
+                        background: 'var(--color-link)',
                         marginLeft: rpx(4),
                         animation: 'blink 1s infinite',
                       }}
@@ -1525,7 +1523,9 @@ export default function Index() {
                     >
                       {currentMaterialList.length === 0 ? (
                         <View className="flex items-center justify-center py-[40rpx]">
-                          <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date)' }}>
+                          <Text
+                            style={{ fontSize: rpx(28), color: 'var(--color-muted-foreground)' }}
+                          >
                             {tt('index.material.empty', '暂无素材')}
                           </Text>
                         </View>

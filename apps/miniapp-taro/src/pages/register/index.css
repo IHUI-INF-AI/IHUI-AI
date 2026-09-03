@@ -393,9 +393,9 @@
 
 .btn-register {
   border-radius: var(--radius-lg);
-  background-color: transparent;
+  background-color: var(--color-foreground);
   font-size: 60rpx;
-  color: var(--color-muted-foreground);
+  color: var(--color-card);
   font-weight: 500;
   text-shadow: 0px 0px 5px rgba(0, 0, 0, 0.3);
 }
