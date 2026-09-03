@@ -7,7 +7,8 @@ import { useTt, type TtFn } from '@/i18n'
 import { useCallback } from 'react'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import type { CSSProperties } from 'react'
-import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { useAppTheme } from '@/lib/theme'
 import type { TFunction, NoteDetailItem, NoteDetailScreenProps } from '@ihui/types'
 
 /** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
@@ -181,10 +182,12 @@ export function NoteDetailScreen({
   loading,
   error,
   onBack,
-  colorScheme = 'light',
+  colorScheme,
 }: NoteDetailScreenProps) {
   const tt = useTt()
-  const tk = getRnTokens(colorScheme)
+  const { resolved: appTheme } = useAppTheme()
+  const effectiveScheme: RnThemeMode = colorScheme ?? appTheme
+  const tk = getRnTokens(effectiveScheme)
 
   /** i18n 三级降级:prop t → I18nContext(useTt)→ FALLBACK_TEXT(tt) 硬编码中文 */
   const tr = useCallback<TFunction>(
