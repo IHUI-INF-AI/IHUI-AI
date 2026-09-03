@@ -110,7 +110,6 @@ jobs:
           name: desktop-bundle-${{ matrix.label }}
           path: |
             apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
-            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
             apps/desktop/src-tauri/target/release/bundle/deb/*.deb
             apps/desktop/src-tauri/target/release/bundle/appimage/*.AppImage
             apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg
@@ -122,7 +121,7 @@ jobs:
           echo "### Desktop 构建完成" >> $GITHUB_STEP_SUMMARY
           echo "平台: ${{ matrix.label }}" >> $GITHUB_STEP_SUMMARY
           echo "tag: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "产物: .msi/.exe(Windows)、.dmg(macOS)、.deb/.AppImage(Linux)+ updater 签名包" >> $GITHUB_STEP_SUMMARY
+          echo "产物: .exe(Windows)、.dmg(macOS)、.deb/.AppImage(Linux)+ updater 签名包" >> $GITHUB_STEP_SUMMARY
 
   # 聚合多平台 .sig 文件,生成包含全部平台的统一 latest.json
   # 解决:tauri-action 矩阵构建时每个 job 只生成当前平台的 latest.json,后上传覆盖先上传
