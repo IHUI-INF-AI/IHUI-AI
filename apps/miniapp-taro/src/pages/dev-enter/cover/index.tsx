@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import * as api from '@/api'
 import type { UserInfo } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 // 开发者账号信息(对标原 developerLink.developer)
@@ -177,136 +178,138 @@ export default function DevEnterCover() {
   const nickname = userInfo?.nickname || ''
 
   return (
-    <ScrollView className="dev-cover-page" scrollY>
-      {/* 用户信息卡 */}
-      <View className="dc-header-card">
-        <Image className="dc-avatar" src={avatar} mode="aspectFill" />
-        <Text className="dc-nickname">{nickname}</Text>
+    <ThemeRoot>
+      <ScrollView className="dev-cover-page" scrollY>
+        {/* 用户信息卡 */}
+        <View className="dc-header-card">
+          <Image className="dc-avatar" src={avatar} mode="aspectFill" />
+          <Text className="dc-nickname">{nickname}</Text>
 
-        {waitting ? (
-          <View className="dc-waitting">
-            <Text className="dc-waitting-text">
-              {tt('devEnter.cover.opening', '专属开发者空间开通中…')}
-            </Text>
-            <Text className="dc-waitting-sub">
-              {tt('devEnter.cover.openingTip', '进度查询请加入社区联系工作人员')}
-            </Text>
-          </View>
-        ) : null}
+          {waitting ? (
+            <View className="dc-waitting">
+              <Text className="dc-waitting-text">
+                {tt('devEnter.cover.opening', '专属开发者空间开通中…')}
+              </Text>
+              <Text className="dc-waitting-sub">
+                {tt('devEnter.cover.openingTip', '进度查询请加入社区联系工作人员')}
+              </Text>
+            </View>
+          ) : null}
 
-        {!hasDevLink ? (
-          <View className="dc-become-btn" onClick={toPay}>
-            <Text>{tt('devEnter.cover.becomeDeveloper', '成为开发者')}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* 3 个功能入口 */}
-      <View className="dc-entry-list">
-        <View className="dc-entry-item" onClick={toMyModel}>
-          <View className="dc-entry-icon">
-            <Image
-              className="dc-entry-emoji"
-              style={{ width: '44rpx', height: '44rpx' }}
-              src="/static/images/icons/bot.svg"
-              mode="aspectFit"
-            />
-          </View>
-          <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
+          {!hasDevLink ? (
+            <View className="dc-become-btn" onClick={toPay}>
+              <Text>{tt('devEnter.cover.becomeDeveloper', '成为开发者')}</Text>
+            </View>
+          ) : null}
         </View>
-        <View className="dc-entry-item" onClick={toModelIncome}>
-          <View className="dc-entry-icon">
-            <Image
-              className="dc-entry-emoji"
-              style={{ width: '44rpx', height: '44rpx' }}
-              src="/static/images/icons/wallet.svg"
-              mode="aspectFit"
-            />
-          </View>
-          <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
-        </View>
-        <View className="dc-entry-item" onClick={toNbnModel}>
-          <View className="dc-entry-icon">
-            <Image
-              className="dc-entry-emoji"
-              style={{ width: '44rpx', height: '44rpx' }}
-              src="/static/images/icons/zap.svg"
-              mode="aspectFit"
-            />
-          </View>
-          <Text className="dc-entry-text">{tt('devEnter.cover.n8nAgents', 'n8n智能体')}</Text>
-        </View>
-      </View>
 
-      {/* 开发者账号信息卡(仅 developer && !expire) */}
-      {showAccount && developer ? (
-        <View className="dc-account-card">
-          <View className="dc-account-row">
-            <Text className="dc-account-label">
-              {tt('devEnter.cover.account', '账号')}：{developer.signNickname || '-'}
-            </Text>
-            <Text className="dc-copy-btn" onClick={() => copyText(developer.signNickname || '')}>
-              {tt('devEnter.cover.copy', '复制')}
-            </Text>
+        {/* 3 个功能入口 */}
+        <View className="dc-entry-list">
+          <View className="dc-entry-item" onClick={toMyModel}>
+            <View className="dc-entry-icon">
+              <Image
+                className="dc-entry-emoji"
+                style={{ width: '44rpx', height: '44rpx' }}
+                src="/static/images/icons/bot.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
           </View>
-          <View className="dc-account-row">
-            <Text className="dc-account-label">
-              {tt('devEnter.cover.password', '密码')}：{developer.signPassword || '-'}
-            </Text>
-            <Text className="dc-copy-btn" onClick={() => copyText(developer.signPassword || '')}>
-              {tt('devEnter.cover.copy', '复制')}
-            </Text>
+          <View className="dc-entry-item" onClick={toModelIncome}>
+            <View className="dc-entry-icon">
+              <Image
+                className="dc-entry-emoji"
+                style={{ width: '44rpx', height: '44rpx' }}
+                src="/static/images/icons/wallet.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
           </View>
-          <View className="dc-account-row">
-            <Text className="dc-account-label">
-              {tt('devEnter.cover.website', '网址')}：
-              {developer.address || tt('devEnter.cover.noWebsite', '无')}
-            </Text>
-            <Text className="dc-copy-btn" onClick={() => copyText(developer.address || '')}>
-              {tt('devEnter.cover.copy', '复制')}
-            </Text>
+          <View className="dc-entry-item" onClick={toNbnModel}>
+            <View className="dc-entry-icon">
+              <Image
+                className="dc-entry-emoji"
+                style={{ width: '44rpx', height: '44rpx' }}
+                src="/static/images/icons/zap.svg"
+                mode="aspectFit"
+              />
+            </View>
+            <Text className="dc-entry-text">{tt('devEnter.cover.n8nAgents', 'n8n智能体')}</Text>
           </View>
-          <View className="dc-account-row">
-            <Text className="dc-account-label dc-expire-text">
-              {tt('devEnter.cover.expireTime', '到期时间')}：{devLink?.expiresAtStr || '-'}
-            </Text>
-            <View className="dc-renew-btn" onClick={renew}>
-              <Text>{tt('devEnter.cover.renew', '续费')}</Text>
+        </View>
+
+        {/* 开发者账号信息卡(仅 developer && !expire) */}
+        {showAccount && developer ? (
+          <View className="dc-account-card">
+            <View className="dc-account-row">
+              <Text className="dc-account-label">
+                {tt('devEnter.cover.account', '账号')}：{developer.signNickname || '-'}
+              </Text>
+              <Text className="dc-copy-btn" onClick={() => copyText(developer.signNickname || '')}>
+                {tt('devEnter.cover.copy', '复制')}
+              </Text>
+            </View>
+            <View className="dc-account-row">
+              <Text className="dc-account-label">
+                {tt('devEnter.cover.password', '密码')}：{developer.signPassword || '-'}
+              </Text>
+              <Text className="dc-copy-btn" onClick={() => copyText(developer.signPassword || '')}>
+                {tt('devEnter.cover.copy', '复制')}
+              </Text>
+            </View>
+            <View className="dc-account-row">
+              <Text className="dc-account-label">
+                {tt('devEnter.cover.website', '网址')}：
+                {developer.address || tt('devEnter.cover.noWebsite', '无')}
+              </Text>
+              <Text className="dc-copy-btn" onClick={() => copyText(developer.address || '')}>
+                {tt('devEnter.cover.copy', '复制')}
+              </Text>
+            </View>
+            <View className="dc-account-row">
+              <Text className="dc-account-label dc-expire-text">
+                {tt('devEnter.cover.expireTime', '到期时间')}：{devLink?.expiresAtStr || '-'}
+              </Text>
+              <View className="dc-renew-btn" onClick={renew}>
+                <Text>{tt('devEnter.cover.renew', '续费')}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {/* 开发者须知 + 继续接单(仅 developer && !expire) */}
-      {showAccount ? (
-        <View className="dc-notice-row">
-          <Text className="dc-notice-tip">{tt('devEnter.cover.devNotice', '开发者须知')}</Text>
-          <View className="dc-plaza-btn" onClick={toPlaza}>
-            <Text>{tt('devEnter.cover.continueOrder', '继续接单')}</Text>
+        {/* 开发者须知 + 继续接单(仅 developer && !expire) */}
+        {showAccount ? (
+          <View className="dc-notice-row">
+            <Text className="dc-notice-tip">{tt('devEnter.cover.devNotice', '开发者须知')}</Text>
+            <View className="dc-plaza-btn" onClick={toPlaza}>
+              <Text>{tt('devEnter.cover.continueOrder', '继续接单')}</Text>
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {/* FAQ(非开发者或开通中) */}
-      {showFaq ? (
-        <View className="dc-faq-section">
-          <Text className="dc-faq-title">
-            {tt('devEnter.cover.faqTitle', '相关开发者的一系列问题解答？')}
-          </Text>
-          <View className="dc-faq-grid">
-            {FAQ_LIST(tt).map((item, idx) => (
-              <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)}>
-                <Text className="dc-faq-item-title">{item.title}</Text>
-                <Text className="dc-faq-item-context">{item.context}</Text>
-                <Text className="dc-faq-item-btn">{item.btn}</Text>
-              </View>
-            ))}
+        {/* FAQ(非开发者或开通中) */}
+        {showFaq ? (
+          <View className="dc-faq-section">
+            <Text className="dc-faq-title">
+              {tt('devEnter.cover.faqTitle', '相关开发者的一系列问题解答？')}
+            </Text>
+            <View className="dc-faq-grid">
+              {FAQ_LIST(tt).map((item, idx) => (
+                <View key={idx} className="dc-faq-item" onClick={() => toWeb(item)}>
+                  <Text className="dc-faq-item-title">{item.title}</Text>
+                  <Text className="dc-faq-item-context">{item.context}</Text>
+                  <Text className="dc-faq-item-btn">{item.btn}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
 
-      {loading ? <Text className="dc-loading">{t('common.loading')}</Text> : null}
-    </ScrollView>
+        {loading ? <Text className="dc-loading">{t('common.loading')}</Text> : null}
+      </ScrollView>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

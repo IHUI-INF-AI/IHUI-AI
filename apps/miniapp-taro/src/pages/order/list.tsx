@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useRef, useMemo, useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import { getOrderList, type Order } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type OrderItem = Order & {
   outTradeNo?: string
@@ -246,81 +247,82 @@ export default function OrderList() {
             const createTimeText = formatTimestamp(o.createdAt || o.createTime)
             const refundTimeText = o.refundTime ? formatTimestamp(o.refundTime) : ''
             return (
-              <View
-                key={o.id}
-                className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
-                onClick={() => goDetail(o.id)}
-              >
-                <View className="flex justify-between items-center">
-                  <Text className="text-[24rpx] text-muted-foreground">
-                    {tt('order.list.orderNo', '订单号')}：{orderNoText}
-                  </Text>
-                  <Text
-                    className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}
-                  >
-                    {info.textKey ? t(info.textKey) : o.status}
-                  </Text>
-                </View>
-                <View className="flex mt-[8rpx]">
-                  {img ? (
-                    <Image
-                      className="w-[130rpx] h-[130rpx] rounded-md bg-background"
-                      src={img}
-                      mode="aspectFill"
-                      lazyLoad
-                    />
-                  ) : null}
-                  <View className={`flex-1 ${img ? 'ml-[20rpx]' : ''}`}>
-                    <Text className="block text-[32rpx] text-foreground font-bold">
-                      {productName}
+              <ThemeRoot key={o.id}>
+                <View
+                  className="bg-card rounded-2xl border border-border p-[24rpx] mb-[24rpx]"
+                  onClick={() => goDetail(o.id)}
+                >
+                  <View className="flex justify-between items-center">
+                    <Text className="text-[24rpx] text-muted-foreground">
+                      {tt('order.list.orderNo', '订单号')}：{orderNoText}
                     </Text>
-                    {o.description ? (
-                      <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
-                        {o.description}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-                <View className="flex justify-between items-end mt-[20rpx]">
-                  <View className="flex flex-col">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('order.list.orderTime', '下单时间')}：{createTimeText}
+                    <Text
+                      className={`inline-flex items-center h-[48rpx] px-[24rpx] rounded-md text-[24rpx] font-medium ${info.badge}`}
+                    >
+                      {info.textKey ? t(info.textKey) : o.status}
                     </Text>
-                    {refundTimeText ? (
-                      <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
-                        {tt('order.list.refundTime', '退款时间')}：{refundTimeText}
-                      </Text>
+                  </View>
+                  <View className="flex mt-[8rpx]">
+                    {img ? (
+                      <Image
+                        className="w-[130rpx] h-[130rpx] rounded-md bg-background"
+                        src={img}
+                        mode="aspectFill"
+                        lazyLoad
+                      />
                     ) : null}
+                    <View className={`flex-1 ${img ? 'ml-[20rpx]' : ''}`}>
+                      <Text className="block text-[32rpx] text-foreground font-bold">
+                        {productName}
+                      </Text>
+                      {o.description ? (
+                        <Text className="block text-[24rpx] text-muted-foreground mt-[12rpx] line-clamp-2">
+                          {o.description}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
-                  <Text className="text-[36rpx] text-destructive font-bold">¥{o.amount}</Text>
+                  <View className="flex justify-between items-end mt-[20rpx]">
+                    <View className="flex flex-col">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('order.list.orderTime', '下单时间')}：{createTimeText}
+                      </Text>
+                      {refundTimeText ? (
+                        <Text className="text-[22rpx] text-muted-foreground mt-[8rpx]">
+                          {tt('order.list.refundTime', '退款时间')}：{refundTimeText}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text className="text-[36rpx] text-destructive font-bold">¥{o.amount}</Text>
+                  </View>
+                  {(o.status === 'pending' || o.status === 'paid') && (
+                    <View className="flex justify-end mt-[20rpx]">
+                      {o.status === 'pending' && (
+                        <Text
+                          className="inline-block text-[24rpx] text-white bg-primary px-[32rpx] py-[10rpx] rounded-md"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            goPay(o)
+                          }}
+                        >
+                          {tt('order.list.goPay', '去支付')}
+                        </Text>
+                      )}
+                      {o.status === 'paid' && (
+                        <Text
+                          className="inline-block text-[24rpx] text-primary px-[32rpx] py-[10rpx] border-[2rpx] border-primary rounded-md"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            goRefund(o)
+                          }}
+                        >
+                          {tt('order.list.applyRefund', '申请退款')}
+                        </Text>
+                      )}
+                    </View>
+                  )}
                 </View>
-                {(o.status === 'pending' || o.status === 'paid') && (
-                  <View className="flex justify-end mt-[20rpx]">
-                    {o.status === 'pending' && (
-                      <Text
-                        className="inline-block text-[24rpx] text-white bg-primary px-[32rpx] py-[10rpx] rounded-md"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          goPay(o)
-                        }}
-                      >
-                        {tt('order.list.goPay', '去支付')}
-                      </Text>
-                    )}
-                    {o.status === 'paid' && (
-                      <Text
-                        className="inline-block text-[24rpx] text-primary px-[32rpx] py-[10rpx] border-[2rpx] border-primary rounded-md"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          goRefund(o)
-                        }}
-                      >
-                        {tt('order.list.applyRefund', '申请退款')}
-                      </Text>
-                    )}
-                  </View>
-                )}
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

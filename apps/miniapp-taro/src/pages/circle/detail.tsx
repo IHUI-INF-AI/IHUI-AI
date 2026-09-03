@@ -8,6 +8,7 @@ import { View, Text, Image, Button, ScrollView, Input } from '@tarojs/components
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface Comment {
@@ -197,174 +198,182 @@ export default function CircleDetailPage() {
   const imgCount = data.images?.length || 0
 
   return (
-    <View className="cd-page">
-      <ScrollView scrollY className="cd-scroll">
-        {data.author ? (
-          <View className="cd-head">
-            <Image className="cd-avatar" src={data.avatar || defaultAvatar} mode="aspectFill" />
-            <View className="cd-user">
-              <Text className="cd-name">{data.author}</Text>
-              <Text className="cd-time">{data.createTime}</Text>
+    <ThemeRoot>
+      <View className="cd-page">
+        <ScrollView scrollY className="cd-scroll">
+          {data.author ? (
+            <View className="cd-head">
+              <Image className="cd-avatar" src={data.avatar || defaultAvatar} mode="aspectFill" />
+              <View className="cd-user">
+                <Text className="cd-name">{data.author}</Text>
+                <Text className="cd-time">{data.createTime}</Text>
+              </View>
+              <Button
+                className={`cd-follow${following ? ' followed' : ''}`}
+                size="mini"
+                onClick={onFollow}
+              >
+                {following
+                  ? tt('circle.detail.followed', '已关注')
+                  : tt('circle.detail.follow', '关注')}
+              </Button>
             </View>
-            <Button
-              className={`cd-follow${following ? ' followed' : ''}`}
-              size="mini"
-              onClick={onFollow}
-            >
-              {following
-                ? tt('circle.detail.followed', '已关注')
-                : tt('circle.detail.follow', '关注')}
-            </Button>
-          </View>
-        ) : null}
+          ) : null}
 
-        {data.content ? (
-          <View className="cd-body">
-            {data.title ? <Text className="cd-title">{data.title}</Text> : null}
-            <Text className="cd-content">{data.content}</Text>
+          {data.content ? (
+            <View className="cd-body">
+              {data.title ? <Text className="cd-title">{data.title}</Text> : null}
+              <Text className="cd-content">{data.content}</Text>
 
-            {imgCount ? (
-              <View className={`cd-images cd-images-${imgCount === 1 ? 'single' : 'multi'}`}>
-                {data.images?.map((img, i) => (
-                  <Image
-                    key={i}
-                    className="cd-img"
-                    src={img}
-                    mode="aspectFill"
-                    onClick={() => previewImg(i)}
-                  />
-                ))}
-              </View>
-            ) : null}
-
-            {data.aigcWork ? (
-              <View className="cd-aigc-card" onClick={goAigcDetail}>
-                {data.aigcWork.coverUrl ? (
-                  <Image className="cd-aigc-cover" src={data.aigcWork.coverUrl} mode="aspectFill" />
-                ) : null}
-                <View className="cd-aigc-info">
-                  <Text className="cd-aigc-tag">{tt('circle.detail.aigcTag', 'AI 作品')}</Text>
-                  <Text className="cd-aigc-title">{data.aigcWork.title}</Text>
+              {imgCount ? (
+                <View className={`cd-images cd-images-${imgCount === 1 ? 'single' : 'multi'}`}>
+                  {data.images?.map((img, i) => (
+                    <Image
+                      key={i}
+                      className="cd-img"
+                      src={img}
+                      mode="aspectFill"
+                      onClick={() => previewImg(i)}
+                    />
+                  ))}
                 </View>
-                <Text className="cd-aigc-arrow">›</Text>
-              </View>
-            ) : null}
+              ) : null}
 
-            {data.topic ? (
-              <View className="cd-topic" onClick={() => goTopic(data.topic!.id)}>
-                <Text className="cd-topic-text">#{data.topic.name}</Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
+              {data.aigcWork ? (
+                <View className="cd-aigc-card" onClick={goAigcDetail}>
+                  {data.aigcWork.coverUrl ? (
+                    <Image
+                      className="cd-aigc-cover"
+                      src={data.aigcWork.coverUrl}
+                      mode="aspectFill"
+                    />
+                  ) : null}
+                  <View className="cd-aigc-info">
+                    <Text className="cd-aigc-tag">{tt('circle.detail.aigcTag', 'AI 作品')}</Text>
+                    <Text className="cd-aigc-title">{data.aigcWork.title}</Text>
+                  </View>
+                  <Text className="cd-aigc-arrow">›</Text>
+                </View>
+              ) : null}
 
-        <View className="cd-actions">
-          <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike}>
-            <Image
-              className="cd-action-icon"
-              style={{ width: '36rpx', height: '36rpx' }}
-              src={liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
-              mode="aspectFit"
-            />
-            <Text className="cd-action-num">{data.likes || 0}</Text>
-          </View>
-          <View className="cd-action">
-            <Image
-              className="cd-action-icon"
-              style={{ width: '36rpx', height: '36rpx' }}
-              src="/static/images/icons/message-circle.svg"
-              mode="aspectFit"
-            />
-            <Text className="cd-action-num">{data.comments || 0}</Text>
-          </View>
-          <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite}>
-            <Image
-              className="cd-action-icon"
-              style={{ width: '36rpx', height: '36rpx' }}
-              src={
-                favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'
-              }
-              mode="aspectFit"
-            />
-            <Text className="cd-action-num">{data.favorites || 0}</Text>
-          </View>
-          <View className="cd-action" onClick={onShare}>
-            <Image
-              className="cd-action-icon"
-              style={{ width: '36rpx', height: '36rpx' }}
-              src="/static/images/icons/share-2.svg"
-              mode="aspectFit"
-            />
-            <Text className="cd-action-num">{data.shares || 0}</Text>
-          </View>
-        </View>
+              {data.topic ? (
+                <View className="cd-topic" onClick={() => goTopic(data.topic!.id)}>
+                  <Text className="cd-topic-text">#{data.topic.name}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
 
-        <View className="cd-comments-section">
-          <View className="cd-comments-head">
-            <Text className="cd-comments-title">
-              {tt('circle.detail.commentsTitle', '评论')} {commentTotal}
-            </Text>
-            {commentTotal > comments.length ? (
-              <Text className="cd-comments-more" onClick={goCommentList}>
-                {tt('circle.detail.viewMore', '查看更多')} ›
+          <View className="cd-actions">
+            <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike}>
+              <Image
+                className="cd-action-icon"
+                style={{ width: '36rpx', height: '36rpx' }}
+                src={
+                  liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'
+                }
+                mode="aspectFit"
+              />
+              <Text className="cd-action-num">{data.likes || 0}</Text>
+            </View>
+            <View className="cd-action">
+              <Image
+                className="cd-action-icon"
+                style={{ width: '36rpx', height: '36rpx' }}
+                src="/static/images/icons/message-circle.svg"
+                mode="aspectFit"
+              />
+              <Text className="cd-action-num">{data.comments || 0}</Text>
+            </View>
+            <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite}>
+              <Image
+                className="cd-action-icon"
+                style={{ width: '36rpx', height: '36rpx' }}
+                src={
+                  favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'
+                }
+                mode="aspectFit"
+              />
+              <Text className="cd-action-num">{data.favorites || 0}</Text>
+            </View>
+            <View className="cd-action" onClick={onShare}>
+              <Image
+                className="cd-action-icon"
+                style={{ width: '36rpx', height: '36rpx' }}
+                src="/static/images/icons/share-2.svg"
+                mode="aspectFit"
+              />
+              <Text className="cd-action-num">{data.shares || 0}</Text>
+            </View>
+          </View>
+
+          <View className="cd-comments-section">
+            <View className="cd-comments-head">
+              <Text className="cd-comments-title">
+                {tt('circle.detail.commentsTitle', '评论')} {commentTotal}
               </Text>
-            ) : null}
-          </View>
-          {comments.length ? (
-            <View className="cd-comments">
-              {comments.map((c) => (
-                <View key={c.id} className="cd-comment">
-                  <Image
-                    className="cd-comment-avatar"
-                    src={c.avatar || defaultAvatar}
-                    mode="aspectFill"
-                  />
-                  <View className="cd-comment-body">
-                    <Text className="cd-comment-name">{c.nickname}</Text>
-                    <Text className="cd-comment-content">{c.content}</Text>
-                    <View className="cd-comment-foot">
-                      <Text className="cd-comment-time">{c.createdAt}</Text>
-                      <View className="cd-comment-like flex items-center gap-[8rpx]">
-                        <Image
-                          src="/static/images/icons/heart.svg"
-                          mode="aspectFit"
-                          style={{ width: '24rpx', height: '24rpx' }}
-                        />
-                        <Text>{c.likes || 0}</Text>
+              {commentTotal > comments.length ? (
+                <Text className="cd-comments-more" onClick={goCommentList}>
+                  {tt('circle.detail.viewMore', '查看更多')} ›
+                </Text>
+              ) : null}
+            </View>
+            {comments.length ? (
+              <View className="cd-comments">
+                {comments.map((c) => (
+                  <View key={c.id} className="cd-comment">
+                    <Image
+                      className="cd-comment-avatar"
+                      src={c.avatar || defaultAvatar}
+                      mode="aspectFill"
+                    />
+                    <View className="cd-comment-body">
+                      <Text className="cd-comment-name">{c.nickname}</Text>
+                      <Text className="cd-comment-content">{c.content}</Text>
+                      <View className="cd-comment-foot">
+                        <Text className="cd-comment-time">{c.createdAt}</Text>
+                        <View className="cd-comment-like flex items-center gap-[8rpx]">
+                          <Image
+                            src="/static/images/icons/heart.svg"
+                            mode="aspectFit"
+                            style={{ width: '24rpx', height: '24rpx' }}
+                          />
+                          <Text>{c.likes || 0}</Text>
+                        </View>
                       </View>
                     </View>
                   </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View className="cd-comments-empty">
-              <Text>{tt('circle.detail.noComments', '暂无评论,快来抢沙发')}</Text>
-            </View>
-          )}
-        </View>
-      </ScrollView>
+                ))}
+              </View>
+            ) : (
+              <View className="cd-comments-empty">
+                <Text>{tt('circle.detail.noComments', '暂无评论,快来抢沙发')}</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
 
-      <View className="cd-input-bar">
-        <Input
-          className="cd-input"
-          value={commentText}
-          placeholder={tt('circle.detail.commentPlaceholder', '说点什么…')}
-          onInput={(e) => setCommentText(e.detail.value)}
-          confirmType="send"
-          onConfirm={onSendComment}
-        />
-        <Button
-          className="cd-send"
-          size="mini"
-          loading={submitting}
-          disabled={!commentText.trim() || submitting}
-          onClick={onSendComment}
-        >
-          {tt('circle.detail.send', '发送')}
-        </Button>
+        <View className="cd-input-bar">
+          <Input
+            className="cd-input"
+            value={commentText}
+            placeholder={tt('circle.detail.commentPlaceholder', '说点什么…')}
+            onInput={(e) => setCommentText(e.detail.value)}
+            confirmType="send"
+            onConfirm={onSendComment}
+          />
+          <Button
+            className="cd-send"
+            size="mini"
+            loading={submitting}
+            disabled={!commentText.trim() || submitting}
+            onClick={onSendComment}
+          >
+            {tt('circle.detail.send', '发送')}
+          </Button>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
