@@ -36,6 +36,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -117,7 +118,7 @@ import {
   type ChatScreenModel,
 } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
-import { BottomActionBar } from '../components/BottomActionBar'
+import { BottomActionBar, type BottomActionBarIconType } from '../components/BottomActionBar'
 // 对齐 Uniapp ai_index2.vue 行 117-131:对话页顶部「查看卡片」折叠区(智汇值卡)
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import MaterialList, { type MaterialCategory, type MaterialItem } from '../components/MaterialList'
@@ -419,6 +420,9 @@ export function ChatScreen() {
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
   const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
+  /** 输入区滑出面板(对齐 Uniapp isShowIcon:辅助按钮行 + 图标按钮组,默认隐藏,
+   *  点输入行「+」toggle 滑出/收起;发送后自动收起) */
+  const [inputPanelVisible, setInputPanelVisible] = useState<boolean>(false)
   // P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading)
   const [ttsVisible, setTtsVisible] = useState(false)
   const [ttsLoading, setTtsLoading] = useState(false)
@@ -545,6 +549,8 @@ export function ChatScreen() {
 
   // ── 发送消息(send-message 事件) ──
   const send = async (overrideText?: string): Promise<void> => {
+    // 发送即收起滑出面板(对齐 Uniapp handleSendMessageabc:isShowIcon = false)
+    setInputPanelVisible(false)
     // 登录校验:未登录提示并跳转 Login(logout 触发 RootNavigator 切换到 Login 流)
     if (!authUser) {
       Alert.alert('提示', '请先登录后再发送消息', [
@@ -787,14 +793,17 @@ export function ChatScreen() {
   const handleInputBlur = (): void => setInputFocused(false)
   const textareaHeightChange = (): void => {}
 
-  /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能) */
+  /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能)。
+   *  面板(BottomPops)与滑出区(isShowIcon)解耦:开一个面板时关另一个,互斥防叠加 */
   const handleFunctionHandle = (): void => {
     setFunctionPanelVisible(true)
+    setSourcePanelVisible(false)
   }
 
   /** source-handle:打开来源面板(对齐 Uniapp source-handle 子组件,4 项知识来源) */
   const handleSourceHandle = (): void => {
     setSourcePanelVisible(true)
+    setFunctionPanelVisible(false)
   }
 
   /** 文件上传(对齐 Uniapp source-handle 文件上传:DocumentPicker 选文件 → uploadFileMultipart 上传) */
@@ -1109,13 +1118,31 @@ export function ChatScreen() {
   ]
 
   /**
-   * icon-click:图标按钮点击(相机/相册/文件)。
-   * BottomActionBar onIconClick 签名为 () => void,三个图标共用同一回调。
-   * 复用 useChatInput 的 onInputAddImage(expo-image-picker launchImageLibraryAsync)。
-   * 后续 BottomActionBar 支持 type 参数后可按 camera/album/file 分发。
+   * icon-click:图标按钮点击(按 type 分发,对齐 Uniapp handleIconClick(type))。
+   * album → 相册选图;camera → 相机拍摄(待接原生,占位提示);file / wxfile → 文件选择上传。
    */
-  const handleIconClick = (): void => {
-    onInputAddImage()
+  const handleIconClick = (type: BottomActionBarIconType): void => {
+    if (type === 'album') {
+      onInputAddImage()
+      return
+    }
+    if (type === 'camera') {
+      showToast('info', '相机拍摄待接入,请先用相册上传图片')
+      return
+    }
+    // file / wxfile → 文件选择上传(复用 handleFileUpload DocumentPicker 流程)
+    void handleFileUpload()
+  }
+
+  /** plus-toggle:输入行「+」按钮(对齐 Uniapp functionHandle → isShowIcon 切换)。
+   *  展开:收起键盘 + 关闭 BottomPops 面板(互斥);收起:仅折叠滑出区 */
+  const handlePlusToggle = (): void => {
+    if (!inputPanelVisible) {
+      Keyboard.dismiss()
+      setFunctionPanelVisible(false)
+      setSourcePanelVisible(false)
+    }
+    setInputPanelVisible(!inputPanelVisible)
   }
 
   /** fangda:放大输入区(切换展开状态,占位提示) */
@@ -2007,7 +2034,9 @@ export function ChatScreen() {
           voiceInputEnabled={isVoiceMode}
           images={inputFiles.filter((f) => f.type === 'image').map((f) => f.url)}
           isLoading={isStreaming}
-          isShowIcon={functionPanelVisible || sourcePanelVisible}
+          onPlusToggle={handlePlusToggle}
+          plusActive={inputPanelVisible}
+          isShowIcon={inputPanelVisible}
         />
       </KeyboardAvoidingView>
 
