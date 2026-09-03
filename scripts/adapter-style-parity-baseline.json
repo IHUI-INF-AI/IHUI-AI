@@ -1,0 +1,4 @@
+{
+  "Carousel.taro.tsx": ["#9ca3af", "#ffffff", "rgba(255,255,255,0.5)"],
+  "ColorfulLoader.taro.tsx": ["hsl(${i*5},70%,60%)", "rgba(0,0,0,0.1)"]
+}
