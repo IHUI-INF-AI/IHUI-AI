@@ -1514,20 +1514,6 @@
       }
     },
     {
-      "id": "opencode/big-pickle",
-      "name": "Big Pickle",
-      "provider": "opencode_zen",
-      "context_length": 256000,
-      "input_price": 0,
-      "caps": {
-        "supports_stream_usage": true,
-        "supports_tools": true,
-        "supports_vision": false,
-        "max_context": 256000,
-        "protocol": "openai_chat"
-      }
-    },
-    {
       "id": "modal/labcompute/qwen2.5-72b",
       "name": "Qwen2.5 72B (Modal ToS 禁止第三方代理 商用需法务评估)",
       "provider": "modal",
