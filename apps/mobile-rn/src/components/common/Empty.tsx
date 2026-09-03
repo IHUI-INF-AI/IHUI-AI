@@ -48,7 +48,7 @@ export default function Empty({
           <Text style={styles.emoji}>{icon}</Text>
         )
       ) : IconNode ? (
-        <IconNode size={48} color={'#6b7280'} />
+        <IconNode size={48} color={tokens.text.secondary} />
       ) : null}
       <Text style={styles.text}>{text}</Text>
       {showAction ? (
