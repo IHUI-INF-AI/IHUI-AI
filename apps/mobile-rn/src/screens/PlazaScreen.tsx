@@ -41,6 +41,7 @@ import {
   type ConversationDetail,
 } from '@ihui/api-client'
 import { PlazaScreen as SharedPlazaScreen, type PlazaScreenProps } from '@ihui/rn-app'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -422,9 +423,9 @@ export function PlazaScreen() {
             accessibilityLabel="搜索"
           >
             {showSearch ? (
-              <X size={20} color={'#000'} />
+              <X size={20} color={tokens.gray.black} />
             ) : (
-              <Search size={20} color={'#000'} />
+              <Search size={20} color={tokens.gray.black} />
             )}
           </Pressable>
         }
@@ -532,7 +533,7 @@ export function PlazaScreen() {
                 <Image source={{ uri: user.avatar }} style={styles.identityAvatar} />
               ) : (
                 <View style={[styles.identityAvatar, styles.identityAvatarFallback]}>
-                  <User size={28} color={'#6b7280'} />
+                  <User size={28} color={tokens.text.secondary} />
                 </View>
               )}
               <View style={styles.identityUserInfo}>
@@ -643,11 +644,11 @@ export function PlazaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
   } as ViewStyle,
   navIcon: {
     fontSize: 20,
-    color: '#000',
+    color: tokens.gray.black,
   } as TextStyle,
   // 需求赛道筛选弹层样式(圆角守门:仅 8/12)
   categoryMask: {
@@ -660,7 +661,7 @@ const styles = StyleSheet.create({
   categoryCard: {
     width: '100%',
     maxWidth: 320,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
     borderRadius: 12,
     padding: rpx(40),
   } as ViewStyle,
@@ -668,12 +669,12 @@ const styles = StyleSheet.create({
   identityCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.surface.light,
     borderRadius: 12,
     padding: rpx(48),
     alignItems: 'center',
   } as ViewStyle,
-  identityTitle: { fontSize: 18, fontWeight: '700', color: '#171717', marginBottom: rpx(12) },
+  identityTitle: { fontSize: 18, fontWeight: '700', color: tokens.gray.900, marginBottom: rpx(12) },
   // ── 身份用户区(对齐原项目 plaza identity-user:头像 + 昵称 + 副文案) ──
   identityUser: {
     flexDirection: 'row',
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: tokens.surface.muted,
     overflow: 'hidden',
   } as ImageStyle,
   identityAvatarFallback: {
@@ -702,10 +703,10 @@ const styles = StyleSheet.create({
   identityNickname: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#171717',
+    color: tokens.gray.900,
     marginBottom: rpx(8),
   } as TextStyle,
-  identitySubtext: { fontSize: 13, color: '#8a8a8a' },
+  identitySubtext: { fontSize: 13, color: tokens.text.tertiary },
   identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
@@ -715,20 +716,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  identityBtnOutline: { borderColor: '#d9d9d9', backgroundColor: '#fff' },
-  identityBtnPrimary: { borderColor: '#4a6cf7', backgroundColor: '#4a6cf7' },
-  identityBtnTextOutline: { fontSize: 15, color: '#171717', fontWeight: '600' },
-  identityBtnTextPrimary: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  identityBtnOutline: { borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
+  identityBtnPrimary: { borderColor: tokens.indigo.DEFAULT, backgroundColor: tokens.indigo.DEFAULT },
+  identityBtnTextOutline: { fontSize: 15, color: tokens.gray.900, fontWeight: '600' },
+  identityBtnTextPrimary: { fontSize: 15, color: tokens.surface.light, fontWeight: '600' },
   identityFooter: { marginTop: rpx(36), alignItems: 'center' },
-  identityFooterTitle: { fontSize: 14, color: '#4a6cf7', fontWeight: '600', marginBottom: rpx(4) },
-  identityFooterText: { fontSize: 12, color: '#a0a0a0' },
+  identityFooterTitle: { fontSize: 14, color: tokens.indigo.DEFAULT, fontWeight: '600', marginBottom: rpx(4) },
+  identityFooterText: { fontSize: 12, color: tokens.text.tertiary },
   noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
-  noticeItem: { fontSize: 13, color: '#4a4a4a', lineHeight: 20 },
-  noticeBold: { fontWeight: '700', color: '#171717' },
+  noticeItem: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
+  noticeBold: { fontWeight: '700', color: tokens.gray.900 },
   categoryTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111',
+    color: tokens.gray.black,
     textAlign: 'center',
     marginBottom: rpx(28),
   } as TextStyle,
@@ -739,18 +740,18 @@ const styles = StyleSheet.create({
     paddingVertical: rpx(20),
     paddingHorizontal: rpx(24),
     borderRadius: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: tokens.surface.muted,
     alignItems: 'center',
   } as ViewStyle,
   categoryItemActive: {
-    backgroundColor: '#5088fa',
+    backgroundColor: tokens.indigo.DEFAULT,
   } as ViewStyle,
   categoryItemText: {
     fontSize: 14,
-    color: '#333',
+    color: tokens.text.medium,
   } as TextStyle,
   categoryItemTextActive: {
-    color: '#fff',
+    color: tokens.surface.light,
     fontWeight: '600',
   } as TextStyle,
 })

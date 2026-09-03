@@ -1355,7 +1355,7 @@ function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
                   <View style={[styles.videoPosterPlaceholder, { width: w, height: h }]} />
                 )}
                 <View style={styles.videoPlayIcon}>
-                  <Play size={24} color={'#ffffff'} style={{ marginLeft: rpx(8) }} />
+                  <Play size={24} color={tokens.surface.light} style={{ marginLeft: rpx(8) }} />
                 </View>
               </TouchableOpacity>
             </View>
