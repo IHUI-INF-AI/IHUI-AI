@@ -9,6 +9,7 @@ import { useState, useMemo, useCallback } from 'react'
 import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 
@@ -246,53 +247,55 @@ export default function FavoritesPage() {
           {displayList.map((item) => {
             const checked = selectedIds.has(item.id)
             return (
-              <View
-                key={item.id}
-                className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
-                onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
-              >
-                {manageMode ? (
-                  <Text
-                    className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
-                  >
-                    {checked ? '✓' : ''}
-                  </Text>
-                ) : null}
-                {item.cover ? (
-                  <Image
-                    className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
-                    src={item.cover}
-                    mode="aspectFill"
-                  />
-                ) : (
-                  <View className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
-                    <Text className="text-[20rpx] text-muted-foreground">{item.targetType}</Text>
-                  </View>
-                )}
-                <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
-                  <Text className="text-[30rpx] font-semibold text-foreground truncate">
-                    {item.title}
-                  </Text>
-                  <Text className="text-[22rpx] text-muted-foreground">{item.targetType}</Text>
-                  <View className="flex items-center justify-between">
-                    <Text className="text-[22rpx] text-muted-foreground">
-                      {tt('favorites.collectedAt', '收藏于')}{' '}
-                      {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
+              <ThemeRoot key={item.id}>
+                <View
+                  key={item.id}
+                  className="flex items-center p-[24rpx] bg-card border-[2rpx] border-primary/20 rounded-[12rpx]"
+                  onClick={() => (manageMode ? toggleSelect(item.id) : viewDetail(item))}
+                >
+                  {manageMode ? (
+                    <Text
+                      className={`inline-flex items-center justify-center w-[40rpx] h-[40rpx] text-[24rpx] text-transparent bg-background border-[2rpx] border-primary/40 rounded-[6rpx] shrink-0 ${checked ? 'text-foreground bg-primary border-primary' : ''}`}
+                    >
+                      {checked ? '✓' : ''}
                     </Text>
-                    {!manageMode ? (
-                      <Text
-                        className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleCancel(item)
-                        }}
-                      >
-                        {tt('favorites.cancel', '取消收藏')}
+                  ) : null}
+                  {item.cover ? (
+                    <Image
+                      className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0"
+                      src={item.cover}
+                      mode="aspectFill"
+                    />
+                  ) : (
+                    <View className="w-[120rpx] h-[120rpx] rounded-[10rpx] bg-muted mr-[20rpx] shrink-0 flex items-center justify-center">
+                      <Text className="text-[20rpx] text-muted-foreground">{item.targetType}</Text>
+                    </View>
+                  )}
+                  <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
+                    <Text className="text-[30rpx] font-semibold text-foreground truncate">
+                      {item.title}
+                    </Text>
+                    <Text className="text-[22rpx] text-muted-foreground">{item.targetType}</Text>
+                    <View className="flex items-center justify-between">
+                      <Text className="text-[22rpx] text-muted-foreground">
+                        {tt('favorites.collectedAt', '收藏于')}{' '}
+                        {formatDateByTemplate(item.createdAt, 'YYYY-MM-DD') || '-'}
                       </Text>
-                    ) : null}
+                      {!manageMode ? (
+                        <Text
+                          className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCancel(item)
+                          }}
+                        >
+                          {tt('favorites.cancel', '取消收藏')}
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>
