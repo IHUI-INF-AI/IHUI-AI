@@ -43,7 +43,7 @@
     "check:sanitizer-bypass": "node scripts/check-sanitizer-bypass.mjs",
     "check:nav-dead-links": "node scripts/check-nav-dead-links.mjs",
     "check:popover-trigger-data-state": "node scripts/check-popover-trigger-data-state.mjs",
-    "check:all": "pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state",
+    "check:all": "pnpm check:api-key-leak && pnpm check:i18n-keys && pnpm check:stale-dist && pnpm check:db-schema-drift && pnpm check:sanitizer-bypass && pnpm check:api-routes:warn && pnpm check:safe-parse && pnpm check:nav-dead-links && pnpm check:popover-trigger-data-state && pnpm check:miniapp-parity",
     "knip": "knip",
     "openapi-check": "node scripts/openapi-check.mjs",
     "miniapp:preview": "node scripts/miniapp-preview.mjs",
@@ -77,7 +77,8 @@
     "resolve:desktop-download:check": "node scripts/resolve-desktop-download.mjs --check",
     "resolve:desktop-download:dry-run": "node scripts/resolve-desktop-download.mjs --dry-run",
     "watermark": "node scripts/watermark.mjs inject",
-    "watermark:check": "node scripts/watermark.mjs verify"
+    "watermark:check": "node scripts/watermark.mjs verify",
+    "check:miniapp-parity": "node scripts/check-miniapp-taro-style-parity.mjs"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "contributors": [

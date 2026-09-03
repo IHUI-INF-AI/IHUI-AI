@@ -7,6 +7,7 @@ import { View, Text, Button, Image } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './privilege.css'
 
 interface Privilege {
@@ -135,236 +136,240 @@ export default function PrivilegePage() {
   const isOpened = !!(vipInfo && vipInfo.level)
 
   return (
-    <View className="page">
-      {/* 顶部会员等级展示区 */}
-      <View className="header">
-        <Text className="header-title">{tt('vip.privilege.title', '会员权益')}</Text>
-        <View className="header-level-row">
-          <Image
-            className="level-icon"
-            src="/static/images/icons/star-fill.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
-          />
-          <View className={`level-badge ${isOpened ? '' : 'closed'}`}>{levelName}</View>
-        </View>
-        {isOpened && vipInfo?.expireTime ? (
-          <Text className="header-expire">
-            {tt('vip.privilege.expireTime', '到期时间')}：{vipInfo.expireTime}
-          </Text>
-        ) : (
-          <Text className="header-expire">
-            {tt('vip.privilege.openHint', '开通会员享受全部权益')}
-          </Text>
-        )}
-      </View>
-
-      {/* 3 个入口卡片 */}
-      <View className="entry-section">
-        <View className="entry-card" onClick={() => setPopup('level')}>
-          <Image
-            className="entry-icon"
-            src="/static/images/icons/gem.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
-          />
-          <Text className="entry-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
-        </View>
-        <View className="entry-card" onClick={() => setPopup('trader')}>
-          <Image
-            className="entry-icon"
-            src="/static/images/icons/chevron-up.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
-          />
-          <Text className="entry-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
-        </View>
-        <View className="entry-card" onClick={() => setPopup('privateAdvisory')}>
-          <Image
-            className="entry-icon"
-            src="/static/images/icons/radio.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
-          />
-          <Text className="entry-title">{tt('vip.privilege.privateAdvisory', '私董会权益')}</Text>
-        </View>
-      </View>
-
-      {/* 权益列表 */}
-      <Text className="section-title">{tt('vip.privilege.privilegeList', '专属权益')}</Text>
-      <View className="privilege-list">
-        {list.map((p) => (
-          <View key={p.id} className="privilege-card">
+    <ThemeRoot>
+      <View className="page">
+        {/* 顶部会员等级展示区 */}
+        <View className="header">
+          <Text className="header-title">{tt('vip.privilege.title', '会员权益')}</Text>
+          <View className="header-level-row">
             <Image
-              className="privilege-icon"
+              className="level-icon"
               src="/static/images/icons/star-fill.svg"
               mode="aspectFit"
               style={{ width: '32rpx', height: '32rpx' }}
             />
-            <View className="privilege-body">
-              <Text className="privilege-title">{p.title}</Text>
-              <Text className="privilege-desc">{p.desc}</Text>
-            </View>
+            <View className={`level-badge ${isOpened ? '' : 'closed'}`}>{levelName}</View>
           </View>
-        ))}
-        {!loading && !list.length ? (
-          <View className="empty-state">
-            <Text>{tt('vip.privilege.empty', '暂无权益')}</Text>
+          {isOpened && vipInfo?.expireTime ? (
+            <Text className="header-expire">
+              {tt('vip.privilege.expireTime', '到期时间')}：{vipInfo.expireTime}
+            </Text>
+          ) : (
+            <Text className="header-expire">
+              {tt('vip.privilege.openHint', '开通会员享受全部权益')}
+            </Text>
+          )}
+        </View>
+
+        {/* 3 个入口卡片 */}
+        <View className="entry-section">
+          <View className="entry-card" onClick={() => setPopup('level')}>
+            <Image
+              className="entry-icon"
+              src="/static/images/icons/gem.svg"
+              mode="aspectFit"
+              style={{ width: '32rpx', height: '32rpx' }}
+            />
+            <Text className="entry-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
           </View>
-        ) : null}
-      </View>
+          <View className="entry-card" onClick={() => setPopup('trader')}>
+            <Image
+              className="entry-icon"
+              src="/static/images/icons/chevron-up.svg"
+              mode="aspectFit"
+              style={{ width: '32rpx', height: '32rpx' }}
+            />
+            <Text className="entry-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
+          </View>
+          <View className="entry-card" onClick={() => setPopup('privateAdvisory')}>
+            <Image
+              className="entry-icon"
+              src="/static/images/icons/radio.svg"
+              mode="aspectFit"
+              style={{ width: '32rpx', height: '32rpx' }}
+            />
+            <Text className="entry-title">{tt('vip.privilege.privateAdvisory', '私董会权益')}</Text>
+          </View>
+        </View>
 
-      {/* 底部升级按钮 */}
-      <View className="bottom-bar">
-        <Button className="upgrade-btn" onClick={goUpgrade}>
-          {tt('vip.privilege.upgrade', '立即升级')}
-        </Button>
-      </View>
-
-      {/* 弹窗1: 会员等级介绍 */}
-      {popup === 'level' && (
-        <View className="popup-mask" onClick={() => setPopup(null)}>
-          <View className="popup-card" onClick={(e) => e.stopPropagation()}>
-            <View className="popup-header">
-              <Text className="popup-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>
-                ×
-              </Text>
+        {/* 权益列表 */}
+        <Text className="section-title">{tt('vip.privilege.privilegeList', '专属权益')}</Text>
+        <View className="privilege-list">
+          {list.map((p) => (
+            <View key={p.id} className="privilege-card">
+              <Image
+                className="privilege-icon"
+                src="/static/images/icons/star-fill.svg"
+                mode="aspectFit"
+                style={{ width: '32rpx', height: '32rpx' }}
+              />
+              <View className="privilege-body">
+                <Text className="privilege-title">{p.title}</Text>
+                <Text className="privilege-desc">{p.desc}</Text>
+              </View>
             </View>
-            <View className="popup-body">
-              <View className="matrix">
-                <View className="matrix-row header-row">
-                  <Text className="matrix-cell label">
-                    {tt('vip.privilege.matrixBenefit', '权益')}
-                  </Text>
-                  <Text className="matrix-cell level-cell">
-                    {tt('vip.privilege.levelNormal', '普通')}
-                  </Text>
-                  <Text className="matrix-cell level-cell">
-                    {tt('vip.privilege.levelMonth', '月度')}
-                  </Text>
-                  <Text className="matrix-cell level-cell">
-                    {tt('vip.privilege.levelQuarter', '季度')}
-                  </Text>
-                  <Text className="matrix-cell level-cell">
-                    {tt('vip.privilege.levelYear', '年度')}
-                  </Text>
-                </View>
-                {LEVEL_MATRIX.map((row) => (
-                  <View key={row.label} className="matrix-row">
+          ))}
+          {!loading && !list.length ? (
+            <View className="empty-state">
+              <Text>{tt('vip.privilege.empty', '暂无权益')}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* 底部升级按钮 */}
+        <View className="bottom-bar">
+          <Button className="upgrade-btn" onClick={goUpgrade}>
+            {tt('vip.privilege.upgrade', '立即升级')}
+          </Button>
+        </View>
+
+        {/* 弹窗1: 会员等级介绍 */}
+        {popup === 'level' && (
+          <View className="popup-mask" onClick={() => setPopup(null)}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+              <View className="popup-header">
+                <Text className="popup-title">
+                  {tt('vip.privilege.levelIntro', '会员等级介绍')}
+                </Text>
+                <Text className="popup-close" onClick={() => setPopup(null)}>
+                  ×
+                </Text>
+              </View>
+              <View className="popup-body">
+                <View className="matrix">
+                  <View className="matrix-row header-row">
                     <Text className="matrix-cell label">
-                      {tt(row.label, MATRIX_FALLBACK(tt)[row.label] || row.label)}
+                      {tt('vip.privilege.matrixBenefit', '权益')}
                     </Text>
-                    {row.values.map((v, i) => (
-                      <Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
-                        {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK(tt)[v] || v) : v}
+                    <Text className="matrix-cell level-cell">
+                      {tt('vip.privilege.levelNormal', '普通')}
+                    </Text>
+                    <Text className="matrix-cell level-cell">
+                      {tt('vip.privilege.levelMonth', '月度')}
+                    </Text>
+                    <Text className="matrix-cell level-cell">
+                      {tt('vip.privilege.levelQuarter', '季度')}
+                    </Text>
+                    <Text className="matrix-cell level-cell">
+                      {tt('vip.privilege.levelYear', '年度')}
+                    </Text>
+                  </View>
+                  {LEVEL_MATRIX.map((row) => (
+                    <View key={row.label} className="matrix-row">
+                      <Text className="matrix-cell label">
+                        {tt(row.label, MATRIX_FALLBACK(tt)[row.label] || row.label)}
                       </Text>
-                    ))}
-                  </View>
-                ))}
+                      {row.values.map((v, i) => (
+                        <Text key={i} className={`matrix-cell ${i === 3 ? 'highlight' : ''}`}>
+                          {v.startsWith('vip.privilege.') ? tt(v, MATRIX_FALLBACK(tt)[v] || v) : v}
+                        </Text>
+                      ))}
+                    </View>
+                  ))}
+                </View>
+                <Text className="matrix-desc">
+                  {tt(
+                    'vip.privilege.matrixDesc',
+                    '1元=1点成长值，升级会员享受更高权益。全部课程/算力/自动化智能体/知识库/定制服务等，持续增加功能。',
+                  )}
+                </Text>
               </View>
-              <Text className="matrix-desc">
-                {tt(
-                  'vip.privilege.matrixDesc',
-                  '1元=1点成长值，升级会员享受更高权益。全部课程/算力/自动化智能体/知识库/定制服务等，持续增加功能。',
-                )}
-              </Text>
-            </View>
-            <View className="popup-footer">
-              <Button className="popup-action-btn" onClick={goUpgrade}>
-                {tt('vip.privilege.goOpen', '去开通')}
-              </Button>
+              <View className="popup-footer">
+                <Button className="popup-action-btn" onClick={goUpgrade}>
+                  {tt('vip.privilege.goOpen', '去开通')}
+                </Button>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* 弹窗2: 操盘手介绍 */}
-      {popup === 'trader' && (
-        <View className="popup-mask" onClick={() => setPopup(null)}>
-          <View className="popup-card" onClick={(e) => e.stopPropagation()}>
-            <View className="popup-header">
-              <Text className="popup-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>
-                ×
-              </Text>
-            </View>
-            <View className="popup-body">
-              <Text className="benefit-intro">
-                {tt(
-                  'vip.privilege.traderDesc',
-                  '操盘手是平台认证的专业市场分析角色，享有专属数据工具与一对一指导服务。',
-                )}
-              </Text>
-              <View className="benefit-list">
-                {TRADER_BENEFITS.map((key) => (
-                  <View key={key} className="benefit-item">
-                    <Image
-                      className="benefit-check"
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '24rpx', height: '24rpx' }}
-                    />
-                    <Text className="benefit-text">
-                      {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
-                    </Text>
-                  </View>
-                ))}
+        {/* 弹窗2: 操盘手介绍 */}
+        {popup === 'trader' && (
+          <View className="popup-mask" onClick={() => setPopup(null)}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+              <View className="popup-header">
+                <Text className="popup-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
+                <Text className="popup-close" onClick={() => setPopup(null)}>
+                  ×
+                </Text>
+              </View>
+              <View className="popup-body">
+                <Text className="benefit-intro">
+                  {tt(
+                    'vip.privilege.traderDesc',
+                    '操盘手是平台认证的专业市场分析角色，享有专属数据工具与一对一指导服务。',
+                  )}
+                </Text>
+                <View className="benefit-list">
+                  {TRADER_BENEFITS.map((key) => (
+                    <View key={key} className="benefit-item">
+                      <Image
+                        className="benefit-check"
+                        src="/static/images/icons/check.svg"
+                        mode="aspectFit"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                      />
+                      <Text className="benefit-text">
+                        {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className="popup-footer">
+                <Button className="popup-action-btn" onClick={goUpgrade}>
+                  {tt('vip.privilege.goOpen', '去开通')}
+                </Button>
               </View>
             </View>
-            <View className="popup-footer">
-              <Button className="popup-action-btn" onClick={goUpgrade}>
-                {tt('vip.privilege.goOpen', '去开通')}
-              </Button>
-            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* 弹窗3: 私董会介绍 */}
-      {popup === 'privateAdvisory' && (
-        <View className="popup-mask" onClick={() => setPopup(null)}>
-          <View className="popup-card" onClick={(e) => e.stopPropagation()}>
-            <View className="popup-header">
-              <Text className="popup-title">
-                {tt('vip.privilege.privateAdvisory', '私董会权益')}
-              </Text>
-              <Text className="popup-close" onClick={() => setPopup(null)}>
-                ×
-              </Text>
-            </View>
-            <View className="popup-body">
-              <Text className="benefit-intro">
-                {tt(
-                  'vip.privilege.privateAdvisoryDesc',
-                  '私董会是平台最高端会员圈层，汇聚行业大咖，享有一对一顾问与闭门沙龙参与权。',
-                )}
-              </Text>
-              <View className="benefit-list">
-                {PRIVATE_BENEFITS.map((key) => (
-                  <View key={key} className="benefit-item">
-                    <Image
-                      className="benefit-check"
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '24rpx', height: '24rpx' }}
-                    />
-                    <Text className="benefit-text">
-                      {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
-                    </Text>
-                  </View>
-                ))}
+        {/* 弹窗3: 私董会介绍 */}
+        {popup === 'privateAdvisory' && (
+          <View className="popup-mask" onClick={() => setPopup(null)}>
+            <View className="popup-card" onClick={(e) => e.stopPropagation()}>
+              <View className="popup-header">
+                <Text className="popup-title">
+                  {tt('vip.privilege.privateAdvisory', '私董会权益')}
+                </Text>
+                <Text className="popup-close" onClick={() => setPopup(null)}>
+                  ×
+                </Text>
+              </View>
+              <View className="popup-body">
+                <Text className="benefit-intro">
+                  {tt(
+                    'vip.privilege.privateAdvisoryDesc',
+                    '私董会是平台最高端会员圈层，汇聚行业大咖，享有一对一顾问与闭门沙龙参与权。',
+                  )}
+                </Text>
+                <View className="benefit-list">
+                  {PRIVATE_BENEFITS.map((key) => (
+                    <View key={key} className="benefit-item">
+                      <Image
+                        className="benefit-check"
+                        src="/static/images/icons/check.svg"
+                        mode="aspectFit"
+                        style={{ width: '24rpx', height: '24rpx' }}
+                      />
+                      <Text className="benefit-text">
+                        {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className="popup-footer">
+                <Button className="popup-action-btn" onClick={goUpgrade}>
+                  {tt('vip.privilege.goOpen', '去开通')}
+                </Button>
               </View>
             </View>
-            <View className="popup-footer">
-              <Button className="popup-action-btn" onClick={goUpgrade}>
-                {tt('vip.privilege.goOpen', '去开通')}
-              </Button>
-            </View>
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

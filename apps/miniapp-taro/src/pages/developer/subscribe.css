@@ -19,7 +19,7 @@
   margin: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .dev-avatar-wrap {
   flex-shrink: 0;
@@ -27,7 +27,7 @@
 .dev-avatar {
   width: 112rpx;
   height: 112rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .dev-avatar-fallback {
@@ -66,7 +66,7 @@
   font-size: 26rpx;
   color: var(--color-foreground);
   background: var(--color-primary);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   border: none;
 }
 .dev-sub-btn::after {
@@ -89,7 +89,7 @@
   padding: 24rpx 0;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .dev-stat {
   flex: 1;
@@ -133,7 +133,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .dev-model-left {
   flex-shrink: 0;
@@ -141,7 +141,7 @@
 .dev-model-icon {
   width: 88rpx;
   height: 88rpx;
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 .dev-model-icon-fallback {
@@ -189,7 +189,7 @@
   color: var(--color-primary);
   background: var(--color-border);
   border: 2rpx solid var(--color-ring);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 /* ===== 通知设置 ===== */
@@ -200,7 +200,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 16rpx;
 }
 .dev-notify-label {
@@ -218,7 +218,7 @@
   padding: 24rpx;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .dev-post-title {
   display: block;
@@ -248,7 +248,7 @@
   font-size: 30rpx;
   color: var(--color-foreground);
   background: var(--color-primary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   border: none;
 }
 .dev-contact-btn::after {

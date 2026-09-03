@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { getExamList, getExamRecords, type Exam, type ExamRecord } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type Tab = 'all' | 'pending' | 'completed'
 
@@ -55,52 +56,56 @@ export default function ExamList() {
   const goResult = (id: string) => Taro.navigateTo({ url: `/pages/exam/result?id=${id}` })
 
   const renderPaper = (e: Exam) => (
-    <View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
-      <View className="flex justify-between items-center">
-        <Text className="text-base text-foreground font-semibold">{e.title}</Text>
-        {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
+    <ThemeRoot>
+      <View key={e.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goDetail(e.id)}>
+        <View className="flex justify-between items-center">
+          <Text className="text-base text-foreground font-semibold">{e.title}</Text>
+          {e.categoryName && <Text className="text-xs text-primary">{e.categoryName}</Text>}
+        </View>
+        <View className="flex gap-3 mt-2">
+          <Text className="text-xs text-muted-foreground">
+            {t('exam.questions', { n: e.questionCount })}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('exam.minutes', { n: e.duration })}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('exam.passScore', { n: e.passScore })}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t('exam.totalScore', { n: e.totalScore })}
+          </Text>
+        </View>
       </View>
-      <View className="flex gap-3 mt-2">
-        <Text className="text-xs text-muted-foreground">
-          {t('exam.questions', { n: e.questionCount })}
-        </Text>
-        <Text className="text-xs text-muted-foreground">
-          {t('exam.minutes', { n: e.duration })}
-        </Text>
-        <Text className="text-xs text-muted-foreground">
-          {t('exam.passScore', { n: e.passScore })}
-        </Text>
-        <Text className="text-xs text-muted-foreground">
-          {t('exam.totalScore', { n: e.totalScore })}
-        </Text>
-      </View>
-    </View>
+    </ThemeRoot>
   )
 
   const renderRecord = (r: ExamRecord) => {
     const paper = paperMap.get(r.paperId)
     return (
-      <View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
-        <View className="flex justify-between items-center">
-          <Text className="text-base text-foreground font-semibold">
-            {paper?.title ?? t('exam.removedPaper')}
-          </Text>
-          <Text className={`text-xs ${r.isPassed ? 'text-primary' : 'text-destructive'}`}>
-            {r.isPassed ? t('exam.passed') : t('exam.notPassed')}
-          </Text>
-        </View>
-        <View className="flex gap-3 mt-2">
-          <Text className="text-xs text-muted-foreground">{t('exam.score', { n: r.score })}</Text>
-          {paper && (
-            <Text className="text-xs text-muted-foreground">
-              {t('exam.totalScore', { n: paper.totalScore })}
+      <ThemeRoot>
+        <View key={r.id} className="bg-card rounded-2xl p-4 mb-3" onClick={() => goResult(r.id)}>
+          <View className="flex justify-between items-center">
+            <Text className="text-base text-foreground font-semibold">
+              {paper?.title ?? t('exam.removedPaper')}
             </Text>
-          )}
-          {r.submittedAt && (
-            <Text className="text-xs text-muted-foreground">{formatDateOnly(r.submittedAt)}</Text>
-          )}
+            <Text className={`text-xs ${r.isPassed ? 'text-primary' : 'text-destructive'}`}>
+              {r.isPassed ? t('exam.passed') : t('exam.notPassed')}
+            </Text>
+          </View>
+          <View className="flex gap-3 mt-2">
+            <Text className="text-xs text-muted-foreground">{t('exam.score', { n: r.score })}</Text>
+            {paper && (
+              <Text className="text-xs text-muted-foreground">
+                {t('exam.totalScore', { n: paper.totalScore })}
+              </Text>
+            )}
+            {r.submittedAt && (
+              <Text className="text-xs text-muted-foreground">{formatDateOnly(r.submittedAt)}</Text>
+            )}
+          </View>
         </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
@@ -113,37 +118,39 @@ export default function ExamList() {
         : 'exam.empty.all'
 
   return (
-    <View className="min-h-screen bg-background">
-      <View className="flex bg-card">
-        {TAB_KEYS.map((item) => (
-          <View
-            key={item.key}
-            className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
-            onClick={() => setTab(item.key)}
-          >
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <View className="flex bg-card">
+          {TAB_KEYS.map((item) => (
             <View
-              className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}
+              key={item.key}
+              className={`flex-1 py-3 text-center text-sm ${tab === item.key ? 'text-primary font-semibold' : 'text-muted-foreground'}`}
+              onClick={() => setTab(item.key)}
             >
-              {t(item.labelKey)}
+              <View
+                className={`inline-block px-2 py-0.5 rounded-md ${tab === item.key ? 'bg-primary/10' : ''}`}
+              >
+                {t(item.labelKey)}
+              </View>
             </View>
-          </View>
-        ))}
-      </View>
-
-      <View className="p-3">
-        {tab === 'completed'
-          ? records.map((r) => renderRecord(r))
-          : tab === 'pending'
-            ? pendingList.map((e) => renderPaper(e))
-            : papers.map((e) => renderPaper(e))}
-      </View>
-
-      {!loading && curList.length === 0 && (
-        <View className="text-center py-16 text-muted-foreground">
-          <Text>{t(emptyKey)}</Text>
+          ))}
         </View>
-      )}
-    </View>
+
+        <View className="p-3">
+          {tab === 'completed'
+            ? records.map((r) => renderRecord(r))
+            : tab === 'pending'
+              ? pendingList.map((e) => renderPaper(e))
+              : papers.map((e) => renderPaper(e))}
+        </View>
+
+        {!loading && curList.length === 0 && (
+          <View className="text-center py-16 text-muted-foreground">
+            <Text>{t(emptyKey)}</Text>
+          </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

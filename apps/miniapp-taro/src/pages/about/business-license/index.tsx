@@ -6,6 +6,7 @@ import { useI18n, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const LICENSE_IMAGE = '/static/images/yyzz.jpg'
 
@@ -45,55 +46,57 @@ export default function BusinessLicense() {
   }, [imgError])
 
   return (
-    <View className="min-h-screen bg-background pb-[48rpx]">
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
-        {!imgError ? (
-          <Image
-            className="w-full block rounded-[8rpx]"
-            src={LICENSE_IMAGE}
-            mode="widthFix"
-            onClick={previewLicense}
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <View
-            className="flex items-center justify-center h-[400rpx] bg-muted rounded-[8rpx]"
-            onClick={previewLicense}
-          >
-            <Text className="text-[28rpx] text-muted-foreground">
-              {tt('about.businessLicense.tapToView', '点击查看营业执照')}
-            </Text>
-          </View>
-        )}
-      </View>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background pb-[48rpx]">
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[24rpx] box-border">
+          {!imgError ? (
+            <Image
+              className="w-full block rounded-[8rpx]"
+              src={LICENSE_IMAGE}
+              mode="widthFix"
+              onClick={previewLicense}
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <View
+              className="flex items-center justify-center h-[400rpx] bg-muted rounded-[8rpx]"
+              onClick={previewLicense}
+            >
+              <Text className="text-[28rpx] text-muted-foreground">
+                {tt('about.businessLicense.tapToView', '点击查看营业执照')}
+              </Text>
+            </View>
+          )}
+        </View>
 
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
-        {info.map((item, idx) => (
-          <View
-            key={item.label}
-            className={`flex justify-between items-center p-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
-          >
-            <Text className="text-[28rpx] text-muted-foreground flex-shrink-0">{item.label}</Text>
-            <Text className="text-[28rpx] text-foreground text-right ml-[24rpx] break-all">
-              {item.value}
-            </Text>
-          </View>
-        ))}
-      </View>
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
+          {info.map((item, idx) => (
+            <View
+              key={item.label}
+              className={`flex justify-between items-center p-[32rpx]${idx === 0 ? '' : ' mt-[16rpx]'}`}
+            >
+              <Text className="text-[28rpx] text-muted-foreground flex-shrink-0">{item.label}</Text>
+              <Text className="text-[28rpx] text-foreground text-right ml-[24rpx] break-all">
+                {item.value}
+              </Text>
+            </View>
+          ))}
+        </View>
 
-      <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
-        <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
-          {tt('about.businessLicense.scopeTitle', '经营范围')}
-        </Text>
-        <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{SCOPE}</Text>
-      </View>
+        <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden p-[32rpx]">
+          <Text className="block text-[28rpx] text-foreground font-medium mb-[16rpx]">
+            {tt('about.businessLicense.scopeTitle', '经营范围')}
+          </Text>
+          <Text className="text-[26rpx] text-muted-foreground leading-[1.8]">{SCOPE}</Text>
+        </View>
 
-      <View className="py-[24rpx] px-[32rpx]">
-        <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">
-          {tt('about.businessLicense.footer', '以上信息仅供参考,以工商登记为准')}
-        </Text>
+        <View className="py-[24rpx] px-[32rpx]">
+          <Text className="text-[22rpx] text-muted-foreground leading-[1.7]">
+            {tt('about.businessLicense.footer', '以上信息仅供参考,以工商登记为准')}
+          </Text>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

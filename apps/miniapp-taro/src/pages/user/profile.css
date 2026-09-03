@@ -6,7 +6,7 @@
 
 .pf-page {
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--color-card);
   padding-bottom: 48rpx;
   box-sizing: border-box;
 }
@@ -30,22 +30,22 @@
 }
 .pf-tag {
   padding: 6rpx 16rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 22rpx;
 }
 .pf-tag-vip {
   /* custom color: 原项目 identity-vip #716fff/#f0eeff,无对应 token,保留原值 */
-  color: #716fff;
-  background: #f0eeff;
+  color: var(--color-brand);
+  background: rgba(240, 238, 255, 1);
 }
 .pf-tag-admin {
   /* custom color: 原项目 identity-trader #7ca500/#f0f8e8,无对应 token,保留原值 */
-  color: #7ca500;
-  background: #f0f8e8;
+  color: rgba(124, 165, 0, 1);
+  background: rgba(240, 248, 232, 1);
 }
 .pf-tag-normal {
-  color: #999;
-  background: #f5f5f5;
+  color: var(--color-muted-foreground);
+  background: var(--color-card);
 }
 
 /* ===== 区块分组(对齐原项目 settings-section) ===== */
@@ -56,11 +56,11 @@
   display: block;
   padding: 0 8rpx 16rpx;
   font-size: 26rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
 }
 .pf-section-card {
-  background: #fff;
-  border-radius: 16rpx;
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -76,7 +76,7 @@
 }
 .pf-item-label {
   font-size: 30rpx;
-  color: #333;
+  color: var(--color-foreground);
   flex-shrink: 0;
 }
 .pf-item-right {
@@ -88,7 +88,7 @@
 }
 .pf-item-value {
   font-size: 28rpx;
-  color: #666;
+  color: var(--color-muted-foreground);
   margin-right: 16rpx;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -96,7 +96,7 @@
 }
 .pf-arrow {
   font-size: 32rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   opacity: 0.5;
   flex-shrink: 0;
 }
@@ -112,7 +112,7 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  background: #f0f0f0;
+  background: var(--color-background);
 }
 .pf-avatar-img {
   width: 100%;
@@ -128,13 +128,13 @@
   line-height: 36rpx;
   text-align: center;
   font-size: 22rpx;
-  color: #fff;
+  color: var(--color-foreground);
   background: rgba(0, 0, 0, 0.5);
 }
 .pf-avatar-hint {
   flex: 1;
   font-size: 28rpx;
-  color: #999;
+  color: var(--color-muted-foreground);
   margin-left: 24rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

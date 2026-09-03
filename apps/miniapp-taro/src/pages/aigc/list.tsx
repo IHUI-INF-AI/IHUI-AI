@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
 import './list.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
 type Category = 'all' | 'text' | 'image' | 'video' | 'audio'
@@ -527,54 +528,56 @@ export default function AigcList() {
               const idStr = String(item.id)
               const isPlaying = audioPlayingId === idStr
               return (
-                <View key={idStr} className="audio-card">
-                  <View className="audio-record-wrap" onClick={() => toggleAudio(item)}>
-                    {/* 旋转层:封面/占位 */}
-                    <View className={`audio-record${isPlaying ? ' rotating' : ''}`}>
-                      {item.coverUrl ? (
-                        <Image className="audio-cover" src={item.coverUrl} mode="aspectFill" />
-                      ) : (
-                        <View className="audio-cover-placeholder">
-                          <Image
-                            className="audio-cover-icon"
-                            style={{ width: '48rpx', height: '48rpx' }}
-                            src="/static/images/icons/headphones.svg"
-                            mode="aspectFit"
-                          />
-                        </View>
-                      )}
-                    </View>
-                    {/* 不旋转层:中心点 + 播放按钮(对标原项目 center-dot-image / audio-play-button) */}
-                    <View className="audio-center-dot" />
-                    <View className="audio-play-btn">
-                      <Image
-                        className="audio-play-icon"
-                        style={{ width: '24rpx', height: '24rpx' }}
-                        src={
-                          isPlaying
-                            ? '/static/images/icons/pause.svg'
-                            : '/static/images/icons/play.svg'
-                        }
-                        mode="aspectFit"
-                      />
-                    </View>
-                  </View>
-                  <View className="audio-info">
-                    <Text className="audio-title">
-                      {item.title || tt('aigc.list.unnamed', '未命名作品')}
-                    </Text>
-                    {item.time ? <Text className="audio-time">{item.time}</Text> : null}
-                    <View className="audio-progress-row">
-                      <View className="audio-progress-bar">
-                        <View
-                          className="audio-progress-fill"
-                          style={isPlaying ? { width: '40%' } : { width: '0%' }}
+                <ThemeRoot key={item.id} className="audio-card">
+                  <View key={idStr}>
+                    <View className="audio-record-wrap" onClick={() => toggleAudio(item)}>
+                      {/* 旋转层:封面/占位 */}
+                      <View className={`audio-record${isPlaying ? ' rotating' : ''}`}>
+                        {item.coverUrl ? (
+                          <Image className="audio-cover" src={item.coverUrl} mode="aspectFill" />
+                        ) : (
+                          <View className="audio-cover-placeholder">
+                            <Image
+                              className="audio-cover-icon"
+                              style={{ width: '48rpx', height: '48rpx' }}
+                              src="/static/images/icons/headphones.svg"
+                              mode="aspectFit"
+                            />
+                          </View>
+                        )}
+                      </View>
+                      {/* 不旋转层:中心点 + 播放按钮(对标原项目 center-dot-image / audio-play-button) */}
+                      <View className="audio-center-dot" />
+                      <View className="audio-play-btn">
+                        <Image
+                          className="audio-play-icon"
+                          style={{ width: '24rpx', height: '24rpx' }}
+                          src={
+                            isPlaying
+                              ? '/static/images/icons/pause.svg'
+                              : '/static/images/icons/play.svg'
+                          }
+                          mode="aspectFit"
                         />
                       </View>
-                      <Text className="audio-duration">{formatDuration(item.duration)}</Text>
+                    </View>
+                    <View className="audio-info">
+                      <Text className="audio-title">
+                        {item.title || tt('aigc.list.unnamed', '未命名作品')}
+                      </Text>
+                      {item.time ? <Text className="audio-time">{item.time}</Text> : null}
+                      <View className="audio-progress-row">
+                        <View className="audio-progress-bar">
+                          <View
+                            className="audio-progress-fill"
+                            style={isPlaying ? { width: '40%' } : { width: '0%' }}
+                          />
+                        </View>
+                        <Text className="audio-duration">{formatDuration(item.duration)}</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                </ThemeRoot>
               )
             })}
           </View>

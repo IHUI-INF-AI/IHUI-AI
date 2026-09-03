@@ -12,7 +12,7 @@
 }
 .email-intro {
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 28rpx;
   margin-bottom: 24rpx;
 }
@@ -31,7 +31,7 @@
 }
 .email-card {
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 0 32rpx;
   margin-bottom: 24rpx;
 }
@@ -51,7 +51,7 @@
   width: 100%;
   height: 72rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   padding: 0 20rpx;
   font-size: 28rpx;
   box-sizing: border-box;
@@ -81,7 +81,7 @@
   background: var(--color-primary);
   color: var(--color-foreground);
   font-size: 30rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .email-submit.disabled {
   opacity: 0.5;
