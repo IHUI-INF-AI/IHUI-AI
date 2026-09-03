@@ -54,15 +54,32 @@ def _parse_ts_scalar(raw: str):
 
 
 def _parse_ts_constants(text: str) -> dict[str, object]:
-    """解析 TS 文件中 `export const NAME = <value>` 命名常量(单行声明)。
+    """解析 TS 文件中 `export const NAME = <value>` 命名常量。
 
-    支持数字、单双引号字符串、数组字面量(含 `as const` 后缀)。用 ast.literal_eval
-    保护之一 + 手工解析,规避 eval 风险,且不依赖任何 TS 运行时。
+    支持数字、单双引号字符串、数组字面量(含 `as const` 后缀,可跨多行)。用
+    ast.literal_eval 保护之一 + 手工解析,规避 eval 风险,且不依赖任何 TS 运行时。
+
+    多行数组必须先整体匹配:单行正则在 `export const X = [` 处只会截到 '[',
+    会把数组常量解析成字符串 '[' 造成假漂移。
     """
     result: dict[str, object] = {}
+    # 1) 跨行数组字面量(含 as const)
+    array_pattern = re.compile(
+        r"^export const (\w+)\s*=\s*\[(.*?)\](?:\s*as const)?\s*$",
+        re.MULTILINE | re.DOTALL,
+    )
+    for match in array_pattern.finditer(text):
+        name, inner = match.group(1), match.group(2)
+        try:
+            result[name] = [_parse_ts_scalar(p) for p in inner.split(",") if p.strip()]
+        except Exception:  # 不认识的语法跳过,不影响其他常量
+            continue
+    # 2) 单值声明(数字 / 字符串)
     pattern = re.compile(r"^export const (\w+)\s*=\s*(.+)$", re.MULTILINE)
     for match in pattern.finditer(text):
         name, raw = match.group(1), match.group(2).strip()
+        if name in result:  # 已由多行数组解析成功,避免被截断值覆盖
+            continue
         try:
             if raw.endswith(" as const"):
                 raw = raw[: -len(" as const")].strip()
