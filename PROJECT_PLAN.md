@@ -3055,4 +3055,19 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-02) SaaS 构建入口:`scripts/desktop-build-saas.mjs` + `pnpm build:desktop:saas`(注入 NEXT_PUBLIC_API_BASE_URL/STREAM_API_BASE_URL/AI_SERVICE_URL=https://aizhs.top 后 tauri build)。
 - [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能)。
 
+## P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,提交 339be38791,跨端:web × miniapp-taro)
+
+> 用户拍板(2026-09-02):web 与 miniapp-taro 两端视觉**完全一致**,仅非必需平台差异(如登录页小程序侧省略项)。web 端为样式准绳;本轮代码改动仅 `apps/miniapp-taro` + 守门基础设施(web 零改动,无平台独占)。
+> 持久机制:每次 pre-commit 由 `scripts/check-miniapp-taro-style-parity.mjs`(RULE-1~6)比对两端 token/类名/结构,**任一端改动漏同步即阻塞提交** —— 两端从此必须同步、时刻保持一致最新版。
+
+- [x] ✅(2026-09-03) ThemeRoot 主题体系全量接入所有路由页 + 41 处 react/jsx-key 修复(4 并行 worker)
+- [x] ✅(2026-09-03) emoji 图标清零(`ask/create.tsx` ✓ U+2713 → check.svg `<Image>`),满足 [11h] 守门
+- [x] ✅(2026-09-03) 跨端一致性守门落地:`check-miniapp-taro-style-parity.mjs` RULE-1~6(RULE-6 以 collectSelectorHeads 逐字符提取选择器头,消除对声明值 `: default` 的误报)接入 package.json check:all + .husky/pre-commit + AGENTS.md §4
+- [x] ✅(2026-09-03) `.gitignore` 追加 `.nav-probe/`([44] 根目录守门按 git check-ignore 精确豁免并行会话活跃探测目录,不污染名字白名单、防误 git add)
+- [x] ✅(2026-09-03) 守门链验收:eslint 0 / guardian-runner 72 项 67 过 5 警 0 败 / parity EXIT=0 / design-tokens 89 变量 sync PASS / staged typecheck PASS / weapp build 无 `: active` 伪类 PLUGIN_ERROR
+- [x] ✅(2026-09-03) 8 个 `lost-commit/20260903-*` 悬空 commit tag 同步 origin(AGENTS.md §22 防 gc)
+- [ ] **上推三仓**(origin/gitee/gitcode):commit `339be38791` 仅本地落地,GitHub TLS 黑洞期间按仓库铁律先保另两仓;恢复后 `git push origin main` + gitee/gitcode 补齐
+
+> ⚠️ 遗留(非本任务引入):`agentGovernance.*` 17 个死 key(web 管理页源码已删,keys 存于 HEAD 与 5 个 web 语言 JSON,JSON 正被并行 AI 可观测性会话活跃编辑)。已用文档化 `HUSKY_SKIP_I18N_DEAD_KEY=1` 跳过(pre-commit:153),清理待并行会话收尾后执行。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
