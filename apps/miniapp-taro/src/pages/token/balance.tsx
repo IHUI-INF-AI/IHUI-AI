@@ -9,6 +9,7 @@ import { useState, useRef, useCallback } from 'react'
 import * as api from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import { TOKEN_BALANCE_DATA_KEY, USER_INFO_LEGACY_KEY } from '@/constants/storage'
+import ThemeRoot from '@/components/ThemeRoot'
 import './balance.css'
 
 interface ZhRecord {
@@ -207,16 +208,18 @@ export default function TokenBalance() {
             const time = it.create_at || it.createdAt || it.time || ''
             const tokenNum = Number(it.token ?? it.amount ?? 0)
             return (
-              <View key={it.id || idx} className="record-item">
-                <Text className="record-title">{title}</Text>
-                <View className="record-content">
-                  <Text className="record-time">
-                    {tt('token.balance.costTime', '花费时间:')}
-                    {time}
-                  </Text>
-                  <Text className="record-count">{tokenNum > 0 ? `-${tokenNum}` : tokenNum}</Text>
+              <ThemeRoot key={it.id || idx}>
+                <View key={it.id || idx} className="record-item">
+                  <Text className="record-title">{title}</Text>
+                  <View className="record-content">
+                    <Text className="record-time">
+                      {tt('token.balance.costTime', '花费时间:')}
+                      {time}
+                    </Text>
+                    <Text className="record-count">{tokenNum > 0 ? `-${tokenNum}` : tokenNum}</Text>
+                  </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })
         )}

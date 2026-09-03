@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
 import { chooseImages, uploadImage } from '@/utils/upload-image'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type ParamType = 'string' | 'number' | 'boolean' | 'file' | 'select' | 'json'
@@ -263,239 +264,254 @@ export default function N8nModel() {
     const setVal = (v: string) => updateParam(which, index, { defaultValue: v })
     if (p.type === 'boolean') {
       return (
-        <View className="nm-bool">
-          {(['true', 'false'] as const).map((v) => (
-            <View
-              key={v}
-              className={`nm-bool-opt ${p.defaultValue === v ? 'nm-bool-active' : ''}`}
-              onClick={() => setVal(v)}
-            >
-              <Text>
-                {v === 'true'
-                  ? tt('devEnter.n8nModel.booleanTrue', '是')
-                  : tt('devEnter.n8nModel.booleanFalse', '否')}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <ThemeRoot>
+          <View className="nm-bool">
+            {(['true', 'false'] as const).map((v) => (
+              <View
+                key={v}
+                className={`nm-bool-opt ${p.defaultValue === v ? 'nm-bool-active' : ''}`}
+                onClick={() => setVal(v)}
+              >
+                <Text>
+                  {v === 'true'
+                    ? tt('devEnter.n8nModel.booleanTrue', '是')
+                    : tt('devEnter.n8nModel.booleanFalse', '否')}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </ThemeRoot>
       )
     }
     if (p.type === 'json') {
       return (
-        <Textarea
-          className="nm-field-textarea"
+        <ThemeRoot>
+          <Textarea
+            className="nm-field-textarea"
+            value={p.defaultValue}
+            placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
+            onInput={(e) => setVal(e.detail.value)}
+          />
+        </ThemeRoot>
+      )
+    }
+    return (
+      <ThemeRoot>
+        <Input
+          className="nm-field-input"
+          type={p.type === 'number' ? 'digit' : 'text'}
           value={p.defaultValue}
           placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
           onInput={(e) => setVal(e.detail.value)}
         />
-      )
-    }
-    return (
-      <Input
-        className="nm-field-input"
-        type={p.type === 'number' ? 'digit' : 'text'}
-        value={p.defaultValue}
-        placeholder={tt('devEnter.n8nModel.paramDefaultPlaceholder', '请输入默认值')}
-        onInput={(e) => setVal(e.detail.value)}
-      />
+      </ThemeRoot>
     )
   }
 
   const renderParamList = (params: Param[], which: 'in' | 'out') => (
-    <View className="nm-params">
-      {params.map((p, index) => (
-        <View key={index} className="nm-param">
-          <View className="nm-param-head">
-            <Text className="nm-param-idx">
-              {tt('devEnter.n8nModel.paramPrefix', '参数')} {index + 1}
-            </Text>
-            {params.length > 1 ? (
-              <Text className="nm-param-del" onClick={() => removeParam(which, index)}>
-                {tt('devEnter.n8nModel.deleteParam', '删除')}
+    <ThemeRoot>
+      <View className="nm-params">
+        {params.map((p, index) => (
+          <View key={index} className="nm-param">
+            <View className="nm-param-head">
+              <Text className="nm-param-idx">
+                {tt('devEnter.n8nModel.paramPrefix', '参数')} {index + 1}
               </Text>
-            ) : null}
-          </View>
-          <View className="nm-param-field">
-            <Text className="nm-field-label">
-              {tt('devEnter.n8nModel.paramNameLabel', '参数名称')}
-            </Text>
-            <Input
-              className="nm-field-input"
-              value={p.name}
-              placeholder={tt('devEnter.n8nModel.paramNamePlaceholder', '请输入参数名称')}
-              onInput={(e) => updateParam(which, index, { name: e.detail.value })}
-            />
-          </View>
-          <View className="nm-param-field">
-            <Text className="nm-field-label">
-              {tt('devEnter.n8nModel.paramDescLabel', '参数描述')}
-            </Text>
-            <Textarea
-              className="nm-field-textarea"
-              value={p.description}
-              placeholder={tt('devEnter.n8nModel.paramDescPlaceholder', '请输入参数描述')}
-              onInput={(e) => updateParam(which, index, { description: e.detail.value })}
-            />
-          </View>
-          <View className="nm-param-field">
-            <Text className="nm-field-label">
-              {tt('devEnter.n8nModel.paramTypeLabel', '键值类型')}
-            </Text>
-            <View className="nm-type-bar">
-              {PARAM_TYPES(tt).map((tp) => (
-                <View
-                  key={tp.value}
-                  className={`nm-type ${p.type === tp.value ? 'nm-type-active' : ''}`}
-                  onClick={() =>
-                    updateParam(which, index, {
-                      type: tp.value,
-                      defaultValue: tp.value === 'boolean' ? 'true' : '',
-                    })
-                  }
-                >
-                  <Text>{tt(tp.key, tp.fb)}</Text>
-                </View>
-              ))}
+              {params.length > 1 ? (
+                <Text className="nm-param-del" onClick={() => removeParam(which, index)}>
+                  {tt('devEnter.n8nModel.deleteParam', '删除')}
+                </Text>
+              ) : null}
+            </View>
+            <View className="nm-param-field">
+              <Text className="nm-field-label">
+                {tt('devEnter.n8nModel.paramNameLabel', '参数名称')}
+              </Text>
+              <Input
+                className="nm-field-input"
+                value={p.name}
+                placeholder={tt('devEnter.n8nModel.paramNamePlaceholder', '请输入参数名称')}
+                onInput={(e) => updateParam(which, index, { name: e.detail.value })}
+              />
+            </View>
+            <View className="nm-param-field">
+              <Text className="nm-field-label">
+                {tt('devEnter.n8nModel.paramDescLabel', '参数描述')}
+              </Text>
+              <Textarea
+                className="nm-field-textarea"
+                value={p.description}
+                placeholder={tt('devEnter.n8nModel.paramDescPlaceholder', '请输入参数描述')}
+                onInput={(e) => updateParam(which, index, { description: e.detail.value })}
+              />
+            </View>
+            <View className="nm-param-field">
+              <Text className="nm-field-label">
+                {tt('devEnter.n8nModel.paramTypeLabel', '键值类型')}
+              </Text>
+              <View className="nm-type-bar">
+                {PARAM_TYPES(tt).map((tp) => (
+                  <View
+                    key={tp.value}
+                    className={`nm-type ${p.type === tp.value ? 'nm-type-active' : ''}`}
+                    onClick={() =>
+                      updateParam(which, index, {
+                        type: tp.value,
+                        defaultValue: tp.value === 'boolean' ? 'true' : '',
+                      })
+                    }
+                  >
+                    <Text>{tt(tp.key, tp.fb)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+            <View className="nm-param-field">
+              <Text className="nm-field-label">
+                {tt('devEnter.n8nModel.paramDefaultLabel', '默认值')}
+              </Text>
+              {renderDefaultInput(p, which, index)}
             </View>
           </View>
-          <View className="nm-param-field">
-            <Text className="nm-field-label">
-              {tt('devEnter.n8nModel.paramDefaultLabel', '默认值')}
-            </Text>
-            {renderDefaultInput(p, which, index)}
-          </View>
+        ))}
+        <View className="nm-add-param" onClick={() => addParam(which)}>
+          <Text>+ {tt('devEnter.n8nModel.addParam', '添加参数')}</Text>
         </View>
-      ))}
-      <View className="nm-add-param" onClick={() => addParam(which)}>
-        <Text>+ {tt('devEnter.n8nModel.addParam', '添加参数')}</Text>
       </View>
-    </View>
+    </ThemeRoot>
   )
 
   // ===== 列表视图 =====
   if (view === 'list') {
     return (
-      <View className="nm-page">
-        <View className="nm-header">
-          <Text className="nm-title">{t('devEnter.n8nModel.title')}</Text>
-          <Text className="nm-create-btn" onClick={onCreate}>
-            + {tt('devEnter.n8nModel.create', '新建')}
-          </Text>
+      <ThemeRoot>
+        <View className="nm-page">
+          <View className="nm-header">
+            <Text className="nm-title">{t('devEnter.n8nModel.title')}</Text>
+            <Text className="nm-create-btn" onClick={onCreate}>
+              + {tt('devEnter.n8nModel.create', '新建')}
+            </Text>
+          </View>
+          <View className="nm-content">
+            {loading ? (
+              <Text className="nm-empty">{t('common.loading')}</Text>
+            ) : list.length ? (
+              list.map((item) => (
+                <View
+                  key={(item.id as string) || (item.name as string)}
+                  className="nm-list-item"
+                  onClick={() => onItemClick(item.id as string)}
+                >
+                  <Text>
+                    {(item.name as string) ||
+                      (item.title as string) ||
+                      t('devEnter.n8nModel.defaultName')}
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <Text className="nm-empty">{t('devEnter.n8nModel.empty')}</Text>
+            )}
+          </View>
         </View>
-        <View className="nm-content">
-          {loading ? (
-            <Text className="nm-empty">{t('common.loading')}</Text>
-          ) : list.length ? (
-            list.map((item) => (
-              <View
-                key={(item.id as string) || (item.name as string)}
-                className="nm-list-item"
-                onClick={() => onItemClick(item.id as string)}
-              >
-                <Text>
-                  {(item.name as string) ||
-                    (item.title as string) ||
-                    t('devEnter.n8nModel.defaultName')}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text className="nm-empty">{t('devEnter.n8nModel.empty')}</Text>
-          )}
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   // ===== 创建表单视图 =====
   return (
-    <View className="nm-page">
-      <View className="nm-header">
-        <Text className="nm-back" onClick={() => setView('list')}>
-          {t('common.back')}
-        </Text>
-        <Text className="nm-title">{tt('devEnter.n8nModel.createTitle', '创建智能体')}</Text>
-      </View>
-      <ScrollView scrollY className="nm-body">
-        {/* 头像 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.avatarLabel', '智能体头像')}</Text>
-        <View className="nm-avatar-wrap" onClick={chooseAvatar}>
-          {avatar ? (
-            <Image className="nm-avatar" src={avatar} mode="aspectFill" />
-          ) : (
-            <View className="nm-avatar nm-avatar-ph">
-              <Text className="nm-avatar-text">
-                {tt('devEnter.n8nModel.avatarPlaceholder', '点击上传头像')}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* 名称 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
-        <Input
-          className="nm-input"
-          maxlength={30}
-          value={name}
-          placeholder={tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称')}
-          onInput={(e) => setName(e.detail.value)}
-        />
-
-        {/* 描述 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
-        <Textarea
-          className="nm-textarea"
-          value={description}
-          placeholder={tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述')}
-          onInput={(e) => setDescription(e.detail.value)}
-        />
-
-        {/* n8n 备份文件 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}</Text>
-        <View className="nm-file-btn" onClick={chooseN8nFile}>
-          <Text className="nm-file-text">
-            {n8nFileName ||
-              tt('devEnter.n8nModel.n8nFilePlaceholder', '点击上传 n8n 备份 JSON 文件')}
+    <ThemeRoot>
+      <View className="nm-page">
+        <View className="nm-header">
+          <Text className="nm-back" onClick={() => setView('list')}>
+            {t('common.back')}
           </Text>
+          <Text className="nm-title">{tt('devEnter.n8nModel.createTitle', '创建智能体')}</Text>
         </View>
-        {n8nFileName ? (
-          <View className="nm-file-info">
-            <Text className="nm-file-name">{n8nFileName}</Text>
-            <Text className="nm-file-remove" onClick={removeN8nFile}>
-              {t('common.delete')}
+        <ScrollView scrollY className="nm-body">
+          {/* 头像 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.avatarLabel', '智能体头像')}</Text>
+          <View className="nm-avatar-wrap" onClick={chooseAvatar}>
+            {avatar ? (
+              <Image className="nm-avatar" src={avatar} mode="aspectFill" />
+            ) : (
+              <View className="nm-avatar nm-avatar-ph">
+                <Text className="nm-avatar-text">
+                  {tt('devEnter.n8nModel.avatarPlaceholder', '点击上传头像')}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* 名称 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.nameLabel', '智能体名称')}</Text>
+          <Input
+            className="nm-input"
+            maxlength={30}
+            value={name}
+            placeholder={tt('devEnter.n8nModel.namePlaceholder', '请输入智能体名称')}
+            onInput={(e) => setName(e.detail.value)}
+          />
+
+          {/* 描述 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.descLabel', '智能体描述')}</Text>
+          <Textarea
+            className="nm-textarea"
+            value={description}
+            placeholder={tt('devEnter.n8nModel.descPlaceholder', '请输入智能体描述')}
+            onInput={(e) => setDescription(e.detail.value)}
+          />
+
+          {/* n8n 备份文件 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.n8nFileLabel', 'n8n 备份文件')}</Text>
+          <View className="nm-file-btn" onClick={chooseN8nFile}>
+            <Text className="nm-file-text">
+              {n8nFileName ||
+                tt('devEnter.n8nModel.n8nFilePlaceholder', '点击上传 n8n 备份 JSON 文件')}
             </Text>
           </View>
-        ) : null}
+          {n8nFileName ? (
+            <View className="nm-file-info">
+              <Text className="nm-file-name">{n8nFileName}</Text>
+              <Text className="nm-file-remove" onClick={removeN8nFile}>
+                {t('common.delete')}
+              </Text>
+            </View>
+          ) : null}
 
-        {/* n8n 地址 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
-        <Input
-          className="nm-input"
-          maxlength={200}
-          value={n8nUrl}
-          placeholder={tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址')}
-          onInput={(e) => setN8nUrl(e.detail.value)}
-        />
+          {/* n8n 地址 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.n8nUrlLabel', 'n8n 地址')}</Text>
+          <Input
+            className="nm-input"
+            maxlength={200}
+            value={n8nUrl}
+            placeholder={tt('devEnter.n8nModel.n8nUrlPlaceholder', '请输入 n8n 地址')}
+            onInput={(e) => setN8nUrl(e.detail.value)}
+          />
 
-        {/* 输入参数 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.inputParamsLabel', '输入参数')}</Text>
-        {renderParamList(inputParams, 'in')}
+          {/* 输入参数 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.inputParamsLabel', '输入参数')}</Text>
+          {renderParamList(inputParams, 'in')}
 
-        {/* 输出参数 */}
-        <Text className="nm-label">{tt('devEnter.n8nModel.outputParamsLabel', '输出参数')}</Text>
-        {renderParamList(outputParams, 'out')}
+          {/* 输出参数 */}
+          <Text className="nm-label">{tt('devEnter.n8nModel.outputParamsLabel', '输出参数')}</Text>
+          {renderParamList(outputParams, 'out')}
 
-        {/* 提交 */}
-        <View className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`} onClick={onSubmit}>
-          <Text>
-            {submitting
-              ? tt('devEnter.n8nModel.submitting', '创建中…')
-              : tt('devEnter.n8nModel.submit', '创建智能体')}
-          </Text>
-        </View>
-        <View className="nm-bottom-space" />
-      </ScrollView>
-    </View>
+          {/* 提交 */}
+          <View
+            className={`nm-submit ${submitting ? 'nm-submit-disabled' : ''}`}
+            onClick={onSubmit}
+          >
+            <Text>
+              {submitting
+                ? tt('devEnter.n8nModel.submitting', '创建中…')
+                : tt('devEnter.n8nModel.submit', '创建智能体')}
+            </Text>
+          </View>
+          <View className="nm-bottom-space" />
+        </ScrollView>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

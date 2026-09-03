@@ -20,7 +20,7 @@
 
 .ask-create-card {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 28rpx;
   margin-bottom: 20rpx;
 }
@@ -49,7 +49,7 @@
   color: var(--color-foreground);
   padding: 16rpx;
   background: var(--color-background);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   box-sizing: border-box;
 }
 
@@ -58,7 +58,7 @@
   min-height: 200rpx;
   padding: 16rpx;
   background: var(--color-background);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -100,7 +100,7 @@
   padding: 12rpx 28rpx;
   text-align: center;
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-muted-foreground);
 }
@@ -129,7 +129,7 @@
 .ask-create-img {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-muted);
 }
 
@@ -144,7 +144,7 @@
   justify-content: center;
   background: var(--color-destructive);
   color: var(--color-destructive-foreground);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 24rpx;
   z-index: 2;
 }
@@ -156,7 +156,7 @@
   align-items: center;
   justify-content: center;
   border: 2rpx dashed var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   background: var(--color-background);
 }
 
@@ -201,7 +201,7 @@
   line-height: 88rpx;
   background: var(--color-primary);
   color: var(--color-foreground);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 32rpx;
   font-weight: 600;
   border: none;
@@ -228,7 +228,7 @@
 .ask-create-sheet {
   width: 100%;
   background: var(--color-card);
-  border-radius: 24rpx 24rpx 0 0;
+  border-radius: var(--radius-xl) 24rpx 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
