@@ -594,7 +594,6 @@
     "video": "视频",
     "addFile": "添加附件",
     "compactButton": "压缩上下文",
-    "compacting": "正在压缩上下文...",
     "compactSuccess": "上下文已压缩: {before} → {after} tokens(节省 {saved})",
     "compactTooFew": "对话消息太少,无需压缩",
     "compactIncompressible": "当前上下文已无可压缩空间",

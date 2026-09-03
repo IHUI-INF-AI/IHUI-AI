@@ -594,7 +594,6 @@
     "video": "Video",
     "addFile": "Add file",
     "compactButton": "Compact context",
-    "compacting": "Compacting context...",
     "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
     "compactTooFew": "Too few messages to compact",
     "compactIncompressible": "Nothing left to compact in this context",

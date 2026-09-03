@@ -3051,9 +3051,7 @@
     "video": "동영상"
   },
   "toolbar": {
-    "ai": "AI 채팅",
-    "course": "강의",
-    "vip": "회원"
+    "ai": "AI 채팅"
   },
   "index": {
     "mock": {
@@ -3659,13 +3657,6 @@
   "UserInfoCard": {
     "login1": "원탭 로그인",
     "text2": "해지"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "Full HD 1080p",
-    "back4": "← 뒤로",
-    "q1": "워터마크"
   },
   "TitleSwitchTypeBar": {
     "text1": "사용자 정의",
