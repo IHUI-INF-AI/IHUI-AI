@@ -33,7 +33,7 @@
   color: var(--color-primary);
   padding: 8rpx 20rpx;
   background: var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
 }
 .nm-content {
   padding: 24rpx;
@@ -41,7 +41,7 @@
 .nm-list-item {
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   margin-bottom: 16rpx;
   font-size: 28rpx;
   color: var(--color-foreground);
@@ -72,7 +72,7 @@
 .nm-avatar {
   width: 160rpx;
   height: 160rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
 }
@@ -92,7 +92,7 @@
   width: 100%;
   padding: 20rpx 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -103,7 +103,7 @@
   min-height: 160rpx;
   padding: 20rpx 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 28rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -116,7 +116,7 @@
   justify-content: center;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 1px dashed var(--color-border);
 }
 .nm-file-text {
@@ -130,7 +130,7 @@
   margin-top: 16rpx;
   padding: 16rpx 20rpx;
   background: var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
 }
 .nm-file-name {
@@ -153,7 +153,7 @@
 }
 .nm-param {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 24rpx;
   margin-bottom: 20rpx;
   border: 1px solid var(--color-border);
@@ -177,7 +177,7 @@
 .nm-param-field {
   margin-bottom: 20rpx;
 }
-.nm-param-field:last-child {
+.nm-param-field: last-child {
   margin-bottom: 0;
 }
 .nm-field-label {
@@ -190,7 +190,7 @@
   width: 100%;
   padding: 14rpx 20rpx;
   background: var(--color-secondary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -202,7 +202,7 @@
   min-height: 120rpx;
   padding: 14rpx 20rpx;
   background: var(--color-secondary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-foreground);
   box-sizing: border-box;
@@ -217,7 +217,7 @@
 .nm-type {
   padding: 10rpx 20rpx;
   background: var(--color-secondary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 24rpx;
   color: var(--color-secondary-foreground);
   border: 1px solid var(--color-border);
@@ -236,7 +236,7 @@
   flex: 1;
   padding: 14rpx;
   background: var(--color-secondary);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-secondary-foreground);
   text-align: center;
@@ -254,7 +254,7 @@
   justify-content: center;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
   color: var(--color-primary);
   border: 1px dashed var(--color-border);
@@ -266,7 +266,7 @@
   background: var(--color-primary);
   color: var(--color-primary-foreground);
   text-align: center;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   font-size: 30rpx;
   font-weight: 600;
 }

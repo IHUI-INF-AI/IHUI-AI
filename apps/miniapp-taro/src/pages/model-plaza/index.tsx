@@ -8,6 +8,7 @@ import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type ModelType = 'text' | 'image' | 'av'
@@ -215,7 +216,7 @@ export default function ModelPlazaIndex() {
   const currentProviderCount = models.filter((m) => m.provider === providerId).length
 
   return (
-    <View className="model-plaza-page">
+    <ThemeRoot><View className="model-plaza-page">
       <View className="page-header">
         <Text className="page-title">{t('modelPlaza.title')}</Text>
       </View>
@@ -330,6 +331,6 @@ export default function ModelPlazaIndex() {
         ) : null}
       </View>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

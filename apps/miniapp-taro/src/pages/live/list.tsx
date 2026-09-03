@@ -12,6 +12,7 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getLiveList, type Live } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const STATUS_KEY: Record<Live['status'], string> = {
   living: 'live.liveNow',
@@ -103,7 +104,7 @@ export default function LiveList() {
   }))
 
   return (
-    <View className="min-h-screen p-3">
+    <ThemeRoot><View className="min-h-screen p-3">
       <View className="flex mb-3 gap-2">
         <View
           className="flex-1 bg-primary rounded-xl py-2.5 flex items-center justify-center"
@@ -156,7 +157,7 @@ export default function LiveList() {
                     item.status === 'living'
                       ? 'bg-destructive text-white'
                       : item.status === 'upcoming'
-                        ? 'bg-[#f0ad4e] text-white'
+                        ? 'bg-[rgba(240, 173, 78, 1)] text-white'
                         : 'bg-black/50 text-white'
                   }`}
                 >
@@ -194,6 +195,6 @@ export default function LiveList() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

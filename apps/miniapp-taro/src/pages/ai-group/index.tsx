@@ -8,6 +8,7 @@ import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type CategoryKey = 'all' | 'office' | 'writing' | 'coding' | 'education' | 'life'
 
@@ -181,9 +182,8 @@ export default function AiGroup() {
               const uses = Number(item.uses || 0)
               const isVip = Boolean(item.isVipExclusive)
               return (
-                <View
-                  key={id}
-                  className="flex items-center p-[24rpx] bg-card rounded-[12rpx]"
+                <ThemeRoot className="flex items-center p-[24rpx] bg-card rounded-[12rpx]">
+      <View key={id}
                   onClick={() => onItemClick(id)}
                 >
                   <Image
@@ -218,6 +218,7 @@ export default function AiGroup() {
                   </View>
                   <Text className="ml-[16rpx] text-[32rpx] text-muted-foreground shrink-0">›</Text>
                 </View>
+    </ThemeRoot>
               )
             })}
           </View>

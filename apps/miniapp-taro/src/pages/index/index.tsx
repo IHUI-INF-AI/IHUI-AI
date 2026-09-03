@@ -62,6 +62,7 @@ import * as api from '@/api'
 import type { ChatMessage } from '@/api'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import { FALLBACK_MODELS } from '@ihui/shared/constants'
+import ThemeRoot from '@/components/ThemeRoot'
 
 import './index.css'
 
@@ -405,7 +406,7 @@ function MaterialCards({
   return (
     <View
       className="material-cards-wrap"
-      style={{ background: 'var(--color-card-subtle, #fafafa)' }}
+      style={{ background: 'var(--color-card-subtle)' }}
     >
       <ScrollView scrollX className="material-cards-scroll" showScrollbar={false}>
         <View
@@ -451,7 +452,7 @@ function MaterialCards({
                   </Text>
                   <Text
                     className="material-card-preview"
-                    style={{ fontSize: rpx(20), color: '#888' }}
+                    style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)' }}
                   >
                     {(card.content || '').slice(0, 20)}
                     {card.content && card.content.length > 20 ? '...' : ''}
@@ -474,7 +475,7 @@ function MaterialCards({
                       fontSize: rpx(22),
                       padding: rpx(6),
                       background: 'rgba(0,0,0,0.5)',
-                      color: '#fff',
+                      color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
                       left: 0,
@@ -501,7 +502,7 @@ function MaterialCards({
                       fontSize: rpx(22),
                       padding: rpx(6),
                       background: 'rgba(0,0,0,0.5)',
-                      color: '#fff',
+                      color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
                       left: 0,
@@ -534,7 +535,7 @@ function MaterialCards({
                   </Text>
                   <Text
                     className="material-card-preview"
-                    style={{ fontSize: rpx(20), color: '#888', marginTop: rpx(6) }}
+                    style={{ fontSize: rpx(20), color: 'var(--color-muted-foreground)', marginTop: rpx(6) }}
                   >
                     {tt('index.material.audio', '音频')}
                   </Text>
@@ -591,7 +592,7 @@ function VoiceAnimationOverlay({
             style={{
               width: rpx(8),
               height: rpx(60),
-              background: 'var(--color-brand-cyan, #93d2f3)',
+              background: 'var(--color-brand-cyan)',
               borderRadius: rpx(4),
               animationDelay: `${i * 0.1}s`,
               animationDuration: `${0.5 + i * 0.1}s`,
@@ -599,7 +600,7 @@ function VoiceAnimationOverlay({
           />
         ))}
       </View>
-      <Text style={{ fontSize: rpx(24), color: '#888', marginTop: rpx(16) }}>
+      <Text style={{ fontSize: rpx(24), color: 'var(--color-muted-foreground)', marginTop: rpx(16) }}>
         {tt('index.voice.tapToStop', '点击停止录音')}
       </Text>
     </View>
@@ -1202,11 +1203,11 @@ export default function Index() {
   ])
 
   return (
-    <View
-      className="ai-home-page min-h-screen"
-      style={{ background: 'var(--color-background)' }}
-      onClick={handleContainerClick}
-    >
+    <ThemeRoot className="ai-home-page min-h-screen">
+      <View
+        style={{ background: 'var(--color-background)' }}
+        onClick={handleContainerClick}
+      >
       {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
       <PushNotification />
 
@@ -1297,12 +1298,12 @@ export default function Index() {
                 padding: `${rpx(16)} ${rpx(20)}`,
                 marginBottom: rpx(16),
                 background:
-                  'linear-gradient(90deg, var(--color-brand-cyan, #93d2f3), var(--color-primary))',
+                  'linear-gradient(90deg, var(--color-brand-cyan), var(--color-primary))',
                 borderRadius: rpx(16),
               }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: rpx(28), fontWeight: 'bold', color: '#fff' }}>
+                <Text style={{ fontSize: rpx(28), fontWeight: 'bold', color: 'var(--color-foreground)' }}>
                   {tt('home.livePreview', '直播预告')}
                 </Text>
                 <Text
@@ -1315,7 +1316,7 @@ export default function Index() {
                 onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
                 style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
               >
-                <Text style={{ fontSize: rpx(22), color: '#fff' }}>{tt('home.more', '更多')}</Text>
+                <Text style={{ fontSize: rpx(22), color: 'var(--color-foreground)' }}>{tt('home.more', '更多')}</Text>
               </View>
             </View>
             {state.conversationMessages.length === 0 && !state.isStreaming ? (
@@ -1332,7 +1333,7 @@ export default function Index() {
                 >
                   {tt('index.welcome', '欢迎使用智汇AI社区')}
                 </Text>
-                <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date, #888)' }}>
+                <Text style={{ fontSize: rpx(26), color: 'var(--color-text-date)' }}>
                   {tt('index.welcomeHint', '输入消息开始对话')}
                 </Text>
               </View>
@@ -1354,9 +1355,9 @@ export default function Index() {
                     borderRadius: rpx(16),
                     background:
                       msg.role === 'user'
-                        ? 'var(--color-brand-cyan, #93d2f3)'
+                        ? 'var(--color-brand-cyan)'
                         : 'var(--color-card)',
-                    color: msg.role === 'user' ? '#000' : 'var(--color-foreground)',
+                    color: 'var(--color-foreground)',
                     fontSize: rpx(28),
                     lineHeight: 1.6,
                     boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
@@ -1393,7 +1394,7 @@ export default function Index() {
                       display: 'inline-block',
                       width: rpx(8),
                       height: rpx(28),
-                      background: 'var(--color-brand-cyan, #93d2f3)',
+                      background: 'var(--color-brand-cyan)',
                       marginLeft: rpx(4),
                       animation: 'blink 1s infinite',
                     }}
@@ -1514,7 +1515,7 @@ export default function Index() {
                   >
                     {currentMaterialList.length === 0 ? (
                       <View className="flex items-center justify-center py-[40rpx]">
-                        <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date, #888)' }}>
+                        <Text style={{ fontSize: rpx(28), color: 'var(--color-text-date)' }}>
                           {tt('index.material.empty', '暂无素材')}
                         </Text>
                       </View>
@@ -1733,7 +1734,7 @@ export default function Index() {
                 right: rpx(10),
                 width: rpx(60),
                 height: rpx(60),
-                border: '1px solid #000',
+                border: '1px solid var(--color-foreground)',
               }}
               onClick={handleQrCodeClose}
             >
@@ -1746,7 +1747,8 @@ export default function Index() {
           </View>
         </View>
       ) : null}
-    </View>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

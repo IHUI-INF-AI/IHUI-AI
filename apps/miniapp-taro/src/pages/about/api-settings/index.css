@@ -12,7 +12,7 @@
 .card {
   margin: 24rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 .row {
@@ -66,7 +66,7 @@
   box-sizing: border-box;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 26rpx;
   color: var(--color-foreground);
 }
@@ -102,11 +102,11 @@
   font-size: 28rpx;
   height: 80rpx;
   line-height: 80rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin: 0;
   padding: 0;
 }
-.btn::after {
+.btn: :after {
   border: none;
 }
 .btn-primary {
@@ -135,10 +135,10 @@
   padding: 0 32rpx;
   background: var(--color-primary);
   color: var(--color-primary-foreground);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   margin: 0;
 }
-.test-btn::after {
+.test-btn: :after {
   border: none;
 }
 .test-btn[disabled] {

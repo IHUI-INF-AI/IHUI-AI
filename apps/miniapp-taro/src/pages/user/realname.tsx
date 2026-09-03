@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, post } from '@/api'
 import { uploadImage } from '@/utils/upload-image'
+import ThemeRoot from '@/components/ThemeRoot'
 import './realname.css'
 
 const ID_CARD_REGEX = /^\d{17}[\dXx]$/
@@ -137,7 +138,7 @@ export default function Realname() {
 
   if (status === 'verified') {
     return (
-      <View className="rn-page">
+      <ThemeRoot><View className="rn-page">
         <View className="rn-result-card">
           <View className="rn-result-icon">
             <Image
@@ -155,13 +156,13 @@ export default function Realname() {
           </Text>
         </View>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   const isReviewing = status === 'reviewing'
 
   return (
-    <View className="rn-page">
+    <ThemeRoot><View className="rn-page">
       <View className="rn-intro">
         <Text className="rn-intro-title">{tt('user.realname.title', '实名认证')}</Text>
         <Text className="rn-intro-line">
@@ -262,6 +263,6 @@ export default function Realname() {
             : t('user.realname.submit')}
       </Button>
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 从智能体描述中提取前 2 个关键词作为标签 */
 function extractTags(name: string, desc: string): string[] {
@@ -99,9 +100,8 @@ export default function AiCareer() {
               const tags = extractTags(name, desc)
               const uses = Number(item.uses || 0)
               return (
-                <View
-                  key={id}
-                  className="p-[24rpx] bg-card rounded-[12rpx]"
+                <ThemeRoot className="p-[24rpx] bg-card rounded-[12rpx]">
+      <View key={id}
                   onClick={() => onItemClick(id)}
                 >
                   <View className="flex items-start">
@@ -139,6 +139,7 @@ export default function AiCareer() {
                     </View>
                   )}
                 </View>
+    </ThemeRoot>
               )
             })}
           </View>

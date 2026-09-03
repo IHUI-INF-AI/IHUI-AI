@@ -8,6 +8,7 @@ import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getTeacherDetail, get, post, type Teacher } from '@/api'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 interface TeacherCourse {
@@ -241,7 +242,7 @@ export default function TeacherDetail() {
                 {courses.map((c) => {
                   const price = formatPrice(c.price)
                   return (
-                    <View
+                    <ThemeRoot><View
                       key={c.id}
                       className="tdetail-course-card"
                       onClick={() => onOpenCourse(c.id)}
@@ -270,7 +271,7 @@ export default function TeacherDetail() {
                         </View>
                       </View>
                     </View>
-                  )
+                  </ThemeRoot>)
                 })}
               </View>
             ) : (

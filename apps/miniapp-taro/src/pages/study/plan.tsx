@@ -7,6 +7,7 @@ import { View, Text, Button, Input } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyPlan, post } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanItem {
   id: string
@@ -67,7 +68,7 @@ export default function StudyPlan() {
   })
 
   return (
-    <View className="min-h-screen bg-background pb-[120rpx]">
+    <ThemeRoot><View className="min-h-screen bg-background pb-[120rpx]">
       {list.length > 0 && (
         <View className="p-3">
           {list.map((p) => (
@@ -87,7 +88,7 @@ export default function StudyPlan() {
                 </Text>
 
                 <Text
-                  className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[#ff9a3c]'}`}
+                  className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[rgba(255, 154, 60, 1)]'}`}
                 >
                   {p.progress >= p.target
                     ? t('study.planPage.statusDone')
@@ -157,6 +158,6 @@ export default function StudyPlan() {
         </View>
       )}
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

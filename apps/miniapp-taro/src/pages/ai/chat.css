@@ -105,8 +105,8 @@
   box-sizing: border-box;
 }
 .msg-item.user .bubble {
-  background: #9a99f3;
-  color: #ffffff;
+  background: var(--color-brand);
+  color: var(--color-foreground);
   border: 2rpx solid;
   border-image: linear-gradient(
       275deg,
@@ -119,9 +119,9 @@
   border-radius: 15rpx;
 }
 .msg-item.assistant .bubble {
-  background: #f6f6f6;
-  border: 1px solid #eeeeee;
-  color: #333333;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
 }
 .bubble-text {
   font-size: 22rpx;
@@ -438,14 +438,14 @@
 /* TTS 朗读按钮(对标原 ai_assistant.vue 朗读,仅 AI 消息) */
 .bubble-speak {
   font-size: 24rpx;
-  color: #1888ee;
+  color: var(--color-info);
   margin-left: 20rpx;
 }
 
 /* 分享按钮(对标原 ai_assistant.vue 分享对话) */
 .bubble-share {
   font-size: 24rpx;
-  color: #1888ee;
+  color: var(--color-info);
   margin-left: 20rpx;
 }
 
@@ -454,7 +454,7 @@
   margin-top: 12rpx;
   padding: 8rpx 16rpx;
   background: var(--color-link-bg);
-  color: #1888ee;
+  color: var(--color-info);
   border-radius: 6rpx;
   font-size: 24rpx;
   display: inline-flex;
@@ -523,20 +523,16 @@
   background: none;
   border-radius: 30rpx;
   overflow: hidden;
-  box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   transition: box-shadow 0.3s ease;
   animation: inputAreaBackAnimation 2s linear infinite;
   box-sizing: border-box;
 }
 @keyframes inputAreaBackAnimation {
   0% {
-    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   }
   50% {
-    box-shadow: 0px 2rpx 16rpx -8rpx rgba(90, 87, 255, 0.5);
   }
   100% {
-    box-shadow: 0px 4rpx 16rpx -4rpx rgba(90, 87, 255, 0.5);
   }
 }
 
@@ -557,7 +553,7 @@
   display: flex;
   align-items: flex-end;
   width: 100%;
-  background-color: #fff;
+  background-color: var(--color-card);
   background-size: 100% 100%;
   background-repeat: no-repeat;
   border-radius: 30rpx;
@@ -621,7 +617,7 @@
   box-sizing: border-box;
   overflow-x: auto;
   flex: none;
-  border-bottom: 1px solid #d8d8d8;
+  border-bottom: 1px solid var(--color-border);
   margin-bottom: 20rpx;
   white-space: nowrap;
 }
@@ -699,7 +695,7 @@
 .voice-bar-animation .line {
   width: 6rpx;
   height: 6rpx;
-  background-color: #000;
+  background-color: var(--color-card);
   border-radius: 5rpx;
   animation: voiceMove 0.75s linear infinite alternate;
   transition: all 1s;
@@ -821,11 +817,6 @@
   border-radius: 18rpx;
   background: linear-gradient(
     214deg,
-    #8b0bff 3%,
-    #fff200 30%,
-    #ff0000 55%,
-    #fff200 75%,
-    #9014ff 96%
   );
   background-size: 200% 100%;
   animation: progressAnimation 2s linear infinite;
@@ -871,7 +862,7 @@
   width: 12rpx;
   height: 12rpx;
   border-radius: 50%;
-  background: #ae44d1;
+  background: var(--color-card);
   animation: loaderpulse 1.5s infinite ease-in-out;
 }
 .loader-dot:nth-child(1) {
@@ -929,7 +920,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(275deg, #9a99f3 0%, #ffffff 50%, #9a99f3 100%);
+  background:  linear-gradient(135deg, var(--color-accent), var(--color-muted));
   animation: agentBackRotate 5s linear infinite;
   z-index: 0;
 }
@@ -977,7 +968,6 @@
   padding: 2rpx;
   background: linear-gradient(
     81deg,
-    #7f5fdf 7%,
     rgba(63, 129, 244, 0.6) 54%,
     rgba(75, 77, 85, 0) 126%
   );
@@ -1017,10 +1007,10 @@
   padding: 8rpx 16rpx;
   font-size: 26rpx;
   font-weight: bold;
-  color: #000;
+  color: var(--color-foreground);
   border-radius: 15rpx;
-  border: 2rpx solid #dadada;
-  background: #fff;
+  border: 2rpx solid var(--color-border);
+  background: var(--color-card);
   box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
   white-space: nowrap;
   flex-shrink: 0;
@@ -1102,7 +1092,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background-color: #fff;
+  background-color: var(--color-card);
   transition: bottom 0.3s ease;
   padding-bottom: calc(env(safe-area-inset-bottom) + 10rpx);
   z-index: 1000;
@@ -1116,7 +1106,7 @@
 
 /* ============ 用户消息紫色气泡(对标原 ai_assistant.vue .agent-content-item-question) ============ */
 .agent-content-item-question {
-  background: #9a99f3;
+  background: var(--color-brand);
   border: 2rpx solid;
   border-image: linear-gradient(
       275deg,
@@ -1129,7 +1119,7 @@
   border-radius: 15rpx;
   float: right;
   padding: 20rpx;
-  color: #ffffff;
+  color: var(--color-foreground);
   font-size: 22rpx;
   line-height: 28rpx;
   font-variation-settings:
@@ -1141,8 +1131,8 @@
 
 /* ============ AI 消息灰色全宽气泡(对标原 ai_assistant.vue .agent-content-item) ============ */
 .agent-content-item {
-  background: #f6f6f6;
-  border: 1px solid #eeeeee;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: 30rpx;
   padding: 20rpx;
   float: left;
@@ -1156,7 +1146,7 @@
 .content_agent_nei {
   font-size: 22rpx;
   line-height: 28rpx;
-  color: #333333;
+  color: var(--color-foreground);
   user-select: text;
   -webkit-user-select: text;
   -webkit-touch-callout: default;
@@ -1192,7 +1182,7 @@
 
 /* ============ 放大态背景(对标原 .input_area_back,放大态必须覆盖 .input-area-back 的呼吸阴影与动画) ============ */
 .input-area-active-bg {
-  background: #fff;
+  background: var(--color-card);
   height: 100%;
   box-shadow: none;
   animation: none;
