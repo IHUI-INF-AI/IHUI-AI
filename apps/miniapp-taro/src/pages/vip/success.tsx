@@ -8,6 +8,7 @@ import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './success.css'
 
 /** 安全 decode router 参数 */
@@ -110,91 +111,93 @@ export default function VipSuccessPage() {
   }
 
   return (
-    <View className="vs-page">
-      {/* ===== 成功图标 + 标题 ===== */}
-      <View className="vs-icon-wrap">
-        <Image
-          className="vs-icon"
-          src="/static/images/icons/check-success.svg"
-          mode="aspectFit"
-          style={{ width: '120rpx', height: '120rpx' }}
-        />
-      </View>
-      <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
-      <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
-
-      {/* ===== 会员权益激活提示 ===== */}
-      <View className="vs-activation">
-        <Image
-          className="vs-activation-icon"
-          src="/static/images/icons/sparkles.svg"
-          mode="aspectFit"
-          style={{ width: '32rpx', height: '32rpx' }}
-        />
-        <Text className="vs-activation-text">
-          {tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
-        </Text>
-      </View>
-
-      {/* ===== 订单信息卡片 ===== */}
-      <View className="vs-info-card">
-        <View className="vs-info-row">
-          <Text className="vs-info-label">{tt('vip.success.planName', '套餐名称')}</Text>
-          <Text className="vs-info-value">{displayPlanName}</Text>
-        </View>
-        <View className="vs-info-row">
-          <Text className="vs-info-label">{tt('vip.success.duration', '会员时长')}</Text>
-          <Text className="vs-info-value">{duration}</Text>
-        </View>
-        <View className="vs-info-row">
-          <Text className="vs-info-label">{tt('vip.success.amount', '支付金额')}</Text>
-          <Text className="vs-info-value vs-amount">¥{amount}</Text>
-        </View>
-        <View className="vs-info-row">
-          <Text className="vs-info-label">{tt('vip.success.payMethod', '支付方式')}</Text>
-          <Text className="vs-info-value">{payMethod}</Text>
-        </View>
-        <View className="vs-info-row">
-          <Text className="vs-info-label">{tt('vip.success.payTime', '支付时间')}</Text>
-          <Text className="vs-info-value">{payTime}</Text>
-        </View>
-        {orderNo ? (
-          <View className="vs-info-row" onClick={copyOrderNo}>
-            <Text className="vs-info-label">{tt('order.orderNo', '订单号')}</Text>
-            <Text className="vs-info-value vs-order-no">{orderNo}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* ===== 主操作按钮 ===== */}
-      <View className="vs-btn-group">
-        <Button className="vs-btn-primary" onClick={goBenefits}>
-          {tt('vip.index.viewBenefits', '查看会员权益')}
-        </Button>
-        <Button className="vs-btn-outline" onClick={goHome}>
-          {tt('pay.backHome', '返回首页')}
-        </Button>
-      </View>
-
-      {/* ===== 分享好友赚佣金入口 ===== */}
-      <View className="vs-share" onClick={goShare}>
-        <View className="vs-share-icon">
+    <ThemeRoot>
+      <View className="vs-page">
+        {/* ===== 成功图标 + 标题 ===== */}
+        <View className="vs-icon-wrap">
           <Image
-            className="vs-share-icon-text"
-            style={{ width: '40rpx', height: '40rpx' }}
-            src="/static/images/icons/package.svg"
+            className="vs-icon"
+            src="/static/images/icons/check-success.svg"
             mode="aspectFit"
+            style={{ width: '120rpx', height: '120rpx' }}
           />
         </View>
-        <View className="vs-share-content">
-          <Text className="vs-share-title">{tt('vip.success.shareTitle', '分享好友赚佣金')}</Text>
-          <Text className="vs-share-desc">
-            {tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金')}
+        <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
+        <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
+
+        {/* ===== 会员权益激活提示 ===== */}
+        <View className="vs-activation">
+          <Image
+            className="vs-activation-icon"
+            src="/static/images/icons/sparkles.svg"
+            mode="aspectFit"
+            style={{ width: '32rpx', height: '32rpx' }}
+          />
+          <Text className="vs-activation-text">
+            {tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
           </Text>
         </View>
-        <Text className="vs-share-arrow">›</Text>
+
+        {/* ===== 订单信息卡片 ===== */}
+        <View className="vs-info-card">
+          <View className="vs-info-row">
+            <Text className="vs-info-label">{tt('vip.success.planName', '套餐名称')}</Text>
+            <Text className="vs-info-value">{displayPlanName}</Text>
+          </View>
+          <View className="vs-info-row">
+            <Text className="vs-info-label">{tt('vip.success.duration', '会员时长')}</Text>
+            <Text className="vs-info-value">{duration}</Text>
+          </View>
+          <View className="vs-info-row">
+            <Text className="vs-info-label">{tt('vip.success.amount', '支付金额')}</Text>
+            <Text className="vs-info-value vs-amount">¥{amount}</Text>
+          </View>
+          <View className="vs-info-row">
+            <Text className="vs-info-label">{tt('vip.success.payMethod', '支付方式')}</Text>
+            <Text className="vs-info-value">{payMethod}</Text>
+          </View>
+          <View className="vs-info-row">
+            <Text className="vs-info-label">{tt('vip.success.payTime', '支付时间')}</Text>
+            <Text className="vs-info-value">{payTime}</Text>
+          </View>
+          {orderNo ? (
+            <View className="vs-info-row" onClick={copyOrderNo}>
+              <Text className="vs-info-label">{tt('order.orderNo', '订单号')}</Text>
+              <Text className="vs-info-value vs-order-no">{orderNo}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* ===== 主操作按钮 ===== */}
+        <View className="vs-btn-group">
+          <Button className="vs-btn-primary" onClick={goBenefits}>
+            {tt('vip.index.viewBenefits', '查看会员权益')}
+          </Button>
+          <Button className="vs-btn-outline" onClick={goHome}>
+            {tt('pay.backHome', '返回首页')}
+          </Button>
+        </View>
+
+        {/* ===== 分享好友赚佣金入口 ===== */}
+        <View className="vs-share" onClick={goShare}>
+          <View className="vs-share-icon">
+            <Image
+              className="vs-share-icon-text"
+              style={{ width: '40rpx', height: '40rpx' }}
+              src="/static/images/icons/package.svg"
+              mode="aspectFit"
+            />
+          </View>
+          <View className="vs-share-content">
+            <Text className="vs-share-title">{tt('vip.success.shareTitle', '分享好友赚佣金')}</Text>
+            <Text className="vs-share-desc">
+              {tt('vip.success.shareDesc', '邀请好友开通会员,享 20% 现金佣金')}
+            </Text>
+          </View>
+          <Text className="vs-share-arrow">›</Text>
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

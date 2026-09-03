@@ -8,6 +8,7 @@ import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
 import SectionHeader from '@/components/SectionHeader'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface CommissionRecord {
@@ -93,57 +94,59 @@ export default function CommissionPage() {
   }
 
   return (
-    <View className="wc-page">
-      <SectionHeader
-        title={tt('wallet.commission.title', '佣金明细')}
-        showMore={false}
-        className="mb-[16rpx]"
-      />
-      <View className="wc-stats">
-        <View className="wc-stat-item">
-          <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
-          <Text className="wc-stat-value">¥{todayCommission}</Text>
+    <ThemeRoot>
+      <View className="wc-page">
+        <SectionHeader
+          title={tt('wallet.commission.title', '佣金明细')}
+          showMore={false}
+          className="mb-[16rpx]"
+        />
+        <View className="wc-stats">
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('wallet.commission.today')}</Text>
+            <Text className="wc-stat-value">¥{todayCommission}</Text>
+          </View>
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
+            <Text className="wc-stat-value">¥{totalCommission}</Text>
+          </View>
+          <View className="wc-stat-item">
+            <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
+            <Text className="wc-stat-value">¥{available}</Text>
+          </View>
         </View>
-        <View className="wc-stat-item">
-          <Text className="wc-stat-label">{t('distribution.commission.total')}</Text>
-          <Text className="wc-stat-value">¥{totalCommission}</Text>
-        </View>
-        <View className="wc-stat-item">
-          <Text className="wc-stat-label">{t('wallet.commission.available')}</Text>
-          <Text className="wc-stat-value">¥{available}</Text>
-        </View>
-      </View>
 
-      <View className="wc-list-section">
-        <Text className="wc-list-title">{t('wallet.commission.records')}</Text>
-        {list.length > 0 && (
-          <View className="wc-list">
-            {list.map((r) => (
-              <View key={r.id} className="wc-item">
-                <View className="wc-item-info">
-                  <Text className="wc-item-type">{r.type}</Text>
-                  <Text className="wc-item-time">
-                    {r.time}
-                    {r.nickname ? ` · ${r.nickname}` : ''}
+        <View className="wc-list-section">
+          <Text className="wc-list-title">{t('wallet.commission.records')}</Text>
+          {list.length > 0 && (
+            <View className="wc-list">
+              {list.map((r) => (
+                <View key={r.id} className="wc-item">
+                  <View className="wc-item-info">
+                    <Text className="wc-item-type">{r.type}</Text>
+                    <Text className="wc-item-time">
+                      {r.time}
+                      {r.nickname ? ` · ${r.nickname}` : ''}
+                    </Text>
+                  </View>
+                  <Text className={`wc-item-amount ${r.amount > 0 ? 'positive' : 'negative'}`}>
+                    {r.amount > 0 ? '+' : ''}¥{r.amount}
                   </Text>
                 </View>
-                <Text className={`wc-item-amount ${r.amount > 0 ? 'positive' : 'negative'}`}>
-                  {r.amount > 0 ? '+' : ''}¥{r.amount}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-        {list.length === 0 && !loading && (
-          <Text className="wc-empty">{t('distribution.commission.empty')}</Text>
-        )}
-        {loading && <Text className="wc-loading">{t('distribution.commission.loading')}</Text>}
-      </View>
+              ))}
+            </View>
+          )}
+          {list.length === 0 && !loading && (
+            <Text className="wc-empty">{t('distribution.commission.empty')}</Text>
+          )}
+          {loading && <Text className="wc-loading">{t('distribution.commission.loading')}</Text>}
+        </View>
 
-      <Button className="wc-withdraw-btn" onClick={goWithdraw}>
-        {t('developer.income.withdraw')}
-      </Button>
-    </View>
+        <Button className="wc-withdraw-btn" onClick={goWithdraw}>
+          {t('developer.income.withdraw')}
+        </Button>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

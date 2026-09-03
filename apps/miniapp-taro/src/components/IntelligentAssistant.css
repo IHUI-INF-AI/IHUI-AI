@@ -10,7 +10,7 @@
   margin: 16rpx;
   padding: 24rpx;
   background: var(--color-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
 }
 
 .ia-robot {

@@ -38,7 +38,7 @@ export interface InformationItemProps {
   onShare?: (item: InformationItemData) => void
 }
 
-const TIMELINE_COLOR = 'var(--color-brand-purple-soft, #9A99F3)'
+const TIMELINE_COLOR = 'var(--color-brand)'
 
 export default function InformationItem({
   item,

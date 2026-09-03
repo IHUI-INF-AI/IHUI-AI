@@ -15,7 +15,7 @@
   height: 72rpx;
   padding: 0 24rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   font-size: 26rpx;
 }
 .message-list {
@@ -23,7 +23,7 @@
 }
 .message-item {
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 24rpx;
   margin-bottom: 16rpx;
 }

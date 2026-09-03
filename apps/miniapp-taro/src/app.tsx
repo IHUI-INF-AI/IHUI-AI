@@ -31,6 +31,7 @@ import { createTaroTransport } from './utils/api-client-transport'
 import { taroWebSocketFactory } from './utils/taro-websocket-adapter'
 import { BASE_URL } from './utils/api-config'
 import { taroDeviceFingerprintCollector } from './lib/device-fingerprint'
+import { initTheme } from './lib/theme'
 import CustomerServiceFloat from './components/CustomerServiceFloat'
 import { initCrashReport } from './utils/crash-report'
 import './app.css'
@@ -177,6 +178,19 @@ function MemoryWarningHandler() {
 }
 
 /**
+ * 主题系统启动初始化(2026-09-03 立)。
+ * 读取 settings 页保存的偏好(auto/light/dark)→ 解析 → 应用原生 chrome
+ * (导航栏/tabBar/窗口背景)+ 注册系统主题切换监听。
+ * 内容区 .dark 类由各页面根容器 <ThemeRoot> 消费(见 lib/theme.ts / components/ThemeRoot.tsx)。
+ */
+function ThemeInitHandler() {
+  useLaunch(() => {
+    initTheme()
+  })
+  return null
+}
+
+/**
  * 检查小程序启动参数是否带 sso_code(外部场景:H5 / 扫码 / deep link 携带)。
  * 若有则调 /api/auth/sso/exchange 换 token,实现"从 web 已登录态无缝继承到小程序"。
  * 失败静默,不打扰用户(用户仍可走小程序自身登录流程)。
@@ -258,6 +272,7 @@ function App({ children }: PropsWithChildren<unknown>) {
     <I18nProvider>
       <NetworkStatusHandler />
       <MemoryWarningHandler />
+      <ThemeInitHandler />
       <SsoLaunchHandler />
       {children}
       <CustomerServiceFloat />

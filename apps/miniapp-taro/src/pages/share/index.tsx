@@ -22,6 +22,7 @@ import NewTitle, { type NewTitleItem } from './components/NewTitle'
 import CenterItem, { type CenterItemData } from './components/CenterItem'
 import InterestTrackModal from './components/InterestTrackModal'
 import './index.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type Tab = 'latest' | 'hot' | 'following'
 
@@ -600,7 +601,7 @@ export default function ShareIndexPage() {
 
   // ===== 主容器(activeNavbar=true) — 对齐原项目 main-container =====
   return (
-    <View className="share-page">
+    <ThemeRoot className="share-page">
       {/* DrawerComponent 侧边栏抽屉 — 对齐原项目：放在 main-container 外部顶层 */}
       <DrawerComponent
         visible={drawerVisible}
@@ -699,7 +700,7 @@ export default function ShareIndexPage() {
       {/* main-container — 对齐原项目结构，no-scroll 样式由 tagWrapShow 控制 */}
       <View
         className={`share-main-container${tagWrapShow ? ' no-scroll' : ''}`}
-        style={{ minHeight: '110vh', color: '#333' }}
+        style={{ minHeight: '110vh', color: 'var(--color-foreground)' }}
       >
         {/* FloatBox 浮动组件 — 对齐原项目：放在 main-container 内部 */}
         <FloatBox />
@@ -882,7 +883,7 @@ export default function ShareIndexPage() {
           }
         }}
       />
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

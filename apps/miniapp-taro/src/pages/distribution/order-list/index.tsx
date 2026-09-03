@@ -9,6 +9,7 @@ import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { logger } from '@/utils/logger'
 import './index.css'
+import ThemeRoot from '@/components/ThemeRoot'
 
 interface OrderItem {
   id: string
@@ -181,28 +182,30 @@ export default function DistributionOrderList() {
               cls: 'ol-status-pending',
             }
             return (
-              <View key={o.id} className="ol-card" onClick={() => onItemClick(o.id)}>
-                <View className="ol-card-header">
-                  <Text className="ol-order-no">
-                    {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
-                  </Text>
-                  <Text className={`ol-status ${statusInfo.cls}`}>
-                    {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
-                  </Text>
-                </View>
-                <View className="ol-card-main">
-                  <Text className="ol-product-title">{o.product}</Text>
-                </View>
-                <View className="ol-card-footer">
-                  <Text className="ol-time">{o.time || '-'}</Text>
-                  <View className="ol-commission">
-                    <Text className="ol-label">
-                      {tt('distribution.orderList.commission', '佣金')}
+              <ThemeRoot key={o.id} className="ol-card">
+                <View key={o.id} onClick={() => onItemClick(o.id)}>
+                  <View className="ol-card-header">
+                    <Text className="ol-order-no">
+                      {tt('distribution.orderList.orderNo', '订单号')}:{o.orderNo || '-'}
                     </Text>
-                    <Text className="ol-commission-amount">¥{o.commission}</Text>
+                    <Text className={`ol-status ${statusInfo.cls}`}>
+                      {statusInfo.key ? tt(statusInfo.key, statusInfo.fb) : statusInfo.fb}
+                    </Text>
+                  </View>
+                  <View className="ol-card-main">
+                    <Text className="ol-product-title">{o.product}</Text>
+                  </View>
+                  <View className="ol-card-footer">
+                    <Text className="ol-time">{o.time || '-'}</Text>
+                    <View className="ol-commission">
+                      <Text className="ol-label">
+                        {tt('distribution.orderList.commission', '佣金')}
+                      </Text>
+                      <Text className="ol-commission-amount">¥{o.commission}</Text>
+                    </View>
                   </View>
                 </View>
-              </View>
+              </ThemeRoot>
             )
           })}
         </View>

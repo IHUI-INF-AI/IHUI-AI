@@ -13,7 +13,7 @@
 /* 入口引导 */
 .pzc-entry {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 40rpx 32rpx;
   margin-bottom: 24rpx;
 }
@@ -40,7 +40,7 @@
   justify-content: center;
   height: 80rpx;
   background: var(--color-primary);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pzc-entry-btn text {
@@ -54,7 +54,7 @@
   align-items: center;
   gap: 24rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
@@ -62,7 +62,7 @@
 .pzc-avatar {
   width: 96rpx;
   height: 96rpx;
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   background: var(--color-background);
 }
 
@@ -101,7 +101,7 @@
   justify-content: center;
   height: 88rpx;
   background: var(--color-primary);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 24rpx;
 }
 
@@ -113,7 +113,7 @@
 /* 三个入口卡片 */
 .pzc-dev-list {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: 24rpx;
 }
@@ -145,7 +145,7 @@
 /* 开发者信息卡 */
 .pzc-info-card {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   padding: 32rpx;
   margin-bottom: 24rpx;
 }
@@ -186,7 +186,7 @@
   color: var(--color-primary);
   padding: 8rpx 20rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -195,7 +195,7 @@
   color: var(--color-primary-foreground);
   padding: 8rpx 20rpx;
   background: var(--color-primary);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 
@@ -206,7 +206,7 @@
   justify-content: center;
   height: 88rpx;
   background: var(--color-card);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 24rpx;
 }
 
@@ -218,7 +218,7 @@
 /* 未开发者问答 */
 .pzc-qa {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 

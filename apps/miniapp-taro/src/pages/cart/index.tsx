@@ -8,6 +8,7 @@ import { View, Text, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 interface CartItem {
@@ -143,120 +144,126 @@ export default function Cart() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="page-container">
-        <View className="page-header">
-          <Text className="page-title">{t('cart.title')}</Text>
+      <ThemeRoot>
+        <View className="page-container">
+          <View className="page-header">
+            <Text className="page-title">{t('cart.title')}</Text>
+          </View>
+          <View className="page-content">
+            <Text className="loading-text">{t('cart.loading')}</Text>
+          </View>
         </View>
-        <View className="page-content">
-          <Text className="loading-text">{t('cart.loading')}</Text>
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   if (error && list.length === 0) {
     return (
+      <ThemeRoot>
+        <View className="page-container">
+          <View className="page-header">
+            <Text className="page-title">{t('cart.title')}</Text>
+          </View>
+          <View className="page-content">
+            <Text className="empty-text">{tt('cart.loadFailed', '加载失败')}</Text>
+            <Text className="btn" onClick={loadData}>
+              {t('common.retry')}
+            </Text>
+          </View>
+        </View>
+      </ThemeRoot>
+    )
+  }
+
+  return (
+    <ThemeRoot>
       <View className="page-container">
         <View className="page-header">
           <Text className="page-title">{t('cart.title')}</Text>
         </View>
         <View className="page-content">
-          <Text className="empty-text">{tt('cart.loadFailed', '加载失败')}</Text>
-          <Text className="btn" onClick={loadData}>
-            {t('common.retry')}
-          </Text>
-        </View>
-      </View>
-    )
-  }
-
-  return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('cart.title')}</Text>
-      </View>
-      <View className="page-content">
-        {list.length ? (
-          list.map((item) => (
-            <View key={item.id} className="cart-item-wrapper">
-              <View
-                className={`cart-item ${swipedId === item.id ? 'swiped' : ''}`}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={(e) => handleTouchEnd(e, item.id)}
-              >
+          {list.length ? (
+            list.map((item) => (
+              <View key={item.id} className="cart-item-wrapper">
                 <View
-                  className={`checkbox ${item.selected ? 'checked' : ''}`}
-                  onClick={() => onToggleItem(item.id)}
+                  className={`cart-item ${swipedId === item.id ? 'swiped' : ''}`}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={(e) => handleTouchEnd(e, item.id)}
                 >
-                  {item.selected ? <Text className="checkbox-icon">✓</Text> : null}
+                  <View
+                    className={`checkbox ${item.selected ? 'checked' : ''}`}
+                    onClick={() => onToggleItem(item.id)}
+                  >
+                    {item.selected ? <Text className="checkbox-icon">✓</Text> : null}
+                  </View>
+                  {item.coverUrl ? (
+                    <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
+                  ) : (
+                    <View className="cart-item-cover placeholder">
+                      <Image
+                        className="placeholder-icon"
+                        style={{ width: '48rpx', height: '48rpx' }}
+                        src="/static/images/icons/package.svg"
+                        mode="aspectFit"
+                      />
+                    </View>
+                  )}
+                  <View className="cart-item-info">
+                    <Text className="cart-item-title">{item.title}</Text>
+                    <Text className="cart-item-price">¥{item.price.toFixed(2)}</Text>
+                    <View className="quantity-control">
+                      <Text
+                        className={`quantity-btn ${item.quantity <= 1 ? 'disabled' : ''}`}
+                        onClick={() => item.quantity > 1 && onQuantityChange(item.id, -1)}
+                      >
+                        −
+                      </Text>
+                      <Text className="quantity-value">{item.quantity}</Text>
+                      <Text className="quantity-btn" onClick={() => onQuantityChange(item.id, 1)}>
+                        +
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-                {item.coverUrl ? (
-                  <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
-                ) : (
-                  <View className="cart-item-cover placeholder">
-                    <Image
-                      className="placeholder-icon"
-                      style={{ width: '48rpx', height: '48rpx' }}
-                      src="/static/images/icons/package.svg"
-                      mode="aspectFit"
-                    />
-                  </View>
-                )}
-                <View className="cart-item-info">
-                  <Text className="cart-item-title">{item.title}</Text>
-                  <Text className="cart-item-price">¥{item.price.toFixed(2)}</Text>
-                  <View className="quantity-control">
-                    <Text
-                      className={`quantity-btn ${item.quantity <= 1 ? 'disabled' : ''}`}
-                      onClick={() => item.quantity > 1 && onQuantityChange(item.id, -1)}
-                    >
-                      −
-                    </Text>
-                    <Text className="quantity-value">{item.quantity}</Text>
-                    <Text className="quantity-btn" onClick={() => onQuantityChange(item.id, 1)}>
-                      +
-                    </Text>
-                  </View>
+                <View className="cart-item-delete-action" onClick={() => onRemove(item.id)}>
+                  <Text className="delete-action-text">{t('common.delete')}</Text>
                 </View>
               </View>
-              <View className="cart-item-delete-action" onClick={() => onRemove(item.id)}>
-                <Text className="delete-action-text">{t('common.delete')}</Text>
-              </View>
+            ))
+          ) : (
+            <View className="empty-wrapper">
+              <Image
+                className="empty-icon"
+                style={{ width: '80rpx', height: '80rpx' }}
+                src="/static/images/icons/shopping-cart.svg"
+                mode="aspectFit"
+              />
+              <Text className="empty-text">{t('cart.empty')}</Text>
             </View>
-          ))
-        ) : (
-          <View className="empty-wrapper">
-            <Image
-              className="empty-icon"
-              style={{ width: '80rpx', height: '80rpx' }}
-              src="/static/images/icons/shopping-cart.svg"
-              mode="aspectFit"
-            />
-            <Text className="empty-text">{t('cart.empty')}</Text>
+          )}
+        </View>
+        {list.length > 0 && (
+          <View className="cart-footer">
+            <View className={`checkbox ${allSelected ? 'checked' : ''}`} onClick={onToggleAll}>
+              {allSelected ? <Text className="checkbox-icon">✓</Text> : null}
+            </View>
+            <Text className="select-all-label" onClick={onToggleAll}>
+              {t('common.all')}
+            </Text>
+            <View className="footer-total">
+              <Text className="total-label">{tt('cart.total', '合计')}:</Text>
+              <Text className="total-price">¥{totalPrice.toFixed(2)}</Text>
+            </View>
+            <Text
+              className={`btn checkout-btn ${totalCount === 0 ? 'disabled' : ''}`}
+              onClick={onCheckout}
+            >
+              {t('cart.checkout')}({totalCount})
+            </Text>
           </View>
         )}
       </View>
-      {list.length > 0 && (
-        <View className="cart-footer">
-          <View className={`checkbox ${allSelected ? 'checked' : ''}`} onClick={onToggleAll}>
-            {allSelected ? <Text className="checkbox-icon">✓</Text> : null}
-          </View>
-          <Text className="select-all-label" onClick={onToggleAll}>
-            {t('common.all')}
-          </Text>
-          <View className="footer-total">
-            <Text className="total-label">{tt('cart.total', '合计')}:</Text>
-            <Text className="total-price">¥{totalPrice.toFixed(2)}</Text>
-          </View>
-          <Text
-            className={`btn checkout-btn ${totalCount === 0 ? 'disabled' : ''}`}
-            onClick={onCheckout}
-          >
-            {t('cart.checkout')}({totalCount})
-          </Text>
-        </View>
-      )}
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -17,6 +17,7 @@ import {
   type ExamRecord,
 } from '@/api'
 import { NavBar } from '@/components'
+import ThemeRoot from '@/components/ThemeRoot'
 import './detail.css'
 
 type ExamDetail = ExamPaper & {
@@ -126,130 +127,132 @@ export default function ExamDetail() {
   ]
 
   return (
-    <View className="exam-detail-page">
-      <NavBar title={tt('exam.detail.pageTitle', '考试详情')} showBack />
-      <ScrollView scrollY className="exam-detail-body">
-        {loading ? (
-          <View className="exam-detail-loading">
-            <Text>{tt('exam.detail.loading', '加载中…')}</Text>
-          </View>
-        ) : null}
-
-        {!loading && exam.title ? (
-          <View>
-            {/* 考试标题 + 简介 */}
-            <View className="exam-detail-header">
-              <Text className="exam-detail-title">{exam.title}</Text>
-              {exam.description ? (
-                <Text className="exam-detail-desc">{exam.description}</Text>
-              ) : null}
+    <ThemeRoot>
+      <View className="exam-detail-page">
+        <NavBar title={tt('exam.detail.pageTitle', '考试详情')} showBack />
+        <ScrollView scrollY className="exam-detail-body">
+          {loading ? (
+            <View className="exam-detail-loading">
+              <Text>{tt('exam.detail.loading', '加载中…')}</Text>
             </View>
+          ) : null}
 
-            {/* 考试信息统计 */}
-            <View className="exam-detail-stats">
-              {stats.map((s, i) => (
-                <View key={i} className="exam-detail-stat-item">
-                  <Text className="exam-detail-stat-value">{s.value}</Text>
-                  <Text className="exam-detail-stat-label">{s.label}</Text>
-                </View>
-              ))}
-            </View>
+          {!loading && exam.title ? (
+            <View>
+              {/* 考试标题 + 简介 */}
+              <View className="exam-detail-header">
+                <Text className="exam-detail-title">{exam.title}</Text>
+                {exam.description ? (
+                  <Text className="exam-detail-desc">{exam.description}</Text>
+                ) : null}
+              </View>
 
-            {/* 参与情况 */}
-            <View className="exam-detail-card">
-              <View className="exam-detail-participant-row">
-                <View className="exam-detail-participant-item">
-                  <Text className="exam-detail-participant-num">{exam.participantCount}</Text>
-                  <Text className="exam-detail-participant-label">
-                    {tt('exam.detail.participants', '参与人数')}
-                  </Text>
-                </View>
-                <View className="exam-detail-participant-item">
-                  <Text className="exam-detail-participant-num passed">{exam.passedCount}</Text>
-                  <Text className="exam-detail-participant-label">
-                    {tt('exam.detail.passedCount', '已通过')}
-                  </Text>
+              {/* 考试信息统计 */}
+              <View className="exam-detail-stats">
+                {stats.map((s, i) => (
+                  <View key={i} className="exam-detail-stat-item">
+                    <Text className="exam-detail-stat-value">{s.value}</Text>
+                    <Text className="exam-detail-stat-label">{s.label}</Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* 参与情况 */}
+              <View className="exam-detail-card">
+                <View className="exam-detail-participant-row">
+                  <View className="exam-detail-participant-item">
+                    <Text className="exam-detail-participant-num">{exam.participantCount}</Text>
+                    <Text className="exam-detail-participant-label">
+                      {tt('exam.detail.participants', '参与人数')}
+                    </Text>
+                  </View>
+                  <View className="exam-detail-participant-item">
+                    <Text className="exam-detail-participant-num passed">{exam.passedCount}</Text>
+                    <Text className="exam-detail-participant-label">
+                      {tt('exam.detail.passedCount', '已通过')}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* 考试规则 */}
-            <View className="exam-detail-card">
-              <Text className="exam-detail-card-title">
-                {tt('exam.detail.rulesTitle', '考试规则')}
-              </Text>
-              {rules.map((rule, i) => (
-                <View key={i} className="exam-detail-rule-item">
-                  <Text className="exam-detail-rule-dot">•</Text>
-                  <Text className="exam-detail-rule-text">{rule}</Text>
-                </View>
-              ))}
-            </View>
+              {/* 考试规则 */}
+              <View className="exam-detail-card">
+                <Text className="exam-detail-card-title">
+                  {tt('exam.detail.rulesTitle', '考试规则')}
+                </Text>
+                {rules.map((rule, i) => (
+                  <View key={i} className="exam-detail-rule-item">
+                    <Text className="exam-detail-rule-dot">•</Text>
+                    <Text className="exam-detail-rule-text">{rule}</Text>
+                  </View>
+                ))}
+              </View>
 
-            {/* 历史成绩 */}
-            <View className="exam-detail-card">
-              <Text className="exam-detail-card-title">
-                {tt('exam.detail.historyTitle', '历史成绩')}
-              </Text>
-              {history.length > 0 ? (
-                history.map((h, i) => (
-                  <View key={h.id || i} className="exam-detail-history-item">
-                    <View className="exam-detail-history-info">
-                      <Text
-                        className={`exam-detail-history-status${h.isPassed ? ' passed' : ' failed'}`}
-                      >
-                        {h.isPassed
-                          ? tt('exam.detail.historyPassed', '通过')
-                          : tt('exam.detail.historyNotPassed', '未通过')}
-                      </Text>
-                      <Text className="exam-detail-history-time">
-                        {tt('exam.detail.historyTime', '考试时间 {time}', {
-                          time: formatTime(h.submittedAt || h.startedAt),
+              {/* 历史成绩 */}
+              <View className="exam-detail-card">
+                <Text className="exam-detail-card-title">
+                  {tt('exam.detail.historyTitle', '历史成绩')}
+                </Text>
+                {history.length > 0 ? (
+                  history.map((h, i) => (
+                    <View key={h.id || i} className="exam-detail-history-item">
+                      <View className="exam-detail-history-info">
+                        <Text
+                          className={`exam-detail-history-status${h.isPassed ? ' passed' : ' failed'}`}
+                        >
+                          {h.isPassed
+                            ? tt('exam.detail.historyPassed', '通过')
+                            : tt('exam.detail.historyNotPassed', '未通过')}
+                        </Text>
+                        <Text className="exam-detail-history-time">
+                          {tt('exam.detail.historyTime', '考试时间 {time}', {
+                            time: formatTime(h.submittedAt || h.startedAt),
+                          })}
+                        </Text>
+                      </View>
+                      <Text className="exam-detail-history-score">
+                        {tt('exam.detail.historyScoreValue', '{n} 分', {
+                          n: Number(h.score) || 0,
                         })}
                       </Text>
                     </View>
-                    <Text className="exam-detail-history-score">
-                      {tt('exam.detail.historyScoreValue', '{n} 分', {
-                        n: Number(h.score) || 0,
-                      })}
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <Text className="exam-detail-history-empty">
-                  {tt('exam.detail.historyEmpty', '暂无历史成绩')}
-                </Text>
-              )}
+                  ))
+                ) : (
+                  <Text className="exam-detail-history-empty">
+                    {tt('exam.detail.historyEmpty', '暂无历史成绩')}
+                  </Text>
+                )}
+              </View>
             </View>
+          ) : null}
+
+          {!loading && !exam.title ? (
+            <View className="exam-detail-error" onClick={loadExam}>
+              <Text className="exam-detail-error-text">
+                {tt('exam.detail.loadFailed', '考试加载失败')}
+              </Text>
+              <Text className="exam-detail-error-retry">{tt('exam.detail.retry', '点击重试')}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+
+        {/* 开始考试按钮 */}
+        {!loading && exam.title ? (
+          <View className="exam-detail-footer">
+            <Button
+              className="exam-detail-start-btn"
+              loading={starting}
+              disabled={starting}
+              onClick={onStart}
+            >
+              {starting
+                ? tt('exam.detail.starting', '正在进入考试…')
+                : tt('exam.detail.start', '开始考试')}
+            </Button>
           </View>
         ) : null}
-
-        {!loading && !exam.title ? (
-          <View className="exam-detail-error" onClick={loadExam}>
-            <Text className="exam-detail-error-text">
-              {tt('exam.detail.loadFailed', '考试加载失败')}
-            </Text>
-            <Text className="exam-detail-error-retry">{tt('exam.detail.retry', '点击重试')}</Text>
-          </View>
-        ) : null}
-      </ScrollView>
-
-      {/* 开始考试按钮 */}
-      {!loading && exam.title ? (
-        <View className="exam-detail-footer">
-          <Button
-            className="exam-detail-start-btn"
-            loading={starting}
-            disabled={starting}
-            onClick={onStart}
-          >
-            {starting
-              ? tt('exam.detail.starting', '正在进入考试…')
-              : tt('exam.detail.start', '开始考试')}
-          </Button>
-        </View>
-      ) : null}
-    </View>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

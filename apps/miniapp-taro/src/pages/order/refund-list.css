@@ -29,7 +29,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .refund-tab-active {
   color: var(--color-primary);
@@ -53,7 +53,7 @@
 .refund-card {
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   padding: 28rpx;
 }
 .refund-card-head {
@@ -126,7 +126,7 @@
   padding: 16rpx 20rpx;
   background: rgba(16, 185, 129, 0.08);
   border: 2rpx solid rgba(16, 185, 129, 0.2);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   font-size: 24rpx;
   color: var(--color-success);
 }
@@ -145,7 +145,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 .refund-action-primary {
   color: var(--color-primary);
@@ -159,7 +159,7 @@
   padding: 24rpx;
   background: var(--color-background);
   border: 2rpx solid var(--color-border);
-  border-radius: 10rpx;
+  border-radius: var(--radius-md);
 }
 .refund-step {
   display: flex;
@@ -174,7 +174,7 @@
 .refund-step-dot {
   width: 18rpx;
   height: 18rpx;
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
   background: var(--color-muted);
   flex-shrink: 0;
 }

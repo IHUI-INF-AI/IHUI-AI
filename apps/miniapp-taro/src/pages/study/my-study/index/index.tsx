@@ -10,6 +10,7 @@ import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
 import type { StudyRecord } from '@/api'
 import { formatRelativeTime } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type TabKey = 'inProgress' | 'completed' | 'favorited'
@@ -89,100 +90,106 @@ export default function MyStudy() {
 
   if (loading && list.length === 0) {
     return (
-      <View className="page-container">
-        <View className="page-header">
-          <Text className="page-title">{t('study.myStudy.title')}</Text>
+      <ThemeRoot>
+        <View className="page-container">
+          <View className="page-header">
+            <Text className="page-title">{t('study.myStudy.title')}</Text>
+          </View>
+          <View className="page-content">
+            <Text className="loading-text">{t('common.loading')}</Text>
+          </View>
         </View>
-        <View className="page-content">
-          <Text className="loading-text">{t('common.loading')}</Text>
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   if (error && list.length === 0) {
     return (
-      <View className="page-container">
-        <View className="page-header">
-          <Text className="page-title">{t('study.myStudy.title')}</Text>
+      <ThemeRoot>
+        <View className="page-container">
+          <View className="page-header">
+            <Text className="page-title">{t('study.myStudy.title')}</Text>
+          </View>
+          <View className="page-content">
+            <Text className="empty-text">{tt('study.myStudy.loadFailed', '加载失败')}</Text>
+            <Text className="btn" onClick={loadData}>
+              {t('common.retry')}
+            </Text>
+          </View>
         </View>
-        <View className="page-content">
-          <Text className="empty-text">{tt('study.myStudy.loadFailed', '加载失败')}</Text>
-          <Text className="btn" onClick={loadData}>
-            {t('common.retry')}
-          </Text>
-        </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   return (
-    <View className="page-container">
-      <View className="page-header">
-        <Text className="page-title">{t('study.myStudy.title')}</Text>
-      </View>
-      <View className="tab-bar">
-        {TABS(tt).map((tab) => (
-          <Text
-            key={tab.key}
-            className={`tab-item ${activeTab === tab.key ? 'active' : ''}`}
-            onClick={() => onTabChange(tab.key)}
-          >
-            {tt(tab.labelKey, tab.fallback)}
-          </Text>
-        ))}
-      </View>
-      <ScrollView scrollY className="page-content">
-        {displayList.length > 0 ? (
-          displayList.map((item) => (
-            <View key={item.id} className="study-card">
-              <View className="study-cover placeholder flex items-center justify-center">
-                <Image
-                  className="placeholder-icon"
-                  style={{ width: '40rpx', height: '40rpx' }}
-                  src="/static/images/icons/book-open.svg"
-                  mode="aspectFit"
-                />
-              </View>
-              <View className="study-info">
-                <Text className="study-title">
-                  {item.courseTitle || t('study.myStudy.courseFallback')}
-                </Text>
-                <View className="progress-section">
-                  <View className="progress-bar-wrapper">
-                    <View
-                      className="progress-bar-inner"
-                      style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
-                    />
+    <ThemeRoot>
+      <View className="page-container">
+        <View className="page-header">
+          <Text className="page-title">{t('study.myStudy.title')}</Text>
+        </View>
+        <View className="tab-bar">
+          {TABS(tt).map((tab) => (
+            <Text
+              key={tab.key}
+              className={`tab-item ${activeTab === tab.key ? 'active' : ''}`}
+              onClick={() => onTabChange(tab.key)}
+            >
+              {tt(tab.labelKey, tab.fallback)}
+            </Text>
+          ))}
+        </View>
+        <ScrollView scrollY className="page-content">
+          {displayList.length > 0 ? (
+            displayList.map((item) => (
+              <View key={item.id} className="study-card">
+                <View className="study-cover placeholder flex items-center justify-center">
+                  <Image
+                    className="placeholder-icon"
+                    style={{ width: '40rpx', height: '40rpx' }}
+                    src="/static/images/icons/book-open.svg"
+                    mode="aspectFit"
+                  />
+                </View>
+                <View className="study-info">
+                  <Text className="study-title">
+                    {item.courseTitle || t('study.myStudy.courseFallback')}
+                  </Text>
+                  <View className="progress-section">
+                    <View className="progress-bar-wrapper">
+                      <View
+                        className="progress-bar-inner"
+                        style={{ width: `${Math.min(100, Math.max(0, item.progress))}%` }}
+                      />
+                    </View>
+                    <Text className="progress-text">
+                      {tt('study.myStudy.progress', '进度')} {item.progress}%
+                    </Text>
                   </View>
-                  <Text className="progress-text">
-                    {tt('study.myStudy.progress', '进度')} {item.progress}%
+                  {item.time ? (
+                    <Text className="study-time">
+                      {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
+                    </Text>
+                  ) : null}
+                  <Text className="continue-btn" onClick={() => onContinue(item)}>
+                    {t('study.continueLearning')}
                   </Text>
                 </View>
-                {item.time ? (
-                  <Text className="study-time">
-                    {tt('study.myStudy.lastTime', '上次学习')}: {formatRelativeTime(item.time)}
-                  </Text>
-                ) : null}
-                <Text className="continue-btn" onClick={() => onContinue(item)}>
-                  {t('study.continueLearning')}
-                </Text>
               </View>
+            ))
+          ) : (
+            <View className="empty-wrapper">
+              <Image
+                className="empty-icon"
+                style={{ width: '80rpx', height: '80rpx' }}
+                src="/static/images/icons/book-open.svg"
+                mode="aspectFit"
+              />
+              <Text className="empty-text">{getEmptyText(activeTab)}</Text>
             </View>
-          ))
-        ) : (
-          <View className="empty-wrapper">
-            <Image
-              className="empty-icon"
-              style={{ width: '80rpx', height: '80rpx' }}
-              src="/static/images/icons/book-open.svg"
-              mode="aspectFit"
-            />
-            <Text className="empty-text">{getEmptyText(activeTab)}</Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+          )}
+        </ScrollView>
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

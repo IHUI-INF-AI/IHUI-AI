@@ -340,12 +340,12 @@ export default function ChatMessageItem({
                 marginBottom: '6rpx',
               }}
             >
-              <Text style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7 }}>
+              <Text style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}>
                 {t('ai.chatMessageItem.me')}
               </Text>
               {onEdit ? (
                 <Text
-                  style={{ fontSize: '20rpx', color: '#fff', opacity: 0.7 }}
+                  style={{ fontSize: '20rpx', color: 'var(--color-foreground)', opacity: 0.7 }}
                   onClick={handleEdit}
                 >
                   {t('ai.chatMessageItem.edit')}
@@ -367,7 +367,7 @@ export default function ChatMessageItem({
                   return (
                     <Text
                       key={idx}
-                      style={{ color: '#1888ee' }}
+                      style={{ color: 'var(--color-link)' }}
                       onClick={() => handleSegmentClick(seg)}
                     >
                       {seg.url}

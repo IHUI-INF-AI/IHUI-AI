@@ -8,6 +8,7 @@ import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
 import { BUSINESS_CARD_DATA_KEY } from '@/constants/storage'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 type StoredData = {
@@ -87,63 +88,65 @@ export default function BusinessCardIndex() {
   }))
 
   return (
-    <View className="card-page">
-      <View className="page-header">
-        <Text className="back-btn" onClick={onBack}>
-          ‹
-        </Text>
-        <Text className="page-title">{tt('businessCard.title', '我的社区名片')}</Text>
-      </View>
+    <ThemeRoot>
+      <View className="card-page">
+        <View className="page-header">
+          <Text className="back-btn" onClick={onBack}>
+            ‹
+          </Text>
+          <Text className="page-title">{tt('businessCard.title', '我的社区名片')}</Text>
+        </View>
 
-      <View className="card-entry" onClick={buyToken}>
-        <Image
-          className="card-entry-icon"
-          style={{ width: '32rpx', height: '32rpx' }}
-          src="/static/images/icons/user.svg"
-          mode="aspectFit"
-        />
-        <Text className="card-entry-text">
-          {tt('businessCard.customEntry', '社区名片定制入口')}
-        </Text>
-        <Text className="card-entry-arrow">›</Text>
-      </View>
+        <View className="card-entry" onClick={buyToken}>
+          <Image
+            className="card-entry-icon"
+            style={{ width: '32rpx', height: '32rpx' }}
+            src="/static/images/icons/user.svg"
+            mode="aspectFit"
+          />
+          <Text className="card-entry-text">
+            {tt('businessCard.customEntry', '社区名片定制入口')}
+          </Text>
+          <Text className="card-entry-arrow">›</Text>
+        </View>
 
-      <View className="card-content">
-        {isShow && card ? (
-          <View className="card-preview">
-            <Image className="card-image" src={card} mode="widthFix" />
-            <View className="card-actions">
-              <Button
-                className="action-btn"
-                loading={uploading}
-                disabled={uploading}
-                onClick={onUploadClick}
-              >
-                {tt('businessCard.reupload', '重新上传')}
-              </Button>
-              <Button className="action-btn" onClick={onSaveAlbum}>
-                {tt('businessCard.saveToAlbum', '保存到相册')}
-              </Button>
-              <Button className="action-btn" openType="share">
-                {tt('businessCard.shareWx', '分享给好友')}
-              </Button>
-              <Button className="action-btn" openType={'shareTimeline' as 'share'}>
-                {tt('businessCard.sharePyq', '分享到朋友圈')}
-              </Button>
+        <View className="card-content">
+          {isShow && card ? (
+            <View className="card-preview">
+              <Image className="card-image" src={card} mode="widthFix" />
+              <View className="card-actions">
+                <Button
+                  className="action-btn"
+                  loading={uploading}
+                  disabled={uploading}
+                  onClick={onUploadClick}
+                >
+                  {tt('businessCard.reupload', '重新上传')}
+                </Button>
+                <Button className="action-btn" onClick={onSaveAlbum}>
+                  {tt('businessCard.saveToAlbum', '保存到相册')}
+                </Button>
+                <Button className="action-btn" openType="share">
+                  {tt('businessCard.shareWx', '分享给好友')}
+                </Button>
+                <Button className="action-btn" openType={'shareTimeline' as 'share'}>
+                  {tt('businessCard.sharePyq', '分享到朋友圈')}
+                </Button>
+              </View>
             </View>
-          </View>
-        ) : (
-          <View className="upload-placeholder" onClick={onUploadClick}>
-            <Text className="upload-icon">+</Text>
-            <Text className="upload-text">
-              {uploading
-                ? tt('businessCard.uploading', '上传中…')
-                : tt('businessCard.uploadPlaceholder', '上传名片')}
-            </Text>
-          </View>
-        )}
+          ) : (
+            <View className="upload-placeholder" onClick={onUploadClick}>
+              <Text className="upload-icon">+</Text>
+              <Text className="upload-text">
+                {uploading
+                  ? tt('businessCard.uploading', '上传中…')
+                  : tt('businessCard.uploadPlaceholder', '上传名片')}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
-    </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

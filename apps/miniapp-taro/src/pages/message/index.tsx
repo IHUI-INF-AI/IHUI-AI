@@ -17,6 +17,7 @@ import {
 } from '@/api'
 import { getUserInfo } from '@/utils/auth'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 import {
   NavBar,
   MessageTabs,
@@ -342,132 +343,149 @@ export default function MessageIndex() {
   const renderTabContent = () => {
     if (activeTab === 'system') {
       return (
-        <SystemNotice
-          list={systemList}
-          onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
-        />
+        <ThemeRoot>
+          <SystemNotice
+            list={systemList}
+            onClick={(item) => Taro.showToast({ title: item.title, icon: 'none' })}
+          />
+        </ThemeRoot>
       )
     }
     if (activeTab === 'interaction') {
       return (
-        <InteractionMessage
-          list={defaultInteraction}
-          onClick={(item) =>
-            Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
-          }
-        />
+        <ThemeRoot>
+          <InteractionMessage
+            list={defaultInteraction}
+            onClick={(item) =>
+              Taro.showToast({ title: `${item.userName}:${item.content}`, icon: 'none' })
+            }
+          />
+        </ThemeRoot>
       )
     }
     if (activeTab === 'private') {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
     return (
-      <View className="p-[24rpx]">
-        <SearchBar
-          value={keyword}
-          placeholder={t('message.search')}
-          onInput={setKeyword}
-          onClear={() => setKeyword('')}
-        />
-        {loading ? (
-          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
-            {t('common.loading')}
-          </Text>
-        ) : filtered.length ? (
-          filtered.map((room) => (
-            <View
-              key={(room.id || room.name) as string}
-              className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
-            >
-              <View className="flex-1 min-w-0">
-                <View className="flex items-center">
-                  <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">
-                    {room.name || t('message.unnamedRoom')}
+      <ThemeRoot>
+        <View className="p-[24rpx]">
+          <SearchBar
+            value={keyword}
+            placeholder={t('message.search')}
+            onInput={setKeyword}
+            onClear={() => setKeyword('')}
+          />
+          {loading ? (
+            <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+              {t('common.loading')}
+            </Text>
+          ) : filtered.length ? (
+            filtered.map((room) => (
+              <View
+                key={(room.id || room.name) as string}
+                className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+              >
+                <View className="flex-1 min-w-0">
+                  <View className="flex items-center">
+                    <Text className="block text-[30rpx] font-medium text-foreground mb-[8rpx]">
+                      {room.name || t('message.unnamedRoom')}
+                    </Text>
+                    {(room.unreadCount ?? room.unread ?? 0) > 0 && (
+                      <View className="ml-2">
+                        <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
+                      </View>
+                    )}
+                  </View>
+                  <Text className="text-[26rpx] text-muted-foreground">
+                    {room.lastMessage || t('message.empty')}
                   </Text>
-                  {(room.unreadCount ?? room.unread ?? 0) > 0 && (
-                    <View className="ml-2">
-                      <UnreadBadge count={room.unreadCount ?? room.unread ?? 0} />
-                    </View>
-                  )}
                 </View>
-                <Text className="text-[26rpx] text-muted-foreground">
-                  {room.lastMessage || t('message.empty')}
-                </Text>
+                <MessageActions
+                  onMarkRead={() =>
+                    Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
+                  }
+                  onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
+                  onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
+                />
               </View>
-              <MessageActions
-                onMarkRead={() =>
-                  Taro.showToast({ title: t('message.markedRead'), icon: 'success' })
-                }
-                onPin={() => Taro.showToast({ title: t('message.pinned'), icon: 'success' })}
-                onDelete={() => Taro.showToast({ title: t('message.deleted'), icon: 'success' })}
-              />
-            </View>
-          ))
-        ) : (
-          <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
-            {keyword ? t('message.notFound') : t('message.empty')}
-          </Text>
-        )}
-      </View>
+            ))
+          ) : (
+            <Text className="block text-center text-[28rpx] text-muted-foreground py-[60rpx]">
+              {keyword ? t('message.notFound') : t('message.empty')}
+            </Text>
+          )}
+        </View>
+      </ThemeRoot>
     )
   }
 
   if (selectedPrivate) {
     return (
-      <View className="min-h-screen bg-background">
-        <NavBar title={selectedPrivate.userName} showBack onBack={() => setSelectedPrivate(null)} />
-        <View style={{ height: `${menuButton.top + menuButton.height + 8}px` }} />
-        <View style={{ height: 'calc(100vh - 60px)' }}>
-          <MessageDetail
-            userName={selectedPrivate.userName}
-            userAvatar={undefined}
-            messages={detailMessages}
-            inputValue={detailInput}
-            onInput={setDetailInput}
-            onSend={onSendDetail}
+      <ThemeRoot>
+        <View className="min-h-screen bg-background">
+          <NavBar
+            title={selectedPrivate.userName}
+            showBack
+            onBack={() => setSelectedPrivate(null)}
           />
+          <View style={{ height: `${menuButton.top + menuButton.height + 8}px` }} />
+          <View style={{ height: 'calc(100vh - 60px)' }}>
+            <MessageDetail
+              userName={selectedPrivate.userName}
+              userAvatar={undefined}
+              messages={detailMessages}
+              inputValue={detailInput}
+              onInput={setDetailInput}
+              onSend={onSendDetail}
+            />
+          </View>
         </View>
-      </View>
+      </ThemeRoot>
     )
   }
 
   return (
-    <View className="min-h-screen bg-background">
-      <NavBar
-        title={t('message.center')}
-        showBack={false}
-        notification={notification}
-        rightText={t('message.settings')}
-        onRightClick={() => setShowSettings(true)}
-      />
-      <View style={{ height: `${headerOffset}px` }} />
-      <MessageTabs tabs={tabs} active={activeTab} onChange={onTabChange} />
-      <ScrollView scrollY style={{ height: 'calc(100vh - 200px)' }}>
-        {renderTabContent()}
-      </ScrollView>
+    <ThemeRoot>
+      <View className="min-h-screen bg-background">
+        <NavBar
+          title={t('message.center')}
+          showBack={false}
+          notification={notification}
+          rightText={t('message.settings')}
+          onRightClick={() => setShowSettings(true)}
+        />
+        <View style={{ height: `${headerOffset}px` }} />
+        <MessageTabs tabs={tabs} active={activeTab} onChange={onTabChange} />
+        <ScrollView scrollY style={{ height: 'calc(100vh - 200px)' }}>
+          {renderTabContent()}
+        </ScrollView>
 
-      {showSettings && (
-        <View className="fixed inset-0 z-[2000] bg-black/50" onClick={() => setShowSettings(false)}>
+        {showSettings && (
           <View
-            className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[2000] bg-black/50"
+            onClick={() => setShowSettings(false)}
           >
-            <View className="flex items-center justify-between px-4 py-3 mb-2">
-              <Text className="text-sm font-medium text-foreground">
-                {t('message.notificationSettings')}
-              </Text>
-              <Text
-                className="text-sm text-muted-foreground"
-                onClick={() => setShowSettings(false)}
-              >
-                {t('message.close')}
-              </Text>
+            <View
+              className="absolute bottom-0 left-0 right-0 bg-card rounded-t-2xl max-h-[80vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <View className="flex items-center justify-between px-4 py-3 mb-2">
+                <Text className="text-sm font-medium text-foreground">
+                  {t('message.notificationSettings')}
+                </Text>
+                <Text
+                  className="text-sm text-muted-foreground"
+                  onClick={() => setShowSettings(false)}
+                >
+                  {t('message.close')}
+                </Text>
+              </View>
+              <NotificationSettings items={settings} onToggle={onToggleSetting} />
             </View>
-            <NotificationSettings items={settings} onToggle={onToggleSetting} />
           </View>
-        </View>
-      )}
-    </View>
+        )}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

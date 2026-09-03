@@ -8,6 +8,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
 import { formatDateByTemplate } from '@ihui/shared'
+import ThemeRoot from '@/components/ThemeRoot'
 import './refund-list.css'
 
 type RefundStatus = 'refunding' | 'refunded' | 'rejected'
@@ -186,68 +187,70 @@ export default function RefundList() {
             {displayList.map((item) => {
               const opened = expandedId === item.id
               return (
-                <View key={item.id} className="refund-card">
-                  <View className="refund-card-head">
-                    <Text className="refund-order-no">
-                      {t('order.refundList.orderNo', { no: item.orderNo })}
-                    </Text>
-                    <Text className={`refund-status refund-status-${item.status}`}>
-                      {statusText(item.status)}
-                    </Text>
-                  </View>
-                  <View className="refund-card-body">
-                    <Text className="refund-title">{item.title}</Text>
-                    <View className="refund-reason">
-                      <Text className="refund-reason-label">
-                        {tt('order.refundList.reason', '退款原因')}
+                <ThemeRoot key={item.id}>
+                  <View className="refund-card">
+                    <View className="refund-card-head">
+                      <Text className="refund-order-no">
+                        {t('order.refundList.orderNo', { no: item.orderNo })}
                       </Text>
-                      <Text className="refund-reason-text">{item.reason || '-'}</Text>
+                      <Text className={`refund-status refund-status-${item.status}`}>
+                        {statusText(item.status)}
+                      </Text>
                     </View>
-                  </View>
-                  <View className="refund-card-foot">
-                    <Text className="refund-time">{item.applyTime}</Text>
-                    <Text className="refund-amount">¥{toYuan(item.amount)}</Text>
-                  </View>
-
-                  {item.status === 'refunded' && item.estimateTime && (
-                    <View className="refund-tip">
-                      {tt('order.refundList.estimateTip', '预计到账时间')}: {item.estimateTime}
+                    <View className="refund-card-body">
+                      <Text className="refund-title">{item.title}</Text>
+                      <View className="refund-reason">
+                        <Text className="refund-reason-label">
+                          {tt('order.refundList.reason', '退款原因')}
+                        </Text>
+                        <Text className="refund-reason-text">{item.reason || '-'}</Text>
+                      </View>
                     </View>
-                  )}
+                    <View className="refund-card-foot">
+                      <Text className="refund-time">{item.applyTime}</Text>
+                      <Text className="refund-amount">¥{toYuan(item.amount)}</Text>
+                    </View>
 
-                  <View className="refund-card-actions">
-                    <Text className="refund-action-btn" onClick={() => toggleExpand(item.id)}>
-                      {opened
-                        ? tt('order.refundList.collapse', '收起进度')
-                        : tt('order.refundList.viewProgress', '查看进度')}
-                    </Text>
-                    <Text
-                      className="refund-action-btn refund-action-primary"
-                      onClick={() => goDetail(item)}
-                    >
-                      {tt('order.refundList.viewOrder', '订单详情')}
-                    </Text>
-                  </View>
+                    {item.status === 'refunded' && item.estimateTime && (
+                      <View className="refund-tip">
+                        {tt('order.refundList.estimateTip', '预计到账时间')}: {item.estimateTime}
+                      </View>
+                    )}
 
-                  {opened && (
-                    <View className="refund-timeline">
-                      {buildTimeline(item).map((step, idx, arr) => (
-                        <View key={idx} className={`refund-step refund-step-${step.state}`}>
-                          <View className="refund-step-indicator">
-                            <View className="refund-step-dot" />
-                            {idx < arr.length - 1 && <View className="refund-step-line" />}
+                    <View className="refund-card-actions">
+                      <Text className="refund-action-btn" onClick={() => toggleExpand(item.id)}>
+                        {opened
+                          ? tt('order.refundList.collapse', '收起进度')
+                          : tt('order.refundList.viewProgress', '查看进度')}
+                      </Text>
+                      <Text
+                        className="refund-action-btn refund-action-primary"
+                        onClick={() => goDetail(item)}
+                      >
+                        {tt('order.refundList.viewOrder', '订单详情')}
+                      </Text>
+                    </View>
+
+                    {opened && (
+                      <View className="refund-timeline">
+                        {buildTimeline(item).map((step, idx, arr) => (
+                          <View key={idx} className={`refund-step refund-step-${step.state}`}>
+                            <View className="refund-step-indicator">
+                              <View className="refund-step-dot" />
+                              {idx < arr.length - 1 && <View className="refund-step-line" />}
+                            </View>
+                            <View className="refund-step-content">
+                              <Text className="refund-step-title">{step.title}</Text>
+                              {step.time ? (
+                                <Text className="refund-step-time">{step.time}</Text>
+                              ) : null}
+                            </View>
                           </View>
-                          <View className="refund-step-content">
-                            <Text className="refund-step-title">{step.title}</Text>
-                            {step.time ? (
-                              <Text className="refund-step-time">{step.time}</Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </View>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </ThemeRoot>
               )
             })}
           </View>

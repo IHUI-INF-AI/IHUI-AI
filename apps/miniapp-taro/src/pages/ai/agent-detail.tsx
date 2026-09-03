@@ -10,6 +10,7 @@ import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
 import { getAgentDetail, getAgentPermission, getAgentList, type AgentPermission } from '@/api'
 import AgentRuntimePanel from '@/components/AgentRuntimePanel'
+import ThemeRoot from '@/components/ThemeRoot'
 
 type AgentDetail = Pick<
   Agent,
@@ -515,27 +516,29 @@ export default function AgentDetailPage() {
                 const total = ratingDist.reduce((sum, d) => sum + d.count, 0) || 1
                 const percent = Math.round((item.count / total) * 100)
                 return (
-                  <View key={item.star} className="flex items-center mb-[8rpx]">
-                    <View className="flex items-center w-[40rpx]">
-                      <Text className="text-[22rpx] text-muted-foreground mr-[4rpx]">
-                        {item.star}
+                  <ThemeRoot key={item.star} className="flex items-center mb-[8rpx]">
+                    <View key={item.star}>
+                      <View className="flex items-center w-[40rpx]">
+                        <Text className="text-[22rpx] text-muted-foreground mr-[4rpx]">
+                          {item.star}
+                        </Text>
+                        <Image
+                          src="/static/images/icons/star.svg"
+                          mode="aspectFit"
+                          style={{ width: '20rpx', height: '20rpx' }}
+                        />
+                      </View>
+                      <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
+                        <View
+                          className="h-full bg-amber-400 rounded"
+                          style={{ width: `${percent}%` }}
+                        />
+                      </View>
+                      <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
+                        {percent}%
                       </Text>
-                      <Image
-                        src="/static/images/icons/star.svg"
-                        mode="aspectFit"
-                        style={{ width: '20rpx', height: '20rpx' }}
-                      />
                     </View>
-                    <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
-                      <View
-                        className="h-full bg-amber-400 rounded"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </View>
-                    <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
-                      {percent}%
-                    </Text>
-                  </View>
+                  </ThemeRoot>
                 )
               })}
             </View>
