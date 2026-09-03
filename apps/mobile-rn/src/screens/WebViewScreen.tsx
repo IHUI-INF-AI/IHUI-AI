@@ -8,6 +8,7 @@ import { WebView, type WebViewNavigation } from 'react-native-webview'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { generateSsoCode } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuthStore } from '../stores/auth-store'
@@ -90,18 +91,23 @@ export function WebViewScreen() {
     setFailed(true)
   }, [])
 
-  const headerTitle = title || (() => {
-    try {
-      return new URL(url).host
-    } catch {
-      return 'Web'
-    }
-  })()
+  const headerTitle =
+    title ||
+    (() => {
+      try {
+        return new URL(url).host
+      } catch {
+        return 'Web'
+      }
+    })()
 
   return (
     <View className={`flex-1 ${dark ? 'bg-neutral-900' : 'bg-white'}`}>
       <View className="flex-row items-center justify-between border-b border-gray-200 px-4 pb-2 pt-3 dark:border-neutral-700">
-        <TouchableOpacity onPress={() => navigation.goBack()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="max-w-[60%] truncate text-base font-medium">{headerTitle}</Text>
@@ -112,7 +118,7 @@ export function WebViewScreen() {
         <WebView
           key={sourceUri}
           source={{ uri: sourceUri }}
-          style={{ flex: 1, backgroundColor: dark ? '#171717' : '#ffffff' }}
+          style={{ flex: 1, backgroundColor: dark ? tokens.gray[900] : tokens.surface.light }}
           onNavigationStateChange={onNavigationStateChange}
           onError={onError}
           onHttpError={onError}

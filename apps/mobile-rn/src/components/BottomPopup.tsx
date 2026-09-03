@@ -34,8 +34,8 @@ export interface BottomPopupProps {
   onConfirm: (levelId: string) => void
 }
 
-// 主题色 #5088fa:1:1 复刻 Uniapp 主题色(非项目 brand.DEFAULT,对齐 PrivacyPolicyModal 同款常量)
-const ACCENT_COLOR = '#5088fa'
+// 主题色:1:1 复刻 Uniapp 主题色(原硬编码 #5088fa,治理后映射至 tokens.indigo.DEFAULT,非项目 brand.DEFAULT)
+const ACCENT_COLOR = tokens.indigo.DEFAULT
 
 const SHEET_RADIUS = 16
 const SHEET_PADDING = 20

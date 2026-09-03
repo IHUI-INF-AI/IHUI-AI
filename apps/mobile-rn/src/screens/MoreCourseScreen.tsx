@@ -29,6 +29,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCourses, type Course } from '@ihui/api-client'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import type { CarouselItem } from '@ihui/ui-native'
 import Carousel from '../components/Carousel'
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: '#D9534F',
+    color: tokens.danger.DEFAULT,
     textAlign: 'center',
     paddingVertical: rpx(16),
   },
@@ -305,14 +306,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.18,
     shadowRadius: 4,
   },
   backToTopIcon: {
     fontSize: 18,
-    color: '#333',
+    color: tokens.text.medium,
     includeFontPadding: false,
   },
 })
