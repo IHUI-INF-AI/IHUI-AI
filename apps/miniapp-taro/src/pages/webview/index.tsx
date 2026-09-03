@@ -8,6 +8,7 @@ import { navigateTo, useRouter, setNavigationBarTitle, getStorageSync } from '@t
 import { useEffect, useRef, useState } from 'react'
 import { WEBVIEW_FILE_CACHE_KEY } from '@/constants/storage'
 import { logger } from '@/utils/logger'
+import ThemeRoot from '@/components/ThemeRoot'
 
 /** 导航到 webview 页面并加载指定 URL */
 export function navigateToWebView(url: string): void {
@@ -81,7 +82,7 @@ export default function WebviewIndex() {
 
   if (!url) {
     return (
-      <View className="min-h-screen bg-card">
+      <ThemeRoot><View className="min-h-screen bg-card">
         <View className="px-[30rpx] py-[20rpx] bg-card">
           <Text className="text-[36rpx] font-bold text-foreground">{t('webview.title')}</Text>
         </View>
@@ -89,13 +90,13 @@ export default function WebviewIndex() {
           {t('webview.missingUrl')}
         </Text>
       </View>
-    )
+    </ThemeRoot>)
   }
 
   return (
-    <View className="min-h-screen bg-card">
+    <ThemeRoot><View className="min-h-screen bg-card">
       <WebView src={url} onMessage={handleWebviewMessage} onLoad={onWebviewLoad} />
     </View>
-  )
+  </ThemeRoot>)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
