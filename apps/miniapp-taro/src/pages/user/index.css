@@ -18,7 +18,7 @@
 }
 
 .share-popup-content {
-  background: var(--color-card, rgba(31, 31, 40, 1));
+  background: var(--color-card);
   border-radius: var(--radius-xl);
   padding: 40rpx 32rpx;
   width: 85%;
@@ -36,7 +36,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-muted);
 }
 
 .share-popup-image {
@@ -46,8 +46,8 @@
   margin-bottom: 24rpx;
   background: linear-gradient(
     135deg,
-    var(--color-primary, var(--color-primary)) 0%,
-    rgba(123, 97, 255, 1) 100%
+    var(--color-muted) 0%,
+    var(--color-secondary) 100%
   );
   display: flex;
   flex-direction: column;
@@ -65,7 +65,7 @@
 
 .share-popup-subtitle {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--color-muted-foreground);
   text-align: center;
 }
 
@@ -210,19 +210,19 @@
 }
 
 .user-content-text::before {
-  background: linear-gradient(90deg, rgba(74, 144, 226, 1), rgba(107, 165, 242, 1));
+  background: var(--color-muted-foreground);
 }
 
 .user-content-image::before {
-  background: linear-gradient(90deg, rgba(255, 107, 157, 1), rgba(255, 143, 177, 1));
+  background: var(--color-info);
 }
 
 .user-content-video::before {
-  background: linear-gradient(90deg, rgba(154, 153, 243, 1), rgba(184, 183, 247, 1));
+  background: var(--color-success);
 }
 
 .user-content-audio::before {
-  background: linear-gradient(90deg, var(--color-warning), rgba(255, 228, 92, 1));
+  background: var(--color-warning);
 }
 
 /* AlimamaFangYuanTi 字体(对齐原项目 font-family: "AlimamaFangYuanTi")

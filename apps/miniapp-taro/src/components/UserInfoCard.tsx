@@ -213,7 +213,7 @@ export default function UserInfoCard({
                       className="h-full rounded"
                       style={{
                         width: growthPercent + '%',
-                        background: 'linear-gradient(90deg, var(--color-primary), #93d2f3)',
+                        background: 'linear-gradient(90deg, var(--color-primary), var(--color-info))',
                       }}
                     />
                   </View>
@@ -226,7 +226,7 @@ export default function UserInfoCard({
                 {!isVip && onOpenVip ? (
                   <View
                     className="px-3 py-1 rounded-sm"
-                    style={{ background: 'linear-gradient(90deg, #fbbf24, var(--color-warning))' }}
+                    style={{ background: 'var(--color-primary)' }}
                     onClick={(e) => {
                       e.stopPropagation()
                       onOpenVip()
