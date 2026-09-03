@@ -248,7 +248,7 @@ export const rnDarkTokens: RnThemeTokens = {
   border: { light: '#374151', medium: '#4B5563' },
   error: { bg: '#7F1D1D', text: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
-  indigo: { light: '#312e81', DEFAULT: '#6366f1', deep: '#818cf8' },
+  indigo: { light: '#312e81', DEFAULT: '#818cf8', deep: '#818cf8' },
   purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
   warning: {
     light: '#451a03',
