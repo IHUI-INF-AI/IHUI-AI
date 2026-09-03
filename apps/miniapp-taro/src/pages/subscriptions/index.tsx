@@ -8,6 +8,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useCallback } from 'react'
 import { getSubscriptions, cancelSubscription, type SubscriptionItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
+import ThemeRoot from '@/components/ThemeRoot'
 
 const PAGE_SIZE = 20
 
@@ -78,34 +79,33 @@ export default function SubscriptionsPage() {
             const title = item.title || item.name || targetTypeLabel(item.targetType)
             const sub = item.description || targetTypeLabel(item.targetType)
             return (
-              <View
-                key={item.id}
-                className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center justify-between"
-              >
-                <View className="flex-1 min-w-0 mr-[24rpx] flex items-center">
-                  {item.cover ? (
-                    <Image
-                      className="w-[100rpx] h-[100rpx] rounded-[12rpx] mr-[20rpx] bg-muted"
-                      src={item.cover}
-                      mode="aspectFill"
-                    />
-                  ) : null}
-                  <View className="flex-1 min-w-0">
-                    <Text className="text-[30rpx] text-foreground font-semibold truncate block">
-                      {title}
-                    </Text>
-                    <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] truncate block">
-                      {sub}
-                    </Text>
+              <ThemeRoot key={item.id}>
+                <View className="bg-card rounded-[16rpx] p-[24rpx] mb-[24rpx] flex items-center justify-between">
+                  <View className="flex-1 min-w-0 mr-[24rpx] flex items-center">
+                    {item.cover ? (
+                      <Image
+                        className="w-[100rpx] h-[100rpx] rounded-[12rpx] mr-[20rpx] bg-muted"
+                        src={item.cover}
+                        mode="aspectFill"
+                      />
+                    ) : null}
+                    <View className="flex-1 min-w-0">
+                      <Text className="text-[30rpx] text-foreground font-semibold truncate block">
+                        {title}
+                      </Text>
+                      <Text className="text-[24rpx] text-muted-foreground mt-[8rpx] truncate block">
+                        {sub}
+                      </Text>
+                    </View>
                   </View>
+                  <Text
+                    className="text-[26rpx] text-destructive px-[16rpx] py-[8rpx]"
+                    onClick={() => handleCancel(item)}
+                  >
+                    {t('subscriptions.delete')}
+                  </Text>
                 </View>
-                <Text
-                  className="text-[26rpx] text-destructive px-[16rpx] py-[8rpx]"
-                  onClick={() => handleCancel(item)}
-                >
-                  {t('subscriptions.delete')}
-                </Text>
-              </View>
+              </ThemeRoot>
             )
           })}
           <View className="text-center py-[32rpx]">

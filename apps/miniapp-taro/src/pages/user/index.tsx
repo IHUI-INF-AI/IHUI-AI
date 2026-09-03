@@ -43,6 +43,7 @@ import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
 import backSvg from '@/assets/remote/images/back.svg'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
+import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
@@ -126,57 +127,67 @@ function renderMarkdown(content: string): ReactNode {
     // 代码块 ```...```
     if (line.startsWith('```')) {
       return (
-        <View
-          key={idx}
-          style={{
-            background: 'var(--color-muted)',
-            padding: rpx(12),
-            borderRadius: rpx(8),
-            marginTop: rpx(8),
-            marginBottom: rpx(8),
-          }}
-        >
-          <Text
-            style={{ fontSize: rpx(24), fontFamily: 'monospace', color: 'var(--color-foreground)' }}
+        <ThemeRoot key={idx}>
+          <View
+            key={idx}
+            style={{
+              background: 'var(--color-muted)',
+              padding: rpx(12),
+              borderRadius: rpx(8),
+              marginTop: rpx(8),
+              marginBottom: rpx(8),
+            }}
           >
-            {line.replace(/```/g, '')}
-          </Text>
-        </View>
+            <Text
+              style={{
+                fontSize: rpx(24),
+                fontFamily: 'monospace',
+                color: 'var(--color-foreground)',
+              }}
+            >
+              {line.replace(/```/g, '')}
+            </Text>
+          </View>
+        </ThemeRoot>
       )
     }
     // 加粗 **text**
     const boldParts = line.split(/\*\*(.+?)\*\*/)
     if (boldParts.length > 1) {
       return (
-        <Text
-          key={idx}
-          style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
-        >
-          {boldParts.map((part, i) =>
-            i % 2 === 1 ? (
-              <Text key={i} style={{ fontWeight: 'bold' }}>
-                {part}
-              </Text>
-            ) : (
-              part
-            ),
-          )}
-        </Text>
+        <ThemeRoot key={idx}>
+          <Text
+            key={idx}
+            style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground)', lineHeight: 1.6 }}
+          >
+            {boldParts.map((part, i) =>
+              i % 2 === 1 ? (
+                <Text key={i} style={{ fontWeight: 'bold' }}>
+                  {part}
+                </Text>
+              ) : (
+                part
+              ),
+            )}
+          </Text>
+        </ThemeRoot>
       )
     }
     // 普通行
     return (
-      <Text
-        key={idx}
-        style={{
-          fontSize: rpx(26),
-          color: 'var(--color-muted-foreground)',
-          lineHeight: 1.6,
-          display: 'block',
-        }}
-      >
-        {line || ' '}
-      </Text>
+      <ThemeRoot key={idx}>
+        <Text
+          key={idx}
+          style={{
+            fontSize: rpx(26),
+            color: 'var(--color-muted-foreground)',
+            lineHeight: 1.6,
+            display: 'block',
+          }}
+        >
+          {line || ' '}
+        </Text>
+      </ThemeRoot>
     )
   })
 }
@@ -664,658 +675,703 @@ export default function UserIndex() {
   }))
 
   return (
-    <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
-      {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
-      <DrawerComponent
-        visible={showDrawer}
-        onClose={toggleDrawer}
-        side="left"
-        statusBarHeight={statusBarHeight}
-        groupedData={groupedData}
-        userinfo={
-          userInfo
-            ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
-            : undefined
-        }
-        onMenuItemClick={(item) => {
-          toggleDrawer()
-          // 根据菜单项 key 跳转不同页面
-          const menuRouteMap: Record<string, string> = {
-            appStore: '/pages/index/index',
-            demand: '/pages/demand/index',
-            inspiration: '/pages/inspiration/index',
-            dynamic: '/pages/dynamic/index',
-            course: '/pages/course/list',
+    <ThemeRoot>
+      <View className="min-h-screen pb-[40rpx]" style={{ background: 'var(--color-background)' }}>
+        {/* ===== DrawerComponent 侧边栏抽屉（对齐原项目结构：outContainer → DrawerComponent → FloatBox → navigation-bars） ===== */}
+        <DrawerComponent
+          visible={showDrawer}
+          onClose={toggleDrawer}
+          side="left"
+          statusBarHeight={statusBarHeight}
+          groupedData={groupedData}
+          userinfo={
+            userInfo
+              ? { avatar: userInfo.avatar, nickname: userInfo.userName || userInfo.nickname }
+              : undefined
           }
-          const route = menuRouteMap[item.key]
-          if (route) Taro.navigateTo({ url: route })
-        }}
-        onLabelItemClick={(item) => {
-          toggleDrawer()
-          const labelRouteMap: Record<string, string> = {
-            company: '/pages/company/index',
-            freebie: '/pages/freebie/index',
-          }
-          const route = labelRouteMap[item.key]
-          if (route) Taro.navigateTo({ url: route })
-        }}
-        onChatItemClick={handleChatItemClick}
-        onCreateChat={() => {
-          toggleDrawer()
-          Taro.switchTab({ url: '/pages/index/index' })
-        }}
-        onRemoveChat={(chat) => {
-          Taro.showModal({
-            title: t('common.hint'),
-            content: t('community.confirm12'),
-            success: async (res) => {
-              if (res.confirm) {
-                try {
-                  await api.removeModelChat(String(chat.id))
-                  Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
-                  void loadHistoryChat()
-                } catch {
-                  Taro.showToast({
-                    title: tt('developer.index.deleteFail', '删除失败'),
-                    icon: 'none',
-                  })
+          onMenuItemClick={(item) => {
+            toggleDrawer()
+            // 根据菜单项 key 跳转不同页面
+            const menuRouteMap: Record<string, string> = {
+              appStore: '/pages/index/index',
+              demand: '/pages/demand/index',
+              inspiration: '/pages/inspiration/index',
+              dynamic: '/pages/dynamic/index',
+              course: '/pages/course/list',
+            }
+            const route = menuRouteMap[item.key]
+            if (route) Taro.navigateTo({ url: route })
+          }}
+          onLabelItemClick={(item) => {
+            toggleDrawer()
+            const labelRouteMap: Record<string, string> = {
+              company: '/pages/company/index',
+              freebie: '/pages/freebie/index',
+            }
+            const route = labelRouteMap[item.key]
+            if (route) Taro.navigateTo({ url: route })
+          }}
+          onChatItemClick={handleChatItemClick}
+          onCreateChat={() => {
+            toggleDrawer()
+            Taro.switchTab({ url: '/pages/index/index' })
+          }}
+          onRemoveChat={(chat) => {
+            Taro.showModal({
+              title: t('common.hint'),
+              content: t('community.confirm12'),
+              success: async (res) => {
+                if (res.confirm) {
+                  try {
+                    await api.removeModelChat(String(chat.id))
+                    Taro.showToast({ title: tt('message.deleted', '已删除'), icon: 'success' })
+                    void loadHistoryChat()
+                  } catch {
+                    Taro.showToast({
+                      title: tt('developer.index.deleteFail', '删除失败'),
+                      icon: 'none',
+                    })
+                  }
                 }
-              }
-            },
-          })
-        }}
-      />
+              },
+            })
+          }}
+        />
 
-      {/* ===== FloatBox 浮动组件 ===== */}
-      <FloatBox />
+        {/* ===== FloatBox 浮动组件 ===== */}
+        <FloatBox />
 
-      {/* ===== 导航栏(对齐原项目 navigation-bars: showFeedback / @pack / @feedback-click / @menu-click) ===== */}
-      <NavBar
-        variant="ai-home"
-        title={tf('user.title', '我的')}
-        bgColor="transparent"
-        textColor="#fff"
-        showFeedback
-        onMenuClick={toggleDrawer}
-        onFeedbackClick={handleFeedbackClick}
-        onPack={onPackClick}
-      />
+        {/* ===== 导航栏(对齐原项目 navigation-bars: showFeedback / @pack / @feedback-click / @menu-click) ===== */}
+        <NavBar
+          variant="ai-home"
+          title={tf('user.title', '我的')}
+          bgColor="transparent"
+          textColor="var(--color-foreground)"
+          showFeedback
+          onMenuClick={toggleDrawer}
+          onFeedbackClick={handleFeedbackClick}
+          onPack={onPackClick}
+        />
 
-      {/* ===== 用户信息头部 ===== */}
-      <View
-        className="pt-[120rpx] px-[20rpx] pb-[48rpx]"
-        style={{ background: 'var(--color-primary)' }}
-      >
-        {userInfo ? (
-          <View className="flex items-center">
-            {/* 使用 UserInfoCard 替换内联用户信息 */}
-            <View className="flex-1">
-              <UserInfoCard
-                avatar={userInfo.avatar}
-                nickname={userInfo.userName || userInfo.nickname || t('common.user')}
-                isVip={!!userInfo.isVip}
-                vipTitle={userInfo.isVip ? 'VIP' : undefined}
-                desc={userInfo.phone ? maskPhone(userInfo.phone) : undefined}
-                onClick={goProfile}
-                // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
-                // growthValue/growthMax/tokenValue 暂未纳入 UserInfo 类型,用精确类型断言读取
-                growthValue={(userInfo as { growthValue?: number }).growthValue}
-                growthMax={(userInfo as { growthMax?: number }).growthMax}
-                tokenValue={(userInfo as { tokenValue?: number }).tokenValue}
-                identityType={userInfo.isVip ? 1 : 0}
-                onWallet={() =>
-                  Taro.navigateTo({
-                    url: '/pages/token/balance',
-                    fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
-                  })
-                }
-                onUnsubscribe={() =>
-                  Taro.showModal({
-                    title: t('common.hint'),
-                    content: t('user.confirm3'),
-                    success: async (res) => {
-                      if (!res.confirm || !userInfo) return
-                      try {
-                        // 对齐原项目 unsubscribe L933-972:优先取消微信支付订阅合约
-                        const contractsRes = (await api.listRecurringContracts()) as {
-                          list?: Array<{ id: number; status: string }>
+        {/* ===== 用户信息头部 ===== */}
+        <View
+          className="pt-[120rpx] px-[20rpx] pb-[48rpx]"
+          style={{ background: 'var(--color-primary)' }}
+        >
+          {userInfo ? (
+            <View className="flex items-center">
+              {/* 使用 UserInfoCard 替换内联用户信息 */}
+              <View className="flex-1">
+                <UserInfoCard
+                  avatar={userInfo.avatar}
+                  nickname={userInfo.userName || userInfo.nickname || t('common.user')}
+                  isVip={!!userInfo.isVip}
+                  vipTitle={userInfo.isVip ? 'VIP' : undefined}
+                  desc={userInfo.phone ? maskPhone(userInfo.phone) : undefined}
+                  onClick={goProfile}
+                  // ===== 9 项核心功能 props(对齐原项目 UserInfoCard.vue)=====
+                  // growthValue/growthMax/tokenValue 暂未纳入 UserInfo 类型,用精确类型断言读取
+                  growthValue={(userInfo as { growthValue?: number }).growthValue}
+                  growthMax={(userInfo as { growthMax?: number }).growthMax}
+                  tokenValue={(userInfo as { tokenValue?: number }).tokenValue}
+                  identityType={userInfo.isVip ? 1 : 0}
+                  onWallet={() =>
+                    Taro.navigateTo({
+                      url: '/pages/token/balance',
+                      fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
+                    })
+                  }
+                  onUnsubscribe={() =>
+                    Taro.showModal({
+                      title: t('common.hint'),
+                      content: t('user.confirm3'),
+                      success: async (res) => {
+                        if (!res.confirm || !userInfo) return
+                        try {
+                          // 对齐原项目 unsubscribe L933-972:优先取消微信支付订阅合约
+                          const contractsRes = (await api.listRecurringContracts()) as {
+                            list?: Array<{ id: number; status: string }>
+                          }
+                          const activeContract = contractsRes?.list?.find(
+                            (c) => c.status === 'active',
+                          )
+                          if (activeContract) {
+                            await api.cancelRecurringContract(activeContract.id, '用户主动退订')
+                          } else {
+                            // 无 active 订阅合约(可能是积分兑换 VIP),降级更新本地 isVip 标记
+                            await api.updateProfile({ isVip: false })
+                          }
+                          setUserInfo({ ...userInfo, isVip: false })
+                          Taro.showToast({
+                            title: tt('user.success4', '退订成功'),
+                            icon: 'success',
+                          })
+                        } catch {
+                          Taro.showToast({
+                            title: tt('user.failed5', '退订失败，请联系客服'),
+                            icon: 'none',
+                          })
                         }
-                        const activeContract = contractsRes?.list?.find(
-                          (c) => c.status === 'active',
-                        )
-                        if (activeContract) {
-                          await api.cancelRecurringContract(activeContract.id, '用户主动退订')
-                        } else {
-                          // 无 active 订阅合约(可能是积分兑换 VIP),降级更新本地 isVip 标记
-                          await api.updateProfile({ isVip: false })
-                        }
-                        setUserInfo({ ...userInfo, isVip: false })
-                        Taro.showToast({ title: tt('user.success4', '退订成功'), icon: 'success' })
-                      } catch {
+                      },
+                    })
+                  }
+                  onOpenVip={goVipDetail}
+                  onOpenLevel={() =>
+                    Taro.navigateTo({
+                      url: '/pages/vip/index?type=levelPopup',
+                      fail: () =>
                         Taro.showToast({
-                          title: tt('user.failed5', '退订失败，请联系客服'),
+                          title: tt('user.text6', '等级介绍页未配置'),
                           icon: 'none',
-                        })
-                      }
-                    },
-                  })
-                }
-                onOpenVip={goVipDetail}
-                onOpenLevel={() =>
-                  Taro.navigateTo({
-                    url: '/pages/vip/index?type=levelPopup',
-                    fail: () =>
-                      Taro.showToast({ title: tt('user.text6', '等级介绍页未配置'), icon: 'none' }),
-                  })
-                }
-                onLogin={goLogin}
-              />
-            </View>
-            {/* 分享按钮 */}
-            <View
-              className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.2)' }}
-              onClick={openSharePopup}
-            >
-              <Image
-                className="text-[32rpx] text-white"
-                style={{ width: '32rpx', height: '32rpx' }}
-                src="/static/images/icons/share-2.svg"
-                mode="aspectFit"
-              />
-            </View>
-          </View>
-        ) : (
-          <View className="flex items-center" onClick={goLogin}>
-            <Image
-              className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
-              src={defaultAvatar}
-              mode="aspectFill"
-            />
-            <View className="ml-[24rpx]">
-              <Text className="block text-primary-foreground text-[36rpx] font-semibold">
-                {t('user.tapLogin')}
-              </Text>
-              <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
-                {t('user.loginHint')}
-              </Text>
-            </View>
-          </View>
-        )}
-      </View>
-
-      {/* ===== LoginPopUp 登录弹窗（对齐原项目 loginPopUp） ===== */}
-      <LoginPopUp
-        visible={showLoginPopup}
-        defaultAvatar={defaultAvatar}
-        userInfo={
-          userInfo
-            ? {
-                nickname: userInfo.nickname || userInfo.userName,
-                avatar: userInfo.avatar,
-                isVip: userInfo.isVip ? 1 : 0,
-                identityTypy: 0,
-              }
-            : undefined
-        }
-        onClose={() => setShowLoginPopup(false)}
-        onUpgrade={goVipDetail}
-        onOneClickLogin={async ({ loginCode, phoneCode }) => {
-          try {
-            // 1. 获取 openId(对齐原项目 api.openId(loginCode) → GET /auth/wechat/mini/login)
-            const openIdRes = (await api.openId(loginCode)) as {
-              openId?: string
-              unionId?: string
-              needPhone?: boolean
-              token?: string
-            }
-
-            // 已绑定用户:openId 接口直接返回 token,登录成功
-            if (openIdRes?.token) {
-              setToken(openIdRes.token)
-              // 拉取用户信息并持久化到 storage(refresh 读取 storage,需先写入)
-              try {
-                const profile = await api.getProfile()
-                persistUserInfo(profile)
-              } catch {
-                // getProfile 失败不阻塞登录态(token 已保存)
-              }
-              setShowLoginPopup(false)
-              refresh()
-              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
-              return
-            }
-
-            // 2. 未绑定用户:用手机号登录(对齐原项目 api.getPhoneNumber → POST /auth/wechat/mini/phone)
-            const phoneRes = (await api.getPhoneNumber({
-              code: phoneCode,
-              phoneCode: loginCode,
-            })) as {
-              userId?: string
-              phone?: string
-              token?: string
-            }
-
-            if (phoneRes?.token) {
-              setToken(phoneRes.token)
-              try {
-                const profile = await api.getProfile()
-                persistUserInfo(profile)
-              } catch {
-                // getProfile 失败不阻塞登录态
-              }
-              setShowLoginPopup(false)
-              refresh()
-              Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
-            } else {
-              Taro.showToast({
-                title: tf('login.noToken', '登录失败,未获取到 token'),
-                icon: 'none',
-              })
-            }
-          } catch {
-            Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
-          }
-        }}
-        onNicknameChange={async (nickname) => {
-          if (!userInfo) return
-          try {
-            // 对齐原项目 onLogin L587-624:bindUser(open_id, nickname, phone, avatar, fileName)
-            // open_id/fileName 需要微信登录后获取,此处仅传本地已有字段
-            // bindUser API 参数类型为 unknown(api/index.ts),用本地接口约束字段
-            const params: BindUserParams = {
-              nickname,
-              userId: userInfo.id ?? userInfo.uuid,
-              phone: userInfo.phone,
-              avatar: userInfo.avatar,
-            }
-            await api.bindUser(params)
-            setUserInfo({ ...userInfo, nickname })
-            Taro.showToast({ title: tt('about.apiSettings.savedTip', '保存成功'), icon: 'success' })
-          } catch {
-            Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
-          }
-        }}
-      />
-
-      {/* ===== UserCard 功能卡片（对齐原项目 user_cards.vue，非 iOS 显示） ===== */}
-      {!isshow ? (
-        <View className="mx-[20rpx]">
-          <UserCard onGoPage={goPage} />
-        </View>
-      ) : null}
-
-      {/* ===== 会员权益卡片（对齐原项目 membership-benefits-container：箭头旋转动画 + bounce 动画） ===== */}
-      {!isshow ? (
-        <View className="membership-benefits-container mx-[20rpx] mt-[24rpx] mb-0">
-          {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
-          <View className="membership-benefits-header" onClick={toggleBenefits}>
-            <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
-              <Image className="arrow-icon" src={backSvg} mode="aspectFit" />
-            </View>
-          </View>
-          {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
-          {showBenefits ? (
-            <View className="membership-benefits-content">
-              <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
-                {membershipBenefits.map((b) => (
-                  <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
-                    {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
-                    <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
-                      {tf(b.key, b.fallback)}
-                    </Text>
-                  </View>
-                ))}
+                        }),
+                    })
+                  }
+                  onLogin={goLogin}
+                />
+              </View>
+              {/* 分享按钮 */}
+              <View
+                className="ml-[20rpx] flex-shrink-0 w-[72rpx] h-[72rpx] rounded-lg flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.2)' }}
+                onClick={openSharePopup}
+              >
+                <Image
+                  className="text-[32rpx] text-white"
+                  style={{ width: '32rpx', height: '32rpx' }}
+                  src="/static/images/icons/share-2.svg"
+                  mode="aspectFit"
+                />
               </View>
             </View>
-          ) : null}
+          ) : (
+            <View className="flex items-center" onClick={goLogin}>
+              <Image
+                className="w-[120rpx] h-[120rpx] rounded-md border-[4rpx] border-solid border-primary-foreground"
+                src={defaultAvatar}
+                mode="aspectFill"
+              />
+              <View className="ml-[24rpx]">
+                <Text className="block text-primary-foreground text-[36rpx] font-semibold">
+                  {t('user.tapLogin')}
+                </Text>
+                <Text className="block mt-[8rpx] text-primary-foreground text-[24rpx] opacity-85">
+                  {t('user.loginHint')}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
-      ) : null}
 
-      {/* ===== StudyBar + 内容展示区 ===== */}
-      <View className="content-display-area">
-        {/* StudyBar Tab 切换 — 对齐原项目 <StudyBar :barList="tabList" @change="handleTabChange" /> */}
-        <StudyBar barList={tabList} onChange={handleTabChange} />
+        {/* ===== LoginPopUp 登录弹窗（对齐原项目 loginPopUp） ===== */}
+        <LoginPopUp
+          visible={showLoginPopup}
+          defaultAvatar={defaultAvatar}
+          userInfo={
+            userInfo
+              ? {
+                  nickname: userInfo.nickname || userInfo.userName,
+                  avatar: userInfo.avatar,
+                  isVip: userInfo.isVip ? 1 : 0,
+                  identityTypy: 0,
+                }
+              : undefined
+          }
+          onClose={() => setShowLoginPopup(false)}
+          onUpgrade={goVipDetail}
+          onOneClickLogin={async ({ loginCode, phoneCode }) => {
+            try {
+              // 1. 获取 openId(对齐原项目 api.openId(loginCode) → GET /auth/wechat/mini/login)
+              const openIdRes = (await api.openId(loginCode)) as {
+                openId?: string
+                unionId?: string
+                needPhone?: boolean
+                token?: string
+              }
 
-        {/* 内容展示区 */}
-        <View className="content-list">
-          {/* 加载状态(对齐原项目 contentLoading) */}
-          {contentLoading ? (
-            <View className="py-[40rpx] flex items-center justify-center">
-              <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
-                {tf('common.loading', '加载中...')}
-              </Text>
+              // 已绑定用户:openId 接口直接返回 token,登录成功
+              if (openIdRes?.token) {
+                setToken(openIdRes.token)
+                // 拉取用户信息并持久化到 storage(refresh 读取 storage,需先写入)
+                try {
+                  const profile = await api.getProfile()
+                  persistUserInfo(profile)
+                } catch {
+                  // getProfile 失败不阻塞登录态(token 已保存)
+                }
+                setShowLoginPopup(false)
+                refresh()
+                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+                return
+              }
+
+              // 2. 未绑定用户:用手机号登录(对齐原项目 api.getPhoneNumber → POST /auth/wechat/mini/phone)
+              const phoneRes = (await api.getPhoneNumber({
+                code: phoneCode,
+                phoneCode: loginCode,
+              })) as {
+                userId?: string
+                phone?: string
+                token?: string
+              }
+
+              if (phoneRes?.token) {
+                setToken(phoneRes.token)
+                try {
+                  const profile = await api.getProfile()
+                  persistUserInfo(profile)
+                } catch {
+                  // getProfile 失败不阻塞登录态
+                }
+                setShowLoginPopup(false)
+                refresh()
+                Taro.showToast({ title: tf('login.loginSuccess', '登录成功'), icon: 'success' })
+              } else {
+                Taro.showToast({
+                  title: tf('login.noToken', '登录失败,未获取到 token'),
+                  icon: 'none',
+                })
+              }
+            } catch {
+              Taro.showToast({ title: tf('login.loginFailed', '登录失败,请重试'), icon: 'none' })
+            }
+          }}
+          onNicknameChange={async (nickname) => {
+            if (!userInfo) return
+            try {
+              // 对齐原项目 onLogin L587-624:bindUser(open_id, nickname, phone, avatar, fileName)
+              // open_id/fileName 需要微信登录后获取,此处仅传本地已有字段
+              // bindUser API 参数类型为 unknown(api/index.ts),用本地接口约束字段
+              const params: BindUserParams = {
+                nickname,
+                userId: userInfo.id ?? userInfo.uuid,
+                phone: userInfo.phone,
+                avatar: userInfo.avatar,
+              }
+              await api.bindUser(params)
+              setUserInfo({ ...userInfo, nickname })
+              Taro.showToast({
+                title: tt('about.apiSettings.savedTip', '保存成功'),
+                icon: 'success',
+              })
+            } catch {
+              Taro.showToast({ title: tt('businessCard.saveFailed', '保存失败'), icon: 'none' })
+            }
+          }}
+        />
+
+        {/* ===== UserCard 功能卡片（对齐原项目 user_cards.vue，非 iOS 显示） ===== */}
+        {!isshow ? (
+          <View className="mx-[20rpx]">
+            <UserCard onGoPage={goPage} />
+          </View>
+        ) : null}
+
+        {/* ===== 会员权益卡片（对齐原项目 membership-benefits-container：箭头旋转动画 + bounce 动画） ===== */}
+        {!isshow ? (
+          <View className="membership-benefits-container mx-[20rpx] mt-[24rpx] mb-0">
+            {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
+            <View className="membership-benefits-header" onClick={toggleBenefits}>
+              <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
+                <Image className="arrow-icon" src={backSvg} mode="aspectFit" />
+              </View>
             </View>
-          ) : null}
-          {/* 文本内容 */}
-          {activeTab === 1 && (
-            <View>
-              {textContentList.length === 0 ? (
-                <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
-                    {tf('user.empty.text', '暂无文本内容')}
-                  </Text>
-                </View>
-              ) : (
-                textContentList.map((item, index) => (
-                  <View
-                    key={index}
-                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text"
-                  >
-                    <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">
-                        {item.title}
+            {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
+            {showBenefits ? (
+              <View className="membership-benefits-content">
+                <View className="flex flex-wrap px-[8rpx] pb-[16rpx] bg-card border border-border rounded-lg">
+                  {membershipBenefits.map((b) => (
+                    <View key={b.key} className="w-1/3 flex flex-col items-center py-[16rpx]">
+                      {renderIcon(b.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
+                      <Text className="mt-[8rpx] text-[24rpx] text-foreground text-center">
+                        {tf(b.key, b.fallback)}
                       </Text>
-                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
                     </View>
-                    {renderMarkdown(item.content)}
-                  </View>
-                ))
-              )}
-            </View>
-          )}
+                  ))}
+                </View>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
-          {/* 图片内容 */}
-          {activeTab === 2 && (
-            <View>
-              {imageContentList.length === 0 ? (
-                <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
-                    {tf('user.empty.image', '暂无图片内容')}
-                  </Text>
-                </View>
-              ) : (
-                imageContentList.map((item, index) => (
-                  <View
-                    key={index}
-                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image"
-                  >
-                    <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">
-                        {item.title}
-                      </Text>
-                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
-                    </View>
-                    <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
-                      {(item.imageList || []).map((imgUrl, imgIdx) => (
-                        <Image
-                          key={imgIdx}
-                          src={imgUrl}
-                          mode="aspectFill"
-                          style={{ width: rpx(200), height: rpx(200), borderRadius: rpx(12) }}
-                          onClick={() => previewImage(imgUrl, item.imageList)}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
+        {/* ===== StudyBar + 内容展示区 ===== */}
+        <View className="content-display-area">
+          {/* StudyBar Tab 切换 — 对齐原项目 <StudyBar :barList="tabList" @change="handleTabChange" /> */}
+          <StudyBar barList={tabList} onChange={handleTabChange} />
 
-          {/* 视频内容 */}
-          {activeTab === 3 && (
-            <View>
-              {videoContentList.length === 0 ? (
-                <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
-                    {tf('user.empty.video', '暂无视频内容')}
-                  </Text>
-                </View>
-              ) : (
-                videoContentList.map((item, index) => (
-                  <View
-                    key={index}
-                    className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video"
-                  >
-                    <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">
-                        {item.title}
-                      </Text>
-                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
-                    </View>
-                    <View
-                      className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
-                      style={{ height: rpx(400) }}
-                      onClick={() => openVideoPlayer(item.videoUrl)}
+          {/* 内容展示区 */}
+          <View className="content-list">
+            {/* 加载状态(对齐原项目 contentLoading) */}
+            {contentLoading ? (
+              <View className="py-[40rpx] flex items-center justify-center">
+                <Text
+                  style={{
+                    fontSize: rpx(26),
+                    color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                  }}
+                >
+                  {tf('common.loading', '加载中...')}
+                </Text>
+              </View>
+            ) : null}
+            {/* 文本内容 */}
+            {activeTab === 1 && (
+              <View>
+                {textContentList.length === 0 ? (
+                  <View className="py-[120rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(26),
+                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                      }}
                     >
-                      {/* 视频封面图(对齐原项目 getVideoPoster)*/}
-                      {getVideoPoster(item.videoUrl) ? (
-                        <Image
-                          src={getVideoPoster(item.videoUrl)}
-                          mode="aspectFill"
-                          style={{ width: '100%', height: '100%' }}
-                        />
-                      ) : null}
-                      <View className="absolute inset-0 flex items-center justify-center">
-                        <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
-                          <Image src={playIcon} mode="aspectFit" className="w-[60rpx] h-[60rpx]" />
+                      {tf('user.empty.text', '暂无文本内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  textContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-text"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[28rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      {renderMarkdown(item.content)}
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* 图片内容 */}
+            {activeTab === 2 && (
+              <View>
+                {imageContentList.length === 0 ? (
+                  <View className="py-[120rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(26),
+                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                      }}
+                    >
+                      {tf('user.empty.image', '暂无图片内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  imageContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-image"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[28rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      <View className="flex flex-row flex-wrap" style={{ gap: rpx(8) }}>
+                        {(item.imageList || []).map((imgUrl, imgIdx) => (
+                          <Image
+                            key={imgIdx}
+                            src={imgUrl}
+                            mode="aspectFill"
+                            style={{ width: rpx(200), height: rpx(200), borderRadius: rpx(12) }}
+                            onClick={() => previewImage(imgUrl, item.imageList)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
+            )}
+
+            {/* 视频内容 */}
+            {activeTab === 3 && (
+              <View>
+                {videoContentList.length === 0 ? (
+                  <View className="py-[120rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(26),
+                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                      }}
+                    >
+                      {tf('user.empty.video', '暂无视频内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  videoContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="mb-[20rpx] bg-card rounded-lg overflow-hidden border border-border shadow-sm user-content-video"
+                    >
+                      <View className="flex-row items-center justify-between p-[24rpx] pb-[12rpx]">
+                        <Text className="text-[28rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      <View
+                        className="relative mx-[24rpx] mb-[24rpx] rounded-lg overflow-hidden bg-muted"
+                        style={{ height: rpx(400) }}
+                        onClick={() => openVideoPlayer(item.videoUrl)}
+                      >
+                        {/* 视频封面图(对齐原项目 getVideoPoster)*/}
+                        {getVideoPoster(item.videoUrl) ? (
+                          <Image
+                            src={getVideoPoster(item.videoUrl)}
+                            mode="aspectFill"
+                            style={{ width: '100%', height: '100%' }}
+                          />
+                        ) : null}
+                        <View className="absolute inset-0 flex items-center justify-center">
+                          <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
+                            <Image
+                              src={playIcon}
+                              mode="aspectFit"
+                              className="w-[60rpx] h-[60rpx]"
+                            />
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
+                  ))
+                )}
+              </View>
+            )}
 
-          {/* 音频内容 */}
-          {activeTab === 4 && (
-            <View>
-              {audioContentList.length === 0 ? (
-                <View className="py-[120rpx] flex items-center justify-center">
-                  <Text style={{ fontSize: rpx(26), color: 'var(--color-muted-foreground, #999)' }}>
-                    {tf('user.empty.audio', '暂无音频内容')}
-                  </Text>
-                </View>
-              ) : (
-                audioContentList.map((item, index) => (
-                  <View
-                    key={index}
-                    className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio"
-                  >
-                    <View className="flex-row items-center justify-between mb-[12rpx]">
-                      <Text className="text-[28rpx] font-semibold text-foreground">
-                        {item.title}
-                      </Text>
-                      <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
-                    </View>
-                    <View className="flex-row items-center gap-[12rpx]">
-                      {/* 播放/暂停按钮 */}
-                      <View
-                        className="w-[48rpx] h-[48rpx] rounded-full flex items-center justify-center"
-                        style={{ background: 'var(--color-primary)', flexShrink: 0 }}
-                        onClick={() => toggleAudioPlay(index, item.audioUrl)}
-                      >
+            {/* 音频内容 */}
+            {activeTab === 4 && (
+              <View>
+                {audioContentList.length === 0 ? (
+                  <View className="py-[120rpx] flex items-center justify-center">
+                    <Text
+                      style={{
+                        fontSize: rpx(26),
+                        color: 'var(--color-muted-foreground, var(--color-muted-foreground))',
+                      }}
+                    >
+                      {tf('user.empty.audio', '暂无音频内容')}
+                    </Text>
+                  </View>
+                ) : (
+                  audioContentList.map((item, index) => (
+                    <View
+                      key={index}
+                      className="mb-[20rpx] bg-card rounded-lg p-[28rpx] border border-border shadow-sm user-content-audio"
+                    >
+                      <View className="flex-row items-center justify-between mb-[12rpx]">
+                        <Text className="text-[28rpx] font-semibold text-foreground">
+                          {item.title}
+                        </Text>
+                        <Text className="text-[22rpx] text-muted-foreground">{item.time}</Text>
+                      </View>
+                      <View className="flex-row items-center gap-[12rpx]">
+                        {/* 播放/暂停按钮 */}
+                        <View
+                          className="w-[48rpx] h-[48rpx] rounded-full flex items-center justify-center"
+                          style={{ background: 'var(--color-primary)', flexShrink: 0 }}
+                          onClick={() => toggleAudioPlay(index, item.audioUrl)}
+                        >
+                          <Image
+                            src={audioPlayStates[index] ? pauseIcon : playIcon}
+                            mode="aspectFit"
+                            className="w-[36rpx] h-[36rpx]"
+                          />
+                        </View>
+                        {/* 进度条 */}
+                        <View className="flex-1" style={{ minWidth: 0 }}>
+                          <Slider
+                            value={audioProgress[index] || 0}
+                            min={0}
+                            max={100}
+                            activeColor="var(--color-primary)"
+                            backgroundColor="rgba(255,255,255,0.15)"
+                            blockSize={12}
+                            blockColor="var(--color-primary)"
+                            onChange={(e) => onAudioProgressChange(index, e)}
+                          />
+                        </View>
+                        {/* 当前时间 */}
+                        <Text
+                          className="text-[22rpx] text-muted-foreground"
+                          style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
+                        >
+                          {formatAudioTime(audioCurrentTime[index] || 0)}
+                        </Text>
+                        {/* 下载按钮 */}
                         <Image
-                          src={audioPlayStates[index] ? pauseIcon : playIcon}
+                          src={downloadIcon}
                           mode="aspectFit"
                           className="w-[36rpx] h-[36rpx]"
+                          style={{ flexShrink: 0 }}
+                          onClick={() => downloadAudio(item.audioUrl)}
                         />
                       </View>
-                      {/* 进度条 */}
-                      <View className="flex-1" style={{ minWidth: 0 }}>
-                        <Slider
-                          value={audioProgress[index] || 0}
-                          min={0}
-                          max={100}
-                          activeColor="var(--color-primary)"
-                          backgroundColor="rgba(255,255,255,0.15)"
-                          blockSize={12}
-                          blockColor="var(--color-primary)"
-                          onChange={(e) => onAudioProgressChange(index, e)}
-                        />
-                      </View>
-                      {/* 当前时间 */}
-                      <Text
-                        className="text-[22rpx] text-muted-foreground"
-                        style={{ flexShrink: 0, width: rpx(80), textAlign: 'right' }}
-                      >
-                        {formatAudioTime(audioCurrentTime[index] || 0)}
-                      </Text>
-                      {/* 下载按钮 */}
-                      <Image
-                        src={downloadIcon}
-                        mode="aspectFit"
-                        className="w-[36rpx] h-[36rpx]"
-                        style={{ flexShrink: 0 }}
-                        onClick={() => downloadAudio(item.audioUrl)}
-                      />
                     </View>
-                  </View>
-                ))
-              )}
-            </View>
-          )}
+                  ))
+                )}
+              </View>
+            )}
+          </View>
         </View>
-      </View>
 
-      {/* 快捷入口 */}
-      <View className="mx-[20rpx] my-[24rpx] py-[28rpx]">
-        <View className="flex">
-          {quickEntries.map((entry) => (
+        {/* 快捷入口 */}
+        <View className="mx-[20rpx] my-[24rpx] py-[28rpx]">
+          <View className="flex">
+            {quickEntries.map((entry) => (
+              <View
+                key={entry.path}
+                className="flex-1 flex flex-col items-center"
+                onClick={() => goPage(entry.path)}
+              >
+                {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
+                <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* 功能列表 */}
+        <View className="mx-[20rpx] my-[24rpx] overflow-hidden">
+          {menus.map((item, idx) => (
             <View
-              key={entry.path}
-              className="flex-1 flex flex-col items-center"
-              onClick={() => goPage(entry.path)}
+              key={item.path}
+              className={`flex items-center px-[32rpx] py-[32rpx] ${
+                idx < menus.length - 1 ? 'mb-[8rpx]' : ''
+              }`}
+              onClick={() => goPage(item.path)}
             >
-              {renderIcon(entry.icon, 'text-[44rpx]', 'w-[44rpx] h-[44rpx]')}
-              <Text className="mt-[6rpx] text-[24rpx] text-foreground">{t(entry.key)}</Text>
+              {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
+              <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
+              <Text className="text-[26rpx] text-[var(--color-primary)]">{'>'}</Text>
             </View>
           ))}
         </View>
-      </View>
 
-      {/* 功能列表 */}
-      <View className="mx-[20rpx] my-[24rpx] overflow-hidden">
-        {menus.map((item, idx) => (
+        {/* 退出登录 */}
+        {isLogin ? (
           <View
-            key={item.path}
-            className={`flex items-center px-[32rpx] py-[32rpx] ${
-              idx < menus.length - 1 ? 'mb-[8rpx]' : ''
-            }`}
-            onClick={() => goPage(item.path)}
+            className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
+            onClick={handleLogout}
           >
-            {renderIcon(item.icon, 'text-[40rpx]', 'w-[40rpx] h-[40rpx]')}
-            <Text className="flex-1 ml-[20rpx] text-[30rpx] text-foreground">{t(item.key)}</Text>
-            <Text className="text-[26rpx] text-[var(--color-primary)]">{'>'}</Text>
+            <Text>{t('user.logout')}</Text>
           </View>
-        ))}
-      </View>
+        ) : null}
 
-      {/* 退出登录 */}
-      {isLogin ? (
-        <View
-          className="mx-[20rpx] my-[48rpx] h-[96rpx] leading-[96rpx] text-center border border-primary text-primary rounded-lg text-[30rpx]"
-          onClick={handleLogout}
-        >
-          <Text>{t('user.logout')}</Text>
+        {/* 官网链接 */}
+        <View className="w-full flex items-center justify-center pb-[20rpx]">
+          <Image
+            src={yejiaoIcon}
+            mode="widthFix"
+            className="w-[348rpx]"
+            onClick={copyWebsiteLink}
+          />
         </View>
-      ) : null}
 
-      {/* 官网链接 */}
-      <View className="w-full flex items-center justify-center pb-[20rpx]">
-        <Image src={yejiaoIcon} mode="widthFix" className="w-[348rpx]" onClick={copyWebsiteLink} />
-      </View>
-
-      {/* ===== 视频播放弹窗（对齐原项目 showVideoPlayer，使用 VideoPlayer 组件） ===== */}
-      {showVideoPlayer ? (
-        <View className="fixed inset-0 z-[2000] flex items-center justify-center">
-          <View className="absolute inset-0 bg-black/80" onClick={closeVideoPlayer} />
-          <View className="relative w-[90%] rounded-lg overflow-hidden">
-            <VideoPlayer src={currentVideoUrl} controls onError={closeVideoPlayer} />
-            {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
-            <CoverView
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: '60rpx',
-                height: '60rpx',
-                background: 'rgba(0,0,0,0.5)',
-                borderTopRightRadius: '8rpx',
-                borderBottomLeftRadius: '8rpx',
-                zIndex: 10,
-              }}
-              onClick={closeVideoPlayer}
-            >
+        {/* ===== 视频播放弹窗（对齐原项目 showVideoPlayer，使用 VideoPlayer 组件） ===== */}
+        {showVideoPlayer ? (
+          <View className="fixed inset-0 z-[2000] flex items-center justify-center">
+            <View className="absolute inset-0 bg-black/80" onClick={closeVideoPlayer} />
+            <View className="relative w-[90%] rounded-lg overflow-hidden">
+              <VideoPlayer src={currentVideoUrl} controls onError={closeVideoPlayer} />
+              {/* 关闭按钮用 CoverView(对齐原项目 cover-view 层级兼容,小程序原生 video 层级最高) */}
               <CoverView
                 style={{
-                  color: '#fff',
-                  fontSize: '40rpx',
-                  fontWeight: 'bold',
-                  lineHeight: '60rpx',
-                  textAlign: 'center',
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  width: '60rpx',
+                  height: '60rpx',
+                  background: 'rgba(0,0,0,0.5)',
+                  borderTopRightRadius: '8rpx',
+                  borderBottomLeftRadius: '8rpx',
+                  zIndex: 10,
+                }}
+                onClick={closeVideoPlayer}
+              >
+                <CoverView
+                  style={{
+                    color: 'var(--color-foreground)',
+                    fontSize: '40rpx',
+                    fontWeight: 'bold',
+                    lineHeight: '60rpx',
+                    textAlign: 'center',
+                  }}
+                >
+                  ×
+                </CoverView>
+              </CoverView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* ===== 分享弹窗 ===== */}
+        {showSharePopup ? (
+          <View className="share-popup-mask" onClick={closeSharePopup}>
+            <View className="share-popup-content" onClick={(e) => e.stopPropagation()}>
+              {/* 关闭按钮 */}
+              <View className="share-popup-close" onClick={closeSharePopup}>
+                <Text className="text-white text-[28rpx]">×</Text>
+              </View>
+              {/* 分享卡片预览 */}
+              <View className="share-popup-image">
+                <Text className="share-popup-title">
+                  {tf('user.share.cardTitle', 'AI IHUI 智能平台')}
+                </Text>
+                <Text className="share-popup-subtitle">
+                  {tf('user.share.cardDesc', '开启智能学习之旅，探索无限可能')}
+                </Text>
+              </View>
+              {/* 分享提示 */}
+              <Text className="block text-center text-[28rpx] text-foreground font-semibold mb-[20rpx]">
+                {tf('user.share.shareTo', '分享给好友')}
+              </Text>
+              {/* 分享按钮 */}
+              <View
+                className="share-popup-btn"
+                onClick={() => {
+                  // 对齐原项目 handleAppShareClick:调起分享菜单
+                  Taro.showShareMenu({
+                    withShareTicket: true,
+                    showShareItems: ['shareAppMessage', 'shareTimeline'],
+                    success: () => {
+                      // 对齐原项目 handleShareSuccess:分享成功后调 firstShare 接口领取智汇值
+                      void api.firstShare({ source: 'user' }).catch(() => {
+                        // 静默:接口失败不阻塞分享成功提示
+                      })
+                      Taro.showToast({
+                        title: tf('share.success', '分享成功'),
+                        icon: 'success',
+                      })
+                      closeSharePopup()
+                    },
+                    fail: () => {
+                      // 部分平台不支持 showShareMenu,降级为复制链接
+                      Taro.setClipboardData({
+                        data: 'https://ihui.ai',
+                        success: () =>
+                          Taro.showToast({
+                            title: tf('user.share.linkCopied', '链接已复制'),
+                            icon: 'success',
+                          }),
+                      })
+                      closeSharePopup()
+                    },
+                  })
                 }}
               >
-                ×
-              </CoverView>
-            </CoverView>
-          </View>
-        </View>
-      ) : null}
-
-      {/* ===== 分享弹窗 ===== */}
-      {showSharePopup ? (
-        <View className="share-popup-mask" onClick={closeSharePopup}>
-          <View className="share-popup-content" onClick={(e) => e.stopPropagation()}>
-            {/* 关闭按钮 */}
-            <View className="share-popup-close" onClick={closeSharePopup}>
-              <Text className="text-white text-[28rpx]">×</Text>
-            </View>
-            {/* 分享卡片预览 */}
-            <View className="share-popup-image">
-              <Text className="share-popup-title">
-                {tf('user.share.cardTitle', 'AI IHUI 智能平台')}
-              </Text>
-              <Text className="share-popup-subtitle">
-                {tf('user.share.cardDesc', '开启智能学习之旅，探索无限可能')}
-              </Text>
-            </View>
-            {/* 分享提示 */}
-            <Text className="block text-center text-[28rpx] text-foreground font-semibold mb-[20rpx]">
-              {tf('user.share.shareTo', '分享给好友')}
-            </Text>
-            {/* 分享按钮 */}
-            <View
-              className="share-popup-btn"
-              onClick={() => {
-                // 对齐原项目 handleAppShareClick:调起分享菜单
-                Taro.showShareMenu({
-                  withShareTicket: true,
-                  showShareItems: ['shareAppMessage', 'shareTimeline'],
-                  success: () => {
-                    // 对齐原项目 handleShareSuccess:分享成功后调 firstShare 接口领取智汇值
-                    void api.firstShare({ source: 'user' }).catch(() => {
-                      // 静默:接口失败不阻塞分享成功提示
-                    })
-                    Taro.showToast({
-                      title: tf('share.success', '分享成功'),
-                      icon: 'success',
-                    })
-                    closeSharePopup()
-                  },
-                  fail: () => {
-                    // 部分平台不支持 showShareMenu,降级为复制链接
-                    Taro.setClipboardData({
-                      data: 'https://ihui.ai',
-                      success: () =>
-                        Taro.showToast({
-                          title: tf('user.share.linkCopied', '链接已复制'),
-                          icon: 'success',
-                        }),
-                    })
-                    closeSharePopup()
-                  },
-                })
-              }}
-            >
-              {tf('share.shareNow', '立即分享')}
+                {tf('share.shareNow', '立即分享')}
+              </View>
             </View>
           </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </View>
+    </ThemeRoot>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

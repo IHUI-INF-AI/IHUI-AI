@@ -38,7 +38,7 @@
   font-size: 24rpx;
   color: var(--color-muted-foreground);
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pza-search {
@@ -52,7 +52,7 @@
   font-size: 26rpx;
   color: var(--color-foreground);
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pza-tabs {
@@ -68,7 +68,7 @@
   padding: 12rpx 28rpx;
   margin-right: 16rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pza-tab text {
@@ -103,7 +103,7 @@
 
 .pza-card {
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -167,7 +167,7 @@
   color: var(--color-muted-foreground);
   background: var(--color-background);
   padding: 4rpx 12rpx;
-  border-radius: 6rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pza-attention {
@@ -216,7 +216,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-primary);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl);
   z-index: 10;
 }
 
@@ -245,7 +245,7 @@
   width: 86%;
   max-width: 640rpx;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -280,7 +280,7 @@
   padding: 14rpx 28rpx;
   margin-right: 16rpx;
   background: var(--color-background);
-  border-radius: 8rpx;
+  border-radius: var(--radius-sm);
 }
 
 .pza-track text {
@@ -302,7 +302,7 @@
   max-width: 640rpx;
   max-height: 76vh;
   background: var(--color-card);
-  border-radius: 16rpx;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -336,7 +336,7 @@
 .pza-center-cover {
   display: block;
   width: 100%;
-  border-radius: 12rpx;
+  border-radius: var(--radius-md);
   margin-bottom: 20rpx;
 }
 
@@ -367,7 +367,7 @@
   right: 0;
   bottom: 0;
   background: var(--color-card);
-  border-radius: 16rpx 16rpx 0 0;
+  border-radius: var(--radius-lg) 16rpx 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
