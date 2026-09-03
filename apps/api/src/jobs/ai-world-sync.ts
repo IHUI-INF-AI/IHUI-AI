@@ -606,7 +606,12 @@ async function fetchArxivPapers(): Promise<FetchedItem[]> {
     source: 'arxiv',
     sourceUrl: item.link ?? item.guid ?? '',
     title: (item.title ?? 'Untitled').trim().slice(0, 500),
-    summary: cleanText(item.contentSnippet, 1000),
+    // 2026-09-04 修复:arXiv 为 Atom 源,摘要位于 item.summary(rss-parser 的
+    // contentSnippet/content 均为空),此前论文条目 summary/content 全部落空,前端无摘要展示。
+    summary: cleanText(
+      item.contentSnippet ?? (item as { summary?: string }).summary ?? item.content,
+      1000,
+    ),
     content: cleanText(item.content, 5000),
     url: item.link ?? undefined,
     publishedAt: item.isoDate ? new Date(item.isoDate) : undefined,
