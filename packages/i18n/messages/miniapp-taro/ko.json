@@ -1,4 +1,35 @@
 {
+  "checkIn": {
+    "title": "매일 출석 체크"
+  },
+  "search": {
+    "title": "검색",
+    "placeholder": "강의·강사·콘텐츠 검색",
+    "empty": "관련 콘텐츠를 찾을 수 없습니다",
+    "failed": "검색 실패",
+    "type": {
+      "course": "강의",
+      "article": "아티클",
+      "post": "포스트",
+      "note": "노트",
+      "agent": "에이전트"
+    }
+  },
+  "taskCenter": {
+    "title": "미션 센터",
+    "subtitle": "미션을 완료하고 보상을 받으세요",
+    "retry": "재시도",
+    "empty": "가능한 미션이 없습니다",
+    "claimed": "수령 완료",
+    "claim": "수령하기",
+    "goToDo": "하러 가기",
+    "progress": "{current}/{target}",
+    "claimFailed": "수령 실패",
+    "loadFailed": "미션 로딩 실패",
+    "tab_daily": "데일리",
+    "tab_weekly": "위클리",
+    "tab_newbie": "뉴비"
+  },
   "nav": {
     "profile": "마이페이지",
     "community": "커뮤니티"
