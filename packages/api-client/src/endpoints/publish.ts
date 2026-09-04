@@ -236,6 +236,23 @@ export async function detectLoginFromCdp(
   })
 }
 
+/**
+ * 外部 Chrome 扫码登录(2026-09-02 新增,自动闭环模式)。
+ *
+ * ai-service 用系统 Chrome(--app + --remote-debugging-port + 独立临时 profile)打开
+ * 平台登录页并通过 CDP 附着。返回 session_id 后前端复用 detectLoginFromCdp 轮询:
+ * 用户在外部 Chrome 里扫码/登录 → 检测到 success cookies → 自动保存账号 →
+ * 前端 closeBrowserSession(同时关闭外部 Chrome 窗口)+ 提示成功。
+ */
+export async function startExternalScanLogin(
+  platform: string,
+): Promise<ApiResult<{ session_id: string; platform: string }>> {
+  return fetchApi<{ session_id: string; platform: string }>(
+    '/api/publish/scan-login/external-start',
+    { method: 'POST', body: JSON.stringify({ platform }) },
+  )
+}
+
 // =============================================================================
 // 账号分组管理(2026-08-01 新增)
 // =============================================================================
