@@ -13,6 +13,7 @@ import { seedAiFeedSources } from './ai-feed-sources.js'
 import { seedLeaderboard } from './leaderboard-seed.js'
 import { seedAiPricing } from './ai-pricing-seed.js'
 import { seedCourses } from './courses-seed.js'
+import { seedAiCostRecords } from './ai-cost-records-seed.js'
 
 interface SeedStep {
   /** 步骤编号(1-based) */
