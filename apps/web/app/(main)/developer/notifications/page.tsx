@@ -104,7 +104,7 @@ export default function NotificationsPage() {
 
   if (!loaded) {
     return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground">
+      <div className="px-4 flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -112,7 +112,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
