@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   mask: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: tokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,

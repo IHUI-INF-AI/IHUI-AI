@@ -1650,7 +1650,8 @@
     "registerSuccess": "登録が完了しました",
     "resendCode": "再送",
     "termsOfService": "利用規約",
-    "thirdPartyLogin": "他の方法でログイン"
+    "thirdPartyLogin": "他の方法でログイン",
+    "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。"
   },
   "bookmark": {
     "empty": "しおりがありません",

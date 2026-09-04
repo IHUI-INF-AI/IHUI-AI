@@ -135,7 +135,7 @@ export function LearnScreen({
                             resizeMode="cover"
                           />
                         ) : (
-                          <BookOpen size={32} color="#374151" />
+                          <BookOpen size={32} color={tk.text.medium} />
                         )}
                       </View>
                       <Text style={styles.pathTitle} numberOfLines={1}>
@@ -195,7 +195,7 @@ export function LearnScreen({
                             resizeMode="cover"
                           />
                         ) : (
-                          <BookOpen size={40} color="#374151" />
+                          <BookOpen size={40} color={tk.text.medium} />
                         )}
                       </View>
                       <View style={styles.courseInfo}>

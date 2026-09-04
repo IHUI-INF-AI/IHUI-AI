@@ -62,6 +62,8 @@ export interface CredentialStorage {
   saveAutoLogin: (enabled: boolean) => void
   clearAutoLogin: () => void
   saveLoginHistory: (account: string) => void
+  /** 读取账号登录历史(最多 MAX_HISTORY=5,最新在前;2026-09-04 历史账号下拉功能) */
+  loadLoginHistory: () => string[]
 }
 
 export interface UseLoginFormOptions {
@@ -106,6 +108,8 @@ export interface UseLoginFormReturn {
   setAutoLogin: (v: boolean) => void
   /** 初始化时加载的已记住凭据(供各端 UI 回填表单) */
   remembered: RememberedCredentials | null
+  /** 账号登录历史(最多 5 个,最新在前;登录成功后自动刷新;2026-09-04 历史账号下拉) */
+  loginHistory: string[]
   /** 操作函数 */
   login: () => Promise<void>
   ssoLoginAction: () => Promise<void>
@@ -157,6 +161,10 @@ export function useLoginForm(options: UseLoginFormOptions): UseLoginFormReturn {
   // 初始化时加载已记住凭据(各端 UI 可据此回填表单)
   const [remembered] = useState<RememberedCredentials | null>(() =>
     enableRemember ? storage.loadRemembered() : null,
+  )
+  // 账号登录历史(登录成功后 refresh;供历史账号下拉)
+  const [loginHistory, setLoginHistory] = useState<string[]>(() =>
+    enableRemember ? storage.loadLoginHistory() : [],
   )
 
   const [account, setAccount] = useState<string>(remembered?.account ?? '')
@@ -223,6 +231,8 @@ export function useLoginForm(options: UseLoginFormOptions): UseLoginFormReturn {
         }
         storage.saveAutoLogin(autoLogin && rememberPassword)
         storage.saveLoginHistory(account)
+        // 刷新历史账号列表(供下拉展示最新记录)
+        setLoginHistory(storage.loadLoginHistory())
       }
 
       // 写 token + user(各端注入的回调)
@@ -282,6 +292,7 @@ export function useLoginForm(options: UseLoginFormOptions): UseLoginFormReturn {
     autoLogin,
     setAutoLogin,
     remembered,
+    loginHistory,
     login,
     ssoLoginAction,
     disabled: loading || ssoLoading,

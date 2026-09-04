@@ -1590,6 +1590,9 @@ export interface ThirdPartyLoginOption {
   label: string
   /** RN Image source(�?require('../../assets/icons/wechat.png')) */
   iconSource?: number | { uri: string }
+  /** RN 图标节点(react-native-svg-transformer 场景:require('*.svg') 返回 React 组件而非
+   *  Image source 契约类型,须以节点方式渲染;存在时优先于 iconSource) */
+  iconNode?: ReactNode
   /** 平台品牌�?十六进制,�?'#07C160'),用于无图标时的圆形按钮背�?*/
   brandColor?: string
   /** 是否启用(未配�?OAuth 的平台设�?false,按钮置灰) */
@@ -1748,6 +1751,15 @@ export interface LoginScreenProps {
   eyeIconShow?: ReactNode
   /** 密码"隐藏"状态图�?眼睛闭起)�?   * 推荐 lucide-react-native �?`<EyeOff />` 组件�?*/
   eyeIconHide?: ReactNode
+
+  // ===== 自动登录 + 历史账号(2026-09-04,对齐 web 密码登录功能) =====
+
+  /** 自动登录勾选状态(password tab 协议行右侧复选框) */
+  autoLogin?: boolean
+  /** 自动登录勾选回调 */
+  onAutoLoginChange?: (v: boolean) => void
+  /** 账号登录历史(最新在前,最多 5;账号输入框聚焦时展示下拉) */
+  loginHistory?: string[]
 }
 
 /** RegisterScreen props(表单�? */

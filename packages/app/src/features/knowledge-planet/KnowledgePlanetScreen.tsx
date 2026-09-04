@@ -82,7 +82,7 @@ export function KnowledgePlanetScreen({
                     {item.cover ? (
                       <View style={styles.itemCoverImage} />
                     ) : (
-                      <Newspaper size={32} color="#374151" />
+                      <Newspaper size={32} color={tk.text.medium} />
                     )}
                   </View>
                   <View style={styles.itemBody}>
