@@ -17,12 +17,23 @@ export function PostCreateScreen() {
   const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
-  const { circleId } = route.params ?? { circleId: '' }
+  const { circleId, topicName, onPickTopic } = route.params ?? {}
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
-  const [tags, setTags] = useState('')
+  const [tags, setTags] = useState(topicName ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // P1(2026-09-04):选话题入口(镜像 miniapp from=create + TOPIC_EVENT 回传,RN 用函数 params)
+  const pickTopic = useCallback(() => {
+    navigation.navigate('TopicList', {
+      from: 'create',
+      onPickTopic: (name: string) => {
+        onPickTopic?.(name)
+        if (name) setTags((prev) => (prev.includes(name) ? prev : prev ? `${prev},${name}` : name))
+      },
+    })
+  }, [navigation, onPickTopic])
 
   const onSubmit = useCallback(async () => {
     if (!title.trim() || !content.trim()) {
