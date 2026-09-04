@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG 지식 베이스",
     "subagents": "서브 에이전트",
     "chatTools": "AI 채팅 / 도구",
-    "cart": "장바구니"
+    "cart": "장바구니",
+    "circleIndex": "커뮤니티 광장",
+    "topicList": "토픽"
   },
   "error": {
     "network": "네트워크 오류"
