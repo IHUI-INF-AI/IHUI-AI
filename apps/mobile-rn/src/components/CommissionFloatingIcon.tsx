@@ -58,7 +58,7 @@ export function CommissionFloatingIcon({ amount, onPress }: CommissionFloatingIc
       accessibilityRole="button"
       accessibilityLabel={LABEL}
     >
-      <ICON size={18} color={'#ffffff'} />
+      <ICON size={18} color={tk.surface.light} />
       <View style={styles.textWrap}>
         <Text style={styles.label} numberOfLines={1}>
           {LABEL}

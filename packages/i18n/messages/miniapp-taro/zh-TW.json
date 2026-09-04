@@ -1,4 +1,25 @@
 {
+  "checkIn": {
+    "title": "每日簽到"
+  },
+  "search": {
+    "title": "搜尋",
+    "placeholder": "搜尋課程、講師、內容",
+    "empty": "未找到相關內容",
+    "failed": "搜尋失敗"
+  },
+  "taskCenter": {
+    "title": "任務中心",
+    "subtitle": "做任務,拿獎勵",
+    "retry": "重試",
+    "empty": "暫無可做的任務",
+    "claimed": "已領取",
+    "claim": "領取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}",
+    "claimFailed": "領取失敗",
+    "loadFailed": "載入任務失敗"
+  },
   "nav": {
     "profile": "我的",
     "community": "社群"
@@ -2050,6 +2071,7 @@
       "detailTrack": "賽道",
       "detailStatus": "狀態",
       "detailAuthor": "發布人",
+      "viewDetail": "查看詳情",
       "identityTitle": "切換身份"
     },
     "cover": {
@@ -2071,6 +2093,48 @@
       "continueOrder": "繼續接單",
       "qaTitle": "常見問題"
     }
+  },
+  "postCreate": {
+    "title": "發布貼文",
+    "titleLabel": "標題",
+    "titlePlaceholder": "幫貼文取個標題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布",
+    "required": "請輸入內容",
+    "saveFailed": "儲存失敗"
+  },
+  "postDetail": {
+    "loadFailed": "載入貼文失敗",
+    "anonymous": "匿名",
+    "typesLabel": "類型",
+    "categoriesLabel": "分類",
+    "taskStatusLabel": "任務狀態",
+    "reviewStatusLabel": "審核狀態",
+    "priceLabel": "價格",
+    "cycleLabel": "週期",
+    "closingTimeLabel": "截止時間",
+    "contactLabel": "聯絡方式"
+  },
+  "announcementDetail": {
+    "empty": "公告不存在或已刪除",
+    "loadFailed": "載入公告詳情失敗"
+  },
+  "aiSkill": {
+    "title": "AI 技能",
+    "loadFailed": "技能清單載入失敗",
+    "retry": "重試",
+    "empty": "暫無技能",
+    "detail": "檢視詳情"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "技能詳情載入失敗",
+    "retry": "重試",
+    "prompt": "Prompt 模板",
+    "noPrompt": "無模板",
+    "source": "來源"
   },
   "ranking": {
     "empty": "暫無排名資料",
@@ -2294,7 +2358,9 @@
   },
   "pay": {
     "result": {
-      "paid": "支付成功"
+      "pending": "支付處理中",
+      "paid": "支付成功",
+      "failed": "支付失敗"
     },
     "backHome": "返回首頁",
     "viewOrders": "查看訂單",
@@ -3032,9 +3098,7 @@
     "holdToSpeak": "按住說話"
   },
   "toolbar": {
-    "ai": "AI對話",
-    "course": "課程",
-    "vip": "會員"
+    "ai": "AI對話"
   },
   "index": {
     "mock": {
@@ -3252,7 +3316,7 @@
     "rich1": "限時優惠<span style=\"font-weight: bold;\">588</span>元,<span style=\"font-weight: bold;\">8月8日</span>恢復<span style=\"font-weight: bold;\">1288</span>元",
     "rich2": "贈送<span style=\"font-weight: bold;\">800</span>萬算力,爽用獨家<span style=\"font-weight: bold;\">AI</span>模型",
     "rich3": "獲得分銷權益,用<span style=\"font-weight: bold;\">AI</span>降本增效",
-    "rich4": "私人<span style=\"font-weight: bold;\">AI</span>客服訂製權,擁有只屬於自己的私密<span style=\"font-weight: bold;\">AI</span>助理",
+    "rich4": "私人<span style=\"font-weight: bold;\">AI</span>客服訂製權,擁有隻屬於自己的私密<span style=\"font-weight: bold;\">AI</span>助理",
     "rich5": "多對一答疑陪跑:<span style=\"font-weight: bold;\">AI</span>教學/自媒體帳號搭建/<span style=\"font-weight: bold;\">變現</span>",
     "rich6": "免費<span style=\"font-weight: bold;\">AI</span>導航站,<span style=\"font-weight: bold;\">一鍵</span>觸達全部AI工具",
     "rich7": "最新研發前沿<span style=\"font-weight: bold;\">agentic</span>內測免費使用資格<span style=\"font-weight: bold;\">一個月</span>",
@@ -3327,11 +3391,11 @@
     "text3": "開發者入駐",
     "text4": "建立並發布你自己的 AI 智慧體",
     "text5": "本週最受歡迎的智慧體排行",
-    "r1": "代码",
+    "r1": "代碼",
     "r2": "程序",
-    "r3": "函数",
+    "r3": "函數",
     "r4": "前端",
-    "r5": "后端"
+    "r5": "後端"
   },
   "aiAgentdetail": {
     "q1": "取得Agent詳情",
@@ -3390,11 +3454,11 @@
   },
   "aigroup": {
     "q1": "載入AI團隊",
-    "r1": "代码",
+    "r1": "代碼",
     "r2": "程序",
-    "r3": "函数",
+    "r3": "函數",
     "r4": "前端",
-    "r5": "后端"
+    "r5": "後端"
   },
   "askCreate": {
     "d1": "技術",
@@ -3429,12 +3493,12 @@
     "d1": "如何成為開發者?",
     "d10": "n8n 智慧體說明",
     "d11": "n8n 工作流智慧體的建立、參數設定與發布流程說明。",
-    "d12": "了解 n8n 智慧體 >",
-    "d2": "了解開發者開通流程、權益與義務,快速加入開發者計畫。",
+    "d12": "瞭解 n8n 智慧體 >",
+    "d2": "瞭解開發者開通流程、權益與義務,快速加入開發者計畫。",
     "d3": "查看開通流程 >",
     "d4": "開發者收益如何結算?",
-    "d5": "了解智慧體收入分成規則、提現週期與結算方式。",
-    "d6": "了解收益規則 >",
+    "d5": "瞭解智慧體收入分成規則、提現週期與結算方式。",
+    "d6": "瞭解收益規則 >",
     "d7": "智慧體審核規則",
     "d8": "發布智慧體的審核標準、常見拒絕原因與修改建議。",
     "d9": "查看審核規則 >"
@@ -3578,7 +3642,7 @@
   "vipPrivilege": {
     "d1": "每日對話次數",
     "d10": "操盤策略專屬課程",
-    "d11": "優先參與平台活動",
+    "d11": "優先參與平臺活動",
     "d12": "一對一專屬顧問",
     "d13": "閉門沙龍參與權",
     "d14": "行業大咖私密交流",
@@ -3604,7 +3668,7 @@
     "d17": "頂級折扣",
     "d18": "會員等級拉滿,享受全部最高折扣",
     "d19": "客製優惠",
-    "d2": "資深市場分析師 / 平台認證",
+    "d2": "資深市場分析師 / 平臺認證",
     "d20": "插隊客製獨家客製 agent 功能 8 折優惠",
     "d21": "帳號孵化",
     "d22": "AI+垂類帳號孵化優先陪跑機會",
@@ -3640,13 +3704,6 @@
   "UserInfoCard": {
     "login1": "一鍵登入",
     "text2": "退訂"
-  },
-  "Selecter": {
-    "text1": "標清 480p",
-    "text2": "超清 720p",
-    "text3": "高清 1080p",
-    "back4": "← 返回",
-    "q1": "浮水印"
   },
   "TitleSwitchTypeBar": {
     "text1": "自訂",
@@ -3749,7 +3806,7 @@
   "aboutIcprecord": {
     "r1": "粵公網安備44010602000001號",
     "r2": "廣州智匯科技有限公司",
-    "p1": "吉ICP备2025027274号-7A"
+    "p1": "吉ICP備2025027274號-7A"
   },
   "last": {
     "1": "AI IHUI丨",

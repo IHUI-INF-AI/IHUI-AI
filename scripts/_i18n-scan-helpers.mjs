@@ -336,6 +336,15 @@ export function scanCode(files) {
       }
     }
   }
+  // 2026-09-03 增强:扫描 path-labels.ts 中的命名空间注册,
+  // 这些命名空间通过 TagsView 的 useTranslations(spec.ns) 动态引用,静态扫描无法检测。
+  const PATH_LABELS_FILES = files.filter((file) => file.includes('path-labels.ts'))
+  for (const f of PATH_LABELS_FILES) {
+    const content = fs.readFileSync(f, 'utf8')
+    const NS_RE = /ns:\s*'([a-zA-Z][a-zA-Z0-9_]*)/g
+    let m
+    while ((m = NS_RE.exec(content)) !== null) usedNamespaces.add(m[1])
+  }
   return { staticRefs, usedNamespaces, dynamicHits, scanned: files.length }
 }
 

@@ -16,8 +16,33 @@ import {
   type ChatMessage,
 } from '../src/compaction-v2.js';
 import { compressContextIfNeeded } from '../src/context.js';
+import { COMPACTION_SUMMARY_PROMPT } from '../src/commands/agent.js';
 
 // ==================== 测试工具 ====================
+
+/** 结构化四段式 prompt 契约测试:段名 + 硬性要求(2026-09-02 升级) */
+describe('COMPACTION_SUMMARY_PROMPT(结构化四段式)', () => {
+  it('包含四个段落标题', () => {
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('## 任务目标');
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('## 已做决策');
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('## 文件与工具变更');
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('## 未完成事项与下一步');
+  });
+
+  it('包含 500 字符下限要求(与 isDegenerateSummary 阈值对齐)', () => {
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('500 字符');
+  });
+
+  it('禁止控制标签输出(与 formatCompactSummary 清理范围对齐)', () => {
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('<analysis>');
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('<summary>');
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('<thinking>');
+  });
+
+  it('要求保留文件路径与工具名原文', () => {
+    expect(COMPACTION_SUMMARY_PROMPT).toContain('保留原文');
+  });
+});
 
 /** 生成固定长度摘要(避免退化检测) */
 function makeSummary(minChars = 600): string {
@@ -192,9 +217,9 @@ describe('formatCompactSummary', () => {
     expect(formatCompactSummary(input)).toBe('推理过程 最终结论');
   });
 
-  it('多 whitespace 归一为单空格', () => {
+  it('多 whitespace 归一为单空格(保留换行,2026-09-02 起)', () => {
     const input = '摘要\n\n\n   内容\t\t更多   内容';
-    expect(formatCompactSummary(input)).toBe('摘要 内容 更多 内容');
+    expect(formatCompactSummary(input)).toBe('摘要\n\n 内容 更多 内容');
   });
 
   it('清理 <summary> 标签并 trim', () => {
