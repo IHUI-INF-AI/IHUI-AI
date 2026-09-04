@@ -83,16 +83,16 @@ export default function RechargePage() {
         const orderNo = res.outTradeNo || ''
         if (!res.tradeNo) {
           Taro.showToast({ title: tt('pay.configNotReady', '支付宝支付配置未就绪'), icon: 'none' })
-          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+          Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=failed` })
           return
         }
         try {
           await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
           Taro.redirectTo({
-            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+            url: `/pages/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=paid`,
           })
         } catch {
-          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+          Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=failed` })
         }
         return
       }
@@ -102,14 +102,14 @@ export default function RechargePage() {
         try {
           await requestWxPayment(res.payParams as AnyPayParams)
           Taro.redirectTo({
-            url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+            url: `/pages/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=paid`,
           })
         } catch {
-          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` })
+          Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=failed` })
         }
       } else {
         Taro.redirectTo({
-          url: `/pages/wallet/recharge/success?orderNo=${orderNo}&amount=${amount}`,
+          url: `/pages/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=paid`,
         })
       }
     },
@@ -125,7 +125,7 @@ export default function RechargePage() {
     try {
       await payOrder(finalAmount, payMethod)
     } catch {
-      Taro.redirectTo({ url: '/pages/wallet/recharge/fail?orderNo=' })
+      Taro.redirectTo({ url: '/pages/pay/result/index?orderNo=&status=failed' })
     } finally {
       setSubmitting(false)
     }
@@ -141,7 +141,7 @@ export default function RechargePage() {
     try {
       await payOrder(amt, payMethod)
     } catch {
-      Taro.redirectTo({ url: '/pages/wallet/recharge/fail?orderNo=' })
+      Taro.redirectTo({ url: '/pages/pay/result/index?orderNo=&status=failed' })
     } finally {
       setSubmitting(false)
     }

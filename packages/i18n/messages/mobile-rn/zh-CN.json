@@ -31,6 +31,40 @@
     "loadFailed": "加载课程失败",
     "playError": "播放出错"
   },
+  "teacher": {
+    "list": {
+      "title": "讲师",
+      "searchPlaceholder": "搜索讲师",
+      "courseCount": "{n} 门课程",
+      "studentCount": "{n} 位学员",
+      "empty": "暂无讲师"
+    },
+    "detail": {
+      "courses": "课程",
+      "students": "学员",
+      "intro": "简介",
+      "unfollowed": "已取消",
+      "contactMessage": "发消息",
+      "contactPhone": "电话联系",
+      "phoneHint": "已复制联系方式",
+      "fans": "粉丝",
+      "goldBadge": "金牌讲师",
+      "collapse": "收起",
+      "expand": "展开",
+      "courseSection": "主讲课程",
+      "learnUnit": "人学习",
+      "noCourses": "暂无课程",
+      "reviewSection": "学员评价",
+      "noReviews": "暂无评价",
+      "contact": "联系讲师",
+      "follow": "+ 关注",
+      "followed": "已关注",
+      "following": "已关注",
+      "imSoon": "私信功能即将开放",
+      "notFound": "讲师不存在",
+      "rating": "评分"
+    }
+  },
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人观看",
@@ -85,6 +119,15 @@
     "logout": "退出登录",
     "myOrders": "我的订单",
     "editProfile": "编辑资料"
+  },
+  "payResult": {
+    "title": "支付结果",
+    "pending": "支付结果待确认",
+    "paid": "支付成功",
+    "failed": "支付失败",
+    "backHome": "返回首页",
+    "viewOrders": "查看订单",
+    "refresh": "刷新"
   },
   "payment": {
     "title": "支付订单",
@@ -249,7 +292,10 @@
     "webPortalCenter": "Web 功能门户",
     "knowledgeRag": "RAG 知识库",
     "subagents": "子智能体",
-    "chatTools": "AI 对话 / 工具"
+    "chatTools": "AI 对话 / 工具",
+    "cart": "购物车",
+    "circleIndex": "圈子广场",
+    "topicList": "话题"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -594,7 +640,6 @@
     "video": "视频",
     "addFile": "添加附件",
     "compactButton": "压缩上下文",
-    "compacting": "正在压缩上下文...",
     "compactSuccess": "上下文已压缩: {before} → {after} tokens(节省 {saved})",
     "compactTooFew": "对话消息太少,无需压缩",
     "compactIncompressible": "当前上下文已无可压缩空间",
@@ -757,6 +802,18 @@
     "default": "默认",
     "holder": "持卡人",
     "loadFailed": "加载银行卡失败"
+  },
+  "cart": {
+    "title": "购物车",
+    "checkout": "去结算",
+    "product": "商品",
+    "empty": "购物车是空的",
+    "deleteConfirm": "确定要删除该商品吗?",
+    "selectFirst": "请选择商品",
+    "loadFailed": "加载失败",
+    "total": "合计",
+    "selectAll": "全选",
+    "checkoutConfirm": "请确认所选商品,将通过微信支付完成付款"
   },
   "carte": {
     "title": "创作者名片",
@@ -963,8 +1020,7 @@
     "balance": "账户余额",
     "todayIncome": "今日收入",
     "totalIncome": "累计收入",
-    "totalExpense": "累计支出",
-    "loadFailed": "加载财务失败"
+    "totalExpense": "累计支出"
   },
   "follow": {
     "title": "关注与粉丝",
@@ -1175,7 +1231,8 @@
     "tagsPlaceholder": "多个标签用逗号分隔",
     "submit": "发布",
     "required": "请输入内容",
-    "saveFailed": "保存失败"
+    "saveFailed": "保存失败",
+    "pickTopic": "选择话题"
   },
   "profileEdit": {
     "avatarTip": "点击更换头像",
@@ -2183,5 +2240,58 @@
   },
   "developerInfo": {
     "urlLabel": "网址"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "话题",
+      "searchPlaceholder": "搜索话题",
+      "recommend": "推荐",
+      "hot": "热门",
+      "all": "全部",
+      "participants": "{n} 人参与",
+      "posts": "{n} 篇内容",
+      "empty": "暂无话题",
+      "loading": "加载中…",
+      "loadingMore": "加载中…"
+    },
+    "detail": {
+      "pageTitle": "话题详情",
+      "loading": "加载中…",
+      "loadFailed": "加载失败",
+      "followers": "{n} 人关注",
+      "follow": "关注",
+      "following": "已关注",
+      "followSuccess": "关注成功",
+      "unfollowed": "已取消关注",
+      "followFailed": "操作失败",
+      "publish": "发帖",
+      "publishPlaceholder": "分享你对这个话题的看法…",
+      "empty": "暂无帖子,快来发布第一条吧",
+      "loadingMore": "加载中…",
+      "noMore": "没有更多了",
+      "justNow": "刚刚",
+      "minutesAgo": "{n} 分钟前",
+      "hoursAgo": "{n} 小时前",
+      "anonymous": "匿名用户"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "推荐",
+      "follow": "关注",
+      "latest": "最新",
+      "hot": "热门"
+    },
+    "index": {
+      "pageTitle": "圈子",
+      "goPublish": "去发布",
+      "anonymous": "匿名用户",
+      "follow": "关注",
+      "followed": "已关注",
+      "loading": "加载中...",
+      "retry": "点击重试",
+      "error": "加载失败"
+    },
+    "empty": "暂无内容"
   }
 }

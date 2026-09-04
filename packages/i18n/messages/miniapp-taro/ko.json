@@ -1,4 +1,25 @@
 {
+  "checkIn": {
+    "title": "매일 출석 체크"
+  },
+  "search": {
+    "title": "검색",
+    "placeholder": "강의·강사·콘텐츠 검색",
+    "empty": "관련 콘텐츠를 찾을 수 없습니다",
+    "failed": "검색 실패"
+  },
+  "taskCenter": {
+    "title": "미션 센터",
+    "subtitle": "미션을 완료하고 보상을 받으세요",
+    "retry": "재시도",
+    "empty": "가능한 미션이 없습니다",
+    "claimed": "수령 완료",
+    "claim": "수령하기",
+    "goToDo": "하러 가기",
+    "progress": "{current}/{target}",
+    "claimFailed": "수령 실패",
+    "loadFailed": "미션 로딩 실패"
+  },
   "nav": {
     "profile": "마이페이지",
     "community": "커뮤니티"
@@ -2062,6 +2083,7 @@
       "detailTrack": "트랙",
       "detailStatus": "상태",
       "detailAuthor": "작성자",
+      "viewDetail": "상세 보기",
       "identityTitle": "신분 전환"
     },
     "cover": {
@@ -2083,6 +2105,48 @@
       "continueOrder": "계속 주문 받기",
       "qaTitle": "자주 묻는 질문"
     }
+  },
+  "postCreate": {
+    "title": "게시글 작성",
+    "titleLabel": "제목",
+    "titlePlaceholder": "게시글 제목을 지어주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "생각을 공유하세요...",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "submit": "작성",
+    "required": "내용을 입력하세요",
+    "saveFailed": "저장 실패"
+  },
+  "postDetail": {
+    "loadFailed": "게시글 불러오기 실패",
+    "anonymous": "익명",
+    "typesLabel": "유형",
+    "categoriesLabel": "분류",
+    "taskStatusLabel": "작업 상태",
+    "reviewStatusLabel": "심사 상태",
+    "priceLabel": "가격",
+    "cycleLabel": "주기",
+    "closingTimeLabel": "마감 시간",
+    "contactLabel": "연락처"
+  },
+  "announcementDetail": {
+    "empty": "공지를 찾을 수 없거나 삭제되었습니다",
+    "loadFailed": "공지 불러오기 실패"
+  },
+  "aiSkill": {
+    "title": "AI 스킬",
+    "loadFailed": "스킬 목록 로드 실패",
+    "retry": "재시도",
+    "empty": "스킬이 없습니다",
+    "detail": "상세 보기"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "스킬 상세 로드 실패",
+    "retry": "재시도",
+    "prompt": "프롬프트 템플릿",
+    "noPrompt": "템플릿 없음",
+    "source": "출처"
   },
   "ranking": {
     "empty": "데이터 없음",
@@ -2306,7 +2370,9 @@
   },
   "pay": {
     "result": {
-      "paid": "결제 성공"
+      "pending": "결제 처리 중",
+      "paid": "결제 성공",
+      "failed": "결제 실패"
     },
     "backHome": "홈으로",
     "viewOrders": "주문 보기",
@@ -3051,9 +3117,7 @@
     "video": "동영상"
   },
   "toolbar": {
-    "ai": "AI 채팅",
-    "course": "강의",
-    "vip": "회원"
+    "ai": "AI 채팅"
   },
   "index": {
     "mock": {
@@ -3627,8 +3691,8 @@
     "d5": "23% 할인"
   },
   "settingLanguage": {
-    "d1": "繁體中文",
-    "d2": "日本語"
+    "d1": "중국어 번체",
+    "d2": "일본어"
   },
   "circleCreate": {
     "d1": "공개",
@@ -3659,13 +3723,6 @@
   "UserInfoCard": {
     "login1": "원탭 로그인",
     "text2": "해지"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "Full HD 1080p",
-    "back4": "← 뒤로",
-    "q1": "워터마크"
   },
   "TitleSwitchTypeBar": {
     "text1": "사용자 정의",

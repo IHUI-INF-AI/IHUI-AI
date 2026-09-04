@@ -119,7 +119,8 @@ export function PaymentScreen() {
       const paid = await openWeChatPayment(res.data.prepayData)
       if (paid) {
         setToast(t('payment.paySuccess'))
-        navigation.navigate('TopupSuccess', { amount: order.amount ?? 0, orderId: order.orderNo })
+        // P0(2026-09-04):支付成功 → 统一支付结果页(镜像 miniapp pages/pay/result,轮询订单状态)
+        navigation.navigate('PayResult', { orderNo: order.orderNo })
         void load(true)
       } else {
         setToast(t('payment.payCancelled'))

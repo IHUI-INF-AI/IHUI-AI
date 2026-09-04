@@ -7,7 +7,8 @@ import { View, Text, Button } from '@tarojs/components'
 import Taro, { useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionInfo, getCommissionRecords } from '@/api'
-import SectionHeader from '@/components/SectionHeader'
+// P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致)
+import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 import './index.css'
 

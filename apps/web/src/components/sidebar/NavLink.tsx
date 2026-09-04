@@ -82,9 +82,10 @@ const NavLink = React.memo(function NavLink({
     )
   }
 
-  // 不设 prefetch={false}:保留 Next 默认视口预取(2026-09-02 页面切换提速)。
-  // 旧代码显式禁用预取,导致生产模式点击导航后才发 RSC 请求,切换必须等一个网络往返;
-  // dev 模式 Next 本就不预取,恢复默认对 dev 零影响。
+  // 保留 Next 默认视口预取(生产模式 prefetchRsc 缓存命中,点击瞬时;2026-09-04 实测
+  // 悬停预取后点击 314ms→143ms,预取是"立马响应"的关键)。dev 模式 cache-bypass 使预取
+  // 请求不缓存,但 Next 内部去重 + pingVisibleLinks 多数情况不重复发请求;悬停/聚焦
+  // 再叠加 onPointerEnter 的 router.prefetch 精准预取。两者并存不冲突(Next 幂等去重)。
   return (
     <Link
       key={item.href}
