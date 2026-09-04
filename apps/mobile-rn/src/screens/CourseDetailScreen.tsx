@@ -112,7 +112,7 @@ export function CourseDetailScreen() {
         onPlayLesson={onPlay}
         onBack={() => navigation.goBack()}
       />
-      {/* 目录/评论入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂) */}
+      {/* 目录/评论/讲师入口(孤儿路由修复:CourseCatalog/CourseComment 注册无入口,课程详情补挂;P0 讲师列表接线) */}
       <View style={styles.entryRow}>
         <Pressable
           style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
@@ -129,6 +129,14 @@ export function CourseDetailScreen() {
           accessibilityLabel="课程评论"
         >
           <Text style={styles.entryBtnText}>课程评论</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.entryBtn, pressed ? styles.entryBtnPressed : null]}
+          onPress={() => navigation.navigate('TeacherList')}
+          accessibilityRole="button"
+          accessibilityLabel="讲师"
+        >
+          <Text style={styles.entryBtnText}>讲师</Text>
         </Pressable>
       </View>
     </View>

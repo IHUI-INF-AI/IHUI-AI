@@ -640,7 +640,10 @@
     "themeDark": "다크",
     "themeLight": "라이트",
     "themeSystem": "시스템 따르기",
-    "title": "설정"
+    "title": "설정",
+    "loginSecurity": {
+      "title": "로그인 보안"
+    }
   },
   "themeBackup": {
     "export": "내보내기",
@@ -679,7 +682,7 @@
       "saving": "저장 중...",
       "saved": "저장됨",
       "subtitle": "개인정보 관리",
-      "title": "프로필"
+      "title": "사용자 프로필"
     },
     "public": {
       "follow": "팔로우",
@@ -1762,5 +1765,39 @@
     "successToast": "BYOK 설정 성공, 플랫폼이 커미션을 시작했습니다!",
     "next": "다음",
     "prev": "이전"
+  },
+  "admin": {
+    "behavior": {
+      "title": "사용자 행동"
+    },
+    "edu": {
+      "title": "교육 관리"
+    },
+    "learn": {
+      "title": "학습 관리"
+    }
+  },
+  "circles": {
+    "post": {
+      "title": "게시물"
+    }
+  },
+  "knowledgeRag": {
+    "chunks": {
+      "title": "지식 청크"
+    },
+    "detail": {
+      "title": "지식 상세"
+    }
+  },
+  "workflows": {
+    "detail": {
+      "title": "워크플로 상세"
+    }
+  },
+  "workspace": {
+    "detail": {
+      "title": "워크스페이스 상세"
+    }
   }
 }
