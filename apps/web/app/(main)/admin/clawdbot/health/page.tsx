@@ -72,7 +72,7 @@ export default function ClawdbotHealthPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground">
+      <div className="px-4 flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> 加载中...
       </div>
     )

@@ -184,7 +184,7 @@ export default function KouboPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
+    <div className="px-4 grid grid-cols-1 gap-4 min-[768px]:grid-cols-3">
       <div className="space-y-4 min-[768px]:col-span-2">
         <Card>
           <CardHeader>
