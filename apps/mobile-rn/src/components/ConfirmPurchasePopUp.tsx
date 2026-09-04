@@ -111,7 +111,7 @@ const OVERLAY_COLOR = 'rgba(0,0,0,0.5)'
 
 /**
  * 会员金色 #FFD700(任务约定可用)。权益高亮沿用 warning.deep 橙,
- * 更贴近原版 highlight 色 #ff5722;如改纯金可替换为 '#FFD700'。
+ * 更贴近原版 highlight 色 #ff5722;如改纯金可替换为 tokens.vip.gold。
  */
 const DEFAULT_PAYMENT_METHODS: ConfirmPaymentMethod[] = [
   { id: 'wxpay', name: '微信支付', icon: '微' },

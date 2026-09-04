@@ -257,6 +257,12 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
       `[resolveRequest] moduleName=${moduleName} origin=${context.originModulePath} platform=${platform}`,
     )
   }
+  // web 平台原生模块 stub(2026-09-04):expo-media-library 为纯原生模块,
+  // web 端 import 即抛 "Cannot find native module 'ExpoMediaLibraryNext'" → 整页白屏。
+  // alias 到本地 stub,native 平台不受影响。
+  if (platform === 'web' && moduleName === 'expo-media-library') {
+    return { type: 'sourceFile', filePath: path.join(__dirname, 'stubs', 'expo-media-library.web.js') }
+  }
   // React 单实例去重(2026-07-28 修复 NativeWind useContext null 错误)
   // 问题:pnpm isolated linker 下,bundle 中出现两个 react 实例:
   //   (1) .pnpm/react@19.0.0/node_modules/react/  (react-native 隔离目录引用)
