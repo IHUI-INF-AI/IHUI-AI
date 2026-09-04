@@ -360,6 +360,24 @@
   color: var(--color-muted-foreground);
 }
 
+.pza-center-footer {
+  padding: 0 28rpx 28rpx;
+}
+
+.pza-center-detail-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80rpx;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+}
+
+.pza-center-detail-text {
+  font-size: 28rpx;
+  color: var(--color-primary-foreground);
+}
+
 /* 身份切换底部弹窗 */
 .pza-bottom-sheet {
   position: absolute;
