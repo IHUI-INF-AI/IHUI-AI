@@ -21,6 +21,7 @@ import {
   Ticket,
   Tag,
   ShoppingBag,
+  ShoppingCart,
   TrendingUp,
   BookOpen,
   Files,
@@ -92,6 +93,8 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionOrder',
     items: [
       { key: 'Order', labelKey: 'menu.order', icon: Receipt },
+      // P0(2026-09-04):购物车入口(镜像 miniapp pages/cart,交易闭环;「我的」页订单分区)
+      { key: 'Cart', labelKey: 'menu.cart', icon: ShoppingCart, viaParent: true },
       { key: 'OrderRefund', labelKey: 'menu.orderRefund', icon: Undo2, viaParent: true },
       { key: 'Payment', labelKey: 'menu.payment', icon: CreditCard, viaParent: true },
       { key: 'OrderLog', labelKey: 'menu.orderLog', icon: ClipboardList, viaParent: true },
