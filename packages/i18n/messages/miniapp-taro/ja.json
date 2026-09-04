@@ -2130,6 +2130,24 @@
     "closingTimeLabel": "締切日時",
     "contactLabel": "連絡先"
   },
+  "announcementDetail": {
+    "empty": "お知らせが見つからないか、削除されました",
+    "loadFailed": "お知らせの読み込みに失敗"
+  },
+  "aiSkill": {
+    "title": "AI スキル",
+    "loadFailed": "スキル一覧の読み込みに失敗",
+    "retry": "再試行",
+    "empty": "スキルがありません",
+    "detail": "詳細を見る"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "スキル詳細の読み込みに失敗",
+    "retry": "再試行",
+    "prompt": "プロンプトテンプレート",
+    "noPrompt": "テンプレートなし",
+    "source": "出典"
+  },
   "ranking": {
     "empty": "データなし",
     "unitCreation": "点",
