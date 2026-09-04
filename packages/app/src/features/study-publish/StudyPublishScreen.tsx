@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { TFunction } from '../../types'
 
 /** 课程分类(共享层简化类型,对齐 @ihui/types CourseCategory) */
@@ -652,7 +652,7 @@ const coverStyles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: baseTokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
   },
