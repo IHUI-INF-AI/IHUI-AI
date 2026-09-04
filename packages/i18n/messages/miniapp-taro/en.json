@@ -2136,6 +2136,24 @@
     "closingTimeLabel": "Closing time",
     "contactLabel": "Contact"
   },
+  "announcementDetail": {
+    "empty": "Announcement not found or deleted",
+    "loadFailed": "Failed to load announcement"
+  },
+  "aiSkill": {
+    "title": "AI Skills",
+    "loadFailed": "Failed to load skills",
+    "retry": "Retry",
+    "empty": "No skills",
+    "detail": "Details"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "Failed to load skill",
+    "retry": "Retry",
+    "prompt": "Prompt template",
+    "noPrompt": "No template",
+    "source": "Source"
+  },
   "ranking": {
     "empty": "No ranking data",
     "unitCreation": "pts",
