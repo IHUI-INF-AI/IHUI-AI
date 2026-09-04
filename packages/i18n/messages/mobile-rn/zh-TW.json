@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG 知識庫",
     "subagents": "子智能體",
     "chatTools": "AI 對話 / 工具",
-    "cart": "購物車"
+    "cart": "購物車",
+    "circleIndex": "圈子廣場",
+    "topicList": "話題"
   },
   "error": {
     "network": "網路錯誤,請稍後重試"
@@ -1230,7 +1232,8 @@
     "tagsPlaceholder": "多個標籤用逗號分隔",
     "submit": "發布",
     "required": "請輸入內容",
-    "saveFailed": "儲存失敗"
+    "saveFailed": "儲存失敗",
+    "pickTopic": "選擇話題"
   },
   "profileEdit": {
     "avatarTip": "點擊更換頭像",
@@ -2238,5 +2241,60 @@
   },
   "developerInfo": {
     "urlLabel": "網址"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "話題",
+      "searchPlaceholder": "搜尋話題",
+      "recommend": "推薦",
+      "hot": "熱門",
+      "all": "全部",
+      "participants": "{n} 人參與",
+      "posts": "{n} 篇內容",
+      "empty": "暫無話題",
+      "loading": "載入中…",
+      "loadingMore": "載入中…",
+      "noMore": "沒有更多了"
+    },
+    "detail": {
+      "pageTitle": "話題詳情",
+      "loading": "載入中…",
+      "loadFailed": "載入失敗",
+      "followers": "{n} 人關注",
+      "follow": "關注",
+      "following": "已關注",
+      "followSuccess": "關注成功",
+      "unfollowed": "已取消關注",
+      "followFailed": "操作失敗",
+      "publish": "發帖",
+      "publishPlaceholder": "分享你對這個話題的看法…",
+      "empty": "暫無帖子,快來發布第一條吧",
+      "loadingMore": "載入中…",
+      "noMore": "沒有更多了",
+      "justNow": "剛剛",
+      "minutesAgo": "{n} 分鐘前",
+      "hoursAgo": "{n} 小時前",
+      "anonymous": "匿名用戶"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "推薦",
+      "follow": "關注",
+      "latest": "最新",
+      "hot": "熱門"
+    },
+    "index": {
+      "pageTitle": "圈子",
+      "goPublish": "去發布",
+      "anonymous": "匿名用户",
+      "follow": "關注",
+      "followed": "已關注",
+      "loading": "載入中...",
+      "noMore": "沒有更多了",
+      "retry": "點擊重試",
+      "error": "載入失敗"
+    },
+    "empty": "暫無內容"
   }
 }
