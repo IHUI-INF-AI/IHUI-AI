@@ -142,6 +142,8 @@ export * from './endpoints/edu'
 export * from './endpoints/exam'
 // 文件上传端点(2026-07-28 立,mobile-rn AigcPublishScreen 接入真实文件选择+上传)
 export * from './endpoints/files'
+// 商品端点(2026-09-04 立,GET /goods/select 购物车分页,mobile-rn CartScreen 跨端共享)
+export * from './endpoints/goods'
 export * from './endpoints/learn'
 export * from './endpoints/live'
 export * from './endpoints/llm'
