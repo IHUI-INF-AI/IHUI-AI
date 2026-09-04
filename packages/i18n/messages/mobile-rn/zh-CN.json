@@ -1020,8 +1020,7 @@
     "balance": "账户余额",
     "todayIncome": "今日收入",
     "totalIncome": "累计收入",
-    "totalExpense": "累计支出",
-    "loadFailed": "加载财务失败"
+    "totalExpense": "累计支出"
   },
   "follow": {
     "title": "关注与粉丝",
@@ -2253,8 +2252,7 @@
       "posts": "{n} 篇内容",
       "empty": "暂无话题",
       "loading": "加载中…",
-      "loadingMore": "加载中…",
-      "noMore": "没有更多了"
+      "loadingMore": "加载中…"
     },
     "detail": {
       "pageTitle": "话题详情",
@@ -2291,7 +2289,6 @@
       "follow": "关注",
       "followed": "已关注",
       "loading": "加载中...",
-      "noMore": "没有更多了",
       "retry": "点击重试",
       "error": "加载失败"
     },

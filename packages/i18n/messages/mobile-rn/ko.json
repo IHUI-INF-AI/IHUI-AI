@@ -1020,8 +1020,7 @@
     "balance": "계좌 잔액",
     "todayIncome": "오늘 수익",
     "totalIncome": "누적 수익",
-    "totalExpense": "누적 지출",
-    "loadFailed": "재무 불러오기 실패"
+    "totalExpense": "누적 지출"
   },
   "follow": {
     "title": "팔로우 및 팔로워",
@@ -2253,8 +2252,7 @@
       "posts": "콘텐츠 {n}개",
       "empty": "토픽이 없습니다",
       "loading": "로딩 중…",
-      "loadingMore": "로딩 중…",
-      "noMore": "더 이상 없습니다"
+      "loadingMore": "로딩 중…"
     },
     "detail": {
       "pageTitle": "토픽 상세",
@@ -2291,7 +2289,6 @@
       "follow": "팔로우",
       "followed": "팔로우 중",
       "loading": "로딩 중...",
-      "noMore": "더 이상 없습니다",
       "retry": "탭하여 재시도",
       "error": "로드 실패"
     },
