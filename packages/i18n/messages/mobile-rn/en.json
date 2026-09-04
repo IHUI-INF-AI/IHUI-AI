@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG Knowledge",
     "subagents": "Subagents",
     "chatTools": "AI Chat / Tools",
-    "cart": "Cart"
+    "cart": "Cart",
+    "circleIndex": "Circles",
+    "topicList": "Topics"
   },
   "error": {
     "network": "Network error, please retry"
