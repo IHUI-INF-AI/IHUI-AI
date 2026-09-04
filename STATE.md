@@ -284,4 +284,38 @@ API key 泄露守门每批通过。
 （app.json/metro/package.json/react-native-video.tsx TS 错误属该会话负责）、plugins/page.tsx、
 check-i18n-keys.mjs（wallet.recharge.\d 死 key 调查）、package.json/pnpm-lock。
 
+## 守门加固与悬空对象全量备份轮（2026-09-04 收尾）
+
+**目标**：typecheck 欠账清零 + 守门脚本去 shell 依赖加固 + 全部悬空 commit tag 备份 + 三远端同步收官。
+
+**typecheck 归零**：connected-accounts/page.tsx L102 `binding!.createdAt` → `binding!.boundAt`
+（Binding 接口既有字段）；plugins/page.tsx 报错已被并行 WIP 顺带解决；复跑 web typecheck EXIT=0。
+⚠ 附带发现（未处理，前后端契约不一致）：后端 oauth-queries.ts `listUserBindings` 实际返回
+`createdAt`，前端类型为 `boundAt`，运行时日期可能 Invalid Date——归属 OAuth 功能会话处理。
+
+**Windows node spawn git 三重陷阱（守门 [30a] 加固根治）**：
+① `execSync('git', [args数组])` 默认 `shell:true` 时 node 直接丢弃 args 数组（git 落 usage 分支 exit 1）；
+② 本环境 PATH 首位是 MSYS `git`（bash shim），裸 spawn 参数同样被吞，真实二进制在
+`C:\Program Files\Git\cmd\git.exe`；③ execSync 走 cmd 时空格路径被截断成 `'C:\Program'`。
+**解法**：`where git` 解析 → 正则优先命中 `\cmd\git.exe` → `spawnSync(GIT_BIN, args)`
+（天然无 shell、支持 stdin）。守门脚本 for-each-ref/cat-file 批量比对全部改 runGit，
+format 分隔符从空格改 `%09` TAB（防 subject 含空格错位）。
+
+**stash tree 放行"恒等"假设修正（二次诊断）**：`index on <branch>` commit 是 stash 时刻暂存区
+快照，部分 stage 场景下与 HEAD/base 树**并不恒等**；stash 链 parent/grandparent 整体悬空时
+tree/hash/subject 三路判定全部失效。**唯一可靠出口 = 显式 tag 备份**。
+
+**悬空 commit 全量备份**：520 个历史悬空（stash-index=260 / stash-WIP=255 / other=5）经
+`scripts/backup-unreachable-commits.mjs`（幂等运维工具）创建 `unreachable-commits-backup/<stamp>-<hash12>`
+tag 522 个；另针对性补 `lost-commit/f83c953d-perf-prefetch-routes`（并行 agent 新产生）。
+守门 `--blocking` 复验 **EXIT=0**（fsck 不再报 unreachable）。残余 warn：8 个 backup/* tag
+仅本地未 push（不阻塞，本轮随 `--tags` 推送补齐）。
+
+**并行协作规约（新增）**：
+- push 竞态失败**严禁盲目重试**，先 `git ls-remote <remote> refs/heads/main` 核验远端 SHA——
+  失败常因并行会话已推同等或更新内容，重试只会制造非快进冲突；核验一致即视为成功。
+- commit 前只 `git add` 本会话目标文件，绝不 `-A`/`.`（工作区常驻多路 WIP）。
+- 一切验证输出落盘 .log 后单独读取（终端会被并行 agent 共用，内联输出不可信）。
+- fsck 类命令退出码语义：发现任何不可达对象即 exit 1/2 属预期，取 stdout 判定即可。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
