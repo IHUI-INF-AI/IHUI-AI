@@ -1,4 +1,25 @@
 {
+  "checkIn": {
+    "title": "Daily Check-in"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search courses, instructors, content",
+    "empty": "No results found",
+    "failed": "Search failed"
+  },
+  "taskCenter": {
+    "title": "Task Center",
+    "subtitle": "Complete tasks, earn rewards",
+    "retry": "Retry",
+    "empty": "No tasks available",
+    "claimed": "Claimed",
+    "claim": "Claim",
+    "goToDo": "Go",
+    "progress": "{current}/{target}",
+    "claimFailed": "Failed to claim",
+    "loadFailed": "Failed to load tasks"
+  },
   "nav": {
     "profile": "Profile",
     "community": "Community"
@@ -2068,6 +2089,7 @@
       "detailTrack": "Track",
       "detailStatus": "Status",
       "detailAuthor": "Author",
+      "viewDetail": "View detail",
       "identityTitle": "Switch identity"
     },
     "cover": {
@@ -2089,6 +2111,48 @@
       "continueOrder": "Continue taking orders",
       "qaTitle": "FAQ"
     }
+  },
+  "postCreate": {
+    "title": "New Post",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title your post",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Share your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "submit": "Post",
+    "required": "Content is required",
+    "saveFailed": "Failed to save"
+  },
+  "postDetail": {
+    "loadFailed": "Failed to load post",
+    "anonymous": "Anonymous",
+    "typesLabel": "Types",
+    "categoriesLabel": "Categories",
+    "taskStatusLabel": "Task status",
+    "reviewStatusLabel": "Review status",
+    "priceLabel": "Price",
+    "cycleLabel": "Cycle",
+    "closingTimeLabel": "Closing time",
+    "contactLabel": "Contact"
+  },
+  "announcementDetail": {
+    "empty": "Announcement not found or deleted",
+    "loadFailed": "Failed to load announcement"
+  },
+  "aiSkill": {
+    "title": "AI Skills",
+    "loadFailed": "Failed to load skills",
+    "retry": "Retry",
+    "empty": "No skills",
+    "detail": "Details"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "Failed to load skill",
+    "retry": "Retry",
+    "prompt": "Prompt template",
+    "noPrompt": "No template",
+    "source": "Source"
   },
   "ranking": {
     "empty": "No ranking data",
@@ -2312,7 +2376,9 @@
   },
   "pay": {
     "result": {
-      "paid": "Payment successful"
+      "pending": "Payment processing",
+      "paid": "Payment successful",
+      "failed": "Payment failed"
     },
     "backHome": "Back to home",
     "viewOrders": "View orders",
@@ -3064,9 +3130,7 @@
     "video": "Video"
   },
   "toolbar": {
-    "ai": "AI Chat",
-    "course": "Courses",
-    "vip": "VIP"
+    "ai": "AI Chat"
   },
   "index": {
     "mock": {
@@ -3640,8 +3704,8 @@
     "d5": "23% off"
   },
   "settingLanguage": {
-    "d1": "繁體中文",
-    "d2": "日本語"
+    "d1": "Traditional Chinese",
+    "d2": "Japanese"
   },
   "circleCreate": {
     "d1": "Public",
@@ -3672,13 +3736,6 @@
   "UserInfoCard": {
     "login1": "One-tap login",
     "text2": "Unsubscribe"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "Full HD 1080p",
-    "back4": "← Back",
-    "q1": "Watermark"
   },
   "TitleSwitchTypeBar": {
     "text1": "Custom",

@@ -291,13 +291,13 @@ describe('settings.ts compactionV2 字段', () => {
     process.env = originalEnv;
   });
 
-  it('saveSettingsTemplate 包含 compactionV2.enabled = false 默认值', () => {
+  it('saveSettingsTemplate 包含 compactionV2.enabled = true 默认值(2026-09-02 转正)', () => {
     saveSettingsTemplate(true);
     const p = getSettingsPath();
     const content = JSON.parse(fs.readFileSync(p, 'utf-8')) as Record<string, unknown>;
     expect(content.compactionV2).toBeDefined();
     const cv2 = content.compactionV2 as Record<string, unknown>;
-    expect(cv2.enabled).toBe(false);
+    expect(cv2.enabled).toBe(true);
   });
 
   it('Settings interface 接受 compactionV2 可选字段', () => {

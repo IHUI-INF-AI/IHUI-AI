@@ -204,6 +204,11 @@ export default function PlazaIndex() {
     Taro.navigateTo({ url: '/pages/plaza/set-need/index' })
   }, [])
 
+  const onOpenDetail = useCallback((id: string | number) => {
+    setShowCenter(false)
+    Taro.navigateTo({ url: `/pages/plaza/detail/index?id=${id}` })
+  }, [])
+
   const onIdentityChange = useCallback((key: string) => {
     setIdentity(key)
     setShowBottom(false)
@@ -400,6 +405,16 @@ export default function PlazaIndex() {
                   </Text>
                 </View>
               </ScrollView>
+              <View className="pza-center-footer">
+                <View
+                  className="pza-center-detail-btn"
+                  onClick={() => onOpenDetail(detail.id ?? '')}
+                >
+                  <Text className="pza-center-detail-text">
+                    {tt('plaza.index.viewDetail', '查看详情')}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
         ) : null}

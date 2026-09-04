@@ -1236,6 +1236,8 @@ export default function Index() {
             title={tt('index.title', '智汇AI社区')}
             bgColor="var(--color-card)"
             textColor="var(--color-foreground)"
+            showSearch
+            onSearchClick={() => Taro.navigateTo({ url: '/pages/search/index' })}
             onMenuClick={handleMenuClick}
             onJoinClick={handleJoinClick}
           />
