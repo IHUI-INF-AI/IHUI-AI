@@ -111,7 +111,21 @@ function detectResets() {
       resets.push(line)
     }
   }
-  return resets
+  // 2026-09-04 修复:若 reset 的源 commit(hash 即行首字段)已被 lost-commit/* tag
+  // 备份,则该次 reset 不构成丢失风险,放行(与悬空 commit 的 tag 备份判定对齐)。
+  // 否则历史 reset 会永久滞留 reflog 最近 50 步窗口内,无解阻塞所有后续 commit。
+  const backedHashes = new Set(
+    verifyAllTagReachability(listLostCommitTags())
+      .map((r) => r.hash)
+      .filter(Boolean),
+  )
+  return resets.filter((line) => {
+    const srcHash = line.trim().split(/\s+/)[0] || ''
+    if (!srcHash) return true
+    // 前缀匹配(git 对唯一对象输出短 hash)
+    for (const h of backedHashes) if (h.startsWith(srcHash) || srcHash.startsWith(h)) return false
+    return true
+  })
 }
 
 function isStashSubject(subject) {
