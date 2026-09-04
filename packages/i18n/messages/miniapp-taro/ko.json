@@ -2130,6 +2130,24 @@
     "closingTimeLabel": "마감 시간",
     "contactLabel": "연락처"
   },
+  "announcementDetail": {
+    "empty": "공지를 찾을 수 없거나 삭제되었습니다",
+    "loadFailed": "공지 불러오기 실패"
+  },
+  "aiSkill": {
+    "title": "AI 스킬",
+    "loadFailed": "스킬 목록 로드 실패",
+    "retry": "재시도",
+    "empty": "스킬이 없습니다",
+    "detail": "상세 보기"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "스킬 상세 로드 실패",
+    "retry": "재시도",
+    "prompt": "프롬프트 템플릿",
+    "noPrompt": "템플릿 없음",
+    "source": "출처"
+  },
   "ranking": {
     "empty": "데이터 없음",
     "unitCreation": "점",
