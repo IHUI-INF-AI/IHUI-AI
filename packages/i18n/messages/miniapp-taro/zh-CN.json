@@ -2071,6 +2071,7 @@
       "detailTrack": "赛道",
       "detailStatus": "状态",
       "detailAuthor": "发布人",
+      "viewDetail": "查看详情",
       "identityTitle": "切换身份"
     },
     "cover": {
@@ -2092,6 +2093,30 @@
       "continueOrder": "继续接单",
       "qaTitle": "常见问题"
     }
+  },
+  "postCreate": {
+    "title": "发布帖子",
+    "titleLabel": "标题",
+    "titlePlaceholder": "给帖子起个标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "submit": "发布",
+    "required": "请输入内容",
+    "saveFailed": "保存失败"
+  },
+  "postDetail": {
+    "loadFailed": "加载帖子失败",
+    "anonymous": "匿名",
+    "typesLabel": "类型",
+    "categoriesLabel": "分类",
+    "taskStatusLabel": "任务状态",
+    "reviewStatusLabel": "审核状态",
+    "priceLabel": "价格",
+    "cycleLabel": "周期",
+    "closingTimeLabel": "截止时间",
+    "contactLabel": "联系方式"
   },
   "ranking": {
     "empty": "暂无排名数据",
