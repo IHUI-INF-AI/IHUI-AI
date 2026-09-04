@@ -43,7 +43,6 @@
       "courses": "강의",
       "students": "학생",
       "intro": "소개",
-      "viewCourses": "강의 보기",
       "unfollowed": "취소됨",
       "contactMessage": "메시지 보내기",
       "contactPhone": "전화 연락",
@@ -120,6 +119,15 @@
     "logout": "로그아웃",
     "myOrders": "내 주문",
     "editProfile": "프로필 편집"
+  },
+  "payResult": {
+    "title": "결제 결과",
+    "pending": "결제 결과 확인 중",
+    "paid": "결제 성공",
+    "failed": "결제 실패",
+    "backHome": "홈으로",
+    "viewOrders": "주문 보기",
+    "refresh": "새로고침"
   },
   "payment": {
     "title": "결제 주문",
@@ -284,7 +292,8 @@
     "webPortalCenter": "웹 기능 포털",
     "knowledgeRag": "RAG 지식 베이스",
     "subagents": "서브 에이전트",
-    "chatTools": "AI 채팅 / 도구"
+    "chatTools": "AI 채팅 / 도구",
+    "cart": "장바구니"
   },
   "error": {
     "network": "네트워크 오류"
@@ -791,6 +800,18 @@
     "default": "기본",
     "holder": "카드 소유자",
     "loadFailed": "은행 계좌 불러오기 실패"
+  },
+  "cart": {
+    "title": "장바구니",
+    "checkout": "결제",
+    "product": "상품",
+    "empty": "장바구니 비어있음",
+    "deleteConfirm": "이 상품을 삭제하시겠습니까?",
+    "selectFirst": "상품을 선택하세요",
+    "loadFailed": "로딩 실패",
+    "total": "합계",
+    "selectAll": "전체 선택",
+    "checkoutConfirm": "선택한 상품을 확인하고 위챗페이로 결제합니다"
   },
   "carte": {
     "title": "크리에이터 명함",
