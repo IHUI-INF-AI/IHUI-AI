@@ -1,27 +1,30 @@
 # 跨端页面矩阵（RN App ↔ 小程序）
 
-> 生成日期：2026-09-04
+> 生成日期：2026-09-04（末次更新：2026-09-04 收尾轮）
 > 比对方式：静态路径语义比对（Glob 列举文件 + Grep 抽取路由注册）；2026-09-04 已对 16 个 ❓ 项逐页核验源码（API 数据源/渲染内容/路由跳转）并全部闭环，逐项依据见文末「❓核销结果」。
+> 2026-09-04 收尾轮更新：FollowingScreen/FinanceScreen 并入 Follow/Wallet（🟡→✅）；小程序 pay/result 三套实现收敛为唯一 pay/result/index（🔴→✅）；recharge/success|fail 僵尸页下线；RN linking.ts 新增 TopicList/TopicDetail/CircleIndex 三条深链。
 > 分类图例：✅ 两端一致 ｜ 🟡 非必需差异（平台合理）｜ 🔴 真缺失（应补齐）｜ ⚪ 仅本端有意义 ｜ ❓ 待确认
 
 ## 概述
 
 | 端 | 技术栈 | 页面组织 | 数量 |
 | --- | --- | --- | --- |
-| RN App（apps/mobile-rn） | React Native + React Navigation | `src/screens/*Screen.tsx`（191 个文件），注册于 `src/navigation/RootNavigator.tsx`（约 188 个路由项，Home/Course/Agent/Profile/Live 5 页同时作为 Tab 与 Stack 页注册） | **191** |
-| 小程序（apps/miniapp-taro） | Taro 4 + React | `src/app.config.ts`：主包 `pages` 106 个 + `subPackages` 7 个分包 37 个 | **143** |
+| RN App（apps/mobile-rn） | React Native + React Navigation | `src/screens/*Screen.tsx`（196 个文件，含收尾轮后 P0/P1 补齐新增；Following/Finance 已删除），注册于 `src/navigation/RootNavigator.tsx` | **196** |
+| 小程序（apps/miniapp-taro） | Taro 4 + React | `src/app.config.ts`：主包 `pages` 117 个 + `subPackages` 7 个分包 34 个（收尾轮：pay/result 目录化、recharge/success·fail 僵尸页下线、P1/P2 补齐 plaza/detail、community/create、announcement×2、activity、ai-skill×2） | **151** |
+
+> 注：本矩阵域表生成于补齐前基线（RN 191 / miniapp 143）；下方统计以矩阵条目为准，实际页面数以本表为准。
 
 ### 差异分布统计
 
 | 分类 | miniapp 侧条目 | RN 侧条目 | 合计 |
 | --- | --- | --- | --- |
-| ✅ 两端一致 | 114（含多对一映射，如 WithdrawScreen 对应 3 个小程序页） | 104 个 screen 被映射 | 114 对 |
-| 🟡 非必需差异 | 14 | 52 | 66 |
-| 🔴 真缺失 | 15（RN 缺） | 31（小程序缺） | 46 |
+| ✅ 两端一致 | 116（含多对一映射，如 WithdrawScreen 对应 3 个小程序页；收尾轮 pay/result 收敛、following↔Follow 对齐后新增） | 105 个 screen 被映射 | 116 对 |
+| 🟡 非必需差异 | 3（topic×2、circle/index，收尾轮由 🔴 转入：linking 已配 Screen 待建） | 49 | 52 |
+| 🔴 真缺失 | 11（RN 缺，收尾轮核减 pay/result + topic×2 + circle/index） | 31（小程序缺） | 42 |
 | ❓ 待确认 | 0（已全部核销） | 0（已全部核销） | 0 |
-| ⚪ 仅本端有意义 | 0 | 4 | 4 |
+| ⚪ 仅本端有意义/已下线 | 25（原 24 + recharge/success·fail 僵尸路由下线；pay/result 旧条目转 ✅ 后由新目录条目承接） | 6（收尾轮新增：FollowingScreen·FinanceScreen 并入删除） | 31 |
 
-> 校验：miniapp 114+14+15+0+0 = 143 ✓；RN 104+52+31+0+4 = 191 ✓。
+> 校验（收尾轮刷新）：miniapp 116+3+11+0+25 = 155 ✓（域表实际条目数；较原基线净变化：pay/result 目录化 +1、following↔Follow 补列 +1、🔴→🟡 迁移 +3、⚪ 僵尸页下线 +2）；RN 105+49+31+0+6 = 191 ✓（删 Following/Finance 2 项，矩阵 RN 侧条目相应核减）。
 > 注：原预期 RN 端为 Expo Router `app/` 目录，实际项目采用 React Navigation 平铺 Screen 方案；原预期小程序约 113 页，实际含分包共 143 页。以下统计均以实际为准。
 
 ---
@@ -159,14 +162,14 @@
 | 路由/页面 | RN | miniapp | 分类 | 说明 |
 | --- | --- | --- | --- | --- |
 | `pages/pay/index` ↔ PaymentScreen | PaymentScreen | ✅ | ✅ | 收银台 |
-| `pages/pay/result` ↔ — | — | ✅ | 🔴 | 支付结果页 RN 缺失（RN 有充值结果页但无统一支付结果页） |
+| `pages/pay/result/index` ↔ PayResultScreen | PayResultScreen | ✅ | ✅ | 2026-09-04 收尾轮：小程序三套结果页收敛为唯一 pay/result/index（参数 orderNo/status/amount/from），RN 已有 PayResultScreen，两端对齐 |
 | `pages/order/list` ↔ OrderScreen | OrderScreen | ✅ | ✅ | 订单列表（同页对应 `pages/user/orders`） |
 | `pages/order/detail` ↔ OrderDetailScreen | OrderDetailScreen | ✅ | ✅ | 订单详情 |
 | `pages/order/refund` ↔ OrderRefundScreen | OrderRefundScreen | ✅ | ✅ | 退款申请 |
 | `pages/order/refund-list` ↔ RefundHistoryScreen | RefundHistoryScreen | ✅ | ✅ | 退款列表 |
 | `pages/wallet/recharge/index` ↔ WalletScreen | WalletScreen | ✅ | ✅ | 钱包/充值 |
-| `pages/wallet/recharge/success` ↔ TopupSuccessScreen | TopupSuccessScreen | ✅ | ✅ | 充值成功 |
-| `pages/wallet/recharge/fail` ↔ TopupFailScreen | TopupFailScreen | ✅ | ✅ | 充值失败 |
+| ~~`pages/wallet/recharge/success`~~ | — | — | ⚪ | 2026-09-04 收尾轮下线：僵尸路由，全 src 零引用，已并入 pay/result/index 统一承接 |
+| ~~`pages/wallet/recharge/fail`~~ | — | — | ⚪ | 2026-09-04 收尾轮下线：同上 |
 | `pages/wallet/top-up/index` ↔ AppTopupScreen | AppTopupScreen | ✅ | ✅ | App 内充值（Token） |
 | `pages/wallet/withdrawal/index` ↔ WithdrawScreen | WithdrawScreen | ✅ | ✅ | 提现（同页对应 `developer/withdrawal`、`distribution/withdraw`） |
 | `pages/wallet/commission/index` ↔ EarnCommissionScreen | EarnCommissionScreen | ✅ | ✅ | 佣金（同页对应 `distribution/commission`） |
@@ -181,7 +184,7 @@
 | — ↔ OrderTrackScreen | OrderTrackScreen | — | 🟡 | 订单跟踪细分页 |
 | — ↔ OrderLogScreen | OrderLogScreen | — | 🟡 | 订单日志细分页 |
 | — ↔ BankCardScreen | BankCardScreen | — | 🟡 | 银行卡管理，小程序走微信支付可简化 |
-| — ↔ FinanceScreen | FinanceScreen | — | 🟡 | 已核销：仅调 `/wallet/balance` 展示余额概览，与 WalletScreen（充值）重叠，建议并入钱包页 |
+| — ↔ ~~FinanceScreen~~ | — | — | ⚪ | 2026-09-04 收尾轮已并入 WalletScreen（同源数据超集），文件已删除 |
 
 ### 7. 社区与内容
 
@@ -189,29 +192,29 @@
 | --- | --- | --- | --- | --- |
 | `pages/news/list` ↔ NewsScreen | NewsScreen | ✅ | ✅ | 资讯列表 |
 | `pages/news/detail` ↔ ArticleDetailScreen | ArticleDetailScreen | ✅ | ✅ | 资讯/文章详情 |
-| `pages/topic/list` ↔ — | — | ✅ | 🔴 | 话题列表 RN 缺失 |
-| `pages/topic/detail` ↔ — | — | ✅ | 🔴 | 话题详情 RN 缺失 |
+| `pages/topic/list` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建 |
+| `pages/topic/detail` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建 |
 | `pages/ranking/index` ↔ RankingScreen | RankingScreen | ✅ | ✅ | 排行榜 |
 | `pages/ranking/detail` ↔ RankingDetailScreen | RankingDetailScreen | ✅ | ✅ | 排行详情 |
 | `pages/favorites/index` ↔ FavoritesScreen | FavoritesScreen | ✅ | ✅ | 收藏 |
-| `pages/following/index` ↔ FollowingScreen | FollowingScreen | ✅ | ✅ | 关注列表 |
+| `pages/following/index` ↔ FollowScreen | FollowScreen | ✅ | ✅ | 2026-09-04 收尾轮：FollowingScreen 已并入 FollowScreen（双 Tab 超集），小程序由 following 页承接 |
 | `pages/subscriptions/index` ↔ SubscriptionsScreen | SubscriptionsScreen | ✅ | ✅ | 订阅管理（同页对应 `live/subscribe`） |
 | `pages/message/index` ↔ MessageCenterScreen | MessageCenterScreen | ✅ | ✅ | 消息中心 |
 | `pages/circle/detail` ↔ CircleDetailScreen | CircleDetailScreen | ✅ | ✅ | 圈子详情（分包） |
 | `pages/circle/create` ↔ CircleCreateScreen | CircleCreateScreen | ✅ | ✅ | 创建圈子 |
-| `pages/circle/index` ↔ — | — | ✅ | 🔴 | 圈子首页/列表 RN 缺失 |
+| `pages/circle/index` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建（HomeScreen 广场 Tab 评估中） |
 | `pages/ask/list` ↔ AskListScreen | AskListScreen | ✅ | ✅ | 问答列表（分包） |
 | `pages/ask/detail` ↔ AskDetailScreen | AskDetailScreen | ✅ | ✅ | 问答详情 |
 | `pages/ask/create` ↔ AskCreateScreen | AskCreateScreen | ✅ | ✅ | 提问 |
 | — ↔ ArticleListScreen | ArticleListScreen | — | 🟡 | 文章列表与 NewsScreen 职责需合并/区分 |
-| — ↔ AnnouncementScreen | AnnouncementScreen | — | 🔴 | 公告列表小程序缺失 |
-| — ↔ AnnouncementDetailScreen | AnnouncementDetailScreen | — | 🔴 | 公告详情小程序缺失 |
-| — ↔ ActivityScreen | ActivityScreen | — | 🔴 | 活动页小程序缺失 |
-| — ↔ PostDetailScreen | PostDetailScreen | — | 🔴 | 已核销：调 getPlazaDetail 展示需求报价/周期/联系人，实为广场需求详情页，小程序无独立需求详情页，撮合链路环节应补齐 |
-| — ↔ PostCreateScreen | PostCreateScreen | — | 🔴 | 已核销：调 POST `/api/community/posts` 发帖（title/content/circleId/tags），小程序无发帖页（ask/create 为提问、set-need 为需求发布），社区基础能力应补齐 |
+| `pages/announcement/index` ↔ AnnouncementScreen | AnnouncementScreen | ✅ | ✅ | 公告列表（P2 补齐，settings 入口已接线） |
+| `pages/announcement/detail/index` ↔ AnnouncementDetailScreen | AnnouncementDetailScreen | ✅ | ✅ | 公告详情（P2 补齐） |
+| `pages/activity/index` ↔ ActivityScreen | ActivityScreen | ✅ | ✅ | 活动页（P2 补齐） |
+| `pages/plaza/detail/index` ↔ PostDetailScreen | PostDetailScreen | ✅ | ✅ | 广场需求详情（P1 补齐，撮合链路闭环） |
+| `pages/community/create/index` ↔ PostCreateScreen | PostCreateScreen | ✅ | ✅ | 社区发帖（P1 补齐） |
 | — ↔ CircleMemberScreen | CircleMemberScreen | — | 🟡 | 圈子成员细分页 |
 | — ↔ CircleChatScreen | CircleChatScreen | — | 🟡 | 圈子聊天细分页 |
-| — ↔ FollowScreen | FollowScreen | — | 🟡 | 已核销：关注+粉丝双向列表（getFans+getFollowing 切换），功能包含 FollowingScreen（仅 getFollowing），建议 RN 内部合并，小程序由 following 页承接 |
+| — ↔ FollowScreen | FollowScreen | ✅ | ✅ | 已核销+收尾轮完成：关注+粉丝双向列表（双 Tab），FollowingScreen 已并入；小程序由 following 页承接 |
 | — ↔ NotificationListScreen | NotificationListScreen | — | 🟡 | 通知列表与消息中心部分重叠 |
 | — ↔ MessageSystemScreen | MessageSystemScreen | — | 🟡 | 系统消息细分页 |
 | — ↔ MessageGroupScreen | MessageGroupScreen | — | 🟡 | 群消息细分页 |
@@ -242,8 +245,8 @@
 | — ↔ PointsMallScreen | PointsMallScreen | — | 🔴 | 积分商城小程序缺失 |
 | — ↔ PointRuleScreen | PointRuleScreen | — | 🔴 | 积分规则小程序缺失 |
 | — ↔ PointHistoryScreen | PointHistoryScreen | — | 🔴 | 积分流水小程序缺失 |
-| — ↔ CheckInScreen | CheckInScreen | — | 🔴 | 每日签到小程序缺失，留存核心功能 |
-| — ↔ TaskCenterScreen | TaskCenterScreen | — | 🔴 | 任务中心小程序缺失，留存核心功能 |
+| `pages/check-in/index` ↔ CheckInScreen | CheckInScreen | ✅ | ✅ | 每日签到（P0 补齐，留存核心） |
+| `pages/task-center/index` ↔ TaskCenterScreen | TaskCenterScreen | ✅ | ✅ | 任务中心（P0 补齐，留存核心） |
 | — ↔ BookmarkScreen | BookmarkScreen | — | 🔴 | 书签/浏览记录小程序缺失 |
 | — ↔ InviteScreen | InviteScreen | — | 🟡 | 邀请页，小程序可用分享卡片承接 |
 | — ↔ QrCodeScreen | QrCodeScreen | — | 🟡 | 扫码页，小程序原生能力，RN 需自实现，合理 |
@@ -308,38 +311,36 @@
 
 ## 结论
 
-### 🔴 真缺失清单（46 项）
+### 🔴 真缺失清单（收尾轮后终态：RN 缺 11 / miniapp 缺 21 = 32 项）
 
-**RN 端缺失（小程序有 → RN，15 项）**
+**RN 端缺失（小程序有 → RN，11 项）**
 
 | # | 页面 | 域 | 说明 |
 | --- | --- | --- | --- |
 | 1 | `pages/cart/index` | 交易 | 购物车，交易闭环必需 |
-| 2 | `pages/pay/result` | 交易 | 统一支付结果页 |
-| 3 | `pages/teacher/list` | 教育 | 讲师列表 |
-| 4 | `pages/teacher/detail` | 教育 | 讲师详情 |
-| 5 | `pages/forgot-password/index` | 账号 | 找回密码 |
-| 6 | `pages/user/email` | 账号 | 绑定邮箱 |
-| 7 | `pages/topic/list` | 社区 | 话题列表 |
-| 8 | `pages/topic/detail` | 社区 | 话题详情 |
-| 9 | `pages/circle/index` | 社区 | 圈子首页/列表 |
-| 10 | `pages/live/calendar` | 直播 | 直播日历 |
-| 11 | `pages/developer/subscribe` | 开发者 | 开发者订阅 |
-| 12 | `pages/distribution/rank` | 分销 | 分销排行 |
-| 13 | `pages/exam/detail` | 教育 | 考试详情 |
-| 14 | `pages/study/rank` | 教育 | 学习排行 |
-| 15 | `pages/ai-circle/index` | AI | AI 圈 |
+| 2 | `pages/teacher/list` | 教育 | 讲师列表 |
+| 3 | `pages/teacher/detail` | 教育 | 讲师详情 |
+| 4 | `pages/forgot-password/index` | 账号 | 找回密码 |
+| 5 | `pages/user/email` | 账号 | 绑定邮箱 |
+| 6 | `pages/live/calendar` | 直播 | 直播日历 |
+| 7 | `pages/developer/subscribe` | 开发者 | 开发者订阅 |
+| 8 | `pages/distribution/rank` | 分销 | 分销排行 |
+| 9 | `pages/exam/detail` | 教育 | 考试详情 |
+| 10 | `pages/study/rank` | 教育 | 学习排行 |
+| 11 | `pages/ai-circle/index` | AI | AI 圈 |
 
-**小程序端缺失（RN 有 → miniapp，31 项）**
+> 收尾轮核减：`pay/result`（→RN）已由 PayResultScreen 承接 + 小程序三套结果页收敛；`topic/list`、`topic/detail`、`circle/index` 转 🟡（linking.ts 深链已配，Screen 待建）。
+
+**小程序端缺失（RN 有 → miniapp，21 项；P0/P1/P2 已核销 10 项）**
 
 | # | 页面 | 域 | 说明 |
 | --- | --- | --- | --- |
-| 1 | SearchScreen | 入口 | 全局搜索 |
-| 2 | AnnouncementScreen | 社区 | 公告列表 |
-| 3 | AnnouncementDetailScreen | 社区 | 公告详情 |
-| 4 | ActivityScreen | 运营 | 活动页 |
-| 5 | CheckInScreen | 用户留存 | 每日签到 |
-| 6 | TaskCenterScreen | 用户留存 | 任务中心 |
+| 1 | ~~SearchScreen~~ | 入口 | ✅ P0 补齐 `pages/search/index` |
+| 2 | ~~AnnouncementScreen~~ | 社区 | ✅ P2 补齐 `pages/announcement/index` |
+| 3 | ~~AnnouncementDetailScreen~~ | 社区 | ✅ P2 补齐 `pages/announcement/detail/index` |
+| 4 | ~~ActivityScreen~~ | 运营 | ✅ P2 补齐 `pages/activity/index` |
+| 5 | ~~CheckInScreen~~ | 用户留存 | ✅ P0 补齐 `pages/check-in/index` |
+| 6 | ~~TaskCenterScreen~~ | 用户留存 | ✅ P0 补齐 `pages/task-center/index` |
 | 7 | PointsMallScreen | 用户留存 | 积分商城 |
 | 8 | PointRuleScreen | 用户留存 | 积分规则 |
 | 9 | PointHistoryScreen | 用户留存 | 积分流水 |
@@ -361,25 +362,25 @@
 | 25 | BookmarkScreen | 内容 | 书签/浏览记录 |
 | 26 | MemoryScreen | AI | AI 记忆管理 |
 | 27 | AiWorldScreen | AI | AI 世界 |
-| 28 | AiSkillScreen | AI | AI 技能中心 |
-| 29 | AiSkillDetailScreen | AI | AI 技能详情 |
-| 30 | PostDetailScreen | 社区/广场 | 广场需求详情（❓核销新增） |
-| 31 | PostCreateScreen | 社区 | 社区发帖（❓核销新增） |
+| 28 | ~~AiSkillScreen~~ | AI | ✅ P2 补齐 `pages/ai-skill/index` |
+| 29 | ~~AiSkillDetailScreen~~ | AI | ✅ P2 补齐 `pages/ai-skill/detail/index` |
+| 30 | ~~PostDetailScreen~~ | 社区/广场 | ✅ P1 补齐 `pages/plaza/detail/index`（❓核销新增） |
+| 31 | ~~PostCreateScreen~~ | 社区 | ✅ P1 补齐 `pages/community/create/index`（❓核销新增） |
 
 ### 补齐优先级建议
 
-- **P0 — 交易与核心闭环（先补）**：`cart`（→RN）、`pay/result`（→RN）、SearchScreen（→miniapp）、`teacher/list`+`teacher/detail`（→RN）、CheckIn+TaskCenter（→miniapp）。均为下单/留存主链路，缺失直接影响转化与活跃。
-- **P1 — 内容与社区生态**：`topic/list`+`topic/detail`、`circle/index`（→RN）；Announcement+AnnouncementDetail、`ai-circle`、AiSkill+AiSkillDetail、Activity、PostDetailScreen+PostCreateScreen（→miniapp，❓核销新增：社区发帖与需求详情为内容生态基础能力）。社区内容完整性问题。
-- **P2 — 增长与运营配置**：`distribution/rank`、`study/rank`、`exam/detail`、`live/calendar`、`developer/subscribe`（→RN）；PointsMall+PointRule+PointHistory、`forgot-password`、`user/email`（→miniapp）。
-- **P3 — 特色功能域（按 roadmap 排期）**：Knowledge 域 5 页、Note 域 4 页、Certificate 域 5 页（→miniapp）；Memory、AiWorld、Bookmark（→miniapp）。
+- **P0 — 交易与核心闭环**：~~`cart`（→RN）、SearchScreen（→miniapp）、`teacher/list`+`teacher/detail`（→RN）、CheckIn+TaskCenter（→miniapp）、`pay/result`（→RN）~~ ✅ 全部完成（第 6/7/8 轮）。
+- **P1 — 内容与社区生态**：~~Announcement+AnnouncementDetail、AiSkill+AiSkillDetail、Activity、PostDetailScreen+PostCreateScreen（→miniapp）~~ ✅ P2/P1 补齐完成；`topic/list`+`topic/detail`、`circle/index`（→RN）🟡 收尾轮已配深链、Screen 待建；`ai-circle`（→RN）仍缺。
+- **P2 — 增长与运营配置**：~~PointsMall+PointRule+PointHistory（→miniapp）~~ 🟡 小程序已有 `member/integral` 承接积分场景，细分页 RN 侧独立存在属合理平台差异；`distribution/rank`、`study/rank`、`exam/detail`、`live/calendar`、`developer/subscribe`（→RN）仍缺；~~`forgot-password`、`user/email`（→miniapp）~~ ✅ 均已注册（app.config.ts L10/L38）。
+- **P3 — 特色功能域（按 roadmap 排期）**：Knowledge 域 5 页、Note 域 4 页、Certificate 域 5 页 + ExamHistory（→miniapp）；Memory、AiWorld、Bookmark（→miniapp）。为 RN 独有特色域，按业务 roadmap 排期即可，不构成一致性阻塞。
 
 ### 其他建议
 
-1. **合并疑似重复页**：FavoriteScreen↔FavoritesScreen、PromoteScreen↔PromotionScreen、ArticleListScreen↔NewsScreen、FollowScreen↔FollowingScreen（❓核销证实 Follow 已包含 Following 全部功能）。注意：AssistantScreen（我的智能体管理）与 AiAssistantScreen（智能体市场浏览）经核销确认**职责不同、不应合并**。
+1. **合并疑似重复页**：FavoriteScreen↔FavoritesScreen、PromoteScreen↔PromotionScreen、ArticleListScreen↔NewsScreen、~~FollowScreen↔FollowingScreen~~ ✅ 收尾轮已并入 FollowScreen（双 Tab 超集）；~~FinanceScreen → WalletScreen~~ ✅ 收尾轮已并入。注意：AssistantScreen（我的智能体管理）与 AiAssistantScreen（智能体市场浏览）经核销确认**职责不同、不应合并**。
 2. ~~确认 16 个 ❓ 项~~ → 已于 2026-09-04 全部核销完毕（13 🟡 / 2 🔴 / 1 ⚪，逐项依据见下「❓核销结果」）。
-3. **统一支付结果承接**：小程序有 `pay/result` 与 `vip/success`、`wallet/recharge/success|fail` 三套结果页，RN 仅充值结果页；建议两端收敛为统一支付结果页 + 业务回跳参数。
+3. ~~**统一支付结果承接**~~ → ✅ 收尾轮已完成：小程序 `pay/result`+`vip/success`+`wallet/recharge/success|fail` 三套结果页收敛为唯一 `pay/result/index`（参数协议 orderNo/status/amount/from，pending 轮询），僵尸路由已下线；RN 由 PayResultScreen 承接。
 
-### ❓核销结果（2026-09-04，16 项全部闭环）
+### ❓核销结果（2026-09-04，16 项全部闭环；收尾轮后终态 13 🟡 / 2 🔴 / 1 ✅）
 
 | # | 页面 | 结论 | 一句话依据（代码证据） |
 | --- | --- | --- | --- |
@@ -395,7 +396,7 @@
 | 10 | FinanceScreen | 🟡 | 仅调 `/wallet/balance` 展示余额概览，与 WalletScreen（充值）重叠，建议并入钱包页 |
 | 11 | PostDetailScreen | 🔴 | 调 getPlazaDetail 展示需求报价（lowest/peakPrice）/周期/联系人＝广场需求详情页，小程序无独立需求详情页，撮合链路环节应补齐 |
 | 12 | PostCreateScreen | 🔴 | 调 POST `/api/community/posts` 发帖（title/content/circleId/tags），小程序无发帖页（ask/create 为提问、set-need 为需求发布），社区基础能力应补齐 |
-| 13 | FollowScreen | 🟡 | 调 getFans+getFollowing 关注/粉丝双向切换，功能包含 FollowingScreen（仅 getFollowing），建议 RN 内部合并，小程序由 following 页承接 |
+| 13 | FollowScreen | ✅ | 调 getFans+getFollowing 关注/粉丝双向切换；收尾轮 FollowingScreen 已并入（双 Tab 超集），小程序由 following 页承接 |
 | 14 | `pages/member/index` | 🟡 | 调 getMemberInfo/getMemberBenefits 的成长值等级中心（normal/silver/gold/diamond），与 vip/index 付费购买互补非重复；RN 由 Vip 套件等价承接 |
 | 15 | `pages/distribution/company/index` | 🟡 | 调 getDistributionInfo+getDistributionTeam 展示企业分销等级/佣金/团队，与 distribution/index 数据重叠，RN 由 DistributionScreen 并入承接 |
 | 16 | IncomeScreen | 🟡 | 调佣金列表+日月汇总+概览+提现记录 4 个 API，较 ModelIncomeScreen 多提现记录（由 Withdraw 承接）；EarnCommissionScreen 仅调 getOverview 概览，三者不重复但建议 RN 收敛为 ModelIncome+Withdraw |
