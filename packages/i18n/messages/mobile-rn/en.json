@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG Knowledge",
     "subagents": "Subagents",
     "chatTools": "AI Chat / Tools",
-    "cart": "Cart"
+    "cart": "Cart",
+    "circleIndex": "Circles",
+    "topicList": "Topics"
   },
   "error": {
     "network": "Network error, please retry"
@@ -1230,7 +1232,8 @@
     "tagsPlaceholder": "Separate tags with commas",
     "submit": "Post",
     "required": "Content is required",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "pickTopic": "Choose a topic"
   },
   "profileEdit": {
     "avatarTip": "Tap to change avatar",
@@ -2238,5 +2241,60 @@
   },
   "developerInfo": {
     "urlLabel": "Website"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "Topics",
+      "searchPlaceholder": "Search topics",
+      "recommend": "Recommended",
+      "hot": "Hot",
+      "all": "All",
+      "participants": "{n} participants",
+      "posts": "{n} posts",
+      "empty": "No topics yet",
+      "loading": "Loading…",
+      "loadingMore": "Loading…",
+      "noMore": "No more items"
+    },
+    "detail": {
+      "pageTitle": "Topic Detail",
+      "loading": "Loading…",
+      "loadFailed": "Failed to load",
+      "followers": "{n} followers",
+      "follow": "Follow",
+      "following": "Following",
+      "followSuccess": "Followed successfully",
+      "unfollowed": "Unfollowed",
+      "followFailed": "Operation failed",
+      "publish": "Post",
+      "publishPlaceholder": "Share your thoughts on this topic…",
+      "empty": "No posts yet. Be the first to post!",
+      "loadingMore": "Loading…",
+      "noMore": "No more items",
+      "justNow": "Just now",
+      "minutesAgo": "{n} min ago",
+      "hoursAgo": "{n} hr ago",
+      "anonymous": "Anonymous"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "Recommended",
+      "follow": "Following",
+      "latest": "Latest",
+      "hot": "Hot"
+    },
+    "index": {
+      "pageTitle": "Circles",
+      "goPublish": "Publish",
+      "anonymous": "Anonymous",
+      "follow": "Follow",
+      "followed": "Followed",
+      "loading": "Loading...",
+      "noMore": "No more items",
+      "retry": "Tap to retry",
+      "error": "Failed to load"
+    },
+    "empty": "No content yet"
   }
 }
