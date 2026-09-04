@@ -45,6 +45,8 @@
 
 **Phase 0 完成报告(2026-09-02)**:8/8 项完成。编队 w1-loop-unify(w2-tool-guards/w3-bench-v0/w4-plan-mode 并行执行,零同文件冲突);改动 9 文件 + 新增 10 文件(bench/ 13 文件),并集回归 394 passed。遗留:① conftest AGENT_EXECUTOR 显式化已过 langgraph 路径回归,CI 全量再确认;② plan mode 前端确认 UI 待做;③ bench 真实基准数字待 LLM key;④ 多副本部署需共享 checkpoint/plan 存储。
 
+- [x] ✅(2026-09-04) **杂项:孤儿双份 SDK 收敛**——删除 `sdks/`(2026-08-10 一次性写入的平行副本,TS 导出符号/Java 文件树/Python modules 与 `packages/sdk` 完全一致、Go 无独有公开函数,且全仓零引用、不在 pnpm workspace、不在 release-sdk.yml 发布链);`packages/sdk` 为唯一事实来源(CI 四语言唯一发布源,含 8-26 超时泄漏修复)。同步修正 `.gitignore`(java target 路径)、CONTRIBUTING.md 目录树、money-quickstart.md 发布说明。背景:GitHub 语言占比中 Java/Go/Python 系真实首发代码(sdks/ 副本曾虚增 Java 0.6%/Go 0.4%/Python 约 2%)
+
 ### P1 后续阶段(详见报告,不展开)
 
 - Phase 1(1-3 月):真子代理体系 / MCP tool deferral + list_changed / 语义压缩层 + 检索回捞 / token 治理面板 / SKILL.md 标准技能体系 / 后台任务 / 权限三模式
