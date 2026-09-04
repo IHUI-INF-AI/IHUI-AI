@@ -84,7 +84,7 @@ export default function AnalyticsPage() {
   }, [load, period])
 
   return (
-    <div className="space-y-3">
+    <div className="px-4 space-y-3">
       <BackButton />
       <div>
         <h2 className="text-base font-semibold">{t('analytics.title')}</h2>

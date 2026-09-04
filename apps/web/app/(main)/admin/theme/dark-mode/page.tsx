@@ -92,10 +92,15 @@ export default function DarkModePage() {
     if (!r.success) setError(r.error ?? '保存失败')
   }
 
-  if (loading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  if (loading)
+    return (
+      <div className="px-4">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
 
   return (
-    <form onSubmit={save} className="space-y-4">
+    <form onSubmit={save} className="px-4 space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">暗色模式</h1>

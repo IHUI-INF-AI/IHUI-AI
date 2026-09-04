@@ -49,7 +49,7 @@ export default function RecruitmentPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8 text-muted-foreground">
+      <div className="px-4 flex items-center justify-center py-8 text-muted-foreground">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         {t('loading')}
       </div>
@@ -66,7 +66,7 @@ export default function RecruitmentPage() {
 
   if (!data) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
+      <div className="px-4 flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
         <Users className="h-8 w-8 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('empty')}</p>
       </div>
