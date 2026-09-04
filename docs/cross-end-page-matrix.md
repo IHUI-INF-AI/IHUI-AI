@@ -1,7 +1,8 @@
 # 跨端页面矩阵（RN App ↔ 小程序）
 
-> 生成日期：2026-09-04
+> 生成日期：2026-09-04（末次更新：2026-09-04 收尾轮）
 > 比对方式：静态路径语义比对（Glob 列举文件 + Grep 抽取路由注册）；2026-09-04 已对 16 个 ❓ 项逐页核验源码（API 数据源/渲染内容/路由跳转）并全部闭环，逐项依据见文末「❓核销结果」。
+> 2026-09-04 收尾轮更新：FollowingScreen/FinanceScreen 并入 Follow/Wallet（🟡→✅）；小程序 pay/result 三套实现收敛为唯一 pay/result/index（🔴→✅）；recharge/success|fail 僵尸页下线；RN linking.ts 新增 TopicList/TopicDetail/CircleIndex 三条深链。
 > 分类图例：✅ 两端一致 ｜ 🟡 非必需差异（平台合理）｜ 🔴 真缺失（应补齐）｜ ⚪ 仅本端有意义 ｜ ❓ 待确认
 
 ## 概述
@@ -159,14 +160,14 @@
 | 路由/页面 | RN | miniapp | 分类 | 说明 |
 | --- | --- | --- | --- | --- |
 | `pages/pay/index` ↔ PaymentScreen | PaymentScreen | ✅ | ✅ | 收银台 |
-| `pages/pay/result` ↔ — | — | ✅ | 🔴 | 支付结果页 RN 缺失（RN 有充值结果页但无统一支付结果页） |
+| `pages/pay/result/index` ↔ PayResultScreen | PayResultScreen | ✅ | ✅ | 2026-09-04 收尾轮：小程序三套结果页收敛为唯一 pay/result/index（参数 orderNo/status/amount/from），RN 已有 PayResultScreen，两端对齐 |
 | `pages/order/list` ↔ OrderScreen | OrderScreen | ✅ | ✅ | 订单列表（同页对应 `pages/user/orders`） |
 | `pages/order/detail` ↔ OrderDetailScreen | OrderDetailScreen | ✅ | ✅ | 订单详情 |
 | `pages/order/refund` ↔ OrderRefundScreen | OrderRefundScreen | ✅ | ✅ | 退款申请 |
 | `pages/order/refund-list` ↔ RefundHistoryScreen | RefundHistoryScreen | ✅ | ✅ | 退款列表 |
 | `pages/wallet/recharge/index` ↔ WalletScreen | WalletScreen | ✅ | ✅ | 钱包/充值 |
-| `pages/wallet/recharge/success` ↔ TopupSuccessScreen | TopupSuccessScreen | ✅ | ✅ | 充值成功 |
-| `pages/wallet/recharge/fail` ↔ TopupFailScreen | TopupFailScreen | ✅ | ✅ | 充值失败 |
+| ~~`pages/wallet/recharge/success`~~ | — | — | ⚪ | 2026-09-04 收尾轮下线：僵尸路由，全 src 零引用，已并入 pay/result/index 统一承接 |
+| ~~`pages/wallet/recharge/fail`~~ | — | — | ⚪ | 2026-09-04 收尾轮下线：同上 |
 | `pages/wallet/top-up/index` ↔ AppTopupScreen | AppTopupScreen | ✅ | ✅ | App 内充值（Token） |
 | `pages/wallet/withdrawal/index` ↔ WithdrawScreen | WithdrawScreen | ✅ | ✅ | 提现（同页对应 `developer/withdrawal`、`distribution/withdraw`） |
 | `pages/wallet/commission/index` ↔ EarnCommissionScreen | EarnCommissionScreen | ✅ | ✅ | 佣金（同页对应 `distribution/commission`） |
@@ -181,7 +182,7 @@
 | — ↔ OrderTrackScreen | OrderTrackScreen | — | 🟡 | 订单跟踪细分页 |
 | — ↔ OrderLogScreen | OrderLogScreen | — | 🟡 | 订单日志细分页 |
 | — ↔ BankCardScreen | BankCardScreen | — | 🟡 | 银行卡管理，小程序走微信支付可简化 |
-| — ↔ FinanceScreen | FinanceScreen | — | 🟡 | 已核销：仅调 `/wallet/balance` 展示余额概览，与 WalletScreen（充值）重叠，建议并入钱包页 |
+| — ↔ ~~FinanceScreen~~ | — | — | ⚪ | 2026-09-04 收尾轮已并入 WalletScreen（同源数据超集），文件已删除 |
 
 ### 7. 社区与内容
 
@@ -189,17 +190,17 @@
 | --- | --- | --- | --- | --- |
 | `pages/news/list` ↔ NewsScreen | NewsScreen | ✅ | ✅ | 资讯列表 |
 | `pages/news/detail` ↔ ArticleDetailScreen | ArticleDetailScreen | ✅ | ✅ | 资讯/文章详情 |
-| `pages/topic/list` ↔ — | — | ✅ | 🔴 | 话题列表 RN 缺失 |
-| `pages/topic/detail` ↔ — | — | ✅ | 🔴 | 话题详情 RN 缺失 |
+| `pages/topic/list` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建 |
+| `pages/topic/detail` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建 |
 | `pages/ranking/index` ↔ RankingScreen | RankingScreen | ✅ | ✅ | 排行榜 |
 | `pages/ranking/detail` ↔ RankingDetailScreen | RankingDetailScreen | ✅ | ✅ | 排行详情 |
 | `pages/favorites/index` ↔ FavoritesScreen | FavoritesScreen | ✅ | ✅ | 收藏 |
-| `pages/following/index` ↔ FollowingScreen | FollowingScreen | ✅ | ✅ | 关注列表 |
+| `pages/following/index` ↔ FollowScreen | FollowScreen | ✅ | ✅ | 2026-09-04 收尾轮：FollowingScreen 已并入 FollowScreen（双 Tab 超集），小程序由 following 页承接 |
 | `pages/subscriptions/index` ↔ SubscriptionsScreen | SubscriptionsScreen | ✅ | ✅ | 订阅管理（同页对应 `live/subscribe`） |
 | `pages/message/index` ↔ MessageCenterScreen | MessageCenterScreen | ✅ | ✅ | 消息中心 |
 | `pages/circle/detail` ↔ CircleDetailScreen | CircleDetailScreen | ✅ | ✅ | 圈子详情（分包） |
 | `pages/circle/create` ↔ CircleCreateScreen | CircleCreateScreen | ✅ | ✅ | 创建圈子 |
-| `pages/circle/index` ↔ — | — | ✅ | 🔴 | 圈子首页/列表 RN 缺失 |
+| `pages/circle/index` ↔ — | — | ✅ | 🟡 | 收尾轮：linking.ts 已配深链，RN Screen 待建（HomeScreen 广场 Tab 评估中） |
 | `pages/ask/list` ↔ AskListScreen | AskListScreen | ✅ | ✅ | 问答列表（分包） |
 | `pages/ask/detail` ↔ AskDetailScreen | AskDetailScreen | ✅ | ✅ | 问答详情 |
 | `pages/ask/create` ↔ AskCreateScreen | AskCreateScreen | ✅ | ✅ | 提问 |

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export default async function PluginsPage() {
   const t = await getTranslations('plugins')
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 px-4 py-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold leading-tight">{t('title')}</h1>
