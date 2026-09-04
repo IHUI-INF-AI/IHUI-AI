@@ -19,11 +19,15 @@ interface ScoreItem {
   status: 'good' | 'warning' | 'bad'
 }
 
+/**
+ * 后端 GET /api/user/security-score 契约:{ score, level } (maxScore 固定 100,无明细)。
+ * items 为可选扩展位:后端将来补充明细时前端零改动渲染。
+ */
 interface ScoreData {
-  total: number
-  maxScore: number
+  score: number
+  maxScore?: number
   level: 'excellent' | 'high' | 'medium' | 'low'
-  items: ScoreItem[]
+  items?: ScoreItem[]
 }
 
 const levelColor = (level: ScoreData['level']) => {
@@ -56,7 +60,10 @@ export function SecurityScore() {
   }, [])
 
   const circumference = 2 * Math.PI * 45
-  const ratio = data ? data.total / data.maxScore : 0
+  const maxScore = data?.maxScore ?? 100
+  const total = data?.score ?? 0
+  const items = data?.items ?? []
+  const ratio = maxScore > 0 ? total / maxScore : 0
   const dashOffset = circumference * (1 - ratio)
   const color = data ? levelColor(data.level) : 'var(--chart-text)'
 
@@ -111,9 +118,9 @@ export function SecurityScore() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-bold" style={{ color }}>
-                  {data.total}
+                  {total}
                 </span>
-                <span className="text-xs text-muted-foreground">/{data.maxScore}</span>
+                <span className="text-xs text-muted-foreground">/{maxScore}</span>
               </div>
             </div>
 
@@ -121,7 +128,7 @@ export function SecurityScore() {
               <div className="flex items-center gap-1.5 text-sm font-medium" style={{ color }}>
                 {levelLabel(data.level)}
               </div>
-              {data.items.map((item) => (
+              {items.map((item) => (
                 <div key={item.id} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{item.name}</span>
@@ -133,7 +140,7 @@ export function SecurityScore() {
                     <div
                       className="h-full rounded-md transition-all"
                       style={{
-                        width: `${(item.score / item.maxScore) * 100}%`,
+                        width: `${item.maxScore > 0 ? (item.score / item.maxScore) * 100 : 0}%`,
                         backgroundColor:
                           item.status === 'good'
                             ? 'var(--chart-success)'
