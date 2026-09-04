@@ -62,7 +62,7 @@ export default function MemberHistoryPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>
