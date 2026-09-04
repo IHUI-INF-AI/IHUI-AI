@@ -939,11 +939,10 @@ const nextConfig: NextConfig = {
           source: '/recruitment/bigtp%402x.png',
           destination: 'http://localhost:80/recruitment/bigtp%402x.png',
         },
-        // 2026-08-27: 图片/文件 CDN 的 /uploads 出图已改为 web 端 route handler 托管
-        // (apps/web/app/uploads/[[...path]]/route.ts),直接从磁盘读取
-        // apps/api/uploads/public 返回,Host 无关、不依赖反代 8802,根治公网
-        // file.aizhs.top 等子域 rewrite 代理偶发失败的问题。故此处不再保留 /uploads rewrite。
-        // api.aizhs.top/uploads 由 Cloudflare 隧道直指 8802(@fastify/static),不经 web。
+        // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
+        // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
+        // web 端不再有本地磁盘路由(原 app/cdn 与 app/uploads 的 route.ts 已删除),
+        // 故此处不再保留 /uploads、/cdn 的 rewrite,也不经 web。
         // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
         // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
         // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +
