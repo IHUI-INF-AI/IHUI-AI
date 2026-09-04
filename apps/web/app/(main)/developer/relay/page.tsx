@@ -107,7 +107,7 @@ export default function RelayOverviewPage() {
   const activeCount = list.filter((k) => k.status === 'active').length
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
