@@ -23,9 +23,7 @@
 import cron, { type ScheduledTask } from 'node-cron'
 import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
-import { parquetReadObjects } from 'hyparquet'
-import { ProxyAgent } from 'undici'
-import { and, eq, gte, sql } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
   aiWorldItems,
@@ -38,7 +36,6 @@ import {
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
-import { getSystemAccessToken } from '../utils/system-access-token.js'
 
 // ===== 类型定义 =====
 
@@ -546,39 +543,10 @@ const fetchWithTimeout = async (
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    // 2026-09-04:本机网络阻断大量国外数据源(huggingface/lmarena/suno/mistral 等 50+ 站)。
-    // 配置 SYNC_PROXY_URL(如 http://127.0.0.1:7897)后,同步抓取走出站代理;
-    // 不配置则行为不变。localhost/内网地址永不走代理(ai-service 本地调用不受影响)。
-    const proxyUrl = process.env.SYNC_PROXY_URL
-    const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
-    if (proxyUrl && !isLocal) {
-      const dispatcher = getSyncProxyAgent(proxyUrl)
-      return await fetch(url, {
-        ...opts,
-        signal: controller.signal,
-        ...(dispatcher ? ({ dispatcher } as unknown as RequestInit) : {}),
-      })
-    }
     return await fetch(url, { ...opts, signal: controller.signal })
   } finally {
     clearTimeout(timer)
   }
-}
-
-/** SYNC_PROXY_URL 对应的 ProxyAgent 单例(懒加载,进程内复用连接池) */
-let syncProxyAgent: ProxyAgent | null | undefined
-function getSyncProxyAgent(proxyUrl: string): ProxyAgent | null {
-  if (syncProxyAgent === undefined) {
-    try {
-      syncProxyAgent = new ProxyAgent(proxyUrl)
-    } catch (err) {
-      logger.warn('[ai-world-sync] SYNC_PROXY_URL 无效,忽略代理:', {
-        error: err instanceof Error ? err.message : err,
-      })
-      syncProxyAgent = null
-    }
-  }
-  return syncProxyAgent
 }
 
 /** 清洗 HTML 标签 + 截断 */
@@ -636,12 +604,7 @@ async function fetchArxivPapers(): Promise<FetchedItem[]> {
     source: 'arxiv',
     sourceUrl: item.link ?? item.guid ?? '',
     title: (item.title ?? 'Untitled').trim().slice(0, 500),
-    // 2026-09-04 修复:arXiv 为 Atom 源,摘要位于 item.summary(rss-parser 的
-    // contentSnippet/content 均为空),此前论文条目 summary/content 全部落空,前端无摘要展示。
-    summary: cleanText(
-      item.contentSnippet ?? (item as { summary?: string }).summary ?? item.content,
-      1000,
-    ),
+    summary: cleanText(item.contentSnippet, 1000),
     content: cleanText(item.content, 5000),
     url: item.link ?? undefined,
     publishedAt: item.isoDate ? new Date(item.isoDate) : undefined,
@@ -798,28 +761,14 @@ function resetLlmErrorFlag(): void {
  * 调用项目内 ai-service 的 /llm/complete 接口
  * 与 ai-feed-service.ts callLlm 保持一致
  */
-async function callLlm(prompt: string, content: string, timeoutMs = 90000): Promise<string | null> {
+async function callLlm(prompt: string, content: string, timeoutMs = 15000): Promise<string | null> {
   const baseUrl = process.env.AI_SERVICE_URL
   if (!baseUrl) return null
   try {
-    // 2026-09-04 修复:三处问题导致 LLM 摘要改写自 jwt_auth 上线起静默失效——
-    // ① 路径 '/llm/complete' 缺 /api 前缀(ai-service 实际路由为 /api/llm/complete);
-    // ② aiServiceFetch(null) 不带 Authorization → ai-service JWT 中间件 401;
-    // ③ 请求体 {prompt,content} 不符 LLMCompleteRequest schema(要求 messages 数组)→ 422。
-    // 现对齐 ai-feed-service.ts callLlm 的可用实现(messages + 系统 token + 90s 超时)。
-    const systemToken = await getSystemAccessToken()
-    const res = await aiServiceFetch(null, '/api/llm/complete', {
+    const res = await aiServiceFetch(null, '/llm/complete', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${systemToken}`,
-      },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: prompt },
-          { role: 'user', content },
-        ],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, content }),
       signal: AbortSignal.timeout(timeoutMs),
     })
     if (!res.ok) {
@@ -829,28 +778,10 @@ async function callLlm(prompt: string, content: string, timeoutMs = 90000): Prom
       }
       return null
     }
-    // /llm/complete 返回 {content, model, usage, stub, error?, error_message?}
-    const json = (await res.json()) as {
-      content?: string
-      error?: boolean
-      error_message?: string
-      stub?: boolean
-    }
-    if (json.error) {
-      if (!llmErrorLogged) {
-        logger.warn(`[ai-world-sync] LLM 返回错误: ${json.error_message ?? 'unknown'}(后续静默)`)
-        llmErrorLogged = true
-      }
-      return null
-    }
-    if (json.stub) {
-      if (!llmErrorLogged) {
-        logger.warn('[ai-world-sync] LLM stub 模式返回(无真实 API key),跳过(后续静默)')
-        llmErrorLogged = true
-      }
-      return null
-    }
-    return (json.content ?? '').trim() || null
+    const json = (await res.json()) as { data?: { content?: string } | string; content?: string }
+    const text =
+      typeof json.data === 'string' ? json.data : (json.data?.content ?? json.content ?? '')
+    return text.trim() || null
   } catch (err) {
     if (!llmErrorLogged) {
       logger.warn(`[ai-world-sync] LLM 调用异常(后续静默):`, {
@@ -923,49 +854,8 @@ async function getCategoryIdBySlug(slug: string): Promise<string | null> {
 // 保留导出供未来扩展使用(如按分类聚合 items)
 export { getCategoryIdBySlug }
 
-/**
- * 标题归一化去重键。
- * 跨源转载常因全/半角、空格/标点/零宽字符差异被误判为不同标题,这里归一化后收敛;
- * 键按 kind 命名空间隔离,避免不同栏目(title 恰巧相同)被误判为重复。
- */
-function dedupKeyOf(kind: string, title: string): string {
-  const norm = title
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/[\u200c\u200b\u2060\ufeff]/g, '') // 去零宽连接符/零宽空格/BOM
-    .replace(/[^\p{L}\p{N}]+/gu, '') // 去标点符号,仅保留字母与数字(含中文)
-    .slice(0, 120)
-  return `${kind}::${norm}`
-}
-
-/**
- * 跨源去重缓存(以 `kind::归一化标题` 为键,同键本轮只入库一次)。
- * 每轮开始时用数据库近 N 天已入库条目标题预填充,实现跨轮、跨源转载收敛去重。
- */
+/** 跨源去重缓存(同 title 在同一轮 sync 内只保留首个) */
 const seenTitlesInRound = new Set<string>()
-
-/** 去重回看窗口:近 10 天内已入库的条目标题参与跨轮去重 */
-const DEDUP_LOOKBACK_DAYS = 10
-
-/** 预填充去重缓存:读取近 N 天已入库条目标题,加固跨轮跨源去重 */
-async function seedSeenTitlesFromDb(): Promise<void> {
-  const since = new Date(Date.now() - DEDUP_LOOKBACK_DAYS * 24 * 3600 * 1000)
-  const rows = await db
-    .select({ kind: aiWorldItems.kind, title: aiWorldItems.title })
-    .from(aiWorldItems)
-    .where(gte(aiWorldItems.publishedAt, since))
-  let added = 0
-  for (const r of rows) {
-    const k = dedupKeyOf(r.kind, r.title)
-    if (k && !seenTitlesInRound.has(k)) {
-      seenTitlesInRound.add(k)
-      added++
-    }
-  }
-  logger.info(
-    `[ai-world-sync] seeded ${added} dedup keys from last ${DEDUP_LOOKBACK_DAYS}d items`,
-  )
-}
 
 /** upsert 结果:区分新增/更新/去重跳过/错误,便于日志准确统计 */
 type UpsertResult = 'inserted' | 'updated' | 'skipped' | 'error'
@@ -973,28 +863,22 @@ type UpsertResult = 'inserted' | 'updated' | 'skipped' | 'error'
 /** upsert 单个 item(kind + sourceUrl 唯一) */
 async function upsertItem(item: FetchedItem): Promise<UpsertResult> {
   if (!item.sourceUrl) return 'error'
+  // 跨源去重(同 title 视为重复,避免不同源转载同一资讯)
+  const titleKey = item.title.trim().toLowerCase().slice(0, 200)
+  if (titleKey && seenTitlesInRound.has(titleKey)) return 'skipped'
+  if (titleKey) seenTitlesInRound.add(titleKey)
 
-  const dedupKey = dedupKeyOf(item.kind, item.title)
+  // 并行:LLM 改写 + 分类关联
+  const [summary, categoryId] = await Promise.all([
+    rewriteSummaryWithLLM(item),
+    item.categorySlug ? getCategoryIdBySlug(item.categorySlug) : Promise.resolve(null),
+  ])
 
-  // 先按唯一键(kind + sourceUrl)查已存在条目:命中则走更新(保持信息新鲜);
-  // 未命中且标题已在本轮/近期出现过,则视为跨源转载,去重跳过。
   const existing = await db
-    .select({ id: aiWorldItems.id, summary: aiWorldItems.summary })
+    .select({ id: aiWorldItems.id })
     .from(aiWorldItems)
     .where(and(eq(aiWorldItems.kind, item.kind), eq(aiWorldItems.sourceUrl, item.sourceUrl)))
     .limit(1)
-
-  if (dedupKey && seenTitlesInRound.has(dedupKey) && existing.length === 0) return 'skipped'
-  if (dedupKey) seenTitlesInRound.add(dedupKey)
-
-  // 2026-09-04 优化:仅新条目或无摘要的旧条目才调 LLM 改写;已有摘要的旧条目复用原摘要。
-  // 否则每轮对全部已入库条目重复调用 LLM(条目串行处理,~25s/条),一轮 cron 会拖到数小时。
-  const [summary, categoryId] = await Promise.all([
-    existing.length > 0 && existing[0]!.summary
-      ? Promise.resolve(existing[0]!.summary)
-      : rewriteSummaryWithLLM(item),
-    item.categorySlug ? getCategoryIdBySlug(item.categorySlug) : Promise.resolve(null),
-  ])
   const payload: NewAiWorldItem = {
     kind: item.kind,
     categoryId,
@@ -1074,14 +958,9 @@ async function syncOneSourceWithRetry(
           failCount++
         }
       }
-      // status:全失败且 items>0 → failed;有失败 → partial;全部 skipped(dedup)或空 → success
-      // (2026-09-04 修复:全部 dedup 跳过说明条目已入库,此前误记为 failed 造成日志噪音)
+      // status:全失败且 items>0 → failed;有成功有失败 → partial;否则 success
       const status: SyncSourceResult['status'] =
-        successCount === 0 && failCount > 0 && items.length > 0
-          ? 'failed'
-          : failCount > 0
-            ? 'partial'
-            : 'success'
+        successCount === 0 && items.length > 0 ? 'failed' : failCount > 0 ? 'partial' : 'success'
       const errorParts: string[] = []
       if (failCount > 0) errorParts.push(`${failCount} failed`)
       if (skippedCount > 0) errorParts.push(`${skippedCount} skipped(dedup)`)
@@ -1118,11 +997,9 @@ async function syncOneSourceWithRetry(
 
 /** 同步所有源(分阶段并行 + 串行混合,GitHub 串行避免 rate limit) */
 export async function syncAllSources(): Promise<SyncSourceResult[]> {
-  // 每轮开始清空去重缓存 + 重置 LLM 日志标志,并以近 10 天已入库条目标题预填充,
-  // 使跨轮、跨源转载也能收敛去重。
+  // 每轮开始清空去重缓存 + 重置 LLM 日志标志
   seenTitlesInRound.clear()
   resetLlmErrorFlag()
-  await seedSeenTitlesFromDb()
   // 预热分类缓存
   await ensureCategories()
 
@@ -1270,142 +1147,152 @@ export function stopAiWorldSyncScheduler(): void {
 
 const LEADERBOARD_USER_AGENT = 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)'
 
+/** 从 HTML 表格行提取数据,返回字符串二维数组(每行一个 cells 数组) */
+function extractTableRows($: cheerio.CheerioAPI, maxRows = 30): string[][] {
+  const rows: string[][] = []
+  const selectors = [
+    'table tbody tr',
+    'table thead + tbody tr',
+    '.table tbody tr',
+    '[class*="leaderboard"] table tbody tr',
+    '[class*="table"] tbody tr',
+  ]
+  for (const sel of selectors) {
+    $(sel).each((_, tr) => {
+      const cells: string[] = []
+      $(tr)
+        .find('td')
+        .each((_, td) => {
+          cells.push($(td).text().trim())
+        })
+      if (cells.length >= 2) rows.push(cells)
+    })
+    if (rows.length > 0) break
+  }
+  return rows.slice(0, maxRows)
+}
+
+/** LMArena 子分类映射(表头 → category slug) */
+const LMARENA_CATEGORIES = [
+  'overall', // Overall
+  'expert', // Expert
+  'hard-prompts', // Hard Prompts
+  'coding', // Coding
+  'math', // Math
+  'creative', // Creative Writing
+  'instruction', // Instruction Following
+  'longer-query', // Longer Query
+] as const
+
 /**
  * 抓 LMArena(原 LMSYS Chatbot Arena)排行榜
- * 数据源(2026-09-04 变更):LMArena 官方 HuggingFace 数据集 lmarena-ai/leaderboard-dataset
- *   config=text(文本竞技场) + split=latest(最近一期发布,官方随榜单更新)
- *   列:model_name/organization/license/rating/rating_lower/rating_upper/vote_count/rank/category/leaderboard_publish_date
- * 变更原因:lmarena.ai/leaderboard 为 JS 渲染 SPA 且主站在本部署网络不可达(HTTP 000),
- *   旧 HTML 抓取自 2026-09 起稳定失败("no table rows")。
- * 下载走 hf-mirror.com(HF 国内镜像,与 huggingface.co 数据一致),失败回退主站。
- * 解析用 hyparquet(纯 JS,零原生依赖)。
+ * 数据源:https://lmarena.ai/leaderboard — HTML 表格,672 模型,8 子分类
+ * 表格结构:第 0 行表头(Model | Overall | Expert | Hard Prompts | Coding | Math | Creative Writing | Instruction Following | Longer Query)
+ * 第 1+ 行:Provider+Model | rank_overall | rank_expert | ... | rank_longer_query
+ * Provider+Model 格式如 "Anthropicclaude-fable-5" → provider="Anthropic", model="claude-fable-5"
  */
-/** LMArena 数据集行结构(仅声明用到的列) */
-interface LmArenaDatasetRow {
-  model_name?: string
-  organization?: string | null
-  license?: string | null
-  rating?: number | null
-  rating_lower?: number | null
-  rating_upper?: number | null
-  vote_count?: number | null
-  rank?: number | null
-  category?: string | null
-  leaderboard_publish_date?: string | null
-}
-
-/**
- * LMArena 数据集 category → 本项目 lmsys 榜单 category 白名单。
- * 数据集含 40+ 分类(行业榜/小语种/exclude_ties 等),全部入库会把前端分类栏撑爆;
- * 仅保留产品有意义且前端 RankingTable KNOWN_CATS 认识的类别,未匹配的一律丢弃。
- */
-const LMARENA_CATEGORY_MAP: Record<string, string> = {
-  overall: 'overall',
-  coding: 'coding',
-  math: 'math',
-  creative_writing: 'creative',
-  'creative writing': 'creative',
-  creative: 'creative',
-  instruction_following: 'instruction',
-  'instruction following': 'instruction',
-  instruction: 'instruction',
-  longer_query: 'longer-query',
-  'longer query': 'longer-query',
-  'longer-query': 'longer-query',
-  hard_prompts: 'hard-prompts',
-  'hard prompts': 'hard-prompts',
-  'hard-prompts': 'hard-prompts',
-  expert: 'expert',
-  chinese: 'chinese',
-  english: 'english',
-  multi_turn: 'multiturn',
-  'multi turn': 'multiturn',
-  multiturn: 'multiturn',
-}
-
-/** 下载并解析 LMArena 最新榜单 parquet(镜像优先,主站回退) */
-async function downloadLmArenaDataset(): Promise<LmArenaDatasetRow[]> {
-  const sources = [
-    'https://hf-mirror.com/api/datasets/lmarena-ai/leaderboard-dataset/parquet/text/latest/0.parquet',
-    'https://huggingface.co/api/datasets/lmarena-ai/leaderboard-dataset/parquet/text/latest/0.parquet',
-  ]
-  for (const url of sources) {
-    const host = new URL(url).host
-    try {
-      const res = await fetchWithTimeout(
-        url,
-        { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/octet-stream' } },
-        60000,
-      )
-      if (!res.ok) {
-        logger.warn(`[ai-world-sync] LMArena dataset HTTP ${res.status} from ${host}, try next`)
-        continue
-      }
-      const buf = await res.arrayBuffer()
-      if (buf.byteLength === 0) {
-        logger.warn(`[ai-world-sync] LMArena dataset empty body from ${host}, try next`)
-        continue
-      }
-      return (await parquetReadObjects({ file: buf })) as LmArenaDatasetRow[]
-    } catch (err) {
-      logger.warn(`[ai-world-sync] LMArena dataset fetch/parse failed from ${host}:`, {
-        error: err instanceof Error ? err.message : err,
-      })
-    }
-  }
-  return []
-}
-
 async function fetchLMSYSArena(): Promise<LeaderboardEntry[]> {
   try {
-    const rows = await downloadLmArenaDataset()
+    const res = await fetchWithTimeout(
+      'https://lmarena.ai/leaderboard',
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'text/html' } },
+      30000,
+    )
+    if (!res.ok) {
+      logger.warn(`[ai-world-sync] LMArena leaderboard HTTP ${res.status}, skip`)
+      return []
+    }
+    const html = await res.text()
+    const $ = cheerio.load(html)
+    const rows = extractTableRows($, 200) // LMArena 有 672 行,取前 200
     if (rows.length === 0) {
-      logger.warn('[ai-world-sync] LMArena leaderboard no dataset rows, skip')
+      logger.warn('[ai-world-sync] LMArena leaderboard no table rows, skip')
       return []
     }
     const entries: LeaderboardEntry[] = []
-    const publishDates = new Set<string>()
-    for (const row of rows) {
-      const rawCat = (row.category ?? '').toLowerCase().trim()
-      // 白名单映射:未匹配的分类(行业榜/小语种等)直接丢弃,避免前端分类栏爆炸
-      const category = LMARENA_CATEGORY_MAP[rawCat]
-      if (!category) continue
-      const rank =
-        typeof row.rank === 'number' ? row.rank : Number.parseInt(String(row.rank ?? ''), 10)
-      if (!Number.isFinite(rank) || rank <= 0) continue
-      const modelName = (row.model_name ?? '').trim()
-      if (!modelName) continue
-      // 只取 overall top 50 + 其他子分类 top 20(与旧 HTML 抓取口径一致,避免数据量过大)
-      const maxRank = category === 'overall' ? 50 : 20
-      if (rank > maxRank) continue
-      let publishedAt = new Date()
-      if (row.leaderboard_publish_date) {
-        const parsed = new Date(row.leaderboard_publish_date)
-        if (!Number.isNaN(parsed.getTime())) {
-          publishedAt = parsed
-          publishDates.add(row.leaderboard_publish_date)
+    const now = new Date()
+    rows.forEach((cells) => {
+      // 第 0 列是 "Provider+Model" 拼接(如 "Anthropicclaude-fable-5")
+      const rawName = (cells[0] ?? '').trim()
+      if (!rawName || rawName === 'Model') return
+      // 尝试分离 provider 和 model:找已知 provider 前缀
+      const knownProviders = [
+        'Anthropic',
+        'OpenAI',
+        'Google',
+        'Meta',
+        'Mistral',
+        'Cohere',
+        'Alibaba',
+        'Baidu',
+        'Tencent',
+        'ByteDance',
+        'DeepSeek',
+        'Nvidia',
+        'Microsoft',
+        'Amazon',
+        'Apple',
+        'Samsung',
+        'xAI',
+        'Perplexity',
+        'Reka',
+        'Zhipu',
+        'Minimax',
+        'Baichuan',
+        'Yi',
+        '01-AI',
+        'HuggingFace',
+        'Together',
+        'Anyscale',
+        'Saama',
+        'Nomic',
+        'Databricks',
+      ]
+      let provider: string | undefined
+      let modelName: string = rawName
+      for (const p of knownProviders) {
+        if (rawName.startsWith(p)) {
+          provider = p
+          modelName = rawName.slice(p.length)
+          break
         }
       }
-      entries.push({
-        leaderboard: 'lmsys',
-        category,
-        rank,
-        modelName: modelName.slice(0, 200),
-        provider: row.organization ?? undefined,
-        score: typeof row.rating === 'number' ? row.rating.toFixed(4) : undefined,
-        scores: {
-          rating: row.rating,
-          rating_lower: row.rating_lower,
-          rating_upper: row.rating_upper,
-          votes: row.vote_count,
-          license: row.license,
-          source: 'lmarena-leaderboard-dataset',
-        },
-        publishedAt,
-      })
-    }
+      // 如果没匹配到 provider,用首字母大写部分作 provider
+      if (!provider) {
+        const match = rawName.match(/^([A-Z][a-z]+)(.+)/)
+        if (match && match[1] && match[2]) {
+          provider = match[1]
+          modelName = match[2]
+        }
+      }
+      // 8 个子分类各取 rank(cells[1]-cells[8])
+      for (
+        let catIdx = 0;
+        catIdx < LMARENA_CATEGORIES.length && catIdx + 1 < cells.length;
+        catIdx++
+      ) {
+        const category = LMARENA_CATEGORIES[catIdx]
+        if (!category) continue
+        const rankStr = cells[catIdx + 1]?.trim() ?? ''
+        const rank = parseInt(rankStr.replace(/[^\d]/g, ''), 10)
+        if (!Number.isFinite(rank) || rank <= 0) continue
+        // 只取 overall top 50 + 其他子分类 top 20(避免数据量过大)
+        const maxRank = catIdx === 0 ? 50 : 20
+        if (rank > maxRank) continue
+        entries.push({
+          leaderboard: 'lmsys',
+          category,
+          rank,
+          modelName: modelName.slice(0, 200),
+          provider,
+          score: rankStr,
+          scores: { rank, source: 'lmarena-ai' },
+          publishedAt: now,
+        })
+      }
+    })
     logger.info(
-      `[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} dataset rows (publish date: ${[...publishDates].join(',') || 'unknown'})`,
+      `[ai-world-sync] LMArena fetched ${entries.length} entries from ${rows.length} rows`,
     )
     return entries
   } catch (err) {
@@ -1454,15 +1341,9 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
     return []
   }
   try {
-    // 2026-09-04 修复:后台任务无用户上下文,aiServiceFetch(null) 不带 Authorization →
-    // ai-service JWT 中间件 401("Authentication required"),OpenCompass 榜单自 jwt_auth 上线起静默失效。
-    const systemToken = await getSystemAccessToken()
     const res = await aiServiceFetch(null, '/api/opencompass/scrape', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${systemToken}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
       signal: AbortSignal.timeout(180000), // Playwright 渲染 OpenCompass 司南 SPA 较慢,180s 超时
     })
@@ -1578,44 +1459,26 @@ async function fetchOpenCompass(): Promise<LeaderboardEntry[]> {
  * 多分类(2026-07-22 立):基于 tags + 模型名特征拆 6 类(overall/chat/coding/instruction/reasoning/open-source)
  */
 async function fetchHFOpenLLM(): Promise<LeaderboardEntry[]> {
-  // 2026-09-04:huggingface.co 在本部署网络常不可达(HTTP 000,直连超时),新增 hf-mirror.com
-  // (HF 国内镜像,数据与主站一致)作回退;主站可达时仍优先主站。
-  const hfUrls = [
-    'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation',
-    'https://hf-mirror.com/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation',
-  ]
   try {
-    let data: Array<{
+    const url =
+      'https://huggingface.co/api/models?sort=downloads&direction=-1&limit=100&full=true&filter=text-generation'
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
+      30000,
+    )
+    if (!res.ok) {
+      logger.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status}, skip`)
+      return []
+    }
+    const data = (await res.json()) as Array<{
       id: string
       downloads: number
       likes: number
       pipeline_tag?: string
       lastModified?: string
       tags?: string[]
-    }> | undefined
-    for (const url of hfUrls) {
-      const host = new URL(url).host
-      try {
-        const res = await fetchWithTimeout(
-          url,
-          { headers: { 'User-Agent': LEADERBOARD_USER_AGENT, Accept: 'application/json' } },
-          30000,
-        )
-        if (res.ok) {
-          data = (await res.json()) as NonNullable<typeof data>
-          break
-        }
-        logger.warn(`[ai-world-sync] HF Hub models API HTTP ${res.status} from ${host}, try next`)
-      } catch (err) {
-        logger.warn(`[ai-world-sync] HF Hub models API fetch failed from ${host}:`, {
-          error: err instanceof Error ? err.message : err,
-        })
-      }
-    }
-    if (!data) {
-      logger.warn('[ai-world-sync] HF Hub models API all sources failed, skip')
-      return []
-    }
+    }>
     const now = new Date()
     const filtered = data.filter((m) => m.id && typeof m.downloads === 'number')
     const baseEntry = (

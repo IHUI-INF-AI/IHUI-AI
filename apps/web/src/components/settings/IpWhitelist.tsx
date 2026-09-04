@@ -31,7 +31,7 @@ export function IpWhitelist() {
     setLoading(true)
     try {
       const res = await fetchApi<string[]>('/api/user/ip-whitelist')
-      if (res.success && res.data) setIps(res.data)
+      if (res.success && res.data) setIps(Array.isArray(res.data) ? res.data : [])
     } catch {
       /* ignore */
     } finally {

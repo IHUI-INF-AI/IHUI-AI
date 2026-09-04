@@ -546,8 +546,7 @@ export async function markWebhookTriggerProcessed(
  * 注:drizzle postgres-js 的 delete 不返回 rowCount,用 returning().length 取删除行数。
  */
 export async function cleanupOldWebhookTriggers(daysToKeep: number = 30): Promise<number> {
-  // postgres.js 原生参数不接受 Date 对象,必须转 ISO 字符串(否则 ERR_INVALID_ARG_TYPE)
-  const cutoff = new Date(Date.now() - daysToKeep * 86400_000).toISOString()
+  const cutoff = new Date(Date.now() - daysToKeep * 86400_000)
   const deleted = await db
     .delete(registryWebhookTriggers)
     .where(sql`${registryWebhookTriggers.receivedAt} < ${cutoff}`)
@@ -559,8 +558,7 @@ export async function cleanupOldWebhookTriggers(daysToKeep: number = 30): Promis
  * 清理过期的同步日志(保留最近 N 天)。
  */
 export async function cleanupOldSyncLogs(daysToKeep: number = 90): Promise<number> {
-  // postgres.js 原生参数不接受 Date 对象,必须转 ISO 字符串(否则 ERR_INVALID_ARG_TYPE)
-  const cutoff = new Date(Date.now() - daysToKeep * 86400_000).toISOString()
+  const cutoff = new Date(Date.now() - daysToKeep * 86400_000)
   const deleted = await db
     .delete(registrySyncLogs)
     .where(sql`${registrySyncLogs.startedAt} < ${cutoff}`)

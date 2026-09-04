@@ -2312,18 +2312,13 @@ export async function postToolResult(
   result: string | null,
   error: string | null,
 ): Promise<void> {
-  // 2026-09-04 修复:Next.js(webpack)不注入 import.meta.env,原实现恒回落
-  // localhost:8803,桌面端/生产 web 的工具结果回传全部打不到 ai-service。
-  // 注意:webpack 只对 `process.env.NEXT_PUBLIC_X` 直接点号访问做构建期内联,
-  // 把 process.env 赋给变量再取属性不会被替换,必须写成直接点号访问。
-  // import.meta.env 保留给 Vite 系构建(Taro/extension)。
-  const viteEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env
-  const nextUrl =
-    typeof process !== 'undefined' && process.env
-      ? process.env.NEXT_PUBLIC_AI_SERVICE_URL
+  // import.meta.env 是 Vite/Next.js 注入的环境变量,非 Vite 环境(如 RN/Node)无此对象。
+  // 用 unknown 中间断言规避 ImportMeta 类型与 Record 不兼容(TS2352)。
+  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env
+  const baseUrl =
+    env && typeof env.NEXT_PUBLIC_AI_SERVICE_URL === 'string'
+      ? env.NEXT_PUBLIC_AI_SERVICE_URL
       : undefined
-  const rawUrl = viteEnv?.NEXT_PUBLIC_AI_SERVICE_URL ?? nextUrl
-  const baseUrl = typeof rawUrl === 'string' && rawUrl ? rawUrl : undefined
   const aiServiceUrl = baseUrl || 'http://localhost:8803'
   // 2026-08-06 修复:原实现忽略 fetch 结果,失败时既不抛错也不重试,
   // ai-service 工具循环等待的 asyncio.Event 永远不唤醒 → 前端工具代理流程挂死。

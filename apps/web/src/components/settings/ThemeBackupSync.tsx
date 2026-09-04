@@ -40,6 +40,11 @@ export function ThemeBackupSync() {
   const locale = useLocale()
   const fileRef = React.useRef<HTMLInputElement>(null)
   const [transitioning, setTransitioning] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const buildConfig = (): ThemeConfig => ({
     theme: theme ?? 'system',
@@ -118,7 +123,7 @@ export function ThemeBackupSync() {
           {(['light', 'dark', 'system'] as const).map((th) => (
             <Button
               key={th}
-              variant={theme === th ? 'default' : 'outline'}
+              variant={mounted && theme === th ? 'default' : 'outline'}
               size="sm"
               disabled={transitioning}
               onClick={() => handleQuickSwitch(th)}
