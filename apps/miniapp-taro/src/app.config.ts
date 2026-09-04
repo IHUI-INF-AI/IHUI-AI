@@ -110,6 +110,9 @@ export default defineAppConfig({
     'pages/wallet/withdrawal/index',
     'pages/wallet/commission/index',
     'pages/subscription/contracts/index',
+    'pages/search/index',
+    'pages/check-in/index',
+    'pages/task-center/index',
   ],
   subPackages: [
     {
