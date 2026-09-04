@@ -115,7 +115,7 @@ export function buildFeedForLang(lang: Lang) {
     feed_url: `${SITE_URL}/feed.json/${lang}.json`,
     description: meta.description,
     language: LANGUAGE_MAP[lang],
-    favicon: `${SITE_URL}/icon.svg`,
+    favicon: `${SITE_URL}/images/logo.png`,
     authors: [{ name: meta.author, url: `${SITE_URL}/about` }],
     hubs: [
       {
