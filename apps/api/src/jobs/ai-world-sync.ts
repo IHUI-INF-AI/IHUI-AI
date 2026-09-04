@@ -25,7 +25,7 @@ import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
 import { parquetReadObjects } from 'hyparquet'
 import { ProxyAgent } from 'undici'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, gte, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
   aiWorldItems,
@@ -923,8 +923,49 @@ async function getCategoryIdBySlug(slug: string): Promise<string | null> {
 // 保留导出供未来扩展使用(如按分类聚合 items)
 export { getCategoryIdBySlug }
 
-/** 跨源去重缓存(同 title 在同一轮 sync 内只保留首个) */
+/**
+ * 标题归一化去重键。
+ * 跨源转载常因全/半角、空格/标点/零宽字符差异被误判为不同标题,这里归一化后收敛;
+ * 键按 kind 命名空间隔离,避免不同栏目(title 恰巧相同)被误判为重复。
+ */
+function dedupKeyOf(kind: string, title: string): string {
+  const norm = title
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\u200c\u200b\u2060\ufeff]/g, '') // 去零宽连接符/零宽空格/BOM
+    .replace(/[^\p{L}\p{N}]+/gu, '') // 去标点符号,仅保留字母与数字(含中文)
+    .slice(0, 120)
+  return `${kind}::${norm}`
+}
+
+/**
+ * 跨源去重缓存(以 `kind::归一化标题` 为键,同键本轮只入库一次)。
+ * 每轮开始时用数据库近 N 天已入库条目标题预填充,实现跨轮、跨源转载收敛去重。
+ */
 const seenTitlesInRound = new Set<string>()
+
+/** 去重回看窗口:近 10 天内已入库的条目标题参与跨轮去重 */
+const DEDUP_LOOKBACK_DAYS = 10
+
+/** 预填充去重缓存:读取近 N 天已入库条目标题,加固跨轮跨源去重 */
+async function seedSeenTitlesFromDb(): Promise<void> {
+  const since = new Date(Date.now() - DEDUP_LOOKBACK_DAYS * 24 * 3600 * 1000)
+  const rows = await db
+    .select({ kind: aiWorldItems.kind, title: aiWorldItems.title })
+    .from(aiWorldItems)
+    .where(gte(aiWorldItems.publishedAt, since))
+  let added = 0
+  for (const r of rows) {
+    const k = dedupKeyOf(r.kind, r.title)
+    if (k && !seenTitlesInRound.has(k)) {
+      seenTitlesInRound.add(k)
+      added++
+    }
+  }
+  logger.info(
+    `[ai-world-sync] seeded ${added} dedup keys from last ${DEDUP_LOOKBACK_DAYS}d items`,
+  )
+}
 
 /** upsert 结果:区分新增/更新/去重跳过/错误,便于日志准确统计 */
 type UpsertResult = 'inserted' | 'updated' | 'skipped' | 'error'
@@ -932,16 +973,20 @@ type UpsertResult = 'inserted' | 'updated' | 'skipped' | 'error'
 /** upsert 单个 item(kind + sourceUrl 唯一) */
 async function upsertItem(item: FetchedItem): Promise<UpsertResult> {
   if (!item.sourceUrl) return 'error'
-  // 跨源去重(同 title 视为重复,避免不同源转载同一资讯)
-  const titleKey = item.title.trim().toLowerCase().slice(0, 200)
-  if (titleKey && seenTitlesInRound.has(titleKey)) return 'skipped'
-  if (titleKey) seenTitlesInRound.add(titleKey)
 
+  const dedupKey = dedupKeyOf(item.kind, item.title)
+
+  // 先按唯一键(kind + sourceUrl)查已存在条目:命中则走更新(保持信息新鲜);
+  // 未命中且标题已在本轮/近期出现过,则视为跨源转载,去重跳过。
   const existing = await db
     .select({ id: aiWorldItems.id, summary: aiWorldItems.summary })
     .from(aiWorldItems)
     .where(and(eq(aiWorldItems.kind, item.kind), eq(aiWorldItems.sourceUrl, item.sourceUrl)))
     .limit(1)
+
+  if (dedupKey && seenTitlesInRound.has(dedupKey) && existing.length === 0) return 'skipped'
+  if (dedupKey) seenTitlesInRound.add(dedupKey)
+
   // 2026-09-04 优化:仅新条目或无摘要的旧条目才调 LLM 改写;已有摘要的旧条目复用原摘要。
   // 否则每轮对全部已入库条目重复调用 LLM(条目串行处理,~25s/条),一轮 cron 会拖到数小时。
   const [summary, categoryId] = await Promise.all([
@@ -1073,9 +1118,11 @@ async function syncOneSourceWithRetry(
 
 /** 同步所有源(分阶段并行 + 串行混合,GitHub 串行避免 rate limit) */
 export async function syncAllSources(): Promise<SyncSourceResult[]> {
-  // 每轮开始清空去重缓存 + 重置 LLM 日志标志
+  // 每轮开始清空去重缓存 + 重置 LLM 日志标志,并以近 10 天已入库条目标题预填充,
+  // 使跨轮、跨源转载也能收敛去重。
   seenTitlesInRound.clear()
   resetLlmErrorFlag()
+  await seedSeenTitlesFromDb()
   // 预热分类缓存
   await ensureCategories()
 
