@@ -76,6 +76,8 @@ const ALLOWED_FILES = new Set([
   '__gate_result.txt',
   // 既有跟踪脚本(chat 消息 key 校验,git 跟踪保证合法)
   'check-chat-keys.js',
+  // 2026-09-04 显式审批:本地一键启动脚本(origin/main afc3255ebd 已入库跟踪)
+  'start-all.bat',
   // 测试临时产物(Pytest quick fail 日志,后台进程持有)
   'tmp-qfr-err.log',
   'tmp-qfr-out.log',
@@ -107,6 +109,9 @@ const ALLOWED_HIDDEN_FILES = new Set([
   '.check-api-routes-ignore.json',
   '.dockerignore',
   '.editorconfig',
+  // 2026-09-04 显式审批:git commit -F 消息临时文件(PowerShell 无 heredoc,
+  // 中文多行消息只能走文件;commit 完成后立即删除,不入库)
+  '.git-commit-msg-tmp.txt',
   '.env.act',
   '.env.example',
   '.env.production.example',
