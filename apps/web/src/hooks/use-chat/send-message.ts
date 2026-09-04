@@ -198,6 +198,8 @@ export function createSendMessage(
         }
         slashCid = createRes.data.conversation.id
         store.setConversationId(slashCid)
+        // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区
+        useAiPanelStore.getState().bindWorkspaceToConversation(slashCid)
         const sp = new URLSearchParams(window.location.search)
         sp.set('conversationId', slashCid)
         router.replace(`/chat?${sp.toString()}`, { scroll: false })
@@ -267,6 +269,9 @@ export function createSendMessage(
         }),
       })
       store.setConversationId(conversationId)
+      // 工作区按会话隔离(2026-09-04):新会话挂上当前待绑定工作区,
+      // 必须先于 ai-side-panel 的换装 effect 执行,否则会被"未绑定→解绑"逻辑清掉
+      useAiPanelStore.getState().bindWorkspaceToConversation(conversationId)
       const sp = new URLSearchParams(window.location.search)
       sp.set('conversationId', conversationId)
       router.replace(`/chat?${sp.toString()}`, { scroll: false })
@@ -847,6 +852,9 @@ export async function branchMessage(messageId: string): Promise<boolean> {
     const newId = res.data.conversation.id
     // 切换到新分支会话(loadHistory effect 会加载新会话消息)
     store.setConversationId(newId)
+    // 工作区按会话隔离(2026-09-04):分支会话继承源会话的工作区绑定
+    const srcWs = useAiPanelStore.getState().conversationWorkspaces[conversationId] ?? null
+    useAiPanelStore.getState().setActiveWorkspace(srcWs)
     // 打开面板(若当前折叠/关闭,让用户看到新分支会话)
     useAiPanelStore.getState().openPanel()
     // 刷新会话列表,让新分支出现在历史里
