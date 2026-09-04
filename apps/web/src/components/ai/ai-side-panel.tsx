@@ -542,6 +542,27 @@ export function AISidePanel() {
     // messages 同步 effect 处理缓存更新)
   }, [storeConversationId, setConversationId, open]) // eslint-disable-line react-hooks/exhaustive-deps -- hasMoreHistory 故意不放入依赖,避免其变化触发 loadHistory 重载
 
+  // 工作区按对话隔离(2026-09-04 立,响应"工作区设置完以后全部对话都是这个工作区"反馈):
+  // 切换会话时把 activeWorkspace 换装为该会话绑定的工作区:
+  // - 映射中已有绑定(含显式 null)→ 应用该值
+  // - 从未绑定(老会话)→ 解绑,避免上一会话的工作区泄漏到本会话
+  // - 无会话(新对话,conversationId=null)→ 不动,保留当前待绑定工作区
+  // 绑定写回映射由 ai-panel store 的 setActiveWorkspace / bindWorkspaceToConversation 负责。
+  // 注意:换装期间保留浏览器 handle 与 context 缓存(不清理),切回原会话立即可用。
+  React.useEffect(() => {
+    const panel = useAiPanelStore.getState()
+    if (!storeConversationId) return
+    const map = panel.conversationWorkspaces
+    if (Object.prototype.hasOwnProperty.call(map, storeConversationId)) {
+      const mapped = map[storeConversationId]
+      if (panel.activeWorkspace?.path !== mapped?.path) {
+        panel.setActiveWorkspace(mapped ?? null)
+      }
+    } else if (panel.activeWorkspace) {
+      panel.setActiveWorkspace(null)
+    }
+  }, [storeConversationId])
+
   // #11 LRU 缓存同步(2026-07-25 立):
   // messages 变化时(用户发送新消息、收到 AI 回复、流式增量、WebSocket 多端同步等)
   // 同步更新当前会话缓存的 messages + 分页状态,确保下次切回时数据是最新的。

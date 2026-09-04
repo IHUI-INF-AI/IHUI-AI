@@ -6,6 +6,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 import { createPersistConfig } from './persist-helpers'
+import { useChatStore } from './chat'
 
 /** AI 侧边 docked 面板默认宽度
  * - 2026-08-02 立(用户规则"默认宽度设置为380"):
@@ -43,6 +44,15 @@ interface AiPanelState {
   /** 当前绑定的本地工作区(持久化,刷新后保留) */
   activeWorkspace: ActiveWorkspace | null
   /**
+   * 工作区按对话隔离(2026-09-04 立,响应"工作区没有根据对话隔离"反馈):
+   * conversationId → 该对话绑定的工作区。切换会话时由 ai-side-panel 的同步 effect
+   * 换装 activeWorkspace;绑定/解绑时 setActiveWorkspace 内部同步写回映射。
+   * - key 存在值为 null = 该对话显式解绑过工作区
+   * - key 不存在 = 从未绑定(老会话切换时视为解绑)
+   * 持久化,刷新后保留绑定关系。
+   */
+  conversationWorkspaces: Record<string, ActiveWorkspace | null>
+  /**
    * 待确认权限的工作区(2026-07-25 立,深度对标 Codex approval setup):
    * 用户在 WorkspaceSelector 绑定新工作区但该工作区尚未配置权限(perm=null)时,
    * 写入此字段。由 ai-side-panel 监听并弹 WorkspacePermissionDialog,
@@ -77,6 +87,8 @@ interface AiPanelState {
   setWidth: (w: number) => void
   setResizing: (v: boolean) => void
   setActiveWorkspace: (ws: ActiveWorkspace | null) => void
+  /** 把当前 activeWorkspace(可为 null)绑定到指定会话(新建会话/分支时调用) */
+  bindWorkspaceToConversation: (conversationId: string) => void
   setPendingPermissionSetup: (
     v: { path: string; name: string; techStack?: string[] } | null,
   ) => void
@@ -103,6 +115,7 @@ export const useAiPanelStore = create<AiPanelState>()(
       width: AI_PANEL_DEFAULT_WIDTH,
       isResizing: false,
       activeWorkspace: null,
+      conversationWorkspaces: {},
       pendingPermissionSetup: null,
       pendingFullAccess: false,
       pendingPermissionMode: null,
@@ -120,7 +133,27 @@ export const useAiPanelStore = create<AiPanelState>()(
           width: Math.min(AI_PANEL_MAX_WIDTH, Math.max(AI_PANEL_MIN_WIDTH, w)),
         }),
       setResizing: (v: boolean) => set({ isResizing: v }),
-      setActiveWorkspace: (ws) => set({ activeWorkspace: ws }),
+      setActiveWorkspace: (ws) =>
+        set((s) => {
+          // 工作区按对话隔离(2026-09-04):当前有会话时,绑定/解绑同步写回映射,
+          // 保证切换会话后各对话恢复各自的工作区;无会话(新对话)仅更新当前值,
+          // 待 send-message 创建会话后由 bindWorkspaceToConversation 补挂到该会话。
+          const cid = useChatStore.getState().conversationId
+          if (cid) {
+            return {
+              activeWorkspace: ws,
+              conversationWorkspaces: { ...s.conversationWorkspaces, [cid]: ws },
+            }
+          }
+          return { activeWorkspace: ws }
+        }),
+      bindWorkspaceToConversation: (conversationId) =>
+        set((s) => ({
+          conversationWorkspaces: {
+            ...s.conversationWorkspaces,
+            [conversationId]: s.activeWorkspace,
+          },
+        })),
       setPendingPermissionSetup: (v) => set({ pendingPermissionSetup: v }),
       setPendingFullAccess: (v: boolean) => set({ pendingFullAccess: v }),
       setPendingPermissionMode: (v) => set({ pendingPermissionMode: v }),
@@ -134,6 +167,8 @@ export const useAiPanelStore = create<AiPanelState>()(
       ...createPersistConfig<AiPanelState>('ihui-ai-panel', (s) => ({
         width: s.width,
         activeWorkspace: s.activeWorkspace,
+        // 会话级工作区映射持久化(2026-09-04):刷新后各对话绑定关系保留
+        conversationWorkspaces: s.conversationWorkspaces,
       })),
       // 强制 open=true:rehydrate 时即使 localStorage 残留旧版本 open=false 也覆盖为 true。
       // 保证"AI 对话框默认弹出"规则在所有刷新场景下生效。
