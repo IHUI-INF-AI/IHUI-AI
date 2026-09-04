@@ -9,10 +9,11 @@
 """
 
 import logging
-from typing import Any, Awaitable, Callable, Optional, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
 
 import jwt
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse, Response
 
@@ -63,10 +64,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                status_code=401,
-                content={"code": 401, "message": "Authentication required"},
-            )
+            # 前端 Next.js 代理到本服务时,内存 token 为空可能仅携带 cookie。
+            # 优先读 Authorization: Bearer,兜底读 HttpOnly cookie 的 auth_token。
+            cookie_token = request.cookies.get("auth_token")
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+            else:
+                return JSONResponse(
+                    status_code=401,
+                    content={"code": 401, "message": "Authentication required"},
+                )
 
         token = auth_header[7:].strip()
         payload = self._verify_token(token)
@@ -94,7 +101,7 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     @staticmethod
-    def _verify_token(token: str) -> Optional[dict[str, Any]]:
+    def _verify_token(token: str) -> dict[str, Any] | None:
         try:
             payload = jwt.decode(
                 token,
@@ -124,10 +131,23 @@ async def get_current_user_id(request: Request) -> str:
     return cast(str, user_id)
 
 
-def verify_access_token(token: str) -> Optional[dict[str, Any]]:
+def get_current_user_id_sync(request: Request) -> str:
+    """同步版：供非依赖项上下文(内部 helper)直接取 user_id。
+
+    与 get_current_user_id 读同一来源(request.state.user_id)，但非 async，
+    可在同步函数内安全调用，避免误用协程返回值。
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return cast(str, user_id)
+
+
+def verify_access_token(token: str) -> dict[str, Any] | None:
     """模块级 access token 校验(供 WebSocket 握手等非 HTTP 场景手动调用)。
 
-    - 与 JWTAuthMiddleware._verify_token 同规则:HS256 + issuer + type=access(拒绝 refresh/challenge)。
+    - 与 JWTAuthMiddleware._verify_token 同规则:
+      HS256 + issuer + type=access(拒绝 refresh/challenge)。
     - 返回 payload;无效/过期返回 None。
     """
     if not settings.jwt_secret:
