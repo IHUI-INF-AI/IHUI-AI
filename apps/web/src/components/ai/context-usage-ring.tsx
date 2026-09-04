@@ -5,7 +5,13 @@
 'use client'
 
 import * as React from 'react'
-import { Loader2, Minimize2, CheckCircle2, AlertCircle } from 'lucide-react'
+import {
+  Loader2,
+  Minimize2,
+  CheckCircle2,
+  AlertCircle,
+  Scissors,
+} from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
@@ -13,7 +19,7 @@ import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
 import { useChatStore } from '@/stores/chat'
-import { compressConversation } from '@ihui/api-client'
+import { compressConversation, compactConversation, getMessages } from '@ihui/api-client'
 import { getModelContextCapacity, formatTokenCount } from '@/lib/model-context-capacity'
 import { estimateChatMessagesTokens } from '@/lib/token-estimate'
 
@@ -228,6 +234,9 @@ interface ContextUsageRingProps {
 
 export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRingProps) {
   const t = useTranslations('chat.contextUsage')
+  // 压缩会话历史(/compact)文案复用 chat.compaction 区块 —— 与原工具栏剪刀按钮
+  // (2026-09-04 迁入本弹窗)共用同一组 key,五语种齐全,不新增 i18n 负担
+  const tc = useTranslations('chat.compaction')
   const messages = useChatStore((s) => s.messages)
   const conversationId = useChatStore((s) => s.conversationId)
 
@@ -244,6 +253,61 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     compressedChars: number
   } | null>(null)
   const [compressError, setCompressError] = React.useState<string | null>(null)
+
+  // ── 压缩会话历史(2026-09-04 从工具栏剪刀按钮完整迁入) ──────────────────────
+  // 语义:立即压缩当前会话历史(对标 CLI /compact),与 /chat/stream 自动压缩同一套
+  // 管线:LLM 语义摘要 → 归档落库 → replaceMessages 持久化,成功后刷新消息列表。
+  // 行为契约(与 e2e chat-manual-compact.spec.ts 对齐,data-testid 保持不变):
+  // - 请求进行中 loading + 禁用;compressed=true → 成功 toast + 重新拉取当前会话消息
+  //   (仅仍在原会话时写回 store,防竞态)
+  // - reason=too_few_messages / incompressible → info toast
+  // - 404/其他错误 → 统一错误 toast(Toaster 自动中文化)
+  const [compacting, setCompacting] = React.useState(false)
+  const handleCompact = React.useCallback(async () => {
+    const id = useChatStore.getState().conversationId
+    if (!id || compacting || isStreaming) return
+    setCompacting(true)
+    try {
+      const res = await compactConversation(id)
+      if (res.success && res.data) {
+        if (res.data.compressed) {
+          toast.success(
+            tc('compactSuccess', {
+              before: res.data.originalTokens,
+              after: res.data.compressedTokens,
+              saved: Math.max(0, res.data.originalTokens - res.data.compressedTokens),
+            }),
+          )
+          const result = await getMessages(id, { pageSize: 100 })
+          if (result.success && result.data && useChatStore.getState().conversationId === id) {
+            useChatStore.getState().setMessages(
+              result.data.messages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                createdAt: new Date(m.createdAt).getTime(),
+                model: '',
+                reasoning: m.reasoning,
+              })),
+            )
+          }
+        } else if (res.data.reason === 'too_few_messages') {
+          toast.info(tc('compactTooFew'))
+        } else {
+          toast.info(tc('compactIncompressible'))
+        }
+      } else {
+        toast.error(tc('compactFailed'), {
+          description: res.success ? undefined : res.error,
+        })
+      }
+    } catch (e) {
+      const msg = (e as Error).message || tc('compactFailed')
+      toast.error(tc('compactFailed'), { description: msg })
+    } finally {
+      setCompacting(false)
+    }
+  }, [compacting, isStreaming, tc])
 
   const handleCompress = React.useCallback(
     async (targetChars: 200000 | 1000000) => {
@@ -292,6 +356,8 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
   })
 
   const compressDisabled = !conversationId || compressing || isStreaming
+  // 压缩会话历史(/compact)禁用态:与原剪刀按钮 disabled 逻辑逐字一致
+  const compactDisabled = !conversationId || compacting || isStreaming
 
   // 自定义弹层状态(2026-08-31:移除 Popover wrapper,改为 createPortal)
   const [isOpen, setIsOpen] = React.useState(false)
@@ -400,6 +466,9 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
+          // e2e 锚点:压缩入口已从工具栏剪刀按钮迁入本弹窗(2026-09-04),
+          // 测试先点开本 trigger 再操作弹窗内 compact-context-button
+          data-testid="context-usage-trigger"
           // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
           // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
           // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
@@ -449,15 +518,57 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
               </div>
             </div>
 
-            {/* 压缩区 */}
+            {/* ── 压缩区(2026-09-04 整合:工具栏剪刀按钮功能完整迁入) ──────────
+                ① 压缩会话历史(/compact):立即压缩当前会话,替换消息列表,不可逆 ──
+                ② 生成压缩存档(/compress):LLM 生成压缩文本存 compressedContext 字段,
+                   不改动会话消息,作为后续对话的上下文摘要 */}
             <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">
+              {/* ① 压缩会话历史(立即生效):
+                  按钮恒渲染、无会话时仅禁用 —— 与原剪刀按钮行为一致,
+                  e2e chat-manual-compact.spec.ts 依赖 disabled 态 + aria-label 契约 */}
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
+                <Scissors className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{tc('compactButton')}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCompact}
+                data-testid="compact-context-button"
+                disabled={compactDisabled}
+                aria-label={compacting ? tc('compacting') : tc('compactButton')}
+                className={cn(
+                  'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] font-medium transition-colors',
+                  'hover:bg-accent hover:text-accent-foreground',
+                  'disabled:cursor-not-allowed disabled:opacity-50',
+                  // 2026-07-19 中文 + 图标垂直对齐
+                  '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+                )}
+              >
+                {compacting ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Scissors className="h-3 w-3" />
+                )}
+                <span>{compacting ? tc('compacting') : tc('compactButton')}</span>
+              </button>
+              {!conversationId && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">{t('noConversation')}</p>
+              )}
+
+              {/* 分隔线:① 立即压缩 vs ② 压缩存档,两种机制视觉隔离 */}
+              <div className="my-2.5 flex items-center gap-2" role="separator">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[10px] text-muted-foreground">↓</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* ② 生成压缩存档(不改动会话消息):无会话时整个隐藏,
+                  由 ① 的 noConversation 提示统一承担,避免同屏重复提示 */}
               <div className="mb-2 flex items-center gap-1.5 text-xs font-medium">
                 <Minimize2 className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>{t('compressTitle')}</span>
               </div>
-              {!conversationId ? (
-                <p className="text-[11px] text-muted-foreground">{t('noConversation')}</p>
-              ) : (
+              {conversationId && (
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"

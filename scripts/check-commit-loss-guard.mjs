@@ -511,10 +511,21 @@ function main() {
     // 且用 execSync 直调(不经 shell)避免 cmd 破坏 --format="%(xxx)" 中的 %.
     const backedTrees = new Set()
     {
+      // 2026-09-04 加固:改用 execSync argv 数组直调(shell:false,不经 cmd).
+      // 原字符串版经 shell:true 时 cmd 会把 %(objectname) 当环境变量展开、
+      // 把双引号原样传给 git,导致 refOut 为空/格式错乱;虽然 backedUp 集合
+      // 兜底使主路径未爆,但并行高频 stash 场景下该兜底可能失效,
+      // 必须从根上消除 shell 依赖.
       let refOut = ''
       try {
         refOut = execSync(
-          'git for-each-ref refs/tags/lost-commit refs/tags/backup --format="%(objectname) %(*objectname)"',
+          'git',
+          [
+            'for-each-ref',
+            'refs/tags/lost-commit',
+            'refs/tags/backup',
+            '--format=%(objectname)%09%(*objectname)',
+          ],
           { encoding: 'utf8', timeout: LOCAL_GIT_TIMEOUT_MS * 10 },
         )
       } catch {
@@ -522,14 +533,17 @@ function main() {
       }
       const hashes = new Set(backedUp)
       for (const line of refOut.split('\n')) {
-        const cols = line.trim().split(/\s+/)
-        // annotated tag: %(*objectname)=peeled commit; lightweight: 第 1 列即 commit
+        const cols = line.trim().split('\t')
+        // annotated tag: 两列都有 → 第 2 列 peeled commit;
+        // lightweight: 仅第 1 列(第 2 列为空串)→ 即 commit 本身.
+        // 注意:必须用 || 而非 ??——peeled 空串在轻量 tag 下是常态.
         const commitHash = cols[1] || cols[0]
         if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
       }
       const treeInput = [...hashes].map((h) => `${h}^{tree}`).join('\n') + '\n'
       try {
-        const out = execSync('git cat-file --batch-check="%(objectname)"', {
+        // 2026-09-04 加固:argv 数组直调,--batch-check=<fmt> 用等号形式免引号
+        const out = execSync('git', ['cat-file', '--batch-check=%(objectname)'], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe'],
           input: treeInput,
@@ -574,7 +588,8 @@ function main() {
       const treeInput = survivors.map((h) => `${h}^{tree}`).join('\n') + '\n'
       const treeByCommit = new Map()
       try {
-        const out = execSync('git cat-file --batch-check="%(objectname)"', {
+        // 2026-09-04 加固:argv 数组直调,消除 cmd 对 %(objectname) 的环境变量展开
+        const out = execSync('git', ['cat-file', '--batch-check=%(objectname)'], {
           encoding: 'utf8',
           stdio: ['pipe', 'pipe', 'pipe'],
           input: treeInput,

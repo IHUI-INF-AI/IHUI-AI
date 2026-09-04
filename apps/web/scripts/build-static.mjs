@@ -81,9 +81,7 @@ function restoreRuntimeRoutes() {
  * 路由文件(几 KB),复制成本可忽略,CI 与本地行为一致。
  */
 function moveDir(src, dest) {
-  // preserveTimestamps:必须保留原 mtime,否则构建后恢复的 cdn/uploads 时间戳变新,
-  // ensure-web-out.mjs 的源码 mtime 比对永远判定"需要重建"→ 桌面端每次打包前端全量重跑(2026-09-04)
-  cpSync(src, dest, { recursive: true, preserveTimestamps: true })
+  cpSync(src, dest, { recursive: true })
   rmSync(src, { recursive: true, force: true })
 }
 

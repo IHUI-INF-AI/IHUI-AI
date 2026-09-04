@@ -128,7 +128,7 @@ export default function RefundDetailPage() {
 
   if (error || !refund) {
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
         <Link
           href="/refund"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -144,7 +144,7 @@ export default function RefundDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
       <Link
         href="/refund"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

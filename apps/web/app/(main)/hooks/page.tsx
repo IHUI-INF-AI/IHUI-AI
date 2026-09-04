@@ -27,7 +27,7 @@ export const metadata: Metadata = {
  */
 export default function HooksPage() {
   return (
-    <div className="mx-auto w-full max-w-4xl py-2">
+    <div className="mx-auto w-full max-w-4xl px-4 py-2">
       <BackButton />
       <HooksManager />
     </div>

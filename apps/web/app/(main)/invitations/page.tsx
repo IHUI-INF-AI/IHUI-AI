@@ -103,7 +103,7 @@ export default function InvitationsPage() {
   const invitees = inviteesQ.data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
       <BackButton />
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">

@@ -96,7 +96,7 @@ function BuyConfirmContent() {
 
   if (!courseId)
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
         <button
           type="button"
           onClick={() => router.back()}
@@ -112,7 +112,7 @@ function BuyConfirmContent() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-5">
       <button
         type="button"
         onClick={() => router.back()}

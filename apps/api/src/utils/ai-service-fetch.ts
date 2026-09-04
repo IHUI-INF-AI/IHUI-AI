@@ -25,7 +25,6 @@ import {
   getTraceparentFromRequest,
   childTraceparent,
 } from './trace-context.js'
-import { getSystemAccessToken } from './system-access-token.js'
 
 export interface AiServiceFetchOptions extends Omit<RequestInit, 'headers'> {
   /** 额外 headers，会与 traceparent 头合并（traceparent / X-Trace-Id 优先级最高，不被覆盖）。 */
@@ -73,30 +72,14 @@ export async function aiServiceFetch(
     traceparent,
     'X-Trace-Id': traceId,
   }
-  // 透传鉴权凭证给 ai-service：
-  // - HTTP 场景:透传 request.headers.authorization
-  // - WS 场景:鉴权 token 位于 query 参数(query.token),它是 ws 专用票据(type='ws'),
-  //   ai-service 的 JWT 中间件只接受 type='access' 且 aud='ihui-ai-users' 的 token,
-  //   直接透传会被 401。改用内部系统 token 调用 ai-service;真实 userId 已通过
-  //   请求体(user_id)透传(见 ws-ai.ts),身份语义不丢失。
-  // - 后台任务(request 为 null)且调用方未显式提供凭证:注入系统 access token。
-  //   2026-09-04:ai-service jwt_auth 上线后,无凭证调用一律 401,后台任务的
-  //   LLM/上下文/OpenCompass 抓取等调用全部静默失效;系统 token 身份为
-  //   agent='system',与后台任务语义一致(此前仅 ai-feed-service 自行修复过)。
-  if (!userHeaders.Authorization && !userHeaders.authorization) {
-    if (request) {
-      const authHeader = request.headers.authorization
-      if (authHeader) {
-        headers.Authorization = authHeader
-      } else {
-        const queryToken = (request.query as Record<string, unknown> | undefined)?.token
-        if (typeof queryToken === 'string' && queryToken.length > 0) {
-          headers.Authorization = `Bearer ${await getSystemAccessToken()}`
-        }
-      }
-    } else {
-      headers.Authorization = `Bearer ${await getSystemAccessToken()}`
-    }
+  // 透传原始 Authorization 头（若 request 提供 且 init.headers 没显式给）
+  if (
+    request &&
+    !userHeaders.Authorization &&
+    !userHeaders.authorization &&
+    request.headers.authorization
+  ) {
+    headers.Authorization = request.headers.authorization
   }
   const url = `${config.AI_SERVICE_URL}${path}`
   return fetch(url, {

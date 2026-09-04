@@ -98,7 +98,7 @@ export default function SkillsMarketPage() {
   const unreadCount = notifications?.length ?? 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-5">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-5">
       <BackButton />
       <div className="space-y-1">
         <div className="flex items-center justify-between gap-3">

@@ -81,7 +81,7 @@ export default function CertificateDetailClient() {
   }, [data, onPrint, t])
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4 print:max-w-full print:space-y-0">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4 print:max-w-full print:px-0 print:space-y-0">
       <div className="flex items-center justify-between print:hidden">
         <Button asChild variant="ghost" size="sm">
           <Link href="/certificate/download">

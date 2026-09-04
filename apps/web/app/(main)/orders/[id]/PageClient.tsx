@@ -113,7 +113,7 @@ export default function OrderDetailPage() {
 
   if (error || !order) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div className="mx-auto max-w-2xl px-4 space-y-4">
         <Button
           variant="ghost"
           size="sm"
@@ -134,7 +134,7 @@ export default function OrderDetailPage() {
   const StatusIcon = sc.icon
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
+    <div className="mx-auto max-w-2xl px-4 space-y-4">
       <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4 shrink-0" />
         {tc('back')}

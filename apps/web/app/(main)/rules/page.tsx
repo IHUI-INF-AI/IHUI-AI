@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RulesPage() {
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold leading-tight">规则管理</h1>

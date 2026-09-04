@@ -30,7 +30,7 @@ export default function EarningsPage() {
   const { overview, byokTrend, referral, funnel, loading, error } = useEarnings()
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-4 py-6">
+    <Container maxWidth="xl" className="space-y-4 py-6">
       <BackButton />
       {/* Header */}
       <header className="flex items-start justify-between gap-3">

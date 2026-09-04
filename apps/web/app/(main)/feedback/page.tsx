@@ -82,7 +82,7 @@ export default function FeedbackPage() {
   const list = data ?? []
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="text-xl font-bold tracking-tight min-[768px]:text-2xl">{t('title')}</h1>

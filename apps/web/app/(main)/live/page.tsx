@@ -134,7 +134,7 @@ export default function LivePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <div className="flex items-center justify-between">
         <BackButton fallbackHref="/edu-ai" />
         <Link

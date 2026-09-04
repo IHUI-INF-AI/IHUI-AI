@@ -58,7 +58,7 @@ export default function RecruitmentPage() {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+      <div className="mx-auto max-w-2xl px-4 rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
         {(error as Error).message}
       </div>
     )
@@ -81,7 +81,7 @@ export default function RecruitmentPage() {
   const statColors = ['text-primary', 'text-emerald-600', 'text-amber-500']
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl px-4 space-y-4">
       <BackButton />
       <header className="space-y-3 text-center">
         <div className="inline-flex items-center gap-2 rounded-md bg-primary/10 px-3 py-1 text-sm text-primary">

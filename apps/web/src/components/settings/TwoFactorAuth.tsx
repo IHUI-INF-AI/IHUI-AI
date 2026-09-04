@@ -5,7 +5,6 @@
 'use client'
 
 import * as React from 'react'
-import Image from 'next/image'
 import { useTranslations } from 'next-intl'
 import { ShieldCheck, Loader2, Copy, Check } from 'lucide-react'
 import { toast } from '@/components/common'
@@ -21,7 +20,7 @@ interface TwoFactorStatus {
 
 interface SetupData {
   secret: string
-  qrCodeUrl: string
+  qrCode: string
   backupCodes: string[]
 }
 
@@ -190,12 +189,12 @@ export function TwoFactorAuth() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{t('twofa.scanQR')}</p>
             <div className="flex justify-center">
-              <Image
-                src={setup.qrCodeUrl}
+              {/* 后端 qrCode 为 data:image/png;base64 数据 URL,next/image 不支持,用原生 img */}
+              <img
+                src={setup.qrCode}
                 alt="2FA QR"
                 width={160}
                 height={160}
-                unoptimized
                 className="h-40 w-40 rounded-lg border"
               />
             </div>
@@ -238,7 +237,7 @@ export function TwoFactorAuth() {
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">{t('twofa.backupDesc')}</p>
             <div className="grid grid-cols-2 gap-2 rounded-lg border p-3">
-              {setup.backupCodes.map((c) => (
+              {(setup.backupCodes ?? []).map((c) => (
                 <code key={c} className="font-mono text-sm">
                   {c}
                 </code>

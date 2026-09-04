@@ -82,7 +82,7 @@ export default function ExamResultPage() {
 
   if (isLoading)
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
         <Link
           href={`/exam/${id}`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -99,7 +99,7 @@ export default function ExamResultPage() {
 
   if (error || !result)
     return (
-      <div className="mx-auto w-full max-w-3xl space-y-4">
+      <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
         <Link
           href={`/exam/${id}`}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -114,7 +114,7 @@ export default function ExamResultPage() {
     )
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
       <Link
         href={`/exam/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

@@ -28,9 +28,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || ''
 function detectApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
     if ('__TAURI_INTERNALS__' in window) {
-      // 2026-09-04 桌面端 SaaS 化:与 lib/api.ts 同语义——NEXT_PUBLIC_API_BASE_URL
-      // (桌面构建注入的线上地址)优先,未注入(本地三端联调)回退 127.0.0.1:8802。
-      return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
+      return 'http://127.0.0.1:8802'
     }
   }
   return API_BASE

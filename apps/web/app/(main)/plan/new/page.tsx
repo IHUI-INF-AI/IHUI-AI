@@ -35,7 +35,7 @@ export default function NewPlanPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="icon">
           <Link href="/plan" aria-label="返回计划列表">
