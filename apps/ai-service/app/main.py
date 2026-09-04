@@ -213,6 +213,19 @@ async def lifespan(app: FastAPI) -> Any:
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
+    # gpt-4o(openai 官方端点)兜底(2026-09-04 立):llm_gateway 的 auto-route 会把
+    # 复杂任务升级到 premium 池最低 tier 的 gpt-4o。openai 官方端点在本部署两个问题:
+    # 网络需走代理 + 当前 key 无余额(no credits),失败码为 LLM_ERROR → 命中
+    # FallbackRouter;切 stepfun/step-3.7-flash(实测稳定)保证复杂任务不整体失败。
+    # 注:不能用 agnes/gpt-4o 兜底——agnes 聚合端点对该 key 无 gpt-4o 通道
+    # ("No available channel for model gpt-4o under group default",实测 502)。
+    fallback_router.configure(
+        "gpt-4o",
+        {
+            "fallbacks": ["stepfun/step-3.7-flash"],
+            "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
+        },
+    )
     logger.info("[fallback_router] configured: stepfun -> agnes/gpt-4o")
 
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
