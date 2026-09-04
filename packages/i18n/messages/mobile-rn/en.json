@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG Knowledge",
     "subagents": "Subagents",
     "chatTools": "AI Chat / Tools",
-    "cart": "Cart"
+    "cart": "Cart",
+    "circleIndex": "Circles",
+    "topicList": "Topics"
   },
   "error": {
     "network": "Network error, please retry"
@@ -1230,7 +1232,8 @@
     "tagsPlaceholder": "Separate tags with commas",
     "submit": "Post",
     "required": "Content is required",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "pickTopic": "Choose a topic"
   },
   "profileEdit": {
     "avatarTip": "Tap to change avatar",
