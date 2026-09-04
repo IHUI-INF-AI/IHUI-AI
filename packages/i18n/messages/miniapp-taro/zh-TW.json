@@ -2118,6 +2118,24 @@
     "closingTimeLabel": "截止時間",
     "contactLabel": "聯絡方式"
   },
+  "announcementDetail": {
+    "empty": "公告不存在或已刪除",
+    "loadFailed": "載入公告詳情失敗"
+  },
+  "aiSkill": {
+    "title": "AI 技能",
+    "loadFailed": "技能清單載入失敗",
+    "retry": "重試",
+    "empty": "暫無技能",
+    "detail": "檢視詳情"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "技能詳情載入失敗",
+    "retry": "重試",
+    "prompt": "Prompt 模板",
+    "noPrompt": "無模板",
+    "source": "來源"
+  },
   "ranking": {
     "empty": "暫無排名資料",
     "unitCreation": "分",
