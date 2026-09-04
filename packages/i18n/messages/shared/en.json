@@ -640,7 +640,10 @@
     "themeDark": "Dark",
     "themeLight": "Light",
     "themeSystem": "Follow system",
-    "title": "Settings"
+    "title": "Settings",
+    "loginSecurity": {
+      "title": "Login Security"
+    }
   },
   "themeBackup": {
     "export": "Export",
@@ -679,7 +682,7 @@
       "saving": "Saving...",
       "saved": "Saved",
       "subtitle": "Manage your personal information",
-      "title": "Profile"
+      "title": "User Profile"
     },
     "public": {
       "follow": "Follow",
@@ -1762,5 +1765,39 @@
     "successToast": "BYOK configured successfully, platform commission enabled!",
     "next": "Next",
     "prev": "Back"
+  },
+  "admin": {
+    "behavior": {
+      "title": "User Behavior"
+    },
+    "edu": {
+      "title": "Education Management"
+    },
+    "learn": {
+      "title": "Learning Management"
+    }
+  },
+  "circles": {
+    "post": {
+      "title": "Post"
+    }
+  },
+  "knowledgeRag": {
+    "chunks": {
+      "title": "Knowledge Chunks"
+    },
+    "detail": {
+      "title": "Knowledge Detail"
+    }
+  },
+  "workflows": {
+    "detail": {
+      "title": "Workflow Detail"
+    }
+  },
+  "workspace": {
+    "detail": {
+      "title": "Workspace Detail"
+    }
   }
 }
