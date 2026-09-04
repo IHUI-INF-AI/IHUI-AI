@@ -110,7 +110,7 @@ function CourseCard({ item, width, onPress }: CourseCardProps): React.JSX.Elemen
     >
       {/* 缩略图区 + VIP 角标 */}
       <View style={styles.thumb}>
-        <DEFAULT_BOOK_ICON size={32} color={'#6b7280'} />
+        <DEFAULT_BOOK_ICON size={32} color={tokens.text.secondary} />
         {showVip ? (
           <View style={styles.vipBadge}>
             <Text style={styles.vipBadgeText}>VIP</Text>

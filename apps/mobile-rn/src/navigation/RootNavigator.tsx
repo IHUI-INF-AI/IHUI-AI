@@ -29,7 +29,7 @@ import { LivePlaybackScreen } from '../screens/LivePlaybackScreen'
 import { NoteScreen } from '../screens/NoteScreen'
 import { StudyRecordScreen } from '../screens/StudyRecordScreen'
 import { ExamScreen } from '../screens/ExamScreen'
-import { FinanceScreen } from '../screens/FinanceScreen'
+// Finance(2026-09-04 收敛):FinanceScreen 并入 WalletScreen,wrapper 与路由已删除
 import { WithdrawScreen } from '../screens/WithdrawScreen'
 import { BankCardScreen } from '../screens/BankCardScreen'
 import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
@@ -174,6 +174,15 @@ import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
 import { MoreCourseScreen } from '../screens/MoreCourseScreen'
 // H20 补齐:类型已声明但未注册的路由对应 Screen(此前 navigate 即崩)
 import { CourseDetailScreen } from '../screens/CourseDetailScreen'
+import { TeacherListScreen } from '../screens/TeacherListScreen'
+import { TeacherDetailScreen } from '../screens/TeacherDetailScreen'
+// P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环)
+import { CartScreen } from '../screens/CartScreen'
+import { PayResultScreen } from '../screens/PayResultScreen'
+// P1(2026-09-04):话题列表/详情 + 圈子广场(镜像 miniapp pages/topic/*、pages/circle/index,社区链路)
+import { TopicListScreen } from '../screens/TopicListScreen'
+import { TopicDetailScreen } from '../screens/TopicDetailScreen'
+import { CircleIndexScreen } from '../screens/CircleIndexScreen'
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
 import { LiveDetailScreen } from '../screens/LiveDetailScreen'
 import { OrderScreen } from '../screens/OrderScreen'
@@ -181,7 +190,6 @@ import SettingsScreen from '../screens/SettingsScreen'
 import { FavoritesScreen } from '../screens/FavoritesScreen'
 import { FavoriteScreen } from '../screens/FavoriteScreen'
 import { FollowScreen } from '../screens/FollowScreen'
-import { FollowingScreen } from '../screens/FollowingScreen'
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
 import { CertificateScreen } from '../screens/CertificateScreen'
 import { MessageCenterScreen } from '../screens/MessageCenterScreen'
@@ -230,7 +238,7 @@ export type RootStackParamList = {
   Wallet: undefined
   Settings: undefined
   Favorites: undefined
-  Following: undefined
+  // Following(2026-09-04 收敛):功能为 Follow 子集,路由删除,菜单入口并入 Follow
   Subscriptions: undefined
   Agent: undefined
   Register: undefined
@@ -259,7 +267,7 @@ export type RootStackParamList = {
   Promote: undefined
   Distribution: undefined
   Team: undefined
-  Finance: undefined
+  // Finance(2026-09-04 收敛):仅 /wallet/balance 余额概览,与 Wallet 重叠,路由删除,入口并入 Wallet
   Withdraw: undefined
   BankCard: undefined
   RealNameAuth: undefined
@@ -323,9 +331,14 @@ export type RootStackParamList = {
   ArticleDetail: { id: string }
   ArticleList: undefined
   PostDetail: { id: string }
-  PostCreate: { circleId?: string }
+  PostCreate: {
+    circleId?: string
+    topicId?: string
+    topicName?: string
+    onPickTopic?: (name: string) => void
+  }
   CircleDetail: { id: string }
-  CircleCreate: undefined
+  CircleCreate: { topicId?: string; topicName?: string } | undefined
   CircleMember: { circleId: string }
   CircleChat: { circleId: string; name: string }
   AskDetail: { id: string }
@@ -417,6 +430,18 @@ export type RootStackParamList = {
   WebPortal: undefined
   KnowledgeRag: undefined
   Subagents: undefined
+  // P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路)
+  TeacherList: undefined
+  TeacherDetail: { id: string }
+  // P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环)
+  // PayResult 参数对齐小程序 ?orderNo=(getPaymentOrderDetail 轮询查询)
+  Cart: undefined
+  PayResult: { orderNo: string }
+  // P1(2026-09-04):话题/圈子广场(镜像 miniapp pages/topic/*、pages/circle/index)。
+  // TopicList from='create' 时经 onPickTopic 回调回传所选话题名(替代小程序 eventCenter)
+  TopicList: { from?: string; onPickTopic?: (name: string) => void } | undefined
+  TopicDetail: { id: string }
+  CircleIndex: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -502,7 +527,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Promote" component={PromoteScreen} />
             <RootStack.Screen name="Distribution" component={DistributionScreen} />
             <RootStack.Screen name="Team" component={TeamScreen} />
-            <RootStack.Screen name="Finance" component={FinanceScreen} />
             <RootStack.Screen name="Withdraw" component={WithdrawScreen} />
             <RootStack.Screen name="BankCard" component={BankCardScreen} />
             <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
@@ -685,12 +709,21 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Favorites" component={FavoritesScreen} />
             <RootStack.Screen name="Favorite" component={FavoriteScreen} />
             <RootStack.Screen name="Follow" component={FollowScreen} />
-            <RootStack.Screen name="Following" component={FollowingScreen} />
             <RootStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
             <RootStack.Screen name="Certificate" component={CertificateScreen} />
             <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
             <RootStack.Screen name="Agent" component={AgentScreen} />
+            {/* P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路) */}
+            <RootStack.Screen name="TeacherList" component={TeacherListScreen} />
+            <RootStack.Screen name="TeacherDetail" component={TeacherDetailScreen} />
+            {/* P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环) */}
+            <RootStack.Screen name="Cart" component={CartScreen} />
+            <RootStack.Screen name="PayResult" component={PayResultScreen} />
+            {/* P1(2026-09-04):话题列表/详情 + 圈子广场(镜像 miniapp pages/topic/*、pages/circle/index) */}
+            <RootStack.Screen name="TopicList" component={TopicListScreen} />
+            <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
+            <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
           </>
         ) : (
           <>

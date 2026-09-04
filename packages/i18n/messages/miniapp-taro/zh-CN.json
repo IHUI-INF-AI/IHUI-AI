@@ -1,4 +1,25 @@
 {
+  "checkIn": {
+    "title": "每日签到"
+  },
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索课程、讲师、内容",
+    "empty": "未找到相关内容",
+    "failed": "搜索失败"
+  },
+  "taskCenter": {
+    "title": "任务中心",
+    "subtitle": "做任务,拿奖励",
+    "retry": "重试",
+    "empty": "暂无可做的任务",
+    "claimed": "已领取",
+    "claim": "领取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}",
+    "claimFailed": "领取失败",
+    "loadFailed": "加载任务失败"
+  },
   "nav": {
     "profile": "我的",
     "community": "社区"
@@ -2050,6 +2071,7 @@
       "detailTrack": "赛道",
       "detailStatus": "状态",
       "detailAuthor": "发布人",
+      "viewDetail": "查看详情",
       "identityTitle": "切换身份"
     },
     "cover": {
@@ -2071,6 +2093,48 @@
       "continueOrder": "继续接单",
       "qaTitle": "常见问题"
     }
+  },
+  "postCreate": {
+    "title": "发布帖子",
+    "titleLabel": "标题",
+    "titlePlaceholder": "给帖子起个标题",
+    "contentLabel": "内容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "多个标签用逗号分隔",
+    "submit": "发布",
+    "required": "请输入内容",
+    "saveFailed": "保存失败"
+  },
+  "postDetail": {
+    "loadFailed": "加载帖子失败",
+    "anonymous": "匿名",
+    "typesLabel": "类型",
+    "categoriesLabel": "分类",
+    "taskStatusLabel": "任务状态",
+    "reviewStatusLabel": "审核状态",
+    "priceLabel": "价格",
+    "cycleLabel": "周期",
+    "closingTimeLabel": "截止时间",
+    "contactLabel": "联系方式"
+  },
+  "announcementDetail": {
+    "empty": "公告不存在或已删除",
+    "loadFailed": "加载公告详情失败"
+  },
+  "aiSkill": {
+    "title": "AI 技能",
+    "loadFailed": "技能列表加载失败",
+    "retry": "重试",
+    "empty": "暂无技能",
+    "detail": "查看详情"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "技能详情加载失败",
+    "retry": "重试",
+    "prompt": "Prompt 模板",
+    "noPrompt": "无模板",
+    "source": "来源"
   },
   "ranking": {
     "empty": "暂无排名数据",
@@ -2294,7 +2358,9 @@
   },
   "pay": {
     "result": {
-      "paid": "支付成功"
+      "pending": "支付处理中",
+      "paid": "支付成功",
+      "failed": "支付失败"
     },
     "backHome": "返回首页",
     "viewOrders": "查看订单",
@@ -3032,9 +3098,7 @@
     "video": "视频"
   },
   "toolbar": {
-    "ai": "AI对话",
-    "course": "课程",
-    "vip": "会员"
+    "ai": "AI对话"
   },
   "index": {
     "mock": {
@@ -3640,13 +3704,6 @@
   "UserInfoCard": {
     "login1": "一键登录",
     "text2": "退订"
-  },
-  "Selecter": {
-    "text1": "标清 480p",
-    "text2": "超清 720p",
-    "text3": "高清 1080p",
-    "back4": "← 返回",
-    "q1": "水印"
   },
   "TitleSwitchTypeBar": {
     "text1": "自定义",

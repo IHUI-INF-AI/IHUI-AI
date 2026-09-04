@@ -630,7 +630,7 @@ export function Drawer(props: DrawerProps) {
                       className="rounded-xl items-center justify-center bg-gray-50 mb-1"
                       style={{ width: 30, height: 30 }}
                     >
-                      <Icon size={22} color="#6b7280" />
+                      <Icon size={22} color={tokens.text.secondary} />
                     </View>
                     <Text className="text-[11px] text-gray-700 text-center">{label}</Text>
                   </Pressable>
@@ -645,7 +645,7 @@ export function Drawer(props: DrawerProps) {
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-indigo-50 mr-3">
-                    <Building2 size={18} color="#4f46e5" />
+                    <Building2 size={18} color={tokens.indigo.deep} />
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">我的一人公司</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />

@@ -10,7 +10,12 @@ import { startSchedulerWorker } from './workers/scheduler-worker.js'
 import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 import { initOtel } from './plugins/otel.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
-import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-world-sync.js'
+import {
+  startAiWorldSyncScheduler,
+  stopAiWorldSyncScheduler,
+  stopRankingScheduler,
+  stopTrendingScheduler,
+} from './jobs/ai-world-sync.js'
 import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
 import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
@@ -84,9 +89,24 @@ async function start() {
       logger.warn('stopAiWorldSyncScheduler failed', { err: e })
     }
     try {
+      stopRankingScheduler()
+    } catch (e) {
+      logger.warn('stopRankingScheduler failed', { err: e })
+    }
+    try {
+      stopTrendingScheduler()
+    } catch (e) {
+      logger.warn('stopTrendingScheduler failed', { err: e })
+    }
+    try {
       stopSourceProbeScheduler()
     } catch (e) {
       logger.warn('stopSourceProbeScheduler failed', { err: e })
+    }
+    try {
+      stopHotWordsScheduler()
+    } catch (e) {
+      logger.warn('stopHotWordsScheduler failed', { err: e })
     }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {

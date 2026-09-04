@@ -13,7 +13,7 @@
  * 2. GitHub Trending 官方页面(开源项目热榜,解析 owner/repo)
  * 3. 百度热搜官方 JSON(国内实时热搜)
  *
- * 调度:cron `0 */3 * * *`(每 3 小时),由 index.ts 注册,ENABLE_HOT_WORDS_SYNC=false 可禁。
+ * 调度:每 3 小时运行一次(分钟=0,时=0/3/6/...),由 index.ts 注册,ENABLE_HOT_WORDS_SYNC=false 可禁。
  * 去重:hot_words 无唯一约束,采用「先按 word 查询→存在则更新 sort,不存在则插入」,
  *   不删除既有词(避免误删管理员手置热搜词)。
  */
@@ -109,7 +109,7 @@ async function fetchGitHubTrending(): Promise<number> {
     const $ = cheerio.load(html)
     let n = 0
     let pos = 1
-    $('article h2 a').each((_: number, el: cheerio.AnyNode) => {
+    $('article h2 a').each((_, el) => {
       const href = $(el).attr('href') ?? ''
       const repo = href.replace(/^\//, '').trim()
       if (!repo || !repo.includes('/')) return

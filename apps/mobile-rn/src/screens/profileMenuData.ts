@@ -21,6 +21,7 @@ import {
   Ticket,
   Tag,
   ShoppingBag,
+  ShoppingCart,
   TrendingUp,
   BookOpen,
   Files,
@@ -50,7 +51,6 @@ import {
   PenLine,
   BadgeCheck,
   Star,
-  Eye,
   Heart,
   MessageCircle,
   Bell,
@@ -70,6 +70,7 @@ import {
   Earth,
   Compass,
   MessagesSquare,
+  Hash,
 } from 'lucide-react-native'
 
 type ProfileRoute = keyof RootStackParamList
@@ -92,6 +93,8 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionOrder',
     items: [
       { key: 'Order', labelKey: 'menu.order', icon: Receipt },
+      // P0(2026-09-04):购物车入口(镜像 miniapp pages/cart,交易闭环;「我的」页订单分区)
+      { key: 'Cart', labelKey: 'menu.cart', icon: ShoppingCart, viaParent: true },
       { key: 'OrderRefund', labelKey: 'menu.orderRefund', icon: Undo2, viaParent: true },
       { key: 'Payment', labelKey: 'menu.payment', icon: CreditCard, viaParent: true },
       { key: 'OrderLog', labelKey: 'menu.orderLog', icon: ClipboardList, viaParent: true },
@@ -103,7 +106,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionWallet',
     items: [
       { key: 'Wallet', labelKey: 'menu.wallet', icon: Wallet },
-      { key: 'Finance', labelKey: 'menu.finance', icon: BarChart3, viaParent: true },
+      // Finance(2026-09-04 收敛):余额概览并入 Wallet,菜单入口移除
       { key: 'Withdraw', labelKey: 'menu.withdraw', icon: Banknote, viaParent: true },
       { key: 'BankCard', labelKey: 'menu.bankCard', icon: Landmark, viaParent: true },
     ],
@@ -177,7 +180,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionSocial',
     items: [
       { key: 'Favorites', labelKey: 'menu.favorites', icon: Star },
-      { key: 'Following', labelKey: 'menu.following', icon: Eye },
+      // Following(2026-09-04 收敛):关注列表为 Follow(关注+粉丝双 Tab)子集,菜单入口并入 Follow
       { key: 'Follow', labelKey: 'menu.follow', icon: Handshake },
       { key: 'Favorite', labelKey: 'menu.favorite', icon: Heart },
       { key: 'MessageCenter', labelKey: 'menu.messageCenter', icon: MessageCircle },
@@ -228,6 +231,9 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     titleKey: 'menu.sectionCommunity',
     items: [
+      // P1(2026-09-04):圈子广场 + 话题列表(镜像 miniapp pages/circle/index、pages/topic/list)
+      { key: 'CircleIndex', labelKey: 'menu.circleIndex', icon: Compass },
+      { key: 'TopicList', labelKey: 'menu.topicList', icon: Hash },
       { key: 'ArticleList', labelKey: 'menu.articleList', icon: Newspaper, viaParent: true },
       { key: 'PostCreate', labelKey: 'menu.postCreate', icon: PenLine, viaParent: true },
       { key: 'CircleCreate', labelKey: 'menu.circleCreate', icon: Circle, viaParent: true },

@@ -54,7 +54,7 @@ const PADDING_V = 10
 const BORDER_RADIUS = 8
 const MAX_WIDTH_RATIO = 0.8
 const ROW_GAP = 8
-const TEXT_COLOR = '#FFFFFF'
+const TEXT_COLOR = tokens.surface.light
 const BG_COLOR = 'rgba(0,0,0,0.85)'
 
 const TYPE_ICONS: Readonly<Record<FloatBoxType, LucideIcon>> = {
