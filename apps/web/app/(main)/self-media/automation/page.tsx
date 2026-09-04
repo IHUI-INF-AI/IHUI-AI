@@ -311,14 +311,14 @@ export default function AutomationPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12 min-[768px]:py-20">
+      <div className="px-4 flex items-center justify-center py-12 min-[768px]:py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
       </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       {/* 自动化示例模板(2026-07-22 新增,6 个典型场景,点击参考快速配置) */}
       <Card>
         <CardHeader>

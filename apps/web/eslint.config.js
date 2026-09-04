@@ -4,6 +4,8 @@
 
 import nextConfig from '@ihui/eslint-config/next'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
+// 2026-09-04 (main) 页面留白防回归:本地插件(规则实现见 eslint-rules/main-page-padding.js)
+import mainPagePadding from './eslint-rules/main-page-padding.js'
 
 export default [
   ...nextConfig,
@@ -70,6 +72,14 @@ export default [
     rules: {
       '@next/next/no-img-element': 'off',
     },
+  },
+  {
+    // 2026-09-04 (main) 页面留白防回归(见 eslint-rules/main-page-padding.js):
+    // MainShell <main> 无 padding,page.tsx 根元素必须自带水平留白。
+    // error 级——治理后全站应零违规;任何新裸奔页在 lint 阶段即被拦截。
+    files: ['app/(main)/**/page.tsx'],
+    plugins: { 'ihui-main-padding': mainPagePadding },
+    rules: { 'ihui-main-padding/main-page-root-padding': 'error' },
   },
 ]
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
