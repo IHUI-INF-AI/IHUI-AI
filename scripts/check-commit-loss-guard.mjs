@@ -210,6 +210,9 @@ function listBackups() {
 
 // 2026-07-26 升级:远程 tag 完整性校验(防"本地 tag 被 git gc + 远端 fetch 失败"事故复发)
 // 解析 git ls-remote 输出,过滤掉 ^{} peel 行(只保留 tag 引用本身)
+// 注意:不能依赖 cmd 的引号剥离行为——run(shell:true)下 node 把双引号原样传给 cmd,
+// cmd 内 git 收到带字面引号的 pathspec 会匹配不到任何 ref(与手动 PowerShell 调用行为不同).
+// 用 [^ ] 字符类显式排除空格 glob,无需引号.
 function parseRemoteTagOutput(stdout) {
   if (!stdout) return []
   return stdout
@@ -228,7 +231,7 @@ function listRemoteLostCommitTags() {
   // 必须用 shell:true 走 cmd 包装器(参考 PowerShell 调用 git 的成功行为)
   // 2026-08-17 加 timeout:境外 GitHub 访问慢时 execSync 无限阻塞(实测 >12min),
   // 导致 pre-commit [30a] 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
-  const out = run('git ls-remote origin "refs/tags/lost-commit/*"', {
+  const out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
     allowFail: true,
     shell: true,
     timeout: REMOTE_TIMEOUT_MS,
@@ -238,7 +241,7 @@ function listRemoteLostCommitTags() {
 
 function listRemoteBackups() {
   // 同上:加 timeout 防境外网络无限阻塞(2026-08-17)
-  const out = run('git ls-remote origin "refs/tags/backup/*"', {
+  const out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
     allowFail: true,
     shell: true,
     timeout: REMOTE_TIMEOUT_MS,
@@ -498,18 +501,66 @@ function main() {
         .map((r) => r.hash)
         .filter(Boolean),
     )
+    // 2026-09-04 修复:stash WIP/index commit 与其原 base commit 的树完全一致
+    // (stash 只额外记录 untracked 文件,而 untracked 不进 commit 对象).
+    // 因此只要悬空 commit 的 tree 已被任何备份 tag 覆盖,其内容即可从
+    // `git commit-tree <tree>` 完整重建,不构成丢失风险 → 按 tree 匹配放行.
+    // (原实现仅按 commit hash / stash subject 内嵌 hash 比对,并行会话高频
+    // stash/drop 导致每次操作新增 2 个未备份悬空 commit,死锁所有后续 commit.)
+    // 性能:backedUp ~4359 个 hash,单次 git for-each-ref 批量拿 tree,避免逐 commit execSync.
+    const backedTrees = new Set()
+    {
+      const refOut = run(
+        'git for-each-ref refs/tags/lost-commit refs/tags/backup --format="%(objectname) %(*objectname)"',
+        { allowFail: true },
+      )
+      const hashes = new Set(backedUp)
+      for (const line of refOut.split('\n')) {
+        const cols = line.trim().split(/\s+/)
+        // annotated tag: %(*objectname)=peeled commit; lightweight: 第 1 列即 commit
+        const commitHash = cols[1] || cols[0]
+        if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
+      }
+      const input = [...hashes].map((h) => `${h}^{tree}`).join('\n') + '\n'
+      try {
+        const out = execSync('git cat-file --batch-check="%(objectname)"', {
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+          input,
+          timeout: LOCAL_GIT_TIMEOUT_MS * 30,
+        })
+        for (const line of out.split('\n')) {
+          const t = line.trim().split(/\s+/)[0]
+          if (/^[0-9a-f]{40}$/.test(t)) backedTrees.add(t)
+        }
+      } catch {
+        /* 批量失败时安全降级:backedTrees 为空,退回 hash/subject 判定 */
+      }
+    }
     const unbacked = unreachable.filter((c) => {
       if (backedUp.has(c)) return false
       // 对 stash-like 悬空 commit,提取 subject 里的原 commit hash 再匹配
       const subject = run(`git log -1 --format=%s ${c}`, { allowFail: true })
       const origHash = extractOriginalHashFromStash(subject)
       if (origHash && backedUp.has(origHash)) return false
+      const tree = run(`git rev-parse ${c}^{tree}`, { allowFail: true })
+      if (tree && backedTrees.has(tree)) return false
       return true
     })
     if (unbacked.length > 0) {
       issues.push(
         `${unbacked.length} 个悬空 commit 未 tag 备份(运行 git tag lost-commit/<name> <hash> 备份)`,
       )
+      // 2026-09-04 修复:打印具体未备份 hash(原仅报数量,无法定位处置;
+      // 并行 agent 高频 fsck 会持续产生新悬空对象,需可见才能针对性 tag 备份)
+      for (const c of unbacked.slice(0, 10)) {
+        const subj = run(`git log -1 --format=%s ${c}`, { allowFail: true }) || ''
+        console.log(
+          `  ${C.yellow}   ↳ 未备份:${C.cyan}${c.slice(0, 12)}${C.reset} ${C.dim}${subj.slice(0, 80)}${C.reset}`,
+        )
+      }
+      if (unbacked.length > 10)
+        console.log(`  ${C.dim}   ↳ …另有 ${unbacked.length - 10} 个未显示${C.reset}`)
       blocking = true
     } else {
       issues.push(
