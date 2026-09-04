@@ -43,7 +43,7 @@ export default function Default({
           <Text style={styles.emoji}>{icon}</Text>
         )
       ) : IconNode ? (
-        <IconNode size={56} color={'#6b7280'} />
+        <IconNode size={56} color={tokens.text.secondary} />
       ) : null}
       <Text style={styles.text}>{text}</Text>
     </View>

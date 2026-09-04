@@ -1,4 +1,25 @@
 {
+  "checkIn": {
+    "title": "毎日チェックイン"
+  },
+  "search": {
+    "title": "検索",
+    "placeholder": "コース・講師・コンテンツを検索",
+    "empty": "関連コンテンツが見つかりません",
+    "failed": "検索に失敗しました"
+  },
+  "taskCenter": {
+    "title": "ミッションセンター",
+    "subtitle": "タスクをこなして報酬をゲット",
+    "retry": "再試行",
+    "empty": "受けられるタスクはありません",
+    "claimed": "受取済み",
+    "claim": "受け取る",
+    "goToDo": "完了する",
+    "progress": "{current}/{target}",
+    "claimFailed": "受取に失敗しました",
+    "loadFailed": "タスクの読み込みに失敗しました"
+  },
   "nav": {
     "profile": "マイページ",
     "community": "コミュニティ"
@@ -2062,6 +2083,7 @@
       "detailTrack": "トラック",
       "detailStatus": "ステータス",
       "detailAuthor": "投稿者",
+      "viewDetail": "詳細を見る",
       "identityTitle": "身分切替"
     },
     "cover": {
@@ -2083,6 +2105,48 @@
       "continueOrder": "注文受付を続ける",
       "qaTitle": "よくある質問"
     }
+  },
+  "postCreate": {
+    "title": "投稿を公開",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "投稿のタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "あなたの考えを共有...",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "submit": "投稿",
+    "required": "内容を入力してください",
+    "saveFailed": "保存に失敗"
+  },
+  "postDetail": {
+    "loadFailed": "投稿の読み込みに失敗",
+    "anonymous": "匿名",
+    "typesLabel": "タイプ",
+    "categoriesLabel": "カテゴリ",
+    "taskStatusLabel": "タスク状態",
+    "reviewStatusLabel": "審査状態",
+    "priceLabel": "価格",
+    "cycleLabel": "期間",
+    "closingTimeLabel": "締切日時",
+    "contactLabel": "連絡先"
+  },
+  "announcementDetail": {
+    "empty": "お知らせが見つからないか、削除されました",
+    "loadFailed": "お知らせの読み込みに失敗"
+  },
+  "aiSkill": {
+    "title": "AI スキル",
+    "loadFailed": "スキル一覧の読み込みに失敗",
+    "retry": "再試行",
+    "empty": "スキルがありません",
+    "detail": "詳細を見る"
+  },
+  "aiSkillDetail": {
+    "loadFailed": "スキル詳細の読み込みに失敗",
+    "retry": "再試行",
+    "prompt": "プロンプトテンプレート",
+    "noPrompt": "テンプレートなし",
+    "source": "出典"
   },
   "ranking": {
     "empty": "データなし",
@@ -2306,7 +2370,9 @@
   },
   "pay": {
     "result": {
-      "paid": "支払い成功"
+      "pending": "支払い処理中",
+      "paid": "支払い成功",
+      "failed": "支払い失敗"
     },
     "backHome": "ホームへ戻る",
     "viewOrders": "注文を見る",
@@ -3051,9 +3117,7 @@
     "holdToSpeak": "押して話す"
   },
   "toolbar": {
-    "ai": "AIチャット",
-    "course": "コース",
-    "vip": "会員"
+    "ai": "AIチャット"
   },
   "index": {
     "mock": {
@@ -3659,13 +3723,6 @@
   "UserInfoCard": {
     "login1": "ワンタップログイン",
     "text2": "退会"
-  },
-  "Selecter": {
-    "text1": "SD 480p",
-    "text2": "HD 720p",
-    "text3": "フルHD 1080p",
-    "back4": "← 戻る",
-    "q1": "透かし"
   },
   "TitleSwitchTypeBar": {
     "text1": "カスタム",

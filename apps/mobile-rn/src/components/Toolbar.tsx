@@ -210,7 +210,7 @@ export function Toolbar({
             style={({ pressed }) => [styles.serviceItem, pressed ? styles.pressed : null]}
           >
             <Text style={styles.serviceTitle}>{service.title}</Text>
-            <service.icon size={24} color={'#6b7280'} />
+            <service.icon size={24} color={tokens.text.secondary} />
           </Pressable>
         ))}
       </View>
@@ -239,7 +239,7 @@ export function Toolbar({
         style={({ pressed }) => [styles.bannerWrap, pressed ? styles.pressed : null]}
       >
         <Animated.View style={[styles.bannerFloat, { transform: [{ translateY }] }]}>
-          <Bot size={64} color={'#6b7280'} />
+          <Bot size={64} color={tokens.text.secondary} />
         </Animated.View>
         <View style={styles.bannerCard}>
           <Text style={styles.bannerTitle}>独家一键生成运营内容</Text>
@@ -258,7 +258,7 @@ export function Toolbar({
             style={({ pressed }) => [styles.toolCell, pressed ? styles.pressed : null]}
           >
             <View style={styles.toolIconWrap}>
-              <tool.icon size={20} color={'#6b7280'} />
+              <tool.icon size={20} color={tokens.text.secondary} />
             </View>
             <View style={styles.toolTextWrap}>
               <Text style={styles.toolTitle}>{tool.title}</Text>
@@ -276,7 +276,7 @@ export function Toolbar({
         style={({ pressed }) => [styles.customWrap, pressed ? styles.pressed : null]}
       >
         <View style={styles.customIconWrap}>
-          <Gift size={26} color={'#6b7280'} />
+          <Gift size={26} color={tokens.text.secondary} />
         </View>
         <Text style={styles.customText}>AI定制服务，满足您个性化的服务需求</Text>
       </Pressable>

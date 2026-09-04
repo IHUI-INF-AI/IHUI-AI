@@ -31,6 +31,40 @@
     "loadFailed": "강좌 불러오기 실패",
     "playError": "재생 오류"
   },
+  "teacher": {
+    "list": {
+      "title": "강사",
+      "searchPlaceholder": "강사 검색",
+      "courseCount": "{n}개 강의",
+      "studentCount": "{n}명",
+      "empty": "강사 없음"
+    },
+    "detail": {
+      "courses": "강의",
+      "students": "학생",
+      "intro": "소개",
+      "unfollowed": "취소됨",
+      "contactMessage": "메시지 보내기",
+      "contactPhone": "전화 연락",
+      "phoneHint": "연락처가 복사되었습니다",
+      "fans": "팬",
+      "goldBadge": "골드 강사",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "courseSection": "담당 강의",
+      "learnUnit": "명 학습",
+      "noCourses": "강의가 없습니다",
+      "reviewSection": "수강생 평가",
+      "noReviews": "평가가 없습니다",
+      "contact": "강사에게 연락",
+      "follow": "+ 팔로우",
+      "followed": "팔로우됨",
+      "following": "팔로우 중",
+      "imSoon": "쪽지 기능 곧 오픈 예정",
+      "notFound": "강사를 찾을 수 없습니다",
+      "rating": "평점"
+    }
+  },
   "live": {
     "title": "라이브",
     "viewerCount": "{count}명 시청 중",
@@ -85,6 +119,15 @@
     "logout": "로그아웃",
     "myOrders": "내 주문",
     "editProfile": "프로필 편집"
+  },
+  "payResult": {
+    "title": "결제 결과",
+    "pending": "결제 결과 확인 중",
+    "paid": "결제 성공",
+    "failed": "결제 실패",
+    "backHome": "홈으로",
+    "viewOrders": "주문 보기",
+    "refresh": "새로고침"
   },
   "payment": {
     "title": "결제 주문",
@@ -249,7 +292,10 @@
     "webPortalCenter": "웹 기능 포털",
     "knowledgeRag": "RAG 지식 베이스",
     "subagents": "서브 에이전트",
-    "chatTools": "AI 채팅 / 도구"
+    "chatTools": "AI 채팅 / 도구",
+    "cart": "장바구니",
+    "circleIndex": "커뮤니티 광장",
+    "topicList": "토픽"
   },
   "error": {
     "network": "네트워크 오류"
@@ -594,7 +640,6 @@
     "video": "동영상",
     "addFile": "파일 추가",
     "compactButton": "컨텍스트 압축",
-    "compacting": "컨텍스트 압축 중...",
     "compactSuccess": "컨텍스트가 압축되었습니다: {before} → {after} 토큰({saved} 절약)",
     "compactTooFew": "메시지가 너무 적어 압축할 필요가 없습니다",
     "compactIncompressible": "더 이상 압축할 수 있는 컨텍스트가 없습니다",
@@ -757,6 +802,18 @@
     "default": "기본",
     "holder": "카드 소유자",
     "loadFailed": "은행 계좌 불러오기 실패"
+  },
+  "cart": {
+    "title": "장바구니",
+    "checkout": "결제",
+    "product": "상품",
+    "empty": "장바구니 비어있음",
+    "deleteConfirm": "이 상품을 삭제하시겠습니까?",
+    "selectFirst": "상품을 선택하세요",
+    "loadFailed": "로딩 실패",
+    "total": "합계",
+    "selectAll": "전체 선택",
+    "checkoutConfirm": "선택한 상품을 확인하고 위챗페이로 결제합니다"
   },
   "carte": {
     "title": "크리에이터 명함",
@@ -963,8 +1020,7 @@
     "balance": "계좌 잔액",
     "todayIncome": "오늘 수익",
     "totalIncome": "누적 수익",
-    "totalExpense": "누적 지출",
-    "loadFailed": "재무 불러오기 실패"
+    "totalExpense": "누적 지출"
   },
   "follow": {
     "title": "팔로우 및 팔로워",
@@ -1175,7 +1231,8 @@
     "tagsPlaceholder": "여러 태그는 쉼표로 구분",
     "submit": "작성",
     "required": "내용을 입력하세요",
-    "saveFailed": "저장 실패"
+    "saveFailed": "저장 실패",
+    "pickTopic": "토픽 선택"
   },
   "profileEdit": {
     "avatarTip": "탭하여 프로필 이미지 변경",
@@ -1514,7 +1571,7 @@
     "sectionRights": "이용자의 권리",
     "sectionRightsBody": "법률에 따라 서비스에 접근할 권리, 개인 정보를 관리할 권리, 위반 콘텐츠를 신고할 권리를 가집니다.",
     "sectionTerms": "서비스 약관",
-    "sectionTermsBody": "본 약관은 본 플랫폼 서비스 이용에 관하여 귀하와 지혜 AI 간에 체결됩니다. 이용 전에 주의 깊게 읽어 주세요. 본 플랫폼을 이용하면 본 약관의 모든条款에 동의하고 수락한 것으로 간주됩니다."
+    "sectionTermsBody": "본 약관은 본 플랫폼 서비스 이용에 관하여 귀하와 지혜 AI 간에 체결됩니다. 이용 전에 주의 깊게 읽어 주세요. 본 플랫폼을 이용하면 본 약관의 모든조항에 동의하고 수락한 것으로 간주됩니다."
   },
   "aiMultimodal": {
     "clear": "지우기",
@@ -2183,5 +2240,58 @@
   },
   "developerInfo": {
     "urlLabel": "웹사이트"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "토픽",
+      "searchPlaceholder": "토픽 검색",
+      "recommend": "추천",
+      "hot": "인기",
+      "all": "전체",
+      "participants": "{n}명 참여",
+      "posts": "콘텐츠 {n}개",
+      "empty": "토픽이 없습니다",
+      "loading": "로딩 중…",
+      "loadingMore": "로딩 중…"
+    },
+    "detail": {
+      "pageTitle": "토픽 상세",
+      "loading": "로딩 중…",
+      "loadFailed": "로드 실패",
+      "followers": "{n}명 팔로우",
+      "follow": "팔로우",
+      "following": "팔로우 중",
+      "followSuccess": "팔로우 성공",
+      "unfollowed": "팔로우 취소됨",
+      "followFailed": "작업 실패",
+      "publish": "게시",
+      "publishPlaceholder": "이 토픽에 대한 생각을 공유하세요…",
+      "empty": "게시글이 없습니다. 첫 글을 작성해 보세요",
+      "loadingMore": "로딩 중…",
+      "noMore": "더 이상 없습니다",
+      "justNow": "방금 전",
+      "minutesAgo": "{n}분 전",
+      "hoursAgo": "{n}시간 전",
+      "anonymous": "익명 사용자"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "추천",
+      "follow": "팔로우",
+      "latest": "최신",
+      "hot": "인기"
+    },
+    "index": {
+      "pageTitle": "커뮤니티",
+      "goPublish": "작성하기",
+      "anonymous": "익명 사용자",
+      "follow": "팔로우",
+      "followed": "팔로우 중",
+      "loading": "로딩 중...",
+      "retry": "탭하여 재시도",
+      "error": "로드 실패"
+    },
+    "empty": "콘텐츠가 없습니다"
   }
 }

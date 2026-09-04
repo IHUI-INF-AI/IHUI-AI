@@ -31,6 +31,40 @@
     "loadFailed": "コースの読み込みに失敗",
     "playError": "再生エラー"
   },
+  "teacher": {
+    "list": {
+      "title": "講師",
+      "searchPlaceholder": "講師を検索",
+      "courseCount": "{n} コース",
+      "studentCount": "{n} 人",
+      "empty": "講師なし"
+    },
+    "detail": {
+      "courses": "コース",
+      "students": "学生",
+      "intro": "紹介",
+      "unfollowed": "解除しました",
+      "contactMessage": "メッセージを送信",
+      "contactPhone": "電話で連絡",
+      "phoneHint": "連絡先をコピーしました",
+      "fans": "ファン",
+      "goldBadge": "ゴールド講師",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "courseSection": "担当コース",
+      "learnUnit": "人が学習",
+      "noCourses": "コースはありません",
+      "reviewSection": "受講者の評価",
+      "noReviews": "評価はありません",
+      "contact": "講師に連絡",
+      "follow": "+ フォロー",
+      "followed": "フォロー済み",
+      "following": "フォロー中",
+      "imSoon": "ダイレクトメッセージは近日公開予定",
+      "notFound": "講師が見つかりません",
+      "rating": "評価"
+    }
+  },
   "live": {
     "title": "ライブ",
     "viewerCount": "{count} 人が視聴中",
@@ -85,6 +119,15 @@
     "logout": "ログアウト",
     "myOrders": "マイ注文",
     "editProfile": "プロフィール編集"
+  },
+  "payResult": {
+    "title": "支払い結果",
+    "pending": "支払い結果を確認中",
+    "paid": "支払い成功",
+    "failed": "支払い失敗",
+    "backHome": "ホームへ戻る",
+    "viewOrders": "注文を見る",
+    "refresh": "更新"
   },
   "payment": {
     "title": "支払い注文",
@@ -249,7 +292,10 @@
     "webPortalCenter": "Web 機能ポータル",
     "knowledgeRag": "RAG 知識ベース",
     "subagents": "サブエージェント",
-    "chatTools": "AI チャット / ツール"
+    "chatTools": "AI チャット / ツール",
+    "cart": "カート",
+    "circleIndex": "サークル広場",
+    "topicList": "トピック"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -594,7 +640,6 @@
     "video": "動画",
     "addFile": "添付ファイルを追加",
     "compactButton": "コンテキストを圧縮",
-    "compacting": "コンテキストを圧縮中...",
     "compactSuccess": "コンテキストを圧縮しました: {before} → {after} トークン（{saved} 節約）",
     "compactTooFew": "メッセージが少ないため圧縮は不要です",
     "compactIncompressible": "圧縮できるコンテキストはもうありません",
@@ -757,6 +802,18 @@
     "default": "デフォルト",
     "holder": "カード名義人",
     "loadFailed": "銀行口座の読み込みに失敗"
+  },
+  "cart": {
+    "title": "カート",
+    "checkout": "精算",
+    "product": "商品",
+    "empty": "カートは空",
+    "deleteConfirm": "この商品を削除しますか?",
+    "selectFirst": "商品を選択してください",
+    "loadFailed": "読み込み失敗",
+    "total": "合計",
+    "selectAll": "すべて選択",
+    "checkoutConfirm": "選択した商品を確認して、WeChat Payで支払います"
   },
   "carte": {
     "title": "クリエイター名刺",
@@ -963,8 +1020,7 @@
     "balance": "口座残高",
     "todayIncome": "今日の収入",
     "totalIncome": "累計収入",
-    "totalExpense": "累計支出",
-    "loadFailed": "財務の読み込みに失敗"
+    "totalExpense": "累計支出"
   },
   "follow": {
     "title": "フォローとフォロワー",
@@ -1175,7 +1231,8 @@
     "tagsPlaceholder": "複数のタグはカンマで区切ります",
     "submit": "投稿",
     "required": "内容を入力してください",
-    "saveFailed": "保存に失敗"
+    "saveFailed": "保存に失敗",
+    "pickTopic": "トピックを選択"
   },
   "profileEdit": {
     "avatarTip": "タップでアバターを変更",
@@ -2183,5 +2240,58 @@
   },
   "developerInfo": {
     "urlLabel": "URL"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "トピック",
+      "searchPlaceholder": "トピックを検索",
+      "recommend": "おすすめ",
+      "hot": "人気",
+      "all": "すべて",
+      "participants": "{n} 人が参加",
+      "posts": "{n} 件のコンテンツ",
+      "empty": "トピックはまだありません",
+      "loading": "読み込み中…",
+      "loadingMore": "読み込み中…"
+    },
+    "detail": {
+      "pageTitle": "トピック詳細",
+      "loading": "読み込み中…",
+      "loadFailed": "読み込みに失敗しました",
+      "followers": "{n} 人がフォロー中",
+      "follow": "フォロー",
+      "following": "フォロー中",
+      "followSuccess": "フォローしました",
+      "unfollowed": "フォローを解除しました",
+      "followFailed": "操作に失敗しました",
+      "publish": "投稿",
+      "publishPlaceholder": "このトピックについての考えを共有…",
+      "empty": "まだ投稿がありません。最初の投稿をしてみましょう",
+      "loadingMore": "読み込み中…",
+      "noMore": "これ以上ありません",
+      "justNow": "たった今",
+      "minutesAgo": "{n} 分前",
+      "hoursAgo": "{n} 時間前",
+      "anonymous": "匿名ユーザー"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "おすすめ",
+      "follow": "フォロー中",
+      "latest": "最新",
+      "hot": "人気"
+    },
+    "index": {
+      "pageTitle": "サークル",
+      "goPublish": "投稿する",
+      "anonymous": "匿名ユーザー",
+      "follow": "フォロー",
+      "followed": "フォロー中",
+      "loading": "読み込み中...",
+      "retry": "タップして再試行",
+      "error": "読み込みに失敗しました"
+    },
+    "empty": "コンテンツはまだありません"
   }
 }
