@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
-import { getTokens, type AppThemeMode } from '../theme/tokens'
+import { getTokens, tokens as baseTokens, type AppThemeMode } from '../theme/tokens'
 import type { CarouselItem } from '@ihui/types'
 
 /**
@@ -91,7 +91,7 @@ const viewStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: baseTokens.surface.light,
     borderRadius: 12,
   }),
   indicatorWrap: (): CSSProperties => ({
@@ -108,7 +108,7 @@ const viewStyles = {
   dot: (active: boolean): CSSProperties => ({
     width: active ? 16 : 6,
     height: 6,
-    backgroundColor: active ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+    backgroundColor: active ? baseTokens.surface.light : 'rgba(255,255,255,0.5)',
     borderRadius: 3,
     transition: 'all 0.3s ease',
   }),
@@ -117,7 +117,7 @@ const viewStyles = {
 const textStyles = {
   empty: (): CSSProperties => ({
     fontSize: 12,
-    color: '#9CA3AF',
+    color: baseTokens.gray['400'],
   }),
 }
 

@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 20,
       height: 20,
       borderRadius: 10,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
     },

@@ -910,7 +910,7 @@ const styles = StyleSheet.create({
   gridAuthor: {
     fontSize: 9,
     fontWeight: '700',
-    color: 'rgba(0,0,0,0.6)',
+    color: tk.overlay.modal,
     flex: 1,
   } as TextStyle,
   // Tip 提示横幅(对齐 Uniapp tip.vue)

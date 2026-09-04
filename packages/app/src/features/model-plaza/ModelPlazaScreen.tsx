@@ -12,7 +12,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type {
   ModelPlazaItem,
   ModelPlazaModelType,
@@ -51,7 +51,7 @@ function providerIcon(providerId: string): { letter: string; bg: string } {
   return (
     PROVIDER_ICONS[providerId] ?? {
       letter: providerId.charAt(0).toUpperCase() || '?',
-      bg: '#9CA3AF',
+      bg: baseTokens.gray['400'],
     }
   )
 }
@@ -260,7 +260,7 @@ export function ModelPlazaScreen({
 
 /** 对齐 uniapp box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04) — 胶囊 tab 阴影 */
 const shadowSoft = {
-  shadowColor: '#000000',
+  shadowColor: baseTokens.gray.black,
   shadowOffset: { width: 0, height: 1 },
   shadowOpacity: 0.04,
   shadowRadius: 4,
@@ -269,7 +269,7 @@ const shadowSoft = {
 
 /** 对齐 uniapp box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.04) — 卡片 / 厂商头部阴影 */
 const shadowCard = {
-  shadowColor: '#000000',
+  shadowColor: baseTokens.gray.black,
   shadowOffset: { width: 0, height: 1 },
   shadowOpacity: 0.04,
   shadowRadius: 6,
@@ -335,7 +335,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    providerTabIconText: { fontSize: 11, fontWeight: '700', color: '#FFFFFF', lineHeight: 13 },
+    providerTabIconText: { fontSize: 11, fontWeight: '700', color: tk.surface.light, lineHeight: 13 },
     providerText: { fontSize: 16, color: tk.text.secondary },
     providerTextActive: { color: tk.brand.DEFAULT, fontWeight: '600' },
     providerHeader: {
