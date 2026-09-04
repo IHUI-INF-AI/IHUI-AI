@@ -340,7 +340,7 @@ export function InputArea({
       <View key={item.id ?? index} style={styles.thumbWrap}>
         {isDoc ? (
           <View style={[styles.thumb, styles.thumbDoc]}>
-            <FileText size={26} color={'#6b7280'} />
+            <FileText size={26} color={tokens.text.secondary} />
             {item.filename ? <FilenameMarquee text={item.filename} /> : null}
           </View>
         ) : (
@@ -350,16 +350,16 @@ export function InputArea({
             ) : (
               <View style={styles.thumbPlaceholder}>
                 {isVideo ? (
-                  <Film size={24} color={'#6b7280'} />
+                  <Film size={24} color={tokens.text.secondary} />
                 ) : (
-                  <ImageIcon size={24} color={'#6b7280'} />
+                  <ImageIcon size={24} color={tokens.text.secondary} />
                 )}
               </View>
             )}
             {/* 视频封面角标:播放图标(真实播放待接 expo-video) */}
             {isVideo ? (
               <View style={styles.videoBadge}>
-                <Play size={20} color={'#ffffff'} />
+                <Play size={20} color={tokens.surface.light} />
               </View>
             ) : null}
           </View>
@@ -371,7 +371,7 @@ export function InputArea({
           accessibilityRole="button"
           accessibilityLabel="删除附件"
         >
-          <X size={10} color={'#6b7280'} />
+          <X size={10} color={tokens.text.secondary} />
         </TouchableOpacity>
       </View>
     )
@@ -416,9 +416,9 @@ export function InputArea({
               accessibilityLabel={voiceActive || voiceInput ? '切换到键盘' : '切换到语音'}
             >
               {voiceActive || voiceInput ? (
-                <Keyboard size={20} color={'#6b7280'} />
+                <Keyboard size={20} color={tokens.text.secondary} />
               ) : (
-                <Mic size={20} color={'#6b7280'} />
+                <Mic size={20} color={tokens.text.secondary} />
               )}
             </TouchableOpacity>
           ) : null}
@@ -493,7 +493,7 @@ export function InputArea({
               accessibilityRole="button"
               accessibilityLabel="添加图片或文件"
             >
-              <Plus size={24} color={'#6b7280'} />
+              <Plus size={24} color={tokens.text.secondary} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -519,7 +519,7 @@ export function InputArea({
                         accessibilityRole="button"
                         accessibilityLabel="添加参数图片"
                       >
-                        <Plus size={16} color={'#6b7280'} />
+                        <Plus size={16} color={tokens.text.secondary} />
                       </TouchableOpacity>
                     ) : (
                       <TextInput
@@ -561,7 +561,7 @@ export function InputArea({
           {loading ? (
             <ActivityIndicator size="small" color={tokens.surface.light} />
           ) : (
-            <Send size={18} color={'#ffffff'} />
+            <Send size={18} color={tokens.surface.light} />
           )}
         </TouchableOpacity>
       )}
@@ -863,7 +863,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // shadow(iOS)
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 8,

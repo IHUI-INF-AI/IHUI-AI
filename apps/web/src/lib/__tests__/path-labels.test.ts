@@ -56,11 +56,11 @@ describe('resolvePathLabelSpec i18n 路由前缀剥离', () => {
   })
 
   it('/ko/use-cases/ai-translation 多级 i18n 路径正确剥离', () => {
-    // use-cases 顶层无精确 entry,但 /use-cases 父级未注册 → 走最长前缀匹配:
-    // SORTED_PATH_LABELS 中无任何 entry 的 href 是 /use-cases 前缀 → 全部未命中
-    // 但 /ko/use-cases/* 在剥离后变 /use-cases/ai-translation,同样未注册 → 返回 null
-    // (本任务根因是 /en/docs 走兜底,其他 i18n 路径未注册的仍走 deriveTitle,符合预期)
-    expect(resolvePathLabelSpec('/ko/use-cases/ai-translation')).toBeNull()
+    // use-cases 顶层已注册(/use-cases → useCases.title),剥离 /ko 后命中该前缀
+    expect(resolvePathLabelSpec('/ko/use-cases/ai-translation')).toEqual({
+      ns: 'useCases',
+      key: 'title',
+    })
   })
 
   it('所有 5 语言前缀都能剥离(/en /ko /ja /zh-TW /zh-CN)', () => {
@@ -101,6 +101,35 @@ describe('resolvePathLabelSpec i18n 路由前缀剥离', () => {
       ns: 'selfMedia',
       key: 'automation',
     })
+  })
+
+  it('/compare 精确命中 compare.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/compare')).toEqual({ ns: 'compare', key: 'title' })
+  })
+
+  it('/use-cases/ai-design 精确命中 useCases.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/use-cases/ai-design')).toEqual({
+      ns: 'useCases',
+      key: 'title',
+    })
+  })
+
+  it('/legal/terms 精确命中 legal.terms.title(新建法律子命名空间)', () => {
+    expect(resolvePathLabelSpec('/legal/terms')).toEqual({
+      ns: 'legal.terms',
+      key: 'title',
+    })
+  })
+
+  it('/admin/ai-skills 精确命中 adminAiSkills.skillName(现有命名空间新 key)', () => {
+    expect(resolvePathLabelSpec('/admin/ai-skills')).toEqual({
+      ns: 'adminAiSkills',
+      key: 'skillName',
+    })
+  })
+
+  it('/download 精确命中 download.title(新建命名空间)', () => {
+    expect(resolvePathLabelSpec('/download')).toEqual({ ns: 'download', key: 'title' })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

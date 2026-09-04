@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,13 +31,44 @@ import {
   SIDEBAR_WIDTH_STORAGE_KEY,
 } from '../sidebar'
 
-const Sidebar = React.memo(function Sidebar({
-  id,
-  collapsed,
-  onToggleCollapse,
-  mobileOpen,
-  onCloseMobile,
-}: SidebarProps) {
+const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: SidebarProps) {
+  // 性能优化(2026-09-04 用户授权"最快速度"):折叠状态 collapsed 从 GlobalShell 下沉到 Sidebar 内部。
+  // 根因:collapsed 原先在 GlobalShell 顶层 useState,点击折叠 → setCollapsed → GlobalShell 重渲染 →
+  // 整个应用(当前页面 children + AISidePanel + WebWorkPanel + 顶层 TooltipProvider)全部重渲染。
+  // 下沉后折叠只触发 Sidebar 自身重渲染(这是必要的,折叠需切换导航项图标态),不牵连应用其余部分。
+  // 宽度仍由 CSS 变量 --sidebar-width 驱动(下方 effect 设置),CSS 自动处理布局,无需 React 重排右列。
+  const [collapsed, setCollapsed] = React.useState(false)
+  const onToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
+
+  // 挂载时从 localStorage 恢复折叠偏好(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sidebar-collapsed')
+      if (saved === 'true') setCollapsed(true)
+    } catch {
+      // localStorage 不可用
+    }
+  }, [])
+
+  // 持久化折叠偏好(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('sidebar-collapsed', String(collapsed))
+    } catch {
+      // localStorage 不可用
+    }
+  }, [collapsed])
+
+  // 跨标签页同步:其他标签页切换折叠时,本标签页跟随(与 GlobalShell 旧逻辑一致)
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'sidebar-collapsed' || e.newValue === null) return
+      setCollapsed(e.newValue === 'true')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
   const t = useTranslations('nav')
   const tc = useTranslations('common')
   const pathname = usePathname()
@@ -65,133 +96,17 @@ const Sidebar = React.memo(function Sidebar({
     }
   }, [pathname, pendingHref])
 
-  // 极致快预取(2026-09-03 页面切换提速·第四刀):
-  // 线上生产实测:同路由首跳 1766ms(目标 chunk 首次下载+解析+hydration),回访 54ms(缓存命中)。
-  // → 若让每个导航目标在页面挂载时都被预取,首次点击也能达到回访的瞬时速度。
-  // 策略:
-  //   ① 顶层路由挂载时立即预取(sidebar 可见项,首屏即可点)。
-  //   ② 全量(含 children)800ms 后交错 40ms 预取,规避突发请求与 LCP 竞争。
-  // 按角色过滤:非 admin 跳过 adminOnly/permission 项,避免对权限路由发起无效预取(403/重定向)。
-  // 作用域:生产走 router.prefetch;dev 走低优先级 fetch 编译预热(cache-bypass-in-dev 使
-  // router.prefetch 在 dev 无效,见下方第七刀注释)。
-  // 仅首挂载执行一次脱离 pathname 依赖,避免每次导航重建预取。
-  const navRouter = useRouter()
-  const pathnameRef = React.useRef(pathname)
-  React.useEffect(() => {
-    const currentPathname = pathnameRef.current
-    const isAdmin = (userRoleId ?? 0) >= 1
-    const isVisible = (i: NavItem) => (!i.adminOnly || isAdmin) && (!i.permission || isAdmin)
-    const visibleItems = NAV_GROUPS.flatMap((g) => g.items).filter(isVisible)
-    const topLevel = [...new Set(visibleItems.map((i) => i.href))].filter(
-      (h) => h !== currentPathname && h !== '/',
-    )
-    // 批次1覆盖升级(2026-09-03 ·页面切换提速·第五刀·组内首项):
-    // 顶层路由外,把"可展开项的默认落点"(children[0],如 /models→/models/overview)也并入立即预取。
-    // 实测 /models/overview 这类组内首项此前只走批次2(800ms 延迟窗口),用户进入子菜单后首开即点会错过
-    // 预取 → 206~514ms。用户点开可展开项后大概率命中第一项(分组默认落点),把它提前到"立即"消除偏高项。
-    const landingHrefs = new Set<string>()
-    for (const item of visibleItems) {
-      const first = item.children?.[0]?.href
-      if (first && first !== currentPathname && first !== '/') landingHrefs.add(first)
-    }
-    const immediateHrefs = [...new Set([...topLevel, ...landingHrefs])]
-    const all = [
-      ...new Set(visibleItems.flatMap((i) => flattenNavItems([i]).map((x) => x.href))),
-    ].filter((h) => h !== currentPathname && h !== '/')
-
-    // ===== 生产模式:router.prefetch 两批次(不变) =====
-    if (process.env.NODE_ENV !== 'production') {
-      // ===== 第七刀(2026-09-03):dev 模式后台编译预热 =====
-      // dev 基线实测(localhost:8801):未编译页面首次 RSC 请求 3.4~4.8s(按需编译),
-      // 已编译 0.06~0.16s —— 差距 30~60 倍。Next 16 的 cache-bypass-in-dev 让
-      // router.prefetch 在 dev 被显式绕过(实测 0 请求),页面永远停留在"首次点击等编译"。
-      // 方案:dev 下改用低优先级 fetch(RSC 头)直接打 dev server,后台触发按需编译;
-      // 编译产物留在 dev server 内存/FS 缓存,用户点击时命中已编译路由 → 首跳即 ~0.1s。
-      // 成本:一次性后台编译 ~100 路由。串行链式执行(2026-09-03 实测定版):
-      // v1 曾用 60ms 交错并发,~100 路由同时挤进 Turbopack 编译队列,用户真实点击
-      // 排在队尾(实测 goto 排队 53s)。串行化后任意时刻最多 1 个编译在飞,
-      // 用户点击最多排在 1 个编译之后即被服务。
-      // 主延迟 1.2s,避开首页自身编译与 hydration 的 CPU 高峰。
-      let stopWarmup = () => {}
-      const master = window.setTimeout(() => {
-        // 逃生口:localStorage 设 ihui-nav-warmup=0 可关闭 dev 预热(预热异常时自查用)
-        if (window.localStorage.getItem('ihui-nav-warmup') === '0') return
-        let cancelled = false
-        stopWarmup = () => {
-          cancelled = true
-        }
-        void (async () => {
-          // 预热顺序 = 用户点击概率序(2026-09-03 v3 实测修正):
-          // 顶层 + 组内首项(immediateHrefs)最先 —— 用户首屏最可能点;
-          // 深层 children 随后兜底。
-          // 并发度(2026-09-03 v4 实测调参):v1 用 60ms 交错无界并发 → ~100 路由
-          // 同挤 Turbopack 编译队列,用户点击排到队尾(goto 排队 53s);v3 改纯串行
-          // (并发1)虽不饿死点击,但全量 100 路由串行需 ~3.5min,会话前 100s 内
-          // 点到的中后段路由仍冷(实测 23.9s/11.5s)。取折中:有界并发=4 —— 全量
-          // 预热压到 ~50-70s,任意时刻最多 4 个编译在飞,用户点击最坏只排 4 个
-          // 编译之后(典型路由 0.5~2s 编译,最坏延迟数秒);本地多核机可承受。
-          //
-          // 2026-09-03 v5 关键收窄(直击"根本没做到极致"终极根因):
-          //   原 warmList=[...immediateHrefs,...all] 实为全量 184 条,客户端无差别
-          //   轰炸全站路由 → 单次会话把 Turbopack 缓存(RocksDB)从 3GB 撑到 24~40GB
-          //   → 缓存读写慢 → 已编译路由也退化到 15~31s(实测 /user/profile 31s、
-          //   /refund 30s)。过度预热反噬性能,与"极致"南辕北辙。
-          //   改为仅预热 immediateHrefs(顶层 + 组内首项 ≈ 40 条):覆盖用户首屏
-          //   90% 真实点击,深层子路由由用户点开分组时才按需编译(此时已无并发
-          //   挤压,单路由冷编译 2~8s 可接受)。预热总量 40+12(服务端)=52 条,
-          //   缓存增长 <5GB,远离 24GB 膨胀退化区。
-          const warmList = [...immediateHrefs]
-          const CONCURRENCY = 4
-          let cursor = 0
-          const worker = async () => {
-            for (;;) {
-              if (cancelled) return
-              // 页签不可见时挂起(退让 CPU),恢复可见后继续
-              while (!cancelled && document.visibilityState !== 'visible') {
-                await new Promise((r) => window.setTimeout(r, 500))
-              }
-              if (cancelled) return
-              const i = cursor++
-              if (i >= warmList.length) return
-              const href = warmList[i]
-              if (!href) return
-              try {
-                const res = await fetch(href, { headers: { RSC: '1' } })
-                res.body?.cancel().catch(() => {})
-              } catch {
-                /* dev server 重启等瞬态,忽略继续 */
-              }
-            }
-          }
-          await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()))
-        })()
-      }, 1200)
-      return () => {
-        window.clearTimeout(master)
-        stopWarmup()
-      }
-    }
-
-    // 批次1:顶层 + 组内首项立即预取
-    immediateHrefs.forEach((href) => {
-      if (document.visibilityState === 'visible') navRouter.prefetch(href)
-    })
-
-    // 批次2:全量(含 children)延迟交错预取
-    // 2026-09-03 ·第六刀:批次2主延迟 800ms→400ms,把"剩余深层 children 预热"从 ~1s 提前到 ~0.4s 起。
-    // 批次1已覆盖顶层+组内首项;批次2兜底其余深层项。prefetch 为低优先级请求,提前后需复测确认不拖累 LCP。
-    const master = window.setTimeout(() => {
-      all.forEach((href, idx) => {
-        window.setTimeout(() => {
-          if (document.visibilityState === 'visible') navRouter.prefetch(href)
-        }, idx * 40)
-      })
-    }, 400)
-
-    return () => window.clearTimeout(master)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // 仅首挂载一次;userRoleId 用挂载时快照,避免重建预取
-
+  // 预取策略(2026-09-04 修正:恢复生产预取,只删过度预热):
+  // next 16.3.4 升级后 Turbopack 编译已快到 17~49ms,专为"对抗 3-5s 冷编译"设计的
+  // dev fetch(RSC) 预热 worker 与"挂载即全量预取 184 条"已无必要,反而:
+  //   · 撑大 Turbopack 缓存(曾 24~40GB 膨胀)+ 拖累 LCP
+  //   · dev 预热 worker 并发抢发请求,与点击竞争带宽
+  // 故移除 Sidebar 层主动预热。但**保留 Next 原生预取**——实测生产模式悬停预取后
+  // 点击 314ms→143ms(prefetchRsc 缓存命中),这是"立马响应"的关键:
+  //   · <Link> 默认视口预取(NavLink/ExpandableNavItem 不设 prefetch={false})
+  //   · NavLink onPointerEnter/onFocus → router.prefetch(悬停按需,精准幂等)
+  // dev 模式 cache-bypass 使预取缓存失效(点击仍走 RSC 往返,~350-850ms 为 Next dev 架构下限),
+  // 但预取请求由 Next 内部去重,不构成额外负担。
   const startNav = useNavigationStore((s) => s.start)
 
   // 点击导航项时立即设置乐观路由 + 触发全局进度条。
