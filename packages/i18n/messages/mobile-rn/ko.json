@@ -293,7 +293,9 @@
     "knowledgeRag": "RAG 지식 베이스",
     "subagents": "서브 에이전트",
     "chatTools": "AI 채팅 / 도구",
-    "cart": "장바구니"
+    "cart": "장바구니",
+    "circleIndex": "커뮤니티 광장",
+    "topicList": "토픽"
   },
   "error": {
     "network": "네트워크 오류"
@@ -1230,7 +1232,8 @@
     "tagsPlaceholder": "여러 태그는 쉼표로 구분",
     "submit": "작성",
     "required": "내용을 입력하세요",
-    "saveFailed": "저장 실패"
+    "saveFailed": "저장 실패",
+    "pickTopic": "토픽 선택"
   },
   "profileEdit": {
     "avatarTip": "탭하여 프로필 이미지 변경",
@@ -2238,5 +2241,60 @@
   },
   "developerInfo": {
     "urlLabel": "웹사이트"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "토픽",
+      "searchPlaceholder": "토픽 검색",
+      "recommend": "추천",
+      "hot": "인기",
+      "all": "전체",
+      "participants": "{n}명 참여",
+      "posts": "콘텐츠 {n}개",
+      "empty": "토픽이 없습니다",
+      "loading": "로딩 중…",
+      "loadingMore": "로딩 중…",
+      "noMore": "더 이상 없습니다"
+    },
+    "detail": {
+      "pageTitle": "토픽 상세",
+      "loading": "로딩 중…",
+      "loadFailed": "로드 실패",
+      "followers": "{n}명 팔로우",
+      "follow": "팔로우",
+      "following": "팔로우 중",
+      "followSuccess": "팔로우 성공",
+      "unfollowed": "팔로우 취소됨",
+      "followFailed": "작업 실패",
+      "publish": "게시",
+      "publishPlaceholder": "이 토픽에 대한 생각을 공유하세요…",
+      "empty": "게시글이 없습니다. 첫 글을 작성해 보세요",
+      "loadingMore": "로딩 중…",
+      "noMore": "더 이상 없습니다",
+      "justNow": "방금 전",
+      "minutesAgo": "{n}분 전",
+      "hoursAgo": "{n}시간 전",
+      "anonymous": "익명 사용자"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "추천",
+      "follow": "팔로우",
+      "latest": "최신",
+      "hot": "인기"
+    },
+    "index": {
+      "pageTitle": "커뮤니티",
+      "goPublish": "작성하기",
+      "anonymous": "익명 사용자",
+      "follow": "팔로우",
+      "followed": "팔로우 중",
+      "loading": "로딩 중...",
+      "noMore": "더 이상 없습니다",
+      "retry": "탭하여 재시도",
+      "error": "로드 실패"
+    },
+    "empty": "콘텐츠가 없습니다"
   }
 }
