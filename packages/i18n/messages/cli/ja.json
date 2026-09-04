@@ -14,7 +14,5 @@
     "agentUsage": "使い方: ihui agent <task>  または  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md は既に存在します。--force で上書きしてください。",
     "agentsMdCreated": "作成しました: {path}"
-  },
-  "repl": {},
-  "error": {}
+  }
 }
