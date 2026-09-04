@@ -212,6 +212,7 @@ pnpm dev                                       # 启动所有服务(web + api + 
 - **默认全端连通**:每一个任务默认 8 端(web/api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)同步开发,"匹配连通好"= 代码同步(共享 types/UI/schema 跨端一致)+ 链路打通(跨端调用无契约/类型/路由/404 错)+ 验证齐绿(各端 typecheck+build+test 全绿)。禁止只改一端交付、单端验证声明完成、分期交付(平台独占豁免除外)。
 - **平台独占豁免需显式标注**:仅天然只属特定端(desktop 系统托盘/extension 上下文菜单/miniapp-taro 微信支付/cli 终端集成/纯文档守门脚本)可豁免,必须在 PROJECT_PLAN.md 标注"平台独占"或"单端文档/脚本",未标注按全端同步执行。
 - **多端并行派单**:主 agent 优先用 §11 多 Subagent 并行模式按端拆分,每个 subagent 管自己端的代码+typecheck+build;主 agent 负责跨端契约对齐(共享类型/API 路由/schema)和全链路连通验证,不得下放给单个 subagent。
+- **登录/SSO 链路跨端自动同步(强制,2026-09-04 立)**:凡改动登录相关 UI/文案/逻辑,必须**主动**同步所有相关端,不得等用户提醒。关键结构事实:① 共享登录 UI 仅覆盖 mobile-rn(`packages/app/src/features/login/LoginScreen.tsx`),**miniapp-taro 登录页是独立实现**(`apps/miniapp-taro/src/pages/login/login.tsx`),两端都要动;② SSO deep-link scheme:mobile-rn/desktop 用 `ihui://sso/callback`,miniapp-taro 用 `ihui-miniapp://sso/callback`,后端白名单由 `apps/api/.env` 的 `SSO_ALLOWED_DEEP_LINK_SCHEMES` 控制,新增 scheme 必须同步登记;③ web OAuth 中转页 `apps/web/app/(auth)/callback/OAuthCallbackHandler.tsx` 的 `redirect=mobile-rn` 分支负责跳 `ihui://oauth/callback` 回 App(支付宝回调参数为 `auth_code`);④ web 端 SSO 出口页为 `apps/web/app/sso/*`(支持 custom scheme 回跳)。
 - **守门**(warn-only):`scripts/check-multi-end-sync.mjs` 检测 staged 跨端分布 4 场景(纯豁免目录→pass;触及 packages/* 未标注→warn;触及≥2 端→pass;触及 1 端未标注→warn),集成于 pre-commit 第 21 项。
 
 ---
