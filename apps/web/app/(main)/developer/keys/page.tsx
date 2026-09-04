@@ -85,7 +85,7 @@ export default function KeysPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       <div className="flex justify-end">
         <Button size="sm" onClick={() => setOpen(true)} className="shrink-0 whitespace-nowrap">
