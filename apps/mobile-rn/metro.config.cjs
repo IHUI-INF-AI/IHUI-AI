@@ -229,11 +229,26 @@ function tryResolveWithExts(basePath, originDir, platform) {
 // 必须在 resolver 层归一化:origin 为 serverRoot 目录本身时,剥掉
 // ./apps/mobile-rn/ 前缀再走默认解析链;归一化失败则回退原 moduleName。
 const APP_DIR_NAME = 'apps/mobile-rn'
+// web 平台原生模块 stub 重定向(2026-09-04,Expo Web 浏览器访问):
+// react-native-video / react-native-view-shot / react-native-webview 依赖
+// requireNativeComponent(react-native-web 不提供该 API),import 即抛错导致
+// 整个 bundle 失败。web 平台(platform === 'web')把这三个包重定向到本地
+// stub 文件(src/lib/web-stubs/),原生平台(ios/android)不受影响。
+const WEB_STUBS = {
+  'react-native-video': path.resolve(__dirname, 'src/lib/web-stubs/react-native-video.tsx'),
+  'react-native-view-shot': path.resolve(__dirname, 'src/lib/web-stubs/react-native-view-shot.ts'),
+  'react-native-webview': path.resolve(__dirname, 'src/lib/web-stubs/react-native-webview.tsx'),
+  'expo-media-library': path.resolve(__dirname, 'src/lib/web-stubs/expo-media-library.ts'),
+}
 function normalizeDirKey(p) {
   return String(p).replace(/[\\/]+/g, '/').replace(/\/\.?$/, '').toLowerCase()
 }
 const serverRootKey = normalizeDirKey(__dirname)
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  // web 平台原生模块 stub 重定向(见上方 WEB_STUBS 注释)
+  if (platform === 'web' && Object.prototype.hasOwnProperty.call(WEB_STUBS, moduleName)) {
+    return { type: 'sourceFile', filePath: WEB_STUBS[moduleName] }
+  }
   // Expo 虚拟入口双拼归一化(详见上方注释)
   if (
     (moduleName === `./${APP_DIR_NAME}` ||
