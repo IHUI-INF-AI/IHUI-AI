@@ -87,10 +87,6 @@ __pycache__/
 **/.env.local
 **/.env.production
 
-# 环境配置备份(如 .env.bak.日期),含密钥,禁止入库(2026-09-04 立)
-**/.env.bak*
-**/.env*.bak*
-
 # Cloudflared tunnel token 文件(2026-08-05 立:防 token 泄露,显式忽略)
 # 触发背景:旧 token 曾硬编码进 scripts/start-cloudflared-tunnel.ps1 commit cc73503d2d
 # 当前 scripts 已改为从文件读取,但 token 文件本身绝不能进 git
@@ -345,8 +341,8 @@ deploy/*.zip
 deploy/server-root/
 deploy/acme-challenge/
 
-# Java SDK 构建产物
-sdks/java/target/
+# Java SDK 构建产物(发布源:packages/sdk/java)
+packages/sdk/java/target/
 
 # 2026-08-06 git 仓库损坏事故备份(待清理,勿提交)
 .git.broken/
