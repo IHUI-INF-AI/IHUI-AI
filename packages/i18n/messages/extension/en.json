@@ -185,11 +185,11 @@
     "appearance": "Appearance",
     "darkMode": "Dark mode",
     "account": "Account",
-    "zhCN": "简体中文",
+    "zhCN": "Simplified Chinese",
     "en": "English",
-    "ja": "日本語",
+    "ja": "Japanese",
     "ko": "한국어",
-    "zhTW": "繁體中文",
+    "zhTW": "Traditional Chinese",
     "title": "Settings"
   },
   "notification": {
