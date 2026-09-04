@@ -151,7 +151,14 @@
       "title": "Featured Courses"
     },
     "ratingTitle": "Rate Course",
-    "ratingLabels": ["", "Very Bad", "Poor", "Fair", "Good", "Excellent"],
+    "ratingLabels": [
+      "",
+      "Very Bad",
+      "Poor",
+      "Fair",
+      "Good",
+      "Excellent"
+    ],
     "ratingPlaceholder": "Please rate",
     "ratingDescLabel": "Write your review",
     "ratingInputPlaceholder": "How was the course? Share your thoughts...",
@@ -665,8 +672,20 @@
       "title": "Image Generation",
       "tryThese": "Try these",
       "vertical": "Portrait 1024×1792",
-      "examples": ["A cute cat", "Sunset mountain landscape", "Futuristic city", "Abstract art"],
-      "styles": ["Realistic", "Anime", "Oil Painting", "Watercolor", "3D", "Pixel"]
+      "examples": [
+        "A cute cat",
+        "Sunset mountain landscape",
+        "Futuristic city",
+        "Abstract art"
+      ],
+      "styles": [
+        "Realistic",
+        "Anime",
+        "Oil Painting",
+        "Watercolor",
+        "3D",
+        "Pixel"
+      ]
     },
     "inputArea": {
       "holdToSpeak": "Hold to speak",
@@ -1091,7 +1110,10 @@
       "totalScoreValue": "{n} points"
     },
     "answer": {
-      "judgmentOptions": ["True", "False"],
+      "judgmentOptions": [
+        "True",
+        "False"
+      ],
       "loadFailed": "Paper load failed",
       "answerPlaceholder": "Type your answer",
       "prev": "Previous",
@@ -2072,8 +2094,18 @@
         "Help Request",
         "Experience Summary"
       ],
-      "levels": ["Beginner", "Intermediate", "Advanced", "Expert"],
-      "budgets": ["Under 1000 CNY", "1000-5000 CNY", "5000-10000 CNY", "Over 10000 CNY"],
+      "levels": [
+        "Beginner",
+        "Intermediate",
+        "Advanced",
+        "Expert"
+      ],
+      "budgets": [
+        "Under 1000 CNY",
+        "1000-5000 CNY",
+        "5000-10000 CNY",
+        "Over 10000 CNY"
+      ],
       "selectAtLeast": "Please select at least one",
       "saved": "Saved",
       "directionTitle": "Learning direction",
@@ -2464,7 +2496,11 @@
         "Help Request",
         "Experience Summary"
       ],
-      "visibilityOptions": ["Public", "Friends Only", "Private"],
+      "visibilityOptions": [
+        "Public",
+        "Friends Only",
+        "Private"
+      ],
       "enterTitle": "Please enter a title",
       "enterContent": "Please enter content",
       "published": "Published",
@@ -3669,8 +3705,8 @@
     "d5": "23% off"
   },
   "settingLanguage": {
-    "d1": "繁體中文",
-    "d2": "日本語"
+    "d1": "Traditional Chinese",
+    "d2": "Japanese"
   },
   "circleCreate": {
     "d1": "Public",
