@@ -1650,7 +1650,8 @@
     "registerSuccess": "注册成功",
     "resendCode": "重新发送",
     "termsOfService": "服务条款",
-    "thirdPartyLogin": "第三方登录"
+    "thirdPartyLogin": "第三方登录",
+    "ssoFailed": "网页授权登录失败,请重试或使用账密登录"
   },
   "bookmark": {
     "empty": "暂无收藏",

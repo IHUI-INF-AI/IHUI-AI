@@ -121,7 +121,7 @@ export function FavoriteScreen({
               <Image source={{ uri: item.cover }} style={styles.coverImg} resizeMode="cover" />
             ) : (
               <View style={styles.coverPlaceholder}>
-                <Star size={24} color={'#374151'} />
+                <Star size={24} color={tk.text.medium} />
               </View>
             )}
             <View style={styles.cardInfo}>

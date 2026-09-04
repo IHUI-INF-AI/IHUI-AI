@@ -213,7 +213,7 @@ export function PlazaScreen({
               {author.trim() ? (
                 <Text style={styles.avatarText}>{avatarText(author)}</Text>
               ) : (
-                <PLACEHOLDER_AVATAR size={14} color={'#374151'} />
+                <PLACEHOLDER_AVATAR size={14} color={tk.text.medium} />
               )}
             </View>
           </View>
@@ -328,7 +328,7 @@ export function PlazaScreen({
               </View>
             ) : (
               <View style={styles.emptyWrap}>
-                <Globe size={48} color={'#374151'} />
+                <Globe size={48} color={tk.text.medium} />
                 <Text style={styles.emptyText}>当前赛道</Text>
                 <Text style={styles.emptyTextStrong}>千万级空白市场</Text>
                 <Text style={styles.emptyText}>不会开发?发布需求</Text>

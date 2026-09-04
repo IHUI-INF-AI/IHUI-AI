@@ -156,7 +156,7 @@ export function StudyIndexScreen({
     return (
       <View style={styles.tipOuter}>
         <View style={styles.tipInner}>
-          <Lightbulb size={20} color={'#374151'} style={styles.tipIcon} />
+          <Lightbulb size={20} color={tk.text.medium} style={styles.tipIcon} />
           <View style={styles.tipScrollContainer}>
             <Animated.View
               style={[styles.tipTextWrapper, { transform: [{ translateX: animTranslateX }] }]}
@@ -271,7 +271,7 @@ export function StudyIndexScreen({
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Flame size={20} color={'#374151'} style={styles.previewIcon} />
+                <Flame size={20} color={tk.text.medium} style={styles.previewIcon} />
                 <Text style={styles.previewTitle}>推荐课程合集</Text>
               </View>
               <Pressable
@@ -330,7 +330,7 @@ export function StudyIndexScreen({
           <View style={styles.previewSection}>
             <View style={styles.previewHeader}>
               <View style={styles.previewTitleRow}>
-                <Clapperboard size={20} color={'#374151'} style={styles.previewIcon} />
+                <Clapperboard size={20} color={tk.text.medium} style={styles.previewIcon} />
                 <Text style={styles.previewTitle}>最新课程</Text>
               </View>
               <Pressable
@@ -662,7 +662,7 @@ function createStyles(tk: AppThemeTokens) {
     gridAuthor: {
       fontSize: 9,
       fontWeight: '700',
-      color: 'rgba(0,0,0,0.6)',
+      color: tk.overlay.modal,
       flex: 1,
     } as TextStyle,
     // Tip 提示横幅

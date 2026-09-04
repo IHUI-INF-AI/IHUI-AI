@@ -4,15 +4,16 @@
 
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
-import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { getTokens, tokens as baseTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { VipLevelItem2, VipMembershipInfo, VipScreenProps } from '../../types'
 
 /** VIP/Props 类型 re-export(单一来源 @ihui/types) */
 export type { VipLevelItem2, VipMembershipInfo, VipScreenProps }
 
-/** VIP 金色主题(对齐 Uniapp vip/index.vue 行 152/214/258 的 #FFD700 金色 + 深字 #1F2937) */
-const VIP_GOLD = '#FFD700'
-const VIP_GOLD_TEXT = '#1F2937'
+/** VIP 金色主题(对齐 Uniapp vip/index.vue 行 152/214/258 的 #FFD700 金色 + 深字 #1F2937)
+ *  模块级常量无法访问组件内主题 tk → 用基础静态 token(vip.gold / gray.800 明暗同值) */
+const VIP_GOLD = baseTokens.vip.gold
+const VIP_GOLD_TEXT = baseTokens.gray['800']
 
 /**
  * VIP 共享屏 — props 注入式跨端组件
@@ -187,7 +188,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: VIP_GOLD_TEXT,
     },
     membershipLabel: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
-    membershipLevel: { marginTop: 4, fontSize: 20, fontWeight: '600', color: '#FFFFFF' },
+    membershipLevel: { marginTop: 4, fontSize: 20, fontWeight: '600', color: tk.surface.light },
     membershipMeta: {
       flexDirection: 'row',
       justifyContent: 'space-between',

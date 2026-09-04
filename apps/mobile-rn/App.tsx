@@ -26,6 +26,7 @@ import {
 import { rnAuthStore } from './src/stores/auth-store'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
+import './src/lib/web-shell'
 
 /**
  * 全局默认字体:阿里妈妈方圆体(对齐 D 盘 uniapp Ai-WXMiniVue 的 App.vue 全局字体)。

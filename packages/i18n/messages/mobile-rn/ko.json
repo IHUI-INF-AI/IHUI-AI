@@ -1650,7 +1650,8 @@
     "registerSuccess": "가입되었습니다",
     "resendCode": "재전송",
     "termsOfService": "이용약관",
-    "thirdPartyLogin": "다른 방식으로 로그인"
+    "thirdPartyLogin": "다른 방식으로 로그인",
+    "ssoFailed": "웹 인증 로그인에 실패했습니다. 재시도하거나 계정과 비밀번호로 로그인하세요."
   },
   "bookmark": {
     "empty": "북마크가 없습니다",

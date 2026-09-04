@@ -98,7 +98,7 @@ export function HomeScreen({
             style={styles.bellBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Bell size={18} color="#374151" />
+            <Bell size={18} color={tk.text.medium} />
             {unreadCount > 0 ? (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>

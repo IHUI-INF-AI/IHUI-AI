@@ -1650,7 +1650,8 @@
     "registerSuccess": "註冊成功",
     "resendCode": "重新發送",
     "termsOfService": "服務條款",
-    "thirdPartyLogin": "第三方登入"
+    "thirdPartyLogin": "第三方登入",
+    "ssoFailed": "網頁授權登入失敗,請重試或使用帳密登入"
   },
   "bookmark": {
     "empty": "暫無收藏",

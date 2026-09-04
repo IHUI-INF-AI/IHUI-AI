@@ -221,7 +221,7 @@ export default VerifyCodeModal
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: tokens.overlay.modal,
   },
   center: {
     flex: 1,

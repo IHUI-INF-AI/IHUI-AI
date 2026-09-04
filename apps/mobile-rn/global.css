@@ -60,13 +60,13 @@
   --rn-purple: #7b61ff;
   --rn-purple-light: #f5f3ff;
   --rn-purple-soft: #faf9ff;
-  --rn-tertiary: #9ca3af;
-  --rn-body: #374151;
-  --rn-danger: #dc2626;
+  --rn-tertiary: #a3a3a3;
+  --rn-body: #404040;
+  --rn-danger: #ff3333;
   --rn-danger-light: #fef2f2;
   --rn-success-light: #ecfdf5;
   --rn-success-lighter: #d1fae5;
-  --rn-line: #d1d5db;
+  --rn-line: #d4d4d4;
 }
 
 .dark {
@@ -101,13 +101,13 @@
   --rn-purple: #7b61ff;
   --rn-purple-light: #4c1d95;
   --rn-purple-soft: #312e81;
-  --rn-tertiary: #6b7280;
-  --rn-body: #d1d5db;
-  --rn-danger: #ef4444;
+  --rn-tertiary: #737373;
+  --rn-body: #d4d4d4;
+  --rn-danger: #ff3333;
   --rn-danger-light: #450a0a;
   --rn-success-light: #052e16;
   --rn-success-lighter: #064e3b;
-  --rn-line: #4b5563;
+  --rn-line: #525252;
 }
 
 /* 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)

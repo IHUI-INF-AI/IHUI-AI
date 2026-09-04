@@ -71,9 +71,9 @@ export function ApiSettingsScreen({
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           >
             {showToken ? (
-              <EyeOff size={16} color={'#374151'} />
+              <EyeOff size={16} color={tk.text.medium} />
             ) : (
-              <Eye size={16} color={'#374151'} />
+              <Eye size={16} color={tk.text.medium} />
             )}
           </TouchableOpacity>
         </View>
