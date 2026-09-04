@@ -2071,6 +2071,7 @@
       "detailTrack": "賽道",
       "detailStatus": "狀態",
       "detailAuthor": "發布人",
+      "viewDetail": "查看詳情",
       "identityTitle": "切換身份"
     },
     "cover": {
@@ -2092,6 +2093,30 @@
       "continueOrder": "繼續接單",
       "qaTitle": "常見問題"
     }
+  },
+  "postCreate": {
+    "title": "發布貼文",
+    "titleLabel": "標題",
+    "titlePlaceholder": "幫貼文取個標題",
+    "contentLabel": "內容",
+    "contentPlaceholder": "分享你的想法...",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "多個標籤用逗號分隔",
+    "submit": "發布",
+    "required": "請輸入內容",
+    "saveFailed": "儲存失敗"
+  },
+  "postDetail": {
+    "loadFailed": "載入貼文失敗",
+    "anonymous": "匿名",
+    "typesLabel": "類型",
+    "categoriesLabel": "分類",
+    "taskStatusLabel": "任務狀態",
+    "reviewStatusLabel": "審核狀態",
+    "priceLabel": "價格",
+    "cycleLabel": "週期",
+    "closingTimeLabel": "截止時間",
+    "contactLabel": "聯絡方式"
   },
   "ranking": {
     "empty": "暫無排名資料",
