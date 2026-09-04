@@ -11,6 +11,8 @@ import { initVendorConfigs } from './lifecycle/init-vendor-configs.js'
 import { initOtel } from './plugins/otel.js'
 import { isWechatPayConfigured, isPlatformCertConfigured } from './services/wechat-pay.js'
 import { startAiWorldSyncScheduler, stopAiWorldSyncScheduler } from './jobs/ai-world-sync.js'
+import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
+import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -81,6 +83,11 @@ async function start() {
     } catch (e) {
       logger.warn('stopAiWorldSyncScheduler failed', { err: e })
     }
+    try {
+      stopSourceProbeScheduler()
+    } catch (e) {
+      logger.warn('stopSourceProbeScheduler failed', { err: e })
+    }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
       stopAutoRollbackMonitor()
@@ -139,6 +146,17 @@ async function start() {
   // 启动 AI World 数据同步定时任务(每 12 小时一次,默认开启,ENABLE_AI_WORLD_SYNC=false 禁用)
   if (process.env.ENABLE_AI_WORLD_SYNC !== 'false') {
     startAiWorldSyncScheduler()
+  }
+
+  // 启动热搜词采集定时任务(每 3 小时一次,默认开启,ENABLE_HOT_WORDS_SYNC=false 禁用)
+  if (process.env.ENABLE_HOT_WORDS_SYNC !== 'false') {
+    startHotWordsScheduler()
+  }
+
+  // 启动门户信源「恢复探测」定时任务(每天 04:30 探测网易/搜狐/36氪等,
+  // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
+  if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
+    startSourceProbeScheduler()
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出

@@ -116,16 +116,32 @@ interface FetchedFeedItem {
 // 内部工具：HTTP 抓取 + LLM 调用
 // =============================================================================
 
-const FETCH_TIMEOUT_MS = 10_000
+// 20s:兼容 github.com 等路由抖动导致的原生 RSS/HTML 偶发超时(10s 会产生空档)。
+// LLM 调用不走此超时,独立用 90s。
+const FETCH_TIMEOUT_MS = 20_000
+
+/** 通用浏览器 UA(国内门户接口/SSR 页防反爬需要伪装) */
+const UA =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-  try {
-    return await fetch(url, { ...init, signal: controller.signal })
-  } finally {
-    clearTimeout(timer)
+  // 单次自动重试:github.com 等存在间歇性连接抖动(偶发首次连不上、二次即通),
+  // 重试一次可消除由此产生的采集空档。
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal })
+      return res
+    } catch (err) {
+      lastErr = err
+    } finally {
+      clearTimeout(timer)
+    }
+    if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
   }
+  throw lastErr
 }
 
 function parseHotValue(raw: unknown): number | null {
@@ -254,6 +270,107 @@ async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeed
       : item.pubDate
         ? new Date(item.pubDate)
         : null,
+  }))
+}
+
+/**
+ * 魔搭社区(community.modelscope.cn)SSR 页面解析适配器。
+ *
+ * 背景:魔搭官方主站(模型榜单/资讯)为 Cookie 网关绑定的 SPA,无稳定免鉴权 RSS/JSON
+ * 接口可直连;但其社区首页(模型速递 / 社区头条)为服务端渲染,文章块直接内嵌在 HTML 中,
+ * 权威、可达、稳定。这里解析 org-card-content 文章块(标题 / 链接 / 作者 / 日期)转 feed 条目,
+ * 并按链接去重(同文在页面中会以大图 + 小卡两种形态出现)。
+ */
+async function fetchModelScopeCommunity(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+    },
+  })
+  if (!res.ok) throw new Error(`ModelScope Community ${url} 返回 ${res.status}`)
+  const html = await res.text()
+
+  // 文章块:org-card-title> 标题链接(至 </h3>) ... org-card-time> 日期 </span>
+  // 捕获组:1=链接,2=标题,3=日期(YYYY-MM-DD)
+  const itemRe =
+    /org-card-title[^>]*>\s*<a href="([^"]+)"[^>]*>([^<]+)<\/a><\/h3>[\s\S]*?org-card-time[^>]*>([^<]+)<\/span>/gi
+  const seen = new Set<string>()
+  const items: FetchedFeedItem[] = []
+  let match: RegExpExecArray | null
+  while ((match = itemRe.exec(html)) !== null) {
+    const title = match[2]!
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim()
+    const fullUrl = new URL(match[1]!.trim(), url).toString()
+    if (!title || !fullUrl.includes('.html') || seen.has(fullUrl)) continue
+    seen.add(fullUrl)
+
+    let publishTime: Date | null = null
+    const dateStr = match[3]!.trim()
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      const parsed = new Date(dateStr)
+      if (!Number.isNaN(parsed.getTime())) publishTime = parsed
+    }
+
+    items.push({
+      sourceCode,
+      platformItemId: fullUrl.slice(0, 128),
+      title: title.slice(0, 500),
+      summary: null,
+      url: fullUrl,
+      coverUrl: null,
+      author: '魔搭ModelScope社区',
+      currentRank: items.length + 1,
+      currentHot: null,
+      publishTime,
+    })
+  }
+  return items
+}
+
+/**
+ * 今日头条官方热榜接口适配器(源 sourceType='api')。
+ *
+ * 头条官方热榜接口返回:
+ *   { unique_id, update_time, count, data: [ { ClusterId, ClusterIdStr, Title, Url, HotValue, Label, ... }, ... ] }
+ * 其中 data 是卡片数组(每卡一条热搜),字段为首字母大写。与 DailyHotApi 的
+ * { data:[{title,url,hot,...}] } 形状不同,故独立适配:
+ *  - platformItemId 用 ClusterIdStr(url 唯一)→ 幂等去重
+ *  - title=Title / url=Url / currentHot=HotValue
+ */
+async function fetchToutiaoHotBoard(
+  endpoint: string,
+  sourceCode: string,
+): Promise<FetchedFeedItem[]> {
+  const res = await fetchWithTimeout(endpoint, {
+    headers: { Accept: 'application/json', 'User-Agent': UA },
+  })
+  if (!res.ok) throw new Error(`Toutiao HotBoard ${endpoint} 返回 ${res.status}`)
+  const json = (await res.json()) as {
+    data?: Array<{
+      ClusterIdStr?: string
+      Title?: string
+      Url?: string
+      HotValue?: number
+    }>
+  }
+  const list = Array.isArray(json.data) ? json.data : []
+  return list.map((raw, idx) => ({
+    sourceCode,
+    platformItemId: String(raw.ClusterIdStr ?? raw.Url ?? idx).slice(0, 128),
+    title: String(raw.Title ?? '').slice(0, 500),
+    summary: null,
+    url: raw.Url ? String(raw.Url) : null,
+    coverUrl: null,
+    author: '今日头条',
+    currentRank: idx + 1,
+    currentHot: typeof raw.HotValue === 'number' ? raw.HotValue : null,
+    publishTime: new Date(),
   }))
 }
 
@@ -614,9 +731,16 @@ export async function collectAllSources(): Promise<CollectResult> {
             .where(eq(aiFeedSource.id, src.id))
           continue
         }
+      } else if (src.sourceType === 'html' && src.endpoint) {
+        // html 类型:SSR 页面文章块解析(如魔搭社区 community.modelscope.cn)
+        items = await fetchModelScopeCommunity(src.endpoint, src.sourceCode)
       } else if (src.sourceType === 'api' && src.endpoint) {
-        // api 类型直接用 endpoint，优先尝试 DailyHotApi 格式
-        items = await fetchDailyHotApi(src.endpoint, src.sourceCode)
+        // 今日头条官方热榜:JSON 形状与 DailyHotApi 不同,独立适配;其余 api 源走 DailyHotApi 格式
+        if (src.sourceCode === 'toutiao-hot') {
+          items = await fetchToutiaoHotBoard(src.endpoint, src.sourceCode)
+        } else {
+          items = await fetchDailyHotApi(src.endpoint, src.sourceCode)
+        }
       } else {
         // sourceType 与已配置环境变量不匹配，跳过
         details.push({ sourceCode: src.sourceCode, status: 'skipped', count: 0 })
