@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 智汇AI (IHUI AI) — MSI (WiX) 安装器片段
+     作用:把 Tauri 生成的 .msi 默认安装目录固定到 D:\IHUI AI Desktop
+     (替代默认的 %ProgramFiles%\智汇AI)。
+     实现:通过 <SetDirectory> 重设 Tauri 主模板(main.wxs)中 INSTALLDIR 目录的目标路径,
+     不改动整个 main.wxs 模板,版本兼容风险低。
+     Sequence 采用默认值 'both':在 InstallUISequence(预填安装向导目录)与
+     InstallExecuteSequence(决定实际安装位置)中都会生效。
+     说明:硬编码为 D 盘;若目标机器无 D 盘,MSI 安装可能失败(与 NSIS 的分盘回退逻辑不同)。
+     由 tauri.conf.json 的 bundle.windows.wix.fragmentPaths 引用。 -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <SetDirectory Id="INSTALLDIR" Value="D:\IHUI AI Desktop" />
+  </Fragment>
+</Wix>
