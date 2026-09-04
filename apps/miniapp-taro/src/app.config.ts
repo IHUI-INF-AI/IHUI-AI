@@ -113,6 +113,14 @@ export default defineAppConfig({
     'pages/search/index',
     'pages/check-in/index',
     'pages/task-center/index',
+    // P1 补齐(对齐 RN 端 TopicList/TopicDetail/CircleIndex 与矩阵 🔴 PostDetail/PostCreate)
+    'pages/plaza/detail/index',
+    'pages/community/create/index',
+    'pages/announcement/index',
+    'pages/announcement/detail/index',
+    'pages/ai-skill/index',
+    'pages/ai-skill/detail/index',
+    'pages/activity/index',
   ],
   subPackages: [
     {
