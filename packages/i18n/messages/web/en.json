@@ -7663,7 +7663,6 @@
   },
   "auth": {
     "account": "Account",
-    "accountHistory": "Account History",
     "accountPlaceholder": "Enter account/phone/email",
     "agreePrefix": "I have read and agree to the",
     "agreeRequired": "Please read and agree to the terms",
@@ -8902,7 +8901,6 @@
     "cancelTime": "Cancel Time",
     "close": "Close",
     "closeAll": "Close All",
-    "colToken": "Tokens",
     "comingSoon": "Coming Soon",
     "confirm": "Confirm",
     "confirmTitle": "Confirm",
@@ -19755,7 +19753,6 @@
     "loadFailed": "Failed to load",
     "emptyType": "No models in this type",
     "input": "Input",
-    "priceUnit": "¥{price}",
     "output": "Output",
     "perCall": "per call"
   },

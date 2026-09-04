@@ -7653,7 +7653,6 @@
   },
   "auth": {
     "account": "账号",
-    "accountHistory": "Account History",
     "accountPlaceholder": "请输入账号/手机号/邮箱",
     "agreePrefix": "我已阅读并同意",
     "agreeRequired": "请先同意用户协议",
@@ -8892,7 +8891,6 @@
     "cancelTime": "取消时间",
     "close": "关闭",
     "closeAll": "关闭全部",
-    "colToken": "Tokens",
     "comingSoon": "敬请期待",
     "confirm": "确认",
     "confirmTitle": "确认操作",
@@ -19722,7 +19720,6 @@
     "loadFailed": "加载失败",
     "emptyType": "该类型暂无模型",
     "input": "输入",
-    "priceUnit": "¥{price}",
     "output": "输出",
     "perCall": "每次调用"
   },

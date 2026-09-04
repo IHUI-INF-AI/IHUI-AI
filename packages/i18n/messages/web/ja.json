@@ -7658,7 +7658,6 @@
   },
   "auth": {
     "account": "アカウント",
-    "accountHistory": "アカウント履歴",
     "accountPlaceholder": "電話番号 / メール / アカウント",
     "agreePrefix": "読んで同意しました",
     "agreeRequired": "利用規約をお読みいただき、同意してください",
@@ -8898,7 +8897,6 @@
     "cancelTime": "キャンセル時間",
     "close": "閉じる",
     "closeAll": "すべて閉じる",
-    "colToken": "トークン",
     "comingSoon": "近日公開",
     "confirm": "確認",
     "confirmTitle": "確認",
@@ -19805,7 +19803,6 @@
     "loadFailed": "読み込みに失敗しました",
     "emptyType": "このタイプにはモデルがありません",
     "input": "入力",
-    "priceUnit": "¥{price}",
     "output": "出力",
     "perCall": "呼び出しごと"
   },
