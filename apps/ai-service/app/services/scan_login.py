@@ -903,7 +903,12 @@ async def detect_login_from_cdp_session(
                 "error": "浏览器会话不存在或已关闭"}
 
     config = PLATFORM_SCAN_CONFIG[platform]
-    cookies = await session.get_cookies()
+    # 2026-09-02:浏览器被用户手动关闭时 CDP 连接断开,返回明确 error 让前端终止轮询
+    try:
+        cookies = await session.get_cookies()
+    except Exception:
+        return {"detected": False, "cookies_count": 0, "account_id": None,
+                "error": "浏览器已关闭,请重新发起扫码登录"}
     cookies_dict = {c["name"]: c["value"] for c in cookies if c.get("value")}
 
     # 检测 success_cookies 是否命中(值长度 > 5 视为有效)

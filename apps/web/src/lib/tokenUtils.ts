@@ -26,7 +26,7 @@ import {
   REFRESH_LEAD_MS,
 } from '@ihui/shared/auth/auto-refresh'
 import { type TokenPair } from '@ihui/types'
-import { refreshAccessToken } from '@ihui/api-client'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 
 /** web 端调度器:setTimeout / clearTimeout 实现 RefreshScheduler 接口 */
 class WebRefreshScheduler implements RefreshScheduler {
@@ -84,12 +84,21 @@ async function doRefresh(opts: ScheduleOptions): Promise<void> {
   }
   const promise = (async (): Promise<TokenPair | null> => {
     try {
-      const result = await refreshAccessToken(opts.refreshToken)
-      if (!result.success || !result.data?.accessToken) {
-        opts.onError?.(new Error(`refresh 失败: ${'error' in result ? result.error : 'unknown'}`))
+      // 2026-09-04 根治刷新风暴:复用 api-client 全局单例 refreshAccessTokenOnce,
+      // 与 401 拦截器共享同一 in-flight promise。此前直接调 refreshAccessToken(endpoint 函数)
+      // 绕过单例,定时器续期与 401 续期各发一次 /auth/refresh,refresh token 单次轮转
+      // 后到者 401 → RFC 6749 §10.4 family 吊销 → 登录态丢失 + 刷新风暴。
+      // refreshAccessTokenOnce 内部(api.ts 注入的 refreshAccessToken)已 setToken 最新 pair,
+      // 此处从 store 读回最新 refreshToken 构造成 TokenPair 供 schedule 续期。
+      const accessToken = await refreshAccessTokenOnce()
+      if (!accessToken) {
+        opts.onError?.(new Error('refresh 失败: token 为空'))
         return null
       }
-      const data = result.data
+      const data: TokenPair = {
+        accessToken,
+        refreshToken: useAuthStore.getState().refreshToken ?? opts.refreshToken,
+      }
       opts.onRefreshed(data)
       schedule({ ...opts, ...data })
       return data
