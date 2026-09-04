@@ -1,0 +1,34 @@
+{
+  "date": "2026-09-04T02:32:37.192Z",
+  "cmd": [
+    "node",
+    "G:\\IHUI-AI\\apps\\cli\\node_modules\\tsx\\dist\\cli.mjs",
+    "G:\\IHUI-AI\\apps\\cli\\src\\index.ts"
+  ],
+  "total": 3,
+  "passed": 3,
+  "passRate": 100,
+  "results": [
+    {
+      "id": "07-fix-email-regex",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 32250,
+      "verifyOutput": ""
+    },
+    {
+      "id": "09-py-fix-fib",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 47875,
+      "verifyOutput": ""
+    },
+    {
+      "id": "14-feat-uuid-validate",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 58668,
+      "verifyOutput": ""
+    }
+  ]
+}

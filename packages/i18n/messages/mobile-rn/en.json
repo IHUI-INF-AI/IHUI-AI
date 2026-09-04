@@ -31,6 +31,40 @@
     "loadFailed": "Failed to load course",
     "playError": "Playback error"
   },
+  "teacher": {
+    "list": {
+      "title": "Instructors",
+      "searchPlaceholder": "Search instructors",
+      "courseCount": "{n} courses",
+      "studentCount": "{n} students",
+      "empty": "No instructors"
+    },
+    "detail": {
+      "courses": "Courses",
+      "students": "Students",
+      "intro": "Intro",
+      "unfollowed": "Unfollowed",
+      "contactMessage": "Message",
+      "contactPhone": "Call",
+      "phoneHint": "Contact information copied",
+      "fans": "Fans",
+      "goldBadge": "Gold instructor",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "courseSection": "Courses",
+      "learnUnit": "learners",
+      "noCourses": "No courses",
+      "reviewSection": "Reviews",
+      "noReviews": "No reviews",
+      "contact": "Contact instructor",
+      "follow": "+ Follow",
+      "followed": "Followed",
+      "following": "Following",
+      "imSoon": "Private messaging coming soon",
+      "notFound": "Instructor not found",
+      "rating": "Rating"
+    }
+  },
   "live": {
     "title": "Live",
     "viewerCount": "{count} viewers",
@@ -85,6 +119,15 @@
     "logout": "Log Out",
     "myOrders": "My Orders",
     "editProfile": "Edit Profile"
+  },
+  "payResult": {
+    "title": "Payment Result",
+    "pending": "Payment pending",
+    "paid": "Payment successful",
+    "failed": "Payment failed",
+    "backHome": "Back to home",
+    "viewOrders": "View orders",
+    "refresh": "Refresh"
   },
   "payment": {
     "title": "Payment Orders",
@@ -249,7 +292,10 @@
     "webPortalCenter": "Web Feature Portal",
     "knowledgeRag": "RAG Knowledge",
     "subagents": "Subagents",
-    "chatTools": "AI Chat / Tools"
+    "chatTools": "AI Chat / Tools",
+    "cart": "Cart",
+    "circleIndex": "Circles",
+    "topicList": "Topics"
   },
   "error": {
     "network": "Network error, please retry"
@@ -594,7 +640,6 @@
     "video": "Video",
     "addFile": "Add file",
     "compactButton": "Compact context",
-    "compacting": "Compacting context...",
     "compactSuccess": "Context compacted: {before} → {after} tokens (saved {saved})",
     "compactTooFew": "Too few messages to compact",
     "compactIncompressible": "Nothing left to compact in this context",
@@ -757,6 +802,18 @@
     "default": "Default",
     "holder": "Cardholder",
     "loadFailed": "Failed to load bank cards"
+  },
+  "cart": {
+    "title": "Cart",
+    "checkout": "Checkout",
+    "product": "Product",
+    "empty": "Cart is empty",
+    "deleteConfirm": "Delete this item?",
+    "selectFirst": "Please select items",
+    "loadFailed": "Load failed",
+    "total": "Total",
+    "selectAll": "Select all",
+    "checkoutConfirm": "Confirm the selected items and pay with WeChat Pay"
   },
   "carte": {
     "title": "Creator Card",
@@ -963,8 +1020,7 @@
     "balance": "Balance",
     "todayIncome": "Today",
     "totalIncome": "Total Income",
-    "totalExpense": "Total Expense",
-    "loadFailed": "Failed to load finance"
+    "totalExpense": "Total Expense"
   },
   "follow": {
     "title": "Following & Followers",
@@ -1175,7 +1231,8 @@
     "tagsPlaceholder": "Separate tags with commas",
     "submit": "Post",
     "required": "Content is required",
-    "saveFailed": "Failed to save"
+    "saveFailed": "Failed to save",
+    "pickTopic": "Choose a topic"
   },
   "profileEdit": {
     "avatarTip": "Tap to change avatar",
@@ -2183,5 +2240,58 @@
   },
   "developerInfo": {
     "urlLabel": "Website"
+  },
+  "topic": {
+    "list": {
+      "pageTitle": "Topics",
+      "searchPlaceholder": "Search topics",
+      "recommend": "Recommended",
+      "hot": "Hot",
+      "all": "All",
+      "participants": "{n} participants",
+      "posts": "{n} posts",
+      "empty": "No topics yet",
+      "loading": "Loading…",
+      "loadingMore": "Loading…"
+    },
+    "detail": {
+      "pageTitle": "Topic Detail",
+      "loading": "Loading…",
+      "loadFailed": "Failed to load",
+      "followers": "{n} followers",
+      "follow": "Follow",
+      "following": "Following",
+      "followSuccess": "Followed successfully",
+      "unfollowed": "Unfollowed",
+      "followFailed": "Operation failed",
+      "publish": "Post",
+      "publishPlaceholder": "Share your thoughts on this topic…",
+      "empty": "No posts yet. Be the first to post!",
+      "loadingMore": "Loading…",
+      "noMore": "No more items",
+      "justNow": "Just now",
+      "minutesAgo": "{n} min ago",
+      "hoursAgo": "{n} hr ago",
+      "anonymous": "Anonymous"
+    }
+  },
+  "circle": {
+    "tabs": {
+      "recommend": "Recommended",
+      "follow": "Following",
+      "latest": "Latest",
+      "hot": "Hot"
+    },
+    "index": {
+      "pageTitle": "Circles",
+      "goPublish": "Publish",
+      "anonymous": "Anonymous",
+      "follow": "Follow",
+      "followed": "Followed",
+      "loading": "Loading...",
+      "retry": "Tap to retry",
+      "error": "Failed to load"
+    },
+    "empty": "No content yet"
   }
 }

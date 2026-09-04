@@ -13,6 +13,7 @@
  */
 import { Image, Modal, Pressable, StyleSheet, View, type ImageSourcePropType } from 'react-native'
 import { X } from 'lucide-react-native'
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 export interface ImagePreviewModalProps {
   visible: boolean
@@ -31,7 +32,7 @@ export default function ImagePreviewModal({ visible, source, onClose }: ImagePre
             accessibilityRole="button"
             accessibilityLabel="关闭"
           >
-            <X size={30} color="#fff" />
+            <X size={30} color={tokens.surface.light} />
           </Pressable>
         </View>
         <View style={styles.imageWrap}>

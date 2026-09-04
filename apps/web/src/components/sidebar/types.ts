@@ -28,8 +28,7 @@ export interface NavItem {
 export type RegisterRef = (href: string, el: HTMLElement | null) => void
 
 export interface SidebarProps {
-  collapsed: boolean
-  onToggleCollapse: () => void
+  // 2026-09-04:collapsed/onToggleCollapse 已下沉到 Sidebar 内部(性能优化),不再从外部传入。
   id?: string
   mobileOpen: boolean
   onCloseMobile: () => void

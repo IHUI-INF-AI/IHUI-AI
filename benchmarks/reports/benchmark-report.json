@@ -1,0 +1,153 @@
+{
+  "date": "2026-09-03T22:47:44.848Z",
+  "cmd": [
+    "node",
+    "G:\\IHUI-AI\\apps\\cli\\node_modules\\tsx\\dist\\cli.mjs",
+    "G:\\IHUI-AI\\apps\\cli\\src\\index.ts"
+  ],
+  "total": 20,
+  "passed": 17,
+  "passRate": 85,
+  "results": [
+    {
+      "id": "01-fix-sum-off-by-one",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 17803,
+      "verifyOutput": ""
+    },
+    {
+      "id": "02-fix-reverse-words",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 16308,
+      "verifyOutput": ""
+    },
+    {
+      "id": "03-fix-async-sum",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 22206,
+      "verifyOutput": ""
+    },
+    {
+      "id": "04-fix-nested-optional",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 15108,
+      "verifyOutput": ""
+    },
+    {
+      "id": "05-fix-dedupe",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 47302,
+      "verifyOutput": ""
+    },
+    {
+      "id": "06-fix-date-pad",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 10348,
+      "verifyOutput": ""
+    },
+    {
+      "id": "07-fix-email-regex",
+      "agentExit": 0,
+      "verifyPass": false,
+      "durationMs": 9778,
+      "verifyOutput": "node:internal/modules/run_main:107\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: Expected values to be strictly equal:\r\n\r\nfalse !== true\r\n\r"
+    },
+    {
+      "id": "08-py-fix-fizzbuzz",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 7893,
+      "verifyOutput": ""
+    },
+    {
+      "id": "09-py-fix-fib",
+      "agentExit": 0,
+      "verifyPass": false,
+      "durationMs": 8276,
+      "verifyOutput": "\nTraceback (most recent call last):\r\n  File \"<string>\", line 3, in <module>\r\nAssertionError\r\n\n"
+    },
+    {
+      "id": "10-py-fix-csv-parse",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 9792,
+      "verifyOutput": ""
+    },
+    {
+      "id": "11-py-fix-account",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 17339,
+      "verifyOutput": ""
+    },
+    {
+      "id": "12-feat-stats",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 59457,
+      "verifyOutput": ""
+    },
+    {
+      "id": "13-feat-debounce",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 44322,
+      "verifyOutput": ""
+    },
+    {
+      "id": "14-feat-uuid-validate",
+      "agentExit": 0,
+      "verifyPass": false,
+      "durationMs": 10025,
+      "verifyOutput": "file:///G:/IHUI-AI/benchmarks/tasks/14-feat-uuid-validate/verify.mjs:9\r\nassert.equal(mod.validateUuid('123e4567-e89b-12d3-a456-426614174000'), true);\r\n                 ^\r\n\r\nTypeError: mod.validateUuid is not a function\r\n    at file:///G:/IHUI-AI/benchmarks/tasks/14-feat-uuid-validate/verify.mjs:9:18\r\n\r\nNode.js v24.19.0\r"
+    },
+    {
+      "id": "15-feat-queue",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 10384,
+      "verifyOutput": ""
+    },
+    {
+      "id": "16-multi-rename",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 50943,
+      "verifyOutput": ""
+    },
+    {
+      "id": "17-multi-extract",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 20737,
+      "verifyOutput": ""
+    },
+    {
+      "id": "18-multi-fix-imports",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 12854,
+      "verifyOutput": ""
+    },
+    {
+      "id": "19-write-tests",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 16367,
+      "verifyOutput": ""
+    },
+    {
+      "id": "20-fix-clamp-edge",
+      "agentExit": 0,
+      "verifyPass": true,
+      "durationMs": 25792,
+      "verifyOutput": ""
+    }
+  ]
+}

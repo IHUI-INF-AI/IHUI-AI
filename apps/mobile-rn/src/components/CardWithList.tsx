@@ -111,7 +111,7 @@ export function CardWithList({ title, items, onItemClick, onMore, moreText }: Ca
               ) : item.icon ? (
                 <item.icon size={ICON_FONT_SIZE} color={tk.text.primary} />
               ) : (
-                <DEFAULT_ICON size={32} color={'#6b7280'} />
+                <DEFAULT_ICON size={32} color={tk.text.secondary} />
               )}
             </View>
             <Text style={styles.itemTitle} numberOfLines={1}>
