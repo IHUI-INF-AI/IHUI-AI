@@ -160,7 +160,6 @@ IHUI-AI/
 ├── scripts/                       # 守门脚本 + 工具链(30+ pre-commit 钩子)
 ├── docs/                          # 文档(architecture / api / exposure / user)
 ├── deploy/                        # Docker / Nginx / Homebrew / Scoop / Snap / Winget
-├── sdks/                          # 独立 SDK 仓库(TS / Python / Go / Java)
 └── AGENTS.md                      # Agent 协作强制规则(必读)
 ```
 
