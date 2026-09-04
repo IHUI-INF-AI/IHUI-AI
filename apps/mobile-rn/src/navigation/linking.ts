@@ -21,6 +21,11 @@ export const linking: LinkingOptions<RootStackParamList> = {
       // 登录/注册
       Login: 'login',
       Register: 'register',
+      // P1(2026-09-04):社区链路(镜像 miniapp pages/topic/*、pages/circle/index;
+      // web 端对应 /topics、/topics/[id])。TopicDetail 参数名与 route.params.id 一致。
+      TopicList: 'topic/list',
+      TopicDetail: 'topic/:id',
+      CircleIndex: 'circle',
     },
   },
 }

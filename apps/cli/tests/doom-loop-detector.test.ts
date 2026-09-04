@@ -50,15 +50,25 @@ describe('DoomLoopDetector 滑动窗口死循环检测', () => {
     expect(alert!.suggestion).toContain('检查工具返回值')
   })
 
-  it('不同工具不互相影响', () => {
+  it('交替调用不同工具打断连续计数,不报警', () => {
+    // 2026-09-03 语义修正: 尾部连续计数,中间夹任何不同调用即打断。
+    // 交替 read/write(即使参数相同)不属于死循环。
     const input = { path: 'same.txt' }
     expect(detector.record('read', input)).toBeNull()
     expect(detector.record('write', input)).toBeNull()
     expect(detector.record('read', input)).toBeNull()
     expect(detector.record('write', input)).toBeNull()
-    // 各自只有 2 次,未达阈值 3
-    expect(detector.record('read', input)).not.toBeNull()
-    expect(detector.record('write', input)).not.toBeNull()
+    expect(detector.record('read', input)).toBeNull()
+    expect(detector.record('write', input)).toBeNull()
+  })
+
+  it('跨轮重读同一组文件不报警(a,b,a,b,a,b)', () => {
+    // 回归用例: agent 多轮迭代中重读 a.mjs/b.mjs 是合法行为(如写码前刷新上下文),
+    // 旧实现按"窗口内出现次数"统计会误判为死循环。
+    for (let round = 0; round < 3; round++) {
+      expect(detector.record('read', { path: 'a.mjs' })).toBeNull()
+      expect(detector.record('read', { path: 'b.mjs' })).toBeNull()
+    }
   })
 
   it('相同工具不同参数不报警', () => {

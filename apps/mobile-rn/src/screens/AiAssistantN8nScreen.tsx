@@ -598,92 +598,115 @@ export default function AiAssistantN8nScreen() {
     }
     apiMessages.push({ role: 'user', content: text })
 
-    await streamChat({
-      model: selectedModelId,
-      messages: apiMessages,
-      agentId,
-      signal: controller.signal,
-      // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
-      stream: true,
-      temperature: modelConfig.temperature,
-      topP: modelConfig.topP,
-      maxTokens: modelConfig.maxTokens,
-      metadata: currentConversationId ? { conversationId: currentConversationId } : undefined,
-      onDelta: (delta) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = { ...last, content: last.content + delta }
-          }
-          return next
-        })
-        scrollToEnd()
-      },
-      // 思考过程增量(对齐 Uniapp onMessage 累积 agent_content1 + isHaveSikao)
-      onReasoning: (delta) => {
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = {
-              ...last,
-              isHaveSikao: true,
-              thinkingContent: (last.thinkingContent ?? '') + delta,
+    // 2026-09-04 吞错修复(Fix B):streamChat 未传 onError 时对流内 error 事件耗尽重试后会 throw(reject,
+    // 见 client.ts catch 块)。本屏虽传了 onError,但请求构造/网络层在进入重试循环前抛出的异常仍会 reject,
+    // 此前无 try/catch 会导致 unhandled rejection 且 sending 永远不复位。补 try/catch 把错误路由到
+    // 本屏既有错误状态处理(sending 复位 + 空回复填充错误提示 + toast),对齐 ChatScreen 错误处理写法。
+    try {
+      await streamChat({
+        model: selectedModelId,
+        messages: apiMessages,
+        agentId,
+        signal: controller.signal,
+        // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
+        stream: true,
+        temperature: modelConfig.temperature,
+        topP: modelConfig.topP,
+        maxTokens: modelConfig.maxTokens,
+        metadata: currentConversationId ? { conversationId: currentConversationId } : undefined,
+        onDelta: (delta) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = { ...last, content: last.content + delta }
             }
-          }
-          return next
-        })
-        scrollToEnd()
-      },
-      // 消耗智汇值(对齐 Uniapp total_tokens,SSE usage chunk 映射)
-      onUsage: (usage) => {
-        if (usage.totalTokens <= 0) return
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            next[next.length - 1] = { ...last, totalTokens: usage.totalTokens }
-          }
-          return next
-        })
-      },
-      onError: (err) => {
-        const formatted = formatSSEError(new Error(err))
-        setSending(false)
-        abortRef.current = null
-        // 空回复时填充错误提示
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant' && !last.content) {
-            next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
-          }
-          return next
-        })
-        // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
-        const errMsg = formatted.message
-          ? `${formatted.title}: ${formatted.message}`
-          : formatted.title
-        showToast('error', errMsg)
-      },
-      onDone: () => {
-        setSending(false)
-        abortRef.current = null
-        // 流结束后提取回复中的图片 URL(对齐 Uniapp imgUrlList + processContent)
-        setMessages((prev) => {
-          const next = [...prev]
-          const last = next[next.length - 1]
-          if (last && last.role === 'assistant') {
-            const imgs = extractImageUrls(last.content)
-            if (imgs.length > 0) {
-              next[next.length - 1] = { ...last, images: imgs }
+            return next
+          })
+          scrollToEnd()
+        },
+        // 思考过程增量(对齐 Uniapp onMessage 累积 agent_content1 + isHaveSikao)
+        onReasoning: (delta) => {
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = {
+                ...last,
+                isHaveSikao: true,
+                thinkingContent: (last.thinkingContent ?? '') + delta,
+              }
             }
-          }
-          return next
-        })
-      },
-    })
+            return next
+          })
+          scrollToEnd()
+        },
+        // 消耗智汇值(对齐 Uniapp total_tokens,SSE usage chunk 映射)
+        onUsage: (usage) => {
+          if (usage.totalTokens <= 0) return
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              next[next.length - 1] = { ...last, totalTokens: usage.totalTokens }
+            }
+            return next
+          })
+        },
+        onError: (err) => {
+          const formatted = formatSSEError(new Error(err))
+          setSending(false)
+          abortRef.current = null
+          // 空回复时填充错误提示
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant' && !last.content) {
+              next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
+            }
+            return next
+          })
+          // 对齐 Uniapp uni.showToast + 任务要求 #2(error toast 用 FloatBox 替代 Alert.alert)
+          const errMsg = formatted.message
+            ? `${formatted.title}: ${formatted.message}`
+            : formatted.title
+          showToast('error', errMsg)
+        },
+        onDone: () => {
+          setSending(false)
+          abortRef.current = null
+          // 流结束后提取回复中的图片 URL(对齐 Uniapp imgUrlList + processContent)
+          setMessages((prev) => {
+            const next = [...prev]
+            const last = next[next.length - 1]
+            if (last && last.role === 'assistant') {
+              const imgs = extractImageUrls(last.content)
+              if (imgs.length > 0) {
+                next[next.length - 1] = { ...last, images: imgs }
+              }
+            }
+            return next
+          })
+        },
+      })
+    } catch (err) {
+      // 与上方 onError 同款错误状态处理(2026-09-04 吞错修复 Fix B 兜底)
+      const formatted = formatSSEError(err)
+      setSending(false)
+      abortRef.current = null
+      setMessages((prev) => {
+        const next = [...prev]
+        const last = next[next.length - 1]
+        if (last && last.role === 'assistant' && !last.content) {
+          next[next.length - 1] = { ...last, content: t('aiAssistantN8n.callFailed') }
+        }
+        return next
+      })
+      const errMsg = formatted.message
+        ? `${formatted.title}: ${formatted.message}`
+        : formatted.title
+      showToast('error', errMsg)
+    }
   }
 
   const onStop = (): void => {

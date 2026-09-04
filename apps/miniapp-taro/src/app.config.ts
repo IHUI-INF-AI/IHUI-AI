@@ -25,7 +25,7 @@ export default defineAppConfig({
     'pages/vip/details',
     'pages/vip/success',
     'pages/pay/index',
-    'pages/pay/result',
+    'pages/pay/result/index',
     'pages/order/list',
     'pages/order/detail',
     'pages/order/refund',
@@ -104,12 +104,22 @@ export default defineAppConfig({
     'pages/category-detail/index',
     'pages/carte/index',
     'pages/wallet/recharge/index',
-    'pages/wallet/recharge/success',
-    'pages/wallet/recharge/fail',
     'pages/wallet/top-up/index',
     'pages/wallet/withdrawal/index',
     'pages/wallet/commission/index',
     'pages/subscription/contracts/index',
+    'pages/search/index',
+    'pages/check-in/index',
+    'pages/task-center/index',
+    // P1 补齐(对齐 RN 端 TopicList/TopicDetail/CircleIndex 与矩阵 🔴 PostDetail/PostCreate)
+    'pages/plaza/detail/index',
+    'pages/community/create/index',
+    // P2 补齐(对齐 RN 端公告/活动/AI技能;settings 入口已接线)
+    'pages/announcement/index',
+    'pages/announcement/detail/index',
+    'pages/activity/index',
+    'pages/ai-skill/index',
+    'pages/ai-skill/detail/index',
   ],
   subPackages: [
     {

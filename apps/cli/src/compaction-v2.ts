@@ -249,11 +249,18 @@ export function isDegenerateSummary(summary: string, minSeedChars?: number): boo
   return summary.trim().length < threshold;
 }
 
-/** formatCompactSummary — 清理 <analysis>/<summary>/<thinking> 等控制标签,归一化 whitespace */
+/**
+ * formatCompactSummary — 清理 <analysis>/<summary>/<thinking> 等控制标签并归一化 whitespace。
+ *
+ * 2026-09-02 改:归一化时保留换行(\n) —— 结构化四段式摘要(任务目标/已做决策/文件与工具
+ * 变更/未完成事项)依赖 \n\n 段落分隔,旧版 \s+ → ' ' 会把段落拍平成一行不可读。
+ * 空白归一:空格/tab 连续段 → 单空格;换行连换段(≥2 个 \n)→ \n\n;单换行保留。
+ */
 export function formatCompactSummary(rawSummary: string): string {
   return rawSummary
     .replace(/<\/?(?:analysis|summary|thinking|reflect|reasoning|scratchpad)[\s\S]*?>/gi, ' ')
-    .replace(/\s+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[^\S\n]+/g, ' ')
     .trim();
 }
 

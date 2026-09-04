@@ -134,7 +134,9 @@ export default function VipIndexPage() {
       ) {
         requestWxPayment(payInfo as AnyPayParams)
           .then(() => Taro.redirectTo({ url: successUrl }))
-          .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+          .catch(() =>
+            Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=failed` }),
+          )
         return
       }
       if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {

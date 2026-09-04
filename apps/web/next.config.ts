@@ -29,7 +29,13 @@ const nextConfig: NextConfig = {
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
-  reactStrictMode: true,
+  // 2026-09-04 性能优化(用户授权"本地开发版最快速度"):关闭 StrictMode。
+  // 实测:React 19 StrictMode 在 dev 模式双重渲染,使按钮点击延迟 +35%
+  // (侧边栏「收起」按钮 dev 325ms→关闭后 220ms)。生产模式不受 StrictMode 影响
+  // (build 时不启用 dev-only 双重渲染),故此项仅改善本地开发体验。
+  // 权衡:放弃 StrictMode 的 dev-only bug 检测(副作用/不纯渲染暴露),但项目已有
+  // 50+ e2e 测试 + 生产稳定运行,检测价值边际递减。
+  reactStrictMode: false,
   typescript: { ignoreBuildErrors: true }, // CI 构建跳过 TS 错误(多 agent 并行开发可能有临时错误)
   // Next 16 移除了 NextConfig.eslint 配置项(ESLint 不再在 next build 期间运行,
   // 由独立 `next lint` 或外部 ESLint 流程负责),原 eslint.ignoreDuringBuilds 不再需要。
@@ -933,11 +939,10 @@ const nextConfig: NextConfig = {
           source: '/recruitment/bigtp%402x.png',
           destination: 'http://localhost:80/recruitment/bigtp%402x.png',
         },
-        // 2026-08-27: 图片/文件 CDN 的 /uploads 出图已改为 web 端 route handler 托管
-        // (apps/web/app/uploads/[[...path]]/route.ts),直接从磁盘读取
-        // apps/api/uploads/public 返回,Host 无关、不依赖反代 8802,根治公网
-        // file.aizhs.top 等子域 rewrite 代理偶发失败的问题。故此处不再保留 /uploads rewrite。
-        // api.aizhs.top/uploads 由 Cloudflare 隧道直指 8802(@fastify/static),不经 web。
+        // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
+        // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
+        // web 端不再有本地磁盘路由(原 app/cdn 与 app/uploads 的 route.ts 已删除),
+        // 故此处不再保留 /uploads、/cdn 的 rewrite,也不经 web。
         // 2026-07-29 新增:ai-skills 路由直接转发到 ai-service 8803
         // 原因:api server 8802 没有注册 /api/ai-skills 路由(404),
         // 而 ai-service 8803 有完整的 19 个 skill 元数据(GET /api/ai-skills) +

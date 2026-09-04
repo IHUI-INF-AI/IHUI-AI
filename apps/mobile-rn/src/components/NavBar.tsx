@@ -173,7 +173,7 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       )
     }
     const Icon = action.icon
-    return <Icon size={18} color="#6b7280" />
+    return <Icon size={18} color={tokens.text.secondary} />
   }
   return (
     <TouchableOpacity

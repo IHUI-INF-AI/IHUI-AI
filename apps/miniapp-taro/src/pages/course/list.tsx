@@ -13,8 +13,8 @@ import Taro, {
 } from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { getCourseList, type Course } from '@/api'
-import SectionHeader from '@/components/SectionHeader'
-import ColorfulLoader from '@/components/ColorfulLoader'
+// P2-F 接线:SectionHeader/ColorfulLoader 切换为 Taro 适配层导出(props 契约与旧实现一致)
+import { SectionHeader, ColorfulLoader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 
 export default function CourseList() {

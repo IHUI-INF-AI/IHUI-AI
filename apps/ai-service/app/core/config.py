@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     # 故该前缀放行 JWT;token 签发端点 /api/artifacts/token 不在白名单,仍走 JWT 保护。
     # 运行时权威值在 ai-service/.env 的 JWT_PUBLIC_PATHS(pydantic 会覆盖本默认值)。
     jwt_public_paths: str = (
-        "/api/health,/api/legacy,/health,/metrics,"
+        "/api/health,/api/legacy/,/health,/metrics,"
         "/api/publish/scan-login/platforms,"
         "/api/admin/news/status,/api/admin/news/refresh-daily,/api/admin/news/publish-recent,"
         "/api/voice/stt,/api/voice/tts,/api/mcp,"

@@ -326,7 +326,7 @@ export function VoiceInput({
               accessibilityRole="button"
               accessibilityLabel={item.label}
             >
-              <item.icon size={20} color={'#6b7280'} />
+              <item.icon size={20} color={tokens.text.secondary} />
               <Text style={styles.popupLabel} numberOfLines={1}>
                 {item.label}
               </Text>

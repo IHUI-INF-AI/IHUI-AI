@@ -9,7 +9,8 @@ import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
 import Carousel from '@/components/Carousel'
-import SectionHeader from '@/components/SectionHeader'
+// P2-F 接线:SectionHeader 切换为 Taro 适配层导出(props 契约与旧实现一致;Carousel 契约不兼容保持本地实现)
+import { SectionHeader } from '@/components/adapters'
 import ThemeRoot from '@/components/ThemeRoot'
 
 interface PlanetCourse {

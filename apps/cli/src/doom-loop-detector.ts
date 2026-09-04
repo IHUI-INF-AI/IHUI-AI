@@ -68,9 +68,18 @@ export class DoomLoopDetector {
       this.uniqueSet.add(uniqueKey)
       this.uniqueCalls++
     }
-    const repeatCount = this.window.filter(
-      (e) => e.toolName === toolName && e.inputHash === inputHash,
-    ).length
+    // 2026-09-03 修复: 原实现统计"窗口内出现次数",会把跨轮合法重读同一文件(如 a,b,a,b,a,b)
+    // 误判为死循环。改为只统计窗口尾部连续相同的调用——中间夹着任何不同调用即打断计数。
+    // 跨轮整轮重复(tool_call 模式完全相同)由 ConsecutiveSignatureDetector 兜底。
+    let repeatCount = 0
+    for (let i = this.window.length - 1; i >= 0; i--) {
+      const e = this.window[i]!
+      if (e.toolName === toolName && e.inputHash === inputHash) {
+        repeatCount++
+      } else {
+        break
+      }
+    }
     if (repeatCount >= this.options.repeatThreshold) {
       return {
         toolName,
