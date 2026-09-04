@@ -1,4 +1,35 @@
 {
+  "checkIn": {
+    "title": "每日签到"
+  },
+  "search": {
+    "title": "搜索",
+    "placeholder": "搜索课程、讲师、内容",
+    "empty": "未找到相关内容",
+    "failed": "搜索失败",
+    "type": {
+      "course": "课程",
+      "article": "文章",
+      "post": "动态",
+      "note": "笔记",
+      "agent": "智能体"
+    }
+  },
+  "taskCenter": {
+    "title": "任务中心",
+    "subtitle": "做任务,拿奖励",
+    "retry": "重试",
+    "empty": "暂无可做的任务",
+    "claimed": "已领取",
+    "claim": "领取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}",
+    "claimFailed": "领取失败",
+    "loadFailed": "加载任务失败",
+    "tab_daily": "每日",
+    "tab_weekly": "每周",
+    "tab_newbie": "新手"
+  },
   "nav": {
     "profile": "我的",
     "community": "社区"
