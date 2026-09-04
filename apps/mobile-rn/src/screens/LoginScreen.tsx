@@ -2,12 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Platform, StyleSheet, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
+import { Alert, Image, Platform, StyleSheet, View } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
-import { SvgXml } from 'react-native-svg'
+import { SvgXml, type SvgProps } from 'react-native-svg'
 import {
   loginByAccount,
   loginByEmailCode,
@@ -29,8 +29,10 @@ import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
 import {
+  loginByAlipayRedirect,
   loginByDingtalkRedirect,
   loginByFeishuRedirect,
+  loginByGithubRedirect,
   loginByWecomRedirect,
   type OAuthRedirectResult,
 } from '../lib/oauth-redirect'
@@ -71,114 +73,155 @@ import { rpx } from '../utils/rpx'
 // logo 图片(对齐 web AuthShell /images/logo.png)
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const LOGO_SOURCE = require('../../assets/images/logo.png')
+// 暗色版 logo:"IHUI INF" 文字反白(黑底/蝶形渐变不动),解决暗色模式下文字发黑看不清
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const LOGO_DARK_SOURCE = require('../../assets/images/logo-dark.png')
 
 // welcome 品牌文字图(对齐 web AuthShell /images/welcome.svg + /images/baiwelcome.svg)
 // 像素艺术 "IHUI INF.AI" 文字,浅色主题用黑字(welcome),深色主题用白字(baiwelcome)
 // 用 SvgXml 渲染(RN <Image> 不支持 SVG),尺寸 447×67 等比缩放到 width 280
-const WELCOME_SVG_LIGHT = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><g><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#000000" fill-opacity="1"/></g></g></svg>`
-const WELCOME_SVG_DARK = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><defs><clipPath id="master_svg0_2003_34410"><rect x="0" y="0" width="447" height="67" rx="0"/></clipPath></defs><g clip-path="url(#master_svg0_2003_34410)"><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#FFFFFF" fill-opacity="1"/></g></g></svg>`
+const WELCOME_SVG_LIGHT = `<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><g><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#000000" fill-opacity="1"/></g></g></svg>
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->`
+const WELCOME_SVG_DARK = `<!--
+  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+-->
+
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><defs><clipPath id="master_svg0_2003_34410"><rect x="0" y="0" width="447" height="67" rx="0"/></clipPath></defs><g clip-path="url(#master_svg0_2003_34410)"><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#FFFFFF" fill-opacity="1"/></g></g></svg>
+<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->`
 
 // 第三方登录图标资源(8 平台)
-// 使用 require() 加载静态资源:Metro 默认将 .svg/.png 视为 asset(require 返回 number),
-// 共享 LoginScreen 组件通过 <Image source={number} /> 渲染(iOS 原生支持 SVG;Android
-// 依赖 RN Image 解码能力)。不使用 react-native-svg-transformer —— 它会把 SVG 转为
-// React 组件(非 number),与共享组件 <Image source={...} /> 不兼容,且 iconSource
-// 类型契约为 number | { uri: string }(packages/types/src/app.ts),无法接受组件。
+// 2026-09-04 修复:metro.config.cjs 的 react-native-svg-transformer(2026-09-03 复位)把 .svg
+// 编译为 React 组件,不再符合共享组件 <Image source={number|{uri}}>(packages/types app.ts)
+// 的 iconSource 契约,此前直接喂 Image 导致除 feishu.png 外全部不渲染(web/Android 同病)。
+// 现走 iconNode 节点通道(共享 ThirdPartyLoginArea 优先渲染 iconNode);PNG 仍走 iconSource。
 /* eslint-disable @typescript-eslint/no-require-imports */
-// Partial<'app'> 平台是本站 App 扫码登录,共享组件 fallback 到首字母,不需要图标资源
-const THIRD_PARTY_ICONS: Partial<Record<ThirdPartyPlatform, number>> = {
-  wechat: require('../../assets/images/common/wx.svg'),
-  google: require('../../assets/images/common/google.svg'),
-  github: require('../../assets/images/common/github.svg'),
-  feishu: require('../../assets/images/common/feishu.png'),
-  dingtalk: require('../../assets/images/dingtalk.svg'),
-  enterpriseWechat: require('../../assets/images/enterprise-wechat.svg'),
-  alipay: require('../../assets/images/common/ZFB.svg'),
-  apple: require('../../assets/images/common/apple.svg'),
+type SvgComponent = ComponentType<SvgProps>
+/** transformer 产物可能是默认导出包装(require 返回 module 对象)或直接组件,统一解包 */
+const resolveSvgComponent = (mod: unknown): SvgComponent =>
+  (mod as { default?: SvgComponent } | null | undefined)?.default ?? (mod as SvgComponent)
+const svgIconNode = (mod: unknown, size = 28): ReactNode => {
+  const Icon = resolveSvgComponent(mod)
+  return <Icon width={size} height={size} />
 }
+const FEISHU_PNG_ICON: number = require('../../assets/images/common/feishu.png')
+/**
+ * 2026-09-04 视觉等大校准:各平台 SVG 的墨迹在 viewBox 中的占比不同,统一 28 渲染会
+ * 出现"企微偏小 / 飞书偏大"。按实测墨迹高度占比换算渲染尺寸,目标墨迹高 ≈ 26:
+ *   企微 75%(28 渲染仅 21 墨迹)→ 35;钉钉 90% → 29;GitHub 97.5% / Apple 95% → 27;
+ *   Google 92% / 支付宝(扁宽标)维持 28。飞书 PNG 走 iconNode 32×32(见下)。
+ */
+const THIRD_PARTY_ICON_NODES: Partial<Record<ThirdPartyPlatform, ReactNode>> = {
+  // 微信大按钮(绿底)用白色官方气泡造型;wx.svg(黑色)保留给其他浅底场景
+  wechat: svgIconNode(require('../../assets/images/common/wx-white.svg')),
+  google: svgIconNode(require('../../assets/images/common/google.svg')),
+  dingtalk: svgIconNode(require('../../assets/images/dingtalk.svg'), 29),
+  enterpriseWechat: svgIconNode(require('../../assets/images/enterprise-wechat.svg'), 35),
+  alipay: svgIconNode(require('../../assets/images/common/ZFB.svg')),
+  // 飞书 PNG 原走 iconSource(命中共享 thirdPartyIconLg 36×36,墨迹 33.6 宽为全行最宽,
+  // 视觉偏大);改走 iconNode 收窄到 32×32 contain,墨迹 ≈ 30×23.6,与行内其他标等大
+  feishu: (
+    <Image
+      source={FEISHU_PNG_ICON}
+      style={{ width: 32, height: 32 }}
+      resizeMode="contain"
+    />
+  ),
+}
+/**
+ * 单色图标按主题选择:GitHub/Apple 的官方标是单色 Logo,深色背景下用白色、
+ * 浅色背景下用黑色(官方在两种底色上的标准用法),不能像彩色标一样一份走天下。
+ * svg-transformer 产物是组件无法运行时换色,故黑白各备一份按 resolvedTheme 切换
+ * (与 wx-white.svg 同一先例)。
+ */
+const monoIconNode = (scheme: 'light' | 'dark', blackMod: unknown, whiteMod: unknown): ReactNode =>
+  svgIconNode(scheme === 'dark' ? whiteMod : blackMod)
+const GITHUB_ICON_BLACK = require('../../assets/images/common/github.svg')
+const GITHUB_ICON_WHITE = require('../../assets/images/common/github-white.svg')
+const APPLE_ICON_BLACK = require('../../assets/images/common/apple.svg')
+const APPLE_ICON_WHITE = require('../../assets/images/common/apple-white.svg')
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-// 第三方登录配置:按平台 + locale 动态生成(2026-08-04 用户需求)
-// - 国内版(zh-*):安卓 = 微信/飞书/钉钉/企微(4个);iOS = 微信/飞书/钉钉/企微/苹果(5个,苹果为主排首位)
-// - 国际版(en/ko/ja):Google/GitHub(2个)
-// - alipay 全平台不显示(移动端支付场景走原生 SDK,不在登录页展示)
-// 判定逻辑:locale 以 'zh' 开头 = 国内版,其余 = 国际版
-function isInternationalLocale(locale: string): boolean {
-  return !locale.toLowerCase().startsWith('zh')
-}
-
-function buildThirdPartyOptions(locale: string): ThirdPartyLoginOption[] {
+// 第三方登录配置:完整对齐 web 端 8 平台(2026-09-04 用户需求,按 web 端 PROVIDER_DEFS 顺序)
+// web 端定义见 apps/web/src/hooks/use-third-party-config.tsx:
+// 微信/Google/GitHub → 飞书/钉钉/企业微信 → 支付宝/Apple(置灰即将上线)。
+// 微信为独立大按钮(共享 ThirdPartyLoginArea 自动抽取);支付宝 auth_code 模式、
+// GitHub 标准 OAuth,均走 web 端回调地址(/callback?platform=xxx&redirect=mobile-rn)。
+function buildThirdPartyOptions(
+  _locale: string,
+  colorScheme: 'light' | 'dark',
+): ThirdPartyLoginOption[] {
   const isIOS = Platform.OS === 'ios'
-  const isInternational = isInternationalLocale(locale)
-
-  if (isInternational) {
-    // 国际版:Google + GitHub
-    return [
-      {
-        platform: 'google',
-        label: 'Google',
-        iconSource: THIRD_PARTY_ICONS.google,
-        enabled: true,
-        brandColor: '#4285F4',
-      },
-      {
-        platform: 'github',
-        label: 'GitHub',
-        iconSource: THIRD_PARTY_ICONS.github,
-        enabled: true,
-        brandColor: '#181717',
-      },
-    ]
-  }
-
-  // 国内版:iOS 苹果为主排首位,其余平台按 微信/飞书/钉钉/企微 顺序
-  const domesticOptions: ThirdPartyLoginOption[] = [
+  const options: ThirdPartyLoginOption[] = [
     {
       platform: 'wechat',
       label: '微信',
-      iconSource: THIRD_PARTY_ICONS.wechat,
+      iconNode: THIRD_PARTY_ICON_NODES.wechat,
       enabled: true,
       brandColor: '#07C160',
     },
     {
+      platform: 'google',
+      label: 'Google',
+      iconNode: THIRD_PARTY_ICON_NODES.google,
+      enabled: true,
+      brandColor: '#4285F4',
+    },
+    {
+      platform: 'github',
+      label: 'GitHub',
+      iconNode: monoIconNode(colorScheme, GITHUB_ICON_BLACK, GITHUB_ICON_WHITE),
+      enabled: true,
+      brandColor: '#181717',
+    },
+    {
       platform: 'feishu',
       label: '飞书',
-      iconSource: THIRD_PARTY_ICONS.feishu,
+      iconNode: THIRD_PARTY_ICON_NODES.feishu,
       enabled: true,
       brandColor: '#3370FF',
     },
     {
       platform: 'dingtalk',
       label: '钉钉',
-      iconSource: THIRD_PARTY_ICONS.dingtalk,
+      iconNode: THIRD_PARTY_ICON_NODES.dingtalk,
       enabled: true,
       brandColor: '#0089FF',
     },
     {
       platform: 'enterpriseWechat',
       label: '企业微信',
-      iconSource: THIRD_PARTY_ICONS.enterpriseWechat,
+      iconNode: THIRD_PARTY_ICON_NODES.enterpriseWechat,
       enabled: true,
       brandColor: '#2DC100',
     },
+    {
+      platform: 'alipay',
+      label: '支付宝',
+      iconNode: THIRD_PARTY_ICON_NODES.alipay,
+      enabled: true,
+      brandColor: '#1677FF',
+    },
   ]
-
+  // Apple 登录仅 iOS 提供(expo-apple-authentication 原生能力):
+  // Android/Web 无此能力,直接不展示(而非置灰)
   if (isIOS) {
-    // iOS 国内版:苹果为主排首位
-    return [
-      {
-        platform: 'apple',
-        label: 'Apple',
-        iconSource: THIRD_PARTY_ICONS.apple,
-        enabled: true,
-        brandColor: tokens.gray.black,
-      },
-      ...domesticOptions,
-    ]
+    options.push({
+      platform: 'apple',
+      label: 'Apple',
+      iconNode: monoIconNode(colorScheme, APPLE_ICON_BLACK, APPLE_ICON_WHITE),
+      enabled: true,
+      brandColor: tokens.gray.black,
+    })
   }
-
-  // 安卓国内版:微信/飞书/钉钉/企微
-  return domesticOptions
+  return options
 }
 
 // 启用的 tab 列表(3 tab:邮箱/验证码/密码)
@@ -250,7 +293,10 @@ export function LoginScreen() {
 
   // 第三方登录方式:按平台 + locale 动态生成
   // 国内安卓:微信/飞书/钉钉/企微(4);国内 iOS:苹果为主 + 微信/飞书/钉钉/企微(5);国际版:Google/GitHub(2)
-  const thirdPartyOptions = useMemo(() => buildThirdPartyOptions(locale), [locale])
+  const thirdPartyOptions = useMemo(
+    () => buildThirdPartyOptions(locale, resolvedTheme),
+    [locale, resolvedTheme],
+  )
 
   // ===== 账号密码登录 + SSO(复用共享 hook) =====
   const form = useLoginForm({
@@ -282,6 +328,14 @@ export function LoginScreen() {
       navigateAfterLogin()
     },
     ssoLogin: async (): Promise<LoginApiResult> => {
+      // web 预览无系统浏览器授权会话与 deep link 回跳通道(openAuthSessionAsync
+      // 不支持 web),点击必然失败——直接给明确指引,不再抛 auth.ssoFailed
+      if (Platform.OS === 'web') {
+        return {
+          success: false,
+          error: '网页预览暂不支持一键授权登录,请使用手机 App,或直接在下方输入账密登录',
+        }
+      }
       const redirectUrl = await openSsoLogin()
       if (!redirectUrl) return { success: false, error: '用户取消授权' }
       const code = extractSsoCode(redirectUrl)
@@ -301,6 +355,18 @@ export function LoginScreen() {
       }
     },
   })
+
+  // ===== 自动登录(对齐 web:勾选过"自动登录"的设备,启动进登录页时静默重登获取新 token) =====
+  // 仅在挂载时触发一次:凭据已由 useLoginForm 初始化回填,直接复用 form.login()
+  const autoLoginFiredRef = useRef(false)
+  useEffect(() => {
+    if (autoLoginFiredRef.current) return
+    autoLoginFiredRef.current = true
+    if (credentialStorage.loadAutoLogin() && credentialStorage.loadRemembered()) {
+      void form.login()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时判定一次,form.login 为稳定 useCallback
+  }, [])
 
   // ===== email tab 本地 state =====
   const [email, setEmail] = useState('')
@@ -495,7 +561,7 @@ export function LoginScreen() {
   // 微信:native 平台用 react-native-wechat-lib 原生 SDK 拉起微信 App 授权(wechat.ts)
   // 苹果:iOS 优先 expo-apple-authentication 原生 SDK,Android 走 web OAuth 跳转(apple.ts)
   // Google:Android/iOS 优先 @react-native-google-signin/google-signin,fallback 到 web OAuth(google.ts)
-  // 飞书/钉钉/企微:无原生 RN SDK,走 OAuth 浏览器跳转兜底(oauth-redirect.ts)
+  // 飞书/钉钉/企微/支付宝/GitHub:无原生 RN SDK,走 OAuth 浏览器跳转(oauth-redirect.ts)
   const handleThirdPartyLogin = useCallback(
     async (platform: ThirdPartyPlatform) => {
       const option = thirdPartyOptions.find((o) => o.platform === platform)
@@ -509,7 +575,7 @@ export function LoginScreen() {
         if (Platform.OS === 'web' || !isWechatAvailable()) {
           Alert.alert(
             t('auth.thirdPartyLogin'),
-            '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"使用其他方式登录"按钮跳转网页端授权。',
+            '微信登录请在原生 App 中使用(需安装微信 App)。\n您可以使用"智汇AI网页授权登录"按钮跳转网页端授权。',
             [
               { text: '取消', style: 'cancel' },
               { text: '前往网页端', onPress: () => void form.ssoLoginAction() },
@@ -551,6 +617,20 @@ export function LoginScreen() {
         } finally {
           setThirdPartyLoadingPlatform(null)
         }
+        return
+      }
+
+      // web 预览不支持 openAuthSessionAsync(系统浏览器授权会话),
+      // 苹果/Google/飞书/钉钉/企微/支付宝/GitHub 的 OAuth 跳转在 web 平台不可用,统一引导走 SSO
+      if (Platform.OS === 'web') {
+        Alert.alert(
+          t('auth.thirdPartyLogin'),
+          '网页预览暂不支持第三方授权登录,请使用"智汇AI网页授权登录"跳转网页端完成授权。',
+          [
+            { text: '取消', style: 'cancel' },
+            { text: '前往网页端', onPress: () => void form.ssoLoginAction() },
+          ],
+        )
         return
       }
 
@@ -600,19 +680,13 @@ export function LoginScreen() {
         }
         setThirdPartyLoadingPlatform(platform)
         try {
-          if (Platform.OS !== 'web') {
-            // native:优先原生 SDK(拿 serverAuthCode)→ 调后端 oauthCallback('google', code, state) 换 JWT
-            const nativeRes = await loginWithGoogleNative()
-            if (nativeRes.success && nativeRes.data?.serverAuthCode) {
-              const jwtRes = await exchangeGoogleCodeForJwt(nativeRes.data.serverAuthCode)
-              await applyOAuthResult(jwtRes)
-            } else if (!nativeRes.cancelled) {
-              // 原生 SDK 不可用 → fallback 到 web OAuth 跳转
-              const redirectRes = await loginWithGoogleRedirect()
-              await applyOAuthResult(redirectRes)
-            }
-          } else {
-            // web:走 OAuth 跳转
+          // native:优先原生 SDK(拿 serverAuthCode)→ 调后端 oauthCallback('google', code, state) 换 JWT
+          const nativeRes = await loginWithGoogleNative()
+          if (nativeRes.success && nativeRes.data?.serverAuthCode) {
+            const jwtRes = await exchangeGoogleCodeForJwt(nativeRes.data.serverAuthCode)
+            await applyOAuthResult(jwtRes)
+          } else if (!nativeRes.cancelled) {
+            // 原生 SDK 不可用 → fallback 到 web OAuth 跳转
             const redirectRes = await loginWithGoogleRedirect()
             await applyOAuthResult(redirectRes)
           }
@@ -627,8 +701,14 @@ export function LoginScreen() {
         return
       }
 
-      // 飞书/钉钉/企微:无原生 RN SDK,走 OAuth 浏览器跳转兜底
-      if (platform === 'feishu' || platform === 'dingtalk' || platform === 'enterpriseWechat') {
+      // 飞书/钉钉/企微/支付宝/GitHub:无原生 RN SDK,走 OAuth 浏览器跳转(对齐 web 端配置与回调地址)
+      if (
+        platform === 'feishu' ||
+        platform === 'dingtalk' ||
+        platform === 'enterpriseWechat' ||
+        platform === 'alipay' ||
+        platform === 'github'
+      ) {
         setThirdPartyLoadingPlatform(platform)
         try {
           let res: OAuthRedirectResult
@@ -636,8 +716,12 @@ export function LoginScreen() {
             res = await loginByFeishuRedirect()
           } else if (platform === 'dingtalk') {
             res = await loginByDingtalkRedirect()
-          } else {
+          } else if (platform === 'enterpriseWechat') {
             res = await loginByWecomRedirect()
+          } else if (platform === 'alipay') {
+            res = await loginByAlipayRedirect()
+          } else {
+            res = await loginByGithubRedirect()
           }
           await applyOAuthResult(res)
         } catch (err) {
@@ -651,11 +735,11 @@ export function LoginScreen() {
         return
       }
 
-      // github / alipay / 其他平台:暂未集成,引导走网页端 SSO
+      // 其余未知平台:引导走网页端 SSO
       setThirdPartyLoadingPlatform(platform)
       Alert.alert(
         t('auth.thirdPartyLogin'),
-        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"使用其他方式登录"按钮跳转网页端授权。`,
+        `${option.label} 登录请使用网页端,移动端暂未集成原生 SDK。\n您也可以使用"智汇AI网页授权登录"按钮跳转网页端授权。`,
         [
           { text: '取消', onPress: () => setThirdPartyLoadingPlatform(null), style: 'cancel' },
           {
@@ -730,10 +814,11 @@ export function LoginScreen() {
           onLogin={handlePasswordLogin}
           onSsoLogin={form.ssoLoginAction}
           colorScheme={resolvedTheme}
-          logoSource={LOGO_SOURCE}
+          logoSource={resolvedTheme === 'dark' ? LOGO_DARK_SOURCE : LOGO_SOURCE}
           // welcome 品牌文字图(对齐 web AuthShell,替代纯文字 "IHUI AI")
-          // 移动端一行并排:logo 44 + 欢迎图 224 + gap 12 = 280 < 288,不超出
-          welcomeNode={<SvgXml xml={welcomeXml} width={224} height={34} />}
+          // 2026-09-04 按 sqlogo 原图(1433×399)等比 + 整体放大:logo 53 + 欢迎图 287×43
+          // + gap 10 = 350(header 左右外扩 10 吃掉页面内边距),logo 高 ≈ 1.24× 欢迎图高
+          welcomeNode={<SvgXml xml={welcomeXml} width={287} height={43} />}
           // 4-tab 配置
           tabs={TABS}
           defaultTab="phone"
@@ -777,6 +862,10 @@ export function LoginScreen() {
           // 忘记密码 + 注册
           onForgotPassword={handleForgotPassword}
           onRegister={handleRegister}
+          // 自动登录 + 历史账号(对齐 web 密码登录;勾选后登录成功记住凭据,下次启动静默登录)
+          autoLogin={form.autoLogin}
+          onAutoLoginChange={form.setAutoLogin}
+          loginHistory={form.loginHistory}
           // 密码显示/隐藏图标(对齐 web lucide Eye/EyeOff,解决 emoji 在 Windows 渲染损坏)
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}

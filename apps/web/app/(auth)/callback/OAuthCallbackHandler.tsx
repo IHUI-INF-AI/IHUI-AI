@@ -55,12 +55,14 @@ function OAuthCallbackHandlerInner({ provider }: OAuthCallbackHandlerProps) {
     // mobile-rn OAuth 回调:不换 token,直接跳转 ihui:// deep link 回 App
     // mobile-rn 端用 expo-web-browser.openAuthSessionAsync 发起 OAuth,
     // 自己调 oauthCallback(platform, code, state) 换 JWT,web 端只做中转
+    // 注意:支付宝回调参数名为 auth_code(非 code),与 App 端 parseCallbackUrl 保持一致
     if (redirectTarget === 'mobile-rn') {
       if (!platformParam) {
         setStatus('error')
         setErrorMsg(t('error.missingPlatform'))
         return
       }
+      const code = params.get('code') ?? params.get('auth_code')
       if (!code) {
         setStatus('error')
         setErrorMsg(t('error.missingCode'))

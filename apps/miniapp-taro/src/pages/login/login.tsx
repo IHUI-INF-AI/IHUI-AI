@@ -392,7 +392,7 @@ export default function Login() {
                 </View>
                 <View className="icon-all-box" onClick={handleSsoLogin}>
                   <Image className="third-icon" src="/static/images/google.svg" mode="aspectFit" />
-                  <Text className="third-icon-label">{tt('login.ssoLogin', 'SSO 登录')}</Text>
+                  <Text className="third-icon-label">{tt('login.ssoLogin', '智汇AI网页授权登录')}</Text>
                   <Text className="third-icon-hint">
                     {tt('login.ssoLoginHint', '一键企业登录')}
                   </Text>
