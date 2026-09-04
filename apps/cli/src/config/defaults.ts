@@ -25,7 +25,9 @@ export const DEFAULT_SETTINGS: Settings = {
   permissionMode: 'default',
   // 原生 function calling:默认 'auto'(先携带 tools 探测,provider 拒绝时自动降级 prompt 模式)
   nativeFunctionCalling: 'auto',
-  compactionV2: { enabled: false },
+  // Compaction V2(LLM 摘要 + reduction guard + 重试 + 缓存预热):2026-09-02 转正默认开启。
+  // V2 内部全链路失败自动 fallback V1(双保险),开启无回归风险。
+  compactionV2: { enabled: true },
   fsWatcher: { enabled: false },
   announcements: { enabled: false },
   clipboard: { enabled: false },
