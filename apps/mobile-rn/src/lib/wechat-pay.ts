@@ -21,7 +21,10 @@ import type * as WeChatMod from 'react-native-wechat-lib'
 let WeChat: typeof WeChatMod | null = null
 try {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  WeChat = require('react-native-wechat-lib')
+  const mod: unknown = require('react-native-wechat-lib')
+  // 2026-09-04 web 修复:Metro ESM interop 下 require 可能返回 undefined,
+  // 直接赋值会让 WeChat = undefined,后续 WeChat.registerApp 抛 TypeError。
+  if (mod && typeof mod === 'object') WeChat = mod as typeof WeChatMod
 } catch (e) {
   console.warn('[wechat-pay] react-native-wechat-lib 不可用(Expo Go,需 EAS Build):', e)
 }
