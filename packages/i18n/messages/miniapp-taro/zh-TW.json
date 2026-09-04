@@ -1,4 +1,35 @@
 {
+  "checkIn": {
+    "title": "每日簽到"
+  },
+  "search": {
+    "title": "搜尋",
+    "placeholder": "搜尋課程、講師、內容",
+    "empty": "未找到相關內容",
+    "failed": "搜尋失敗",
+    "type": {
+      "course": "課程",
+      "article": "文章",
+      "post": "動態",
+      "note": "筆記",
+      "agent": "智能體"
+    }
+  },
+  "taskCenter": {
+    "title": "任務中心",
+    "subtitle": "做任務,拿獎勵",
+    "retry": "重試",
+    "empty": "暫無可做的任務",
+    "claimed": "已領取",
+    "claim": "領取",
+    "goToDo": "去完成",
+    "progress": "{current}/{target}",
+    "claimFailed": "領取失敗",
+    "loadFailed": "載入任務失敗",
+    "tab_daily": "每日",
+    "tab_weekly": "每週",
+    "tab_newbie": "新手"
+  },
   "nav": {
     "profile": "我的",
     "community": "社群"
