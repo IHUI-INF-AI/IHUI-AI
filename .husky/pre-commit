@@ -211,6 +211,28 @@ if (process.env.HUSKY_SKIP_MINIAPP_PARITY !== '1') {
   console.log('⏭  miniapp-taro 跨端样式一致性守门(HUSKY_SKIP_MINIAPP_PARITY=1, 跳过)')
 }
 
+// 🛡️ auth refresh 单例守门(2026-09-04 立,blocking 根治刷新风暴)
+// 背景:客户端 refresh token 续期必须走 @ihui/api-client 的 refreshAccessTokenOnce 全局单例,
+//       禁止任何端绕过单例直接发 /auth/refresh。曾因三套互不知情的 refresh 路径 + 单例失败
+//       无冷却,形成 6+ 次串行重复 → 后端 refresh token 单次轮转 + RFC 6749 §10.4 family
+//       重用检测 → 整个 family 吊销 → 登录态静默丢失。
+// 跳过方法(紧急):HUSKY_SKIP_AUTH_REFRESH=1 git commit ...
+if (process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
+  if (
+    !run(
+      '🛡️ auth refresh 单例守门(禁绕过单例直发 /auth/refresh,2026-09-04 立)...',
+      'node scripts/check-auth-refresh-singleton.mjs',
+    )
+  ) {
+    console.error('❌ auth refresh 单例守门失败,提交已阻止')
+    console.error('   修复方法:客户端续期必须走 refreshAccessTokenOnce 全局单例(见脚本输出定位违规行)')
+    console.error('   紧急跳过:HUSKY_SKIP_AUTH_REFRESH=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  auth refresh 单例守门(HUSKY_SKIP_AUTH_REFRESH=1, 跳过)')
+}
+
 // 16. staged typecheck 闸门(全端,2026-07-30 立,2026-08-18 根治)
 // 全量 typecheck 的"失败阻塞"只针对 staged 文件:scripts/check-staged-typecheck.mjs
 // 按 package 分组 + 临时 tsconfig 沿用全量 include(加载完整模块扩展,避免 TS2339
