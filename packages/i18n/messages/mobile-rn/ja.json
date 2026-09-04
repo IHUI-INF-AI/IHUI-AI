@@ -31,6 +31,40 @@
     "loadFailed": "コースの読み込みに失敗",
     "playError": "再生エラー"
   },
+  "teacher": {
+    "list": {
+      "title": "講師",
+      "searchPlaceholder": "講師を検索",
+      "courseCount": "{n} コース",
+      "studentCount": "{n} 人",
+      "empty": "講師なし"
+    },
+    "detail": {
+      "courses": "コース",
+      "students": "学生",
+      "intro": "紹介",
+      "unfollowed": "解除しました",
+      "contactMessage": "メッセージを送信",
+      "contactPhone": "電話で連絡",
+      "phoneHint": "連絡先をコピーしました",
+      "fans": "ファン",
+      "goldBadge": "ゴールド講師",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "courseSection": "担当コース",
+      "learnUnit": "人が学習",
+      "noCourses": "コースはありません",
+      "reviewSection": "受講者の評価",
+      "noReviews": "評価はありません",
+      "contact": "講師に連絡",
+      "follow": "+ フォロー",
+      "followed": "フォロー済み",
+      "following": "フォロー中",
+      "imSoon": "ダイレクトメッセージは近日公開予定",
+      "notFound": "講師が見つかりません",
+      "rating": "評価"
+    }
+  },
   "live": {
     "title": "ライブ",
     "viewerCount": "{count} 人が視聴中",
@@ -85,6 +119,15 @@
     "logout": "ログアウト",
     "myOrders": "マイ注文",
     "editProfile": "プロフィール編集"
+  },
+  "payResult": {
+    "title": "支払い結果",
+    "pending": "支払い結果を確認中",
+    "paid": "支払い成功",
+    "failed": "支払い失敗",
+    "backHome": "ホームへ戻る",
+    "viewOrders": "注文を見る",
+    "refresh": "更新"
   },
   "payment": {
     "title": "支払い注文",
@@ -249,7 +292,8 @@
     "webPortalCenter": "Web 機能ポータル",
     "knowledgeRag": "RAG 知識ベース",
     "subagents": "サブエージェント",
-    "chatTools": "AI チャット / ツール"
+    "chatTools": "AI チャット / ツール",
+    "cart": "カート"
   },
   "error": {
     "network": "ネットワークエラー"
@@ -756,6 +800,18 @@
     "default": "デフォルト",
     "holder": "カード名義人",
     "loadFailed": "銀行口座の読み込みに失敗"
+  },
+  "cart": {
+    "title": "カート",
+    "checkout": "精算",
+    "product": "商品",
+    "empty": "カートは空",
+    "deleteConfirm": "この商品を削除しますか?",
+    "selectFirst": "商品を選択してください",
+    "loadFailed": "読み込み失敗",
+    "total": "合計",
+    "selectAll": "すべて選択",
+    "checkoutConfirm": "選択した商品を確認して、WeChat Payで支払います"
   },
   "carte": {
     "title": "クリエイター名刺",
