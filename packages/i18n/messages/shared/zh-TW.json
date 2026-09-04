@@ -640,7 +640,10 @@
     "themeDark": "深色",
     "themeLight": "淺色",
     "themeSystem": "跟隨系統",
-    "title": "設定"
+    "title": "設定",
+    "loginSecurity": {
+      "title": "登入安全"
+    }
   },
   "themeBackup": {
     "export": "匯出",
@@ -679,7 +682,7 @@
       "saving": "儲存中...",
       "saved": "已儲存",
       "subtitle": "管理您的個人資料",
-      "title": "個人資料"
+      "title": "使用者資料"
     },
     "public": {
       "follow": "追蹤",
@@ -1762,5 +1765,39 @@
     "successToast": "BYOK 設定成功,平臺已開啟抽成!",
     "next": "下一步",
     "prev": "上一步"
+  },
+  "admin": {
+    "behavior": {
+      "title": "使用者行為"
+    },
+    "edu": {
+      "title": "教育管理"
+    },
+    "learn": {
+      "title": "學習管理"
+    }
+  },
+  "circles": {
+    "post": {
+      "title": "帖子"
+    }
+  },
+  "knowledgeRag": {
+    "chunks": {
+      "title": "知識分塊"
+    },
+    "detail": {
+      "title": "知識庫詳情"
+    }
+  },
+  "workflows": {
+    "detail": {
+      "title": "工作流程詳情"
+    }
+  },
+  "workspace": {
+    "detail": {
+      "title": "工作區詳情"
+    }
   }
 }
