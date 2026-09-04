@@ -362,10 +362,3 @@ apps/web/public/apk/*.apk
 # 并行会话导航/登录探测临时目录(2026-09-03:探针脚本 + 结果 JSON 就地生成,
 # 根目录整洁守门[44]按 git 官方 check-ignore 精确豁免,不入库防误 git add)
 .nav-probe/
-# 并行会话 git worktree 检出目录(2026-09-04:完整仓库副本,含独立 node_modules,不入库)
-.wt6/
-# 一次性 DB 结构探查脚本(含本地开发库连接串,勿入库)
-packages/database/check-*-structure.mjs
-packages/database/check-*-columns.mjs
-# 用后即删的临时诊断脚本
-scripts/_tmp_*.mjs
