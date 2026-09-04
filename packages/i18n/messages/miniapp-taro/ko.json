@@ -2370,7 +2370,9 @@
   },
   "pay": {
     "result": {
-      "paid": "결제 성공"
+      "pending": "결제 처리 중",
+      "paid": "결제 성공",
+      "failed": "결제 실패"
     },
     "backHome": "홈으로",
     "viewOrders": "주문 보기",

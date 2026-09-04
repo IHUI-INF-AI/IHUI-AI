@@ -1020,8 +1020,7 @@
     "balance": "口座残高",
     "todayIncome": "今日の収入",
     "totalIncome": "累計収入",
-    "totalExpense": "累計支出",
-    "loadFailed": "財務の読み込みに失敗"
+    "totalExpense": "累計支出"
   },
   "follow": {
     "title": "フォローとフォロワー",
@@ -2253,8 +2252,7 @@
       "posts": "{n} 件のコンテンツ",
       "empty": "トピックはまだありません",
       "loading": "読み込み中…",
-      "loadingMore": "読み込み中…",
-      "noMore": "これ以上ありません"
+      "loadingMore": "読み込み中…"
     },
     "detail": {
       "pageTitle": "トピック詳細",
@@ -2291,7 +2289,6 @@
       "follow": "フォロー",
       "followed": "フォロー中",
       "loading": "読み込み中...",
-      "noMore": "これ以上ありません",
       "retry": "タップして再試行",
       "error": "読み込みに失敗しました"
     },

@@ -245,4 +245,43 @@
 **遗留项闭环确认**：CLI"未能生成有效回复"假文案 = 本轮吞错根因的另一表现，已随 Fix A/B 根治；
 builtins.ts:391 tsc 错误已清零（上轮 Commit 3）；bench 波动性失败随复跑机制+模型切换缓解。
 
+## 并行会话遗留改动分批入库轮（2026-09-04，~173 项工作区改动全部收编归位）
+
+**目标**：将多路并行 agent 遗留的约 173 项工作区改动按主题分批验证提交，零丢失、零敏感信息入库、每批过全量守门。
+
+**批次终态（commit 链均已推 origin）**：
+
+| 批次 | 内容                                                                   | commit        | 归属     |
+| ---- | ---------------------------------------------------------------------- | ------------- | -------- |
+| A    | ai-service JWT 修复                                                    | 449474b5ad    | 本会话   |
+| B/D  | refresh 单例守门 + 外部 Chrome 扫码登录                                | d8b014e679    | 本会话   |
+| E    | cli compaction v2 转正 + 评测 harness                                  | 8db0319c83 等 | 本会话   |
+| F    | miniapp-taro 公告/活动/AI技能五页 + i18n（17 文件 1388 行）            | f219c308e1    | 并行收编 |
+| G    | api-client 端点扩展                                                    | f685ed14d2    | 并行收编 |
+| H    | shared i18n 五语言 admin/loginSecurity/profile                         | b1b5a24fdc    | 本会话   |
+| I    | web 杂项                                                               | b548b623b3    | 并行收编 |
+| K1   | RN 脚本 5 个 + GAP-PLAN + bench 复跑证据 + reports 39 删除 + gitignore | b547601b17    | 本会话   |
+| K2   | revert：恢复被误删 8 项 + [30a] reset 备份判定修复                     | b8c127a6d2    | 本会话   |
+| L    | .env AI World 开关 + CartScreen 共享 api-client                        | f147851adb    | 并行收编 |
+
+**重大事故与修复（Commit K）**：b547601b17 落地后被并行 agent `reset HEAD~1` 竞态顶掉
+（d07d9e3ae9 重复"清理"意图并剥离 8 项新文件），merge e770554c4b 又按 d07d 侧冲突解决
+再次删除。修复链：`checkout b547601b17 -- <8文件>` 恢复 → 守门[29] push 同步 → 守门[30a]
+结构性缺陷暴露：**reflog reset 检测无"已 tag 备份即放行"出口**（历史 reset 永久滞留 50 步
+窗口，无解阻塞所有后续 commit）→ 修复 check-commit-loss-guard.mjs detectResets()（reset 源
+hash 已被 lost-commit/* tag 备份则过滤），双向自测通过 → b8c127a6d2 落地（72 项守门 68 过
+4 warn 0 败），pre-commit 自动完成 600+ lost-commit tag 的 origin atomic push。
+
+**安全处置**：packages/database/check-_-structure/columns.mjs（含本地库明文连接串）经
+.gitignore 通配排除不入库；.wt6/ worktree 副本、scripts/*tmp*_.mjs 临时诊断脚本 ignore/删除；
+API key 泄露守门每批通过。
+
+**并发竞态形态登记（第④种）**：① HEAD ref push 竞态；② index 被并行 reset 抢收；
+③ git 写锁目录残留；④ **并行 agent reset HEAD~1 顶掉刚落地的 commit**——防御手段：
+提交后立即核验 `git log --oneline -2` + 关键文件 `git ls-tree HEAD -- <path>`。
+
+**工作区剩余**（均为并行会话活跃 WIP，不归本会话处理）：mobile-rn web-stubs/video 改造
+（app.json/metro/package.json/react-native-video.tsx TS 错误属该会话负责）、plugins/page.tsx、
+check-i18n-keys.mjs（wallet.recharge.\d 死 key 调查）、package.json/pnpm-lock。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
