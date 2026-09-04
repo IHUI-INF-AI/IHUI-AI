@@ -6,8 +6,8 @@
  * CartScreen 购物车页(mobile-rn 端)
  *
  * 镜像 miniapp-taro pages/cart/index(P0 交易闭环补齐):
- * - 数据源:复用共享层 @ihui/api-client fetchApi(GET /goods/select,page=1&pageSize=50 对齐小程序),
- *   商品字段命名做后端兜底(title/name/productName 等,对齐 miniapp 映射);展示型 CartItemView 端内定义
+ * - 数据源:复用共享层 @ihui/api-client selectGoods(GET /goods/select,page=1&pageSize=50 对齐小程序),
+ *   商品字段兜底收敛进共享 normalizeCartGoods 适配层;展示型 CartItemView 端内定义
  * - 交互:单选/全选 → 数量增减(下限 1)→ 删除(Alert 确认)→ 底部合计栏去结算
  * - 结算:复用 RN 现有微信支付链路(isWeChatInstalled → createWechatAppPayment → openWeChatPayment,
  *   与 OrderDetailScreen/PaymentScreen 同款),支付成功 navigate PayResult(orderNo)对齐统一支付结果页
@@ -30,7 +30,12 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useNavigation } from '@react-navigation/native'
 import { Check, Minus, Package, Plus, ShoppingCart, Trash2 } from 'lucide-react-native'
-import { createWechatAppPayment, fetchApi } from '@ihui/api-client'
+import {
+  createWechatAppPayment,
+  normalizeCartGoods,
+  selectGoods,
+  type CartGoods,
+} from '@ihui/api-client'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
 import { NavBar } from '../components/NavBar'
 import {
@@ -45,28 +50,6 @@ import { isWeChatInstalled, openWeChatPayment } from '../lib/wechat-pay'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-/** /goods/select 响应结构(对齐 miniapp selectGoods:data.list) */
-interface CartPage {
-  list?: CartGoodsRecord[]
-}
-
-/** 后端商品记录:字段命名不统一,做 title/name/price/quantity 等兜底(对齐 miniapp 映射) */
-interface CartGoodsRecord {
-  id?: string | number
-  title?: string
-  name?: string
-  productName?: string
-  coverUrl?: string
-  image?: string
-  img?: string
-  pic?: string
-  price?: number
-  amount?: number
-  quantity?: number
-  num?: number
-  count?: number
-}
-
 /** 展示型购物车项(端内局部类型,仅 UI 用) */
 interface CartItemView {
   id: string
@@ -77,16 +60,9 @@ interface CartItemView {
   selected: boolean
 }
 
-/** 后端记录 → 展示项映射(兜底规则对齐 miniapp pages/cart/index) */
-function toCartItem(item: CartGoodsRecord, fallbackTitle: string): CartItemView {
-  return {
-    id: String(item.id ?? ''),
-    title: item.title || item.name || item.productName || fallbackTitle,
-    coverUrl: item.coverUrl || item.image || item.img || item.pic || '',
-    price: Number(item.price ?? item.amount ?? 0),
-    quantity: Number(item.quantity ?? item.num ?? item.count ?? 1) || 1,
-    selected: true,
-  }
+/** 后端记录 → 展示项映射(兜底规则收敛在共享 normalizeCartGoods,对齐 miniapp pages/cart/index) */
+function toCartItem(item: CartGoods, fallbackTitle: string): CartItemView {
+  return { ...normalizeCartGoods(item, fallbackTitle), selected: true }
 }
 
 export function CartScreen() {
@@ -109,9 +85,7 @@ export function CartScreen() {
       if (refresh) setRefreshing(true)
       else setLoading(true)
       setError(false)
-      const res = await fetchApi<CartPage>('/goods/select', {
-        params: { page: 1, pageSize: 50 },
-      })
+      const res = await selectGoods({ page: 1, pageSize: 50 })
       if (res.success) {
         const rawList = res.data?.list ?? []
         setItems(rawList.map((item) => toCartItem(item, t('cart.product'))))
