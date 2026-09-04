@@ -69,7 +69,7 @@ export default function ChatPage() {
 
   // hydration-safe:挂载前显示极简占位,避免 SSR/CSR 不一致
   if (!mounted) {
-    return <div className="flex h-[calc(100vh-58px)] items-center justify-center" />
+    return <div className="px-4 flex h-[calc(100vh-58px)] items-center justify-center" />
   }
 
   // 未登录:显示友好引导(替代 marketing 首页,避免被弹窗挡的内容混乱)

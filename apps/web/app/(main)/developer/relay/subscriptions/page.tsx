@@ -68,7 +68,7 @@ export default function RelaySubscriptionsPage() {
   const activePlan = status?.activePlan
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="text-2xl font-bold tracking-tight">API 订阅</h1>
