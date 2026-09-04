@@ -640,7 +640,10 @@
     "themeDark": "深色",
     "themeLight": "浅色",
     "themeSystem": "跟随系统",
-    "title": "设置"
+    "title": "设置",
+    "loginSecurity": {
+      "title": "登录安全"
+    }
   },
   "themeBackup": {
     "export": "导出",
@@ -679,7 +682,7 @@
       "saving": "保存中...",
       "saved": "已保存",
       "subtitle": "管理您的个人信息",
-      "title": "个人资料"
+      "title": "用户资料"
     },
     "public": {
       "follow": "关注",
@@ -1762,5 +1765,39 @@
     "successToast": "BYOK 配置成功,平台已开启抽成!",
     "next": "下一步",
     "prev": "上一步"
+  },
+  "admin": {
+    "behavior": {
+      "title": "用户行为"
+    },
+    "edu": {
+      "title": "教育管理"
+    },
+    "learn": {
+      "title": "学习管理"
+    }
+  },
+  "circles": {
+    "post": {
+      "title": "帖子"
+    }
+  },
+  "knowledgeRag": {
+    "chunks": {
+      "title": "知识分块"
+    },
+    "detail": {
+      "title": "知识库详情"
+    }
+  },
+  "workflows": {
+    "detail": {
+      "title": "工作流详情"
+    }
+  },
+  "workspace": {
+    "detail": {
+      "title": "工作区详情"
+    }
   }
 }
