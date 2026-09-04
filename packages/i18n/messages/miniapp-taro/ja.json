@@ -2083,6 +2083,7 @@
       "detailTrack": "トラック",
       "detailStatus": "ステータス",
       "detailAuthor": "投稿者",
+      "viewDetail": "詳細を見る",
       "identityTitle": "身分切替"
     },
     "cover": {
@@ -2104,6 +2105,30 @@
       "continueOrder": "注文受付を続ける",
       "qaTitle": "よくある質問"
     }
+  },
+  "postCreate": {
+    "title": "投稿を公開",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "投稿のタイトルを入力",
+    "contentLabel": "内容",
+    "contentPlaceholder": "あなたの考えを共有...",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "複数のタグはカンマで区切ります",
+    "submit": "投稿",
+    "required": "内容を入力してください",
+    "saveFailed": "保存に失敗"
+  },
+  "postDetail": {
+    "loadFailed": "投稿の読み込みに失敗",
+    "anonymous": "匿名",
+    "typesLabel": "タイプ",
+    "categoriesLabel": "カテゴリ",
+    "taskStatusLabel": "タスク状態",
+    "reviewStatusLabel": "審査状態",
+    "priceLabel": "価格",
+    "cycleLabel": "期間",
+    "closingTimeLabel": "締切日時",
+    "contactLabel": "連絡先"
   },
   "ranking": {
     "empty": "データなし",
