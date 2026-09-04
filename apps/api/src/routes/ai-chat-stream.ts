@@ -48,6 +48,12 @@ const chatStreamSchema = z.object({
   materialContent: z.string().optional(),
   /** 当前绑定的本地工作区路径,透传到 ai-service 用于注入项目记忆(CLAUDE.md/AGENTS.md) */
   workspacePath: z.string().optional(),
+  /** 浏览器端预加载的工作区文件内容(2026-09-04 修复透传断链):
+   *  web 非 Tauri 环境用 FileSystemDirectoryHandle 读取工作区文件后经此字段上传,
+   *  ai-service 优先于 workspace_path 注入 system prompt(优先级见 llm.py _inject_workspace_memory)。
+   *  此前该字段未在 schema 中声明 → zod 解析时被剥离 → ai-service 永远收不到,
+   *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。 */
+  workspaceContext: z.string().max(2_500_000).optional(),
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):
@@ -131,6 +137,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       agentId?: string
       materialContent?: string
       workspacePath?: string
+      /** 浏览器端预加载工作区内容,透传为 ai-service 的 workspace_context */
+      workspaceContext?: string
       contextLimit?: number
       agentTools?: string[]
       planMode?: string
@@ -199,6 +207,9 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           agentId: opts.agentId,
           materialContent: opts.materialContent,
           workspacePath: opts.workspacePath,
+          // 2026-09-04 修复:浏览器端工作区上下文透传(此前在网关层被丢弃,见 schema 注释)。
+          // undefined 时 JSON.stringify 自动省略,不注入上游请求。
+          workspace_context: opts.workspaceContext,
           contextLimit: opts.contextLimit ?? 0,
           // 2026-07-27 修复 tool loop 不触发:API 层接收前端驼峰 agentTools,
           // 透传到 ai-service 必须用下划线 agent_tools(Pydantic schema 字段名)。
@@ -311,6 +322,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         agentId,
         materialContent,
         workspacePath,
+        workspaceContext,
         contextLimit,
         agentTools,
         plan_mode: planMode,
@@ -349,10 +361,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         // 缓存(进度条阈值 CONTEXT_BUDGET_THRESHOLD 与共享包一致),到 88% 真压缩时命中缓存,
         // 首 token 零额外延迟——对标程序(Claude Code)的压缩是阻塞式的,这是关键差异点。
         // 预生成失败静默吞掉,绝不影响主链路。
-        if (
-          usageRatio >= CONTEXT_BUDGET_THRESHOLD &&
-          tokensBeforeCompress < triggerThreshold
-        ) {
+        if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBeforeCompress < triggerThreshold) {
           void primeSemanticSummary(request, messages, resolvedModel, metadata?.conversationId)
         }
         // LLM 语义摘要(2026-09-01 立):只在确实会触发压缩时才取(88% 阈值与共享包
@@ -448,6 +457,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           agentId,
           materialContent,
           workspacePath,
+          workspaceContext,
           contextLimit,
           agentTools,
           planMode,
@@ -492,6 +502,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         agentId,
         materialContent,
         workspacePath,
+        workspaceContext,
         contextLimit,
         agentTools,
         plan_mode: planMode,
@@ -586,10 +597,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           triggerThreshold,
         })
         // 后台预压缩:与 /chat/stream 同一策略(70% 占用 fire-and-forget 预生成摘要缓存)
-        if (
-          usageRatio >= CONTEXT_BUDGET_THRESHOLD &&
-          tokensBeforeCompress < triggerThreshold
-        ) {
+        if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBeforeCompress < triggerThreshold) {
           void primeSemanticSummary(request, messages, resolvedModel, conversationId)
         }
         // LLM 语义摘要:与 /chat/stream 同一套逻辑(缓存优先→实时生成→失败静默降级),
@@ -678,6 +686,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
           agentId,
           materialContent,
           workspacePath,
+          workspaceContext,
           contextLimit,
           agentTools,
           planMode,
