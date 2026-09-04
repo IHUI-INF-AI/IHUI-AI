@@ -63,8 +63,10 @@ export default function UpgradePage() {
         payInfo.paySign
       ) {
         requestWxPayment(payInfo as AnyPayParams)
-          .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` }))
-          .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${orderNo}` }))
+          .then(() => Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=paid` }))
+          .catch(() =>
+            Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=failed` }),
+          )
         return
       }
       if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
@@ -74,7 +76,7 @@ export default function UpgradePage() {
       if (payInfo.mock && payInfo.error) {
         Taro.showToast({ title: t('vip.upgrade.configNotReady'), icon: 'none' })
       }
-      Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+      Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}` })
     },
     [t],
   )
@@ -120,9 +122,9 @@ export default function UpgradePage() {
           return
         }
         requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
-          .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` }))
+          .then(() => Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${res.outTradeNo}&status=paid` }))
           .catch(() =>
-            Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` }),
+            Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${res.outTradeNo}&status=failed` }),
           )
       } catch (e) {
         logger.error('vip/upgrade', t('vipUpgrade.q2'), e)
