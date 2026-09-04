@@ -14,7 +14,5 @@
     "agentUsage": "用法: ihui agent <task>  或  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md 已存在。使用 --force 覆盖。",
     "agentsMdCreated": "已创建: {path}"
-  },
-  "repl": {},
-  "error": {}
+  }
 }
