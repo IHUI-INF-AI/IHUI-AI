@@ -180,7 +180,7 @@ export function CourseTabScreen({
                           resizeMode="cover"
                         />
                       ) : (
-                        <BookOpen size={32} color={'#374151'} />
+                        <BookOpen size={32} color={tk.text.medium} />
                       )}
                     </View>
                     <Text style={styles.pathTitle} numberOfLines={1}>
@@ -227,7 +227,7 @@ export function CourseTabScreen({
                 activeOpacity={0.7}
               >
                 <View style={styles.popularCover}>
-                  <BookOpen size={32} color={'#374151'} />
+                  <BookOpen size={32} color={tk.text.medium} />
                   {item.isVip && (
                     <View style={styles.vipBadge}>
                       <Text style={styles.vipBadgeText}>VIP</Text>
@@ -295,7 +295,7 @@ export function CourseTabScreen({
                     />
                   ) : (
                     <View style={[styles.courseImage, styles.courseImageFallback]}>
-                      <BookOpen size={32} color={'#374151'} />
+                      <BookOpen size={32} color={tk.text.medium} />
                     </View>
                   )}
                   <View style={styles.courseInfo}>

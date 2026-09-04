@@ -43,7 +43,7 @@ export interface PrivacyPolicyModalProps {
 
 // 视觉对齐 web 端 AgreementNoticeDialog:同意按钮 = brand.DEFAULT(黑底白字),非历史 Uniapp 蓝 #5088fa
 const AGREE_BUTTON_COLOR = tokens.brand.DEFAULT
-const OVERLAY_BG = 'rgba(0,0,0,0.6)'
+const OVERLAY_BG = tokens.overlay.modal
 const CARD_WIDTH_RATIO = '88%'
 const CARD_BORDER_RADIUS = 12
 const CARD_PADDING_HORIZONTAL = 20
