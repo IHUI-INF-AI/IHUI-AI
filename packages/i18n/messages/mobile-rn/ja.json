@@ -31,6 +31,41 @@
     "loadFailed": "コースの読み込みに失敗",
     "playError": "再生エラー"
   },
+  "teacher": {
+    "list": {
+      "title": "講師",
+      "searchPlaceholder": "講師を検索",
+      "courseCount": "{n} コース",
+      "studentCount": "{n} 人",
+      "empty": "講師なし"
+    },
+    "detail": {
+      "courses": "コース",
+      "students": "学生",
+      "intro": "紹介",
+      "viewCourses": "コースを見る",
+      "unfollowed": "解除しました",
+      "contactMessage": "メッセージを送信",
+      "contactPhone": "電話で連絡",
+      "phoneHint": "連絡先をコピーしました",
+      "fans": "ファン",
+      "goldBadge": "ゴールド講師",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "courseSection": "担当コース",
+      "learnUnit": "人が学習",
+      "noCourses": "コースはありません",
+      "reviewSection": "受講者の評価",
+      "noReviews": "評価はありません",
+      "contact": "講師に連絡",
+      "follow": "+ フォロー",
+      "followed": "フォロー済み",
+      "following": "フォロー中",
+      "imSoon": "ダイレクトメッセージは近日公開予定",
+      "notFound": "講師が見つかりません",
+      "rating": "評価"
+    }
+  },
   "live": {
     "title": "ライブ",
     "viewerCount": "{count} 人が視聴中",
