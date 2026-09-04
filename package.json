@@ -113,13 +113,15 @@
     "adm-zip": "0.6.0",
     "git-clone": "0.2.0",
     "glob": "13.0.6",
-    "serialize-javascript": "7.1.0",
     "image-size": "2.0.2",
+    "serialize-javascript": "7.1.0",
     "swiper": "12.1.2"
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",
+    "@svgr/plugin-jsx": "^8.1.0",
+    "@svgr/plugin-svgo": "^8.1.0",
     "@types/node": "^26.0.0",
     "eslint": "catalog:",
     "eslint-plugin-jsx-a11y": "^6.10.2",

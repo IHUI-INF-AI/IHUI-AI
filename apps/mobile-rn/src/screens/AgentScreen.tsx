@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
-  trackBtnText: { fontSize: 11, color: 'rgba(0,0,0,0.6)' },
+  trackBtnText: { fontSize: 11, color: tokens.overlay.modal },
   trackBtnTextActive: { fontSize: 11, color: tokens.gray.black, fontWeight: '700' },
   trackDivider: {
     height: StyleSheet.hairlineWidth,

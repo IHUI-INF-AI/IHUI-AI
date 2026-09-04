@@ -64,7 +64,7 @@ export function CoursePlanetScreen({
         {course.coverImage ? (
           <View style={styles.courseCoverPlaceholder} />
         ) : (
-          <BookOpen size={32} color={'#374151'} />
+          <BookOpen size={32} color={tk.text.medium} />
         )}
       </View>
       <View style={styles.courseInfo}>

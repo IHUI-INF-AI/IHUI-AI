@@ -59,7 +59,7 @@ export function AgentDetailScreen({
         <Text style={styles.value}>{item.uses}</Text>
         <Text style={styles.label}>{t('agentDetail.rating')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Star size={14} color={'#f59e0b'} fill={'#f59e0b'} />
+          <Star size={14} color={tk.warning.DEFAULT} fill={tk.warning.DEFAULT} />
           <Text style={styles.value}>{item.rating.toFixed(1)}</Text>
         </View>
         <Text style={styles.label}>{t('agentDetail.price')}</Text>

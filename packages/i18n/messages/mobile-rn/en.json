@@ -1650,7 +1650,8 @@
     "registerSuccess": "Registration successful",
     "resendCode": "Resend",
     "termsOfService": "Terms of Service",
-    "thirdPartyLogin": "Continue with"
+    "thirdPartyLogin": "Continue with",
+    "ssoFailed": "Web authorization sign-in failed. Please retry or use your account and password."
   },
   "bookmark": {
     "empty": "No bookmarks",
