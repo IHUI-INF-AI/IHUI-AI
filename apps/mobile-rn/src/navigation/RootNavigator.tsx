@@ -179,6 +179,10 @@ import { TeacherDetailScreen } from '../screens/TeacherDetailScreen'
 // P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环)
 import { CartScreen } from '../screens/CartScreen'
 import { PayResultScreen } from '../screens/PayResultScreen'
+// P1(2026-09-04):话题列表/详情 + 圈子广场(镜像 miniapp pages/topic/*、pages/circle/index,社区链路)
+import { TopicListScreen } from '../screens/TopicListScreen'
+import { TopicDetailScreen } from '../screens/TopicDetailScreen'
+import { CircleIndexScreen } from '../screens/CircleIndexScreen'
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
 import { LiveDetailScreen } from '../screens/LiveDetailScreen'
 import { OrderScreen } from '../screens/OrderScreen'
@@ -328,9 +332,14 @@ export type RootStackParamList = {
   ArticleDetail: { id: string }
   ArticleList: undefined
   PostDetail: { id: string }
-  PostCreate: { circleId?: string }
+  PostCreate: {
+    circleId?: string
+    topicId?: string
+    topicName?: string
+    onPickTopic?: (name: string) => void
+  }
   CircleDetail: { id: string }
-  CircleCreate: undefined
+  CircleCreate: { topicId?: string; topicName?: string } | undefined
   CircleMember: { circleId: string }
   CircleChat: { circleId: string; name: string }
   AskDetail: { id: string }
@@ -429,6 +438,11 @@ export type RootStackParamList = {
   // PayResult 参数对齐小程序 ?orderNo=(getPaymentOrderDetail 轮询查询)
   Cart: undefined
   PayResult: { orderNo: string }
+  // P1(2026-09-04):话题/圈子广场(镜像 miniapp pages/topic/*、pages/circle/index)。
+  // TopicList from='create' 时经 onPickTopic 回调回传所选话题名(替代小程序 eventCenter)
+  TopicList: { from?: string; onPickTopic?: (name: string) => void } | undefined
+  TopicDetail: { id: string }
+  CircleIndex: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -709,6 +723,10 @@ function RootNavigatorInner() {
             {/* P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环) */}
             <RootStack.Screen name="Cart" component={CartScreen} />
             <RootStack.Screen name="PayResult" component={PayResultScreen} />
+            {/* P1(2026-09-04):话题列表/详情 + 圈子广场(镜像 miniapp pages/topic/*、pages/circle/index) */}
+            <RootStack.Screen name="TopicList" component={TopicListScreen} />
+            <RootStack.Screen name="TopicDetail" component={TopicDetailScreen} />
+            <RootStack.Screen name="CircleIndex" component={CircleIndexScreen} />
           </>
         ) : (
           <>
