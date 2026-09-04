@@ -93,7 +93,7 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <BackButton />
       {error && <Alert variant="danger" description={(error as Error).message} />}
 

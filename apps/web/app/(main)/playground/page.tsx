@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function PlaygroundPage() {
   return (
-    <div className="mx-auto w-full space-y-4">
+    <div className="px-4 mx-auto w-full space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">API Playground</h1>
