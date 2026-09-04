@@ -385,8 +385,9 @@ export function saveSettingsTemplate(overwrite = false): boolean {
     permissionMode: 'default',
     // 原生 function calling 三态(默认 'auto':先探测,provider 拒绝时自动降级 prompt 模式)
     nativeFunctionCalling: 'auto',
+    // 2026-09-02 转正默认开启:V2 失败自动 fallback V1,开启无回归风险
     compactionV2: {
-      enabled: false,
+      enabled: true,
     },
     worktreeFastPath: {
       enabled: false,
