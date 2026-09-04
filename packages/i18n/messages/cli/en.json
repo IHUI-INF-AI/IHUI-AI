@@ -14,7 +14,5 @@
     "agentUsage": "Usage: ihui agent <task>  or  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md already exists. Use --force to overwrite.",
     "agentsMdCreated": "Created: {path}"
-  },
-  "repl": {},
-  "error": {}
+  }
 }
