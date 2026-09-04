@@ -80,6 +80,7 @@ const WHITELIST = new Set([
   'SubagentsScreen.tsx', // 子智能体屏:RN 独占 FlatList 队列交互 + api-client subagents 流,Web 端有独立实现
   'WebPortalScreen.tsx', // Web 门户屏:RN WebView 全屏容器加载 web portal,RN 端独占 webview 壳
   'ChatToolsScreen.tsx', // AI 对话/工具屏:P2-4 WebView 复用 web /chat,RN 端独占 webview 壳 + SSO 会话打通 + Android 返回键
+  'CartScreen.tsx', // 购物车页:RN 端独占 WeChat 支付流程 + Native Stack 导航,Web/Miniapp 有独立 cart 实现
 ])
 
 /** 检查文件内容是否 import from '@ihui/rn-app' */
