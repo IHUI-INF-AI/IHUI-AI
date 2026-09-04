@@ -14,7 +14,5 @@
     "agentUsage": "사용법: ihui agent <task>  또는  ihui agent --prompt-file <path>",
     "agentsMdExists": "AGENTS.md가 이미 존재합니다. --force로 덮어쓰세요.",
     "agentsMdCreated": "생성 완료: {path}"
-  },
-  "repl": {},
-  "error": {}
+  }
 }
