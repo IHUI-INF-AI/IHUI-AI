@@ -161,7 +161,12 @@ export default function PresetsPage() {
     else setError(r.error ?? '复制失败')
   }
 
-  if (loading) return <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+  if (loading)
+    return (
+      <div className="px-4">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    )
 
   return (
     <div className="space-y-4 px-4 py-6">

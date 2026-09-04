@@ -49,9 +49,10 @@ export default function ConnectedAccountsPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['settings', 'connected-accounts'],
     queryFn: async () => {
-      const res = await fetchApi<Binding[]>('/auth/bindings')
+      const res = await fetchApi<{ items?: Binding[] }>('/auth/bindings')
       if (!res.success) throw new Error(res.error)
-      return res.data
+      // API 契约:GET /auth/bindings 返回 { items: Binding[] }(与 scope-meta 等接口一致)
+      return Array.isArray(res.data?.items) ? res.data.items : []
     },
   })
 
