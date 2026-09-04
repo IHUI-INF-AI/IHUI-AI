@@ -14,7 +14,7 @@ export default function AdminSkillBatchPage() {
   const t = useTranslations('admin.skillBatch')
 
   return (
-    <div className="space-y-4">
+    <div className="px-4 space-y-4">
       <div className="flex items-center gap-3">
         <BackButton fallbackHref="/admin" />
         <div className="flex items-center gap-2">
