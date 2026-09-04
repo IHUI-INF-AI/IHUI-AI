@@ -266,7 +266,7 @@ ICP 备案通过后 30 天内，到当地公安局网安部门备案（或网上
 
 ### 第 3 步：发布 SDK
 
-4 语言 SDK 代码已就绪（`sdks/` 目录），需要你配置 GitHub Secrets 后发布：
+4 语言 SDK 代码已就绪（`packages/sdk/` 目录，npm/PyPI/Maven/Go 四语言统一由 `.github/workflows/release-sdk.yml` 发布），需要你配置 GitHub Secrets 后发布：
 
 1. 注册包管理器账号：
    - npm：https://www.npmjs.com/signup
