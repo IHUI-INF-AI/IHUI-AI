@@ -96,9 +96,32 @@ const SQLI_STRONG_PATTERN =
  * 历史消息里只要有表格,之后任何对话(携带完整历史)都被 400 拦截 → 前端无限重连
  * (实测:AI 回复架构表格后,用户发"架构怎么优化"连续 4 次被拦)。
  * AI 端点内容交给 LLM 不拼 SQL,仅保留块注释与分号堆叠查询两个真正危险特征。
+ *
+ * 2026-09-03 修复(agent 通道误杀):裸块注释 `/**\/` 分支误杀 glob 通配符
+ * `src\/**\/*.ts`(其中 `/**\/*` 的前 4 字符恰好构成 `/**\/`),导致 CLI agent 的
+ * tool schema / system prompt(38KB)整请求被 400 拒绝 → agent 0 completion 静默失败。
+ * 块注释检测改为仅匹配真实 SQL 注释混淆形态:
+ * 1. 注释体内含 SQL 关键词(`/* select *\/`、`/*!12345select*\/`)
+ * 2. 空注释紧邻 SQL 关键词(`/**\/UNION/**\/SELECT`)
+ * 3. 字母间的空注释分隔符(`SEL/**\/ECT` 关键词拆分混淆)
+ * glob 通配符 `**\/`(两侧是路径字符/星号)不再命中。
  */
-const SQLI_STRONG_PATTERN_AI =
-  /(\/\*[\s\S]*?\*\/)|;\s*(select|union|insert|update|delete|drop|alter|create|exec|truncate)\b/im
+const SQLI_KEYWORDS = 'select|union|insert|update|delete|drop|alter|create|exec|truncate'
+// 关键词边界用 lookbehind/lookahead 而非 \b:`\b` 在数字与字母之间不成立,
+// `/*!12345select*/` 版本注释混淆会漏检;`(?<![a-z])` 同时避免 created/dropped 误报。
+const SQLI_STRONG_PATTERN_AI = new RegExp(
+  '\\/\\*[\\s\\S]{0,120}?(?<![a-z])(?:' +
+    SQLI_KEYWORDS +
+    ')(?![a-z])[\\s\\S]{0,120}?\\*\\/' +
+    '|\\/\\*\\*\\/\\s*(?:' +
+    SQLI_KEYWORDS +
+    ')(?![a-z])' +
+    '|[a-z0-9]\\/\\*\\*\\/[a-z0-9]' +
+    '|;\\s*(?:' +
+    SQLI_KEYWORDS +
+    ')(?![a-z])',
+  'im',
+)
 
 /** 递归扫描对象/数组中的字符串值,检测强 SQL 注入特征(供豁免路径使用)。 */
 function detectStrongSqli(data: unknown, pattern: RegExp = SQLI_STRONG_PATTERN): string | null {
