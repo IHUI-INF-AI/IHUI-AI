@@ -249,8 +249,9 @@ export function ScanLoginDialog({
                   // --app 模式打开(桌面端)或系统浏览器新标签(web 端),登录后粘贴 Cookie 保存。
                   const plat = platforms.find((p) => p.platform === platform)
                   if (!plat?.login_url) return
-                  const err = await openInGoogleChrome(plat.login_url)
-                  if (err) toast.error(err)
+                  // openInGoogleChrome 桌面端成功返回 CDP 端口(number),失败返回错误消息(string)
+                  const opened = await openInGoogleChrome(plat.login_url)
+                  if (typeof opened === 'string') toast.error(opened)
                 }}
               >
                 <ExternalLink className="h-4 w-4" />
