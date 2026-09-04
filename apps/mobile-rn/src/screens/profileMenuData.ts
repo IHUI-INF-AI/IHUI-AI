@@ -71,6 +71,7 @@ import {
   Earth,
   Compass,
   MessagesSquare,
+  Hash,
 } from 'lucide-react-native'
 
 type ProfileRoute = keyof RootStackParamList
@@ -231,6 +232,9 @@ export const MENU_SECTIONS: MenuSection[] = [
   {
     titleKey: 'menu.sectionCommunity',
     items: [
+      // P1(2026-09-04):圈子广场 + 话题列表(镜像 miniapp pages/circle/index、pages/topic/list)
+      { key: 'CircleIndex', labelKey: 'menu.circleIndex', icon: Compass },
+      { key: 'TopicList', labelKey: 'menu.topicList', icon: Hash },
       { key: 'ArticleList', labelKey: 'menu.articleList', icon: Newspaper, viaParent: true },
       { key: 'PostCreate', labelKey: 'menu.postCreate', icon: PenLine, viaParent: true },
       { key: 'CircleCreate', labelKey: 'menu.circleCreate', icon: Circle, viaParent: true },
