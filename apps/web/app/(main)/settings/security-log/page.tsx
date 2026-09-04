@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { ShieldCheck, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import {
   Card,
@@ -25,18 +25,28 @@ import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
 
 interface SecurityLogItem {
   id: string
-  time: string
-  event: string
-  ip: string
-  device: string
-  status: 'success' | 'failed'
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
 }
 
 const PAGE_SIZE = 20
+
+/** userAgent 较长,列表里截断展示,避免撑破布局。 */
+const truncateUserAgent = (ua: string, max = 40): string =>
+  ua.length > max ? `${ua.slice(0, max)}...` : ua
+
+const logDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 type TabKey = 'all' | 'security' | 'abnormal'
 
@@ -95,9 +105,9 @@ export default function SecurityLogPage() {
   const filteredLogs = React.useMemo(() => {
     if (tab === 'all') return logs
     if (tab === 'security') {
-      return logs.filter((l) => SECURITY_EVENTS.has(l.event))
+      return logs.filter((l) => SECURITY_EVENTS.has(l.action))
     }
-    return logs.filter((l) => l.event === 'abnormalLogin' && l.status === 'failed')
+    return logs.filter((l) => l.action === 'abnormalLogin')
   }, [logs, tab])
 
   const tabs: { key: TabKey; label: string }[] = [
@@ -153,43 +163,20 @@ export default function SecurityLogPage() {
                       <TableHead>{t('logEvent')}</TableHead>
                       <TableHead>{t('logIp')}</TableHead>
                       <TableHead>{t('logDevice')}</TableHead>
-                      <TableHead>{t('logStatus')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLogs.map((log) => (
                       <TableRow key={log.id}>
-                        <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
-                        <TableCell className="text-xs">
-                          <span className="inline-flex items-center gap-1.5">
-                            <span
-                              className={cn(
-                                'inline-flex h-5 w-5 items-center justify-center rounded',
-                                log.status === 'failed' ? 'bg-red-100' : 'bg-green-100',
-                              )}
-                            >
-                              {log.status === 'failed' ? (
-                                <ShieldAlert className="h-3 w-3 text-red-600" />
-                              ) : (
-                                <ShieldCheck className="h-3 w-3 text-green-600" />
-                              )}
-                            </span>
-                            {eventLabels[log.event] ?? log.event}
-                          </span>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {logDateFormatter.format(new Date(log.createdAt))}
                         </TableCell>
-                        <TableCell className="font-mono text-xs">{log.ip}</TableCell>
-                        <TableCell className="text-xs">{log.device}</TableCell>
-                        <TableCell>
-                          <span
-                            className={cn(
-                              'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                              log.status === 'success'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-700',
-                            )}
-                          >
-                            {log.status === 'success' ? t('statusSuccess') : t('statusFailed')}
-                          </span>
+                        <TableCell className="text-xs">
+                          {eventLabels[log.action] ?? log.action}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">{log.ip ?? '—'}</TableCell>
+                        <TableCell className="text-xs">
+                          {log.userAgent ? truncateUserAgent(log.userAgent) : '—'}
                         </TableCell>
                       </TableRow>
                     ))}
