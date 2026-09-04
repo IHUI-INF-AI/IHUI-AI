@@ -306,7 +306,14 @@ def _sync_env_file_to_os() -> None:
             continue
         if key.endswith(
             ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN")
-        ) or key in ("AGENT_EXECUTOR",):
+        ) or key in (
+            "AGENT_EXECUTOR",
+            # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
+            # 代理变量,.env 值必须同步进环境才会生效。NO_PROXY 保证国内 Provider
+            # 与本机服务直连。
+            "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY",
+            "http_proxy", "https_proxy", "no_proxy",
+        ):
             os.environ.setdefault(key, value)
 
 
