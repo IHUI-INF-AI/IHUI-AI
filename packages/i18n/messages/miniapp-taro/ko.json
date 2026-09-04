@@ -6,14 +6,7 @@
     "title": "검색",
     "placeholder": "강의·강사·콘텐츠 검색",
     "empty": "관련 콘텐츠를 찾을 수 없습니다",
-    "failed": "검색 실패",
-    "type": {
-      "course": "강의",
-      "article": "아티클",
-      "post": "포스트",
-      "note": "노트",
-      "agent": "에이전트"
-    }
+    "failed": "검색 실패"
   },
   "taskCenter": {
     "title": "미션 센터",
@@ -25,10 +18,7 @@
     "goToDo": "하러 가기",
     "progress": "{current}/{target}",
     "claimFailed": "수령 실패",
-    "loadFailed": "미션 로딩 실패",
-    "tab_daily": "데일리",
-    "tab_weekly": "위클리",
-    "tab_newbie": "뉴비"
+    "loadFailed": "미션 로딩 실패"
   },
   "nav": {
     "profile": "마이페이지",
