@@ -31,6 +31,40 @@
     "loadFailed": "加载课程失败",
     "playError": "播放出错"
   },
+  "teacher": {
+    "list": {
+      "title": "讲师",
+      "searchPlaceholder": "搜索讲师",
+      "courseCount": "{n} 门课程",
+      "studentCount": "{n} 位学员",
+      "empty": "暂无讲师"
+    },
+    "detail": {
+      "courses": "课程",
+      "students": "学员",
+      "intro": "简介",
+      "unfollowed": "已取消",
+      "contactMessage": "发消息",
+      "contactPhone": "电话联系",
+      "phoneHint": "已复制联系方式",
+      "fans": "粉丝",
+      "goldBadge": "金牌讲师",
+      "collapse": "收起",
+      "expand": "展开",
+      "courseSection": "主讲课程",
+      "learnUnit": "人学习",
+      "noCourses": "暂无课程",
+      "reviewSection": "学员评价",
+      "noReviews": "暂无评价",
+      "contact": "联系讲师",
+      "follow": "+ 关注",
+      "followed": "已关注",
+      "following": "已关注",
+      "imSoon": "私信功能即将开放",
+      "notFound": "讲师不存在",
+      "rating": "评分"
+    }
+  },
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人观看",
@@ -85,6 +119,15 @@
     "logout": "退出登录",
     "myOrders": "我的订单",
     "editProfile": "编辑资料"
+  },
+  "payResult": {
+    "title": "支付结果",
+    "pending": "支付结果待确认",
+    "paid": "支付成功",
+    "failed": "支付失败",
+    "backHome": "返回首页",
+    "viewOrders": "查看订单",
+    "refresh": "刷新"
   },
   "payment": {
     "title": "支付订单",
@@ -249,7 +292,8 @@
     "webPortalCenter": "Web 功能门户",
     "knowledgeRag": "RAG 知识库",
     "subagents": "子智能体",
-    "chatTools": "AI 对话 / 工具"
+    "chatTools": "AI 对话 / 工具",
+    "cart": "购物车"
   },
   "error": {
     "network": "网络错误,请稍后重试"
@@ -756,6 +800,18 @@
     "default": "默认",
     "holder": "持卡人",
     "loadFailed": "加载银行卡失败"
+  },
+  "cart": {
+    "title": "购物车",
+    "checkout": "去结算",
+    "product": "商品",
+    "empty": "购物车是空的",
+    "deleteConfirm": "确定要删除该商品吗?",
+    "selectFirst": "请选择商品",
+    "loadFailed": "加载失败",
+    "total": "合计",
+    "selectAll": "全选",
+    "checkoutConfirm": "请确认所选商品,将通过微信支付完成付款"
   },
   "carte": {
     "title": "创作者名片",

@@ -31,6 +31,40 @@
     "loadFailed": "Failed to load course",
     "playError": "Playback error"
   },
+  "teacher": {
+    "list": {
+      "title": "Instructors",
+      "searchPlaceholder": "Search instructors",
+      "courseCount": "{n} courses",
+      "studentCount": "{n} students",
+      "empty": "No instructors"
+    },
+    "detail": {
+      "courses": "Courses",
+      "students": "Students",
+      "intro": "Intro",
+      "unfollowed": "Unfollowed",
+      "contactMessage": "Message",
+      "contactPhone": "Call",
+      "phoneHint": "Contact information copied",
+      "fans": "Fans",
+      "goldBadge": "Gold instructor",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "courseSection": "Courses",
+      "learnUnit": "learners",
+      "noCourses": "No courses",
+      "reviewSection": "Reviews",
+      "noReviews": "No reviews",
+      "contact": "Contact instructor",
+      "follow": "+ Follow",
+      "followed": "Followed",
+      "following": "Following",
+      "imSoon": "Private messaging coming soon",
+      "notFound": "Instructor not found",
+      "rating": "Rating"
+    }
+  },
   "live": {
     "title": "Live",
     "viewerCount": "{count} viewers",
@@ -85,6 +119,15 @@
     "logout": "Log Out",
     "myOrders": "My Orders",
     "editProfile": "Edit Profile"
+  },
+  "payResult": {
+    "title": "Payment Result",
+    "pending": "Payment pending",
+    "paid": "Payment successful",
+    "failed": "Payment failed",
+    "backHome": "Back to home",
+    "viewOrders": "View orders",
+    "refresh": "Refresh"
   },
   "payment": {
     "title": "Payment Orders",
@@ -249,7 +292,8 @@
     "webPortalCenter": "Web Feature Portal",
     "knowledgeRag": "RAG Knowledge",
     "subagents": "Subagents",
-    "chatTools": "AI Chat / Tools"
+    "chatTools": "AI Chat / Tools",
+    "cart": "Cart"
   },
   "error": {
     "network": "Network error, please retry"
@@ -756,6 +800,18 @@
     "default": "Default",
     "holder": "Cardholder",
     "loadFailed": "Failed to load bank cards"
+  },
+  "cart": {
+    "title": "Cart",
+    "checkout": "Checkout",
+    "product": "Product",
+    "empty": "Cart is empty",
+    "deleteConfirm": "Delete this item?",
+    "selectFirst": "Please select items",
+    "loadFailed": "Load failed",
+    "total": "Total",
+    "selectAll": "Select all",
+    "checkoutConfirm": "Confirm the selected items and pay with WeChat Pay"
   },
   "carte": {
     "title": "Creator Card",
