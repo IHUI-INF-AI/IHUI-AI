@@ -14,10 +14,14 @@
  * - 识别 getTranslations: 同时识别 useTranslations('ns') 和 getTranslations('ns')(含 await)
  * - 单文件多命名空间: 基于变量名精确归属,覆盖 t/tc/te 等变量;多 ns 时宽松检查(任一 ns 存在即通过)
  * - --staged 双模式: 暂存区报 error(exit 1) / 全量报 warning(exit 0)
- * - --target=web|extension|shared: 切换扫描目标
+ * - --target=web|extension|shared|cli|mobile-rn|miniapp-taro: 切换扫描目标
  *   (web 默认 apps/web/messages/; extension packages/i18n/messages/extension/; shared packages/i18n/messages/shared/)
  *   extension / shared 模式只做 key parity 校验,跳过源码使用检测与翻译完整性检测
  *   (extension 用 useI18n(),namespace 提取逻辑不适用;shared 为跨端共享基础 key 无源码消费方)
+ *   mobile-rn / miniapp-taro 模式(2026-09):除 parity 外还做「端内 t()/tt() 引用键缺失检测」——
+ *   从端内 lib/i18n.ts(useI18n)或 lib/theme.ts(useAppTheme + tt)的 zh-CN 兜底词典取 namespace,
+ *   对 src 下 .ts/.tsx 提取 t('key') / tt('key', ...) 引用并查合并集(shared+端),
+ *   防止"依赖中文兜底但词典静默缺键"(Agent A 2026-09 报告的风险)。
  * - --parity-only: 仅做 5 语言 key parity 校验,跳过源码使用检测
  *   (用于 guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity 校验,
  *    防止"5 语言 parity 漂移但 commit 漏检"——item 2 现有逻辑只在 messages 改动时跑 parity)
@@ -35,8 +39,31 @@
 import { execSync } from 'node:child_process'
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { createRequire } from 'node:module'
 
 const ROOT = process.cwd()
+// 2026-09:解析端内 lib/*.ts 的 messagesZhCN TS 对象字面量。
+// json5 用 createRequire 运行时解析(脚本可能由子代理在任意 workspace 包 cwd 下执行,
+// ESM 静态 import 按脚本位置解析会找不到包;createRequire 按 cwd 逐级向上找可用副本)
+const require_ = createRequire(import.meta.url)
+let JSON5
+try {
+  JSON5 = require_('json5')
+} catch {
+  JSON5 = null
+}
+// 脚本可能由子代理在包目录下执行:向上找含 packages/i18n 的仓库根,保证路径与 git cwd 一致
+function findRepoRoot() {
+  let dir = ROOT
+  for (let i = 0; i < 8; i++) {
+    if (existsSync(join(dir, 'packages', 'i18n'))) return dir
+    const parent = join(dir, '..')
+    if (parent === dir) break
+    dir = parent
+  }
+  return ROOT
+}
+const REPO_ROOT = findRepoRoot()
 const isStaged = process.argv.includes('--staged')
 const targetArg = process.argv.find((a) => a.startsWith('--target='))
 const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
@@ -45,28 +72,32 @@ const isShared = TARGET === 'shared'
 const isCli = TARGET === 'cli'
 // 2026-08-19 立:mobile-rn 端 parity 守门(原 ID 2f-mobile-rn fall through 到 web,实际检查 web 而非 mobile-rn)
 const isMobileRn = TARGET === 'mobile-rn'
+// 2026-09 新增:miniapp-taro 端 parity + tt() 引用键缺失检测(与 mobile-rn 同构)
+const isMiniappTaro = TARGET === 'miniapp-taro'
 // 2026-07-26: --parity-only 强制仅做 5 语言 parity 校验(不扫描源文件)
 // 用途:guardian-runner 2n-web 项,即使暂存区无 i18n JSON 改动也强制跑 parity
 const isParityOnlyFlag = process.argv.includes('--parity-only')
 // parity-only 模式:仅做 5 语言 key parity 校验,跳过源码使用检测与翻译完整性检测
 // (extension / mobile-rn / cli 用各自 namespace 提取不适用;shared 为跨端共享基础 key 无源码消费方;
 //  --parity-only 用于 guardian-runner 2n-web 项兜底,防止 i18n JSON 没动时 parity 漂移漏检)
-const isParityOnly = isExtension || isShared || isCli || isMobileRn || isParityOnlyFlag
-const WEB_DIR = join(ROOT, 'apps/web')
+const isParityOnly = isExtension || isShared || isCli || isParityOnlyFlag
+const WEB_DIR = join(REPO_ROOT, 'apps/web')
 // 2026-07-25 i18n 单一来源:web 翻译迁移到 packages/i18n/messages/web/
 // 2026-08-19:补充 mobile-rn 分支(原 fall through 到 web,守护形同虚设)
 const MESSAGES_DIR = isExtension
-  ? join(ROOT, 'packages/i18n/messages/extension')
+  ? join(REPO_ROOT, 'packages/i18n/messages/extension')
   : isShared
-    ? join(ROOT, 'packages/i18n/messages/shared')
+    ? join(REPO_ROOT, 'packages/i18n/messages/shared')
     : isCli
-      ? join(ROOT, 'packages/i18n/messages/cli')
+      ? join(REPO_ROOT, 'packages/i18n/messages/cli')
       : isMobileRn
-        ? join(ROOT, 'packages/i18n/messages/mobile-rn')
-        : join(ROOT, 'packages/i18n/messages/web')
+        ? join(REPO_ROOT, 'packages/i18n/messages/mobile-rn')
+        : isMiniappTaro
+          ? join(REPO_ROOT, 'packages/i18n/messages/miniapp-taro')
+          : join(REPO_ROOT, 'packages/i18n/messages/web')
 // shared 目录:web/extension 非 shared 模式下与 MESSAGES_DIR 合并校验(方案 A)
 // shared 模式下 MESSAGES_DIR === SHARED_DIR,二者相同
-const SHARED_DIR = join(ROOT, 'packages/i18n/messages/shared')
+const SHARED_DIR = join(REPO_ROOT, 'packages/i18n/messages/shared')
 // extension / shared / mobile-rn / cli 模式:暂存区路径前缀(extension 同时识别 apps/extension/)
 // 非 shared 模式同时识别 shared/(合并集的一部分,shared 改动需触发 parity 校验)
 // shared 模式只识别 shared/
@@ -76,9 +107,11 @@ const STAGED_MESSAGES_PREFIXES = isShared
     ? ['packages/i18n/messages/cli/']
     : isMobileRn
       ? ['packages/i18n/messages/mobile-rn/', 'packages/i18n/messages/shared/']
-      : isExtension
-        ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
-        : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
+      : isMiniappTaro
+        ? ['packages/i18n/messages/miniapp-taro/', 'packages/i18n/messages/shared/']
+        : isExtension
+          ? ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/']
+          : ['packages/i18n/messages/web/', 'packages/i18n/messages/shared/']
 // 2026-08-19:补充 mobile-rn 前缀(staged mode 下识别 apps/mobile-rn/ 源码改动)
 const STAGED_SOURCE_PREFIX = isExtension
   ? 'apps/extension/'
@@ -86,7 +119,9 @@ const STAGED_SOURCE_PREFIX = isExtension
     ? 'apps/cli/'
     : isMobileRn
       ? 'apps/mobile-rn/'
-      : 'apps/web/'
+      : isMiniappTaro
+        ? 'apps/miniapp-taro/'
+        : 'apps/web/'
 const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules', 'tests', '__tests__', 'e2e'])
 const BASE_LANG = 'zh-CN'
 
@@ -98,6 +133,13 @@ const C = {
   dim: '\x1b[2m',
   reset: '\x1b[0m',
 }
+
+// 2026-09:mobile-rn / miniapp-taro 端源码目录(全量模式扫描 src,而非 apps/web)
+const APP_SRC_DIR = isMobileRn
+  ? join(REPO_ROOT, 'apps/mobile-rn/src')
+  : isMiniappTaro
+    ? join(REPO_ROOT, 'apps/miniapp-taro/src')
+    : null
 
 function collectSourceFiles(dir, result = []) {
   if (!existsSync(dir)) return result
@@ -159,17 +201,22 @@ function loadMessages() {
 // 深合并:shared 作为 base,端 override 优先(端版本的 key 覆盖 shared 同名 key)
 // 用于 web/extension 非 shared 模式与 shared 合并校验(方案 A)
 // 自己实现,不引入新依赖(check-i18n-keys.mjs 是 .mjs 脚本,不能直接 import TS loader)
+// 2026-09-04 修复:string→object 类型冲突时 override 必须整体替换 base
+// (原 `if (!base) return override` 只判 falsy;当 base 为 shared 的字符串 leaf、
+//  override 为端上的对象子树时,会走 Object.entries(字符串) 分支把
+//  "0","1","2"… 字符索引误当作键,产生 wallet.recharge.2..7 之类的假 parity 漂移)
 function deepMerge(base, override) {
-  if (!base) return override
-  if (!override) return base
+  if (override === undefined) return base
+  if (base === undefined || base === null) return override
+  const bothObjects =
+    typeof base === 'object' &&
+    !Array.isArray(base) &&
+    typeof override === 'object' &&
+    !Array.isArray(override)
+  if (!bothObjects) return override
   const result = { ...base }
   for (const key of Object.keys(override)) {
-    const ov = override[key]
-    if (ov && typeof ov === 'object' && !Array.isArray(ov)) {
-      result[key] = deepMerge(base[key], ov)
-    } else {
-      result[key] = ov
-    }
+    result[key] = deepMerge(base[key], override[key])
   }
   return result
 }
@@ -179,7 +226,7 @@ function deepMerge(base, override) {
 const GLOSSARY_VALUES = new Set()
 function loadGlossary() {
   try {
-    const path = join(ROOT, 'scripts/brand-glossary.json')
+    const path = join(REPO_ROOT, 'scripts/brand-glossary.json')
     if (!existsSync(path)) return
     const data = JSON.parse(readFileSync(path, 'utf8'))
     for (const section of ['brands', 'fonts', 'terms', 'commonTech']) {
@@ -336,7 +383,7 @@ if (isStaged) {
   try {
     const output = execSync('git diff --cached --name-only --diff-filter=ACM', {
       encoding: 'utf8',
-      cwd: ROOT,
+      cwd: REPO_ROOT,
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
@@ -348,7 +395,7 @@ if (isStaged) {
       // parity-only 模式跳过源码使用检测(extension useI18n() 不适用;shared 无源码消费方)
       sourceFiles = []
     } else if (messagesChanged) {
-      sourceFiles = collectSourceFiles(WEB_DIR)
+      sourceFiles = APP_SRC_DIR ? collectSourceFiles(APP_SRC_DIR) : collectSourceFiles(WEB_DIR)
     } else {
       sourceFiles = staged
         .filter(
@@ -369,14 +416,14 @@ if (isStaged) {
             !rel.split('/').some((seg) => EXCLUDE_DIRS.has(seg))
           )
         })
-        .map((f) => join(ROOT, f))
+        .map((f) => join(REPO_ROOT, f))
         .filter((f) => existsSync(f))
     }
   } catch {
     sourceFiles = []
   }
 } else if (!isParityOnly) {
-  sourceFiles = collectSourceFiles(WEB_DIR)
+  sourceFiles = APP_SRC_DIR ? collectSourceFiles(APP_SRC_DIR) : collectSourceFiles(WEB_DIR)
 }
 // parity-only 非 staged 模式:sourceFiles 保持 [] (跳过源码使用检测,只做 key parity)
 
@@ -455,6 +502,92 @@ if (!isParityOnly && (!isStaged || messagesChanged)) {
   }
 }
 
+// ── 端内 hook(t()/tt())引用键提取(2026-09,mobile-rn/miniapp-taro 专用) ──
+// 惯例:const { t } = useI18n()(mobile-rn) / const { tt } = useAppTheme()(miniapp-taro)
+// 两者签名均为 (key, zhFallback) —— key 为点分路径,zhFallback 仅词典缺键时兜底显示。
+// namespace 由端内 lib/i18n.ts / lib/theme.ts 的 zh-CN 兜底词典顶层键决定。
+const FALLBACK_DICTS = {
+  'mobile-rn': 'apps/mobile-rn/src/lib/i18n.ts',
+  'miniapp-taro': 'apps/miniapp-taro/src/lib/theme.ts',
+}
+
+// 从 TS 源文件中提取 `export const messagesZhCN = { ... }` 对象字面量并求值
+// (词典是纯字符串字面量对象,用大括号平衡切片 + new Function 安全求值)
+function loadFallbackDict(target) {
+  const rel = FALLBACK_DICTS[target]
+    if (!rel) return null
+    const file = join(REPO_ROOT, rel)
+  if (!existsSync(file)) return null
+  try {
+    const src = readFileSync(file, 'utf8')
+    const m = /messagesZhCN\s*[:=]/.exec(src)
+    if (!m) return null
+    let start = src.indexOf('{', m.index)
+    // 若声明后首个 { 是类型注解(Record<string, ...>)的字面量,跳过到值对象
+    if (/:\s*Record<[^>]*>\s*=\s*\{/.test(src.slice(m.index, start + 1))) {
+      start = src.indexOf('{', start + 1)
+    }
+    if (start < 0) return null
+    let depth = 0
+    let end = -1
+    for (let i = start; i < src.length; i++) {
+      const ch = src[i]
+      if (ch === '{') depth++
+      else if (ch === '}') {
+        depth--
+        if (depth === 0) {
+          end = i
+          break
+        }
+      }
+    }
+    if (end < 0) return null
+    // 词典是 TS 对象字面量:优先 JSON5(单引号/尾逗号合法);不可用则剥注释+尾逗号退 JSON.parse
+    const objSrc = src.slice(start, end + 1)
+    if (JSON5) {
+      try {
+        return JSON5.parse(objSrc)
+      } catch {}
+    }
+    const cleaned = objSrc
+      .replace(/\/\/[^\n]*/g, '')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/,\s*([}\]])/g, '$1')
+    return JSON.parse(cleaned)
+  } catch {
+    return null
+  }
+}
+const FALLBACK_DICT = isMobileRn || isMiniappTaro ? loadFallbackDict(TARGET) : null
+
+function extractHookKeys(src) {
+  // 匹配 const { t } = useI18n(...) / const { tt } = useAppTheme(...) 解构,取变量名
+  const destructureRe =
+    /const\s*\{\s*(t|tt)(?:\s*:\s*(\w+))?\s*\}\s*=\s*(?:useI18n|useAppTheme)\s*\(/g
+  const varNames = new Set()
+  let m
+  while ((m = destructureRe.exec(src)) !== null) {
+    varNames.add(m[2] || m[1])
+  }
+  const keys = []
+  for (const v of varNames) {
+    const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    // key 必须是引号字面量;模板字符串/动态拼接跳过(无法静态判定)
+    const re = new RegExp(`\\b${escaped}\\(\\s*['"]([^'"]+)['"]`, 'g')
+    let k
+    while ((k = re.exec(src)) !== null) keys.push(k[1])
+  }
+  return [...new Set(keys)]
+}
+
+// 端内模式:key 在「合并词典(shared+端 JSON)」或「zh-CN 兜底词典」任一处存在即通过。
+// hasKey(msg, ns='', key) 语义:把完整点分 key 当根对象路径查找——与 next-intl 的扁平/嵌套两种形态兼容。
+function hasKeyInMergedOrDict(key) {
+  if (hasKey(messages[BASE_LANG], '', key)) return true
+  if (FALLBACK_DICT && getNested(FALLBACK_DICT, key) !== undefined) return true
+  return false
+}
+
 const missingKeyIssues = []
 let checkedFiles = 0
 let checkedKeys = 0
@@ -464,6 +597,21 @@ for (const file of sourceFiles) {
   try {
     src = readFileSync(file, 'utf8')
   } catch {
+    continue
+  }
+
+  // 端内模式(mobile-rn/miniapp-taro):用 hook 解构提取 + 合并词典/兜底词典双查
+  if (isMobileRn || isMiniappTaro) {
+    const keys = extractHookKeys(src)
+    if (keys.length === 0) continue
+    checkedFiles++
+    checkedKeys += keys.length
+    const relPath = relative(REPO_ROOT, file)
+    for (const key of keys) {
+      if (!hasKeyInMergedOrDict(key)) {
+        missingKeyIssues.push({ file: relPath, ns: '(hook)', key, varName: 't/tt' })
+      }
+    }
     continue
   }
 
@@ -497,7 +645,7 @@ for (const file of sourceFiles) {
   checkedFiles++
   checkedKeys += usedKeys.length
 
-  const relPath = relative(ROOT, file)
+  const relPath = relative(REPO_ROOT, file)
 
   for (const { key, varName } of usedKeys) {
     const nsSet = varNsMap.get(varName)
@@ -626,6 +774,10 @@ if (shouldBlock) {
       ? `packages/i18n/messages/shared/${BASE_LANG}.json`
       : isCli
         ? `packages/i18n/messages/cli/${BASE_LANG}.json`
+        : isMobileRn
+      ? `packages/i18n/messages/mobile-rn/${BASE_LANG}.json 或 apps/mobile-rn/src/lib/i18n.ts(messagesZhCN)`
+      : isMiniappTaro
+        ? `packages/i18n/messages/miniapp-taro/${BASE_LANG}.json 或 apps/miniapp-taro/src/lib/theme.ts(messagesZhCN)`
         : isParityOnlyFlag
         ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
         : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
@@ -653,8 +805,10 @@ const targetLabel = isExtension
     : isCli
       ? '[cli] '
       : isMobileRn
-        ? '[mobile-rn] '
-        : isParityOnlyFlag
+    ? '[mobile-rn] '
+    : isMiniappTaro
+      ? '[miniapp-taro] '
+      : isParityOnlyFlag
         ? '[parity-only] '
         : ''
 console.log(

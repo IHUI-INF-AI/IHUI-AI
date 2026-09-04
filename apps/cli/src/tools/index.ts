@@ -213,7 +213,9 @@ ${toolDescriptions}
 
 - 优先使用工具获取信息,不要猜测文件内容
 - 文件路径相对于工作区根目录
-- 一次只调用必要的工具,避免冗余操作`;
+- 一次只调用必要的工具,避免冗余操作
+- 修改/创建文件必须使用 edit_file / write_file 工具,禁止通过 run_command 执行内嵌脚本(如 node -e / sed -i)改文件——跨 shell 引号转义极易失败且错误不易察觉
+- 声称完成前,用 read_file 复核关键改动确实落盘`;
 }
 
 export interface ParsedToolCall {
