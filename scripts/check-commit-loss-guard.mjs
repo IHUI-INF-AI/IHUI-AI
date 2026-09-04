@@ -60,7 +60,7 @@
  *   - scripts/guardian-runner.mjs 第 30 项(warn-only → 后续 blocking)
  *   - 手动验证: git 异常操作后跑一次确认无丢失
  */
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 
 const C = {
   red: '\x1b[31m',
@@ -92,6 +92,47 @@ function run(cmd, opts = {}) {
     if (opts.allowFail) return ''
     throw e
   }
+}
+
+// 2026-09-04 加固:不经 shell 的 git argv 直调(spawnSync).
+// 实测本环境双重陷阱:
+//  ① execSync/execFileSync 传 argv 数组时默认仍走 shell:true,node 会丢弃
+//     args 数组(git 落到 usage 分支非零退出);
+//  ② PATH 首位是 MSYS `git`(bash shim),直接 spawn 参数同样被吞.
+// 解法:spawnSync(天然无 shell)+ where git 解析到 Git for Windows 真实二进制
+// cmd\git.exe.自测见 scripts/tmp-verify-gitbin.mjs(2026-09-04 验证通过).
+const GIT_BIN = (() => {
+  if (process.platform !== 'win32') return 'git'
+  try {
+    const whereOut = execSync('where git', { encoding: 'utf8' })
+    for (const raw of whereOut.split('\n')) {
+      const p = raw.trim()
+      if (/\\cmd\\git\.exe$/i.test(p)) return p
+    }
+    // 无 cmd\git.exe 时取第一个 .exe(排除 MSYS usr\bin 版)
+    for (const raw of whereOut.split('\n')) {
+      const p = raw.trim()
+      if (/git\.exe$/i.test(p) && !/\\usr\\bin\\/i.test(p)) return p
+    }
+  } catch {
+    /* where 失败时回退裸 git */
+  }
+  return 'git'
+})()
+
+function runGit(args, opts = {}) {
+  const r = spawnSync(GIT_BIN, args, {
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    ...opts,
+  })
+  if (r.status !== 0) {
+    if (opts.allowFail) return ''
+    throw new Error(
+      `git ${args[0]} 失败(exit=${r.status}): ${(r.stderr || '').trim().slice(0, 200)}`,
+    )
+  }
+  return (r.stdout || '').trim()
 }
 
 function header(label) {
@@ -503,37 +544,50 @@ function main() {
     )
     // 2026-09-04 修复:stash WIP/index commit 与其原 base commit 的树完全一致
     // (stash 只额外记录 untracked 文件,而 untracked 不进 commit 对象).
-    // 因此只要悬空 commit 的 tree 已被任何备份 tag 覆盖,其内容即可从
-    // `git commit-tree <tree>` 完整重建,不构成丢失风险 → 按 tree 匹配放行.
+    // 因此只要悬空 commit subject 内嵌的原 hash 在备份集(base)或其 tree 被任一
+    // 备份 tag 覆盖,其内容即可完整重建,不构成丢失风险 → 放行.
     // (原实现仅按 commit hash / stash subject 内嵌 hash 比对,并行会话高频
     // stash/drop 导致每次操作新增 2 个未备份悬空 commit,死锁所有后续 commit.)
+    // ⚠ 重要事实修正(2026-09-04 二次诊断):"index on main" commit 是 stash
+    //   时暂存区快照,与 HEAD/base 树**并不恒等**(部分 stage 场景),纯 tree
+    //   等价判定对这类 commit 会漏放;且 stash 链 parent/grandparent 均不可达
+    //   时唯一可靠出口是显式 tag 备份(unreachable-commits-backup/*).
     // 性能:backedUp ~4400 个 hash,批量 for-each-ref + cat-file --batch-check,
-    // 且用 execSync 直调(不经 shell)避免 cmd 破坏 --format="%(xxx)" 中的 %.
+    // 且用 spawnSync argv 直调(不经 shell)避免 %(xxx) format 被破坏.
     const backedTrees = new Set()
     {
+      // 2026-09-04 加固:改用 execSync argv 数组直调(shell:false,不经 cmd).
+      // 原字符串版经 shell:true 时 cmd 会把 %(objectname) 当环境变量展开、
+      // 把双引号原样传给 git,导致 refOut 为空/格式错乱;虽然 backedUp 集合
+      // 兜底使主路径未爆,但并行高频 stash 场景下该兜底可能失效,
+      // 必须从根上消除 shell 依赖.
       let refOut = ''
       try {
-        refOut = execSync(
-          'git for-each-ref refs/tags/lost-commit refs/tags/backup --format="%(objectname) %(*objectname)"',
-          { encoding: 'utf8', timeout: LOCAL_GIT_TIMEOUT_MS * 10 },
-        )
+        refOut = runGit([
+          'for-each-ref',
+          'refs/tags/lost-commit',
+          'refs/tags/backup',
+          '--format=%(objectname)%09%(*objectname)',
+        ])
       } catch {
         refOut = ''
       }
       const hashes = new Set(backedUp)
       for (const line of refOut.split('\n')) {
-        const cols = line.trim().split(/\s+/)
-        // annotated tag: %(*objectname)=peeled commit; lightweight: 第 1 列即 commit
+        const cols = line.trim().split('\t')
+        // annotated tag: 两列都有 → 第 2 列 peeled commit;
+        // lightweight: 仅第 1 列(第 2 列为空串)→ 即 commit 本身.
+        // 注意:必须用 || 而非 ??——peeled 空串在轻量 tag 下是常态.
         const commitHash = cols[1] || cols[0]
         if (/^[0-9a-f]{40}$/.test(commitHash || '')) hashes.add(commitHash)
       }
       const treeInput = [...hashes].map((h) => `${h}^{tree}`).join('\n') + '\n'
       try {
-        const out = execSync('git cat-file --batch-check="%(objectname)"', {
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+        // 2026-09-04 加固:runGit argv 直调,--batch-check=<fmt> 等号形式免引号
+        const out = runGit(['cat-file', '--batch-check=%(objectname)'], {
           input: treeInput,
           timeout: LOCAL_GIT_TIMEOUT_MS * 10,
+          maxBuffer: 64 * 1024 * 1024,
         })
         for (const line of out.split('\n')) {
           const t = line.trim().split(/\s+/)[0]
@@ -574,11 +628,11 @@ function main() {
       const treeInput = survivors.map((h) => `${h}^{tree}`).join('\n') + '\n'
       const treeByCommit = new Map()
       try {
-        const out = execSync('git cat-file --batch-check="%(objectname)"', {
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'pipe'],
+        // 2026-09-04 加固:runGit argv 直调,消除 shell 对 %(objectname) 的破坏
+        const out = runGit(['cat-file', '--batch-check=%(objectname)'], {
           input: treeInput,
           timeout: LOCAL_GIT_TIMEOUT_MS * 10,
+          maxBuffer: 64 * 1024 * 1024,
         })
         const lines = out.split('\n').filter(Boolean)
         for (let i = 0; i < survivors.length && i < lines.length; i++) {
