@@ -526,7 +526,7 @@ describe('loadConfig', () => {
     expect(DEFAULT_SETTINGS.sampler?.maxTokens).toBe(4096)
     expect(DEFAULT_SETTINGS.locale).toBe('zh-CN')
     expect(DEFAULT_SETTINGS.permissionMode).toBe('default')
-    expect(DEFAULT_SETTINGS.compactionV2?.enabled).toBe(false)
+    expect(DEFAULT_SETTINGS.compactionV2?.enabled).toBe(true)
   })
 })
 
