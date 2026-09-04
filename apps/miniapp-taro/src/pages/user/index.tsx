@@ -88,6 +88,9 @@ const menus = [
   { icon: courseIconLocal, key: 'user.menu.courses', path: '/pages/course/list' },
   { icon: aiIconLocal, key: 'user.menu.ai', path: '/pages/ai/chat' },
   { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
+  // P0 页面导航入口(复用 static/images/icons 现有 SVG 资产)
+  { icon: '/static/images/icons/calendar.svg', key: 'checkIn.title', path: '/pages/check-in/index' },
+  { icon: '/static/images/icons/gift.svg', key: 'taskCenter.title', path: '/pages/task-center/index' },
 ]
 
 // 会员权益项:对齐原项目 UserMembershipBenefits 3 项数据(原项目 index.vue:297-310)

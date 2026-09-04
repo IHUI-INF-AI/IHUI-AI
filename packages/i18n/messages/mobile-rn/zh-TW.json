@@ -31,6 +31,41 @@
     "loadFailed": "載入課程失敗",
     "playError": "播放出錯"
   },
+  "teacher": {
+    "list": {
+      "title": "講師",
+      "searchPlaceholder": "搜尋講師",
+      "courseCount": "{n} 門課程",
+      "studentCount": "{n} 位學員",
+      "empty": "暫無講師"
+    },
+    "detail": {
+      "courses": "課程",
+      "students": "學員",
+      "intro": "簡介",
+      "viewCourses": "查看課程",
+      "unfollowed": "已取消",
+      "contactMessage": "發訊息",
+      "contactPhone": "電話聯絡",
+      "phoneHint": "已複製聯絡方式",
+      "fans": "粉絲",
+      "goldBadge": "金牌講師",
+      "collapse": "收起",
+      "expand": "展開",
+      "courseSection": "主講課程",
+      "learnUnit": "人學習",
+      "noCourses": "暫無課程",
+      "reviewSection": "學員評價",
+      "noReviews": "暫無評價",
+      "contact": "聯絡講師",
+      "follow": "+ 關注",
+      "followed": "已關注",
+      "following": "已關注",
+      "imSoon": "私訊功能即將開放",
+      "notFound": "講師不存在",
+      "rating": "評分"
+    }
+  },
   "live": {
     "title": "直播",
     "viewerCount": "{count} 人觀看",

@@ -31,6 +31,41 @@
     "loadFailed": "Failed to load course",
     "playError": "Playback error"
   },
+  "teacher": {
+    "list": {
+      "title": "Instructors",
+      "searchPlaceholder": "Search instructors",
+      "courseCount": "{n} courses",
+      "studentCount": "{n} students",
+      "empty": "No instructors"
+    },
+    "detail": {
+      "courses": "Courses",
+      "students": "Students",
+      "intro": "Intro",
+      "viewCourses": "View courses",
+      "unfollowed": "Unfollowed",
+      "contactMessage": "Message",
+      "contactPhone": "Call",
+      "phoneHint": "Contact information copied",
+      "fans": "Fans",
+      "goldBadge": "Gold instructor",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "courseSection": "Courses",
+      "learnUnit": "learners",
+      "noCourses": "No courses",
+      "reviewSection": "Reviews",
+      "noReviews": "No reviews",
+      "contact": "Contact instructor",
+      "follow": "+ Follow",
+      "followed": "Followed",
+      "following": "Following",
+      "imSoon": "Private messaging coming soon",
+      "notFound": "Instructor not found",
+      "rating": "Rating"
+    }
+  },
   "live": {
     "title": "Live",
     "viewerCount": "{count} viewers",
