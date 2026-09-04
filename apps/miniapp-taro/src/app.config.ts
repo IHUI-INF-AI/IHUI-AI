@@ -116,6 +116,12 @@ export default defineAppConfig({
     // P1 补齐(对齐 RN 端 TopicList/TopicDetail/CircleIndex 与矩阵 🔴 PostDetail/PostCreate)
     'pages/plaza/detail/index',
     'pages/community/create/index',
+    // P2 补齐(对齐 RN 端公告/活动/AI技能;settings 入口已接线)
+    'pages/announcement/index',
+    'pages/announcement/detail/index',
+    'pages/activity/index',
+    'pages/ai-skill/index',
+    'pages/ai-skill/detail/index',
   ],
   subPackages: [
     {
