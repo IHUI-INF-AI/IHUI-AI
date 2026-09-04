@@ -1020,8 +1020,7 @@
     "balance": "帳戶餘額",
     "todayIncome": "今日收入",
     "totalIncome": "累計收入",
-    "totalExpense": "累計支出",
-    "loadFailed": "載入財務失敗"
+    "totalExpense": "累計支出"
   },
   "follow": {
     "title": "關注與粉絲",
@@ -2253,8 +2252,7 @@
       "posts": "{n} 篇內容",
       "empty": "暫無話題",
       "loading": "載入中…",
-      "loadingMore": "載入中…",
-      "noMore": "沒有更多了"
+      "loadingMore": "載入中…"
     },
     "detail": {
       "pageTitle": "話題詳情",
@@ -2291,7 +2289,6 @@
       "follow": "關注",
       "followed": "已關注",
       "loading": "載入中...",
-      "noMore": "沒有更多了",
       "retry": "點擊重試",
       "error": "載入失敗"
     },

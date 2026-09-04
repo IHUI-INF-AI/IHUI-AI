@@ -140,7 +140,7 @@ export default function PayIndex() {
     try {
       if (payMethod === 'balance') {
         await post('/pay/balance', { orderNo })
-        Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+        Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=paid` })
         return
       }
       if (payMethod === 'alipay') {
@@ -154,15 +154,17 @@ export default function PayIndex() {
         }
         try {
           await requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
-          Taro.redirectTo({ url: `/pages/pay/result?orderNo=${res.outTradeNo}` })
+          Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${res.outTradeNo}&status=paid` })
         } catch {
-          Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${res.outTradeNo}` })
+          Taro.redirectTo({
+            url: `/pages/pay/result/index?orderNo=${res.outTradeNo}&status=failed`,
+          })
         }
         return
       }
       const res = await getVipOrderPayInfo(orderNo)
       if (res.status === 'paid') {
-        Taro.redirectTo({ url: `/pages/pay/result?orderNo=${orderNo}` })
+        Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${orderNo}&status=paid` })
         return
       }
       if (!res.payInfo) {
@@ -187,8 +189,10 @@ export default function PayIndex() {
       payInfo.paySign
     ) {
       requestWxPayment(payInfo as AnyPayParams)
-        .then(() => Taro.redirectTo({ url: `/pages/pay/result?orderNo=${no}` }))
-        .catch(() => Taro.redirectTo({ url: `/pages/wallet/recharge/fail?orderNo=${no}` }))
+        .then(() => Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${no}&status=paid` }))
+        .catch(() =>
+          Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${no}&status=failed` }),
+        )
       return
     }
     if (payInfo.method === 'h5' && payInfo.h5Url && process.env.TARO_ENV === 'h5') {
@@ -202,7 +206,7 @@ export default function PayIndex() {
     if (payInfo.mock && payInfo.error) {
       Taro.showToast({ title: t('pay.configNotReady'), icon: 'none' })
     }
-    Taro.redirectTo({ url: `/pages/pay/result?orderNo=${no}` })
+    Taro.redirectTo({ url: `/pages/pay/result/index?orderNo=${no}` })
   }
 
   const payDisabled = submitting || expired || (payMethod === 'balance' && balanceInsufficient)

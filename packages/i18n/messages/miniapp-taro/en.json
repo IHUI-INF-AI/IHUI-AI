@@ -2376,7 +2376,9 @@
   },
   "pay": {
     "result": {
-      "paid": "Payment successful"
+      "pending": "Payment processing",
+      "paid": "Payment successful",
+      "failed": "Payment failed"
     },
     "backHome": "Back to home",
     "viewOrders": "View orders",

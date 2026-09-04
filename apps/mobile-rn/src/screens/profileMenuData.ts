@@ -51,7 +51,6 @@ import {
   PenLine,
   BadgeCheck,
   Star,
-  Eye,
   Heart,
   MessageCircle,
   Bell,
@@ -107,7 +106,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionWallet',
     items: [
       { key: 'Wallet', labelKey: 'menu.wallet', icon: Wallet },
-      { key: 'Finance', labelKey: 'menu.finance', icon: BarChart3, viaParent: true },
+      // Finance(2026-09-04 收敛):余额概览并入 Wallet,菜单入口移除
       { key: 'Withdraw', labelKey: 'menu.withdraw', icon: Banknote, viaParent: true },
       { key: 'BankCard', labelKey: 'menu.bankCard', icon: Landmark, viaParent: true },
     ],
@@ -181,7 +180,7 @@ export const MENU_SECTIONS: MenuSection[] = [
     titleKey: 'menu.sectionSocial',
     items: [
       { key: 'Favorites', labelKey: 'menu.favorites', icon: Star },
-      { key: 'Following', labelKey: 'menu.following', icon: Eye },
+      // Following(2026-09-04 收敛):关注列表为 Follow(关注+粉丝双 Tab)子集,菜单入口并入 Follow
       { key: 'Follow', labelKey: 'menu.follow', icon: Handshake },
       { key: 'Favorite', labelKey: 'menu.favorite', icon: Heart },
       { key: 'MessageCenter', labelKey: 'menu.messageCenter', icon: MessageCircle },

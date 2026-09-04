@@ -2370,7 +2370,9 @@
   },
   "pay": {
     "result": {
-      "paid": "支払い成功"
+      "pending": "支払い処理中",
+      "paid": "支払い成功",
+      "failed": "支払い失敗"
     },
     "backHome": "ホームへ戻る",
     "viewOrders": "注文を見る",

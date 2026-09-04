@@ -29,7 +29,7 @@ import { LivePlaybackScreen } from '../screens/LivePlaybackScreen'
 import { NoteScreen } from '../screens/NoteScreen'
 import { StudyRecordScreen } from '../screens/StudyRecordScreen'
 import { ExamScreen } from '../screens/ExamScreen'
-import { FinanceScreen } from '../screens/FinanceScreen'
+// Finance(2026-09-04 收敛):FinanceScreen 并入 WalletScreen,wrapper 与路由已删除
 import { WithdrawScreen } from '../screens/WithdrawScreen'
 import { BankCardScreen } from '../screens/BankCardScreen'
 import { RealNameAuthScreen } from '../screens/RealNameAuthScreen'
@@ -190,7 +190,6 @@ import SettingsScreen from '../screens/SettingsScreen'
 import { FavoritesScreen } from '../screens/FavoritesScreen'
 import { FavoriteScreen } from '../screens/FavoriteScreen'
 import { FollowScreen } from '../screens/FollowScreen'
-import { FollowingScreen } from '../screens/FollowingScreen'
 import { SubscriptionsScreen } from '../screens/SubscriptionsScreen'
 import { CertificateScreen } from '../screens/CertificateScreen'
 import { MessageCenterScreen } from '../screens/MessageCenterScreen'
@@ -239,7 +238,7 @@ export type RootStackParamList = {
   Wallet: undefined
   Settings: undefined
   Favorites: undefined
-  Following: undefined
+  // Following(2026-09-04 收敛):功能为 Follow 子集,路由删除,菜单入口并入 Follow
   Subscriptions: undefined
   Agent: undefined
   Register: undefined
@@ -268,7 +267,7 @@ export type RootStackParamList = {
   Promote: undefined
   Distribution: undefined
   Team: undefined
-  Finance: undefined
+  // Finance(2026-09-04 收敛):仅 /wallet/balance 余额概览,与 Wallet 重叠,路由删除,入口并入 Wallet
   Withdraw: undefined
   BankCard: undefined
   RealNameAuth: undefined
@@ -528,7 +527,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Promote" component={PromoteScreen} />
             <RootStack.Screen name="Distribution" component={DistributionScreen} />
             <RootStack.Screen name="Team" component={TeamScreen} />
-            <RootStack.Screen name="Finance" component={FinanceScreen} />
             <RootStack.Screen name="Withdraw" component={WithdrawScreen} />
             <RootStack.Screen name="BankCard" component={BankCardScreen} />
             <RootStack.Screen name="RealNameAuth" component={RealNameAuthScreen} />
@@ -711,7 +709,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Favorites" component={FavoritesScreen} />
             <RootStack.Screen name="Favorite" component={FavoriteScreen} />
             <RootStack.Screen name="Follow" component={FollowScreen} />
-            <RootStack.Screen name="Following" component={FollowingScreen} />
             <RootStack.Screen name="Subscriptions" component={SubscriptionsScreen} />
             <RootStack.Screen name="Certificate" component={CertificateScreen} />
             <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />

@@ -1020,8 +1020,7 @@
     "balance": "Balance",
     "todayIncome": "Today",
     "totalIncome": "Total Income",
-    "totalExpense": "Total Expense",
-    "loadFailed": "Failed to load finance"
+    "totalExpense": "Total Expense"
   },
   "follow": {
     "title": "Following & Followers",
@@ -2253,8 +2252,7 @@
       "posts": "{n} posts",
       "empty": "No topics yet",
       "loading": "Loading…",
-      "loadingMore": "Loading…",
-      "noMore": "No more items"
+      "loadingMore": "Loading…"
     },
     "detail": {
       "pageTitle": "Topic Detail",
@@ -2291,7 +2289,6 @@
       "follow": "Follow",
       "followed": "Followed",
       "loading": "Loading...",
-      "noMore": "No more items",
       "retry": "Tap to retry",
       "error": "Failed to load"
     },

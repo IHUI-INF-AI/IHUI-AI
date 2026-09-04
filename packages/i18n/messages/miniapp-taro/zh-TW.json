@@ -2358,7 +2358,9 @@
   },
   "pay": {
     "result": {
-      "paid": "支付成功"
+      "pending": "支付處理中",
+      "paid": "支付成功",
+      "failed": "支付失敗"
     },
     "backHome": "返回首頁",
     "viewOrders": "查看訂單",
