@@ -85,7 +85,7 @@ export function PointsMallScreen({
             return (
               <View style={styles.card}>
                 <View style={styles.coverPlaceholder}>
-                  <Gift size={32} color={'#374151'} />
+                  <Gift size={32} color={tk.text.medium} />
                 </View>
                 <Text style={styles.productName} numberOfLines={2}>
                   {item.name}
