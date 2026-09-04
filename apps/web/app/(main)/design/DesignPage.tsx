@@ -490,7 +490,7 @@ export default function DesignPage({ onComment }: DesignPageProps) {
   const canRedo = history.index < history.stack.length - 1
 
   return (
-    <div className="page" style={{ maxWidth: 1280 }}>
+    <div className="mx-auto w-full max-w-[1280px] px-4">
       <DesignToolbar
         aiPrompt={aiPrompt}
         onAiPromptChange={setAiPrompt}
