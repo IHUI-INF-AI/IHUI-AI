@@ -2105,6 +2105,30 @@
       "qaTitle": "자주 묻는 질문"
     }
   },
+  "postCreate": {
+    "title": "게시글 작성",
+    "titleLabel": "제목",
+    "titlePlaceholder": "게시글 제목을 지어주세요",
+    "contentLabel": "내용",
+    "contentPlaceholder": "생각을 공유하세요...",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "여러 태그는 쉼표로 구분",
+    "submit": "작성",
+    "required": "내용을 입력하세요",
+    "saveFailed": "저장 실패"
+  },
+  "postDetail": {
+    "loadFailed": "게시글 불러오기 실패",
+    "anonymous": "익명",
+    "typesLabel": "유형",
+    "categoriesLabel": "분류",
+    "taskStatusLabel": "작업 상태",
+    "reviewStatusLabel": "심사 상태",
+    "priceLabel": "가격",
+    "cycleLabel": "주기",
+    "closingTimeLabel": "마감 시간",
+    "contactLabel": "연락처"
+  },
   "ranking": {
     "empty": "데이터 없음",
     "unitCreation": "점",

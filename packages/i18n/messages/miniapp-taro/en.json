@@ -2111,6 +2111,30 @@
       "qaTitle": "FAQ"
     }
   },
+  "postCreate": {
+    "title": "New Post",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Title your post",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Share your thoughts...",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Separate tags with commas",
+    "submit": "Post",
+    "required": "Content is required",
+    "saveFailed": "Failed to save"
+  },
+  "postDetail": {
+    "loadFailed": "Failed to load post",
+    "anonymous": "Anonymous",
+    "typesLabel": "Types",
+    "categoriesLabel": "Categories",
+    "taskStatusLabel": "Task status",
+    "reviewStatusLabel": "Review status",
+    "priceLabel": "Price",
+    "cycleLabel": "Cycle",
+    "closingTimeLabel": "Closing time",
+    "contactLabel": "Contact"
+  },
   "ranking": {
     "empty": "No ranking data",
     "unitCreation": "pts",
