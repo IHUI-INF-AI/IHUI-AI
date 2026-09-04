@@ -640,7 +640,10 @@
     "themeDark": "ダーク",
     "themeLight": "ライト",
     "themeSystem": "システムに従う",
-    "title": "設定"
+    "title": "設定",
+    "loginSecurity": {
+      "title": "ログインセキュリティ"
+    }
   },
   "themeBackup": {
     "export": "エクスポート",
@@ -679,7 +682,7 @@
       "saving": "保存中...",
       "saved": "保存しました",
       "subtitle": "個人情報を管理",
-      "title": "プロフィール"
+      "title": "ユーザープロフィール"
     },
     "public": {
       "follow": "フォロー",
@@ -1762,5 +1765,39 @@
     "successToast": "BYOK設定成功、プラットフォームがコミッションを開始しました!",
     "next": "次へ",
     "prev": "前へ"
+  },
+  "admin": {
+    "behavior": {
+      "title": "ユーザーの動作"
+    },
+    "edu": {
+      "title": "教育管理"
+    },
+    "learn": {
+      "title": "学習管理"
+    }
+  },
+  "circles": {
+    "post": {
+      "title": "投稿"
+    }
+  },
+  "knowledgeRag": {
+    "chunks": {
+      "title": "ナレッジチャンク"
+    },
+    "detail": {
+      "title": "ナレッジ詳細"
+    }
+  },
+  "workflows": {
+    "detail": {
+      "title": "ワークフロー詳細"
+    }
+  },
+  "workspace": {
+    "detail": {
+      "title": "ワークスペース詳細"
+    }
   }
 }
