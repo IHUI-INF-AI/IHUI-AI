@@ -17,7 +17,6 @@
 import * as WebBrowser from 'expo-web-browser'
 import {
   dingtalkLogin,
-  getDingtalkAuthUrl,
   oauthCallback,
   wecomLogin,
   type LoginResult,
@@ -55,6 +54,9 @@ const FEISHU_APP_ID = process.env.EXPO_PUBLIC_FEISHU_APP_ID
 const WECOM_CORP_ID = process.env.EXPO_PUBLIC_WECOM_CORP_ID
 const WECOM_AGENT_ID = process.env.EXPO_PUBLIC_WECOM_AGENT_ID
 const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID
+const GITHUB_CLIENT_ID = process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID
+const ALIPAY_APP_ID = process.env.EXPO_PUBLIC_ALIPAY_APP_ID
+const DINGTALK_CLIENT_ID = process.env.EXPO_PUBLIC_DINGTALK_CLIENT_ID
 
 /** 生成随机 state(防 CSRF,16 位 base36) */
 function generateState(): string {
@@ -62,6 +64,7 @@ function generateState(): string {
 }
 
 /** 从回调 URL 解析 code 和 state(支持 query string)。
+ *  支付宝回调参数名为 auth_code(非 code),同样解析。
  *  返回 error 字段表示 OAuth provider 返回的错误(如 ?error=access_denied) */
 function parseCallbackUrl(url: string): {
   code?: string
@@ -72,7 +75,7 @@ function parseCallbackUrl(url: string): {
     const u = new URL(url)
     const params = u.searchParams
     return {
-      code: params.get('code') ?? undefined,
+      code: params.get('code') ?? params.get('auth_code') ?? undefined,
       state: params.get('state') ?? undefined,
       error: params.get('error') ?? undefined,
     }
@@ -109,11 +112,13 @@ export async function callOAuthCallback(
  *        已编码进 authUrl,本函数内部不再直接使用(下划线前缀表示有意保留参数以维持调用契约,
  *        apple.ts 等外部调用方仍传此参数)。openAuthSessionAsync 第二参数固定为 OAUTH_APP_RETURN_URI。
  * @param loginApi 拿到 code 后调后端换 JWT 的函数(各平台可能不同)
+ * @param opts.allowMissingState provider 不回传 state 时跳过校验(支付宝 publicAppAuthorize 不保证回传)
  */
 export async function openOAuthAndLogin(
   authUrl: string,
   _redirectUri: string,
   loginApi: (code: string, state: string) => Promise<OAuthRedirectResult>,
+  opts?: { allowMissingState?: boolean },
 ): Promise<OAuthRedirectResult> {
   const state = generateState()
   const separator = authUrl.includes('?') ? '&' : '?'
@@ -146,7 +151,7 @@ export async function openOAuthAndLogin(
   if (!code) {
     return { success: false, error: 'OAuth 回调未包含 code' }
   }
-  if (returnedState !== state) {
+  if (returnedState !== state && !(opts?.allowMissingState && returnedState === undefined)) {
     return { success: false, error: 'OAuth state 校验失败(可能遭遇 CSRF 攻击)' }
   }
 
@@ -168,25 +173,28 @@ export async function loginByFeishuRedirect(): Promise<OAuthRedirectResult> {
   )
 }
 
-/** 钉钉登录:GET /auth/dingtalk/auth-url 拿 authUrl → openOAuthAndLogin → dingtalkLogin(code) */
+/**
+ * 钉钉登录:App 端自构造授权 URL → openOAuthAndLogin → dingtalkLogin(code)。
+ *
+ * 2026-09-04 修复:不再走后端 GET /auth/dingtalk/auth-url。原因:
+ * 1. 后端 URL 自带后端 state,App 端 openOAuthAndLogin 检测到 state= 后不再附加本地 state,
+ *    回调校验 returnedState !== 本地 state → 必然报"OAuth state 校验失败";
+ * 2. 后端 redirect_uri(DINGTALK_REDIRECT_URI)不含 redirect=mobile-rn,
+ *    web 中转页不会跳 ihui:// 深链 → 授权后永远回不到 App。
+ * 改为与飞书/企微同一模式:App 端构造授权 URL(参数对齐后端 buildDingtalkAuthUrl)。
+ */
 export async function loginByDingtalkRedirect(): Promise<OAuthRedirectResult> {
-  // 1. 拿后端构造的 authUrl
-  let authUrl: string
-  try {
-    const res = await getDingtalkAuthUrl()
-    if (!res.success || !res.data?.authUrl) {
-      return { success: false, error: res.error ?? '获取钉钉授权 URL 失败' }
-    }
-    authUrl = res.data.authUrl
-  } catch (e) {
-    return {
-      success: false,
-      error: e instanceof Error ? e.message : '获取钉钉授权 URL 失败',
-    }
+  if (!DINGTALK_CLIENT_ID) {
+    return { success: false, error: '未配置 EXPO_PUBLIC_DINGTALK_CLIENT_ID' }
   }
-
-  // 2. 打开浏览器拿 code → dingtalkLogin(code) 换 JWT(保持与现有契约一致,不走通用 oauthCallback)
   const redirectUri = `${WEB_BASE_URL}/callback?platform=dingtalk&redirect=mobile-rn`
+  const authUrl =
+    `https://login.dingtalk.com/oauth2/auth` +
+    `?redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
+    `&client_id=${encodeURIComponent(DINGTALK_CLIENT_ID)}` +
+    `&scope=${encodeURIComponent('openid')}` +
+    `&prompt=consent`
   return openOAuthAndLogin(authUrl, redirectUri, async (code) => {
     try {
       const res = await dingtalkLogin(code)
@@ -243,6 +251,48 @@ export async function loginByGoogleRedirect(): Promise<OAuthRedirectResult> {
     `&scope=${encodeURIComponent('openid email profile')}`
   return openOAuthAndLogin(authUrl, redirectUri, (code, state) =>
     callOAuthCallback('google', code, state),
+  )
+}
+
+/** GitHub 登录:构造授权 URL → openOAuthAndLogin → oauthCallback('github', code, state)
+ *  对齐 web 端 GITHUB_CONFIG:scope=read:user user:email,回调走 web /callback?platform=github */
+export async function loginByGithubRedirect(): Promise<OAuthRedirectResult> {
+  if (!GITHUB_CLIENT_ID) {
+    return { success: false, error: '未配置 EXPO_PUBLIC_GITHUB_CLIENT_ID' }
+  }
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=github&redirect=mobile-rn`
+  const authUrl =
+    `https://github.com/login/oauth/authorize` +
+    `?client_id=${encodeURIComponent(GITHUB_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent('read:user user:email')}`
+  return openOAuthAndLogin(authUrl, redirectUri, (code, state) =>
+    callOAuthCallback('github', code, state),
+  )
+}
+
+/** 支付宝登录:auth_code 模式(非标准 OAuth2)→ openOAuthAndLogin → oauthCallback('alipay', ...)
+ *  对齐 web 端 ALIPAY_CONFIG:参数名 app_id,scope 默认 auth_user,
+ *  授权端点 https://openauth.alipay.com/oauth2/publicAppAuthorize.htm;
+ *  回调参数名为 auth_code(parseCallbackUrl 已兼容),后端 POST /api/auth/alipay/callback
+ *  兼容 auth_code(见 apps/api auth-extended.ts case 'alipay')。
+ *  支付宝不保证回传 state → allowMissingState 跳过校验(仍附加 state 尽力防御)。 */
+export async function loginByAlipayRedirect(): Promise<OAuthRedirectResult> {
+  if (!ALIPAY_APP_ID) {
+    return { success: false, error: '未配置 EXPO_PUBLIC_ALIPAY_APP_ID' }
+  }
+  const redirectUri = `${WEB_BASE_URL}/callback?platform=alipay&redirect=mobile-rn`
+  const authUrl =
+    `https://openauth.alipay.com/oauth2/publicAppAuthorize.htm` +
+    `?app_id=${encodeURIComponent(ALIPAY_APP_ID)}` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=${encodeURIComponent('auth_user')}`
+  return openOAuthAndLogin(
+    authUrl,
+    redirectUri,
+    (code, state) => callOAuthCallback('alipay', code, state),
+    { allowMissingState: true },
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

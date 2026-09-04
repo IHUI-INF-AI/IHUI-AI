@@ -6,7 +6,8 @@
  * GlobalFloatBox 全局浮窗(mobile-rn 端)
  *
  * 对齐历史 Uniapp 项目 src/components/FloatBox.vue:
- * - 靠右的白色圆角容器 + 左侧一个竖条(zhankaiH.png),不是上下箭头按钮
+ * - 靠右的白色圆角容器 + 左侧竖线 + 双箭头(2026-09-04 起箭头为 lucide 图标按状态换向,
+ *   竖线独立 View;原静态图 zhankaiH.png 弃用),不是上下箭头按钮
  * - 收起时浮窗滑出屏幕右侧,只露出左侧竖条;点竖条 → 浮窗向左滑入
  * - 3 个按钮竖排:赚米(红字)/客服/反馈,图标用原 uniapp 图片
  * - 滑动动画:Animated translateX(对齐 uniapp transition right 0.35s)
@@ -18,6 +19,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Animated, Image, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native'
+import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 export interface GlobalFloatBoxProps {
@@ -38,11 +40,9 @@ const ICON_TUIGUANG = require('../../assets/images/common/tuiguang.png')
 const ICON_KF = require('../../assets/images/common/kf.png')
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ICON_FANKUI = require('../../assets/images/common/yijianfankui.png')
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const ICON_ARROW = require('../../assets/images/common/zhankaiH.png')
 
 const FLOAT_BOX_WIDTH = 59 // 118rpx
-const ARROW_WIDTH = 20 // 40rpx
+const ARROW_WIDTH = 36 // 2026-09-04:双箭头 30dp + gap + 竖线 3dp,原 20 放不下大箭头
 const ARROW_HEIGHT = 50 // 100rpx
 const BORDER_RADIUS = 15 // 30rpx
 const ICON_SIZE = 36 // 72rpx
@@ -50,7 +50,9 @@ const LABEL_FONT_SIZE = 14 // 28rpx
 const ITEM_MARGIN = 2 // 5rpx
 const CONTENT_PADDING = 7 // 14rpx
 const RIGHT = 10 // 20rpx
-const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH // 收起时向右滑出浮窗宽度
+const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH + RIGHT // 收起平移距离 = 盒宽 + right 偏移,确保完全滑出屏幕右缘
+/** 箭头灰色(取自原 zhankaiH.png 的 #8A8A8A,保持原视觉) */
+const ARROW_GRAY = '#8A8A8A'
 
 export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloatBoxProps) {
   // isOpen = true 展开(浮窗在屏幕内);false 收起(浮窗滑出,只露竖条)
@@ -83,7 +85,10 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
 
   return (
     <Animated.View pointerEvents="box-none" style={[styles.root, { transform: [{ translateX }] }]}>
-      {/* 竖条:点击展开/收起(对齐 uniapp float-arrow) */}
+      {/* 竖条:点击展开/收起(对齐 uniapp float-arrow)。
+          2026-09-04:双箭头按状态翻转 —— 展开(拉出)时朝右(提示点击收起),
+          收起时朝左(提示点击拉出);竖线为独立 View 恒定在右侧不动。
+          原静态图 zhankaiH.png 无法换向,弃用。 */}
       <Pressable
         style={styles.arrow}
         onPress={toggleBox}
@@ -91,7 +96,12 @@ export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloat
         accessibilityRole="button"
         accessibilityLabel={isOpen ? '收起浮窗' : '展开浮窗'}
       >
-        <Image source={ICON_ARROW} style={styles.arrowImg} resizeMode="contain" />
+        {isOpen ? (
+          <ChevronsRight size={30} strokeWidth={2.75} color={ARROW_GRAY} style={styles.arrowIcon} />
+        ) : (
+          <ChevronsLeft size={30} strokeWidth={2.75} color={ARROW_GRAY} style={styles.arrowIcon} />
+        )}
+        <View style={styles.arrowBar} />
       </Pressable>
 
       {/* 浮窗内容:三个按钮竖排(赚米/客服/反馈) */}
@@ -140,12 +150,21 @@ const styles = StyleSheet.create({
   arrow: {
     width: ARROW_WIDTH,
     height: ARROW_HEIGHT,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 0,
   } as ViewStyle,
-  arrowImg: {
-    width: ARROW_WIDTH,
-    height: ARROW_HEIGHT,
+  // lucide 图标 viewBox 自带内边距,负 margin 抵消,让双箭头紧贴竖线
+  arrowIcon: {
+    marginRight: -6,
+  },
+  // 竖线(原图片右侧的竖条,独立渲染保证翻转箭头时位置不动)
+  arrowBar: {
+    width: 3,
+    height: 40,
+    borderRadius: 2,
+    backgroundColor: ARROW_GRAY,
   },
   floatBox: {
     width: FLOAT_BOX_WIDTH,

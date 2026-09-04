@@ -61,7 +61,7 @@ export function CourseCommentScreen({
             <View style={styles.row}>
               <Text style={styles.user}>{item.user}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Star size={12} color={'#f59e0b'} fill={'#f59e0b'} />
+                <Star size={12} color={tk.warning.DEFAULT} fill={tk.warning.DEFAULT} />
                 <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
               </View>
             </View>

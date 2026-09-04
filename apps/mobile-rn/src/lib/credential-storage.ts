@@ -27,18 +27,20 @@ const AUTO_LOGIN_KEY = 'ihui-auto-login'
 const HISTORY_KEY = 'ihui-login-history'
 const MAX_HISTORY = 5
 
-// 模块级同步缓存(供 loadRemembered/loadAutoLogin 同步读取)
+// 模块级同步缓存(供 loadRemembered/loadAutoLogin/loadLoginHistory 同步读取)
 let cachedRemembered: RememberedCredentials | null = null
 let cachedAutoLogin = false
+let cachedHistory: string[] = []
 
 // 模块加载时 hydrate(LoginScreen 挂载前有时序窗口:JS bundle → initApi → ready=true)
 void hydrate()
 
 async function hydrate(): Promise<void> {
   try {
-    const [credRaw, autoRaw] = await Promise.all([
+    const [credRaw, autoRaw, historyRaw] = await Promise.all([
       AsyncStorage.getItem(CREDENTIALS_KEY),
       AsyncStorage.getItem(AUTO_LOGIN_KEY),
+      AsyncStorage.getItem(HISTORY_KEY),
     ])
     if (credRaw) {
       const parsed = JSON.parse(credRaw) as Partial<RememberedCredentials>
@@ -47,6 +49,12 @@ async function hydrate(): Promise<void> {
       }
     }
     cachedAutoLogin = autoRaw === '1'
+    if (historyRaw) {
+      const parsed = JSON.parse(historyRaw) as unknown
+      if (Array.isArray(parsed)) {
+        cachedHistory = parsed.filter((a): a is string => typeof a === 'string' && a.length > 0)
+      }
+    }
   } catch {
     // AsyncStorage 不可用时静默失败,保持默认空值
   }
@@ -86,7 +94,8 @@ export const credentialStorage: CredentialStorage = {
   },
 
   saveLoginHistory: (account) => {
-    // AsyncStorage 异步读-改-写(hook 仅在登录成功后调用一次,无并发风险)
+    // 同步更新缓存(下拉立即生效)+ 异步持久化(hook 仅在登录成功后调用一次,无并发风险)
+    cachedHistory = [account, ...cachedHistory.filter((a) => a !== account)].slice(0, MAX_HISTORY)
     void (async () => {
       try {
         const raw = await AsyncStorage.getItem(HISTORY_KEY)
@@ -99,5 +108,7 @@ export const credentialStorage: CredentialStorage = {
       }
     })()
   },
+
+  loadLoginHistory: () => cachedHistory,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

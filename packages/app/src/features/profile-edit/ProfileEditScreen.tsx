@@ -100,7 +100,7 @@ export function ProfileEditScreen({
             <Image source={{ uri: avatar }} style={styles.avatar} />
           ) : (
             <View style={styles.avatarFallback}>
-              <Camera size={28} color={'#374151'} />
+              <Camera size={28} color={tk.text.medium} />
             </View>
           )}
           <View style={styles.avatarEditBadge}>

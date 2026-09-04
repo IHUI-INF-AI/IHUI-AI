@@ -273,11 +273,11 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.brand.DEFAULT,
       backgroundColor: tk.brand.DEFAULT,
     },
-    checkboxError: { borderColor: 'rgba(220, 38, 38, 1)' },
+    checkboxError: { borderColor: tk.danger.DEFAULT },
     checkmark: { fontSize: 11, fontWeight: '700', lineHeight: 14 },
     agreementText: { flex: 1, fontSize: 14, lineHeight: 18, color: tk.text.secondary },
     agreementLink: { color: tk.brand.DEFAULT },
-    agreementErrorText: { fontSize: 14, color: 'rgba(220, 38, 38, 1)', marginTop: 8 },
+    agreementErrorText: { fontSize: 14, color: tk.danger.DEFAULT, marginTop: 8 },
     submitBtn: {
       marginTop: 16,
       height: 50,
