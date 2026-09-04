@@ -1316,7 +1316,7 @@ export function ChatScreen() {
                             accessibilityRole="button"
                             accessibilityLabel="复制代码"
                           >
-                            <Copy size={13} color="#e8e8e8" />
+                            <Copy size={13} color={tokens.gray['200']} />
                             <Text style={styles.codeBlockBtnText}>复制</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -2732,13 +2732,13 @@ const styles = StyleSheet.create({
   },
   codeBlockBtnText: {
     fontSize: 11,
-    color: '#e8e8e8',
+    color: tokens.gray['200'],
   },
   codeBlockContent: {
     padding: 10,
     fontSize: 12,
     lineHeight: 17,
-    color: '#e8e8e8',
+    color: tokens.gray['200'],
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
   },
   // ── 消息富内容:思考过程(推理 reasoning,对齐 ai_index2 thinking-process) ──

@@ -504,7 +504,7 @@ function createStyles(tk: RnThemeTokens) {
       width: 24,
       height: 24,
       borderRadius: 8,
-      backgroundColor: 'rgba(0,0,0,0.6)',
+      backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
     } as ViewStyle,

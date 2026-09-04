@@ -55,7 +55,7 @@ export function MoreCourseScreen({
         <View style={styles.cover} />
       ) : (
         <View style={[styles.cover, styles.coverFallback]}>
-          <BookOpen size={40} color="#374151" />
+          <BookOpen size={40} color={tk.text.medium} />
         </View>
       )}
       <View style={styles.cardBody}>
@@ -101,7 +101,7 @@ export function MoreCourseScreen({
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={resolvedTheme(tk) === 'dark' ? tk.text.tertiary : tk.text.secondary}
+              tintColor={colorScheme === 'dark' ? tk.text.tertiary : tk.text.secondary}
             />
           }
           onEndReached={onEndReached}
@@ -131,10 +131,6 @@ export function MoreCourseScreen({
       )}
     </View>
   )
-}
-
-function resolvedTheme(tk: AppThemeTokens): 'light' | 'dark' {
-  return tk.text.primary === '#000000' ? 'light' : 'dark'
 }
 
 function createStyles(tk: AppThemeTokens) {
