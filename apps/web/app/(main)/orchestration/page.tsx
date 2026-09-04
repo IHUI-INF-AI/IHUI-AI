@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, PageContainer } from '@/components/common'
 import { useAuthStore } from '@/stores/auth'
 import { cn } from '@/lib/utils'
 
@@ -218,7 +218,7 @@ export default function OrchestrationPage() {
     'flex flex-col items-center justify-center gap-1 rounded-lg border bg-muted/40 p-4'
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -503,7 +503,7 @@ export default function OrchestrationPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

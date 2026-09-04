@@ -95,7 +95,7 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <BackButton />
       <div className="flex items-center justify-between">
         <div>

@@ -67,7 +67,7 @@ export default function HistoryPage() {
   const items = data ?? []
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl px-4 space-y-4">
       <BackButton />
       <div className="flex items-center justify-between gap-4">
         <div>

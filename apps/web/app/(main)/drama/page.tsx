@@ -11,7 +11,7 @@ import { Loader2, Sparkles, PenLine } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton } from '@/components/common'
+import { BackButton, PageContainer } from '@/components/common'
 
 interface EnhanceResult {
   consistency: unknown
@@ -98,7 +98,7 @@ export default function DramaPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight">
@@ -237,7 +237,7 @@ export default function DramaPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

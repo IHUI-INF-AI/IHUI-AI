@@ -57,7 +57,7 @@ export default function TagsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-4">
+    <div className="mx-auto max-w-4xl px-4 space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">

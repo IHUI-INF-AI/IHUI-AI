@@ -132,7 +132,7 @@ export function KanbanBoard() {
   const columns = data ?? []
 
   return (
-    <div className="flex h-full flex-col space-y-4">
+    <div className="flex h-full flex-col space-y-4 p-4">
       {/* 头部 */}
       <div className="flex items-center justify-between gap-3">
         <div>

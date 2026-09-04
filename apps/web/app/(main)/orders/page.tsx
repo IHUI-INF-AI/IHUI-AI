@@ -30,7 +30,7 @@ export default function OrdersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
       <BackButton />
       <header className="space-y-1">
         <h1 className="flex min-w-0 items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

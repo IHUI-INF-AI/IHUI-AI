@@ -110,7 +110,7 @@ export default function TagDetailPageClient() {
 
   if (!tag) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 py-12 min-[768px]:py-20 text-center">
+      <div className="mx-auto max-w-3xl px-4 space-y-4 py-12 min-[768px]:py-20 text-center">
         <Tag className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -125,7 +125,7 @@ export default function TagDetailPageClient() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl px-4 space-y-4">
       <Link
         href="/tags"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

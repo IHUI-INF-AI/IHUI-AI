@@ -134,7 +134,7 @@ function AuthorizeContent() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[60vh] max-w-lg items-center">
+    <div className="mx-auto flex min-h-[60vh] max-w-lg px-4 items-center">
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

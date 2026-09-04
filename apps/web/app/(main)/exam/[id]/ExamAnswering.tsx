@@ -39,7 +39,7 @@ export function ExamAnswering({
   const t = useTranslations('exam')
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-4">
       <div className="sticky top-0 z-20 flex items-center justify-between rounded-md border bg-background/95 px-4 py-2 backdrop-blur">
         <span className="text-sm font-medium">{paper.title}</span>
         <span

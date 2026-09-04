@@ -201,8 +201,18 @@ export async function findThirdPartyAccount(platform: string, openId: string) {
 }
 
 export async function listUserBindings(userId: string) {
+  // 安全:显式列查询,禁止将 accessToken/refreshToken 明文下发到客户端路由
   return db
-    .select()
+    .select({
+      id: userThirdPartyAccounts.id,
+      userId: userThirdPartyAccounts.userId,
+      openId: userThirdPartyAccounts.openId,
+      unionId: userThirdPartyAccounts.unionId,
+      platform: userThirdPartyAccounts.platform,
+      expiresAt: userThirdPartyAccounts.expiresAt,
+      createdAt: userThirdPartyAccounts.createdAt,
+      updatedAt: userThirdPartyAccounts.updatedAt,
+    })
     .from(userThirdPartyAccounts)
     .where(
       and(

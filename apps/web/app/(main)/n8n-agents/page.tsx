@@ -91,7 +91,7 @@ export default async function N8nAgentsPage() {
   const activeCount = AGENTS.filter((a) => a.active).length
 
   return (
-    <Container maxWidth="xl" padding={false} className="space-y-6 py-6">
+    <Container maxWidth="xl" className="space-y-6 py-6">
       <BackButton />
       <header className="space-y-1 px-1">
         <h1 className="flex items-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

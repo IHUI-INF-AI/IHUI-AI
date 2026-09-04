@@ -10,7 +10,7 @@ import { Loader2, KeyRound, Trash2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Button, Card, CardContent, CardHeader, CardTitle, CardDescription } from '@ihui/ui-react'
-import { BackButton } from '@/components/common'
+import { BackButton, PageContainer } from '@/components/common'
 
 interface AuthorizedItem {
   id: string
@@ -64,7 +64,7 @@ export default function MyAuthorizedPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       <BackButton />
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -137,7 +137,7 @@ export default function MyAuthorizedPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageContainer>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

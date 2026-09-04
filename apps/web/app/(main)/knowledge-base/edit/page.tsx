@@ -72,7 +72,7 @@ export default function KBEditPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-4">
+    <div className="mx-auto w-full max-w-4xl px-4 space-y-4">
       <header className="space-y-1">
         <div className="flex items-center gap-2">
           <Edit className="h-6 w-6 text-primary" />

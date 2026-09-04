@@ -126,7 +126,7 @@ export default function NotificationsPage() {
   const unread = unreadData?.count ?? 0
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-3xl px-4 space-y-4">
       <BackButton />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">

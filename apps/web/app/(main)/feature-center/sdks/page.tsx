@@ -58,7 +58,7 @@ export default function SdksPage() {
   }, [data, keyword, language])
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <FeatureCenterHeader title={t('title')} description={t('description')} />
       <FeatureCenterNav />
 

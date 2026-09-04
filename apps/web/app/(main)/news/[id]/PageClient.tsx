@@ -70,7 +70,7 @@ export default function NewsDetailPage() {
 
   if (error || !data)
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-4">
+      <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
         <Link
           href="/news"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -110,7 +110,7 @@ export default function NewsDetailPage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的输入会提前闭合脚本标签导致 XSS

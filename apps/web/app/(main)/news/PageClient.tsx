@@ -57,7 +57,7 @@ export default function NewsPageClient() {
   const items = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <BackButton />
       <NewsHeader search={search} onSearchChange={setSearch} />
 

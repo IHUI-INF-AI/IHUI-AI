@@ -112,7 +112,7 @@ export default function MemoryDetailPage() {
   const scopeOpt = entry ? getMemoryScopeOption(entry.scope) : undefined
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5">
+    <div className="mx-auto w-full max-w-3xl px-4 space-y-5">
       <header className="flex items-center gap-3">
         <Button asChild variant="ghost" size="icon">
           <Link href="/memory">

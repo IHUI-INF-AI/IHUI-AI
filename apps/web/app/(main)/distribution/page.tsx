@@ -115,7 +115,7 @@ export default function DistributionHomePage() {
   const loading = teamQ.isLoading || summaryQ.isLoading || availableQ.isLoading
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
       <BackButton />
       <Card className="overflow-hidden">
         <CardContent className="flex items-center gap-4 p-5 min-[640px]:p-5">

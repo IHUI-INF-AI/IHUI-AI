@@ -177,13 +177,10 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         send(socket, { event: 'start', ts: Date.now(), agentId: streamAgentId })
 
         try {
-          const resp = await aiServiceFetchStream(request, '/api/agent-runtime/execute/stream', {
+          const resp = await aiServiceFetchStream(request, '/agent/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            // 对齐 ai-service agent_runtime.ExecuteRequest 契约(message 必填,
-            // mode/botId/sessionId 可选)。原 /agent/stream 路径在 ai-service 中根本
-            // 不存在(所有 router 挂于 /api 前缀),代理后收到 404;此处改为真实端点。
-            body: JSON.stringify({ message: text, botId, sessionId: undefined, mode: 'default' }),
+            body: JSON.stringify({ user_id: userId, bot_id: botId, text, stream: true }),
             signal: controller.signal,
           })
           if (!resp.ok || !resp.body) {
@@ -193,68 +190,17 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
           const reader = resp.body.getReader()
           const decoder = new TextDecoder()
           let buffer = ''
-          let eventName = ''
           for (;;) {
             const { done, value } = await reader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
-            // SSE 以空行(\n\n)分隔事件块
-            const blocks = buffer.split('\n\n')
-            buffer = blocks.pop() ?? ''
-            for (const block of blocks) {
-              let dataJson: Record<string, unknown> | null = null
-              for (const line of block.split('\n')) {
-                if (line.startsWith('event:')) {
-                  eventName = line.slice(6).trim()
-                } else if (line.startsWith('data:')) {
-                  const jsonStr = line.slice(5).trim()
-                  if (jsonStr) {
-                    try {
-                      dataJson = JSON.parse(jsonStr) as Record<string, unknown>
-                    } catch {
-                      dataJson = null
-                    }
-                  }
-                }
-              }
-              if (!dataJson) continue
-              switch (eventName) {
-                case 'session':
-                  send(socket, { event: 'session', ...dataJson, agentId: streamAgentId })
-                  break
-                case 'plan':
-                  send(socket, { event: 'plan', ...dataJson, agentId: streamAgentId })
-                  break
-                case 'delta':
-                  send(socket, {
-                    event: 'delta',
-                    content: (dataJson.content as string) ?? '',
-                    agentId: streamAgentId,
-                  })
-                  break
-                case 'done':
-                  send(socket, {
-                    event: 'done',
-                    summary: dataJson.summary,
-                    sessionId: dataJson.sessionId,
-                    agentId: streamAgentId,
-                  })
-                  break
-                case 'permission':
-                  send(socket, { event: 'permission', ...dataJson, agentId: streamAgentId })
-                  break
-                case 'error':
-                  send(socket, {
-                    event: 'error',
-                    msg: (dataJson.message as string) ?? 'AI service error',
-                    agentId: streamAgentId,
-                  })
-                  break
-                default:
-                  break
-              }
+            const lines = buffer.split('\n')
+            buffer = lines.pop() ?? ''
+            for (const line of lines) {
+              if (line.trim()) send(socket, { event: 'delta', raw: line, agentId: streamAgentId })
             }
           }
+          if (buffer.trim()) send(socket, { event: 'delta', raw: buffer, agentId: streamAgentId })
         } catch (e) {
           // interrupt/cancel 触发的 AbortError 已发送对应事件,此处不重复报错
           if ((e as Error).name !== 'AbortError') {

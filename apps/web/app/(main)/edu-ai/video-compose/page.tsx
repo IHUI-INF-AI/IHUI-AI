@@ -25,7 +25,7 @@ import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
-import { BackButton, Empty } from '@/components/common'
+import { BackButton, Empty, PageContainer } from '@/components/common'
 
 type ComposeStepName = 'script' | 'material' | 'compose' | 'subtitle'
 type ComposeStepStatus = 'pending' | 'running' | 'succeeded' | 'failed'
@@ -302,7 +302,7 @@ export default function EduAiVideoComposePage() {
     : undefined
 
   return (
-    <div className="space-y-4">
+    <PageContainer className="space-y-4">
       <BackButton fallbackHref="/edu" />
       <header className="space-y-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
@@ -559,7 +559,7 @@ export default function EduAiVideoComposePage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

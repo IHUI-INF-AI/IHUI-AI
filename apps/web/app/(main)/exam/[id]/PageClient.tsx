@@ -110,7 +110,7 @@ export default function ExamTakePage() {
 
   if (error || !data) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-4">
+      <div className="mx-auto w-full max-w-4xl px-4 space-y-4">
         <button
           type="button"
           onClick={() => router.push('/exam')}

@@ -116,7 +116,7 @@ export default function MemoryListPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-5">
       <BackButton />
       <Card>
         <CardHeader>

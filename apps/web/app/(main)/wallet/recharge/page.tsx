@@ -84,7 +84,7 @@ export default function RechargePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-4">
+    <div className="mx-auto w-full max-w-md px-4 space-y-4">
       <Link
         href="/wallet"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"

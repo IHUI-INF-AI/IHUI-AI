@@ -110,7 +110,7 @@ export default function MyNotesPage() {
   const list = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <BackButton />
       <header className="flex items-start justify-between">
         <div className="space-y-1">

@@ -128,7 +128,7 @@ export default function KnowledgeRagManagePage() {
   })
 
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
       <Link
         href="/knowledge-rag"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

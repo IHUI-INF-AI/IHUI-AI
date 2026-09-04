@@ -19,8 +19,25 @@
  */
 
 import { Platform } from 'react-native'
-import * as wechatLib from 'react-native-wechat-lib'
+import type * as WeChatMod from 'react-native-wechat-lib'
 import type { AuthResponse } from 'react-native-wechat-lib'
+
+// 动态 require + 空值守卫(2026-09-04 web 修复):
+// `import * as wechatLib` 在 web bundle(Metro ESM interop)下 namespace 可能为
+// undefined,模块求值后任何属性访问(typeof 也不例外)都会抛 TypeError 导致白屏。
+// 改为惰性 require(与 wechat-pay.ts 同模式),取不到或形态异常一律降级为 null。
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const wechatLibRaw = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod: unknown = require('react-native-wechat-lib')
+    if (mod && typeof mod === 'object') return mod
+    return null
+  } catch {
+    return null
+  }
+})()
+const wechatLib = wechatLibRaw as typeof WeChatMod | null
 
 const WECHAT_APP_ID = process.env.EXPO_PUBLIC_WECHAT_APP_ID
 const WECHAT_UNIVERSAL_LINK = process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK
@@ -40,7 +57,7 @@ let isRegistered = false
 /** 初始化微信 SDK(App.tsx 启动时调用,native only) */
 export async function registerWechat(): Promise<boolean> {
   if (Platform.OS === 'web') return false
-  if (typeof wechatLib.registerApp !== 'function') return false
+  if (!wechatLib || typeof wechatLib.registerApp !== 'function') return false
   if (!WECHAT_APP_ID) return false
 
   try {
@@ -55,7 +72,7 @@ export async function registerWechat(): Promise<boolean> {
 /** 检查是否安装微信(native only) */
 export async function isWechatInstalled(): Promise<boolean> {
   if (Platform.OS === 'web') return false
-  if (typeof wechatLib.isWXAppInstalled !== 'function') return false
+  if (!wechatLib || typeof wechatLib.isWXAppInstalled !== 'function') return false
   try {
     return await wechatLib.isWXAppInstalled()
   } catch {

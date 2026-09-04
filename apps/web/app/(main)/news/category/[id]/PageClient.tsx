@@ -105,7 +105,7 @@ export default function NewsCategoryPageClient() {
 
   if (!category) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-4 py-12 min-[768px]:py-20 text-center">
+      <div className="mx-auto w-full max-w-6xl px-4 space-y-4 py-12 min-[768px]:py-20 text-center">
         <FolderOpen className="mx-auto h-10 w-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t('notFound')}</p>
         <Link
@@ -120,7 +120,7 @@ export default function NewsCategoryPageClient() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <Link
         href="/news"
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"

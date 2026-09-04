@@ -3,14 +3,16 @@
 import { test, expect, type Page } from './fixtures'
 
 /**
- * 手动压缩上下文按钮 E2E 防回归(2026-09-02 立)。
+ * 手动压缩上下文按钮 E2E 防回归(2026-09-02 立;2026-09-04 随入口迁移更新)。
  *
  * 被测功能:
- *  - AI 对话输入工具栏右侧簇(ContextUsageRing 左侧)的"压缩上下文"按钮
- *    (apps/web/src/components/chat/message-input.tsx,Scissors 剪刀图标,
- *    data-testid="compact-context-button",aria-label 随 loading 态切换)。
+ *  - AI 对话输入工具栏右侧簇"上下文用量环"弹窗内的"压缩上下文"按钮
+ *    (apps/web/src/components/ai/context-usage-ring.tsx,Scissors 剪刀图标,
+ *    data-testid="compact-context-button",aria-label 随 loading 态切换;
+ *    2026-09-04 压缩入口从 message-input.tsx 工具栏剪刀按钮迁入该弹窗,
+ *    测试需先点开用量环 trigger data-testid="context-usage-trigger")。
  *
- * 行为契约(message-input.tsx handleCompact):
+ * 行为契约(context-usage-ring.tsx handleCompact,自 message-input.tsx 原样迁入):
  *  - 点击 → POST /api/chat/compact,body { conversationId };请求中按钮 loading 禁用;
  *  - compressed=true → toast.success "上下文已压缩: {before} → {after} tokens(节省 {saved})"
  *    + 重新拉取会话消息(GET /conversations/{id}/messages);
@@ -39,9 +41,21 @@ const TEXT_TOO_FEW = '无需压缩' // compactTooFew: "对话消息太少,无需
 const TEXT_INCOMPRESSIBLE = '当前上下文已无可压缩空间' // compactIncompressible
 const TEXT_FAILED = '压缩失败' // compactFailed
 
+/** 上下文用量环 trigger(点开弹窗,压缩按钮在弹窗内) */
+function usageTrigger(page: Page) {
+  return page.getByTestId('context-usage-trigger')
+}
+
 /** 压缩按钮定位(data-testid,与 aria-label 解耦:loading 时 aria-label 会变) */
 function compactButton(page: Page) {
   return page.getByTestId('compact-context-button')
+}
+
+/** 打开用量环弹窗,使弹窗内压缩按钮可见可交互 */
+async function openUsagePanel(page: Page): Promise<void> {
+  await expect(usageTrigger(page)).toBeVisible({ timeout: 20_000 })
+  await usageTrigger(page).click()
+  await expect(compactButton(page)).toBeVisible({ timeout: 20_000 })
 }
 
 /** 按文案过滤的 sonner toast */
@@ -139,16 +153,16 @@ async function mockCompact(page: Page, res: CompactMockResponse): Promise<void> 
   })
 }
 
-/** 进入 /chat 并等待压缩按钮渲染(adminPage 已登录,不会被重定向) */
+/** 进入 /chat 并打开用量环弹窗,等待弹窗内压缩按钮渲染(adminPage 已登录,不会被重定向) */
 async function gotoChat(page: Page): Promise<void> {
   await page.goto('/chat')
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   await expect(page).toHaveURL(/\/chat/, { timeout: 20_000 })
-  await expect(compactButton(page)).toBeVisible({ timeout: 20_000 })
+  await openUsagePanel(page)
 }
 
 /**
- * 注入会话 ID 后进入 /chat,使压缩按钮 enabled。
+ * 注入会话 ID 后进入 /chat,使弹窗内压缩按钮 enabled。
  * chat store 持久化(stores/chat.ts):localStorage key 'ihui-chat',version 5,
  * partialize 含 conversationId —— zustand persist rehydrate 时 shallow merge,
  * 其余字段走初始默认值。
@@ -168,7 +182,7 @@ test.describe('手动压缩上下文按钮', () => {
   // ── a. 初始态:无会话 → 按钮 disabled ──────────────────────────────────
   // adminPage 的 storageState(fixtures.ts)只注入 token/user/ihui-auth 三个
   // localStorage 键,不含 'ihui-chat' → conversationId 初始为 null → disabled
-  // (disabled={compacting || isStreaming || !conversationId})。
+  // (compactDisabled = !conversationId || compacting || isStreaming)。
   test('无会话时压缩按钮 disabled', async ({ adminPage: page }) => {
     await gotoChat(page)
     await expect(compactButton(page)).toBeDisabled()

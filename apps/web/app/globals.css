@@ -1181,4 +1181,24 @@ button[data-state='closed']:focus-visible {
 [data-testid='agreement-checkbox'][aria-checked='true'] > span {
   border-color: transparent;
 }
+
+/* ============================================================
+ * body 直属浮层强制 fixed 兜底(2026-09-04 立,根治"弹窗溢出屏幕撑开布局")
+ * ============================================================
+ * 病根(实测):手写 createPortal 面板(slash-command-palette / context-usage-ring /
+ *   permission-history-panel / add-menu-popover)容器漏写 position → computed static
+ *   → top/left 内联样式整体失效 → 面板以文档流追加到 body 末尾,把布局撑高
+ *   (实测 body.scrollHeight 720 → 1111),表现为"弹窗超出屏幕、把正常屏幕往上挤"。
+ * 兜底:凡是直挂 document.body 的 dialog/menu/menuitem 浮层容器,一律强制 fixed,
+ *   让 getBoundingClientRect 视口坐标 + top/left 生效。已定位的组件(Radix 弹层、
+ *   feedback/Popover portal 模式等)本就是 fixed,重复声明无任何行为变化。
+ * 正常定位仍由各组件调用 lib/portal-panel-position.ts 统一计算(含翻转/clamp/maxHeight),
+ *   本规则只是防"新面板再漏写 position"的最后一道闸,不改变任何既有层级(z-index 不动)。
+ */
+body > [role='dialog'],
+body > [role='menu'],
+body > [role='menu'][aria-hidden='false'],
+body > [role='listbox'] {
+  position: fixed;
+}
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

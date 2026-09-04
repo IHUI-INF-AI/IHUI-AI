@@ -11,6 +11,11 @@ import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
+import {
+  computePortalPanelCoords,
+  PORTAL_PANEL_POSITION_STYLE,
+  type PortalPanelCoords,
+} from '@/lib/portal-panel-position'
 import { PromptTemplates } from '@/components/ai/prompt-templates'
 import { SkillLibrary } from '@/components/chat/skill-library'
 import type { PromptTemplate } from '@/hooks/use-slash-action'
@@ -77,32 +82,21 @@ export function AddMenuPopover(props: {
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement | null>(null)
-  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  // 2026-09-04 根治:改用共享 computePortalPanelCoords(fixed + 完整视口 clamp + maxHeight)。
+  // 病根:原容器漏写 position:fixed → static → top/left 失效,面板进文档流撑开布局。
+  const [coords, setCoords] = React.useState<PortalPanelCoords | null>(null)
   const rafRef = React.useRef<number | null>(null)
 
   const updateCoords = React.useCallback(() => {
     if (!triggerRef.current || !panelRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    const panelRect = panelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-    const VH = window.innerHeight
-
-    let top = r.bottom + gap
-    let left = r.left
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top + panelRect.height > VH - pad) {
-      top = r.top - gap - panelRect.height
-    }
-    top = Math.max(pad, top)
-
-    setCoords({ top, left })
+    setCoords(
+      computePortalPanelCoords(
+        triggerRef.current.getBoundingClientRect(),
+        panelRef.current.getBoundingClientRect(),
+        // 锚定按钮下方、左缘对齐(与原实现视觉意图一致;下方放不下自动翻上方)
+        { side: 'bottom', align: 'start' },
+      ),
+    )
   }, [])
 
   React.useLayoutEffect(() => {
@@ -207,8 +201,18 @@ export function AddMenuPopover(props: {
         createPortal(
           <div
             ref={panelRef}
-            className="w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            className="max-h-full w-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            style={
+              coords
+                ? {
+                    // position:fixed 病根修复(2026-09-04):无它 top/left 对 static 无效
+                    ...PORTAL_PANEL_POSITION_STYLE,
+                    top: coords.top,
+                    left: coords.left,
+                    maxHeight: coords.maxHeight,
+                  }
+                : { ...PORTAL_PANEL_POSITION_STYLE, top: -9999, left: -9999 }
+            }
             role="menu"
             aria-label={t('addMenuDesc')}
             tabIndex={-1}

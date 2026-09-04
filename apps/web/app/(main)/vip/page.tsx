@@ -92,7 +92,7 @@ export default function VipPage() {
   const popularIdx = levels.length > 1 ? Math.floor(levels.length / 2) : 0
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <BackButton />
       <header className="space-y-1 text-center">
         <h1 className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">

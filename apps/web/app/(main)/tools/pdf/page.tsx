@@ -45,7 +45,7 @@ const TOOLS: PdfTool[] = [
 
 export default function PdfToolsPage() {
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
+    <div className="mx-auto w-full max-w-5xl px-4 space-y-4">
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/tools" className="transition-colors hover:text-foreground">
           工具

@@ -11,6 +11,11 @@ import { Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { createPortal } from 'react-dom'
+import {
+  computePortalPanelCoords,
+  PORTAL_PANEL_POSITION_STYLE,
+  type PortalPanelCoords,
+} from '@/lib/portal-panel-position'
 
 /** 命令分组(2026-07-29 立,按重要性排序)
  * 2026-07-29 二次深化:新增 skill 分组(AI 技能,从 /api/ai-skills 拉取) */
@@ -146,31 +151,22 @@ export function SlashCommandPalette({
   const listRef = React.useRef<HTMLDivElement>(null)
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
   const panelRef = React.useRef<HTMLDivElement>(null)
-  const [coords, setCoords] = React.useState<{ top: number; left: number } | null>(null)
+  // 2026-09-04 根治:改用共享 computePortalPanelCoords(fixed + 完整视口 clamp + maxHeight)。
+  // 病根:原手写 updateCoords 只算坐标,面板容器漏写 position:fixed → computed static
+  // → top/left 全部失效,面板进文档流把 body 撑高 391px(实测),"弹窗超出屏幕把屏幕往上挤"。
+  const [coords, setCoords] = React.useState<PortalPanelCoords | null>(null)
   const rafRef = React.useRef<number | null>(null)
 
   const updateCoords = React.useCallback(() => {
     if (!triggerRef.current || !panelRef.current) return
-    const r = triggerRef.current.getBoundingClientRect()
-    const panelRect = panelRef.current.getBoundingClientRect()
-    const gap = 8
-    const pad = 8
-    const VW = window.innerWidth
-
-    let top = r.top - gap - panelRect.height
-    let left = r.right - panelRect.width
-
-    if (left + panelRect.width > VW - pad) {
-      left = VW - pad - panelRect.width
-    }
-    left = Math.max(pad, left)
-
-    if (top < pad) {
-      top = r.bottom + gap
-    }
-    top = Math.max(pad, top)
-
-    setCoords({ top, left })
+    setCoords(
+      computePortalPanelCoords(
+        triggerRef.current.getBoundingClientRect(),
+        panelRef.current.getBoundingClientRect(),
+        // 锚定斜杠按钮上方、右缘对齐(与原实现视觉意图一致)
+        { side: 'top', align: 'end' },
+      ),
+    )
   }, [])
 
   React.useLayoutEffect(() => {
@@ -352,11 +348,15 @@ export function SlashCommandPalette({
   let runningIdx = -1 // 扁平索引累加器(跨分组连续编号)
 
   const content = (
-    <div className="flex flex-col">
+    <div
+      className="flex min-h-0 flex-col"
+      // 视口 clamp:面板过高时收敛 maxHeight,让中段列表(min-h-0)收缩、footer 常驻可见
+      style={{ maxHeight: coords?.maxHeight }}
+    >
       {/* 顶部搜索框(2026-07-29 二次深化:参数补全模式前置返回按钮 + 标题)
        *  - 普通模式:Search 图标 + 搜索框 + clear
        *  - 参数补全模式:返回按钮 + 标题 + 搜索框 + clear(键盘导航仍可用) */}
-      <div className="relative flex items-center gap-2 bg-muted/30 px-3 py-2">
+      <div className="relative flex shrink-0 items-center gap-2 bg-muted/30 px-3 py-2">
         {argMode ? (
           <button
             type="button"
@@ -397,8 +397,9 @@ export function SlashCommandPalette({
           </button>
         )}
       </div>
-      {/* 中部:参数补全模式显示候选列表;普通模式显示分组命令列表 */}
-      <div ref={listRef} className="thin-scroll max-h-80 overflow-y-auto p-1.5">
+      {/* 中部:参数补全模式显示候选列表;普通模式显示分组命令列表
+          min-h-0:面板 maxHeight 收敛时本区收缩出内部滚动,搜索框/footer 不被裁掉 */}
+      <div ref={listRef} className="thin-scroll min-h-0 max-h-80 overflow-y-auto p-1.5">
         {argMode ? (
           // 参数补全模式:候选列表(无分组)
           argSuggestions.length === 0 ? (
@@ -548,7 +549,7 @@ export function SlashCommandPalette({
       </div>
       {/* 底部快捷键提示(2026-07-29 立,带 kbd 样式)
        * 参数补全模式下提示 ESC 返回;普通模式提示 ESC 关闭 */}
-      <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-2 bg-muted/20 px-3 py-1.5 text-[10px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <kbd className="rounded-sm border border-border bg-background px-1 py-px font-mono text-[9px] leading-none">
             ↑↓
@@ -606,8 +607,13 @@ export function SlashCommandPalette({
   } as React.HTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> })
 
   const panelStyle: React.CSSProperties = coords
-    ? { top: coords.top, left: coords.left }
-    : { top: -9999, left: -9999 }
+    ? {
+        // position:fixed 是病根修复的一半:没有它 top/left 对 static 元素整体失效(2026-09-04)
+        ...PORTAL_PANEL_POSITION_STYLE,
+        top: coords.top,
+        left: coords.left,
+      }
+    : { ...PORTAL_PANEL_POSITION_STYLE, top: -9999, left: -9999 }
 
   return (
     <div>

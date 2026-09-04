@@ -93,7 +93,7 @@ export default function LearnPage() {
   const lessons = data?.list ?? []
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4">
+    <div className="mx-auto w-full max-w-6xl px-4 space-y-4">
       <BackButton />
       <Card className="overflow-hidden">
         <div className="relative h-40 min-[640px]:h-48">

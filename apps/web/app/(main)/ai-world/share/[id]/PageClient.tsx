@@ -83,7 +83,7 @@ export default function AiWorldSharePage() {
 
   if (error || !world) {
     return (
-      <div className="mx-auto w-full max-w-2xl space-y-4">
+      <div className="mx-auto w-full max-w-2xl px-4 space-y-4">
         <Link
           href="/ai-world"
           className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -99,7 +99,7 @@ export default function AiWorldSharePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-4">
+    <div className="mx-auto w-full max-w-2xl px-4 space-y-4">
       <Link
         href={`/ai-world/${params.id}`}
         className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
