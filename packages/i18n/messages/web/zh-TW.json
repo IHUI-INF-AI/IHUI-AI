@@ -7653,7 +7653,6 @@
   },
   "auth": {
     "account": "賬號",
-    "accountHistory": "Account History",
     "accountPlaceholder": "請輸入賬號/手機號/郵箱",
     "agreePrefix": "我已閱讀並同意",
     "agreeRequired": "請先同意用戶協議",
@@ -8892,7 +8891,6 @@
     "cancelTime": "取消時間",
     "close": "關閉",
     "closeAll": "關閉全部",
-    "colToken": "Tokens",
     "comingSoon": "敬請期待",
     "confirm": "確認",
     "confirmTitle": "確認操作",
@@ -19722,7 +19720,6 @@
     "loadFailed": "載入失敗,下拉重整重試",
     "emptyType": "該類型暫無模型",
     "input": "輸入",
-    "priceUnit": "¥{price}",
     "output": "輸出",
     "perCall": "每次呼叫"
   },
