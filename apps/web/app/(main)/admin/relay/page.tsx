@@ -112,12 +112,9 @@ export default function AdminRelayOverviewPage() {
     }> => {
       // fetchApi 的 ApiResult success 分支不携带 HTTP status,本场景需区分
       // 200(更新已有全局行)/ 201(新建全局配置行),改用原生 fetch 直读 response.status
-      // 2026-09-04 桌面端 SaaS 化:与 lib/api.ts detectApiBaseUrl 同语义——
-      // Tauri 下 NEXT_PUBLIC_API_BASE_URL(桌面构建注入的线上地址)优先,
-      // 未注入(本地三端联调)回退 127.0.0.1:8802。
       const baseUrl =
         typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
-          ? process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8802'
+          ? 'http://127.0.0.1:8802'
           : process.env.NEXT_PUBLIC_API_BASE_URL || ''
       // P2-18 修复(2026-08-06):auth_token 已 httpOnly,getAuthCookie() 恒返回 null,
       // 不再用它拼 Bearer;改用内存 token(有则发)+ credentials: include(cookie 自动附带兜底),

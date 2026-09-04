@@ -10,6 +10,11 @@ import { signInRecords, userPoints, userThirdPartyAccounts, users, auditLogs } f
 import { checkAuth } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { revokeRefreshToken } from '../db/queries.js'
+import {
+  findUserPreferences,
+  upsertUserPreference,
+  deleteUserPreference,
+} from '../db/user-preferences-queries.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
 
 export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
@@ -73,10 +78,28 @@ export const userCheckinRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ removed: deviceId }))
   })
 
+  // IP 白名单:GET 拉取列表 / POST 新增 / DELETE 移除(持久化到 user_preferences 的 'ip-whitelist' 组)
+  // 契约:响应 data 为 string[] 列表(与前端 IpWhitelist.tsx 对齐)。
+  const IP_WL_GROUP = 'ip-whitelist'
+  server.get('/user/ip-whitelist', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { list } = await findUserPreferences(request.userId!, IP_WL_GROUP)
+    return reply.send(success(list.map((r) => r.value ?? r.key)))
+  })
+
   server.post('/user/ip-whitelist', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const { ip } = z.object({ ip: z.string().min(1) }).parse(request.body)
-    return reply.send(success({ added: ip }))
+    await upsertUserPreference(request.userId!, IP_WL_GROUP, ip, ip)
+    const { list } = await findUserPreferences(request.userId!, IP_WL_GROUP)
+    return reply.send(success(list.map((r) => r.value ?? r.key)))
+  })
+
+  server.delete('/user/ip-whitelist', async (request, reply) => {
+    if (!(await checkAuth(request, reply))) return
+    const { ip } = z.object({ ip: z.string().min(1) }).parse(request.query)
+    await deleteUserPreference(request.userId!, IP_WL_GROUP, ip)
+    return reply.send(success({ removed: ip }))
   })
 
   server.delete('/user/sessions/:sessionId', async (request, reply) => {

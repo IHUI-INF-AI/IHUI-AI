@@ -15,12 +15,23 @@ import { buildQs, type PageData } from '@/lib/edu'
 
 interface SecurityLogItem {
   id: string
-  time: string
-  ip: string
-  device: string
-  event: string
-  status: 'success' | 'failed'
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
 }
+
+/** userAgent 较长,列表里截断展示,避免撑破布局。 */
+const truncateUserAgent = (ua: string, max = 40): string =>
+  ua.length > max ? `${ua.slice(0, max)}...` : ua
+
+const logDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 /** 登录历史概览：显示最近一条登录记录，点击进入完整安全日志页面。 */
 export function LoginHistory() {
@@ -60,11 +71,17 @@ export function LoginHistory() {
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-muted-foreground">{recent.time}</p>
+              <p className="text-sm text-muted-foreground">
+                {logDateFormatter.format(new Date(recent.createdAt))}
+              </p>
               <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                <span className="font-mono">{recent.ip}</span>
-                <span className="text-border">·</span>
-                <span>{recent.device}</span>
+                <span className="font-mono">{recent.ip ?? '—'}</span>
+                {recent.userAgent && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span className="truncate">{truncateUserAgent(recent.userAgent)}</span>
+                  </>
+                )}
               </p>
             </div>
             <span className="flex items-center gap-1 text-sm font-medium text-primary">

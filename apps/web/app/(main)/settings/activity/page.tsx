@@ -24,18 +24,25 @@ import {
 import { BackButton } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { buildQs, type PageData } from '@/lib/edu'
-import { cn } from '@/lib/utils'
 
+/** 对齐后端 securityLogs 表契约(packages/database/src/schema/security-logs.ts)。 */
 interface ActivityLog {
   id: string
-  time: string
-  ip: string
-  device: string
-  event: string
-  status: 'success' | 'failed'
+  action: string
+  ip: string | null
+  userAgent: string | null
+  createdAt: string
 }
 
 const PAGE_SIZE = 20
+
+const logDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+})
 
 export default function ActivityPage() {
   const t = useTranslations('settings')
@@ -112,29 +119,20 @@ export default function ActivityPage() {
                     <TableHead>{t('logIp')}</TableHead>
                     <TableHead>{t('logDevice')}</TableHead>
                     <TableHead>{t('logEvent')}</TableHead>
-                    <TableHead>{t('logStatus')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-xs">{log.time}</TableCell>
-                      <TableCell className="font-mono text-xs">{log.ip}</TableCell>
-                      <TableCell className="text-xs">{log.device}</TableCell>
-                      <TableCell className="text-xs">
-                        {eventLabels[log.event] ?? log.event}
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {logDateFormatter.format(new Date(log.createdAt))}
                       </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium',
-                            log.status === 'success'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700',
-                          )}
-                        >
-                          {log.status === 'success' ? t('statusSuccess') : t('statusFailed')}
-                        </span>
+                      <TableCell className="font-mono text-xs">{log.ip ?? '—'}</TableCell>
+                      <TableCell className="max-w-40 truncate text-xs">
+                        {log.userAgent ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {eventLabels[log.action] ?? log.action}
                       </TableCell>
                     </TableRow>
                   ))}

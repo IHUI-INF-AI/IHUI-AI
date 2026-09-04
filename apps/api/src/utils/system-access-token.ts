@@ -28,9 +28,6 @@ export async function getSystemAccessToken(): Promise<string> {
   const token = await new SignJWT({ userId: SUBJECT, roleId: 0, type: 'access' })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer('ihui-ai')
-    // 必须与 ai-service JWT 中间件的 audience 校验一致(硬编码 'ihui-ai-users'),
-    // 否则 ai-service 返回 401(Invalid or expired token)。
-    .setAudience('ihui-ai-users')
     .setSubject(SUBJECT)
     .setIssuedAt()
     .setExpirationTime('10m')

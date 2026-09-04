@@ -524,13 +524,8 @@ async def _resolve_auto_model(
             else:
                 cheap_pool.append({"id": mid, "tier": tier})
 
-        # 默认优先使用运维预设的可靠模型(settings.litellm_model),避免 auto 路由误选
-        # 不可达 / 未配置 key 的社区免费 provider(opencode_zen/llm7/pollinations/aihorde/@cf 等,
-        # 本部署均不在 LLM_PROVIDERS 配置,选中即 MODEL_NOT_CONFIGURED)。免费模型仍可在 UI 手动选择。
-        # 优先级:运维预设默认 > free > cheap tier 1 > cheap tier 3 > premium
+        # 优先级:free > cheap tier 1 > cheap tier 3 > premium
         candidates: list[str] = []
-        if settings.litellm_model:
-            candidates.append(settings.litellm_model)
         candidates.extend(free_pool)
         candidates.extend(x["id"] for x in sorted(cheap_pool, key=lambda x: x["tier"])[:5])
         # 高级模型保留 1 个作为最后兜底(用于前面 cheap/free 全部失败的极端场景)
