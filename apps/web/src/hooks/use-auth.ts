@@ -8,7 +8,7 @@ import * as React from 'react'
 
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { startAutoRefresh, stopAutoRefresh } from '@/lib/tokenUtils'
-import { fetchApi } from '@/lib/api'
+import { refreshAccessTokenOnce } from '@ihui/api-client'
 import { loadLocalLoginPrefs, saveLocalLoginPrefs } from '@/lib/login-preferences'
 import { loadAutoLogin } from '@ihui/ui-react'
 
@@ -60,16 +60,12 @@ export function useAuth(): UseAuthReturn {
   }, [storeLogout])
 
   const refreshToken = React.useCallback(async (): Promise<boolean> => {
-    if (!token) return false
-    const res = await fetchApi<{ token: string; refreshToken?: string }>('/api/auth/refresh', {
-      method: 'POST',
-    })
-    if (res.success) {
-      setToken(res.data.token, res.data.refreshToken ?? null)
-      return true
-    }
-    return false
-  }, [token, setToken])
+    // 2026-09-04 根治刷新风暴:复用全局单例,避免与 401 拦截器 / bootstrap 并发各发一次
+    // /auth/refresh(单次轮转 → family 吊销 → 登录态丢失)。原实现裸调 fetchApi('/api/auth/refresh')
+    // 完全绕过 api-client 的 refreshInFlight 去重,是刷新风暴的旁路源之一。
+    const newToken = await refreshAccessTokenOnce()
+    return !!newToken
+  }, [])
 
   return { user, token, isAuthenticated, login, logout, refreshToken }
 }
