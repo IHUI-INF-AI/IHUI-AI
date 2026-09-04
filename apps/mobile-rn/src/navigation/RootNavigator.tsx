@@ -174,6 +174,11 @@ import AiAssistantN8nScreen from '../screens/AiAssistantN8nScreen'
 import { MoreCourseScreen } from '../screens/MoreCourseScreen'
 // H20 补齐:类型已声明但未注册的路由对应 Screen(此前 navigate 即崩)
 import { CourseDetailScreen } from '../screens/CourseDetailScreen'
+import { TeacherListScreen } from '../screens/TeacherListScreen'
+import { TeacherDetailScreen } from '../screens/TeacherDetailScreen'
+// P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环)
+import { CartScreen } from '../screens/CartScreen'
+import { PayResultScreen } from '../screens/PayResultScreen'
 import { VideoPlayerScreen } from '../screens/VideoPlayerScreen'
 import { LiveDetailScreen } from '../screens/LiveDetailScreen'
 import { OrderScreen } from '../screens/OrderScreen'
@@ -417,6 +422,13 @@ export type RootStackParamList = {
   WebPortal: undefined
   KnowledgeRag: undefined
   Subagents: undefined
+  // P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路)
+  TeacherList: undefined
+  TeacherDetail: { id: string }
+  // P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环)
+  // PayResult 参数对齐小程序 ?orderNo=(getPaymentOrderDetail 轮询查询)
+  Cart: undefined
+  PayResult: { orderNo: string }
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -691,6 +703,12 @@ function RootNavigatorInner() {
             <RootStack.Screen name="MessageCenter" component={MessageCenterScreen} />
             <RootStack.Screen name="ProfileEdit" component={ProfileEditScreen} />
             <RootStack.Screen name="Agent" component={AgentScreen} />
+            {/* P0(2026-09-04):讲师列表/详情(镜像 miniapp pages/teacher/*,课程交易链路) */}
+            <RootStack.Screen name="TeacherList" component={TeacherListScreen} />
+            <RootStack.Screen name="TeacherDetail" component={TeacherDetailScreen} />
+            {/* P0(2026-09-04):购物车/支付结果(镜像 miniapp pages/cart、pages/pay/result,交易闭环) */}
+            <RootStack.Screen name="Cart" component={CartScreen} />
+            <RootStack.Screen name="PayResult" component={PayResultScreen} />
           </>
         ) : (
           <>
