@@ -78,6 +78,10 @@ const ALLOWED_FILES = new Set([
   'check-chat-keys.js',
   // 2026-09-04 显式审批:本地一键启动脚本(origin/main afc3255ebd 已入库跟踪)
   'start-all.bat',
+  // 2026-09-04 显式审批:tag 分批同步运维工具(根治 push --tags 假死)
+  'sync-tags.mjs',
+  // 2026-09-04 显式审批:悬空 commit 备份运维工具(幂等)
+  'backup-unreachable-commits.mjs',
   // 测试临时产物(Pytest quick fail 日志,后台进程持有)
   'tmp-qfr-err.log',
   'tmp-qfr-out.log',
