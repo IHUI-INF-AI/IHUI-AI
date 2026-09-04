@@ -63,10 +63,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            return JSONResponse(
-                status_code=401,
-                content={"code": 401, "message": "Authentication required"},
-            )
+            # 前端 Next.js 代理到本服务时,内存 token 为空可能仅携带 cookie。
+            # 优先读 Authorization: Bearer,兜底读 HttpOnly cookie 的 auth_token。
+            cookie_token = request.cookies.get("auth_token")
+            if cookie_token:
+                auth_header = f"Bearer {cookie_token}"
+            else:
+                return JSONResponse(
+                    status_code=401,
+                    content={"code": 401, "message": "Authentication required"},
+                )
 
         token = auth_header[7:].strip()
         payload = self._verify_token(token)
@@ -118,6 +124,18 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
 async def get_current_user_id(request: Request) -> str:
     """FastAPI 依赖项：获取当前用户 ID。"""
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return cast(str, user_id)
+
+
+def get_current_user_id_sync(request: Request) -> str:
+    """同步版：供非依赖项上下文(内部 helper)直接取 user_id。
+
+    与 get_current_user_id 读同一来源(request.state.user_id)，但非 async，
+    可在同步函数内安全调用，避免误用协程返回值。
+    """
     user_id = getattr(request.state, "user_id", None)
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")

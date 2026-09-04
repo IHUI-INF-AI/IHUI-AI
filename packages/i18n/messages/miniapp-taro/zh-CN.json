@@ -6,14 +6,7 @@
     "title": "搜索",
     "placeholder": "搜索课程、讲师、内容",
     "empty": "未找到相关内容",
-    "failed": "搜索失败",
-    "type": {
-      "course": "课程",
-      "article": "文章",
-      "post": "动态",
-      "note": "笔记",
-      "agent": "智能体"
-    }
+    "failed": "搜索失败"
   },
   "taskCenter": {
     "title": "任务中心",
@@ -25,10 +18,7 @@
     "goToDo": "去完成",
     "progress": "{current}/{target}",
     "claimFailed": "领取失败",
-    "loadFailed": "加载任务失败",
-    "tab_daily": "每日",
-    "tab_weekly": "每周",
-    "tab_newbie": "新手"
+    "loadFailed": "加载任务失败"
   },
   "nav": {
     "profile": "我的",
@@ -151,7 +141,14 @@
       "title": "精品课程"
     },
     "ratingTitle": "评价课程",
-    "ratingLabels": ["", "很差", "较差", "一般", "不错", "很好"],
+    "ratingLabels": [
+      "",
+      "很差",
+      "较差",
+      "一般",
+      "不错",
+      "很好"
+    ],
     "ratingPlaceholder": "请评分",
     "ratingDescLabel": "写下你的评价",
     "ratingInputPlaceholder": "课程怎么样?分享你的感受...",
@@ -489,7 +486,12 @@
   "ai": {
     "title": "AI 助手",
     "inputPlaceholder": "输入你的问题…",
-    "suggestions": ["帮我写一首诗", "解释量子力学", "写一段代码", "翻译这段话"],
+    "suggestions": [
+      "帮我写一首诗",
+      "解释量子力学",
+      "写一段代码",
+      "翻译这段话"
+    ],
     "thinking": "思考中…",
     "stop": "停止",
     "clear": "清空",
@@ -660,8 +662,20 @@
       "title": "AI 绘图",
       "tryThese": "试试这些提示词",
       "vertical": "竖版",
-      "examples": ["一只可爱的猫咪", "日落山景", "未来城市", "抽象艺术"],
-      "styles": ["写实", "动漫", "油画", "水彩", "3D", "像素"]
+      "examples": [
+        "一只可爱的猫咪",
+        "日落山景",
+        "未来城市",
+        "抽象艺术"
+      ],
+      "styles": [
+        "写实",
+        "动漫",
+        "油画",
+        "水彩",
+        "3D",
+        "像素"
+      ]
     },
     "inputArea": {
       "holdToSpeak": "按住说话",
@@ -1086,7 +1100,10 @@
       "totalScoreValue": "{n} 分"
     },
     "answer": {
-      "judgmentOptions": ["正确", "错误"],
+      "judgmentOptions": [
+        "正确",
+        "错误"
+      ],
       "loadFailed": "试卷加载失败",
       "answerPlaceholder": "输入你的答案",
       "prev": "上一题",
@@ -1692,7 +1709,13 @@
       "title": "使用规则"
     },
     "appPermission": {
-      "names": ["相册权限", "相机权限", "麦克风权限", "位置权限", "通知权限"],
+      "names": [
+        "相册权限",
+        "相机权限",
+        "麦克风权限",
+        "位置权限",
+        "通知权限"
+      ],
       "descs": [
         "用于保存和上传图片到相册",
         "用于拍摄照片和录制视频",
@@ -2053,9 +2076,26 @@
   },
   "plaza": {
     "setNeed": {
-      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
-      "levels": ["初级", "中级", "高级", "专家"],
-      "budgets": ["1000 元以下", "1000-5000 元", "5000-10000 元", "10000 元以上"],
+      "categories": [
+        "学习心得",
+        "技术分享",
+        "课程笔记",
+        "项目实战",
+        "问题求助",
+        "经验总结"
+      ],
+      "levels": [
+        "初级",
+        "中级",
+        "高级",
+        "专家"
+      ],
+      "budgets": [
+        "1000 元以下",
+        "1000-5000 元",
+        "5000-10000 元",
+        "10000 元以上"
+      ],
       "selectAtLeast": "请至少选择一项",
       "saved": "保存成功",
       "directionTitle": "学习方向",
@@ -2438,8 +2478,19 @@
       "tabsComment": "评论"
     },
     "publish": {
-      "categories": ["学习心得", "技术分享", "课程笔记", "项目实战", "问题求助", "经验总结"],
-      "visibilityOptions": ["公开", "仅好友", "私密"],
+      "categories": [
+        "学习心得",
+        "技术分享",
+        "课程笔记",
+        "项目实战",
+        "问题求助",
+        "经验总结"
+      ],
+      "visibilityOptions": [
+        "公开",
+        "仅好友",
+        "私密"
+      ],
       "enterTitle": "请输入标题",
       "enterContent": "请输入内容",
       "published": "发布成功",
@@ -2784,7 +2835,14 @@
       "bannerTitle": "升级VIP会员",
       "bannerDesc": "解锁更多专属特权",
       "rightsTitle": "会员权益",
-      "rights": ["专属客服", "优先体验", "高级功能", "去广告", "专属标识", "折扣优惠"],
+      "rights": [
+        "专属客服",
+        "优先体验",
+        "高级功能",
+        "去广告",
+        "专属标识",
+        "折扣优惠"
+      ],
       "loadFailed": "加载失败",
       "operationFailed": "操作失败",
       "originalPrice": "原价¥{n}",
