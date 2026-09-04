@@ -7659,7 +7659,6 @@
   },
   "auth": {
     "account": "계정",
-    "accountHistory": "계정 기록",
     "accountPlaceholder": "전화번호 / 이메일 / 계정명",
     "agreePrefix": "내완료채점읽음동시함께의",
     "agreeRequired": "이용약관을 읽고 동의해 주세요",
@@ -8898,7 +8897,6 @@
     "cancelTime": "취소시간",
     "close": "닫기",
     "closeAll": "모두 닫기",
-    "colToken": "토큰",
     "comingSoon": "곧 공개 예정",
     "confirm": "확인",
     "confirmTitle": "확인",
@@ -19782,7 +19780,6 @@
     "loadFailed": "불러오기 실패",
     "emptyType": "이 유형에는 모델이 없습니다",
     "input": "입력",
-    "priceUnit": "¥{price}",
     "output": "출력",
     "perCall": "(건당 과금)"
   },
