@@ -795,7 +795,14 @@ export default function Community() {
                 <Text className="community-agent-list-title">
                   {tt('community.text15', '智能体推荐')}
                 </Text>
-                <Text className="community-agent-list-posts">{tt('community.posts', '帖子')}</Text>
+                <Text
+                  className="community-agent-list-posts"
+                  onClick={() =>
+                    Taro.navigateTo({ url: '/pages/community/create/index' })
+                  }
+                >
+                  {tt('community.posts', '帖子')}
+                </Text>
                 <Text
                   className="community-agent-list-more"
                   onClick={() =>
