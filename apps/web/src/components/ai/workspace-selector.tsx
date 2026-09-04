@@ -18,9 +18,31 @@ import {
 
 import { cn } from '@/lib/utils'
 import { useAiPanelStore } from '@/stores/ai-panel'
-import { clearBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
+import { toast } from '@/components/common'
+import { isTauri } from '@/lib/tauri-bridge'
+import {
+  clearBrowserWorkspaceHandle,
+  getBrowserWorkspaceHandle,
+} from '@/lib/workspace-context-loader'
 import { invalidateBrowserWorkspaceContext } from '@/hooks/use-chat/workspace'
 import { LocalFolderPicker } from '@/components/workspace/local-folder-picker'
+
+/**
+ * 浏览器端 handle 丢失警告(2026-09-04 立,每次页面加载最多提示一次)。
+ * FileSystemDirectoryHandle 是会话级存储:刷新页面后 handle 丢失但 activeWorkspace
+ * 仍从 localStorage 恢复 → AI 读不到工作区文件内容(此前静默失败,用户无感知)。
+ */
+let handleLossWarned = false
+function warnHandleLossOnce(name: string): void {
+  if (isTauri() || handleLossWarned) return
+  // handle 仍存在(同一会话内重新授权过)则不提示
+  if (getBrowserWorkspaceHandle(name)) return
+  handleLossWarned = true
+  toast.warning('工作区目录授权已失效', {
+    description: `「${name}」的浏览器目录授权在刷新后丢失,AI 暂无法读取其文件内容。请点「添加工作区」用系统选择器重新选择一次该目录。`,
+    duration: 8000,
+  })
+}
 
 /** AI 面板顶部"工作区选择器"(参考 Trae/Codex/Claude Code 顶部 project selector 设计)
  *
@@ -106,6 +128,9 @@ export function WorkspaceSelector() {
 
   const handleSelect = (ws: RecentWorkspace) => {
     setActiveWorkspace({ path: ws.path, name: ws.name })
+    // 最近列表切换拿不到 FileSystemDirectoryHandle(需用户手势重新授权):
+    // 非 Tauri 且无 handle 时提示,否则 AI 读不到文件内容(2026-09-04)
+    warnHandleLossOnce(ws.name)
     setMenuOpen(false)
   }
 
