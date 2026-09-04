@@ -183,6 +183,13 @@ export async function logout(refreshToken: string): Promise<ApiResult<{ revoked:
  *    (apps/api/src/routes/auth.ts:1138),空对象会被 Fastify 400 拦截;
  *    空字符串能通过路由 schema(string 无 minLength),再由 handler 的 zod(min(1)) 判空
  *    走到 cookie 兜底分支。
+ *
+ * @deprecated 2026-09-04 起,客户端续期请改用 `refreshAccessTokenOnce`(@ihui/api-client
+ *   全局单例)。本函数是裸 endpoint 调用,绕过单例去重,并发 401 时各发一次 /auth/refresh
+ *   会触发后端 refresh token 单次轮转 + RFC 6749 §10.4 family 吊销 → 登录态静默丢失
+ *   (刷新风暴)。仅保留给无单例机制的独立端(如 extension 的 chrome.alarms 定时器续期,
+ *   其 doRefresh 内部已有独立 inFlight 去重)。其余调用点见
+ *   scripts/check-auth-refresh-singleton.mjs 静态守门拦截。
  */
 export async function refreshAccessToken(refreshToken?: string): Promise<ApiResult<LoginResult>> {
   return fetchApi<LoginResult>('/api/auth/refresh', {

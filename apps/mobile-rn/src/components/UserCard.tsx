@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
     borderRadius: 12,
     backgroundColor: tokens.surface.light,
-    shadowColor: '#000',
+    shadowColor: tokens.gray.black,
     shadowOffset: { width: 2, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 4,

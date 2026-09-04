@@ -126,7 +126,7 @@ async function fetchText(url: string): Promise<{ ok: boolean; status: number; ty
  * 4) rss-parser 能解析出 ≥1 条 item
  */
 async function isValidRssFeed(url: string, minBytes: number): Promise<boolean> {
-  const { ok, status, type, body } = await fetchText(url)
+  const { ok, type, body } = await fetchText(url)
   if (!ok) return false
   if (!/xml|rss|atom/i.test(type)) return false
   if (body.length < minBytes) return false
