@@ -6,7 +6,15 @@ name: Blue-Green Deploy
 
 # 蓝绿部署工作流 — 零停机部署策略
 # 手动触发，可选 staging / production 环境
+# 另支持 push 自动触发:deploy/nginx/** 变更即自动部署生产(GitOps,2026-09-05 收官;
+# 动机:存储凭据无 API 权限无法 workflow_dispatch,且 nginx 路由修复需可靠上线通道)
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/nginx/**'
+      - '.github/workflows/blue-green-deploy.yml'
   workflow_dispatch:
     inputs:
       environment:
