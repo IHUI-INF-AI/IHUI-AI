@@ -105,6 +105,22 @@ try {
   } else {
     exitCode = r.status ?? 1
   }
+
+  // 2026-09-05: Turbopack + 自定义 distDir(.next-static)时,Next 16 把静态导出写入
+  // distDir 而非约定的 out/(webpack 时代行为)。下游契约(CI verify "apps/web/out"、
+  // 桌面 ensure-web-out.mjs outDir、GitHub Pages)都消费 out/,此处统一同步,
+  // 否则 CI 静默用不到产物(desktop-v0.1.16 发布 verify 步骤失败实证)。
+  // 2026-09-05 深夜复补:M3 收官提交误删此块致 release-desktop CI 全平台失败,现恢复。
+  const staticDist = path.join(webRoot, '.next-static')
+  const outDir = path.join(webRoot, 'out')
+  if (exitCode === 0 && existsSync(path.join(staticDist, 'index.html'))) {
+    rmSync(outDir, { recursive: true, force: true })
+    cpSync(staticDist, outDir, { recursive: true })
+    console.log('[build-static] 已同步 .next-static → out/(下游契约路径)')
+  } else if (exitCode === 0) {
+    console.error('[build-static] 错误: 构建成功但 .next-static/index.html 缺失(导出目录异常),拒绝放行以防陈旧 out/ 被打包')
+    exitCode = 1
+  }
 } finally {
   restoreRuntimeRoutes()
 }
