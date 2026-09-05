@@ -13,7 +13,7 @@
  * RN 与浏览器均原生支持 FormData + multipart 自动 boundary。
  */
 import type { ApiResult, ApiResponse } from '@ihui/types'
-import { getToken, normalizeUrlPublic } from '../client'
+import { fetchApi, getToken, normalizeUrlPublic } from '../client'
 
 /** 后端 /api/files/upload/form 返回的文件信息 */
 export interface UploadedFile {
@@ -200,5 +200,49 @@ export function resolveFileUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path
   const normalized = path.startsWith('/') ? path : `/${path}`
   return normalizeUrlPublic(normalized)
+}
+
+// =============================================================================
+// base64 上传 + 文档转 Markdown(2026-09-05 新增,M3 web→mobile 对齐:PDF 工具)
+// =============================================================================
+
+/** base64 上传响应中的文件信息 */
+export interface UploadedBase64File {
+  id: string
+  name: string
+  size: number
+  mimeType: string
+  path: string
+  uploadedBy: string
+}
+
+/**
+ * POST /api/files/upload/base64 — base64 上传文件。
+ * 服务端白名单:pdf/doc/docx/xls/xlsx/ppt/pptx/txt/csv/jpg/png/gif/webp + magic number
+ * 校验,上限 10MB(CWE-434 防护)。webp 自动转 png。
+ */
+export async function uploadFileBase64(body: {
+  base64: string
+  filename: string
+  mime: string
+}): Promise<ApiResult<{ file: UploadedBase64File }>> {
+  return fetchApi('/api/files/upload/base64', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    timeoutMs: 120_000,
+  })
+}
+
+/**
+ * POST /api/files/:id/convert-markdown — 文件转 Markdown 文本。
+ * 支持 pdf/docx/xlsx/pptx/txt/md(服务端转换);不支持的类型返回 422。
+ */
+export async function convertFileToMarkdown(
+  fileId: string,
+): Promise<ApiResult<{ markdown: string; fileName: string }>> {
+  return fetchApi(`/api/files/${encodeURIComponent(fileId)}/convert-markdown`, {
+    method: 'POST',
+    timeoutMs: 120_000,
+  })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
