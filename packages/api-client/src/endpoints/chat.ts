@@ -20,6 +20,8 @@ export interface ConversationDetail {
   pinned?: boolean
   /** 置顶时间(排序用);未置顶为 null/undefined */
   pinnedAt?: string | null
+  /** 2026-09-05 立:会话收藏标记(POST/DELETE /api/chat/conversations/:id/favorite) */
+  favorite?: boolean
 }
 
 /** AI 主动提问选项(与 @ihui/types QuestionOptionPayload 结构一致) */
@@ -240,6 +242,22 @@ export function deleteConversation(id: string) {
 
 /** 批量操作对话 action 类型(2026-07-31 立,对话历史批量删除/收藏/归档) */
 export type BatchConversationAction = 'delete' | 'favorite' | 'unfavorite' | 'archive' | 'unarchive'
+
+/** 收藏会话(幂等;已收藏 200,新建 201)— POST /api/chat/conversations/:id/favorite */
+export function favoriteConversation(id: string) {
+  return fetchApi<{ favorited: boolean; created: boolean }>(
+    `/api/chat/conversations/${encodeURIComponent(id)}/favorite`,
+    { method: 'POST' },
+  )
+}
+
+/** 取消收藏会话(幂等)— DELETE /api/chat/conversations/:id/favorite */
+export function unfavoriteConversation(id: string) {
+  return fetchApi<{ favorited: boolean }>(
+    `/api/chat/conversations/${encodeURIComponent(id)}/favorite`,
+    { method: 'DELETE' },
+  )
+}
 
 export interface BatchOperateResult {
   action: BatchConversationAction

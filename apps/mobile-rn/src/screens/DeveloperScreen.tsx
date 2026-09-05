@@ -15,7 +15,7 @@
  * - 开发者信息(账号/API密钥/网址/到期时间 + 续费):后端无 getDevInfo 接口,由
  *   getDeveloperSubscription + getDeveloperApiKeys + 登录用户信息拼装;
  *   网址字段暂无数据源(users 表无 website),显示 '—'
- * - 非开发者问题区(开发者须知/联系团长):占位卡片
+ * - 非开发者问题区(开发者须知/联系团长):问题解答卡(handleOpenWeb)+ 咨询客服按钮(handleContactLeader,展示团长二维码/引导联系客服)
  *
  * 注:历史版本把本路由误实现为「开发者套餐开通订阅页」(FEATURES+plans+微信支付)——
  * 该开通支付语义已由 DevEnterCoverScreen(原 dev_enter/cover.vue)承接,本路由恢复为开发者空间页。
