@@ -99,6 +99,10 @@ from app.routers.langgraph import router as langgraph_router
 from app.routers.legacy import router as legacy_router
 from app.routers.step_recorder import router as step_recorder_router
 
+# 企业级补齐(2026-09-06 立):操作审计日志查询 + SSO/OIDC 集成路由
+from app.routers.audit import router as audit_log_router
+from app.routers.sso import router as sso_router
+
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
 
@@ -720,6 +724,10 @@ def create_app() -> FastAPI:
     app.include_router(step_recorder_router, prefix="/api", tags=["agent-recorder"])
     app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
     app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
+
+    # 企业级补齐(2026-09-06 立):审计日志查询(RBAC audit:read)+ SSO/OIDC
+    app.include_router(audit_log_router, prefix="/api", tags=["audit-log"])
+    app.include_router(sso_router, prefix="/api", tags=["sso"])
 
     # 本品类杀手锏只读/管理 API 统一挂载(成本看板/长期记忆/PromptGuard 审计/MCP 导出配置)
     from app.routers import killer_extras

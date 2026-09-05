@@ -672,6 +672,14 @@ function convertSchema(schema: unknown): Record<string, ToolParameter> {
   return result;
 }
 
+/**
+ * MCP tools/list → 内部 Tool 转换(生态标准化链路):
+ *   mcp.json(loadMcpConfig)→ connectMcpServer(initialize + tools/list)
+ *   → mcpToolToTool(inputSchema → Tool.parameters,execute 走 tools/call)
+ *   → registerTool 进 registry → runToolLoop 的 listTools()/toolsToProviderSchema() 下发。
+ * TODO(生态扩展后续):接入 @modelcontextprotocol/sdk 替换手写 JSON-RPC(当前零依赖自实现),
+ * 并支持 prompts/resources 等 MCP 其余原语。
+ */
 function mcpToolToTool(conn: McpConnection, mcpTool: McpToolDef): Tool {
   const params = convertSchema(mcpTool.inputSchema);
   const required = mcpTool.inputSchema.required ?? [];
