@@ -43,7 +43,8 @@ import Drawer, {
   type DrawerTab,
 } from '../components/Drawer'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
-// GlobalFloatBox 已在 App.tsx 全局挂载(2026-09-05 去重复渲染)
+// 对齐 Uniapp tools/index.vue float-box:悬浮导航(赚米/客服/反馈),原页面 5 个核心 Tab 页均有,补齐 AgentScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 // 底部导航(对齐原 customTabBar 5 主 Tab,AgentScreen 对应「AI」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import InputArea from '../components/InputArea'
@@ -765,7 +766,12 @@ export function AgentScreen() {
         message={toast.message}
         onHide={handleToastHide}
       />
-      {/* GlobalFloatBox 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复同屏双浮窗) */}
+      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp tools/index.vue float-box:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => rootNav?.navigate('Promote')}
+        onConsult={() => rootNav?.navigate('CustomerService')}
+        onFeedback={() => rootNav?.navigate('Settings')}
+      />
       <Drawer
         visible={drawerVisible}
         onClose={closeDrawer}

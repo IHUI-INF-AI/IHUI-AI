@@ -7,7 +7,6 @@ import { ScrollView, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   RankingScreen as SharedRankingScreen,
   type RankingItem,
@@ -121,7 +120,7 @@ export function RankingScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
+  root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
   rankingWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24), paddingBottom: rpx(8) } as const,

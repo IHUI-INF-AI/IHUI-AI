@@ -4167,16 +4167,7 @@ export interface TeamMember {
   contribution: number
   status: TeamMemberStatus
   relation: TeamRelation
-  /** 成交额(分;对齐 Uniapp person-card transactionVolume,展示层分→元) */
-  transactionVolume?: number
-  /** 获取佣金(分;对齐 Uniapp person-card commission) */
-  commission?: number
-  /** 成交订单数(对齐 Uniapp person-card orderNum) */
-  orderNum?: number
 }
-
-/** 成员列表排序方式(对齐 Uniapp distribution_personnel_list 排序 tab:成交订单数/邀请时间) */
-export type TeamSortTab = 'orderNum' | 'inviteTime'
 
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
@@ -4196,20 +4187,6 @@ export interface TeamScreenProps {
   keyword?: string
   /** 搜索关键词变更回调(由 wrapper 注入 state) */
   onKeywordChange?: (keyword: string) => void
-  /** 排序方式(对齐 Uniapp 排序 tab;不传则隐藏排序行) */
-  sortTab?: TeamSortTab
-  /** 排序方式切换回调 */
-  onSelectSortTab?: (tab: TeamSortTab) => void
-  /** 邀请时间筛选日期(YYYY-MM-DD;对齐 Uniapp picker mode=date;空则显示占位文案) */
-  selectedDate?: string
-  /** 邀请时间日期变更回调 */
-  onSelectDate?: (date: string) => void
-  /** 触底加载更多(对齐 Uniapp scrolltolower;不传则不启用触底加载) */
-  onLoadMore?: () => void
-  /** 加载更多进行中(底部指示器) */
-  loadingMore?: boolean
-  /** 是否还有更多(对齐 Uniapp originalTeamList.length < teamTotal 守卫) */
-  hasMore?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
