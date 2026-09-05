@@ -38,6 +38,9 @@ import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
+import { DistributionPersonnelListScreen } from '../screens/DistributionPersonnelListScreen'
+import { DistributionPersonnelDetailScreen } from '../screens/DistributionPersonnelDetailScreen'
+import { UserOrderListScreen } from '../screens/UserOrderListScreen'
 import { HelpScreen } from '../screens/HelpScreen'
 import { FeedbackScreen } from '../screens/FeedbackScreen'
 import { CustomerServiceScreen } from '../screens/CustomerServiceScreen'
@@ -131,7 +134,7 @@ import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useTheme } from '../context/ThemeContext'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
-import AigcCoverScreen from '../screens/AigcCoverScreen'
+import AigcCoverScreen, { type AigcCoverParams } from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
 import NewsScreen from '../screens/NewsScreen'
@@ -266,6 +269,9 @@ export type RootStackParamList = {
   Ranking: undefined
   Promote: undefined
   Distribution: undefined
+  DistributionPersonnelList: undefined
+  DistributionPersonnelDetail: { id: string }
+  UserOrderList: undefined
   Team: undefined
   // Finance(2026-09-04 收敛):仅 /wallet/balance 余额概览,与 Wallet 重叠,路由删除,入口并入 Wallet
   Withdraw: undefined
@@ -363,7 +369,7 @@ export type RootStackParamList = {
   Share: undefined
   SharedDemo: undefined
   Recharge: undefined
-  AigcCover: { id: string; title: string }
+  AigcCover: AigcCoverParams
   AigcPublish: undefined
   // H10-H18 新增路由(复刻 Uniapp 缺失页面)
   Learn: undefined
@@ -526,6 +532,9 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Ranking" component={RankingScreen} />
             <RootStack.Screen name="Promote" component={PromoteScreen} />
             <RootStack.Screen name="Distribution" component={DistributionScreen} />
+            <RootStack.Screen name="DistributionPersonnelList" component={DistributionPersonnelListScreen} />
+            <RootStack.Screen name="DistributionPersonnelDetail" component={DistributionPersonnelDetailScreen} />
+            <RootStack.Screen name="UserOrderList" component={UserOrderListScreen} />
             <RootStack.Screen name="Team" component={TeamScreen} />
             <RootStack.Screen name="Withdraw" component={WithdrawScreen} />
             <RootStack.Screen name="BankCard" component={BankCardScreen} />
