@@ -397,8 +397,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     <>
       {/* 桌面端固定侧边栏(2026-08-02 改:小尺寸也挂载,纯 CSS 控制显示 60px 图标条)
           - 始终 flex 挂载(不再 hidden min-[1024px]:flex)
-          - 小尺寸(<1024px)由 CSS 媒体查询强制 60px 宽 + 隐藏文字 span,只显示图标
-            (纯 CSS 无 hydration mismatch,无 JS effect 时序闪烁)
+          - 768px-1023px 由 CSS 媒体查询强制 60px 宽 + 隐藏文字 span,只显示图标
+          - 2026-09-05 移动端根治:手机(<768px)由 globals.css display:none 完全隐藏桌面 aside
+            (60px 图标条在手机上导致 logo 文字重叠 + 挤占内容区);
+            移动端抽屉(本组件兄弟节点)不受影响,仍由 GlobalTopBar 菜单按钮唤起
           - collapsed prop 控制用户手动折叠态(持久化 localStorage),与 CSS 互不干扰
           - data-viewport-collapsed 属性供 globals.css 选择器在小尺寸下隐藏文字 span
           - 移动端抽屉 + 汉堡菜单保留作为完整菜单备用入口 */}
