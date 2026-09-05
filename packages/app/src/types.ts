@@ -393,6 +393,7 @@ export type {
   ReferrerScreenProps,
   TeamMemberStatus,
   TeamRelation,
+  TeamSortTab,
   TeamTab,
   TeamStats,
   TeamMember,
