@@ -28,7 +28,6 @@ import {
 import { rnLightTokens as tk } from '@ihui/design-tokens'
 import type { AppIcon } from '@ihui/types'
 import { Tag } from 'lucide-react-native'
-import { rpx } from '../utils/rpx'
 
 export interface CardWithListItem {
   id: string
@@ -47,14 +46,14 @@ export interface CardWithListProps {
   moreText?: string
 }
 
-const CARD_PADDING = 12 // 对齐 CardWithList.vue .card-container padding: 24rpx
-const CARD_RADIUS = rpx(15) // 对齐 CardWithList.vue .card-container border-radius: 15rpx
-const HEADER_GAP = rpx(24) // 对齐 CardWithList.vue .card-header margin-bottom: 24rpx
+const CARD_PADDING = 12
+const CARD_RADIUS = 12
+const HEADER_GAP = 8
 const ITEM_WIDTH = '22%'
-const ITEM_PADDING = 10 // 对齐 CardWithList.vue .card-item padding: 20rpx
-const ITEM_RADIUS = rpx(15) // 对齐 CardWithList.vue .card-item/.item-icon border-radius: 15rpx
-const ITEM_GAP = 8 // 对齐 CardWithList.vue .card-items gap: 20rpx(≈2px 内,记录不修)
-const ICON_SIZE = rpx(80) // 对齐 CardWithList.vue .item-icon width/height: 80rpx
+const ITEM_PADDING = 10
+const ITEM_RADIUS = 4
+const ITEM_GAP = 8
+const ICON_SIZE = 50
 const ICON_FONT_SIZE = 24
 const ITEM_TITLE_FONT_SIZE = 12
 const ITEM_SUBTITLE_FONT_SIZE = 10
