@@ -51,8 +51,8 @@ const ITEM_MARGIN = 2 // 5rpx
 const CONTENT_PADDING = 7 // 14rpx
 const RIGHT = 10 // 20rpx
 const COLLAPSE_DISTANCE = FLOAT_BOX_WIDTH + RIGHT // 收起平移距离 = 盒宽 + right 偏移,确保完全滑出屏幕右缘
-/** 箭头灰色(对齐原 zhankaiH.png 中性灰,token 化取 tertiary) */
-const ARROW_GRAY = tokens.text.tertiary
+/** 箭头灰色(取自原 zhankaiH.png 的 #8A8A8A,保持原视觉) */
+const ARROW_GRAY = '#8A8A8A'
 
 export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloatBoxProps) {
   // isOpen = true 展开(浮窗在屏幕内);false 收起(浮窗滑出,只露竖条)

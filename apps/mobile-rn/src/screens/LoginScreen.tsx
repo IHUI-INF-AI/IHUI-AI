@@ -207,7 +207,7 @@ function buildThirdPartyOptions(
       label: '支付宝',
       iconNode: THIRD_PARTY_ICON_NODES.alipay,
       enabled: true,
-      brandColor: tokens.indigo.DEFAULT,
+      brandColor: '#1677FF',
     },
   ]
   // Apple 登录仅 iOS 提供(expo-apple-authentication 原生能力):
