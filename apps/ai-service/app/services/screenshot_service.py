@@ -23,6 +23,7 @@ import logging
 import socket
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from urllib.parse import urlparse
 
@@ -120,6 +121,12 @@ def _validate_url_ssrf(url: str) -> tuple[bool, str]:
 _browser: Any = None
 _browser_lock = threading.Lock()
 _playwright: Any = None
+
+# 2026-09-05 根治 greenlet 跨线程:sync Playwright 对象有 greenlet 线程亲和性,
+# run_in_executor(None) 默认多线程池会在不同线程触碰同一 browser 单例
+# → "Cannot switch to a different thread"(OpenCompass 实测复现)。
+# 与 browser_render 同解:专属单线程 executor,所有 sync Playwright 调用钉在同一线程。
+sync_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ss-playwright")
 
 # === async 单例 Browser(向后兼容,供 opencompass_scrape 等旧代码使用)===
 _browser_async: Any = None
@@ -290,7 +297,7 @@ async def take_screenshot(
         }
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
-        None,
+        sync_executor,
         _take_screenshot_sync,
         url,
         width,
@@ -308,7 +315,7 @@ async def probe_can_embed(url: str) -> dict[str, Any]:
     if not ok:
         return {"url": url, "can_embed": False, "ssrf_blocked": True, "error": reason}
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _probe_can_embed_sync, url)
+    return await loop.run_in_executor(sync_executor, _probe_can_embed_sync, url)
 
 
 # === 向后兼容:async API(供 opencompass_scrape 等旧代码使用)===
