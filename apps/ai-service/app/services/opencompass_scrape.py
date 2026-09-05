@@ -23,7 +23,7 @@ import logging
 import time
 from typing import Any
 
-from .screenshot_service import _get_browser_sync
+from .screenshot_service import _get_browser_sync, sync_executor
 
 logger = logging.getLogger(__name__)
 
@@ -283,8 +283,10 @@ async def scrape_opencompass(timeout_ms: int = 30000) -> dict[str, Any]:
     失败抛异常,由调用方 try/except 返回错误响应。
     """
     loop = asyncio.get_event_loop()
+    # 2026-09-05:改用 screenshot_service 的专属单线程 executor——browser 单例有
+    # greenlet 线程亲和性,默认多线程池跨线程触碰会报 "Cannot switch to a different thread"
     return await loop.run_in_executor(
-        None,
+        sync_executor,
         _scrape_opencompass_sync,
         timeout_ms,
     )
