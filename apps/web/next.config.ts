@@ -22,10 +22,18 @@ const repoName = 'IHUI-AI'
 //     它们通过 EXPORT_STATIC=true / GITHUB_PAGES=true 显式触发,互不影响。
 const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
 
+// 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
+// (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
+// dev server 死锁(实测:config 加载后零编译、CPU 归零、.next/build 18 分钟不写入)。
+// 静态导出改用独立 distDir .next-static(输出目录 out/ 不变,tauri/GH Pages 无感知),
+// 与运行中服务彻底隔离。服务端构建(next build + next start)不受影响,仍用 .next。
+const staticDistDir = isStaticExport ? '.next-static' : '.next'
+
 const nextConfig: NextConfig = {
   // 静态导出供 Tauri WebView 加载(仅 EXPORT_STATIC/GITHUB_PAGES 时启用;
   // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
   ...(isStaticExport ? { output: 'export' as const } : {}),
+  ...(isStaticExport ? { distDir: staticDistDir } : {}),
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
