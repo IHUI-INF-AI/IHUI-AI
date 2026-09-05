@@ -43,7 +43,7 @@
       "endpoints": [
         "https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlDNzUyQTE0NzZFMzU0QjAKUldTd1ZPTjJGQ3AxbkU3S0xDOUpYNkVobDd3TFBuU0hlOEJWK2RJSmdUSm5ENk8vR25TVmZkNUkK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2NEZGNTc3MDY4NkM1QUMKUldTc3hZWUdkL1ZQWnZkci8wWHFab1kxZ0s3UnpqblpnMUxNTFRaU3FjaUlYR2JmYzlxWlE1RVMK"
     },
     "deep-link": {
       "desktop": {
