@@ -38,7 +38,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useI18n } from '../i18n'
-import { rpx } from '../utils/rpx'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -120,7 +119,7 @@ export interface DrawerProps {
 
 // ── 常量 ──
 
-const MAX_DRAWER_WIDTH = rpx(500) // 对齐 Uniapp DrawerComponentall .drawer_border width: 500rpx
+const MAX_DRAWER_WIDTH = 256
 const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
 const OVERLAY_OPACITY = 0.5
