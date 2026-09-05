@@ -849,6 +849,7 @@ function mapConversationToDrawer(c: ConversationDetail): DrawerConversationItem 
     title: c.title?.trim() || '未命名对话',
     modelConfig: model ? { id: model, name: model, icon: undefined } : undefined,
     createdAt,
+    favorited: c.favorite === true,
   }
 }
 

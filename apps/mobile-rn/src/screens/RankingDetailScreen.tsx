@@ -27,6 +27,11 @@ import Drawer, {
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useI18n } from '../i18n'
 import { Menu } from 'lucide-react-native'
+import Clipboard from '@react-native-clipboard/clipboard'
+
+/** 免费资料飞书链接(对齐 Uniapp lingqu → 复制链接;与 ProfileScreen 等屏同源) */
+const FREE_RESOURCE_URL =
+  'https://aizhihuishe.feishu.cn/wiki/GPs7wff9PiDekQkKvBncryrmnIh?from=from_copylink'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 type RootNav = NativeStackNavigationProp<RootStackParamList>
@@ -53,6 +58,7 @@ export default function RankingDetailScreenWrapper() {
         id: c.id,
         title: c.title || '未命名对话',
         createdAt: c.createdAt ? new Date(c.createdAt).getTime() : Date.now(),
+        favorited: c.favorite === true,
       }))
       setHistory(list)
     } catch {
@@ -74,7 +80,15 @@ export default function RankingDetailScreenWrapper() {
     closeDrawer()
     navigation.navigate('Settings')
   }
-  const onClaimFree = () => Alert.alert('领取免费资料', '功能即将上线,敬请期待')
+  const onClaimFree = () => {
+    closeDrawer()
+    try {
+      Clipboard.setString(FREE_RESOURCE_URL)
+      Alert.alert('领取免费资料', '链接已复制到剪贴板,请在浏览器打开领取')
+    } catch {
+      Alert.alert('领取免费资料', '复制失败,请重试')
+    }
+  }
   const onCreateNewChat = () => {
     closeDrawer()
     rootNav?.navigate('Main', { screen: 'AiMain' })
