@@ -18631,6 +18631,7 @@
   "aigcList": {
     "promptLabel": "Prompt",
     "playAudio": "Play audio",
+    "videoBadge": "Video",
     "title": "My creations",
     "subtitle": "Manage your AI-generated content",
     "empty": "No creations yet",

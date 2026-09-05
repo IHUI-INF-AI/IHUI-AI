@@ -61,7 +61,8 @@ import type { StudyBarItem } from '../components/StudyBar'
 import { VideoPlayer } from '../components/VideoPlayer'
 import Empty from '../components/common/Empty'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-// GlobalFloatBox 已在 App.tsx 全局挂载(2026-09-05 去重复渲染)
+// 对齐 Uniapp user/index.vue 行 8 <FloatBox />:悬浮导航(赚米/客服/反馈),补齐 ProfileScreen
+import { GlobalFloatBox } from '../components/GlobalFloatBox'
 // 底部导航(对齐原 customTabBar 5 主 Tab,ProfileScreen 对应「我的」Tab)
 import TabBar, { type TabBarKey } from '../components/TabBar'
 import { UserCard, type UserCardKey } from '../components/UserCard'
@@ -287,7 +288,7 @@ export function ProfileScreen() {
   const handleUserCardPress = (key: UserCardKey) => {
     switch (key) {
       case 'order':
-        rootNav?.navigate('UserOrderList')
+        rootNav?.navigate('Order')
         break
       case 'wallet':
         rootNav?.navigate('Wallet')
@@ -618,7 +619,12 @@ export function ProfileScreen() {
         message={floatMessage}
         onHide={() => setFloatVisible(false)}
       />
-      {/* GlobalFloatBox 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复同屏双浮窗) */}
+      {/* GlobalFloatBox 悬浮导航(对齐 Uniapp user/index.vue 行 8 <FloatBox />:赚米/客服/反馈) */}
+      <GlobalFloatBox
+        onPromote={() => rootNav?.navigate('Promote')}
+        onConsult={() => rootNav?.navigate('CustomerService')}
+        onFeedback={() => rootNav?.navigate('Settings')}
+      />
       {/* Drawer 侧滑抽屉(对齐 Uniapp user/index.vue DrawerComponentall) */}
       <Drawer
         visible={drawerVisible}
