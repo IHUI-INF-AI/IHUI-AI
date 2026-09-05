@@ -288,6 +288,10 @@
     "aiWorld": "AI 世界",
     "imageGen": "图像生成",
     "publish": "内容发布",
+    "spec": "规范模板库",
+    "selfMedia": "自媒体助手",
+    "context": "上下文引擎",
+    "pdfTools": "文档转 Markdown",
     "webPortal": "网页版",
     "webPortalCenter": "Web 功能门户",
     "knowledgeRag": "RAG 知识库",
@@ -2178,6 +2182,49 @@
     "cancelConfirm": "确定取消该任务吗?",
     "retryTask": "重试",
     "operateFailed": "操作失败,请重试"
+  },
+  "spec": {
+    "title": "规范模板库",
+    "loadFailed": "模板加载失败",
+    "empty": "暂无模板",
+    "desktopHint": "模板浏览仅作参考;Spec 生成需服务端 workspace 路径,请在 Web/桌面端使用完整生成流程"
+  },
+  "selfMedia": {
+    "title": "自媒体助手",
+    "tabSkills": "技能",
+    "tabRecords": "记录",
+    "loadFailed": "加载失败",
+    "promptRequired": "请输入生成要求",
+    "promptPlaceholder": "描述你的创作需求…",
+    "invoke": "调用技能生成",
+    "invoking": "生成中…",
+    "invokeFailed": "技能调用失败,请重试",
+    "duration": "耗时 {{ms}} ms",
+    "share": "分享",
+    "empty": "暂无生成/发布记录"
+  },
+  "context": {
+    "title": "上下文引擎",
+    "loadFailed": "统计加载失败",
+    "totalEvents": "压缩次数",
+    "avgRatio": "平均压缩率",
+    "avgQuality": "平均质量分",
+    "recentEvents": "最近压缩事件",
+    "tokensRange": "{{before}} → {{after}} tokens · 压缩 {{ratio}} · 质量 {{quality}}",
+    "mentionsSearch": "上下文提及检索",
+    "mentionsPlaceholder": "搜索文件/表/符号…",
+    "empty": "暂无匹配结果"
+  },
+  "pdfTools": {
+    "title": "文档转 Markdown",
+    "hint": "支持 PDF/Word/Excel/PPT/TXT/CSV,单文件 ≤10MB;上传后由服务端转换为 Markdown",
+    "pick": "选择文档",
+    "converting": "转换中…",
+    "unsupportedType": "不支持的文件类型",
+    "tooLarge": "文件超过 10MB 上限",
+    "uploadFailed": "上传失败,请重试",
+    "convertFailed": "转换失败,请重试",
+    "share": "分享"
   },
   "imageGen": {
     "title": "图像生成",
