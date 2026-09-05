@@ -18598,7 +18598,6 @@
   "aigcList": {
     "promptLabel": "提示詞",
     "playAudio": "播放音訊",
-    "videoBadge": "影片",
     "title": "我的創作",
     "subtitle": "管理你的 AI 生成內容",
     "empty": "暫無創作內容",
@@ -20272,9 +20271,7 @@
     "directCount": "直屬成員",
     "indirectCount": "間接成員",
     "totalContribution": "累計貢獻",
-    "empty": "暫無團隊成員",
-    "joinDate": "加入時間",
-    "level": "等級"
+    "empty": "暫無團隊成員"
   },
   "vipLevel": {
     "empty": "暫無會員方案",

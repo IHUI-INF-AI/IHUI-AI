@@ -18658,7 +18658,6 @@
   "aigcList": {
     "promptLabel": "프롬프트",
     "playAudio": "오디오 재생",
-    "videoBadge": "영상",
     "title": "내 창작물",
     "subtitle": "AI 생성 콘텐츠 관리",
     "empty": "창작 콘텐츠 없음",
@@ -20332,9 +20331,7 @@
     "directCount": "직속 멤버",
     "indirectCount": "간접 멤버",
     "totalContribution": "누적 기여",
-    "empty": "팀 멤버가 없습니다",
-    "joinDate": "가입일",
-    "level": "레벨"
+    "empty": "팀 멤버가 없습니다"
   },
   "vipLevel": {
     "empty": "멤버십 플랜이 없습니다",
