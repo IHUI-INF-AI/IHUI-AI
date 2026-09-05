@@ -40,7 +40,6 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
-import { rpx } from '../utils/rpx'
 import {
   Camera,
   ChevronDown,
@@ -173,9 +172,9 @@ const VOICE_BTN_SIZE = 36
 const SECONDARY_BTN_SIZE = 36
 const SECONDARY_BTN_EMOJI_SIZE = 18
 
-const ICON_GROUP_ITEM_SIZE = rpx(150) // 对齐 Uniapp BottomActionBar .icon-button width/height: 150rpx
-const ICON_GROUP_ITEM_EMOJI_SIZE = 24 // 注:RN 用 emoji 渲染,Uniapp 为 70rpx 图标图,此处保留 emoji 尺寸
-const ICON_GROUP_ITEM_RADIUS = rpx(30) // 对齐 Uniapp BottomActionBar .icon-button border-radius: 30rpx
+const ICON_GROUP_ITEM_SIZE = 72
+const ICON_GROUP_ITEM_EMOJI_SIZE = 24
+const ICON_GROUP_ITEM_RADIUS = 8
 
 const IMAGE_PREVIEW_SIZE = 48
 const IMAGE_PREVIEW_RADIUS = 6
@@ -1049,10 +1048,8 @@ const styles = StyleSheet.create({
   iconGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: rpx(16), // 对齐 Uniapp BottomActionBar .icon-button-group gap: 16rpx
-    paddingTop: rpx(5), // 对齐 .icon-button-group padding: 5rpx 20rpx 25rpx
-    paddingHorizontal: rpx(20), // 对齐 .icon-button-group padding: 5rpx 20rpx 25rpx
-    paddingBottom: rpx(25), // 对齐 .icon-button-group padding: 5rpx 20rpx 25rpx
+    gap: 8,
+    paddingBottom: 12,
   } as ViewStyle,
   iconGroupItem: {
     width: ICON_GROUP_ITEM_SIZE,

@@ -221,21 +221,7 @@ export default function AigcListScreen() {
   )
 
   const openWork = (work: AigcListItem) => {
-    // 对齐历史 Uniapp toFullScreen: 传整个 viewList 快照 + 点击项真实索引
-    const idx = items.findIndex((it) => it.id === work.id)
-    navigation.navigate('AigcCover', {
-      id: work.id,
-      title: work.title,
-      works: items.map((it) => ({
-        id: it.id,
-        title: it.title,
-        subtitle: it.subtitle,
-        prompt: it.prompt,
-        fileUrl: it.fileUrl,
-        fileType: it.fileType,
-      })),
-      index: idx >= 0 ? idx : 0,
-    })
+    navigation.navigate('AigcCover', { id: work.id, title: work.title })
   }
 
   const goPublish = () => navigation.navigate('AigcPublish')

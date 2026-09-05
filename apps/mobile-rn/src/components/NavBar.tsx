@@ -26,62 +26,11 @@ import {
 } from 'react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import type { AppIcon } from '@ihui/types'
-import Svg, { Path, Rect } from 'react-native-svg'
-
-/**
- * PanelLeftRounded —— 与 web 端 apps/web/src/components/sidebar/SidebarHeader.tsx
- * 中同名自定义 SVG 图标逐 path 一致(圆角矩形 + 竖线到头 + 箭头)。
- * 2026-09-05 用户要求 RN 端菜单按钮使用同款定制图标。
- */
-export function PanelLeftRoundedIcon({
-  size = 24,
-  color = 'currentColor',
-}: {
-  size?: number
-  color?: string
-}): ReactNode {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect
-        x="3"
-        y="3"
-        width="18"
-        height="18"
-        rx="5"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Path
-        d="M7.5 8v8"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <Path
-        d="m16 15-3-3 3-3"
-        stroke={color}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    </Svg>
-  )
-}
 
 export interface NavBarAction {
   /** emoji 字符 / 图片 URL(http:// / / 开头)/ lucide 图标组件引用(统一图标) */
   icon: AppIcon | string
   label?: string
-  /** false 时 label 仅作为无障碍朗读文本,不渲染可见文字(2026-09-05 用户要求菜单按钮仅图标) */
-  showLabel?: boolean
-  /** 自定义 SVG 渲染器(优先于 icon;用于对齐 web 端 PanelLeftRounded 等定制图标) */
-  render?: (size: number, color: string) => ReactNode
   onPress: () => void
 }
 
@@ -133,8 +82,7 @@ export function NavBar({
 }: NavBarProps) {
   const contentHeight = subtitle ? HEIGHT_WITH_SUBTITLE : HEIGHT_DEFAULT
   const hasCustomBg = backgroundColor !== undefined
-  // 2026-09-05:按用户要求 NavBar 不再渲染底部分割线(showBorder 恒为 false)
-  const showBorder = false
+  const showBorder = !transparent && !hasCustomBg
   const resolvedBg = hasCustomBg
     ? backgroundColor
     : transparent
@@ -212,9 +160,6 @@ interface NavBarActionButtonProps {
 
 function NavBarActionButton({ action }: NavBarActionButtonProps) {
   const renderIcon = (): ReactNode => {
-    if (action.render) {
-      return action.render(24, tokens.text.secondary)
-    }
     if (typeof action.icon === 'string') {
       if (isImageUrl(action.icon)) {
         return (
@@ -240,7 +185,7 @@ function NavBarActionButton({ action }: NavBarActionButtonProps) {
       accessibilityLabel={action.label}
     >
       {renderIcon()}
-      {action.label && action.showLabel !== false ? (
+      {action.label ? (
         <Text style={styles.actionLabel} numberOfLines={1}>
           {action.label}
         </Text>
