@@ -104,7 +104,6 @@ import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { NavBar, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
 import { InputArea } from '../components/InputArea'
-import { ShareValueModal } from '../components/ShareValueModal'
 import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import MaterialList, {
@@ -131,7 +130,7 @@ import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { navigateDrawerTab } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { formatShortDateTime } from '../utils/date-utils'
 import { rpx } from '../utils/rpx'
 // 底部导航(对齐原 customTabBar 5 主 Tab,HomeScreen 对应「首页」Tab)
@@ -694,7 +693,7 @@ export function HomeScreen() {
     }
     // home/ai/mine 是 Tab 路由(Uniapp: AI 对话社区/AI 应用/我的)
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
-    navigateDrawerTab(rootNav, tab)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
     // 一人公司:跳 Distribution(对齐 Uniapp gotocompany → /pagesA/distribution/index)
@@ -1909,12 +1908,34 @@ export function HomeScreen() {
         </Pressable>
       </Modal>
       {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
-      <ShareValueModal
+      <Modal
         visible={shareValueVisible}
-        rewardPoints={shareFirstReward}
-        onClaim={() => void handleClaimShareReward()}
-        onClose={hideSharePoints}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={hideSharePoints}
+      >
+        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
+          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
+              <Text style={shellStyles.shareCloseText}>×</Text>
+            </Pressable>
+            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
+            <Text style={shellStyles.shareDesc}>
+              首次分享成功,获得 {shareFirstReward}{' '}
+              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+            </Text>
+            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
+              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
+            </Pressable>
+            <Pressable
+              onPress={hideSharePoints}
+              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
+            >
+              <Text style={shellStyles.shareBtnText}>稍后再说</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
@@ -2225,12 +2246,31 @@ const shellStyles = {
     fontWeight: '300',
     paddingHorizontal: rpx(8),
   } as const,
-  // ── 分享领智汇值弹窗(共享组件 ShareValueModal,样式已内聚) ──
+  // ── 分享领智汇值弹窗(对齐 Uniapp share-points-popup) ──
   modalMask: {
     flex: 1,
     backgroundColor: tokens.overlay.modal,
     alignItems: 'center',
     justifyContent: 'center',
+  } as const,
+  shareContent: {
+    width: '84%',
+    borderRadius: 12,
+    backgroundColor: tokens.surface.light,
+    paddingHorizontal: rpx(40),
+    paddingTop: rpx(40),
+    paddingBottom: rpx(48),
+    alignItems: 'center',
+  } as const,
+  shareClose: {
+    alignSelf: 'flex-end',
+    padding: rpx(8),
+  } as const,
+  shareCloseText: {
+    fontSize: 22,
+    lineHeight: 24,
+    color: tokens.text.tertiary,
+    fontWeight: '300',
   } as const,
   // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
   qrContent: {
@@ -2265,6 +2305,36 @@ const shellStyles = {
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
+  } as const,
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginTop: rpx(24),
+    marginBottom: rpx(16),
+  } as const,
+  shareDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+  } as const,
+  shareBtn: {
+    paddingHorizontal: rpx(48),
+    paddingVertical: rpx(20),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+    minWidth: '70%',
+    alignItems: 'center',
+  } as const,
+  shareBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  } as const,
+  shareBtnSecondary: {
+    marginTop: rpx(16),
   } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
