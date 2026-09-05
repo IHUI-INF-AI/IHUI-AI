@@ -338,8 +338,9 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
-        {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。 */}
-        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+        {/* PWA 提示:固定悬浮于右下角,不影响主布局。层级 z-modal(2000,引用 --z-modal)。
+            2026-09-05 移动端:手机(<768px)改挂顶栏下方通栏——右下角悬浮条实测遮挡聊天输入框。 */}
+        <div className="pointer-events-none fixed bottom-4 right-4 z-modal flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 max-[767px]:bottom-auto max-[767px]:left-3 max-[767px]:right-3 max-[767px]:top-14 max-[767px]:w-auto">
           <div className="pointer-events-auto">
             <PWAInstallPrompt />
           </div>
