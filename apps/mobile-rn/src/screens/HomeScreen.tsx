@@ -38,7 +38,7 @@ import {
   CheckCircle2,
   Calendar,
   Trophy,
-  Brain,
+  Sparkles,
   MessageSquare,
   Image as ImageIcon,
   Music,
@@ -48,7 +48,6 @@ import {
   Film,
   Volume2,
   Mic,
-  Menu,
   Handshake,
 } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -90,19 +89,19 @@ import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
-import { OfflineBanner } from '../components/OfflineBanner'
 import AiModelCard from '../components/AiModelCard'
 import { Toolbar } from '../components/Toolbar'
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
+import { ShareValueModal } from '../components/ShareValueModal'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
-import { NavBar, type NavBarAction } from '../components/NavBar'
+import { NavBar, PanelLeftRoundedIcon, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
+// 推送通知弹窗(对齐 Uniapp ai_index 顶层 PushNotification)
+import NotificationPanel from '../components/NotificationPanel'
 import { InputArea } from '../components/InputArea'
 import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
@@ -126,7 +125,6 @@ import { FenLeiOverlay } from '../components/FenLeiOverlay'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
-import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -259,7 +257,7 @@ interface MaterialCard {
 
 /** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
 const MODEL_TYPES: ModelTypeOption[] = [
-  { type: 'skills', label: '技能', icon: Brain },
+  { type: 'skills', label: '技能', icon: Sparkles },
   { type: 'talk', label: '对话', icon: MessageSquare },
   { type: 'image', label: '图片', icon: ImageIcon },
   { type: 'video', label: '视频', icon: Clapperboard },
@@ -569,9 +567,6 @@ export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
   const { connected, unreadCount, setVisible } = useNotificationStore()
-  // OfflineBanner 数据源:用 NetworkContext 的 fetch 探测(/api/health),而非 WebSocket 通知连接状态。
-  // 通知 WS 断开 ≠ 网络断开(REST 数据仍可正常加载),语义必须区分。
-  const { isOnline } = useNetwork()
   const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
   const [lives, setLives] = useState<HomeLiveItem[]>([])
   const [progress, setProgress] = useState<HomeProgressItem[]>([])
@@ -634,9 +629,6 @@ export function HomeScreen() {
   const [materialDetailError, setMaterialDetailError] = useState<string>('')
   // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
-  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
-  const [shareValueVisible, setShareValueVisible] = useState(false)
-  const [shareFirstReward, setShareFirstReward] = useState(0)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -786,7 +778,14 @@ export function HomeScreen() {
    *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: Menu, label: '菜单', onPress: handleMenuPress },
+    // 图标对齐 web 端 SidebarHeader 的定制 PanelLeftRounded(竖线到边),24px 大号,仅图标无文字
+    {
+      icon: '',
+      render: (size, color) => <PanelLeftRoundedIcon size={size} color={color} />,
+      label: '菜单',
+      showLabel: false,
+      onPress: handleMenuPress,
+    },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
@@ -958,7 +957,9 @@ export function HomeScreen() {
     [loadMaterials],
   )
 
-  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
+  // ── 分享领智汇值弹窗(2026-09-05:旧内联 Modal + state 已删除,统一走 ShareValueModal)──
+  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [shareFirstReward, setShareFirstReward] = useState(0)
   const hideSharePoints = (): void => setShareValueVisible(false)
 
   /** 首次分享奖励自动触发:进页检查(对齐 Uniapp ai_index onShow → checkFirstShareStatus) */
@@ -1016,14 +1017,6 @@ export function HomeScreen() {
       return
     }
     rootNav?.navigate('AppTopup')
-  }
-  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
-  const handleCommissionPress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('Distribution')
   }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
@@ -1345,16 +1338,16 @@ export function HomeScreen() {
 
   return (
     <View style={shellStyles.root}>
-      {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
-      <OfflineBanner isOnline={isOnline} />
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
-      <CommissionFloatingIcon onPress={handleCommissionPress} />
+      {/* 推送通知弹窗(对齐 Uniapp ai_index 顶层 PushNotification,组件自管 visible) */}
+      <NotificationPanel />
+      {/* OfflineBanner 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复断网时双横幅) */}
+      {/* CommissionFloatingIcon 已删除:原 Uniapp 首页并无此悬浮按钮,RN 端属臆造对齐(2026-09-05) */}
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
       <NavBar
-        title="智汇AI社区"
+        title=""
         leftActions={navLeftActions}
         rightActions={navRightActions}
         rightAction={
@@ -1674,12 +1667,7 @@ export function HomeScreen() {
         placeholder="请输入您的问题,或选择模型开始对话"
         onSubmit={handleInputSubmit}
       />
-      {/* GlobalFloatBox 全局浮窗按钮(对齐 Uniapp App.vue 全局浮窗) */}
-      <GlobalFloatBox
-        onPromote={() => rootNav?.navigate('Promote')}
-        onConsult={() => rootNav?.navigate('CustomerService')}
-        onFeedback={() => rootNav?.navigate('Settings')}
-      />
+      {/* GlobalFloatBox 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复同屏双浮窗) */}
       {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
       <Drawer
         visible={drawerVisible}
@@ -1907,35 +1895,13 @@ export function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
-      <Modal
+      {/* 分享领智汇值弹窗(2026-09-05:删除旧内联 Modal,统一使用 ShareValueModal 组件) */}
+      <ShareValueModal
         visible={shareValueVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={hideSharePoints}
-      >
-        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
-          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
-              <Text style={shellStyles.shareCloseText}>×</Text>
-            </Pressable>
-            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
-            <Text style={shellStyles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward}{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
-              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
-            </Pressable>
-            <Pressable
-              onPress={hideSharePoints}
-              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
-            >
-              <Text style={shellStyles.shareBtnText}>稍后再说</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        rewardPoints={shareFirstReward}
+        onClaim={() => void handleClaimShareReward()}
+        onClose={hideSharePoints}
+      />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
@@ -1943,7 +1909,8 @@ export function HomeScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1 } as const,
+  // 2026-09-05:显式浅色背景,避免透出 RN Web 壳层深色底导致整页黑屏
+  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
@@ -1992,9 +1959,7 @@ const shellStyles = {
   } as const,
   // ── ModelTypeBar 模型类型选择栏(对齐 Uniapp model-type-btn 8 个) ──
   modelTypeBar: {
-    backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
+    // 2026-09-05:容器无背景、无描边(用户要求去掉顶部分割线)
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
   } as const,
@@ -2004,7 +1969,7 @@ const shellStyles = {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
     marginRight: rpx(12),
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   } as const,
   modelTypeBtnActive: {
@@ -2253,25 +2218,6 @@ const shellStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
-  shareContent: {
-    width: '84%',
-    borderRadius: 12,
-    backgroundColor: tokens.surface.light,
-    paddingHorizontal: rpx(40),
-    paddingTop: rpx(40),
-    paddingBottom: rpx(48),
-    alignItems: 'center',
-  } as const,
-  shareClose: {
-    alignSelf: 'flex-end',
-    padding: rpx(8),
-  } as const,
-  shareCloseText: {
-    fontSize: 22,
-    lineHeight: 24,
-    color: tokens.text.tertiary,
-    fontWeight: '300',
-  } as const,
   // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
   qrContent: {
     width: '80%',
@@ -2305,36 +2251,6 @@ const shellStyles = {
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
-  } as const,
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginTop: rpx(24),
-    marginBottom: rpx(16),
-  } as const,
-  shareDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-    marginBottom: rpx(32),
-  } as const,
-  shareBtn: {
-    paddingHorizontal: rpx(48),
-    paddingVertical: rpx(20),
-    borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
-    minWidth: '70%',
-    alignItems: 'center',
-  } as const,
-  shareBtnText: {
-    fontSize: 14,
-    color: tokens.surface.light,
-    fontWeight: '500',
-  } as const,
-  shareBtnSecondary: {
-    marginTop: rpx(16),
   } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
