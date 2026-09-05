@@ -109,13 +109,16 @@ export function AuthShell({
             draggable={false}
           />
           {!compact && (
-            <div className="relative h-[52px] w-[340px] shrink-0">
+            // 2026-09-05 移动端修复:原 w-[340px] shrink-0 固定宽在小屏(min-content≈441px)撑破
+            // 登录弹窗容器(DialogContent w-[calc(100%-2rem)]=358px),卡片横向溢出被裁切。
+            // 改为 min(340px, calc(100vw-10rem)):桌面/平板仍 340px,手机(<768px)收缩到视口内。
+            <div className="relative h-[52px] w-[min(340px,calc(100vw-10rem))] shrink-0">
               <img
                 src={welcomeLightSrc}
                 alt="Welcome to IHUI AI"
                 width={447}
                 height={67}
-                className="welcome-img absolute inset-0 m-auto h-full w-auto"
+                className="welcome-img absolute inset-0 m-auto h-full max-w-full w-auto object-contain"
                 draggable={false}
               />
               <img
@@ -124,7 +127,7 @@ export function AuthShell({
                 aria-hidden="true"
                 width={447}
                 height={67}
-                className="welcome-img-dark absolute inset-0 m-auto h-full w-auto"
+                className="welcome-img-dark absolute inset-0 m-auto h-full max-w-full w-auto object-contain"
                 draggable={false}
               />
             </div>
