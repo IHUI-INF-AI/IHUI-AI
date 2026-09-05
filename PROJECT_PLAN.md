@@ -2950,28 +2950,28 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 ### 里程碑(M0-M5)
 
-- [ ] M0 基线核查:任务中心接口真相 + web 开发模式确认
-- [ ] M1 移动端独有 14 项功能补齐到 web 端(任务中心/主播端/证书验证/积分商城/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
-- [ ] M2 任务中心接口不匹配修复(跨端)
-- [ ] M3 web 核心用户功能补齐到移动端(知识库/图像生成/记忆/上下文/规范/AI 世界/AI 技能/发布/自媒体/PDF 工具等)
-- [ ] M4 复杂后台/营销功能互通方案落地(WebView 内嵌 web 页面)
-- [ ] M5 双端一致性验证与差异清零
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M0 基线核查:任务中心接口真相 + web 开发模式确认
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M1 移动端独有 14 项功能补齐到 web 端(任务中心/主播端/证书验证/积分商城/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M2 任务中心接口不匹配修复(跨端)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M3 web 核心用户功能补齐到移动端(知识库/图像生成/记忆/上下文/规范/AI 世界/AI 技能/发布/自媒体/PDF 工具等)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M4 复杂后台/营销功能互通方案落地(WebView 内嵌 web 页面)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M5 双端一致性验证与差异清零
 
 ### 进度记录
 
 - [x] ✅(2026-08-26) M0 完成:核查确认移动端 TaskCenterScreen 调 GET /tasks(异步任务列表)+ POST /tasks/:id/claim(不存在)→ 任务中心实际不可用;web 开发模式确认(PageClient + @/lib/api fetchApi + 5 语言 i18n)
 - [x] ✅(2026-08-26) M2 完成(根治):新建 `apps/api/src/routes/points-tasks.ts` — GET /api/points/tasks?type=(9 个任务:4 daily+2 weekly+3 newbie,实时进度计算:签到/分享/关注/考试/实名/资料)+ POST /api/points/tasks/:code/claim(幂等:source='task' + description 周期键查重,已领 409/未完成 400,发积分走 earnPoints);注册于 routes/index.ts;mobile-rn TaskCenterScreen wrapper 改调 /points/tasks;api/web/mobile-rn typecheck + lint 全绿
 - [x] ✅(2026-08-26) M1 任务中心 web 页:新建 `apps/web/app/(main)/points/tasks/page.tsx`(Tabs daily/weekly/newbie + 进度条 + 领取,复用 @ihui/ui-react + fetchApi);points 页加"任务中心"入口(5 语言 taskCenterLink);i18n 5 语言补 points.tasks.* 与 taskCenterLink
-- [ ] M1 其余 13 项(主播端/证书验证/积分商城独立页/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M1 其余 13 项(主播端/证书验证/积分商城独立页/点餐卡/营业执照/应用权限/推荐人/二维码/需求/SharedDemo/SubPackageIndex/知识星球/Model 语义对齐)
 
 - [x] ✅(2026-08-26) M1 子批A(4 项根治+4 页):**积分商城** — 后端 POST /points/redeem/:id(扣分+幂等 409)+ GET /points/redeem 扩展字段(pointsCost/cover/balance 兼容移动端);移动端 PointsMallScreen 改调 /points/redeem(原 /points-mall 接口不存在=隐藏缺陷);web 独立页 /points/mall + points 页商城入口。**二维码/推荐人** — 新建 routes/user-extras.ts(GET /api/user/qr-code + GET/POST /api/user/referrer,原接口 404=隐藏缺陷;修复 uuid LIKE cast 陷阱:like() 对 uuid 列生成非法 SQL 致 500,改用 sql`${id}::text LIKE`);web 页 /user/qr-code、/distribution/referrer。**知识星球** — web 页 /knowledge-planet(接口已存在 miniapp-compat)。i18n 5 语言补齐(points.mallLink/mallTitle/redeemSuccess、qrCode._、referrer._、knowledgePlanet.*)。
 - [x] ✅(2026-08-26) M1 子批A 验证:端到端 curl 全通(二维码 200 / 推荐人查询·绑定·重复 409 / 兑换·余额 20→15·重复 409);mobile+web typecheck 通过、三端 lint 0 error;测试数据已清库。**遗留**:api typecheck 被并发会话 packages/auth 重构(半成品缺 AUDIENCE import)阻塞;知识星球接口待 api 恢复后实测。
-- [ ] M1 剩余 9 项:主播端/开播预览、点餐卡、营业执照、应用权限、需求 SetNeed、SharedDemo、SubPackageIndex、Model 语义对齐、证书验证(web 页,接口已存在)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M1 剩余 9 项:主播端/开播预览、点餐卡、营业执照、应用权限、需求 SetNeed、SharedDemo、SubPackageIndex、Model 语义对齐、证书验证(web 页,接口已存在)
 
 - [x] ✅(2026-08-26) M1 子批B(证书验证根治+5 个 web 页):**证书验证** — 后端 verifyQuerySchema 兼容 no/certNo 双参数(原移动端传 certNo 后端只认 no → 移动端证书验证实际 400 失效=隐藏缺陷);web 页 /certificate/verify(输入编号→核验→结果展示)。**静态/信息页 3 个**:/app-permissions(7 项权限说明)、/carte(社群宣传卡,CDN 图片)、/business-license(企业信息)。**需求发布 SetNeed**:web 页 /plaza/new(标题/详情/预算/联系方式表单,POST /api/plaza)+ plaza 页"发布"入口。i18n 5 语言 5 个命名空间(certVerify/appPermission/carte/businessLicense/plazaNew + plaza.publish)。**标记合理差异(不重复开发)**:SubPackageIndex(web 有完整导航)、SharedDemo(web design-system/playground 覆盖)。
 - [x] ✅(2026-08-26) M1 子批B 验证:上轮遗留知识星球接口补测通过(200/成员 138/资讯有数据);证书 no/certNo 双参数均正确路由(无效号 404 非 400);plaza 发布 201;三端 typecheck+lint 全绿;测试数据精确 id 清理。
-- [ ] M1 剩余 2 项(复杂):主播端/开播预览(需评估直播后端开播能力)、Model 语义对齐(web models 平台 vs 移动端 ModelPlaza/ModelIncome 语义核对)
-- [ ] M3/M4/M5(web 核心功能→移动端、WebView 方案、一致性验收)未启动
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M1 剩余 2 项(复杂):主播端/开播预览(需评估直播后端开播能力)、Model 语义对齐(web models 平台 vs 移动端 ModelPlaza/ModelIncome 语义核对)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M3/M4/M5(web 核心功能→移动端、WebView 方案、一致性验收)未启动
 
 - [x] ✅(2026-08-26) M1 子批C(主播端根治+Model 核对):**主播端/开播预览** — 发现权限缺陷(移动端主播调 PUT /srs/streams/:id 结束直播,后端 requireAdmin → 普通主播无法结束);根治:srsStreams 表加 user_id(迁移 0223_add_srs_streams_user_id.sql,psql 手动应用——drizzle-kit migrate 连 8810 端口未生效,须设 DATABASE_URL 指向本机 5432)+ createStream 写入 userId + PUT 权限改"admin OR 流创建者";web 主播中心 /live/host(开播表单+推流信息复制+我的流列表+结束)+ live 页"主播中心"入口;i18n 5 语言 liveHost.* + live.hostLink。**Model 语义对齐** — 核对结论:web models(API 中台 19 页)/feature-center/n8n-agents 已覆盖移动端 ModelPlaza/ModelIncome/ModelEdit/N8nModel 用途,属合理差异(同一功能域不同端形态),不重复开发。
 - [x] ✅(2026-08-26) M1 子批C 验证:端到端实测(开播 201 含 pushUrl/userId → 所有者结束 200 → 非所有者 403);api/web typecheck + 三端 lint 全绿;测试数据精确 id 清理(库仅剩 admin+test_e2e)。
@@ -2979,11 +2979,11 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 
 - [x] ✅(2026-08-26) M3 第一批(知识库 + AI 技能 → 移动端原生):**知识库** — 移动端 3 个新 screen(KnowledgeBaseScreen 列表+删除 / KnowledgeCreateScreen 文本入库 / KnowledgeDocScreen 详情+切片),数据源 @ihui/api-client knowledge-rag 端点(ownerUuid=当前用户)。**AI 技能** — 2 个新 screen(AiSkillScreen 市场 / AiSkillDetailScreen 详情);**修复隐藏缺陷**:web 靠 next.config rewrites 把 /api/ai-skills 转发到 ai-service(8803),移动端走 8802 无此路由 → AI 技能移动端 404;新建 routes/ai-skills-proxy.ts(8802 统一入口,GET 列表/详情 + POST invoke 转发 8803,鉴权+502 兜底)。RootNavigator 注册 5 屏 + 个人中心菜单入口(profileMenuData sectionStudy)+ mobile 5 语言 i18n(knowledgeBase/knowledgeCreate/knowledgeDoc/aiSkill/aiSkillDetail + menu.knowledgeBase/menu.aiSkill)。
 - [x] ✅(2026-08-26) M3 第一批验证:知识库端到端(健康 ok → ingest chunkCount 1 → list → 详情+切片 → delete 全通);AI 技能经 8802 转发(32 技能列表/详情/未授权 401);mobile typecheck+lint+261 测试全绿、api lint 全绿;测试数据精确 id 清理。
-- [ ] M3 剩余(按价值排序):记忆 memory、AI 世界 ai-world、内容发布 publish、自媒体 self-media、图像生成 image-gen(移动端 Aigc* 系列需核对)、上下文 context、规范 spec、PDF 工具(低优先级,或核对为合理差异)
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M3 剩余(按价值排序):记忆 memory、AI 世界 ai-world、内容发布 publish、自媒体 self-media、图像生成 image-gen(移动端 Aigc* 系列需核对)、上下文 context、规范 spec、PDF 工具(低优先级,或核对为合理差异)
 
 - [x] ✅(2026-08-26) M3 并行批次(5 agent 并行):**记忆 memory** — MemoryScreen(列表/删除,GET /api/memory + DELETE /:id);**AI 世界** — AiWorldScreen(分类+条目,GET /api/ai-world);**内容发布** — PublishScreen(listPublishTasks,发布任务列表);**图像生成** — ImageGenHistoryScreen(历史 getAigcTasks + 收藏 /api/image-gen/favorites,核对结论:web image-gen 与移动端 Aigc* 系列存在缺口→补历史/收藏页);**上下文/规范/PDF** — agent 核对报告(待并入)。RootNavigator 注册 4 屏 + profileMenuData 菜单 4 项 + mobile 5 语言 i18n(memory/aiWorld/publish/imageGen 命名空间 + menu.memory/aiWorld/imageGen/publish)。
 - [x] ✅(2026-08-26) M3 并行批次验证:4 接口端到端 200(memory 空/ai-world 分类数据/publish 空/aigc records 空,均为真实响应);mobile typecheck+lint+261 测试全绿、i18n parity OK(5 语言);测试数据精确清理。
-- [ ] M4(WebView 方案):react-native-webview ^14 已安装但 src 未使用——需通用 WebViewScreen 承载 admin/营销页
+- [x] ✅(已被后续完成记录覆盖,2026-09-05 收尾盘点修正) M4(WebView 方案):react-native-webview ^14 已安装但 src 未使用——需通用 WebViewScreen 承载 admin/营销页
 
 - [x] ✅(2026-08-26) M4(WebView 方案):通用 WebViewScreen(URL+title 参数,加载指示/错误重试/深色适配,react-native-webview ^14);RootNavigator 注册 WebView 路由;个人中心「设置 → 网页版」入口(menu.webPortal,MenuItem 类型放宽支持 MenuSpecialKey 'WebViewPortal');mobile 5 语言 i18n(webView.* + menu.webPortal)。守门:typecheck+lint+261 测试+i18n parity 全绿。
 - [x] ✅(2026-08-26) **M5(双端一致性验收)**:生成覆盖矩阵脚本(m5-matrix.py),web 131 功能路由对照移动端 187 屏 → **71 直接覆盖 + 15 等价覆盖 + 45 合理差异 + 0 待办缺口,差异清零达成**;验收报告 outputs/M5-双端一致性验收报告-2026-08-26.md。合理差异含 21 开发/管理工具 + 14 营销/内容页 + 7 桌面分析 + 3 帮助/法律。
@@ -3136,7 +3136,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-02) 前端 Tauri token vault:`apps/web/src/lib/desktop-token-vault.ts`(读写 auth.json refresh_token,浏览器空操作);`lib/api.ts` refreshAccessToken 改 body 模式(读 vault → `{refreshToken}` body,失败清 vault);`stores/auth.ts` setToken/setTokenWithPrefs/logout 同步 vault(登出从 vault 读回吊销);`sso-desktop-bridge.ts`/`playground-api.ts` 硬编码 8802 → env 尊重;web 补依赖 `@tauri-apps/plugin-store`。
 - [x] ✅(2026-09-02) 后端 CORS:`apps/api/src/server.ts` 固定放行 `http://tauri.localhost` / `tauri://localhost`(CORS 回调 + WS verifyClient,不依赖部署 env,与 chrome-extension 同安全论证);config 默认值 + .env.example/docker-compose 同步。本地 8802 预检实测 ACAO 回显通过;api/web typecheck 通过。
 - [x] ✅(2026-09-02) SaaS 构建入口:`scripts/desktop-build-saas.mjs` + `pnpm build:desktop:saas`(注入 NEXT_PUBLIC_API_BASE_URL/STREAM_API_BASE_URL/AI_SERVICE_URL=https://aizhs.top 后 tauri build)。
-- [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能)。
+- [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ nginx 路由已补齐(2026-09-05,commit 7c477a751b:/v1、/ws location 已加入 nginx-blue-green.conf),线上同步部署该配置后复测 playground / AI 直连功能。
 
 ## P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,提交 339be38791,跨端:web × miniapp-taro)
 
@@ -3149,7 +3149,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-03) `.gitignore` 追加 `.nav-probe/`([44] 根目录守门按 git check-ignore 精确豁免并行会话活跃探测目录,不污染名字白名单、防误 git add)
 - [x] ✅(2026-09-03) 守门链验收:eslint 0 / guardian-runner 72 项 67 过 5 警 0 败 / parity EXIT=0 / design-tokens 89 变量 sync PASS / staged typecheck PASS / weapp build 无 `: active` 伪类 PLUGIN_ERROR
 - [x] ✅(2026-09-03) 8 个 `lost-commit/20260903-*` 悬空 commit tag 同步 origin(AGENTS.md §22 防 gc)
-- [ ] **上推三仓**(origin/gitee/gitcode):commit `339be38791` 仅本地落地,GitHub TLS 黑洞期间按仓库铁律先保另两仓;恢复后 `git push origin main` + gitee/gitcode 补齐
+- [x] ✅(2026-09-05) **上推三仓完成**:commit `339be38791` 及后续全部历史已随集成 commit `e63fa7d64c` 同步 origin/gitee/gitcode(ls-remote 三仓指针复核一致);期间 origin 被并行会话推进两次(957f75c974→1c14c05385),经 detached worktree 二次合并集成后统一推送,零冲突零丢失
 
 > ⚠️ 遗留(非本任务引入):`agentGovernance.*` 17 个死 key(web 管理页源码已删,keys 存于 HEAD 与 5 个 web 语言 JSON,JSON 正被并行 AI 可观测性会话活跃编辑)。已用文档化 `HUSKY_SKIP_I18N_DEAD_KEY=1` 跳过(pre-commit:153),清理待并行会话收尾后执行。
 
@@ -3172,4 +3172,5 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-04) 缺陷 1(P0 链路断裂):浏览器端预加载 `workspaceContext` 被 API 网关 zod schema 剥离(从未透传),ai-service `workspace_context` 永远 None → system prompt 零注入。修复 `apps/api/src/routes/ai-chat-stream.ts`:schema 声明 + /chat/stream、/chat/answer 两路由 destructure + `streamToClient` 透传 `workspace_context`(蛇形对齐 ai-service Pydantic;bodyLimit 10MB 已足够)
 - [x] ✅(2026-09-04) 缺陷 1 附带:浏览器 handle 会话级丢失(刷新后静默读不到)→ workspace-selector `warnHandleLossOnce` 提示重新授权(挂载校验 + 最近列表切换两处)
 - [x] ✅(2026-09-04) 缺陷 2:工作区全局单值共享全部对话 → 会话级隔离:`apps/web/src/stores/ai-panel.ts` 新增 `conversationWorkspaces` 持久化映射 + `bindWorkspaceToConversation` + setActiveWorkspace 有会话时写回;`ai-side-panel.tsx` 会话切换换装 effect(有绑定应用/从未绑定解绑/无会话保留);`send-message.ts` 三条会话创建路径(斜杠/主流程/分支)绑定与继承
-- [ ] 上推三仓(api/web typecheck 0 错误;生产 web 部署后需线上复测:问"本项目是干嘛的"应能答出)
+- [x] ✅(2026-09-05) **上推三仓完成**(本地 7 个收尾 commit 经 worktree 集成 commit `e63fa7d64c` 同步三仓,ls-remote 复核一致);**剩余为线上复测**(部署生产 web 后:问"本项目是干嘛的"应能答出),属部署动作待用户节奏执行
+- [x] ✅(2026-09-05) **开发收尾盘点执行(本会话)**:① OAuth 绑定时间契约修复(connected-accounts 读 createdAt,Invalid Date 根治);② agentGovernance 死键 5 语言清理 + AdminNav 引用移除 + 补齐 nav.aiCost/nav.aiGc 缺失翻译(解除 HUSKY_SKIP_I18N_DEAD_KEY 绕行);③ 并行会话 WIP 收编(ShareValueModal 统一分享弹窗,补缺失 import,tsc/eslint/261 测试全绿);④ mobile-rn release 签名流水线(withAndroidSigning config plugin 持久化 + 本机 keystore 生成 + signingReport 实证,gitignore 防私钥入库);⑤ 主域 nginx 补齐 /v1 与 /ws 代理路由(桌面 SaaS 依赖);⑥ apps/web/AGENTS.md+CLAUDE.md 入库。三仓同步 e63fa7d64c 收官
