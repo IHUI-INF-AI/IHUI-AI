@@ -373,3 +373,6 @@ packages/database/check-*-structure.mjs
 packages/database/check-*-columns.mjs
 # 用后即删的临时诊断脚本
 scripts/_tmp_*.mjs
+# IHUI-AI Android release 签名密钥(不入库; android/keystore.properties 见同目录注释)
+apps/mobile-rn/android/keystore/
+apps/mobile-rn/android/keystore.properties
