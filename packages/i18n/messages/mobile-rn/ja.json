@@ -2161,7 +2161,8 @@
       "selfMedia": "自媒体運営",
       "knowledgeTools": "知識グラフとツール",
       "models": "モデルプラットフォーム",
-      "more": "その他"
+      "more": "その他",
+      "workspace": "AI ワークスペース"
     },
     "eduAi": {
       "policy": "政策解説",
@@ -2216,6 +2217,7 @@
       "eval": "モデル評価"
     },
     "workspace": "ワークスペース",
+    "workspacePermissions": "ワークスペース権限",
     "tags": "タグ",
     "topics": "トピック",
     "context": "コンテキスト管理",

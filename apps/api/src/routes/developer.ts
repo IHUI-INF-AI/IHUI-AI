@@ -6,12 +6,13 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { isValidApiKeyPermission } from '@ihui/types'
-import { userMargins, tokenFlows } from '@ihui/database'
+import { userMargins, tokenFlows, users } from '@ihui/database'
 import { requireAuth } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db } from '../db/index.js'
 import { createOrder } from '../db/payment-queries.js'
 import {
+  findDeveloperInfo,
   findDeveloperPricingById,
   activateDeveloperSubscription,
   getMyDeveloperSubscription,
@@ -174,6 +175,57 @@ const developerRoutes: FastifyPluginAsync = async (server) => {
         amount,
         pricingId: pricing.id,
         period,
+      }),
+    )
+  })
+
+  // GET /dev-info — 开发者信息聚合(账号 + 订阅 + API 密钥摘要 + 开发者申请信息)
+  // 供 DeveloperScreen 单次调用替代 subscription/api-keys/info 三连拼装;
+  // 密钥仅返回公开标识 key(非明文 secret),不泄露完整密钥。
+  server.get('/dev-info', async (request, reply) => {
+    const userId = request.userId!
+    const [userRow] = await db
+      .select({
+        email: users.email,
+        phone: users.phone,
+        nickname: users.nickname,
+        username: users.username,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    const [subscription, application, keys] = await Promise.all([
+      getMyDeveloperSubscription(userId),
+      findDeveloperInfo(userId),
+      apiKeysService.listKeys(userId),
+    ])
+    const activeKeys = keys.filter((k) => k.status === 'active')
+
+    return reply.send(
+      success({
+        account: userRow
+          ? {
+              email: userRow.email,
+              phone: userRow.phone,
+              nickname: userRow.nickname,
+              username: userRow.username,
+            }
+          : null,
+        subscription: subscription ?? null,
+        apiKeys: {
+          count: keys.length,
+          activeCount: activeKeys.length,
+          firstActiveKey: activeKeys[0]?.key ?? null,
+        },
+        developer: application
+          ? {
+              name: application.name,
+              description: application.description,
+              status: application.status,
+              website: application.website,
+            }
+          : null,
       }),
     )
   })
