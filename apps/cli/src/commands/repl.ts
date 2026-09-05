@@ -44,6 +44,7 @@ import {
   hybridSearchSync,
   MockEmbeddingProvider,
   ApiEmbeddingProvider,
+  detectEmbeddingProvider,
   type MemoryEntry,
   type MemoryChunk,
   type MemorySource,
@@ -357,7 +358,9 @@ export function memoryEntryToChunk(
  * 从 settings 解析 embedding provider。
  * - settings.embeddingEnabled === false → undefined(纯 BM25)
  * - settings.embeddingApiBase + embeddingApiKey → ApiEmbeddingProvider
- * - 否则 → MockEmbeddingProvider(默认,零配置)
+ * - 环境变量自动探测(2026-09-05 真实化):IHUI_EMBEDDING_* 或
+ *   DASHSCOPE_API_KEY/SILICONCLOUD_API_KEY/IHUI_AI_SERVICE_URL → 真实 provider
+ * - 否则 → MockEmbeddingProvider(兜底,零配置)
  *
  * 注意:hybridSearchSync 当前忽略 provider(纯 FTS),此函数为后续迁移到 async hybridSearch 预留。
  */
@@ -374,6 +377,8 @@ export function resolveEmbeddingProvider(): EmbeddingProvider | undefined {
       apiKey: settings.embeddingApiKey,
     });
   }
+  const detected = detectEmbeddingProvider();
+  if (detected) return detected;
   return new MockEmbeddingProvider();
 }
 

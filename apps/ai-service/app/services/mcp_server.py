@@ -2815,6 +2815,40 @@ async def _tool_fetch_url(arguments: dict[str, Any]) -> dict[str, Any]:
 # 图片落地约束(2026-07-24 save_path 升级)
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5MB
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
+# 2026-09-05 video_generation(可灵/即梦真实视频任务)落地支持
+_VIDEO_EXTENSIONS = (".mp4",)
+_MAX_VIDEO_BYTES = 200 * 1024 * 1024  # 200MB
+
+
+def _validate_video_save_path(save_path: str) -> tuple[bool, str, str | None]:
+    """校验视频 save_path:工作区白名单 + 后缀(.mp4)。"""
+    if not save_path or not isinstance(save_path, str):
+        return False, "", "MISSING_PARAMS"
+    ext = os.path.splitext(save_path)[1].lower()
+    if ext not in _VIDEO_EXTENSIONS:
+        return False, "", "INVALID_EXTENSION"
+    ok, info = _validate_path_in_workspace(save_path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    return True, info, None
+
+
+async def _persist_video_to_disk(
+    video_bytes: bytes, save_path: str
+) -> tuple[bool, str, int, str | None]:
+    """将视频字节写入磁盘 save_path(200MB 上限,父目录自动 mkdir)。"""
+    if len(video_bytes) > _MAX_VIDEO_BYTES:
+        return False, "", 0, "VIDEO_TOO_LARGE"
+    try:
+        from pathlib import Path
+
+        path_obj = Path(save_path)
+        path_obj.parent.mkdir(parents=True, exist_ok=True)
+        with open(path_obj, "wb") as f:
+            f.write(video_bytes)
+        return True, str(path_obj), len(video_bytes), None
+    except OSError:
+        return False, "", 0, "WRITE_FAILED"
 
 
 def _validate_image_save_path(save_path: str) -> tuple[bool, str, str | None]:
@@ -2878,10 +2912,14 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "saved_path": None,
         }
+    # 2026-09-05 真实化:kling/jimeng 走 providers 包原生真实适配器
+    # (可灵 JWT / 即梦 Ark Bearer + 视觉服务 V4 签名),不走 OpenAI 风格 HTTP
+    if provider in ("kling", "jimeng"):
+        return await _tool_image_generation_native(prompt, provider, size, save_path, arguments)
     if provider not in ("stepfun", "agnes"):
         return {
             "tool": "image_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 stepfun/agnes)",
+            "error": f"未知 provider: {provider}(允许 stepfun/agnes/kling/jimeng)",
             "errorCode": "INVALID_PROVIDER", "saved_path": None,
         }
 
@@ -3024,6 +3062,209 @@ async def _fetch_image_bytes(
             logger.warning("mcp_server 图片 URL 下载失败: %s", e, exc_info=True)
             return None
     return None
+
+
+async def _download_media_bytes(url: str, httpx_mod: Any) -> bytes | None:
+    """下载媒体字节(图片/视频统一),失败返回 None。"""
+    if not url or url.startswith("data:"):
+        return None
+    try:
+        async with httpx_mod.AsyncClient(timeout=300.0, follow_redirects=True) as dl:
+            resp = await dl.get(url)
+        if resp.status_code < 400:
+            return cast(bytes, resp.content)
+    except Exception as e:
+        logger.warning("mcp_server 媒体 URL 下载失败: %s", e, exc_info=True)
+    return None
+
+
+def _resolve_native_provider(provider: str) -> tuple[Any, str]:
+    """实例化 kling/jimeng 原生真实适配器,返回 (impl, 默认 model)。"""
+    from ..providers import JimengProvider, KlingProvider
+
+    if provider == "kling":
+        return KlingProvider(None), "kling-v1"
+    return JimengProvider(None), "jimeng-video_generation"
+
+
+async def _tool_image_generation_native(
+    prompt: str, provider: str, size: str, save_path: str | None,
+    arguments: dict[str, Any],
+) -> dict[str, Any]:
+    """image_generation 的 kling/jimeng 原生分支(2026-09-05 真实化)。
+
+    复用 providers 包真实适配器(可灵 JWT HS256 / 即梦 Ark Bearer +
+    视觉服务 V4 HMAC 签名),save_path 落地流程与主分支一致。
+    """
+    from datetime import datetime, timezone
+
+    from ..providers.base_provider import ProviderError
+
+    impl, default_model = _resolve_native_provider(provider)
+    model = arguments.get("model") or default_model
+    kwargs: dict[str, Any] = {
+        k: arguments[k]
+        for k in ("negative_prompt", "aspect_ratio", "image", "seed", "watermark")
+        if k in arguments
+    }
+    try:
+        result = await impl.generate_image(prompt, model, size=size, **kwargs)
+    except ProviderError as e:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    items = result.get("data") or []
+    image_url = items[0].get("url", "") if items else ""
+    if not image_url:
+        return {
+            "tool": "image_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "saved_path": None,
+            "error": "provider 返回空 data", "errorCode": "EMPTY_RESULT",
+        }
+
+    # save_path 落地(与主分支一致:校验 → 下载 → 写盘)
+    saved_path: str | None = None
+    file_size_bytes: int = 0
+    if save_path:
+        import httpx
+
+        ok_path, resolved, err_code = _validate_image_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+        img_bytes = await _fetch_image_bytes({"url": image_url}, image_url, httpx)
+        if img_bytes is None:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": "IMAGE_FETCH_FAILED",
+                "message": "无法获取图片字节(b64 解码 / URL 下载均失败)",
+            }
+        ok_w, sp, sz, werr = await _persist_image_to_disk(img_bytes, resolved)
+        if not ok_w:
+            return {
+                "tool": "image_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "saved_path": None,
+                "errorCode": werr,
+                "message": f"图片写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    used_model = result.get("model", model)
+    return {
+        "tool": "image_generation", "ok": True, "prompt": prompt,
+        "image_url": image_url, "size": size,
+        "provider": provider, "model": used_model,
+        "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "message": f"图片已生成(provider={provider}, model={used_model}"
+                   + (f", saved={saved_path}" if saved_path else "") + ")",
+    }
+
+
+async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
+    """video_generation: 生成视频(2026-09-05 新增,真实异步任务)。
+
+    支持 kling(快手可灵,JWT + text2video/image2video 任务轮询)与
+    jimeng(字节即梦,Ark Seedance 任务 / 视觉服务 V4 签名任务)。
+    提交任务后轮询至完成(最长 10 分钟),支持 save_path 下载落地(.mp4)。
+    """
+    from datetime import datetime, timezone
+
+    from ..providers.base_provider import ProviderError
+
+    prompt = arguments.get("prompt", "")
+    provider = arguments.get("provider", "kling")
+    duration = arguments.get("duration", 5)
+    save_path = arguments.get("save_path")
+
+    if not prompt or not isinstance(prompt, str):
+        return {
+            "tool": "video_generation", "ok": False,
+            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+            "video_url": None,
+        }
+    if provider not in ("kling", "jimeng"):
+        return {
+            "tool": "video_generation", "ok": False,
+            "error": f"未知 provider: {provider}(允许 kling/jimeng)",
+            "errorCode": "INVALID_PROVIDER", "video_url": None,
+        }
+    if not isinstance(duration, int) or duration <= 0:
+        duration = 5
+
+    impl, default_model = _resolve_native_provider(provider)
+    model = arguments.get("model") or default_model
+    kwargs: dict[str, Any] = {
+        k: arguments[k]
+        for k in ("negative_prompt", "image", "aspect_ratio", "mode", "cfg_scale")
+        if k in arguments
+    }
+    try:
+        result = await impl.generate_video(prompt, model, duration=duration, **kwargs)
+    except ProviderError as e:
+        return {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+        }
+    video_url = result.get("video_url", "")
+    if not video_url:
+        return {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None,
+            "error": "provider 返回缺少 video_url", "errorCode": "EMPTY_RESULT",
+        }
+
+    saved_path: str | None = None
+    file_size_bytes: int = 0
+    if save_path:
+        import httpx
+
+        ok_path, resolved, err_code = _validate_video_save_path(save_path)
+        if not ok_path:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "video_url": None,
+                "errorCode": err_code,
+                "message": f"save_path 校验失败: {err_code}",
+            }
+        vid_bytes = await _download_media_bytes(video_url, httpx)
+        if vid_bytes is None:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "video_url": None,
+                "errorCode": "VIDEO_FETCH_FAILED",
+                "message": "视频下载失败",
+            }
+        ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
+        if not ok_w:
+            return {
+                "tool": "video_generation", "ok": False, "prompt": prompt,
+                "provider": provider, "video_url": None,
+                "errorCode": werr,
+                "message": f"视频写入磁盘失败: {werr}",
+            }
+        saved_path = sp
+        file_size_bytes = sz
+
+    used_model = result.get("model", model)
+    return {
+        "tool": "video_generation", "ok": True, "prompt": prompt,
+        "video_url": video_url, "task_id": result.get("task_id"),
+        "provider": provider, "model": used_model, "duration": duration,
+        "saved_path": saved_path, "file_size_bytes": file_size_bytes,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "message": f"视频已生成(provider={provider}, model={used_model}"
+                   + (f", saved={saved_path}" if saved_path else "") + ")",
+    }
 
 
 def _scan_pr_files_for_findings(
@@ -4410,7 +4651,8 @@ _TOOLS: list[MCPTool] = [
         name="image_generation",
         description=(
             "生成图片,返回图片 URL 或 base64 data URI。"
-            "支持 stepfun(默认)/agnes provider,需在 .env 配置对应 API key。"
+            "支持 stepfun(默认)/agnes/kling(快手可灵 Kolors)/jimeng(字节即梦)provider,"
+            "需在 .env 配置对应 API key(KLING_ACCESS_KEY+KLING_SECRET_KEY 或 ARK_API_KEY)。"
             "2026-07-24 升级:支持 save_path 落地文件系统(b64_json 解码或 URL 下载),"
             "校验后缀(.png/.jpg/.jpeg/.webp)+ 工作区白名单,5MB 上限。"
             "admin 专属工具(外部 API 调用 + 计费)。"
@@ -4436,12 +4678,65 @@ _TOOLS: list[MCPTool] = [
                 },
                 "provider": {
                     "type": "string",
-                    "enum": ["stepfun", "agnes"],
+                    "enum": ["stepfun", "agnes", "kling", "jimeng"],
                     "default": "stepfun",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(如 kling-kolors / jimeng-high_aes_general_v21);kling/jimeng provider 用",
+                },
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "可选,反向提示词(kling/jimeng provider 用)",
                 },
                 "save_path": {
                     "type": "string",
                     "description": "可选,绝对路径,落地图片到文件系统(需工作区白名单内,后缀 .png/.jpg/.jpeg/.webp,5MB 上限)",
+                },
+            },
+            "required": ["prompt"],
+        },
+    ),
+    MCPTool(
+        name="video_generation",
+        description=(
+            "生成视频,返回视频 URL。2026-09-05 新增,真实异步任务实现:"
+            "kling(快手可灵,JWT HS256 + text2video/image2video 任务轮询)与"
+            "jimeng(字节即梦,方舟 Seedance 任务 / 视觉服务 V4 签名)。"
+            "提交后轮询至完成(最长 10 分钟),支持 image 参数走图生视频、"
+            "save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
+            "需 .env 配置 KLING_ACCESS_KEY+KLING_SECRET_KEY 或 ARK_API_KEY。"
+            "admin 专属工具(外部 API 调用 + 计费)。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "prompt": {"type": "string", "description": "视频描述(必填)"},
+                "provider": {
+                    "type": "string",
+                    "enum": ["kling", "jimeng"],
+                    "default": "kling",
+                },
+                "model": {
+                    "type": "string",
+                    "description": "可选,模型(如 kling-v1 / jimeng-video_generation / doubao-seedance-1-0-pro)",
+                },
+                "duration": {
+                    "type": "integer",
+                    "description": "视频时长秒(默认 5)",
+                    "default": 5,
+                },
+                "image": {
+                    "type": "string",
+                    "description": "可选,图生视频首帧图片(URL 或 base64)",
+                },
+                "negative_prompt": {
+                    "type": "string",
+                    "description": "可选,反向提示词",
+                },
+                "save_path": {
+                    "type": "string",
+                    "description": "可选,绝对路径,下载视频落地(需工作区白名单内,后缀 .mp4,200MB 上限)",
                 },
             },
             "required": ["prompt"],

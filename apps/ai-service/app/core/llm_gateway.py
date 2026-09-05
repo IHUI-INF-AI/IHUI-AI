@@ -1045,6 +1045,9 @@ VENDOR_ENV_KEYS: list[str] = [
     "STEPFUN_API_KEY",
     "AGNES_API_KEY",
     "DOUBAO_API_KEY",  # 字节豆包(火山方舟)
+    "ARK_API_KEY",  # 火山方舟(即梦 Seedream/Seedance 图像视频)
+    "ARK_ACCESS_KEY", "ARK_SECRET_KEY",  # 火山引擎视觉服务 V4 签名
+    "KLING_ACCESS_KEY", "KLING_SECRET_KEY",  # 快手可灵(JWT AK/SK)
     # 云 / 聚合平台
     "AZURE_OPENAI_API_KEY", "AZURE_API_KEY",
     "AWS_ACCESS_KEY_ID", "AWS_BEDROCK_API_KEY",
