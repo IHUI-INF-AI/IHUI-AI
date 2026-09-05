@@ -185,16 +185,16 @@ const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = 
 
 /** 国内 AI 媒体 RSS(10 站,走 RSSHub) */
 const RSS_FEEDS_CHINA: Array<{ source: string; url: string; kind: ItemKind }> = [
-  { source: 'qbitai', url: rsshub('/qbitai/articles'), kind: 'news' },
-  { source: 'jiqizhixin', url: rsshub('/jiqizhixin'), kind: 'news' },
-  { source: 'xinzhiyuan', url: rsshub('/xinzhiyuan'), kind: 'news' },
-  { source: 'aitechtalk', url: rsshub('/aitechtalk'), kind: 'news' },
-  { source: 'paperweekly', url: rsshub('/paperweekly'), kind: 'news' },
-  { source: 'aiqianxun', url: rsshub('/aiqianxun'), kind: 'news' },
-  { source: 'infoq-ai', url: rsshub('/infoq/topic/ai'), kind: 'news' },
-  { source: '36kr-ai', url: rsshub('/36kr/motif/452080'), kind: 'news' },
-  { source: 'leiphone-ai', url: rsshub('/leiphone/ai'), kind: 'news' },
-  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/259'), kind: 'news' },
+  { source: 'qbitai', url: rsshub('/qbitai/category/%E8%B5%84%E8%AE%AF'), kind: 'news' }, // 旧 /qbitai/articles 路由已被 RSSHub 移除,改用分类路由(资讯)
+  { source: 'jiqizhixin', url: rsshub('/jiqizhixin'), kind: 'news' }, // RSSHub 官方已移除该路由,保留占位待上游恢复
+  { source: 'xinzhiyuan', url: rsshub('/xinzhiyuan'), kind: 'news' }, // 同上,官方已移除
+  { source: 'aitechtalk', url: rsshub('/aitechtalk'), kind: 'news' }, // 同上,官方已移除
+  { source: 'paperweekly', url: rsshub('/paperweekly'), kind: 'news' }, // 同上,官方已移除
+  { source: 'aiqianxun', url: rsshub('/aiqianxun'), kind: 'news' }, // 同上,官方已移除
+  { source: 'infoq-ai', url: rsshub('/infoq/topic/ai'), kind: 'news' }, // topic id 'ai' 上游已失效(503 route empty),待换数字 id
+  { source: '36kr-ai', url: rsshub('/36kr/motif/452080'), kind: 'news' }, // motif 452080 上游 404,待换有效 motif
+  { source: 'leiphone-ai', url: rsshub('/leiphone/category/ai'), kind: 'news' }, // 旧 /leiphone/ai 改为 /category/ai
+  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/259'), kind: 'news' }, // 上游页面结构变更致路由 503,待上游修复
 ]
 
 const RSS_FEEDS = [...RSS_FEEDS_OFFICIAL, ...RSS_FEEDS_MEDIA, ...RSS_FEEDS_CHINA]
@@ -750,20 +750,16 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
     .slice(0, GITHUB_MAX_RESULTS)
 }
 
-/** 抓 AI APP / Tool 官网元数据(只取 title + meta description,不抓 ai-bot.cn) */
-async function fetchSiteMeta(
+/** Cloudflare 挑战类域名:直接 fetch 必 403,失败时走 ai-service Playwright 渲染兜底(2026-09-05 新增) */
+const BROWSER_FALLBACK_HOST_RE =
+  /(?:^|\.)(?:openai\.com|claude\.ai|midjourney\.com|leonardo\.ai|ideogram\.ai|sora\.com|perplexity\.ai|theinformation\.com)$/i
+
+/** 解析官网 HTML 元数据(title + meta description + og:image),fetchSiteMeta 与浏览器兜底共用 */
+function parseSiteMetaHtml(
+  html: string,
   entry: { source: string; name: string; url: string; category: string },
   kind: ItemKind,
-): Promise<FetchedItem> {
-  const res = await fetchWithTimeout(
-    entry.url,
-    {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)' },
-    },
-    15000,
-  )
-  if (!res.ok) throw new Error(`${entry.name} HTTP ${res.status}`)
-  const html = await res.text()
+): FetchedItem {
   const $ = cheerio.load(html)
   const title = $('title').first().text().trim() || entry.name
   const description =
@@ -781,6 +777,84 @@ async function fetchSiteMeta(
     coverImage: ogImage,
     metadata: { category: entry.category, siteTitle: title },
     categorySlug: entry.category,
+  }
+}
+
+/** 浏览器渲染兜底:调 ai-service /api/browser/render(Playwright),失败返回 null 由调用方降级 */
+async function fetchSiteMetaViaBrowser(
+  entry: { source: string; name: string; url: string; category: string },
+  kind: ItemKind,
+): Promise<FetchedItem | null> {
+  try {
+    const systemToken = await getSystemAccessToken()
+    const res = await aiServiceFetch(null, '/api/browser/render', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${systemToken}`,
+      },
+      body: JSON.stringify({ url: entry.url, timeoutMs: 30000 }),
+      signal: AbortSignal.timeout(90000),
+    })
+    if (!res.ok) {
+      logger.warn(`[ai-world-sync] browser render ${entry.source} HTTP ${res.status}, skip`)
+      return null
+    }
+    const json = (await res.json()) as {
+      code: number
+      message: string
+      data?: { html?: string; title?: string } | null
+    }
+    if (json.code !== 0 || !json.data?.html) {
+      logger.warn(`[ai-world-sync] browser render ${entry.source} failed: ${json.message}`)
+      return null
+    }
+    return parseSiteMetaHtml(json.data.html, entry, kind)
+  } catch (err) {
+    logger.warn(`[ai-world-sync] browser render ${entry.source} error:`, {
+      error: err instanceof Error ? err.message : err,
+    })
+    return null
+  }
+}
+
+/** 抓 AI APP / Tool 官网元数据(只取 title + meta description,不抓 ai-bot.cn)
+ * 2026-09-05:Cloudflare 挑战类域名(chatgpt/claude/midjourney/leonardo/ideogram/sora/perplexity 等)
+ * 直接 fetch 必 403 → 失败时自动走 ai-service Playwright 渲染兜底。
+ */
+async function fetchSiteMeta(
+  entry: { source: string; name: string; url: string; category: string },
+  kind: ItemKind,
+): Promise<FetchedItem> {
+  let wantsBrowser = false
+  try {
+    wantsBrowser = BROWSER_FALLBACK_HOST_RE.test(new URL(entry.url).hostname)
+  } catch {
+    // 非法 URL 保持 false,直接 fetch 让它走原有报错路径
+  }
+  try {
+    const res = await fetchWithTimeout(
+      entry.url,
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; IHUI-AI/1.0 AI-World-Sync)' },
+      },
+      15000,
+    )
+    if (!res.ok) {
+      if (res.status === 403 || wantsBrowser) {
+        const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind)
+        if (viaBrowser) return viaBrowser
+      }
+      throw new Error(`${entry.name} HTTP ${res.status}`)
+    }
+    const html = await res.text()
+    return parseSiteMetaHtml(html, entry, kind)
+  } catch (err) {
+    if (wantsBrowser) {
+      const viaBrowser = await fetchSiteMetaViaBrowser(entry, kind)
+      if (viaBrowser) return viaBrowser
+    }
+    throw err
   }
 }
 
