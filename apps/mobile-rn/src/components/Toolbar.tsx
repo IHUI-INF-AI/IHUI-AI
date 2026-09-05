@@ -378,8 +378,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 6,
+    paddingVertical: 10, // 对齐 Toolbar/index.vue .toolbar-title margin-top/margin-bottom: 20rpx(=10)
+    marginTop: 0, // 对齐 Toolbar/index.vue .toolbar-title margin-top: 20rpx(=10),由 paddingVertical 承担
   },
   sectionTitle: {
     fontSize: 16,

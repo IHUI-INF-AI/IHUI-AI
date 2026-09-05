@@ -179,6 +179,20 @@
     "amount": "금액",
     "empty": "주문이 없습니다"
   },
+  "userOrder": {
+    "title": "내 주문",
+    "searchPlaceholder": "내 주문 검색",
+    "tabAll": "전체",
+    "tabPending": "미결제",
+    "tabShipped": "배송 중",
+    "tabCompleted": "완료",
+    "tabRefunded": "환불됨",
+    "orderNo": "주문 번호",
+    "orderTime": "주문 시간",
+    "empty": "주문 정보가 없습니다",
+    "loading": "로딩 중...",
+    "loadFailed": "주문 로드 실패"
+  },
   "agent": {
     "config": "설정",
     "runtimeTitle": "런타임",
@@ -969,6 +983,24 @@
     "withdrawFailed": "출금 실패",
     "withdrawSuccess": "출금 완료"
   },
+  "distributionPersonnel": {
+    "listTitle": "초대한 팀",
+    "detailTitle": "내가 초대한 하위 회원",
+    "teamTotal": "팀 총 인원",
+    "tabOrders": "완료 주문 수",
+    "tabInviteTime": "초대 시간",
+    "fieldTransaction": "거래액",
+    "fieldCommission": "획득 수수료",
+    "fieldOrderNum": "완료 주문 수",
+    "fieldInviteTime": "초대 시간",
+    "fieldContribution": "기여도",
+    "fieldPhone": "전화번호",
+    "contact": "연락",
+    "searchPlaceholder": "내 팀 검색",
+    "empty": "일치하는 사용자를 찾을 수 없습니다",
+    "loadFailed": "팀 로드 실패",
+    "paramError": "잘못된 매개변수"
+  },
   "earnCommission": {
     "title": "커미션 플랜",
     "introTitle": "친구를 초대하고 커미션을 받으세요",
@@ -1461,7 +1493,10 @@
     "tab_indirect": "간접",
     "status_active": "활성",
     "status_inactive": "비활성",
-    "searchPlaceholder": "멤버 검색"
+    "searchPlaceholder": "멤버 검색",
+    "sortByOrders": "거래 주문 수",
+    "sortByInviteTime": "초대 시간",
+    "datePlaceholder": "날짜 입력 YYYY-MM-DD"
   },
   "teamDetail": {
     "title": "팀 멤버 상세",
