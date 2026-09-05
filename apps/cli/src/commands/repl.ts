@@ -168,8 +168,9 @@ function splitModelTiers(models: LlmModel[]): { primary: LlmModel[]; archived: L
   return { primary, archived };
 }
 
-/** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致 */
+/** 拉取可用模型列表(失败时回退 FALLBACK_MODELS)— 与 desktop/extension/mobile-rn 三端一致;offline 模式直接回退不发网络请求 */
 async function loadAvailableModels(): Promise<LlmModel[]> {
+  if (loadSettings().offline === true) return FALLBACK_MODELS;
   try {
     const res = await fetchModels();
     return res?.models?.length ? res.models : FALLBACK_MODELS;
@@ -659,8 +660,8 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
   console.info(chalk.dim('  快捷键: /help · /model · /tasks · /config · /status · /quickstart · Tab 补全 · /exit'));
   console.info('');
 
-  // P2-2 公告系统:启用时异步拉取最新公告 + 显示未读横幅(失败静默,不阻塞 REPL)
-  if (settings.announcements?.enabled === true) {
+  // P2-2 公告系统:启用时异步拉取最新公告 + 显示未读横幅(失败静默,不阻塞 REPL;offline 模式跳过)
+  if (settings.announcements?.enabled === true && settings.offline !== true) {
     void (async () => {
       try {
         const apiUrl = settings.announcements?.apiUrl ?? opts.apiUrl;

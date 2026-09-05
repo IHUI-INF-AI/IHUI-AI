@@ -1,0 +1,103 @@
+{
+  "tasks": [
+    {
+      "id": "py-fizzbuzz",
+      "language": "python",
+      "style": "generation",
+      "prompt": "Implement a Python function `fizzbuzz(n: int) -> list[str]` in the file `solution.py`. Return a list of strings for numbers 1..n where multiples of 3 are 'Fizz', multiples of 5 are 'Buzz', multiples of both are 'FizzBuzz', and other numbers are their decimal string representation.",
+      "files": {
+        "test_fizzbuzz.py": "from solution import fizzbuzz\n\n\ndef test_basic():\n    assert fizzbuzz(1) == ['1']\n    assert fizzbuzz(3)[-1] == 'Fizz'\n    assert fizzbuzz(5)[-1] == 'Buzz'\n    assert fizzbuzz(15)[-1] == 'FizzBuzz'\n\n\ndef test_full_sequence():\n    expected = ['1', '2', 'Fizz', '4', 'Buzz', 'Fizz', '7', '8', 'Fizz', 'Buzz', '11', 'Fizz', '13', '14', 'FizzBuzz']\n    assert fizzbuzz(15) == expected\n"
+      },
+      "verifyCmd": "python -m pytest -q test_fizzbuzz.py",
+      "targetFile": "solution.py",
+      "mockAnswer": "def fizzbuzz(n: int) -> list[str]:\n    out = []\n    for i in range(1, n + 1):\n        if i % 15 == 0:\n            out.append('FizzBuzz')\n        elif i % 3 == 0:\n            out.append('Fizz')\n        elif i % 5 == 0:\n            out.append('Buzz')\n        else:\n            out.append(str(i))\n    return out\n"
+    },
+    {
+      "id": "py-reverse-words",
+      "language": "python",
+      "style": "generation",
+      "prompt": "Implement a Python function `reverse_words(s: str) -> str` in the file `solution.py`. It should reverse the order of whitespace-separated words in the string and normalize any run of whitespace between words to a single space, with no leading/trailing spaces.",
+      "files": {
+        "test_reverse.py": "from solution import reverse_words\n\n\ndef test_simple():\n    assert reverse_words('hello world') == 'world hello'\n\n\ndef test_extra_whitespace():\n    assert reverse_words('  a   b  c ') == 'c b a'\n\n\ndef test_empty():\n    assert reverse_words('') == ''\n"
+      },
+      "verifyCmd": "python -m pytest -q test_reverse.py",
+      "targetFile": "solution.py",
+      "mockAnswer": "def reverse_words(s: str) -> str:\n    return ' '.join(reversed(s.split()))\n"
+    },
+    {
+      "id": "py-fix-slugify",
+      "language": "python",
+      "style": "fix",
+      "prompt": "The file `solution.py` contains a buggy `slugify(text: str) -> str` implementation. The tests in `test_slugify.py` are failing. Fix the implementation so all tests pass. Do not modify the tests.",
+      "files": {
+        "solution.py": "import re\n\n\ndef slugify(text: str) -> str:\n    # BUG: does not lowercase, and strips hyphens instead of collapsing them\n    text = re.sub(r'[^a-zA-Z0-9 ]', '', text)\n    parts = text.split()\n    return '_'.join(parts)\n",
+        "test_slugify.py": "from solution import slugify\n\n\ndef test_basic():\n    assert slugify('Hello World') == 'hello-world'\n\n\ndef test_punctuation():\n    assert slugify(\"It's a TEST!!\") == 'its-a-test'\n\n\ndef test_multiple_spaces():\n    assert slugify('  too   many   spaces ') == 'too-many-spaces'\n"
+      },
+      "verifyCmd": "python -m pytest -q test_slugify.py",
+      "targetFile": "solution.py",
+      "mockAnswer": "import re\n\n\ndef slugify(text: str) -> str:\n    text = text.lower()\n    text = re.sub(r\"[^a-z0-9\\s-]\", '', text)\n    parts = text.split()\n    return '-'.join(parts)\n"
+    },
+    {
+      "id": "ts-debounce",
+      "language": "typescript",
+      "style": "generation",
+      "prompt": "Implement a TypeScript function `debounce<T extends (...args: any[]) => void>(fn: T, ms: number)` in `solution.ts`. It returns a wrapped function that delays invoking `fn` until `ms` milliseconds have elapsed since the last call; the wrapper must expose a `cancel()` method that aborts a pending invocation. Export `debounce` as a named export.",
+      "files": {
+        "test.ts": "import assert from 'node:assert';\nimport { debounce } from './solution.ts';\n\nconst sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));\n\nasync function main() {\n  let calls = 0;\n  const d = debounce(() => { calls++; }, 30);\n  d(); d(); d();\n  await sleep(60);\n  assert.strictEqual(calls, 1, 'should collapse rapid calls into one');\n\n  const d2 = debounce(() => { calls++; }, 30);\n  d2();\n  d2.cancel();\n  await sleep(60);\n  assert.strictEqual(calls, 1, 'cancel should abort pending invocation');\n\n  console.log('OK');\n}\nmain().catch((err) => { console.error(err); process.exit(1); });\n"
+      },
+      "verifyCmd": "node --experimental-strip-types test.ts",
+      "targetFile": "solution.ts",
+      "mockAnswer": "export interface Debounced<A extends unknown[]> {\n  (...args: A): void;\n  cancel(): void;\n}\n\nexport function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): Debounced<Parameters<T>> {\n  let timer: ReturnType<typeof setTimeout> | undefined;\n  const wrapper = ((...args: Parameters<T>) => {\n    if (timer !== undefined) clearTimeout(timer);\n    timer = setTimeout(() => {\n      timer = undefined;\n      fn(...args);\n    }, ms);\n  }) as Debounced<Parameters<T>>;\n  wrapper.cancel = () => {\n    if (timer !== undefined) {\n      clearTimeout(timer);\n      timer = undefined;\n    }\n  };\n  return wrapper;\n}\n"
+    },
+    {
+      "id": "ts-group-by",
+      "language": "typescript",
+      "style": "generation",
+      "prompt": "Implement a generic TypeScript function `groupBy<T, K extends string | number>(items: T[], keyFn: (item: T) => K): Record<K, T[]>` in `solution.ts` that buckets items by the key returned from `keyFn`. Export `groupBy` as a named export.",
+      "files": {
+        "test.ts": "import assert from 'node:assert';\nimport { groupBy } from './solution.ts';\n\nconst words = ['cat', 'car', 'dog', 'doom'];\nconst byLen = groupBy(words, (w) => w.length);\nassert.deepStrictEqual(byLen[3], ['cat', 'car', 'dog']);\nassert.deepStrictEqual(byLen[4], ['doom']);\n\nassert.deepStrictEqual(groupBy([], () => 0), {});\nconsole.log('OK');\n"
+      },
+      "verifyCmd": "node --experimental-strip-types test.ts",
+      "targetFile": "solution.ts",
+      "mockAnswer": "export function groupBy<T, K extends string | number>(items: T[], keyFn: (item: T) => K): Record<K, T[]> {\n  const out = {} as Record<K, T[]>;\n  for (const item of items) {\n    const k = keyFn(item);\n    if (!out[k]) out[k] = [];\n    out[k].push(item);\n  }\n  return out;\n}\n"
+    },
+    {
+      "id": "ts-fix-parse-int",
+      "language": "typescript",
+      "style": "fix",
+      "prompt": "The file `solution.ts` has a buggy `parsePorts(spec: string): number[]` that should parse a comma-separated list of port numbers (e.g. '80,443, 8080'), trim whitespace, skip empty entries, and throw an Error on any non-numeric or out-of-range (not an integer in 1..65535) token. The test file `test.ts` is failing against the current implementation. Fix `solution.ts` only; do not modify `test.ts`. Keep the existing named export.",
+      "files": {
+        "solution.ts": "export function parsePorts(spec: string): number[] {\n  // BUG: no trimming, accepts NaN, no range check\n  return spec.split(',').map((s) => Number(s));\n}\n",
+        "test.ts": "import assert from 'node:assert';\nimport { parsePorts } from './solution.ts';\n\nassert.deepStrictEqual(parsePorts('80,443, 8080'), [80, 443, 8080]);\nassert.deepStrictEqual(parsePorts('443, ,80'), [443, 80]);\nassert.throws(() => parsePorts('80,abc'), /invalid/i);\nassert.throws(() => parsePorts('0'), /invalid|range/i);\nassert.throws(() => parsePorts('70000'), /invalid|range/i);\nassert.throws(() => parsePorts('80.5'), /invalid|range/i);\nconsole.log('OK');\n"
+      },
+      "verifyCmd": "node --experimental-strip-types test.ts",
+      "targetFile": "solution.ts",
+      "mockAnswer": "export function parsePorts(spec: string): number[] {\n  const out: number[] = [];\n  for (const raw of spec.split(',')) {\n    const s = raw.trim();\n    if (s === '') continue;\n    const n = Number(s);\n    if (!/^-?\\d+$/.test(s) || !Number.isInteger(n) || n < 1 || n > 65535) {\n      throw new Error(`invalid port: ${raw}`);\n    }\n    out.push(n);\n  }\n  return out;\n}\n"
+    },
+    {
+      "id": "sh-count-lines",
+      "language": "shell",
+      "style": "generation",
+      "prompt": "Create a POSIX shell script `solution.sh` that reads a file path as its first argument and prints the number of lines in that file followed by nothing else (equivalent to `wc -l` output but only the number). Exit code 0 on success.",
+      "files": {
+        "input.txt": "alpha\nbeta\ngamma\n"
+      },
+      "verifyCmd": "bash -c 'out=$(sh solution.sh input.txt | tr -d \"[:space:]\"); [ \"$out\" = \"3\" ] && echo OK || { echo FAIL got=$out; exit 1; }'",
+      "targetFile": "solution.sh",
+      "mockAnswer": "#!/bin/sh\nwc -l < \"$1\" | tr -d '[:space:]'\necho\n"
+    },
+    {
+      "id": "sh-fix-env-check",
+      "language": "shell",
+      "style": "fix",
+      "prompt": "The shell script `solution.sh` should print exactly `present` when the environment variable named by $1 is set (even if empty) and `missing` otherwise, exiting 0 in both cases. The current implementation is buggy. Fix `solution.sh` only. Use POSIX-compatible syntax that works under both dash and bash.",
+      "files": {
+        "solution.sh": "#!/bin/sh\n# BUG: uses [$1] which checks literal string, never the env var value\nif [ \"$1\" ]; then\n  echo present\nelse\n  echo missing\nfi\n",
+        "check.sh": "#!/bin/sh\nset -e\nout=$(FOO=bar sh solution.sh FOO | tr -d '[:space:]')\n[ \"$out\" = \"present\" ] || { echo \"FAIL set-case got=$out\"; exit 1; }\nout=$(env -u BAZ sh solution.sh BAZ | tr -d '[:space:]')\n[ \"$out\" = \"missing\" ] || { echo \"FAIL unset-case got=$out\"; exit 1; }\nout=$(EMPTY= sh solution.sh EMPTY | tr -d '[:space:]')\n[ \"$out\" = \"present\" ] || { echo \"FAIL empty-set-case got=$out\"; exit 1; }\necho OK\n"
+      },
+      "verifyCmd": "sh check.sh",
+      "targetFile": "solution.sh",
+      "mockAnswer": "#!/bin/sh\nif eval \"_v=\\${$1+set}\"; then\n  if [ \"$_v\" = \"set\" ]; then\n    echo present\n  else\n    echo missing\n  fi\nelse\n  echo missing\nfi\n"
+    }
+  ]
+}
