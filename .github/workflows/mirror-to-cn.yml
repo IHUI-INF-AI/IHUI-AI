@@ -53,6 +53,7 @@ jobs:
             exit 0
           fi
           echo "GITEE_OWNER 长度: ${#GITEE_OWNER}（应非 0）"
+          set -o pipefail
           REMOTE="https://${GITEE_OWNER}:${GITEE_TOKEN}@gitee.com/${GITEE_OWNER}/IHUI-AI.git"
           # 不用 --mirror:推 refs/remotes/origin/* 会被 Gitee 拒绝(deny hidden ref)
           # 改用 refspec:推 branches + tags,删除远端多余,不推 remote-tracking
@@ -72,12 +73,20 @@ jobs:
             exit 0
           fi
           echo "GITCODE_OWNER 长度: ${#GITCODE_OWNER}（应非 0）"
+          set -o pipefail
           REMOTE="https://${GITCODE_OWNER}:${GITCODE_TOKEN}@gitcode.com/${GITCODE_OWNER}/IHUI-AI.git"
           # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
           # 限定 main:--all 不带 ref 会扫描全部分支+tag 历史的 LFS 对象,是超时根因
           git lfs push --all "$REMOTE" main 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
           # 推 branches + tags（refspec，不推 remote-tracking）
-          GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"
+          # 2026-09-05 根治:管道后退出码曾是 sed 的,push 失败(403/redirect)被吞成 success——
+          # 现显式判定失败并 exit 1,让 Actions UI 直接可见真实错误
+          if ! OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1); then
+            echo "❌ GitCode push 失败（真实错误如下,token 已脱敏）:"
+            echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+            exit 1
+          fi
+          echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
           echo "✅ GitCode 镜像推送完成"
 
       - name: 同步结果汇总
