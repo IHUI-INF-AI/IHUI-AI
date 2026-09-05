@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
-import { Alert, Image, Platform, StyleSheet, View } from 'react-native'
+import { Alert, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
@@ -257,6 +257,9 @@ function isBindPhoneRequired(msg?: string | null): boolean {
 
 type LoginNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>
 
+// 协议二次确认弹窗记录的待执行登录方式(对齐历史 login.vue pendingLoginType)
+type PendingLoginAction = 'email' | 'phone' | 'password'
+
 export function LoginScreen() {
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
@@ -388,6 +391,10 @@ export function LoginScreen() {
   // ===== 协议同意 state =====
   const [agreed, setAgreed] = useState(false)
   const [agreementError, setAgreementError] = useState('')
+  // 协议二次确认弹窗(对齐历史 login-app/login.vue showAgreementModal):
+  // 未勾选协议点登录 → 记录待执行登录方式并弹窗,点「同意」自动勾选并继续登录
+  const [agreementModalVisible, setAgreementModalVisible] = useState(false)
+  const [pendingLoginAction, setPendingLoginAction] = useState<PendingLoginAction | null>(null)
 
   // ===== 第三方登录 loading 平台标识 =====
   const [thirdPartyLoadingPlatform, setThirdPartyLoadingPlatform] =
@@ -411,14 +418,17 @@ export function LoginScreen() {
   }, [phoneCountdown])
 
   // ===== 共用:检查协议同意 =====
-  const checkAgreement = useCallback((): boolean => {
+  // 未勾选时不再仅展示行内错误文案,改为弹出「确认同意服务条款」二次确认弹窗
+  // (对齐历史 login.vue user_login 的 showAgreementModal 分支),action 记录待继续的登录方式
+  const checkAgreement = useCallback((action: PendingLoginAction): boolean => {
     if (!agreed) {
-      setAgreementError(t('auth.agreeRequired'))
+      setAgreementError('')
+      setPendingLoginAction(action)
+      setAgreementModalVisible(true)
       return false
     }
-    setAgreementError('')
     return true
-  }, [agreed, t])
+  }, [agreed])
 
   // ===== email 验证码登录回调 =====
   const handleSendEmailCode = useCallback(async () => {
@@ -442,8 +452,8 @@ export function LoginScreen() {
     }
   }, [email, form])
 
-  const handleLoginByEmailCode = useCallback(async () => {
-    if (!checkAgreement()) return
+  // 实际邮箱验证码登录(不含协议检查,供协议弹窗「同意」后直接续登)
+  const performEmailLogin = useCallback(async () => {
     if (!email.trim() || !emailCode.trim()) {
       form.setError('auth.invalidCredentials')
       return
@@ -468,7 +478,12 @@ export function LoginScreen() {
     } finally {
       setEmailLoading(false)
     }
-  }, [email, emailCode, checkAgreement, form, navigateAfterLogin])
+  }, [email, emailCode, form, navigateAfterLogin])
+
+  const handleLoginByEmailCode = useCallback(() => {
+    if (!checkAgreement('email')) return
+    void performEmailLogin()
+  }, [checkAgreement, performEmailLogin])
 
   // ===== phone 验证码登录回调 =====
   // 提交只传手机号:对齐原 uniapp login.vue sendCode/gainCode(仅传 phoneNumber,区号 phoneHead 仅作展示,不参与提交)。
@@ -494,8 +509,8 @@ export function LoginScreen() {
     }
   }, [phone, form])
 
-  const handleLoginByPhoneCode = useCallback(async () => {
-    if (!checkAgreement()) return
+  // 实际手机验证码登录(不含协议检查,供协议弹窗「同意」后直接续登)
+  const performPhoneLogin = useCallback(async () => {
     if (!phone.trim() || !phoneCode.trim()) {
       form.setError('auth.invalidCredentials')
       return
@@ -521,13 +536,54 @@ export function LoginScreen() {
     } finally {
       setPhoneLoading(false)
     }
-  }, [phone, phoneCode, checkAgreement, form, navigateAfterLogin])
+  }, [phone, phoneCode, form, navigateAfterLogin])
+
+  const handleLoginByPhoneCode = useCallback(() => {
+    if (!checkAgreement('phone')) return
+    void performPhoneLogin()
+  }, [checkAgreement, performPhoneLogin])
 
   // ===== password 登录回调(注入协议检查) =====
-  const handlePasswordLogin = useCallback(async () => {
-    if (!checkAgreement()) return
+  // 实际密码登录(不含协议检查,供协议弹窗「同意」后直接续登)
+  const performPasswordLogin = useCallback(async () => {
     await form.login()
-  }, [checkAgreement, form])
+  }, [form])
+
+  const handlePasswordLogin = useCallback(() => {
+    if (!checkAgreement('password')) return
+    void performPasswordLogin()
+  }, [checkAgreement, performPasswordLogin])
+
+  // ===== 协议二次确认弹窗回调(对齐历史 login.vue confirmAgreement/closeAgreementModal) =====
+  const closeAgreementModal = useCallback(() => {
+    setAgreementModalVisible(false)
+    setPendingLoginAction(null)
+  }, [])
+
+  // 点「同意」:自动勾选协议 + 关闭弹窗 + 继续执行被拦截的登录(对齐历史 confirmAgreement)
+  const confirmAgreement = useCallback(() => {
+    setAgreed(true)
+    setAgreementError('')
+    setAgreementModalVisible(false)
+    const action = pendingLoginAction
+    setPendingLoginAction(null)
+    if (action === 'email') void performEmailLogin()
+    else if (action === 'phone') void performPhoneLogin()
+    else if (action === 'password') void performPasswordLogin()
+  }, [pendingLoginAction, performEmailLogin, performPhoneLogin, performPasswordLogin])
+
+  // 弹窗内「服务条款 / 隐私政策」链接:关闭弹窗后跳转对应页面(对齐历史 openAgreement)
+  const openAgreementFromModal = useCallback(() => {
+    setAgreementModalVisible(false)
+    setPendingLoginAction(null)
+    navigation.navigate('Agreement')
+  }, [navigation])
+
+  const openPrivacyFromModal = useCallback(() => {
+    setAgreementModalVisible(false)
+    setPendingLoginAction(null)
+    navigation.navigate('Privacy')
+  }, [navigation])
 
   // ===== OAuth 登录结果统一处理(apple/google/飞书/钉钉/企微 共用) =====
   // wechat 流程因 res 是 ApiResult<LoginResult>(非 OAuthRedirectResult),单独处理。
@@ -871,6 +927,58 @@ export function LoginScreen() {
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
+      {/* 协议二次确认弹窗(对齐历史 login-app/login.vue showAgreementModal):
+          未勾选协议点登录时弹出,「同意」自动勾选协议并继续被拦截的登录 */}
+      <Modal
+        visible={agreementModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeAgreementModal}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.agreementModalOverlay} onPress={closeAgreementModal}>
+          {/* 内层 Pressable 拦截卡片区域点击,避免点卡片误关弹窗(对齐历史 @click.stop) */}
+          <Pressable style={styles.agreementModalCard} onPress={() => {}}>
+            <View style={styles.agreementModalHeader}>
+              <Text style={styles.agreementModalTitle}>确认同意服务条款</Text>
+            </View>
+            <View style={styles.agreementModalBody}>
+              <Text style={styles.agreementModalText}>
+                您尚未同意服务条款和隐私政策。点击登录/注册按钮即表示您同意以下条款:
+              </Text>
+              <View style={styles.agreementModalLinks}>
+                <Text style={styles.agreementModalLink} onPress={openAgreementFromModal}>
+                  服务条款
+                </Text>
+                <Text style={styles.agreementModalLinkSeparator}>和</Text>
+                <Text style={styles.agreementModalLink} onPress={openPrivacyFromModal}>
+                  隐私政策
+                </Text>
+              </View>
+            </View>
+            <View style={styles.agreementModalFooter}>
+              <TouchableOpacity
+                style={styles.agreementModalCancelBtn}
+                onPress={closeAgreementModal}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="取消"
+              >
+                <Text style={styles.agreementModalCancelText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.agreementModalConfirmBtn}
+                onPress={confirmAgreement}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="同意"
+              >
+                <Text style={styles.agreementModalConfirmText}>同意</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
@@ -898,6 +1006,92 @@ const styles = StyleSheet.create({
   devFillText: {
     fontSize: 11,
     fontWeight: '600',
+    color: tokens.surface.light,
+  },
+  // 协议二次确认弹窗(对齐历史 login.vue .agreement-modal:白卡 580rpx / 圆角 24rpx,
+  // 取消白底描边、同意黑底白字,按钮高 88rpx、间距 8rpx)
+  agreementModalOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.overlay.modal,
+  },
+  agreementModalCard: {
+    width: rpx(580),
+    backgroundColor: tokens.surface.light,
+    borderRadius: rpx(24),
+    shadowColor: tokens.gray.black,
+    shadowOffset: { width: 0, height: rpx(12) },
+    shadowOpacity: 0.15,
+    shadowRadius: rpx(48),
+    elevation: 8,
+  },
+  agreementModalHeader: {
+    paddingTop: rpx(40),
+    paddingBottom: rpx(30),
+    paddingHorizontal: rpx(30),
+  },
+  agreementModalTitle: {
+    fontSize: rpx(36),
+    fontWeight: 'bold',
+    color: tokens.gray.black,
+    textAlign: 'center',
+  },
+  agreementModalBody: {
+    paddingHorizontal: rpx(30),
+    paddingBottom: rpx(30),
+  },
+  agreementModalText: {
+    fontSize: rpx(28),
+    lineHeight: rpx(50), // 对齐历史 line-height 1.8
+    color: tokens.gray.black,
+    textAlign: 'center',
+    marginBottom: rpx(20),
+  },
+  agreementModalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  agreementModalLink: {
+    fontSize: rpx(28),
+    color: tokens.gray.black,
+    textDecorationLine: 'underline',
+  },
+  agreementModalLinkSeparator: {
+    fontSize: rpx(28),
+    color: tokens.gray.black,
+    marginHorizontal: rpx(8),
+  },
+  agreementModalFooter: {
+    flexDirection: 'row',
+    gap: rpx(8),
+    padding: rpx(12),
+  },
+  agreementModalCancelBtn: {
+    flex: 1,
+    height: rpx(88),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.surface.light,
+    borderWidth: 1,
+    borderColor: tokens.border.light,
+    borderRadius: rpx(24),
+  },
+  agreementModalCancelText: {
+    fontSize: rpx(32),
+    color: tokens.gray.black,
+  },
+  agreementModalConfirmBtn: {
+    flex: 1,
+    height: rpx(88),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.brand.DEFAULT,
+    borderRadius: rpx(24),
+  },
+  agreementModalConfirmText: {
+    fontSize: rpx(32),
     color: tokens.surface.light,
   },
 })

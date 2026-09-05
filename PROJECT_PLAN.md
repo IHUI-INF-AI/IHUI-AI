@@ -3136,7 +3136,9 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-02) 前端 Tauri token vault:`apps/web/src/lib/desktop-token-vault.ts`(读写 auth.json refresh_token,浏览器空操作);`lib/api.ts` refreshAccessToken 改 body 模式(读 vault → `{refreshToken}` body,失败清 vault);`stores/auth.ts` setToken/setTokenWithPrefs/logout 同步 vault(登出从 vault 读回吊销);`sso-desktop-bridge.ts`/`playground-api.ts` 硬编码 8802 → env 尊重;web 补依赖 `@tauri-apps/plugin-store`。
 - [x] ✅(2026-09-02) 后端 CORS:`apps/api/src/server.ts` 固定放行 `http://tauri.localhost` / `tauri://localhost`(CORS 回调 + WS verifyClient,不依赖部署 env,与 chrome-extension 同安全论证);config 默认值 + .env.example/docker-compose 同步。本地 8802 预检实测 ACAO 回显通过;api/web typecheck 通过。
 - [x] ✅(2026-09-02) SaaS 构建入口:`scripts/desktop-build-saas.mjs` + `pnpm build:desktop:saas`(注入 NEXT_PUBLIC_API_BASE_URL/STREAM_API_BASE_URL/AI_SERVICE_URL=https://aizhs.top 后 tauri build)。
-- [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ nginx 路由已补齐(2026-09-05,commit 7c477a751b:/v1、/ws location 已加入 nginx-blue-green.conf),线上同步部署该配置后复测 playground / AI 直连功能。
+- [x] ✅(2026-09-05) **桌面 SaaS 生产前提全部实测通过 + 出包**:① CORS `tauri.localhost` 生产 preflight 实测 204+ACAO 回显(已部署生效);② 生产 /ws WebSocket 升级握手实测 101(线上 nginx 已配 /ws);③ 生产代码为最新构建(/api/browser/render 端点探针在,api 于收官 push 后重启);④ `pnpm build:desktop:saas` 出包完成(注入 https://aizhs.top + api.aizhs.top 实证)。**剩余仅物理动作**:装机安装实测登录/静默续期(重启免登录、15min 不登出)。
+- [ ] VPS nginx /v1 location 同步(线上实测 /v1/* 仍返回静态 HTML,未代理;仅影响 API Key/第三方 SDK 调用者,web 与桌面端链路不受影响;仓库配置已就绪 commit 7c477a751b,需有 VPS SSH 凭据者执行)。
+- [x] ✅(2026-09-05) **mobile-rn release APK 签名流水线端到端闭环**:真实 `assembleRelease` 出包 14m32s BUILD_SUCCESSFUL;产物 `outputs/ihui-mobile-release.apk`(121.7MB 全架构 fat APK);`apksigner verify --print-certs` 实证 Signer SHA-256 = ihui-release keystore 指纹(7a4ed2bc...a015 逐字节一致,DN=CN=IHUI-AI 自有证书非 debug)。注:keytool -printcert -jarfile 对 v2/v3-only 签名报"不是已签名的 jar"属 AGP 默认行为非失败;后续可选优化=ABI 分片瘦身(不阻塞)
 
 ## P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,提交 339be38791,跨端:web × miniapp-taro)
 

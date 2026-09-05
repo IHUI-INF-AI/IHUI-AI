@@ -6,15 +6,23 @@
  *
  * 用途:首次分享奖励引导。由 HomeScreen(进页自动检查)与 ChatScreen(分享成功后检查)共用。
  *
- * 设计说明(2026-09-05 重做,替换原白底 + 双黑按钮方案):
- * - 宽度封顶 380:原实现 width:'84%',桌面端(1402px)会撑到 1177px 横穿屏幕,现改为
+ * 设计说明(2026-09-05 重做):
+ * - 宽度封顶 380:原实现 width:'84%' 桌面端(1402px)会撑到 1177px 横穿屏幕,现改为
  *   width:'100%' + maxWidth,在移动端铺满、桌面端居中收敛。
  * - 编辑设计:黑金 masthead + 大号奖励数字 + 细规则线,弱化居中对称的"弹窗感"。
  * - 按钮层级:主按钮为唯一深色实心块;次按钮改为文字 + 细线,不再继承主按钮背景色
  *   (原 shareBtnSecondary 只设 marginTop,继承了黑色背景,导致两个黑块堆叠)。
+ *
+ * 实现说明(2026-09-05 v3):
+ * - 之前用 RN `<Modal>` 组件,在 RN Web 上会以 position:fixed 独立层渲染,内部
+ *   flex:1 高度计算依赖原生 measure,经常拿到 0 高度,导致卡片不显示(用户看到
+ *   只有淡蓝遮罩)。改为普通 `<View>` + `position:absolute` + `flex:1` 绝对定位
+ *   遮罩,直接铺满父容器,避免 Web Modal 的高度塌陷。
+ * - 用 Pressable absoluteFill 承载"点击遮罩关闭"的动作,与 mask 兄弟共存,
+ *   避免嵌套 Pressable 干扰内部按钮的命中测试。
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Gift, Share2, X } from 'lucide-react-native'
 
 export interface ShareValueModalProps {
@@ -35,90 +43,99 @@ export function ShareValueModal({
   onClose,
   onShare,
 }: ShareValueModalProps) {
+  if (!visible) return null
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.mask}>
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={onClose}
-          accessibilityRole="button"
-          accessibilityLabel="点击关闭"
-        />
-        <View style={styles.center}>
-          <View style={styles.card}>
-            {/* 关闭(卡片右上,弱化存在) */}
-            <Pressable
-              hitSlop={8}
-              onPress={onClose}
-              style={styles.close}
-              accessibilityRole="button"
-              accessibilityLabel="关闭"
-            >
-              <X size={14} color={tokens.text.tertiary} />
-            </Pressable>
+    <View style={styles.mask} pointerEvents="box-none">
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="点击关闭"
+      />
+      <View style={styles.center} pointerEvents="box-none">
+        <Pressable style={styles.card} onPress={(e) => e.stopPropagation()} pointerEvents="box-none">
+          {/* 关闭(卡片右上,弱化存在) */}
+          <Pressable
+            hitSlop={8}
+            onPress={onClose}
+            style={styles.close}
+            accessibilityRole="button"
+            accessibilityLabel="关闭"
+          >
+            <X size={14} color={tokens.text.tertiary} />
+          </Pressable>
 
-            {/* Masthead:黑金页眉 + 奖励数字 */}
-            <View style={styles.header}>
-              <View style={styles.headerTop}>
-                <View style={styles.eyebrowRow}>
-                  <Text style={styles.eyebrowMark}>“</Text>
-                  <Text style={styles.eyebrow}>{'FIRST SHARE · 首次分享礼遇'}</Text>
-                </View>
-                <Gift size={16} color={tokens.vip.gold} strokeWidth={1.5} />
+          {/* Masthead:黑金页眉 + 奖励数字 */}
+          <View style={styles.header} pointerEvents="none">
+            <View style={styles.headerTop}>
+              <View style={styles.eyebrowRow}>
+                <Text style={styles.eyebrowMark}>“</Text>
+                <Text style={styles.eyebrow}>{'FIRST SHARE · 首次分享礼遇'}</Text>
               </View>
-              <Text style={styles.rewardNumber}>{rewardPoints}</Text>
-              <View style={styles.unitRow}>
-                <Text style={styles.unit}>智汇值</Text>
-                <View style={styles.rule} />
-              </View>
+              <Gift size={16} color={tokens.vip.gold} strokeWidth={1.5} />
             </View>
-
-            {/* Body */}
-            <Text style={styles.title}>分享领智汇值</Text>
-            <Text style={styles.desc}>
-              首次分享成功,获得 <Text style={styles.descAccent}>{rewardPoints}</Text>{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-
-            {/* Actions */}
-            <Pressable
-              onPress={onClaim}
-              style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`领取 ${rewardPoints} 智汇值`}
-            >
-              <Text style={styles.primaryBtnText}>领取 {rewardPoints} 智汇值</Text>
-            </Pressable>
-            {onShare && (
-              <Pressable
-                onPress={onShare}
-                style={({ pressed }) => [
-                  styles.secondaryBtn,
-                  pressed && { backgroundColor: tokens.surface.muted },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="立即分享邀请好友"
-              >
-                <Text style={styles.secondaryBtnText}>立即分享邀请好友</Text>
-                <Share2 size={13} color={tokens.text.secondary} />
-              </Pressable>
-            )}
-            <Text style={styles.footer}>奖励领取后自动计入账户 · 每人限领一次</Text>
+            <Text style={styles.rewardNumber}>{rewardPoints}</Text>
+            <View style={styles.unitRow}>
+              <Text style={styles.unit}>智汇值</Text>
+              <View style={styles.rule} />
+            </View>
           </View>
-        </View>
+
+          {/* Body */}
+          <Text style={styles.title} pointerEvents="none">分享领智汇值</Text>
+          <Text style={styles.desc} pointerEvents="none">
+            首次分享成功,获得 <Text style={styles.descAccent}>{rewardPoints}</Text>{' '}
+            智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+          </Text>
+
+          {/* Actions */}
+          <Pressable
+            onPress={onClaim}
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+            accessibilityRole="button"
+            accessibilityLabel={`领取 ${rewardPoints} 智汇值`}
+          >
+            <Text style={styles.primaryBtnText}>领取 {rewardPoints} 智汇值</Text>
+          </Pressable>
+          {onShare && (
+            <Pressable
+              onPress={onShare}
+              style={({ pressed }) => [
+                styles.secondaryBtn,
+                pressed && { backgroundColor: tokens.surface.muted },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="立即分享邀请好友"
+            >
+              <Text style={styles.secondaryBtnText}>立即分享邀请好友</Text>
+              <Share2 size={13} color={tokens.text.secondary} />
+            </Pressable>
+          )}
+          <Text style={styles.footer} pointerEvents="none">
+            奖励领取后自动计入账户 · 每人限领一次
+          </Text>
+        </Pressable>
       </View>
-    </Modal>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   mask: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: tokens.overlay.modal,
-    position: 'relative',
+    zIndex: 1000,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   center: {
     flex: 1,
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -130,6 +147,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
   },
   close: {
     position: 'absolute',

@@ -279,17 +279,18 @@ const newStyles = StyleSheet.create({
     padding: 8,
   },
   avatarWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+    // 对齐 Uniapp pages/table/user/UserInfoCard.vue .avatar-img:163rpx(≈82dp) 圆角 15rpx 白底
+    width: rpx(163),
+    height: rpx(163),
+    borderRadius: rpx(15),
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
     borderWidth: 1,
     borderColor: tokens.indigo.light,
   },
   avatar: {
-    width: 60,
-    height: 60,
+    width: rpx(163),
+    height: rpx(163),
     resizeMode: 'cover',
   },
   infoWrap: {
