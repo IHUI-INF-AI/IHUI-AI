@@ -2161,7 +2161,8 @@
       "selfMedia": "자체 미디어 운영",
       "knowledgeTools": "지식 그래프와 도구",
       "models": "모델 플랫폼",
-      "more": "더보기"
+      "more": "더보기",
+      "workspace": "AI 워크스페이스"
     },
     "eduAi": {
       "policy": "정책 해설",
@@ -2216,6 +2217,7 @@
       "eval": "모델 평가"
     },
     "workspace": "워크스페이스",
+    "workspacePermissions": "워크스페이스 권한",
     "tags": "태그",
     "topics": "토픽",
     "context": "컨텍스트 관리",
