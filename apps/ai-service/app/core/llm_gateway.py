@@ -420,6 +420,13 @@ _AUTO_FREE_PREFIXES = (
 # auto 路由需排除,避免选了不可用模型(详见 _resolve_auto_model available 过滤)。
 _LOCAL_PREFIXES = ("ollama/", "lmstudio/", "llamacpp/", "vllm/")
 
+# 自动路由显式排除模型(2026-09-05 立):本部署 openai key 无余额(no credits)且
+# agnes 聚合端点无 gpt-4o 通道,任何把任务升级到 gpt-4o 的尝试都会失败
+# (Connection error / No available channel)。auto-route 直接选 stepfun 稳定模型即可,
+# 避免无效升级 + 兜底重试浪费。仅影响 auto 路由候选;显式指定 gpt-4o 的请求仍走
+# FallbackRouter(gpt-4o -> stepfun/step-3.7-flash 兜底)。
+_AUTO_ROUTE_EXCLUDED = ("gpt-4o", "openai/gpt-4o")
+
 
 def _infer_tier_from_model_id(model_id: str) -> int:
     """根据 model_id 关键词推断 tier(0=免费 / 1=经济 / 3=标准 / 10=高级 / 30=旗舰)。"""
@@ -514,6 +521,9 @@ async def _resolve_auto_model(
         premium_pool: list[dict[str, Any]] = []  # tier 10-30
         for m in available:
             mid = m["id"]
+            # 显式排除本部署不可用的 gpt-4o(openai 无额度 + agnes 无通道)
+            if mid in _AUTO_ROUTE_EXCLUDED:
+                continue
             if any(mid.startswith(p) or mid.startswith(p.rstrip("/"))
                    for p in _AUTO_FREE_PREFIXES):
                 free_pool.append(mid)
