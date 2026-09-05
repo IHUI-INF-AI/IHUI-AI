@@ -101,12 +101,13 @@ const RSS_FEEDS_OFFICIAL: Array<{
   categorySlug?: string
 }> = [
   { source: 'openai', url: 'https://openai.com/blog/rss.xml', kind: 'news', categorySlug: 'chat' },
-  {
-    source: 'anthropic',
-    url: 'https://www.anthropic.com/news/rss.xml',
-    kind: 'news',
-    categorySlug: 'chat',
-  },
+  // 2026-09-05 复核:以下官方源已死,剔除并替换(实测记录见行尾)
+  // - anthropic:/news/rss.xml 404(官方停供)
+  // - meta-ai:ai.meta.com/blog/rss/ 400
+  // - microsoft-ai:blogs.microsoft.com 000(反爬阻断)
+  // - stability-ai:返回 Squarespace HTML 壳,非 RSS
+  // - cohere:返回 Next.js HTML 壳,非 RSS
+  // 替代:google-ai / meta-engineering / aws-ml / qwen-blog(下)
   {
     source: 'deepmind',
     url: 'https://deepmind.google/blog/rss.xml',
@@ -114,16 +115,28 @@ const RSS_FEEDS_OFFICIAL: Array<{
     categorySlug: 'multimodal',
   },
   {
-    source: 'meta-ai',
-    url: 'https://ai.meta.com/blog/rss/',
-    kind: 'news',
-    categorySlug: 'multimodal',
-  },
-  {
-    source: 'microsoft-ai',
-    url: 'https://blogs.microsoft.com/ai/feed/',
+    source: 'google-ai',
+    url: 'https://blog.google/technology/ai/rss/',
     kind: 'news',
     categorySlug: 'platform',
+  },
+  {
+    source: 'meta-engineering',
+    url: 'https://engineering.fb.com/feed/',
+    kind: 'news',
+    categorySlug: 'platform',
+  },
+  {
+    source: 'aws-ml',
+    url: 'https://aws.amazon.com/blogs/machine-learning/feed/',
+    kind: 'news',
+    categorySlug: 'platform',
+  },
+  {
+    source: 'qwen-blog',
+    url: 'https://qwenlm.github.io/blog/index.xml',
+    kind: 'news',
+    categorySlug: 'chat',
   },
   {
     source: 'huggingface-blog',
@@ -131,14 +144,7 @@ const RSS_FEEDS_OFFICIAL: Array<{
     kind: 'news',
     categorySlug: 'platform',
   },
-  {
-    source: 'stability-ai',
-    url: 'https://stability.ai/news/rss.xml',
-    kind: 'news',
-    categorySlug: 'image',
-  },
-  { source: 'mistral-ai', url: 'https://mistral.ai/rss.xml', kind: 'news', categorySlug: 'chat' },
-  { source: 'cohere', url: 'https://cohere.com/blog/rss.xml', kind: 'news', categorySlug: 'chat' },
+  { source: 'mistral-ai', url: 'https://mistral.ai/rss.xml', kind: 'news', categorySlug: 'chat' }, // 2026-09-05 复核:RSS 有效(20 条),此前误判死亡,保留
   {
     source: 'nvidia-ai',
     url: 'https://blogs.nvidia.com/blog/category/deep-learning/feed/',
@@ -171,7 +177,8 @@ const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = 
     url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml',
     kind: 'news',
   },
-  { source: 'venturebeat-ai', url: 'https://venturebeat.com/category/ai/feed/', kind: 'news' },
+  // 2026-09-05 复核剔除:venturebeat 429 限流、the-information 403 付费墙
+  // 替代:marktechpost / kdnuggets / unite-ai(AI 专媒,实测 10-25 条/源)
   { source: 'mit-tech-review', url: 'https://www.technologyreview.com/feed/', kind: 'news' },
   { source: 'wired-ai', url: 'https://www.wired.com/feed/tag/ai/latest/rss', kind: 'news' },
   {
@@ -179,8 +186,10 @@ const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = 
     url: 'https://feeds.arstechnica.com/arstechnica/features',
     kind: 'news',
   },
-  { source: 'the-information', url: 'https://www.theinformation.com/feed/', kind: 'news' },
   { source: 'stratechery', url: 'https://stratechery.com/feed/', kind: 'news' },
+  { source: 'marktechpost', url: 'https://www.marktechpost.com/feed/', kind: 'news' },
+  { source: 'kdnuggets', url: 'https://www.kdnuggets.com/feed', kind: 'news' },
+  { source: 'unite-ai', url: 'https://www.unite.ai/feed/', kind: 'news' },
 ]
 
 /** 国内 AI 媒体 RSS(走自建 RSSHub,2026-09-05 深度根治后的存活清单) */
@@ -757,7 +766,7 @@ async function fetchGithubTrending(): Promise<FetchedItem[]> {
 
 /** Cloudflare 挑战类域名:直接 fetch 必 403,失败时走 ai-service Playwright 渲染兜底(2026-09-05 新增) */
 const BROWSER_FALLBACK_HOST_RE =
-  /(?:^|\.)(?:openai\.com|claude\.ai|midjourney\.com|leonardo\.ai|ideogram\.ai|sora\.com|perplexity\.ai|theinformation\.com)$/i
+  /(?:^|\.)(?:openai\.com|claude\.ai|midjourney\.com|leonardo\.ai|ideogram\.ai|sora\.com|perplexity\.ai|theinformation\.com|01\.ai|codeium\.com|console\.mistral\.ai)$/i
 
 /** 解析官网 HTML 元数据(title + meta description + og:image),fetchSiteMeta 与浏览器兜底共用 */
 function parseSiteMetaHtml(
