@@ -288,6 +288,10 @@
     "aiWorld": "AI World",
     "imageGen": "Image Gen",
     "publish": "Publish",
+    "spec": "Spec Templates",
+    "selfMedia": "Self-Media",
+    "context": "Context Engine",
+    "pdfTools": "Doc to Markdown",
     "webPortal": "Web Version",
     "webPortalCenter": "Web Feature Portal",
     "knowledgeRag": "RAG Knowledge",
@@ -2178,6 +2182,49 @@
     "cancelConfirm": "Cancel this task?",
     "retryTask": "Retry",
     "operateFailed": "Operation failed, please retry"
+  },
+  "spec": {
+    "title": "Spec Templates",
+    "loadFailed": "Failed to load templates",
+    "empty": "No templates",
+    "desktopHint": "Template browsing is for reference only; Spec generation requires a server-side workspace path — use the full flow on Web/Desktop"
+  },
+  "selfMedia": {
+    "title": "Self-Media Assistant",
+    "tabSkills": "Skills",
+    "tabRecords": "Records",
+    "loadFailed": "Failed to load",
+    "promptRequired": "Please enter your request",
+    "promptPlaceholder": "Describe what you want to create…",
+    "invoke": "Invoke Skill",
+    "invoking": "Generating…",
+    "invokeFailed": "Skill invocation failed, please retry",
+    "duration": "Took {{ms}} ms",
+    "share": "Share",
+    "empty": "No generation/publish records"
+  },
+  "context": {
+    "title": "Context Engine",
+    "loadFailed": "Failed to load stats",
+    "totalEvents": "Compactions",
+    "avgRatio": "Avg Compression",
+    "avgQuality": "Avg Quality",
+    "recentEvents": "Recent Compaction Events",
+    "tokensRange": "{{before}} → {{after}} tokens · compressed {{ratio}} · quality {{quality}}",
+    "mentionsSearch": "Context Mention Search",
+    "mentionsPlaceholder": "Search files/tables/symbols…",
+    "empty": "No matches"
+  },
+  "pdfTools": {
+    "title": "Doc to Markdown",
+    "hint": "Supports PDF/Word/Excel/PPT/TXT/CSV, max 10MB per file; converted to Markdown server-side after upload",
+    "pick": "Pick Document",
+    "converting": "Converting…",
+    "unsupportedType": "Unsupported file type",
+    "tooLarge": "File exceeds the 10MB limit",
+    "uploadFailed": "Upload failed, please retry",
+    "convertFailed": "Conversion failed, please retry",
+    "share": "Share"
   },
   "imageGen": {
     "title": "Image Gen",
