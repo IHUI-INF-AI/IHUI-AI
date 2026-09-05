@@ -3,10 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { listPublishTasks, type PublishTask } from '@ihui/api-client'
+import { cancelPublishTask, listPublishTasks, retryPublishTask, type PublishTask } from '@ihui/api-client'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -109,6 +109,44 @@ export function PublishScreen() {
   const successCount = items.filter((i) => i.status === 'success').length
   const failedCount = items.filter((i) => i.status === 'failed' || i.status === 'partial').length
 
+  // 任务操作:pending/running 可取消,failed/partial 可重试(web /publish/history 同款规则)
+  const [operatingId, setOperatingId] = useState<string | null>(null)
+
+  const onCancelTask = (task: PublishTask) => {
+    Alert.alert(t('publish.cancelTitle'), t('publish.cancelConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        style: 'destructive',
+        onPress: async () => {
+          setOperatingId(String(task.id))
+          try {
+            const res = await cancelPublishTask(String(task.id))
+            if (!res.success) throw new Error(res.error)
+            await load()
+          } catch {
+            Alert.alert(t('publish.operateFailed'))
+          } finally {
+            setOperatingId(null)
+          }
+        },
+      },
+    ])
+  }
+
+  const onRetryTask = async (task: PublishTask) => {
+    setOperatingId(String(task.id))
+    try {
+      const res = await retryPublishTask(String(task.id))
+      if (!res.success) throw new Error(res.error)
+      await load()
+    } catch {
+      Alert.alert(t('publish.operateFailed'))
+    } finally {
+      setOperatingId(null)
+    }
+  }
+
   if (loading) {
     return (
       <View className={`flex-1 items-center justify-center ${resolvedTheme === 'dark' ? 'bg-neutral-900' : 'bg-white'}`}>
@@ -190,6 +228,28 @@ export function PublishScreen() {
                 </Text>
                 {item.errorMessage ? (
                   <Text className="mt-1.5 text-xs text-red-500" numberOfLines={2}>{item.errorMessage}</Text>
+                ) : null}
+                {(item.status === 'pending' || item.status === 'running' || item.status === 'failed' || item.status === 'partial') ? (
+                  <View className="mt-2 flex-row gap-2">
+                    {(item.status === 'pending' || item.status === 'running') ? (
+                      <TouchableOpacity
+                        onPress={() => onCancelTask(item)}
+                        disabled={operatingId === String(item.id)}
+                        className="rounded-md border border-gray-200 px-2.5 py-1 dark:border-neutral-600"
+                      >
+                        <Text className="text-xs text-gray-500">{t('publish.cancelTask')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    {(item.status === 'failed' || item.status === 'partial') ? (
+                      <TouchableOpacity
+                        onPress={() => void onRetryTask(item)}
+                        disabled={operatingId === String(item.id)}
+                        className="rounded-md bg-blue-600 px-2.5 py-1"
+                      >
+                        <Text className="text-xs text-white">{t('publish.retryTask')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 ) : null}
               </View>
             )

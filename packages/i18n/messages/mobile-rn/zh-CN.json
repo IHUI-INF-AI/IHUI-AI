@@ -2172,14 +2172,33 @@
     "scheduled": "已排期",
     "statsFailed": "统计加载失败",
     "statsSuccess": "发布成功",
-    "statsTotal": "总计"
+    "statsTotal": "总计",
+    "cancelTask": "取消任务",
+    "cancelTitle": "取消发布任务",
+    "cancelConfirm": "确定取消该任务吗?",
+    "retryTask": "重试",
+    "operateFailed": "操作失败,请重试"
   },
   "imageGen": {
     "title": "图像生成",
     "historyEmpty": "暂无生成历史",
     "favoritesEmpty": "暂无收藏",
     "loadFailed": "加载失败",
-    "promptFallback": "未命名作品"
+    "promptFallback": "未命名作品",
+    "create": "生成",
+    "createTitle": "AI 生成图像",
+    "promptPlaceholder": "描述你想生成的画面…",
+    "promptRequired": "请输入画面描述",
+    "sizeSquare": "方形 1:1",
+    "sizePortrait": "竖版 9:16",
+    "sizeLandscape": "横版 16:9",
+    "generate": "开始生成",
+    "generating": "生成中…",
+    "genFailed": "生成失败,请重试",
+    "saveToAlbum": "保存到相册",
+    "saveSuccess": "已保存到相册",
+    "saveFailed": "保存失败,请重试",
+    "needPermission": "需要媒体库权限才能保存"
   },
   "webView": {
     "loadFailed": "页面加载失败",
