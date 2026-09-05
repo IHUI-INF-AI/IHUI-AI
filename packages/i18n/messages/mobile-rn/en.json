@@ -2172,14 +2172,33 @@
     "scheduled": "Scheduled",
     "statsFailed": "Failed to load stats",
     "statsSuccess": "Published",
-    "statsTotal": "Total"
+    "statsTotal": "Total",
+    "cancelTask": "Cancel",
+    "cancelTitle": "Cancel Publish Task",
+    "cancelConfirm": "Cancel this task?",
+    "retryTask": "Retry",
+    "operateFailed": "Operation failed, please retry"
   },
   "imageGen": {
     "title": "Image Gen",
     "historyEmpty": "No generation history",
     "favoritesEmpty": "No favorites",
     "loadFailed": "Failed to load",
-    "promptFallback": "Untitled"
+    "promptFallback": "Untitled",
+    "create": "Create",
+    "createTitle": "AI Image Generation",
+    "promptPlaceholder": "Describe the image you want…",
+    "promptRequired": "Please enter a prompt",
+    "sizeSquare": "Square 1:1",
+    "sizePortrait": "Portrait 9:16",
+    "sizeLandscape": "Landscape 16:9",
+    "generate": "Generate",
+    "generating": "Generating…",
+    "genFailed": "Generation failed, please retry",
+    "saveToAlbum": "Save to album",
+    "saveSuccess": "Saved to album",
+    "saveFailed": "Save failed, please retry",
+    "needPermission": "Media library permission required"
   },
   "webView": {
     "loadFailed": "Failed to load page",
