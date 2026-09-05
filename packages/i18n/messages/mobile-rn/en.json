@@ -179,20 +179,6 @@
     "amount": "Amount",
     "empty": "No orders"
   },
-  "userOrder": {
-    "title": "My Orders",
-    "searchPlaceholder": "Search my orders",
-    "tabAll": "All",
-    "tabPending": "Unpaid",
-    "tabShipped": "Shipped",
-    "tabCompleted": "Completed",
-    "tabRefunded": "Refunded",
-    "orderNo": "Order No.",
-    "orderTime": "Order Time",
-    "empty": "No order information",
-    "loading": "Loading...",
-    "loadFailed": "Failed to load orders"
-  },
   "agent": {
     "config": "Config",
     "runtimeTitle": "Runtime",
@@ -983,24 +969,6 @@
     "withdrawFailed": "Withdrawal failed",
     "withdrawSuccess": "Withdrawal successful"
   },
-  "distributionPersonnel": {
-    "listTitle": "My Invited Team",
-    "detailTitle": "Sub-members I Invited",
-    "teamTotal": "Total team members",
-    "tabOrders": "Orders Closed",
-    "tabInviteTime": "Invite Time",
-    "fieldTransaction": "Transaction Volume",
-    "fieldCommission": "Commission Earned",
-    "fieldOrderNum": "Orders Closed",
-    "fieldInviteTime": "Invite Time",
-    "fieldContribution": "Contribution",
-    "fieldPhone": "Phone",
-    "contact": "Contact",
-    "searchPlaceholder": "Search my team",
-    "empty": "No matching users found",
-    "loadFailed": "Failed to load team",
-    "paramError": "Invalid parameters"
-  },
   "earnCommission": {
     "title": "Commission Program",
     "introTitle": "Invite Friends, Earn Commissions",
@@ -1493,10 +1461,7 @@
     "tab_indirect": "Indirect",
     "status_active": "Active",
     "status_inactive": "Inactive",
-    "searchPlaceholder": "Search team members",
-    "sortByOrders": "Orders",
-    "sortByInviteTime": "Invite date",
-    "datePlaceholder": "Enter date YYYY-MM-DD"
+    "searchPlaceholder": "Search team members"
   },
   "teamDetail": {
     "title": "Team Member Details",
@@ -2147,7 +2112,32 @@
     "deleteFailed": "Delete failed",
     "source": "Source",
     "updatedAt": "Updated",
-    "loginRequired": "Please sign in"
+    "loginRequired": "Please sign in",
+    "all": "All",
+    "scope": {
+      "global": "Global",
+      "user": "User",
+      "session": "Session",
+      "project": "Project"
+    },
+    "type": {
+      "preference": "Preference",
+      "convention": "Convention",
+      "decision": "Decision",
+      "fact": "Fact",
+      "feedback": "Feedback",
+      "skill_ref": "Skill Ref"
+    },
+    "searchPlaceholder": "Search memory text / category…",
+    "create": "New",
+    "createTitle": "New Memory",
+    "textPlaceholder": "Memory text (required, max 2000 chars)…",
+    "categoryPlaceholder": "Category (e.g. UI preference)",
+    "typeLabel": "Type",
+    "scopeLabel": "Scope",
+    "save": "Save",
+    "saveFailed": "Save failed",
+    "textRequired": "Memory text is required"
   },
   "aiWorld": {
     "title": "AI World",
@@ -2157,7 +2147,21 @@
     "history": "History",
     "kindLabel": "Kind",
     "loadFailed": "Failed to load",
-    "viewCount": "views"
+    "viewCount": "views",
+    "tools": "Tools",
+    "apps": "Apps",
+    "news": "News",
+    "rankings": "Rankings",
+    "searchPlaceholder": "Search AI tools / apps / news…",
+    "categoryAll": "All",
+    "rank": "Rank",
+    "model": "Model",
+    "provider": "Provider",
+    "score": "Score",
+    "votes": "Votes",
+    "rankLoadFailed": "Failed to load rankings",
+    "rankEmpty": "No data for this leaderboard",
+    "updateAt": "Updated"
   },
   "publish": {
     "title": "Content Publish",
