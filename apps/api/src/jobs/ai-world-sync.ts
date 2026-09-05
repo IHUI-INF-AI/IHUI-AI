@@ -246,7 +246,8 @@ const AI_APPS: Array<{ source: string; name: string; url: string; category: stri
   { source: 'zhipu', name: 'Zhipu', url: 'https://chatglm.cn', category: 'chat' },
   { source: 'minimax', name: 'MiniMax', url: 'https://www.minimaxi.com', category: 'chat' },
   { source: 'baichuan', name: 'Baichuan', url: 'https://www.baichuan-ai.com', category: 'chat' },
-  { source: 'yi', name: 'Yi', url: 'https://www.01.ai', category: 'chat' },
+  // yi(01.ai) 已删除(2026-09-05):全同步实测 111/112 唯一失败源——直连/代理/真浏览器
+  // (Playwright)均 ERR_CONNECTION_CLOSED,站点 TCP 级不可达,确认死亡。
   { source: 'spark', name: 'Spark', url: 'https://xinghuo.xfyun.cn', category: 'chat' },
   { source: 'hunyuan', name: 'Hunyuan', url: 'https://hunyuan.tencent.com', category: 'chat' },
   { source: 'skywork', name: 'Skywork', url: 'https://chat.tiangong.cn', category: 'chat' },
