@@ -14,6 +14,7 @@
  */
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native'
+import { rpx } from '../utils/rpx'
 
 export interface StudyBarItem {
   key: string
@@ -52,12 +53,12 @@ export default function StudyBar({ items, activeKey, onChange }: StudyBarProps):
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginBottom: 9,
+    marginBottom: rpx(18), // 对齐 study/bar.vue margin-bottom: 18rpx
   },
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 2,
+    padding: rpx(2), // 对齐 study/bar.vue padding: 2rpx
     borderRadius: 8,
     backgroundColor: tokens.surface.card,
     borderWidth: 1,
@@ -65,8 +66,8 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    height: 26,
-    marginHorizontal: 3,
+    height: rpx(52), // 对齐 study/bar.vue height: 52rpx
+    marginHorizontal: rpx(4), // 对齐 .bar_item padding: 4rpx 0(水平内边距)
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,

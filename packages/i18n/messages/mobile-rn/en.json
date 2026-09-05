@@ -179,6 +179,20 @@
     "amount": "Amount",
     "empty": "No orders"
   },
+  "userOrder": {
+    "title": "My Orders",
+    "searchPlaceholder": "Search my orders",
+    "tabAll": "All",
+    "tabPending": "Unpaid",
+    "tabShipped": "Shipped",
+    "tabCompleted": "Completed",
+    "tabRefunded": "Refunded",
+    "orderNo": "Order No.",
+    "orderTime": "Order Time",
+    "empty": "No order information",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load orders"
+  },
   "agent": {
     "config": "Config",
     "runtimeTitle": "Runtime",
@@ -969,6 +983,24 @@
     "withdrawFailed": "Withdrawal failed",
     "withdrawSuccess": "Withdrawal successful"
   },
+  "distributionPersonnel": {
+    "listTitle": "My Invited Team",
+    "detailTitle": "Sub-members I Invited",
+    "teamTotal": "Total team members",
+    "tabOrders": "Orders Closed",
+    "tabInviteTime": "Invite Time",
+    "fieldTransaction": "Transaction Volume",
+    "fieldCommission": "Commission Earned",
+    "fieldOrderNum": "Orders Closed",
+    "fieldInviteTime": "Invite Time",
+    "fieldContribution": "Contribution",
+    "fieldPhone": "Phone",
+    "contact": "Contact",
+    "searchPlaceholder": "Search my team",
+    "empty": "No matching users found",
+    "loadFailed": "Failed to load team",
+    "paramError": "Invalid parameters"
+  },
   "earnCommission": {
     "title": "Commission Program",
     "introTitle": "Invite Friends, Earn Commissions",
@@ -1461,7 +1493,10 @@
     "tab_indirect": "Indirect",
     "status_active": "Active",
     "status_inactive": "Inactive",
-    "searchPlaceholder": "Search team members"
+    "searchPlaceholder": "Search team members",
+    "sortByOrders": "Orders",
+    "sortByInviteTime": "Invite date",
+    "datePlaceholder": "Enter date YYYY-MM-DD"
   },
   "teamDetail": {
     "title": "Team Member Details",

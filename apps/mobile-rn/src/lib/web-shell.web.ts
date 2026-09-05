@@ -6,12 +6,13 @@
 // 浏览器窗口远宽于手机,直接铺满会导致布局拉伸变形;
 // 注入全局样式把 #root 约束为手机宽度(430px)并居中,
 // 两侧深色留白 + 投影模拟手机视口。native 端不加载此文件。
+import { rnLightTokens as tokens } from '@ihui/design-tokens'
 
 const css = `
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: #020617;
+  background: ${tokens.brand.DEFAULT};
   display: flex;
   justify-content: center;
 }
@@ -19,7 +20,7 @@ body {
   width: 100%;
   max-width: 430px;
   height: 100dvh;
-  background: #0f172a;
+  background: ${tokens.surface.dark};
   box-shadow: 0 0 48px rgba(0, 0, 0, 0.55);
   /* 模拟手机屏幕裁剪:真机屏幕外的内容不可见,web 端需显式裁掉
      (如 GlobalFloatBox 收起时滑出右缘的浮窗,否则会画到壳外留白区) */

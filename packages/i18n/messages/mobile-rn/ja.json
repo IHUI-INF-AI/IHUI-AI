@@ -179,6 +179,20 @@
     "amount": "金額",
     "empty": "注文がありません"
   },
+  "userOrder": {
+    "title": "マイ注文",
+    "searchPlaceholder": "注文を検索",
+    "tabAll": "すべて",
+    "tabPending": "未払い",
+    "tabShipped": "発送済み",
+    "tabCompleted": "完了",
+    "tabRefunded": "返金済み",
+    "orderNo": "注文番号",
+    "orderTime": "注文日時",
+    "empty": "注文情報がありません",
+    "loading": "読み込み中...",
+    "loadFailed": "注文の読み込みに失敗しました"
+  },
   "agent": {
     "config": "設定",
     "runtimeTitle": "ランタイム",
@@ -969,6 +983,24 @@
     "withdrawFailed": "出金に失敗",
     "withdrawSuccess": "出金に成功"
   },
+  "distributionPersonnel": {
+    "listTitle": "招待したチーム",
+    "detailTitle": "招待した下位メンバー",
+    "teamTotal": "チーム総人数",
+    "tabOrders": "成約注文数",
+    "tabInviteTime": "招待日時",
+    "fieldTransaction": "取引額",
+    "fieldCommission": "獲得手数料",
+    "fieldOrderNum": "成約注文数",
+    "fieldInviteTime": "招待日時",
+    "fieldContribution": "貢献度",
+    "fieldPhone": "電話番号",
+    "contact": "連絡",
+    "searchPlaceholder": "チームを検索",
+    "empty": "該当するユーザーが見つかりません",
+    "loadFailed": "チームの読み込みに失敗しました",
+    "paramError": "パラメータエラー"
+  },
   "earnCommission": {
     "title": "コミッションプラン",
     "introTitle": "友達を招待してコミッションを獲得",
@@ -1461,7 +1493,10 @@
     "tab_indirect": "間接",
     "status_active": "アクティブ",
     "status_inactive": "非アクティブ",
-    "searchPlaceholder": "メンバーを検索"
+    "searchPlaceholder": "メンバーを検索",
+    "sortByOrders": "成約件数",
+    "sortByInviteTime": "招待日時",
+    "datePlaceholder": "日付を入力 YYYY-MM-DD"
   },
   "teamDetail": {
     "title": "チームメンバー詳細",
