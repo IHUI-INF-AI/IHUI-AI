@@ -55,6 +55,7 @@ import { CODEGRAPH_TOOLS, enableCodegraphIncremental, persistCodegraphCache } fr
 import { createSubagentTool } from '../tools/subagent.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
 import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 import { resolveSandboxOptions } from '../sandbox/index.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
@@ -946,6 +947,30 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   // true/'auto' → 携带 tools 下发;false → 完全走 prompt 正则路径;auto 探测失败自动降级
   let nativeToolsEnabled = nativeToolsMode !== false;
 
+  // 生态扩展:本地 provider(Ollama / vLLM openai-compatible)直连采样。
+  // resolveProvider 返回 kind 时,runToolLoop 用 streamOpenAiCompatible 替换默认 streamChat 远端路径;
+  // 未配置本地 provider 时 kind 为 undefined,零回归。
+  const localProvider = resolveProvider(settings);
+  /** tool 结果消息的 tool_call_id 队列(与 OpenAI 协议对齐,按流内 tool_calls 顺序消费) */
+  const pendingToolCallIds: string[] = [];
+
+  /** 把内部消息列表映射为 OpenAI 兼容消息(role 'tool' 补 tool_call_id) */
+  function toOpenAiMessages(
+    msgs: Array<{ role: string; content: string }>,
+  ): ChatCompletionMessage[] {
+    return msgs.map((m) => {
+      const role = m.role as ChatCompletionMessage['role'];
+      if (role === 'tool') {
+        return {
+          role,
+          content: m.content,
+          tool_call_id: pendingToolCallIds.shift() ?? '',
+        };
+      }
+      return { role, content: m.content };
+    });
+  }
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
@@ -1010,7 +1035,39 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           },
         );
 
-      let samplerResult = await doSample(useNativeTools);
+      // 本地 provider(Ollama/vLLM)单次采样:错误语义与 sampleWithRetry 对齐(不抛出,返回 { error })
+      const sampleOnceLocal = async (withTools: boolean): Promise<{ error?: string }> => {
+        const result = await streamOpenAiCompatible({
+          url: localProvider.chatCompletionsUrl!,
+          model: localProvider.model || opts.modelId,
+          messages: toOpenAiMessages(effectiveMessages),
+          ...(withTools && nativeExtraBody
+            ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
+            : {}),
+          ...(opts.sampler?.temperature !== undefined
+            ? { temperature: opts.sampler.temperature }
+            : {}),
+          ...(opts.sampler?.maxTokens !== undefined
+            ? { maxTokens: opts.sampler.maxTokens }
+            : {}),
+          signal: opts.signal,
+          onDelta: (delta) => {
+            iterationText += delta;
+            void opts.onDelta?.(delta);
+          },
+        });
+        for (const tc of result.toolCalls) {
+          nativeToolEvents.push({ name: tc.name, arguments: tc.arguments });
+          pendingToolCallIds.push(tc.id);
+        }
+        return result.error ? { error: result.error } : {};
+      };
+
+      const sampleOnce = localProvider.kind
+        ? (withTools: boolean) => sampleOnceLocal(withTools)
+        : (withTools: boolean) => doSample(withTools);
+
+      let samplerResult = await sampleOnce(useNativeTools);
 
       // auto 探测降级:provider 拒绝 tools("not supported")→ 本轮降级 prompt 模式重试,后续不再携带 tools
       if (samplerResult.error && useNativeTools && isToolsUnsupportedError(samplerResult.error)) {
@@ -1018,7 +1075,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         iterationText = '';
         nativeToolEvents = [];
         process.stderr.write(chalk.dim('[native-fc] provider 不支持原生 tools,降级为 prompt 模式\n'));
-        samplerResult = await doSample(false);
+        samplerResult = await sampleOnce(false);
       }
 
       if (samplerResult.error) {
@@ -1487,7 +1544,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   // P3-2 Telemetry:默认开启(2026-08-31 改,补全 CLI 埋点盲区)。
   // endpoint 未配置时默认上报到项目自身 /api/analytics/track(与 web/mobile 同一张表)。
   // 用户可在设置里 telemetry.enabled = false 显式关闭;关闭时 track 调用 no-op(零回归)。
-  if (codegraphSettings.telemetry?.enabled === true) {
+  // offline 模式下跳过(不初始化、不上报)。
+  if (codegraphSettings.telemetry?.enabled === true && codegraphSettings.offline !== true) {
     const defaultEndpoint = `${(codegraphSettings.apiUrl || 'http://localhost:8802').replace(/\/+$/, '')}/api/analytics/track`
     initTelemetry({
       enabled: true,
