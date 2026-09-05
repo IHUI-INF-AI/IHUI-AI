@@ -38,9 +38,6 @@ import { SecuritySettingsScreen } from '../screens/SecuritySettingsScreen'
 import { PrivacyScreen } from '../screens/PrivacyScreen'
 import { AgreementScreen } from '../screens/AgreementScreen'
 import { AboutScreen } from '../screens/AboutScreen'
-import { DistributionPersonnelListScreen } from '../screens/DistributionPersonnelListScreen'
-import { DistributionPersonnelDetailScreen } from '../screens/DistributionPersonnelDetailScreen'
-import { UserOrderListScreen } from '../screens/UserOrderListScreen'
 import { HelpScreen } from '../screens/HelpScreen'
 import { FeedbackScreen } from '../screens/FeedbackScreen'
 import { CustomerServiceScreen } from '../screens/CustomerServiceScreen'
@@ -134,7 +131,7 @@ import { BookmarkScreen } from '../screens/BookmarkScreen'
 import { ShareScreen } from '../screens/ShareScreen'
 import { useTheme } from '../context/ThemeContext'
 import { SharedDemoScreen } from '../screens/SharedDemoScreen'
-import AigcCoverScreen, { type AigcCoverParams } from '../screens/AigcCoverScreen'
+import AigcCoverScreen from '../screens/AigcCoverScreen'
 import AigcPublishScreen from '../screens/AigcPublishScreen'
 import { LearnScreen } from '../screens/LearnScreen'
 import NewsScreen from '../screens/NewsScreen'
@@ -216,6 +213,7 @@ import { PublishScreen } from '../screens/PublishScreen'
 import { WebViewScreen } from '../screens/WebViewScreen'
 import { ChatToolsScreen } from '../screens/ChatToolsScreen'
 import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
+import { ImageGenCreateScreen } from '../screens/ImageGenCreateScreen'
 // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体(双端功能矩阵 P0/P1 补齐)
 import { WebPortalScreen } from '../screens/WebPortalScreen'
 import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
@@ -269,9 +267,6 @@ export type RootStackParamList = {
   Ranking: undefined
   Promote: undefined
   Distribution: undefined
-  DistributionPersonnelList: undefined
-  DistributionPersonnelDetail: { id: string }
-  UserOrderList: undefined
   Team: undefined
   // Finance(2026-09-04 收敛):仅 /wallet/balance 余额概览,与 Wallet 重叠,路由删除,入口并入 Wallet
   Withdraw: undefined
@@ -369,7 +364,7 @@ export type RootStackParamList = {
   Share: undefined
   SharedDemo: undefined
   Recharge: undefined
-  AigcCover: AigcCoverParams
+  AigcCover: { id: string; title: string }
   AigcPublish: undefined
   // H10-H18 新增路由(复刻 Uniapp 缺失页面)
   Learn: undefined
@@ -428,6 +423,7 @@ export type RootStackParamList = {
   AiWorld: undefined
   Publish: undefined
   ImageGenHistory: undefined
+  ImageGenCreate: undefined
   // M4(2026-08-26):通用 WebView 承载页
   WebView: { url: string; title?: string }
   // P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(复用 web /chat,补齐工具能力)
@@ -532,9 +528,6 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Ranking" component={RankingScreen} />
             <RootStack.Screen name="Promote" component={PromoteScreen} />
             <RootStack.Screen name="Distribution" component={DistributionScreen} />
-            <RootStack.Screen name="DistributionPersonnelList" component={DistributionPersonnelListScreen} />
-            <RootStack.Screen name="DistributionPersonnelDetail" component={DistributionPersonnelDetailScreen} />
-            <RootStack.Screen name="UserOrderList" component={UserOrderListScreen} />
             <RootStack.Screen name="Team" component={TeamScreen} />
             <RootStack.Screen name="Withdraw" component={WithdrawScreen} />
             <RootStack.Screen name="BankCard" component={BankCardScreen} />
@@ -700,6 +693,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="AiWorld" component={AiWorldScreen} />
             <RootStack.Screen name="Publish" component={PublishScreen} />
             <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
+            <RootStack.Screen name="ImageGenCreate" component={ImageGenCreateScreen} />
             {/* M4(2026-08-26):通用 WebView 承载页 */}
             <RootStack.Screen name="WebView" component={WebViewScreen} />
             {/* P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏 */}
