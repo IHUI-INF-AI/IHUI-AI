@@ -19,6 +19,55 @@ import * as crypto from 'node:crypto';
 import type { Tool, ToolResult } from './index.js';
 import { matchDangerousCommand, isReadonlyCommand } from './command-safety.js';
 import { runPreToolCall } from '../hooks/index.js';
+import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
+import { loadSettings, type SandboxSettings } from '../commands/settings.js';
+
+// ==================== 沙箱接入(默认关闭,向后兼容) ====================
+
+/** 扩展 SandboxSettings 读取 enabled 开关(旧 settings 文件无此字段时视为未启用) */
+type SandboxSettingsWithEnabled = SandboxSettings & { enabled?: boolean };
+
+/**
+ * 判断沙箱是否启用(默认关闭,保持向后兼容)。
+ * 开关来源(OR 语义):
+ *   - 环境变量 IHUI_SANDBOX_ENABLED=1/true
+ *   - settings 文件中 sandbox.enabled=true
+ */
+function isSandboxEnabled(): boolean {
+  const envFlag = process.env.IHUI_SANDBOX_ENABLED;
+  if (envFlag === '1' || envFlag === 'true') return true;
+  if (envFlag === '0' || envFlag === 'false') return false;
+  const sb = loadSettings().sandbox as SandboxSettingsWithEnabled | undefined;
+  return sb?.enabled === true;
+}
+
+/** 从用户 settings 构造沙箱策略(workspaceRoot 为传入的基准目录) */
+export function buildSandboxPolicy(workspaceRoot: string): SandboxPolicy {
+  const sb = loadSettings().sandbox as SandboxSettingsWithEnabled | undefined;
+  return {
+    workspaceRoot,
+    allowRead: sb?.allowedPaths,
+    allowWrite: sb?.allowedPaths,
+    commandAllowlist: sb?.commandAllowlist,
+    blockedEnvVars: sb?.blockedEnvVars,
+  };
+}
+
+/**
+ * 沙箱内一次性执行命令的统一入口(供其他模块复用)。
+ * 沙箱未启用时抛错(调用方自行降级到直接执行路径)。
+ */
+export async function execSandboxedEntry(
+  commandLine: string,
+  workspaceRoot: string,
+  cwd?: string,
+): Promise<Awaited<ReturnType<typeof execSandboxed>>> {
+  if (!isSandboxEnabled()) {
+    throw new Error('沙箱未启用(默认关闭):设置 settings.sandbox.enabled=true 或环境变量 IHUI_SANDBOX_ENABLED=1');
+  }
+  const policy = buildSandboxPolicy(workspaceRoot);
+  return execSandboxed(policy, commandLine, { cwd });
+}
 
 // ==================== node-pty 动态加载(参考 API 端 terminal-service.ts)====================
 
@@ -196,6 +245,19 @@ export const terminal_open: Tool = {
     }
     const preResult = runPreToolCall('terminal', { command, cwd: args.cwd ?? ctx.workspacePath });
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+    // 沙箱预检(sandbox.enabled=true 时生效;默认关闭,完全向后兼容)
+    if (isSandboxEnabled()) {
+      const sandboxCwd = (args.cwd as string) || ctx.workspacePath;
+      const decision = precheckSandboxedCommand(buildSandboxPolicy(sandboxCwd), command);
+      if (!decision.allowed) {
+        return {
+          success: false,
+          output: '',
+          error: `沙箱策略拒绝该命令: ${decision.violations.map((v) => `[${v.kind}] ${v.message}`).join('; ')}`,
+        };
+      }
+    }
 
     // 清理超时会话 + 限额检查
     pruneStaleSessions();
@@ -385,6 +447,40 @@ export const terminal_close: Tool = {
       success: true,
       output: `会话 ${sessionId} 已关闭(command: ${session.command}, exitCode: ${session.exitCode ?? '-'})`,
     };
+  },
+};
+
+export const terminal_exec_sandboxed: Tool = {
+  name: 'terminal_exec_sandboxed',
+  description: '在 OS 级沙箱内一次性执行命令(策略白名单 + 路径授权 + 资源限制,输出受控)。需沙箱已启用(settings.sandbox.enabled=true 或 IHUI_SANDBOX_ENABLED=1)。参数:command(命令),cwd(可选,默认工作区根)。',
+  dangerLevel: 'dangerous',
+  parameters: {
+    command: { type: 'string', description: '要在沙箱内执行的命令' },
+    cwd: { type: 'string', description: '工作目录(默认工作区根目录)' },
+  },
+  required: ['command'],
+  async execute(args, ctx): Promise<ToolResult> {
+    const command = args.command as string;
+    if (!command) return { success: false, output: '', error: '缺少 command 参数' };
+    if (!isSandboxEnabled()) {
+      return {
+        success: false,
+        output: '',
+        error: '沙箱未启用(默认关闭):在 settings 中设置 sandbox.enabled=true,或设置环境变量 IHUI_SANDBOX_ENABLED=1',
+      };
+    }
+    const cwd = (args.cwd as string) || ctx.workspacePath;
+    const policy = buildSandboxPolicy(cwd);
+    try {
+      const result = await execSandboxed(policy, command, { cwd });
+      const meta = `backend=${result.backend} exitCode=${result.exitCode ?? '-'}${result.timedOut ? ' (超时强杀)' : ''}${result.truncated ? ' (输出已截断)' : ''}`;
+      if (result.refused) {
+        return { success: false, output: '', error: `沙箱拒绝执行(${meta}):\n${result.stderr}` };
+      }
+      return { success: (result.exitCode ?? 1) === 0, output: `[${meta}]\n${result.stdout}${result.stderr ? `\n[stderr]\n${result.stderr}` : ''}`.trimEnd() };
+    } catch (e) {
+      return { success: false, output: '', error: `沙箱执行失败: ${(e as Error).message}` };
+    }
   },
 };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

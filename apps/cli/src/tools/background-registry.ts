@@ -14,6 +14,8 @@
 
 import type { ChildProcess } from 'node:child_process';
 import * as crypto from 'node:crypto';
+// Worktree 并行隔离层:后台任务结束后自动清理其 worktree
+import { cleanupWorktree } from './worktree.js';
 
 export type BackgroundTaskStatus = 'running' | 'exited' | 'killed' | 'error';
 
@@ -29,6 +31,10 @@ export interface BackgroundTask {
   stderrBuf: string;
   truncated: boolean;
   timedOut: boolean;
+  /** 后台任务关联的 worktree 路径(可选,注册时记录,任务结束自动清理) */
+  worktreePath?: string;
+  /** worktree 对应的源仓库路径(清理时作为 git 命令工作目录) */
+  worktreeSourcePath?: string;
 }
 
 export interface BackgroundTaskMeta {
@@ -38,6 +44,8 @@ export interface BackgroundTaskMeta {
   exitedAt?: string;
   exitCode?: number | null;
   status: BackgroundTaskStatus;
+  /** 后台任务关联的 worktree 路径(可选) */
+  worktreePath?: string;
 }
 
 const MAX_COMPLETED_TASKS = 100;
@@ -49,8 +57,25 @@ function genId(): string {
   return `bg_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
 }
 
-/** 注册一个后台任务,返回 task id。 */
-export function registerTask(process: ChildProcess | null, command: string): string {
+/** 清理任务关联的 worktree(收尾调用,失败吞掉不阻塞) */
+function cleanupTaskWorktree(task: BackgroundTask): void {
+  if (!task.worktreePath) return;
+  cleanupWorktree(task.worktreePath, task.worktreeSourcePath ?? process.cwd(), true);
+  task.worktreePath = undefined;
+}
+
+/**
+ * 注册一个后台任务,返回 task id。
+ *
+ * @param opts.worktreePath 可选 — 任务关联的 worktree 路径(Worktree 并行隔离层),
+ *                          记录在任务上,任务结束(error/close)时自动清理
+ * @param opts.worktreeSourcePath 可选 — worktree 对应的源仓库路径(默认 process.cwd())
+ */
+export function registerTask(
+  process: ChildProcess | null,
+  command: string,
+  opts?: { worktreePath?: string; worktreeSourcePath?: string },
+): string {
   const id = genId();
   const task: BackgroundTask = {
     id,
@@ -62,6 +87,8 @@ export function registerTask(process: ChildProcess | null, command: string): str
     stderrBuf: '',
     truncated: false,
     timedOut: false,
+    worktreePath: opts?.worktreePath,
+    worktreeSourcePath: opts?.worktreeSourcePath,
   };
   tasks.set(id, task);
 
@@ -87,6 +114,8 @@ export function registerTask(process: ChildProcess | null, command: string): str
     process.on('error', () => {
       task.status = 'error';
       task.exitedAt = new Date().toISOString();
+      // 任务异常结束,自动清理关联 worktree
+      cleanupTaskWorktree(task);
       pruneCompleted();
     });
     process.on('close', (code, signal) => {
@@ -99,6 +128,8 @@ export function registerTask(process: ChildProcess | null, command: string): str
         task.status = 'exited';
       }
       task.process = null;
+      // 任务结束,自动清理关联 worktree
+      cleanupTaskWorktree(task);
       pruneCompleted();
     });
   }
@@ -141,6 +172,7 @@ export function listTasks(): BackgroundTaskMeta[] {
       exitedAt: t.exitedAt,
       exitCode: t.exitCode,
       status: t.status,
+      worktreePath: t.worktreePath,
     });
   }
   return list.sort((a, b) => b.startedAt.localeCompare(a.startedAt));

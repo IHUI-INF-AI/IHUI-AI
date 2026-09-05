@@ -42,6 +42,9 @@ const ENV_MAPPING: Record<string, { path: string; type: 'string' | 'number' | 'b
   IHUI_SAMPLER_MAX_TOKENS: { path: 'sampler.maxTokens', type: 'number' },
   IHUI_SANDBOX_PROFILE: { path: 'sandbox.profile', type: 'string' },
   IHUI_COMPACTION_V2_ENABLED: { path: 'compactionV2.enabled', type: 'boolean' },
+  IHUI_PROVIDER: { path: 'provider', type: 'string' },
+  IHUI_PROVIDER_BASE_URL: { path: 'providerBaseUrl', type: 'string' },
+  IHUI_OFFLINE: { path: 'offline', type: 'boolean' },
 }
 
 /** 布尔真值集合(小写) */
