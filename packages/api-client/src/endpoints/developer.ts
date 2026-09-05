@@ -437,4 +437,35 @@ export interface DeveloperApiKeyItem {
 export async function getDeveloperApiKeys(): Promise<ApiResult<{ list: DeveloperApiKeyItem[] }>> {
   return fetchApi<{ list: DeveloperApiKeyItem[] }>('/developer/api-keys')
 }
+
+/** 开发者信息聚合(对齐后端 GET /api/developer/dev-info:账号 + 订阅 + 密钥摘要 + 申请信息) */
+export interface DeveloperDevInfo {
+  /** 登录账号信息(email/phone/nickname/username,可能为 null) */
+  account: {
+    email: string | null
+    phone: string | null
+    nickname: string | null
+    username: string | null
+  } | null
+  /** 有效订阅(无订阅为 null) */
+  subscription: DeveloperSubscriptionInfo | null
+  /** API 密钥摘要(不含 secret;firstActiveKey 为公开标识 key,可安全展示/复制) */
+  apiKeys: {
+    count: number
+    activeCount: number
+    firstActiveKey: string | null
+  }
+  /** 开发者申请信息(未申请为 null;website 来自 developer_applications.website) */
+  developer: {
+    name: string
+    description: string | null
+    status: number
+    website: string | null
+  } | null
+}
+
+/** 开发者信息聚合(单次调用替代 subscription + api-keys + info 三连拼装) */
+export async function getDeveloperDevInfo(): Promise<ApiResult<DeveloperDevInfo>> {
+  return fetchApi<DeveloperDevInfo>('/api/developer/dev-info')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
