@@ -35,7 +35,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
+    # push 触发时 inputs.environment 为空,默认 production(保证 environment 级 secrets 可用)
+    environment: ${{ inputs.environment || 'production' }}
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
