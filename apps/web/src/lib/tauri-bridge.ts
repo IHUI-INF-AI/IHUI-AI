@@ -45,6 +45,17 @@ export function getLocalizedAppName(): string {
   return 'IHUI AI'
 }
 
+/**
+ * 设置桌面端窗口标题(仅 Tauri 环境生效,浏览器下 no-op)。
+ * 2026-09-06 立:产品名本地化(用户决策:中文→智汇AI,其他→IHUI AI),
+ * 应用内切换语言时由 I18nProvider 调用同步窗口标题;
+ * 启动时的初始标题由 Rust 端按系统 UI 语言设置(lib.rs localized_app_name)。
+ */
+export async function setWindowTitle(title: string): Promise<void> {
+  if (!isTauri()) return
+  await getCurrentWindow().setTitle(title)
+}
+
 /** 非 Tauri 环境统一抛错(用于文件读写等无安全默认值的场景)。 */
 function requireTauri(): void {
   if (!isTauri()) {

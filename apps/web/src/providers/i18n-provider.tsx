@@ -29,6 +29,7 @@ import { useEffect } from 'react'
 import { mergeMessages } from '@ihui/i18n/loader'
 import type { Messages } from '@ihui/i18n/types'
 import { useLanguageStore } from '@/stores/language'
+import { isTauri, setWindowTitle } from '@/lib/tauri-bridge'
 
 // 静态 import 所有 locale 的 messages(shared + web),构建时打包,运行时 O(1) 查找
 import sharedZhCN from '@ihui/i18n/messages/shared/zh-CN.json'
@@ -64,6 +65,18 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setInitialized(true)
   }, [setInitialized])
+
+  // 2026-09-06 产品名本地化(用户决策:中文→智汇AI,其他→IHUI AI)。
+  // 仅桌面端(Tauri)同步窗口标题与 document.title;web 端 SEO 标题由 Next metadata 管理,不动。
+  // 启动时 Rust 端已按系统 UI 语言设置初始标题(lib.rs localized_app_name),
+  // 此处响应应用内语言切换。__TAURI_INTERNALS__ 注入有 100-500ms 延迟,
+  // 首次未就绪时由 Rust 端默认标题兜底,不重试(避免与页面标题更新竞争)。
+  useEffect(() => {
+    if (!isTauri()) return
+    const brand = locale.startsWith('zh') ? '智汇AI' : 'IHUI AI'
+    document.title = brand
+    setWindowTitle(brand).catch(() => {})
+  }, [locale])
 
   const messages = MESSAGES_MAP[locale] ?? MESSAGES_MAP['zh-CN']
 
