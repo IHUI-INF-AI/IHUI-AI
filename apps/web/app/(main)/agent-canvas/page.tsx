@@ -1,0 +1,22 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+import type { Metadata } from 'next'
+import { AgentCanvasClient } from './AgentCanvasClient'
+
+export const metadata: Metadata = {
+  title: 'Agent Canvas — 可视化任务编排 | 智汇 AI',
+  description:
+    'Agent Canvas 可视化任务编排:拖拽 agent/tool/human-review 节点组建 DAG,一键运行并实时流式追踪节点日志。',
+  alternates: {
+    canonical: '/agent-canvas',
+    languages: {
+      'x-default': '/agent-canvas',
+      en: '/en/agent-canvas',
+    },
+  },
+}
+
+export default function Page() {
+  return <AgentCanvasClient />
+}

@@ -32,6 +32,8 @@ import {
   type SubagentState,
 } from '../subagents/state-store.js';
 import { createWorktree, createWorktreeWithFallback, removeWorktree } from '../subagents/worktree.js';
+// Worktree 并行隔离层:可选注入,提供后 worktree 隔离走统一的 WorktreeManager(agent-wt-* 分支)
+import { type WorktreeManager } from './worktree.js';
 import { PERSONAS_CONTRACTS, type JSONSchema } from '../personas/index.js';
 import type { SubagentPersona, CapabilityMode, IsolationMode } from '@ihui/types';
 import { resolveEffectiveOverrides } from '../subagents/precedence.js';
@@ -166,6 +168,13 @@ export interface SubagentParentOptions {
   precedenceEnabled?: boolean;
   /** HunkTracker(可选,透传给子 agent 的 file-edit 工具,启用 hunk 级冲突检测 + 改动归属追踪) */
   hunkTracker?: HunkTracker;
+  /**
+   * WorktreeManager(可选)— Git Worktree 并行隔离层。
+   * 提供后 isolation='worktree' 时优先走 WorktreeManager 创建隔离工作区
+   * (目录 .worktrees/<agent-id>,分支 agent-wt-<uuid8>,并发不冲突),
+   * 任务完成后自动输出 worktree diff 供主 agent 审阅合并;未提供时走原有逻辑,零回归。
+   */
+  worktreeManager?: WorktreeManager;
   /** 自定义 role map(覆盖默认 DEFAULT_ROLES,仅在 precedenceEnabled=true 时生效) */
   customRoles?: RoleMap;
   /** 自定义 persona map(覆盖默认 PERSONAS_AS_PERSONA_MAP,仅在 precedenceEnabled=true 时生效) */
@@ -278,12 +287,30 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
 
       let effectiveWorkspace = parentOpts.workspacePath;
       let worktreeCreated = false;
+      // WorktreeManager 注入标记:走 manager 创建/清理,并在完成后输出 diff 供主 agent 合并
+      let usedWorktreeManager = false;
+      let worktreeBranch: string | undefined;
       if (isolation === 'worktree') {
         if (resumedState?.worktreePath && resumedState.worktreePath.length > 0) {
           effectiveWorkspace = resumedState.worktreePath;
-        } else {
+        } else if (parentOpts.worktreeManager) {
+          // 路径 A(可选注入):WorktreeManager 统一隔离层(.worktrees/<id> 目录 + agent-wt-<uuid8> 分支)
           try {
-            // feature flag 关闭(默认):走原 git worktree add(零回归);启用时走 CoW 快路径+ fallback
+            const wt = parentOpts.worktreeManager.create(subagentId);
+            effectiveWorkspace = wt.path;
+            worktreeBranch = wt.branch;
+            worktreeCreated = true;
+            usedWorktreeManager = true;
+          } catch (err) {
+            return {
+              success: false,
+              output: '',
+              error: `worktree 创建失败: ${err instanceof Error ? err.message : String(err)}`,
+            };
+          }
+        } else {
+          // 路径 B(原有逻辑):feature flag 关闭(默认)走原 git worktree add;启用时走 CoW 快路径+ fallback
+          try {
             const useFastPath = parentOpts.worktreeFastPathEnabled === true;
             const wt = useFastPath
               ? await createWorktreeWithFallback(parentId, subagentId, parentOpts.workspacePath, true)
@@ -397,9 +424,23 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
           }
 
           const summary = text.length > 2000 ? text.slice(0, 2000) + '\n...(子 agent 输出超过 2000 字符,已截断)' : text;
+
+          // WorktreeManager 隔离:任务完成后输出 worktree diff,供主 agent 审阅合并
+          let diffSection = '';
+          if (usedWorktreeManager && parentOpts.worktreeManager) {
+            try {
+              const wtDiff = parentOpts.worktreeManager.diff(subagentId);
+              if (wtDiff.trim().length > 0) {
+                diffSection = `\n\n[worktree diff — 分支 ${worktreeBranch ?? 'agent-wt-*'},供主 agent 审阅合并]\n${wtDiff}`;
+              }
+            } catch {
+              // diff 失败不阻塞子 agent 结果返回
+            }
+          }
+
           return {
             success: result.stopReason !== 'error',
-            output: `[子 agent 完成 — ${result.iterations} 轮, stopReason: ${result.stopReason}]\n${summary}`,
+            output: `[子 agent 完成 — ${result.iterations} 轮, stopReason: ${result.stopReason}]\n${summary}${diffSection}`,
           };
         } finally {
           if (registryChanged) {
@@ -439,9 +480,14 @@ export function createSubagentTool(parentOpts: SubagentParentOptions): Tool {
         if (worktreeCreated && isolation === 'worktree') {
           if (stopReason === 'completed' && !keepWorktree) {
             try {
-              removeWorktree(effectiveWorkspace, { sourcePath: parentOpts.workspacePath, force: true });
+              if (usedWorktreeManager && parentOpts.worktreeManager) {
+                // WorktreeManager 路径:remove 并清理 agent-wt-* 分支
+                parentOpts.worktreeManager.remove(subagentId, { force: true, deleteBranch: true });
+              } else {
+                removeWorktree(effectiveWorkspace, { sourcePath: parentOpts.workspacePath, force: true });
+              }
             } catch {
-              // worktree 清理失败不阻塞主流程,保留供后续手动清理
+              // worktree 清理失败不阻塞主流程,保留供后续手动清理(cleanupStale 兜底)
             }
           }
         }

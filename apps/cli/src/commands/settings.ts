@@ -254,6 +254,30 @@ export interface Settings {
       httpBackoff?: boolean;
     };
   };
+  /**
+   * 生态扩展:本地模型 Provider 直连(Ollama / vLLM 等 OpenAI 兼容端点)。
+   *
+   * 取值:
+   *   - 'ollama'            → OpenAI 兼容端点直连,baseUrl 默认 http://localhost:11434/v1
+   *   - 'openai-compatible' → 通用 OpenAI 兼容 API(vLLM / llama.cpp server / LM Studio 等),
+   *                            必须配合 providerBaseUrl,例:http://localhost:8000/v1
+   *   - 未设置              → 沿用远端后端 apiUrl + streamChat(零回归)
+   *
+   * 配置示例(~/.ihui/settings.json):
+   *   { "provider": "ollama", "defaultModel": "qwen2.5:7b" }
+   *   { "provider": "openai-compatible", "providerBaseUrl": "http://localhost:8000/v1", "defaultModel": "Qwen/Qwen2.5-7B-Instruct" }
+   * 也可用环境变量:IHUI_PROVIDER / IHUI_PROVIDER_BASE_URL。
+   */
+  provider?: 'ollama' | 'openai-compatible';
+  /** 本地 provider 的 OpenAI 兼容 baseUrl(含 /v1);provider='ollama' 时可省略用默认值 */
+  providerBaseUrl?: string;
+  /**
+   * 离线模式(默认 false)。开启后:
+   *   1. 跳过所有需要网络的启动检查:更新检测、遥测上报、公告拉取、远端模型列表;
+   *   2. 用户未显式配置 apiUrl/provider 时,采样路径兜底指向本地 Ollama。
+   * 环境变量:IHUI_OFFLINE=1。
+   */
+  offline?: boolean;
 }
 
 export interface SamplerSettings {
@@ -480,6 +504,8 @@ export function resolveEffectiveConfig(args: {
   sandboxBlockedEnvVars: string[];
   sampler?: SamplerSettings;
   permissionMode: PermissionMode;
+  /** 离线模式(来自合并后 settings.offline) */
+  offline: boolean;
 } {
   const settings = loadSettingsV2(args);
 
@@ -555,6 +581,7 @@ export function resolveEffectiveConfig(args: {
     sandboxBlockedEnvVars,
     sampler,
     permissionMode,
+    offline: settings.offline === true,
   };
 }
 

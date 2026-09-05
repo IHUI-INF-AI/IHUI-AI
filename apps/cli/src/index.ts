@@ -335,8 +335,12 @@ program.hook('preAction', async () => {
     }
     setTokenProvider({ getToken: () => cfg.apiKey });
   }
-  // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过)
-  if (opts.updateCheck !== false && process.env.IHUI_NO_UPDATE_CHECK !== '1') {
+  // P1-15 异步触发更新检查(--no-update-check 或 IHUI_NO_UPDATE_CHECK=1 时跳过;offline 模式跳过)
+  if (
+    cfg.offline !== true &&
+    opts.updateCheck !== false &&
+    process.env.IHUI_NO_UPDATE_CHECK !== '1'
+  ) {
     notifyUpdates();
   }
 });
