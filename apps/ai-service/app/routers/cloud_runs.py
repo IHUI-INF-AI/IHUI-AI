@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from ..core.jwt_auth import get_current_user_id
+from ..services.audit_log import audit_log_store
 from ..services.cloud_run_store import cloud_run_store
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,8 @@ async def create_cloud_run(
         user_id=user_id,
     )
     logger.info("cloud-runs start run=%s user=%s status=%s", run.run_id, user_id, run.status)
+    # 审计示例接入(2026-09-06):云运行创建属于关键业务操作,落审计日志
+    audit_log_store.record("cloud_run.create", str(user_id), run.run_id, {"task": run.task[:100]})
     return {"code": 0, "message": "ok", "data": run.to_dict()}
 
 
@@ -84,6 +87,8 @@ async def complete_cloud_run(
     logger.info(
         "cloud-runs complete run=%s user=%s status=%s", run_id, user_id, run.status
     )
+    # 审计示例接入(2026-09-06):运行结束落审计(含最终状态)
+    audit_log_store.record("cloud_run.complete", str(user_id), run_id, {"status": run.status})
     return {"code": 0, "message": "ok", "data": run.to_dict()}
 
 

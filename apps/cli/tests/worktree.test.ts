@@ -28,6 +28,15 @@ import {
   getGitDirKind,
   type CowKind,
 } from '../src/worktree.js'
+// Worktree 并行隔离层(对标 Cursor 3.x 多并行 agent + worktree)
+import {
+  WorktreeManager,
+  agentBranchName,
+  AGENT_BRANCH_PREFIX,
+  DEFAULT_WORKTREE_DIR,
+  getDefaultWorktreeRoot,
+  cleanupWorktree,
+} from '../src/tools/worktree.js'
 
 const VALID_KINDS: readonly CowKind[] = ['ficlone', 'clonefile', 'refs', 'none']
 
@@ -527,6 +536,214 @@ describe('getGitDirKind', () => {
   it('路径不存在默认 directory', () => {
     const p = path.join(tmpDir, 'missing')
     expect(getGitDirKind(p)).toBe('directory')
+  })
+})
+
+// ============ WorktreeManager(并行隔离层) ============
+
+/** 建一个带初始提交的测试仓库(WorktreeManager 专用) */
+function initWorktreeRepo(tmpDir: string): string {
+  const repo = path.join(tmpDir, 'repo')
+  fs.mkdirSync(repo, { recursive: true })
+  gitInit(repo)
+  fs.writeFileSync(path.join(repo, 'README.md'), 'base\n', 'utf-8')
+  spawnSync('git', ['add', '.'], { cwd: repo, encoding: 'utf-8' })
+  gitCommit(repo, 'init')
+  return repo
+}
+
+describe('WorktreeManager.create', () => {
+  let tmpDir: string
+  let repo: string
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-create-'))
+    repo = initWorktreeRepo(tmpDir)
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('基本流程:目录 .worktrees/<agent-id>,分支 agent-wt-<uuid8>', () => {
+    const mgr = new WorktreeManager(repo)
+    const wt = mgr.create('agent-1')
+
+    expect(wt.agentId).toBe('agent-1')
+    expect(wt.path).toBe(path.join(getDefaultWorktreeRoot(repo), 'agent-1'))
+    expect(wt.branch.startsWith(AGENT_BRANCH_PREFIX)).toBe(true)
+    expect(wt.branch.length).toBe(AGENT_BRANCH_PREFIX.length + 8)
+    expect(fs.existsSync(path.join(wt.path, 'README.md'))).toBe(true)
+    // .gitignore 自动写入 .worktrees/
+    expect(fs.readFileSync(path.join(repo, '.gitignore'), 'utf-8')).toContain(DEFAULT_WORKTREE_DIR + '/')
+    // 分支真实存在(git branch --list 对挂载在 worktree 的分支会加 "+" 前缀)
+    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8' })
+    expect((br.stdout ?? '').trim().replace(/^[+*]\s*/, '')).toBe(wt.branch)
+  })
+
+  it('同一 agentId 重复创建抛错', () => {
+    const mgr = new WorktreeManager(repo)
+    mgr.create('agent-dup')
+    expect(() => mgr.create('agent-dup')).toThrowError(/已存在/)
+  })
+
+  it('并发创建多个 agent worktree 互不冲突(分支唯一 + 目录独立)', async () => {
+    const mgr = new WorktreeManager(repo)
+    const results = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => mgr.create(`agent-${i}`)),
+    )
+    const branches = results.map((r) => r.branch)
+    expect(new Set(branches).size).toBe(5)
+    for (const r of results) {
+      expect(fs.existsSync(r.path)).toBe(true)
+      expect(fs.existsSync(path.join(r.path, 'README.md'))).toBe(true)
+    }
+    expect(mgr.list().length).toBe(5)
+  })
+
+  it('list 按分支前缀过滤,只返回 agent-wt-* 条目', () => {
+    const mgr = new WorktreeManager(repo)
+    // 手工建一个非 agent 分支的 worktree(不应被 list 收录)
+    spawnSync('git', ['worktree', 'add', path.join(tmpDir, 'plain-wt')], {
+      cwd: repo,
+      encoding: 'utf-8',
+    })
+    mgr.create('agent-ls')
+    const list = mgr.list()
+    expect(list.length).toBe(1)
+    expect(list[0]!.agentId).toBe('agent-ls')
+    expect(list[0]!.dirExists).toBe(true)
+  })
+})
+
+describe('WorktreeManager.remove', () => {
+  let tmpDir: string
+  let repo: string
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-rm-'))
+    repo = initWorktreeRepo(tmpDir)
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('移除后目录删除 + 分支清理 + list 为空', () => {
+    const mgr = new WorktreeManager(repo)
+    const wt = mgr.create('agent-rm')
+    // 在隔离目录里做修改,验证 --force 清理
+    fs.writeFileSync(path.join(wt.path, 'dirty.txt'), 'x', 'utf-8')
+
+    expect(mgr.remove('agent-rm', { force: true })).toBe(true)
+    expect(fs.existsSync(wt.path)).toBe(false)
+    expect(mgr.list().length).toBe(0)
+    const br = spawnSync('git', ['branch', '--list', wt.branch], { cwd: repo, encoding: 'utf-8' })
+    expect((br.stdout ?? '').trim()).toBe('')
+  })
+
+  it('路径本就不存在时返回 false 不抛错', () => {
+    const mgr = new WorktreeManager(repo)
+    expect(mgr.remove('never-created')).toBe(false)
+  })
+})
+
+describe('WorktreeManager.diff', () => {
+  let tmpDir: string
+  let repo: string
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-diff-'))
+    repo = initWorktreeRepo(tmpDir)
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('输出隔离目录内的改动(含新文件),供主 agent 合并', () => {
+    const mgr = new WorktreeManager(repo)
+    const wt = mgr.create('agent-diff')
+    fs.writeFileSync(path.join(wt.path, 'README.md'), 'modified by agent\n', 'utf-8')
+    fs.writeFileSync(path.join(wt.path, 'new-file.txt'), 'brand new\n', 'utf-8')
+
+    const d = mgr.diff('agent-diff')
+    expect(d).toContain('README.md')
+    expect(d).toContain('new-file.txt')
+  })
+
+  it('worktree 不存在时抛错', () => {
+    const mgr = new WorktreeManager(repo)
+    expect(() => mgr.diff('ghost')).toThrowError(/不存在/)
+  })
+})
+
+describe('WorktreeManager.cleanupStale / prune(孤儿检测)', () => {
+  let tmpDir: string
+  let repo: string
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-stale-'))
+    repo = initWorktreeRepo(tmpDir)
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true })
+  })
+
+  it('目录被外部删除的孤儿 worktree 被检测并清理(含孤儿分支)', () => {
+    const mgr = new WorktreeManager(repo)
+    const wt1 = mgr.create('agent-alive')
+    const wt2 = mgr.create('agent-orphan')
+
+    // 模拟孤儿:绕过 git 直接删目录
+    fs.rmSync(wt2.path, { recursive: true, force: true })
+
+    // list 标记 dirExists=false
+    const orphan = mgr.findByAgent('agent-orphan')
+    expect(orphan).not.toBeNull()
+    expect(orphan!.dirExists).toBe(false)
+
+    const { pruned, branchesDeleted } = mgr.cleanupStale()
+    expect(pruned).toBe(1)
+    expect(branchesDeleted).toBe(1)
+
+    // 孤儿清干净,存活 worktree 不受影响
+    expect(mgr.list().map((e) => e.agentId)).toEqual(['agent-alive'])
+    expect(fs.existsSync(wt1.path)).toBe(true)
+  })
+
+  it('prune 返回清理数量', () => {
+    const mgr = new WorktreeManager(repo)
+    const wt = mgr.create('agent-prune')
+    fs.rmSync(wt.path, { recursive: true, force: true })
+    expect(mgr.prune()).toBe(1)
+    expect(mgr.list().length).toBe(0)
+  })
+})
+
+describe('WorktreeManager 辅助函数', () => {
+  it('agentBranchName 每次生成都唯一且带前缀', () => {
+    const names = new Set(Array.from({ length: 50 }, () => agentBranchName()))
+    expect(names.size).toBe(50)
+    for (const n of names) {
+      expect(n.startsWith(AGENT_BRANCH_PREFIX)).toBe(true)
+      expect(n.length).toBe(AGENT_BRANCH_PREFIX.length + 8)
+    }
+  })
+
+  it('cleanupWorktree 独立清理(供 background-registry 收尾调用)', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wtm-cleanup-'))
+    try {
+      const repo = initWorktreeRepo(tmpDir)
+      const mgr = new WorktreeManager(repo)
+      const wt = mgr.create('agent-bg')
+      cleanupWorktree(wt.path, repo, true)
+      expect(fs.existsSync(wt.path)).toBe(false)
+      expect(mgr.list().length).toBe(0)
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
