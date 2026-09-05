@@ -179,6 +179,20 @@
     "amount": "金额",
     "empty": "暂无订单"
   },
+  "userOrder": {
+    "title": "我的订单",
+    "searchPlaceholder": "搜索我的订单",
+    "tabAll": "全部",
+    "tabPending": "待支付",
+    "tabShipped": "待收货",
+    "tabCompleted": "已完成",
+    "tabRefunded": "已退款",
+    "orderNo": "订单号",
+    "orderTime": "下单时间",
+    "empty": "暂无订单信息",
+    "loading": "加载中...",
+    "loadFailed": "加载订单失败"
+  },
   "agent": {
     "config": "配置",
     "runtimeTitle": "运行时",
@@ -969,6 +983,24 @@
     "withdrawFailed": "提现失败",
     "withdrawSuccess": "提现成功"
   },
+  "distributionPersonnel": {
+    "listTitle": "我邀请的团队",
+    "detailTitle": "我团队邀请的下级成员",
+    "teamTotal": "团队总人数",
+    "tabOrders": "成交订单数",
+    "tabInviteTime": "邀请时间",
+    "fieldTransaction": "成交额",
+    "fieldCommission": "获取佣金",
+    "fieldOrderNum": "成交订单数",
+    "fieldInviteTime": "邀请时间",
+    "fieldContribution": "贡献值",
+    "fieldPhone": "手机号",
+    "contact": "联系",
+    "searchPlaceholder": "搜索我的团友",
+    "empty": "没有找到相关用户",
+    "loadFailed": "加载团队失败",
+    "paramError": "参数错误"
+  },
   "earnCommission": {
     "title": "分佣计划",
     "introTitle": "邀请好友,赚取佣金",
@@ -1461,7 +1493,10 @@
     "tab_indirect": "间推",
     "status_active": "活跃",
     "status_inactive": "不活跃",
-    "searchPlaceholder": "搜索我的团友"
+    "searchPlaceholder": "搜索我的团友",
+    "sortByOrders": "成交订单数",
+    "sortByInviteTime": "邀请时间",
+    "datePlaceholder": "输入日期 YYYY-MM-DD"
   },
   "teamDetail": {
     "title": "团队成员详情",
