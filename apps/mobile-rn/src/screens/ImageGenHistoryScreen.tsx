@@ -236,7 +236,9 @@ export function ImageGenHistoryScreen() {
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('imageGen.title')}</Text>
-        <View className="w-8" />
+        <TouchableOpacity onPress={() => navigation.navigate('ImageGenCreate')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Text className="text-sm font-medium text-blue-600">{t('imageGen.create')}</Text>
+        </TouchableOpacity>
       </View>
 
       <View className="flex-row gap-2 px-4 pb-2">
