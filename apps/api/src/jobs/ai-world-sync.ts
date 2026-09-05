@@ -185,16 +185,16 @@ const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = 
 
 /** 国内 AI 媒体 RSS(10 站,走 RSSHub) */
 const RSS_FEEDS_CHINA: Array<{ source: string; url: string; kind: ItemKind }> = [
-  { source: 'qbitai', url: rsshub('/qbitai/articles'), kind: 'news' },
-  { source: 'jiqizhixin', url: rsshub('/jiqizhixin'), kind: 'news' },
-  { source: 'xinzhiyuan', url: rsshub('/xinzhiyuan'), kind: 'news' },
-  { source: 'aitechtalk', url: rsshub('/aitechtalk'), kind: 'news' },
-  { source: 'paperweekly', url: rsshub('/paperweekly'), kind: 'news' },
-  { source: 'aiqianxun', url: rsshub('/aiqianxun'), kind: 'news' },
-  { source: 'infoq-ai', url: rsshub('/infoq/topic/ai'), kind: 'news' },
-  { source: '36kr-ai', url: rsshub('/36kr/motif/452080'), kind: 'news' },
-  { source: 'leiphone-ai', url: rsshub('/leiphone/ai'), kind: 'news' },
-  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/259'), kind: 'news' },
+  { source: 'qbitai', url: rsshub('/qbitai/category/%E8%B5%84%E8%AE%AF'), kind: 'news' }, // 旧 /qbitai/articles 路由已被 RSSHub 移除,改用分类路由(资讯)
+  { source: 'jiqizhixin', url: rsshub('/jiqizhixin'), kind: 'news' }, // RSSHub 官方已移除该路由,保留占位待上游恢复
+  { source: 'xinzhiyuan', url: rsshub('/xinzhiyuan'), kind: 'news' }, // 同上,官方已移除
+  { source: 'aitechtalk', url: rsshub('/aitechtalk'), kind: 'news' }, // 同上,官方已移除
+  { source: 'paperweekly', url: rsshub('/paperweekly'), kind: 'news' }, // 同上,官方已移除
+  { source: 'aiqianxun', url: rsshub('/aiqianxun'), kind: 'news' }, // 同上,官方已移除
+  { source: 'infoq-ai', url: rsshub('/infoq/topic/ai'), kind: 'news' }, // topic id 'ai' 上游已失效(503 route empty),待换数字 id
+  { source: '36kr-ai', url: rsshub('/36kr/motif/452080'), kind: 'news' }, // motif 452080 上游 404,待换有效 motif
+  { source: 'leiphone-ai', url: rsshub('/leiphone/category/ai'), kind: 'news' }, // 旧 /leiphone/ai 改为 /category/ai
+  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/259'), kind: 'news' }, // 上游页面结构变更致路由 503,待上游修复
 ]
 
 const RSS_FEEDS = [...RSS_FEEDS_OFFICIAL, ...RSS_FEEDS_MEDIA, ...RSS_FEEDS_CHINA]
