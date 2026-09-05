@@ -179,20 +179,6 @@
     "amount": "金额",
     "empty": "暂无订单"
   },
-  "userOrder": {
-    "title": "我的订单",
-    "searchPlaceholder": "搜索我的订单",
-    "tabAll": "全部",
-    "tabPending": "待支付",
-    "tabShipped": "待收货",
-    "tabCompleted": "已完成",
-    "tabRefunded": "已退款",
-    "orderNo": "订单号",
-    "orderTime": "下单时间",
-    "empty": "暂无订单信息",
-    "loading": "加载中...",
-    "loadFailed": "加载订单失败"
-  },
   "agent": {
     "config": "配置",
     "runtimeTitle": "运行时",
@@ -983,24 +969,6 @@
     "withdrawFailed": "提现失败",
     "withdrawSuccess": "提现成功"
   },
-  "distributionPersonnel": {
-    "listTitle": "我邀请的团队",
-    "detailTitle": "我团队邀请的下级成员",
-    "teamTotal": "团队总人数",
-    "tabOrders": "成交订单数",
-    "tabInviteTime": "邀请时间",
-    "fieldTransaction": "成交额",
-    "fieldCommission": "获取佣金",
-    "fieldOrderNum": "成交订单数",
-    "fieldInviteTime": "邀请时间",
-    "fieldContribution": "贡献值",
-    "fieldPhone": "手机号",
-    "contact": "联系",
-    "searchPlaceholder": "搜索我的团友",
-    "empty": "没有找到相关用户",
-    "loadFailed": "加载团队失败",
-    "paramError": "参数错误"
-  },
   "earnCommission": {
     "title": "分佣计划",
     "introTitle": "邀请好友,赚取佣金",
@@ -1493,10 +1461,7 @@
     "tab_indirect": "间推",
     "status_active": "活跃",
     "status_inactive": "不活跃",
-    "searchPlaceholder": "搜索我的团友",
-    "sortByOrders": "成交订单数",
-    "sortByInviteTime": "邀请时间",
-    "datePlaceholder": "输入日期 YYYY-MM-DD"
+    "searchPlaceholder": "搜索我的团友"
   },
   "teamDetail": {
     "title": "团队成员详情",
@@ -2147,7 +2112,32 @@
     "deleteFailed": "删除失败",
     "source": "来源",
     "updatedAt": "更新时间",
-    "loginRequired": "请先登录"
+    "loginRequired": "请先登录",
+    "all": "全部",
+    "scope": {
+      "global": "全局",
+      "user": "用户",
+      "session": "会话",
+      "project": "项目"
+    },
+    "type": {
+      "preference": "偏好",
+      "convention": "约定",
+      "decision": "决策",
+      "fact": "事实",
+      "feedback": "反馈",
+      "skill_ref": "技能引用"
+    },
+    "searchPlaceholder": "搜索记忆内容 / 分类…",
+    "create": "新建",
+    "createTitle": "新建记忆",
+    "textPlaceholder": "输入记忆内容(必填,最多 2000 字)…",
+    "categoryPlaceholder": "分类(如 UI 偏好)",
+    "typeLabel": "类型",
+    "scopeLabel": "作用域",
+    "save": "保存",
+    "saveFailed": "保存失败",
+    "textRequired": "请输入记忆内容"
   },
   "aiWorld": {
     "title": "AI 世界",
@@ -2157,7 +2147,21 @@
     "history": "浏览历史",
     "kindLabel": "类型",
     "loadFailed": "加载失败",
-    "viewCount": "浏览"
+    "viewCount": "浏览",
+    "tools": "工具",
+    "apps": "应用",
+    "news": "资讯",
+    "rankings": "榜单",
+    "searchPlaceholder": "搜索 AI 工具 / 应用 / 资讯…",
+    "categoryAll": "全部",
+    "rank": "排名",
+    "model": "模型",
+    "provider": "厂商",
+    "score": "分数",
+    "votes": "票数",
+    "rankLoadFailed": "榜单加载失败",
+    "rankEmpty": "该榜单暂无数据",
+    "updateAt": "更新"
   },
   "publish": {
     "title": "内容发布",
