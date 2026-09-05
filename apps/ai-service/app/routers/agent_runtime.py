@@ -21,10 +21,13 @@ from typing import Any, AsyncIterator
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from ..core.jwt_auth import get_current_user_id
+from ..core.rbac import Permission, require_permission
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.services.agent_graph import AgentState, get_agent_graph
+# 真实云端 Agent 容器运行时(对标 Cursor Cloud Agents / Codex CI sandbox,2026-09-05 立)
+from app.services.container_runtime import container_runtime
 from app.services.memory import unified_memory_client
 
 router = APIRouter(prefix="/agent-runtime", tags=["agent-runtime"])
@@ -348,7 +351,13 @@ async def get_status(session_id: str, request: Request) -> dict[str, Any]:
 
 
 @router.post("/{session_id}/cancel")
-async def cancel_session(session_id: str, request: Request) -> dict[str, Any]:
+async def cancel_session(
+    session_id: str,
+    request: Request,
+    # RBAC 示例接入(2026-09-06):取消动作需 run:cancel 权限点(viewer → 403);
+    # 归属校验仍由 _require_session 兜底(admin 可跨用户取消)。
+    _perm: object = Depends(require_permission(Permission.RUN_CANCEL)),
+) -> dict[str, Any]:
     # P1 修复(2026-08-06): 校验会话归属,防跨用户取消他人会话
     user_id, is_admin = _get_current_user(request)
     session = _require_session(session_id, user_id, is_admin)
@@ -428,6 +437,103 @@ async def add_memory(request: Request) -> dict[str, Any]:
     body = await request.json()
     result = await unified_memory_client.add_entry(user_id, body.get("entry"))
     return {"code": 0, "message": "ok", "data": result}
+
+
+# ==================== 容器运行时:真实云端 Agent 执行层 ====================
+# 对标 Cursor Cloud Agents / Codex CI sandbox:容器(或本地沙箱降级)真执行,
+# 与 cloud_run_store 联动落记录。响应信封 {code:0,message,data} 对齐 cloud_runs.py。
+
+
+class RunContainerRequest(BaseModel):
+    """POST /runs 请求体:任务描述 + 执行命令 + 工作区快照。"""
+
+    task: str = ""
+    # 命令:字符串(容器内 sh / 本地 shell 解释)或数组(本地直接 exec,无 shell 注入面)
+    command: str | list[str] = ""
+    # 工作区快照(dict[相对路径 -> 文本内容]),tar 打包传入容器 /workspace
+    files: dict[str, str] = {}
+    # 镜像覆盖(默认 CONTAINER_IMAGE 环境变量,再默认 python:3.12-slim)
+    image: str | None = None
+    # 执行超时(秒),超时强杀;None 用运行时默认
+    timeout_sec: float | None = None
+
+
+@router.post("/runs")
+async def start_container_run(
+    req: RunContainerRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """启动一次容器/沙箱运行(异步后台执行),返回 run_id 与 execution_env。"""
+    command: str | list[str] = req.command or "python --version"
+    prompt = req.task or (command if isinstance(command, str) else " ".join(command))
+    run = await container_runtime.start_run(
+        prompt,
+        command,
+        files=req.files,
+        image=req.image,
+        timeout_sec=req.timeout_sec,
+        user_id=user_id,
+    )
+    return {"code": 0, "message": "ok", "data": run}
+
+
+@router.get("/runs")
+async def list_container_runs(
+    user_id: str = Depends(get_current_user_id),
+    limit: int = 50,
+) -> dict[str, Any]:
+    """列出本进程内容器运行记录快照(新→旧)。"""
+    return {"code": 0, "message": "ok", "data": container_runtime.list_runs(limit=limit)}
+
+
+@router.get("/runs/{run_id}")
+async def get_container_run(
+    run_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """查询单次容器运行状态/输出快照。"""
+    snap = container_runtime.snapshot(run_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
+    return {"code": 0, "message": "ok", "data": snap}
+
+
+@router.get("/runs/{run_id}/stream")
+async def stream_container_run(
+    run_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> StreamingResponse:
+    """SSE 流式输出运行 stdout/stderr/exit 事件(连接后可回放缓冲事件)。"""
+    queue = container_runtime.events_queue(run_id)
+    if queue is None:
+        raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
+
+    async def event_stream() -> AsyncIterator[str]:
+        while True:
+            evt = await queue.get()
+            name = str(evt.get("event", "message"))
+            yield f"event: {name}\ndata: {json.dumps(evt, ensure_ascii=False)}\n\n"
+            if name == "exit":
+                break
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.delete("/runs/{run_id}")
+async def cancel_container_run(
+    run_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """终止运行:强杀子进程,状态置 cancelled;幂等。"""
+    snap = container_runtime.cancel(run_id)
+    if snap is None:
+        raise HTTPException(status_code=404, detail=f"运行记录不存在: {run_id}")
+    logger.info("agent-runtime cancel container run=%s user=%s", run_id, user_id)
+    return {"code": 0, "message": "ok", "data": snap}
 
 
 __all__ = ["router"]

@@ -56,6 +56,107 @@ export interface McpConfig {
   servers: McpServer[];
 }
 
+/**
+ * Claude Desktop / Cursor 等外部生态的 mcp.json 格式:
+ *   { "mcpServers": { "<name>": { "command", "args", "env" } | { "url", "headers" } } }
+ * IHUI 原生格式为 { "servers": [ { "name", ... } ] }。多源扫描会读取 .claude/.cursor 下的
+ * 外部格式文件,因此加载时需要先归一化(normalizeMcpInput),避免两种静默互不可见。
+ */
+export interface ExternalMcpServersFile {
+  mcpServers?: Record<string, Omit<McpServer, 'name'>>;
+}
+
+/**
+ * 把任意 JSON 值归一化为 McpConfig:
+ * - `{ servers: [...] }`(IHUI 原生)→ 原样返回(浅拷贝 servers 数组)
+ * - `{ mcpServers: { name: {...} } }`(Claude/Cursor 外部格式)→ 转为原生数组格式,
+ *   map key 即 server.name,transport 缺省推断:有 command → 'stdio',有 url → 'http'
+ * - 其他/非法输入 → { servers: [] }
+ */
+export function normalizeMcpInput(parsed: unknown): McpConfig {
+  if (!isRecord(parsed)) return { servers: [] };
+  if (Array.isArray(parsed.servers)) {
+    return { servers: parsed.servers.filter(isRecord) as unknown as McpServer[] };
+  }
+  if (isRecord(parsed.mcpServers)) {
+    const servers: McpServer[] = [];
+    for (const [name, raw] of Object.entries(parsed.mcpServers)) {
+      if (!isRecord(raw)) continue;
+      const srv: McpServer = { name, ...(raw as Omit<McpServer, 'name'>) };
+      if (!srv.transport) srv.transport = srv.command ? 'stdio' : srv.url ? 'http' : undefined;
+      servers.push(srv);
+    }
+    return { servers };
+  }
+  return { servers: [] };
+}
+
+/** validateMcpConfig 结果 */
+export interface McpValidationResult {
+  valid: McpServer[];
+  /** 每条形如 `server "<name>": <原因>` 的校验错误 */
+  errors: string[];
+}
+
+/**
+ * MCP server 配置 schema 校验(stdio/http/sse 三种 transport 的必填约束):
+ * - name:非空字符串
+ * - transport='stdio'(或缺省):必须有非空 command;args 若存在必须是字符串数组;env 必须是字符串 map
+ * - transport='http'|'sse':必须有非空 url
+ * - auth.type='oauth':oauth 元数据必填字段(authorizationEndpoint/tokenEndpoint/clientId/redirectUri/scope)
+ * 不抛错,返回 { valid, errors },由调用方决定提示方式。
+ */
+export function validateMcpConfig(config: unknown): McpValidationResult {
+  const result: McpValidationResult = { valid: [], errors: [] };
+  const norm = normalizeMcpInput(config);
+  for (const s of norm.servers) {
+    const err = (msg: string) => result.errors.push(`server "${s.name ?? '(unnamed)'}": ${msg}`);
+    if (typeof s.name !== 'string' || !s.name.trim()) {
+      err('name 必须是非空字符串');
+      continue;
+    }
+    const transport = s.transport ?? 'stdio';
+    if (transport === 'stdio') {
+      if (typeof s.command !== 'string' || !s.command.trim()) {
+        err("transport='stdio' 要求非空 command");
+        continue;
+      }
+      if (s.args !== undefined && (!Array.isArray(s.args) || s.args.some((a) => typeof a !== 'string'))) {
+        err('args 必须是字符串数组');
+        continue;
+      }
+      if (
+        s.env !== undefined &&
+        (!isRecord(s.env) || Object.values(s.env).some((v) => typeof v !== 'string'))
+      ) {
+        err('env 必须是字符串键值 map');
+        continue;
+      }
+    } else {
+      if (typeof s.url !== 'string' || !s.url.trim()) {
+        err(`transport='${transport}' 要求非空 url`);
+        continue;
+      }
+    }
+    if (s.auth?.type === 'oauth') {
+      const o = s.oauth;
+      if (
+        !o ||
+        typeof o.authorizationEndpoint !== 'string' ||
+        typeof o.tokenEndpoint !== 'string' ||
+        typeof o.clientId !== 'string' ||
+        typeof o.redirectUri !== 'string' ||
+        !Array.isArray(o.scope)
+      ) {
+        err("auth.type='oauth' 要求 oauth 元数据含 authorizationEndpoint/tokenEndpoint/clientId/redirectUri/scope");
+        continue;
+      }
+    }
+    result.valid.push(s);
+  }
+  return result;
+}
+
 /** 多源扫描目录(高→低):workspace 三级 → home 三级 */
 const MCP_SOURCE_DIRS = ['.ihui', '.claude', '.cursor'];
 
@@ -85,6 +186,8 @@ export function getMcpConfigPath(): string {
 /**
  * 多源加载 mcp.json,按优先级深合并(高优先级覆盖低优先级同名 server)。
  * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
+ * 每个文件先经 normalizeMcpInput 归一化,兼容 IHUI 原生 {servers:[]} 与
+ * Claude/Cursor 外部 {mcpServers:{}} 两种格式。
  */
 export function loadMcpConfig(): McpConfig {
   const paths = listMcpConfigPaths(process.cwd());
@@ -93,10 +196,8 @@ export function loadMcpConfig(): McpConfig {
     if (!fs.existsSync(p)) continue;
     try {
       const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
-      // 数组/标量不是合法 McpConfig,防止误合并损坏配置
-      if (isRecord(parsed)) {
-        acc = deepMergeMcpConfig(acc, parsed as unknown as McpConfig);
-      }
+      // 数组/标量不是合法 McpConfig,防止误合并损坏配置(normalizeMcpInput 内部已过滤)
+      acc = deepMergeMcpConfig(acc, normalizeMcpInput(parsed));
     } catch {
       // 读文件失败忽略,继续下一源
     }
