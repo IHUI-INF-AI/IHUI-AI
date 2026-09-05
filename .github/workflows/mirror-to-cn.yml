@@ -78,15 +78,33 @@ jobs:
           # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
           # 限定 main:--all 不带 ref 会扫描全部分支+tag 历史的 LFS 对象,是超时根因
           git lfs push --all "$REMOTE" main 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
-          # 推 branches + tags（refspec，不推 remote-tracking）
-          # 2026-09-05 根治:管道后退出码曾是 sed 的,push 失败(403/redirect)被吞成 success——
-          # 现显式判定失败并 exit 1,让 Actions UI 直接可见真实错误
-          if ! OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1); then
-            echo "❌ GitCode push 失败（真实错误如下,token 已脱敏）:"
+          # 2026-09-05 根治(二层):
+          # ① GitCode 网关对大包 push 返回 HTTP 504 断连——改为 main 先单推(增量小),
+          #    全量 refspec 再带退避重试 4 次(每次重试都是增量传输,数据量递减)
+          # ② 管道后退出码曾是 sed 的,失败被吞成 success——pipefail + 显式判定
+          GITCODE_FAILED=0
+          if ! OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force "$REMOTE" main 2>&1); then
+            echo "❌ GitCode main 单推失败:"; echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+            GITCODE_FAILED=1
+          else
             echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+          fi
+          for ATTEMPT in 1 2 3 4; do
+            if OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1); then
+              echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+              echo "✅ GitCode 全量镜像推送完成(第 $ATTEMPT 次尝试)"
+              GITCODE_FAILED=0
+              break
+            fi
+            echo "⚠️ 第 $ATTEMPT 次全量推送失败(15*${ATTEMPT}s 后重试):"
+            echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
+            GITCODE_FAILED=1
+            sleep $((15 * ATTEMPT))
+          done
+          if [ "$GITCODE_FAILED" != "0" ]; then
+            echo "❌ GitCode push 重试 4 次仍失败"
             exit 1
           fi
-          echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
           echo "✅ GitCode 镜像推送完成"
 
       - name: 同步结果汇总
