@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   FlatList,
   Image,
@@ -12,42 +12,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-  type ImageLoadEvent,
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { AigcCategory, AigcFileType, AigcListItem, AigcListScreenProps } from '../../types'
 
 /** AIGC 作品列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { AigcCategory, AigcListItem, AigcListScreenProps }
-
-type AigcStyles = ReturnType<typeof createStyles>
-
-/** 瀑布流图片:对齐历史 image mode="widthFix" — 加载后按真实宽高比撑开自然高度 */
-function WaterfallImage({
-  uri,
-  styles,
-}: {
-  uri?: string
-  styles: AigcStyles
-}) {
-  const [ratio, setRatio] = useState(3 / 4)
-  if (!uri) {
-    return <View style={[styles.waterfallImage, { aspectRatio: 3 / 4 }]} />
-  }
-  return (
-    <Image
-      source={{ uri }}
-      style={[styles.waterfallImage, { aspectRatio: ratio }]}
-      resizeMode="cover"
-      onLoad={(e: ImageLoadEvent) => {
-        const src = e.nativeEvent.source
-        if (src?.width && src?.height && src.width > 0) {
-          setRatio(src.width / src.height)
-        }
-      }}
-    />
-  )
-}
 
 export function AigcListScreen({
   t,
@@ -74,76 +44,7 @@ export function AigcListScreen({
   const filtered =
     category === 'all' ? items : items.filter((w) => w.fileType === fileTypeForCategory(category))
 
-  /**
-   * 列表行分组:媒体(fileType 0/1)走双列瀑布流,文本(4)/音频(3)保持整行卡片。
-   * 对齐历史 pages/tools/aigc/index.vue:瀑布流 getColumnItems(index % 2) 分列,
-   * 文本/音频分类走独立列表分支。
-   */
-  type AigcListRow =
-    | { kind: 'waterfall'; media: AigcListItem[] }
-    | { kind: 'single'; item: AigcListItem }
-
-  const rows = useMemo<AigcListRow[]>(() => {
-    const media = filtered.filter((w) => w.fileType === 0 || w.fileType === 1)
-    const singles = filtered.filter((w) => w.fileType !== 0 && w.fileType !== 1)
-    const out: AigcListRow[] = []
-    if (media.length > 0) out.push({ kind: 'waterfall', media })
-    for (const item of singles) out.push({ kind: 'single', item })
-    return out
-  }, [filtered])
-
-  /** 双列瀑布流:对齐历史 index % 2 分列 + 图片 widthFix 自然高度 */
-  const renderWaterfall = (media: AigcListItem[]) => {
-    const columns: [AigcListItem[], AigcListItem[]] = [[], []]
-    media.forEach((item, index) => columns[index % 2]!.push(item))
-    return (
-      <View style={styles.waterfallContainer}>
-        {columns.map((column, columnIndex) => (
-          <View key={columnIndex} style={styles.waterfallColumn}>
-            {column.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.waterfallItem}
-                activeOpacity={0.7}
-                onPress={() => onPressItem(item)}
-              >
-                {item.fileType === 1 ? (
-                  <View style={styles.videoThumb}>
-                    {item.coverUrl ? (
-                      <Image
-                        source={{ uri: item.coverUrl }}
-                        style={styles.videoThumbImage}
-                        resizeMode="cover"
-                      />
-                    ) : null}
-                    <View style={styles.playOverlay}>
-                      <View style={styles.playButton}>
-                        <Text style={styles.playIcon}>▶</Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : (
-                  <WaterfallImage uri={item.fileUrl ?? item.coverUrl} styles={styles} />
-                )}
-                <View style={styles.waterfallFooter}>
-                  <Text style={styles.waterfallTitle} numberOfLines={1}>
-                    {item.title}
-                  </Text>
-                  {item.subtitle ? (
-                    <Text style={styles.waterfallSubtitle} numberOfLines={1}>
-                      {item.subtitle}
-                    </Text>
-                  ) : null}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ))}
-      </View>
-    )
-  }
-
-  const renderSingle = (item: AigcListItem) => {
+  const renderItem = ({ item }: { item: AigcListItem }) => {
     if (item.fileType === 4) {
       return (
         <TouchableOpacity
@@ -190,7 +91,30 @@ export function AigcListScreen({
         </TouchableOpacity>
       )
     }
-    return null
+    return (
+      <TouchableOpacity
+        style={styles.mediaCard}
+        onPress={() => onPressItem(item)}
+        activeOpacity={0.7}
+      >
+        <Image source={{ uri: item.coverUrl }} style={styles.mediaCover} resizeMode="cover" />
+        {item.fileType === 1 ? (
+          <View style={styles.videoBadge}>
+            <Text style={styles.videoBadgeText}>{t('aigcList.videoBadge')}</Text>
+          </View>
+        ) : null}
+        <View style={styles.mediaFooter}>
+          <Text style={styles.cardTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          {item.subtitle ? (
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+          ) : null}
+        </View>
+      </TouchableOpacity>
+    )
   }
 
   return (
@@ -228,10 +152,12 @@ export function AigcListScreen({
         </View>
       ) : null}
 
-      <FlatList<AigcListRow>
+      <FlatList<AigcListItem>
         style={styles.list}
-        data={rows}
-        keyExtractor={(row) => (row.kind === 'waterfall' ? 'waterfall' : row.item.id)}
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.3}
@@ -242,9 +168,7 @@ export function AigcListScreen({
             </Text>
           </View>
         }
-        renderItem={({ item: row }) =>
-          row.kind === 'waterfall' ? renderWaterfall(row.media) : renderSingle(row.item)
-        }
+        renderItem={renderItem}
       />
 
       <TouchableOpacity style={styles.fab} onPress={onPublish} activeOpacity={0.85}>
@@ -273,41 +197,29 @@ function createStyles(tk: AppThemeTokens) {
     categoryText: { fontSize: 14, color: tk.text.medium },
     categoryTextActive: { color: tk.surface.light, fontWeight: '600' },
     list: { flex: 1, paddingHorizontal: 12 },
-    // 双列瀑布流(对齐历史 .waterfall-container/.waterfall-column/.waterfall-item)
-    waterfallContainer: { flexDirection: 'row', paddingVertical: 10 },
-    waterfallColumn: { flex: 1, paddingHorizontal: 5 },
-    waterfallItem: {
-      marginBottom: 10,
-      borderRadius: 8,
+    row: { gap: 12, marginBottom: 12 },
+    mediaCard: {
+      flex: 1,
+      borderRadius: 12,
       overflow: 'hidden',
-      backgroundColor: tk.surface.muted,
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
     },
-    waterfallImage: { width: '100%', backgroundColor: tk.surface.muted },
-    // 视频缩略图:对齐历史 400rpx 固定高 + aspectFill + 居中播放按钮
-    videoThumb: { width: '100%', height: 200, backgroundColor: tk.surface.muted },
-    videoThumbImage: { width: '100%', height: '100%' },
-    playOverlay: {
+    mediaCover: { width: '100%', aspectRatio: 3 / 4, backgroundColor: tk.border.light },
+    videoBadge: {
       position: 'absolute',
-      left: 0,
-      right: 0,
-      top: 0,
-      bottom: 0,
-      alignItems: 'center',
-      justifyContent: 'center',
+      top: 8,
+      left: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      backgroundColor: 'rgba(0,0,0,0.55)',
     },
-    playButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: 'rgba(0,0,0,0.5)',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    playIcon: { fontSize: 14, color: tk.surface.light },
-    waterfallFooter: { padding: 10 },
-    waterfallTitle: { fontSize: 14, fontWeight: '600', color: tk.text.primary },
-    waterfallSubtitle: { marginTop: 4, fontSize: 12, color: tk.text.secondary },
+    videoBadgeText: { fontSize: 11, color: tk.surface.light },
+    mediaFooter: { padding: 12 },
     cardTitle: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
+    subtitle: { marginTop: 8, fontSize: 14, color: tk.text.secondary },
     textCard: {
       flex: 2,
       padding: 14,
