@@ -23,7 +23,8 @@ export const tabBarStyles = {
     justifyContent: 'space-around',
     height: TAB_BAR_HEIGHT,
     backgroundColor: tk.surface.card,
-    // 2026-09-05:按用户要求去掉顶部描边
+    borderTopWidth: TAB_BAR_TOP_BORDER,
+    borderTopColor: tk.border.light,
   } satisfies ViewStyle,
 
   item: {

@@ -4,13 +4,13 @@
 
 import './global.css'
 import { useEffect } from 'react'
-import { Platform, Text, TextInput, View } from 'react-native'
+import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
-import { useTheme } from './src/context/ThemeContext'
+import { ThemeProvider, useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
@@ -116,7 +116,7 @@ function AppContent() {
   }
 
   return (
-    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>
@@ -140,25 +140,31 @@ function AppContent() {
 }
 
 export default function App() {
-  // 加载阿里妈妈方圆体(对齐 uniapp)。Web 端 expo-av useFonts 在字体 URL 404/CORS/解析失败时
-  // 会永远停留在未加载状态,导致整棵树 return null → 灰屏(2026-09-05 修复):
-  // Web 端浏览器有系统字体兜底,字体加载失败不阻塞渲染;原生端保持原逻辑。
+  // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
-  const [fontsLoaded, fontError] = useFonts({
+  // eslint-enable @typescript-eslint/no-require-imports
+  const [fontsLoaded] = useFonts({
     'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
-  if (!fontsLoaded && !(Platform.OS === 'web' && fontError)) return null
+  if (!fontsLoaded) return null
   return (
-    <AppContent />
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   )
 }
 
-// 组件注册与挂载由 Expo 虚拟入口(.expo/.virtual-metro-entry)统一处理:
-// 它 import 本模块(default export App)后自行调用 AppRegistry.registerComponent('main')
-// + runApplication。此前(2026-09-05)在此手动补 registerComponent/runApplication 兜底,
-// 结果与虚拟入口重复挂载 → ReactDOM createRoot 冲突 + NavigationContainer/linking 双实例
-// ("linking configured in multiple places")→ 页面白屏。真正的黑屏根因是 RootNavigator
-// 引用了未 import 的 Screen(UserOrderListScreen 等)导致渲染抛错,已在 RootNavigator 修复。
-// 故此处不再手动挂载。
+// 显式注册 main 组件（Expo CLI 的 .expo/.virtual-metro-entry 虚拟入口在当前
+// pnpm isolated monorepo 环境下未正确注入 registerRootComponent 调用，
+// 导致 RN 运行时报 "main" has not been registered。这里手动注册兜底。）
+AppRegistry.registerComponent('main', () => App)
+
+// Web 平台需要显式调用 runApplication 挂载到 DOM（原生平台由原生代码自动调用，
+// index.js 注释已说明；web 平台无原生代码，react-native-web 不会自动 runApplication）。
+if (Platform.OS === 'web') {
+  AppRegistry.runApplication('main', {
+    rootTag: document.getElementById('root'),
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -179,20 +179,6 @@
     "amount": "金額",
     "empty": "暫無訂單"
   },
-  "userOrder": {
-    "title": "我的訂單",
-    "searchPlaceholder": "搜尋我的訂單",
-    "tabAll": "全部",
-    "tabPending": "待支付",
-    "tabShipped": "待收貨",
-    "tabCompleted": "已完成",
-    "tabRefunded": "已退款",
-    "orderNo": "訂單號",
-    "orderTime": "下單時間",
-    "empty": "暫無訂單資訊",
-    "loading": "載入中...",
-    "loadFailed": "載入訂單失敗"
-  },
   "agent": {
     "config": "設定",
     "runtimeTitle": "執行階段",
@@ -983,24 +969,6 @@
     "withdrawFailed": "提現失敗",
     "withdrawSuccess": "提現成功"
   },
-  "distributionPersonnel": {
-    "listTitle": "我邀請的團隊",
-    "detailTitle": "我團隊邀請的下級成員",
-    "teamTotal": "團隊總人數",
-    "tabOrders": "成交訂單數",
-    "tabInviteTime": "邀請時間",
-    "fieldTransaction": "成交額",
-    "fieldCommission": "獲取佣金",
-    "fieldOrderNum": "成交訂單數",
-    "fieldInviteTime": "邀請時間",
-    "fieldContribution": "貢獻值",
-    "fieldPhone": "手機號",
-    "contact": "聯繫",
-    "searchPlaceholder": "搜尋我的團友",
-    "empty": "沒有找到相關用戶",
-    "loadFailed": "載入團隊失敗",
-    "paramError": "參數錯誤"
-  },
   "earnCommission": {
     "title": "分傭計畫",
     "introTitle": "邀請好友,賺取佣金",
@@ -1493,10 +1461,7 @@
     "tab_indirect": "間推",
     "status_active": "活躍",
     "status_inactive": "不活躍",
-    "searchPlaceholder": "搜尋我的團友",
-    "sortByOrders": "成交訂單數",
-    "sortByInviteTime": "邀請時間",
-    "datePlaceholder": "輸入日期 YYYY-MM-DD"
+    "searchPlaceholder": "搜尋我的團友"
   },
   "teamDetail": {
     "title": "團隊成員詳情",
