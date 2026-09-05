@@ -85,6 +85,10 @@ jobs:
 
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
+        with:
+          # 2026-09-05: 默认以仓库根为 CWD,导致 beforeBuildCommand `node scripts/ensure-web-out.mjs`
+          # 解析到 <root>/scripts 找不到模块(CI 实证);指定 tauri 应用目录对齐本地行为
+          projectPath: apps/desktop
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
