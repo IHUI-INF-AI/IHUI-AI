@@ -227,7 +227,6 @@ interface AdminNavItem {
     | 'saasMetrics'
     | 'pluginsStats'
     | 'aiCost'
-    | 'agentGovernance'
     | 'adminRelayOverview'
     | 'adminRelayModels'
     | 'adminRelayKeyPool'
@@ -271,7 +270,6 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/demand-square', labelKey: 'demandSquare', icon: LayoutGrid },
   // R6: 运维监控
   { href: '/admin/ai-cost', labelKey: 'aiCost', icon: Coins },
-  { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
   { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
   { href: '/admin/backend-health', labelKey: 'backendHealth', icon: Server },
   { href: '/admin/performance-dashboard', labelKey: 'performanceDashboard', icon: Gauge },
@@ -941,7 +939,6 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   saasMetrics: 'nav.saasMetrics',
   pluginsStats: 'nav.pluginsStats',
   aiCost: 'nav.aiCost',
-  agentGovernance: 'nav.agentGovernance',
   adminRelayOverview: 'nav.adminRelayOverview',
   adminRelayModels: 'nav.adminRelayModels',
   adminRelayKeyPool: 'nav.adminRelayKeyPool',
