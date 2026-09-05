@@ -20,16 +20,21 @@ import logging
 import os
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
-
-from .screenshot_service import _get_browser_sync
 
 logger = logging.getLogger(__name__)
 
-# 全局渲染锁:Playwright 同步对象绑定创建线程,并发请求落到线程池不同线程会报
-# "cannot switch to a different thread"。串行化渲染既规避线程亲和问题,又保护
-# 共享浏览器单例不被并发 context 打爆。批量 CF 站点场景下延迟可接受。
-_render_lock = threading.Lock()
+# 根治线程亲和(2026-09-05):Playwright 同步对象绑定创建线程,且 greenlet 禁止跨线程切换。
+# 此前用默认线程池 + 全局锁,锁只保证"不并发"但执行仍在不同物理线程间漂移,
+# 实测同步期间报 "Cannot switch to a different thread" 全军覆没。
+# 正解:专属单线程 executor —— 所有渲染永远在同一线程执行,浏览器实例也在该线程
+# 内惰性创建(亲和性从此恒定),并独立于 screenshot_service 的共享单例,互不干扰。
+_render_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="browser-render")
+
+_playwright: Any = None
+_browser: Any = None
+_browser_lock = threading.Lock()
 
 # Cloudflare 挑战页特征(只检查前 4000 字符,降低误判)
 _CF_MARKERS = (
@@ -50,18 +55,35 @@ def _pick_proxy() -> str:
     return ""
 
 
+def _ensure_browser() -> Any:
+    """在渲染线程内惰性创建 Playwright + Chromium 单例(线程亲和正确的前提)。"""
+    global _playwright, _browser
+    with _browser_lock:
+        if _browser is None:
+            from playwright.sync_api import sync_playwright
+
+            _playwright = sync_playwright().start()
+            launch_kwargs: dict[str, Any] = {"headless": True}
+            proxy = _pick_proxy()
+            if proxy:
+                # 代理放在 browser 级(Chromium 不读环境变量代理),context 无需重复传
+                launch_kwargs["proxy"] = {"server": proxy}
+            _browser = _playwright.chromium.launch(**launch_kwargs)
+            logger.info("[browser_render] chromium launched on dedicated render thread (proxy=%s)", bool(proxy))
+    return _browser
+
+
 def _render_page_sync(url: str, timeout_ms: int = 30000) -> dict[str, Any]:
-    """同步渲染页面(在线程池中运行,不受 EventLoop policy 限制)。
+    """同步渲染页面(只会被提交到 _render_executor 单线程执行)。
 
     返回 {url, final_url, http_status, title, html, captured_at}。
     失败抛异常,由调用方(路由层)捕获转 ApiResponse。
     """
-    with _render_lock:
-        return _render_page_locked(url, timeout_ms)
+    return _render_page_locked(url, timeout_ms)
 
 
 def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
-    browser = _get_browser_sync()
+    browser = _ensure_browser()
     context_kwargs: dict[str, Any] = {
         "viewport": {"width": 1280, "height": 900},
         "locale": "zh-CN",
@@ -72,9 +94,6 @@ def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
             "Chrome/120.0.0.0 Safari/537.36"
         ),
     }
-    proxy = _pick_proxy()
-    if proxy:
-        context_kwargs["proxy"] = {"server": proxy}
 
     context = browser.new_context(**context_kwargs)
     page = context.new_page()
@@ -116,6 +135,6 @@ def _render_page_locked(url: str, timeout_ms: int) -> dict[str, Any]:
 
 
 async def render_page(url: str, timeout_ms: int = 30000) -> dict[str, Any]:
-    """异步渲染页面(在线程池中运行同步实现,与 scrape_opencompass 同款包装)。"""
+    """异步渲染页面:提交到专属单线程 executor,保证 Playwright 线程亲和。"""
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _render_page_sync, url, timeout_ms)
+    return await loop.run_in_executor(_render_executor, _render_page_sync, url, timeout_ms)
