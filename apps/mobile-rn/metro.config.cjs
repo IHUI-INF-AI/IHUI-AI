@@ -263,6 +263,16 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (platform === 'web' && moduleName === 'expo-media-library') {
     return { type: 'sourceFile', filePath: path.join(__dirname, 'stubs', 'expo-media-library.web.js') }
   }
+  // RN DevTools 桩(2026-09-05):pnpm 提升的 react-native@0.86 dev 构建中,
+  // setUpReactDevTools.js require 的 src/private/devsupport/.../ReactDevToolsSettingsManager
+  // 文件不存在 → web dev bundle 500 → 页面灰屏。该模块仅 __DEV__ + 浏览器 devtools 场景使用,
+  // stub 成 no-op 不影响任何业务功能(prod bundle 本就不包含此路径)。
+  if (
+    platform === 'web' &&
+    moduleName.includes('devsupport/rndevtools/ReactDevToolsSettingsManager')
+  ) {
+    return { type: 'sourceFile', filePath: path.join(__dirname, 'stubs', 'react-devtools-settings-manager.web.js') }
+  }
   // React 单实例去重(2026-07-28 修复 NativeWind useContext null 错误)
   // 问题:pnpm isolated linker 下,bundle 中出现两个 react 实例:
   //   (1) .pnpm/react@19.0.0/node_modules/react/  (react-native 隔离目录引用)
