@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tauri dev",
     "build": "tauri build",
+    "tauri": "tauri",
     "build:debug": "tauri build --debug",
     "icons:regen": "powershell -ExecutionPolicy Bypass -File ./scripts/regen-icons.ps1",
     "clean": "rimraf dist node_modules .turbo src-tauri/target"
