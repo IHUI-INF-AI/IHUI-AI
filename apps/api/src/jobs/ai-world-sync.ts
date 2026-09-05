@@ -183,18 +183,18 @@ const RSS_FEEDS_MEDIA: Array<{ source: string; url: string; kind: ItemKind }> = 
   { source: 'stratechery', url: 'https://stratechery.com/feed/', kind: 'news' },
 ]
 
-/** 国内 AI 媒体 RSS(10 站,走 RSSHub) */
+/** 国内 AI 媒体 RSS(走自建 RSSHub,2026-09-05 深度根治后的存活清单) */
 const RSS_FEEDS_CHINA: Array<{ source: string; url: string; kind: ItemKind }> = [
   { source: 'qbitai', url: rsshub('/qbitai/category/%E8%B5%84%E8%AE%AF'), kind: 'news' }, // 旧 /qbitai/articles 路由已被 RSSHub 移除,改用分类路由(资讯)
-  { source: 'jiqizhixin', url: rsshub('/jiqizhixin'), kind: 'news' }, // RSSHub 官方已移除该路由,保留占位待上游恢复
-  { source: 'xinzhiyuan', url: rsshub('/xinzhiyuan'), kind: 'news' }, // 同上,官方已移除
-  { source: 'aitechtalk', url: rsshub('/aitechtalk'), kind: 'news' }, // 同上,官方已移除
-  { source: 'paperweekly', url: rsshub('/paperweekly'), kind: 'news' }, // 同上,官方已移除
-  { source: 'aiqianxun', url: rsshub('/aiqianxun'), kind: 'news' }, // 同上,官方已移除
-  { source: 'infoq-ai', url: rsshub('/infoq/topic/ai'), kind: 'news' }, // topic id 'ai' 上游已失效(503 route empty),待换数字 id
-  { source: '36kr-ai', url: rsshub('/36kr/motif/452080'), kind: 'news' }, // motif 452080 上游 404,待换有效 motif
+  { source: '36kr-ai', url: rsshub('/36kr/information/AI'), kind: 'news' }, // 旧 motif/452080 上游 404,information/AI 为 36氪 AI 频道(实测有文章)
   { source: 'leiphone-ai', url: rsshub('/leiphone/category/ai'), kind: 'news' }, // 旧 /leiphone/ai 改为 /category/ai
-  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/259'), kind: 'news' }, // 上游页面结构变更致路由 503,待上游修复
+  { source: 'thepaper-ai', url: rsshub('/thepaper/channel/119908'), kind: 'news' }, // 259 非法频道 id;119908=科技;上游路由 ofetch 返回值 bug 已在本地 RSSHub 修复
+  { source: 'huxiu', url: rsshub('/huxiu/article'), kind: 'news' }, // 虎嗅(科技综合,含 AI);上游反爬有间歇性空列表,失败自动跳过
+  // 以下源已确认无法恢复,不再配置(2026-09-05 审计):
+  // - jiqizhixin:站点为反爬壳页,官方 /rss 302 至数据服务页,/graphql 与 /api/* 全部 404
+  // - infoq:/topic/:id 的 alias 参数已被上游 API 移除(-2005 ID不能为空),无可用数字 id
+  // - xinzhiyuan / aitechtalk / paperweekly:域名死亡(000)
+  // - aiqianxun:域名已被无关站点抢注,严禁抓取
 ]
 
 const RSS_FEEDS = [...RSS_FEEDS_OFFICIAL, ...RSS_FEEDS_MEDIA, ...RSS_FEEDS_CHINA]
