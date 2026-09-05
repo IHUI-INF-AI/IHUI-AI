@@ -78,10 +78,10 @@ jobs:
           # GitCode 服务端 pre-receive hook 要求 LFS 对象必须存在，先推 LFS 对象
           # 限定 main:--all 不带 ref 会扫描全部分支+tag 历史的 LFS 对象,是超时根因
           git lfs push --all "$REMOTE" main 2>&1 | sed "s|${GITCODE_TOKEN}|***|g" || true
-          # 2026-09-05 根治(二层):
-          # ① GitCode 网关对大包 push 返回 HTTP 504 断连——改为 main 先单推(增量小),
-          #    全量 refspec 再带退避重试 4 次(每次重试都是增量传输,数据量递减)
-          # ② 管道后退出码曾是 sed 的,失败被吞成 success——pipefail + 显式判定
+          # 2026-09-05 根治(三层):
+          # ① GitCode 网关对大包 push 返回 HTTP 504 断连——main 先单推(增量小)
+          # ② tags 有 5000+ 个,全量 refspec 一次推必 504——分批(每批 200 个)推送,失败重试(增量递减)
+          # ③ 管道后退出码曾是 sed 的,失败被吞成 success——pipefail + 显式判定
           GITCODE_FAILED=0
           if ! OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force "$REMOTE" main 2>&1); then
             echo "❌ GitCode main 单推失败:"; echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
@@ -89,20 +89,19 @@ jobs:
           else
             echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
           fi
-          for ATTEMPT in 1 2 3 4; do
-            if OUT=$(GIT_LFS_SKIP_PUSH=1 git push --force --prune "$REMOTE" "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*" 2>&1); then
-              echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
-              echo "✅ GitCode 全量镜像推送完成(第 $ATTEMPT 次尝试)"
-              GITCODE_FAILED=0
+          TAGS_FAILED=0
+          for ATTEMPT in 1 2; do
+            if git for-each-ref --format='%(refname)' refs/tags | xargs -n 200 git push --force "$REMOTE" 2>&1 | sed "s|${GITCODE_TOKEN}|***|g"; then
+              echo "✅ GitCode tags 分批推送完成(第 $ATTEMPT 轮)"
+              TAGS_FAILED=0
               break
             fi
-            echo "⚠️ 第 $ATTEMPT 次全量推送失败(15*${ATTEMPT}s 后重试):"
-            echo "$OUT" | sed "s|${GITCODE_TOKEN}|***|g"
-            GITCODE_FAILED=1
-            sleep $((15 * ATTEMPT))
+            TAGS_FAILED=1
+            echo "⚠️ tags 第 $ATTEMPT 轮有批次失败,30s 后重试(增量传输)"
+            sleep 30
           done
-          if [ "$GITCODE_FAILED" != "0" ]; then
-            echo "❌ GitCode push 重试 4 次仍失败"
+          if [ "$GITCODE_FAILED" != "0" ] || [ "$TAGS_FAILED" != "0" ]; then
+            echo "❌ GitCode 推送未完全成功(main 失败=$GITCODE_FAILED, tags 失败=$TAGS_FAILED);main/分支已推部分由下轮 run 增量补齐"
             exit 1
           fi
           echo "✅ GitCode 镜像推送完成"
