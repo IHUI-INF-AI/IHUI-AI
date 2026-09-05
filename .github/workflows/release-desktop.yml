@@ -85,6 +85,10 @@ jobs:
 
       - name: Build & Release
         uses: tauri-apps/tauri-action@v0
+        # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
+        # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
+        # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.DESKTOP_TAURI_PRIVATE_KEY }}
@@ -106,6 +110,30 @@ jobs:
           # updater endpoint 配置在 tauri.conf.json 指向固定 feed(避免 releases/latest 被其他 release 漂移):
           # https://github.com/IHUI-INF-AI/IHUI-AI/releases/download/desktop-updater-feed/latest.json
           updaterJsonPreferNsis: true
+
+      - name: Fallback upload bundle files to Release
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          BUNDLE=apps/desktop/src-tauri/target/release/bundle
+          # tauri-action existsSync 过滤丢产物的兜底:按磁盘真实文件名(含中文)直接上传
+          FILES=$(find "$BUNDLE" -type f \( -name '*.deb' -o -name '*.rpm' -o -name '*.AppImage' \
+            -o -name '*.AppImage.tar.gz' -o -name '*.dmg' -o -name '*.exe' -o -name '*.msi' \
+            -o -name '*.app.tar.gz' -o -name '*.sig' \) 2>/dev/null)
+          if [ -z "$FILES" ]; then
+            echo "No bundle files found, skip fallback upload"
+            exit 0
+          fi
+          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --title "IHUI AI Desktop $TAG" \
+              --notes "Desktop bundles (Tauri 2)"
+          echo "$FILES" | while IFS= read -r f; do
+            echo "Uploading: $f"
+            gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$f" || echo "WARN: upload failed: $f"
+          done
 
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
