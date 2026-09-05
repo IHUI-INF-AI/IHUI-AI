@@ -90,7 +90,10 @@ function moveDir(src, dest) {
 let exitCode = 1
 excludeRuntimeRoutes()
 try {
-  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build', '--webpack'], {
+  // 2026-09-05: 弃用 --webpack。本机实测 --webpack 3/3 挂死(config 加载后 0 CPU 冻结,
+  // distDir 从未创建,无存活子进程);Turbopack(Next 16 默认构建器)静态导出实测成功
+  // (EXIT:0,.next-static/index.html 产出,全路由清单生成)。生产链路 build:desktop:saas 同用此路径。
+  const r = spawnSync(process.execPath, ['--max-old-space-size=8192', nextBin, 'build'], {
     cwd: webRoot,
     stdio: 'inherit',
     shell: false,
