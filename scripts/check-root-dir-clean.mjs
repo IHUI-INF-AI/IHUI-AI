@@ -102,6 +102,8 @@ const ALLOWED_DIRS = new Set([
   'cert',
   'products',
   'logs',
+  // 2026-09-05 显式审批:交付物目录(双端一致性验收报告 M5 / mobile-rn release APK 等),长期合法
+  'outputs',
   'node_modules',
   'tmp',
   'test-results',
