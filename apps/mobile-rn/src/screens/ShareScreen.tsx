@@ -45,8 +45,7 @@ import { AgentRuntimePanel } from '../components/AgentRuntimePanel'
 import { VoiceInput } from '../components/VoiceInput'
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
-// 对齐 Uniapp share/index.vue float-box:悬浮导航(赚米/客服/反馈),补齐 ShareScreen
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
+// GlobalFloatBox 已在 App.tsx 全局挂载(2026-09-05 去重复渲染)
 import Drawer, {
   type DrawerConversationItem,
   type DrawerExtraMenu,
@@ -392,12 +391,7 @@ export function ShareScreen() {
         onHide={handleFloatBoxHide}
       />
 
-      {/* GlobalFloatBox — 悬浮导航(对齐 Uniapp share/index.vue float-box:赚米/客服/反馈) */}
-      <GlobalFloatBox
-        onPromote={() => navigation.navigate('Promote')}
-        onConsult={() => navigation.navigate('CustomerService')}
-        onFeedback={() => navigation.navigate('Settings')}
-      />
+      {/* GlobalFloatBox 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复同屏双浮窗) */}
 
       {/* Drawer 侧滑抽屉(对齐 Uniapp share/index.vue 行 5 DrawerComponentall:
           主菜单导航/一人公司/领取资料/创建新对话/历史对话/设置/消息/回主页) */}

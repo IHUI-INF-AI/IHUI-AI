@@ -16,7 +16,7 @@ import { DistributionScreen as SharedDistributionScreen, type DistributionInfo }
 import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
-import { Banknote, Landmark, IdCard, BarChart3, Package } from 'lucide-react-native'
+import { Banknote, Landmark, IdCard, BarChart3, Package, Users } from 'lucide-react-native'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
 import { BottomPops } from '../components/BottomPops'
@@ -140,6 +140,7 @@ export function DistributionScreen() {
     { id: 'realname', title: '实名认证', icon: IdCard, description: '完成实名认证' },
     { id: 'income', title: '收入明细', icon: BarChart3, description: '查看收入记录' },
     { id: 'orders', title: '分销订单', icon: Package, description: '查看分销订单记录' },
+    { id: 'personnel', title: '我邀请的团队', icon: Users, description: '查看邀请的团队成员' },
     { id: 'commission', title: '分佣计划', icon: Banknote, description: '了解分佣规则与收益' },
   ]
 
@@ -151,6 +152,7 @@ export function DistributionScreen() {
         realname: 'RealNameAuth',
         income: 'Income',
         orders: 'DistributionOrderList',
+        personnel: 'DistributionPersonnelList',
         commission: 'EarnCommission',
       }
       const route = routeMap[id]
@@ -405,7 +407,7 @@ export function DistributionScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1 } as const,
+  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
   personalInfoWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24) } as const,
