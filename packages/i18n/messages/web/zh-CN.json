@@ -18598,7 +18598,6 @@
   "aigcList": {
     "promptLabel": "提示词",
     "playAudio": "播放音频",
-    "videoBadge": "视频",
     "title": "我的创作",
     "subtitle": "管理你的 AI 生成内容",
     "empty": "暂无创作内容",
