@@ -134,11 +134,10 @@ import AgentList, { type AgentListItem } from '../components/AgentList'
 import { BottomPops } from '../components/BottomPops'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
 import NotificationPanel from '../components/NotificationPanel'
-import { ShareValueModal } from '../components/ShareValueModal'
 import { useAuth } from '../context/AuthContext'
 import { useChatInput } from '../hooks/useChatInput'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { navigateDrawerTab } from '../navigation/tab-utils'
+import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { useI18n } from '../i18n'
 import { rpx } from '../utils/rpx'
 // 消息富内容解析(代码块/图片/文本分段,对齐 ai_index2 agent_content_list;独立模块供单测共用)
@@ -1674,7 +1673,7 @@ export function ChatScreen() {
     }
     // home/ai/mine 是 MainStack 路由,通过 Main navigator 跳转
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
-    navigateDrawerTab(rootNav, tab)
+    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
   }
   const handleDrawerNavigateCompany = (): void => {
     // 一人公司:跳 Distribution 路由(已在 RootNavigator 注册,对齐 Uniapp gotocompany)
@@ -2160,13 +2159,35 @@ export function ChatScreen() {
       </Modal>
 
       {/* 分享领智汇值弹窗(对齐 Uniapp share-points-popup) */}
-      <ShareValueModal
+      <Modal
         visible={shareValueVisible}
-        rewardPoints={shareFirstReward}
-        onClaim={() => void handleClaimShareReward()}
-        onClose={hideSharePoints}
-        onShare={() => void handleShareClick()}
-      />
+        transparent
+        animationType="fade"
+        onRequestClose={hideSharePoints}
+      >
+        <Pressable style={styles.modalMask} onPress={hideSharePoints}>
+          <Pressable style={styles.shareContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
+              <X size={20} color={tokens.text.primary} />
+            </Pressable>
+            <Share2 size={48} color={tokens.purple.DEFAULT} />
+            <Text style={styles.shareTitle}>分享领智汇值</Text>
+            <Text style={styles.shareDesc}>
+              首次分享成功,获得 {shareFirstReward}{' '}
+              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
+            </Text>
+            <Pressable onPress={handleClaimShareReward} style={styles.shareBtn}>
+              <Text style={styles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
+            </Pressable>
+            <Pressable
+              onPress={handleShareClick}
+              style={[styles.shareBtn, styles.shareBtnSecondary]}
+            >
+              <Text style={styles.shareBtnText}>立即分享邀请好友</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* P1.1 转语音 Modal(语音类型选项 + 真实 TTS loading) */}
       <Modal
@@ -2978,7 +2999,51 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.text.secondary,
   },
-  // ── 分享领智汇值弹窗(共享组件 ShareValueModal,样式已内聚) ──
+  // ── 分享领值弹窗 ──
+  shareContent: {
+    width: 300,
+    backgroundColor: tokens.surface.light,
+    borderRadius: 12,
+    padding: rpx(48),
+    alignItems: 'center',
+  },
+  shareClose: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: tokens.text.primary,
+    marginTop: rpx(24),
+    marginBottom: rpx(16),
+  },
+  shareDesc: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: tokens.text.secondary,
+    textAlign: 'center',
+    marginBottom: rpx(32),
+  },
+  shareBtn: {
+    paddingHorizontal: rpx(48),
+    paddingVertical: rpx(20),
+    borderRadius: 6,
+    backgroundColor: tokens.brand.DEFAULT,
+  },
+  shareBtnText: {
+    fontSize: 14,
+    color: tokens.surface.light,
+    fontWeight: '500',
+  },
+  shareBtnSecondary: {
+    marginTop: rpx(16),
+  },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {
     width: '88%',

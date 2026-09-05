@@ -720,9 +720,20 @@ iframe::-webkit-scrollbar {
  * - 导航项文字 span 在 <1024px 隐藏,只显示图标(折叠视觉态)
  * - 导航项本身用 NAV_ITEM_COLLAPSED_CLASS 的 w-9 36×36 正方形布局(已由 collapsed prop 控制
  *   或 CSS 强制居中),此处只补文字隐藏
+ * ============================================================
+ * 2026-09-05 移动端根治:分段处理,手机(<768px)完全隐藏桌面侧栏,平板(768-1023px)保留 60px 图标条。
+ * - 手机视口 <768px:桌面 aside 整体 display:none(logo 竖排文字重叠、60px 图标列挤占内容区的根因);
+ *   移动端抽屉是桌面 aside 的兄弟节点(fixed z-modal),不受影响,仍由 GlobalTopBar 菜单按钮唤起。
+ *   GlobalShell 的 Sidebar Suspense fallback 占位同样带 data-viewport-collapsed,同步隐藏,几何一致。
+ * - 768px-1023px 平板区间:维持原 60px 折叠态(有足够横向空间)。
  * - 桌面端(≥1024px)此规则不生效,完全由 collapsed prop + localStorage 偏好控制
  * ============================================================ */
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
+  aside[data-viewport-collapsed='true'] {
+    display: none;
+  }
+}
+@media (min-width: 768px) and (max-width: 1023px) {
   aside[data-viewport-collapsed='true'] {
     width: 60px !important;
     min-width: 60px !important;

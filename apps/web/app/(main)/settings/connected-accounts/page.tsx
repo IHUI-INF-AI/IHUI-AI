@@ -19,8 +19,7 @@ interface Binding {
   id: string
   platform: string
   platformUserId?: string
-  // 后端 GET /auth/bindings 返回 userThirdPartyAccounts 全行,时间字段为 createdAt(表无 boundAt 列)
-  createdAt: string
+  boundAt: string
 }
 
 const PLATFORMS = [
@@ -100,7 +99,7 @@ export default function ConnectedAccountsPage() {
             <p className="text-sm font-medium">{platform.label}</p>
             {isBound ? (
               <p className="text-xs text-muted-foreground">
-                {t('connectedAccountsBoundAt')}: {dateFmt.format(new Date(binding!.createdAt))}
+                {t('connectedAccountsBoundAt')}: {dateFmt.format(new Date(binding!.boundAt))}
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">{t('connectedAccountsUnbound')}</p>
