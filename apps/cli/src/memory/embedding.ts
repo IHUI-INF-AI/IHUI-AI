@@ -155,4 +155,85 @@ export class ApiEmbeddingProvider implements EmbeddingProvider {
     return json.data.map((d) => d.embedding)
   }
 }
+
+/**
+ * IHUI ai-service 后端实现(2026-09-05 真实化新增)。
+ * POST {aiServiceUrl}/v1/llm/embeddings,body { model, input, dimensions? }。
+ * 返回 OpenAI 兼容格式 { data: [{ index, embedding }] }。
+ * 由后端 LiteLLM 网关统一路由到真实 embedding 模型(本地/远端均可)。
+ */
+export class BackendEmbeddingProvider implements EmbeddingProvider {
+  private readonly backend: ApiEmbeddingProvider
+
+  constructor(aiServiceUrl: string, model?: string, dimensions?: number) {
+    this.backend = new ApiEmbeddingProvider({
+      apiBase: `${aiServiceUrl.replace(/\/$/, '')}/v1/llm`,
+      apiKey: process.env.IHUI_AI_SERVICE_API_KEY ?? '',
+      model: model ?? 'text-embedding-3-small',
+      dimensions,
+    })
+  }
+
+  dimensions(): number {
+    return this.backend.dimensions()
+  }
+
+  modelName(): string {
+    return this.backend.modelName()
+  }
+
+  async embedBatch(texts: string[]): Promise<number[][]> {
+    return this.backend.embedBatch(texts)
+  }
+}
+
+/**
+ * 环境变量自动探测(2026-09-05 真实化):按优先级返回真实 embedding provider。
+ *
+ * 1. IHUI_EMBEDDING_API_BASE + IHUI_EMBEDDING_API_KEY(显式指定,最高优先)
+ * 2. OPENAI_API_KEY → api.openai.com/v1(text-embedding-3-small,1536 维)
+ * 3. DASHSCOPE_API_KEY → 阿里通义兼容模式(text-embedding-v3,1024 维)
+ * 4. SILICONCLOUD_API_KEY → 硅基流动(BAAI/bge-m3,1024 维)
+ * 5. IHUI_AI_SERVICE_URL → 本地/远端 ai-service 网关(统一 LiteLLM 路由)
+ *
+ * 全部未配置返回 undefined(调用方决定降级策略)。
+ */
+export function detectEmbeddingProvider(
+  env: Record<string, string | undefined> = process.env,
+): EmbeddingProvider | undefined {
+  if (env.IHUI_EMBEDDING_API_BASE && env.IHUI_EMBEDDING_API_KEY) {
+    return new ApiEmbeddingProvider({
+      apiBase: env.IHUI_EMBEDDING_API_BASE,
+      apiKey: env.IHUI_EMBEDDING_API_KEY,
+      model: env.IHUI_EMBEDDING_MODEL,
+    })
+  }
+  if (env.OPENAI_API_KEY) {
+    return new ApiEmbeddingProvider({
+      apiBase: env.OPENAI_API_BASE ?? 'https://api.openai.com/v1',
+      apiKey: env.OPENAI_API_KEY,
+      model: 'text-embedding-3-small',
+    })
+  }
+  if (env.DASHSCOPE_API_KEY) {
+    return new ApiEmbeddingProvider({
+      apiBase: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      apiKey: env.DASHSCOPE_API_KEY,
+      model: 'text-embedding-v3',
+      dimensions: 1024,
+    })
+  }
+  if (env.SILICONCLOUD_API_KEY) {
+    return new ApiEmbeddingProvider({
+      apiBase: 'https://api.siliconflow.cn/v1',
+      apiKey: env.SILICONCLOUD_API_KEY,
+      model: 'BAAI/bge-m3',
+      dimensions: 1024,
+    })
+  }
+  if (env.IHUI_AI_SERVICE_URL) {
+    return new BackendEmbeddingProvider(env.IHUI_AI_SERVICE_URL, env.IHUI_EMBEDDING_MODEL)
+  }
+  return undefined
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
