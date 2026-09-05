@@ -96,6 +96,79 @@ jobs:
             docker compose build api web ai-service
           EOF
 
+      - name: 主域 nginx 补齐 /v1 /ws 路由(幂等防漂移)
+        if: ${{ inputs.rollback != true }}
+        run: |
+          echo "=== 同步主域 nginx /v1 /ws 代理路由 ==="
+          ssh -i ~/.ssh/deploy_key "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<'EOF'
+            set -euo pipefail
+            # 定位 aizhs.top 站点主配置(含 location /api/ 反代者),兼容 conf.d 与 sites-enabled
+            F=$(grep -rl "server_name aizhs.top" /etc/nginx/conf.d/ /etc/nginx/sites-enabled/ 2>/dev/null \
+              | xargs -r grep -l "location /api/" 2>/dev/null | head -1)
+            if [ -z "$F" ]; then
+              echo "警告: 未找到 aizhs.top 站点主配置,跳过 nginx 补丁(不影响容器部署)"
+              exit 0
+            fi
+            echo "站点配置: $F"
+            if grep -q "location /v1/" "$F" && grep -q "location /ws/" "$F"; then
+              echo "已包含 /v1 与 /ws 路由,无需补丁"
+            elif ! grep -q "location /v1/" "$F" && ! grep -q "location /ws/" "$F"; then
+              # 动态提取 /api/ 使用的 upstream 名(兼容蓝绿切换的任意命名,不假设端口)
+              APIUP=$(sed -n '/location \/api\/ {/,/}/p' "$F" | grep -oP 'proxy_pass\s+http://\K[a-zA-Z0-9_]+' | head -1)
+              [ -n "$APIUP" ] || { echo "错误: 无法从 $F 提取 /api/ upstream 名,人工核查"; exit 1; }
+              echo "API upstream: $APIUP"
+              {
+                echo "    # 公开 API(/v1/*)与 WebSocket(/ws/*)反代 — 由 blue-green-deploy 自动补齐(2026-09-05)"
+                echo "    # /v1: API Key 鉴权公开 API,禁缓冲+300s 读超时+50m body; /ws: WS 长连接,1h 超时"
+                echo "    location /v1/ {"
+                echo "        proxy_pass http://${APIUP};"
+                echo "        proxy_set_header Host              \$host;"
+                echo "        proxy_set_header X-Real-IP         \$remote_addr;"
+                echo "        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;"
+                echo "        proxy_set_header X-Forwarded-Proto \$scheme;"
+                echo "        proxy_connect_timeout 5s;"
+                echo "        proxy_read_timeout    300s;"
+                echo "        proxy_buffering off;"
+                echo "        proxy_cache off;"
+                echo "        client_max_body_size 50m;"
+                echo "    }"
+                echo ""
+                echo "    location /ws/ {"
+                echo "        proxy_pass http://${APIUP};"
+                echo "        proxy_set_header Host              \$host;"
+                echo "        proxy_set_header X-Real-IP         \$remote_addr;"
+                echo "        proxy_set_header X-Forwarded-For   \$proxy_add_x_forwarded_for;"
+                echo "        proxy_set_header X-Forwarded-Proto \$scheme;"
+                echo "        proxy_http_version  1.1;"
+                echo "        proxy_set_header    Upgrade \$http_upgrade;"
+                echo '        proxy_set_header    Connection "upgrade";'
+                echo "        proxy_connect_timeout 5s;"
+                echo "        proxy_read_timeout    3600s;"
+                echo "        proxy_send_timeout    3600s;"
+                echo "        proxy_buffering off;"
+                echo "    }"
+                echo ""
+              } > /tmp/ihui-v1ws-blocks.conf
+              cp "$F" "${F}.bak-$(date +%Y%m%d%H%M%S)"
+              awk 'BEGIN{while((getline l < "/tmp/ihui-v1ws-blocks.conf")>0) ins=ins l "\n"}
+                   !done && /location \/ \{/ { printf "%s", ins; done=1 }
+                   { print }' "$F" > "${F}.new" && mv "${F}.new" "$F"
+              rm -f /tmp/ihui-v1ws-blocks.conf
+            else
+              echo "警告: /v1 与 /ws 仅部分存在,跳过自动补丁,需人工核查"
+              exit 0
+            fi
+            if nginx -t 2>/dev/null; then
+              nginx -s reload
+              echo "nginx 配置已更新并重载"
+            else
+              echo "nginx -t 失败,回滚到最近备份"
+              LATEST_BAK=$(ls -t "${F}".bak-* 2>/dev/null | head -1)
+              if [ -n "$LATEST_BAK" ]; then cp "$LATEST_BAK" "$F"; nginx -t && nginx -s reload || true; fi
+              exit 1
+            fi
+          EOF
+
       - name: 部署到非活跃环境
         if: ${{ inputs.rollback != true }}
         run: |
@@ -218,4 +291,5 @@ jobs:
           echo "原活跃环境: ${{ steps.active-env.outputs.active }}"
           echo "新活跃环境: ${{ steps.target-env.outputs.target }}"
           echo "=========================================="
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
