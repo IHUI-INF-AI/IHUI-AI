@@ -214,6 +214,11 @@ import { WebViewScreen } from '../screens/WebViewScreen'
 import { ChatToolsScreen } from '../screens/ChatToolsScreen'
 import { ImageGenHistoryScreen } from '../screens/ImageGenHistoryScreen'
 import { ImageGenCreateScreen } from '../screens/ImageGenCreateScreen'
+// M3 第三批(2026-09-05):规范模板库 + 自媒体助手 + 上下文概览 + 文档转 Markdown
+import { SpecScreen } from '../screens/SpecScreen'
+import { SelfMediaScreen } from '../screens/SelfMediaScreen'
+import { ContextScreen } from '../screens/ContextScreen'
+import { PdfToolsScreen } from '../screens/PdfToolsScreen'
 // M4.1(2026-08-26):Web 功能门户 + RAG 知识库 + 子智能体(双端功能矩阵 P0/P1 补齐)
 import { WebPortalScreen } from '../screens/WebPortalScreen'
 import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
@@ -424,6 +429,11 @@ export type RootStackParamList = {
   Publish: undefined
   ImageGenHistory: undefined
   ImageGenCreate: undefined
+  // M3 第三批(2026-09-05):规范/自媒体/上下文/文档转 Markdown
+  Spec: undefined
+  SelfMedia: undefined
+  Context: undefined
+  PdfTools: undefined
   // M4(2026-08-26):通用 WebView 承载页
   WebView: { url: string; title?: string }
   // P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(复用 web /chat,补齐工具能力)
@@ -694,6 +704,11 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Publish" component={PublishScreen} />
             <RootStack.Screen name="ImageGenHistory" component={ImageGenHistoryScreen} />
             <RootStack.Screen name="ImageGenCreate" component={ImageGenCreateScreen} />
+            {/* M3 第三批(2026-09-05) */}
+            <RootStack.Screen name="Spec" component={SpecScreen} />
+            <RootStack.Screen name="SelfMedia" component={SelfMediaScreen} />
+            <RootStack.Screen name="Context" component={ContextScreen} />
+            <RootStack.Screen name="PdfTools" component={PdfToolsScreen} />
             {/* M4(2026-08-26):通用 WebView 承载页 */}
             <RootStack.Screen name="WebView" component={WebViewScreen} />
             {/* P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏 */}
