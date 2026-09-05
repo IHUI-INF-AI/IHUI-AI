@@ -18658,6 +18658,7 @@
   "aigcList": {
     "promptLabel": "프롬프트",
     "playAudio": "오디오 재생",
+    "videoBadge": "영상",
     "title": "내 창작물",
     "subtitle": "AI 생성 콘텐츠 관리",
     "empty": "창작 콘텐츠 없음",
