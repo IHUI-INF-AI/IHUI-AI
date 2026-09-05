@@ -196,29 +196,29 @@ async def lifespan(app: FastAPI) -> Any:
     # Redis 不可用时降级为 no-op(不阻塞 lifespan)
     await im_bridge_service.initialize()
 
-    # 配置 FallbackRouter 故障转移(2026-07-24 立)
-    # StepFun 故障(timeout/overloaded/rate_limited)时自动切 agnes/gpt-4o 兜底
+    # 配置 FallbackRouter 故障转移
     from app.core.llm_gateway import fallback_router
+    # StepFun 主路由故障转移(2026-07-24 立,2026-09-05 修订):
+    # 原 stepfun -> agnes/gpt-4o 兜底已移除——agnes 聚合端点对本部署 key 无 gpt-4o 通道
+    # ("No available channel for model gpt-4o under group default",实测 502),属死配置。
+    # 改为 stepfun 双模型互备(同 provider,均实测稳定),避免无效升级失败。
     fallback_router.configure(
         "stepfun/step-3.7-flash",
         {
-            "fallbacks": ["agnes/gpt-4o"],
+            "fallbacks": ["stepfun/step-router-v1"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
     fallback_router.configure(
         "stepfun/step-router-v1",
         {
-            "fallbacks": ["agnes/gpt-4o"],
+            "fallbacks": ["stepfun/step-3.7-flash"],
             "triggerOnError": ["timeout", "overloaded", "rate_limited"],
         },
     )
-    # gpt-4o(openai 官方端点)兜底(2026-09-04 立):llm_gateway 的 auto-route 会把
-    # 复杂任务升级到 premium 池最低 tier 的 gpt-4o。openai 官方端点在本部署两个问题:
-    # 网络需走代理 + 当前 key 无余额(no credits),失败码为 LLM_ERROR → 命中
-    # FallbackRouter;切 stepfun/step-3.7-flash(实测稳定)保证复杂任务不整体失败。
-    # 注:不能用 agnes/gpt-4o 兜底——agnes 聚合端点对该 key 无 gpt-4o 通道
-    # ("No available channel for model gpt-4o under group default",实测 502)。
+    # gpt-4o(openai 官方端点)兜底(2026-09-04 立):auto-route 已显式排除 gpt-4o 作为
+    # premium 候选(本部署 openai key 无余额 + agnes 无 gpt-4o 通道);但若调用方显式
+    # 指定 gpt-4o,失败(LLM_ERROR/timeout 等)时切 stepfun/step-3.7-flash 保证不整体失败。
     fallback_router.configure(
         "gpt-4o",
         {
@@ -226,7 +226,9 @@ async def lifespan(app: FastAPI) -> Any:
             "triggerOnError": ["timeout", "overloaded", "rate_limited", "llm_error"],
         },
     )
-    logger.info("[fallback_router] configured: stepfun -> agnes/gpt-4o")
+    logger.info(
+        "[fallback_router] configured: stepfun 双模型互备 + gpt-4o -> stepfun/step-3.7-flash"
+    )
 
     # 启动时从 Redis 加载历史向量记忆(进程重启不丢)
     # 失败/无 Redis 时静默降级为内存模式,不阻塞启动
@@ -643,6 +645,9 @@ def create_app() -> FastAPI:
     app.include_router(browser_hub_router.router, prefix="/api", tags=["browser-hub"])
     # OpenCompass 排行榜抓取(Playwright 渲染,2026-07-22 新增,供 api ai-world-sync 调用)
     app.include_router(opencompass.router, prefix="/api", tags=["opencompass"])
+    # 通用网页渲染抓取(Playwright 渲染,2026-09-05 新增,Cloudflare 挑战类站点兜底)
+    from app.routers import browser_render as browser_render_router
+    app.include_router(browser_render_router.router, prefix="/api", tags=["browser-render"])
     # 截图服务(Playwright headless,2026-07-22 新增,WorkPanel iframe 降级)
     app.include_router(screenshot.router, prefix="/api", tags=["screenshot"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
