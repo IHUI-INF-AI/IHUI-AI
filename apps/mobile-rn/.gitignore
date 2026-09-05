@@ -12,7 +12,3 @@
 # IDE
 .idea
 .vscode
-
-# IHUI-AI Android release 签名密钥(不入库, 见 android/keystore.properties 说明)
-android/keystore/
-android/keystore.properties
