@@ -3138,7 +3138,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-02) 前端 Tauri token vault:`apps/web/src/lib/desktop-token-vault.ts`(读写 auth.json refresh_token,浏览器空操作);`lib/api.ts` refreshAccessToken 改 body 模式(读 vault → `{refreshToken}` body,失败清 vault);`stores/auth.ts` setToken/setTokenWithPrefs/logout 同步 vault(登出从 vault 读回吊销);`sso-desktop-bridge.ts`/`playground-api.ts` 硬编码 8802 → env 尊重;web 补依赖 `@tauri-apps/plugin-store`。
 - [x] ✅(2026-09-02) 后端 CORS:`apps/api/src/server.ts` 固定放行 `http://tauri.localhost` / `tauri://localhost`(CORS 回调 + WS verifyClient,不依赖部署 env,与 chrome-extension 同安全论证);config 默认值 + .env.example/docker-compose 同步。本地 8802 预检实测 ACAO 回显通过;api/web typecheck 通过。
 - [x] ✅(2026-09-02) SaaS 构建入口:`scripts/desktop-build-saas.mjs` + `pnpm build:desktop:saas`(注入 NEXT_PUBLIC_API_BASE_URL/STREAM_API_BASE_URL/AI_SERVICE_URL=https://aizhs.top 后 tauri build)。
-- [ ] **待用户执行**:① 后端 CORS 代码部署到线上生产(aizhs.top 后端);② `pnpm build:desktop:saas` 产出 SaaS 桌面包;③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能)。
+- [ ] **待用户执行**:①~~CORS 部署~~✅(2026-09-05 已随生产部署生效);②~~`pnpm build:desktop:saas`~~✅(0.1.16 已产出并签名,含今晨移动端修复);③ 装机实测登录/静默续期/AI 全链路(重点:重启后免登录、15min 后不登出);④ 若线上 /v1、/api/llm 等路径经 nginx 未全量代理,补齐 nginx 路由后复测(playground / AI 直连功能)。
 
 ## P1 跨端视觉一致性:miniapp-taro 对齐 web 样式 + 双端同步守门(2026-09-03 立并完成 ✅,提交 339be38791,跨端:web × miniapp-taro)
 
@@ -3151,7 +3151,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-03) `.gitignore` 追加 `.nav-probe/`([44] 根目录守门按 git check-ignore 精确豁免并行会话活跃探测目录,不污染名字白名单、防误 git add)
 - [x] ✅(2026-09-03) 守门链验收:eslint 0 / guardian-runner 72 项 67 过 5 警 0 败 / parity EXIT=0 / design-tokens 89 变量 sync PASS / staged typecheck PASS / weapp build 无 `: active` 伪类 PLUGIN_ERROR
 - [x] ✅(2026-09-03) 8 个 `lost-commit/20260903-*` 悬空 commit tag 同步 origin(AGENTS.md §22 防 gc)
-- [ ] **上推三仓**(origin/gitee/gitcode):commit `339be38791` 仅本地落地,GitHub TLS 黑洞期间按仓库铁律先保另两仓;恢复后 `git push origin main` + gitee/gitcode 补齐
+- [x] ✅(2026-09-05) 上推三仓(origin/gitee/gitcode):`339be38791` 及后续全部提交已推 origin(本地=origin=f6619a44c),gitee/gitcode 经 mirror-to-cn 工作流自动追平,.git 双事故后本地已补配两 remote
 
 > ⚠️ 遗留(非本任务引入):`agentGovernance.*` 17 个死 key(web 管理页源码已删,keys 存于 HEAD 与 5 个 web 语言 JSON,JSON 正被并行 AI 可观测性会话活跃编辑)。已用文档化 `HUSKY_SKIP_I18N_DEAD_KEY=1` 跳过(pre-commit:153),清理待并行会话收尾后执行。
 
@@ -3174,4 +3174,4 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-04) 缺陷 1(P0 链路断裂):浏览器端预加载 `workspaceContext` 被 API 网关 zod schema 剥离(从未透传),ai-service `workspace_context` 永远 None → system prompt 零注入。修复 `apps/api/src/routes/ai-chat-stream.ts`:schema 声明 + /chat/stream、/chat/answer 两路由 destructure + `streamToClient` 透传 `workspace_context`(蛇形对齐 ai-service Pydantic;bodyLimit 10MB 已足够)
 - [x] ✅(2026-09-04) 缺陷 1 附带:浏览器 handle 会话级丢失(刷新后静默读不到)→ workspace-selector `warnHandleLossOnce` 提示重新授权(挂载校验 + 最近列表切换两处)
 - [x] ✅(2026-09-04) 缺陷 2:工作区全局单值共享全部对话 → 会话级隔离:`apps/web/src/stores/ai-panel.ts` 新增 `conversationWorkspaces` 持久化映射 + `bindWorkspaceToConversation` + setActiveWorkspace 有会话时写回;`ai-side-panel.tsx` 会话切换换装 effect(有绑定应用/从未绑定解绑/无会话保留);`send-message.ts` 三条会话创建路径(斜杠/主流程/分支)绑定与继承
-- [ ] 上推三仓(api/web typecheck 0 错误;生产 web 部署后需线上复测:问"本项目是干嘛的"应能答出)
+- [x] ✅(2026-09-05) 上推三仓 + 生产部署复测:api/web tsc --noEmit 0 错误;生产 web(07:09 构建)与 api/ai-service/RSSHub 本地+公网全 200,AI World 同步 111/111 全绿
