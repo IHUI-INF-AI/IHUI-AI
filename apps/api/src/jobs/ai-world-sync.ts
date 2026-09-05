@@ -24,7 +24,7 @@ import cron, { type ScheduledTask } from 'node-cron'
 import RSSParser from 'rss-parser'
 import * as cheerio from 'cheerio'
 import { parquetReadObjects } from 'hyparquet'
-import { ProxyAgent } from 'undici'
+import { ProxyAgent, fetch as undiciFetch } from 'undici'
 import { and, eq, gte, sql } from 'drizzle-orm'
 import {
   aiWorldCategories,
@@ -553,11 +553,16 @@ const fetchWithTimeout = async (
     const isLocal = /^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(:|\/|$)/i.test(url)
     if (proxyUrl && !isLocal) {
       const dispatcher = getSyncProxyAgent(proxyUrl)
-      return await fetch(url, {
-        ...opts,
-        signal: controller.signal,
-        ...(dispatcher ? ({ dispatcher } as unknown as RequestInit) : {}),
-      })
+      if (dispatcher) {
+        // 2026-09-05 根治:Node 22.22 的全局 fetch 已移除 RequestInit.dispatcher 支持
+        // (实测 UND_ERR_INVALID_ARG),代理分支必须用 undici 自带 fetch 显式传 dispatcher
+        const res = await undiciFetch(url, {
+          ...(opts as Record<string, unknown>),
+          signal: controller.signal,
+          dispatcher,
+        } as Parameters<typeof undiciFetch>[1])
+        return res as unknown as Response
+      }
     }
     return await fetch(url, { ...opts, signal: controller.signal })
   } finally {
