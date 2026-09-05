@@ -161,6 +161,11 @@ export const MENU_SECTIONS: MenuSection[] = [
       { key: 'AiWorld', labelKey: 'menu.aiWorld', icon: Globe, viaParent: true },
       { key: 'ImageGenHistory', labelKey: 'menu.imageGen', icon: Image, viaParent: true },
       { key: 'Publish', labelKey: 'menu.publish', icon: Send, viaParent: true },
+      // M3 第三批(2026-09-05):规范/自媒体/上下文/文档转 Markdown
+      { key: 'Spec', labelKey: 'menu.spec', icon: ScrollText, viaParent: true },
+      { key: 'SelfMedia', labelKey: 'menu.selfMedia', icon: PenLine, viaParent: true },
+      { key: 'Context', labelKey: 'menu.context', icon: Network, viaParent: true },
+      { key: 'PdfTools', labelKey: 'menu.pdfTools', icon: Files, viaParent: true },
       { key: 'CourseEnroll', labelKey: 'menu.courseEnroll', icon: GraduationCap, viaParent: true },
       { key: 'LivePlayback', labelKey: 'menu.livePlayback', icon: PlayCircle, viaParent: true },
     ],
