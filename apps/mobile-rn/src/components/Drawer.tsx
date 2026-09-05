@@ -9,11 +9,11 @@
  * - 顶部用户区(头像 + 昵称 + 等级标识 VIP/普通)
  * - 5 主菜单(AI 对话社区 / AI 应用 / 广场 / 动态 / 我的,对齐 Uniapp 5 主入口)
  * - 一人公司入口 / 领取免费资料 / 创建新对话(对齐 Uniapp label_content)
- * - 历史对话列表:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑删除
+ * - 历史对话列表:按模型分组 → 按日期分组(今天/昨天/更早) → 左滑收藏/删除
  * - 底部操作区:设置 / 消息 / 回到主页(对齐 Uniapp bottom_userInfo + back_index_btn)
  *
  * 左侧滑入,半透明遮罩(bg-black/50),80% 屏宽(最大 320dp)。
- * 左滑删除用 Animated + PanResponder 自定义实现(无 react-native-gesture-handler 依赖)。
+ * 左滑操作(收藏+删除)用 Animated + PanResponder 自定义实现(无 react-native-gesture-handler 依赖)。
  *
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
  */
@@ -54,10 +54,12 @@ import {
   Puzzle,
   Settings,
   Share2,
+  Star,
   Trash2,
   User,
   Wrench,
 } from 'lucide-react-native'
+import { favoriteConversation, unfavoriteConversation } from '@ihui/api-client'
 
 // ── 类型定义(强类型,禁用 any) ──
 
@@ -88,6 +90,8 @@ export interface DrawerConversationItem {
   title: string
   modelConfig?: DrawerModelConfig
   createdAt: number // timestamp,用于日期分组
+  /** 收藏标记(列表 API favorite 字段;Drawer 内乐观覆盖,2026-09-05 立) */
+  favorited?: boolean
 }
 
 export interface DrawerProps {
@@ -124,6 +128,8 @@ const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
 const OVERLAY_OPACITY = 0.5
 const DELETE_WIDTH = 50 // 左滑露出的删除按钮宽度(对齐 Uniapp 101rpx ≈ 50dp)
+const FAVORITE_WIDTH = 50 // 左滑露出的收藏按钮宽度
+const SWIPE_WIDTH = DELETE_WIDTH + FAVORITE_WIDTH // 左滑总露出宽度(收藏 + 删除)
 const SWIPE_THRESHOLD = 28 // 触发展开删除的位移阈值
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -260,9 +266,17 @@ interface SwipeItemProps {
   onOpen: (id: string) => void
   onSelect: (id: string) => void
   onDelete: (id: string) => void
+  onToggleFavorite: (id: string, next: boolean) => void
 }
 
-function SwipeableConversationItem({ item, isOpen, onOpen, onSelect, onDelete }: SwipeItemProps) {
+function SwipeableConversationItem({
+  item,
+  isOpen,
+  onOpen,
+  onSelect,
+  onDelete,
+  onToggleFavorite,
+}: SwipeItemProps) {
   const translateX = useRef(new Animated.Value(0)).current
   // 用 ref 跟踪当前 offset / 最后位移,避免读取 Animated.Value 私有字段(_value)
   const offsetRef = useRef(0)
@@ -277,7 +291,7 @@ function SwipeableConversationItem({ item, isOpen, onOpen, onSelect, onDelete }:
           lastXRef.current = offsetRef.current
         },
         onPanResponderMove: (_e, g) => {
-          const next = Math.max(-DELETE_WIDTH, Math.min(0, offsetRef.current + g.dx))
+          const next = Math.max(-SWIPE_WIDTH, Math.min(0, offsetRef.current + g.dx))
           lastXRef.current = next
           translateX.setValue(next)
         },
@@ -327,20 +341,45 @@ function SwipeableConversationItem({ item, isOpen, onOpen, onSelect, onDelete }:
 
   return (
     <View className="relative overflow-hidden">
-      {/* 删除按钮(底层,右侧露出) */}
+      {/* 操作按钮(底层,右侧露出:收藏 + 删除) */}
       <View
-        className="absolute top-0 bottom-0 right-0 items-center justify-center"
-        style={{ width: DELETE_WIDTH, backgroundColor: tokens.danger.DEFAULT }}
+        className="absolute top-0 bottom-0 right-0 flex-row items-stretch justify-end"
+        style={{ width: SWIPE_WIDTH }}
       >
-        <Pressable
+        <View
           className="items-center justify-center"
-          style={{ width: DELETE_WIDTH, height: '100%' }}
-          onPress={handleDelete}
-          accessibilityLabel={`删除对话 ${item.title}`}
+          style={{ width: FAVORITE_WIDTH, backgroundColor: '#f59e0b' }}
         >
-          <Trash2 size={20} color={tokens.surface.light} />
-          <Text className="text-[11px] text-white mt-1">删除</Text>
-        </Pressable>
+          <Pressable
+            className="items-center justify-center"
+            style={{ width: FAVORITE_WIDTH, height: '100%' }}
+            onPress={() => onToggleFavorite(item.id, !item.favorited)}
+            accessibilityLabel={`${item.favorited ? '取消收藏' : '收藏'}对话 ${item.title}`}
+          >
+            <Star
+              size={20}
+              color={tokens.surface.light}
+              fill={item.favorited ? tokens.surface.light : 'transparent'}
+            />
+            <Text className="text-[11px] text-white mt-1">
+              {item.favorited ? '已收藏' : '收藏'}
+            </Text>
+          </Pressable>
+        </View>
+        <View
+          className="items-center justify-center"
+          style={{ width: DELETE_WIDTH, backgroundColor: tokens.danger.DEFAULT }}
+        >
+          <Pressable
+            className="items-center justify-center"
+            style={{ width: DELETE_WIDTH, height: '100%' }}
+            onPress={handleDelete}
+            accessibilityLabel={`删除对话 ${item.title}`}
+          >
+            <Trash2 size={20} color={tokens.surface.light} />
+            <Text className="text-[11px] text-white mt-1">删除</Text>
+          </Pressable>
+        </View>
       </View>
       {/* 内容(上层,跟随手势平移) */}
       <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
@@ -388,6 +427,8 @@ export function Drawer(props: DrawerProps) {
   // progress: 0 = 隐藏, 1 = 显示
   const progress = useRef(new Animated.Value(0)).current
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null)
+  // 会话收藏乐观覆盖(id → favorited),避免 9 个屏各自接回调(2026-09-05)
+  const [favOverrides, setFavOverrides] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -412,7 +453,27 @@ export function Drawer(props: DrawerProps) {
     outputRange: [0, OVERLAY_OPACITY],
   })
 
-  const modelGroups = useMemo(() => groupByModelAndDate(conversations), [conversations])
+  const modelGroups = useMemo(() => {
+    if (Object.keys(favOverrides).length === 0) return groupByModelAndDate(conversations)
+    // 应用收藏乐观覆盖( favorited = 列表值 ⊕ 本地 override )
+    const patched = conversations.map((c) =>
+      c.id in favOverrides ? { ...c, favorited: favOverrides[c.id] } : c,
+    )
+    return groupByModelAndDate(patched)
+  }, [conversations, favOverrides])
+
+  /** 收藏切换(乐观更新,失败回滚;2026-09-05 矩阵① Chat 收藏补齐) */
+  const handleToggleFavoriteConversation = useCallback((id: string, next: boolean) => {
+    setFavOverrides((prev) => ({ ...prev, [id]: next }))
+    const call = next ? favoriteConversation(id) : unfavoriteConversation(id)
+    call.catch(() => {
+      setFavOverrides((prev) => {
+        const { [id]: _rollback, ...rest } = prev
+        return rest
+      })
+      Alert.alert('提示', '收藏操作失败,请重试')
+    })
+  }, [])
 
   const handleSwipeOpen = useCallback((id: string) => {
     setOpenSwipeId((prev) => (prev === id ? prev : id))
@@ -736,10 +797,10 @@ export function Drawer(props: DrawerProps) {
                 </Pressable>
               </View>
 
-              {/* 6. 历史对话列表(按模型分组 → 按日期分组 → 左滑删除) */}
+              {/* 6. 历史对话列表(按模型分组 → 按日期分组 → 左滑收藏/删除) */}
               <View className="px-4 pt-3 pb-2 flex-row items-center justify-between">
                 <Text className="text-[14px] font-bold text-gray-900">历史对话</Text>
-                <Text className="text-[11px] text-gray-400">左滑删除</Text>
+                <Text className="text-[11px] text-gray-400">左滑收藏 / 删除</Text>
               </View>
 
               {modelGroups.length === 0 ? (
@@ -778,6 +839,7 @@ export function Drawer(props: DrawerProps) {
                               onOpen={handleSwipeOpen}
                               onSelect={handleSelectConversation}
                               onDelete={onDeleteConversation}
+                              onToggleFavorite={handleToggleFavoriteConversation}
                             />
                           ))}
                         </View>
