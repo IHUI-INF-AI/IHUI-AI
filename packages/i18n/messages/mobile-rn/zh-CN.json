@@ -2266,7 +2266,8 @@
       "selfMedia": "自媒体运营",
       "knowledgeTools": "知识图谱与工具",
       "models": "模型平台",
-      "more": "更多功能"
+      "more": "更多功能",
+      "workspace": "AI 工作台"
     },
     "eduAi": {
       "policy": "政策解读",
@@ -2321,6 +2322,7 @@
       "eval": "模型评测"
     },
     "workspace": "工作区",
+    "workspacePermissions": "工作区权限",
     "tags": "标签",
     "topics": "话题",
     "context": "上下文管理",
