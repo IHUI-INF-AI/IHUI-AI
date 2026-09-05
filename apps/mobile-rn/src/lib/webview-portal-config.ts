@@ -229,13 +229,6 @@ export const WEB_PORTAL_SECTIONS = [
   {
     titleKey: 'webViewPortal.sections.knowledgeTools',
     entries: [
-      // workspace(IDE 项目空间)依赖本地文件系统,移动端不适配原生,WebView 承载
-      {
-        key: 'workspace',
-        titleKey: 'webViewPortal.workspace',
-        path: '/workspace',
-        domain: 'workspace',
-      },
       {
         key: 'knowledge-graph',
         titleKey: 'webViewPortal.knowledgeGraph',
@@ -260,6 +253,25 @@ export const WEB_PORTAL_SECTIONS = [
         titleKey: 'webViewPortal.fundData',
         path: '/fund-data',
         domain: 'fund-data',
+      },
+    ],
+  },
+  {
+    // workspace(AI 工作台)依赖 IDE 本地文件系统,移动端由 WebView 承载;
+    // /workspace/[id] 为动态路由,不适合门户直达,故不收录
+    titleKey: 'webViewPortal.sections.workspace',
+    entries: [
+      {
+        key: 'workspace-dashboard',
+        titleKey: 'webViewPortal.workspace',
+        path: '/workspace',
+        domain: 'workspace',
+      },
+      {
+        key: 'workspace-permissions',
+        titleKey: 'webViewPortal.workspacePermissions',
+        path: '/workspace/permissions',
+        domain: 'workspace',
       },
     ],
   },
