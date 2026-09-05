@@ -334,7 +334,8 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
       {pending2fa && (
         // 2FA 验证面板覆盖层:登录响应 twoFactorRequired 时弹出
         <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-background/95 pt-10 backdrop-blur-sm">
-          <div className="w-[320px] rounded-lg border border-border p-5 shadow-lg">
+          {/* 2026-09-05 移动端:改 max-w 上限式,390px 手机视口内不再溢出(父级是 p-5 卡片,预留 2*20px+边距) */}
+          <div className="w-full max-w-[320px] rounded-lg border border-border p-5 shadow-lg">
             <TwoFactorPanel onSubmit={submit2fa} onCancel={cancel2fa} />
           </div>
         </div>
