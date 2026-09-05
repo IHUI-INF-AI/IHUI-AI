@@ -2,8 +2,17 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
-import { Alert, FlatList, RefreshControl, Text, TouchableOpacity, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Alert,
+  FlatList,
+  Modal,
+  RefreshControl,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
@@ -27,6 +36,15 @@ interface MemoryDeleteResponse {
   deleted: boolean
 }
 
+/** POST /api/memory 请求体(对齐 apps/api routes/memory.ts createEntrySchema) */
+interface MemoryCreateInput {
+  scope: MemoryScope
+  type: MemoryEntryType
+  category: string
+  text: string
+  source: string
+}
+
 const SCOPE_KEYS: Record<MemoryScope, string> = {
   global: 'memory.scope.global',
   user: 'memory.scope.user',
@@ -42,6 +60,16 @@ const TYPE_KEYS: Record<MemoryEntryType, string> = {
   feedback: 'memory.type.feedback',
   skill_ref: 'memory.type.skill_ref',
 }
+
+const SCOPES: readonly MemoryScope[] = ['global', 'user', 'session', 'project']
+const TYPES: readonly MemoryEntryType[] = [
+  'preference',
+  'convention',
+  'decision',
+  'fact',
+  'feedback',
+  'skill_ref',
+]
 
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
@@ -75,10 +103,24 @@ export function MemoryScreen() {
   const [deleting, setDeleting] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // —— 筛选:scope 走服务端参数,type/关键词走前端过滤(与 web 列表页一致) ——
+  const [scopeFilter, setScopeFilter] = useState<MemoryScope | null>(null)
+  const [typeFilter, setTypeFilter] = useState<MemoryEntryType | null>(null)
+  const [search, setSearch] = useState('')
+
+  // —— 新建记忆 ——
+  const [createVisible, setCreateVisible] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [newCategory, setNewCategory] = useState('')
+  const [newType, setNewType] = useState<MemoryEntryType>('fact')
+  const [newScope, setNewScope] = useState<MemoryScope>('user')
+  const [saving, setSaving] = useState(false)
+
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<MemoryListResponse>('/api/memory')
+      const qs = scopeFilter ? `?scope=${encodeURIComponent(scopeFilter)}` : ''
+      const res = await fetchApi<MemoryListResponse>(`/api/memory${qs}`)
       if (!res.success) throw new Error(res.error)
       setEntries(res.data.entries)
     } catch {
@@ -87,11 +129,52 @@ export function MemoryScreen() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [t])
+  }, [t, scopeFilter])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const visibleEntries = useMemo(() => {
+    const kw = search.trim().toLowerCase()
+    return entries.filter((e) => {
+      if (typeFilter && e.type !== typeFilter) return false
+      if (!kw) return true
+      return e.text.toLowerCase().includes(kw) || e.category.toLowerCase().includes(kw)
+    })
+  }, [entries, typeFilter, search])
+
+  const onCreate = async () => {
+    if (!newText.trim()) {
+      Alert.alert(t('memory.textRequired'))
+      return
+    }
+    setSaving(true)
+    try {
+      const body: MemoryCreateInput = {
+        scope: newScope,
+        type: newType,
+        category: newCategory.trim() || '未分类',
+        text: newText.trim(),
+        source: 'mobile-rn',
+      }
+      const res = await fetchApi<MemoryEntry>('/api/memory', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+      if (!res.success) throw new Error(res.error)
+      setEntries((prev) => [res.data, ...prev])
+      setCreateVisible(false)
+      setNewText('')
+      setNewCategory('')
+      setNewType('fact')
+      setNewScope('user')
+    } catch {
+      Alert.alert(t('memory.saveFailed'))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const onDelete = (entry: MemoryEntry) => {
     Alert.alert(t('memory.deleteTitle'), t('memory.deleteConfirm'), [
@@ -186,7 +269,12 @@ export function MemoryScreen() {
           <Text className="text-sm text-gray-500">{t('common.back')}</Text>
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('memory.title')}</Text>
-        <Text className="text-sm text-gray-500">({entries.length})</Text>
+        <TouchableOpacity
+          onPress={() => setCreateVisible(true)}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text className="text-sm font-medium text-blue-600">{t('memory.create')}</Text>
+        </TouchableOpacity>
       </View>
 
       {error ? (
@@ -204,7 +292,7 @@ export function MemoryScreen() {
         </View>
       ) : (
         <FlatList
-          data={entries}
+          data={visibleEntries}
           keyExtractor={(item) => item.id}
           refreshControl={
             <RefreshControl
@@ -214,6 +302,77 @@ export function MemoryScreen() {
                 void load()
               }}
             />
+          }
+          ListHeaderComponent={
+            <View className="mb-3">
+              {/* 搜索 */}
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('memory.searchPlaceholder')}
+                placeholderTextColor="#9ca3af"
+                returnKeyType="search"
+                className="h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+              />
+              {/* scope chips */}
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                <TouchableOpacity
+                  onPress={() => setScopeFilter(null)}
+                  className={`rounded-md px-3 py-1.5 ${scopeFilter === null ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                >
+                  <Text
+                    className={`text-xs ${scopeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                  >
+                    {t('memory.all')}
+                  </Text>
+                </TouchableOpacity>
+                {SCOPES.map((scope) => {
+                  const active = scopeFilter === scope
+                  return (
+                    <TouchableOpacity
+                      key={scope}
+                      onPress={() => setScopeFilter(active ? null : scope)}
+                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                    >
+                      <Text
+                        className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                      >
+                        {t(SCOPE_KEYS[scope])}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+              {/* type chips */}
+              <View className="mt-2 flex-row flex-wrap gap-2">
+                <TouchableOpacity
+                  onPress={() => setTypeFilter(null)}
+                  className={`rounded-md px-3 py-1.5 ${typeFilter === null ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                >
+                  <Text
+                    className={`text-xs ${typeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                  >
+                    {t('memory.all')}
+                  </Text>
+                </TouchableOpacity>
+                {TYPES.map((type) => {
+                  const active = typeFilter === type
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      onPress={() => setTypeFilter(active ? null : type)}
+                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                    >
+                      <Text
+                        className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
+                      >
+                        {t(TYPE_KEYS[type])}
+                      </Text>
+                    </TouchableOpacity>
+                  )
+                })}
+              </View>
+            </View>
           }
           ListEmptyComponent={
             <View className="items-center py-16">
@@ -225,6 +384,83 @@ export function MemoryScreen() {
           renderItem={renderEntry}
         />
       )}
+
+      {/* 新建记忆 Modal */}
+      <Modal visible={createVisible} animationType="slide" transparent>
+        <View className="flex-1 justify-end bg-black/40">
+          <View className="rounded-t-2xl bg-white p-4 dark:bg-neutral-800">
+            <View className="mb-3 flex-row items-center justify-between">
+              <Text className="text-base font-medium">{t('memory.createTitle')}</Text>
+              <TouchableOpacity
+                onPress={() => setCreateVisible(false)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text className="text-sm text-gray-500">{t('common.cancel')}</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              value={newText}
+              onChangeText={setNewText}
+              placeholder={t('memory.textPlaceholder')}
+              placeholderTextColor="#9ca3af"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              className="min-h-[96px] rounded-md border border-gray-200 p-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+            />
+            <TextInput
+              value={newCategory}
+              onChangeText={setNewCategory}
+              placeholder={t('memory.categoryPlaceholder')}
+              placeholderTextColor="#9ca3af"
+              className="mt-2 h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
+            />
+            <Text className="mt-3 text-xs text-gray-500">{t('memory.typeLabel')}</Text>
+            <View className="mt-1.5 flex-row flex-wrap gap-2">
+              {TYPES.map((type) => {
+                const active = newType === type
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => setNewType(type)}
+                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
+                  >
+                    <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
+                      {t(TYPE_KEYS[type])}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <Text className="mt-3 text-xs text-gray-500">{t('memory.scopeLabel')}</Text>
+            <View className="mt-1.5 flex-row flex-wrap gap-2">
+              {SCOPES.map((scope) => {
+                const active = newScope === scope
+                return (
+                  <TouchableOpacity
+                    key={scope}
+                    onPress={() => setNewScope(scope)}
+                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
+                  >
+                    <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
+                      {t(SCOPE_KEYS[scope])}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+            <TouchableOpacity
+              onPress={() => void onCreate()}
+              disabled={saving}
+              className="mt-4 items-center rounded-md bg-blue-600 py-3"
+            >
+              <Text className="text-sm font-medium text-white">
+                {saving ? t('common.loading') : t('memory.save')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
