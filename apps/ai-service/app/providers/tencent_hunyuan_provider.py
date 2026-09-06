@@ -139,8 +139,8 @@ class TencentHunyuanProvider(BaseProvider):
                             if hasattr(chunk.usage, "model_dump")
                             else dict(chunk.usage)
                         )
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("hunyuan usage 解析失败,本轮 usage 丢失: %s", exc)
                 if hasattr(chunk, "model") and chunk.model:
                     final_model = chunk.model
             yield {
