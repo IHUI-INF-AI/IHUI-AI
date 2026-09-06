@@ -296,7 +296,13 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
       lines.push(`sql_queries_total{table="${table}",operation="${operation}"} ${v}`)
     }
 
-    reply.type('text/plain').send(lines.join('\n'))
+    // 修复 async handler 双 send:此前 `reply.type().send(...)` 返回 reply 对象,
+    // 导致 handler resolve 后 wrap-thenable 再次调用 reply.send(reply)(此时 sent 仍为 false,
+    // 因 onSend 链为异步),同一 reply 并发跑两遍 onSend 链 → 二次 writeHead 抛
+    // ERR_HTTP_HEADERS_SENT「Reply was already sent」。改为直接 return 字符串 payload,
+    // 由 Fastify 内部 send 一次,既简洁又无并发风险。
+    reply.type('text/plain')
+    return lines.join('\n')
   })
 
   // 暴露 metrics 对象供健康检查使用
