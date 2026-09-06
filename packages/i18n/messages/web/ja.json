@@ -6774,12 +6774,7 @@
       "targetPlaceholder": "例:名門高校、985大学"
     },
     "options": {
-      "classLevel": [
-        "優秀(クラス上位 10%)",
-        "良好(10-30%)",
-        "普通(30-70%)",
-        "やや劣る(下位 30%)"
-      ],
+      "classLevel": ["優秀(クラス上位 10%)", "良好(10-30%)", "普通(30-70%)", "やや劣る(下位 30%)"],
       "difficulty": [
         "国語読解",
         "英語ヒアリング・スピーキング",
@@ -6796,12 +6791,7 @@
         "試験不安",
         "家庭環境の影響"
       ],
-      "school": [
-        "重点中学校",
-        "普通中学校",
-        "インターナショナルスクール",
-        "私立学校"
-      ]
+      "school": ["重点中学校", "普通中学校", "インターナショナルスクール", "私立学校"]
     },
     "result": {
       "failed": "AI 分析に失敗しました",
@@ -7942,9 +7932,16 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "入力",
+      "completionTokens": "出力",
+      "requests": "リクエスト数",
+      "estimateHint": "費用は混合単価の概算です(1Kトークンあたり¥0.02、実際の課金ではありません)",
+      "ariaLabel": "セッション累計トークン使用量"
+    },
     "addContextHint": "コンテキストファイルや参照を追加",
     "addContextReference": "コンテキストとして",
-    "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン)",
+    "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン/圧縮)",
     "addMenuLabel": "追加",
     "assistant": "AIアシスタント",
     "cancel": "キャンセル",
@@ -7952,6 +7949,7 @@
     "clearInputTitle": "入力内容をクリア",
     "cmdCode": "のをコードでし、コメントをしてください：",
     "cmdExplain": "のをしくしてください：",
+    "deepResearchEntry": "ディープリサーチ",
     "cmdKouboScript": "本日8本のDouyinナレーション原稿を生成してください。要件:\n1. 日付: MMDD\n2. テーマ方向:\n3. 二重ゲート検証(曖昧さ圧縮 / 原稿間語彙 / 全量検証 / 語弊 / ホットトピックカバー)\nkoubo-workflowパイプラインを実行してください(制約優先執筆法)。",
     "cmdPolish": "のテキストを確認し、よりプロフェッショナルでストリームにしてください：",
     "cmdSummary": "の内容を確認し、適切なをしてください",
@@ -8768,58 +8766,32 @@
     "commands": {
       "ai-world": {
         "description": "AI アプリの世界を探索",
-        "keywords": [
-          "AI",
-          "ワールド",
-          "アプリ"
-        ],
+        "keywords": ["AI", "ワールド", "アプリ"],
         "label": "AI ワールド"
       },
       "chat": {
         "description": "AI アシスタントと会話",
-        "keywords": [
-          "チャット",
-          "会話",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["チャット", "会話", "AI", "chat"],
         "label": "AI チャット"
       },
       "drama": {
         "description": "AI 生成ショートドラマ",
-        "keywords": [
-          "ドラマ",
-          "ビデオ",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["ドラマ", "ビデオ", "AI", "drama"],
         "label": "AI ドラマ"
       },
       "profile": {
         "description": "プロフィールと設定を管理",
-        "keywords": [
-          "プロフィール",
-          "ユーザー",
-          "設定"
-        ],
+        "keywords": ["プロフィール", "ユーザー", "設定"],
         "label": "プロフィール"
       },
       "search": {
         "description": "グローバルコンテンツ検索",
-        "keywords": [
-          "検索",
-          "search",
-          "search"
-        ],
+        "keywords": ["検索", "search", "search"],
         "label": "検索"
       },
       "settings": {
         "description": "システム環境設定と構成",
-        "keywords": [
-          "設定",
-          "環境設定",
-          "構成"
-        ],
+        "keywords": ["設定", "環境設定", "構成"],
         "label": "設定"
       }
     },
@@ -10646,37 +10618,25 @@
       "quadrants": [
         {
           "description": "単純な意思決定 + 単純な実行、高頻度アプリの迅速展開",
-          "examples": [
-            "ナレッジQ&A",
-            "プロセス自動化"
-          ],
+          "examples": ["ナレッジQ&A", "プロセス自動化"],
           "tag": "Q1",
           "title": "効率的アシスタント"
         },
         {
           "description": "複雑な意思決定 + 単純な実行、深い分析と提案を提供",
-          "examples": [
-            "データ分析",
-            "意思決定サポート"
-          ],
+          "examples": ["データ分析", "意思決定サポート"],
           "tag": "Q2",
           "title": "スマートアドバイザー"
         },
         {
           "description": "単純な意思決定 + 複雑な実行、クロスシステムの複雑なタスクを処理",
-          "examples": [
-            "会議調整",
-            "承認プロセス"
-          ],
+          "examples": ["会議調整", "承認プロセス"],
           "tag": "Q3",
           "title": "実行エキスパート"
         },
         {
           "description": "複雑な意思決定 + 複雑な実行、自律計画とマルチエージェント連携",
-          "examples": [
-            "マーケティング自動化",
-            "マルチエージェント連携"
-          ],
+          "examples": ["マーケティング自動化", "マルチエージェント連携"],
           "tag": "Q4",
           "title": "オールラウンドエキスパート"
         }
@@ -10810,31 +10770,19 @@
       "items": [
         {
           "description": "オフラインコース、探求活動、相互支援コミュニティ、志を同じくする意思決定者を深くつなぐ",
-          "features": [
-            "体系化コース",
-            "実践探求",
-            "コミュニティ相互支援"
-          ],
+          "features": ["体系化コース", "実践探求", "コミュニティ相互支援"],
           "tag": "MODULE 01",
           "title": "ローカルコミュニティ"
         },
         {
           "description": "便利なオンライン交流プラットフォーム、いつでもどこでも情報とサポートを取得",
-          "features": [
-            "交流プラットフォーム",
-            "経験共有",
-            "リソースマッチング"
-          ],
+          "features": ["交流プラットフォーム", "経験共有", "リソースマッチング"],
           "tag": "MODULE 02",
           "title": "オンラインコミュニティ"
         },
         {
           "description": "プロの大規模モデルとエージェントサービス、深いAI化コンサルティングとサポートを提供",
-          "features": [
-            "プロの大規模モデル",
-            "エージェントサービス",
-            "コンサルティングサービス"
-          ],
+          "features": ["プロの大規模モデル", "エージェントサービス", "コンサルティングサービス"],
           "tag": "MODULE 03",
           "title": "AI専門サービス"
         }
@@ -13324,15 +13272,7 @@
       "title": "トップ5ページ",
       "visitsHeader": "アクセス数"
     },
-    "weekdays": [
-      "月",
-      "火",
-      "水",
-      "木",
-      "金",
-      "土",
-      "日"
-    ]
+    "weekdays": ["月", "火", "水", "木", "金", "土", "日"]
   },
   "models": {
     "aiNews": {
@@ -14267,6 +14207,17 @@
     "summaryPreview": "概要プレビュー"
   },
   "deepResearch": {
+    "sourcesTitle": "参照ソース",
+    "confidenceLabel": "信頼度",
+    "verifiedLabel": "検証済み",
+    "unverifiedLabel": "要検証",
+    "historyTitle": "履歴",
+    "sourceTier": {
+      "authoritative": "公式",
+      "media": "メディア",
+      "community": "コミュニティ",
+      "unknown": "不明"
+    },
     "title": "ディープリサーチ Deep Research",
     "phasePlanning": "問題の計画",
     "phaseRetrieving": "複数ソースの検索",
@@ -14405,7 +14356,38 @@
     "loading": "読み込み中…",
     "loadFailed": "実行記録の読み込みに失敗"
   },
+  "agentTeams": {
+    "title": "エージェントチーム",
+    "refresh": "更新",
+    "statsTotal": "総実行数",
+    "statsActive": "実行中",
+    "statsCompleted": "完了",
+    "statsFailed": "失敗",
+    "filter": {
+      "all": "すべて",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗"
+    },
+    "empty": "チーム実行履歴はまだありません",
+    "selectHint": "左側から実行を選択して詳細を表示",
+    "detailTitle": "実行詳細",
+    "goal": "目標",
+    "role": "メンバーロール",
+    "orchestration": "オーケストレーション",
+    "priority": "優先度",
+    "createdAt": "作成日時",
+    "updatedAt": "更新日時",
+    "result": "結果",
+    "error": "エラー",
+    "tokens": "トークン使用量",
+    "durationMs": "所要時間(ms)",
+    "topologyTitle": "Swarm トポロジ",
+    "activityTitle": "アクティビティ",
+    "none": "なし"
+  },
   "nav": {
+    "agentTeams": "エージェントチーム",
     "about": "概要",
     "activities": "アクティビティ",
     "admin": "管理",
@@ -20631,16 +20613,8 @@
     "title": "Agent 运行时",
     "description": "Agent 运行时监控与管理"
   },
-  "agentStepRecorder": {
-    "title": "Agent 步骤记录",
-    "description": "记录 Agent 执行步骤"
-  },
   "apple": {
     "callback": "Apple 登录回调"
-  },
-  "costDashboard": {
-    "title": "成本看板",
-    "description": "AI 成本监控看板"
   },
   "developers": {
     "title": "开发者",
