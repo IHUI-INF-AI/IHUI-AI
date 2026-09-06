@@ -62,18 +62,10 @@ const MAPPINGS = [
     css: { dark: '--color-link-bg' },
     basis: 'rn-tokens.ts L245 rnDarkTokens surface.inputBg = rgba(78,163,245,0.15);tokens.css L410 .dark --color-link-bg: rgba(78, 163, 245, 0.15)(空白归一后相等)',
   },
-  {
-    label: 'indigo.DEFAULT (light) ↔ --color-brand (:root)',
-    rn: { light: ['rnLightTokens', 'indigo', 'DEFAULT'] },
-    css: { light: '--color-brand' },
-    basis: 'rn-tokens.ts rnLightTokens L193 indigo.DEFAULT = #6366f1;tokens.css @theme L152 --color-brand: #6366f1(hex 完全一致)',
-  },
-  {
-    label: 'indigo.DEFAULT (dark) ↔ --color-brand (.dark)',
-    rn: { dark: ['rnDarkTokens', 'indigo', 'DEFAULT'] },
-    css: { dark: '--color-brand' },
-    basis: 'rn-tokens.ts rnDarkTokens L251 indigo.DEFAULT = #6366f1;tokens.css L414 .dark --color-brand: #818cf8 —— 若红灯即两端暗色品牌色真实漂移,需人工决策',
-  },
+  // 注(2026-09-06):原「indigo.DEFAULT ↔ --color-brand」配对已移除。根因:品牌"统一黑/白"后,
+  // tokens.css --color-brand 已从 #6366f1 改为 #000000/#ffffff(对齐 RN brand.DEFAULT 纯黑纯白),
+  // 而 RN indigo(强调色 #6366f1/#818cf8)是 RN 专属的 indigo 强调色,web 无 --color-brand 对应。
+  // 二者语义不同(token 不同),故不再强行配对;RN indigo 强调色与 web 强调色的对齐属品牌方向决策,待评审。
   {
     label: 'brand.DEFAULT (light) ↔ --color-primary (:root/@theme)',
     rn: { light: ['rnLightTokens', 'brand', 'DEFAULT'] },
@@ -85,6 +77,20 @@ const MAPPINGS = [
     rn: { dark: ['rnDarkTokens', 'brand', 'DEFAULT'] },
     css: { dark: '--color-primary' },
     basis: 'rn-tokens.ts L15/L231 注释「brand.DEFAULT = #FFFFFF 对齐 web 暗色 --color-primary(纯白底)」;tokens.css L354 .dark --color-primary: hsl(0 0% 100%)(有覆盖,HSL→HEX 归一后 #ffffff)',
+  },
+  // 2026-09-06:danger/错误红对齐。RN danger.DEFAULT + error.text 与 web --color-danger
+  // 统一为同一语义口(亮 #dc2626 / 暗 #ef4444),并纳入守门防漂移。
+  {
+    label: 'danger.DEFAULT (light) ↔ --color-danger (:root)',
+    rn: { light: ['rnLightTokens', 'danger', 'DEFAULT'] },
+    css: { light: '--color-danger' },
+    basis: 'rn-tokens.ts danger.DEFAULT = #dc2626(2026-09-06 对齐 web --color-danger);tokens.css L175 --color-danger: #dc2626',
+  },
+  {
+    label: 'danger.DEFAULT (dark) ↔ --color-danger (.dark)',
+    rn: { dark: ['rnDarkTokens', 'danger', 'DEFAULT'] },
+    css: { dark: '--color-danger' },
+    basis: 'rn-tokens.ts rnDarkTokens danger.DEFAULT = #ef4444(明暗同义对齐 web .dark);tokens.css L457 .dark --color-danger: #ef4444',
   },
 ]
 
