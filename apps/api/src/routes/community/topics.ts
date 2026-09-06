@@ -13,6 +13,7 @@ import { success, error } from '../../utils/response.js'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
 import { circleCategoryRelation, circleCircleCategoryRelation, circleDynamic } from '@ihui/database'
+import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 
 const topicsRoutes: FastifyPluginAsync = async (server) => {
   // 统一鉴权：所有 circles / asks 路由均需登录
@@ -91,10 +92,24 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
+    // P0 合规:话题内容敏感词过滤
+    const filtered = await sanitizeUgcInput(
+      { content: body.data.content },
+      {
+        action: 'ugc.topic.create',
+        resourceType: 'topic',
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) {
+      return reply.status(400).send(error(400, '内容含违规词,发布失败'))
+    }
     const [created] = await db
       .insert(circleDynamic)
       .values({
-        content: body.data.content,
+        content: filtered.fields.content!.text,
         circleId: body.data.circleId,
         memberId: body.data.memberId,
         image: body.data.image,
@@ -121,6 +136,23 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!body.success) {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+    }
+    // P0 合规:修改话题内容过滤
+    if (body.data.content !== undefined) {
+      const filtered = await sanitizeUgcInput(
+        { content: body.data.content },
+        {
+          action: 'ugc.topic.update',
+          resourceType: 'topic',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,编辑失败'))
+      }
+      body.data.content = filtered.fields.content!.text
     }
     const updateData: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.content !== undefined) updateData.content = body.data.content
