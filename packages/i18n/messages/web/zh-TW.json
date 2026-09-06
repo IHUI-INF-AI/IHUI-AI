@@ -7932,6 +7932,8 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "artifactPreview": "預覽",
+    "artifactCode": "程式碼",
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加為上下文引用",
     "addMenuDesc": "添加菜單(模板/引用/Skill/附件/插件)",
