@@ -169,9 +169,21 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
   return res.data
 }
 
-/** 活跃调度列表(GET /api/subagents/active) */
+/** 活跃调度列表(GET /api/subagents/active,仅 pending/running) */
 export function getActiveSubagentDispatches(): Promise<{ dispatches: SubagentDispatch[] }> {
   return api<{ dispatches: SubagentDispatch[] }>('/api/subagents/active')
+}
+
+/** 全量调度列表(GET /api/subagents/all,含 completed/failed/cancelled,新→旧) */
+export function getAllSubagentDispatches(query?: {
+  status?: DispatchStatus
+  limit?: number
+}): Promise<{ dispatches: SubagentDispatch[] }> {
+  const qs = new URLSearchParams()
+  if (query?.status) qs.append('status', query.status)
+  if (query?.limit !== undefined) qs.append('limit', String(query.limit))
+  const suffix = qs.toString() ? `?${qs.toString()}` : ''
+  return api<{ dispatches: SubagentDispatch[] }>(`/api/subagents/all${suffix}`)
 }
 
 /** 发起调度(POST /api/subagents/dispatch) */
