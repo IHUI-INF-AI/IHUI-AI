@@ -6,11 +6,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // vi.mock 是 hoisted,所有 mock 工厂内的变量必须用 vi.hoisted 声明,否则 ReferenceError
 const mocks = vi.hoisted(() => {
-  const mockLimit = vi.fn(() => [])
-  const mockWhere = vi.fn(() => ({ limit: mockLimit }))
-  // mockFrom 同时暴露 where + limit,支持 select().from().limit() 和 select().from().where().limit()
-  const mockFrom = vi.fn(() => ({ where: mockWhere, limit: mockLimit }))
-  const mockSelect = vi.fn(() => ({ from: mockFrom }))
+  // select() 查询构造器结果需兼容两种调用形态:
+  //  - upsertItem / getCategoryIdBySlug 使用 `.where(...).limit(1)` 链式拼接
+  //  - seedSeenTitlesFromDb 使用 `await db.select().from().where(...)` 直接取得 rows 后 for..of 遍历
+  // 因此让每个环节(select/from/where/limit)都返回同一个数组(可迭代),任意一环 await 都得到 rows。
+  // rows 同一对象既是可迭代数组(seedSeenTitlesFromDb 直接 await 遍历),
+  // 又是链式查询构造器(upsertItem/getCategoryIdBySlug 走 .where().limit()),
+  // 因此类型上同时声明数组与构造器方法。
+  // 类型上用 any 以同时承载"可迭代数组 + 链式构造器"两种形态(纯测试桩,不追求类型安全)
+  const rows: any = []
+  rows.limit = vi.fn(() => rows)
+  rows.where = vi.fn(() => rows)
+  rows.from = vi.fn(() => rows)
+
+  const mockSelect = vi.fn(() => rows)
+  const mockFrom = rows.from
+  const mockWhere = rows.where
+  const mockLimit = rows.limit
 
   const mockOnConflictDoNothing = vi.fn(() => undefined)
   const mockReturning = vi.fn(() => [])
@@ -160,8 +172,9 @@ describe('AI World Sync — 数据完整性', () => {
 describe('AI World Sync — 信源数量(深度打磨后)', () => {
   it('getSourceStats 应返回国内外全覆盖的信源数量', () => {
     const stats = getSourceStats()
-    // RSS: 12 国外官方 + 8 国外媒体 + 10 国内媒体 = 30
-    expect(stats.rss).toBeGreaterThanOrEqual(30)
+    // RSS: 11 国外官方 + 9 国外媒体 + 5 国内媒体 = 25(2026-09-05 深度根治剔除死源后口径)
+    // 断言用下限 + 与总数组一致,避免绑定到会随源增删而变动的绝对数。
+    expect(stats.rss).toBeGreaterThanOrEqual(25)
     // arXiv 分类:6
     expect(stats.arxiv).toBeGreaterThanOrEqual(6)
     // GitHub topics:12
@@ -170,7 +183,8 @@ describe('AI World Sync — 信源数量(深度打磨后)', () => {
     expect(stats.apps).toBeGreaterThanOrEqual(35)
     // AI Tools:35+
     expect(stats.tools).toBeGreaterThanOrEqual(35)
-    // 总源数:30 + 1(arxiv) + 1(hf papers) + 12(github topics) + 35 + 35 + 5(rankings) + 8(trending) = 127+
+    // 总源数:rss(25) + 1(arxiv) + 1(hf papers) + 12(github topics) + 35(apps) + 35(tools) + 5(rankings) + 8(trending) ≈ 122
+    expect(stats.total).toBeGreaterThanOrEqual(stats.rss)
     expect(stats.total).toBeGreaterThanOrEqual(100)
   })
 

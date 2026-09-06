@@ -68,9 +68,9 @@ async function syncAgentUsageCount(dateStr: string): Promise<void> {
       SELECT coalesce(sum(${agentHeatStats.hitCount}), 0)
       FROM ${agentHeatStats}
       WHERE ${agentHeatStats.dateStr} = ${dateStr}
-        AND ${agentHeatStats.agentId} = "agents"."id"
+        AND ${agentHeatStats.agentId} = "agents"."agent_id"
     )
-    WHERE "id" IN (
+    WHERE "agent_id" IN (
       SELECT DISTINCT ${agentHeatStats.agentId}
       FROM ${agentHeatStats}
       WHERE ${agentHeatStats.dateStr} = ${dateStr}
