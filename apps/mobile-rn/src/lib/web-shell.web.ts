@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:
 
 // 平台特有:依赖 DOM API,web 端浏览器预览壳。
-import { CHART_BG_DARK } from '@ihui/design-tokens'
+import { CHART_BG_DARK, SHELL_BG_DARK } from '@ihui/design-tokens'
 // 浏览器窗口远宽于手机,直接铺满会导致布局拉伸变形;
 // 注入全局样式把 #root 约束为手机宽度(430px)并居中,
 // 两侧深色留白 + 投影模拟手机视口。native 端不加载此文件。
@@ -12,7 +12,7 @@ const css = `
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: #020617;
+  background: ${SHELL_BG_DARK};
   display: flex;
   justify-content: center;
 }
