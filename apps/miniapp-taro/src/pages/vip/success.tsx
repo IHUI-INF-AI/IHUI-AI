@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect } from 'react'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
@@ -115,23 +116,18 @@ export default function VipSuccessPage() {
       <View className="vs-page">
         {/* ===== 成功图标 + 标题 ===== */}
         <View className="vs-icon-wrap">
-          <Image
-            className="vs-icon"
-            src="/static/images/icons/check-success.svg"
-            mode="aspectFit"
-            style={{ width: '120rpx', height: '120rpx' }}
-          />
+          <LineIcon className="vs-icon" name="check-success" size={120} color="var(--color-success)" />
         </View>
         <Text className="vs-title">{tt('vip.index.successTitle', '开通成功')}</Text>
         <Text className="vs-desc">{tt('vip.success.desc', '恭喜您已成功开通 VIP 会员')}</Text>
 
         {/* ===== 会员权益激活提示 ===== */}
         <View className="vs-activation">
-          <Image
+          <LineIcon
             className="vs-activation-icon"
-            src="/static/images/icons/sparkles.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
+            name="sparkles"
+            size={32}
+            color="var(--color-brand)"
           />
           <Text className="vs-activation-text">
             {tt('vip.success.activationNotice', '会员权益已激活,立即可享受全部特权')}
@@ -181,11 +177,11 @@ export default function VipSuccessPage() {
         {/* ===== 分享好友赚佣金入口 ===== */}
         <View className="vs-share" onClick={goShare}>
           <View className="vs-share-icon">
-            <Image
+            <LineIcon
               className="vs-share-icon-text"
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/package.svg"
-              mode="aspectFit"
+              name="package"
+              size={40}
+              color="var(--color-muted-foreground)"
             />
           </View>
           <View className="vs-share-content">

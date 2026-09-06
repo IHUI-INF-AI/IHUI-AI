@@ -18,7 +18,7 @@
   align-items: center;
   height: 85rpx;
   padding: 0 24rpx;
-  background: rgba(206, 203, 241, 0.25);
+  background: var(--color-muted);
   border: 2rpx solid var(--color-border);
   border-radius: 15rpx;
   margin-bottom: 18rpx;
@@ -91,12 +91,12 @@
   display: flex;
   align-items: flex-start;
   padding: 40rpx 15rpx;
-  /* custom color: 原项目 person-card 渐变(紫蓝→米黄),无对应 token,保留原值 */
-  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  /* custom color: 原项目 person-card 渐变(紫蓝→米黄)已中性化收敛至品牌灰,消除紫色残留 */
+  background: linear-gradient(112deg, var(--color-muted) 3%, var(--color-secondary) 104%);
   border-radius: 30rpx;
   box-shadow:
-    0 0 10rpx 0 rgba(0, 0, 0, 0.3),
-    0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+    0 0 10rpx 0 var(--color-black-30),
+    0 -6rpx 20rpx 0 var(--color-white-80);
 }
 .team-card-left {
   display: flex;
@@ -116,7 +116,7 @@
   border-radius: 50%;
   background: var(--color-muted);
   border: 4rpx solid var(--color-border);
-  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 8rpx var(--color-black-8);
 }
 .team-avatar-fallback {
   display: flex;

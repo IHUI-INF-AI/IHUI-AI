@@ -55,7 +55,7 @@
   padding: 32rpx;
   background: var(--color-card);
   border-radius: 30rpx;
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 10rpx 0 var(--color-black-5);
 }
 .cp-team-header {
   display: flex;
@@ -147,7 +147,7 @@
   padding: 32rpx;
   background: var(--color-card);
   border-radius: 30rpx;
-  box-shadow: 0 0 10rpx 0 rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 10rpx 0 var(--color-black-5);
 }
 .cp-menu-grid {
   display: flex;
@@ -159,8 +159,8 @@
   flex-direction: column;
   align-items: center;
   padding: 24rpx 0;
-  /* custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
-  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  /* custom color: 原项目渐变已中性化收敛至品牌灰,消除紫色残留 */
+  background: linear-gradient(112deg, var(--color-muted) 3%, var(--color-secondary) 104%);
   border-radius: 15rpx;
 }
 .cp-menu-icon {

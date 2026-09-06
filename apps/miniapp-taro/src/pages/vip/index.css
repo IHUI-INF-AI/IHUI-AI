@@ -39,18 +39,18 @@
   position: relative;
   z-index: 2;
   padding: 60rpx 40rpx;
-  color: #fff;
+  color: var(--color-white-98);
 }
 .title {
   font-size: 48rpx;
   font-weight: bold;
   margin-bottom: 16rpx;
-  color: #fff;
-  text-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.3);
+  color: var(--color-white-98);
+  text-shadow: 0 2rpx 10rpx var(--color-black-30);
 }
 .subtitle {
   font-size: 28rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-scrim-foreground);
   margin-bottom: 40rpx;
 }
 .price-box {
@@ -178,7 +178,7 @@
   border-color: var(--color-warning);
 }
 .vip-page .bg-yellow-50 {
-  background: rgba(245, 158, 11, 0.08);
+  background: var(--color-gold-muted);
 }
 .vip-page .text-yellow-700 {
   color: var(--color-warning);
@@ -309,7 +309,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--color-black-70);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -424,7 +424,7 @@
   border: 1px solid var(--vip-border);
 }
 .pp-pay-item.active {
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
   border-color: var(--color-warning);
 }
 .pp-pay-icon {
@@ -440,12 +440,12 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-/* 品牌支付渠道色(微信绿/支付宝蓝)保留,无对应 token */
+/* 品牌支付渠道色(微信绿/支付宝蓝) */
 .pp-pay-icon.wechat {
-  background: rgba(9, 187, 7, 1);
+  background: var(--color-wechat-green);
 }
 .pp-pay-icon.alipay {
-  background: rgba(22, 119, 255, 1);
+  background: var(--color-alipay-blue);
 }
 .pp-pay-name {
   flex: 1;

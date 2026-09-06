@@ -195,8 +195,8 @@ export default function AiGroup() {
                           {name || t('aiGroup.agent')}
                         </Text>
                         {isVip ? (
-                          // 保留:#d97706 为 VIP 深金色(amber-600),tokens.css 仅有亮金 --color-vip-gold-start(#ffd700)/--color-vip-gold-end(#ffaa00),深金≠亮金,替换会降低浅底对比度且无对应 rgba 背景 token,保留原值
-                          <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[#d97706] bg-[rgba(217,119,6,0.1)] shrink-0">
+                          // VIP 金徽章:统一走 token --color-gold(浅金底 --color-gold-muted),深浅主题自适应
+                          <Text className="ml-[12rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] text-[20rpx] text-[var(--color-gold)] bg-[var(--color-gold-muted)] shrink-0">
                             VIP
                           </Text>
                         ) : null}
