@@ -101,11 +101,6 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     description: '清理过期OAuth会话（每30分钟）',
   },
   {
-    name: 'pg-backup-daily',
-    pattern: '30 2 * * *',
-    description: 'PG 数据库备份（每日02:30,保留最近30份）',
-  },
-  {
     name: 'subscription-recurring-charge',
     pattern: '0 3 * * *',
     description: '连续包月委托扣款扫描（每日03:00）',
