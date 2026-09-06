@@ -193,7 +193,7 @@ export default function UpgradePage() {
                 borderRadius: '12rpx',
                 border: `2rpx solid ${payMethod === 'wechat' ? 'var(--color-warning)' : 'var(--color-border)'}`,
                 background:
-                  payMethod === 'wechat' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+                  payMethod === 'wechat' ? 'var(--color-gold-muted)' : 'var(--color-card)',
               }}
               onClick={() => setPayMethod('wechat')}
             >
@@ -207,7 +207,7 @@ export default function UpgradePage() {
                 borderRadius: '12rpx',
                 border: `2rpx solid ${payMethod === 'alipay' ? 'var(--color-warning)' : 'var(--color-border)'}`,
                 background:
-                  payMethod === 'alipay' ? 'rgba(245, 158, 11, 0.1)' : 'var(--color-card)',
+                  payMethod === 'alipay' ? 'var(--color-gold-muted)' : 'var(--color-card)',
               }}
               onClick={() => setPayMethod('alipay')}
             >

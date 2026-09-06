@@ -4,7 +4,8 @@
 
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, RadioGroup, Radio, Image } from '@tarojs/components'
+import { View, Text, RadioGroup, Radio } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { setTheme } from '@/api'
@@ -25,7 +26,7 @@ interface ThemeOption {
 
 const AUTO_THEME = (tt: TtFn): ThemeOption => ({
   value: 'auto',
-  icon: '/static/images/icons/refresh-cw.svg',
+  icon: 'refresh-cw',
   labelKey: 'setting.theme.auto',
   label: tt('settings.themeSystem', '跟随系统'),
   descKey: 'setting.theme.autoDesc',
@@ -36,7 +37,7 @@ const THEMES = (tt: TtFn): ThemeOption[] => [
   AUTO_THEME(tt),
   {
     value: 'light',
-    icon: '/static/images/icons/sun.svg',
+    icon: 'sun',
     labelKey: 'setting.theme.light',
     label: tt('themeToggle.lightMode', '浅色模式'),
     descKey: 'setting.theme.lightDesc',
@@ -44,7 +45,7 @@ const THEMES = (tt: TtFn): ThemeOption[] => [
   },
   {
     value: 'dark',
-    icon: '/static/images/icons/moon.svg',
+    icon: 'moon',
     labelKey: 'setting.theme.dark',
     label: tt('themeToggle.darkMode', '深色模式'),
     descKey: 'setting.theme.darkDesc',
@@ -106,11 +107,11 @@ export default function ThemePage() {
     <ThemeRoot>
       <View className="theme-page">
         <View className="theme-current">
-          <Image
+          <LineIcon
             className="theme-current-icon"
-            style={{ width: '64rpx', height: '64rpx' }}
-            src={currentOption.icon}
-            mode="aspectFit"
+            name={currentOption.icon as IconName}
+            size={64}
+            color="var(--color-brand)"
           />
           <View className="theme-current-info">
             <Text className="theme-current-name">
@@ -129,11 +130,11 @@ export default function ThemePage() {
               className={`theme-item${current === th.value ? ' active' : ''}`}
               onClick={() => onSelect(th.value)}
             >
-              <Image
+              <LineIcon
                 className="theme-item-icon"
-                style={{ width: '44rpx', height: '44rpx' }}
-                src={th.icon}
-                mode="aspectFit"
+                name={th.icon as IconName}
+                size={44}
+                color={current === th.value ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
               />
               <View className="theme-item-info">
                 <Text className="theme-item-name">{tt(th.labelKey, th.label)}</Text>

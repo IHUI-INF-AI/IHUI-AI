@@ -13,14 +13,16 @@ export interface LevelBadgeProps {
   size?: 'sm' | 'md' | 'lg'
 }
 
+// 段位配色对齐 RN 端:RN 共享层无段位彩色 badge,统一用中性 token
+// (LightSurface.muted 底 + text.primary 字),浅/深主题自适应,清除遗留 purple/cyan/yellow 硬编码类。
 const LEVEL_COLORS: Record<number, string> = {
   0: 'bg-muted text-foreground',
-  1: 'bg-warning/10 text-warning',
+  1: 'bg-muted text-foreground',
   2: 'bg-muted text-foreground',
-  3: 'bg-yellow-50 text-warning',
-  4: 'bg-primary/10 text-primary',
-  5: 'bg-cyan-50 text-cyan-600',
-  6: 'bg-purple-50 text-purple-600',
+  3: 'bg-muted text-foreground',
+  4: 'bg-muted text-foreground',
+  5: 'bg-muted text-foreground',
+  6: 'bg-muted text-foreground',
 }
 
 export default function LevelBadge({

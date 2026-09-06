@@ -298,6 +298,28 @@ export function LoginScreen() {
     [locale, resolvedTheme],
   )
 
+  // ===== 历史账号记录(各 tab 登录成功后写入;供账号/邮箱/手机号输入框历史下拉展示) =====
+  const [loginHistory, setLoginHistory] = useState<string[]>(() =>
+    credentialStorage.loadLoginHistory(),
+  )
+  const persistLoginHistory = useCallback((acct: string) => {
+    if (acct) credentialStorage.saveLoginHistory(acct)
+    setLoginHistory(credentialStorage.loadLoginHistory())
+  }, [])
+
+  // 删除单条历史账号 / 清空全部(供历史下拉 X / 清空按钮,对齐 web)
+  const removeLoginHistory = useCallback(
+    (acct: string) => {
+      const next =
+        credentialStorage.removeFromLoginHistory?.(acct) ?? credentialStorage.loadLoginHistory()
+      setLoginHistory(Array.from(new Set(next)))
+    },
+    [],
+  )
+  const clearAllLoginHistory = useCallback(() => {
+    setLoginHistory(credentialStorage.clearLoginHistory?.() ?? [])
+  }, [])
+
   // ===== 账号密码登录 + SSO(复用共享 hook) =====
   const form = useLoginForm({
     loginApi: async (account, password): Promise<LoginApiResult> => {
@@ -325,6 +347,8 @@ export function LoginScreen() {
         await rnAuthStore.getState().setAuth({ token: accessToken, refreshToken, user })
       }
       fullUserRef.current = null
+      // 账号+密码登录也会写入历史(useLoginForm 内已 saveLoginHistory),刷新本地列表供下拉展示
+      setLoginHistory(credentialStorage.loadLoginHistory())
       navigateAfterLogin()
     },
     ssoLogin: async (): Promise<LoginApiResult> => {
@@ -460,6 +484,7 @@ export function LoginScreen() {
           user: res.data.user,
         })
         navigateAfterLogin()
+        persistLoginHistory(email.trim())
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
       }
@@ -468,7 +493,7 @@ export function LoginScreen() {
     } finally {
       setEmailLoading(false)
     }
-  }, [email, emailCode, checkAgreement, form, navigateAfterLogin])
+  }, [email, emailCode, checkAgreement, form, navigateAfterLogin, persistLoginHistory])
 
   // ===== phone 验证码登录回调 =====
   // 提交只传手机号:对齐原 uniapp login.vue sendCode/gainCode(仅传 phoneNumber,区号 phoneHead 仅作展示,不参与提交)。
@@ -513,6 +538,7 @@ export function LoginScreen() {
           user: res.data.user,
         })
         navigateAfterLogin()
+        persistLoginHistory(phone.trim())
       } else {
         form.setError(res.error ?? 'auth.loginFailed')
       }
@@ -521,7 +547,7 @@ export function LoginScreen() {
     } finally {
       setPhoneLoading(false)
     }
-  }, [phone, phoneCode, checkAgreement, form, navigateAfterLogin])
+  }, [phone, phoneCode, checkAgreement, form, navigateAfterLogin, persistLoginHistory])
 
   // ===== password 登录回调(注入协议检查) =====
   const handlePasswordLogin = useCallback(async () => {
@@ -865,7 +891,9 @@ export function LoginScreen() {
           // 自动登录 + 历史账号(对齐 web 密码登录;勾选后登录成功记住凭据,下次启动静默登录)
           autoLogin={form.autoLogin}
           onAutoLoginChange={form.setAutoLogin}
-          loginHistory={form.loginHistory}
+          loginHistory={loginHistory}
+          onRemoveLoginHistory={removeLoginHistory}
+          onClearLoginHistory={clearAllLoginHistory}
           // 密码显示/隐藏图标(对齐 web lucide Eye/EyeOff,解决 emoji 在 Windows 渲染损坏)
           eyeIconShow={<Eye size={18} color={eyeIconColor} />}
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}

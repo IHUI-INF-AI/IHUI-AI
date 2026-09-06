@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
 import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
 type Category = 'all' | 'text' | 'image' | 'video' | 'audio'
@@ -410,21 +411,21 @@ export default function AigcList() {
               <Image className="waterfall-cover" src={item.coverUrl} mode="aspectFill" lazyLoad />
             ) : (
               <View className="video-placeholder">
-                <Image
+                <LineIcon
+                  name="film"
+                  size={80}
                   className="placeholder-icon"
-                  style={{ width: '80rpx', height: '80rpx' }}
-                  src="/static/images/icons/film.svg"
-                  mode="aspectFit"
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             )}
             {!isFullscreenVideo && (
               <View className="play-badge">
-                <Image
+                <LineIcon
+                  name="play"
+                  size={32}
                   className="play-icon"
-                  style={{ width: '32rpx', height: '32rpx' }}
-                  src="/static/images/icons/play.svg"
-                  mode="aspectFit"
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             )}
@@ -439,10 +440,11 @@ export default function AigcList() {
               {item.author || tt('aigc.list.anonymous', '匿名作者')}
             </Text>
             <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
-              <Image
-                src="/static/images/icons/heart.svg"
-                mode="aspectFit"
-                style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+              <LineIcon
+                name="heart"
+                size={22}
+                color="var(--color-muted-foreground)"
+                style={{ marginRight: '6rpx' }}
               />
               <Text>{item.likes}</Text>
             </View>
@@ -513,10 +515,11 @@ export default function AigcList() {
                     {item.author || tt('aigc.list.anonymous', '匿名作者')}
                   </Text>
                   <View className="card-likes" style={{ display: 'flex', alignItems: 'center' }}>
-                    <Image
-                      src="/static/images/icons/heart.svg"
-                      mode="aspectFit"
-                      style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+                    <LineIcon
+                      name="heart"
+                      size={22}
+                      color="var(--color-muted-foreground)"
+                      style={{ marginRight: '6rpx' }}
                     />
                     <Text>{item.likes}</Text>
                   </View>
@@ -537,11 +540,11 @@ export default function AigcList() {
                           <Image className="audio-cover" src={item.coverUrl} mode="aspectFill" />
                         ) : (
                           <View className="audio-cover-placeholder">
-                            <Image
+                            <LineIcon
+                              name="headphones"
+                              size={48}
                               className="audio-cover-icon"
-                              style={{ width: '48rpx', height: '48rpx' }}
-                              src="/static/images/icons/headphones.svg"
-                              mode="aspectFit"
+                              color="var(--color-muted-foreground)"
                             />
                           </View>
                         )}
@@ -549,15 +552,11 @@ export default function AigcList() {
                       {/* 不旋转层:中心点 + 播放按钮(对标原项目 center-dot-image / audio-play-button) */}
                       <View className="audio-center-dot" />
                       <View className="audio-play-btn">
-                        <Image
+                        <LineIcon
+                          name={isPlaying ? 'pause' : 'play'}
+                          size={24}
                           className="audio-play-icon"
-                          style={{ width: '24rpx', height: '24rpx' }}
-                          src={
-                            isPlaying
-                              ? '/static/images/icons/pause.svg'
-                              : '/static/images/icons/play.svg'
-                          }
-                          mode="aspectFit"
+                          color="var(--color-muted-foreground)"
                         />
                       </View>
                     </View>

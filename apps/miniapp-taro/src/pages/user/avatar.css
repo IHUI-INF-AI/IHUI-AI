@@ -25,7 +25,7 @@
   border-radius: var(--radius-lg);
   overflow: hidden;
   background: var(--color-card);
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4rpx 20rpx var(--color-black-10);
 }
 .avatar-preview-img {
   width: 100%;
@@ -40,12 +40,12 @@
   height: 48rpx;
   line-height: 48rpx;
   text-align: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
 }
 .avatar-preview-tip-text {
   font-size: 22rpx;
   /* 白字恒在深色遮罩上,恒白(两主题一致) */
-  color: #fff;
+  color: var(--color-white-98);
 }
 .avatar-nickname {
   margin-top: 24rpx;
@@ -106,7 +106,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-black-40);
   display: flex;
   align-items: center;
   justify-content: center;

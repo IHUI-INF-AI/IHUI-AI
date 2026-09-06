@@ -59,7 +59,7 @@ export default function UserCard({ onGoPage }: UserCardProps) {
               className={`flex items-center px-[12rpx] py-[10rpx] rounded-lg mb-[14rpx] ${isFullWidth ? 'w-full' : 'w-[calc(50vw-47rpx)]'}`}
               style={{
                 background: 'var(--color-card)',
-                boxShadow: '4rpx 4rpx 4rpx 0px rgba(0,0,0,0.07)',
+                boxShadow: '4rpx 4rpx 4rpx 0px var(--color-black-8)',
               }}
               onClick={() => {
                 const userInfodata = Taro.getStorageSync('data')

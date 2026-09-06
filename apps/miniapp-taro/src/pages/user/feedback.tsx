@@ -134,7 +134,7 @@ export default function Feedback() {
               >
                 <Image className="w-full h-full" src={url} mode="aspectFill" />
                 <View
-                  className="absolute top-0 right-0 w-[40rpx] h-[40rpx] bg-[rgba(0,0,0,0.6)] rounded-md flex items-center justify-center"
+                  className="absolute top-0 right-0 w-[40rpx] h-[40rpx] bg-[var(--color-scrim)] rounded-md flex items-center justify-center"
                   onClick={(e) => {
                     e.stopPropagation()
                     onRemoveImage(idx)

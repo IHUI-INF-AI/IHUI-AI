@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Image, Button } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useRef } from 'react'
 import {
@@ -222,7 +223,7 @@ export default function PayIndex() {
     <ThemeRoot>
       <View className="min-h-[100vh] bg-background p-[24rpx] pb-[180rpx]">
         <View
-          className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-[rgba(255,59,59,0.08)]' : ''}`}
+          className={`mb-[24rpx] px-[32rpx] py-[20rpx] bg-secondary rounded-xl border-[2rpx] border-border text-center${expired ? ' border-destructive bg-destructive/[0.08]' : ''}`}
         >
           <Text
             className={`text-[26rpx] font-semibold${expired ? ' text-destructive' : ' text-primary'}`}
@@ -291,11 +292,10 @@ export default function PayIndex() {
             </View>
             <View className={`${radioBase}${payMethod === 'wechat' ? ` ${radioOn}` : ''}`}>
               {payMethod === 'wechat' && (
-                <Image
-                  src="/static/images/icons/check.svg"
-                  mode="aspectFit"
-                  className="text-primary-foreground font-bold"
-                  style={{ width: '24rpx', height: '24rpx' }}
+                <LineIcon
+                  name="check"
+                  size={24}
+                  color="var(--color-primary-foreground)"
                 />
               )}
             </View>
@@ -315,11 +315,10 @@ export default function PayIndex() {
             </View>
             <View className={`${radioBase}${payMethod === 'alipay' ? ` ${radioOn}` : ''}`}>
               {payMethod === 'alipay' && (
-                <Image
-                  src="/static/images/icons/check.svg"
-                  mode="aspectFit"
-                  className="text-primary-foreground font-bold"
-                  style={{ width: '24rpx', height: '24rpx' }}
+                <LineIcon
+                  name="check"
+                  size={24}
+                  color="var(--color-primary-foreground)"
                 />
               )}
             </View>
@@ -356,12 +355,7 @@ export default function PayIndex() {
             ) : (
               <View className={`${radioBase}${payMethod === 'balance' ? ` ${radioOn}` : ''}`}>
                 {payMethod === 'balance' && (
-                  <Image
-                    src="/static/images/icons/check.svg"
-                    mode="aspectFit"
-                    className="text-primary-foreground font-bold"
-                    style={{ width: '24rpx', height: '24rpx' }}
-                  />
+                  <LineIcon name="check" size={24} color="var(--color-primary-foreground)" />
                 )}
               </View>
             )}

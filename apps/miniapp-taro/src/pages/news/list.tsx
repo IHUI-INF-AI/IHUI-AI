@@ -9,6 +9,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './list.css'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -179,11 +180,11 @@ export default function NewsListPage() {
     <View className="page">
       {/* 搜索栏 */}
       <View className="search-bar">
-        <Image
+        <LineIcon
+          name="search"
+          size={30}
           className="search-icon"
-          style={{ width: '30rpx', height: '30rpx' }}
-          src="/static/images/icons/search.svg"
-          mode="aspectFit"
+          color="var(--color-muted-foreground)"
         />
         <Input
           className="search-input"
@@ -271,11 +272,11 @@ export default function NewsListPage() {
       {/* 状态 */}
       {!loading && !pinnedVisible && visibleList.length === 0 ? (
         <View className="empty">
-          <Image
+          <LineIcon
+            name="inbox"
+            size={56}
             className="empty-icon"
-            style={{ width: '56rpx', height: '56rpx' }}
-            src="/static/images/icons/inbox.svg"
-            mode="aspectFit"
+            color="var(--color-muted-foreground)"
           />
           <Text>{tt('news.empty', '暂无资讯')}</Text>
         </View>

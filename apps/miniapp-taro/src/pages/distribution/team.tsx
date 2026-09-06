@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image, Input, Picker } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getDistributionTeam } from '@/api'
@@ -149,11 +150,11 @@ export default function DistributionTeam() {
     <View className="team-page">
       {/* 搜索栏 */}
       <View className="team-search">
-        <Image
+        <LineIcon
           className="team-search-icon"
-          style={{ width: '32rpx', height: '32rpx' }}
-          src="/static/images/icons/search.svg"
-          mode="aspectFit"
+          name="search"
+          size={32}
+          color="var(--color-muted-foreground)"
         />
         <Input
           className="team-search-input"
@@ -187,11 +188,11 @@ export default function DistributionTeam() {
         >
           <View className={`team-sort-btn ${activeTab === 'date' ? 'team-sort-btn-active' : ''}`}>
             <Text>{selectedDate || tt('distribution.team.sortByDate', '邀请时间')}</Text>
-            <Image
+            <LineIcon
               className="team-sort-arrow"
-              src="/static/images/icons/chevron-down.svg"
-              mode="aspectFit"
-              style={{ width: '24rpx', height: '24rpx' }}
+              name="chevron-down"
+              size={24}
+              color="var(--color-muted-foreground)"
             />
           </View>
         </Picker>

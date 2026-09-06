@@ -91,7 +91,7 @@ const viewStyles = {
     gap: toRpx(6),
   }),
   tagBadge: (tk: RnThemeTokens): CSSProperties => ({
-    backgroundColor: tk.indigo.light,
+    backgroundColor: tk.blue.light,
     paddingLeft: toRpx(6),
     paddingRight: toRpx(6),
     paddingTop: toRpx(2),
@@ -142,7 +142,7 @@ const textStyles = {
   }),
   tagText: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.indigo.DEFAULT,
+    color: tk.blue.DEFAULT,
   }),
 }
 

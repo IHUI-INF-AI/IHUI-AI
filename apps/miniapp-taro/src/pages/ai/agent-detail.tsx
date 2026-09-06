@@ -5,6 +5,7 @@
 import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import type { Agent } from '@ihui/api-client'
 import { useState, useCallback, useMemo } from 'react'
@@ -368,7 +369,7 @@ export default function AgentDetailPage() {
                   <View className="flex items-center">
                     <Text className="text-[36rpx] text-foreground font-bold">{agent.name}</Text>
                     {agent.isVipExclusive && (
-                      <Text className="ml-[16rpx] text-[22rpx] px-[12rpx] py-[4rpx] rounded bg-amber-50 text-amber-600">
+                      <Text className="ml-[16rpx] text-[22rpx] px-[12rpx] py-[4rpx] rounded bg-[var(--color-gold-muted)] text-[var(--color-gold)]">
                         {t('ai.agentDetail.vipExclusive')}
                       </Text>
                     )}
@@ -384,13 +385,13 @@ export default function AgentDetailPage() {
                     )}
                     {rating > 0 && (
                       <View className="flex items-center mr-[16rpx]">
-                        <Image
-                          src="/static/images/icons/star-fill.svg"
-                          mode="aspectFit"
+                        <LineIcon
+                          name="star-fill"
+                          size={22}
+                          color="var(--color-gold)"
                           className="mr-[6rpx]"
-                          style={{ width: '22rpx', height: '22rpx' }}
                         />
-                        <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
+                        <Text className="text-[22rpx] text-[var(--color-gold)]">{rating.toFixed(1)}</Text>
                       </View>
                     )}
                     {useCount !== undefined && (
@@ -423,12 +424,16 @@ export default function AgentDetailPage() {
               ) : permission ? (
                 <View
                   className={`mt-[24rpx] py-[16rpx] px-[20rpx] rounded ${
-                    permission.hasPermission ? 'bg-emerald-50' : 'bg-amber-50'
+                    permission.hasPermission
+                      ? 'bg-[var(--color-success-tag-bg)]'
+                      : 'bg-[var(--color-gold-muted)]'
                   }`}
                 >
                   <Text
                     className={`text-[24rpx] ${
-                      permission.hasPermission ? 'text-emerald-700' : 'text-amber-700'
+                      permission.hasPermission
+                      ? 'text-[var(--color-success)]'
+                      : 'text-[var(--color-gold)]'
                     }`}
                   >
                     {permission.hasPermission
@@ -499,7 +504,7 @@ export default function AgentDetailPage() {
                 </Text>
                 {rating > 0 && (
                   <View className="flex items-center">
-                    <Text className="text-[36rpx] text-amber-500 font-bold mr-[8rpx]">
+                    <Text className="text-[36rpx] text-[var(--color-gold)] font-bold mr-[8rpx]">
                       {rating.toFixed(1)}
                     </Text>
                     <Text className="text-[24rpx] text-muted-foreground">
@@ -522,21 +527,21 @@ export default function AgentDetailPage() {
                         <Text className="text-[22rpx] text-muted-foreground mr-[4rpx]">
                           {item.star}
                         </Text>
-                        <Image
-                          src="/static/images/icons/star.svg"
-                          mode="aspectFit"
-                          style={{ width: '20rpx', height: '20rpx' }}
+                        <LineIcon
+                          name="star"
+                          size={20}
+                          color="var(--color-muted-foreground)"
                         />
-                      </View>
-                      <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
+                        <View className="flex-1 h-[16rpx] bg-muted rounded mx-[16rpx] overflow-hidden">
                         <View
-                          className="h-full bg-amber-400 rounded"
+                          className="h-full bg-[var(--color-gold)] rounded"
                           style={{ width: `${percent}%` }}
                         />
                       </View>
                       <Text className="text-[22rpx] text-muted-foreground w-[60rpx] text-right">
                         {percent}%
                       </Text>
+                    </View>
                     </View>
                   </ThemeRoot>
                 )
@@ -552,7 +557,7 @@ export default function AgentDetailPage() {
                 {t('ai.agentDetail.startChat')}
               </Button>
               <Button
-                className={`px-[40rpx] text-[28rpx] rounded-[16rpx] h-[88rpx] leading-[88rpx] ${favorited ? 'bg-amber-50 text-amber-600' : 'bg-muted text-muted-foreground'}`}
+                className={`px-[40rpx] text-[28rpx] rounded-[16rpx] h-[88rpx] leading-[88rpx] ${favorited ? 'bg-[var(--color-gold-muted)] text-[var(--color-gold)]' : 'bg-muted text-muted-foreground'}`}
                 onClick={onToggleFavorite}
               >
                 {favorited ? t('ai.agentDetail.favorited') : t('ai.agentDetail.favoriteAgent')}

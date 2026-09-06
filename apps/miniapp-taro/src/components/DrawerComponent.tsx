@@ -5,19 +5,18 @@
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
 import { cn } from '@ihui/design-tokens'
+import type { CSSProperties } from 'react'
+import LineIcon from '@/components/LineIcon'
+import { ICONS } from '@/components/LineIcon/icons'
 // 抽屉静态资源:对齐原项目 DrawerComponentall.vue,统一从 @/assets/remote/ 引入本地副本
 import choutilogoH from '@/assets/remote/images/choutilogo_h.png'
-import closeDrawerSvg from '@/assets/remote/images/close_drawer.svg'
-import newchatSvg from '@/assets/remote/images/newchat.svg'
 import drawerMenu2Png from '@/assets/remote/images/drawer_menu2.png'
 import tabbar1Png from '@/assets/remote/tabbar/tabbar_1.png'
-import lingganSvg from '@/assets/remote/images/default/linggan.svg'
 import tabbar4Png from '@/assets/remote/tabbar/tabbar_4.png'
 import kechengPng from '@/assets/remote/images/kecheng.png'
 import gongsiPng from '@/assets/remote/images/gongsi.png'
 import mianLabelPng from '@/assets/remote/images/mian_label.png'
 import settingIconPng from '@/assets/remote/images/setting_icon.png'
-import mesgSvg from '@/assets/remote/images/default/mesg.svg'
 import daixaodimingPng from '@/assets/remote/images/daixaodiming.png'
 import { rpx } from '@/utils/rpx'
 
@@ -110,7 +109,7 @@ export interface DrawerComponentProps {
 const DEFAULT_MENU_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
   { key: 'appStore', label: tt('DrawerComponent.d1', '应用商店'), icon: tabbar1Png },
   { key: 'demand', label: tt('DrawerComponent.d2', '需求广场'), icon: drawerMenu2Png },
-  { key: 'inspiration', label: tt('aigcList.title', '灵感'), icon: lingganSvg },
+  { key: 'inspiration', label: tt('aigcList.title', '灵感'), icon: 'lightbulb' },
   { key: 'dynamic', label: tt('bookmark.type.post', '动态'), icon: tabbar4Png },
   { key: 'course', label: tt('coursePlanet.course', '课程'), icon: kechengPng },
 ]
@@ -120,7 +119,7 @@ const DEFAULT_MENU_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
 const DEFAULT_LABEL_ITEMS = (tt: TtFn): DrawerMenuItem[] => [
   { key: 'company', label: tt('DrawerComponent.d3', '我的一人公司'), icon: gongsiPng },
   { key: 'freebie', label: tt('DrawerComponent.d4', '领取免费资料'), icon: mianLabelPng },
-  { key: 'newChat', label: tt('DrawerComponent.d5', '创建新对话'), icon: newchatSvg },
+  { key: 'newChat', label: tt('DrawerComponent.d5', '创建新对话'), icon: 'message-square' },
 ]
 
 export default function DrawerComponent(props: DrawerComponentProps) {
@@ -156,12 +155,33 @@ export default function DrawerComponent(props: DrawerComponentProps) {
     e.stopPropagation()
   }
 
+  // 菜单/标签图标渲染:LineIcon 名 → 主题着色;否则视为图片路径
+  const renderIcon = (icon: string, size: number, extraStyle?: CSSProperties) => {
+    if ((ICONS as Record<string, unknown>)[icon]) {
+      return (
+        <LineIcon
+          name={icon as never}
+          size={size}
+          color="var(--color-muted-foreground)"
+          style={extraStyle}
+        />
+      )
+    }
+    return (
+      <Image
+        src={icon}
+        style={{ width: rpx(size), height: rpx(size), ...extraStyle }}
+        mode="aspectFit"
+      />
+    )
+  }
+
   if (side === 'left') {
     // ===== 左侧抽屉模式:对齐原项目 DrawerComponentall.vue =====
     return (
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
-        {/* 遮罩:rgba(0,0,0,0.4) */}
-        <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.4)' }} />
+        {/* 遮罩:var(--color-black-40) */}
+      <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
         {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
         <View
           className={cn(
@@ -189,10 +209,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 <Image src={choutilogoH} style={{ height: rpx(66) }} mode="heightFix" />
               )}
             </View>
-            <Image
-              src={closeDrawerSvg}
-              style={{ width: rpx(40), height: rpx(40) }}
-              mode="aspectFit"
+            <LineIcon
+              name="x"
+              size={40}
+              color="var(--color-muted-foreground)"
               onClick={onClose}
             />
           </View>
@@ -205,13 +225,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                 className="flex flex-col items-center justify-center"
                 onClick={() => onMenuItemClick?.(item)}
               >
-                {item.icon ? (
-                  <Image
-                    src={item.icon}
-                    style={{ width: rpx(60), height: rpx(60) }}
-                    mode="aspectFit"
-                  />
-                ) : (
+                {item.icon ? renderIcon(item.icon, 60) : (
                   <Text style={{ width: rpx(60), height: rpx(60), fontSize: rpx(36) }}>•</Text>
                 )}
                 <Text
@@ -244,13 +258,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   }
                 }}
               >
-                {item.icon ? (
-                  <Image
-                    src={item.icon}
-                    style={{ width: rpx(36), height: rpx(36), marginRight: rpx(12) }}
-                    mode="aspectFit"
-                  />
-                ) : null}
+                {item.icon ? renderIcon(item.icon, 36, { marginRight: rpx(12) }) : null}
                 <Text>{item.label}</Text>
               </View>
             ))}
@@ -386,7 +394,11 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   style={{ width: rpx(40), height: rpx(40) }}
                   mode="aspectFit"
                 />
-                <Image src={mesgSvg} style={{ width: rpx(40), height: rpx(40) }} mode="aspectFit" />
+                <LineIcon
+                  name="message-circle"
+                  size={40}
+                  color="var(--color-muted-foreground)"
+                />
               </View>
             </View>
           ) : null}
@@ -398,7 +410,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
   // ===== 默认模式:底部弹层(兼容 MaterialPopup / SkillsPopup / ranking)=====
   return (
     <View className="fixed inset-0 z-[90] flex flex-col justify-end">
-      <View className="absolute inset-0 bg-black/40 transition-opacity" onClick={handleMaskClick} />
+      <View className="absolute inset-0 bg-[var(--color-black-40)] transition-opacity" onClick={handleMaskClick} />
       <View
         className="relative bg-card rounded-t-xl overflow-hidden transition-transform"
         style={{ maxHeight: '80vh', height }}

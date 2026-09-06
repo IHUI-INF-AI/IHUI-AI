@@ -8,6 +8,7 @@ import Taro, { useReachBottom, usePullDownRefresh, useDidShow } from '@tarojs/ta
 import { useState, useCallback, useRef } from 'react'
 import { getCircleList, get, post, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './index.css'
 
 type TabKey = 'recommend' | 'follow' | 'latest' | 'hot'
@@ -263,10 +264,11 @@ export default function CircleIndexPage() {
                       className="ci-item-action"
                       style={{ display: 'flex', alignItems: 'center' }}
                     >
-                      <Image
-                        src="/static/images/icons/heart.svg"
-                        mode="aspectFit"
-                        style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                      <LineIcon
+                        name="heart"
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                        style={{ marginRight: '6rpx' }}
                       />
                       <Text>{c.likes || 0}</Text>
                     </View>
@@ -274,10 +276,11 @@ export default function CircleIndexPage() {
                       className="ci-item-action"
                       style={{ display: 'flex', alignItems: 'center' }}
                     >
-                      <Image
-                        src="/static/images/icons/message-circle.svg"
-                        mode="aspectFit"
-                        style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
+                      <LineIcon
+                        name="message-circle"
+                        size={24}
+                        color="var(--color-muted-foreground)"
+                        style={{ marginRight: '6rpx' }}
                       />
                       <Text>{c.comments || 0}</Text>
                     </View>
@@ -291,11 +294,11 @@ export default function CircleIndexPage() {
 
       {!loading && !list.length && !error ? (
         <View className="ci-empty">
-          <Image
+          <LineIcon
+            name="inbox"
+            size={80}
             className="ci-empty-icon"
-            style={{ width: '80rpx', height: '80rpx' }}
-            src="/static/images/icons/inbox.svg"
-            mode="aspectFit"
+            color="var(--color-muted-foreground)"
           />
           <Text className="ci-empty-text">{tt('circle.empty', '暂无内容')}</Text>
           <View className="ci-empty-btn" onClick={goCreate}>

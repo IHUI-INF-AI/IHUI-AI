@@ -398,7 +398,7 @@ export default function VipBenefitsPopup({
           borderRadius: '20rpx',
           background: popupBg,
           boxShadow:
-            '0 5px 15px rgba(0, 0, 0, 0.2), inset 0 -1px 2px rgba(255, 255, 255, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.7)',
+            '0 5px 15px var(--color-black-20), inset 0 -1px 2px var(--color-white-70), inset 0 1px 1px var(--color-white-70)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -479,7 +479,7 @@ export default function VipBenefitsPopup({
                   border: '1rpx solid var(--color-border)',
                   background: 'linear-gradient(to bottom, var(--color-card), var(--color-muted))',
                   boxShadow:
-                    '0 4rpx 10rpx rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 1)',
+                    '0 4rpx 10rpx var(--color-black-15), inset 0 1px 0 var(--color-white-98)',
                 }}
                 onClick={handlePrimary}
               >
@@ -499,7 +499,7 @@ export default function VipBenefitsPopup({
                   color: 'var(--color-card)',
                   border: '1rpx solid var(--color-foreground)',
                   background: 'var(--color-foreground)',
-                  boxShadow: '0 4rpx 10rpx rgba(0, 0, 0, 0.25)',
+                  boxShadow: '0 4rpx 10rpx var(--color-black-25)',
                 }}
                 onClick={handleSecondary}
               >
@@ -515,7 +515,7 @@ export default function VipBenefitsPopup({
             className="fixed inset-0 flex justify-center items-center"
             style={{
               zIndex: 99999,
-              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              backgroundColor: 'var(--color-black-45)',
               backdropFilter: 'blur(3px)',
               WebkitBackdropFilter: 'blur(3px)',
             }}
@@ -528,7 +528,7 @@ export default function VipBenefitsPopup({
                 borderRadius: '30rpx',
                 background: 'var(--color-card)',
                 backdropFilter: 'blur(10px)',
-                boxShadow: '0px 6px 12px 0px rgba(0, 0, 0, 0.15)',
+                boxShadow: '0px 6px 12px 0px var(--color-black-15)',
               }}
               onClick={(e) => e.stopPropagation()}
             >

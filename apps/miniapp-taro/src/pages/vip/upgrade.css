@@ -14,7 +14,7 @@
 }
 .banner {
   padding: 60rpx 40rpx;
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
   color: var(--color-foreground);
 }
 .banner-title {
@@ -42,7 +42,7 @@
 }
 .plan.active {
   border-color: var(--color-warning);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
 }
 .plan-tag {
   position: absolute;
