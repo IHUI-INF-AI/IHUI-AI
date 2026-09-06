@@ -6,11 +6,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // vi.mock 是 hoisted,所有 mock 工厂内的变量必须用 vi.hoisted 声明,否则 ReferenceError
 const mocks = vi.hoisted(() => {
-  const mockLimit = vi.fn(() => [])
-  const mockWhere = vi.fn(() => ({ limit: mockLimit }))
-  // mockFrom 同时暴露 where + limit,支持 select().from().limit() 和 select().from().where().limit()
-  const mockFrom = vi.fn(() => ({ where: mockWhere, limit: mockLimit }))
-  const mockSelect = vi.fn(() => ({ from: mockFrom }))
+  // select() 查询构造器结果需兼容两种调用形态:
+  //  - upsertItem / getCategoryIdBySlug 使用 `.where(...).limit(1)` 链式拼接
+  //  - seedSeenTitlesFromDb 使用 `await db.select().from().where(...)` 直接取得 rows 后 for..of 遍历
+  // 因此让每个环节(select/from/where/limit)都返回同一个数组(可迭代),任意一环 await 都得到 rows。
+  // rows 同一对象既是可迭代数组(seedSeenTitlesFromDb 直接 await 遍历),
+  // 又是链式查询构造器(upsertItem/getCategoryIdBySlug 走 .where().limit()),
+  // 因此类型上同时声明数组与构造器方法。
+  // 类型上用 any 以同时承载"可迭代数组 + 链式构造器"两种形态(纯测试桩,不追求类型安全)
+  const rows: any = []
+  rows.limit = vi.fn(() => rows)
+  rows.where = vi.fn(() => rows)
+  rows.from = vi.fn(() => rows)
+
+  const mockSelect = vi.fn(() => rows)
+  const mockFrom = rows.from
+  const mockWhere = rows.where
+  const mockLimit = rows.limit
 
   const mockOnConflictDoNothing = vi.fn(() => undefined)
   const mockReturning = vi.fn(() => [])
@@ -112,6 +124,7 @@ import {
   syncRankings,
   runDryRun,
   getSourceStats,
+  dedupKeyOf,
   type FetchedItem,
   type LeaderboardEntry,
   type LeaderboardId,
@@ -159,8 +172,9 @@ describe('AI World Sync — 数据完整性', () => {
 describe('AI World Sync — 信源数量(深度打磨后)', () => {
   it('getSourceStats 应返回国内外全覆盖的信源数量', () => {
     const stats = getSourceStats()
-    // RSS: 12 国外官方 + 8 国外媒体 + 10 国内媒体 = 30
-    expect(stats.rss).toBeGreaterThanOrEqual(30)
+    // RSS: 11 国外官方 + 9 国外媒体 + 5 国内媒体 = 25(2026-09-05 深度根治剔除死源后口径)
+    // 断言用下限 + 与总数组一致,避免绑定到会随源增删而变动的绝对数。
+    expect(stats.rss).toBeGreaterThanOrEqual(25)
     // arXiv 分类:6
     expect(stats.arxiv).toBeGreaterThanOrEqual(6)
     // GitHub topics:12
@@ -169,7 +183,8 @@ describe('AI World Sync — 信源数量(深度打磨后)', () => {
     expect(stats.apps).toBeGreaterThanOrEqual(35)
     // AI Tools:35+
     expect(stats.tools).toBeGreaterThanOrEqual(35)
-    // 总源数:30 + 1(arxiv) + 1(hf papers) + 12(github topics) + 35 + 35 + 5(rankings) + 8(trending) = 127+
+    // 总源数:rss(25) + 1(arxiv) + 1(hf papers) + 12(github topics) + 35(apps) + 35(tools) + 5(rankings) + 8(trending) ≈ 122
+    expect(stats.total).toBeGreaterThanOrEqual(stats.rss)
     expect(stats.total).toBeGreaterThanOrEqual(100)
   })
 
@@ -437,5 +452,40 @@ describe('AI World Sync — Dry-run 模式(2026-07-22 新增)', () => {
       globalThis.fetch = originalFetch
     }
   }, 120000)
+})
+
+describe('AI World Sync — dedupKeyOf 标题归一化去重', () => {
+  it('同一标题不同来源转载（标点/大小写差异）收敛为同一去重键', () => {
+    // 同文转载：标点、空格、大小写变化都归一到同一键
+    expect(dedupKeyOf('news', 'Introducing GPT-5: The Future')).toBe(
+      dedupKeyOf('news', ' Introducing GPT 5 the future!! '),
+    )
+    // 全角标点（中文全角冒号/逗号）与半角混排也应收敛
+    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(
+      dedupKeyOf('news', 'GPT5 重磅发布,开创未来'),
+    )
+    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(dedupKeyOf('news', 'GPT5重磅发布开创未来'))
+  })
+
+  it('全角空格/字母全角化经 NFKC 归一到半角', () => {
+    // A＋B 中 B 是全角,NFKC → A+B;B 前是全角空格( U+3000)
+    expect(dedupKeyOf('tool', 'ChatGPT\u3000４').endsWith('chatgpt4')).toBe(true)
+    expect(dedupKeyOf('tool', 'ChatGPT 4')).toBe(dedupKeyOf('tool', 'ChatGPT\u3000４'))
+  })
+
+  it('零宽连接符/零宽空格/BOM 剔除后判为重复', () => {
+    const plain = dedupKeyOf('app', 'Kimi智能助手')
+    expect(dedupKeyOf('app', 'Kimi\u200b智能\u200c助手')).toBe(plain) // 零宽空格 + 零宽连接符
+    expect(dedupKeyOf('app', '\uFEFFKimi智能助手')).toBe(plain) // BOM
+    expect(dedupKeyOf('app', 'Kimi\u2060智能助手')).toBe(plain) // word joiner
+  })
+
+  it('kind 命名空间隔离同名标题', () => {
+    const a = dedupKeyOf('news', 'GPT-5')
+    const b = dedupKeyOf('app', 'GPT-5')
+    expect(a).not.toBe(b)
+    expect(a).toBe('news::gpt5')
+    expect(b).toBe('app::gpt5')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

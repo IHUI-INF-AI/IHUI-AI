@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌
 
 // PG 数据库每日备份脚本
 // 用法:
 //   1) 手动:    node apps/api/scripts/pg-backup.mjs
-//   2) 每日 02:00 自动: 由 apps/api/src/plugins/scheduler.ts 的 'data-archive-daily' 任务触发
+//   2) 每日 02:30 自动: 由 apps/api/src/plugins/scheduler.ts 的 'pg-backup-daily' 任务触发
 //
-// 输出: g:\IHUI-AI\backups\pg\ihui-YYYYMMDD-HHmmss.sql.gz (gzip 压缩)
+// 输出: <仓库>/backups/pg/<db>-YYYYMMDD-HHmmss.sql.gz (gzip 压缩)
 // 保留: 最近 30 份, 老的自动删除
+// 自校: 落盘后完整解压校验 gzip 完整性 + 含建表语句 + 非空, 失败即终止轮转并 exit 1
 import { spawn } from 'node:child_process'
-import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createWriteStream } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, createReadStream, createWriteStream } from 'node:fs'
 import { join } from 'node:path'
-import { createGzip } from 'node:zlib'
+import { createGzip, createGunzip } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -41,11 +42,14 @@ if (!m) { console.error('[pg-backup] ❌ DATABASE_URL 格式不正确:', url); p
 const [, user, pass, host, port, db] = m
 
 // 2) 找 pg_dump
+// 本机实际 PostgreSQL 运行时在 D:\DevEnv\runtimes\pgsql\bin(由 IHUI-PG-BACKUP 服务同源),
+// 必须显式纳入候选路径; 否则 find(existsSync) 只匹配 cwd 相对路径, 无法解析 PATH 中的 pg_dump。
 const PG_PATHS = [
   'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
+  'D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_dump.exe',
   'pg_dump',
 ]
 const pgDumpExe = PG_PATHS.find(p => existsSync(p)) ?? 'pg_dump'
@@ -86,7 +90,33 @@ await new Promise((resolve, reject) => {
   out.on('error', reject)
 })
 
-// 5) 轮转: 只保留最近 KEEP 份
+// 5) 自我完整性校验：完整解压一遍，验证 gzip 未被截断/损坏，并确认解压后非空含建表语句。
+//    pg_dump 干净退出(exit 0)通常够；但管道 SIGPIPE 或磁盘写满等仍可能产出损坏文件。
+//    此步让每次备份在轮转前自证"可被完整解压"，损坏则给出明确错误提示并终止轮转。
+try {
+  let decompressedBytes = 0
+  let sawCreateTable = false
+  await new Promise((resolve, reject) => {
+    const gunzip = createGunzip()
+    const rs = createReadStream(outFile)
+    rs.on('error', reject)
+    rs.pipe(gunzip)
+    gunzip.on('data', (chunk) => {
+      decompressedBytes += chunk.length
+      if (!sawCreateTable && chunk.toString('utf8').includes('CREATE TABLE')) sawCreateTable = true
+    })
+    gunzip.on('error', reject)
+    gunzip.on('end', resolve)
+  })
+  if (decompressedBytes <= 0) throw new Error('解压后为空(0 字节)')
+  if (!sawCreateTable) throw new Error('解压内容不含 CREATE TABLE,疑似非完整 SQL dump')
+  console.log(`[pg-backup] 🔍 完整性校验通过: 解压 ${(decompressedBytes / 1024).toFixed(1)} KB, 含建表语句`)
+} catch (e) {
+  console.error(`[pg-backup] ❌ 完整性校验失败: ${e.message} —— 本次备份不可信,终止轮转避免误删可用备份`)
+  process.exit(1)
+}
+
+// 6) 轮转: 只保留最近 KEEP 份
 const files = readdirSync(BACKUP_DIR)
   .filter(f => f.endsWith('.sql.gz'))
   .map(f => ({ f, m: statSync(join(BACKUP_DIR, f)).mtimeMs }))
@@ -100,4 +130,4 @@ for (const x of toDelete) {
 const size = (statSync(outFile).size / 1024).toFixed(1)
 console.log(`[pg-backup] ✅ 完成: ${outFile} (${size} KB)`)
 console.log(`[pg-backup] 📊 当前共 ${Math.min(files.length, KEEP)} 份, 保留最近 ${KEEP} 份`)
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// ⁠​‌​​‌​​‌
