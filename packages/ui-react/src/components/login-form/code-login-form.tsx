@@ -42,6 +42,11 @@ export interface CodeLoginFormProps {
    * true 时账号输入框带历史下拉,登录成功后保存到 localStorage。
    */
   enableCredentialPersistence?: boolean
+  /**
+   * 默认回填账号(2026-09-06 立:手机号 tab 自动显示最近登录手机号,成就一键登录)。
+   * 仅在 accountType='phone' 且值为合法手机号时生效,作为初始账号值。
+   */
+  defaultAccount?: string
 }
 
 /**
@@ -63,6 +68,7 @@ export function CodeLoginForm({
   inputClassName,
   buttonClassName,
   enableCredentialPersistence = false,
+  defaultAccount,
 }: CodeLoginFormProps) {
   const isEmail = accountType === 'email'
   const isValid = isEmail ? isValidEmail : isValidPhone
@@ -77,7 +83,10 @@ export function CodeLoginForm({
   const historyType = isEmail ? 'email' : 'tel'
   const historyAutoComplete = isEmail ? 'email' : 'tel'
 
-  const [account, setAccount] = React.useState('')
+  // 2026-09-06:手机 tab 自动回填最近登录手机号作为初始值(一键登录),仅手机号场景且合法时生效
+  const [account, setAccount] = React.useState(() =>
+    !isEmail && defaultAccount && isValidPhone(defaultAccount) ? defaultAccount : '',
+  )
   const [code, setCode] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
   const [countdown, setCountdown] = React.useState(0)

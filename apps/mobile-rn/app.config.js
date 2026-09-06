@@ -25,6 +25,11 @@ module.exports = ({ config }) => {
     )
   }
 
+  // 运营商一键登录(可选增强,未配置不阻断):闪验 appId + WebView/H5 SDK 地址(单一数据源:env)
+  const carrierAppId = process.env.EXPO_PUBLIC_CARRIER_APP_ID || config.extra?.CARRIER_APP_ID
+  const carrierWebSdkUrl =
+    process.env.EXPO_PUBLIC_CARRIER_WEB_SDK_URL || config.extra?.CARRIER_WEB_SDK_URL
+
   return {
     ...config,
     version: pkg.version,
@@ -32,6 +37,8 @@ module.exports = ({ config }) => {
       'expo-secure-store',
       ...(config.plugins || []),
       ['./plugins/withWechat', { appId, universalLink, androidPackage }],
+      // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
+      ['./plugins/withCarrier', { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage }],
       './plugins/withExpoImportFix',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
