@@ -1,0 +1,34 @@
+{
+  "name": "@ihui/mobile-cap",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Capacitor 壳:复用 apps/web 静态导出(out/)打包 Android/iOS App,官方插件提供离线推送/相机/分享/扫码等原生能力",
+  "scripts": {
+    "sync:web": "node scripts/sync-web.mjs",
+    "cap:sync": "node scripts/sync-web.mjs && cap sync android",
+    "cap:add:android": "cap add android",
+    "build:apk": "cd android && ./gradlew assembleDebug",
+    "open:android": "cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/camera": "^7.0.5",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/geolocation": "^7.1.8",
+    "@capacitor/haptics": "^7.0.5",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/local-notifications": "^7.0.7",
+    "@capacitor/push-notifications": "^7.0.0",
+    "@capacitor/share": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
+  "homepage": "https://aizhs.top",
+  "copyright": "© 2026 IHUI AI (智汇AI) · 李春川 · All rights reserved.",
+  "x-ihui-provenance": "IHUI-AI·智汇AI·李春川·LC·aizhs.top·PROVENANCE-2026"
+}
