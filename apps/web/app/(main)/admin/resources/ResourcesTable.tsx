@@ -5,6 +5,7 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { confirmDialog } from '@/components/feedback'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, FileText, Upload, EyeOff } from 'lucide-react'
@@ -58,8 +59,9 @@ export function ResourcesTable({
   })
 
   function handleDelete(res: Resource) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(res.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(res.id)
+    })
   }
 
   function togglePublish(res: Resource) {

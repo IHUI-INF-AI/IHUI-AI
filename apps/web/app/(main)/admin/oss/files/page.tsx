@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -94,8 +95,9 @@ export default function AdminOssFilesPage() {
   }
 
   function handleDelete(f: OssFile) {
-    if (!window.confirm(`确认删除文件 "${f.fileName}" ?`)) return
-    deleteMut.mutate(f.id)
+    void confirmDialog({ title: `确认删除文件 "${f.fileName}" ?` }).then((ok) => {
+      if (ok) deleteMut.mutate(f.id)
+    })
   }
 
   const files = data?.list ?? []

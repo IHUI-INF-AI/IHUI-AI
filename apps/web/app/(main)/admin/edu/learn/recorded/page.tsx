@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -161,10 +162,14 @@ export default function EduLearnRecordedPage() {
     ).then((ok) => toast[ok ? 'success' : 'error'](ok ? t('exportSuccess') : t('exportFailed')))
   }
   function handleBatchDelete() {
-    if (window.confirm(t('batchDeleteConfirm', { count: ids.length }))) batchDeleteMut.mutate()
+    void confirmDialog({ title: t('batchDeleteConfirm', { count: ids.length }) }).then((ok) => {
+      if (ok) batchDeleteMut.mutate()
+    })
   }
   function handleDelete(r: Video) {
-    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(r.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(r.id)
+    })
   }
 
   const total = data?.total ?? 0

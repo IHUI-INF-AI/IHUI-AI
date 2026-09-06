@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -126,8 +127,9 @@ export default function AdminArticlesPage() {
     saveMut.mutate()
   }
   function handleDelete(a: Article) {
-    if (!window.confirm('确认删除该文章?')) return
-    deleteMut.mutate(a.id)
+    void confirmDialog({ title: '确认删除该文章?' }).then((ok) => {
+      if (ok) deleteMut.mutate(a.id)
+    })
   }
 
   return (
