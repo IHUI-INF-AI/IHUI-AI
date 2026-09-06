@@ -219,6 +219,8 @@ export * from './api-key-groups.js'
 export * from './model-price-history.js'
 // USDT 加密货币支付网关(2026-08-01 立,TRC20/ERC20 充值订单 + 区块链到账确认 + 钱包入账)
 export * from './usdt-payments.js'
+// 网信办「算法/模型备案」公开清单(2026-09-06 立,网信办批量公告 docx 导入,供全网备案查询)
+export * from './algorithm-record.js'
 // Passkey 无密码登录(2026-08-01 立,WebAuthn/FIDO2 凭证存储 + counter 防重放)
 export * from './user-passkeys.js'
 // API Key 临时分享(2026-08-01 立,P0-26 限时 token + scope 限定 + 速率限制 + 自动过期)
