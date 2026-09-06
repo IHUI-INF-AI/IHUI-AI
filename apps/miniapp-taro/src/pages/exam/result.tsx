@@ -4,7 +4,8 @@
 
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
+import { View, Text, Button, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getExamResult, get } from '@/api'
@@ -139,16 +140,18 @@ export default function ExamResult() {
               <View className={`exam-result-hero${info.pass ? ' passed' : ' failed'}`}>
                 <View className="exam-result-badge">
                   {info.pass ? (
-                    <Image
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '48rpx', height: '48rpx' }}
+                    <LineIcon
+                      name="check"
+                      size={48}
+                      color="var(--color-primary)"
+                      style={{ display: 'block' }}
                     />
                   ) : (
-                    <Image
-                      src="/static/images/icons/x.svg"
-                      mode="aspectFit"
-                      style={{ width: '48rpx', height: '48rpx' }}
+                    <LineIcon
+                      name="x"
+                      size={48}
+                      color="var(--color-destructive)"
+                      style={{ display: 'block' }}
                     />
                   )}
                 </View>

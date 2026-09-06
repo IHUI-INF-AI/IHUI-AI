@@ -148,13 +148,13 @@
   color: var(--color-primary);
 }
 .model-type-tag.type-image {
-  background: rgba(255, 100, 180, 0.12);
-  color: rgba(255, 120, 200, 0.95);
+  background: var(--color-muted);
+  color: var(--chart-6);
 }
 .model-type-tag.type-av {
   background: var(--color-accent);
-  /* custom color: #b89dff 紫色品牌色,无对应 token,保留原值 */
-  color: rgba(184, 157, 255, 1);
+  /* custom color: 原 #b89dff 紫色品牌色已收敛为品牌黑 (--color-primary) */
+  color: var(--color-primary);
 }
 
 /* 价格行 */

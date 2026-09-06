@@ -124,7 +124,7 @@ export default function AiCareer() {
                         {tags.map((tag, idx) => (
                           <Text
                             key={idx}
-                            className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-[rgba(0,122,255,0.08)]"
+                            className="py-[4rpx] px-[16rpx] rounded-[6rpx] text-[22rpx] text-primary bg-info/[0.08]"
                           >
                             {tag}
                           </Text>

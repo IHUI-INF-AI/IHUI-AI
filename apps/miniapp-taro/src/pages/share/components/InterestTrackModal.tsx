@@ -99,7 +99,7 @@ export default function InterestTrackModal({
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(0,0,0,0.6)',
+          background: 'var(--color-scrim)',
         }}
       />
       <View
@@ -176,7 +176,7 @@ export default function InterestTrackModal({
                       style={{
                         fontSize: rpx(22),
                         color: isSelected
-                          ? 'rgba(255,255,255,0.8)'
+                          ? 'var(--color-white-80)'
                           : 'var(--color-muted-foreground)',
                       }}
                     >

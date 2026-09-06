@@ -9,6 +9,7 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { getCircleDetail, get, post, type Circle } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './detail.css'
 
 interface Comment {
@@ -266,42 +267,38 @@ export default function CircleDetailPage() {
 
           <View className="cd-actions">
             <View className={`cd-action${liked ? ' active' : ''}`} onClick={onLike}>
-              <Image
+              <LineIcon
+                name="heart"
+                size={36}
                 className="cd-action-icon"
-                style={{ width: '36rpx', height: '36rpx' }}
-                src={
-                  liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'
-                }
-                mode="aspectFit"
+                color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
               />
               <Text className="cd-action-num">{data.likes || 0}</Text>
             </View>
             <View className="cd-action">
-              <Image
+              <LineIcon
+                name="message-circle"
+                size={36}
                 className="cd-action-icon"
-                style={{ width: '36rpx', height: '36rpx' }}
-                src="/static/images/icons/message-circle.svg"
-                mode="aspectFit"
+                color="var(--color-muted-foreground)"
               />
               <Text className="cd-action-num">{data.comments || 0}</Text>
             </View>
             <View className={`cd-action${favorited ? ' active' : ''}`} onClick={onFavorite}>
-              <Image
+              <LineIcon
+                name="star"
+                size={36}
                 className="cd-action-icon"
-                style={{ width: '36rpx', height: '36rpx' }}
-                src={
-                  favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'
-                }
-                mode="aspectFit"
+                color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
               />
               <Text className="cd-action-num">{data.favorites || 0}</Text>
             </View>
             <View className="cd-action" onClick={onShare}>
-              <Image
+              <LineIcon
+                name="share-2"
+                size={36}
                 className="cd-action-icon"
-                style={{ width: '36rpx', height: '36rpx' }}
-                src="/static/images/icons/share-2.svg"
-                mode="aspectFit"
+                color="var(--color-muted-foreground)"
               />
               <Text className="cd-action-num">{data.shares || 0}</Text>
             </View>
@@ -333,10 +330,10 @@ export default function CircleDetailPage() {
                       <View className="cd-comment-foot">
                         <Text className="cd-comment-time">{c.createdAt}</Text>
                         <View className="cd-comment-like flex items-center gap-[8rpx]">
-                          <Image
-                            src="/static/images/icons/heart.svg"
-                            mode="aspectFit"
-                            style={{ width: '24rpx', height: '24rpx' }}
+                          <LineIcon
+                            name="heart"
+                            size={24}
+                            color="var(--color-muted-foreground)"
                           />
                           <Text>{c.likes || 0}</Text>
                         </View>

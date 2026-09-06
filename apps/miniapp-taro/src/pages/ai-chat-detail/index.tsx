@@ -25,7 +25,8 @@
  * - Taro API 返回类型显式声明 chooseImageRes / chooseMessageFileRes
  */
 import { useI18n } from '@/i18n'
-import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
+import { View, Text, ScrollView, Input } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
@@ -402,11 +403,10 @@ export default function AiChatDetail() {
             className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
             onClick={handleVoiceToggle}
           >
-            <Image
-              className="text-foreground"
-              style={{ width: '28rpx', height: '28rpx' }}
-              src="/static/images/icons/mic.svg"
-              mode="aspectFit"
+            <LineIcon
+              name="mic"
+              size={28}
+              color="var(--color-muted-foreground)"
             />
           </View>
           <View
@@ -420,11 +420,10 @@ export default function AiChatDetail() {
               className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
               onClick={handleFullscreenToggle}
             >
-              <Image
-                className="text-foreground"
-                style={{ width: '24rpx', height: '24rpx' }}
-                src="/static/images/icons/maximize.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="maximize"
+                size={24}
+                color="var(--color-muted-foreground)"
               />
             </View>
           ) : null}
@@ -433,11 +432,10 @@ export default function AiChatDetail() {
               className="w-[64rpx] h-[64rpx] flex items-center justify-center rounded-[8rpx] bg-muted"
               onClick={handleAddFile}
             >
-              <Image
-                className="text-foreground"
-                style={{ width: '28rpx', height: '28rpx' }}
-                src="/static/images/icons/paperclip.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="paperclip"
+                size={28}
+                color="var(--color-muted-foreground)"
               />
             </View>
           ) : null}

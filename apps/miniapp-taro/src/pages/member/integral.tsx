@@ -94,7 +94,7 @@ export default function IntegralPage() {
       <View className="min-h-screen bg-background">
         <View className="py-[60rpx] px-[40rpx] bg-[linear-gradient(135deg,var(--color-foreground),var(--color-foreground))] text-center">
           <Text className="block text-[60rpx] font-bold text-white">{total}</Text>
-          <Text className="block mt-[12rpx] text-[26rpx] text-[rgba(212, 175, 106, 1)]">
+          <Text className="block mt-[12rpx] text-[26rpx] text-[var(--color-gold)]">
             {tt('member.integral.current', '当前积分')}
           </Text>
         </View>

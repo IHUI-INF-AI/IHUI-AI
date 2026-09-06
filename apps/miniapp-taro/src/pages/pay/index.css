@@ -21,7 +21,7 @@
 }
 .py-countdown--expired {
   border-color: var(--color-destructive);
-  background: rgba(255, 59, 59, 0.08);
+  background: var(--color-danger-tint);
 }
 .py-countdown-text {
   font-size: 26rpx;

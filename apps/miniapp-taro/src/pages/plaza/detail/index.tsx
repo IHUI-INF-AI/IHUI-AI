@@ -14,6 +14,7 @@ import { useAppTheme } from '@/lib/theme'
 import { getPlazaDetail } from '@ihui/api-client'
 import type { PostDetailItem } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -310,18 +311,20 @@ export default function PlazaDetail() {
             ) : null}
             <View style={viewStyles.statRow()}>
               <View style={viewStyles.statBtn(tk)}>
-                <Image
-                  src="/static/images/icons/heart.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  name="heart"
+                  size={24}
                   style={viewStyles.statIcon()}
+                  color="var(--color-muted-foreground)"
                 />
                 <Text style={textStyles.statText(tk)}>{post.likes}</Text>
               </View>
               <View style={viewStyles.statBtn(tk)}>
-                <Image
-                  src="/static/images/icons/message-circle.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  name="message-circle"
+                  size={24}
                   style={viewStyles.statIcon()}
+                  color="var(--color-muted-foreground)"
                 />
                 <Text style={textStyles.statText(tk)}>{post.comments}</Text>
               </View>

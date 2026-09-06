@@ -4,7 +4,8 @@
 
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
@@ -155,10 +156,10 @@ export default function MyStudy() {
               displayList.map((item) => (
                 <View key={item.id} className="flex p-[24rpx] bg-card rounded-[12rpx] mb-[16rpx]">
                   <View className="w-[160rpx] h-[100rpx] rounded-[8rpx] flex-shrink-0 bg-muted placeholder flex items-center justify-center">
-                    <Image
-                      style={{ width: '40rpx', height: '40rpx' }}
-                      src="/static/images/icons/book-open.svg"
-                      mode="aspectFit"
+                    <LineIcon
+                      name="book-open"
+                      size={40}
+                      color="var(--color-muted-foreground)"
                     />
                   </View>
                   <View className="flex-1 ml-[16rpx] flex flex-col">
@@ -192,10 +193,11 @@ export default function MyStudy() {
               ))
             ) : (
               <View className="flex flex-col items-center px-[0] py-[120rpx]">
-                <Image
-                  style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
-                  src="/static/images/icons/book-open.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  name="book-open"
+                  size={80}
+                  color="var(--color-muted-foreground)"
+                  style={{ marginBottom: '16rpx' }}
                 />
                 <Text className="block text-center text-muted-foreground px-[0] py-[40rpx]">
                   {getEmptyText(activeTab)}

@@ -11,6 +11,7 @@ import * as api from '@/api'
 import { getNewsDetail, type News } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 // 防御式扩展:likeNews / getRelatedNews 当前 @/api 未导出,运行时若存在则调用,否则静默 fallback
 type NewsApiExt = {
@@ -182,17 +183,15 @@ export default function NewsDetailPage() {
         ) : null}
 
         {!loading && news.title ? (
-          <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.25)]">
+          <View className="fixed bottom-0 left-0 right-0 flex items-center bg-card px-[24rpx] pt-[16rpx] pb-[calc(16rpx+env(safe-area-inset-bottom,0))] shadow-[0_-2rpx_12rpx_var(--color-black-25)]">
             <View
               className={`flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] bg-transparent ${liked ? 'text-destructive' : 'text-muted-foreground'}`}
               onClick={onLike}
             >
-              <Image
-                style={{ width: '32rpx', height: '32rpx' }}
-                src={
-                  liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'
-                }
-                mode="aspectFit"
+              <LineIcon
+                name="heart"
+                size={32}
+                color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
               />
               <Text className="text-[24rpx] leading-none">
                 {likes > 0 ? likes : tt('news.detail.like', '点赞')}
@@ -202,10 +201,10 @@ export default function NewsDetailPage() {
               className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
               onClick={onComment}
             >
-              <Image
-                style={{ width: '32rpx', height: '32rpx' }}
-                src="/static/images/icons/message-circle.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="message-circle"
+                size={32}
+                color="var(--color-muted-foreground)"
               />
               <Text className="text-[24rpx] leading-none">
                 {comments > 0 ? comments : tt('news.detail.comment', '评论')}
@@ -215,10 +214,10 @@ export default function NewsDetailPage() {
               className="flex-1 flex items-center justify-center gap-[8rpx] text-[26rpx] text-muted-foreground bg-transparent"
               onClick={onShare}
             >
-              <Image
-                style={{ width: '32rpx', height: '32rpx' }}
-                src="/static/images/icons/share-2.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="share-2"
+                size={32}
+                color="var(--color-muted-foreground)"
               />
               <Text className="text-[24rpx] leading-none">{tt('news.detail.share', '分享')}</Text>
             </View>

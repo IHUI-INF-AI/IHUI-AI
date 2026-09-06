@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 
 export interface InteractionItem {
   id: string
@@ -22,10 +23,10 @@ export interface InteractionMessageProps {
 }
 
 const TYPE_ICON: Record<InteractionItem['type'], string> = {
-  like: '/static/images/icons/heart.svg',
-  comment: '/static/images/icons/message-circle.svg',
+  like: 'heart',
+  comment: 'message-circle',
   follow: '✚',
-  collect: '/static/images/icons/star.svg',
+  collect: 'star',
 }
 
 const TYPE_COLOR: Record<InteractionItem['type'], string> = {
@@ -76,14 +77,14 @@ export default function InteractionMessage({ list, onClick }: InteractionMessage
             <View
               className={`absolute -bottom-1 -right-1 w-4 h-4 bg-card rounded flex items-center justify-center`}
             >
-              {TYPE_ICON[item.type].startsWith('/') ? (
-                <Image
-                  style={{ width: '16rpx', height: '16rpx' }}
-                  src={TYPE_ICON[item.type]}
-                  mode="aspectFit"
-                />
-              ) : (
+              {TYPE_ICON[item.type] === '✚' ? (
                 <Text className={`text-xs ${TYPE_COLOR[item.type]}`}>{TYPE_ICON[item.type]}</Text>
+              ) : (
+                <LineIcon
+                  name={TYPE_ICON[item.type] as 'heart' | 'message-circle' | 'star'}
+                  size={16}
+                  color="var(--color-muted-foreground)"
+                />
               )}
             </View>
           </View>

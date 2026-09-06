@@ -24,10 +24,10 @@ import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
 import { chooseImages } from '@/utils/upload-image'
+import LineIcon from '@/components/LineIcon'
 import RecentAgents from './components/RecentAgents'
 import MyAgents from './components/MyAgents'
 import * as api from '@/api'
-import backSvg from '@/assets/remote/images/back.svg'
 // 服务弹窗名片+二维码(对齐原项目 Ai-list_b.vue L213-227 mingpian.png + erweima.png)
 import mingpianImg from '@/assets/remote/images/mingpian.png'
 import erweimaImg from '@/assets/remote/images/erweima.png'
@@ -751,10 +751,11 @@ export default function Community() {
                 {/* 语音输入按钮(对齐原项目 tools/index.vue L894-1277。
                  语音搜索需端侧录音+STT 链路,当前仅聊天输入框接入;小程序端暂不提供,
                   统一提示该能力在完整版提供,避免「开发中」误导) */}
-                <Image
-                  style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
-                  src="/static/images/icons/mic.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  size={40}
+                  name="mic"
+                  color="var(--color-muted-foreground)"
+                  style={{ padding: rpx(8), flexShrink: 0 }}
                   onClick={() => {
                     Taro.showToast({
                       title: tt('community.search13', '语音搜索请在完整版使用'),
@@ -764,10 +765,11 @@ export default function Community() {
                 />
                 {/* 图片搜索按钮(对齐原项目 handleIconClick L1113-1207。
                  后端无图搜智能体接口,小程序端仅保留入口,提示在完整版提供) */}
-                <Image
-                  style={{ width: '40rpx', height: '40rpx', padding: rpx(8), flexShrink: 0 }}
-                  src="/static/images/icons/search.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  size={40}
+                  name="search"
+                  color="var(--color-muted-foreground)"
+                  style={{ padding: rpx(8), flexShrink: 0 }}
                   onClick={async () => {
                     try {
                       await chooseImages(1)
@@ -841,7 +843,11 @@ export default function Community() {
           {showBackTop ? (
             <View className="community-toodown-wrapper">
               <View className="community-toodown" onClick={backToTop}>
-                <Image src={backSvg} className="community-toodown-img" mode="aspectFit" />
+                <LineIcon
+                  name="chevron-up"
+                  size={32}
+                  color="var(--color-primary)"
+                />
               </View>
             </View>
           ) : null}
@@ -851,7 +857,7 @@ export default function Community() {
         {showServicePopup ? (
           <View
             className="fixed inset-0 z-[2000] flex items-center justify-center"
-            style={{ background: 'rgba(0,0,0,0.6)' }}
+            style={{ background: 'var(--color-scrim)' }}
             onClick={() => setShowServicePopup(false)}
           >
             <View

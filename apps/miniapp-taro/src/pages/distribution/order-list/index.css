@@ -14,8 +14,8 @@
 /* ===== 顶部 Tab(对齐原项目 order-tab-bar:渐变背景 + active 高亮) ===== */
 .ol-tabs {
   display: flex;
-  /* custom color: 原项目 order-tab-bar 渐变(紫蓝→米黄),无对应 token,保留原值 */
-  background: linear-gradient(111deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  /* 原项目 order-tab-bar 渐变已中性化收敛至品牌灰,消除紫色残留 */
+  background: linear-gradient(111deg, var(--color-muted) 3%, var(--color-secondary) 104%);
   border-radius: 15rpx;
   margin: 20rpx 20rpx 16rpx;
   overflow: hidden;
@@ -54,9 +54,9 @@
 .ol-card {
   position: relative;
   padding: 24rpx;
-  /* custom color: 原项目 order-card 渐变(浅紫→浅黄),无对应 token,保留原值 */
+  /* custom color: 原项目 order-card 渐变已中性化收敛至品牌灰,消除紫色残留 */
   background: var(--color-card);
-  box-shadow: 0 0 2rpx 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 2rpx 0 var(--color-black-30);
   border-radius: 30rpx;
   overflow: hidden;
   font-size: 28rpx;

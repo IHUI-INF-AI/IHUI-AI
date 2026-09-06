@@ -405,14 +405,14 @@ export default function DeveloperIncome() {
             <View className="income-popup" onClick={(e) => e.stopPropagation()}>
               <View style={{ display: 'flex', alignItems: 'center', marginBottom: '12rpx' }}>
                 <Text
-                  style={{
-                    width: '44rpx',
-                    height: '44rpx',
-                    lineHeight: '44rpx',
-                    textAlign: 'center',
-                    background: 'rgba(123, 97, 255, 1)',
-                    color: 'var(--color-foreground)',
-                    borderRadius: '10rpx',
+                    style={{
+                      width: '44rpx',
+                      height: '44rpx',
+                      lineHeight: '44rpx',
+                      textAlign: 'center',
+                      background: 'var(--color-primary)',
+                      color: 'var(--color-primary-foreground)',
+                      borderRadius: '10rpx',
                     fontSize: '24rpx',
                     marginRight: '16rpx',
                   }}
@@ -434,7 +434,7 @@ export default function DeveloperIncome() {
                   width: '100%',
                   padding: '20rpx',
                   background:
-                    incomeType === 'wechat' ? 'rgba(243, 238, 255, 1)' : 'var(--color-background)',
+                    incomeType === 'wechat' ? 'var(--color-muted)' : 'var(--color-background)',
                   borderRadius: '12rpx',
                   marginBottom: '28rpx',
                   boxSizing: 'border-box',

@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { get, post, getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import './create.css'
 
 const MAX_CONTENT = 500
@@ -40,14 +41,14 @@ interface FormState {
   allowComments: boolean
 }
 
-const VIS_OPTIONS = (tt: TtFn): Array<{ key: Visibility; label: string; icon: string }> => [
-  { key: 'public', label: tt('circleCreate.d1', '公开'), icon: '/static/images/icons/globe.svg' },
+const VIS_OPTIONS = (tt: TtFn): Array<{ key: Visibility; label: string; icon: IconName }> => [
+  { key: 'public', label: tt('circleCreate.d1', '公开'), icon: 'globe' },
   {
     key: 'friends',
     label: tt('circleCreate.d2', '仅好友'),
-    icon: '/static/images/icons/users.svg',
+    icon: 'users',
   },
-  { key: 'private', label: tt('circleCreate.d3', '私密'), icon: '/static/images/icons/lock.svg' },
+  { key: 'private', label: tt('circleCreate.d3', '私密'), icon: 'lock' },
 ]
 
 const VIS_KEY: Record<string, string> = {
@@ -330,11 +331,11 @@ export default function CircleCreatePage() {
                   className={`cc-vis-chip${form.visibility === opt.key ? ' active' : ''}`}
                   onClick={() => setForm((f) => ({ ...f, visibility: opt.key }))}
                 >
-                  <Image
+                  <LineIcon
+                    name={opt.icon}
+                    size={24}
                     className="cc-vis-icon"
-                    style={{ width: '24rpx', height: '24rpx' }}
-                    src={opt.icon}
-                    mode="aspectFit"
+                    color="var(--color-muted-foreground)"
                   />
                   <Text className="cc-vis-text">
                     {tt(VIS_KEY[opt.key] ?? 'circle.create.vis.public', opt.label)}

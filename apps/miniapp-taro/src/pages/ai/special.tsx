@@ -4,6 +4,7 @@
 
 import { useTt, type TtFn, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { usePullDownRefresh, useReachBottom, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef } from 'react'
 import { logger } from '@/utils/logger'
@@ -236,10 +237,11 @@ export default function SpecialModelsPage() {
           className="relative z-10 inline-flex items-center gap-[8rpx] mt-[24rpx] py-[12rpx] px-[20rpx] bg-primary/10 border border-primary rounded-[10rpx]"
           onClick={goHistory}
         >
-          <Image
-            style={{ width: '26rpx', height: '26rpx' }}
-            src="/static/images/icons/clock.svg"
-            mode="aspectFit"
+          <LineIcon
+            name="clock"
+            size={26}
+            color="var(--color-primary)"
+            style={{ display: 'block' }}
           />
           <Text className="text-[24rpx] text-primary">
             {tt('ai.special.history', '我的使用记录')}

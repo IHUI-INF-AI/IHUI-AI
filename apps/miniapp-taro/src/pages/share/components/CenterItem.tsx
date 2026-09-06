@@ -70,7 +70,7 @@ export default function CenterItem({ items, onItemClick }: CenterItemProps) {
               borderRadius: rpx(20),
               overflow: 'hidden',
               background: 'var(--color-card)',
-              boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
+              boxShadow: '0 2rpx 8rpx var(--color-black-5)',
             }}
             onClick={() => onItemClick?.(item)}
           >

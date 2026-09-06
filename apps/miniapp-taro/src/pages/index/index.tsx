@@ -471,7 +471,7 @@ function MaterialCards({
                     style={{
                       fontSize: rpx(22),
                       padding: rpx(6),
-                      background: 'rgba(0,0,0,0.5)',
+                      background: 'var(--color-black-50)',
                       color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
@@ -498,7 +498,7 @@ function MaterialCards({
                     style={{
                       fontSize: rpx(22),
                       padding: rpx(6),
-                      background: 'rgba(0,0,0,0.5)',
+                      background: 'var(--color-black-50)',
                       color: 'var(--color-foreground)',
                       position: 'absolute',
                       bottom: 0,
@@ -1308,7 +1308,7 @@ export default function Index() {
                     style={{
                       fontSize: rpx(28),
                       fontWeight: 'bold',
-                      color: 'var(--color-foreground)',
+                      color: 'var(--color-primary-foreground)',
                     }}
                   >
                     {tt('home.livePreview', '直播预告')}
@@ -1316,7 +1316,7 @@ export default function Index() {
                   <Text
                     style={{
                       fontSize: rpx(22),
-                      color: 'rgba(255,255,255,0.92)',
+                      color: 'var(--color-white-90)',
                       marginTop: rpx(4),
                     }}
                   >
@@ -1327,7 +1327,7 @@ export default function Index() {
                   onClick={() => Taro.navigateTo({ url: '/pages/live/list' })}
                   style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}
                 >
-                  <Text style={{ fontSize: rpx(22), color: 'var(--color-foreground)' }}>
+                  <Text style={{ fontSize: rpx(22), color: 'var(--color-primary-foreground)' }}>
                     {tt('home.more', '更多')}
                   </Text>
                 </View>
@@ -1367,10 +1367,13 @@ export default function Index() {
                       padding: `${rpx(16)} ${rpx(20)}`,
                       borderRadius: rpx(16),
                       background: msg.role === 'user' ? 'var(--color-link)' : 'var(--color-card)',
-                      color: 'var(--color-foreground)',
+                      color:
+                        msg.role === 'user'
+                          ? 'var(--color-primary-foreground)'
+                          : 'var(--color-foreground)',
                       fontSize: rpx(28),
                       lineHeight: 1.6,
-                      boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.05)',
+                      boxShadow: '0 2rpx 8rpx var(--color-black-5)',
                     }}
                   >
                     <Text>{msg.content}</Text>
@@ -1628,7 +1631,7 @@ export default function Index() {
               style={{
                 background: 'var(--color-card)',
                 paddingBottom: 'calc(env(safe-area-inset-bottom) + 10rpx)',
-                boxShadow: '0 -2rpx 10rpx rgba(0, 0, 0, 0.05)',
+                boxShadow: '0 -2rpx 10rpx var(--color-black-5)',
               }}
             >
               <BottomActionBar
@@ -1685,7 +1688,7 @@ export default function Index() {
             className="fixed inset-0 z-[9999] flex items-center justify-center"
             onClick={handleSharePointsClose}
           >
-            <View className="absolute inset-0" style={{ background: 'rgba(0, 0, 0, 0.5)' }} />
+            <View className="absolute inset-0" style={{ background: 'var(--color-black-50)' }} />
             <View
               className="ai-flip-in relative z-10 flex flex-col items-center"
               onClick={(e: { stopPropagation: () => void }) => e.stopPropagation()}
@@ -1710,7 +1713,7 @@ export default function Index() {
           <View
             className="fixed inset-0 z-[9999] flex items-center justify-center"
             onClick={handleQrCodeClose}
-            style={{ background: 'rgba(0, 0, 0, 0.7)' }}
+            style={{ background: 'var(--color-black-70)' }}
           >
             <View
               className="ai-popup-fade-in flex flex-col items-center"

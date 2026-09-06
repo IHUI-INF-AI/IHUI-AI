@@ -156,7 +156,7 @@ export default function DeveloperIndex() {
       content: `${tt('developer.index.deleteConfirm', '确认删除智能体')}「${name}」?`,
       confirmText: tt('developer.index.deleteBtn', '删除'),
       // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-      confirmColor: 'rgba(221, 82, 77, 1)',
+      confirmColor: '#dd524d',
       success: async (res) => {
         if (!res.confirm) return
         try {
@@ -214,11 +214,11 @@ export default function DeveloperIndex() {
   const agentStatusClass = (s: number) => {
     const base = 'text-[24rpx] px-[16rpx] py-[4rpx] rounded-[6rpx]'
     const styles: Record<number, string> = {
-      0: 'text-muted-foreground bg-[rgba(138,138,142,0.12)]',
-      1: 'text-warning bg-[rgba(217,154,0,0.12)]',
-      2: 'text-success bg-[rgba(52,199,89,0.12)]',
-      4: 'text-destructive bg-[rgba(221,82,77,0.12)]',
-      5: 'text-muted-foreground bg-[rgba(138,138,142,0.12)]',
+      0: 'text-muted-foreground bg-muted/[0.12]',
+      1: 'text-warning bg-warning/[0.12]',
+      2: 'text-success bg-success/[0.12]',
+      4: 'text-destructive bg-destructive/[0.12]',
+      5: 'text-muted-foreground bg-muted/[0.12]',
     }
     return `${base} ${styles[s] ?? styles[0]}`
   }
@@ -233,18 +233,18 @@ export default function DeveloperIndex() {
         </View>
 
         <View
-          className="flex items-center bg-[linear-gradient(135deg,rgba(78, 140, 255, 1),rgba(106, 92, 255, 1))] mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
+          className="flex items-center bg-primary mx-[20rpx] my-[20rpx] px-[30rpx] py-[28rpx] rounded-[16rpx]"
           onClick={() => navigateTo({ url: '/pages/developer/subscribe' })}
         >
           <View className="flex-1">
-            <Text className="block text-[32rpx] font-semibold text-foreground">
+            <Text className="block text-[32rpx] font-semibold text-primary-foreground">
               {t('developer.index.subscribeTitle')}
             </Text>
-            <Text className="block text-[24rpx] text-[rgba(255,255,255,0.85)] mt-[8rpx]">
+            <Text className="block text-[24rpx] text-primary-foreground/90 mt-[8rpx]">
               {t('developer.index.subscribeDesc')}
             </Text>
           </View>
-          <Text className="text-[40rpx] text-foreground opacity-80">›</Text>
+          <Text className="text-[40rpx] text-primary-foreground opacity-80">›</Text>
         </View>
 
         <View className="flex mx-[20rpx] p-[8rpx] bg-muted rounded-[12rpx]">
@@ -324,7 +324,7 @@ export default function DeveloperIndex() {
                   </Text>
                   <View className="flex gap-[16rpx]">
                     <Text
-                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-[rgba(78,140,255,0.1)]"
+                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-primary bg-info/[0.1]"
                       onClick={() => onEdit(agent)}
                     >
                       {status === 2
@@ -332,7 +332,7 @@ export default function DeveloperIndex() {
                         : tt('developer.index.editBtn', '设置')}
                     </Text>
                     <Text
-                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-[rgba(221,82,77,0.1)]"
+                      className="text-[24rpx] px-[20rpx] py-[6rpx] rounded-[6rpx] text-destructive bg-destructive/[0.1]"
                       onClick={() => onDelete(agent)}
                     >
                       {tt('developer.index.deleteBtn', '删除')}
