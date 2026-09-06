@@ -1576,6 +1576,90 @@
       "when": 1719353600000,
       "tag": "0225_create_device_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1719526400000,
+      "tag": "20260808000000_create_service_inquiries",
+      "breakpoints": true
+    },
+    {
+      "idx": 227,
+      "version": "7",
+      "when": 1719612800000,
+      "tag": "0208_scheduling_batch4",
+      "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1719699200000,
+      "tag": "0209_homework_batch5",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "7",
+      "when": 1719785600000,
+      "tag": "0210_enrollment_batch6",
+      "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1719872000000,
+      "tag": "0211_finance_batch7",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1719958400000,
+      "tag": "20260815000000_drop_audit_chain_entries",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1720044800000,
+      "tag": "20260820000000_extend_demand_square",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1720131200000,
+      "tag": "20260822000000_feedback_file_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1720217600000,
+      "tag": "20260829000000_create_agent_memory_semantic",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1720304000000,
+      "tag": "20260830000000_add_pinned_to_chat_conversations",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1720390400000,
+      "tag": "20260831000000_feature_gap_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1720476800000,
+      "tag": "20260901000000_conversation_message_archives",
+      "breakpoints": true
     }
   ]
 }
