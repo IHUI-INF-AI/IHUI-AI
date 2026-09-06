@@ -4,6 +4,9 @@
 
 # Prometheus 配置 — IHUI-AI 监控
 # 抓取 api(/metrics)、ai-service(/metrics)、web 无 /metrics 端点跳过
+# 线上生产为 Windows 原生部署:Prometheus 监听 127.0.0.1:8815(非容器内 9090)。
+# 注意:alertmanager 目标在原生部署下必须用 127.0.0.1:9093,不能用 docker 服务名
+# alertmanager(否则告警断裂);详见 monitoring/README-logging.md "常见部署差异陷阱"。
 
 global:
   scrape_interval: 15s # 默认抓取间隔
@@ -22,7 +25,7 @@ alerting:
   alertmanagers:
     - static_configs:
         - targets:
-            - 'alertmanager:9093'
+            - 'localhost:9093'
 
 # 抓取目标
 scrape_configs:
@@ -58,20 +61,40 @@ scrape_configs:
   #         service: 'api'
   #         layer: 'backend'
 
-  # OTel Collector 自身指标（Prometheus exporter 暴露 8888 端口）
-  - job_name: 'otel-collector'
-    metrics_path: '/metrics'
-    scheme: 'http'
-    static_configs:
-      - targets: ['localhost:8888']
-        labels:
-          service: 'otel-collector'
-          layer: 'observability'
-
   # Prometheus 自监控（原生部署 Prometheus 监听 8815，非容器内 9090）
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:8815']
+
+  # Postgres exporter（原生 9187，连 localhost:8810 库 ihui_dev）
+  - job_name: 'postgres'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9187']
+        labels:
+          service: 'postgres'
+          layer: 'infra'
+
+  # Redis exporter（原生 9121，连 localhost:8811）
+  - job_name: 'redis'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9121']
+        labels:
+          service: 'redis'
+          layer: 'infra'
+
+  # Windows 宿主机 exporter（原生 9182：磁盘/CPU/内存等主机指标）
+  - job_name: 'windows'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9182']
+        labels:
+          service: 'windows-host'
+          layer: 'infra'
 
   # Node Exporter（主机指标，可选）— 原生环境暂未安装，需启用时注释放开并将 target 改为 localhost:9100
   # - job_name: 'node'
