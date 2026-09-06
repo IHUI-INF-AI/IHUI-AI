@@ -15,6 +15,8 @@
 
 from __future__ import annotations
 
+import os
+
 # ==================== 杀手锏常量段 1:快照/步骤基础设施 ====================
 # 原散点:agent_step_recorder.py / agent_checkpoint.py / file_editor.py
 MAX_STEPS_PER_RUN = 2000  # 单 run 保留步数上限(超出丢最旧,防超长运行撑爆文件)
@@ -36,4 +38,21 @@ SUPPORTED_PROTOCOL_VERSIONS: tuple[str, ...] = (
     "2025-03-26",
     "2025-06-18",
     "2025-11-25",
+)
+
+# ==================== 杀手锏常量段 4:压缩质量自证(灰度 / 产品化开关) ====================
+# 把 compaction_quality.py 的"保留率评估 + 自动降级 + EMA 灰发布 gate"接入真实压缩
+# 提交通道时的全局开关。关闭时压缩生产路径行为与现在完全一致(不评估、不附加 quality
+# 字段、不降级),保证灰度可控、可一键回滚。
+AGENT_COMPACTION_QUALITY_ENABLED = os.environ.get(
+    "AGENT_COMPACTION_QUALITY_ENABLED", "true"
+).strip().lower() in ("1", "true", "yes", "on")
+# 保留率低于该阈值触发 auto_degrade(与 compaction_quality.DEFAULT_RETENTION_THRESHOLD
+# 对齐;此处集中为跨端唯一真源,改动需同步 web / cli 镜像)。
+AGENT_COMPACTION_QUALITY_THRESHOLD = float(
+    os.environ.get("AGENT_COMPACTION_QUALITY_THRESHOLD", "0.5")
+)
+# 触发降级时回退的"更保守截断式压缩"保留条数 = 默认 keep_recent 上浮的偏移量。
+AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS = int(
+    os.environ.get("AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS", "4")
 )
