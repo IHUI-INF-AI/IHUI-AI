@@ -18,6 +18,7 @@
 
 import * as React from 'react'
 import { Brain, CircleX, Loader2, Plus, Search, Sparkles, Trash2, XCircle } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import {
@@ -37,6 +38,7 @@ const SAMPLE_MESSAGES: Array<{ role: string; content: string }> = [
 ]
 
 export default function MemoryManagerPage() {
+  const t = useTranslations('memoryManager')
   const [type, setType] = React.useState('')
   const [importanceMin, setImportanceMin] = React.useState(0)
   const [data, setData] = React.useState<LongTermMemoryListResult | null>(null)
@@ -65,7 +67,7 @@ export default function MemoryManagerPage() {
     setLoading(false)
     if (!r.success) {
       if (r.status === 401) setNeedLogin(true)
-      else setError((r as { message?: string }).message || '加载长期记忆失败')
+      else setError((r as { message?: string }).message || t('loadFailed'))
       setData(null)
       return
     }
@@ -86,7 +88,7 @@ export default function MemoryManagerPage() {
       setActionError('')
       refresh()
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : '操作失败')
+      setActionError(e instanceof Error ? e.message : t('opFailed'))
     } finally {
       setBusyId('')
     }
@@ -101,7 +103,7 @@ export default function MemoryManagerPage() {
       setNewOpen(false)
       refresh()
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : '新增失败')
+      setActionError(e instanceof Error ? e.message : t('addFailed'))
     }
   }
 
@@ -112,11 +114,15 @@ export default function MemoryManagerPage() {
     try {
       const res = await extractMemoryFromMessages(SAMPLE_MESSAGES)
       setExtractMsg(
-        `归纳完成:导入 ${res.imported} 条(新增 ${res.stats.added} / 合并 ${res.stats.merged})`,
+        t('extractDone', {
+          imported: res.imported,
+          added: res.stats.added,
+          merged: res.stats.merged,
+        }),
       )
       refresh()
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : '归纳失败')
+      setActionError(e instanceof Error ? e.message : t('extractFailed'))
     } finally {
       setExtracting(false)
     }
@@ -129,7 +135,7 @@ export default function MemoryManagerPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Brain className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">长期记忆管理</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => void handleExtract()}
@@ -141,53 +147,52 @@ export default function MemoryManagerPage() {
             ) : (
               <Sparkles className="h-4 w-4" />
             )}
-            归纳本会话
+            {t('extract')}
           </button>
           <button
             onClick={() => setNewOpen((v) => !v)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90"
           >
-            <Plus className="h-4 w-4" /> 新增记忆
+            <Plus className="h-4 w-4" /> {t('add')}
           </button>
         </div>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        跨会话沉淀的用户偏好 / 项目约定 / 踩坑教训,支持 type
-        与重要度过滤、手动新增、删除与提升重要度。
+        {t('subtitle')}
       </p>
 
       {/* 过滤条 */}
       <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
         <label className="flex items-center gap-1.5 text-muted-foreground">
-          类型
+          {t('type')}
           <select
             value={type}
             onChange={(e) => setType(e.target.value)}
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           >
-            <option value="">全部</option>
-            {MEMORY_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {MEMORY_TYPE_LABELS[t] ?? t}
+            <option value="">{t('all')}</option>
+            {MEMORY_TYPES.map((mt) => (
+              <option key={mt} value={mt}>
+                {MEMORY_TYPE_LABELS[mt] ?? mt}
               </option>
             ))}
           </select>
         </label>
         <label className="flex items-center gap-1.5 text-muted-foreground">
-          重要度
+          {t('importance')}
           <select
             value={importanceMin}
             onChange={(e) => setImportanceMin(Number(e.target.value))}
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-ring"
           >
-            <option value={0}>全部</option>
+            <option value={0}>{t('all')}</option>
             <option value={3}>≥3</option>
             <option value={4}>≥4</option>
             <option value={5}>5</option>
           </select>
         </label>
         <span className="ml-auto text-xs text-muted-foreground">
-          {data ? `共 ${data.total} 条` : ''}
+          {data ? t('totalCount', { count: data.total }) : ''}
         </span>
       </div>
 
@@ -195,15 +200,15 @@ export default function MemoryManagerPage() {
       {newOpen && (
         <div className="mb-4 rounded-xl border p-4">
           <label className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-            类型
+            {t('type')}
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
               className="rounded-lg border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring"
             >
-              {MEMORY_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {MEMORY_TYPE_LABELS[t] ?? t}
+              {MEMORY_TYPES.map((mt) => (
+                <option key={mt} value={mt}>
+                  {MEMORY_TYPE_LABELS[mt] ?? mt}
                 </option>
               ))}
             </select>
@@ -211,7 +216,7 @@ export default function MemoryManagerPage() {
           <textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
-            placeholder="输入记忆内容,例如:用户偏好清新简洁的暗色主题"
+            placeholder={t('contentPlaceholder')}
             rows={2}
             className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
@@ -220,14 +225,14 @@ export default function MemoryManagerPage() {
               onClick={() => setNewOpen(false)}
               className="rounded-lg border px-3 py-1.5 text-sm transition hover:bg-muted"
             >
-              取消
+              {t('cancel')}
             </button>
             <button
               onClick={() => void handleCreate()}
               disabled={!newContent.trim()}
               className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
-              保存
+              {t('save')}
             </button>
           </div>
         </div>
@@ -240,7 +245,7 @@ export default function MemoryManagerPage() {
       )}
       {needLogin && (
         <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          <CircleX className="h-4 w-4" /> 请先登录后管理长期记忆(该功能仅对已登录用户开放)
+          <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {(error || actionError) && (
@@ -251,12 +256,12 @@ export default function MemoryManagerPage() {
 
       {loading && (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> 加载中…
+          <Loader2 className="h-5 w-5 animate-spin" /> {t('loading')}
         </div>
       )}
       {empty && (
         <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
-          <Search className="h-5 w-5" /> 暂无长期记忆,可点右上角"归纳本会话"或手动新增
+          <Search className="h-5 w-5" /> {t('empty')}
         </div>
       )}
 
@@ -271,7 +276,7 @@ export default function MemoryManagerPage() {
                     {label}
                   </span>
                   <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                    <Sparkles className="h-3 w-3" /> 重要度 {entry.importance}
+                    <Sparkles className="h-3 w-3" /> {t('importanceValue', { value: entry.importance })}
                   </span>
                   {entry.created_at && (
                     <span className="text-xs text-muted-foreground/70">{entry.created_at}</span>
@@ -289,7 +294,7 @@ export default function MemoryManagerPage() {
                       ) : (
                         <Sparkles className="h-3.5 w-3.5" />
                       )}
-                      提升重要度
+                      {t('boostImportance')}
                     </button>
                     <button
                       onClick={() =>
@@ -303,7 +308,7 @@ export default function MemoryManagerPage() {
                       ) : (
                         <Trash2 className="h-3.5 w-3.5" />
                       )}
-                      删除
+                      {t('delete')}
                     </button>
                   </span>
                 </div>
