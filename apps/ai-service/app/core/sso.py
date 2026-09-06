@@ -244,7 +244,7 @@ class OIDCSSOProvider:
         nonce: str = "",
         client_id: str = "",
         issuer: str = "",
-        claims_to_verify: set[str] = frozenset({"exp", "nbf", "iat"}),
+        claims_to_verify: frozenset[str] = frozenset({"exp", "nbf", "iat"}),
     ) -> dict[str, Any]:
         """用已解析的签名密钥解码并校验 id_token。
 
