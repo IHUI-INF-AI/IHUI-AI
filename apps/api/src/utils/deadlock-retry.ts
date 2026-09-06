@@ -76,7 +76,7 @@ export function isDeadlockError(
 }
 
 /** 计算指数退避延迟（含 ±20% 抖动）。 */
-function backoffDelay(attempt: number, config: DeadlockRetryConfig): number {
+export function backoffDelay(attempt: number, config: DeadlockRetryConfig): number {
   const base = Math.min(config.maxDelayMs, config.baseDelayMs * Math.pow(2, attempt - 1))
   const jitter = Math.floor(base * 0.2)
   // [-jitter, +jitter] 随机偏移
