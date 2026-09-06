@@ -7942,6 +7942,13 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "入力",
+      "completionTokens": "出力",
+      "requests": "リクエスト数",
+      "estimateHint": "費用は混合単価の概算です(1Kトークンあたり¥0.02、実際の課金ではありません)",
+      "ariaLabel": "セッション累計トークン使用量"
+    },
     "addContextHint": "コンテキストファイルや参照を追加",
     "addContextReference": "コンテキストとして",
     "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン)",
@@ -14267,6 +14274,17 @@
     "summaryPreview": "概要プレビュー"
   },
   "deepResearch": {
+    "sourcesTitle": "参照ソース",
+    "confidenceLabel": "信頼度",
+    "verifiedLabel": "検証済み",
+    "unverifiedLabel": "要検証",
+    "historyTitle": "履歴",
+    "sourceTier": {
+      "authoritative": "公式",
+      "media": "メディア",
+      "community": "コミュニティ",
+      "unknown": "不明"
+    },
     "title": "ディープリサーチ Deep Research",
     "phasePlanning": "問題の計画",
     "phaseRetrieving": "複数ソースの検索",
@@ -14405,7 +14423,38 @@
     "loading": "読み込み中…",
     "loadFailed": "実行記録の読み込みに失敗"
   },
+  "agentTeams": {
+    "title": "エージェントチーム",
+    "refresh": "更新",
+    "statsTotal": "総実行数",
+    "statsActive": "実行中",
+    "statsCompleted": "完了",
+    "statsFailed": "失敗",
+    "filter": {
+      "all": "すべて",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗"
+    },
+    "empty": "チーム実行履歴はまだありません",
+    "selectHint": "左側から実行を選択して詳細を表示",
+    "detailTitle": "実行詳細",
+    "goal": "目標",
+    "role": "メンバーロール",
+    "orchestration": "オーケストレーション",
+    "priority": "優先度",
+    "createdAt": "作成日時",
+    "updatedAt": "更新日時",
+    "result": "結果",
+    "error": "エラー",
+    "tokens": "トークン使用量",
+    "durationMs": "所要時間(ms)",
+    "topologyTitle": "Swarm トポロジ",
+    "activityTitle": "アクティビティ",
+    "none": "なし"
+  },
   "nav": {
+    "agentTeams": "エージェントチーム",
     "about": "概要",
     "activities": "アクティビティ",
     "admin": "管理",
