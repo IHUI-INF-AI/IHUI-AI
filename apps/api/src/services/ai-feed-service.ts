@@ -92,6 +92,8 @@ export interface CollectResult {
   fetchedSources: number
   totalItems: number
   details: Array<{ sourceCode: string; status: string; count: number; error?: string }>
+  /** 本轮因「跨源同名(规范化标题)」被拦截跳过的 repost 条数(2026-09-06 起) */
+  repostBlocked?: number
 }
 
 export interface LlmBatchResult {
@@ -782,6 +784,44 @@ export async function getTrendChart(
 // 4. 采集触发（手动）
 // =============================================================================
 
+// 单源单轮 fetch 条目上限(防单轮回灌上千条撑表)。2026-09-06 实测 openai-blog
+// 单轮 fetch 1170 条,远超市面 RSS 源的常态 10~100 条量级,疑似分页/聚合端点异常
+// 一次灌入大量 → 仅保留前 max 条并记 warn。历史正常轮询 >100 条的源不受影响
+// (超过阈值仅提醒,低于上限不截断)。env FETCH_MAX_ITEMS_PER_SOURCE 可覆盖(默认 500)。
+function fetchMaxItemsPerSource(): number {
+  return readPositiveIntEnv('FETCH_MAX_ITEMS_PER_SOURCE', 500)
+}
+
+// 超过此条数(但未超上限)记 warn,提醒疑似异常 / 需核查端点。默认 100。
+function fetchWarnItemsThreshold(): number {
+  return readPositiveIntEnv('FETCH_WARN_ITEMS_THRESHOLD', 100)
+}
+
+/**
+ * 规范化标题(用于跨源同名去重):NFKC 归一全角/兼容字形 + 小写 + 折叠空白。
+ * 与标题翻译/分类无耦合;仅作去重键,不落库。
+ */
+function normalizeTitleForDedup(title: string): string {
+  return title.normalize('NFKC').toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 跨源同名(规范化标题)去重兜底。
+ *
+ * collectAllSources 在源入库前对每条 fetched item 用规范化标题查存在表索引：
+ * 若同标题已存在于**其它 source** 条目,则视为 repost 跳过,不重复入库,避免
+ * 跨源同题刷屏(如 arxiv-cs-ai / apple-ml / leiphone / qbitai 间重复,近30天出现
+ * 同一标题×4)。与既有的 (source_code, platform_item_id) 唯一约束 + 幂等 upsert
+ * 并存、不破坏历史数据；同源同名(如单源内分页重复)不拦截,仍走 upsert 幂等。
+ *
+ * 介质权衡:**应用先查**(而非 DB 唯一索引)——
+ * - DB 唯一索引需为规范化标题新增持久列 + 迁移,且会与既有跨源历史重复数据冲突
+ *   (已有重复行会让建约束失败,必须先行清重),侵入性高、风险大;
+ * - 应用先查把"规范化"留在应用层(NFKC 无法在 PG 原生 SQL 简易表达),本轮懒加载
+ *   一次全表索引共享复用,无 N+1,天然跳过已入库历史重复,只拦"未来新入库"的重复。
+ * 代价:全表(约 1.2 万行)规范化在首轮最慢,仅采集中引起,收集每 6h 一轮可接受。
+ */
+
 /**
  * 手动触发一次全量采集。
  *
@@ -804,11 +844,31 @@ export async function collectAllSources(): Promise<CollectResult> {
 
   const details: CollectResult['details'] = []
   let totalItems = 0
+  let repostBlockedTotal = 0
 
   // 2026-08-05 修复:删除"DAILYHOT/RSSHUB 都未配置 → 全部 skipped"的前置降级。
   // 它会把 sourceType='rss' 的原生 RSS 源(完整 URL 且非 rsshub.app,不依赖任何 env)
   // 也误拦掉,导致生产 ai_feed_source 配了 9 个原生 RSS 源仍采集 0 条。
   // 各源是否可抓在下方循环内按 sourceType + env 自行判断,未配置的源自然 skip。
+
+  // 跨源同名去重:一次性懒加载当前全表 (source_code, title),建「规范化标题 → 已含 source」
+  // 映射,本轮所有源共享复用(无 N+1)。仅做未来新入库的跨源拦截,已入库历史重复保留不动。
+  const titleIndex = new Map<string, Set<string>>()
+  {
+    const rows = await db
+      .select({ sourceCode: aiFeedHotItem.sourceCode, title: aiFeedHotItem.title })
+      .from(aiFeedHotItem)
+    for (const r of rows) {
+      if (!r.title) continue
+      const norm = normalizeTitleForDedup(r.title)
+      let set = titleIndex.get(norm)
+      if (!set) {
+        set = new Set()
+        titleIndex.set(norm, set)
+      }
+      set.add(r.sourceCode)
+    }
+  }
 
   for (const src of sources) {
     let items: FetchedFeedItem[] = []
@@ -900,6 +960,51 @@ export async function collectAllSources(): Promise<CollectResult> {
       continue
     }
 
+    // ---- 单源单轮上限:截断异常大潮,避免单轮灌上千条撑表(openai-blog 曾 1170 条) ----
+    const maxItems = fetchMaxItemsPerSource()
+    if (items.length > maxItems) {
+      logger.warn(
+        `collectAllSources: 源 ${src.sourceCode} 单轮抓取 ${items.length} 条,超出单轮上限 ${maxItems},已截断为前 ${maxItems} 条(疑似分页/聚合端点异常)`,
+        { sourceCode: src.sourceCode, fetched: items.length, truncated: maxItems },
+      )
+      items = items.slice(0, maxItems)
+    } else if (items.length > fetchWarnItemsThreshold()) {
+      // 未超上限但明显高于常态(10~100):仅记 warn 提醒核查,不影响数据
+      logger.warn(
+        `collectAllSources: 源 ${src.sourceCode} 单轮抓取 ${items.length} 条,明显高于常态(10~100),请核查端点`,
+        { sourceCode: src.sourceCode, count: items.length },
+      )
+    }
+
+    // ---- 跨源同名(规范化标题)去重兜底:同标题已存在于其它 source 的条目 → 视为 repost 跳过 ----
+    let deduped = 0
+    const toInsert: FetchedFeedItem[] = []
+    for (const item of items) {
+      const norm = normalizeTitleForDedup(item.title)
+      const existing = titleIndex.get(norm)
+      // 仅拦截"它源已有同标题";同源同名(本批内重复/分页重复)不拦截,交 upsert 幂等
+      if (existing && !existing.has(item.sourceCode)) {
+        deduped++
+        repostBlockedTotal++
+        continue
+      }
+      toInsert.push(item)
+      // 把本批标题记入索引,使后续源(或后续批次)命中跨源拦截
+      let set = titleIndex.get(norm)
+      if (!set) {
+        set = new Set()
+        titleIndex.set(norm, set)
+      }
+      set.add(item.sourceCode)
+    }
+    if (deduped > 0) {
+      logger.info(
+        `collectAllSources: 源 ${src.sourceCode} 拦截跨源同题 repost ${deduped} 条(规范化标题去重,不入库)`,
+        { sourceCode: src.sourceCode, blocked: deduped },
+      )
+    }
+    items = toInsert
+
     // 幂等 upsert：已存在的 (sourceCode, platformItemId) 更新 lastSeenAt/currentHot/currentRank
     // P2 修复(2026-08-06):原逐条 insert 循环,单源几十条 hot 条目会产生几十次往返查询。
     // 改为一次性批量 upsert(insert().values([...]) + onConflictDoUpdate 引用 excluded),
@@ -957,6 +1062,7 @@ export async function collectAllSources(): Promise<CollectResult> {
     fetchedSources: sources.length,
     totalItems,
     details,
+    repostBlocked: repostBlockedTotal,
   }
 }
 
@@ -1000,6 +1106,10 @@ function isLatinTitle(title: string): boolean {
 const llmBatchEnabled = () => readBoolEnv('LLM_BATCH_ENABLED', true)
 const llmCategoryBatchSize = () => readPositiveIntEnv('LLM_CATEGORY_BATCH_SIZE', 200)
 const llmTranslateBatchSize = () => readPositiveIntEnv('LLM_TRANSLATE_BATCH_SIZE', 100)
+// 摘要抽干批大小:ai-feed-drain 每轮补摘要(llm_summary 缺失)的单批上限。
+// 2026-09-06 修复:历史 1426 行 llm_summary IS NULL(llm_processed_at 已置而
+// 摘要未生成),原抽干只覆盖缺 title_en / 缺分类方向,摘要从未进抽干批次。
+const llmSummaryBatchSize = () => readPositiveIntEnv('LLM_SUMMARY_BATCH_SIZE', 100)
 const llmDrainStaggerMs = () => readPositiveIntEnv('LLM_DRAIN_STAGGER_MS', 3000)
 const llmDrainMaxIterations = () => readPositiveIntEnv('LLM_DRAIN_MAX_ITERATIONS', 5)
 // AI 资讯批处理锁定的候选模型(逗号分隔,按序 fallback)。
@@ -1289,6 +1399,82 @@ export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
 }
 
 // =============================================================================
+// 6.2 摘要生成（llm_summary 缺失条目）
+// =============================================================================
+
+const SUMMARY_PROMPT = `你是 AI 资讯摘要助手。用不超过 60 字的中文,一句话概括以下资讯的核心要点(保留关键主体、动作与影响)。只返回摘要本身,不要任何解释、不要引号、不要 HTML、不要 markdown。
+标题: {TITLE}
+正文: {CONTENT}`
+
+/**
+ * 手动/抽干触发摘要生成批处理。
+ *
+ * 选取 llmSummary 为空（缺摘要）的条目批量生成摘要。
+ * 背景(2026-09-06):历史 1426 行 llm_summary IS NULL——它们的 llm_processed_at
+ * 早已置位(分类已做),processLlmBatch 按 llm_processed_at IS NULL 取数不会重扫,
+ * 而旧抽干又只跑分类/翻译两个方向,导致摘要积压长期不清。本函数以
+ * llm_summary IS NULL 独立取数,与 llm_processed_at 无关,确保存量摘要被抽干批次覆盖。
+ * 生成失败时回退到原文 summary(或标题截断)兜底落库，仍计入 failed 供运维识别 LLM 异常态，
+ * 避免摘要列永久空置（多数为原生 RSS 无 description 条目）。
+ */
+export async function summarizeFeedItems(limit?: number): Promise<LlmBatchResult> {
+  // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不清洗也不生成。
+  if (!llmBatchEnabled()) {
+    return { processedItems: 0, failed: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+  }
+  // 未显式传 limit 时使用可配置批大小（默认 100）。
+  const batchSize = limit ?? llmSummaryBatchSize()
+  const pending = await db
+    .select()
+    .from(aiFeedHotItem)
+    .where(isNull(aiFeedHotItem.llmSummary))
+    .orderBy(desc(aiFeedHotItem.lastSeenAt))
+    .limit(batchSize)
+
+  let processed = 0
+  let failed = 0
+  await mapLimit(pending, llmConcurrency(), async (item) => {
+    try {
+      // 输入 = 标题(+ 原文正文,若有)。正文缺失时仅标题,用于无 description 的原生 RSS 条目。
+      const text = item.summary?.trim()
+        ? `${item.title.trim()}\n正文: ${item.summary.trim()}`
+        : item.title.trim()
+      const llmResult = await callLlm(SUMMARY_PROMPT, text, {
+        // 摘要短,限 maxTokens 即可;temperature=0 确定性输出
+        maxTokens: 200,
+        temperature: 0,
+      })
+      if (llmResult && llmResult.trim().length > 0) {
+        await db
+          .update(aiFeedHotItem)
+          .set({ llmSummary: llmResult.trim().slice(0, 2000), updatedAt: new Date() })
+          .where(eq(aiFeedHotItem.id, item.id))
+        processed++
+      } else {
+        // LLM 失败(401/stub/返回空):回退原文 summary 或标题截断兜底落库,仍计 failed
+        const fallback = (item.summary ?? item.title).slice(0, 300)
+        if (fallback.trim().length > 0) {
+          await db
+            .update(aiFeedHotItem)
+            .set({ llmSummary: fallback.trim(), updatedAt: new Date() })
+            .where(eq(aiFeedHotItem.id, item.id))
+        }
+        failed++
+      }
+    } catch (e) {
+      logger.warn(`summarizeFeedItems: 摘要 ${item.id} 失败: ${(e as Error).message}`)
+      failed++
+    }
+  })
+
+  return {
+    processedItems: processed,
+    failed,
+    details: `生成摘要 ${processed} 条,失败 ${failed} 条（共 ${pending.length} 条待摘要）`,
+  }
+}
+
+// =============================================================================
 // 6.5 存量 LLM 积压抽干（错峰加速）
 // =============================================================================
 
@@ -1308,16 +1494,25 @@ export interface DrainLlmBacklogResult {
   remainingNoEn: number
   /** 异常态:存在积压但本轮 0 分类且 0 翻译(LLM down/401/stub 静默返 0),提前退出 */
   zeroProgress: boolean
+  /** 本轮生成的摘要条数(llm_summary 缺失方向)。2026-09-06 起纳入抽干。 */
+  summarized?: number
+  /** 本轮摘要生成失败(LLM 失败回退原文/标题)条数 */
+  summaryFailed?: number
+  /** 摘要方向是否已抽干 */
+  summaryBacklogCleared?: boolean
+  /** 结束后缺摘要(llm_summary 为空)的剩余条数 */
+  remainingNoSummary?: number
 }
 
 /**
  * 存量 LLM 积压抽干（错峰加速）。
  *
- * 持续以「多轮小批量 + 轮间 sleep」的方式抽干缺英文标题/缺分类的存量条目：
- * - 每轮并行跑一次 processLlmBatch（缺分类）与 translateTitles（缺英文标题）
+ * 持续以「多轮小批量 + 轮间 sleep」的方式抽干缺英文标题/缺分类/缺摘要的存量条目：
+ * - 每轮并行跑一次 processLlmBatch（缺分类）、translateTitles（缺英文标题）与
+ *   summarizeFeedItems（缺摘要,2026-09-06 起纳入）
  * - 轮间 sleep LLM_DRAIN_STAGGER_MS，避免一次性把 LLM 并发/配额打爆
- * - 每轮后统计剩余积压，两个方向都抽干即提前结束
- * - 某轮两个方向都零进展（LLM 连续失败/401 静默返 0）时提前退出并标记 zeroProgress，
+ * - 每轮后统计剩余积压，三个方向都抽干即提前结束
+ * - 某轮三个方向都零进展（LLM 连续失败/401 静默返 0）时提前退出并标记 zeroProgress，
  *   避免空转；本轮处理子数、失败数、剩余积压与运行时间一并写入结构化日志供运维观测
  * - 受 LLM_BATCH_ENABLED 总开关控制
  *
@@ -1339,6 +1534,10 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
       remainingNoLlm: 0,
       remainingNoEn: 0,
       zeroProgress: false,
+      summarized: 0,
+      summaryFailed: 0,
+      summaryBacklogCleared: true,
+      remainingNoSummary: 0,
     }
   }
 
@@ -1349,34 +1548,47 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
   let translated = 0
   let classifiedFailed = 0
   let translateFailed = 0
+  let summarized = 0
+  let summaryFailed = 0
   let llmBacklogCleared = false
   let translateBacklogCleared = false
+  let summaryBacklogCleared = false
   let iterations = 0
   let zeroProgress = false
   let llmLeft = 0
   let transLeft = 0
+  let summaryLeft = 0
 
   for (let round = 1; round <= maxIterations; round++) {
     iterations = round
-    const [catRes, transRes] = await Promise.all([
+    const [catRes, transRes, sumRes] = await Promise.all([
       processLlmBatch(),
       translateTitles(),
+      summarizeFeedItems(),
     ])
     llmProcessed += catRes.processedItems
     translated += transRes.processedItems
     classifiedFailed += catRes.failed
     translateFailed += transRes.failed
+    summarized += sumRes.processedItems
+    summaryFailed += sumRes.failed
 
     const backlog = await countBacklog()
     llmLeft = backlog.llmLeft
     transLeft = backlog.transLeft
+    summaryLeft = backlog.summaryLeft
     llmBacklogCleared = llmLeft === 0
     translateBacklogCleared = transLeft === 0
+    summaryBacklogCleared = summaryLeft === 0
 
-    // 两个方向都抽干，提前结束
-    if (llmBacklogCleared && translateBacklogCleared) break
+    // 三个方向都抽干，提前结束
+    if (llmBacklogCleared && translateBacklogCleared && summaryBacklogCleared) break
     // 有积压但本轮无任何真实进展（LLM 连续失败/401 静默返回 0）→ 提前退出标记零进展
-    if (catRes.processedItems === 0 && transRes.processedItems === 0) {
+    if (
+      catRes.processedItems === 0 &&
+      transRes.processedItems === 0 &&
+      sumRes.processedItems === 0
+    ) {
       zeroProgress = true
       break
     }
@@ -1387,6 +1599,7 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
 
   const remainingNoLlm = llmLeft
   const remainingNoEn = transLeft
+  const remainingNoSummary = summaryLeft
 
   const result: DrainLlmBacklogResult = {
     llmProcessed,
@@ -1399,6 +1612,10 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
     remainingNoLlm,
     remainingNoEn,
     zeroProgress,
+    summarized,
+    summaryFailed,
+    summaryBacklogCleared,
+    remainingNoSummary,
   }
 
   // 结构化日志(经 pino 落到 svc-api-nssm.log)：一行完整的 drain 进展，
@@ -1410,27 +1627,38 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
     translated,
     classifiedFailed,
     translateFailed,
+    summarized,
+    summaryFailed,
     iterations,
     llmBacklogCleared,
     translateBacklogCleared,
+    summaryBacklogCleared,
     remainingNoEn,
     remainingNoLlm,
+    remainingNoSummary,
     zeroProgress,
   })
 
   return result
 }
 
-/** 统计缺分类与缺英文标题的剩余积压数量。 */
-async function countBacklog(): Promise<{ llmLeft: number; transLeft: number }> {
+/** 统计缺分类/缺英文标题/缺摘要的剩余积压数量。 */
+async function countBacklog(): Promise<{ llmLeft: number; transLeft: number; summaryLeft: number }> {
   const res = await db.execute(sql`
     SELECT
       (SELECT count(*) FROM ai_feed_hot_item WHERE llm_processed_at IS NULL)::int AS llm_left,
-      (SELECT count(*) FROM ai_feed_hot_item WHERE title_en IS NULL)::int AS trans_left
+      (SELECT count(*) FROM ai_feed_hot_item WHERE title_en IS NULL)::int AS trans_left,
+      (SELECT count(*) FROM ai_feed_hot_item WHERE llm_summary IS NULL)::int AS summary_left
   `)
   const rows = Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
-  const row = rows[0] as { llm_left?: number; trans_left?: number } | undefined
-  return { llmLeft: row?.llm_left ?? 0, transLeft: row?.trans_left ?? 0 }
+  const row = rows[0] as
+    | { llm_left?: number; trans_left?: number; summary_left?: number }
+    | undefined
+  return {
+    llmLeft: row?.llm_left ?? 0,
+    transLeft: row?.trans_left ?? 0,
+    summaryLeft: row?.summary_left ?? 0,
+  }
 }
 
 // =============================================================================

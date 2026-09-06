@@ -2,12 +2,20 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { db } from '../db/index.js'
-import { users, refreshTokens } from '@ihui/database'
+import {
+  chatConversations,
+  chatMessages,
+  notes,
+  userAddresses,
+  userMemories,
+  eduOrders,
+} from '@ihui/database'
 import { authenticate } from '../plugins/auth.js'
 import { findUserById } from '../db/queries.js'
+import { purgeUserPii } from '../services/purge-user-pii.js'
 import {
   findSearchHistory,
   findAuditLogs,
@@ -15,6 +23,41 @@ import {
   clearSearchHistory,
 } from '../db/search-queries.js'
 import { success, error } from '../utils/response.js'
+
+/**
+ * 收集用户在可携带权 / 导出中应覆盖的核心数据（按 userId 读取）。
+ * 增补:收货地址、笔记、用户记忆、AI 会话及其消息、教育订单。
+ */
+async function collectPortableData(userId: string) {
+  const [addresses, notesList, memories, orders] = await Promise.all([
+    db.select().from(userAddresses).where(eq(userAddresses.userId, userId)),
+    db.select().from(notes).where(eq(notes.userId, userId)),
+    db.select().from(userMemories).where(eq(userMemories.userId, userId)),
+    db.select().from(eduOrders).where(eq(eduOrders.userId, userId)),
+  ])
+  const conversations = await db
+    .select()
+    .from(chatConversations)
+    .where(eq(chatConversations.userId, userId))
+  const conversationIds = conversations.map((c) => c.id)
+  const messages =
+    conversationIds.length > 0
+      ? await db
+          .select()
+          .from(chatMessages)
+          .where(inArray(chatMessages.conversationId, conversationIds))
+      : []
+  return {
+    addresses,
+    notes: notesList,
+    memories,
+    chat: {
+      conversations: conversations.map((c) => ({ id: c.id, title: c.title, createdAt: c.createdAt })),
+      messageCount: messages.length,
+    },
+    orders,
+  }
+}
 
 /**
  * GDPR 数据擦除路由。
@@ -45,10 +88,11 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
     // 数据主体访问自身完整 PII，跳过响应脱敏
     request.skipResponseSanitization = true
 
-    const [user, searchHistory, auditLogs] = await Promise.all([
+    const [user, searchHistory, auditLogs, portableData] = await Promise.all([
       findUserById(userId),
       findSearchHistory(userId, 500),
       findAuditLogs(1, 500, { userId }),
+      collectPortableData(userId),
     ])
 
     if (!user) {
@@ -60,7 +104,11 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
       action: 'GDPR_EXPORT',
       resourceType: 'gdpr',
       resourceId: userId,
-      details: { searchHistoryCount: searchHistory.length, auditLogCount: auditLogs.total },
+      details: {
+        searchHistoryCount: searchHistory.length,
+        auditLogCount: auditLogs.total,
+        chatCount: portableData.chat.conversations.length,
+      },
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     })
@@ -94,6 +142,12 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
           resourceId: a.resourceId,
           createdAt: a.createdAt,
         })),
+        // 可携数据扩充（保持既有字段不变，仅新增）
+        addresses: portableData.addresses,
+        notes: portableData.notes,
+        memories: portableData.memories,
+        chat: portableData.chat,
+        orders: portableData.orders,
       }),
     )
   })
@@ -111,30 +165,11 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '账户已注销'))
     }
 
-    // 1. 匿名化用户 PII 字段 + 软删除（status=3）
-    await db
-      .update(users)
-      .set({
-        phone: null,
-        email: null,
-        username: `erased_${userId.slice(0, 8)}`,
-        passwordHash: null,
-        nickname: '已注销用户',
-        avatar: null,
-        bio: null,
-        inviteCode: null,
-        status: 3,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, userId))
+    // 1. 统一 PII 清除：遍历删除 PII 子表 + 彻底匿名化 users 主行(status=3) + 吊销 refresh token
+    //    （含 user_auth_info / addresses / devices / chat / memory / notes / oauth / preferences / passkeys 等，幂等）
+    await purgeUserPii(userId)
 
-    // 2. 吊销该用户所有未过期的 refresh token
-    await db
-      .update(refreshTokens)
-      .set({ revokedAt: new Date() })
-      .where(eq(refreshTokens.userId, userId))
-
-    // 3. 清理搜索历史
+    // 2. 清理搜索历史
     await clearSearchHistory(userId).catch(() => {
       /* 搜索历史清理失败不阻断擦除主流程 */
     })
@@ -159,10 +194,11 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
     // 数据主体访问自身完整 PII，跳过响应脱敏
     request.skipResponseSanitization = true
 
-    const [user, searchHistory, auditLogs] = await Promise.all([
+    const [user, searchHistory, auditLogs, portableData] = await Promise.all([
       findUserById(userId),
       findSearchHistory(userId, 1000),
       findAuditLogs(1, 1000, { userId }),
+      collectPortableData(userId),
     ])
 
     if (!user) {
@@ -201,6 +237,12 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
           resourceId: a.resourceId,
           createdAt: a.createdAt,
         })),
+        // 可携数据扩充（保持既有结构不变，仅新增字段）
+        addresses: portableData.addresses,
+        notes: portableData.notes,
+        memories: portableData.memories,
+        chat: portableData.chat,
+        orders: portableData.orders,
       },
     }
 

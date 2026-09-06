@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import logging
 import re
+import threading
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -565,12 +566,85 @@ class CompactionQualityGate:
         return stored_low or live_low
 
 
+# ---------------------------------------------------------------------------
+# 模块级单例 gate + 线程安全锁
+# ---------------------------------------------------------------------------
+
+# 跨进程内所有压缩请求累积的 EMA gate:灰发布期用于"连续低质 → 切低损模式"。
+# 默认单例,调用方可传入自定义 gate 做隔离测试。
+default_quality_gate = CompactionQualityGate()
+
+# 保护 gate.record / needs_fallback 的读写组合(多请求并发时避免 EMA 竞争撕裂)。
+_gate_lock = threading.Lock()
+
+
+def assess_compaction(
+    original_messages: list[dict[str, Any]],
+    compressed_messages: list[dict[str, Any]],
+    *,
+    gate: CompactionQualityGate | None = None,
+    auto_degrade: bool = True,
+    threshold: float = DEFAULT_RETENTION_THRESHOLD,
+    record_to_gate: bool = True,
+) -> dict[str, Any]:
+    """评估一次压缩的保留质量并决定是否降级,同时累积到 gate。
+
+    这是把"压缩质量自证"接入生产压缩提交通道的统一入口:
+    1. ``evaluate_retention`` 计算原文 vs 压缩文的 key-fact 保留率;
+    2. ``apply_report_policy`` 决定 照常应用 / 降级(auto_degrade 时保留率低于阈值即降级);
+    3. 把保留率 ``record`` 进 gate(默认模块单例),用 EMA + 连续低质 检测是否需要
+       长期切到"低损模式"(``needs_fallback``)。
+
+    字段命名与 :meth:`QualityReport.as_dict` 对齐(报告整体挂在 ``report`` 下),
+    并增量返回 policy / degraded / fallback / gate 摘要,供 router 响应直接透传。
+
+    Returns:
+        {
+          "enabled": True,
+          "report": <QualityReport.as_dict()>,
+          "policy": {"degrade", "retention_ratio", "suggestion"},
+          "degraded": bool,   # 本次是否触发降级
+          "fallback": bool,   # gate 是否建议长期切低损模式
+          "gate": {"ema", "consecutive_low", "recorded", "needs_fallback"},
+        }
+
+    ``record_to_gate=False`` 时只读取 gate 当前状态、不写入(用于降级后复评,避免重复计数)。
+    """
+    gate = gate or default_quality_gate
+    report = evaluate_retention(original_messages, compressed_messages)
+    policy = apply_report_policy(report, auto_degrade=auto_degrade, threshold=threshold)
+    with _gate_lock:
+        if record_to_gate:
+            gate.record(report)
+        # 实时候选 + 历史 EMA 综合判断(candidate 用于 live-low 检测)
+        fallback = gate.needs_fallback(candidate=report.retention_ratio)
+    return {
+        "enabled": True,
+        "report": report.as_dict(),
+        "policy": {
+            "degrade": bool(policy["degrade"]),
+            "retention_ratio": policy["retention_ratio"],
+            "suggestion": policy["suggestion"],
+        },
+        "degraded": bool(policy["degrade"]),
+        "fallback": bool(fallback),
+        "gate": {
+            "ema": gate.ema,
+            "consecutive_low": gate.consecutive_low,
+            "recorded": gate._recorded,
+            "needs_fallback": bool(fallback),
+        },
+    }
+
+
 __all__ = [
     "DEFAULT_RETENTION_THRESHOLD",
     "CompactionQualityGate",
     "Fact",
     "QualityReport",
     "apply_report_policy",
+    "assess_compaction",
+    "default_quality_gate",
     "evaluate_outcome",
     "evaluate_retention",
 ]

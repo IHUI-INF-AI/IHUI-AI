@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -91,8 +92,9 @@ export default function EduExamPapersTemplatePage() {
     saveMut.mutate()
   }
   function handleDelete(tc: Template) {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteMut.mutate(tc.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(tc.id)
+    })
   }
 
   const total = data?.total ?? 0

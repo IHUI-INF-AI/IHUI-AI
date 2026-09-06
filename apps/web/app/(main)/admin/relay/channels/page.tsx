@@ -49,7 +49,7 @@ import {
 } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
-import { Tooltip } from '@/components/feedback'
+import { Tooltip, confirmDialog } from '@/components/feedback'
 
 type Strategy = 'weight' | 'round-robin' | 'least-latency'
 type CircuitState = 'closed' | 'open' | 'half-open'
@@ -454,12 +454,11 @@ export default function AdminRelayChannelsPage() {
                     className="text-destructive hover:text-destructive"
                     disabled={batchDeleteMut.isPending}
                     onClick={() => {
-                      if (
-                        window.confirm(
-                          `确认删除选中的 ${selected.size} 个渠道组?此操作会级联删除其下所有成员关系。`,
-                        )
-                      )
-                        batchDeleteMut.mutate([...selected])
+                      void confirmDialog({
+                        title: `确认删除选中的 ${selected.size} 个渠道组?此操作会级联删除其下所有成员关系。`,
+                      }).then((ok) => {
+                        if (ok) batchDeleteMut.mutate([...selected])
+                      })
                     }}
                   >
                     <Trash2 className="h-3 w-3" /> 批量删除
@@ -547,11 +546,13 @@ export default function AdminRelayChannelsPage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                           onClick={() => {
-                            if (window.confirm(`确认删除渠道组 "${g.name}"?`))
-                              actMut.mutate({
-                                url: `/api/admin/relay/channels/groups/${g.id}`,
-                                method: 'DELETE',
-                              })
+                            void confirmDialog({ title: `确认删除渠道组 "${g.name}"?` }).then((ok) => {
+                              if (ok)
+                                actMut.mutate({
+                                  url: `/api/admin/relay/channels/groups/${g.id}`,
+                                  method: 'DELETE',
+                                })
+                            })
                           }}
                           aria-label="删除"
                         >
@@ -687,11 +688,13 @@ export default function AdminRelayChannelsPage() {
                                             size="sm"
                                             className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                                             onClick={() => {
-                                              if (window.confirm('确认移除该成员?'))
-                                                actMut.mutate({
-                                                  url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
-                                                  method: 'DELETE',
-                                                })
+                                              void confirmDialog({ title: '确认移除该成员?' }).then((ok) => {
+                                                if (ok)
+                                                  actMut.mutate({
+                                                    url: `/api/admin/relay/channels/groups/${g.id}/members/${m.memberId}`,
+                                                    method: 'DELETE',
+                                                  })
+                                              })
                                             }}
                                             aria-label="移除"
                                           >

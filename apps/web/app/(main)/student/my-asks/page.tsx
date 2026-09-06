@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -71,8 +72,9 @@ export default function MyAsksPage() {
   })
 
   function handleDelete(ask: MyAsk) {
-    if (!window.confirm(ta('deleteConfirm'))) return
-    delMut.mutate(ask.id)
+    void confirmDialog({ title: ta('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(ask.id)
+    })
   }
 
   const list = data?.list ?? []
