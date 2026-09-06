@@ -2702,7 +2702,7 @@ const styles = StyleSheet.create({
   codeBlock: {
     marginVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#1e1e2e',
+    backgroundColor: tokens.gray[800],
     overflow: 'hidden',
   },
   codeBlockHeader: {
@@ -2711,7 +2711,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#2d2d44',
+    backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
     fontSize: 11,
