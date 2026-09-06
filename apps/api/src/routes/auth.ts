@@ -49,7 +49,7 @@ import {
   verifyCode,
 } from '../utils/code-store.js'
 import { signChallengeToken, CHALLENGE_TOKEN_TTL_SECONDS } from '../services/totp-service.js'
-import { evaluateLoginRisk } from '../services/risk-engine-service.js'
+import { evaluateLoginRisk, evaluateRisk, recentRiskHitsByIp } from '../services/risk-engine-service.js'
 import { verifyTurnstile } from '../services/turnstile-service.js'
 import { db } from '../db/index.js'
 import { userDevices } from '@ihui/database'
@@ -476,6 +476,26 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       const existing = await findUserByPhone(phone)
       if (existing) {
         return reply.status(409).send(error(409, '该手机号已注册'))
+      }
+
+      // P0 资金安全修复(2026-09-06):注册接入风控,注入 IP/设备指纹 +
+      // R004 批量注册需要的 sameIpRegisterCount 上下文(统计同 IP 近期风控命中)
+      try {
+        const sameIpRegisterCount = await recentRiskHitsByIp(request.ip)
+        const risk = evaluateRisk({
+          ip: request.ip,
+          deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+          sameIpRegisterCount,
+        })
+        if (risk.action === 'DENY') {
+          request.log.warn({ ip: request.ip, hits: risk.hits }, '注册被风控拒绝')
+          return reply.status(403).send(error(403, '注册请求被风控拦截,请联系客服'))
+        }
+        if (risk.action === 'REVIEW') {
+          request.log.info({ ip: request.ip, hits: risk.hits }, '注册进入人工复核(不阻断)')
+        }
+      } catch (e) {
+        request.log.warn({ err: e }, '注册风控评估失败(不阻断注册)')
       }
       request.skipResponseSanitization = true
       const passwordHash = await hashPassword(password)
