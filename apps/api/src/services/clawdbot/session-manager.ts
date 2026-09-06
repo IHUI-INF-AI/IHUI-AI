@@ -110,6 +110,11 @@ export class SessionManager extends EventEmitter {
     return session
   }
 
+  // 把外部恢复(如 DB 惰性加载)的会话注入内存缓存,后续同步方法即可正常读写
+  adopt(session: Session): void {
+    this.sessions.set(session.id, session)
+  }
+
   resume(id: string): Session {
     const session = this.get(id)
     if (session.status === 'closed') throw new SessionManagerError('会话已关闭', 'closed')

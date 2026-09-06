@@ -7942,6 +7942,8 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "artifactPreview": "미리보기",
+    "artifactCode": "코드",
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "addContextReference": "컨텍스트 참조로 추가",
     "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인)",
