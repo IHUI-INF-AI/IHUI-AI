@@ -2,7 +2,21 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, ilike, sql, lt, gt, gte, lte, isNull, inArray } from 'drizzle-orm'
+import {
+  eq,
+  and,
+  desc,
+  asc,
+  ilike,
+  sql,
+  lt,
+  gt,
+  gte,
+  lte,
+  isNull,
+  inArray,
+  count,
+} from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { db, dbRead } from './index.js'
 import {
@@ -62,7 +76,7 @@ export async function findConversationsByUser(
   if (!opts.includeArchived) conds.push(isNull(chatConversations.archivedAt))
   const where = and(...conds)
 
-  const [list, totalRows] = await Promise.all([
+  const [rows, totalRows] = await Promise.all([
     db
       .select({
         id: chatConversations.id,
@@ -81,14 +95,6 @@ export async function findConversationsByUser(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
-        messageCount: sql<number>`(
-          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
-        )`,
-        favorite: sql<boolean>`EXISTS(
-          SELECT 1 FROM ${chatFavorites}
-          WHERE ${chatFavorites.userId} = ${userId}
-            AND ${chatFavorites.conversationId} = ${sql.raw('chat_conversations.id')}
-        )`,
       })
       .from(chatConversations)
       .where(where)
@@ -107,6 +113,37 @@ export async function findConversationsByUser(
       .from(chatConversations)
       .where(where),
   ])
+
+  // 2026-09-06 P0:消除 messageCount / favorite 两个"每行相关子查询"(曾造成 N+1 全表扫)。
+  // 改为一次性聚合:对本页会话 id 一条 GROUP BY 取 count + 一条 IN 查收藏。
+  const pageIds = rows.map((r) => r.id)
+  const [countRows, favRows] = await Promise.all([
+    pageIds.length
+      ? db
+          .select({ conversationId: chatMessages.conversationId, messageCount: count(chatMessages.id) })
+          .from(chatMessages)
+          .where(inArray(chatMessages.conversationId, pageIds))
+          .groupBy(chatMessages.conversationId)
+      : Promise.resolve([] as { conversationId: string; messageCount: number }[]),
+    pageIds.length
+      ? db
+          .select({ id: chatFavorites.conversationId })
+          .from(chatFavorites)
+          .where(
+            and(eq(chatFavorites.userId, userId), inArray(chatFavorites.conversationId, pageIds)),
+          )
+      : Promise.resolve([] as { id: string }[]),
+  ])
+  const countMap = new Map(
+    countRows.map((r) => [r.conversationId, Number(r.messageCount)]),
+  )
+  const favSet = new Set(favRows.map((r) => r.id))
+
+  const list = rows.map((r) => ({
+    ...r,
+    messageCount: countMap.get(r.id) ?? 0,
+    favorite: favSet.has(r.id),
+  }))
 
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
@@ -702,7 +739,7 @@ export async function findFavoriteConversations(
 }> {
   const where = and(eq(chatFavorites.userId, userId), eq(chatConversations.userId, userId))
 
-  const [list, totalRows] = await Promise.all([
+  const [rows, totalRows] = await Promise.all([
     db
       .select({
         id: chatConversations.id,
@@ -721,9 +758,6 @@ export async function findFavoriteConversations(
         shareToken: chatConversations.shareToken,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
-        messageCount: sql<number>`(
-          SELECT COUNT(*)::int FROM ${chatMessages} WHERE ${chatMessages.conversationId} = ${sql.raw('chat_conversations.id')}
-        )`,
         favorite: sql<boolean>`TRUE`,
         favoriteId: chatFavorites.id,
         favoriteCreatedAt: chatFavorites.createdAt,
@@ -740,6 +774,25 @@ export async function findFavoriteConversations(
       .innerJoin(chatConversations, eq(chatFavorites.conversationId, chatConversations.id))
       .where(where),
   ])
+
+  // 2026-09-06 P0:与 findConversationsByUser 一致,消除 messageCount 每行相关子查询(N+1),
+  // 改对本页会话 id 一次性 GROUP BY 取 count。
+  const pageIds = rows.map((r) => r.id)
+  const countRows = pageIds.length
+    ? await db
+        .select({ conversationId: chatMessages.conversationId, messageCount: count(chatMessages.id) })
+        .from(chatMessages)
+        .where(inArray(chatMessages.conversationId, pageIds))
+        .groupBy(chatMessages.conversationId)
+    : []
+  const countMap = new Map(
+    countRows.map((r) => [r.conversationId, Number(r.messageCount)]),
+  )
+
+  const list = rows.map((r) => ({
+    ...r,
+    messageCount: countMap.get(r.id) ?? 0,
+  }))
 
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
