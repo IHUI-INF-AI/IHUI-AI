@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -114,8 +115,9 @@ export default function AdminResourceTagsPage() {
   }
 
   function handleDelete(tag: TagItem) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(tag.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(tag.id)
+    })
   }
 
   const total = data?.total ?? 0

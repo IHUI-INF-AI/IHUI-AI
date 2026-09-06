@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Trash2, Pencil, Plus } from 'lucide-react'
@@ -82,9 +83,12 @@ export default function PlanDetailPage() {
   }
   const handleDelete = () => {
     if (!plan) return
-    if (!window.confirm(`确认删除计划「${plan.title}」?此操作不可撤销。`)) return
-    remove(planId)
-    router.push('/plan')
+    void confirmDialog({ title: `确认删除计划「${plan.title}」?此操作不可撤销。` }).then((ok) => {
+      if (ok) {
+        remove(planId)
+        router.push('/plan')
+      }
+    })
   }
   const handlePlanStatusChange = (status: PlanDocument['status']) => {
     update(planId, {

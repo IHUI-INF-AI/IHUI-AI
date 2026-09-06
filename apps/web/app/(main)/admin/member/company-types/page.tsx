@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -94,8 +95,9 @@ export default function AdminMemberCompanyTypesPage() {
     saveMut.mutate()
   }
   function handleDelete(type: CompanyType) {
-    if (!window.confirm(`确定删除「${type.name}」？`)) return
-    deleteMut.mutate(type.id)
+    void confirmDialog({ title: `确定删除「${type.name}」？` }).then((ok) => {
+      if (ok) deleteMut.mutate(type.id)
+    })
   }
 
   const total = data?.total ?? 0
