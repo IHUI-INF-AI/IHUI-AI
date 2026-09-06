@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -114,8 +115,9 @@ export default function AiModelsPage() {
     saveMut.mutate()
   }
   function handleDelete(item: ModelRow) {
-    if (!window.confirm(`确认删除「${item.name}」?`)) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: `确认删除「${item.name}」?` }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
 
   const list = data?.list ?? []

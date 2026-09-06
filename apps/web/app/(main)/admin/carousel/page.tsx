@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -107,8 +108,9 @@ export default function CarouselPage() {
     saveMut.mutate()
   }
   function handleDelete(item: Carousel) {
-    if (!window.confirm(t('deleteConfirm', { title: item.title }))) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('deleteConfirm', { title: item.title }) }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
   function handleExport() {
     exportToExcel(

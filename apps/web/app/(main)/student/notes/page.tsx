@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { StickyNote, Plus, Search } from 'lucide-react'
@@ -103,8 +104,9 @@ export default function MyNotesPage() {
     saveMut.mutate()
   }
   function handleDelete(note: Note) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    delMut.mutate(note.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(note.id)
+    })
   }
 
   const list = data?.list ?? []

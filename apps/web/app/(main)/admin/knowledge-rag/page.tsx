@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
@@ -286,7 +287,9 @@ export default function KnowledgeRagPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      if (window.confirm(`确认删除「${d.title}」?`)) deleteMut.mutate(d.id)
+                      void confirmDialog({ title: `确认删除「${d.title}」?` }).then((ok) => {
+                        if (ok) deleteMut.mutate(d.id)
+                      })
                     }}
                   >
                     <Trash2 className="h-4 w-4 text-rose-600" />

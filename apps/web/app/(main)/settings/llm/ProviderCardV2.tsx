@@ -15,6 +15,7 @@
  *  - 健康状态 + 30 天用量展示
  */
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -160,13 +161,15 @@ export function ProviderCardV2({
   })
 
   function handleDeleteProvider() {
-    if (!window.confirm(t('deleteProviderConfirm', { name: provider.name }))) return
-    delProvMut.mutate()
+    void confirmDialog({ title: t('deleteProviderConfirm', { name: provider.name }) }).then((ok) => {
+      if (ok) delProvMut.mutate()
+    })
   }
 
   function handleDeleteModel(m: UserLlmModel) {
-    if (!window.confirm(t('deleteModelConfirm', { id: m.modelId }))) return
-    delModelMut.mutate(m.id)
+    void confirmDialog({ title: t('deleteModelConfirm', { id: m.modelId }) }).then((ok) => {
+      if (ok) delModelMut.mutate(m.id)
+    })
   }
 
   const tplName = template?.name ?? provider.providerCode

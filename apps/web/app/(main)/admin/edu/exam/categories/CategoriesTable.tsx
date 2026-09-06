@@ -1,30 +1,24 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:见仓库根 package.json x-ihui-provenance 字段。
 
 'use client'
 
-import { useTranslations } from 'next-intl'
-import { Edit, Trash2, Loader2, FolderTree } from 'lucide-react'
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Button,
-} from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
-import type { Category } from './types'
+/**
+ * CategoriesTable — 薄 wrapper(2026-09-06 治理)。
+ * 原为跨域复制粘贴的完整实现,且残留 window.confirm 违规(AGENTS.md §4)。
+ * 已收敛到 @/components/admin/category-admin 唯一事实来源(删除确认内聚为 ConfirmDialog);
+ * 本文件仅注入 admin.edu.exam.categories 命名空间的 i18n 文案并适配 onDelete(id) 签名。
+ */
 
-const COLSPAN = 4
+import { useTranslations } from 'next-intl'
+import { AdminCategoryTable } from '@/components/admin/category-admin'
+import type { Category } from './types'
 
 interface Props {
   categories: Category[]
   isLoading: boolean
-  error: unknown
+  error: Error | null
   deletePending: boolean
   onEdit: (c: Category) => void
   onDelete: (id: string) => void
@@ -40,90 +34,28 @@ export function CategoriesTable({
 }: Props) {
   const t = useTranslations('admin.edu.exam.categories')
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colSort')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">{t('colAction')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                {t('loading')}
-              </TableCell>
-            </TableRow>
-          ) : error ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-destructive">
-                {(error as Error).message}
-              </TableCell>
-            </TableRow>
-          ) : categories.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={COLSPAN} className="px-4 py-10 text-center text-muted-foreground">
-                <FolderTree className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                {t('noCategories')}
-              </TableCell>
-            </TableRow>
-          ) : (
-            categories.map((c) => (
-              <TableRow key={c.id} className="hover:bg-muted/30">
-                <TableCell className="px-4 py-2.5 font-medium">{c.name}</TableCell>
-                <TableCell className="px-4 py-2.5">{c.sort}</TableCell>
-                <TableCell className="px-4 py-2.5">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
-                      c.status === 1
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                        : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full',
-                        c.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground',
-                      )}
-                    />
-                    {c.status === 1 ? t('statusEnabled') : t('statusDisabled')}
-                  </span>
-                </TableCell>
-                <TableCell className="px-4 py-2.5 text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Tooltip content={t('edit')}>
-                      <Button variant="ghost" size="sm" onClick={() => onEdit(c)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </Tooltip>
-                    <Tooltip content={t('delete')}>
-                      <span className="inline-flex">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            if (window.confirm(t('confirmDelete'))) onDelete(c.id)
-                          }}
-                          className="text-destructive hover:text-destructive"
-                          disabled={deletePending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </span>
-                    </Tooltip>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
-    </div>
+    <AdminCategoryTable
+      list={categories}
+      isLoading={isLoading}
+      error={error}
+      deletePending={deletePending}
+      onEdit={onEdit}
+      onDelete={(item) => onDelete(item.id)}
+      labels={{
+        colName: t('colName'),
+        colSort: t('colSort'),
+        colStatus: t('colStatus'),
+        colActions: t('colAction'),
+        loading: t('loading'),
+        noData: t('noCategories'),
+        enabled: t('statusEnabled'),
+        disabled: t('statusDisabled'),
+        edit: t('edit'),
+        delete: t('delete'),
+        confirmTitle: t('confirmDelete'),
+        confirmAction: t('delete'),
+        confirmCancel: t('cancel'),
+      }}
+    />
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
