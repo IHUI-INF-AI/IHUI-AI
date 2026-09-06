@@ -5,6 +5,7 @@
 'use client'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { confirmDialog } from '@/components/feedback'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, Edit, Trash2, Radio } from 'lucide-react'
@@ -46,8 +47,9 @@ export function ChannelsTable({
   })
 
   function handleDelete(ch: Channel) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(ch.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(ch.id)
+    })
   }
 
   return (

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -132,12 +133,14 @@ export default function AgentRulesPage() {
     saveMut.mutate()
   }
   function handleDeleteRule(rule: AgentRule) {
-    if (!window.confirm(t('deleteConfirm', { name: rule.ruleName }))) return
-    deleteRuleMut.mutate(rule.id)
+    void confirmDialog({ title: t('deleteConfirm', { name: rule.ruleName }) }).then((ok) => {
+      if (ok) deleteRuleMut.mutate(rule.id)
+    })
   }
   function handleDeleteParam(param: RuleParam) {
-    if (!window.confirm(t('deleteParamConfirm', { name: param.name }))) return
-    deleteParamMut.mutate(param.id)
+    void confirmDialog({ title: t('deleteParamConfirm', { name: param.name }) }).then((ok) => {
+      if (ok) deleteParamMut.mutate(param.id)
+    })
   }
   async function handleExportRules() {
     const ok = await exportFromApi(

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -66,8 +67,9 @@ export default function MyArticlesPage() {
   })
 
   function handleDelete(article: MyArticle) {
-    if (!window.confirm(ta('deleteConfirm'))) return
-    delMut.mutate(article.id)
+    void confirmDialog({ title: ta('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(article.id)
+    })
   }
 
   const list = data?.list ?? []

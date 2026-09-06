@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Tag, ChevronLeft, ChevronRight, Plus, Trash2, Save, X } from 'lucide-react'
@@ -234,8 +235,9 @@ export default function AdminResourceTagPage() {
                           size="sm"
                           disabled={deleteMut.isPending}
                           onClick={() => {
-                            if (window.confirm(`确定删除标签 ${t.name} 吗？`))
-                              deleteMut.mutate(t.id)
+                            void confirmDialog({ title: `确定删除标签 ${t.name} 吗？` }).then((ok) => {
+                              if (ok) deleteMut.mutate(t.id)
+                            })
                           }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

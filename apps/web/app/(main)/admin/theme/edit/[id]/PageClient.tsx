@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useRouter, useParams } from 'next/navigation'
 import { Save, Trash2, Copy, Loader2 } from 'lucide-react'
 
@@ -118,7 +119,7 @@ export default function EditThemePage() {
   }
 
   async function handleDelete() {
-    if (!window.confirm(`确定删除主题"${form.name}"吗?`)) return
+    if (!(await confirmDialog({ title: `确定删除主题"${form.name}"吗?` }))) return
     const r = await fetchApi(`/api/admin/themes/${id}`, { method: 'DELETE' })
     if (r.success) router.push('/admin/theme')
     else setErr(r.error ?? '删除失败')
