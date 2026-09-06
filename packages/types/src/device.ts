@@ -204,6 +204,36 @@ export function createDeviceFingerprintCollector(
 }
 
 /* -------------------------------------------------------------------------- */
+/* 设备推送令牌(2026-09-06,mobile-cap 推送链路)                                */
+/* -------------------------------------------------------------------------- */
+
+/** 推送平台标识(与 apps/api devices.ts zod schema 对应) */
+export type PushPlatform = 'ios' | 'android' | 'web'
+
+/**
+ * 设备推送令牌注册输入。
+ * token 为 FCM registration token / APNS device token / Web Push 订阅原样字符串;
+ * 后端按 token 唯一约束 upsert,重复上报安全(FCM token 轮换场景)。
+ */
+export interface RegisterDeviceTokenInput {
+  token: string
+  platform: PushPlatform
+  /** 设备型号/名称(如 userAgent 摘要) */
+  deviceType?: string
+  /** 客户端版本号 */
+  appVersion?: string
+  /** 客户端语言区域(如 zh-CN) */
+  locale?: string
+}
+
+/** PUT /api/devices/token 响应 data */
+export interface RegisterDeviceTokenResponse {
+  token: string
+  platform: PushPlatform
+  registered: boolean
+}
+
+/* -------------------------------------------------------------------------- */
 /* 默认空实现(未注入 provider 时使用,返回空指纹)                              */
 /* -------------------------------------------------------------------------- */
 

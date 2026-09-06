@@ -48,23 +48,30 @@ CREATE TABLE IF NOT EXISTS "ai_grading_record" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 
+-- ab_test_variants / ab_test_results: 形状以 TS 权威 schema
+-- (packages/database/src/schema/ab-tests.ts, 由 ai-service ABTestTracker 消费)为准:
+-- test_id + is_control/traffic_weight/payload + results 的 bucket/samples/conversions/revenue。
 CREATE TABLE IF NOT EXISTS "ab_test_variants" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"experiment_id" uuid NOT NULL,
-	"name" varchar(100) NOT NULL,
-	"weight" integer DEFAULT 50 NOT NULL,
+	"test_id" uuid NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"description" text,
+	"is_control" boolean DEFAULT false NOT NULL,
+	"traffic_weight" integer DEFAULT 0 NOT NULL,
+	"payload" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "ab_test_results" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"experiment_id" uuid NOT NULL,
+	"test_id" uuid NOT NULL,
 	"variant_id" uuid NOT NULL,
-	"user_id" varchar(64),
-	"session_id" varchar(64),
-	"event_type" varchar(20) NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"bucket" varchar(64),
+	"samples" integer DEFAULT 0 NOT NULL,
+	"conversions" integer DEFAULT 0 NOT NULL,
+	"revenue" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS "live_gift" (
@@ -124,7 +131,8 @@ CREATE TABLE IF NOT EXISTS "tbox_bean" (
 -- 索引(幂等)
 CREATE INDEX IF NOT EXISTS "ai_grading_record_student_idx" ON "ai_grading_record" ("student_id");
 CREATE INDEX IF NOT EXISTS "ai_grading_record_question_idx" ON "ai_grading_record" ("question_id");
-CREATE INDEX IF NOT EXISTS "ab_test_variants_experiment_idx" ON "ab_test_variants" ("experiment_id");
-CREATE INDEX IF NOT EXISTS "ab_test_results_experiment_idx" ON "ab_test_results" ("experiment_id");
+CREATE INDEX IF NOT EXISTS "idx_ab_test_variants_test" ON "ab_test_variants" ("test_id");
+CREATE INDEX IF NOT EXISTS "idx_ab_test_results_test" ON "ab_test_results" ("test_id");
+CREATE INDEX IF NOT EXISTS "idx_ab_test_results_variant" ON "ab_test_results" ("variant_id");
 CREATE INDEX IF NOT EXISTS "gen_table_column_table_idx" ON "gen_table_column" ("table_id");
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

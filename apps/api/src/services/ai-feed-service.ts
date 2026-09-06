@@ -91,11 +91,13 @@ export interface SourceStatsItem {
 export interface CollectResult {
   fetchedSources: number
   totalItems: number
-  details: Array<{ sourceCode: string; status: string; count: number }>
+  details: Array<{ sourceCode: string; status: string; count: number; error?: string }>
 }
 
 export interface LlmBatchResult {
   processedItems: number
+  /** 本批 LLM 真正失败的条数(翻译失败 / 分类回退关键词),供运维统计与 drain 识别异常态 */
+  failed: number
   details: string
 }
 
@@ -120,15 +122,22 @@ interface FetchedFeedItem {
 // LLM 调用不走此超时,独立用 90s。
 const FETCH_TIMEOUT_MS = 20_000
 
+// 抓取重试间隔(指数退避)。2026-09-06 实测:github.com 间歇性连接抖动可
+// 持续 20-60s(首采 mistral/huggingface-blog 连败 2 次,数分钟后同 URL 即通),
+// 单次重试(共 2 次尝试)不足以消除空档,故扩为 3 次重试(共 4 次尝试)。
+// 仅抓取失败/超时时产生额外延迟,正常源一次成功零开销。
+const FETCH_RETRY_DELAYS_MS = [800, 2_000, 4_000]
+
 /** 通用浏览器 UA(国内门户接口/SSR 页防反爬需要伪装) */
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
-  // 单次自动重试:github.com 等存在间歇性连接抖动(偶发首次连不上、二次即通),
-  // 重试一次可消除由此产生的采集空档。
+  // 对间歇性连接抖动做 3 次指数退避重试(github.com 等路由抖动时首连失败、
+  // 稍后即通;一次重试不足以覆盖持续 20-60s 的抖动窗口)。
   let lastErr: unknown
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  const attempts = FETCH_RETRY_DELAYS_MS.length + 1
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
@@ -139,7 +148,9 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
     } finally {
       clearTimeout(timer)
     }
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+    if (attempt < attempts) {
+      await new Promise((r) => setTimeout(r, FETCH_RETRY_DELAYS_MS[attempt - 1]!))
+    }
   }
   throw lastErr
 }
@@ -245,32 +256,128 @@ function toSafeStr(v: unknown): string {
  *
  * 用 rss-parser 解析,支持 RSS 2.0 / Atom 1.0 / RDF 等格式。
  */
-async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
-  const res = await fetchWithTimeout(url, {
+
+/**
+ * GitHub 官方 API 兜底(releases.atom / commits/{branch}.atom 抓取失败时降级)。
+ *
+ * 背景(2026-09-06):mistral / huggingface-blog 因官方域不可达,改用 GitHub org 仓库的
+ * atom feed(github.com)作为权威替代;而 github.com 在国内存在间歇性连接抖动(20-60s),
+ * 即使增强重试仍可能全败。api.github.com 的官方 JSON 接口相对稳定,作为同源兜底通道,
+ * 权威性一致(同为 GitHub 官方),平时不触发、无额外请求。
+ */
+const GITHUB_RELEASES_ATOM_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\.atom$/
+const GITHUB_COMMITS_ATOM_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/commits\/([^/]+)\.atom$/
+
+interface GitHubApiItem {
+  id?: number | string
+  sha?: string
+  name?: string | null
+  tag_name?: string | null
+  html_url?: string
+  body?: string | null
+  published_at?: string | null
+  author?: { login?: string; name?: string } | null
+  commit?: {
+    message?: string
+    author?: { name?: string; date?: string }
+  }
+}
+
+async function fetchGitHubApiFallback(
+  url: string,
+  sourceCode: string,
+): Promise<FetchedFeedItem[] | null> {
+  const releasesMatch = url.match(GITHUB_RELEASES_ATOM_RE)
+  const commitsMatch = url.match(GITHUB_COMMITS_ATOM_RE)
+  let apiUrl: string | null = null
+  if (releasesMatch) {
+    apiUrl = `https://api.github.com/repos/${releasesMatch[1]}/${releasesMatch[2]}/releases?per_page=20`
+  } else if (commitsMatch) {
+    apiUrl = `https://api.github.com/repos/${commitsMatch[1]}/${commitsMatch[2]}/commits?sha=${commitsMatch[3]}&per_page=20`
+  }
+  if (!apiUrl) return null
+
+  const res = await fetchWithTimeout(apiUrl, {
     headers: {
-      Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
+      Accept: 'application/vnd.github+json',
       'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)',
+      'X-GitHub-Api-Version': '2022-11-28',
     },
   })
-  if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)
-  const xml = await res.text()
-  const feed = await rssParser.parseString(xml)
-  return (feed.items ?? []).map((item, idx) => ({
-    sourceCode,
-    platformItemId: toSafeStr(item.guid ?? item.link ?? idx).slice(0, 128),
-    title: toSafeStr(item.title).slice(0, 500),
-    summary: toSafeStr(item.contentSnippet ?? item.content).slice(0, 2000) || null,
-    url: toSafeStr(item.link) || null,
-    coverUrl: item.enclosure?.url ? toSafeStr(item.enclosure.url) : null,
-    author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
-    currentRank: idx + 1,
-    currentHot: null,
-    publishTime: item.isoDate
-      ? new Date(item.isoDate)
-      : item.pubDate
-        ? new Date(item.pubDate)
-        : null,
-  }))
+  if (!res.ok) throw new Error(`GitHub API ${apiUrl} 返回 ${res.status}`)
+  const list = (await res.json()) as GitHubApiItem[]
+  if (!Array.isArray(list)) return []
+
+  return list.map((raw, idx) => {
+    if (releasesMatch) {
+      return {
+        sourceCode,
+        platformItemId: String(raw.id ?? raw.tag_name ?? idx).slice(0, 128),
+        title: String(raw.name ?? raw.tag_name ?? '').slice(0, 500),
+        summary: raw.body ? String(raw.body).slice(0, 2000) : null,
+        url: raw.html_url ?? null,
+        coverUrl: null,
+        author: raw.author?.login ?? null,
+        currentRank: idx + 1,
+        currentHot: null,
+        publishTime: raw.published_at ? new Date(raw.published_at) : null,
+      }
+    }
+    return {
+      sourceCode,
+      platformItemId: String(raw.sha ?? idx).slice(0, 128),
+      title: String(raw.commit?.message ?? '').split('\n')[0]!.slice(0, 500),
+      summary: String(raw.commit?.message ?? '').slice(0, 2000) || null,
+      url: raw.html_url ?? null,
+      coverUrl: null,
+      author: raw.commit?.author?.name ?? raw.author?.login ?? null,
+      currentRank: idx + 1,
+      currentHot: null,
+      publishTime: raw.commit?.author?.date ? new Date(raw.commit.author.date) : null,
+    }
+  })
+}
+
+async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  let items: FetchedFeedItem[]
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
+        'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)',
+      },
+    })
+    if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)
+    const xml = await res.text()
+    const feed = await rssParser.parseString(xml)
+    items = (feed.items ?? []).map((item, idx) => ({
+      sourceCode,
+      platformItemId: toSafeStr(item.guid ?? item.link ?? idx).slice(0, 128),
+      title: toSafeStr(item.title).slice(0, 500),
+      summary: toSafeStr(item.contentSnippet ?? item.content).slice(0, 2000) || null,
+      url: toSafeStr(item.link) || null,
+      coverUrl: item.enclosure?.url ? toSafeStr(item.enclosure.url) : null,
+      author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
+      currentRank: idx + 1,
+      currentHot: null,
+      publishTime: item.isoDate
+        ? new Date(item.isoDate)
+        : item.pubDate
+          ? new Date(item.pubDate)
+          : null,
+    }))
+  } catch (primaryErr) {
+    // GitHub 源兜底:atom 抓取失败时降级到官方 API(仅 github.com 源触发,其余抛回原错误)
+    const fallback = await fetchGitHubApiFallback(url, sourceCode).catch((fbErr) => {
+      throw new Error(
+        `RSS XML ${url} 失败(${(primaryErr as Error).message});` +
+          `GitHub API 兜底亦失败(${(fbErr as Error).message})`,
+      )
+    })
+    if (fallback) return fallback
+    throw primaryErr
+  }
+  return items
 }
 
 /**
@@ -756,8 +863,22 @@ export async function collectAllSources(): Promise<CollectResult> {
         continue
       }
     } catch (e) {
+      // 采集失败:记录完整错误详情(含 URL/HTTP 状态),写入采集统计与源状态,
+      // 便于线上定位;不再继续走下方 upsert 成功路径。
       status = 'error'
-      logger.warn(`collectAllSources: 采集 ${src.sourceCode} 失败: ${(e as Error).message}`)
+      const errMsg = e instanceof Error ? e.message : String(e)
+      logger.warn(`collectAllSources: 采集 ${src.sourceCode} 失败: ${errMsg}`)
+      details.push({ sourceCode: src.sourceCode, status, count: 0, error: errMsg })
+      await db
+        .update(aiFeedSource)
+        .set({
+          lastFetchAt: new Date(),
+          lastFetchStatus: 'error',
+          lastFetchCount: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiFeedSource.id, src.id))
+      continue
     }
 
     // 幂等 upsert：已存在的 (sourceCode, platformItemId) 更新 lastSeenAt/currentHot/currentRank
@@ -821,8 +942,40 @@ export async function collectAllSources(): Promise<CollectResult> {
 }
 
 // =============================================================================
-// 5. LLM 分类摘要（手动触发）
+// 5. LLM 分类摘要（手动触发 / 定时错峰）
 // =============================================================================
+
+/**
+ * LLM 批量处理的错峰加速配置（环境变量，均带默认值，缺省即可用）。
+ *
+ * - LLM_BATCH_ENABLED：全局开关，false/off/0 停止一切 LLM 批处理（存量抽干亦停）。
+ * - LLM_CATEGORY_BATCH_SIZE：每轮分类(processLlmBatch)批大小（默认 200，原 100）。
+ * - LLM_TRANSLATE_BATCH_SIZE：每轮翻译(translateTitles)批大小（默认 100，原 50）。
+ * - LLM_DRAIN_MAX_ITERATIONS：存量抽干单次最多轮数（避免一次跑太久卡住 worker）。
+ * - LLM_DRAIN_STAGGER_MS：存量抽干轮间错峰睡眠（毫秒），防止连续打爆 LLM 并发/配额。
+ */
+function readPositiveIntEnv(name: string, def: number): number {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '') return def
+  const n = Number.parseInt(raw, 10)
+  return Number.isInteger(n) && n > 0 ? n : def
+}
+
+function readBoolEnv(name: string, def: boolean): boolean {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '') return def
+  return !/^(false|0|off|no|disable|disabled)$/i.test(raw.trim())
+}
+
+const llmBatchEnabled = () => readBoolEnv('LLM_BATCH_ENABLED', true)
+const llmCategoryBatchSize = () => readPositiveIntEnv('LLM_CATEGORY_BATCH_SIZE', 200)
+const llmTranslateBatchSize = () => readPositiveIntEnv('LLM_TRANSLATE_BATCH_SIZE', 100)
+const llmDrainStaggerMs = () => readPositiveIntEnv('LLM_DRAIN_STAGGER_MS', 3000)
+const llmDrainMaxIterations = () => readPositiveIntEnv('LLM_DRAIN_MAX_ITERATIONS', 5)
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 const CATEGORY_PROMPT = `你是 AI 资讯分类器。只返回一个类别名,不要任何其他内容(不要解释、不要 HTML、不要 markdown、不要标点)。
 
@@ -864,18 +1017,29 @@ industry
  * 选取 llmProcessedAt 为空（未处理）的条目，批量更新 llmCategory/llmSummary/llmProcessedAt。
  * 配置 AI_SERVICE_URL 时调用 LLM 服务做分类；未配置或调用失败时回退到关键词规则。
  */
-export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
+export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
+  // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不调用 LLM 也不改数据。
+  if (!llmBatchEnabled()) {
+    return { processedItems: 0, failed: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+  }
+  // 未显式传 limit 时使用可配置批大小（默认 200）。
+  const batchSize = limit ?? llmCategoryBatchSize()
   const pending = await db
     .select()
     .from(aiFeedHotItem)
     .where(isNull(aiFeedHotItem.llmProcessedAt))
     .orderBy(desc(aiFeedHotItem.lastSeenAt))
-    .limit(limit)
+    .limit(batchSize)
 
   let processed = 0
+  let failed = 0
   for (const item of pending) {
     // 优先调用 LLM 做分类，失败回退到关键词规则
     let category: string
+    // 只有 LLM 真正产出可用类别时才计入"已处理"并落 llm_processed_at;
+    // 一旦回退到关键词规则(LLM 失败/401/返回垃圾)，保持 llm_processed_at 为 NULL 留待重试，
+    // 并计入 failed 供统计(避免"分类失败却被当作成功"的假清空,与 translateTitles 同理)。
+    let llmSucceeded = false
     // 把 sourceCode 拼到 content 里,让 LLM 看到信源信息以便正确分类(arxiv→paper 等)
     const llmContent = `信源: ${item.sourceCode}\n标题: ${item.title}`
     // 不传 max_tokens:StepFun step-3.7-flash 是推理模型,reasoning 字段会消耗大量 token
@@ -890,8 +1054,10 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
     const extracted = llmResult ? extractCategory(llmResult) : null
     if (extracted) {
       category = extracted
+      llmSucceeded = true
     } else if (llmResult && isValidCategory(llmResult)) {
       category = llmResult.toLowerCase()
+      llmSucceeded = true
     } else {
       category = inferCategoryByTitle(item.title, item.sourceCode)
     }
@@ -901,16 +1067,20 @@ export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
       .set({
         llmCategory: category,
         llmSummary: item.summary ?? null,
-        llmProcessedAt: new Date(),
+        // 关键词回退时保留 NULL：llm_processed_at 缺失=LLM 尚未真正处理(留待重试)
+        llmProcessedAt: llmSucceeded ? new Date() : null,
         updatedAt: new Date(),
       })
       .where(eq(aiFeedHotItem.id, item.id))
-    processed++
+
+    if (llmSucceeded) processed++
+    else failed++
   }
 
   return {
     processedItems: processed,
-    details: `处理 ${processed} 条（共 ${pending.length} 条待处理）`,
+    failed,
+    details: `处理 ${processed} 条(LLM),回退关键词 ${failed} 条（共 ${pending.length} 条待处理）`,
   }
 }
 
@@ -968,42 +1138,198 @@ const TRANSLATE_PROMPT = '将以下中文标题翻译为英文，仅返回翻译
  * 手动触发标题翻译批处理。
  *
  * 选取 titleEn 为空（未翻译）的条目，批量翻译为英文。
- * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时回填原标题作为占位。
+ * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时保持 titleEn 为 NULL
+ * 并计入 failed（留待后续重试），不再用中文原标题回填（避免"假翻译"占用存量）。
  */
-export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
+export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
+  // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不清洗也不翻译。
+  if (!llmBatchEnabled()) {
+    return { processedItems: 0, failed: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+  }
+  // 未显式传 limit 时使用可配置批大小（默认 100）。
+  const batchSize = limit ?? llmTranslateBatchSize()
   const pending = await db
     .select()
     .from(aiFeedHotItem)
     .where(isNull(aiFeedHotItem.titleEn))
     .orderBy(desc(aiFeedHotItem.lastSeenAt))
-    .limit(limit)
+    .limit(batchSize)
 
   let processed = 0
+  let failed = 0
   for (const item of pending) {
-    // 优先调用 LLM 做翻译，失败回填原标题作为占位
-    let titleEn: string
+    // 调 LLM 翻译；失败/空结果保持 titleEn 为 NULL(留待重试)，不再回填中文原标题
     try {
       const llmResult = await callLlm(TRANSLATE_PROMPT, item.title)
-      titleEn = llmResult && llmResult.length > 0 ? llmResult.slice(0, 500) : item.title
+      if (llmResult && llmResult.trim().length > 0) {
+        await db
+          .update(aiFeedHotItem)
+          .set({
+            titleEn: llmResult.slice(0, 500),
+            updatedAt: new Date(),
+          })
+          .where(eq(aiFeedHotItem.id, item.id))
+        processed++
+      } else {
+        // LLM 调用失败/401/stub 或返回空：保留 NULL，计入 failed 供统计
+        failed++
+      }
     } catch (e) {
       logger.warn(`translateTitles: 翻译 ${item.id} 失败: ${(e as Error).message}`)
-      titleEn = item.title
+      failed++
     }
-
-    await db
-      .update(aiFeedHotItem)
-      .set({
-        titleEn,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiFeedHotItem.id, item.id))
-    processed++
   }
 
   return {
     processedItems: processed,
-    details: `翻译 ${processed} 条（共 ${pending.length} 条待翻译）`,
+    failed,
+    details: `翻译 ${processed} 条,失败 ${failed} 条（共 ${pending.length} 条待翻译）`,
   }
+}
+
+// =============================================================================
+// 6.5 存量 LLM 积压抽干（错峰加速）
+// =============================================================================
+
+export interface DrainLlmBacklogResult {
+  llmProcessed: number
+  translated: number
+  /** 本轮 LLM 分类失败(回退关键词)条数 */
+  classifiedFailed: number
+  /** 本轮翻译失败条数 */
+  translateFailed: number
+  iterations: number
+  llmBacklogCleared: boolean
+  translateBacklogCleared: boolean
+  /** 结束后缺 LLM 分类(no_llm)的剩余条数 */
+  remainingNoLlm: number
+  /** 结束后缺英文标题(no_en)的剩余条数 */
+  remainingNoEn: number
+  /** 异常态:存在积压但本轮 0 分类且 0 翻译(LLM down/401/stub 静默返 0),提前退出 */
+  zeroProgress: boolean
+}
+
+/**
+ * 存量 LLM 积压抽干（错峰加速）。
+ *
+ * 持续以「多轮小批量 + 轮间 sleep」的方式抽干缺英文标题/缺分类的存量条目：
+ * - 每轮并行跑一次 processLlmBatch（缺分类）与 translateTitles（缺英文标题）
+ * - 轮间 sleep LLM_DRAIN_STAGGER_MS，避免一次性把 LLM 并发/配额打爆
+ * - 每轮后统计剩余积压，两个方向都抽干即提前结束
+ * - 某轮两个方向都零进展（LLM 连续失败/401 静默返 0）时提前退出并标记 zeroProgress，
+ *   避免空转；本轮处理子数、失败数、剩余积压与运行时间一并写入结构化日志供运维观测
+ * - 受 LLM_BATCH_ENABLED 总开关控制
+ *
+ * 由 scheduler 的 ai-feed-drain job（错峰时刻）周期调用；批大小/轮数/错峰间隔
+ * 均可通过环境变量覆盖。
+ */
+export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
+  const startedAt = new Date()
+
+  if (!llmBatchEnabled()) {
+    return {
+      llmProcessed: 0,
+      translated: 0,
+      classifiedFailed: 0,
+      translateFailed: 0,
+      iterations: 0,
+      llmBacklogCleared: true,
+      translateBacklogCleared: true,
+      remainingNoLlm: 0,
+      remainingNoEn: 0,
+      zeroProgress: false,
+    }
+  }
+
+  const maxIterations = llmDrainMaxIterations()
+  const staggerMs = llmDrainStaggerMs()
+
+  let llmProcessed = 0
+  let translated = 0
+  let classifiedFailed = 0
+  let translateFailed = 0
+  let llmBacklogCleared = false
+  let translateBacklogCleared = false
+  let iterations = 0
+  let zeroProgress = false
+  let llmLeft = 0
+  let transLeft = 0
+
+  for (let round = 1; round <= maxIterations; round++) {
+    iterations = round
+    const [catRes, transRes] = await Promise.all([
+      processLlmBatch(),
+      translateTitles(),
+    ])
+    llmProcessed += catRes.processedItems
+    translated += transRes.processedItems
+    classifiedFailed += catRes.failed
+    translateFailed += transRes.failed
+
+    const backlog = await countBacklog()
+    llmLeft = backlog.llmLeft
+    transLeft = backlog.transLeft
+    llmBacklogCleared = llmLeft === 0
+    translateBacklogCleared = transLeft === 0
+
+    // 两个方向都抽干，提前结束
+    if (llmBacklogCleared && translateBacklogCleared) break
+    // 有积压但本轮无任何真实进展（LLM 连续失败/401 静默返回 0）→ 提前退出标记零进展
+    if (catRes.processedItems === 0 && transRes.processedItems === 0) {
+      zeroProgress = true
+      break
+    }
+    if (iterations >= maxIterations) break
+    // 两轮之间错峰睡眠
+    await sleep(staggerMs)
+  }
+
+  const remainingNoLlm = llmLeft
+  const remainingNoEn = transLeft
+
+  const result: DrainLlmBacklogResult = {
+    llmProcessed,
+    translated,
+    classifiedFailed,
+    translateFailed,
+    iterations,
+    llmBacklogCleared,
+    translateBacklogCleared,
+    remainingNoLlm,
+    remainingNoEn,
+    zeroProgress,
+  }
+
+  // 结构化日志(经 pino 落到 svc-api-nssm.log)：一行完整的 drain 进展，
+  // 含运行时间/处理/失败/剩余积压/零进展异常态,供运维在不查库时直接定位。
+  logger.info('ai-feed-drain run stats', {
+    startedAt: startedAt.toISOString(),
+    durationMs: Date.now() - startedAt.getTime(),
+    llmProcessed,
+    translated,
+    classifiedFailed,
+    translateFailed,
+    iterations,
+    llmBacklogCleared,
+    translateBacklogCleared,
+    remainingNoEn,
+    remainingNoLlm,
+    zeroProgress,
+  })
+
+  return result
+}
+
+/** 统计缺分类与缺英文标题的剩余积压数量。 */
+async function countBacklog(): Promise<{ llmLeft: number; transLeft: number }> {
+  const res = await db.execute(sql`
+    SELECT
+      (SELECT count(*) FROM ai_feed_hot_item WHERE llm_processed_at IS NULL)::int AS llm_left,
+      (SELECT count(*) FROM ai_feed_hot_item WHERE title_en IS NULL)::int AS trans_left
+  `)
+  const rows = Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
+  const row = rows[0] as { llm_left?: number; trans_left?: number } | undefined
+  return { llmLeft: row?.llm_left ?? 0, transLeft: row?.trans_left ?? 0 }
 }
 
 // =============================================================================

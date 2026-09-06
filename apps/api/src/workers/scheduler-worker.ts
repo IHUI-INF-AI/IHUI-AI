@@ -40,6 +40,7 @@ import {
   translateTitles,
   computeTrendSignals,
   generateSnapshot,
+  drainLlmBacklog,
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 
@@ -121,22 +122,42 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           case 'alert-check-daily': {
             const result = await checkDailyAlerts()
             server.log.info(
-              { checked: result.checked, resolved: result.resolved, escalated: result.escalated },
+              {
+                checked: result.checked,
+                resolved: result.resolved,
+                escalated: result.escalated,
+                backupIssues: result.backupIssues,
+              },
               'daily alert check done',
             )
             if (result.escalated > 0) {
               try {
-                await pushAlert({
-                  title: '告警升级通知',
-                  message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
-                  severity: 'critical',
-                  source: 'alert-check-daily',
-                  metadata: {
-                    checked: result.checked,
-                    resolved: result.resolved,
-                    escalated: result.escalated,
-                  },
-                })
+                if (result.backupIssues.length > 0) {
+                  await pushAlert({
+                    title: '数据库备份监控告警(缺失/空备份/过期)',
+                    message: result.backupIssues.join('\n'),
+                    severity: 'critical',
+                    source: 'alert-check-daily',
+                    metadata: {
+                      checked: result.checked,
+                      resolved: result.resolved,
+                      escalated: result.escalated,
+                      backupIssues: result.backupIssues,
+                    },
+                  })
+                } else {
+                  await pushAlert({
+                    title: '告警升级通知',
+                    message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    severity: 'critical',
+                    source: 'alert-check-daily',
+                    metadata: {
+                      checked: result.checked,
+                      resolved: result.resolved,
+                      escalated: result.escalated,
+                    },
+                  })
+                }
               } catch (err) {
                 server.log.error({ err }, 'pushAlert failed in alert-check-daily')
               }
@@ -408,16 +429,46 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           }
           case 'ai-feed-collect': {
             const result = await collectAllSources()
+            const failed = result.details.filter((d) => d.status === 'error')
             server.log.info(
               {
                 fetchedSources: result.fetchedSources,
                 totalItems: result.totalItems,
                 detailsCount: result.details.length,
+                failedSources: failed.length,
               },
               'ai-feed-collect done',
             )
+            // P0 修复：采集存在失败源时主动告警，避免"靠人发现故障"。
+            // 一旦某源连续失败需人工介入调整；全量或超半数失败按 critical 升级。
+            if (failed.length > 0) {
+              const ratio = failed.length / Math.max(result.fetchedSources || failed.length, 1)
+              const severity =
+                ratio >= 0.5 || failed.length === result.fetchedSources
+                  ? 'critical'
+                  : 'warning'
+              const failedList = failed
+                .map((d) => `- ${d.sourceCode}: ${d.error ?? 'unknown error'}`)
+                .join('\n')
+              try {
+                await pushAlert({
+                  title: `AI 资讯采集失败告警（${failed.length}/${result.fetchedSources} 源失败）`,
+                  message: `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
+                  severity,
+                  source: 'ai-feed-collect',
+                  metadata: {
+                    totalItems: result.totalItems,
+                    fetchedSources: result.fetchedSources,
+                    failedCount: failed.length,
+                    failedSources: failed.map((d) => d.sourceCode),
+                  },
+                })
+              } catch (err) {
+                server.log.error({ err }, 'pushAlert failed in ai-feed-collect')
+              }
+            }
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, failed.length > 0 ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }
@@ -432,14 +483,16 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             })
             // 2. 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
             //    computeTrendSignals 用刚生成的快照计算趋势(需 ≥2 天快照才有趋势)
+            //    LLM 批大小走 ai-feed-service 的可配置默认值(LLM_CATEGORY_BATCH_SIZE=200 /
+            //    LLM_TRANSLATE_BATCH_SIZE=100);LLM_BATCH_ENABLED=false 时二者内部直接返回 0。
             const [llmRes, transRes, trendRes] = await Promise.all([
-              processLlmBatch(100).catch((err) => {
+              processLlmBatch().catch((err) => {
                 server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
-                return { processedItems: 0, details: String(err) }
+                return { processedItems: 0, failed: 0, details: String(err) }
               }),
-              translateTitles(50).catch((err) => {
+              translateTitles().catch((err) => {
                 server.log.error({ err }, 'translateTitles failed in ai-feed-process')
-                return { processedItems: 0, details: String(err) }
+                return { processedItems: 0, failed: 0, details: String(err) }
               }),
               computeTrendSignals().catch((err) => {
                 server.log.error({ err }, 'computeTrendSignals failed in ai-feed-process')
@@ -461,6 +514,47 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
+          }
+          case 'ai-feed-drain': {
+            // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,
+            // 持续抽干缺英文标题/缺分类的存量条目。受 LLM_BATCH_ENABLED 控制,
+            // 批大小/轮数/错峰间隔均可由环境变量覆盖。
+            const result = await drainLlmBacklog().catch((err) => {
+              server.log.error({ err }, 'drainLlmBacklog failed in ai-feed-drain')
+              return {
+                llmProcessed: 0,
+                translated: 0,
+                classifiedFailed: 0,
+                translateFailed: 0,
+                iterations: 0,
+                llmBacklogCleared: false,
+                translateBacklogCleared: false,
+                remainingNoLlm: -1,
+                remainingNoEn: -1,
+                zeroProgress: true,
+              }
+            })
+            server.log.info(
+              {
+                llmProcessed: result.llmProcessed,
+                translated: result.translated,
+                classifiedFailed: result.classifiedFailed,
+                translateFailed: result.translateFailed,
+                iterations: result.iterations,
+                llmBacklogCleared: result.llmBacklogCleared,
+                translateBacklogCleared: result.translateBacklogCleared,
+                remainingNoEn: result.remainingNoEn,
+                remainingNoLlm: result.remainingNoLlm,
+                zeroProgress: result.zeroProgress,
+              },
+              'ai-feed-drain done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           case 'budget-alert-check': {
             const result = await checkBudgetAlerts(server)
