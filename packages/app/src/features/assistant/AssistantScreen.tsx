@@ -83,7 +83,7 @@ export function AssistantScreen({
     if (a.status === 'rejected')
       return {
         text: t('assistant.badgeRejected'),
-        color: tk.warning.deep,
+        color: tk.brandAccent.DEFAULT,
         bg: tk.warning.orangeLight,
       }
     if (a.status === 'offline')
@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     errorBar: { paddingHorizontal: 10, paddingVertical: 8 },
-    errorText: { fontSize: 14, color: tk.warning.deep },
+    errorText: { fontSize: 14, color: tk.brandAccent.DEFAULT },
     empty: { alignItems: 'center', paddingVertical: 48 },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     card: {
@@ -324,11 +324,11 @@ function createStyles(tk: AppThemeTokens) {
       height: 32,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.warning.deep,
+      borderColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    actionDangerText: { fontSize: 14, color: tk.warning.deep },
+    actionDangerText: { fontSize: 14, color: tk.brandAccent.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

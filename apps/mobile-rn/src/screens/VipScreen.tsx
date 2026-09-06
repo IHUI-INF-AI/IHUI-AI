@@ -682,7 +682,7 @@ const QR_CLOSE_BUTTON_RADIUS = 8
 const QR_CLOSE_FONT_SIZE = 13
 
 // 主题色 #5088fa:对齐 BottomPopup.tsx 同款 Uniapp 主题色常量
-const ACCENT_COLOR = tokens.indigo.DEFAULT
+const ACCENT_COLOR = tokens.brandAccent.DEFAULT
 
 const styles = StyleSheet.create({
   screen: {
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   } as TextStyle,
   trialTag: {
-    backgroundColor: tokens.purple.light,
+    backgroundColor: tokens.brandAccent.light,
     borderRadius: TAG_RADIUS,
     paddingHorizontal: TAG_PADDING_H,
     paddingVertical: TAG_PADDING_V,
@@ -820,7 +820,7 @@ const styles = StyleSheet.create({
   trialTagText: {
     fontSize: TAG_FONT_SIZE,
     lineHeight: TAG_FONT_SIZE + 2,
-    color: tokens.purple.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     fontWeight: '600',
   } as TextStyle,
   planDetail: {
@@ -882,13 +882,13 @@ const styles = StyleSheet.create({
     marginTop: rpx(20),
     paddingHorizontal: rpx(28),
     paddingVertical: rpx(20),
-    backgroundColor: tokens.purple.light,
+    backgroundColor: tokens.brandAccent.light,
     borderRadius: LEVEL_BANNER_RADIUS,
   } as ViewStyle,
   diamondIcon: {
     fontSize: DIAMOND_FONT_SIZE,
     lineHeight: DIAMOND_FONT_SIZE + 2,
-    color: tokens.purple.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
   } as TextStyle,
   levelBannerText: {
     flex: 1,

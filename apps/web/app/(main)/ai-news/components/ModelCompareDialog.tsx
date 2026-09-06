@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { CHART_BLUE, CHART_ORANGE, CHART_GREEN, CHART_PINK, CHART_PURPLE } from '@ihui/design-tokens'
 import { X } from 'lucide-react'
 import type { LeaderboardEntry, ModelCapabilities } from '@/lib/ai-news-api'
 import { parseNumeric } from './text-utils'
@@ -17,7 +18,7 @@ interface Props {
   onClose: () => void
 }
 
-const RADAR_COLORS = ['#3b82f6', '#f97316', '#10b981', '#a855f7', '#ec4899']
+const RADAR_COLORS = [CHART_BLUE, CHART_ORANGE, CHART_GREEN, CHART_PURPLE, CHART_PINK]
 const RADAR_LABELS: Array<{ key: keyof ModelCapabilities; label: string }> = [
   { key: 'coding', label: '代码' },
   { key: 'math', label: '数学' },

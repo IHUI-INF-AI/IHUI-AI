@@ -338,7 +338,7 @@ function createStyles(tk: AppThemeTokens) {
     cardOrder: { flex: 1, fontSize: 14, color: tk.text.secondary },
     cardStatus: { fontSize: 11, fontWeight: '600' },
     statusSettled: { color: tk.brand.DEFAULT },
-    statusPending: { color: tk.warning.deep },
+    statusPending: { color: tk.brandAccent.DEFAULT },
     cardTime: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     cardMain: { flexDirection: 'row', alignItems: 'center', marginTop: 10 },
     cardAvatar: {
@@ -354,7 +354,7 @@ function createStyles(tk: AppThemeTokens) {
     cardInfo: { flex: 1 },
     cardName: { fontSize: 16, fontWeight: '600', color: tk.text.primary },
     cardMeta: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
-    cardAmount: { fontSize: 16, fontWeight: '700', color: tk.warning.deep },
+    cardAmount: { fontSize: 16, fontWeight: '700', color: tk.brandAccent.DEFAULT },
     modalMask: { flex: 1, justifyContent: 'flex-end', backgroundColor: tk.overlay.modal },
     modalBody: {
       backgroundColor: tk.surface.light,

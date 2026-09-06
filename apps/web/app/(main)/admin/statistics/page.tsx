@@ -8,6 +8,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Save, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
+import {
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_VIOLET,
+  CHART_TEXT_LIGHT,
+  CHART_INDIGO,
+} from '@ihui/design-tokens'
 import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
@@ -77,7 +85,7 @@ export default function StatisticsPage() {
         type: 'line',
         smooth: true,
         data: d.userGrowth.map((g) => g.total),
-        itemStyle: { color: '#3b82f6' },
+        itemStyle: { color: CHART_BLUE },
         areaStyle: { opacity: 0.1 },
       },
       {
@@ -85,7 +93,7 @@ export default function StatisticsPage() {
         type: 'line',
         smooth: true,
         data: d.userGrowth.map((g) => g.newCount),
-        itemStyle: { color: '#10b981' },
+        itemStyle: { color: CHART_GREEN },
       },
     ],
   }
@@ -103,7 +111,7 @@ export default function StatisticsPage() {
       {
         type: 'bar',
         data: overviewCards.map((c) => c.value),
-        itemStyle: { color: '#6366f1', borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: CHART_INDIGO, borderRadius: [4, 4, 0, 0] },
         barWidth: '50%',
       },
     ],
@@ -120,7 +128,7 @@ export default function StatisticsPage() {
         avoidLabelOverlap: true,
         label: { show: false },
         data: d.sources.map((s) => ({ name: s.name, value: s.value })),
-        color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#94a3b8'],
+        color: [CHART_BLUE, CHART_GREEN, CHART_AMBER, CHART_VIOLET, CHART_TEXT_LIGHT],
       },
     ],
   }

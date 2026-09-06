@@ -9,6 +9,18 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { eq, asc, sql } from 'drizzle-orm'
+import {
+  BRAND_BG,
+  DOC_BG,
+  DOC_BORDER,
+  DOC_BRAND,
+  DOC_BRAND_SOFT,
+  DOC_BRAND_LIGHT,
+  DOC_TEXT_BODY,
+  DOC_TEXT_DARK,
+  DOC_TEXT_MUTED,
+  DOC_TEXT_STRONG,
+} from '@ihui/design-tokens'
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { aiModelConfig } from '@ihui/database'
@@ -42,6 +54,14 @@ const careerAdviceSchema = z.object({
   hobbies: z.string().max(1000).optional().default(''),
   target: z.string().max(1000).optional().default(''),
 })
+
+/**
+ * 把带 # 的 design-token 常量转为 pptxgenjs 所需的无 # 大写 hex(如 #1e40af -> 1E40AF)。
+ * PPT 导出用 token 派生色,不在此处写死硬编码 hex。
+ */
+function hexNoHash(hex: string): string {
+  return hex.replace('#', '').toUpperCase()
+}
 
 const aiModulesRoutes: FastifyPluginAsync = async (server) => {
   server.get('/ai/index', async (_request, reply) => {
@@ -353,15 +373,15 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       pptx.defineLayout({ name: 'A4', width: 10, height: 7.5 })
       pptx.layout = 'A4'
       // 品牌色 + 中文字体(2026-08-01 立:修复 PPT 默认 Calibri 中文显示 + 美化排版)
-      const COLOR_PRIMARY = '1E40AF' // 深蓝
-      const COLOR_ACCENT = 'DBEAFE' // 浅蓝
-      const COLOR_TEXT = '1F2937' // 深灰
-      const COLOR_MUTED = '6B7280' // 中灰
+      const COLOR_PRIMARY = hexNoHash(DOC_BRAND) // 深蓝
+      const COLOR_ACCENT = hexNoHash(DOC_BRAND_SOFT) // 浅蓝
+      const COLOR_TEXT = hexNoHash(DOC_TEXT_STRONG) // 深灰
+      const COLOR_MUTED = hexNoHash(DOC_TEXT_BODY) // 中灰
       const FONT_CN = '微软雅黑' // Windows 系统字体,PPT 用 fontFace 指定
 
       // ====================== 封面页(深色背景 + 大标题) ======================
       const cover = pptx.addSlide()
-      cover.background = { color: '0F172A' } // 深色背景
+      cover.background = { color: hexNoHash(DOC_TEXT_STRONG) } // 深色背景
       // 顶部品牌色装饰条
       cover.addShape('rect', { x: 0, y: 0, w: 10, h: 0.15, fill: { color: COLOR_PRIMARY } })
       // 主标题(白色大字,居中)
@@ -374,7 +394,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         bold: true,
         fontFace: FONT_CN,
         align: 'center',
-        color: 'FFFFFF',
+        color: hexNoHash(DOC_TEXT_DARK),
       })
       // 装饰横线
       cover.addShape('rect', {
@@ -382,7 +402,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         y: 3.7,
         w: 2,
         h: 0.04,
-        fill: { color: '60A5FA' },
+        fill: { color: hexNoHash(DOC_BRAND_LIGHT) },
       })
       // 副标题(浅灰)
       cover.addText(`生成日期: ${dateStr}`, {
@@ -393,7 +413,7 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         fontSize: 14,
         fontFace: FONT_CN,
         align: 'center',
-        color: '94A3B8',
+        color: hexNoHash(DOC_TEXT_MUTED),
       })
       // 底部品牌署名
       cover.addText('IHUI AI 平台 · 智能生涯指导', {
@@ -404,13 +424,13 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
         fontSize: 11,
         fontFace: FONT_CN,
         align: 'center',
-        color: '64748B',
+        color: hexNoHash(DOC_TEXT_BODY),
       })
 
       // ====================== 内容页(每个 section 一张幻灯片) ======================
       for (const s of sections) {
         const slide = pptx.addSlide()
-        slide.background = { color: 'FFFFFF' }
+        slide.background = { color: hexNoHash(DOC_BG) }
         // 左侧品牌色竖条(章节标识)
         slide.addShape('rect', { x: 0, y: 0, w: 0.12, h: 7.5, fill: { color: COLOR_PRIMARY } })
         // 章节标题区(浅蓝背景块)
@@ -475,9 +495,9 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
     const htmlSections = sections
       .map(
         (s) =>
-          `<div style="margin:0 0 24px;padding:20px 24px;background:#f8fafc;border-left:4px solid #1e40af;border-radius:0 6px 6px 0;">` +
-          `<h2 style="font-size:17px;margin:0 0 12px;color:#1e40af;font-weight:600;">${escapeHtml(s.heading)}</h2>` +
-          `<p style="font-size:13px;line-height:1.8;margin:0;color:#1f2937;white-space:pre-wrap;">${escapeHtml(s.content)}</p>` +
+          `<div style="margin:0 0 24px;padding:20px 24px;background:${BRAND_BG};border-left:4px solid ${DOC_BRAND};border-radius:0 6px 6px 0;">` +
+          `<h2 style="font-size:17px;margin:0 0 12px;color:${DOC_BRAND};font-weight:600;">${escapeHtml(s.heading)}</h2>` +
+          `<p style="font-size:13px;line-height:1.8;margin:0;color:${DOC_TEXT_STRONG};white-space:pre-wrap;">${escapeHtml(s.content)}</p>` +
           `</div>`,
       )
       .join('')
@@ -485,12 +505,12 @@ const aiModulesRoutes: FastifyPluginAsync = async (server) => {
       `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">` +
       `<head><meta charset="utf-8"><title>AI 生涯指导报告</title>` +
       `<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom></w:WordDocument></xml><![endif]-->` +
-      `<style>body{font-family:'微软雅黑','Microsoft YaHei',sans-serif;margin:60px 50px;color:#1f2937;}` +
-      `.cover{text-align:center;padding:60px 0 40px;border-bottom:3px solid #1e40af;margin-bottom:40px;}` +
-      `.cover h1{font-size:32px;color:#1e40af;margin:0 0 12px;font-weight:700;}` +
-      `.cover .subtitle{font-size:14px;color:#6b7280;margin:0 0 8px;}` +
-      `.cover .brand{font-size:12px;color:#9ca3af;margin-top:20px;letter-spacing:2px;}` +
-      `.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e5e7eb;text-align:center;font-size:10px;color:#9ca3af;}` +
+      `<style>body{font-family:'微软雅黑','Microsoft YaHei',sans-serif;margin:60px 50px;color:${DOC_TEXT_STRONG};}` +
+      `.cover{text-align:center;padding:60px 0 40px;border-bottom:3px solid ${DOC_BRAND};margin-bottom:40px;}` +
+      `.cover h1{font-size:32px;color:${DOC_BRAND};margin:0 0 12px;font-weight:700;}` +
+      `.cover .subtitle{font-size:14px;color:${DOC_TEXT_BODY};margin:0 0 8px;}` +
+      `.cover .brand{font-size:12px;color:${DOC_TEXT_MUTED};margin-top:20px;letter-spacing:2px;}` +
+      `.footer{margin-top:48px;padding-top:16px;border-top:1px solid ${DOC_BORDER};text-align:center;font-size:10px;color:${DOC_TEXT_MUTED};}` +
       `</style></head><body>` +
       `<div class="cover">` +
       `<h1>AI 生涯指导报告</h1>` +
