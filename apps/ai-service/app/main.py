@@ -63,6 +63,7 @@ from app.routers import (
     opencompass,
     orchestration,
     personas,
+    pr_review,
     publish,
     rules,
     screenshot,
@@ -91,17 +92,15 @@ from app.routers.ai_marking import router as ai_marking_router
 
 # P3 深度层:AI 教育引擎(AI 助教)+ LangGraph 升级(PostgresSaver + interrupt HITL + streaming)
 from app.routers.ai_tutor import router as ai_tutor_router
+
+# 企业级补齐(2026-09-06 立):操作审计日志查询 + SSO/OIDC 集成路由
+from app.routers.audit import router as audit_log_router
 from app.routers.checkpoint_rewind import router as checkpoint_rewind_router
 from app.routers.cloud_runs import router as cloud_runs_router
 from app.routers.computer_use import router as computer_use_router
 from app.routers.context_compaction import router as context_compaction_router
 from app.routers.langgraph import router as langgraph_router
 from app.routers.legacy import router as legacy_router
-from app.routers.step_recorder import router as step_recorder_router
-
-# 企业级补齐(2026-09-06 立):操作审计日志查询 + SSO/OIDC 集成路由
-from app.routers.audit import router as audit_log_router
-from app.routers.sso import router as sso_router
 
 # L4 自进化 admin 端点(status/lessons/history/trigger,2026-07-25 立)
 from app.routers.meta_learning import router as meta_learning_router
@@ -109,6 +108,9 @@ from app.routers.meta_learning import router as meta_learning_router
 # 对标杀手锏四件套(2026-09-03 立,深度补齐 Claude Code / Codex / Trae / Qoder / WorkBuddy):
 # Deep Research 多轮深度研究 / Checkpoint+Rewind / 云托管会话 / Computer Use 驾驶舱 / 上下文压缩感知
 from app.routers.research import router as research_router
+from app.routers.self_healing import router as self_healing_router
+from app.routers.sso import router as sso_router
+from app.routers.step_recorder import router as step_recorder_router
 
 # Context Engineering 路由(对标 Qoder,多维 @ 提及 + 跨会话 RAG + 多源融合)
 from app.services.context_engine import router as context_engine_router
@@ -656,6 +658,10 @@ def create_app() -> FastAPI:
     app.include_router(screenshot.router, prefix="/api", tags=["screenshot"])
     # v1 业务流路由(对话/智能体/RAG,2026-07-20 新增)
     app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
+    # PR AI 评审端点(GitHub Actions 触发管道入口,2026-09-06 立)
+    app.include_router(pr_review.router, prefix="/api/v1", tags=["pr-review"])
+    # 自愈引擎端点(生成用例→pytest→LLM 补丁落盘→重跑,2026-09-06 接线)
+    app.include_router(self_healing_router, prefix="/api/v1", tags=["self-healing"])
     # LSP 转发路由(封装 cli LSP 能力为 HTTP 端点,供 web 端 IDE 调试面板调用,2026-07-22 新增)
     from app.api.v1 import lsp as lsp_router_module
     app.include_router(lsp_router_module.router, prefix="/api/v1", tags=["lsp"])
