@@ -28,6 +28,7 @@ import { AgentTaskProgressPane } from '@/components/ai/agent-task-progress-pane'
 import { EnvironmentInfoPopover } from '@/components/ai/environment-info-popover'
 import { AiTerminalDock } from '@/components/ai/ai-terminal-dock'
 import { QuestionDialog } from '@/components/chat/question-dialog'
+import { SessionUsageBadge } from '@/components/chat/session-usage-badge'
 import { BrandIcon, inferVendor } from '@/components/ai/brand-icon'
 import { WorkspaceSelector } from '@/components/ai/workspace-selector'
 import { Tooltip, TooltipProvider } from '@/components/feedback'
@@ -1058,6 +1059,11 @@ export function AISidePanel() {
                   {/* 工作区选择器(参考 Trae/Codex 顶部 project selector):
                   空工作区时显示 FolderPlus 入口,已绑定时显示 Folder 入口可切换/清除 */}
                   <WorkspaceSelector />
+                  {/* 会话累计 Token / 估算费用徽章(2026-09-07 工作线 A):hover 展开输入/输出/请求数明细 */}
+                  <SessionUsageBadge
+                    conversationId={storeConversationId}
+                    isStreaming={isStreaming}
+                  />
                 </span>
               </div>
               {/* Plan/Act 模式切换(2026-07-24 立,对标 Trae Work plan/act toggle + Codex)
