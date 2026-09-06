@@ -43,6 +43,9 @@ const DEAD_MIGRATION_WHITELIST = new Set([
   // 由 PostgreSQL 按 PARTITION BY RANGE(created_at) 自动创建/维护,Drizzle 只定义父表
   // `audit_logs`(见 src/schema/audit.ts),故不在此处单独定义。
   'audit_logs_default',
+  // 0060 内 DO 块 EXECUTE format('CREATE TABLE IF NOT EXISTS %I PARTITION OF ...') 的
+  // 动态月分区:无引号分支将 format 占位符前的 "IF" 抓成表名,属文本解析固有噪声
+  'if',
 ])
 
 const C = {
@@ -161,8 +164,10 @@ function scanMigrations() {
 
   // 合并 CREATE/DROP/RENAME 为单一正则,按 SQL 文件中实际出现顺序应用
   // (避免同文件 drop-and-recreate 模式下 CREATE+DROP 顺序错乱导致误报 dead migration)
-  // 捕获组:1=CREATE 表名 / 2=DROP 表名 / 3=RENAME 旧名 / 4=RENAME 新名
-  const combinedRe = /(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?["'`]([^"'`]+)["'`])|(?:DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?["'`]([^"'`]+)["'`])|(?:ALTER\s+TABLE\s+["'`]([^"'`]+)["'`]\s+RENAME\s+TO\s+["'`]([^"'`]+)["'`])/gi
+  // 2026-09-06 修复:支持无引号表名(如 20260801010050 的 CREATE TABLE ai_relay_channel_daily_usage,
+  // 旧正则要求闭合引号导致整批无引号表被系统性遗漏)
+  // 捕获组:1/2=CREATE 表名 / 3/4=DROP 表名 / 5,6=RENAME 旧名 / 7=RENAME 新名
+  const combinedRe = /(?:CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["'`]([^"'`]+)["'`]|([a-zA-Z_][a-zA-Z_0-9]*)))|(?:DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:["'`]([^"'`]+)["'`]|([a-zA-Z_][a-zA-Z_0-9]*)))|(?:ALTER\s+TABLE\s+(?:["'`]([^"'`]+)["'`]|([a-zA-Z_][a-zA-Z_0-9]*))\s+RENAME\s+TO\s+(?:["'`]([^"'`]+)["'`]|([a-zA-Z_][a-zA-Z_0-9]*)))/gi
 
   for (const file of files) {
     let src
@@ -171,26 +176,29 @@ function scanMigrations() {
     } catch {
       continue
     }
+    // 剥离整行注释(2026-09-06):注释中的"CREATE TABLE migration"等描述词曾被
+    // 无引号分支抓成假表名;行尾注释不受影响
+    src = src.replace(/^\s*--.*$/gm, '')
     let match
     while ((match = combinedRe.exec(src)) !== null) {
-      if (match[1] !== undefined) {
+      const createName = (match[1] ?? match[2])?.toLowerCase()
+      const dropName = (match[3] ?? match[4])?.toLowerCase()
+      const renameOld = (match[5] ?? match[6])?.toLowerCase()
+      const renameNew = (match[7] ?? match[8])?.toLowerCase()
+      if (createName !== undefined && createName !== '') {
         // CREATE TABLE
-        const t = match[1].toLowerCase()
-        finalTables.add(t)
-        if (!createdTables.has(t)) createdTables.set(t, [])
-        createdTables.get(t).push(file)
-      } else if (match[2] !== undefined) {
+        finalTables.add(createName)
+        if (!createdTables.has(createName)) createdTables.set(createName, [])
+        createdTables.get(createName).push(file)
+      } else if (dropName !== undefined && dropName !== '') {
         // DROP TABLE
-        const t = match[2].toLowerCase()
-        finalTables.delete(t)
-        if (!droppedTables.has(t)) droppedTables.set(t, [])
-        droppedTables.get(t).push(file)
-      } else if (match[3] !== undefined && match[4] !== undefined) {
+        finalTables.delete(dropName)
+        if (!droppedTables.has(dropName)) droppedTables.set(dropName, [])
+        droppedTables.get(dropName).push(file)
+      } else if (renameOld !== undefined && renameOld !== '' && renameNew !== undefined && renameNew !== '') {
         // ALTER TABLE RENAME TO
-        const oldName = match[3].toLowerCase()
-        const newName = match[4].toLowerCase()
-        finalTables.delete(oldName)
-        finalTables.add(newName)
+        finalTables.delete(renameOld)
+        finalTables.add(renameNew)
       }
     }
   }

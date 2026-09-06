@@ -109,14 +109,7 @@
     "adm-zip": "0.6.0",
     "glob": "13.0.6"
   },
-  "dependencies": {
-    "adm-zip": "0.6.0",
-    "git-clone": "0.2.0",
-    "glob": "13.0.6",
-    "image-size": "2.0.2",
-    "serialize-javascript": "7.1.0",
-    "swiper": "12.1.2"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@ihui/eslint-config": "workspace:^",
     "@next/eslint-plugin-next": "^16.0.0",

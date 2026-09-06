@@ -1674,6 +1674,13 @@
       "when": 1720649600000,
       "tag": "20260906174000_audit_partition_ensure_fn",
       "break": false
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1720736000000,
+      "tag": "20260906180000_drop_dead_tables_batch2",
+      "break": false
     }
   ]
 }
