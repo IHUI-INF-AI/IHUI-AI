@@ -24,6 +24,7 @@ import {
   type SelfMediaSkill,
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -38,6 +39,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function SelfMediaScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<'skills' | 'records'>('skills')
   const [skills, setSkills] = useState<SelfMediaSkill[]>([])
@@ -178,7 +180,7 @@ export function SelfMediaScreen() {
                           value={prompt}
                           onChangeText={setPrompt}
                           placeholder={skill.examples[0] || t('selfMedia.promptPlaceholder')}
-                          placeholderTextColor="#9ca3af"
+                          placeholderTextColor={tk.text.tertiary}
                           multiline
                           textAlignVertical="top"
                           className="min-h-[64px] rounded-md border border-gray-200 p-2.5 text-xs dark:border-neutral-700 dark:text-neutral-100"
