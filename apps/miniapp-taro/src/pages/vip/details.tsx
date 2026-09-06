@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 
 // 权益对比数据(AI 平台场景)
 interface Benefit {
@@ -45,32 +46,32 @@ export default function VipDetailsPage() {
   // 权益详情(对标原 vip/details.vue 权益图标 + 标题 + 描述)
   const BENEFIT_DETAILS = [
     {
-      icon: '/static/images/icons/message-circle.svg',
+      icon: 'message-circle',
       title: tt('vip.details.benefit.chat', '无限 AI 对话'),
       desc: tt('vip.details.benefit.chatDesc', '畅享顶级模型,不限次数'),
     },
     {
-      icon: '/static/images/icons/palette.svg',
+      icon: 'palette',
       title: tt('vip.details.benefit.draw', 'AI 绘图'),
       desc: tt('vip.details.benefit.drawDesc', '100次/天,高清无水印'),
     },
     {
-      icon: '/static/images/icons/film.svg',
+      icon: 'film',
       title: tt('vip.details.benefit.video', '视频生成'),
       desc: tt('vip.details.benefit.videoDesc', '60分钟视频生成时长'),
     },
     {
-      icon: '/static/images/icons/bot.svg',
+      icon: 'bot',
       title: tt('vip.details.benefit.model', '全部模型'),
       desc: tt('vip.details.benefit.modelDesc', '解锁所有付费模型'),
     },
     {
-      icon: '/static/images/icons/headphones.svg',
+      icon: 'headphones',
       title: tt('vip.details.benefit.support', '优先客服'),
       desc: tt('vip.details.benefit.supportDesc', '7×24 小时专属服务'),
     },
     {
-      icon: '/static/images/icons/users.svg',
+      icon: 'users',
       title: tt('vip.details.benefit.group', '专属社群'),
       desc: tt('vip.details.benefit.groupDesc', 'VIP 会员专属交流群'),
     },
@@ -117,7 +118,7 @@ export default function VipDetailsPage() {
 
   return (
     <View className="min-h-screen bg-background pb-[140rpx]">
-      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-[rgba(245,158,11,0.1)] text-foreground">
+      <View className="pt-[56rpx] pr-[40rpx] pb-[40rpx] pl-[40rpx] bg-warning/10 text-foreground">
         <View className="flex items-center mb-[20rpx]" onClick={() => Taro.navigateBack()}>
           <Text className="text-[40rpx] text-foreground leading-none mr-[8rpx]">‹</Text>
           <Text className="text-[28rpx] text-foreground">{tt('common.back', '返回')}</Text>
@@ -135,8 +136,12 @@ export default function VipDetailsPage() {
         <View className="flex flex-col gap-[16rpx]">
           {BENEFIT_DETAILS.map((b) => (
             <View key={b.title} className="flex items-start bg-card rounded-[16rpx] p-[24rpx]">
-              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-[rgba(245,158,11,0.1)] flex items-center justify-center mr-[20rpx] shrink-0">
-                <Image src={b.icon} className="w-[36rpx] h-[36rpx]" mode="aspectFit" />
+              <View className="w-[64rpx] h-[64rpx] rounded-[16rpx] bg-warning/10 flex items-center justify-center mr-[20rpx] shrink-0">
+                <LineIcon
+                  name={b.icon as IconName}
+                  size={36}
+                  color="var(--color-warning)"
+                />
               </View>
               <View className="flex-1 flex flex-col">
                 <Text className="text-[28rpx] font-semibold text-foreground">{b.title}</Text>
@@ -161,7 +166,7 @@ export default function VipDetailsPage() {
               <ThemeRoot key={p.type}>
                 <View
                   key={p.type}
-                  className={`flex-1 relative bg-card border-[2rpx] rounded-[16rpx] py-[28rpx] px-[24rpx] ${active ? (p.type === 'yearly' ? 'border-warning bg-[rgba(245,158,11,0.1)]' : 'border-warning bg-[rgba(245,158,11,0.06)]') : 'border-border'}`}
+                  className={`flex-1 relative bg-card border-[2rpx] rounded-[16rpx] py-[28rpx] px-[24rpx] ${active ? (p.type === 'yearly' ? 'border-warning bg-warning/10' : 'border-warning bg-warning/[0.06]') : 'border-border'}`}
                   onClick={() => selectPlan(p.type)}
                 >
                   {p.type === 'yearly' ? (
@@ -189,11 +194,11 @@ export default function VipDetailsPage() {
                   <View className="flex flex-col gap-[10rpx]">
                     {p.benefits.map((b, i) => (
                       <View key={i} className="flex items-start">
-                        <Image
-                          src="/static/images/icons/check.svg"
-                          mode="aspectFit"
+                        <LineIcon
+                          name="check"
+                          size={24}
+                          color="var(--color-muted-foreground)"
                           className="mr-[12rpx]"
-                          style={{ width: '24rpx', height: '24rpx' }}
                         />
                         <Text className="flex-1 text-[24rpx] text-foreground leading-[1.4]">
                           {b}
@@ -210,14 +215,14 @@ export default function VipDetailsPage() {
 
       {/* 权益对比表 */}
       <View className="m-[24rpx] bg-card rounded-[16rpx] overflow-hidden border-[2rpx] border-border">
-        <View className="flex items-stretch bg-[rgba(245,158,11,0.12)]">
+        <View className="flex items-stretch bg-warning/[0.12]">
           <Text className="flex-[1.4] py-[24rpx] px-[16rpx] text-left text-foreground font-medium text-[28rpx] font-bold">
             {t('vip.details.feature')}
           </Text>
           <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-muted-foreground text-[28rpx] font-bold">
             {t('vip.details.normal')}
           </Text>
-          <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-[rgba(245,158,11,0.08)] text-[28rpx] font-bold">
+          <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-warning/[0.08] text-[28rpx] font-bold">
             {t('vip.details.vipColumn')}
           </Text>
         </View>
@@ -232,7 +237,7 @@ export default function VipDetailsPage() {
             <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-muted-foreground text-[26rpx]">
               {b.normal}
             </Text>
-            <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-[rgba(245,158,11,0.08)] text-[26rpx]">
+            <Text className="flex-1 py-[24rpx] px-[16rpx] text-center text-warning font-semibold bg-warning/[0.08] text-[26rpx]">
               {b.vip}
             </Text>
           </View>

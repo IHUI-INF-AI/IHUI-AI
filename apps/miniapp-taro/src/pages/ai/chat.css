@@ -106,14 +106,14 @@
 }
 .msg-item.user .bubble {
   background: var(--color-brand);
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
   border: 2rpx solid;
   border-image: linear-gradient(
       275deg,
-      rgba(252, 255, 77, 0.5) -32%,
-      rgba(76, 32, 116, 0) 5%,
-      rgba(54, 16, 88, 0) 98%,
-      rgba(54, 16, 88, 0.5) 129%
+      var(--color-white-45) -32%,
+      transparent 5%,
+      transparent 98%,
+      var(--color-white-40) 129%
     )
     2;
   border-radius: 15rpx;
@@ -129,7 +129,7 @@
   letter-spacing: 0.02em;
 }
 .msg-item.user .bubble-text {
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
 }
 .msg-item.assistant .bubble-text {
   color: var(--color-foreground);
@@ -545,7 +545,7 @@
   left: 0;
   right: 0;
   border-radius: 0;
-  box-shadow: 0px -4rpx 16rpx -4rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0px -4rpx 16rpx -4rpx var(--color-black-15);
 }
 
 /* ============ 搜索框紫色描边(对标原项目 .search_box_bor) ============ */
@@ -830,8 +830,8 @@
   bottom: 0;
   background: repeating-linear-gradient(
     45deg,
-    rgba(255, 255, 255, 0.15) 0,
-    rgba(255, 255, 255, 0.15) 4rpx,
+    var(--color-white-15) 0,
+    var(--color-white-15) 4rpx,
     transparent 4rpx,
     transparent 8rpx
   );
@@ -895,7 +895,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
   z-index: 998;
   display: flex;
   align-items: center;
@@ -964,7 +964,7 @@
 /* ============ tishi 渐变边框(对标原项目 .tishi_box + .tishi_box_back) ============ */
 .tishi-box-gradient {
   padding: 2rpx;
-  background: linear-gradient(81deg, rgba(63, 129, 244, 0.6) 54%, rgba(75, 77, 85, 0) 126%);
+  background: linear-gradient(81deg, var(--color-ring) 54%, transparent 126%);
   border-radius: 10rpx;
   margin: 12rpx 16rpx;
 }
@@ -1005,7 +1005,7 @@
   border-radius: 15rpx;
   border: 2rpx solid var(--color-border);
   background: var(--color-card);
-  box-shadow: 0 1rpx 3rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1rpx 3rpx var(--color-black-6);
   white-space: nowrap;
   flex-shrink: 0;
   transition: all 0.3s ease;
@@ -1098,16 +1098,16 @@
    以下为 ChatMessageItem.tsx / InputArea.tsx 新 className 对应样式
    ============================================================ */
 
-/* ============ 用户消息紫色气泡(对标原 ai_assistant.vue .agent-content-item-question) ============ */
+/* ============ 用户消息气泡(对标原 ai_assistant.vue .agent-content-item-question) ============ */
 .agent-content-item-question {
   background: var(--color-brand);
   border: 2rpx solid;
   border-image: linear-gradient(
       275deg,
-      rgba(252, 255, 77, 0.5) -32%,
-      rgba(76, 32, 116, 0) 5%,
-      rgba(54, 16, 88, 0) 98%,
-      rgba(54, 16, 88, 0.5) 129%
+      var(--color-white-45) -32%,
+      transparent 5%,
+      transparent 98%,
+      var(--color-white-40) 129%
     )
     2;
   border-radius: 15rpx;

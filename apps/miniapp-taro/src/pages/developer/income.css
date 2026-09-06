@@ -37,7 +37,7 @@
   color: var(--color-foreground);
 }
 
-/* 收入卡片:紫色渐变边框(对标原项目 card-bg linear-gradient + padding 1rpx) */
+/* 收入卡片:品牌中性渐变边框(原紫/黄渐变 rgba(209,158,255) 系靛渣,已收敛为 brand 灰阶) */
 .income-card-wrap {
   width: calc(100vw - 36rpx);
   margin: 20rpx 18rpx;
@@ -46,10 +46,10 @@
   box-sizing: border-box;
   background-image: linear-gradient(
     307deg,
-    rgba(209, 158, 255, 0.7) -2%,
-    rgba(211, 161, 223, 0.6389) 32%,
-    rgba(206, 151, 251, 0.6925) 41%,
-    rgba(255, 242, 0, 0.21) 88%
+    var(--color-brand-700) -2%,
+    var(--color-brand-400) 32%,
+    var(--color-brand-500) 41%,
+    var(--color-brand-300) 88%
   );
   overflow: hidden;
 }
@@ -78,7 +78,7 @@
 .income-acc-value {
   font-size: 36rpx;
   font-weight: 700;
-  color: rgba(123, 97, 255, 1);
+  color: var(--color-foreground);
 }
 .income-acc-unit {
   font-size: 24rpx;
@@ -122,7 +122,7 @@
   width: 100%;
   margin-top: 22rpx;
   border-radius: var(--radius-sm);
-  background: rgba(235, 238, 245, 0.59);
+  background: var(--color-muted);
   height: 100rpx;
   padding: 8rpx 21rpx;
   box-sizing: border-box;
@@ -145,9 +145,9 @@
   width: 35rpx;
   height: 31rpx;
   margin-right: 6rpx;
-  background: rgba(123, 97, 255, 1);
+  background: var(--color-primary);
   border-radius: var(--radius-sm);
-  color: var(--color-foreground);
+  color: var(--color-primary-foreground);
   font-size: 20rpx;
   display: flex;
   align-items: center;
@@ -160,7 +160,7 @@
   margin: 0 20rpx;
   padding: 8rpx;
   box-sizing: border-box;
-  background: rgba(235, 238, 245, 1);
+  background: var(--color-muted);
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
@@ -218,11 +218,11 @@
   border-radius: var(--radius-sm);
 }
 .income-item-badge.settled {
-  background: rgba(233, 247, 239, 1);
+  background: var(--color-success-tag-bg);
   color: var(--color-success);
 }
 .income-item-badge.pending {
-  background: rgba(255, 244, 230, 1);
+  background: var(--color-warm-bg);
   color: var(--color-warning);
 }
 
@@ -255,7 +255,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -11,6 +11,7 @@ import * as api from '@/api'
 import type { UserInfo, DeveloperSubscription } from '@/api'
 import { formatDateOnly } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 
 /** 开发者账号信息(对标原项目 developer_info_body) */
 interface DeveloperInfo {
@@ -44,24 +45,30 @@ const QA_KEYS = [
 ] as const
 
 /** 三个开发者入口(对标原项目 dev_list) */
-const DEV_ENTRIES = (tt: TtFn) => [
+const DEV_ENTRIES = (tt: TtFn): Array<{
+  key: string
+  icon: IconName
+  titleKey: string
+  titleFb: string
+  target: string
+}> => [
   {
     key: 'model',
-    icon: '/static/images/icons/bot.svg',
+    icon: 'bot',
     titleKey: 'plaza.cover.entryMyModel',
     titleFb: tt('devEnter.cover.myAgents', '我的智能体'),
     target: '/pages/developer/index',
   },
   {
     key: 'income',
-    icon: '/static/images/icons/wallet.svg',
+    icon: 'wallet',
     titleKey: 'plaza.cover.entryModelIncome',
     titleFb: tt('devEnter.cover.agentIncome', '智能体收入'),
     target: '/pages/developer/income',
   },
   {
     key: 'n8n',
-    icon: '/static/images/icons/zap.svg',
+    icon: 'zap',
     titleKey: 'plaza.cover.entryN8n',
     titleFb: tt('plazaCover.d5', 'n8n 智能体'),
     target: '/pages/dev-enter/n8n-model/index',
@@ -221,7 +228,7 @@ export default function PlazaCover() {
               className="flex items-center gap-[20rpx] p-[32rpx]"
               onClick={() => toEntry(e.target)}
             >
-              <Image style={{ width: '40rpx', height: '40rpx' }} src={e.icon} mode="aspectFit" />
+              <LineIcon name={e.icon} size={40} color="var(--color-muted-foreground)" />
               <Text className="flex-1 text-[30rpx] text-foreground">
                 {tt(e.titleKey, e.titleFb)}
               </Text>

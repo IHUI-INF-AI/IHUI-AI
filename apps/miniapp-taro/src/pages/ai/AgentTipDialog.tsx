@@ -3,16 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
-import skillsIcon from '@/assets/remote/images/add/skills.svg'
-import mesgIcon from '@/assets/remote/images/default/mesg.svg'
-import picterIcon from '@/assets/remote/images/add/picter.svg'
-import textInputIcon from '@/assets/remote/images/add/text.svg'
-import fileIcon from '@/assets/remote/images/file.png'
-
-function isImagePath(s: string): boolean {
-  return /^(https?:)?\/\//.test(s) || s.startsWith('/') || s.startsWith('data:')
-}
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 
 export interface AgentTipDialogProps {
   visible: boolean
@@ -25,29 +17,29 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
 
   if (!visible) return null
 
-  const tips = [
+  const tips: Array<{ icon: 'brain' | 'message-square' | 'image' | 'pencil' | 'clock'; title: string; desc: string }> = [
     {
-      icon: skillsIcon,
+      icon: 'brain',
       title: tt('ai.chat.agentTipSkill', '选择技能'),
       desc: tt('ai.chat.agentTipSkillDesc', '点击左上角技能按钮,选择对应智能体'),
     },
     {
-      icon: mesgIcon,
+      icon: 'message-square',
       title: tt('ai.chat.agentTipTalk', '选择对话'),
       desc: tt('ai.chat.agentTipTalkDesc', '切换到对话模式,与 AI 直接交流'),
     },
     {
-      icon: picterIcon,
+      icon: 'image',
       title: tt('ai.chat.agentTipImage', '选择绘图'),
       desc: tt('ai.chat.agentTipImageDesc', '切换到绘图模式,生成图片'),
     },
     {
-      icon: textInputIcon,
+      icon: 'pencil',
       title: tt('ai.chat.agentTipInput', '输入问题'),
       desc: tt('ai.chat.agentTipInputDesc', '在底部输入框输入你的问题,按发送'),
     },
     {
-      icon: fileIcon,
+      icon: 'clock',
       title: tt('ai.chat.agentTipHistory', '历史记录'),
       desc: tt('ai.chat.agentTipHistoryDesc', '可查看历史对话'),
     },
@@ -68,15 +60,12 @@ export default function AgentTipDialog({ visible, onClose }: AgentTipDialogProps
         <View className="flex flex-col gap-[24rpx] mb-[40rpx]">
           {tips.map((tip, i) => (
             <View key={i} className="flex items-start">
-              {isImagePath(tip.icon) ? (
-                <Image
-                  src={tip.icon}
-                  className="w-[32rpx] h-[32rpx] mr-[16rpx] mt-[4rpx]"
-                  mode="aspectFit"
-                />
-              ) : (
-                <Text className="text-[32rpx] mr-[16rpx] leading-[1.5]">{tip.icon}</Text>
-              )}
+              <LineIcon
+                name={tip.icon}
+                size={32}
+                color="var(--color-muted-foreground)"
+                className="mr-[16rpx] mt-[4rpx]"
+              />
               <View className="flex-1">
                 <Text className="block text-[28rpx] font-medium text-foreground leading-[1.5]">
                   {tip.title}

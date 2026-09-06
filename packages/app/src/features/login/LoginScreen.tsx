@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode } from 'lucide-react-native'
+import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
@@ -182,6 +182,12 @@ interface EmailTabContentProps extends TabContentBaseProps {
   onEmailCodeChange?: (text: string) => void
   onSendCode?: () => void
   onLogin: () => void
+  /** 账号登录历史(输入框聚焦时下拉;2026-09-06 邮箱 tab 对齐账号 tab) */
+  loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
 }
 
 interface PhoneTabContentProps extends TabContentBaseProps {
@@ -205,6 +211,12 @@ interface PhoneTabContentProps extends TabContentBaseProps {
   onPhoneCodeChange?: (text: string) => void
   onSendCode?: () => void
   onLogin: () => void
+  /** 账号登录历史(输入框聚焦时下拉;2026-09-06 手机号 tab 对齐账号 tab) */
+  loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
 }
 
 interface PasswordTabContentProps extends TabContentBaseProps {
@@ -227,6 +239,10 @@ interface PasswordTabContentProps extends TabContentBaseProps {
   onAutoLoginChange: (v: boolean) => void
   /** 账号登录历史(最新在前,最多 5;不传/为空则不显示下拉) */
   loginHistory?: string[]
+  /** 删除单条历史账号回调(可选;未传则不渲染 X) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号回调(可选;未传则不渲染清空) */
+  onClearLoginHistory?: () => void
 }
 
 interface QrTabContentProps {
@@ -475,6 +491,79 @@ function WeChatLoginButton({
 
 // ===== 4 个 tab 子组件 =====
 
+/** 历史账号下拉(账号/邮箱/手机号通用;对齐 web AccountHistoryInput:共用列表 + 单条删除 + 清空全部) */
+function HistoryDropdown({
+  t,
+  styles,
+  tk,
+  items,
+  onSelect,
+  onClose,
+  onRemove,
+  onClear,
+}: {
+  t: TFunction
+  styles: StyleSet
+  tk: AppThemeTokens
+  items: string[]
+  onSelect: (value: string) => void
+  onClose: () => void
+  onRemove?: (value: string) => void
+  onClear?: () => void
+}) {
+  return (
+    <View style={styles.historyDropdown}>
+      {items.map((acc) => (
+        <View key={acc} style={styles.historyItem}>
+          <TouchableOpacity
+            style={styles.historyItemMain}
+            onPress={() => {
+              onSelect(acc)
+              onClose()
+            }}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            accessibilityLabel={`选择历史账号 ${acc}`}
+          >
+            <Text style={styles.historyItemText} numberOfLines={1}>
+              {acc}
+            </Text>
+          </TouchableOpacity>
+          {onRemove ? (
+            <TouchableOpacity
+              style={styles.historyItemDel}
+              onPress={() => {
+                onRemove(acc)
+                if (items.length <= 1) onClose()
+              }}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.removeAccount')}
+            >
+              <X size={14} color={tk.text.tertiary} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ))}
+      {onClear ? (
+        <TouchableOpacity
+          style={styles.historyClear}
+          onPress={() => {
+            onClear()
+            onClose()
+          }}
+          activeOpacity={0.6}
+          accessibilityRole="button"
+          accessibilityLabel={t('auth.clearHistory')}
+        >
+          <Text style={styles.historyClearText}>{t('auth.clearHistory')}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  )
+}
+
 /** 邮箱验证码登录(对齐 web EmailCodeLoginForm) */
 function EmailTabContent({
   t,
@@ -494,24 +583,47 @@ function EmailTabContent({
   onOpenTerms,
   onOpenPrivacy,
   showAgreeErr,
+  loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
 }: EmailTabContentProps) {
   const sendDisabled = !email || sending || countdown > 0
+  // 历史账号下拉(邮箱输入框聚焦时展示;对齐账号 tab)
+  const [emailFocused, setEmailFocused] = useState(false)
+  const emailHistoryFiltered = (loginHistory ?? []).filter((a) => a !== email && a.length > 0)
   return (
     <View style={styles.tabContent}>
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.email')}</Text>
-        <FocusInput
-          styles={styles}
-          style={styles.input}
-          value={email}
-          onChangeText={onEmailChange}
-          placeholder={t('auth.emailPlaceholder')}
-          placeholderTextColor={tk.text.tertiary}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          textContentType="emailAddress"
-        />
+        <View>
+          <FocusInput
+            styles={styles}
+            style={styles.input}
+            value={email}
+            onChangeText={onEmailChange}
+            placeholder={t('auth.emailPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            onFocus={() => setEmailFocused(true)}
+            onBlur={() => setEmailFocused(false)}
+          />
+          {/* 历史账号下拉:邮箱输入框聚焦时展示 */}
+          {emailFocused && emailHistoryFiltered.length > 0 ? (
+            <HistoryDropdown
+              t={t}
+              styles={styles}
+              tk={tk}
+              items={emailHistoryFiltered}
+              onSelect={(acc) => onEmailChange?.(acc)}
+              onClose={() => setEmailFocused(false)}
+              onRemove={onRemoveLoginHistory}
+              onClear={onClearLoginHistory}
+            />
+          ) : null}
+        </View>
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>{t('auth.code')}</Text>
@@ -587,10 +699,15 @@ function PhoneTabContent({
   onOpenTerms,
   onOpenPrivacy,
   showAgreeErr,
+  loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
 }: PhoneTabContentProps) {
   const sendDisabled = !phone || sending || countdown > 0
   // 区号前缀框与手机号输入框联动聚焦:输入框聚焦时前缀框同步高亮(2026-09-04)
   const [phoneFocused, setPhoneFocused] = useState(false)
+  // 历史账号下拉:手机号输入框聚焦时展示(对齐账号 tab)
+  const phoneHistoryFiltered = (loginHistory ?? []).filter((a) => a !== phone && a.length > 0)
   // 区号选择器模式:传入 nations + phoneHead + onToggleNationShow 时启用(优先级高于 phonePrefixNode)
   const hasNationSelector = !!nations && !!phoneHead && !!onToggleNationShow
   return (
@@ -599,9 +716,9 @@ function PhoneTabContent({
         <Text style={styles.label}>{t('auth.phone')}</Text>
         {hasNationSelector ? (
           <View>
-            <View style={styles.phoneRow}>
+            <View style={[styles.phoneRow, phoneFocused && styles.phoneRowFocused]}>
               <Pressable
-                style={[styles.areaBox, phoneFocused && styles.areaBoxFocused]}
+                style={styles.areaBox}
                 onPress={onToggleNationShow}
                 accessibilityRole="button"
                 accessibilityLabel="选择区号"
@@ -646,6 +763,19 @@ function PhoneTabContent({
                   )
                 })}
               </View>
+            ) : null}
+            {/* 历史账号下拉:手机号输入框聚焦时展示(对齐账号 tab) */}
+            {phoneFocused && phoneHistoryFiltered.length > 0 ? (
+              <HistoryDropdown
+                t={t}
+                styles={styles}
+                tk={tk}
+                items={phoneHistoryFiltered}
+                onSelect={(acc) => onPhoneChange?.(acc)}
+                onClose={() => setPhoneFocused(false)}
+                onRemove={onRemoveLoginHistory}
+                onClear={onClearLoginHistory}
+              />
             ) : null}
           </View>
         ) : phonePrefixNode ? (
@@ -750,6 +880,8 @@ function PasswordTabContent({
   autoLogin,
   onAutoLoginChange,
   loginHistory,
+  onRemoveLoginHistory,
+  onClearLoginHistory,
 }: PasswordTabContentProps) {
   // 历史账号下拉(账号输入框聚焦时展示;选中/失焦后收起)
   const [accountFocused, setAccountFocused] = useState(false)
@@ -774,25 +906,16 @@ function PasswordTabContent({
           />
           {/* 历史账号下拉:绝对定位悬浮在输入框正下方,不挤压布局 */}
           {accountFocused && historyFiltered.length > 0 ? (
-            <View style={styles.historyDropdown}>
-              {historyFiltered.map((acc) => (
-                <TouchableOpacity
-                  key={acc}
-                  style={styles.historyItem}
-                  onPress={() => {
-                    onAccountChange(acc)
-                    setAccountFocused(false)
-                  }}
-                  activeOpacity={0.6}
-                  accessibilityRole="button"
-                  accessibilityLabel={`选择历史账号 ${acc}`}
-                >
-                  <Text style={styles.historyItemText} numberOfLines={1}>
-                    {acc}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <HistoryDropdown
+              t={t}
+              styles={styles}
+              tk={tk}
+              items={historyFiltered}
+              onSelect={(acc) => onAccountChange(acc)}
+              onClose={() => setAccountFocused(false)}
+              onRemove={onRemoveLoginHistory}
+              onClear={onClearLoginHistory}
+            />
           ) : null}
         </View>
       </View>
@@ -1118,6 +1241,8 @@ export function LoginScreen(props: LoginScreenProps) {
     autoLogin,
     onAutoLoginChange,
     loginHistory,
+    onRemoveLoginHistory,
+    onClearLoginHistory,
     // eye icons
     eyeIconShow,
     eyeIconHide,
@@ -1235,6 +1360,9 @@ export function LoginScreen(props: LoginScreenProps) {
             onSendCode={onSendEmailCode}
             onLogin={handleEmailLogin}
             loading={loading}
+            loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
             agreed={agreed}
             onAgreedChange={handleAgreedChange}
             onOpenTerms={onOpenTerms}
@@ -1263,6 +1391,9 @@ export function LoginScreen(props: LoginScreenProps) {
             onSendCode={onSendPhoneCode}
             onLogin={handlePhoneLogin}
             loading={loading}
+            loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
             agreed={agreed}
             onAgreedChange={handleAgreedChange}
             onOpenTerms={onOpenTerms}
@@ -1295,6 +1426,8 @@ export function LoginScreen(props: LoginScreenProps) {
             autoLogin={autoLogin ?? false}
             onAutoLoginChange={onAutoLoginChange ?? (() => {})}
             loginHistory={loginHistory}
+            onRemoveLoginHistory={onRemoveLoginHistory}
+            onClearLoginHistory={onClearLoginHistory}
           />
         ) : null}
 
@@ -1512,31 +1645,26 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       flex: 1,
     },
     // ===== 区号选择器(2026-08-20,对齐 uniapp nation-box + ChangePhone 现有模式) =====
-    // 输入行:区号按钮 + 手机号输入框,边框拼合成一个整体(区号按钮右缘无边框、输入框左圆角为 0)
+    // 区号拼合行:+86 区号选择与输入框共用一个容器,由容器统一画底色与四边圆角边框,
+    // 两个子元素自身不再带背景/边框,避免接缝处出现 RN-web 合成渲染产生的竖缝伪影(2026-09-06)
     phoneRow: {
       flexDirection: 'row',
       alignItems: 'center',
+      height: 50,
+      borderWidth: 1,
+      borderColor: inputBorder,
+      borderRadius: 12,
+      backgroundColor: inputBg,
+      overflow: 'hidden',
+    },
+    phoneRowFocused: {
+      borderColor: tk.brand.DEFAULT,
+      borderWidth: 2,
     },
     areaBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 50,
       paddingHorizontal: 14,
-      borderWidth: 1,
-      borderColor: inputBorder,
-      borderRightWidth: 0,
-      borderTopLeftRadius: 12,
-      borderBottomLeftRadius: 12,
-      backgroundColor: inputBg,
-    },
-    areaBoxFocused: {
-      borderColor: tk.brand.DEFAULT,
-      borderWidth: 2,
-      borderRightWidth: 0,
-    },
-    // 区号拼合行聚焦时去掉输入框左边框:整行外轮廓连续,中间无内部分隔线
-    phoneInputFocused: {
-      borderLeftWidth: 0,
     },
     areaText: {
       fontSize: 18,
@@ -1550,10 +1678,16 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     phoneInputWithArea: {
       flex: 1,
+      // 输入框不参与画框:边框/圆角/底色全部交给容器,照常态也要压掉 input 的通用边框
       borderTopLeftRadius: 0,
       borderBottomLeftRadius: 0,
-      // 左边框常驻去除:+86 与输入框之间不允许出现内部分隔竖线(聚焦态由 phoneInputFocused 兜底)
-      borderLeftWidth: 0,
+      borderWidth: 0,
+      backgroundColor: 'transparent',
+    },
+    // 区号拼合行聚焦时输入框保持无边框:高亮统一落在 phoneRow 容器边框上
+    phoneInputFocused: {
+      borderWidth: 0,
+      backgroundColor: 'transparent',
     },
     // 展开的区号列表:输入行下方 flow 展开(把后续内容下推,同 ChangePhone 模式)
     nationBox: {
@@ -1708,13 +1842,36 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       shadowRadius: 8,
     },
     historyItem: {
-      paddingVertical: 10,
+      paddingVertical: 0,
       paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    historyItemMain: {
+      flex: 1,
+      paddingVertical: 10,
+      paddingRight: 12,
+    },
+    historyItemDel: {
+      paddingVertical: 4,
+      paddingLeft: 8,
     },
     historyItemText: {
       fontSize: 14,
       lineHeight: 20,
       color: tk.text.primary,
+    },
+    historyClear: {
+      borderTopWidth: 1,
+      borderTopColor: inputBorder,
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      alignItems: 'center',
+    },
+    historyClearText: {
+      fontSize: 13,
+      color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
     loginBtn: {

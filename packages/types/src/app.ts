@@ -1758,8 +1758,12 @@ export interface LoginScreenProps {
   autoLogin?: boolean
   /** 自动登录勾选回调 */
   onAutoLoginChange?: (v: boolean) => void
-  /** 账号登录历史(最新在前,最多 5;账号输入框聚焦时展示下拉) */
+  /** 账号登录历史(最新在前,最多 5;账号/邮箱/手机号输入框聚焦时展示下拉) */
   loginHistory?: string[]
+  /** 删除单条历史账号(可选;下拉 X 按钮;未传则不渲染删除) */
+  onRemoveLoginHistory?: (account: string) => void
+  /** 清空全部历史账号(可选;下拉底部"清空";未传则不渲染清空) */
+  onClearLoginHistory?: () => void
 }
 
 /** RegisterScreen props(表单�? */

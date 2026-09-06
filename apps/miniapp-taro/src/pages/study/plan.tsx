@@ -89,7 +89,7 @@ export default function StudyPlan() {
                   </Text>
 
                   <Text
-                    className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-[rgba(255, 154, 60, 1)]'}`}
+                    className={`text-xs ${p.progress >= p.target ? 'text-success' : 'text-warning'}`}
                   >
                     {p.progress >= p.target
                       ? t('study.planPage.statusDone')

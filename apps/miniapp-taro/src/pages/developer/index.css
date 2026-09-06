@@ -22,8 +22,8 @@
 .subscribe-entry {
   display: flex;
   align-items: center;
-  background: linear-gradient(135deg, rgba(78, 140, 255, 1), rgba(106, 92, 255, 1));
-  /* custom color: 蓝紫渐变,无对应 token */
+  background: linear-gradient(135deg, var(--color-secondary), var(--color-muted));
+  /* custom color: 原蓝紫渐变 rgba(78,140,255)→rgba(106,92,255) 靛渣,已收敛为品牌 secondary/muted */
   margin: 20rpx;
   padding: 28rpx 30rpx;
   border-radius: var(--radius-lg);
@@ -39,7 +39,7 @@
 }
 .subscribe-entry-desc {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-muted-foreground);
   display: block;
   margin-top: 8rpx;
 }
@@ -163,23 +163,23 @@
   padding: 4rpx 16rpx;
   border-radius: var(--radius-sm);
   color: var(--color-muted-foreground);
-  background: rgba(138, 138, 142, 0.12);
+  background: var(--color-muted);
 }
 .agent-status.status-1 {
   color: var(--color-warning);
-  background: rgba(217, 154, 0, 0.12);
+  background: var(--color-warning-tint);
 }
 .agent-status.status-2 {
   color: var(--color-success);
-  background: rgba(52, 199, 89, 0.12);
+  background: var(--color-success-tint);
 }
 .agent-status.status-4 {
   color: var(--color-destructive);
-  background: rgba(221, 82, 77, 0.12);
+  background: var(--color-danger-tint);
 }
 .agent-status.status-5 {
   color: var(--color-muted-foreground);
-  background: rgba(138, 138, 142, 0.12);
+  background: var(--color-muted);
 }
 .agent-actions {
   display: flex;
@@ -192,11 +192,11 @@
 }
 .agent-action.edit {
   color: var(--color-primary);
-  background: rgba(78, 140, 255, 0.1);
+  background: var(--color-info-tint);
 }
 .agent-action.delete {
   color: var(--color-destructive);
-  background: rgba(221, 82, 77, 0.1);
+  background: var(--color-danger-tint);
 }
 .loading-text,
 .empty-text {

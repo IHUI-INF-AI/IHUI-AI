@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { useCallback } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
 import DrawerComponent from './DrawerComponent'
@@ -161,11 +162,11 @@ export default function MaterialPopup({
                           {item.title}
                         </Text>
                         {selectedId === item.id ? (
-                          <Image
+                          <LineIcon
+                            name="check-success"
+                            size="14px"
+                            color="var(--color-success)"
                             className="ml-2"
-                            style={{ width: 14, height: 14 }}
-                            src="/static/images/icons/check-success.svg"
-                            mode="aspectFit"
                           />
                         ) : null}
                       </View>

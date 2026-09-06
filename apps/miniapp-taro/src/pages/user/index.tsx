@@ -37,13 +37,12 @@ import dingdanIcon from '@/assets/remote/images/dingdan.jpg'
 import gerenIcon from '@/assets/remote/images/geren-icon.png'
 import shezhiIcon from '@/assets/remote/images/shezhi.png'
 import gonggaoIcon from '@/assets/remote/images/gonggao.png'
-import playIcon from '@/assets/remote/images/play.svg'
-import pauseIcon from '@/assets/remote/images/pause.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import yejiaoIcon from '@/assets/remote/images/yejiao.png'
-import backSvg from '@/assets/remote/images/back.svg'
 import { TABBAR_HOME_ICON_URL } from '@/constants/external-urls'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
+import { ICONS } from '@/components/LineIcon/icons'
 import './index.css'
 
 const defaultAvatar = TABBAR_HOME_ICON_URL
@@ -69,10 +68,13 @@ function isImagePath(icon: string): boolean {
   return /^(https?:)?\/\//.test(icon) || icon.startsWith('/')
 }
 
-// 统一渲染 icon:图片路径 → <Image>,emoji → <Text>
+// 统一渲染 icon:图片路径 → <Image>,LineIcon 键 → <LineIcon>,其它视为 emoji → <Text>
 function renderIcon(iconStr: string, emojiClass: string, imgClass: string) {
   if (isImagePath(iconStr)) {
     return <Image src={iconStr} className={imgClass} mode="aspectFit" />
+  }
+  if ((ICONS as Record<string, unknown>)[iconStr]) {
+    return <LineIcon name={iconStr as never} size={40} color="var(--color-muted-foreground)" />
   }
   return <Text className={emojiClass}>{iconStr}</Text>
 }
@@ -88,14 +90,14 @@ const menus = [
   { icon: courseIconLocal, key: 'user.menu.courses', path: '/pages/course/list' },
   { icon: aiIconLocal, key: 'user.menu.ai', path: '/pages/ai/chat' },
   { icon: shezhiIcon, key: 'user.menu.settings', path: '/pages/user/settings' },
-  // P0 页面导航入口(复用 static/images/icons 现有 SVG 资产)
+  // P0 页面导航入口(复用 LineIcon 图标资产)
   {
-    icon: '/static/images/icons/calendar.svg',
+    icon: 'calendar',
     key: 'checkIn.title',
     path: '/pages/check-in/index',
   },
   {
-    icon: '/static/images/icons/gift.svg',
+    icon: 'gift',
     key: 'taskCenter.title',
     path: '/pages/task-center/index',
   },
@@ -846,11 +848,11 @@ export default function UserIndex() {
                 style={{ background: 'var(--color-card)' }}
                 onClick={openSharePopup}
               >
-                <Image
+                <LineIcon
                   className="text-[32rpx] text-primary"
-                  style={{ width: '32rpx', height: '32rpx' }}
-                  src="/static/images/icons/share-2.svg"
-                  mode="aspectFit"
+                  name="share-2"
+                  size={32}
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             </View>
@@ -983,8 +985,13 @@ export default function UserIndex() {
             {/* 箭头头部：点击展开/收起（对齐原项目 membership-benefits-header @click="toggleMembershipBenefits"） */}
             <View className="membership-benefits-header" onClick={toggleBenefits}>
               <View className={`membership-benefits-arrow ${showBenefits ? 'arrow-rotate' : ''}`}>
-                <Image className="arrow-icon" src={backSvg} mode="aspectFit" />
-              </View>
+                  <LineIcon
+                    className="arrow-icon"
+                    name="chevron-right"
+                    size={40}
+                    color="var(--color-muted-foreground)"
+                  />
+                </View>
             </View>
             {/* 会员权益内容（对齐原项目 membership-benefits-content v-show="showMembershipBenefits"） */}
             {showBenefits ? (
@@ -1141,11 +1148,12 @@ export default function UserIndex() {
                         ) : null}
                         <View className="absolute inset-0 flex items-center justify-center">
                           <View className="w-[120rpx] h-[120rpx] rounded-full bg-black/50 flex items-center justify-center">
-                            <Image
-                              src={playIcon}
-                              mode="aspectFit"
-                              className="w-[60rpx] h-[60rpx]"
-                            />
+                            <LineIcon
+                                name="play"
+                                size={60}
+                                color="var(--color-white-98)"
+                                className="w-[60rpx] h-[60rpx]"
+                              />
                           </View>
                         </View>
                       </View>
@@ -1188,11 +1196,12 @@ export default function UserIndex() {
                           style={{ background: 'var(--color-primary)', flexShrink: 0 }}
                           onClick={() => toggleAudioPlay(index, item.audioUrl)}
                         >
-                          <Image
-                            src={audioPlayStates[index] ? pauseIcon : playIcon}
-                            mode="aspectFit"
-                            className="w-[36rpx] h-[36rpx]"
-                          />
+                          <LineIcon
+                                name={audioPlayStates[index] ? 'pause' : 'play'}
+                                size={36}
+                                color="var(--color-primary-foreground)"
+                                className="w-[36rpx] h-[36rpx]"
+                              />
                         </View>
                         {/* 进度条 */}
                         <View className="flex-1" style={{ minWidth: 0 }}>
@@ -1298,7 +1307,7 @@ export default function UserIndex() {
                   right: 0,
                   width: '60rpx',
                   height: '60rpx',
-                  background: 'rgba(0,0,0,0.5)',
+                  background: 'var(--color-black-50)',
                   borderTopRightRadius: '8rpx',
                   borderBottomLeftRadius: '8rpx',
                   zIndex: 10,
@@ -1307,7 +1316,7 @@ export default function UserIndex() {
               >
                 <CoverView
                   style={{
-                    color: '#fff',
+                    color: 'var(--color-white-98)',
                     fontSize: '40rpx',
                     fontWeight: 'bold',
                     lineHeight: '60rpx',

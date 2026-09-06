@@ -3,11 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, t } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { cn } from '@ihui/design-tokens'
-// 菜单图标 SVG(对齐原项目,统一从 @/assets/remote/ 引入;Vite 编译时内联为 base64,兼容微信小程序 <Image>)
-import menuIconSrc from '@/assets/remote/images/menu.svg'
 import { rpx, px } from '@/utils/rpx'
 
 export interface NavBarNotification {
@@ -134,10 +133,10 @@ export default function NavBar({
               style={{ width: rpx(40), height: rpx(40) }}
               onClick={onMenuClick}
             >
-              <Image
-                src={menuIconSrc}
-                style={{ width: rpx(40), height: rpx(40) }}
-                mode="aspectFit"
+              <LineIcon
+                name="menu"
+                size={40}
+                color="var(--color-muted-foreground)"
               />
             </View>
           </View>
@@ -191,10 +190,10 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFeedbackClick}
               >
-                <Image
-                  style={{ width: '28rpx', height: '28rpx' }}
-                  src="/static/images/icons/message-circle.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  name="message-circle"
+                  size={28}
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             ) : null}
@@ -204,10 +203,10 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onFenLeiClick}
               >
-                <Image
-                  src="/static/images/icons/menu.svg"
-                  style={{ width: rpx(28), height: rpx(28) }}
-                  mode="aspectFit"
+                <LineIcon
+                  name="menu"
+                  size={28}
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             ) : null}
@@ -217,11 +216,7 @@ export default function NavBar({
                 style={{ width: rpx(40), height: rpx(40) }}
                 onClick={onSearchClick}
               >
-                <Image
-                  style={{ width: '28rpx', height: '28rpx' }}
-                  src="/static/images/icons/search.svg"
-                  mode="aspectFit"
-                />
+                <LineIcon name="search" size={28} color="var(--color-muted-foreground)" />
               </View>
             ) : null}
             {onJoinClick ? (

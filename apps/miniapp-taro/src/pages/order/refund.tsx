@@ -137,7 +137,7 @@ export default function OrderRefund() {
           </Text>
           <View className="flex items-center justify-between">
             <Text className="text-[40rpx] font-bold text-primary">¥{refundAmount.toFixed(2)}</Text>
-            <Text className="text-[22rpx] text-warning px-[16rpx] py-[6rpx] bg-[rgba(245,158,11,0.12)] rounded-[8rpx]">
+            <Text className="text-[22rpx] text-warning px-[16rpx] py-[6rpx] bg-warning/[0.12] rounded-[8rpx]">
               {tt('order.refund.amountReadOnly', '不可修改')}
             </Text>
           </View>

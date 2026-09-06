@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { fetchModels, type LlmModel } from '@/api'
@@ -29,16 +30,16 @@ interface ModelDisplay {
 
 const PAGE_SIZE = 8
 
-/** 厂商图标(本地 SVG,统一颜色 #6366F1,源自 src/static/images/icons/ Lucide 集) */
-const PROVIDER_ICONS: Record<string, string> = {
-  OpenAI: '/static/images/icons/bot.svg',
-  Anthropic: '/static/images/icons/brain.svg',
-  Google: '/static/images/icons/search.svg',
-  StepFun: '/static/images/icons/zap.svg',
-  阿里云: '/static/images/icons/cloud.svg',
-  百度: '/static/images/icons/paw-print.svg',
-  字节: '/static/images/icons/rocket.svg',
-  智谱: '/static/images/icons/sparkles.svg',
+/** 厂商图标(源自 src/static/images/icons/ Lucide 集,经 LineIcon 以 mask 渲染换色) */
+const PROVIDER_ICONS: Record<string, IconName> = {
+  OpenAI: 'bot',
+  Anthropic: 'brain',
+  Google: 'search',
+  StepFun: 'zap',
+  阿里云: 'cloud',
+  百度: 'paw-print',
+  字节: 'rocket',
+  智谱: 'sparkles',
 }
 
 /** Mock 厂商优先顺序 */
@@ -232,10 +233,11 @@ export default function ModelPlazaIndex() {
                   className={`provider-tab${providerId === p ? ' active' : ''}`}
                   onClick={() => setProviderId(p)}
                 >
-                  <Image
+                  <LineIcon
                     className="provider-icon"
-                    src={PROVIDER_ICONS[p] || '/static/images/icons/bot.svg'}
-                    mode="aspectFit"
+                    name={(PROVIDER_ICONS[p] || 'bot') as IconName}
+                    size={40}
+                    color={providerId === p ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
                   />
                   <Text className="provider-name">{p}</Text>
                 </View>

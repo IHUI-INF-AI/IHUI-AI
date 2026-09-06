@@ -205,8 +205,8 @@
   padding: 8rpx 20rpx;
   font-size: 24rpx;
   color: var(--color-destructive);
-  background: rgba(220, 38, 38, 0.08);
-  border: 2rpx solid rgba(220, 38, 38, 0.2);
+  background: var(--color-danger-tint);
+  border: 2rpx solid var(--color-danger-tint-strong);
   border-radius: var(--radius-sm);
 }
 

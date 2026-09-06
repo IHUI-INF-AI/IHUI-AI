@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 
 export interface LikeFavoriteShareProps {
   likeCount?: number
@@ -30,31 +31,27 @@ export default function LikeFavoriteShare({
   return (
     <View className="flex items-center justify-around py-3 bg-card mt-2">
       <View className="flex flex-col items-center" onClick={onLike}>
-        <Image
-          style={{ width: '36rpx', height: '36rpx' }}
-          src={liked ? '/static/images/icons/heart-fill.svg' : '/static/images/icons/heart.svg'}
-          mode="aspectFit"
+        <LineIcon
+          name="heart"
+          size={36}
+          color={liked ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text className={`text-xs mt-0.5 ${liked ? 'text-destructive' : 'text-muted-foreground'}`}>
+        <Text className={`text-xs mt-0.5 ${liked ? 'text-primary' : 'text-muted-foreground'}`}>
           {likeCount > 0 ? likeCount : tt('action.like', '点赞')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onFavorite}>
-        <Image
-          style={{ width: '36rpx', height: '36rpx' }}
-          src={favorited ? '/static/images/icons/star-fill.svg' : '/static/images/icons/star.svg'}
-          mode="aspectFit"
+        <LineIcon
+          name="star"
+          size={36}
+          color={favorited ? 'var(--color-brand)' : 'var(--color-muted-foreground)'}
         />
-        <Text className={`text-xs mt-0.5 ${favorited ? 'text-warning' : 'text-muted-foreground'}`}>
+        <Text className={`text-xs mt-0.5 ${favorited ? 'text-primary' : 'text-muted-foreground'}`}>
           {favoriteCount > 0 ? favoriteCount : tt('action.favorite', '收藏')}
         </Text>
       </View>
       <View className="flex flex-col items-center" onClick={onShare}>
-        <Image
-          style={{ width: '36rpx', height: '36rpx' }}
-          src="/static/images/icons/share-2.svg"
-          mode="aspectFit"
-        />
+        <LineIcon name="share-2" size={36} color="var(--color-muted-foreground)" />
         <Text className="text-xs mt-0.5 text-muted-foreground">
           {shareCount > 0 ? shareCount : tt('action.share', '分享')}
         </Text>

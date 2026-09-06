@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef, useEffect } from 'react'
 import { getRefundList } from '@/api'
@@ -258,11 +259,11 @@ export default function RefundList() {
 
         {displayList.length === 0 && !loading && (
           <View className="refund-empty">
-            <Image
+            <LineIcon
               className="refund-empty-icon"
-              style={{ width: '80rpx', height: '80rpx' }}
-              src="/static/images/icons/package.svg"
-              mode="aspectFit"
+              name="package"
+              size={80}
+              color="var(--color-muted-foreground)"
             />
             <Text className="refund-empty-text">
               {tt('order.refundList.empty', '暂无退款记录')}

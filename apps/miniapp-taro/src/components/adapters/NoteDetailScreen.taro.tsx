@@ -5,10 +5,11 @@
 // 平台特有:依赖 @tarojs/components 的 View/Text/ScrollView/Image 组件,不适合共享层
 import { useTt, type TtFn } from '@/i18n'
 import { useCallback } from 'react'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
 import type { CSSProperties } from 'react'
 import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
+import LineIcon from '@/components/LineIcon'
 import type { TFunction, NoteDetailItem, NoteDetailScreenProps } from '@ihui/types'
 
 /** 笔记详情/Props 类型 re-export(单一来源 @ihui/types) */
@@ -242,10 +243,11 @@ export function NoteDetailScreen({
       <Text style={contentStyle(tk)}>{item.content}</Text>
       <View style={statRowStyle()}>
         <View style={statStyle(tk)}>
-          <Image
-            src="/static/images/icons/heart.svg"
-            mode="aspectFit"
-            style={{ width: toRpx(12), height: toRpx(12), marginRight: toRpx(4) }}
+          <LineIcon
+            name="heart"
+            size={12}
+            color={tk.text.medium}
+            style={{ marginRight: toRpx(4) }}
           />
           <Text style={{ fontSize: toRpx(12), color: tk.text.medium }}>{item.likes}</Text>
         </View>

@@ -277,7 +277,7 @@
   padding: 20rpx 24rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4rpx 16rpx var(--color-black-6);
   z-index: 10;
 }
 .cd-input {

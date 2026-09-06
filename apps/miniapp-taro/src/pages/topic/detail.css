@@ -190,7 +190,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
   border-radius: var(--radius-md);
   /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
   color: var(--color-foreground);

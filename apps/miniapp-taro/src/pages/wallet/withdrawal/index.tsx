@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Text, Input, Button, Image } from '@tarojs/components'
+import { View, Text, Input, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
@@ -126,7 +127,7 @@ export default function WithdrawalPage() {
                 onClick={() => setMethod(m.value)}
               >
                 <View
-                  className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[rgba(22, 119, 255, 1)]'}`}
+                  className={`w-[56rpx] h-[56rpx] rounded-[12rpx] flex items-center justify-center text-white text-[26rpx] font-bold mr-[16rpx] ${m.value === 'wechat' ? 'bg-[var(--color-wechat-green)]' : 'bg-[var(--color-alipay-blue)]'}`}
                 >
                   {m.icon}
                 </View>
@@ -135,11 +136,10 @@ export default function WithdrawalPage() {
                   className={`w-[36rpx] h-[36rpx] border-[2rpx] rounded-[8rpx] flex items-center justify-center ${method === m.value ? 'bg-primary border-primary' : 'border-border'}`}
                 >
                   {method === m.value && (
-                    <Image
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      className="text-primary-foreground font-bold"
-                      style={{ width: '24rpx', height: '24rpx' }}
+                    <LineIcon
+                      name="check"
+                      size={24}
+                      color="var(--color-primary-foreground)"
                     />
                   )}
                 </View>

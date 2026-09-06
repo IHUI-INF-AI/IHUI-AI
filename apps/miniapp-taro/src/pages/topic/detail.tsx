@@ -16,6 +16,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getTopicDetail, post, type Circle } from '@/api'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './detail.css'
 
 interface TopicData {
@@ -185,11 +186,11 @@ export default function TopicDetailPage() {
           {/* 发布入口 */}
           {topic.name ? (
             <View className="topic-detail-publish" onClick={goPublish}>
-              <Image
+              <LineIcon
+                name="pencil"
+                size={28}
                 className="topic-detail-publish-icon"
-                src="/static/images/icons/pencil.svg"
-                mode="aspectFit"
-                style={{ width: '28rpx', height: '28rpx' }}
+                color="var(--color-muted-foreground)"
               />
               <Text className="topic-detail-publish-text">
                 {tt('topic.detail.publishPlaceholder', '分享你对这个话题的看法…')}
@@ -247,20 +248,20 @@ export default function TopicDetailPage() {
                   ) : null}
                   <View className="topic-detail-post-footer">
                     <View className="topic-detail-post-stat">
-                      <Image
+                      <LineIcon
+                        name="heart"
+                        size={26}
                         className="topic-detail-post-stat-icon"
-                        src="/static/images/icons/heart.svg"
-                        mode="aspectFit"
-                        style={{ width: '26rpx', height: '26rpx' }}
+                        color="var(--color-muted-foreground)"
                       />
                       <Text className="topic-detail-post-stat-num">{p.likes || 0}</Text>
                     </View>
                     <View className="topic-detail-post-stat">
-                      <Image
+                      <LineIcon
+                        name="message-circle"
+                        size={26}
                         className="topic-detail-post-stat-icon"
-                        src="/static/images/icons/message-circle.svg"
-                        mode="aspectFit"
-                        style={{ width: '26rpx', height: '26rpx' }}
+                        color="var(--color-muted-foreground)"
                       />
                       <Text className="topic-detail-post-stat-num">{p.comments || 0}</Text>
                     </View>

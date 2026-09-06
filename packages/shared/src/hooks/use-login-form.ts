@@ -64,6 +64,10 @@ export interface CredentialStorage {
   saveLoginHistory: (account: string) => void
   /** 读取账号登录历史(最多 MAX_HISTORY=5,最新在前;2026-09-04 历史账号下拉功能) */
   loadLoginHistory: () => string[]
+  /** 删除单条账号历史,返回删除后的列表(可选;供历史下拉 X 删除) */
+  removeFromLoginHistory?: (account: string) => string[]
+  /** 清空全部账号历史,返回空列表(可选;供历史下拉"清空全部") */
+  clearLoginHistory?: () => string[]
 }
 
 export interface UseLoginFormOptions {

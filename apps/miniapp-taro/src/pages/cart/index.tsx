@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
@@ -200,11 +201,10 @@ export default function Cart() {
                     <Image className="cart-item-cover" src={item.coverUrl} mode="aspectFill" />
                   ) : (
                     <View className="cart-item-cover placeholder">
-                      <Image
-                        className="placeholder-icon"
-                        style={{ width: '48rpx', height: '48rpx' }}
-                        src="/static/images/icons/package.svg"
-                        mode="aspectFit"
+                      <LineIcon
+                        name="package"
+                        size={48}
+                        color="var(--color-muted-foreground)"
                       />
                     </View>
                   )}
@@ -232,11 +232,11 @@ export default function Cart() {
             ))
           ) : (
             <View className="empty-wrapper">
-              <Image
+              <LineIcon
                 className="empty-icon"
-                style={{ width: '80rpx', height: '80rpx' }}
-                src="/static/images/icons/shopping-cart.svg"
-                mode="aspectFit"
+                name="shopping-cart"
+                size={80}
+                color="var(--color-muted-foreground)"
               />
               <Text className="empty-text">{t('cart.empty')}</Text>
             </View>

@@ -5,6 +5,7 @@
 import { useTt, type TtFn } from '@/i18n'
 import { useState } from 'react'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { icon } from '@/constants/remote-icons'
 
@@ -160,7 +161,7 @@ export default function PayButton({
                 />
               ) : (
                 <View className="w-[84rpx] h-[84rpx] rounded-[15rpx] mr-3 bg-muted flex items-center justify-center">
-                  <Image className="w-8 h-8" src="/static/images/icons/bot.svg" mode="aspectFit" />
+                  <LineIcon name="bot" size="32px" color="var(--color-muted-foreground)" />
                 </View>
               )}
               <View className="flex-1">

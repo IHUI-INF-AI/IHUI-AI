@@ -11,6 +11,7 @@ import { getTopicList } from '@/api'
 import { TOPIC_EVENT } from '@/constants/events'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 interface TopicItem {
   id: string
@@ -133,11 +134,11 @@ export default function TopicListPage() {
           <View className="p-[24rpx] pb-[60rpx]">
             {/* 搜索栏 */}
             <View className="flex items-center h-[72rpx] px-[20rpx] bg-card rounded-[12rpx] mb-[20rpx]">
-              <Image
-                className="mr-[12rpx] text-muted-foreground shrink-0"
-                style={{ width: '28rpx', height: '28rpx' }}
-                src="/static/images/icons/search.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="search"
+                size={28}
+                className="mr-[12rpx] shrink-0"
+                color="var(--color-muted-foreground)"
               />
               <Input
                 className="flex-1 text-[28rpx] text-foreground"

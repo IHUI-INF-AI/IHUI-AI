@@ -9,6 +9,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useCallback, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './index.css'
 
 /** 广场卡片项(对标原项目 CardContent info) */
@@ -229,10 +230,11 @@ export default function PlazaIndex() {
             {item.track ? <Text className="pza-track">{item.track}</Text> : null}
             {(item.attention ?? 0) > 0 ? (
               <View className="pza-attention" style={{ display: 'flex', alignItems: 'center' }}>
-                <Image
-                  src="/static/images/icons/heart-fill.svg"
-                  mode="aspectFit"
-                  style={{ width: '22rpx', height: '22rpx', marginRight: '6rpx' }}
+                <LineIcon
+                  name="heart"
+                  size={22}
+                  color="var(--color-brand)"
+                  style={{ marginRight: '6rpx' }}
                 />
                 <Text>{item.attention}</Text>
               </View>
@@ -333,11 +335,11 @@ export default function PlazaIndex() {
                 <Text className="pza-drawer-title">
                   {tt('plaza.index.categoryTitle', '赛道分类')}
                 </Text>
-                <Image
+                <LineIcon
+                  name="x"
+                  size={40}
                   className="pza-drawer-close"
-                  src="/static/images/icons/x.svg"
-                  mode="aspectFit"
-                  style={{ width: '40rpx', height: '40rpx' }}
+                  color="var(--color-muted-foreground)"
                   onClick={() => setDrawerVisible(false)}
                 />
               </View>
@@ -377,11 +379,11 @@ export default function PlazaIndex() {
             <View className="pza-center" catchMove>
               <View className="pza-center-head">
                 <Text className="pza-center-title">{detail.title}</Text>
-                <Image
+                <LineIcon
+                  name="x"
+                  size={40}
                   className="pza-center-close"
-                  src="/static/images/icons/x.svg"
-                  mode="aspectFit"
-                  style={{ width: '40rpx', height: '40rpx' }}
+                  color="var(--color-muted-foreground)"
                   onClick={() => setShowCenter(false)}
                 />
               </View>

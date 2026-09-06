@@ -32,7 +32,7 @@ const DEFAULT_SIZE = 80
 /** 容器背景色 token key:浅色 = 透明,深色 = 极深透明 */
 const CONTAINER_BG: Record<RnThemeMode, string> = {
   light: 'transparent',
-  dark: 'rgba(0,0,0,0.1)',
+  dark: 'var(--color-black-10)',
 }
 
 /** Taro rpx 单位换算(1px = 2rpx) */

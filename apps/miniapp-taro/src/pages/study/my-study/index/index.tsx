@@ -4,7 +4,8 @@
 
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import * as api from '@/api'
@@ -143,11 +144,11 @@ export default function MyStudy() {
             displayList.map((item) => (
               <View key={item.id} className="study-card">
                 <View className="study-cover placeholder flex items-center justify-center">
-                  <Image
+                  <LineIcon
+                    name="book-open"
+                    size={40}
+                    color="var(--color-muted-foreground)"
                     className="placeholder-icon"
-                    style={{ width: '40rpx', height: '40rpx' }}
-                    src="/static/images/icons/book-open.svg"
-                    mode="aspectFit"
                   />
                 </View>
                 <View className="study-info">
@@ -178,11 +179,11 @@ export default function MyStudy() {
             ))
           ) : (
             <View className="empty-wrapper">
-              <Image
+              <LineIcon
+                name="book-open"
+                size={80}
+                color="var(--color-muted-foreground)"
                 className="empty-icon"
-                style={{ width: '80rpx', height: '80rpx' }}
-                src="/static/images/icons/book-open.svg"
-                mode="aspectFit"
               />
               <Text className="empty-text">{getEmptyText(activeTab)}</Text>
             </View>

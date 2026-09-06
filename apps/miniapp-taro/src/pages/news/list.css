@@ -78,8 +78,8 @@
   top: 16rpx;
   right: 16rpx;
   padding: 4rpx 12rpx;
-  background: rgba(255, 107, 53, 0.15);
-  border: 2rpx solid rgba(255, 107, 53, 0.4);
+  background: var(--color-brand-orange-tint);
+  border: 2rpx solid var(--color-brand-orange-tint-strong);
   border-radius: var(--radius-sm);
 }
 .pinned-tag-text {

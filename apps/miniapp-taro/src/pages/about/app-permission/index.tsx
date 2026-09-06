@@ -100,8 +100,8 @@ export default function AppPermission() {
     (scope: string): string => {
       const s = statusMap[scope]
       const base = 'text-[22rpx] py-[2rpx] px-[12rpx] rounded-[6rpx] ml-auto'
-      if (s === 'granted') return `${base} text-success bg-[rgba(16,185,129,0.1)]`
-      if (s === 'denied') return `${base} text-destructive bg-[rgba(239,68,68,0.1)]`
+      if (s === 'granted') return `${base} text-success bg-success/10`
+      if (s === 'denied') return `${base} text-destructive bg-destructive/10`
       return `${base} text-muted-foreground bg-background`
     },
     [statusMap],
@@ -112,7 +112,7 @@ export default function AppPermission() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background pb-[60rpx]">
-        <View className="m-[24rpx] p-[24rpx] bg-[rgba(245,158,11,0.1)] rounded-[12rpx]">
+        <View className="m-[24rpx] p-[24rpx] bg-warning/10 rounded-[12rpx]">
           <Text className="text-[24rpx] text-[var(--color-notification-text)] leading-[1.7]">
             {t('about.appPermission.intro')}
           </Text>

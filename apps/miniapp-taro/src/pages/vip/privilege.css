@@ -82,7 +82,7 @@
   line-height: 64rpx;
   text-align: center;
   font-size: 36rpx;
-  background: rgba(245, 158, 11, 0.12);
+  background: var(--color-gold-muted);
   color: var(--color-warning);
   border-radius: var(--radius-md);
   margin-bottom: 12rpx;
@@ -120,7 +120,7 @@
   text-align: center;
   font-size: 32rpx;
   color: var(--color-warning);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
   border-radius: var(--radius-md);
   margin-right: 20rpx;
   flex-shrink: 0;
@@ -180,7 +180,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -247,7 +247,7 @@
   align-items: center;
 }
 .matrix-row.header-row {
-  background: rgba(245, 158, 11, 0.08);
+  background: var(--color-gold-muted);
   border-radius: var(--radius-sm);
 }
 .matrix-cell {
@@ -290,7 +290,7 @@
   display: flex;
   align-items: flex-start;
   padding: 20rpx 24rpx;
-  background: rgba(245, 158, 11, 0.06);
+  background: var(--color-gold-muted);
   border-radius: var(--radius-md);
 }
 .benefit-check {

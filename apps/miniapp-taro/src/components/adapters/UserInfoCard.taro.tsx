@@ -104,7 +104,7 @@ const viewStyles = {
     backgroundColor: tk.surface.light,
     borderWidth: 1,
     borderStyle: 'solid',
-    borderColor: tk.indigo.light,
+    borderColor: tk.border.light,
     flexShrink: 0,
   }),
   avatarPlaceholder: (tk: RnThemeTokens): CSSProperties => ({
@@ -116,7 +116,7 @@ const viewStyles = {
     backgroundColor: tk.surface.light,
     fontSize: toRpx(20),
     fontWeight: 600,
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
   }),
   infoWrap: (): CSSProperties => ({
     flex: 1,
@@ -167,7 +167,7 @@ const viewStyles = {
     paddingRight: toRpx(10),
     paddingTop: toRpx(4),
     paddingBottom: toRpx(4),
-    backgroundColor: tk.indigo.DEFAULT,
+    backgroundColor: tk.brand.DEFAULT,
     borderRadius: toRpx(6),
   }),
 }
@@ -190,7 +190,7 @@ const textStyles = {
   }),
   editText: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
     marginLeft: toRpx(4),
   }),
   roleText: (tk: RnThemeTokens, isVip: boolean): CSSProperties => ({
@@ -200,12 +200,12 @@ const textStyles = {
   }),
   tokenLabel: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
   }),
   tokenValue: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
     fontWeight: 700,
-    color: tk.indigo.DEFAULT,
+    color: tk.text.primary,
     marginLeft: toRpx(4),
   }),
   rechargeBtnText: (tk: RnThemeTokens): CSSProperties => ({
