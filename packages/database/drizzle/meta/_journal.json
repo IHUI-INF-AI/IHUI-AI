@@ -1695,6 +1695,13 @@
       "when": 1720908800000,
       "tag": "20260906220000_pii_idcard_field_encryption",
       "break": false
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1720995200000,
+      "tag": "20260907000000_create_agent_runtime_sessions",
+      "break": true
     }
   ]
 }
