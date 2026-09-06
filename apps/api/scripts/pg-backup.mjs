@@ -4,9 +4,14 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌
 
 // PG 数据库每日备份脚本
+// ⚠ 备份拥有者状态(2026-09-06 收口为单一拥有者):
+//   - 唯一权威备份 = 原生 NSSM 服务 IHUI-PG-BACKUP → D:\DevEnv\backups\pg\ihui_dev_*.dump(每日03:00,7天轮转)+百度网盘40份异地。
+//   - 本脚本(输出 d:\IHUI-AI\backups\pg\*.sql.gz)原由 BullMQ 'pg-backup-daily'(每日02:30)调度,
+//     因调度静默失败/文件不累积、与 NSSM 重复,已于 2026-09-06 从 scheduler.ts 下线,不再纳入备份监控。
+//     → 本脚本现仅供【临时/手动】导出验证,不作为生产备份链。
 // 用法:
 //   1) 手动:    node apps/api/scripts/pg-backup.mjs
-//   2) 每日 02:30 自动: 由 apps/api/src/plugins/scheduler.ts 的 'pg-backup-daily' 任务触发
+//   (每日自动调度已移除)
 //
 // 输出: <仓库>/backups/pg/<db>-YYYYMMDD-HHmmss.sql.gz (gzip 压缩)
 // 保留: 最近 30 份, 老的自动删除

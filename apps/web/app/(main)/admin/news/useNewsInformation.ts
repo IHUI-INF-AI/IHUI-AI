@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
@@ -160,8 +161,9 @@ export function useNewsInformation(enabled: boolean) {
   }
 
   function handleDeleteInfo(info: Information) {
-    if (!window.confirm(`确认删除信息 "${info.title}" 吗?`)) return
-    deleteInfoMut.mutate(info.id)
+    void confirmDialog({ title: `确认删除信息 "${info.title}" 吗?` }).then((ok) => {
+      if (ok) deleteInfoMut.mutate(info.id)
+    })
   }
 
   const infoTotal = infoData?.total ?? 0
