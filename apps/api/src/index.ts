@@ -22,6 +22,7 @@ import {
   startPiiRetentionScheduler,
   stopPiiRetentionScheduler,
 } from './jobs/pii-retention-cleanup.js'
+import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -192,6 +193,12 @@ async function start() {
   // 默认开启,ENABLE_PII_RETENTION=false 禁用)
   if (process.env.ENABLE_PII_RETENTION !== 'false') {
     startPiiRetentionScheduler()
+  }
+
+  // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
+  // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
+  if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
+    startAlgorithmRecordScheduler()
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出

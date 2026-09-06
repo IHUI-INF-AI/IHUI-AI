@@ -178,6 +178,8 @@ import { authIdentityRoutes } from './auth-identity.js'
 
 // R67 补建：M-55 通知扩展 + M-66 教育平台 + M-72 支付状态 WS
 import { educationPlatformRoutes } from './education-platform.js'
+// 网信办「算法/模型备案」公开查询(2026-09-06 立,全网已备案模型/算法查询)
+import algorithmRecordRoutes from './algorithm-record.js'
 
 // R66 补建：M-44 remote + M-55 notification + M-57 content + M-60 org + M-61 AI图片编辑
 import { remoteExtendedRoutes } from './remote-extended.js'
@@ -589,6 +591,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiPricingRoutes, { prefix: '/api' })
   // 开发者门户公开元信息（P0-4a/b 配套,开发者门户页用）
   server.register(developerPortalRoutes, { prefix: '/api' })
+  // 网信办「算法/模型备案」公开查询（2026-09-06 立,全网已备案算法/模型查询）
+  server.register(algorithmRecordRoutes, { prefix: '/api' })
 
   // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
   server.register(eduPublicRoutes, { prefix: '/api' })
