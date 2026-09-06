@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { pgTable, uuid, varchar, timestamp } from 'drizzle-orm/pg-core'
+import { pgTable, uuid, varchar, text, timestamp } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
 /**
@@ -18,7 +18,11 @@ export const userAuthInfo = pgTable('user_auth_info', {
   cancelPhone: varchar('cancel_phone', { length: 20 }),
   // 实名认证字段
   realName: varchar('real_name', { length: 50 }),
-  idCard: varchar('id_card', { length: 20 }),
+  // P0 隐私修复(2026-09-06):idCard 改为 text 以承载字段级加密(AES-256-GCM)后的 JSON 密文。
+  // 存量明文可在读路径经 decryptField 兼容还原；升级需执行:
+  //   ALTER TABLE user_auth_info ALTER COLUMN id_card TYPE text;
+  // idCard 写/读边界在 apps/api/src/routes/auth-identity.ts 统一 encryptField/decryptField。
+  idCard: text('id_card'),
   authStatus: varchar('auth_status', { length: 32 }).default('unverified').notNull(), // unverified/pending/approved/rejected
   authSource: varchar('auth_source', { length: 50 }),
   authAt: timestamp('auth_at', { withTimezone: true }),
