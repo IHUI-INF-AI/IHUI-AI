@@ -58,6 +58,7 @@ export * from './agent-context.js'
 export * from './identity.js'
 export * from './ai-config.js'
 export * from './ai-relay.js'
+export * from './relay-usage.js'
 export * from './user-learning.js'
 // CLI 配置导入(cc-switch / codex++ / 各 CLI 工具)历史表
 export * from './cli-provider-imports.js'
