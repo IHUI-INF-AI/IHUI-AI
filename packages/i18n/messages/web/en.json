@@ -7942,9 +7942,17 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "Input",
+      "completionTokens": "Output",
+      "requests": "Requests",
+      "estimateHint": "Cost is a rough blended estimate (¥0.02 per 1K tokens), not actual billing",
+      "ariaLabel": "Session token usage"
+    },
+    "deepResearchEntry": "Deep Research",
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
-    "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins)",
+    "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins / Compact)",
     "addMenuLabel": "Add",
     "assistant": "AI Assistant",
     "cancel": "Cancel",
@@ -14209,6 +14217,17 @@
     "summaryPreview": "Summary preview"
   },
   "deepResearch": {
+    "sourcesTitle": "Sources",
+    "confidenceLabel": "Confidence",
+    "verifiedLabel": "Verified",
+    "unverifiedLabel": "Unverified",
+    "historyTitle": "History",
+    "sourceTier": {
+      "authoritative": "Official",
+      "media": "Media",
+      "community": "Community",
+      "unknown": "Unknown"
+    },
     "title": "Deep Research",
     "phasePlanning": "Planning",
     "phaseRetrieving": "Multi-source retrieval",
@@ -14347,7 +14366,38 @@
     "loading": "Loading…",
     "loadFailed": "Failed to load run records"
   },
+  "agentTeams": {
+    "title": "Agent Teams",
+    "refresh": "Refresh",
+    "statsTotal": "Total runs",
+    "statsActive": "Running",
+    "statsCompleted": "Completed",
+    "statsFailed": "Failed",
+    "filter": {
+      "all": "All",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "empty": "No team runs yet",
+    "selectHint": "Select a run on the left to view details",
+    "detailTitle": "Run details",
+    "goal": "Goal",
+    "role": "Member role",
+    "orchestration": "Orchestration",
+    "priority": "Priority",
+    "createdAt": "Created",
+    "updatedAt": "Updated",
+    "result": "Result",
+    "error": "Error",
+    "tokens": "Tokens",
+    "durationMs": "Duration (ms)",
+    "topologyTitle": "Swarm topology",
+    "activityTitle": "Activity feed",
+    "none": "None"
+  },
   "nav": {
+    "agentTeams": "Agent Teams",
     "about": "About",
     "activities": "Activities",
     "admin": "Admin",
@@ -20573,16 +20623,8 @@
     "title": "Agent Runtime",
     "description": "Agent runtime monitoring and management"
   },
-  "agentStepRecorder": {
-    "title": "Agent Step Recorder",
-    "description": "Record Agent execution steps"
-  },
   "apple": {
     "callback": "Apple Sign-in Callback"
-  },
-  "costDashboard": {
-    "title": "Cost Dashboard",
-    "description": "AI cost monitoring dashboard"
   },
   "developers": {
     "title": "Developers",

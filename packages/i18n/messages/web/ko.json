@@ -6774,12 +6774,7 @@
       "targetPlaceholder": "예:명문 고등학교, 985대학"
     },
     "options": {
-      "classLevel": [
-        "우수(학급 상위 10%)",
-        "양호(10-30%)",
-        "보통(30-70%)",
-        "미흡(하위 30%)"
-      ],
+      "classLevel": ["우수(학급 상위 10%)", "양호(10-30%)", "보통(30-70%)", "미흡(하위 30%)"],
       "difficulty": [
         "국어 독해",
         "영어 청취·회화",
@@ -6796,12 +6791,7 @@
         "시험 불안",
         "가정 환경 영향"
       ],
-      "school": [
-        "주요 중학교",
-        "일반 중학교",
-        "국제 학교",
-        "사립 학교"
-      ]
+      "school": ["주요 중학교", "일반 중학교", "국제 학교", "사립 학교"]
     },
     "result": {
       "failed": "AI 분석 실패",
@@ -7942,9 +7932,16 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "입력",
+      "completionTokens": "출력",
+      "requests": "요청 수",
+      "estimateHint": "비용은 혼합 단가 기준 추정입니다(1K 토큰당 ¥0.02, 실제 청구 아님)",
+      "ariaLabel": "세션 누적 토큰 사용량"
+    },
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "addContextReference": "컨텍스트 참조로 추가",
-    "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인)",
+    "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인/압축)",
     "addMenuLabel": "추가",
     "assistant": "AI 어시스턴트",
     "cancel": "취소",
@@ -7952,6 +7949,7 @@
     "clearInputTitle": "입력 내용 지우기",
     "cmdCode": "다음 기능을 코드로 구현하고 주석을 추가해 주세요:",
     "cmdExplain": "다음 개념을 자세히 설명해 주세요:",
+    "deepResearchEntry": "딥 리서치",
     "cmdKouboScript": "오늘의 더우인 나레이션 대본 8편을 생성해 주세요. 요구사항:\n1. 날짜: MMDD\n2. 주제 방향:\n3. 이중 문턱 검증(모호성 압축 / 교차 대본 어휘 / 전량 검증 / 어병 / 핫토픽 커버리지)\nkoubo-workflow 파이프라인을 실행하세요(제약 우선 작성법).",
     "cmdPolish": "다음 텍스트를 다듬어 더 전문적이고 유창하게 만들어 주세요:",
     "cmdSummary": "위 대화를 요약하고 핵심 정보를 추출해 주세요",
@@ -8768,58 +8766,32 @@
     "commands": {
       "ai-world": {
         "description": "AI 애플리케이션 세계 탐색",
-        "keywords": [
-          "AI",
-          "월드",
-          "앱"
-        ],
+        "keywords": ["AI", "월드", "앱"],
         "label": "AI 월드"
       },
       "chat": {
         "description": "AI 어시스턴트와 대화",
-        "keywords": [
-          "채팅",
-          "대화",
-          "AI",
-          "chat"
-        ],
+        "keywords": ["채팅", "대화", "AI", "chat"],
         "label": "AI 채팅"
       },
       "drama": {
         "description": "AI 생성 단편 드라마",
-        "keywords": [
-          "드라마",
-          "비디오",
-          "AI",
-          "drama"
-        ],
+        "keywords": ["드라마", "비디오", "AI", "drama"],
         "label": "AI 드라마"
       },
       "profile": {
         "description": "프로필 및 설정 관리",
-        "keywords": [
-          "프로필",
-          "사용자",
-          "설정"
-        ],
+        "keywords": ["프로필", "사용자", "설정"],
         "label": "프로필"
       },
       "search": {
         "description": "전역 콘텐츠 검색",
-        "keywords": [
-          "검색",
-          "찾기",
-          "search"
-        ],
+        "keywords": ["검색", "찾기", "search"],
         "label": "검색"
       },
       "settings": {
         "description": "시스템 환경 설정 및 구성",
-        "keywords": [
-          "설정",
-          "환경설정",
-          "구성"
-        ],
+        "keywords": ["설정", "환경설정", "구성"],
         "label": "설정"
       }
     },
@@ -10646,37 +10618,25 @@
       "quadrants": [
         {
           "description": "단순 결정 + 단순 실행, 고빈도 앱 신속 배포",
-          "examples": [
-            "지식 Q&A",
-            "프로세스 자동화"
-          ],
+          "examples": ["지식 Q&A", "프로세스 자동화"],
           "tag": "Q1",
           "title": "효율적 어시스턴트"
         },
         {
           "description": "복잡한 결정 + 단순 실행, 심층 분석 및 제안 제공",
-          "examples": [
-            "데이터 분석",
-            "의사결정 지원"
-          ],
+          "examples": ["데이터 분석", "의사결정 지원"],
           "tag": "Q2",
           "title": "스마트 어드바이저"
         },
         {
           "description": "단순 결정 + 복잡한 실행, 크로스시스템 복잡 작업 처리",
-          "examples": [
-            "회의 일정",
-            "승인 프로세스"
-          ],
+          "examples": ["회의 일정", "승인 프로세스"],
           "tag": "Q3",
           "title": "실행 전문가"
         },
         {
           "description": "복잡한 결정 + 복잡한 실행, 자율 기획 및 멀티에이전트 협업",
-          "examples": [
-            "마케팅 자동화",
-            "멀티에이전트 협업"
-          ],
+          "examples": ["마케팅 자동화", "멀티에이전트 협업"],
           "tag": "Q4",
           "title": "올라운드 전문가"
         }
@@ -10810,31 +10770,19 @@
       "items": [
         {
           "description": "오프라인 과정, 탐구 활동, 상호 지원 커뮤니티로 뜻이 맞는 의사결정자와 깊이 연결",
-          "features": [
-            "체계적 과정",
-            "실천 탐구",
-            "커뮤니티 상호 지원"
-          ],
+          "features": ["체계적 과정", "실천 탐구", "커뮤니티 상호 지원"],
           "tag": "MODULE 01",
           "title": "오프라인 커뮤니티"
         },
         {
           "description": "편리한 온라인 소통 플랫폼, 언제 어디서나 정보와 지원 획득",
-          "features": [
-            "소통 플랫폼",
-            "경험 공유",
-            "자원 연결"
-          ],
+          "features": ["소통 플랫폼", "경험 공유", "자원 연결"],
           "tag": "MODULE 02",
           "title": "온라인 커뮤니티"
         },
         {
           "description": "전문 대형 모델과 에이전트 서비스, 심층 AI화 컨설팅 및 지원 제공",
-          "features": [
-            "전문 대형 모델",
-            "에이전트 서비스",
-            "컨설팅 서비스"
-          ],
+          "features": ["전문 대형 모델", "에이전트 서비스", "컨설팅 서비스"],
           "tag": "MODULE 03",
           "title": "AI 전문 서비스"
         }
@@ -13324,15 +13272,7 @@
       "title": "Top 5 페이지",
       "visitsHeader": "방문수"
     },
-    "weekdays": [
-      "월",
-      "화",
-      "수",
-      "목",
-      "금",
-      "토",
-      "일"
-    ]
+    "weekdays": ["월", "화", "수", "목", "금", "토", "일"]
   },
   "models": {
     "aiNews": {
@@ -14068,12 +14008,7 @@
         ]
       },
       "starter": {
-        "features": [
-          "1M 토큰 한도",
-          "기본 모델 사용 가능",
-          "5개 API 토큰",
-          "커뮤니티 지원"
-        ]
+        "features": ["1M 토큰 한도", "기본 모델 사용 가능", "5개 API 토큰", "커뮤니티 지원"]
       }
     },
     "productSchema": {
@@ -14267,6 +14202,17 @@
     "summaryPreview": "요약 미리보기"
   },
   "deepResearch": {
+    "sourcesTitle": "출처",
+    "confidenceLabel": "신뢰도",
+    "verifiedLabel": "검증됨",
+    "unverifiedLabel": "검증 필요",
+    "historyTitle": "기록",
+    "sourceTier": {
+      "authoritative": "공식",
+      "media": "미디어",
+      "community": "커뮤니티",
+      "unknown": "알 수 없음"
+    },
     "title": "딥 리서치",
     "phasePlanning": "계획 설계",
     "phaseRetrieving": "다중 소스 검색",
@@ -14405,7 +14351,38 @@
     "loading": "로딩 중…",
     "loadFailed": "실행 기록을 불러오지 못했습니다"
   },
+  "agentTeams": {
+    "title": "에이전트 팀",
+    "refresh": "새로고침",
+    "statsTotal": "총 실행 수",
+    "statsActive": "실행 중",
+    "statsCompleted": "완료",
+    "statsFailed": "실패",
+    "filter": {
+      "all": "전체",
+      "running": "실행 중",
+      "completed": "완료",
+      "failed": "실패"
+    },
+    "empty": "아직 팀 실행 기록이 없습니다",
+    "selectHint": "왼쪽에서 실행을 선택해 상세 보기",
+    "detailTitle": "실행 상세",
+    "goal": "목표",
+    "role": "멤버 역할",
+    "orchestration": "오케스트레이션",
+    "priority": "우선순위",
+    "createdAt": "생성 시각",
+    "updatedAt": "업데이트 시각",
+    "result": "결과",
+    "error": "오류",
+    "tokens": "토큰 사용량",
+    "durationMs": "소요 시간(ms)",
+    "topologyTitle": "Swarm 토폴로지",
+    "activityTitle": "활동 스트림",
+    "none": "없음"
+  },
   "nav": {
+    "agentTeams": "에이전트 팀",
     "about": "소개",
     "activities": "활동",
     "admin": "관리",
@@ -15209,13 +15186,7 @@
       "enterprise": {
         "contactSales": "문의하기",
         "cta": "문의하기",
-        "features": [
-          "무제한 크레딧",
-          "사설 배포",
-          "SSO/SAML 2.0",
-          "감사 로그",
-          "전담 기술 지원"
-        ],
+        "features": ["무제한 크레딧", "사설 배포", "SSO/SAML 2.0", "감사 로그", "전담 기술 지원"],
         "name": "기업판"
       },
       "free": {
@@ -20631,16 +20602,8 @@
     "title": "상담원 런타임",
     "description": "에이전트 런타임 모니터링 및 관리"
   },
-  "agentStepRecorder": {
-    "title": "상담원 단계별 기록",
-    "description": "상담원 실행 단계 기록"
-  },
   "apple": {
     "callback": "Apple 로그인 콜백"
-  },
-  "costDashboard": {
-    "title": "비용 칸반",
-    "description": "AI 비용 모니터링 보드"
   },
   "developers": {
     "title": "개발자",

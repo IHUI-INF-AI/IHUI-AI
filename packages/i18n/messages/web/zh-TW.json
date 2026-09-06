@@ -7932,9 +7932,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "輸入",
+      "completionTokens": "輸出",
+      "requests": "請求數",
+      "estimateHint": "費用按混合單價粗估(¥0.02/千 token),非實際計費",
+      "ariaLabel": "會話累計 Token 用量"
+    },
+    "deepResearchEntry": "深度研究",
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加為上下文引用",
-    "addMenuDesc": "添加菜單(模板/引用/Skill/附件/插件)",
+    "addMenuDesc": "添加菜單(模板/引用/Skill/附件/插件/壓縮)",
     "addMenuLabel": "添加",
     "assistant": "AI 助手",
     "cancel": "取消",
@@ -14194,6 +14202,17 @@
     "summaryPreview": "摘要預覽"
   },
   "deepResearch": {
+    "sourcesTitle": "來源溯源",
+    "confidenceLabel": "置信度",
+    "verifiedLabel": "已核驗",
+    "unverifiedLabel": "待核驗",
+    "historyTitle": "歷史任務",
+    "sourceTier": {
+      "authoritative": "官方",
+      "media": "媒體",
+      "community": "社群",
+      "unknown": "未知"
+    },
     "title": "深度研究 Deep Research",
     "phasePlanning": "規劃問題",
     "phaseRetrieving": "多方檢索",
@@ -14332,7 +14351,38 @@
     "loading": "載入中…",
     "loadFailed": "載入執行紀錄失敗"
   },
+  "agentTeams": {
+    "title": "智慧代理團隊",
+    "refresh": "重新整理",
+    "statsTotal": "總執行數",
+    "statsActive": "執行中",
+    "statsCompleted": "已完成",
+    "statsFailed": "失敗",
+    "filter": {
+      "all": "全部",
+      "running": "執行中",
+      "completed": "已完成",
+      "failed": "失敗"
+    },
+    "empty": "暫無團隊執行記錄",
+    "selectHint": "從左側選擇一次執行查看詳情",
+    "detailTitle": "執行詳情",
+    "goal": "目標",
+    "role": "成員角色",
+    "orchestration": "編排模式",
+    "priority": "優先級",
+    "createdAt": "建立時間",
+    "updatedAt": "更新時間",
+    "result": "結果",
+    "error": "錯誤",
+    "tokens": "Token 用量",
+    "durationMs": "耗時(ms)",
+    "topologyTitle": "Swarm 拓撲",
+    "activityTitle": "活動流",
+    "none": "無"
+  },
   "nav": {
+    "agentTeams": "智慧代理團隊",
     "about": "關於",
     "activities": "活動",
     "admin": "管理後臺",
@@ -20540,16 +20590,8 @@
     "title": "Agent 運行時",
     "description": "Agent 運行時監控與管理"
   },
-  "agentStepRecorder": {
-    "title": "Agent 步驟記錄",
-    "description": "記錄 Agent 執行步驟"
-  },
   "apple": {
     "callback": "Apple 登錄回調"
-  },
-  "costDashboard": {
-    "title": "成本看板",
-    "description": "AI 成本監控看板"
   },
   "developers": {
     "title": "開發者",
