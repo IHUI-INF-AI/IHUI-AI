@@ -56,8 +56,80 @@ groups:
           summary: 'AI 服务宕机'
           description: 'AI 服务已宕机超过 1 分钟'
 
+  - name: llm-alerts
+    rules:
+      # LLM provider 健康/配额降级(重): model_sync 把 provider 标记为不健康(常见于 402/配额超限被禁用)。
+      # 指标 `model_sync_provider_health`(gauge, 1=健康/0=降级)已确认持续采样(含 provider_code=stepfun)。
+      - alert: LlmProviderUnhealthy
+        expr: model_sync_provider_health{job="ai-service"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'LLM provider 不健康(疑似 402/配额超限)'
+          description: 'provider_code={{ $labels.provider_code }} 被标记为不健康已达 5 分钟。检查配额/费用(stepfun/step-3.7-flash 曾 402 quota_exceeded 拖垮线上)。'
+
+      # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
+      # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
+      # 指标一出现即生效。
+      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled 避免"误报基线=0"产生误导告警;
+      #   待 ai-service 接入 ihui_llm_provider_errors_total 打点后移除 disabled 启用。
+      - alert: LlmProviderErrorBurst
+        expr: (sum(rate(ihui_llm_provider_errors_total{job="ai-service"}[15m])) or on() vector(0)) > 0
+        for: 5m
+        disabled: true
+        labels:
+          severity: warning
+        annotations:
+          summary: 'LLM provider 错误突增'
+          description: '15 分钟窗口内出现 LLM provider 错误(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额。'
+
+      # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
+      # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
+      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled; 接入打点+校准阈值后再启用。
+      - alert: LlmTokenCostSurge
+        expr: (sum(rate(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
+        for: 5m
+        disabled: true
+        labels:
+          severity: warning
+        annotations:
+          summary: 'LLM token/费用突增'
+          description: '15 分钟 LLM token 用量 {{ $value }} 超过阈值 100000,费用可能异常上涨。阈值需按基线人工校准。'
+
   - name: infrastructure-alerts
     rules:
+      # Windows 宿主机磁盘空间不足(< 15%,windows_exporter 逻辑盘指标)
+      - alert: WindowsDiskSpaceLow
+        expr: |
+          (windows_logical_disk_free_bytes / windows_logical_disk_size_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '磁盘空间不足'
+          description: 'Windows 卷 {{ $labels.volume }} 剩余空间不足 15%(当前 {{ $value | humanizePercentage }})'
+
+      # PostgreSQL 实例 down
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL 实例不可用'
+          description: 'Postgres exporter {{ $labels.instance }} 无指标,PostgreSQL 疑似宕机'
+
+      # Redis 实例 down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis 实例不可用'
+          description: 'Redis exporter {{ $labels.instance }} 无指标,Redis 疑似宕机'
+
       # 主机磁盘空间不足(< 10%)
       - alert: DiskSpaceLow
         expr: |
@@ -85,4 +157,48 @@ groups:
         annotations:
           summary: '内存不足'
           description: '可用内存不足 10%'
+
+  - name: monitoring-self-alerts
+    # 监控链自保:确保"监控自身死亡"能被发现,而不是静默断链。
+    # 说明:这些规则依赖 prometheus.yml 中对应的自监控 scrape job
+    #   (alertmanager/alertbridge 两个 target 已在本仓 prometheus.yml 新增;
+    #    部署副本 D:\DevEnv\monitor\prometheus\prometheus.yml 需同步),
+    #   部署前先校验 alertmanager --version / promtool check rules。
+    rules:
+      # Prometheus 自身无指标(自监控 up==0 或进程死)→ 告警源头失效
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Prometheus 自身宕机'
+          description: 'Prometheus self-scrape 无指标,监控数据失效,整条告警链源头断裂'
+      # Alertmanager(原生 127.0.0.1:9093)掉线 → 通知链路(含 Server酱)失效
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Alertmanager 不可用'
+          description: 'Alertmanager 无指标,通知路由(Email/钉钉/飞书/Server酱)可能失效'
+      # 告警中转 bridge(127.0.0.1:9096)掉线 → 微信推送收不到
+      - alert: AlertBridgeDown
+        expr: up{job="alertbridge"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: '告警中转 bridge 不可用'
+          description: 'alert-webhook-bridge 无指标,Server酱 微信推送链路断裂;检查 NSSM 服务状态'
+      # windows_exporter(127.0.0.1:9182)掉线 → 磁盘/内存等主机告警全部消失
+      - alert: WindowsExporterDown
+        expr: up{job="windows"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Windows 主机指标采集器不可用'
+          description: 'windows_exporter 无指标,WindowsDiskSpaceLow 等主机告警会静默失效;检查 windows_exporter 服务'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

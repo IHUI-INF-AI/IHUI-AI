@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { FileText, Plus } from 'lucide-react'
@@ -77,8 +78,9 @@ export default function MyPapersPage() {
     createMut.mutate()
   }
   function handleDelete(paper: Paper) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    delMut.mutate(paper.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(paper.id)
+    })
   }
 
   return (

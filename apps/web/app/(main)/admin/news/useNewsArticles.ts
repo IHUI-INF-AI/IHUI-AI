@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -143,8 +144,9 @@ export function useNewsArticles() {
   }
 
   function handleDelete(article: Article) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(article.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(article.id)
+    })
   }
 
   const total = data?.total ?? 0

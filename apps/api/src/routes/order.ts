@@ -244,6 +244,7 @@ const createdResponse = {
   },
   400: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
 }
 
 // =============================================================================
@@ -313,6 +314,17 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       // 防止攻击者传入自相矛盾的三元组绕过校验。
       if (originalPrice > 0 && Math.abs(originalPrice - discountAmount - payAmount) > 0.001) {
         return reply.status(400).send(error(400, '金额自洽性校验失败:原价 - 折扣 = 实付'))
+      }
+      // P0 风控覆盖(2026-09-06):普通订单创建接入风控引擎,DENY 阻断刷单/异常下单
+      const risk = server.riskEngine.evaluateRisk({
+        userId: request.userId!,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        amount: Math.round(payAmount * 100),
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: request.userId, hits: risk.hits }, '下单被风控拒绝')
+        return reply.status(403).send(error(403, '下单请求被风控拦截,请联系客服'))
       }
       const order = await createOrder({ userId: request.userId!, ...orderData })
       return reply.status(201).send(success({ order }))

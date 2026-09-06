@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -94,8 +95,9 @@ export default function ProjectDetailPage() {
   }
 
   const handleDelete = (file: FileItem) => {
-    if (!window.confirm(t('deleteConfirm', { name: file.name }))) return
-    deleteMutation.mutate(file.id)
+    void confirmDialog({ title: t('deleteConfirm', { name: file.name }) }).then((ok) => {
+      if (ok) deleteMutation.mutate(file.id)
+    })
   }
 
   // NOTE: handlePreview 保留直接 fetch,未迁移到 fetchApi:
