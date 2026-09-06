@@ -16,6 +16,14 @@ global:
 rule_files:
   - 'alerts.yml'
 
+# Prometheus → Alertmanager 告警路由通知
+# Alertmanager 负责分组/抑制/路由到 Email/钉钉/飞书/企业微信 4 通道(见 monitoring/alertmanager/alertmanager.yml)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
 # 抓取目标
 scrape_configs:
   # Fastify 后端 API(端口 8802,/metrics 端点由 metrics.ts 插件暴露)
