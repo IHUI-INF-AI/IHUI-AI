@@ -24,6 +24,8 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 if TYPE_CHECKING:
     from .agent_orchestrator import AgentOrchestrator
 
+from .exec_policy import PolicyDecision, RuleDecision, evaluate as exec_policy_evaluate
+
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
 from .context_recall import context_recall
 
@@ -1057,6 +1059,43 @@ async def _tool_run_command(arguments: dict[str, Any]) -> dict[str, Any]:
                     f"(安全限制,禁止执行)"
                 ),
             }
+
+    # exec_policy 策略引擎评估(在硬门之后、cwd 校验之前)
+    # deny → 拒绝执行并返回命中规则;prompt → 返回需审批结构(由 agent_loop 处理);allow → 继续放行
+    _exec_decision: PolicyDecision = exec_policy_evaluate(command, cwd=cwd)
+    if _exec_decision.action == RuleDecision.DENY:
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "exec_policy_denied",
+            "errorCode": "EXEC_POLICY_DENIED",
+            "command": command,
+            "matched_rules": [
+                {"pattern": r.pattern, "reason": r.reason, "source": r.source}
+                for r in _exec_decision.matched_rules
+            ],
+            "risk_notes": _exec_decision.risk_notes,
+            "message": (
+                f"命令被策略引擎拒绝:{_exec_decision.matched_rules[0].reason if _exec_decision.matched_rules else '未匹配规则'}"
+                "(安全策略禁止执行)"
+            ),
+        }
+    if _exec_decision.action == RuleDecision.PROMPT:
+        return {
+            "ok": False, "tool": "run_command",
+            "error": "exec_policy_needs_approval",
+            "errorCode": "EXEC_POLICY_NEEDS_APPROVAL",
+            "command": command,
+            "matched_rules": [
+                {"pattern": r.pattern, "decision": r.decision.value, "reason": r.reason, "source": r.source}
+                for r in _exec_decision.matched_rules
+            ],
+            "risk_notes": _exec_decision.risk_notes,
+            "approval_request": {
+                "command": command,
+                "reason": "; ".join(_exec_decision.risk_notes) if _exec_decision.risk_notes else "命令需要人工审批",
+            },
+            "message": "命令需要用户审批后方可执行",
+        }
 
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
