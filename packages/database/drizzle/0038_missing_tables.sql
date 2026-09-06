@@ -154,18 +154,20 @@ CREATE TABLE IF NOT EXISTS "zhs_organization" (
 CREATE INDEX IF NOT EXISTS "ix_zhs_organization_parent_id" ON "zhs_organization" ("parent_id");
 CREATE INDEX IF NOT EXISTS "ix_zhs_organization_status" ON "zhs_organization" ("status");
 
--- OAuth 私钥
+-- OAuth 私钥 (形状以 TS 权威 schema packages/database/src/schema/oauth-private-keys.ts 为准)
 CREATE TABLE IF NOT EXISTS "oauth_private_keys" (
-  "id" bigserial PRIMARY KEY NOT NULL,
-  "app_id" varchar(64) NOT NULL,
-  "key_type" varchar(32) DEFAULT 'rsa' NOT NULL,
-  "key_data" text NOT NULL,
-  "status" integer DEFAULT 1 NOT NULL,
-  "create_time" timestamptz DEFAULT now() NOT NULL,
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+  "client_id" varchar(100) NOT NULL,
+  "private_key" text NOT NULL,
+  "encryption_key_id" varchar(256),
+  "public_key" text,
+  "key_type" varchar(50) DEFAULT 'RSA' NOT NULL,
+  "is_active" integer DEFAULT 1 NOT NULL,
   "created_at" timestamptz DEFAULT now() NOT NULL,
   "updated_at" timestamptz DEFAULT now() NOT NULL
 );
-CREATE INDEX IF NOT EXISTS "ix_oauth_private_keys_status" ON "oauth_private_keys" ("status");
+CREATE INDEX IF NOT EXISTS "oauth_private_keys_client_idx" ON "oauth_private_keys" ("client_id");
+CREATE INDEX IF NOT EXISTS "oauth_private_keys_active_idx" ON "oauth_private_keys" ("is_active");
 
 -- ========== AI 配置相关 ==========
 
