@@ -499,6 +499,10 @@ async function callLlm(
           { role: 'system', content: prompt },
           { role: 'user', content },
         ],
+        // 2026-09-06 修复:显式锁定模型(优先环境变量 LLM_FEED_MODEL,默认 stepfun/step-3.7-flash)。
+        // 不传 model 时 ai-service 走自动程级升级(auto 路由),feed 短任务常被判 expert
+        // 升级到无余额的 gpt-4o-mini → 502,导致 LLM 分类/翻译积压长期抽不干。
+        model: feedModel(),
       }
       // max_tokens 限制输出长度(分类任务只需 ~20 token,防止 LLM 生成 HTML/长文)
       if (options.maxTokens !== undefined) body.max_tokens = options.maxTokens
@@ -972,6 +976,14 @@ const llmCategoryBatchSize = () => readPositiveIntEnv('LLM_CATEGORY_BATCH_SIZE',
 const llmTranslateBatchSize = () => readPositiveIntEnv('LLM_TRANSLATE_BATCH_SIZE', 100)
 const llmDrainStaggerMs = () => readPositiveIntEnv('LLM_DRAIN_STAGGER_MS', 3000)
 const llmDrainMaxIterations = () => readPositiveIntEnv('LLM_DRAIN_MAX_ITERATIONS', 5)
+// AI 资讯批处理锁定的模型。默认 StepFun step-3.7-flash(官方套餐,额度正常)。
+// 显式指定 model 可绕开 ai-service 的自动程级升级(此前 feed 短任务被判 expert
+// 升级到 gpt-4o-mini,而该 OpenAI 账号无余额 → 502 → 积压一直抽不干)。
+// 可通过环境变量 LLM_FEED_MODEL 覆盖(留空用默认)。
+const feedModel = (): string | undefined => {
+  const raw = env.LLM_FEED_MODEL
+  return raw && raw.trim() !== '' ? raw : 'stepfun/step-3.7-flash'
+}
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
