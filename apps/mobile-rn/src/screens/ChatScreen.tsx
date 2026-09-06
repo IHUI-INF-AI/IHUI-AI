@@ -2170,7 +2170,7 @@ export function ChatScreen() {
             <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
-            <Share2 size={48} color={tokens.purple.DEFAULT} />
+            <Share2 size={48} color={tokens.brandAccent.DEFAULT} />
             <Text style={styles.shareTitle}>分享领智汇值</Text>
             <Text style={styles.shareDesc}>
               首次分享成功,获得 {shareFirstReward}{' '}

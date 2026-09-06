@@ -348,7 +348,7 @@ function SwipeableConversationItem({
       >
         <View
           className="items-center justify-center"
-          style={{ width: FAVORITE_WIDTH, backgroundColor: '#f59e0b' }}
+          style={{ width: FAVORITE_WIDTH, backgroundColor: tokens.warning.DEFAULT }}
         >
           <Pressable
             className="items-center justify-center"
@@ -705,8 +705,8 @@ export function Drawer(props: DrawerProps) {
                   onPress={onNavigateCompany}
                   android_ripple={{ color: tokens.surface.muted }}
                 >
-                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-indigo-50 mr-3">
-                    <Building2 size={18} color={tokens.indigo.deep} />
+                  <View className="w-8 h-8 rounded-lg items-center justify-center bg-accent-light mr-3">
+                    <Building2 size={18} color={tokens.brandAccent.deep} />
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">我的一人公司</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />
@@ -728,7 +728,7 @@ export function Drawer(props: DrawerProps) {
                   android_ripple={{ color: tokens.surface.muted }}
                 >
                   <View className="w-8 h-8 rounded-lg items-center justify-center bg-purple-light mr-3">
-                    <Plus size={18} color={tokens.purple.DEFAULT} />
+                    <Plus size={18} color={tokens.brandAccent.DEFAULT} />
                   </View>
                   <Text className="flex-1 text-[14px] text-gray-900">创建新对话</Text>
                   <ChevronRight size={16} color={tokens.text.tertiary} />

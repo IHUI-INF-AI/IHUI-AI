@@ -6,7 +6,7 @@
  * Swagger UI 自定义品牌主题(2026-07-28 立,P0-4a Swagger 公开暴露策略)。
  *
  * 输出:
- * - theme: 自定义 CSS(品牌蓝 #3b82f6 + Logo 文字 + 顶栏 + 信息条)
+ * - theme: 自定义 CSS(品牌橙 #ff6b35 + Logo 文字 + 顶栏 + 信息条)
  * - logo: 内联 SVG(不依赖外部资源,符合"无外部依赖"约束)
  * - uiConfig: Swagger UI 标准配置(深链/过滤/语法高亮/persistAuthorization)
  * - staticCSP: 显式 CSP 允许 swagger-ui 自己的 inline style/script
@@ -24,11 +24,20 @@
  *   })
  */
 import type { FastifyRequest, FastifyReply } from 'fastify'
-
-/** IHUI 品牌主色(与 apps/web/app/globals.css 中 #3b82f6 一致)。 */
-export const IHUI_BRAND_PRIMARY = '#3b82f6'
-export const IHUI_BRAND_PRIMARY_DARK = '#2563eb'
-export const IHUI_BRAND_BG = '#f8fafc'
+import {
+  BRAND_PRIMARY,
+  BRAND_PRIMARY_DARK,
+  BRAND_BG,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+  CHART_TEXT_LIGHT,
+  CHART_AXIS_LIGHT,
+  CHART_BG_LIGHT,
+  COLOR_BLACK,
+  withAlpha,
+} from '@ihui/design-tokens'
 
 /**
  * 内联 SVG Logo(蓝色六边形 + "IHUI" 文字),不依赖外部资源。
@@ -39,13 +48,13 @@ function buildLogoSvg(): string {
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">',
     '<defs>',
     '<linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">',
-    `<stop offset="0%" stop-color="${IHUI_BRAND_PRIMARY}"/>`,
-    `<stop offset="100%" stop-color="${IHUI_BRAND_PRIMARY_DARK}"/>`,
+    `<stop offset="0%" stop-color="${BRAND_PRIMARY}"/>`,
+    `<stop offset="100%" stop-color="${BRAND_PRIMARY_DARK}"/>`,
     '</linearGradient>',
     '</defs>',
     '<path d="M24 3 L42 14 L42 34 L24 45 L6 34 L6 14 Z" fill="url(#g)"/>',
-    '<text x="24" y="29" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" ',
-    'font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle" letter-spacing="0.5">IHUI</text>',
+    `<text x="24" y="29" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif" `,
+    `font-size="14" font-weight="700" fill="${CHART_BG_LIGHT}" text-anchor="middle" letter-spacing="0.5">IHUI</text>`,
     '</svg>',
   ].join('')
 }
@@ -58,28 +67,28 @@ function buildThemeCss(): string {
   return [
     `/* IHUI 品牌主题覆盖(2026-07-28) */`,
     `:root {`,
-    `  --ihui-primary: ${IHUI_BRAND_PRIMARY};`,
-    `  --ihui-primary-dark: ${IHUI_BRAND_PRIMARY_DARK};`,
-    `  --ihui-bg: ${IHUI_BRAND_BG};`,
+    `  --ihui-primary: ${BRAND_PRIMARY};`,
+    `  --ihui-primary-dark: ${BRAND_PRIMARY_DARK};`,
+    `  --ihui-bg: ${BRAND_BG};`,
     `}`,
     `.swagger-ui .topbar { background: linear-gradient(135deg, var(--ihui-primary) 0%, var(--ihui-primary-dark) 100%); padding: 14px 0; }`,
     `.swagger-ui .topbar .download-url-wrapper { display: none; }`,
     `.swagger-ui .info { background: var(--ihui-bg); border-radius: 8px; padding: 20px 24px; margin: 20px 0; }`,
     `.swagger-ui .info .title { color: var(--ihui-primary-dark); }`,
-    `.swagger-ui .scheme-container { background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); padding: 12px 20px; }`,
-    `.swagger-ui .opblock-tag { font-size: 16px; border-bottom: 1px solid #e2e8f0; }`,
+    `.swagger-ui .scheme-container { background: ${CHART_BG_LIGHT}; border-radius: 8px; box-shadow: 0 1px 3px ${withAlpha(COLOR_BLACK, 0.06)}; padding: 12px 20px; }`,
+    `.swagger-ui .opblock-tag { font-size: 16px; border-bottom: 1px solid ${CHART_AXIS_LIGHT}; }`,
     `.swagger-ui .opblock .opblock-summary { border-radius: 6px; }`,
     `.swagger-ui .btn.execute { background: var(--ihui-primary); border-color: var(--ihui-primary); }`,
     `.swagger-ui .btn.execute:hover { background: var(--ihui-primary-dark); border-color: var(--ihui-primary-dark); }`,
     `.swagger-ui a { color: var(--ihui-primary-dark); }`,
-    `.swagger-ui .opblock-tag-section .opblock-tag:hover { background: rgba(59, 130, 246, 0.06); }`,
-    `.swagger-ui .opblock.opblock-post { border-color: var(--ihui-primary); background: rgba(59, 130, 246, 0.04); }`,
-    `.swagger-ui .opblock.opblock-get { border-color: #10b981; background: rgba(16, 185, 129, 0.04); }`,
-    `.swagger-ui .opblock.opblock-put { border-color: #f59e0b; background: rgba(245, 158, 11, 0.04); }`,
-    `.swagger-ui .opblock.opblock-delete { border-color: #ef4444; background: rgba(239, 68, 68, 0.04); }`,
-    `.swagger-ui .opblock.opblock-patch { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.04); }`,
+    `.swagger-ui .opblock-tag-section .opblock-tag:hover { background: ${withAlpha(BRAND_PRIMARY, 0.06)}; }`,
+    `.swagger-ui .opblock.opblock-post { border-color: var(--ihui-primary); background: ${withAlpha(BRAND_PRIMARY, 0.04)}; }`,
+    `.swagger-ui .opblock.opblock-get { border-color: ${CHART_GREEN}; background: ${withAlpha(CHART_GREEN, 0.04)}; }`,
+    `.swagger-ui .opblock.opblock-put { border-color: ${CHART_AMBER}; background: ${withAlpha(CHART_AMBER, 0.04)}; }`,
+    `.swagger-ui .opblock.opblock-delete { border-color: ${CHART_RED}; background: ${withAlpha(CHART_RED, 0.04)}; }`,
+    `.swagger-ui .opblock.opblock-patch { border-color: ${CHART_VIOLET}; background: ${withAlpha(CHART_VIOLET, 0.04)}; }`,
     `/* IHUI 品牌水印 */`,
-    `.swagger-ui .info::after { content: 'Powered by IHUI AI'; display: block; margin-top: 12px; font-size: 12px; color: #94a3b8; text-align: right; }`,
+    `.swagger-ui .info::after { content: 'Powered by IHUI AI'; display: block; margin-top: 12px; font-size: 12px; color: ${CHART_TEXT_LIGHT}; text-align: right; }`,
   ].join('\n')
 }
 
@@ -96,7 +105,7 @@ function buildThemeJs(): string {
     `      topbar.dataset.ihuiBranded = '1';`,
     `      const link = topbar.querySelector('a');`,
     `      if (link) {`,
-    `        link.innerHTML = '<span style="color:#fff;font-weight:600;font-size:16px;letter-spacing:0.5px;">IHUI AI · API Docs</span>';`,
+    `link.innerHTML = '<span style="color:${CHART_BG_LIGHT};font-weight:600;font-size:16px;letter-spacing:0.5px;">IHUI AI · API Docs</span>';`,
     `        link.setAttribute('href', 'https://aizhs.top');`,
     `        link.setAttribute('target', '_blank');`,
     `      }`,
@@ -120,8 +129,8 @@ function buildThemeJs(): string {
 function buildFaviconSvg(): string {
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">',
-    `<rect width="16" height="16" rx="3" fill="${IHUI_BRAND_PRIMARY}"/>`,
-    '<text x="8" y="11" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#fff" text-anchor="middle">I</text>',
+    `<rect width="16" height="16" rx="3" fill="${BRAND_PRIMARY}"/>`,
+    `<text x="8" y="11" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="${CHART_BG_LIGHT}" text-anchor="middle">I</text>`,
     '</svg>',
   ].join('')
 }

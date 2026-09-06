@@ -59,7 +59,7 @@ export function SpecScreen() {
           onPress={() => void load()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text className="text-sm text-blue-600 dark:text-blue-400">{t('common.retry')}</Text>
+          <Text className="text-sm text-orange-600 dark:text-orange-400">{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -95,9 +95,9 @@ export function SpecScreen() {
                     {tpl.sections.map((sec) => (
                       <View
                         key={sec}
-                        className="rounded bg-blue-50 px-1.5 py-0.5 dark:bg-blue-900/30"
+                        className="rounded bg-orange-50 px-1.5 py-0.5 dark:bg-orange-900/30"
                       >
-                        <Text className="text-[10px] text-blue-600 dark:text-blue-300">{sec}</Text>
+                        <Text className="text-[10px] text-orange-600 dark:text-orange-300">{sec}</Text>
                       </View>
                     ))}
                   </View>

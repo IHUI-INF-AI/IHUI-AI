@@ -257,7 +257,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     pkgUnit: { marginTop: 8, fontSize: 11, color: tk.text.secondary },
-    pkgBonus: { marginTop: 8, fontSize: 11, color: tk.warning.deep, fontWeight: '600' },
+    pkgBonus: { marginTop: 8, fontSize: 11, color: tk.brandAccent.DEFAULT, fontWeight: '600' },
     pkgPriceBox: {
       marginTop: 8,
       paddingHorizontal: 12,
@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     tabItemActive: { backgroundColor: tk.brand.DEFAULT },
     tabText: { fontSize: 14, color: tk.text.secondary },
     tabTextActive: { color: tk.surface.light, fontWeight: '600' },
-    errorText: { color: tk.warning.deep, fontSize: 14 },
+    errorText: { color: tk.brandAccent.DEFAULT, fontSize: 14 },
     empty: { alignItems: 'center', paddingVertical: 32 },
     emptyText: { fontSize: 14, color: tk.text.tertiary },
     recordItem: {
@@ -308,7 +308,7 @@ function createStyles(tk: AppThemeTokens) {
     recordTime: { marginTop: 8, fontSize: 11, color: tk.text.tertiary },
     recordAmount: { fontSize: 16, fontWeight: '700' },
     amountGreen: { color: tk.success.DEFAULT },
-    amountRed: { color: tk.warning.deep },
+    amountRed: { color: tk.brandAccent.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

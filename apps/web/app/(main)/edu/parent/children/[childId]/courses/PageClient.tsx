@@ -12,6 +12,7 @@ import { BookOpen, Loader2, Clock, MapPin } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { CHART_BLUE } from '@ihui/design-tokens'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
 
@@ -87,7 +88,7 @@ export default function ChildCoursesPage() {
                     <div
                       key={c.id}
                       className="rounded-lg border-l-4 bg-card px-3 py-2"
-                      style={{ borderLeftColor: c.color ?? '#3b82f6' }}
+                      style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                     >
                       <p className="text-sm font-medium">{c.courseName}</p>
                       <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">
