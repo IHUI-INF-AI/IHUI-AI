@@ -14,7 +14,6 @@
     "#2dc100",
     "#3370ff",
     "#4285f4",
-    "#8d83ff",
     "#ffffff"
   ],
   "screens/MoreCourseScreen.tsx": ["#93d2e2"],

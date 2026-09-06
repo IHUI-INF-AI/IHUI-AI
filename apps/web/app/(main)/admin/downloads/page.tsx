@@ -9,6 +9,16 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { Loader2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import {
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_VIOLET,
+  CHART_TEXT_LIGHT,
+  CHART_PINK,
+  CHART_TEAL,
+  CHART_INDIGO,
+} from '@ihui/design-tokens'
 import type { EChartsOption } from 'echarts'
 import { fetchApi } from '@/lib/api'
 import { EChart } from '@/components/charts/EChart'
@@ -47,14 +57,14 @@ const PLATFORM_LABEL_KEY: Record<PlatformKey, string> = {
 }
 
 const PLATFORM_COLORS = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#8b5cf6',
-  '#94a3b8',
-  '#ec4899',
-  '#14b8a6',
-  '#6366f1',
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_VIOLET,
+  CHART_TEXT_LIGHT,
+  CHART_PINK,
+  CHART_TEAL,
+  CHART_INDIGO,
 ]
 
 const PENDING_PLATFORMS = [
@@ -135,7 +145,7 @@ export default function DownloadsPage() {
         type: 'line',
         smooth: true,
         data: byDate.map((p) => p.count),
-        itemStyle: { color: '#3b82f6' },
+        itemStyle: { color: CHART_BLUE },
         areaStyle: { opacity: 0.1 },
       },
     ],

@@ -91,7 +91,7 @@ export function KnowledgeBaseScreen() {
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('knowledgeBase.title')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('KnowledgeCreate')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text className="text-sm text-blue-600">{t('knowledgeBase.add')}</Text>
+          <Text className="text-sm text-orange-600">{t('knowledgeBase.add')}</Text>
         </TouchableOpacity>
       </View>
 

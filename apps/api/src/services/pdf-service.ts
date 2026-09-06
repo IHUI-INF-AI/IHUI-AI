@@ -17,6 +17,14 @@ import { existsSync } from 'node:fs'
 import { Writable, type WritableOptions } from 'node:stream'
 
 import { logger } from '../utils/logger.js'
+import {
+  DOC_BG,
+  DOC_BORDER,
+  DOC_BRAND,
+  DOC_BRAND_SOFT,
+  DOC_TEXT_BODY,
+  DOC_TEXT_STRONG,
+} from '@ihui/design-tokens'
 
 // 中文字体探测(2026-08-01 立:修复 PDF 中文乱码,Helvetica 不含中文字符集)
 // Windows 优先 .ttf 格式(pdfkit 0.19 对 .ttc 集合格式解析失败,doc.font() 时抛错)
@@ -230,22 +238,17 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
       // 注册中文字体(注册后 doc.font(name) 切换)
       registerChineseFonts(doc as unknown as PDFDocumentLike)
 
-      // 品牌色(深蓝 #1e40af 主色 + 浅蓝 #dbeafe 强调 + 灰色 #6b7280 次要)
-      const COLOR_PRIMARY = '#1e40af'
-      const COLOR_ACCENT = '#dbeafe'
-      const COLOR_TEXT = '#1f2937'
-      const COLOR_MUTED = '#6b7280'
-      const COLOR_BORDER = '#e5e7eb'
+      // 品牌色(深蓝 DOC_BRAND 主色 + 浅蓝 DOC_BRAND_SOFT 强调 + 灰 DOC_TEXT_BODY 次要)
 
       // ====================== 封面页 ======================
       // 顶部品牌色横带(高 6pt,贯穿整宽)
-      doc.rect(0, 800, 595, 42).fill(COLOR_PRIMARY).fillColor('#ffffff')
+      doc.rect(0, 800, 595, 42).fill(DOC_BRAND).fillColor(DOC_BG)
 
       // 主标题(居中,微软雅黑 Bold 28pt)
       doc
         .fontSize(28)
         .font(boldFont())
-        .fillColor(COLOR_TEXT)
+        .fillColor(DOC_TEXT_STRONG)
         .text(input.title, 50, 320, { align: 'center', width: 495 } as never)
 
       // 副标题(居中,微软雅黑 13pt 灰色)
@@ -253,18 +256,18 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
         doc
           .fontSize(13)
           .font(bodyFont())
-          .fillColor(COLOR_MUTED)
+          .fillColor(DOC_TEXT_BODY)
           .text(input.subtitle, 50, 370, { align: 'center', width: 495 } as never)
       }
 
       // 中间装饰横线(品牌色,120pt 宽,居中)
-      doc.rect(237, 410, 120, 2).fill(COLOR_PRIMARY)
+      doc.rect(237, 410, 120, 2).fill(DOC_BRAND)
 
       // 底部品牌署名
       doc
         .fontSize(11)
         .font(bodyFont())
-        .fillColor(COLOR_MUTED)
+        .fillColor(DOC_TEXT_BODY)
         .text('IHUI AI 平台 · 智能生涯指导', 50, 760, {
           align: 'center',
           width: 495,
@@ -287,17 +290,17 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
         const cardHeight = Math.min(220, 40 + contentLines * 18 + 16)
         doc
           .rect(50, y - 8, 495, cardHeight)
-          .fill(COLOR_ACCENT)
-          .fillColor(COLOR_TEXT)
+          .fill(DOC_BRAND_SOFT)
+          .fillColor(DOC_TEXT_STRONG)
 
         // 左侧品牌色竖线(3pt 宽,与卡片同高)
-        doc.rect(50, y - 8, 3, cardHeight).fill(COLOR_PRIMARY)
+        doc.rect(50, y - 8, 3, cardHeight).fill(DOC_BRAND)
 
         // 章节标题(微软雅黑 Bold 14pt 品牌色)
         doc
           .fontSize(14)
           .font(boldFont())
-          .fillColor(COLOR_PRIMARY)
+          .fillColor(DOC_BRAND)
           .text(section.heading, 66, y, { width: 470 } as never)
         y += 26
 
@@ -305,7 +308,7 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
         doc
           .fontSize(11)
           .font(bodyFont())
-          .fillColor(COLOR_TEXT)
+          .fillColor(DOC_TEXT_STRONG)
           .text(section.content, 66, y, {
             width: 470,
             lineGap: 4,
@@ -321,14 +324,14 @@ export async function generateReportPDF(input: ReportPDFInput): Promise<PDFResul
       doc
         .moveTo(50, y + 10)
         .lineTo(545, y + 10)
-        .strokeColor(COLOR_BORDER)
+        .strokeColor(DOC_BORDER)
         .lineWidth(0.5)
         .stroke()
       // 页脚文字
       doc
         .fontSize(9)
         .font(bodyFont())
-        .fillColor(COLOR_MUTED)
+        .fillColor(DOC_TEXT_BODY)
         .text(
           `本报告由 IHUI AI 平台生成 · ${input.generatedAt.toISOString().slice(0, 10)}`,
           50,
