@@ -56,7 +56,7 @@ interface StatItem {
 function statusBadgeClass(status: string): string {
   switch (status) {
     case 'running':
-      return 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300'
+      return 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300'
     case 'pending':
       return 'bg-amber-100 text-amber-600 dark:bg-amber-900 dark:text-amber-300'
     case 'completed':

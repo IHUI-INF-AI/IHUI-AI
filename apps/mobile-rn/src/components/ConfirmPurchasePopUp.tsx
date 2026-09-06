@@ -11,7 +11,7 @@
  * - 顶部:48×48 圆形图标(success.lighter 背景 + 居中 ✓,success.DEFAULT 颜色)
  * - 标题:18/600/text.primary,居中,marginTop 16
  * - 商品信息行:surface.muted 圆角 8 容器 + 商品图(emoji)+ 名/价(可带划线原价)
- * - 权益列表(benefits):"✓ 权益" 逐条,最后一条高亮(warning.deep 橙,对齐原版 highlight)
+ * - 权益列表(benefits):"✓ 权益" 逐条,最后一条高亮(brandAccent.DEFAULT 橙,对齐原版 highlight)
  * - 支付方式(paymentMethods):单选 radio,微信支付默认选中,可切换(onPayMethodChange)
  * - 用户协议(agreementText):勾选框 + 文案,未勾选时禁用支付按钮(onAgreeChange)
  * - 按钮行:取消(描边) + 支付/确认(success.DEFAULT 底;会员模式文案 "立即支付 ¥X")
@@ -110,7 +110,7 @@ const CHECKBOX_SIZE = 16
 const OVERLAY_COLOR = 'rgba(0,0,0,0.5)'
 
 /**
- * 会员金色 #FFD700(任务约定可用)。权益高亮沿用 warning.deep 橙,
+ * 会员金色 #FFD700(任务约定可用)。权益高亮沿用 brandAccent.DEFAULT 橙,
  * 更贴近原版 highlight 色 #ff5722;如改纯金可替换为 tokens.vip.gold。
  */
 const DEFAULT_PAYMENT_METHODS: ConfirmPaymentMethod[] = [
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   } as TextStyle,
   benefitTextHighlight: {
-    color: tokens.warning.deep,
+    color: tokens.brandAccent.DEFAULT,
     fontWeight: '600',
   } as TextStyle,
   paymentRow: {

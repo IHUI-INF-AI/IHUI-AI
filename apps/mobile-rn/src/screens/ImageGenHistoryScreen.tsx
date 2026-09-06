@@ -237,7 +237,7 @@ export function ImageGenHistoryScreen() {
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('imageGen.title')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('ImageGenCreate')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text className="text-sm font-medium text-blue-600">{t('imageGen.create')}</Text>
+          <Text className="text-sm font-medium text-orange-600">{t('imageGen.create')}</Text>
         </TouchableOpacity>
       </View>
 

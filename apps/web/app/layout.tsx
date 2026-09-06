@@ -16,6 +16,7 @@ import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
 import { TooltipProvider } from '@/components/feedback'
+import { DOC_BG, DOC_BG_DARK } from '@ihui/design-tokens'
 
 // EDIX 拉丁字体仅在 h1-h6 标题 + .font-edix 工具类中显式使用(见 globals.css)。
 // 不再通过 next/font/local 挂载到 body,避免全站英文文本被强制走 EDIX 字体。
@@ -197,8 +198,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: DOC_BG },
+    { media: '(prefers-color-scheme: dark)', color: DOC_BG_DARK },
   ],
 }
 

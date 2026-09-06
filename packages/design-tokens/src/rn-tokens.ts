@@ -22,6 +22,7 @@
  * - success.lighter / lightest:更浅的成功绿背景(d1fae5 / f0fdf4)
  * - success.deepText:深绿色文字(065F46,用于 success 卡片标签)
  * - warning.amber / amberLight / amberText / orangeLight:amber 警告色变体
+ *   （强调橙统一用 brandAccent.DEFAULT,详见下方「全项目统一强调色」;已删除 warning.deep）
  * - danger.bright:亮红色(ef4444,职位薪资等强调红)
  */
 export type RnSuccessTokens = {
@@ -40,7 +41,6 @@ export type RnWarningTokens = {
   amber: string
   DEFAULT: string
   amberText: string
-  deep: string
 }
 
 export type RnDangerTokens = {
@@ -89,14 +89,11 @@ export const rnTokens = {
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
   },
-  indigo: {
-    light: '#eef2ff',
-    DEFAULT: '#6366f1',
-    deep: '#4f46e5',
-  },
-  purple: {
-    light: '#f5f3ff',
-    DEFAULT: '#7B61FF',
+  /** 全项目统一强调色(品牌橙),对齐 web --color-brand-orange。替换原 indigo/purple/blue 三强调色。 */
+  brandAccent: {
+    light: '#fff7ed',
+    DEFAULT: '#ff6b35',
+    deep: '#c2410c',
   },
   warning: {
     light: '#fffbeb',
@@ -105,7 +102,6 @@ export const rnTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
-    deep: '#FF6B00',
   } satisfies RnWarningTokens,
   success: {
     lightest: '#f0fdf4',
@@ -152,9 +148,7 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  indigo: { light: string; DEFAULT: string; deep: string }
-  purple: { light: string; DEFAULT: string }
-  blue: { light: string; DEFAULT: string }
+  brandAccent: { light: string; DEFAULT: string; deep: string }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -197,9 +191,7 @@ export const rnLightTokens: RnThemeTokens = {
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
   error: { bg: '#FFE5E5', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
-  indigo: { light: '#eef2ff', DEFAULT: '#6366f1', deep: '#4f46e5' },
-  purple: { light: '#f5f3ff', DEFAULT: '#7B61FF' },
-  blue: { light: '#eff6ff', DEFAULT: '#2563eb' },
+  brandAccent: { light: '#fff7ed', DEFAULT: '#ff6b35', deep: '#c2410c' },
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -207,7 +199,6 @@ export const rnLightTokens: RnThemeTokens = {
     amber: '#f59e0b',
     DEFAULT: '#f59e0b',
     amberText: '#92400e',
-    deep: '#FF6B00',
   },
   success: {
     lightest: '#f0fdf4',
@@ -217,7 +208,7 @@ export const rnLightTokens: RnThemeTokens = {
     deep: '#16a34a',
     deepText: '#065F46',
   },
-  danger: { light: '#fef2f2', DEFAULT: '#ff3333', bright: '#ff5c5c' },
+  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   gray: {
     50: '#fafafa',
@@ -258,9 +249,7 @@ export const rnDarkTokens: RnThemeTokens = {
   border: { light: '#383838', medium: '#525252' },
   error: { bg: '#7F1D1D', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
-  indigo: { light: '#312e81', DEFAULT: '#818cf8', deep: '#818cf8' },
-  purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
-  blue: { light: '#404040', DEFAULT: '#93c5fd' },
+  brandAccent: { light: '#431407', DEFAULT: '#ff8e53', deep: '#ff8e53' },
   warning: {
     light: '#451a03',
     amberLight: '#78350f',
@@ -268,7 +257,6 @@ export const rnDarkTokens: RnThemeTokens = {
     amber: '#fbbf24',
     DEFAULT: '#f59e0b',
     amberText: '#fbbf24',
-    deep: '#FF6B00',
   },
   success: {
     lightest: '#052e16',
@@ -278,7 +266,7 @@ export const rnDarkTokens: RnThemeTokens = {
     deep: '#16a34a',
     deepText: '#86efac',
   },
-  danger: { light: '#450a0a', DEFAULT: '#ff3333', bright: '#ff8080' },
+  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
   vip: { gold: '#FFD700', goldEnd: '#FFAA00' },
   gray: {
     50: '#fafafa',

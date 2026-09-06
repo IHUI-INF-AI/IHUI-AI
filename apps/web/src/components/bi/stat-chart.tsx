@@ -41,14 +41,9 @@ export interface StatChartProps {
   colors?: string[]
 }
 
-// ECharts canvas 渲染不支持 CSS var(),以下为 tokens.css 硬编码副本:
-// PALETTE 对应 --chart-1~5,7 (blue/emerald/amber/red/violet/cyan)
-// #94a3b8 = --chart-text, 轴线色 ≈ --chart-axis
-// 修改需同步 tokens.css
-const PALETTE = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4']
-
-const darkTextStyle = { color: '#94a3b8' }
-const lightTextStyle = { color: '#475569' }
+// ECharts canvas 渲染不支持 CSS var(),色板统一从 @ihui/design-tokens 的
+// chart-colors.ts 唯一真相源导入(对应 tokens.css --chart-1..8 / --chart-text / --chart-axis)。
+import { CHART_PALETTE, chartText, chartAxis, chartBg } from '@ihui/design-tokens'
 
 export function StatChart({
   type,
@@ -57,10 +52,13 @@ export function StatChart({
   loading,
   title,
   className,
-  colors = PALETTE,
+  colors = CHART_PALETTE.slice(),
 }: StatChartProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const textColor = chartText(isDark)
+  const axisColor = chartAxis(isDark)
+  const bgColor = chartBg(isDark)
 
   const option = React.useMemo<EChartsOption>(() => {
     const labels = data.map((d) => d.label)
@@ -69,7 +67,7 @@ export function StatChart({
     if (type === 'pie') {
       return {
         backgroundColor: 'transparent',
-        textStyle: isDark ? darkTextStyle : lightTextStyle,
+        textStyle: { color: textColor },
         title: title
           ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
           : undefined,
@@ -82,7 +80,7 @@ export function StatChart({
             radius: ['38%', '68%'],
             center: ['50%', '50%'],
             avoidLabelOverlap: true,
-            itemStyle: { borderColor: isDark ? '#0f172a' : '#fff', borderWidth: 2 },
+            itemStyle: { borderColor: bgColor, borderWidth: 2 },
             label: { formatter: '{b}\n{d}%', fontSize: 11 },
             data: data.map((d, i) => ({
               name: d.label,
@@ -97,7 +95,7 @@ export function StatChart({
     if (type === 'bar') {
       return {
         backgroundColor: 'transparent',
-        textStyle: isDark ? darkTextStyle : lightTextStyle,
+        textStyle: { color: textColor },
         title: title
           ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
           : undefined,
@@ -106,11 +104,11 @@ export function StatChart({
         xAxis: {
           type: 'category',
           data: labels,
-          axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } },
+          axisLine: { lineStyle: { color: axisColor } },
         },
         yAxis: {
           type: 'value',
-          splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0' } },
+          splitLine: { lineStyle: { color: axisColor } },
         },
         series: [
           {
@@ -129,7 +127,7 @@ export function StatChart({
     // line + area 共用折线图
     return {
       backgroundColor: 'transparent',
-      textStyle: isDark ? darkTextStyle : lightTextStyle,
+      textStyle: { color: textColor },
       title: title
         ? { text: title, left: 'center', top: 4, textStyle: { fontSize: 13, fontWeight: 600 } }
         : undefined,
@@ -139,9 +137,9 @@ export function StatChart({
         type: 'category',
         data: labels,
         boundaryGap: false,
-        axisLine: { lineStyle: { color: isDark ? '#475569' : '#cbd5e1' } },
+        axisLine: { lineStyle: { color: axisColor } },
       },
-      yAxis: { type: 'value', splitLine: { lineStyle: { color: isDark ? '#1e293b' : '#e2e8f0' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: axisColor } } },
       series: [
         {
           type: 'line',

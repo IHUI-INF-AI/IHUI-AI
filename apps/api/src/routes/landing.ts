@@ -3,6 +3,21 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { FastifyPluginAsync } from 'fastify'
+import {
+  DOC_BG,
+  DOC_BG_CARD,
+  DOC_BG_CARD_DARK,
+  DOC_BG_DARK,
+  DOC_BG_HOVER,
+  DOC_BG_HOVER_DARK,
+  DOC_BORDER,
+  DOC_BORDER_DARK,
+  DOC_DANGER,
+  DOC_TEXT_BODY,
+  DOC_TEXT_DARK,
+  DOC_TEXT_MUTED,
+  DOC_TEXT_STRONG,
+} from '@ihui/design-tokens'
 
 /**
  * 收款落地页(平台独占:API 端自包含 HTML,无需 web app)。
@@ -34,29 +49,29 @@ const LANDING_HTML = `<!DOCTYPE html>
 </script>
 <style>
   :root {
-    --bg: #ffffff;
-    --bg-card: #f8f9fa;
-    --bg-hover: #f1f3f5;
-    --text: #1a1a1a;
-    --text-muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #1a1a1a;
-    --accent-text: #ffffff;
-    --price: #1a1a1a;
+    --bg: ${DOC_BG};
+    --bg-card: ${DOC_BG_CARD};
+    --bg-hover: ${DOC_BG_HOVER};
+    --text: ${DOC_TEXT_STRONG};
+    --text-muted: ${DOC_TEXT_BODY};
+    --border: ${DOC_BORDER};
+    --accent: ${DOC_TEXT_STRONG};
+    --accent-text: ${DOC_BG};
+    --price: ${DOC_TEXT_STRONG};
     --radius: 12px;
     --radius-sm: 8px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0a0a0a;
-      --bg-card: #141414;
-      --bg-hover: #1a1a1a;
-      --text: #f5f5f5;
-      --text-muted: #9ca3af;
-      --border: #2a2a2a;
-      --accent: #f5f5f5;
-      --accent-text: #0a0a0a;
-      --price: #f5f5f5;
+      --bg: ${DOC_BG_DARK};
+      --bg-card: ${DOC_BG_CARD_DARK};
+      --bg-hover: ${DOC_BG_HOVER_DARK};
+      --text: ${DOC_TEXT_DARK};
+      --text-muted: ${DOC_TEXT_MUTED};
+      --border: ${DOC_BORDER_DARK};
+      --accent: ${DOC_TEXT_DARK};
+      --accent-text: ${DOC_BG_DARK};
+      --price: ${DOC_TEXT_DARK};
     }
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -156,7 +171,7 @@ const LANDING_HTML = `<!DOCTYPE html>
     color: var(--text);
   }
   .modal .btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  .modal .error { color: #dc2626; font-size: 13px; margin-top: 8px; min-height: 18px; }
+  .modal .error { color: ${DOC_DANGER}; font-size: 13px; margin-top: 8px; min-height: 18px; }
 
   /* Toast */
   .toast {

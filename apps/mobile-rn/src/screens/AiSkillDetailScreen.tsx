@@ -87,7 +87,7 @@ export function AiSkillDetailScreen() {
                 {skill.category}
               </Text>
               {skill.tags.map((tag) => (
-                <Text key={tag} className="rounded-sm bg-blue-50 px-2 py-1 text-xs text-blue-600 dark:bg-neutral-700 dark:text-blue-300">
+                <Text key={tag} className="rounded-sm bg-orange-50 px-2 py-1 text-xs text-orange-600 dark:bg-neutral-700 dark:text-orange-300">
                   {tag}
                 </Text>
               ))}

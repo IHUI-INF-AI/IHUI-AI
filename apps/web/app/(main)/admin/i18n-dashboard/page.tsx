@@ -10,6 +10,7 @@ import { Globe, AlertCircle, Clock, Loader2, ArrowRight } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { CHART_BLUE } from '@ihui/design-tokens'
 import { RingChart } from './RingChart'
 import { EMPTY, LOCALE_COLORS, fmtTime } from './helpers'
 import type { I18nOverview } from './types'
@@ -98,7 +99,7 @@ export default function I18nDashboardPage() {
               <CardContent className="flex items-center gap-4 p-4">
                 <RingChart
                   value={lang.completion}
-                  color={LOCALE_COLORS[lang.locale] ?? '#3b82f6'}
+                  color={LOCALE_COLORS[lang.locale] ?? CHART_BLUE}
                 />
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center justify-between">
@@ -114,7 +115,7 @@ export default function I18nDashboardPage() {
                       className="h-full rounded-md"
                       style={{
                         width: `${lang.completion}%`,
-                        background: LOCALE_COLORS[lang.locale] ?? '#3b82f6',
+                        background: LOCALE_COLORS[lang.locale] ?? CHART_BLUE,
                       }}
                     />
                   </div>
@@ -146,8 +147,8 @@ export default function I18nDashboardPage() {
                 <span
                   className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
                   style={{
-                    background: `${LOCALE_COLORS[u.locale] ?? '#3b82f6'}20`,
-                    color: LOCALE_COLORS[u.locale] ?? '#3b82f6',
+                    background: `${LOCALE_COLORS[u.locale] ?? CHART_BLUE}20`,
+                    color: LOCALE_COLORS[u.locale] ?? CHART_BLUE,
                   }}
                 >
                   {u.locale}

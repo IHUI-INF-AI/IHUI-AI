@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Flame, TrendingUp, TrendingDown, ExternalLink, Rss, Search, LineChart } from 'lucide-react'
 import type { AiFeedTimelineItem } from '@/lib/ai-news-api'
+import { CHART_TEXT_LIGHT } from '@ihui/design-tokens'
 import { formatCompact, getLocale } from '@/lib/number-format'
 import { TrendChartDialog } from './TrendChartDialog'
 import { TrendNotificationBanner } from './TrendNotificationBanner'
@@ -375,7 +376,7 @@ export function AiFeedTimeline({ items, sources, total }: Props) {
                   const hot = formatCompact(it.currentHot, locale)
                   const isRising = it.trendTag === 'rising'
                   const isCooling = it.trendTag === 'cooling'
-                  const srcColor = source?.color ?? '#888'
+                  const srcColor = source?.color ?? CHART_TEXT_LIGHT
 
                   return (
                     <div
