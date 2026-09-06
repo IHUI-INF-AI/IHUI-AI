@@ -1602,7 +1602,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     tabTextActive: {
       // 白底激活块上用深色文字(两主题一致,对齐 web 截图基准)
-      color: '#111111',
+      color: tk.text.primary,
     },
     tabContent: {
       gap: 0,
