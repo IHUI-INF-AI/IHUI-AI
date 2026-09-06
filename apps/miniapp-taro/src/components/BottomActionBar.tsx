@@ -4,8 +4,8 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text, Input, Image } from '@tarojs/components'
-import audioSvg from '@/assets/images/add/audio.svg'
 import { cn } from '@ihui/design-tokens'
+import LineIcon from '@/components/LineIcon'
 import InputArea, { type InputAreaProps } from './InputArea'
 // 4 个图标按钮 + 选中勾 PNG:对齐原项目 BottomActionBar.vue line 65-80,统一从 @/assets/remote/ 引入
 // 修复 (2026-08-12):微信文件改用 wenjian.png 区别于本地文件 floder_input.png
@@ -147,7 +147,7 @@ export default function BottomActionBar(props: BottomActionBarProps) {
                     fontSize: rpx(28),
                     padding: '12rpx 0',
                     background: active ? 'var(--color-brand)' : 'var(--color-muted)',
-                    color: active ? '#fff' : 'var(--color-foreground)',
+                    color: active ? 'var(--color-primary-foreground)' : 'var(--color-foreground)',
                   }}
                   onClick={() => {
                     btn.onToggle?.()
@@ -214,15 +214,16 @@ export default function BottomActionBar(props: BottomActionBarProps) {
               }}
               onClick={onVoiceInputToggle}
             >
-              <Image
-                src={audioSvg}
-                style={{ width: rpx(70), height: rpx(70), marginBottom: rpx(12) }}
-                mode="aspectFit"
+              <LineIcon
+                name="mic"
+                size={70}
+                color={isVoiceInput ? 'var(--color-primary-foreground)' : 'var(--color-muted-foreground)'}
+                style={{ marginBottom: rpx(12) }}
               />
               <Text
                 style={{
                   fontSize: rpx(20),
-                  color: isVoiceInput ? '#fff' : 'var(--color-foreground)',
+                  color: isVoiceInput ? 'var(--color-primary-foreground)' : 'var(--color-foreground)',
                 }}
               >
                 {isVoiceInput

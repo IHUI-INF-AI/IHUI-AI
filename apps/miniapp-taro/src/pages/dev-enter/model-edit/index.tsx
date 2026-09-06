@@ -5,6 +5,7 @@
 import { useTt, useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Picker, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
@@ -276,10 +277,10 @@ export default function ModelEdit() {
             >
               <View className="flex items-center justify-between py-[20rpx] px-[24rpx] bg-card rounded-[12rpx] text-[28rpx] text-foreground border border-border">
                 <Text>{DEPARTMENTS[deptIndex]}</Text>
-                <Image
-                  src="/static/images/icons/chevron-down.svg"
-                  mode="aspectFit"
-                  style={{ width: '24rpx', height: '24rpx' }}
+                <LineIcon
+                  name="chevron-down"
+                  size={24}
+                  color="var(--color-muted-foreground)"
                 />
               </View>
             </Picker>

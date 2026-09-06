@@ -4,7 +4,8 @@
 
 import { useI18n, t } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useShareAppMessage } from '@tarojs/taro'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { voiceChat, type ChatMessage } from '@/api'
@@ -236,14 +237,10 @@ export default function VoicePage() {
             >
               {m.isVoice ? (
                 <View className="flex items-center gap-[12rpx]" onClick={() => onPlayAudio(m, i)}>
-                  <Image
-                    style={{ width: '32rpx', height: '32rpx' }}
-                    src={
-                      playingIdx === i
-                        ? '/static/images/icons/pause.svg'
-                        : '/static/images/icons/play.svg'
-                    }
-                    mode="aspectFit"
+                  <LineIcon
+                    name={playingIdx === i ? 'pause' : 'play'}
+                    size={32}
+                    color="var(--color-muted-foreground)"
                   />
                   <Text className="text-[24rpx] text-foreground">
                     {fmtDuration(m.duration || 0)}

@@ -150,7 +150,7 @@ export default function AigcPublish() {
                 >
                   <Image className="w-full h-full" src={f.url} mode="aspectFill" />
                   <View
-                    className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[rgba(0,0,0,0.6)] rounded-[6rpx] flex items-center justify-center"
+                    className="absolute top-[4rpx] right-[4rpx] w-[36rpx] h-[36rpx] bg-[var(--color-scrim)] rounded-[6rpx] flex items-center justify-center"
                     onClick={() => removeFile(i)}
                   >
                     <Text className="text-white text-[24rpx] leading-none">×</Text>

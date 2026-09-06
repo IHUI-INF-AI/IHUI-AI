@@ -2,7 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
 
@@ -76,7 +77,7 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
           minHeight: '340rpx',
           backgroundColor: 'var(--color-card)',
           borderRadius: '30rpx',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          boxShadow: '0 1px 3px var(--color-black-6)',
           transition: 'right 0.35s cubic-bezier(0.4, 1.3, 0.6, 1)',
           zIndex: 1005,
           display: 'flex',
@@ -142,10 +143,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleShare}
             >
-              <Image
-                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
-                src="/static/images/icons/wallet.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="wallet"
+                size={36}
+                color="var(--color-destructive)"
+                style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{
@@ -172,10 +174,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleService}
             >
-              <Image
-                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
-                src="/static/images/icons/phone.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="phone"
+                size={36}
+                color="var(--color-foreground)"
+                style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{
@@ -202,10 +205,11 @@ export default function FloatBox({ onShare, onService, onFeedback }: FloatBoxPro
               }}
               onClick={handleFeedback}
             >
-              <Image
-                style={{ width: '36rpx', height: '36rpx', marginBottom: '6rpx' }}
-                src="/static/images/icons/mail.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="mail"
+                size={36}
+                color="var(--color-muted-foreground)"
+                style={{ marginBottom: '6rpx' }}
               />
               <Text
                 style={{

@@ -4,6 +4,7 @@
 
 import { useTt, useI18n, type TtFn } from '@/i18n'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import * as api from '@/api'
@@ -207,33 +208,33 @@ export default function DevEnterCover() {
         <View className="dc-entry-list">
           <View className="dc-entry-item" onClick={toMyModel}>
             <View className="dc-entry-icon">
-              <Image
+              <LineIcon
                 className="dc-entry-emoji"
-                style={{ width: '44rpx', height: '44rpx' }}
-                src="/static/images/icons/bot.svg"
-                mode="aspectFit"
+                name="bot"
+                size={44}
+                color="var(--color-muted-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.myAgents', '我的智能体')}</Text>
           </View>
           <View className="dc-entry-item" onClick={toModelIncome}>
             <View className="dc-entry-icon">
-              <Image
+              <LineIcon
                 className="dc-entry-emoji"
-                style={{ width: '44rpx', height: '44rpx' }}
-                src="/static/images/icons/wallet.svg"
-                mode="aspectFit"
+                name="wallet"
+                size={44}
+                color="var(--color-muted-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.agentIncome', '智能体收入')}</Text>
           </View>
           <View className="dc-entry-item" onClick={toNbnModel}>
             <View className="dc-entry-icon">
-              <Image
+              <LineIcon
                 className="dc-entry-emoji"
-                style={{ width: '44rpx', height: '44rpx' }}
-                src="/static/images/icons/zap.svg"
-                mode="aspectFit"
+                name="zap"
+                size={44}
+                color="var(--color-muted-foreground)"
               />
             </View>
             <Text className="dc-entry-text">{tt('devEnter.cover.n8nAgents', 'n8n智能体')}</Text>
