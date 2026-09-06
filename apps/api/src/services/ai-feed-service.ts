@@ -940,8 +940,40 @@ export async function collectAllSources(): Promise<CollectResult> {
 }
 
 // =============================================================================
-// 5. LLM 分类摘要（手动触发）
+// 5. LLM 分类摘要（手动触发 / 定时错峰）
 // =============================================================================
+
+/**
+ * LLM 批量处理的错峰加速配置（环境变量，均带默认值，缺省即可用）。
+ *
+ * - LLM_BATCH_ENABLED：全局开关，false/off/0 停止一切 LLM 批处理（存量抽干亦停）。
+ * - LLM_CATEGORY_BATCH_SIZE：每轮分类(processLlmBatch)批大小（默认 200，原 100）。
+ * - LLM_TRANSLATE_BATCH_SIZE：每轮翻译(translateTitles)批大小（默认 100，原 50）。
+ * - LLM_DRAIN_MAX_ITERATIONS：存量抽干单次最多轮数（避免一次跑太久卡住 worker）。
+ * - LLM_DRAIN_STAGGER_MS：存量抽干轮间错峰睡眠（毫秒），防止连续打爆 LLM 并发/配额。
+ */
+function readPositiveIntEnv(name: string, def: number): number {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '') return def
+  const n = Number.parseInt(raw, 10)
+  return Number.isInteger(n) && n > 0 ? n : def
+}
+
+function readBoolEnv(name: string, def: boolean): boolean {
+  const raw = env[name]
+  if (raw === undefined || raw.trim() === '') return def
+  return !/^(false|0|off|no|disable|disabled)$/i.test(raw.trim())
+}
+
+const llmBatchEnabled = () => readBoolEnv('LLM_BATCH_ENABLED', true)
+const llmCategoryBatchSize = () => readPositiveIntEnv('LLM_CATEGORY_BATCH_SIZE', 200)
+const llmTranslateBatchSize = () => readPositiveIntEnv('LLM_TRANSLATE_BATCH_SIZE', 100)
+const llmDrainStaggerMs = () => readPositiveIntEnv('LLM_DRAIN_STAGGER_MS', 3000)
+const llmDrainMaxIterations = () => readPositiveIntEnv('LLM_DRAIN_MAX_ITERATIONS', 5)
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 const CATEGORY_PROMPT = `你是 AI 资讯分类器。只返回一个类别名,不要任何其他内容(不要解释、不要 HTML、不要 markdown、不要标点)。
 
@@ -983,13 +1015,19 @@ industry
  * 选取 llmProcessedAt 为空（未处理）的条目，批量更新 llmCategory/llmSummary/llmProcessedAt。
  * 配置 AI_SERVICE_URL 时调用 LLM 服务做分类；未配置或调用失败时回退到关键词规则。
  */
-export async function processLlmBatch(limit = 100): Promise<LlmBatchResult> {
+export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
+  // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不调用 LLM 也不改数据。
+  if (!llmBatchEnabled()) {
+    return { processedItems: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+  }
+  // 未显式传 limit 时使用可配置批大小（默认 200）。
+  const batchSize = limit ?? llmCategoryBatchSize()
   const pending = await db
     .select()
     .from(aiFeedHotItem)
     .where(isNull(aiFeedHotItem.llmProcessedAt))
     .orderBy(desc(aiFeedHotItem.lastSeenAt))
-    .limit(limit)
+    .limit(batchSize)
 
   let processed = 0
   for (const item of pending) {
@@ -1089,13 +1127,19 @@ const TRANSLATE_PROMPT = '将以下中文标题翻译为英文，仅返回翻译
  * 选取 titleEn 为空（未翻译）的条目，批量翻译为英文。
  * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时回填原标题作为占位。
  */
-export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
+export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
+  // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不清洗也不翻译。
+  if (!llmBatchEnabled()) {
+    return { processedItems: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+  }
+  // 未显式传 limit 时使用可配置批大小（默认 100）。
+  const batchSize = limit ?? llmTranslateBatchSize()
   const pending = await db
     .select()
     .from(aiFeedHotItem)
     .where(isNull(aiFeedHotItem.titleEn))
     .orderBy(desc(aiFeedHotItem.lastSeenAt))
-    .limit(limit)
+    .limit(batchSize)
 
   let processed = 0
   for (const item of pending) {
@@ -1123,6 +1167,94 @@ export async function translateTitles(limit = 50): Promise<LlmBatchResult> {
     processedItems: processed,
     details: `翻译 ${processed} 条（共 ${pending.length} 条待翻译）`,
   }
+}
+
+// =============================================================================
+// 6.5 存量 LLM 积压抽干（错峰加速）
+// =============================================================================
+
+export interface DrainLlmBacklogResult {
+  llmProcessed: number
+  translated: number
+  iterations: number
+  llmBacklogCleared: boolean
+  translateBacklogCleared: boolean
+}
+
+/**
+ * 存量 LLM 积压抽干（错峰加速）。
+ *
+ * 持续以「多轮小批量 + 轮间 sleep」的方式抽干缺英文标题/缺分类的存量条目：
+ * - 每轮并行跑一次 processLlmBatch（缺分类）与 translateTitles（缺英文标题）
+ * - 轮间 sleep LLM_DRAIN_STAGGER_MS，避免一次性把 LLM 并发/配额打爆
+ * - 每轮后统计剩余积压，两个方向都抽干即提前结束
+ * - 某轮两个方向都零进展（LLM 连续失败/限额）时提前退出，避免空转
+ * - 受 LLM_BATCH_ENABLED 总开关控制
+ *
+ * 由 scheduler 的 ai-feed-drain job（错峰时刻）周期调用；批大小/轮数/错峰间隔
+ * 均可通过环境变量覆盖。
+ */
+export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
+  if (!llmBatchEnabled()) {
+    return {
+      llmProcessed: 0,
+      translated: 0,
+      iterations: 0,
+      llmBacklogCleared: true,
+      translateBacklogCleared: true,
+    }
+  }
+
+  const maxIterations = llmDrainMaxIterations()
+  const staggerMs = llmDrainStaggerMs()
+
+  let llmProcessed = 0
+  let translated = 0
+  let llmBacklogCleared = false
+  let translateBacklogCleared = false
+  let iterations = 0
+
+  for (let round = 1; round <= maxIterations; round++) {
+    iterations = round
+    const [catRes, transRes] = await Promise.all([
+      processLlmBatch(),
+      translateTitles(),
+    ])
+    llmProcessed += catRes.processedItems
+    translated += transRes.processedItems
+
+    const { llmLeft, transLeft } = await countBacklog()
+    llmBacklogCleared = llmLeft === 0
+    translateBacklogCleared = transLeft === 0
+
+    // 两个方向都抽干，提前结束
+    if (llmBacklogCleared && translateBacklogCleared) break
+    // 有积压但本轮无任何进展（LLM 连续失败/限额打满）→ 退出，避免空转空睡
+    if (catRes.processedItems === 0 && transRes.processedItems === 0) break
+    if (iterations >= maxIterations) break
+    // 两轮之间错峰睡眠
+    await sleep(staggerMs)
+  }
+
+  return {
+    llmProcessed,
+    translated,
+    iterations,
+    llmBacklogCleared,
+    translateBacklogCleared,
+  }
+}
+
+/** 统计缺分类与缺英文标题的剩余积压数量。 */
+async function countBacklog(): Promise<{ llmLeft: number; transLeft: number }> {
+  const res = await db.execute(sql`
+    SELECT
+      (SELECT count(*) FROM ai_feed_hot_item WHERE llm_processed_at IS NULL)::int AS llm_left,
+      (SELECT count(*) FROM ai_feed_hot_item WHERE title_en IS NULL)::int AS trans_left
+  `)
+  const rows = Array.isArray(res) ? res : ((res as { rows?: unknown[] }).rows ?? [])
+  const row = rows[0] as { llm_left?: number; trans_left?: number } | undefined
+  return { llmLeft: row?.llm_left ?? 0, transLeft: row?.trans_left ?? 0 }
 }
 
 // =============================================================================

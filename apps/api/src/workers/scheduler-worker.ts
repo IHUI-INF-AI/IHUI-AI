@@ -40,6 +40,7 @@ import {
   translateTitles,
   computeTrendSignals,
   generateSnapshot,
+  drainLlmBacklog,
 } from '../services/ai-feed-service.js'
 import { checkBudgetAlerts } from '../services/budget-alert-service.js'
 
@@ -462,12 +463,14 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             })
             // 2. 三个子任务并行执行,各自独立 catch 防止一个失败拖垮全部
             //    computeTrendSignals 用刚生成的快照计算趋势(需 ≥2 天快照才有趋势)
+            //    LLM 批大小走 ai-feed-service 的可配置默认值(LLM_CATEGORY_BATCH_SIZE=200 /
+            //    LLM_TRANSLATE_BATCH_SIZE=100);LLM_BATCH_ENABLED=false 时二者内部直接返回 0。
             const [llmRes, transRes, trendRes] = await Promise.all([
-              processLlmBatch(100).catch((err) => {
+              processLlmBatch().catch((err) => {
                 server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
                 return { processedItems: 0, details: String(err) }
               }),
-              translateTitles(50).catch((err) => {
+              translateTitles().catch((err) => {
                 server.log.error({ err }, 'translateTitles failed in ai-feed-process')
                 return { processedItems: 0, details: String(err) }
               }),
@@ -491,6 +494,37 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               /* 指标采集失败不影响业务 */
             }
             return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
+          }
+          case 'ai-feed-drain': {
+            // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,
+            // 持续抽干缺英文标题/缺分类的存量条目。受 LLM_BATCH_ENABLED 控制,
+            // 批大小/轮数/错峰间隔均可由环境变量覆盖。
+            const result = await drainLlmBacklog().catch((err) => {
+              server.log.error({ err }, 'drainLlmBacklog failed in ai-feed-drain')
+              return {
+                llmProcessed: 0,
+                translated: 0,
+                iterations: 0,
+                llmBacklogCleared: false,
+                translateBacklogCleared: false,
+              }
+            })
+            server.log.info(
+              {
+                llmProcessed: result.llmProcessed,
+                translated: result.translated,
+                iterations: result.iterations,
+                llmBacklogCleared: result.llmBacklogCleared,
+                translateBacklogCleared: result.translateBacklogCleared,
+              },
+              'ai-feed-drain done',
+            )
+            try {
+              server.recordJobExecution(name, 'success')
+            } catch {
+              /* 指标采集失败不影响业务 */
+            }
+            return result
           }
           case 'budget-alert-check': {
             const result = await checkBudgetAlerts(server)
