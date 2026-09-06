@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -101,8 +102,9 @@ export default function DeveloperLinkPage() {
     saveMut.mutate()
   }
   function handleDelete(item: DeveloperLink) {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
   function handleExport() {
     exportToExcel(

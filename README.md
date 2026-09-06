@@ -9,6 +9,7 @@
 > © 2026 **IHUI AI (智汇AI)** · 版权所有者：**李春川 (Li Chunchuan)** · https://aizhs.top
 >
 > - 本仓库采用 **双许可模式**：开源使用遵循 **Apache-2.0**（须保留版权声明与 NOTICE）；**闭源商用 / 去除品牌标识 / SaaS 转售** 须另行获得商用授权，联系方式见官网。
+> - 版权、许可与再分发要求详见 **根目录 [NOTICE](NOTICE)**（Apache-2.0 要求随每一副本保留本声明与 NOTICE）。
 > - 本仓库**全部源文件已嵌入版权溯源水印**（可见声明 + 不可见零宽字符隐写，可运行 `node scripts/watermark.mjs decode <file>` 验证）。移除水印不改变版权归属，未授权商用将被技术溯源并依法追究。
 > - CI 已内置水印校验（`pnpm watermark:check`），任何删除水印的改动将导致构建失败。
 

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -147,7 +148,9 @@ function AnswerOnlineContent() {
             </div>
             <Button
               onClick={() => {
-                if (window.confirm(t('confirmSubmit'))) submitMut.mutate()
+                void confirmDialog({ title: t('confirmSubmit') }).then((ok) => {
+                  if (ok) submitMut.mutate()
+                })
               }}
               size="sm"
               disabled={submitMut.isPending}

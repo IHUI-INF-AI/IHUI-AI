@@ -413,6 +413,183 @@ export function ModelConfigDialog(props: ModelConfigDialogProps) {
 }
 
 export default ModelConfigDialog
+// ===== 共享参数表单(index/indexa 变体共用,2026-09-06 抽取消除 2×140 行克隆)=====
+
+interface ModelParamsBodyProps {
+  config: ModelConfig
+  update: (patch: Partial<ModelConfig>) => void
+  isImage: boolean
+  isVideo: boolean
+  isAudio: boolean
+  isVideoModel: boolean
+  voiceList: ReadonlyArray<{ id: string; name: string }>
+  timbreOpen: boolean
+  setTimbreOpen: (v: boolean | ((prev: boolean) => boolean)) => void
+  variables: ModelConfigVariable[]
+  handleVariableChange: (setVariables: ModelConfigVariable[]) => void
+}
+
+/** 基础参数 + 图片/视频/音色条件参数 + 动态配置项(两个弹窗变体完全一致) */
+function ModelParamsBody(props: ModelParamsBodyProps) {
+  const {
+    config,
+    update,
+    isImage,
+    isVideo,
+    isAudio,
+    isVideoModel,
+    voiceList,
+    timbreOpen,
+    setTimbreOpen,
+    variables,
+    handleVariableChange,
+  } = props
+  return (
+    <>
+              <Row label="Temperature">
+                <View className="flex-row items-center">
+                  <TextInput
+                    value={String(config.temperature)}
+                    keyboardType="numeric"
+                    onChangeText={(v) => update({ temperature: Number(v) || 0 })}
+                    className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+                  />
+                  <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
+                </View>
+              </Row>
+  
+              <Row label="Max Tokens">
+                <TextInput
+                  value={String(config.maxTokens)}
+                  keyboardType="numeric"
+                  onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
+                  className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+                />
+              </Row>
+  
+              <Row label="Top P">
+                <TextInput
+                  value={String(config.topP)}
+                  keyboardType="numeric"
+                  onChangeText={(v) => update({ topP: Number(v) || 0 })}
+                  className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
+                />
+              </Row>
+  
+              <Row label="System Prompt">
+                <TextInput
+                  value={config.systemPrompt}
+                  onChangeText={(v) => update({ systemPrompt: v })}
+                  placeholder="请输入系统提示词"
+                  multiline
+                  className="min-h-[60px] rounded-md bg-gray-50 p-2 text-xs text-gray-900"
+                />
+              </Row>
+  
+              <Row label="Stream">
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-xs text-gray-600">
+                    {config.streamEnabled ? '已启用' : '未启用'}
+                  </Text>
+                  <Switch
+                    value={config.streamEnabled}
+                    onValueChange={(v) => update({ streamEnabled: v })}
+                  />
+                </View>
+              </Row>
+  
+              {isImage ? (
+                <>
+                  <Row label="图片比例">
+                    <View className="flex-row flex-wrap">
+                      {ASPECT_RATIOS.map((r) => (
+                        <Chip
+                          key={r}
+                          label={r}
+                          active={config.aspectRatio === r}
+                          onPress={() => update({ aspectRatio: r })}
+                        />
+                      ))}
+                    </View>
+                  </Row>
+  
+                  <Row label="图片分辨率">
+                    <View className="flex-row flex-wrap">
+                      {RESOLUTIONS.map((r) => (
+                        <Chip
+                          key={r}
+                          label={r}
+                          active={config.resolution === r}
+                          onPress={() => update({ resolution: r })}
+                        />
+                      ))}
+                    </View>
+                  </Row>
+                </>
+              ) : null}
+  
+              {isVideo ? (
+                <Row label="视频帧数">
+                  <View className="flex-row flex-wrap">
+                    {FRAME_COUNTS.map((f) => (
+                      <Chip
+                        key={f}
+                        label={`${f} 帧`}
+                        active={config.frameCount === f}
+                        onPress={() => update({ frameCount: f })}
+                      />
+                    ))}
+                  </View>
+                </Row>
+              ) : null}
+  
+              {isAudio ? (
+                <Row label="音色">
+                  <Pressable
+                    onPress={() => setTimbreOpen((v) => !v)}
+                    className="rounded-md bg-gray-50 px-2.5 py-2"
+                  >
+                    <Text className="text-xs text-gray-900">
+                      {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
+                    </Text>
+                  </Pressable>
+                  {timbreOpen ? (
+                    <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
+                      {voiceList.map((tb) => (
+                        <Pressable
+                          key={tb.id}
+                          onPress={() => {
+                            update({ timbre: tb.id })
+                            setTimbreOpen(false)
+                          }}
+                          className="rounded-md px-2.5 py-2"
+                        >
+                          <Text
+                            className={
+                              config.timbre === tb.id
+                                ? 'text-xs text-emerald-700'
+                                : 'text-xs text-gray-700'
+                            }
+                          >
+                            {tb.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </Row>
+              ) : null}
+  
+              {/* 动态配置项(对齐原 index.vue variables) */}
+              <DynamicVariables
+                variables={variables}
+                isVideoModel={isVideoModel}
+                onChange={handleVariableChange}
+              />
+    </>
+  )
+}
+
 
 // ===== index 变体(基础模型配置)=====
 
@@ -459,145 +636,18 @@ function BasicModelConfigDialog({
           </View>
 
           <ScrollView className="max-h-[60%] px-4 pb-2">
-            <Row label="Temperature">
-              <View className="flex-row items-center">
-                <TextInput
-                  value={String(config.temperature)}
-                  keyboardType="numeric"
-                  onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-                  className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-                />
-                <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
-              </View>
-            </Row>
-
-            <Row label="Max Tokens">
-              <TextInput
-                value={String(config.maxTokens)}
-                keyboardType="numeric"
-                onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="Top P">
-              <TextInput
-                value={String(config.topP)}
-                keyboardType="numeric"
-                onChangeText={(v) => update({ topP: Number(v) || 0 })}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="System Prompt">
-              <TextInput
-                value={config.systemPrompt}
-                onChangeText={(v) => update({ systemPrompt: v })}
-                placeholder="请输入系统提示词"
-                multiline
-                className="min-h-[60px] rounded-md bg-gray-50 p-2 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="Stream">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs text-gray-600">
-                  {config.streamEnabled ? '已启用' : '未启用'}
-                </Text>
-                <Switch
-                  value={config.streamEnabled}
-                  onValueChange={(v) => update({ streamEnabled: v })}
-                />
-              </View>
-            </Row>
-
-            {isImage ? (
-              <>
-                <Row label="图片比例">
-                  <View className="flex-row flex-wrap">
-                    {ASPECT_RATIOS.map((r) => (
-                      <Chip
-                        key={r}
-                        label={r}
-                        active={config.aspectRatio === r}
-                        onPress={() => update({ aspectRatio: r })}
-                      />
-                    ))}
-                  </View>
-                </Row>
-
-                <Row label="图片分辨率">
-                  <View className="flex-row flex-wrap">
-                    {RESOLUTIONS.map((r) => (
-                      <Chip
-                        key={r}
-                        label={r}
-                        active={config.resolution === r}
-                        onPress={() => update({ resolution: r })}
-                      />
-                    ))}
-                  </View>
-                </Row>
-              </>
-            ) : null}
-
-            {isVideo ? (
-              <Row label="视频帧数">
-                <View className="flex-row flex-wrap">
-                  {FRAME_COUNTS.map((f) => (
-                    <Chip
-                      key={f}
-                      label={`${f} 帧`}
-                      active={config.frameCount === f}
-                      onPress={() => update({ frameCount: f })}
-                    />
-                  ))}
-                </View>
-              </Row>
-            ) : null}
-
-            {isAudio ? (
-              <Row label="音色">
-                <Pressable
-                  onPress={() => setTimbreOpen((v) => !v)}
-                  className="rounded-md bg-gray-50 px-2.5 py-2"
-                >
-                  <Text className="text-xs text-gray-900">
-                    {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
-                  </Text>
-                </Pressable>
-                {timbreOpen ? (
-                  <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
-                    {voiceList.map((tb) => (
-                      <Pressable
-                        key={tb.id}
-                        onPress={() => {
-                          update({ timbre: tb.id })
-                          setTimbreOpen(false)
-                        }}
-                        className="rounded-md px-2.5 py-2"
-                      >
-                        <Text
-                          className={
-                            config.timbre === tb.id
-                              ? 'text-xs text-emerald-700'
-                              : 'text-xs text-gray-700'
-                          }
-                        >
-                          {tb.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-              </Row>
-            ) : null}
-
-            {/* 动态配置项(对齐原 index.vue variables) */}
-            <DynamicVariables
-              variables={variables}
+            <ModelParamsBody
+              config={config}
+              update={update}
+              isImage={isImage}
+              isVideo={isVideo}
+              isAudio={isAudio}
               isVideoModel={isVideoModel}
-              onChange={handleVariableChange}
+              voiceList={voiceList}
+              timbreOpen={timbreOpen}
+              setTimbreOpen={setTimbreOpen}
+              variables={variables}
+              handleVariableChange={handleVariableChange}
             />
           </ScrollView>
 
@@ -768,145 +818,18 @@ function AdvancedModelConfigDialog(props: ModelConfigDialogProps) {
             ) : null}
 
             {/* 基础参数(同 index 变体) */}
-            <Row label="Temperature">
-              <View className="flex-row items-center">
-                <TextInput
-                  value={String(config.temperature)}
-                  keyboardType="numeric"
-                  onChangeText={(v) => update({ temperature: Number(v) || 0 })}
-                  className="mr-2 h-10 flex-1 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-                />
-                <Text className="text-xs text-gray-400">0.0 - 2.0</Text>
-              </View>
-            </Row>
-
-            <Row label="Max Tokens">
-              <TextInput
-                value={String(config.maxTokens)}
-                keyboardType="numeric"
-                onChangeText={(v) => update({ maxTokens: Number(v) || 0 })}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="Top P">
-              <TextInput
-                value={String(config.topP)}
-                keyboardType="numeric"
-                onChangeText={(v) => update({ topP: Number(v) || 0 })}
-                className="h-10 rounded-md bg-gray-50 px-3.5 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="System Prompt">
-              <TextInput
-                value={config.systemPrompt}
-                onChangeText={(v) => update({ systemPrompt: v })}
-                placeholder="请输入系统提示词"
-                multiline
-                className="min-h-[60px] rounded-md bg-gray-50 p-2 text-xs text-gray-900"
-              />
-            </Row>
-
-            <Row label="Stream">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-xs text-gray-600">
-                  {config.streamEnabled ? '已启用' : '未启用'}
-                </Text>
-                <Switch
-                  value={config.streamEnabled}
-                  onValueChange={(v) => update({ streamEnabled: v })}
-                />
-              </View>
-            </Row>
-
-            {isImage ? (
-              <>
-                <Row label="图片比例">
-                  <View className="flex-row flex-wrap">
-                    {ASPECT_RATIOS.map((r) => (
-                      <Chip
-                        key={r}
-                        label={r}
-                        active={config.aspectRatio === r}
-                        onPress={() => update({ aspectRatio: r })}
-                      />
-                    ))}
-                  </View>
-                </Row>
-
-                <Row label="图片分辨率">
-                  <View className="flex-row flex-wrap">
-                    {RESOLUTIONS.map((r) => (
-                      <Chip
-                        key={r}
-                        label={r}
-                        active={config.resolution === r}
-                        onPress={() => update({ resolution: r })}
-                      />
-                    ))}
-                  </View>
-                </Row>
-              </>
-            ) : null}
-
-            {isVideo ? (
-              <Row label="视频帧数">
-                <View className="flex-row flex-wrap">
-                  {FRAME_COUNTS.map((f) => (
-                    <Chip
-                      key={f}
-                      label={`${f} 帧`}
-                      active={config.frameCount === f}
-                      onPress={() => update({ frameCount: f })}
-                    />
-                  ))}
-                </View>
-              </Row>
-            ) : null}
-
-            {isAudio ? (
-              <Row label="音色">
-                <Pressable
-                  onPress={() => setTimbreOpen((v) => !v)}
-                  className="rounded-md bg-gray-50 px-2.5 py-2"
-                >
-                  <Text className="text-xs text-gray-900">
-                    {voiceList.find((x) => x.id === config.timbre)?.name ?? '请选择音色'}
-                  </Text>
-                </Pressable>
-                {timbreOpen ? (
-                  <View className="mt-1.5 rounded-md border border-gray-100 bg-white p-1">
-                    {voiceList.map((tb) => (
-                      <Pressable
-                        key={tb.id}
-                        onPress={() => {
-                          update({ timbre: tb.id })
-                          setTimbreOpen(false)
-                        }}
-                        className="rounded-md px-2.5 py-2"
-                      >
-                        <Text
-                          className={
-                            config.timbre === tb.id
-                              ? 'text-xs text-emerald-700'
-                              : 'text-xs text-gray-700'
-                          }
-                        >
-                          {tb.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-              </Row>
-            ) : null}
-
-            {/* 动态配置项(对齐原 index.vue variables) */}
-            <DynamicVariables
-              variables={variables}
+            <ModelParamsBody
+              config={config}
+              update={update}
+              isImage={isImage}
+              isVideo={isVideo}
+              isAudio={isAudio}
               isVideoModel={isVideoModel}
-              onChange={handleVariableChange}
+              voiceList={voiceList}
+              timbreOpen={timbreOpen}
+              setTimbreOpen={setTimbreOpen}
+              variables={variables}
+              handleVariableChange={handleVariableChange}
             />
           </ScrollView>
 

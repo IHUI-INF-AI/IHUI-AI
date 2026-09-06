@@ -129,8 +129,11 @@ function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn): postgr
  * 连续失败达阈值 → 标记不健康 → 选举优先级最高的健康从库。
  */
 export function createReadWriteDb(config: DatabaseConfig) {
+  // 2026-09-06 P0:主库/读副本共用连接池上限提升到 40(默认)。
+  // API 请求 + 5 个 worker×concurrency(5)=25 + 余量,原默认 max=20 易被并发打满
+  // 导致连接等待/超时。仍可通过 config.max 覆盖。
   const poolOptions = {
-    max: config.max ?? 20,
+    max: config.max ?? 40,
     idle_timeout: config.idleTimeoutMillis ?? 30_000,
     prepare: false,
   }

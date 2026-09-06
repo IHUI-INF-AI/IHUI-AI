@@ -677,6 +677,12 @@ projects(name+description)、files(name)同模式。查询时 `WHERE search_vect
 
 完整部署 / 备份 / 恢复 runbook 见 [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md),本节仅列脚本入口。
 
+> **备份链路(2026-09-06 收口为单一拥有者)**
+> - **唯一权威备份**:Windows 原生 `NSSM 服务 IHUI-PG-BACKUP` → `D:\DevEnv\backups\pg\ihui_dev_*.dump`(custom 格式,每日 03:00,7 天轮转)+ 百度网盘异地 40 份。这是当前唯一被 `alert-check-daily` 监控的备份链。
+> - **已废弃**:应用内 BullMQ `pg-backup-daily`(每日 02:30 → `d:\IHUI-AI\backups\pg\*.sql.gz`)因调度静默失败、文件不累积,与 NSSM 重复,已于 2026-09-06 从 `apps/api/src/plugins/scheduler.ts` 与 `apps/api/src/services/alert-check-service.ts` 下线。`apps/api/scripts/pg-backup.mjs` 保留为**临时手动导出**工具(不在调度内)。
+> - **两路径关系**:同一用途(PG 备份),磁盘位置/损坏格式/归属不同;NSSM+dump+异地为主,`d:\IHUI-AI\backups\pg` 仅作临时旁路。<br>
+> - **恢复演练**:`apps/api/scripts/pg-restore-check.mjs --allow-restore`(针对 `.sql.gz`)或对 `D:\DevEnv\backups\pg\*.dump` 手工 `pg_restore` 至临时库验证;建议**周期性(每月)执行**完整恢复演练,确认备份可还原出≥673 张表。
+
 ### 9.1 备份脚本
 
 | 脚本 | 用途 |

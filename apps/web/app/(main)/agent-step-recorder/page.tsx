@@ -30,6 +30,7 @@ import {
   Timer,
   XCircle,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 import type {
@@ -40,13 +41,14 @@ import type {
 } from '@/api/agent-recorder-api'
 
 const PAGE_SIZE = 50
-const TYPE_LABEL: Record<RunStep['type'], string> = {
-  tool: '工具调用',
-  message: '消息',
-  plan: '计划',
-}
 
 export default function AgentStepRecorderPage() {
+  const t = useTranslations('agentStepRecorder')
+  const TYPE_LABEL: Record<RunStep['type'], string> = {
+    tool: t('typeTool'),
+    message: t('typeMessage'),
+    plan: t('typePlan'),
+  }
   const [runId, setRunId] = React.useState('')
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState('')
@@ -81,7 +83,7 @@ export default function AgentStepRecorderPage() {
         setNeedLogin(true)
         setError('')
       } else {
-        setError((res as { message?: string }).message || '加载运行记录失败')
+        setError((res as { message?: string }).message || t('loadFailed'))
       }
       setMetrics(null)
       setSteps(null)
@@ -116,10 +118,10 @@ export default function AgentStepRecorderPage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">Agent Step 录制回放</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        输入 run_id,回放一次 Agent 运行的逐步工具调用,含 token/耗时/成本与成败统计。
+        {t('subtitle')}
       </p>
 
       <div className="mb-6 flex items-center gap-2">
@@ -127,7 +129,7 @@ export default function AgentStepRecorderPage() {
           value={runId}
           onChange={(e) => setRunId(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadRun(runId, 1)}
-          placeholder="输入 run_id,例如 0f8a…"
+          placeholder={t('runIdPlaceholder')}
           className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
         />
         <button
@@ -136,13 +138,13 @@ export default function AgentStepRecorderPage() {
           className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-          加载
+          {t('load')}
         </button>
       </div>
 
       {needLogin && (
         <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          <CircleX className="h-4 w-4" /> 请先登录后查看运行录制(该功能仅对已登录用户开放)
+          <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {error && (
@@ -153,7 +155,7 @@ export default function AgentStepRecorderPage() {
 
       {!loading && !metrics && !error && !needLogin && (
         <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
-          <Activity className="h-5 w-5" /> 输入 run_id 开始加载录制数据
+          <Activity className="h-5 w-5" /> {t('loadMsg')}
         </div>
       )}
 
@@ -163,7 +165,7 @@ export default function AgentStepRecorderPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5" /> 步骤数
+                <Cpu className="h-3.5 w-3.5" /> {t('stepCount')}
               </div>
               <div className="text-xl font-bold">{metrics.step_count}</div>
               <div className="mt-1 flex items-center gap-2 text-xs">
@@ -177,7 +179,7 @@ export default function AgentStepRecorderPage() {
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5" /> 总 Token
+                <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
               <div className="text-xl font-bold">{metrics.total_tokens}</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -186,13 +188,13 @@ export default function AgentStepRecorderPage() {
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Timer className="h-3.5 w-3.5" /> 总耗时
+                <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
               <div className="text-xl font-bold">{fmtDuration(metrics.total_duration_ms)}</div>
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Coins className="h-3.5 w-3.5" /> 总成本
+                <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
               <div className="text-xl font-bold">{fmtCost(metrics.total_cost)}</div>
             </div>
@@ -201,17 +203,17 @@ export default function AgentStepRecorderPage() {
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" /> run_id:
             <code className="rounded bg-muted px-1">{metrics.run_id}</code>
-            <span className="ml-auto">{steps ? `${steps.total} 条步骤` : ''}</span>
+            <span className="ml-auto">{steps ? t('stepCountSuffix', { count: steps.total }) : ''}</span>
           </div>
 
           {/* step 时间线 */}
           <div className="mt-4 rounded-xl border p-4">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <Activity className="h-4 w-4" /> 步骤时间线({timeline.length})
+              <Activity className="h-4 w-4" /> {t('timeline', { count: timeline.length })}
             </h2>
             {timeline.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                <Activity className="h-5 w-5" /> 该运行暂无录制步骤
+                <Activity className="h-5 w-5" /> {t('noSteps')}
               </div>
             ) : (
               <ul className="space-y-2">
@@ -287,7 +289,7 @@ export default function AgentStepRecorderPage() {
                         {step.input_summary && (
                           <div>
                             <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                              入参摘要
+                              {t('inputSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
                               {step.input_summary}
@@ -297,7 +299,7 @@ export default function AgentStepRecorderPage() {
                         {step.result_summary && (
                           <div>
                             <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                              结果摘要
+                              {t('resultSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
                               {step.result_summary}
@@ -307,7 +309,7 @@ export default function AgentStepRecorderPage() {
                         {step.http_summary && (
                           <div>
                             <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                              HTTP 摘要
+                              {t('httpSummary')}
                             </p>
                             <pre className="whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
                               {step.http_summary}
@@ -328,17 +330,17 @@ export default function AgentStepRecorderPage() {
                   disabled={page <= 1}
                   className="rounded-lg border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
                 >
-                  上一页
+                  {t('prev')}
                 </button>
                 <span className="text-muted-foreground">
-                  第 {page} / {totalPages} 页 · 共 {steps.total} 步
+                  {t('pageInfo', { page, totalPages, total: steps.total })}
                 </span>
                 <button
                   onClick={() => void loadRun(runId, Math.min(totalPages, page + 1))}
                   disabled={page >= totalPages}
                   className="rounded-lg border px-3 py-1 transition hover:bg-muted disabled:opacity-40"
                 >
-                  下一页
+                  {t('next')}
                 </button>
               </div>
             )}

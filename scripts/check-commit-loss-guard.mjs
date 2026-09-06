@@ -267,26 +267,36 @@ function parseRemoteTagOutput(stdout) {
 }
 
 function listRemoteLostCommitTags() {
-  // ls-remote 可能因网络/凭据失败,失败时返回空数组(不抛错)
+  // ls-remote 可能因网络/凭据失败,失败时返回 null(区别于成功的空集)
   // Windows 上 git.exe 在 pipe stdio 模式下 schannel SSL handshake 不稳定,
-  // 必须用 shell:true 走 cmd 包装器(参考 PowerShell 调用 git 的成功行为)
+  // 必须用 shell:true 走 cmd 包装器(参考 PS 调用 git 的成功行为)
   // 2026-08-17 加 timeout:境外 GitHub 访问慢时 execSync 无限阻塞(实测 >12min),
   // 导致 pre-commit [30a] 卡死、commit 无法完成。15s 超时按失败处理(安全降级跳过远程校验)。
-  const out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
-    allowFail: true,
-    shell: true,
-    timeout: REMOTE_TIMEOUT_MS,
-  })
+  // 2026-09-06 修复:失败/超时此前返回空集被当成"远端无任何 tag",导致全部本地 tag
+  // 被误报"仅本地 N 千个未 push"(误导性警告)。现失败返回 null,调用方降级跳过远程 diff。
+  let out
+  try {
+    out = run('git ls-remote origin "refs/tags/lost-commit/[^ ]*"', {
+      shell: true,
+      timeout: REMOTE_TIMEOUT_MS,
+    })
+  } catch {
+    return null
+  }
   return parseRemoteTagOutput(out)
 }
 
 function listRemoteBackups() {
-  // 同上:加 timeout 防境外网络无限阻塞(2026-08-17)
-  const out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
-    allowFail: true,
-    shell: true,
-    timeout: REMOTE_TIMEOUT_MS,
-  })
+  // 同上:加 timeout 防境外网络无限阻塞(2026-08-17);2026-09-06 失败返回 null
+  let out
+  try {
+    out = run('git ls-remote origin "refs/tags/backup/[^ ]*"', {
+      shell: true,
+      timeout: REMOTE_TIMEOUT_MS,
+    })
+  } catch {
+    return null
+  }
   return parseRemoteTagOutput(out)
 }
 
@@ -350,12 +360,18 @@ function main() {
   const lostTags = listLostCommitTags()
   const backups = listBackups()
   // 2026-07-26 升级:远程 tag 完整性校验
+  // 2026-09-06 修复:null=ls-remote 失败/超时 → 降级跳过远程 diff(不产生误导性差异)
   const remoteLostTags = listRemoteLostCommitTags()
   const remoteBackups = listRemoteBackups()
+  const remoteCheckSkipped = remoteLostTags === null || remoteBackups === null
   const allLocalBackupTags = [...lostTags, ...backups]
   const reachability = verifyAllTagReachability(allLocalBackupTags)
-  const lostTagDiff = compareTagSets(lostTags, remoteLostTags)
-  const backupTagDiff = compareTagSets(backups, remoteBackups)
+  const lostTagDiff = remoteCheckSkipped
+    ? { onlyLocal: [], onlyRemote: [], both: [] }
+    : compareTagSets(lostTags, remoteLostTags)
+  const backupTagDiff = remoteCheckSkipped
+    ? { onlyLocal: [], onlyRemote: [], both: [] }
+    : compareTagSets(backups, remoteBackups)
 
   // ── 1. reflog reset 检测 ──
   console.log(header('1. reflog 最近 50 步 reset 操作检测'))
@@ -458,11 +474,19 @@ function main() {
   // ── 5. 远程 tag 完整性(2026-07-26 升级,放在综合判定之前) ──
   console.log(header('5. 远程 tag 完整性(本地 vs origin)'))
   console.log(`  ${C.dim}本地 lost-commit/*: ${lostTags.length} 个 | 本地 backup/*: ${backups.length} 个${C.reset}`)
-  console.log(`  ${C.dim}远端 lost-commit/*: ${remoteLostTags.length} 个 | 远端 backup/*: ${remoteBackups.length} 个${C.reset}`)
+  if (remoteCheckSkipped) {
+    console.log(
+      `    ${C.yellow}⚠️  ls-remote 失败/超时(网络或 ${REMOTE_TIMEOUT_MS}ms 上限),远程完整性校验已安全降级跳过 — 不影响本次判定${C.reset}`,
+    )
+  } else {
+    console.log(`  ${C.dim}远端 lost-commit/*: ${remoteLostTags.length} 个 | 远端 backup/*: ${remoteBackups.length} 个${C.reset}`)
+  }
 
   // 5.1 lost-commit 差异
   console.log(`\n  ${C.bold}lost-commit/* 差异:${C.reset}`)
-  if (lostTagDiff.onlyLocal.length === 0 && lostTagDiff.onlyRemote.length === 0) {
+  if (remoteCheckSkipped) {
+    console.log(`    ${C.dim}(远程校验已跳过,见上方降级提示)${C.reset}`)
+  } else if (lostTagDiff.onlyLocal.length === 0 && lostTagDiff.onlyRemote.length === 0) {
     console.log(`    ${C.green}✅ 本地+远端完全一致${C.reset}`)
   } else {
     if (lostTagDiff.onlyLocal.length > 0) {
@@ -479,7 +503,9 @@ function main() {
 
   // 5.2 backup 差异
   console.log(`\n  ${C.bold}backup/* 差异:${C.reset}`)
-  if (backupTagDiff.onlyLocal.length === 0 && backupTagDiff.onlyRemote.length === 0) {
+  if (remoteCheckSkipped) {
+    console.log(`    ${C.dim}(远程校验已跳过,见上方降级提示)${C.reset}`)
+  } else if (backupTagDiff.onlyLocal.length === 0 && backupTagDiff.onlyRemote.length === 0) {
     console.log(`    ${C.green}✅ 本地+远端完全一致${C.reset}`)
   } else {
     if (backupTagDiff.onlyLocal.length > 0) {
