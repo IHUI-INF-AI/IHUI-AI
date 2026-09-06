@@ -93,7 +93,7 @@ export default function AdminLiveCategoriesPage() {
     saveMut.mutate()
   }
   function handleDelete(cat: Category) {
-    if (!window.confirm(t('deleteConfirm'))) return
+    // 删除确认已内聚到 AdminCategoryTable(ConfirmDialog),此处直接执行
     deleteMut.mutate(cat.id)
   }
 
