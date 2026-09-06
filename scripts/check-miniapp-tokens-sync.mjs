@@ -51,12 +51,17 @@ function extractAllBlocks(css, selector) {
   return blocks
 }
 
+/** Strip CSS block comments(注释内的 `--xxx: 描述文字` 会被变量正则误匹配,先剥离)。 */
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
 /** Extract --color-* vars from block text. Returns { name: value }. */
 function extractColorVars(text) {
   const vars = {}
   const re = /(--color-[\w-]+)\s*:\s*([^;]+);/g
   let m
-  while ((m = re.exec(text)) !== null) vars[m[1]] = m[2].trim()
+  while ((m = re.exec(stripComments(text))) !== null) vars[m[1]] = m[2].trim()
   return vars
 }
 
