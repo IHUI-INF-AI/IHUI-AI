@@ -56,6 +56,42 @@ groups:
           summary: 'AI 服务宕机'
           description: 'AI 服务已宕机超过 1 分钟'
 
+  - name: llm-alerts
+    rules:
+      # LLM provider 健康/配额降级(重): model_sync 把 provider 标记为不健康(常见于 402/配额超限被禁用)。
+      # 指标 `model_sync_provider_health`(gauge, 1=健康/0=降级)已确认持续采样(含 provider_code=stepfun)。
+      - alert: LlmProviderUnhealthy
+        expr: model_sync_provider_health{job="ai-service"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'LLM provider 不健康(疑似 402/配额超限)'
+          description: 'provider_code={{ $labels.provider_code }} 被标记为不健康已达 5 分钟。检查配额/费用(stepfun/step-3.7-flash 曾 402 quota_exceeded 拖垮线上)。'
+
+      # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
+      # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
+      # 指标一出现即生效。
+      - alert: LlmProviderErrorBurst
+        expr: (sum(rate(ihui_llm_provider_errors_total{job="ai-service"}[15m])) or on() vector(0)) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'LLM provider 错误突增'
+          description: '15 分钟窗口内出现 LLM provider 错误(含 402 配额/超限/5xx)。请核查 LLM 网关日志与配额。'
+
+      # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
+      # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
+      - alert: LlmTokenCostSurge
+        expr: (sum(rate(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'LLM token/费用突增'
+          description: '15 分钟 LLM token 用量 {{ $value }} 超过阈值 100000,费用可能异常上涨。阈值需按基线人工校准。'
+
   - name: infrastructure-alerts
     rules:
       # Windows 宿主机磁盘空间不足(< 15%,windows_exporter 逻辑盘指标)

@@ -90,6 +90,11 @@ scrape_configs:
   - job_name: 'windows'
     metrics_path: '/metrics'
     scheme: 'http'
+    basic_auth:
+      # 明文口令不写入 git(部署副本 D:\DevEnv\monitor\prometheus\prometheus.yml 用真实值)。
+      # username=prometheus,password 仅存于部署机本地 secret(D:\DevEnv\secrets\windows-exporter-auth.txt)。
+      username: prometheus
+      password: __REPLACE_WITH_DEPLOY_SECRET__
     static_configs:
       - targets: ['localhost:9182']
         labels:
