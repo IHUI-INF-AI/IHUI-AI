@@ -27,7 +27,11 @@ import {
   type CompressionResult,
 } from './context.js';
 // 阈值常量从共享包引用(跨端统一 0.88,与 context.ts / API / ai-service 一致)
-import { DEFAULT_TRIGGER_RATIO, DEFAULT_TARGET_RATIO } from '@ihui/context-compaction';
+import {
+  DEFAULT_KEEP_RECENT,
+  DEFAULT_TRIGGER_RATIO,
+  DEFAULT_TARGET_RATIO,
+} from '@ihui/context-compaction';
 
 // ==================== 类型定义 ====================
 
@@ -98,8 +102,8 @@ export interface SelectTurnsResult {
 }
 
 // ==================== 常量与默认值 ====================
-
-const DEFAULT_KEEP_RECENT = 6;
+// DEFAULT_KEEP_RECENT 引用 @ihui/context-compaction 单一真源(跨端统一 6,
+// 与 ai-service tunables.py 对齐;GAP-PLAN P0-1 收敛二次写死)
 const DEFAULT_MIN_MESSAGES = 10;
 const DEFAULT_MIN_COMPACTABLE_TOKENS = 1000;
 const DEFAULT_MAX_REDUCTION_RATIO = 0.8;
