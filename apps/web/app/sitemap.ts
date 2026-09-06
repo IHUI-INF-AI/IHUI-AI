@@ -199,6 +199,19 @@ const PAGES: Array<{
   { path: '/rules', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/refund', changeFrequency: 'yearly', priority: 0.3 },
   { path: '/security-audit', changeFrequency: 'monthly', priority: 0.5 },
+
+  // 2026-09-06 新增:Agent 杀手级功能页(对标 Claude / Codex / WorkBuddy 的深度能力页)。
+  // 这些页面此前未收录 sitemap,且共享 (main) 工作区通用 title;现已有独立 metadata,
+  // 加入 sitemap 供搜索引擎索引。均为登录后使用的深度能力页,优先级 0.5-0.6。
+  { path: '/deep-research', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/cost-dashboard', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/memory-manager', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/context-compaction', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/computer-use', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/agent-plan', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/agent-step-recorder', changeFrequency: 'weekly', priority: 0.5 },
+  { path: '/cloud-agent', changeFrequency: 'weekly', priority: 0.6 },
+  { path: '/cloud-run', changeFrequency: 'weekly', priority: 0.6 },
 ]
 
 export default function sitemap(): MetadataRoute.Sitemap {
