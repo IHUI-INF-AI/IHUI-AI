@@ -313,6 +313,11 @@ async function registerPlugins(server: FastifyInstance) {
   // 运行于 http://tauri.localhost;macOS/Linux 兜底自定义协议 tauri://localhost)。
   // 同时用于下方 CORS 回调与 WebSocket verifyClient 白名单,不依赖部署 env。
   const DESKTOP_ORIGINS = ['http://tauri.localhost', 'tauri://localhost']
+  // 2026-09-06 移动壳(apps/mobile-cap,Capacitor)预留:本地资产离线模式下 WebView 固定
+  // origin(Android: androidScheme=https → https://localhost;iOS 默认 → capacitor://localhost)。
+  // 该 origin 只有设备上本 App 的 WebView 页面能产生;首版壳走 server.url 远程模式
+  // (origin=站点自身,同源无需此项),此白名单为切换离线模式预置,后端发版一次即可。
+  const MOBILE_CAP_ORIGINS = ['https://localhost', 'capacitor://localhost']
   await server.register(cors, {
     // 2026-08-02 安全加固:CORS origin 从 zod 校验过的 config 读取(而非裸 process.env),
     // 并过滤 split 后的空字符串条目(防 "a,b," 尾逗号产生空 origin 匹配项)
@@ -332,7 +337,10 @@ async function registerPlugins(server: FastifyInstance) {
         .filter(Boolean)
       cb(
         null,
-        allowed.includes(o) || DESKTOP_ORIGINS.includes(o) || o.startsWith('chrome-extension://'),
+        allowed.includes(o) ||
+        DESKTOP_ORIGINS.includes(o) ||
+        MOBILE_CAP_ORIGINS.includes(o) ||
+        o.startsWith('chrome-extension://'),
       )
     },
     credentials: true,
@@ -434,6 +442,8 @@ async function registerPlugins(server: FastifyInstance) {
       .filter(Boolean),
     // 2026-09-02 桌面端 SaaS 化:Tauri webview WS 连接(与 CORS 同名安全论证)
     ...DESKTOP_ORIGINS,
+    // 2026-09-06 移动壳 Capacitor 本地资产模式(与 CORS MOBILE_CAP_ORIGINS 同源)
+    ...MOBILE_CAP_ORIGINS,
   ])
   await server.register(websocket, {
     options: {

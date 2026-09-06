@@ -107,4 +107,75 @@ declare global {
   globalThis as { __appsWebVitestPrepare?: typeof Error.prepareStackTrace }
 ).__appsWebVitestPrepare = existingPrepare
 void globalThis.__appsWebVitestPrepare
+
+// ── L4 ── 补全 vitest 4 缺省的部分浏览器全局(localStorage / sessionStorage / matchMedia / ResizeObserver)
+//
+// 根因:vitest 4 的 jsdom / happy-dom 环境下 `window.localStorage` 为 undefined,
+// zustand persist(storage-adapter) 或 hooks 一写入就抛
+// `Cannot read properties of undefined (reading 'setItem')`,在 store/hook/component
+// 测试里产生大量 unhandled error,被 vitest 计为失败(典型:theme.test.ts 8 断言全绿仍报 17 错)。
+// 这是"测试环境少提供浏览器 API"的宿主缺口,补上真实的浏览器内存实现并不构成掩盖断言。
+// 均以"已存在则不覆盖"方式安装,仅当当前环境缺失时才注入,避免遮盖真实实现。
+const isWindowEnv = typeof window !== 'undefined'
+
+if (isWindowEnv && typeof window.localStorage === 'undefined') {
+  const storageMap = new Map<string, string>()
+  const memoryStorage: Storage = {
+    get length() {
+      return storageMap.size
+    },
+    clear: () => storageMap.clear(),
+    getItem: (key) => (storageMap.has(String(key)) ? storageMap.get(String(key))! : null),
+    key: (index) => [...storageMap.keys()][index] ?? null,
+    removeItem: (key) => {
+      storageMap.delete(String(key))
+    },
+    setItem: (key, value) => {
+      storageMap.set(String(key), String(value))
+    },
+  }
+  Object.defineProperty(window, 'localStorage', {
+    value: memoryStorage,
+    configurable: true,
+    writable: true,
+  })
+  Object.defineProperty(window, 'sessionStorage', {
+    value: memoryStorage,
+    configurable: true,
+    writable: true,
+  })
+}
+
+if (isWindowEnv && typeof window.matchMedia === 'undefined') {
+  const queryListeners = new Set<(this: MediaQueryList, ev: MediaQueryListEvent) => void>()
+  window.matchMedia = ((query: string) => {
+    const mediaQueryList: MediaQueryList = {
+      media: query,
+      matches: false,
+      onchange: null,
+      addListener: (cb) => queryListeners.add(cb),
+      removeListener: (cb) => queryListeners.delete(cb),
+      addEventListener: (_type, cb) => {
+        if (typeof cb === 'function') queryListeners.add(cb)
+      },
+      removeEventListener: (_type, cb) => {
+        if (typeof cb === 'function') queryListeners.delete(cb)
+      },
+      dispatchEvent: (event) => {
+        for (const listener of [...queryListeners]) listener(event as MediaQueryListEvent)
+        return true
+      },
+    }
+    return mediaQueryList
+  }) as typeof window.matchMedia
+}
+
+if (isWindowEnv && typeof window.ResizeObserver === 'undefined') {
+  class MemoryResizeObserver implements ResizeObserver {
+    disconnect() {}
+    observe() {}
+    unobserve() {}
+  }
+  window.ResizeObserver = MemoryResizeObserver
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1017,7 +1017,7 @@ export { getCategoryIdBySlug }
  * 跨源转载常因全/半角、空格/标点/零宽字符差异被误判为不同标题,这里归一化后收敛;
  * 键按 kind 命名空间隔离,避免不同栏目(title 恰巧相同)被误判为重复。
  */
-function dedupKeyOf(kind: string, title: string): string {
+export function dedupKeyOf(kind: string, title: string): string {
   const norm = title
     .normalize('NFKC')
     .toLowerCase()

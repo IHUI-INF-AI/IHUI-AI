@@ -475,6 +475,44 @@ services:
       retries: 3
       start_period: 15s
 
+  # Alertmanager(告警通知:Email/钉钉/飞书/企业微信 4 通道)
+  # Prometheus ->Alertmanager 路由/抑制/分组 ->各 receiver
+  # 说明:alertmanager.yml 中 webhook 接收器(dingtalk-webhook/feishu-webhook/wechat-webhook:8060)
+  # 对应独立的 webhook 转换服务(未在本 compose 编排),作为告警出口占位;SMTP 凭据经 env 注入。
+  # 若无自定义模板目录则忽略 templates 加载(Alertmanager 可无 templates 启动)。
+  alertmanager:
+    profiles: [observability]
+    image: prom/alertmanager:v0.27.0
+    container_name: ihui-alertmanager
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.listen-address=0.0.0.0:9093'
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./monitoring/alertmanager/noise-rules.yml:/etc/alertmanager/noise-rules.yml
+      - alertmanager-data:/alertmanager
+    environment:
+      # 告警出口地址(占位;真实值经 .env 注入,勿提交真实凭据)
+      - DINGTALK_WEBHOOK_URL=${DINGTALK_WEBHOOK_URL:-}
+      - FEISHU_WEBHOOK_URL=${FEISHU_WEBHOOK_URL:-}
+      - WECHAT_WEBHOOK_URL=${WECHAT_WEBHOOK_URL:-}
+      # SMTP 邮件网关(告警通道一)
+      - SMTP_SMARTHOST=${SMTP_SMARTHOST:-smtp.example.com:465}
+      - SMTP_FROM=${ALERT_SMTP_FROM:-alert@aizhs.top}
+      - SMTP_AUTH_USER=${ALERT_SMTP_AUTH_USER:-}
+      - SMTP_AUTH_PASSWORD=${ALERT_SMTP_AUTH_PASSWORD:-}
+    ports:
+      - '${ALERTMANAGER_PORT:-9093}:9093'
+    networks:
+      - ihui-net
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://localhost:9093/-/healthy']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
 networks:
   ihui-net:
     driver: bridge
@@ -486,4 +524,5 @@ volumes:
   grafanadata:
   loki-data: # Loki 数据持久化(chunks + index + compactor)
   promtail-positions: # Promtail 读取位置持久化(positions.yaml)
+  alertmanager-data: # Alertmanager 告警通知状态持久化(nflog/silences)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
