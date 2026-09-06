@@ -10,6 +10,18 @@ import { useLocale } from 'next-intl'
 import { Activity, Coins, AlertTriangle, Timer, ArrowUp, ArrowDown } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import {
+  CHART_INDIGO,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+  CHART_CYAN,
+  CHART_PINK,
+  CHART_LIME,
+  CHART_ORANGE,
+  CHART_TEXT_DARK,
+} from '@ihui/design-tokens'
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@ihui/ui-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BackButton } from '@/components/common'
@@ -61,16 +73,16 @@ interface TopUser {
 type Range = 'today' | '7d' | '30d'
 
 const DONUT_COLORS = [
-  '#6366f1',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-  '#64748b',
+  CHART_INDIGO,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+  CHART_CYAN,
+  CHART_PINK,
+  CHART_LIME,
+  CHART_ORANGE,
+  CHART_TEXT_DARK,
 ]
 
 function Delta({

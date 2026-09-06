@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
   // 项目未引入渐变库,取两端混合色 #C1DAFE 纯色近似
   root: {
     flex: 1,
-    backgroundColor: tokens.indigo.light,
+    backgroundColor: tokens.brandAccent.light,
   },
   scroll: {
     flex: 1,

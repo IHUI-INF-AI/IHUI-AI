@@ -117,7 +117,7 @@ export function SelfMediaScreen() {
             <TouchableOpacity
               key={key}
               onPress={() => setTab(key)}
-              className={`flex-1 rounded-md py-2 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+              className={`flex-1 rounded-md py-2 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
             >
               <Text
                 className={`text-center text-xs ${active ? 'font-medium text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -186,7 +186,7 @@ export function SelfMediaScreen() {
                         <TouchableOpacity
                           onPress={() => void onInvoke(skill)}
                           disabled={invoking || !skill.available}
-                          className={`mt-2 items-center rounded-md py-2.5 ${invoking || !skill.available ? 'bg-blue-400' : 'bg-blue-600'}`}
+                          className={`mt-2 items-center rounded-md py-2.5 ${invoking || !skill.available ? 'bg-orange-400' : 'bg-orange-600'}`}
                         >
                           <Text className="text-xs font-medium text-white">
                             {invoking ? t('selfMedia.invoking') : t('selfMedia.invoke')}
@@ -199,7 +199,7 @@ export function SelfMediaScreen() {
                                 {t('selfMedia.duration', { ms: result.duration_ms })}
                               </Text>
                               <TouchableOpacity onPress={onShare} hitSlop={{ top: 6, bottom: 6 }}>
-                                <Text className="text-xs text-blue-600 dark:text-blue-400">
+                                <Text className="text-xs text-orange-600 dark:text-orange-400">
                                   {t('selfMedia.share')}
                                 </Text>
                               </TouchableOpacity>
