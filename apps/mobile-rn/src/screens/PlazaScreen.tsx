@@ -724,15 +724,15 @@ const styles = StyleSheet.create({
   },
   identityBtnOutline: { borderColor: tokens.border.light, backgroundColor: tokens.surface.light },
   identityBtnPrimary: {
-    borderColor: tokens.indigo.DEFAULT,
-    backgroundColor: tokens.indigo.DEFAULT,
+    borderColor: tokens.brandAccent.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
   },
   identityBtnTextOutline: { fontSize: 15, color: tokens.gray[900], fontWeight: '600' },
   identityBtnTextPrimary: { fontSize: 15, color: tokens.surface.light, fontWeight: '600' },
   identityFooter: { marginTop: rpx(36), alignItems: 'center' },
   identityFooterTitle: {
     fontSize: 14,
-    color: tokens.indigo.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     fontWeight: '600',
     marginBottom: rpx(4),
   },
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   } as ViewStyle,
   categoryItemActive: {
-    backgroundColor: tokens.indigo.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
   } as ViewStyle,
   categoryItemText: {
     fontSize: 14,

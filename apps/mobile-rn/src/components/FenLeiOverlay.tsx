@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
   headTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: tokens.purple.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     textAlign: 'center',
     marginBottom: 10,
   },
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   // 选中态(对齐 uniapp fenlei_btn.active / tag-item_active:加边框 + 加粗)
   tagItemActive: {
     borderColor: tokens.brand.DEFAULT,
-    backgroundColor: tokens.purple.light,
+    backgroundColor: tokens.brandAccent.light,
   },
   tagText: {
     fontSize: 12,
