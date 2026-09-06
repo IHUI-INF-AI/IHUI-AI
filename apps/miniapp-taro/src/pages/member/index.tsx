@@ -5,6 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
@@ -293,10 +294,10 @@ export default function MemberIndexPage() {
             {benefits.map((b) => (
               <View key={b.id} className="member-benefit-item">
                 <View className="member-benefit-icon">
-                  <Image
-                    src="/static/images/icons/star.svg"
-                    mode="aspectFit"
-                    style={{ width: '28rpx', height: '28rpx' }}
+                  <LineIcon
+                    name="star"
+                    size={28}
+                    color="var(--color-warning)"
                   />
                 </View>
                 <View className="member-benefit-content">
@@ -335,11 +336,11 @@ export default function MemberIndexPage() {
         ) : isPermanentVip ? (
           <View className="member-vip-section member-vip-permanent">
             <View className="member-permanent-badge">
-              <Image
+              <LineIcon
                 className="member-crown"
-                style={{ width: '40rpx', height: '40rpx' }}
-                src="/static/images/icons/gem.svg"
-                mode="aspectFit"
+                name="gem"
+                size={40}
+                color="var(--color-muted-foreground)"
               />
               <Text className="member-permanent-text">
                 {tt('member.index.permanentActive', '您已是永久 VIP 会员')}

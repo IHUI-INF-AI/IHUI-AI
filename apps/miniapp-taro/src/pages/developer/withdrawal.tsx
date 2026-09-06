@@ -88,12 +88,11 @@ export default function DeveloperWithdrawal() {
   const statusClass = useCallback((item: WithdrawalItem) => {
     const norm = normalizeStatus(item.status)
     const base = 'text-[24rpx] px-[16rpx] py-[6rpx] rounded-[6rpx]'
-    // 保留:#007aff iOS 蓝(processing 状态);token 系统无对应 iOS 平台蓝,保留原值
     const styles: Record<string, string> = {
-      pending: 'text-warning bg-[rgba(255,149,0,0.1)]',
-      processing: 'text-[rgba(0, 122, 255, 1)] bg-[rgba(0,122,255,0.1)]',
-      success: 'text-success bg-[rgba(52,199,89,0.1)]',
-      failed: 'text-destructive bg-[rgba(255,59,48,0.1)]',
+      pending: 'text-warning bg-warning/10',
+      processing: 'text-info bg-info/[0.1]',
+      success: 'text-success bg-success/[0.1]',
+      failed: 'text-destructive bg-destructive/[0.1]',
     }
     return `${base} ${styles[norm] ?? styles.pending}`
   }, [])

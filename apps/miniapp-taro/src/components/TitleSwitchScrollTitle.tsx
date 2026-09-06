@@ -91,9 +91,9 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
   )
 
   return (
-    <View className="w-full rounded-b-[30rpx] bg-white pb-[24rpx] shadow-[0_4px_2px_-4px_rgba(0,0,0,0.3)]">
+    <View className="w-full rounded-b-[30rpx] bg-card pb-[24rpx] shadow-[0_4px_2px_-4px_var(--color-black-30)]">
       <View className="w-full px-[56rpx] box-border mb-[36rpx]">
-        <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">
+        <View className="text-[60rpx] font-bold tracking-[0.08em] text-foreground">
           {tt('TitleSwitchScrollTitle.text1', '主赛道:')}
         </View>
         <Swiper
@@ -105,7 +105,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
           onChange={mainChange}
           className="w-[calc(100vw-60px)] box-border h-[120rpx]"
         >
-          {/* 当前赛道高亮:品牌 indigo(--color-brand),与 web 强调色一致 */}
+          {/* 当前赛道高亮:品牌主色 var(--color-brand),浅/深主题自适应(黑/白) */}
           {mainList.map((item, index) => (
             <SwiperItem
               key={index}
@@ -122,7 +122,7 @@ export default function TitleSwitchScrollTitle(props: TitleSwitchScrollTitleProp
       </View>
       {subList && subList.length > 0 ? (
         <View className="w-full px-[56rpx] box-border mb-[36rpx]">
-          <View className="text-[60rpx] font-bold tracking-[0.08em] text-black">
+          <View className="text-[60rpx] font-bold tracking-[0.08em] text-foreground">
             {tt('TitleSwitchScrollTitle.text2', '子赛道:')}
           </View>
           <Swiper

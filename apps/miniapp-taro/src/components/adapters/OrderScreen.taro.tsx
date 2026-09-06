@@ -82,7 +82,7 @@ const statusColors = (status: AppOrderStatus, tk: RnThemeTokens): { bg: string; 
     case 'paid':
       return { bg: tk.success.light, text: tk.success.deepText }
     case 'shipped':
-      return { bg: tk.indigo.light, text: tk.indigo.deep }
+      return { bg: tk.surface.muted, text: tk.text.primary }
     case 'completed':
       return { bg: tk.success.light, text: tk.success.deepText }
     case 'cancelled':

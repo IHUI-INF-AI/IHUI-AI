@@ -5,6 +5,7 @@
 import { useTt, t } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Textarea, Button, Image, Switch, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createAsk } from '@/api'
@@ -314,11 +315,11 @@ export default function AskCreatePage() {
                 >
                   <Text>{tt(c.labelKey, c.fb)}</Text>
                   {form.category === c.key ? (
-                    <Image
+                    <LineIcon
                       className="ask-create-sheet-check"
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '28rpx', height: '28rpx' }}
+                      name="check"
+                      size={28}
+                      color="var(--color-brand)"
                     />
                   ) : null}
                 </View>
