@@ -7932,9 +7932,17 @@
     "expiryDate": "到期日期"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "输入",
+      "completionTokens": "输出",
+      "requests": "请求数",
+      "estimateHint": "费用按混合单价粗估(¥0.02/千 token),非真实计费",
+      "ariaLabel": "会话累计 Token 用量"
+    },
+    "deepResearchEntry": "深度研究",
     "addContextHint": "添加上下文文件或引用",
     "addContextReference": "添加为上下文引用",
-    "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件)",
+    "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件/压缩)",
     "addMenuLabel": "添加",
     "assistant": "AI 助手",
     "cancel": "取消",
@@ -14194,6 +14202,17 @@
     "summaryPreview": "摘要预览"
   },
   "deepResearch": {
+    "sourcesTitle": "来源溯源",
+    "confidenceLabel": "置信度",
+    "verifiedLabel": "已核验",
+    "unverifiedLabel": "待核验",
+    "historyTitle": "历史任务",
+    "sourceTier": {
+      "authoritative": "官方",
+      "media": "媒体",
+      "community": "社区",
+      "unknown": "未知"
+    },
     "title": "深度研究 Deep Research",
     "phasePlanning": "规划问题",
     "phaseRetrieving": "多源检索",
@@ -14332,7 +14351,38 @@
     "loading": "加载中…",
     "loadFailed": "加载运行记录失败"
   },
+  "agentTeams": {
+    "title": "智能体团队",
+    "refresh": "刷新",
+    "statsTotal": "总运行数",
+    "statsActive": "运行中",
+    "statsCompleted": "已完成",
+    "statsFailed": "失败",
+    "filter": {
+      "all": "全部",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "empty": "暂无团队运行记录",
+    "selectHint": "从左侧选择一次运行查看详情",
+    "detailTitle": "运行详情",
+    "goal": "目标",
+    "role": "成员角色",
+    "orchestration": "编排模式",
+    "priority": "优先级",
+    "createdAt": "创建时间",
+    "updatedAt": "更新时间",
+    "result": "结果",
+    "error": "错误",
+    "tokens": "Token 用量",
+    "durationMs": "耗时(ms)",
+    "topologyTitle": "Swarm 拓扑",
+    "activityTitle": "活动流",
+    "none": "无"
+  },
   "nav": {
+    "agentTeams": "智能体团队",
     "about": "关于",
     "activities": "活动",
     "admin": "管理后台",
@@ -20540,16 +20590,8 @@
     "title": "Agent 运行时",
     "description": "Agent 运行时监控与管理"
   },
-  "agentStepRecorder": {
-    "title": "Agent 步骤记录",
-    "description": "记录 Agent 执行步骤"
-  },
   "apple": {
     "callback": "Apple 登录回调"
-  },
-  "costDashboard": {
-    "title": "成本看板",
-    "description": "AI 成本监控看板"
   },
   "developers": {
     "title": "开发者",
