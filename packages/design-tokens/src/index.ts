@@ -67,12 +67,16 @@ export {
   DESIGN_OVERLAY_BG_DARK,
   DESIGN_OVERLAY_FG_LIGHT,
   DESIGN_OVERLAY_FG_DARK,
+  SHELL_BG_DARK,
   COLOR_BLACK,
   withAlpha,
   chartText,
   chartAxis,
   chartBg,
 } from './chart-colors'
+
+// 第三方 OAuth 平台品牌色唯一真相源(mobile-rn 登录页第三方按钮消费,明暗恒定)。
+export { OAUTH_BRAND_COLORS } from './oauth-colors'
 
 // 生成的文档(PDF/Email/落地页)配色唯一真相源。
 export {
