@@ -295,6 +295,9 @@ import { telemetryRoutes } from './telemetry.js'
 // P1-3 补建：推送服务（FCM + 个推 HTTP API，无 SDK 依赖）
 import { pushRoutes, adminPushRoutes } from './push.js'
 
+// 设备推送 token 注册表路由(2026-09-06 立):PUT/DELETE /api/devices/token
+import { devicesRoutes } from './devices.js'
+
 // P1-4 补建：文件转码服务（FFmpeg 子进程封装）
 import { transcodeRoutes, adminTranscodeRoutes } from './transcode.js'
 
@@ -926,6 +929,8 @@ export function registerRoutes(server: FastifyInstance) {
   // ===== P1-3 补建：推送服务（FCM + 个推 HTTP API）=====
   server.register(pushRoutes, { prefix: '/api' })
   server.register(adminPushRoutes, { prefix: '/api/admin' })
+  // 设备推送 token 注册表(2026-09-06 立):PUT/DELETE /api/devices/token
+  server.register(devicesRoutes, { prefix: '/api' })
 
   // ===== P1-4 补建：文件转码服务（FFmpeg 子进程封装）=====
   server.register(transcodeRoutes, { prefix: '/api' })
