@@ -119,14 +119,28 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findPublishedArticles(parsed.data)
-    return reply.send(success(result))
+    // 2026-09-06 P0:公开资讯列表接缓存(10min)。缓存键含分页+分类+搜索上下文
+    const d = parsed.data
+    const result = await server.cacheResilience.getOrLoad(
+      `news:articles:${d.page}:${d.pageSize}:${d.categoryId ?? '-'}:${d.search ?? '-'}`,
+      600,
+      () => findPublishedArticles(d),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=60')
+      .send(success(result))
   })
 
   // GET /news/categories - 启用的分类列表（公开）
   server.get('/news/categories', async (_request, reply) => {
-    const list = await findPublishedNewsCategories()
-    return reply.send(success({ list }))
+    const list = await server.cacheResilience.getOrLoad(
+      'news:categories',
+      300,
+      () => findPublishedNewsCategories(),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60')
+      .send(success({ list }))
   })
 
   // GET /news/hot - 热门资讯（公开，按浏览量排序）
@@ -135,14 +149,21 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
       .object({ limit: z.coerce.number().int().min(1).max(50).default(10) })
       .safeParse(request.query)
     const limit = limitQuery.success ? limitQuery.data.limit : 10
-    const result = await findPublishedArticles({ page: 1, pageSize: limit })
+    // 2026-09-06 P0:公开资讯热榜接缓存(5min)
+    const result = await server.cacheResilience.getOrLoad(
+      `news:hot:${limit}`,
+      300,
+      () => findPublishedArticles({ page: 1, pageSize: limit }),
+    )
     const list = result.list.map((a) => ({
       id: a.id,
       title: a.title,
       viewCount: a.viewCount,
       publishedAt: a.publishedAt ? a.publishedAt.toISOString() : new Date().toISOString(),
     }))
-    return reply.send(success(list))
+    return reply
+      .header('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60')
+      .send(success(list))
   })
 
   // GET /news/articles - 已发布资讯列表（公开）
@@ -151,8 +172,16 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await findPublishedArticles(parsed.data)
-    return reply.send(success(result))
+    // 2026-09-06 P0:公开资讯列表接缓存(10min)
+    const d = parsed.data
+    const result = await server.cacheResilience.getOrLoad(
+      `news:articles:${d.page}:${d.pageSize}:${d.categoryId ?? '-'}:${d.search ?? '-'}`,
+      600,
+      () => findPublishedArticles(d),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=60')
+      .send(success(result))
   })
 
   // GET /news/articles/pinned - 置顶资讯列表（公开）

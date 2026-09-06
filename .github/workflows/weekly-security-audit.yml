@@ -25,7 +25,8 @@ permissions:
 
 env:
   NODE_VERSION: '20'
-  PNPM_VERSION: '9.15.0'
+  # 与根 package.json packageManager 对齐,避免 pnpm 版本漂移
+  PNPM_VERSION: '11.18.0'
 
 jobs:
   security-audit:
@@ -49,18 +50,22 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 1. 依赖漏洞扫描（全量 + 生产依赖）
+      # known workaround: npmmirror registry 无 audit 端点,显式切到官方 registry(npmjs)
+      #   使 pnpm audit 可命中安全端点;仅作用于本步骤 env,不影响其他安装/本地配置。
       - name: 依赖漏洞扫描 (pnpm audit)
+        env:
+          npm_config_registry: https://registry.npmjs.org
         run: |
           mkdir -p reports
           # 全量审计（含 dev 依赖），输出 JSON 报告
           pnpm audit --json > reports/pnpm-audit-full.json || true
-          # 仅生产依赖审计（更高危），高危项使步骤失败
-          pnpm audit --prod --json > reports/pnpm-audit-prod.json || true
-          # 摘要输出到日志
-          echo "=== 全量依赖审计摘要 ==="
+          echo "=== 全量依赖审计摘要(仅告警) ==="
           pnpm audit || true
-          echo "=== 生产依赖审计摘要 ==="
-          pnpm audit --prod || true
+          # 仅生产依赖审计（更高危）：先尽力写 JSON 报告(供 artifact/Issue 用,不阻塞),
+          # 再以 --audit-level=high 作为阻塞门槛(存在 high/critical 时 pnpm 非 0 退出,|| exit 1 使任务失败)。
+          echo "=== 生产依赖审计摘要(阻塞门槛) ==="
+          pnpm audit --prod --json > reports/pnpm-audit-prod.json || true
+          pnpm audit --prod --audit-level=high > reports/pnpm-audit-prod.txt || exit 1
 
       # 2. TypeScript 类型检查（turbo 并行）
       - name: TypeScript 类型检查 (tsc --noEmit)
