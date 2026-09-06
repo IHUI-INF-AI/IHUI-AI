@@ -15,6 +15,7 @@ import { AuthShell } from '@/components/auth/AuthShell'
 import { openExternalUrl } from '@/lib/tauri-bridge'
 import { buildSsoLoginUrl, SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared'
 import { useDesktop } from '@/hooks/use-desktop'
+import { useIsMobile } from '@/hooks/use-media-query'
 import { LoginFormContent } from './LoginFormContent'
 import { RegisterFormContent } from './RegisterFormContent'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
@@ -41,6 +42,9 @@ export function LoginDialog() {
   const setMode = useLoginDialogStore((s) => s.setMode)
 
   const { isDesktop } = useDesktop()
+  // 2026-09-06 立:App/移动端(<1024px)登录/注册/找回密码改为独立全屏页形态,桌面保留居中弹窗。
+  // 判定复用 useIsMobile()(max-width:1023px),与 useDesktop() 的 768px 阈值无重叠冲突。
+  const isMobile = useIsMobile()
 
   const showDesktopSso = isDesktop
 
@@ -83,38 +87,59 @@ export function LoginDialog() {
       <DialogContent
         data-testid="login-dialog"
         hideCloseButton
-        className="
-          gap-0
-          p-0
-          max-w-[460px]
-          w-[calc(100%-2rem)]
-          max-h-[95vh]
-          overflow-y-auto
-          border-0 bg-transparent shadow-none
-        "
+        className={
+          isMobile
+            ? // 移动/App:全屏全出血(背景 surface,无圆角/阴影/边框),登录/注册/找回三态统一
+              // 必须显式 left-0 top-0 translate-x-0 translate-y-0 抵消 DialogContent 基类
+              // 的 left-[50%] top-[50%] translate-x/y-[-50%] 居中,否则全屏盒被平移出屏只露左上角。
+              'fixed left-0 top-0 translate-x-0 translate-y-0 h-dvh w-full max-w-none max-h-none overflow-y-auto gap-0 p-0 border-0 bg-background rounded-none shadow-none'
+            : // 桌面:保持原居中卡片
+              'gap-0 p-0 max-w-[460px] w-[calc(100%-2rem)] max-h-[95vh] overflow-y-auto border-0 bg-transparent shadow-none'
+        }
       >
         <DialogTitle className="sr-only">{title}</DialogTitle>
         <DialogDescription className="sr-only">{subtitle}</DialogDescription>
 
-        <AuthShell onClose={close}>
-          {showDesktopSso && mode === 'login' && (
-            <div className="pb-3">
-              <Button variant="outline" className="h-10 w-full" onClick={handleDesktopSso}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                <span>{t('loginInBrowser')}</span>
-              </Button>
-            </div>
-          )}
-          {mode === 'login' ? (
-            <LoginWithTurnstile>
-              <LoginFormContent onSuccess={handleLoginSuccess} />
-            </LoginWithTurnstile>
-          ) : mode === 'register' ? (
-            <RegisterFormContent onSuccess={() => setMode('login')} />
-          ) : (
-            <ForgotPasswordForm />
-          )}
-        </AuthShell>
+        {isMobile ? (
+          // 移动/App 全屏形态:垂直居中 + 安全区 padding + 透明全出血 AuthShell
+          <div className="flex min-h-full flex-col justify-center px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-[max(env(safe-area-inset-bottom),1rem)]">
+            <AuthShell
+              onClose={close}
+              hideCloseButton
+              className="w-full max-w-none rounded-none border-0 bg-transparent p-5 shadow-none"
+            >
+              {mode === 'login' ? (
+                <LoginWithTurnstile>
+                  <LoginFormContent tabs={['email', 'phone', 'password']} onSuccess={handleLoginSuccess} />
+                </LoginWithTurnstile>
+              ) : mode === 'register' ? (
+                <RegisterFormContent onSuccess={() => setMode('login')} />
+              ) : (
+                <ForgotPasswordForm />
+              )}
+            </AuthShell>
+          </div>
+        ) : (
+          <AuthShell onClose={close}>
+            {showDesktopSso && mode === 'login' && (
+              <div className="pb-3">
+                <Button variant="outline" className="h-10 w-full" onClick={handleDesktopSso}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  <span>{t('loginInBrowser')}</span>
+                </Button>
+              </div>
+            )}
+            {mode === 'login' ? (
+              <LoginWithTurnstile>
+                <LoginFormContent onSuccess={handleLoginSuccess} />
+              </LoginWithTurnstile>
+            ) : mode === 'register' ? (
+              <RegisterFormContent onSuccess={() => setMode('login')} />
+            ) : (
+              <ForgotPasswordForm />
+            )}
+          </AuthShell>
+        )}
       </DialogContent>
     </Dialog>
   )
