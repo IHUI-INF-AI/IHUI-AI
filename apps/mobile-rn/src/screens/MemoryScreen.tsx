@@ -19,6 +19,7 @@ import { fetchApi } from '@ihui/api-client'
 import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
 import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -94,6 +95,7 @@ function formatTime(iso: string): string {
 export function MemoryScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const user = useAuthStore((s) => s.user)
   const [entries, setEntries] = useState<MemoryEntry[]>([])
@@ -310,7 +312,7 @@ export function MemoryScreen() {
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t('memory.searchPlaceholder')}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={tk.text.tertiary}
                 returnKeyType="search"
                 className="h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
               />
@@ -402,7 +404,7 @@ export function MemoryScreen() {
               value={newText}
               onChangeText={setNewText}
               placeholder={t('memory.textPlaceholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tk.text.tertiary}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -412,7 +414,7 @@ export function MemoryScreen() {
               value={newCategory}
               onChangeText={setNewCategory}
               placeholder={t('memory.categoryPlaceholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tk.text.tertiary}
               className="mt-2 h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
             />
             <Text className="mt-3 text-xs text-gray-500">{t('memory.typeLabel')}</Text>

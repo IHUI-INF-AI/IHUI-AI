@@ -132,7 +132,7 @@ function Chip({
 function SearchInput(props: TextInputProps) {
   return (
     <TextInput
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor={tokens.text.tertiary}
       {...props}
       className={`mr-3 h-9 flex-1 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100 ${props.className ?? ''}`}
     />

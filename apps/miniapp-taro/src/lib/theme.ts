@@ -37,7 +37,7 @@ const THEME_PREFERENCES: readonly ThemePreference[] = ['auto', 'light', 'dark']
 
 /* ─── 原生 chrome 色值(与 packages/design-tokens tokens.css 严格对齐)───
  * light: background hsl(0 0% 96.1%) = #f5f5f5;primary 亮色 tabBar 同 app.config.ts 既有值
- * dark:  background hsl(0 0% 14%) = #242424;card hsl(0 0% 10%) = #1a1a1a;
+ * dark:  background ≈ #262626;card hsl(0 0% 10%) = #1a1a1a;
  *        muted-foreground hsl(0 0% 63.9%) = #a3a3a3
  */
 const THEME_CHROME: Record<
@@ -56,15 +56,15 @@ const THEME_CHROME: Record<
     navBg: '#ffffff',
     navFront: '#000000',
     windowBg: '#f5f5f5',
-    tabColor: '#9CA3AF',
+    tabColor: '#A3A3A3',
     tabSelected: '#000000',
     tabBg: '#ffffff',
     tabBorder: 'white',
   },
   dark: {
-    navBg: '#242424',
+    navBg: '#262626',
     navFront: '#ffffff',
-    windowBg: '#242424',
+    windowBg: '#262626',
     tabColor: '#a3a3a3',
     tabSelected: '#ffffff',
     tabBg: '#1a1a1a',
