@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -112,8 +113,9 @@ export default function ZhsAgentPage() {
     saveMut.mutate()
   }
   function handleDelete(item: ZhsAgent) {
-    if (!window.confirm(`确认删除 "${item.name}" ?`)) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: `确认删除 "${item.name}" ?` }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
   function handleExport() {
     exportToExcel(
