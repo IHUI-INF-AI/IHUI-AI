@@ -193,7 +193,14 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                    <WebWorkPanel />                   右侧内置浏览器面板
           TagsView + 窗口控制按钮由 MainShell 内部渲染,严格匹配 main 同宽容器。
           AISidePanel 不再用 fixed 定位,改为 flex 子元素自然占空间,彻底消除 padding-left 压缩问题。 */}
-        <div className="flex h-screen overflow-hidden">
+        {/* 移动 App(WebView/内嵌浏览器)端到端边缘渲染适配(2026-09-06 补全):
+           - viewport-fit=cover(layout.tsx)声明后,`100vh`(h-screen)在刘海屏=整机高度(含状态栏),
+             仅加 pt 会把底部内容挤出屏外。改用 h-dvh(动态视口高)让壳贴合当前可见视口,
+             不会因 URL 栏/状态栏开合而溢出。
+           - pt-[env(safe-area-inset-top)]:整体下移,避开顶部系统状态栏(时间/信号/电量那行)。
+           - pb-[env(safe-area-inset-bottom)]:底部预留,避开 Home 指示条(全面屏手势条)。
+           - 桌面/普通浏览器 env()=0,dvh≈vh,样式完全不变。 */}
+        <div className="flex h-dvh overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
           {/* 左列:桌面端全高侧边栏(占据左上角,不再有 40px 顶部空) */}
           <React.Suspense
             // 2026-08-28 CLS 根治:此前 fallback={null},Sidebar 因内部 useSearchParams() 在
