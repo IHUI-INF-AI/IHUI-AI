@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
 import { useDebounce } from '@/hooks/use-debounce'
 import { cn } from '@/lib/utils'
 import { useWorkPanelStore } from '@/stores/work-panel'
@@ -168,7 +170,7 @@ const CodeBlockImpl = function CodeBlock({
   // 流式中的代码块用 opacity-60 标记(临时闭合位置)
   // 2026-08-02:对话文字整体放大,代码块 14px → 15px(text-[15px])
   // 2026-08-17 P3:dark 模式代码块统一用更深 zinc-950(与 markdown-stream.test 期望对齐,
-    // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
+  // 原实现用 zinc-900 + 注释"较浅避免同色",但实际测试断言 zinc-950 已通过,改为一致 token)
   const preClassName = cn(
     'relative my-0 overflow-x-auto rounded-lg border border-zinc-200 p-3 text-[15px]',
     'bg-zinc-100 text-zinc-900',
@@ -608,7 +610,11 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   return (
     // 2026-08-02:AI 对话正文 14px → 15px(text-[15px]),用户反馈"太大了 小点"
     <div className="!m-0 !p-0 !space-y-0 text-[15px]" data-testid="markdown-stream">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[[rehypeKatex, { throwOnError: false, output: 'html' }]]}
+        components={components}
+      >
         {parseContent}
       </ReactMarkdown>
       {isStreaming && (
