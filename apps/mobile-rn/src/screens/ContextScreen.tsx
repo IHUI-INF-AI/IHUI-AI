@@ -12,6 +12,7 @@ import {
   type ContextCompressionStats,
   type ContextMention,
 } from '@ihui/api-client'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -26,6 +27,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function ContextScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [stats, setStats] = useState<ContextCompressionStats | null>(null)
   const [query, setQuery] = useState('')
@@ -165,7 +167,7 @@ export function ContextScreen() {
             value={query}
             onChangeText={setQuery}
             placeholder={t('context.mentionsPlaceholder')}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tk.text.tertiary}
             className="mt-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-neutral-700 dark:text-neutral-100"
           />
           {searching ? (
