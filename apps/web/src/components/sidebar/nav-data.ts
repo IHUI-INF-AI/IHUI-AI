@@ -377,6 +377,8 @@ const ADVANCED_AI_TOOLS_CHILDREN: NavItem[] = [
   { href: '/personas', labelKey: 'eduAiPersonas', icon: UsersRound },
   { href: '/orchestration', labelKey: 'eduAiOrch', icon: Server },
   { href: '/deep-research', labelKey: 'deepResearch', icon: Rocket },
+  // 智能体团队管理 v1(读侧:团队运行列表 + 运行详情回看,2026-09-07 工作线 B)
+  { href: '/agent-teams', labelKey: 'agentTeams', icon: UsersRound },
   { href: '/cloud-agent', labelKey: 'cloudAgent', icon: Cloud },
   { href: '/context-compaction', labelKey: 'contextCompaction', icon: Layers },
   { href: '/computer-use', labelKey: 'computerUse', icon: MonitorSmartphone },
