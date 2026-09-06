@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -154,8 +155,9 @@ export default function EduFinancePage() {
         }}
         onCreate={openCreate}
         onBatchDelete={() => {
-          if (window.confirm(t('confirmBatchDelete', { count: ids.length })))
-            batchDeleteMut.mutate(ids)
+          void confirmDialog({ title: t('confirmBatchDelete', { count: ids.length }) }).then((ok) => {
+            if (ok) batchDeleteMut.mutate(ids)
+          })
         }}
         onExport={handleExport}
         hasSelection={ids.length > 0}
@@ -170,7 +172,9 @@ export default function EduFinancePage() {
         onToggleOne={toggleOne}
         onEdit={openEdit}
         onDelete={(r) => {
-          if (window.confirm(t('confirmDelete'))) deleteMut.mutate(r.id)
+          void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+            if (ok) deleteMut.mutate(r.id)
+          })
         }}
         deletePending={deleteMut.isPending}
       />

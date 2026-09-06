@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -133,7 +134,9 @@ export default function TeamDetailPage() {
     }
   }
   const handleDeleteTeam = () => {
-    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate()
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate()
+    })
   }
 
   if (teamQ.isLoading)

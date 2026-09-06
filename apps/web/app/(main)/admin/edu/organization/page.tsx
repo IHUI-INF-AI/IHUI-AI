@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -135,7 +136,9 @@ export default function EduOrganizationPage() {
         deletePending={deleteMut.isPending}
         onEdit={openEdit}
         onDelete={(r) => {
-          if (window.confirm(t('confirmDelete'))) deleteMut.mutate(r.id)
+          void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+            if (ok) deleteMut.mutate(r.id)
+          })
         }}
       />
 
