@@ -3822,7 +3822,7 @@
     "r4": "Zhipu"
   },
   "aboutBusinesslicense": {
-    "r1": "Guangzhou Zhihui Technology Co., Ltd.",
+    "r1": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
     "r2": "10 million RMB",
     "r3": "2023-06-15 to long-term",
     "r4": "Limited liability company",
@@ -3831,13 +3831,13 @@
   },
   "aboutModelrecord": {
     "r1": "IHUI AI Dialogue LLM",
-    "r2": "Guangdong Internet Info Filing No. 4401060000001",
-    "r3": "Guangzhou Zhihui Technology Co., Ltd.",
+    "r2": "Ji ICP License No. 2025027274",
+    "r3": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
     "r4": "Generative synthetic (deep synthesis)"
   },
   "aboutIcprecord": {
-    "r1": "Guangdong Public Security Filing No. 44010602000001",
-    "r2": "Guangzhou Zhihui Technology Co., Ltd.",
+    "r1": "Ji ICP License No. 2025027274",
+    "r2": "Jilin Aihui Artificial Intelligence Technology Co., Ltd.",
     "p1": "Ji ICP License No. 2025027274-7A"
   },
   "last": {
