@@ -548,6 +548,12 @@ export function MessageInput({
                   // 2026-08-02 修复: Bug 3 — 改用 router.push 避免整页刷新丢失输入/状态
                   router.push('/plugins')
                 }}
+                onOpenDeepResearch={() => {
+                  setAddMenuOpen(false)
+                  setAddMenuMode('menu')
+                  // 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面
+                  router.push('/deep-research')
+                }}
               />
               {allReferences.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
