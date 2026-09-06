@@ -26,10 +26,11 @@ export interface AlertCheckResult {
 }
 
 // ---------------------------------------------------------------------------
-// 文件系统备份新鲜度检查(2026-09-06 加固)
-// 补盲区: 两条独立备份链最近文件若 早于 24h 或 为 0 字节 → 判定备份缺失/空备份。
-//   Chain1(NSSM): D:\DevEnv\backups\pg\ihui_dev_*.dump
-//   Chain2(BullMQ): d:\IHUI-AI\backups\pg\*.sql.gz
+// 文件系统备份新鲜度检查(2026-09-06 加固;2026-09-06 收敛单一拥有者)
+// 补盲区: 唯一备份链(NSSM)最近文件若 早于 24h 或 为 0 字节 → 判定备份缺失/空备份。
+//   Chain1(NSSM): D:\DevEnv\backups\pg\ihui_dev_*.dump  ← 唯一权威备份(含百度异地)
+//   (已废弃: 应用内 BullMQ d:\IHUI-AI\backups\pg\*.sql.gz 经 2026-09-06 收口下线,
+//    因其调度静默失败/不累积,与 NSSM 重复,不再作为备份链纳入监控)
 // ---------------------------------------------------------------------------
 
 interface BackupTarget {
@@ -47,11 +48,6 @@ const BACKUP_TARGETS: BackupTarget[] = [
     label: 'NSSM服务备份(D:\\DevEnv\\backups\\pg\\ihui_dev_*.dump)',
     namePrefix: 'ihui_dev_',
     suffix: '.dump',
-  },
-  {
-    dir: 'd:\\IHUI-AI\\backups\\pg',
-    label: 'BullMQ任务备份(d:\\IHUI-AI\\backups\\pg\\*.sql.gz)',
-    suffix: '.sql.gz',
   },
 ]
 

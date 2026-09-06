@@ -15,6 +15,13 @@
 //      → node apps/api/scripts/pg-restore-check.mjs --allow-restore
 //
 // 退出码: 0 = 校验通过; 1 = 校验失败(可用于 CI/告警)。
+//
+// 演练结论(2026-09-06 实测通过):
+//   - 针对 D:\DevEnv\backups\pg\ihui_dev_*.dump(NSSM 唯一权威备份)手工恢复演练成功:
+//     createdb ihui_dev_restoretest → pg_restore --no-owner → 673 张表 + 扩展(vector/plpgsql)
+//     及数据(audit_logs≥2 万行)均可还原, 6 秒级完成, 演练后临时库已 DROP。
+//   - 恢复必须用超级用户(postgres, 本地 trust 免密)以执行 CREATE EXTENSION vector。
+//   - 建议按【每月】周期性执行一次完整恢复演练到一次性临时库, 防止"备份石沉大海"。
 import { spawn } from 'node:child_process'
 import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, createReadStream, createWriteStream, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
