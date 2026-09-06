@@ -7,6 +7,7 @@
 import * as React from 'react'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
+import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
 
 export interface UserGrowthPoint {
   date: string
@@ -29,7 +30,6 @@ const MOCK: UserGrowthPoint[] = [
   { date: '07-14', total: 1780, newCount: 160 },
 ]
 
-// ECharts canvas 渲染不支持 CSS var(),以下颜色为 tokens.css --chart-* 的硬编码副本,修改需同步 tokens.css
 export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -42,14 +42,14 @@ export function UserGrowthChart({ data = MOCK, height = 300 }: UserGrowthChartPr
         name: '累计用户',
         type: 'bar',
         data: data.map((d) => d.total),
-        itemStyle: { color: '#3b82f6' },
+        itemStyle: { color: CHART_BLUE },
         barGap: '10%',
       },
       {
         name: '新增用户',
         type: 'bar',
         data: data.map((d) => d.newCount),
-        itemStyle: { color: '#10b981' },
+        itemStyle: { color: CHART_GREEN },
       },
     ],
   }
