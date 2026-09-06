@@ -10,6 +10,8 @@
  *   POST   /terminal/sessions           — 创建新 session(spawn PTY)
  *   POST   /terminal/sessions/:id/resize — 调整 PTY 大小
  *   DELETE /terminal/sessions/:id        — 关闭/杀死 session
+ *   GET    /terminal/sessions/history   — 列出最近 7 天历史会话(Redis terminal:session:*)
+ *   GET    /terminal/sessions/:id/scrollback — 读取会话 scrollback 历史(Redis terminal:scrollback:*)
  *
  * 鉴权:所有端点用 authenticate(JWT),复用 v1-apply-diff.ts 模式。
  * 限额:单用户最多 5 个并发 session,超出返回 403。
@@ -24,6 +26,8 @@ import {
   listSessions,
   resizeSession,
   closeSession,
+  listHistorySessions,
+  getScrollback,
 } from '../services/terminal-service.js'
 
 export const terminalRoutes: FastifyPluginAsync = async (server) => {
@@ -110,6 +114,25 @@ export const terminalRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '终端会话不存在或已关闭'))
     }
     return reply.send(success({ closed: true }))
+  })
+
+  // GET /terminal/sessions/history — 列出最近 7 天历史会话(Redis terminal:session:* 元数据)
+  server.get('/terminal/sessions/history', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const sessions = await listHistorySessions(request.userId)
+    return reply.send(success({ sessions }))
+  })
+
+  // GET /terminal/sessions/:id/scrollback — 读取会话 scrollback 历史(Redis,降级返回空)
+  server.get('/terminal/sessions/:id/scrollback', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+
+    const { id } = request.params as { id: string }
+    const { lines, source } = await getScrollback(id, request.userId)
+    return reply.send(success({ lines, source }))
   })
 }
 

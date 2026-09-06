@@ -96,6 +96,8 @@ export interface CollectResult {
 
 export interface LlmBatchResult {
   processedItems: number
+  /** 本批 LLM 真正失败的条数(翻译失败 / 分类回退关键词),供运维统计与 drain 识别异常态 */
+  failed: number
   details: string
 }
 
@@ -1018,7 +1020,7 @@ industry
 export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
   // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不调用 LLM 也不改数据。
   if (!llmBatchEnabled()) {
-    return { processedItems: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+    return { processedItems: 0, failed: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
   }
   // 未显式传 limit 时使用可配置批大小（默认 200）。
   const batchSize = limit ?? llmCategoryBatchSize()
@@ -1030,9 +1032,14 @@ export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
     .limit(batchSize)
 
   let processed = 0
+  let failed = 0
   for (const item of pending) {
     // 优先调用 LLM 做分类，失败回退到关键词规则
     let category: string
+    // 只有 LLM 真正产出可用类别时才计入"已处理"并落 llm_processed_at;
+    // 一旦回退到关键词规则(LLM 失败/401/返回垃圾)，保持 llm_processed_at 为 NULL 留待重试，
+    // 并计入 failed 供统计(避免"分类失败却被当作成功"的假清空,与 translateTitles 同理)。
+    let llmSucceeded = false
     // 把 sourceCode 拼到 content 里,让 LLM 看到信源信息以便正确分类(arxiv→paper 等)
     const llmContent = `信源: ${item.sourceCode}\n标题: ${item.title}`
     // 不传 max_tokens:StepFun step-3.7-flash 是推理模型,reasoning 字段会消耗大量 token
@@ -1047,8 +1054,10 @@ export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
     const extracted = llmResult ? extractCategory(llmResult) : null
     if (extracted) {
       category = extracted
+      llmSucceeded = true
     } else if (llmResult && isValidCategory(llmResult)) {
       category = llmResult.toLowerCase()
+      llmSucceeded = true
     } else {
       category = inferCategoryByTitle(item.title, item.sourceCode)
     }
@@ -1058,16 +1067,20 @@ export async function processLlmBatch(limit?: number): Promise<LlmBatchResult> {
       .set({
         llmCategory: category,
         llmSummary: item.summary ?? null,
-        llmProcessedAt: new Date(),
+        // 关键词回退时保留 NULL：llm_processed_at 缺失=LLM 尚未真正处理(留待重试)
+        llmProcessedAt: llmSucceeded ? new Date() : null,
         updatedAt: new Date(),
       })
       .where(eq(aiFeedHotItem.id, item.id))
-    processed++
+
+    if (llmSucceeded) processed++
+    else failed++
   }
 
   return {
     processedItems: processed,
-    details: `处理 ${processed} 条（共 ${pending.length} 条待处理）`,
+    failed,
+    details: `处理 ${processed} 条(LLM),回退关键词 ${failed} 条（共 ${pending.length} 条待处理）`,
   }
 }
 
@@ -1125,12 +1138,13 @@ const TRANSLATE_PROMPT = '将以下中文标题翻译为英文，仅返回翻译
  * 手动触发标题翻译批处理。
  *
  * 选取 titleEn 为空（未翻译）的条目，批量翻译为英文。
- * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时回填原标题作为占位。
+ * 配置 AI_SERVICE_URL 时调用 LLM 做翻译；未配置或调用失败时保持 titleEn 为 NULL
+ * 并计入 failed（留待后续重试），不再用中文原标题回填（避免"假翻译"占用存量）。
  */
 export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
   // LLM_BATCH_ENABLED 全局开关：false 时静默停用，不清洗也不翻译。
   if (!llmBatchEnabled()) {
-    return { processedItems: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
+    return { processedItems: 0, failed: 0, details: 'LLM 批处理已禁用（LLM_BATCH_ENABLED=false）' }
   }
   // 未显式传 limit 时使用可配置批大小（默认 100）。
   const batchSize = limit ?? llmTranslateBatchSize()
@@ -1142,30 +1156,34 @@ export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
     .limit(batchSize)
 
   let processed = 0
+  let failed = 0
   for (const item of pending) {
-    // 优先调用 LLM 做翻译，失败回填原标题作为占位
-    let titleEn: string
+    // 调 LLM 翻译；失败/空结果保持 titleEn 为 NULL(留待重试)，不再回填中文原标题
     try {
       const llmResult = await callLlm(TRANSLATE_PROMPT, item.title)
-      titleEn = llmResult && llmResult.length > 0 ? llmResult.slice(0, 500) : item.title
+      if (llmResult && llmResult.trim().length > 0) {
+        await db
+          .update(aiFeedHotItem)
+          .set({
+            titleEn: llmResult.slice(0, 500),
+            updatedAt: new Date(),
+          })
+          .where(eq(aiFeedHotItem.id, item.id))
+        processed++
+      } else {
+        // LLM 调用失败/401/stub 或返回空：保留 NULL，计入 failed 供统计
+        failed++
+      }
     } catch (e) {
       logger.warn(`translateTitles: 翻译 ${item.id} 失败: ${(e as Error).message}`)
-      titleEn = item.title
+      failed++
     }
-
-    await db
-      .update(aiFeedHotItem)
-      .set({
-        titleEn,
-        updatedAt: new Date(),
-      })
-      .where(eq(aiFeedHotItem.id, item.id))
-    processed++
   }
 
   return {
     processedItems: processed,
-    details: `翻译 ${processed} 条（共 ${pending.length} 条待翻译）`,
+    failed,
+    details: `翻译 ${processed} 条,失败 ${failed} 条（共 ${pending.length} 条待翻译）`,
   }
 }
 
@@ -1176,9 +1194,19 @@ export async function translateTitles(limit?: number): Promise<LlmBatchResult> {
 export interface DrainLlmBacklogResult {
   llmProcessed: number
   translated: number
+  /** 本轮 LLM 分类失败(回退关键词)条数 */
+  classifiedFailed: number
+  /** 本轮翻译失败条数 */
+  translateFailed: number
   iterations: number
   llmBacklogCleared: boolean
   translateBacklogCleared: boolean
+  /** 结束后缺 LLM 分类(no_llm)的剩余条数 */
+  remainingNoLlm: number
+  /** 结束后缺英文标题(no_en)的剩余条数 */
+  remainingNoEn: number
+  /** 异常态:存在积压但本轮 0 分类且 0 翻译(LLM down/401/stub 静默返 0),提前退出 */
+  zeroProgress: boolean
 }
 
 /**
@@ -1188,20 +1216,28 @@ export interface DrainLlmBacklogResult {
  * - 每轮并行跑一次 processLlmBatch（缺分类）与 translateTitles（缺英文标题）
  * - 轮间 sleep LLM_DRAIN_STAGGER_MS，避免一次性把 LLM 并发/配额打爆
  * - 每轮后统计剩余积压，两个方向都抽干即提前结束
- * - 某轮两个方向都零进展（LLM 连续失败/限额）时提前退出，避免空转
+ * - 某轮两个方向都零进展（LLM 连续失败/401 静默返 0）时提前退出并标记 zeroProgress，
+ *   避免空转；本轮处理子数、失败数、剩余积压与运行时间一并写入结构化日志供运维观测
  * - 受 LLM_BATCH_ENABLED 总开关控制
  *
  * 由 scheduler 的 ai-feed-drain job（错峰时刻）周期调用；批大小/轮数/错峰间隔
  * 均可通过环境变量覆盖。
  */
 export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
+  const startedAt = new Date()
+
   if (!llmBatchEnabled()) {
     return {
       llmProcessed: 0,
       translated: 0,
+      classifiedFailed: 0,
+      translateFailed: 0,
       iterations: 0,
       llmBacklogCleared: true,
       translateBacklogCleared: true,
+      remainingNoLlm: 0,
+      remainingNoEn: 0,
+      zeroProgress: false,
     }
   }
 
@@ -1210,9 +1246,14 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
 
   let llmProcessed = 0
   let translated = 0
+  let classifiedFailed = 0
+  let translateFailed = 0
   let llmBacklogCleared = false
   let translateBacklogCleared = false
   let iterations = 0
+  let zeroProgress = false
+  let llmLeft = 0
+  let transLeft = 0
 
   for (let round = 1; round <= maxIterations; round++) {
     iterations = round
@@ -1222,27 +1263,61 @@ export async function drainLlmBacklog(): Promise<DrainLlmBacklogResult> {
     ])
     llmProcessed += catRes.processedItems
     translated += transRes.processedItems
+    classifiedFailed += catRes.failed
+    translateFailed += transRes.failed
 
-    const { llmLeft, transLeft } = await countBacklog()
+    const backlog = await countBacklog()
+    llmLeft = backlog.llmLeft
+    transLeft = backlog.transLeft
     llmBacklogCleared = llmLeft === 0
     translateBacklogCleared = transLeft === 0
 
     // 两个方向都抽干，提前结束
     if (llmBacklogCleared && translateBacklogCleared) break
-    // 有积压但本轮无任何进展（LLM 连续失败/限额打满）→ 退出，避免空转空睡
-    if (catRes.processedItems === 0 && transRes.processedItems === 0) break
+    // 有积压但本轮无任何真实进展（LLM 连续失败/401 静默返回 0）→ 提前退出标记零进展
+    if (catRes.processedItems === 0 && transRes.processedItems === 0) {
+      zeroProgress = true
+      break
+    }
     if (iterations >= maxIterations) break
     // 两轮之间错峰睡眠
     await sleep(staggerMs)
   }
 
-  return {
+  const remainingNoLlm = llmLeft
+  const remainingNoEn = transLeft
+
+  const result: DrainLlmBacklogResult = {
     llmProcessed,
     translated,
+    classifiedFailed,
+    translateFailed,
     iterations,
     llmBacklogCleared,
     translateBacklogCleared,
+    remainingNoLlm,
+    remainingNoEn,
+    zeroProgress,
   }
+
+  // 结构化日志(经 pino 落到 svc-api-nssm.log)：一行完整的 drain 进展，
+  // 含运行时间/处理/失败/剩余积压/零进展异常态,供运维在不查库时直接定位。
+  logger.info('ai-feed-drain run stats', {
+    startedAt: startedAt.toISOString(),
+    durationMs: Date.now() - startedAt.getTime(),
+    llmProcessed,
+    translated,
+    classifiedFailed,
+    translateFailed,
+    iterations,
+    llmBacklogCleared,
+    translateBacklogCleared,
+    remainingNoEn,
+    remainingNoLlm,
+    zeroProgress,
+  })
+
+  return result
 }
 
 /** 统计缺分类与缺英文标题的剩余积压数量。 */
