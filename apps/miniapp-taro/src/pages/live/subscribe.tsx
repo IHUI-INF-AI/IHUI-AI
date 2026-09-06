@@ -13,8 +13,8 @@ import ThemeRoot from '@/components/ThemeRoot'
 const REMINDER_KEY = 'live_reminder_enabled'
 
 const STATUS_BADGE: Record<Live['status'], string> = {
-  upcoming: 'bg-[rgba(245,158,11,0.12)] text-warning',
-  living: 'bg-[rgba(221,82,77,0.12)] text-destructive',
+  upcoming: 'bg-warning/[0.12] text-warning',
+  living: 'bg-destructive/[0.12] text-destructive',
   ended: 'bg-muted text-muted-foreground',
 }
 
@@ -138,7 +138,7 @@ export default function LiveSubscribe() {
                       {statusText(l.status)}
                     </Text>
                     <Text
-                      className="px-[20rpx] py-[8rpx] text-[24rpx] text-destructive bg-[rgba(221,82,77,0.08)] border-[2rpx] border-[rgba(221,82,77,0.25)] rounded-[8rpx]"
+                      className="px-[20rpx] py-[8rpx] text-[24rpx] text-destructive bg-destructive/[0.08] border-[2rpx] border-destructive/25 rounded-[8rpx]"
                       onClick={(e) => {
                         e.stopPropagation()
                         onUnsubscribe(l.id)

@@ -123,12 +123,12 @@ export default function Carousel({
                   <View className="absolute inset-0 flex flex-col items-center justify-center p-4">
                     {/* 亮色 fallback(2026-09-03):浅色 token 渐变底 → 文字用深色,与 web 端 bg-muted 兜底同族 */}
                     {item.title ? (
-                      <Text className="text-xl font-bold text-foreground drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)] text-center mb-2">
+                      <Text className="text-xl font-bold text-foreground drop-shadow-[0_2px_4px_var(--color-black-15)] text-center mb-2">
                         {item.title}
                       </Text>
                     ) : null}
                     {item.subtitle ? (
-                      <Text className="text-sm text-muted-foreground drop-shadow-[0_1px_3px_rgba(0,0,0,0.1)] text-center">
+                      <Text className="text-sm text-muted-foreground drop-shadow-[0_1px_3px_var(--color-black-10)] text-center">
                         {item.subtitle}
                       </Text>
                     ) : null}

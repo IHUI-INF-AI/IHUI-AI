@@ -4,12 +4,11 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Image, Video, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { ChatMessage } from '@/api'
 import sikaoIcon from '@/assets/remote/images/sikao_icon.png'
-import eyeOpenIcon from '@/assets/remote/images/eye-gray.svg'
-import eyeClosedIcon from '@/assets/remote/images/eye-slash-gray.svg'
 import downloadIcon from '@/assets/remote/images/download.png'
 import copyIcon from '@/assets/remote/images/copy.png'
 import reuseBtnPng from '@/assets/remote/images/fuyong_btn.png'
@@ -451,14 +450,11 @@ export default function ChatMessageItem({
                   }}
                   onClick={playVoice}
                 >
-                  <Image
-                    style={{ width: '32rpx', height: '32rpx', marginRight: '12rpx' }}
-                    src={
-                      voicePlaying
-                        ? '/static/images/icons/pause.svg'
-                        : '/static/images/icons/play.svg'
-                    }
-                    mode="aspectFit"
+                  <LineIcon
+                    name={voicePlaying ? 'pause' : 'play'}
+                    size={32}
+                    color="var(--color-muted-foreground)"
+                    style={{ marginRight: '12rpx' }}
                   />
                   <Text style={{ fontSize: '24rpx', marginRight: '12rpx' }}>
                     {t('ai.chatMessageItem.voiceMessage')}
@@ -552,11 +548,13 @@ export default function ChatMessageItem({
             {/* 右侧:图标按钮组 */}
             <View style={{ display: 'flex', justifyContent: 'flex-end' }}>
               {/* 答案显隐 eye-closed/eye-open */}
-              <Image
-                className="action-btn"
-                src={answerHidden ? eyeOpenIcon : eyeClosedIcon}
-                onClick={toggleAnswer}
-              />
+              <LineIcon
+                  className="action-btn"
+                  name={answerHidden ? 'eye-off' : 'eye'}
+                  size={40}
+                  color="var(--color-muted-foreground)"
+                  onClick={toggleAnswer}
+                />
               {/* 思考过程(若有 reasoning) */}
               {msg.reasoning ? (
                 <Image className="action-btn" src={sikaoIcon} onClick={onOpenReasoning} />
@@ -591,14 +589,11 @@ export default function ChatMessageItem({
                   }}
                   onClick={handleSpeak}
                 >
-                  <Image
-                    style={{ width: '24rpx', height: '24rpx', marginRight: '6rpx' }}
-                    src={
-                      speaking
-                        ? '/static/images/icons/pause.svg'
-                        : '/static/images/icons/volume-2.svg'
-                    }
-                    mode="aspectFit"
+                  <LineIcon
+                    name={speaking ? 'pause' : 'volume-2'}
+                    size={24}
+                    color="var(--color-muted-foreground)"
+                    style={{ marginRight: '6rpx' }}
                   />
                   <Text>
                     {speaking ? t('ai.chatMessageItem.stopSpeak') : t('ai.chatMessageItem.speak')}
@@ -630,14 +625,14 @@ export default function ChatMessageItem({
                   }}
                   onClick={onToggleFavorite}
                 >
-                  <Image
-                    style={{ width: '24rpx', height: '24rpx' }}
-                    src={
+                  <LineIcon
+                    name="heart"
+                    size={24}
+                    color={
                       isFavorited
-                        ? '/static/images/icons/heart-fill.svg'
-                        : '/static/images/icons/heart.svg'
+                        ? 'var(--color-brand)'
+                        : 'var(--color-muted-foreground)'
                     }
-                    mode="aspectFit"
                   />
                 </View>
               ) : null}

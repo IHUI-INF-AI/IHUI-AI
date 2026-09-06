@@ -18,7 +18,7 @@ import './PayPopup.css'
  * - default  默认 - 普通支付按钮(对齐 ConfirmPurchasePopUp .pay-button 蓝色渐变)
  * - vip      VIP 专属 - 金色渐变(对齐 VipPayConfirm 金色 / pay_btn .discount #8B91FF)
  * - discount 折扣 - 红色促销(对齐 ConfirmPurchasePopUp .benefit-item.highlight #ff5722)
- * - subscription 订阅 - 紫色(对齐 pay_btn .title #517BFF + brand token)
+ * - subscription 订阅 - 品牌主色(对齐 brand token,黑/白自适应)
  * - gift     礼物 - 粉色(对齐 chart-6 #ec4899)
  */
 export type PayButtonType = 'default' | 'vip' | 'discount' | 'subscription' | 'gift'
@@ -135,7 +135,7 @@ export default function PayPopup({
 
   return (
     <View className="fixed inset-0 z-[2000] flex items-end" onClick={onClose}>
-      <View className="absolute inset-0 bg-black/50" />
+      <View className="absolute inset-0 bg-[var(--color-black-50)]" />
       <View
         className="relative bg-card rounded-t-2xl w-full px-6 pb-6 pt-4"
         onClick={(e) => e.stopPropagation()}
@@ -198,7 +198,9 @@ export default function PayPopup({
             <View className="flex space-x-3">
               <View
                 className={`flex-1 flex items-center justify-center py-3 rounded-lg border-2 ${
-                  paymentMethod === 'wechat' ? 'border-green-500 bg-primary/10' : 'border-border'
+                  paymentMethod === 'wechat'
+                    ? 'border-[var(--color-wechat-green)] bg-primary/10'
+                    : 'border-border'
                 }`}
                 onClick={() => onMethodChange?.('wechat')}
               >

@@ -3,11 +3,12 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, type TtFn } from '@/i18n'
-import { View, Text, Button, Image } from '@tarojs/components'
+import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { getVipPrivilege, getVipInfo, type VipInfo } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 import './privilege.css'
 
 interface Privilege {
@@ -142,11 +143,11 @@ export default function PrivilegePage() {
         <View className="header">
           <Text className="header-title">{tt('vip.privilege.title', '会员权益')}</Text>
           <View className="header-level-row">
-            <Image
+            <LineIcon
               className="level-icon"
-              src="/static/images/icons/star-fill.svg"
-              mode="aspectFit"
-              style={{ width: '32rpx', height: '32rpx' }}
+              name="star-fill"
+              size={32}
+              color="var(--color-warning)"
             />
             <View className={`level-badge ${isOpened ? '' : 'closed'}`}>{levelName}</View>
           </View>
@@ -164,30 +165,21 @@ export default function PrivilegePage() {
         {/* 3 个入口卡片 */}
         <View className="entry-section">
           <View className="entry-card" onClick={() => setPopup('level')}>
-            <Image
-              className="entry-icon"
-              src="/static/images/icons/gem.svg"
-              mode="aspectFit"
-              style={{ width: '32rpx', height: '32rpx' }}
-            />
+            <View className="entry-icon">
+              <LineIcon name="gem" size={32} color="var(--color-warning)" />
+            </View>
             <Text className="entry-title">{tt('vip.privilege.levelIntro', '会员等级介绍')}</Text>
           </View>
           <View className="entry-card" onClick={() => setPopup('trader')}>
-            <Image
-              className="entry-icon"
-              src="/static/images/icons/chevron-up.svg"
-              mode="aspectFit"
-              style={{ width: '32rpx', height: '32rpx' }}
-            />
+            <View className="entry-icon">
+              <LineIcon name="chevron-up" size={32} color="var(--color-warning)" />
+            </View>
             <Text className="entry-title">{tt('vip.privilege.traderIntro', '操盘手介绍')}</Text>
           </View>
           <View className="entry-card" onClick={() => setPopup('privateAdvisory')}>
-            <Image
-              className="entry-icon"
-              src="/static/images/icons/radio.svg"
-              mode="aspectFit"
-              style={{ width: '32rpx', height: '32rpx' }}
-            />
+            <View className="entry-icon">
+              <LineIcon name="radio" size={32} color="var(--color-warning)" />
+            </View>
             <Text className="entry-title">{tt('vip.privilege.privateAdvisory', '私董会权益')}</Text>
           </View>
         </View>
@@ -197,12 +189,9 @@ export default function PrivilegePage() {
         <View className="privilege-list">
           {list.map((p) => (
             <View key={p.id} className="privilege-card">
-              <Image
-                className="privilege-icon"
-                src="/static/images/icons/star-fill.svg"
-                mode="aspectFit"
-                style={{ width: '32rpx', height: '32rpx' }}
-              />
+              <View className="privilege-icon">
+                <LineIcon name="star-fill" size={32} color="var(--color-warning)" />
+              </View>
               <View className="privilege-body">
                 <Text className="privilege-title">{p.title}</Text>
                 <Text className="privilege-desc">{p.desc}</Text>
@@ -303,11 +292,11 @@ export default function PrivilegePage() {
                 <View className="benefit-list">
                   {TRADER_BENEFITS.map((key) => (
                     <View key={key} className="benefit-item">
-                      <Image
+                      <LineIcon
                         className="benefit-check"
-                        src="/static/images/icons/check.svg"
-                        mode="aspectFit"
-                        style={{ width: '24rpx', height: '24rpx' }}
+                        name="check"
+                        size={24}
+                        color="var(--color-warning)"
                       />
                       <Text className="benefit-text">
                         {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}
@@ -347,11 +336,11 @@ export default function PrivilegePage() {
                 <View className="benefit-list">
                   {PRIVATE_BENEFITS.map((key) => (
                     <View key={key} className="benefit-item">
-                      <Image
+                      <LineIcon
                         className="benefit-check"
-                        src="/static/images/icons/check.svg"
-                        mode="aspectFit"
-                        style={{ width: '24rpx', height: '24rpx' }}
+                        name="check"
+                        size={24}
+                        color="var(--color-warning)"
                       />
                       <Text className="benefit-text">
                         {tt(key, BENEFIT_FALLBACK(tt)[key] || key)}

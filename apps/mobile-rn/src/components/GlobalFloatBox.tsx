@@ -56,8 +56,10 @@ const ARROW_GRAY = '#8A8A8A'
 
 export function GlobalFloatBox({ onPromote, onConsult, onFeedback }: GlobalFloatBoxProps) {
   // isOpen = true 展开(浮窗在屏幕内);false 收起(浮窗滑出,只露竖条)
-  const [isOpen, setIsOpen] = useState(true)
-  const translateX = useRef(new Animated.Value(0)).current
+  // 默认收起(false),对齐 uniapp 侧边栏初始为收回状态
+  const [isOpen, setIsOpen] = useState(false)
+  // 收起时面板已完全滑出屏幕右缘,初始即收起态,避免刷新瞬间闪出
+  const translateX = useRef(new Animated.Value(COLLAPSE_DISTANCE)).current
 
   useEffect(() => {
     Animated.timing(translateX, {

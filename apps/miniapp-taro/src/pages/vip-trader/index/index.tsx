@@ -4,6 +4,7 @@
 
 import { useI18n, t } from '@/i18n'
 import { View, Text, Image, Button, ScrollView } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -45,49 +46,49 @@ const CAPABILITY_TAGS = [
 // 操盘手权益(对标原 vip/trader.vue features,精选 8 项)
 const TRADER_FEATURES = [
   {
-    icon: '/static/images/icons/medal.svg',
+    icon: 'medal',
     key: 'distribution_qualification',
     title: t('viptrader.d9'),
     desc: t('viptrader.d10'),
   },
   {
-    icon: '/static/images/icons/graduation-cap.svg',
+    icon: 'graduation-cap',
     key: 'ai_courses',
     title: t('viptrader.d11'),
     desc: t('viptrader.d12'),
   },
   {
-    icon: '/static/images/icons/handshake.svg',
+    icon: 'handshake',
     key: 'founder_qa',
     title: t('viptrader.d13'),
     desc: t('viptrader.d14'),
   },
   {
-    icon: '/static/images/icons/flask-conical.svg',
+    icon: 'flask-conical',
     key: 'agent_beta',
     title: t('viptrader.d15'),
     desc: t('viptrader.d16'),
   },
   {
-    icon: '/static/images/icons/gem.svg',
+    icon: 'gem',
     key: 'vip_max_discount',
     title: t('viptrader.d17'),
     desc: t('viptrader.d18'),
   },
   {
-    icon: '/static/images/icons/zap.svg',
+    icon: 'zap',
     key: 'custom_agent_discount',
     title: t('viptrader.d19'),
     desc: t('viptrader.d20'),
   },
   {
-    icon: '/static/images/icons/rocket.svg',
+    icon: 'rocket',
     key: 'vertical_account_incubation',
     title: t('viptrader.d21'),
     desc: t('viptrader.d22'),
   },
   {
-    icon: '/static/images/icons/lightbulb.svg',
+    icon: 'lightbulb',
     key: 'free_computing_power',
     title: t('viptrader.d23'),
     desc: t('viptrader.d24'),
@@ -286,10 +287,10 @@ export default function VipTraderIndexPage() {
               {TRADER_FEATURES.map((f) => (
                 <View key={f.key} className="feature-item">
                   <View className="feature-icon">
-                    <Image
-                      src={f.icon}
-                      mode="aspectFit"
-                      style={{ width: '36rpx', height: '36rpx' }}
+                    <LineIcon
+                      name={f.icon as IconName}
+                      size={36}
+                      color="var(--color-muted-foreground)"
                     />
                   </View>
                   <View className="feature-content">

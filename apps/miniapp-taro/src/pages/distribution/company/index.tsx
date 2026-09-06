@@ -4,6 +4,7 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getDistributionInfo, getDistributionTeam } from '@/api'
@@ -139,11 +140,11 @@ export default function CompanyPage() {
       <View className="cp-menu-card">
         <View className="cp-menu-grid">
           <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/team')}>
-            <Image
+            <LineIcon
               className="cp-menu-icon"
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/users.svg"
-              mode="aspectFit"
+              name="users"
+              size={40}
+              color="var(--color-muted-foreground)"
             />
             <Text className="cp-menu-label">{t('distribution.company.menuTeam')}</Text>
           </View>
@@ -151,20 +152,20 @@ export default function CompanyPage() {
             className="cp-menu-item"
             onClick={() => navigateTo('/pages/distribution/commission')}
           >
-            <Image
+            <LineIcon
               className="cp-menu-icon"
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/wallet.svg"
-              mode="aspectFit"
+              name="wallet"
+              size={40}
+              color="var(--color-muted-foreground)"
             />
             <Text className="cp-menu-label">{t('distribution.company.menuCommission')}</Text>
           </View>
           <View className="cp-menu-item" onClick={() => navigateTo('/pages/distribution/withdraw')}>
-            <Image
+            <LineIcon
               className="cp-menu-icon"
-              style={{ width: '40rpx', height: '40rpx' }}
-              src="/static/images/icons/wallet.svg"
-              mode="aspectFit"
+              name="wallet"
+              size={40}
+              color="var(--color-muted-foreground)"
             />
             <Text className="cp-menu-label">{t('distribution.company.menuWithdraw')}</Text>
           </View>

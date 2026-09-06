@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Input, Button, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getProfile, post } from '@/api'
@@ -142,11 +143,11 @@ export default function Realname() {
         <View className="rn-page">
           <View className="rn-result-card">
             <View className="rn-result-icon">
-              <Image
+              <LineIcon
                 className="rn-result-icon-text"
-                src="/static/images/icons/check-success.svg"
-                mode="aspectFit"
-                style={{ width: '56rpx', height: '56rpx' }}
+                name="check-success"
+                size={56}
+                color="var(--color-success)"
               />
             </View>
             <Text className="rn-result-title">{t('user.realname.authed')}</Text>

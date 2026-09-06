@@ -124,8 +124,8 @@
 .refund-tip {
   margin-top: 16rpx;
   padding: 16rpx 20rpx;
-  background: rgba(16, 185, 129, 0.08);
-  border: 2rpx solid rgba(16, 185, 129, 0.2);
+  background: var(--color-success-tint);
+  border: 2rpx solid var(--color-success-tint-strong);
   border-radius: var(--radius-sm);
   font-size: 24rpx;
   color: var(--color-success);

@@ -72,7 +72,7 @@ const viewStyles = {
   dot: (active: boolean): CSSProperties => ({
     width: active ? 16 : 6,
     height: 6,
-    backgroundColor: active ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+    backgroundColor: active ? 'var(--color-white-98)' : 'var(--color-white-50)',
     borderRadius: 3,
     marginLeft: 3,
     marginRight: 3,
@@ -80,9 +80,9 @@ const viewStyles = {
 }
 
 const textStyles = {
-  empty: (): CSSProperties => ({
+  empty: (color: string): CSSProperties => ({
     fontSize: toRpx(12),
-    color: '#9CA3AF',
+    color,
   }),
 }
 
@@ -119,7 +119,9 @@ export function Carousel({
   if (!banner || banner.length === 0) {
     return (
       <View className={className} style={viewStyles.empty(height)}>
-        <Text style={textStyles.empty()}>{t('adaptersCarouseltaro.q1')}</Text>
+        <Text style={textStyles.empty(getRnTokens(effectiveScheme).gray['400'])}>
+          {t('adaptersCarouseltaro.q1')}
+        </Text>
       </View>
     )
   }

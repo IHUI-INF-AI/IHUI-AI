@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Textarea, Button, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter, useShareAppMessage } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { generateImage } from '@/api'
@@ -164,11 +165,7 @@ export default function ImagePage() {
         </View>
       ) : (
         <View className="flex-1 flex flex-col items-center justify-center">
-          <Image
-            style={{ width: '120rpx', height: '120rpx' }}
-            src="/static/images/icons/palette.svg"
-            mode="aspectFit"
-          />
+          <LineIcon name="palette" size={120} color="var(--color-muted-foreground)" />
           <Text className="text-[26rpx] text-muted-foreground mt-[24rpx]">
             {t('ai.image.emptyHint')}
           </Text>

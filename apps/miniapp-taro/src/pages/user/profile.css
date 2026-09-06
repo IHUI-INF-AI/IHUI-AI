@@ -36,12 +36,12 @@
 .pf-tag-vip {
   /* 对齐 web:VIP 金标,浅金底 + 深金文字(原项目 #716fff/#f0eeff 紫无对应语义,改为 gold 语义) */
   color: var(--color-warning);
-  background: rgba(255, 215, 0, 0.15);
+  background: var(--color-gold-muted);
 }
 .pf-tag-admin {
   /* 对齐 web:实名/交易身份标,成功绿淡底 + 深绿文字(原 #7ca500/#f0f8e8 橄榄绿→success 语义) */
   color: var(--color-success);
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--color-success-tag-bg);
 }
 .pf-tag-normal {
   color: var(--color-muted-foreground);
@@ -129,7 +129,7 @@
   text-align: center;
   font-size: 22rpx;
   color: var(--color-foreground);
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
 }
 .pf-avatar-hint {
   flex: 1;

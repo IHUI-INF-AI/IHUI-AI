@@ -4,6 +4,7 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 
 export interface TeacherCardProps {
   name?: string
@@ -59,11 +60,11 @@ export default function TeacherCard({
               {tt('teacher.detail.students', '学员')}
               {studentCount}
             </Text>
-            <Image
-              src="/static/images/icons/star-fill.svg"
-              mode="aspectFit"
+            <LineIcon
+              name="star"
+              size="14px"
+              color="var(--color-warning)"
               className="mr-1"
-              style={{ width: 14, height: 14 }}
             />
             <Text className="text-xs text-warning">{rating.toFixed(1)}</Text>
           </View>

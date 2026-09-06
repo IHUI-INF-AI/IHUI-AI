@@ -400,8 +400,8 @@ export default function InputArea({
                           padding: '2rpx 10rpx',
                           fontSize: rpx(18),
                           lineHeight: rpx(26),
-                          background: 'rgba(0,0,0,0.55)',
-                          color: '#fff',
+                          background: 'var(--color-scrim)',
+                          color: 'var(--color-scrim-foreground)',
                           borderRadius: `${rpx(8)} 0 0 0`,
                         }}
                       >

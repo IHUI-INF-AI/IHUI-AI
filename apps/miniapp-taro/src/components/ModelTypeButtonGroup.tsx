@@ -5,31 +5,25 @@
 import { useTt, t } from '@/i18n'
 import { View, ScrollView } from '@tarojs/components'
 import ModelTypeButton, { type ModelType } from './ModelTypeButton'
-import skillsIcon from '../assets/images/add/skills.svg'
-import talkIcon from '../assets/images/add/talk.svg'
-import imageIcon from '../assets/images/add/image.svg'
-import videoIcon from '../assets/images/add/video.svg'
-import audioIcon from '../assets/images/add/audio.svg'
-import videoaIcon from '../assets/images/add/videoa.svg'
-import otherIcon from '../assets/images/add/other.svg'
-import sckIcon from '../assets/images/add/sck.svg'
+import type { IconName } from '@/components/LineIcon'
 import { rpx } from '@/utils/rpx'
 
 export interface ModelTypeConfig {
   type: ModelType
   label: string
-  icon: string
+  /** LineIcon 图标名(对齐 RN 端 lucide 图标体系,随主题着色) */
+  icon: IconName
 }
 
 export const MODEL_TYPES: ModelTypeConfig[] = [
-  { type: 'skills', label: t('ModelTypeButtonGroup.m1'), icon: skillsIcon },
-  { type: 'talk', label: t('aigc.list.catText'), icon: talkIcon },
-  { type: 'image', label: t('modelPlaza.tabImage'), icon: imageIcon },
-  { type: 'video', label: t('aigc.list.catVideo'), icon: videoIcon },
-  { type: 'audio', label: t('ModelTypeButtonGroup.m2'), icon: audioIcon },
-  { type: 'videoa', label: t('ai.chatMessageItem.digitalHuman'), icon: videoaIcon },
-  { type: 'other', label: t('ModelList.d2'), icon: otherIcon },
-  { type: 'sck', label: t('ModelTypeButtonGroup.m3'), icon: sckIcon },
+  { type: 'skills', label: t('ModelTypeButtonGroup.m1'), icon: 'brain' },
+  { type: 'talk', label: t('aigc.list.catText'), icon: 'message-square' },
+  { type: 'image', label: t('modelPlaza.tabImage'), icon: 'image' },
+  { type: 'video', label: t('aigc.list.catVideo'), icon: 'clapperboard' },
+  { type: 'audio', label: t('ModelTypeButtonGroup.m2'), icon: 'music' },
+  { type: 'videoa', label: t('ai.chatMessageItem.digitalHuman'), icon: 'video' },
+  { type: 'other', label: t('ModelList.d2'), icon: 'cpu' },
+  { type: 'sck', label: t('ModelTypeButtonGroup.m3'), icon: 'sparkles' },
 ]
 
 const MODEL_TYPE_KEY: Record<string, string> = {

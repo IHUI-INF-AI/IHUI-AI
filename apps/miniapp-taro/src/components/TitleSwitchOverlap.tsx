@@ -27,7 +27,7 @@ function getLayerStyle(delta: number): CSSProperties {
     width: '180px',
     height: '48px',
     borderRadius: '15px',
-    boxShadow: '0 0 6px 0 rgba(0, 0, 0, 0.3)',
+    boxShadow: '0 0 6px 0 var(--color-black-30)',
     position: 'relative',
     color: 'var(--color-foreground)',
     transition: 'all 0.3s ease',

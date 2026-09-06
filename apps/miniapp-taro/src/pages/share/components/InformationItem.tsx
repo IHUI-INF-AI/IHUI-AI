@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { rpx } from '@/utils/rpx'
 import copyIcon from '@/assets/remote/images/copy.png'
@@ -179,10 +180,10 @@ export default function InformationItem({
               mode="aspectFit"
               onClick={handleCopyClick}
             />
-            <Image
-              style={{ width: '22rpx', height: '22rpx', color: 'var(--color-muted-foreground)' }}
-              src="/static/images/icons/share-2.svg"
-              mode="aspectFit"
+            <LineIcon
+              name="share-2"
+              size={22}
+              color="var(--color-muted-foreground)"
               onClick={handleShareClick}
             />
           </View>

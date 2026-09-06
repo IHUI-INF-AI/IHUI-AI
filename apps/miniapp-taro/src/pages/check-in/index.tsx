@@ -6,7 +6,8 @@
 // apps/mobile-rn CheckInScreen 状态机(端内重写渲染层,Taro 无法直接渲染 RN 原语)
 import { useCallback, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { View, Text, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useTt } from '@/i18n'
 import { getRnTokens, type RnThemeTokens } from '@ihui/design-tokens'
@@ -16,7 +17,7 @@ import type { CheckInInfo } from '@ihui/types'
 import ThemeRoot from '@/components/ThemeRoot'
 
 /** 已签到日历格白色对勾图标(RN 端为 lucide Check,stroke 白色) */
-const CHECK_ICON = '/static/images/icons/check-white.svg'
+const CHECK_ICON = 'check-white'
 
 /** Taro rpx 单位换算(1px = 2rpx,750 设计稿基准) */
 const toRpx = (px: number): string => `${px * 2}rpx`
@@ -342,7 +343,11 @@ export default function CheckIn() {
                       {day.date.slice(-2)}
                     </Text>
                     {day.signed ? (
-                      <Image style={{ width: toRpx(14), height: toRpx(14) }} src={CHECK_ICON} />
+                      <LineIcon
+                        name={CHECK_ICON}
+                        size={28}
+                        color="var(--color-primary-foreground)"
+                      />
                     ) : (
                       <Text style={textStyles.calendarMarkReward(tk)}>+{day.reward}</Text>
                     )}

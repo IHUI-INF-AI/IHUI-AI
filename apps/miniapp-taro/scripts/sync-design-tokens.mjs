@@ -30,8 +30,9 @@ const COLORS_MAPPING = {
   successForeground: '--color-success-foreground',
   warning: '--color-warning',
   warningForeground: '--color-warning-foreground',
-  danger: '--color-destructive',
-  dangerForeground: '--color-destructive-foreground',
+  // 2026-09-06:danger 从 destructive 改指新语义 token --color-danger(收敛小程序端红色家族)
+  danger: '--color-danger',
+  dangerForeground: '--color-danger-foreground',
   info: '--color-info',
   infoForeground: '--color-info-foreground',
   textPrimary: '--color-foreground',
@@ -88,6 +89,52 @@ function extractDarkBlock(content) {
     .split('\n')
     .map((l) => l.trim())
     .filter((l) => l.startsWith('--') && l.includes(':'))
+}
+
+/**
+ * 从 tokens.css 提取透明度色板(--color-black-* / --color-white-*)。
+ * 这两组定义在 tokens.css 独立的非 @theme :root 块(非 .dark、非 @theme),extractThemeBlock
+ * 不会提取到它们,导致 miniapp-taro 端 var(--color-black-*) / var(--color-white-*) 运行时未定义
+ * → 遮罩/阴影透明。2026-09-06 立:改为显式收集,同步进 app.css。
+ * 返回:["--color-white-2: rgba(...);", "--color-black-6: rgba(...);", ...](按出现顺序)
+ */
+function extractOpacityPalette(content) {
+  const rootRe = /:root\s*\{([^{}]*)\}/g
+  const lines = []
+  let m
+  while ((m = rootRe.exec(content)) !== null) {
+    for (const raw of m[1].split('\n')) {
+      const l = raw.trim()
+      if ((l.startsWith('--color-white-') || l.startsWith('--color-black-')) && l.includes(':')) {
+        lines.push(l)
+      }
+    }
+  }
+  return lines.filter((l, i) => lines.indexOf(l) === i)
+}
+
+/**
+ * 生成透明度色板 CSS 块(:root 包裹,挂到 app.css 语义色 :root 后)。无匹配时返回空串。
+ */
+function buildOpacityBlock(lines) {
+  if (lines.length === 0) return ''
+  const inner = formatBlock(lines, '  ')
+  return (
+    '/* ===== 透明度色板(自动同步自 tokens.css 独立 :root 块,勿手动编辑)===== */\n' +
+    ':root {\n' +
+    inner +
+    '\n}\n'
+  )
+}
+
+/**
+ * 移除 app.css 中已存在的透明度色板块(防止重复插入),并把语义 :root 到 .dark 之间的
+ * 换行归一为「\n\n .dark」。返回:移除旧色板并保留一个换行的内容。
+ * 形态:透明度色板注释 + 紧随的 :root 装饰块 + 其后若干换行。
+ */
+function stripExistingOpacityBlock(css) {
+  const re = /\/\* ===== 透明度色板[^\n]*\*\/\s*\n:root \{\n[\s\S]*?\n\}\n+/g
+  return css.replace(re, '\n')
 }
 
 /**
@@ -290,6 +337,10 @@ function main() {
 ${formatBlock(themeLines, '  ')}
 }`
 
+  // 透明度色板(--color-black-* / --color-white-*):独立 :root 块,需单独收集并挂到语义 :root 后
+  const opacityLines = extractOpacityPalette(tokensContent)
+  const opacityBlock = buildOpacityBlock(opacityLines)
+
   const newDarkBlock = `.dark {
 ${formatBlock(darkLines, '  ')}
 }`
@@ -297,7 +348,8 @@ ${formatBlock(darkLines, '  ')}
   const rootRegex = /:root\s*\{[^{}]*\}/
   const darkRegex = /\.dark\s*\{[^{}]*\}/
 
-  let newAppCss = appCssContent
+  // 先移除历史透明度色板块,再替换语义 :root 与 .dark,最后在 .dark 前规范地插入色板块
+  let newAppCss = stripExistingOpacityBlock(appCssContent)
   if (!rootRegex.test(newAppCss)) {
     console.error('[sync-design-tokens] app.css 中未找到 :root 块')
     process.exit(1)
@@ -309,6 +361,8 @@ ${formatBlock(darkLines, '  ')}
 
   newAppCss = newAppCss.replace(rootRegex, newRootBlock)
   newAppCss = newAppCss.replace(darkRegex, newDarkBlock)
+  // 语义 :root 与 .dark 之间插入透明度色板,空白归一为确定形态,保证幂等
+  newAppCss = newAppCss.replace(/(\n+)(?=\.dark \{\n)/, '\n\n' + opacityBlock)
 
   // base.css 同步:把共享基础样式内联进 app.css(替换跨包 @import)。
   // 背景:app.css 首行 @import '../../../packages/design-tokens/src/styles/base.css' 在

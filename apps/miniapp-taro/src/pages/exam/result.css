@@ -36,12 +36,12 @@
 }
 
 .exam-result-hero.passed {
-  background: linear-gradient(135deg, rgba(76, 175, 80, 1), rgba(102, 187, 106, 1));
+  background: linear-gradient(135deg, var(--color-success), var(--color-success));
   /* custom color: 成绩通过渐变绿色 */
 }
 
 .exam-result-hero.failed {
-  background: linear-gradient(135deg, rgba(221, 82, 77, 1), rgba(229, 115, 115, 1));
+  background: linear-gradient(135deg, var(--color-danger), var(--color-danger));
   /* custom color: 成绩未通过渐变红色 */
 }
 
@@ -51,7 +51,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--color-white-30);
   border-radius: var(--radius-lg);
   font-size: 48rpx;
   color: var(--color-primary-foreground);
@@ -74,13 +74,13 @@
 
 .exam-result-total {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-white-85);
   margin-top: 8rpx;
 }
 
 .exam-result-rank {
   font-size: 24rpx;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--color-white-85);
   margin-top: 8rpx;
 }
 
@@ -175,12 +175,12 @@
 
 .exam-result-review-status.correct {
   color: var(--color-success);
-  background: rgba(76, 175, 80, 0.12);
+  background: var(--color-success-tint);
 }
 
 .exam-result-review-status.wrong {
   color: var(--color-destructive);
-  background: rgba(221, 82, 77, 0.12);
+  background: var(--color-danger-tint);
 }
 
 .exam-result-review-score {

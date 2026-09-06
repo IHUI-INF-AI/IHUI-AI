@@ -154,6 +154,7 @@ export type RnThemeTokens = {
   overlay: { modal: string }
   indigo: { light: string; DEFAULT: string; deep: string }
   purple: { light: string; DEFAULT: string }
+  blue: { light: string; DEFAULT: string }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -198,6 +199,7 @@ export const rnLightTokens: RnThemeTokens = {
   overlay: { modal: 'rgba(0,0,0,0.4)' },
   indigo: { light: '#eef2ff', DEFAULT: '#6366f1', deep: '#4f46e5' },
   purple: { light: '#f5f3ff', DEFAULT: '#7B61FF' },
+  blue: { light: '#eff6ff', DEFAULT: '#2563eb' },
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -258,6 +260,7 @@ export const rnDarkTokens: RnThemeTokens = {
   overlay: { modal: 'rgba(0,0,0,0.6)' },
   indigo: { light: '#312e81', DEFAULT: '#818cf8', deep: '#818cf8' },
   purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
+  blue: { light: '#404040', DEFAULT: '#93c5fd' },
   warning: {
     light: '#451a03',
     amberLight: '#78350f',

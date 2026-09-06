@@ -4,9 +4,9 @@
 
 import { useI18n } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import tishiIcon from '@/assets/remote/images/tishi_icon.png'
 import floderInputIcon from '@/assets/remote/images/floder_input.png'
-import skillsIcon from '@/assets/remote/images/add/skills.svg'
 import fileIcon from '@/assets/remote/images/file.png'
 // record_back.png 5.2MB 大图,用字符串路径让 Taro copy 到 dist/static/ 而非打包进 common.js(对齐原项目 aigc/index.vue)
 const recordBackIcon = '/static/images/record_back.png'
@@ -707,10 +707,11 @@ export default function ChatPage() {
       >
         <View className="nav-left" onClick={openModelDrawer}>
           <Text className="nav-title">{currentModelName || t('ai.title')}</Text>
-          <Image
-            className="nav-arrow w-[24rpx] h-[24rpx]"
-            src="/static/images/icons/chevron-down.svg"
-            mode="aspectFit"
+          <LineIcon
+            name="chevron-down"
+            size={24}
+            color="var(--color-muted-foreground)"
+            className="nav-arrow"
           />
         </View>
         <View className="nav-right">
@@ -745,10 +746,11 @@ export default function ChatPage() {
         {agent ? (
           <View className="tishi-block" onClick={() => setTishiShow((v) => !v)}>
             {tishiShow ? (
-              <Image
-                className="tishi-block-icon w-[28rpx] h-[28rpx]"
-                src="/static/images/icons/x.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="x"
+                size={28}
+                color="var(--color-muted-foreground)"
+                className="tishi-block-icon"
               />
             ) : (
               <Image
@@ -886,11 +888,11 @@ export default function ChatPage() {
       {selectedMaterial ? (
         <View className="material-tag">
           <Text className="material-tag-text">{selectedMaterial.title}</Text>
-          <Image
+          <LineIcon
+            name="x"
+            size={32}
+            color="var(--color-muted-foreground)"
             className="material-tag-close"
-            src="/static/images/icons/x.svg"
-            mode="aspectFit"
-            style={{ width: '32rpx', height: '32rpx' }}
             onClick={() => setSelectedMaterial(null)}
           />
         </View>
@@ -924,10 +926,11 @@ export default function ChatPage() {
             mode="aspectFit"
             onClick={openMaterialDrawer}
           />
-          <Image
-            src={skillsIcon}
+          <LineIcon
+            name="brain"
+            size={40}
+            color="var(--color-muted-foreground)"
             className="tool-icon w-[40rpx] h-[40rpx]"
-            mode="aspectFit"
             onClick={openSkillsPopup}
           />
         </View>
@@ -1023,7 +1026,7 @@ export default function ChatPage() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(0, 0, 0, 0.5)',
+            background: 'var(--color-black-50)',
             zIndex: 1000,
             display: 'flex',
             alignItems: 'center',
@@ -1055,10 +1058,10 @@ export default function ChatPage() {
               >
                 {t('ai.chatMessageItem.thinkingProcess')}
               </Text>
-              <Image
-                src="/static/images/icons/x.svg"
-                mode="aspectFit"
-                style={{ width: '32rpx', height: '32rpx' }}
+              <LineIcon
+                name="x"
+                size={32}
+                color="var(--color-muted-foreground)"
                 onClick={() => setReasoningPopupVisible(false)}
               />
             </View>
