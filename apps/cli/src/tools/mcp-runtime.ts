@@ -28,6 +28,9 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import * as fs from 'node:fs';
+// MCP 协议版本单一真源(packages/shared 镜像 ai-service tunables.py;
+// GAP-PLAN P0-1 收敛:此前此处二次写死旧版 '2024-11-05' 造成跨端漂移)
+import { DEFAULT_PROTOCOL_VERSION } from '@ihui/shared';
 import { getMcpConfigPath, type McpServer } from '../commands/mcp-config.js';
 import type { Tool, ToolResult, ToolContext, ToolParameter } from './index.js';
 import { getCredential, isExpired, setCredential } from './mcp-credentials.js';
@@ -418,7 +421,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       conn.process = proc;
 
       await sendStdioRpc(proc, 'initialize', {
-        protocolVersion: '2024-11-05',
+        protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
       });
@@ -431,7 +434,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
       conn.headers = headers;
 
       await sendHttpRpc(server.url, 'initialize', {
-        protocolVersion: '2024-11-05',
+        protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
       }, headers);
@@ -494,7 +497,7 @@ export async function connectMcpServer(server: McpServer): Promise<McpConnection
 
       // 4. 发送 initialize(POST 到 endpoint,等 SSE 流响应)
       await sendSseRpc(conn, 'initialize', {
-        protocolVersion: '2024-11-05',
+        protocolVersion: DEFAULT_PROTOCOL_VERSION,
         clientInfo: { name: 'ihui-cli', version: '1.0.0' },
         capabilities: {},
       });
