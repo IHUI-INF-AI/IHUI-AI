@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileText, Plus, Sparkles, Package } from 'lucide-react'
+import { FileText, Plus, Sparkles, Package, Telescope } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -18,8 +18,8 @@ import type { PromptTemplate } from '@/hooks/use-slash-action'
 /**
  * "添加"下拉菜单 Popover(2026-07-25 终极整合,2026-07-30 提取自 message-input.tsx)
  *
- * 收纳 5 类动作,内部按 mode 切换 content:
- * - menu:5 项主菜单(模板 / 引用 / Skill 库 / 附件 / 插件)
+ * 收纳 6 类动作,内部按 mode 切换 content:
+ * - menu:6 项主菜单(模板 / 引用 / Skill 库 / 附件 / 插件 / 深度研究)
  * - prompt:PromptTemplates 弹层
  * - skill:SkillLibrary 弹层
  *
@@ -54,6 +54,8 @@ export function AddMenuPopover(props: {
   onAddTextReference: () => void
   /** "插件市场"回调(主组件负责关闭 + 重置 mode + 跳转 /plugins) */
   onOpenPluginMarket: () => void
+  /** "深度研究"回调(2026-09-07 工作线 B:主组件负责关闭 + 重置 mode + 跳转 /deep-research) */
+  onOpenDeepResearch: () => void
 }): React.JSX.Element {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -73,6 +75,7 @@ export function AddMenuPopover(props: {
     onAddFile,
     onAddTextReference,
     onOpenPluginMarket,
+    onOpenDeepResearch,
   } = props
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
@@ -316,6 +319,21 @@ export function AddMenuPopover(props: {
                 >
                   <Package className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{tNav('pluginMarket')}</span>
+                </button>
+                {/* 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面发起多轮深挖研究 */}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    onOpenDeepResearch()
+                  }}
+                  className={cn(
+                    'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                    'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                  )}
+                >
+                  <Telescope className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{t('deepResearchEntry')}</span>
                 </button>
               </div>
             )}
