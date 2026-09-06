@@ -244,7 +244,7 @@ export function PublishScreen() {
                       <TouchableOpacity
                         onPress={() => void onRetryTask(item)}
                         disabled={operatingId === String(item.id)}
-                        className="rounded-md bg-blue-600 px-2.5 py-1"
+                        className="rounded-md bg-orange-600 px-2.5 py-1"
                       >
                         <Text className="text-xs text-white">{t('publish.retryTask')}</Text>
                       </TouchableOpacity>

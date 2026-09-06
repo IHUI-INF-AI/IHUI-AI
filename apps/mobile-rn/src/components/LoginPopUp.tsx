@@ -335,7 +335,7 @@ function ProfileForm({
     role === 'vip'
       ? tokens.success.DEFAULT
       : role === 'trader'
-        ? tokens.warning.deep
+        ? tokens.brandAccent.DEFAULT
         : tokens.text.secondary
 
   return (
