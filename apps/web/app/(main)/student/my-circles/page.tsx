@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -60,8 +61,9 @@ export default function MyCirclesPage() {
   })
 
   function handleLeave(circle: MyCircle) {
-    if (!window.confirm(tc('leaveConfirm'))) return
-    delMut.mutate(circle.id)
+    void confirmDialog({ title: tc('leaveConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(circle.id)
+    })
   }
 
   const list = data?.list ?? []

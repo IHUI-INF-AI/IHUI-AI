@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, Plus } from 'lucide-react'
@@ -76,7 +77,9 @@ export default function AiGcPage() {
     saveMut.mutate()
   }
   function handleDelete(id: string) {
-    if (window.confirm(t('deleteConfirm'))) delMut.mutate(id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(id)
+    })
   }
 
   const list = data?.list ?? []

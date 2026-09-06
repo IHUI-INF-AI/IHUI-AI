@@ -23,7 +23,7 @@ export default function ModelRecordPage() {
     { labelKey: 'modelRecordModelName', value: 'IHUI 通用大语言模型' },
     { labelKey: 'modelRecordNumber', value: '网信算备310115606600001号' },
     { labelKey: 'modelRecordAlgorithmType', value: t('modelRecordAlgorithmTypeValue') },
-    { labelKey: 'modelRecordApplicant', value: '上海慧慧人工智能科技有限公司' },
+    { labelKey: 'modelRecordApplicant', value: '吉林省爱智汇人工智能科技有限公司' },
     { labelKey: 'modelRecordApplyDate', value: '2026-03-20' },
     { labelKey: 'modelRecordStatus', value: t('modelRecordStatusFiled') },
     { labelKey: 'modelRecordScope', value: t('modelRecordScopeValue') },

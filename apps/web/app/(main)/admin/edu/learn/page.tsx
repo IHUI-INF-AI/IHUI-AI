@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -121,7 +122,9 @@ export default function EduLearnPage() {
     saveMut.mutate()
   }
   function handleDelete(l: Lesson) {
-    if (window.confirm(t('confirmDelete'))) deleteMut.mutate(l.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(l.id)
+    })
   }
 
   const total = data?.total ?? 0

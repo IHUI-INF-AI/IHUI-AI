@@ -134,6 +134,7 @@ import {
   generateUserSk,
 } from '../services/oauth-providers.js'
 import { buildResponseSchema } from '../utils/api-schemas.js'
+import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 
 // Token TTL 复用 @ihui/auth 的统一常量(2026-07-22 修复一致性)
 // - ACCESS_TOKEN_TTL_SECONDS 默认 15min(env.JWT_ACCESS_TTL_SECONDS 可覆盖)
@@ -609,8 +610,28 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
       }
       // 基础字段走 users 表
+      // P0 合规:昵称/简介等个人资料 UGC 敏感词过滤
+      const toCheck: Record<string, string> = {}
+      if (nickname !== undefined) toCheck.nickname = nickname
+      if (bio !== undefined && bio !== null) toCheck.bio = bio
+      let nicknameSafe = nickname
+      let bioSafe = bio
+      if (Object.keys(toCheck).length > 0) {
+        const filtered = await sanitizeUgcInput(toCheck, {
+          action: 'ugc.profile.update',
+          resourceType: 'user_profile',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        })
+        if (!filtered.ok) {
+          return reply.status(400).send(error(400, '昵称/简介含违规词,修改失败'))
+        }
+        if (filtered.fields.nickname) nicknameSafe = filtered.fields.nickname.text
+        if (filtered.fields.bio) bioSafe = filtered.fields.bio.text
+      }
       await updateUser(request.userId!, {
-        ...(nickname !== undefined ? { nickname } : {}),
+        ...(nicknameSafe !== undefined ? { nickname: nicknameSafe } : {}),
         ...(email !== undefined ? { email } : {}),
       })
       // 扩展字段直写 users (avatar/bio/birthday/gender)
@@ -619,7 +640,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       const { eq } = await import('drizzle-orm')
       const updates: Record<string, unknown> = { updatedAt: new Date() }
       if (avatar !== undefined) updates.avatar = avatar
-      if (bio !== undefined) updates.bio = bio
+      if (bioSafe !== undefined) updates.bio = bioSafe
       if (birthday !== undefined) updates.birthday = birthday ? new Date(birthday) : null
       if (gender !== undefined) updates.gender = gender
       if (Object.keys(updates).length > 0) {

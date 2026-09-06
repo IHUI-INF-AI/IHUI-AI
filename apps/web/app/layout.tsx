@@ -15,7 +15,7 @@ import { I18nProvider } from '@/providers/i18n-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
-import { TooltipProvider } from '@/components/feedback'
+import { TooltipProvider, ConfirmServiceHost } from '@/components/feedback'
 import { DOC_BG, DOC_BG_DARK } from '@ihui/design-tokens'
 
 // EDIX 拉丁字体仅在 h1-h6 标题 + .font-edix 工具类中显式使用(见 globals.css)。
@@ -535,6 +535,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     <LoginRedirectListener />
                   </Suspense>
                   <LoginDialog />
+                  <ConfirmServiceHost />
                 </GlobalHooksProvider>
               </TooltipProvider>
             </QueryProvider>

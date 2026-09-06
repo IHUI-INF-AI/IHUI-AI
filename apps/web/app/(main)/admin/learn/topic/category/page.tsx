@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -187,8 +188,9 @@ export default function AdminLearnTopicCategoryPage() {
     saveMut.mutate()
   }
   function handleDelete(item: Category) {
-    if (!window.confirm(`确定删除分类「${item.name}」吗?`)) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: `确定删除分类「${item.name}」吗?` }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
 
   const total = data?.total ?? 0
