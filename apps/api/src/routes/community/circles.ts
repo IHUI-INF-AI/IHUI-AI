@@ -41,6 +41,7 @@ import {
   uuidParamSchema,
 } from './_shared.js'
 import { buildResponseSchema, paginationQuerySchema } from '../../utils/api-schemas.js'
+import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 
 const circlesRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权:GET /circles(列表)与 GET /circles/:id(详情)公开访问,其他路由需登录
@@ -501,7 +502,25 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!circle) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
-      const post = await createPost(circle.id, request.userId!, body.data)
+      // P0 合规:发帖内容敏感词过滤
+      const filtered = await sanitizeUgcInput(
+        { title: body.data.title, content: body.data.content },
+        {
+          action: 'ugc.post.create',
+          resourceType: 'post',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,发布失败'))
+      }
+      const post = await createPost(circle.id, request.userId!, {
+        title: filtered.fields.title!.text,
+        content: filtered.fields.content!.text,
+        images: body.data.images ?? null,
+      })
       return reply.status(201).send(success({ post }))
     },
   )
@@ -568,6 +587,25 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     if (existing.userId !== request.userId) {
       return reply.status(403).send(error(403, '只能编辑自己的帖子'))
     }
+    // P0 合规:编辑帖子同样过滤
+    const toCheck: Record<string, string> = {}
+    if (body.data.title !== undefined) toCheck.title = body.data.title
+    if (body.data.content !== undefined) toCheck.content = body.data.content
+    if (Object.keys(toCheck).length > 0) {
+      const filtered = await sanitizeUgcInput(toCheck, {
+        action: 'ugc.post.update',
+        resourceType: 'post',
+        resourceId: parsed.data.id,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      })
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,编辑失败'))
+      }
+      if (body.data.title !== undefined) body.data.title = filtered.fields.title!.text
+      if (body.data.content !== undefined) body.data.content = filtered.fields.content!.text
+    }
     const updated = await updatePost(parsed.data.id, request.userId!, body.data)
     return reply.send(success({ post: updated }))
   })
@@ -604,13 +642,28 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId!
+    // P0 合规:圈子名称/简介敏感词过滤
+    const desc = body.data.description ?? ''
+    const filtered = await sanitizeUgcInput(
+      { name: body.data.name, description: desc },
+      {
+        action: 'ugc.circle.create',
+        resourceType: 'circle',
+        userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) {
+      return reply.status(400).send(error(400, '内容含违规词,创建失败'))
+    }
     const slug = `${body.data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`
     const [created] = await db
       .insert(circles)
       .values({
-        name: body.data.name,
+        name: filtered.fields.name!.text,
         slug,
-        description: body.data.description ?? null,
+        description: filtered.fields.description!.text || null,
         coverImage: body.data.coverImage ?? null,
         categoryId: body.data.categoryId ?? null,
         isPublished: body.data.isPublished ?? true,
@@ -647,6 +700,27 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
     const roleId = request.jwtPayload?.roleId ?? 0
     if (existing.createdBy !== request.userId && roleId < ADMIN_ROLE_ID) {
       return reply.status(403).send(error(403, '只能修改自己创建的圈子'))
+    }
+    // P0 合规:修改圈子名称/简介敏感词过滤
+    const toCheck: Record<string, string> = {}
+    if (body.data.name !== undefined) toCheck.name = body.data.name
+    if (body.data.description !== undefined) toCheck.description = body.data.description ?? ''
+    if (Object.keys(toCheck).length > 0) {
+      const filtered = await sanitizeUgcInput(toCheck, {
+        action: 'ugc.circle.update',
+        resourceType: 'circle',
+        resourceId: parsed.data.id,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      })
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,修改失败'))
+      }
+      if (body.data.name !== undefined) body.data.name = filtered.fields.name!.text
+      if (body.data.description !== undefined) {
+        body.data.description = filtered.fields.description!.text
+      }
     }
     const updateData: Record<string, unknown> = { updatedAt: new Date() }
     if (body.data.name !== undefined) updateData.name = body.data.name

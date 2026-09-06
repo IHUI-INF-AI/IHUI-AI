@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Plus, Package, Download, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -142,8 +143,9 @@ export default function AdminShopProductsPage() {
     saveMut.mutate()
   }
   function handleDelete(p: Product) {
-    if (!window.confirm(t('products.confirmDelete', { name: p.name }))) return
-    delMut.mutate(p.id)
+    void confirmDialog({ title: t('products.confirmDelete', { name: p.name }) }).then((ok) => {
+      if (ok) delMut.mutate(p.id)
+    })
   }
   function handleReset() {
     setSearch({ name: '', category: '', status: '', type: '' })

@@ -1,22 +1,17 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:见仓库根 package.json x-ihui-provenance 字段。
 
 'use client'
 
-import { Loader2, Edit, Trash2, FolderTree } from 'lucide-react'
+/**
+ * LiveCategoryTable — 薄 wrapper(2026-09-06 治理)。
+ * 原为跨域复制粘贴的完整实现,已收敛到 @/components/admin/category-admin 唯一事实来源;
+ * 本文件仅注入 admin.live 命名空间的 i18n 文案,页面/helper/types 零改动。
+ */
+
 import { useTranslations } from 'next-intl'
-import {
-  Button,
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell,
-} from '@ihui/ui-react'
-import { cn } from '@/lib/utils'
-import { Tooltip } from '@/components/feedback'
+import { AdminCategoryTable } from '@/components/admin/category-admin'
 import type { Category } from './types'
 
 interface Props {
@@ -38,91 +33,28 @@ export function LiveCategoryTable({
 }: Props) {
   const t = useTranslations('admin.live')
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <Table>
-        <TableHeader className="bg-muted/50">
-          <TableRow>
-            <TableHead className="px-4 py-2.5">{t('colName')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colSort')}</TableHead>
-            <TableHead className="px-4 py-2.5">{t('colStatus')}</TableHead>
-            <TableHead className="px-4 py-2.5 text-right">{t('colActions')}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {isLoading ? (
-            <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
-                {t('loading')}
-              </TableCell>
-            </TableRow>
-          ) : error ? (
-            <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-destructive">
-                {error.message}
-              </TableCell>
-            </TableRow>
-          ) : list.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
-                <FolderTree className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                {t('noData')}
-              </TableCell>
-            </TableRow>
-          ) : (
-            list.map((cat) => {
-              const enabled = cat.status === 1
-              return (
-                <TableRow key={cat.id} className="hover:bg-muted/30">
-                  <TableCell className="px-4 py-2.5 font-medium">{cat.name}</TableCell>
-                  <TableCell className="px-4 py-2.5">{cat.sort}</TableCell>
-                  <TableCell className="px-4 py-2.5">
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium',
-                        enabled
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                          : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'h-1.5 w-1.5 rounded-full',
-                          enabled ? 'bg-emerald-500' : 'bg-muted-foreground',
-                        )}
-                      />
-                      {enabled ? t('enabled') : t('disabled')}
-                    </span>
-                  </TableCell>
-                  <TableCell className="px-4 py-2.5 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Tooltip content={t('edit')}>
-                        <Button variant="ghost" size="sm" onClick={() => onEdit(cat)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </Tooltip>
-                      <Tooltip content={t('delete')}>
-                        <span className="inline-flex">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(cat)}
-                            className="text-destructive hover:text-destructive"
-                            disabled={deletePending}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )
-            })
-          )}
-        </TableBody>
-      </Table>
-    </div>
+    <AdminCategoryTable
+      list={list}
+      isLoading={isLoading}
+      error={error}
+      deletePending={deletePending}
+      onEdit={onEdit}
+      onDelete={onDelete}
+      labels={{
+        colName: t('colName'),
+        colSort: t('colSort'),
+        colStatus: t('colStatus'),
+        colActions: t('colActions'),
+        loading: t('loading'),
+        noData: t('noData'),
+        enabled: t('enabled'),
+        disabled: t('disabled'),
+        edit: t('edit'),
+        delete: t('delete'),
+        confirmTitle: t('deleteConfirm'),
+        confirmAction: t('delete'),
+        confirmCancel: t('cancel'),
+      }}
+    />
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

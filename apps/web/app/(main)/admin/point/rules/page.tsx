@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -125,8 +126,9 @@ export default function AdminPointRulesPage() {
   }
 
   function handleDelete(rule: Rule) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(rule.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(rule.id)
+    })
   }
 
   const total = data?.total ?? 0

@@ -11,7 +11,8 @@ import { eq, and } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db } from '../../db/index.js'
 import { users, exportTasks } from '@ihui/database'
-import { isSystemAdminUser } from '../../db/queries.js'
+import { isSystemAdminUser, findUserById } from '../../db/queries.js'
+import { purgeUserPii } from '../../services/purge-user-pii.js'
 import {
   findUserPreferences,
   upsertUserPreference,
@@ -229,12 +230,56 @@ const settingsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ success: true }))
   })
 
+  // 注销前二次校验：短信验证码 或 登录密码，二者必填其一（<code>/<password>）。
+  const deleteAccountSchema = z
+    .object({
+      code: z.string().min(4).max(8).optional(),
+      password: z.string().min(1).max(200).optional(),
+    })
+    .superRefine((v, ctx) => {
+      if (!v.code && !v.password) {
+        ctx.addIssue({ code: 'custom', message: '请提供短信验证码或登录密码' })
+      }
+    })
+
   server.post('/settings/delete-account', async (request, reply) => {
     if (await isSystemAdminUser(request.userId!)) {
       return reply.status(403).send(error(403, '系统内置管理员账户不可注销'))
     }
-    await db.update(users).set({ status: 0 }).where(eq(users.id, request.userId!))
-    return reply.send(success({ success: true }))
+    const userId = request.userId!
+
+    const parsed = deleteAccountSchema.safeParse(request.body ?? {})
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const { code, password } = parsed.data
+
+    const user = await findUserById(userId)
+    if (!user) return reply.status(404).send(error(404, '用户不存在'))
+
+    // 后端强校验：短信验证码（绑定手机号）或密码，必须通过其一，杜绝「仅前端校验」绕过。
+    if (code) {
+      if (!user.phone) {
+        return reply.status(400).send(error(400, '该账户未绑定手机号，请改用密码验证'))
+      }
+      const { verifyCode } = await import('../../utils/code-store.js')
+      if (!(await verifyCode(user.phone, code))) {
+        return reply.status(400).send(error(400, '短信验证码错误或已过期'))
+      }
+    } else if (password) {
+      if (!user.passwordHash) {
+        return reply.status(400).send(error(400, '该账户未设置密码，请使用短信验证码'))
+      }
+      const { verifyPassword } = await import('../../utils/password-crypto.js')
+      if (!(await verifyPassword(password, user.passwordHash))) {
+        return reply.status(400).send(error(400, '登录密码错误'))
+      }
+    }
+
+    // 注销 = 立即清除全部 PII（含 KYC/地址/设备/对话/记忆/笔记/推送 token 等）+ 彻底匿名化 + 吊销 token。
+    // 幂等：重复调用不报错。
+    await purgeUserPii(userId)
+    return reply.send(success({ success: true, deleted: true, userId }))
   })
 
   server.put('/settings', async (request, reply) => {

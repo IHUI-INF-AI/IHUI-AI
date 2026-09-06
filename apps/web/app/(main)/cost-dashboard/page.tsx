@@ -27,6 +27,7 @@ import {
   XCircle,
 } from 'lucide-react'
 
+import { useTranslations } from 'next-intl'
 import { fetchApi } from '@/lib/api'
 import { Tooltip } from '@/components/feedback'
 import type { CostSummary, CostTimeseries } from '@/api/cost-ledger-api'
@@ -34,6 +35,7 @@ import type { CostSummary, CostTimeseries } from '@/api/cost-ledger-api'
 type Granularity = 'day' | 'hour'
 
 export default function CostDashboardPage() {
+  const t = useTranslations('costDashboard')
   const [summary, setSummary] = React.useState<CostSummary | null>(null)
   const [series, setSeries] = React.useState<CostTimeseries>([])
   const [granularity, setGranularity] = React.useState<Granularity>('day')
@@ -53,7 +55,7 @@ export default function CostDashboardPage() {
       if (res.status === 401) {
         setNeedLogin(true)
       } else {
-        setError((res as { message?: string }).message || '加载成本数据失败')
+        setError((res as { message?: string }).message || t('loadFailed'))
       }
       setSummary(null)
       setSeries([])
@@ -88,7 +90,7 @@ export default function CostDashboardPage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <TrendingUp className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">成本看板</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="ml-auto flex items-center gap-2">
           {(['day', 'hour'] as Granularity[]).map((g) => (
             <button
@@ -100,23 +102,23 @@ export default function CostDashboardPage() {
                   : 'hover:bg-muted'
               }`}
             >
-              {g === 'day' ? '按日' : '按小时'}
+              {g === 'day' ? t('day') : t('hour')}
             </button>
           ))}
         </div>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        全链路成本账本聚合:总成本 / Token(入·出)/ 耗时 / 步数,按工具与模型拆分的条 + 时间走势。
+        {t('subtitle')}
       </p>
 
       {loading && (
         <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" /> 加载中…
+          <Loader2 className="h-5 w-5 animate-spin" /> {t('loading')}
         </div>
       )}
       {needLogin && (
         <p className="mb-4 flex items-center gap-1.5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-          <CircleX className="h-4 w-4" /> 请先登录后查看成本看板(该功能仅对已登录用户开放)
+          <CircleX className="h-4 w-4" /> {t('needLogin')}
         </p>
       )}
       {error && (
@@ -127,7 +129,7 @@ export default function CostDashboardPage() {
 
       {!loading && summary && summary.steps === 0 && !error && !needLogin && (
         <div className="flex items-center justify-center gap-2 rounded-xl border py-16 text-sm text-muted-foreground">
-          <Activity className="h-5 w-5" /> 暂无成本记录,跑几次 Agent 后这里会展示聚合与走势
+          <Activity className="h-5 w-5" /> {t('empty')}
         </div>
       )}
 
@@ -137,16 +139,16 @@ export default function CostDashboardPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Coins className="h-3.5 w-3.5" /> 总成本
+                <Coins className="h-3.5 w-3.5" /> {t('totalCost')}
               </div>
               <div className="text-xl font-bold">{fmtUsd(summary.total_cost)}</div>
               <div className="mt-1 text-xs text-muted-foreground">
-                估算 {summary.estimated_count} 条
+                {t('estimatedCount', { count: summary.estimated_count })}
               </div>
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Cpu className="h-3.5 w-3.5" /> 总 Token
+                <Cpu className="h-3.5 w-3.5" /> {t('totalToken')}
               </div>
               <div className="text-xl font-bold">{summary.total_tokens.toLocaleString()}</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -156,7 +158,7 @@ export default function CostDashboardPage() {
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Timer className="h-3.5 w-3.5" /> 总耗时
+                <Timer className="h-3.5 w-3.5" /> {t('totalDuration')}
               </div>
               <div className="text-xl font-bold">{fmtDur(summary.total_duration_ms)}</div>
               <div className="mt-1 text-xs text-muted-foreground">
@@ -165,7 +167,7 @@ export default function CostDashboardPage() {
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Activity className="h-3.5 w-3.5" /> 步数
+                <Activity className="h-3.5 w-3.5" /> {t('steps')}
               </div>
               <div className="text-xl font-bold">{summary.steps}</div>
               <div className="mt-1 text-xs">
@@ -178,12 +180,12 @@ export default function CostDashboardPage() {
           {/* 时间走势 */}
           <div className="mt-4 rounded-xl border p-4">
             <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <TrendingUp className="h-4 w-4" /> 成本 / Token 走势(
-              {granularity === 'day' ? '按日' : '按小时'})
+              <TrendingUp className="h-4 w-4" />{' '}
+              {t('costTokenTrend', { granularity: granularity === 'day' ? t('day') : t('hour') })}
             </h2>
             {series.length === 0 ? (
               <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
-                <Activity className="h-5 w-5" /> 无时间序列数据
+                <Activity className="h-5 w-5" /> {t('noSeries')}
               </div>
             ) : (
               <div className="space-y-1.5">
@@ -211,7 +213,7 @@ export default function CostDashboardPage() {
                         {b.tokens.toLocaleString()} tok
                       </span>
                     </div>
-                    <span className="text-right text-muted-foreground">{b.steps} 步</span>
+                    <span className="text-right text-muted-foreground">{t('stepsSuffix', { count: b.steps })}</span>
                   </div>
                 ))}
               </div>
@@ -222,7 +224,7 @@ export default function CostDashboardPage() {
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border p-4">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <Wrench className="h-4 w-4" /> 按工具
+                <Wrench className="h-4 w-4" /> {t('byTool')}
               </h2>
               {byToolEntries.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">-</div>
@@ -246,7 +248,7 @@ export default function CostDashboardPage() {
             </div>
             <div className="rounded-xl border p-4">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <Cpu className="h-4 w-4" /> 按模型
+                <Cpu className="h-4 w-4" /> {t('byModel')}
               </h2>
               {byModelEntries.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">-</div>

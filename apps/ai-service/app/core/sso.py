@@ -173,6 +173,7 @@ class OIDCSSOProvider:
         redirect_uri: str = "",
         auth_endpoint: str = "",
         token_endpoint: str = "",
+        jwks_uri: str = "",
     ) -> None:
         self.issuer = issuer
         self.client_id = client_id
@@ -180,6 +181,14 @@ class OIDCSSOProvider:
         self.redirect_uri = redirect_uri
         self.auth_endpoint = auth_endpoint
         self.token_endpoint_override = token_endpoint
+        self.jwks_uri = jwks_uri
+        self._jwks_uri_resolved: str = ""
+        # 仅接受带签名的非对称算法,显式排除 "none" 等伪造/弱算法
+        self._allowed_algorithms = [
+            "RS256", "RS384", "RS512",
+            "ES256", "ES384", "ES512",
+            "PS256", "PS384", "PS512",
+        ]
 
     @property
     def configured(self) -> bool:
@@ -204,11 +213,108 @@ class OIDCSSOProvider:
             auth_endpoint=self.auth_endpoint,
         )
 
-    async def exchange_code(self, code: str) -> UserIdentity:
+    async def _resolve_jwks_uri(self) -> str:
+        """解析 JWKS 地址:显式配置 → issuer 的 OIDC discovery(jwks_uri)。"""
+        if self.jwks_uri:
+            return self.jwks_uri
+        if self._jwks_uri_resolved:
+            return self._jwks_uri_resolved
+        if not self.issuer:
+            return ""
+        import httpx
+
+        discovery = f"{self.issuer.rstrip('/')}/.well-known/openid-configuration"
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as http:
+                resp = await http.get(discovery, headers={"Accept": "application/json"})
+                if resp.status_code == 200:
+                    jwks = str((resp.json() or {}).get("jwks_uri") or "")
+                    if jwks:
+                        self._jwks_uri_resolved = jwks
+                        return jwks
+        except Exception as e:  # noqa: BLE001 - discovery 失败交由上层处理
+            logger.warning("sso OIDC discovery 获取失败: %s", e)
+        return ""
+
+    def _decode_id_token(
+        self,
+        id_token: str,
+        *,
+        signing_key: Any,
+        nonce: str = "",
+        client_id: str = "",
+        issuer: str = "",
+        claims_to_verify: frozenset[str] = frozenset({"exp", "nbf", "iat"}),
+    ) -> dict[str, Any]:
+        """用已解析的签名密钥解码并校验 id_token。
+
+        排除 none 算法;自动校验签名、exp/nbf/iat;aud 与 iss 在传入非空值时强制比对;
+        nonce 在请求阶段已绑定非空值时强制比对(重放防护)。校验失败抛 RuntimeError。
+        """
+        import jwt as pyjwt
+
+        required = set(claims_to_verify or ())
+        if not client_id:
+            required.discard("aud")
+        if not issuer:
+            required.discard("iss")
+        try:
+            claims = pyjwt.decode(
+                id_token,
+                key=signing_key,
+                algorithms=self._allowed_algorithms,
+                audience=[client_id] if client_id else None,
+                issuer=issuer or None,
+                options={
+                    "verify_signature": True,
+                    "require": sorted(required),
+                    "verify_aud": bool(client_id),
+                    "verify_iss": bool(issuer),
+                },
+            )
+        except pyjwt.PyJWTError as e:
+            raise RuntimeError(f"id_token 验签失败: {e}") from e
+        if nonce and not (isinstance(claims.get("nonce"), str) and claims.get("nonce") == nonce):
+            raise RuntimeError("id_token nonce 不匹配(重放防护)")
+        return claims
+
+    async def _verify_id_token(
+        self, id_token: str, *, nonce: str = ""
+    ) -> dict[str, Any]:
+        """完整 id_token 验签链路(签名 + aud/iss/exp/nonce)。失败抛 RuntimeError。"""
+        import jwt as pyjwt
+
+        jwks_uri = await self._resolve_jwks_uri()
+        if not jwks_uri:
+            raise RuntimeError("无法解析 IdP JWKS 地址,拒绝校验 id_token")
+        client = pyjwt.PyJWKClient(
+            jwks_uri,
+            cache_keys=True,
+            cache_jwk_set=True,
+            headers={"Accept": "application/json"},
+            timeout=8.0,
+        )
+        try:
+            signing_key = client.get_signing_key_from_jwt(id_token)
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(f"无法据 id_token 匹配/校验签名密钥(kid): {e}") from e
+        return self._decode_id_token(
+            id_token,
+            signing_key=signing_key.key,
+            nonce=nonce,
+            client_id=self.client_id,
+            issuer=self.issuer,
+        )
+
+    async def exchange_code(
+        self, code: str, *, nonce: str = ""
+    ) -> UserIdentity:
         """授权码 → token → 用户身份。
 
         两步:POST token_endpoint 换 access_token(+ 可选 id_token claims),
         再 GET userinfo_endpoint(若配置)取 claims。网络/协议错误抛 RuntimeError。
+        若响应携带 id_token,则强制做 JWKS 签名验签(aud/iss/exp/nonce),未带则退回
+        userinfo(向后兼容,记录告警)。验签失败直接抛错,绝不静默信任。
         """
         self._require_config()
         import httpx  # 延迟导入:模块加载不强依赖网络栈
@@ -234,9 +340,15 @@ class OIDCSSOProvider:
         access_token = str(tokens.get("access_token") or "")
         if not access_token:
             raise RuntimeError("token exchange 响应缺少 access_token")
-        # TODO(SSO-P2): 校验 id_token 签名(nonce/aud/iss)+ JWKS 拉取。
-        # 当前最小实现信任 userinfo 端点;真实部署接入前必须补验签。
-        claims: dict[str, Any] = {}
+        # SSO-P2: 校验 id_token 签名(JWKS) + aud/iss/exp/nonce。签名校验失败即拒绝,
+        # 不再信任未验签的 id_token;仅当响应确未携带 id_token 时退回 userinfo。
+        id_token = str(tokens.get("id_token") or "")
+        id_claims: dict[str, Any] = {}
+        if id_token:
+            id_claims = await self._verify_id_token(id_token, nonce=nonce)
+        else:
+            logger.warning("sso token 响应无 id_token,退回 userinfo 校验(验签不可用)")
+        claims: dict[str, Any] = dict(id_claims)
         userinfo_ep = tokens.get("userinfo_endpoint") or (
             f"{self.issuer.rstrip('/')}/userinfo" if self.issuer else ""
         )
@@ -250,12 +362,12 @@ class OIDCSSOProvider:
                     if ur.status_code == 200:
                         body = ur.json()
                         if isinstance(body, dict):
-                            claims = body
+                            claims = {**body, **id_claims}  # id_token claims 优先
             except Exception as e:  # noqa: BLE001 - userinfo 失败降级到空 claims
                 logger.warning("sso userinfo 获取失败(降级): %s", e)
         subject = str(claims.get("sub") or "")
         if not subject:
-            raise RuntimeError("userinfo 响应缺少 sub")
+            raise RuntimeError("SSO 断言缺少 sub")
         return UserIdentity(
             subject=subject,
             email=str(claims.get("email") or ""),
@@ -287,6 +399,7 @@ def build_provider(name: str) -> SSOProvider:
             redirect_uri=_env("SSO_REDIRECT_URI"),
             auth_endpoint=_env("SSO_OIDC_AUTH_ENDPOINT"),
             token_endpoint=_env("SSO_OIDC_TOKEN_ENDPOINT"),
+            jwks_uri=_env("SSO_OIDC_JWKS_URI"),
         )
         # 未配置真实 IdP → 视为不可用(router 层据此返回 501)
         if not provider.configured:
@@ -316,6 +429,7 @@ def list_enabled_providers() -> list[SSOProvider]:
                     redirect_uri=_env("SSO_REDIRECT_URI"),
                     auth_endpoint=_env("SSO_OIDC_AUTH_ENDPOINT"),
                     token_endpoint=_env("SSO_OIDC_TOKEN_ENDPOINT"),
+                    jwks_uri=_env("SSO_OIDC_JWKS_URI"),
                 )
             )
             continue

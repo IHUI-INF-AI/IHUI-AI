@@ -56,6 +56,13 @@ export const newsArticles = pgTable(
   (t) => ({
     catIdx: index('news_articles_category_idx').on(t.categoryId),
     pubIdx: index('news_articles_published_idx').on(t.isPublished),
+    // 2026-09-06 P0:公开资讯列表 `is_published=true AND status=1 ORDER BY published_at DESC`,
+    // 现有 isPublished 单列索引选择性差,补 (is_published, status, published_at DESC) 复合
+    pubStatusDateIdx: index('news_articles_pub_status_date_idx').on(
+      t.isPublished,
+      t.status,
+      t.publishedAt.desc(),
+    ),
   }),
 )
 

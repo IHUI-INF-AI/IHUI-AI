@@ -36,6 +36,9 @@ let SENDKEY = process.env.SCT_SENDKEY || ''
 const COOLDOWN_SECS = parseInt(process.env.SCT_COOLDOWN_SECS || '60', 10)
 const DEDUP_WINDOW_MIN = parseInt(process.env.SCT_DEDUP_MIN || '240', 10)
 const LOG_FILE = process.env.LOG_FILE || 'D:\\DevEnv\\logs\\alert-webhook-bridge.log'
+const DAILY_BUDGET = parseInt(process.env.SCT_DAILY_BUDGET || '4', 10)
+const QUEUE_MAX_BATCHES = parseInt(process.env.SCT_QUEUE_MAX || '10', 10)
+const STATE_FILE = process.env.STATE_FILE || 'D:\\DevEnv\\state\\alert-bridge-state.json'
 
 // 从独立密钥文件读取 SendKey(与 monitor.ps1 统一来源,不进 git)
 function loadSendKey() {
@@ -72,13 +75,125 @@ function formatAlert(alert) {
 
 let lastPushOk = 0
 const dedup = new Map() // key=`name|instance` -> lastPushTs
+const MAX_DEDUP_AGE_MS = DEDUP_WINDOW_MIN * 60 * 1000
+
+// ── 每日推送预算(按自然日持久化,重启不失效)──────────────────────────────────────
+const quota = { day: '', used: 0 }
+function todayKey() { return new Date().toLocaleDateString('sv') } // 本地时区 YYYY-MM-DD
+function budgetRemaining() {
+  if (quota.day !== todayKey()) { quota.day = todayKey(); quota.used = 0 }
+  return DAILY_BUDGET - quota.used
+}
+function consumeBudget() {
+  if (quota.day !== todayKey()) { quota.day = todayKey(); quota.used = 0 }
+  quota.used += 1
+  saveState() // 预算安全关键项:立即持久化
+}
+
+// ── 状态持久化(去重 Map + 每日预算)→ 本地文件 ──────────────────────────────────
+let stateDirty = false
+let stateSaveTimer = null
+function saveState() {
+  try {
+    fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true })
+    const now = Date.now()
+    const dedupObj = {}
+    for (const [k, ts] of dedup) {
+      if (now - Number(ts) < MAX_DEDUP_AGE_MS) dedupObj[k] = Number(ts)
+    }
+    fs.writeFileSync(
+      STATE_FILE,
+      JSON.stringify({ quota: { day: todayKey(), used: quota.used }, dedup: dedupObj }),
+      'utf8',
+    )
+    stateDirty = false
+  } catch (e) {
+    writeLog(`[state] 保存状态失败: ${e.message}`)
+  }
+}
+function scheduleSave() {
+  stateDirty = true
+  if (stateSaveTimer) return
+  stateSaveTimer = setTimeout(() => { stateSaveTimer = null; if (stateDirty) saveState() }, 3000)
+}
+function loadState() {
+  try {
+    const s = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'))
+    quota.day = s.quota && s.quota.day === todayKey() ? s.quota.day : todayKey()
+    quota.used = s.quota && s.quota.day === todayKey() ? Number(s.quota.used) || 0 : 0
+    const now = Date.now()
+    const stored = s.dedup && typeof s.dedup === 'object' ? s.dedup : {}
+    for (const k of Object.keys(stored)) {
+      if (now - Number(stored[k]) < MAX_DEDUP_AGE_MS) dedup.set(k, Number(stored[k]))
+    }
+    writeLog(`[state] 已载入状态: 今日预算已用 ${quota.used}/${DAILY_BUDGET}, 去重条目 ${dedup.size}`)
+  } catch (e) { /* 首启或文件损坏,用默认空态 */ }
+}
 
 function shouldDedup(key, nowMs) {
   const last = dedup.get(key)
-  const winMs = DEDUP_WINDOW_MIN * 60 * 1000
-  if (last && nowMs - last < winMs) return true
-  dedup.set(key, nowMs)
-  return false
+  dedup.set(key, nowMs) // 不断刷新该 key 的最后时间(窗口内重复告警仅重置计时)
+  return !!(last && nowMs - last < MAX_DEDUP_AGE_MS)
+}
+
+// ── 冷却补发队列(有界内存队列;冷却期告警入队,结束后补发,不丢弃)──────────────────
+const pendingQueue = []
+let pushInFlight = false
+let lastDropCount = 0
+
+function enqueueAndDrain(batch) {
+  pendingQueue.push(batch)
+  lastDropCount = 0
+  if (pendingQueue.length > QUEUE_MAX_BATCHES) {
+    const dropped = pendingQueue.shift()
+    lastDropCount = dropped ? dropped.length : 0
+    writeLog(`[queue] 冷却补发队列已达上限(${QUEUE_MAX_BATCHES}批),丢弃最旧一批(${lastDropCount}条)`)
+  }
+  if (!pushInFlight) drainQueue()
+}
+
+async function drainQueue() {
+  if (pushInFlight) return
+  pushInFlight = true
+  try {
+    while (pendingQueue.length > 0) {
+      if (budgetRemaining() <= 0) {
+        writeLog(`[quota][WARN] 当日推送预算已达上限(${DAILY_BUDGET}条),本日静默不再推送,丢弃剩余 ${pendingQueue.length} 批告警(次日自动重置)`)
+        pendingQueue.length = 0
+        break
+      }
+      const waitMs = COOLDOWN_SECS * 1000 - (Date.now() - lastPushOk)
+      if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs))
+      const batch = pendingQueue.shift()
+      const ok = await dispatchBatch(batch)
+      if (!ok) break
+    }
+  } finally {
+    pushInFlight = false
+    // 排队期间有新告警入队:再次触发补发
+    if (pendingQueue.length > 0) setImmediate(drainQueue)
+  }
+}
+
+async function dispatchBatch(toPush) {
+  if (budgetRemaining() <= 0) {
+    writeLog(`[quota][WARN] 推送预算耗尽,放弃本批(${toPush.length}条)`)
+    return false
+  }
+  const title = `[IHUI-AI 告警] ${toPush.length} 项指标异常`
+  const despParts = ['Prometheus 指标告警(Prometheus→Alertmanager 链路)', '--------------------------------']
+  for (const a of toPush) despParts.push(formatAlert(a))
+  const desp = despParts.join('\n')
+  try {
+    await pushServerChan(title, desp)
+    lastPushOk = Date.now()
+    consumeBudget()
+    writeLog(`[push] 已推送 ${toPush.length} 条告警到微信: ${toPush.map((a) => (a.labels || {}).alertname).join(', ')}`)
+    return true
+  } catch (e) {
+    writeLog(`[push] 失败: ${e.message}`)
+    return false
+  }
 }
 
 // 调用 Server酱 send 接口(form 表单)
@@ -132,41 +247,28 @@ async function handleAlert(reqBody) {
   const alerts = (reqBody && Array.isArray(reqBody.alerts)) ? reqBody.alerts : []
   if (!alerts.length) {
     writeLog('[alert] 空 alert 列表,忽略')
-    return { skipped: 'empty' }
+    return { skipped: 0 }
   }
 
   const now = Date.now()
-  // 去重: 只保留"该去重窗口内未推过"的告警
+  // 去重: 只保留"该去重窗口内未推过"的告警(去重 Map 会持久化,重启不重置)
+  let dedupedCount = 0
   const toPush = alerts.filter((a) => {
     const labels = a.labels || {}
-    return !shouldDedup(`${labels.alertname || ''}|${labels.instance || ''}`, now)
+    const isDup = shouldDedup(`${labels.alertname || ''}|${labels.instance || ''}`, now)
+    if (isDup) dedupedCount++
+    return !isDup
   })
+  scheduleSave() // 去重状态落盘(3s 防抖),重启不丢失
 
   if (!toPush.length) {
-    writeLog(`[alert] 全部命中去重窗口(${alerts.length}条),跳过推送`)
-    return { skipped: toDedupCount }
+    writeLog(`[alert] 全部命中去重窗口(${alerts.length}条/${{ alerts }.alerts.length}条),跳过推送`)
+    return { skipped: dedupedCount }
   }
 
-  // 冷却: 距上次成功推送太近则丢弃(合并再推)
-  if (now - lastPushOk < COOLDOWN_SECS * 1000) {
-    writeLog(`[alert] 冷却期内(${COOLDOWN_SECS}s),合并暂停推送(${toPush.length}条新告警)`)
-    return { skipped: 'cooldown' }
-  }
-
-  const title = `[IHUI-AI 告警] ${toPush.length} 项指标异常`
-  const despParts = ['Prometheus 指标告警(Prometheus→Alertmanager 链路)', '--------------------------------']
-  for (const a of toPush) despParts.push(formatAlert(a))
-  const desp = despParts.join('\n')
-
-  try {
-    await pushServerChan(title, desp)
-    lastPushOk = Date.now()
-    writeLog(`[push] 已推送 ${toPush.length} 条告警到微信: ${toPush.map((a) => (a.labels || {}).alertname).join(', ')}`)
-    return { pushed: toPush.length }
-  } catch (e) {
-    writeLog(`[push] 失败: ${e.message}`)
-    return { error: e.message }
-  }
+  // 冷却期内的新告警入队补发(有界队列,满了丢弃最旧批并记日志);不再直接丢弃
+  enqueueAndDrain(toPush)
+  return { queued: toPush.length, dropped: lastDropCount }
 }
 
 function parseBody(req) {
@@ -213,5 +315,10 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '127.0.0.1', () => {
   SENDKEY = loadSendKey()
-  writeLog(`alert-webhook-bridge 启动, 监听 127.0.0.1:${PORT}, SendKey ${SENDKEY ? '已配置' : '未配置'}`)
+  loadState() // 载入去重 + 每日预算(重启不失效)
+  writeLog(`alert-webhook-bridge 启动, 监听 127.0.0.1:${PORT}, SendKey ${SENDKEY ? '已配置' : '未配置'}, 每日预算 ${DAILY_BUDGET} 条`)
 })
+
+// NSSM 常驻服务:退出前冲刷去重/预算状态(NSSM 停机或 Ctrl+C)
+process.on('SIGINT', () => { saveState(); process.exit(0) })
+process.on('SIGTERM', () => { saveState(); process.exit(0) })

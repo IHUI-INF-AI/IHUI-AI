@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -123,8 +124,9 @@ export default function AdminAgentsPage() {
   }
 
   function handleDelete(agent: Agent) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(agent.agentId)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(agent.agentId)
+    })
   }
 
   const categories = catData?.list ?? []

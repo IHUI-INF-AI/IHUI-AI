@@ -56,6 +56,8 @@ const ALLOWED_FILES = new Set([
   'README.ja.md',
   'README.ko.md',
   'LICENSE',
+  // 2026-09-06 显式审批:Apache-2.0 标准伴生文档(引用版权所有者、须随再分发保留)
+  'NOTICE',
   'SECURITY.md',
   'CONTRIBUTING.md',
   'CODE_OF_CONDUCT.md',

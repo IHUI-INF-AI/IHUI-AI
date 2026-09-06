@@ -19,6 +19,7 @@ import {
 } from '@ihui/ui-react'
 import { rollbackSkill } from './helpers'
 import { VersionDiffDialog } from './VersionDiffDialog'
+import { confirmDialog } from '@/components/feedback'
 import type { SkillVersion, SkillWithVersions } from './types'
 
 function formatDate(dateStr: string): string {
@@ -216,11 +217,11 @@ export function VersionTable({ skills, loading, error }: VersionTableProps) {
                                       disabled={rollbackMut.isPending}
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        if (
-                                          window.confirm(`确定回滚到 ${v.name}@${v.version} 吗？`)
-                                        ) {
-                                          rollbackMut.mutate({ name: v.name, content: v.content! })
-                                        }
+                                        void confirmDialog({
+                                          title: `确定回滚到 ${v.name}@${v.version} 吗？`,
+                                        }).then((ok) => {
+                                          if (ok) rollbackMut.mutate({ name: v.name, content: v.content! })
+                                        })
                                       }}
                                     >
                                       <RotateCcw className="h-3.5 w-3.5" />
