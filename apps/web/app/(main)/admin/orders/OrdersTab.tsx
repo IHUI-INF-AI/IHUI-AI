@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2, ShoppingCart, Download, Plus, Edit, Trash2 } from 'lucide-react'
@@ -210,8 +211,9 @@ export function OrdersTab({
   }
 
   function handleDelete(o: EduOrder) {
-    if (!window.confirm(`确认删除订单 "${o.orderNo}" 吗?`)) return
-    deleteMut.mutate(o.id)
+    void confirmDialog({ title: `确认删除订单 "${o.orderNo}" 吗?` }).then((ok) => {
+      if (ok) deleteMut.mutate(o.id)
+    })
   }
 
   function handleExport() {
