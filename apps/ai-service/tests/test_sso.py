@@ -6,7 +6,12 @@
 
 from __future__ import annotations
 
+import datetime as _dt
+
+import jwt as _pyjwt
 import pytest
+from cryptography.hazmat.primitives import serialization as _ser
+from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
 
 from app.core.sso import (
     MockSSOProvider,
@@ -18,7 +23,6 @@ from app.core.sso import (
     oidc_endpoints_from_issuer,
     parse_callback_params,
 )
-
 
 # ---------------- 纯函数层 ----------------
 
@@ -191,3 +195,131 @@ async def test_sso_post_callback_mock(client):
 async def test_sso_get_callback_missing_code_400(client):
     resp = await client.get("/api/sso/callback?provider=mock")
     assert resp.status_code == 400
+
+
+# ---------------- id_token 验签(SSO-P2 安全加固) ----------------
+
+
+def _rsa2048():
+    """生成 (私钥PEM, 公钥PEM) 用于本地签名 id_token(离线)。"""
+    priv = _rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    priv_pem = priv.private_bytes(
+        _ser.Encoding.PEM, _ser.PrivateFormat.PKCS8, _ser.NoEncryption()
+    )
+    pub_pem = priv.public_key().public_bytes(
+        _ser.Encoding.PEM, _ser.PublicFormat.SubjectPublicKeyInfo
+    )
+    return priv_pem, pub_pem
+
+
+def _sign(priv_pem: bytes, claims: dict, alg: str = "RS256") -> str:
+    now = int(_dt.datetime.now(_dt.UTC).timestamp())
+    payload = {
+        "exp": now + 300,
+        "nbf": now - 30,
+        "iat": now,
+        "iss": "https://idp.example.com",
+        "aud": "ihui-web",
+        "sub": "u-1",
+        **claims,
+    }
+    return _pyjwt.encode(payload, priv_pem, algorithm=alg)
+
+
+def _provider():
+    return OIDCSSOProvider(
+        issuer="https://idp.example.com",
+        client_id="ihui-web",
+        redirect_uri="https://app/cb",
+        jwks_uri="https://idp.example.com/keys",
+    )
+
+
+def test_decode_id_token_valid_rs256():
+    priv, pub = _rsa2048()
+    token = _sign(priv, {"email": "a@x.io"})
+    claims = _provider()._decode_id_token(
+        token, signing_key=pub, client_id="ihui-web", issuer="https://idp.example.com"
+    )
+    assert claims["sub"] == "u-1"
+    assert claims["email"] == "a@x.io"
+
+
+def test_decode_id_token_rejects_forged_signature():
+    priv, _pub = _rsa2048()
+    _other_priv, other_pub = _rsa2048()  # 攻击者公钥 ≠ 签名者公钥
+    token = _sign(priv, {})  # 用真签名者私钥签,但用 "错误" 公钥验 → 必然失败
+    with pytest.raises(RuntimeError, match="验签失败"):
+        _provider()._decode_id_token(
+            token, signing_key=other_pub, client_id="ihui-web", issuer="https://idp.example.com"
+        )
+
+
+def test_decode_id_token_rejects_none_alg():
+    priv, _pub = _rsa2048()
+    now = int(_dt.datetime.now(_dt.UTC).timestamp())
+    token = _pyjwt.encode(
+        {
+            "exp": now + 300,
+            "nbf": now - 30,
+            "iat": now,
+            "iss": "https://idp.example.com",
+            "aud": "ihui-web",
+            "sub": "u-1",
+        },
+        key=None,
+        algorithm="none",
+    )
+    with pytest.raises(RuntimeError, match="验签失败"):
+        _provider()._decode_id_token(
+            token, signing_key=b"whatever", client_id="ihui-web", issuer="https://idp.example.com"
+        )
+
+
+def test_decode_id_token_rejects_wrong_audience():
+    priv, pub = _rsa2048()
+    token = _sign(priv, {})
+    with pytest.raises(RuntimeError, match="验签失败"):
+        _provider()._decode_id_token(
+            token, signing_key=pub, client_id="wrong-client", issuer="https://idp.example.com"
+        )
+
+
+def test_decode_id_token_rejects_wrong_issuer():
+    priv, pub = _rsa2048()
+    token = _sign(priv, {})
+    with pytest.raises(RuntimeError, match="验签失败"):
+        _provider()._decode_id_token(
+            token, signing_key=pub, client_id="ihui-web", issuer="https://evil.example.com"
+        )
+
+
+def test_decode_id_token_rejects_nonce_mismatch():
+    priv, pub = _rsa2048()
+    token = _sign(priv, {"nonce": "n-abc"})
+    p = _provider()
+    # nonce 匹配 → 通过
+    claims = p._decode_id_token(
+        token, signing_key=pub,
+        client_id="ihui-web", issuer="https://idp.example.com", nonce="n-abc",
+    )
+    assert claims["sub"] == "u-1"
+    # nonce 不匹配 → 拒绝(重放防护)
+    with pytest.raises(RuntimeError, match="nonce"):
+        p._decode_id_token(
+            token,
+            signing_key=pub,
+            client_id="ihui-web",
+            issuer="https://idp.example.com",
+            nonce="n-xyz",
+        )
+
+
+def test_decode_id_token_skips_nonce_when_none_supplied():
+    """未绑定 nonce 时不做 nonce 强制校验(兼容无状态授权流)。"""
+    priv, pub = _rsa2048()
+    token = _sign(priv, {})  # token 无 nonce
+    claims = _provider()._decode_id_token(
+        token, signing_key=pub, client_id="ihui-web", issuer="https://idp.example.com"
+    )
+    assert claims["sub"] == "u-1"
