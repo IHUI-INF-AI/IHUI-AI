@@ -15,7 +15,11 @@ import {
   type LoginApiClient,
   type LoginResult,
   type QrPlatformConfig,
+  type LoginTab,
+  isValidPhone,
+  loadLoginHistory,
 } from '@ihui/ui-react'
+import { OAUTH_BRAND_COLORS } from '@ihui/design-tokens'
 
 import { useAuthStore, type AuthUser } from '@/stores/auth'
 import { useLoginDialogStore } from '@/stores/login-dialog'
@@ -28,6 +32,8 @@ import { useTurnstile } from './LoginWithTurnstile'
 
 interface LoginFormContentProps {
   onSuccess?: () => void
+  /** 启用的登录 tab(未传时共享 LoginForm 回落默认 4 tab:邮箱/手机/密码/扫码) */
+  tabs?: LoginTab[]
 }
 
 /** 登录响应可能携带 2FA 挑战(后端 twoFactorRequired + challengeToken) */
@@ -267,7 +273,7 @@ function QrCodeLoginEmbedded({
   return <QrCodeLogin platform={platform} refreshKey={refreshKey} />
 }
 
-export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
+export function LoginFormContent({ onSuccess, tabs }: LoginFormContentProps) {
   // 共享 @ihui/ui-react.LoginForm 内部调用完整路径的 auth 键,
   // 必须用无命名空间的 useTranslations() 让 t 能解析完整路径;
   // 若用 useTranslations('auth'),键路径会变成 auth.auth.emailLogin 失败并回退显示 key 名。
@@ -277,6 +283,17 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
   const setUser = useAuthStore((s) => s.setUser)
   const setMode = useLoginDialogStore((s) => s.setMode)
   const thirdParty = useThirdPartyConfig()
+
+  // 2026-09-06:移动全屏登录页(tabs=['email','phone','password'] 3 项)才启用
+  // 微信整行大按钮 + 手机号自动回填;桌面(不传 tabs)维持原 3 列网格与手动输入。
+  const isMobileLayout = !!tabs && tabs.length < 4
+  // 最近一次登录手机号(取自账号历史,成就"自动显示手机号一键登录");在挂载后读取,
+  // 避免 SSR 渲染 JSON 不一致造成 hydration mismatch。
+  const [recentPhone, setRecentPhone] = React.useState('')
+  React.useEffect(() => {
+    if (!isMobileLayout || typeof window === 'undefined') return
+    setRecentPhone(loadLoginHistory().find((a) => isValidPhone(a)) ?? '')
+  }, [isMobileLayout])
 
   // 2026-08-06 立:2FA 登录流程 —— pending2fa 非空时显示验证面板,
   // request2faCode 返回 Promise,面板提交 code 后 resolve(对登录流程透明)。
@@ -328,8 +345,13 @@ export function LoginFormContent({ onSuccess }: LoginFormContentProps) {
           <QrCodeLoginEmbedded platform={platform} refreshKey={refreshKey} />
         )}
         qrPlatforms={QR_PLATFORMS}
+        tabs={tabs}
         // 2026-07-30 立:启用凭据持久化(记住密码 + 自动登录 + 账号历史下拉)
         enableCredentialPersistence
+        // 2026-09-06 立:移动端开启微信整行大按钮 + 最近手机号自动回填
+        thirdPartyFeaturedPlatform={isMobileLayout ? 'wechat' : undefined}
+        thirdPartyFeaturedBackground={isMobileLayout ? OAUTH_BRAND_COLORS.wechat : undefined}
+        phoneDefaultAccount={isMobileLayout ? recentPhone : undefined}
       />
       {pending2fa && (
         // 2FA 验证面板覆盖层:登录响应 twoFactorRequired 时弹出
