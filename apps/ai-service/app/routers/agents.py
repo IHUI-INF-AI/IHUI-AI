@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import re
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -28,6 +28,10 @@ from ..services.langgraph_service import langgraph_service
 from ..services.memory import memory_store
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+
+if TYPE_CHECKING:
+    # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
+    from ..services.mcp_tool_aggregator import SuperToolPool
 
 logger = logging.getLogger(__name__)
 
@@ -109,11 +113,138 @@ def _is_tool_deferral_enabled() -> bool:
     )
 
 
-def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
+def _is_supertool_enabled() -> bool:
+    """超级工具聚合器开关(env AGENT_SUPERTOOL_ENABLED,默认 on)。
+
+    on/1/true/yes → 启用:存在已连接外部 MCP server 时,把内置 _TOOLS 与外部工具
+    经 MCPSuperToolAggregator 去重/仲裁,以统一 manifest 暴露;无外部 server 或
+    聚合异常时自动降级到现有路径(工具清单逐字节等价)。其他值 → 关闭。
+    """
+    return os.environ.get("AGENT_SUPERTOOL_ENABLED", "on").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+# 内置工具在聚合器中的来源名(与外部 MCP server 名区分,避免 key 冲突)
+_SUPERTOOL_INTERNAL_SOURCE = "__builtin__"
+
+
+async def _build_supertool_pool(
+    tool_names: list[str] | None,
+) -> "SuperToolPool | None":
+    """聚合内置 + 外部 MCP 工具为统一超级工具池。
+
+    仅在开关开启且存在已连接外部 MCP server 时返回非 None pool;否则(开关关闭 /
+    无外部 server / 任意聚合异常)返回 None,调用方据此降级到现有工具装配路径。
+    """
+    if not _is_supertool_enabled():
+        return None
+    try:
+        from ..services.mcp_client import get_mcp_client_manager
+        from ..services.mcp_server import mcp_server
+        from ..services.mcp_tool_aggregator import (
+            POLICY_FIRST,
+            MCPSuperToolAggregator,
+            ToolSource,
+        )
+
+        manager = get_mcp_client_manager()
+        external = await manager.list_available_tools_async()
+        if not external:
+            return None  # 无外部 server → 降级
+
+        sources = [
+            ToolSource(
+                server_name=_SUPERTOOL_INTERNAL_SOURCE,
+                tools=list(mcp_server.list_tools()),
+                # 内置工具显式最高优先级:同名冲突时裸名永远归内置,
+                # 不受 POLICY_FIRST 的"描述长度优先"影响(保证白名单语义一致)。
+                priority=100,
+            )
+        ]
+        by_server: dict[str, list[Any]] = {}
+        for t in external:
+            by_server.setdefault(t.server_name or "external", []).append(t)
+        for srv, tools in by_server.items():
+            sources.append(ToolSource(server_name=srv, tools=tools))
+
+        agg = MCPSuperToolAggregator()
+        return agg.build(sources, collision_policy=POLICY_FIRST)
+    except Exception:  # noqa: BLE001 - 任意聚合异常都降级,绝不阻断装配
+        logger.exception("supertool 聚合失败,降级到现有工具装配路径")
+        return None
+
+
+async def _supertool_invoke(
+    server_name: str, tool_name: str, args: dict[str, Any]
+) -> Any:
+    """call_forward 的统一路由:内置工具走 mcp_server,外部工具走 mcp_client。"""
+    from ..services.mcp_server import mcp_server
+
+    if server_name == _SUPERTOOL_INTERNAL_SOURCE:
+        return await mcp_server.call_tool(tool_name, args)
+    from ..services.mcp_client import get_mcp_client_manager
+
+    manager = get_mcp_client_manager()
+    client = manager.get_client(server_name)
+    if client is not None:
+        return await client.call_tool(tool_name, args)
+    return await manager.call_external_tool(server_name, tool_name, args)
+
+
+def _supertool_tools_from_pool(
+    pool: "SuperToolPool",
+    tool_names: list[str] | None,
+) -> list[Any]:
+    """把超级工具池转换为 AgentLoopV2 的 ToolDefinition 列表(沿用 deferral 逻辑)。"""
+    from ..services.agent_loop_v2 import ToolDefinition
+    from ..services.mcp_tool_aggregator import MCPSuperToolAggregator
+
+    agg = MCPSuperToolAggregator()
+    defer = _is_tool_deferral_enabled()
+    forced = {"get_tool_schema"} if defer else set()
+    tools: list[Any] = []
+    for pt in pool.tools:
+        key = pt.key
+        if tool_names and key not in tool_names and key not in forced:
+            continue
+
+        async def _exec(args: dict[str, Any], _key: str = key) -> Any:
+            return await agg.call_forward(pool, _key, args, invoke_fn=_supertool_invoke)
+
+        if defer and key != "get_tool_schema":
+            short = _shorten_description(
+                pt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
+            )
+            tools.append(
+                ToolDefinition(
+                    name=key,
+                    description=short + _TOOL_DEFERRAL_SUFFIX,
+                    parameters={"type": "object"},
+                    executor=_exec,
+                )
+            )
+        else:
+            tools.append(
+                ToolDefinition(
+                    name=key,
+                    description=pt.description,
+                    parameters=pt.schema,
+                    executor=_exec,
+                )
+            )
+    return tools
+
+
+async def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
     """把 MCP 工具包装为 AgentLoopV2 的 ToolDefinition 列表(白名单过滤)。
 
     工具执行器走 mcp_server.call_tool(与 v1 agent_executor 同源),
     失败抛异常由 AgentLoopV2 的瞬时错误重试/错误分类机制处理。
+
+    超级工具聚合(AGENT_SUPERTOOL_ENABLED,默认开启):存在已连接外部 MCP server
+    时,内置 _TOOLS 与外部工具经 MCPSuperToolAggregator 去重/仲裁后以统一 manifest
+    暴露;无外部 server 或聚合异常时降级到下方现有路径(工具清单逐字节等价)。
 
     工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,除 get_tool_schema
     自身外,所有工具的 description 替换为 ≤limit 的短描述、parameters 置为最小占位
@@ -122,6 +253,11 @@ def _build_loop_v2_tools(tool_names: list[str] | None) -> list[Any]:
     get_tool_schema 必须保持完整 schema 且无论 tool_names 过滤如何都强制纳入,
     否则模型无法反查其他工具的完整参数。env 关闭时行为与历史完全一致。
     """
+    pool = await _build_supertool_pool(tool_names)
+    if pool is not None:
+        return _supertool_tools_from_pool(pool, tool_names)
+
+    # —— 现有路径(无外部 server / 开关关闭 / 聚合异常时逐字节等价) ——
     from ..services.agent_loop_v2 import ToolDefinition
     from ..services.mcp_server import mcp_server
 
@@ -524,7 +660,7 @@ async def execute_agent_stream(req: AgentExecuteRequest, request: Request) -> St
                 session_id = req.session_id or f"session-{asyncio.get_running_loop().time()}"
                 loop = AgentLoopV2(
                     _make_loop_v2_llm(req.model),
-                    tools=_build_loop_v2_tools(req.tools),
+                    tools=await _build_loop_v2_tools(req.tools),
                     session_id=session_id,
                     max_iterations=req.max_iterations or 8,
                     enable_checkpoint=True,
@@ -650,7 +786,7 @@ async def resume_agent_execute(req: AgentResumeRequest) -> dict[str, Any]:
 
     loop = AgentLoopV2(
         _make_loop_v2_llm(req.model),
-        tools=_build_loop_v2_tools(req.tools),
+        tools=await _build_loop_v2_tools(req.tools),
         max_iterations=req.max_iterations or 8,
         enable_checkpoint=True,
     )
