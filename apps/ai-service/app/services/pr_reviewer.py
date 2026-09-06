@@ -170,6 +170,98 @@ def parse_diff(diff: str) -> dict[str, Any]:
     }
 
 
+def _build_review_prompt(
+    diff: str,
+    repo: str | None,
+    pr_number: int | None,
+    focus_dims: list[str],
+    title: str = "",
+    author: str = "",
+) -> list[dict[str, str]]:
+    """构造 LLM 评审提示词(两类入口共用)。"""
+    repo_label = f"{repo}#{pr_number}" if repo and pr_number else "diff"
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是代码评审专家。基于 PR diff 输出结构化评审,关注维度: "
+                + ", ".join(focus_dims)
+                + "。输出严格 JSON: "
+                '{"summary": str, "issues": [{"severity": "high|medium|low", '
+                '"file": str, "line": str, "message": str, "suggestion": str}]}。'
+                "severity 取值:high(必须修复)/ medium(建议修复)/ low(提示)。"
+                "无问题时 issues 为空数组。只输出 JSON,不要其他文字。"
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"PR: {repo_label}\n"
+                f"标题: {title}\n"
+                f"作者: {author}\n\n"
+                f"diff:\n{diff}"
+            ),
+        },
+    ]
+
+
+async def _analyze_diff(
+    diff: str,
+    repo: str | None = None,
+    pr_number: int | None = None,
+    focus: list[str] | None = None,
+    title: str = "",
+    author: str = "",
+) -> dict[str, Any]:
+    """对给定 diff 文本做 LLM 评审(不拉 GitHub),返回结构化结果。
+
+    Returns:
+        {ok, repo?, pr_number?, summary, issues, stats, diff_truncated}
+    """
+    parsed = parse_diff(diff)
+    focus_dims = focus or ["security", "performance", "style", "bugs"]
+
+    truncated = False
+    if len(diff) > _MAX_DIFF_CHARS:
+        diff = diff[:_MAX_DIFF_CHARS]
+        truncated = True
+
+    prompt = _build_review_prompt(diff, repo, pr_number, focus_dims, title, author)
+
+    try:
+        result = await llm_gateway.complete(prompt, model=_REVIEW_MODEL)
+        content = result.get("content", "") if isinstance(result, dict) else str(result)
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+        review = json.loads(cleaned)
+    except Exception as e:
+        logger.warning("pr_reviewer LLM 分析失败: %s", e)
+        review = {
+            "summary": f"LLM 分析失败: {e}",
+            "issues": [],
+            "llm_failed": True,
+        }
+
+    out: dict[str, Any] = {
+        "ok": True,
+        "summary": review.get("summary", ""),
+        "issues": review.get("issues", []),
+        "stats": {
+            "files_changed": parsed.get("total_files", len(parsed.get("files", []))),
+            "diff_truncated": truncated,
+            "total_chunks": parsed.get("total_chunks", 0),
+        },
+        "diff_truncated": truncated,
+    }
+    if repo is not None:
+        out["repo"] = repo
+    if pr_number is not None:
+        out["pr_number"] = pr_number
+    return out
+
+
 async def review_pr(
     repo: str,
     pr_number: int,
@@ -189,71 +281,47 @@ async def review_pr(
     if not fetch.get("ok"):
         return fetch
 
-    diff = fetch["diff"]
-    parsed = parse_diff(diff)
-    focus_dims = focus or ["security", "performance", "style", "bugs"]
-
-    truncated = False
-    if len(diff) > _MAX_DIFF_CHARS:
-        diff = diff[:_MAX_DIFF_CHARS]
-        truncated = True
-
-    prompt = [
-        {
-            "role": "system",
-            "content": (
-                "你是代码评审专家。基于 PR diff 输出结构化评审,关注维度: "
-                + ", ".join(focus_dims)
-                + "。输出严格 JSON: "
-                '{"summary": str, "issues": [{"severity": "high|medium|low", '
-                '"file": str, "line": str, "message": str, "suggestion": str}]}。'
-                "severity 取值:high(必须修复)/ medium(建议修复)/ low(提示)。"
-                "无问题时 issues 为空数组。只输出 JSON,不要其他文字。"
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"PR: {repo}#{pr_number}\n"
-                f"标题: {fetch.get('title', '')}\n"
-                f"作者: {fetch.get('author', '')}\n"
-                f"文件变更: +{fetch.get('additions', 0)} -{fetch.get('deletions', 0)}\n\n"
-                f"diff:\n{diff}"
-            ),
-        },
-    ]
-
-    try:
-        result = await llm_gateway.complete(prompt, model=_REVIEW_MODEL)
-        content = result.get("content", "") if isinstance(result, dict) else str(result)
-        cleaned = content.strip()
-        if cleaned.startswith("```"):
-            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
-            cleaned = re.sub(r"\s*```$", "", cleaned)
-        review = json.loads(cleaned)
-    except Exception as e:
-        logger.warning("review_pr LLM 分析失败: %s", e)
-        review = {
-            "summary": f"LLM 分析失败: {e}",
-            "issues": [],
-            "llm_failed": True,
-        }
-
-    return {
-        "ok": True,
-        "repo": repo,
-        "pr_number": pr_number,
-        "summary": review.get("summary", ""),
-        "issues": review.get("issues", []),
-        "stats": {
-            "files_changed": fetch.get("files_changed", 0),
-            "additions": fetch.get("additions", 0),
-            "deletions": fetch.get("deletions", 0),
-            "commits": fetch.get("commits", 0),
-            "diff_truncated": truncated,
-            "total_chunks": parsed.get("total_chunks", 0),
-        },
-        "diff_truncated": truncated,
-        "rate_limit": fetch.get("rate_limit"),
+    analyzed = await _analyze_diff(
+        fetch["diff"],
+        repo=repo,
+        pr_number=pr_number,
+        focus=focus,
+        title=fetch.get("title", ""),
+        author=fetch.get("author", ""),
+    )
+    # 合并 fetch 的文件统计 + rate_limit
+    analyzed["stats"] = {
+        "files_changed": fetch.get("files_changed", 0),
+        "additions": fetch.get("additions", 0),
+        "deletions": fetch.get("deletions", 0),
+        "commits": fetch.get("commits", 0),
+        "diff_truncated": analyzed["diff_truncated"],
+        "total_chunks": analyzed["stats"].get("total_chunks", 0),
     }
+    analyzed["rate_limit"] = fetch.get("rate_limit")
+    return analyzed
+
+
+async def review_pr_from_diff(
+    diff: str,
+    repo: str | None = None,
+    pr_number: int | None = None,
+    focus: list[str] | None = None,
+) -> dict[str, Any]:
+    """直接对给定 diff 文本做评审(不拉 GitHub)。
+
+    用于 CI 场景:GitHub Actions 已本地生成 diff 并传入,服务端无需 GitHub 凭据。
+
+    Args:
+        diff: unified diff 文本(必填)
+        repo: 可选,仅用于评论标注(如 "owner/name")
+        pr_number: 可选,仅用于评论标注
+        focus: 关注维度,可选 ["security", "performance", "style", "bugs"]
+
+    Returns:
+        {ok, repo?, pr_number?, summary, issues, stats, diff_truncated}
+    """
+    if not diff or not diff.strip():
+        return {"ok": False, "errorCode": "EMPTY_DIFF", "message": "diff 不能为空"}
+    return await _analyze_diff(diff, repo=repo, pr_number=pr_number, focus=focus)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
