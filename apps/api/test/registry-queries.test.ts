@@ -365,12 +365,15 @@ describe('Registry DB Queries', () => {
       expect(result).toBe(3)
       // cutoff 应在合理范围内(30 天前)
       // sql 模板 `${col} < ${cutoff}` 的 values = [colName, cutoff],cutoff 在索引 1
+      // postgres.js 原生参数不接受 Date,cutoff 为 ISO 字符串(见实现内注释)
       const cutoff = whereArg.values[1]
-      expect(cutoff).toBeInstanceOf(Date)
-      const expectedCutoffMin = new Date(beforeTime - 30 * 86400_000 - 1000)
-      const expectedCutoffMax = new Date(afterTime - 30 * 86400_000 + 1000)
-      expect(cutoff.getTime()).toBeGreaterThanOrEqual(expectedCutoffMin.getTime())
-      expect(cutoff.getTime()).toBeLessThanOrEqual(expectedCutoffMax.getTime())
+      expect(typeof cutoff).toBe('string')
+      const cutoffMs = new Date(cutoff).getTime()
+      expect(Number.isNaN(cutoffMs)).toBe(false)
+      const expectedCutoffMin = beforeTime - 30 * 86400_000 - 1000
+      const expectedCutoffMax = afterTime - 30 * 86400_000 + 1000
+      expect(cutoffMs).toBeGreaterThanOrEqual(expectedCutoffMin)
+      expect(cutoffMs).toBeLessThanOrEqual(expectedCutoffMax)
     })
   })
 })
