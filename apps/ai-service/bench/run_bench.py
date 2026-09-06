@@ -32,7 +32,7 @@ from typing import Any
 
 BENCH_ROOT = Path(__file__).resolve().parent
 FIXTURES_ROOT = BENCH_ROOT / "fixtures"
-TASKS_FILE = BENCH_ROOT / "tasks_v0.json"
+TASKS_FILE = BENCH_ROOT / "tasks_v1.json"
 
 # stub 模式下允许 agent 探查工作目录所用的工具名
 _PROBE_TOOL = "list_files"

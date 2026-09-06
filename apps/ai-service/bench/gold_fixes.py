@@ -626,6 +626,456 @@ def _multifile_calc_split(wd: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# v1 新增任务(2026-09-06):tasks_v1.json 的 21 个新任务 gold fix
+# ---------------------------------------------------------------------------
+
+_CALC_CLEAN = '''"""迷你计算器模块(干净版,供 IHUI-Bench 任务使用)。"""
+
+from typing import List
+
+
+def add(a: float, b: float) -> float:
+    """两数相加。"""
+    return a + b
+
+
+def subtract(a: float, b: float) -> float:
+    """两数相减。"""
+    return a - b
+
+
+def multiply(a: float, b: float) -> float:
+    """两数相乘。"""
+    return a * b
+
+
+def divide(a: float, b: float) -> float:
+    """两数相除,除零安全返回 0.0。"""
+    if b == 0:
+        return 0.0
+    return a / b
+
+
+def percentage(value: float, pct: float) -> float:
+    """计算 value 的 pct 百分比。"""
+    return value * pct / 100
+
+
+def average(numbers: List[float]) -> float:
+    """求平均值,空列表安全返回 0.0。"""
+    if not numbers:
+        return 0.0
+    return sum(numbers) / len(numbers)
+'''
+
+
+@_register("fix-calc-multiply-percent")
+def _fix_calc_multiply_percent(wd: Path) -> None:
+    _replace(
+        wd, "calc.py",
+        '"""两数相乘(注:此处为故意埋设的 bug,正确应为 a * b)。"""\n    return a + b',
+        '"""两数相乘。"""\n    return a * b',
+    )
+    _replace(
+        wd, "calc.py",
+        '"""计算 value 的 pct 百分比(注:此处为故意埋设的 bug,漏掉 /100)。"""\n'
+        "    return value * pct",
+        '"""计算 value 的 pct 百分比。"""\n    return value * pct / 100',
+    )
+
+
+@_register("feature-calc-power")
+def _feature_calc_power(wd: Path) -> None:
+    _replace(
+        wd, "calc.py",
+        "def average(numbers: List[float]) -> float:",
+        "def power(a: float, b: float) -> float:\n"
+        '    """求 a 的 b 次幂。"""\n'
+        "    return a ** b\n\n\n"
+        "def average(numbers: List[float]) -> float:",
+    )
+    _replace(
+        wd, "calc.py",
+        '"""两数相乘(注:此处为故意埋设的 bug,正确应为 a * b)。"""\n    return a + b',
+        '"""两数相乘。"""\n    return a * b',
+    )
+    _replace(
+        wd, "calc.py",
+        '"""两数相除(注:此处为故意埋设的 bug,除零未处理)。"""\n    return a / b',
+        '"""两数相除,除零安全返回 0.0。"""\n    if b == 0:\n        return 0.0\n    return a / b',
+    )
+    _replace(
+        wd, "calc.py",
+        '"""计算 value 的 pct 百分比(注:此处为故意埋设的 bug,漏掉 /100)。"""\n'
+        "    return value * pct",
+        '"""计算 value 的 pct 百分比。"""\n    return value * pct / 100',
+    )
+
+
+_TEST_CALC_DIVIDE = '''"""divide 完整测试套件(2026-09-06 gold fix)。"""
+
+from calc import divide
+
+
+def test_divide_exact() -> None:
+    assert divide(6, 3) == 2
+
+
+def test_divide_non_exact() -> None:
+    assert divide(7, 2) == 3.5
+
+
+def test_divide_by_zero() -> None:
+    assert divide(1, 0) == 0.0
+'''
+
+
+@_register("test-calc-divide-suite")
+def _test_calc_divide_suite(wd: Path) -> None:
+    # 新测试文件含除零断言 → 顺带修复 divide 使其真实可过(不参与 check,但保持金标准权威性)
+    _replace(
+        wd, "calc.py",
+        '"""两数相除(注:此处为故意埋设的 bug,除零未处理)。"""\n    return a / b',
+        '"""两数相除,除零安全返回 0.0。"""\n    if b == 0:\n        return 0.0\n    return a / b',
+    )
+    _write(wd, "tests/test_calc_divide.py", _TEST_CALC_DIVIDE)
+
+
+@_register("feature-text-truncate")
+def _feature_text_truncate(wd: Path) -> None:
+    _replace(
+        wd, "text_utils.py",
+        '"""字符串反转(注:此处为故意埋设的 bug,步长应为 -1)。"""\n    return text[::1]',
+        '"""字符串反转。"""\n    return text[::-1]\n\n\n'
+        "def truncate(text: str, limit: int) -> str:\n"
+        '    """超长截断并以省略号结尾。"""\n'
+        '    if len(text) <= limit:\n'
+        "        return text\n"
+        '    return text[:limit] + "…"',
+    )
+
+
+@_register("feature-text-title-case")
+def _feature_text_title_case(wd: Path) -> None:
+    _replace(
+        wd, "text_utils.py",
+        '"""字符串反转(注:此处为故意埋设的 bug,步长应为 -1)。"""\n    return text[::1]',
+        '"""字符串反转。"""\n    return text[::-1]\n\n\n'
+        "def title_case(text: str) -> str:\n"
+        '    """每个单词首字母大写、其余小写。"""\n'
+        '    return " ".join(w[:1].upper() + w[1:].lower() for w in text.split())',
+    )
+
+
+_TEST_TEXT_UPPER_EDGE = '''"""to_uppercase 边界用例(2026-09-06 gold fix)。"""
+
+from text_utils import to_uppercase
+
+
+def test_to_uppercase_empty() -> None:
+    assert to_uppercase("") == ""
+
+
+def test_to_uppercase_mixed() -> None:
+    assert to_uppercase("abc123XYZ") == "ABC123XYZ"
+'''
+
+
+@_register("test-text-uppercase-edge")
+def _test_text_uppercase_edge(wd: Path) -> None:
+    _write(wd, "tests/test_text_upper_edge.py", _TEST_TEXT_UPPER_EDGE)
+
+
+@_register("fix-report-both-bugs")
+def _fix_report_both_bugs(wd: Path) -> None:
+    _replace(
+        wd, "report.py",
+        "        # 注:此处为故意埋设的 bug —— 每次循环多 +1,合计应为 sum(amount)\n"
+        "        total = total + 1",
+        "        total += r[\"amount\"]",
+    )
+    _replace(
+        wd, "report.py", "    return total / 1", "    return total / len(rows) if rows else 0.0",
+    )
+
+
+@_register("feature-report-count")
+def _feature_report_count(wd: Path) -> None:
+    _replace(
+        wd, "report.py",
+        "        # 注:此处为故意埋设的 bug —— 每次循环多 +1,合计应为 sum(amount)\n"
+        "        total = total + 1",
+        "        total += r[\"amount\"]",
+    )
+    _replace(
+        wd, "report.py",
+        '    return total / 1',
+        "    return total / len(rows) if rows else 0.0\n\n\n"
+        "def count_rows(rows: list[dict]) -> int:\n"
+        '    """统计记录行数。"""\n'
+        "    return len(rows)",
+    )
+
+
+_TEST_REPORT_SUMMARIZE = '''"""summarize 补充用例(2026-09-06 gold fix)。"""
+
+from aggregate import summarize
+
+
+def test_summarize_single() -> None:
+    assert summarize([{"name": "A", "amount": 7.5}]) == "¥7.50"
+
+
+def test_summarize_empty() -> None:
+    assert summarize([]) == "¥0.00"
+'''
+
+
+@_register("test-report-summarize-extra")
+def _test_report_summarize_extra(wd: Path) -> None:
+    _write(wd, "tests/test_report_summarize.py", _TEST_REPORT_SUMMARIZE)
+
+
+@_register("fix-cli-greet")
+def _fix_cli_greet(wd: Path) -> None:
+    _replace(
+        wd, "cli.py",
+        "# 注:此处为故意埋设的 bug —— 该模块不存在,会导致 ImportError,\n"
+        "# 任何 `from cli import ...` 都会失败。应删除此行。\n"
+        "import nonexistent_fake_module  # noqa: F401",
+        "",
+    )
+
+
+@_register("feature-cli-main-exit-code")
+def _feature_cli_main_exit_code(wd: Path) -> None:
+    _replace(
+        wd, "cli.py",
+        "# 注:此处为故意埋设的 bug —— 该模块不存在,会导致 ImportError,\n"
+        "# 任何 `from cli import ...` 都会失败。应删除此行。\n"
+        "import nonexistent_fake_module  # noqa: F401",
+        "",
+    )
+
+
+@_register("fix-cli-full-clean")
+def _fix_cli_full_clean(wd: Path) -> None:
+    _replace(
+        wd, "cli.py",
+        "# 注:此处为故意埋设的 bug —— 该模块不存在,会导致 ImportError,\n"
+        "# 任何 `from cli import ...` 都会失败。应删除此行。\n"
+        "import nonexistent_fake_module  # noqa: F401",
+        "",
+    )
+    _replace(
+        wd, "cli.py",
+        "def dead_code_helper() -> int:\n"
+        '    """注:此处为故意埋设的死代码,从未被调用,应删除。"""\n'
+        "    x = 1\n"
+        "    for i in range(10):\n"
+        "        x += i\n"
+        "    return x\n\n\n",
+        "",
+    )
+
+
+_CLI_ADD = '''"""命令行小工具(含 add 子命令,2026-09-06 gold fix)。"""
+
+import sys
+
+
+def greet(name: str) -> str:
+    """返回问候语。"""
+    return f"Hello, {name}!"
+
+
+def cmd_add(a: int, b: int) -> int:
+    """打印两整数之和并返回 0。"""
+    print(a + b)
+    return 0
+
+
+def main(argv=None) -> int:
+    """CLI 入口:支持 add 子命令,否则打印问候语。"""
+    argv = argv if argv is not None else sys.argv[1:]
+    if not argv:
+        print("usage: cli <name> | cli add <a> <b>")
+        return 1
+    if argv[0] == "add":
+        return cmd_add(int(argv[1]), int(argv[2]))
+    print(greet(argv[0]))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
+
+
+@_register("feature-cli-add-command")
+def _feature_cli_add_command(wd: Path) -> None:
+    _write(wd, "cli.py", _CLI_ADD)
+
+
+_TEST_CALC_ADD_SUB = '''"""add/subtract 组合用例(2026-09-06 gold fix)。"""
+
+from calc import add, subtract
+
+
+def test_add_zero() -> None:
+    assert add(0, 0) == 0
+
+
+def test_subtract_to_positive() -> None:
+    assert subtract(-1, -5) == 4
+
+
+def test_add_subtract_roundtrip() -> None:
+    assert subtract(add(3, 4), 4) == 3
+'''
+
+
+@_register("test-calc-add-subtract")
+def _test_calc_add_subtract(wd: Path) -> None:
+    _write(wd, "tests/test_calc_add_sub.py", _TEST_CALC_ADD_SUB)
+
+
+_TEST_CLI_GREET_FMT = '''"""greet 输出格式用例(2026-09-06 gold fix)。"""
+
+from cli import greet
+
+
+def test_greet_empty_name() -> None:
+    assert greet("") == "Hello, !"
+
+
+def test_greet_name_with_space() -> None:
+    assert greet("Li Chunchuan") == "Hello, Li Chunchuan!"
+'''
+
+
+@_register("test-cli-greet-format")
+def _test_cli_greet_format(wd: Path) -> None:
+    _replace(
+        wd, "cli.py",
+        "# 注:此处为故意埋设的 bug —— 该模块不存在,会导致 ImportError,\n"
+        "# 任何 `from cli import ...` 都会失败。应删除此行。\n"
+        "import nonexistent_fake_module  # noqa: F401",
+        "",
+    )
+    _write(wd, "tests/test_cli_greet_fmt.py", _TEST_CLI_GREET_FMT)
+
+
+_TEST_REPORT_AVG_EDGE = '''"""avg_amount 边界用例(2026-09-06 gold fix,对修复前后实现均成立)。"""
+
+from report import avg_amount
+
+
+def test_avg_single_row() -> None:
+    assert avg_amount([{"name": "A", "amount": 7.0}]) == 7.0
+
+
+def test_avg_all_zero() -> None:
+    assert avg_amount([
+        {"name": "A", "amount": 0.0},
+        {"name": "B", "amount": 0.0},
+    ]) == 0.0
+'''
+
+
+@_register("test-report-avg-edge")
+def _test_report_avg_edge(wd: Path) -> None:
+    _write(wd, "tests/test_report_avg_edge.py", _TEST_REPORT_AVG_EDGE)
+
+
+_TEST_TEXT_REVERSE_EDGE = '''"""reverse 边界用例(2026-09-06 gold fix,对修复前后实现均成立)。"""
+
+from text_utils import reverse
+
+
+def test_reverse_empty() -> None:
+    assert reverse("") == ""
+
+
+def test_reverse_single_char() -> None:
+    assert reverse("a") == "a"
+
+
+def test_reverse_palindrome() -> None:
+    assert reverse("aba") == "aba"
+'''
+
+
+@_register("test-text-reverse-edge")
+def _test_text_reverse_edge(wd: Path) -> None:
+    _write(wd, "tests/test_text_reverse_edge.py", _TEST_TEXT_REVERSE_EDGE)
+
+
+@_register("refactor-calc-docstrings")
+def _refactor_calc_docstrings(wd: Path) -> None:
+    _write(wd, "calc.py", _CALC_CLEAN)
+
+
+@_register("refactor-cli-type-hints")
+def _refactor_cli_type_hints(wd: Path) -> None:
+    _replace(
+        wd, "cli.py",
+        "# 注:此处为故意埋设的 bug —— 该模块不存在,会导致 ImportError,\n"
+        "# 任何 `from cli import ...` 都会失败。应删除此行。\n"
+        "import nonexistent_fake_module  # noqa: F401",
+        "",
+    )
+    _replace(
+        wd, "cli.py",
+        "def main(argv=None) -> int:",
+        "def main(argv: list[str] | None = None) -> int:",
+    )
+
+
+@_register("refactor-report-avg-safe")
+def _refactor_report_avg_safe(wd: Path) -> None:
+    _replace(
+        wd, "report.py",
+        '"""计算平均金额(注:此处为故意埋设的 bug,应除以 len(rows) 而非 1)。"""\n'
+        "    total = 0.0\n"
+        '    for r in rows:\n'
+        '        total += r["amount"]\n'
+        "    return total / 1",
+        '"""计算平均金额,空列表安全返回 0.0。"""\n'
+        "    if not rows:\n"
+        "        return 0.0\n"
+        "    total = 0.0\n"
+        '    for r in rows:\n'
+        '        total += r["amount"]\n'
+        "    return total / len(rows)",
+    )
+
+
+@_register("refactor-text-reverse-normalize")
+def _refactor_text_reverse_normalize(wd: Path) -> None:
+    _replace(
+        wd, "text_utils.py",
+        'def slugify(text: str) -> str:\n'
+        '    """slug 化:小写、空格转连字符、去除空片段。"""\n'
+        "    lowered = text.lower()\n"
+        "    parts = [p for p in lowered.split() if p]\n"
+        '    return "-".join(parts)',
+        "def _normalize_words(text: str) -> list[str]:\n"
+        '    """按空白切分并过滤空片段。"""\n'
+        "    return [p for p in text.split() if p]\n\n\n"
+        "def slugify(text: str) -> str:\n"
+        '    """slug 化:小写、空格转连字符、去除空片段。"""\n'
+        "    parts = [p for p in _normalize_words(text.lower())]\n"
+        '    return "-".join(parts)',
+    )
+    _replace(
+        wd, "text_utils.py",
+        '"""字符串反转(注:此处为故意埋设的 bug,步长应为 -1)。"""\n    return text[::1]',
+        '"""字符串反转。"""\n    return text[::-1]',
+    )
+
+
+# ---------------------------------------------------------------------------
 # 可解性验证
 # ---------------------------------------------------------------------------
 
