@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -98,8 +99,9 @@ export default function AdminNewsCategoriesPage() {
   }
 
   function handleDelete(cat: Category) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(cat.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(cat.id)
+    })
   }
 
   const categories = data ?? []
