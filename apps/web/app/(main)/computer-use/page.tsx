@@ -25,6 +25,7 @@ import {
   ScanSearch,
   XCircle,
 } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 
 import { fetchApi } from '@/lib/api'
 
@@ -48,10 +49,11 @@ interface OpenInfo {
 }
 
 export default function ComputerUsePage() {
+  const t = useTranslations('computerUse')
   const [url, setUrl] = React.useState('https://www.baidu.com')
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState('')
-  const [status, setStatus] = React.useState('浏览器未打开')
+  const [status, setStatus] = React.useState(t('statusClosed'))
 
   const [openInfo, setOpenInfo] = React.useState<OpenInfo | null>(null)
   const [elements, setElements] = React.useState<SnapshotElement[]>([])
@@ -69,7 +71,7 @@ export default function ComputerUsePage() {
     try {
       await fn()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '操作失败')
+      setError(e instanceof Error ? e.message : t('opFailed'))
     } finally {
       setBusy(false)
     }
@@ -84,11 +86,11 @@ export default function ComputerUsePage() {
         ...body({ url: url.trim() }),
       })
       if (!res.success) {
-        setError((res as { message?: string }).message || '打开失败')
+        setError((res as { message?: string }).message || t('openFailed'))
         return
       }
       setOpenInfo(res.data)
-      setStatus(`已打开:${res.data.title || res.data.url}`)
+      setStatus(t('opened', { title: res.data.title || res.data.url }))
       setScreenshot('')
       setTextResult('')
       await refreshSnapshot()
@@ -100,7 +102,7 @@ export default function ComputerUsePage() {
     )
     if (res.success && res.data) {
       setElements(res.data.elements || [])
-      setStatus(`快照 ${res.data.count} 个可交互元素`)
+      setStatus(t('snapshotSet', { count: res.data.count }))
     }
   }
 
@@ -110,11 +112,11 @@ export default function ComputerUsePage() {
         `/api/computer-use/screenshot${fullPage ? '?full_page=true' : ''}`,
       )
       if (!res.success || !res.data?.screenshot) {
-        setError((res as { message?: string }).message || '截图失败')
+        setError((res as { message?: string }).message || t('screenshotFailed'))
         return
       }
       setScreenshot(`data:image/png;base64,${res.data.screenshot}`)
-      setStatus(fullPage ? '已截图(整页)' : '已截图(视口)')
+      setStatus(fullPage ? t('screenshotFull') : t('screenshotViewport'))
     })
 
   const extractText = () =>
@@ -127,11 +129,11 @@ export default function ComputerUsePage() {
         },
       )
       if (!res.success || !res.data) {
-        setError((res as { message?: string }).message || '提取失败')
+        setError((res as { message?: string }).message || t('extractFailed'))
         return
       }
-      setTextResult(res.data.text || '(无可提取文本)')
-      setStatus(`已提取文本 ${res.data.length} 字`)
+      setTextResult(res.data.text || t('noText'))
+      setStatus(t('extracted', { count: res.data.length }))
     })
 
   const closeBrowser = () =>
@@ -145,7 +147,7 @@ export default function ComputerUsePage() {
       setScreenshot('')
       setTextResult('')
       setSelectedRef(null)
-      setStatus(res.success ? '浏览器已关闭' : '关闭返回失败,请重试')
+      setStatus(res.success ? t('browserClosed') : t('closeFailed'))
     })
 
   const clickElement = (el: SnapshotElement) =>
@@ -155,17 +157,17 @@ export default function ComputerUsePage() {
         ...body({ ref: el.ref }),
       })
       if (!res.success) {
-        setError((res as { message?: string }).message || '点击失败')
+        setError((res as { message?: string }).message || t('clickFailed'))
         return
       }
-      setStatus(`已点击 ref=${el.ref}`)
+      setStatus(t('clicked', { ref: el.ref }))
       await refreshSnapshot()
     })
 
   const typeIntoSelected = () =>
     run(async () => {
       if (selectedRef === null) {
-        setError('请先在快照列表中选择一个元素')
+        setError(t('selectHint'))
         return
       }
       if (!typeText.trim()) return
@@ -174,10 +176,10 @@ export default function ComputerUsePage() {
         ...body({ ref: selectedRef, text: typeText, clear: typeClear }),
       })
       if (!res.success) {
-        setError((res as { message?: string }).message || '输入失败')
+        setError((res as { message?: string }).message || t('typeFailed'))
         return
       }
-      setStatus(`已输入到 ref=${selectedRef}`)
+      setStatus(t('typed', { ref: selectedRef }))
       setTypeText('')
       await refreshSnapshot()
     })
@@ -190,7 +192,7 @@ export default function ComputerUsePage() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       <div className="mb-6 flex items-center gap-2">
         <Globe className="h-5 w-5 text-primary" />
-        <h1 className="text-2xl font-bold">Computer Use 可视化驾驶舱</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
       </div>
 
       {/* 打开区 */}
@@ -200,7 +202,7 @@ export default function ComputerUsePage() {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && openPage()}
-            placeholder="输入要打开的 URL,例如 https://www.baidu.com"
+            placeholder={t('urlPlaceholder')}
             className="flex-1 rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <button
@@ -213,7 +215,7 @@ export default function ComputerUsePage() {
             ) : (
               <ExternalLink className="h-4 w-4" />
             )}
-            打开
+            {t('open')}
           </button>
         </div>
 
@@ -235,7 +237,7 @@ export default function ComputerUsePage() {
               disabled={busy || !openInfo}
               className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
-              <Camera className="h-3.5 w-3.5" /> 截图
+              <Camera className="h-3.5 w-3.5" /> {t('screenshot')}
             </button>
             <label className="flex items-center gap-1 text-xs text-muted-foreground">
               <input
@@ -243,28 +245,28 @@ export default function ComputerUsePage() {
                 checked={fullPage}
                 onChange={(e) => setFullPage(e.target.checked)}
               />
-              整页
+              {t('fullPage')}
             </label>
             <button
               onClick={extractText}
               disabled={busy || !openInfo}
               className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
-              <FileText className="h-3.5 w-3.5" /> 提取文本
+              <FileText className="h-3.5 w-3.5" /> {t('extractText')}
             </button>
             <button
               onClick={() => refreshSnapshot()}
               disabled={busy || !openInfo}
               className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition hover:bg-accent disabled:opacity-40"
             >
-              <ScanSearch className="h-3.5 w-3.5" /> 刷新快照
+              <ScanSearch className="h-3.5 w-3.5" /> {t('refreshSnapshot')}
             </button>
             <button
               onClick={closeBrowser}
               disabled={busy || !openInfo}
               className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/40 px-3 py-1.5 text-xs font-medium text-destructive transition hover:bg-destructive/10 disabled:opacity-40"
             >
-              <CircleX className="h-3.5 w-3.5" /> 关闭
+              <CircleX className="h-3.5 w-3.5" /> {t('close')}
             </button>
           </span>
         </div>
@@ -284,13 +286,13 @@ export default function ComputerUsePage() {
         {/* 截图预览 */}
         <div className="rounded-xl border p-4">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <Camera className="h-4 w-4" /> 页面截图
+            <Camera className="h-4 w-4" /> {t('screenshotTitle')}
           </h2>
           {screenshot ? (
-            <img src={screenshot} alt="页面截图" className="w-full rounded-lg border bg-muted" />
+            <img src={screenshot} alt={t('screenshotTitle')} className="w-full rounded-lg border bg-muted" />
           ) : (
             <div className="flex h-52 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-              点击「截图」查看当前页预览
+              {t('screenshotHint')}
             </div>
           )}
         </div>
@@ -298,12 +300,12 @@ export default function ComputerUsePage() {
         {/* 输入操作 */}
         <div className="rounded-xl border p-4">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-            <Keyboard className="h-4 w-4" /> 输入文本
+            <Keyboard className="h-4 w-4" /> {t('inputTextTitle')}
           </h2>
           <p className="mb-3 text-xs text-muted-foreground">
-            目标元素:
+            {t('targetElement')}
             {selectedRef === null ? (
-              <span className="text-muted-foreground"> 未选择(请在下表点击选中)</span>
+              <span className="text-muted-foreground"> {t('notSelected')}</span>
             ) : (
               <code className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 font-semibold text-primary">
                 ref={selectedRef}
@@ -314,7 +316,7 @@ export default function ComputerUsePage() {
             value={typeText}
             onChange={(e) => setTypeText(e.target.value)}
             rows={3}
-            placeholder="输入要填入的内容…"
+            placeholder={t('typePlaceholder')}
             className="w-full resize-y rounded-lg border bg-background p-3 text-sm outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -324,14 +326,14 @@ export default function ComputerUsePage() {
                 checked={typeClear}
                 onChange={(e) => setTypeClear(e.target.checked)}
               />
-              输入前清空
+              {t('clearBeforeType')}
             </label>
             <button
               onClick={typeIntoSelected}
               disabled={busy || !openInfo || !typeText.trim()}
               className="ml-auto inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-40"
             >
-              <Keyboard className="h-4 w-4" /> 输入
+              <Keyboard className="h-4 w-4" /> {t('type')}
             </button>
           </div>
         </div>
@@ -340,11 +342,11 @@ export default function ComputerUsePage() {
       {/* 快照列表 */}
       <div className="mt-6 rounded-xl border p-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-          <MousePointerClick className="h-4 w-4" /> 可交互元素快照({elements.length})
+          <MousePointerClick className="h-4 w-4" /> {t('snapshotTitle', { count: elements.length })}
         </h2>
         {elements.length === 0 ? (
           <div className="flex h-28 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-            {openInfo ? '点击「刷新快照」加载元素' : '先打开一个页面,再刷新快照'}
+            {openInfo ? t('snapshotEmptyOpen') : t('snapshotEmptyClosed')}
           </div>
         ) : (
           <ul className="max-h-80 space-y-1 overflow-y-auto pr-1">
@@ -376,11 +378,11 @@ export default function ComputerUsePage() {
                     </span>
                   )}
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {el.name || '(无文字)'}
+                    {el.name || t('noTextElement')}
                   </span>
-                  {el.checked && <span className="shrink-0 text-xs text-emerald-600">✓已勾选</span>}
+                  {el.checked && <span className="shrink-0 text-xs text-emerald-600">✓{t('checked')}</span>}
                   {el.disabled && (
-                    <span className="shrink-0 text-xs text-muted-foreground">禁用</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{t('disabled')}</span>
                   )}
                 </button>
                 <button
@@ -391,7 +393,7 @@ export default function ComputerUsePage() {
                   disabled={busy || el.disabled}
                   className="shrink-0 inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-medium transition hover:bg-accent/80 disabled:opacity-40"
                 >
-                  <MousePointerClick className="h-3 w-3" /> 点击
+                  <MousePointerClick className="h-3 w-3" /> {t('click')}
                 </button>
               </li>
             ))}
@@ -403,7 +405,7 @@ export default function ComputerUsePage() {
       {textResult && (
         <div className="mt-6 rounded-xl border p-4">
           <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-            <FileText className="h-4 w-4" /> 提取文本
+            <FileText className="h-4 w-4" /> {t('extractedTextTitle')}
           </h2>
           <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap rounded-lg bg-muted/50 p-3 text-xs leading-relaxed">
             {textResult}
