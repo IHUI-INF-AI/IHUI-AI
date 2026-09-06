@@ -7,7 +7,7 @@ import { useTt, type TtFn, t } from '@/i18n'
 import type { CSSProperties } from 'react'
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
-import { getRnTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
+import { getRnTokens, rnLightTokens, type RnThemeTokens, type RnThemeMode } from '@ihui/design-tokens'
 import { useAppTheme } from '@/lib/theme'
 import type { TFunction } from '@ihui/types'
 import freeVipIcon from '@/assets/remote/images/xtk/free_vip_icon.png'
@@ -72,7 +72,7 @@ const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
     showPurchasePopup: false,
   },
   '1': {
-    bg: (tk) => (tk.brand.DEFAULT === '#000000' ? 'var(--color-black-12)' : 'var(--color-white-15)'),
+    bg: (tk) => (tk.brand.DEFAULT === rnLightTokens.brand.DEFAULT ? 'var(--color-black-12)' : 'var(--color-white-15)'),
     text: (tk) => tk.brand.DEFAULT,
     icon: freeUseIcon,
     label: tt('adaptersPayButtontaro.d1', '免费使用'),

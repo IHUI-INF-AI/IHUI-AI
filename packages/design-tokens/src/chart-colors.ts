@@ -135,6 +135,12 @@ export const DESIGN_OVERLAY_BG_DARK = '#0a0a0a'
 export const DESIGN_OVERLAY_FG_LIGHT = '#111111'
 export const DESIGN_OVERLAY_FG_DARK = '#f5f5f5'
 
+/**
+ * 移动端 App 浏览器预览壳外框深色背景(mobile-rn web 预览壳 web-shell.web.ts,
+ * 模拟手机视口两侧深色留白)。平台开发预览基础设施色,非 App 内主题色,native 端不加载。
+ */
+export const SHELL_BG_DARK = '#020617'
+
 /** 图表文字色:dark-mode 感知(ECharts canvas 无法读 CSS var)。 */
 export function chartText(isDark: boolean): string {
   return isDark ? CHART_TEXT_DARK : CHART_TEXT_LIGHT

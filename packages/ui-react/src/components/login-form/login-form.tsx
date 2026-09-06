@@ -78,6 +78,9 @@ export function LoginForm(props: LoginFormProps) {
     qrComponent,
     qrPlatforms,
     enableCredentialPersistence = false,
+    thirdPartyFeaturedPlatform,
+    thirdPartyFeaturedBackground,
+    phoneDefaultAccount,
   } = props
 
   const enabledTabs: LoginTab[] = tabs ?? ['email', 'phone', 'password', 'qr']
@@ -141,7 +144,10 @@ export function LoginForm(props: LoginFormProps) {
   return (
     <div className={cn('login-form-scope space-y-4', className)}>
       <Tabs value={tab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList
+          className="grid w-full"
+          style={{ gridTemplateColumns: `repeat(${enabledTabs.length}, minmax(0, 1fr))` }}
+        >
           {enabledTabs.includes('email') && (
             <TabsTrigger
               value="email"
@@ -184,7 +190,7 @@ export function LoginForm(props: LoginFormProps) {
 
         {enabledTabs.includes('phone') && (
           <TabsContent value="phone">
-            <PhoneCodeLoginForm {...formBaseProps} />
+            <PhoneCodeLoginForm {...formBaseProps} defaultAccount={phoneDefaultAccount} />
           </TabsContent>
         )}
 
@@ -229,7 +235,12 @@ export function LoginForm(props: LoginFormProps) {
 
       {/* 第三方登录区(qr tab 已经有自家平台 tab,不重复展示) */}
       {showThirdParty && thirdParty && tab !== 'qr' && (
-        <ThirdPartyLoginButtons t={t} config={thirdParty} />
+        <ThirdPartyLoginButtons
+          t={t}
+          config={thirdParty}
+          featuredPlatform={thirdPartyFeaturedPlatform}
+          featuredBackground={thirdPartyFeaturedBackground}
+        />
       )}
 
       {/* 注册链接 */}
