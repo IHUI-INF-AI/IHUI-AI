@@ -12,6 +12,7 @@ import { authenticate } from '../../plugins/auth.js'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { booleanStringSchemaOptional } from '../../utils/parse-boolean.js'
+import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 import { and, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import {
@@ -180,7 +181,25 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       if (!body.success) {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
-      const ask = await createAsk(request.userId!, body.data)
+      // P0 合规:提问内容敏感词过滤
+      const filtered = await sanitizeUgcInput(
+        { title: body.data.title, content: body.data.content },
+        {
+          action: 'ugc.ask.create',
+          resourceType: 'ask',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,提问失败'))
+      }
+      const ask = await createAsk(request.userId!, {
+        title: filtered.fields.title!.text,
+        content: filtered.fields.content!.text,
+        tags: body.data.tags,
+      })
       return reply.status(201).send(success({ ask }))
     },
   )
@@ -201,6 +220,25 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
     }
     if (existing.userId !== request.userId) {
       return reply.status(403).send(error(403, '只能编辑自己的问题'))
+    }
+    // P0 合规:编辑问题过滤
+    const toCheck: Record<string, string> = {}
+    if (body.data.title !== undefined) toCheck.title = body.data.title
+    if (body.data.content !== undefined) toCheck.content = body.data.content
+    if (Object.keys(toCheck).length > 0) {
+      const filtered = await sanitizeUgcInput(toCheck, {
+        action: 'ugc.ask.update',
+        resourceType: 'ask',
+        resourceId: parsed.data.id,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      })
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,编辑失败'))
+      }
+      if (body.data.title !== undefined) body.data.title = filtered.fields.title!.text
+      if (body.data.content !== undefined) body.data.content = filtered.fields.content!.text
     }
     const updated = await updateAsk(parsed.data.id, request.userId!, body.data)
     return reply.send(success({ ask: updated }))
@@ -331,7 +369,22 @@ const asksRoutes: FastifyPluginAsync = async (server) => {
       if (!ask) {
         return reply.status(404).send(error(404, '问答不存在'))
       }
-      const answer = await createAnswer(ask.id, request.userId!, body.data.content)
+      // P0 合规:回答内容敏感词过滤
+      const filtered = await sanitizeUgcInput(
+        { content: body.data.content },
+        {
+          action: 'ugc.answer.create',
+          resourceType: 'ask_answer',
+          resourceId: parsedP.data.id,
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,提交失败'))
+      }
+      const answer = await createAnswer(ask.id, request.userId!, filtered.fields.content!.text)
       return reply.status(201).send(success({ answer }))
     },
   )

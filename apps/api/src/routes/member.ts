@@ -5,7 +5,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { hashPassword } from '../utils/password-crypto.js'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import {

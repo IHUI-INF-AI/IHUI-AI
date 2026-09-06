@@ -41,6 +41,12 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+from ..middleware.output_safety import (
+    scan_output,
+    apply_disclaimers,
+    build_ai_generation_annotation,
+)
+
 # 允许参数注入与测试覆盖的数量默认值
 _DEFAULT_MAX_ITERATIONS = 4
 _DEFAULT_CONCURRENCY = 4
@@ -201,7 +207,24 @@ class ResearchReport:
 
     # ---- 序列化(供 FastAPI JSON 返回)----
     def to_dict(self) -> dict[str, Any]:
+        md = self.markdown or ""
+        # 输出安全:对成稿 Markdown 做命中检测并按风险补免责;同时在序列化层叠加
+        # "AI 生成"标识(不修改 self.markdown,避免污染存储值)
+        check = scan_output(md) if md else None
+        safety: dict[str, Any] = {}
+        serialized_md = md
+        if check is not None:
+            serialized_md = apply_disclaimers(md, check)
+            safety = {
+                "risk": check.risk,
+                "categories": sorted(check.categories),
+                "note": "输出命中高风险模式,已附加合规免责提示"
+                if check.blocked
+                else "输出命中疑似误导性表述,已追加仅供参考提示",
+            }
         return {
+            **build_ai_generation_annotation(),  # is_ai_generated + 可见展示语
+            "safety": safety or None,
             "research_id": self.research_id,
             "query": self.query,
             "status": self.status,
@@ -235,7 +258,7 @@ class ResearchReport:
             ],
             "verifications": self.crosscheck,
             "limitations": self.limitations,
-            "markdown": self.markdown,
+            "markdown": serialized_md,
             "stages": [
                 {
                     "phase": st.phase,
