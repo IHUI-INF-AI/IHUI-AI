@@ -32,6 +32,17 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
       ) {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
       }
+      // P0 风控覆盖(2026-09-06):基金/支付宝资金下单接入风控引擎,DENY 阻断异常资金流入
+      const risk = server.riskEngine.evaluateRisk({
+        userId: request.userId!,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        amount: Math.round(body.amount * 100),
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: request.userId, hits: risk.hits }, '基金下单被风控拒绝')
+        return reply.status(403).send(error(403, '下单请求被风控拦截,请联系客服'))
+      }
       const order = await createOrder(
         {
           userId: request.userId!,
@@ -72,6 +83,17 @@ const fundRoutes: FastifyPluginAsync = async (server) => {
         body.amount > 1_000_000
       ) {
         return reply.status(400).send(error(400, 'amount 必须为正数且不超过 1000000'))
+      }
+      // P0 风控覆盖(2026-09-06):基金/支付宝资金下单接入风控引擎,DENY 阻断异常资金流入
+      const risk = server.riskEngine.evaluateRisk({
+        userId: request.userId!,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        amount: Math.round(body.amount * 100),
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: request.userId, hits: risk.hits }, '基金下单被风控拒绝')
+        return reply.status(403).send(error(403, '下单请求被风控拦截,请联系客服'))
       }
       const order = await createOrder(
         {
