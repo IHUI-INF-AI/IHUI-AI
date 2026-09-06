@@ -62,6 +62,7 @@ import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
 import authPasskeyRoutes from './auth-passkey.js'
 import { authSsoRoutes } from './auth-sso.js'
+import { authCarrierRoutes } from './auth-carrier.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
 // P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
 import aiPricingRoutes from './ai-pricing.js'
@@ -579,6 +580,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(authPasskeyRoutes, { prefix: '/api' })
   // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
   server.register(authSsoRoutes, { prefix: '/api/auth' })
+  // 运营商一键登录(闪验 Univerify 聚合):POST /api/auth/login/carrier
+  server.register(authCarrierRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
