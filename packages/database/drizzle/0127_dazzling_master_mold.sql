@@ -116,16 +116,37 @@ CREATE TABLE IF NOT EXISTS "agent_memory_procedural" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE IF NOT EXISTS "agent_memory_semantic" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"user_id" uuid NOT NULL,
-	"content" text NOT NULL,
-	"embedding" vector(1536),
-	"importance_score" numeric DEFAULT '0.5' NOT NULL,
-	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"last_accessed_at" timestamp with time zone
-);
+-- 2026-09-06 drift 审计修复:原实现硬编码 vector(1536),无 pgvector 的部署(如本机
+-- Windows PG17)整链必断。改为随环境自适应(与 20260829000000 同一模式):
+-- 有 pgvector → embedding vector(1536);无 → embedding text(JSON 数组字符串,
+-- 读写走 memory_service 降级路径)。后续 FK(ALTER)与 btree 索引对两种变体均成立。
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
+    CREATE EXTENSION IF NOT EXISTS vector;
+    EXECUTE 'CREATE TABLE IF NOT EXISTS "agent_memory_semantic" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "user_id" uuid NOT NULL,
+      "content" text NOT NULL,
+      "embedding" vector(1536),
+      "importance_score" numeric DEFAULT ''0.5'' NOT NULL,
+      "metadata" jsonb DEFAULT ''{}''::jsonb NOT NULL,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "last_accessed_at" timestamp with time zone
+    )';
+  ELSE
+    EXECUTE 'CREATE TABLE IF NOT EXISTS "agent_memory_semantic" (
+      "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      "user_id" uuid NOT NULL,
+      "content" text NOT NULL,
+      "embedding" text,
+      "importance_score" numeric DEFAULT ''0.5'' NOT NULL,
+      "metadata" jsonb DEFAULT ''{}''::jsonb NOT NULL,
+      "created_at" timestamp with time zone DEFAULT now() NOT NULL,
+      "last_accessed_at" timestamp with time zone
+    )';
+  END IF;
+END $$;
 --> statement-breakpoint
 ALTER TABLE "orders" DROP CONSTRAINT IF EXISTS "orders_user_id_users_id_fk";
 --> statement-breakpoint
@@ -187,12 +208,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ux_agent_memory_procedural_user_pattern_tool"
 CREATE INDEX IF NOT EXISTS "ix_agent_memory_semantic_user" ON "agent_memory_semantic" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "ix_agent_memory_semantic_importance" ON "agent_memory_semantic" USING btree ("importance_score");--> statement-breakpoint
 ALTER TABLE "orders" ADD CONSTRAINT "orders_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+DO $con$ BEGIN ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $con$;--> statement-breakpoint
+DO $con$ BEGIN ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $con$;--> statement-breakpoint
 ALTER TABLE "commission_flows" ADD CONSTRAINT "commission_flows_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "commission_flows" ADD CONSTRAINT "commission_flows_beneficiary_id_users_id_fk" FOREIGN KEY ("beneficiary_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+DO $con$ BEGIN ALTER TABLE "commission_flows" ADD CONSTRAINT "commission_flows_beneficiary_id_users_id_fk" FOREIGN KEY ("beneficiary_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $con$;--> statement-breakpoint
 ALTER TABLE "withdrawal_flows" ADD CONSTRAINT "withdrawal_flows_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "withdrawal_flows" ADD CONSTRAINT "withdrawal_flows_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+DO $con$ BEGIN ALTER TABLE "withdrawal_flows" ADD CONSTRAINT "withdrawal_flows_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action; EXCEPTION WHEN duplicate_object THEN NULL; END $con$;--> statement-breakpoint
 ALTER TABLE "agent_tasks" ADD CONSTRAINT "agent_tasks_agent_id_agents_agent_id_fk" FOREIGN KEY ("agent_id") REFERENCES "public"."agents"("agent_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agent_tasks" ADD CONSTRAINT "agent_tasks_rule_id_agent_rule_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."agent_rule"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "agent_tasks" ADD CONSTRAINT "agent_tasks_updated_by_users_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
