@@ -408,16 +408,46 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           }
           case 'ai-feed-collect': {
             const result = await collectAllSources()
+            const failed = result.details.filter((d) => d.status === 'error')
             server.log.info(
               {
                 fetchedSources: result.fetchedSources,
                 totalItems: result.totalItems,
                 detailsCount: result.details.length,
+                failedSources: failed.length,
               },
               'ai-feed-collect done',
             )
+            // P0 修复：采集存在失败源时主动告警，避免"靠人发现故障"。
+            // 一旦某源连续失败需人工介入调整；全量或超半数失败按 critical 升级。
+            if (failed.length > 0) {
+              const ratio = failed.length / Math.max(result.fetchedSources || failed.length, 1)
+              const severity =
+                ratio >= 0.5 || failed.length === result.fetchedSources
+                  ? 'critical'
+                  : 'warning'
+              const failedList = failed
+                .map((d) => `- ${d.sourceCode}: ${d.error ?? 'unknown error'}`)
+                .join('\n')
+              try {
+                await pushAlert({
+                  title: `AI 资讯采集失败告警（${failed.length}/${result.fetchedSources} 源失败）`,
+                  message: `本轮采集共 ${result.totalItems} 条，${result.fetchedSources} 源，其中 ${failed.length} 源失败：\n${failedList}`,
+                  severity,
+                  source: 'ai-feed-collect',
+                  metadata: {
+                    totalItems: result.totalItems,
+                    fetchedSources: result.fetchedSources,
+                    failedCount: failed.length,
+                    failedSources: failed.map((d) => d.sourceCode),
+                  },
+                })
+              } catch (err) {
+                server.log.error({ err }, 'pushAlert failed in ai-feed-collect')
+              }
+            }
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, failed.length > 0 ? 'failed' : 'success')
             } catch {
               /* 指标采集失败不影响业务 */
             }
