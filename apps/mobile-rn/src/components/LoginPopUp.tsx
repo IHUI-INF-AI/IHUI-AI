@@ -22,14 +22,15 @@
  * - agreeChecked? / onAgreeChange?:协议勾选
  * - avatarUrl? / nickname? / role? / phone? / phoneDisabled?:资料数据
  * - onChooseAvatar?:头像上传回调(待接后端/微信 SDK chooseAvatar)
- * - onBindPhone?:手机号绑定回调(待接后端/微信 SDK getPhoneNumber)
+ * - onBindPhone?:手机号绑定回调(carrierLogin 运营商一键登录拿到手机号并回填后触发)
  * - onSave?:保存回调(待接后端保存)
  * - onLogout?:登出回调(待接后端:清缓存 + reLaunch)
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { rnLightTokens as tokens, withAlpha } from '@ihui/design-tokens'
 import { Check } from 'lucide-react-native'
 import {
+  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -40,6 +41,7 @@ import {
   type ViewStyle,
 } from 'react-native'
 import { useState } from 'react'
+import { CarrierOneClickError, carrierLogin, getRecentPhone } from '../lib/carrier-one-click'
 
 export type LoginPopUpRole = 'normal' | 'vip' | 'trader'
 
@@ -300,6 +302,8 @@ function ProfileForm({
   const [phone, setPhone] = useState(initialPhone ?? '')
   const [nicknameError, setNicknameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
+  // 运营商一键登录绑定中(绑定按钮 loading)
+  const [bindPhoneLoading, setBindPhoneLoading] = useState(false)
 
   const handleNicknameChange = (raw: string) => {
     setNickname(filterNickname(raw))
@@ -309,6 +313,30 @@ function ProfileForm({
   const handlePhoneChange = (raw: string) => {
     setPhone(raw.replace(/[^0-9]/g, ''))
     if (phoneError) setPhoneError('')
+  }
+
+  // 绑定手机号 = 运营商一键登录拿到本机号码并回填,再触发上层 onBindPhone 完成绑定。
+  // 未配置/失败 → 免费自动回填最近手机号,降级让用户手动确认。
+  const handleBindPhone = async () => {
+    if (bindPhoneLoading) return
+    setBindPhoneLoading(true)
+    setPhoneError('')
+    try {
+      const res = await carrierLogin()
+      if (res.phone) setPhone(res.phone)
+      onBindPhone?.()
+    } catch (err) {
+      if (!(err instanceof CarrierOneClickError)) {
+        setPhoneError('运营商一键登录失败,请手动输入手机号')
+      } else {
+        // 未配置 / 通道失败 → 免费回填最近手机号
+        const recent = getRecentPhone()
+        if (recent) setPhone(recent)
+      }
+      onBindPhone?.()
+    } finally {
+      setBindPhoneLoading(false)
+    }
   }
 
   const handleSave = () => {
@@ -411,10 +439,15 @@ function ProfileForm({
         {onBindPhone ? (
           <Pressable
             style={({ pressed }) => [styles.bindButton, pressed && styles.bindButtonPressed]}
-            onPress={onBindPhone}
+            onPress={() => void handleBindPhone()}
+            disabled={bindPhoneLoading}
             accessibilityLabel="绑定手机号"
           >
-            <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
+            {bindPhoneLoading ? (
+              <ActivityIndicator size="small" color={tokens.surface.light} />
+            ) : (
+              <Text style={styles.bindLabel}>{phone ? '重绑' : '绑定'}</Text>
+            )}
           </Pressable>
         ) : null}
       </View>
@@ -456,7 +489,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: withAlpha(tokens.gray.black, 0.5),
   } as ViewStyle,
   card: {
     width: '100%',

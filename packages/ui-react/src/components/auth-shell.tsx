@@ -39,6 +39,10 @@ export interface AuthShellProps {
   subtitle?: React.ReactNode
   /** 提供 onClose 则显示右上角关闭按钮 */
   onClose?: () => void
+  /** 隐藏右上角关闭按钮(2026-09-06 立):
+   *  用于移动全屏登录页(独立页形态本就不该有悬浮关闭按钮),
+   *  但仍保留 onClose 关闭能力(ESC / 遮罩点击 / 登录成功自动关)。 */
+  hideCloseButton?: boolean
   /** 关闭按钮 aria-label(默认 "Close") */
   closeAriaLabel?: string
   children: React.ReactNode
@@ -63,6 +67,7 @@ export function AuthShell({
   title,
   subtitle,
   onClose,
+  hideCloseButton = false,
   closeAriaLabel = 'Close',
   children,
   footer,
@@ -81,7 +86,7 @@ export function AuthShell({
         className,
       )}
     >
-      {onClose && (
+      {onClose && !hideCloseButton && (
         <button
           type="button"
           onClick={onClose}
