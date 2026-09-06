@@ -41,7 +41,10 @@ export default function SsoMobileAuthPage() {
         const res = await fetch('/api/auth/sso/exchange', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-          body: JSON.stringify({ code, clientId: 'web' }),
+          // 2026-09-07 修复:code 由 WebViewScreen 以 clientId='mobile-rn' 生成,
+          // 交换 clientId 必须与生成端一致,否则后端校验 'clientId 不匹配' → 401,
+          // WebView 会话打通全链路断裂(本页即 mobile-rn 专属消费页,页名已语义对应)。
+          body: JSON.stringify({ code, clientId: 'mobile-rn' }),
           credentials: 'include',
         })
         const json = (await res.json()) as { code?: number; message?: string }
