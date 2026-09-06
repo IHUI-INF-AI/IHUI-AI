@@ -732,8 +732,8 @@ class AgentLoopV2:
         try:
             from ..middleware.agent_metrics import agent_loop_runs_total
             agent_loop_runs_total.labels(result.stop_reason).inc()
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("agent_loop_runs_total 指标埋点失败(不阻塞): %s", exc)
         return result
 
     # ------------------------------------------------------------------
@@ -806,8 +806,8 @@ class AgentLoopV2:
             )
             if resolved:
                 user_id = resolved
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("_resolve_user_id 回退失败,沿用原始 user_id(如有): %s", exc)
         if not user_id:
             return
         snippet = ""
