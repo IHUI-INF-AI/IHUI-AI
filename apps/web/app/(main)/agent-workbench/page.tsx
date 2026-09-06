@@ -53,8 +53,10 @@ const STATUS_FILTERS = [
   { value: 'error', label: 'filterError' },
 ]
 
-const MODEL_FILTERS = [
-  { value: 'all', label: 'filterAllModels' },
+// 模型名(如 "gpt-4o")是展示文本,不是 i18n key,不能传给 t();
+// 只有"全部模型"这类文案需要翻译,用 i18nKey 显式声明。
+const MODEL_FILTERS: Array<{ value: string; label?: string; i18nKey?: string }> = [
+  { value: 'all', i18nKey: 'filterAllModels' },
   { value: 'gpt-4o', label: 'gpt-4o' },
   { value: 'claude-3-5-sonnet', label: 'claude-3-5-sonnet' },
   { value: 'glm-4.5', label: 'glm-4.5' },
@@ -241,7 +243,7 @@ export default function AgentWorkbenchPage() {
             <SelectContent>
               {MODEL_FILTERS.map((f) => (
                 <SelectItem key={f.value} value={f.value}>
-                  {t(f.label)}
+                  {f.i18nKey ? t(f.i18nKey) : f.label}
                 </SelectItem>
               ))}
             </SelectContent>
