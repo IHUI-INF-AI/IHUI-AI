@@ -122,22 +122,42 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
           case 'alert-check-daily': {
             const result = await checkDailyAlerts()
             server.log.info(
-              { checked: result.checked, resolved: result.resolved, escalated: result.escalated },
+              {
+                checked: result.checked,
+                resolved: result.resolved,
+                escalated: result.escalated,
+                backupIssues: result.backupIssues,
+              },
               'daily alert check done',
             )
             if (result.escalated > 0) {
               try {
-                await pushAlert({
-                  title: '告警升级通知',
-                  message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
-                  severity: 'critical',
-                  source: 'alert-check-daily',
-                  metadata: {
-                    checked: result.checked,
-                    resolved: result.resolved,
-                    escalated: result.escalated,
-                  },
-                })
+                if (result.backupIssues.length > 0) {
+                  await pushAlert({
+                    title: '数据库备份监控告警(缺失/空备份/过期)',
+                    message: result.backupIssues.join('\n'),
+                    severity: 'critical',
+                    source: 'alert-check-daily',
+                    metadata: {
+                      checked: result.checked,
+                      resolved: result.resolved,
+                      escalated: result.escalated,
+                      backupIssues: result.backupIssues,
+                    },
+                  })
+                } else {
+                  await pushAlert({
+                    title: '告警升级通知',
+                    message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    severity: 'critical',
+                    source: 'alert-check-daily',
+                    metadata: {
+                      checked: result.checked,
+                      resolved: result.resolved,
+                      escalated: result.escalated,
+                    },
+                  })
+                }
               } catch (err) {
                 server.log.error({ err }, 'pushAlert failed in alert-check-daily')
               }
