@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -89,8 +90,9 @@ export default function MemberExamSignUpPage() {
   })
 
   function handleCancel(examId: string) {
-    if (!window.confirm(t('cancelConfirm'))) return
-    cancelMut.mutate(examId)
+    void confirmDialog({ title: t('cancelConfirm') }).then((ok) => {
+      if (ok) cancelMut.mutate(examId)
+    })
   }
 
   function statusLabel(s: string) {

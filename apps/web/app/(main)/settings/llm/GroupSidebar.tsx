@@ -15,6 +15,7 @@
  * 也支持添加新分组。
  */
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -90,7 +91,6 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
 
   function handleDeleteGroup(g: ProviderGroup, e: React.MouseEvent) {
     e.stopPropagation()
-    if (!window.confirm(t('deleteGroupConfirm', { name: g.groupLabel }))) return
     // 分组下仍有 provider 时先解绑再删
     if (g.providers.length > 0) {
       toast.error(t('groupNotEmpty', { count: g.providers.length }))
@@ -101,7 +101,10 @@ export function GroupSidebar({ groups, activeGroup, onChange }: Props) {
       toast.error(t('groupDeleteNotSupported'))
       return
     }
-    deleteGroupMut.mutate(g.id)
+    const groupId: number = g.id
+    void confirmDialog({ title: t('deleteGroupConfirm', { name: g.groupLabel }) }).then((ok) => {
+      if (ok) deleteGroupMut.mutate(groupId)
+    })
   }
 
   return (

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
 import {
@@ -400,8 +401,9 @@ export default function GroupsPage() {
   })
 
   const handleDelete = (group: Group) => {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteGroup.mutate(group.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteGroup.mutate(group.id)
+    })
   }
 
   const handleEditSave = async (payload: { name: string; description?: string }) => {

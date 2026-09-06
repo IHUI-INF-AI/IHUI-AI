@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -200,7 +201,9 @@ export default function EduCourseTrashPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => {
-                              if (window.confirm(t('confirmDestroy'))) destroyMut.mutate(c.id)
+                              void confirmDialog({ title: t('confirmDestroy') }).then((ok) => {
+                                if (ok) destroyMut.mutate(c.id)
+                              })
                             }}
                             className="text-destructive hover:text-destructive"
                             disabled={destroyMut.isPending}

@@ -7,7 +7,9 @@ import postgres from 'postgres'
 import * as schema from './schema/index.js'
 
 export function createDb(url: string) {
-  const client = postgres(url, { max: 10, prepare: false })
+  // 2026-09-06 P0:连接池上限提升到 40。API 请求 + 5 个 worker×并发 + 余量共用同一池,
+  // 原 max=10 会被 worker 与并发请求瞬间占满,导致连接等待/超时。
+  const client = postgres(url, { max: 40, prepare: false })
   return drizzle(client, { schema })
 }
 

@@ -21,10 +21,10 @@ export default function IcpRecordPage() {
   const t = useTranslations('settings')
 
   const records: IcpRecord[] = [
-    { labelKey: 'icpRecordNumber', value: '沪ICP备2026000001号-1' },
-    { labelKey: 'icpRecordEntity', value: '上海慧慧人工智能科技有限公司' },
+    { labelKey: 'icpRecordNumber', value: '吉ICP备2025027274号' },
+    { labelKey: 'icpRecordEntity', value: '吉林省爱智汇人工智能科技有限公司' },
     { labelKey: 'icpRecordEntityType', value: '企业' },
-    { labelKey: 'icpRecordTime', value: '2026-01-15' },
+    { labelKey: 'icpRecordTime', value: '2025-11-21' },
     {
       labelKey: 'icpRecordUrl',
       value: 'https://beian.miit.gov.cn',
