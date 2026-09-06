@@ -12,8 +12,6 @@ import {
   fetchWithTimeout,
 } from './types.js'
 
-const DEFAULT_REGISTRY_URL = 'https://registry.aizhs.top/api/registry/items'
-
 // SSRF 防护:禁止内网地址 / 非白名单协议
 const BLOCKED_IP_PATTERNS = [
   /^127\./, // loopback
@@ -62,8 +60,14 @@ export const customRegistryAdapter: RegistryAdapter = {
   source: 'custom',
   async fetch(sourceType: RegistrySourceType, options?: SyncOptions): Promise<RawRegistryItem[]> {
     const timeoutMs = options?.timeoutMs ?? 15000
-    const url =
-      options?.customRegistryUrl ?? process.env.IHUI_CUSTOM_REGISTRY_URL ?? DEFAULT_REGISTRY_URL
+    const url = options?.customRegistryUrl ?? process.env.IHUI_CUSTOM_REGISTRY_URL
+
+    // 未配置自定义 registry 时直接跳过。
+    // 2026-09-06 修复:此前回退到 registry.aizhs.top 默认域名(该域名未上线,DNS 解析失败),
+    // 导致每次同步必然产生 "Custom registry fetch failed" 噪音日志。
+    if (!url) {
+      return []
+    }
 
     // SSRF 防护:校验 URL 协议 + 内网地址
     const validation = validateRegistryUrl(url)

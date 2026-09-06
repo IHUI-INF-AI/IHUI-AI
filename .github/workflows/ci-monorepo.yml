@@ -188,9 +188,16 @@ jobs:
       - name: Mypy
         working-directory: apps/ai-service
         run: mypy app/
-      - name: Pytest
+      - name: Pytest（离线单测子集，排除真网/端到端集成测试，避免依赖外部服务）
         working-directory: apps/ai-service
-        run: pytest
+        run: |
+          pytest -m "not network" \
+            --ignore=tests/test_configure_automation_task_real.py \
+            --ignore=tests/test_knowledge_lookup_g6_e2e.py \
+            --ignore=tests/test_mcp_oauth_authorization_code_e2e.py \
+            --ignore=tests/test_mcp_streamable_http_e2e.py \
+            --ignore=tests/test_native_fc_e2e_real.py \
+            --ignore=tests/test_tool_loop_e2e.py
 
   build-docker:
     needs: build
