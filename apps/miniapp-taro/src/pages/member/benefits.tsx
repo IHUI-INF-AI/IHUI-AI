@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { useDidShow } from '@tarojs/taro'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { useState, useCallback } from 'react'
 import { getMemberBenefits } from '@/api'
 import { logger } from '@/utils/logger'
@@ -269,15 +270,14 @@ const TIERS: Tier[] = [
   },
 ]
 
-// 保留:等级渐变背景 8 段色(normal/silver/gold/diamond 各 2 段);装饰性品牌等级色,渐变值无法用单一 token 表达,保留原逻辑
+// 等级渐变背景 8 段色已收敛至 token(normal/silver 用品牌灰、gold 用品牌金、diamond 用信息蓝)
 const TIER_HEAD_CLASS: Record<string, string> = {
   normal:
-    'bg-[linear-gradient(135deg,rgba(107, 114, 128, 1),rgba(156, 163, 175, 1))] text-primary-foreground',
+    'bg-[linear-gradient(135deg,var(--color-brand-500),var(--color-brand-400))] text-primary-foreground',
   silver:
-    'bg-[linear-gradient(135deg,rgba(184, 192, 200, 1),rgba(232, 237, 242, 1))] text-foreground',
-  gold: 'bg-[linear-gradient(135deg,rgba(212, 175, 106, 1),rgba(245, 217, 138, 1))] text-foreground',
-  diamond:
-    'bg-[linear-gradient(135deg,rgba(110, 193, 228, 1),rgba(185, 242, 255, 1))] text-foreground',
+    'bg-[linear-gradient(135deg,var(--color-brand-300),var(--color-brand-200))] text-foreground',
+  gold: 'bg-[linear-gradient(135deg,var(--color-gold),var(--color-vip-gold-start))] text-foreground',
+  diamond: 'bg-[linear-gradient(135deg,var(--color-info),var(--color-info))] text-foreground',
 }
 
 export default function BenefitsPage() {
@@ -341,11 +341,11 @@ export default function BenefitsPage() {
                 {b.icon ? (
                   <Text className="block text-[48rpx]">{b.icon}</Text>
                 ) : (
-                  <Image
-                    src="/static/images/icons/star-fill.svg"
-                    mode="aspectFit"
+                  <LineIcon
+                    name="star-fill"
+                    size={48}
+                    color="var(--color-warning)"
                     className="mx-auto"
-                    style={{ width: '48rpx', height: '48rpx' }}
                   />
                 )}
                 {/* 兼容后端返回的 icon 为图片路径时,用 Image 渲染 */}

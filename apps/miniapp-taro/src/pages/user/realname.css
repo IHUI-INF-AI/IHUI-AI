@@ -42,10 +42,10 @@
   border-radius: var(--radius-md);
 }
 .rn-status-reviewing {
-  background: rgba(14, 162, 232, 0.08);
+  background: var(--color-info-tint);
 }
 .rn-status-rejected {
-  background: rgba(230, 67, 64, 0.08);
+  background: var(--color-danger-tint);
 }
 .rn-status-text {
   display: block;
@@ -130,9 +130,9 @@
   right: 0;
   text-align: center;
   font-size: 22rpx;
-  /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
-  color: #fff;
-  background: rgba(0, 0, 0, 0.5);
+  /* custom color: 白色文字在半透明黑色遮罩上,需始终保持白色;用 white-98(恒白) */
+  color: var(--color-white-98);
+  background: var(--color-black-50);
 }
 .rn-photo-hint {
   display: block;

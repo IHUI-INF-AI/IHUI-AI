@@ -21,12 +21,12 @@
   flex: 1;
   padding: 28rpx 12rpx;
   text-align: center;
-  /* custom color: 原项目渐变(紫蓝→米黄),无对应 token,保留原值 */
-  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  /* 原项目渐变已中性化收敛至品牌灰,消除紫色残留 */
+  background: linear-gradient(112deg, var(--color-muted) 3%, var(--color-secondary) 104%);
   border-radius: 30rpx;
   box-shadow:
-    0 0 10rpx 0 rgba(0, 0, 0, 0.3),
-    0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+    0 0 10rpx 0 var(--color-black-30),
+    0 -6rpx 20rpx 0 var(--color-white-80);
 }
 .md-stat-num {
   display: block;
@@ -63,11 +63,11 @@
   display: flex;
   align-items: flex-start;
   padding: 40rpx 15rpx;
-  background: linear-gradient(112deg, rgba(217, 219, 255, 0.8) 3%, rgba(253, 255, 220, 0.8) 104%);
+  background: linear-gradient(112deg, var(--color-muted) 3%, var(--color-secondary) 104%);
   border-radius: 30rpx;
   box-shadow:
-    0 0 10rpx 0 rgba(0, 0, 0, 0.3),
-    0 -6rpx 20rpx 0 rgba(255, 255, 255, 0.8);
+    0 0 10rpx 0 var(--color-black-30),
+    0 -6rpx 20rpx 0 var(--color-white-80);
 }
 .md-avatar {
   width: 170rpx;
@@ -75,7 +75,7 @@
   border-radius: 50%;
   background: var(--color-muted);
   border: 4rpx solid var(--color-border);
-  box-shadow: 0 0 8rpx rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 8rpx var(--color-black-8);
   flex-shrink: 0;
   margin-right: 33rpx;
 }

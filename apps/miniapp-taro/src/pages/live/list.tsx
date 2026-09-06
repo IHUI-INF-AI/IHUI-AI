@@ -158,7 +158,7 @@ export default function LiveList() {
                       item.status === 'living'
                         ? 'bg-destructive text-white'
                         : item.status === 'upcoming'
-                          ? 'bg-[rgba(240, 173, 78, 1)] text-white'
+                          ? 'bg-[var(--color-gold)] text-white'
                           : 'bg-black/50 text-white'
                     }`}
                   >

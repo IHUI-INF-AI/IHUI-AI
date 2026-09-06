@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { bspappUrl } from '@/constants/icon-urls'
 
 export interface CourseHeaderData {
@@ -71,11 +72,11 @@ export default function CourseHeader({ data = { title: '' }, onTeacherClick }: C
             )}
             {data.rating !== undefined && (
               <>
-                <Image
-                  src="/static/images/icons/star-fill.svg"
-                  mode="aspectFit"
+                <LineIcon
+                  name="star"
+                  size="14px"
+                  color="var(--color-warning)"
                   className="mr-1"
-                  style={{ width: 14, height: 14 }}
                 />
                 <Text className="text-xs text-warning">{data.rating.toFixed(1)}</Text>
               </>

@@ -132,7 +132,7 @@ export default function UserInfoCard({
                 {identityType === 2 ? (
                   <View
                     className="px-1 py-0.5 rounded-sm flex-shrink-0"
-                    style={{ background: 'rgba(245, 158, 11, 0.2)' }}
+                    style={{ background: 'var(--color-warning-tint-strong)' }}
                   >
                     <Text
                       className="text-[20rpx] font-medium"

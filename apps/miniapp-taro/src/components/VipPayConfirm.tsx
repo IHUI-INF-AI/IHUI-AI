@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt, useI18n, t } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 
 export interface VipPayConfirmProps {
   visible?: boolean
@@ -71,11 +72,11 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('wechat')}
           >
-            <Image
+            <LineIcon
               className="mr-1"
-              style={{ width: '28rpx', height: '28rpx' }}
-              src="/static/images/icons/wallet.svg"
-              mode="aspectFit"
+              name="wallet"
+              size={28}
+              color="var(--color-muted-foreground)"
             />
             <Text className="text-sm text-foreground">{tt('pay.wechat', '微信支付')}</Text>
           </View>
@@ -85,11 +86,11 @@ export default function VipPayConfirm({
             }`}
             onClick={() => onMethodChange?.('alipay')}
           >
-            <Image
+            <LineIcon
               className="mr-1"
-              style={{ width: '28rpx', height: '28rpx' }}
-              src="/static/images/icons/wallet.svg"
-              mode="aspectFit"
+              name="wallet"
+              size={28}
+              color="var(--color-muted-foreground)"
             />
             <Text className="text-sm text-foreground">{tt('pay.alipay', '支付宝')}</Text>
           </View>

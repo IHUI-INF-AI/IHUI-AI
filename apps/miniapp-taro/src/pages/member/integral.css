@@ -25,7 +25,7 @@
   display: block;
   margin-top: 12rpx;
   font-size: 26rpx;
-  color: rgba(212, 175, 106, 1);
+  color: var(--color-gold);
 }
 
 .list {

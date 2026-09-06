@@ -4,6 +4,7 @@
 
 import { useTt, type TtFn } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import { icon } from '@/constants/remote-icons'
 
 export interface EmptyIllustrationProps {
@@ -20,10 +21,10 @@ const ICON_IMAGES: Record<string, string> = {
   search: icon('search'),
 }
 
-/** 原项目无对应图标的类型,保留 emoji */
-const ICON_EMOJIS: Record<string, string> = {
-  network: '/static/images/icons/wifi.svg',
-  permission: '/static/images/icons/lock.svg',
+/** 原项目无对应图标的类型,以线性图标渲染 */
+const ICON_EMOJIS: Record<string, IconName> = {
+  network: 'wifi',
+  permission: 'lock',
 }
 
 const DEFAULT_TEXTS = (tt: TtFn): Record<string, string> => ({
@@ -47,10 +48,11 @@ export default function EmptyIllustration({
       {imgSrc ? (
         <Image className="w-12 h-12 mb-3" src={imgSrc} mode="aspectFit" />
       ) : (
-        <Image
-          className="w-12 h-12 mb-3"
-          src={ICON_EMOJIS[type] || '/static/images/icons/inbox.svg'}
-          mode="aspectFit"
+        <LineIcon
+          name={(ICON_EMOJIS[type] || 'inbox') as IconName}
+          size="48px"
+          color="var(--color-muted-foreground)"
+          className="mb-3"
         />
       )}
       <Text className="text-sm text-muted-foreground mb-1">{text || DEFAULT_TEXTS(tt)[type]}</Text>

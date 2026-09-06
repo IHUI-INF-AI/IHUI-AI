@@ -10,10 +10,10 @@ import { listRecurringContracts, cancelRecurringContract, type WechatPayContract
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 
-// 保留:#e8f5e9 success 浅色背景 / #ff9a3c 自定义橙(status-pending);token 系统无对应浅色背景/状态橙,保留原值
+// 状态样式走 token:生效中浅绿标签 --color-success-tag-bg(与 RN ModelPlaza 一致);pending 用 warning 语义
 const STATUS_STYLE: Record<WechatPayContract['status'], string> = {
-  active: 'bg-[rgba(232, 245, 233, 1)] text-success',
-  pending: 'bg-[rgba(245, 158, 11, 0.1)] text-[rgba(255, 154, 60, 1)]',
+  active: 'bg-[var(--color-success-tag-bg)] text-success',
+  pending: 'bg-warning/10 text-warning',
   cancelled: 'bg-muted text-muted-foreground',
   expired: 'bg-muted text-muted-foreground',
 }
@@ -62,7 +62,7 @@ export default function SubscriptionContractsPage() {
         confirmText: tt('subscription.cancelConfirmBtn', '确认解约'),
         cancelText: tt('subscription.cancelThinkBtn', '再想想'),
         // 保留:native API Taro.showModal confirmColor 需 hex,不支持 CSS 变量,保留 #dd524d
-        confirmColor: 'rgba(221, 82, 77, 1)',
+        confirmColor: '#dd524d',
         success: async (modalRes) => {
           if (!modalRes.confirm) return
           Taro.showLoading({ title: tt('subscription.processing', '处理中'), mask: true })

@@ -4,6 +4,7 @@
 
 import { useTt, t } from '@/i18n'
 import { View, Text, ScrollView, Input, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { useState, useEffect, useCallback } from 'react'
 import type { TitleSwitchTypeBarItem, TitleSwitchTypeBarProps } from '@ihui/types'
 import './TitleSwitchTypeBar.css'
@@ -193,11 +194,11 @@ export default function TitleSwitchTypeBar({
               <Text>{item.name}</Text>
               {/* multi 模式选中态:勾选图标 */}
               {mode === 'multi' && selected ? (
-                <Image
+                <LineIcon
+                  name="check"
+                  size={28}
+                  color="var(--color-primary-foreground)"
                   className="title-switch-type-bar__check"
-                  style={{ width: '28rpx', height: '28rpx' }}
-                  src="/static/images/icons/check.svg"
-                  mode="aspectFit"
                 />
               ) : null}
             </View>

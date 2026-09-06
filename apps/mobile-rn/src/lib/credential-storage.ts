@@ -110,5 +110,27 @@ export const credentialStorage: CredentialStorage = {
   },
 
   loadLoginHistory: () => cachedHistory,
+
+  removeFromLoginHistory: (account) => {
+    // 同步更新缓存(下拉立即生效)+ 异步持久化
+    cachedHistory = cachedHistory.filter((a) => a !== account)
+    void AsyncStorage.getItem(HISTORY_KEY)
+      .then((raw) => {
+        const list: string[] = raw ? (JSON.parse(raw) as string[]) : []
+        return AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(list.filter((a) => a !== account)))
+      })
+      .catch(() => {
+        // 静默失败
+      })
+    return cachedHistory
+  },
+
+  clearLoginHistory: () => {
+    cachedHistory = []
+    void AsyncStorage.removeItem(HISTORY_KEY).catch(() => {
+      // 静默失败
+    })
+    return cachedHistory
+  },
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
