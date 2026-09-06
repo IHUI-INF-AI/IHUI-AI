@@ -6,10 +6,11 @@
 
 import * as React from 'react'
 import type { TokenDistribution } from '@ihui/shared/context/index'
+import { CHART_INDIGO } from '@ihui/design-tokens'
 
 /** 5 类源的颜色映射(与 CONTEXT_TYPE_COLORS 共用色板) */
 export const TOKEN_COLORS = {
-  history: '#6366f1',
+  history: CHART_INDIGO,
   codebase: 'var(--chart-2)',
   mention: 'var(--chart-3)',
   web: 'var(--chart-1)',

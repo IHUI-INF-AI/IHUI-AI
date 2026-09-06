@@ -112,7 +112,7 @@ export function AiSkillScreen() {
               {item.tags.length > 0 ? (
                 <View className="mt-2 flex-row flex-wrap gap-1.5">
                   {item.tags.slice(0, 4).map((tag) => (
-                    <Text key={tag} className="rounded-sm bg-blue-50 px-1.5 py-0.5 text-xs text-blue-600 dark:bg-neutral-700 dark:text-blue-300">
+                    <Text key={tag} className="rounded-sm bg-orange-50 px-1.5 py-0.5 text-xs text-orange-600 dark:bg-neutral-700 dark:text-orange-300">
                       {tag}
                     </Text>
                   ))}

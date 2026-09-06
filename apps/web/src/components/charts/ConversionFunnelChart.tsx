@@ -7,6 +7,7 @@
 import * as React from 'react'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
+import { CHART_INDIGO_RAMP, CHART_BG_LIGHT } from '@ihui/design-tokens'
 
 export interface ConversionFunnelStage {
   name: string
@@ -25,7 +26,6 @@ const MOCK: ConversionFunnelStage[] = [
   { name: '付费', value: 680 },
 ]
 
-// ECharts canvas 渲染不支持 CSS var(),以下颜色含 --chart-1(blue)/--chart-5(violet) 及非标准色(indigo/purple)的硬编码副本,修改需同步 tokens.css
 export function ConversionFunnelChart({ data = MOCK, height = 300 }: ConversionFunnelChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
@@ -45,8 +45,8 @@ export function ConversionFunnelChart({ data = MOCK, height = 300 }: ConversionF
         label: { show: true, position: 'inside' },
         labelLine: { show: false },
         data: data.map((s) => ({ name: s.name, value: s.value })),
-        itemStyle: { borderColor: '#fff', borderWidth: 1 },
-        color: ['#3b82f6', '#6366f1', '#8b5cf6', '#a855f7'],
+        itemStyle: { borderColor: CHART_BG_LIGHT, borderWidth: 1 },
+        color: [...CHART_INDIGO_RAMP],
       },
     ],
   }
