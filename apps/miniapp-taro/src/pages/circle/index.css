@@ -234,7 +234,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-black-40);
 }
 /* custom color: #fff 白色文字在半透明黑色遮罩上,需始终保持白色,无对应 token */
 .ci-img-more-text {
@@ -318,7 +318,7 @@
   justify-content: center;
   background: var(--color-primary);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8rpx 24rpx rgba(7, 193, 96, 0.35);
+  box-shadow: 0 8rpx 24rpx var(--color-success-tint-strong);
   z-index: 10;
 }
 .ci-fab-icon {

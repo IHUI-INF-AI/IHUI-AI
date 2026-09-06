@@ -5,6 +5,7 @@
 import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useRouter } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { get, post } from '@/api'
@@ -116,7 +117,7 @@ export default function RecruitmentIndexPage() {
             <Text className="text-[44rpx] font-bold text-foreground">
               {info.title || t('recruitment.defaultTitle')}
             </Text>
-            <Text className="mt-[16rpx] text-[26rpx] text-[rgba(255,255,255,0.85)]">
+            <Text className="mt-[16rpx] text-[26rpx] text-[var(--color-scrim-foreground)]">
               {t('recruitment.subtitle')}
             </Text>
           </View>
@@ -151,12 +152,8 @@ export default function RecruitmentIndexPage() {
                 {item.icon ? (
                   <Image className="w-[64rpx] h-[64rpx]" src={item.icon} mode="aspectFit" />
                 ) : (
-                  <View className="w-[64rpx] h-[64rpx] rounded-2xl bg-[rgba(245,158,11,0.1)] flex items-center justify-center">
-                    <Image
-                      src="/static/images/icons/star-fill.svg"
-                      mode="aspectFit"
-                      style={{ width: '32rpx', height: '32rpx' }}
-                    />
+                  <View className="w-[64rpx] h-[64rpx] rounded-2xl bg-warning/10 flex items-center justify-center">
+                    <LineIcon name="star-fill" size={32} color="var(--color-warning)" />
                   </View>
                 )}
                 <Text className="mt-[12rpx] text-[26rpx] text-foreground text-center">
@@ -197,7 +194,7 @@ export default function RecruitmentIndexPage() {
           </View>
         </View>
 
-        <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
+        <View className="fixed bottom-0 left-0 w-full px-[30rpx] py-[20rpx] box-border bg-card [box-shadow:0_-2rpx_12rpx_var(--color-black-6)]">
           <View
             className={`h-[88rpx] bg-primary text-foreground text-[32rpx] [border-radius:44rpx] flex items-center justify-center${submitting ? ' opacity-60' : ''}`}
             onClick={onApply}

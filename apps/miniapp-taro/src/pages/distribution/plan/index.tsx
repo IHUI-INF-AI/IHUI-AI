@@ -99,7 +99,7 @@ export default function DistributionPlan() {
         </View>
       </View>
 
-      <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card shadow-[0_-4rpx_16rpx_rgba(0,0,0,0.3)]">
+      <View className="fixed left-0 right-0 bottom-0 pt-[24rpx] px-[32rpx] pb-[calc(24rpx+env(safe-area-inset-bottom))] bg-card shadow-[0_-4rpx_16rpx_var(--color-black-30)]">
         <View
           className="h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] font-semibold rounded-[12rpx] active:opacity-85"
           onClick={onOpenVip}

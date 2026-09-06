@@ -62,7 +62,7 @@
  * 用 var(--color-info) 蓝色作为主色调 */
 .pp-pay-button--default {
   background: linear-gradient(135deg, var(--color-info), var(--color-info));
-  box-shadow: 0 4rpx 12rpx rgba(0, 122, 255, 0.3);
+  box-shadow: 0 4rpx 12rpx var(--color-info-tint-strong);
 }
 
 /* vip VIP 专属 - 金色渐变
@@ -70,7 +70,7 @@
  * 用 var(--color-warning) 金色 */
 .pp-pay-button--vip {
   background: linear-gradient(135deg, var(--color-warning), var(--color-warning));
-  box-shadow: 0 4rpx 12rpx rgba(245, 158, 11, 0.4);
+  box-shadow: 0 4rpx 12rpx var(--color-warning-tint-strong);
 }
 
 /* discount 折扣 - 红色促销
@@ -78,22 +78,22 @@
  * 用 var(--color-destructive) 红色 */
 .pp-pay-button--discount {
   background: linear-gradient(135deg, var(--color-destructive), var(--color-destructive));
-  box-shadow: 0 4rpx 12rpx rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4rpx 12rpx var(--color-danger-tint-strong);
 }
 
-/* subscription 订阅 - 紫色
- * 对齐 pay_btn .title #517BFF 紫色 + .discount #8B91FF 紫调
- * 用 var(--color-brand) 紫色(#6366f1) */
+/* subscription 订阅 - 品牌主色
+ * 历史对齐 pay_btn .title #517BFF 紫调;2026 品牌色已改为黑/白(brand.DEFAULT 浅色 #000 / 深色 #FFF),
+ * 故订阅按钮用 var(--color-brand) 自适应,阴影同步改为中性黑(清除遗留 indigo #6366f1) */
 .pp-pay-button--subscription {
   background: linear-gradient(135deg, var(--color-brand), var(--color-brand));
-  box-shadow: 0 4rpx 12rpx rgba(99, 102, 241, 0.3);
+  box-shadow: 0 4rpx 12rpx var(--color-black-30);
 }
 
 /* gift 礼物 - 粉色
  * 对齐 chart-6 #ec4899 粉色(项目内唯一粉色 CSS 变量) */
 .pp-pay-button--gift {
   background: linear-gradient(135deg, var(--chart-6), var(--chart-6));
-  box-shadow: 0 4rpx 12rpx rgba(236, 72, 153, 0.3);
+  box-shadow: 0 4rpx 12rpx var(--color-pink-tint);
 }
 
 /* ===== Dark mode 适配(自动通过 CSS 变量 .dark 块覆盖) ===== */

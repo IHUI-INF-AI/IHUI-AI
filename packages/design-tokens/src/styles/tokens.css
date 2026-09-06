@@ -144,14 +144,49 @@
    * 用途: 链接 / 微信品牌 / 聊天气泡 / 分销品牌橙 / 通知色等跨端通用语义色
    * 上提理由: 单一真相源,避免小程序端漂移,web/mobile-rn 端也可引用
    * 暗色覆盖见下方 .dark 块 */
-  --color-link: #1888ee;
-  --color-link-bg: #f0f7ff;
+  --color-link: #000000;
+  --color-link-bg: #f5f5f5;
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
-  --color-brand: #6366f1;
+  --color-brand: #000000;
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
+
+  /* 统一金牌/品牌蓝/浅绿标签/媒体遮罩(2026-09-06 立,收编小程序端硬编码色)
+   * - --color-gold:统一直播/权益/积分等处相近金色(原 #d97706 / rgba(240,173,78) / rgba(212,175,106))
+   * - --color-gold-muted:金色徽章浅金底
+   * - --color-alipay-blue:支付宝品牌蓝(对标 --color-wechat-green,暗色主题恒定)
+   * - --color-success-tag-bg:生效中浅绿标签(与 RN ModelPlaza 一致 #E8F5E9)
+   * - --color-scrim / --color-scrim-foreground:图片/媒体黑遮罩 + 其上恒定白字(主题中性)
+   * dark 覆盖见 .dark 块 */
+  --color-gold: #d4af6a;
+  --color-gold-muted: rgba(212, 175, 106, 0.12);
+  --color-alipay-blue: #1677ff;
+  --color-success-tag-bg: #e8f5e9;
+  --color-scrim: rgba(0, 0, 0, 0.6);
+  --color-scrim-foreground: rgba(255, 255, 255, 0.85);
+
+  /* 彩色语义 tint(2026-09-06 立,统一小程序端彩色 rgba/rgb 硬编码色)
+   * 基准色相对齐语义 token:success=green-600 / warning=amber-500 / danger=red-600 /
+   *   info=sky-500(cyan-blue) / pink=chart-6 / gold=金 / brand-orange=品牌橙
+   * -tint:低透明底色(徽章/标签/悬浮态)  -tint-strong:更高透明强调(激活/辉光/渐变主色)
+   * dark 覆盖见 .dark 块:基色提亮 + alpha 提高,保证深色背景可读 */
+  --color-danger: #dc2626;
+  --color-danger-foreground: #ffffff;
+  --color-success-tint: rgba(22, 163, 74, 0.08);
+  --color-success-tint-strong: rgba(22, 163, 74, 0.25);
+  --color-warning-tint: rgba(245, 158, 11, 0.1);
+  --color-warning-tint-strong: rgba(245, 158, 11, 0.25);
+  --color-danger-tint: rgba(220, 38, 38, 0.08);
+  --color-danger-tint-strong: rgba(220, 38, 38, 0.25);
+  --color-info-tint: rgba(14, 165, 233, 0.08);
+  --color-info-tint-strong: rgba(14, 165, 233, 0.25);
+  --color-pink-tint: rgba(236, 72, 153, 0.3);
+  --color-gold-tint: rgba(255, 215, 0, 0.3);
+  --color-brand-orange-tint: rgba(255, 107, 53, 0.12);
+  --color-brand-orange-tint-strong: rgba(255, 107, 53, 0.3);
+  --color-warm-bg: #fff4e6;
 
   /* ============ 图表色板(2026-07-27 立,统一 web 端图表硬编码色) ============
    * 8 色主色板对应 Tailwind blue/emerald/amber/red/violet/pink/cyan/lime-500
@@ -406,14 +441,34 @@ select:-webkit-autofill:focus {
 
   /* 跨端扩展语义色暗色覆盖(2026-07-29 上提自 miniapp-taro)
    * dark 模式值提高亮度以保证暗色背景下的可读性 */
-  --color-link: #4ea3f5;
-  --color-link-bg: rgba(78, 163, 245, 0.15);
+  --color-link: #ffffff;
+  --color-link-bg: #262626;
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #4cd964;
   --color-brand-orange: #ff8e53;
-  --color-brand: #818cf8;
+  --color-brand: #ffffff;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
+  /* 暗色自适应:金/浅金/浅绿标签提亮(深色背景可读) */
+  --color-gold: #e6c986;
+  --color-gold-muted: rgba(230, 201, 134, 0.14);
+  --color-success-tag-bg: rgba(22, 163, 74, 0.16);
+  /* 彩色语义 tint 暗色覆盖(2026-09-06,与上方 @theme 亮色值成对) */
+  --color-danger: #ef4444;
+  --color-danger-foreground: #ffffff;
+  --color-success-tint: rgba(74, 222, 128, 0.14);
+  --color-success-tint-strong: rgba(74, 222, 128, 0.3);
+  --color-warning-tint: rgba(250, 204, 21, 0.14);
+  --color-warning-tint-strong: rgba(250, 204, 21, 0.3);
+  --color-danger-tint: rgba(248, 113, 113, 0.14);
+  --color-danger-tint-strong: rgba(248, 113, 113, 0.3);
+  --color-info-tint: rgba(96, 165, 250, 0.14);
+  --color-info-tint-strong: rgba(96, 165, 250, 0.3);
+  --color-pink-tint: rgba(244, 114, 182, 0.34);
+  --color-gold-tint: rgba(230, 201, 134, 0.3);
+  --color-brand-orange-tint: rgba(255, 138, 101, 0.16);
+  --color-brand-orange-tint-strong: rgba(255, 138, 101, 0.32);
+  --color-warm-bg: rgba(250, 204, 21, 0.14);
 }
 
 /* ============ 全局基础变量(2026-07-27 上提自 web 本地 design-tokens.css) ============

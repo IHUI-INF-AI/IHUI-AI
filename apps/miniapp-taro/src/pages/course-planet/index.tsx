@@ -5,6 +5,7 @@
 import { useI18n, type TtFn } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Image, ScrollView } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useRef } from 'react'
 import * as api from '@/api'
@@ -280,10 +281,10 @@ export default function CoursePlanet() {
                   />
                 ) : (
                   <View className="w-[200rpx] h-[130rpx] rounded-[8rpx] flex-shrink-0 bg-muted flex items-center justify-center">
-                    <Image
-                      style={{ width: '48rpx', height: '48rpx' }}
-                      src="/static/images/icons/book-open.svg"
-                      mode="aspectFit"
+                    <LineIcon
+                      name="book-open"
+                      size={48}
+                      color="var(--color-muted-foreground)"
                     />
                   </View>
                 )}
@@ -315,10 +316,11 @@ export default function CoursePlanet() {
             ))
           ) : (
             <View className="flex flex-col items-center py-[120rpx]">
-              <Image
-                style={{ width: '80rpx', height: '80rpx', marginBottom: '16rpx' }}
-                src="/static/images/icons/globe.svg"
-                mode="aspectFit"
+              <LineIcon
+                name="globe"
+                size={80}
+                color="var(--color-muted-foreground)"
+                style={{ marginBottom: '16rpx' }}
               />
               <Text className="block text-center text-muted-foreground py-[40rpx]">
                 {t('coursePlanet.empty')}

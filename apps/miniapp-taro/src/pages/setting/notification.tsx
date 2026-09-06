@@ -93,7 +93,7 @@ export default function NotificationPage() {
 
                 <Switch
                   checked={item.enabled}
-                  color="rgba(0, 185, 107, 1)"
+                  color="var(--color-success)"
                   onChange={(e) => onToggle(item.key, e.detail.value)}
                 />
               </View>

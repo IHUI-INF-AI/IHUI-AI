@@ -68,7 +68,7 @@ export default function CartePage() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background">
-        <View className="bg-gradient-to-b from-[rgba(15, 118, 110, 1)] to-[rgba(20, 184, 166, 1)] px-6 pt-12 pb-8 text-white text-center">
+        <View className="bg-primary px-6 pt-12 pb-8 text-primary-foreground text-center">
           <View className="flex justify-center mb-4">
             {info.avatar ? (
               <Image

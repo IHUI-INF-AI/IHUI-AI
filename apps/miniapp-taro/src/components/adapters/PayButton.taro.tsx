@@ -72,8 +72,8 @@ const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
     showPurchasePopup: false,
   },
   '1': {
-    bg: (tk) => tk.indigo.light,
-    text: (tk) => tk.indigo.DEFAULT,
+    bg: (tk) => (tk.brand.DEFAULT === '#000000' ? 'var(--color-black-12)' : 'var(--color-white-15)'),
+    text: (tk) => tk.brand.DEFAULT,
     icon: freeUseIcon,
     label: tt('adaptersPayButtontaro.d1', '免费使用'),
     showPurchasePopup: false,
