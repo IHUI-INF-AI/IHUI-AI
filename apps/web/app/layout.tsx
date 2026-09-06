@@ -197,6 +197,11 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // 2026-09-06 移动 App(WebView/内嵌浏览器)端到端边缘渲染适配:
+  // 声明 viewport-fit=cover,让 env(safe-area-inset-*) 在刘海屏/状态栏场景真正生效,
+  // 配合 GlobalShell 根容器顶部 padding 避开系统状态栏(时间/信号/电量那行)。
+  // 桌面/普通浏览器 env(safe-area-*)=0,不影响任何现有布局。
+  viewportFit: 'cover',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: DOC_BG },
     { media: '(prefers-color-scheme: dark)', color: DOC_BG_DARK },
