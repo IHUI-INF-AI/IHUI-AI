@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -124,8 +125,9 @@ function ChaptersContent() {
   }
 
   function handleDelete(ch: Chapter) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(ch.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(ch.id)
+    })
   }
 
   function onLessonChange(v: string) {

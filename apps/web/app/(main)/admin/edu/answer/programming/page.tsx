@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -150,7 +151,9 @@ function ProgrammingContent() {
             current={current}
             onRun={() => runMut.mutate()}
             onSubmit={() => {
-              if (window.confirm(t('confirmSubmit'))) submitMut.mutate()
+              void confirmDialog({ title: t('confirmSubmit') }).then((ok) => {
+                if (ok) submitMut.mutate()
+              })
             }}
             runPending={runMut.isPending}
             submitPending={submitMut.isPending}

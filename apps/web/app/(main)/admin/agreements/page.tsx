@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -88,8 +89,9 @@ export default function AgreementsPage() {
     saveMut.mutate()
   }
   function handleDelete(item: Agreement) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
 
   const list = data?.list ?? []

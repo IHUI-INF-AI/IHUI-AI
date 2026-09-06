@@ -4,6 +4,7 @@
 
 'use client'
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -99,10 +100,14 @@ export default function IpReputationPage() {
   const mutPending = blockMut.isPending || unblockMut.isPending
 
   function handleBlock() {
-    if (window.confirm(t('blockConfirm'))) blockMut.mutate()
+    void confirmDialog({ title: t('blockConfirm') }).then((ok) => {
+      if (ok) blockMut.mutate()
+    })
   }
   function handleUnblock() {
-    if (window.confirm(t('unblockConfirm'))) unblockMut.mutate()
+    void confirmDialog({ title: t('unblockConfirm') }).then((ok) => {
+      if (ok) unblockMut.mutate()
+    })
   }
 
   return (
