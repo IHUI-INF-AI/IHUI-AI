@@ -9,12 +9,21 @@
 ALTER TABLE "edu_refunds" DROP CONSTRAINT IF EXISTS "edu_refunds_order_id_edu_orders_id_fk";--> statement-breakpoint
 
 -- 2. edu_refunds.order_type: varchar(32) → integer（USING 子句转换存量数据）
-ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DATA TYPE integer USING
-  CASE "order_type"
-    WHEN 'course' THEN 7
-    WHEN 'card' THEN 8
-    ELSE COALESCE(CAST("order_type" AS integer), 0)
-  END;--> statement-breakpoint
+-- 自适应:仅当列仍为字符类型时执行转换(integer 列重复执行会 42883 CASE 类型错误)
+DO $ot_conv$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'edu_refunds' AND column_name = 'order_type'
+      AND data_type IN ('character varying', 'character', 'text')
+  ) THEN
+    ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DATA TYPE integer USING
+      CASE "order_type"
+        WHEN 'course' THEN 7
+        WHEN 'card' THEN 8
+        ELSE COALESCE(CAST("order_type" AS integer), 0)
+      END;
+  END IF;
+END $ot_conv$;--> statement-breakpoint
 ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DEFAULT 0;--> statement-breakpoint
 
 -- 3. edu_refunds: 添加新 FK（→ orders, ON DELETE cascade）
