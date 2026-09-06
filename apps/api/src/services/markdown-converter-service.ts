@@ -21,7 +21,7 @@ import { readFileSync, existsSync } from 'node:fs'
 import { extname } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
 import mammoth from 'mammoth'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { logger } from '../utils/logger.js'
 
 // ============================================================================

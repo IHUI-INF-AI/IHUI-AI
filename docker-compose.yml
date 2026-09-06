@@ -5,6 +5,24 @@
 # IHUI-AI Docker Compose 编排(新架构: Fastify + Next.js + FastAPI AI 服务)
 # 旧架构(Python FastAPI server/ + Vue client/)已弃用,不再编排
 #
+# ============================================================================
+# ⚠️ 部署模型声明(2026-09-06 立)
+# ============================================================================
+# 当前线上生产环境采用【Windows 原生进程部署】:
+#   监控二进制位于 D:\DevEnv\monitor,由 Windows 服务(NSSM)/裸进程托管
+#   (Prometheus 127.0.0.1:8815、Grafana 8816、Loki 3100、Promtail 9080、
+#    Alertmanager 9093)。
+#   业务服务 api(8802)/web(8801 next)/ai-service(8803) 亦为原生 node/python 进程,
+#   启动脚本见 deploy/prod-bundle/svc/run-{api,web,ai}.ps1。
+#
+# 本 docker-compose.yml【仅作为可选容器化方案保留】,并非当前线上真实形态。
+# 监控/日志文档见 monitoring/README-logging.md;请勿再以 "docker compose up loki promtail"
+# 的思路操作生产监控栈——线上没有 docker 容器,也没有 docker 网络中的服务名。
+#
+# 追踪栈(Jaeger / otel-collector):docker-compose 中保留服务定义,但线上【当前未部署】
+# (无进程)。若需启用,先在本机原生方式起好 otel-collector(8888) 与 Jaeger(16686)。
+# ============================================================================
+#
 # 供应链安全(D29-H2):监控服务镜像版本固定,禁止使用 :latest tag,防供应链投毒
 # 本地构建镜像(ihui-api/ihui-web/ihui-migrate/ihui-ai-service)的 :latest 是本地 tag,非外部拉取
 # ============================================================================
@@ -290,6 +308,8 @@ services:
       retries: 5
 
   # Jaeger(分布式追踪 UI + OTLP 收集器，接收 otel-collector 导出的追踪)
+  # 注意:线上生产【当前未部署】此服务(无进程)。原生部署若需追踪,需在本机
+  # 单独启动 jaeger 二进制(默认 16686 UI)并由 otel-collector 推送 span。
   jaeger:
     profiles: [observability]
     image: jaegertracing/all-in-one:1.62
@@ -308,6 +328,8 @@ services:
       retries: 3
 
   # OpenTelemetry Collector(接收 OTLP 追踪/指标，导出到 Jaeger + Prometheus exporter)
+  # 注意:线上生产【当前未部署】此服务(无进程)。原生部署若需追踪,需在本机
+  # 单独启动 otel-collector 二进制(监听 8888 metrics 端口)并对接 Jaeger。
   otel-collector:
     profiles: [observability]
     image: otel/opentelemetry-collector-contrib:0.110.0
@@ -441,8 +463,10 @@ services:
         reservations:
           memory: 512M
 
-  # Promtail(日志采集器,抓取 Docker 容器 + Nginx + API 应用日志,推送到 Loki)
-  # 通过 docker_sd_configs 自动发现带 logging=promtail 标签的容器
+  # Promtail(日志采集器,抓取日志文件并推送到 Loki)
+  # 注意:线上生产采用原生部署,实际运行副本位于 D:\DevEnv\monitor,采集的是
+  # 本机应用日志文件(非 docker 容器日志)。本 compose 服务仅作容器化参考,
+  # docker_sd_configs / docker.sock 挂载仅在容器化方案下生效,原生部署不使用。
   promtail:
     profiles: [observability]
     image: grafana/promtail:2.9.0

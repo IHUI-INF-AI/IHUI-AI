@@ -18,6 +18,10 @@ import {
 } from './jobs/ai-world-sync.js'
 import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
 import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
+import {
+  startPiiRetentionScheduler,
+  stopPiiRetentionScheduler,
+} from './jobs/pii-retention-cleanup.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -108,6 +112,11 @@ async function start() {
     } catch (e) {
       logger.warn('stopHotWordsScheduler failed', { err: e })
     }
+    try {
+      stopPiiRetentionScheduler()
+    } catch (e) {
+      logger.warn('stopPiiRetentionScheduler failed', { err: e })
+    }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
       stopAutoRollbackMonitor()
@@ -177,6 +186,12 @@ async function start() {
   // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
   if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
     startSourceProbeScheduler()
+  }
+
+  // 启动 PII 保留期清理定时任务(每天 03:30 滚动删除过期的 crash/behavior/visit 日志类 PII;
+  // 默认开启,ENABLE_PII_RETENTION=false 禁用)
+  if (process.env.ENABLE_PII_RETENTION !== 'false') {
+    startPiiRetentionScheduler()
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出

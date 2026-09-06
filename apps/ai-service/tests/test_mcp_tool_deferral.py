@@ -24,9 +24,12 @@ from app.services.mcp_server import mcp_server as mcp_instance
 # ---------------------------------------------------------------------------
 
 
-def test_deferral_on_shortens_description_and_placeholder_params(monkeypatch: Any) -> None:
+@pytest.mark.asyncio
+async def test_deferral_on_shortens_description_and_placeholder_params(
+    monkeypatch: Any,
+) -> None:
     monkeypatch.setenv("TOOL_DEFERRAL", "on")
-    tools = agents_router._build_loop_v2_tools(None)
+    tools = await agents_router._build_loop_v2_tools(None)
     assert tools, "deferral 开启时应至少包含工具"
 
     # get_tool_schema 必须被强制纳入(否则模型无法反查完整参数)
@@ -49,9 +52,10 @@ def test_deferral_on_shortens_description_and_placeholder_params(monkeypatch: An
 # ---------------------------------------------------------------------------
 
 
-def test_deferral_off_keeps_full_definition(monkeypatch: Any) -> None:
+@pytest.mark.asyncio
+async def test_deferral_off_keeps_full_definition(monkeypatch: Any) -> None:
     monkeypatch.setenv("TOOL_DEFERRAL", "off")
-    tools = agents_router._build_loop_v2_tools(None)
+    tools = await agents_router._build_loop_v2_tools(None)
     by_name = {t.name: t for t in tools}
     src = {mt.name: mt for mt in mcp_instance.list_tools()}
 

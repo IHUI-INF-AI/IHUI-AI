@@ -27,6 +27,7 @@ import { db, dbRead } from '../db/index.js'
 import { usdtPayments, systemConfigs, userMargins, tokenFlows } from '@ihui/database'
 import type { UsdtPayment } from '@ihui/database'
 import { generateOrderNumber } from '../utils/crypto-random.js'
+import { config } from '../config/index.js'
 
 // =============================================================================
 // 常量
@@ -58,6 +59,9 @@ const SUPPORTED_NETWORKS = ['TRC20', 'ERC20'] as const
 
 /** tokenFlows.opType: 0=充值 */
 const FLOW_OP_RECHARGE = 0
+
+/** 金额精确匹配容差(USDT 6-8 位小数,浮点比较误差容限) */
+const AMOUNT_EPS = 1e-4
 
 // =============================================================================
 // 类型定义
@@ -97,6 +101,8 @@ export interface ConfirmResult {
   orderId: string
   status: string
   tokensCredited: number
+  /** P0 资金安全修复(2026-09-06):链上取证未通过而未入账时的原因(status=pending 时返回) */
+  pendingReason?: string
 }
 
 export interface PollResult {
@@ -128,6 +134,8 @@ interface TronGridTrc20Tx {
   to: string
   from: string
   block_timestamp: number
+  /** 所在区块号(确认数计算用;新版本 TronGrid 返回) */
+  block_number?: number
 }
 
 interface TronGridResponse {
@@ -142,6 +150,7 @@ interface EtherscanTokenTx {
   from: string
   timeStamp: string
   tokenDecimal: string
+  blockNumber?: string
 }
 
 interface EtherscanResponse {
@@ -153,6 +162,25 @@ interface EtherscanResponse {
 interface BlockchainDetection {
   txHash: string
   amountPaid: number
+  /** 区块链转换所在区块号(确认数计算用);无法获取时为 null */
+  blockNumber: number | null
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):链上取证校验结果。
+ * 只有 verified=true 且 confirmations 达到阈值时才允许确认入账。
+ */
+export interface OnChainVerification {
+  verified: boolean
+  reason: string
+  network: string
+  txHash: string
+  /** 链上实收金额(USDT) */
+  amountOnChain: number | null
+  /** 链上收款地址 */
+  to: string | null
+  /** 确认数;未知为 null */
+  confirmations: number | null
 }
 
 // =============================================================================
@@ -416,7 +444,12 @@ async function checkTrc20Payment(
     if (tx.block_timestamp < sinceTimestamp) continue
     const amount = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
     if (amount >= expectedAmount) {
-      return { txHash: tx.transaction_id, amountPaid: amount }
+      // 2026-09-06 P0:返回 blockNumber(确认数计算),null 表示接口未提供
+      return {
+        txHash: tx.transaction_id,
+        amountPaid: amount,
+        blockNumber: tx.block_number ?? null,
+      }
     }
   }
 
@@ -458,11 +491,235 @@ async function checkErc20Payment(
     const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
     const amount = Number(tx.value) / Math.pow(10, decimals)
     if (amount >= expectedAmount) {
-      return { txHash: tx.hash, amountPaid: amount }
+      // 2026-09-06 P0:返回 blockNumber(确认数计算),null 表示接口未提供
+      return {
+        txHash: tx.hash,
+        amountPaid: amount,
+        blockNumber: tx.blockNumber ? Number(tx.blockNumber) : null,
+      }
     }
   }
 
   return null
+}
+
+// =============================================================================
+// 3.5 P0 资金安全修复(2026-09-06):链上取证校验
+// =============================================================================
+
+/**
+ * 获取 TRC20 链当前最新区块高度(确认数计算用)。
+ */
+async function fetchTrc20LatestBlock(): Promise<number> {
+  const url = 'https://api.trongrid.io/wallet/getnowblock'
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`TronGrid getnowblock 返回 ${response.status}`)
+  const data = (await response.json()) as {
+    block_header?: { raw_data?: { number?: number } }
+  }
+  return data.block_header?.raw_data?.number ?? 0
+}
+
+/**
+ * 获取 ERC20(Etherscan)链当前最新区块高度(确认数计算用)。
+ */
+async function fetchErc20LatestBlock(): Promise<number> {
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  let url = 'https://api.etherscan.io/api?module=proxy&action=eth_blockNumber'
+  if (apiKey) url += `&apikey=${apiKey}`
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Etherscan eth_blockNumber 返回 ${response.status}`)
+  const data = (await response.json()) as { result?: string }
+  if (!data.result) throw new Error('Etherscan eth_blockNumber 响应异常')
+  return parseInt(data.result, 16)
+}
+
+function errReason(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):TRC20 链上取证校验。
+ * 服务端重新拉取该笔 USDT 转账,校验收款地址、实收金额(精确匹配)、确认数。
+ */
+async function verifyTrc20OnChain(
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const minConf = config.USDT_CONFIRM_TRC20_MIN
+  const fail = (reason: string, amountOnChain: number | null, to: string | null, confirmations: number | null) =>
+    ({ verified: false, reason, network: 'TRC20', txHash, amountOnChain, to, confirmations })
+
+  const apiKey = process.env.TRONGRID_API_KEY
+  const params = new URLSearchParams({
+    limit: '50',
+    order_by: 'block_timestamp,desc',
+    contract_address: TRC20_USDT_CONTRACT,
+    only_to: 'true',
+  })
+  const url = `https://api.trongrid.io/v1/accounts/${address}/transactions/trc20?${params}`
+  const headers: Record<string, string> = {}
+  if (apiKey) headers['TRON-PRO-API-KEY'] = apiKey
+
+  const response = await fetch(url, { headers })
+  if (!response.ok) throw new Error(`TronGrid 返回 ${response.status}`)
+  const data = (await response.json()) as TronGridResponse
+  if (!data.success || !data.data) throw new Error('TronGrid 响应异常')
+
+  // 在共享固定地址的转入记录中定位该笔交易(排除其它用户的交易)
+  const tx = data.data.find((t) => t.transaction_id === txHash)
+  if (!tx) return fail('未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)', null, null, null)
+  if (tx.to !== address) return fail('收款地址与平台地址不一致', null, tx.to, null)
+
+  const amountOnChain = Number(tx.value) / Math.pow(10, USDT_DECIMALS)
+  if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
+    return fail('链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账', amountOnChain, tx.to, null)
+  }
+
+  let confirmations: number | null = null
+  if (tx.block_number != null) {
+    const latest = await fetchTrc20LatestBlock()
+    confirmations = latest >= tx.block_number ? latest - tx.block_number + 1 : null
+  }
+  if (minConf > 0 && (confirmations === null || confirmations < minConf)) {
+    if (confirmations === null) {
+      return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
+    }
+    return fail(`确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`, amountOnChain, tx.to, confirmations)
+  }
+
+  return { verified: true, reason: '链上取证校验通过', network: 'TRC20', txHash, amountOnChain, to: tx.to, confirmations }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):ERC20 链上取证校验。
+ * 服务端重新拉取该笔 USDT 转账,校验收款地址、实收金额(精确匹配)、确认数。
+ */
+async function verifyErc20OnChain(
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const minConf = config.USDT_CONFIRM_ERC20_MIN
+  const fail = (reason: string, amountOnChain: number | null, to: string | null, confirmations: number | null) =>
+    ({ verified: false, reason, network: 'ERC20', txHash, amountOnChain, to, confirmations })
+
+  const apiKey = process.env.ETHERSCAN_API_KEY
+  const params = new URLSearchParams({
+    module: 'account',
+    action: 'tokentx',
+    address,
+    contractaddress: ERC20_USDT_CONTRACT,
+    page: '1',
+    offset: '100',
+    sort: 'asc',
+  })
+  if (apiKey) params.set('apikey', apiKey)
+  const url = `https://api.etherscan.io/api?${params}`
+
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Etherscan 返回 ${response.status}`)
+  const data = (await response.json()) as EtherscanResponse
+  if (data.status !== '1' || !Array.isArray(data.result)) throw new Error('Etherscan 响应异常')
+
+  const tx = data.result.find((t) => t.hash.toLowerCase() === txHash.toLowerCase())
+  if (!tx) return fail('未在平台地址转入记录中找到该交易(可能绑定他人或地址错误)', null, null, null)
+  if (tx.to.toLowerCase() !== address.toLowerCase()) return fail('收款地址与平台地址不一致', null, tx.to, null)
+
+  const decimals = Number(tx.tokenDecimal) || USDT_DECIMALS
+  const amountOnChain = Number(tx.value) / Math.pow(10, decimals)
+  if (Math.abs(amountOnChain - expectedAmount) > AMOUNT_EPS) {
+    return fail('链上实收金额与订单金额不一致(超付/少付),拒绝按客户端金额入账', amountOnChain, tx.to, null)
+  }
+
+  let confirmations: number | null = null
+  if (tx.blockNumber) {
+    const bn = Number(tx.blockNumber)
+    const latest = await fetchErc20LatestBlock()
+    confirmations = latest >= bn ? latest - bn + 1 : null
+  }
+  if (minConf > 0 && (confirmations === null || confirmations < minConf)) {
+    if (confirmations === null) {
+      return fail('无法获取交易确认数,请等待轮询确认', amountOnChain, tx.to, null)
+    }
+    return fail(`确认数不足(当前 ${confirmations},要求 ≥ ${minConf}),待确认后入账`, amountOnChain, tx.to, confirmations)
+  }
+
+  return { verified: true, reason: '链上取证校验通过', network: 'ERC20', txHash, amountOnChain, to: tx.to, confirmations }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):服务端链上取证校验。
+ * 重新拉取该笔 USDT 转账的实收金额/收款地址/确认数,满足全部条件才 verified=true:
+ *   (a) 收款地址 == 平台固定地址
+ *   (b) 实收金额与订单金额精确匹配(不允许超付/少付)
+ *   (c) 确认数 >= 配置阈值(TRC20>=USDT_CONFIRM_TRC20_MIN, ERC20>=USDT_CONFIRM_ERC20_MIN)
+ * 未通过 → 返回 pending,由轮询 worker 用同一逻辑在确认数足够后再入账(避免死循环)。
+ */
+export async function verifyUsdtOnChain(
+  network: string,
+  txHash: string,
+  expectedAmount: number,
+  address: string,
+): Promise<OnChainVerification> {
+  const net = (network || '').toUpperCase()
+  try {
+    if (net === 'TRC20') return await verifyTrc20OnChain(txHash, expectedAmount, address)
+    if (net === 'ERC20') return await verifyErc20OnChain(txHash, expectedAmount, address)
+    return {
+      verified: false,
+      reason: `不支持的网络 ${network}`,
+      network: net,
+      txHash,
+      amountOnChain: null,
+      to: null,
+      confirmations: null,
+    }
+  } catch (err) {
+    console.warn(`[usdt-payment] 链上取证失败(${net},txHash=${txHash}):`, errReason(err))
+    return {
+      verified: false,
+      reason: `链上取证失败: ${errReason(err)}`,
+      network: net,
+      txHash,
+      amountOnChain: null,
+      to: null,
+      confirmations: null,
+    }
+  }
+}
+
+/**
+ * P0 资金安全修复(2026-09-06):带链上取证的确认入账。
+ * 先按订单读盘,再调 verifyUsdtOnChain 做服务端取证校验;
+ * 校验通过 → 以服务端取证金额(而非调用方回传金额)调用 confirmUsdtPayment 入账;
+ * 校验未通过 → 返回 status=pending + pendingReason,等待轮询 worker 复查(不信任客户端回传金额)。
+ */
+export async function confirmUsdtPaymentWithOnChainCheck(
+  orderId: string,
+  txHash: string,
+): Promise<ConfirmResult> {
+  const [order] = await dbRead.select().from(usdtPayments).where(eq(usdtPayments.orderId, orderId)).limit(1)
+  if (!order) throw Object.assign(new Error('订单不存在'), { statusCode: 404 })
+
+  // 已确认/已过期等终态:委托 confirmUsdtPayment 做幂等返回
+  if (order.status !== 'pending') {
+    const fallbackAmount =
+      order.amountPaid && order.amountPaid !== '0' ? Number(order.amountPaid) : Number(order.amount)
+    return confirmUsdtPayment(orderId, txHash, fallbackAmount)
+  }
+
+  const verification = await verifyUsdtOnChain(order.network, txHash, Number(order.amount), order.address)
+  if (!verification.verified || verification.amountOnChain === null) {
+    console.info(
+      `[usdt-payment] 订单 ${orderId} 链上取证未通过,保持 pending: ${verification.reason}`,
+    )
+    return { orderId, status: 'pending', tokensCredited: 0, pendingReason: verification.reason }
+  }
+
+  // 以服务端取证金额入账(客户端 amountPaid 仅作提示,不作为入账依据)
+  return confirmUsdtPayment(orderId, txHash, verification.amountOnChain)
 }
 
 // =============================================================================
@@ -505,6 +762,16 @@ export async function confirmUsdtPayment(
 
   if (order.status !== 'pending') {
     throw Object.assign(new Error(`订单状态为 ${order.status},无法确认`), { statusCode: 400 })
+  }
+
+  // P0 资金安全修复(2026-09-06):入账前强校验实收金额与订单金额精确匹配。
+  // 调用方必须传服务端链上取证金额;凡使用客户端回传金额的入口一律拦截(防止超付/少付入账)。
+  const expectedAmount = Number(order.amount)
+  if (!Number.isFinite(expectedAmount) || Math.abs(amountPaid - expectedAmount) > AMOUNT_EPS) {
+    console.warn(
+      `[usdt-payment] 订单 ${orderId} 实收金额 ${amountPaid} 与订单金额 ${expectedAmount} 不一致,拒绝入账`,
+    )
+    throw Object.assign(new Error('链上实收金额与订单金额不一致,拒绝入账'), { statusCode: 400 })
   }
 
   const config = await getUsdtPaymentConfig()
@@ -624,9 +891,11 @@ export async function pollPendingUsdtPayments(batchSize = 50): Promise<PollResul
     checked++
     try {
       const status = await checkUsdtPaymentStatus(orderId)
-      if (status.detected && status.txHash && status.amountPaid) {
-        await confirmUsdtPayment(orderId, status.txHash, status.amountPaid)
-        confirmed++
+      // P0 资金安全修复(2026-09-06):轮询确认必须走服务端链上取证,
+      // 校验确认数/金额/地址通过后才入账;客户端 amountPaid 不作为入账依据。
+      if (status.detected && status.txHash) {
+        const r = await confirmUsdtPaymentWithOnChainCheck(orderId, status.txHash)
+        if (r.status === 'confirmed') confirmed++
       }
     } catch (err) {
       console.error(

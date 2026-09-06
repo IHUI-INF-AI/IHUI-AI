@@ -129,6 +129,11 @@ const envSchema = z.object({
   WX_PAY_COURSE_NOTIFY_URL: optionalUrl(''),
   WX_ANDROID_NOTIFY_URL: optionalUrl(''),
 
+  // USDT 链上取证确认数阈值(P0 资金安全修复 2026-09-06)
+  // 实收 USDT 转账达到该确认数后才允许确认入账(防短时间 double-spend/重组回滚)。
+  USDT_CONFIRM_TRC20_MIN: z.coerce.number().int().min(0).default(3),
+  USDT_CONFIRM_ERC20_MIN: z.coerce.number().int().min(0).default(12),
+
   // 信任代理配置(2026-07-21 安全审计第十轮加固)
   // 严禁 `trustProxy: true` 一刀切 — 任意客户端可伪造 X-Forwarded-For 头绕过 IP 限流/IP 拉黑
   // 生产环境必须显式列出可信代理 IP/CIDR(逗号分隔),如:

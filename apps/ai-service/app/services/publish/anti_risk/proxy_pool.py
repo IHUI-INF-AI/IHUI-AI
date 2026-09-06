@@ -44,6 +44,12 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+# SSL 证书校验:默认校验证书(防 MITM)。仅当确实存在自签名/内部代理节点需要放宽时，
+# 在运行环境中显式设 PROXY_POOL_SSL_VERIFY=false 关闭(默认仍为 True)。
+PROXY_SSL_VERIFY = (
+    os.getenv('PROXY_POOL_SSL_VERIFY', 'true').strip().lower() not in ('0', 'false', 'no', 'off')
+)
+
 
 # 健康检查目标 URL(轻量、稳定、支持 HEAD)
 _HEALTH_CHECK_URL = "https://www.baidu.com/"
@@ -346,7 +352,7 @@ class ProxyPool:
             async with httpx.AsyncClient(
                 proxy=proxy_dict["server"],
                 timeout=_HEALTH_CHECK_TIMEOUT,
-                verify=False,  # 代理证书可能自签,不验证
+                verify=PROXY_SSL_VERIFY,  # 默认校验证书(防 MITM)，需要放宽时设 PROXY_POOL_SSL_VERIFY=false
             ) as client:
                 resp = await client.head(_HEALTH_CHECK_URL)
                 response_ms = (time.time() - start) * 1000
