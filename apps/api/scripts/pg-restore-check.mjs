@@ -16,8 +16,9 @@
 //
 // 退出码: 0 = 校验通过; 1 = 校验失败(可用于 CI/告警)。
 import { spawn } from 'node:child_process'
-import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, createReadStream, unlinkSync, writeFileSync } from 'node:fs'
+import { readFileSync, existsSync, mkdirSync, readdirSync, statSync, createReadStream, createWriteStream, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { createGunzip } from 'node:zlib'
 import { fileURLToPath } from 'node:url'
 
@@ -32,6 +33,7 @@ const PG_DUMP_PATHS = [
   'C:\\Program Files\\PostgreSQL\\16\\bin\\psql.exe',
   'C:\\Program Files\\PostgreSQL\\15\\bin\\psql.exe',
   'C:\\Program Files\\PostgreSQL\\14\\bin\\psql.exe',
+  'D:\\DevEnv\\runtimes\\pgsql\\bin\\psql.exe',
   'psql',
 ]
 
@@ -92,24 +94,46 @@ async function verifyIntegrity(file) {
 }
 
 // B) 完整恢复演练
+// 注: 数据备份含 CREATE EXTENSION(如 vector), 该语句仅 superuser 可执行。
+//     因此恢复演练必须用超级用户(postgres,本地 pg_hba trust)连接, 否则会因
+//     "permission denied to create extension" 中断 —— 与 NSSM 生产链(pg-backup.ps1 用
+//     postgres 超管)保持一致。可用环境变量 PG_ADMIN_USER/PG_ADMIN_PASSWORD 覆盖。
 async function restoreDrill(file, conn) {
   const psql = PG_DUMP_PATHS.find((p) => existsSync(p)) ?? 'psql'
-  const baseEnv = { PGPASSWORD: conn.pass }
+  // 用超级用户连接(默认 postgres/本地 trust), host/port/db 取 .env DATABASE_URL
+  const adminUser = process.env.PG_ADMIN_USER || 'postgres'
+  const adminPass = process.env.PG_ADMIN_PASSWORD || ''
+  const adminConn = { ...conn, user: adminUser, pass: adminPass }
+  const baseEnv = { PGPASSWORD: adminConn.pass }
+  const adminArgs = ['-h', adminConn.host, '-p', adminConn.port, '-U', adminConn.user]
   // 1) 创建一次性临时库(连维护库 postgres)
-  const createRes = await run(psql, ['-h', conn.host, '-p', conn.port, '-U', conn.user, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${TEMP_DB}`], baseEnv)
+  const createRes = await run(psql, [...adminArgs, '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-c', `CREATE DATABASE ${TEMP_DB}`], baseEnv)
   if (createRes.code !== 0) throw new Error(`创建临时库失败: ${createRes.err.trim() || createRes.out.trim()}`)
-  // 2) 解压备份并流式灌入临时库(psql 从 stdin 读取 SQL)
+  // 2) 解压备份到临时文件,再用 psql -f 灌入(避免流式写子进程 stdin 在 Windows 上
+  //    不发送 EOF 导致 psql 悬挂不退出的问题,也能让 psql 干净终止并拿到真实退出码)
   console.log(`[restore-drill] 开始恢复到临时库 ${TEMP_DB} ...`)
-  const psqlProc = spawn(psql, ['-h', conn.host, '-p', conn.port, '-U', conn.user, '-d', TEMP_DB, '-v', 'ON_ERROR_STOP=1'], {
-    env: { ...process.env, ...baseEnv },
+  const tmpSql = join(tmpdir(), `${TEMP_DB}.sql`)
+  await new Promise((resolve, reject) => {
+    const gunzip = createGunzip()
+    const rs = createReadStream(file)
+    const ws = createWriteStream(tmpSql)
+    rs.pipe(gunzip).pipe(ws)
+    gunzip.on('error', reject)
+    ws.on('error', reject)
+    ws.on('finish', resolve)
   })
-  let psqlErr = ''
-  psqlProc.stderr.on('data', (d) => (psqlErr += d))
-  const exit = new Promise((resolve) => psqlProc.on('close', (code) => resolve(code ?? 0)))
-  const gunzip = createGunzip()
-  createReadStream(file).pipe(gunzip).pipe(psqlProc.stdin)
-  const code = await exit
-  if (code !== 0) throw new Error(`psql 恢复退出码 ${code}: ${psqlErr.trim().slice(0, 500)}`)
+  const result = await run(psql, [...adminArgs, '-d', TEMP_DB, '-v', 'ON_ERROR_STOP=1', '-f', tmpSql], baseEnv)
+  try { unlinkSync(tmpSql) } catch { /* ignore */ }
+  if (result.code !== 0) throw new Error(`psql 恢复退出码 ${result.code}: ${result.err.trim().slice(0, 500)}`)
+  // 3) 成功路径也立即清理临时库(避免堆残留临时库)
+  await dropTempDb(adminConn)
+}
+
+async function dropTempDb(adminConn) {
+  const psql = PG_DUMP_PATHS.find((p) => existsSync(p)) ?? 'psql'
+  const baseEnv = { PGPASSWORD: adminConn.pass }
+  const res = await run(psql, ['-h', adminConn.host, '-p', adminConn.port, '-U', adminConn.user, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${TEMP_DB}`], baseEnv)
+  if (res.code !== 0) throw new Error(`清理临时库失败: ${res.err.trim().slice(0, 300)}`)
 }
 
 async function main() {
@@ -135,16 +159,16 @@ async function main() {
   // B) 恢复演练(仅显式授权)
   if (ALLOW_RESTORE) {
     const conn = loadDbUrl()
+    const adminUser = process.env.PG_ADMIN_USER || 'postgres'
+    const adminPass = process.env.PG_ADMIN_PASSWORD || ''
+    const adminConn = { ...conn, user: adminUser, pass: adminPass }
     try {
       await restoreDrill(file, conn)
       console.log(`[restore-check] ✓ 恢复演练通过: 备份可完整还原到临时库 ${TEMP_DB}(已清理)`)
     } catch (e) {
       console.error(`[restore-check] ❌ 恢复演练失败: ${e.message}`)
       // 尽力清理临时库
-      try {
-        const psql = PG_DUMP_PATHS.find((p) => existsSync(p)) ?? 'psql'
-        await run(psql, ['-h', conn.host, '-p', conn.port, '-U', conn.user, '-d', 'postgres', '-c', `DROP DATABASE IF EXISTS ${TEMP_DB}`], { PGPASSWORD: conn.pass })
-      } catch { /* ignore */ }
+      try { await dropTempDb(adminConn) } catch { /* ignore */ }
       process.exit(1)
     }
   } else {
