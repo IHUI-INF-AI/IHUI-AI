@@ -1577,7 +1577,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       marginBottom: 16,
       padding: 5,
       borderRadius: 10,
-      backgroundColor: colorScheme === 'dark' ? '#343434' : '#EBEBEB',
+      backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
       // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
       borderWidth: 1,
       borderColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
