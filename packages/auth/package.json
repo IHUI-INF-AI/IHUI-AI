@@ -19,9 +19,7 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
-    "@ihui/types": "workspace:*",
     "@simplewebauthn/server": "^13.3.2",
-    "bcryptjs": "^3.0.3",
     "jose": "^6.2.7",
     "ioredis": "^6.0.0"
   },
