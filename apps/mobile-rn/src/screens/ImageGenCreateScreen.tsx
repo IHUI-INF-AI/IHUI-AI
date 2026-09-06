@@ -9,6 +9,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
 import { fetchApi, resolveFileUrl } from '@ihui/api-client'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -34,6 +35,7 @@ const SIZES: ReadonlyArray<{ value: string; labelKey: string }> = [
 export function ImageGenCreateScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [prompt, setPrompt] = useState('')
   const [size, setSize] = useState('1024x1024')
@@ -105,7 +107,7 @@ export function ImageGenCreateScreen() {
           value={prompt}
           onChangeText={setPrompt}
           placeholder={t('imageGen.promptPlaceholder')}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={tk.text.tertiary}
           multiline
           numberOfLines={4}
           textAlignVertical="top"
