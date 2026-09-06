@@ -15,6 +15,7 @@ import { useGlobalNotification } from '@/hooks/use-global-notification'
 import { useAuthBootstrap } from '@/hooks/use-auth-bootstrap'
 import { useDesktopEvents, useDesktopDeepLink } from '@/hooks/use-desktop'
 import { useAgentControl } from '@/hooks/use-agent-control'
+import { useNativePushRegister } from '@/hooks/use-native-push'
 import { CommandPalette } from '@/components/layout/CommandPalette'
 import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
@@ -74,6 +75,9 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   useDesktopDeepLink()
   // 桌面端 agent-control 桥:上报 computer 能力 + 消费 agent.action 推送(浏览器端 no-op)
   useAgentControl()
+  // App 端(Capacitor 壳)推送令牌注册:登录后监听 FCM registration 并上报设备注册表
+  // (浏览器端 no-op,window.Capacitor 不存在;详见 use-native-push.ts)
+  useNativePushRegister()
   const { setTheme } = useTheme()
   const [showCommandPalette, setShowCommandPalette] = React.useState(false)
 

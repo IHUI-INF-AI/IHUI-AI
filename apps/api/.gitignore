@@ -4,3 +4,4 @@ node_modules/
 drizzle/
 *.tsbuildinfo
 .env*.local
+firebase-service-account.json
