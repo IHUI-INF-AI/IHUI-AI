@@ -154,11 +154,11 @@
   margin-left: 12rpx;
 }
 .cal-badge-upcoming {
-  background: rgba(245, 158, 11, 0.12);
+  background: var(--color-gold-muted);
   color: var(--color-warning);
 }
 .cal-badge-living {
-  background: rgba(221, 82, 77, 0.12);
+  background: var(--color-danger-tint);
   color: var(--color-destructive);
 }
 .cal-badge-ended {

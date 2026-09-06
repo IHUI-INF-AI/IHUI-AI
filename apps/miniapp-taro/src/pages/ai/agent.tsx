@@ -4,6 +4,7 @@
 
 import { useTt, useI18n, type TtFn, t } from '@/i18n'
 import { View, Text, ScrollView, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useMemo, useCallback } from 'react'
 import { getAgentList } from '@/api'
@@ -365,7 +366,7 @@ export default function AgentPage() {
                   return (
                     <View
                       key={cat.key}
-                      className={`inline-block px-4 py-2 mr-2 rounded-lg text-sm ${active ? 'bg-[var(--color-primary)] text-white' : 'bg-muted text-muted-foreground'}`}
+                      className={`inline-block px-4 py-2 mr-2 rounded-lg text-sm ${active ? 'bg-[var(--color-primary)] text-primary-foreground' : 'bg-muted text-muted-foreground'}`}
                       onClick={() => setActiveCategory(cat.key)}
                     >
                       <Text>{cat.label}</Text>
@@ -420,7 +421,7 @@ export default function AgentPage() {
                     src={agent.avatar || '/static/default-agent.png'}
                     mode="aspectFill"
                   />
-                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-amber-500 text-white text-[20rpx]">
+                  <View className="absolute top-0 left-0 px-[6rpx] py-[1rpx] rounded bg-[var(--color-gold)] text-white text-[20rpx]">
                     <Text>NO.{idx + 1}</Text>
                   </View>
                 </View>
@@ -473,7 +474,7 @@ export default function AgentPage() {
                         {agent.name}
                       </Text>
                       {agent.isVipExclusive && (
-                        <Text className="ml-2 text-[20rpx] px-[8rpx] py-[2rpx] rounded bg-amber-50 text-amber-600">
+                        <Text className="ml-2 text-[20rpx] px-[8rpx] py-[2rpx] rounded bg-[var(--color-gold-muted)] text-[var(--color-gold)]">
                           VIP
                         </Text>
                       )}
@@ -491,13 +492,13 @@ export default function AgentPage() {
                       )}
                       {rating > 0 && (
                         <View className="flex items-center mr-2">
-                          <Image
-                            src="/static/images/icons/star-fill.svg"
-                            mode="aspectFit"
+                          <LineIcon
+                            name="star-fill"
+                            size={22}
+                            color="var(--color-gold)"
                             className="mr-[6rpx]"
-                            style={{ width: '22rpx', height: '22rpx' }}
                           />
-                          <Text className="text-[22rpx] text-amber-500">{rating.toFixed(1)}</Text>
+                          <Text className="text-[22rpx] text-[var(--color-gold)]">{rating.toFixed(1)}</Text>
                         </View>
                       )}
                       {agent.uses !== undefined && (
@@ -519,14 +520,14 @@ export default function AgentPage() {
 
       {/* 创建智能体悬浮按钮(对标原项目 dev_enter 入口) */}
       <View
-        className="fixed right-4 bg-[var(--color-primary)] text-white rounded-lg px-3 py-2 shadow-lg"
+        className="fixed right-4 bg-[var(--color-primary)] text-primary-foreground rounded-lg px-3 py-2 shadow-lg"
         style={{ bottom: '140rpx' }}
         onClick={onCreateAgent}
       >
         <Text className="text-[24rpx]">+ {t('ai.agentList.createAgent')}</Text>
       </View>
 
-      <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_rgba(0,0,0,0.04)]">
+      <View className="fixed bottom-0 left-0 right-0 bg-card shadow-[0_-1px_2px_var(--color-black-4)]">
         <BottomActionBar
           value={keyword}
           onInput={setKeyword}

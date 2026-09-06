@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import './LessonListItem.css'
 import { icon } from '@/constants/remote-icons'
 
@@ -71,7 +72,7 @@ export default function LessonListItem({
     video: icon('videoIcon'),
     audio: icon('yinpinIcon'),
     article: tt('lesson.articleType', '文'),
-    live: '/static/images/icons/radio.svg',
+    live: 'radio',
   }
 
   // show* 默认(undefined)= 按数据自动判断;显式 true/false 强制覆盖。
@@ -336,7 +337,7 @@ export default function LessonListItem({
       )}
       {data.watched && <Text className="text-xs text-primary mr-2">✓</Text>}
       {data.locked && (
-        <Image className="w-3 h-3 mr-2" src="/static/images/icons/lock.svg" mode="aspectFit" />
+        <LineIcon name="lock" size="12px" color="var(--color-muted-foreground)" className="mr-2" />
       )}
     </View>
   )
