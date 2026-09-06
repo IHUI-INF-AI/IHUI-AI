@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useTt } from '@/i18n'
-import { View, Button, Text, Image } from '@tarojs/components'
+import { View, Button, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import { useState, useEffect, useRef, type CSSProperties } from 'react'
 import Taro from '@tarojs/taro'
 import { getSystemInfoCompat } from '@/utils/system-info'
@@ -123,11 +124,10 @@ export default function CustomerServiceFloat({
           sendMessageTitle={tt('common.customerService', '客服咨询')}
           sendMessagePath="/pages/index/index"
         >
-          <Image
+          <LineIcon
             className="cs-float-icon"
-            style={{ width: '32rpx', height: '32rpx' }}
-            src="/static/images/icons/message-circle.svg"
-            mode="aspectFit"
+            name="message-circle"
+            size={32}
           />
           <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
         </Button>
@@ -220,11 +220,7 @@ export default function CustomerServiceFloat({
           className="flex flex-col items-center justify-center bg-warning rounded-xl shadow-lg"
           style={{ width: `${FLOAT_BTN_SIZE}px`, height: `${FLOAT_BTN_SIZE}px` }}
         >
-          <Image
-            style={{ width: '16px', height: '16px', lineHeight: 1 }}
-            src="/static/images/icons/wallet.svg"
-            mode="aspectFit"
-          />
+          <LineIcon name="wallet" size="16px" color="var(--color-warning-foreground)" />
           {typeof commissionAmount === 'number' && (
             <Text
               className="text-warning-foreground"
@@ -261,11 +257,10 @@ export default function CustomerServiceFloat({
         sendMessageTitle={tt('common.customerService', '客服咨询')}
         sendMessagePath="/pages/index/index"
       >
-        <Image
+        <LineIcon
           className="cs-float-icon"
-          style={{ width: '32rpx', height: '32rpx' }}
-          src="/static/images/icons/message-circle.svg"
-          mode="aspectFit"
+          name="message-circle"
+          size={32}
         />
         <Text className="cs-float-label">{tt('common.consult', '咨询')}</Text>
       </Button>

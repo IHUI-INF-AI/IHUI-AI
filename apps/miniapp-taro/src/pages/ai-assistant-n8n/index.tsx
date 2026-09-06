@@ -19,24 +19,24 @@ function getStatusInfo(
   if (s === 'active' || s === 'running' || s === '1' || s === 'published') {
     return {
       label: tt('aiAssistantN8n.statusActive', '运行中'),
-      cls: 'text-success bg-[rgba(22,163,74,0.1)]',
+      cls: 'text-success bg-success/[0.1]',
     }
   }
   if (s === 'draft' || s === '0') {
     return {
       label: tt('aiAssistantN8n.statusDraft', '草稿'),
-      cls: 'text-muted-foreground bg-[rgba(107,114,128,0.1)]',
+      cls: 'text-muted-foreground bg-muted/10',
     }
   }
   if (s === 'inactive' || s === 'stopped' || s === 'offline') {
     return {
       label: tt('aiAssistantN8n.statusInactive', '已停用'),
-      cls: 'text-destructive bg-[rgba(220,38,38,0.1)]',
+      cls: 'text-destructive bg-destructive/[0.1]',
     }
   }
   return {
     label: tt('aiAssistantN8n.statusUnknown', '未知'),
-    cls: 'text-muted-foreground bg-[rgba(107,114,128,0.1)]',
+    cls: 'text-muted-foreground bg-muted/10',
   }
 }
 

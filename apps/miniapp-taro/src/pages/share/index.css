@@ -82,7 +82,7 @@
   border: 1rpx solid var(--color-border);
   border-radius: 20rpx;
   overflow: hidden;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 8rpx 24rpx var(--color-black-6);
 }
 .share-rank-card-header {
   display: flex;
@@ -231,7 +231,7 @@
   background: var(--color-card);
   padding: 0;
   animation: shareSlideDown 0.25s ease;
-  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8rpx 32rpx var(--color-black-40);
   border-bottom: 1rpx solid var(--color-muted);
 }
 .share-tag-panel-header {
@@ -291,7 +291,7 @@
   top: 0;
   bottom: 0;
   z-index: 899;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--color-black-40);
   touch-action: none;
   overflow: hidden;
 }

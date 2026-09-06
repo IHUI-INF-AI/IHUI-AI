@@ -83,7 +83,7 @@ const viewStyles = {
     paddingBottom: toRpx(6),
     marginTop: toRpx(10),
     borderRadius: toRpx(5),
-    backgroundColor: tk.indigo.light,
+    backgroundColor: tk.surface.muted,
   }),
   item: (
     tk: RnThemeTokens,

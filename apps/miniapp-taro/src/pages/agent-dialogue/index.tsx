@@ -6,6 +6,7 @@ import { useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { BASE_URL } from '@/utils/api-config'
 import { View, Text, Image, Video, ScrollView, Input } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useReady } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import * as api from '@/api'
@@ -535,10 +536,14 @@ export default function AgentDialogue() {
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
           <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
-            <Image
-              style={{ width: '26rpx', height: '26rpx' }}
-              src="/static/images/icons/headphones.svg"
-              mode="aspectFit"
+            <LineIcon
+              name="headphones"
+              size={26}
+              color={
+                msg.type === 'user'
+                  ? 'var(--color-primary-foreground)'
+                  : 'var(--color-muted-foreground)'
+              }
             />
             <Text>{tt('agentDialogue.audioMessage', '音频消息')}</Text>
           </View>
@@ -553,10 +558,14 @@ export default function AgentDialogue() {
       return (
         <View className="flex flex-col gap-[8rpx] p-[20rpx] px-[24rpx]">
           <View className={`flex items-center gap-[8rpx] text-[26rpx] ${mediaTextColor}`}>
-            <Image
-              style={{ width: '26rpx', height: '26rpx' }}
-              src="/static/images/icons/paperclip.svg"
-              mode="aspectFit"
+            <LineIcon
+              name="paperclip"
+              size={26}
+              color={
+                msg.type === 'user'
+                  ? 'var(--color-primary-foreground)'
+                  : 'var(--color-muted-foreground)'
+              }
             />
             <Text>{tt('agentDialogue.fileMessage', '文件消息')}</Text>
           </View>
@@ -612,10 +621,10 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Image
-                        className="w-[32rpx] h-[32rpx]"
-                        src="/static/images/icons/user.svg"
-                        mode="aspectFit"
+                      <LineIcon
+                        name="user"
+                        size={32}
+                        color="var(--color-muted-foreground)"
                       />
                     )}
                   </View>
@@ -626,10 +635,10 @@ export default function AgentDialogue() {
                     {msg.avatar ? (
                       <Image src={msg.avatar} mode="aspectFill" className="w-full h-full" />
                     ) : (
-                      <Image
-                        className="w-[32rpx] h-[32rpx]"
-                        src="/static/images/icons/bot.svg"
-                        mode="aspectFit"
+                      <LineIcon
+                        name="bot"
+                        size={32}
+                        color="var(--color-muted-foreground)"
                       />
                     )}
                   </View>

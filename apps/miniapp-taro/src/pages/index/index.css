@@ -39,10 +39,7 @@
   --color-brand-purple-soft: var(--color-brand);
   --color-ios-blue: var(--color-link);
 
-  /* 遮罩(黑/白透明度与主题无关,保留) */
-  --color-overlay-40: rgba(0, 0, 0, 0.4);
-  --color-overlay-50: rgba(0, 0, 0, 0.5);
-  --color-overlay-70: rgba(0, 0, 0, 0.7);
+  /* 遮罩已统一收敛至全局 --color-black-* 档位(原本地 --color-overlay-40/50/70 为死代码,已删) */
 }
 
 /* ===== 顶部品牌区脉冲动画(对齐原项目 .share-image pulse)===== */
@@ -237,7 +234,7 @@
 
 .ai-chu-row-active {
   border-color: var(--color-foreground);
-  box-shadow: 0 0 10rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 10rpx var(--color-black-10);
 }
 
 /* 关闭按钮(AGENTS §4 圆角守门豁免:close 按钮) */
@@ -261,7 +258,7 @@
   border-radius: var(--radius-xl);
   margin: 10rpx 0;
   overflow: hidden;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4rpx 20rpx var(--color-black-8);
 }
 
 /* Tab 栏 */
@@ -319,7 +316,7 @@
 }
 
 .material-list-item:active {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--color-black-5);
 }
 
 .material-list-item:last-child {
@@ -439,7 +436,7 @@
 
 /* ===== 语音输入动画(对齐原项目 .voice-animation-overlay) ===== */
 .voice-animation-overlay {
-  box-shadow: 0 -4rpx 20rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4rpx 20rpx var(--color-black-10);
 }
 
 .voice-wave-container {

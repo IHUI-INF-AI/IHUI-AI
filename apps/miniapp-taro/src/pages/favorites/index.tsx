@@ -10,6 +10,7 @@ import { getFavorites, deleteFavorite, type FavoriteItem } from '@/api/social'
 import { useSocialList } from '@/hooks/use-social-list'
 import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const PAGE_SIZE = 20
 
@@ -182,11 +183,11 @@ export default function FavoritesPage() {
           </Text>
         </View>
         <View className="flex items-center h-[72rpx] px-[20rpx] bg-card border-[2rpx] border-primary/30 rounded-[12rpx]">
-          <Image
-            className="mr-[12rpx] text-muted-foreground shrink-0"
-            style={{ width: '28rpx', height: '28rpx' }}
-            src="/static/images/icons/search.svg"
-            mode="aspectFit"
+          <LineIcon
+            name="search"
+            size={28}
+            className="mr-[12rpx] shrink-0"
+            color="var(--color-muted-foreground)"
           />
           <Input
             className="flex-1 text-[28rpx] text-foreground"
@@ -283,7 +284,7 @@ export default function FavoritesPage() {
                       </Text>
                       {!manageMode ? (
                         <Text
-                          className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-[rgba(220,38,38,0.08)] border-[2rpx] border-[rgba(220,38,38,0.2)] rounded-[8rpx]"
+                          className="py-[8rpx] px-[20rpx] text-[24rpx] text-destructive bg-destructive/[0.08] border-[2rpx] border-destructive/20 rounded-[8rpx]"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleCancel(item)
@@ -304,10 +305,10 @@ export default function FavoritesPage() {
       {/* 空状态:暂无收藏 + 去发现 */}
       {displayList.length === 0 && !loading ? (
         <View className="mt-[120rpx] flex flex-col items-center">
-          <Image
-            style={{ width: '80rpx', height: '80rpx' }}
-            src="/static/images/icons/star-fill.svg"
-            mode="aspectFit"
+          <LineIcon
+            name="star"
+            size={80}
+            color="var(--color-brand)"
           />
           <Text className="mt-[20rpx] text-[28rpx] text-muted-foreground">
             {searchText || activeTab !== 'all'

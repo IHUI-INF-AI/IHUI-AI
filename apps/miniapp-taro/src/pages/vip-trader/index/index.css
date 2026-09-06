@@ -49,7 +49,7 @@
 .trader-badge {
   margin-left: 12rpx;
   padding: 4rpx 12rpx;
-  background: rgba(245, 158, 11, 0.12);
+  background: var(--color-gold-muted);
   border-radius: var(--radius-sm);
 }
 .trader-badge-text {
@@ -210,7 +210,7 @@
   width: 64rpx;
   height: 64rpx;
   border-radius: var(--radius-md);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -365,7 +365,7 @@
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4rpx 16rpx var(--color-black-6);
 }
 .footer-btn {
   flex: 1;
@@ -379,7 +379,7 @@
 }
 .footer-btn-ghost {
   color: var(--color-warning);
-  background: rgba(245, 158, 11, 0.1);
+  background: var(--color-gold-muted);
 }
 .footer-btn-primary {
   color: var(--color-primary-foreground);

@@ -5,6 +5,7 @@
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button, Image } from '@tarojs/components'
+import LineIcon, { type IconName } from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import {
@@ -67,37 +68,37 @@ export default function VipIndexPage() {
     () => [
       {
         id: 'ai_copywriting',
-        icon: '/static/images/icons/sparkles.svg',
+        icon: 'sparkles',
         title: tt('vip.feature.aiCopywriting', 'AI营销文案'),
         desc: tt('vip.feature.aiCopywritingDesc', '智能生成各类营销文案'),
       },
       {
         id: 'ai_chat',
-        icon: '/static/images/icons/message-circle.svg',
+        icon: 'message-circle',
         title: tt('vip.feature.aiChat', 'AI智能对话'),
         desc: tt('vip.feature.aiChatDesc', '智能助手解答各类问题'),
       },
       {
         id: 'ai_analysis',
-        icon: '/static/images/icons/bar-chart-3.svg',
+        icon: 'bar-chart-3',
         title: tt('vip.feature.aiAnalysis', 'AI数据分析'),
         desc: tt('vip.feature.aiAnalysisDesc', '智能分析各类数据报表'),
       },
       {
         id: 'ai_design',
-        icon: '/static/images/icons/palette.svg',
+        icon: 'palette',
         title: tt('vip.feature.aiDesign', 'AI智能设计'),
         desc: tt('vip.feature.aiDesignDesc', '智能生成图片和设计'),
       },
       {
         id: 'ai_video',
-        icon: '/static/images/icons/film.svg',
+        icon: 'film',
         title: tt('vip.feature.aiVideo', 'AI视频制作'),
         desc: tt('vip.feature.aiVideoDesc', '智能生成视频内容'),
       },
       {
         id: 'ai_live',
-        icon: '/static/images/icons/radio.svg',
+        icon: 'radio',
         title: tt('vip.feature.aiLive', 'AI直播助手'),
         desc: tt('vip.feature.aiLiveDesc', '智能直播辅助工具'),
       },
@@ -285,10 +286,10 @@ export default function VipIndexPage() {
             {features.map((f) => (
               <View key={f.id} className="feature-item">
                 <View className="feature-icon">
-                  <Image
-                    style={{ width: '40rpx', height: '40rpx' }}
-                    src={f.icon}
-                    mode="aspectFit"
+                  <LineIcon
+                    name={f.icon as IconName}
+                    size={40}
+                    color="var(--color-muted-foreground)"
                   />
                 </View>
                 <View className="feature-info">
@@ -435,11 +436,11 @@ export default function VipIndexPage() {
                   <View className="pp-pay-icon wechat">{tt('pay.wechat', '微')}</View>
                   <Text className="pp-pay-name">{t('vip.index.wechatPay')}</Text>
                   {payMethod === 'wechat' ? (
-                    <Image
+                    <LineIcon
                       className="pp-pay-check"
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '32rpx', height: '32rpx' }}
+                      name="check"
+                      size={32}
+                      color="var(--color-brand)"
                     />
                   ) : null}
                 </View>
@@ -450,11 +451,11 @@ export default function VipIndexPage() {
                   <View className="pp-pay-icon alipay">{tt('pay.alipay', '付')}</View>
                   <Text className="pp-pay-name">{t('vip.index.alipay')}</Text>
                   {payMethod === 'alipay' ? (
-                    <Image
+                    <LineIcon
                       className="pp-pay-check"
-                      src="/static/images/icons/check.svg"
-                      mode="aspectFit"
-                      style={{ width: '32rpx', height: '32rpx' }}
+                      name="check"
+                      size={32}
+                      color="var(--color-brand)"
                     />
                   ) : null}
                 </View>
@@ -471,11 +472,7 @@ export default function VipIndexPage() {
           <View className="pp-mask">
             <View className="pp-card">
               <View className="pp-success-icon">
-                <Image
-                  src="/static/images/icons/check-success.svg"
-                  mode="aspectFit"
-                  style={{ width: '64rpx', height: '64rpx' }}
-                />
+                <LineIcon name="check-success" size={64} color="var(--color-success)" />
               </View>
               <View className="pp-title">{t('vip.index.successTitle')}</View>
               <View className="pp-body">

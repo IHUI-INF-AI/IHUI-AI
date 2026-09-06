@@ -57,7 +57,7 @@ const THEME_CHROME: Record<
     navFront: '#000000',
     windowBg: '#f5f5f5',
     tabColor: '#9CA3AF',
-    tabSelected: '#6366F1',
+    tabSelected: '#000000',
     tabBg: '#ffffff',
     tabBorder: 'white',
   },
