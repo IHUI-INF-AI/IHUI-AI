@@ -20,7 +20,7 @@
  *   无参数: 全量扫描,发现 migration 缺失 exit 1,无问题 exit 0
  *   --staged: pre-commit 模式(同上,因为 schema drift 是全局问题)
  */
-import { readFileSync, readdirSync, existsSync } from 'node:fs'
+import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = process.cwd()
@@ -55,6 +55,51 @@ const C = {
   bold: '\x1b[1m',
   reset: '\x1b[0m',
 }
+
+/**
+ * 运行时权威表名解析(2026-09-06 增强,根治文本解析盲区):
+ * 文本级 grep 无法区分 schema 文件中的"幽灵引用"(注释/残留文本)与真实 pgTable 定义,
+ * 曾导致死表名单虚高误判(如 payment_callbacks 定义文件只剩注释)。
+ * 权威源 = packages/database/dist/schema 的运行时 pgTable 符号(Symbol drizzle:Name)。
+ * 陈旧防护:dist 产物 mtime 早于 schema 源码最新 mtime 时视为陈旧,回退文本解析并告警
+ * (陈旧 dist 会漏掉当天新增表,曾致 device_tokens 被误判死表)。
+ */
+function loadRuntimeSchemaTables() {
+  const distEntry = join(ROOT, 'packages/database/dist/schema/index.js')
+  if (!existsSync(distEntry)) return { tables: null, mode: 'no-dist' }
+
+  // 陈旧检测: dist 必须不旧于 schema 目录最新源码
+  let newestSchemaMtime = 0
+  for (const entry of readdirSync(SCHEMA_DIR)) {
+    if (!entry.endsWith('.ts')) continue
+    const m = statSync(join(SCHEMA_DIR, entry)).mtimeMs
+    if (m > newestSchemaMtime) newestSchemaMtime = m
+  }
+  if (statSync(distEntry).mtimeMs < newestSchemaMtime) {
+    return { tables: null, mode: 'stale-dist' }
+  }
+
+  const tables = new Set()
+  try {
+    const schema = require(distEntry)
+    for (const v of Object.values(schema)) {
+      if (!v || typeof v !== 'object') continue
+      const syms = Object.getOwnPropertySymbols(v)
+      const nameSym = syms.find((s) => String(s).includes('drizzle:Name'))
+      if (nameSym !== undefined && typeof v[nameSym] === 'string') {
+        tables.add(v[nameSym].toLowerCase())
+      }
+    }
+  } catch {
+    return { tables: null, mode: 'import-failed' }
+  }
+  if (tables.size === 0) return { tables: null, mode: 'empty' }
+  return { tables, mode: 'runtime' }
+}
+
+// .mjs 中使用 createRequire 加载 CJS 编译产物
+import { createRequire } from 'node:module'
+const require = createRequire(import.meta.url)
 
 /**
  * 解析 TS schema 中所有 pgTable 定义的表名。
@@ -154,7 +199,17 @@ function scanMigrations() {
 }
 
 function main() {
-  const { tables: tsTables, files: schemaFiles } = parseTsSchemaTables()
+  // 运行时权威优先: dist 存在且新鲜时用真实 pgTable 符号,否则回退文本解析
+  const rt = loadRuntimeSchemaTables()
+  let tsTables, schemaFiles
+  if (rt.tables) {
+    tsTables = rt.tables
+    schemaFiles = readdirSync(SCHEMA_DIR).filter((f) => f.endsWith('.ts'))
+  } else {
+    const parsed = parseTsSchemaTables()
+    tsTables = parsed.tables
+    schemaFiles = parsed.files
+  }
   const { finalTables: migTables, createdTables, droppedTables, files: migFiles } =
     scanMigrations()
 
@@ -192,8 +247,12 @@ function main() {
 
   // ============ 输出报告 ============
   console.log(`${C.bold}=== schema drift check report ===${C.reset}`)
+  const modeHint =
+    rt.mode === 'runtime'
+      ? `${C.dim}(运行时权威: dist schema pgTable 符号)${C.reset}`
+      : `${C.yellow}(文本解析回退: dist ${rt.mode},建议 pnpm --filter @ihui/database build 后重跑)${C.reset}`
   console.log(
-    `  TS schema tables:    ${C.cyan}${tsTables.size}${C.reset} (${schemaFiles.length} 文件)`,
+    `  TS schema tables:    ${C.cyan}${tsTables.size}${C.reset} (${schemaFiles.length} 文件) ${modeHint}`,
   )
   console.log(
     `  migration tables:    ${C.cyan}${migTables.size}${C.reset} (${migFiles.length} SQL 文件)`,
