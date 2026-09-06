@@ -396,6 +396,9 @@ importers:
       '@ihui/context-compaction':
         specifier: workspace:*
         version: link:../../packages/context-compaction
+      '@ihui/design-tokens':
+        specifier: workspace:*
+        version: link:../../packages/design-tokens
       '@ihui/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -1523,6 +1526,9 @@ importers:
       '@ihui/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@ihui/design-tokens':
+        specifier: workspace:*
+        version: link:../design-tokens
       '@ihui/types':
         specifier: workspace:*
         version: link:../types
