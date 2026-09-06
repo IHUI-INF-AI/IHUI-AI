@@ -21,6 +21,10 @@ const repoName = 'IHUI-AI'
 //   - Tauri 桌面端(frontendDist: ../../web/out)与 GitHub Pages CI 仍需要静态导出,
 //     它们通过 EXPORT_STATIC=true / GITHUB_PAGES=true 显式触发,互不影响。
 const isStaticExport = process.env.EXPORT_STATIC === 'true' || process.env.GITHUB_PAGES === 'true'
+// 2026-09-06 安全加固:CSP connect-src 对本机(localhost/127.0.0.1)的放行仅限开发模式。
+// 生产环境(next build + next start, NODE_ENV=production)下默认收紧,禁止浏览器直连本机服务,
+// 避免应用被 XSS 时经 http://localhost:* 反向探测/触达本机 8802/8803 等后端。
+const isDev = process.env.NODE_ENV === 'development'
 
 // 2026-09-05 修复桌面 SaaS 出包挂死:静态导出 next build 与常驻 next dev/next start
 // (本地 8801)共享同一 apps/web/.next 目录,构建在加载 config 后获取 .next 锁时与
@@ -574,7 +578,12 @@ const nextConfig: NextConfig = {
           "style-src 'self' 'unsafe-inline'",
           "img-src 'self' data: blob: https:",
           "font-src 'self' data:",
-          "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*",
+          // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
+          // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
+          // 不再允许浏览器触达本机服务(防 XSS→本机探测/利用)。
+          (isDev
+            ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*"
+            : "connect-src 'self' https: wss: ws:"),
           "media-src 'self' blob:",
           "object-src 'none'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
