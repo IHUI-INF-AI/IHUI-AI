@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
@@ -131,8 +132,9 @@ function TypeQuestionsContent() {
     router.replace(`/admin/edu/exam/questions/${typeKey}?${p.toString()}`)
   }
   function handleDelete(q: Question) {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteMut.mutate(q.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(q.id)
+    })
   }
 
   const questions = data ?? []

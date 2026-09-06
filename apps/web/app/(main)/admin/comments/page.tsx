@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -64,7 +65,9 @@ export default function AdminCommentsPage() {
   })
 
   function handleDelete(item: CommentItem) {
-    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
 
   function resetFilters() {

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
@@ -66,8 +67,9 @@ export default function MyResourcesPage() {
   })
 
   function handleDelete(resource: MyResource) {
-    if (!window.confirm(tr('deleteConfirm'))) return
-    delMut.mutate(resource.id)
+    void confirmDialog({ title: tr('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(resource.id)
+    })
   }
 
   const list = data?.list ?? []

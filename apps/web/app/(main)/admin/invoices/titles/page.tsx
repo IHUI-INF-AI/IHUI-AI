@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { toast } from 'sonner'
@@ -118,8 +119,9 @@ export default function AdminInvoiceTitlesPage() {
     saveMut.mutate()
   }
   function handleDelete(t: InvoiceTitle) {
-    if (!window.confirm('确认删除该发票抬头?')) return
-    deleteMut.mutate(t.id)
+    void confirmDialog({ title: '确认删除该发票抬头?' }).then((ok) => {
+      if (ok) deleteMut.mutate(t.id)
+    })
   }
 
   const rows = data?.list ?? []

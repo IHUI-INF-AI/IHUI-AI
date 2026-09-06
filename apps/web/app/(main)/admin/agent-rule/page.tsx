@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -104,8 +105,9 @@ export default function AgentRulePage() {
     saveMut.mutate()
   }
   function handleDelete(item: AgentRule) {
-    if (!window.confirm(t('confirmDelete', { name: item.ruleName }))) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('confirmDelete', { name: item.ruleName }) }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
   function handleExport() {
     exportToExcel(

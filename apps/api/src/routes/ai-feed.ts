@@ -93,8 +93,15 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const list = await listSources(parsed.data.enabledOnly)
-    return reply.send(success({ list }))
+    // 2026-09-06 P0:公开数据源列表接缓存(5min),命中不再回源 DB
+    const list = await server.cacheResilience.getOrLoad(
+      `ai-feed:sources:${parsed.data.enabledOnly}`,
+      300,
+      () => listSources(parsed.data.enabledOnly),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=60')
+      .send(success({ list }))
   })
 
   // GET /items — 资讯条目分页（支持 source/category/trend/keyword 筛选）
@@ -103,8 +110,16 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await listFeedItems(parsed.data)
-    return reply.send(success(result))
+    // 2026-09-06 P0:公开资讯列表接缓存(10min)。缓存键含分页+来源+分类等全部上下文,避免串数据
+    const d = parsed.data
+    const result = await server.cacheResilience.getOrLoad(
+      `ai-feed:items:${d.page}:${d.pageSize}:${d.source ?? '-'}:${d.category ?? '-'}:${d.trend ?? '-'}:${d.keyword ?? '-'}`,
+      600,
+      () => listFeedItems(d),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=60')
+      .send(success(result))
   })
 
   // GET /hot — 热门资讯别名（前端调用 /api/ai-feed/hot）
@@ -113,8 +128,16 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await listFeedItems(parsed.data)
-    return reply.send(success(result))
+    // 2026-09-06 P0:热门基线列表接缓存(10min)
+    const d = parsed.data
+    const result = await server.cacheResilience.getOrLoad(
+      `ai-feed:hot:${d.page}:${d.pageSize}:${d.source ?? '-'}:${d.category ?? '-'}:${d.trend ?? '-'}:${d.keyword ?? '-'}`,
+      600,
+      () => listFeedItems(d),
+    )
+    return reply
+      .header('Cache-Control', 'public, s-maxage=600, stale-while-revalidate=60')
+      .send(success(result))
   })
 
   // GET /items/:id — 条目详情
