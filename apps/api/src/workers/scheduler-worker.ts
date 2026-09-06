@@ -14,6 +14,7 @@ import {
   autoCloseExpiredOrders,
   autoReconcileYesterday,
 } from '../services/reconciliation-service.js'
+import { DistributedLock } from '../utils/distributed-lock.js'
 import { aggregateHeatStats } from '../services/heat-stats-service.js'
 import { checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
@@ -516,24 +517,40 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             return { snapshot: snapRes, llm: llmRes, translate: transRes, trend: trendRes }
           }
           case 'ai-feed-drain': {
+            // 互斥锁:同一时间全局只允许一个 drain 在跑。BullMQ worker 并发默认 5,
+            // 多个 drain(repeat + 手动 accel)会同时处理 → 各自并发调 LLM 叠加,
+            // 极易打爆 ai-service/litellm 的并发上限(默认 8),触发 502 风暴、
+            // 翻译成功率 <10%。取不到锁的直接跳过本次(下一轮 repeat 再补)。
+            const locker = new DistributedLock(server.redis)
+            const drainLock = await locker.tryLock('ai-feed-drain:mutex', 'scheduler-worker', {
+              ttlMs: 60 * 60 * 1000, // 单次 drain 最多约 1h,不续约,超时自动释放
+            })
+            if (!drainLock) {
+              server.log.info({ jobId: job.id, jobName: name }, 'ai-feed-drain skipped: another drain running')
+              return { skipped: true, reason: 'another-drain-running' }
+            }
             // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,
             // 持续抽干缺英文标题/缺分类的存量条目。受 LLM_BATCH_ENABLED 控制,
             // 批大小/轮数/错峰间隔均可由环境变量覆盖。
-            const result = await drainLlmBacklog().catch((err) => {
-              server.log.error({ err }, 'drainLlmBacklog failed in ai-feed-drain')
-              return {
-                llmProcessed: 0,
-                translated: 0,
-                classifiedFailed: 0,
-                translateFailed: 0,
-                iterations: 0,
-                llmBacklogCleared: false,
-                translateBacklogCleared: false,
-                remainingNoLlm: -1,
-                remainingNoEn: -1,
-                zeroProgress: true,
-              }
-            })
+            const result = await drainLlmBacklog()
+              .catch((err) => {
+                server.log.error({ err }, 'drainLlmBacklog failed in ai-feed-drain')
+                return {
+                  llmProcessed: 0,
+                  translated: 0,
+                  classifiedFailed: 0,
+                  translateFailed: 0,
+                  iterations: 0,
+                  llmBacklogCleared: false,
+                  translateBacklogCleared: false,
+                  remainingNoLlm: -1,
+                  remainingNoEn: -1,
+                  zeroProgress: true,
+                }
+              })
+              .finally(async () => {
+                await locker.release(drainLock.name, drainLock.token).catch(() => false)
+              })
             server.log.info(
               {
                 llmProcessed: result.llmProcessed,
