@@ -36,11 +36,15 @@ from ..core.context_compaction import (
     estimate_tokens,
 )
 from ..core.tunables import (
+    AGENT_COMPACTION_QUALITY_ENABLED,
+    AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS,
+    AGENT_COMPACTION_QUALITY_THRESHOLD,
     DEFAULT_KEEP_RECENT,
     DEFAULT_MIN_MESSAGES,
     DEFAULT_TARGET_RATIO,
     DEFAULT_TRIGGER_RATIO,
 )
+from .compaction_quality import assess_compaction
 
 logger = logging.getLogger(__name__)
 
@@ -226,6 +230,36 @@ async def compact_with_llm(
             )
             if info.get("compressed"):
                 info["llm_summary"] = True
+                # 压缩质量自证(GAP-PLAN P1-3 提交通道接线,2026-09-06):
+                # 保留率评估 → 低于阈值 auto_degrade(改用更保守 keep_recent 重压一次,
+                # 复评不重复计数)→ gate EMA 记录连续低质,info 增量携带 quality 字段。
+                if AGENT_COMPACTION_QUALITY_ENABLED:
+                    quality = assess_compaction(
+                        messages,
+                        compressed,
+                        threshold=AGENT_COMPACTION_QUALITY_THRESHOLD,
+                    )
+                    if quality["degraded"]:
+                        compressed_b, info_b = compress_messages_if_needed(
+                            messages,
+                            context_limit,
+                            trigger_ratio=trigger_ratio,
+                            target_ratio=target_ratio,
+                            keep_recent=keep_recent + AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS,
+                            custom_summary=custom_summary,
+                        )
+                        if info_b.get("compressed"):
+                            quality_b = assess_compaction(
+                                messages, compressed_b, record_to_gate=False
+                            )
+                            if (
+                                quality_b["report"]["retention_ratio"]
+                                >= quality["report"]["retention_ratio"]
+                            ):
+                                info_b["llm_summary"] = True  # 保守重压仍是语义压缩,标记不丢
+                                compressed, info = compressed_b, info_b
+                                quality = quality_b
+                    info["quality"] = quality
                 logger.info(
                     "[Compact/LLM] 语义压缩: %d → %d tokens (llm_summary, removed %d)",
                     info.get("original_tokens", 0),
@@ -249,6 +283,9 @@ async def compact_with_llm(
         keep_recent=keep_recent,
     )
     if info.get("compressed"):
+        # 规则压缩本身即保守降级路径:只评估并增量携带 quality,不再二次降级。
+        if AGENT_COMPACTION_QUALITY_ENABLED:
+            info["quality"] = assess_compaction(messages, compressed)
         logger.info(
             "[Compact/LLM] 规则压缩(降级): %d → %d tokens, removed %d",
             info.get("original_tokens", 0),

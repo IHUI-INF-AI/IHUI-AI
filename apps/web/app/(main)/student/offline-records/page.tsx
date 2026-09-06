@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { CalendarClock, Plus } from 'lucide-react'
@@ -100,8 +101,9 @@ export default function OfflineRecordsPage() {
     saveMut.mutate()
   }
   function handleDelete(record: OfflineRecord) {
-    if (!window.confirm(t('deleteConfirm'))) return
-    delMut.mutate(record.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) delMut.mutate(record.id)
+    })
   }
 
   return (

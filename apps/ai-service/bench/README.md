@@ -16,12 +16,17 @@ IHUI-Bench v0 刻意保持"小而确定":每个 fixture 代码量 ≤200 行、�
 便于在 CI 中秒级跑通,重点验证**执行器链路(工具调用→结果回填→评分)**而非
 模型排名。
 
+**v1(2026-09-06)**:任务扩充至 41 个(fix/test/feature/refactor/multifile 五类
+× 4 个 fixture),`tasks_v1.json` 为当前活动任务集;每个任务均通过
+`validate_bench.py` 的双重验证 —— ① 初始态全 FAIL(未修即通过=无效任务)
+② gold-fix 可解(`gold_fixes.py` 内置参考修复,应用后全 PASS)。
+
 ## 目录结构
 
 ```
 bench/
 ├── run_bench.py          # 执行器(CLI)
-├── tasks_v0.json         # 20 个任务定义
+├── tasks_v1.json         # 41 个任务定义(当前活动,v0 保留为历史基线)
 ├── README.md             # 本文件
 └── fixtures/
     ├── fixture_calculator/   # 2~3 个确定性 bug(fix 类)
@@ -84,8 +89,10 @@ category 分布(v0):`fix` 8 / `test` 5 / `refactor` 4 / `multifile` 3,共 20 个
 ## 如何加任务
 
 1. 在 `fixtures/<fixture>/` 下准备好确定性迷你仓库(README + 源码 + tests)。
-2. 在 `tasks_v0.json` 追加一个任务对象,填写 `id/title/category/fixture/
-instructions/max_iterations/allowed_tools/checks`。
+2. 在 `tasks_v1.json` 追加一个任务对象,填写 `id/title/category/fixture/
+instructions/max_iterations/allowed_tools/checks`,并在 `gold_fixes.py`
+   登记参考修复;随后跑 `python bench/validate_bench.py --task <id>` 与
+   `--gold --task <id>` 完成双重验证。
 3. 运行 `python -m bench.run_bench --category <your-category>` 验证。
 
 ## stub 模式说明

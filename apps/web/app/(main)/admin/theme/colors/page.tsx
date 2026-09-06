@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 
 import { Button, Card, CardContent, Input, Label } from '@ihui/ui-react'
@@ -69,7 +70,7 @@ export default function ColorsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm('确定删除此颜色方案?')) return
+    if (!(await confirmDialog({ title: '确定删除此颜色方案?' }))) return
     const r = await fetchApi(`/api/admin/themes/colors/${id}`, { method: 'DELETE' })
     if (r.success) load()
   }
