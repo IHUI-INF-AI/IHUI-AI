@@ -9,6 +9,7 @@ import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/ta
 import { useState, useCallback, useEffect, useRef } from 'react'
 import * as api from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
+import LineIcon from '@/components/LineIcon'
 
 const PAGE_SIZE = 10
 
@@ -156,20 +157,20 @@ export default function AiCircle() {
                     ) : null}
                     <View className="flex items-center gap-[32rpx] mt-[16rpx]">
                       <View className="flex items-center">
-                        <Image
-                          src="/static/images/icons/heart.svg"
-                          mode="aspectFit"
+                        <LineIcon
+                          name="heart"
+                          size={24}
                           className="mr-[6rpx]"
-                          style={{ width: '24rpx', height: '24rpx' }}
+                          color="var(--color-muted-foreground)"
                         />
                         <Text className="text-[24rpx] text-muted-foreground">{likes}</Text>
                       </View>
                       <View className="flex items-center">
-                        <Image
-                          src="/static/images/icons/message-circle.svg"
-                          mode="aspectFit"
+                        <LineIcon
+                          name="message-circle"
+                          size={24}
                           className="mr-[6rpx]"
-                          style={{ width: '24rpx', height: '24rpx' }}
+                          color="var(--color-muted-foreground)"
                         />
                         <Text className="text-[24rpx] text-muted-foreground">{comments}</Text>
                       </View>
@@ -199,7 +200,7 @@ export default function AiCircle() {
         )}
       </View>
       <View
-        className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[16rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_rgba(0,0,0,0.2)]"
+        className="fixed right-[32rpx] bottom-[64rpx] w-[96rpx] h-[96rpx] bg-primary rounded-[16rpx] flex items-center justify-center z-[100] shadow-[0_8rpx_24rpx_var(--color-black-20)]"
         onClick={onPublish}
       >
         <Text className="text-[26rpx] text-foreground leading-[26rpx]">{t('aiCircle.post')}</Text>

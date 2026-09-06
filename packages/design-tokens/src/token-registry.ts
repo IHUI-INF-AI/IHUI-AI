@@ -134,6 +134,32 @@ const EXTENDED_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
   { name: '--color-brand', type: 'color', defaultValue: '#6366f1' },
   { name: '--color-notification-bg', type: 'color', defaultValue: '#fff8e1' },
   { name: '--color-notification-text', type: 'color', defaultValue: '#7c5e1e' },
+  { name: '--color-gold', type: 'color', defaultValue: '#d4af6a' },
+  { name: '--color-gold-muted', type: 'color', defaultValue: 'rgba(212, 175, 106, 0.12)' },
+  { name: '--color-alipay-blue', type: 'color', defaultValue: '#1677ff' },
+  { name: '--color-success-tag-bg', type: 'color', defaultValue: '#e8f5e9' },
+  { name: '--color-scrim', type: 'color', defaultValue: 'rgba(0, 0, 0, 0.6)' },
+  { name: '--color-scrim-foreground', type: 'color', defaultValue: 'rgba(255, 255, 255, 0.85)' },
+]
+
+/** 彩色语义 tint token(2026-09-06 立,统一小程序端彩色 rgba/rgb 硬编码色)。
+ *  defaultValue 取 @theme 亮色值;dark 覆盖值见 tokens.css .dark 块。 */
+const TINT_COLOR_ENTRIES: ReadonlyArray<TokenEntry> = [
+  { name: '--color-danger', type: 'color', defaultValue: '#dc2626' },
+  { name: '--color-danger-foreground', type: 'color', defaultValue: '#ffffff' },
+  { name: '--color-success-tint', type: 'color', defaultValue: 'rgba(22, 163, 74, 0.08)' },
+  { name: '--color-success-tint-strong', type: 'color', defaultValue: 'rgba(22, 163, 74, 0.25)' },
+  { name: '--color-warning-tint', type: 'color', defaultValue: 'rgba(245, 158, 11, 0.1)' },
+  { name: '--color-warning-tint-strong', type: 'color', defaultValue: 'rgba(245, 158, 11, 0.25)' },
+  { name: '--color-danger-tint', type: 'color', defaultValue: 'rgba(220, 38, 38, 0.08)' },
+  { name: '--color-danger-tint-strong', type: 'color', defaultValue: 'rgba(220, 38, 38, 0.25)' },
+  { name: '--color-info-tint', type: 'color', defaultValue: 'rgba(14, 165, 233, 0.08)' },
+  { name: '--color-info-tint-strong', type: 'color', defaultValue: 'rgba(14, 165, 233, 0.25)' },
+  { name: '--color-pink-tint', type: 'color', defaultValue: 'rgba(236, 72, 153, 0.3)' },
+  { name: '--color-gold-tint', type: 'color', defaultValue: 'rgba(255, 215, 0, 0.3)' },
+  { name: '--color-brand-orange-tint', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.12)' },
+  { name: '--color-brand-orange-tint-strong', type: 'color', defaultValue: 'rgba(255, 107, 53, 0.3)' },
+  { name: '--color-warm-bg', type: 'color', defaultValue: '#fff4e6' },
 ]
 
 /** 业务品牌色 token。 */
@@ -375,6 +401,7 @@ const ALL_TOKEN_GROUPS: ReadonlyArray<ReadonlyArray<TokenEntry>> = [
   SIDEBAR_COLOR_ENTRIES,
   BRAND_COLOR_ENTRIES,
   EXTENDED_COLOR_ENTRIES,
+  TINT_COLOR_ENTRIES,
   BUSINESS_COLOR_ENTRIES,
   RADIUS_ENTRIES,
   FONT_ENTRIES,

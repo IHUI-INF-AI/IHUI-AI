@@ -4,6 +4,7 @@
 
 import { useTt } from '@/i18n'
 import { View, Text, Image, Button } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -98,11 +99,11 @@ export default function BusinessCardIndex() {
         </View>
 
         <View className="card-entry" onClick={buyToken}>
-          <Image
+          <LineIcon
             className="card-entry-icon"
-            style={{ width: '32rpx', height: '32rpx' }}
-            src="/static/images/icons/user.svg"
-            mode="aspectFit"
+            name="user"
+            size={32}
+            color="var(--color-muted-foreground)"
           />
           <Text className="card-entry-text">
             {tt('businessCard.customEntry', '社区名片定制入口')}

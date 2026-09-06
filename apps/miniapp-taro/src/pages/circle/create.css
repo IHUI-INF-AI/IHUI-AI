@@ -81,7 +81,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-black-60);
   border-radius: var(--radius-md);
   z-index: 2;
 }
@@ -194,7 +194,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--color-black-50);
   z-index: 100;
   display: flex;
   align-items: flex-end;
@@ -309,7 +309,7 @@
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
-  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-shadow: 0 -4rpx 16rpx var(--color-black-6);
   z-index: 10;
 }
 .cc-btn {

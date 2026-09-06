@@ -3,7 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
+import LineIcon from '@/components/LineIcon'
 import Taro, { useRouter, useShareAppMessage, useShareTimeline } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
 import { getCourseDetail, post, type Course } from '@/api'
@@ -186,31 +187,19 @@ export default function CourseDetail() {
           </View>
           <View className="flex flex-col items-center" onClick={() => setShowNote(true)}>
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Image
-                style={{ width: '40rpx', height: '40rpx' }}
-                src="/static/images/icons/book-open.svg"
-                mode="aspectFit"
-              />
+              <LineIcon name="book-open" size={40} color="var(--color-muted-foreground)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.note')}</Text>
           </View>
           <View className="flex flex-col items-center" onClick={() => setShowRating(true)}>
             <View className="w-12 h-12 rounded-xl bg-warning/10 flex items-center justify-center">
-              <Image
-                style={{ width: '40rpx', height: '40rpx' }}
-                src="/static/images/icons/star-fill.svg"
-                mode="aspectFit"
-              />
+              <LineIcon name="star-fill" size={40} color="var(--color-warning)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.rating')}</Text>
           </View>
           <View className="flex flex-col items-center" onClick={() => setShowShare(true)}>
             <View className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Image
-                style={{ width: '40rpx', height: '40rpx' }}
-                src="/static/images/icons/share-2.svg"
-                mode="aspectFit"
-              />
+              <LineIcon name="share-2" size={40} color="var(--color-muted-foreground)" />
             </View>
             <Text className="text-xs text-muted-foreground mt-2">{t('course.share')}</Text>
           </View>
@@ -277,7 +266,7 @@ export default function CourseDetail() {
           />
         </View>
 
-        <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_rgba(0,0,0,0.06)]">
+        <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex items-center px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
           <View className="flex-1">
             <Text className="text-sm text-primary">¥</Text>
             <Text className="text-2xl text-primary font-bold">{course.price ?? 0}</Text>
