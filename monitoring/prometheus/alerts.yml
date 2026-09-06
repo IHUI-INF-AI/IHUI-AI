@@ -58,6 +58,37 @@ groups:
 
   - name: infrastructure-alerts
     rules:
+      # Windows 宿主机磁盘空间不足(< 15%,windows_exporter 逻辑盘指标)
+      - alert: WindowsDiskSpaceLow
+        expr: |
+          (windows_logical_disk_free_bytes / windows_logical_disk_size_bytes) < 0.15
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '磁盘空间不足'
+          description: 'Windows 卷 {{ $labels.volume }} 剩余空间不足 15%(当前 {{ $value | humanizePercentage }})'
+
+      # PostgreSQL 实例 down
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'PostgreSQL 实例不可用'
+          description: 'Postgres exporter {{ $labels.instance }} 无指标,PostgreSQL 疑似宕机'
+
+      # Redis 实例 down
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Redis 实例不可用'
+          description: 'Redis exporter {{ $labels.instance }} 无指标,Redis 疑似宕机'
+
       # 主机磁盘空间不足(< 10%)
       - alert: DiskSpaceLow
         expr: |
