@@ -94,6 +94,10 @@ export * from './endpoints/admin-system'
 export * from './endpoints/admin-tenants'
 export * from './endpoints/agent'
 export * from './endpoints/agent-runtime'
+// Agent 会话 Token 用量(2026-09-07 工作线 A)
+export * from './endpoints/agent-usage'
+// Deep Research 深度研究(2026-09-07 工作线 B)
+export * from './endpoints/research'
 export * from './endpoints/ai'
 export * from './endpoints/ai-media'
 export * from './endpoints/auth'
