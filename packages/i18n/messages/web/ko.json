@@ -7942,9 +7942,17 @@
     "expiryDate": "만료 날짜"
   },
   "chat": {
+    "sessionUsage": {
+      "promptTokens": "입력",
+      "completionTokens": "출력",
+      "requests": "요청 수",
+      "estimateHint": "비용은 혼합 단가 기준 추정입니다(1K 토큰당 ¥0.02, 실제 청구 아님)",
+      "ariaLabel": "세션 누적 토큰 사용량"
+    },
+    "deepResearchEntry": "딥 리서치",
     "addContextHint": "컨텍스트 파일 또는 참조 추가",
     "addContextReference": "컨텍스트 참조로 추가",
-    "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인)",
+    "addMenuDesc": "추가 메뉴(템플릿/참조/Skill/첨부/플러그인/압축)",
     "addMenuLabel": "추가",
     "assistant": "AI 어시스턴트",
     "cancel": "취소",
@@ -14267,6 +14275,17 @@
     "summaryPreview": "요약 미리보기"
   },
   "deepResearch": {
+    "sourcesTitle": "출처",
+    "confidenceLabel": "신뢰도",
+    "verifiedLabel": "검증됨",
+    "unverifiedLabel": "검증 필요",
+    "historyTitle": "기록",
+    "sourceTier": {
+      "authoritative": "공식",
+      "media": "미디어",
+      "community": "커뮤니티",
+      "unknown": "알 수 없음"
+    },
     "title": "딥 리서치",
     "phasePlanning": "계획 설계",
     "phaseRetrieving": "다중 소스 검색",
@@ -14405,7 +14424,38 @@
     "loading": "로딩 중…",
     "loadFailed": "실행 기록을 불러오지 못했습니다"
   },
+  "agentTeams": {
+    "title": "에이전트 팀",
+    "refresh": "새로고침",
+    "statsTotal": "총 실행 수",
+    "statsActive": "실행 중",
+    "statsCompleted": "완료",
+    "statsFailed": "실패",
+    "filter": {
+      "all": "전체",
+      "running": "실행 중",
+      "completed": "완료",
+      "failed": "실패"
+    },
+    "empty": "아직 팀 실행 기록이 없습니다",
+    "selectHint": "왼쪽에서 실행을 선택해 상세 보기",
+    "detailTitle": "실행 상세",
+    "goal": "목표",
+    "role": "멤버 역할",
+    "orchestration": "오케스트레이션",
+    "priority": "우선순위",
+    "createdAt": "생성 시각",
+    "updatedAt": "업데이트 시각",
+    "result": "결과",
+    "error": "오류",
+    "tokens": "토큰 사용량",
+    "durationMs": "소요 시간(ms)",
+    "topologyTitle": "Swarm 토폴로지",
+    "activityTitle": "활동 스트림",
+    "none": "없음"
+  },
   "nav": {
+    "agentTeams": "에이전트 팀",
     "about": "소개",
     "activities": "활동",
     "admin": "관리",

@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { PanelLeftOpen } from 'lucide-react'
+import { PanelLeftOpen, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -292,14 +292,18 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                       variant="ghost"
                       size="icon"
                       onClick={() => setMobileOpen((o) => !o)}
-                      aria-label={t('menu')}
+                      // 2026-09-05 修复:抽屉打开时该按钮被抽屉+遮罩盖住(z-auto < z-modal 2000),
+                      // 用户点原位置无反应(=反馈"无法点击收回按钮")。提升到 z-popover(2001)
+                      // 使同一按钮在抽屉打开时仍可点,图标切换为 X,构成"拉出/收回"切换语义。
                       className={cn(
-                        'ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
+                        'relative ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
+                        mobileOpen && 'z-popover',
                         TOPBAR_BTN_BASE,
                         TOPBAR_BTN_W9,
                       )}
+                      aria-label={mobileOpen ? t('close') : t('menu')}
                     >
-                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                      {mobileOpen ? <X className="h-3.5 w-3.5" /> : <PanelLeftOpen className="h-3.5 w-3.5" />}
                     </Button>
                   }
                 />

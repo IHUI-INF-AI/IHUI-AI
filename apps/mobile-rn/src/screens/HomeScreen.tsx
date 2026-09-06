@@ -24,7 +24,7 @@ import { Asset } from 'expo-asset'
 import {
   BookOpen,
   Bot,
-  Folder,
+  ChevronDown,
   SlidersHorizontal,
   Search,
   History,
@@ -38,7 +38,7 @@ import {
   CheckCircle2,
   Calendar,
   Trophy,
-  Brain,
+  Sparkles,
   MessageSquare,
   Image as ImageIcon,
   Music,
@@ -48,7 +48,6 @@ import {
   Film,
   Volume2,
   Mic,
-  Menu,
   Handshake,
 } from 'lucide-react-native'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
@@ -90,20 +89,24 @@ import type { AiModelData, ApiResult, AppIcon } from '@ihui/types'
 import CourseCarousel, { type CourseCarouselItem } from '../components/CourseCarousel'
 import Carousel from '../components/Carousel'
 import CardWithList, { type CardWithListItem } from '../components/CardWithList'
-import { OfflineBanner } from '../components/OfflineBanner'
 import AiModelCard from '../components/AiModelCard'
 import { Toolbar } from '../components/Toolbar'
-import { GlobalFloatBox } from '../components/GlobalFloatBox'
+import { ShareValueModal } from '../components/ShareValueModal'
 import { KnowledgePlanet, type KnowledgePlanetItem } from '../components/KnowledgePlanet'
 import PopularCourses, { type PopularCourse } from '../components/PopularCourses'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
 import { BottomFigure } from '../components/BottomFigure'
 import { MoreTitles } from '../components/MoreTitles'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 // 对齐 Uniapp ai_index:复用共享组件 NavBar / Drawer / InputArea / FloatBox / RecentAgents
-import { NavBar, type NavBarAction } from '../components/NavBar'
+import { NavBar, PanelLeftRoundedIcon, type NavBarAction } from '../components/NavBar'
 import { Drawer, type DrawerExtraMenu, type DrawerTab } from '../components/Drawer'
+// 推送通知弹窗(对齐 Uniapp ai_index 顶层 PushNotification)
+import NotificationPanel from '../components/NotificationPanel'
 import { InputArea } from '../components/InputArea'
+import { GradientBox } from '../components/GradientBox'
+import CammerImgIcon from '../../assets/images/cammer_input.png'
+import PicterImgIcon from '../../assets/images/picter_input.png'
+import FloderImgIcon from '../../assets/images/floder_input.png'
 import { VoiceInput } from '../components/VoiceInput'
 import ModelList, { type ModelListGroup, type ModelListItem } from '../components/ModelList'
 import MaterialList, {
@@ -126,7 +129,6 @@ import { FenLeiOverlay } from '../components/FenLeiOverlay'
 import MyAgents, { type MyAgentItem } from '../components/MyAgents'
 import IntelligentAssistant from '../components/IntelligentAssistant'
 import { useAuth } from '../context/AuthContext'
-import { useNetwork } from '../context/NetworkContext'
 import { useNotificationStore } from '../stores/notification'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -259,7 +261,7 @@ interface MaterialCard {
 
 /** 8 种模型类型按钮(顺序与图标含义对齐 Uniapp ai_index 行 44-97) */
 const MODEL_TYPES: ModelTypeOption[] = [
-  { type: 'skills', label: '技能', icon: Brain },
+  { type: 'skills', label: '技能', icon: Sparkles },
   { type: 'talk', label: '对话', icon: MessageSquare },
   { type: 'image', label: '图片', icon: ImageIcon },
   { type: 'video', label: '视频', icon: Clapperboard },
@@ -569,9 +571,6 @@ export function HomeScreen() {
   const navigation = useNavigation<NavigationProp>()
   const { user } = useAuth()
   const { connected, unreadCount, setVisible } = useNotificationStore()
-  // OfflineBanner 数据源:用 NetworkContext 的 fetch 探测(/api/health),而非 WebSocket 通知连接状态。
-  // 通知 WS 断开 ≠ 网络断开(REST 数据仍可正常加载),语义必须区分。
-  const { isOnline } = useNetwork()
   const [recommends, setRecommends] = useState<HomeRecommendItem[]>([])
   const [lives, setLives] = useState<HomeLiveItem[]>([])
   const [progress, setProgress] = useState<HomeProgressItem[]>([])
@@ -612,6 +611,8 @@ export function HomeScreen() {
   const [toastMessage, setToastMessage] = useState('')
   // ── InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分) ──
   const [inputValue, setInputValue] = useState('')
+  // ── 「+」添加图片上滑面板(对齐 Uniapp BottomActionBar isShowIcon → .icon-button-group) ──
+  const [showAddPanel, setShowAddPanel] = useState(false)
   // ── 模型选择(对齐 Uniapp ai_index currentModelType + modelName/modelId) ──
   // activeModelType:当前展开的类型弹窗(null 表示关闭);selectedModel:已选模型(显示在输入区小标签)
   const [activeModelType, setActiveModelType] = useState<ModelType | null>(null)
@@ -634,9 +635,6 @@ export function HomeScreen() {
   const [materialDetailError, setMaterialDetailError] = useState<string>('')
   // ── 素材卡片(对齐 Uniapp materialCards:点击素材插入输入区上方,每卡右上 × 移除) ──
   const [materialCards, setMaterialCards] = useState<MaterialCard[]>([])
-  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup:onShow 自动检查首次分享奖励) ──
-  const [shareValueVisible, setShareValueVisible] = useState(false)
-  const [shareFirstReward, setShareFirstReward] = useState(0)
 
   const showToast = useCallback((type: FloatBoxType, message: string): void => {
     setToastType(type)
@@ -786,7 +784,14 @@ export function HomeScreen() {
    *  搜索按钮对齐原 tools 页 isShowSearch=true → @clicksearch → 跳搜索页(RootStack 'Search')
    *  间距对齐:Uniapp padding 0 24rpx ≈ 12dp(NavBar 内部已实现 paddingHorizontal: rpx(24)) */
   const navLeftActions: ReadonlyArray<NavBarAction> = [
-    { icon: Menu, label: '菜单', onPress: handleMenuPress },
+    // 图标对齐 web 端 SidebarHeader 的定制 PanelLeftRounded(竖线到边),24px 大号,仅图标无文字
+    {
+      icon: '',
+      render: (size, color) => <PanelLeftRoundedIcon size={size} color={color} />,
+      label: '菜单',
+      showLabel: false,
+      onPress: handleMenuPress,
+    },
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, label: '搜索', onPress: () => rootNav?.navigate('Search') },
@@ -958,7 +963,9 @@ export function HomeScreen() {
     [loadMaterials],
   )
 
-  // ── 分享领智汇值弹窗(对齐 Uniapp ai_index showSharePointsPopup / first/share/show) ──
+  // ── 分享领智汇值弹窗(2026-09-05:旧内联 Modal + state 已删除,统一走 ShareValueModal)──
+  const [shareValueVisible, setShareValueVisible] = useState(false)
+  const [shareFirstReward, setShareFirstReward] = useState(0)
   const hideSharePoints = (): void => setShareValueVisible(false)
 
   /** 首次分享奖励自动触发:进页检查(对齐 Uniapp ai_index onShow → checkFirstShareStatus) */
@@ -1016,14 +1023,6 @@ export function HomeScreen() {
       return
     }
     rootNav?.navigate('AppTopup')
-  }
-  /** 佣金悬浮按钮点击(对齐 Uniapp pagesA/index CommissionFloatingIcon → /pagesA/distribution/index) */
-  const handleCommissionPress = (): void => {
-    if (!user) {
-      rootNav?.navigate('Login')
-      return
-    }
-    rootNav?.navigate('Distribution')
   }
 
   /** Carousel 轮播 banner(对齐 Uniapp 首页轮播图) */
@@ -1345,16 +1344,16 @@ export function HomeScreen() {
 
   return (
     <View style={shellStyles.root}>
-      {/* OfflineBanner 网络状态横条(对齐 Uniapp 离线提示) */}
-      <OfflineBanner isOnline={isOnline} />
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp pagesA/index 顶部固定悬浮) */}
-      <CommissionFloatingIcon onPress={handleCommissionPress} />
+      {/* 推送通知弹窗(对齐 Uniapp ai_index 顶层 PushNotification,组件自管 visible) */}
+      <NotificationPanel />
+      {/* OfflineBanner 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复断网时双横幅) */}
+      {/* CommissionFloatingIcon 已删除:原 Uniapp 首页并无此悬浮按钮,RN 端属臆造对齐(2026-09-05) */}
       {/* NavBar 顶部导航栏(对齐 Uniapp navigation-bars:标题"智汇AI社区"+菜单按钮+加入社区群)
        *  左按钮☰ 触发 Drawer(对齐 handleNavClick);右按钮🤝/🎁 对齐 join-click/share-image
        *  右侧追加分类按钮(对齐 Uniapp tools 页 showFenLei → tagWrapShow 赛道分类弹层)
        *  NavBar 置于 ScrollView 外,等价于 Uniapp viscosity=true 粘性效果(始终固定顶部) */}
       <NavBar
-        title="智汇AI社区"
+        title=""
         leftActions={navLeftActions}
         rightActions={navRightActions}
         rightAction={
@@ -1544,6 +1543,9 @@ export function HomeScreen() {
           <BottomFigure />
         </View>
       </ScrollView>
+      {/* 底部固定区(对齐 Uniapp BottomActionBar .bottom_box:fixed):
+       *  modelTypeBar + 我的创作 + VoiceInput + 素材卡片 + 输入组,整体吸底 */}
+      <View style={shellStyles.bottomBox}>
       {/* toodown 返回顶部悬浮按钮(对齐 Uniapp toodown:68rpx≈34dp 圆角8rpx≈4dp,样式对齐 NewsScreen)
        *  滚动 offsetY > 600 显示,点击 scrollTo 回顶 */}
       {showBackTop ? (
@@ -1618,24 +1620,34 @@ export function HomeScreen() {
           </View>
         ) : null}
       </View>
-      {/* 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮 showMaterialList=true,
-       *  点击打开并加载"全部"tab(getMyCreation('agent') 我的创作数据) */}
+      {/* 我的创作入口(对齐 Uniapp ai_index 行 93-99 model-type-btn「sck」按钮:
+       *  白底圆角框 + 黑字 + 箭头。SVG 背景在 react-native-web 下不显示,
+       *  改用 View 样式模拟 back_default.svg/active_back.svg 外观) */}
       <TouchableOpacity
         onPress={handleOpenMaterialList}
         activeOpacity={0.7}
         accessibilityRole="button"
         accessibilityLabel="我的创作"
-        style={shellStyles.creationEntry}
+        style={[
+          shellStyles.creationEntry,
+          showMaterialList ? shellStyles.creationEntryActive : null,
+        ]}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-          <Folder size={13} color={tokens.brand.DEFAULT} />
-          <Text style={shellStyles.creationEntryText}>我的创作</Text>
+        <Text style={shellStyles.creationBtnText}>我的创作</Text>
+        <View
+          style={[
+            shellStyles.creationBtnArrow,
+            // 对齐 .btn-arrow.rotate { transform: rotate(180deg) }
+            { transform: [{ rotate: showMaterialList ? '180deg' : '0deg' }] },
+          ]}
+        >
+          <ChevronDown size={rpx(26)} color="#000000" />
         </View>
       </TouchableOpacity>
       {/* VoiceInput 语音输入(对齐 Uniapp ai_index2.vue 行 436/601 输入区 :isVoiceInput 语音模式,
           转文字回填输入框,随提交跳 Chat) */}
       <View style={shellStyles.voiceInputWrap}>
-        <VoiceInput placeholder="按住说出你的问题" onComplete={handleVoiceComplete} />
+        <VoiceInput placeholder="" onComplete={handleVoiceComplete} />
       </View>
       {/* 素材卡片行(对齐 Uniapp material-cards-wrap:点击素材插入输入区上方,每卡右上 × 移除)
        *  数据源 materialCards 由 handleMaterialPress 写入,横向滚动包裹 */}
@@ -1662,24 +1674,52 @@ export function HomeScreen() {
           </ScrollView>
         </View>
       ) : null}
-      {/* InputArea 底部输入区(对齐 Uniapp BottomActionBar 输入部分,固定底部)
-       *  collapsible + defaultCollapsed:首屏默认折叠为右下角浮动 FAB,
-       *  点击 FAB 展开完整输入栏(对齐历史 Uniapp 抽屉式输入交互)。
-       *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) */}
-      <InputArea
-        collapsible
-        defaultCollapsed
-        value={inputValue}
-        onChangeText={setInputValue}
-        placeholder="请输入您的问题,或选择模型开始对话"
-        onSubmit={handleInputSubmit}
-      />
-      {/* GlobalFloatBox 全局浮窗按钮(对齐 Uniapp App.vue 全局浮窗) */}
-      <GlobalFloatBox
-        onPromote={() => rootNav?.navigate('Promote')}
-        onConsult={() => rootNav?.navigate('CustomerService')}
-        onFeedback={() => rootNav?.navigate('Settings')}
-      />
+      {/* 底部输入区组(对齐 Uniapp BottomActionBar .bottom_box:fixed 固定底部;
+          ＋按钮打开 icon-button-group 上滑面板,紧贴输入框上方,
+          对齐 functionHandle → isShowIcon。提交跳 Chat 对齐 handleSendMessageabc → ai_index2) */}
+      <View style={shellStyles.inputGroup}>
+        {showAddPanel ? (
+          <View style={shellStyles.addPanel}>
+            {(
+              [
+                { key: 'camera', label: '相机', icon: CammerImgIcon },
+                { key: 'album', label: '相册', icon: PicterImgIcon },
+                { key: 'file', label: '本地文件', icon: FloderImgIcon },
+                { key: 'wxfile', label: '微信文件', icon: FloderImgIcon },
+              ] as const
+            ).map((item) => (
+              <Pressable
+                key={item.key}
+                onPress={() => {
+                  setShowAddPanel(false)
+                  showToast('info', `${item.label}功能待接入`)
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={item.label}
+              >
+                <GradientBox
+                  css="linear-gradient(135deg, rgba(205,208,255,0.3) 3%, rgba(253,255,225,0.3) 103%)"
+                  fallbackColor="#F4F4FB"
+                  style={shellStyles.addPanelItem}
+                >
+                  <Image source={item.icon} style={shellStyles.addPanelImg} resizeMode="contain" />
+                  <Text style={shellStyles.addPanelLabel}>{item.label}</Text>
+                </GradientBox>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <InputArea
+          value={inputValue}
+          onChangeText={setInputValue}
+          placeholder="请输入您的问题,或选择模型开始对话"
+          onSubmit={handleInputSubmit}
+          onImageAdd={() => setShowAddPanel((v) => !v)}
+          addActive={showAddPanel}
+        />
+      </View>
+      </View>
+      {/* GlobalFloatBox 已在 App.tsx 全局挂载,此处不再重复渲染(2026-09-05 修复同屏双浮窗) */}
       {/* Drawer 侧滑抽屉(对齐 Uniapp DrawerComponent,由 NavBar 菜单按钮触发) */}
       <Drawer
         visible={drawerVisible}
@@ -1907,35 +1947,13 @@ export function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
-      <Modal
+      {/* 分享领智汇值弹窗(2026-09-05:删除旧内联 Modal,统一使用 ShareValueModal 组件) */}
+      <ShareValueModal
         visible={shareValueVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={hideSharePoints}
-      >
-        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
-          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
-            <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
-              <Text style={shellStyles.shareCloseText}>×</Text>
-            </Pressable>
-            <Text style={shellStyles.shareTitle}>分享领智汇值</Text>
-            <Text style={shellStyles.shareDesc}>
-              首次分享成功,获得 {shareFirstReward}{' '}
-              智汇值奖励;邀请好友加入智汇AI社区,好友注册成功后双方均可再获智汇值。智汇值可用于兑换模型算力、会员权益等。
-            </Text>
-            <Pressable onPress={handleClaimShareReward} style={shellStyles.shareBtn}>
-              <Text style={shellStyles.shareBtnText}>领取 {shareFirstReward} 智汇值</Text>
-            </Pressable>
-            <Pressable
-              onPress={hideSharePoints}
-              style={[shellStyles.shareBtn, shellStyles.shareBtnSecondary]}
-            >
-              <Text style={shellStyles.shareBtnText}>稍后再说</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        rewardPoints={shareFirstReward}
+        onClaim={() => void handleClaimShareReward()}
+        onClose={hideSharePoints}
+      />
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
@@ -1943,9 +1961,10 @@ export function HomeScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1 } as const,
+  // 2026-09-05:显式浅色背景,避免透出 RN Web 壳层深色底导致整页黑屏
+  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
   scroll: { flex: 1 } as const,
-  scrollContent: { paddingBottom: rpx(32) } as const,
+  scrollContent: { paddingBottom: rpx(300) } as const,
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)
   voiceInputWrap: { paddingHorizontal: rpx(24), paddingVertical: rpx(12) } as const,
   // 轮播(对齐 Uniapp custom-carousel-wrapper:margin 18rpx 0 0 0 ≈ marginTop: rpx(18) + 圆角 30rpx≈15)
@@ -1992,9 +2011,7 @@ const shellStyles = {
   } as const,
   // ── ModelTypeBar 模型类型选择栏(对齐 Uniapp model-type-btn 8 个) ──
   modelTypeBar: {
-    backgroundColor: tokens.surface.card,
-    borderTopWidth: 1,
-    borderTopColor: tokens.border.light,
+    // 2026-09-05:容器无背景、无描边(用户要求去掉顶部分割线)
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(12),
   } as const,
@@ -2004,7 +2021,7 @@ const shellStyles = {
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(12),
     marginRight: rpx(12),
-    borderRadius: 16,
+    borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   } as const,
   modelTypeBtnActive: {
@@ -2058,16 +2075,95 @@ const shellStyles = {
     borderRadius: 8,
     backgroundColor: tokens.surface.muted,
   } as const,
-  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index MaterialList 触发按钮) ──
+  // ── creationEntry 我的创作入口(对齐 Uniapp ai_index .model-type-btn 200rpx×60rpx,
+  //    外观模拟 back_default.svg: 白底 rx30 + rgba(0,0,0,.4) 描边) ──
   creationEntry: {
     alignSelf: 'flex-start',
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(12),
+    width: rpx(200),
+    height: rpx(60),
+    marginRight: rpx(20),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: rpx(30),
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.4)',
+  } as const,
+  creationEntryActive: {
+    // 激活态对齐 active_back.svg: stroke-opacity 1
+    borderColor: '#000000',
+  } as const,
+  creationBtnText: {
+    fontSize: rpx(28),
+    fontWeight: '500',
+    color: 'rgba(0,0,0,0.8)',
+  } as const,
+  creationBtnArrow: {
+    marginLeft: rpx(6),
+    width: rpx(20),
+    height: rpx(20),
+    alignItems: 'center',
+    justifyContent: 'center',
   } as const,
   creationEntryText: {
     fontSize: 13,
     color: tokens.brand.DEFAULT,
     fontWeight: '600',
+  } as const,
+  // ── 「+」上滑面板(对齐 Uniapp BottomActionBar .icon-button-group) ──
+  /* 底部固定区(对齐 .bottom_box: fixed bottom 0;包含模型栏/我的创作/语音行/素材行/输入组) */
+  bottomBox: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    backgroundColor: '#fff',
+  } as const,
+  /* 底部输入区组(在 bottomBox 内正常流布局) */
+  inputGroup: {
+    backgroundColor: '#fff',
+  } as const,
+  addPanel: {
+    flexDirection: 'row',
+    gap: rpx(16),
+    paddingTop: rpx(5),
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(25),
+    backgroundColor: '#fff',
+  } as const,
+  /* 卡片(对齐 .icon-button: 150rpx / radius 30rpx / border 6rpx #fff bottom 0 / shadow) */
+  addPanelItem: {
+    width: rpx(150),
+    height: rpx(150),
+    borderRadius: rpx(30),
+    borderTopWidth: rpx(6),
+    borderLeftWidth: rpx(6),
+    borderRightWidth: rpx(6),
+    borderBottomWidth: 0,
+    borderColor: '#fff',
+    paddingTop: rpx(20),
+    paddingHorizontal: rpx(10),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: rpx(4),
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
+  } as const,
+  /* 图标(对齐 .icon-imagea: 70rpx×70rpx, margin-bottom 12rpx) */
+  addPanelImg: {
+    width: rpx(70),
+    height: rpx(70),
+    marginBottom: rpx(12),
+  } as const,
+  /* 文字(对齐 .icon-text: 20rpx / line-height 40rpx / rgba(0,0,0,0.9)) */
+  addPanelLabel: {
+    fontSize: rpx(20),
+    lineHeight: rpx(40),
+    color: 'rgba(0,0,0,0.9)',
   } as const,
   // ── 素材卡片行(对齐 Uniapp material-cards-wrap:卡片带标题 + 右上 × 移除,compact 风格) ──
   materialCardsWrap: {
@@ -2253,25 +2349,6 @@ const shellStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
-  shareContent: {
-    width: '84%',
-    borderRadius: 12,
-    backgroundColor: tokens.surface.light,
-    paddingHorizontal: rpx(40),
-    paddingTop: rpx(40),
-    paddingBottom: rpx(48),
-    alignItems: 'center',
-  } as const,
-  shareClose: {
-    alignSelf: 'flex-end',
-    padding: rpx(8),
-  } as const,
-  shareCloseText: {
-    fontSize: 22,
-    lineHeight: 24,
-    color: tokens.text.tertiary,
-    fontWeight: '300',
-  } as const,
   // 二维码弹窗(对齐 Uniapp qr-code-modal:图片 600rpx≈300dp + 关闭按钮)
   qrContent: {
     width: '80%',
@@ -2305,36 +2382,6 @@ const shellStyles = {
     lineHeight: 26,
     color: tokens.text.tertiary,
     fontWeight: '300',
-  } as const,
-  shareTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.text.primary,
-    marginTop: rpx(24),
-    marginBottom: rpx(16),
-  } as const,
-  shareDesc: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-    marginBottom: rpx(32),
-  } as const,
-  shareBtn: {
-    paddingHorizontal: rpx(48),
-    paddingVertical: rpx(20),
-    borderRadius: 6,
-    backgroundColor: tokens.brand.DEFAULT,
-    minWidth: '70%',
-    alignItems: 'center',
-  } as const,
-  shareBtnText: {
-    fontSize: 14,
-    color: tokens.surface.light,
-    fontWeight: '500',
-  } as const,
-  shareBtnSecondary: {
-    marginTop: rpx(16),
   } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -40,19 +40,22 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useI18n } from '../i18n'
+import { rpx } from '../utils/rpx'
 import {
-  Camera,
   ChevronDown,
   Folder,
-  Image as ImageIcon,
   Maximize,
-  MessageCircle,
   Mic,
   Paperclip,
-  Plus,
   Scissors,
   Settings,
 } from 'lucide-react-native'
+import SearchAddIcon from '../../assets/images/search-add.png'
+import CammerImgIcon from '../../assets/images/cammer_input.png'
+import PicterImgIcon from '../../assets/images/picter_input.png'
+import FloderImgIcon from '../../assets/images/floder_input.png'
+import SandMsgIcon from '../../assets/images/sand_msg.png'
+import { GradientBox } from './GradientBox'
 
 // ── 兼容旧 API:简单按钮列表 ──
 
@@ -164,17 +167,14 @@ const INPUT_FONT_SIZE = 15
 const INPUT_PADDING_HORIZONTAL = 12
 const INPUT_MAX_HEIGHT = 100
 
-const SEND_BTN_WIDTH = 56
-const SEND_BTN_HEIGHT = 44
-
 const VOICE_BTN_SIZE = 36
 
 const SECONDARY_BTN_SIZE = 36
 const SECONDARY_BTN_EMOJI_SIZE = 18
 
-const ICON_GROUP_ITEM_SIZE = 72
-const ICON_GROUP_ITEM_EMOJI_SIZE = 24
-const ICON_GROUP_ITEM_RADIUS = 8
+const ICON_GROUP_ITEM_SIZE = rpx(150) // 对齐 Uniapp BottomActionBar .icon-button width/height: 150rpx
+const ICON_GROUP_ITEM_EMOJI_SIZE = 24 // 注:RN 用 emoji 渲染,Uniapp 为 70rpx 图标图,此处保留 emoji 尺寸
+const ICON_GROUP_ITEM_RADIUS = rpx(30) // 对齐 Uniapp BottomActionBar .icon-button border-radius: 30rpx
 
 const IMAGE_PREVIEW_SIZE = 48
 const IMAGE_PREVIEW_RADIUS = 6
@@ -547,11 +547,11 @@ function ChatInputBar(props: BottomActionBarProps) {
           editable={!isLoading}
         />
 
-        {/* 「+」按钮(对齐 Uniapp InputArea search-box2:functionHandle → isShowIcon 切换滑出区;
-            激活时旋转 45° + 品牌色高亮,对齐 Uniapp rotate-icon 动画) */}
+        {/* 「+」按钮(对齐 Uniapp InputArea .search-box2: 44rpx search-add.png 图片,
+            激活时 rotate 45°,对齐 .rotate-icon transform 动画) */}
         {onPlusToggle !== undefined ? (
           <Pressable
-            style={[styles.plusBtn, plusActive ? styles.plusBtnActive : null]}
+            style={styles.plusBtn}
             onPress={onPlusToggle}
             hitSlop={4}
             accessibilityRole="button"
@@ -559,7 +559,7 @@ function ChatInputBar(props: BottomActionBarProps) {
             accessibilityState={{ expanded: plusActive }}
           >
             <View style={{ transform: [{ rotate: plusActive ? '45deg' : '0deg' }] }}>
-              <Plus size={20} color={plusActive ? tokens.surface.light : tokens.text.secondary} />
+              <Image source={SearchAddIcon} style={styles.plusBtnImg} />
             </View>
           </Pressable>
         ) : null}
@@ -576,9 +576,8 @@ function ChatInputBar(props: BottomActionBarProps) {
             {isLoading ? (
               <ActivityIndicator size="small" color={tokens.surface.light} />
             ) : (
-              <Text style={styles.sendLabel} numberOfLines={1}>
-                {'发送'}
-              </Text>
+              /* 对齐 Uniapp InputArea .search-box3-img: sand_msg.png 50rpx */
+              <Image source={SandMsgIcon} style={styles.sendImg} />
             )}
           </Pressable>
         ) : null}
@@ -664,52 +663,74 @@ function ChatInputBar(props: BottomActionBarProps) {
         </View>
       ) : null}
 
-      {/* 图标按钮组:相机 / 相册 / 文件 / 微信文件 */}
+      {/* 图标按钮组(对齐 Uniapp BottomActionBar .icon-button-group:
+          白底容器 + 135deg 渐变卡片 + 6rpx 白色描边(bottom 0) + 70rpx 图片图标 + 20rpx 文字) */}
       {showIconGroup ? (
         <View style={styles.iconGroup}>
           <Pressable
-            style={styles.iconGroupItem}
             onPress={() => onIconClick('camera')}
             accessibilityRole="button"
             accessibilityLabel="相机"
           >
-            <Camera size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'相机'}
-            </Text>
+            <GradientBox
+              css="linear-gradient(135deg, rgba(205,208,255,0.3) 3%, rgba(253,255,225,0.3) 103%)"
+              fallbackColor="#F4F4FB"
+              style={styles.iconGroupItem}
+            >
+              <Image source={CammerImgIcon} style={styles.iconGroupImg} resizeMode="contain" />
+              <Text style={styles.iconGroupLabel} numberOfLines={1}>
+                {'相机'}
+              </Text>
+            </GradientBox>
           </Pressable>
           <Pressable
-            style={styles.iconGroupItem}
             onPress={() => onIconClick('album')}
             accessibilityRole="button"
             accessibilityLabel="相册"
           >
-            <ImageIcon size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'相册'}
-            </Text>
+            <GradientBox
+              css="linear-gradient(135deg, rgba(205,208,255,0.3) 3%, rgba(253,255,225,0.3) 103%)"
+              fallbackColor="#F4F4FB"
+              style={styles.iconGroupItem}
+            >
+              <Image source={PicterImgIcon} style={styles.iconGroupImg} resizeMode="contain" />
+              <Text style={styles.iconGroupLabel} numberOfLines={1}>
+                {'相册'}
+              </Text>
+            </GradientBox>
           </Pressable>
           <Pressable
-            style={styles.iconGroupItem}
             onPress={() => onIconClick('file')}
             accessibilityRole="button"
             accessibilityLabel="本地文件"
           >
-            <Folder size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'本地文件'}
-            </Text>
+            <GradientBox
+              css="linear-gradient(135deg, rgba(205,208,255,0.3) 3%, rgba(253,255,225,0.3) 103%)"
+              fallbackColor="#F4F4FB"
+              style={styles.iconGroupItem}
+            >
+              <Image source={FloderImgIcon} style={styles.iconGroupImg} resizeMode="contain" />
+              <Text style={styles.iconGroupLabel} numberOfLines={1}>
+                {'本地文件'}
+              </Text>
+            </GradientBox>
           </Pressable>
           <Pressable
-            style={styles.iconGroupItem}
             onPress={() => onIconClick('wxfile')}
             accessibilityRole="button"
             accessibilityLabel="微信文件"
           >
-            <MessageCircle size={24} color={tokens.text.secondary} />
-            <Text style={styles.iconGroupLabel} numberOfLines={1}>
-              {'微信文件'}
-            </Text>
+            <GradientBox
+              css="linear-gradient(135deg, rgba(205,208,255,0.3) 3%, rgba(253,255,225,0.3) 103%)"
+              fallbackColor="#F4F4FB"
+              style={styles.iconGroupItem}
+            >
+              {/* 原版微信文件同样复用 floder_input.png */}
+              <Image source={FloderImgIcon} style={styles.iconGroupImg} resizeMode="contain" />
+              <Text style={styles.iconGroupLabel} numberOfLines={1}>
+                {'微信文件'}
+              </Text>
+            </GradientBox>
           </Pressable>
         </View>
       ) : null}
@@ -976,37 +997,31 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
     includeFontPadding: false,
   } as TextStyle,
-  sendBtn: {
-    width: SEND_BTN_WIDTH,
-    height: SEND_BTN_HEIGHT,
-    borderRadius: INPUT_BORDER_RADIUS,
-    backgroundColor: tokens.brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  } as ViewStyle,
-  // 「+」按钮(滑出区开关;激活态品牌色底,对齐 Uniapp search-box2 active)
+  // 「+」按钮(对齐 Uniapp InputArea .search-box2: 44rpx×44rpx 图片,无底色无边框)
   plusBtn: {
-    width: SECONDARY_BTN_SIZE,
-    height: SECONDARY_BTN_SIZE,
-    borderRadius: SECONDARY_BTN_SIZE / 2,
-    borderWidth: 1,
-    borderColor: tokens.border.light,
-    backgroundColor: tokens.surface.card,
+    width: rpx(44),
+    height: rpx(44),
     alignItems: 'center',
     justifyContent: 'center',
   } as ViewStyle,
-  plusBtnActive: {
-    backgroundColor: tokens.brand.DEFAULT,
-    borderColor: tokens.brand.DEFAULT,
-  } as ViewStyle,
+  plusBtnImg: {
+    width: rpx(44),
+    height: rpx(44),
+  } as ImageStyle,
   sendBtnDisabled: {
     opacity: 0.6,
   } as ViewStyle,
-  sendLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: tokens.surface.light,
-  } as TextStyle,
+  /* 发送按钮(对齐 Uniapp .search-box3-img sand_msg.png 50rpx,透明底) */
+  sendBtn: {
+    width: rpx(50),
+    height: rpx(50),
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as ViewStyle,
+  sendImg: {
+    width: rpx(50),
+    height: rpx(50),
+  } as ImageStyle,
 
   // ── 新模式:辅助按钮行 ──
   secondaryRow: {
@@ -1044,30 +1059,52 @@ const styles = StyleSheet.create({
     lineHeight: SECONDARY_BTN_EMOJI_SIZE + 2,
   } as TextStyle,
 
-  // ── 新模式:图标按钮组 ──
+  // ── 新模式:图标按钮组(对齐 Uniapp .icon-button-group) ──
   iconGroup: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 12,
+    gap: rpx(16), // 对齐 .icon-button-group gap: 16rpx
+    paddingTop: rpx(5), // 对齐 .icon-button-group padding: 5rpx 20rpx 25rpx
+    paddingHorizontal: rpx(20),
+    paddingBottom: rpx(25),
+    backgroundColor: '#fff', // 对齐 .icon-button-group background-color: #fff
   } as ViewStyle,
+  /* 单个卡片(对齐 .icon-button: 150rpx 方形 / radius 30rpx /
+     border 6rpx #fff(bottom 0) / shadow 0 0 4rpx rgba(0,0,0,0.3)) */
   iconGroupItem: {
     width: ICON_GROUP_ITEM_SIZE,
     height: ICON_GROUP_ITEM_SIZE,
     borderRadius: ICON_GROUP_ITEM_RADIUS,
-    backgroundColor: tokens.surface.muted,
-    paddingHorizontal: 6,
+    borderTopWidth: rpx(6),
+    borderLeftWidth: rpx(6),
+    borderRightWidth: rpx(6),
+    borderBottomWidth: 0,
+    borderColor: '#fff',
+    paddingTop: rpx(20),
+    paddingHorizontal: rpx(10),
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: rpx(4),
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
   } as ViewStyle,
+  /* 图标图(对齐 .icon-imagea: 70rpx×70rpx, margin-bottom 12rpx) */
+  iconGroupImg: {
+    width: rpx(70),
+    height: rpx(70),
+    marginBottom: rpx(12),
+  } as ImageStyle,
   iconGroupEmoji: {
     fontSize: ICON_GROUP_ITEM_EMOJI_SIZE,
     lineHeight: ICON_GROUP_ITEM_EMOJI_SIZE + 2,
   } as TextStyle,
+  /* 文字(对齐 .icon-text: font-size 20rpx, line-height 40rpx, color rgba(0,0,0,0.9)) */
   iconGroupLabel: {
-    fontSize: 11,
-    color: tokens.text.secondary,
-    marginTop: 2,
+    fontSize: rpx(20),
+    lineHeight: rpx(40),
+    color: 'rgba(0,0,0,0.9)',
   } as TextStyle,
 })
 
