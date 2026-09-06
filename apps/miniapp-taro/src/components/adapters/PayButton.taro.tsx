@@ -66,7 +66,7 @@ interface TypeConfig {
 const TYPE_CONFIG = (tt: TtFn): Record<PayButtonType, TypeConfig> => ({
   freevip: {
     bg: (tk) => tk.warning.light,
-    text: (tk) => tk.warning.deep,
+    text: (tk) => tk.brandAccent.DEFAULT,
     icon: freeVipIcon,
     label: tt('pay.memberFree', '会员免费'),
     showPurchasePopup: false,

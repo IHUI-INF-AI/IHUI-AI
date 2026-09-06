@@ -121,7 +121,7 @@ export function PdfToolsScreen() {
         <TouchableOpacity
           onPress={() => void onPick()}
           disabled={converting}
-          className={`mt-3 items-center rounded-md py-3 ${converting ? 'bg-blue-400' : 'bg-blue-600'}`}
+          className={`mt-3 items-center rounded-md py-3 ${converting ? 'bg-orange-400' : 'bg-orange-600'}`}
         >
           <Text className="text-sm font-medium text-white">
             {converting ? t('pdfTools.converting') : t('pdfTools.pick')}
@@ -141,7 +141,7 @@ export function PdfToolsScreen() {
                 {outName}
               </Text>
               <TouchableOpacity onPress={onShare} hitSlop={{ top: 6, bottom: 6 }}>
-                <Text className="text-xs text-blue-600 dark:text-blue-400">
+                <Text className="text-xs text-orange-600 dark:text-orange-400">
                   {t('pdfTools.share')}
                 </Text>
               </TouchableOpacity>

@@ -120,7 +120,7 @@ export function ImageGenCreateScreen() {
               <TouchableOpacity
                 key={item.value}
                 onPress={() => setSize(item.value)}
-                className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
               >
                 <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
                   {t(item.labelKey)}
@@ -133,7 +133,7 @@ export function ImageGenCreateScreen() {
         <TouchableOpacity
           onPress={() => void onGenerate()}
           disabled={generating}
-          className={`mt-4 items-center rounded-md py-3 ${generating ? 'bg-blue-400' : 'bg-blue-600'}`}
+          className={`mt-4 items-center rounded-md py-3 ${generating ? 'bg-orange-400' : 'bg-orange-600'}`}
         >
           <Text className="text-sm font-medium text-white">
             {generating ? t('imageGen.generating') : t('imageGen.generate')}

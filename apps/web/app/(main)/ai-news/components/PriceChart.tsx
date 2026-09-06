@@ -6,6 +6,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
+import { CHART_BLUE, CHART_ORANGE } from '@ihui/design-tokens'
 import type { LeaderboardEntry } from '@/lib/ai-news-api'
 import { parseNumeric } from './text-utils'
 
@@ -100,7 +101,7 @@ export function PriceChart({ entries }: Props) {
                 y={PAD_T + plotH - inH}
                 width={BAR_W}
                 height={inH}
-                fill="#3b82f6"
+                fill={CHART_BLUE}
                 rx={1.5}
               >
                 <title>{`${d.name} · 输入价: ${d.inputRaw}`}</title>
@@ -112,7 +113,7 @@ export function PriceChart({ entries }: Props) {
                 y={PAD_T + plotH - outH}
                 width={BAR_W}
                 height={outH}
-                fill="#f97316"
+                fill={CHART_ORANGE}
                 rx={1.5}
               >
                 <title>{`${d.name} · 输出价: ${d.outputRaw}`}</title>
@@ -132,11 +133,11 @@ export function PriceChart({ entries }: Props) {
       })}
       {/* 图例 */}
       <g>
-        <rect x={PAD_L} y={2} width={8} height={8} fill="#3b82f6" rx={1} />
+        <rect x={PAD_L} y={2} width={8} height={8} fill={CHART_BLUE} rx={1} />
         <text x={PAD_L + 12} y={9} className="fill-muted-foreground" fontSize={8}>
           输入
         </text>
-        <rect x={PAD_L + 44} y={2} width={8} height={8} fill="#f97316" rx={1} />
+        <rect x={PAD_L + 44} y={2} width={8} height={8} fill={CHART_ORANGE} rx={1} />
         <text x={PAD_L + 56} y={9} className="fill-muted-foreground" fontSize={8}>
           输出
         </text>
