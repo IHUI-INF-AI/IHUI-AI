@@ -2,11 +2,12 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   isDeadlockError,
   DeadlockRetrier,
   withDeadlockRetry,
+  backoffDelay,
   DEFAULT_DEADLOCK_RETRY_CONFIG,
 } from '../src/utils/deadlock-retry.js'
 
@@ -140,6 +141,69 @@ describe('deadlock-retry — 死锁重试', () => {
         { ...DEFAULT_DEADLOCK_RETRY_CONFIG, maxAttempts: 3, baseDelayMs: 1 },
       )
       expect(r).toBe('success')
+    })
+  })
+
+  describe('backoffDelay 指数退避序列', () => {
+    function cfg(
+      overrides: Partial<{
+        baseDelayMs: number
+        maxDelayMs: number
+        maxAttempts: number
+      }> = {},
+    ) {
+      return { ...DEFAULT_DEADLOCK_RETRY_CONFIG, ...overrides }
+    }
+
+    it('去抖(random=0.5)时按 base*2^(attempt-1) 严格递增', () => {
+      // random=0.5 → offset=0 → 退避=base,便于锁定精确序列
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+      try {
+        expect(backoffDelay(1, cfg())).toBe(20) // 20 * 2^0
+        expect(backoffDelay(2, cfg())).toBe(40) // 20 * 2^1
+        expect(backoffDelay(3, cfg())).toBe(80) // 20 * 2^2
+        expect(backoffDelay(4, cfg())).toBe(160)
+        expect(backoffDelay(5, cfg())).toBe(320)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('退避被 maxDelayMs 上限截断', () => {
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+      try {
+        // base=640 → 截断为 500 上限
+        expect(backoffDelay(6, cfg())).toBe(500)
+        expect(backoffDelay(10, cfg())).toBe(500)
+      } finally {
+        spy.mockRestore()
+      }
+    })
+
+    it('抖动偏移始终落在 base 的 ±20% 区间且非负', () => {
+      // 不 mock random,验证任意随机值都不越界
+      for (let i = 0; i < 200; i++) {
+        const attempt = 3 // base=80,jitter=16 → [64,96]
+        const base = Math.min(500, 20 * Math.pow(2, attempt - 1))
+        const jitter = Math.floor(base * 0.2)
+        const d = backoffDelay(attempt, cfg())
+        expect(d).toBeGreaterThanOrEqual(base - jitter)
+        expect(d).toBeLessThanOrEqual(base + jitter)
+        expect(d).toBeGreaterThanOrEqual(0)
+      }
+    })
+
+    it('自定义 base/maxDelay 生效', () => {
+      const spy = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+      try {
+        expect(backoffDelay(2, cfg({ baseDelayMs: 100, maxDelayMs: 1000 }))).toBe(200)
+        // base=400*2=800 < 1000,不截断
+        expect(backoffDelay(3, cfg({ baseDelayMs: 100, maxDelayMs: 1000 }))).toBe(400)
+        // base=100*2^4=1600 > 1000 → 截断为 1000
+        expect(backoffDelay(5, cfg({ baseDelayMs: 100, maxDelayMs: 1000 }))).toBe(1000)
+      } finally {
+        spy.mockRestore()
+      }
     })
   })
 })
