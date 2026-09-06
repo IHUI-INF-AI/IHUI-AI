@@ -4,7 +4,7 @@
 
 """自媒体 skill 路由(公众号文章 + 口播稿)。
 
-把 `F:\BaiduSyncdisk\自媒体` 项目的两个独立 skill 整合为 FastAPI 路由:
+把 `F:\\BaiduSyncdisk\\自媒体` 项目的两个独立 skill 整合为 FastAPI 路由:
 - content_engine: 公众号文章生成(摸鱼绿排版 + 微信草稿箱推送)
 - koubo_workflow: 每日 8 篇口播稿生成(约束优先 + 双门禁验证)
 
