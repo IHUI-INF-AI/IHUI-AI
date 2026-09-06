@@ -7942,6 +7942,8 @@
     "expiryDate": "有効期限"
   },
   "chat": {
+    "artifactPreview": "プレビュー",
+    "artifactCode": "コード",
     "addContextHint": "コンテキストファイルや参照を追加",
     "addContextReference": "コンテキストとして",
     "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン)",
