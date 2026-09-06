@@ -10,7 +10,7 @@ auth_enabled: false # 单机模式关闭多租户鉴权
 
 server:
   http_listen_port: 3100 # Loki HTTP API 端口(查询/推送)
-  grpc_listen_port: 9096 # gRPC 端口(单机模式仍监听,集群节点间通信)
+  grpc_listen_port: 9097 # gRPC 端口(原 9096 与告警桥 alert-webhook-bridge 冲突,已改 9097)
   log_level: info
 
 common:
