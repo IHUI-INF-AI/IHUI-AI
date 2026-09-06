@@ -24,7 +24,17 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
+from ..core.config import settings
+
 logger = logging.getLogger(__name__)
+
+# 内部可信服务调用的放行头(与 api 侧 AI_CALLBACK_SECRET / X-Internal-Secret 约定一致)。
+# 携带正确密钥的内部请求(如 AI 资讯批量分类/翻译管道)跳过 Prompt-Injection 内容扫描:
+# 这些请求的正文来自已审核的权威来源标题,而非不可信的用户输入;若仍按关键词扫描,
+# 会误伤含 "jailbreak"/"system prompt"/"ignore previous instructions" 等主题词的
+# 合法 AI 安全研究内容(实测 arxiv 标题被 400 拦截,导致资讯漏翻译/漏分类)。
+# 用户侧请求不携带该密钥,安全兜底不受影响。
+INTERNAL_SECRET_HEADER = "X-Internal-Secret"
 
 # ==================== XSS 危险模式(对齐 xss-protection.ts DANGEROUS_PATTERNS)====================
 
@@ -112,6 +122,12 @@ class InputSanitizerMiddleware(BaseHTTPMiddleware):
         content_type = request.headers.get("content-type", "")
         if "application/json" not in content_type:
             return await call_next(request)
+
+        # 内部可信调用(如 AI 资讯批量分类/翻译管道):携带与 API 侧一致的内部密钥即跳过
+        # Prompt-Injection 内容扫描,避免误伤合法 AI 安全研究标题;用户请求无此密钥,不受影响。
+        if settings.ai_callback_secret:
+            if request.headers.get(INTERNAL_SECRET_HEADER) == settings.ai_callback_secret:
+                return await call_next(request)
 
         # 读取 body(Starlette 会缓存到 request._body,下游 handler 仍可读取)
         body_bytes = await request.body()
