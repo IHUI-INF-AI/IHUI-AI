@@ -488,11 +488,11 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
             const [llmRes, transRes, trendRes] = await Promise.all([
               processLlmBatch().catch((err) => {
                 server.log.error({ err }, 'processLlmBatch failed in ai-feed-process')
-                return { processedItems: 0, details: String(err) }
+                return { processedItems: 0, failed: 0, details: String(err) }
               }),
               translateTitles().catch((err) => {
                 server.log.error({ err }, 'translateTitles failed in ai-feed-process')
-                return { processedItems: 0, details: String(err) }
+                return { processedItems: 0, failed: 0, details: String(err) }
               }),
               computeTrendSignals().catch((err) => {
                 server.log.error({ err }, 'computeTrendSignals failed in ai-feed-process')
@@ -524,18 +524,28 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               return {
                 llmProcessed: 0,
                 translated: 0,
+                classifiedFailed: 0,
+                translateFailed: 0,
                 iterations: 0,
                 llmBacklogCleared: false,
                 translateBacklogCleared: false,
+                remainingNoLlm: -1,
+                remainingNoEn: -1,
+                zeroProgress: true,
               }
             })
             server.log.info(
               {
                 llmProcessed: result.llmProcessed,
                 translated: result.translated,
+                classifiedFailed: result.classifiedFailed,
+                translateFailed: result.translateFailed,
                 iterations: result.iterations,
                 llmBacklogCleared: result.llmBacklogCleared,
                 translateBacklogCleared: result.translateBacklogCleared,
+                remainingNoEn: result.remainingNoEn,
+                remainingNoLlm: result.remainingNoLlm,
+                zeroProgress: result.zeroProgress,
               },
               'ai-feed-drain done',
             )
