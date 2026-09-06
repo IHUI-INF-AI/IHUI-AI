@@ -729,6 +729,15 @@ def create_app() -> FastAPI:
     app.include_router(audit_log_router, prefix="/api", tags=["audit-log"])
     app.include_router(sso_router, prefix="/api", tags=["sso"])
 
+    # 深度引擎 HTTP 接线(2026-09-06 立):补丁引擎 / OS 沙箱执行 / Codex 级会话持久化
+    from app.routers import patch as patch_router
+    from app.routers import sandbox_exec as sandbox_exec_router
+    from app.routers import sessions as sessions_router
+
+    app.include_router(patch_router.router, prefix="/api", tags=["patch"])
+    app.include_router(sandbox_exec_router.router, prefix="/api", tags=["sandbox-exec"])
+    app.include_router(sessions_router.router, prefix="/api", tags=["sessions"])
+
     # 本品类杀手锏只读/管理 API 统一挂载(成本看板/长期记忆/PromptGuard 审计/MCP 导出配置)
     from app.routers import killer_extras
 
