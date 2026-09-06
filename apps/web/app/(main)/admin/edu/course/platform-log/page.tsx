@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
@@ -100,8 +101,9 @@ export default function EduCoursePlatformLogPage() {
     saveMut.mutate()
   }
   function handleDelete(r: PlatformLog) {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteMut.mutate(r.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(r.id)
+    })
   }
   function handleExport() {
     exportFromApi(

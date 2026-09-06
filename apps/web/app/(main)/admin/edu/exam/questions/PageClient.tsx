@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -146,8 +147,9 @@ function QuestionsContent() {
     router.replace(`/admin/edu/exam/questions?${p.toString()}`)
   }
   function handleDelete(q: Question) {
-    if (!window.confirm(t('confirmDelete'))) return
-    deleteMut.mutate(q.id)
+    void confirmDialog({ title: t('confirmDelete') }).then((ok) => {
+      if (ok) deleteMut.mutate(q.id)
+    })
   }
 
   const all = data ?? []

@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -107,8 +108,9 @@ export default function IdentityProportionPage() {
     saveMut.mutate()
   }
   function handleDelete(item: IdentityProportion) {
-    if (!window.confirm(t('deleteConfirm', { name: item.identityType }))) return
-    deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('deleteConfirm', { name: item.identityType }) }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
   function handleExport() {
     exportToExcel(
