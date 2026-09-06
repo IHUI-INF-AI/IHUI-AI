@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { toast } from 'sonner'
@@ -123,10 +124,14 @@ export default function AdminAsksPage() {
     saveMut.mutate(values)
   }
   function handleAudit(item: AskItem) {
-    if (window.confirm(t('auditConfirm'))) auditMut.mutate(item.id)
+    void confirmDialog({ title: t('auditConfirm') }).then((ok) => {
+      if (ok) auditMut.mutate(item.id)
+    })
   }
   function handleDelete(item: AskItem) {
-    if (window.confirm(t('deleteConfirm'))) deleteMut.mutate(item.id)
+    void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+      if (ok) deleteMut.mutate(item.id)
+    })
   }
 
   const total = data?.total ?? 0

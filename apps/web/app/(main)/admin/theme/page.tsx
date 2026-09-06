@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Link from 'next/link'
 import { Plus, Edit, Trash2, Loader2 } from 'lucide-react'
 
@@ -55,7 +56,7 @@ export default function ThemeListPage() {
   }
 
   async function handleDelete(t: Theme) {
-    if (!window.confirm(`确定删除主题"${t.name}"吗?`)) return
+    if (!(await confirmDialog({ title: `确定删除主题"${t.name}"吗?` }))) return
     const r = await fetchApi(`/api/admin/themes/${t.id}`, { method: 'DELETE' })
     if (r.success) load()
   }

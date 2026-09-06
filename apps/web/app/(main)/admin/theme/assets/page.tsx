@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { confirmDialog } from '@/components/feedback'
 import Image from 'next/image'
 import { Upload, Trash2, Loader2, Image as ImageIcon } from 'lucide-react'
 
@@ -55,7 +56,7 @@ export default function AssetsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm('确定删除此资产?')) return
+    if (!(await confirmDialog({ title: '确定删除此资产?' }))) return
     const r = await fetchApi(`/api/admin/themes/assets/${id}`, { method: 'DELETE' })
     if (r.success) load()
   }
