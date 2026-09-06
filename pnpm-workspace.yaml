@@ -190,6 +190,9 @@ overrides:
   webpack@>=5.0.0-alpha.0 <5.94.0: ^5.94.0
   webpack@>=5.49.0 <5.104.0: ^5.104.0
   webpack@>=5.49.0 <=5.104.0: ^5.104.1
+  # 供应链(2026-09-06):xlsx(SheetJS npm 冻结版 0.18.5)存在 CVE-2023-30533(原型污染)/ReDoS,
+  # npm 上游不再发布修复版,统一强制到无漏洞 drop-in fork @e965/xlsx 0.20.x(API 兼容)。
+  xlsx: npm:@e965/xlsx@^0.20.3
 
 # 原 package.json pnpm.peerDependencyRules 迁移至此:
 peerDependencyRules:

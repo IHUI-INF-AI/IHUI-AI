@@ -372,6 +372,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(400).send(error(400, '金额超过上限'))
         if (dbAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       }
+      // P0 资金安全修复(2026-09-06):充值/下单入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        amount: amountCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '微信下单被风控拒绝')
+        return reply.status(403).send(error(403, '下单请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '微信下单进入人工复核(不阻断)')
+      }
       const order = await placeOrder({
         userId,
         amount: amountCents,
@@ -828,6 +842,26 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '无权操作此订单'))
       }
       if (order.status !== 'paid') return reply.status(400).send(error(400, '订单状态不允许退款'))
+      // P0 资金安全修复(2026-09-06,防超退):退款金额须为正且不超过订单金额(单位:分)
+      if (!amount || amount <= 0) return reply.status(400).send(error(400, '退款金额必须为正'))
+      if (amount > order.amount) return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, '微信退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId: order.userId, hits: risk.hits }, '微信退款进入人工复核(不阻断)')
+      }
+      // 部分退/整单退语义区分:仅全额退款才把订单置为 refunded(并回退 token 余额)
+      const fullRefund = amount >= order.amount
       const refundNo = `refund_${outTradeNo}`
       if (isWechatPayConfigured()) {
         await wxRefund({
@@ -839,8 +873,10 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           notifyUrl: env.WX_PAY_NOTIFY_URL ?? '',
         })
       }
-      await refundOrder(outTradeNo)
-      return reply.send(success({ outTradeNo, refundNo }))
+      if (fullRefund) {
+        await refundOrder(outTradeNo)
+      }
+      return reply.send(success({ outTradeNo, refundNo, full: fullRefund }))
     },
   )
 
@@ -1213,6 +1249,21 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 2026-07-24 安全防护:退款金额不能超过订单金额(单位:元)
       if (amountYuan * 100 > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount: Math.round(amountYuan * 100),
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, '支付宝退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId: order.userId, hits: risk.hits }, '支付宝退款进入人工复核(不阻断)')
+      }
       if (isAlipayConfigured()) {
         const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
         if (!result.success) return reply.status(500).send(error(500, '退款失败'))
@@ -1508,6 +1559,21 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const refundCents = refundAmount ?? order.amount
       if (refundCents > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount: refundCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, 'Stripe 退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId: order.userId, hits: risk.hits }, 'Stripe 退款进入人工复核(不阻断)')
+      }
       // paymentIntentId 必传(Stripe 退款必需)
       if (!paymentIntentId) {
         return reply.status(400).send(error(400, 'Stripe 退款必须提供 paymentIntentId'))
@@ -1976,6 +2042,21 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       const refundCents = refundAmount ?? order.amount
       if (refundCents > order.amount)
         return reply.status(400).send(error(400, '退款金额不能超过订单金额'))
+      // P0 资金安全修复(2026-09-06):退款入口接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId: order.userId ?? undefined,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        orderNo: outTradeNo,
+        amount: refundCents,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId: order.userId, hits: risk.hits }, 'PayPal 退款被风控拒绝')
+        return reply.status(403).send(error(403, '退款请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId: order.userId, hits: risk.hits }, 'PayPal 退款进入人工复核(不阻断)')
+      }
       if (!captureId) {
         return reply.status(400).send(error(400, 'PayPal 退款必须提供 captureId'))
       }
@@ -2083,6 +2164,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
       if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      // P0 资金安全修复(2026-09-06):银行卡提现(transfer)接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        withdrawalAmountFen: amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '银行卡提现被风控拒绝')
+        return reply.status(403).send(error(403, '提现请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '银行卡提现进入人工复核(不阻断)')
+      }
       const flow = await applyWithdrawal(
         {
           userId,
@@ -2112,6 +2207,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       // 2026-07-24 安全防护:提现金额不能超过用户余额(CWE-841)
       const balance = await getBalance(userId)
       if (amount > balance) return reply.status(400).send(error(400, '提现金额不能超过可用余额'))
+      // P0 资金安全修复(2026-09-06):微信提现接入风控引擎
+      const risk = server.riskEngine.evaluateRisk({
+        userId,
+        ip: request.ip,
+        deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+        withdrawalAmountFen: amount,
+      })
+      if (risk.action === 'DENY') {
+        request.log.warn({ userId, hits: risk.hits }, '微信提现被风控拒绝')
+        return reply.status(403).send(error(403, '提现请求被风控拦截,请联系客服'))
+      }
+      if (risk.action === 'REVIEW') {
+        request.log.info({ userId, hits: risk.hits }, '微信提现进入人工复核(不阻断)')
+      }
       const flow = await applyWithdrawal(
         {
           userId,

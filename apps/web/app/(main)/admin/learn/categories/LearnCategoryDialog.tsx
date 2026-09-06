@@ -1,25 +1,18 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:见仓库根 package.json x-ihui-provenance 字段。
 
 'use client'
 
+/**
+ * LearnCategoryDialog — 薄 wrapper(2026-09-06 治理)。
+ * 原为跨域复制粘贴的完整实现,已收敛到 @/components/admin/category-admin 唯一事实来源;
+ * 本文件仅注入 admin.learn 命名空间的 i18n 文案,页面/helper/types 零改动。
+ */
+
 import * as React from 'react'
-import { Loader2 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-  Button,
-  Input,
-  Label,
-  Switch,
-  TreeSelect,
-} from '@ihui/ui-react'
-import type { TreeNode } from '@ihui/ui-react'
+import { AdminCategoryDialog } from '@/components/admin/category-admin'
 import type { Category, CategoryForm } from './types'
 
 interface Props {
@@ -46,82 +39,31 @@ export function LearnCategoryDialog({
   categories,
 }: Props) {
   const t = useTranslations('admin.learn')
-  const treeData = React.useMemo<TreeNode[]>(
-    () => categories.map((c) => ({ id: c.id, label: c.name, pid: c.pid })),
-    [categories],
-  )
   return (
-    <Dialog
+    <AdminCategoryDialog
       open={open}
-      onOpenChange={(o) => {
-        if (!o) onClose()
+      editing={editing}
+      form={form}
+      setForm={setForm}
+      err={err}
+      savePending={savePending}
+      onSubmit={onSubmit}
+      onClose={onClose}
+      categories={categories}
+      labels={{
+        editTitle: t('editTitle'),
+        createTitle: t('createTitle'),
+        fieldParent: t('fieldParent'),
+        rootCategory: t('rootCategory'),
+        fieldName: t('fieldName'),
+        namePlaceholder: t('namePlaceholder'),
+        fieldSort: t('fieldSort'),
+        fieldStatus: t('fieldStatus'),
+        enabled: t('enabled'),
+        disabled: t('disabled'),
+        cancel: t('cancel'),
+        save: t('save'),
       }}
-    >
-      <DialogContent>
-        <form onSubmit={onSubmit} className="space-y-4">
-          <DialogHeader>
-            <DialogTitle>{editing ? t('editTitle') : t('createTitle')}</DialogTitle>
-          </DialogHeader>
-          {err && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {err}
-            </div>
-          )}
-          <div className="space-y-2">
-            <Label>{t('fieldParent')}</Label>
-            <TreeSelect
-              value={form.pid || null}
-              onChange={(v) => setForm({ ...form, pid: v ?? '' })}
-              data={treeData}
-              placeholder={t('rootCategory')}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cat-name">{t('fieldName')}</Label>
-            <Input
-              id="cat-name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder={t('namePlaceholder')}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="cat-sort">{t('fieldSort')}</Label>
-              <Input
-                id="cat-sort"
-                type="number"
-                min="0"
-                value={form.sort}
-                onChange={(e) => setForm({ ...form, sort: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cat-status">{t('fieldStatus')}</Label>
-              <div className="flex h-9 items-center gap-2">
-                <Switch
-                  id="cat-status"
-                  checked={form.status}
-                  onCheckedChange={(v) => setForm({ ...form, status: v })}
-                />
-                <span className="text-sm text-muted-foreground">
-                  {form.status ? t('enabled') : t('disabled')}
-                </span>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose} disabled={savePending}>
-              {t('cancel')}
-            </Button>
-            <Button type="submit" disabled={savePending}>
-              {savePending && <Loader2 className="h-4 w-4 animate-spin" />}
-              {t('save')}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    />
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

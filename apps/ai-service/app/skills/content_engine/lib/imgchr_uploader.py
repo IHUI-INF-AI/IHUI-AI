@@ -34,7 +34,7 @@ def upload_image(file_path: str, token: str) -> str | None:
     files = {'file': open(file_path, 'rb')}
 
     try:
-        resp = requests.post(API_URL, headers=headers, files=files, timeout=30, verify=False)
+        resp = requests.post(API_URL, headers=headers, files=files, timeout=30)  # 默认校验 HTTPS 证书(防 MITM)
         if resp.status_code == 200:
             data = resp.json()
             if data.get('status_code') == 200:

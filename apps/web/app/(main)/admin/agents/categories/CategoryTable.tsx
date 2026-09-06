@@ -4,6 +4,7 @@
 
 'use client'
 import { Loader2, Tag, Pencil, Trash2 } from 'lucide-react'
+import { confirmDialog } from '@/components/feedback'
 import { useTranslations, useLocale } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -143,7 +144,9 @@ export function CategoryTable({
                             size="sm"
                             variant="ghost"
                             onClick={() => {
-                              if (window.confirm(t('deleteConfirm'))) onDelete(c)
+                              void confirmDialog({ title: t('deleteConfirm') }).then((ok) => {
+                                if (ok) onDelete(c)
+                              })
                             }}
                             disabled={deletePending}
                           >
