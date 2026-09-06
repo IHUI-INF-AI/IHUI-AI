@@ -112,6 +112,7 @@ import {
   syncRankings,
   runDryRun,
   getSourceStats,
+  dedupKeyOf,
   type FetchedItem,
   type LeaderboardEntry,
   type LeaderboardId,
@@ -437,5 +438,40 @@ describe('AI World Sync — Dry-run 模式(2026-07-22 新增)', () => {
       globalThis.fetch = originalFetch
     }
   }, 120000)
+})
+
+describe('AI World Sync — dedupKeyOf 标题归一化去重', () => {
+  it('同一标题不同来源转载（标点/大小写差异）收敛为同一去重键', () => {
+    // 同文转载：标点、空格、大小写变化都归一到同一键
+    expect(dedupKeyOf('news', 'Introducing GPT-5: The Future')).toBe(
+      dedupKeyOf('news', ' Introducing GPT 5 the future!! '),
+    )
+    // 全角标点（中文全角冒号/逗号）与半角混排也应收敛
+    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(
+      dedupKeyOf('news', 'GPT5 重磅发布,开创未来'),
+    )
+    expect(dedupKeyOf('news', 'GPT-5：重磅发布，开创未来')).toBe(dedupKeyOf('news', 'GPT5重磅发布开创未来'))
+  })
+
+  it('全角空格/字母全角化经 NFKC 归一到半角', () => {
+    // A＋B 中 B 是全角,NFKC → A+B;B 前是全角空格( U+3000)
+    expect(dedupKeyOf('tool', 'ChatGPT\u3000４').endsWith('chatgpt4')).toBe(true)
+    expect(dedupKeyOf('tool', 'ChatGPT 4')).toBe(dedupKeyOf('tool', 'ChatGPT\u3000４'))
+  })
+
+  it('零宽连接符/零宽空格/BOM 剔除后判为重复', () => {
+    const plain = dedupKeyOf('app', 'Kimi智能助手')
+    expect(dedupKeyOf('app', 'Kimi\u200b智能\u200c助手')).toBe(plain) // 零宽空格 + 零宽连接符
+    expect(dedupKeyOf('app', '\uFEFFKimi智能助手')).toBe(plain) // BOM
+    expect(dedupKeyOf('app', 'Kimi\u2060智能助手')).toBe(plain) // word joiner
+  })
+
+  it('kind 命名空间隔离同名标题', () => {
+    const a = dedupKeyOf('news', 'GPT-5')
+    const b = dedupKeyOf('app', 'GPT-5')
+    expect(a).not.toBe(b)
+    expect(a).toBe('news::gpt5')
+    expect(b).toBe('app::gpt5')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
