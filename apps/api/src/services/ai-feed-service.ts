@@ -91,7 +91,7 @@ export interface SourceStatsItem {
 export interface CollectResult {
   fetchedSources: number
   totalItems: number
-  details: Array<{ sourceCode: string; status: string; count: number }>
+  details: Array<{ sourceCode: string; status: string; count: number; error?: string }>
 }
 
 export interface LlmBatchResult {
@@ -120,15 +120,22 @@ interface FetchedFeedItem {
 // LLM 调用不走此超时,独立用 90s。
 const FETCH_TIMEOUT_MS = 20_000
 
+// 抓取重试间隔(指数退避)。2026-09-06 实测:github.com 间歇性连接抖动可
+// 持续 20-60s(首采 mistral/huggingface-blog 连败 2 次,数分钟后同 URL 即通),
+// 单次重试(共 2 次尝试)不足以消除空档,故扩为 3 次重试(共 4 次尝试)。
+// 仅抓取失败/超时时产生额外延迟,正常源一次成功零开销。
+const FETCH_RETRY_DELAYS_MS = [800, 2_000, 4_000]
+
 /** 通用浏览器 UA(国内门户接口/SSR 页防反爬需要伪装) */
 const UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36'
 
 async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
-  // 单次自动重试:github.com 等存在间歇性连接抖动(偶发首次连不上、二次即通),
-  // 重试一次可消除由此产生的采集空档。
+  // 对间歇性连接抖动做 3 次指数退避重试(github.com 等路由抖动时首连失败、
+  // 稍后即通;一次重试不足以覆盖持续 20-60s 的抖动窗口)。
   let lastErr: unknown
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  const attempts = FETCH_RETRY_DELAYS_MS.length + 1
+  for (let attempt = 1; attempt <= attempts; attempt++) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
@@ -139,7 +146,9 @@ async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Respon
     } finally {
       clearTimeout(timer)
     }
-    if (attempt < 2) await new Promise((r) => setTimeout(r, 800))
+    if (attempt < attempts) {
+      await new Promise((r) => setTimeout(r, FETCH_RETRY_DELAYS_MS[attempt - 1]!))
+    }
   }
   throw lastErr
 }
@@ -245,32 +254,128 @@ function toSafeStr(v: unknown): string {
  *
  * 用 rss-parser 解析,支持 RSS 2.0 / Atom 1.0 / RDF 等格式。
  */
-async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
-  const res = await fetchWithTimeout(url, {
+
+/**
+ * GitHub 官方 API 兜底(releases.atom / commits/{branch}.atom 抓取失败时降级)。
+ *
+ * 背景(2026-09-06):mistral / huggingface-blog 因官方域不可达,改用 GitHub org 仓库的
+ * atom feed(github.com)作为权威替代;而 github.com 在国内存在间歇性连接抖动(20-60s),
+ * 即使增强重试仍可能全败。api.github.com 的官方 JSON 接口相对稳定,作为同源兜底通道,
+ * 权威性一致(同为 GitHub 官方),平时不触发、无额外请求。
+ */
+const GITHUB_RELEASES_ATOM_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/releases\.atom$/
+const GITHUB_COMMITS_ATOM_RE = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/commits\/([^/]+)\.atom$/
+
+interface GitHubApiItem {
+  id?: number | string
+  sha?: string
+  name?: string | null
+  tag_name?: string | null
+  html_url?: string
+  body?: string | null
+  published_at?: string | null
+  author?: { login?: string; name?: string } | null
+  commit?: {
+    message?: string
+    author?: { name?: string; date?: string }
+  }
+}
+
+async function fetchGitHubApiFallback(
+  url: string,
+  sourceCode: string,
+): Promise<FetchedFeedItem[] | null> {
+  const releasesMatch = url.match(GITHUB_RELEASES_ATOM_RE)
+  const commitsMatch = url.match(GITHUB_COMMITS_ATOM_RE)
+  let apiUrl: string | null = null
+  if (releasesMatch) {
+    apiUrl = `https://api.github.com/repos/${releasesMatch[1]}/${releasesMatch[2]}/releases?per_page=20`
+  } else if (commitsMatch) {
+    apiUrl = `https://api.github.com/repos/${commitsMatch[1]}/${commitsMatch[2]}/commits?sha=${commitsMatch[3]}&per_page=20`
+  }
+  if (!apiUrl) return null
+
+  const res = await fetchWithTimeout(apiUrl, {
     headers: {
-      Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
+      Accept: 'application/vnd.github+json',
       'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)',
+      'X-GitHub-Api-Version': '2022-11-28',
     },
   })
-  if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)
-  const xml = await res.text()
-  const feed = await rssParser.parseString(xml)
-  return (feed.items ?? []).map((item, idx) => ({
-    sourceCode,
-    platformItemId: toSafeStr(item.guid ?? item.link ?? idx).slice(0, 128),
-    title: toSafeStr(item.title).slice(0, 500),
-    summary: toSafeStr(item.contentSnippet ?? item.content).slice(0, 2000) || null,
-    url: toSafeStr(item.link) || null,
-    coverUrl: item.enclosure?.url ? toSafeStr(item.enclosure.url) : null,
-    author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
-    currentRank: idx + 1,
-    currentHot: null,
-    publishTime: item.isoDate
-      ? new Date(item.isoDate)
-      : item.pubDate
-        ? new Date(item.pubDate)
-        : null,
-  }))
+  if (!res.ok) throw new Error(`GitHub API ${apiUrl} 返回 ${res.status}`)
+  const list = (await res.json()) as GitHubApiItem[]
+  if (!Array.isArray(list)) return []
+
+  return list.map((raw, idx) => {
+    if (releasesMatch) {
+      return {
+        sourceCode,
+        platformItemId: String(raw.id ?? raw.tag_name ?? idx).slice(0, 128),
+        title: String(raw.name ?? raw.tag_name ?? '').slice(0, 500),
+        summary: raw.body ? String(raw.body).slice(0, 2000) : null,
+        url: raw.html_url ?? null,
+        coverUrl: null,
+        author: raw.author?.login ?? null,
+        currentRank: idx + 1,
+        currentHot: null,
+        publishTime: raw.published_at ? new Date(raw.published_at) : null,
+      }
+    }
+    return {
+      sourceCode,
+      platformItemId: String(raw.sha ?? idx).slice(0, 128),
+      title: String(raw.commit?.message ?? '').split('\n')[0]!.slice(0, 500),
+      summary: String(raw.commit?.message ?? '').slice(0, 2000) || null,
+      url: raw.html_url ?? null,
+      coverUrl: null,
+      author: raw.commit?.author?.name ?? raw.author?.login ?? null,
+      currentRank: idx + 1,
+      currentHot: null,
+      publishTime: raw.commit?.author?.date ? new Date(raw.commit.author.date) : null,
+    }
+  })
+}
+
+async function fetchRssXml(url: string, sourceCode: string): Promise<FetchedFeedItem[]> {
+  let items: FetchedFeedItem[]
+  try {
+    const res = await fetchWithTimeout(url, {
+      headers: {
+        Accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml',
+        'User-Agent': 'IHUI-AI-Feed/1.0 (+https://aizhs.top)',
+      },
+    })
+    if (!res.ok) throw new Error(`RSS XML ${url} 返回 ${res.status}`)
+    const xml = await res.text()
+    const feed = await rssParser.parseString(xml)
+    items = (feed.items ?? []).map((item, idx) => ({
+      sourceCode,
+      platformItemId: toSafeStr(item.guid ?? item.link ?? idx).slice(0, 128),
+      title: toSafeStr(item.title).slice(0, 500),
+      summary: toSafeStr(item.contentSnippet ?? item.content).slice(0, 2000) || null,
+      url: toSafeStr(item.link) || null,
+      coverUrl: item.enclosure?.url ? toSafeStr(item.enclosure.url) : null,
+      author: toSafeStr(item.creator ?? item.author).slice(0, 200) || null,
+      currentRank: idx + 1,
+      currentHot: null,
+      publishTime: item.isoDate
+        ? new Date(item.isoDate)
+        : item.pubDate
+          ? new Date(item.pubDate)
+          : null,
+    }))
+  } catch (primaryErr) {
+    // GitHub 源兜底:atom 抓取失败时降级到官方 API(仅 github.com 源触发,其余抛回原错误)
+    const fallback = await fetchGitHubApiFallback(url, sourceCode).catch((fbErr) => {
+      throw new Error(
+        `RSS XML ${url} 失败(${(primaryErr as Error).message});` +
+          `GitHub API 兜底亦失败(${(fbErr as Error).message})`,
+      )
+    })
+    if (fallback) return fallback
+    throw primaryErr
+  }
+  return items
 }
 
 /**
@@ -756,8 +861,22 @@ export async function collectAllSources(): Promise<CollectResult> {
         continue
       }
     } catch (e) {
+      // 采集失败:记录完整错误详情(含 URL/HTTP 状态),写入采集统计与源状态,
+      // 便于线上定位;不再继续走下方 upsert 成功路径。
       status = 'error'
-      logger.warn(`collectAllSources: 采集 ${src.sourceCode} 失败: ${(e as Error).message}`)
+      const errMsg = e instanceof Error ? e.message : String(e)
+      logger.warn(`collectAllSources: 采集 ${src.sourceCode} 失败: ${errMsg}`)
+      details.push({ sourceCode: src.sourceCode, status, count: 0, error: errMsg })
+      await db
+        .update(aiFeedSource)
+        .set({
+          lastFetchAt: new Date(),
+          lastFetchStatus: 'error',
+          lastFetchCount: 0,
+          updatedAt: new Date(),
+        })
+        .where(eq(aiFeedSource.id, src.id))
+      continue
     }
 
     // 幂等 upsert：已存在的 (sourceCode, platformItemId) 更新 lastSeenAt/currentHot/currentRank
