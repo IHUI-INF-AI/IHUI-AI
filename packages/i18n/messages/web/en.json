@@ -7942,6 +7942,8 @@
     "expiryDate": "Expiry date"
   },
   "chat": {
+    "artifactPreview": "Preview",
+    "artifactCode": "Code",
     "addContextHint": "Add context file or reference",
     "addContextReference": "Add as Context Reference",
     "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins)",
