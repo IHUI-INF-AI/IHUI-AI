@@ -18,7 +18,7 @@ CREATE TABLE "edu_enrollment" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "edu_exam_score" (
+CREATE TABLE IF NOT EXISTS "edu_exam_score" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"student_id" uuid NOT NULL,
 	"class_id" uuid NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE "edu_lead" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "edu_parent_student_binding" (
+CREATE TABLE IF NOT EXISTS "edu_parent_student_binding" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"parent_id" uuid NOT NULL,
 	"student_id" uuid NOT NULL,
@@ -97,7 +97,7 @@ CREATE TABLE "edu_payment_record" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "edu_ranking_snapshot" (
+CREATE TABLE IF NOT EXISTS "edu_ranking_snapshot" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"class_id" uuid NOT NULL,
 	"exam_name" varchar(200) NOT NULL,
@@ -265,10 +265,10 @@ CREATE INDEX "ix_edu_enroll_student" ON "edu_enrollment" USING btree ("student_i
 CREATE INDEX "ix_edu_enroll_class" ON "edu_enrollment" USING btree ("class_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_enroll_term" ON "edu_enrollment" USING btree ("term_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_enroll_status" ON "edu_enrollment" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "ix_edu_score_student" ON "edu_exam_score" USING btree ("student_id");--> statement-breakpoint
-CREATE INDEX "ix_edu_score_class" ON "edu_exam_score" USING btree ("class_id");--> statement-breakpoint
-CREATE INDEX "ix_edu_score_subject" ON "edu_exam_score" USING btree ("subject");--> statement-breakpoint
-CREATE INDEX "ix_edu_score_date" ON "edu_exam_score" USING btree ("exam_date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_score_student" ON "edu_exam_score" USING btree ("student_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_score_class" ON "edu_exam_score" USING btree ("class_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_score_subject" ON "edu_exam_score" USING btree ("subject");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_score_date" ON "edu_exam_score" USING btree ("exam_date");--> statement-breakpoint
 CREATE INDEX "ix_edu_hw_sub_homework" ON "edu_homework_submission" USING btree ("homework_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_hw_sub_student" ON "edu_homework_submission" USING btree ("student_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_hw_sub_class" ON "edu_homework_submission" USING btree ("class_id");--> statement-breakpoint
@@ -276,16 +276,16 @@ CREATE INDEX "ix_edu_hw_sub_status" ON "edu_homework_submission" USING btree ("s
 CREATE INDEX "ix_edu_lead_status" ON "edu_lead" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "ix_edu_lead_follower" ON "edu_lead" USING btree ("follower_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_lead_phone" ON "edu_lead" USING btree ("phone");--> statement-breakpoint
-CREATE INDEX "ix_edu_parent_binding_parent" ON "edu_parent_student_binding" USING btree ("parent_id");--> statement-breakpoint
-CREATE INDEX "ix_edu_parent_binding_student" ON "edu_parent_student_binding" USING btree ("student_id");--> statement-breakpoint
-CREATE INDEX "ix_edu_parent_binding_status" ON "edu_parent_student_binding" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_parent_binding_parent" ON "edu_parent_student_binding" USING btree ("parent_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_parent_binding_student" ON "edu_parent_student_binding" USING btree ("student_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_parent_binding_status" ON "edu_parent_student_binding" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "ix_edu_pay_student" ON "edu_payment_record" USING btree ("student_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_pay_class" ON "edu_payment_record" USING btree ("class_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_pay_fee" ON "edu_payment_record" USING btree ("fee_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_pay_date" ON "edu_payment_record" USING btree ("payment_date");--> statement-breakpoint
-CREATE INDEX "ix_edu_rank_class_exam" ON "edu_ranking_snapshot" USING btree ("class_id","exam_name");--> statement-breakpoint
-CREATE INDEX "ix_edu_rank_student" ON "edu_ranking_snapshot" USING btree ("student_id");--> statement-breakpoint
-CREATE INDEX "ix_edu_rank_date" ON "edu_ranking_snapshot" USING btree ("snapshot_date");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_rank_class_exam" ON "edu_ranking_snapshot" USING btree ("class_id","exam_name");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_rank_student" ON "edu_ranking_snapshot" USING btree ("student_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_edu_rank_date" ON "edu_ranking_snapshot" USING btree ("snapshot_date");--> statement-breakpoint
 CREATE INDEX "ix_edu_refund_student" ON "edu_refund_record" USING btree ("student_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_refund_class" ON "edu_refund_record" USING btree ("class_id");--> statement-breakpoint
 CREATE INDEX "ix_edu_refund_payment" ON "edu_refund_record" USING btree ("payment_id");--> statement-breakpoint
