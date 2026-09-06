@@ -1660,6 +1660,20 @@
       "when": 1720476800000,
       "tag": "20260901000000_conversation_message_archives",
       "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1720563200000,
+      "tag": "20260906173000_drop_dead_tables",
+      "break": false
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1720649600000,
+      "tag": "20260906174000_audit_partition_ensure_fn",
+      "break": false
     }
   ]
 }
