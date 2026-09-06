@@ -192,7 +192,7 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await processLlmBatch(parsed.data.limit ?? 100)
+    const result = await processLlmBatch(parsed.data.limit)
     return reply.send(success(result))
   })
 
@@ -204,7 +204,7 @@ const aiFeedRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = await translateTitles(parsed.data.limit ?? 50)
+    const result = await translateTitles(parsed.data.limit)
     return reply.send(success(result))
   })
 

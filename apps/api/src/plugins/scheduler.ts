@@ -40,6 +40,7 @@ export type ScheduledJobName =
   | 'dingtalk-token-refresh'
   | 'ai-feed-collect'
   | 'ai-feed-process'
+  | 'ai-feed-drain'
   | 'budget-alert-check'
 
 export interface ScheduledJobDef {
@@ -139,6 +140,14 @@ export const SCHEDULED_JOBS: ScheduledJobDef[] = [
     name: 'ai-feed-process',
     pattern: '30 */6 * * *',
     description: 'AI 资讯 LLM 分类摘要 + 标题翻译 + 趋势信号计算（每6小时错峰30分）',
+  },
+  // 存量 LLM 积压抽干(错峰加速):多轮小批量 + 轮间 sleep,持续抽干缺英文标题/缺分类
+  // 的存量条目。cron 取第 15 分钟,错开 collect(0 分)与 process(30 分)。
+  // 受 LLM_BATCH_ENABLED 总开关控制;批大小/轮数/错峰间隔由环境变量覆盖。
+  {
+    name: 'ai-feed-drain',
+    pattern: '15 */2 * * *',
+    description: 'AI 资讯 LLM 存量积压抽干（错峰分批,每2小时）',
   },
   // P0-3e 预算告警扫描：每 30 分钟聚合 aiBudgets(scope='user') 用户的今日 token / 本月成本,
   // 命中 80% warning / 100% critical 阈值时通过 notificationQueue 推站内信 + sendEmail 发邮件,

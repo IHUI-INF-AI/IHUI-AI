@@ -42,11 +42,14 @@ if (!m) { console.error('[pg-backup] ❌ DATABASE_URL 格式不正确:', url); p
 const [, user, pass, host, port, db] = m
 
 // 2) 找 pg_dump
+// 本机实际 PostgreSQL 运行时在 D:\DevEnv\runtimes\pgsql\bin(由 IHUI-PG-BACKUP 服务同源),
+// 必须显式纳入候选路径; 否则 find(existsSync) 只匹配 cwd 相对路径, 无法解析 PATH 中的 pg_dump。
 const PG_PATHS = [
   'C:\\Program Files\\PostgreSQL\\17\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\15\\bin\\pg_dump.exe',
   'C:\\Program Files\\PostgreSQL\\14\\bin\\pg_dump.exe',
+  'D:\\DevEnv\\runtimes\\pgsql\\bin\\pg_dump.exe',
   'pg_dump',
 ]
 const pgDumpExe = PG_PATHS.find(p => existsSync(p)) ?? 'pg_dump'
