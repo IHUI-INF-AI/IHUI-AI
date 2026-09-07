@@ -91,8 +91,7 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                       <Tooltip content="预览">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="icon-sm"
                           onClick={() => onPreview(file)}
                         >
                           <Eye className="h-4 w-4" />
@@ -103,8 +102,7 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                       <span className="inline-flex">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
+                          size="icon-sm"
                           onClick={() => onDownload(file)}
                           disabled={isDownloading}
                         >
@@ -119,8 +117,8 @@ export function FileList({ files, downloadingId, onDownload, onDelete, onPreview
                     <Tooltip content={t('deleteFile')}>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
                         onClick={() => onDelete(file)}
                       >
                         <Trash2 className="h-4 w-4" />
