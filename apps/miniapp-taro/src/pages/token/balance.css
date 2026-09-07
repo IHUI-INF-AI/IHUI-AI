@@ -62,12 +62,12 @@
 }
 .func-btn.active {
   background: var(--color-card);
-  border: 1rpx solid var(--color-border);
+  border: 1rpx solid var(--color-brand-orange);
 }
 .func-btn.active Text {
   font-size: 30rpx;
   font-weight: 700;
-  color: var(--color-foreground);
+  color: var(--color-brand-orange);
 }
 
 /* 时间区间 Tab */
@@ -101,7 +101,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   margin-bottom: 20rpx;
   background: var(--color-card);
   box-sizing: border-box;
