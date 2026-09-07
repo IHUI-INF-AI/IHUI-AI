@@ -409,6 +409,86 @@ class MCPPrompt:
 # ---------------------------------------------------------------------------
 
 
+# 懒索引护栏(2026-09-07 立):语义搜索空结果时自动触发增量索引的上限与冷却
+_LAZY_INDEX_MAX_FILES = 2000
+_LAZY_INDEX_COOLDOWN_SECONDS = 600.0
+_LAZY_INDEX_LAST_RUN: dict[str, float] = {}
+
+async def _lazy_index_and_research(
+    indexer: Any,
+    query: str,
+    path: str,
+    max_results: int,
+    internal_user_id: str | None = None,
+) -> list[dict[str, Any]]:
+    """懒索引:语义通道空结果且 path 为本地目录时,尽力做一次 Merkle 增量索引后重搜。
+
+    护栏:文件数 ≤ _LAZY_INDEX_MAX_FILES;同路径冷却期内不重复触发;全失败静默返回 []。
+    背景:此前 index_repository 无任何调用方,codebase_chunks 表永远是空的,
+    语义/混合检索在生产运行时形同虚设(2026-09-07 审计发现并根治)。
+    """
+    import time as _time
+    try:
+        from pathlib import Path as _Path
+        root = _Path(path).resolve()
+        if not root.exists() or not root.is_dir():
+            return []
+        now = _time.monotonic()
+        last = _LAZY_INDEX_LAST_RUN.get(str(root), 0.0)
+        if now - last < _LAZY_INDEX_COOLDOWN_SECONDS:
+            return []
+        files = indexer._collect_code_files(root)
+        if len(files) == 0 or len(files) > _LAZY_INDEX_MAX_FILES:
+            _LAZY_INDEX_LAST_RUN[str(root)] = now  # 超限路径也记录,避免反复扫描
+            return []
+        _LAZY_INDEX_LAST_RUN[str(root)] = now
+        await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
+        return await indexer.search(query, top_k=max_results)
+    except Exception:
+        return []
+
+
+async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
+    """index_codebase: 对本地代码库建立/刷新语义索引(Merkle 增量)。
+
+    search_codebase 的语义/混合通道(pgvector + BM25 RRF)依赖本索引;
+    首次语义搜索前建议显式调用,或依赖 search_codebase 的懒索引自动触发。
+    """
+    path = str(arguments.get("path", "")).strip()
+    repo_id = str(arguments.get("repo_id", "")).strip() or None
+    force_full = bool(arguments.get("force_full", False))
+    # 服务端注入的调用者身份(G6,LLM 不可控),透传给内部服务鉴权通道
+    internal_user_id = arguments.get("__user_id") or None
+    if not path:
+        return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    try:
+        from .codebase_indexer import codebase_indexer
+        result = await codebase_indexer.index_repository(
+            path, repo_id=repo_id, incremental=not force_full,
+            internal_user_id=internal_user_id,
+        )
+        return {
+            "tool": "index_codebase",
+            "ok": len(result.errors) == 0,
+            "repo_id": result.repo_id,
+            "files_scanned": result.files_scanned,
+            "files_indexed": result.files_indexed,
+            "files_unchanged": result.files_unchanged,
+            "files_deleted": result.files_deleted,
+            "chunks_created": result.chunks_created,
+            "chunks_vectorized": result.chunks_vectorized,
+            "merkle_root": result.merkle_root,
+            "errors": result.errors[:10],
+            "message": (
+                f"索引完成: 扫描 {result.files_scanned} 文件, "
+                f"新建 {result.files_indexed}, 未变更 {result.files_unchanged}, "
+                f"切片 {result.chunks_created}"
+            ),
+        }
+    except Exception as e:
+        return {"tool": "index_codebase", "ok": False, "error": str(e)[:300]}
+
+
 async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """search_codebase: 代码符号搜索(真实文件系统)。
 
@@ -472,6 +552,16 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
         try:
             from .codebase_indexer import codebase_indexer
             semantic_results = await codebase_indexer.search(query, top_k=max_results)
+            # 2026-09-07 立:懒索引——空结果且 path 为本地目录时,增量索引后重搜一次
+            # (根治:此前 index_repository 无调用方,语义/混合检索在生产运行时永远空表)
+            if not semantic_results:
+                semantic_results = await _lazy_index_and_research(
+                    codebase_indexer,
+                    query,
+                    path,
+                    max_results,
+                    internal_user_id=arguments.get("__user_id") or None,
+                )
             if semantic_results:
                 semantic_matches: list[dict[str, Any]] = []
                 for r in semantic_results[:max_results]:
@@ -4051,6 +4141,24 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="index_codebase",
+        description=(
+            "对本地代码库建立/刷新语义索引(Merkle 增量,未变更文件零重嵌入)。"
+            "search_codebase 的语义/混合检索通道依赖本索引;首次语义搜索前建议显式调用,"
+            "或依赖 search_codebase 空结果时的懒索引自动触发。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string", "description": "仓库根目录绝对路径"},
+                "repo_id": {"type": "string", "description": "仓库标识(为空按路径 hash 自动生成)"},
+                "force_full": {"type": "boolean", "description": "强制全量重建(默认 False=Merkle 增量)", "default": False},
+            },
+            "required": ["path"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
         name="knowledge_lookup",
         description="统一知识查询(三源并发:代码库语义检索 + RAG 向量检索 + 跨会话历史摘要)。用于查找代码实现/历史对话/相关文档,减少 hallucination。返回 hits 列表,每个含 source/score/content。",
         input_schema={
@@ -5095,6 +5203,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
     "search_codebase": _tool_search_codebase,
+    "index_codebase": _tool_index_codebase,
     "knowledge_lookup": _tool_knowledge_lookup,
     "context_recall": _tool_context_recall,
     "read_file": _tool_read_file,

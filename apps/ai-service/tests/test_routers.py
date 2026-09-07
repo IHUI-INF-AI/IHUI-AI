@@ -372,11 +372,12 @@ async def test_mcp_get_skill_unknown(client):
 
 
 async def test_mcp_list_slash_commands_endpoint(client):
-    """GET /api/mcp/slash-commands 返回 12 个命令。"""
+    """GET /api/mcp/slash-commands 返回全部命令(2026-09-07:13 个,新增 bestof)。"""
     resp = await client.get("/api/mcp/slash-commands")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["count"] == 12
+    assert data["count"] >= 12
+    assert data["count"] == len(data["commands"])
 
 
 async def test_mcp_execute_slash_command_endpoint(client):
