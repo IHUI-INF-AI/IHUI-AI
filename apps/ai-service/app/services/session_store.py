@@ -394,6 +394,22 @@ CREATE VIRTUAL TABLE IF NOT EXISTS items_fts USING fts5(
 """
 
 
+_RELAY_DDL = """
+CREATE TABLE IF NOT EXISTS relay_summaries (
+    summary_id      TEXT    PRIMARY KEY,
+    thread_id       TEXT    NOT NULL,
+    prev_thread_id  TEXT,
+    objective       TEXT    NOT NULL DEFAULT '',
+    payload         TEXT    NOT NULL,
+    refined         INTEGER NOT NULL DEFAULT 0,
+    created_at      REAL    NOT NULL,
+    FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
+);
+CREATE INDEX IF NOT EXISTS idx_relay_thread ON relay_summaries(thread_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_relay_created ON relay_summaries(created_at DESC);
+"""
+
+
 # ==================== 工具函数 ====================
 
 
@@ -498,7 +514,7 @@ def _row_to_item(row: sqlite3.Row) -> ItemBase:
 class SessionStore:
     """Codex 级会话持久化引擎。"""
 
-    SCHEMA_VERSION = 2  # v1=基线, v2=FTS5
+    SCHEMA_VERSION = 3  # v1=基线, v2=FTS5, v3=跨会话接力摘要
 
     def __init__(
         self,
@@ -567,6 +583,10 @@ class SessionStore:
                     )
                     self._add_version(2, "fts5: items_fts virtual table")
                 self._fts_enabled = True
+            # v3: 跨会话接力摘要表(复用现有 sqlite 引擎,不另造存储层)
+            self._conn.executescript(_RELAY_DDL)
+            if not self._has_version(3):
+                self._add_version(3, "relay_summaries: cross-session relay summary")
 
     def _has_version(self, version: int) -> bool:
         row = self._conn.execute(
@@ -1124,6 +1144,87 @@ class SessionStore:
                 )
             )
         return hits
+
+    # ==================== 跨会话接力摘要(P2-7) ====================
+
+    def save_relay_summary(
+        self,
+        thread_id: str,
+        *,
+        objective: str,
+        completed_steps: list[str],
+        key_decisions: list[str],
+        unfinished: list[str],
+        files: list[str],
+        refined: bool = False,
+        prev_thread_id: str | None = None,
+    ) -> str:
+        """持久化一条接力摘要,返回 summary_id(同 thread 允许多条,取最新为权威)。"""
+        import uuid
+
+        if self.get_thread(thread_id) is None:
+            raise ThreadNotFoundError(thread_id)
+        sid = uuid.uuid4().hex
+        payload = json.dumps(
+            {
+                "completed_steps": list(completed_steps or []),
+                "key_decisions": list(key_decisions or []),
+                "unfinished": list(unfinished or []),
+                "files": list(files or []),
+            },
+            ensure_ascii=False,
+        )
+        now = _now()
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT INTO relay_summaries (summary_id, thread_id, prev_thread_id,"
+                " objective, payload, refined, created_at) VALUES (?,?,?,?,?,?,?)",
+                (
+                    sid,
+                    thread_id,
+                    prev_thread_id,
+                    objective,
+                    payload,
+                    int(bool(refined)),
+                    now,
+                ),
+            )
+        return sid
+
+    def get_relay_summary(self, thread_id: str) -> dict[str, Any] | None:
+        """取某 thread 最新一条接力摘要(含 payload 各段列表);无则 None。"""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM relay_summaries WHERE thread_id = ?"
+                " ORDER BY created_at DESC LIMIT 1",
+                (thread_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return self._row_to_relay(row)
+
+    def list_relay_summaries(
+        self, *, limit: int = 50, offset: int = 0
+    ) -> list[dict[str, Any]]:
+        """跨 thread 列出接力摘要(created_at 倒序)。"""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM relay_summaries ORDER BY created_at DESC"
+                " LIMIT ? OFFSET ?",
+                (max(0, int(limit)), max(0, int(offset))),
+            ).fetchall()
+        return [self._row_to_relay(r) for r in rows]
+
+    def _row_to_relay(self, row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "summary_id": _row_str(row, "summary_id"),
+            "thread_id": _row_str(row, "thread_id"),
+            "prev_thread_id": _row_opt_str(row, "prev_thread_id"),
+            "objective": _row_str(row, "objective"),
+            "payload": _row_str(row, "payload"),
+            "refined": bool(row["refined"]),
+            "created_at": _row_float(row, "created_at"),
+        }
 
     # ==================== 内部 ====================
 
