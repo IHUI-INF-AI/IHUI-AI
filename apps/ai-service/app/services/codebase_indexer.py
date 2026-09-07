@@ -781,6 +781,7 @@ class CodebaseIndexer:
         repo_id: str,
         language: Optional[str] = None,
         api_token: Optional[str] = None,
+        internal_user_id: Optional[str] = None,
     ) -> IndexResult:
         """索引单个文件(增量更新)。
 
@@ -789,6 +790,7 @@ class CodebaseIndexer:
             repo_id: 仓库标识。
             language: 编程语言(为空时按扩展名推断)。
             api_token: API JWT token。
+            internal_user_id: 内部用户 ID(写入向量化 chunk 时隔离归属)。
         """
         path = Path(file_path).resolve()
         if not path.exists() or not path.is_file():
