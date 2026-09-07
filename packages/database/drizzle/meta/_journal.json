@@ -1709,6 +1709,20 @@
       "when": 1721081600000,
       "tag": "20260907010000_ai_pricing_numeric_precision",
       "break": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1721168000000,
+      "tag": "20260907020000_create_user_automations",
+      "break": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1721254400000,
+      "tag": "20260907030000_create_repo_wiki_docs",
+      "break": true
     }
   ]
 }
