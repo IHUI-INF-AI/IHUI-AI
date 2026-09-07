@@ -333,6 +333,20 @@ const nextConfig: NextConfig = {
           source: '/api/mcp/:path*',
           destination: 'http://localhost:8803/api/mcp/:path*',
         },
+        // 2026-09-07 新增:打通 3 个孤儿路由(审计发现 routers 存在但 web 端无转发=用户永远够不到):
+        // mcp-official(公网 MCP OAuth)/ patch(补丁应用)/ sandbox-exec(沙箱执行)
+        {
+          source: '/api/mcp-official/:path*',
+          destination: 'http://localhost:8803/api/mcp-official/:path*',
+        },
+        {
+          source: '/api/patch/:path*',
+          destination: 'http://localhost:8803/api/patch/:path*',
+        },
+        {
+          source: '/api/sandbox-exec/:path*',
+          destination: 'http://localhost:8803/api/sandbox-exec/:path*',
+        },
         // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
         // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
         {
