@@ -541,6 +541,13 @@ const nextConfig: NextConfig = {
           source: '/api/agent-recorder/:path*',
           destination: 'http://localhost:8803/api/agent-recorder/:path*',
         },
+        // 2026-09-07 新增:全活动时间线回放(P1-4)路由直连 ai-service 8803。
+        // 原因:timeline router 注册在 ai-service(prefix="/api",路径 /api/timeline),
+        // 与 agent-recorder 同理必须直连 8803,且置于 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/timeline',
+          destination: 'http://localhost:8803/api/timeline',
+        },
         // 2026-09-03 新增:Plan Mode 任务进度路由直连 ai-service 8803。
         // 原因:agent_plan router 注册在 ai-service(prefix="/api",路径 /api/agent-plan/*),
         // 必须直连 8803 才能命中,否则落到 /api/:path* → 8802 404。
