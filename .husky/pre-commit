@@ -436,4 +436,26 @@ if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
   console.log('⏭  createPortal 定位守门(HUSKY_SKIP_PORTAL_GUARD=1, 跳过)')
 }
 
+// 📏 Button 高度/宽度覆盖守门(2026-09-07 立,blocking)
+// 背景:Button className h-* 覆盖 size 档位导致全站按钮高度参差(发布账号页 4 钮 h-7/h-9 混用),
+//      2026-09-07 已全量迁移 130 处/56 文件至 size 档位。本守门防止回潮:
+//      <Button> 禁止 className h-*/w-* 覆盖 + size 值必须 ∈ 档位表。
+//      豁免:原生 <button>(IDE 面板 24px 紧凑档有意设计)、Input/SelectTrigger/Skeleton。
+// 跳过方法(紧急):HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...
+if (process.env.HUSKY_SKIP_BUTTON_HEIGHT_GUARD !== '1') {
+  if (
+    !run(
+      '📏 Button 高度/宽度覆盖守门(必须走 size 档位, 2026-09-07 立)...',
+      'node scripts/check-button-height.mjs',
+    )
+  ) {
+    console.error('❌ Button 高度/宽度覆盖守门失败,提交已阻止')
+    console.error('   修复方法:改用 size 档位(见脚本输出);新高度先在 button.tsx size 表立档')
+    console.error('   紧急跳过:HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  Button 高度/宽度覆盖守门(HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')
