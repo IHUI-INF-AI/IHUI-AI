@@ -4,11 +4,18 @@
 
 import { ALL_CSS_KEYS } from './css-config'
 import type { TreeNode } from './design-types'
+import {
+  CHART_RED,
+  DESIGN_OVERLAY_BG_LIGHT,
+  DESIGN_OVERLAY_BG_DARK,
+  DESIGN_OVERLAY_FG_LIGHT,
+  DESIGN_OVERLAY_FG_DARK,
+} from '@ihui/design-tokens'
 
 /** 构造 iframe srcDoc:用户 HTML + 暗黑适配 + 选/改 style + 树节点定位 注入脚本。 */
 function buildSrcDoc(html: string, isDark: boolean): string {
-  const bg = isDark ? '#0a0a0a' : '#ffffff'
-  const fg = isDark ? '#f5f5f5' : '#111111'
+  const bg = isDark ? DESIGN_OVERLAY_BG_DARK : DESIGN_OVERLAY_BG_LIGHT
+  const fg = isDark ? DESIGN_OVERLAY_FG_DARK : DESIGN_OVERLAY_FG_LIGHT
   // camelCase → kebab-case for getComputedStyle keys
   const propsJson = JSON.stringify(ALL_CSS_KEYS)
   const script = `<script data-ihui-injected="true">(function(){
@@ -26,7 +33,7 @@ function gs(el){var s={};var cs=getComputedStyle(el);PROPS.forEach(function(p){v
 function notify(){if(selected){parent.postMessage({__ihui:true,type:'select',elementId:selected.id||'',tagName:selected.tagName,text:(selected.textContent||'').slice(0,80),style:gs(selected)},'*');}}
 function highlight(el){if(selected) selected.style.outline='';selected=el;selected.style.outline='2px solid hsl(142 71% 45%)';selected.scrollIntoView({block:'center',behavior:'smooth'});notify();}
 function ensureOverlay(){if(!guideOverlay){guideOverlay=document.createElement('div');guideOverlay.setAttribute('data-ihui-injected','true');guideOverlay.style.cssText='position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:99999;';document.body.appendChild(guideOverlay);}return guideOverlay;}
-function renderGuides(guides){var ov=ensureOverlay();ov.innerHTML='';for(var i=0;i<guides.length;i++){var g=guides[i];var line=document.createElement('div');line.style.cssText='position:absolute;background:#ef4444;';if(g.type==='h'){line.style.left=g.start+'px';line.style.top=g.position+'px';line.style.width=(g.end-g.start)+'px';line.style.height='1px';}else{line.style.left=g.position+'px';line.style.top=g.start+'px';line.style.width='1px';line.style.height=(g.end-g.start)+'px';}ov.appendChild(line);}}
+function renderGuides(guides){var ov=ensureOverlay();ov.innerHTML='';for(var i=0;i<guides.length;i++){var g=guides[i];var line=document.createElement('div');line.style.cssText='position:absolute;background:${CHART_RED};';if(g.type==='h'){line.style.left=g.start+'px';line.style.top=g.position+'px';line.style.width=(g.end-g.start)+'px';line.style.height='1px';}else{line.style.left=g.position+'px';line.style.top=g.start+'px';line.style.width='1px';line.style.height=(g.end-g.start)+'px';}ov.appendChild(line);}}
 function clearGuides(){if(guideOverlay){guideOverlay.innerHTML='';}}
 function collectSiblings(el){var sibs=[];var p=el.parentElement;if(!p)return sibs;var ch=p.children;for(var i=0;i<ch.length;i++){var c=ch[i];if(c===el)continue;if(c.tagName==='SCRIPT'||c.tagName==='STYLE')continue;if(c.getAttribute&&c.getAttribute('data-ihui-injected')==='true')continue;var r=c.getBoundingClientRect();if(r.width<=0||r.height<=0)continue;sibs.push({id:c.id||('el'+i),x:r.left,y:r.top,width:r.width,height:r.height});}return sibs;}
 document.addEventListener('click',function(e){

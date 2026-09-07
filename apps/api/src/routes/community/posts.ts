@@ -13,6 +13,7 @@ import { success, error } from '../../utils/response.js'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
 import { createPost } from '../../db/community-queries.js'
+import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 import { circlePosts, circles, users } from '@ihui/database'
 
 const postsRoutes: FastifyPluginAsync = async (server) => {
@@ -138,6 +139,23 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     try {
+      // P0 合规:UGC 内容敏感词过滤(临界词整体拒绝,一般词脱敏)
+      const filtered = await sanitizeUgcInput(
+        {
+          title: body.data.title,
+          content: body.data.content,
+        },
+        {
+          action: 'ugc.post.create',
+          resourceType: 'post',
+          userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,发布失败'))
+      }
       let targetCircleId = body.data.circleId
       if (!targetCircleId) {
         // 自动获取或创建用户的"个人圈子"
@@ -165,8 +183,8 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
         }
       }
       const post = await createPost(targetCircleId, userId, {
-        title: body.data.title,
-        content: body.data.content,
+        title: filtered.fields.title!.text,
+        content: filtered.fields.content!.text,
         images: body.data.cover ? [body.data.cover] : null,
       })
       return reply.status(201).send(
@@ -204,6 +222,23 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     try {
+      // P0 合规:草稿同样做敏感词过滤(脱敏后入库,临界词拒绝)
+      const filtered = await sanitizeUgcInput(
+        {
+          title: body.data.title,
+          content: body.data.content,
+        },
+        {
+          action: 'ugc.post.draft',
+          resourceType: 'post',
+          userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!filtered.ok) {
+        return reply.status(400).send(error(400, '内容含违规词,保存失败'))
+      }
       let targetCircleId = body.data.circleId
       if (!targetCircleId) {
         const [personal] = await db
@@ -235,8 +270,8 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
         .values({
           circleId: targetCircleId,
           userId,
-          title: body.data.title,
-          content: body.data.content,
+          title: filtered.fields.title!.text,
+          content: filtered.fields.content!.text,
           images: body.data.cover ? [body.data.cover] : null,
           status: 0,
         })

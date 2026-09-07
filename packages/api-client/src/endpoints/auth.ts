@@ -73,6 +73,22 @@ export interface GoogleUserInfo {
 }
 
 // =============================================================================
+// 运营商一键登录
+// =============================================================================
+
+/** 运营商(一键登录通道)枚举:flashverify 闪验 / cmcc 移动 / cucc 联通 / ctcc 电信 */
+export type CarrierOperator = 'flashverify' | 'cmcc' | 'cucc' | 'ctcc'
+
+export interface CarrierOneClickLoginParams {
+  /** 运营商 SDK 校验成功后下发的 accessCode(闪验) 或 网关 token */
+  accessToken: string
+  /** 通道运营商:flashverify 闪验 / cmcc 移动 / cucc 联通 / ctcc 电信 */
+  operator: CarrierOperator
+  /** 场景标识,默认 one_click_login(一键登录) */
+  sceneType?: 'one_click_login'
+}
+
+// =============================================================================
 // 登录(3 种方式 + 别名兼容)
 // =============================================================================
 
@@ -139,6 +155,24 @@ export async function verifyTwoFactorLogin(
         ? { challengeToken, token: trimmed }
         : { challengeToken, backupCode: trimmed.toUpperCase() },
     ),
+  })
+}
+
+/** 运营商一键登录 — POST /auth/login/carrier
+ *  客户端(如 mobile-rn 闪验/网关 SDK)完成本机手机号校验后,携带运营商下发的
+ *  accessToken / operator 换取 JWT(返回结构与其它登录函数一致:token + user)。
+ */
+export async function loginByCarrierOneClick(
+  params: CarrierOneClickLoginParams,
+): Promise<ApiResult<LoginResult>> {
+  const body: CarrierOneClickLoginParams = {
+    accessToken: params.accessToken,
+    operator: params.operator,
+    sceneType: params.sceneType ?? 'one_click_login',
+  }
+  return fetchApi<LoginResult>('/api/auth/login/carrier', {
+    method: 'POST',
+    body: JSON.stringify(body),
   })
 }
 
