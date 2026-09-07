@@ -1,0 +1,17 @@
+-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+-- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+-- 20260907010000_ai_pricing_numeric_precision.sql
+-- ai_pricing 价格两列 integer → numeric(18,6)(2026-09-07 立,GAP-PLAN P3-9"成本真网计价"精度根治)。
+--
+-- 背景:原 integer 单位"分/千 token"下,极廉价模型(gpt-4o-mini $0.15/1M ≈ 0.108 分/千 token)
+-- round 后为 0 分,真网计价对廉价模型全部失效。改 numeric(18,6) 保留 6 位小数,
+-- 单位语义不变;schema 侧用 drizzle numeric mode:'number',TS 消费端零适配。
+--
+-- 注意:本迁移非幂等(ALTER 无 IF NOT EXISTS);重复执行会因类型已是 numeric 而报错,
+-- 但 ALTER TYPE integer→numeric 同类型重复执行无害,PG 会正常通过同类型 ALTER。
+
+ALTER TABLE "ai_pricing" ALTER COLUMN "input_token_price" SET DATA TYPE numeric(18,6);
+--> statement-breakpoint
+
+ALTER TABLE "ai_pricing" ALTER COLUMN "output_token_price" SET DATA TYPE numeric(18,6);
