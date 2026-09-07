@@ -51,8 +51,8 @@ export function RoutinesPanel({ routines, onToggle, onRun }: RoutinesPanelProps)
               </div>
               <Button
                 variant="outline"
-                size="sm"
-                className="h-7 shrink-0"
+                size="xs"
+                className="shrink-0"
                 onClick={() => onRun?.(routine.id)}
               >
                 <Play className="h-3 w-3" />

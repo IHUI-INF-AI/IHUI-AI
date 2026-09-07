@@ -144,10 +144,10 @@ export function ForgotPasswordForm() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
           />
-          <Button
+          <Button size="lg"
             type="button"
             variant="outline"
-            className="h-10 shrink-0"
+            className="shrink-0 px-4"
             disabled={sending || countdown > 0}
             onClick={handleSendCode}
           >
@@ -181,7 +181,7 @@ export function ForgotPasswordForm() {
         />
       </div>
 
-      <Button type="button" className="h-10 w-full" disabled={submitting} onClick={handleReset}>
+      <Button size="lg" type="button" className="w-full px-4" disabled={submitting} onClick={handleReset}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('resetPassword')}
       </Button>

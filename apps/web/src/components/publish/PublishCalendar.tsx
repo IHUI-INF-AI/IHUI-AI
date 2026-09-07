@@ -131,7 +131,6 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
               onClick={prevMonth}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -141,7 +140,6 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
               type="button"
               variant="ghost"
               size="icon"
-              className="h-9 w-9"
               onClick={nextMonth}
             >
               <ChevronRight className="h-4 w-4" />
