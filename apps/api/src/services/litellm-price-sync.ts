@@ -15,7 +15,7 @@
  *   LiteLLM 给 USD/token,故:
  *     price(分/千 token) = round6(usd_per_token × 1000(千token) × 100(元→分) × rate)
  *                        = round6(usd_per_token × rate × 100_000)
- *   rate 取 env AI_PRICE_USD_TO_CNY(默认 7.2)。
+ *   rate 优先 frankfurter.app 实时汇率(ECB,24h 缓存,失败回退),env AI_PRICE_USD_TO_CNY 覆盖,静态默认 7.2。
  *
  * modelId 匹配策略:保留 LiteLLM 原键(trim 后入库,超 128 字符丢弃),
  * 不做去前缀别名(azure/gpt-4o 等带前缀键与裸键互不冲突,原样入库即可);
@@ -60,13 +60,70 @@ export function getUsdToCnyRate(): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_USD_TO_CNY
 }
 
+// ===== 实时汇率(frankfurter.app,ECB 官方数据,免密钥;24h 缓存,失败回退 env/静态值) =====
+
+const FX_RATE_URL = 'https://api.frankfurter.app/latest?from=USD&to=CNY'
+const FX_RATE_TTL_MS = 24 * 60 * 60 * 1000
+
+let fxRateCache: { rate: number; fetchedAt: number } | null = null
+
+/** 仅供单测重置汇率缓存(正常代码勿调) */
+export function resetFxRateCacheForTests(): void {
+  fxRateCache = null
+}
+
+/**
+ * 解析当前 USD→CNY 汇率:优先 frankfurter.app 实时汇率(5s 超时),
+ * 失败或缓存未过期则用上次成功值,再回退 env/静态默认。网络异常只 log.warn 不 throw。
+ */
+export async function resolveUsdToCnyRate(): Promise<number> {
+  const now = Date.now()
+  if (fxRateCache && now - fxRateCache.fetchedAt < FX_RATE_TTL_MS) {
+    return fxRateCache.rate
+  }
+  try {
+    const res = await fetch(FX_RATE_URL, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.ok) {
+      const payload: unknown = await res.json()
+      const cny =
+        typeof payload === 'object' && payload !== null
+          ? (payload as Record<string, unknown>).rates
+          : undefined
+      const rate =
+        typeof cny === 'object' && cny !== null
+          ? (cny as Record<string, unknown>).CNY
+          : undefined
+      if (typeof rate === 'number' && Number.isFinite(rate) && rate > 0) {
+        fxRateCache = { rate, fetchedAt: now }
+        logger.info(`[litellm-price-sync] live USD/CNY rate: ${rate}`)
+        return rate
+      }
+      logger.warn('[litellm-price-sync] 汇率响应格式异常,回退静态值')
+    } else {
+      logger.warn(`[litellm-price-sync] 汇率接口 HTTP ${res.status},回退静态值`)
+    }
+  } catch (err) {
+    logger.warn('[litellm-price-sync] 实时汇率获取失败,回退静态值:', {
+      error: err instanceof Error ? err.message : err,
+    })
+  }
+  const fallback = fxRateCache?.rate ?? getUsdToCnyRate()
+  if (fxRateCache) fxRateCache.fetchedAt = now // 拉取失败顺延缓存,避免每次同步都打超时
+  return fallback
+}
+
 /**
  * 纯函数:把 LiteLLM 单个价表条目映射为 ai_pricing 单位(分/千 token, CNY)。
+ * rate 不传时回退 env/静态默认(便于单测);syncLiteLLMPricing 传实时解析的汇率。
  * 返回 null 表示跳过:非对象条目 / sample_spec / 缺任一价格 / 价格非法 / modelId 非法。
  */
 export function mapLiteLLMEntry(
   modelId: string,
   entry: unknown,
+  rate: number = getUsdToCnyRate(),
 ): { modelId: string; inputTokenPrice: number; outputTokenPrice: number } | null {
   const id = modelId.trim()
   if (!id || id.length > MAX_MODEL_ID_LENGTH || id === 'sample_spec') return null
@@ -77,7 +134,6 @@ export function mapLiteLLMEntry(
   const output = rec.output_cost_per_token
   if (typeof input !== 'number' || !Number.isFinite(input) || input < 0) return null
   if (typeof output !== 'number' || !Number.isFinite(output) || output < 0) return null
-  const rate = getUsdToCnyRate()
   return {
     modelId: id,
     inputTokenPrice: Math.round(input * rate * USD_PER_TOKEN_TO_CENTS_PER_1K * PRICE_SCALE) / PRICE_SCALE,
@@ -110,12 +166,13 @@ export async function syncLiteLLMPricing(): Promise<SyncStats> {
     }
 
     const entries = payload as Record<string, unknown>
+    const rate = await resolveUsdToCnyRate()
     const mapped: Array<{ modelId: string; inputTokenPrice: number; outputTokenPrice: number }> = []
     let fetched = 0
     let skipped = 0
     for (const [key, entry] of Object.entries(entries)) {
       fetched++
-      const m = mapLiteLLMEntry(key, entry)
+      const m = mapLiteLLMEntry(key, entry, rate)
       if (m) mapped.push(m)
       else skipped++
     }
