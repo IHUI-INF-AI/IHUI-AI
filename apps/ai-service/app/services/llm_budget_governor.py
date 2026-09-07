@@ -54,6 +54,8 @@ import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+
+from ..core.model_pricing import snapshot_per_1k
 from typing import Any, Callable, Optional, cast
 
 logger = logging.getLogger(__name__)
@@ -110,16 +112,23 @@ class BudgetConfig:
         "subagent": 0.25,
         "terminal": 0.10,
     })
-    # 模型成本表(每 1K token 美元)
-    model_cost_table: dict[str, dict[str, float]] = field(default_factory=lambda: {
-        "gpt-4o": {"input": 0.0025, "output": 0.01},
-        "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
-        "gpt-4-turbo": {"input": 0.01, "output": 0.03},
-        "claude-3-opus": {"input": 0.015, "output": 0.075},
-        "claude-3-sonnet": {"input": 0.003, "output": 0.015},
-        "claude-3-haiku": {"input": 0.00025, "output": 0.00125},
-        "default": {"input": 0.002, "output": 0.008},
-    })
+    # 模型成本表(每 1K token 美元)。
+    # 2026-09-07 收口:默认值从 core.model_pricing 单一价目源生成
+    # (此前本表与 cost_ledger / llm_usage_service 三处漂移且停留 2024 价位);
+    # update_config 仍可运行时合并覆盖(语义不变)。
+    model_cost_table: dict[str, dict[str, float]] = field(
+        default_factory=lambda: snapshot_per_1k([
+            "gpt-5",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4-turbo",
+            "claude-opus-4",
+            "claude-sonnet-4",
+            "claude-3-5-sonnet",
+            "deepseek-chat",
+            "deepseek-reasoner",
+        ])
+    )
     # 降级链(预算紧张时切换,从贵到便宜)
     degrade_chain: list[str] = field(default_factory=lambda: [
         "gpt-4o", "gpt-4o-mini",  # 优先降级到 mini
