@@ -667,7 +667,7 @@ function createStyles(tk: AppThemeTokens) {
     } as TextStyle,
     // Tip 提示横幅
     tipOuter: {
-      backgroundColor: tk.indigo.light,
+      backgroundColor: tk.brandAccent.light,
       padding: 4,
       borderRadius: 12,
       marginBottom: 9,
@@ -704,8 +704,8 @@ function createStyles(tk: AppThemeTokens) {
       height: 28,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: tk.indigo.DEFAULT,
-      backgroundColor: tk.indigo.light,
+      borderColor: tk.brandAccent.DEFAULT,
+      backgroundColor: tk.brandAccent.light,
       alignItems: 'center',
       justifyContent: 'center',
       marginLeft: 8,

@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: LEVEL_TEXT_FONT_SIZE,
     lineHeight: LEVEL_TEXT_FONT_SIZE + 6,
-    color: tokens.purple.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
   } as TextStyle,
   benefitsScroll: {
     flex: 1,
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   levelBadge: {
     alignSelf: 'center',
-    backgroundColor: tokens.purple.light,
+    backgroundColor: tokens.brandAccent.light,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -506,7 +506,7 @@ const styles = StyleSheet.create({
   levelBadgeText: {
     fontSize: LEVEL_BADGE_FONT_SIZE,
     lineHeight: LEVEL_BADGE_FONT_SIZE + 2,
-    color: tokens.purple.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     fontWeight: '600',
   } as TextStyle,
   buttonRow: {

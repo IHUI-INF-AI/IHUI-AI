@@ -6,7 +6,7 @@
  * 生成 miniapp-taro 原生 tabBar 亮色图标(lucide 风格,81x81 PNG)
  * 用法: cd G:/IHUI-AI && node apps/miniapp-taro/scripts/gen-tabbar-icons.mjs
  * 产物: apps/miniapp-taro/src/assets/tabbar/tab-<name>.png / tab-<name>-active.png
- * 依据 AGENTS.md §4:miniapp 端图标 = lucide 风格 stroke #6366F1;未选中用中性灰。
+ * 依据 AGENTS.md §4:miniapp 端图标 = lucide 风格 stroke #000000;未选中用中性灰。
  */
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -21,7 +21,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '..', 'src', 'assets', 'tabbar')
 const SIZE = 81
 const INACTIVE = '#9CA3AF' // gray-400
-const ACTIVE = '#6366F1' // brand indigo(与 miniapp lucide 图标 stroke 一致)
+const ACTIVE = '#000000' // 品牌黑(对齐 RN rnLightTokens.brand.DEFAULT)
 
 /** lucide 24x24 path 数据(简化自 lucide.dev) */
 const ICONS = {

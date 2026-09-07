@@ -357,8 +357,8 @@ All paid tiers include: all models, all 6 clients, Agent marketplace listing, AP
 - **Funding**: Pre-seed + Angel (2024), Seed (2025)
 - **Contact**: contact@aizhs.top (business), support@aizhs.top (technical), press@aizhs.top (media)
 - **Social**: 知乎「智汇AI」/ 掘金「ihui-ai」/ 微信公众号「智汇 AI」/ Twitter @ihui_ai
-- **ICP**: 沪ICP备 2024xxxxxx 号
-- **Address**: 上海市浦东新区张江高科技园区
+- **ICP**: 吉ICP备2025027274号
+- **Address**: 吉林省长春市高新区越达路 107 号（人工智能人才孵化基地）
 
 ---
 
