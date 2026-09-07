@@ -160,30 +160,44 @@ def test_load_key_from_env_valid(monkeypatch):
     assert len(loaded) == _KEY_LEN
 
 
-def test_load_key_env_wrong_length_falls_back_to_ephemeral(monkeypatch):
-    """环境变量值解码后非 32 字节 → 降级到临时密钥(并 warning)。"""
+def test_load_key_env_wrong_length_falls_back_to_key_file(monkeypatch, tmp_path):
+    """环境变量值解码后非 32 字节 → 降级到持久化密钥文件。"""
     # base64 编码 16 字节(过短)
     monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", base64.b64encode(b"0" * 16).decode())
+    monkeypatch.setattr(credentials_crypto, "_KEY_FILE", str(tmp_path / "credentials_key"))
     loaded = _load_key()
-    assert len(loaded) == _KEY_LEN  # 仍是 32 字节(临时密钥)
+    assert len(loaded) == _KEY_LEN  # 仍是 32 字节
 
 
-def test_load_key_env_invalid_base64_falls_back(monkeypatch):
-    """环境变量非合法 base64 → 降级到临时密钥。"""
+def test_load_key_env_invalid_base64_falls_back(monkeypatch, tmp_path):
+    """环境变量非合法 base64 → 降级到持久化密钥文件。"""
     monkeypatch.setenv("PUBLISH_CREDENTIALS_KEY", "!!!not base64!!!")
+    monkeypatch.setattr(credentials_crypto, "_KEY_FILE", str(tmp_path / "credentials_key"))
     loaded = _load_key()
     assert len(loaded) == _KEY_LEN
 
 
-def test_load_key_no_env_generates_ephemeral(monkeypatch):
-    """无 PUBLISH_CREDENTIALS_KEY 时生成临时密钥。"""
+def test_load_key_no_env_persists_to_key_file(monkeypatch, tmp_path):
+    """无 PUBLISH_CREDENTIALS_KEY 时首次生成密钥并落盘,重启(重新加载)后复用。"""
     monkeypatch.delenv("PUBLISH_CREDENTIALS_KEY", raising=False)
-    loaded = _load_key()
-    assert len(loaded) == _KEY_LEN
-    # 每次调用应不同(随机)
-    other = _load_key()
-    # 注意:两次随机应有极大概率不同
-    assert loaded != other
+    key_file = tmp_path / "credentials_key"
+    monkeypatch.setattr(credentials_crypto, "_KEY_FILE", str(key_file))
+    first = _load_key()
+    assert len(first) == _KEY_LEN
+    assert key_file.exists()  # 已落盘
+    # 模拟重启:重新加载应读到同一密钥(历史密文可解密)
+    second = _load_key()
+    assert first == second
+
+
+def test_load_key_reuses_existing_key_file(monkeypatch, tmp_path):
+    """key file 已存在时直接复用(不重新生成)。"""
+    monkeypatch.delenv("PUBLISH_CREDENTIALS_KEY", raising=False)
+    key_file = tmp_path / "credentials_key"
+    existing = secrets.token_bytes(_KEY_LEN)
+    key_file.write_bytes(existing)
+    monkeypatch.setattr(credentials_crypto, "_KEY_FILE", str(key_file))
+    assert _load_key() == existing
 
 
 def test_get_key_caches_singleton(monkeypatch):
