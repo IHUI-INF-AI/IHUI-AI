@@ -42,7 +42,13 @@ export const chatConversations = pgTable('chat_conversations', {
   // 2026-08-17 修复:drizzle-orm 0.45.2(patch 版)的 PgColumnBuilder 无 nullable/notNull 方法
   // (varchar 默认 nullable),用 .nullable() 会 TypeError 阻断 api 启动。仅用 .unique()。
   shareToken: varchar('share_token', { length: 32 }).unique(),
-})
+}, (t) => ({
+  // 2026-09-06 P0:会话列表按 (user_id + last_message_at DESC) 排序+分页,缺索引全表扫描
+  userLastMsgIdx: index('ix_chat_conversations_user_last_message').on(
+    t.userId,
+    t.lastMessageAt,
+  ),
+}))
 
 /**
  * 对话消息表。
@@ -59,7 +65,10 @@ export const chatMessages = pgTable('chat_messages', {
   metadata: jsonb('metadata').default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   reasoning: text('reasoning'),
-})
+}, (t) => ({
+  // 2026-09-06 P0:按会话取消息/计数为热路径,缺 conversation_id 索引全表扫描
+  convIdx: index('ix_chat_messages_conversation').on(t.conversationId),
+}))
 
 /**
  * 压缩归档表(2026-09-01 立,"归档记忆"能力)。

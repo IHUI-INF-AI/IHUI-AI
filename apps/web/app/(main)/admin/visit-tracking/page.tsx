@@ -8,6 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Eye, Users, RefreshCw, MapPin, Loader2, Search } from 'lucide-react'
 import { eduApi, buildQs } from '@/lib/edu'
+import { CHART_ORANGE } from '@ihui/design-tokens'
 import { StatCard } from '@/components/data'
 import { BarChart } from '@/components/charts'
 import {
@@ -184,7 +185,7 @@ export default function VisitTrackingPage() {
         {(
           [
             { title: '浏览量趋势 (PV)', series: pvSeries, color: 'var(--primary)' },
-            { title: '访客数趋势 (UV)', series: uvSeries, color: '#f97316' },
+            { title: '访客数趋势 (UV)', series: uvSeries, color: CHART_ORANGE },
           ] as const
         ).map((c) => (
           <Card key={c.title}>

@@ -18,6 +18,10 @@
 import { notifyLoginAnomaly } from './login-anomaly-notifier.js'
 import { logger } from '../utils/logger.js'
 
+// P0 资金安全修复(2026-09-06):风控命中持久化到 risk_hits 表。
+// 为避免服务/单测在 import 阶段强依赖 DB 连接(config 解析失败会 process.exit),
+// 采用函数内动态 import + try/catch 降级 —— 表不存在或 DB 暂不可用时回退内存 Map。
+
 /** 风控动作 */
 export type RiskAction = 'ALLOW' | 'DENY' | 'REVIEW' | 'CHALLENGE' | 'SCORE'
 
@@ -246,7 +250,7 @@ export class RiskRuleEngine {
       }
     }
 
-    // 累加写入历史命中
+    // 累加写入历史命中(内存 Map,作为 DB 不可用时的降级)
     this.recordHits(hits)
 
     // 总分过高但未触发明确动作时，升级为 REVIEW
@@ -254,7 +258,18 @@ export class RiskRuleEngine {
       finalAction = 'REVIEW'
     }
 
+    // P0 资金安全修复(2026-09-06):命中持久化落库(异步,不阻塞求值)。
+    // 只有当本规则最终决定非 ALLOW 时才需要落库;纯 SCORE 且最终 action 仍为 ALLOW 不上报。
+    if (hits.length > 0 && finalAction !== 'ALLOW') {
+      void persistRiskHits(ctx, hits)
+    }
+
     return { totalScore, action: finalAction, hits }
+  }
+
+  /** 持久化本实例的命中的入口(供外部对已有 engine 实例持久化历史,预留)。 */
+  flushHits(ctx: RiskContext): void {
+    void persistRiskHits(ctx, this.hits)
   }
 
   /** 按 subject 查询历史命中。 */
@@ -313,6 +328,95 @@ export function getDefaultRiskEngine(): RiskRuleEngine {
  */
 export function evaluateRisk(ctx: RiskContext): RiskEvaluationResult {
   return getDefaultRiskEngine().evaluateRisk(ctx)
+}
+
+// ---------------------------------------------------------------------------
+// P0 资金安全修复(2026-09-06):风控命中持久化(risk_hits 表)+ 查询辅助
+// ---------------------------------------------------------------------------
+
+/**
+ * 将风控命中异步写入 risk_hits 表。
+ *
+ * 设计考量:
+ * - 采用动态 import + try/catch:避免加载本模块时强依赖 DB/config(单测/工具脚本安全),
+ *   也避免 DB 连接暂不可用/表未迁移时阻塞资金主流程。
+ * - DB 写入失败时静默降级(仅 logger.warn),不影响 evaluateRisk 返回的 action,
+ *   资金操作仍按内存求值结果执行;待表迁移完成后自动恢复持久化。
+ * - ctx 含设备指纹/订单号/金额等,按白名单挑选写入 context jsonb,不做脆弱字段转发。
+ */
+async function persistRiskHits(ctx: RiskContext, hits: RiskHit[]): Promise<void> {
+  if (!hits || hits.length === 0) return
+  try {
+    const [{ db }, { riskHits: riskHitsTable }] = await Promise.all([
+      import('../db/index.js'),
+      import('@ihui/database'),
+    ])
+    const context = {
+      userId: ctx.userId,
+      ip: ctx.ip,
+      deviceFingerprint: pickAny(ctx, 'deviceFingerprint'),
+      orderNo: pickAny(ctx, 'orderNo'),
+      amount: pickAny(ctx, 'amount'),
+    }
+    for (const h of hits) {
+      await db.insert(riskHitsTable).values({
+        userId: ctx.userId ?? null,
+        ip: ctx.ip ?? null,
+        ruleCode: h.ruleId,
+        ruleName: h.name,
+        action: h.action,
+        score: String(h.score),
+        reason: h.reason,
+        hitAt: new Date(h.matchedAt),
+        context,
+      })
+    }
+  } catch (err) {
+    // 表未迁移 / DB 暂不可用 → 内存已由 recordHits 兜底,此处仅记录,不阻塞
+    logger.warn('risk-engine: persistRiskHits failed (DB fallback to memory)', {
+      err: (err as Error).message,
+      hitCount: hits.length,
+    })
+  }
+}
+
+/** 从 RiskContext 索引签名安全读取任意标量(供 context 快照)。 */
+function pickAny(ctx: RiskContext, key: string): unknown {
+  const v = ctx[key]
+  return v === undefined ? undefined : v
+}
+
+/**
+ * 统计某 IP 在最近窗口内的风控命中次数。
+ *
+ * 供批量注册检测等规则前置采集使用(auth register 等入口)。
+ * 表未迁移 / DB 不可用时返回 0(不阻断主流程)。
+ */
+export async function recentRiskHitsByIp(ip: string, windowSec = 3600): Promise<number> {
+  if (!ip) return 0
+  try {
+    const { db } = await import('../db/index.js')
+    const { riskHits: riskHitsTable } = await import('@ihui/database')
+    const { count, gte, and, eq } = await import('drizzle-orm')
+    const since = new Date(Date.now() - windowSec * 1000)
+    const rows = await db
+      .select({ c: count() })
+      .from(riskHitsTable)
+      .where(
+        and(
+          eq(riskHitsTable.ip, ip),
+          gte(riskHitsTable.hitAt, since),
+          eq(riskHitsTable.ruleCode, 'R004_BATCH_REGISTER'),
+        ),
+      )
+    return rows[0]?.c ?? 0
+  } catch (err) {
+    logger.warn('risk-engine: recentRiskHitsByIp failed (default 0)', {
+      err: (err as Error).message,
+      ip,
+    })
+    return 0
+  }
 }
 
 // ---------------------------------------------------------------------------

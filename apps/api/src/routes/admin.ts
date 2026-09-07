@@ -23,6 +23,7 @@ import {
 } from '../db/admin-queries.js'
 import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { syncLiteLLMPricing } from '../services/litellm-price-sync.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 import { hashPassword } from '../utils/password-crypto.js'
 import { db } from '../db/index.js'
@@ -124,6 +125,25 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(403).send(error(403, '需要管理员权限'))
     }
   })
+
+  // POST /ai-pricing/sync-litellm - 手动触发 LiteLLM 真网价表同步(GAP-PLAN P3-9)
+  server.post(
+    '/ai-pricing/sync-litellm',
+    {
+      schema: {
+        summary: '手动触发 LiteLLM 真网 AI 价表同步',
+        description: '从 LiteLLM 公开价表拉取模型单价并写入 ai_pricing(分/千 token, CNY)',
+        tags: ['admin'],
+      },
+    },
+    async (_request, reply) => {
+      const stats = await syncLiteLLMPricing()
+      if (stats.error) {
+        return reply.status(502).send(error(502, `LiteLLM 价表同步失败: ${stats.error}`))
+      }
+      return reply.send(success(stats))
+    },
+  )
 
   // GET /stats - Dashboard 统计卡片
   server.get(
