@@ -41,8 +41,7 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
           {onEdit && (
             <Button
               variant="ghost"
-              size="icon"
-              className="h-7 w-7"
+              size="icon-xs"
               onClick={() => onEdit(entry)}
               disabled={deleting}
             >
@@ -52,8 +51,8 @@ export function MemoryCard({ entry, onDelete, onEdit, deleting }: MemoryCardProp
           {onDelete && (
             <Button
               variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-destructive"
               onClick={() => onDelete(entry.id)}
               disabled={deleting}
             >

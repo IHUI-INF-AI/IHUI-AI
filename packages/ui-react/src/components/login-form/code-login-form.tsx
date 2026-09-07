@@ -252,10 +252,10 @@ export function CodeLoginForm({
             disabled={submitting}
             data-testid={`login-${testIdPrefix}-code-input`}
           />
-          <Button
+          <Button size="lg"
             type="button"
             variant="outline"
-            className={cn('h-10 shrink-0 px-3 text-sm', buttonClassName)}
+            className={cn('shrink-0 px-3 text-sm px-4', buttonClassName)}
             disabled={sending || countdown > 0}
             onClick={() => void onSendCode()}
             data-testid={`login-${testIdPrefix}-send-code`}
@@ -277,9 +277,9 @@ export function CodeLoginForm({
         <p className="text-xs text-destructive">{t('auth.agreeRequired')}</p>
       )}
 
-      <Button
+      <Button size="lg"
         type="submit"
-        className={cn('h-10 w-full', buttonClassName)}
+        className={cn('w-full px-4', buttonClassName)}
         disabled={submitting}
         data-testid="login-submit"
       >

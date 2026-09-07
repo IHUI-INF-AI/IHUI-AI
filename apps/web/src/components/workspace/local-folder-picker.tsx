@@ -774,11 +774,11 @@ export function LocalFolderPicker({
                       <Button
                         type="button"
                         variant="outline"
-                        size="icon"
+                        size="icon-sm"
                         onClick={goParent}
                         disabled={!canGoParent || openMutation.isPending}
                         aria-label={t('parent')}
-                        className="h-8 w-8 shrink-0"
+                        className="shrink-0"
                       >
                         <ArrowUp className="h-3.5 w-3.5" />
                       </Button>
@@ -801,11 +801,11 @@ export function LocalFolderPicker({
                         <Button
                           type="button"
                           variant="outline"
-                          size="icon"
+                          size="icon-sm"
                           onClick={() => void handleNativePick()}
                           disabled={openMutation.isPending}
                           aria-label={t('nativePick')}
-                          className="h-8 w-8 shrink-0"
+                          className="shrink-0"
                         >
                           <HardDrive className="h-3.5 w-3.5" />
                         </Button>
@@ -942,20 +942,20 @@ export function LocalFolderPicker({
 
               {/* 按钮 */}
               <div className="flex shrink-0 items-center gap-2">
-                <Button
+                <Button size="sm"
                   type="button"
                   variant="outline"
                   onClick={() => onOpenChange(false)}
                   disabled={openMutation.isPending}
-                  className="h-8"
+                  className="px-4 text-sm"
                 >
                   {t('cancel')}
                 </Button>
-                <Button
+                <Button size="sm"
                   type="button"
                   onClick={openSelected}
                   disabled={!canOpen}
-                  className="h-8 min-w-[7rem]"
+                  className="min-w-[7rem] px-4 text-sm"
                 >
                   {openMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   <span className="truncate">
