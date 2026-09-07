@@ -96,7 +96,7 @@ export default function Feedback() {
                 key={item.key}
                 className={`px-[32rpx] py-[12rpx] rounded-[8rpx] text-[26rpx] ${
                   activeType === item.key
-                    ? 'bg-primary text-white'
+                    ? 'bg-brand-orange text-white'
                     : 'bg-muted text-muted-foreground'
                 }`}
                 onClick={() => setActiveType(item.key)}
@@ -129,7 +129,7 @@ export default function Feedback() {
             {images.map((url, idx) => (
               <View
                 key={url + idx}
-                className="relative w-[144rpx] h-[144rpx] rounded-[12rpx] overflow-hidden"
+                className="relative w-[144rpx] h-[144rpx] rounded-[8rpx] overflow-hidden"
                 onClick={() => onPreviewImage(idx)}
               >
                 <Image className="w-full h-full" src={url} mode="aspectFill" />
@@ -146,7 +146,7 @@ export default function Feedback() {
             ))}
             {images.length < MAX_IMAGES && (
               <View
-                className="w-[144rpx] h-[144rpx] rounded-[12rpx] bg-muted flex items-center justify-center"
+                className="w-[144rpx] h-[144rpx] rounded-[8rpx] bg-muted flex items-center justify-center"
                 onClick={onPickImages}
               >
                 <Text className="text-[48rpx] text-muted-foreground leading-none">
@@ -175,7 +175,7 @@ export default function Feedback() {
         </View>
         <Button
           className={`mx-[32rpx] mt-[60rpx] rounded-[12rpx] text-[32rpx] ${
-            content.trim() ? 'bg-primary text-white' : 'bg-muted text-white'
+            content.trim() ? 'bg-brand-orange text-white' : 'bg-muted text-white'
           }`}
           disabled={!content.trim()}
           onClick={onSubmit}
