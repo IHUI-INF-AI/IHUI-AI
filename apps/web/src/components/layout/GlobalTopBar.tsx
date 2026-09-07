@@ -21,6 +21,7 @@ import {
   Sparkles,
   Store,
   Library,
+  Boxes,
   X,
   Square,
   Minus,
@@ -110,6 +111,8 @@ const PLUS_MENU_GROUPS: Array<{
       { key: 'skill', icon: Sparkles, href: '/ai-skills' },
       // 2026-09-01 MCP 商店入口(内置 MCP Server 目录一键注册)
       { key: 'mcpStore', icon: Store, href: '/mcp-store' },
+      // 2026-09 P2-8 能力市场入口(平台自研 MCP 能力一键启用)
+      { key: 'capabilityMarket', icon: Boxes, href: '/capability-market' },
       // 2026-09-02 中文连接器入口(P2-2 语雀/飞书/企微/钉钉文档接入)
       { key: 'connectors', icon: Library, href: '/connectors' },
       // 2026-08-14 用户要求"把设置按钮从功能菜单内拿出来":
