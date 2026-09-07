@@ -26,6 +26,14 @@ const config: CapacitorConfig = {
     // 本地资产离线模式待后端 CORS 白名单补 https://localhost 后切回(见 .mode-local-assets 备注分支)。
     url: 'https://aizhs.top',
   },
+  // 2026-09-07 真机修复:状态栏遮挡内容。
+  // 根因:Android WebView(Chromium<140,本站壳实测 WebView=130)对 env(safe-area-inset-*)
+  // 恒报 0px,导致页面里 GlobalShell 的 pt-[env(safe-area-inset-top)] 解析为 0,内容顶到屏幕顶部被状态栏盖住(桌面/浏览器 env()=0 不受影响)。
+  // 解法:force 模式下 Capacitor 原生读取真实 WindowInsets,以 margin 让 WebView 避开系统状态栏/导航条,
+  // 不依赖页面 CSS 的 env(),对登录/首屏/全页面统一生效;Web 端 / 桌面保持原布局。
+  android: {
+    adjustMarginsForEdgeToEdge: 'force',
+  },
   plugins: {
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
