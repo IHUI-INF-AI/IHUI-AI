@@ -61,6 +61,9 @@
   --rn-accent-light: #fff7ed;
   --rn-accent-soft: #ffeddc;
   --rn-accent-50: #fff7ed;
+  /* 品牌橙渐变(2026-09-07 立,值同步 rnLightTokens.brandAccent.gradFrom/gradTo) */
+  --rn-accent-grad-from: #ffb27d;
+  --rn-accent-grad-to: #ff6b35;
   --rn-tertiary: #a3a3a3;
   --rn-body: #404040;
   --rn-danger: #ff3333;
@@ -103,6 +106,9 @@
   --rn-accent-light: #431407;
   --rn-accent-soft: #431407;
   --rn-accent-50: #431407;
+  /* 品牌橙渐变暗色覆盖(值同步 rnDarkTokens.brandAccent.gradFrom/gradTo) */
+  --rn-accent-grad-from: #ff9a5b;
+  --rn-accent-grad-to: #ff8e53;
   --rn-tertiary: #737373;
   --rn-body: #d4d4d4;
   --rn-danger: #ff3333;

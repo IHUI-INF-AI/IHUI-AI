@@ -143,7 +143,7 @@ export function SettingsScreen({
               <Switch
                 value={notifications[row.key]}
                 onValueChange={(v) => onToggleNotification(row.key, v)}
-                trackColor={{ false: tk.border.medium, true: tk.brand.DEFAULT }}
+                trackColor={{ false: tk.border.medium, true: tk.brandAccent.DEFAULT }}
               />
             </View>
           ))}
@@ -327,7 +327,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       width: 48,
       height: 48,
       borderRadius: 8,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -354,7 +354,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: cardBg,
     },
     rowLabel: { fontSize: 16, color: rowLabelColor },
-    checkMark: { fontSize: 16, color: tk.brand.DEFAULT, fontWeight: '700' },
+    checkMark: { fontSize: 16, color: tk.brandAccent.DEFAULT, fontWeight: '700' },
     switchRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -401,7 +401,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     modalBtnSecondary: { backgroundColor: tk.surface.card },
     modalBtnSecondaryText: { fontSize: 16, fontWeight: '600', color: tk.text.medium },
-    modalBtnPrimary: { backgroundColor: tk.brand.DEFAULT },
+    modalBtnPrimary: { backgroundColor: tk.brandAccent.DEFAULT },
     modalBtnPrimaryText: { fontSize: 16, fontWeight: '600', color: tk.surface.light },
   })
 }

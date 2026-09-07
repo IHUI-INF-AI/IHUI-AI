@@ -217,7 +217,7 @@ export default function OrderList() {
         {TABS.map((tab) => (
           <Text
             key={tab.value}
-            className={`flex-1 text-center text-[28rpx] py-[20rpx] ${status === tab.value ? 'bg-card text-primary font-semibold' : 'text-muted-foreground'}`}
+            className={`flex-1 text-center text-[36rpx] py-[20rpx] ${status === tab.value ? 'bg-card text-primary font-semibold' : 'text-muted-foreground'}`}
             onClick={() => switchTab(tab.value)}
           >
             {tt(tab.labelKey, tab.fallback)}

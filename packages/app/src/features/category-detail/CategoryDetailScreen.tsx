@@ -144,11 +144,11 @@ function createStyles(tk: AppThemeTokens) {
     tab: {
       paddingHorizontal: 10,
       paddingVertical: 6,
-      borderRadius: 12,
+      borderRadius: 6,
       backgroundColor: tk.surface.card,
     },
     tabActive: {
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
     },
     tabText: {
       fontSize: 14,
@@ -162,8 +162,8 @@ function createStyles(tk: AppThemeTokens) {
     itemCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      padding: 14,
-      borderRadius: 12,
+      padding: 12,
+      borderRadius: 6,
       backgroundColor: tk.surface.light,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -186,8 +186,8 @@ function createStyles(tk: AppThemeTokens) {
     retryBtn: {
       paddingHorizontal: 10,
       height: 44,
-      borderRadius: 12,
-      backgroundColor: tk.brand.DEFAULT,
+      borderRadius: 6,
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
