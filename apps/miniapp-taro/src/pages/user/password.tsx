@@ -158,7 +158,7 @@ export default function Password() {
         </View>
 
         <View
-          className={`mx-[32rpx] mt-[40rpx] h-[88rpx] leading-[88rpx] text-center bg-primary text-primary-foreground text-[30rpx] rounded-[12rpx] ${oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-50'}`}
+          className={`mx-[32rpx] mt-[40rpx] h-[100rpx] leading-[100rpx] text-center bg-primary text-primary-foreground text-[30rpx] rounded-[15rpx] ${oldPwd && newPwdValid && confirmMatch && !submitting ? '' : 'opacity-50'}`}
           onClick={onSubmit}
         >
           <Text>
