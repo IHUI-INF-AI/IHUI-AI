@@ -1,82 +1,4 @@
 {
-  "automations": {
-    "title": "定時自動化",
-    "subtitle": "定時執行你的 Agent 任務",
-    "create": "新建自動化",
-    "refresh": "重新整理",
-    "loading": "載入中…",
-    "empty": "暫無自動化，點擊「新建自動化」建立",
-    "lastRunAt": "上次執行",
-    "lastResult": "上次結果",
-    "cancel": "取消",
-    "save": "儲存",
-    "delete": "刪除",
-    "weekdayMo": "週一",
-    "weekdayTu": "週二",
-    "weekdayWe": "週三",
-    "weekdayTh": "週四",
-    "weekdayFr": "週五",
-    "weekdaySa": "週六",
-    "weekdaySu": "週日",
-    "status": {
-      "active": "啟用中",
-      "paused": "已暫停"
-    },
-    "schedule": {
-      "oncePrefix": "定時於",
-      "hourly": "每小時",
-      "daily": "每天",
-      "weekly": "每週",
-      "unknown": "未知計劃"
-    },
-    "action": {
-      "runNow": "立即執行",
-      "pause": "暫停",
-      "resume": "恢復",
-      "edit": "編輯",
-      "delete": "刪除"
-    },
-    "deleteConfirm": {
-      "title": "刪除自動化",
-      "content": "確定刪除「{name}」嗎？此操作不可復原。"
-    },
-    "form": {
-      "createTitle": "新建自動化",
-      "editTitle": "編輯自動化",
-      "desc": "設定名稱、提示詞與執行計劃",
-      "name": "名稱",
-      "namePlaceholder": "例如：每天早上彙總新聞",
-      "prompt": "提示詞",
-      "promptPlaceholder": "要自動執行的任務描述…",
-      "scheduleType": "計劃類型",
-      "typeOnce": "一次性",
-      "typeRecurring": "重複",
-      "scheduledAt": "執行時間",
-      "frequency": "頻率",
-      "freqHourly": "每小時",
-      "freqDaily": "每天",
-      "freqWeekly": "每週",
-      "time": "執行時刻",
-      "weekdays": "週幾",
-      "errName": "請輸入名稱",
-      "errPrompt": "請輸入提示詞",
-      "errScheduledAt": "請選擇執行時間",
-      "errDays": "請至少選擇一個週幾"
-    },
-    "toast": {
-      "created": "建立成功",
-      "updated": "已儲存",
-      "saveFailed": "儲存失敗",
-      "loadFailed": "載入失敗",
-      "runDone": "執行完成",
-      "runFailed": "執行失敗",
-      "paused": "已暫停",
-      "resumed": "已恢復",
-      "updateFailed": "更新失敗",
-      "deleted": "已刪除",
-      "deleteFailed": "刪除失敗"
-    }
-  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "從本地程式碼倉庫自動產生架構與模組知識庫",
@@ -20819,6 +20741,7 @@
     "description": "平臺規則與規範"
   },
   "automations": {
+    "delete": "刪除",
     "title": "定時自動化",
     "subtitle": "定時執行你的 Agent 任務",
     "create": "新建自動化",
