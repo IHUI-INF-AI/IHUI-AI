@@ -22,6 +22,8 @@ interface AuthShellProps {
   title?: string
   subtitle?: React.ReactNode
   onClose?: () => void
+  /** 隐藏右上角关闭按钮(移动全屏登录页用) */
+  hideCloseButton?: boolean
   children: React.ReactNode
   footer?: React.ReactNode
   className?: string

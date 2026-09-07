@@ -28,6 +28,8 @@ export interface PhoneCodeLoginFormProps {
   buttonClassName?: string
   /** 是否启用账号历史持久化 */
   enableCredentialPersistence?: boolean
+  /** 默认回填手机号(自动显示最近登录手机号一键登录)2026-09-06 立 */
+  defaultAccount?: string
 }
 
 export function PhoneCodeLoginForm(props: PhoneCodeLoginFormProps) {

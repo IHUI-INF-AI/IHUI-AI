@@ -39,14 +39,10 @@ export const rnTokens = {
   overlay: {
     modal: 'rgba(0,0,0,0.4)',
   },
-  indigo: {
-    light: '#eef2ff',
-    DEFAULT: '#6366f1',
-    deep: '#4f46e5',
-  },
-  purple: {
-    light: '#f5f3ff',
-    DEFAULT: '#7B61FF',
+  brandAccent: {
+    light: '#fff7ed',
+    DEFAULT: '#ff6b35',
+    deep: '#c2410c',
   },
   warning: {
     light: '#fffbeb',
@@ -55,7 +51,6 @@ export const rnTokens = {
     amber: '#f59e0b',
     DEFAULT: '#d97706',
     amberText: '#92400e',
-    deep: '#FF6B00',
   },
   success: {
     lightest: '#f0fdf4',
@@ -91,8 +86,7 @@ export const rnLightTokens = {
   border: { light: '#E5E7EB', medium: '#D1D5DB' },
   error: { bg: '#FEE2E2', text: '#B91C1C' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
-  indigo: { light: '#eef2ff', DEFAULT: '#6366f1', deep: '#4f46e5' },
-  purple: { light: '#f5f3ff', DEFAULT: '#7B61FF' },
+  brandAccent: { light: '#fff7ed', DEFAULT: '#ff6b35', deep: '#c2410c' },
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -100,7 +94,6 @@ export const rnLightTokens = {
     amber: '#f59e0b',
     DEFAULT: '#d97706',
     amberText: '#92400e',
-    deep: '#FF6B00',
   },
   success: {
     lightest: '#f0fdf4',
@@ -110,8 +103,8 @@ export const rnLightTokens = {
     deep: '#16a34a',
     deepText: '#065F46',
   },
-  danger: { light: '#fef2f2', DEFAULT: '#dc2626', bright: '#ef4444' },
-  gray: {
+  danger: { light: '#fee2e2', DEFAULT: '#dc2626', bright: '#f87171' },
+  vip: {
     50: '#f9fafb',
     100: '#f3f4f6',
     200: '#e5e7eb',
@@ -132,8 +125,7 @@ export const rnDarkTokens = {
   border: { light: '#374151', medium: '#4B5563' },
   error: { bg: '#7F1D1D', text: '#FCA5A5' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
-  indigo: { light: '#312e81', DEFAULT: '#6366f1', deep: '#818cf8' },
-  purple: { light: '#4c1d95', DEFAULT: '#7B61FF' },
+  brandAccent: { light: '#431407', DEFAULT: '#ff8e53', deep: '#ff8e53' },
   warning: {
     light: '#451a03',
     amberLight: '#78350f',
@@ -141,7 +133,6 @@ export const rnDarkTokens = {
     amber: '#fbbf24',
     DEFAULT: '#f59e0b',
     amberText: '#fbbf24',
-    deep: '#FF6B00',
   },
   success: {
     lightest: '#052e16',
@@ -151,7 +142,7 @@ export const rnDarkTokens = {
     deep: '#16a34a',
     deepText: '#86efac',
   },
-  danger: { light: '#450a0a', DEFAULT: '#ef4444', bright: '#f87171' },
+  danger: { light: '#7f1d1d', DEFAULT: '#ef4444', bright: '#fca5a5' },
   gray: {
     50: '#f9fafb',
     100: '#f3f4f6',
@@ -179,8 +170,7 @@ export type RnTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  indigo: { light: string; DEFAULT: string; deep: string }
-  purple: { light: string; DEFAULT: string }
+  brandAccent: { light: string; DEFAULT: string; deep: string }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -194,8 +184,7 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  indigo: { light: string; DEFAULT: string; deep: string }
-  purple: { light: string; DEFAULT: string }
+  brandAccent: { light: string; DEFAULT: string; deep: string }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -218,7 +207,6 @@ export type RnWarningTokens = {
   amber: string
   DEFAULT: string
   amberText: string
-  deep: string
 }
 
 export type RnDangerTokens = {

@@ -24,6 +24,7 @@ import type { Redis } from 'ioredis'
 import { and, desc, eq, gte } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
 import { notifications, securityLogs, type RelayWebhookEvent } from '@ihui/database'
+import { DOC_TEXT_BODY } from '@ihui/design-tokens'
 import { logger } from '../utils/logger.js'
 import { sendEmail } from './email-service.js'
 import { notifyRelayEvent } from './webhook-relay-notifier.js'
@@ -353,7 +354,7 @@ async function sendEmailNotification(
     await sendEmail({
       to: input.userEmail,
       subject: title,
-      html: `<div style="font-family:sans-serif;line-height:1.6"><h2>${escapeHtml(title)}</h2><pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(content)}</pre><p style="color:#666;font-size:12px">若非本人操作,请立即修改密码并检查登录设备。</p></div>`,
+      html: `<div style="font-family:sans-serif;line-height:1.6"><h2>${escapeHtml(title)}</h2><pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(content)}</pre><p style="color:${DOC_TEXT_BODY};font-size:12px">若非本人操作,请立即修改密码并检查登录设备。</p></div>`,
       scene: 'notification',
       userId: input.userId,
     })

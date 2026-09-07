@@ -71,4 +71,31 @@ export function isEncryptedPayload(value: unknown): value is EncryptedPayload {
   const v = value as Record<string, unknown>
   return typeof v.iv === 'string' && typeof v.ciphertext === 'string' && typeof v.tag === 'string'
 }
+
+/**
+ * 字段级加密（P0 隐私修复）：把单个字符串字段加密后以 JSON 字符串落库。
+ * 用于姓名/身份证等敏感字段写时加密，读时经 decryptField 还原。
+ * 底层复用 encryptJSON（AES-256-GCM，应用级密钥 = CREDENTIALS_ENCRYPTION_KEY）。
+ */
+export function encryptField(plain: string): string {
+  return JSON.stringify(encryptJSON(plain))
+}
+
+/**
+ * 字段级解密：兼容新格式（encrypted payload JSON）与存量明文。
+ * - 存量为加密 payload → AES-256-GCM 解密返回原始字符串
+ * - 存量明文（未加密历史数据）→ 原样返回（兼容读路径，不报错）
+ */
+export function decryptField(stored: string): string {
+  try {
+    const parsed: unknown = JSON.parse(stored)
+    if (isEncryptedPayload(parsed)) {
+      const value = decryptJSON(parsed)
+      return typeof value === 'string' ? value : String(value ?? '')
+    }
+  } catch {
+    /* 非加密荷载（存量明文），原样返回 */
+  }
+  return stored
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
