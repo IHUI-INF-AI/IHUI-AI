@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { useNavigationStore } from '@/stores/navigation'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
 import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
@@ -39,6 +40,16 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 宽度仍由 CSS 变量 --sidebar-width 驱动(下方 effect 设置),CSS 自动处理布局,无需 React 重排右列。
   const [collapsed, setCollapsed] = React.useState(false)
   const onToggleCollapse = React.useCallback(() => setCollapsed((c) => !c), [])
+
+  // 视口强制折叠(2026-09-07 修复):768-1023px(平板/窄窗口)globals.css 已强制 aside 60px 图标条,
+  // 但此前 React collapsed state 仍是 false,继续渲染展开态 UI(任务列表卡片/分组标题/80px 长 logo),
+  // 塞进 60px 条导致错位、文字竖排、header 空白(用户反馈"缩回态样式难看")。
+  // 现在 effectiveCollapsed 统一驱动渲染态,与 CSS 强制宽度保持一致。
+  // initialValue=false:SSR 输出展开态(与桌面首帧一致,避免桌面用户 60px→160px CLS 闪烁);
+  // 平板区间 hydration 前由 globals.css 强制规则兜底宽度并隐藏文字 span,hydration 后本 hook
+  // 一个 effect 内切到折叠态,与旧版 CSS-only 行为相比只多了 header/任务列表的折叠化,无新闪烁。
+  const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 1023px)', false)
+  const effectiveCollapsed = collapsed || isTabletViewport
 
   // 挂载时从 localStorage 恢复折叠偏好(与 GlobalShell 旧逻辑一致)
   React.useEffect(() => {
@@ -210,20 +221,21 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         // localStorage 不可用
       }
       // localStorage 无有效值,设 CSS 变量 = 默认值(与 inline script fallback 一致)
-      const effectiveDefault = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
+      const effectiveDefault = effectiveCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
       document.documentElement.style.setProperty('--sidebar-width', `${effectiveDefault}px`)
       return
     }
     // 非首次:正常同步 state 到 CSS 变量(用户拖拽/折叠变化)
-    const effective = collapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
+    const effective = effectiveCollapsed ? SIDEBAR_COLLAPSED_WIDTH : sidebarWidth
     document.documentElement.style.setProperty('--sidebar-width', `${effective}px`)
-  }, [collapsed, sidebarWidth])
+  }, [effectiveCollapsed, sidebarWidth])
 
   const handleResizeStart = React.useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
       // 折叠态下拖拽手柄:先展开再开始 resize,实现"拖拽即展开"
-      if (collapsed) {
+      // (平板视口 768-1023px CSS 强制 60px,toggle 无视觉变化,拖拽宽度也被 CSS 覆盖,无害)
+      if (effectiveCollapsed) {
         onToggleCollapse()
       }
       setIsResizing(true)
@@ -245,7 +257,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [sidebarWidth, collapsed, onToggleCollapse],
+    [sidebarWidth, effectiveCollapsed, onToggleCollapse],
   )
 
   // admin 动态路由合并:已加载 + 有数据 + admin 用户时,把不在 ADMIN_NAV_GROUPS 分组内的
@@ -336,7 +348,14 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     }
   }, [activeHref])
 
-  const navContent = (navId: string, ref: React.Ref<HTMLElement>, scope: 'desktop' | 'mobile') => (
+  // collapsedState 参数(2026-09-07):桌面 nav 传 effectiveCollapsed(视口强制折叠),
+  // 移动抽屉传用户偏好 collapsed(抽屉 160px+ 宽,始终展开布局)。
+  const navContent = (
+    navId: string,
+    ref: React.Ref<HTMLElement>,
+    scope: 'desktop' | 'mobile',
+    collapsedState: boolean,
+  ) => (
     <nav
       ref={ref}
       id={navId}
@@ -345,20 +364,20 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         'hover-scroll min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto py-2',
         // 滚动条已完全隐藏(globals.css .hover-scroll),不占布局空间。
         // px-2 左右各 8px 对称,折叠态 aside border-r(1px)用 pl-[9px] pr-2 补偿图标视觉中心。
-        collapsed ? 'pl-[9px] pr-2' : 'px-2',
+        collapsedState ? 'pl-[9px] pr-2' : 'px-2',
       )}
     >
       {/* 顶部快捷操作区:新建任务 / 插件市场 / 自动化任务 */}
-      <SidebarQuickActions collapsed={collapsed} onCloseMobile={onCloseMobile} />
+      <SidebarQuickActions collapsed={collapsedState} onCloseMobile={onCloseMobile} />
 
       {/* 侧边栏任务列表卡片(展开态显示) */}
-      <SidebarChatHistory collapsed={collapsed} />
+      <SidebarChatHistory collapsed={collapsedState} />
 
       {visibleGroups.map((group, gi) => (
         <NavGroupSection
           key={group.label || `group-${gi}`}
           group={group}
-          collapsed={collapsed}
+          collapsed={collapsedState}
           activeHref={activeHref}
           onCloseMobile={onCloseMobile}
           registerRef={registerRef}
@@ -372,16 +391,18 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   )
 
   /**
-   * 桌面端 sidebar footer:仅在桌面端可见,移动端(<1024px)隐藏。
-   * 移动端桌面 sidebar 被 CSS 强制 60px 宽,但 collapsed prop 可能为 false,
-   * 导致 SidebarActions(flex-row 4 按钮溢出)和登录按钮(文字溢出)在 60px 容器中错乱,
-   * 溢出内容会遮挡下方按钮,导致移动端不可点击。
-   * 移动端 footer 内容由 mobileFooter 在移动 drawer 中提供。
+   * 桌面端 sidebar footer:语言/下载/消息/主题/设置 + 用户行/登录按钮。
+   * 2026-09-05 修复:原 `hidden min-[1024px]:block` 在 768-1023px(平板/窄窗口)区间
+   * 把整组底部按钮隐藏,60px 折叠条下半部空白(用户反馈"收回状态下底部菜单按钮图标没显示")。
+   * 现在 footer 常驻渲染:<768px 桌面 aside 本就被 CSS display:none(不影响);
+   * 768-1023px 强制 collapsed 图标竖排(适配 60px 宽);≥1024px 跟随用户折叠偏好。
    */
+  const isDesktopViewport = useMediaQuery('(min-width: 1024px)', true)
+  const footerCollapsed = !isDesktopViewport || collapsed
   const desktopFooter = (
-    <div className="shrink-0 hidden min-[1024px]:block">
-      <SidebarActions collapsed={collapsed} />
-      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+    <div className="shrink-0">
+      <SidebarActions collapsed={footerCollapsed} />
+      <SidebarUserRow collapsed={footerCollapsed} onCloseMobile={onCloseMobile} />
     </div>
   )
 
@@ -415,7 +436,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         data-viewport-collapsed="true"
         className={cn(
           'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex z-popover',
-          collapsed && 'w-[60px]',
+          effectiveCollapsed && 'w-[60px]',
         )}
         // 2026-07-22 修复首屏 width 闪烁:
         // width 改为 `var(--sidebar-width, 160px)` 字符串引用 CSS 变量。
@@ -423,8 +444,9 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
         // - 实际渲染 width = layout.tsx inline script 预设的 --sidebar-width 值
         // - 折叠态直接 60px inline 覆盖 CSS 变量(避免与 var() 计算冲突)
         // - 2026-08-01:fallback 160px 跟随 SIDEBAR_WIDTH 默认值同步加大
+        // - 2026-09-07:effectiveCollapsed 含平板视口强制折叠(与 globals.css 60px !important 一致)
         style={
-          collapsed
+          effectiveCollapsed
             ? { width: SIDEBAR_COLLAPSED_WIDTH }
             : {
                 width: 'var(--sidebar-width, 160px)',
@@ -434,10 +456,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
       >
         <SidebarHeader
           variant="desktop"
-          collapsed={collapsed}
+          collapsed={effectiveCollapsed}
           onToggleCollapse={onToggleCollapse}
         />
-        {navContent(desktopNavId, navRef, 'desktop')}
+        {navContent(desktopNavId, navRef, 'desktop', effectiveCollapsed)}
         {desktopFooter}
         {/* 右侧拖拽手柄:展开/折叠态均显示(折叠态可拖拽展开)。
             外层 w-2(8px)为透明命中区,right-[-4px] 让命中区居中跨越 aside 右边缘(左右各 4px)。
@@ -499,7 +521,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           }}
         >
           <SidebarHeader variant="mobile" collapsed={collapsed} onCloseMobile={onCloseMobile} />
-          {navContent(mobileNavId, mobileNavRef, 'mobile')}
+          {navContent(mobileNavId, mobileNavRef, 'mobile', collapsed)}
           {mobileFooter}
           {/* 移动端拖拽手柄(2026-07-31 第十五次新增):复用 desktop 同款结构
             - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
