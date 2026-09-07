@@ -1799,5 +1799,38 @@
     "detail": {
       "title": "工作區詳情"
     }
+  },
+  "capabilityMarket": {
+    "title": "能力市場",
+    "subtitle": "瀏覽平台自研 MCP 能力,一鍵啟用對外暴露,擴展 Agent 工具集",
+    "count": "共 {count} 項能力",
+    "searchPlaceholder": "搜尋能力名稱或描述",
+    "allCategories": "全部分類",
+    "category": "分類",
+    "search": "搜尋",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "enable": "啟用",
+    "disable": "停用",
+    "healthy": "健康",
+    "degraded": "需網路",
+    "unhealthy": "異常",
+    "adminOnly": "需管理員",
+    "allUsers": "全部使用者",
+    "networkRequired": "依賴網路",
+    "paramCount": "{count} 個參數",
+    "noParams": "無參數",
+    "kindTool": "工具",
+    "kindResource": "資源",
+    "kindPrompt": "提示詞",
+    "loadFailed": "載入失敗,請稍後重試",
+    "loading": "載入中...",
+    "actionFailed": "操作失敗,請稍後重試",
+    "enableSuccess": "{name} 已啟用",
+    "disableSuccess": "{name} 已停用",
+    "notFound": "能力不存在"
+  },
+  "topBar": {
+    "capabilityMarket": "能力市場"
   }
 }
