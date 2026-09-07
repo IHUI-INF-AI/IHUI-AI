@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * i18n 键完整性检查守门脚本。
  *
@@ -122,7 +121,19 @@ const STAGED_SOURCE_PREFIX = isExtension
       : isMiniappTaro
         ? 'apps/miniapp-taro/'
         : 'apps/web/'
-const EXCLUDE_DIRS = new Set(['.git', '.next', '.trae-cn', '.turbo', '.worktrees', 'build', 'dist', 'node_modules', 'tests', '__tests__', 'e2e'])
+const EXCLUDE_DIRS = new Set([
+  '.git',
+  '.next',
+  '.trae-cn',
+  '.turbo',
+  '.worktrees',
+  'build',
+  'dist',
+  'node_modules',
+  'tests',
+  '__tests__',
+  'e2e',
+])
 const BASE_LANG = 'zh-CN'
 
 const C = {
@@ -156,6 +167,74 @@ function collectSourceFiles(dir, result = []) {
   return result
 }
 
+// 2026-09-07 根治:--staged 模式下 parity 数据源必须是暂存区 blob,而非工作区文件。
+// 此前 readFileSync 直接读工作区:并行会话未暂存的 i18n WIP 键(只加了部分语言)
+// 会污染校验,导致无关 commit 被 parity 假失败阻塞。
+// 规则:文件在暂存区有改动 → 读 `git show :<path>`(staged blob);
+//       不在暂存区 → 工作区与 HEAD 一致,readFileSync 即可。
+const stagedI18nFiles = (() => {
+  if (!isStaged) return null
+  try {
+    const out = execSync(`git diff --cached --name-only -- "${MESSAGES_DIR}" "${SHARED_DIR}"`, {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+    })
+    return new Set(out.split('\n').filter(Boolean))
+  } catch {
+    return null
+  }
+})()
+
+function readMessageJson(absPath) {
+  const repoRel = absPath.replaceAll('\\', '/').replace(/^.*?packages\/i18n\//, 'packages/i18n/')
+  if (stagedI18nFiles && stagedI18nFiles.has(repoRel)) {
+    const blob = execSync(`git show ":${repoRel}"`, {
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    return JSON.parse(blob)
+  }
+  return JSON.parse(readFileSync(absPath, 'utf8'))
+}
+
+// 2026-09-07: staged 模式缺失键降级判定——工作区(含并行会话未暂存 WIP)消息。
+// 场景:并行会话往工作区 zh-CN 加了新键(未暂存)且其组件(也未暂存)引用了它们;
+// 本脚本 staged 模式 parity/缺失键以暂存 blob 为准(正确),但源码扫描读工作区(保护
+// key 删除场景),会把"WIP 键 + WIP 组件"误判为缺失键,阻塞无关 commit。
+// 规则:键存在于工作区 base 语言消息、但不在暂存 blob → 键由未暂存 WIP 新增,
+// 非本 commit 范畴 → 从 ERROR 降级为 WARNING(不阻断);两边都缺 → 真缺失,照常 ERROR。
+let _worktreeMerged = null
+function worktreeBaseHas(ns, key) {
+  if (!isStaged) return false
+  if (_worktreeMerged === null) {
+    _worktreeMerged = {}
+    if (existsSync(MESSAGES_DIR)) {
+      for (const entry of readdirSync(MESSAGES_DIR)) {
+        if (!entry.endsWith('.json')) continue
+        let targetMsg = {}
+        try {
+          targetMsg = JSON.parse(readFileSync(join(MESSAGES_DIR, entry), 'utf8'))
+        } catch {
+          continue
+        }
+        let sharedMsg = {}
+        if (existsSync(SHARED_DIR)) {
+          const sharedPath = join(SHARED_DIR, entry)
+          if (existsSync(sharedPath)) {
+            try {
+              sharedMsg = JSON.parse(readFileSync(sharedPath, 'utf8'))
+            } catch {}
+          }
+        }
+        _worktreeMerged[entry.replace('.json', '')] = deepMerge(sharedMsg, targetMsg)
+      }
+    }
+  }
+  const base = _worktreeMerged[BASE_LANG]
+  return Boolean(base && hasKey(base, ns, key))
+}
+
 function loadMessages() {
   const langs = {}
   if (!existsSync(MESSAGES_DIR)) return langs
@@ -164,11 +243,8 @@ function loadMessages() {
     for (const entry of readdirSync(MESSAGES_DIR)) {
       if (!entry.endsWith('.json')) continue
       try {
-        langs[entry.replace('.json', '')] = JSON.parse(
-          readFileSync(join(MESSAGES_DIR, entry), 'utf8'),
-        )
-      } catch {
-      }
+        langs[entry.replace('.json', '')] = readMessageJson(join(MESSAGES_DIR, entry))
+      } catch {}
     }
     return langs
   }
@@ -178,7 +254,7 @@ function loadMessages() {
     if (!entry.endsWith('.json')) continue
     let targetMsg
     try {
-      targetMsg = JSON.parse(readFileSync(join(MESSAGES_DIR, entry), 'utf8'))
+      targetMsg = readMessageJson(join(MESSAGES_DIR, entry))
     } catch {
       continue
     }
@@ -188,9 +264,8 @@ function loadMessages() {
       const sharedPath = join(SHARED_DIR, entry)
       if (existsSync(sharedPath)) {
         try {
-          sharedMsg = JSON.parse(readFileSync(sharedPath, 'utf8'))
-        } catch {
-        }
+          sharedMsg = readMessageJson(sharedPath)
+        } catch {}
       }
     }
     langs[entry.replace('.json', '')] = deepMerge(sharedMsg, targetMsg)
@@ -236,8 +311,7 @@ function loadGlossary() {
         }
       }
     }
-  } catch {
-  }
+  } catch {}
 }
 loadGlossary()
 
@@ -260,11 +334,7 @@ function passesGate3(value) {
   if (GLOSSARY_VALUES.has(value.toLowerCase())) return false
   if (CAMEL_CASE_RE.test(value)) return false
   const words = value.split(/\s+/).filter(Boolean)
-  if (
-    words.length > 0 &&
-    words.length <= 5 &&
-    words.every((w) => /^[A-Z][A-Z0-9\-&]*$/.test(w))
-  ) {
+  if (words.length > 0 && words.length <= 5 && words.every((w) => /^[A-Z][A-Z0-9\-&]*$/.test(w))) {
     return false
   }
   return true
@@ -279,12 +349,7 @@ function passesGate4(value) {
 
 // 综合判断:4 道 gate 全部通过 → 真未翻译(需要人工补译)
 function isGenuineUntranslated(value) {
-  return (
-    passesGate1(value) &&
-    passesGate2(value) &&
-    passesGate3(value) &&
-    passesGate4(value)
-  )
+  return passesGate1(value) && passesGate2(value) && passesGate3(value) && passesGate4(value)
 }
 
 function getNested(obj, dotPath) {
@@ -342,10 +407,7 @@ function extractKeysByVar(src, varName) {
   const keys = new Set()
   // 2026-07-30: 同时匹配 t('xxx') / t.rich('xxx') / t.raw('xxx') / t.format('xxx') / t.has('xxx')
   // 原 regex 只匹配 t('xxx'),导致 t.rich('note5') / t.raw('items') 等 key 漏检
-  const re = new RegExp(
-    `\\b${escaped}(?:\\.(?:rich|raw|format|has))?\\(\\s*['"]([^'"]+)['"]`,
-    'g',
-  )
+  const re = new RegExp(`\\b${escaped}(?:\\.(?:rich|raw|format|has))?\\(\\s*['"]([^'"]+)['"]`, 'g')
   let m
   while ((m = re.exec(src)) !== null) {
     keys.add(m[1])
@@ -387,9 +449,7 @@ if (isStaged) {
     })
     const staged = output.split('\n').filter(Boolean)
     messagesChanged = staged.some(
-      (f) =>
-        f.endsWith('.json') &&
-        STAGED_MESSAGES_PREFIXES.some((p) => f.startsWith(p)),
+      (f) => f.endsWith('.json') && STAGED_MESSAGES_PREFIXES.some((p) => f.startsWith(p)),
     )
     if (isParityOnly) {
       // parity-only 模式跳过源码使用检测(extension useI18n() 不适用;shared 无源码消费方)
@@ -399,9 +459,7 @@ if (isStaged) {
     } else {
       sourceFiles = staged
         .filter(
-          (f) =>
-            f.startsWith(STAGED_SOURCE_PREFIX) &&
-            (f.endsWith('.ts') || f.endsWith('.tsx')),
+          (f) => f.startsWith(STAGED_SOURCE_PREFIX) && (f.endsWith('.ts') || f.endsWith('.tsx')),
         )
         .filter((f) => {
           const rel = f.slice(STAGED_SOURCE_PREFIX.length)
@@ -515,8 +573,8 @@ const FALLBACK_DICTS = {
 // (词典是纯字符串字面量对象,用大括号平衡切片 + new Function 安全求值)
 function loadFallbackDict(target) {
   const rel = FALLBACK_DICTS[target]
-    if (!rel) return null
-    const file = join(REPO_ROOT, rel)
+  if (!rel) return null
+  const file = join(REPO_ROOT, rel)
   if (!existsSync(file)) return null
   try {
     const src = readFileSync(file, 'utf8')
@@ -589,6 +647,19 @@ function hasKeyInMergedOrDict(key) {
 }
 
 const missingKeyIssues = []
+// 2026-09-07:因"键仅存在于工作区 WIP 消息(未暂存)"而降级的缺失键,仅告警不阻断
+const wipMissingKeyIssues = []
+
+// 分流:键在工作区 base 消息存在但暂存 blob 缺失 → 并行 WIP 新增键,降级 WARNING;
+// 否则照常进 ERROR 清单(真缺失)。
+function pushMissingKeyIssue(issue) {
+  if (isStaged && worktreeBaseHas(issue.ns, issue.key)) {
+    wipMissingKeyIssues.push(issue)
+  } else {
+    missingKeyIssues.push(issue)
+  }
+}
+
 let checkedFiles = 0
 let checkedKeys = 0
 
@@ -609,7 +680,7 @@ for (const file of sourceFiles) {
     const relPath = relative(REPO_ROOT, file)
     for (const key of keys) {
       if (!hasKeyInMergedOrDict(key)) {
-        missingKeyIssues.push({ file: relPath, ns: '(hook)', key, varName: 't/tt' })
+        pushMissingKeyIssue({ file: relPath, ns: '(hook)', key, varName: 't/tt' })
       }
     }
     continue
@@ -654,7 +725,7 @@ for (const file of sourceFiles) {
       const ns = [...nsSet][0]
       const existsInBase = hasKey(messages[BASE_LANG], ns, key)
       if (!existsInBase) {
-        missingKeyIssues.push({
+        pushMissingKeyIssue({
           file: relPath,
           ns,
           key,
@@ -663,12 +734,12 @@ for (const file of sourceFiles) {
       }
     } else {
       // 多命名空间同名变量:宽松检查,key 在任一 namespace 下存在即通过
-      const existsInAny = [...nsSet].some(n => hasKey(messages[BASE_LANG], n, key))
+      const existsInAny = [...nsSet].some((n) => hasKey(messages[BASE_LANG], n, key))
       if (!existsInAny) {
         // 在所有 ns 中都不存在,报告所有缺失的 ns
         for (const n of nsSet) {
           if (!hasKey(messages[BASE_LANG], n, key)) {
-            missingKeyIssues.push({
+            pushMissingKeyIssue({
               file: relPath,
               ns: n,
               key,
@@ -685,20 +756,16 @@ const label = isStaged ? 'ERROR' : 'WARNING'
 const color = isStaged ? C.red : C.yellow
 
 if (parityIssues.length > 0) {
-  console.log(
-    `${color}[i18n 键检查] Parity 问题(${parityIssues.length}个) [${label}]:${C.reset}`,
-  )
+  console.log(`${color}[i18n 键检查] Parity 问题(${parityIssues.length}个) [${label}]:${C.reset}`)
   for (const issue of parityIssues) {
     if (issue.direction === 'base-only') {
-      console.log(
-        `${color}  ${BASE_LANG} 有但 ${issue.lang} 缺失的键(${issue.total}个):${C.reset}`,
-      )
+      console.log(`${color}  ${BASE_LANG} 有但 ${issue.lang} 缺失的键(${issue.total}个):${C.reset}`)
     } else {
-      console.log(
-        `${color}  ${issue.lang} 有但 ${BASE_LANG} 无的键(${issue.total}个):${C.reset}`,
-      )
+      console.log(`${color}  ${issue.lang} 有但 ${BASE_LANG} 无的键(${issue.total}个):${C.reset}`)
     }
-    console.log(`${color}    ${issue.keys.join('\n    ')}${issue.total > 20 ? '\n    ...' : ''}${C.reset}`)
+    console.log(
+      `${color}    ${issue.keys.join('\n    ')}${issue.total > 20 ? '\n    ...' : ''}${C.reset}`,
+    )
   }
   console.log('')
 }
@@ -718,9 +785,7 @@ if (missingKeyIssues.length > 0) {
   for (const [file, nsMap] of byFile) {
     console.log(`${color}  ${file}:${C.reset}`)
     for (const [ns, keys] of nsMap) {
-      console.log(
-        `${color}    命名空间 [${ns}] 缺失 ${keys.length} 键:${C.reset}`,
-      )
+      console.log(`${color}    命名空间 [${ns}] 缺失 ${keys.length} 键:${C.reset}`)
       console.log(`${color}      ${keys.map((k) => `'${k}'`).join(', ')}${C.reset}`)
     }
   }
@@ -729,31 +794,20 @@ if (missingKeyIssues.length > 0) {
 
 // 翻译完整性:未翻译键(值 === en,非阻塞 WARNING,仅信息)
 if (untranslatedValueIssues.length > 0) {
-  const totalUntranslated = untranslatedValueIssues.reduce(
-    (s, i) => s + i.count,
-    0,
-  )
+  const totalUntranslated = untranslatedValueIssues.reduce((s, i) => s + i.count, 0)
   console.log(
     `${C.yellow}[i18n 翻译] 未翻译键(值===en,仅 ASCII) — ${totalUntranslated} 处待人工补译:${C.reset}`,
   )
   for (const issue of untranslatedValueIssues) {
-    console.log(
-      `${C.yellow}  ${issue.lang}: ${issue.count} 个未翻译键${C.reset}`,
-    )
+    console.log(`${C.yellow}  ${issue.lang}: ${issue.count} 个未翻译键${C.reset}`)
     for (const s of issue.samples) {
-      console.log(
-        `${C.dim}    ${s.key} = "${s.value}"${C.reset}`,
-      )
+      console.log(`${C.dim}    ${s.key} = "${s.value}"${C.reset}`)
     }
     if (issue.count > issue.samples.length) {
-      console.log(
-        `${C.dim}    ... 还有 ${issue.count - issue.samples.length} 个${C.reset}`,
-      )
+      console.log(`${C.dim}    ... 还有 ${issue.count - issue.samples.length} 个${C.reset}`)
     }
   }
-  console.log(
-    `${C.dim}  → 修复:为这些键添加非英文翻译(或保留 en fallback 如有意为之)${C.reset}`,
-  )
+  console.log(`${C.dim}  → 修复:为这些键添加非英文翻译(或保留 en fallback 如有意为之)${C.reset}`)
   console.log('')
 }
 
@@ -763,6 +817,23 @@ if (untranslatedValueIssues.length > 0) {
 //   full 扫描确认当前 0 个 missing key,收紧为 blocking 不再误伤历史 commit。
 // 策略:missing key + parity 均 blocking(源码引用的 key 必须在消息中定义,这是硬性契约)。
 //   full 模式(CI)与 staged 模式(pre-commit)都会阻塞,防止新引入未定义 i18n 键。
+// 2026-09-07:仅存在于工作区 WIP 消息(未暂存)的缺失键降级为 WARNING,不参与 shouldBlock。
+if (wipMissingKeyIssues.length > 0) {
+  console.log(
+    `${C.yellow}[i18n 键检查] WIP 降级键(${wipMissingKeyIssues.length}个,键由未暂存 WIP 消息新增,非本 commit 范畴,仅告警):${C.reset}`,
+  )
+  const byFile = new Map()
+  for (const i of wipMissingKeyIssues) {
+    if (!byFile.has(i.file)) byFile.set(i.file, [])
+    byFile.get(i.file).push(i.key)
+  }
+  for (const [file, keys] of byFile) {
+    console.log(
+      `${C.yellow}  ${file}: ${keys.length} 键(样例 ${keys.slice(0, 3).join(', ')})${C.reset}`,
+    )
+  }
+  console.log('')
+}
 const shouldBlock = parityIssues.length > 0 || missingKeyIssues.length > 0
 
 if (shouldBlock) {
@@ -775,12 +846,12 @@ if (shouldBlock) {
       : isCli
         ? `packages/i18n/messages/cli/${BASE_LANG}.json`
         : isMobileRn
-      ? `packages/i18n/messages/mobile-rn/${BASE_LANG}.json 或 apps/mobile-rn/src/lib/i18n.ts(messagesZhCN)`
-      : isMiniappTaro
-        ? `packages/i18n/messages/miniapp-taro/${BASE_LANG}.json 或 apps/miniapp-taro/src/lib/theme.ts(messagesZhCN)`
-        : isParityOnlyFlag
-        ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
-        : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+          ? `packages/i18n/messages/mobile-rn/${BASE_LANG}.json 或 apps/mobile-rn/src/lib/i18n.ts(messagesZhCN)`
+          : isMiniappTaro
+            ? `packages/i18n/messages/miniapp-taro/${BASE_LANG}.json 或 apps/miniapp-taro/src/lib/theme.ts(messagesZhCN)`
+            : isParityOnlyFlag
+              ? `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
+              : `packages/i18n/messages/web/${BASE_LANG}.json 或 packages/i18n/messages/shared/${BASE_LANG}.json`
   console.log(
     `${C.dim}[i18n 键检查] 统计: 检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 (${langNames.join(', ')})${C.reset}`,
   )
@@ -805,12 +876,12 @@ const targetLabel = isExtension
     : isCli
       ? '[cli] '
       : isMobileRn
-    ? '[mobile-rn] '
-    : isMiniappTaro
-      ? '[miniapp-taro] '
-      : isParityOnlyFlag
-        ? '[parity-only] '
-        : ''
+        ? '[mobile-rn] '
+        : isMiniappTaro
+          ? '[miniapp-taro] '
+          : isParityOnlyFlag
+            ? '[parity-only] '
+            : ''
 console.log(
   `${C.green}[i18n 键检查] ${targetLabel}通过,已检查 ${checkedFiles} 文件, ${checkedKeys} 键, ${langNames.length} 语言 parity OK${C.reset}`,
 )
