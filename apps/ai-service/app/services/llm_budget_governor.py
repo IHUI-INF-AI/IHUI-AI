@@ -321,14 +321,22 @@ class LLMBudgetGovernor:
         return {"tokens": int(bucket["tokens"]), "cost": float(bucket["cost"])}
 
     async def _scan_records(self, period: str) -> list[dict[str, Any]]:
-        """扫描某周期的用量记录(用于按支柱/模型/action 分解)。"""
+        """扫描某周期的用量记录(用于按支柱/模型/action 分解)。
+
+        2026-09-07 根治:"hour" 由自然小时窗口改为滚动 60 分钟窗口。
+        此前 start=now.replace(minute=0) 是自然小时:整点后 N 分钟内,
+        上一自然小时末尾的真实记录(如 04:58 的调用,now=05:03)被排除——
+        整点后几分钟内调用必漏扫(测试 test_hour_finds_recent_record 因此间歇挂),
+        且小时预算检查在整点重置时可被"末尾爆发"打穿。滚动窗口消除边界盲区,
+        Redis zrangebyscore 与内存降级共用同一 start/end,两路径语义自动一致。
+        """
         now = datetime.now(timezone.utc)
         if period == "today":
             start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             end = now
         elif period == "hour":
-            start = now.replace(minute=0, second=0, microsecond=0)
             end = now
+            start = end - timedelta(hours=1)
         elif period == "week":
             end = now
             start = end - timedelta(days=7)
