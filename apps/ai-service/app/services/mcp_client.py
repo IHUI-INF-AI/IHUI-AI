@@ -73,6 +73,19 @@ class MCPClientConfig:
     protocol_version: str = DEFAULT_PROTOCOL_VERSION
 
 
+def _canonical_auth_scheme(token_type: str | None) -> str:
+    """规范化 OAuth auth scheme 为标准大小写 Bearer。
+
+    RFC 7235 定义 scheme 大小写不敏感,但 Linear MCP 等真实资源服务器严格
+    匹配标准形态 —— 上游返回小写 "bearer" 时原样透传会 401 invalid_token
+    (2026-09-07 真网实测)。非 bearer scheme 原样保留。
+    """
+    scheme = (token_type or "Bearer").strip() or "Bearer"
+    if scheme.lower() == "bearer":
+        return "Bearer"
+    return scheme
+
+
 class MCPClient:
     """管理单个外部 MCP Server 连接。"""
 
@@ -618,7 +631,7 @@ class MCPClient:
             try:
                 token = await self._oauth_client.get_token()
                 headers["Authorization"] = (
-                    f"{token.token_type or 'Bearer'} {token.access_token}"
+                    f"{_canonical_auth_scheme(token.token_type)} {token.access_token}"
                 )
             except Exception as e:  # noqa: BLE001 - OAuth 失败则无鉴权头继续
                 logger.error("OAuth 获取 token 失败(%s): %s", self._config.name, e)

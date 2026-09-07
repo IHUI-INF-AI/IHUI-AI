@@ -85,11 +85,6 @@ class _CallbackCapture:
 
 
 async def main() -> int:
-    capture = _CallbackCapture()
-    server = HTTPServer(("127.0.0.1", CALLBACK_PORT), capture.make_handler())
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    print(f"[1/5] 回调监听已启动 http://localhost:{CALLBACK_PORT}/callback")
-
     oauth = MCPOAuthClient(
         MCPOAuthConfig(
             grant_type="authorization_code",
@@ -100,21 +95,37 @@ async def main() -> int:
             persist_path=str(PERSIST_PATH),
         )
     )
-    url = await oauth.build_authorization_url_async()
-    print("[2/5] 授权 URL 已构造(PKCE S256):")
-    print(f"      {url}")
-    webbrowser.open(url)
-    print("      已尝试打开系统默认浏览器;请在浏览器中登录 Linear 并点击授权…")
 
-    if not capture.received.wait(CONSENT_TIMEOUT_SEC):
-        print("超时:未在 300 秒内收到授权回调", file=sys.stderr)
+    # 快速通道:已有持久化 token(或可刷新)则跳过人工授权
+    token = None
+    try:
+        token = await oauth.get_token()
+        print("[fast] 复用持久化 token,跳过浏览器授权")
+    except Exception:  # noqa: BLE001 无持久化/已失效 → 走完整授权码流
+        token = None
+
+    if token is None:
+        capture = _CallbackCapture()
+        server = HTTPServer(("127.0.0.1", CALLBACK_PORT), capture.make_handler())
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        print(f"[1/5] 回调监听已启动 http://localhost:{CALLBACK_PORT}/callback")
+
+        url = await oauth.build_authorization_url_async()
+        print("[2/5] 授权 URL 已构造(PKCE S256):")
+        print(f"      {url}")
+        webbrowser.open(url)
+        print("      已尝试打开系统默认浏览器;请在浏览器中登录 Linear 并点击授权…")
+
+        if not capture.received.wait(CONSENT_TIMEOUT_SEC):
+            print("超时:未在 300 秒内收到授权回调", file=sys.stderr)
+            server.shutdown()
+            return 2
         server.shutdown()
-        return 2
-    server.shutdown()
-    print(f"[3/5] 回调已捕获 code(前 8 位)={capture.code[:8]}… state 匹配由客户端内部校验")
+        print(f"[3/5] 回调已捕获 code(前 8 位)={capture.code[:8]}… state 匹配由客户端内部校验")
 
-    oauth.set_authorization_code(capture.code)
-    token = await oauth.get_token()
+        oauth.set_authorization_code(capture.code)
+        token = await oauth.get_token()
+
     print(
         f"[4/5] access_token 已获取(token_type={token.token_type}, "
         f"len={len(token.access_token)}, refresh={'有' if token.refresh_token else '无'})"
@@ -131,7 +142,7 @@ async def main() -> int:
     )
     await client.connect()
     tools = await client.list_tools()
-    names = [t.get("name") for t in tools]
+    names = [t.name if hasattr(t, "name") else t.get("name") for t in tools]
     print(f"[5/5] 真网 MCP 全链路成功:initialize+tools/list 共 {len(names)} 个工具")
     print("      工具样例:", names[:8])
 
