@@ -751,6 +751,11 @@ def create_app() -> FastAPI:
     app.include_router(sandbox_exec_router.router, prefix="/api", tags=["sandbox-exec"])
     app.include_router(sessions_router.router, prefix="/api", tags=["sessions"])
 
+    # 跨会话接力摘要(P2-7 闭环 API 出口)
+    from app.routers import relay as relay_router
+
+    app.include_router(relay_router.router, prefix="/api", tags=["relay"])
+
     # 本品类杀手锏只读/管理 API 统一挂载(成本看板/长期记忆/PromptGuard 审计/MCP 导出配置)
     from app.routers import killer_extras
 
