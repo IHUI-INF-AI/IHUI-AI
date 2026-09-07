@@ -162,6 +162,8 @@ export * from './endpoints/mcp'
 export * from './endpoints/artifacts'
 // Agent Plan Mode 端点(2026-09-02 立,计划模式确认 UI 后端契约)
 export * from './endpoints/agent-plan'
+// Best-of-N 同任务多副本自动择优端点(2026-09-07 立)
+export * from './endpoints/best-of-n'
 export * from './endpoints/notification'
 export * from './endpoints/order'
 export * from './endpoints/payment'
