@@ -57,6 +57,7 @@ type PlusMenuAction = {
     | 'mcp'
     | 'skill'
     | 'mcpStore'
+    | 'capabilityMarket'
     | 'connectors'
   icon: LucideIcon
   /** 跳转路径(相对路径,会经 next/navigation 解析) */
