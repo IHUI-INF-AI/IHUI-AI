@@ -164,7 +164,7 @@ class SandboxPolicy:
     readable_paths: list[str] = field(default_factory=list)
     writable_paths: list[str] = field(default_factory=list)
     denied_paths: list[str] = field(default_factory=list)
-    allow_network: bool = True
+    allow_network: bool = False
     env_whitelist: list[str] = field(default_factory=list)
     timeout_s: int = 30
     memory_mb: int = 512
@@ -255,7 +255,7 @@ class SandboxPolicy:
             readable_paths=[str(x) for x in data.get("readable_paths", [])],
             writable_paths=[str(x) for x in data.get("writable_paths", [])],
             denied_paths=[str(x) for x in data.get("denied_paths", [])],
-            allow_network=bool(data.get("allow_network", True)),
+            allow_network=bool(data.get("allow_network", False)),
             env_whitelist=[str(x) for x in data.get("env_whitelist", [])],
             timeout_s=int(data.get("timeout_s", 30)),
             memory_mb=int(data.get("memory_mb", 512)),
