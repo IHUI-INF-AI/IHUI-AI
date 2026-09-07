@@ -8,6 +8,9 @@ import Script from 'next/script'
 import { Toaster } from '@/components/common'
 
 import './globals.css'
+// 2026-09-06 修复:KaTeX 数学公式样式改由 JS import 引入(替代 globals.css 的 CSS @import,
+// 后者在 Tailwind v4 + pnpm 软链下生产构建无法解析)。
+import 'katex/dist/katex.min.css'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
