@@ -56,6 +56,17 @@ const PRIORITY_FILES = [
 
 const PRIORITY_FILES_SET = new Set<string>(PRIORITY_FILES)
 
+/** 无标准后缀但属于文本的精确文件名(2026-09-07 起:.env.example 等) */
+const EXACT_TEXT_FILE_NAMES = new Set(['.env.example', 'Dockerfile', 'Makefile', 'Procfile'])
+
+/** 判断路径是否为会被加载的文本文件(loader 与签名收集共用,避免两处判定漂移) */
+function isLoadableTextFile(path: string): boolean {
+  const baseName = path.slice(path.lastIndexOf('/') + 1)
+  if (AGENT_FILE_NAMES.has(baseName)) return true
+  if (EXACT_TEXT_FILE_NAMES.has(baseName)) return true
+  return TEXT_EXTENSIONS.has(getExtension(path))
+}
+
 /** 文本文件扩展名(用于判断是否读取内容) */
 const TEXT_EXTENSIONS = new Set([
   '.md',
@@ -120,8 +131,10 @@ const SKIP_DIRS = new Set([
   '.output',
 ])
 
-/** 单文件大小上限(50KB,超出跳过) */
+/** 单文件大小上限(50KB,超出截断读取前 50KB,不再静默丢弃) */
 const MAX_FILE_SIZE = 50 * 1024
+/** 单文件截断提示(注入内容尾部,让 LLM 知晓文件不完整) */
+const FILE_TRUNCATED_SUFFIX = '\n...(文件超过 50KB,已截断,仅含前 50KB)'
 /** 总 context 大小上限(2MB,超出截断) */
 const MAX_TOTAL_SIZE = 2 * 1024 * 1024
 /** 目录遍历最大深度(覆盖绝大多数项目结构) */
@@ -155,7 +168,7 @@ export interface WorkspaceContextResult {
  * 策略:
  *   1. 优先读取 PRIORITY_FILES(CLAUDE.md/AGENTS.md/package.json/README 等)
  *   2. 遍历目录树(限制深度 + 条目数),读取小文本文件内容
- *   3. 总大小超 500KB 截断
+ *   3. 总大小超 2MB 截断(上限与网关 workspaceContext 2.5MB 校验对齐)
  *
  * 返回的 text 格式:
  *   <workspace_files name="xxx">
@@ -195,17 +208,22 @@ export async function loadWorkspaceContext(
   }
 
   // 2. 遍历目录树,读取文本文件
+  // 2026-09-07 修复"读取不全"根因之一:entryCount 只统计真实会加载的文件
+  // (文本文件/agent 规则文件),此前图片等噪音条目也消耗预算,
+  // 大仓库 2000 条目提前耗尽 → truncated 被永久置位 → 后续文件全部不加载。
   await walkDir(handle, '', 0, async (entryPath, fileHandle) => {
-    if (truncated || entryCount >= MAX_ENTRIES) {
-      truncated = true
-      return
-    }
-    entryCount++
     tree.push(entryPath)
 
     // agent 规则文件(AGENTS.md/CLAUDE.md 等)不受总大小限制,任意目录层级必读
     const baseName = entryPath.slice(entryPath.lastIndexOf('/') + 1)
     const isAgentFile = AGENT_FILE_NAMES.has(baseName)
+    if (!isLoadableTextFile(entryPath)) return
+
+    if (truncated || entryCount >= MAX_ENTRIES) {
+      truncated = true
+      return
+    }
+    entryCount++
 
     if (!isAgentFile && totalSize >= MAX_TOTAL_SIZE) {
       truncated = true
@@ -215,15 +233,14 @@ export async function loadWorkspaceContext(
     // 跳过已在 PRIORITY_FILES 中读取的根目录文件
     if (PRIORITY_FILES_SET.has(entryPath)) return
 
-    // 判断是否文本文件
-    const ext = getExtension(entryPath)
-    if (!TEXT_EXTENSIONS.has(ext)) return
-
     try {
       const file = await fileHandle.getFile()
-      if (file.size > MAX_FILE_SIZE) return
-      const content = await file.text()
-      files.push({ path: entryPath, content, size: file.size })
+      // 超限文件截断读取前 50KB(2026-09-07 起,不再静默丢弃)
+      const isOversize = file.size > MAX_FILE_SIZE
+      const content = isOversize
+        ? (await file.slice(0, MAX_FILE_SIZE).text()) + FILE_TRUNCATED_SUFFIX
+        : await file.text()
+      files.push({ path: entryPath, content, size: Math.min(file.size, MAX_FILE_SIZE) })
       totalSize += file.size
     } catch {
       // 读取失败,跳过
@@ -337,27 +354,30 @@ async function walkDir(
 }
 
 // =============================================================================
-// 缓存失效:agent 规则文件签名
+// 缓存失效:全量文件签名
 // =============================================================================
 
-/** agent 规则文件签名(mtime + size,用于检测变更触发重索引) */
-export interface AgentFileSignature {
+/** 可加载文件签名(mtime + size,用于检测变更触发重索引) */
+export interface WorkspaceFileSignature {
   path: string
   lastModified: number
   size: number
 }
 
 /**
- * 轻量收集工作区内所有 agent 规则文件的签名(不读文件内容)。
- * 用于缓存命中前校验:文件有增删改(mtime/size/路径集合变化)则触发全量重索引。
+ * 轻量收集工作区内所有"可加载"文件(文本文件 + agent 规则文件)的签名。
+ * 只 getFile 取元数据,不读文件内容。
+ *
+ * 2026-09-07 修复"读取不全"根因之二:此前只收集 AGENTS.md/CLAUDE.md 等规则文件签名,
+ * 源码文件的增删改不会使缓存失效 → AI 永远读到首次加载的旧快照。
+ * 现在签名覆盖全部可加载文件:任何文本文件新增/修改/删除都会触发全量重索引。
  */
-export async function collectAgentFileSignatures(
+export async function collectWorkspaceFileSignatures(
   handle: FileSystemDirectoryHandle,
-): Promise<AgentFileSignature[]> {
-  const sigs: AgentFileSignature[] = []
+): Promise<WorkspaceFileSignature[]> {
+  const sigs: WorkspaceFileSignature[] = []
   await walkDir(handle, '', 0, async (entryPath, fileHandle) => {
-    const baseName = entryPath.slice(entryPath.lastIndexOf('/') + 1)
-    if (!AGENT_FILE_NAMES.has(baseName)) return
+    if (!isLoadableTextFile(entryPath)) return
     try {
       const file = await fileHandle.getFile()
       sigs.push({ path: entryPath, lastModified: file.lastModified, size: file.size })
@@ -370,7 +390,10 @@ export async function collectAgentFileSignatures(
 }
 
 /** 比较两份签名是否一致(路径集合 + mtime + size 全等) */
-export function agentSignaturesEqual(a: AgentFileSignature[], b: AgentFileSignature[]): boolean {
+export function workspaceSignaturesEqual(
+  a: WorkspaceFileSignature[],
+  b: WorkspaceFileSignature[],
+): boolean {
   if (a.length !== b.length) return false
   return a.every((s, i) => {
     const other = b[i]
