@@ -10,6 +10,14 @@
 单位口径:    美元 / 1M tokens(对外 helper 提供 per-1K 换算,兼容旧调用方)
 数值口径:    各厂商公开页目估算值(2025 下半年公开定价),仅用于成本估算,
             精确计费以厂商账单为准;estimated=True 表示走了兜底价。
+
+与 apps/api ai_pricing 表的分工(2026-09-07 对齐,防误合并):
+  - 本模块:ai-service 进程内估算价(静态公开价+运行时覆盖),用于 cost 缺失时
+    的即时估算/预算扣减,零外部依赖,重启即回静态值。
+  - ai_pricing(apps/api,litellm-price-sync 每 24h 同步 LiteLLM 公开价表
+    +frankfurter 实时汇率):计费/展示口径的持久化真网价,分/千 token。
+  两者单位与用途不同,勿互相替代;若未来要求 ai-service 估算价与计费价严格
+  一致,应通过 set_model_pricing 由管理面注入 ai_pricing 快照,而非删本模块。
 """
 
 from __future__ import annotations
