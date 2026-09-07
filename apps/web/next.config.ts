@@ -31,7 +31,7 @@ const isDev = process.env.NODE_ENV === 'development'
 // dev server 死锁(实测:config 加载后零编译、CPU 归零、.next/build 18 分钟不写入)。
 // 静态导出改用独立 distDir .next-static(输出目录 out/ 不变,tauri/GH Pages 无感知),
 // 与运行中服务彻底隔离。服务端构建(next build + next start)不受影响,仍用 .next。
-const staticDistDir = isStaticExport ? '.next-static' : '.next'
+const _staticDistDir = isStaticExport ? '.next-static' : '.next'
 // 2026-09-07 构建修复:distDir 允许经 IHUI_BUILD_DIST 覆盖。
 // 用途:分阶段/零停机部署时先构建到独立 staging 目录(web 仍服务线上 .next),
 // 构建通过后再停服务执行 .next ← staging 交换,把停机窗口从「整个构建长
@@ -333,6 +333,20 @@ const nextConfig: NextConfig = {
           source: '/api/mcp/:path*',
           destination: 'http://localhost:8803/api/mcp/:path*',
         },
+        // 2026-09-07 新增:打通 3 个孤儿路由(审计发现 routers 存在但 web 端无转发=用户永远够不到):
+        // mcp-official(公网 MCP OAuth)/ patch(补丁应用)/ sandbox-exec(沙箱执行)
+        {
+          source: '/api/mcp-official/:path*',
+          destination: 'http://localhost:8803/api/mcp-official/:path*',
+        },
+        {
+          source: '/api/patch/:path*',
+          destination: 'http://localhost:8803/api/patch/:path*',
+        },
+        {
+          source: '/api/sandbox-exec/:path*',
+          destination: 'http://localhost:8803/api/sandbox-exec/:path*',
+        },
         // 2026-09-02 新增:Connectors 路由直连 ai-service 8803(P2-2 中文连接器)
         // 原因:connectors router 注册在 ai-service(prefix="/api"),必须直连 8803 才命中
         {
@@ -534,6 +548,13 @@ const nextConfig: NextConfig = {
           source: '/api/agent-plan/:path*',
           destination: 'http://localhost:8803/api/agent-plan/:path*',
         },
+        // 2026-09-07 新增:Best-of-N 同任务多副本自动择优路由直连 ai-service 8803。
+        // 原因:best_of_n router 注册在 ai-service(prefix="/api",路径 /api/best-of-n/*),
+        // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/best-of-n/:path*',
+          destination: 'http://localhost:8803/api/best-of-n/:path*',
+        },
         // 2026-09-03 新增:成本看板 / 长期记忆管理路由直连 ai-service 8803。
         // 原因:cost_ledger / agent_memory(prefix="/longterm-memory")router 均注册在
         // ai-service(prefix="/api"),必须直连 8803 才能命中,且要放在 /api/:path*
@@ -600,9 +621,9 @@ const nextConfig: NextConfig = {
           // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
           // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
           // 不再允许浏览器触达本机服务(防 XSS→本机探测/利用)。
-          (isDev
+          isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*"
-            : "connect-src 'self' https: wss: ws:"),
+            : "connect-src 'self' https: wss: ws:",
           "media-src 'self' blob:",
           "object-src 'none'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
