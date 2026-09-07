@@ -1702,6 +1702,13 @@
       "when": 1720995200000,
       "tag": "20260907000000_create_agent_runtime_sessions",
       "break": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1721081600000,
+      "tag": "20260907010000_ai_pricing_numeric_precision",
+      "break": true
     }
   ]
 }
