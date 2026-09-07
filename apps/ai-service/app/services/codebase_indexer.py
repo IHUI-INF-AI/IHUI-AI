@@ -7,6 +7,16 @@
 用 tree-sitter AST 解析代码 → 按符号(函数/类/方法/接口)切片 → 生成 embedding → 写入 codebase_chunks 表。
 AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 
+2026-09-07 升级(对标 Cursor Merkle 增量同步 + CodeBuddy 三层语义索引):
+- Merkle 增量同步:文件内容 sha256 快照持久化,重索引时只对变更文件
+  重新切片+embedding(未变文件零成本跳过),删除文件同步清除旧切片
+  (DELETE /api/v1/codebase/repo/:repoId/files)。快照根 hash =
+  sha256(sorted(path:hash)),与 Cursor Merkle Tree 思想一致。
+- 三层语义索引:函数层(符号切片,原有)+ 模块层(每文件摘要切片
+  symbol_type=module_summary)+ 架构层(每顶层目录摘要切片
+  symbol_type=architecture_summary)。合成切片走同一 embedding 通道,
+  语义搜索自然命中"这个模块是干什么的/整体架构是什么"类查询。
+
 依赖:
 - tree-sitter + tree-sitter-language-pack(可选,未安装时降级为正则切片)
 - llm_gateway.embed()(已存在,生成 1536 维向量)
@@ -19,6 +29,7 @@ AST 解析失败时降级为固定行数切片(100 行/片,50 行重叠)。
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import re
@@ -75,6 +86,26 @@ MAX_CHUNKS_PER_FILE = 200
 MAX_FILES_PER_INDEX = 5000
 # embedding 批量大小(单次 API 调用)
 EMBEDDING_BATCH_SIZE = 20
+# 三层语义索引:文件含符号切片 ≥ 该阈值才生成模块层摘要切片(少文件无收益)
+MODULE_SUMMARY_MIN_CHUNKS = 4
+# 架构摘要:每个顶层目录一个合成切片;目录下文件数 ≥ 该阈值才生成
+ARCH_SUMMARY_MIN_FILES = 3
+# Merkle 快照目录(每 repo_id 一个 JSON;env CODEBASE_INDEX_CACHE_DIR 可覆盖)
+_MERKLE_SNAPSHOT_DIR = Path(
+    os.environ.get("CODEBASE_INDEX_CACHE_DIR", str(Path.home() / ".ihui" / "codebase-index"))
+)
+
+
+def _file_content_hash(content: str) -> str:
+    """文件内容 sha256(Merkle 叶子节点 hash)。"""
+    return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()
+
+
+def _merkle_root(file_hashes: dict[str, str]) -> str:
+    """Merkle 根 hash = sha256(sorted("path:hash"))(与 Cursor Merkle Tree 思想一致)。
+    任一文件增删改都会改变根 hash,重索引时可 O(1) 判断整仓是否变更。"""
+    joined = "\n".join(f"{p}:{h}" for p, h in sorted(file_hashes.items()))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -101,6 +132,10 @@ class IndexResult:
     chunks_created: int = 0
     chunks_vectorized: int = 0
     errors: list[str] = field(default_factory=list)
+    # 2026-09-07 Merkle 增量同步统计
+    files_unchanged: int = 0  # 内容未变被跳过的文件数(零 embedding 成本)
+    files_deleted: int = 0  # 已删除并同步清除切片的文件数
+    merkle_root: str = ""  # 本轮快照根 hash(可跨轮比较 O(1) 判断整仓变更)
 
 
 class CodebaseIndexer:
@@ -430,18 +465,188 @@ class CodebaseIndexer:
                 )
             return cast(dict[str, Any], resp.json())
 
+    async def _delete_files_from_api(
+        self,
+        repo_id: str,
+        file_paths: list[str],
+        api_token: Optional[str] = None,
+    ) -> int:
+        """批量删除已消失文件的旧切片(Merkle 增量同步,2026-09-07 立)。
+
+        Returns:
+            实际删除的切片数;端点不存在(旧版 api)时静默返回 0。
+        """
+        if not file_paths:
+            return 0
+        import httpx
+
+        url = f"{self._api_base_url}/api/v1/codebase/repo/{repo_id}/files"
+        headers = {}
+        if api_token:
+            headers["Authorization"] = f"Bearer {api_token}"
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.request(
+                    "DELETE", url, json={"filePaths": file_paths}, headers=headers
+                )
+                if resp.status_code >= 400:
+                    logger.warning(
+                        "删除幽灵文件切片失败 HTTP %d: %s", resp.status_code, resp.text[:200]
+                    )
+                    return 0
+                data = resp.json()
+                inner = data.get("data", data) if isinstance(data, dict) else {}
+                return int(inner.get("deleted", 0))
+        except Exception as e:
+            logger.warning("删除幽灵文件切片异常: %s", e)
+            return 0
+
+    # ==========================================================================
+    # Merkle 快照持久化(2026-09-07 立)
+    # ==========================================================================
+
+    def _snapshot_path(self, repo_id: str, root: Path) -> Path:
+        """快照文件路径:repo_id + 仓库绝对路径共同决定(同 repo_id 不同路径互不污染)。"""
+        path_key = hashlib.sha256(str(root).encode()).hexdigest()[:12]
+        return _MERKLE_SNAPSHOT_DIR / f"{repo_id}-{path_key}.merkle.json"
+
+    def _load_snapshot(self, repo_id: str, root: Path) -> dict[str, str]:
+        """加载上轮文件 hash 快照;不存在/损坏时返回空 dict(触发全量索引)。"""
+        path = self._snapshot_path(repo_id, root)
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            files = raw.get("files", {})
+            if isinstance(files, dict) and all(
+                isinstance(k, str) and isinstance(v, str) for k, v in files.items()
+            ):
+                return cast(dict[str, str], files)
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            logger.debug("加载 Merkle 快照失败(%s): %s", path, e)
+        return {}
+
+    def _save_snapshot(self, repo_id: str, root: Path, file_hashes: dict[str, str]) -> None:
+        """持久化本轮快照(原子写:先写临时文件再 replace)。"""
+        try:
+            _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+            path = self._snapshot_path(repo_id, root)
+            tmp = path.with_suffix(".json.tmp")
+            tmp.write_text(
+                json.dumps(
+                    {"merkleRoot": _merkle_root(file_hashes), "files": file_hashes},
+                    ensure_ascii=False,
+                    indent=0,
+                ),
+                encoding="utf-8",
+            )
+            tmp.replace(path)
+        except Exception as e:
+            # 快照写失败不影响本轮结果(下轮退化为全量索引)
+            logger.debug("保存 Merkle 快照失败: %s", e)
+
+    # ==========================================================================
+    # 三层语义索引:模块层 + 架构层合成切片(2026-09-07 立,对标 CodeBuddy)
+    # ==========================================================================
+
+    def _build_module_summary_chunks(
+        self, rel_path: str, language: str, symbol_chunks: list[CodeChunk]
+    ) -> Optional[CodeChunk]:
+        """模块层摘要切片:文件意图(头部 imports/常量)+ 符号清单。
+
+        仅当文件符号切片数 ≥ MODULE_SUMMARY_MIN_CHUNKS 时生成
+        (小文件其函数层切片已足够表达,摘要切片无检索收益)。
+        """
+        if len(symbol_chunks) < MODULE_SUMMARY_MIN_CHUNKS:
+            return None
+        symbols = [
+            f"- {c.symbol_type}: {c.symbol_name} (L{c.line_start}-{c.line_end})"
+            for c in symbol_chunks
+            if c.symbol_name
+        ]
+        if not symbols:
+            return None
+        # 自包含语义摘要:符号清单 + 文件路径(利于 embedding 检索"模块是干什么的")
+        content = (
+            f"Module summary: {rel_path} ({language})\n"
+            f"This module contains {len(symbols)} symbols:\n" + "\n".join(symbols)
+        )
+        if len(content) > MAX_CHUNK_CHARS:
+            content = content[:MAX_CHUNK_CHARS]
+        return CodeChunk(
+            file_path=rel_path,
+            line_start=1,
+            line_end=max(c.line_end for c in symbol_chunks),
+            content=content,
+            language=language,
+            symbol_name=Path(rel_path).name,
+            symbol_type="module_summary",
+        )
+
+    def _build_architecture_summary_chunks(
+        self, rel_paths: list[tuple[str, str, int]]
+    ) -> list[CodeChunk]:
+        """架构层摘要切片:每个含 ≥ARCH_SUMMARY_MIN_FILES 个源文件的目录一个合成切片。
+
+        按文件实际父目录聚合(monorepo 下 apps/web 与 apps/api 是两个有意义
+        的架构单元,按深度 1 聚合会把它们混成一团)。
+
+        Args:
+            rel_paths: [(rel_path, language, symbol_count), ...]
+        Returns:
+            架构摘要切片列表(symbol_type=architecture_summary)。
+        """
+        by_dir: dict[str, list[str]] = {}
+        for rel_path, _lang, sym_count in rel_paths:
+            directory = rel_path.rsplit("/", 1)[0] if "/" in rel_path else "(root)"
+            by_dir.setdefault(directory, []).append(f"{rel_path} ({sym_count} symbols)")
+
+        chunks: list[CodeChunk] = []
+        for directory, files in sorted(by_dir.items()):
+            if len(files) < ARCH_SUMMARY_MIN_FILES:
+                continue
+            content = (
+                f"Architecture summary: directory '{directory}'\n"
+                f"Contains {len(files)} indexed source files:\n"
+                + "\n".join(files[:200])
+            )
+            if len(content) > MAX_CHUNK_CHARS:
+                content = content[:MAX_CHUNK_CHARS]
+            chunks.append(
+                CodeChunk(
+                    file_path=f"{directory}/",
+                    line_start=1,
+                    line_end=1,
+                    content=content,
+                    language=None,
+                    symbol_name=directory,
+                    symbol_type="architecture_summary",
+                )
+            )
+        return chunks
+
     async def index_repository(
         self,
         repo_path: str,
         repo_id: Optional[str] = None,
         api_token: Optional[str] = None,
+        incremental: bool = True,
     ) -> IndexResult:
-        """索引整个仓库。
+        """索引整个仓库(Merkle 增量同步,2026-09-07 起)。
+
+        流程:
+        1. 扫描仓库 → 计算每个代码文件的内容 sha256(Merkle 叶子)
+        2. 与上轮快照对比:未变文件零成本跳过(不切片/embedding/写入)
+        3. 变更文件重新切片 + embedding + 写入(indexChunks 自带先删旧后插新)
+        4. 已删除文件 → DELETE /repo/:repoId/files 清除幽灵切片
+        5. 三层语义索引:函数层(符号切片)+ 模块层 + 架构层(合成摘要切片)
+        6. 持久化本轮快照(原子写)
 
         Args:
             repo_path: 仓库根目录绝对路径。
             repo_id: 仓库标识(为空时用路径 hash)。
             api_token: API JWT token(写入时鉴权用)。
+            incremental: 是否启用 Merkle 增量(False 时全量重索引)。
 
         Returns:
             IndexResult 统计信息。
@@ -461,23 +666,71 @@ class CodebaseIndexer:
         files = self._collect_code_files(root)
         result.files_scanned = len(files)
 
-        all_chunks: list[CodeChunk] = []
+        # --- Merkle 增量:计算本轮文件 hash 并与快照对比 ---
+        prev_snapshot = self._load_snapshot(repo_id, root) if incremental else {}
+        new_hashes: dict[str, str] = {}
+        changed: list[tuple[Path, str, str]] = []  # [(abs_path, rel_path, language)]
         for file_path, language in files:
+            rel_path = str(file_path.relative_to(root)).replace("\\", "/")
             try:
                 content = file_path.read_text(encoding="utf-8", errors="replace")
-                if not content.strip():
-                    continue
-                rel_path = str(file_path.relative_to(root)).replace("\\", "/")
+            except Exception as e:
+                result.errors.append(f"{file_path}: {e}")
+                continue
+            if not content.strip():
+                continue
+            content_hash = _file_content_hash(content)
+            new_hashes[rel_path] = content_hash
+            if incremental and prev_snapshot.get(rel_path) == content_hash:
+                result.files_unchanged += 1
+                continue
+            changed.append((file_path, rel_path, language))
+
+        # 已删除文件:上轮快照有、本轮无 → 清除幽灵切片
+        deleted_paths = [p for p in prev_snapshot if p not in new_hashes] if incremental else []
+        if deleted_paths:
+            result.files_deleted = await self._delete_files_from_api(
+                repo_id, deleted_paths, api_token
+            )
+
+        result.merkle_root = _merkle_root(new_hashes)
+
+        # --- 变更文件切片(函数层)+ 三层合成切片(模块层/架构层) ---
+        all_chunks: list[CodeChunk] = []
+        layer_inputs: list[tuple[str, str, int]] = []  # (rel_path, language, symbol_count)
+        for file_path, rel_path, language in changed:
+            try:
+                content = file_path.read_text(encoding="utf-8", errors="replace")
                 file_chunks = self._chunk_by_ast(content, language)
                 for c in file_chunks:
                     c.file_path = rel_path
                 all_chunks.extend(file_chunks)
                 result.files_indexed += 1
+                layer_inputs.append((rel_path, language, len(file_chunks)))
+                module_chunk = self._build_module_summary_chunks(rel_path, language, file_chunks)
+                if module_chunk:
+                    all_chunks.append(module_chunk)
             except Exception as e:
                 result.errors.append(f"{file_path}: {e}")
 
+        # 架构层:对"全仓可见文件"生成(不只变更文件,保证架构切片始终最新)
+        lang_by_rel = {
+            str(f.relative_to(root)).replace("\\", "/"): l for f, l in files
+        }
+        symbol_count_by_rel = {r: s for r, _l, s in layer_inputs}
+        all_visible: list[tuple[str, str, int]] = [
+            (rel_path, lang_by_rel.get(rel_path, ""), symbol_count_by_rel.get(rel_path, 0))
+            for rel_path in new_hashes
+        ]
+        arch_chunks = self._build_architecture_summary_chunks(all_visible)
+        # 架构切片随变更批次写入(indexChunks 按 file_path 先删后插,幂等);
+        # 零变更轮次跳过(内容必然与上轮一致,省 embedding 成本)
+        if changed or deleted_paths or not incremental:
+            all_chunks.extend(arch_chunks)
+
         result.chunks_created = len(all_chunks)
         if not all_chunks:
+            self._save_snapshot(repo_id, root, new_hashes)
             return result
 
         # 批量生成 embedding
@@ -492,6 +745,8 @@ class CodebaseIndexer:
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
 
+        # 持久化快照(下轮增量对比基准)
+        self._save_snapshot(repo_id, root, new_hashes)
         return result
 
     async def index_file(
