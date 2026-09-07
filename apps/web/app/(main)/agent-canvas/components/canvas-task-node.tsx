@@ -4,6 +4,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Handle, Position, type Node, type NodeProps } from '@xyflow/react'
 import { Bot, Wrench, UserCheck, CircleDot, Loader2, CircleCheck, CircleX } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -17,16 +18,19 @@ const TYPE_ICON: Record<CanvasNodeType, React.ComponentType<{ className?: string
 
 /** 运行状态角标 */
 function StatusIcon({ status }: { status: CanvasNodeData['status'] }) {
+  const t = useTranslations('agentCanvas')
   if (status === 'running')
-    return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" aria-label="运行中" />
+    return <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" aria-label={t('statusRunning')} />
   if (status === 'success')
-    return <CircleCheck className="h-3.5 w-3.5 text-emerald-500" aria-label="成功" />
-  if (status === 'failed') return <CircleX className="h-3.5 w-3.5 text-red-500" aria-label="失败" />
-  return <CircleDot className="h-3.5 w-3.5 text-muted-foreground/50" aria-label="空闲" />
+    return <CircleCheck className="h-3.5 w-3.5 text-emerald-500" aria-label={t('statusSuccess')} />
+  if (status === 'failed')
+    return <CircleX className="h-3.5 w-3.5 text-red-500" aria-label={t('statusFailed')} />
+  return <CircleDot className="h-3.5 w-3.5 text-muted-foreground/50" aria-label={t('statusIdle')} />
 }
 
 /** 画布任务节点(带输入/输出连接点 + 运行状态 + 最近一条日志摘要) */
 export function CanvasTaskNode({ data, selected }: NodeProps<Node<CanvasNodeData>>) {
+  const t = useTranslations('agentCanvas')
   const meta = NODE_TYPE_META[data.nodeType]
   const Icon = TYPE_ICON[data.nodeType]
   const lastLog = data.logs[data.logs.length - 1]
@@ -58,7 +62,7 @@ export function CanvasTaskNode({ data, selected }: NodeProps<Node<CanvasNodeData
       </div>
       <div className="mt-1 flex items-center justify-between gap-2">
         <span className={cn('text-[10px] font-semibold uppercase tracking-wide', meta.accentText)}>
-          {meta.title}
+          {t(meta.titleKey)}
         </span>
         {lastLog && (
           <span className="max-w-[120px] truncate text-[10px] text-muted-foreground">

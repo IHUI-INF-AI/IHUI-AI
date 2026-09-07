@@ -91,16 +91,25 @@ export function SidebarHeader({
       <div
         className={cn(
           // 与 desktopHeader 同尺寸结构,但无桌面端拖拽窗口逻辑
-          'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0',
+          // 2026-09-05 修复:左侧 pl-12(48px) 避让 GlobalShell 悬浮的拉出/收回切换按钮
+          // (z-popover,常驻 x=6-42),避免 logo 被按钮盖住;logo 允许收缩(flex-1 min-w-0)
+          'flex h-[44px] shrink-0 items-center justify-between gap-1 pl-12 pr-2 pt-2 pb-0 mx-0',
         )}
       >
-        <ThemeLogo
-          clickable
-          width={80}
-          height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
-        />
+        <div className="min-w-0 flex-1">
+          <ThemeLogo
+            clickable
+            width={80}
+            height={26}
+            className="h-[26px] max-h-[26px] w-auto max-w-full cursor-pointer transition-opacity hover:opacity-75"
+            // 2026-09-05 修复:点击 logo 跳首页的同时收起抽屉(原实现跳转后抽屉仍开着,
+            // 用户感知"点了没反应")
+            onClick={() => {
+              onCloseMobile?.()
+              navigate('/')
+            }}
+          />
+        </div>
         {/* 2026-07-31 第十八次微调(用户反馈"X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
             - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
               的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / rounded-md / focus-visible:bg-accent)
@@ -125,7 +134,9 @@ export function SidebarHeader({
           )}
           aria-label={tc('close')}
         >
-          <PanelLeftRounded className="h-3.5 w-3.5" />
+          {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
+              移动端触屏更易辨识/命中 */}
+          <PanelLeftRounded className="h-5 w-5" />
         </Button>
       </div>
     )
@@ -157,13 +168,16 @@ export function SidebarHeader({
       onMouseLeave={handleLogoDragEnd}
     >
       {!collapsed && (
-        <ThemeLogo
-          clickable
-          width={80}
-          height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
-        />
+        // data-sidebar-logo:供 globals.css 768-1023px 区间隐藏(80px logo 塞 60px 折叠条会溢出重叠)
+        <span data-sidebar-logo className="flex shrink-0">
+          <ThemeLogo
+            clickable
+            width={80}
+            height={26}
+            className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
+            onClick={() => navigate('/')}
+          />
+        </span>
       )}
       <Tooltip content={collapsed ? t('expand') : t('collapse')} side="right">
         <Button

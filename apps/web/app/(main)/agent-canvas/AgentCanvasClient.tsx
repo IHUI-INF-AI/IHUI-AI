@@ -9,7 +9,6 @@ import {
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   type Connection,
@@ -403,14 +402,12 @@ export function AgentCanvasClient() {
             nodeTypes={nodeTypes}
             fitView
             deleteKeyCode={['Backspace', 'Delete']}
-            className="bg-background/50"
+            className="bg-background/50 [&_.react-flow__attribution]:!bg-transparent [&_.react-flow__attribution]:!text-muted-foreground/60"
           >
-            <Controls className="!rounded-md !border !shadow-sm" />
-            <MiniMap
-              nodeStrokeWidth={2}
-              nodeColor="color-mix(in srgb, var(--primary) 15%, transparent)"
-              maskColor="color-mix(in srgb, var(--background) 70%, transparent)"
-              className="!rounded-md !border !shadow-sm"
+            {/* Controls/MiniMap 默认白底(xyflow 硬编码),深色模式下用 token 覆盖,
+                按钮图标继承全局 text-foreground(白),不覆盖 bg 会白底白图标看不清 */}
+            <Controls
+              className="!rounded-md !border !border-border !bg-card !shadow-sm [&_button]:!bg-card [&_button]:!border-border [&_button]:!text-foreground [&_button:hover]:!bg-muted [&_button]:!border-b"
             />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
           </ReactFlow>

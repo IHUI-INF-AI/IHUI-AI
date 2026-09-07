@@ -64,12 +64,12 @@ export interface CanvasDag {
   edges: CanvasEdgeDef[]
 }
 
-/** 节点类型元信息(调色板 + 节点渲染共用) */
+/** 节点类型元信息(调色板 + 节点渲染共用;title/desc 文案由 i18n 提供,见 agentCanvas 命名空间) */
 export const NODE_TYPE_META: Record<
   CanvasNodeType,
   {
-    title: string
-    desc: string
+    /** i18n key 后缀:agentCanvas.type{Suffix} */
+    titleKey: 'typeAgent' | 'typeTool' | 'typeReview'
     badge: string
     border: string
     bg: string
@@ -77,24 +77,21 @@ export const NODE_TYPE_META: Record<
   }
 > = {
   agent: {
-    title: 'Agent',
-    desc: '调用 AI 智能体执行子任务',
+    titleKey: 'typeAgent',
     badge: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
     border: 'border-violet-500/40',
     bg: 'bg-violet-500/5',
     accentText: 'text-violet-500',
   },
   tool: {
-    title: 'Tool',
-    desc: '调用 MCP 工具/命令行',
+    titleKey: 'typeTool',
     badge: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
     border: 'border-amber-500/40',
     bg: 'bg-amber-500/5',
     accentText: 'text-amber-500',
   },
   'human-review': {
-    title: 'Review',
-    desc: '人工审核中断(HITL)',
+    titleKey: 'typeReview',
     badge: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
     border: 'border-blue-500/40',
     bg: 'bg-blue-500/5',
@@ -102,15 +99,18 @@ export const NODE_TYPE_META: Record<
   },
 }
 
-/** 新建节点的默认参数 */
-export function createDefaultParams(type: CanvasNodeType): CanvasNodeParams {
+/** 新建节点的默认参数(defaultReviewPrompt 由调用方经 i18n 注入) */
+export function createDefaultParams(
+  type: CanvasNodeType,
+  defaultReviewPrompt?: string,
+): CanvasNodeParams {
   switch (type) {
     case 'agent':
       return { skill: 'text-summary', input: '' }
     case 'tool':
       return { tool: 'shell', input: '' }
     case 'human-review':
-      return { prompt: '请人工确认上一步输出是否通过' }
+      return { prompt: defaultReviewPrompt ?? '' }
   }
 }
 

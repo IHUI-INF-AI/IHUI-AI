@@ -34,6 +34,8 @@
  *   未引入 expo-image-picker 等新原生依赖。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import SearchAddIcon from '../../assets/images/search-add.png'
+import { rpx } from '../utils/rpx'
 import {
   ActivityIndicator,
   Animated,
@@ -47,7 +49,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import {
   FileText,
@@ -57,9 +58,9 @@ import {
   Mic,
   Play,
   Plus,
-  Send,
   X,
 } from 'lucide-react-native'
+import SandMsgIcon from '../../assets/images/sand_msg.png'
 
 /** 图片/视频/文档列表项。对应原 uniapp imgs_list 项(imgUrl / fileType / filename / video_url) */
 export interface InputImageItem {
@@ -137,19 +138,19 @@ export interface InputAreaProps {
   onPageAgentVariablesChange?: (value: string, componentIndex: number, groupIndex: number) => void
   /** 参数变量「图片类型」添加回调(groupIndex, componentIndex)。待接后端/原生模块 */
   onParamImageAdd?: (groupIndex: number, componentIndex: number) => void
+  /** 「+」按钮激活态(菜单展开时旋转 45° 成 ×) */
+  addActive?: boolean
 
-  // ── collapsible 折叠态(可选,默认 false 不破坏现有调用方)─────────────────
-  /** 启用折叠态:首次进入折叠,FAB 浮动按钮位于右下角;点击 FAB 展开完整输入栏,
-   *  完整栏顶部右上角有「×」按钮可折叠回。HomeScreen 等场景用此获得默认隐藏 +
-   *  点击 + 滑出的交互(对齐历史 Uniapp 抽屉式输入)。 */
+  // ── collapsible 折叠态(已废弃:原版 Uniapp 无独立黑色 FAB,输入区常驻底部) ──
+  /** @deprecated RN 新增交互,与原版不一致,保留 props 兼容但不再渲染 FAB */
   collapsible?: boolean
-  /** collapsible=true 时,初始是否折叠(默认 true)。HomeScreen 默认折叠让首屏更整洁 */
+  /** @deprecated 同 collapsible */
   defaultCollapsed?: boolean
-  /** 折叠态切换通知(展开→true=折叠中 / false=展开中),非受控 */
+  /** @deprecated 同 collapsible */
   onCollapsedChange?: (collapsed: boolean) => void
-  /** 折叠态 FAB 按钮的可访问标签(供 i18n 注入);未提供时回退「提问」 */
+  /** @deprecated 同 collapsible */
   collapsedFabLabel?: string
-  /** 折叠按钮(完整态右上「×」)的可访问标签;未提供时回退「收起输入区」 */
+  /** @deprecated 同 collapsible */
   collapseButtonLabel?: string
 }
 
@@ -159,7 +160,8 @@ const MIN_INPUT_HEIGHT = 48
 const MAX_INPUT_HEIGHT = 120
 const VOICE_BAR_COUNT = 30
 
-/** 语音激活时的 30 线动画条(对应原 voice-bar-animation,纯前端 UI) */
+/** 语音激活时的 30 线动画条(对齐原 uniapp .voice-bar-animation + .line:
+ *  6rpx×6rpx 黑线,gap 2px,@keyframes move 在 65rpx ↔ 25rpx 间 alternate 摆动) */
 function VoiceWave() {
   const bars = useRef<Animated.Value[]>(
     Array.from({ length: VOICE_BAR_COUNT }, () => new Animated.Value(0)),
@@ -171,11 +173,17 @@ function VoiceWave() {
         Animated.sequence([
           Animated.timing(v, {
             toValue: 1,
-            duration: 280,
-            delay: i * 45,
+            duration: 750,
+            delay: (i % 4) * 250,
+            easing: Easing.linear,
             useNativeDriver: true,
           }),
-          Animated.timing(v, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.timing(v, {
+            toValue: 0,
+            duration: 750,
+            easing: Easing.linear,
+            useNativeDriver: true,
+          }),
         ]),
       ),
     )
@@ -186,12 +194,12 @@ function VoiceWave() {
   return (
     <View style={styles.voiceBars}>
       {bars.map((v, i) => {
-        const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1] })
-        const baseHeight = 6 + (i % 6) * 3
+        // scaleY:高度 6rpx → 65rpx(≈10.8 倍)对应原版 @keyframes move
+        const scaleY = v.interpolate({ inputRange: [0, 1], outputRange: [65 / 6, 25 / 6] })
         return (
           <Animated.View
             key={i}
-            style={[styles.voiceBar, { height: baseHeight, transform: [{ scaleY }] }]}
+            style={[styles.voiceBar, { transform: [{ scaleY }] }]}
           />
         )
       })}
@@ -257,13 +265,8 @@ export function InputArea({
   pageAgentVariables,
   onPageAgentVariablesChange,
   onParamImageAdd,
-  collapsible = false,
-  defaultCollapsed = true,
-  onCollapsedChange,
-  collapsedFabLabel,
-  collapseButtonLabel,
+  addActive = false,
 }: InputAreaProps) {
-  const insets = useSafeAreaInsets()
   const isSendBlocked = disabled || loading
   const canSend = value.trim().length > 0 && !isSendBlocked
   const isOverWarning = value.length >= Math.floor(maxLength * WARNING_RATIO)
@@ -275,10 +278,6 @@ export function InputArea({
   const inputHeight = isExpanded
     ? Math.max(MIN_INPUT_HEIGHT, contentHeight)
     : Math.min(Math.max(MIN_INPUT_HEIGHT, contentHeight), MAX_INPUT_HEIGHT)
-
-  // collapsible 折叠态:非受控(defaultCollapsed 默认 true → 首屏折叠)
-  const [internalCollapsed, setInternalCollapsed] = useState(defaultCollapsed)
-  const isCollapsed = collapsible ? internalCollapsed : false
 
   const hasImages = (images?.length ?? 0) > 0
   const hasParams = (pageAgentVariables?.length ?? 0) > 0
@@ -301,37 +300,6 @@ export function InputArea({
   const handleContentSizeChange = useCallback((_w: number, h: number): void => {
     setContentHeight(h)
   }, [])
-
-  // 折叠/展开切换(collapsible=true 时生效)
-  const handleCollapseToggle = useCallback((): void => {
-    setInternalCollapsed((v) => {
-      const next = !v
-      onCollapsedChange?.(next)
-      return next
-    })
-  }, [onCollapsedChange])
-
-  // 折叠态早返回:FAB 浮动按钮(底部中央,绝对定位),对齐历史 Uniapp 抽屉式输入
-  // P1-2:避开 HomeScreen 右下角 GlobalFloatBox(赚米/客服/反馈)遮挡,FAB 居中放
-  if (collapsible && isCollapsed) {
-    return (
-      <View style={[styles.collapsedWrap, { bottom: 24 + insets.bottom }]} pointerEvents="box-none">
-        <Pressable
-          style={styles.collapsedFab}
-          onPress={() => {
-            setInternalCollapsed(false)
-            onCollapsedChange?.(false)
-          }}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={collapsedFabLabel ?? '展开提问输入'}
-          accessibilityState={{ expanded: false }}
-        >
-          <Plus size={26} color={tokens.surface.light} />
-        </Pressable>
-      </View>
-    )
-  }
 
   const renderThumb = (item: InputImageItem, index: number) => {
     const isDoc = item.type === 'document'
@@ -379,19 +347,6 @@ export function InputArea({
 
   return (
     <View style={styles.container}>
-      {/* collapsible=true 时,完整态右上角加「×」按钮,折叠回 FAB 态 */}
-      {collapsible ? (
-        <TouchableOpacity
-          style={styles.collapseBtn}
-          onPress={handleCollapseToggle}
-          activeOpacity={0.7}
-          hitSlop={6}
-          accessibilityRole="button"
-          accessibilityLabel={collapseButtonLabel ?? '收起输入区'}
-        >
-          <X size={14} color={tokens.text.secondary} />
-        </TouchableOpacity>
-      ) : null}
       <View style={styles.main}>
         {/* 图片/视频/文档缩略图列表(imgs_list) */}
         {hasImages ? (
@@ -424,23 +379,15 @@ export function InputArea({
           ) : null}
 
           <View style={styles.inputColumn}>
-            {voiceActive ? (
+            {voiceActive || voiceInput ? (
               <Pressable
                 style={styles.voiceWaveWrap}
                 onPressIn={onVoiceAnimationStart}
                 onPressOut={onVoiceAnimationStop}
                 accessibilityLabel="按住说话,松开结束"
               >
+                {/* 对齐原版:语音模式无文字提示,直接显示波形动画 */}
                 <VoiceWave />
-              </Pressable>
-            ) : voiceInput ? (
-              <Pressable
-                style={styles.voiceWaveWrap}
-                onPressIn={onVoiceAnimationStart}
-                onPressOut={onVoiceAnimationStop}
-                accessibilityLabel="按住说话,松开结束"
-              >
-                <Text style={styles.voiceHint}>按住说话</Text>
               </Pressable>
             ) : (
               <TextInput
@@ -484,7 +431,8 @@ export function InputArea({
             ) : null}
           </View>
 
-          {/* 添加文件按钮(search-box2,functionHandle) */}
+          {/* 添加文件按钮(对齐原 uniapp search-box2:44rpx search-add.png 图片按钮,
+              functionHandle 打开时 rotate-icon 旋转 45°) */}
           {showAddBtn ? (
             <TouchableOpacity
               style={styles.addBtn}
@@ -493,7 +441,9 @@ export function InputArea({
               accessibilityRole="button"
               accessibilityLabel="添加图片或文件"
             >
-              <Plus size={24} color={tokens.text.secondary} />
+              <View style={{ transform: [{ rotate: addActive ? '45deg' : '0deg' }] }}>
+                <Image source={SearchAddIcon} style={styles.addBtnImg} />
+              </View>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -559,9 +509,10 @@ export function InputArea({
           accessibilityLabel={sendLabel ?? 'send'}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={tokens.surface.light} />
+            <ActivityIndicator size="small" color={tokens.brand.DEFAULT} />
           ) : (
-            <Send size={18} color={tokens.surface.light} />
+            // 对齐原版 search-box3: sand_msg.png 50rpx 图片发送按钮(透明底)
+            <Image source={SandMsgIcon} style={styles.sendImg} resizeMode="contain" />
           )}
         </TouchableOpacity>
       )}
@@ -770,15 +721,16 @@ const styles = StyleSheet.create({
     color: tokens.text.secondary,
   },
   addBtn: {
-    width: 40,
-    height: 48,
+    // 对齐 .search-box2: 44rpx × 44rpx
+    width: rpx(44),
+    height: rpx(44),
     marginLeft: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addBtnIcon: {
-    fontSize: 24,
-    color: tokens.text.secondary,
+  addBtnImg: {
+    width: rpx(44),
+    height: rpx(44),
   },
   // 参数变量区
   paramsList: {
@@ -821,65 +773,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: tokens.text.secondary,
   },
-  // 发送按钮
+  // 发送按钮(对齐原版 .search-box3: sand_msg.png 50rpx,透明底)
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: tokens.brand.DEFAULT,
+    width: rpx(50),
+    height: rpx(50),
     marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  sendImg: {
+    width: rpx(50),
+    height: rpx(50),
   },
   stopButton: {
     backgroundColor: tokens.danger.DEFAULT,
   },
   sendButtonDisabled: {
-    backgroundColor: tokens.surface.muted,
+    opacity: 0.4,
   },
   sendIcon: {
     fontSize: 18,
     color: tokens.surface.light,
     fontWeight: '600',
-  },
-
-  // ── collapsible 折叠态(底部中央浮动 FAB,绝对定位,避开 GlobalFloatBox 右侧) ──
-  collapsedWrap: {
-    position: 'absolute',
-    // 屏幕水平居中,减去 FAB 一半宽度(28)使按钮中心对齐屏幕中线
-    left: '50%',
-    marginLeft: -28,
-    // bottom 在 JSX 内根据 insets.bottom 计算,这里只设兜底
-    bottom: 24,
-    // zIndex/elevation 必须高于 GlobalFloatBox,避免被遮挡
-    zIndex: 9999,
-    elevation: 24,
-  },
-  collapsedFab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28, // 56/2,合规(头像/红点豁免圆形)
-    backgroundColor: tokens.brand.DEFAULT,
-    alignItems: 'center',
-    justifyContent: 'center',
-    // shadow(iOS)
-    shadowColor: tokens.gray.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    // shadow(Android)
-  },
-  // 完整态右上角「×」折叠按钮(absolute 覆盖在 main 顶部右上)
-  collapseBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
   },
 })
 

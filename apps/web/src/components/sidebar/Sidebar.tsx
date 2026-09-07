@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { useNavigationStore } from '@/stores/navigation'
+import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
 import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
@@ -372,16 +373,18 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   )
 
   /**
-   * 桌面端 sidebar footer:仅在桌面端可见,移动端(<1024px)隐藏。
-   * 移动端桌面 sidebar 被 CSS 强制 60px 宽,但 collapsed prop 可能为 false,
-   * 导致 SidebarActions(flex-row 4 按钮溢出)和登录按钮(文字溢出)在 60px 容器中错乱,
-   * 溢出内容会遮挡下方按钮,导致移动端不可点击。
-   * 移动端 footer 内容由 mobileFooter 在移动 drawer 中提供。
+   * 桌面端 sidebar footer:语言/下载/消息/主题/设置 + 用户行/登录按钮。
+   * 2026-09-05 修复:原 `hidden min-[1024px]:block` 在 768-1023px(平板/窄窗口)区间
+   * 把整组底部按钮隐藏,60px 折叠条下半部空白(用户反馈"收回状态下底部菜单按钮图标没显示")。
+   * 现在 footer 常驻渲染:<768px 桌面 aside 本就被 CSS display:none(不影响);
+   * 768-1023px 强制 collapsed 图标竖排(适配 60px 宽);≥1024px 跟随用户折叠偏好。
    */
+  const isDesktopViewport = useMediaQuery('(min-width: 1024px)', true)
+  const footerCollapsed = !isDesktopViewport || collapsed
   const desktopFooter = (
-    <div className="shrink-0 hidden min-[1024px]:block">
-      <SidebarActions collapsed={collapsed} />
-      <SidebarUserRow collapsed={collapsed} onCloseMobile={onCloseMobile} />
+    <div className="shrink-0">
+      <SidebarActions collapsed={footerCollapsed} />
+      <SidebarUserRow collapsed={footerCollapsed} onCloseMobile={onCloseMobile} />
     </div>
   )
 

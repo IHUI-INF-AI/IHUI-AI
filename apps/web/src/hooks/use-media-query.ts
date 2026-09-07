@@ -6,9 +6,9 @@
 
 import * as React from 'react'
 
-/** 响应式媒体查询，SSR 安全（默认返回 false） */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = React.useState(false)
+/** 响应式媒体查询，SSR 安全 */
+export function useMediaQuery(query: string, initialValue = false): boolean {
+  const [matches, setMatches] = React.useState(initialValue)
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
