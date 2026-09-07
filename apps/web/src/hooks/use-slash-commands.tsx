@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trophy,
 } from 'lucide-react'
 
 import type { AiSkillMeta } from '@ihui/api-client/endpoints/ai-skills'
@@ -93,6 +94,18 @@ export function useSlashCommands(aiSkills: AiSkillMeta[], skillsLoading: boolean
         hasArgs: true,
         argsTitle: t('slashCmd.loopArgTitle'),
         argsSuggestions: createLoopArgOptions(t),
+      },
+      // 🏆 Best-of-N 自动择优(2026-09-07 立,对标 Cursor 多副本择优):
+      // /bestof <任务> [#N] — 同任务 N 副本并行 → LLM 评审 → 最优回复
+      // 后端 ai-service slash_commands.py _bestof_handler 处理,模板填充后走普通消息流
+      {
+        id: 'bestof',
+        label: '/bestof',
+        description: t('slashCmd.bestof'),
+        usage: '/bestof <任务> #N',
+        kind: 'template' as const,
+        category: 'goal' as const,
+        icon: <Trophy className="h-4 w-4" />,
       },
       // ⚡ 模式切换(2026-07-25 立,对标 Trae SOLO Plan 模式):切换 plan/act 模式
       {
