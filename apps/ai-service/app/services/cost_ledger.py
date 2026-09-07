@@ -38,6 +38,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..core.model_pricing import estimate_cost_usd as estimate_cost_usd_core
 from .agent_step_recorder import AgentStepRecorder, agent_step_recorder
 
 logger = logging.getLogger(__name__)
@@ -51,23 +52,10 @@ _VALID_GRANULARITY = ("hour", "day")
 _DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 _LEDGER_FILE = _DATA_DIR / "cost_ledger.json"
 
-# 内置主流模型估算单价(USD per 1K tokens)。仅用于 cost 缺失时的估算;
-# 已有 cost 的条目(含 sync_from_recorder)沿用录入口径,不走估算。
-# 口径与 llm_budget_governor.model_cost_table 语义一致(per 1K token / 美元);
-# 具体数值为估算,可用 set_pricing(model, per_in, per_out) 注入覆盖。
-_DEFAULT_PRICING: dict[str, dict[str, float]] = {
-    "gpt-4o": {"per_in": 0.0025, "per_out": 0.0100},
-    "gpt-4o-mini": {"per_in": 0.00015, "per_out": 0.00060},
-    "gpt-4-turbo": {"per_in": 0.0100, "per_out": 0.0300},
-    "claude-3-opus": {"per_in": 0.0150, "per_out": 0.0750},
-    "claude-3-sonnet": {"per_in": 0.0030, "per_out": 0.0150},
-    "claude-3-haiku": {"per_in": 0.00025, "per_out": 0.00125},
-    "claude-sonnet-4": {"per_in": 0.0030, "per_out": 0.0150},
-    "deepseek-chat": {"per_in": 0.00027, "per_out": 0.00110},
-    "deepseek-reasoner": {"per_in": 0.00055, "per_out": 0.00219},
-    # 未知模型默认价(估算)
-    "default": {"per_in": 0.0020, "per_out": 0.0080},
-}
+# 2026-09-07 收口:内置估算价表迁移至 core.model_pricing(单一价目源,
+# 此前本表停留在 gpt-4o/claude-3 时代且与 llm_usage_service / llm_budget_governor 漂移)。
+# 本模块保留实例级覆盖语义:set_pricing / __init__(pricing=...) 注入 per-1K 单价,
+# 覆盖未命中时走统一价目源(模型级前缀匹配 > 厂商级兜底 > 全局默认)。
 
 
 def _now_iso() -> str:
@@ -145,11 +133,10 @@ class CostLedger:
         self._data: dict[str, dict[str, Any]] = {}  # record_id -> entry
         self._lock = threading.Lock()
         self._loaded = False
-        self._pricing = dict(
-            _DEFAULT_PRICING if pricing is None else pricing
+        # 实例级覆盖表(per 1K token / 美元);为空时全部走 core.model_pricing 统一价目源
+        self._pricing: dict[str, dict[str, float]] = (
+            {} if pricing is None else {str(k): dict(v) for k, v in pricing.items()}
         )
-        if "default" not in self._pricing:
-            self._pricing["default"] = {"per_in": 0.0020, "per_out": 0.0080}
 
     # ---------------- 内部 ----------------
 
@@ -455,18 +442,20 @@ class CostLedger:
     ) -> dict[str, Any]:
         """按模型估算成本(USD,round 6 位)。
 
-        已知模型(内置表或 set_pricing 注入)→ estimated=False;
-        未知模型用默认价 → estimated=True。
-        返回 {"cost_usd", "estimated"}。仅当录入时没带 cost 才走估算。
+        优先级:实例级覆盖(set_pricing/per-1K)> core.model_pricing 统一价目源
+        (模型级前缀匹配 > 厂商级兜底 > 全局默认)。
+        命中实例覆盖或统一源模型级价目 → estimated=False;走兜底价 → estimated=True。
+        仅当录入时没带 cost 才走估算。
         """
         model = str(model or "").strip()
-        known = bool(model) and model in self._pricing and model != "default"
-        rates = self._pricing.get(model) or self._pricing["default"]
-        cost = (
-            (float(tokens_in) / 1000.0) * float(rates["per_in"])
-            + (float(tokens_out) / 1000.0) * float(rates["per_out"])
-        )
-        return {"cost_usd": round(cost, 6), "estimated": not known}
+        if model and model in self._pricing:
+            rates = self._pricing[model]
+            cost = (
+                (float(tokens_in) / 1000.0) * float(rates["per_in"])
+                + (float(tokens_out) / 1000.0) * float(rates["per_out"])
+            )
+            return {"cost_usd": round(cost, 6), "estimated": model == "default"}
+        return estimate_cost_usd_core(model, tokens_in, tokens_out)
 
 
 # 全局单例(router 与 agent 埋点共用)
