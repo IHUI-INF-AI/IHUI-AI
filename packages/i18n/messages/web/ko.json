@@ -1,4 +1,22 @@
 {
+  "adminModelPricing": {
+    "backToCost": "비용 대시보드로",
+    "coverage": "모델 {models} / 벤더 {providers} / 재정의 {overrides} 커버",
+    "empty": "이 분류에 항목이 없습니다",
+    "inputPrice": "입력 가격",
+    "loading": "가격 로딩 중…",
+    "modelCount": "모델급 가격",
+    "models": "모델 가격",
+    "name": "이름",
+    "outputPrice": "출력 가격",
+    "overrideCount": "런타임 재정의",
+    "overrides": "재정의",
+    "providerCount": "벤더 폴백",
+    "providers": "벤더 폴백",
+    "subtitle": "단일 가격 소스의 전체 스냅샷: 공개 가격 기반 비용 산정. 정확한 청구는 벤더 청구서 기준.",
+    "title": "모델 가격 대시보드",
+    "unitNote": "단위: USD per 1M tokens. 모델급 접두사 매칭이 벤더 폴백보다 우선, 런타임 재정의가 최우선."
+  },
   "agentTimeline": {
     "countCheckpoint": "체크포인트 {count}",
     "countCompaction": "압축 {count}",
