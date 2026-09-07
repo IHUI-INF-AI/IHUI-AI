@@ -12013,6 +12013,7 @@
     "topBar": {
       "agent": "智能體",
       "browser": "內置瀏覽器",
+      "capabilityMarket": "能力市場",
       "close": "關閉",
       "codeChanges": "代碼變更",
       "connectors": "中文連接器",

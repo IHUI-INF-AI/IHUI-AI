@@ -12023,6 +12023,7 @@
     "topBar": {
       "agent": "Agent",
       "browser": "Built-in browser",
+      "capabilityMarket": "Capability Market",
       "close": "Close",
       "codeChanges": "Code changes",
       "connectors": "Connectors",
