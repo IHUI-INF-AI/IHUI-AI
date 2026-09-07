@@ -28,13 +28,15 @@ _KEY_ENV = "PUBLISH_CREDENTIALS_KEY"
 _IV_LEN = 12
 # 32 字节密钥(AES-256)
 _KEY_LEN = 32
+# 环境变量未设置时的本地持久化密钥文件(修复:重启后临时密钥丢失 → 历史密文解不开)
+_KEY_FILE = os.path.join("data", "credentials_key")
 
 
 def _load_key() -> bytes:
     """加载 AES-256 密钥。
 
     优先从环境变量 PUBLISH_CREDENTIALS_KEY 读取(base64 编码,解码后 32 字节)。
-    未设置 → 生成临时密钥(进程级,重启后无法解密历史数据)+ warning。
+    未设置 → 从 data/credentials_key 读取(首次自动生成并落盘,重启后可解密历史数据)。
     """
     env_val = os.environ.get(_KEY_ENV, "").strip()
     if env_val:
@@ -45,20 +47,45 @@ def _load_key() -> bytes:
             return key
         except Exception as e:
             logger.warning(
-                "[credentials_crypto] invalid %s: %s. generating ephemeral key.",
+                "[credentials_crypto] invalid %s: %s. falling back to key file.",
                 _KEY_ENV,
                 e,
             )
 
-    # 生成临时密钥(进程级,生产环境必须显式设置)
-    ephemeral = secrets.token_bytes(_KEY_LEN)
-    logger.warning(
-        "[credentials_crypto] %s not set. using EPHEMERAL key (RESTART = DATA LOSS). "
-        "Set %s=<base64(32 bytes)> for production.",
-        _KEY_ENV,
-        _KEY_ENV,
-    )
-    return ephemeral
+    # 本地持久化密钥:首次生成写 data/credentials_key,之后启动直接复用,
+    # 避免"进程重启 = 临时密钥丢失 = 历史密文解不开"(InvalidTag)。
+    # 生产环境仍建议显式设置 PUBLISH_CREDENTIALS_KEY。
+    try:
+        with open(_KEY_FILE, "rb") as f:
+            key = f.read()
+        if len(key) == _KEY_LEN:
+            return key
+        logger.warning(
+            "[credentials_crypto] key file %s invalid (%d bytes), regenerating.",
+            _KEY_FILE, len(key),
+        )
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        logger.warning("[credentials_crypto] key file unreadable: %s", e)
+
+    key = secrets.token_bytes(_KEY_LEN)
+    try:
+        os.makedirs(os.path.dirname(_KEY_FILE), exist_ok=True)
+        with open(_KEY_FILE, "wb") as f:
+            f.write(key)
+        logger.warning(
+            "[credentials_crypto] %s not set. generated persistent key at %s. "
+            "Set %s=<base64(32 bytes)> for production.",
+            _KEY_ENV, _KEY_FILE, _KEY_ENV,
+        )
+    except OSError as e:
+        logger.warning(
+            "[credentials_crypto] %s not set and key file unwritable (%s). "
+            "using EPHEMERAL key (RESTART = DATA LOSS).",
+            _KEY_ENV, e,
+        )
+    return key
 
 
 # 进程级单例密钥(避免每次加解密都重读环境变量)

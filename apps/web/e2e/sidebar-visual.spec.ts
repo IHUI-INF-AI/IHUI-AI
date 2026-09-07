@@ -394,11 +394,12 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
  *     撑出 row 36px 边界,头像视觉"漂浮"(commit e6478b46 修复)
  *   - group/row 子容器无 padding,hover bg 紧贴 button 左 + span 右,文字"贴上按钮右侧"
  *   - gap-1.5(6px) 太小,5 字昵称(系统管理员)视觉上紧贴 button
- *   - w-full + mx-auto 居中失败,inline-flex + 父 flex justify-center 才能左右对称
+ *   - 2026-09-07 布局变更:row(button)由 inline-flex 内容宽 → flex w-full 与导航项(NavLink w-full)同宽,
+ *     父容器 px-1.5 → px-2 与导航区对齐,justify-center 让内容在行内居中(用户反馈"底部按钮比导航项宽")
  *
- * 守门依据:sidebar.tsx SidebarUserRow 行 760-870
- *   - 父容器:`flex justify-center px-1.5 pb-2`
- *   - 子容器 `group/row`:`inline-flex h-9 items-center gap-2 rounded-md px-6`(2026-08-28 提交 79910f7f1c:px-2 → px-6)
+ * 守门依据:SidebarUserRow.tsx
+ *   - 父容器:`px-2 pb-2`
+ *   - 子容器 `group/row`:`flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5`
  *   - button:`flex h-9 w-9 shrink-0 items-center justify-center rounded-md`
  *   - span:`min-w-0 truncate text-sm font-medium text-foreground/70`
  *
@@ -464,7 +465,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       const span = (rowSpans[1] as HTMLSpanElement | null) ?? null
       if (!avatarSpan || !span) return { error: 'no button or span in row' }
 
-      const parent = row.parentElement // flex justify-center px-1.5 pb-2
+      const parent = row.parentElement // px-2 pb-2
       if (!parent) return { error: 'no parent' }
 
       const rowRect = row.getBoundingClientRect()
@@ -583,12 +584,16 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       `btn 超出 row 底部应 ≤ 0.5px,实际 ${d.btnOverRowBottom}`,
     ).toBeGreaterThanOrEqual(-0.5)
 
-    // 5. 左右 padding 对称(px-6 = 24px,左右各 24px,差 ≤ 0.5px)
-    expect(d.leftPadding, `leftPadding 应 ≈ 24px (px-6),实际 ${d.leftPadding}`).toBeCloseTo(24, 0)
-    expect(d.rightPadding, `rightPadding 应 ≈ 24px (px-6),实际 ${d.rightPadding}`).toBeCloseTo(
-      24,
-      0,
-    )
+    // 5. 左右 padding 对称(2026-09-07:w-full + justify-center 后 padding 随可用宽度变化,
+    //    不再是固定值;下限 = px-2.5(10px),且左右对称差 ≤ 0.5px)
+    expect(
+      d.leftPadding,
+      `leftPadding 应 ≥ 10px (px-2.5),实际 ${d.leftPadding}`,
+    ).toBeGreaterThanOrEqual(10)
+    expect(
+      d.rightPadding,
+      `rightPadding 应 ≥ 10px (px-2.5),实际 ${d.rightPadding}`,
+    ).toBeGreaterThanOrEqual(10)
     expect(
       d.paddingSymmetryDiff,
       `左右 padding 对称性 diff 应 ≤ 0.5px,实际 ${d.paddingSymmetryDiff}`,
@@ -688,17 +693,16 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
       /rgba?\(0,\s*0,\s*0,\s*0\)|rgba?\(0\s+0\s+0\s+\/\s+0\)/,
     )
 
-    // avatar 应在 row 内部,不贴边(有 padding-x = 24px)
-    // 2026-08-28 修复:并发提交 79910f7f1c 将组件 padding px-2 → px-6(有意的设计变更),
-    // :521 几何测试已同步为 24px,本 hover 测试漏更导致 run 11 失败 —— 对齐契约
+    // avatar 应在 row 内部,不贴边(2026-09-07:px-6 → px-2.5,w-full + justify-center 下
+    // padding 随可用宽度变化,断言下限 10px 即可)
     expect(
       hd.btnInsideRowLeft,
-      `hover 时 avatar 左侧应 ≈ 24px (px-6),实际 ${hd.btnInsideRowLeft}`,
-    ).toBeCloseTo(24, 0)
+      `hover 时 avatar 左侧应 ≥ 10px (px-2.5),实际 ${hd.btnInsideRowLeft}`,
+    ).toBeGreaterThanOrEqual(10)
     expect(
       hd.btnInsideRowRight,
-      `hover 时 avatar 右侧应 > 24px(右侧还有 span + gap + px-6),实际 ${hd.btnInsideRowRight}`,
-    ).toBeGreaterThan(24)
+      `hover 时 avatar 右侧应 > 10px(右侧还有 span + gap + padding),实际 ${hd.btnInsideRowRight}`,
+    ).toBeGreaterThan(10)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
