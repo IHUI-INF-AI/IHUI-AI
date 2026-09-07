@@ -1,4 +1,22 @@
 {
+  "adminModelPricing": {
+    "backToCost": "Back to AI cost",
+    "coverage": "Covers {models} models / {providers} providers / {overrides} overrides",
+    "empty": "No entries in this category",
+    "inputPrice": "Input price",
+    "loading": "Loading pricing…",
+    "modelCount": "Model-level prices",
+    "models": "Model prices",
+    "name": "Name",
+    "outputPrice": "Output price",
+    "overrideCount": "Runtime overrides",
+    "overrides": "Overrides",
+    "providerCount": "Provider fallbacks",
+    "providers": "Provider fallbacks",
+    "subtitle": "Full snapshot of the single pricing source: cost accounting driven by public rates; exact billing per vendor invoices.",
+    "title": "Model Pricing Dashboard",
+    "unitNote": "Unit: USD per 1M tokens; model-level prefix-specific match beats provider fallback, runtime overrides win."
+  },
   "agentTimeline": {
     "countCheckpoint": "Checkpoints {count}",
     "countCompaction": "Compactions {count}",
