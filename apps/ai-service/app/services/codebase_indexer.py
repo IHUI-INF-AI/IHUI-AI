@@ -815,7 +815,12 @@ class CodebaseIndexer:
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/search"
-        payload: dict[str, Any] = {"query": query, "topK": top_k}
+        payload: dict[str, Any] = {
+            "query": query,
+            "topK": top_k,
+            # hybrid=向量+关键词 RRF 融合(服务端默认,显式声明契约,2026-09-07 立)
+            "mode": "hybrid",
+        }
         if repo_id:
             payload["repoId"] = repo_id
         if language:
