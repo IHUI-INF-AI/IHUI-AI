@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { PanelLeftOpen } from 'lucide-react'
+import { PanelLeftOpen, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
@@ -275,7 +275,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                   → 根因:与 TagsViewSearchButton (36x36 bg-card,同位置 left:0) 物理重叠,
                     即使 z-modal 也无法在所有 stacking context 下稳定覆盖
                 - 新方案:作为 GlobalTopBar flex 流的第 0 个元素,物理上不重叠任何现有按钮
-                - 桌面端 min-[1024px]:flex 隐藏,移动端 lg 以下显示 */}
+                - 仅 <768px 显示(min-[768px]:hidden,2026-09-07 从 1024 下调:
+                  768-1023px 侧边栏常驻 60px 图标条,无需抽屉入口,且消除 46px 内容左偏移) */}
               <React.Suspense fallback={null}>
                 <GlobalTopBar
                   mobileMenu={
@@ -292,14 +293,26 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                       variant="ghost"
                       size="icon"
                       onClick={() => setMobileOpen((o) => !o)}
-                      aria-label={t('menu')}
+                      // 2026-09-05 修复:抽屉打开时该按钮被抽屉+遮罩盖住(z-auto < z-modal 2000),
+                      // 用户点原位置无反应(=反馈"无法点击收回按钮")。提升到 z-popover(2001)
+                      // 使同一按钮在抽屉打开时仍可点,图标切换为 X,构成"拉出/收回"切换语义。
+                      // 2026-09-07 阈值 1024→768:768-1023px 区间侧边栏已常驻 60px 图标条,
+                      // 汉堡/抽屉入口不再需要;且该按钮曾把顶栏搜索按钮挤到 46px,
+                      // 经 --topbar-content-left 传导为工作区卡片 pl-46px,
+                      // 造成 AI 面板与工作区之间出现 ~52px 大空隙(用户反馈红框)。隐藏后间距归 6px。
                       className={cn(
-                        'ml-1.5 h-9 w-9 shrink-0 min-[1024px]:hidden',
+                        'relative ml-1.5 h-9 w-9 shrink-0 min-[768px]:hidden',
+                        mobileOpen && 'z-popover',
                         TOPBAR_BTN_BASE,
                         TOPBAR_BTN_W9,
                       )}
+                      aria-label={mobileOpen ? t('close') : t('menu')}
                     >
-                      <PanelLeftOpen className="h-3.5 w-3.5" />
+                      {mobileOpen ? (
+                        <X className="h-3.5 w-3.5" />
+                      ) : (
+                        <PanelLeftOpen className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   }
                 />
