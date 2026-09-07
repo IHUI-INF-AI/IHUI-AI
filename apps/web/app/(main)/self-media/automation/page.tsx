@@ -357,9 +357,9 @@ export default function AutomationPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="xs"
                     onClick={() => handleUseExample(ex)}
-                    className="mt-auto h-7 text-xs"
+                    className="mt-auto text-xs"
                   >
                     {t('useRefTemplate')}
                   </Button>
@@ -528,19 +528,19 @@ export default function AutomationPage() {
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        size="xs"
                         onClick={cancelEdit}
                         disabled={saving !== null}
-                        className="h-7 text-xs"
+                        className="text-xs"
                       >
                         {t('cancel')}
                       </Button>
                       <Button
                         type="button"
-                        size="sm"
+                        size="xs"
                         onClick={() => saveEdit(task)}
                         disabled={saving !== null}
-                        className="h-7 text-xs"
+                        className="text-xs"
                       >
                         {saving === 'saving' ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                         {t('save')}
@@ -554,10 +554,10 @@ export default function AutomationPage() {
                   <div className="flex flex-wrap gap-2 pt-1">
                     <Button
                       variant="outline"
-                      size="sm"
+                      size="xs"
                       onClick={() => handleTrigger(task)}
                       disabled={task.running || isTriggering}
-                      className="h-7 text-xs"
+                      className="text-xs"
                     >
                       {isTriggering ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -568,19 +568,19 @@ export default function AutomationPage() {
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="xs"
                       onClick={() => startEdit(task)}
-                      className="h-7 text-xs"
+                      className="text-xs"
                     >
                       <Settings2 className="h-3 w-3" />
                       {t('configure')}
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="xs"
                       onClick={() => handleToggle(task)}
                       disabled={isToggling}
-                      className="h-7 text-xs"
+                      className="text-xs"
                     >
                       <Power className="h-3 w-3" />
                       {task.config.enabled ? t('disable') : t('enable')}

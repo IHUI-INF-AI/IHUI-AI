@@ -543,8 +543,8 @@ export default function AdminRelayChannelsPage() {
                         />
                         <Button
                           variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          size="icon-sm"
+                          className="text-destructive hover:text-destructive"
                           onClick={() => {
                             void confirmDialog({ title: `确认删除渠道组 "${g.name}"?` }).then((ok) => {
                               if (ok)
@@ -640,8 +640,7 @@ export default function AdminRelayChannelsPage() {
                                         <div className="flex items-center justify-end gap-1">
                                           <Button
                                             variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 p-0"
+                                            size="icon-xs"
                                             disabled={probeMut.isPending}
                                             onClick={() =>
                                               probeMut.mutate({
@@ -655,8 +654,7 @@ export default function AdminRelayChannelsPage() {
                                           </Button>
                                           <Button
                                             variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 p-0"
+                                            size="icon-xs"
                                             disabled={testChannelMut.isPending}
                                             onClick={() =>
                                               openTestDialog(
@@ -670,8 +668,7 @@ export default function AdminRelayChannelsPage() {
                                           </Button>
                                           <Button
                                             variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 p-0"
+                                            size="icon-xs"
                                             disabled={probeMut.isPending}
                                             onClick={() =>
                                               probeMut.mutate({
@@ -685,8 +682,8 @@ export default function AdminRelayChannelsPage() {
                                           </Button>
                                           <Button
                                             variant="ghost"
-                                            size="sm"
-                                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                            size="icon-xs"
+                                            className="text-destructive hover:text-destructive"
                                             onClick={() => {
                                               void confirmDialog({ title: '确认移除该成员?' }).then((ok) => {
                                                 if (ok)
