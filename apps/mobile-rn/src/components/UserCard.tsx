@@ -75,7 +75,7 @@ export function UserCard({ t, isLoggedIn, onPress }: UserCardProps) {
           android_ripple={{ color: tokens.border.light }}
         >
           <View style={styles.iconWrap}>
-            <Icon size={24} color={tokens.indigo.DEFAULT} />
+            <Icon size={24} color={tokens.brandAccent.DEFAULT} />
           </View>
           <View style={styles.textWrap}>
             <Text style={styles.label} numberOfLines={1}>

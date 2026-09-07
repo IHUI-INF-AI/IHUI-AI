@@ -72,9 +72,12 @@ groups:
       # LLM provider 错误突增(402/5xx 等): 15 分钟窗口内出现 provider 错误。
       # `ihui_llm_provider_errors_total` 为按需采样计数(无事件时不出现), 用 `or on() vector(0)` 兜底为 0,
       # 指标一出现即生效。
+      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled 避免"误报基线=0"产生误导告警;
+      #   待 ai-service 接入 ihui_llm_provider_errors_total 打点后移除 disabled 启用。
       - alert: LlmProviderErrorBurst
         expr: (sum(rate(ihui_llm_provider_errors_total{job="ai-service"}[15m])) or on() vector(0)) > 0
         for: 5m
+        disabled: true
         labels:
           severity: warning
         annotations:
@@ -83,9 +86,11 @@ groups:
 
       # LLM token/费用突增: 15 分钟 token 量超阈值(费用代理指标)。
       # `ihui_llm_tokens_total` 同为按需采样计数; 阈值 100k 需按真实基线校准(当前尚无采样, 规则已就位待指标出现即生效)。
+      # ⚠ 当前 ai-service 尚未打点该指标(absent), 先置 disabled; 接入打点+校准阈值后再启用。
       - alert: LlmTokenCostSurge
         expr: (sum(rate(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
         for: 5m
+        disabled: true
         labels:
           severity: warning
         annotations:
@@ -152,4 +157,48 @@ groups:
         annotations:
           summary: '内存不足'
           description: '可用内存不足 10%'
+
+  - name: monitoring-self-alerts
+    # 监控链自保:确保"监控自身死亡"能被发现,而不是静默断链。
+    # 说明:这些规则依赖 prometheus.yml 中对应的自监控 scrape job
+    #   (alertmanager/alertbridge 两个 target 已在本仓 prometheus.yml 新增;
+    #    部署副本 D:\DevEnv\monitor\prometheus\prometheus.yml 需同步),
+    #   部署前先校验 alertmanager --version / promtool check rules。
+    rules:
+      # Prometheus 自身无指标(自监控 up==0 或进程死)→ 告警源头失效
+      - alert: PrometheusDown
+        expr: up{job="prometheus"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Prometheus 自身宕机'
+          description: 'Prometheus self-scrape 无指标,监控数据失效,整条告警链源头断裂'
+      # Alertmanager(原生 127.0.0.1:9093)掉线 → 通知链路(含 Server酱)失效
+      - alert: AlertmanagerDown
+        expr: up{job="alertmanager"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Alertmanager 不可用'
+          description: 'Alertmanager 无指标,通知路由(Email/钉钉/飞书/Server酱)可能失效'
+      # 告警中转 bridge(127.0.0.1:9096)掉线 → 微信推送收不到
+      - alert: AlertBridgeDown
+        expr: up{job="alertbridge"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: '告警中转 bridge 不可用'
+          description: 'alert-webhook-bridge 无指标,Server酱 微信推送链路断裂;检查 NSSM 服务状态'
+      # windows_exporter(127.0.0.1:9182)掉线 → 磁盘/内存等主机告警全部消失
+      - alert: WindowsExporterDown
+        expr: up{job="windows"} == 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Windows 主机指标采集器不可用'
+          description: 'windows_exporter 无指标,WindowsDiskSpaceLow 等主机告警会静默失效;检查 windows_exporter 服务'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

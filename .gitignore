@@ -28,6 +28,9 @@ logs-*-restart*.txt
 !apps/web/app/**/logs/
 !apps/web/app/**/logs/**
 
+# 本建机 Android/JDK 工具链(JDK21/Gradle/Android SDK,经 .android-toolchain 解压,不入库)
+.android-toolchain/
+
 # Agent 工具临时产物(守门结果/扫描摘要/验证脚本/commit 消息暂存等)
 # 防止 P44/P45/P46 等会话遗留 __*.txt/__*.md/__*.bat/__*.ps1 回潮
 # 根目录锚定(/__*),避免误伤 apps/**/__tests__/ 等合法测试目录
@@ -72,6 +75,9 @@ __pycache__/
 # 导致内存爆炸 137GB,SWC 30GB 分配失败(0xC0000409)。
 .next-bak-*/
 .next-failrec-*/
+# 2026-09-07 零停机蓝绿部署:staging 构建目录与回滚点,均为本地构建产物不入库
+.next-staging/
+.rollback/
 .turbo/
 # TypeScript 增量构建缓存
 *.tsbuildinfo
@@ -88,6 +94,16 @@ __pycache__/
 **/.env
 **/.env.local
 **/.env.production
+
+# cf-preferred-ip 优选脚本密钥与运行态(含 CF API 令牌,严禁入库)
+deploy/cf-preferred-ip.env
+deploy/cf-preferred-ip.lkg
+
+# 2026-09-07 同域 aizhs.top 出图:web public 冗余复制(真图见 miniapp 资源,
+# cdn-server 由已忽略的 deploy/server-root 直出)与本机部署用工具/测速输出,均不入库。
+apps/web/public/remote-images/
+deploy/cst-result.txt
+deploy/tools/
 
 # Cloudflared tunnel token 文件(2026-08-05 立:防 token 泄露,显式忽略)
 # 触发背景:旧 token 曾硬编码进 scripts/start-cloudflared-tunnel.ps1 commit cc73503d2d

@@ -22,6 +22,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import { DOC_BG_DARK, DOC_TEXT_DARK } from '@ihui/design-tokens';
 import { loadSession, type Session } from './session.js';
 
 /** /share 选项 */
@@ -251,7 +252,7 @@ export class ShareManager {
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; line-height: 1.6; }
   .meta { background: #f6f8fa; border-radius: 6px; padding: 1rem; margin: 1rem 0; font-size: 0.875rem; word-break: break-all; }
   .meta code { background: #eaeef2; padding: 0.1em 0.4em; border-radius: 3px; }
-  .hash-badge { display: inline-block; background: #1a1a1a; color: #fff; padding: 0.2em 0.6em; border-radius: 3px; font-family: monospace; font-size: 0.8em; }
+  .hash-badge { display: inline-block; background: ${DOC_BG_DARK}; color: ${DOC_TEXT_DARK}; padding: 0.2em 0.6em; border-radius: 3px; font-family: monospace; font-size: 0.8em; }
   pre { background: #f6f8fa; padding: 1rem; border-radius: 6px; overflow-x: auto; }
   code { font-family: "SFMono-Regular", Consolas, monospace; }
   table { border-collapse: collapse; margin: 1rem 0; }

@@ -146,6 +146,14 @@ const llmChatBody = z.looseObject({
   model: z.string().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 })
+/** FIM 补全请求体(2026-09-07):prefix 必填,suffix/language/model/max_tokens 可选 */
+const llmFimBody = z.looseObject({
+  prefix: z.string().max(200_000),
+  suffix: z.string().max(80_000).optional(),
+  language: z.string().max(40).optional(),
+  model: z.string().optional(),
+  max_tokens: z.number().int().min(1).max(512).optional(),
+})
 const mcpToolCallBody = z.looseObject({ name: z.string().min(1) })
 
 export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
@@ -309,6 +317,17 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       metadata: { userId: request.userId, ...(parsed.data.metadata ?? {}) },
     }
     return proxyToAiService('/api/llm/complete', request, reply, body)
+  })
+
+  // POST /ai/llm/fim — FIM 代码补全(2026-09-07 立,代理到 ai-service /api/llm/fim)。
+  // 浏览器 IDE Monaco inline completion 专用:低延迟、无状态、失败静默降级。
+  // 补全流量高频(每次停顿 300ms 触发),metadata 不注入(无会话语义)。
+  server.post('/ai/llm/fim', async (request, reply) => {
+    const parsed = llmFimBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? 'prefix 为必填'))
+    }
+    return proxyToAiService('/api/llm/fim', request, reply, parsed.data)
   })
 
   // ==========================================================================

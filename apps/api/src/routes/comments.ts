@@ -23,6 +23,7 @@ import {
   deleteFeedback,
 } from '../db/comment-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
 
 const ADMIN_ROLE_ID = 1
 
@@ -225,12 +226,26 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
             return reply.status(400).send(error(400, '父评论资源不匹配'))
           }
         }
+        // P0 合规:评论内容敏感词过滤
+        const cf = await sanitizeUgcInput(
+          { content },
+          {
+            action: 'ugc.comment.create',
+            resourceType: 'comment',
+            userId: request.userId,
+            ip: request.ip,
+            userAgent: request.headers['user-agent'] as string | undefined,
+          },
+        )
+        if (!cf.ok) {
+          return reply.status(400).send(error(400, '评论含违规词,提交失败'))
+        }
         const comment = await createComment({
           userId: request.userId!,
           resourceType,
           resourceId,
           parentId,
-          content,
+          content: cf.fields.content!.text,
           mentions,
         })
         return reply.status(201).send(success({ comment }))
@@ -250,12 +265,26 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
           return reply.status(400).send(error(400, '父评论资源不匹配'))
         }
       }
+      // P0 合规:评论内容敏感词过滤
+      const cf = await sanitizeUgcInput(
+        { content },
+        {
+          action: 'ugc.comment.create',
+          resourceType: 'comment',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!cf.ok) {
+        return reply.status(400).send(error(400, '评论含违规词,提交失败'))
+      }
       const comment = await createComment({
         userId: request.userId!,
         resourceType,
         resourceId,
         parentId,
-        content,
+        content: cf.fields.content!.text,
         mentions,
       })
       return reply.status(201).send(success({ comment }))
@@ -295,7 +324,22 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
     if (existing.isDeleted) {
       return reply.status(400).send(error(400, '已删除的评论无法编辑'))
     }
-    const updated = await updateComment(parsed.data.id, request.userId!, body.data.content)
+    // P0 合规:编辑评论过滤
+    const cf = await sanitizeUgcInput(
+      { content: body.data.content },
+      {
+        action: 'ugc.comment.update',
+        resourceType: 'comment',
+        resourceId: parsed.data.id,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!cf.ok) {
+      return reply.status(400).send(error(400, '评论含违规词,编辑失败'))
+    }
+    const updated = await updateComment(parsed.data.id, request.userId!, cf.fields.content!.text)
     return reply.send(success({ comment: updated }))
   })
 
@@ -411,11 +455,25 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { type, title, content, contact } = parsed.data
+      // P0 合规:反馈内容敏感词过滤
+      const cf = await sanitizeUgcInput(
+        { title, content },
+        {
+          action: 'ugc.feedback.create',
+          resourceType: 'feedback',
+          userId: request.userId,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
+        },
+      )
+      if (!cf.ok) {
+        return reply.status(400).send(error(400, '反馈含违规词,提交失败'))
+      }
       const feedback = await createFeedback({
         userId: request.userId!,
         type,
-        title,
-        content,
+        title: cf.fields.title!.text,
+        content: cf.fields.content!.text,
         contact,
       })
       return reply.status(201).send(success({ feedback }))

@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: PRIMARY_HEIGHT,
     borderRadius: PRIMARY_BORDER_RADIUS,
-    backgroundColor: tokens.warning.deep,
+    backgroundColor: tokens.brandAccent.DEFAULT,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: PRIMARY_BUTTON_MARGIN_TOP,

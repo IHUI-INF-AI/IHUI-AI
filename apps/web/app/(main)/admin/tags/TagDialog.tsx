@@ -20,6 +20,8 @@ import {
   Label,
 } from '@ihui/ui-react'
 
+import { CHART_BLUE } from '@ihui/design-tokens'
+
 import { useZodForm } from '@/hooks/use-zod-form'
 import { tagSchema, type TagFormValues } from '@/lib/form-schemas/tag'
 import type { TagItem } from './types'
@@ -100,7 +102,7 @@ export function TagFormDialog({
               <Input
                 id="tag-color"
                 {...form.register('color')}
-                placeholder="#3b82f6"
+                placeholder={CHART_BLUE}
                 className="flex-1"
               />
               {form.watch('color') ? (
