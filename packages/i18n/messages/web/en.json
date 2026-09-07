@@ -1,82 +1,4 @@
 {
-  "automations": {
-    "title": "Automations",
-    "subtitle": "Run your agent tasks on schedule",
-    "create": "New automation",
-    "refresh": "Refresh",
-    "loading": "Loading…",
-    "empty": "No automations yet. Create one!",
-    "lastRunAt": "Last run",
-    "lastResult": "Last result",
-    "cancel": "Cancel",
-    "save": "Save",
-    "delete": "Delete",
-    "weekdayMo": "Mon",
-    "weekdayTu": "Tue",
-    "weekdayWe": "Wed",
-    "weekdayTh": "Thu",
-    "weekdayFr": "Fri",
-    "weekdaySa": "Sat",
-    "weekdaySu": "Sun",
-    "status": {
-      "active": "Active",
-      "paused": "Paused"
-    },
-    "schedule": {
-      "oncePrefix": "Scheduled at",
-      "hourly": "Hourly",
-      "daily": "Daily",
-      "weekly": "Weekly",
-      "unknown": "Unknown schedule"
-    },
-    "action": {
-      "runNow": "Run now",
-      "pause": "Pause",
-      "resume": "Resume",
-      "edit": "Edit",
-      "delete": "Delete"
-    },
-    "deleteConfirm": {
-      "title": "Delete automation",
-      "content": "Delete \"{name}\"? This cannot be undone."
-    },
-    "form": {
-      "createTitle": "New automation",
-      "editTitle": "Edit automation",
-      "desc": "Set name, prompt and schedule",
-      "name": "Name",
-      "namePlaceholder": "e.g. Summarize news every morning",
-      "prompt": "Prompt",
-      "promptPlaceholder": "Describe the task to run…",
-      "scheduleType": "Schedule type",
-      "typeOnce": "Once",
-      "typeRecurring": "Recurring",
-      "scheduledAt": "Run at",
-      "frequency": "Frequency",
-      "freqHourly": "Hourly",
-      "freqDaily": "Daily",
-      "freqWeekly": "Weekly",
-      "time": "Time of day",
-      "weekdays": "Days of week",
-      "errName": "Name is required",
-      "errPrompt": "Prompt is required",
-      "errScheduledAt": "Choose a run time",
-      "errDays": "Pick at least one day"
-    },
-    "toast": {
-      "created": "Created",
-      "updated": "Saved",
-      "saveFailed": "Save failed",
-      "loadFailed": "Load failed",
-      "runDone": "Run completed",
-      "runFailed": "Run failed",
-      "paused": "Paused",
-      "resumed": "Resumed",
-      "updateFailed": "Update failed",
-      "deleted": "Deleted",
-      "deleteFailed": "Delete failed"
-    }
-  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "Auto-generate architecture & module docs from your local repo",
@@ -20852,6 +20774,7 @@
     "description": "Platform rules and regulations"
   },
   "automations": {
+    "delete": "Delete",
     "title": "Automations",
     "subtitle": "Run your agent tasks on schedule",
     "create": "New automation",
