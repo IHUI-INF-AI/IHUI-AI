@@ -31,13 +31,13 @@ const isDev = process.env.NODE_ENV === 'development'
 // dev server 死锁(实测:config 加载后零编译、CPU 归零、.next/build 18 分钟不写入)。
 // 静态导出改用独立 distDir .next-static(输出目录 out/ 不变,tauri/GH Pages 无感知),
 // 与运行中服务彻底隔离。服务端构建(next build + next start)不受影响,仍用 .next。
-const staticDistDir = isStaticExport ? '.next-static' : '.next'
+const _staticDistDir = isStaticExport ? '.next-static' : '.next'
 
 const nextConfig: NextConfig = {
   // 静态导出供 Tauri WebView 加载(仅 EXPORT_STATIC/GITHUB_PAGES 时启用;
   // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
   ...(isStaticExport ? { output: 'export' as const } : {}),
-  ...(isStaticExport ? { distDir: staticDistDir } : {}),
+  ...(isStaticExport ? { distDir: _staticDistDir } : {}),
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
