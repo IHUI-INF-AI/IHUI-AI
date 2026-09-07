@@ -47,6 +47,20 @@ from app.services.codebase_indexer import (
 
 
 # ============================================================
+# 0. Merkle 快照目录隔离(2026-09-07 立,autouse)
+# 增量同步会把快照 JSON 写到磁盘,统一重定向到 pytest tmp_path,
+# 防止测试污染真实用户目录(~/.ihui/codebase-index)。
+# ============================================================
+
+
+@pytest.fixture(autouse=True)
+def _isolate_merkle_snapshot_dir(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        codebase_indexer, "_MERKLE_SNAPSHOT_DIR", tmp_path / "merkle-snapshots"
+    )
+
+
+# ============================================================
 # 1. 常量
 # ============================================================
 
