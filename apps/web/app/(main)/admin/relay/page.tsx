@@ -328,8 +328,8 @@ export default function AdminRelayOverviewPage() {
                           <Button
                             type="button"
                             variant="outline"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
+                            size="xs"
+                            className="px-2 text-xs"
                             onClick={() => openCommissionEdit(p)}
                           >
                             <Pencil className="mr-1 h-3 w-3" />

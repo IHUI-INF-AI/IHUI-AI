@@ -855,8 +855,8 @@ export default function AttendancePage() {
                               {!r.checkOutTime && r.checkInTime && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
+                                  className="text-xs"
                                   onClick={() => handleCheckOut(r)}
                                   disabled={checkOutMutation.isPending}
                                 >
@@ -867,8 +867,8 @@ export default function AttendancePage() {
                               {!r.checkInTime && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
+                                  className="text-xs"
                                   onClick={() => {
                                     setCheckInOpen(true)
                                   }}
@@ -879,8 +879,8 @@ export default function AttendancePage() {
                               )}
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-red-500"
+                                size="xs"
+                                className="text-xs text-red-500"
                                 onClick={() => deleteAttendanceMutation.mutate(r.id)}
                                 disabled={deleteAttendanceMutation.isPending}
                               >
@@ -1211,8 +1211,8 @@ export default function AttendancePage() {
                               {l.status === 'pending' && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
+                                  className="text-xs"
                                   onClick={() => {
                                     setApprovingLeave(l)
                                     setApproveOpen(true)
@@ -1224,8 +1224,8 @@ export default function AttendancePage() {
                               )}
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-red-500"
+                                size="xs"
+                                className="text-xs text-red-500"
                                 onClick={() => handleDeleteLeave(l.id)}
                                 disabled={deleteLeaveMutation.isPending}
                               >

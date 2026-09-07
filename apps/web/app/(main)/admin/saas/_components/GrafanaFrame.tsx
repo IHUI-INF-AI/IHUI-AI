@@ -138,14 +138,14 @@ export function GrafanaFrame({
           </CardTitle>
           <div className="flex items-center gap-1">
             <Tooltip content={t('openNewWindow')}>
-              <Button size="sm" variant="ghost" asChild className="h-7 px-2 text-xs">
+              <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
                 <a href={src} target="_blank" rel="noreferrer">
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </Button>
             </Tooltip>
             <Tooltip content={t('openNewWindow')}>
-              <Button size="sm" variant="ghost" asChild className="h-7 px-2 text-xs">
+              <Button size="xs" variant="ghost" asChild className="px-2 text-xs">
                 <a href={`${DEFAULT_BASE}/d/${uid}`} target="_blank" rel="noreferrer">
                   <Maximize2 className="h-3 w-3" />
                 </a>

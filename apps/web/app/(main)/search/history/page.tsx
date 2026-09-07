@@ -124,8 +124,8 @@ export default function HistoryPage() {
                 <span className="inline-flex">
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    size="icon-xs"
+                    className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
                     onClick={() => deleteOneMutation.mutate(item.id)}
                     disabled={deleteOneMutation.isPending}
                   >

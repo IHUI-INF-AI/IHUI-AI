@@ -102,9 +102,9 @@ export function TeamMembersList({
                 <Tooltip content={t('removeMember')}>
                   <span className="inline-flex">
                     <Button
-                      size="icon"
+                      size="icon-sm"
                       variant="ghost"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:bg-destructive/10"
                       onClick={() => onRemove(m.userId)}
                       disabled={removePending}
                     >

@@ -837,8 +837,8 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
+                              size="xs"
+                              className="text-xs"
                               onClick={() => {
                                 setEditingRule(r)
                                 setRuleOpen(true)
@@ -848,8 +848,8 @@ export default function SchedulingPage() {
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-red-500"
+                              size="xs"
+                              className="text-xs text-red-500"
                               onClick={() => deleteRule.mutate(r.id)}
                             >
                               删除
@@ -948,8 +948,8 @@ export default function SchedulingPage() {
                           <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs"
+                              size="xs"
+                              className="text-xs"
                               onClick={() => {
                                 setEditingTeacherSchedule(s)
                                 setTeacherScheduleOpen(true)
@@ -959,8 +959,8 @@ export default function SchedulingPage() {
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 text-xs text-red-500"
+                              size="xs"
+                              className="text-xs text-red-500"
                               onClick={() => deleteTeacherSchedule.mutate(s.id)}
                             >
                               删除
@@ -1047,8 +1047,8 @@ export default function SchedulingPage() {
                               <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
+                                  className="text-xs"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, status: 'approved' })
                                   }
@@ -1058,8 +1058,8 @@ export default function SchedulingPage() {
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
+                                  className="text-xs"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, status: 'rejected' })
                                   }

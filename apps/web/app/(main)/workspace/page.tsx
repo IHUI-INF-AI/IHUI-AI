@@ -185,7 +185,7 @@ export default function WorkspacePage() {
           <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={() => {
                 // 后端原始 message 仅写入 console 供调试,不出现在 UI
                 if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
@@ -193,7 +193,7 @@ export default function WorkspacePage() {
                 }
                 void refetch()
               }}
-              className="h-7 gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="gap-1 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
             >
               <RefreshCw className="h-3.5 w-3.5" />
               {t('retry')}

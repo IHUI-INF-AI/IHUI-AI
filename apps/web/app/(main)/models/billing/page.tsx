@@ -158,7 +158,7 @@ export default async function BillingPage() {
               <div className="mt-2 text-xl font-bold tracking-tight min-[768px]:text-2xl">
                 ¥ 128.50
               </div>
-              <Button className="mt-3 h-8 w-full gap-1.5 text-xs">
+              <Button size="sm" className="mt-3 w-full gap-1.5 text-xs px-4">
                 <DollarSign className="h-3.5 w-3.5" />
                 {t('billing.recharge')}
               </Button>
@@ -218,8 +218,8 @@ export default async function BillingPage() {
                       </li>
                     ))}
                   </ul>
-                  <Button
-                    className="mt-4 h-8 w-full text-xs"
+                  <Button size="sm"
+                    className="mt-4 w-full text-xs px-4"
                     variant={p.highlighted ? 'default' : 'outline'}
                   >
                     {p.cta}

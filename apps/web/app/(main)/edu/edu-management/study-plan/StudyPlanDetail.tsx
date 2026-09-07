@@ -141,8 +141,8 @@ export function StudyPlanDetail({
             <div className="flex items-center gap-1 rounded-md border p-0.5">
               <Button
                 variant={!isStudentMode ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs"
+                size="xs"
+                className="text-xs"
                 onClick={() => onSetStudentMode(false)}
               >
                 <Shield className="mr-1 h-3 w-3" />
@@ -150,8 +150,8 @@ export function StudyPlanDetail({
               </Button>
               <Button
                 variant={isStudentMode ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs"
+                size="xs"
+                className="text-xs"
                 onClick={() => onSetStudentMode(true)}
               >
                 <User className="mr-1 h-3 w-3" />
@@ -164,9 +164,9 @@ export function StudyPlanDetail({
                 !childPlansByParent.has(selectedPlan.id) &&
                 !isStudentMode && (
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="outline"
-                    className="h-7 text-xs"
+                    className="text-xs"
                     onClick={() => onAutoSplit(selectedPlan.id)}
                   >
                     <FileText className="mr-1 h-3 w-3" />
@@ -175,23 +175,23 @@ export function StudyPlanDetail({
                 )}
               {!isStudentMode && (
                 <Button
-                  size="sm"
+                  size="xs"
                   variant="outline"
-                  className="h-7 text-xs"
+                  className="text-xs"
                   onClick={() => onEditPlan(selectedPlan)}
                 >
                   编辑
                 </Button>
               )}
               {/* Completion stats & Progress timeline */}
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={onOpenStats}>
+              <Button size="xs" variant="outline" className="text-xs" onClick={onOpenStats}>
                 <BarChart3 className="mr-1 h-3 w-3" />
                 完成率统计
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
-                className="h-7 text-xs"
+                className="text-xs"
                 onClick={onOpenTimeline}
                 disabled={!selectedPlan}
               >
@@ -210,9 +210,9 @@ export function StudyPlanDetail({
                     return (
                       <Button
                         key={status}
-                        size="sm"
+                        size="xs"
                         variant={isCurrent ? 'default' : 'outline'}
-                        className="h-7 text-xs"
+                        className="text-xs"
                         disabled={isCurrent}
                         onClick={() => {
                           if (!isCurrent) {

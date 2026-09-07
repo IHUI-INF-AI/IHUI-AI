@@ -359,11 +359,11 @@ export default function AccountsPage() {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="outline"
                       onClick={() => verify(a.id)}
                       disabled={isVerifying}
-                      className="h-7 text-xs"
+                      className="text-xs"
                     >
                       {isVerifying ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -375,10 +375,10 @@ export default function AccountsPage() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          size="sm"
+                          size="xs"
                           variant="ghost"
                           onClick={() => openScanLogin(a.platform)}
-                          className="h-7 text-xs"
+                          className="text-xs"
                         >
                           <QrCode className="h-3 w-3" />
                           {t('accounts.scan')}
@@ -387,18 +387,18 @@ export default function AccountsPage() {
                       <TooltipContent>{t('accounts.scanLoginHint')}</TooltipContent>
                     </Tooltip>
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="ghost"
                       onClick={() => openEdit(a)}
-                      className="h-7 text-xs"
+                      className="text-xs"
                     >
                       <Pencil className="h-3 w-3" />
                       {t('accounts.edit')}
                     </Button>
                     <Button
-                      size="sm"
+                      size="default"
                       variant="ghost"
-                      className="h-9 text-xs text-destructive hover:text-destructive"
+                      className="text-xs text-destructive hover:text-destructive px-3"
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)

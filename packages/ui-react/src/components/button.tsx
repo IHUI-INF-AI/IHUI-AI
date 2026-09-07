@@ -41,9 +41,12 @@ const buttonVariants = cva(
           'border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded-md px-3 py-1.5 text-sm',
       },
       size: {
+        xs: 'h-7 rounded-md px-3 text-xs',
         default: 'h-9 px-4 py-2',
         sm: 'h-8 rounded-md px-3 text-xs',
         lg: 'h-10 rounded-md px-8',
+        'icon-xs': 'h-7 w-7',
+        'icon-sm': 'h-8 w-8',
         icon: 'h-9 w-9',
       },
     },

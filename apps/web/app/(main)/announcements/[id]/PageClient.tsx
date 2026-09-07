@@ -117,9 +117,9 @@ export default function AnnouncementDetailPage() {
           <Megaphone className="h-4 w-4 text-muted-foreground" />
           {a.isPinned && <span className="text-xs text-primary">{t('pinned')}</span>}
           <Button
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="ml-auto h-7 gap-1 px-2 text-xs"
+            className="ml-auto gap-1 px-2 text-xs"
             disabled={isRead || readMut.isPending}
             onClick={() => readMut.mutate()}
           >

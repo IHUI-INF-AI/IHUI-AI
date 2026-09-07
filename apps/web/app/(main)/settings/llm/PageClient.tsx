@@ -267,9 +267,9 @@ export default function UserLlmConfigsPage() {
         {mounted && (
           <Button
             onClick={reopenOnboarding}
-            size="sm"
+            size="xs"
             variant="ghost"
-            className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+            className="shrink-0 whitespace-nowrap px-2 text-xs"
           >
             <BookOpen className="mr-1 h-3.5 w-3.5 shrink-0" />
             <span className="whitespace-nowrap">查看引导</span>
