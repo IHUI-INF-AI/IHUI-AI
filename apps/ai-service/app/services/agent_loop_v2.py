@@ -317,6 +317,52 @@ class LoopIteration:
     duration_ms: float = 0.0
 
 
+# ---------------------------------------------------------------------------
+# 1-8 上下文超限压缩(2026-09-07 立):接近 token 上限时自动压缩旧消息,
+# 避免 loop 因上下文膨胀被硬停。复用 core/context_compaction 确定性压缩;
+# LLM 语义压缩为可选路径(默认 off),失败自动降级确定性。
+# ---------------------------------------------------------------------------
+
+# 压缩触发占用率(默认 0.85 = 85%):上下文占用超过 context_limit * 该比例即压缩
+DEFAULT_COMPACTION_TRIGGER_RATIO = 0.85
+# 压缩后目标占用率(0.6 = 60%)
+DEFAULT_COMPACTION_TARGET_RATIO = 0.6
+# 尾部保留的 non-system 消息数(按 tool_calls 配对组对齐,可能整组多保留)
+DEFAULT_COMPACTION_KEEP_RECENT = 6
+
+
+def _compaction_enabled_from_env() -> bool:
+    """上下文压缩总开关(env AGENT_COMPACTION_ENABLED)。
+
+    默认 off:与现状逐零差异,避免线上突变;设为 on/1/true/yes 时启用自动压缩。
+    """
+    return os.environ.get("AGENT_COMPACTION_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _compaction_llm_enabled_from_env() -> bool:
+    """LLM 语义压缩路径开关(env AGENT_COMPACTION_LLM_ENABLED)。
+
+    默认 off:优先确定性压缩(无额外 LLM 调用、零额外延迟/成本);
+    设为 on/1/true/yes 时走 compact_with_llm 语义压缩,失败自动降级确定性。
+    """
+    return os.environ.get("AGENT_COMPACTION_LLM_ENABLED", "false").strip().lower() in (
+        "on", "1", "true", "yes",
+    )
+
+
+def _compaction_context_limit_from_env() -> int:
+    """压缩用的上下文窗口上限(tokens,env AGENT_COMPACTION_CONTEXT_LIMIT)。
+
+    默认 0(未配置 = 不压缩);生产按模型实际上下文窗口设置(如 128000)。
+    """
+    try:
+        return max(0, int(os.environ.get("AGENT_COMPACTION_CONTEXT_LIMIT", "0")))
+    except ValueError:
+        return 0
+
+
 @dataclass
 class AgentLoopResult:
     """Agent 循环结果。"""
@@ -333,6 +379,9 @@ class AgentLoopResult:
     checkpoint_id: str | None = None
     # 1-6 token 治理:预算治理摘要(主循环接入 budget governor 后填充;budget off 时为 None)
     budget: dict[str, Any] | None = None
+    # 1-8 上下文超限压缩(2026-09-07 立):主循环触发的压缩事件摘要列表
+    # (每次含 original_tokens/compressed_tokens/removed_count/trigger;未触发为空列表)。
+    compaction_events: list[dict[str, Any]] = field(default_factory=list)
     # 1-7 团队接力(P3-3,2026-09-03 立):启用且尝试注入时,记录团队上一轮聚合摘要
     # 的注入元信息(参与了哪些子 agent、轮次、摘要是否截断、是否注入成功);
     # 未启用 / 无接力上下文时保持 None(默认路径与现状逐零差异)。
@@ -394,6 +443,12 @@ class AgentLoopV2:
         budget_enabled: bool | None = None,
         budget_pillar: str | None = None,
         budget_max_token_estimate: int | None = None,
+        # 1-8 上下文超限压缩(2026-09-07 立):接近上下文窗口上限时自动压缩旧消息继续执行,
+        # 替代旧的"超限即硬停"。compaction_enabled 默认 None→env AGENT_COMPACTION_ENABLED
+        # (默认 off,与现状逐零差异);compaction_context_limit 默认 None→env
+        # AGENT_COMPACTION_CONTEXT_LIMIT(默认 0=未配置不压缩);构造参数优先于 env。
+        compaction_enabled: bool | None = None,
+        compaction_context_limit: int | None = None,
         # 1-7 团队接力(P3-3,2026-09-03 立):把上一轮团队聚合摘要注入主导 agent 上下文。
         # team_relay_enabled:总开关,默认 None 时取 env AGENT_TEAM_RELAY_ENABLED(默认 off);
         #   构造参数优先于 env;off 时默认路径与现状逐零差异。
@@ -503,6 +558,20 @@ class AgentLoopV2:
         )
 
         # Wave 9 checkpoint 配置
+        # 1-8 上下文超限压缩配置(2026-09-07 立)
+        self._compaction_enabled: bool = (
+            _compaction_enabled_from_env()
+            if compaction_enabled is None
+            else bool(compaction_enabled)
+        )
+        self._compaction_context_limit: int = (
+            _compaction_context_limit_from_env()
+            if compaction_context_limit is None
+            else max(0, int(compaction_context_limit))
+        )
+        self._compaction_llm_enabled: bool = _compaction_llm_enabled_from_env()
+        # 本次 run 的压缩事件列表(写入 AgentLoopResult.compaction_events)
+        self._compaction_events: list[dict[str, Any]] = []
         self.enable_checkpoint = enable_checkpoint
         self._session_id: str | None = session_id
         self._checkpoint_manager: AgentCheckpointManager = (
@@ -552,8 +621,55 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 1-8 上下文压缩:每次 run 重置事件列表(避免跨 run 残留)
+        self._compaction_events = []
         # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
         self._team_relay_info = None
+
+    def _maybe_compact_context(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """1-8 上下文超限压缩(2026-09-07 立):占用 ≥ context_limit*0.85 时压缩旧消息。
+
+        确定性压缩复用 core/context_compaction.compress_messages_if_needed
+        (system 保留+尾部 keep_recent 配对组对齐+结构化摘要),零 LLM 调用零额外成本;
+        LLM 语义压缩(AGENT_COMPACTION_LLM_ENABLED=on)失败自动降级确定性路径。
+        压缩幂等防抖:压缩由占用率驱动,压缩后 usage 回落自然低于阈值,不会反复触发。
+        未启用/limit<=0 时原样返回(与现状逐零差异)。
+        """
+        if not self._compaction_enabled or self._compaction_context_limit <= 0:
+            return messages
+        try:
+            from app.core.context_compaction import compress_messages_if_needed
+
+            compressed, info = compress_messages_if_needed(
+                messages,
+                self._compaction_context_limit,
+                trigger_ratio=DEFAULT_COMPACTION_TRIGGER_RATIO,
+                target_ratio=DEFAULT_COMPACTION_TARGET_RATIO,
+                keep_recent=DEFAULT_COMPACTION_KEEP_RECENT,
+            )
+            if not info.get("compressed"):
+                return messages
+            self._compaction_events.append(
+                {
+                    "iteration": self._current_iteration,
+                    "original_tokens": info.get("original_tokens"),
+                    "compressed_tokens": info.get("compressed_tokens"),
+                    "removed_count": info.get("removed_count"),
+                    "trigger": "deterministic",
+                }
+            )
+            logger.warning(
+                "[agent-loop] 上下文压缩触发: %s -> %s tokens(移除 %s 条, iter %s)",
+                info.get("original_tokens"),
+                info.get("compressed_tokens"),
+                info.get("removed_count"),
+                self._current_iteration,
+            )
+            return compressed
+        except Exception as e:
+            # 压缩失败降级:原样返回继续执行(宁可硬停也不因压缩引入新故障)
+            logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
+            return messages
 
     async def _save_checkpoint_safe(
         self,
@@ -1304,6 +1420,7 @@ class AgentLoopV2:
                     iteration=i - 1, messages=messages, status="cancelled",
                 )
                 return AgentLoopResult(
+                    compaction_events=self._compaction_events,
                     success=False,
                     final_response="",
                     iterations=iterations,
@@ -1320,6 +1437,7 @@ class AgentLoopV2:
                     iteration=i - 1, messages=messages, status="paused",
                 )
                 return AgentLoopResult(
+                    compaction_events=self._compaction_events,
                     success=False,
                     final_response="",
                     iterations=iterations,
@@ -1348,6 +1466,7 @@ class AgentLoopV2:
                         iteration=i - 1, messages=messages, status="budget_exceeded",
                     )
                     return AgentLoopResult(
+                        compaction_events=self._compaction_events,
                         success=False,
                         final_response="",
                         iterations=iterations,
@@ -1381,7 +1500,8 @@ class AgentLoopV2:
                     })
                 except Exception:
                     logger.warning("hook_engine.emit(tool.before) 失败(降级,不阻塞)")
-                # 1. 调 LLM(带 tools,带指数退避重试)
+                # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
+                messages = self._maybe_compact_context(messages)
                 llm_response = await self._llm_call_with_retry(messages, tools_schema)
 
                 content = llm_response.get("content", "")
@@ -1430,6 +1550,7 @@ class AgentLoopV2:
                         logger.warning("简单任务 checkpoint 保存失败(降级,不阻塞)")
 
                     return AgentLoopResult(
+                        compaction_events=self._compaction_events,
                         success=True,
                         final_response=content,
                         iterations=iterations,
@@ -1559,6 +1680,7 @@ class AgentLoopV2:
                 )
 
                 return AgentLoopResult(
+                    compaction_events=self._compaction_events,
                     success=False,
                     final_response="",
                     iterations=iterations,
@@ -1573,6 +1695,7 @@ class AgentLoopV2:
 
         # 达到 max_iterations
         return AgentLoopResult(
+            compaction_events=self._compaction_events,
             success=False,
             final_response="",
             iterations=iterations,
@@ -1606,6 +1729,7 @@ class AgentLoopV2:
         if checkpoint.status == "completed":
             # 已完成的 checkpoint 无需续跑
             return AgentLoopResult(
+                compaction_events=self._compaction_events,
                 success=True,
                 final_response="",
                 iterations=[],
@@ -1633,6 +1757,7 @@ class AgentLoopV2:
         start_iteration = checkpoint.iteration + 1
         if start_iteration > self.max_iterations:
             return AgentLoopResult(
+                compaction_events=self._compaction_events,
                 success=False,
                 final_response="",
                 iterations=[],
