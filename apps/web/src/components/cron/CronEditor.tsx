@@ -187,10 +187,10 @@ export function CronEditor({ value, onChange }: CronEditorProps) {
                 {MODES.map((mode) => (
                   <Button
                     key={mode}
-                    size="sm"
+                    size="xs"
                     variant="ghost"
                     className={cn(
-                      'h-7 px-2 text-xs hover:bg-muted',
+                      'px-2 text-xs hover:bg-muted',
                       f.mode === mode && 'bg-primary/10 text-primary hover:bg-primary/15',
                     )}
                     onClick={() => update(cfg.key, { mode })}

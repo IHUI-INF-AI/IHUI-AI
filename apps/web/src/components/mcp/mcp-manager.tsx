@@ -249,7 +249,7 @@ export function McpManager() {
                     <Button
                       size="sm"
                       variant={connected ? 'outline' : 'default'}
-                      className="h-8 flex-1"
+                      className="flex-1"
                       disabled={toggleMutation.isPending}
                       onClick={() => toggleMutation.mutate(server)}
                     >
@@ -263,9 +263,9 @@ export function McpManager() {
                       {connected ? t('disconnect') : t('connect')}
                     </Button>
                     <Button
-                      size="sm"
+                      size="icon-sm"
                       variant="ghost"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                       disabled={deleteMutation.isPending}
                       onClick={() => handleDelete(server)}
                     >

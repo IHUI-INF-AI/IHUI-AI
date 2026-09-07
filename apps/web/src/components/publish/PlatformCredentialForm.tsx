@@ -181,7 +181,6 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
               type="button"
               size="icon"
               variant="ghost"
-              className="h-9 w-9"
               onClick={onPaste}
               disabled={disabled}
               aria-label="粘贴"
@@ -193,7 +192,6 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
                 type="button"
                 size="icon"
                 variant="ghost"
-                className="h-9 w-9"
                 onClick={onClear}
                 disabled={disabled}
                 aria-label="清空"
@@ -225,7 +223,6 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
               type="button"
               size="icon"
               variant="ghost"
-              className="h-9 w-9"
               onClick={() => setShow((s) => !s)}
               disabled={disabled}
               aria-label={show ? '隐藏' : '显示'}
@@ -237,7 +234,6 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
             type="button"
             size="icon"
             variant="ghost"
-            className="h-9 w-9"
             onClick={onPaste}
             disabled={disabled}
             aria-label="粘贴"
@@ -249,7 +245,6 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
               type="button"
               size="icon"
               variant="ghost"
-              className="h-9 w-9"
               onClick={onClear}
               disabled={disabled}
               aria-label="清空"

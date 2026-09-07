@@ -308,7 +308,7 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                       // 经 --topbar-content-left 传导为工作区卡片 pl-46px,
                       // 造成 AI 面板与工作区之间出现 ~52px 大空隙(用户反馈红框)。隐藏后间距归 6px。
                       className={cn(
-                        'relative ml-1.5 h-9 w-9 shrink-0 min-[768px]:hidden',
+                        'relative ml-1.5 shrink-0 min-[768px]:hidden',
                         mobileOpen && 'z-popover',
                         TOPBAR_BTN_BASE,
                         TOPBAR_BTN_W9,
