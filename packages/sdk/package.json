@@ -13,14 +13,16 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@ihui/types": "workspace:*"
   },
   "devDependencies": {
     "typescript": "catalog:",
-    "@ihui/tsconfig": "workspace:*"
+    "@ihui/tsconfig": "workspace:*",
+    "vitest": "catalog:"
   },
   "author": "李春川 (Li Chunchuan) <IHUI AI (智汇AI)>",
   "homepage": "https://aizhs.top",
