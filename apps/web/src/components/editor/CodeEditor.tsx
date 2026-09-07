@@ -30,7 +30,7 @@ if (typeof window !== 'undefined') {
  * - 代码折叠(folding + showFoldingControls: 'mouseover')
  * - minimap 可选(showMinimap prop,默认 false,满足 AGENTS.md §4 compact 约束)
  * - AI inline completion(注册 InlineCompletionsProvider,debounce 300ms,
- *   调用 /api/llm/complete,失败静默降级,不弹登录窗不报错)
+ *   调用 /ai/llm/fim 专用 FIM 端点(全文前缀+后缀),失败静默降级,不弹登录窗不报错)
  */
 
 // 类型定义:从 @monaco-editor/react 透出(避免显式 import monaco-editor 类型)
@@ -83,6 +83,8 @@ type MonacoModel = {
   getLanguageId(): string
   getLineContent(lineNumber: number): string
   getWordUntilPosition(position: MonacoPosition): MonacoWordRange
+  /** 光标位置 → 全文偏移(FIM 全文前缀/后缀切分用) */
+  getOffsetAt(position: MonacoPosition): number
 }
 
 type MonacoCancellationToken = {
@@ -136,13 +138,9 @@ export type MonacoSelection = {
   endColumn: number
 }
 
-/** /ai/llm/chat 响应体(经 fetchApi 解包后,字段名兼容多种后端约定,失败静默降级) */
-interface LlmCompletionResponse {
+/** /ai/llm/fim 响应体(2026-09-07 升级,fetchApi 已解包 {code,message,data} 外层,失败静默降级) */
+interface FimCompletionData {
   completion?: string
-  text?: string
-  suggestion?: string
-  content?: string
-  data?: string
 }
 
 export interface CodeEditorProps {
@@ -205,29 +203,25 @@ export function CodeEditor({
   const completionDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   /**
-   * 调用 /ai/llm/chat 获取 AI 内联补全建议。
-   * 端点经 API 服务代理到 ai-service /api/llm/complete,请求体为 OpenAI messages 格式。
+   * 调用 /ai/llm/fim 获取 AI 内联补全建议(2026-09-07 升级为专用 FIM 端点)。
+   * 此前走 /ai/llm/chat 对话端点且 prefix 只有当前行 → 补全质量差、延迟高。
+   * 现走 ai-service 专用 FIM(fill-in-the-middle)端点:
+   * - 全文前缀(截尾 6000 字符)+ 后缀(截头 2000 字符),真实 fill-in-middle 语义
+   * - temperature=0 + max_tokens=128,模型 auto 路由(本地/零成本优先)
    * 任意失败(网络/404/未授权/解析错误)均静默降级返回空串,
    * 不影响编辑器正常使用,不弹登录窗,不报错。
    * 复用 @ihui/api-client 的 fetchApi(已注入 token,无需新依赖)。
    */
   const fetchInlineCompletion = React.useCallback(
-    async (prefix: string, lang: string): Promise<string> => {
+    async (prefix: string, suffix: string, lang: string): Promise<string> => {
       try {
-        const systemPrompt = `You are a code completion engine. The user is editing ${lang} code. Given the code before the cursor, output ONLY the most likely next characters to complete the current statement. No markdown, no explanation, no code fences, just the raw completion text.`
-        const res = await fetchApi<LlmCompletionResponse>('/ai/llm/chat', {
+        const res = await fetchApi<FimCompletionData>('/ai/llm/fim', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: prefix },
-            ],
-          }),
+          body: JSON.stringify({ prefix, suffix, language: lang, max_tokens: 128 }),
         })
         if (!res.success) return ''
-        const d = res.data
-        return d.completion ?? d.text ?? d.suggestion ?? d.content ?? d.data ?? ''
+        return res.data?.completion ?? ''
       } catch {
         return ''
       }
@@ -285,21 +279,37 @@ export function CodeEditor({
               })
               if (token.isCancellationRequested) return { items: [] }
 
-              const lineContent = model.getLineContent(position.lineNumber)
-              const prefix = lineContent.slice(0, position.column - 1)
+              // 2026-09-07 升级:FIM 全文上下文。此前 prefix 只取当前行 →
+              // 模型看不到文件其余部分,补全质量差。现取全文前缀(光标前)+
+              // 全文后缀(光标后),由后端截断到 6000/2000 字符。
+              const fullText = e.getValue() ?? ''
+              const offset = model.getOffsetAt(position)
+              const prefix = fullText.slice(0, offset)
+              const suffix = fullText.slice(offset)
               // 空行或纯空白前缀无上下文,跳过(不调用 AI)
               if (!prefix.trim()) return { items: [] }
 
               const lang = model.getLanguageId() ?? 'plaintext'
-              const suggestion = await fetchInlineCompletion(prefix, lang)
+              const suggestion = await fetchInlineCompletion(prefix, suffix, lang)
               if (token.isCancellationRequested) return { items: [] }
               if (!suggestion) return { items: [] }
+
+              // 多行补全缩进对齐:后续行追加当前行前导空白(Monaco 原样插入文本)
+              const currentLine = model.getLineContent(position.lineNumber)
+              const indent = currentLine.match(/^[ \t]*/)?.[0] ?? ''
+              const suggestionLines = suggestion.split('\n')
+              const insertText =
+                indent && suggestionLines.length > 1
+                  ? suggestionLines
+                      .map((line, i) => (i === 0 || line.trim() === '' ? line : indent + line))
+                      .join('\n')
+                  : suggestion
 
               const wordUntilPosition = model.getWordUntilPosition(position)
               return {
                 items: [
                   {
-                    insertText: suggestion,
+                    insertText,
                     range: {
                       startLineNumber: position.lineNumber,
                       startColumn: wordUntilPosition.endColumn,
