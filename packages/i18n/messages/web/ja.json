@@ -11974,6 +11974,7 @@
     "topBar": {
       "agent": "エージェント",
       "browser": "内蔵ブラウザ",
+      "capabilityMarket": "機能マーケット",
       "close": "閉じる",
       "codeChanges": "コード変更",
       "connectors": "中文コネクタ",
