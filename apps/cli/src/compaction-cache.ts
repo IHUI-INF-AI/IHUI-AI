@@ -13,9 +13,11 @@
  */
 
 import { type ChatMessage } from './context.js';
+// P3-11 同构收敛:此前本地 const 6 二次写死,改引共享包单源(与 compaction-v2 一致)。
+import { DEFAULT_KEEP_RECENT } from '@ihui/context-compaction';
 
-/** 与 compaction-v2 的 DEFAULT_KEEP_RECENT 一致(toCompress = 非 system 除最近 6 条外) */
-const KEEP_RECENT = 6;
+/** toCompress = 非 system 除最近 DEFAULT_KEEP_RECENT(单源,当前 6)条外 */
+const KEEP_RECENT = DEFAULT_KEEP_RECENT;
 /** 缓存容量(FIFO 淘汰),与 API 版一致 */
 const CACHE_MAX = 200;
 
