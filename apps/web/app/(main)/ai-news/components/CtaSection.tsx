@@ -26,14 +26,14 @@ export function CtaSection() {
           <p className="text-sm text-muted-foreground min-[768px]:text-base">{t('cta.subtitle')}</p>
         </div>
         <div className="flex flex-col justify-center gap-3">
-          <Button asChild className="h-10 w-full">
+          <Button size="lg" asChild className="w-full px-4">
             <Link href="/support?source=ai-news">
               <MailPlus className="mr-1.5 h-4 w-4" />
               {t('cta.subscribe')}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
-          <Button asChild variant="outline" className="h-10 w-full">
+          <Button size="lg" asChild variant="outline" className="w-full px-4">
             <Link href="/circles">
               <Users className="mr-1.5 h-4 w-4" />
               {t('cta.community')}
