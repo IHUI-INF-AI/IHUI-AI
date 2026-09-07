@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * i18n AI 翻译流水线 - 差异检测器(零 LLM API 调用)。
  *
@@ -50,10 +49,26 @@ const TARGET = targetArg ? targetArg.split('=')[1] : 'web'
 // target → 目录 + 文件扩展名 + staged 前缀
 // 2026-07-25 i18n 单一来源:web/miniapp-taro 翻译迁移到 packages/i18n/messages/<platform>/
 const TARGET_CONFIG = {
-  web: { dir: 'packages/i18n/messages/web', ext: '.json', stagedPrefix: 'packages/i18n/messages/web/' },
-  extension: { dir: 'packages/i18n/messages/extension', ext: '.json', stagedPrefix: 'packages/i18n/messages/extension/' },
-  'miniapp-taro': { dir: 'packages/i18n/messages/miniapp-taro', ext: '.json', stagedPrefix: 'packages/i18n/messages/miniapp-taro/' },
-  shared: { dir: 'packages/i18n/messages/shared', ext: '.json', stagedPrefix: 'packages/i18n/messages/shared/' },
+  web: {
+    dir: 'packages/i18n/messages/web',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/web/',
+  },
+  extension: {
+    dir: 'packages/i18n/messages/extension',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/extension/',
+  },
+  'miniapp-taro': {
+    dir: 'packages/i18n/messages/miniapp-taro',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/miniapp-taro/',
+  },
+  shared: {
+    dir: 'packages/i18n/messages/shared',
+    ext: '.json',
+    stagedPrefix: 'packages/i18n/messages/shared/',
+  },
 }
 const TARGET_CFG = TARGET_CONFIG[TARGET] || TARGET_CONFIG.web
 
@@ -94,6 +109,35 @@ function loadGlossary() {
 
 // 2026-07-25 miniapp-taro 迁移到 .json 后,TS 解析辅助函数已移除
 
+// 2026-09-07 根治:--staged 模式下数据源必须是暂存区 blob,而非工作区文件。
+// 此前 readFileSync 直接读工作区:并行会话未暂存的 zh-CN WIP 键(其他语言尚未补译)
+// 会混入 pending 检测,阻塞无关 commit。与 check-i18n-keys.mjs 同款修复。
+const stagedI18nFiles = (() => {
+  if (!isStaged) return null
+  try {
+    const out = execSync(`git diff --cached --name-only -- "${TARGET_CFG.dir}"`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
+    return new Set(out.split('\n').filter(Boolean))
+  } catch {
+    return null
+  }
+})()
+
+function readMessageJson(absPath) {
+  const repoRel = absPath.replaceAll('\\', '/').replace(/^.*?packages\/i18n\//, 'packages/i18n/')
+  if (stagedI18nFiles && stagedI18nFiles.has(repoRel)) {
+    const blob = execSync(`git show ":${repoRel}"`, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+    return JSON.parse(blob)
+  }
+  return JSON.parse(fs.readFileSync(absPath, 'utf8'))
+}
+
 function loadMessages() {
   const langs = {}
   if (!fs.existsSync(MESSAGES_DIR)) return langs
@@ -102,7 +146,8 @@ function loadMessages() {
     try {
       const filePath = path.join(MESSAGES_DIR, entry)
       // 2026-07-25 miniapp-taro 迁移到 .json,所有 target 统一 JSON 解析
-      langs[entry.replace(MESSAGE_EXT, '')] = JSON.parse(fs.readFileSync(filePath, 'utf8'))
+      // 2026-09-07:staged 模式改读暂存区 blob(见 readMessageJson)
+      langs[entry.replace(MESSAGE_EXT, '')] = readMessageJson(filePath)
     } catch {
       // 解析失败跳过
     }
@@ -291,7 +336,9 @@ function printReport(result, targetLangs) {
   // 显示 review 总数(asciiFallback,可选审核)
   const reviewCount = Object.values(result.review || {}).reduce((s, arr) => s + arr.length, 0)
   if (reviewCount > 0) {
-    console.log(`${C.dim}[可选审核] asciiFallback ${reviewCount} 处(品牌名/技术术语用英文,大多有意为之,详见 reviewAscii 字段)${C.reset}`)
+    console.log(
+      `${C.dim}[可选审核] asciiFallback ${reviewCount} 处(品牌名/技术术语用英文,大多有意为之,详见 reviewAscii 字段)${C.reset}`,
+    )
     console.log('')
   }
 
@@ -321,7 +368,9 @@ function main() {
     const stagedLocales = getStagedLocales()
     if (!stagedLocales.includes(BASE_LANG)) {
       if (!isQuiet) {
-        console.log(`${C.green}[i18n AI 翻译流水线] 暂存区未改动 ${BASE_LANG}${MESSAGE_EXT},跳过(仅 zh-CN 改动时触发)${C.reset}`)
+        console.log(
+          `${C.green}[i18n AI 翻译流水线] 暂存区未改动 ${BASE_LANG}${MESSAGE_EXT},跳过(仅 zh-CN 改动时触发)${C.reset}`,
+        )
       }
       process.exit(0)
     }
