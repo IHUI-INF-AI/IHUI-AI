@@ -28,6 +28,8 @@ const searchSchema = z.object({
   language: z.string().optional(),
   topK: z.number().int().min(1).max(50).default(10),
   scoreThreshold: z.number().min(0).max(1).default(0),
+  // hybrid=向量+关键词 RRF 融合(默认,2026-09-07 立);vector=纯语义;keyword=纯词法
+  mode: z.enum(['hybrid', 'vector', 'keyword']).default('hybrid'),
 })
 
 const indexSchema = z.object({
@@ -69,13 +71,19 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     }
     const b = parsed.data
     try {
-      const chunks = await codebaseIndexService.search({
+      const searchOpts = {
         query: b.query,
         repoId: b.repoId,
         language: b.language,
         topK: b.topK,
         scoreThreshold: b.scoreThreshold,
-      })
+      }
+      const chunks =
+        b.mode === 'keyword'
+          ? await codebaseIndexService.keywordSearch(searchOpts)
+          : b.mode === 'vector'
+            ? await codebaseIndexService.search(searchOpts)
+            : await codebaseIndexService.hybridSearch(searchOpts)
       return reply.send(success({ chunks }))
     } catch (e) {
       req.log.error(e)
