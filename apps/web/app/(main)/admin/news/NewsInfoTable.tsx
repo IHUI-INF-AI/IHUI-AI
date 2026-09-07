@@ -150,17 +150,9 @@ export function NewsInfoTable(props: Props) {
             size="sm"
             onClick={() =>
               setInfoSearch({
-                title: '',
-                url: '',
-                sourceName: '',
-                sourceUrl: '',
-                sourceCreator: '',
-                sourceTime: '',
-                insertTime: '',
-                browse: '',
-              })
+                title: url: sourceName: sourceUrl: sourceCreator: sourceTime: insertTime: browse: })
             }
-            className="h-8 text-xs"
+            className="text-xs"
           >
             重置
           </Button>

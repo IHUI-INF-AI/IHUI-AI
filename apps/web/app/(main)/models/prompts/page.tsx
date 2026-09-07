@@ -630,8 +630,8 @@ export default function PromptsPage() {
                             <TooltipTrigger asChild>
                               <Button
                                 variant="outline"
-                                size="sm"
-                                className="h-7 shrink-0 gap-1 text-xs"
+                                size="xs"
+                                className="shrink-0 gap-1 text-xs"
                                 onClick={() => handleRollback(v.version)}
                               >
                                 <RotateCcw className="h-3 w-3" />

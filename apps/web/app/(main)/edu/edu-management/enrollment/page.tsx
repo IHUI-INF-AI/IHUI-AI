@@ -990,8 +990,8 @@ export default function EnrollmentPage() {
                             {lead.status !== 'enrolled' && lead.status !== 'lost' && (
                               <Button
                                 variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
+                                size="xs"
+                                className="text-xs"
                                 onClick={() => handleNextStatus(lead)}
                                 disabled={updateLeadStatus.isPending}
                               >
@@ -1107,8 +1107,8 @@ export default function EnrollmentPage() {
                               {t.status === 'pending' && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs text-green-600"
+                                  size="xs"
+                                  className="text-xs text-green-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'confirmed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1119,8 +1119,8 @@ export default function EnrollmentPage() {
                               {t.status === 'confirmed' && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs text-blue-600"
+                                  size="xs"
+                                  className="text-xs text-blue-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'completed')}
                                   disabled={updateTrialStatus.isPending}
                                 >
@@ -1131,8 +1131,8 @@ export default function EnrollmentPage() {
                               {(t.status === 'pending' || t.status === 'confirmed') && (
                                 <Button
                                   variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs text-red-500"
+                                  size="xs"
+                                  className="text-xs text-red-500"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'cancelled')}
                                   disabled={updateTrialStatus.isPending}
                                 >

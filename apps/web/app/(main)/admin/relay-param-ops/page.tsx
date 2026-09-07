@@ -319,24 +319,24 @@ export default function AdminRelayParamOpsPage() {
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-9 px-3"
+                            size="default"
+                            className="px-3 text-xs"
                             onClick={() => openEdit(r)}
                           >
                             <Pencil className="h-3 w-3" /> {t('edit')}
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-9 px-3"
+                            size="default"
+                            className="px-3 text-xs"
                             onClick={() => openDryRun(r)}
                           >
                             <Play className="h-3 w-3" /> {t('dryRun')}
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            size="icon-xs"
+                            className="text-destructive hover:text-destructive"
                             onClick={() => {
                               if (confirm(t('deleteConfirm', { name: r.name })))
                                 deleteMut.mutate(r.id)
