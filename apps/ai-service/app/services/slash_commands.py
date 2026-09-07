@@ -4,8 +4,8 @@
 
 """Slash 命令集合。
 
-12 个 slash 命令: /goal /loop /skill /plan /memory /persona /help /clear
-/bug /improve /status /version。每个命令有 name/description/handler。
+13 个 slash 命令: /goal /loop /skill /plan /memory /persona /help /clear
+/bug /improve /status /version /bestof。每个命令有 name/description/handler。
 """
 
 from __future__ import annotations
@@ -176,7 +176,56 @@ async def _version_handler(args: list[str], ctx: dict[str, Any]) -> str:
     )
 
 
-# 12 个 slash 命令
+async def _bestof_handler(args: list[str], ctx: dict[str, Any]) -> str:
+    """/bestof — 同任务 N 副本并行执行 + LLM 评审自动择优(2026-09-07 立)。"""
+    from .best_of_n import BestOfNError, best_of_n_runner
+
+    task = " ".join(args).strip()
+    if not task:
+        return "用法: /bestof <任务描述>[ #N]。例如 /bestof 用一句话介绍量子计算 #3(N=副本数,默认 3)"
+
+    # 可选 #N 尾缀控制副本数(1-5)
+    n = 3
+    import re
+
+    m = re.search(r"\s#(\d+)\s*$", task)
+    if m:
+        n = max(1, min(5, int(m.group(1))))
+        task = task[: m.start()].strip()
+
+    session_id = str(ctx.get("session_id", "") or "")
+    try:
+        result = await best_of_n_runner.run(
+            [{"role": "user", "content": task}],
+            n=n,
+            session_id=session_id,
+        )
+    except BestOfNError as e:
+        return f"❌ Best-of-N 失败: {e}"
+
+    w = result.winner
+    lines = [
+        f"🏆 Best-of-N 择优完成(N={result.n_requested}"
+        + (f",评审 {result.evaluator_model}" if not result.evaluator_fallback else ",评审兜底")
+        + f",总成本 ${result.total_cost_usd:.4f})",
+        "",
+        w.content or "(空回复)",
+        "",
+        "| 副本 | 评分 | 模型 | 耗时 | 状态 |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for c in result.candidates:
+        score = "—" if c.score is None else str(c.score)
+        status = "✅" if c.ok else f"❌ {c.error[:40]}"
+        lines.append(
+            f"| #{c.candidate_id} | {score} | {c.model} | {c.latency_ms}ms | {status} |"
+        )
+    if result.rationale:
+        lines += ["", f"📌 评审理由: {result.rationale}"]
+    return "\n".join(lines)
+
+
+# 13 个 slash 命令
 _BUILTIN_COMMANDS: list[SlashCommand] = [
     SlashCommand(name="goal", description="设定当前会话目标", handler=_goal_handler),
     SlashCommand(name="loop", description="设置循环执行模式", handler=_loop_handler),
@@ -190,6 +239,11 @@ _BUILTIN_COMMANDS: list[SlashCommand] = [
     SlashCommand(name="improve", description="对当前内容提出改进建议", handler=_improve_handler),
     SlashCommand(name="status", description="显示当前 agent 状态", handler=_status_handler),
     SlashCommand(name="version", description="显示服务版本信息", handler=_version_handler),
+    SlashCommand(
+        name="bestof",
+        description="同任务 N 副本并行执行 + LLM 评审自动择优",
+        handler=_bestof_handler,
+    ),
 ]
 
 

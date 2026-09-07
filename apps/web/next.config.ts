@@ -515,6 +515,13 @@ const nextConfig: NextConfig = {
           source: '/api/agent-plan/:path*',
           destination: 'http://localhost:8803/api/agent-plan/:path*',
         },
+        // 2026-09-07 新增:Best-of-N 同任务多副本自动择优路由直连 ai-service 8803。
+        // 原因:best_of_n router 注册在 ai-service(prefix="/api",路径 /api/best-of-n/*),
+        // 必须直连 8803 才能命中,且要放在 /api/:path* 通配符(→8802)之前。
+        {
+          source: '/api/best-of-n/:path*',
+          destination: 'http://localhost:8803/api/best-of-n/:path*',
+        },
         // 2026-09-03 新增:成本看板 / 长期记忆管理路由直连 ai-service 8803。
         // 原因:cost_ledger / agent_memory(prefix="/longterm-memory")router 均注册在
         // ai-service(prefix="/api"),必须直连 8803 才能命中,且要放在 /api/:path*
@@ -581,9 +588,9 @@ const nextConfig: NextConfig = {
           // connect-src:开发模式才放行本机(localhost/127.0.0.1),供直连 dev 的 8802/8803/8801
           // 与 SSE/WebSocket 调试;生产模式收紧,仅 'self' + 标准 wss/https 等外部连接,
           // 不再允许浏览器触达本机服务(防 XSS→本机探测/利用)。
-          (isDev
+          isDev
             ? "connect-src 'self' https: wss: ws: http://localhost:* http://127.0.0.1:*"
-            : "connect-src 'self' https: wss: ws:"),
+            : "connect-src 'self' https: wss: ws:",
           "media-src 'self' blob:",
           "object-src 'none'",
           // 2026-07-25 修复扫码登录 iframe 拦截:SDK 内部创建 iframe 渲染二维码
