@@ -16,6 +16,10 @@ import {
   QrCode,
   Upload,
   ShieldCheck,
+  Wrench,
+  ChevronDown,
+  FolderKanban,
+  KeyRound,
 } from 'lucide-react'
 import {
   Button,
@@ -49,6 +53,7 @@ import {
   normalizeCredentials,
 } from '@/lib/publish/platform-schemas'
 import { ScanLoginDialog } from './ScanLoginDialog'
+import { Dropdown, type DropdownItem } from '@/components/feedback'
 import { RiskBadge, type RiskLevel } from '@/components/publish/RiskBadge'
 import { CookieHealthIndicator } from '@/components/publish/CookieHealthIndicator'
 import { BatchImportDialog } from '@/components/publish/BatchImportDialog'
@@ -190,34 +195,67 @@ export default function AccountsPage() {
   return (
     <div className="px-4 space-y-4">
       <BackButton />
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="text-base font-semibold">{t('accounts.title')}</h2>
           <p className="text-xs text-muted-foreground">{t('accounts.subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
-            <QrCode className="h-4 w-4" />
-            {t('accounts.scanLogin')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setBatchOpen(true)}>
-            <Upload className="h-4 w-4" />
-            {t('accounts.batchImport')}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => void batchVerify()}
-            disabled={batchVerifying || accounts.length === 0}
-          >
-            {batchVerifying ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <ShieldCheck className="h-4 w-4" />
-            )}
-            {t('accounts.batchVerify')}
-          </Button>
-          <Button size="sm" onClick={() => openAdd()}>
+          {/* 2026-09-07:次要功能收纳进"开发者"下拉,头部只保留高频操作 */}
+          <Dropdown
+            trigger={
+              <Button size="sm" variant="outline">
+                <Wrench className="h-4 w-4" />
+                {t('accounts.developer')}
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            }
+            items={
+              [
+                {
+                  key: 'scanLogin',
+                  label: t('accounts.scanLogin'),
+                  icon: QrCode,
+                  onSelect: () => openScanLogin(),
+                },
+                {
+                  // 2026-09-07:扫码登录为主要添加方式,"添加账号"按钮直达扫码,
+                  // 专业凭证配置作为高级入口收纳在此
+                  key: 'manualAdd',
+                  label: t('accounts.manualAdd'),
+                  icon: KeyRound,
+                  onSelect: () => openAdd(),
+                },
+                {
+                  key: 'batchImport',
+                  label: t('accounts.batchImport'),
+                  icon: Upload,
+                  onSelect: () => setBatchOpen(true),
+                },
+                {
+                  key: 'batchVerify',
+                  label: t('accounts.batchVerify'),
+                  icon: ShieldCheck,
+                  disabled: batchVerifying || accounts.length === 0,
+                  onSelect: () => void batchVerify(),
+                },
+                { key: 'groups-divider', divider: true },
+                {
+                  key: 'manageGroups',
+                  label: t('accounts.manageGroups'),
+                  icon: FolderKanban,
+                  disabled: loading || accounts.length === 0,
+                  onSelect: () =>
+                    document.getElementById('account-groups')?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    }),
+                },
+              ] satisfies DropdownItem[]
+            }
+          />
+          {/* 2026-09-07:添加账号以扫码登录为主,避免普通用户面对专业凭证配置 */}
+          <Button size="sm" onClick={() => openScanLogin()}>
             <Plus className="h-4 w-4" />
             {t('accounts.add')}
           </Button>
@@ -234,7 +272,7 @@ export default function AccountsPage() {
               <button
                 key={s.platformId}
                 type="button"
-                onClick={() => openAdd(s.platformId)}
+                onClick={() => openScanLogin(s.platformId)}
                 className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs hover:bg-accent"
               >
                 <span className="font-medium">{s.platformName}</span>
@@ -253,7 +291,7 @@ export default function AccountsPage() {
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8">
           <AlertCircle className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">{t('accounts.noAccounts')}</p>
-          <Button size="sm" variant="outline" onClick={() => openAdd()}>
+          <Button size="sm" variant="outline" onClick={() => openScanLogin()}>
             <Plus className="h-4 w-4" />
             {t('accounts.add')}
           </Button>
@@ -377,7 +415,11 @@ export default function AccountsPage() {
         </div>
       )}
 
-      {!loading && accounts.length > 0 && <AccountGroupManager accounts={accounts} />}
+      {!loading && accounts.length > 0 && (
+        <div id="account-groups">
+          <AccountGroupManager accounts={accounts} />
+        </div>
+      )}
 
       <Dialog open={dialogOpen} onOpenChange={(o) => !saving && setDialogOpen(o)}>
         <DialogContent className="min-[640px]:max-w-lg">
