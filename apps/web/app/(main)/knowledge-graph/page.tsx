@@ -158,7 +158,7 @@ export default function KnowledgeGraphPage() {
     <div className="container mx-auto max-w-6xl px-4 py-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+          <Button asChild variant="ghost" size="icon-sm">
             <Link href="/knowledge-rag" aria-label={tCommon('back')}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
