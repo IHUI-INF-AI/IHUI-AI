@@ -311,7 +311,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     amountLabel: { fontSize: 11, color: tk.text.tertiary },
     amountValue: {
-      fontSize: 20,
+      fontSize: 18,
       fontWeight: '700',
       color: tk.text.primary,
     },
