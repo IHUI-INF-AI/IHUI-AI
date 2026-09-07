@@ -18,6 +18,7 @@ import { I18nProvider } from '@/providers/i18n-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
+import { MobileLoginGate } from '@/components/layout/MobileLoginGate'
 import { TooltipProvider, ConfirmServiceHost } from '@/components/feedback'
 import { DOC_BG, DOC_BG_DARK } from '@ihui/design-tokens'
 
@@ -537,7 +538,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
                     (marketing) 用 Header+Footer,(auth) 用居中表单等)。
                   */}
-                  <GlobalShell>{children}</GlobalShell>
+                  <GlobalShell>
+                    <MobileLoginGate>{children}</MobileLoginGate>
+                  </GlobalShell>
                   {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
                   <Suspense fallback={null}>
                     <LoginRedirectListener />
