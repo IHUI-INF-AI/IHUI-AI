@@ -4,6 +4,7 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
+@import 'katex/dist/katex.min.css';
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
@@ -96,25 +97,23 @@
 }
 
 /* 顶栏内容左偏移(2026-08-01 立,根治移动端搜索按钮与工作区卡片 46px 错位):
-   移动端(<1024px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
+   移动端(<768px):GlobalTopBar 内层 flex 第 0 个元素是移动端汉堡按钮(mobileMenu),
      占 ml-1.5(6px) + w-9(36px) + gap-1(4px) = 46px,把搜索按钮挤到 left=46px。
      MainShell 工作区卡片无 pl 紧贴 left=0,与搜索按钮错位 46px。
-   桌面端(≥1024px):汉堡按钮 min-[1024px]:hidden 隐藏,搜索按钮紧贴 left=0,偏移 0。
+   桌面端(≥768px):汉堡按钮 min-[768px]:hidden 隐藏(2026-09-07 从 1024 下调:
+     768-1023px 侧边栏常驻 60px 图标条,汉堡按钮纯多余,且曾把工作区卡片 pl 撑到 46px,
+     造成 AI 面板与工作区之间 ~52px 大空隙),搜索按钮紧贴 left=0,偏移 0。
    MainShell 外层 pl=var(--topbar-content-left) 让工作区卡片对齐搜索按钮 left。
 
    ⚠️ 此处 :root + @media 定义仅作 SSR 首屏 fallback(JS 未执行时防错位)。
    JS 执行后,GlobalTopBar 的 ResizeObserver 会动态测量搜索按钮实际 left,
    用 document.documentElement.style.setProperty('--topbar-content-left', ...) 覆盖
    (inline style 优先级 > stylesheet)。工作区卡片自动跟随 mobileMenu 样式变化,
-   无需手动同步本文件。详见 GlobalTopBar.tsx useEffect 注释。
-
-   历史根因:旧方案纯硬编码 calc(0.375rem+2.25rem+0.25rem)=46px,完全依赖 mobileMenu 的
-   ml-1.5/w-9/gap-1 三个 Tailwind 类,一旦 mobileMenu 样式变化立刻失效,需手动同步两个文件
-   → "反反复复修不好"的根因(跨组件隐式耦合契约)。新方案动态测量根治此问题。 */
+   无需手动同步本文件。详见 GlobalTopBar.tsx useEffect 注释。 */
 :root {
   --topbar-content-left: calc(0.375rem + 2.25rem + 0.25rem);
 }
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   :root {
     --topbar-content-left: 0px;
   }
@@ -739,6 +738,10 @@ iframe::-webkit-scrollbar {
     min-width: 60px !important;
     max-width: 60px !important;
   }
+  /* 2026-09-07:移除旧版 [data-sidebar-logo] display:none 规则 —— 现在 768-1023px 区间
+     React 侧(effectiveCollapsed)直接渲染折叠态 header:36×36 方形 logo + 展开按钮竖排,
+     不再渲染 80px 长 logo,CSS 隐藏规则已无目标。 */
+
   /* 隐藏导航项文字 span(只显示图标),覆盖 collapsed=false 时的展开态文字 */
   aside[data-viewport-collapsed='true'] nav a > span:not([class*='sr-only']),
   aside[data-viewport-collapsed='true'] nav button > span:not([class*='sr-only']) {
