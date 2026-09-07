@@ -28,6 +28,9 @@ logs-*-restart*.txt
 !apps/web/app/**/logs/
 !apps/web/app/**/logs/**
 
+# 本建机 Android/JDK 工具链(JDK21/Gradle/Android SDK,经 .android-toolchain 解压,不入库)
+.android-toolchain/
+
 # Agent 工具临时产物(守门结果/扫描摘要/验证脚本/commit 消息暂存等)
 # 防止 P44/P45/P46 等会话遗留 __*.txt/__*.md/__*.bat/__*.ps1 回潮
 # 根目录锚定(/__*),避免误伤 apps/**/__tests__/ 等合法测试目录
