@@ -29,7 +29,7 @@ const DEFAULT_PRESETS: Preset[] = [
     id: 'default',
     name: '默认',
     baseColor: '#ffffff',
-    accentColor: '#3b82f6',
+    accentColor: '#ff6b35',
     bgColor: '#ffffff',
     textColor: '#1f2937',
     borderColor: '#e5e7eb',

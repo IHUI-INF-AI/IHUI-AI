@@ -7,6 +7,7 @@
 import { useTranslations } from 'next-intl'
 import { TrendingUp, ShoppingCart } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import { CHART_GREEN, CHART_AMBER, CHART_TEXT_LIGHT } from '@ihui/design-tokens'
 import { RadarChart } from '@/components/charts/RadarChart'
 import { LineChart } from '@/components/charts/LineChart'
 import { PieChart } from '@/components/charts/PieChart'
@@ -76,8 +77,8 @@ export function AdminExtraCharts({ stats }: Props) {
             donut
             size={220}
             data={[
-              { label: t('paidCount'), value: stats.orderStats.paidCount, color: '#10b981' },
-              { label: t('pendingCount'), value: stats.orderStats.pendingCount, color: '#f59e0b' },
+              { label: t('paidCount'), value: stats.orderStats.paidCount, color: CHART_GREEN },
+              { label: t('pendingCount'), value: stats.orderStats.pendingCount, color: CHART_AMBER },
               {
                 label: t('otherOrders'),
                 value: Math.max(
@@ -86,7 +87,7 @@ export function AdminExtraCharts({ stats }: Props) {
                     stats.orderStats.paidCount -
                     stats.orderStats.pendingCount,
                 ),
-                color: '#94a3b8',
+                color: CHART_TEXT_LIGHT,
               },
             ]}
           />

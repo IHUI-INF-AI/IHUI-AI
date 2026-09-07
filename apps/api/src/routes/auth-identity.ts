@@ -10,6 +10,7 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { userAuthInfo } from '@ihui/database'
+import { encryptField, decryptField } from '../utils/crypto.js'
 
 // =============================================================================
 // Zod schemas
@@ -62,6 +63,8 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { realName, idCard, authSource } = parsed.data
+    // P0 隐私修复：写时加密 idCard（AES-256-GCM，应用级密钥），杜绝身份证明文落库。
+    const idCardEncrypted = encryptField(idCard)
 
     // 检查是否已认证（authStatus=approved 则拒绝重复提交）
     const existing = await db
@@ -81,7 +84,7 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
         .values({
           userUuid: userId,
           realName,
-          idCard,
+          idCard: idCardEncrypted,
           authStatus: 'pending',
           authSource,
         })
@@ -89,7 +92,7 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
           target: userAuthInfo.userUuid,
           set: {
             realName,
-            idCard,
+            idCard: idCardEncrypted,
             authStatus: 'pending',
             authSource,
             rejectReason: null,
@@ -139,7 +142,20 @@ export const authIdentityRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    return reply.send(success(info))
+    // P0 隐私修复：读时解密 idCard（存量明文经 decryptField 兼容返回）
+    return reply.send(
+      success({
+        userUuid: info.userUuid,
+        authStatus: info.authStatus,
+        realName: info.realName,
+        idCard: info.idCard ? decryptField(info.idCard) : null,
+        authSource: info.authSource,
+        authAt: info.authAt,
+        rejectReason: info.rejectReason,
+        createdAt: info.createdAt,
+        updatedAt: info.updatedAt,
+      }),
+    )
   })
 
   // GET /auth/realname/list - 管理员列表（分页）

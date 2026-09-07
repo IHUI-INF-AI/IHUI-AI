@@ -101,6 +101,27 @@ scrape_configs:
           service: 'windows-host'
           layer: 'infra'
 
+  # Alertmanager 自监控(原生 9093;掉线即导致通知链路断裂,配合 alerts.yml 的 AlertmanagerDown)
+  - job_name: 'alertmanager'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9093']
+        labels:
+          service: 'alertmanager'
+          layer: 'infra'
+
+  # 告警中转 bridge 自监控(原生 9096,/health 返回 JSON;Prometheus 只看 HTTP 200 → up metric,
+  # 配合 alerts.yml 的 AlertBridgeDown 及时发现微信推送链路断裂)
+  - job_name: 'alertbridge'
+    metrics_path: '/health'
+    scheme: 'http'
+    static_configs:
+      - targets: ['localhost:9096']
+        labels:
+          service: 'alertbridge'
+          layer: 'infra'
+
   # Node Exporter（主机指标，可选）— 原生环境暂未安装，需启用时注释放开并将 target 改为 localhost:9100
   # - job_name: 'node'
   #   static_configs:

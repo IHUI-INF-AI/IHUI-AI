@@ -19,6 +19,7 @@ import { fetchApi } from '@ihui/api-client'
 import type { MemoryEntry, MemoryEntryType, MemoryScope } from '@ihui/types'
 import { useAuthStore } from '../stores/auth-store'
 import { useI18n } from '../i18n'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -94,6 +95,7 @@ function formatTime(iso: string): string {
 export function MemoryScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const user = useAuthStore((s) => s.user)
   const [entries, setEntries] = useState<MemoryEntry[]>([])
@@ -273,7 +275,7 @@ export function MemoryScreen() {
           onPress={() => setCreateVisible(true)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text className="text-sm font-medium text-blue-600">{t('memory.create')}</Text>
+          <Text className="text-sm font-medium text-orange-600">{t('memory.create')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -310,7 +312,7 @@ export function MemoryScreen() {
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t('memory.searchPlaceholder')}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={tk.text.tertiary}
                 returnKeyType="search"
                 className="h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
               />
@@ -318,7 +320,7 @@ export function MemoryScreen() {
               <View className="mt-2 flex-row flex-wrap gap-2">
                 <TouchableOpacity
                   onPress={() => setScopeFilter(null)}
-                  className={`rounded-md px-3 py-1.5 ${scopeFilter === null ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                  className={`rounded-md px-3 py-1.5 ${scopeFilter === null ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
                 >
                   <Text
                     className={`text-xs ${scopeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -332,7 +334,7 @@ export function MemoryScreen() {
                     <TouchableOpacity
                       key={scope}
                       onPress={() => setScopeFilter(active ? null : scope)}
-                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
                     >
                       <Text
                         className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -347,7 +349,7 @@ export function MemoryScreen() {
               <View className="mt-2 flex-row flex-wrap gap-2">
                 <TouchableOpacity
                   onPress={() => setTypeFilter(null)}
-                  className={`rounded-md px-3 py-1.5 ${typeFilter === null ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                  className={`rounded-md px-3 py-1.5 ${typeFilter === null ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
                 >
                   <Text
                     className={`text-xs ${typeFilter === null ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -361,7 +363,7 @@ export function MemoryScreen() {
                     <TouchableOpacity
                       key={type}
                       onPress={() => setTypeFilter(active ? null : type)}
-                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+                      className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
                     >
                       <Text
                         className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -402,7 +404,7 @@ export function MemoryScreen() {
               value={newText}
               onChangeText={setNewText}
               placeholder={t('memory.textPlaceholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tk.text.tertiary}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -412,7 +414,7 @@ export function MemoryScreen() {
               value={newCategory}
               onChangeText={setNewCategory}
               placeholder={t('memory.categoryPlaceholder')}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tk.text.tertiary}
               className="mt-2 h-9 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100"
             />
             <Text className="mt-3 text-xs text-gray-500">{t('memory.typeLabel')}</Text>
@@ -423,7 +425,7 @@ export function MemoryScreen() {
                   <TouchableOpacity
                     key={type}
                     onPress={() => setNewType(type)}
-                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
+                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
                   >
                     <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
                       {t(TYPE_KEYS[type])}
@@ -440,7 +442,7 @@ export function MemoryScreen() {
                   <TouchableOpacity
                     key={scope}
                     onPress={() => setNewScope(scope)}
-                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
+                    className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-700'}`}
                   >
                     <Text className={`text-xs ${active ? 'text-white' : 'text-gray-600 dark:text-neutral-300'}`}>
                       {t(SCOPE_KEYS[scope])}
@@ -452,7 +454,7 @@ export function MemoryScreen() {
             <TouchableOpacity
               onPress={() => void onCreate()}
               disabled={saving}
-              className="mt-4 items-center rounded-md bg-blue-600 py-3"
+              className="mt-4 items-center rounded-md bg-orange-600 py-3"
             >
               <Text className="text-sm font-medium text-white">
                 {saving ? t('common.loading') : t('memory.save')}

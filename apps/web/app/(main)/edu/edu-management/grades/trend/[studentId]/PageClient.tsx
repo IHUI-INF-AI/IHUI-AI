@@ -24,6 +24,15 @@ import {
 } from 'recharts'
 
 import { fetchApi } from '@/lib/api'
+import {
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+  CHART_PINK,
+  CHART_CYAN,
+  CHART_ORANGE,
+} from '@ihui/design-tokens'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -70,13 +79,13 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
 
 const SUBJECT_COLORS = [
   'var(--primary)',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#06b6d4',
-  '#f97316',
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+  CHART_PINK,
+  CHART_CYAN,
+  CHART_ORANGE,
 ]
 
 /* ─── Page ─── */

@@ -9,6 +9,15 @@ import { emailLogs } from '@ihui/database'
 import { db } from '../db/index.js'
 import type { FastifyInstance } from 'fastify'
 import type { EmailJobData } from '../plugins/queue.js'
+import {
+  DOC_BG,
+  DOC_BG_HOVER,
+  DOC_BORDER_HARD,
+  DOC_PAGE_BG,
+  DOC_TEXT_BODY,
+  DOC_TEXT_MUTED,
+  DOC_TEXT_STRONG,
+} from '@ihui/design-tokens'
 
 /**
  * 邮箱本地脱敏:user@example.com → u***@example.com
@@ -467,17 +476,17 @@ function renderVerificationEmailHtml(
   const greeting = nickname ? `Hi ${nickname},` : 'Hi,'
   return `<!DOCTYPE html>
 <html lang="zh-CN">
-<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f6f7f9;padding:24px;margin:0;">
-  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:8px;padding:32px;">
-    <h2 style="margin:0 0 16px;color:#0f172a;font-size:20px;">${greeting}</h2>
-    <p style="margin:0 0 8px;color:#475569;font-size:14px;">您的${sceneText}验证码是:</p>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:${DOC_PAGE_BG};padding:24px;margin:0;">
+  <div style="max-width:480px;margin:0 auto;background:${DOC_BG};border-radius:8px;padding:32px;">
+    <h2 style="margin:0 0 16px;color:${DOC_TEXT_STRONG};font-size:20px;">${greeting}</h2>
+    <p style="margin:0 0 8px;color:${DOC_TEXT_BODY};font-size:14px;">您的${sceneText}验证码是:</p>
     <div style="margin:16px 0;text-align:center;">
-      <span style="display:inline-block;padding:12px 32px;background:#f1f5f9;border-radius:6px;font-size:32px;font-weight:700;letter-spacing:8px;color:#0f172a;">${code}</span>
+      <span style="display:inline-block;padding:12px 32px;background:${DOC_BG_HOVER};border-radius:6px;font-size:32px;font-weight:700;letter-spacing:8px;color:${DOC_TEXT_STRONG};">${code}</span>
     </div>
-    <p style="margin:0 0 8px;color:#475569;font-size:13px;">验证码 5 分钟内有效,请勿告知他人。</p>
-    <p style="margin:0 0 24px;color:#475569;font-size:13px;">如非本人操作,请忽略此邮件。</p>
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0;" />
-    <p style="margin:0;color:#94a3b8;font-size:12px;">IHUI AI 团队</p>
+    <p style="margin:0 0 8px;color:${DOC_TEXT_BODY};font-size:13px;">验证码 5 分钟内有效,请勿告知他人。</p>
+    <p style="margin:0 0 24px;color:${DOC_TEXT_BODY};font-size:13px;">如非本人操作,请忽略此邮件。</p>
+    <hr style="border:none;border-top:1px solid ${DOC_BORDER_HARD};margin:24px 0;" />
+    <p style="margin:0;color:${DOC_TEXT_MUTED};font-size:12px;">IHUI AI 团队</p>
   </div>
 </body>
 </html>`

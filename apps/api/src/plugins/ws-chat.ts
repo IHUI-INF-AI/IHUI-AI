@@ -79,6 +79,36 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   const instanceId = generateCompactId('inst')
   const channelFor = (roomId: string) => `chatroom:${roomId}`
 
+  // 2026-09-06 P0:Redis room 集合 TTL(限定内存无界增长)。按写路径刷新 TTL。
+  // 注:chatroom:list 为全局 set 不能整体 EXPIRE,靠 meta 过期后的过滤 + 建/删房维护规模。
+  const META_TTL_SEC = 60 * 60 * 24 * 30 // 房间元数据 30 天
+  const MEMBER_TTL_SEC = 60 * 60 * 24 * 30 // 成员/用户房间关系 30 天
+  const MESSAGE_TTL_SEC = 60 * 60 * 24 * 7 // 消息历史 7 天
+
+  // 服务端心跳:每 30s 对所有活跃 socket ping,连续 1 轮无 pong → close(1001)。
+  // 清理死连接,防止积压无响应的客户端长期占用连接/内存。
+  const aliveSockets = new Map<WebSocket, boolean>()
+  const heartbeatTimer = setInterval(() => {
+    for (const [socket, alive] of aliveSockets) {
+      if (!alive) {
+        try {
+          socket.close(1001, '心跳超时')
+        } catch {
+          /* 已关闭 */
+        }
+        aliveSockets.delete(socket)
+      } else {
+        aliveSockets.set(socket, false)
+        try {
+          socket.ping()
+        } catch {
+          /* ping 发送失败忽略,下一轮按未响应处理 */
+        }
+      }
+    }
+  }, 30_000)
+  heartbeatTimer.unref()
+
   // 2026-08-02 P1 安全审计:单用户并发连接数限制(防资源耗尽)
   // 风险:单用户可创建无限多 ws 连接 → 房间广播放大攻击 / Redis 内存耗尽
   // 防护:每用户最多 8 个并发 ws 连接,超限 close(4005)
@@ -181,6 +211,10 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     void publisher.ltrim(key, 0, 199).catch((err) => {
       server.log.error({ err }, 'ws-chat redis operation failed')
     })
+    // 2026-09-06 P0:消息历史加 TTL,防无界集合堆积(ltrim 只限长度,不限时间)
+    void publisher.expire(key, MESSAGE_TTL_SEC).catch((err) => {
+      server.log.error({ err }, 'ws-chat redis operation failed')
+    })
   }
 
   // HTTP 鉴权辅助
@@ -239,6 +273,8 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
     }
     await redis.hset(`chatroom:meta:${roomId}`, meta)
     await redis.sadd('chatroom:list', roomId)
+    // 2026-09-06 P0:给房间元数据加 TTL,防无界集合堆积
+    await redis.expire(`chatroom:meta:${roomId}`, META_TTL_SEC)
     return reply.send(success(meta))
   })
 
@@ -518,6 +554,13 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           void r.sadd(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
             server.log.error({ err }, 'ws-chat redis operation failed')
           })
+          // 2026-09-06 P0:加入时刷新成员集合 TTL,防无界集合堆积
+          void r.expire(`chatroom:members:${targetRoom}`, MEMBER_TTL_SEC).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
+          void r.expire(`chatroom:user_rooms:${userId}`, MEMBER_TTL_SEC).catch((err) => {
+            server.log.error({ err }, 'ws-chat redis operation failed')
+          })
         }
         // 通知房间其他成员有新人加入(跨实例广播,排除自己)
         publish(
@@ -565,6 +608,10 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
 
       // 初始加入 URL 中的房间
       joinRoom(roomId)
+
+      // 2026-09-06 P0:服务端心跳注册——记录连接并监听 pong,空闲超时由 heartbeatTimer 兜底 close
+      aliveSockets.set(socket, true)
+      socket.on('pong', () => aliveSockets.set(socket, true))
 
       socket.on('message', (data: Buffer) => {
         const raw = data.toString()
@@ -654,8 +701,11 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
       })
 
       socket.on('close', () => {
+        // 2026-09-06 P0:从心跳表移除
+        aliveSockets.delete(socket)
         // 清理该成员所在的所有房间(支持中途加入的多个房间)
-        for (const targetRoom of member.rooms) {
+        const joinedRooms = Array.from(member.rooms)
+        for (const targetRoom of joinedRooms) {
           const members = rooms.get(targetRoom)
           if (members) {
             members.delete(member)
@@ -664,6 +714,18 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
           publish(targetRoom, { type: 'room', event: 'member_leave', user: userId, nickname })
         }
         member.rooms.clear()
+        // 2026-09-06 P0:连接关闭时同步清理 Redis 成员关系(含异常断线),防无界集合累积
+        const r = getRedis()
+        if (r) {
+          for (const targetRoom of joinedRooms) {
+            void r.srem(`chatroom:members:${targetRoom}`, userId).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis cleanup failed')
+            })
+            void r.srem(`chatroom:user_rooms:${userId}`, targetRoom).catch((err) => {
+              server.log.error({ err }, 'ws-chat redis cleanup failed')
+            })
+          }
+        }
         // 2026-08-02 P1 安全审计:释放连接槽位 + 清除速率窗口
         userConnectionLimiter.release(userId)
         messageRateLimiter.reset(userId)
@@ -689,6 +751,7 @@ const wsChatPlugin: FastifyPluginAsync = async (server) => {
   })
 
   server.addHook('onClose', async () => {
+    clearInterval(heartbeatTimer)
     if (subscriber) {
       try {
         await subscriber.quit()
