@@ -49,6 +49,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .agent_step_recorder import agent_step_recorder as _default_recorder
+from .injection_event_recorder import record_injection_event as _default_injection_recorder
 from .prompt_guard import act as _default_prompt_guard
 from .tool_budget_governor import (
     BUDGET_EXCEEDED,
@@ -183,6 +184,7 @@ class GuardedToolPipeline:
         budget_governor: Any | None = None,
         step_recorder: Any | None = None,
         cost_accounting: Callable[..., dict[str, Any]] | None = None,
+        injection_recorder: Callable[..., dict[str, Any]] | None = None,
         scan_enabled: bool = False,
         guard_enabled: bool = False,
         record_enabled: bool = False,
@@ -200,6 +202,11 @@ class GuardedToolPipeline:
         self.step_recorder: Any = step_recorder if step_recorder is not None else _default_recorder
         self.cost_accounting: Callable[..., dict[str, Any]] = (
             cost_accounting if cost_accounting is not None else _default_cost_accounting
+        )
+        # 注入拦截事件记录器(全活动时间线回放 P1-4):默认接入进程内记录器,
+        # 也可注入自定义实现;stage 2 危险工具入参被拦截时调用。
+        self.injection_recorder: Callable[..., dict[str, Any]] = (
+            injection_recorder if injection_recorder is not None else _default_injection_recorder
         )
         # Per-stage toggles, all default OFF -> run() passes through verbatim
         self.scan_enabled = bool(scan_enabled)
@@ -222,6 +229,8 @@ class GuardedToolPipeline:
         prompt_source: str,
         prompt_policy: str,
         scan_flags: list[str] | None,
+        session_id: str | None = None,
+        injection_recorder: Any = None,
     ) -> _PreGate:
         errors: list[PipelineError] = []
         timings: dict[str, float] = {}
@@ -233,7 +242,15 @@ class GuardedToolPipeline:
             t0 = time.perf_counter()
             try:
                 text = json.dumps(args, ensure_ascii=False, default=str)
-                r = self.prompt_guard(text, source=prompt_source, policy=prompt_policy)
+                # 仅在提供 session_id 时透传(自定义/既有 prompt_guard 可能不接受
+                # session_id 参数;缺省 None 时零行为变化,兼容旧签名)。
+                guard_kwargs: dict[str, Any] = {
+                    "source": prompt_source,
+                    "policy": prompt_policy,
+                }
+                if session_id is not None:
+                    guard_kwargs["session_id"] = session_id
+                r = self.prompt_guard(text, **guard_kwargs)
                 if r.get("blocked"):
                     errors.append(
                         PipelineError(
@@ -274,6 +291,20 @@ class GuardedToolPipeline:
                             STAGE_INPUT, ERROR_SCAN_BLOCKED, "dangerous tool args blocked"
                         )
                     )
+                    # 全活动时间线回放(P1-4):危险工具入参被拦截 → 登记注入拦截事件
+                    if session_id is not None and injection_recorder is not None:
+                        try:
+                            injection_recorder(
+                                session_id,
+                                source="tool_args",
+                                risk_level="high",
+                                hit_types=hits,
+                                action="block",
+                                blocked=True,
+                                snippet=str(args)[:120],
+                            )
+                        except Exception as rec_err:  # 记录失败绝不阻断主链路
+                            logger.warning("工具入参拦截事件登记失败(忽略): %s", rec_err)
                     timings[STAGE_INPUT] = _ms(t0)
                     return _PreGate(False, errors, budget, scan, timings, False)
             except Exception as e:  # fail-closed: scan error treated as blocked
@@ -424,6 +455,7 @@ class GuardedToolPipeline:
         prompt_policy: str = "refuse",
         scan_flags: list[str] | None = None,
         http_summary: str = "",
+        session_id: str | None = None,
     ) -> PipelineResult:
         """Async full flow. fn may be async or sync (awaited when awaitable)."""
         args, rec, bgov, pre = self._setup(
@@ -431,6 +463,7 @@ class GuardedToolPipeline:
             cost_estimate=cost_estimate, scan_source=scan_source, scan_policy=scan_policy,
             block_on_scan=block_on_scan, prompt_source=prompt_source,
             prompt_policy=prompt_policy, scan_flags=scan_flags,
+            session_id=session_id,
         )
         if not pre.ok:
             return self._from_pre(pre)
@@ -474,6 +507,7 @@ class GuardedToolPipeline:
         prompt_policy: str = "refuse",
         scan_flags: list[str] | None = None,
         http_summary: str = "",
+        session_id: str | None = None,
     ) -> PipelineResult:
         """Sync full flow (sync-only fn), for non-async callers."""
         args, rec, bgov, pre = self._setup(
@@ -481,6 +515,7 @@ class GuardedToolPipeline:
             cost_estimate=cost_estimate, scan_source=scan_source, scan_policy=scan_policy,
             block_on_scan=block_on_scan, prompt_source=prompt_source,
             prompt_policy=prompt_policy, scan_flags=scan_flags,
+            session_id=session_id,
         )
         if not pre.ok:
             return self._from_pre(pre)
@@ -507,10 +542,14 @@ class GuardedToolPipeline:
         tool_name: str,
         args: dict[str, Any] | None = None,
         run_id: str,
+        session_id: str | None = None,
         **kw: Any,
     ) -> GuardedRun:
         """Async context manager wrapping the full flow; a block raises GuardedToolError."""
-        return GuardedRun(self, fn=fn, tool_name=tool_name, args=args, run_id=run_id, **kw)
+        return GuardedRun(
+            self, fn=fn, tool_name=tool_name, args=args, run_id=run_id,
+            session_id=session_id, **kw,
+        )
 
     def check(self, run_id: str) -> dict[str, Any]:
         """Read-only snapshot: budget used/remaining + cost ledger + recorder metrics."""
@@ -546,7 +585,7 @@ class GuardedToolPipeline:
 
     def _setup(
         self, tool_name: str, args: dict[str, Any] | None, run_id: str, recorder: Any,
-        budget: Any, **kw: Any,
+        budget: Any, session_id: str | None = None, **kw: Any,
     ) -> tuple[dict[str, Any], Any, Any, _PreGate]:
         """Resolve recorder/governor and run pre-guards; callers branch on pre.ok."""
         if args is None:
@@ -557,7 +596,10 @@ class GuardedToolPipeline:
             else (self.step_recorder if self.record_enabled else None)
         )
         bgov = budget if budget is not None else self.budget_governor
-        pre = self._pre_guards(tool_name, args, run_id, bgov, **kw)
+        pre = self._pre_guards(
+            tool_name, args, run_id, bgov,
+            session_id=session_id, injection_recorder=self.injection_recorder, **kw,
+        )
         return args, rec, bgov, pre
 
     def _from_pre(self, pre: _PreGate) -> PipelineResult:
