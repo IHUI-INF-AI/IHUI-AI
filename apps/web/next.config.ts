@@ -35,8 +35,8 @@ const staticDistDir = isStaticExport ? '.next-static' : '.next'
 // 2026-09-07 构建修复:distDir 允许经 IHUI_BUILD_DIST 覆盖。
 // 用途:分阶段/零停机部署时先构建到独立 staging 目录(web 仍服务线上 .next),
 // 构建通过后再停服务执行 .next ← staging 交换,把停机窗口从「整个构建长
-// 度」压缩到「秒级目录交换」。服务端正式构建仍默认 .next。
-const buildDistDir = process.env.IHUI_BUILD_DIST || (isStaticExport ? '.next-static' : '.next')
+// 度」压缩到「秒级目录交换」。服务端正式构建仍默认 .next(复用 staticDistDir)。
+const buildDistDir = process.env.IHUI_BUILD_DIST || staticDistDir
 
 const nextConfig: NextConfig = {
   // 静态导出供 Tauri WebView 加载(仅 EXPORT_STATIC/GITHUB_PAGES 时启用;

@@ -45,10 +45,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // 但此前 React collapsed state 仍是 false,继续渲染展开态 UI(任务列表卡片/分组标题/80px 长 logo),
   // 塞进 60px 条导致错位、文字竖排、header 空白(用户反馈"缩回态样式难看")。
   // 现在 effectiveCollapsed 统一驱动渲染态,与 CSS 强制宽度保持一致。
-  // initialValue=false:SSR 输出展开态(与桌面首帧一致,避免桌面用户 60px→160px CLS 闪烁);
+  // hook SSR/首帧默认 false → SSR 输出展开态(与桌面首帧一致,避免桌面用户 60px→160px CLS 闪烁);
   // 平板区间 hydration 前由 globals.css 强制规则兜底宽度并隐藏文字 span,hydration 后本 hook
   // 一个 effect 内切到折叠态,与旧版 CSS-only 行为相比只多了 header/任务列表的折叠化,无新闪烁。
-  const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 1023px)', false)
+  const isTabletViewport = useMediaQuery('(min-width: 768px) and (max-width: 1023px)')
   const effectiveCollapsed = collapsed || isTabletViewport
 
   // 挂载时从 localStorage 恢复折叠偏好(与 GlobalShell 旧逻辑一致)
@@ -397,7 +397,9 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
    * 现在 footer 常驻渲染:<768px 桌面 aside 本就被 CSS display:none(不影响);
    * 768-1023px 强制 collapsed 图标竖排(适配 60px 宽);≥1024px 跟随用户折叠偏好。
    */
-  const isDesktopViewport = useMediaQuery('(min-width: 1024px)', true)
+  // hook SSR/首帧默认 false → SSR 先渲染折叠 footer(图标),hydration 后桌面端 effect 内展开,
+  // 与整页 sidebar 的 SSR 展开态策略一致,无 hydration mismatch。
+  const isDesktopViewport = useMediaQuery('(min-width: 1024px)')
   const footerCollapsed = !isDesktopViewport || collapsed
   const desktopFooter = (
     <div className="shrink-0">
