@@ -14,7 +14,12 @@ const pkg = require('./package.json')
 
 module.exports = ({ config }) => {
   // 统一从 process.env 读取(单一数据源),fallback 到 app.json extra(向后兼容)
-  const appId = process.env.EXPO_PUBLIC_WECHAT_APP_ID || config.extra?.WX_APP_APPID
+  // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
+  // 仅构建机可见,不打包进 bundle)
+  const appId =
+    process.env.EXPO_PUBLIC_WECHAT_APP_ID ||
+    process.env.WX_APP_APPID ||
+    config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
   const androidPackage = config.android?.package
@@ -25,14 +30,21 @@ module.exports = ({ config }) => {
     )
   }
 
+  // 运营商一键登录(可选增强,未配置不阻断):闪验 appId + WebView/H5 SDK 地址(单一数据源:env)
+  const carrierAppId = process.env.EXPO_PUBLIC_CARRIER_APP_ID || config.extra?.CARRIER_APP_ID
+  const carrierWebSdkUrl =
+    process.env.EXPO_PUBLIC_CARRIER_WEB_SDK_URL || config.extra?.CARRIER_WEB_SDK_URL
+
   return {
     ...config,
     version: pkg.version,
     plugins: [
       'expo-secure-store',
       ...(config.plugins || []),
-      ['./plugins/withWechat', { appId, universalLink, androidPackage }],
-      './plugins/withExpoImportFix',
+      ['./plugins/withWechat.cjs', { appId, universalLink, androidPackage }],
+      // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
+      ['./plugins/withCarrier.cjs', { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage }],
+      './plugins/withExpoImportFix.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name

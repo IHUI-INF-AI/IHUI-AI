@@ -21,6 +21,17 @@ global:
 templates:
   - '/etc/alertmanager/templates/*.tmpl'
 
+# 静默窗口:夜间维护窗口(每日 00:00-02:00)暂停非 critical 告警推送,避免夜间噪音。
+# 说明:critical 路由不挂该静默,保障 P0/P1 半夜仍能报警(自保链不断)。
+# 需调整维护时间在此修改即可;若需"维护周日全天",再额外追加一个含 weekdays 的区间项。
+mute_time_intervals:
+  - name: nightly-maintenance
+    time_intervals:
+      - times:
+          - start_time: '00:00'
+            end_time: '02:00'
+        weekdays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
 route:
   receiver: 'default-email'
   group_by: ['alertname', 'service']
@@ -28,16 +39,20 @@ route:
   group_interval: 5m
   repeat_interval: 4h
   routes:
-    # critical: 钉钉 + 邮件 (continue 让告警同时进入下游 receiver)
+    # critical: 钉钉 + 邮件 (continue 让告警同时进入下游 receiver);夜间维护窗口不静默 critical
     - matchers: ['severity="critical"']
       receiver: 'dingtalk'
       continue: true
-    # warning: 飞书
+    # warning: 飞书(夜间维护窗口静默,次日/维护结束后补发到聚合)
     - matchers: ['severity="warning"']
       receiver: 'feishu'
-    # info: 邮件
+      mute_time_intervals:
+        - nightly-maintenance
+    # info: 邮件(夜间维护窗口静默)
     - matchers: ['severity="info"']
       receiver: 'default-email'
+      mute_time_intervals:
+        - nightly-maintenance
 
 receivers:
   - name: 'default-email'
@@ -67,4 +82,21 @@ inhibit_rules:
   - source_matchers: ['severity="critical"']
     target_matchers: ['severity="warning"']
     equal: ['alertname', 'service']
+
+  # ===== 级联抑制(告警名对齐 alerts.yml 的 PostgresDown/RedisDown/ApiDown/AiServiceDown 等)=====
+  # 明细见 noise-rules.yml(本文件的 inhibit_rules 段为合并后的可用稿,已同步)
+  # 根因覆盖则抑制衍生告警,避免"一个故障多条告警":
+  # API 宕机 → 其错误率/响应时间随之失效 → 抑制
+  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
+    target_matchers: ['alertname="ApiHighErrorRate"']
+    equal: ['instance']
+  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
+    target_matchers: ['alertname="ApiSlowResponse"']
+    equal: ['instance']
+  # AI 服务宕机 → LLM provider 健康告警属衍生 → 抑制
+  - source_matchers: ['alertname="AiServiceDown"', 'severity="critical"']
+    target_matchers: ['alertname="LlmProviderUnhealthy"']
+    equal: ['instance']
+  # 说明:PostgresDown/RedisDown/WindowsDiskSpaceLow 当前 alerts.yml 无衍生告警可抑制,
+  # 后续新增 PG/Redis 明细指标告警时,再在 noise-rules.yml 按真实 alertname 追加级联。
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

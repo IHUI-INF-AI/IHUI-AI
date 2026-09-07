@@ -17,7 +17,9 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "WX_APP_APPID": "wx85fa429a9331b5c8"
+        "WX_APP_APPID": "wx85fa429a9331b5c8",
+        "EXPO_PUBLIC_API_BASE_URL": "https://aizhs.top",
+        "EXPO_PUBLIC_WEB_URL": "https://aizhs.top"
       }
     }
   },

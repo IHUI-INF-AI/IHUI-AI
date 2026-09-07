@@ -8,6 +8,9 @@ import Script from 'next/script'
 import { Toaster } from '@/components/common'
 
 import './globals.css'
+// 2026-09-06 修复:KaTeX 数学公式样式改由 JS import 引入(替代 globals.css 的 CSS @import,
+// 后者在 Tailwind v4 + pnpm 软链下生产构建无法解析)。
+import 'katex/dist/katex.min.css'
 import { ThemeProvider } from '@/providers/theme-provider'
 import { QueryProvider } from '@/providers/query-provider'
 import { GlobalHooksProvider } from '@/providers/global-hooks-provider'
@@ -15,7 +18,9 @@ import { I18nProvider } from '@/providers/i18n-provider'
 import { LoginDialog } from '@/components/login/LoginDialog'
 import { LoginRedirectListener } from '@/components/login/LoginRedirectListener'
 import { GlobalShell } from '@/components/layout/GlobalShell'
+import { MobileLoginGate } from '@/components/layout/MobileLoginGate'
 import { TooltipProvider, ConfirmServiceHost } from '@/components/feedback'
+import { DOC_BG, DOC_BG_DARK } from '@ihui/design-tokens'
 
 // EDIX 拉丁字体仅在 h1-h6 标题 + .font-edix 工具类中显式使用(见 globals.css)。
 // 不再通过 next/font/local 挂载到 body,避免全站英文文本被强制走 EDIX 字体。
@@ -196,9 +201,14 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // 2026-09-06 移动 App(WebView/内嵌浏览器)端到端边缘渲染适配:
+  // 声明 viewport-fit=cover,让 env(safe-area-inset-*) 在刘海屏/状态栏场景真正生效,
+  // 配合 GlobalShell 根容器顶部 padding 避开系统状态栏(时间/信号/电量那行)。
+  // 桌面/普通浏览器 env(safe-area-*)=0,不影响任何现有布局。
+  viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: light)', color: DOC_BG },
+    { media: '(prefers-color-scheme: dark)', color: DOC_BG_DARK },
   ],
 }
 
@@ -528,7 +538,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     各路由组 layout 在内容槽内填充自己的样式((main) 用 MainShell 工作区面板,
                     (marketing) 用 Header+Footer,(auth) 用居中表单等)。
                   */}
-                  <GlobalShell>{children}</GlobalShell>
+                  <GlobalShell>
+                    <MobileLoginGate>{children}</MobileLoginGate>
+                  </GlobalShell>
                   {/* output: 'export' 模式:useSearchParams() 必须包裹 Suspense */}
                   <Suspense fallback={null}>
                     <LoginRedirectListener />
