@@ -114,8 +114,8 @@ export default function SsoLoginPage() {
           subtitle={tSso('authorizing', { clientId })}
           onClose={handleClose}
         >
-          <Button
-            className="h-10 w-full"
+          <Button size="lg"
+            className="w-full px-4"
             onClick={() => generateCodeAndRedirect()}
             disabled={exchanging}
           >
