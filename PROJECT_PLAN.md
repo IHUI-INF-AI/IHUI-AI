@@ -83,6 +83,13 @@
 - [x] **P2-8 MCP 服务端能力市场入口** ✅(2026-09-07):`services/capability_market.py` CapabilityManifest 自动生成(缓存+失效)+`capability_market_store.py` 启停持久化+`routers/mcp.py` /mcp/capabilities 列表(分页/分类/检索)/详情/enable/disable(admin 权限模型,信封契约)+api-client `endpoints/mcp.ts` 类型化端点+web `(main)/capability-market` 市场页(卡片+搜索+启用开关)+GlobalTopBar 入口+i18n shared 31 keys × 5 语言;test_capability_market.py 12 测。
 - **集成验收**:三线 worktree 提交串行 cherry-pick 合一(main.py 双路由挂载冲突手工合并);合并后 94/94 后端测试绿(timeline 11+relay 18+market 12+guarded 41+prompt_guard 12)、i18n 5 语言 parity OK、tsc 改动文件 0 错、三仓 ls-remote 复核一致。
 
+### P0 能力超越路线图 P3-9/P3-10/P3-11 三线收官 ✅(2026-09-07 晚,429 限流下主会话串行完成;集成链 466eecd727,docs 7df6c940bb)
+
+- [x] **P3-9 成本真网计价+实时看板** ✅(2026-09-07):价表数据层(`core/model_pricing.py`,并行会话当日收口)基础上补齐 GET /api/model-pricing 快照 API+`admin/model-pricing` 看板页(覆盖率卡片+模型/厂商/覆盖三 tab)+AdminNav 入口(复用存量孤儿键 nav.pricing)+8803 rewrite+5 语言 i18n;test_model_pricing.py 14 测。
+- [x] **P3-10 一键发布/接入文档引导** ✅(2026-09-07):`docs/ONBOARDING.md` 零配置跑通(命令逐条对照 dev-port-registry.json/start-dev.ps1/drizzle 核实)+web `/onboarding` 五步 checklist 页(localStorage 进度)+MCP 商店/能力市场入口聚合;i18n 19 keys × 5 语言。
+- [x] **P3-11 全端杀手锏同构** ✅(2026-09-07):穷举 2363 个 TS 源文件,CLI 清零 2 处二次写死(agent.ts/compaction-cache.ts → import 单源);质量自证常量补入 TS 镜像+parity(tunables 沉淀 *_DEFAULT 标量);新守门 `scripts/check-killer-parity-ends.mjs` 入 check:all(0 违例,repl.ts 0.87 强制压缩数学显式豁免)。
+- **集成验收**:i18n 3 新命名空间 ×5 parity OK / 守门 2363 文件 0 违例 / pytest 35 通过 / 改动文件 tsc 0 错。**能力超越路线图 P0/P1/P2/P3 全部闭环**;仅剩 2 条需外部资源项(公网 MCP OAuth 真网端点、厂商账单 API 密钥对账)。
+
 
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
