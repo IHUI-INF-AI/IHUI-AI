@@ -7,6 +7,7 @@
 import * as React from 'react'
 import type { EChartsOption } from 'echarts'
 import { EChart } from './EChart'
+import { CHART_BLUE, CHART_GREEN } from '@ihui/design-tokens'
 
 export interface LearningProgressPoint {
   date: string
@@ -29,7 +30,6 @@ const MOCK: LearningProgressPoint[] = [
   { date: '07-14', lessons: 30, minutes: 210 },
 ]
 
-// ECharts canvas 渲染不支持 CSS var(),以下颜色为 tokens.css --chart-* 的硬编码副本,修改需同步 tokens.css
 export function LearningProgressChart({ data = MOCK, height = 300 }: LearningProgressChartProps) {
   const option: EChartsOption = {
     tooltip: { trigger: 'axis' },
@@ -46,7 +46,7 @@ export function LearningProgressChart({ data = MOCK, height = 300 }: LearningPro
         type: 'line',
         smooth: true,
         data: data.map((d) => d.lessons),
-        itemStyle: { color: '#3b82f6' },
+        itemStyle: { color: CHART_BLUE },
         areaStyle: { opacity: 0.1 },
       },
       {
@@ -55,7 +55,7 @@ export function LearningProgressChart({ data = MOCK, height = 300 }: LearningPro
         yAxisIndex: 1,
         smooth: true,
         data: data.map((d) => d.minutes),
-        itemStyle: { color: '#10b981' },
+        itemStyle: { color: CHART_GREEN },
       },
     ],
   }

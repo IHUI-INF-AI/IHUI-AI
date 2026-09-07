@@ -27,10 +27,12 @@ module.exports = {
       colors: {
         // RN 扩展语义色(2026-07-28 立,消除 screen 文件 hex 硬编码)
         // 值源自 global.css --rn-* 变量,暗色模式自动切换
-        purple: {
-          DEFAULT: 'var(--rn-purple)',
-          light: 'var(--rn-purple-light)',
-          soft: 'var(--rn-purple-soft)',
+        // accent = 全项目统一强调橙(2026-09-06,对齐 --color-brand-orange;替换原 purple)
+        accent: {
+          DEFAULT: 'var(--rn-accent)',
+          light: 'var(--rn-accent-light)',
+          soft: 'var(--rn-accent-soft)',
+          '50': 'var(--rn-accent-50)',
         },
         tertiary: 'var(--rn-tertiary)',
         body: 'var(--rn-body)',

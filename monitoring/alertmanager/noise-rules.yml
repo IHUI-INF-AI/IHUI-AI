@@ -1,74 +1,45 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 # 告警抑制规则（cascade_inhibit）— Alertmanager 噪音抑制单一源
 # 当上游根因告警触发时，自动抑制下游衍生告警，避免告警风暴
-# 说明：本文件为唯一 source-of-truth（2026-07-22 整合：旧根目录 noise-rules.yml 已合并至此）
-# 用法：将 inhibit_rules 段合并到 alertmanager.yml 的 inhibit_rules 段
+
+# ⚠ 一致性与加载说明（2026-09-06 修订，告警名对齐 monitoring/prometheus/alerts.yml 实际规则）：
+#   - 历史版本本文件引用了 PGInstanceDown/PGConnectionsHigh/ApiInstanceDown 等“不存在”的告警名，
+#     那些规则从不会命中（source 永远 absent，等于无效配置），已清理。
+#   - 本文件仅作抑制规则的“文档来源”（inhibit_rules 片段）。Alertmanager 无 include 机制，
+#     运行态只加载 alertmanager.yml。修复方案：本文件已与 alertmanager.yml 的 inhibit_rules 段
+#     【合并进同一文件】（同一源码仓库内保持一致）。
+#   - 部署同步：线上运行副本在 D:\DevEnv\（如 D:\DevEnv\monitor\alertmanager\alertmanager.yml）。
+#     发布时把本仓 alertmanager.yml 的 inhibit_rules 段整体覆盖到运行副本，然后用
+#     `amtool check-config <运行副本路径>` 校验后再 reload（`amtool reload` 或向
+#     /-/reload POST）。切勿只拷本噪音文件（无 include 机制，拷了也不生效）。
+
+# 当前 alerts.yml 实际告警名清单（对齐基线）：
+#   ApiDown / ApiHighErrorRate / ApiSlowResponse / AiServiceDown /
+#   LlmProviderUnhealthy / (LlmProviderErrorBurst、LlmTokenCostSurge 已 disabled 待打点) /
+#   WindowsDiskSpaceLow / PostgresDown / RedisDown / DiskSpaceLow / MemoryLow /
+#   PrometheusDown / AlertmanagerDown / AlertBridgeDown / WindowsExporterDown
 
 inhibit_rules:
-  # ===== PostgreSQL 级联抑制 =====
-  # PG 实例宕机时，抑制该实例的所有衍生告警
-  - source_match: { alertname: 'PGInstanceDown' }
-    target_match: { alertname: 'PGConnectionsHigh' }
-    equal: ['instance', 'severity']
-
-  - source_match: { alertname: 'PGInstanceDown' }
-    target_match: { alertname: 'PGReplicationLagHigh' }
-    equal: ['instance', 'severity']
-
-  - source_match: { alertname: 'PGInstanceDown' }
-    target_match: { alertname: 'PGRollbackHigh' }
-    equal: ['instance', 'severity']
-
-  - source_match: { alertname: 'PGInstanceDown' }
-    target_match: { alertname: 'PGBloatHigh' }
-    equal: ['instance', 'severity']
-
-  # 连接耗尽时，抑制连接数高告警（根因已覆盖）
-  - source_match: { alertname: 'PGConnectionsExhausted' }
-    target_match: { alertname: 'PGConnectionsHigh' }
-    equal: ['instance', 'severity']
-
-  # 死锁检测时，抑制回滚率告警（死锁是回滚的根因）
-  - source_match: { alertname: 'PGDeadlockDetected' }
-    target_match: { alertname: 'PGRollbackHigh' }
-    equal: ['instance', 'severity']
-
-  # 长事务 Critical 级别时，抑制 Warning 级别
-  - source_match: { alertname: 'PGLongTransactionCritical' }
-    target_match: { alertname: 'PGLongTransaction' }
-    equal: ['instance', 'severity']
-
-  # 缓存命中率低时，抑制连接数高告警（缓存问题是根因）
-  - source_match: { alertname: 'PGCacheHitLow' }
-    target_match: { alertname: 'PGConnectionsHigh' }
-    equal: ['instance', 'severity']
-
-  # ===== Redis 级联抑制 =====
-  # Redis 实例不可用时，抑制其衍生告警
-  - source_match: { alertname: 'RedisInstanceDown' }
-    target_match: { alertname: 'RedisMemoryHigh' }
-    equal: ['instance', 'severity']
-
-  - source_match: { alertname: 'RedisInstanceDown' }
-    target_match: { alertname: 'RedisHitRateLow' }
-    equal: ['instance', 'severity']
-
-  # ===== 节点级联抑制 =====
-  # 节点宕机时，抑制该节点上的应用层告警（节点是根因）
-  - source_match: { alertname: 'NodeDown' }
-    target_match: { alertname: 'ApiInstanceDown' }
+  # ===== API 级联抑制 =====
+  # API 实例宕机是根因，其错误率/响应时间告警随之失去意义 → 抑制
+  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
+    target_matchers: ['alertname="ApiHighErrorRate"']
     equal: ['instance']
 
-  # ===== API 级联抑制 =====
-  # API 实例不可用时，抑制其下游延迟/错误率告警
-  - source_match: { alertname: 'ApiInstanceDown' }
-    target_match: { alertname: 'ApiLatencyHigh' }
-    equal: ['instance', 'severity']
+  - source_matchers: ['alertname="ApiDown"', 'severity="critical"']
+    target_matchers: ['alertname="ApiSlowResponse"']
+    equal: ['instance']
 
-  - source_match: { alertname: 'ApiInstanceDown' }
-    target_match: { alertname: 'ApiErrorRateHigh' }
-    equal: ['instance', 'severity']
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+  # ===== AI 服务级联抑制 =====
+  # 服务宕机 → LLM provider 健康告警属衍生 → 抑制
+  - source_matchers: ['alertname="AiServiceDown"', 'severity="critical"']
+    target_matchers: ['alertname="LlmProviderUnhealthy"']
+    equal: ['instance']
+
+  # ===== 待接入占位（勿删除，供后续维护参考）=====
+  # PostgresDown / RedisDown / WindowsDiskSpaceLow 目前 alerts.yml 无“衍生明细告警”可抑制，
+  # 待新增 PG/Redis 明细指标告警时，按真实 alertname 在此追加级联即可（如
+  #   source: PostgresDown → target: PgConnectionHigh)。
+  # 主机资源类告警（DiskSpaceLow/MemoryLow）属平行资源问题，不做跨级抑制，避免吞掉真实告警。

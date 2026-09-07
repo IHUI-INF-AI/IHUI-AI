@@ -185,6 +185,7 @@
   },
   "dependencies": {
     "@ihui/api-client": "workspace:*",
+    "@ihui/design-tokens": "workspace:*",
     "@ihui/types": "workspace:*",
     "xstate": "^5.32.5",
     "zod": "catalog:",

@@ -15,6 +15,7 @@
 
 import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 export interface SandboxOptions {
   cwd: string;
@@ -232,6 +233,37 @@ function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
 }
 
 function isPathAllowed(target: string, cwd: string, allowed: string[]): boolean {
+  return isPathAllowedWithRealpath(target, cwd, allowed, fs.realpathSync);
+}
+
+/**
+ * 路径白名单校验(带 symlink 逃逸防护,2026-09-07 加固)。
+ *
+ * 之前只做字符串前缀比对:`src/link/secret` 形式上落在 cwd 内,
+ * 但 src/link 是指向外部的符号链接时,实际读写会逃逸出沙盒。
+ * 现在:对命令中出现的每个已存在路径解析真实路径(fs.realpathSync),
+ * 真实路径必须同样落在白名单内;不存在的路径(将要创建的文件)按
+ * 解析后的形式路径校验(无法预判 symlink,如实注释此残余风险)。
+ */
+export function isPathAllowedWithRealpath(
+  target: string,
+  cwd: string,
+  allowed: string[],
+  realpathFn: (p: string) => string,
+): boolean {
+  const candidates = [target];
+  const abs = path.isAbsolute(target) ? path.resolve(target) : path.resolve(cwd, target);
+  candidates.push(abs);
+  // 真实路径解析:存在则解析(symlink 防护核心),不存在则用形式路径
+  try {
+    candidates.push(realpathFn(abs));
+  } catch {
+    /* 不存在:保留形式路径 */
+  }
+  return candidates.every((p) => isPathAllowedRaw(p, cwd, allowed));
+}
+
+function isPathAllowedRaw(target: string, cwd: string, allowed: string[]): boolean {
   const abs = path.isAbsolute(target) ? path.resolve(target) : path.resolve(cwd, target);
   if (abs === cwd || abs.startsWith(cwd + path.sep)) return true;
   return allowed.some((p) => {
