@@ -1,0 +1,19 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+// 模型定价看板页 metadata(SEO):服务端 wrapper 注入唯一 title。
+
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: {
+    absolute: '模型定价看板 | IHUI AI',
+  },
+  description:
+    'IHUI AI 模型定价看板:单一价目源全量快照,覆盖主流厂商模型级牌价/厂商级兜底/运行时覆盖注入与覆盖率统计,USD per 1M tokens。',
+  alternates: { canonical: '/admin/model-pricing' },
+}
+
+export default function ModelPricingLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
