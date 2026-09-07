@@ -81,8 +81,9 @@ _MODEL_PRICES_PER_1M: dict[str, dict[str, float]] = {
     "gemini-1.5-pro": {"input": 1.25, "output": 5.00},
     "gemini-1.5-flash": {"input": 0.075, "output": 0.30},
     # DeepSeek
-    "deepseek-reasoner": {"input": 0.55, "output": 2.19},
-    "deepseek-chat": {"input": 0.27, "output": 1.10},
+    # DeepSeek 官方 V3.2 统一牌价(2026-09 真网对账核实,cache-miss 口径;原 V3 价 0.27/1.10 已过期)
+    "deepseek-reasoner": {"input": 0.28, "output": 0.42},
+    "deepseek-chat": {"input": 0.28, "output": 0.42},
     # 智谱
     "glm-4.5-air": {"input": 0.20, "output": 1.10},
     "glm-4.5": {"input": 0.60, "output": 2.20},
