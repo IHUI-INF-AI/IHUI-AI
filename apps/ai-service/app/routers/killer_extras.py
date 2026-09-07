@@ -20,12 +20,13 @@
 # ---------------------------------------------------------------------------
 from fastapi import FastAPI
 
-from . import agent_memory, cost_ledger, mcp_export_config, prompt_guard_api
+from . import agent_memory, cost_ledger, mcp_export_config, model_pricing_api, prompt_guard_api
 
 
 def register(app: FastAPI) -> None:
     """Include all goal-driven killer routers once (call from create_app)."""
     app.include_router(cost_ledger.router, prefix="/api", tags=["cost-ledger"])
+    app.include_router(model_pricing_api.router, prefix="/api", tags=["model-pricing"])
     app.include_router(agent_memory.router, prefix="/api", tags=["memory"])
     # The two below already carry prefix="/api" internally, so mount WITHOUT
     # an extra /api argument to avoid a double /api/api prefix.
