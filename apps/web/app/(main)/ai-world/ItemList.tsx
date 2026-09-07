@@ -88,8 +88,8 @@ export function ItemList({
                 <Button
                   key={opt.key}
                   variant={order === opt.key ? 'secondary' : 'ghost'}
-                  size="sm"
-                  className="h-7 px-2.5 text-xs"
+                  size="xs"
+                  className="px-2.5 text-xs"
                   onClick={() => setOrder(opt.key)}
                 >
                   {opt.label}

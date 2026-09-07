@@ -268,8 +268,7 @@ export default function EvalPage() {
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
+                                size="icon-xs"
                                 onClick={() => setViewDataset(ds)}
                                 aria-label={t('eval.datasets.view')}
                               >
@@ -277,8 +276,8 @@ export default function EvalPage() {
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                size="icon-xs"
+                                className="text-destructive hover:text-destructive"
                                 onClick={() => setDeleteName(ds.name)}
                                 aria-label={t('eval.datasets.delete')}
                               >
@@ -381,8 +380,7 @@ export default function EvalPage() {
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
+                                size="icon-xs"
                                 onClick={() => setViewRun(run)}
                                 aria-label={t('eval.runs.view')}
                               >
