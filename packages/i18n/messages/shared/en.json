@@ -1799,5 +1799,38 @@
     "detail": {
       "title": "Workspace Detail"
     }
+  },
+  "capabilityMarket": {
+    "title": "Capability Market",
+    "subtitle": "Browse the platform's built-in MCP capabilities, enable exposure in one click to extend the Agent toolset",
+    "count": "{count} capabilities",
+    "searchPlaceholder": "Search by name or description",
+    "allCategories": "All categories",
+    "category": "Category",
+    "search": "Search",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "enable": "Enable",
+    "disable": "Disable",
+    "healthy": "Healthy",
+    "degraded": "Needs network",
+    "unhealthy": "Unhealthy",
+    "adminOnly": "Admin only",
+    "allUsers": "All users",
+    "networkRequired": "Network required",
+    "paramCount": "{count} params",
+    "noParams": "No params",
+    "kindTool": "Tool",
+    "kindResource": "Resource",
+    "kindPrompt": "Prompt",
+    "loadFailed": "Failed to load, please retry later",
+    "loading": "Loading...",
+    "actionFailed": "Action failed, please retry later",
+    "enableSuccess": "{name} enabled",
+    "disableSuccess": "{name} disabled",
+    "notFound": "Capability not found"
+  },
+  "topBar": {
+    "capabilityMarket": "Capability Market"
   }
 }
