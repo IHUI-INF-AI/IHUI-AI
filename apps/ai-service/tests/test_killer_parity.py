@@ -35,6 +35,9 @@ KILLER_CONSTANTS: dict[str, str] = {
     "DEFAULT_MIN_MESSAGES": "apps/ai-service/app/core/context_compaction.py",
     "DEFAULT_PROTOCOL_VERSION": "apps/ai-service/app/services/mcp_client.py",
     "SUPPORTED_PROTOCOL_VERSIONS": "apps/ai-service/app/services/mcp_client.py",
+    # P3-11 同构:压缩质量自证默认值(env 解析值随环境变化,parity 以 DEFAULT 标量为基线)
+    "AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT": "apps/ai-service/app/core/tunables.py",
+    "AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT": "apps/ai-service/app/core/tunables.py",
 }
 
 
