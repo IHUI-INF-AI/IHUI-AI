@@ -142,7 +142,7 @@ export function CookieHealthIndicator({
           type="button"
           onClick={handleRefresh}
           disabled={refreshing}
-          className="ml-1 inline-flex h-9 w-9 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+          className="ml-1 inline-flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
           aria-label={t('cookieHealth.refresh')}
         >
           {refreshing ? (

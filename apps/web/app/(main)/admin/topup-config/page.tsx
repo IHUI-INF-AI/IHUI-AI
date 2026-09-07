@@ -305,8 +305,8 @@ export default function AdminTopupConfigPage() {
                         <TableCell className="text-right">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            size="icon-xs"
+                            className="text-destructive hover:text-destructive"
                             onClick={() => removeTier(t.id)}
                             aria-label="删除规则"
                           >
@@ -392,8 +392,8 @@ export default function AdminTopupConfigPage() {
                   <span className="text-xs text-muted-foreground">元</span>
                   <Button
                     variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                    size="icon-xs"
+                    className="text-destructive hover:text-destructive"
                     onClick={() => removeMethod(key)}
                     aria-label={'移除 ' + key}
                   >

@@ -726,8 +726,8 @@ function ModelCardGrid({
       {/* 查看排名按钮 — 跳转 /ai-news 模型排行榜对应模型页面 */}
       <Button
         variant="outline"
-        size="sm"
-        className="h-7 w-full gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+        size="xs"
+        className="w-full gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         onClick={(e) => {
           e.stopPropagation()
           handleViewRanking()
@@ -743,7 +743,7 @@ function ModelCardGrid({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onConfigure(model)
@@ -754,7 +754,7 @@ function ModelCardGrid({
           </Button>
           <Button
             size="sm"
-            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onTry(model)
@@ -770,7 +770,7 @@ function ModelCardGrid({
           <Button
             variant="outline"
             size="sm"
-            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onRelayKeys()
@@ -781,7 +781,7 @@ function ModelCardGrid({
           </Button>
           <Button
             size="sm"
-            className="h-8 flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            className="flex-1 gap-1.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onTry(model)
@@ -796,7 +796,7 @@ function ModelCardGrid({
         <Button
           variant={isConfigured ? 'outline' : 'outline'}
           size="sm"
-          className="mt-auto h-8 w-full gap-1.5 text-xs"
+          className="mt-auto w-full gap-1.5 text-xs"
           onClick={(e) => {
             e.stopPropagation()
             onTry(model)
@@ -924,8 +924,8 @@ function ModelCardList({
       <Tooltip content={t('market.viewRanking')}>
         <Button
           variant="outline"
-          size="sm"
-          className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          size="xs"
+          className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
           onClick={(e) => {
             e.stopPropagation()
             handleViewRanking()
@@ -941,8 +941,8 @@ function ModelCardList({
         <Tooltip content={t('market.configureKey')}>
           <Button
             variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            size="xs"
+            className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onConfigure(model)
@@ -957,8 +957,8 @@ function ModelCardList({
         <Tooltip content={t('market.getRelayKey')}>
           <Button
             variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            size="xs"
+            className="shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onRelayKeys()
@@ -972,8 +972,8 @@ function ModelCardList({
 
       <Button
         variant="outline"
-        size="sm"
-        className="h-7 shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+        size="xs"
+        className="shrink-0 gap-1 px-2.5 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
         onClick={(e) => {
           e.stopPropagation()
           onTry(model)
