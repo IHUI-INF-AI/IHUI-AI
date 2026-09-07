@@ -312,6 +312,8 @@ import { aiVideoComposeRoutes } from './ai-video-compose.js'
 import { legacyLangchainRoutes } from './legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './rewarded-video-ad.js'
 import { agentRuntimeRoutes } from './agent-runtime.js'
+import { repoWikiRoutes } from './repo-wiki.js'
+import automationsRoutes from './automations.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
 import { n8nProxyRoutes } from './n8n-proxy.js'
@@ -1150,5 +1152,11 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(skillCategoriesRoutes, { prefix: '/api' })
   // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
   server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
+
+  // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
+  server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
+
+  // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
+  server.register(automationsRoutes, { prefix: '/api/automations' })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

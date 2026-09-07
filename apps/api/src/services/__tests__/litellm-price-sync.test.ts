@@ -1,8 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-import { afterEach, describe, expect, it } from 'vitest'
-import { getUsdToCnyRate, mapLiteLLMEntry } from '../litellm-price-sync.js'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getUsdToCnyRate, mapLiteLLMEntry, resetFxRateCacheForTests, resolveUsdToCnyRate } from '../litellm-price-sync.js'
 
 /**
  * mapLiteLLMEntry 纯函数单元测试(零外部依赖,不连 DB)。
@@ -97,7 +97,7 @@ describe('litellm-price-sync — mapLiteLLMEntry', () => {
   describe('汇率换算(AI_PRICE_USD_TO_CNY)', () => {
     it('自定义汇率 8.0 生效', () => {
       process.env[RATE_ENV] = '8.0'
-      const m = mapLiteLLMEntry('m', { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 })
+      const m = mapLiteLLMEntry('m', { input_cost_per_token: 0.000001, output_cost_per_token: 0.000002 }, 8.0)
       // input: 1e-6 × 8 × 1e5 = 0.8;output: 2e-6 × 8 × 1e5 = 1.6
       expect(m).toEqual({ modelId: 'm', inputTokenPrice: 0.8, outputTokenPrice: 1.6 })
     })
@@ -109,6 +109,44 @@ describe('litellm-price-sync — mapLiteLLMEntry', () => {
       expect(getUsdToCnyRate()).toBe(7.2)
       delete process.env[RATE_ENV]
       expect(getUsdToCnyRate()).toBe(7.2)
+    })
+  })
+
+  describe('实时汇率 resolveUsdToCnyRate(stub fetch,不真网)', () => {
+    afterEach(() => {
+      vi.unstubAllGlobals()
+      delete process.env[RATE_ENV]
+      resetFxRateCacheForTests()
+    })
+
+    it('接口失败 → 回退 env 汇率,不 throw', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => {
+          throw new Error('offline')
+        }),
+      )
+      process.env[RATE_ENV] = '8.5'
+      await expect(resolveUsdToCnyRate()).resolves.toBe(8.5)
+    })
+
+    it('成功拉取 → 返回接口汇率并进入 24h 缓存(第二次不再发请求)', async () => {
+      const fetchMock = vi.fn(async () =>
+        ({ ok: true, json: async () => ({ rates: { CNY: 7.15 } }) }) as unknown as Response,
+      )
+      vi.stubGlobal('fetch', fetchMock)
+      await expect(resolveUsdToCnyRate()).resolves.toBe(7.15)
+      await expect(resolveUsdToCnyRate()).resolves.toBe(7.15)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+
+    it('响应缺 CNY 字段 → 回退 env 汇率', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: true, json: async () => ({ rates: {} }) }) as unknown as Response),
+      )
+      process.env[RATE_ENV] = '7.9'
+      await expect(resolveUsdToCnyRate()).resolves.toBe(7.9)
     })
   })
 })
