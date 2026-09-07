@@ -3,6 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import type { I18nOverview } from './types'
+import {
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_VIOLET,
+  CHART_PINK,
+} from '@ihui/design-tokens'
 
 /** 加载失败时的诚实空态,避免用假数据冒充真实缺失统计 */
 export const EMPTY: I18nOverview = {
@@ -12,11 +19,11 @@ export const EMPTY: I18nOverview = {
 }
 
 export const LOCALE_COLORS: Record<string, string> = {
-  'zh-CN': '#10b981',
-  en: '#3b82f6',
-  ja: '#f59e0b',
-  ko: '#8b5cf6',
-  'zh-TW': '#ec4899',
+  'zh-CN': CHART_GREEN,
+  en: CHART_BLUE,
+  ja: CHART_AMBER,
+  ko: CHART_VIOLET,
+  'zh-TW': CHART_PINK,
 }
 
 export function fmtTime(v: string) {

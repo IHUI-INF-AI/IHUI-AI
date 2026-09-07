@@ -19,7 +19,7 @@ interface ColorScheme {
   colors: string[]
 }
 
-const EMPTY_FORM = { name: '', colors: ['#ffffff', '#3b82f6', '#1f2937'] }
+const EMPTY_FORM = { name: '', colors: ['#ffffff', '#ff6b35', '#1f2937'] }
 
 export default function ColorsPage() {
   const [list, setList] = React.useState<ColorScheme[]>([])

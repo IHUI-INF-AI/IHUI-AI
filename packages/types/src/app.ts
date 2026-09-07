@@ -1660,8 +1660,10 @@ export interface LoginScreenProps {
 
   /** 启用�?tab 列表(默认 ['password'],传多个则渲染 tab 切换�?�?   * 对齐 web ui-react LoginFormProps.tabs,顺序:email/phone/password/qr�?*/
   tabs?: readonly LoginTab[]
-  /** 默认激�?tab(默认第一�?tab) */
+  /** 默认激活 tab(默认第一个 tab) */
   defaultTab?: LoginTab
+  /** tab 切换回调(含初始激活的 defaultTab,每次 activeTab 变化都会触发;wrapper 可据此做 tab 进入时副作业) */
+  onTabChange?: (tab: LoginTab) => void
 
   // ===== 邮箱验证码登�?email tab) =====
 
@@ -1701,6 +1703,11 @@ export interface LoginScreenProps {
   onPhoneCodeChange?: (text: string) => void
   onSendPhoneCode?: () => void
   onLoginByPhoneCode?: () => void
+
+  // ===== 运营商一键登录(phone tab 内入口,wrapper 注?=====
+
+  /** 手机号 tab 内运营商一键登录入口节点(可?传则渲染在主登录按钮下方;未传不渲染) */
+  carrierOneClickEntry?: ReactNode
 
   // ===== QR 扫码登录(qr tab) =====
 

@@ -4,7 +4,10 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 */
 
-@import 'katex/dist/katex.min.css';
+/* 2026-09-06 修复:KaTeX 样式不再用 CSS @import 引入。
+   原因:Tailwind v4 的 CSS @import 解析器不跟随 pnpm 软链,裸包名 katex/dist/katex.min.css
+   在生产构建报 "Can't resolve"。改为在 app/layout.tsx 用 JS `import 'katex/dist/katex.min.css'`,
+   走 Turbopack/webpack 打包器解析(可靠跟随软链 + exports),渲染数学公式样式一致生效。 */
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @plugin 'tailwindcss-animate';
@@ -582,13 +585,13 @@ iframe::-webkit-scrollbar {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(59, 130, 246, 0.2) 10%,
-    rgba(59, 130, 246, 0.5) 25%,
-    rgba(59, 130, 246, 0.85) 40%,
-    #3b82f6 50%,
-    rgba(59, 130, 246, 0.85) 60%,
-    rgba(59, 130, 246, 0.5) 75%,
-    rgba(59, 130, 246, 0.2) 90%,
+    color-mix(in srgb, var(--chart-1) 20%, transparent) 10%,
+    color-mix(in srgb, var(--chart-1) 50%, transparent) 25%,
+    color-mix(in srgb, var(--chart-1) 85%, transparent) 40%,
+    var(--chart-1) 50%,
+    color-mix(in srgb, var(--chart-1) 85%, transparent) 60%,
+    color-mix(in srgb, var(--chart-1) 50%, transparent) 75%,
+    color-mix(in srgb, var(--chart-1) 20%, transparent) 90%,
     transparent 100%
   );
   opacity: 0;
@@ -602,13 +605,13 @@ iframe::-webkit-scrollbar {
   background: linear-gradient(
     to bottom,
     transparent 0%,
-    rgba(96, 165, 250, 0.2) 10%,
-    rgba(96, 165, 250, 0.5) 25%,
-    rgba(96, 165, 250, 0.85) 40%,
-    #60a5fa 50%,
-    rgba(96, 165, 250, 0.85) 60%,
-    rgba(96, 165, 250, 0.5) 75%,
-    rgba(96, 165, 250, 0.2) 90%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 20%, transparent) 10%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 50%, transparent) 25%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 85%, transparent) 40%,
+    color-mix(in srgb, var(--chart-1) 25%, white) 50%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 85%, transparent) 60%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 50%, transparent) 75%,
+    color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 20%, transparent) 90%,
     transparent 100%
   );
 }
@@ -626,14 +629,14 @@ iframe::-webkit-scrollbar {
 .dark .group:hover .resize-handle-line,
 .dark .group:focus-within .resize-handle-line,
 :where(.dark .resize-handle-line.is-resizing) {
-  filter: drop-shadow(0 0 3px rgba(96, 165, 250, 0.65));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, color-mix(in srgb, var(--chart-1) 25%, white) 65%, transparent));
 }
 /* hover 命中区 / 键盘聚焦 / 拖拽中:线条完全显现并带蓝色光晕(明暗统一) */
 .group:hover .resize-handle-line,
 .group:focus-within .resize-handle-line,
 :where(.resize-handle-line.is-resizing) {
   opacity: 1;
-  filter: drop-shadow(0 0 3px rgba(59, 130, 246, 0.55));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--chart-1) 55%, transparent));
 }
 
 /* AI 面板关闭态手柄的 hover 竖向提示:
