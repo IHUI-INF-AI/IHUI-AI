@@ -228,7 +228,9 @@ describe('账户管理页"开发者"下拉(2026-09-07 收纳重构)', () => {
     currentAccounts = [ACCOUNT]
     render(<AccountsPage />)
     // 2026-09-07:"添加账号"按钮以扫码登录为主(普通用户不应面对专业凭证配置)
-    fireEvent.click(screen.getAllByText('accounts.add')[0].closest('button') as HTMLElement)
+    const addBtn = screen.getAllByText('accounts.add')[0]?.closest('button')
+    expect(addBtn).toBeTruthy()
+    fireEvent.click(addBtn as HTMLElement)
     expect(screen.getByTestId('scan-dialog')).toBeTruthy()
     // 专业凭证配置作为高级入口保留在"开发者"下拉的"手动配置"项
     fireEvent.click(screen.getByTestId('menu-manualAdd'))
