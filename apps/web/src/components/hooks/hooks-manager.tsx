@@ -299,8 +299,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+            size="icon-sm"
             onClick={onViewLogs}
             aria-label="查看日志"
           >
@@ -308,8 +307,7 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8"
+            size="icon-sm"
             onClick={onEdit}
             aria-label="编辑"
           >
@@ -317,8 +315,8 @@ function HookRow({ hook, onEdit, onDelete, onToggle, onViewLogs }: HookRowProps)
           </Button>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-8 w-8 hover:text-destructive"
+            size="icon-sm"
+            className="hover:text-destructive"
             onClick={onDelete}
             aria-label="删除"
           >

@@ -109,7 +109,6 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
                   onClick={() => moveMessage(index, 'up')}
                   disabled={disabled || index === 0}
                   aria-label="上移"
@@ -119,7 +118,6 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
                   onClick={() => moveMessage(index, 'down')}
                   disabled={disabled || index === messages.length - 1}
                   aria-label="下移"
@@ -129,7 +127,7 @@ export function MessageEditor({ messages, onChange, disabled }: MessageEditorPro
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                  className="text-muted-foreground hover:text-destructive"
                   onClick={() => removeMessage(msg.id)}
                   disabled={disabled}
                   aria-label="删除消息"

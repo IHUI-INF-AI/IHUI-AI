@@ -148,8 +148,8 @@ export function ContentTemplateLibrary({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
+            size="xs"
+            className="px-2 text-xs"
             onClick={saveCurrent}
           >
             <Save className="mr-1 h-3 w-3" />
@@ -215,7 +215,7 @@ function TemplateRow({ tpl, labelKey, label, onApply, onRemove, t }: TemplateRow
         {labelKey ? t(labelKey as never) : (label ?? tpl.title)}
       </button>
       <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <Button type="button" variant="ghost" size="icon" className="h-9 w-9" onClick={onApply}>
+        <Button type="button" variant="ghost" size="icon" onClick={onApply}>
           <Plus className="h-3 w-3" />
         </Button>
         {onRemove && (
@@ -223,7 +223,7 @@ function TemplateRow({ tpl, labelKey, label, onApply, onRemove, t }: TemplateRow
             type="button"
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-muted-foreground hover:text-rose-600"
+            className="text-muted-foreground hover:text-rose-600"
             onClick={onRemove}
           >
             <Trash2 className="h-3 w-3" />

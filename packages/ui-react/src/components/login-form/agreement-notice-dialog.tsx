@@ -194,20 +194,20 @@ export function AgreementNoticeDialog({
 
         {/* 双按钮 + Enter 键提示 */}
         <div className="mt-5 flex items-center gap-2">
-          <Button
+          <Button size="lg"
             type="button"
             variant="outline"
-            className="h-10 flex-1 bg-muted/40 hover:bg-muted"
+            className="flex-1 bg-muted/40 hover:bg-muted px-4"
             onClick={onCancel}
             data-testid="agreement-notice-disagree"
           >
             {t('auth.agreementNoticeDisagree')}
           </Button>
-          <Button
+          <Button size="lg"
             ref={agreeBtnRef}
             type="button"
             variant="default"
-            className="h-10 flex-1 gap-1.5"
+            className="flex-1 gap-1.5 px-4"
             onClick={onAgree}
             data-testid="agreement-notice-agree"
           >

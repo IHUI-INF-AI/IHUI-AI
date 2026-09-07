@@ -352,10 +352,10 @@ export function PasswordLoginForm({
                 />
               </button>
             ) : (
-              <Button
+              <Button size="lg"
                 type="button"
                 variant="outline"
-                className="h-10 shrink-0 px-3 text-sm"
+                className="shrink-0 px-3 text-sm px-4"
                 onClick={() => void refreshCaptcha()}
               >
                 <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -416,9 +416,9 @@ export function PasswordLoginForm({
         <p className="text-xs text-destructive">{t('auth.agreeRequired')}</p>
       )}
 
-      <Button
+      <Button size="lg"
         type="submit"
-        className={cn('h-10 w-full', buttonClassName)}
+        className={cn('w-full px-4', buttonClassName)}
         disabled={submitting}
         data-testid="login-submit"
       >
