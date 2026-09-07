@@ -162,6 +162,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.apng': 'image/apng',
+  '.apk': 'application/vnd.android.package-archive',
 }
 function mimeFor(ext) {
   return MIME[ext.toLowerCase()] || 'application/octet-stream'
@@ -221,12 +222,18 @@ function serveStatic(req, res, root) {
     }
     const ext = path.extname(filePath)
     const isTxt = ['.txt', '.md', '.json', '.js', '.css', '.html'].includes(ext)
-    res.writeHead(200, {
+    const headers = {
       'Content-Type': mimeFor(ext),
       'Content-Length': data.length,
       'Cache-Control': isTxt ? 'public,max-age=86400' : 'public,max-age=604800',
       'Access-Control-Allow-Origin': '*',
-    })
+    }
+    // APK 等下载类型:强制附件下载并保留原始文件名
+    if (ext === '.apk') {
+      headers['Content-Disposition'] =
+        'attachment; filename="' + path.basename(filePath).replace(/"/g, '') + '"'
+    }
+    res.writeHead(200, headers)
     return res.end(data)
   })
 }
