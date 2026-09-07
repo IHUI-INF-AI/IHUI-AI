@@ -61,7 +61,7 @@ import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
 import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
-import { CONTEXT_BUDGET_THRESHOLD } from '@ihui/context-compaction';
+import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-compaction';
 import {
   primeCompactionSummary,
   getCachedCompactionSummary,
@@ -842,7 +842,8 @@ export async function decideCompaction(
       // 70% 后台预压缩(2026-09-01 立,代差能力 A 的 CLI 同构):usageRatio ≥ 0.7 且未达触发
       // 阈值时 fire-and-forget 预生成摘要缓存(复用同一 sampler 路径,产物与实时生成一致);
       // 88% 真压缩时命中缓存 → compressContextV2 零 LLM 调用,首响应零摘要阻塞。
-      const triggerRatio = v2Config.triggerRatio ?? 0.88;
+      // P3-11 同构收敛:兜底阈值引用共享包单源(此前二次写死 0.88 造成漂移面)。
+      const triggerRatio = v2Config.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
       const tokensBefore = estimateMessagesTokens(messages);
       const usageRatio = opts.contextLimit > 0 ? tokensBefore / opts.contextLimit : 0;
       if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBefore < Math.floor(opts.contextLimit * triggerRatio)) {
