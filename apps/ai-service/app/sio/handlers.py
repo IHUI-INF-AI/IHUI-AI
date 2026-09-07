@@ -33,6 +33,11 @@ from ..core.config import settings
 from ..core.llm_gateway import llm_gateway
 from ..services.memory import memory_store
 from . import rate_limiter, sio
+from ..middleware.output_safety import (
+    scan_output,
+    apply_disclaimers,
+    build_ai_generation_annotation,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -464,15 +469,30 @@ async def on_chat_message(sid: str, data: Any) -> None:
             except Exception as e:
                 logger.warning("[sio] append assistant reply to memory_store failed: %s", e)
 
+        # 输出安全:对话收尾对整段回复做命中检测并按风险补免责;同时打 "AI 生成"标识
+        check = scan_output(accumulated_content) if accumulated_content else None
+        safety: dict[str, Any] = {}
+        reply_content = accumulated_content
+        if check is not None:
+            reply_content = apply_disclaimers(accumulated_content, check)
+            safety = {
+                "risk": check.risk,
+                "categories": sorted(check.categories),
+                "note": "输出命中高风险模式,已附加合规免责提示"
+                if check.blocked
+                else "输出命中疑似误导性表述,已追加仅供参考提示",
+            }
         await sio.emit(
             "chat_stream_done",
             {
                 "chat_id": chat_id,
                 "session_id": session_id,
-                "content": accumulated_content,
+                "content": reply_content,
                 "model": final_model,
                 "usage": final_usage,
                 "stub": stub,
+                **build_ai_generation_annotation(),  # is_ai_generated + 可见展示语
+                "safety": safety or None,
             },
             room=room,
         )

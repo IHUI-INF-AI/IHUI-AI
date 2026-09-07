@@ -62,7 +62,7 @@ export function KnowledgeCreateScreen() {
           disabled={submitting}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text className="text-sm text-blue-600">{t('knowledgeCreate.submit')}</Text>
+          <Text className="text-sm text-orange-600">{t('knowledgeCreate.submit')}</Text>
         </TouchableOpacity>
       </View>
 

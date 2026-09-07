@@ -34,7 +34,7 @@ export default function ContextCompactionPage() {
           marginTop: 4,
           marginBottom: 12,
           fontSize: 13,
-          color: '#666',
+          color: 'var(--color-muted-foreground)',
         }}
       >
         {t('desc')}

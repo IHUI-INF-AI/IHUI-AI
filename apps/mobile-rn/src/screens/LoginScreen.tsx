@@ -3,13 +3,15 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react'
-import { Alert, Image, Platform, StyleSheet, View } from 'react-native'
+import { Alert, ActivityIndicator, Image, Modal, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
 import { CommonActions, useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Eye, EyeOff } from 'lucide-react-native'
 import { SvgXml, type SvgProps } from 'react-native-svg'
+import { WebView } from 'react-native-webview'
 import {
   loginByAccount,
+  loginByCarrierOneClick,
   loginByEmailCode,
   loginBySms,
   loginByWechat,
@@ -20,7 +22,7 @@ import {
 import { useLoginForm, type LoginApiResult } from '@ihui/shared/hooks'
 import { LoginScreen as SharedLoginScreen, getTokens, type NationOption } from '@ihui/rn-app'
 import type { LoginTab, ThirdPartyLoginOption, ThirdPartyPlatform } from '@ihui/types'
-import { rnLightTokens as tokens } from '@ihui/design-tokens'
+import { OAUTH_BRAND_COLORS, rnLightTokens as tokens, withAlpha } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { FloatBox, type FloatBoxType } from '../components/FloatBox'
@@ -28,6 +30,16 @@ import { useAuth } from '../context/AuthContext'
 import { credentialStorage } from '../lib/credential-storage'
 import { exchangeSsoCode, extractSsoCode, openSsoLogin } from '../lib/sso'
 import { isWechatAvailable, isWechatInstalled, sendWechatAuth } from '../lib/wechat'
+import {
+  CARRIER_ERROR,
+  CarrierOneClickError,
+  carrierLogin,
+  getCarrierChannel,
+  getCarrierWebUrl,
+  getRecentPhone,
+  isCarrierAvailable,
+  resolveCarrierWebResult,
+} from '../lib/carrier-one-click'
 import {
   loginByAlipayRedirect,
   loginByDingtalkRedirect,
@@ -86,7 +98,7 @@ const WELCOME_SVG_LIGHT = `<!--
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><g><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#000000" fill-opacity="1"/></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><g><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#000000" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#000000" fill-opacity="1"/></g></g></svg>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->`
 const WELCOME_SVG_DARK = `<!--
   © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
@@ -94,7 +106,7 @@ const WELCOME_SVG_DARK = `<!--
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><defs><clipPath id="master_svg0_2003_34410"><rect x="0" y="0" width="447" height="67" rx="0"/></clipPath></defs><g clip-path="url(#master_svg0_2003_34410)"><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#8D83FF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#FFFFFF" fill-opacity="1"/></g></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" width="447" height="67" viewBox="0 0 447 67"><defs><clipPath id="master_svg0_2003_34410"><rect x="0" y="0" width="447" height="67" rx="0"/></clipPath></defs><g clip-path="url(#master_svg0_2003_34410)"><g><path d="M301.75,53L301.75,40.5L306.75,40.5L306.75,53L301.75,53ZM311.75,53L311.75,40.5L316.75,40.5L316.75,45.5L319.25,45.5L319.25,40.5L324.25,40.5L324.25,53L319.25,53L319.25,48L316.75,48L316.75,53L311.75,53ZM331.75,53L331.75,50.5L329.25,50.5L329.25,40.5L334.25,40.5L334.25,50.5L336.75,50.5L336.75,40.5L341.75,40.5L341.75,50.5L339.25,50.5L339.25,53L331.75,53ZM346.75,53L346.75,40.5L351.75,40.5L351.75,53L346.75,53ZM366.75,53L366.75,40.5L371.75,40.5L371.75,53L366.75,53ZM376.75,53L376.75,40.5L381.75,40.5L381.75,43L384.25,43L384.25,45.5L386.75,45.5L386.75,40.5L391.75,40.5L391.75,53L386.75,53L386.75,50.5L384.25,50.5L384.25,48L381.75,48L381.75,53L376.75,53ZM396.75,53L396.75,40.5L406.75,40.5L406.75,43L401.75,43L401.75,45.5L406.75,45.5L406.75,48L401.75,48L401.75,53L396.75,53ZM411.75,53L411.75,50.5L416.75,50.5L416.75,53L411.75,53ZM421.75,53L421.75,43L424.25,43L424.25,40.5L431.75,40.5L431.75,43L434.25,43L434.25,53L429.25,53L429.25,48L426.75,48L426.75,53L421.75,53ZM426.75,45.5L429.25,45.5L429.25,43.1L426.75,43.1L426.75,45.5ZM439.25,53L439.25,40.5L444.25,40.5L444.25,53L439.25,53Z" fill="#FFFFFF" fill-opacity="1"/></g><g><path d="M13.75,55L13.75,48.125L6.875,48.125L6.875,20.625L13.75,20.625L13.75,48.125L20.625,48.125L20.625,55L13.75,55ZM34.375,48.125L34.375,20.625L41.25,20.625L41.25,48.125L34.375,48.125ZM27.5,55L27.5,48.125L20.625,48.125L20.625,27.5L27.5,27.5L27.5,48.125L34.375,48.125L34.375,55L27.5,55ZM55,55L55,20.625L75.625,20.625L75.625,27.5L61.875,27.5L61.875,34.375L75.625,34.375L75.625,41.25L61.875,41.25L61.875,48.125L75.625,48.125L75.625,55L55,55ZM89.375,55L89.375,20.625L96.25,20.625L96.25,48.125L110,48.125L110,55L89.375,55ZM144.375,34.375L144.375,27.5L130.625,27.5L130.625,20.625L144.375,20.625L144.375,27.5L151.25,27.5L151.25,34.375L144.375,34.375ZM130.625,55L130.625,48.125L123.75,48.125L123.75,27.5L130.625,27.5L130.625,48.125L144.375,48.125L144.375,55L130.625,55ZM144.375,48.125L144.375,41.25L151.25,41.25L151.25,48.125L144.375,48.125ZM171.875,55L171.875,48.125L165,48.125L165,27.5L171.875,27.5L171.875,20.625L185.625,20.625L185.625,27.5L192.5,27.5L192.5,48.125L185.625,48.125L185.625,55L171.875,55ZM171.875,47.849998L185.625,47.849998L185.625,27.775L171.875,27.775L171.875,47.849998ZM206.25,55L206.25,20.625L213.125,20.625L213.125,27.5L220,27.5L220,34.375L226.875,34.375L226.875,41.25L220,41.25L220,34.375L213.125,34.375L213.125,55L206.25,55ZM233.75,55L233.75,34.375L226.875,34.375L226.875,27.5L233.75,27.5L233.75,20.625L240.625,20.625L240.625,55L233.75,55ZM254.375,55L254.375,20.625L275,20.625L275,27.5L261.25,27.5L261.25,34.375L275,34.375L275,41.25L261.25,41.25L261.25,48.125L275,48.125L275,55L254.375,55Z" fill="#FFFFFF" fill-opacity="1"/></g></g></svg>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->`
 
 // 第三方登录图标资源(8 平台)
@@ -165,49 +177,49 @@ function buildThirdPartyOptions(
       label: '微信',
       iconNode: THIRD_PARTY_ICON_NODES.wechat,
       enabled: true,
-      brandColor: '#07C160',
+      brandColor: OAUTH_BRAND_COLORS.wechat,
     },
     {
       platform: 'google',
       label: 'Google',
       iconNode: THIRD_PARTY_ICON_NODES.google,
       enabled: true,
-      brandColor: '#4285F4',
+      brandColor: OAUTH_BRAND_COLORS.google,
     },
     {
       platform: 'github',
       label: 'GitHub',
       iconNode: monoIconNode(colorScheme, GITHUB_ICON_BLACK, GITHUB_ICON_WHITE),
       enabled: true,
-      brandColor: '#181717',
+      brandColor: OAUTH_BRAND_COLORS.github,
     },
     {
       platform: 'feishu',
       label: '飞书',
       iconNode: THIRD_PARTY_ICON_NODES.feishu,
       enabled: true,
-      brandColor: '#3370FF',
+      brandColor: OAUTH_BRAND_COLORS.feishu,
     },
     {
       platform: 'dingtalk',
       label: '钉钉',
       iconNode: THIRD_PARTY_ICON_NODES.dingtalk,
       enabled: true,
-      brandColor: '#0089FF',
+      brandColor: OAUTH_BRAND_COLORS.dingtalk,
     },
     {
       platform: 'enterpriseWechat',
       label: '企业微信',
       iconNode: THIRD_PARTY_ICON_NODES.enterpriseWechat,
       enabled: true,
-      brandColor: '#2DC100',
+      brandColor: OAUTH_BRAND_COLORS.enterpriseWechat,
     },
     {
       platform: 'alipay',
       label: '支付宝',
       iconNode: THIRD_PARTY_ICON_NODES.alipay,
       enabled: true,
-      brandColor: '#1677FF',
+      brandColor: OAUTH_BRAND_COLORS.alipay,
     },
   ]
   // Apple 登录仅 iOS 提供(expo-apple-authentication 原生能力):
@@ -409,6 +421,13 @@ export function LoginScreen() {
   const [phoneHead, setPhoneHead] = useState('+86')
   const [nationShow, setNationShow] = useState(false)
 
+  // ===== 运营商一键登录(phone tab"本机号码一键登录"入口) =====
+  const [carrierLoading, setCarrierLoading] = useState(false)
+  // WebView/H5 通道:非 null 时渲染 H5 一键登录 WebView 弹层(getCarrierWebUrl() 地址)
+  const [carrierWebUrl, setCarrierWebUrl] = useState<string | null>(null)
+  // 是否已配置任一运营商通道(同步判断,未配置则不渲染一键登录按钮,走免费自动回填降级)
+  const carrierAvailable = useMemo(() => isCarrierAvailable(), [])
+
   // ===== 协议同意 state =====
   const [agreed, setAgreed] = useState(false)
   const [agreementError, setAgreementError] = useState('')
@@ -548,6 +567,91 @@ export function LoginScreen() {
       setPhoneLoading(false)
     }
   }, [phone, phoneCode, checkAgreement, form, navigateAfterLogin, persistLoginHistory])
+
+  // ===== 手机号 tab 自动回填最近登录手机号(对齐 web 端) =====
+  // onTabChange 经 SharedLoginScreen 每次 activeTab 变化(含初始 defaultTab=phone)回调;
+  // 字段为空时用 getRecentPhone() 免费自动回填,失败降级后同样回填。
+  const handleTabChange = useCallback(
+    (tab: LoginTab) => {
+      if (tab === 'phone' && !phone) {
+        const recent = getRecentPhone()
+        if (recent) setPhone(recent)
+      }
+    },
+    [phone],
+  )
+
+  // ===== 运营商一键登录回调 =====
+  // 点击"本机号码一键登录" → carrierLogin(原生 turbo 模块 / WebView H5)→ 拿 phone + accessToken
+  // → loginByCarrierOneClick({ accessToken, operator }) 换 JWT → 写 auth store + 回跳;
+  // 失败/未配置 → 降级切换到短信验证码登录并自动回填最近手机号。
+  const handleCarrierOneClickLogin = useCallback(async () => {
+    if (!checkAgreement()) return
+    setCarrierLoading(true)
+    form.clearError()
+    // WebView/H5 通道:先渲染 H5 一键登录 WebView 弹层,onMessage 通过 resolveCarrierWebResult 喂回结果
+    if (getCarrierChannel() === 'web') {
+      const url = getCarrierWebUrl()
+      if (url) setCarrierWebUrl(url)
+    }
+    try {
+      const res = await carrierLogin()
+      const apiRes = await loginByCarrierOneClick({
+        accessToken: res.accessToken ?? '',
+        operator: res.operator ?? 'flashverify',
+      })
+      if (apiRes.success && apiRes.data.accessToken) {
+        fullUserRef.current = apiRes.data.user
+        await rnAuthStore.getState().setAuth({
+          token: apiRes.data.accessToken,
+          refreshToken: apiRes.data.refreshToken,
+          user: apiRes.data.user,
+        })
+        navigateAfterLogin()
+        if (res.phone) persistLoginHistory(res.phone)
+      } else {
+        form.setError(apiRes.error ?? 'auth.loginFailed')
+      }
+    } catch (err) {
+      if (err instanceof CarrierOneClickError) {
+        if (err.code === CARRIER_ERROR.NOT_CONFIGURED) {
+          // 未配置 → 降级切换"短信验证码登录",自动回填最近手机号
+          const recent = getRecentPhone()
+          if (recent) setPhone(recent)
+          showToast('info', '运营商一键登录未配置,已切换到短信验证码登录')
+        } else {
+          form.setError(err.message)
+        }
+      } else {
+        form.setError('auth.loginFailed')
+      }
+    } finally {
+      setCarrierLoading(false)
+      setCarrierWebUrl(null)
+    }
+  }, [checkAgreement, form, navigateAfterLogin, persistLoginHistory, showToast])
+
+  // "本机号码一键登录"按钮节点(wrapper 注入 SharedLoginScreen phone tab 内)。
+  // 颜色严格取自 AppThemeTokens(getTokens),禁止硬编码;未配置则不注入节点(hidden)。
+  const carrierEntryNode = useMemo(() => {
+    const tk = getTokens(resolvedTheme)
+    return (
+      <TouchableOpacity
+        style={[styles.carrierOneKeyBtn, { borderColor: tk.border.light, backgroundColor: tk.brand.DEFAULT }]}
+        onPress={handleCarrierOneClickLogin}
+        disabled={carrierLoading}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="本机号码一键登录"
+      >
+        <ActivityIndicator size="small" color={tk.surface.light} />
+        <Text style={[styles.carrierOneKeyText, { color: tk.surface.light }]}>
+          {carrierLoading ? '正在拉起运营商授权...' : '本机号码一键登录'}
+        </Text>
+      </TouchableOpacity>
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 主题切换时重建即可,无需随 delegate 全量重建
+  }, [carrierLoading, resolvedTheme])
 
   // ===== password 登录回调(注入协议检查) =====
   const handlePasswordLogin = useCallback(async () => {
@@ -848,6 +952,7 @@ export function LoginScreen() {
           // 4-tab 配置
           tabs={TABS}
           defaultTab="phone"
+          onTabChange={handleTabChange}
           // email tab
           email={email}
           emailCode={emailCode}
@@ -875,6 +980,8 @@ export function LoginScreen() {
           onPhoneCodeChange={(v) => setPhoneCode(v.replace(/\D/g, '').slice(0, 6))}
           onSendPhoneCode={handleSendPhoneCode}
           onLoginByPhoneCode={handleLoginByPhoneCode}
+          // 运营商一键登录入口(仅已配置通道时渲染;未配置隐藏,走免费自动回填降级)
+          carrierOneClickEntry={carrierAvailable ? carrierEntryNode : undefined}
           // 第三方登录区(按平台 + locale 动态生成)
           thirdPartyOptions={thirdPartyOptions}
           onThirdPartyLogin={handleThirdPartyLogin}
@@ -899,6 +1006,35 @@ export function LoginScreen() {
           eyeIconHide={<EyeOff size={18} color={eyeIconColor} />}
         />
       </View>
+      {/* WebView/H5 运营商一键登录弹层(仅 web 通道配置时打开;onMessage 把结果喂回 carrierLogin) */}
+      <Modal
+        visible={carrierWebUrl !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setCarrierWebUrl(null)}
+      >
+        <View style={styles.carrierWebOverlay}>
+          <View style={styles.carrierWebTopBar}>
+            <TouchableOpacity
+              onPress={() => setCarrierWebUrl(null)}
+              hitSlop={8}
+              accessibilityLabel="关闭运营商登录"
+            >
+              <Text style={[styles.carrierWebClose, { color: getTokens(resolvedTheme).text.secondary }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+          {carrierWebUrl ? (
+            <WebView
+              source={{ uri: carrierWebUrl }}
+              style={styles.carrierWeb}
+              onMessage={(e) => {
+                resolveCarrierWebResult(e.nativeEvent.data)
+                setCarrierWebUrl(null)
+              }}
+            />
+          ) : null}
+        </View>
+      </Modal>
       {/* 非阻塞错误提示(对齐 uniapp uni.showToast,覆盖第三方登录配置缺失/微信未安装等场景) */}
       <FloatBox visible={toastVisible} type={toastType} message={toastMessage} onHide={hideToast} />
     </View>
@@ -919,7 +1055,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: rpx(16),
     paddingVertical: rpx(8),
     borderRadius: 6,
-    backgroundColor: 'rgba(59,130,246,0.85)',
+    backgroundColor: withAlpha(tokens.brandAccent.DEFAULT, 0.85),
     zIndex: 999,
     elevation: 999,
   },
@@ -927,6 +1063,47 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: tokens.surface.light,
+  },
+  // ===== 运营商一键登录按钮(布局;颜色在组件内按主题取 AppThemeTokens) =====
+  carrierOneKeyBtn: {
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  carrierOneKeyText: {
+    fontSize: 15,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  // ===== WebView/H5 一键登录弹层 =====
+  carrierWebOverlay: {
+    flex: 1,
+    backgroundColor: withAlpha(tokens.gray.black, 0.4),
+    justifyContent: 'flex-end',
+  },
+  carrierWebTopBar: {
+    height: 44,
+    backgroundColor: tokens.surface.light,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  carrierWebClose: {
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  carrierWeb: {
+    flex: 1,
+    backgroundColor: withAlpha(tokens.surface.light, 0.9),
   },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
