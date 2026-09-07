@@ -162,6 +162,8 @@ export * from './endpoints/mcp'
 export * from './endpoints/artifacts'
 // Agent Plan Mode 端点(2026-09-02 立,计划模式确认 UI 后端契约)
 export * from './endpoints/agent-plan'
+// Best-of-N 同任务多副本自动择优端点(2026-09-07 立)
+export * from './endpoints/best-of-n'
 export * from './endpoints/notification'
 export * from './endpoints/order'
 export * from './endpoints/payment'
@@ -234,4 +236,10 @@ export * from './endpoints/spec'
 
 // 上下文引擎只读端点(压缩统计 + 提及检索,2026-09-05 新增,M3 web→mobile 对齐)
 export * from './endpoints/context-mentions'
+
+// Repo Wiki 端点(代码仓库→知识库文档,2026-09-07 新增)
+export * from './endpoints/repo-wiki'
+
+// 用户侧 Agent 定时自动化端点(2026-09-07 新增)
+export * from './endpoints/automations'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
