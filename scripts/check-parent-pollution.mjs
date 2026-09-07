@@ -38,7 +38,7 @@
  * 退出码:0 = 无污染;1 = 发现项目外污染(阻塞 commit)
  */
 
-import { readFileSync, existsSync, readdirSync, unlinkSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, unlinkSync, statSync } from 'node:fs';
 import * as os from 'node:os';
 import { execSync } from 'node:child_process';
 import { join, resolve, relative, dirname, basename, extname } from 'node:path';
@@ -185,6 +185,35 @@ function isUserLegit(filename) {
   return USER_LEGIT_PATTERNS.some(p => p.test(filename));
 }
 
+/**
+ * 判断目录是否为本仓库的关联 git worktree(2026-09-07 立)。
+ *
+ * 背景:既定并行协作流程会在项目父目录创建 detached worktree
+ * (如 G:\IHUI-final-wt,worktree 内含本仓库完整检出)。worktree 的 .git
+ * 是一个文件,内容为 "gitdir: <主仓>/.git/worktrees/<名>"。此前本守门把
+ * worktree 内所有 scripts/*.mjs 误判为污染(内容含项目引用 + 操作痕迹),
+ * 阻塞一切 commit——但 worktree 是并行会话的合法工作区,绝不可清理。
+ *
+ * 判定:dir/.git 存在且为文件,且其 gitdir 指向本仓库 ROOT/.git → 豁免。
+ */
+function isLinkedWorktree(dir) {
+  const gitPath = join(dir, '.git');
+  try {
+    if (!existsSync(gitPath)) return false;
+    const stat = statSync(gitPath);
+    if (!stat.isFile()) return false; // .git 目录 = 独立主仓,不属于本守门豁免
+    const content = readFileSync(gitPath, 'utf8').trim();
+    const normalizedGitDir = content.replace(/^gitdir:\s*/i, '').replace(/\\/g, '/').toLowerCase();
+    // 指向本仓库 .git(含 worktrees 子目录)才豁免;指向别的仓库不算。
+    // 分隔符与大小写归一化:worktree .git 文件常写正斜杠(G:/IHUI-AI/...),
+    // 而 join(ROOT) 产生反斜杠,Windows 盘符大小写也可能漂移。
+    const expectedPrefix = join(ROOT, '.git').replace(/\\/g, '/').toLowerCase();
+    return normalizedGitDir.startsWith(expectedPrefix);
+  } catch {
+    return false;
+  }
+}
+
 function matchesAgentFilenamePattern(filename) {
   return AGENT_FILENAME_PATTERNS.some(p => p.test(filename));
 }
@@ -229,6 +258,8 @@ function findPollution(dir, recursive = false, depth = 0) {
     const relPath = relative(ROOT, full).replace(/\\/g, '/');
 
     if (entry.isDirectory()) {
+      // 豁免本仓库的关联 git worktree(并行会话合法工作区,2026-09-07 立)
+      if (isLinkedWorktree(full)) continue;
       if (recursive && depth < 2) {
         pollutions.push(...findPollution(full, recursive, depth + 1));
       }
