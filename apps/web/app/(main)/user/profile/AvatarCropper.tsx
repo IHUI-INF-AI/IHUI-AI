@@ -231,8 +231,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="icon-xs"
                   onClick={() => setRotation((r) => (r + 270) % 360)}
                   disabled={!loaded}
                   aria-label={t('cropRotateLeft')}
@@ -261,8 +260,7 @@ export function AvatarCropper({ open, src, onConfirm, onCancel }: Props) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="icon"
-                  className="h-7 w-7"
+                  size="icon-xs"
                   onClick={() => setRotation((r) => (r + 90) % 360)}
                   disabled={!loaded}
                   aria-label={t('cropRotateRight')}

@@ -103,7 +103,7 @@ export function AiNewsStrip({ initialNews }: { initialNews: AiNewsItem[] }) {
             <TrendingUp className="h-3 w-3" />
             <span>{t('aiNews.liveTag')}</span>
           </span>
-          <Button variant="ghost" size="sm" className="h-9 gap-1 px-3 text-xs" asChild>
+          <Button variant="ghost" size="default" className="gap-1 px-3 text-xs" asChild>
             <Link href="/news">
               <span>{t('aiNews.viewAll')}</span>
               <ChevronRight className="h-3 w-3" />
