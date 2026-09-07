@@ -52,8 +52,14 @@ const chatStreamSchema = z.object({
    *  web 非 Tauri 环境用 FileSystemDirectoryHandle 读取工作区文件后经此字段上传,
    *  ai-service 优先于 workspace_path 注入 system prompt(优先级见 llm.py _inject_workspace_memory)。
    *  此前该字段未在 schema 中声明 → zod 解析时被剥离 → ai-service 永远收不到,
-   *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。 */
-  workspaceContext: z.string().max(2_500_000).optional(),
+   *  导致"添加工作区后 AI 读不到任何项目文件"。上限与前端 MAX_TOTAL_SIZE(2MB)对齐。
+   *  2026-09-07 加固:超限改为截断而非 400 拒绝——此前 z.string().max() 直接抛错,
+   *  超大工作区会导致整条消息发送失败;现静默截断保住请求可用性。 */
+  workspaceContext: z
+    .string()
+    .optional()
+    .transform((v) => (typeof v === 'string' && v.length > 2_500_000 ? v.slice(0, 2_500_000) : v))
+    .pipe(z.string().max(2_500_000).optional()),
   /** 模型上下文窗口大小(tokens),达 88% 阈值自动压缩。0 或不传 = 不压缩 */
   contextLimit: z.number().int().min(0).max(2_000_000).optional(),
   /** Agent 工具名列表(2026-07-22 立,AI 浏览器/电脑控制):

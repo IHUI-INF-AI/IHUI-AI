@@ -7,9 +7,9 @@ import { useAiPanelStore } from '@/stores/ai-panel'
 import {
   getBrowserWorkspaceHandle,
   loadWorkspaceContext,
-  collectAgentFileSignatures,
-  agentSignaturesEqual,
-  type AgentFileSignature,
+  collectWorkspaceFileSignatures,
+  workspaceSignaturesEqual,
+  type WorkspaceFileSignature,
 } from '@/lib/workspace-context-loader'
 import { logger } from '@/lib/logger'
 
@@ -23,13 +23,13 @@ import { logger } from '@/lib/logger'
  *
  * Tauri 桌面端返回 undefined,走原有 workspacePath 逻辑(ai-service 直接读本地文件)。
  *
- * 缓存(2026-08-29 增强):同一工作区只加载一次;命中缓存前先用
- * agent 规则文件签名(mtime/size)校验,文件有增删改则自动全量重索引。
+ * 缓存(2026-09-07 增强):同一工作区只加载一次;命中缓存前先用
+ * 全量可加载文件签名(mtime/size)校验,任何文本文件增删改则自动全量重索引。
  */
 export interface CachedBrowserContext {
   name: string
   text: string
-  agentSig: AgentFileSignature[]
+  fileSig: WorkspaceFileSignature[]
 }
 
 export let cachedBrowserContext: CachedBrowserContext | null = null
@@ -51,14 +51,16 @@ export async function loadBrowserWorkspaceContextByName(name: string): Promise<s
   const handle = getBrowserWorkspaceHandle(name)
   if (!handle) return undefined
 
-  // 缓存命中前校验 agent 文件签名(轻量:只 getFile 取元数据,不读内容)
+  // 缓存命中前校验全量文件签名(轻量:只 getFile 取元数据,不读内容)
+  // 2026-09-07 起:签名覆盖所有可加载文本文件(此前仅 agent 规则文件,
+  // 源码增删改不触发重载 → AI 读到旧快照"读取不全")
   if (cachedBrowserContext?.name === name) {
     try {
-      const currentSig = await collectAgentFileSignatures(handle)
-      if (agentSignaturesEqual(currentSig, cachedBrowserContext.agentSig)) {
+      const currentSig = await collectWorkspaceFileSignatures(handle)
+      if (workspaceSignaturesEqual(currentSig, cachedBrowserContext.fileSig)) {
         return cachedBrowserContext.text
       }
-      logger.info('[workspace-context] agent files changed, reloading full context')
+      logger.info('[workspace-context] workspace files changed, reloading full context')
     } catch (err) {
       logger.warn('[workspace-context] signature check failed, reloading:', err)
     }
@@ -66,8 +68,8 @@ export async function loadBrowserWorkspaceContextByName(name: string): Promise<s
 
   try {
     const result = await loadWorkspaceContext(handle)
-    const agentSig = await collectAgentFileSignatures(handle)
-    cachedBrowserContext = { name, text: result.text, agentSig }
+    const fileSig = await collectWorkspaceFileSignatures(handle)
+    cachedBrowserContext = { name, text: result.text, fileSig }
     logger.info(
       `[workspace-context] loaded ${result.stats.fileCount} files, ` +
         `${result.stats.totalSize} bytes, truncated=${result.stats.truncated}`,
