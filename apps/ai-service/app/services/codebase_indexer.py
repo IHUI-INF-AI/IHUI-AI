@@ -154,6 +154,33 @@ class CodebaseIndexer:
             "API_SERVICE_URL", "http://localhost:8801"
         ).rstrip("/")
 
+    def _internal_auth_headers(
+        self,
+        api_token: Optional[str],
+        internal_user_id: Optional[str] = None,
+    ) -> dict[str, str]:
+        """构造写入口鉴权头(2026-09-07 立)。
+
+        优先级:
+        1. api_token(用户 JWT,Bearer 认证)——Web/会话链路显式传入时使用
+        2. 内部服务通道(AI_CALLBACK_SECRET + X-User-Id)——MCP 工具/服务端
+           触发索引时使用,与 api 侧 internal-service-token 中间件契约一致
+        两者皆无 → 空 headers(写入会被 401 拒绝,调用方按错误降级处理)。
+        """
+        if api_token:
+            return {"Authorization": f"Bearer {api_token}"}
+        secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
+        if (
+            secret
+            and internal_user_id
+            and re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id)
+        ):
+            return {
+                "x-internal-service-token": secret,
+                "x-user-id": internal_user_id,
+            }
+        return {}
+
     def _check_tree_sitter(self) -> bool:
         """检查 tree-sitter 是否可用。"""
         try:
@@ -432,6 +459,7 @@ class CodebaseIndexer:
         repo_id: str,
         chunks: list[CodeChunk],
         api_token: Optional[str] = None,
+        internal_user_id: Optional[str] = None,
     ) -> dict[str, Any]:
         """通过 API 端点写入切片到数据库。"""
         import httpx
@@ -453,9 +481,7 @@ class CodebaseIndexer:
                 for c in chunks
             ],
         }
-        headers = {}
-        if api_token:
-            headers["Authorization"] = f"Bearer {api_token}"
+        headers = self._internal_auth_headers(api_token)
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(url, json=payload, headers=headers)
@@ -470,6 +496,7 @@ class CodebaseIndexer:
         repo_id: str,
         file_paths: list[str],
         api_token: Optional[str] = None,
+        internal_user_id: Optional[str] = None,
     ) -> int:
         """批量删除已消失文件的旧切片(Merkle 增量同步,2026-09-07 立)。
 
@@ -481,9 +508,7 @@ class CodebaseIndexer:
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/repo/{repo_id}/files"
-        headers = {}
-        if api_token:
-            headers["Authorization"] = f"Bearer {api_token}"
+        headers = self._internal_auth_headers(api_token)
         try:
             async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.request(
@@ -631,6 +656,7 @@ class CodebaseIndexer:
         repo_id: Optional[str] = None,
         api_token: Optional[str] = None,
         incremental: bool = True,
+        internal_user_id: Optional[str] = None,
     ) -> IndexResult:
         """索引整个仓库(Merkle 增量同步,2026-09-07 起)。
 
@@ -690,7 +716,7 @@ class CodebaseIndexer:
         deleted_paths = [p for p in prev_snapshot if p not in new_hashes] if incremental else []
         if deleted_paths:
             result.files_deleted = await self._delete_files_from_api(
-                repo_id, deleted_paths, api_token
+                repo_id, deleted_paths, api_token, internal_user_id
             )
 
         result.merkle_root = _merkle_root(new_hashes)
@@ -741,7 +767,7 @@ class CodebaseIndexer:
         for i in range(0, len(all_chunks), BATCH_WRITE):
             batch = all_chunks[i : i + BATCH_WRITE]
             try:
-                await self._write_to_api(repo_id, batch, api_token)
+                await self._write_to_api(repo_id, batch, api_token, internal_user_id)
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
 
@@ -787,7 +813,7 @@ class CodebaseIndexer:
             result.files_indexed = 1
             if chunks:
                 result.chunks_vectorized = await self._generate_embeddings_batch(chunks)
-                await self._write_to_api(repo_id, chunks, api_token)
+                await self._write_to_api(repo_id, chunks, api_token, internal_user_id)
         except Exception as e:
             result.errors.append(f"{file_path}: {e}")
         return result
@@ -825,9 +851,7 @@ class CodebaseIndexer:
             payload["repoId"] = repo_id
         if language:
             payload["language"] = language
-        headers = {}
-        if api_token:
-            headers["Authorization"] = f"Bearer {api_token}"
+        headers = self._internal_auth_headers(api_token)
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

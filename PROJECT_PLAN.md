@@ -3193,3 +3193,11 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-07) popover 定位根因类缺陷根治 + 守门:同型根因(createPortal 容器挂 top/left 但缺 position:fixed)实修 4 处(slash-command-palette / add-menu-popover / permission-history-panel / context-usage-ring);新守门 `scripts/check-portal-fixed.mjs` 入 pre-commit(--staged blocking,HUSKY_SKIP_PORTAL_GUARD 可跳过)
 - [x] ✅(2026-09-07) 桌面更新签名闭环(本机侧):新密钥对生成于 `C:\Users\Administrator\.tauri\ihui-updater.key`(+密码文件,不入库),实测 tauri signer sign 成功;`tauri.conf.json` updater.pubkey 更新(指纹 B5D7E67EA2B1DB08);用户侧唯一动作 = 注入 GitHub secrets(DESKTOP_TAURI_PRIVATE_KEY/DESKTOP_TAURI_KEY_PASSWORD/DEPLOY_*),指引见 outputs/2026-09-07-secrets注入指引.md
 - [x] ✅(2026-09-07) 生态地基:CONTRIBUTING.md 新增"生态扩展"节,固化技能(SKILL.md 规范)/CLI 插件(manifest)/MCP 服务器三条第三方接入路径与文件级约定
+
+## P0 运行时真实度审计修复:索引触发链根治 + 孤儿路由打通(2026-09-07 立并完成 ✅)
+
+> 背景:2026-09-07 二轮严苛审计(运行时视角而非"文件存在"视角)发现两处"代码存在但运行时不可达"根因,当日根治。
+
+- [x] ✅(2026-09-07) 索引触发链根治:`index_repository` 此前全仓零调用方→codebase_chunks 表永远空→语义/混合检索生产运行时形同虚设。修复:①新增 `index_codebase` MCP 工具(schema+handler+权限同步登记);②`search_codebase` 懒索引(空结果且 path 为本地目录时自动 Merkle 增量索引后重搜,护栏:文件数≤2000+600s 冷却+超限路径也记录防反复扫描);③indexer 新增内部服务鉴权通道(AI_CALLBACK_SECRET+X-User-Id,与 api internal-service-token 中间件契约一致,严格 user_id 白名单防欺骗);新增 14 测试全绿
+- [x] ✅(2026-09-07) 3 个孤儿路由打通:web next.config rewrites 补 /api/mcp-official|patch|sandbox-exec → 8803(此前 routers 存在但用户永远够不到)
+- [x] ✅(2026-09-07) 陈旧测试修正:slash-commands count 12→13(并行会话新增 bestof),断言改为 count==len(commands) 防再漂移
