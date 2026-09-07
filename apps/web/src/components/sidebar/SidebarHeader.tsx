@@ -187,7 +187,7 @@ export function SidebarHeader({
               TOPBAR_BTN_BASE,
               TOPBAR_BTN_W9,
               // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
-              'h-9 p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+              'p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
             )}
             aria-label={t('expand')}
           >

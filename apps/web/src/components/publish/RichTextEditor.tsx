@@ -299,8 +299,8 @@ export function RichTextEditor({
               key={m}
               type="button"
               variant={mode === m ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2 text-xs"
+              size="xs"
+              className="px-2 text-xs"
               onClick={() => setMode(m)}
             >
               {t(m === 'markdown' ? 'editor.markdown' : 'editor.richText')}
@@ -319,7 +319,6 @@ export function RichTextEditor({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9"
                   onClick={() => applyWrap(act.wrap)}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -333,7 +332,6 @@ export function RichTextEditor({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9"
                 onClick={() => fileInputRef.current?.click()}
               >
                 <ImageIcon className="h-3.5 w-3.5" />
