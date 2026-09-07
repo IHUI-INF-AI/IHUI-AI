@@ -91,16 +91,25 @@ export function SidebarHeader({
       <div
         className={cn(
           // 与 desktopHeader 同尺寸结构,但无桌面端拖拽窗口逻辑
-          'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0',
+          // 2026-09-05 修复:左侧 pl-12(48px) 避让 GlobalShell 悬浮的拉出/收回切换按钮
+          // (z-popover,常驻 x=6-42),避免 logo 被按钮盖住;logo 允许收缩(flex-1 min-w-0)
+          'flex h-[44px] shrink-0 items-center justify-between gap-1 pl-12 pr-2 pt-2 pb-0 mx-0',
         )}
       >
-        <ThemeLogo
-          clickable
-          width={80}
-          height={26}
-          className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
-          onClick={() => navigate('/')}
-        />
+        <div className="min-w-0 flex-1">
+          <ThemeLogo
+            clickable
+            width={80}
+            height={26}
+            className="h-[26px] max-h-[26px] w-auto max-w-full cursor-pointer transition-opacity hover:opacity-75"
+            // 2026-09-05 修复:点击 logo 跳首页的同时收起抽屉(原实现跳转后抽屉仍开着,
+            // 用户感知"点了没反应")
+            onClick={() => {
+              onCloseMobile?.()
+              navigate('/')
+            }}
+          />
+        </div>
         {/* 2026-07-31 第十八次微调(用户反馈"X 关闭按钮也不是 web 端那个,为什么要单独额外又配置图标"):
             - 改用 nav-styles.ts 共享的 TOPBAR_BTN_BASE + TOPBAR_BTN_W9,跟 GlobalTopBar
               的搜索/Plus/chevron/窗口控制 4 类按钮字节级一致(同 bg-card / hover:bg-accent / rounded-md / focus-visible:bg-accent)
@@ -125,16 +134,73 @@ export function SidebarHeader({
           )}
           aria-label={tc('close')}
         >
-          <PanelLeftRounded className="h-3.5 w-3.5" />
+          {/* 2026-09-05:图标 14px→20px(h-5 w-5),与桌面端折叠按钮 2026-08-01 用户要求"图标加大"对齐,
+              移动端触屏更易辨识/命中 */}
+          <PanelLeftRounded className="h-5 w-5" />
         </Button>
       </div>
     )
   }
 
   /**
-   * 桌面端 sidebar header:Logo + 折叠/展开按钮(桌面端可见)。
-   * 移动端(<1024px)下桌面 sidebar 被 CSS 强制 60px 宽,header 仅显示折叠按钮(隐藏于移动端),
-   * 不包含移动关闭按钮,避免移动端看到无用的 X 按钮(关闭按钮只在 mobileHeader 中)。
+   * 折叠态 header(2026-09-07 重做):方形 logo + 展开按钮竖排。
+   * 此前折叠态只渲染折叠按钮且按钮带 hidden min-[1024px]:flex,在 768-1023px
+   * 视口强制折叠区间按钮被 display:none,logo 也被 CSS 隐藏 → header 整块空白(用户反馈红框)。
+   * 现在:36×36 方形 logo(/images/logo.png,同 EmptyState 图)+ 20px 展开按钮竖排,
+   * 60px 条内水平居中,点击 logo 跳首页(与展开态长 logo 行为一致)。
+   */
+  if (collapsed) {
+    return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 同展开态:Tauri 窗口长按拖拽
+      <div
+        className={cn(
+          'flex shrink-0 flex-col items-center gap-1 px-1 pt-2 pb-1 mx-0',
+          isDesktop && 'cursor-move',
+        )}
+        onMouseDown={handleLogoMouseDown}
+        onMouseUp={handleLogoDragEnd}
+        onMouseLeave={handleLogoDragEnd}
+      >
+        {/* 方形品牌 logo:与 EmptyState 同源 /images/logo.png,36×36 圆角;button 包裹满足键盘可达性 */}
+        <button
+          type="button"
+          aria-label="IHUI AI"
+          onClick={() => navigate('/')}
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- 与 EmptyState/ThemeLogo 同源,img 保证 SSR 一致 */}
+          <img
+            src="/images/logo.png?v=20260719-unify"
+            alt=""
+            width={36}
+            height={36}
+            draggable={false}
+            className="h-9 w-9 select-none rounded-xl object-contain"
+          />
+        </button>
+        <Tooltip content={t('expand')} side="right">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleCollapse}
+            className={cn(
+              TOPBAR_BTN_BASE,
+              TOPBAR_BTN_W9,
+              // 注意:不再用 hidden min-[1024px]:flex —— 768-1023px 视口强制折叠时按钮必须可见
+              'h-9 p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+            )}
+            aria-label={t('expand')}
+          >
+            <PanelLeftRounded open className="h-5 w-5" />
+          </Button>
+        </Tooltip>
+      </div>
+    )
+  }
+
+  /**
+   * 展开态 header(折叠态已在上方独立分支提前返回):
+   * Logo + 折叠按钮,仅在展开态渲染(≥1024px 桌面,或用户未折叠时)。
    */
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- 桌面端 Tauri 窗口长按拖拽(鼠标专属交互,无法用键盘拖拽窗口);键盘用户通过内部折叠 Button + logo 点击提供等价交互
@@ -146,9 +212,6 @@ export function SidebarHeader({
         // 两者中心都在 y=26,与 GlobalTopBar 按钮中心(pt-2+h-9/2=26)垂直对齐(2026-07-30 用户反馈)。
         // gap-1(4px)让 logo(80) + gap(4) + 按钮(28) = 112px < 内容区 114px,不溢出。
         'flex h-[44px] shrink-0 items-center justify-between gap-1 px-2 pt-2 pb-0 mx-0 transition-[padding] duration-200',
-        // 折叠态:aside 的 border-r(1px)使内容区 59px,header 居中后按钮会偏左 0.5px。
-        // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
-        collapsed && 'justify-center pl-[9px] pr-2 mx-0',
         // 桌面端长按可拖拽窗口,显示 move 光标提示;非桌面端不加(避免误导)。
         isDesktop && 'cursor-move',
       )}
@@ -156,7 +219,9 @@ export function SidebarHeader({
       onMouseUp={handleLogoDragEnd}
       onMouseLeave={handleLogoDragEnd}
     >
-      {!collapsed && (
+      {/* data-sidebar-logo:标识侧边栏长 logo(旧版 CSS 在 768-1023px 隐藏;
+          2026-09-07 起该区间走折叠态分支渲染方形 logo,此 span 仅展开态存在) */}
+      <span data-sidebar-logo className="flex shrink-0">
         <ThemeLogo
           clickable
           width={80}
@@ -164,8 +229,8 @@ export function SidebarHeader({
           className="h-[26px] w-auto max-w-[80px] flex-shrink-0 cursor-pointer transition-opacity hover:opacity-75"
           onClick={() => navigate('/')}
         />
-      )}
-      <Tooltip content={collapsed ? t('expand') : t('collapse')} side="right">
+      </span>
+      <Tooltip content={t('collapse')} side="right">
         <Button
           variant="ghost"
           size="icon"
@@ -180,19 +245,17 @@ export function SidebarHeader({
           // - 图标从 h-3.5 w-3.5 (14px) 加大到 h-5 w-5 (20px),更显眼易点击
           // - 追加 [&>svg]:!h-5 [&>svg]:!w-5 覆盖 TOPBAR_BTN_BASE 末尾的 [&>svg]:!h-3.5 [&>svg]:!w-3.5
           //   (tailwind-merge 同 specificity 后定义胜出,确保 20px 生效)
+          // 2026-09-07:去掉 hidden min-[1024px]:flex —— 展开态 header 只在侧边栏可见时渲染,
+          // 按钮恒 flex(旧规则曾在 768-1023px 把按钮藏成空白)
           className={cn(
             TOPBAR_BTN_BASE,
             TOPBAR_BTN_W9,
-            'h-9 p-0 hidden min-[1024px]:flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
+            'h-9 p-0 flex bg-transparent [&>svg]:!h-5 [&>svg]:!w-5',
           )}
-          aria-label={collapsed ? t('expand') : t('collapse')}
+          aria-label={t('collapse')}
         >
           {/* 图标 20px (h-5 w-5),2026-08-01 用户要求加大 */}
-          {collapsed ? (
-            <PanelLeftRounded open className="h-5 w-5" />
-          ) : (
-            <PanelLeftRounded className="h-5 w-5" />
-          )}
+          <PanelLeftRounded className="h-5 w-5" />
         </Button>
       </Tooltip>
     </div>
