@@ -118,7 +118,12 @@ if (typeof window !== 'undefined') {
  * - 业务调用方无需关心 401 → 弹窗的串联
  * - 统一走 openLoginDialogOnce(2026-07-24 深度根治):自带全局去重 guard + 公开路径白名单
  */
-export async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
+// 2026-09-07:options 放宽支持 timeoutMs(透传 @ihui/api-client FetchApiOptions,
+// 供 /bestof 等同步阻塞、耗时可达分钟级的端点放大超时,默认 30s)。
+export async function fetchApi<T>(
+  url: string,
+  options: RequestInit & { timeoutMs?: number } = {},
+): Promise<ApiResult<T>> {
   const result = await fetchApiShared<T>(url, options)
   if (!result.success && result.status === 401) {
     const method = (options.method ?? 'GET').toUpperCase()
