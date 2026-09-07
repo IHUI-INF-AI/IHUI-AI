@@ -1,82 +1,4 @@
 {
-  "automations": {
-    "title": "自動化",
-    "subtitle": "予定通りエージェントタスクを実行",
-    "create": "自動化を作成",
-    "refresh": "更新",
-    "loading": "読み込み中…",
-    "empty": "自動化はまだありません。作成しましょう",
-    "lastRunAt": "前回実行",
-    "lastResult": "前回結果",
-    "cancel": "キャンセル",
-    "save": "保存",
-    "delete": "削除",
-    "weekdayMo": "月",
-    "weekdayTu": "火",
-    "weekdayWe": "水",
-    "weekdayTh": "木",
-    "weekdayFr": "金",
-    "weekdaySa": "土",
-    "weekdaySu": "日",
-    "status": {
-      "active": "有効",
-      "paused": "一時停止"
-    },
-    "schedule": {
-      "oncePrefix": "予定時刻",
-      "hourly": "毎時",
-      "daily": "毎日",
-      "weekly": "毎週",
-      "unknown": "不明な予定"
-    },
-    "action": {
-      "runNow": "今すぐ実行",
-      "pause": "一時停止",
-      "resume": "再開",
-      "edit": "編集",
-      "delete": "削除"
-    },
-    "deleteConfirm": {
-      "title": "自動化を削除",
-      "content": "「{name}」を削除しますか？元に戻せません。"
-    },
-    "form": {
-      "createTitle": "自動化を作成",
-      "editTitle": "自動化を編集",
-      "desc": "名前・プロンプト・予定を設定",
-      "name": "名前",
-      "namePlaceholder": "例：毎朝ニュースを要約",
-      "prompt": "プロンプト",
-      "promptPlaceholder": "実行するタスクを記述…",
-      "scheduleType": "予定タイプ",
-      "typeOnce": "一度のみ",
-      "typeRecurring": "繰り返し",
-      "scheduledAt": "実行日時",
-      "frequency": "頻度",
-      "freqHourly": "毎時",
-      "freqDaily": "毎日",
-      "freqWeekly": "毎週",
-      "time": "実行時刻",
-      "weekdays": "曜日",
-      "errName": "名前を入力してください",
-      "errPrompt": "プロンプトを入力してください",
-      "errScheduledAt": "実行日時を選択してください",
-      "errDays": "曜日を1つ以上選択してください"
-    },
-    "toast": {
-      "created": "作成しました",
-      "updated": "保存しました",
-      "saveFailed": "保存に失敗しました",
-      "loadFailed": "読み込みに失敗しました",
-      "runDone": "実行完了",
-      "runFailed": "実行に失敗しました",
-      "paused": "一時停止しました",
-      "resumed": "再開しました",
-      "updateFailed": "更新に失敗しました",
-      "deleted": "削除しました",
-      "deleteFailed": "削除に失敗しました"
-    }
-  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "ローカルリポジトリから構成・モジュール文書を自動生成",
@@ -20842,6 +20764,7 @@
     "description": "平台规则与规范"
   },
   "automations": {
+    "delete": "削除",
     "title": "自動化",
     "subtitle": "予定通りエージェントタスクを実行",
     "create": "自動化を作成",
