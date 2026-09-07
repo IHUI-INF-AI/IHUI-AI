@@ -1799,5 +1799,38 @@
     "detail": {
       "title": "워크스페이스 상세"
     }
+  },
+  "capabilityMarket": {
+    "title": "기능 마켓",
+    "subtitle": "플랫폼 내장 MCP 기능을 둘러보고 원클릭으로 공개를 활성화해 Agent 도구를 확장하세요",
+    "count": "총 {count}개 기능",
+    "searchPlaceholder": "이름 또는 설명으로 검색",
+    "allCategories": "전체 분류",
+    "category": "분류",
+    "search": "검색",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨",
+    "enable": "활성화",
+    "disable": "비활성화",
+    "healthy": "정상",
+    "degraded": "네트워크 필요",
+    "unhealthy": "비정상",
+    "adminOnly": "관리자 전용",
+    "allUsers": "전체 사용자",
+    "networkRequired": "네트워크 필요",
+    "paramCount": "매개변수 {count}개",
+    "noParams": "매개변수 없음",
+    "kindTool": "도구",
+    "kindResource": "리소스",
+    "kindPrompt": "프롬프트",
+    "loadFailed": "로드 실패, 나중에 다시 시도하세요",
+    "loading": "로드 중...",
+    "actionFailed": "작업 실패, 나중에 다시 시도하세요",
+    "enableSuccess": "{name} 활성화됨",
+    "disableSuccess": "{name} 비활성화됨",
+    "notFound": "기능을 찾을 수 없음"
+  },
+  "topBar": {
+    "capabilityMarket": "기능 마켓"
   }
 }

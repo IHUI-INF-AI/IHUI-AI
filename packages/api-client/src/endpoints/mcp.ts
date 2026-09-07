@@ -193,4 +193,102 @@ export async function setStoreServerEnabled(
     { method: 'POST' },
   )
 }
+
+// ===================== 能力市场(P2-8 供给侧,2026-09 立) =====================
+
+/** 能力类型:工具 / 资源 / 提示词 */
+export type CapabilityKind = 'tool' | 'resource' | 'prompt'
+
+/** 权限分级:admin 专属 / 全部用户 */
+export type CapabilityPermission = 'admin' | 'all'
+
+/** 健康状态:healthy / degraded(依赖外部网络)/ unhealthy */
+export type CapabilityHealth = 'healthy' | 'degraded' | 'unhealthy'
+
+/** 能力输入参数摘要(来自 tool.input_schema) */
+export interface CapabilityParam {
+  name: string
+  type: string
+  required: boolean
+  description: string
+}
+
+/** 单个平台能力(能力市场列表/详情项) */
+export interface Capability {
+  id: string
+  name: string
+  kind: CapabilityKind
+  description: string
+  category: string
+  permission: CapabilityPermission
+  requires_network: boolean
+  health: CapabilityHealth
+  source: string
+  enabled: boolean
+  params: CapabilityParam[]
+}
+
+/** 能力市场列表响应 */
+export interface CapabilityListResponse {
+  items: Capability[]
+  total: number
+  page: number
+  page_size: number
+  categories: string[]
+}
+
+/** 能力启用/停用响应 */
+export interface CapabilityActionResult {
+  id: string
+  enabled: boolean
+}
+
+/** 能力市场查询参数 */
+export interface ListCapabilitiesInput {
+  page?: number
+  page_size?: number
+  category?: string
+  q?: string
+}
+
+/** 获取能力市场列表(分页 + 分类过滤 + 关键词检索) */
+export async function getCapabilities(
+  input: ListCapabilitiesInput = {},
+): Promise<ApiResult<CapabilityListResponse>> {
+  return fetchApi<CapabilityListResponse>('/api/mcp/capabilities', {
+    params: {
+      page: input.page ?? 1,
+      page_size: input.page_size ?? 20,
+      category: input.category ?? '',
+      q: input.q ?? '',
+    },
+  })
+}
+
+/** 获取能力市场详情(单条) */
+export async function getCapability(
+  id: string,
+): Promise<ApiResult<Capability>> {
+  return fetchApi<Capability>(`/api/mcp/capabilities/${encodeURIComponent(id)}`)
+}
+
+/** 启用能力:加入对外暴露的 MCP 能力集 */
+export async function enableCapability(
+  id: string,
+): Promise<ApiResult<CapabilityActionResult>> {
+  return fetchApi<CapabilityActionResult>(
+    `/api/mcp/capabilities/${encodeURIComponent(id)}/enable`,
+    { method: 'POST' },
+  )
+}
+
+/** 停用能力:从对外暴露的 MCP 能力集中移除 */
+export async function disableCapability(
+  id: string,
+): Promise<ApiResult<CapabilityActionResult>> {
+  return fetchApi<CapabilityActionResult>(
+    `/api/mcp/capabilities/${encodeURIComponent(id)}/disable`,
+    { method: 'POST' },
+  )
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍​‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
