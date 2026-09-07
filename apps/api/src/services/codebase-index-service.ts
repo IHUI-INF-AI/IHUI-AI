@@ -22,7 +22,7 @@
  * - DASHSCOPE_API_KEY / OPENAI_API_KEY / MINIMAX_API_KEY
  */
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { codebaseChunks } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
@@ -236,6 +236,27 @@ class CodebaseIndexService {
       .where(and(eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)))
       .returning({ id: codebaseChunks.id })
     return result.length
+  }
+
+  /**
+   * 批量按文件删除切片(Merkle 增量同步专用,2026-09-07 立)。
+   * 处理"源文件已删除"场景:文件消失后其旧切片必须同步清除,
+   * 否则语义搜索会持续召回幽灵文件的过期内容。
+   */
+  async deleteByFiles(repoId: string, filePaths: string[]): Promise<number> {
+    if (filePaths.length === 0) return 0
+    let deleted = 0
+    // 分批 in 查询(每批 200,防 SQL 参数过多)
+    const BATCH = 200
+    for (let i = 0; i < filePaths.length; i += BATCH) {
+      const batch = filePaths.slice(i, i + BATCH)
+      const result = await db
+        .delete(codebaseChunks)
+        .where(and(eq(codebaseChunks.repoId, repoId), inArray(codebaseChunks.filePath, batch)))
+        .returning({ id: codebaseChunks.id })
+      deleted += result.length
+    }
+    return deleted
   }
 
   /** 索引统计 */

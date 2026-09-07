@@ -414,4 +414,26 @@ if (process.env.HUSKY_SKIP_FOOTER_GUARD !== '1') {
   console.log('⏭  SiteFooter 守门(HUSKY_SKIP_FOOTER_GUARD=1, 跳过)')
 }
 
+// 🚪 createPortal 定位守门(2026-09-07 立,blocking)
+// 背景:同日实修 4 处同型根因——createPortal popover 容器挂 style={{top,left}}
+//      但缺 position:fixed,portal 到 body 后 top/left 静默失效
+//      ("弹层位置漂移/点击没反应")。规则早已写入 AGENTS.md 但无守门,
+//      本脚本把文档规则升级为强制门禁。
+// 跳过方法(紧急):HUSKY_SKIP_PORTAL_GUARD=1 git commit ...
+if (process.env.HUSKY_SKIP_PORTAL_GUARD !== '1') {
+  if (
+    !run(
+      '🚪 createPortal 定位守门(portal 容器必显式 position:fixed, 2026-09-07 立)...',
+      'node scripts/check-portal-fixed.mjs --staged',
+    )
+  ) {
+    console.error('❌ createPortal 定位守门失败,提交已阻止')
+    console.error('   修复:portal 容器 style 加 position: "fixed"(或 className 加 fixed 类)')
+    console.error('   紧急跳过:HUSKY_SKIP_PORTAL_GUARD=1 git commit ...')
+    process.exit(1)
+  }
+} else {
+  console.log('⏭  createPortal 定位守门(HUSKY_SKIP_PORTAL_GUARD=1, 跳过)')
+}
+
 console.log('✅ Pre-commit 检查通过')
