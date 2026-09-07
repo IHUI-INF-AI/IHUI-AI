@@ -77,14 +77,13 @@ export function BackgroundAgentsPanel({
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9"
             onClick={onRefresh}
             disabled={loading}
           >
             <RefreshCw className={cn('h-3.5 w-3.5', loading && 'animate-spin')} />
           </Button>
           {closable && (
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={onClose}>
+            <Button variant="ghost" size="icon" onClick={onClose}>
               <X className="h-3.5 w-3.5" />
             </Button>
           )}

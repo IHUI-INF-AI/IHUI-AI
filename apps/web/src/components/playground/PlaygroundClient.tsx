@@ -113,7 +113,7 @@ export function PlaygroundClient() {
     <div className="mx-auto w-full space-y-4">
       {/* 顶部操作栏 */}
       <div className="flex items-center gap-2">
-        <Button onClick={handleSend} disabled={isStreaming} className="h-9">
+        <Button onClick={handleSend} disabled={isStreaming}>
           {isStreaming ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
@@ -121,7 +121,7 @@ export function PlaygroundClient() {
           )}
           发送
         </Button>
-        <Button variant="outline" onClick={handleClear} disabled={isStreaming} className="h-9">
+        <Button variant="outline" onClick={handleClear} disabled={isStreaming}>
           <Eraser className="h-4 w-4" />
           清空
         </Button>
