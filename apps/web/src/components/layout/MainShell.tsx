@@ -41,12 +41,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
     // 关闭态=width=0 + mr-1.5 = 6px 占位),此处不再加 pl-2 避免叠加导致 14px 错乱。
     //
     // pl-[var(--topbar-content-left)](2026-08-01 立,根治移动端错位):
-    // 移动端(<1024px)顶栏第 0 个元素是汉堡按钮(mobileMenu),占 ml-1.5(6)+w-9(36)+gap-1(4)=46px,
+    // 移动端(<768px)顶栏第 0 个元素是汉堡按钮(mobileMenu),占 ml-1.5(6)+w-9(36)+gap-1(4)=46px,
     // 把搜索按钮挤到 left=46px。本 pl 让工作区卡片对齐搜索按钮 left,消除 46px 错位。
-    // 桌面端(≥1024px)汉堡按钮 hidden,--topbar-content-left=0px,pl 不生效。
+    // 桌面端(≥768px,2026-09-07 从 1024 下调)汉堡按钮 hidden,--topbar-content-left=0px,pl 不生效。
     //
     // ⚠️ 变量值来源(2026-08-01 根治方案):
-    // - SSR 首屏:globals.css :root + @media (min-width:1024px) 硬编码 fallback(46px/0px)
+    // - SSR 首屏:globals.css :root + @media (min-width:768px) 硬编码 fallback(46px/0px)
     // - JS 执行后:GlobalTopBar 的 ResizeObserver 动态测量搜索按钮实际 left,用 inline style
     //   覆盖(优先级 > stylesheet)。工作区卡片自动跟随 mobileMenu 样式变化,无需手动同步。
     //   详见 GlobalTopBar.tsx useEffect 注释。
