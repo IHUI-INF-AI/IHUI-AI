@@ -18,6 +18,19 @@ import {
 } from './jobs/ai-world-sync.js'
 import { startHotWordsScheduler, stopHotWordsScheduler } from './jobs/hot-words-sync.js'
 import { startSourceProbeScheduler, stopSourceProbeScheduler } from './jobs/portal-source-probe.js'
+import {
+  startPiiRetentionScheduler,
+  stopPiiRetentionScheduler,
+} from './jobs/pii-retention-cleanup.js'
+import {
+  startLiteLLMPriceSyncScheduler,
+  stopLiteLLMPriceSyncScheduler,
+} from './services/litellm-price-sync.js'
+import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
+import {
+  startAgentAutomationScheduler,
+  stopAgentAutomationScheduler,
+} from './services/agent-automation-scheduler.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -104,9 +117,24 @@ async function start() {
       logger.warn('stopSourceProbeScheduler failed', { err: e })
     }
     try {
+      stopLiteLLMPriceSyncScheduler()
+    } catch (e) {
+      logger.warn('stopLiteLLMPriceSyncScheduler failed', { err: e })
+    }
+    try {
       stopHotWordsScheduler()
     } catch (e) {
       logger.warn('stopHotWordsScheduler failed', { err: e })
+    }
+    try {
+      stopPiiRetentionScheduler()
+    } catch (e) {
+      logger.warn('stopPiiRetentionScheduler failed', { err: e })
+    }
+    try {
+      stopAgentAutomationScheduler()
+    } catch (e) {
+      logger.warn('stopAgentAutomationScheduler failed', { err: e })
     }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
@@ -177,6 +205,27 @@ async function start() {
   // 一旦恢复公开 feed 自动入源;默认开启,ENABLE_SOURCE_PROBE=false 禁用)
   if (process.env.ENABLE_SOURCE_PROBE !== 'false') {
     startSourceProbeScheduler()
+  }
+
+  // 启动 PII 保留期清理定时任务(每天 03:30 滚动删除过期的 crash/behavior/visit 日志类 PII;
+  // 默认开启,ENABLE_PII_RETENTION=false 禁用)
+  if (process.env.ENABLE_PII_RETENTION !== 'false') {
+    startPiiRetentionScheduler()
+  }
+
+  // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
+  // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
+  if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
+    startLiteLLMPriceSyncScheduler()
+  }
+
+  // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
+  startAgentAutomationScheduler()
+
+  // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
+  // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
+  if (process.env.ENABLE_ALGORITHM_RECORD_SYNC !== 'false') {
+    startAlgorithmRecordScheduler()
   }
 
   // P1 修复(2026-08-02):改 on 为 once,避免重复触发 shutdown;二次信号走默认强制退出

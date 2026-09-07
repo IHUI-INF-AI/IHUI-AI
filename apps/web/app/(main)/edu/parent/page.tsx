@@ -31,6 +31,7 @@ import {
 
 import { cn } from '@/lib/utils'
 import { fetchApi } from '@/lib/api'
+import { CHART_BLUE } from '@ihui/design-tokens'
 import { BackButton } from '@/components/common'
 import {
   Card,
@@ -469,7 +470,7 @@ function CoursesView({ childId }: { childId: string }) {
                 <div
                   key={c.id}
                   className="rounded-lg border-l-4 bg-card px-3 py-2"
-                  style={{ borderLeftColor: c.color ?? '#3b82f6' }}
+                  style={{ borderLeftColor: c.color ?? CHART_BLUE }}
                 >
                   <p className="text-sm font-medium">{c.courseName}</p>
                   <div className="mt-1 space-y-0.5 text-xs text-muted-foreground">

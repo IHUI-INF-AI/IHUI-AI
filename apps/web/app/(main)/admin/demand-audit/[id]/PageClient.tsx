@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, ArrowLeft, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button, Card, CardContent, CardHeader, CardTitle, Label } from '@ihui/ui-react'
+import { CHART_GREEN, CHART_RED } from '@ihui/design-tokens'
 import {
   Badge,
   DescriptionList,
@@ -119,7 +120,7 @@ export default function DemandAuditDetailPage() {
       time: fmtDate(row?.examineTime),
       description: existOpinion || undefined,
       color:
-        status === 'approved' ? '#10b981' : status === 'rejected' ? '#ef4444' : 'var(--primary)',
+        status === 'approved' ? CHART_GREEN : status === 'rejected' ? CHART_RED : 'var(--primary)',
     })
   }
 

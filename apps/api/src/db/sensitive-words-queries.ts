@@ -5,6 +5,7 @@
 import { eq, and, desc, sql } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { sensitiveWords, type SensitiveWord, type NewSensitiveWord } from '@ihui/database'
+import { recordAuditLog } from '../services/audit-log-service.js'
 
 export interface SensitiveWordListResult {
   list: SensitiveWord[]
@@ -102,5 +103,91 @@ export async function filterSensitiveContent(text: string): Promise<{
   }
 
   return { filtered, hit: hits.length > 0, hits }
+}
+
+export interface SensitiveHit {
+  word: string
+  category: string
+  level: number
+  /** 命中的字段名(多字段入参时区分来源)。 */
+  field?: string
+}
+
+/** 单字段 UGC 过滤结果。 */
+export interface SanitizeFieldResult {
+  /** 是否安全(无临界/违规词命中)。true=可继续写入;false=必须拒绝。 */
+  ok: boolean
+  /** 脱敏后的文本(字段无命中则与原文本一致)。 */
+  text: string
+  /** 命中的敏感词(含脱敏词与临界词)。 */
+  hits: SensitiveHit[]
+}
+
+/** sanitizeUgcInput 审计上下文(记录脱敏/拦截日志用)。 */
+export interface SanitizeUgcAuditCtx {
+  action?: string
+  resourceType?: string
+  resourceId?: string
+  userId?: string
+  ip?: string
+  userAgent?: string
+}
+
+/**
+ * UGC 内容过滤封装 —— 供发帖/评论/圈子/话题/问答/简介等所有写入入口复用。
+ *
+ * 策略(基于 DB 敏感词 level):
+ * - level === 1(一般词)→ 自动脱敏(按 replacement 或 `***` 替换),允许继续写入;
+ * - level >= 2(临界/违规词)→ 拒绝写入(ok=false),由调用方返回 400;
+ * - 只要任一字段命中,即记一条审计日志(action 默认 `ugc.sensitive.filter`,result 为 blocked/sanitized)。
+ *
+ * 注意:多字段入参时,任一字段命中临界词即整体返回 ok=false(拒绝整个写入),
+ * 避免绕过过滤。调用方拿到 ok=false 后应直接返回 400,不要落库。
+ */
+export async function sanitizeUgcInput(
+  texts: Record<string, string>,
+  ctx: SanitizeUgcAuditCtx = {},
+): Promise<{
+  ok: boolean
+  /** 各字段的过滤结果(调用方应使用 result.text 覆盖原字段再落库)。 */
+  fields: Record<string, SanitizeFieldResult>
+  /** 全部字段命中的敏感词(合并去重)。 */
+  hits: SensitiveHit[]
+}> {
+  const fields: Record<string, SanitizeFieldResult> = {}
+  const allHits: SensitiveHit[] = []
+  let ok = true
+
+  for (const [field, raw] of Object.entries(texts)) {
+    if (!raw) {
+      fields[field] = { ok: true, text: raw, hits: [] }
+      continue
+    }
+    const { filtered, hits } = await filterSensitiveContent(raw)
+    const fieldHits = hits.map((h) => ({ ...h, field }))
+    // level>=2 为临界/违规词:整体拒绝写入(防止多字段拆分绕过)
+    if (fieldHits.some((h) => h.level >= 2)) ok = false
+    fields[field] = { ok: !fieldHits.some((h) => h.level >= 2), text: filtered, hits: fieldHits }
+    allHits.push(...fieldHits)
+  }
+
+  if (allHits.length > 0) {
+    // 记审计日志(不阻塞主流程,失败仅记录 warning)
+    const blocked = !ok
+    await recordAuditLog({
+      userId: ctx.userId,
+      action: ctx.action ?? 'ugc.sensitive.filter',
+      resourceType: ctx.resourceType,
+      resourceId: ctx.resourceId,
+      ip: ctx.ip,
+      userAgent: ctx.userAgent,
+      result: blocked ? 'blocked' : 'sanitized',
+      metadata: {
+        hits: allHits,
+      },
+    })
+  }
+
+  return { ok, fields, hits: allHits }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

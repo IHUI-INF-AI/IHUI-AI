@@ -2170,7 +2170,7 @@ export function ChatScreen() {
             <Pressable hitSlop={8} onPress={hideSharePoints} style={styles.shareClose}>
               <X size={20} color={tokens.text.primary} />
             </Pressable>
-            <Share2 size={48} color={tokens.purple.DEFAULT} />
+            <Share2 size={48} color={tokens.brandAccent.DEFAULT} />
             <Text style={styles.shareTitle}>分享领智汇值</Text>
             <Text style={styles.shareDesc}>
               首次分享成功,获得 {shareFirstReward}{' '}
@@ -2702,7 +2702,7 @@ const styles = StyleSheet.create({
   codeBlock: {
     marginVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#1e1e2e',
+    backgroundColor: tokens.gray[800],
     overflow: 'hidden',
   },
   codeBlockHeader: {
@@ -2711,7 +2711,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#2d2d44',
+    backgroundColor: tokens.gray[700],
   },
   codeBlockLang: {
     fontSize: 11,

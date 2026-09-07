@@ -32,12 +32,17 @@ const isDev = process.env.NODE_ENV === 'development'
 // 静态导出改用独立 distDir .next-static(输出目录 out/ 不变,tauri/GH Pages 无感知),
 // 与运行中服务彻底隔离。服务端构建(next build + next start)不受影响,仍用 .next。
 const staticDistDir = isStaticExport ? '.next-static' : '.next'
+// 2026-09-07 构建修复:distDir 允许经 IHUI_BUILD_DIST 覆盖。
+// 用途:分阶段/零停机部署时先构建到独立 staging 目录(web 仍服务线上 .next),
+// 构建通过后再停服务执行 .next ← staging 交换,把停机窗口从「整个构建长
+// 度」压缩到「秒级目录交换」。服务端正式构建仍默认 .next。
+const buildDistDir = process.env.IHUI_BUILD_DIST || (isStaticExport ? '.next-static' : '.next')
 
 const nextConfig: NextConfig = {
   // 静态导出供 Tauri WebView 加载(仅 EXPORT_STATIC/GITHUB_PAGES 时启用;
   // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
   ...(isStaticExport ? { output: 'export' as const } : {}),
-  ...(isStaticExport ? { distDir: staticDistDir } : {}),
+  distDir: buildDistDir,
   basePath: isGitHubPages ? `/${repoName}` : '',
   assetPrefix: isGitHubPages ? `/${repoName}/` : '',
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
@@ -159,6 +164,12 @@ const nextConfig: NextConfig = {
     return config
   },
   experimental: {
+    // 2026-09-07 构建缓解:关闭 Next 前端 CSS 压缩(lightningcss)。
+    // 说明:实测 Tailwind v4 会把多份导入展开成一条 ~271KB 单行 CSS,前端 CSS 管线
+    // (lightningcss,与 Turbopack/webpack 无关)偶发在此巨行上报假性 "Unexpected token
+    // Delim('\u{1a}')" 中断冷构建(成功可达但概率失败)。此为缓解项不保证根治;
+    // 真正的可靠性由 ihui-deploy.ps1 的「冷构建 + 多轮重试」兜底。
+    optimizeCss: false,
     // 2026-08-04 生产构建排障:SWC memory allocation of 7.5GB failed
     // (next build 反复 0xC0000409 崩溃,根因=webpack 峰值内存过高)。
     // webpackMemoryOptimizations 禁用 dual string buffer caching + 字符串驻留,
@@ -259,6 +270,14 @@ const nextConfig: NextConfig = {
     //   否则生产环境前端 /api/* 请求 404。因此移除 NODE_ENV 条件,始终启用(静态导出时 rewrites 本身不生效,无副作用)。
     return {
       beforeFiles: [
+        // 2026-09-07 修复图片出图:小程序/前端引用 /remote-images/* 真图,经本机
+        // :80 cdn-server.js 实时读盘直出(而非 web 静态 public 的构建快照,后者不含
+        // 该目录导致公网 404)。须放最前,优先于一切 /api 等规则,避免被后续吞掉。
+        // cdn-server.js server-root 内置防路径穿越 + 7 天缓存,换图免重启。
+        {
+          source: '/remote-images/:path*',
+          destination: 'http://localhost:80/remote-images/:path*',
+        },
         // 2026-08-27 立,2026-09-04 更新: uploads/cdn 静态资源由独立 cdn-server
         // (deploy/cdn-server.js) 与 API 8802(@fastify/static)直出托管,
         // web 端不再有本地磁盘路由(原 app/cdn 与 app/uploads 的 route.ts 已删除),

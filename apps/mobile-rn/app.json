@@ -13,12 +13,19 @@
       "supportsTablet": true,
       "bundleIdentifier": "ai.ihui.mobile",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["weixin", "wechat", "weixinULAPI"],
+        "LSApplicationQueriesSchemes": [
+          "weixin",
+          "wechat",
+          "weixinULAPI"
+        ],
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": false
         }
       },
-      "associatedDomains": ["applinks:aizhs.top", "applinks:file.aizhs.top"],
+      "associatedDomains": [
+        "applinks:aizhs.top",
+        "applinks:file.aizhs.top"
+      ],
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -48,10 +55,11 @@
     ],
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "c840b892-d8fa-4341-8b51-fa70b4bf36a5"
       },
       "WX_APP_APPID": "wx85fa429a9331b5c8",
       "WX_UNIVERSAL_LINK": "https://aizhs.top/"
-    }
+    },
+    "owner": "ihui-ai"
   }
 }

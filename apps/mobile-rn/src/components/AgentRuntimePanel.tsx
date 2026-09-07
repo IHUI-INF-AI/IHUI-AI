@@ -116,7 +116,7 @@ export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimeP
             <Pressable
               onPress={handleSend}
               disabled={!input.trim()}
-              className="ml-2 h-9 items-center justify-center rounded-md bg-blue-500 px-3 disabled:opacity-40"
+              className="ml-2 h-9 items-center justify-center rounded-md bg-orange-500 px-3 disabled:opacity-40"
             >
               <Text className="text-xs text-white">{t('agent.runtimeSend')}</Text>
             </Pressable>

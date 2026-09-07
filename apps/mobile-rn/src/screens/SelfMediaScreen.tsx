@@ -24,6 +24,7 @@ import {
   type SelfMediaSkill,
 } from '@ihui/api-client'
 import { useI18n } from '../i18n'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -38,6 +39,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function SelfMediaScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [tab, setTab] = useState<'skills' | 'records'>('skills')
   const [skills, setSkills] = useState<SelfMediaSkill[]>([])
@@ -117,7 +119,7 @@ export function SelfMediaScreen() {
             <TouchableOpacity
               key={key}
               onPress={() => setTab(key)}
-              className={`flex-1 rounded-md py-2 ${active ? 'bg-blue-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
+              className={`flex-1 rounded-md py-2 ${active ? 'bg-orange-600' : 'bg-gray-100 dark:bg-neutral-800'}`}
             >
               <Text
                 className={`text-center text-xs ${active ? 'font-medium text-white' : 'text-gray-600 dark:text-neutral-300'}`}
@@ -178,7 +180,7 @@ export function SelfMediaScreen() {
                           value={prompt}
                           onChangeText={setPrompt}
                           placeholder={skill.examples[0] || t('selfMedia.promptPlaceholder')}
-                          placeholderTextColor="#9ca3af"
+                          placeholderTextColor={tk.text.tertiary}
                           multiline
                           textAlignVertical="top"
                           className="min-h-[64px] rounded-md border border-gray-200 p-2.5 text-xs dark:border-neutral-700 dark:text-neutral-100"
@@ -186,7 +188,7 @@ export function SelfMediaScreen() {
                         <TouchableOpacity
                           onPress={() => void onInvoke(skill)}
                           disabled={invoking || !skill.available}
-                          className={`mt-2 items-center rounded-md py-2.5 ${invoking || !skill.available ? 'bg-blue-400' : 'bg-blue-600'}`}
+                          className={`mt-2 items-center rounded-md py-2.5 ${invoking || !skill.available ? 'bg-orange-400' : 'bg-orange-600'}`}
                         >
                           <Text className="text-xs font-medium text-white">
                             {invoking ? t('selfMedia.invoking') : t('selfMedia.invoke')}
@@ -199,7 +201,7 @@ export function SelfMediaScreen() {
                                 {t('selfMedia.duration', { ms: result.duration_ms })}
                               </Text>
                               <TouchableOpacity onPress={onShare} hitSlop={{ top: 6, bottom: 6 }}>
-                                <Text className="text-xs text-blue-600 dark:text-blue-400">
+                                <Text className="text-xs text-orange-600 dark:text-orange-400">
                                   {t('selfMedia.share')}
                                 </Text>
                               </TouchableOpacity>

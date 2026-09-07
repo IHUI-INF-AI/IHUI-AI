@@ -98,7 +98,7 @@ export default function ContextCompactionPanel({ sessionId }: { sessionId: strin
                   gap: 8,
                 }}
               >
-                <span style={{ fontSize: 12, color: '#666' }}>
+                <span style={{ fontSize: 12, color: 'var(--color-muted-foreground)' }}>
                   {new Date(rec.compacted_at * 1000).toLocaleString()}
                 </span>
                 <span

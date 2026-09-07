@@ -1,0 +1,81 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
+
+# EAS Build 上传排除规则(仓库根)。
+# 背景:本仓库为 pnpm monorepo,根/子级 node_modules + .next + 各构建产物在
+# EAS 近似 gitignore 算法下未完全排除,导致 archive 高达 1.7GB、云端
+# Read-app-config 阶段不稳定。此处统一排除,只上传真实源码;原生依赖由
+# 云端 pnpm install 自行安装。
+# 注意:存在本文件时 EAS 不再参考任何 .gitignore,因此必须覆盖全部忽略项,
+# 且不得误排除 apps/* 与 packages/* 源码。
+
+# ── 依赖(云端自行安装) ──
+node_modules/
+**/node_modules/
+.pnpm/
+.pnp
+.pnp.js
+.yarn/cache/
+.yarn/unplugged/
+
+# ── JS/RN 构建产物 ──
+.next/
+**/.next/
+.next-static/
+.next-bak-*/
+.next-failrec-*/
+.next-staging/
+.out/
+**/out/
+dist/
+**/dist/
+dist-*/
+build/
+coverage/
+*.hbc
+*.tsbuildinfo
+.cache/
+**/.cache/
+.metro/
+.turbo/
+**/.turbo/
+
+# ── Tauri/Rust 桌面端构建产物(本地打包产物,与 EAS 无关) ──
+**/src-tauri/target/
+apps/desktop/
+
+# ── Python 虚拟环境/缓存 ──
+**/.venv/
+**/venv/
+**/__pycache__/
+.pytest_cache/
+**/.data/
+tests/
+
+# ── Expo 本地原生目录(prebuild 生成,云端重建) ──
+android/
+ios/
+.expo/
+**/.expo/
+.expo-shared/
+
+# ── 本地备份/会话/测试残留 ──
+backups/
+tmp/
+temp/
+*.log
+*.pem
+test-output*.log
+lint-output.log
+build-output.log
+browser_test_output/
+sso-test-out.log
+.tmp-test-out.txt
+__count_g_routes.ps1
+*ourcesappoutvsworkbench*shellIntegration*
+
+# ── 系统 ──
+.DS_Store
+Thumbs.db
+
+# 例外:apps/web/app/uploads 为 Next 路由目录(/uploads route handler),保留源码

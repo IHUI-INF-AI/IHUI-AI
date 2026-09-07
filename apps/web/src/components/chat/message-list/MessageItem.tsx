@@ -23,6 +23,7 @@ import type { InlineDiffInfo } from '@/components/ai/types'
 import { CommunityPublishDialog } from '@/components/chat/community-publish-dialog'
 import { MarkdownStream } from '@/components/ai/markdown-stream'
 import { ToolCallCard, deriveDiffInfo } from '@/components/ai/tool-call-card'
+import { ArtifactCanvas, type Artifact } from '@/components/chat/artifact-canvas'
 import { ThinkingSection } from '@/components/ai/progress-sections/thinking-section'
 import { ToolCallSummaryCard } from '@/components/ai/progress-sections/tool-call-summary-card'
 import { SubAgentActivityFeed } from '@/components/ai/sub-agent-activity-feed'
@@ -474,32 +475,49 @@ const MessageItem = React.memo(function MessageItem({
                     } as unknown as React.ComponentProps<typeof ToolCallCard>['summaryData'])
                   : undefined)
 
+              // 内联 content 型 artifact(html/css/js 等)→ Artifact 画布渲染对象
+              const effectiveArtifacts: Artifact[] | undefined =
+                tcResult && Array.isArray(tcResult.artifacts)
+                  ? (tcResult.artifacts as Array<Record<string, unknown>>).map((a) => ({
+                      type: typeof a.type === 'string' ? a.type : undefined,
+                      content: typeof a.content === 'string' ? a.content : undefined,
+                      path: typeof a.path === 'string' ? a.path : undefined,
+                      name: typeof a.name === 'string' ? a.name : undefined,
+                      created_at: typeof a.created_at === 'string' ? a.created_at : undefined,
+                    }))
+                  : undefined
+
               return (
-                <ToolCallCard
-                  key={tc.id}
-                  toolName={tc.toolName}
-                  args={tc.args}
-                  result={tc.result}
-                  status={tc.status}
-                  duration={tc.duration ?? tc.durationMs}
-                  error={tc.error}
-                  iteration={tc.iteration}
-                  diffInfo={tc.diffInfo}
-                  applyStatus={tc.applyStatus}
-                  applyError={tc.applyError}
-                  repeated={tc.repeated}
-                  imageUrl={effectiveImageUrl}
-                  summaryData={effectiveSummaryData}
-                  serverSource={tc.serverSource}
-                  serverId={tc.serverId}
-                  serverName={tc.serverName}
-                  onApply={
-                    hasDiff && onApplyDiff
-                      ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
-                      : undefined
-                  }
-                  onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
-                />
+                <React.Fragment key={tc.id}>
+                  <ToolCallCard
+                    toolName={tc.toolName}
+                    args={tc.args}
+                    result={tc.result}
+                    status={tc.status}
+                    duration={tc.duration ?? tc.durationMs}
+                    error={tc.error}
+                    iteration={tc.iteration}
+                    diffInfo={tc.diffInfo}
+                    applyStatus={tc.applyStatus}
+                    applyError={tc.applyError}
+                    repeated={tc.repeated}
+                    imageUrl={effectiveImageUrl}
+                    summaryData={effectiveSummaryData}
+                    serverSource={tc.serverSource}
+                    serverId={tc.serverId}
+                    serverName={tc.serverName}
+                    onApply={
+                      hasDiff && onApplyDiff
+                        ? () => onApplyDiff(m.id, tc.id, effectiveDiffInfo!)
+                        : undefined
+                    }
+                    onReject={hasDiff && onRejectDiff ? () => onRejectDiff(m.id, tc.id) : undefined}
+                  />
+                  {/* 内联 content 型 artifact:HTML 走沙箱 iframe 预览,代码型走代码视图 */}
+                  {effectiveArtifacts?.map((art, i) => (
+                    <ArtifactCanvas key={`${tc.id}-${i}`} artifact={art} />
+                  ))}
+                </React.Fragment>
               )
             })}
             <MarkdownStream

@@ -34,8 +34,8 @@ export interface BottomPopupProps {
   onConfirm: (levelId: string) => void
 }
 
-// 主题色:1:1 复刻 Uniapp 主题色(原硬编码 #5088fa,治理后映射至 tokens.indigo.DEFAULT,非项目 brand.DEFAULT)
-const ACCENT_COLOR = tokens.indigo.DEFAULT
+// 主题色:1:1 复刻 Uniapp 主题色(原硬编码 #5088fa,治理后映射至 tokens.brandAccent.DEFAULT,非项目 brand.DEFAULT)
+const ACCENT_COLOR = tokens.brandAccent.DEFAULT
 
 const SHEET_RADIUS = 16
 const SHEET_PADDING = 20
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   } as ViewStyle,
   levelItemSelected: {
-    backgroundColor: tokens.purple.light,
-    borderColor: tokens.purple.DEFAULT,
+    backgroundColor: tokens.brandAccent.light,
+    borderColor: tokens.brandAccent.DEFAULT,
   } as ViewStyle,
   levelItemPressed: {
     opacity: 0.7,
