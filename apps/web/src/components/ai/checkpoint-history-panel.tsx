@@ -87,8 +87,8 @@ export function CheckpointHistoryPanel({ checkpoints, onRestore }: CheckpointHis
                     {onRestore && (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        className="mt-1 h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                        size="xs"
+                        className="mt-1 px-2 text-xs text-muted-foreground hover:text-primary"
                         onClick={() => onRestore(cp.id)}
                       >
                         <RotateCcw className="h-3 w-3" />

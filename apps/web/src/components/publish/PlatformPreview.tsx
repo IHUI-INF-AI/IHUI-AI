@@ -104,8 +104,8 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
               key={p}
               type="button"
               variant={selectedPlatform === p ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2 text-xs"
+              size="xs"
+              className="px-2 text-xs"
               onClick={() => setSelectedPlatform(p)}
             >
               {t(`preview.${p}` as never)}
@@ -118,7 +118,6 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
               type="button"
               variant={view === 'mobile' ? 'default' : 'ghost'}
               size="icon"
-              className="h-9 w-9"
               onClick={() => setView('mobile')}
             >
               <Smartphone className="h-3.5 w-3.5" />
@@ -129,7 +128,6 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
               type="button"
               variant={view === 'desktop' ? 'default' : 'ghost'}
               size="icon"
-              className="h-9 w-9"
               onClick={() => setView('desktop')}
             >
               <Monitor className="h-3.5 w-3.5" />
