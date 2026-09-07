@@ -22,7 +22,7 @@
  * - DASHSCOPE_API_KEY / OPENAI_API_KEY / MINIMAX_API_KEY
  */
 
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { codebaseChunks } from '@ihui/database'
 import { getEmbeddingProvider } from './embedding-provider.js'
@@ -220,6 +220,102 @@ class CodebaseIndexService {
     }
   }
 
+  /**
+   * 关键词检索(Postgres 全文检索,2026-09-07 立)。
+   *
+   * BM25 风格词法通道:tsquery 匹配 content + symbol_name + file_path,
+   * ts_rank 排序。与向量通道互补——精确符号名/文件名/标识符查询
+   * (如"getUserById")在词法通道命中率远高于语义通道。
+   * 无需迁移:tsvector 查询时计算(切片表规模 <10万行时成本可接受)。
+   */
+  async keywordSearch(opts: {
+    query: string
+    repoId?: string
+    language?: string
+    topK?: number
+  }): Promise<SearchResult[]> {
+    const { query, repoId, language, topK = 10 } = opts
+    try {
+      const whereParts = [
+        sql`to_tsvector('simple', "content" || ' ' || coalesce("symbol_name", '') || ' ' || "file_path") @@ websearch_to_tsquery('simple', ${query})`,
+      ]
+      if (repoId) whereParts.push(sql`"repo_id" = ${repoId}`)
+      if (language) whereParts.push(sql`"language" = ${language}`)
+
+      const rows = (await db.execute(sql`
+        SELECT
+          "id",
+          "file_path",
+          "line_start",
+          "line_end",
+          "content",
+          "language",
+          "symbol_name",
+          "symbol_type",
+          ts_rank(
+            to_tsvector('simple', "content" || ' ' || coalesce("symbol_name", '') || ' ' || "file_path"),
+            websearch_to_tsquery('simple', ${query})
+          ) AS "score"
+        FROM "codebase_chunks"
+        WHERE ${sql.join(whereParts, sql` AND `)}
+        ORDER BY "score" DESC
+        LIMIT ${topK * 2}
+      `)) as Array<{
+        id: string
+        file_path: string
+        line_start: number
+        line_end: number
+        content: string
+        language: string | null
+        symbol_name: string | null
+        symbol_type: string | null
+        score: number
+      }>
+
+      return rows.map((row) => ({
+        id: row.id,
+        filePath: row.file_path,
+        lineStart: row.line_start,
+        lineEnd: row.line_end,
+        content: row.content,
+        language: row.language,
+        symbolName: row.symbol_name,
+        symbolType: row.symbol_type,
+        score: Number(row.score) || 0,
+      }))
+    } catch (e) {
+      logger.warn('[codebase-index-service.keywordSearch] FTS query failed:', { err: e as Error })
+      return []
+    }
+  }
+
+  /**
+   * 混合检索(向量 + 关键词 RRF 融合,2026-09-07 立)。
+   *
+   * 双通道并行 → Reciprocal Rank Fusion(k=60)→ 符号/路径精确匹配加权。
+   * 向量通道失败(embedding 不可用)时自动降级为纯关键词通道;
+   * 关键词通道失败(FTS 异常)时退化为纯向量。两通道都空才返回空。
+   */
+  async hybridSearch(opts: {
+    query: string
+    repoId?: string
+    language?: string
+    topK?: number
+    scoreThreshold?: number
+  }): Promise<SearchResult[]> {
+    const { query, repoId, language, topK = 10, scoreThreshold = 0 } = opts
+
+    const [vectorResults, keywordResults] = await Promise.all([
+      this.search({ query, repoId, language, topK, scoreThreshold }).catch(() => [] as SearchResult[]),
+      this.keywordSearch({ query, repoId, language, topK }).catch(() => [] as SearchResult[]),
+    ])
+
+    if (vectorResults.length === 0 && keywordResults.length === 0) return []
+
+    const fused = reciprocalRankFusion(vectorResults, keywordResults, 60, topK * 2)
+    return applyLexicalBoost(fused, query).slice(0, topK)
+  }
+
   /** 按仓库删除所有切片 */
   async deleteByRepo(repoId: string): Promise<number> {
     const result = await db
@@ -236,6 +332,27 @@ class CodebaseIndexService {
       .where(and(eq(codebaseChunks.repoId, repoId), eq(codebaseChunks.filePath, filePath)))
       .returning({ id: codebaseChunks.id })
     return result.length
+  }
+
+  /**
+   * 批量按文件删除切片(Merkle 增量同步专用,2026-09-07 立)。
+   * 处理"源文件已删除"场景:文件消失后其旧切片必须同步清除,
+   * 否则语义搜索会持续召回幽灵文件的过期内容。
+   */
+  async deleteByFiles(repoId: string, filePaths: string[]): Promise<number> {
+    if (filePaths.length === 0) return 0
+    let deleted = 0
+    // 分批 in 查询(每批 200,防 SQL 参数过多)
+    const BATCH = 200
+    for (let i = 0; i < filePaths.length; i += BATCH) {
+      const batch = filePaths.slice(i, i + BATCH)
+      const result = await db
+        .delete(codebaseChunks)
+        .where(and(eq(codebaseChunks.repoId, repoId), inArray(codebaseChunks.filePath, batch)))
+        .returning({ id: codebaseChunks.id })
+      deleted += result.length
+    }
+    return deleted
   }
 
   /** 索引统计 */
@@ -278,4 +395,52 @@ class CodebaseIndexService {
 }
 
 export const codebaseIndexService = new CodebaseIndexService()
+
+/**
+ * Reciprocal Rank Fusion(纯函数,2026-09-07 立)。
+ *
+ * score(d) = Σ_channels 1 / (k + rank_i(d)),k=60 为论文推荐值。
+ * 输入各通道已按相关性降序的结果列表;按 id 去重合并。
+ * 返回按融合分降序、截断 limit 的结果(融合分写入 score 字段)。
+ */
+export function reciprocalRankFusion(
+  ...channels: Array<SearchResult[] | number>
+): SearchResult[] {
+  const nums = channels.filter((c): c is number => typeof c === 'number')
+  const lists = channels.filter((c): c is SearchResult[] => Array.isArray(c))
+  const k = nums[0] ?? 60
+  const limit = nums[1] ?? Number.MAX_SAFE_INTEGER
+  if (lists.length === 0) return []
+
+  const byId = new Map<string, SearchResult>()
+  const scores = new Map<string, number>()
+  for (const list of lists) {
+    list.forEach((item, idx) => {
+      scores.set(item.id, (scores.get(item.id) ?? 0) + 1 / (k + idx + 1))
+      if (!byId.has(item.id)) byId.set(item.id, item)
+    })
+  }
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id, rrfScore]) => ({ ...byId.get(id)!, score: rrfScore }))
+}
+
+/**
+ * 词法精确匹配加权(纯函数,2026-09-07 立)。
+ * symbol_name 完整包含查询 token → +0.05;file_path 包含 → +0.03。
+ * 让"getUserById"这类精确标识符查询稳定排到语义近似结果之前。
+ */
+export function applyLexicalBoost(results: SearchResult[], query: string): SearchResult[] {
+  const tokens = query.toLowerCase().split(/[^a-z0-9_]+/).filter((t) => t.length >= 3)
+  if (tokens.length === 0) return results
+  return results.map((r) => {
+    let boost = 0
+    const sym = (r.symbolName ?? '').toLowerCase()
+    const path = r.filePath.toLowerCase()
+    if (sym && tokens.some((t) => sym.includes(t))) boost += 0.05
+    if (tokens.some((t) => path.includes(t))) boost += 0.03
+    return boost === 0 ? r : { ...r, score: r.score + boost }
+  })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -606,8 +606,8 @@ export function SlashCommandPalette({
   } as React.HTMLAttributes<HTMLButtonElement> & { ref?: React.Ref<HTMLButtonElement> })
 
   const panelStyle: React.CSSProperties = coords
-    ? { top: coords.top, left: coords.left }
-    : { top: -9999, left: -9999 }
+    ? { position: 'fixed', top: coords.top, left: coords.left }
+    : { position: 'fixed', top: -9999, left: -9999 }
 
   return (
     <div>

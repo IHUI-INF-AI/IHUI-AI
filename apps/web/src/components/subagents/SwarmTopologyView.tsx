@@ -6,33 +6,23 @@
 
 import * as React from 'react'
 import type { SwarmTopology, AgentRole, DispatchStatus } from '@ihui/shared/subagents/index'
+import {
+  SWARM_ROLE_FILL,
+  SWARM_ROLE_STROKE,
+  SWARM_ROLE_TEXT,
+  CHART_TEXT_LIGHT,
+  CHART_TEXT_DARK,
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_ROSE,
+  CHART_AMBER,
+} from '@ihui/design-tokens'
 
 const NODE_WIDTH = 160
 const NODE_HEIGHT = 56
 const GAP_X = 100
 const GAP_Y = 40
 
-const ROLE_FILL: Record<AgentRole, string> = {
-  researcher: '#e0e7ff',
-  coder: '#d1fae5',
-  reviewer: '#fef3c7',
-  architect: '#ede9fe',
-  debugger: '#ffe4e6',
-}
-const ROLE_STROKE: Record<AgentRole, string> = {
-  researcher: '#6366f1',
-  coder: '#10b981',
-  reviewer: '#f59e0b',
-  architect: '#8b5cf6',
-  debugger: '#f43f5e',
-}
-const ROLE_TEXT: Record<AgentRole, string> = {
-  researcher: '#3730a3',
-  coder: '#065f46',
-  reviewer: '#92400e',
-  architect: '#5b21b6',
-  debugger: '#9f1239',
-}
 const ROLE_LABEL: Record<AgentRole, string> = {
   researcher: '研究员',
   coder: '编码员',
@@ -42,12 +32,12 @@ const ROLE_LABEL: Record<AgentRole, string> = {
 }
 
 const STATUS_DOT: Record<DispatchStatus, string> = {
-  pending: '#94a3b8',
-  running: '#3b82f6',
-  completed: '#10b981',
-  failed: '#f43f5e',
-  cancelled: '#94a3b8',
-  paused: '#f59e0b',
+  pending: CHART_TEXT_LIGHT,
+  running: CHART_BLUE,
+  completed: CHART_GREEN,
+  failed: CHART_ROSE,
+  cancelled: CHART_TEXT_LIGHT,
+  paused: CHART_AMBER,
 }
 const STATUS_LABEL: Record<DispatchStatus, string> = {
   pending: '等待',
@@ -120,7 +110,7 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
             markerHeight="7"
             orient="auto-start-reverse"
           >
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8" />
+            <path d="M 0 0 L 10 5 L 0 10 z" fill={CHART_TEXT_LIGHT} />
           </marker>
         </defs>
 
@@ -138,12 +128,12 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
               <path
                 d={`M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`}
                 fill="none"
-                stroke="#94a3b8"
+                stroke={CHART_TEXT_LIGHT}
                 strokeWidth="1.5"
                 markerEnd="url(#swarm-arrow)"
               />
               {edge.condition && (
-                <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fontSize="10" fill="#64748b">
+                <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fontSize="10" fill={CHART_TEXT_DARK}>
                   {edge.condition}
                 </text>
               )}
@@ -154,9 +144,9 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
         {topology.nodes.map((node) => {
           const pos = positions.get(node.id)
           if (!pos) return null
-          const fill = ROLE_FILL[node.agentRole]
-          const stroke = ROLE_STROKE[node.agentRole]
-          const textColor = ROLE_TEXT[node.agentRole]
+          const fill = SWARM_ROLE_FILL[node.agentRole]
+          const stroke = SWARM_ROLE_STROKE[node.agentRole]
+          const textColor = SWARM_ROLE_TEXT[node.agentRole]
           const dot = STATUS_DOT[node.status]
           return (
             <g key={node.id}>

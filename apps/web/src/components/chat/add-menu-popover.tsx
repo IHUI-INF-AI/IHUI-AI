@@ -189,6 +189,7 @@ export function AddMenuPopover(props: {
           aria-label={t('addMenuLabel')}
           aria-haspopup="menu"
           aria-expanded={open}
+          data-testid="add-menu-trigger"
           // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
           // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后焦点环常驻。
           // 详见 scripts/check-popover-trigger-data-state.mjs。
@@ -211,7 +212,11 @@ export function AddMenuPopover(props: {
           <div
             ref={panelRef}
             className="w-60 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            style={
+              coords
+                ? { position: 'fixed', top: coords.top, left: coords.left }
+                : { position: 'fixed', top: -9999, left: -9999 }
+            }
             role="menu"
             aria-label={t('addMenuDesc')}
             tabIndex={-1}

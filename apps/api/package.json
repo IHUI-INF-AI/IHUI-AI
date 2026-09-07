@@ -36,6 +36,7 @@
     "@ihui/auth": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/database": "workspace:*",
+    "@ihui/design-tokens": "workspace:*",
     "@ihui/shared": "workspace:*",
     "@ihui/types": "workspace:*",
     "@node-rs/argon2": "^2.0.2",
@@ -73,7 +74,7 @@
     "sql.js": "^1.14.1",
     "undici": "^8.10.1",
     "unpdf": "^1.8.0",
-    "xlsx": "0.18.5",
+    "@e965/xlsx": "^0.20.3",
     "zod": "catalog:"
   },
   "devDependencies": {

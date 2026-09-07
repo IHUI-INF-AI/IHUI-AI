@@ -57,9 +57,10 @@
    * 值源自 packages/design-tokens/src/rn-tokens.ts(rnLightTokens)。
    * 用 --rn-* 前缀避免被 check-rn-global-css-sync.mjs 拦截(该脚本只校验 --color-*)。
    * 暗色覆盖见下方 .dark 块。 */
-  --rn-purple: #7b61ff;
-  --rn-purple-light: #f5f3ff;
-  --rn-purple-soft: #faf9ff;
+  --rn-accent: #ff6b35;
+  --rn-accent-light: #fff7ed;
+  --rn-accent-soft: #ffeddc;
+  --rn-accent-50: #fff7ed;
   --rn-tertiary: #a3a3a3;
   --rn-body: #404040;
   --rn-danger: #ff3333;
@@ -98,9 +99,10 @@
   --color-info-foreground: hsl(0 0% 98%);
 
   /* RN 扩展语义色暗色覆盖(值源自 rnDarkTokens) */
-  --rn-purple: #7b61ff;
-  --rn-purple-light: #4c1d95;
-  --rn-purple-soft: #312e81;
+  --rn-accent: #ff8e53;
+  --rn-accent-light: #431407;
+  --rn-accent-soft: #431407;
+  --rn-accent-50: #431407;
   --rn-tertiary: #737373;
   --rn-body: #d4d4d4;
   --rn-danger: #ff3333;

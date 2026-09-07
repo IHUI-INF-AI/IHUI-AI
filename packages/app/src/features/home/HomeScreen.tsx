@@ -362,7 +362,7 @@ function createStyles(tk: AppThemeTokens) {
     menuWrap: {
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: tk.indigo.light,
+      borderColor: tk.brandAccent.light,
       backgroundColor: tk.surface.light,
       padding: 4,
     },

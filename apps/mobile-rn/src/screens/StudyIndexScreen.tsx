@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   // Tip 提示横幅(对齐 Uniapp tip.vue)
   tipOuter: {
-    backgroundColor: tk.indigo.light,
+    backgroundColor: tk.brandAccent.light,
     padding: rpx(2),
     borderRadius: 7,
     marginBottom: rpx(18),
@@ -953,8 +953,8 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: tk.indigo.DEFAULT,
-    backgroundColor: tk.indigo.light,
+    borderColor: tk.brandAccent.DEFAULT,
+    backgroundColor: tk.brandAccent.light,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: rpx(8),

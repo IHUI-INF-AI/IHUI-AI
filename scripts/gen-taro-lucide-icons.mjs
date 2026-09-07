@@ -6,7 +6,7 @@
  * 生成 Taro 端 lucide 风格 SVG 图标(与 apps/miniapp-taro/src/static/images/icons/ 现有格式一致)。
  *
  * 数据源:node_modules 中 lucide-react@1.31.0 的 esm/icons/*.mjs(__iconNode)。
- * 输出:apps/miniapp-taro/src/static/images/icons/<name>.svg(stroke 色默认 #6366F1,可覆盖)。
+ * 输出:apps/miniapp-taro/src/static/images/icons/<name>.svg(stroke 色默认 #000000,可覆盖)。
  *
  * 用法:
  *   node scripts/gen-taro-lucide-icons.mjs play pause heart        # 生成指定图标
@@ -68,7 +68,7 @@ function generate(name, strokeColor) {
 }
 
 const args = process.argv.slice(2)
-let color = '#6366F1'
+let color = '#000000'
 const names = []
 for (const a of args) {
   if (a === '--color') continue
