@@ -367,7 +367,15 @@ export function OrdersTab({
             size="sm"
             onClick={() =>
               setSearch({
-                userId: outTradeNo: openId: amount: productId: createdAt: paidAt: refundTime: })
+                userId: '',
+                outTradeNo: '',
+                openId: '',
+                amount: '',
+                productId: '',
+                createdAt: '',
+                paidAt: '',
+                refundTime: '',
+              })
             }
             className="text-xs"
           >
