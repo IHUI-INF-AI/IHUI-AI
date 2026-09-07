@@ -41,6 +41,12 @@ def set_model_pricing(model: str, input_per_1m: float, output_per_1m: float) -> 
         _OVERRIDES[key] = {"input": float(input_per_1m), "output": float(output_per_1m)}
 
 
+def get_overrides() -> dict[str, dict[str, float]]:
+    """只读获取运行时覆盖表(P3-9 价表看板用;返回浅拷贝防外部误改)。"""
+    with _LOCK:
+        return {k: dict(v) for k, v in _OVERRIDES.items()}
+
+
 # ---------------------------------------------------------------------------
 # 模型级价目(前缀匹配;键按长度降序匹配,"gpt-4o-mini" 先于 "gpt-4o")
 # USD per 1M tokens,公开定价(2025 下半年口径)
