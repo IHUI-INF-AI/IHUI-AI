@@ -153,7 +153,7 @@ export default function DistributionTeam() {
         <LineIcon
           className="team-search-icon"
           name="search"
-          size={32}
+          size={40}
           color="var(--color-muted-foreground)"
         />
         <Input
