@@ -27,6 +27,10 @@ import {
   stopLiteLLMPriceSyncScheduler,
 } from './services/litellm-price-sync.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
+import {
+  startAgentAutomationScheduler,
+  stopAgentAutomationScheduler,
+} from './services/agent-automation-scheduler.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
 import { stopScheduledWarmup } from './services/cache-warmup-service.js'
@@ -127,6 +131,11 @@ async function start() {
     } catch (e) {
       logger.warn('stopPiiRetentionScheduler failed', { err: e })
     }
+    try {
+      stopAgentAutomationScheduler()
+    } catch (e) {
+      logger.warn('stopAgentAutomationScheduler failed', { err: e })
+    }
     // P0 修复:显式停止后台定时器,不依赖 server.close 钩子顺序
     try {
       stopAutoRollbackMonitor()
@@ -209,6 +218,9 @@ async function start() {
   if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
     startLiteLLMPriceSyncScheduler()
   }
+
+  // 启动用户侧 Agent 定时自动化调度器(60s tick,到点执行 active 的自动化任务)
+  startAgentAutomationScheduler()
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
   // 默认开启,ENABLE_ALGORITHM_RECORD_SYNC=false 禁用)
