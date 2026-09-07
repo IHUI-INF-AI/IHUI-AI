@@ -291,9 +291,9 @@ export default function KouboPage() {
                 {result.articles && result.articles.length > 0 && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="xs"
                     onClick={downloadAllArticles}
-                    className="h-7 px-2 text-xs"
+                    className="px-2 text-xs"
                   >
                     <Copy className="h-3 w-3" />
                     {t('downloadAll')}

@@ -338,8 +338,8 @@ export function BulkImportExportDialog({ open, onClose }: Props) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
+                  size="xs"
+                  className="text-xs"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload className="mr-1 h-3 w-3" />
