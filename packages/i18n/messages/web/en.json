@@ -1,4 +1,25 @@
 {
+  "onboarding": {
+    "capabilityMarket": "Capability Market",
+    "deployNote": "Self-hosting: see docs/ONBOARDING.md in the repo for the zero-config quickstart.",
+    "go": "Go",
+    "markDone": "Mark done",
+    "mcpDesc": "Register external MCP servers in one click, or enable built-in platform capabilities.",
+    "mcpStore": "MCP Store",
+    "mcpTitle": "MCP capabilities",
+    "step1Desc": "Set provider keys in Settings; free providers (Ollama/Groq/Cloudflare etc.) work with zero keys.",
+    "step1Title": "Configure models",
+    "step2Desc": "Ask anything in the home chat box; toolbar offers Plan Mode / Deep Research / skills.",
+    "step2Title": "First AI chat",
+    "step3Desc": "Send a goal in the Agent Workbench for multi-step autonomous execution; agent-step-recorder replays each tool call.",
+    "step3Title": "Autonomous agent run",
+    "step4Desc": "Enter a session_id to view steps/compaction/checkpoints/costs/injection intercepts at once; checkpoints are restorable.",
+    "step4Title": "Timeline replay & rewind",
+    "step5Desc": "The AI cost dashboard summarizes usage; the model pricing dashboard shows single-source public rates coverage.",
+    "step5Title": "Cost & pricing",
+    "subtitle": "Get through all AI capabilities in five steps; click the circle to mark progress (stored locally).",
+    "title": "New User Onboarding"
+  },
   "adminModelPricing": {
     "backToCost": "Back to AI cost",
     "coverage": "Covers {models} models / {providers} providers / {overrides} overrides",
