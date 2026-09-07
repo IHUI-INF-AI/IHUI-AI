@@ -285,7 +285,7 @@ const newStyles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
     borderWidth: 1,
-    borderColor: tokens.indigo.light,
+    borderColor: tokens.brandAccent.light,
   },
   avatar: {
     width: 60,
@@ -309,7 +309,7 @@ const newStyles = StyleSheet.create({
   },
   editText: {
     fontSize: 12,
-    color: tokens.indigo.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     marginLeft: 4,
   },
   roleRow: {
@@ -350,18 +350,18 @@ const newStyles = StyleSheet.create({
   },
   tokenLabel: {
     fontSize: 12,
-    color: tokens.indigo.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
   },
   tokenValue: {
     fontSize: 12,
     fontWeight: '700',
-    color: tokens.indigo.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
     marginLeft: 4,
   },
   rechargeBtn: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: tokens.indigo.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
     borderRadius: 6,
   },
   rechargeBtnText: {
@@ -403,7 +403,7 @@ const newStyles = StyleSheet.create({
   growthValue: {
     fontSize: 11,
     fontWeight: '600',
-    color: tokens.indigo.DEFAULT,
+    color: tokens.brandAccent.DEFAULT,
   },
   growthBarBg: {
     height: 4,
@@ -413,7 +413,7 @@ const newStyles = StyleSheet.create({
   },
   growthBarFill: {
     height: 4,
-    backgroundColor: tokens.indigo.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
     borderRadius: 2,
   },
   // 邀请码
@@ -440,7 +440,7 @@ const newStyles = StyleSheet.create({
   copyBtn: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    backgroundColor: tokens.indigo.light,
+    backgroundColor: tokens.brandAccent.light,
     borderRadius: 4,
   },
   copyBtnText: {
@@ -492,7 +492,7 @@ const newStyles = StyleSheet.create({
   modalCloseBtn: {
     paddingHorizontal: 24,
     paddingVertical: 8,
-    backgroundColor: tokens.indigo.DEFAULT,
+    backgroundColor: tokens.brandAccent.DEFAULT,
     borderRadius: 12,
   },
   modalCloseBtnText: {
@@ -593,7 +593,7 @@ const oldStyles = StyleSheet.create({
     color: tokens.text.primary,
   },
   editBtn: {
-    backgroundColor: tokens.indigo.light,
+    backgroundColor: tokens.brandAccent.light,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,

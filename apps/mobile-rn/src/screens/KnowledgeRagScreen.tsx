@@ -215,7 +215,7 @@ export function KnowledgeRagScreen() {
           void onSearch()
         }}
         disabled={searching}
-        className="ml-2 rounded-md bg-blue-600 px-4 py-2"
+        className="ml-2 rounded-md bg-orange-600 px-4 py-2"
       >
         <Text className="text-sm text-white">{t('common.search')}</Text>
       </TouchableOpacity>

@@ -120,7 +120,7 @@ function Chip({
   return (
     <TouchableOpacity
       onPress={onPress}
-      className={`mr-2 rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : dark ? 'bg-neutral-800' : 'bg-gray-100'}`}
+      className={`mr-2 rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : dark ? 'bg-neutral-800' : 'bg-gray-100'}`}
     >
       <Text className={`text-xs ${active ? 'text-white' : dark ? 'text-neutral-300' : 'text-gray-600'}`} numberOfLines={1}>
         {label}
@@ -132,7 +132,7 @@ function Chip({
 function SearchInput(props: TextInputProps) {
   return (
     <TextInput
-      placeholderTextColor="#9ca3af"
+      placeholderTextColor={tokens.text.tertiary}
       {...props}
       className={`mr-3 h-9 flex-1 rounded-md border border-gray-200 px-3 text-sm dark:border-neutral-700 dark:text-neutral-100 ${props.className ?? ''}`}
     />
@@ -316,7 +316,7 @@ export function AiWorldScreen() {
         </View>
         <View className="ml-2 items-end">
           {item.score ? (
-            <Text className="text-sm font-semibold text-blue-600">{Number(item.score).toFixed(1)}</Text>
+            <Text className="text-sm font-semibold text-orange-600">{Number(item.score).toFixed(1)}</Text>
           ) : null}
           {votes !== null && Number.isFinite(votes) ? (
             <Text className="mt-0.5 text-[11px] text-gray-400">
@@ -352,8 +352,8 @@ export function AiWorldScreen() {
         </TouchableOpacity>
         <Text className="text-base font-medium">{t('aiWorld.title')}</Text>
         <View className="flex-row gap-3">
-          <Text className="text-sm text-blue-600">{t('aiWorld.favorites')}</Text>
-          <Text className="text-sm text-blue-600">{t('aiWorld.history')}</Text>
+          <Text className="text-sm text-orange-600">{t('aiWorld.favorites')}</Text>
+          <Text className="text-sm text-orange-600">{t('aiWorld.history')}</Text>
         </View>
       </View>
 
@@ -365,7 +365,7 @@ export function AiWorldScreen() {
             <TouchableOpacity
               key={key}
               onPress={() => switchTab(key)}
-              className={`rounded-md px-3 py-1.5 ${active ? 'bg-blue-600' : ''}`}
+              className={`rounded-md px-3 py-1.5 ${active ? 'bg-orange-600' : ''}`}
             >
               <Text className={`text-sm ${active ? 'text-white' : 'text-gray-500'}`}>
                 {t(`aiWorld.${key}`)}

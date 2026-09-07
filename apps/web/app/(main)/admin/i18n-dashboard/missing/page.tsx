@@ -12,6 +12,12 @@ import { AlertCircle, ArrowLeft, Loader2, ChevronDown, ChevronRight } from 'luci
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@ihui/ui-react'
+import {
+  CHART_BLUE,
+  CHART_AMBER,
+  CHART_VIOLET,
+  CHART_PINK,
+} from '@ihui/design-tokens'
 
 interface MissingKey {
   key: string
@@ -33,10 +39,10 @@ const LOCALES = [
 ]
 
 const LOCALE_COLORS: Record<string, string> = {
-  en: '#3b82f6',
-  ja: '#f59e0b',
-  ko: '#8b5cf6',
-  'zh-TW': '#ec4899',
+  en: CHART_BLUE,
+  ja: CHART_AMBER,
+  ko: CHART_VIOLET,
+  'zh-TW': CHART_PINK,
 }
 
 const MOCK: MissingData = {
@@ -170,8 +176,8 @@ export default function I18nMissingPage() {
                           <span
                             className="shrink-0 rounded px-1.5 py-0.5 text-xs font-medium"
                             style={{
-                              background: `${LOCALE_COLORS[k.locale] ?? '#3b82f6'}20`,
-                              color: LOCALE_COLORS[k.locale] ?? '#3b82f6',
+                              background: `${LOCALE_COLORS[k.locale] ?? CHART_BLUE}20`,
+                              color: LOCALE_COLORS[k.locale] ?? CHART_BLUE,
                             }}
                           >
                             {k.locale}

@@ -3182,3 +3182,14 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-04) 缺陷 1 附带:浏览器 handle 会话级丢失(刷新后静默读不到)→ workspace-selector `warnHandleLossOnce` 提示重新授权(挂载校验 + 最近列表切换两处)
 - [x] ✅(2026-09-04) 缺陷 2:工作区全局单值共享全部对话 → 会话级隔离:`apps/web/src/stores/ai-panel.ts` 新增 `conversationWorkspaces` 持久化映射 + `bindWorkspaceToConversation` + setActiveWorkspace 有会话时写回;`ai-side-panel.tsx` 会话切换换装 effect(有绑定应用/从未绑定解绑/无会话保留);`send-message.ts` 三条会话创建路径(斜杠/主流程/分支)绑定与继承
 - [x] ✅(2026-09-05) 上推三仓 + 生产部署复测:api/web tsc --noEmit 0 错误;生产 web(07:09 构建)与 api/ai-service/RSSHub 本地+公网全 200,AI World 同步 111/111 全绿
+
+## P0 竞品差距四大补齐:Tab 补全 + Merkle 三层索引 + popover 根治 + 签名链路(2026-09-07 立并完成 ✅)
+
+> 背景:2026-09-07 AI 能力对标五家竞品(Codex/Cursor/Trae/Qoder/WorkBuddy)分析(outputs/2026-09-07-AI能力对标五家竞品深度分析.md)确认四大可修差距,当日全部闭环。
+
+- [x] ✅(2026-09-07) 工作区上下文读取不全收尾:根因已于 3fe7c2c39a 根治;本轮补两处残留——`workspace-context-loader.ts` 根目录优先文件超 50KB 由"静默丢弃"改"截断保留"(大 README.md 不再丢)+ `totalSize` 按截断后大小累加(预算不再虚高);新增 `src/lib/__tests__/workspace-context-loader.test.ts` 4 测试全绿
+- [x] ✅(2026-09-07) Tab inline 补全(对标 Cursor Tab/Trae CUE):① ai-service 新增 `app/routers/fim.py` 专用 FIM 端点(POST /api/llm/fim,全文前缀 6000 截尾+后缀 2000 截头,temperature=0 max_tokens≤128,auto 路由本地/零成本优先,失败静默降级空串);② apps/api `ai-frontend-routes.ts` 新增 POST /ai/llm/fim 代理;③ web `CodeEditor.tsx` 升级:此前走 /ai/llm/chat 且 prefix 仅当前行 → 改全文前缀+后缀 FIM + 多行补全缩进对齐;后端 5 测试 + web/api tsc 0 错
+- [x] ✅(2026-09-07) Merkle 增量同步 + 三层语义索引(对标 Cursor Merkle Tree + CodeBuddy 三层索引):`codebase_indexer.py` 文件内容 sha256 快照(repo_id+路径双键,原子持久化,零变更轮次零 embedding 成本);删除文件经新增 `DELETE /api/v1/codebase/repo/:repoId/files`(api service `deleteByFiles` + 路由)清理幽灵切片;三层合成切片(module_summary/architecture_summary)经同一 embedding 通道支撑"模块/架构"级查询;新增 15 测试,索引器 122 全绿,api tsc 0 错
+- [x] ✅(2026-09-07) popover 定位根因类缺陷根治 + 守门:同型根因(createPortal 容器挂 top/left 但缺 position:fixed)实修 4 处(slash-command-palette / add-menu-popover / permission-history-panel / context-usage-ring);新守门 `scripts/check-portal-fixed.mjs` 入 pre-commit(--staged blocking,HUSKY_SKIP_PORTAL_GUARD 可跳过)
+- [x] ✅(2026-09-07) 桌面更新签名闭环(本机侧):新密钥对生成于 `C:\Users\Administrator\.tauri\ihui-updater.key`(+密码文件,不入库),实测 tauri signer sign 成功;`tauri.conf.json` updater.pubkey 更新(指纹 B5D7E67EA2B1DB08);用户侧唯一动作 = 注入 GitHub secrets(DESKTOP_TAURI_PRIVATE_KEY/DESKTOP_TAURI_KEY_PASSWORD/DEPLOY_*),指引见 outputs/2026-09-07-secrets注入指引.md
+- [x] ✅(2026-09-07) 生态地基:CONTRIBUTING.md 新增"生态扩展"节,固化技能(SKILL.md 规范)/CLI 插件(manifest)/MCP 服务器三条第三方接入路径与文件级约定
