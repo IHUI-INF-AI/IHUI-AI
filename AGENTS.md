@@ -85,6 +85,12 @@ IHUI-AI 是全栈 AI 平台(TS Monorepo + pnpm workspace + Turborepo),8 端清�
 
 - **禁止**纯圆形 / 胶囊容器:`rounded-full` / `rounded-pill` / `border-radius: 9999px` / `50%`。尺寸梯度:`rounded-sm`(2px)/ `rounded`(4px)/ `rounded-md`(6px)/ `rounded-lg`(8px)/ `rounded-xl`(12px)/ `rounded-2xl`(16px)。豁免:头像 / 装饰点 / 红点 / Switch 拇指。守门:`scripts/check-rounded-full.mjs` + pre-commit 第 11 项。
 
+### Button 高度档位守门(强制,2026-09-07 立)
+
+- **`@ihui/ui-react` 的 `<Button>` 禁止用 className `h-*` / `w-*` 覆盖高度宽度**,必须用 `size` 档位:`xs`(h-7 px-3 text-xs, 28px)/ `sm`(h-8, 32px)/ `default`(h-9, 36px)/ `lg`(h-10, 40px)/ `icon-xs`(h-7 w-7)/ `icon-sm`(h-8 w-8)/ `icon`(h-9 w-9)。需要新高度先在 `packages/ui-react/src/components/button.tsx` size 表立档,禁止逐处打补丁。
+- **豁免(不属 Button token 体系)**:原生 `<button>` 自绘按钮(IDE 面板 / spec-panel / chat 密集工具条的 24px 紧凑档为有意设计)、`Input` / `SelectTrigger` / `Skeleton` / 图标 svg 等非 Button 元素;Button 上的 `h-5`/`h-6`(24px/20px 紧凑档,存量 45 处表格行操作钮/侧栏密集场景)暂豁免,后续统一时先立对应档位再迁移。
+- 守门:`scripts/check-button-height.mjs`(精确 JSX 开标签解析,零误报;拦 h-7 及以上覆盖 + 校验 size 值合法性)+ pre-commit blocking(紧急跳过 `HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1`)。
+
 ### 中文字体 + 图标垂直对齐硬约束(强制)
 
 - **根治方案**:`apps/web/app/globals.css` 设 `--text-vcenter-offset: 0.3px` + 全局规则 `:where(button, a, [role='button'], [role='menuitem']):has(>svg):has(>span) > span { transform: translateY(var(--text-vcenter-offset)); }`,button/a 内 "icon + 中文 span" 同行布局自动应用,text-xs (12px) 用专用 0.7px 规则。配套:`apps/web/src/lib/nav-styles.ts` 5 个共享类 + `<CenteredText>` 组件(`apps/web/src/components/common/CenteredText.tsx`)。

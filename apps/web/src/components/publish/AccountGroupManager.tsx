@@ -285,26 +285,26 @@ export function AccountGroupManager({ accounts, onGroupsChanged }: AccountGroupM
                   </button>
                   <div className="flex gap-1">
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-7 px-2 text-xs"
+                      className="px-2 text-xs"
                       onClick={() => openAddAccounts(g.group_id)}
                     >
                       <Plus className="h-3 w-3" />
                       {t('groups.addAccount')}
                     </Button>
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-7 px-2 text-xs"
+                      className="px-2 text-xs"
                       onClick={() => openEdit(g)}
                     >
                       <Pencil className="h-3 w-3" />
                     </Button>
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                      className="px-2 text-xs text-destructive hover:text-destructive"
                       onClick={() => setDeleteTarget(g)}
                     >
                       <Trash2 className="h-3 w-3" />
