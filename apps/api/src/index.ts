@@ -22,6 +22,10 @@ import {
   startPiiRetentionScheduler,
   stopPiiRetentionScheduler,
 } from './jobs/pii-retention-cleanup.js'
+import {
+  startLiteLLMPriceSyncScheduler,
+  stopLiteLLMPriceSyncScheduler,
+} from './services/litellm-price-sync.js'
 import { startAlgorithmRecordScheduler } from './services/algorithm-record-service.js'
 import { stopAutoRollbackMonitor } from './services/auto-rollback.js'
 import { routineManager } from './services/workspace-ai-service.js'
@@ -109,6 +113,11 @@ async function start() {
       logger.warn('stopSourceProbeScheduler failed', { err: e })
     }
     try {
+      stopLiteLLMPriceSyncScheduler()
+    } catch (e) {
+      logger.warn('stopLiteLLMPriceSyncScheduler failed', { err: e })
+    }
+    try {
       stopHotWordsScheduler()
     } catch (e) {
       logger.warn('stopHotWordsScheduler failed', { err: e })
@@ -193,6 +202,12 @@ async function start() {
   // 默认开启,ENABLE_PII_RETENTION=false 禁用)
   if (process.env.ENABLE_PII_RETENTION !== 'false') {
     startPiiRetentionScheduler()
+  }
+
+  // 启动 LiteLLM 真网 AI 价表同步(启动 30s 后首跑,之后每 24h 一次,
+  // 默认开启,AI_LITELLM_PRICE_SYNC_ENABLED=false 禁用)
+  if (process.env.AI_LITELLM_PRICE_SYNC_ENABLED !== 'false') {
+    startLiteLLMPriceSyncScheduler()
   }
 
   // 启动网信办「算法/模型备案」清单同步定时任务(每 6 小时刷新全网备案数据;
