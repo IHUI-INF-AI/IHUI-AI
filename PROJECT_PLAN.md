@@ -12,6 +12,65 @@
 
 ---
 
+## P0 2026-09-07 AI 产品深度超越计划:P0-P3 全链路闭环(2026-09-07 立,跨端:ai-service + web + cli + packages,目标:真正远超对标数年)
+
+> 目标判定:不以“功能存在”为完成,以**黄金 E2E 成功率、首响应延迟、补全接受率、LSP 可用性、默认安全、审计可逆性、8 端一致性**量化验收。用户已要求“完整彻底、毫无遗漏,并开始深度开发”。
+
+### 硬性指标(H1-H12)
+
+- [ ] H1 黄金 E2E:20 个真实编码任务(打开工作区→理解→修改→测试→修复→review→checkpoint 恢复),CLI agent 通过率 ≥90%,每周回归
+- [ ] H2 FIM/Monaco 闭环:Web 编辑器 inline completion 接入 `/api/llm/fim`,P50 首包 ≤250ms,P95 ≤800ms,补全接受率有埋点
+- [ ] H3 LSP 四核心:diagnostics / hover / definition / references 全接 Web IDE,并有失败降级提示
+- [ ] H4 Agent 补丁审查:每个 diff 绑定工具调用、理由、测试结果、回滚入口、成本
+- [ ] H5 沙箱默认禁网:`allow_network` 默认 False,显式审批才开网,Windows/Linux/macOS 三平台测试
+- [ ] H6 Web 直接 `fetch` 清零:除 SDK 示例与静态资源,全部迁移 `@ihui/api-client`
+- [ ] H7 上下文压缩质量:真实任务成功率下降 ≤2%,工具调用准确率、回捞命中率、压缩比进入报告
+- [ ] H8 MCP 质量:工具延迟、成功率、schema 兼容率、冲突率、权限风险评分进入看板
+- [ ] H9 终端/浏览器自动化:真实站点操作成功率 ≥90%,失败可回放
+- [ ] H10 Agent runtime 架构:agent_loop_v2 拆分为权限/审批/压缩/checkpoint/预算/工具执行/事件流
+- [ ] H11 跨端一致:Agent 事件、API 契约、样式 token parity 守门全绿
+- [ ] H12 全量验证:`pnpm turbo build typecheck lint test` + ai-service mypy/pytest 全绿
+
+### P0 立即执行(1 周内)
+
+- [ ] 0-1 沙箱默认禁网 + 三平台策略测试
+- [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
+- [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
+- [ ] 0-4 LSP 四核心前端接线与类型契约
+- [ ] 0-5 直接 fetch 清单化迁移
+- [ ] 0-6 UI 大组件拆分:terminal-tab-bar / file-explorer / agent-pane / debug-panel
+
+### P1 深度打磨(1 个月)
+
+- [ ] 1-1 Agent Timeline 全可解释:输入、决策、工具、diff、测试、成本、回滚
+- [ ] 1-2 补丁冲突处理:3-way merge、局部拒绝、自动回滚
+- [ ] 1-3 压缩生产指标与灰度
+- [ ] 1-4 MCP 生态质量分与安全评分
+- [ ] 1-5 agent_loop_v2 架构拆分
+- [ ] 1-6 键盘优先交互:命令面板、快捷键、inline chat
+- [ ] 1-7 调试链路 DAP 化与断点/变量/watch 稳定性
+
+### P2 广度优势产品化(3 个月)
+
+- [ ] 2-1 项目知识引擎:RepoWiki、Knowledge Card、任务经验沉淀
+- [ ] 2-2 多 Agent 工作区锁与团队任务板
+- [ ] 2-3 验证自愈引擎产品化
+- [ ] 2-4 浏览器自动化回放与评测
+- [ ] 2-5 MCP Server 能力市场审核与评分
+- [ ] 2-6 成本真实计价和预算看板
+
+### P3 生态与长期领先(6-12 个月)
+
+- [ ] 3-1 中文编码基准发布
+- [ ] 3-2 8 端 Agent 一致性认证
+- [ ] 3-3 企业治理:审计、合规、权限继承
+- [ ] 3-4 新用户 10 分钟零 Key 体验
+- [ ] 3-5 技能市场与插件生态
+
+### 本轮开发状态
+
+- [x] 0-1 沙箱默认禁网 ✅(2026-09-07):见本轮 commit/工作区;Windows/Linux/macOS 策略回归通过
+
 > 📌 **2026-07-26 状态**:所有历史任务已完成并归档(109 个标准格式 + 6 个非标准格式执行报告)。本文件目前**无活跃任务**。所有归档内容在 `.trae-cn/archive/PROJECT_PLAN_2026-07-26_auto-archive.md` 等归档文件中,可通过 `git log` 或归档目录检索。下方为已归档任务的 HTML 占位注释(按 AGENTS.md §1 规则保留,不可删除)。
 >
 > 💡 **2026-08-08 goal 模式完成**:全量扫描修复项目所有 bug/问题/未开发项/未对接项。结果:19/19 typecheck/lint/test 全绿,唯一真实 501 stub(monitor-routes.ts 监控漏斗)已修复为真实实现,order.ts FIXME 已清理。无任何未完成项。
