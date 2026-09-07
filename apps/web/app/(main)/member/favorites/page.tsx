@@ -136,8 +136,8 @@ export default function MemberFavoritesPage() {
                 </span>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 shrink-0 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                  size="icon-xs"
+                  className="shrink-0 text-destructive opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
                   onClick={() => removeMut.mutate(item)}
                   disabled={removeMut.isPending}
                 >

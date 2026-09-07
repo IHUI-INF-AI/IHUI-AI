@@ -137,19 +137,19 @@ export default function MyArticlesPage() {
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Link href={`/articles/${a.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon-sm">
                         <Eye className="h-4 w-4" />
                       </Button>
                     </Link>
                     <Link href={`/articles/edit?id=${a.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button variant="ghost" size="icon-sm">
                         <Pencil className="h-4 w-4" />
                       </Button>
                     </Link>
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                      size="icon-sm"
+                      className="text-destructive hover:bg-destructive/10"
                       onClick={() => deleteMut.mutate(a.id)}
                       disabled={deleteMut.isPending}
                     >
