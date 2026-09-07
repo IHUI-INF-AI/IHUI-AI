@@ -15,6 +15,7 @@
 
 import { spawnSync, spawn, type SpawnSyncOptions, type SpawnOptions, type ChildProcess } from 'node:child_process';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 export interface SandboxOptions {
   cwd: string;
@@ -232,6 +233,37 @@ function buildFilteredEnv(blocked: string[]): NodeJS.ProcessEnv {
 }
 
 function isPathAllowed(target: string, cwd: string, allowed: string[]): boolean {
+  return isPathAllowedWithRealpath(target, cwd, allowed, fs.realpathSync);
+}
+
+/**
+ * 路径白名单校验(带 symlink 逃逸防护,2026-09-07 加固)。
+ *
+ * 之前只做字符串前缀比对:`src/link/secret` 形式上落在 cwd 内,
+ * 但 src/link 是指向外部的符号链接时,实际读写会逃逸出沙盒。
+ * 现在:对命令中出现的每个已存在路径解析真实路径(fs.realpathSync),
+ * 真实路径必须同样落在白名单内;不存在的路径(将要创建的文件)按
+ * 解析后的形式路径校验(无法预判 symlink,如实注释此残余风险)。
+ */
+export function isPathAllowedWithRealpath(
+  target: string,
+  cwd: string,
+  allowed: string[],
+  realpathFn: (p: string) => string,
+): boolean {
+  const candidates = [target];
+  const abs = path.isAbsolute(target) ? path.resolve(target) : path.resolve(cwd, target);
+  candidates.push(abs);
+  // 真实路径解析:存在则解析(symlink 防护核心),不存在则用形式路径
+  try {
+    candidates.push(realpathFn(abs));
+  } catch {
+    /* 不存在:保留形式路径 */
+  }
+  return candidates.every((p) => isPathAllowedRaw(p, cwd, allowed));
+}
+
+function isPathAllowedRaw(target: string, cwd: string, allowed: string[]): boolean {
   const abs = path.isAbsolute(target) ? path.resolve(target) : path.resolve(cwd, target);
   if (abs === cwd || abs.startsWith(cwd + path.sep)) return true;
   return allowed.some((p) => {
@@ -267,7 +299,35 @@ function extractPathsFromCommand(commandLine: string): string[] {
   return tokens.filter((t) => t.includes('/') || t.includes('\\') || t.includes(path.sep));
 }
 
+export interface SandboxAuditEntry {
+  timestamp: string;
+  command: string;
+  cwd: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  truncated: boolean;
+  blocked: boolean;
+  blockReason?: string;
+  durationMs: number;
+}
+
+/**
+ * 沙盒审计日志(jsonl 追加,2026-09-07 加固)。
+ * 路径取 env IHUI_SANDBOX_AUDIT_LOG;未设置时静默跳过(零开销)。
+ * 写失败静默降级(审计不可用不应阻塞命令执行)。
+ */
+export function appendSandboxAuditLog(entry: SandboxAuditEntry): void {
+  const logPath = process.env.IHUI_SANDBOX_AUDIT_LOG;
+  if (!logPath) return;
+  try {
+    fs.appendFileSync(logPath, JSON.stringify(entry) + '\n', 'utf-8');
+  } catch {
+    /* 审计写失败不阻塞执行 */
+  }
+}
+
 export function runSandboxed(commandLine: string, opts: SandboxOptions): SandboxResult {
+  const startedAt = Date.now();
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxOutput = opts.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES;
   const allowed = opts.allowedPaths ?? [];
@@ -278,6 +338,17 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
   if (commandAllowlist.length > 0) {
     const cmdName = extractCommandName(commandLine);
     if (cmdName && !isCommandAllowed(cmdName, commandAllowlist)) {
+      appendSandboxAuditLog({
+        timestamp: new Date().toISOString(),
+        command: commandLine,
+        cwd: opts.cwd,
+        exitCode: null,
+        timedOut: false,
+        truncated: false,
+        blocked: true,
+        blockReason: `command_not_allowed: ${cmdName}`,
+        durationMs: Date.now() - startedAt,
+      });
       return {
         stdout: '',
         stderr: `⛔ 命令被沙盒拒绝: ${cmdName}(不在白名单)`,
@@ -295,6 +366,17 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
     const pathsInCmd = extractPathsFromCommand(commandLine);
     for (const p of pathsInCmd) {
       if (!isPathAllowed(p, opts.cwd, allowed)) {
+        appendSandboxAuditLog({
+          timestamp: new Date().toISOString(),
+          command: commandLine,
+          cwd: opts.cwd,
+          exitCode: null,
+          timedOut: false,
+          truncated: false,
+          blocked: true,
+          blockReason: `path_not_allowed: ${p}`,
+          durationMs: Date.now() - startedAt,
+        });
         return {
           stdout: '',
           stderr: `⛔ 路径被沙盒拒绝: ${p}`,
@@ -332,6 +414,17 @@ export function runSandboxed(commandLine: string, opts: SandboxOptions): Sandbox
 
   const stdout = typeof result.stdout === 'string' ? result.stdout : '';
   const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+
+  appendSandboxAuditLog({
+    timestamp: new Date().toISOString(),
+    command: commandLine,
+    cwd: opts.cwd,
+    exitCode: result.status,
+    timedOut: result.signal === 'SIGTERM' || result.signal === 'SIGKILL',
+    truncated: stdout.length >= maxOutput || stderr.length >= maxOutput,
+    blocked: false,
+    durationMs: Date.now() - startedAt,
+  });
 
   return {
     stdout,
@@ -396,6 +489,17 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
       blocked: true,
       blockReason: precheck.blockReason,
     };
+    appendSandboxAuditLog({
+      timestamp: new Date().toISOString(),
+      command: commandLine,
+      cwd: opts.cwd,
+      exitCode: null,
+      timedOut: false,
+      truncated: false,
+      blocked: true,
+      blockReason: precheck.blockReason,
+      durationMs: 0,
+    });
     return {
       process: null as unknown as ChildProcess,
       result: Promise.resolve(blockedResult),
@@ -408,20 +512,52 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
     env: buildFilteredEnv(blockedEnvVars),
+    // POSIX:detached 建立独立进程组,超时可 kill(-pid) 团灭整组(含孙进程);
+    // Windows:detached 无进程组语义,团灭走 taskkill /T /F(见 killTree)。
+    detached: process.platform !== 'win32',
   };
 
   const child = spawn(commandLine, spawnOpts);
+  let timedOutFlag = false;
+
+  /**
+   * 进程树强杀(2026-09-07 加固):之前只 kill 直接子进程,
+   * shell 模式下 spawn 的实际命令是子进程的子进程,超时后仍会存活变孤儿。
+   * Windows: taskkill /T /F 团灭进程树;POSIX: kill(-pid) 团灭进程组。
+   */
+  const killTree = () => {
+    const pid = child.pid;
+    if (!pid) return;
+    if (process.platform === 'win32') {
+      try {
+        spawn('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true });
+      } catch { /* ignore */ }
+    } else {
+      try {
+        process.kill(-pid, 'SIGTERM');
+      } catch { /* 进程组可能已退出 */ }
+      setTimeout(() => {
+        try {
+          process.kill(-pid, 'SIGKILL');
+        } catch { /* 已退出 */ }
+      }, 5000);
+    }
+  };
   let stdoutBuf = '';
   let stderrBuf = '';
   let truncated = false;
   let settled = false;
 
+  const startedAt = Date.now();
   const result = new Promise<SandboxResult>((resolve) => {
     const timer = setTimeout(() => {
       if (!settled) {
-        try { child.kill('SIGTERM'); } catch { /* ignore */ }
+        timedOutFlag = true;
+        killTree();
         setTimeout(() => {
-          try { child.kill('SIGKILL'); } catch { /* ignore */ }
+          if (!settled && process.platform === 'win32') {
+            try { child.kill('SIGKILL'); } catch { /* ignore */ }
+          }
         }, 5000);
       }
     }, timeoutMs);
@@ -463,7 +599,18 @@ export function runSandboxedAsync(commandLine: string, opts: SandboxOptions): Sa
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      const timedOut = signal === 'SIGTERM' || signal === 'SIGKILL';
+      // Windows taskkill /F 后 close 的 signal 为 null,必须用显式标志而非 signal 判断
+      const timedOut = timedOutFlag || signal === 'SIGTERM' || signal === 'SIGKILL';
+      appendSandboxAuditLog({
+        timestamp: new Date().toISOString(),
+        command: commandLine,
+        cwd: opts.cwd,
+        exitCode: code,
+        timedOut,
+        truncated,
+        blocked: false,
+        durationMs: Date.now() - startedAt,
+      });
       resolve({
         stdout: stdoutBuf,
         stderr: stderrBuf,
