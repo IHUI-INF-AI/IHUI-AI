@@ -4,12 +4,12 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   ReactFlow,
   Background,
   BackgroundVariant,
   Controls,
-  MiniMap,
   useNodesState,
   useEdgesState,
   type Connection,
@@ -106,6 +106,7 @@ function sseDataToText(data: unknown): string {
  * DAG 变更防抖写入 localStorage;运行事件通过 useAgentStream(SSE) 分发进节点日志。
  */
 export function AgentCanvasClient() {
+  const t = useTranslations('agentCanvas')
   const initial = React.useMemo(() => fromDag(loadDag()), [])
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initial.edges)
@@ -247,7 +248,7 @@ export function AgentCanvasClient() {
         type: 'canvasNode',
         position: position ?? { x: 120 + nodes.length * 40, y: 80 + nodes.length * 30 },
         data: {
-          label: `${meta.title} ${nodes.length + 1}`,
+          label: `${t(meta.titleKey)} ${nodes.length + 1}`,
           nodeType: type,
           params: createDefaultParams(type),
           status: 'idle',
@@ -257,7 +258,7 @@ export function AgentCanvasClient() {
       setNodes((nds) => [...nds, newNode])
       setSelectedId(id)
     },
-    [nodes.length, setNodes],
+    [nodes.length, setNodes, t],
   )
 
   const onDragOver = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -403,15 +404,11 @@ export function AgentCanvasClient() {
             nodeTypes={nodeTypes}
             fitView
             deleteKeyCode={['Backspace', 'Delete']}
-            className="bg-background/50"
+            className="bg-background/50 [&_.react-flow__attribution]:!bg-transparent [&_.react-flow__attribution]:!text-muted-foreground/60"
           >
-            <Controls className="!rounded-md !border !shadow-sm" />
-            <MiniMap
-              nodeStrokeWidth={2}
-              nodeColor="color-mix(in srgb, var(--primary) 15%, transparent)"
-              maskColor="color-mix(in srgb, var(--background) 70%, transparent)"
-              className="!rounded-md !border !shadow-sm"
-            />
+            {/* Controls/MiniMap 默认白底(xyflow 硬编码),深色模式下用 token 覆盖,
+                按钮图标继承全局 text-foreground(白),不覆盖 bg 会白底白图标看不清 */}
+            <Controls className="!rounded-md !border !border-border !bg-card !shadow-sm [&_button]:!bg-card [&_button]:!border-border [&_button]:!text-foreground [&_button:hover]:!bg-muted [&_button]:!border-b" />
             <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border)" />
           </ReactFlow>
         </div>
