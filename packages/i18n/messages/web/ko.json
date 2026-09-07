@@ -11974,6 +11974,7 @@
     "topBar": {
       "agent": "에이전트",
       "browser": "내장 브라우저",
+      "capabilityMarket": "기능 마켓",
       "close": "닫기",
       "codeChanges": "코드 변경",
       "connectors": "중국 커넥터",
