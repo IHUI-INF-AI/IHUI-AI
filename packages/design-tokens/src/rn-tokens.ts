@@ -94,6 +94,8 @@ export const rnTokens = {
     light: '#fff7ed',
     DEFAULT: '#ff6b35',
     deep: '#c2410c',
+    gradFrom: '#ffb27d',
+    gradTo: '#ff6b35',
   },
   warning: {
     light: '#fffbeb',
@@ -148,7 +150,9 @@ export type RnThemeTokens = {
   border: { light: string; medium: string }
   error: { bg: string; text: string }
   overlay: { modal: string }
-  brandAccent: { light: string; DEFAULT: string; deep: string }
+  /* brandAccent.gradFrom/gradTo:品牌橙渐变(2026-09-07 立),仅作 CTA/头部"局部渐变点缀",
+   * 主按钮仍用纯色 brandAccent.DEFAULT(= 橙色)。 */
+  brandAccent: { light: string; DEFAULT: string; deep: string; gradFrom: string; gradTo: string }
   warning: RnWarningTokens
   success: RnSuccessTokens
   danger: RnDangerTokens
@@ -191,7 +195,7 @@ export const rnLightTokens: RnThemeTokens = {
   border: { light: '#E5E5E5', medium: '#D4D4D4' },
   error: { bg: '#FFE5E5', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.4)' },
-  brandAccent: { light: '#fff7ed', DEFAULT: '#ff6b35', deep: '#c2410c' },
+  brandAccent: { light: '#fff7ed', DEFAULT: '#ff6b35', deep: '#c2410c', gradFrom: '#ffb27d', gradTo: '#ff6b35' },
   warning: {
     light: '#fffbeb',
     amberLight: '#fef3c7',
@@ -249,7 +253,7 @@ export const rnDarkTokens: RnThemeTokens = {
   border: { light: '#383838', medium: '#525252' },
   error: { bg: '#7F1D1D', text: '#FF3333' },
   overlay: { modal: 'rgba(0,0,0,0.6)' },
-  brandAccent: { light: '#431407', DEFAULT: '#ff8e53', deep: '#ff8e53' },
+  brandAccent: { light: '#431407', DEFAULT: '#ff8e53', deep: '#ff8e53', gradFrom: '#ff9a5b', gradTo: '#ff8e53' },
   warning: {
     light: '#451a03',
     amberLight: '#78350f',

@@ -315,7 +315,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     modalOverlay: {
       flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: tk.overlay.modal,
       alignItems: 'center',
       justifyContent: 'center',
       padding: 24,
