@@ -5109,6 +5109,9 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "file_search": _tool_file_search,
     "git_operations": _tool_git_operations,
     "db_query": _tool_db_query,
+    # ===== 视频生成(2026-09-05 新增;2026-09-07 补注册——工具已定义但漏入此表,
+    # _TOOLS 53 vs _TOOL_HANDLERS 52 失配,test_tools_count_matches_registry 拦截)=====
+    "video_generation": _tool_video_generation,
     # ===== AI 自动控制浏览器(12 个)=====
     "browser_screenshot": _make_agent_control_handler("browser", "screenshot"),
     "browser_click_element": _make_agent_control_handler("browser", "click_element"),

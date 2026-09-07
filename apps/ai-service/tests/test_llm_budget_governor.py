@@ -413,9 +413,10 @@ class TestCalcCost:
 
     def test_unknown_model_uses_default(self, memory_governor):
         """未知模型用 default 费率。"""
-        # default: input=0.002, output=0.008
+        # 2026-09-07 起默认表来自 core.model_pricing:default USD/1M 1.00/3.00
+        # → per-1K 0.001/0.003 → 0.001 + 0.003 = 0.004
         cost = memory_governor._calc_cost("unknown-model", 1000, 1000)
-        assert cost == pytest.approx(0.01, abs=1e-6)
+        assert cost == pytest.approx(0.004, abs=1e-6)
 
     def test_zero_tokens(self, memory_governor):
         """0 token → cost = 0。"""
