@@ -36,10 +36,10 @@ module.exports = ({ config }) => {
     plugins: [
       'expo-secure-store',
       ...(config.plugins || []),
-      ['./plugins/withWechat', { appId, universalLink, androidPackage }],
+      ['./plugins/withWechat.cjs', { appId, universalLink, androidPackage }],
       // 运营商一键登录骨架(可选;未配置时 UI 隐藏该入口,走免费自动回填降级)
-      ['./plugins/withCarrier', { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage }],
-      './plugins/withExpoImportFix',
+      ['./plugins/withCarrier.cjs', { appId: carrierAppId, webSdkUrl: carrierWebSdkUrl, androidPackage }],
+      './plugins/withExpoImportFix.cjs',
       // 全局统一字体:对齐历史 Uniapp 项目 AlimamaFangYuanTi(2026-08-13 立,H19)
       // 字体文件:assets/fonts/AlimamaFangYuanTiVF-Thin.ttf
       // build-time linking,font-family 名称取字体内部 PostScript name
