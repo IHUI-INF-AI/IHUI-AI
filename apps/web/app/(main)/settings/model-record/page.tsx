@@ -278,7 +278,7 @@ export default function ModelRecordPage() {
                 </option>
               ))}
             </select>
-            <Button type="submit" size="sm" className="h-9">
+            <Button type="submit" size="default" className="px-3 text-xs">
               <Search className="h-4 w-4" />
               {t('modelRecordSearch')}
             </Button>

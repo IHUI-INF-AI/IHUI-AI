@@ -493,9 +493,9 @@ export default function DocumentsPage() {
                 {navigatedSlug && (
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="xs"
                     onClick={() => setNavigatedSlug(null)}
-                    className="h-7 shrink-0 px-2 text-xs"
+                    className="shrink-0 px-2 text-xs"
                   >
                     返回原文
                   </Button>
@@ -715,9 +715,8 @@ export default function DocumentsPage() {
                       </span>
                       <Button
                         variant="ghost"
-                        size="sm"
+                        size="icon"
                         onClick={() => setShowTocDrawer(false)}
-                        className="h-9 w-9 p-0"
                         aria-label="关闭目录"
                       >
                         <X className="h-4 w-4" />

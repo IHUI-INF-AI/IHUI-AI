@@ -154,10 +154,9 @@ export function PricingContent(): React.JSX.Element {
 
         <div className="flex flex-wrap gap-1.5">
           <Button
-            size="sm"
+            size="xs"
             variant={activeVendor === 'all' ? 'default' : 'outline'}
             onClick={() => setActiveVendor('all')}
-            className="h-7"
           >
             {t('vendorAll')}
             <span className="ml-1.5 text-xs opacity-70">{numFmt.format(total)}</span>
@@ -165,10 +164,9 @@ export function PricingContent(): React.JSX.Element {
           {vendors.slice(0, 24).map((v) => (
             <Button
               key={v.vendor}
-              size="sm"
+              size="xs"
               variant={activeVendor === v.vendor ? 'default' : 'outline'}
               onClick={() => setActiveVendor(v.vendor)}
-              className="h-7"
             >
               {v.label}
               <span className="ml-1.5 text-xs opacity-70">{numFmt.format(v.count)}</span>
