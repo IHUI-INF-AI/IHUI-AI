@@ -8490,7 +8490,8 @@
       "spec": "切换到规格模式(从代码反向生成 spec 文档)",
       "summary": "总结当前对话",
       "translate": "翻译选中文本",
-      "wechat-article": "写微信公众号文章"
+      "wechat-article": "写微信公众号文章",
+      "bestof": "同任务 N 副本并行执行,LLM 评审自动择优(用法:/bestof <任务> #N,N=副本数 1-5,默认 3)"
     },
     "slashCommand": "调用命令与技能(/)",
     "stepAnswer": "回答",

@@ -8490,7 +8490,8 @@
       "spec": "스펙 모드로 전환(코드에서 spec 문서 역생성)",
       "summary": "현재 대화 요약",
       "translate": "선택한 텍스트 번역",
-      "wechat-article": "위챗 공식 계정 글 작성"
+      "wechat-article": "위챗 공식 계정 글 작성",
+      "bestof": "동일 작업을 N 병렬 실행하고 LLM 심사로 최선을 자동 선택(사용법:/bestof <작업> #N, N=1-5, 기본 3)"
     },
     "slashCommand": "명령/스킬 호출(/)",
     "stepAnswer": "답변",

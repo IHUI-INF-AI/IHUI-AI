@@ -353,12 +353,97 @@ export function tryAutoDetectMode(text: string): void {
   modeStore.setMode(suggested)
 }
 
+/** /bestof 斜杠命令:同任务 N 副本并行执行 + LLM 评审自动择优(2026-09-07 立,对标 Cursor 多副本择优)
+ *  格式:/bestof <任务描述> [#N]  N=副本数 1-5,默认 3
+ *  直调 POST /api/best-of-n/run(经 web 代理 → ai-service 8803),不走 LLM chat 流。
+ *  耗时可达分钟级(N 副本同步执行 + 评审),timeoutMs 放大到 180s。 */
+export async function tryHandleBestOfSlash(
+  text: string,
+  onResult: (assistantContent: string) => void,
+): Promise<boolean> {
+  const trimmed = text.trim()
+  if (
+    trimmed !== '/bestof' &&
+    !trimmed.startsWith('/bestof ') &&
+    !trimmed.startsWith('/bestof\n')
+  ) {
+    return false
+  }
+  let rest = trimmed.slice('/bestof'.length).trim()
+  // 可选 #N 尾缀控制副本数(1-5)
+  let n = 3
+  const nMatch = rest.match(/\s#(\d+)\s*$/)
+  if (nMatch) {
+    n = Math.min(5, Math.max(1, Number(nMatch[1]) || 3))
+    rest = rest.slice(0, nMatch.index).trim()
+  }
+  if (!rest) {
+    onResult('用法: /bestof <任务描述> [#N]。例如 /bestof 用一句话介绍量子计算 #3(N=副本数,默认 3)')
+    return true
+  }
+  try {
+    const r = await fetchApi<{
+      winner: {
+        candidate_id: number
+        content: string
+        model: string
+        ok: boolean
+        error: string
+        score: number | null
+        latency_ms: number
+      }
+      candidates: Array<{
+        candidate_id: number
+        content: string
+        model: string
+        ok: boolean
+        error: string
+        score: number | null
+        latency_ms: number
+      }>
+      nRequested: number
+      evaluatorModel: string
+      evaluatorFallback: boolean
+      rationale: string
+      totalCostUsd: number
+      runId: string
+    }>('/api/best-of-n/run', {
+      method: 'POST',
+      body: JSON.stringify({ messages: [{ role: 'user', content: rest }], n }),
+      timeoutMs: 180_000,
+    })
+    if (!r.success || !r.data) {
+      onResult(`❌ Best-of-N 执行失败: ${r.error || '未知错误'}`)
+      return true
+    }
+    const d = r.data
+    const lines = [
+      `### 🏆 Best-of-N 择优(N=${d.nRequested},${d.evaluatorFallback ? '评审兜底' : `评审 ${d.evaluatorModel}`},总成本 $${d.totalCostUsd.toFixed(4)})`,
+      '',
+      d.winner.content || '(空回复)',
+      '',
+      '| 副本 | 评分 | 模型 | 耗时 | 状态 |',
+      '| --- | --- | --- | --- | --- |',
+      ...d.candidates.map(
+        (c) =>
+          `| #${c.candidate_id} | ${c.score ?? '—'} | ${c.model} | ${c.latency_ms}ms | ${c.ok ? '✅' : `❌ ${c.error.slice(0, 40)}`} |`,
+      ),
+    ]
+    if (d.rationale) lines.push('', `📌 评审理由: ${d.rationale}`)
+    onResult(lines.join('\n'))
+  } catch (e: unknown) {
+    onResult(`❌ /bestof 调用失败: ${e instanceof Error ? e.message : String(e)}`)
+  }
+  return true
+}
+
 export async function tryHandleSelfMediaSlash(
   text: string,
   onResult: (assistantContent: string) => void,
 ): Promise<boolean> {
   // 返回 true 表示命中斜杠命令(已调 skill),false 表示走原 chat 流程
-  // 优先检查 /auto-task(独立处理,因 endpoint 含路径参数)
+  // 优先检查 /bestof(直调 REST 择优,2026-09-07)与 /auto-task(独立处理,因 endpoint 含路径参数)
+  if (await tryHandleBestOfSlash(text, onResult)) return true
   if (await tryHandleAutoTaskSlash(text, onResult)) return true
   const trimmed = text.trim()
   const matched = Object.keys(SELF_MEDIA_SLASH_MAP).find(

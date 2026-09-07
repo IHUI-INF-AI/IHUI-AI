@@ -8490,7 +8490,8 @@
       "spec": "スペックモードに切替(コードから spec 文書を逆生成)",
       "summary": "現在の会話を要約",
       "translate": "選択したテキストを翻訳",
-      "wechat-article": "WeChat 記事執筆"
+      "wechat-article": "WeChat 記事執筆",
+      "bestof": "同一タスクを N 並列実行し、LLM 審査で最良を自動選択(使い方:/bestof <タスク> #N、N=1-5、既定 3)"
     },
     "slashCommand": "コマンド/スキル呼び出し(/)",
     "stepAnswer": "回答",

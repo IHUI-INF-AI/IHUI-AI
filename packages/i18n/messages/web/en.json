@@ -8500,7 +8500,8 @@
       "spec": "Switch to Spec mode (reverse-generate spec docs from code)",
       "summary": "Summarize current conversation",
       "translate": "Translate selected text",
-      "wechat-article": "Write WeChat article"
+      "wechat-article": "Write WeChat article",
+      "bestof": "Run N parallel copies of the same task, LLM judge picks the best (/bestof <task> #N, N=1-5, default 3)"
     },
     "slashCommand": "Invoke command/skill (/)",
     "stepAnswer": "Answer",
