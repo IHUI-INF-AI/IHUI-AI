@@ -245,6 +245,9 @@ iframe#webpack-dev-server-client-overlay {
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
+  /* 品牌橙渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部点缀;命名与 tokens.css 一致以便自动同步) */
+  --color-brand-orange-grad-from: #ffb27d;
+  --color-brand-orange-grad-to: #ff6b35;
   --color-brand: #000000;
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
@@ -371,6 +374,9 @@ iframe#webpack-dev-server-client-overlay {
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #4cd964;
   --color-brand-orange: #ff8e53;
+  /* 品牌橙渐变暗色覆盖(柔和橙) */
+  --color-brand-orange-grad-from: #ff9a5b;
+  --color-brand-orange-grad-to: #ff8e53;
   --color-brand: #ffffff;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);

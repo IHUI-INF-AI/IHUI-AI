@@ -220,12 +220,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: 12,
       backgroundColor: tk.surface.muted,
     },
-    typeBtnActive: { backgroundColor: tk.brand.DEFAULT },
+    typeBtnActive: { backgroundColor: tk.brandAccent.DEFAULT },
     typeText: { fontSize: 14, color: tk.text.secondary },
     typeTextActive: { color: tk.surface.light },
     textarea: {
       marginTop: 8,
-      minHeight: 80,
+      minHeight: 94, // 对齐 Uniapp fankui text_area min-height 188rpx
       padding: 12,
       borderRadius: 12,
       backgroundColor: tk.surface.muted,
@@ -279,7 +279,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: 12,
       height: 50,
       borderRadius: 12,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
