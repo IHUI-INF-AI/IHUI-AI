@@ -425,8 +425,17 @@ def act(
     source: str = "web",
     policy: str = "flag",
     languages: str = "both",
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """统一防护入口。
+
+    Args:
+        input_text: 外部不可信文本内容
+        source: 内容来源 web|mcp|message|file
+        policy: flag|sanitize|refuse
+        languages: english|chinese|both 关键词语言集合
+        session_id: 可选会话 id;提供且命中风险时,自动登记注入拦截事件到时间线回放
+            (不传则不记录,行为零变化)。记录失败仅 warning,绝不阻断主链路。
 
     Returns:
         {action, risk_level, output, hits}
@@ -441,6 +450,23 @@ def act(
     res = detect_injections(input_text, source, languages)
     risk = res.risk_level
     hits = [h.to_dict() for h in res.hits]
+
+    # 全活动时间线回放(P1-4):命中风险的会话自动登记注入拦截事件
+    if session_id and res.risky:
+        try:
+            from .injection_event_recorder import record_injection_event
+
+            record_injection_event(
+                session_id,
+                source=source,
+                risk_level=risk,
+                hit_types=sorted({h["type"] for h in hits}),
+                action=policy,
+                blocked=(policy == "refuse" and risk == "high"),
+                snippet=input_text[:120],
+            )
+        except Exception as e:  # 记录失败绝不阻断主链路
+            logger.warning("prompt_guard 注入事件登记失败(忽略): %s", e)
 
     if policy == "flag":
         return {
@@ -480,13 +506,15 @@ def guard_text(
     source: str = "web",
     policy: str = "flag",
     languages: str = "both",
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """便捷封装: 等价 act()。供各边界(web 抓取 / MCP 返回 / 消息 / 文件)直接调用。
 
     设计为默认 policy="flag"(只打标不改内容), 调用方按风险自行决策;
     需要强拦截的边界可显式传 policy="refuse"。接入点位见 README / 模块 docstring。
+    session_id 提供且命中风险时自动登记注入拦截事件(见 act)。
     """
-    return act(text, source=source, policy=policy, languages=languages)
+    return act(text, source=source, policy=policy, languages=languages, session_id=session_id)
 
 
 class PromptGuard:
@@ -503,8 +531,15 @@ class PromptGuard:
         source: str = "web",
         policy: str = "flag",
         languages: str = "both",
+        session_id: str | None = None,
     ) -> dict[str, Any]:
-        return act(text, source=source, policy=policy, languages=languages)
+        return act(
+            text,
+            source=source,
+            policy=policy,
+            languages=languages,
+            session_id=session_id,
+        )
 
 
 def verify_guard(
@@ -512,9 +547,16 @@ def verify_guard(
     source: str = "web",
     policy: str = "flag",
     languages: str = "both",
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     """模块级静态封装(等价 PromptGuard.verify)。"""
-    return PromptGuard.verify(text, source=source, policy=policy, languages=languages)
+    return PromptGuard.verify(
+        text,
+        source=source,
+        policy=policy,
+        languages=languages,
+        session_id=session_id,
+    )
 
 
 __all__ = [
