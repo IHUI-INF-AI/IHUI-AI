@@ -66,6 +66,21 @@ def _mock_current_user(monkeypatch):
     )
 
 
+@pytest.fixture(autouse=True)
+def _grant_rbac_identity():
+    """2026-09-07 修复:cancel/resume 路由接入 RBAC(2026-09-06)后,
+    require_permission 走 FastAPI 依赖 get_current_user_id(jwt_auth),
+    与本文件 monkeypatch 的 agent_runtime._get_current_user 是两条身份链,
+    后者覆盖不到前者 → 401。按 rbac.require_permission 文档约定,
+    用 app.dependency_overrides 注入同一 test-user-001 身份。"""
+    from app.core.jwt_auth import get_current_user_id
+    from app.main import fastapi_app
+
+    fastapi_app.dependency_overrides[get_current_user_id] = lambda: "test-user-001"
+    yield
+    fastapi_app.dependency_overrides.pop(get_current_user_id, None)
+
+
 # =============================================================================
 # POST /api/agent-runtime/execute
 # =============================================================================
