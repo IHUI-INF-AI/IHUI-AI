@@ -80,7 +80,6 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-9 w-9"
               onClick={onMoveUp}
               disabled={index === 0}
               aria-label="上移"
@@ -90,7 +89,6 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-9 w-9"
               onClick={onMoveDown}
               disabled={index === total - 1}
               aria-label="下移"
@@ -100,7 +98,7 @@ export function StepItem({
             <Button
               size="icon"
               variant="ghost"
-              className="h-9 w-9 text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive"
               onClick={onRemove}
               aria-label="删除步骤"
             >

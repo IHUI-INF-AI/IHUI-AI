@@ -229,10 +229,10 @@ export function RegisterAccountForm({
             className="h-10 flex-1"
             {...register('code')}
           />
-          <Button
+          <Button size="lg"
             type="button"
             variant="outline"
-            className="h-10 shrink-0"
+            className="shrink-0 px-4"
             disabled={countdown > 0 || sendingCode}
             onClick={handleSendCode}
           >
@@ -284,7 +284,7 @@ export function RegisterAccountForm({
         error={showAgreeErr && !agreed}
       />
       {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('agreeRequired')}</p>}
-      <Button type="submit" className="h-10 w-full" disabled={submitting || !agreed}>
+      <Button size="lg" type="submit" className="w-full px-4" disabled={submitting || !agreed}>
         {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {t('registerBtn')}
       </Button>

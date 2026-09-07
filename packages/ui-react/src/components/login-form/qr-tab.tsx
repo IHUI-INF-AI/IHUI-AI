@@ -164,7 +164,7 @@ export function QrTab({
               size="sm"
               onClick={handleOpenWeb}
               disabled={loading}
-              className="h-8 text-xs"
+              className="text-xs"
               data-testid="qr-open-web"
             >
               {loading ? (
@@ -190,9 +190,9 @@ export function QrTab({
         <Button
           type="button"
           variant="ghost"
-          size="sm"
+          size="xs"
           onClick={() => setRefreshKey((k) => k + 1)}
-          className="h-7 px-2 text-xs text-muted-foreground"
+          className="px-2 text-xs text-muted-foreground"
         >
           {t('auth.qrRefresh')}
         </Button>
@@ -200,9 +200,9 @@ export function QrTab({
           <Button
             type="button"
             variant="link"
-            size="sm"
+            size="xs"
             onClick={onSwitchMethod}
-            className="h-7 px-2 text-xs"
+            className="px-2 text-xs"
           >
             {t('auth.qrSwitchMethod')}
           </Button>

@@ -3201,3 +3201,12 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-07) 索引触发链根治:`index_repository` 此前全仓零调用方→codebase_chunks 表永远空→语义/混合检索生产运行时形同虚设。修复:①新增 `index_codebase` MCP 工具(schema+handler+权限同步登记);②`search_codebase` 懒索引(空结果且 path 为本地目录时自动 Merkle 增量索引后重搜,护栏:文件数≤2000+600s 冷却+超限路径也记录防反复扫描);③indexer 新增内部服务鉴权通道(AI_CALLBACK_SECRET+X-User-Id,与 api internal-service-token 中间件契约一致,严格 user_id 白名单防欺骗);新增 14 测试全绿
 - [x] ✅(2026-09-07) 3 个孤儿路由打通:web next.config rewrites 补 /api/mcp-official|patch|sandbox-exec → 8803(此前 routers 存在但用户永远够不到)
 - [x] ✅(2026-09-07) 陈旧测试修正:slash-commands count 12→13(并行会话新增 bestof),断言改为 count==len(commands) 防再漂移
+
+## P1 全站 Button 高度 token 统一(2026-09-07 收官,平台独占:apps/web + packages/ui-react)
+
+> 触发:用户反馈发布账号管理页 4 按钮(编辑/删除/扫码/刷新 Cookie)高度参差(h-7/h-9 混用),要求全站穷尽式统一并建立 token 体系。
+
+- [x] ✅(2026-09-07) **token 档位确立**:`packages/ui-react/src/components/button.tsx` size 表新增 `xs`(h-7 px-3 text-xs)/`icon-xs`(h-7 w-7)/`icon-sm`(h-8 w-8),与既有 sm/default/lg/icon 组成 7 档体系(28/32/36/40px 文字钮 + 28/32/36px 图标钮)。
+- [x] ✅(2026-09-07) **全量迁移两段式**:第一段 58 文件(admin/models/edu/self-media 等 app/ 路由层,commit 5db23561a4);第二段 37 文件 83 处(web src/ 组件层 + ui-react login-form,本提交)——第一段因扫描脚本路径替换缺陷(sed 无 g 标志,同行双路径只换首个)漏掉 apps/web/src 全部,已用精确 JSX 开标签解析器修复。全部渲染等价(保留原 px-*/字号;sm+h-9 反模式→default+px-3 text-xs;登录 h-10 w-full→lg+px-4;CookieHealthIndicator 原生刷新钮 h-9→h-7 对齐卡片操作行)。
+- [x] ✅(2026-09-07) **根治守门**:`scripts/check-button-height.mjs` 入 pre-commit blocking——`<Button>` 禁止 className h-7+ 覆盖(精确 JSX 开标签解析,感知引号/花括号,零误报;同时校验 size 值 ∈ 档位表防拼写静默回退);豁免:原生 `<button>` 24px 紧凑档(IDE 面板有意设计)、Input/SelectTrigger/Skeleton、Button 上 h-5/h-6 紧凑档(存量 45 处表格行/侧栏密集场景)。紧急跳过 HUSKY_SKIP_BUTTON_HEIGHT_GUARD=1。规则入 AGENTS.md §4。
+- [x] ✅(2026-09-07) **验证**:迁移后复扫 0 残留(h-7..h-12 维度);守门全量扫描 2352 个 tsx/jsx 0 违规;apps/web tsc 0 错误;ui-react tsc 通过。
