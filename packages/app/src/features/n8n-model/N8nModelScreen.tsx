@@ -287,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     actionStart: { backgroundColor: tk.success.DEFAULT },
-    actionStop: { backgroundColor: tk.warning.deep },
+    actionStop: { backgroundColor: tk.brandAccent.DEFAULT },
     actionText: { fontSize: 14, fontWeight: '600', color: tk.surface.light },
     actionEdit: {
       paddingHorizontal: 10,

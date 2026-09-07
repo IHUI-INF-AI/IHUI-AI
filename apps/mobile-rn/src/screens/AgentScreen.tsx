@@ -947,7 +947,7 @@ const styles = StyleSheet.create({
   },
   trackBtnActive: {
     backgroundColor: 'rgba(248, 249, 252, 0.65)',
-    borderColor: tokens.indigo.light,
+    borderColor: tokens.brandAccent.light,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,

@@ -21,7 +21,7 @@
 
 import exceljs from 'exceljs'
 import type { Worksheet } from 'exceljs'
-import { read, utils } from 'xlsx'
+import { read, utils } from '@e965/xlsx'
 
 const { Workbook } = exceljs
 

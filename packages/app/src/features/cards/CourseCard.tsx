@@ -175,7 +175,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: 8,
       paddingVertical: 2,
     },
-    levelText: { fontSize: 11, fontWeight: '600', color: tk.indigo.DEFAULT },
+    levelText: { fontSize: 11, fontWeight: '600', color: tk.brandAccent.DEFAULT },
     ratingText: { fontSize: 11, color: tk.warning.DEFAULT, fontWeight: '600' },
     tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
     tag: {
