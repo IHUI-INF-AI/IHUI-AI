@@ -110,8 +110,9 @@ def test_append_estimates_cost_when_missing(tmp_path: Path):
     ld = _ledger(tmp_path)
     r = ld.append(_mk("est-1", cost_usd=None, model="obscure-llm", tokens_in=1000, tokens_out=500))
     e = r["entry"]
-    # 默认价 per_in 0.002 / per_out 0.008 → 0.002*1 + 0.008*0.5 = 0.006
-    assert e["cost_usd"] == pytest.approx(0.006, rel=1e-6)
+    # 2026-09-07 起默认价来自 core.model_pricing 全局默认(USD/1M: 1.00/3.00)
+    # → per-1K 0.001/0.003 → 0.001*1 + 0.003*0.5 = 0.0025
+    assert e["cost_usd"] == pytest.approx(0.0025, rel=1e-6)
     assert e["estimated"] is True
     # 已知模型估算则不标 estimated
     r2 = ld.append(_mk("est-2", cost_usd=None, model="gpt-4o", tokens_in=1000, tokens_out=500))
@@ -363,8 +364,8 @@ def test_estimate_unknown_model(tmp_path: Path):
     """未知模型用默认价并标 estimated=True。"""
     ld = _ledger(tmp_path)
     r = ld.estimate_cost_usd("some-brand-new-model", 1000, 500)
-    # 默认价 per_in 0.002 / per_out 0.008
-    assert r["cost_usd"] == pytest.approx(0.006, rel=1e-6)
+    # 默认价来自 core.model_pricing(USD/1M: 1.00/3.00 → per-1K 0.001/0.003)
+    assert r["cost_usd"] == pytest.approx(0.0025, rel=1e-6)
     assert r["estimated"] is True
 
 
@@ -382,8 +383,8 @@ def test_set_pricing_override(tmp_path: Path):
     r = ld.estimate_cost_usd("gpt-4o", 1000, 500)
     assert r["cost_usd"] == pytest.approx(0.002, rel=1e-6)  # 0.001 + 0.001
     assert r["estimated"] is False
-    # 不影响其它模型
-    assert ld.estimate_cost_usd("claude-3-sonnet", 1000, 500)["estimated"] is False
+    # 不影响其它模型(claude-3-5-sonnet 在统一价目源中有模型级价目)
+    assert ld.estimate_cost_usd("claude-3-5-sonnet", 1000, 500)["estimated"] is False
     # 覆盖一个原本未知的模型后不再标估算
     ld.set_pricing("custom-llm", 0.005, 0.02)
     assert ld.estimate_cost_usd("custom-llm", 1000, 1000)["estimated"] is False
