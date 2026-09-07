@@ -443,7 +443,7 @@ async def _lazy_index_and_research(
             return []
         _LAZY_INDEX_LAST_RUN[str(root)] = now
         await indexer.index_repository(str(root), incremental=True, internal_user_id=internal_user_id)
-        return await indexer.search(query, top_k=max_results)
+        return cast(list[dict[str, Any]], await indexer.search(query, top_k=max_results))
     except Exception:
         return []
 
