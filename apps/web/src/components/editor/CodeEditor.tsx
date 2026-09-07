@@ -111,6 +111,60 @@ type MonacoInlineCompletionContext = {
   selectedSuggestionInfo?: unknown
 }
 
+const FIM_CACHE_LIMIT = 30
+
+interface FimMetrics {
+  requestStartedAt: number
+  prefix: string
+  suffix: string
+}
+
+declare global {
+  interface Window {
+    __ihuiFimMetrics?: {
+      requestCount: number
+      cacheHitCount: number
+      cancellationCount: number
+      failureCount: number
+      suggestionCount: number
+      latencyMs: number[]
+      last?: { durationMs: number; fromCache: boolean; cancelled: boolean; language: string }
+    }
+  }
+}
+
+const fimMetrics = {
+  requestCount: 0,
+  cacheHitCount: 0,
+  cancellationCount: 0,
+  failureCount: 0,
+  suggestionCount: 0,
+  latencyMs: [] as number[],
+  last: undefined as { durationMs: number; fromCache: boolean; cancelled: boolean; language: string } | undefined,
+}
+
+function fimCacheKey(prefix: string, suffix: string, language: string): string {
+  return `${language}\u0000${prefix.slice(-6000)}\u0000${suffix.slice(0, 2000)}`
+}
+
+function recordFimMetric(metrics: FimMetrics, result: {
+  completion: string
+  fromCache: boolean
+  cancelled: boolean
+  language: string
+}): void {
+  const durationMs = Date.now() - metrics.requestStartedAt
+  fimMetrics.requestCount += 1
+  fimMetrics.latencyMs.push(durationMs)
+  if (fimMetrics.latencyMs.length > 100) fimMetrics.latencyMs.shift()
+  if (result.fromCache) fimMetrics.cacheHitCount += 1
+  if (result.cancelled) fimMetrics.cancellationCount += 1
+  if (!result.completion && !result.cancelled) fimMetrics.failureCount += 1
+  if (result.completion) fimMetrics.suggestionCount += 1
+  fimMetrics.last = { durationMs, fromCache: result.fromCache, cancelled: result.cancelled, language: result.language }
+  if (typeof window !== 'undefined') window.__ihuiFimMetrics = fimMetrics
+}
+
 type MonacoInlineCompletionsProvider = {
   provideInlineCompletions(
     model: MonacoModel,
@@ -201,6 +255,8 @@ export function CodeEditor({
   const inlineProviderDisposableRef = React.useRef<{ dispose(): void } | null>(null)
   // debounce timer(用户停止输入 300ms 后才请求 AI 补全,避免频繁调用 AI 服务)
   const completionDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inlineCompletionAbortRef = React.useRef<AbortController | null>(null)
+  const inlineCompletionCacheRef = React.useRef(new Map<string, string>())
 
   /**
    * 调用 /ai/llm/fim 获取 AI 内联补全建议(2026-09-07 升级为专用 FIM 端点)。
@@ -214,15 +270,36 @@ export function CodeEditor({
    */
   const fetchInlineCompletion = React.useCallback(
     async (prefix: string, suffix: string, lang: string): Promise<string> => {
+      const cacheKey = fimCacheKey(prefix, suffix, lang)
+      const cached = inlineCompletionCacheRef.current.get(cacheKey)
+      if (cached !== undefined) return cached
+
+      inlineCompletionAbortRef.current?.abort()
+      const controller = new AbortController()
+      inlineCompletionAbortRef.current = controller
+      const requestStartedAt = Date.now()
+      const metrics: FimMetrics = { requestStartedAt, prefix, suffix }
       try {
         const res = await fetchApi<FimCompletionData>('/ai/llm/fim', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prefix, suffix, language: lang, max_tokens: 128 }),
+          signal: controller.signal,
+          timeoutMs: 3000,
         })
-        if (!res.success) return ''
-        return res.data?.completion ?? ''
-      } catch {
+        const completion = res.success ? (res.data?.completion ?? '') : ''
+        if (!controller.signal.aborted) {
+          inlineCompletionCacheRef.current.set(cacheKey, completion)
+          if (inlineCompletionCacheRef.current.size > FIM_CACHE_LIMIT) {
+            const oldestKey = inlineCompletionCacheRef.current.keys().next().value
+            if (oldestKey !== undefined) inlineCompletionCacheRef.current.delete(oldestKey)
+          }
+        }
+        recordFimMetric(metrics, { completion, fromCache: false, cancelled: controller.signal.aborted, language: lang })
+        return completion
+      } catch (error) {
+        const cancelled = controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')
+        recordFimMetric(metrics, { completion: '', fromCache: false, cancelled, language: lang })
         return ''
       }
     },
@@ -290,6 +367,7 @@ export function CodeEditor({
               if (!prefix.trim()) return { items: [] }
 
               const lang = model.getLanguageId() ?? 'plaintext'
+              if (token.isCancellationRequested) return { items: [] }
               const suggestion = await fetchInlineCompletion(prefix, suffix, lang)
               if (token.isCancellationRequested) return { items: [] }
               if (!suggestion) return { items: [] }
@@ -354,6 +432,9 @@ export function CodeEditor({
         clearTimeout(completionDebounceRef.current)
         completionDebounceRef.current = null
       }
+      inlineCompletionAbortRef.current?.abort()
+      inlineCompletionAbortRef.current = null
+      inlineCompletionCacheRef.current.clear()
     }
   }, [])
 

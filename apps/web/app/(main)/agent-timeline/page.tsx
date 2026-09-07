@@ -68,6 +68,14 @@ const KIND_COLOR: Record<TimelineEvent['kind'], string> = {
   injection: 'bg-destructive/10 text-destructive',
 }
 
+const KIND_COUNT_KEY: Record<TimelineEvent['kind'], string> = {
+  step: 'countStep',
+  compaction: 'countCompaction',
+  checkpoint: 'countCheckpoint',
+  cost: 'countCost',
+  injection: 'countInjection',
+}
+
 export default function AgentTimelinePage() {
   const t = useTranslations('agentTimeline')
   const KIND_LABEL: Record<TimelineEvent['kind'], string> = {
@@ -83,24 +91,27 @@ export default function AgentTimelinePage() {
   const [needLogin, setNeedLogin] = React.useState(false)
   const [data, setData] = React.useState<TimelineData | null>(null)
   const [expanded, setExpanded] = React.useState<string | null>(null)
-  const load = React.useCallback(async (sid: string) => {
-    if (!sid.trim()) return
-    setLoading(true)
-    setError('')
-    setNeedLogin(false)
-    setData(null)
-    const res = await fetchApi<TimelineData>(
-      `/api/timeline?session_id=${encodeURIComponent(sid.trim())}`,
-    )
-    setLoading(false)
-    if (!res.success) {
-      if (res.status === 401) setNeedLogin(true)
-      else setError(res.error || t('loadFailed'))
-      return
-    }
-    setData(res.data)
-    setExpanded(null)
-  }, [t])
+  const load = React.useCallback(
+    async (sid: string) => {
+      if (!sid.trim()) return
+      setLoading(true)
+      setError('')
+      setNeedLogin(false)
+      setData(null)
+      const res = await fetchApi<TimelineData>(
+        `/api/timeline?session_id=${encodeURIComponent(sid.trim())}`,
+      )
+      setLoading(false)
+      if (!res.success) {
+        if (res.status === 401) setNeedLogin(true)
+        else setError(res.error || t('loadFailed'))
+        return
+      }
+      setData(res.data)
+      setExpanded(null)
+    },
+    [t],
+  )
 
   const fmtTime = (iso: string) =>
     iso
@@ -175,7 +186,7 @@ export default function AgentTimelinePage() {
             </div>
             <div className="rounded-xl border p-4">
               <div className="mb-1 text-xs text-muted-foreground">{t('window')}</div>
-              <div className="truncate text-xs font-medium" title-ignore>
+              <div className="truncate text-xs font-medium">
                 {data.summary.window.start ? fmtTime(data.summary.window.start) : '-'}
                 {' → '}
                 {data.summary.window.end ? fmtTime(data.summary.window.end) : '-'}
@@ -188,7 +199,10 @@ export default function AgentTimelinePage() {
             {(Object.keys(KIND_LABEL) as TimelineEvent['kind'][]).map((k) => (
               <span
                 key={k}
-                className={cn('inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs', KIND_COLOR[k])}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs',
+                  KIND_COLOR[k],
+                )}
               >
                 {t(KIND_COUNT_KEY[k], { count: data.summary.counts[k] ?? 0 })}
               </span>
@@ -208,11 +222,18 @@ export default function AgentTimelinePage() {
                       onClick={() => setExpanded((p) => (p === ev.ref_id ? null : ev.ref_id))}
                       className={cn(
                         'w-full rounded-lg border p-3 text-left transition',
-                        isError ? 'border-destructive/40 hover:bg-destructive/5' : 'hover:bg-muted/40',
+                        isError
+                          ? 'border-destructive/40 hover:bg-destructive/5'
+                          : 'hover:bg-muted/40',
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={cn('inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium', KIND_COLOR[ev.kind])}>
+                        <span
+                          className={cn(
+                            'inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium',
+                            KIND_COLOR[ev.kind],
+                          )}
+                        >
                           <Icon className="h-3 w-3" /> {KIND_LABEL[ev.kind]}
                         </span>
                         <span className="truncate text-sm font-medium">{ev.title}</span>
@@ -223,16 +244,24 @@ export default function AgentTimelinePage() {
                         )}
                         <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                           {fmtTime(ev.at_iso)}
-                          {isOpen ? <ChevronDown className="ml-1 inline h-3.5 w-3.5" /> : <ChevronRight className="ml-1 inline h-3.5 w-3.5" />}
+                          {isOpen ? (
+                            <ChevronDown className="ml-1 inline h-3.5 w-3.5" />
+                          ) : (
+                            <ChevronRight className="ml-1 inline h-3.5 w-3.5" />
+                          )}
                         </span>
                       </div>
                       {ev.subtitle && (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{ev.subtitle}</p>
+                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                          {ev.subtitle}
+                        </p>
                       )}
                     </button>
                     {isOpen && (
                       <div className="mt-1 rounded-lg bg-muted/20 p-3">
-                        <p className="mb-1 text-xs font-semibold text-muted-foreground">{t('detail')}</p>
+                        <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                          {t('detail')}
+                        </p>
                         <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
                           {JSON.stringify(ev.meta, null, 2)}
                         </pre>
