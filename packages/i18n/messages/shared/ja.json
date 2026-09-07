@@ -1799,5 +1799,38 @@
     "detail": {
       "title": "ワークスペース詳細"
     }
+  },
+  "capabilityMarket": {
+    "title": "機能マーケット",
+    "subtitle": "プラットフォーム内蔵の MCP 機能を閲覧し、ワンクリックで公開を有効化して Agent ツールを拡張",
+    "count": "全 {count} 件の機能",
+    "searchPlaceholder": "名前または説明で検索",
+    "allCategories": "すべての分類",
+    "category": "分類",
+    "search": "検索",
+    "enabled": "有効",
+    "disabled": "無効",
+    "enable": "有効化",
+    "disable": "無効化",
+    "healthy": "正常",
+    "degraded": "ネットワーク要",
+    "unhealthy": "異常",
+    "adminOnly": "管理者専用",
+    "allUsers": "全ユーザー",
+    "networkRequired": "ネットワーク要",
+    "paramCount": "引数 {count} 個",
+    "noParams": "引数なし",
+    "kindTool": "ツール",
+    "kindResource": "リソース",
+    "kindPrompt": "プロンプト",
+    "loadFailed": "読み込み失敗、後で再試行してください",
+    "loading": "読み込み中...",
+    "actionFailed": "操作失敗、後で再試行してください",
+    "enableSuccess": "{name} を有効化しました",
+    "disableSuccess": "{name} を無効化しました",
+    "notFound": "機能が見つかりません"
+  },
+  "topBar": {
+    "capabilityMarket": "機能マーケット"
   }
 }

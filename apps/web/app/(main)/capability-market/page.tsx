@@ -1,0 +1,21 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+import type { Metadata } from 'next'
+import { Suspense } from 'react'
+import PageClient from './PageClient'
+
+export const metadata: Metadata = {
+  title: '能力市场 — 平台 MCP 能力一键启用 | IHUI AI',
+  description:
+    '浏览智汇 AI 平台自研 MCP 能力(tool/resource/prompt),一键启用对外暴露,扩展 Agent 工具集。',
+  alternates: { canonical: '/capability-market' },
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <PageClient />
+    </Suspense>
+  )
+}
