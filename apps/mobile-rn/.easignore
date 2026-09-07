@@ -1,0 +1,30 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE).
+
+# EAS Build 上传排除规则(mobile-rn)。
+# 背景:本仓库为 monorepo,根 node_modules/.pnpm 等未在 git 内被忽略,导致 EAS
+# archive 高达 1.7GB、云端解析/依赖阶段不稳定。此处显式排除,只上传真实源码;
+# 原生构建依赖由 EAS 云端 pnpm install 自行安装。
+
+# 依赖与构建产物(云端自行安装/生成)
+node_modules/
+**/node_modules/
+.pnpm/
+dist/
+dist-*/
+.next/
+.out/
+.expo/
+.expo-shared/
+*.hbc
+
+# 原生目录(EAS prebuild 生成)
+android/
+ios/
+
+# 本地残留
+*.log
+tmp/
+temp/
+.DS_Store
+*.tsbuildinfo
