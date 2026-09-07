@@ -19,22 +19,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# 厂商定价表(每百万 token 价格,单位:美元)
-# 来源:各厂商官方定价页面(2026-08)
-PROVIDER_PRICING: dict[str, dict[str, float]] = {
-    "openai": {"input": 2.50, "output": 10.00},  # GPT-4o
-    "anthropic": {"input": 3.00, "output": 15.00},  # Claude 3.5 Sonnet
-    "stepfun": {"input": 0.50, "output": 2.00},  # Step 系列
-    "agnes": {"input": 0.50, "output": 2.00},  # Agnes AI
-    "cloudflare_workers_ai": {"input": 0.00, "output": 0.00},  # 免费
-    "nvidia_nim": {"input": 0.00, "output": 0.00},  # 免费
-    "gemini": {"input": 0.10, "output": 0.40},  # Gemini 2.0 Flash
-    "groq": {"input": 0.00, "output": 0.00},  # 免费
-    "openrouter": {"input": 1.00, "output": 3.00},  # 平均
-    "ollama": {"input": 0.00, "output": 0.00},  # 本地
-    "stub": {"input": 0.00, "output": 0.00},  # stub 免费
-}
-DEFAULT_PRICING = {"input": 1.00, "output": 3.00}  # 未知厂商兜底
+# 厂商定价表(每百万 token 价格,单位:美元)。
+# 2026-09-07 收口:改引 core.model_pricing 单一价目源
+# (此前本表与 cost_ledger / llm_budget_governor 三处漂移且停留 2024 价位)。
+# 计价策略:_estimate_cost 优先按模型级价目(前缀匹配),未命中回落厂商级。
+from ..core.model_pricing import (
+    DEFAULT_PRICE_PER_1M as DEFAULT_PRICING,
+    PROVIDER_PRICES_PER_1M as PROVIDER_PRICING,
+    resolve_model_pricing_per_1m,
+)
 
 # 默认配额(每月 token 上限)
 DEFAULT_QUOTA_LIMIT = 10_000_000
@@ -53,9 +46,18 @@ class UsageRecord:
     session_id: str = ""
 
 
-def _estimate_cost(provider: str, input_tokens: int, output_tokens: int) -> float:
-    """按定价表估算单次调用成本(美元)。"""
-    pricing = PROVIDER_PRICING.get(provider, DEFAULT_PRICING)
+def _estimate_cost(
+    provider: str, input_tokens: int, output_tokens: int, model: str = ""
+) -> float:
+    """按定价表估算单次调用成本(美元)。
+
+    2026-09-07 起:有 model 时优先走统一价目源模型级匹配(前缀匹配 +
+    厂商级兜底),未传 model 时维持原厂商级查表行为。
+    """
+    if model:
+        pricing = resolve_model_pricing_per_1m(model, provider)
+    else:
+        pricing = PROVIDER_PRICING.get(provider, DEFAULT_PRICING)
     input_cost = (input_tokens / 1_000_000) * pricing["input"]
     output_cost = (output_tokens / 1_000_000) * pricing["output"]
     return round(input_cost + output_cost, 4)
@@ -77,7 +79,7 @@ class LLMUsageService:
         session_id: str = "",
     ) -> UsageRecord:
         """记录一次 LLM 调用用量。"""
-        cost = _estimate_cost(provider, input_tokens, output_tokens)
+        cost = _estimate_cost(provider, input_tokens, output_tokens, model=model)
         record = UsageRecord(
             id=uuid.uuid4().hex[:12],
             provider=provider,
