@@ -397,3 +397,6 @@ scripts/_tmp_*.mjs
 
 # .env 备份文件(含密钥,严禁入库)
 apps/*/.env.bak.*
+
+# MCP 真网 OAuth 持久化凭据(禁止入库)
+apps/ai-service/.mcp-linear-token.json
