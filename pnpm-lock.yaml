@@ -10089,11 +10089,6 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  agent-cli-detector@0.1.5:
-    resolution: {integrity: sha512-6xvLw0EGPuxoYGZeqyMV4AK+WoZ31jsqb7a5pln1BTf6oDFsrgvfCJT7E7y9oAqifJZhJ3fZ0J36H7o6JzrB0Q==}
-    engines: {node: '>=18.18'}
-    hasBin: true
-
   agent-cli-detector@0.1.7:
     resolution: {integrity: sha512-d8OWDVdZMgjhLUT9ZPgSv/BdFFF9pVuscC0JdUSz3bjwE15gcp6u/o0/JooM2yyAWC49KThFhXlgTXRa9B7yng==}
     engines: {node: '>=18.18'}
@@ -22859,7 +22854,7 @@ snapshots:
       '@expo/xcpretty': 4.4.4
       '@react-native/dev-middleware': 0.86.2(supports-color@8.1.1)
       accepts: 1.3.8
-      agent-cli-detector: 0.1.5
+      agent-cli-detector: 0.1.7
       arg: 5.0.2
       bplist-creator: 0.1.0
       bplist-parser: 0.3.2
@@ -22936,7 +22931,7 @@ snapshots:
       '@expo/xcpretty': 4.4.4
       '@react-native/dev-middleware': 0.86.2(supports-color@8.1.1)
       accepts: 1.3.8
-      agent-cli-detector: 0.1.5
+      agent-cli-detector: 0.1.7
       arg: 5.0.2
       bplist-creator: 0.1.0
       bplist-parser: 0.3.2
@@ -30264,8 +30259,6 @@ snapshots:
       - supports-color
 
   agent-base@7.1.4: {}
-
-  agent-cli-detector@0.1.5: {}
 
   agent-cli-detector@0.1.7: {}
 
