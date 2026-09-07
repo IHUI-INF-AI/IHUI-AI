@@ -1,4 +1,22 @@
 {
+  "adminModelPricing": {
+    "backToCost": "コスト看板へ戻る",
+    "coverage": "モデル {models} / ベンダー {providers} / 上書き {overrides} をカバー",
+    "empty": "この分類にエントリはありません",
+    "inputPrice": "入力単価",
+    "loading": "料金を読み込み中…",
+    "modelCount": "モデル級料金",
+    "models": "モデル料金",
+    "name": "名称",
+    "outputPrice": "出力単価",
+    "overrideCount": "実行時上書き",
+    "overrides": "上書き",
+    "providerCount": "ベンダー フォールバック",
+    "providers": "ベンダー フォールバック",
+    "subtitle": "単一料金ソースの全量スナップショット:公開価格でコスト計算。正確な請求はベンダーの請求書が優先。",
+    "title": "モデル料金ダッシュボード",
+    "unitNote": "単位:USD per 1M tokens。モデル級の前方一致がベンダー フォールバックより優先、実行時上書きが最優先。"
+  },
   "agentTimeline": {
     "countCheckpoint": "チェックポイント {count}",
     "countCompaction": "圧縮 {count}",
