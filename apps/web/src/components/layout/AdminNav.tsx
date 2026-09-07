@@ -27,6 +27,7 @@ import {
   ScrollText,
   Activity,
   Boxes,
+  BadgeDollarSign,
   GraduationCap,
   BookOpen,
   UserCheck,
@@ -227,6 +228,7 @@ interface AdminNavItem {
     | 'saasMetrics'
     | 'pluginsStats'
     | 'aiCost'
+    | 'pricing'
     | 'agentGovernance'
     | 'adminRelayOverview'
     | 'adminRelayModels'
@@ -271,6 +273,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/demand-square', labelKey: 'demandSquare', icon: LayoutGrid },
   // R6: 运维监控
   { href: '/admin/ai-cost', labelKey: 'aiCost', icon: Coins },
+  // P3-9 模型定价看板(labelKey 复用 web nav.pricing 存量键,清孤儿键)
+  { href: '/admin/model-pricing', labelKey: 'pricing', icon: BadgeDollarSign },
   { href: '/admin/agent-governance', labelKey: 'agentGovernance', icon: Gauge },
   { href: '/admin/monitoring-dashboard', labelKey: 'monitoringDashboard', icon: MonitorCog },
   { href: '/admin/backend-health', labelKey: 'backendHealth', icon: Server },
@@ -941,6 +945,7 @@ const NAV_LABEL_KEY: Record<AdminNavItem['labelKey'], string> = {
   saasMetrics: 'nav.saasMetrics',
   pluginsStats: 'nav.pluginsStats',
   aiCost: 'nav.aiCost',
+  pricing: 'nav.pricing',
   agentGovernance: 'nav.agentGovernance',
   adminRelayOverview: 'nav.adminRelayOverview',
   adminRelayModels: 'nav.adminRelayModels',

@@ -49,10 +49,20 @@ AGENT_COMPACTION_QUALITY_ENABLED = os.environ.get(
 ).strip().lower() in ("1", "true", "yes", "on")
 # 保留率低于该阈值触发 auto_degrade(与 compaction_quality.DEFAULT_RETENTION_THRESHOLD
 # 对齐;此处集中为跨端唯一真源,改动需同步 web / cli 镜像)。
+# P3-11 同构:DEFAULT 标量供 tests/test_killer_parity.py 与 TS 镜像做"漂移即失败"断言
+# (env 解析值随环境变化不可作 parity 断言基线,故显式沉淀默认值常量)。
+AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT = 0.5
+AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT = 4
 AGENT_COMPACTION_QUALITY_THRESHOLD = float(
-    os.environ.get("AGENT_COMPACTION_QUALITY_THRESHOLD", "0.5")
+    os.environ.get(
+        "AGENT_COMPACTION_QUALITY_THRESHOLD",
+        str(AGENT_COMPACTION_QUALITY_THRESHOLD_DEFAULT),
+    )
 )
 # 触发降级时回退的"更保守截断式压缩"保留条数 = 默认 keep_recent 上浮的偏移量。
 AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS = int(
-    os.environ.get("AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS", "4")
+    os.environ.get(
+        "AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS",
+        str(AGENT_COMPACTION_QUALITY_KEEP_RECENT_BONUS_DEFAULT),
+    )
 )
