@@ -30,6 +30,7 @@ import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web'
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
+import { DOC_TEXT_MUTED } from '@ihui/design-tokens'
 import { error } from '../utils/response.js'
 
 const PROXY_TIMEOUT_MS = 15000
@@ -229,7 +230,7 @@ function errorPage(message: string): string {
   const safe = message.replace(/[<>&"]/g, '').slice(0, 200)
   return [
     '<!doctype html><html><head><meta charset="utf-8"></head>',
-    '<body style="font:13px sans-serif;color:#888;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">',
+    `<body style="font:13px sans-serif;color:${DOC_TEXT_MUTED};display:flex;align-items:center;justify-content:center;height:100vh;margin:0">`,
     `<p>${safe}</p>`,
     `<script>try{parent.postMessage({type:'ihui-embed-proxy-error',message:${JSON.stringify(safe)}},'*')}catch(e){}</script>`,
     '</body></html>',

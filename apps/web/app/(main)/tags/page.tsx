@@ -11,6 +11,13 @@ import { Tag, Hash, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import {
+  CHART_BLUE,
+  CHART_GREEN,
+  CHART_AMBER,
+  CHART_RED,
+  CHART_VIOLET,
+} from '@ihui/design-tokens'
 import { BackButton } from '@/components/common'
 import { Tag as TagChip } from '@/components/data/Tag'
 
@@ -37,7 +44,7 @@ const TAG_COLORS = [
   'text-cyan-600 dark:text-cyan-400',
 ]
 
-const TAG_CHIP_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+const TAG_CHIP_COLORS = [CHART_BLUE, CHART_GREEN, CHART_AMBER, CHART_RED, CHART_VIOLET]
 
 export default function TagsPage() {
   const t = useTranslations('tags')

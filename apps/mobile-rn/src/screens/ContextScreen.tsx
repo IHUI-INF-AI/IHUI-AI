@@ -12,6 +12,7 @@ import {
   type ContextCompressionStats,
   type ContextMention,
 } from '@ihui/api-client'
+import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -26,6 +27,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 export function ContextScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
+  const tk = getRnTokens(resolvedTheme)
   const navigation = useNavigation<NavigationProp>()
   const [stats, setStats] = useState<ContextCompressionStats | null>(null)
   const [query, setQuery] = useState('')
@@ -86,7 +88,7 @@ export function ContextScreen() {
           onPress={() => void loadStats()}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text className="text-sm text-blue-600 dark:text-blue-400">{t('common.retry')}</Text>
+          <Text className="text-sm text-orange-600 dark:text-orange-400">{t('common.retry')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -165,7 +167,7 @@ export function ContextScreen() {
             value={query}
             onChangeText={setQuery}
             placeholder={t('context.mentionsPlaceholder')}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tk.text.tertiary}
             className="mt-2 rounded-md border border-gray-200 px-3 py-2 text-sm dark:border-neutral-700 dark:text-neutral-100"
           />
           {searching ? (
@@ -180,8 +182,8 @@ export function ContextScreen() {
                   className="rounded-md border border-gray-200 px-3 py-2 dark:border-neutral-700"
                 >
                   <View className="flex-row items-center gap-2">
-                    <View className="rounded bg-blue-50 px-1.5 py-0.5 dark:bg-blue-900/30">
-                      <Text className="text-[10px] text-blue-600 dark:text-blue-300">{m.type}</Text>
+                    <View className="rounded bg-orange-50 px-1.5 py-0.5 dark:bg-orange-900/30">
+                      <Text className="text-[10px] text-orange-600 dark:text-orange-300">{m.type}</Text>
                     </View>
                     <Text className="flex-1 text-xs font-medium dark:text-neutral-100" numberOfLines={1}>
                       {m.label}

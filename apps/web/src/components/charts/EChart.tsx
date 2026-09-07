@@ -10,6 +10,7 @@ import { useTheme } from 'next-themes'
 import { Loader2 } from 'lucide-react'
 import type { EChartsOption } from 'echarts'
 import { cn } from '@/lib/utils'
+import { chartText } from '@ihui/design-tokens'
 
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false })
 
@@ -20,20 +21,18 @@ export interface EChartProps {
   loading?: boolean
 }
 
-// ECharts canvas 渲染不支持 CSS var(),#94a3b8 为 tokens.css --chart-text 的硬编码副本,修改需同步 tokens.css
-const darkTextStyle = { color: '#94a3b8' }
-
 export function EChart({ option, className, height = 300, loading }: EChartProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
+  const textColor = chartText(isDark)
 
   const themedOption = React.useMemo<EChartsOption>(
     () => ({
       backgroundColor: 'transparent',
-      textStyle: isDark ? darkTextStyle : undefined,
+      textStyle: isDark ? { color: textColor } : undefined,
       ...option,
     }),
-    [option, isDark],
+    [option, isDark, textColor],
   )
 
   const heightStyle = typeof height === 'number' ? `${height}px` : height

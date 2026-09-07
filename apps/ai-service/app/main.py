@@ -55,6 +55,7 @@ from app.routers import (
     ai_skills,
     artifacts,
     connectors,
+    fim,
     health,
     hooks,
     llm,
@@ -618,6 +619,8 @@ def create_app() -> FastAPI:
     # 注册路由(路由器自带 /llm /mcp /agents /a2a /tools 前缀,统一加 /api)
     app.include_router(health.router, tags=["health"])
     app.include_router(llm.router, prefix="/api", tags=["llm"])
+    # FIM 代码补全(Monaco/CLI ghost-text 后端,2026-09-07 立,对标 Cursor Tab)
+    app.include_router(fim.router, prefix="/api", tags=["llm-fim"])
     app.include_router(tools.router, prefix="/api", tags=["tools"])
     app.include_router(mcp.router, prefix="/api", tags=["mcp"])
     app.include_router(mcp_official.router, prefix="/api", tags=["mcp-official"])
