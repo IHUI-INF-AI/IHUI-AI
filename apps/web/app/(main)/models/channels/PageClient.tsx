@@ -185,7 +185,7 @@ export default function PageClient() {
                   className="h-8 w-60 pl-8 text-xs"
                 />
               </div>
-              <Button type="submit" variant="outline" size="sm" className="h-8">
+              <Button type="submit" variant="outline" size="sm">
                 搜索
               </Button>
             </form>
@@ -293,8 +293,7 @@ export default function PageClient() {
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                              size="icon-xs"
                               onClick={() => openEdit(item)}
                               aria-label="编辑"
                             >
@@ -302,8 +301,7 @@ export default function PageClient() {
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0"
+                              size="icon-xs"
                               onClick={() => healthMut.mutate(item.id)}
                               disabled={healthMut.isPending}
                               aria-label="健康检查"
@@ -312,8 +310,8 @@ export default function PageClient() {
                             </Button>
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              size="icon-xs"
+                              className="text-destructive hover:text-destructive"
                               onClick={() => setDeleteTarget(item)}
                               aria-label="删除"
                             >
@@ -336,8 +334,7 @@ export default function PageClient() {
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
+                  size="icon-xs"
                   disabled={page <= 1}
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   aria-label="上一页"
@@ -349,8 +346,7 @@ export default function PageClient() {
                 </span>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
+                  size="icon-xs"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   aria-label="下一页"

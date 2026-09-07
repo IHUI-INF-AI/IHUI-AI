@@ -160,8 +160,8 @@ export default function SsoRegisterPage() {
           subtitle={t('authorizing', { clientId })}
           onClose={handleClose}
         >
-          <Button
-            className="h-10 w-full"
+          <Button size="lg"
+            className="w-full px-4"
             onClick={() => generateCodeAndRedirect()}
             disabled={exchanging}
           >
@@ -206,12 +206,12 @@ export default function SsoRegisterPage() {
                 maxLength={6}
                 className="h-10 flex-1"
               />
-              <Button
+              <Button size="lg"
                 type="button"
                 variant="outline"
                 onClick={handleSendCode}
                 disabled={sendingCode || countdown > 0 || phone.length !== 11}
-                className="h-10 shrink-0"
+                className="shrink-0 px-4"
               >
                 {countdown > 0 ? `${countdown}s` : t('getCode')}
               </Button>
@@ -246,7 +246,7 @@ export default function SsoRegisterPage() {
             error={showAgreeErr && !agreed}
           />
           {showAgreeErr && !agreed && <p className="text-xs text-destructive">{t('mustAgree')}</p>}
-          <Button type="submit" className="h-10 w-full" disabled={loading || exchanging}>
+          <Button size="lg" type="submit" className="w-full px-4" disabled={loading || exchanging}>
             {loading || exchanging ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (

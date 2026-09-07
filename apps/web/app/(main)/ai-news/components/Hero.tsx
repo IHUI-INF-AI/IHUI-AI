@@ -49,13 +49,13 @@ export function Hero() {
           </div>
         </div>
         <div className="flex flex-col items-stretch justify-center gap-2">
-          <Button asChild className="h-10">
+          <Button size="lg" asChild className="px-4">
             <Link href="/news">
               {t('hero.ctaPrimary')}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Link>
           </Button>
-          <Button variant="outline" asChild className="h-10">
+          <Button size="lg" variant="outline" asChild className="px-4">
             <Link href="/live">{t('hero.ctaSecondary')}</Link>
           </Button>
         </div>
