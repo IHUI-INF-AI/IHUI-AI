@@ -1,4 +1,25 @@
 {
+  "onboarding": {
+    "capabilityMarket": "能力市场",
+    "deployNote": "自部署用户:零配置跑通见仓库 docs/ONBOARDING.md(install → db:push → start-dev)。",
+    "go": "前往",
+    "markDone": "标记完成",
+    "mcpDesc": "一键注册外部 MCP Server,或启用平台自研能力。",
+    "mcpStore": "MCP 商店",
+    "mcpTitle": "MCP 能力",
+    "step1Desc": "在设置中配置 Provider Key;免费 Provider(Ollama/Groq/Cloudflare 等)可零 Key 起步。",
+    "step1Title": "配置模型",
+    "step2Desc": "首页聊天输入框直接提问,工具栏可开 Plan Mode / 深度研究 / 技能。",
+    "step2Title": "首次 AI 对话",
+    "step3Desc": "在 Agent 工作台下发电报式目标,Agent 多轮自主执行;agent-step-recorder 可回放逐步工具调用。",
+    "step3Title": "Agent 自主执行",
+    "step4Desc": "输入 session_id 一次查看步骤/压缩/检查点/成本/注入拦截五类活动,检查点可回滚。",
+    "step4Title": "时间线回放与回滚",
+    "step5Desc": "AI 成本看板汇总用量,模型定价看板展示单一价目源(公开牌价)覆盖率。",
+    "step5Title": "成本与价表",
+    "subtitle": "五步跑通全平台 AI 能力,点击圆圈标记完成进度(本机记忆)。",
+    "title": "新用户接入引导"
+  },
   "adminModelPricing": {
     "backToCost": "返回成本看板",
     "coverage": "覆盖 {models} 模型 / {providers} 厂商 / {overrides} 覆盖注入",
