@@ -842,15 +842,16 @@ async def _save_account_to_db(
         if row:
             await conn.execute(
                 """UPDATE publish_accounts
-                   SET credentials_enc=$1, display_name=$2, status='active', updated_at=NOW()
+                   SET credentials_enc=$1, display_name=$2, status='active',
+                       last_verified_at=NOW(), last_verify_msg='扫码登录成功', updated_at=NOW()
                    WHERE id=$3""",
                 encrypted, display_name, row["id"],
             )
             logger.info(f"[scan_login] 更新账号 {row['id']}({platform})")
             return int(row["id"])
         new_id = await conn.fetchval(
-            """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status)
-               VALUES($1, $2, $3, $4, 'active') RETURNING id""",
+            """INSERT INTO publish_accounts(user_id, platform, display_name, credentials_enc, status, last_verified_at, last_verify_msg)
+               VALUES($1, $2, $3, $4, 'active', NOW(), '扫码登录成功') RETURNING id""",
             user_id, platform, display_name, encrypted,
         )
         logger.info(f"[scan_login] 创建账号 {new_id}({platform})")
