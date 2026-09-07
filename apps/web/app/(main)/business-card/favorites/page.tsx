@@ -151,8 +151,7 @@ export default function CardFavoritesPage() {
                             <span className="inline-flex">
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
+                                size="icon-xs"
                                 onClick={() => removeMut.mutate(entry.favoriteId)}
                                 disabled={removeMut.isPending}
                               >

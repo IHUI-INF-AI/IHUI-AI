@@ -199,20 +199,20 @@ export function ProvidersHealthTab() {
           {FILTER_OPTIONS.map((opt) => (
             <Button
               key={opt.value}
-              size="sm"
+              size="xs"
               variant={filter === opt.value ? 'default' : 'outline'}
               onClick={() => setFilter(opt.value)}
-              className="h-7 px-2.5 text-xs"
+              className="px-2.5 text-xs"
             >
               {opt.label}
             </Button>
           ))}
         </div>
         <Button
-          size="sm"
+          size="xs"
           variant="ghost"
           onClick={() => refetch()}
-          className="h-7 shrink-0 px-2.5 text-xs"
+          className="shrink-0 px-2.5 text-xs"
           disabled={isFetching}
         >
           <RefreshCw className={`mr-1 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
@@ -243,7 +243,7 @@ export function ProvidersHealthTab() {
               <Tooltip content={tm('previewSyncTooltip')}>
                 <span className="inline-flex">
                   <Button
-                    size="sm"
+                    size="xs"
                     variant="ghost"
                     onClick={() => dryRunMutation.mutate()}
                     disabled={
@@ -251,7 +251,7 @@ export function ProvidersHealthTab() {
                       syncMutation.isPending ||
                       syncStatus?.is_syncing === true
                     }
-                    className="h-7 px-2.5 text-xs"
+                    className="px-2.5 text-xs"
                   >
                     {dryRunMutation.isPending ? (
                       <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -263,11 +263,11 @@ export function ProvidersHealthTab() {
                 </span>
               </Tooltip>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
                 onClick={() => syncMutation.mutate()}
                 disabled={syncMutation.isPending || syncStatus?.is_syncing === true}
-                className="h-7 px-2.5 text-xs"
+                className="px-2.5 text-xs"
               >
                 {syncMutation.isPending || syncStatus?.is_syncing ? (
                   <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
@@ -518,11 +518,11 @@ function ProviderRow({
         <Tooltip content={tm('syncProviderOnly', { provider: provider.provider })}>
           <span className="inline-flex">
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={onSync}
               disabled={isSyncing}
-              className="h-7 px-2.5 text-xs"
+              className="px-2.5 text-xs"
             >
               {isSyncing ? (
                 <Loader2 className="h-3.5 w-3.5" />
@@ -578,10 +578,10 @@ function SyncDiffCard({ preview }: { preview: DryRunPreview }) {
         {tabs.map((tb) => (
           <Button
             key={tb.value}
-            size="sm"
+            size="xs"
             variant={tab === tb.value ? 'default' : 'outline'}
             onClick={() => setTab(tb.value)}
-            className="h-7 px-2.5 text-xs"
+            className="px-2.5 text-xs"
           >
             {tb.label} ({tb.count})
           </Button>
@@ -1030,10 +1030,10 @@ function SyncConfigPanel() {
         )}
         <div className="flex justify-end">
           <Button
-            size="sm"
+            size="xs"
             onClick={() => configMutation.mutate()}
             disabled={configMutation.isPending}
-            className="h-7 px-2.5 text-xs"
+            className="px-2.5 text-xs"
           >
             {configMutation.isPending ? (
               <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />

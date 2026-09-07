@@ -1084,8 +1084,8 @@ export default function FinancePage() {
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
+                                size="xs"
+                                className="text-xs"
                                 onClick={() => {
                                   setEditingTuition(t)
                                   setTuitionDialogOpen(true)
@@ -1096,8 +1096,8 @@ export default function FinancePage() {
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-red-500"
+                                size="xs"
+                                className="text-xs text-red-500"
                                 onClick={() => deleteTuition.mutate(t.id)}
                                 disabled={deleteTuition.isPending}
                               >
@@ -1391,8 +1391,8 @@ export default function FinancePage() {
                             {r.status === 'pending' && (
                               <Button
                                 variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
+                                size="xs"
+                                className="text-xs"
                                 onClick={() => {
                                   setApprovingRefund(r)
                                   setApproveRefundOpen(true)

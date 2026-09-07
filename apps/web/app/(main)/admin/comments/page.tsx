@@ -140,7 +140,7 @@ export default function AdminCommentsPage() {
             ))}
           </select>
         </div>
-        <Button variant="outline" size="sm" onClick={resetFilters} className="h-9">
+        <Button variant="outline" size="default" onClick={resetFilters} className="px-3 text-xs">
           <Search className="h-4 w-4" />
           {t('reset')}
         </Button>

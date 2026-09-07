@@ -154,10 +154,10 @@ function ProviderStatusSummary() {
           <span className="inline-flex">
             <Button
               variant="ghost"
-              size="sm"
+              size="xs"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="h-7 px-2 text-[11px] text-muted-foreground"
+              className="px-2 text-[11px] text-muted-foreground"
             >
               {isFetching ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -264,10 +264,10 @@ function ProviderStatusDialog({
           <div className="flex justify-end">
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="h-7 px-2.5 text-xs"
+              className="px-2.5 text-xs"
             >
               {isRefreshing ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />

@@ -446,8 +446,8 @@ export function ProviderCardV2({
               <span className="inline-flex">
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+                  size="xs"
+                  className="shrink-0 whitespace-nowrap px-2 text-xs"
                   onClick={() => testProvMut.mutate()}
                   disabled={testProvMut.isPending || !provider.hasApiKey}
                 >
@@ -463,8 +463,8 @@ export function ProviderCardV2({
             <Tooltip content={t('fetchModels')}>
               <Button
                 variant="outline"
-                size="sm"
-                className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+                size="xs"
+                className="shrink-0 whitespace-nowrap px-2 text-xs"
                 onClick={() => {
                   setShowUpstream((s) => !s)
                   if (!showUpstream && upstreamModels.length === 0) fetchMut.mutate()
@@ -476,8 +476,8 @@ export function ProviderCardV2({
             </Tooltip>
             <Button
               variant="outline"
-              size="sm"
-              className="h-7 shrink-0 whitespace-nowrap px-2 text-xs"
+              size="xs"
+              className="shrink-0 whitespace-nowrap px-2 text-xs"
               onClick={() => onEditProvider(provider)}
             >
               <Edit3 className="mr-1 h-3 w-3 shrink-0" />
@@ -488,8 +488,8 @@ export function ProviderCardV2({
             <span className="inline-flex">
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-destructive"
                 onClick={handleDeleteProvider}
                 disabled={delProvMut.isPending}
               >

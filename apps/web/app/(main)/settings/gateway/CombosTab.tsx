@@ -119,9 +119,9 @@ export function CombosTab() {
                   )}
                 </div>
                 <Button
-                  size="sm"
+                  size="xs"
                   variant="ghost"
-                  className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-red-600"
+                  className="shrink-0 px-2 text-xs text-muted-foreground hover:text-red-600"
                   onClick={() => setDeleteTarget(c)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

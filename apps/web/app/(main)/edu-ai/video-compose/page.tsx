@@ -457,9 +457,9 @@ export default function EduAiVideoComposePage() {
                       )}
                       {step.status === 'failed' && (
                         <Button
-                          size="sm"
+                          size="xs"
                           variant="outline"
-                          className="mt-2 h-7 gap-1.5 px-2 text-xs"
+                          className="mt-2 gap-1.5 px-2 text-xs"
                           disabled={Boolean(regenerating)}
                           onClick={() => {
                             void handleRegenerate(viewTask.id, stepKey)
