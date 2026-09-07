@@ -1,4 +1,22 @@
 {
+  "adminModelPricing": {
+    "backToCost": "返回成本看板",
+    "coverage": "覆蓋 {models} 模型 / {providers} 廠商 / {overrides} 覆蓋注入",
+    "empty": "該分類暫無條目",
+    "inputPrice": "輸入價",
+    "loading": "載入價表中…",
+    "modelCount": "模型級價目",
+    "models": "模型價目",
+    "name": "名稱",
+    "outputPrice": "輸出價",
+    "overrideCount": "運行時覆蓋",
+    "overrides": "覆蓋注入",
+    "providerCount": "廠商級兜底",
+    "providers": "廠商兜底",
+    "subtitle": "單一價目源全量快照:公開牌價驅動成本核算,精確計費以廠商帳單為準。",
+    "title": "模型定價看板",
+    "unitNote": "單價單位:USD per 1M tokens;模型級前綴特異性匹配優先於廠商兜底,運行時覆蓋最高。"
+  },
   "agentTimeline": {
     "countCheckpoint": "檢查點 {count}",
     "countCompaction": "壓縮 {count}",
