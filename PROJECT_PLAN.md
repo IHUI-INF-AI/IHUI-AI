@@ -76,6 +76,14 @@
 > **落地清单**:① 新路由页 `apps/web/app/(main)/admin/agent-governance/`(page.tsx 169 行 + AgentGovernanceSections.tsx 134 行,use client + next-intl + react-query,镜像 ai-cost 分件模式;卡片式布局:全局预算用量环形/今日 tokens/支柱用量/剩余 tokens/降级徽章/7 日趋势柱状 + 今日支柱条形);② i18n 5 语言 json 各 +21 行 `agentGovernance` 命名空间(17 keys)+ `nav.agentGovernance`,零格式噪音;③ AdminNav.tsx +3 行(类型联合/条目/映射表,Gauge 图标);④ api-client 免动(直接 fetchApi 相对路径,免跨包类型面);⑤ UI 铁律全守:禁 divider/rounded-full/emoji,icon-text 对齐,页面 <250 行,ui-react 组件,`import type` 分离。
 > **验收**:eslint 0 错 / prettier 0 错 / web tsc 本面板 0 错 / nav 死链守门通过(新路由解析)/ i18n parity 1727 keys 无缺失多余 / broken-en 0 处。历史遗留顺带确认:5 catalog 均无 `nav.aiCost`/`nav.aiGc` 键但 AdminNav 映射表引用(既有瑕疵,非本面板引入,不代修)。
 
+### P0 能力超越路线图 P1-4/P2-7/P2-8 三线收官 ✅(2026-09-07,主会话接管收尾;集成链 a251f349f6→ff64b48b8b→0abb74a78b)
+
+- [x] **P1-4 全活动时间线回放前端** ✅(2026-09-07):ai-service `services/agent_timeline.py`(五源聚合 step/compaction/checkpoint/cost/injection,统一字段/升序/MAX_EVENTS 截断/单源故障隔离)+`services/injection_event_recorder.py`(进程内注入事件记录,guarded_tool_pipeline stage2 危险入参拦截+prompt_guard 命中登记接线,session_id 缺省零行为变化)+`routers/timeline.py` GET /api/timeline(JWT+会话归属校验+信封契约);web 新页 `(main)/agent-timeline`(汇总卡片/分类徽章/统一时间轴/事件详情,250 行)+next.config `/api/timeline→8803` 直连+i18n web `agentTimeline` 23 keys × 5 语言 parity;test_agent_timeline.py 11 测。修复:prompt_guard 自定义签名兼容(session_id 仅非空透传,防 fail-closed 误拦 scan_blocked 契约)。
+- [x] **P2-7 跨会话接力闭环** ✅(2026-09-07):`services/session_relay.py` 五段结构化接力摘要(目标/已完成/决定/未完成/文件;确定性抽取+可选 LLM 精炼,env 门控降级安全)+session_store `relay_summaries` 表+`routers/relay.py` 4 端点(create/get/list/continue,continue 自动注入新会话+清晰边界标记防污染);test_session_relay.py 18 测。
+- [x] **P2-8 MCP 服务端能力市场入口** ✅(2026-09-07):`services/capability_market.py` CapabilityManifest 自动生成(缓存+失效)+`capability_market_store.py` 启停持久化+`routers/mcp.py` /mcp/capabilities 列表(分页/分类/检索)/详情/enable/disable(admin 权限模型,信封契约)+api-client `endpoints/mcp.ts` 类型化端点+web `(main)/capability-market` 市场页(卡片+搜索+启用开关)+GlobalTopBar 入口+i18n shared 31 keys × 5 语言;test_capability_market.py 12 测。
+- **集成验收**:三线 worktree 提交串行 cherry-pick 合一(main.py 双路由挂载冲突手工合并);合并后 94/94 后端测试绿(timeline 11+relay 18+market 12+guarded 41+prompt_guard 12)、i18n 5 语言 parity OK、tsc 改动文件 0 错、三仓 ls-remote 复核一致。
+
+
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
 > 以下端因天然属性豁免多端同步开发规则(AGENTS.md §9),`scripts/check-multi-end-sync.mjs` 守门可据此跳过 warn:
