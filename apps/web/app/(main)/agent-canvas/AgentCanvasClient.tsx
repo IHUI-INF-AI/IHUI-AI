@@ -4,7 +4,6 @@
 'use client'
 
 import * as React from 'react'
-import { useTranslations } from 'next-intl'
 import {
   ReactFlow,
   Background,
@@ -106,7 +105,6 @@ function sseDataToText(data: unknown): string {
  * DAG 变更防抖写入 localStorage;运行事件通过 useAgentStream(SSE) 分发进节点日志。
  */
 export function AgentCanvasClient() {
-  const t = useTranslations('agentCanvas')
   const initial = React.useMemo(() => fromDag(loadDag()), [])
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initial.edges)
@@ -248,7 +246,8 @@ export function AgentCanvasClient() {
         type: 'canvasNode',
         position: position ?? { x: 120 + nodes.length * 40, y: 80 + nodes.length * 30 },
         data: {
-          label: `${t(meta.titleKey)} ${nodes.length + 1}`,
+          // 与 NodePalette/InspectorPanel 一致直接用 meta.title(NODE_TYPE_META 无 i18n key)
+          label: `${meta.title} ${nodes.length + 1}`,
           nodeType: type,
           params: createDefaultParams(type),
           status: 'idle',
@@ -258,7 +257,7 @@ export function AgentCanvasClient() {
       setNodes((nds) => [...nds, newNode])
       setSelectedId(id)
     },
-    [nodes.length, setNodes, t],
+    [nodes.length, setNodes],
   )
 
   const onDragOver = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
