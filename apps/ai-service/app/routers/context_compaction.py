@@ -100,6 +100,18 @@ def record_compaction(
     return rec
 
 
+def list_compaction_events(
+    session_id: str, limit: int = MAX_QUERY_LIMIT
+) -> list[dict[str, Any]]:
+    """列出某会话的上下文压缩事件(时间升序,截断到 limit)。供时间线回放聚合使用。
+
+    与 _history 解耦,避免聚合端点直接依赖私有存储。
+    """
+    with _lock:
+        records = list(_history.get(session_id, []))
+    return records[: max(1, min(int(limit), MAX_QUERY_LIMIT))]
+
+
 def _authorize_session(request: Request, session_id: str) -> tuple[str, bool]:
     """校验登录态 + 会话归属(与 checkpoint_rewind 语义一致,管理员豁免)。"""
     user_id = get_current_user_id_sync(request)
@@ -144,5 +156,5 @@ async def list_compaction_history(
     }
 
 
-__all__ = ["router", "record_compaction", "_history"]
+__all__ = ["router", "record_compaction", "list_compaction_events", "_history"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
