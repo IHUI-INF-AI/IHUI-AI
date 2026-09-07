@@ -14,7 +14,12 @@ const pkg = require('./package.json')
 
 module.exports = ({ config }) => {
   // 统一从 process.env 读取(单一数据源),fallback 到 app.json extra(向后兼容)
-  const appId = process.env.EXPO_PUBLIC_WECHAT_APP_ID || config.extra?.WX_APP_APPID
+  // eslint 兼容 EAS:WX_APP_APPID 已在 eas.json production env 注入(非 EXPO_PUBLIC_ 前缀,
+  // 仅构建机可见,不打包进 bundle)
+  const appId =
+    process.env.EXPO_PUBLIC_WECHAT_APP_ID ||
+    process.env.WX_APP_APPID ||
+    config.extra?.WX_APP_APPID
   const universalLink =
     process.env.EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK || config.extra?.WX_UNIVERSAL_LINK
   const androidPackage = config.android?.package
