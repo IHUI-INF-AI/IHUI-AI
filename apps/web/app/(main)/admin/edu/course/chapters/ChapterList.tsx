@@ -77,9 +77,8 @@ export function ChapterList({
             <div className="flex items-center gap-2 px-4 py-3 hover:bg-muted/30">
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon-xs"
                 onClick={() => onToggleExpand(ch.id)}
-                className="h-7 w-7 p-0"
               >
                 {isExp ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </Button>

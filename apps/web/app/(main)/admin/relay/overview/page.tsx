@@ -249,8 +249,8 @@ export default function AdminRelayOverviewDashboardPage(): React.ReactElement {
               key={r}
               type="button"
               variant={range === r ? 'default' : 'ghost'}
-              size="sm"
-              className="h-9 px-3 text-xs"
+              size="default"
+              className="px-3 text-xs"
               onClick={() => setRange(r)}
             >
               {r === 'today' ? '今日' : r === '7d' ? '7d' : '30d'}

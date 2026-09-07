@@ -778,8 +778,8 @@ export default function GradesPage() {
                           <td className="px-3 py-2">
                             <Button
                               variant="ghost"
-                              size="sm"
-                              className="h-7 text-red-500 hover:text-red-600"
+                              size="xs"
+                              className="text-red-500 hover:text-red-600"
                               onClick={() => handleDeleteScore(s.id)}
                             >
                               删除
