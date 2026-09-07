@@ -145,9 +145,9 @@ export function ResponseViewer({
                   <Button
                     key={lang}
                     variant={codeLang === lang ? 'default' : 'outline'}
-                    size="sm"
+                    size="xs"
                     onClick={() => setCodeLang(lang)}
-                    className="h-7 text-xs"
+                    className="text-xs"
                   >
                     {LANG_LABELS[lang]}
                   </Button>
@@ -177,9 +177,9 @@ export function ResponseViewer({
                 <div className="flex justify-end">
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="xs"
                     onClick={onClearHistory}
-                    className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                    className="text-xs text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3 w-3" />
                     清空
@@ -198,7 +198,6 @@ export function ResponseViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9"
                           onClick={() => onRestoreHistory(item)}
                           aria-label="恢复"
                         >
@@ -207,7 +206,7 @@ export function ResponseViewer({
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                          className="text-muted-foreground hover:text-destructive"
                           onClick={() => onRemoveHistory(item.id)}
                           aria-label="删除"
                         >

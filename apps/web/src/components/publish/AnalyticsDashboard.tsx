@@ -86,8 +86,8 @@ export function AnalyticsDashboard({
             key={p}
             type="button"
             variant={period === p ? 'default' : 'outline'}
-            size="sm"
-            className="h-7 px-3 text-xs"
+            size="xs"
+            className="px-3 text-xs"
             onClick={() => onPeriodChange(p)}
           >
             {t(
