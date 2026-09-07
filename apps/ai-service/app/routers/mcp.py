@@ -11,11 +11,13 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..services import mcp_server as mcp_server_module
+from ..services import capability_market as capability_market_module
+from ..services import capability_market_store
 from ..services.mcp_client import (
     DEFAULT_TIMEOUT,
     TRANSPORT_SSE,
@@ -682,4 +684,171 @@ async def disable_mcp_store_server(name: str) -> dict[str, Any] | JSONResponse:
     except Exception as e:
         logger.error("停用 MCP Server 失败(%s): %s", name, e)
         return JSONResponse(status_code=500, content={"error": f"停用 MCP Server 失败: {e}"})
+
+
+# ---------------------------------------------------------------------------
+# 能力市场端点(P2-8 供给侧,2026-09 立)
+# 把平台自研 MCP server 的能力(tool/resource/prompt)作为可浏览 / 可检索 / 可启用
+# 的"能力市场"暴露。清单由 capability_market 自动生成(含缓存 + 失效);
+# 启用 / 停用经 capability_market_store 持久化(按现有权限模型:admin 专属能力
+# 需 role >= 1 才能启用)。返回契约统一 {code, message, data}。
+# ---------------------------------------------------------------------------
+
+
+def _envelope(code: int, message: str, data: Any) -> dict[str, Any]:
+    """能力市场统一返回信封 {code, message, data}。"""
+    return {"code": code, "message": message, "data": data}
+
+
+def _find_capability(cap_id: str) -> dict[str, Any] | None:
+    """按 id 在清单中查能力;返回带 enabled 字段的 dict,未命中返回 None。"""
+    for c in capability_market_module.get_manifest():
+        d = capability_market_module.capability_to_dict(c)
+        if d["id"] == cap_id:
+            d["enabled"] = capability_market_store.is_enabled(cap_id)
+            return d
+    return None
+
+
+@router.get("/mcp/capabilities", response_model=None)
+async def list_capabilities(
+    request: Request,
+    page: int = Query(1, ge=1, description="页码,从 1 开始"),
+    page_size: int = Query(20, ge=1, le=100, description="每页条数(1-100)"),
+    category: str = Query("", description="按分类过滤(空=全部)"),
+    q: str = Query("", description="关键词检索(匹配名称/描述/分类)"),
+) -> JSONResponse:
+    """能力市场列表:分页 + 分类过滤 + 关键词检索(一个接口渲染整页)。"""
+    try:
+        manifest = capability_market_module.get_manifest()
+        enabled_map = capability_market_store.get_enabled_map()
+        items = [
+            {**capability_market_module.capability_to_dict(c), "enabled": enabled_map.get(c.id, True)}
+            for c in manifest
+        ]
+        if category:
+            items = [i for i in items if i["category"] == category]
+        if q:
+            ql = q.strip().lower()
+            if ql:
+                items = [
+                    i
+                    for i in items
+                    if ql in i["name"].lower()
+                    or ql in i["description"].lower()
+                    or ql in i["category"].lower()
+                ]
+        total = len(items)
+        page = max(1, page)
+        page_size = max(1, min(page_size, 100))
+        start = (page - 1) * page_size
+        page_items = items[start : start + page_size]
+        categories = capability_market_module.list_categories()
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(
+                0,
+                "ok",
+                {
+                    "items": page_items,
+                    "total": total,
+                    "page": page,
+                    "page_size": page_size,
+                    "categories": categories,
+                },
+            ),
+        )
+    except Exception as e:  # noqa: BLE001 - 异常降级,避免 500 裸崩
+        logger.error("获取能力市场列表失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"获取能力市场列表失败: {e}", None),
+        )
+
+
+@router.get("/mcp/capabilities/{cap_id}", response_model=None)
+async def get_capability(cap_id: str) -> JSONResponse:
+    """能力市场详情(单条)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        return JSONResponse(status_code=200, content=_envelope(0, "ok", cap))
+    except Exception as e:  # noqa: BLE001
+        logger.error("获取能力详情失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"获取能力详情失败: {e}", None),
+        )
+
+
+@router.post("/mcp/capabilities/{cap_id}/enable", response_model=None)
+async def enable_capability(cap_id: str, request: Request) -> JSONResponse:
+    """启用能力:加入对外暴露的 MCP 能力集(按权限模型校验 admin 专属能力)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        user_role = getattr(request.state, "role_id", 0) or 0
+        if cap["permission"] == "admin" and user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content=_envelope(403, "PERMISSION_DENIED", None),
+            )
+        rec = capability_market_store.set_enabled(cap_id, True)
+        if rec is None:
+            return JSONResponse(
+                status_code=500,
+                content=_envelope(500, "持久化失败", None),
+            )
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(0, "ok", {"id": cap_id, "enabled": True}),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("启用能力失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"启用能力失败: {e}", None),
+        )
+
+
+@router.post("/mcp/capabilities/{cap_id}/disable", response_model=None)
+async def disable_capability(cap_id: str, request: Request) -> JSONResponse:
+    """停用能力:从对外暴露的 MCP 能力集中移除(按权限模型校验 admin 专属能力)。"""
+    try:
+        cap = _find_capability(cap_id)
+        if cap is None:
+            return JSONResponse(
+                status_code=404,
+                content=_envelope(404, "CAPABILITY_NOT_FOUND", None),
+            )
+        user_role = getattr(request.state, "role_id", 0) or 0
+        if cap["permission"] == "admin" and user_role < 1:
+            return JSONResponse(
+                status_code=403,
+                content=_envelope(403, "PERMISSION_DENIED", None),
+            )
+        rec = capability_market_store.set_enabled(cap_id, False)
+        if rec is None:
+            return JSONResponse(
+                status_code=500,
+                content=_envelope(500, "持久化失败", None),
+            )
+        return JSONResponse(
+            status_code=200,
+            content=_envelope(0, "ok", {"id": cap_id, "enabled": False}),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.error("停用能力失败(%s): %s", cap_id, e)
+        return JSONResponse(
+            status_code=500,
+            content=_envelope(500, f"停用能力失败: {e}", None),
+        )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
