@@ -137,7 +137,7 @@
 }
 
 .input-nbox-focused {
-  background: var(--color-brand);
+  background: var(--color-brand-orange);
 }
 
 .input-box {
@@ -262,7 +262,7 @@
   font-size: 24rpx;
   font-weight: bold;
   line-height: 25rpx;
-  color: var(--color-brand);
+  color: var(--color-brand-orange);
   padding-right: 16rpx;
   white-space: nowrap;
 }
@@ -279,7 +279,7 @@
 
 .password-toggle-label {
   font-size: 24rpx;
-  color: var(--color-brand);
+  color: var(--color-brand-orange);
   margin-right: 8rpx;
 }
 
@@ -322,8 +322,8 @@
 }
 
 .check-circle.checked {
-  border-color: var(--color-brand);
-  background: var(--color-brand);
+  border-color: var(--color-brand-orange);
+  background: var(--color-brand-orange);
 }
 
 .check-icon {
@@ -459,7 +459,7 @@
 .to-login {
   font-size: 36rpx;
   font-weight: bold;
-  color: var(--color-brand);
+  color: var(--color-brand-orange);
   margin-left: 8rpx;
 }
 /* ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ */

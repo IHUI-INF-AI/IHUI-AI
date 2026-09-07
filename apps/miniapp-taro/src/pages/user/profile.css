@@ -31,7 +31,7 @@
 .pf-tag {
   padding: 6rpx 16rpx;
   border-radius: var(--radius-sm);
-  font-size: 22rpx;
+  font-size: 26rpx;
 }
 .pf-tag-vip {
   /* 对齐 web:VIP 金标,浅金底 + 深金文字(原项目 #716fff/#f0eeff 紫无对应语义,改为 gold 语义) */
