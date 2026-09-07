@@ -22,7 +22,9 @@
 - refresh_single(account_id, platform) 单账号保活,返回 RefreshResult
 - get_refresh_stats() 返回统计
 
-注意:Playwright async API 需在 async 上下文中使用。refresh_single 用 async_playwright。
+注意:Windows + uvicorn(--reload)下事件循环是 SelectorEventLoop,async_playwright
+的 subprocess 启动会抛 NotImplementedError(与 browser_render.py 相同的坑)。
+因此 refresh_single 用 sync_playwright + asyncio.to_thread(根治,见 browser_render.py)。
 """
 from __future__ import annotations
 
@@ -31,9 +33,12 @@ import os
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from fastapi import APIRouter, HTTPException, Request
+
+if TYPE_CHECKING:
+    from playwright._impl._api_structures import SetCookieParam
 
 from app.core.db import get_db_conn
 from app.core.logging import get_logger
@@ -179,7 +184,7 @@ class CookieRefreshDaemon:
         login_url = cfg["login_url"]
         start = time.time()
         try:
-            from playwright.async_api import async_playwright
+            from playwright.sync_api import sync_playwright
         except ImportError as e:
             return RefreshResult(
                 account_id=account_id, platform=platform, success=False,
@@ -209,48 +214,11 @@ class CookieRefreshDaemon:
                 message=f"加载凭证失败: {type(e).__name__}: {e}",
             )
 
-        # 注入 cookies 并访问首页
+        # 注入 cookies 并访问首页(sync_playwright 在线程池跑,规避 Windows
+        # SelectorEventLoop 下 async_playwright 启动 subprocess 抛 NotImplementedError)
         try:
-            async with async_playwright() as p:
-                from app.services.scan_login import _find_chromium_executable
-                chromium_path = _find_chromium_executable()
-                browser = await p.chromium.launch(
-                    executable_path=chromium_path,
-                    headless=True,
-                    args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-                )
-                context = await browser.new_context(
-                    viewport={"width": 1280, "height": 800},
-                    locale="zh-CN",
-                    timezone_id="Asia/Shanghai",
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                )
-                # 注入已有 cookies(把 dict 转 Playwright cookie 格式)
-                cookies_list = self._build_cookies(credentials, login_url)
-                if cookies_list:
-                    # mypy: SetCookieParam 是 TypedDict,dict 字面量字段完全匹配,类型安全
-                    await context.add_cookies(cookies_list)  # type: ignore[arg-type]
-                page = await context.new_page()
-                try:
-                    await page.goto(login_url, wait_until="domcontentloaded", timeout=30000)
-                    await page.wait_for_timeout(_VISIT_WAIT_SECONDS * 1000)
-                    # 检查 cookie 是否仍存在(保活成功标志)
-                    final_cookies = await context.cookies()
-                    final_names = {c["name"] for c in final_cookies}
-                    target = cfg["success_cookies"][0]
-                    alive = target in final_names
-                finally:
-                    await context.close()
-                    await browser.close()
-            duration = int((time.time() - start) * 1000)
-            if alive:
-                return RefreshResult(
-                    account_id=account_id, platform=platform, success=True,
-                    message=f"Cookie 保活成功,访问 {login_url}", duration_ms=duration,
-                )
-            return RefreshResult(
-                account_id=account_id, platform=platform, success=False,
-                message="Cookie 保活后未检测到目标 cookie,可能已过期", duration_ms=duration,
+            alive = await asyncio.to_thread(
+                self._visit_and_check, platform, login_url, credentials
             )
         except Exception as e:
             logger.exception("[cookie_daemon] refresh_single account=%s failed", account_id)
@@ -259,9 +227,58 @@ class CookieRefreshDaemon:
                 message=f"保活异常: {type(e).__name__}: {str(e)[:200]}",
                 duration_ms=int((time.time() - start) * 1000),
             )
+        duration = int((time.time() - start) * 1000)
+        if alive:
+            return RefreshResult(
+                account_id=account_id, platform=platform, success=True,
+                message=f"Cookie 保活成功,访问 {login_url}", duration_ms=duration,
+            )
+        return RefreshResult(
+            account_id=account_id, platform=platform, success=False,
+            message="Cookie 保活后未检测到目标 cookie,可能已过期", duration_ms=duration,
+        )
 
     @staticmethod
-    def _build_cookies(credentials: dict[str, Any], url: str) -> list[dict[str, Any]]:
+    def _visit_and_check(platform: str, login_url: str, credentials: dict[str, Any]) -> bool:
+        """同步版保活:注入 cookies 访问平台首页,返回目标 cookie 是否仍存在。"""
+        from playwright.sync_api import sync_playwright
+
+        from app.services.scan_login import PLATFORM_SCAN_CONFIG, _find_chromium_executable
+        cfg = PLATFORM_SCAN_CONFIG[platform]
+        with sync_playwright() as p:
+            chromium_path = _find_chromium_executable()
+            browser = p.chromium.launch(
+                executable_path=chromium_path,
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+            )
+            try:
+                context = browser.new_context(
+                    viewport={"width": 1280, "height": 800},
+                    locale="zh-CN",
+                    timezone_id="Asia/Shanghai",
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                )
+                # 注入已有 cookies(把 dict 转 Playwright cookie 格式)
+                cookies_list = CookieRefreshDaemon._build_cookies(credentials, login_url)
+                if cookies_list:
+                    context.add_cookies(cookies_list)
+                page = context.new_page()
+                try:
+                    page.goto(login_url, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(_VISIT_WAIT_SECONDS * 1000)
+                    # 检查 cookie 是否仍存在(保活成功标志)
+                    final_cookies = context.cookies()
+                    final_names = {c["name"] for c in final_cookies}
+                    target = cfg["success_cookies"][0]
+                    return target in final_names
+                finally:
+                    context.close()
+            finally:
+                browser.close()
+
+    @staticmethod
+    def _build_cookies(credentials: dict[str, Any], url: str) -> list[SetCookieParam]:
         """把凭证 dict 转为 Playwright add_cookies 格式。"""
         from urllib.parse import urlparse
         parsed = urlparse(url)
@@ -270,7 +287,7 @@ class CookieRefreshDaemon:
         domain = domain.lstrip(".")
         if not domain:
             return []
-        out: list[dict[str, Any]] = []
+        out: list[SetCookieParam] = []
         for name, value in credentials.items():
             if not isinstance(value, str) or not value:
                 continue

@@ -44,7 +44,7 @@ export function SidebarUserRow({
   // hover 保持黑白但稍淡 (bg-foreground/90),不切色相避免视觉跳跃。
   if (!showAuthed) {
     return (
-      <div className="px-1.5 pb-2">
+      <div className="px-2 pb-2">
         <button
           type="button"
           onClick={() => {
@@ -64,7 +64,7 @@ export function SidebarUserRow({
   }
 
   return (
-    <div className="flex justify-center px-1.5 pb-2">
+    <div className="px-2 pb-2">
       {/*
         group/row:头像+昵称作为整体悬停单元
         - 2026-07-20 v3 改(根除"文字贴上按钮右侧"问题):
@@ -161,10 +161,10 @@ export function SidebarUserRow({
           <button
             aria-label={user?.nickname ?? 'User'}
             className={cn(
-              // 整行 row 容器样式(继承自旧外层 div):inline-flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
-              // 2026-08-26 修复:gap-1.5(6px) → gap-2(8px),与 sidebar-visual.spec.ts:562 契约一致
-              // (spec 断言 gapBetween ≈ 8px,防的正是间距回归)
-              'group/row inline-flex h-9 items-center gap-2 rounded-md px-6 transition-colors hover:bg-sidebar-item-hover-bg',
+              // 整行 row 容器样式(继承自旧外层 div):flex + h-9(与 NavLink 行高一致) + gap-2 + 圆角 + padding
+              // 2026-09-07 修复:inline-flex 按内容自适应 → flex w-full 与导航项(NavLink w-full)同宽,
+              // 容器 px-1.5 → px-2 与导航区(px-2)对齐,消除"用户行比导航项左右各宽出几像素"的不一致
+              'group/row flex h-9 w-full items-center justify-center gap-2 rounded-md px-2.5 transition-colors hover:bg-sidebar-item-hover-bg',
               // 按钮态样式:outline-none + focus-visible ring 保留键盘可访问性
               'outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring',
             )}
