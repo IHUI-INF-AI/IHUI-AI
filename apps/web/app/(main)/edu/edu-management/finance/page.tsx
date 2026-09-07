@@ -1096,8 +1096,8 @@ export default function FinancePage() {
                               </Button>
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs text-red-500"
+                                size="xs"
+                                className="text-red-500"
                                 onClick={() => deleteTuition.mutate(t.id)}
                                 disabled={deleteTuition.isPending}
                               >
@@ -1391,8 +1391,7 @@ export default function FinancePage() {
                             {r.status === 'pending' && (
                               <Button
                                 variant="outline"
-                                size="sm"
-                                className="h-7 text-xs"
+                                size="xs"
                                 onClick={() => {
                                   setApprovingRefund(r)
                                   setApproveRefundOpen(true)

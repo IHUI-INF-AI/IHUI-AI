@@ -141,8 +141,7 @@ export function StudyPlanDetail({
             <div className="flex items-center gap-1 rounded-md border p-0.5">
               <Button
                 variant={!isStudentMode ? 'default' : 'ghost'}
-                size="sm"
-                className="h-7 text-xs"
+                size="xs"
                 onClick={() => onSetStudentMode(false)}
               >
                 <Shield className="mr-1 h-3 w-3" />
@@ -189,9 +188,8 @@ export function StudyPlanDetail({
                 完成率统计
               </Button>
               <Button
-                size="sm"
+                size="xs"
                 variant="outline"
-                className="h-7 text-xs"
                 onClick={onOpenTimeline}
                 disabled={!selectedPlan}
               >

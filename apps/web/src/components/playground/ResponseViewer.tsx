@@ -145,9 +145,8 @@ export function ResponseViewer({
                   <Button
                     key={lang}
                     variant={codeLang === lang ? 'default' : 'outline'}
-                    size="sm"
+                    size="xs"
                     onClick={() => setCodeLang(lang)}
-                    className="h-7 text-xs"
                   >
                     {LANG_LABELS[lang]}
                   </Button>
@@ -177,9 +176,9 @@ export function ResponseViewer({
                 <div className="flex justify-end">
                   <Button
                     variant="ghost"
-                    size="sm"
+                    size="xs"
                     onClick={onClearHistory}
-                    className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                    className="text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="h-3 w-3" />
                     清空

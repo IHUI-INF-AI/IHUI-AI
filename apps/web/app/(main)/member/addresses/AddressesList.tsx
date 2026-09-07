@@ -55,8 +55,8 @@ export function AddressesList({
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  size="icon-xs"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   onClick={() => onDelete(a.id)}
                   disabled={delPending}
                 >
@@ -73,8 +73,8 @@ export function AddressesList({
             {!a.isDefault && (
               <Button
                 variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs"
+                size="xs"
+                className="px-2"
                 onClick={() => onSetDefault(a.id)}
                 disabled={defaultPending}
               >

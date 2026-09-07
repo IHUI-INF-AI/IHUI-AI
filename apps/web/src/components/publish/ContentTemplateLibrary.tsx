@@ -148,8 +148,8 @@ export function ContentTemplateLibrary({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
+            size="xs"
+            className="px-2"
             onClick={saveCurrent}
           >
             <Save className="mr-1 h-3 w-3" />

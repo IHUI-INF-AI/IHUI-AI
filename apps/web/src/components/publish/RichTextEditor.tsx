@@ -299,8 +299,8 @@ export function RichTextEditor({
               key={m}
               type="button"
               variant={mode === m ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2 text-xs"
+              size="xs"
+              className="px-2"
               onClick={() => setMode(m)}
             >
               {t(m === 'markdown' ? 'editor.markdown' : 'editor.richText')}

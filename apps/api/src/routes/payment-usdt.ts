@@ -27,7 +27,7 @@ import {
   listAllUsdtPayments,
   getUsdtPaymentConfig,
   setUsdtPaymentConfig,
-  confirmUsdtPayment,
+  confirmUsdtPaymentWithOnChainCheck,
 } from '../services/payment-usdt-service.js'
 
 // =============================================================================
@@ -57,7 +57,9 @@ const callbackParamSchema = z.object({
 const callbackBodySchema = z.object({
   orderId: z.string().min(1),
   txHash: z.string().min(1),
-  amountPaid: z.number().positive('到账金额必须大于 0'),
+  // P0 资金安全修复(2026-09-06):amountPaid 已不作为入账依据(仅提示),
+  // 服务端以链上取证金额为准,故改为可选,兼容旧客户端回调。
+  amountPaid: z.number().positive().optional(),
 })
 
 const adminOrdersQuerySchema = z.object({
@@ -98,6 +100,21 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
       }
 
       try {
+        // P0 资金安全修复(2026-09-06):充值下单接入风控引擎
+        const risk = server.riskEngine.evaluateRisk({
+          userId,
+          ip: request.ip,
+          deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
+          amount: parsed.data.amountCents,
+        })
+        if (risk.action === 'DENY') {
+          request.log.warn({ userId, hits: risk.hits }, '[usdt] 充值下单被风控拒绝')
+          return reply.status(403).send(error(403, '充值请求被风控拦截,请联系客服'))
+        }
+        if (risk.action === 'REVIEW') {
+          request.log.info({ userId, hits: risk.hits }, '[usdt] 充值下单进入人工复核')
+        }
+
         const result = await createUsdtPayment(userId, parsed.data.amountCents, parsed.data.network)
         return reply.status(201).send(success(result))
       } catch (e) {
@@ -196,15 +213,26 @@ const paymentUsdtRoutes: FastifyPluginAsync = async (server) => {
       }
 
       try {
-        const result = await confirmUsdtPayment(
+        // P0 资金安全修复(2026-09-06):回调不再信任客户端回传金额,
+        // 一律走服务端链上取证(verifyUsdtOnChain)校验地址/金额/确认数后才入账。
+        // amountPaid 仅作提示记录,不作为入账依据。
+        const result = await confirmUsdtPaymentWithOnChainCheck(
           parsedBody.data.orderId,
           parsedBody.data.txHash,
-          parsedBody.data.amountPaid,
         )
         request.log.info(
-          { network: parsedParams.data.network, orderId: parsedBody.data.orderId, result },
-          'USDT 支付回调确认',
+          {
+            network: parsedParams.data.network,
+            orderId: parsedBody.data.orderId,
+            result,
+          },
+          'USDT 支付回调确认(链上取证)',
         )
+        // 取证未通过/确认数不足 → 202,由轮询 worker 复查确认(不阻塞也不误入账)
+        if (result.status === 'pending' && result.pendingReason) {
+          request.log.info({ orderId: parsedBody.data.orderId, reason: result.pendingReason }, 'USDT 回调等待链上确认')
+          return reply.status(202).send(success(result))
+        }
         return reply.send(success(result))
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500

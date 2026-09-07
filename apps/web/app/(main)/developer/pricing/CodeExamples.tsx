@@ -65,10 +65,10 @@ export function CodeExamples(): React.JSX.Element {
             return (
               <Button
                 key={l.key}
-                size="sm"
+                size="xs"
                 variant={active === l.key ? 'default' : 'outline'}
                 onClick={() => setActive(l.key)}
-                className="h-7"
+                className="text-sm"
               >
                 <Icon className="h-3.5 w-3.5" />
                 {t(l.labelKey)}

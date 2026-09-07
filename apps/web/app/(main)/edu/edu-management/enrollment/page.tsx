@@ -1119,8 +1119,8 @@ export default function EnrollmentPage() {
                               {t.status === 'confirmed' && (
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs text-blue-600"
+                                  size="xs"
+                                  className="text-blue-600"
                                   onClick={() => handleUpdateTrialStatus(t.id, 'completed')}
                                   disabled={updateTrialStatus.isPending}
                                 >

@@ -381,8 +381,7 @@ export default function EvalPage() {
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0"
+                                size="icon-xs"
                                 onClick={() => setViewRun(run)}
                                 aria-label={t('eval.runs.view')}
                               >

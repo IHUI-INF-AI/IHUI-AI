@@ -1047,8 +1047,7 @@ export default function SchedulingPage() {
                               <div className="flex items-center justify-end gap-1">
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, status: 'approved' })
                                   }
@@ -1058,8 +1057,7 @@ export default function SchedulingPage() {
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="sm"
-                                  className="h-7 text-xs"
+                                  size="xs"
                                   onClick={() =>
                                     approveChange.mutateAsync({ id: c.id, status: 'rejected' })
                                   }

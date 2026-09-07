@@ -264,10 +264,10 @@ function ProviderStatusDialog({
           <div className="flex justify-end">
             <Button
               variant="outline"
-              size="sm"
+              size="xs"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="h-7 px-2.5 text-xs"
+              className="px-2.5"
             >
               {isRefreshing ? (
                 <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />

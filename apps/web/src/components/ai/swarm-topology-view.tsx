@@ -41,6 +41,13 @@ import { useSwarmTopology } from '@/hooks/use-subagent-dispatch'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { formatDateOnly } from '@/lib/date-utils'
+import {
+  CHART_TEXT_LIGHT,
+  CHART_RED,
+  CHART_GREEN,
+  CHART_ORANGE,
+  CHART_BLUE,
+} from '@ihui/design-tokens'
 import type {
   SwarmTopologyV2,
   TopologyNode,
@@ -123,12 +130,12 @@ const EDGE_TYPE_STYLE: Record<
   TopologyEdgeType,
   { stroke: string; dash: string; animate: boolean }
 > = {
-  pipeline: { stroke: '#94a3b8', dash: 'none', animate: false },
-  parallel: { stroke: '#94a3b8', dash: '4 3', animate: false },
-  debate: { stroke: '#ef4444', dash: 'none', animate: false },
-  vote: { stroke: '#10b981', dash: 'none', animate: false },
-  critique: { stroke: '#f97316', dash: 'none', animate: false },
-  communication: { stroke: '#3b82f6', dash: '4 3', animate: true },
+  pipeline: { stroke: CHART_TEXT_LIGHT, dash: 'none', animate: false },
+  parallel: { stroke: CHART_TEXT_LIGHT, dash: '4 3', animate: false },
+  debate: { stroke: CHART_RED, dash: 'none', animate: false },
+  vote: { stroke: CHART_GREEN, dash: 'none', animate: false },
+  critique: { stroke: CHART_ORANGE, dash: 'none', animate: false },
+  communication: { stroke: CHART_BLUE, dash: '4 3', animate: true },
 }
 
 /** 获取节点样式(优先 dispatchStatus,回退 TopologyNodeStatus;label 走组件内 helper) */
@@ -346,7 +353,7 @@ export function SwarmTopologyView({
               const key = `${edge.from}->${edge.to}`
               const isHighlighted = highlightedEdgeKeys.has(key)
               const style = EDGE_TYPE_STYLE[edge.type] ?? {
-                stroke: '#94a3b8',
+                stroke: CHART_TEXT_LIGHT,
                 dash: 'none',
                 animate: false,
               }
@@ -367,7 +374,7 @@ export function SwarmTopologyView({
                     y1={y1}
                     x2={x2}
                     y2={y2}
-                    stroke={isHighlighted ? '#3b82f6' : style.stroke}
+                    stroke={isHighlighted ? CHART_BLUE : style.stroke}
                     strokeWidth={isHighlighted ? 2 : 1.2}
                     strokeDasharray={style.dash === 'none' ? undefined : style.dash}
                     markerEnd={`url(#${isHighlighted ? 'topo-arrow-highlight' : 'topo-arrow-default'})`}

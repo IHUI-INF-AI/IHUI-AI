@@ -418,7 +418,11 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
           <div
             ref={panelRef}
             className="w-72 rounded-md border bg-popover text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            style={
+              coords
+                ? { position: 'fixed', top: coords.top, left: coords.left }
+                : { position: 'fixed', top: -9999, left: -9999 }
+            }
             role="dialog"
             aria-label={t('title')}
             aria-modal="true"

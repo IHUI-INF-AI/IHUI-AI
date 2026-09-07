@@ -924,8 +924,8 @@ function ModelCardList({
       <Tooltip content={t('market.viewRanking')}>
         <Button
           variant="outline"
-          size="sm"
-          className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+          size="xs"
+          className="shrink-0 gap-1 px-2 [&>span]:translate-y-[var(--text-vcenter-offset)]"
           onClick={(e) => {
             e.stopPropagation()
             handleViewRanking()
@@ -957,8 +957,8 @@ function ModelCardList({
         <Tooltip content={t('market.getRelayKey')}>
           <Button
             variant="outline"
-            size="sm"
-            className="h-7 shrink-0 gap-1 px-2 text-xs [&>span]:translate-y-[var(--text-vcenter-offset)]"
+            size="xs"
+            className="shrink-0 gap-1 px-2 [&>span]:translate-y-[var(--text-vcenter-offset)]"
             onClick={(e) => {
               e.stopPropagation()
               onRelayKeys()

@@ -349,8 +349,7 @@ export default function PageClient() {
                 </span>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="h-7 w-7 p-0"
+                  size="icon-xs"
                   disabled={page >= totalPages}
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   aria-label="下一页"

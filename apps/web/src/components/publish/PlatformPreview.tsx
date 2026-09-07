@@ -104,8 +104,8 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
               key={p}
               type="button"
               variant={selectedPlatform === p ? 'default' : 'ghost'}
-              size="sm"
-              className="h-7 px-2 text-xs"
+              size="xs"
+              className="px-2"
               onClick={() => setSelectedPlatform(p)}
             >
               {t(`preview.${p}` as never)}

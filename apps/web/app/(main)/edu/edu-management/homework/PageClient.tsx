@@ -490,8 +490,7 @@ export default function HomeworkPage() {
                         {s.status !== 'graded' && (
                           <Button
                             variant="outline"
-                            size="sm"
-                            className="h-7 text-xs"
+                            size="xs"
                             onClick={() => {
                               setGradingSubmission(s)
                               setGradeOpen(true)

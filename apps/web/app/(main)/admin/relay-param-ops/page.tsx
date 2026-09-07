@@ -335,8 +335,8 @@ export default function AdminRelayParamOpsPage() {
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            size="icon-xs"
+                            className="text-destructive hover:text-destructive"
                             onClick={() => {
                               if (confirm(t('deleteConfirm', { name: r.name })))
                                 deleteMut.mutate(r.id)
