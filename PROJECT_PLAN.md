@@ -35,7 +35,7 @@
 
 - [ ] 0-1 沙箱默认禁网 + 三平台策略测试
 - [ ] 0-2 黄金 E2E runner 固化:复用 IHUI-Bench 20 任务,增加端到端 review/checkpoint 断言
-- [ ] 0-3 Monaco FIM Provider:debounce、abort、缓存、接受率埋点、失败静默
+- [x] 0-3 Monaco FIM Provider ✅(2026-09-07):已有 provider 基础上补齐 AbortController、3s 超时、30 条 LRU 缓存、请求/取消/失败/建议指标(`window.__ihuiFimMetrics`),专项测试 4/4
 - [ ] 0-4 LSP 四核心前端接线与类型契约
 - [ ] 0-5 直接 fetch 清单化迁移
 - [ ] 0-6 UI 大组件拆分:terminal-tab-bar / file-explorer / agent-pane / debug-panel
