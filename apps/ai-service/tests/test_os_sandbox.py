@@ -277,7 +277,7 @@ class TestLandlock:
 
 class TestBwrap:
     def test_bwrap_basic_shape(self) -> None:
-        p = _policy(readable_paths=["/data"], writable_paths=["/data/out"])
+        p = _policy(readable_paths=["/data"], writable_paths=["/data/out"], allow_network=True)
         argv = build_bwrap_argv(p, ["python", "-c", "print(1)"])
         assert argv[0] == "bwrap"
         assert "--die-with-parent" in argv
