@@ -11,13 +11,17 @@ vi.mock('@ihui/api-client', () => ({ fetchApi: fetchApiMock }))
 vi.mock('next-themes', () => ({ useTheme: () => ({ resolvedTheme: 'light' }) }))
 vi.mock('@monaco-editor/react', () => ({
   loader: { config: vi.fn() },
-  default: ({ onMount }: { onMount?: (editor: unknown, monaco: unknown) => void }) => {
-    React.useEffect(() => {
-      onMount?.(mockEditor, mockMonaco)
-    }, [onMount])
-    return <div data-testid="monaco" />
-  },
+  default: ({ onMount }: { onMount?: (editor: unknown, monaco: unknown) => void }) => (
+    <MockMonacoEditor onMount={onMount} />
+  ),
 }))
+
+function MockMonacoEditor({ onMount }: { onMount?: (editor: unknown, monaco: unknown) => void }) {
+  React.useEffect(() => {
+    onMount?.(mockEditor, mockMonaco)
+  }, [onMount])
+  return <div data-testid="monaco" />
+}
 
 import { CodeEditor } from '../src/components/editor/CodeEditor'
 
@@ -101,7 +105,6 @@ describe('CodeEditor AI inline completion', () => {
   })
 
   it('aborts a previous request when a new completion starts', async () => {
-    vi.useFakeTimers()
     let firstSignal: AbortSignal | undefined
     fetchApiMock.mockImplementationOnce(async (_url: string, options: RequestInit) => {
       firstSignal = options.signal
@@ -112,12 +115,11 @@ describe('CodeEditor AI inline completion', () => {
     fetchApiMock.mockResolvedValueOnce({ success: true, data: { completion: 'second' } })
     await renderEditor()
     const first = providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
-    vi.advanceTimersByTime(300)
+    const firstStarted = vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
+    await firstStarted
     const second = providerRef.current!.provideInlineCompletions(model, { lineNumber: 1, column: 13 }, { triggerKind: 'Automatic' }, token)
-    vi.advanceTimersByTime(300)
-    await first
+    await vi.waitFor(() => expect(firstSignal?.aborted).toBe(true))
     await second
-    expect(firstSignal?.aborted).toBe(true)
-    vi.useRealTimers()
+    await first.catch(() => undefined)
   })
 })
