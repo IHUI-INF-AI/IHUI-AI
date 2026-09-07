@@ -53,8 +53,10 @@ apps/desktop/
 tests/
 
 # ── Expo 本地原生目录(prebuild 生成,云端重建) ──
-android/
-ios/
+# 仅排除仓库根级原生目录;插件模板 apps/mobile-rn/plugins/templates/** 内的
+# android/ios 必须保留(prebuild 时 byCarrier 需要复制(Java/Kotlin/Swift)。
+/android/
+/ios/
 .expo/
 **/.expo/
 .expo-shared/
