@@ -1,4 +1,25 @@
 {
+  "onboarding": {
+    "capabilityMarket": "機能マーケット",
+    "deployNote": "自ホスト:リポジトリの docs/ONBOARDING.md を参照(ゼロコンフィグ手順)。",
+    "go": "移動",
+    "markDone": "完了にする",
+    "mcpDesc": "外部 MCP サーバをワンクリック登録、またはプラットフォーム内蔵機能を有効化。",
+    "mcpStore": "MCP ストア",
+    "mcpTitle": "MCP 機能",
+    "step1Desc": "設定で Provider Key を設定。無料プロバイダ(Ollama/Groq/Cloudflare 等)はキー不要で開始可能。",
+    "step1Title": "モデル設定",
+    "step2Desc": "ホームのチャット欄で質問。ツールバーで Plan Mode / 深度研究 / スキルを利用可。",
+    "step2Title": "初めての AI チャット",
+    "step3Desc": "Agent ワークベンチでゴールを投入するとマルチステップ自律実行。agent-step-recorder でツール呼び出しを再生。",
+    "step3Title": "Agent 自主実行",
+    "step4Desc": "session_id でステップ/圧縮/チェックポイント/コスト/インジェクション遮断を一括表示。チェックポイントはロールバック可。",
+    "step4Title": "タイムライン再生とロールバック",
+    "step5Desc": "AI コスト看板で使用量を集計、モデル料金看板で単一料金ソースのカバー率を表示。",
+    "step5Title": "コストと料金",
+    "subtitle": "5 ステップで全 AI 機能を使いこなす。円をクリックで完了記録(ローカル保存)。",
+    "title": "新ユーザーオンボーディング"
+  },
   "adminModelPricing": {
     "backToCost": "コスト看板へ戻る",
     "coverage": "モデル {models} / ベンダー {providers} / 上書き {overrides} をカバー",
