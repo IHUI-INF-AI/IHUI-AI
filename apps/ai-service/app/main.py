@@ -731,6 +731,10 @@ def create_app() -> FastAPI:
     app.include_router(computer_use_router, prefix="/api", tags=["computer-use"])
     app.include_router(context_compaction_router, prefix="/api", tags=["context-compaction"])
 
+    # 2026-09-07 立:Best-of-N 同任务多副本自动择优(对标 Cursor 多副本自动评审择优)
+    from app.routers import best_of_n as best_of_n_router
+    app.include_router(best_of_n_router.router, prefix="/api", tags=["best-of-n"])
+
     # 企业级补齐(2026-09-06 立):审计日志查询(RBAC audit:read)+ SSO/OIDC
     app.include_router(audit_log_router, prefix="/api", tags=["audit-log"])
     app.include_router(sso_router, prefix="/api", tags=["sso"])

@@ -2,11 +2,11 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""slash_commands.py 单元测试:12 个 slash 命令 + SlashCommandRegistry。
+"""slash_commands.py 单元测试:13 个 slash 命令 + SlashCommandRegistry。
 
 测试覆盖:
 - 注册表:list/get(存在与不存在)/execute(未知命令)
-- 12 个命令的成功路径 + 边界 + 错误用法
+- 13 个命令的成功路径 + 边界 + 错误用法
 - /memory /clear /status 命令依赖 memory_store / agent_executor,需清理状态避免相互污染
 """
 
@@ -43,14 +43,14 @@ def force_memory_mode():
 # =============================================================================
 
 def test_builtin_commands_count():
-    """预置 12 个 slash 命令。"""
-    assert len(_BUILTIN_COMMANDS) == 12
+    """预置 13 个 slash 命令。"""
+    assert len(_BUILTIN_COMMANDS) == 13
 
 
 def test_registry_list_returns_all():
-    """list 返回全部 12 个命令。"""
+    """list 返回全部 13 个命令。"""
     cmds = slash_command_registry.list_commands()
-    assert len(cmds) == 12
+    assert len(cmds) == 13
 
 
 def test_registry_get_existing():
@@ -70,7 +70,7 @@ def test_registry_list_returns_copy():
     """list 返回的列表是副本,修改不影响内部状态。"""
     lst = slash_command_registry.list_commands()
     lst.clear()
-    assert len(slash_command_registry.list_commands()) == 12
+    assert len(slash_command_registry.list_commands()) == 13
 
 
 @pytest.mark.parametrize(
@@ -79,7 +79,7 @@ def test_registry_list_returns_copy():
      "help", "clear", "bug", "improve", "status", "version"],
 )
 def test_all_builtin_commands_present(name):
-    """12 个命令全部可查询。"""
+    """13 个命令全部可查询。"""
     assert slash_command_registry.get(name) is not None
 
 
@@ -87,7 +87,7 @@ def test_registry_independent_instance():
     """SlashCommandRegistry 独立实例不共享状态。"""
     r = SlashCommandRegistry()
     assert r.get("help") is not None
-    assert len(r.list_commands()) == 12
+    assert len(r.list_commands()) == 13
 
 
 # =============================================================================
@@ -216,10 +216,68 @@ async def test_persona_without_args():
 async def test_help_lists_all_commands():
     ctx: dict = {}
     out = await slash_command_registry.execute("help", [], ctx)
-    # /help 输出包含 12 个命令名
+    # /help 输出包含 13 个命令名
     for name in ["goal", "loop", "skill", "plan", "memory", "persona",
-                 "help", "clear", "bug", "improve", "status", "version"]:
+                 "help", "clear", "bug", "improve", "status", "version",
+                 "bestof"]:
         assert name in out, f"/help 输出缺少 {name}"
+
+
+async def test_bestof_empty_args_shows_usage():
+    ctx: dict = {}
+    out = await slash_command_registry.execute("bestof", [], ctx)
+    assert "用法" in out
+
+
+async def test_bestof_parses_n_suffix(monkeypatch):
+    """/bestof <task> #2 → 副本数 2,任务去掉 #2 尾缀。"""
+    from app.services import best_of_n as bon_mod
+    from app.services import slash_commands as sc_mod
+
+    captured: dict = {}
+
+    class _FakeResult:
+        n_requested = 2
+        evaluator_model = "eval"
+        evaluator_fallback = False
+        rationale = "评分最高"
+        total_cost_usd = 0.01
+
+        class _C:
+            candidate_id = 1
+            content = "答案"
+            model = "m"
+            ok = True
+            error = ""
+            score = 88
+            score_reason = ""
+            latency_ms = 10
+
+        winner = _C()
+        candidates = [_C()]
+
+    async def _fake_run(messages, **kw):
+        captured["messages"] = messages
+        captured["n"] = kw.get("n")
+        return _FakeResult()
+
+    monkeypatch.setattr(bon_mod.best_of_n_runner, "run", _fake_run)
+    out = await sc_mod._bestof_handler(["写", "首", "诗", "#2"], {"session_id": "s1"})
+    assert captured["n"] == 2
+    assert captured["messages"] == [{"role": "user", "content": "写 首 诗"}]
+    assert "🏆" in out and "88" in out and "评分最高" in out
+
+
+async def test_bestof_runner_error(monkeypatch):
+    from app.services import best_of_n as bon_mod
+    from app.services import slash_commands as sc_mod
+
+    async def _fake_run(messages, **kw):
+        raise bon_mod.BestOfNError("全部候选失败")
+
+    monkeypatch.setattr(bon_mod.best_of_n_runner, "run", _fake_run)
+    out = await sc_mod._bestof_handler(["任务"], {})
+    assert "❌" in out and "全部候选失败" in out
 
 
 # =============================================================================
