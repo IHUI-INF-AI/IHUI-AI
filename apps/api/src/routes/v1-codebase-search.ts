@@ -10,6 +10,7 @@
  * - GET  /stats           索引统计(切片数 / 文件数 / 已向量化数)
  * - POST /index           批量索引切片(由 ai-service codebase_indexer 调用)
  * - DELETE /repo/:repoId  删除指定仓库的所有切片
+ * - DELETE /repo/:repoId/files  批量按文件删除切片(Merkle 增量同步,2026-09-07 立)
  *
  * 鉴权:JWT 认证(复用 packages/auth,所有端点需登录)
  */
@@ -107,6 +108,32 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '索引失败'))
+    }
+  })
+
+  // DELETE /repo/:repoId/files - 批量按文件删除切片(Merkle 增量同步,2026-09-07 立)
+  // 处理"源文件已删除"场景:文件消失后清除其旧切片,防止语义搜索召回幽灵过期内容。
+  // 注意路由注册顺序:必须位于 DELETE /repo/:repoId 之前不冲突(Fastify 按路径段精确匹配,二者共存)。
+  const deleteFilesSchema = z.object({
+    filePaths: z.array(z.string().min(1)).min(1).max(2000),
+  })
+  server.delete('/repo/:repoId/files', async (req, reply) => {
+    const repoId = (req.params as { repoId: string }).repoId
+    if (!repoId) {
+      return reply.status(400).send(error(400, 'repoId 不能为空'))
+    }
+    const parsed = deleteFilesSchema.safeParse(req.body)
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send(error(400, parsed.error.issues[0]?.message ?? 'filePaths 不能为空'))
+    }
+    try {
+      const deleted = await codebaseIndexService.deleteByFiles(repoId, parsed.data.filePaths)
+      return reply.send(success({ deleted }))
+    } catch (e) {
+      req.log.error(e)
+      return reply.status(500).send(error(500, '删除失败'))
     }
   })
 
