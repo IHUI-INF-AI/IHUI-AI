@@ -9,12 +9,14 @@
 - safety_settings(内容安全策略,OpenAI 无此概念)
 - generation_config(temperature/topP/maxOutputTokens 统一封装)
 
-safety_settings 默认策略(2026-07-19 修订):
-- 旧版默认 BLOCK_MEDIUM_AND_ABOVE(Gemini 默认值),对中等概率违规内容即拦截,
-  导致大量正常对话被误判为"违规"并返回空文本/finishReason=SAFETY,
-  用户感知为"模型报错自动结束对话"。
-- 现默认 BLOCK_ONLY_HIGH(仅拦截高概率违规内容),与 OpenAI/Anthropic 默认策略对齐,
-  避免误判。调用方仍可通过 safety_settings 参数覆盖。
+safety_settings 默认策略(2026-09-06 合规修订):
+- 曾把默认从 BLOCK_MEDIUM_AND_ABOVE 放宽到 BLOCK_ONLY_HIGH(Gemini 默认值为
+  BLOCK_MEDIUM_AND_ABOVE),理由是减少正常对话被误判为违规。
+- 合规考量(P0):主动放宽内容安全档位不利于《生成式人工智能服务管理暂行办法》
+  与自评估要求的"拦截违规生成内容"。这里恢复默认 BLOCK_MEDIUM_AND_ABOVE(中等概率即拦),
+  与 Gemini 平台默认一致。
+- 若特定业务确需放宽(如学术语料含敏感涉政词),调用方必须显式传入更高阈值的
+  safety_settings 并说明取舍,不允许由平台默认放宽。
 """
 
 from __future__ import annotations
@@ -28,13 +30,13 @@ from .base_provider import BaseProvider, ProviderError
 from ..core.llm_gateway import get_http_client
 
 
-# Gemini 4 个安全类别,默认全部设为 BLOCK_ONLY_HIGH(仅拦截高概率违规)
-# 与 OpenAI/Anthropic 默认内容策略对齐,避免误判正常对话
+# Gemini 4 个安全类别,默认用平台默认档 BLOCK_MEDIUM_AND_ABOVE(中等概率即拦截)。
+# 合规要求:不主动放宽内容安全档位(原 BLOCK_ONLY_HIGH 为过度放宽,已撤销)。
 DEFAULT_SAFETY_SETTINGS: list[dict[str, str]] = [
-    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_ONLY_HIGH"},
-    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
+    {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+    {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+    {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
+    {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
 ]
 
 
@@ -116,8 +118,8 @@ class GeminiProvider(BaseProvider):
         if converted_tools:
             payload["tools"] = converted_tools
         # safety_settings:Gemini 独有,控制内容安全策略
-        # 调用方未显式传入时,使用 DEFAULT_SAFETY_SETTINGS(BLOCK_ONLY_HIGH),
-        # 避免使用 Gemini 默认的 BLOCK_MEDIUM_AND_ABOVE 误判正常对话
+        # 调用方未显式传入时,使用 DEFAULT_SAFETY_SETTINGS(BLOCK_MEDIUM_AND_ABOVE),
+        # 合规要求:保持平台默认安全档位(中等概率即拦截),不允许主动放宽(曾错误放宽到 BLOCK_ONLY_HIGH 已撤销)
         payload["safetySettings"] = safety_settings or DEFAULT_SAFETY_SETTINGS
         return payload
 

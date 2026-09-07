@@ -1,0 +1,25 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// 一次性把网信办「算法/模型备案」公开官方清单全量导入生产库。临时脚本,跑完即删。
+import 'dotenv/config'
+import { syncAlgorithmRecords } from '../src/services/algorithm-record-service.js'
+
+async function main() {
+  const started = Date.now()
+  console.log('[importer] 开始同步网信办算法/模型备案清单...')
+  const stats = await syncAlgorithmRecords()
+  console.log('[importer] 完成,耗时 %dms', Date.now() - started)
+  for (const s of stats) {
+    console.log(
+      `  [${s.kind}] 文件${s.files} 写入${s.inserted} 更新${s.updated} 跳过${s.skipped}`,
+    )
+  }
+  const total = stats.reduce((a, b) => a + b.inserted, 0)
+  console.log(`[importer] 共计写入 ${total} 条`)
+}
+
+main()
+  .catch((e) => {
+    console.error('[importer] 失败:', e)
+    process.exit(1)
+  })
+  .finally(() => process.exit(0))

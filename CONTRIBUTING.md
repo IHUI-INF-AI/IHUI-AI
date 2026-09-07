@@ -342,13 +342,35 @@ Closes #<issue-number>
 - 改进 LangGraph 编排模式(ReAct / Plan-and-Execute / Reflexion)
 - 添加 MCP 服务器集成(浏览器自动化 / 文件系统 / 数据库查询)
 
-### 5. 性能优化
+### 5. 生态扩展:技能 / 插件 / MCP(三条接入路径)
+
+IHUI-AI 的可扩展能力有三条标准化接入路径,欢迎第三方贡献:
+
+**① AI 技能(SKILL.md 规范,对齐 Anthropic Skills)**
+
+- 目录约定:每个技能一个目录,入口为 `SKILL.md`,frontmatter 必需 `name` + `description`(解析与校验见 `apps/ai-service/app/services/skill_md.py`)
+- 提交后由 `discover_skill_md` 自动进入技能目录(`GET /api/ai-skills`),无需改注册代码
+- 参考实现:`apps/ai-service/app/skills/content_engine/`(内容生产全流程)
+
+**② CLI 插件(manifest 规范)**
+
+- 目录约定:插件目录含 manifest(`name` + `version` 必填),装载器见 `apps/cli/src/plugins/`(loader.ts / installer.ts / registry.ts)
+- 通过 `ihui plugin` 命令族安装/管理,marketplace 索引见 `plugins/marketplace.ts`
+- 参考实现:仓库内 `apps/cli/src/plugins/registry.ts` 的注册表条目
+
+**③ MCP 服务器(标准 MCP 协议)**
+
+- 任何符合 MCP 协议(stdio / streamable HTTP)的服务器都可直接接入,OAuth 支持见 `apps/ai-service/app/services/mcp_oauth.py`
+- 接入入口:Web 端 MCP 管理界面(`/mcp-store`)或 CLI `mcp-config` / `mcp-market` 命令
+- MCP 目录收录见 `apps/ai-service/app/services/mcp_directory.py`
+
+### 6. 性能优化
 
 - 数据库查询优化(340+ 表,需要索引审计)
 - 前端 bundle 体积分析(目标:首屏 JS ≤ 200KB)
 - AI Service 流式响应延迟优化
 
-### 6. 守门脚本
+### 7. 守门脚本
 
 - 提升现有 30+ 守门脚本的检测精度
 - 新增守门规则(参考 [`docs/GATEKEEPERS.md`](docs/GATEKEEPERS.md))

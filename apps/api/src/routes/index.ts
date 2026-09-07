@@ -62,6 +62,7 @@ import { financeRoutes } from './finance.js'
 import { authExtendedRoutes } from './auth-extended.js'
 import authPasskeyRoutes from './auth-passkey.js'
 import { authSsoRoutes } from './auth-sso.js'
+import { authCarrierRoutes } from './auth-carrier.js'
 import { vipRoutes, adminVipRoutes } from './vip.js'
 // P0-3a/b 配套:AI 模型定价公开查询(/api/ai-pricing, /api/ai-pricing/stats, /api/ai-pricing/:modelId)
 import aiPricingRoutes from './ai-pricing.js'
@@ -177,6 +178,8 @@ import { authIdentityRoutes } from './auth-identity.js'
 
 // R67 补建：M-55 通知扩展 + M-66 教育平台 + M-72 支付状态 WS
 import { educationPlatformRoutes } from './education-platform.js'
+// 网信办「算法/模型备案」公开查询(2026-09-06 立,全网已备案模型/算法查询)
+import algorithmRecordRoutes from './algorithm-record.js'
 
 // R66 补建：M-44 remote + M-55 notification + M-57 content + M-60 org + M-61 AI图片编辑
 import { remoteExtendedRoutes } from './remote-extended.js'
@@ -309,6 +312,8 @@ import { aiVideoComposeRoutes } from './ai-video-compose.js'
 import { legacyLangchainRoutes } from './legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './rewarded-video-ad.js'
 import { agentRuntimeRoutes } from './agent-runtime.js'
+import { repoWikiRoutes } from './repo-wiki.js'
+import automationsRoutes from './automations.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
 import { n8nProxyRoutes } from './n8n-proxy.js'
@@ -579,6 +584,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(authPasskeyRoutes, { prefix: '/api' })
   // SSO 统一登录：code 生成/交换/统一登出/token 验证（跨子项目共享登录态）
   server.register(authSsoRoutes, { prefix: '/api/auth' })
+  // 运营商一键登录(闪验 Univerify 聚合):POST /api/auth/login/carrier
+  server.register(authCarrierRoutes, { prefix: '/api/auth' })
   // VIP 会员：等级/购买/我的 + admin（R1 补完）
   server.register(vipRoutes, { prefix: '/api' })
   server.register(adminVipRoutes, { prefix: '/api/admin' })
@@ -586,6 +593,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(aiPricingRoutes, { prefix: '/api' })
   // 开发者门户公开元信息（P0-4a/b 配套,开发者门户页用）
   server.register(developerPortalRoutes, { prefix: '/api' })
+  // 网信办「算法/模型备案」公开查询（2026-09-06 立,全网已备案算法/模型查询）
+  server.register(algorithmRecordRoutes, { prefix: '/api' })
 
   // 学员中心：我的课程/笔记/证书/报告/错题/线下记录/论文（R2 补完）
   server.register(eduPublicRoutes, { prefix: '/api' })
@@ -1143,5 +1152,11 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(skillCategoriesRoutes, { prefix: '/api' })
   // F3 真实缺口补齐(2026-08-15):元学习闭环路由(GET/POST /api/admin/meta-learner/*)
   server.register(metaLearnerRoutes, { prefix: '/api/admin/meta-learner' })
+
+  // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
+  server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
+
+  // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
+  server.register(automationsRoutes, { prefix: '/api/automations' })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

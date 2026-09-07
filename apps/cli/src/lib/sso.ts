@@ -35,6 +35,7 @@ import * as url from 'node:url';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { spawn } from 'node:child_process';
+import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
 import {
   exchangeSsoCode as exchangeSsoCodeCore,
   extractSsoCode,
@@ -109,7 +110,7 @@ function waitForCallback(): Promise<string> {
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录成功</title></head>' +
           '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
           '<h1>✓ 登录成功</h1><p>已获取授权码,请返回终端继续。</p>' +
-          '<p style="color:#888;font-size:14px;">本页面可关闭。</p>' +
+          `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">本页面可关闭。</p>` +
           '</body></html>',
         );
         server.close();
@@ -123,7 +124,7 @@ function waitForCallback(): Promise<string> {
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>SSO 登录失败</title></head>' +
           '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
           `<h1>✗ 登录失败</h1><p style="color:#c00;">错误: ${errParam}</p>` +
-          '<p style="color:#888;font-size:14px;">请返回终端重试。</p>' +
+          `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">请返回终端重试。</p>` +
           '</body></html>',
         );
         server.close();
@@ -137,7 +138,7 @@ function waitForCallback(): Promise<string> {
           '<!DOCTYPE html><html><head><meta charset="utf-8"><title>等待 SSO 登录</title></head>' +
           '<body style="font-family:system-ui;padding:40px;text-align:center;">' +
           '<h1>等待登录中</h1><p>请在弹出的登录页完成授权。</p>' +
-          '<p style="color:#888;font-size:14px;">本页面可关闭,CLI 仍在等待回调。</p>' +
+          `<p style="color:${DOC_TEXT_MUTED};font-size:14px;">本页面可关闭,CLI 仍在等待回调。</p>` +
           '</body></html>',
         );
       }

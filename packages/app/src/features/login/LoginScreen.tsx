@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo, useState, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ComponentProps, type ReactNode } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 import { AlertTriangle, ChevronDown, Eye, EyeOff, QrCode, X } from 'lucide-react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
+import { OAUTH_BRAND_COLORS, withAlpha } from '@ihui/design-tokens'
 import type { LoginScreenProps, TFunction } from '../../types'
 // LoginTab / QrLoginConfig / QrLoginStatus / ThirdPartyLoginOption / ThirdPartyPlatform
 // 仅在 @ihui/types 定义,packages/app/src/types.ts 未 re-export(任务约束禁止修改),
@@ -211,6 +212,8 @@ interface PhoneTabContentProps extends TabContentBaseProps {
   onPhoneCodeChange?: (text: string) => void
   onSendCode?: () => void
   onLogin: () => void
+  /** 运营商一键登录入口节点(可选;传则渲染在主登录按钮下方,未传不渲染) */
+  carrierOneClickEntry?: ReactNode
   /** 账号登录历史(输入框聚焦时下拉;2026-09-06 手机号 tab 对齐账号 tab) */
   loginHistory?: string[]
   /** 删除单条历史账号回调(可选;未传则不渲染 X) */
@@ -415,7 +418,7 @@ function ThirdPartyLoginArea({
   return (
     <View style={styles.thirdPartyArea}>
       {wechatOpt ? (
-        <WeChatLoginButton styles={styles} opt={wechatOpt} loading={loadingPlatform === 'wechat'} onPress={onLogin} />
+        <WeChatLoginButton styles={styles} tk={tk} opt={wechatOpt} loading={loadingPlatform === 'wechat'} onPress={onLogin} />
       ) : null}
       {restOptions.length > 0 ? (
         <>
@@ -454,11 +457,13 @@ function ThirdPartyLoginArea({
  *  图标 + "微信登录"文字,让用户明确微信为主要登录方式(2026-09-04 用户需求) */
 function WeChatLoginButton({
   styles,
+  tk,
   opt,
   loading,
   onPress,
 }: {
   styles: StyleSet
+  tk: AppThemeTokens
   opt: ThirdPartyLoginOption
   loading: boolean
   onPress?: (platform: ThirdPartyPlatform) => void
@@ -474,7 +479,7 @@ function WeChatLoginButton({
       accessibilityLabel="微信登录"
     >
       {loading ? (
-        <ActivityIndicator size="small" color="#FFFFFF" />
+        <ActivityIndicator size="small" color={tk.surface.light} />
       ) : (
         <>
           {opt.iconNode ? (
@@ -693,6 +698,7 @@ function PhoneTabContent({
   onPhoneCodeChange,
   onSendCode,
   onLogin,
+  carrierOneClickEntry,
   loading,
   agreed,
   onAgreedChange,
@@ -852,6 +858,8 @@ function PhoneTabContent({
         showAgreeErr={showAgreeErr}
       />
       <PrimaryLoginButton t={t} styles={styles} loading={loading} onPress={onLogin} />
+      {/* 运营商一键登录入口(wrapper 注入,可选;未传/未配置则不渲染) */}
+      {carrierOneClickEntry ?? null}
     </View>
   )
 }
@@ -1221,6 +1229,10 @@ export function LoginScreen(props: LoginScreenProps) {
     onPhoneCodeChange,
     onSendPhoneCode,
     onLoginByPhoneCode,
+    // 运营商一键登录入口(phone tab 内,可选)
+    carrierOneClickEntry,
+    // tab 切换回调
+    onTabChange,
     // qr
     qrConfig,
     qrPlatforms,
@@ -1274,6 +1286,13 @@ export function LoginScreen(props: LoginScreenProps) {
     setActiveTab(tab)
     setShowAgreeErr(false)
   }
+
+  // tab 变化回调(wrapper 注入,可选):初始 defaultTab 也会触发一次,供调用方做"tab 进入时副作业"
+  // (如手机号 tab 进入时用 getRecentPhone() 自动回填最近手机号)。
+  useEffect(() => {
+    onTabChange?.(activeTab)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅需在 activeTab 变化时通知一次
+  }, [activeTab])
 
   // 协议校验:未勾选 → 阻止提交 + 显示红色提示(对齐 web inline 模式)
   const requireAgree = (): boolean => {
@@ -1390,6 +1409,7 @@ export function LoginScreen(props: LoginScreenProps) {
             onPhoneCodeChange={onPhoneCodeChange}
             onSendCode={onSendPhoneCode}
             onLogin={handlePhoneLogin}
+            carrierOneClickEntry={carrierOneClickEntry}
             loading={loading}
             loginHistory={loginHistory}
             onRemoveLoginHistory={onRemoveLoginHistory}
@@ -1492,8 +1512,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
   const surface = colorScheme === 'dark' ? tk.surface.card : tk.surface.light
   // 品牌按钮文字:浅色品牌=黑底→白字,深色品牌=白底→黑字
   const onBrandText = colorScheme === 'dark' ? tk.gray.black : tk.surface.light
-  // 输入框底色:深色用 surface.muted(#262626,比页面 #1A1A1A 微亮保留层级);浅色 surface.muted
-  const inputBg = tk.surface.muted
+  // 输入框底色:web Input 为 bg-transparent(透出页面底色),RN 对应用 surface(与页面同底),
+  // 靠边框区分层级,已不再使用 surface.muted 填充(2026-09-06 对齐 web 移除 inputBg)
   const inputBorder = colorScheme === 'dark' ? tk.border.medium : tk.border.light
   return StyleSheet.create({
     page: {
@@ -1554,8 +1574,8 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       paddingHorizontal: 12,
       borderRadius: 6,
       borderWidth: 1,
-      borderColor: 'rgba(220, 38, 38, 0.3)',
-      backgroundColor: 'rgba(220, 38, 38, 0.05)',
+      borderColor: withAlpha(tk.danger.DEFAULT, 0.3),
+      backgroundColor: withAlpha(tk.danger.DEFAULT, 0.05),
       marginBottom: 16,
     },
     errorIcon: {
@@ -1569,40 +1589,41 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       fontSize: 12,
       lineHeight: 18,
     },
-    // ===== Tab 切换条(结构对齐 web ui-react Tabs,但整体加大一档:容器 h-11 级,
-    // 激活块白底深字;未激活底色与 web 同源 token(surface.muted),应用户要求调亮一档) =====
+    // ===== Tab 切换条(对齐 web ui-react TabsList:TabsTrigger) =====
+    // web TabsList:h-9 rounded-lg bg-muted p-1;TabsTrigger rounded-md px-3 py-1 text-sm,
+    // 激活 data-[state=active]:bg-white / dark:bg-black text-foreground
     tabBar: {
       flexDirection: 'row',
       gap: 0,
       marginBottom: 16,
-      padding: 5,
-      borderRadius: 10,
-      backgroundColor: colorScheme === 'dark' ? '#343434' : '#EBEBEB',
+      padding: 4,
+      borderRadius: 8,
+      backgroundColor: colorScheme === 'dark' ? tk.gray[700] : tk.surface.muted,
       // 低对比描边:暗色微亮/浅色微暗,若隐若现即可
       borderWidth: 1,
-      borderColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+      borderColor: colorScheme === 'dark' ? withAlpha(tk.surface.light, 0.08) : withAlpha(tk.gray.black, 0.06),
     },
     tabItem: {
       flex: 1,
-      paddingVertical: 7,
-      borderRadius: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
       alignItems: 'center',
       justifyContent: 'center',
     },
     tabItemActive: {
-      backgroundColor: '#FFFFFF',
+      backgroundColor: colorScheme === 'dark' ? tk.gray.black : tk.surface.light,
     },
     tabText: {
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '500',
-      lineHeight: 22,
+      lineHeight: 20,
       color: tk.text.secondary,
       // 中文字体度量光学居中
       transform: [{ translateY: -0.75 }],
     },
     tabTextActive: {
-      // 白底激活块上用深色文字(两主题一致,对齐 web 截图基准)
-      color: '#111111',
+      // 亮=白底黑字 / 暗=黑底白字(对齐 web 截图基准)
+      color: tk.text.primary,
     },
     tabContent: {
       gap: 0,
@@ -1617,23 +1638,26 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
       justifyContent: 'space-between',
     },
+    // 对齐 web ui-react:Input h-10(40px) rounded-md(6px) text-sm(14px) px-3(12px),
+    // Label text-sm font-medium。web 输入框 bg-transparent(透出页面底色),故 RN 输入框
+    // 背景改用 surface(透出页面底色),聚焦描边对齐 auth-shell.css(亮=黑/暗=白 2px)。
     label: {
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '500',
       color: tk.text.primary,
     },
     input: {
-      height: 50,
+      height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      fontSize: 18,
+      borderRadius: 6,
+      paddingHorizontal: 12,
+      fontSize: 14,
       color: tk.text.primary,
-      backgroundColor: inputBg,
+      backgroundColor: surface,
     },
     inputFocused: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
       borderWidth: 2,
     },
     codeRow: {
@@ -1650,24 +1674,24 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     phoneRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 50,
+      height: 40,
       borderWidth: 1,
       borderColor: inputBorder,
-      borderRadius: 12,
-      backgroundColor: inputBg,
+      borderRadius: 6,
+      backgroundColor: surface,
       overflow: 'hidden',
     },
     phoneRowFocused: {
-      borderColor: tk.brand.DEFAULT,
+      borderColor: colorScheme === 'dark' ? tk.surface.light : tk.gray.black,
       borderWidth: 2,
     },
     areaBox: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingHorizontal: 14,
+      paddingHorizontal: 12,
     },
     areaText: {
-      fontSize: 18,
+      fontSize: 14,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -1707,7 +1731,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       gap: 12,
     },
     nationItemActive: {
-      backgroundColor: 'rgba(141, 131, 255, 0.08)',
+      backgroundColor: withAlpha(tk.brandAccent.DEFAULT, 0.08),
     },
     nationTitle: {
       fontSize: 15,
@@ -1726,17 +1750,17 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       fontWeight: '500',
     },
     sendCodeBtn: {
-      height: 50,
-      paddingHorizontal: 14,
-      borderRadius: 12,
+      height: 40,
+      paddingHorizontal: 12,
+      borderRadius: 6,
       borderWidth: 1,
       borderColor: inputBorder,
-      backgroundColor: inputBg,
+      backgroundColor: surface,
       alignItems: 'center',
       justifyContent: 'center',
     },
     sendCodeBtnText: {
-      fontSize: 16,
+      fontSize: 14,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -1801,7 +1825,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     agreementText: {
       flex: 1,
       fontSize: 12,
-      lineHeight: 18,
+      lineHeight: 20,
       color: tk.text.secondary,
     },
     agreementLink: {
@@ -1836,7 +1860,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       borderWidth: 1,
       borderColor: inputBorder,
       backgroundColor: surface,
-      shadowColor: '#000',
+      shadowColor: tk.gray.black,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.12,
       shadowRadius: 8,
@@ -1875,17 +1899,17 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     // ===== 主按钮 =====
     loginBtn: {
-      height: 50,
-      borderRadius: 15,
+      height: 40,
+      borderRadius: 6,
       backgroundColor: tk.brand.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
     loginBtnText: {
       color: onBrandText,
-      fontSize: 20,
-      fontWeight: '600',
-      lineHeight: 28,
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
       // 光学居中:中文回退字体度量导致墨迹重心偏下(像素实测 ~0.5-1px + 汉字下重视觉),
       // 上移 1.5px 校正(2026-09-04 像素级测量)
       transform: [{ translateY: -1.5 }],
@@ -1893,18 +1917,18 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // 微信主推登录按钮:规格对齐主登录按钮,微信品牌绿底白字(图标为黑色描边设计,绿底对比清晰)
     wechatLoginBtn: {
       flexDirection: 'row',
-      height: 50,
-      borderRadius: 15,
-      backgroundColor: '#07C160',
+      height: 40,
+      borderRadius: 6,
+      backgroundColor: OAUTH_BRAND_COLORS.wechat,
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
     },
     wechatLoginBtnText: {
-      color: '#FFFFFF',
-      fontSize: 20,
-      fontWeight: '600',
-      lineHeight: 28,
+      color: tk.surface.light,
+      fontSize: 14,
+      fontWeight: '500',
+      lineHeight: 20,
       // 与 loginBtnText 同一光学居中校正
       transform: [{ translateY: -1.5 }],
     },
@@ -1940,11 +1964,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       marginTop: 16,
     },
     registerText: {
-      fontSize: 13,
+      fontSize: 14,
       color: tk.text.secondary,
     },
     registerLink: {
-      fontSize: 13,
+      fontSize: 14,
       fontWeight: '500',
       color: tk.brand.DEFAULT,
     },

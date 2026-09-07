@@ -84,7 +84,7 @@ const viewStyles = {
     overflow: 'hidden',
   }),
   tagBadge: (tk: RnThemeTokens): CSSProperties => ({
-    backgroundColor: tk.blue.light,
+    backgroundColor: tk.brandAccent.light,
     paddingLeft: toRpx(8),
     paddingRight: toRpx(8),
     paddingTop: toRpx(4),
@@ -130,7 +130,7 @@ const textStyles = {
   }),
   tagText: (tk: RnThemeTokens): CSSProperties => ({
     fontSize: toRpx(12),
-    color: tk.blue.DEFAULT,
+    color: tk.brandAccent.DEFAULT,
   }),
   sectionTitle: (tk: RnThemeTokens): CSSProperties => ({
     marginTop: toRpx(20),
