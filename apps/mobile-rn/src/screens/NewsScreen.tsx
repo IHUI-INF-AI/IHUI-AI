@@ -35,7 +35,7 @@ import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import {
   SquareScreen as SharedSquareScreen,
   type ArticleItem,
@@ -165,7 +165,7 @@ export default function NewsScreenWrapper() {
         return
       }
       if (tab === 'share') return // 已在 AI资讯页,仅收起抽屉
-      rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+      navigateDrawerTab(rootNav, tab)
     },
     [rootNav],
   )
