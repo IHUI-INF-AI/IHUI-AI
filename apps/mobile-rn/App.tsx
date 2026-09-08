@@ -3,8 +3,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import './global.css'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
@@ -26,6 +27,8 @@ import {
 import { rnAuthStore } from './src/stores/auth-store'
 import type { LoginResult } from '@ihui/api-client'
 import { GlobalFloatBox } from './src/components/GlobalFloatBox'
+import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
+import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
 import './src/lib/web-shell'
 
 /**
@@ -115,6 +118,28 @@ function AppContent() {
     }
   }
 
+  // ===== 首启隐私政策弹窗(对齐历史 App.vue onLaunch) =====
+  // AsyncStorage 未记录已同意 → 强制展示(小米平台要求:不可绕过,同意后才能继续使用);
+  // 同意后持久化记录(对齐历史 onPrivacyAccepted setStorageSync('privacyPolicyShown', true))。
+  const [privacyVisible, setPrivacyVisible] = useState(false)
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const accepted = await AsyncStorage.getItem(PRIVACY_POLICY_STORAGE_KEY)
+        if (accepted !== 'true') setPrivacyVisible(true)
+      } catch {
+        // 存储读取异常时按未同意处理,保证合规弹窗必达
+        setPrivacyVisible(true)
+      }
+    })()
+  }, [])
+
+  const handlePrivacyAgree = useCallback(() => {
+    void AsyncStorage.setItem(PRIVACY_POLICY_STORAGE_KEY, 'true')
+    setPrivacyVisible(false)
+  }, [])
+
   return (
     <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -135,6 +160,8 @@ function AppContent() {
         onConsult={() => goFloat('CustomerService')}
         onFeedback={() => goFloat('Feedback')}
       />
+      {/* 首启隐私政策弹窗(RN Modal 恒在最顶层):未同意不可继续使用(对齐历史 App.vue privacy-modal) */}
+      <PrivacyPolicyModal visible={privacyVisible} onAgree={handlePrivacyAgree} />
     </View>
   )
 }
