@@ -109,11 +109,19 @@ const ALLOWED_DIRS = new Set([
   'node_modules',
   'tmp',
   'test-results',
+  // 2026-09-08 显式审批:git worktree 注册目录(并行会话工作树基础设施,git worktree list 可见)
+  'worktrees',
+  // 2026-09-08 显式审批:团队记忆功能并行会话工作树(含未合并 WIP,暂留)
+  'wt-teammem',
+  // 2026-09-08 显式审批:用户产物目录(智汇AI 天使轮商业计划书等演示文稿)
+  'output',
 ])
 
 /** 合法隐藏文件(.env / .gitignore 等) */
 const ALLOWED_HIDDEN_FILES = new Set([
   '.actrc',
+  // 2026-09-08 显式审批:EAS Build 上传排除规则(pnpm monorepo 云端构建必需,存在时 EAS 不再参考 .gitignore)
+  '.easignore',
   '.check-api-routes-ignore.json',
   '.dockerignore',
   '.editorconfig',
