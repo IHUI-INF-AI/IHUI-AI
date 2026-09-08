@@ -363,6 +363,26 @@ const checks = [
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
   },
+  // --- 30b (2026-09-08 新增,stash 滞留源码改动守门,AGENTS.md §12d 配套) ---
+  // blocking:stash 是黑盒,滞留的已完成工作在并行合流下必然造成"功能被回滚"假象
+  //   (2026-09-08 实证:压缩入口整合 3 文件 + IM 聊天室重写 775 行双双滞留丢失误判)。
+  //   ≥48h 含源码改动且无 backup/stash-* 或 lost-commit/* tag 备份 → 阻塞 commit。
+  // 跳过方法:HUSKY_SKIP_STALE_STASH_CHECK=1 git commit ...
+  {
+    id: '30b',
+    label: '🛡️  Stash 滞留源码改动守门(blocking,AGENTS.md §12d,防已完成工作滞留 stash 静默失联)',
+    script: 'check-stale-stashes.mjs',
+    args: ['--blocking'],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 存在滞留 ≥48h 的 stash 含源码改动且未做零损失备份,',
+      '     处置二选一:A. git stash apply "stash@{n}" → 验证 → commit 落地 → drop;',
+      '                B. git tag backup/stash-<slug>-<sha7> "stash@{n}" 后 drop(内容永不丢)。',
+      '     跳过(应急):HUSKY_SKIP_STALE_STASH_CHECK=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
   // --- 16c (2026-08-18 新增,staged-typecheck 源/测镜像漂移防御,AGENTS.md §22b 配套) ---
   // blocking:scripts/check-staged-typecheck.mjs 的核心过滤函数
   //   (filterTscOutputForStagedFiles / getOriginalInclude / normalizePath)
