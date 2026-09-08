@@ -152,6 +152,7 @@ export * from './endpoints/files'
 // 商品端点(2026-09-04 立,GET /goods/select 购物车分页,mobile-rn CartScreen 跨端共享)
 export * from './endpoints/goods'
 export * from './endpoints/learn'
+export * from './endpoints/lsp'
 export * from './endpoints/live'
 export * from './endpoints/llm'
 export * from './endpoints/knowledge-rag'
