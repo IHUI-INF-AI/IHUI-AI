@@ -63,6 +63,40 @@
     "totalTokens": "총 토큰",
     "window": "시간 범위"
   },
+  "teamMemory": {
+    "title": "팀 공유 메모리",
+    "description": "스코프 단위로 격리된 팀 공유 지식 레이어: 의사결정, 규약, 함정, 인덱스 지문",
+    "scopeLabel": "스코프 ID",
+    "scopePlaceholder": "teamId 또는 workspaceKey 입력",
+    "searchPlaceholder": "제목과 내용 검색",
+    "searchBtn": "검색",
+    "kindAll": "전체",
+    "kind": {
+      "decision": "의사결정",
+      "convention": "규약",
+      "pitfall": "함정",
+      "fingerprint": "지문"
+    },
+    "listTitle": "메모리 목록",
+    "newBtn": "새로 만들기",
+    "editBtn": "편집",
+    "deleteBtn": "삭제",
+    "deleteConfirm": "이 메모리를 삭제할까요?",
+    "empty": "이 스코프에는 아직 메모리가 없습니다",
+    "loading": "불러오는 중",
+    "saveBtn": "저장",
+    "cancelBtn": "취소",
+    "titleLabel": "제목",
+    "titlePlaceholder": "이 메모리를 한 줄로 요약",
+    "contentLabel": "내용",
+    "contentPlaceholder": "상세: 배경, 결론, 주의사항",
+    "tagsLabel": "태그",
+    "tagsPlaceholder": "쉼표 구분 예: deploy,PG17",
+    "needScope": "먼저 스코프 ID를 입력하세요",
+    "needTitle": "제목은 필수입니다",
+    "needContent": "내용은 필수입니다",
+    "saveFailed": "저장 실패"
+  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "로컬 저장소에서 아키텍처·모듈 문서 자동 생성",
@@ -11731,6 +11765,7 @@
       "typeTerminal": "터미널"
     },
     "codeEditor": {
+      "lspStatus": "LSP",
       "zoomIn": "확대",
       "zoomOut": "축소"
     },
