@@ -18641,6 +18641,14 @@
     "create": "作成",
     "createProjectDesc": "ファイルのプロジェクトを",
     "creating": "...",
+    "convertMarkdownDialog": {
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "copyFailed": "コピーに失敗しました。テキストを選択して手動でコピーしてください",
+      "download": ".md をダウンロード"
+    },
+    "convertMarkdownFailed": "変換に失敗しました",
+    "convertToMarkdown": "Markdown に変換",
     "deleteConfirm": "{name} を削除してもよろしいですか？この操作は元に戻せません。",
     "deleteFile": "ファイルを",
     "description": "プロジェクト",

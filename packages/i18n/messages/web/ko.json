@@ -18630,6 +18630,14 @@
     "create": "생성",
     "createProjectDesc": "파일을 관리할 새 프로젝트 만들기",
     "creating": "생성 중...",
+    "convertMarkdownDialog": {
+      "copy": "복사",
+      "copied": "복사됨",
+      "copyFailed": "복사에 실패했습니다. 텍스트를 선택해 수동으로 복사해 주세요",
+      "download": ".md 다운로드"
+    },
+    "convertMarkdownFailed": "변환 실패",
+    "convertToMarkdown": "Markdown으로 변환",
     "deleteConfirm": "{name}을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.",
     "deleteFile": "파일 삭제",
     "description": "설명",

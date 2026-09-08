@@ -18618,6 +18618,14 @@
     "create": "創建",
     "createProjectDesc": "創建一個新項目來管理文件",
     "creating": "創建中...",
+    "convertMarkdownDialog": {
+      "copy": "複製",
+      "copied": "已複製",
+      "copyFailed": "複製失敗,請手動選取文字複製",
+      "download": "下載 .md"
+    },
+    "convertMarkdownFailed": "轉換失敗",
+    "convertToMarkdown": "轉 Markdown",
     "deleteConfirm": "確定要刪除 {name} 嗎？此操作不可恢復。",
     "deleteFile": "刪除文件",
     "description": "項目描述",
