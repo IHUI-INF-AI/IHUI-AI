@@ -21,6 +21,7 @@
   "dependencies": {
     "@alicloud/dysmsapi20170525": "^4.6.0",
     "@alicloud/openapi-client": "^0.4.15",
+    "@e965/xlsx": "^0.20.3",
     "@fastify/compress": "^9.1.0",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
@@ -33,6 +34,7 @@
     "@fastify/swagger-ui": "^6.1.1",
     "@fastify/under-pressure": "^9.1.0",
     "@fastify/websocket": "^11.3.0",
+    "@firecrawl/anydoc": "0.2.4",
     "@ihui/auth": "workspace:*",
     "@ihui/context-compaction": "workspace:*",
     "@ihui/database": "workspace:*",
@@ -74,7 +76,6 @@
     "sql.js": "^1.14.1",
     "undici": "^8.10.1",
     "unpdf": "^1.8.0",
-    "@e965/xlsx": "^0.20.3",
     "zod": "catalog:"
   },
   "devDependencies": {
