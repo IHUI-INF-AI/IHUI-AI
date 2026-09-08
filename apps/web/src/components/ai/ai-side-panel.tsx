@@ -881,7 +881,7 @@ export function AISidePanel() {
                         type="button"
                         onClick={() => setFloatMinimized(true)}
                         aria-label={tc('minimize')}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
