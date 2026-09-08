@@ -89,6 +89,13 @@ def _step_event(step: dict[str, Any]) -> dict[str, Any]:
             "cost": round(float(step.get("cost") or 0.0), 6),
             "http_summary": str(step.get("http_summary") or ""),
             "result_summary": str(step.get("result_summary") or ""),
+            # 1-1 全可解释(2026-09-08):decision/reason/diff/test/rollback 提升
+            # 进 meta 供前端结构化消费;完整原始 input 仍在 raw(避免聚合响应膨胀)。
+            "decision": str(step.get("decision") or ""),
+            "reason": str(step.get("reason") or ""),
+            "diff": step.get("diff"),
+            "test": step.get("test"),
+            "rollback": step.get("rollback"),
         },
         "ref_id": f"step-{int(step.get('step_index', 0))}",
         "raw": step,
