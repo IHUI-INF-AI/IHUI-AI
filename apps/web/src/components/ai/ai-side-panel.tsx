@@ -158,6 +158,22 @@ export function AISidePanel() {
   const floatMinimized = useAiPanelStore((s) => s.floatMinimized)
   const floatCollapsed = useAiPanelStore((s) => s.floatCollapsed)
   const floatPosition = useAiPanelStore((s) => s.floatPosition)
+  // 浮窗(悬浮态)统一加宽(2026-09-08 用户反馈"浮窗要再宽"):docked 面板宽度不变,
+  // 浮窗固定 360px(2026-09-08 用户选定),不受 docked 拖拽偏好影响
+  const floatWidth = floatMode ? 360 : width
+
+  // 宽度闪变修复(2026-09-08 用户反馈"刷新时先窄过一会又变宽"):
+  // SSR 用 noopStorage 以默认宽度 300 渲染,客户端 zustand persist rehydrate 恢复
+  // 用户拖拽偏好宽度,React 水合时补丁 style 触发宽度跳变;而 transition 会把这次
+  // 跳变渲染成 0.2s 动画,被感知为"慢慢变宽"。首帧挂载前禁用所有宽度过渡,
+  // 让水合宽度瞬时落定,挂载后(setMounted)再恢复过渡动画。
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => setMounted(true), [])
+  const dockedTransition = mounted && !isResizing ? 'width 0.2s cubic-bezier(0.4,0,0.2,1)' : 'none'
+  const floatTransition =
+    mounted && !isResizing
+      ? 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)'
+      : 'none'
   const setFloatMode = useAiPanelStore((s) => s.setFloatMode)
   const setFloatMinimized = useAiPanelStore((s) => s.setFloatMinimized)
   const setFloatCollapsed = useAiPanelStore((s) => s.setFloatCollapsed)
@@ -755,7 +771,7 @@ export function AISidePanel() {
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [floatMode, floatMinimized, floatPosition, width, setFloatPosition, setResizing],
+    [floatMode, floatMinimized, floatPosition, floatWidth, setFloatPosition, setResizing],
   )
 
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
@@ -825,8 +841,12 @@ export function AISidePanel() {
               isMobileSmall
                 ? undefined
                 : floatPosition.x < 0
-                  ? { width, left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
-                  : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+                  ? {
+                      width: floatWidth,
+                      left: `${defaultFloatAnchor.current.left}px`,
+                      bottom: '16px',
+                    }
+                  : { width: floatWidth, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
             }
           >
             <aside
@@ -852,12 +872,14 @@ export function AISidePanel() {
                 onTriggerClick={() => setFloatCollapsed(false)}
                 floatHeader={
                   <>
-                    {/* 纯图标 + Tooltip(h-8 w-8 + h-3.5 图标,与工具栏 查看历史/权限模式/添加 统一) */}
-                    <Tooltip content={tc('floatMode')}>
+                    {/* 纯图标 + Tooltip(h-8 w-8 + h-3.5 图标,与工具栏 查看历史/权限模式/添加 统一)
+                        2026-09-08 用户反馈:折叠态展开按钮文案应为"展开对话",与 docked 头部的
+                        "进入浮窗模式"按钮(floatMode)区分,故用独立 key expandConversation */}
+                    <Tooltip content={tc('expandConversation')}>
                       <button
                         type="button"
                         onClick={() => setFloatCollapsed(false)}
-                        aria-label={tc('floatMode')}
+                        aria-label={tc('expandConversation')}
                         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         <ChevronUp className="h-3.5 w-3.5" />
@@ -881,7 +903,7 @@ export function AISidePanel() {
                         type="button"
                         onClick={() => setFloatMinimized(true)}
                         aria-label={tc('minimize')}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -983,32 +1005,28 @@ export function AISidePanel() {
                 ? undefined // 手机:无定位 style,全屏由 inset-0 控制
                 : floatPosition.x < 0
                   ? {
-                      width,
+                      width: floatWidth,
                       left: `${defaultFloatAnchor.current.left}px`,
                       bottom: '16px',
                       height: 'min(600px, calc(100vh - 100px))',
-                      transition: isResizing
-                        ? 'none'
-                        : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                      transition: floatTransition,
                     }
                   : {
-                      width,
+                      width: floatWidth,
                       left: `${floatPosition.x}px`,
                       top: `${floatPosition.y}px`,
                       height: 'min(600px, calc(100vh - 100px))',
-                      transition: isResizing
-                        ? 'none'
-                        : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
+                      transition: floatTransition,
                     }
               : workAreaCollapsed
                 ? {
                     flex: '1 1 0%',
                     width: 'auto',
-                    transition: 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    transition: dockedTransition,
                   }
                 : {
                     width,
-                    transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
+                    transition: dockedTransition,
                   }
           }
         >

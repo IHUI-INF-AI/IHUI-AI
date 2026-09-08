@@ -11,6 +11,8 @@ import { useTranslations } from 'next-intl'
 import { Smartphone, MessageSquare, GraduationCap, X } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { useMounted } from '@/hooks/use-mounted'
+import { useAiPanelStore } from '@/stores/ai-panel'
+import { useChatStore } from '@/stores/chat'
 
 /**
  * 第 1 页:打字机欢迎语 + 3 CTA + 小程序二维码弹窗
@@ -185,9 +187,15 @@ function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void 
 export function TypewriterHeroSection() {
   const t = useTranslations('marketing')
   const router = useRouter()
+  const openPanel = useAiPanelStore((s) => s.openPanel)
   const [modalOpen, setModalOpen] = React.useState(false)
 
-  const handleOpenChat = () => router.push('/ask')
+  // 2026-09-08 改:不再跳转 /ask(问答社区),改为拉起 AI 侧边面板 + 预填「你是什么模型？」
+  // 并自动发送(draftInput + draftAutoSend 由 MessageInput 消费),直接发起对话
+  const handleOpenChat = () => {
+    useChatStore.setState({ draftInput: '你是什么模型？', draftAutoSend: true })
+    openPanel()
+  }
   const handleLearnMore = () => router.push('/learn')
 
   return (
