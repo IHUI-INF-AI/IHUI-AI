@@ -106,6 +106,10 @@ class FreeProvider:
     # 余额查询端点路径(支持 openrouter/deepseek/siliconcloud 等;空表示该 provider 无余额端点,降级用推理请求 ping)
     # 完整 URL 或相对路径(若相对路径,自动拼接到 default_base_url)
     balance_endpoint: str = ""
+    # 模型目录端点免鉴权(如 token6688 /v1/skills/models):无 key 也能同步模型清单。
+    # 与 zero_cost 的区别:zero_cost=调用免费且跳过同步;keyless_model_list=仅目录免鉴权,
+    # model_sync 对这类 provider 允许空 key 拉取清单(调用仍需 key)。
+    keyless_model_list: bool = False
 
 
 # ============================================================================
@@ -803,14 +807,17 @@ _REGISTRY: list[FreeProvider] = [
         default_models=["t6688/gemini-3.8-flash", "t6688/deepseek-v4-flash", "t6688/gpt-5.4"],
         protocol="openai_chat",
         docs_url="https://k.token6688.com/zh-CN/api-docs",
+        # 2026-09-08 实测:/v1/skills/models(112 模型)与 /v1/logical-models(123 条含
+        # param_schema/单价/健康分)均免鉴权 → 无 key 也能同步模型目录
+        keyless_model_list=True,
         notes=(
             "OpenAI 兼容聚合网关(TokenGo 系),单 key 全模态(2026-09-08 按官方 /v1/skills/guide "
             "v2026-07-11 校准):chat 43 模型 /v1/chat/completions;图片 /v1/images/generations 同步"
             "(200 必查 body.error)或 /api/v1/model-runtime/invoke 真异步;视频 /v1/videos/generations"
             "扁平形状 → GET /v1/tasks/{id} 轮询 output_url(视频 p90 55~75 分钟);TTS /v1/audio/speech"
             "官方同构;音乐 /v1/audio/generations(Suno);文件 /v1/files;余额 /v1/skills/balance;"
-            "模型目录 /v1/skills/models 免鉴权(112 模型)。平台前缀 t6688/,LLM_PROVIDERS JSON 配 "
-            "token6688 条目即可"
+            "模型目录 /v1/skills/models 与 /v1/logical-models 均免鉴权(实测 200,无 key 可同步)。"
+            "平台前缀 t6688/,LLM_PROVIDERS JSON 配 token6688 条目即可"
         ),
     ),
 
