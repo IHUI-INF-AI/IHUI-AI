@@ -1802,7 +1802,7 @@
   },
   "capabilityMarket": {
     "title": "能力市場",
-    "subtitle": "瀏覽平台自研 MCP 能力,一鍵啟用對外暴露,擴展 Agent 工具集",
+    "subtitle": "瀏覽平臺自研 MCP 能力,一鍵啟用對外暴露,擴展 Agent 工具集",
     "count": "共 {count} 項能力",
     "searchPlaceholder": "搜尋能力名稱或描述",
     "allCategories": "全部分類",
