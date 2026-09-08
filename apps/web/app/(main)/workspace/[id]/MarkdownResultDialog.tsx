@@ -36,13 +36,37 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
 
   const handleCopy = async () => {
     if (!result) return
+    // 双通道复制:async Clipboard API 优先;失败(窗口非聚焦/权限受限 webview/旧浏览器)
+    // 降级 execCommand('copy') 临时 textarea,最大化复制成功率。
+    const legacyCopy = (): boolean => {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = result.markdown
+        ta.style.position = 'fixed'
+        ta.style.opacity = '0'
+        document.body.appendChild(ta)
+        ta.focus()
+        ta.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(ta)
+        return ok
+      } catch {
+        return false
+      }
+    }
     try {
       await navigator.clipboard.writeText(result.markdown)
       setCopied(true)
       setCopyFailed(false)
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      setCopyFailed(true)
+      if (legacyCopy()) {
+        setCopied(true)
+        setCopyFailed(false)
+        setTimeout(() => setCopied(false), 2000)
+      } else {
+        setCopyFailed(true)
+      }
     }
   }
 
