@@ -4,13 +4,13 @@
 
 import './global.css'
 import { useEffect } from 'react'
-import { AppRegistry, Platform, Text, TextInput, View } from 'react-native'
+import { Platform, Text, TextInput, View } from 'react-native'
 import { useFonts } from 'expo-font'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native'
 import { StatusBar } from 'expo-status-bar'
 import { AuthProvider } from './src/context/AuthContext'
-import { ThemeProvider, useTheme } from './src/context/ThemeContext'
+import { useTheme } from './src/context/ThemeContext'
 import { I18nProvider } from './src/i18n'
 import { NetworkProvider, useNetwork } from './src/context/NetworkContext'
 import { OfflineBanner } from './src/components/OfflineBanner'
@@ -116,7 +116,7 @@ function AppContent() {
   }
 
   return (
-    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1 }}>
+    <View className={resolvedTheme === 'dark' ? 'dark' : ''} style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
       <SafeAreaProvider>
         <I18nProvider>
           <AuthProvider>
@@ -140,31 +140,61 @@ function AppContent() {
 }
 
 export default function App() {
-  // 加载阿里妈妈方圆体(对齐 uniapp);未加载完返回 null 避免字体闪烁
+  // 加载阿里妈妈方圆体(对齐 uniapp)。Web 端 expo-av useFonts 在字体 URL 404/CORS/解析失败时
+  // 会永远停留在未加载状态,导致整棵树 return null → 灰屏(2026-09-05 修复):
+  // Web 端浏览器有系统字体兜底,字体加载失败不阻塞渲染;原生端保持原逻辑。
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const fontAsset = require('./assets/fonts/AlimamaFangYuanTiVF-Thin.ttf')
-  // eslint-enable @typescript-eslint/no-require-imports
-  const [fontsLoaded] = useFonts({
+  const [fontsLoaded, fontError] = useFonts({
     'AlimamaFangYuanTiVF-Thin': fontAsset,
   })
-  if (!fontsLoaded) return null
+  if (!fontsLoaded && !(Platform.OS === 'web' && fontError)) return null
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <AppContent />
   )
 }
 
-// 显式注册 main 组件（Expo CLI 的 .expo/.virtual-metro-entry 虚拟入口在当前
-// pnpm isolated monorepo 环境下未正确注入 registerRootComponent 调用，
-// 导致 RN 运行时报 "main" has not been registered。这里手动注册兜底。）
-AppRegistry.registerComponent('main', () => App)
-
-// Web 平台需要显式调用 runApplication 挂载到 DOM（原生平台由原生代码自动调用，
-// index.js 注释已说明；web 平台无原生代码，react-native-web 不会自动 runApplication）。
-if (Platform.OS === 'web') {
-  AppRegistry.runApplication('main', {
-    rootTag: document.getElementById('root'),
-  })
+// -----------------------------------------------------------------------------
+// Web 挂载兜底(2026-09-05 黑屏根因修复)
+//
+// 根因:metro.config.cjs 将 server.unstable_serverRoot 改回 apps/mobile-rn
+// (原生端相对入口解析需要)。Expo 的 rewriteRequestUrl 会把虚拟入口请求
+// /.expo/.virtual-metro-entry.bundle?platform=web... 归一化为 /App.tsx.bundle
+// ——与 expo/web 模板 <script> 里的业务 bundle URL 完全相同。浏览器对同 URL 的
+// defer 脚本去重,只执行"直接加载 App.tsx"的那份 bundle;而 virtual entry 中负责
+// registerComponent('main') + runApplication 的部分从未进入该 bundle → #root 恒空
+// → 黑屏(bundle 本身完整执行、无任何报错,已在浏览器内运行时取证确认)。
+//
+// 上次(同日早期)在此无条件手动挂载曾导致与 virtual entry 双重挂载 → ReactDOM
+// createRoot 冲突 + linking 多实例白屏。因此本兜底必须同时满足:
+//   1. 仅 web 平台;
+//   2. 仅当真实 AppRegistry(runApplication/getAppKeys 齐全的那个实例)尚未注册
+//      'main' 时才注册并挂载 —— virtual entry 若存在则先于本模块完成注册,此处自动跳过。
+// -----------------------------------------------------------------------------
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mountNow = (): void => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const RN: any = require('react-native')
+    // web bundle 中 react-native 主入口存在循环依赖,App.tsx 初始化期间同步
+    // require('react-native') 拿到的是半成品(0 keys)。RN 0.86 的 ESM interop 用
+    // Object.defineProperty getter 惰性导出 AppRegistry —— 延迟到当前脚本求值结束
+    // (模块图回填完成后)再取,即可拿到完整命名空间。virtual entry 若已注册 'main'
+    // 则自动跳过,不会双重挂载。
+    // 注意:require('react-native') 解析到半成品空壳时,RN.AppRegistry / RN.default
+    // 均为 undefined,必须回退直接 require react-native-web(dist 入口即真 AppRegistry
+    // 所在实例,Metro 按路径缓存,与 bundle 内其余模块同一实例)。
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const AR: any = RN?.AppRegistry ?? RN?.default?.AppRegistry ?? require('react-native-web').AppRegistry
+    if (!AR || typeof AR.runApplication !== 'function' || typeof AR.getAppKeys !== 'function') {
+      return
+    }
+    if (AR.getAppKeys().includes('main')) return
+    AR.registerComponent('main', () => App)
+    AR.runApplication('main', {
+      rootTag: document.getElementById('root') ?? document.body,
+    })
+  }
+  setTimeout(mountNow, 0)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

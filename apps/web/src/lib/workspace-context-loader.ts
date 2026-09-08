@@ -190,6 +190,9 @@ export async function loadWorkspaceContext(
   const tree: string[] = []
 
   // 1. 优先读取关键文件(根目录)
+  // 2026-09-07 残留缺陷修复:超 50KB 的优先文件此前被静默丢弃(continue),
+  // 与目录树遍历的"截断保留前 50KB"策略不一致——大 README.md/AGENTS.md 直接读不到。
+  // 现统一为截断读取,超限内容尾部追加 FILE_TRUNCATED_SUFFIX 让 LLM 知晓。
   for (const fileName of PRIORITY_FILES) {
     if (totalSize >= MAX_TOTAL_SIZE) {
       truncated = true
@@ -198,10 +201,12 @@ export async function loadWorkspaceContext(
     try {
       const fileHandle = await handle.getFileHandle(fileName)
       const file = await fileHandle.getFile()
-      if (file.size > MAX_FILE_SIZE) continue
-      const content = await file.text()
-      files.push({ path: fileName, content, size: file.size })
-      totalSize += file.size
+      const isOversize = file.size > MAX_FILE_SIZE
+      const content = isOversize
+        ? (await file.slice(0, MAX_FILE_SIZE).text()) + FILE_TRUNCATED_SUFFIX
+        : await file.text()
+      files.push({ path: fileName, content, size: Math.min(file.size, MAX_FILE_SIZE) })
+      totalSize += Math.min(file.size, MAX_FILE_SIZE)
     } catch {
       // 文件不存在,跳过
     }
@@ -241,7 +246,9 @@ export async function loadWorkspaceContext(
         ? (await file.slice(0, MAX_FILE_SIZE).text()) + FILE_TRUNCATED_SUFFIX
         : await file.text()
       files.push({ path: entryPath, content, size: Math.min(file.size, MAX_FILE_SIZE) })
-      totalSize += file.size
+      // 2026-09-07 对齐:totalSize 累加截断后大小(此前累加原始 file.size,
+      // 单文件超 50KB 时预算虚高,加速触发 2MB 总截断 → 读取不全)
+      totalSize += Math.min(file.size, MAX_FILE_SIZE)
     } catch {
       // 读取失败,跳过
     }

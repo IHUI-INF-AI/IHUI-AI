@@ -238,7 +238,7 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
   // 触发场景覆盖:
   // 1. 首次 measure + 两次 setTimeout(100ms/500ms):兜底 Suspense lazy-loaded 搜索按钮挂载
   // 2. ResizeObserver:内层 flex 容器尺寸变化触发(如 TagsView 标签数量变化)
-  // 3. matchMedia(1024px):移动端↔桌面端切换触发(mobileMenu 可见性变化,ResizeObserver 不监听 display:none)
+  // 3. matchMedia(768px):移动端↔桌面端切换触发(mobileMenu 可见性变化,ResizeObserver 不监听 display:none)
   // 4. window resize:视口宽度变化触发(保险)
   React.useEffect(() => {
     const inner = topbarInnerRef.current
@@ -256,7 +256,9 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
     const t2 = setTimeout(measure, 500)
     const ro = new ResizeObserver(measure)
     ro.observe(inner)
-    const mql = window.matchMedia('(min-width: 1024px)')
+    // 2026-09-07 阈值 1024→768:mobileMenu 汉堡按钮 min-[768px]:hidden,
+    // 测量重算触发点需与按钮可见性切换点一致(<768px 才有 46px 偏移)
+    const mql = window.matchMedia('(min-width: 768px)')
     mql.addEventListener('change', measure)
     return () => {
       clearTimeout(t1)

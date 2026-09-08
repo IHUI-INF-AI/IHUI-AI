@@ -357,13 +357,15 @@ export default function AccountsPage() {
                       onRefreshed={() => void reload()}
                     />
                   </div>
+                  {/* 卡片操作按钮统一 size="xs"(h-7=28px,2026-09-07 立档):
+                      禁止再用 size="sm" + className="h-7/h-9" 逐个覆盖高度,
+                      高度档位统一由 @ihui/ui-react Button size token 管理 */}
                   <div className="flex flex-wrap gap-1">
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="outline"
                       onClick={() => verify(a.id)}
                       disabled={isVerifying}
-                      className="h-7 text-xs"
                     >
                       {isVerifying ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
@@ -374,31 +376,21 @@ export default function AccountsPage() {
                     </Button>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openScanLogin(a.platform)}
-                          className="h-7 text-xs"
-                        >
+                        <Button size="xs" variant="ghost" onClick={() => openScanLogin(a.platform)}>
                           <QrCode className="h-3 w-3" />
                           {t('accounts.scan')}
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent>{t('accounts.scanLoginHint')}</TooltipContent>
                     </Tooltip>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEdit(a)}
-                      className="h-7 text-xs"
-                    >
+                    <Button size="xs" variant="ghost" onClick={() => openEdit(a)}>
                       <Pencil className="h-3 w-3" />
                       {t('accounts.edit')}
                     </Button>
                     <Button
-                      size="sm"
+                      size="xs"
                       variant="ghost"
-                      className="h-9 text-xs text-destructive hover:text-destructive"
+                      className="text-destructive hover:text-destructive"
                       onClick={() => {
                         setDeleteTarget(a)
                         setDeleteOpen(true)

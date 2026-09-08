@@ -95,21 +95,24 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    // 对齐 Uniapp 14rpx(≈7px)卡片间距
-    gap: 7,
-    marginBottom: 10,
+    // 对齐 Uniapp user_cards:行间距 14rpx(=7px)/列间距 54rpx(=27px,由卡宽 50vw-47rpx 推导)
+    columnGap: 27,
+    rowGap: 7,
+    marginBottom: 7, // 对齐 .card_items margin: 0 0 14rpx 0
   },
   card: {
-    width: '48%',
-    // 对齐 Uniapp 120rpx(≈60px)卡片高度
+    // 对齐 Uniapp card_items width: calc(50vw - 47rpx) ≈ 46%(375 基准)
+    width: '46%',
+    // 对齐 Uniapp 120rpx(=60px)卡片高度
     height: 60,
     flexDirection: 'row',
     alignItems: 'center',
-    // 对齐 Uniapp padding: 0 10rpx 0 12rpx
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    // 对齐 Uniapp 15rpx(≈7.5px→8px)卡片圆角
-    borderRadius: 12,
+    // 对齐 Uniapp padding: 0 10rpx 0 12rpx(上 0/右 5px/下 0/左 6px)
+    paddingVertical: 0,
+    paddingLeft: 6,
+    paddingRight: 5,
+    // 对齐 Uniapp 15rpx(=7.5px→8px)卡片圆角
+    borderRadius: 8,
     backgroundColor: tokens.surface.light,
     shadowColor: tokens.gray.black,
     shadowOffset: { width: 2, height: 2 },
