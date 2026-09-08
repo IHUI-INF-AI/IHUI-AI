@@ -28,6 +28,7 @@ import {
   Loader2,
   Search,
   Timer,
+  Undo2,
   XCircle,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
@@ -41,6 +42,16 @@ import type {
 } from '@/api/agent-recorder-api'
 
 const PAGE_SIZE = 50
+
+// 1-1 全可解释:原始入参安全序列化(string 直返,序列化失败降级 String)
+function safeJsonStringify(value: unknown): string {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2) ?? String(value)
+  } catch {
+    return String(value)
+  }
+}
 
 export default function AgentStepRecorderPage() {
   const t = useTranslations('agentStepRecorder')
@@ -60,45 +71,48 @@ export default function AgentStepRecorderPage() {
   const [expanded, setExpanded] = React.useState<number | null>(null)
   const [page, setPage] = React.useState(1)
 
-  const loadRun = React.useCallback(async (rid: string, targetPage = 1) => {
-    if (!rid.trim()) return
-    setLoading(true)
-    setError('')
-    setNeedLogin(false)
-    const id = rid.trim()
+  const loadRun = React.useCallback(
+    async (rid: string, targetPage = 1) => {
+      if (!rid.trim()) return
+      setLoading(true)
+      setError('')
+      setNeedLogin(false)
+      const id = rid.trim()
 
-    const mRes = await fetchApi<RunMetricsResult>(
-      `/api/agent-recorder/runs/${encodeURIComponent(id)}/metrics`,
-    )
-    const sRes = await fetchApi<RunStepsResult>(
-      `/api/agent-recorder/runs/${encodeURIComponent(id)}/steps?page=${targetPage}&page_size=${PAGE_SIZE}`,
-    )
-    const rpRes = await fetchApi<RunReplayResult>(
-      `/api/agent-recorder/runs/${encodeURIComponent(id)}/replay`,
-    )
-    setLoading(false)
+      const mRes = await fetchApi<RunMetricsResult>(
+        `/api/agent-recorder/runs/${encodeURIComponent(id)}/metrics`,
+      )
+      const sRes = await fetchApi<RunStepsResult>(
+        `/api/agent-recorder/runs/${encodeURIComponent(id)}/steps?page=${targetPage}&page_size=${PAGE_SIZE}`,
+      )
+      const rpRes = await fetchApi<RunReplayResult>(
+        `/api/agent-recorder/runs/${encodeURIComponent(id)}/replay`,
+      )
+      setLoading(false)
 
-    const handleFailure = (res: { success: false; error: string; status?: number }) => {
-      if (res.status === 401) {
-        setNeedLogin(true)
-        setError('')
-      } else {
-        setError((res as { message?: string }).message || t('loadFailed'))
+      const handleFailure = (res: { success: false; error: string; status?: number }) => {
+        if (res.status === 401) {
+          setNeedLogin(true)
+          setError('')
+        } else {
+          setError((res as { message?: string }).message || t('loadFailed'))
+        }
+        setMetrics(null)
+        setSteps(null)
+        setReplay(null)
       }
-      setMetrics(null)
-      setSteps(null)
-      setReplay(null)
-    }
 
-    if (!mRes.success) return handleFailure(mRes)
-    if (!sRes.success) return handleFailure(sRes)
-    if (!rpRes.success) return handleFailure(rpRes)
-    setMetrics(mRes.data)
-    setSteps(sRes.data)
-    setReplay(rpRes.data)
-    setPage(targetPage)
-    setExpanded(null)
-  }, [])
+      if (!mRes.success) return handleFailure(mRes)
+      if (!sRes.success) return handleFailure(sRes)
+      if (!rpRes.success) return handleFailure(rpRes)
+      setMetrics(mRes.data)
+      setSteps(sRes.data)
+      setReplay(rpRes.data)
+      setPage(targetPage)
+      setExpanded(null)
+    },
+    [t],
+  )
 
   // 时间线数据:优先 steps 分页列表;分页为空但全量回放有数据时以回放弥补
   const timeline: RunStep[] =
@@ -120,9 +134,7 @@ export default function AgentStepRecorderPage() {
         <Activity className="h-5 w-5 text-primary" />
         <h1 className="text-2xl font-bold">{t('title')}</h1>
       </div>
-      <p className="mb-4 text-sm text-muted-foreground">
-        {t('subtitle')}
-      </p>
+      <p className="mb-4 text-sm text-muted-foreground">{t('subtitle')}</p>
 
       <div className="mb-6 flex items-center gap-2">
         <input
@@ -203,7 +215,9 @@ export default function AgentStepRecorderPage() {
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" /> run_id:
             <code className="rounded bg-muted px-1">{metrics.run_id}</code>
-            <span className="ml-auto">{steps ? t('stepCountSuffix', { count: steps.total }) : ''}</span>
+            <span className="ml-auto">
+              {steps ? t('stepCountSuffix', { count: steps.total }) : ''}
+            </span>
           </div>
 
           {/* step 时间线 */}
@@ -240,6 +254,18 @@ export default function AgentStepRecorderPage() {
                           <code className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs">
                             {step.tool_name}
                           </code>
+                        )}
+                        {/* 1-1:决策徽章(非普通执行时高亮:拦截/拒绝/重试/免审批) */}
+                        {step.decision && step.decision !== 'execute_tool' && (
+                          <span
+                            className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                              step.status === 'error'
+                                ? 'bg-amber-500/10 text-amber-600'
+                                : 'bg-violet-500/10 text-violet-600'
+                            }`}
+                          >
+                            {step.decision}
+                          </span>
                         )}
                         <span
                           className={`shrink-0 inline-flex items-center gap-1 text-xs font-medium ${
@@ -286,6 +312,107 @@ export default function AgentStepRecorderPage() {
 
                     {expanded === step.step_index && (
                       <div className="mt-1 space-y-2 rounded-lg border-x border-b bg-muted/20 p-3">
+                        {/* 1-1 全可解释:决策(为何执行/拦截/重试) */}
+                        {step.decision && (
+                          <div>
+                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                              {t('decision')}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <code className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                                {step.decision}
+                              </code>
+                              {step.reason && (
+                                <span className="text-xs text-muted-foreground">{step.reason}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {/* 1-1:原始入参(未截断,与摘要互补) */}
+                        {step.input !== null && step.input !== undefined && (
+                          <div>
+                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                              {t('inputRaw')}
+                            </p>
+                            <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-2 text-xs">
+                              {safeJsonStringify(step.input)}
+                            </pre>
+                          </div>
+                        )}
+                        {/* 1-1:diff 证据(before/after 对照) */}
+                        {step.diff && (
+                          <div>
+                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                              {t('diffEvidence')} · <code>{step.diff.path}</code>
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              <div className="rounded-md bg-destructive/5 p-2">
+                                <p className="mb-1 text-xs font-medium text-destructive/80">
+                                  {t('diffBefore')}
+                                </p>
+                                <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs">
+                                  {step.diff.before || '(empty)'}
+                                </pre>
+                              </div>
+                              <div className="rounded-md bg-emerald-500/5 p-2">
+                                <p className="mb-1 text-xs font-medium text-emerald-700">
+                                  {t('diffAfter')}
+                                </p>
+                                <pre className="max-h-40 overflow-auto whitespace-pre-wrap text-xs">
+                                  {step.diff.after || '(empty)'}
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        {/* 1-1:测试结果证据 */}
+                        {step.test && (
+                          <div>
+                            <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                              {t('testEvidence')}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                {step.test.command}
+                              </code>
+                              {step.test.exit_code !== null && (
+                                <span
+                                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                    step.test.exit_code === 0
+                                      ? 'bg-emerald-500/10 text-emerald-600'
+                                      : 'bg-destructive/10 text-destructive'
+                                  }`}
+                                >
+                                  exit {step.test.exit_code}
+                                </span>
+                              )}
+                              {step.test.passed !== null && (
+                                <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                                  {t('testPassed', { count: step.test.passed })}
+                                </span>
+                              )}
+                              {step.test.failed !== null && step.test.failed > 0 && (
+                                <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                                  {t('testFailed', { count: step.test.failed })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {/* 1-1:回滚证据(checkpoint 引用) */}
+                        {step.rollback && step.rollback.available && (
+                          <div className="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/5 p-2">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                              <Undo2 className="h-3.5 w-3.5" /> {t('rollbackEvidence')}
+                            </span>
+                            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                              {step.rollback.checkpoint_id}
+                            </code>
+                            <span className="text-xs text-muted-foreground">
+                              {step.rollback.path}
+                            </span>
+                          </div>
+                        )}
                         {step.input_summary && (
                           <div>
                             <p className="mb-1 text-xs font-semibold text-muted-foreground">
