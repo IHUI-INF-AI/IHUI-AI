@@ -79,6 +79,25 @@ const checks = [
     mode: 'blocking',
   },
   {
+    // --- 2e-dupns (2026-09-08 新增,i18n 重复命名空间/重复键守门,blocking) ---
+    // 背景:JSON 标准对重复键静默 last-wins,写入侧"追加块而非编辑既有块"会静默遮蔽正确翻译。
+    // 已发生两次同款事故:web messages 追加了重复 repoWiki 块(en=zh-TW 值遮蔽英文;ja/ko/zh-CN/zh-TW 尾部重复块)。
+    // JSON.parse/reviver 无法检测(Walk 阶段已去重),必须字符级扫描。
+    id: '2e-dupns',
+    label: '🧬 i18n 重复命名空间/重复键(blocking,防 JSON last-wins 静默遮蔽)',
+    script: 'check-i18n-duplicate-namespaces.mjs',
+    args: [],
+    mode: 'blocking',
+    onFailHint: [
+      '',
+      '  💡 检测到 messages JSON 存在重复命名空间/重复键(last-wins 遮蔽风险):',
+      '     1. node scripts/check-i18n-duplicate-namespaces.mjs  (定位文件与行号)',
+      '     2. 保留正确版本块,删除重复块(通常是写入侧误追加的尾部块)',
+      '     3. 重新 commit;禁止以"追加新块"方式修改既有命名空间',
+      '',
+    ].join('\n'),
+  },
+  {
     id: '2f-web',
     label: '🌐 i18n AI 翻译流水线(blocking)',
     script: 'i18n-diff.mjs',
