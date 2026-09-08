@@ -44,7 +44,7 @@ export interface UseMessageSendResult {
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  submit: () => Promise<void>
+  submit: (overrideValue?: string) => Promise<void>
   /** 流式期间输入的预备消息(流式结束后自动发送) */
   pendingMessage: { text: string; refs: ReferenceItem[] } | null
   /** 清空预备消息(流式期「取消」悬浮条时调用,把文本退回主输入框编辑) */
@@ -213,90 +213,95 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     [onSend, draftKey, resetReferences, setValue, inputCoreRef, track],
   )
 
-  const submit = React.useCallback(async () => {
-    const text = value.trim()
-    if (!text) return
-    // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
-    // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
-    // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
-    // - medium → 普通 toast 警告(不阻断,只提醒)
-    if (isHighRisk) {
-      const detection = detectDangerousCommands(text)
-      if (detection.hasDangerous) {
-        // 找出最严重的 critical/high 命中的 pattern + reason 展示
-        const top = detection.matches.find(
-          (m) => m.severity === 'critical' || m.severity === 'high',
-        )
-        if (top) {
-          const patternLabel = t(
-            DANGEROUS_PATTERN_KEY[top.pattern] ?? 'permission.dangerousPattern.unknown',
+  /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
+   * 导致的闭包旧值问题(.setValue 后同帧调用 submit 仍读到旧 value) */
+  const submit = React.useCallback(
+    async (overrideValue?: string) => {
+      const text = (overrideValue ?? value).trim()
+      if (!text) return
+      // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
+      // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
+      // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
+      // - medium → 普通 toast 警告(不阻断,只提醒)
+      if (isHighRisk) {
+        const detection = detectDangerousCommands(text)
+        if (detection.hasDangerous) {
+          // 找出最严重的 critical/high 命中的 pattern + reason 展示
+          const top = detection.matches.find(
+            (m) => m.severity === 'critical' || m.severity === 'high',
           )
-          toast(t('permission.dangerousCommandTitle'), {
-            description: t('permission.dangerousCommandDesc', {
-              pattern: patternLabel,
-              reason: top.reason,
-            }),
-            duration: 10_000,
-            action: {
-              label: t('permission.dangerousCommandProceed'),
-              onClick: () => {
-                void submit()
+          if (top) {
+            const patternLabel = t(
+              DANGEROUS_PATTERN_KEY[top.pattern] ?? 'permission.dangerousPattern.unknown',
+            )
+            toast(t('permission.dangerousCommandTitle'), {
+              description: t('permission.dangerousCommandDesc', {
+                pattern: patternLabel,
+                reason: top.reason,
+              }),
+              duration: 10_000,
+              action: {
+                label: t('permission.dangerousCommandProceed'),
+                onClick: () => {
+                  void submit()
+                },
               },
-            },
-            cancel: {
-              label: t('permission.dangerousCommandCancel'),
-              onClick: () => {
-                // 仅关闭 toast,保留输入内容
+              cancel: {
+                label: t('permission.dangerousCommandCancel'),
+                onClick: () => {
+                  // 仅关闭 toast,保留输入内容
+                },
               },
-            },
+            })
+            return
+          }
+        }
+        // 仅 medium → 警告但不阻断
+        if (detection.matches.length > 0) {
+          const medium = detection.matches[0]!
+          const patternLabel = t(
+            DANGEROUS_PATTERN_KEY[medium.pattern] ?? 'permission.dangerousPattern.unknown',
+          )
+          toast.warning(t('permission.dangerousCommandWarningOnly', { pattern: patternLabel }), {
+            duration: 5_000,
           })
-          return
         }
       }
-      // 仅 medium → 警告但不阻断
-      if (detection.matches.length > 0) {
-        const medium = detection.matches[0]!
-        const patternLabel = t(
-          DANGEROUS_PATTERN_KEY[medium.pattern] ?? 'permission.dangerousPattern.unknown',
-        )
-        toast.warning(t('permission.dangerousCommandWarningOnly', { pattern: patternLabel }), {
-          duration: 5_000,
-        })
+      if (isStreaming) {
+        // 流式期间:保存为预备消息(悬浮显示在输入框上方,流式结束后自动发送)
+        setPendingMessage({ text, refs: references.map((r) => ({ ...r })) })
+        setValue('')
+        resetReferences()
+        if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
+        requestAnimationFrame(() => inputCoreRef.current?.resize())
+        return
       }
-    }
-    if (isStreaming) {
-      // 流式期间:保存为预备消息(悬浮显示在输入框上方,流式结束后自动发送)
-      setPendingMessage({ text, refs: references.map((r) => ({ ...r })) })
+      // 非流式:直接发送
+      // 先乐观清空输入框,让用户感觉"已发出"(doSend 返回后还会再清空一次,幂等)
       setValue('')
       resetReferences()
       if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
       requestAnimationFrame(() => inputCoreRef.current?.resize())
-      return
-    }
-    // 非流式:直接发送
-    // 先乐观清空输入框,让用户感觉"已发出"(doSend 返回后还会再清空一次,幂等)
-    setValue('')
-    resetReferences()
-    if (typeof window !== 'undefined') localStorage.removeItem(draftKey)
-    requestAnimationFrame(() => inputCoreRef.current?.resize())
-    const ok = await doSend(text, references)
-    if (!ok) {
-      // 发送失败恢复输入内容
-      setValue(text)
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
-    }
-  }, [
-    value,
-    isStreaming,
-    isHighRisk,
-    t,
-    doSend,
-    references,
-    setValue,
-    resetReferences,
-    draftKey,
-    inputCoreRef,
-  ])
+      const ok = await doSend(text, references)
+      if (!ok) {
+        // 发送失败恢复输入内容
+        setValue(text)
+        requestAnimationFrame(() => inputCoreRef.current?.resize())
+      }
+    },
+    [
+      value,
+      isStreaming,
+      isHighRisk,
+      t,
+      doSend,
+      references,
+      setValue,
+      resetReferences,
+      draftKey,
+      inputCoreRef,
+    ],
+  )
 
   const sendPendingMessage = React.useCallback(async () => {
     if (!pendingMessage) return

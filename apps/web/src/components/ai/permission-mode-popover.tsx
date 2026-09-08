@@ -473,7 +473,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
   const hasWorkspace = !!activeWorkspace
 
   return (
-    <div>
+    <div className="flex min-w-0">
       <Tooltip content={currentTitle}>
         <button
           ref={triggerRef}
@@ -489,7 +489,7 @@ export function PermissionModePopover({ disabled }: { disabled?: boolean }) {
           // 无显式 focus-visible:ring,但 globals.css 规则对未来扩展可主动失效 ring)。
           data-state={isOpen ? 'open' : 'closed'}
           className={cn(
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none whitespace-nowrap',
+            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
             'duration-150 ease-out',
             currentMode === 'bypass-permissions'
               ? cn(
