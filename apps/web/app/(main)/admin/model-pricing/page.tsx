@@ -8,6 +8,7 @@
 'use client'
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, BadgeCheck, Boxes, Coins, Layers, Loader2 } from 'lucide-react'
@@ -55,7 +56,10 @@ export default function ModelPricingPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
       <div className="flex items-center gap-2">
-        <Link href="/admin/ai-cost" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link
+          href="/admin/ai-cost"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
           <ArrowLeft className="h-4 w-4" /> {t('backToCost')}
         </Link>
       </div>
@@ -98,7 +102,9 @@ export default function ModelPricingPage() {
                   <Boxes className="h-3.5 w-3.5" /> {t('providerCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-xl font-bold">{data.coverage.provider_count}</CardContent>
+              <CardContent className="text-xl font-bold">
+                {data.coverage.provider_count}
+              </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-1">
@@ -106,7 +112,9 @@ export default function ModelPricingPage() {
                   <BadgeCheck className="h-3.5 w-3.5" /> {t('overrideCount')}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="text-xl font-bold">{data.coverage.override_count}</CardContent>
+              <CardContent className="text-xl font-bold">
+                {data.coverage.override_count}
+              </CardContent>
             </Card>
           </div>
 
