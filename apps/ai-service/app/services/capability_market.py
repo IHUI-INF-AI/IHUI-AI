@@ -37,6 +37,7 @@ _NETWORK_TOOLS: frozenset[str] = frozenset(
         "screenshot_url",
         "image_generation",
         "video_generation",
+        "music_generation",
         "review_pr",
     }
 )
@@ -92,6 +93,8 @@ _CATEGORY_RULES: list[tuple[str, str]] = [
     ("fetch_url", "web"),
     ("image_generation", "media"),
     ("video_generation", "media"),
+    ("music_generation", "media"),
+    ("voice_tts", "media"),
     ("vision_analyze", "media"),
     ("screenshot_url", "media"),
     ("generate_chart", "media"),
