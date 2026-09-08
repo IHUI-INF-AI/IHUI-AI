@@ -822,6 +822,16 @@ async def list_models(request: Request) -> dict[str, Any]:
             elif provider_code == "stepfun" and not mid.startswith("stepfun/"):
                 # StepFun 模型加 "stepfun/" 前缀(与 default_models.json 对齐,避免重复)
                 mid = f"stepfun/{mid}"
+            elif provider_code == "token6688":
+                # 2026-09-08 立:token6688 模型加 "t6688/" 前缀(调用时 gateway 按前缀路由,
+                # 否则裸 ID 会误路由到 OpenAI 默认分支);且只放行 chat 模型——
+                # 同步入库的 112 模型含 69 个 video/image/audio(tags 带 modality),
+                # 它们走 MCP 图片/视频/TTS 工具,不能作为对话模型列出
+                row_tags = {str(t).lower() for t in (r["tags"] or [])}
+                if "chat" not in row_tags and not mid.startswith("t6688/"):
+                    continue
+                if not mid.startswith("t6688/"):
+                    mid = f"t6688/{mid}"
             # 以规范化后的 mid 作为去重键(seen 在遍历 DB 行时持续累加,保证全局唯一,
             # 修复 DB 内部重复,如 stepfun 18 条=9 个唯一 id)
             if mid not in seen:
