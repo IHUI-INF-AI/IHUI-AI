@@ -255,7 +255,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.success.light,
     },
     appliedText: { fontSize: 10, color: tk.brand.DEFAULT },
-    modalMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+    modalMask: { flex: 1, backgroundColor: tk.overlay.modal, justifyContent: 'flex-end' },
     modalCard: {
       backgroundColor: tk.surface.light,
       borderTopLeftRadius: 16,

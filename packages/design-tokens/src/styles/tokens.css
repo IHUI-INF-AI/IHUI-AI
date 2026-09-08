@@ -149,6 +149,10 @@
   --color-wechat-green: #4cd964;
   --color-chat-bubble-user: #95ec69;
   --color-brand-orange: #ff6b35;
+  /* 品牌橙渐变(2026-09-07 立,复刻旧App渐变主按钮形态,仅作CTA/头部"局部渐变点缀",
+   * 主按钮仍用纯色 --color-brand-orange。dark 覆盖见 .dark 块) */
+  --color-brand-orange-grad-from: #ffb27d;
+  --color-brand-orange-grad-to: #ff6b35;
   --color-brand: #000000;
   --color-notification-bg: #fff8e1;
   --color-notification-text: #7c5e1e;
@@ -447,6 +451,9 @@ select:-webkit-autofill:focus {
   --color-chat-bubble-user: #4cd964;
   --color-brand-orange: #ff8e53;
   --color-brand: #ffffff;
+  /* 品牌橙渐变暗色覆盖(与上方 @theme 亮色值成对,柔和橙) */
+  --color-brand-orange-grad-from: #ff9a5b;
+  --color-brand-orange-grad-to: #ff8e53;
   --color-notification-bg: rgba(245, 158, 11, 0.15);
   --color-notification-text: hsl(38 85% 70%);
   /* 暗色自适应:金/浅金/浅绿标签提亮(深色背景可读) */
