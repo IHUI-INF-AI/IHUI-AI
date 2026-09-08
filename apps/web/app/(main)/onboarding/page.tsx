@@ -24,7 +24,11 @@ import {
 
 import { cn } from '@/lib/utils'
 
-const STEPS: Array<{ key: string; href: string; icon: typeof Wrench }> = [
+const STEPS: Array<{
+  key: 'step1' | 'step2' | 'step3' | 'step4' | 'step5'
+  href: string
+  icon: typeof Wrench
+}> = [
   { key: 'step1', href: '/settings', icon: Wrench },
   { key: 'step2', href: '/', icon: MessageSquare },
   { key: 'step3', href: '/agent-workbench', icon: ArrowRight },
@@ -33,14 +37,14 @@ const STEPS: Array<{ key: string; href: string; icon: typeof Wrench }> = [
 ]
 
 // 静态 key 映射(i18n 死键扫描要求字面量;动态模板 key 会逃过守门)
-const STEP_TITLE_KEY: Record<string, string> = {
+const STEP_TITLE_KEY: Record<'step1' | 'step2' | 'step3' | 'step4' | 'step5', string> = {
   step1: 'step1Title',
   step2: 'step2Title',
   step3: 'step3Title',
   step4: 'step4Title',
   step5: 'step5Title',
 }
-const STEP_DESC_KEY: Record<string, string> = {
+const STEP_DESC_KEY: Record<'step1' | 'step2' | 'step3' | 'step4' | 'step5', string> = {
   step1: 'step1Desc',
   step2: 'step2Desc',
   step3: 'step3Desc',
@@ -110,7 +114,12 @@ export default function OnboardingPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <Icon className="h-4 w-4 text-primary" />
-                    <span className={cn('text-sm font-semibold', isDone && 'text-muted-foreground line-through')}>
+                    <span
+                      className={cn(
+                        'text-sm font-semibold',
+                        isDone && 'text-muted-foreground line-through',
+                      )}
+                    >
                       {t(STEP_TITLE_KEY[key])}
                     </span>
                   </div>
@@ -133,18 +142,22 @@ export default function OnboardingPage() {
         <span className="text-sm font-semibold">{t('mcpTitle')}</span>
         <span className="text-sm text-muted-foreground">{t('mcpDesc')}</span>
         <span className="ml-auto inline-flex items-center gap-2 text-sm">
-          <Link href="/mcp-store" className="rounded-lg border px-3 py-1.5 transition hover:bg-muted">
+          <Link
+            href="/mcp-store"
+            className="rounded-lg border px-3 py-1.5 transition hover:bg-muted"
+          >
             {t('mcpStore')}
           </Link>
-          <Link href="/capability-market" className="rounded-lg border px-3 py-1.5 transition hover:bg-muted">
+          <Link
+            href="/capability-market"
+            className="rounded-lg border px-3 py-1.5 transition hover:bg-muted"
+          >
             {t('capabilityMarket')}
           </Link>
         </span>
       </div>
 
-      <p className="mt-6 text-xs text-muted-foreground">
-        {t('deployNote')}
-      </p>
+      <p className="mt-6 text-xs text-muted-foreground">{t('deployNote')}</p>
     </div>
   )
 }

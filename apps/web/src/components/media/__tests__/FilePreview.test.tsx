@@ -11,29 +11,33 @@ vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => React.createElement('img', { src, alt }),
 }))
 
+vi.mock('@/lib/api', () => ({
+  fetchText: vi.fn(),
+}))
+
 import { FilePreview } from '../FilePreview'
+import { fetchText } from '@/lib/api'
 
 describe('TextPreview AbortController 竞态修复', () => {
-  const originalFetch = global.fetch
+  const fetchMock = vi.fn((_url: string, options?: { signal?: AbortSignal | null }) => {
+    void options
+    return new Promise<string>(() => {})
+  })
 
   beforeEach(() => {
-    global.fetch = vi
-      .fn()
-      .mockImplementation(() => new Promise(() => {})) as unknown as typeof fetch
+    fetchMock.mockClear()
+    vi.mocked(fetchText).mockImplementation(fetchMock)
   })
 
   afterEach(() => {
-    global.fetch = originalFetch
     vi.restoreAllMocks()
   })
 
   it('url 变化时取消之前的请求(调用 abort)', () => {
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
-
     const { rerender } = render(<FilePreview url="https://example.com/a.txt" type="text" />)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const firstSignal = fetchMock.mock.calls[0]![1].signal as AbortSignal
+    const firstSignal = fetchMock.mock.calls[0]![1]?.signal as AbortSignal
     expect(firstSignal.aborted).toBe(false)
 
     rerender(<FilePreview url="https://example.com/b.txt" type="text" />)
@@ -43,12 +47,10 @@ describe('TextPreview AbortController 竞态修复', () => {
   })
 
   it('卸载时取消请求(调用 abort)', () => {
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>
-
     const { unmount } = render(<FilePreview url="https://example.com/a.txt" type="text" />)
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    const signal = fetchMock.mock.calls[0]![1].signal as AbortSignal
+    const signal = fetchMock.mock.calls[0]![1]?.signal as AbortSignal
     expect(signal.aborted).toBe(false)
 
     unmount()

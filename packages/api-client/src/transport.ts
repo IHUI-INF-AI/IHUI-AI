@@ -26,8 +26,16 @@ export interface TransportResponse {
 /** 传输初始化参数 — RequestInit 的跨平台子集 */
 export interface TransportInit {
   method?: string
+  body?:
+    | ReadableStream<Uint8Array>
+    | string
+    | Blob
+    | FormData
+    | URLSearchParams
+    | ArrayBuffer
+    | DataView<ArrayBuffer>
+    | null
   headers?: Record<string, string>
-  body?: string
   signal?: AbortSignal
   /**
    * fetch credentials 模式。
@@ -52,8 +60,10 @@ const defaultTransport: Transport = async (url, init) => {
   // 2026-07-28 加固:web 端 8801 -> 8802 跨端口 fetch 必须 credentials: 'include',
   // 否则 auth_token cookie 不会发送,api 端 csrf 校验失败返回 403
   // (localStorage token 不走 csrf 流程,但 cookie token 是主路径)
+  const { body, ...rest } = init
   const response = await fetch(url, {
-    ...init,
+    ...rest,
+    body: body as RequestInit['body'] | undefined,
     credentials: init.credentials ?? 'include',
   })
   return {
