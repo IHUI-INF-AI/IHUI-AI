@@ -30,7 +30,8 @@ export default function ConfirmDialog({
     <View className="fixed inset-0 z-[1040] flex items-center justify-center" onClick={onCancel}>
       <View className="absolute inset-0 bg-black/40" />
       <View
-        className="relative bg-card rounded-xl mx-8 px-6 py-5 max-w-xs w-full"
+        className="relative bg-card mx-8 px-6 py-5 max-w-xs w-full"
+        style={{ borderRadius: '32rpx' }}
         onClick={(e) => e.stopPropagation()}
       >
         <Text className="block text-base font-medium text-foreground mb-2 text-center">
@@ -45,7 +46,15 @@ export default function ConfirmDialog({
           <View className="flex-1 py-2.5 rounded-md bg-muted text-center" onClick={onCancel}>
             <Text className="text-sm text-foreground">{cancelText}</Text>
           </View>
-          <View className="flex-1 py-2.5 rounded-md bg-primary text-center" onClick={onConfirm}>
+          {/* 确认=品牌橙渐变点缀(2026-09-07 复刻旧App隐私弹窗"同意"主按钮形态;纯色主按钮走 bg-primary) */}
+          <View
+            className="flex-1 py-2.5 rounded-md text-center"
+            style={{
+              background:
+                'linear-gradient(135deg, var(--color-brand-orange-grad-from) 0%, var(--color-brand-orange-grad-to) 100%)',
+            }}
+            onClick={onConfirm}
+          >
             <Text className="text-sm text-white">{confirmText}</Text>
           </View>
         </View>

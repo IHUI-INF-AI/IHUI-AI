@@ -383,7 +383,7 @@ export default function MessageIndex() {
             filtered.map((room) => (
               <View
                 key={(room.id || room.name) as string}
-                className="bg-card rounded-[12rpx] p-[24rpx] mb-[16rpx]"
+                className="bg-card rounded-[12rpx] p-[24rpx] mb-[24rpx]"
               >
                 <View className="flex-1 min-w-0">
                   <View className="flex items-center">
