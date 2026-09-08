@@ -315,6 +315,7 @@ import { legacyLangchainRoutes } from './legacy-langchain.js'
 import { rewardedVideoAdRoutes } from './rewarded-video-ad.js'
 import { agentRuntimeRoutes } from './agent-runtime.js'
 import { repoWikiRoutes } from './repo-wiki.js'
+import { teamMemoryRoutes } from './team-memory.js'
 import automationsRoutes from './automations.js'
 
 // R81 补建：D 盘 coze_zhs_py 代理类路由
@@ -1160,6 +1161,9 @@ export function registerRoutes(server: FastifyInstance) {
 
   // Repo Wiki:代码仓库→架构/模块知识库(对标 Qoder Repo Wiki,2026-09-07 立)
   server.register(repoWikiRoutes, { prefix: '/api/repo-wiki' })
+
+  // 团队共享记忆:跨用户共享的项目知识层(对标 Qoder 团队知识引擎 / Cursor 团队索引,2026-09-08 立)
+  server.register(teamMemoryRoutes, { prefix: '/api/team-memory' })
 
   // 用户侧 Agent 定时自动化(对标 WorkBuddy automations,2026-09-07 立)
   server.register(automationsRoutes, { prefix: '/api/automations' })
