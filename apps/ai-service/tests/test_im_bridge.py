@@ -603,7 +603,7 @@ async def test_init_redis_success(monkeypatch):
     fake = _FakeRedis()
     from_url_calls = []
 
-    def fake_from_url(url, decode_responses=None, protocol=None):
+    def fake_from_url(url, decode_responses=None, protocol=None, socket_connect_timeout=None):
         from_url_calls.append((url, decode_responses, protocol))
         return fake
 
@@ -629,7 +629,7 @@ async def test_init_redis_ping_failure_raises(monkeypatch):
 
     fake = _FakeRedis()
 
-    def fake_from_url(url, decode_responses=None, protocol=None):
+    def fake_from_url(url, decode_responses=None, protocol=None, socket_connect_timeout=None):
         return fake
 
     async def fake_ping():
