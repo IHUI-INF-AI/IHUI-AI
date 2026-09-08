@@ -21,6 +21,7 @@ import {
   Minimize2,
   Search,
   ShieldAlert,
+  Undo2,
   Wrench,
   XCircle,
 } from 'lucide-react'
@@ -38,6 +39,38 @@ interface TimelineEvent {
   status: string
   meta: Record<string, unknown>
   ref_id: string
+}
+
+/** 1-1 全可解释:step meta 内的证据结构(后端 _step_event 提升) */
+interface StepEvidenceDiff {
+  path: string
+  before: string
+  after: string
+}
+
+interface StepEvidenceTest {
+  command: string
+  exit_code: number | null
+  passed: number | null
+  failed: number | null
+}
+
+interface StepEvidenceRollback {
+  checkpoint_id: string
+  path: string
+  available: boolean
+}
+
+/** meta 字符串读取(非字符串/缺失返回空串) */
+function getMetaStr(meta: Record<string, unknown>, key: string): string {
+  const v = meta[key]
+  return typeof v === 'string' ? v : ''
+}
+
+/** meta 数值读取(非数值/缺失返回 0) */
+function getMetaNum(meta: Record<string, unknown>, key: string): number {
+  const v = meta[key]
+  return typeof v === 'number' ? v : 0
 }
 
 interface TimelineData {
@@ -258,7 +291,139 @@ export default function AgentTimelinePage() {
                       )}
                     </button>
                     {isOpen && (
-                      <div className="mt-1 rounded-lg bg-muted/20 p-3">
+                      <div className="mt-1 space-y-2 rounded-lg bg-muted/20 p-3">
+                        {ev.kind === 'step' ? (
+                          <>
+                            {/* 1-1 全可解释:step 事件结构化展示决策/证据 */}
+                            {getMetaStr(ev.meta, 'decision') && (
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold text-muted-foreground">
+                                  {t('decision')}
+                                </span>
+                                <code className="rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                                  {getMetaStr(ev.meta, 'decision')}
+                                </code>
+                                {getMetaStr(ev.meta, 'reason') && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {getMetaStr(ev.meta, 'reason')}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {getMetaStr(ev.meta, 'decision') !== 'execute_tool' &&
+                              !getMetaStr(ev.meta, 'decision') && (
+                                <span className="text-xs text-muted-foreground" />
+                              )}
+                            {(() => {
+                              const diff = ev.meta.diff as StepEvidenceDiff | undefined
+                              if (!diff || typeof diff !== 'object' || !diff.path) return null
+                              return (
+                                <div>
+                                  <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                                    {t('diffEvidence')} · <code>{diff.path}</code>
+                                  </p>
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    <div className="rounded-md bg-destructive/5 p-2">
+                                      <p className="mb-1 text-xs font-medium text-destructive/80">
+                                        {t('diffBefore')}
+                                      </p>
+                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
+                                        {diff.before || '(empty)'}
+                                      </pre>
+                                    </div>
+                                    <div className="rounded-md bg-emerald-500/5 p-2">
+                                      <p className="mb-1 text-xs font-medium text-emerald-700">
+                                        {t('diffAfter')}
+                                      </p>
+                                      <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs">
+                                        {diff.after || '(empty)'}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                            {(() => {
+                              const test = ev.meta.test as StepEvidenceTest | undefined
+                              if (!test || typeof test !== 'object' || !test.command) return null
+                              return (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs font-semibold text-muted-foreground">
+                                    {t('testEvidence')}
+                                  </span>
+                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                    {test.command}
+                                  </code>
+                                  {test.exit_code !== null && (
+                                    <span
+                                      className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                                        test.exit_code === 0
+                                          ? 'bg-emerald-500/10 text-emerald-600'
+                                          : 'bg-destructive/10 text-destructive'
+                                      }`}
+                                    >
+                                      exit {test.exit_code}
+                                    </span>
+                                  )}
+                                  {test.passed !== null && (
+                                    <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-600">
+                                      {t('testPassed', { count: test.passed })}
+                                    </span>
+                                  )}
+                                  {test.failed !== null && test.failed > 0 && (
+                                    <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive">
+                                      {t('testFailed', { count: test.failed })}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })()}
+                            {(() => {
+                              const rb = ev.meta.rollback as StepEvidenceRollback | undefined
+                              if (!rb || typeof rb !== 'object' || !rb.available) return null
+                              return (
+                                <div className="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/5 p-2">
+                                  <Undo2 className="h-3.5 w-3.5 text-emerald-700" />
+                                  <span className="text-xs font-medium text-emerald-700">
+                                    {t('rollbackEvidence')}
+                                  </span>
+                                  <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                    {rb.checkpoint_id}
+                                  </code>
+                                  <span className="text-xs text-muted-foreground">{rb.path}</span>
+                                </div>
+                              )
+                            })()}
+                            {(() => {
+                              const cost = getMetaNum(ev.meta, 'cost')
+                              const tokens = getMetaNum(ev.meta, 'tokens')
+                              const dur = getMetaNum(ev.meta, 'duration_ms')
+                              if (!cost && !tokens && !dur) return null
+                              return (
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                  {dur > 0 && (
+                                    <span>
+                                      {t('duration')}{' '}
+                                      {dur >= 1000
+                                        ? `${(dur / 1000).toFixed(2)}s`
+                                        : `${Math.round(dur)}ms`}
+                                    </span>
+                                  )}
+                                  {tokens > 0 && (
+                                    <span>
+                                      {t('tokens')} {tokens}
+                                    </span>
+                                  )}
+                                  {cost > 0 && (
+                                    <span>
+                                      {t('costEach')} {fmtCost(cost)}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })()}
+                          </>
+                        ) : null}
                         <p className="mb-1 text-xs font-semibold text-muted-foreground">
                           {t('detail')}
                         </p>
