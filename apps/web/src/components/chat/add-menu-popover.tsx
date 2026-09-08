@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { FileText, Plus, Sparkles, Package, Telescope } from 'lucide-react'
+import { FileText, Plus, Scissors, Sparkles, Loader2, Package, Telescope } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -19,7 +19,7 @@ import type { PromptTemplate } from '@/hooks/use-slash-action'
  * "添加"下拉菜单 Popover(2026-07-25 终极整合,2026-07-30 提取自 message-input.tsx)
  *
  * 收纳 6 类动作,内部按 mode 切换 content:
- * - menu:6 项主菜单(模板 / 引用 / Skill 库 / 附件 / 插件 / 深度研究)
+ * - menu:6 项主菜单(模板 / 引用 / Skill 库 / 附件 / 插件 / 压缩上下文)
  * - prompt:PromptTemplates 弹层
  * - skill:SkillLibrary 弹层
  *
@@ -56,6 +56,13 @@ export function AddMenuPopover(props: {
   onOpenPluginMarket: () => void
   /** "深度研究"回调(2026-09-07 工作线 B:主组件负责关闭 + 重置 mode + 跳转 /deep-research) */
   onOpenDeepResearch: () => void
+  /** "压缩上下文"回调(2026-09-06 整合:剪刀按钮收纳进本菜单;主组件负责 POST /api/chat/compact)。
+   *  返回 Promise 时菜单会等待其完成再关闭,以便请求期间在菜单内展示 loading 态。 */
+  onCompactContext?: () => void | Promise<unknown>
+  /** 压缩请求进行中(菜单项显示 loading 且禁用) */
+  compacting?: boolean
+  /** 无会话 ID 时禁用压缩入口 */
+  compactDisabled?: boolean
 }): React.JSX.Element {
   const t = useTranslations('chat')
   const tA11y = useTranslations('a11y')
@@ -76,6 +83,9 @@ export function AddMenuPopover(props: {
     onAddTextReference,
     onOpenPluginMarket,
     onOpenDeepResearch,
+    onCompactContext,
+    compacting = false,
+    compactDisabled = false,
   } = props
 
   const triggerRef = React.useRef<HTMLButtonElement | null>(null)
@@ -340,6 +350,39 @@ export function AddMenuPopover(props: {
                   <Telescope className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1 truncate">{t('deepResearchEntry')}</span>
                 </button>
+                {/* 压缩上下文(2026-09-06 整合):原工具栏独立剪刀按钮收纳进本菜单,
+                    请求中显示 Loader2 且禁用;无会话(conversationId 为空)时禁用 */}
+                {onCompactContext && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    data-testid="compact-context-button"
+                    aria-label={
+                      compacting ? t('compaction.compacting') : t('compaction.compactButton')
+                    }
+                    disabled={isStreaming || compacting || compactDisabled}
+                    onClick={async () => {
+                      // 请求期间保持菜单打开以展示 loading 态,完成后再关闭
+                      await onCompactContext()
+                      onOpenChange(false)
+                      onModeChange('menu')
+                    }}
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition-colors',
+                      'text-popover-foreground hover:bg-accent hover:text-accent-foreground',
+                      'disabled:cursor-not-allowed disabled:opacity-50',
+                    )}
+                  >
+                    {compacting ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                    ) : (
+                      <Scissors className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {compacting ? t('compaction.compacting') : t('compaction.compactButton')}
+                    </span>
+                  </button>
+                )}
               </div>
             )}
           </div>,
