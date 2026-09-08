@@ -1907,15 +1907,25 @@ export function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup) */}
-      <Modal
-        visible={shareValueVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={hideSharePoints}
-      >
-        <Pressable style={shellStyles.modalMask} onPress={hideSharePoints}>
-          <Pressable style={shellStyles.shareContent} onPress={(e) => e.stopPropagation()}>
+      {/* 分享领智汇值弹窗(对齐 Uniapp ai_index share-points-popup)
+       *  2026-09-08 恢复 stash@{8} 丢失的 v3 修复(commit 549b500955 收编重构时遗漏):
+       *  - RN <Modal> 在 RN Web 以 position:fixed 独立层渲染,内部 flex:1 依赖原生 measure
+       *    常拿 0 高度 → 卡片不显示只剩遮罩;改用普通 View + absolute 遮罩直接铺满父容器
+       *  - Pressable absoluteFill 承载点击遮罩关闭,与卡片兄弟共存,避免嵌套 Pressable
+       *    干扰内部按钮命中;卡片自身 stopPropagation */}
+      {shareValueVisible && (
+        <View style={shellStyles.shareMask} pointerEvents="box-none">
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={hideSharePoints}
+            accessibilityRole="button"
+            accessibilityLabel="点击关闭"
+          />
+          <Pressable
+            style={shellStyles.shareContent}
+            onPress={(e) => e.stopPropagation()}
+            pointerEvents="box-none"
+          >
             <Pressable hitSlop={8} onPress={hideSharePoints} style={shellStyles.shareClose}>
               <Text style={shellStyles.shareCloseText}>×</Text>
             </Pressable>
@@ -1934,8 +1944,8 @@ export function HomeScreen() {
               <Text style={shellStyles.shareBtnText}>稍后再说</Text>
             </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
+        </View>
+      )}
       {/* 底部导航(对齐原 customTabBar 5 主 Tab) */}
       <TabBar activeTab="home" onChange={handleTabChange} />
     </View>
@@ -2253,8 +2263,19 @@ const shellStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
+  shareMask: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: tokens.overlay.modal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as const,
   shareContent: {
     width: '84%',
+    maxWidth: 380,
     borderRadius: 12,
     backgroundColor: tokens.surface.light,
     paddingHorizontal: rpx(40),
