@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+        <!-- 2026-09-07 状态栏/导航栏色带统一修复:adjustMarginsForEdgeToEdge 下 WebView 下移后,
+             顶部状态栏与底部导航栏区域由原生窗口背景渲染。此处将状态栏+导航栏背景统一对齐
+             页面最顶层工作区(shell-panel)色 #0B0C0E,消除顶部/底部与界面不一致的色带。
+             windowLightStatusBar/NavigationBar 用 DayNight 自动适配深色图标。 -->
+        <item name="android:statusBarColor">@color/windowBackgroundDark</item>
+        <item name="android:navigationBarColor">@color/windowBackgroundDark</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/windowBackgroundDark</item>
+    </style>
+
+
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="android:background">@drawable/splash</item>
+    </style>
+</resources>
