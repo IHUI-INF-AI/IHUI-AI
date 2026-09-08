@@ -10,7 +10,7 @@
 import * as React from 'react'
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { X, Minus, Pin, ChevronUp, SquareTerminal } from 'lucide-react'
+import { X, Minus, PictureInPicture2, ChevronUp, SquareTerminal } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 import { useChat } from '@/hooks/use-chat'
@@ -1126,7 +1126,7 @@ export function AISidePanel() {
                     aria-label={tc('floatMode')}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    <Pin className="h-4 w-4" />
+                    <PictureInPicture2 className="h-4 w-4" />
                   </button>
                 </Tooltip>
               )}
