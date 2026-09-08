@@ -693,6 +693,45 @@ async def test_astream_passes_stream_kwarg(monkeypatch):
 # =============================================================================
 
 
+def test_resolve_provider_token6688_default_base(monkeypatch):
+    """t6688/* 无 api_base → 默认 https://k.token6688.com/v1(带 /v1)。
+
+    2026-09-08 假 key 实测:LiteLLM openai/ 直连要求 api_base 以 /v1 结尾,
+    否则请求 {base}/chat/completions 落到网站首页 HTML("Empty or invalid response")。
+    """
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"token6688": {"api_key": "sk-t6688-test"}}))
+    gw = LLMGateway()
+    api_key, api_base, litellm_model = gw._resolve_provider("t6688/gemini-3.8-flash")
+    assert api_key == "sk-t6688-test"
+    assert api_base == "https://k.token6688.com/v1"
+    assert litellm_model == "openai/gemini-3.8-flash"
+
+
+def test_resolve_provider_token6688_misconfigured_base_autofix(monkeypatch):
+    """t6688/* 误配无 /v1 的 api_base → 自动补齐(防呆)。"""
+    from app.core.config import settings
+    monkeypatch.setattr(
+        settings, "llm_providers",
+        json.dumps({"token6688": {"api_key": "sk-t6688-test", "api_base": "https://k.token6688.com"}}),
+    )
+    gw = LLMGateway()
+    api_key, api_base, _ = gw._resolve_provider("t6688/gpt-5.4")
+    assert api_base == "https://k.token6688.com/v1"
+
+
+def test_resolve_provider_token6688_trailing_slash_v1(monkeypatch):
+    """t6688/* api_base 已带 /v1(含尾斜杠)→ 原样保留不重复拼接。"""
+    from app.core.config import settings
+    monkeypatch.setattr(
+        settings, "llm_providers",
+        json.dumps({"token6688": {"api_key": "sk-t6688-test", "api_base": "https://k.token6688.com/v1/"}}),
+    )
+    gw = LLMGateway()
+    api_key, api_base, _ = gw._resolve_provider("t6688/gpt-5.4")
+    assert api_base == "https://k.token6688.com/v1"
+
+
 def test_resolve_provider_stepfun(monkeypatch):
     """stepfun/* → (stepfun_api_key, stepfun_api_base, openai/<real_model>)。"""
     from app.core.config import settings
