@@ -84,8 +84,20 @@ export function validateFileName(name: string): string | null {
   return null
 }
 
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/\/+$/, '')
+export function normalizePath(p: string): string {
+  const base = p.replace(/\\/g, '/').replace(/\/+$/, '')
+  // 解析 . / .. 段:防止 'G:/repo/../outside' 这类路径绕过 isPathInWorkspace 越界防护。
+  // 保留空段与 '..' 溢出(如 '/..' 停在根),不改变绝对路径语义。
+  const out: string[] = []
+  for (const seg of base.split('/')) {
+    if (seg === '.') continue
+    if (seg === '..' && out.length > 0 && out[out.length - 1] !== '..') {
+      out.pop()
+      continue
+    }
+    out.push(seg)
+  }
+  return out.join('/')
 }
 /** 校验目标路径必须在 workspace 子树内(防 rm -rf 越界删除)。 */
 export function isPathInWorkspace(target: string, workspace: string): boolean {
