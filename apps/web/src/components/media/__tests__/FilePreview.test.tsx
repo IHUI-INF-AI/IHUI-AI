@@ -11,14 +11,10 @@ vi.mock('next/image', () => ({
   default: ({ src, alt }: { src: string; alt: string }) => React.createElement('img', { src, alt }),
 }))
 
-vi.mock('@/lib/api', () => ({
-  fetchText: vi.fn(),
-}))
-
 import { FilePreview } from '../FilePreview'
-import { fetchText } from '@/lib/api'
 
 describe('TextPreview AbortController 竞态修复', () => {
+  // 生产实现走原生 fetch(url, { signal }),直接 stub 全局 fetch 验证 abort 行为
   const fetchMock = vi.fn((_url: string, options?: { signal?: AbortSignal | null }) => {
     void options
     return new Promise<string>(() => {})
@@ -26,10 +22,11 @@ describe('TextPreview AbortController 竞态修复', () => {
 
   beforeEach(() => {
     fetchMock.mockClear()
-    vi.mocked(fetchText).mockImplementation(fetchMock)
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
