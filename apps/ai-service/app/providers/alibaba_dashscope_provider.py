@@ -11,7 +11,10 @@ model 前缀: qwen-* (qwen-plus / qwen-turbo / qwen-max / qwen-long)
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
+import time
 from typing import Any, AsyncIterator
 
 import httpx
@@ -19,6 +22,9 @@ import httpx
 from .base_provider import ProviderError
 from .openai_provider import OpenAIProvider
 from ..core.llm_gateway import get_http_client
+
+_DASHSCOPE_API_BASE = "https://dashscope.aliyuncs.com"
+_WAN_DEFAULT_MODEL = "wan2.1-t2v-turbo"
 
 
 class AlibabaDashscopeProvider(OpenAIProvider):
@@ -104,4 +110,70 @@ class AlibabaDashscopeProvider(OpenAIProvider):
             yield {"type": "error", "message": f"DashScope 流式网络异常: {e}"}
         except ProviderError as e:
             yield {"type": "error", "message": str(e)}
+
+    # ------------------------------------------------------------------
+    # 视频生成(通义万相 Wan text2video,DashScope 原生异步任务)
+    # ------------------------------------------------------------------
+    @property
+    def configured(self) -> bool:
+        return bool(os.environ.get("DASHSCOPE_API_KEY") or self.api_key)
+
+    async def generate_video(
+        self,
+        prompt: str,
+        model: str,
+        *,
+        duration: int = 5,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        key = os.environ.get("DASHSCOPE_API_KEY") or self.api_key
+        if not key:
+            raise ProviderError("通义万相未配置:DASHSCOPE_API_KEY 缺失", 503)
+        used = (model or "").removeprefix("wan-") or os.environ.get(
+            "WAN_VIDEO_MODEL", _WAN_DEFAULT_MODEL
+        )
+        api_base = _DASHSCOPE_API_BASE
+        size = kwargs.get("size") or "1280*720"
+        body: dict[str, Any] = {
+            "model": used,
+            "input": {"prompt": prompt},
+            "parameters": {"size": size, "duration": max(3, int(duration))},
+        }
+        submit = await self._request(
+            "POST",
+            f"{api_base}/api/v1/services/aigc/text2video/text-to-video-synthesis",
+            headers={"Authorization": f"Bearer {key}", "X-DashScope-Async": "enable"},
+            json=body,
+        )
+        task_id = (submit.get("output") or {}).get("task_id")
+        if not task_id:
+            raise ProviderError(
+                f"通义万相提交任务缺少 task_id: {str(submit)[:200]}", 502
+            )
+        # 轮询任务至 SUCCEEDED/FAILED(指数间隔封顶 10s)
+        interval = 5.0
+        while True:
+            await asyncio.sleep(interval)
+            interval = min(interval * 1.5, 10.0)
+            data = await self._request(
+                "GET",
+                f"{api_base}/api/v1/tasks/{task_id}",
+                headers={"Authorization": f"Bearer {key}"},
+            )
+            status = str((data.get("output") or {}).get("task_status", "")).upper()
+            if status in ("SUCCEEDED", "SUCCESS", "SUCCEED"):
+                video_url = (data.get("output") or {}).get("video_url", "")
+                if not video_url:
+                    raise ProviderError(
+                        f"通义万相任务 {task_id} 无 video_url: {str(data)[:200]}", 502
+                    )
+                return {
+                    "provider": "wan",
+                    "model": used,
+                    "task_id": task_id,
+                    "video_url": video_url,
+                }
+            if status in ("FAILED", "CANCELED", "CANCELLED"):
+                msg = str((data.get("output") or {}).get("message", data))[:300]
+                raise ProviderError(f"通义万相任务失败(status={status}): {msg}", 502)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

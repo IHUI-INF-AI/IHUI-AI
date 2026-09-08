@@ -3299,18 +3299,25 @@ async def _tool_image_generation_native(
 
 
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
-    """video_generation: 生成视频(2026-09-05 新增,真实异步任务)。
+    """video_generation: 生成视频(统一编排,4 家厂商自动故障转移)。
 
-    支持 kling(快手可灵,JWT + text2video/image2video 任务轮询)与
-    jimeng(字节即梦,Ark Seedance 任务 / 视觉服务 V4 签名任务)。
-    提交任务后轮询至完成(最长 10 分钟),支持 save_path 下载落地(.mp4)。
+    复用 app.services.video_generation.generate_video 统一编排:
+    - kling(快手可灵, JWT text2video/image2video)
+    - jimeng(字节即梦, Ark Seedance)
+    - wan(阿里通义万相, DashScope 文生视频)
+    - hunyuan(腾讯混元, 文生视频需开通)
+
+    按 VIDEO_PROVIDER / 已配置凭据顺序自动挑厂商,首选失败自动降级下一家。
+    返回统一 {provider, model, task_id, video_url, duration}。
+    未配置任何厂商凭据时返回清晰错误(PROVIDER_NOT_CONFIGURED),
+    不误标"已生成"——对话侧据 ok=false 如实告知用户。
     """
     from datetime import datetime, timezone
 
     from ..providers.base_provider import ProviderError
 
     prompt = arguments.get("prompt", "")
-    provider = arguments.get("provider", "kling")
+    provider = arguments.get("provider")  # None=自动;显式=指定厂商
     duration = arguments.get("duration", 5)
     save_path = arguments.get("save_path")
 
@@ -3320,38 +3327,40 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "video_url": None,
         }
-    if provider not in ("kling", "jimeng"):
+    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan"):
         return {
             "tool": "video_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 kling/jimeng)",
+            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan)",
             "errorCode": "INVALID_PROVIDER", "video_url": None,
         }
     if not isinstance(duration, int) or duration <= 0:
         duration = 5
 
-    impl, default_model = _resolve_native_provider(provider)
-    model = arguments.get("model") or default_model
-    kwargs: dict[str, Any] = {
-        k: arguments[k]
-        for k in ("negative_prompt", "image", "aspect_ratio", "mode", "cfg_scale")
-        if k in arguments
-    }
+    from .video_generation import generate_video
+
     try:
-        result = await impl.generate_video(prompt, model, duration=duration, **kwargs)
+        result = await generate_video(
+            prompt,
+            duration=duration,
+            image=arguments.get("image"),
+            provider=provider,
+        )
     except ProviderError as e:
         return {
             "tool": "video_generation", "ok": False, "prompt": prompt,
-            "provider": provider, "video_url": None,
-            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
+            "provider": provider or "auto", "video_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_NOT_CONFIGURED",
         }
     video_url = result.get("video_url", "")
     if not video_url:
         return {
             "tool": "video_generation", "ok": False, "prompt": prompt,
-            "provider": provider, "video_url": None,
+            "provider": result.get("provider") or "auto", "video_url": None,
             "error": "provider 返回缺少 video_url", "errorCode": "EMPTY_RESULT",
         }
 
+    used_provider = result.get("provider") or provider or "auto"
+    used_model = result.get("model", "")
     saved_path: str | None = None
     file_size_bytes: int = 0
     if save_path:
@@ -3361,7 +3370,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not ok_path:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": provider, "video_url": None,
+                "provider": used_provider, "video_url": None,
                 "errorCode": err_code,
                 "message": f"save_path 校验失败: {err_code}",
             }
@@ -3369,7 +3378,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if vid_bytes is None:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": provider, "video_url": None,
+                "provider": used_provider, "video_url": None,
                 "errorCode": "VIDEO_FETCH_FAILED",
                 "message": "视频下载失败",
             }
@@ -3377,21 +3386,20 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not ok_w:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": provider, "video_url": None,
+                "provider": used_provider, "video_url": None,
                 "errorCode": werr,
                 "message": f"视频写入磁盘失败: {werr}",
             }
         saved_path = sp
         file_size_bytes = sz
 
-    used_model = result.get("model", model)
     return {
         "tool": "video_generation", "ok": True, "prompt": prompt,
         "video_url": video_url, "task_id": result.get("task_id"),
-        "provider": provider, "model": used_model, "duration": duration,
+        "provider": used_provider, "model": used_model, "duration": duration,
         "saved_path": saved_path, "file_size_bytes": file_size_bytes,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "message": f"视频已生成(provider={provider}, model={used_model}"
+        "message": f"视频已生成(provider={used_provider}, model={used_model}"
                    + (f", saved={saved_path}" if saved_path else "") + ")",
     }
 
@@ -4847,13 +4855,12 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="video_generation",
         description=(
-            "生成视频,返回视频 URL。2026-09-05 新增,真实异步任务实现:"
-            "kling(快手可灵,JWT HS256 + text2video/image2video 任务轮询)与"
-            "jimeng(字节即梦,方舟 Seedance 任务 / 视觉服务 V4 签名)。"
-            "提交后轮询至完成(最长 10 分钟),支持 image 参数走图生视频、"
-            "save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
-            "需 .env 配置 KLING_ACCESS_KEY+KLING_SECRET_KEY 或 ARK_API_KEY。"
-            "admin 专属工具(外部 API 调用 + 计费)。"
+            "生成视频,返回视频 URL。统一编排 4 家厂商并自动故障转移:"
+            "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
+            "wan(阿里通义万相)、hunyuan(腾讯混元)。提交后轮询至完成(最长 10 分钟),"
+            "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
+            "需 .env 配置 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* 任一厂商凭据;"
+            "未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。外部 API 调用 + 计费。"
         ),
         input_schema={
             "type": "object",
@@ -4861,16 +4868,16 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "视频描述(必填)"},
                 "provider": {
                     "type": "string",
-                    "enum": ["kling", "jimeng"],
-                    "default": "kling",
+                    "enum": ["kling", "jimeng", "wan", "hunyuan"],
+                    "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
                 },
                 "model": {
                     "type": "string",
-                    "description": "可选,模型(如 kling-v1 / jimeng-video_generation / doubao-seedance-1-0-pro)",
+                    "description": "可选,模型(如 kling-v1 / doubao-seedance-1-0-pro / wan2.x)",
                 },
                 "duration": {
                     "type": "integer",
-                    "description": "视频时长秒(默认 5)",
+                    "description": "视频时长秒(默认 5;接口上限通常 10~15s)",
                     "default": 5,
                 },
                 "image": {

@@ -430,6 +430,13 @@ async def lifespan(app: FastAPI) -> Any:
     # 截图服务(Playwright)按需启动,不在 lifespan 启动时初始化(避免 Chromium 占用)
     # 首次截图请求时懒加载,退出时 shutdown() 清理
 
+    # 视频生成后台 worker(消费 video_generation_tasks 出片)。无厂商凭据时静默等待不报错。
+    try:
+        from app.services.video_generation import start_video_worker
+        start_video_worker()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[video] worker 启动失败(忽略): %s", exc)
+
     yield
     # P0 修复(2026-08-02):移除 yield 后的 shutdown_telemetry() 重复调用,
     # 保留末尾(所有 cleanup 之后)的 shutdown_telemetry() 作为最后清理,避免重复 shutdown。
@@ -466,6 +473,12 @@ async def lifespan(app: FastAPI) -> Any:
     # 关闭资讯板块每日自动刷新调度器
     from app.services.news_scheduler import news_scheduler
     await news_scheduler.stop()
+    # 关闭视频生成 worker(取消轮询任务)
+    try:
+        from app.services.video_generation import stop_video_worker
+        await stop_video_worker()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("[video] worker 关闭失败(忽略): %s", exc)
     # 关闭后台任务调度器(等待运行中任务完成)
     try:
         from app.services.scheduler_service import task_scheduler
@@ -631,6 +644,9 @@ def create_app() -> FastAPI:
     app.include_router(agent_runtime.router, prefix="/api", tags=["agent-runtime"])
     app.include_router(voice_stt.router, prefix="/api", tags=["voice"])
     app.include_router(voice_tts.router, prefix="/api", tags=["voice"])
+    # 视频生成(可灵/即梦/通义万相/混元,2026-09-08 补建)
+    from app.routers import video as video_router
+    app.include_router(video_router.router, prefix="/api", tags=["video"])
     # Artifact 图表产物静态文件服务(签名 token 鉴权,2026-09-01 立,对标 Claude Artifacts)
     app.include_router(artifacts.router, prefix="/api", tags=["artifacts"])
     # 自媒体 skill(公众号文章 + 口播稿,2026-07-20 新增)
