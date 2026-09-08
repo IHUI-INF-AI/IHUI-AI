@@ -213,7 +213,7 @@ class LLMBudgetGovernor:
 
             # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
             # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-            self._redis = aioredis.from_url(url, decode_responses=True, protocol=2)
+            self._redis = aioredis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
         except Exception as e:
             logger.debug("Redis 初始化失败,降级为内存模式: %s", e)
             self._redis = None
