@@ -429,37 +429,6 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ dispatches }))
   })
 
-  // ---------- GET /subagents/all ----------
-
-  // 全量派单列表(2026-09-07 立,Teams 管理页 v1 读侧数据源):
-  // active 仅含 pending/running,完成/失败回看需全量;支持 status 过滤 + limit 截断,新→旧。
-  server.get('/subagents/all', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-
-    const query = request.query as { status?: string; limit?: string }
-    const limit = Math.max(1, Math.min(500, Number(query.limit) || 100))
-    let dispatches = subagentDispatchService.listAll()
-    if (query.status) {
-      const allowed: readonly string[] = [
-        'pending',
-        'running',
-        'completed',
-        'failed',
-        'cancelled',
-        'paused',
-      ]
-      if (!allowed.includes(query.status)) {
-        return reply.status(400).send(error(400, `非法 status: ${query.status}`))
-      }
-      dispatches = dispatches.filter((d) => d.status === query.status)
-    }
-    const recent = [...dispatches]
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, limit)
-    return reply.send(success({ dispatches: recent }))
-  })
-
   // ---------- POST /subagents/:id/cancel ----------
 
   server.post('/subagents/:id/cancel', async (request, reply) => {
