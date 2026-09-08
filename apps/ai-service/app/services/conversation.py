@@ -191,6 +191,8 @@ class ConversationService:
             "computer_active_window": ["活动窗口", "active window", "current window"],
             "computer_clipboard_get": ["读取剪贴板", "clipboard get", "paste clipboard"],
             "computer_clipboard_set": ["设置剪贴板", "clipboard set", "copy clipboard"],
+            # 视频生成(2026-09-08):说"做视频"时引导触发统一编排出片
+            "video_generation": ["视频", "video", "出片", "短片", "动画片", "火柴人"],
         }
 
     # =========================================================================
