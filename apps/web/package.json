@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node ../../scripts/deploy-lock.mjs acquire --mode dev",
+    "predev": "node ../../scripts/check-stale-stashes.mjs && node ../../scripts/deploy-lock.mjs acquire --mode dev",
     "postinstall": "node scripts/copy-monaco-to-public.mjs",
     "dev": "node ../../scripts/clean-turbopack-cache.mjs && next dev --turbopack -p 8801",
     "dev:clean": "rimraf .next .dev.lock && node ../../scripts/deploy-lock.mjs acquire --mode dev && next dev --turbopack -p 8801",
