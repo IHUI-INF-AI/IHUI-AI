@@ -63,6 +63,40 @@
     "totalTokens": "Total tokens",
     "window": "Time window"
   },
+  "teamMemory": {
+    "title": "Team Shared Memory",
+    "description": "Cross-user shared knowledge layer isolated by scope: decisions, conventions, pitfalls and index fingerprints",
+    "scopeLabel": "Scope identifier",
+    "scopePlaceholder": "Enter teamId or workspaceKey",
+    "searchPlaceholder": "Search title and content",
+    "searchBtn": "Search",
+    "kindAll": "All",
+    "kind": {
+      "decision": "Decision",
+      "convention": "Convention",
+      "pitfall": "Pitfall",
+      "fingerprint": "Fingerprint"
+    },
+    "listTitle": "Memories",
+    "newBtn": "New",
+    "editBtn": "Edit",
+    "deleteBtn": "Delete",
+    "deleteConfirm": "Delete this memory?",
+    "empty": "No memories in this scope yet",
+    "loading": "Loading",
+    "saveBtn": "Save",
+    "cancelBtn": "Cancel",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Summarize this memory in one line",
+    "contentLabel": "Content",
+    "contentPlaceholder": "Details: context, conclusion, caveats",
+    "tagsLabel": "Tags",
+    "tagsPlaceholder": "Comma separated, e.g. deploy,PG17",
+    "needScope": "Enter a scope identifier first",
+    "needTitle": "Title is required",
+    "needContent": "Content is required",
+    "saveFailed": "Save failed"
+  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "Auto-generate architecture & module docs from your local repo",
@@ -11741,6 +11775,7 @@
       "typeTerminal": "Terminal"
     },
     "codeEditor": {
+      "lspStatus": "LSP",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     },
