@@ -13,7 +13,7 @@
  * 全部走 apps/api 的 db 连接池(读副本自动回退)。仅供 /api/team-memory 路由调用。
  */
 
-import { and, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, desc, eq, like, or } from 'drizzle-orm'
 import { teamMemories, type TeamMemory, type TeamMemoryKind } from '@ihui/database'
 import { db } from '../db/index.js'
 
@@ -69,7 +69,10 @@ export interface UpdateTeamMemoryInput {
 
 /** 存储层:标签数组 → 逗号分隔文本 */
 function tagsToString(tags: string[]): string {
-  return tags.map((t) => t.trim()).filter(Boolean).join(',')
+  return tags
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .join(',')
 }
 
 /** 存储层:逗号分隔文本 → 标签数组 */
@@ -136,15 +139,11 @@ export async function listTeamMemories(filter: ListTeamMemoryFilter): Promise<Te
 
 /** 按 id 获取单条(不存在返回 undefined) */
 export async function getTeamMemory(id: string): Promise<TeamMemoryDTO | undefined> {
-  const [row] = await db
-    .select()
-    .from(teamMemories)
-    .where(eq(teamMemories.id, id))
-    .limit(1)
+  const [row] = await db.select().from(teamMemories).where(eq(teamMemories.id, id)).limit(1)
   return row ? toTeamMemoryDTO(row) : undefined
 }
 
-/** 创建一条记忆(返回创建后的 DTO) */
+/** 创建一条记忆(返回创建后的 DTO;插入失败理论上不可能,兜底抛错) */
 export async function createTeamMemory(input: CreateTeamMemoryInput): Promise<TeamMemoryDTO> {
   const [row] = await db
     .insert(teamMemories)
@@ -157,6 +156,7 @@ export async function createTeamMemory(input: CreateTeamMemoryInput): Promise<Te
       sourceUserId: input.sourceUserId,
     })
     .returning()
+  if (!row) throw new Error('createTeamMemory: insert returned no row')
   return toTeamMemoryDTO(row)
 }
 
