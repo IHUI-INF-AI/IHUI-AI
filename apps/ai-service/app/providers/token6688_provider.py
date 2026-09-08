@@ -419,6 +419,7 @@ class Token6688Provider(OpenAIProvider):
         model: str,
         *,
         duration: int = 5,
+        wait: bool = True,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """视频生成。传 kwargs.image(公网 URL)自动切 first-frame 图生模式。
@@ -429,6 +430,10 @@ class Token6688Provider(OpenAIProvider):
         - 轮询 GET /v1/tasks/{task_id} 直到 is_final=true;产物读 output_url
         - 参考素材必须公网直链(本地文件先 upload_file)
         - client_request_id 幂等:网络超时重试不重复扣费
+
+        wait=True(默认)阻塞轮询至终态(官方 p90 55~75 分钟,仅后台 worker 用);
+        wait=False 提交即返回 {status: "submitted", task_id, poll_url} —— MCP 对话
+        工具用此模式,避免长任务拖垮工具调用(再经 get_task_status 查询)。
         """
         used_model = model or _env("TOKEN6688_VIDEO_MODEL", "seedance-2-5")
         endpoint = _env("TOKEN6688_VIDEO_ENDPOINT", "/v1/videos/generations")
@@ -481,6 +486,16 @@ class Token6688Provider(OpenAIProvider):
         poll_path = _env("TOKEN6688_VIDEO_POLL_PATH", "/v1/tasks/{task_id}")
         poll_url = f"{self._api_base_v1()}{poll_path[len('/v1'):] if poll_path.startswith('/v1') else poll_path}"
         poll_url = poll_url.replace("{task_id}", task_id)
+        if not wait:
+            # 提交即返回:调用方(MCP 工具/worker)稍后用 get_task_status 轮询
+            return {
+                "provider": self.provider_code,
+                "model": used_model,
+                "task_id": task_id,
+                "status": "submitted",
+                "poll_url": poll_url,
+                "duration": duration,
+            }
         result = await self._poll_task(poll_url)
         video_url = result.get("output_url") or self._extract_media_url(result)
         if not video_url:
@@ -524,6 +539,33 @@ class Token6688Provider(OpenAIProvider):
                 )
             await asyncio.sleep(delay)
             delay = min(delay * 1.5, 10.0)
+
+    async def get_task_status(self, task_id: str) -> dict[str, Any]:
+        """查询任务状态(单次,不轮询)—— MCP 对话工具"视频好了吗"查询模式。
+
+        归一化返回 {status, is_final, ok, video_url, progress, raw}:
+        - status: pending/processing/completed/failed(网关英文四值)
+        - ok: 终态且成功;video_url: 成片直链(output_url/result_url 兼容)
+        """
+        data = await self._request(
+            "GET", f"{self._api_base_v1()}/tasks/{task_id}", headers=self._headers(),
+        )
+        state = str(data.get("state") or "").lower()
+        status = str(data.get("status") or data.get("task_status") or state or "").lower()
+        is_final = bool(data.get("is_final")) or state in (_TASK_OK_STATES | _TASK_FAIL_STATES)
+        video_url = data.get("output_url") or data.get("result_url") or self._extract_media_url(data) or ""
+        ok = (is_final and state in _TASK_OK_STATES) or status in _TASK_OK_STATES or bool(video_url)
+        failed = (is_final and state in _TASK_FAIL_STATES) or status in _TASK_FAIL_STATES
+        return {
+            "status": status or ("completed" if ok else ("failed" if failed else "processing")),
+            "is_final": is_final,
+            "ok": ok,
+            "failed": failed,
+            "video_url": video_url,
+            "progress": data.get("progress"),
+            "error": str(data.get("error") or data.get("error_message") or "")[:300] or None,
+            "raw": data,
+        }
 
     @staticmethod
     def _extract_task_id(data: dict[str, Any]) -> str:
