@@ -4,6 +4,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Bot, Wrench, UserCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NODE_TYPE_META, type CanvasNodeType } from '../types'
@@ -24,6 +25,7 @@ interface NodePaletteProps {
 
 /** 左侧任务节点面板:拖拽(dragstart 携带节点类型)或点击添加到画布 */
 export function NodePalette({ onAdd }: NodePaletteProps) {
+  const t = useTranslations('agentCanvas')
   const handleDragStart = (e: React.DragEvent<HTMLDivElement>, type: CanvasNodeType) => {
     e.dataTransfer.setData(CANVAS_DND_MIME, type)
     e.dataTransfer.effectAllowed = 'move'
@@ -32,7 +34,7 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
   return (
     <div className="flex w-52 shrink-0 flex-col border-r bg-card">
       <div className="border-b px-3 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        任务节点
+        {t('paletteTitle')}
       </div>
       <div className="flex flex-col gap-2 p-3">
         {PALETTE_ITEMS.map(({ type, icon: Icon }) => {
@@ -61,15 +63,25 @@ export function NodePalette({ onAdd }: NodePaletteProps) {
                 <div className={cn('flex h-6 w-6 items-center justify-center rounded', meta.badge)}>
                   <Icon className="h-3.5 w-3.5" />
                 </div>
-                <span className="text-sm font-medium">{meta.title}</span>
+                <span className="text-sm font-medium">
+                  {t(type === 'agent' ? 'typeAgent' : type === 'tool' ? 'typeTool' : 'typeReview')}
+                </span>
               </div>
-              <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">{meta.desc}</p>
+              <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+                {t(
+                  type === 'agent'
+                    ? 'typeAgentDesc'
+                    : type === 'tool'
+                      ? 'typeToolDesc'
+                      : 'typeReviewDesc',
+                )}
+              </p>
             </div>
           )
         })}
       </div>
       <p className="mt-auto px-3 pb-3 text-[11px] leading-snug text-muted-foreground/80">
-        拖拽或点击节点加入画布,从底部圆点拉线连接下一个任务。
+        {t('paletteHint')}
       </p>
     </div>
   )

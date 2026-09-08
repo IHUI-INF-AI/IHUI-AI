@@ -102,15 +102,15 @@ export const NODE_TYPE_META: Record<
   },
 }
 
-/** 新建节点的默认参数 */
-export function createDefaultParams(type: CanvasNodeType): CanvasNodeParams {
+/** 新建节点的默认参数(reviewPrompt 由调用方注入 i18n 文案,本模块保持无 UI 依赖) */
+export function createDefaultParams(type: CanvasNodeType, reviewPrompt?: string): CanvasNodeParams {
   switch (type) {
     case 'agent':
       return { skill: 'text-summary', input: '' }
     case 'tool':
       return { tool: 'shell', input: '' }
     case 'human-review':
-      return { prompt: '请人工确认上一步输出是否通过' }
+      return { prompt: reviewPrompt }
   }
 }
 
