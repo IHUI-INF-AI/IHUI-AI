@@ -18651,6 +18651,14 @@
     "create": "Create",
     "createProjectDesc": "Create a new project to manage files",
     "creating": "Creating...",
+    "convertMarkdownDialog": {
+      "copy": "Copy",
+      "copied": "Copied",
+      "copyFailed": "Copy failed, please select and copy the text manually",
+      "download": "Download .md"
+    },
+    "convertMarkdownFailed": "Conversion failed",
+    "convertToMarkdown": "Convert to Markdown",
     "deleteConfirm": "Are you sure you want to delete {name}? This cannot be undone.",
     "deleteFile": "Delete file",
     "description": "Description",
