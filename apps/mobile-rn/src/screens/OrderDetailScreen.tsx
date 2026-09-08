@@ -163,7 +163,8 @@ export function OrderDetailScreen() {
 
   // 再次购买:跳转 VIP 页(无后端接口)
   const handleRebuy = useCallback(() => {
-    navigation.navigate('Vip')
+    // 对齐历史「开通会员」入口(loginPopUp openIntroduce)→ vip_info?type=IntroducePopup
+    navigation.navigate('Vip', { type: 'IntroducePopup' })
   }, [navigation])
 
   const actions = useMemo<ReadonlyArray<BottomActionBarAction>>(() => {
