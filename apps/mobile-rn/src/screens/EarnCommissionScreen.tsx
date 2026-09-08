@@ -28,7 +28,8 @@ export function EarnCommissionScreen() {
   }, [load])
 
   const onOpenVip = (): void => {
-    navigation.navigate('Vip')
+    // 对齐历史「开通会员」入口:loginPopUp/UserInfoCard openIntroduce → vip_info?type=IntroducePopup
+    navigation.navigate('Vip', { type: 'IntroducePopup' })
   }
 
   return (

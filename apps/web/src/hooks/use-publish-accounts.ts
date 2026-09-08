@@ -14,7 +14,7 @@
  */
 
 import * as React from 'react'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, isAbortError } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 
 export type PublishAccountStatus = 'active' | 'disabled' | 'expired'
@@ -64,17 +64,25 @@ export function usePublishAccounts() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [verifyingId, setVerifyingId] = React.useState<number | null>(null)
+  const abortControllerRef = React.useRef<AbortController | null>(null)
 
   const load = React.useCallback(async () => {
+    abortControllerRef.current?.abort()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
     setLoading(true)
     try {
-      const data = await api<ListResponse>('/api/publish/accounts/me')
+      const data = await api<ListResponse>('/api/publish/accounts/me', { signal: controller.signal })
       const list = Array.isArray(data) ? data : (data.items ?? data.list ?? [])
       setAccounts(list)
     } catch (e) {
-      reportError(toast, e)
+      if (!isAbortError(e)) {
+        reportError(toast, e)
+      }
     } finally {
-      setLoading(false)
+      if (abortControllerRef.current === controller) {
+        setLoading(false)
+      }
     }
   }, [toast])
 
@@ -180,6 +188,9 @@ export function usePublishAccounts() {
 
   React.useEffect(() => {
     void load()
+    return () => {
+      abortControllerRef.current?.abort()
+    }
   }, [load])
 
   return {
