@@ -186,7 +186,7 @@ export default function Phone() {
               </Text>
               <View className="flex items-center gap-[16rpx]">
                 <Input
-                  className="flex-1 h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
+                  className="flex-1 h-[99rpx] px-[24rpx] text-[36rpx] bg-background rounded-[25rpx] box-border"
                   type="number"
                   maxlength={6}
                   placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
@@ -249,7 +249,7 @@ export default function Phone() {
                 </Text>
                 <View className="flex items-center gap-[16rpx]">
                   <Input
-                    className="flex-1 h-[80rpx] px-[24rpx] text-[28rpx] bg-background rounded-[12rpx] box-border"
+                    className="flex-1 h-[99rpx] px-[24rpx] text-[36rpx] bg-background rounded-[25rpx] box-border"
                     type="number"
                     maxlength={6}
                     placeholder={tt('user.phone.codePlaceholder', '请输入验证码')}
@@ -266,7 +266,7 @@ export default function Phone() {
               </View>
             </View>
             <View
-              className={`h-[88rpx] flex items-center justify-center bg-primary text-primary-foreground text-[30rpx] rounded-[12rpx] ${/^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting ? '' : 'opacity-50'}`}
+              className={`h-[100rpx] flex items-center justify-center bg-primary text-primary-foreground text-[30rpx] rounded-[30rpx] ${/^1\d{10}$/.test((newPhone || '').trim()) && newCode.trim().length === 6 && !submitting ? '' : 'opacity-50'}`}
               onClick={onSubmit}
             >
               <Text>

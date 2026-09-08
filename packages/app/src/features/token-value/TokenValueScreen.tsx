@@ -287,7 +287,7 @@ function createStyles(tk: AppThemeTokens) {
       flexDirection: 'row',
       alignItems: 'center',
       padding: 14,
-      borderRadius: 12,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,

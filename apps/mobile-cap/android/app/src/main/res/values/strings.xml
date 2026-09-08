@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">智汇AI</string>
+    <string name="title_activity_main">智汇AI</string>
+    <string name="package_name">top.aizhs.app</string>
+    <string name="custom_url_scheme">top.aizhs.app</string>
+</resources>

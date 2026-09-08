@@ -1,0 +1,47 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: -160, left: -120, width: 520, height: 520, background: 'radial-gradient(circle, rgba(34,211,238,0.30) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>02 · 产品</Text>
+  </Box>
+  <Text style={{ fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>单元经济：每个用户 10 倍赚回，4 个月回本</Text>
+  <Box style={{ width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ flexDirection: 'row', gap: 40, marginTop: 36, height: 430 }}>
+    <Box style={{ width: 560, flexDirection: 'column', gap: 26, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'column', gap: 8 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 20, color: '#E2E8F0' }}>LTV 用户生命周期价值（2 年）</Text>
+          <Text style={{ fontSize: 22, color: '#22D3EE', fontWeight: 'bold' }}>2,000 元</Text>
+        </Box>
+        <Box style={{ width: 560, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 560, height: 34, borderRadius: 17, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} /></Box>
+      </Box>
+      <Box style={{ flexDirection: 'column', gap: 8 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 20, color: '#E2E8F0' }}>CAC 获客成本（行业区间上沿）</Text>
+          <Text style={{ fontSize: 22, color: '#94A3B8', fontWeight: 'bold' }}>200 元</Text>
+        </Box>
+        <Box style={{ width: 560, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 56, height: 34, borderRadius: 17, background: '#94A3B8' }} /></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', alignItems: 'center', gap: 18, marginTop: 6 }}>
+        <Text style={{ fontSize: 88, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>10x</Text>
+        <Text style={{ fontSize: 19, color: '#94A3B8', lineHeight: 1.5 }}>LTV / CAC<br />行业健康线：3x</Text>
+      </Box>
+    </Box>
+    <Box style={{ flex: 1, flexDirection: 'column', gap: 18, justifyContent: 'center' }}>
+      <Box style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: '14px 20px' }}>
+        <Text style={{ fontSize: 18, color: '#CBD5E1', lineHeight: 1.55 }}>LTV = 1,000 元/年 ARPU × 2 年生命周期<br />（会员定价 588—12,888 元，按主力低档约 1,000 元计；生命周期行业 2—3 年，取保守 2 年）</Text>
+      </Box>
+      <Box style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: '14px 20px' }}>
+        <Text style={{ fontSize: 18, color: '#CBD5E1', lineHeight: 1.55 }}>CAC = 200 元（工具类应用行业区间 50—200 元，取上沿）<br />毛利率 ~60%（AI 应用行业 50—70%）<br />回收期 = 200 ÷ (1,000÷12 × 60%) ≈ <span style={{ color: '#22D3EE', fontWeight: 'bold' }}>4 个月</span></Text>
+      </Box>
+      <Box style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.12) 0%, rgba(129,140,248,0.12) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: '14px 20px' }}>
+        <Text style={{ fontSize: 18, color: '#E2E8F0', lineHeight: 1.55 }}>结构性低成本获客：6 万+ 私域 · 2 大线下基地 · 开源免费流量。按融资预算口径（1,000 万市场费 ÷ 80 万新增），CAC 仅 <span style={{ color: '#22D3EE', fontWeight: 'bold' }}>12.5 元</span>。</Text>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>公式：LTV/CAC = ARPU × 生命周期 ÷ CAC；假设均为保守口径，尽调可复核</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>09 / 15</Text>
+  </Box>
+</Slide>

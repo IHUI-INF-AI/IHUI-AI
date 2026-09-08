@@ -1,0 +1,12 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: 0 }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: -200, right: -160, width: 680, height: 680, background: 'radial-gradient(circle, rgba(129,140,248,0.32) 0%, rgba(129,140,248,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 56, top: 170 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 260, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(180deg, rgba(34,211,238,0.85) 0%, rgba(129,140,248,0.15) 100%)', backgroundClip: 'text' }}>01</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 560, top: 250, width: 680, flexDirection: 'column', gap: 18 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 58, color: '#FFFFFF', fontWeight: 'bold' }}>机会</Text>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 84, height: 5, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} />
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 20, color: '#64748B', letterSpacing: 5 }}>WHY NOW</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 23, color: '#94A3B8', lineHeight: 1.5 }}>AI 应用层整合入口——本轮周期确定性最高的生态位</Text>
+  </Box>
+</Slide>

@@ -85,21 +85,21 @@ export default function SettingIndexPage() {
           </Text>
           <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/user/profile')}
             >
               <Text>{tt('setting.profile', '个人资料')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/account-cancel/index/index')}
             >
               <Text>{tt('setting.accountCancel', '账号注销')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/setting/notification')}
             >
               <Text>{tt('setting.notificationSetting', '通知设置')}</Text>
@@ -114,21 +114,21 @@ export default function SettingIndexPage() {
           </Text>
           <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/setting/cache')}
             >
               <Text>{tt('setting.clearCache', '清除缓存')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/setting/language')}
             >
               <Text>{tt('setting.languageSetting', '语言设置')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/setting/theme')}
             >
               <Text>{tt('setting.themeSetting', '主题设置')}</Text>
@@ -143,27 +143,27 @@ export default function SettingIndexPage() {
           </Text>
           <View className="flex flex-col gap-[16rpx] mx-[24rpx] bg-card rounded-[16rpx] overflow-hidden">
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/user/feedback')}
             >
               <Text>{tt('setting.feedback', '意见反馈')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/setting/privacy')}
             >
               <Text>{tt('setting.privacyPermission', '隐私与权限')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
             <View
-              className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground"
+              className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground"
               onClick={() => navigate('/pages/about/index')}
             >
               <Text>{tt('setting.aboutUs', '关于我们')}</Text>
               <Text className="text-muted-foreground">›</Text>
             </View>
-            <View className="flex items-center justify-between p-[32rpx] text-[28rpx] text-foreground opacity-[0.85]">
+            <View className="flex items-center justify-between py-[28rpx] px-[24rpx] text-[28rpx] text-foreground opacity-[0.85]">
               <Text>{tt('setting.version', '版本')}</Text>
               <Text className="text-[26rpx] text-muted-foreground">{VERSION}</Text>
             </View>
