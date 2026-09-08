@@ -14,8 +14,17 @@ export const linking: LinkingOptions<RootStackParamList> = {
   prefixes: ['ihui://', 'https://aizhs.top'],
   config: {
     screens: {
-      // 首页:空路径匹配根路径 /
-      Main: '',
+      // 首页容器(Main 是 Bottom Tabs,嵌套 5 个 *Main 子路由;登录跳转 navigate('Main',{screen:'HomeMain'})
+      // 会写入 /HomeMain 路径,必须显式列出否则 react-navigation 认不出嵌套路由,渲染空白)
+      Main: {
+        screens: {
+          HomeMain: '',
+          CourseMain: 'course',
+          AiMain: 'ai',
+          LiveMain: 'live',
+          ProfileMain: 'profile',
+        },
+      },
       // 共享组件 Demo(对齐 web 端 /shared-demo 路由,跨端 deep link 一致)
       SharedDemo: 'shared-demo',
       // 登录/注册
