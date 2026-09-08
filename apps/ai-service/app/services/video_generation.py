@@ -166,6 +166,10 @@ async def _process_one() -> bool:
 
     未配置任何视频厂商凭据时直接跳过(任务保持 accepted,不误标 failed),
     等待 Key 就绪后由下一轮轮询接管,避免把用户任务打成失败。
+
+    token6688 长任务优化(2026-09-08):官方视频 p90 55~75 分钟,阻塞轮询会把
+    单 worker 卡死 1 小时 → 提交(wait=False)后立即返回,任务置 processing 且
+    result 记 poll_via 标记,由 _poll_pending() 轮询终态;其余厂商保持阻塞编排。
     """
     if not _configured_providers():
         return False
@@ -186,6 +190,25 @@ async def _process_one() -> bool:
     try:
         if not prompt:
             raise ProviderError("任务缺少 prompt(message 为空)")
+        # token6688 提交即返回(poll_via 标记),交给 _poll_pending 轮询;提交失败降级原编排
+        t6688 = _instantiate("token6688")
+        if t6688 is not None:
+            try:
+                submitted = await t6688.generate_video(prompt, "", duration=duration, wait=False)
+                remote_id = str(submitted.get("task_id") or "")
+                if remote_id:
+                    payload = json.dumps(
+                        {
+                            "poll_via": "token6688", "task_id": remote_id,
+                            "model": submitted.get("model", ""), "duration": duration,
+                        },
+                        ensure_ascii=False,
+                    )
+                    await _set_status(task_id, "processing", payload)
+                    logger.info("[video] token6688 任务已提交 remote=%s → 转入 polling", remote_id)
+                    return True
+            except Exception as submit_err:  # noqa: BLE001
+                logger.warning("[video] token6688 提交失败,降级阻塞编排: %s", submit_err)
         result = await generate_video(prompt, duration=duration)
         payload = json.dumps(
             {
@@ -205,6 +228,66 @@ async def _process_one() -> bool:
         return True
 
 
+_POLL_PENDING_SQL = """
+SELECT id, result FROM video_generation_tasks
+WHERE status='processing' AND result LIKE '%"poll_via"%'
+ORDER BY id ASC LIMIT 20
+"""
+
+_RESET_STUCK_SQL = """
+UPDATE video_generation_tasks SET status='accepted', updated_at=now()
+WHERE status='processing' AND (result IS NULL OR result NOT LIKE '%"poll_via"%')
+"""
+
+
+async def _poll_pending() -> int:
+    """轮询 token6688 已提交任务(poll_via 标记)的终态。返回更新条数。
+
+    查询异常不更新状态(下一轮重试);终态成功→succeed、失败→failed。
+    """
+    t6688 = _instantiate("token6688")
+    if t6688 is None:
+        return 0
+    conn = await get_db_conn()
+    try:
+        rows = await conn.fetch(_POLL_PENDING_SQL)
+    finally:
+        await conn.close()
+    updated = 0
+    for r in rows:
+        try:
+            meta = json.loads(r["result"] or "{}")
+        except (TypeError, ValueError):
+            meta = {}
+        remote_id = str(meta.get("task_id") or "")
+        if not remote_id:
+            await _set_status(r["id"], "failed", "poll_via 行缺 task_id")
+            updated += 1
+            continue
+        try:
+            st = await t6688.get_task_status(remote_id)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[video] polling 任务 %s 查询失败(下轮重试): %s", remote_id, e)
+            continue
+        if st.get("ok") and st.get("video_url"):
+            payload = json.dumps(
+                {
+                    "url": st["video_url"], "provider": "token6688",
+                    "model": meta.get("model", ""), "task_id": remote_id,
+                    "duration": meta.get("duration", 5),
+                },
+                ensure_ascii=False,
+            )
+            await _set_status(r["id"], "succeed", payload)
+            logger.info("[video] polling 任务 %s 完成 url=%s", remote_id, st["video_url"][:80])
+            updated += 1
+        elif st.get("failed"):
+            await _set_status(r["id"], "failed", st.get("error") or "token6688 任务失败")
+            logger.info("[video] polling 任务 %s 失败", remote_id)
+            updated += 1
+    return updated
+
+
 async def _set_status(task_id: int, status: str, result: str) -> None:
     conn = await get_db_conn()
     try:
@@ -214,13 +297,30 @@ async def _set_status(task_id: int, status: str, result: str) -> None:
 
 
 async def video_worker_loop() -> None:
-    """无限轮询:领取 accepted 任务出片。缺少厂商凭据时静默轮询不报错。"""
+    """无限轮询:领取 accepted 任务出片 + 轮询 token6688 已提交任务终态。
+
+    缺少厂商凭据时静默轮询不报错。启动时把卡死的 processing(无 poll_via 标记,
+    即阻塞编排被服务重启打断的任务)重置回 accepted 重新领取;带 poll_via 标记的
+    行不重置(token6688 侧任务仍在计费运行,重复提交会二次扣费),由 _poll_pending
+    继续接管轮询。
+    """
     interval = max(3, int(os.environ.get("VIDEO_POLL_INTERVAL_S", "10")))
+    conn = await get_db_conn()
+    try:
+        n = await conn.execute(_RESET_STUCK_SQL)
+        reset_n = str(n).split()[-1] if n else "0"
+        if reset_n not in ("", "0"):
+            logger.info("[video] 启动恢复: %s 个卡死 processing 任务重置为 accepted", reset_n)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[video] 启动恢复失败(忽略): %s", e)
+    finally:
+        await conn.close()
     logger.info("[video] worker 启动,轮询间隔 %ds", interval)
     while True:
         try:
             processed = await _process_one()
-            if not processed:
+            polled = await _poll_pending()
+            if not processed and not polled:
                 await asyncio.sleep(interval)
             # 处理完一个后立即继续下一个,避免冷启动批量积压拖慢
         except asyncio.CancelledError:
