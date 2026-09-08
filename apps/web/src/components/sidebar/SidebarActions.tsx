@@ -59,7 +59,12 @@ export function SidebarActions({ collapsed }: { collapsed: boolean }) {
         'flex gap-0.5 rounded-md p-1',
         // 折叠态:aside 的 border-r(1px)使内容区 59px,居中后按钮会偏左 0.5px。
         // 用 pl-[9px] pr-2 补偿,让按钮回到 60px 视觉中心。
-        collapsed ? 'flex-col items-center pl-[9px] pr-2' : 'flex-row flex-wrap justify-center',
+        // 2026-09-08 修复:折叠态改用 flex-row nowrap 而非 flex-col,
+        // 消除页面刷新时 SSR(collapsed=true)→CSR hydration → 媒体查询生效
+        // 过程中按钮从竖排切换到横排的闪烁问题。
+        collapsed
+          ? 'flex-row flex-nowrap justify-center pl-[9px] pr-2'
+          : 'flex-row flex-wrap justify-center',
       )}
     >
       {/* 语言切换 — 自定义 portal,脱离 MainShell overflow-hidden 祖先避免被裁剪 */}
