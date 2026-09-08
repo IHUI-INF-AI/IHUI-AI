@@ -1,0 +1,75 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: -180, right: -140, width: 560, height: 560, background: 'radial-gradient(circle, rgba(34,211,238,0.2) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>03 · 商业</Text>
+  </Box>
+  <Text style={{ fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>回报敏感性测算：最差 3.8 倍，中性 22.5 倍，行业锚 38 倍起</Text>
+  <Box style={{ width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ flexDirection: 'row', gap: 36, marginTop: 34, height: 430 }}>
+    <Box style={{ width: 480, flexDirection: 'column', gap: 16, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 22, color: '#FFFFFF', fontWeight: 'bold' }}>12 个月营收构成推演</Text>
+      <Box style={{ flexDirection: 'column', gap: 6 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 18, color: '#CBD5E1' }}>付费会员 8 万人</Text>
+          <Text style={{ fontSize: 19, color: '#22D3EE', fontWeight: 'bold' }}>8,000 万</Text>
+        </Box>
+        <Box style={{ width: 468, height: 24, borderRadius: 14, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 468, height: 24, borderRadius: 14, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} /></Box>
+      </Box>
+      <Box style={{ flexDirection: 'column', gap: 6 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 18, color: '#CBD5E1' }}>B 端入驻 + 定制</Text>
+          <Text style={{ fontSize: 19, color: '#22D3EE', fontWeight: 'bold' }}>1,200 万</Text>
+        </Box>
+        <Box style={{ width: 468, height: 24, borderRadius: 14, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 70, height: 24, borderRadius: 14, background: '#22D3EE' }} /></Box>
+      </Box>
+      <Box style={{ flexDirection: 'column', gap: 6 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 18, color: '#CBD5E1' }}>分成 + 课程 + API</Text>
+          <Text style={{ fontSize: 19, color: '#22D3EE', fontWeight: 'bold' }}>800 万</Text>
+        </Box>
+        <Box style={{ width: 468, height: 24, borderRadius: 14, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 47, height: 24, borderRadius: 14, background: '#818CF8' }} /></Box>
+      </Box>
+      <Box style={{ flexDirection: 'row', justifyContent: 'space-between', borderTop: '2px solid rgba(34,211,238,0.5)', paddingTop: 14 }}>
+        <Text style={{ fontSize: 20, color: '#FFFFFF', fontWeight: 'bold' }}>年营收合计</Text>
+        <Text style={{ fontSize: 26, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>≈ 1 亿</Text>
+      </Box>
+      <Text style={{ fontSize: 15, color: '#64748B', lineHeight: 1.5 }}>假设：80 万用户 × 10% 付费率 × 1,000 元/年；B 端 300 家。</Text>
+    </Box>
+    <Box style={{ flex: 1, flexDirection: 'column', gap: 14, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 22, color: '#FFFFFF', fontWeight: 'bold' }}>回报倍数矩阵（投 2,000 万 / 15%）</Text>
+      <Box style={{ flexDirection: 'column', gap: 6 }}>
+        <Box style={{ flexDirection: 'row', gap: 6 }}>
+          <Box style={{ width: 120, height: 46, justifyContent: 'center' }}><Text style={{ fontSize: 15, color: '#64748B' }}>ARR \ PS倍数</Text></Box>
+          <Box style={{ flex: 1, height: 46, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 15, color: '#94A3B8', fontWeight: 'bold' }}>10x 保守</Text></Box>
+          <Box style={{ flex: 1, height: 46, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 15, color: '#94A3B8', fontWeight: 'bold' }}>30x 中性</Text></Box>
+          <Box style={{ flex: 1, height: 46, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 15, color: '#94A3B8', fontWeight: 'bold' }}>50x 行业锚</Text></Box>
+        </Box>
+        <Box style={{ flexDirection: 'row', gap: 6 }}>
+          <Box style={{ width: 120, height: 62, justifyContent: 'center' }}><Text style={{ fontSize: 15, color: '#CBD5E1' }}>0.5 亿</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>3.8x</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>11x</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>19x</Text></Box>
+        </Box>
+        <Box style={{ flexDirection: 'row', gap: 6 }}>
+          <Box style={{ width: 120, height: 62, justifyContent: 'center' }}><Text style={{ fontSize: 15, color: '#CBD5E1' }}>1 亿</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>7.5x</Text></Box>
+          <Box style={{ flex: 1, height: 62, borderRadius: 14, backgroundImage: 'linear-gradient(135deg, rgba(34,211,238,0.3) 0%, rgba(129,140,248,0.3) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 22, color: '#FFFFFF', fontWeight: 'bold' }}>22.5x</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>38x</Text></Box>
+        </Box>
+        <Box style={{ flexDirection: 'row', gap: 6 }}>
+          <Box style={{ width: 120, height: 62, justifyContent: 'center' }}><Text style={{ fontSize: 15, color: '#CBD5E1' }}>2 亿</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>15x</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>45x</Text></Box>
+          <Box style={{ flex: 1, height: 62, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 16, justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 20, color: '#E2E8F0', fontWeight: 'bold' }}>75x</Text></Box>
+        </Box>
+      </Box>
+      <Text style={{ fontSize: 16, color: '#94A3B8', lineHeight: 1.5 }}>估值锚：头部 AI 公司 = ARR 40—60 倍（西部证券 2026-08：OpenAI ~47x、Cursor ~40-65x）；传统 SaaS 仅 10—20 倍。<br />下轮确定性：12 个月即达 A 轮门槛（机构要求 ARR 2,200—3,600 万，推演 1 亿）。</Text>
+    </Box>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>测算公式：回报 = ARR × PS × 15% ÷ 2,000 万；非收益承诺，尽调可复核</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>13 / 15</Text>
+  </Box>
+</Slide>

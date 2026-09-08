@@ -1,0 +1,19 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: 0 }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: -180, right: -160, width: 640, height: 640, background: 'radial-gradient(circle, rgba(34,211,238,0.36) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: -220, left: -140, width: 700, height: 700, background: 'radial-gradient(circle, rgba(129,140,248,0.35) 0%, rgba(129,140,248,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 130, left: 56, width: 8, height: 300, backgroundImage: 'linear-gradient(180deg, #22D3EE 0%, #818CF8 100%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 100, top: 0, width: 1000, height: 720, flexDirection: 'column', justifyContent: 'center', gap: 24 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 18, color: '#22D3EE', letterSpacing: 8, fontWeight: 'bold' }}>天使轮融资商业计划书</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 96, fontWeight: 'bold', letterSpacing: 6, color: 'transparent', backgroundImage: 'linear-gradient(90deg, #FFFFFF 0%, #FFFFFF 40%, #22D3EE 70%, #818CF8 100%)', backgroundClip: 'text' }}>智汇AI</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 38, color: '#FFFFFF', fontWeight: 'bold' }}>一站式 AI 生态整合社区</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 23, color: '#94A3B8' }}>一个人 · 一台电脑 · 109 万行代码 —— 产品已建成，生态正起步</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#22D3EE', fontWeight: 'bold' }}>已上线 8 端 · 累计 3.7 亿次模型调用 · 7,400+ 注册与会员用户</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 100, bottom: 60, flexDirection: 'column', gap: 8 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 18, color: '#E2E8F0' }}>吉林省爱智汇人工智能科技有限公司</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>2026 年 9 月 · 创始人 李春川</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 48, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#64748B' }}>IHUI-AI · AI智汇社</Text>
+  </Box>
+</Slide>
