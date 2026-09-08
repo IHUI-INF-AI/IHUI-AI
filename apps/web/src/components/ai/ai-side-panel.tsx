@@ -145,6 +145,9 @@ export function AISidePanel() {
   // 只在对应字段变化时触发本组件重渲染,activeWorkspace 变化不再让本组件重渲染。
   const open = useAiPanelStore((s) => s.open)
   const width = useAiPanelStore((s) => s.width)
+  // 浮窗(悬浮态)统一加宽(2026-09-08 用户反馈"浮窗要再宽"):docked 面板宽度不变,
+  // 浮窗固定在 480px,不受 docked 拖拽偏好影响
+  const floatWidth = floatMode ? 480 : width
   const isResizing = useAiPanelStore((s) => s.isResizing)
   const closePanel = useAiPanelStore((s) => s.closePanel)
   const setWidth = useAiPanelStore((s) => s.setWidth)
@@ -755,7 +758,7 @@ export function AISidePanel() {
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
     },
-    [floatMode, floatMinimized, floatPosition, width, setFloatPosition, setResizing],
+    [floatMode, floatMinimized, floatPosition, floatWidth, setFloatPosition, setResizing],
   )
 
   // 性能修复(2026-07-25):WorkspaceNameSync 子组件渲染 null,内部订阅 usePathname,
@@ -825,8 +828,8 @@ export function AISidePanel() {
               isMobileSmall
                 ? undefined
                 : floatPosition.x < 0
-                  ? { width, left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
-                  : { width, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
+                  ? { width: floatWidth, left: `${defaultFloatAnchor.current.left}px`, bottom: '16px' }
+                  : { width: floatWidth, left: `${floatPosition.x}px`, top: `${floatPosition.y}px` }
             }
           >
             <aside
@@ -881,7 +884,7 @@ export function AISidePanel() {
                         type="button"
                         onClick={() => setFloatMinimized(true)}
                         aria-label={tc('minimize')}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
                         <Minus className="h-3.5 w-3.5" />
                       </button>
@@ -983,7 +986,7 @@ export function AISidePanel() {
                 ? undefined // 手机:无定位 style,全屏由 inset-0 控制
                 : floatPosition.x < 0
                   ? {
-                      width,
+                      width: floatWidth,
                       left: `${defaultFloatAnchor.current.left}px`,
                       bottom: '16px',
                       height: 'min(600px, calc(100vh - 100px))',
@@ -992,7 +995,7 @@ export function AISidePanel() {
                         : 'width 0.2s cubic-bezier(0.4,0,0.2,1), height 0.2s cubic-bezier(0.4,0,0.2,1), left 0.2s cubic-bezier(0.4,0,0.2,1)',
                     }
                   : {
-                      width,
+                      width: floatWidth,
                       left: `${floatPosition.x}px`,
                       top: `${floatPosition.y}px`,
                       height: 'min(600px, calc(100vh - 100px))',
