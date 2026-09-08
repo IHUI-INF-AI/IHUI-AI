@@ -38,6 +38,22 @@ from app.services.agent_checkpoint import (
 # =============================================================================
 
 
+@pytest.fixture(autouse=True)
+def _file_editor_memory_mode(monkeypatch):
+    """强制 file_editor 走纯内存模式(本文件契约:不依赖外部 Redis)。
+
+    .env 的 REDIS_URL 会经 conftest 导入链同步进 os.environ;开发机 Redis 不可达时
+    (_redis_client 的 ping 无连接超时曾永久阻塞)测试全套挂起。这里 delenv + 重置
+    模块级缓存,保证测试确定性;连接超时另在生产侧补齐(file_editor.py)。
+    """
+    monkeypatch.delenv("REDIS_URL", raising=False)
+    monkeypatch.setattr(file_editor, "_redis_available", False)
+    monkeypatch.setattr(file_editor, "_redis_client_instance", None)
+    yield
+    file_editor._redis_available = None
+    file_editor._redis_client_instance = None
+
+
 def _make_manager(**kwargs) -> AgentCheckpointManager:
     kwargs.setdefault("redis_url", None)
     return AgentCheckpointManager(**kwargs)
