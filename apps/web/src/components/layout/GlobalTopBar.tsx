@@ -7,9 +7,11 @@
 
 import * as React from 'react'
 import { createPortal } from 'react-dom'
+import { useRouter } from 'next/navigation'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import {
+  ArrowLeft,
   Plus,
   Globe,
   FileText,
@@ -32,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { useDesktop } from '@/hooks/use-desktop'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useWorkPanelStore } from '@/stores/work-panel'
+import { useTopBarBackStore } from '@/stores/topbar-back'
 import {
   minimizeWindow,
   toggleMaximizeWindow,
@@ -157,9 +160,11 @@ const PLUS_MENU_GROUPS: Array<{
  * 其他端(api/ai-service/desktop/extension/mobile-rn/miniapp-taro/cli)无此概念,无须同步。
  */
 /**
- * GlobalTopBar — 顶栏 flex 顺序契约(2026-07-31 第十三轮):
+ * GlobalTopBar — 顶栏 flex 顺序契约(2026-09-08 第十四轮):
  *   0. <MobileMenuSlot>  ← 移动端汉堡菜单按钮(GlobalShell 通过 prop 注入,仅 lg 以下显示)
  *   1. TagsViewSearchButton    ← 搜索按钮(36x36)
+ *   1.5 TopBarBackButton       ← 统一返回键 36x36(2026-09-08 立,搜索右侧/加号左侧,
+ *                                  由 topbar-back store 驱动显隐,无返回需求时动画收起不占位)
  *   2. <Plus>                  ← 添加视图 36x36(从原第 3 位上移)
  *   3. TagsViewChevronButton   ← 关闭其他/全部 36x36(tags.length===0 不渲染,从原第 2 位下移)
  *   4. <TagsView>              ← 标签栏(a 标签)flex-1 占满剩余空间
@@ -553,6 +558,14 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
             <TagsViewSearchButton />
           </React.Suspense>
 
+          {/* 1.5 统一返回键(2026-09-08 立,用户需求"所有页面的返回键彻底全部改到
+              出现在搜索按钮的右侧 加号的左边,动画拉出;页面没有且不需要返回按钮时
+              动画取消返回按钮显示"):
+              - 唯一渲染点:工作展示区各页面经 topbar-back store 声明返回意图后在此拉出,
+                未声明(首页/列表页等无需返回)时动画收起且不占布局位
+              - 页面内联返回按钮已全部废除(common/BackButton 改为纯注册器) */}
+          <TopBarBackButton />
+
           {/* 2. Plus 弹窗按钮(2026-07-30 立,替代原 Globe 按钮)
             - 视觉风格与窗口控制按钮一致(h-full w-9 rounded-md hover bg-muted/50,2026-07-30
               深度修复:之前 h-7 w-7 (28px) 跟顶栏 h-9 (36px) 矮 8px,导致"标签栏高度不对"
@@ -755,6 +768,93 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
 }
 
 // ================== 子组件 ==================
+
+/**
+ * TopBarBackButton — 统一返回键(2026-09-08 立,用户需求):
+ * 全站工作展示区所有页面的返回键唯一渲染点,位于顶栏搜索按钮右侧、加号左侧。
+ *
+ * 显隐机制(topbar-back store 驱动):
+ * - 页面挂载 <BackButton /> 或调用 useTopBarBack(config) 声明返回意图 → 本按钮动画拉出
+ * - 页面卸载或撤回声明(config → null)→ 动画收起,220ms 过渡完成后卸载 DOM,
+ *   不在 flex 布局留下空位(收起态用 -ml-1 吃掉相邻 gap-1,搜索/加号间距与无按钮时一致)
+ *
+ * 拉出动画:外层 wrapper 过渡 width 0→36px + opacity,内层按钮被 overflow-hidden
+ * 裁剪,随宽度展开呈现"从搜索按钮右侧滑出"的视觉效果(motion-reduce 下仅淡入淡出)。
+ *
+ * 返回行为优先级:config.onBack(页内自定义返回,如详情→列表)> router.back()>
+ * router.push(config.fallbackHref ?? '/')(无历史记录时的降级)。
+ */
+function TopBarBackButton() {
+  const tCommon = useTranslations('common')
+  const router = useRouter()
+  const config = useTopBarBackStore((s) => s.config)
+  // 两态动画状态机:mounted 控制 DOM 挂载(收起动画需要 DOM 存在),expanded 控制展开
+  const [mounted, setMounted] = React.useState(!!config)
+  const [expanded, setExpanded] = React.useState(false)
+
+  React.useEffect(() => {
+    if (config) {
+      setMounted(true)
+      // 双 rAF:确保先以 0 宽态完成挂载,下一帧再展开,否则过渡不会触发(直接跳到终态)
+      let raf2 = 0
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setExpanded(true))
+      })
+      return () => {
+        cancelAnimationFrame(raf1)
+        cancelAnimationFrame(raf2)
+      }
+    }
+    setExpanded(false)
+  }, [config])
+
+  React.useEffect(() => {
+    if (mounted || config) return
+    const timer = setTimeout(() => setMounted(false), 220)
+    return () => clearTimeout(timer)
+  }, [mounted, config])
+
+  const handleBack = React.useCallback(() => {
+    const cfg = useTopBarBackStore.getState().config
+    if (!cfg) return
+    if (cfg.onBack) {
+      cfg.onBack()
+      return
+    }
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back()
+    } else {
+      router.push(cfg.fallbackHref ?? '/')
+    }
+  }, [router])
+
+  if (!mounted) return null
+
+  return (
+    <div
+      aria-hidden={!expanded}
+      data-testid="topbar-back-button"
+      className={cn(
+        'h-full shrink-0 overflow-hidden transition-[width,margin-left,opacity] duration-200 ease-out motion-reduce:transition-opacity',
+        expanded ? 'ml-0 w-9 opacity-100' : '-ml-1 w-0 opacity-0',
+      )}
+    >
+      <Tooltip content={tCommon('back')} side="bottom">
+        <button
+          type="button"
+          aria-label={tCommon('back')}
+          tabIndex={expanded ? 0 : -1}
+          onClick={handleBack}
+          // 2026-09-02 治理:自写 popover trigger 加 data-state 抑制关闭后焦点环常驻(同 Plus/搜索按钮)
+          data-state={expanded ? 'open' : 'closed'}
+          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
+        >
+          <ArrowLeft />
+        </button>
+      </Tooltip>
+    </div>
+  )
+}
 
 /** 窗口控制按钮(Min/Max/Close) — 2026-07-30 第十轮"做减法 v6"
  *  - 改用共享 TOPBAR_BTN_BASE + TOPBAR_BTN_W9(36px 方块,跟搜索/Plus/chevron-down 4 类按钮全部正方形)
