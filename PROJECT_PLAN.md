@@ -3328,3 +3328,10 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-08) **顶栏唯一渲染点**:`GlobalTopBar` 新增 `TopBarBackButton`,flex 顺序契约第十三轮→第十四轮:搜索 → **返回(1.5)** → Plus → chevron → 标签栏。36×36 与全按钮体系一致(TOPBAR_BTN_BASE+W9+dark:bg-shell-panel),Tooltip 复用 common.back(5 语言现成 key,零新增 i18n)。动画:声明时双 rAF 后 width 0→36px + opacity 拉出(overflow-hidden 裁剪内层按钮呈现滑出效果);撤回时收起 220ms 后卸 DOM,`-ml-1` 吃掉相邻 gap-1 不留布局空位。返回行为优先级:config.onBack(页内自定义)> router.back() > fallbackHref。
 - [x] ✅(2026-09-08) **存量返回键全部废除改声明式**:① `common/BackButton` 重构为纯注册器(渲染 null,API 不变,原"子页面无返回按钮"缺陷立项组件自此全部经顶栏渲染);② `CloudRunsView` 详情视图内联 ChevronLeft 返回键删除,改 `useTopBarBack(selected ? {onBack: setSelected(null)} : null)` 动态声明——详情拉出/回列表收起。全仓 grep 复核:页面级返回键仅此一处,无遗漏。
 - [x] ✅(2026-09-08) **验证**:新增 `stores/__tests__/topbar-back.test.ts` 6 用例全绿(注册/引用比对清理/卸载清除/null 不注册/引用变化换绑);apps/web tsc --noEmit 0 错误;5 文件 eslint 0 违规;layout 既有 26 测试全绿;MainShell/TagsView 无回归。
+
+### 第二轮补全(2026-09-09,用户反馈"还有页面遗漏 + 图标去横线 + 工作不彻底")
+
+- [x] ✅(2026-09-09) **图标修正**:顶栏返回键 ArrowLeft(←,带横线杆)→ ChevronLeft(<,纯向左角),用户规则"箭头只需要一个向左的角,不需要横线"。
+- [x] ✅(2026-09-09) **页面遗漏根治——路由级自动声明**:新增 `TopBarBackAutoRegister`(GlobalShell 全局挂载):路径深度 ≥ 2 的子页面(agents/[id]、articles/[id]、admin/** 二级页等 60+ 路由)自动向顶栏声明返回意图,fallbackHref=一级父路由(app/(main) 全部一级目录均有 page.tsx,已穷举核对);一级列表页/首页不声明(动画收起);免返回前缀:/sso、/h5、/share(含 chat/business-card/ai-world share);en 语言镜像剥 locale 前缀后按深度判定;页面级自定义声明(useTopBarBack/<BackButton/>)优先,自动声明让位不覆盖。自此所有需要返回的页面零代码接入,无遗漏面。
+- [x] ✅(2026-09-09) **防私接守门 blocking 入门禁**:新增 `scripts/check-inline-back-button.mjs`(web 端 router.back()/history.back() 只允许出现在 GlobalTopBar 统一返回键本体;页面私写=绕过顶栏动画/降级/优先级,exit 1)→ 接入 guardian-runner 第 46 项 blocking(id 45 已被 C 盘路径扫描占用);自测:888 文件 0 违规 + 违规样本注入实测正确拦截。豁免注释行防文档性提及误报。
+- [x] ✅(2026-09-09) **验证**:新增 `topbar-back-auto.test.tsx` 6 用例全绿(二级自动声明/一级不声明/免返回前缀/en 前缀/自定义优先/路由切换换绑);layout+stores 回归 38 测试全绿;web tsc 0 错误;eslint 0 违规;guardian-runner 语法+注册项核对(blocking 56 项含 46)。
