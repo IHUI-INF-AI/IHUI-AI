@@ -44,9 +44,12 @@ from __future__ import annotations
 # ruff: noqa: E501
 import base64
 import binascii
+import logging
 import re
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # ==================== 常量与自省 ====================
 

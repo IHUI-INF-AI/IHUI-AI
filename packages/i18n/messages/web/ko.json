@@ -7079,6 +7079,7 @@
       "workspace": "워크스페이스"
     },
     "envInfoButton": "환경 정보",
+    "expandConversation": "대화 펼치기",
     "floatMode": "플로팅 모드",
     "handleHint": "클릭하거나 오른쪽으로 드래그해 AI 작업공간 열기",
     "history": "채팅",

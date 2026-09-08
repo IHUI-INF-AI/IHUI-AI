@@ -7089,6 +7089,7 @@
       "workspace": "Workspace"
     },
     "envInfoButton": "Environment Info",
+    "expandConversation": "Expand Conversation",
     "floatMode": "Float Mode",
     "handleHint": "Click or drag right to open AI workspace",
     "history": "HistoryChat",

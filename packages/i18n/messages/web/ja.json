@@ -7079,6 +7079,7 @@
       "workspace": "ワークスペース"
     },
     "envInfoButton": "環境情報",
+    "expandConversation": "会話を展開",
     "floatMode": "フロートモード",
     "handleHint": "クリックまたは右にドラッグしてAIワークスペースを開く",
     "history": "チャット",
