@@ -1898,10 +1898,12 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
+    // CTA 用品牌橙(brandAccent.DEFAULT)作"局部渐变点缀"(2026-09-07 复刻旧App品牌色 CTA 形态;
+    // 其他通用主按钮仍用 tk.brand.DEFAULT 纯黑,遵循"纯色为主+局部点缀")
     loginBtn: {
       height: 40,
       borderRadius: 6,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
     },
