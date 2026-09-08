@@ -421,7 +421,7 @@ function createStyles(tk: AppThemeTokens) {
       width: 34,
       height: 34,
       borderRadius: 4,
-      backgroundColor: 'rgba(147, 210, 243, 0.9)',
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
       justifyContent: 'center',
       elevation: 2,
