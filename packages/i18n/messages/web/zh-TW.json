@@ -63,6 +63,40 @@
     "totalTokens": "總 Token",
     "window": "時間窗口"
   },
+  "teamMemory": {
+    "title": "團隊共享記憶",
+    "description": "按 scope 隔離的跨用戶共享知識層:沉澱決策、約定、坑與索引指紋",
+    "scopeLabel": "Scope 標識",
+    "scopePlaceholder": "輸入 teamId 或 workspaceKey",
+    "searchPlaceholder": "搜尋標題與內容",
+    "searchBtn": "查詢",
+    "kindAll": "全部",
+    "kind": {
+      "decision": "決策",
+      "convention": "約定",
+      "pitfall": "坑",
+      "fingerprint": "索引指紋"
+    },
+    "listTitle": "記憶列表",
+    "newBtn": "新建",
+    "editBtn": "編輯",
+    "deleteBtn": "刪除",
+    "deleteConfirm": "確認刪除該條記憶?",
+    "empty": "當前 scope 暫無記憶",
+    "loading": "載入中",
+    "saveBtn": "儲存",
+    "cancelBtn": "取消",
+    "titleLabel": "標題",
+    "titlePlaceholder": "一句話概括這條記憶",
+    "contentLabel": "內容",
+    "contentPlaceholder": "詳細描述:背景、結論、注意事項",
+    "tagsLabel": "標籤",
+    "tagsPlaceholder": "逗號分隔,如:部署,PG17",
+    "needScope": "請先填寫 Scope 標識",
+    "needTitle": "標題不能為空",
+    "needContent": "內容不能為空",
+    "saveFailed": "儲存失敗"
+  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "從本地程式碼倉庫自動產生架構與模組知識庫",
@@ -11731,6 +11765,7 @@
       "typeTerminal": "終端"
     },
     "codeEditor": {
+      "lspStatus": "LSP",
       "zoomIn": "放大字號",
       "zoomOut": "縮小字號"
     },
