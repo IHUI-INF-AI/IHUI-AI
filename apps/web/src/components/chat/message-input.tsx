@@ -212,8 +212,11 @@ export function MessageInput({
   }, [isStreaming, pendingMessage, sendPendingMessage])
 
   // 消费 chat store 中的 draftInput(由 PromptTemplates 等外部触发),填充到 textarea 后清空
+  // draftAutoSend(2026-09-08 立,首页「立即体验」CTA):预填后立即自动发送发起对话
   const draftInput = useChatStore((s) => s.draftInput)
   const clearDraftInput = useChatStore((s) => s.clearDraftInput)
+  const draftAutoSend = useChatStore((s) => s.draftAutoSend)
+  const clearDraftAutoSend = useChatStore((s) => s.clearDraftAutoSend)
   // 已选工具(用户从插件市场点击"+"添加到对话的 pluginId 列表)
   const selectedToolsIds = useChatStore((s) => s.selectedTools)
   const removeSelectedTool = useChatStore((s) => s.removeSelectedTool)
@@ -245,9 +248,16 @@ export function MessageInput({
     if (draftInput) {
       setValue(draftInput)
       clearDraftInput()
+      if (draftAutoSend) {
+        // 自动发送:显式传 draftInput 文本绕开 value state 异步更新的闭包旧值问题
+        clearDraftAutoSend()
+        void submit(draftInput)
+        requestAnimationFrame(() => inputCoreRef.current?.focus())
+        return
+      }
       requestAnimationFrame(() => inputCoreRef.current?.focus())
     }
-  }, [draftInput, clearDraftInput])
+  }, [draftInput, clearDraftInput, draftAutoSend, clearDraftAutoSend, submit])
 
   // 权限模式可发现性增强(2026-07-25 深化,深度对标 Codex CLI /help):
   // - infoMode: 标题栏 ⓘ 按钮点击后展示该模式的详细说明 modal
@@ -761,7 +771,8 @@ export function MessageInput({
                     <span className="inline-flex">
                       <button
                         type="button"
-                        onClick={submit}
+                        // 包一层避免把 MouseEvent 传成 submit 的 overrideValue(TS2322)
+                        onClick={() => void submit()}
                         disabled={!canSend}
                         className={cn(
                           'inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors',
