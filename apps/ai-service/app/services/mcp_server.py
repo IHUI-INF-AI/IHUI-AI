@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 
 from .exec_policy import PolicyDecision, RuleDecision, evaluate as exec_policy_evaluate
 
+# 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
+from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+from .merge3 import merge3_for_edit
+
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
 from .context_recall import context_recall
 
@@ -266,6 +270,8 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
+    # 1-2(2026-09-08):resolve_conflict 也写盘(按块落盘解决结果),必须 admin
+    "resolve_conflict",
     # computer_* 系列:控制电脑是高危操作,需 admin
     "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
@@ -289,6 +295,49 @@ _ADMIN_ONLY_TOOLS: set[str] = {
 def _get_agent_control_secret() -> str:
     from ..core.config import settings
     return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+
+# ---------------------------------------------------------------------------
+# 1-2 补丁冲突处理:文件 base 版本跟踪(3-way merge 的公共祖先)
+# ---------------------------------------------------------------------------
+# read_file / write_file / file_edit 成功后记录「agent 视角的最新内容」;
+# file_edit 匹配失败(0 命中)且 old_string 在 base 中存在时,判定为
+# 「快照之后被外部修改」→ 走 merge3 三方合并(干净合并 / 冲突块)。
+# 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
+_FILE_BASE_CONTENT: dict[str, str] = {}
+_FILE_BASE_MAX = 256
+
+
+def _normalize_eol(text: str) -> str:
+    """EOL 归一化:CRLF → LF(1-2 生产修复)。
+
+    read_file 文本模式经 universal newlines 得到 LF 视角,而 Windows
+    编辑器/工具写盘常为 CRLF;若 base(LF)与磁盘内容(CRLF)直接进
+    merge3 逐行比较,会整文件误判为单侧全改。base 存储与 merge3
+    计算统一用 LF,写盘前再按磁盘原行尾风格还原。
+    """
+    return text.replace("\r\n", "\n")
+
+
+def _restore_eol(text: str, original: str) -> str:
+    """按磁盘原行尾风格还原合并结果:原文件 CRLF 则 LF → CRLF,否则保持 LF。"""
+    if "\r\n" in original:
+        return text.replace("\r\n", "\n").replace("\n", "\r\n")
+    return text
+
+
+def _record_file_base(resolved_path: str, content: str) -> None:
+    """记录/刷新文件的 base 版本(agent 视角最新内容,统一 LF 归一化存储)。"""
+    normalized = _normalize_eol(content)
+    if resolved_path in _FILE_BASE_CONTENT:
+        _FILE_BASE_CONTENT.pop(resolved_path)
+    _FILE_BASE_CONTENT[resolved_path] = normalized
+    while len(_FILE_BASE_CONTENT) > _FILE_BASE_MAX:
+        _FILE_BASE_CONTENT.pop(next(iter(_FILE_BASE_CONTENT)))
+
+
+def _reset_file_base_store() -> None:
+    """清空 base 版本跟踪(测试隔离用)。"""
+    _FILE_BASE_CONTENT.clear()
 
 
 def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
@@ -868,6 +917,8 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
+        # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
+        _record_file_base(resolved_path, content)
         return {"tool": "read_file", "path": resolved_path, "content": content, "ok": True}
     except Exception as e:
         return {"tool": "read_file", "path": resolved_path, "content": "", "ok": False, "error": str(e)}
@@ -929,6 +980,8 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         with open(resolved_path, "w", encoding="utf-8") as f:
             f.write(content)
+        # 1-2:写盘后刷新 base(agent 视角最新内容)
+        _record_file_base(resolved_path, content)
         return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
     except Exception as e:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
@@ -977,12 +1030,40 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
 
     count = content.count(old_string)
+    strategy = "direct"
     if count == 0:
-        return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
-    if not replace_all and count >= 2:
+        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+        # 由 resolve_conflict 工具按块决策(局部拒绝)。
+        base = _FILE_BASE_CONTENT.get(resolved_path)
+        if base is not None and old_string in base:
+            # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
+            # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
+            current_lf = _normalize_eol(content)
+            mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
+            if mr.clean:
+                new_content = _restore_eol(mr.merged, content)
+                strategy = "auto_merged_3way"
+                replaced_count = base.count(old_string) if replace_all else 1
+            else:
+                return _err(
+                    "CONFLICT",
+                    (
+                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                        f"file_path/old_string/new_string 与 choices 数组"
+                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                    ),
+                    conflict_count=mr.conflict_count(),
+                    strategy="3way_merge",
+                )
+        else:
+            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+    elif not replace_all and count >= 2:
         return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
-
-    if replace_all:
+    elif replace_all:
         new_content = content.replace(old_string, new_string)
         replaced_count = count
     else:
@@ -1010,9 +1091,106 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
 
     diff = list(difflib.unified_diff(content.splitlines(keepends=True),
                 new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+    # 1-2:写盘后刷新 base(agent 视角最新内容)
+    _record_file_base(resolved_path, new_content)
     return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
+            "strategy": strategy,
             "diff_preview": "".join(diff[:20])}
+
+
+async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
+    """resolve_conflict:按块解决 file_edit 报告的 3-way merge 冲突(1-2 局部拒绝)。
+
+    与触发 CONFLICT 的 file_edit 携带相同 file_path/old_string/new_string;
+    choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘
+    现状=拒绝该块修改)。choices 不足的块缺省 'ours'。
+    """
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
+        return {"tool": "resolve_conflict", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    choices_raw = arguments.get("choices", [])
+    replace_all = bool(arguments.get("replace_all", False))
+    choices = [str(c) for c in choices_raw] if isinstance(choices_raw, list) else []
+
+    if not old_string:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    try:
+        content = raw.decode("utf-8")
+    except (UnicodeDecodeError, ValueError) as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    base = _FILE_BASE_CONTENT.get(resolved_path)
+    if base is None or old_string not in base:
+        return _err(
+            "NO_BASE_VERSION",
+            "无该文件的 base 版本(或 old_string 不在 base 中),无法按块解决冲突;请先 read_file 后重试 file_edit",
+        )
+
+    # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并;
+    # 结果按磁盘原行尾风格还原后写盘
+    resolved = _merge3_resolve_conflicts(
+        base, _normalize_eol(content), old_string, new_string, choices, replace_all=replace_all
+    )
+    if not resolved.get("ok"):
+        return _err("MERGE_FAILED", str(resolved.get("error", "合并失败")))
+
+    final_content = _restore_eol(str(resolved["content"]), content)
+    applied = list(resolved.get("applied", []))
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(final_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复磁盘原内容
+        try:
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
+        except OSError:
+            pass
+        try:
+            os.remove(backup_path)
+        except OSError:
+            pass
+        return _err("IO_ERROR", str(e))
+
+    # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
+    _record_file_base(resolved_path, final_content)
+    rejected = sum(1 for a in applied if a.get("choice") == "theirs")
+    return {
+        "tool": "resolve_conflict",
+        "ok": True,
+        "file_path": resolved_path,
+        "conflicts": int(resolved.get("conflicts", 0)),
+        "resolved": len(applied),
+        "rejected_hunks": rejected,
+        "backup_path": backup_path,
+        "applied_choices": applied,
+    }
 
 
 async def _drain_stream(
@@ -4347,6 +4525,25 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="resolve_conflict",
+        description="按块解决 file_edit 报告的 3-way merge 冲突(局部拒绝):choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘现状=拒绝该块修改),不足缺省 ours",
+        input_schema={
+            "type": "object",
+            "required": ["file_path", "old_string", "new_string"],
+            "properties": {
+                "file_path": {"type": "string", "description": "文件绝对路径,必须与触发冲突的 file_edit 一致"},
+                "old_string": {"type": "string", "minLength": 1, "description": "与触发冲突的 file_edit 相同的 old_string"},
+                "new_string": {"type": "string", "description": "与触发冲突的 file_edit 相同的 new_string"},
+                "choices": {
+                    "type": "array",
+                    "items": {"type": "string", "enum": ["ours", "theirs"]},
+                    "description": "按冲突块顺序的决策列表:'ours'=采用 agent 修改,'theirs'=保留磁盘现状(拒绝该块)",
+                },
+                "replace_all": {"type": "boolean", "default": False},
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
@@ -5390,6 +5587,8 @@ _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 后台任务工具(Phase 1 第 6 项 · 2026-09-02 立)=====
     "run_in_background": _tool_run_in_background,
     "bg_task_status": _tool_bg_task_status,
+    # ===== 补丁冲突处理(1-2 · 2026-09-08):3-way merge 局部拒绝 =====
+    "resolve_conflict": _tool_resolve_conflict,
 }
 
 
