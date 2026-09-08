@@ -3056,7 +3056,17 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     # 阶段 3 主体(2026-07-26):扁平字段已删除,统一走 get_provider_config
     stepfun_cfg = settings.get_provider_config("stepfun")
     agnes_cfg = settings.get_provider_config("agnes")
-    if provider == "stepfun":
+    if provider == "token6688":
+        # 2026-09-08:Token6688 聚合网关(单 key 全模态),OpenAI images 协议
+        import os as _os
+        t6688_cfg = settings.get_provider_config("token6688")
+        t6688_base = (t6688_cfg.api_base or _os.environ.get("TOKEN6688_BASE_URL", "https://k.token6688.com")).rstrip("/")
+        if not t6688_base.endswith("/v1"):
+            t6688_base += "/v1"
+        api_key = t6688_cfg.api_key or _os.environ.get("TOKEN6688_API_KEY", "")
+        api_base = t6688_base
+        model = _os.environ.get("TOKEN6688_IMAGE_MODEL", "gpt-image-1")
+    elif provider == "stepfun":
         api_key, api_base, model = stepfun_cfg.api_key, stepfun_cfg.api_base or "https://api.stepfun.com/step_plan/v1", "step-1v-8k"
     else:
         api_key, api_base, model = agnes_cfg.api_key, agnes_cfg.api_base or "https://apihub.agnes-ai.com/v1", "agnes-image-v1"
@@ -3072,7 +3082,7 @@ async def _tool_image_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             return {
                 "tool": "image_generation", "ok": False,
                 "errorCode": "PROVIDER_NOT_CONFIGURED", "saved_path": None,
-                "message": "未配置图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 stepfun 或 agnes 的 api_key",
+                "message": "未配置图片生成 provider,请在 .env 的 LLM_PROVIDERS JSON 配置 token6688 / stepfun 或 agnes 的 api_key",
             }
 
     try:
@@ -4833,7 +4843,7 @@ _TOOLS: list[MCPTool] = [
                 },
                 "provider": {
                     "type": "string",
-                    "enum": ["stepfun", "agnes", "kling", "jimeng"],
+                    "enum": ["stepfun", "agnes", "token6688", "kling", "jimeng"],
                     "default": "stepfun",
                 },
                 "model": {
