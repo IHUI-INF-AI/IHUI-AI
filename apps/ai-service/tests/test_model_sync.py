@@ -1220,6 +1220,168 @@ class TestResetProvider:
 
 
 # =============================================================================
+# v5 token6688 免鉴权模型目录同步(keyless_model_list)
+# 2026-09-08 立:/v1/skills/models 免鉴权实测 200(112 模型),
+# 无 key 也能同步模型清单;调用(推理/媒体生成)仍需 key。
+# =============================================================================
+
+
+_TOKEN6688_KEYLESS_READY: bool = "is_token6688" in _FETCH_SRC and "skills/models" in _FETCH_SRC
+
+
+class _Token6688MockResp:
+    """模拟 token6688 /v1/skills/models 响应。"""
+
+    status_code = 200
+
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self._payload = payload
+        self.headers: dict[str, str] = {}
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+
+class _Token6688MockClient:
+    """捕获请求 URL/headers 的 mock AsyncClient(async context manager)。"""
+
+    def __init__(self, payload: dict[str, Any], capture: dict[str, Any]) -> None:
+        self._payload = payload
+        self._capture = capture
+
+    async def __aenter__(self) -> "_Token6688MockClient":
+        return self
+
+    async def __aexit__(self, *args: Any) -> bool:
+        return False
+
+    async def get(self, url: str, headers: dict[str, str] | None = None) -> _Token6688MockResp:
+        self._capture["url"] = url
+        self._capture["headers"] = headers or {}
+        return _Token6688MockResp(self._payload)
+
+
+_TOKEN6688_MODELS_PAYLOAD: dict[str, Any] = {
+    "models": [
+        {
+            "name": "gpt-5.4",
+            "display_name": "GPT-5.4",
+            "type": "chat",
+            "api_endpoint": "/v1/chat/completions",
+            "description": "GPT-5.4 旗舰",
+        },
+        {
+            "name": "seedance-2-5",
+            "display_name": "Seedance 2.5",
+            "type": "video",
+            "api_endpoint": None,
+            "description": "文生视频/图生视频",
+        },
+        {
+            "name": "gpt-image-2",
+            "display_name": "GPT Image 2",
+            "type": "image",
+            "api_endpoint": None,
+            "description": "图片生成",
+        },
+    ],
+    "total": 3,
+    "type": "all",
+}
+
+
+@pytest.mark.skipif(not _TOKEN6688_KEYLESS_READY, reason="等待 token6688 免鉴权分支实现")
+class TestToken6688KeylessSync:
+    """token6688 免 key 模型目录同步测试。"""
+
+    @pytest.mark.asyncio
+    async def test_fetch_keyless_empty_api_key(self) -> None:
+        """空 api_key 也能拉取清单(免鉴权端点,不抛 401)。"""
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        original = ms_mod.httpx.AsyncClient
+        ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
+            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+        )
+        try:
+            svc = ModelSyncService()
+            models, skip = await svc._fetch_upstream_models(
+                "token6688", "https://k.token6688.com", ""
+            )
+        finally:
+            ms_mod.httpx.AsyncClient = original  # type: ignore[assignment]
+        assert skip is False
+        assert len(models) == 3
+        assert capture["url"] == "https://k.token6688.com/v1/skills/models"
+        # 免鉴权端点:不应携带 Authorization(空 key 发 "Bearer " 可能被拒)
+        assert "Authorization" not in capture["headers"]
+
+    @pytest.mark.asyncio
+    async def test_fetch_keyless_base_url_endswith_v1(self) -> None:
+        """base_url 以 /v1 结尾时 URL 拼接不重复。"""
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        original = ms_mod.httpx.AsyncClient
+        ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
+            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+        )
+        try:
+            svc = ModelSyncService()
+            models, _ = await svc._fetch_upstream_models(
+                "token6688", "https://k.token6688.com/v1", ""
+            )
+        finally:
+            ms_mod.httpx.AsyncClient = original  # type: ignore[assignment]
+        assert capture["url"] == "https://k.token6688.com/v1/skills/models"
+        assert models[0]["id"] == "gpt-5.4"
+
+    @pytest.mark.asyncio
+    async def test_parse_chat_and_media_modalities(self) -> None:
+        """chat 模型标 is_chat=True;媒体模型带 modality=video/image。"""
+        import app.services.model_sync as ms_mod
+
+        capture: dict[str, Any] = {}
+        original = ms_mod.httpx.AsyncClient
+        ms_mod.httpx.AsyncClient = (  # type: ignore[assignment]
+            lambda timeout=None: _Token6688MockClient(_TOKEN6688_MODELS_PAYLOAD, capture)
+        )
+        try:
+            svc = ModelSyncService()
+            models, _ = await svc._fetch_upstream_models(
+                "token6688", "https://k.token6688.com", ""
+            )
+        finally:
+            ms_mod.httpx.AsyncClient = original  # type: ignore[assignment]
+        by_id = {m["id"]: m for m in models}
+        assert by_id["gpt-5.4"]["metadata"] == {"is_chat": True, "modality": "chat"}
+        assert by_id["seedance-2-5"]["metadata"] == {"is_chat": False, "modality": "video"}
+        assert by_id["gpt-image-2"]["metadata"] == {"is_chat": False, "modality": "image"}
+        # display_name → name 字段(供 _extract_display_name 用)
+        assert by_id["gpt-5.4"]["name"] == "GPT-5.4"
+
+    def test_registry_token6688_keyless_flag(self) -> None:
+        """registry 中 token6688 必须标记 keyless_model_list=True。"""
+        from app.services.free_provider_registry import free_provider_registry
+
+        provider = free_provider_registry.get_by_code("token6688")
+        assert provider is not None
+        assert provider.keyless_model_list is True
+        assert provider.default_base_url == "https://k.token6688.com"
+
+    def test_get_configured_providers_relaxes_key_check(self) -> None:
+        """_get_configured_providers 源码必须含 keyless 放宽逻辑。"""
+        import inspect
+
+        src = inspect.getsource(ModelSyncService._get_configured_providers)
+        assert "keyless_model_list" in src
+
+
+# =============================================================================
 # v4 运维控制:update_config(运行时更新同步间隔 + 并发限流)
 # =============================================================================
 
