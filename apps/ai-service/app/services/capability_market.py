@@ -21,7 +21,7 @@ import json
 import os
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from . import mcp_server
 
@@ -246,7 +246,7 @@ def get_manifest(force: bool = False) -> list[CapabilityInfo]:
         and _CACHE["signature"] == sig
         and (now - _CACHE["at"]) < _CAPABILITY_MANIFEST_TTL
     ):
-        return _CACHE["manifest"]  # type: ignore[return-value]
+        return cast(list[CapabilityInfo], _CACHE["manifest"])
     manifest = _build_manifest()
     _CACHE["manifest"] = manifest
     _CACHE["signature"] = sig
