@@ -1,19 +1,18 @@
 # © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 
-"""token6688_provider.py 单元测试。
-
-Token6688 聚合网关(https://k.token6688.com)适配器:OpenAI 兼容单 key 全模态。
+"""token6688_provider.py 单元测试(按官方 /v1/skills/guide v2026-07-11 校准)。
 
 测试覆盖:
 - __init__:默认 base_url / 自定义 api_base / configured 属性
 - _api_base_v1:/v1 后缀自动兼容(不重复拼接)
-- generate_image:成功(url/b64_json)/ 空结果抛 ProviderError
-- tts:成功返回音频字节 / 非 audio 响应抛 ProviderError
-- stt:multipart 成功 / 4xx 抛 ProviderError
-- embeddings:成功提取向量
-- generate_video:同步直返形态 / job 提交+轮询形态 / 任务失败 / 无 task_id
-- _extract_video_url / _extract_task_id 提取逻辑
+- list_models:/v1/skills/models 免鉴权映射 OpenAI 风格 + 降级 /v1/models
+- generate_image:同步成功 / 200+body.error 抛错(官方同步端点特有) / 空结果
+- generate_video:扁平形状断言(mode/images/client_request_id/prompt 必填)
+  + 同步直返 / job 轮询(/v1/tasks/{id},is_final+state+output_url) / 失败
+- generate_music / upload_file / get_balance / list_voices
+- tts:成功返回音频字节 / 非 audio 响应抛错
+- stt / embeddings:透传(平台暂无端点,保留备用)
 - 接线:get_provider 路由 / llm_gateway 前缀映射 / free_provider_registry 注册
 """
 
@@ -90,7 +89,29 @@ def test_headers_bearer():
 
 
 # =============================================================================
-# generate_image
+# list_models(免鉴权 /v1/skills/models)
+# =============================================================================
+
+
+async def test_list_models_from_skills_catalog():
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {"models": [
+        {"name": "gpt-5.4", "display_name": "GT-5.4", "api_endpoint": "/v1/chat/completions",
+         "capabilities": ["text"]},
+        {"name": "seedance-2-5", "display_name": "Seedance 2.5", "api_endpoint": None,
+         "capabilities": ["文生视频", "图生视频"]},
+    ]}))
+    with _patch_http_client(client):
+        models = await p.list_models()
+    assert [m["id"] for m in models] == ["gpt-5.4", "seedance-2-5"]
+    assert models[0]["owned_by"] == "token6688"
+    args, _ = client.request.call_args
+    assert args[1].endswith("/v1/skills/models")
+
+
+# =============================================================================
+# generate_image(同步 OpenAI Images;200 必查 body.error)
 # =============================================================================
 
 
@@ -104,13 +125,27 @@ async def test_generate_image_url_success():
     assert result["images"] == [{"url": "https://img.example.com/a.png"}]
 
 
-async def test_generate_image_b64_success():
+async def test_generate_image_body_error_on_200_raises():
+    """官方指南:同步端点 200 不等于成功,必须检查 body.error。"""
     p = Token6688Provider("k")
     client = MagicMock()
-    client.request = AsyncMock(return_value=_json_resp(200, {"data": [{"b64_json": "AAAA"}]}))
+    client.request = AsyncMock(return_value=_json_resp(
+        200, {"error": {"message": "内容被安全策略拦截", "class": "content_policy_violation"}}))
     with _patch_http_client(client):
-        result = await p.generate_image("test")
-    assert result["images"] == [{"b64_json": "AAAA"}]
+        with pytest.raises(ProviderError, match="安全策略"):
+            await p.generate_image("x")
+
+
+async def test_generate_image_default_model_gpt_image_2():
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {"data": [{"url": "https://x/y.png"}]}))
+    with _patch_http_client(client):
+        await p.generate_image("test")
+    args, kwargs = client.request.call_args
+    assert args[0] == "POST"
+    assert args[1] == "https://k.token6688.com/v1/images/generations"
+    assert kwargs["json"]["model"] == "gpt-image-2"
 
 
 async def test_generate_image_empty_raises():
@@ -120,18 +155,6 @@ async def test_generate_image_empty_raises():
     with _patch_http_client(client):
         with pytest.raises(ProviderError):
             await p.generate_image("test")
-
-
-async def test_generate_image_uses_default_model_and_url():
-    p = Token6688Provider("k")
-    client = MagicMock()
-    client.request = AsyncMock(return_value=_json_resp(200, {"data": [{"url": "https://x/y.png"}]}))
-    with _patch_http_client(client):
-        await p.generate_image("test")
-    args, kwargs = client.request.call_args
-    assert args[0] == "POST"
-    assert args[1] == "https://k.token6688.com/v1/images/generations"
-    assert kwargs["json"]["model"] == "gpt-image-1"
 
 
 # =============================================================================
@@ -151,8 +174,12 @@ async def test_tts_success_returns_audio_bytes():
         audio, content_type = await p.tts("你好", voice="alloy")
     assert audio == b"ID3fakeaudio"
     assert content_type == "audio/mpeg"
-    args, _ = client.post.call_args
+    args, kwargs = client.post.call_args
     assert args[0] == "https://k.token6688.com/v1/audio/speech"
+    # 官方 schema:voice ∈ {alloy,echo,fable,onyx,nova,shimmer},response_format 默认 mp3
+    assert kwargs["json"]["voice"] == "alloy"
+    assert kwargs["json"]["response_format"] == "mp3"
+    assert kwargs["json"]["model"] == "tts-1-hd"
 
 
 async def test_tts_error_response_raises():
@@ -169,26 +196,13 @@ async def test_tts_error_response_raises():
             await p.tts("你好")
 
 
-async def test_stt_success():
+async def test_stt_passthrough():
     p = Token6688Provider("k")
     client = MagicMock()
     client.post = AsyncMock(return_value=_json_resp(200, {"text": "识别结果"}))
     with _patch_http_client(client):
         result = await p.stt(b"audiobytes", "a.wav", language="zh")
     assert result["text"] == "识别结果"
-    args, kwargs = client.post.call_args
-    assert args[0] == "https://k.token6688.com/v1/audio/transcriptions"
-    assert kwargs["data"]["model"] == "whisper-1"
-    assert kwargs["files"]["file"][0] == "a.wav"
-
-
-async def test_stt_4xx_raises():
-    p = Token6688Provider("k")
-    client = MagicMock()
-    client.post = AsyncMock(return_value=_json_resp(400, {"error": "bad"}))
-    with _patch_http_client(client):
-        with pytest.raises(ProviderError):
-            await p.stt(b"x")
 
 
 async def test_embeddings_success():
@@ -203,7 +217,7 @@ async def test_embeddings_success():
 
 
 # =============================================================================
-# generate_video(同步直返 / job 轮询两种形态)
+# generate_video(扁平形状 → /v1/tasks/{id} 轮询)
 # =============================================================================
 
 
@@ -217,32 +231,65 @@ async def test_generate_video_sync_url_shape():
     assert result["provider"] == "token6688"
     assert result["video_url"] == "https://cdn.example.com/v.mp4"
     assert result["duration"] == 5
-    # 只应有一次提交请求,无轮询
     assert client.request.call_count == 1
 
 
-async def test_generate_video_job_polling_shape():
-    """提交返回 task_id → 轮询 GET 至 succeeded。"""
+async def test_generate_video_flat_payload_and_poll():
+    """官方校准:扁平形状(mode/duration/images 顶层)+ 轮询 GET /v1/tasks/{id} 读 output_url。"""
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(side_effect=[
         _json_resp(200, {"task_id": "job-42"}),
-        _json_resp(200, {"status": "processing"}),
-        _json_resp(200, {"status": "succeeded", "data": [{"url": "https://cdn/x.mp4"}]}),
+        _json_resp(200, {"is_final": False, "status": "processing", "progress": 30}),
+        _json_resp(200, {"is_final": True, "state": "success", "status": "completed",
+                          "output_url": "https://cdn/x.mp4"}),
     ])
     with _patch_http_client(client):
-        result = await p.generate_video("cat", "pixverse-c1", duration=8)
+        result = await p.generate_video("猫在草地上奔跑", "seedance-2-5", duration=8)
     assert result["task_id"] == "job-42"
     assert result["video_url"] == "https://cdn/x.mp4"
-    assert result["model"] == "pixverse-c1"
+    assert result["model"] == "seedance-2-5"
+    # 提交体断言:扁平形状 + prompt 必填 + 幂等 id + 默认模型
+    submit_args, submit_kwargs = client.request.call_args_list[0]
+    assert submit_args[0] == "POST"
+    assert submit_args[1] == "https://k.token6688.com/v1/videos/generations"
+    body = submit_kwargs["json"]
+    assert body["model"] == "seedance-2-5"
+    assert body["prompt"] == "猫在草地上奔跑"
+    assert body["mode"] == "text-to-video"
+    assert body["duration"] == "8"
+    assert body.get("client_request_id")
+    assert "params" not in body  # 扁平形状,严禁信封
+    # 轮询 URL 断言:/v1/tasks/{task_id}
+    poll_args, _ = client.request.call_args_list[-1]
+    assert poll_args[1] == "https://k.token6688.com/v1/tasks/job-42"
+
+
+async def test_generate_video_image_to_first_frame_mode():
+    """传图自动切 first-frame 模式,images 数组扁平透传。"""
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(side_effect=[
+        _json_resp(200, {"task_id": "j2"}),
+        _json_resp(200, {"is_final": True, "state": "success",
+                          "result": {"videos": [{"url": "https://cdn/i2v.mp4"}]}}),
+    ])
+    with _patch_http_client(client):
+        result = await p.generate_video("让画面动起来", "", duration=5,
+                                        image="https://pub.example.com/frame.jpg")
+    assert result["video_url"] == "https://cdn/i2v.mp4"
+    body = client.request.call_args_list[0][1]["json"]
+    assert body["mode"] == "first-frame"
+    assert body["images"] == ["https://pub.example.com/frame.jpg"]
 
 
 async def test_generate_video_job_failed_status():
     p = Token6688Provider("k")
     client = MagicMock()
     client.request = AsyncMock(side_effect=[
-        _json_resp(200, {"id": "job-9"}),
-        _json_resp(200, {"status": "failed", "error": "content blocked"}),
+        _json_resp(200, {"task_id": "job-9"}),
+        _json_resp(200, {"is_final": True, "state": "failed", "status": "failed",
+                          "error": "content blocked"}),
     ])
     with _patch_http_client(client):
         with pytest.raises(ProviderError, match="failed"):
@@ -265,10 +312,65 @@ def test_extract_task_id_variants():
     assert Token6688Provider._extract_task_id({"none": 1}) == ""
 
 
-def test_extract_video_url_variants():
-    assert Token6688Provider._extract_video_url({"url": "https://a/v.mp4"}) == "https://a/v.mp4"
-    assert Token6688Provider._extract_video_url({"output": [{"video_url": "https://b/v.mp4"}]}) == "https://b/v.mp4"
-    assert Token6688Provider._extract_video_url({"status": "ok"}) == ""
+def test_extract_media_url_variants():
+    assert Token6688Provider._extract_media_url({"output_url": "https://a/v.mp4"}) == "https://a/v.mp4"
+    assert Token6688Provider._extract_media_url({"result_url": "https://r/img.png"}) == "https://r/img.png"
+    assert Token6688Provider._extract_media_url({"result": {"videos": [{"url": "https://b/v.mp4"}]}}) == "https://b/v.mp4"
+    assert Token6688Provider._extract_media_url({"status": "ok"}) == ""
+
+
+# =============================================================================
+# music / upload_file / balance / voices
+# =============================================================================
+
+
+async def test_generate_music_task_flow():
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(side_effect=[
+        _json_resp(200, {"task_id": "m-1"}),
+        _json_resp(200, {"is_final": True, "state": "success", "output_url": "https://cdn/song.mp3"}),
+    ])
+    with _patch_http_client(client):
+        result = await p.generate_music("欢快的电子乐", style="EDM", title="Test")
+    assert result["audio_url"] == "https://cdn/song.mp3"
+    body = client.request.call_args_list[0][1]["json"]
+    assert body["model"] == "music"
+    assert body["style"] == "EDM"
+
+
+async def test_upload_file_returns_url():
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.post = AsyncMock(return_value=_json_resp(200, {"url": "https://cdn.6688.com/f/abc.png"}))
+    with _patch_http_client(client):
+        url = await p.upload_file(b"imgbytes", "cat.png")
+    assert url == "https://cdn.6688.com/f/abc.png"
+    args, kwargs = client.post.call_args
+    assert args[0] == "https://k.token6688.com/v1/files"
+    assert kwargs["files"]["file"][0] == "cat.png"
+
+
+async def test_get_balance_parses_formatted_strings():
+    """官方:balance/available_balance/frozen 为 '$49.964555' 格式字符串。"""
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(
+        200, {"balance": "$49.964555", "available_balance": "$40.00", "frozen": "$9.964555"}))
+    with _patch_http_client(client):
+        result = await p.get_balance()
+    assert result["balance"] == pytest.approx(49.964555)
+    assert result["available_balance"] == 40.0
+    assert result["frozen"] == pytest.approx(9.964555)
+
+
+async def test_list_voices():
+    p = Token6688Provider("k")
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {"data": [{"voice_id": "v1", "name": "my-voice"}]}))
+    with _patch_http_client(client):
+        voices = await p.list_voices()
+    assert voices[0]["voice_id"] == "v1"
 
 
 # =============================================================================
@@ -302,6 +404,7 @@ def test_free_provider_registry_contains_token6688():
     assert entry is not None
     assert entry.key_env_vars == ["TOKEN6688_API_KEY"]
     assert entry.default_base_url == "https://k.token6688.com"
+    assert entry.default_models[0].startswith("t6688/")
 
 
 def test_provider_caps_registered():
