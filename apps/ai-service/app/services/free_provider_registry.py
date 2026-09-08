@@ -791,6 +791,25 @@ _REGISTRY: list[FreeProvider] = [
         docs_url="https://docs.navy.ai",
         notes="OmniRoute v3.8.49 新增;信息有限,建议先小流量测试",
     ),
+    FreeProvider(
+        provider_code="token6688",
+        display_name="Token6688 名创AI(聚合网关)",
+        category=ProviderCategory.DOMESTIC,
+        signup_url="https://k.token6688.com",
+        free_quota="聚合网关按量计费,新用户注册赠送额度(以站点公告为准)",
+        rate_limit="站点级限流(见站内 api-docs)",
+        default_base_url="https://k.token6688.com",
+        key_env_vars=["TOKEN6688_API_KEY"],
+        default_models=["t6688/gm-3.8-flash"],
+        protocol="openai_chat",
+        docs_url="https://k.token6688.com/zh-CN/api-docs",
+        notes=(
+            "OpenAI 兼容聚合网关(TokenGo 系),单 key 全模态:chat/vision/embeddings/"
+            "TTS(/v1/audio/speech)/STT(/v1/audio/transcriptions)/images(/v1/images/"
+            "generations)/video(/v1/videos,env 可配端点)。模型清单经 /v1/models 自动同步;"
+            "平台前缀 t6688/,LLM_PROVIDERS JSON 配 token6688 条目即可"
+        ),
+    ),
 
     # ---------------- P3-2 法务评估:ToS 禁止接入的 provider(2026-07-30 立) ----------------
     FreeProvider(
