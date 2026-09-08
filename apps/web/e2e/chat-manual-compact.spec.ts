@@ -1,4 +1,8 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 
 import { test, expect, type Page } from './fixtures'
 
@@ -6,9 +10,12 @@ import { test, expect, type Page } from './fixtures'
  * 手动压缩上下文按钮 E2E 防回归(2026-09-02 立)。
  *
  * 被测功能:
- *  - AI 对话输入工具栏右侧簇(ContextUsageRing 左侧)的"压缩上下文"按钮
- *    (apps/web/src/components/chat/message-input.tsx,Scissors 剪刀图标,
- *    data-testid="compact-context-button",aria-label 随 loading 态切换)。
+ *  - "压缩上下文"入口(2026-09-06 整合:原工具栏独立剪刀按钮收纳进 AI 输入框
+ *    上方"添加"下拉菜单)。定位方式:先点击"添加"trigger(data-testid=
+ *    "add-menu-trigger")打开菜单,再定位菜单项(data-testid=
+ *    "compact-context-button",Scissors 剪刀图标,aria-label 随 loading 态切换)。
+ *    请求期间菜单保持打开以展示 loading,完成后自动关闭。
+ *    (apps/web/src/components/chat/add-menu-popover.tsx)
  *
  * 行为契约(message-input.tsx handleCompact):
  *  - 点击 → POST /api/chat/compact,body { conversationId };请求中按钮 loading 禁用;
@@ -39,9 +46,21 @@ const TEXT_TOO_FEW = '无需压缩' // compactTooFew: "对话消息太少,无需
 const TEXT_INCOMPRESSIBLE = '当前上下文已无可压缩空间' // compactIncompressible
 const TEXT_FAILED = '压缩失败' // compactFailed
 
-/** 压缩按钮定位(data-testid,与 aria-label 解耦:loading 时 aria-label 会变) */
+/** "添加"菜单 trigger(压缩入口收纳在其下拉菜单内) */
+function addMenuTrigger(page: Page) {
+  return page.getByTestId('add-menu-trigger')
+}
+
+/** 压缩菜单项定位(data-testid,与 aria-label 解耦:loading 时 aria-label 会变) */
 function compactButton(page: Page) {
   return page.getByTestId('compact-context-button')
+}
+
+/** 打开"添加"菜单并等待压缩菜单项渲染 */
+async function openAddMenu(page: Page): Promise<void> {
+  await expect(addMenuTrigger(page)).toBeVisible({ timeout: 20_000 })
+  await addMenuTrigger(page).click()
+  await expect(compactButton(page)).toBeVisible({ timeout: 5_000 })
 }
 
 /** 按文案过滤的 sonner toast */
@@ -139,16 +158,16 @@ async function mockCompact(page: Page, res: CompactMockResponse): Promise<void> 
   })
 }
 
-/** 进入 /chat 并等待压缩按钮渲染(adminPage 已登录,不会被重定向) */
+/** 进入 /chat 并等待"添加"trigger 渲染(adminPage 已登录,不会被重定向) */
 async function gotoChat(page: Page): Promise<void> {
   await page.goto('/chat')
   await page.waitForLoadState('domcontentloaded').catch(() => {})
   await expect(page).toHaveURL(/\/chat/, { timeout: 20_000 })
-  await expect(compactButton(page)).toBeVisible({ timeout: 20_000 })
+  await expect(addMenuTrigger(page)).toBeVisible({ timeout: 20_000 })
 }
 
 /**
- * 注入会话 ID 后进入 /chat,使压缩按钮 enabled。
+ * 注入会话 ID 后进入 /chat(压缩入口在"添加"菜单内,enabled 判定需先 openAddMenu)。
  * chat store 持久化(stores/chat.ts):localStorage key 'ihui-chat',version 5,
  * partialize 含 conversationId —— zustand persist rehydrate 时 shallow merge,
  * 其余字段走初始默认值。
@@ -161,7 +180,6 @@ async function gotoChatWithConversation(page: Page): Promise<void> {
     { key: 'ihui-chat', cid: COMPACT_CONV_ID },
   )
   await gotoChat(page)
-  await expect(compactButton(page)).toBeEnabled({ timeout: 20_000 })
 }
 
 test.describe('手动压缩上下文按钮', () => {
@@ -171,6 +189,7 @@ test.describe('手动压缩上下文按钮', () => {
   // (disabled={compacting || isStreaming || !conversationId})。
   test('无会话时压缩按钮 disabled', async ({ adminPage: page }) => {
     await gotoChat(page)
+    await openAddMenu(page)
     await expect(compactButton(page)).toBeDisabled()
     // 可访问性:按钮带非空 aria-label(压缩上下文)
     const ariaLabel = await compactButton(page).getAttribute('aria-label')
@@ -194,18 +213,19 @@ test.describe('手动压缩上下文按钮', () => {
       },
     })
     await gotoChatWithConversation(page)
+    await openAddMenu(page)
 
     await compactButton(page).click()
 
-    // 请求中:按钮禁用 + Loader2 旋转图标(SVG.animate-spin)
+    // 请求中:菜单保持打开,按钮禁用 + Loader2 旋转图标(SVG.animate-spin)
     await expect(compactButton(page)).toBeDisabled()
     await expect(compactButton(page).locator('svg.animate-spin')).toBeVisible()
 
     // info toast 文案(too_few_messages 分支)
     await expect(toastByText(page, TEXT_TOO_FEW)).toBeVisible({ timeout: 5000 })
 
-    // 响应结束后按钮恢复可点
-    await expect(compactButton(page)).toBeEnabled({ timeout: 5000 })
+    // 响应结束后菜单自动关闭(压缩入口收纳在菜单内,关闭后不可见)
+    await expect(compactButton(page)).toBeHidden({ timeout: 5000 })
   })
 
   // ── c. compressed=true → success toast 含压缩前后 token 数 ────────────
@@ -224,6 +244,7 @@ test.describe('手动压缩上下文按钮', () => {
       },
     })
     await gotoChatWithConversation(page)
+    await openAddMenu(page)
 
     await compactButton(page).click()
 
@@ -238,8 +259,8 @@ test.describe('手动压缩上下文按钮', () => {
     expect(toastText).toMatch(/5[,.]?000/)
     expect(toastText).toMatch(/3[,.]?000/)
 
-    // 按钮恢复
-    await expect(compactButton(page)).toBeEnabled({ timeout: 5000 })
+    // 响应结束后菜单自动关闭
+    await expect(compactButton(page)).toBeHidden({ timeout: 5000 })
   })
 
   // ── d. 404 → 错误 toast ────────────────────────────────────────────────
@@ -252,15 +273,16 @@ test.describe('手动压缩上下文按钮', () => {
       data: { code: 404, message: 'conversation not found' },
     })
     await gotoChatWithConversation(page)
+    await openAddMenu(page)
 
     await compactButton(page).click()
 
     await expect(toastByText(page, TEXT_FAILED)).toBeVisible({ timeout: 5000 })
-    await expect(compactButton(page)).toBeEnabled({ timeout: 5000 })
+    await expect(compactButton(page)).toBeHidden({ timeout: 5000 })
   })
 
   // ── e. incompressible → info toast ─────────────────────────────────────
-  test('incompressible → info toast"无可压缩空间" + 按钮恢复', async ({ adminPage: page }) => {
+  test('incompressible → info toast"无可压缩空间" + 菜单关闭', async ({ adminPage: page }) => {
     await mockConversationBackend(page)
     await mockCompact(page, {
       status: 200,
@@ -273,10 +295,12 @@ test.describe('手动压缩上下文按钮', () => {
       },
     })
     await gotoChatWithConversation(page)
+    await openAddMenu(page)
 
     await compactButton(page).click()
 
     await expect(toastByText(page, TEXT_INCOMPRESSIBLE)).toBeVisible({ timeout: 5000 })
-    await expect(compactButton(page)).toBeEnabled({ timeout: 5000 })
+    await expect(compactButton(page)).toBeHidden({ timeout: 5000 })
   })
 })
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
