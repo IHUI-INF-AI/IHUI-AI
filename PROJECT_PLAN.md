@@ -42,13 +42,42 @@
 
 ### P1 深度打磨(1 个月)
 
-- [ ] 1-1 Agent Timeline 全可解释:输入、决策、工具、diff、测试、成本、回滚
-- [ ] 1-2 补丁冲突处理:3-way merge、局部拒绝、自动回滚
+- [x] **1-1 Agent Timeline 全可解释** ✅(2026-09-08):见下方完成报告
+- [x] **1-2 补丁冲突处理** ✅(2026-09-08):见下方完成报告
 - [ ] 1-3 压缩生产指标与灰度
 - [ ] 1-4 MCP 生态质量分与安全评分
-- [ ] 1-5 agent_loop_v2 架构拆分
+- [x] **1-5 agent_loop_v2 架构拆分** ✅(2026-09-08):见下方完成报告
 - [ ] 1-6 键盘优先交互:命令面板、快捷键、inline chat
 - [ ] 1-7 调试链路 DAP 化与断点/变量/watch 稳定性
+
+### 1-1 Agent Timeline 全可解释完成报告(2026-09-08)
+
+- **决策推导双层机制**(`agent_loop_v2.py`):①「结果可见」路径由 `_derive_step_decision(tr)` 从 ToolResult 推导(error_type/retry_count → 8 类 decision:execute_tool / execute_tool_retried / execute_tool_failed / plan_blocked / rejected_by_user / approval_timeout / tool_missing);②「结果不可见」路径(auto 模式只读免审批等)由 `_decision_hints[tool_call_id]` 提示字典在 `_execute_single` 写入(auto_skip_approval)、`_maybe_record_step` 消费后弹出——每个工具调用步骤都有 decision + reason。
+- **meta 提升**(`agent_timeline.py` `_step_event`):decision/reason/diff/test/rollback 5 字段提升进聚合时间线 meta 供前端结构化消费,完整原始 input 留 raw 避免聚合响应膨胀。
+- **TS 契约补齐**(`agent-recorder-api.ts`):RunStep 追加 input/decision/reason/diff/test/rollback 6 可选字段 + StepDiff/StepTest/StepRollback 三个子接口。
+- **双页面七要素渲染**:agent-step-recorder 页(折叠行 decision 徽章 + 展开区决策→原始入参 safeJsonStringify→diff 红/绿双列→测试 exit 徽章/passed/failed→回滚 checkpoint 引用)、agent-timeline 页(step 事件决策行/diff/测试/回滚/成本行)。
+- **5 语言 i18n**:agentStepRecorder 9 key + agentTimeline 11 key(zh-CN/en/ja/ko/zh-TW)。
+- **验收**:专项 pytest 86 passed(test_derive_step_evidence 7 新用例 + agent_timeline/event_stream/agent_loop_v2/permission_modes/step_evidence/step_recorder);mypy strict 改动模块 0 错误;web tsc --noEmit + eslint 0 错误 0 警告。
+
+### 1-2 补丁冲突处理完成报告(2026-09-08)
+
+- **merge3 三方合并引擎**(新增 `app/services/merge3.py`):diff3 风格行级对齐,`merge3_for_edit` 以 base(agent 上次 read/write 看到的版本)为公共祖先、磁盘现状为 theirs、base 应用 old→new 为 ours;双侧修改在 base 行区间**严格重叠**才报冲突(相邻不重叠确定性合并),干净合并返回完整 merged 文本;`resolve_conflicts` 按冲突块顺序逐块取 ours/theirs 生成最终内容并返回 applied 决策明细。
+- **base 版本跟踪**(`mcp_server.py`):`_FILE_BASE_CONTENT` 内存 dict(上限 256 文件 LRU 淘汰),read_file/write_file/file_edit/resolve_conflict 成功后刷新;统一 LF 归一化存储。
+- **file_edit 3-way 分支**:old_string 磁盘 0 命中但 base 中存在 → 判定快照后被外部修改 → 三方合并;干净合并自动落盘(strategy=auto_merged_3way)+ .bak 备份,双侧冲突返回 CONFLICT 不写盘(conflict_count + 指引文案)。
+- **resolve_conflict 新 MCP 工具**(admin-only):携带与触发冲突相同的 file_path/old_string/new_string + choices 数组('ours'=采用 agent 修改 / 'theirs'=保留磁盘现状=局部拒绝),不足缺省 ours;写盘前 .bak 备份磁盘现状。
+- **EOL 归一化(生产修复)**:`_normalize_eol`(base 存储与 merge3 计算统一 LF)+ `_restore_eol`(合并结果按磁盘原行尾风格还原写盘)——根治 Windows CRLF 磁盘 vs read_file 文本模式 LF 视角导致 merge3 整文件误判为单侧全改的 bug。
+- **agent_loop_v2 集成**:`_DEFAULT_HIGH_RISK_TOOLS` 加 resolve_conflict(冲突解决写盘属高危);`_snapshot_before_write`/`_run_file_snapshots` checkpoint 文件快照覆盖 resolve_conflict 写盘路径,失败自动回滚。
+- **验收**:专项 pytest 36 passed(test_merge3 22 + test_patch_conflict 14,覆盖注册表/schema/base 跟踪/干净合并/冲突不写盘/局部拒绝/备份/direct 回归);全量回归 6033 passed / 2 skipped,唯一失败 test_native_fc_e2e_real 为 StepFun 账号配额 402 外部依赖(非本改动回归);mypy strict 改动模块 0 错误。
+
+### 1-5 agent_loop_v2 架构拆分完成报告(2026-09-08)
+
+- **事件流拆层**:`AgentEventStream` 收敛 agent_loop_v2 全部 9 处 `hook_engine.emit` 调用点(迭代/工具调用/工具结果/审批/停止等),统一 fail-open 降级语义(事件总线异常不阻塞主循环);hook_engine 侧 HOOK_EVENTS 注册不变,调用方零感知。
+- **可解释性证据链重建**:`derive_step_evidence` 推导每步证据(edit_file/write_file→diff+rollback 文件、run_command→测试结果),`agent_step_recorder._normalize_step` 追加 6 个可解释性字段,checkpoint 快照携带证据链,`_maybe_record_step` 增强——Agent Timeline(1-1/P1-4)数据源由此打通。
+- **新增契约测试** `tests/test_agent_event_stream.py` 6 用例(事件收敛/降级语义/证据推导)。
+- **顺带根治全量回归卡死**:hook_engine `_ensure_redis` 探测失败后每次操作重复重连(连接拒绝 ~2s/次,110 次 DLQ 推送 ≈220s 卡死 test_hook_engine)→ 增 `_redis_probed` 标记,探测一次失败永久降级内存;conftest Redis 隔离指向 `redis://127.0.0.1:1/0` 语义不变。
+- **修复 3 个既有测试与源码演进脱节**:test_gemini_provider(safety 阈值有意恢复 BLOCK_MEDIUM_AND_ABOVE,断言更新)/ test_codebase_indexer 4 处 fake_write 补 `internal_user_id` 参数(commit 5fb8883f55 签名演进)/ test_bench_golden(bench 缺实现,见下)。
+- **bench golden 执行器 + CI 门禁**:`bench/fixtures_golden/` 4 夹具参考答案(覆盖全部 41 任务检查,pytest 全绿)→ `--executor golden` 跳过 agent 循环直评,bench 评分链路自检应 100% 通过;`--min-pass-rate`(显式给出时低于门槛 stderr 报「通过率低于门槛」+ exit 1)供 CI 阻塞回归。test_bench_golden 4/4 + test_bench 全过。
+- **验收**:全量回归 **10229 passed / 3 skipped / 2 failed**(2 失败均非本改动回归:test_native_fc_e2e_real 为 StepFun 账号配额 402 外部依赖耗尽、test_tls_stealth「Event loop is closed」高负载偶发且单独复跑通过);mypy strict 改动模块 0 错误;pytest-timeout(--timeout=180)纳入回归防异步卡死。
 
 ### P2 广度优势产品化(3 个月)
 
@@ -148,7 +177,6 @@
 - [x] **P3-10 一键发布/接入文档引导** ✅(2026-09-07):`docs/ONBOARDING.md` 零配置跑通(命令逐条对照 dev-port-registry.json/start-dev.ps1/drizzle 核实)+web `/onboarding` 五步 checklist 页(localStorage 进度)+MCP 商店/能力市场入口聚合;i18n 19 keys × 5 语言。
 - [x] **P3-11 全端杀手锏同构** ✅(2026-09-07):穷举 2363 个 TS 源文件,CLI 清零 2 处二次写死(agent.ts/compaction-cache.ts → import 单源);质量自证常量补入 TS 镜像+parity(tunables 沉淀 *_DEFAULT 标量);新守门 `scripts/check-killer-parity-ends.mjs` 入 check:all(0 违例,repl.ts 0.87 强制压缩数学显式豁免)。
 - **集成验收**:i18n 3 新命名空间 ×5 parity OK / 守门 2363 文件 0 违例 / pytest 35 通过 / 改动文件 tsc 0 错。**能力超越路线图 P0/P1/P2/P3 全部闭环**;仅剩 2 条需外部资源项(公网 MCP OAuth 真网端点、厂商账单 API 密钥对账)。
-
 
 ## 平台独占豁免标注(2026-07-26 立,AGENTS.md §9 配套)
 
@@ -3202,6 +3230,7 @@ commit `aa15bec23` "fix(web): message-list 消息操作按钮从气泡内挪到�
 - [x] ✅(2026-09-03) **页面切换极致优化闭环**:commit `6902f0dff5`(7 files,235+/3-),GIT_INDEX_FILE 隔离 index 仅暂存 7 文件;三环境守门走官方 SKIP 开关(非 --no-verify):`HUSKY_SKIP_TYPECHECK=1`(跳并行会话 `ScanLoginDialog.tsx:275` 半编辑态)/`HUSKY_SKIP_ROOT_DIR_GUARD=1`(跳 benchmarks/·GAP-PLAN.md 环境存量,先例 60b3abe707)/`HUSKY_SKIP_I18N_DEAD_KEY=1`(跳 17 web 现存死 key);**保留 staged-typecheck 门**验证本批 0 类型错误(修复 `Sidebar.tsx:148` TS2769 `warmList[i]` `string|undefined` → `if(!href) return` 守卫)。守门 67 过/5 警/0 败。
 - [x] ✅(2026-09-03 晚) **dev 启动预热升级为全量(--all),真消除时机依赖**:用户复核"根本没达到极致"——根因有二:① `start-dev.ps1` 默认仅预热 `warm-dev-routes.mjs` 的 12 条高频路由,第 13~~184 条 nav 路由首次点击仍走冷编译(3~~36s);② 客户端第七刀仅页面加载后 50-70s 渐进预热(时机依赖,且并发=6 与用户点击争用编译槽)。**改法**:`start-dev.ps1` 调用 `warm-dev-routes.mjs --all`,启动期后台顺序预热 `nav-data.ts` 全量 184 条路由(不阻塞启动器,日志 web-warmup.log)。**实测(server 空闲,RSC 导航)**:全部 nav 路由 <0.4s(冷态曾 3~36s),dev 首次点击编译等待彻底归零;动态路由(如 /personas,不在 nav)仍走按需编译,由客户端第七刀兜底。客户端 Sidebar 第七刀降级为直接 `next dev`(不经启动器)路径的兜底,主路径以启动预热为准。**关键定理**:`warm-dev-routes.mjs` 用普通 GET 预热即可覆盖 RSC 导航路径(Turbopack 编译一次路由模块,HTML/RSC 共用);验证时若预热进程仍在打压 server,测得的高耗时属争用干扰非冷编译(须 server 空闲复测)。
 - [x] ✅(2026-09-03) 环境存量后续根治:`95ccbb30d5` chore 已把 benchmarks/·GAP-PLAN.md 正式加入根目录整洁白名单(根目录守门不再需 SKIP);i18n 17 死 key 仍属现存债,留作明确遗留项。
+- [x] ✅(2026-09-08) **i18n 死 key 现存债终局清零**:上述 17 个死 key 经实查同属 `agentCanvas.*` 命名空间(后扩至 46 个)——根因是 agent-canvas 页面 5 个组件硬编码中文未接 i18n,46 个键 × 5 语言翻译早已备好却从未接线。根治方式为**接线而非删键**:5 个文件(AgentCanvasClient/types/top-toolbar/node-palette/inspector-panel/canvas-task-node)逐字替换为 `useTranslations('agentCanvas')`,`createDefaultParams` 默认审核提示语改入参注入(types.ts 保持无 UI 依赖)。`scan-dead-i18n-keys`:46→0,翻译零删除、无 SKIP。commit `3b68443947`(6 files,66+/38-),三仓 main 同步至 `b64194ed8e`。
 
 ### 关联
 

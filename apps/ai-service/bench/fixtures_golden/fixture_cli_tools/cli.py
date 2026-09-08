@@ -1,0 +1,37 @@
+"""命令行小工具(golden 参考实现:坏 import/死代码已清理 + dispatch/cmd_add/类型注解)。"""
+
+import sys
+
+from parser import parse_args  # noqa: F401  (multifile-cli-parser:迁移解析逻辑)
+
+
+def greet(name: str) -> str:
+    """返回问候语。"""
+    return f"Hello, {name}!"
+
+
+def cmd_add(a: int, b: int) -> int:
+    """打印两整数之和并返回 0。"""
+    print(a + b)
+    return 0
+
+
+def dispatch(argv: list[str] | None = None) -> int:
+    """命令分发:add 子命令或默认问候。"""
+    argv = argv if argv is not None else sys.argv[1:]
+    if argv and argv[0] == "add" and len(argv) == 3:
+        return cmd_add(int(argv[1]), int(argv[2]))
+    if not argv:
+        print("usage: cli <name>")
+        return 1
+    print(greet(argv[0]))
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    """CLI 入口:接收单个名字参数并打印问候语。"""
+    return dispatch(argv)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

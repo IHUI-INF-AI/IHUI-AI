@@ -1,0 +1,27 @@
+"""text_utils 的确定性测试(golden:补齐 slugify 用例)。"""
+
+from text_utils import word_count, to_uppercase, reverse, slugify
+
+
+def test_word_count() -> None:
+    assert word_count("hello world foo") == 3
+
+
+def test_word_count_empty() -> None:
+    assert word_count("") == 0
+
+
+def test_to_uppercase() -> None:
+    assert to_uppercase("abc") == "ABC"
+
+
+def test_reverse() -> None:
+    assert reverse("abc") == "cba"
+
+
+def test_slugify() -> None:
+    assert slugify("Hello World") == "hello-world"
+
+
+def test_slugify_extra_spaces() -> None:
+    assert slugify("  Hello   World  ") == "hello-world"
