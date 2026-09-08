@@ -800,14 +800,17 @@ _REGISTRY: list[FreeProvider] = [
         rate_limit="站点级限流(见站内 api-docs)",
         default_base_url="https://k.token6688.com",
         key_env_vars=["TOKEN6688_API_KEY"],
-        default_models=["t6688/gm-3.8-flash"],
+        default_models=["t6688/gemini-3.8-flash", "t6688/deepseek-v4-flash", "t6688/gpt-5.4"],
         protocol="openai_chat",
         docs_url="https://k.token6688.com/zh-CN/api-docs",
         notes=(
-            "OpenAI 兼容聚合网关(TokenGo 系),单 key 全模态:chat/vision/embeddings/"
-            "TTS(/v1/audio/speech)/STT(/v1/audio/transcriptions)/images(/v1/images/"
-            "generations)/video(/v1/videos,env 可配端点)。模型清单经 /v1/models 自动同步;"
-            "平台前缀 t6688/,LLM_PROVIDERS JSON 配 token6688 条目即可"
+            "OpenAI 兼容聚合网关(TokenGo 系),单 key 全模态(2026-09-08 按官方 /v1/skills/guide "
+            "v2026-07-11 校准):chat 43 模型 /v1/chat/completions;图片 /v1/images/generations 同步"
+            "(200 必查 body.error)或 /api/v1/model-runtime/invoke 真异步;视频 /v1/videos/generations"
+            "扁平形状 → GET /v1/tasks/{id} 轮询 output_url(视频 p90 55~75 分钟);TTS /v1/audio/speech"
+            "官方同构;音乐 /v1/audio/generations(Suno);文件 /v1/files;余额 /v1/skills/balance;"
+            "模型目录 /v1/skills/models 免鉴权(112 模型)。平台前缀 t6688/,LLM_PROVIDERS JSON 配 "
+            "token6688 条目即可"
         ),
     ),
 
