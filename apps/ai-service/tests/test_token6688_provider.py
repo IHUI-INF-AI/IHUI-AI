@@ -435,3 +435,88 @@ def test_video_orchestration_skips_when_unconfigured(monkeypatch):
     monkeypatch.delenv("TOKEN6688_API_KEY", raising=False)
     # .env 占位里 LLM_PROVIDERS.token6688.api_key 为空 → 应跳过(不进 fallback 链)
     assert vg._instantiate("token6688") is None
+
+
+# =============================================================================
+# 长任务:提交即返回(wait=False)与任务状态查询(get_task_status)
+# 2026-09-08 立:官方视频 p90 55~75 分钟,同步轮询会卡死 MCP 对话/worker
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_generate_video_wait_false_returns_submitted():
+    """wait=False 提交后不轮询,立即返回 task_id + poll_url。"""
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {"task_id": "job-77"}))
+    p = Token6688Provider("k")
+    with _patch_http_client(client):
+        result = await p.generate_video("猫跑", "seedance-2-5", duration=8, wait=False)
+    assert result["status"] == "submitted"
+    assert result["task_id"] == "job-77"
+    assert result["poll_url"] == "https://k.token6688.com/v1/tasks/job-77"
+    assert "video_url" not in result
+    # 仅一次提交请求,无轮询 GET
+    assert client.request.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_task_status_completed():
+    """get_task_status:终态 success → ok=True + video_url。"""
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {
+        "is_final": True, "state": "success", "status": "completed",
+        "output_url": "https://cdn/x.mp4", "progress": 100,
+    }))
+    p = Token6688Provider("k")
+    with _patch_http_client(client):
+        st = await p.get_task_status("job-77")
+    assert st["ok"] is True
+    assert st["failed"] is False
+    assert st["is_final"] is True
+    assert st["video_url"] == "https://cdn/x.mp4"
+    assert st["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_get_task_status_processing_and_failed():
+    """get_task_status:processing 非终态 ok=False;failed 终态 failed=True。"""
+    p = Token6688Provider("k")
+
+    client = MagicMock()
+    client.request = AsyncMock(return_value=_json_resp(200, {
+        "is_final": False, "state": "running", "status": "processing", "progress": 30,
+    }))
+    with _patch_http_client(client):
+        st = await p.get_task_status("job-77")
+    assert st["ok"] is False and st["failed"] is False and st["status"] == "processing"
+
+    client2 = MagicMock()
+    client2.request = AsyncMock(return_value=_json_resp(200, {
+        "is_final": True, "state": "failed", "status": "failed",
+        "error": "content policy",
+    }))
+    with _patch_http_client(client2):
+        st2 = await p.get_task_status("job-77")
+    assert st2["failed"] is True and st2["ok"] is False
+    assert "content policy" in (st2["error"] or "")
+
+
+@pytest.mark.asyncio
+async def test_mcp_video_tool_query_mode(monkeypatch):
+    """video_generation 工具查询模式:只传 task_id → 返回任务状态(不校验 prompt)。"""
+    from app.services import mcp_server
+
+    class _FakeP:
+        async def get_task_status(self, task_id):
+            return {"status": "completed", "is_final": True, "ok": True,
+                    "failed": False, "video_url": "https://cdn/done.mp4",
+                    "progress": 100, "error": None, "raw": {}}
+
+    import app.services.video_generation as vg
+    monkeypatch.setattr(vg, "_instantiate", lambda name: _FakeP() if name == "token6688" else None)
+    from app.services.mcp_server import mcp_server as mcp_inst
+    out = await mcp_inst.call_tool("video_generation", {"task_id": "job-77"})
+    assert out["ok"] is True
+    assert out["completed"] is True
+    assert out["video_url"] == "https://cdn/done.mp4"
+    assert out["task_id"] == "job-77"
