@@ -17,6 +17,7 @@ from .anthropic_provider import AnthropicProvider
 from ..services.tool_schema_adapter import is_anthropic_model
 from .gemini_provider import GeminiProvider
 from .stepfun_provider import StepfunProvider
+from .token6688_provider import Token6688Provider
 from .alibaba_dashscope_provider import AlibabaDashscopeProvider
 from .doubao_provider import DoubaoProvider
 from .jimeng_provider import JimengProvider
@@ -78,6 +79,9 @@ def get_provider(model: str, api_key: str | None, api_base: str | None) -> BaseP
         return GeminiProvider(api_key, api_base)
     if m.startswith("stepfun/"):
         return StepfunProvider(api_key, api_base)
+    # Token6688 聚合网关(单 key 全模态:chat/image/tts/stt/embeddings/video)
+    if m.startswith("t6688/"):
+        return Token6688Provider(api_key, api_base)
     # 国内厂商 / 聚合平台:必须在 OpenAI 兼容 catchall 之前匹配(否则无斜杠前缀会被吞)
     if m.startswith("qwen-"):
         return AlibabaDashscopeProvider(api_key, api_base)
