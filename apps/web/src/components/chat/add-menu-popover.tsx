@@ -191,7 +191,7 @@ export function AddMenuPopover(props: {
   }, [open, onModeChange])
 
   return (
-    <div>
+    <div className="flex min-w-0">
       <Tooltip content={t('addMenuLabel')}>
         <button
           ref={triggerRef}
@@ -207,7 +207,7 @@ export function AddMenuPopover(props: {
           disabled={isStreaming}
           onClick={() => onOpenChange(!open)}
           className={cn(
-            'inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none whitespace-nowrap',
+            'inline-flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium leading-none',
             'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
             'disabled:cursor-not-allowed disabled:opacity-50',
             'hover:-translate-y-px',
