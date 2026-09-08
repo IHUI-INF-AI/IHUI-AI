@@ -36,7 +36,10 @@ import {
 } from '../services/account-lockout.js'
 import { success, error } from '../utils/response.js'
 import { setAuthCookies, clearAuthCookies } from '../utils/auth-cookies.js'
-import { jscode2session, isWechatMiniConfigured } from '../services/oauth-providers.js'
+import {
+  wechatAppCode2session,
+  isWechatAppConfigured,
+} from '../services/oauth-providers.js'
 import { findThirdPartyAccount, createThirdPartyBinding } from '../db/oauth-queries.js'
 import { findUserPreferences, upsertUserPreference } from '../db/user-preferences-queries.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
@@ -985,19 +988,19 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // POST /api/auth/login/wechat — 小程序别名(微信登录)
+  // POST /api/auth/login/wechat — 微信开放平台移动应用(App 内授权登录,react-native-wechat-lib)
   server.post(
     '/login/wechat',
     {
       schema: {
-        summary: '微信登录(小程序别名)',
-        description: '使用微信 code 登录,需配置微信开放平台 AppID/Secret',
+        summary: '微信登录(移动应用 App 内授权)',
+        description: '使用 react-native-wechat-lib sendAuthRequest 返回的 code 登录,需配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET',
         tags: ['auth'],
         body: {
           type: 'object',
           required: ['code'],
           properties: {
-            code: { type: 'string', description: '微信授权 code' },
+            code: { type: 'string', description: '微信移动应用授权 code' },
           },
         },
       },
@@ -1008,12 +1011,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      if (!isWechatMiniConfigured()) {
+      if (!isWechatAppConfigured()) {
         return reply
           .status(501)
-          .send(error(501, '微信小程序登录未配置,请配置 WX_MINI_APPID/WX_MINI_SECRET'))
+          .send(error(501, '微信移动应用登录未配置,请配置 WECHAT_MOBILE_APP_ID/WECHAT_MOBILE_SECRET'))
       }
-      const session = await jscode2session(parsed.data.code).catch(() => null)
+      const session = await wechatAppCode2session(parsed.data.code).catch(() => null)
       if (!session) {
         return reply.status(401).send(error(401, '微信登录失败: invalid code'))
       }
@@ -1026,7 +1029,7 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       } else {
         try {
           user = await createUser({
-            nickname: '微信用户',
+            nickname: session.nickname || '微信用户',
             familyId: createFamilyId(),
             roleId: 0,
             status: 1,
