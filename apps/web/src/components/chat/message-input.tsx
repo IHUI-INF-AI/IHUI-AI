@@ -6,7 +6,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Send, Square, SquareSlash, AtSign, Info, Scissors, Loader2 } from 'lucide-react'
+import { Send, Square, SquareSlash, AtSign, Info } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 
 import { cn } from '@/lib/utils'
@@ -554,6 +554,9 @@ export function MessageInput({
                   // 深度研究入口(2026-09-07 工作线 B):跳转 /deep-research 页面
                   router.push('/deep-research')
                 }}
+                onCompactContext={handleCompact}
+                compacting={compacting}
+                compactDisabled={!conversationId}
               />
               {allReferences.length > 0 && (
                 <span className="ml-auto rounded bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
@@ -729,34 +732,7 @@ export function MessageInput({
                 tabIndex={-1}
               />
               <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-1">
-                {/* 手动压缩上下文(2026-09-02 立):放在 ContextUsageRing 左侧,与上下文用量/模型
-                    选择同属上下文管理入口;请求进行中显示 loading 且禁用,未创建会话/流式中禁用 */}
-                <Tooltip
-                  content={compacting ? t('compaction.compacting') : t('compaction.compactButton')}
-                >
-                  <span className="inline-flex">
-                    <button
-                      type="button"
-                      onClick={handleCompact}
-                      data-testid="compact-context-button"
-                      disabled={compacting || isStreaming || !conversationId}
-                      aria-label={
-                        compacting ? t('compaction.compacting') : t('compaction.compactButton')
-                      }
-                      className={cn(
-                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors',
-                        'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                        'disabled:cursor-not-allowed disabled:opacity-50',
-                      )}
-                    >
-                      {compacting ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Scissors className="h-4 w-4" />
-                      )}
-                    </button>
-                  </span>
-                </Tooltip>
+                {/* 手动压缩上下文入口已整合到"添加"下拉菜单(2026-09-06),工具栏不再保留独立按钮 */}
                 <ContextUsageRing model={model} isStreaming={isStreaming} />
                 <ModelSelector
                   value={model}
