@@ -1,0 +1,28 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: -160, right: -120, width: 520, height: 520, background: 'radial-gradient(circle, rgba(34,211,238,0.26) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Text style={{ fontSize: 36, color: '#FFFFFF', fontWeight: 'bold' }}>投资人的三个问题</Text>
+  <Box style={{ width: 72, height: 5, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', marginTop: 14 }} />
+  <Box style={{ flexDirection: 'row', gap: 28, marginTop: 60, height: 400 }}>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 30, flexDirection: 'column', gap: 14 }}>
+      <Text style={{ fontSize: 54, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>Q1</Text>
+      <Text style={{ fontSize: 27, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.3 }}>凭什么是大机会？</Text>
+      <Text style={{ fontSize: 18, color: '#94A3B8', lineHeight: 1.6 }}>应用层占中国 AI 产业 55%，五年 8 倍，入口空白。</Text>
+      <Text style={{ fontSize: 16, color: '#22D3EE', fontWeight: 'bold', marginTop: 2 }}>→ 第 4—5 页</Text>
+    </Box>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 30, flexDirection: 'column', gap: 14 }}>
+      <Text style={{ fontSize: 54, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>Q2</Text>
+      <Text style={{ fontSize: 27, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.3 }}>凭什么信你做得成？</Text>
+      <Text style={{ fontSize: 18, color: '#94A3B8', lineHeight: 1.6 }}>一人一机，8 端全部交付，零投放真实增长。</Text>
+      <Text style={{ fontSize: 16, color: '#22D3EE', fontWeight: 'bold', marginTop: 2 }}>→ 第 7—9 页</Text>
+    </Box>
+    <Box style={{ flex: 1, background: 'linear-gradient(135deg, rgba(34,211,238,0.12) 0%, rgba(129,140,248,0.12) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 30, flexDirection: 'column', gap: 14 }}>
+      <Text style={{ fontSize: 54, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>Q3</Text>
+      <Text style={{ fontSize: 27, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.3 }}>我的钱怎么翻倍？</Text>
+      <Text style={{ fontSize: 18, color: '#94A3B8', lineHeight: 1.6 }}>盈利点已定价 → 1 亿营收推演 → 中性 22.5 倍回报。</Text>
+      <Text style={{ fontSize: 16, color: '#22D3EE', fontWeight: 'bold', marginTop: 2 }}>→ 第 11—14 页</Text>
+    </Box>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>02 / 15</Text>
+  </Box>
+</Slide>

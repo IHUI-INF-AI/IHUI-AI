@@ -1,0 +1,77 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: -180, right: -140, width: 560, height: 560, background: 'radial-gradient(circle, rgba(34,211,238,0.26) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>03 · 商业</Text>
+  </Box>
+  <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>没花一分推广费——7 个月 3.7 亿次真实调用</Text>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', gap: 36, marginTop: 24, height: 440 }}>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 640, flexDirection: 'column' }}>
+      <Chart
+        style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', height: 225, background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)' }}
+        chartType='lineChart'
+        title='月 Token 调用量（万次）'
+        titleColor='#E2E8F0'
+        showLegend={false}
+        axisColor='#64748B'
+        colors={['#22D3EE']}
+        background='transparent'
+        data={[
+          ['月份', '调用量'],
+          ['2025.9', 3723],
+          ['2025.10', 4200],
+          ['2025.11', 4871],
+          ['2025.12', 5772],
+          ['2026.1', 6207],
+          ['2026.2', 6180],
+          ['2026.3', 6270],
+        ]}
+      />
+      <Chart
+        style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', height: 185, marginTop: 10, background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)' }}
+        chartType='barChart'
+        barDirection='column'
+        title='小程序累计用户（人，7 个月从 13 起盘）'
+        titleColor='#E2E8F0'
+        showLegend={false}
+        axisColor='#64748B'
+        colors={['#818CF8']}
+        background='transparent'
+        data={[
+          ['月份', '累计用户'],
+          ['25.9', 13],
+          ['25.10', 671],
+          ['25.11', 1134],
+          ['25.12', 1732],
+          ['26.1', 2078],
+          ['26.2', 2207],
+          ['26.3', 2300],
+        ]}
+      />
+    </Box>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, flexDirection: 'column', gap: 20, justifyContent: 'center' }}>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 44, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>2,300</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#94A3B8' }}>小程序用户 · 月留存约 40%（PMF 信号）</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 44, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>5,109</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#94A3B8' }}>Web 教育会员（访问 6,205 人）</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 44, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>2,102</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#94A3B8' }}>App 下载（小米商店）</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', borderTop: '2px solid rgba(34,211,238,0.5)', paddingTop: 14 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 20, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.45 }}>全部零投放。<br />融资后 12 个月目标 80 万用户。</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#94A3B8', lineHeight: 1.55, marginTop: 8 }}>调用即收入：日均 209 万次 × 0.01—0.04 元/次（主流 API 定价区间）≈ 760 万—3,050 万元/年，已含于会员/智汇值。</Text>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>资料来源：项目数据表（截至 2026.3）；行业对照：2025 全国公有云大模型调用量约 2,000 万亿次（信通院）</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>12 / 15</Text>
+  </Box>
+</Slide>

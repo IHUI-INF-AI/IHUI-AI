@@ -1,0 +1,49 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: -180, right: -140, width: 560, height: 560, background: 'radial-gradient(circle, rgba(34,211,238,0.18) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>01 · 机会</Text>
+  </Box>
+  <Text style={{ fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>中国 AI 产业五年 8 倍——应用层占 55%，是最大板块</Text>
+  <Box style={{ width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ flexDirection: 'row', gap: 40, marginTop: 28, height: 440 }}>
+    <Box style={{ width: 620 }}>
+      <Chart
+        style={{ height: 400 }}
+        chartType='barChart'
+        barDirection='column'
+        title='中国 AI 产业规模（万亿元）'
+        titleColor='#E2E8F0'
+        showLegend={false}
+        showDataLabels={true}
+        dataLabelColor='#22D3EE'
+        axisColor='#64748B'
+        colors={['#22D3EE']}
+        background='transparent'
+        data={[
+          ['年份', '规模'],
+          ['2025', 1.2],
+          ['2026E', 1.7],
+          ['2030E', 10],
+        ]}
+      />
+    </Box>
+    <Box style={{ flex: 1, flexDirection: 'column', gap: 22, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'column', gap: 2 }}>
+        <Text style={{ fontSize: 64, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>55%</Text>
+        <Text style={{ fontSize: 17, color: '#94A3B8' }}>应用层占产业比重，三大层中最大（信通院）</Text>
+      </Box>
+      <Box style={{ background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: '14px 20px' }}>
+        <Text style={{ fontSize: 18, color: '#E2E8F0', lineHeight: 1.5 }}>全球侧：2026 年 AI 总支出 <span style={{ color: '#22D3EE', fontWeight: 'bold' }}>2.59 万亿美元</span>（Gartner，+47%）</Text>
+      </Box>
+      <Box style={{ borderTop: '2px solid rgba(34,211,238,0.5)', paddingTop: 14 }}>
+        <Text style={{ fontSize: 19, color: '#CBD5E1', lineHeight: 1.5 }}>模型成本每年降 10 倍（Altman）——<span style={{ color: '#22D3EE', fontWeight: 'bold' }}>整合的门槛正在崩塌，收钱的时间窗就是现在</span>。</Text>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>资料来源：中国信通院（2026-08 发布：2025 实际、十五五末预测）；2026E 为行业预测口径；Gartner（2026-01）</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>05 / 15</Text>
+  </Box>
+</Slide>

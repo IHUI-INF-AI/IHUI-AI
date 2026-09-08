@@ -1,0 +1,42 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: -160, right: -120, width: 520, height: 520, background: 'radial-gradient(circle, rgba(34,211,238,0.26) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>01 · 机会</Text>
+  </Box>
+  <Text style={{ fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>88% 在试用 AI，真正落地的不足两成——鸿沟就是机会</Text>
+  <Box style={{ width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ flexDirection: 'row', gap: 36, marginTop: 40, height: 420 }}>
+    <Box style={{ width: 640, flexDirection: 'column', gap: 28, justifyContent: 'center' }}>
+      <Box style={{ flexDirection: 'column', gap: 8 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 20, color: '#E2E8F0' }}>企业在至少一个职能使用 AI</Text>
+          <Text style={{ fontSize: 24, color: '#22D3EE', fontWeight: 'bold' }}>88%</Text>
+        </Box>
+        <Box style={{ width: 640, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 563, height: 22, borderRadius: 11, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} /></Box>
+        <Text style={{ fontSize: 14, color: '#64748B' }}>麦肯锡 State of AI，2025-11</Text>
+      </Box>
+      <Box style={{ flexDirection: 'column', gap: 8 }}>
+        <Box style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 20, color: '#E2E8F0' }}>真正用进生产经营的企业</Text>
+          <Text style={{ fontSize: 24, color: '#94A3B8', fontWeight: 'bold' }}>19.8%</Text>
+        </Box>
+        <Box style={{ width: 640, height: 22, borderRadius: 11, background: 'rgba(255,255,255,0.10)' }}><Box style={{ width: 127, height: 22, borderRadius: 11, background: '#94A3B8' }} /></Box>
+        <Text style={{ fontSize: 14, color: '#64748B' }}>美国普查局企业调查，2026-05</Text>
+      </Box>
+      <Box style={{ borderTop: '2px solid rgba(34,211,238,0.5)', paddingTop: 16 }}>
+        <Text style={{ fontSize: 20, color: '#CBD5E1', lineHeight: 1.55 }}>一边是全民试用，一边是极少数真落地——工具分散、变现无门、企业无方法，谁来填坑？<span style={{ color: '#22D3EE', fontWeight: 'bold' }}>整合平台是填坑的人。</span></Text>
+      </Box>
+    </Box>
+    <Box style={{ flex: 1, background: 'linear-gradient(135deg, rgba(34,211,238,0.12) 0%, rgba(129,140,248,0.12) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 30, flexDirection: 'column', gap: 16, justifyContent: 'center' }}>
+      <Text style={{ fontSize: 27, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.4 }}>编排、编程、大模型、网课——四类玩家各守一角</Text>
+      <Box style={{ width: 80, height: 5, backgroundImage: 'linear-gradient(90deg, #22D3EE 0%, #818CF8 100%)', boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} />
+      <Text style={{ fontSize: 19, color: '#CBD5E1', lineHeight: 1.55 }}>我们不造模型、不站队——做整合入口。先到者，收整个落地周期的钱。</Text>
+    </Box>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>资料来源：麦肯锡（2025-11）；美国普查局（2026-05）</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>04 / 15</Text>
+  </Box>
+</Slide>

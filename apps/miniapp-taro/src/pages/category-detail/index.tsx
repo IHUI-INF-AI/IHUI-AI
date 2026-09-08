@@ -101,7 +101,7 @@ export default function CategoryDetailPage() {
             {list.map((agent) => (
               <View
                 key={agent.id}
-                className="flex items-center py-3 px-3 mb-2 bg-card rounded-lg"
+                className="flex items-center py-3 px-3 mb-3 bg-card rounded-md"
                 onClick={() => handleSelect(agent)}
               >
                 {agent.avatar ? (
