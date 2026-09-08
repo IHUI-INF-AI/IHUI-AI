@@ -25,7 +25,7 @@
 //
 // 不要在 dev server 假死时裸用 Start-Process pnpm dev 启动下一轮,永远用本脚本!
 
-import { spawn, execSync } from 'node:child_process'
+import { spawn, spawnSync, execSync } from 'node:child_process'
 import { existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -53,6 +53,22 @@ function killPort(port) {
 }
 
 killPort(PORT)
+
+// 1.5 stash 滞留源码改动扫描(warn-only,AGENTS.md §12d 配套,2026-09-08 立)
+// dev 启动即看见滞留 stash——已完成开发滞留 stash 会造成"功能被回滚"假象。
+// 仅警告不阻断:用 spawnSync 直调,退出码不参与 dev 启动判定。
+function scanStaleStashes() {
+  try {
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts', 'check-stale-stashes.mjs')], {
+      stdio: 'inherit',
+      timeout: 30_000,
+    })
+    if (r.error) throw r.error
+  } catch (e) {
+    console.log(`[dev-web] stale-stash scan warning: ${e.message.split('\n')[0]}`)
+  }
+}
+scanStaleStashes()
 
 // 2. 可选清 .next
 if (CLEAN) {
