@@ -176,7 +176,24 @@ function withWechatAndroidManifest(config, { androidPackage }) {
     const activities = application.activity
     const has = (name) => activities.some((a) => a.$['android:name'] === name)
     // WXEntryActivity(微信分享/登录回调)
-    if (!has('.wxapi.WXEntryActivity')) {
+    const entryExisting = activities.find((a) => a.$['android:name'] === '.wxapi.WXEntryActivity')
+    // 关键:微信 SDK 通过 com.tencent.mm.OPENID 的 intent-filter 把授权结果(code)回传给 App;
+    // 缺少此 filter 将导致授权后回调无从送达,登录链路中断。必须显式声明 appId scheme。
+    if (entryExisting) {
+      if (!entryExisting['intent-filter']) {
+        entryExisting['intent-filter'] = []
+      }
+      const hasOpenid = entryExisting['intent-filter'].some(
+        (f) => f.action && f.action.some((ac) => ac.$['android:name'] === 'com.tencent.mm.OPENID'),
+      )
+      if (!hasOpenid) {
+        entryExisting['intent-filter'].push({
+          action: [{ $: { 'android:name': 'com.tencent.mm.OPENID' } }],
+          category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+          data: [{ $: { 'android:scheme': appId } }],
+        })
+      }
+    } else {
       activities.push({
         $: {
           'android:name': '.wxapi.WXEntryActivity',
@@ -185,6 +202,13 @@ function withWechatAndroidManifest(config, { androidPackage }) {
           'android:taskAffinity': androidPackage,
           'android:theme': '@android:style/Theme.Translucent.NoTitleBar',
         },
+        'intent-filter': [
+          {
+            action: [{ $: { 'android:name': 'com.tencent.mm.OPENID' } }],
+            category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+            data: [{ $: { 'android:scheme': appId } }],
+          },
+        ],
       })
     }
     // WXPayEntryActivity(微信支付回调)
