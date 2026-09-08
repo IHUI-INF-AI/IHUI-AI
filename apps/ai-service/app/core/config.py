@@ -305,7 +305,10 @@ def _sync_env_file_to_os() -> None:
         if not key or not value:
             continue
         if key.endswith(
-            ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN")
+            ("_API_KEY", "_API_BASE", "_API_TOKEN", "_ACCESS_KEY_ID", "_AUTH_TOKEN",
+             # 2026-09-08 视频生成凭据同步:video_generation 读 os.environ 的
+             # TENCENT_SECRET_ID/SECRET_KEY、KLING_ACCESS_KEY/SECRET_KEY
+             "_SECRET_ID", "_SECRET_KEY", "_ACCESS_KEY")
         ) or key in (
             "AGENT_EXECUTOR",
             # 出站代理(2026-09-04):httpx(openai/litellm 底层)读 os.environ 的
