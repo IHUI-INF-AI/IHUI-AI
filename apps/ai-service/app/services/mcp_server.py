@@ -26,6 +26,10 @@ if TYPE_CHECKING:
 
 from .exec_policy import PolicyDecision, RuleDecision, evaluate as exec_policy_evaluate
 
+# 1-2 补丁冲突处理:3-way merge 引擎(纯函数,无 IO)
+from .merge3 import resolve_conflicts as _merge3_resolve_conflicts
+from .merge3 import merge3_for_edit
+
 # 语义压缩回捞层(只读检索工具):复用 vector_memory 单例做语义回捞
 from .context_recall import context_recall
 
@@ -266,6 +270,8 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
+    # 1-2(2026-09-08):resolve_conflict 也写盘(按块落盘解决结果),必须 admin
+    "resolve_conflict",
     # computer_* 系列:控制电脑是高危操作,需 admin
     "computer_screenshot_screen", "computer_mouse_move", "computer_mouse_click",
     "computer_keyboard_type", "computer_mouse_scroll", "computer_keyboard_press",
@@ -289,6 +295,30 @@ _ADMIN_ONLY_TOOLS: set[str] = {
 def _get_agent_control_secret() -> str:
     from ..core.config import settings
     return settings.agent_control_internal_secret or os.environ.get("AGENT_CONTROL_INTERNAL_SECRET", "")
+
+# ---------------------------------------------------------------------------
+# 1-2 补丁冲突处理:文件 base 版本跟踪(3-way merge 的公共祖先)
+# ---------------------------------------------------------------------------
+# read_file / write_file / file_edit 成功后记录「agent 视角的最新内容」;
+# file_edit 匹配失败(0 命中)且 old_string 在 base 中存在时,判定为
+# 「快照之后被外部修改」→ 走 merge3 三方合并(干净合并 / 冲突块)。
+# 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
+_FILE_BASE_CONTENT: dict[str, str] = {}
+_FILE_BASE_MAX = 256
+
+
+def _record_file_base(resolved_path: str, content: str) -> None:
+    """记录/刷新文件的 base 版本(agent 视角最新内容)。"""
+    if resolved_path in _FILE_BASE_CONTENT:
+        _FILE_BASE_CONTENT.pop(resolved_path)
+    _FILE_BASE_CONTENT[resolved_path] = content
+    while len(_FILE_BASE_CONTENT) > _FILE_BASE_MAX:
+        _FILE_BASE_CONTENT.pop(next(iter(_FILE_BASE_CONTENT)))
+
+
+def _reset_file_base_store() -> None:
+    """清空 base 版本跟踪(测试隔离用)。"""
+    _FILE_BASE_CONTENT.clear()
 
 
 def _validate_path_in_workspace(path: str) -> tuple[bool, str]:
@@ -929,6 +959,8 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     try:
         with open(resolved_path, "w", encoding="utf-8") as f:
             f.write(content)
+        # 1-2:写盘后刷新 base(agent 视角最新内容)
+        _record_file_base(resolved_path, content)
         return {"tool": "write_file", "path": resolved_path, "bytes_written": len(content.encode("utf-8")), "ok": True}
     except Exception as e:
         return {"tool": "write_file", "path": resolved_path, "ok": False, "error": str(e)}
@@ -977,12 +1009,37 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
         return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
 
     count = content.count(old_string)
+    strategy = "direct"
     if count == 0:
-        return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
-    if not replace_all and count >= 2:
+        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+        # 由 resolve_conflict 工具按块决策(局部拒绝)。
+        base = _FILE_BASE_CONTENT.get(resolved_path)
+        if base is not None and old_string in base:
+            mr = merge3_for_edit(base, content, old_string, new_string, replace_all=replace_all)
+            if mr.clean:
+                new_content = mr.merged
+                strategy = "auto_merged_3way"
+                replaced_count = base.count(old_string) if replace_all else 1
+            else:
+                return _err(
+                    "CONFLICT",
+                    (
+                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                        f"file_path/old_string/new_string 与 choices 数组"
+                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                    ),
+                    conflict_count=mr.conflict_count(),
+                    strategy="3way_merge",
+                )
+        else:
+            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+    elif not replace_all and count >= 2:
         return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
-
-    if replace_all:
+    elif replace_all:
         new_content = content.replace(old_string, new_string)
         replaced_count = count
     else:
@@ -1010,9 +1067,104 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
 
     diff = list(difflib.unified_diff(content.splitlines(keepends=True),
                 new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+    # 1-2:写盘后刷新 base(agent 视角最新内容)
+    _record_file_base(resolved_path, new_content)
     return {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
+            "strategy": strategy,
             "diff_preview": "".join(diff[:20])}
+
+
+async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
+    """resolve_conflict:按块解决 file_edit 报告的 3-way merge 冲突(1-2 局部拒绝)。
+
+    与触发 CONFLICT 的 file_edit 携带相同 file_path/old_string/new_string;
+    choices 按冲突块顺序指定 'ours'(采用 agent 修改)/'theirs'(保留磁盘
+    现状=拒绝该块修改)。choices 不足的块缺省 'ours'。
+    """
+    def _err(code: str, msg: str, **extra: Any) -> dict[str, Any]:
+        return {"tool": "resolve_conflict", "file_path": resolved_path, "ok": False,
+                "error": msg, "errorCode": code, **extra}
+
+    path = arguments.get("file_path", "")
+    old_string = arguments.get("old_string", "")
+    new_string = arguments.get("new_string", "")
+    choices_raw = arguments.get("choices", [])
+    replace_all = bool(arguments.get("replace_all", False))
+    choices = [str(c) for c in choices_raw] if isinstance(choices_raw, list) else []
+
+    if not old_string:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": "old_string 不能为空", "errorCode": "INVALID_ARGUMENT"}
+
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return {"tool": "resolve_conflict", "file_path": path, "ok": False,
+                "error": info, "errorCode": "PATH_NOT_ALLOWED"}
+    resolved_path = info
+
+    try:
+        if not os.path.isfile(resolved_path):
+            return _err("FILE_NOT_FOUND", "文件不存在")
+        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+        with open(resolved_path, "rb") as f:
+            raw = f.read()
+    except OSError as e:
+        return _err("IO_ERROR", str(e))
+
+    try:
+        content = raw.decode("utf-8")
+    except (UnicodeDecodeError, ValueError) as e:
+        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+    base = _FILE_BASE_CONTENT.get(resolved_path)
+    if base is None or old_string not in base:
+        return _err(
+            "NO_BASE_VERSION",
+            "无该文件的 base 版本(或 old_string 不在 base 中),无法按块解决冲突;请先 read_file 后重试 file_edit",
+        )
+
+    resolved = _merge3_resolve_conflicts(
+        base, content, old_string, new_string, choices, replace_all=replace_all
+    )
+    if not resolved.get("ok"):
+        return _err("MERGE_FAILED", str(resolved.get("error", "合并失败")))
+
+    final_content = str(resolved["content"])
+    applied = list(resolved.get("applied", []))
+    backup_path = resolved_path + ".bak"
+    try:
+        with open(backup_path, "wb") as bf:
+            bf.write(raw)
+        with open(resolved_path, "wb") as wf:
+            wf.write(final_content.encode("utf-8"))
+    except OSError as e:
+        # 失败回滚:恢复磁盘原内容
+        try:
+            with open(resolved_path, "wb") as rf:
+                rf.write(raw)
+        except OSError:
+            pass
+        try:
+            os.remove(backup_path)
+        except OSError:
+            pass
+        return _err("IO_ERROR", str(e))
+
+    # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容)
+    _record_file_base(resolved_path, final_content)
+    rejected = sum(1 for a in applied if a.get("choice") == "theirs")
+    return {
+        "tool": "resolve_conflict",
+        "ok": True,
+        "file_path": resolved_path,
+        "conflicts": int(resolved.get("conflicts", 0)),
+        "resolved": len(applied),
+        "rejected_hunks": rejected,
+        "backup_path": backup_path,
+        "applied_choices": applied,
+    }
 
 
 async def _drain_stream(
@@ -3299,25 +3451,18 @@ async def _tool_image_generation_native(
 
 
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
-    """video_generation: 生成视频(统一编排,4 家厂商自动故障转移)。
+    """video_generation: 生成视频(2026-09-05 新增,真实异步任务)。
 
-    复用 app.services.video_generation.generate_video 统一编排:
-    - kling(快手可灵, JWT text2video/image2video)
-    - jimeng(字节即梦, Ark Seedance)
-    - wan(阿里通义万相, DashScope 文生视频)
-    - hunyuan(腾讯混元, 文生视频需开通)
-
-    按 VIDEO_PROVIDER / 已配置凭据顺序自动挑厂商,首选失败自动降级下一家。
-    返回统一 {provider, model, task_id, video_url, duration}。
-    未配置任何厂商凭据时返回清晰错误(PROVIDER_NOT_CONFIGURED),
-    不误标"已生成"——对话侧据 ok=false 如实告知用户。
+    支持 kling(快手可灵,JWT + text2video/image2video 任务轮询)与
+    jimeng(字节即梦,Ark Seedance 任务 / 视觉服务 V4 签名任务)。
+    提交任务后轮询至完成(最长 10 分钟),支持 save_path 下载落地(.mp4)。
     """
     from datetime import datetime, timezone
 
     from ..providers.base_provider import ProviderError
 
     prompt = arguments.get("prompt", "")
-    provider = arguments.get("provider")  # None=自动;显式=指定厂商
+    provider = arguments.get("provider", "kling")
     duration = arguments.get("duration", 5)
     save_path = arguments.get("save_path")
 
@@ -3327,40 +3472,38 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
             "video_url": None,
         }
-    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan"):
+    if provider not in ("kling", "jimeng"):
         return {
             "tool": "video_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan)",
+            "error": f"未知 provider: {provider}(允许 kling/jimeng)",
             "errorCode": "INVALID_PROVIDER", "video_url": None,
         }
     if not isinstance(duration, int) or duration <= 0:
         duration = 5
 
-    from .video_generation import generate_video
-
+    impl, default_model = _resolve_native_provider(provider)
+    model = arguments.get("model") or default_model
+    kwargs: dict[str, Any] = {
+        k: arguments[k]
+        for k in ("negative_prompt", "image", "aspect_ratio", "mode", "cfg_scale")
+        if k in arguments
+    }
     try:
-        result = await generate_video(
-            prompt,
-            duration=duration,
-            image=arguments.get("image"),
-            provider=provider,
-        )
+        result = await impl.generate_video(prompt, model, duration=duration, **kwargs)
     except ProviderError as e:
         return {
             "tool": "video_generation", "ok": False, "prompt": prompt,
-            "provider": provider or "auto", "video_url": None,
-            "error": str(e)[:300], "errorCode": "PROVIDER_NOT_CONFIGURED",
+            "provider": provider, "video_url": None,
+            "error": str(e)[:300], "errorCode": "PROVIDER_ERROR",
         }
     video_url = result.get("video_url", "")
     if not video_url:
         return {
             "tool": "video_generation", "ok": False, "prompt": prompt,
-            "provider": result.get("provider") or "auto", "video_url": None,
+            "provider": provider, "video_url": None,
             "error": "provider 返回缺少 video_url", "errorCode": "EMPTY_RESULT",
         }
 
-    used_provider = result.get("provider") or provider or "auto"
-    used_model = result.get("model", "")
     saved_path: str | None = None
     file_size_bytes: int = 0
     if save_path:
@@ -3370,7 +3513,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not ok_path:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
+                "provider": provider, "video_url": None,
                 "errorCode": err_code,
                 "message": f"save_path 校验失败: {err_code}",
             }
@@ -3378,7 +3521,7 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if vid_bytes is None:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
+                "provider": provider, "video_url": None,
                 "errorCode": "VIDEO_FETCH_FAILED",
                 "message": "视频下载失败",
             }
@@ -3386,20 +3529,21 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
         if not ok_w:
             return {
                 "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
+                "provider": provider, "video_url": None,
                 "errorCode": werr,
                 "message": f"视频写入磁盘失败: {werr}",
             }
         saved_path = sp
         file_size_bytes = sz
 
+    used_model = result.get("model", model)
     return {
         "tool": "video_generation", "ok": True, "prompt": prompt,
         "video_url": video_url, "task_id": result.get("task_id"),
-        "provider": used_provider, "model": used_model, "duration": duration,
+        "provider": provider, "model": used_model, "duration": duration,
         "saved_path": saved_path, "file_size_bytes": file_size_bytes,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "message": f"视频已生成(provider={used_provider}, model={used_model}"
+        "message": f"视频已生成(provider={provider}, model={used_model}"
                    + (f", saved={saved_path}" if saved_path else "") + ")",
     }
 
@@ -4855,12 +4999,13 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="video_generation",
         description=(
-            "生成视频,返回视频 URL。统一编排 4 家厂商并自动故障转移:"
-            "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
-            "wan(阿里通义万相)、hunyuan(腾讯混元)。提交后轮询至完成(最长 10 分钟),"
-            "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
-            "需 .env 配置 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* 任一厂商凭据;"
-            "未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。外部 API 调用 + 计费。"
+            "生成视频,返回视频 URL。2026-09-05 新增,真实异步任务实现:"
+            "kling(快手可灵,JWT HS256 + text2video/image2video 任务轮询)与"
+            "jimeng(字节即梦,方舟 Seedance 任务 / 视觉服务 V4 签名)。"
+            "提交后轮询至完成(最长 10 分钟),支持 image 参数走图生视频、"
+            "save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
+            "需 .env 配置 KLING_ACCESS_KEY+KLING_SECRET_KEY 或 ARK_API_KEY。"
+            "admin 专属工具(外部 API 调用 + 计费)。"
         ),
         input_schema={
             "type": "object",
@@ -4868,16 +5013,16 @@ _TOOLS: list[MCPTool] = [
                 "prompt": {"type": "string", "description": "视频描述(必填)"},
                 "provider": {
                     "type": "string",
-                    "enum": ["kling", "jimeng", "wan", "hunyuan"],
-                    "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
+                    "enum": ["kling", "jimeng"],
+                    "default": "kling",
                 },
                 "model": {
                     "type": "string",
-                    "description": "可选,模型(如 kling-v1 / doubao-seedance-1-0-pro / wan2.x)",
+                    "description": "可选,模型(如 kling-v1 / jimeng-video_generation / doubao-seedance-1-0-pro)",
                 },
                 "duration": {
                     "type": "integer",
-                    "description": "视频时长秒(默认 5;接口上限通常 10~15s)",
+                    "description": "视频时长秒(默认 5)",
                     "default": 5,
                 },
                 "image": {
