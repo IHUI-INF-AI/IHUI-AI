@@ -241,6 +241,7 @@ export * from './endpoints/context-mentions'
 
 // Repo Wiki 端点(代码仓库→知识库文档,2026-09-07 新增)
 export * from './endpoints/repo-wiki'
+export * from './endpoints/team-memory'
 
 // 用户侧 Agent 定时自动化端点(2026-09-07 新增)
 export * from './endpoints/automations'
