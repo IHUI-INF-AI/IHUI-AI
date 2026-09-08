@@ -119,6 +119,8 @@ _DEFAULT_HIGH_RISK_TOOLS: frozenset[str] = frozenset({
     "edit_file",
     "create_file",
     "delete_file",
+    # 1-2(2026-09-08):冲突按块落盘解决(写文件类)
+    "resolve_conflict",
     # 命令类
     "run_command",
     "computer_mouse_click",
@@ -315,6 +317,256 @@ class LoopIteration:
     start_time: str | None = None
     end_time: str | None = None
     duration_ms: float = 0.0
+
+
+def derive_step_evidence(
+    tool_name: str,
+    args: dict[str, Any],
+    result: Any,
+    *,
+    checkpoint_id: str | None = None,
+) -> dict[str, Any]:
+    """1-5 事件流层:从工具调用推导可解释性证据 diff / test / rollback。
+
+    契约(tests/test_derive_step_evidence.py):
+    - edit_file:diff={tool,path,before=oldText,after=newText};有 checkpoint_id 时
+      附带 rollback={kind:checkpoint,checkpoint_id,path,available:True}。
+    - write_file:diff={tool,path=file_path,before:"",after=content};同样支持
+      checkpoint rollback(无 checkpoint_id 时 rollback=None)。
+    - run_command:result(dict)含 exitCode/passed/failed 时推导 test 证据
+      {command,exit_code,passed,failed}。
+    - 其余工具:三项均为 None。
+    推导过程异常时返回全 None(调用方跳过该次事件明细,不阻塞主链路)。
+    """
+    diff: dict[str, Any] | None = None
+    test: dict[str, Any] | None = None
+    rollback: dict[str, Any] | None = None
+    try:
+        safe_args = args if isinstance(args, dict) else {}
+        if tool_name in ("edit_file", "file_edit"):
+            # 1-2(2026-09-08):参数名双兼容——MCP 真名 file_edit 用
+            # file_path/old_string/new_string;旧契约 edit_file 用 path/oldText/newText。
+            # 此前只认 edit_file 旧参数,真实编辑工具的 diff/rollback 证据永远推不出来。
+            diff = {
+                "tool": tool_name,
+                "path": safe_args.get("path") or safe_args.get("file_path") or "",
+                "before": safe_args.get("oldText") or safe_args.get("old_string") or "",
+                "after": safe_args.get("newText") or safe_args.get("new_string") or "",
+            }
+        elif tool_name == "write_file":
+            # 1-2:write_file 实际参数名是 path(mcp_server._tool_write_file),
+            # 此前只取 file_path 导致 path 恒为空。双名兼容。
+            diff = {
+                "tool": "write_file",
+                "path": safe_args.get("path") or safe_args.get("file_path") or "",
+                "before": "",
+                "after": safe_args.get("content", ""),
+            }
+        elif tool_name == "run_command" and isinstance(result, dict):
+            if "exitCode" in result or "passed" in result or "failed" in result:
+                test = {
+                    "command": safe_args.get("command", ""),
+                    "exit_code": result.get("exitCode"),
+                    "passed": result.get("passed"),
+                    "failed": result.get("failed"),
+                }
+        if diff is not None and checkpoint_id:
+            rollback = {
+                "kind": "checkpoint",
+                "checkpoint_id": checkpoint_id,
+                "path": diff["path"],
+                "available": True,
+            }
+    except Exception:
+        return {"diff": None, "test": None, "rollback": None}
+    return {"diff": diff, "test": test, "rollback": rollback}
+
+
+def _derive_step_decision(tr: ToolResult) -> tuple[str, str]:
+    """从工具执行结果推导该步的 decision/reason(1-1 全可解释,2026-09-08 立)。
+
+    覆盖「结果上可见」的决策路径;auto 免审批等不可见路径由
+    ``self._decision_hints`` 提示(见 _maybe_record_step)。
+    """
+    if tr.error_type == "permission_denied":
+        return "plan_blocked", "plan 模式:工具不在只读白名单,未执行"
+    if tr.error_type == "user_rejected":
+        return "rejected_by_user", "用户在审批门拒绝,未执行"
+    if tr.error_type == "approval_timeout":
+        return "approval_timeout", "审批等待超时,未执行"
+    if tr.error_type == "unknown" and tr.error and "不存在" in tr.error:
+        return "tool_missing", "工具未注册,未执行"
+    if tr.error:
+        reason = f"执行失败({tr.error_type or 'unknown'}):{str(tr.error)[:200]}"
+        return "execute_tool_failed", reason
+    if tr.retry_count > 0:
+        return "execute_tool_retried", f"瞬时失败自动重试 {tr.retry_count} 次后成功"
+    return "execute_tool", ""
+
+
+class AgentEventStream:
+    """1-5 事件流协作层:收敛全部 hook_engine.emit 调用点(2026-09-08 立)。
+
+    拆层动机:此前 run/_run_loop/_request_approval 等 9 处 emit 各自带
+    try/except + logger.warning 样板;现统一到本层,语义保持一致:
+    - fail-open:emit 失败仅 warning 降级,绝不阻塞主链路;
+    - error 事件沿用静默 suppress(异常路径避免日志级联);
+    - tool.after 的 evidence 推导失败同样跳过该次事件(与拆层前一致)。
+    """
+
+    async def emit(
+        self, event: str, payload: dict[str, Any], *, silent: bool = False
+    ) -> None:
+        """发射任意事件;失败降级不抛(silent=True 时连 warning 也不记)。"""
+        try:
+            await hook_engine.emit(event, payload)
+        except Exception as e:
+            if not silent:
+                logger.warning(
+                    "hook_engine.emit(%s) 失败(降级,不阻塞): %s", event, e
+                )
+
+    async def session_start(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        conversation_id: str,
+        max_iterations: int,
+    ) -> None:
+        await self.emit("session.start", {
+            "session_id": session_id,
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "max_iterations": max_iterations,
+        })
+
+    async def session_end(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        success: bool,
+        stop_reason: str,
+        total_iterations: int,
+        total_duration_ms: float,
+    ) -> None:
+        await self.emit("session.end", {
+            "session_id": session_id,
+            "user_id": user_id,
+            "success": success,
+            "stop_reason": stop_reason,
+            "total_iterations": total_iterations,
+            "total_duration_ms": total_duration_ms,
+        })
+
+    async def tool_before(
+        self,
+        *,
+        session_id: str,
+        iteration: int,
+        messages_count: int,
+        tools_count: int,
+    ) -> None:
+        await self.emit("tool.before", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "messages_count": messages_count,
+            "tools_count": tools_count,
+        })
+
+    async def message_receive(
+        self, *, session_id: str, iteration: int, content_length: int
+    ) -> None:
+        await self.emit("message.receive", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "content_length": content_length,
+            "stop_reason": "completed",
+        })
+
+    async def tool_after(
+        self,
+        *,
+        session_id: str,
+        iteration: int,
+        tool_calls: list[ToolCall],
+        tool_results: list[ToolResult],
+        duration_ms: float | None,
+        checkpoint_id: str | None = None,
+    ) -> None:
+        """tool.after 事件 + 每工具结果明细(evidence 逐个推导,失败跳过整次事件)。"""
+        try:
+            payload_tools: list[dict[str, Any]] = []
+            for tc, tr in zip(tool_calls, tool_results, strict=False):
+                evidence = derive_step_evidence(
+                    tr.name or tc.name,
+                    dict(tc.args or {}),
+                    {"error": tr.error} if tr.error else tr.result,
+                    checkpoint_id=checkpoint_id,
+                )
+                payload_tools.append({
+                    "name": tr.name,
+                    "id": tr.tool_call_id,
+                    "input": tc.args,
+                    "status": "error" if tr.error else "ok",
+                    "error": tr.error,
+                    "error_type": tr.error_type,
+                    "retry_count": tr.retry_count,
+                    "duration_ms": round(tr.duration_ms, 2),
+                    **evidence,
+                })
+            payload: dict[str, Any] = {
+                "session_id": session_id,
+                "iteration": iteration,
+                "tool_calls_count": len(tool_calls),
+                "tool_results_count": len(tool_results),
+                "duration_ms": duration_ms,
+                "tool_results": payload_tools,
+            }
+        except Exception as e:
+            logger.warning("tool.after 明细构建失败(降级,不阻塞): %s", e)
+            return
+        await self.emit("tool.after", payload)
+
+    async def loop_error(
+        self, *, session_id: str, iteration: int, error: str, error_type: str
+    ) -> None:
+        # 异常路径静默 suppress:emit 失败不记录日志,避免日志级联(拆层前语义)
+        await self.emit("error", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "error": error,
+            "error_type": error_type,
+        }, silent=True)
+
+    async def tool_approval(
+        self,
+        *,
+        approval_id: str,
+        tool_name: str,
+        tool_call_id: str,
+        args_preview: str,
+        session_id: str,
+    ) -> None:
+        await self.emit("tool.approval", {
+            "approval_id": approval_id,
+            "tool_name": tool_name,
+            "tool_call_id": tool_call_id,
+            "args_preview": args_preview,
+            "danger_level": "high",
+            "session_id": session_id,
+        })
+
+    async def permission_mode(
+        self, *, mode: str, tool_name: str, decision: str, session_id: str
+    ) -> None:
+        await self.emit("permission.mode", {
+            "mode": mode,
+            "tool": tool_name,
+            "decision": decision,
+            "session_id": session_id,
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -601,14 +853,28 @@ class AgentLoopV2:
         # (默认路径与现状逐零差异)。
         self._step_recorder: Any | None = recorder
 
+        # 1-5 事件流协作层(2026-09-08 立):run/_run_loop/审批等全部事件发射
+        # 收敛到 AgentEventStream(fail-open 降级语义统一在层内)。
+        self._events: AgentEventStream = AgentEventStream()
+
         # 运行时状态(每次 run() 开始时重置)
         self._messages: list[dict[str, Any]] | None = None
         self._current_iteration: int = 0
         self._tool_state: dict[str, Any] = {}
         self._pause_requested: bool = False
         self._cancel_requested: bool = False
+        # 1-5:最新 checkpoint id(rollback 证据引用;每次 run 重置)
+        self._last_checkpoint_id: str | None = None
+        # 1-1 可解释性:工具级决策提示(1-1 立,2026-09-08)。
+        # auto 模式免审批等「结果上不可见」的决策路径,由 _execute_single 写入
+        # tool_call_id → (decision, reason),_maybe_record_step 消费后弹出。
+        self._decision_hints: dict[str, tuple[str, str]] = {}
         # 1-7 团队接力:本次 run 的注入元信息(供可观测;未启用/无接力为 None)
         self._team_relay_info: dict[str, Any] | None = None
+        # 1-2 自动回滚:本次 run 已捕获的文件快照引用(absolute path → snapshot dict)。
+        # 写盘工具(file_edit/write_file/edit_file)首次执行前 snapshot(编辑前内容),
+        # _save_checkpoint_safe 传入 checkpoint → restore(rollback_files=true)可真正回滚。
+        self._run_file_snapshots: dict[str, dict[str, Any]] = {}
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -621,6 +887,8 @@ class AgentLoopV2:
         self._pause_requested = False
         self._cancel_requested = False
         self._current_iteration = 0
+        # 1-5:rollback 证据引用的 checkpoint id 跨 run 不复用
+        self._last_checkpoint_id = None
         # 1-8 上下文压缩:每次 run 重置事件列表(避免跨 run 残留)
         self._compaction_events = []
         # 1-7 团队接力:每次 run 重置注入元信息(避免跨 run 残留)
@@ -671,6 +939,31 @@ class AgentLoopV2:
             logger.warning("[agent-loop] 上下文压缩失败(降级原消息): %s", e)
             return messages
 
+    def _snapshot_before_write(self, tc: ToolCall) -> None:
+        """1-2 自动回滚:写盘工具执行前捕获目标文件快照(尽力而为,失败仅 debug)。
+
+        每文件仅首次写盘前快照(保留「本次 run 开始前」的原始内容,后续
+        checkpoint 引用同一版本 → 回滚恢复到 run 起点而非中间态)。
+        快照写入 file_editor 内存/Redis 版本库,引用存 self._run_file_snapshots。
+        """
+        if tc.name not in ("file_edit", "write_file", "edit_file"):
+            return
+        args = tc.args if isinstance(tc.args, dict) else {}
+        path = args.get("file_path") or args.get("path") or ""
+        if not isinstance(path, str) or not path:
+            return
+        try:
+            from .file_editor import snapshot_file
+
+            absolute = os.path.abspath(path)
+            # 路径不在本 run 已快照集合时才拍(每文件首次)
+            if absolute in self._run_file_snapshots:
+                return
+            snap = snapshot_file(self._ensure_session_id(), absolute)
+            self._run_file_snapshots[absolute] = snap
+        except Exception as e:  # noqa: BLE001 - 快照失败不阻塞工具执行
+            logger.debug("1-2 文件快照失败(%s): %s", path, e)
+
     async def _save_checkpoint_safe(
         self,
         iteration: int,
@@ -683,14 +976,23 @@ class AgentLoopV2:
             return None
         try:
             session_id = self._ensure_session_id()
-            return await self._checkpoint_manager.save_checkpoint(
+            # 1-2:传文件快照引用 → checkpoint metadata.file_versions 有真实内容,
+            # restore(rollback_files=true) 可真正回滚本次 run 的文件修改。
+            file_snapshots = list(self._run_file_snapshots.values()) or None
+            ckpt_id = await self._checkpoint_manager.save_checkpoint(
                 session_id=session_id,
                 iteration=iteration,
                 messages=messages,
                 tool_state=self._tool_state,
                 status=status,
                 metadata=metadata,
+                file_snapshots=file_snapshots,
             )
+            # 1-5:跟踪最新 checkpoint id(供 tool.after 事件与 step 录制的
+            # rollback 证据引用;失败/None 时保留上一个)
+            if ckpt_id:
+                self._last_checkpoint_id = ckpt_id
+            return ckpt_id
         except Exception as e:
             logger.warning(
                 "Agent 循环 checkpoint 保存失败(iter=%d status=%s): %s",
@@ -712,16 +1014,13 @@ class AgentLoopV2:
         - 出口:成功完成后自动提取记忆写回 API(失败不阻塞,不覆盖 result)
         """
         self._reset_run_state()
-        # Hook 引擎: session.start
-        try:
-            await hook_engine.emit("session.start", {
-                "session_id": self._session_id or "",
-                "user_id": self._user_id or "",
-                "conversation_id": self._conversation_id or "",
-                "max_iterations": self.max_iterations,
-            })
-        except Exception:
-            logger.warning("hook_engine.emit(session.start) 失败(降级,不阻塞)")
+        # Hook 引擎: session.start(1-5 起经事件流层发射,失败降级不阻塞)
+        await self._events.session_start(
+            session_id=self._session_id or "",
+            user_id=self._user_id or "",
+            conversation_id=self._conversation_id or "",
+            max_iterations=self.max_iterations,
+        )
         self._ensure_session_id()
         self._messages = messages
         # L1-1 入口:注入跨会话记忆到 system prompt(失败不阻塞)
@@ -832,18 +1131,15 @@ class AgentLoopV2:
                 logger.warning(
                     "meta_learner.evaluate_and_record 启动失败(降级,不阻塞): %s", e
                 )
-        # Hook 引擎: session.end
-        try:
-            await hook_engine.emit("session.end", {
-                "session_id": self._session_id or "",
-                "user_id": self._user_id or "",
-                "success": result.success,
-                "stop_reason": result.stop_reason,
-                "total_iterations": len(result.iterations),
-                "total_duration_ms": result.total_duration_ms,
-            })
-        except Exception:
-            logger.warning("hook_engine.emit(session.end) 失败(降级,不阻塞)")
+        # Hook 引擎: session.end(1-5 起经事件流层发射,失败降级不阻塞)
+        await self._events.session_end(
+            session_id=self._session_id or "",
+            user_id=self._user_id or "",
+            success=result.success,
+            stop_reason=result.stop_reason,
+            total_iterations=len(result.iterations),
+            total_duration_ms=result.total_duration_ms,
+        )
         # L5-12(2026-08-12):执行次数指标埋点(按 stop_reason)
         try:
             from ..middleware.agent_metrics import agent_loop_runs_total
@@ -1412,6 +1708,8 @@ class AgentLoopV2:
         iterations: list[LoopIteration] = list(prior_iterations)
         total_tokens = prior_tokens
         tools_schema = self._build_tools_schema()
+        # 最近一次 checkpoint id(供 tool.after 的 rollback 证据引用;初始 None)
+        checkpoint_id: str | None = None
 
         for i in range(start_iteration, self.max_iterations + 1):
             # Wave 9:检查暂停/取消标志(在 LLM 调用前)
@@ -1490,16 +1788,13 @@ class AgentLoopV2:
             iteration = LoopIteration(iteration=i, start_time=iter_start.isoformat())
 
             try:
-                # Hook 引擎: tool.before
-                try:
-                    await hook_engine.emit("tool.before", {
-                        "session_id": self._session_id or "",
-                        "iteration": i,
-                        "messages_count": len(messages),
-                        "tools_count": len(tools_schema) if tools_schema else 0,
-                    })
-                except Exception:
-                    logger.warning("hook_engine.emit(tool.before) 失败(降级,不阻塞)")
+                # Hook 引擎: tool.before(1-5 起经事件流层发射)
+                await self._events.tool_before(
+                    session_id=self._session_id or "",
+                    iteration=i,
+                    messages_count=len(messages),
+                    tools_count=len(tools_schema) if tools_schema else 0,
+                )
                 # 1. 调 LLM(带 tools,带指数退避重试);调用前按占用率自动压缩上下文(1-8)
                 messages = self._maybe_compact_context(messages)
                 llm_response = await self._llm_call_with_retry(messages, tools_schema)
@@ -1528,16 +1823,12 @@ class AgentLoopV2:
                     )
                     iterations.append(iteration)
 
-                    # Hook 引擎: message.receive
-                    try:
-                        await hook_engine.emit("message.receive", {
-                            "session_id": self._session_id or "",
-                            "iteration": i,
-                            "content_length": len(content),
-                            "stop_reason": "completed",
-                        })
-                    except Exception:
-                        logger.warning("hook_engine.emit(message.receive) 失败(降级,不阻塞)")
+                    # Hook 引擎: message.receive(1-5 起经事件流层发射)
+                    await self._events.message_receive(
+                        session_id=self._session_id or "",
+                        iteration=i,
+                        content_length=len(content),
+                    )
 
                     # L5-12(2026-08-12):提前返回路径也保存 checkpoint(status=completed)
                     # 此前简单任务(无工具调用)直接 return 不落 checkpoint → workbench
@@ -1589,30 +1880,16 @@ class AgentLoopV2:
 
                 # 5. 执行工具
                 tool_results = await self._execute_tools(tool_calls)
-                # Hook 引擎: tool.after
-                try:
-                    await hook_engine.emit("tool.after", {
-                        "session_id": self._session_id or "",
-                        "iteration": i,
-                        "tool_calls_count": len(tool_calls),
-                        "tool_results_count": len(tool_results),
-                        "duration_ms": iteration.duration_ms,
-                        # L5-8(2026-08-12):带每个工具结果明细,供前端展示
-                        # 重试次数/错误分类(此前只有计数,用户侧看不到自动重试)
-                        "tool_results": [
-                            {
-                                "name": tr.name,
-                                "status": "error" if tr.error else "ok",
-                                "error": tr.error,
-                                "error_type": tr.error_type,
-                                "retry_count": tr.retry_count,
-                                "duration_ms": round(tr.duration_ms, 2),
-                            }
-                            for tr in tool_results
-                        ],
-                    })
-                except Exception:
-                    logger.warning("hook_engine.emit(tool.after) 失败(降级,不阻塞)")
+                # Hook 引擎: tool.after(1-5 起经事件流层发射:逐工具明细含
+                # input/diff/test/rollback 可解释性证据,evidence 推导失败跳过整次事件)
+                await self._events.tool_after(
+                    session_id=self._session_id or "",
+                    iteration=i,
+                    tool_calls=tool_calls,
+                    tool_results=tool_results,
+                    duration_ms=iteration.duration_ms,
+                    checkpoint_id=checkpoint_id,
+                )
                 iteration.tool_results = tool_results
 
                 # 6. 把工具结果加入 messages
@@ -1642,8 +1919,9 @@ class AgentLoopV2:
                     iteration.duration_ms,
                 )
 
-                # Wave 9:每轮 iteration 结束后 checkpoint(status=running)
-                await self._save_checkpoint_safe(
+                # Wave 9:每轮 iteration 结束后 checkpoint(status=running);
+                # 捕获返回 id 供下一轮 tool.after 的 rollback 证据引用
+                checkpoint_id = await self._save_checkpoint_safe(
                     iteration=i, messages=messages, status="running",
                 )
 
@@ -1658,14 +1936,14 @@ class AgentLoopV2:
                     pass
                 # L5-3 错误恢复:结构化上报审计服务(2026-08-12 立)
                 self._report_agent_error(i, str(e), error_type)
-                # Hook 引擎: error(异常中 emit 失败不记录日志,避免日志级联)
-                with contextlib.suppress(Exception):
-                    await hook_engine.emit("error", {
-                        "session_id": self._session_id or "",
-                        "iteration": i,
-                        "error": str(e),
-                        "error_type": error_type,
-                    })
+                # Hook 引擎: error(1-5 起经事件流层发射;异常路径静默降级,
+                # emit 失败不记录日志,避免日志级联)
+                await self._events.loop_error(
+                    session_id=self._session_id or "",
+                    iteration=i,
+                    error=str(e),
+                    error_type=error_type,
+                )
                 iteration.end_time = datetime.now(UTC).isoformat()
                 iteration.duration_ms = (
                     (datetime.now(UTC) - iter_start).total_seconds() * 1000
@@ -1864,20 +2142,16 @@ class AgentLoopV2:
                 args_preview = json.dumps(tc.args, ensure_ascii=False)[:200]
             except Exception:
                 args_preview = str(tc.args)[:200]
-            # 通过 hook_engine 发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
+            # 通过事件流层发 tool.approval 事件(订阅者 = SSE 转发 + 前端弹窗)。
             # emit 内部有 _broadcast 向 SSE 订阅者推送;失败降级不抛(但审批继续等待,
             # 若事件完全无法送达,工具会在超时后以 approval_timeout 返回,安全兜底)。
-            try:
-                await hook_engine.emit("tool.approval", {
-                    "approval_id": approval_id,
-                    "tool_name": tc.name,
-                    "tool_call_id": tc.id,
-                    "args_preview": args_preview,
-                    "danger_level": "high",
-                    "session_id": self._session_id or "",
-                })
-            except Exception as e:
-                logger.warning("hook_engine.emit(tool.approval) 失败(继续等待审批): %s", e)
+            await self._events.tool_approval(
+                approval_id=approval_id,
+                tool_name=tc.name,
+                tool_call_id=tc.id,
+                args_preview=args_preview,
+                session_id=self._session_id or "",
+            )
             # 等待用户决策(批准/拒绝/超时)
             try:
                 await asyncio.wait_for(ev.wait(), timeout=self._approval_timeout)
@@ -1892,7 +2166,7 @@ class AgentLoopV2:
             _approval_registry.pop(approval_id, None)
 
     async def _emit_permission_mode_event(self, tool_name: str, decision: str) -> None:
-        """模式生效时发 `permission.mode` 事件(复用 hook_engine.emit 现有发射模式)。
+        """模式生效时经事件流层发 `permission.mode` 事件(1-5 拆层后统一入口)。
 
         触发时机(工具被跳过/免审批):
         - plan 模式拦截白名单外工具 → decision="plan_blocked"
@@ -1904,15 +2178,13 @@ class AgentLoopV2:
             tool_name: 触发事件时涉及的工具名
             decision: 决策标签(plan_blocked / auto_skip_approval)
         """
-        try:
-            await hook_engine.emit("permission.mode", {
-                "mode": self._permission_mode,
-                "tool": tool_name,
-                "decision": decision,
-                "session_id": self._session_id or "",
-            })
-        except Exception:
-            logger.warning("hook_engine.emit(permission.mode) 失败(降级,不阻塞)")
+        # 1-5 起经事件流层发射(失败降级不阻塞,语义同层内统一)
+        await self._events.permission_mode(
+            mode=self._permission_mode,
+            tool_name=tool_name,
+            decision=decision,
+            session_id=self._session_id or "",
+        )
 
     async def _execute_tools(self, tool_calls: list[ToolCall]) -> list[ToolResult]:
         """执行工具调用(并行或串行)。"""
@@ -1957,10 +2229,21 @@ class AgentLoopV2:
         否则回退 session_id 作为运行标识。
         """
         rec = getattr(self, "_step_recorder", None)
+        # 1-1:先弹出决策提示(auto 免审批等不可见路径),无提示再从结果推导
+        hint = self._decision_hints.pop(tc.id, None)
         if rec is None:
             return
         run_id = getattr(rec, "run_id", None) or self._session_id or ""
         try:
+            decision, reason = hint if hint else _derive_step_decision(tr)
+            # 1-5:推导可解释性证据(input/diff/test/rollback)一并落录制
+            # (推导失败返回全 None,不阻塞录制)
+            evidence = derive_step_evidence(
+                tr.name or tc.name,
+                dict(tc.args or {}),
+                {"error": tr.error} if tr.error else tr.result,
+                checkpoint_id=self._last_checkpoint_id,
+            )
             rec.append_step(
                 run_id,
                 {
@@ -1972,6 +2255,10 @@ class AgentLoopV2:
                     ),
                     "status": "error" if tr.error else "ok",
                     "duration_ms": round(float(tr.duration_ms or 0.0), 2),
+                    "input": tc.args,
+                    "decision": decision,
+                    "reason": reason,
+                    **evidence,
                 },
             )
         except Exception as e:
@@ -2034,6 +2321,11 @@ class AgentLoopV2:
                 )
                 # 模式生效事件:工具免审批(auto_skip_approval)
                 await self._emit_permission_mode_event(tc.name, "auto_skip_approval")
+                # 1-1:决策提示(执行成功与否都记录该步的免审批决策)
+                self._decision_hints[tc.id] = (
+                    "auto_skip_approval",
+                    "auto 模式:只读工具免审批直接执行",
+                )
             needs_approval = False
 
         if needs_approval:
@@ -2075,6 +2367,11 @@ class AgentLoopV2:
                 duration_ms=0,
                 error_type="unknown",
             )
+
+        # 1-2 自动回滚:写盘工具执行前捕获文件快照(编辑前内容,每文件仅首次)。
+        # 快照引用随 checkpoint 落库,restore(rollback_files=true)时经
+        # file_editor.rollback_file 真正回滚——打通「单 run 文件级回滚」死代码。
+        self._snapshot_before_write(tc)
 
         retry_count = 0
         while True:
