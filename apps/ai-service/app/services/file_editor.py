@@ -408,8 +408,15 @@ def _redis_client() -> Any:
     if _redis_client_instance is not None:
         return _redis_client_instance
     try:
-        # protocol=2 强制 RESP2(同 agent_checkpoint),兼容老 Redis
-        client = _redis_mod.from_url(_get_redis_url(), decode_responses=True, protocol=2)
+        # protocol=2 强制 RESP2(同 agent_checkpoint),兼容老 Redis;
+        # socket_connect_timeout 必须显式:主机丢包(非拒连)时 TCP 默认阻塞数分钟,
+        # 会把"静默降级为纯内存"契约变成永久挂起(2026-09-08 全量回归挂起根因)
+        client = _redis_mod.from_url(
+            _get_redis_url(),
+            decode_responses=True,
+            protocol=2,
+            socket_connect_timeout=2,
+        )
         client.ping()
         _redis_client_instance = client
         return client
