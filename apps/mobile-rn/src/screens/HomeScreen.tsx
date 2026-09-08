@@ -1953,7 +1953,7 @@ export function HomeScreen() {
 }
 
 const shellStyles = {
-  root: { flex: 1 } as const,
+  root: { flex: 1, backgroundColor: tokens.surface.light } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
   // 语音输入行(对齐 Uniapp ai_index2.vue 输入区语音模式,置于底部 InputArea 上方)

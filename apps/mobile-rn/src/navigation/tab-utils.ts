@@ -44,4 +44,29 @@ export const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
 export function mainScreenForTab(tab: MainTabKey): MainTabKey {
   return tab
 }
+
+/**
+ * Drawer 菜单点击 → 统一跳转入口(2026-09-05 立,对齐历史 Uniapp DrawerComponentall.vue)。
+ *
+ * 历史 Drawer 点「广场」跳 /pages/square/index、「动态」跳 /pages/share/index,
+ * 是 Tab 之外的独立页面;此前 square/share 兜底回 HomeMain 属语义错位,现收敛到
+ * 本函数统一处理:广场 → RootStack 'Plaza',动态 → RootStack 'Share',其余走 Main Tab。
+ */
+type NavigateLike =
+  | { navigate: (name: string, params?: Record<string, unknown>) => void }
+  | null
+  | undefined
+
+export function navigateDrawerTab(nav: NavigateLike, tab: DrawerTab): void {
+  if (!nav) return
+  if (tab === 'square') {
+    nav.navigate('Plaza')
+    return
+  }
+  if (tab === 'share') {
+    nav.navigate('Share')
+    return
+  }
+  nav.navigate('Main', { screen: DRAWER_TAB_TO_RN_TAB[tab] })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -62,7 +62,7 @@ import * as MediaLibrary from 'expo-media-library'
 import { Bot, Brain, Copy, Download, Eye, EyeOff, Settings, Share2 } from 'lucide-react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
   fetchModels,
@@ -741,7 +741,7 @@ export default function AiAssistantN8nScreen() {
       return
     }
     // DrawerTab('mine'等)必须先映射成 RN Tab 路由名('ProfileMain'),直接 cast 会静默跳转失败
-    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+    navigateDrawerTab(rootNav, tab)
   }
   const handleDrawerNavigateCompany = (): void => {
     navigation.navigate('Distribution')
