@@ -63,6 +63,40 @@
     "totalTokens": "総トークン",
     "window": "時間ウィンドウ"
   },
+  "teamMemory": {
+    "title": "チーム共有メモリ",
+    "description": "スコープ単位で分離されたチーム共有ナレッジ層:意思決定・規約・落とし穴・インデックス指紋",
+    "scopeLabel": "スコープ ID",
+    "scopePlaceholder": "teamId または workspaceKey を入力",
+    "searchPlaceholder": "タイトルと本文を検索",
+    "searchBtn": "検索",
+    "kindAll": "すべて",
+    "kind": {
+      "decision": "意思決定",
+      "convention": "規約",
+      "pitfall": "落とし穴",
+      "fingerprint": "指紋"
+    },
+    "listTitle": "メモリ一覧",
+    "newBtn": "新規作成",
+    "editBtn": "編集",
+    "deleteBtn": "削除",
+    "deleteConfirm": "このメモリを削除しますか?",
+    "empty": "このスコープにはまだメモリがありません",
+    "loading": "読み込み中",
+    "saveBtn": "保存",
+    "cancelBtn": "キャンセル",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "このメモリを一行で要約",
+    "contentLabel": "本文",
+    "contentPlaceholder": "詳細:背景・結論・注意点",
+    "tagsLabel": "タグ",
+    "tagsPlaceholder": "カンマ区切り 例:deploy,PG17",
+    "needScope": "先にスコープ ID を入力してください",
+    "needTitle": "タイトルは必須です",
+    "needContent": "本文は必須です",
+    "saveFailed": "保存に失敗しました"
+  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "ローカルリポジトリから構成・モジュール文書を自動生成",
@@ -11731,6 +11765,7 @@
       "typeTerminal": "ターミナル"
     },
     "codeEditor": {
+      "lspStatus": "LSP",
       "zoomIn": "拡大",
       "zoomOut": "縮小"
     },
