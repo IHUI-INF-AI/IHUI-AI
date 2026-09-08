@@ -810,6 +810,10 @@ _REGISTRY: list[FreeProvider] = [
         # 2026-09-08 实测:/v1/skills/models(112 模型)与 /v1/logical-models(123 条含
         # param_schema/单价/健康分)均免鉴权 → 无 key 也能同步模型目录
         keyless_model_list=True,
+        # 管理端可视化:余额查询(响应 balance 为 "$xx.xx" 字符串,消费方需去 $ 解析)
+        balance_endpoint="/v1/skills/balance",
+        # "去充值"按钮跳转(平台控制台)
+        recharge_url="https://k.token6688.com",
         notes=(
             "OpenAI 兼容聚合网关(TokenGo 系),单 key 全模态(2026-09-08 按官方 /v1/skills/guide "
             "v2026-07-11 校准):chat 43 模型 /v1/chat/completions;图片 /v1/images/generations 同步"
