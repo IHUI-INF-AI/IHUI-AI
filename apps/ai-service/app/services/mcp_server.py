@@ -3309,9 +3309,10 @@ async def _tool_image_generation_native(
 
 
 async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
-    """video_generation: 生成视频(统一编排,4 家厂商自动故障转移)。
+    """video_generation: 生成视频(统一编排,5 家厂商自动故障转移)。
 
     复用 app.services.video_generation.generate_video 统一编排:
+    - token6688(名创AI 聚合网关,单 key,默认首选;提交+限时轮询+task_id 取件)
     - kling(快手可灵, JWT text2video/image2video)
     - jimeng(字节即梦, Ark Seedance)
     - wan(阿里通义万相, DashScope 文生视频)
@@ -3319,6 +3320,8 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
 
     按 VIDEO_PROVIDER / 已配置凭据顺序自动挑厂商,首选失败自动降级下一家。
     返回统一 {provider, model, task_id, video_url, duration}。
+    token6688 长任务(p90 55~75 分钟):90s 窗口内完成直接返回成片;否则返回
+    submitted+task_id,后续传 arguments.task_id 查询取件(防工具调用卡死对话)。
     未配置任何厂商凭据时返回清晰错误(PROVIDER_NOT_CONFIGURED),
     不误标"已生成"——对话侧据 ok=false 如实告知用户。
     """
@@ -3330,21 +3333,117 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     provider = arguments.get("provider")  # None=自动;显式=指定厂商
     duration = arguments.get("duration", 5)
     save_path = arguments.get("save_path")
+    # 查询模式:只传 task_id 不传 prompt(对话里"视频好了吗"直接取件)
+    _query_task_id = str(arguments.get("task_id") or "").strip()
 
-    if not prompt or not isinstance(prompt, str):
+    if _query_task_id:
+        prompt = prompt if isinstance(prompt, str) else ""
+    elif not prompt or not isinstance(prompt, str):
         return {
             "tool": "video_generation", "ok": False,
-            "error": "缺少 prompt 参数", "errorCode": "MISSING_PARAMS",
+            "error": "缺少 prompt 参数(或传 task_id 查询已有任务)", "errorCode": "MISSING_PARAMS",
             "video_url": None,
         }
-    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan"):
+    if provider is not None and provider not in ("kling", "jimeng", "wan", "hunyuan", "token6688"):
         return {
             "tool": "video_generation", "ok": False,
-            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan)",
+            "error": f"未知 provider: {provider}(允许 kling/jimeng/wan/hunyuan/token6688)",
             "errorCode": "INVALID_PROVIDER", "video_url": None,
         }
     if not isinstance(duration, int) or duration <= 0:
         duration = 5
+
+    # ---- 查询模式:传 task_id 时查 token6688 任务状态(对话里"视频好了吗")----
+    if _query_task_id:
+        from .video_generation import _instantiate as _video_instantiate
+        inst = _video_instantiate("token6688")
+        if inst is None:
+            return {
+                "tool": "video_generation", "ok": False,
+                "error": "token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),无法查询任务",
+                "errorCode": "PROVIDER_NOT_CONFIGURED", "video_url": None,
+            }
+        st = await inst.get_task_status(_query_task_id)
+        if st.get("ok") and st.get("video_url"):
+            return {
+                "tool": "video_generation", "ok": True, "completed": True,
+                "task_id": _query_task_id, "provider": "token6688",
+                "video_url": st["video_url"], "status": st["status"],
+                "message": "视频已生成完成",
+            }
+        if st.get("failed"):
+            return {
+                "tool": "video_generation", "ok": False, "task_id": _query_task_id,
+                "provider": "token6688", "video_url": None, "status": st["status"],
+                "error": st.get("error") or "视频任务失败", "errorCode": "TASK_FAILED",
+            }
+        return {
+            "tool": "video_generation", "ok": True, "completed": False,
+            "task_id": _query_task_id, "provider": "token6688", "video_url": None,
+            "status": st["status"], "progress": st.get("progress"),
+            "message": f"视频仍在生成中(status={st['status']}),请稍后再问一次(带同一 task_id)",
+        }
+
+    # ---- token6688 专用路径:提交 + 限时轮询,避免长任务(p90 55~75 分钟)卡死对话 ----
+    # 完成窗口内(默认 90s,VIDEO_TOOL_WAIT_S 可调)拿到视频直接返回;超时返回
+    # submitted+task_id,用户稍后带 task_id 再问一次即可取件。其他厂商保持原同步编排。
+    from .video_generation import _instantiate as _video_instantiate
+    _t6688 = _video_instantiate("token6688") if provider in (None, "token6688") else None
+    if _t6688 is not None:
+        try:
+            submitted = await _t6688.generate_video(
+                prompt, str(arguments.get("model") or ""),
+                duration=duration, wait=False,
+                image=arguments.get("image"),
+            )
+        except Exception as e:  # noqa: BLE001
+            # token6688 提交失败 → 落回原编排(自动降级其他厂商)
+            logger.warning("[mcp][video] token6688 提交失败,降级原编排: %s", e)
+            submitted = None
+        if submitted is not None and submitted.get("task_id"):
+            wait_s = max(15, int(os.environ.get("VIDEO_TOOL_WAIT_S", "90")))
+            import asyncio as _asyncio
+
+            deadline = time.monotonic() + wait_s
+            while time.monotonic() < deadline:
+                await _asyncio.sleep(3)
+                st = await _t6688.get_task_status(str(submitted["task_id"]))
+                if st.get("ok") and st.get("video_url"):
+                    result = {
+                        "provider": "token6688", "model": submitted.get("model", ""),
+                        "task_id": submitted["task_id"], "video_url": st["video_url"],
+                        "duration": duration,
+                    }
+                    break
+                if st.get("failed"):
+                    return {
+                        "tool": "video_generation", "ok": False, "prompt": prompt,
+                        "provider": "token6688", "task_id": submitted["task_id"],
+                        "video_url": None, "error": st.get("error") or "视频任务失败",
+                        "errorCode": "TASK_FAILED",
+                    }
+            else:
+                return {
+                    "tool": "video_generation", "ok": True, "submitted": True,
+                    "prompt": prompt, "provider": "token6688",
+                    "model": submitted.get("model", ""),
+                    "task_id": submitted["task_id"], "video_url": None,
+                    "message": (
+                        "视频生成任务已提交(token6688 网关),官方耗时中位 4~40 分钟、"
+                        f"p90 55~75 分钟。已等待 {wait_s}s 未完成——请稍后让我查询进度"
+                        f"(我会用 task_id={submitted['task_id']} 拿成片链接)。"
+                        "任务已计费,请勿重复提交同一 prompt。"
+                    ),
+                }
+            # while 内 break(拿到成片)→ 落到下方统一返回
+            video_url = result.get("video_url", "")
+            return {
+                "tool": "video_generation", "ok": True, "prompt": prompt,
+                "provider": result.get("provider", "token6688"),
+                "model": result.get("model", ""), "task_id": result.get("task_id", ""),
+                "video_url": video_url, "duration": result.get("duration", duration),
+                "message": "视频生成完成",
+            }
 
     from .video_generation import generate_video
 
@@ -4865,29 +4964,37 @@ _TOOLS: list[MCPTool] = [
     MCPTool(
         name="video_generation",
         description=(
-            "生成视频,返回视频 URL。统一编排 4 家厂商并自动故障转移:"
+            "生成视频,返回视频 URL。统一编排 5 家厂商并自动故障转移:"
+            "token6688(名创AI 聚合网关,单 key 全模态,默认首选,支持 4~30 秒时长)、"
             "kling(快手可灵,text2video/image2video)、jimeng(字节即梦 Seedance)、"
-            "wan(阿里通义万相)、hunyuan(腾讯混元)。提交后轮询至完成(最长 10 分钟),"
+            "wan(阿里通义万相)、hunyuan(腾讯混元)。token6688 长任务防卡死:"
+            "先提交并等待 90s 窗口,窗口内完成直接返回成片;超时返回 task_id 与"
+            "取件提示——用户稍后追问时只传 task_id(不传 prompt)即可查询进度/取件。"
             "支持 image 参数走图生视频、save_path 下载落地(.mp4,工作区白名单,200MB 上限)。"
-            "需 .env 配置 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* 任一厂商凭据;"
-            "未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。外部 API 调用 + 计费。"
+            "需 .env 配置 TOKEN6688_API_KEY 或 KLING_*/ARK_*/DASHSCOPE_API_KEY/TENCENT_* "
+            "任一厂商凭据;未配置时返回 PROVIDER_NOT_CONFIGURED,如实告知用户。"
+            "外部 API 调用 + 计费。"
         ),
         input_schema={
             "type": "object",
             "properties": {
-                "prompt": {"type": "string", "description": "视频描述(必填)"},
+                "prompt": {"type": "string", "description": "视频描述(首次提交必填;查询模式可省)"},
                 "provider": {
                     "type": "string",
-                    "enum": ["kling", "jimeng", "wan", "hunyuan"],
+                    "enum": ["token6688", "kling", "jimeng", "wan", "hunyuan"],
                     "description": "可选,指定厂商;缺省自动按已配置凭据顺序选择"
                 },
                 "model": {
                     "type": "string",
-                    "description": "可选,模型(如 kling-v1 / doubao-seedance-1-0-pro / wan2.x)",
+                    "description": "可选,模型(如 seedance-2-5 / kling-v1 / doubao-seedance-1-0-pro / wan2.x)",
+                },
+                "task_id": {
+                    "type": "string",
+                    "description": "可选,查询模式:传入此前提交返回的 task_id 查询进度/取件成片,无需 prompt",
                 },
                 "duration": {
                     "type": "integer",
-                    "description": "视频时长秒(默认 5;接口上限通常 10~15s)",
+                    "description": "视频时长秒(token6688 支持 4~30;其他厂商上限通常 10~15s;默认 5)",
                     "default": 5,
                 },
                 "image": {
@@ -4903,7 +5010,7 @@ _TOOLS: list[MCPTool] = [
                     "description": "可选,绝对路径,下载视频落地(需工作区白名单内,后缀 .mp4,200MB 上限)",
                 },
             },
-            "required": ["prompt"],
+            "required": [],
         },
     ),
     MCPTool(
