@@ -23,6 +23,9 @@ interface Props {
   onDownload: (file: FileItem) => void
   onDelete: (file: FileItem) => void
   onPreview: (file: FileItem) => void
+  onConvertMarkdown?: (file: FileItem) => void
+  convertingId?: string | null
+  convertErrorMessage?: string
 }
 
 export function FilesSection({
@@ -38,6 +41,9 @@ export function FilesSection({
   onDownload,
   onDelete,
   onPreview,
+  onConvertMarkdown,
+  convertingId,
+  convertErrorMessage,
 }: Props) {
   const t = useTranslations('workspace')
   return (
@@ -52,6 +58,7 @@ export function FilesSection({
 
       {uploadErrorMessage && <p className="text-xs text-destructive">{uploadErrorMessage}</p>}
       {deleteErrorMessage && <p className="text-xs text-destructive">{deleteErrorMessage}</p>}
+      {convertErrorMessage && <p className="text-xs text-destructive">{convertErrorMessage}</p>}
 
       {filesError ? (
         <div className="py-8 text-center text-sm text-destructive">
@@ -70,6 +77,8 @@ export function FilesSection({
             onDownload={onDownload}
             onDelete={onDelete}
             onPreview={onPreview}
+            onConvertMarkdown={onConvertMarkdown}
+            convertingId={convertingId}
           />
         </ErrorBoundary>
       )}
