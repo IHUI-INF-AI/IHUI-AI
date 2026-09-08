@@ -1,6 +1,7 @@
 www/
-android/
+# android/  # 2026-09-08 取消忽略:纳入原生改动(MainActivity.java/Manifest/styles/colors),由 android/.gitignore 过滤构建产物
 node_modules/
 dist/
+output/
 *.log
 .DS_Store
