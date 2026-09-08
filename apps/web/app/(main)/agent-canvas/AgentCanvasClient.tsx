@@ -4,6 +4,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import {
   ReactFlow,
   Background,
@@ -105,6 +106,7 @@ function sseDataToText(data: unknown): string {
  * DAG 变更防抖写入 localStorage;运行事件通过 useAgentStream(SSE) 分发进节点日志。
  */
 export function AgentCanvasClient() {
+  const t = useTranslations('agentCanvas')
   const initial = React.useMemo(() => fromDag(loadDag()), [])
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(initial.nodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState<CanvasEdge>(initial.edges)
@@ -160,10 +162,10 @@ export function AgentCanvasClient() {
           break
         }
         case 'tool_call':
-          appendLog(targetId, 'info', `🔧 tool_call: ${sseDataToText(evt.data)}`)
+          appendLog(targetId, 'info', `${t('logToolCall')}${sseDataToText(evt.data)}`)
           break
         case 'tool_result':
-          appendLog(targetId, 'info', `↩ tool_result: ${sseDataToText(evt.data)}`)
+          appendLog(targetId, 'info', `${t('logToolResult')}${sseDataToText(evt.data)}`)
           break
         case 'token':
           // token 高频,聚合到最近一条 info 日志尾部,避免刷屏
@@ -183,11 +185,15 @@ export function AgentCanvasClient() {
           )
           break
         case 'interrupt':
-          appendLog(targetId, 'warn', `⏸ 等待人工审核: ${sseDataToText(evt.data)}`)
+          appendLog(targetId, 'warn', `${t('logWaitReview')}${sseDataToText(evt.data)}`)
           break
         case 'error':
           setStatus(targetId, 'failed')
-          appendLog(targetId, 'error', `✖ ${sseDataToText(evt.data) || '运行错误'}`)
+          appendLog(
+            targetId,
+            'error',
+            `${t('logRunError')}${sseDataToText(evt.data) || t('logErrorFallback')}`,
+          )
           break
         case 'done':
           setNodes((nds) =>
@@ -201,7 +207,7 @@ export function AgentCanvasClient() {
           break
       }
     },
-    [appendLog, setStatus, setNodes],
+    [appendLog, setStatus, setNodes, t],
   )
 
   const stream = useAgentStream({
@@ -212,7 +218,7 @@ export function AgentCanvasClient() {
       const id = trialNodeIdRef.current
       if (id) {
         setStatus(id, 'failed')
-        appendLog(id, 'error', `连接失败: ${msg}`)
+        appendLog(id, 'error', `${t('logConnectFail')}${msg}`)
       }
     },
   })
@@ -249,7 +255,7 @@ export function AgentCanvasClient() {
           // 与 NodePalette/InspectorPanel 一致直接用 meta.title(NODE_TYPE_META 无 i18n key)
           label: `${meta.title} ${nodes.length + 1}`,
           nodeType: type,
-          params: createDefaultParams(type),
+          params: createDefaultParams(type, t('defaultReviewPrompt')),
           status: 'idle',
           logs: [],
         },
@@ -337,7 +343,7 @@ export function AgentCanvasClient() {
                 data: {
                   ...n.data,
                   status: 'running' as const,
-                  logs: [makeLog('info', '● 已发起试运行,等待流…')],
+                  logs: [makeLog('info', t('logTrialStarted'))],
                 },
               }
             : n,
