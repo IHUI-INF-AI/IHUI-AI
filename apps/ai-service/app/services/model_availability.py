@@ -586,6 +586,17 @@ class ModelAvailabilityService:
                 # balance=可用余额(含赠送),total_cash_balance=现金余额,total_voucher_balance=赠送余额
                 return float(data.get("balance") or 0), "CNY", ProviderErrorType.NONE, ""
 
+            if code == "token6688":
+                # 官方(2026-09-08):GET /v1/skills/balance 返回
+                # {balance: "$49.964555", available_balance: "$40.00", frozen: "$9.96"} — 美元字符串
+                raw = str(data.get("balance") or data.get("available_balance") or "")
+                if raw.startswith("$"):
+                    try:
+                        return float(raw[1:]), "USD", ProviderErrorType.NONE, ""
+                    except ValueError:
+                        return None, None, ProviderErrorType.UNKNOWN, f"bad balance format: {raw[:50]}"
+                return None, None, ProviderErrorType.UNKNOWN, "no $-prefixed balance field"
+
             for key_path in (("balance",), ("data", "balance"), ("data", "total_credits"), ("total_balance",)):
                 v: Any = data
                 for k in key_path:
