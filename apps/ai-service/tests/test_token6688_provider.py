@@ -390,10 +390,12 @@ def test_llm_gateway_prefix_mapping():
 
 
 def test_llm_gateway_resolve_provider():
+    """gateway t6688/ 解析:api_base 必须以 /v1 结尾(LiteLLM openai/ 直连要求,
+    2026-09-08 假 key 实测无 /v1 会打到网站首页 HTML)。"""
     from app.core.llm_gateway import LLMGateway
 
     api_key, api_base, litellm_model = LLMGateway._resolve_provider("t6688/gm-3.8-flash")
-    assert api_base == "https://k.token6688.com"
+    assert api_base == "https://k.token6688.com/v1"
     assert litellm_model == "openai/gm-3.8-flash"
 
 
