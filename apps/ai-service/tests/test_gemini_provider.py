@@ -8,7 +8,7 @@ Google Gemini API 原生适配器。
 
 测试覆盖:
 - __init__:默认 base_url / 自定义 api_base / timeout
-- DEFAULT_SAFETY_SETTINGS:4 个类别 / BLOCK_ONLY_HIGH 阈值
+- DEFAULT_SAFETY_SETTINGS:4 个类别 / BLOCK_MEDIUM_AND_ABOVE 阈值
 - _convert_messages:system 分离 / user/model role 转换 / 非 str content 序列化
 - _convert_tools:function → functionDeclarations / 空 tools 返回 None
 - _build_generation_config:temperature/top_p/max_tokens 封装
@@ -81,10 +81,10 @@ def test_default_safety_settings_has_four_categories():
     assert len(DEFAULT_SAFETY_SETTINGS) == 4
 
 
-def test_default_safety_settings_all_block_only_high():
-    """所有类别阈值都是 BLOCK_ONLY_HIGH。"""
+def test_default_safety_settings_all_block_medium():
+    """所有类别阈值都是 BLOCK_MEDIUM_AND_ABOVE(平台默认档,中等概率即拦截)。"""
     for s in DEFAULT_SAFETY_SETTINGS:
-        assert s["threshold"] == "BLOCK_ONLY_HIGH"
+        assert s["threshold"] == "BLOCK_MEDIUM_AND_ABOVE"
 
 
 def test_default_safety_settings_contains_required_categories():

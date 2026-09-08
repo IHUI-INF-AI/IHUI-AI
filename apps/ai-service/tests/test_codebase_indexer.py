@@ -946,7 +946,7 @@ class TestIndexRepository:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1013,7 +1013,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1033,7 +1033,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
@@ -1066,7 +1066,7 @@ class TestIndexFile:
         idx._api_base_url = "http://localhost:8801"
         captured_chunks = []
 
-        async def fake_write(repo_id, chunks, token):
+        async def fake_write(repo_id, chunks, token, internal_user_id=None):
             captured_chunks.extend(chunks)
             return {}
 
