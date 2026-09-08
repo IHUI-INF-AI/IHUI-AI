@@ -409,11 +409,16 @@
 
 .btn-login {
   border-radius: var(--radius-xl);
-  background-color: var(--color-foreground);
+  /* 登录 CTA 用品牌橙渐变作"局部渐变点缀"(2026-09-07 复刻旧App渐变主按钮形态;
+   * 注册/纯色主按钮 .btn-register 仍走 var(--color-foreground) 纯色,遵循"纯色为主+局部渐变") */
+  background: linear-gradient(
+    135deg,
+    var(--color-brand-orange-grad-from) 0%,
+    var(--color-brand-orange-grad-to) 100%
+  );
   font-size: 60rpx;
   color: var(--color-card);
   font-weight: 500;
-  text-shadow: 0px 0px 5px var(--color-black-30);
 }
 
 .btn-register {

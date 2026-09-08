@@ -25,7 +25,7 @@
 }
 .team-search-icon {
   margin-right: 16rpx;
-  font-size: 32rpx;
+  font-size: 40rpx;
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }

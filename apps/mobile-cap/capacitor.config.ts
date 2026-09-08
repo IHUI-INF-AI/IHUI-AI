@@ -35,9 +35,10 @@ const config: CapacitorConfig = {
     adjustMarginsForEdgeToEdge: 'force',
   },
   plugins: {
-    PushNotifications: {
-      presentationOptions: ['badge', 'sound', 'alert'],
-    },
+    // 2026-09-08 移除 @capacitor/push-notifications:项目无 Firebase 配置(无 google-services.json),
+    // 登录后 register() 触发 FirebaseApp 未初始化异常,原生线程上抛 Fatal 直接杀掉整个进程(登录即闪退)。
+    // JS 侧 use-native-push.ts 已对缺失插件兜底(window.Capacitor.Plugins.PushNotifications 为 undefined 即 no-op),
+    // 故移除插件后 App 正常。将来接入真实 Firebase 再重新加回该插件与配置。
     // 启动屏:远程模式首开需加载线上资源,延长到 3s 防白屏闪断;淡出更顺滑
     SplashScreen: {
       launchShowDuration: 3000,

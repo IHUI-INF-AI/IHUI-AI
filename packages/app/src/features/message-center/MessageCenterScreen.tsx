@@ -198,10 +198,10 @@ function createStyles(tk: AppThemeTokens) {
     convItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 10,
-      paddingHorizontal: 6,
+      paddingVertical: 12,
+      paddingHorizontal: 10,
       borderRadius: 12,
-      gap: 10,
+      gap: 12,
     },
     convAvatarWrap: { position: 'relative' },
     convAvatar: {

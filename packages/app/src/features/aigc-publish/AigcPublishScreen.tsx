@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
     typeChipText: { fontSize: 14, color: tk.text.medium, fontWeight: '600' },
     typeChipTextActive: { color: tk.surface.light },
     typeChipDesc: { marginTop: 8, fontSize: 10, color: tk.text.tertiary },
-    typeChipDescActive: { color: 'rgba(255,255,255,0.85)' },
+    typeChipDescActive: { color: tk.surface.light },
     input: {
       paddingHorizontal: 12,
       paddingVertical: 10,
