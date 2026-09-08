@@ -240,6 +240,7 @@ _PREFIX_TO_PROVIDER_CODE: dict[str, str] = {
     # 国内
     "stepfun/": "stepfun",
     "agnes/": "agnes",
+    "t6688/": "token6688",
     "ihui/": "ihui_relay",
     "qwen": "qwen",
     "qwen-": "qwen",
@@ -1167,6 +1168,11 @@ class LLMGateway:
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
             return cfg.api_key, cfg.api_base, f"openai/{real_model}"
+        # Token6688 聚合网关(单 key 全模态,base 默认 https://k.token6688.com)
+        if m.startswith("t6688/"):
+            real_model = model.split("/", 1)[1]
+            cfg = settings.get_provider_config("token6688")
+            return cfg.api_key, cfg.api_base or "https://k.token6688.com", f"openai/{real_model}"
         if m.startswith("ihui/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("ihui_relay")
