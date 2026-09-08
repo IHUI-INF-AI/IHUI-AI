@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { useNavigateWithProgress } from '@/stores/navigation'
 import { useTranslations } from 'next-intl'
 import {
-  ArrowLeft,
+  ChevronLeft,
   Plus,
   Globe,
   FileText,
@@ -849,7 +849,8 @@ function TopBarBackButton() {
           data-state={expanded ? 'open' : 'closed'}
           className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
         >
-          <ArrowLeft />
+          {/* 2026-09-09 用户规则:箭头只需要一个向左的角,不要横线(ArrowLeft← → ChevronLeft<) */}
+          <ChevronLeft />
         </button>
       </Tooltip>
     </div>
