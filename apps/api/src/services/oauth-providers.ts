@@ -119,6 +119,69 @@ export async function getPhoneNumber(code: string): Promise<string> {
   return data.phone_info.phoneNumber
 }
 
+// ============================================================================
+// 微信开放平台-移动应用(App 内授权登录,react-native-wechat-lib 原生 SDK)
+// 与网站应用(wx3c...)/小程序(wx...WX_MINI_APPID)不同:移动应用用独立 AppID/Secret,
+// code 由 sendAuthRequest('snsapi_userinfo') 取得,经 sns/oauth2/access_token 换 token。
+// ============================================================================
+
+export interface WechatAppSession {
+  openId: string
+  unionId: string
+  refreshToken?: string
+  nickname?: string
+  avatar?: string
+}
+
+export function isWechatAppConfigured(): boolean {
+  return Boolean(env.WECHAT_MOBILE_APP_ID && env.WECHAT_MOBILE_SECRET)
+}
+
+/** 移动应用授权码 → token → 用户信息(sns/oauth2/access_token + sns/userinfo) */
+export async function wechatAppCode2session(code: string): Promise<WechatAppSession> {
+  if (!env.WECHAT_MOBILE_APP_ID || !env.WECHAT_MOBILE_SECRET) {
+    throw new Error('微信移动应用未配置 WECHAT_MOBILE_APP_ID / WECHAT_MOBILE_SECRET')
+  }
+  const tokenRes = await fetch(
+    `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${env.WECHAT_MOBILE_APP_ID}&secret=${env.WECHAT_MOBILE_SECRET}&code=${code}&grant_type=authorization_code`,
+    { signal: AbortSignal.timeout(10_000) },
+  )
+  if (!tokenRes.ok) throw new Error(`wechat app token failed: ${tokenRes.status}`)
+  const tokenData = (await tokenRes.json()) as {
+    access_token?: string
+    refresh_token?: string
+    openid?: string
+    unionid?: string
+    errcode?: number
+    errmsg?: string
+  }
+  if (!tokenData.access_token || !tokenData.openid) {
+    throw new Error(`微信移动应用授权码无效: ${tokenData.errmsg ?? tokenData.errcode ?? ''}`)
+  }
+  const userRes = await fetch(
+    `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
+    { signal: AbortSignal.timeout(10_000) },
+  )
+  const wxUser = (await userRes.json()) as {
+    openid?: string
+    unionid?: string
+    nickname?: string
+    headimgurl?: string
+    errcode?: number
+    errmsg?: string
+  }
+  if (wxUser.errcode) {
+    throw new Error(`微信移动应用用户信息获取失败: ${wxUser.errmsg ?? wxUser.errcode}`)
+  }
+  return {
+    openId: wxUser.openid ?? tokenData.openid ?? '',
+    unionId: wxUser.unionid ?? tokenData.unionid ?? '',
+    refreshToken: tokenData.refresh_token,
+    nickname: wxUser.nickname,
+    avatar: wxUser.headimgurl,
+  }
+}
+
 let cachedAccessToken: { token: string; expiresAt: number } | null = null
 
 async function getAccessToken(): Promise<string> {
