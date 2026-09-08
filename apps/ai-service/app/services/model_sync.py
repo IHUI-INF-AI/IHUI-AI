@@ -488,7 +488,10 @@ class ModelSyncService:
         api_key = cfg.api_key
         api_base = cfg.api_base or provider.default_base_url
 
-        if not api_key or api_key in _PLACEHOLDER_KEYS or not api_base:
+        if not api_base or (
+            (not api_key or api_key in _PLACEHOLDER_KEYS)
+            and not provider.keyless_model_list
+        ):
             self._status.is_syncing = False
             raise ValueError(
                 f"provider {provider_code} 未配置有效 api_key/api_base,无法同步"
@@ -572,7 +575,9 @@ class ModelSyncService:
             cfg = settings.get_provider_config(cfg_name)
             api_key = cfg.api_key
             api_base = cfg.api_base or provider.default_base_url
-            if api_key and api_base and api_key not in _PLACEHOLDER_KEYS:
+            # keyless_model_list(token6688 等):目录端点免鉴权,无 key 也可同步清单
+            key_ok = bool(api_key) and api_key not in _PLACEHOLDER_KEYS
+            if api_base and (key_ok or provider.keyless_model_list):
                 result.append((code, api_base, api_key))
         return result
 
@@ -1081,11 +1086,16 @@ class ModelSyncService:
         is_cloudflare = provider_code == "cloudflare_workers_ai"
         is_anthropic = provider_code == "anthropic"
         is_gemini = provider_code in ("google_gemini", "gemini", "google")
+        # token6688:/v1/skills/models 免鉴权(2026-09-08 实测 200,无 key 可拉 112 模型)
+        is_token6688 = provider_code == "token6688"
 
         # 构造请求 URL + headers
         headers: dict[str, str] = {"Accept": "application/json"}
 
-        if is_cloudflare:
+        if is_token6688:
+            # 免鉴权目录端点;不带 Authorization(空 key 发 "Bearer " 反而可能被拒)
+            url = f"{url}/skills/models" if url.endswith("/v1") else f"{url}/v1/skills/models"
+        elif is_cloudflare:
             # Cloudflare Workers AI: /models/search
             if url.endswith("/v1"):
                 url = url[:-3]
@@ -1151,9 +1161,32 @@ class ModelSyncService:
             data = resp.json()
 
         # 解析响应:Cloudflare 用 result 字段,OpenAI 兼容用 data 字段,
-        # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段
+        # Anthropic 用 data 字段(同 OpenAI),Gemini 用 models 字段,
+        # token6688 用 models 字段(name 为可调用 ID,type 区分 chat/video/image/audio)
         models: list[Any]
-        if is_cloudflare:
+        if is_token6688:
+            raw_models = data.get("models", []) if isinstance(data, dict) else []
+            models = []
+            for m in raw_models:
+                if not isinstance(m, dict):
+                    continue
+                mid = m.get("name") or m.get("id", "")
+                if not mid:
+                    continue
+                normalized = {"id": mid}
+                if m.get("display_name"):
+                    normalized["name"] = m["display_name"]
+                if m.get("description"):
+                    normalized["description"] = m["description"]
+                mtype = str(m.get("type") or "").lower()
+                endpoint = m.get("api_endpoint") or ""
+                if endpoint == "/v1/chat/completions" or mtype == "chat":
+                    normalized["metadata"] = {"is_chat": True, "modality": "chat"}
+                elif mtype in ("video", "image", "audio"):
+                    # 媒体模型:非 chat 调用方式,metadata 供路由/展示用
+                    normalized["metadata"] = {"is_chat": False, "modality": mtype}
+                models.append(normalized)
+        elif is_cloudflare:
             # 2026-08-02 修复:Cloudflare /models/search 的 result[].id 是 UUID(内部 id),
             # 调用时用的模型名在 result[].name(如 "@cf/meta/llama-3.3-70b-instruct-fp8-fast")。
             # 必须用 name 作为模型 id,否则同步进来的 UUID 无法匹配调用前缀被过滤。
