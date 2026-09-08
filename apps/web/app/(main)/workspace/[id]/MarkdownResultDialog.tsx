@@ -8,6 +8,7 @@ import * as React from 'react'
 import { Check, Copy, Download } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@ihui/ui-react'
 
 export interface MarkdownResult {
@@ -82,6 +83,8 @@ export function MarkdownResultDialog({ result, onClose }: Props) {
         </div>
         <div className="min-h-[200px] overflow-y-auto rounded-md border bg-muted/20 p-4 text-sm">
           <ReactMarkdown
+            // anydoc 输出为 GFM:表格/删除线/任务列表需 remark-gfm 才能渲染成真实元素
+            remarkPlugins={[remarkGfm]}
             components={{
               // Markdown 内长表/长代码块横向滚动,不撑破弹窗
               table: (props) => (
