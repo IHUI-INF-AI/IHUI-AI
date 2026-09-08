@@ -1339,6 +1339,11 @@ class ModelSyncService:
                         display_name = f"{display_name} (原: {raw_id})"
                     # F3.4 模型分类标签
                     model_tags = self._classify_model(aliased_id, m)
+                    # token6688 等:上游 metadata.modality(chat/video/image/audio)优先于
+                    # 名字推断,避免 seedance-2-5(视频)等媒体模型被默认标 "chat" 混入对话列表
+                    _modality = str((m.get("metadata") or {}).get("modality") or "").lower()
+                    if _modality and _modality != "chat":
+                        model_tags = [_modality] + [t for t in model_tags if t != "chat"]
                     all_tags.update(model_tags)
 
                     # F4.5 深度元数据提取
