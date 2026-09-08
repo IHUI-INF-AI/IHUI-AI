@@ -18,6 +18,15 @@ packages:
 # nodeLinker 默认值 isolated,此处显式声明便于后续维护者理解。
 nodeLinker: isolated
 
+# ============== virtualStoreDir: 短路径(2026-09-08)==============
+# Windows 上 pnpm isolated 的 .pnpm 虚拟仓库位于 node_modules/.pnpm,叠加包名+hash 后
+# 真实绝对路径过长,导致 mobile-rn 原生 CMake/AGP 生成的 .cxx 对象与 prefab 文件路径
+# 超过 Windows 260 字符限制(ninja: mkdir/Stat ... longer than 260 characters)。
+# 把虚拟仓库挪到短路径 C:/pstore(仅改变 .pnpm 物理位置,不改 nodeLinker,
+# 不影响 node_modules/<pkg> 软链解析,@ihui/* workspace 链接不受影响),全局缩短 ~20 字符。
+# 依赖解析/锁文件不受影响(仅物理落盘位置变化)。此路径需存在且为短路径。
+virtualStoreDir: 'C:/pstore'
+
 # ============== mobile-rn (Expo + RN) Metro hoist 配置 ==============
 # 解决 pnpm isolated linker 与 Metro bundler 不兼容问题(2026-07-25)
 # Metro 0.81 默认不 follow pnpm 的 .pnpm/<pkg>/node_modules junction 真实路径,
