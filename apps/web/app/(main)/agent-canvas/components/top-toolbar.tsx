@@ -4,6 +4,7 @@
 'use client'
 
 import * as React from 'react'
+import { useTranslations } from 'next-intl'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { Play, Square, Trash2, Loader2, Radio } from 'lucide-react'
@@ -27,14 +28,15 @@ export function TopToolbar({
   onStop,
   onClear,
 }: TopToolbarProps) {
+  const t = useTranslations('agentCanvas')
   return (
     <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2">
       <span className="mr-auto flex items-center gap-2 text-sm font-medium">
-        Agent Canvas
+        {t('title')}
         {isStreaming && (
           <span className="flex items-center gap-1 text-xs font-normal text-blue-500">
             <Radio className="h-3.5 w-3.5 animate-pulse" />
-            实时追踪中
+            {t('tracking')}
           </span>
         )}
         {runError && (
@@ -47,12 +49,12 @@ export function TopToolbar({
       </span>
       <Button variant="outline" size="sm" onClick={onClear} disabled={isStreaming}>
         <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-        清空画布
+        {t('clear')}
       </Button>
       {isStreaming ? (
         <Button variant="destructive" size="sm" onClick={onStop}>
           <Square className="mr-1.5 h-3.5 w-3.5" />
-          停止
+          {t('stop')}
         </Button>
       ) : (
         <Button size="sm" onClick={onRun} disabled={isStarting}>
@@ -61,10 +63,10 @@ export function TopToolbar({
           ) : (
             <Play className="mr-1.5 h-3.5 w-3.5" />
           )}
-          Run
+          {t('run')}
         </Button>
       )}
-      <span className={cn('sr-only', isStreaming && 'not-sr-only')}>运行中</span>
+      <span className={cn('sr-only', isStreaming && 'not-sr-only')}>{t('running')}</span>
     </div>
   )
 }
