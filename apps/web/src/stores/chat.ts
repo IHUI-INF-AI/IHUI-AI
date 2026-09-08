@@ -105,6 +105,9 @@ interface ChatState {
   userScrolledToTop: boolean
   /** 模板选择等外部输入填充值；MessageInput 消费后置 null */
   draftInput: string | null
+  /** 外部触发(如首页「立即体验」CTA)预填后是否自动发送;MessageInput 消费后置 false。
+   * 不持久化:仅作为本次交互的瞬时指令,刷新后不重放发送。 */
+  draftAutoSend: boolean
   /** AI 主动提问挂起态:非 null 表示有未回答的提问,前端弹窗阻塞输入,等待用户回答后调 /chat/answer 续流 */
   pendingQuestion: PendingQuestion | null
   /** Sub-agent 活动列表(多 agent 多路复用:SSE chunk 带 agentId 时按 agent 分流累加)。
@@ -147,6 +150,8 @@ interface ChatState {
   setUserScrolledToTop: (v: boolean) => void
   /** MessageInput 消费 draftInput 后调用,置 null 避免重复填充 */
   clearDraftInput: () => void
+  /** MessageInput 消费 draftAutoSend 后调用,置 false 避免重复触发自动发送 */
+  clearDraftAutoSend: () => void
   /** 设置当前挂起的 AI 提问(收到 SSE question 事件时调用) */
   setPendingQuestion: (q: PendingQuestion | null) => void
   /** 清空挂起的提问(用户回答后或续流开始时调用) */
@@ -252,6 +257,7 @@ export const useChatStore = create<ChatState>()(
       userScrolledUp: false,
       userScrolledToTop: false,
       draftInput: null,
+      draftAutoSend: false,
       pendingQuestion: null,
       subAgentActivities: [],
       selectedTools: [],
@@ -356,6 +362,8 @@ export const useChatStore = create<ChatState>()(
       setUserScrolledToTop: (v) => set({ userScrolledToTop: v }),
 
       clearDraftInput: () => set({ draftInput: null }),
+
+      clearDraftAutoSend: () => set({ draftAutoSend: false }),
 
       setPendingQuestion: (q) => set({ pendingQuestion: q }),
 
