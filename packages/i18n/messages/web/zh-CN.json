@@ -63,6 +63,40 @@
     "totalTokens": "总 Token",
     "window": "时间窗口"
   },
+  "teamMemory": {
+    "title": "团队共享记忆",
+    "description": "按 scope 隔离的跨用户共享知识层:沉淀决策、约定、坑与索引指纹",
+    "scopeLabel": "Scope 标识",
+    "scopePlaceholder": "输入 teamId 或 workspaceKey",
+    "searchPlaceholder": "搜索标题与内容",
+    "searchBtn": "查询",
+    "kindAll": "全部",
+    "kind": {
+      "decision": "决策",
+      "convention": "约定",
+      "pitfall": "坑",
+      "fingerprint": "索引指纹"
+    },
+    "listTitle": "记忆列表",
+    "newBtn": "新建",
+    "editBtn": "编辑",
+    "deleteBtn": "删除",
+    "deleteConfirm": "确认删除该条记忆?",
+    "empty": "当前 scope 暂无记忆",
+    "loading": "加载中",
+    "saveBtn": "保存",
+    "cancelBtn": "取消",
+    "titleLabel": "标题",
+    "titlePlaceholder": "一句话概括这条记忆",
+    "contentLabel": "内容",
+    "contentPlaceholder": "详细描述:背景、结论、注意事项",
+    "tagsLabel": "标签",
+    "tagsPlaceholder": "逗号分隔,如:部署,PG17",
+    "needScope": "请先填写 Scope 标识",
+    "needTitle": "标题不能为空",
+    "needContent": "内容不能为空",
+    "saveFailed": "保存失败"
+  },
   "repoWiki": {
     "title": "Repo Wiki",
     "description": "从本地代码仓库自动生成架构与模块知识库",
@@ -11731,6 +11765,7 @@
       "typeTerminal": "终端"
     },
     "codeEditor": {
+      "lspStatus": "LSP",
       "zoomIn": "放大字号",
       "zoomOut": "缩小字号"
     },
