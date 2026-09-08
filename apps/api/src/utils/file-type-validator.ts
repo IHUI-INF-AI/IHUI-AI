@@ -35,6 +35,10 @@ const EXT_MIME_MAP: Record<string, string[]> = {
   txt: ['text/plain'],
   csv: ['text/csv', 'text/plain'],
   zip: ['application/zip', 'application/x-zip-compressed'],
+  // 2026-09-08:anydoc 解析引擎接入后开放的文档格式
+  odt: ['application/vnd.oasis.opendocument.text'],
+  rtf: ['application/rtf', 'text/rtf'],
+  epub: ['application/epub+zip'],
 }
 
 export const ALLOWED_EXTENSIONS = Object.keys(EXT_MIME_MAP)
@@ -73,8 +77,9 @@ function matchesAny(buf: Buffer, signatures: number[][], offset = 0): boolean {
  *   GIF   47 49 46 38 (37 61 / 39 61)
  *   WebP  52 49 46 46 ... 57 45 42 50  (RIFF....WEBP)
  *   PDF   25 50 44 46
- *   ZIP   50 4B 03 04  (docx/xlsx/pptx 共用)
+ *   ZIP   50 4B 03 04  (docx/xlsx/pptx/odt/epub 共用)
  *   OLE2  D0 CF 11 E0 A1 B1 1A E1  (doc/xls/ppt 共用)
+ *   RTF   7B 5C 72 74 66  ({\rtf)
  */
 function checkMagicNumber(ext: string, buf: Buffer): boolean {
   switch (ext) {
@@ -100,7 +105,10 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'docx':
     case 'xlsx':
     case 'pptx':
-      // docx/xlsx/pptx 基于 OOXML,物理结构为 ZIP;空归档与跨卷归档亦放行
+    case 'odt':
+    case 'epub':
+      // docx/xlsx/pptx(OOXML)与 odt/epub(开放文档)物理结构均为 ZIP;
+      // 空归档与跨卷归档亦放行
       return matchesAny(buf, [
         [0x50, 0x4b, 0x03, 0x04],
         [0x50, 0x4b, 0x05, 0x06],
@@ -111,6 +119,11 @@ function checkMagicNumber(ext: string, buf: Buffer): boolean {
     case 'ppt':
       // OLE2 Compound Document(legacy Office 二进制格式)
       return matchesAny(buf, [[0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]])
+    case 'rtf':
+      // RTF 文件头 '{\rtf'
+      return matchesAny(buf, [
+        [0x7b, 0x5c, 0x72, 0x74, 0x66], // {\rtf
+      ])
     case 'txt':
     case 'csv':
       // 纯文本无固定 magic number,跳过文件头校验
