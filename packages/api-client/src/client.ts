@@ -10,7 +10,7 @@ import type {
   TerminalEndEvent,
 } from '@ihui/types'
 import { type CircuitBreaker, CircuitOpenError } from './circuit-breaker'
-import { getTransport } from './transport'
+import { getTransport, type TransportInit } from './transport'
 import type { DeviceFingerprintCollector } from '@ihui/types'
 import { nullDeviceFingerprintCollector } from '@ihui/types'
 
@@ -280,6 +280,10 @@ export function mergeAbortSignals(signals: (AbortSignal | null | undefined)[]): 
   return controller.signal
 }
 
+function resolveBody(body: RequestInit['body']): TransportInit['body'] {
+  if (body === null) return undefined
+  return body as TransportInit['body']
+}
 function normalizeUrl(url: string, useStreamBase = false): string {
   if (/^https?:\/\//i.test(url)) return url
   const normalized = (() => {
@@ -317,7 +321,7 @@ async function fetchOnce<T>(
   const response = await getTransport()(normalizedUrl, {
     method: options.method,
     headers,
-    body: typeof options.body === 'string' ? options.body : undefined,
+    body: resolveBody(options.body),
     signal: options.signal ?? undefined,
   })
 
@@ -574,7 +578,7 @@ export async function fetchText(url: string, options: RequestInit = {}): Promise
     const response = await getTransport()(normalizedUrl, {
       method: options.method,
       headers,
-      body: typeof options.body === 'string' ? options.body : undefined,
+      body: resolveBody(options.body),
       signal: options.signal ?? timeoutController.signal,
     })
     if (!response.ok) {
@@ -658,7 +662,7 @@ export async function fetchAiServiceJson<T>(
     const response = await getTransport()(normalizedUrl, {
       method: restOptions.method,
       headers,
-      body: typeof restOptions.body === 'string' ? restOptions.body : undefined,
+      body: resolveBody(restOptions.body),
       signal: mergedSignal,
     })
 
@@ -717,7 +721,7 @@ export async function fetchRaw(url: string, options: RequestInit = {}): Promise<
     const response = await getTransport()(normalizedUrl, {
       method: options.method,
       headers,
-      body: typeof options.body === 'string' ? options.body : undefined,
+      body: resolveBody(options.body),
       signal: options.signal ?? timeoutController.signal,
     })
     if (!response.ok) {

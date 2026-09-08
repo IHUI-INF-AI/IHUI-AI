@@ -28,7 +28,14 @@ import {
   Save,
   ChevronRight,
 } from 'lucide-react'
-import type { FileNode, OutlineNode, TimelineEntry } from '@ihui/types'
+import type { FileNode, TimelineEntry } from '@ihui/types'
+import {
+  flattenFiles,
+  getRenamedPath,
+  isPathInWorkspace,
+  parseOutline,
+  validateFileName,
+} from './file-explorer-model'
 
 type SubTab = 'files' | 'outline' | 'timeline'
 
@@ -58,61 +65,6 @@ const TIMELINE_COLOR: Record<string, string> = {
  * 后端无按文件 outline / symbol 端点,采用本地正则解析(class/function/interface/type/const 声明)。
  * 保持轻量,仅生成顶层节点(现有 UI 的 children 渲染可选)。
  */
-function parseOutline(source: string): OutlineNode[] {
-  const nodes: OutlineNode[] = []
-  const lines = source.split(/\r?\n/)
-  lines.forEach((raw, idx) => {
-    const line = raw.trim()
-    if (!line || line.startsWith('//') || line.startsWith('*') || line.startsWith('/*')) return
-    // 去除 export 前缀,统一识别声明关键字
-    const stripped = line.startsWith('export ') ? line.slice('export '.length).trimStart() : line
-    let type: OutlineNode['type'] | null = null
-    let label = ''
-    let m: RegExpMatchArray | null
-
-    if ((m = /^(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
-      type = 'function'
-      label = m[1] ?? ''
-    } else if ((m = /^\bclass\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
-      type = 'class'
-      label = m[1] ?? ''
-    } else if ((m = /^\binterface\s+([A-Za-z_$][\w$]*)/.exec(stripped))) {
-      type = 'interface'
-      label = m[1] ?? ''
-    } else if ((m = /^\btype\s+([A-Za-z_$][\w$]*)\s*=/.exec(stripped))) {
-      type = 'type'
-      label = m[1] ?? ''
-    } else if ((m = /^(?:async\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/.exec(stripped))) {
-      const rhs = line.slice(line.indexOf('=') + 1).trimStart()
-      const isFn =
-        /^\(.*\)\s*=>/.test(rhs) ||
-        /^[\w$]+\s*=>/.test(rhs) ||
-        /^(?:async\s+)?function\b/.test(rhs) ||
-        /^async\b/.test(rhs)
-      type = isFn ? 'function' : 'variable'
-      label = m[1] ?? ''
-    } else {
-      return
-    }
-
-    nodes.push({ id: `${type}-${idx + 1}-${label}`, label, type, line: idx + 1 })
-  })
-  return nodes
-}
-
-function flattenFiles(nodes: FileNode[], term: string): FileNode[] {
-  const out: FileNode[] = []
-  const lower = term.toLowerCase()
-  const walk = (list: FileNode[]) => {
-    for (const n of list) {
-      if (n.type === 'file' && n.name.toLowerCase().includes(lower)) out.push(n)
-      if (n.children) walk(n.children)
-    }
-  }
-  walk(nodes)
-  return out
-}
-
 function highlightMatch(name: string, term: string) {
   if (!term) return name
   const idx = name.toLowerCase().indexOf(term.toLowerCase())
@@ -126,34 +78,6 @@ function highlightMatch(name: string, term: string) {
       {name.slice(idx + term.length)}
     </>
   )
-}
-
-/** 计算重命名后的新路径(替换最后一段路径分量) */
-function getRenamedPath(oldPath: string, newName: string): string {
-  const lastSep = Math.max(oldPath.lastIndexOf('/'), oldPath.lastIndexOf('\\'))
-  return lastSep >= 0 ? `${oldPath.substring(0, lastSep)}/${newName}` : newName
-}
-
-// 2026-08-02 修复: Bug 2 — Shell 命令注入防御。
-// runCommand 直接拼接用户输入到 shell 命令(touch/mkdir/mv/rm -rf),
-// 文件名含 shell 元字符(反引号 / $ / ; / | / & / \\ / 双引号)会被注入。
-// validateFileName 拒绝危险字符 + 路径穿越("..");validatePathInWorkspace
-// 校验路径必须在 workspacePath 子树内(防 rm -rf 越界删除)。
-const SHELL_UNSAFE_CHARS = /["`$;|&\\]/
-function validateFileName(name: string): string | null {
-  if (!name) return '文件名不能为空'
-  if (name.includes('..')) return '文件名不能包含 ..'
-  if (SHELL_UNSAFE_CHARS.test(name)) return '文件名包含非法字符'
-  return null
-}
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, '/').replace(/\/+$/, '')
-}
-function isPathInWorkspace(target: string, workspace: string): boolean {
-  const t = normalizePath(target)
-  const w = normalizePath(workspace)
-  if (t === w) return true
-  return t.startsWith(`${w}/`)
 }
 
 export function FileExplorer() {
