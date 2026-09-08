@@ -122,7 +122,7 @@ class ImBridgeService:
             raise RuntimeError("settings.redis_url 为空,无法连接 Redis")
         # protocol=2 强制 RESP2,避免 redis-py 8.x 默认发 HELLO 命令协商 RESP3
         # (本地 Memurai 4.x / Redis 5.x 不支持 HELLO,会报 unknown command `HELLO')
-        client = aioredis.from_url(url, decode_responses=True, protocol=2)
+        client = aioredis.from_url(url, decode_responses=True, protocol=2, socket_connect_timeout=2)
         await client.ping()
         self._redis = client
 

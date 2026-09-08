@@ -160,7 +160,7 @@ class AgentCheckpointManager:
             try:
                 # protocol=2 强制 RESP2:redis-py 8.x 默认 RESP3(HELLO 3 协商),
                 # 老 Redis/Memurai 4.x 不支持会 unknown command HELLO(同 im_bridge)
-                self._redis = aioredis.from_url(self._redis_url or "", decode_responses=True, protocol=2)
+                self._redis = aioredis.from_url(self._redis_url or "", decode_responses=True, protocol=2, socket_connect_timeout=2)
                 await self._redis.ping()
             except Exception as e:
                 logger.warning("AgentCheckpointManager redis 不可达,降级为纯内存: %s", e)
