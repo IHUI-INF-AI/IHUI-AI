@@ -15,7 +15,7 @@ import { Alert, StyleSheet, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { listConversations, type ConversationDetail } from '@ihui/api-client'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rnLightTokens as tokens } from '@ihui/design-tokens'
 import { RankingDetailScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
@@ -74,7 +74,7 @@ export default function RankingDetailScreenWrapper() {
   const closeDrawer = () => setDrawerVisible(false)
 
   const onNavigate = (tab: DrawerTab) => {
-    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+    navigateDrawerTab(rootNav, tab)
   }
   const onNavigateCompany = () => {
     closeDrawer()

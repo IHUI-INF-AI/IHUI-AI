@@ -25,6 +25,7 @@ import { DEFAULT_AVATAR_URL } from '@ihui/shared/constants'
 import { formatTokenValue } from '@ihui/shared/utils'
 import { getRoleLabel } from '@ihui/shared/utils'
 import type { UserInfo } from '@ihui/types'
+import { rpx } from '../utils/rpx'
 
 // 共享类型 UserInfo 已下沉到 @ihui/types,本地 re-export 保持调用方兼容
 export type { UserInfo }
@@ -279,17 +280,18 @@ const newStyles = StyleSheet.create({
     padding: 8,
   },
   avatarWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+    // 对齐 Uniapp pages/table/user/UserInfoCard.vue .avatar-img:163rpx(≈82dp) 圆角 15rpx 白底
+    width: rpx(163),
+    height: rpx(163),
+    borderRadius: rpx(15),
     overflow: 'hidden',
     backgroundColor: tokens.surface.light,
     borderWidth: 1,
     borderColor: tokens.brandAccent.light,
   },
   avatar: {
-    width: 60,
-    height: 60,
+    width: rpx(163),
+    height: rpx(163),
     resizeMode: 'cover',
   },
   infoWrap: {

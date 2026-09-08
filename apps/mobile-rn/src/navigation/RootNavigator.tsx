@@ -224,6 +224,21 @@ import { WebPortalScreen } from '../screens/WebPortalScreen'
 import { KnowledgeRagScreen } from '../screens/KnowledgeRagScreen'
 import { SubagentsScreen } from '../screens/SubagentsScreen'
 
+/**
+ * Vip 弹窗分支类型(对齐 Uniapp vip_info/index.vue onLoad options.type 行 59-75):
+ * - 'IntroducePopup'   会员权益介绍(index 变体)
+ * - 'IntroducePopups'  操盘手权益介绍(indexs 变体,按 uuid 取价)
+ * - 'IntroducePopups1' 操盘手权益介绍(indexs 变体,按 token 取价)
+ * - 'PrivateAdvisory'  私事会(私董会)权益介绍
+ * - 'levelPopup'       会员等级介绍(levelIndex 变体)
+ */
+export type VipPopupType =
+  | 'IntroducePopup'
+  | 'IntroducePopups'
+  | 'IntroducePopups1'
+  | 'PrivateAdvisory'
+  | 'levelPopup'
+
 export type RootStackParamList = {
   Login: undefined
   Main: NavigatorScreenParams<MainStackParamList>
@@ -250,7 +265,12 @@ export type RootStackParamList = {
   Register: undefined
   OrderRefund: undefined
   Payment: undefined
-  Vip: undefined
+  /**
+   * Vip 会员页(对齐 Uniapp vip_info/index.vue onLoad options.type 五分支):
+   * params 可选 —— 无 type 时走默认进入行为;有 type 时直接打开对应介绍弹窗。
+   * 五个 type 取值与历史 vip_info/index.vue 行 59-75 逐一对应。
+   */
+  Vip: { type?: VipPopupType } | undefined
   Certificate: undefined
   Follow: undefined
   Favorite: undefined
@@ -398,7 +418,8 @@ export type RootStackParamList = {
   N8nModel: undefined
   ModelIncome: { agentId?: string }
   AiCareer: undefined
-  Assistant: undefined
+  // 2026-09-05:Assistant 重写为对齐 Uniapp pagesA/assistant/index.vue 的 IM 聊天室(列表/聊天两态),roomId 等参数可选兼容旧调用
+  Assistant: { roomId?: string; roomName?: string; receiverUuid?: string; avatar?: string } | undefined
   ChangePwd: undefined
   TopupSuccess: { amount: number; orderId: string }
   TopupFail: { reason?: string }
