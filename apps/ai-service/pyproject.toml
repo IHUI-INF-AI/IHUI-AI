@@ -44,6 +44,10 @@ dependencies = [
     "beautifulsoup4>=4.15.0",
     "mammoth>=1.12.0",
     "pdfplumber>=0.11.10",
+    # 文档解析引擎(2026-09-08 立):Firecrawl anydoc(Rust 原生,NAPI wheel)
+    # doc/docx/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub/pdf → GFM Markdown
+    # document_tools.py / codebase_indexer.py 主路径;未安装时自动降级旧实现
+    "firecrawl-anydoc>=0.2.4",
     "playwright>=1.62.0",
     "slowapi>=0.1.10",
     # 免费 TTS(2026-09-01 立):edge-tts 零 key 零成本语音合成(对标 GPT-5 Voice)
