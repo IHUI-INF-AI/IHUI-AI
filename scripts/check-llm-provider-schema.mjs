@@ -30,13 +30,13 @@ const C = {
   cyan: '\x1b[36m', dim: '\x1b[2m', bold: '\x1b[1m', reset: '\x1b[0m',
 }
 
-// 31 个 provider name 白名单(config.py L49-113 + _PROVIDER_KEY_ALIASES)
+// 32 个 provider name 白名单(config.py LLM_PROVIDERS 动态识别 + _PROVIDER_KEY_ALIASES)
 const PROVIDER_WHITELIST = new Set([
   'openai', 'anthropic', 'groq', 'gemini', 'openrouter', 'agnes', 'stepfun',
   'cloudflare', 'nvidia', 'github', 'vercel', 'opencode', 'modal', 'inference_net',
   'nlp_cloud', 'scaleway', 'alibaba_intl', 'cerebras', 'mistral', 'cohere',
   'huggingface', 'zai', 'kilo', 'pollinations', 'llm7', 'ovh', 'aihorde', 'reka',
-  'routeway', 'bazaarlink', 'ainative',
+  'routeway', 'bazaarlink', 'ainative', 'token6688',
 ])
 const KNOWN_FIELDS = new Set(['api_key', 'api_base', 'enabled', 'models', 'default_model'])
 const DEFAULT_ENV_FILE = 'apps/ai-service/.env'
