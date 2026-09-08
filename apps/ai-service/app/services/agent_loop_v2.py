@@ -317,6 +317,171 @@ class LoopIteration:
     duration_ms: float = 0.0
 
 
+class AgentEventStream:
+    """1-5 事件流协作层:收敛全部 hook_engine.emit 调用点(2026-09-08 立)。
+
+    拆层动机:此前 run/_run_loop/_request_approval 等 9 处 emit 各自带
+    try/except + logger.warning 样板;现统一到本层,语义保持一致:
+    - fail-open:emit 失败仅 warning 降级,绝不阻塞主链路;
+    - error 事件沿用静默 suppress(异常路径避免日志级联);
+    - tool.after 的 evidence 推导失败同样跳过该次事件(与拆层前一致)。
+    """
+
+    async def emit(
+        self, event: str, payload: dict[str, Any], *, silent: bool = False
+    ) -> None:
+        """发射任意事件;失败降级不抛(silent=True 时连 warning 也不记)。"""
+        try:
+            await hook_engine.emit(event, payload)
+        except Exception as e:
+            if not silent:
+                logger.warning(
+                    "hook_engine.emit(%s) 失败(降级,不阻塞): %s", event, e
+                )
+
+    async def session_start(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        conversation_id: str,
+        max_iterations: int,
+    ) -> None:
+        await self.emit("session.start", {
+            "session_id": session_id,
+            "user_id": user_id,
+            "conversation_id": conversation_id,
+            "max_iterations": max_iterations,
+        })
+
+    async def session_end(
+        self,
+        *,
+        session_id: str,
+        user_id: str,
+        success: bool,
+        stop_reason: str,
+        total_iterations: int,
+        total_duration_ms: float,
+    ) -> None:
+        await self.emit("session.end", {
+            "session_id": session_id,
+            "user_id": user_id,
+            "success": success,
+            "stop_reason": stop_reason,
+            "total_iterations": total_iterations,
+            "total_duration_ms": total_duration_ms,
+        })
+
+    async def tool_before(
+        self,
+        *,
+        session_id: str,
+        iteration: int,
+        messages_count: int,
+        tools_count: int,
+    ) -> None:
+        await self.emit("tool.before", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "messages_count": messages_count,
+            "tools_count": tools_count,
+        })
+
+    async def message_receive(
+        self, *, session_id: str, iteration: int, content_length: int
+    ) -> None:
+        await self.emit("message.receive", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "content_length": content_length,
+            "stop_reason": "completed",
+        })
+
+    async def tool_after(
+        self,
+        *,
+        session_id: str,
+        iteration: int,
+        tool_calls: list[ToolCall],
+        tool_results: list[ToolResult],
+        duration_ms: float | None,
+        checkpoint_id: str,
+    ) -> None:
+        """tool.after 事件 + 每工具结果明细(evidence 逐个推导,失败跳过整次事件)。"""
+        try:
+            payload_tools: list[dict[str, Any]] = []
+            for tc, tr in zip(tool_calls, tool_results, strict=False):
+                evidence = derive_step_evidence(
+                    tr.name or tc.name,
+                    dict(tc.args or {}),
+                    {"error": tr.error} if tr.error else tr.result,
+                    checkpoint_id=checkpoint_id,
+                )
+                payload_tools.append({
+                    "name": tr.name,
+                    "id": tr.tool_call_id,
+                    "input": tc.args,
+                    "status": "error" if tr.error else "ok",
+                    "error": tr.error,
+                    "error_type": tr.error_type,
+                    "retry_count": tr.retry_count,
+                    "duration_ms": round(tr.duration_ms, 2),
+                    **evidence,
+                })
+            payload: dict[str, Any] = {
+                "session_id": session_id,
+                "iteration": iteration,
+                "tool_calls_count": len(tool_calls),
+                "tool_results_count": len(tool_results),
+                "duration_ms": duration_ms,
+                "tool_results": payload_tools,
+            }
+        except Exception as e:
+            logger.warning("tool.after 明细构建失败(降级,不阻塞): %s", e)
+            return
+        await self.emit("tool.after", payload)
+
+    async def loop_error(
+        self, *, session_id: str, iteration: int, error: str, error_type: str
+    ) -> None:
+        # 异常路径静默 suppress:emit 失败不记录日志,避免日志级联(拆层前语义)
+        await self.emit("error", {
+            "session_id": session_id,
+            "iteration": iteration,
+            "error": error,
+            "error_type": error_type,
+        }, silent=True)
+
+    async def tool_approval(
+        self,
+        *,
+        approval_id: str,
+        tool_name: str,
+        tool_call_id: str,
+        args_preview: str,
+        session_id: str,
+    ) -> None:
+        await self.emit("tool.approval", {
+            "approval_id": approval_id,
+            "tool_name": tool_name,
+            "tool_call_id": tool_call_id,
+            "args_preview": args_preview,
+            "danger_level": "high",
+            "session_id": session_id,
+        })
+
+    async def permission_mode(
+        self, *, mode: str, tool_name: str, decision: str, session_id: str
+    ) -> None:
+        await self.emit("permission.mode", {
+            "mode": mode,
+            "tool": tool_name,
+            "decision": decision,
+            "session_id": session_id,
+        })
+
+
 # ---------------------------------------------------------------------------
 # 1-8 上下文超限压缩(2026-09-07 立):接近 token 上限时自动压缩旧消息,
 # 避免 loop 因上下文膨胀被硬停。复用 core/context_compaction 确定性压缩;

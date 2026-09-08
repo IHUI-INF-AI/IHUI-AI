@@ -83,6 +83,9 @@ const envSchema = z.object({
   // TBox webhook 签名密钥(可选,为空则不校验;配置后设备事件通知需带 X-Signature 头)
   TBOX_WEBHOOK_SECRET: z.string().default(''),
 
+  // GitHub webhook 签名密钥(可选,为空则 503 拒绝;配置后 webhook 需带 X-Hub-Signature-256 头)
+  GITHUB_WEBHOOK_SECRET: z.string().default(''),
+
   // 腾讯云直播回调验签密钥(可选,为空时回调端点返回 503;配置后回调需带 X-Signature/X-Timestamp/X-Nonce 头)
   TENCENT_LIVE_CALLBACK_KEY: z.string().default(''),
   // 腾讯云直播 AppID(用于流管理 API,预留)

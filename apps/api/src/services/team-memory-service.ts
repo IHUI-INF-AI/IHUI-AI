@@ -13,7 +13,7 @@
  * 全部走 apps/api 的 db 连接池(读副本自动回退)。仅供 /api/team-memory 路由调用。
  */
 
-import { and, desc, eq, like, or, sql } from 'drizzle-orm'
+import { and, desc, eq, like, or } from 'drizzle-orm'
 import { teamMemories, type TeamMemory, type TeamMemoryKind } from '@ihui/database'
 import { db } from '../db/index.js'
 
@@ -144,7 +144,7 @@ export async function getTeamMemory(id: string): Promise<TeamMemoryDTO | undefin
   return row ? toTeamMemoryDTO(row) : undefined
 }
 
-/** 创建一条记忆(返回创建后的 DTO) */
+/** 创建一条记忆(返回创建后的 DTO;插入失败理论上不可能,兜底抛错) */
 export async function createTeamMemory(input: CreateTeamMemoryInput): Promise<TeamMemoryDTO> {
   const [row] = await db
     .insert(teamMemories)
@@ -157,6 +157,7 @@ export async function createTeamMemory(input: CreateTeamMemoryInput): Promise<Te
       sourceUserId: input.sourceUserId,
     })
     .returning()
+  if (!row) throw new Error('createTeamMemory: insert returned no row')
   return toTeamMemoryDTO(row)
 }
 
