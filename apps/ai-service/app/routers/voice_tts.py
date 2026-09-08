@@ -78,6 +78,17 @@ async def synthesize_tts(req: TTSRequest) -> Response:
         )
     rate = req.rate if req.rate.startswith(("+", "-")) and req.rate.endswith("%") else "+0%"
 
+    # 2026-09-08:Token6688 聚合网关引擎(单 key 全模态;voice 白名单校验仅限 edge 引擎)
+    if req.engine == "token6688":
+        audio, content_type = await _tts_via_token6688(text, req.voice)
+        return Response(
+            content=audio,
+            media_type=content_type or "audio/mpeg",
+            headers={"X-TTS-Engine": "token6688", "X-TTS-Voice": req.voice},
+        )
+    if req.engine != "edge":
+        raise HTTPException(status_code=400, detail=f"未知 engine: {req.engine}(允许 edge/token6688)")
+
     try:
         import edge_tts
 
