@@ -775,11 +775,13 @@ export function GlobalTopBar({ mobileMenu }: { mobileMenu?: React.ReactNode } = 
  *
  * 显隐机制(topbar-back store 驱动):
  * - 页面挂载 <BackButton /> 或调用 useTopBarBack(config) 声明返回意图 → 本按钮动画拉出
- * - 页面卸载或撤回声明(config → null)→ 动画收起,220ms 过渡完成后卸载 DOM,
+ * - 页面卸载或撤回声明(config → null)→ 动画收起,400ms 后过渡完整播放再卸载 DOM,
  *   不在 flex 布局留下空位(收起态用 -ml-1 吃掉相邻 gap-1,搜索/加号间距与无按钮时一致)
  *
- * 拉出动画:外层 wrapper 过渡 width 0→36px + opacity,内层按钮被 overflow-hidden
- * 裁剪,随宽度展开呈现"从搜索按钮右侧滑出"的视觉效果(motion-reduce 下仅淡入淡出)。
+ * 拉出动画(2026-09-09 用户反馈"太短太硬不柔和"后调柔):300ms
+ * cubic-bezier(0.32,0.72,0,1)(iOS sheet 同款减速曲线),外层 wrapper 过渡
+ * width 0→36px + opacity,内层 slide 层 translate-x -12px→0 滑出,两层叠加呈
+ * "从搜索按钮后抽出"的柔顺层次感(motion-reduce 下仅淡入淡出)。
  *
  * 返回行为优先级:config.onBack(页内自定义返回,如详情→列表)> router.back()>
  * router.push(config.fallbackHref ?? '/')(无历史记录时的降级)。
@@ -810,7 +812,8 @@ function TopBarBackButton() {
 
   React.useEffect(() => {
     if (mounted || config) return
-    const timer = setTimeout(() => setMounted(false), 220)
+    // 400ms > 收起动画 300ms,确保收起过渡完整播放后再卸载 DOM
+    const timer = setTimeout(() => setMounted(false), 400)
     return () => clearTimeout(timer)
   }, [mounted, config])
 
@@ -834,25 +837,36 @@ function TopBarBackButton() {
     <div
       aria-hidden={!expanded}
       data-testid="topbar-back-button"
+      // 2026-09-09 用户反馈"滑出/消失动画太短 太硬 不柔和":200ms ease-out → 300ms
+      // cubic-bezier(0.32,0.72,0,1)(iOS sheet 同款减速曲线,起步快收尾缓,自然柔顺)。
+      // 内层独立 slide 层做 translate-x 滑出(与 wrapper 宽度展开叠加,呈"从搜索按钮后
+      // 抽出"的层次感;独立元素避免与 TOPBAR_BTN_BASE 的 transition-colors 属性冲突)。
       className={cn(
-        'h-full shrink-0 overflow-hidden transition-[width,margin-left,opacity] duration-200 ease-out motion-reduce:transition-opacity',
+        'h-full shrink-0 overflow-hidden transition-[width,margin-left,opacity] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-opacity motion-reduce:duration-200',
         expanded ? 'ml-0 w-9 opacity-100' : '-ml-1 w-0 opacity-0',
       )}
     >
-      <Tooltip content={tCommon('back')} side="bottom">
-        <button
-          type="button"
-          aria-label={tCommon('back')}
-          tabIndex={expanded ? 0 : -1}
-          onClick={handleBack}
-          // 2026-09-02 治理:自写 popover trigger 加 data-state 抑制关闭后焦点环常驻(同 Plus/搜索按钮)
-          data-state={expanded ? 'open' : 'closed'}
-          className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
-        >
-          {/* 2026-09-09 用户规则:箭头只需要一个向左的角,不要横线(ArrowLeft← → ChevronLeft<) */}
-          <ChevronLeft />
-        </button>
-      </Tooltip>
+      <div
+        className={cn(
+          'h-full transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none',
+          expanded ? 'translate-x-0' : '-translate-x-3',
+        )}
+      >
+        <Tooltip content={tCommon('back')} side="bottom">
+          <button
+            type="button"
+            aria-label={tCommon('back')}
+            tabIndex={expanded ? 0 : -1}
+            onClick={handleBack}
+            // 2026-09-02 治理:自写 popover trigger 加 data-state 抑制关闭后焦点环常驻(同 Plus/搜索按钮)
+            data-state={expanded ? 'open' : 'closed'}
+            className={cn(TOPBAR_BTN_BASE, TOPBAR_BTN_W9, 'dark:bg-shell-panel')}
+          >
+            {/* 2026-09-09 用户规则:箭头只需要一个向左的角,不要横线(ArrowLeft← → ChevronLeft<) */}
+            <ChevronLeft />
+          </button>
+        </Tooltip>
+      </div>
     </div>
   )
 }
