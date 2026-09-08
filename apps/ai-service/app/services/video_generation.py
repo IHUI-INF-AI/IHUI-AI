@@ -31,11 +31,12 @@ from app.providers.kling_provider import KlingProvider
 from app.providers.jimeng_provider import JimengProvider
 from app.providers.alibaba_dashscope_provider import AlibabaDashscopeProvider
 from app.providers.tencent_hunyuan_provider import TencentHunyuanProvider
+from app.providers.token6688_provider import Token6688Provider
 
 logger = logging.getLogger(__name__)
 
-# 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖)
-_DEFAULT_PRIORITY = ["kling", "jimeng", "wan", "hunyuan"]
+# 默认 provider 优先级(可被 VIDEO_PROVIDER 覆盖);token6688 单 key 全模态,已配置则优先
+_DEFAULT_PRIORITY = ["token6688", "kling", "jimeng", "wan", "hunyuan"]
 
 
 def _configured_providers() -> list[tuple[str, Any]]:
@@ -58,6 +59,19 @@ def _configured_providers() -> list[tuple[str, Any]]:
 def _instantiate(name: str) -> Any | None:
     """按厂商名实例化 provider;未配置凭据返回 None。"""
     try:
+        if name in ("token6688", "t6688", "tokengo"):
+            key = os.environ.get("TOKEN6688_API_KEY") or ""
+            if not key:
+                # 2026-09-08:LLM_PROVIDERS JSON token6688 条目兜底(单 key 配置约定)
+                try:
+                    from app.core.config import settings
+                    key = settings.get_provider_config("token6688").api_key or ""
+                except Exception:  # noqa: BLE001
+                    key = ""
+            if key:
+                return Token6688Provider(key)
+            logger.info("[video] token6688 未配置(TOKEN6688_API_KEY 或 LLM_PROVIDERS.token6688),跳过")
+            return None
         if name in ("kling", "可灵"):
             p = KlingProvider(None)
             if p.configured:
