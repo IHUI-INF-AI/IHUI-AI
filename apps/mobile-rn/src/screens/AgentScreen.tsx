@@ -19,7 +19,7 @@ import {
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { mainScreenForTab, type MainTabKey } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import {
   deleteConversation,
   getAgentCategories,
@@ -83,15 +83,6 @@ const AGENT_MAIN_CATEGORY_FALLBACK: ReadonlyArray<AgentCategoryItem> = [
   { id: 'office', name: '办公' },
   { id: 'learning', name: '学习' },
 ]
-
-/** Drawer 5 主菜单 → RN Tab 路由映射(square/share 跳独立页) */
-const DRAWER_TAB_TO_RN_TAB: Record<DrawerTab, MainTabKey> = {
-  home: 'HomeMain',
-  ai: 'AiMain',
-  square: 'HomeMain',
-  share: 'HomeMain',
-  mine: 'ProfileMain',
-}
 
 /** 飞书免费资料链接(对齐 Uniapp lingqu → 复制链接) */
 const FREE_RESOURCE_URL =
@@ -488,16 +479,7 @@ export function AgentScreen() {
   const handleDrawerNavigate = useCallback(
     (tab: DrawerTab): void => {
       setDrawerVisible(false)
-      if (tab === 'square') {
-        navigation.navigate('Plaza')
-        return
-      }
-      if (tab === 'share') {
-        navigation.navigate('News')
-        return
-      }
-      const rnTab = DRAWER_TAB_TO_RN_TAB[tab]
-      rootNav?.navigate('Main', { screen: mainScreenForTab(rnTab) })
+      navigateDrawerTab(rootNav, tab)
     },
     [navigation, rootNav],
   )

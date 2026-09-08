@@ -98,7 +98,7 @@ import { NavBar } from '../components/NavBar'
 import { ColorfulLoader } from '../components/ColorfulLoader'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import type { MainStackParamList } from '../navigation/tab-utils'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import { MENU_SECTIONS, type MenuItem } from './profileMenuData'
 import {
   EMPTY_AUDIO_LIST,
@@ -340,7 +340,7 @@ export function ProfileScreen() {
       rootNav?.navigate('News')
       return
     }
-    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+    navigateDrawerTab(rootNav, tab)
   }
   const handleDrawerNavigateCompany = () => {
     setDrawerVisible(false)
