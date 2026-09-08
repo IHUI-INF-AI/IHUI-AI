@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 深色模式下页面最顶层工作区背景 #0B0C0E(rgb 11,12,14),来源 web 端 bg-shell-panel 设计 token。
+         adjustMarginsForEdgeToEdge 使 WebView 下移后,状态栏区域由原生窗口背景填充,
+         此处将其对齐页面主工作区背景,避免顶部出现与界面不一致的色块。
+         注:状态栏背景须用最顶层 shell-panel 色,而非 body 的 #242424,否则仍会亮一截。 -->
+    <color name="windowBackgroundDark">#0B0C0E</color>
+</resources>
