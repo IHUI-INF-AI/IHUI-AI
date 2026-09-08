@@ -3,7 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigation } from '@react-navigation/native'
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import {
   Alert,
@@ -162,6 +166,9 @@ export function VipScreen() {
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
+  // route.params.type 五分支驱动(对齐 Uniapp vip_info/index.vue onLoad 行 58-76)
+  const route = useRoute<RouteProp<RootStackParamList, 'Vip'>>()
+  const routeType = route.params?.type
   const [levels, setLevels] = useState<VipLevelItem2[]>([])
   const [membership, setMembership] = useState<VipMembershipInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -209,12 +216,36 @@ export function VipScreen() {
     [t],
   )
 
+  // route.params.type 五分支(对齐 Uniapp vip_info/index.vue onLoad 行 58-76):
+  // - 'IntroducePopups'  → 操盘手(IntroducePopups,indexs 变体,按 uuid 取价)
+  // - 'IntroducePopups1' → 操盘手(IntroducePopups,indexs 变体,按 token 取价;RN 端取价逻辑合一,行为等价)
+  // - 'IntroducePopup'   → 会员权益(IntroducePopup,index 变体)
+  // - 'PrivateAdvisory'  → 私事会权益(PrivateAdvisory,privateAdvisory 变体)
+  // - 'levelPopup'       → 会员等级介绍(levelPopup,levelIndex 变体)
+  // 历史端各分支还会改导航栏标题(操盘手/会员权益/私事会权益/会员等级介绍),
+  // RN 端 RootStack 全局 headerShown:false 无导航标题,故不做标题切换。
   useEffect(() => {
     void load()
-    // 首次进入自动展示 VIP 等级介绍弹窗(复刻 Uniapp vip_info/index.vue)
+    if (routeType === 'IntroducePopup') {
+      setIntroIndexVisible(true)
+      return undefined
+    }
+    if (routeType === 'IntroducePopups' || routeType === 'IntroducePopups1') {
+      setIntroIndexsVisible(true)
+      return undefined
+    }
+    if (routeType === 'PrivateAdvisory') {
+      setPrivateAdvisoryVisible(true)
+      return undefined
+    }
+    if (routeType === 'levelPopup') {
+      setLevelIntroVisible(true)
+      return undefined
+    }
+    // 无 type 参数:保留既有默认行为(首次进入自动展示 VIP 等级介绍弹窗)
     const timer = setTimeout(() => setLevelIntroVisible(true), 500)
     return () => clearTimeout(timer)
-  }, [load])
+  }, [load, routeType])
 
   const onPurchase = async (level: VipLevelItem2) => {
     setPurchasingId(level.id)
@@ -365,6 +396,18 @@ export function VipScreen() {
     },
     [t, load],
   )
+
+  // indexs 变体「加入我们」:直接拉起支付
+  // 对齐 Uniapp introduce-popup/indexs.vue 行 149-171 handleOpen →
+  // pay("", dataInfo.amount, dataInfo.id, 1, 2)(操盘手个性化定价直接支付,不开等级弹窗);
+  // RN 端暂以最高档位 plan 替代操盘手专属 SKU,待后端补 getvipPrice 接口后替换
+  const payTopPlanFromIndexs = useCallback(() => {
+    const topPlan = [...pricePlans].sort((a, b) => b.amount - a.amount)[0]
+    if (topPlan) {
+      setIntroIndexsVisible(false)
+      void pay(topPlan)
+    }
+  }, [pay, pricePlans])
 
   // 私董会"加入我们" → 打开名片二维码服务弹窗
   // 对齐 Uniapp privateAdvisory.vue 行 84/180-182 showServicePopup
@@ -580,12 +623,13 @@ export function VipScreen() {
         variant="index"
         onConfirm={openLevelFromIntro}
       />
-      {/* indexs 变体:操盘手权益(行 59/62 options.type == 'IntroducePopups' / 'IntroducePopups1') */}
+      {/* indexs 变体:操盘手权益(行 59/62 options.type == 'IntroducePopups' / 'IntroducePopups1')
+          「加入我们」直接拉起支付(对齐 Uniapp indexs.vue handleOpen → pay,不开等级弹窗) */}
       <IntroducePopup
         visible={introIndexsVisible}
         onClose={() => setIntroIndexsVisible(false)}
         variant="indexs"
-        onConfirm={openLevelFromIntro}
+        onConfirm={payTopPlanFromIndexs}
       />
       {/* privateAdvisory 变体:私人顾问(行 69 options.type == 'PrivateAdvisory')
           onConfirm 改为打开名片二维码服务弹窗(对齐 Uniapp privateAdvisory.vue 行 180-182) */}

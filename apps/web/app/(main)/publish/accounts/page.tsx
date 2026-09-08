@@ -43,7 +43,7 @@ import {
 } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { cn } from '@/lib/utils'
-import { fetchApi } from '@/lib/api'
+import { fetchApi, isAbortError } from '@/lib/api'
 import { PLATFORM_KEY } from '../helpers'
 import { usePublishAccounts, type PublishAccount } from '@/hooks/use-publish-accounts'
 import { CredentialGuide } from '@/components/publish/CredentialGuide'
@@ -135,12 +135,18 @@ export default function AccountsPage() {
       setRiskMap({})
       return
     }
+    const controller = new AbortController()
     let cancelled = false
     void Promise.all(
       accounts.map((a) =>
-        fetchApi<RiskData>(`/api/publish/accounts/${a.id}/risk`)
+        fetchApi<RiskData>(`/api/publish/accounts/${a.id}/risk`, { signal: controller.signal })
           .then((r) => (r.success && r.data ? ([a.id, r.data] as const) : null))
-          .catch(() => null),
+          .catch((e) => {
+            if (!isAbortError(e)) {
+              return null
+            }
+            throw e
+          }),
       ),
     ).then((results) => {
       if (cancelled) return
@@ -158,6 +164,7 @@ export default function AccountsPage() {
     })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [accounts])
 

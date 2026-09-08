@@ -54,7 +54,7 @@ import TabBar, { type TabBarKey } from '../components/TabBar'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
 import { Search, User, Menu, FolderOpen, X } from 'lucide-react-native'
 
@@ -294,7 +294,7 @@ export function PlazaScreen() {
       navigateRoot(rootNav, 'News')
       return
     }
-    rootNav?.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+    navigateDrawerTab(rootNav, tab)
   }
 
   const handleDrawerNavigateCompany = () => {

@@ -56,7 +56,7 @@ import { Menu } from 'lucide-react-native'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
-import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
+import { navigateDrawerTab } from '../navigation/tab-utils'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
@@ -132,7 +132,7 @@ export function ShareScreen() {
       navigation.navigate('News')
       return
     }
-    navigation.navigate('Main', { screen: mainScreenForTab(DRAWER_TAB_TO_RN_TAB[tab]) })
+    navigateDrawerTab(navigation, tab)
   }
   const handleDrawerNavigateCompany = (): void => {
     setDrawerVisible(false)

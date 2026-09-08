@@ -570,7 +570,8 @@ export function ChatScreen() {
     const isVip = authUser.isVip === 1
     if (isPaidModel && !isVip) {
       Alert.alert('提示', '该模型为 VIP 专享,开通会员后可使用', [
-        { text: '开通会员', onPress: () => navigation.navigate('Vip') },
+        // 对齐历史 loginPopUp/index.vue openIntroduce:「开通会员」→ vip_info?type=IntroducePopup
+        { text: '开通会员', onPress: () => navigation.navigate('Vip', { type: 'IntroducePopup' }) },
         { text: '取消', style: 'cancel' },
       ])
       return

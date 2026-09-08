@@ -16,7 +16,9 @@ import { DistributionScreen as SharedDistributionScreen, type DistributionInfo }
 import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
 import PersonalInformationCard from '../components/PersonalInformationCard'
 import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
-import { Banknote, Landmark, IdCard, BarChart3, Package } from 'lucide-react-native'
+// 图标对齐历史 FunctionBlockColumn/index.vue iconSrc:
+// 公司团队/AI团队=tuandui-icon、我的名片=geren-icon、我的二维码=erweima-icon、分销订单=fenxiao-icon
+import { Bot, IdCard, Package, QrCode, Users } from 'lucide-react-native'
 import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
 import { BottomPops } from '../components/BottomPops'
@@ -133,30 +135,45 @@ export function DistributionScreen() {
     }
   }, [inviteLink, showFloat])
 
-  /** FunctionBlockColumn 分销工具入口(对齐 Uniapp 分销功能块) */
+  /**
+   * FunctionBlockColumn 分销功能块(逐项对齐历史 FunctionBlockColumn/index.vue
+   * functionList 行 39-104 的 5 个未注释项,名称/副标题/图标/跳转一一对应):
+   * 1. 公司团队  查看我的公司团队   → /pages/distribution_personnel_list/index(RN: Team,
+   *    TeamScreen 已对齐 distribution_personnel_list,见其 load() 注释)
+   * 2. AI团队    查看智能体团队     → /pages/tools/ai_group/index(RN: AiGroup)
+   * 3. 我的名片  查看我的个人信息   → /pagesA/business-card/index(RN: BusinessCard)
+   * 4. 我的二维码 推广专属二维码     → 历史 navigateTo 对「我的二维码」特殊处理
+   *    ($emit('pack') 打开 bottom-pops 分享二维码弹层,RN: shareQrVisible BottomPops)
+   * 5. 分销订单  查看我的分销订单   → /pages/distribution_order_list/index(RN: DistributionOrderList)
+   * 历史中被注释掉的「我的收入/公司业绩/领取企业资料/产品调查」不在对齐范围。
+   * 5 项目标路由在 RN RootStack 均已注册,无需「功能开发中」降级。
+   */
   const functionBlocks: FunctionBlock[] = [
-    { id: 'withdraw', title: '提现', icon: Banknote, description: '佣金提现到银行卡' },
-    { id: 'bankcard', title: '银行卡', icon: Landmark, description: '管理绑定银行卡' },
-    { id: 'realname', title: '实名认证', icon: IdCard, description: '完成实名认证' },
-    { id: 'income', title: '收入明细', icon: BarChart3, description: '查看收入记录' },
-    { id: 'orders', title: '分销订单', icon: Package, description: '查看分销订单记录' },
-    { id: 'commission', title: '分佣计划', icon: Banknote, description: '了解分佣规则与收益' },
+    { id: 'company_team', title: '公司团队', icon: Users, description: '查看我的公司团队' },
+    { id: 'ai_team', title: 'AI团队', icon: Bot, description: '查看智能体团队' },
+    { id: 'business_card', title: '我的名片', icon: IdCard, description: '查看我的个人信息' },
+    { id: 'my_qrcode', title: '我的二维码', icon: QrCode, description: '推广专属二维码' },
+    { id: 'distribution_orders', title: '分销订单', icon: Package, description: '查看我的分销订单' },
   ]
 
   const onBlockPress = useCallback(
     (id: string) => {
+      // 我的二维码:对齐历史 FunctionBlockColumn navigateTo 行 109「$emit pack」→ 打开二维码弹层
+      if (id === 'my_qrcode') {
+        setShareQrVisible(true)
+        return
+      }
       const routeMap: Record<string, string> = {
-        withdraw: 'Withdraw',
-        bankcard: 'BankCard',
-        realname: 'RealNameAuth',
-        income: 'Income',
-        orders: 'DistributionOrderList',
-        commission: 'EarnCommission',
+        company_team: 'Team',
+        ai_team: 'AiGroup',
+        business_card: 'BusinessCard',
+        distribution_orders: 'DistributionOrderList',
       }
       const route = routeMap[id]
       if (route) navigation.navigate(route as never)
+      else showFloat('功能开发中', 'warning')
     },
-    [navigation],
+    [navigation, showFloat],
   )
 
   const load = useCallback(
