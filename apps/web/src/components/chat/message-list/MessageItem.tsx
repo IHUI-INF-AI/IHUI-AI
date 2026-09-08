@@ -456,6 +456,14 @@ const MessageItem = React.memo(function MessageItem({
                 tc.image_url ||
                 (typeof tcResult?.image_url === 'string' ? tcResult.image_url : undefined) ||
                 (typeof tcResult?.imageUrl === 'string' ? tcResult.imageUrl : undefined)
+              // music_generation/video_generation:从 result 兜底推导播放地址
+              // (完成后 result 顶层含 audio_url/video_url;未完成时无 URL 走通用 result 展示)
+              const effectiveAudioUrl: string | undefined =
+                (typeof tcResult?.audio_url === 'string' ? tcResult.audio_url : undefined) ||
+                (typeof tcResult?.audioUrl === 'string' ? tcResult.audioUrl : undefined)
+              const effectiveVideoUrl: string | undefined =
+                (typeof tcResult?.video_url === 'string' ? tcResult.video_url : undefined) ||
+                (typeof tcResult?.videoUrl === 'string' ? tcResult.videoUrl : undefined)
               const effectiveSummaryData =
                 tc.summary_data ??
                 (tcResult &&
@@ -502,6 +510,8 @@ const MessageItem = React.memo(function MessageItem({
                     applyError={tc.applyError}
                     repeated={tc.repeated}
                     imageUrl={effectiveImageUrl}
+                    audioUrl={effectiveAudioUrl}
+                    videoUrl={effectiveVideoUrl}
                     summaryData={effectiveSummaryData}
                     serverSource={tc.serverSource}
                     serverId={tc.serverId}
