@@ -1,0 +1,51 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: -160, right: -120, width: 520, height: 520, background: 'radial-gradient(circle, rgba(34,211,238,0.30) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>03 · 商业</Text>
+  </Box>
+  <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>盈利点已定价：四条收入线 + 2 大线下基地</Text>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', gap: 14, marginTop: 28 }}>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 18, padding: 16, flexDirection: 'column', gap: 6, height: 130 }}>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#FFFFFF', fontWeight: 'bold' }}>C 端订阅</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#CBD5E1', lineHeight: 1.4 }}>会员 588—12,888 元/年</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#22D3EE', fontWeight: 'bold' }}>做规模</Text>
+    </Box>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 18, padding: 16, flexDirection: 'column', gap: 6, height: 130 }}>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#FFFFFF', fontWeight: 'bold' }}>应用分成</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#CBD5E1', lineHeight: 1.4 }}>抽成 2% + API 调用费</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#94A3B8', fontWeight: 'bold' }}>做生态</Text>
+    </Box>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 18, padding: 16, flexDirection: 'column', gap: 6, height: 130 }}>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#FFFFFF', fontWeight: 'bold' }}>B 端服务</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#CBD5E1', lineHeight: 1.4 }}>入驻 2.68—5.88 万/年 + 定制</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#22D3EE', fontWeight: 'bold' }}>做利润</Text>
+    </Box>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 18, padding: 16, flexDirection: 'column', gap: 6, height: 130 }}>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#FFFFFF', fontWeight: 'bold' }}>AI 教育</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#CBD5E1', lineHeight: 1.4 }}>课程 / AI 批改 / 证书 + 销转分成</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 15, color: '#94A3B8', fontWeight: 'bold' }}>做闭环</Text>
+    </Box>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', marginTop: 24, flexDirection: 'column', gap: 12 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>线下 × 线上 双轮</Text>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 560, height: 150, borderRadius: 14, backgroundImage: 'linear-gradient(135deg, rgba(34,211,238,0.30) 0%, rgba(129,140,248,0.20) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', padding: '18px 24px', flexDirection: 'column', gap: 8 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#22D3EE', fontWeight: 'bold' }}>线下 · 2 大 AI 人才孵化基地</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#E2E8F0', lineHeight: 1.45 }}>长春运营中。培训—实训—就业，人才与项目持续输血平台，获客成本趋零。</Text>
+      </Box>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 32, color: '#818CF8', fontWeight: 'bold' }}>⇄</Text>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, height: 150, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 18, padding: '18px 24px', flexDirection: 'column', gap: 8 }}>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 21, color: '#FFFFFF', fontWeight: 'bold' }}>线上 · 智汇AI 平台</Text>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#94A3B8', lineHeight: 1.45 }}>课程销转、实训项目进应用市场——学员变用户，项目变商品。</Text>
+      </Box>
+    </Box>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 17, color: '#64748B' }}>订阅做规模、B 端做利润、分成与教育做生态——三线互为流量。推广激励单层合规。</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>资料来源：项目商业模式设计（2026-09）</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>11 / 15</Text>
+  </Box>
+</Slide>

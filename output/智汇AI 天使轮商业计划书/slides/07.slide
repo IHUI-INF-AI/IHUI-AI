@@ -1,0 +1,54 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>02 · 产品</Text>
+  </Box>
+  <Text style={{ fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>8 端全部交付——6 大能力域，152 个功能页面</Text>
+  <Box style={{ width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 14 }} />
+  <Box style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>Web 已上线</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>小程序已上线</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>App 已上线</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>插件已发布</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>API 运行中</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(34,211,238,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#22D3EE', fontWeight: 'bold' }}>AI 服务运行中</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#94A3B8', fontWeight: 'bold' }}>桌面已建成</Text></Box>
+    <Box style={{ flex: 1, height: 54, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontSize: 14, color: '#94A3B8', fontWeight: 'bold' }}>CLI 已建成</Text></Box>
+  </Box>
+  <Box style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 150 }}>
+      <Text style={{ fontSize: 18, color: '#22D3EE', fontWeight: 'bold' }}>对话与生成</Text>
+      <Text style={{ fontSize: 14, color: '#CBD5E1', lineHeight: 1.45 }}>176 模型统一网关<br />图像 / 音频 / 视频 / 3D 生成</Text>
+    </Box>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 150 }}>
+      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>智能体平台</Text>
+      <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.45 }}>Agent 画布 / 看板 / 运行时<br />子代理 · A2A · Computer Use</Text>
+    </Box>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 150 }}>
+      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>知识与记忆</Text>
+      <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.45 }}>RAG 知识库 · 永久记忆<br />Deep Research</Text>
+    </Box>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 150 }}>
+      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>开发者生态</Text>
+      <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.45 }}>CLI 沙箱 · MCP 网关<br />API 开放平台 · 技能市场</Text>
+    </Box>
+  </Box>
+  <Box style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+    <Box style={{ flex: 1, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 132 }}>
+      <Text style={{ fontSize: 18, color: '#22D3EE', fontWeight: 'bold' }}>教育实训</Text>
+      <Text style={{ fontSize: 14, color: '#CBD5E1', lineHeight: 1.45 }}>课程 / 考试 / AI 批改 / 证书<br />edu 平台 + 2 大线下基地</Text>
+    </Box>
+    <Box style={{ flex: 2, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', borderRadius: 20, padding: 12, flexDirection: 'column', gap: 4, height: 132 }}>
+      <Text style={{ fontSize: 18, color: '#FFFFFF', fontWeight: 'bold' }}>社区与变现</Text>
+      <Text style={{ fontSize: 14, color: '#94A3B8', lineHeight: 1.45 }}>社区圈子 · 直播 · 内容发布中台 · 会员 / 钱包 / 积分 · USDT 跨境支付</Text>
+    </Box>
+  </Box>
+  <Box style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+    <Text style={{ fontSize: 16, color: '#64748B' }}>壁垒：百万行级复制成本 · 开发者—用户—基地三方互锁 · 个人数据沉淀越用越深 · 开源社区共研</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>功能清单实测：Web 152 页面 · API 293 路由模块 · AI 引擎 58 个 · 小程序 60 页（2026-09 代码盘点）</Text>
+  </Box>
+  <Box style={{ position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontSize: 14, color: '#64748B' }}>07 / 15</Text>
+  </Box>
+</Slide>

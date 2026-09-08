@@ -1,0 +1,63 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: '52px 56px 0 56px' }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: -200, right: -160, width: 640, height: 640, background: 'radial-gradient(circle, rgba(129,140,248,0.35) 0%, rgba(129,140,248,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: -220, left: -140, width: 620, height: 620, background: 'radial-gradient(circle, rgba(34,211,238,0.26) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 52, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>02 · 产品</Text>
+  </Box>
+  <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 34, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 0.5 }}>一个人，一台电脑——14 个月建成 8 端平台</Text>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1168, height: 1, background: 'rgba(255,255,255,0.14)', marginTop: 16 }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', marginTop: 36, gap: 60 }}>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 500, flexDirection: 'column', gap: 10 }}>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 104, fontWeight: 'bold', color: 'transparent', backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', backgroundClip: 'text' }}>1 个人</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>非科班出身，自学 AI 开发 5 年</Text>
+      <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 20, color: '#94A3B8', lineHeight: 1.5 }}>10 年产品设计 + 10 年线下教育，架构、原型、全栈开发一人完成。</Text>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', gap: 40, marginTop: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 26, color: '#22D3EE', fontWeight: 'bold' }}>150 万</Text>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>已自投（元）</Text>
+        </Box>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 26, color: '#22D3EE', fontWeight: 'bold' }}>2 项</Text>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>核心技术专利</Text>
+        </Box>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'column', gap: 2 }}>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 26, color: '#22D3EE', fontWeight: 'bold' }}>109 万行</Text>
+          <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>开源可审计代码</Text>
+        </Box>
+      </Box>
+    </Box>
+    <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flex: 1, flexDirection: 'column', gap: 13 }}>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 96, height: 44, borderRadius: 14, backgroundImage: 'linear-gradient(135deg, #22D3EE 0%, #818CF8 100%)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#070B14', fontWeight: 'bold' }}>2025.5</Text></Box>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#CBD5E1' }}>启动开发——传统工程 + AI vibecoding 流水线</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 96, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#FFFFFF', fontWeight: 'bold' }}>2025.10</Text></Box>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#CBD5E1' }}>微信小程序上线运营</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 96, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#FFFFFF', fontWeight: 'bold' }}>2025.12</Text></Box>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#CBD5E1' }}>安卓 App 上线各大应用商店</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 96, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#FFFFFF', fontWeight: 'bold' }}>2026.3</Text></Box>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#CBD5E1' }}>Web 平台 + 教育平台整合上线</Text>
+      </Box>
+      <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+        <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 96, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.10)', border: '1px solid rgba(255,255,255,0.2)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' }}><Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#FFFFFF', fontWeight: 'bold' }}>2026.7</Text></Box>
+        <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#CBD5E1' }}>Chrome 插件、CLI 沙箱、代码库检索交付</Text>
+      </Box>
+    </Box>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', marginTop: 38, borderRadius: 14, backgroundImage: 'linear-gradient(90deg, rgba(34,211,238,0.30) 0%, rgba(129,140,248,0.20) 100%)', border: '1px solid rgba(34,211,238,0.6)', boxShadow: '0 12px 36px rgba(0,0,0,0.55)', padding: '20px 28px', flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 24, color: '#FFFFFF', fontWeight: 'bold' }}>行业常规：30—50 人团队 · 数千万投入 · 2—3 年</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 24, color: '#22D3EE', fontWeight: 'bold' }}>→ 1 个人 · 14 个月干完</Text>
+  </Box>
+  <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 16, color: '#64748B', marginTop: 12 }}>趋势背书：YC W25 批次 25% 公司代码 95% 由 AI 生成（TechCrunch）；Sam Altman 预言首个一人十亿美元公司将至——智汇AI 是先行样本。</Text>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, left: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>资料来源：项目数据表与开源仓库实测（2026-07）</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: 24, right: 56 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>08 / 15</Text>
+  </Box>
+</Slide>

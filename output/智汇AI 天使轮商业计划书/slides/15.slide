@@ -1,0 +1,16 @@
+<Slide style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', width: 1280, height: 720, background: 'linear-gradient(165deg, #15203A 0%, #070B14 58%, #0B1124 100%)', position: 'relative', padding: 0 }}>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: -200, right: -160, width: 680, height: 680, background: 'radial-gradient(circle, rgba(34,211,238,0.24) 0%, rgba(34,211,238,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', bottom: -240, left: -160, width: 720, height: 720, background: 'radial-gradient(circle, rgba(129,140,248,0.32) 0%, rgba(129,140,248,0) 70%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', top: 150, left: 56, width: 8, height: 220, backgroundImage: 'linear-gradient(180deg, #22D3EE 0%, #818CF8 100%)' }} />
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 104, top: 150, width: 1040, flexDirection: 'column', gap: 26 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 58, color: '#FFFFFF', fontWeight: 'bold', lineHeight: 1.35 }}>一个人把产品做了出来<br />下一程，一群人把它推向百万用户</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 23, color: '#94A3B8', lineHeight: 1.55 }}>109 万行代码不是故事，是已经交付的事实。<br />2,000 万元天使轮，直接转化为市场扩张。</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 104, bottom: 120, flexDirection: 'column', gap: 10 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 27, color: '#FFFFFF', fontWeight: 'bold' }}>李春川 · 18643389808</Text>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 19, color: '#94A3B8' }}>官网 aizhs.top · GitHub IHUI-INF-AI/IHUI-AI · 应用商店搜索"AI智汇社"</Text>
+  </Box>
+  <Box style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', position: 'absolute', left: 104, bottom: 60 }}>
+    <Text style={{ fontFamily: 'Arial, "Microsoft YaHei", "PingFang SC", sans-serif', fontSize: 14, color: '#64748B' }}>吉林省爱智汇人工智能科技有限公司 · 2026.09</Text>
+  </Box>
+</Slide>
