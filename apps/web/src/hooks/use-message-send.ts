@@ -44,7 +44,7 @@ export interface UseMessageSendResult {
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  submit: () => Promise<void>
+  submit: (overrideValue?: string) => Promise<void>
   /** 流式期间输入的预备消息(流式结束后自动发送) */
   pendingMessage: { text: string; refs: ReferenceItem[] } | null
   /** 清空预备消息(流式期「取消」悬浮条时调用,把文本退回主输入框编辑) */
@@ -213,8 +213,10 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     [onSend, draftKey, resetReferences, setValue, inputCoreRef, track],
   )
 
-  const submit = React.useCallback(async () => {
-    const text = value.trim()
+  /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
+   * 导致的闭包旧值问题(.setValue 后同帧调用 submit 仍读到旧 value) */
+  const submit = React.useCallback(async (overrideValue?: string) => {
+    const text = (overrideValue ?? value).trim()
     if (!text) return
     // 危险命令检测(2026-07-25 立,深度对标 OpenAI Codex CLI safety guard):
     // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
