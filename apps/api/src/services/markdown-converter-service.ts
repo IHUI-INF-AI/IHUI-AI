@@ -1,20 +1,26 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * 文件转 Markdown 服务。
  *
- * 迁移自旧架构 server/app/services/markdown_converter.py。
+ * 2026-09-08 升级:引入 Firecrawl anydoc(Rust 原生解析引擎,NAPI)作为主提取路径,
+ * 支持格式由 6 种扩展至 16 种:
+ *   .doc / .docx / .ppt / .pptx / .xls / .xlsx / .xlsm / .ods / .odt / .odp /
+ *   .rtf / .epub / .csv / .pdf / .txt / .md
  *
- * 支持：.docx / .xlsx / .pptx / .pdf / .txt / .md
- * - .docx：mammoth（提取纯文本，段落以空行分隔）
- * - .xlsx/.xlsm：xlsx（SheetJS，每 sheet 转 Markdown 表格）
- * - .pptx：零依赖 ZIP + XML 文本提取（无可用 pptx 库）
- * - .pdf：零依赖 FlateDecode 流文本提取（无可用 PDF 库）
- * - .txt/.md：直接读取 UTF-8 文本
+ * 分层策略:
+ * - anydoc 主路径:GFM Markdown 高保真输出(标题/表格/列表/加粗/脚注),
+ *   内容签名检测 + 扩展名兜底,老式二进制格式(doc/ppt/xls)与开放格式
+ *   (odt/ods/odp/rtf/epub)全部由其独占支持
+ * - 旧实现降级(仅 anydoc 加载失败或转换异常时):mammoth(.docx)、
+ *   SheetJS(.xlsx)、ZIP+XML(.pptx)、FlateDecode(.pdf)
+ * - .txt/.md:直接读取 UTF-8
  *
- * 失败时返回空字符串（与旧实现一致），不抛异常。
+ * 导出:
+ * - convertToMarkdown(path)         向后兼容,失败返回空字符串
+ * - convertToMarkdownDetailed(path) 返回 { markdown, error? },供路由层给出具体文案
  */
 
 import { readFileSync, existsSync } from 'node:fs'
@@ -25,7 +31,90 @@ import * as XLSX from '@e965/xlsx'
 import { logger } from '../utils/logger.js'
 
 // ============================================================================
-// .docx — mammoth
+// anydoc 主路径
+// ============================================================================
+
+/** anydoc 原生模块的最小接口(完整类型见 node_modules/@firecrawl/anydoc/index.d.ts)。 */
+interface AnydocModule {
+  toMarkdown: (path: string) => Promise<string>
+  toMarkdownBytes: (bytes: Uint8Array, format?: string | null) => Promise<string>
+  formatFromPath: (path: string) => string | null
+}
+
+/** anydoc 转换错误(带 code 的 Error)。 */
+interface AnydocError extends Error {
+  code?: string
+  /** needsOcr 专属:需要 OCR 的 1-based 页码。 */
+  pages?: number[]
+  pageCount?: number
+}
+
+let anydocModule: AnydocModule | null = null
+let anydocLoadAttempted = false
+
+/** 懒加载 anydoc(动态 import,加载失败不阻塞进程,降级旧实现)。 */
+async function loadAnydoc(): Promise<AnydocModule | null> {
+  if (anydocLoadAttempted) return anydocModule
+  anydocLoadAttempted = true
+  try {
+    const mod = (await import('@firecrawl/anydoc')) as unknown as AnydocModule
+    if (typeof mod.toMarkdown !== 'function') throw new Error('toMarkdown 导出缺失')
+    anydocModule = mod
+  } catch (e) {
+    logger.warn('[markdown-converter] anydoc 模块加载失败,将降级旧实现', {
+      error: (e as Error).message,
+    })
+  }
+  return anydocModule
+}
+
+/** anydoc 主路径覆盖的扩展名(小写含点)。 */
+const ANYDOC_EXTS = new Set([
+  '.doc',
+  '.docx',
+  '.ppt',
+  '.pptx',
+  '.xls',
+  '.xlsx',
+  '.xlsm',
+  '.ods',
+  '.odt',
+  '.odp',
+  '.rtf',
+  '.epub',
+  '.csv',
+  '.pdf',
+])
+
+/** 把 anydoc 错误码翻译为面向用户的中文文案。 */
+function describeAnydocError(e: unknown): string {
+  const err = e as AnydocError
+  switch (err?.code) {
+    case 'unsupported':
+      return '不支持的文件格式'
+    case 'needsOcr': {
+      const pages = Array.isArray(err.pages) ? err.pages.join('、') : ''
+      return pages
+        ? `该 PDF 第 ${pages} 页为扫描件/图片内容,需要 OCR 才能提取文字`
+        : '该文档为扫描件/图片内容,需要 OCR 才能提取文字'
+    }
+    case 'malformed':
+      return '文件结构损坏或内容不完整,无法解析'
+    case 'encrypted':
+      return '文件已加密(含密码保护),请先解除密码后重试'
+    case 'resourceLimit':
+      return '文件内容超出解析引擎的安全限制'
+    case 'missingPart':
+      return '归档不完整,缺少必要的内部部件(文件可能未上传完整)'
+    case 'io':
+      return '文件读取失败(磁盘 IO 错误)'
+    default:
+      return err?.message || '文档解析失败'
+  }
+}
+
+// ============================================================================
+// 降级实现 — .docx — mammoth
 // ============================================================================
 
 async function docxToMarkdown(filePath: string): Promise<string> {
@@ -35,7 +124,7 @@ async function docxToMarkdown(filePath: string): Promise<string> {
 }
 
 // ============================================================================
-// .xlsx — SheetJS
+// 降级实现 — .xlsx — SheetJS
 // ============================================================================
 
 function xlsxToMarkdown(filePath: string): string {
@@ -70,7 +159,7 @@ function formatAsMarkdownTable(title: string, rows: string[][]): string {
 }
 
 // ============================================================================
-// .pptx — 零依赖 ZIP + XML 文本提取
+// 降级实现 — .pptx — 零依赖 ZIP + XML 文本提取
 // ============================================================================
 
 /** OOXML 命名空间下的文本标签。 */
@@ -97,7 +186,7 @@ function pptxToMarkdown(filePath: string): string {
 }
 
 // ============================================================================
-// 零依赖 ZIP 读取（仅用于 .pptx）
+// 零依赖 ZIP 读取（仅用于 .pptx 降级）
 // ============================================================================
 
 const EOCD_SIG = 0x06054b50
@@ -181,7 +270,7 @@ function decodeXmlEntities(s: string): string {
 }
 
 // ============================================================================
-// .pdf — 零依赖 FlateDecode 文本提取
+// 降级实现 — .pdf — 零依赖 FlateDecode 文本提取
 // ============================================================================
 
 const PDF_TEXT_OP = /\(([^()\\]*)\)\s*Tj?/g
@@ -257,18 +346,11 @@ function unescapePdfString(s: string): string {
 }
 
 // ============================================================================
-// 主入口
+// 降级分发
 // ============================================================================
 
-/**
- * 将任意支持的文件转为 Markdown 文本。
- *
- * @param filePath 文件绝对/相对路径
- * @returns Markdown 字符串；失败或不支持的类型返回空字符串
- */
-export async function convertToMarkdown(filePath: string): Promise<string> {
-  if (!filePath || !existsSync(filePath)) return ''
-  const ext = extname(filePath).toLowerCase()
+/** anydoc 失败后按扩展名尝试旧实现;无对应降级实现的格式返回空串。 */
+async function legacyToMarkdown(filePath: string, ext: string): Promise<string> {
   try {
     switch (ext) {
       case '.docx':
@@ -280,16 +362,105 @@ export async function convertToMarkdown(filePath: string): Promise<string> {
         return pptxToMarkdown(filePath)
       case '.pdf':
         return pdfToMarkdown(filePath)
-      case '.txt':
-      case '.md':
-      case '.markdown':
-        return readFileSync(filePath, 'utf-8')
       default:
         return ''
     }
   } catch (e) {
-    logger.error('[markdown-converter] convert failed', { error: (e as Error).message })
+    logger.error('[markdown-converter] 降级实现失败', { ext, error: (e as Error).message })
     return ''
   }
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+// ============================================================================
+// 主入口
+// ============================================================================
+
+export interface DetailedConvertResult {
+  markdown: string
+  /** 失败时的中文错误文案(供路由层直接返回)。 */
+  error?: string
+}
+
+/**
+ * 将任意支持的文件转为 Markdown 文本(详细版)。
+ *
+ * @param filePath 文件绝对/相对路径
+ * @param originalName 原始文件名(可选)。落盘文件名常为无后缀 UUID(path=/uploads/<id>),
+ *   类型判定须以原始文件名的扩展名为准;磁盘路径无后缀时,anydoc 走字节路径显式传格式。
+ * @returns 成功返回 { markdown };失败返回 { markdown: '', error: 中文文案 }
+ */
+export async function convertToMarkdownDetailed(
+  filePath: string,
+  originalName?: string,
+): Promise<DetailedConvertResult> {
+  if (!filePath || !existsSync(filePath)) {
+    return { markdown: '', error: '文件不存在或路径无效' }
+  }
+  // 类型判定优先用原始文件名(落盘名可能是无后缀 UUID)
+  const ext = extname(originalName && extname(originalName) ? originalName : filePath).toLowerCase()
+  // 磁盘文件自身是否有后缀(决定 anydoc 走路径还是字节路径)
+  const diskExt = extname(filePath).toLowerCase()
+
+  // .txt/.md:直接读取 UTF-8
+  if (ext === '.txt' || ext === '.md' || ext === '.markdown') {
+    try {
+      return { markdown: readFileSync(filePath, 'utf-8') }
+    } catch (e) {
+      return { markdown: '', error: `文件读取失败: ${(e as Error).message}` }
+    }
+  }
+
+  // anydoc 主路径
+  if (ANYDOC_EXTS.has(ext)) {
+    let anydocError: unknown = null
+    const anydoc = await loadAnydoc()
+    if (anydoc) {
+      try {
+        let md = ''
+        if (diskExt) {
+          md = await anydoc.toMarkdown(filePath)
+        } else {
+          // 落盘文件无后缀:读字节,按原始文件名显式指定格式
+          const fmt = anydoc.formatFromPath(originalName ?? filePath)
+          md = await anydoc.toMarkdownBytes(new Uint8Array(readFileSync(filePath)), fmt)
+        }
+        if (md && md.trim()) return { markdown: md }
+        // 输出为空视为失败,继续降级
+      } catch (e) {
+        anydocError = e
+        logger.error('[markdown-converter] anydoc 转换失败', {
+          ext,
+          code: (e as AnydocError)?.code ?? 'unknown',
+          error: (e as Error).message,
+        })
+      }
+    }
+    // 旧实现降级(降级实现均按文件内容自识别,不依赖后缀)
+    const legacy = await legacyToMarkdown(filePath, ext)
+    if (legacy && legacy.trim()) {
+      logger.warn('[markdown-converter] anydoc 失败,已由降级实现兜底', { ext })
+      return { markdown: legacy }
+    }
+    if (!anydoc) {
+      return { markdown: '', error: '文档解析引擎不可用(anydoc 模块加载失败),请检查部署依赖' }
+    }
+    return {
+      markdown: '',
+      error: anydocError ? describeAnydocError(anydocError) : '解析结果为空(文档可能无文本内容)',
+    }
+  }
+
+  return { markdown: '', error: `不支持的文件类型: ${ext || '(无后缀)'}` }
+}
+
+/**
+ * 将任意支持的文件转为 Markdown 文本(向后兼容包装)。
+ *
+ * @param filePath 文件绝对/相对路径
+ * @returns Markdown 字符串；失败或不支持的类型返回空字符串
+ */
+export async function convertToMarkdown(filePath: string): Promise<string> {
+  const result = await convertToMarkdownDetailed(filePath)
+  return result.markdown
+}
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

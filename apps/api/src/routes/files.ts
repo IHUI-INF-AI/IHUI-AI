@@ -21,7 +21,7 @@ import {
 import { findTagsByTarget, attachTag, detachTag } from '../db/social-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { buildSchema } from '../utils/swagger.js'
-import { convertToMarkdown } from '../services/markdown-converter-service.js'
+import { convertToMarkdownDetailed } from '../services/markdown-converter-service.js'
 import {
   validateUploadFile,
   sanitizeFilename,
@@ -39,6 +39,25 @@ const ADMIN_ROLE_ID = 1
 function resolvePublicUrl(fileId: string): string {
   const cdnBase = process.env.FILE_CDN_BASE
   return cdnBase ? `${cdnBase}/uploads/${fileId}` : `/uploads/${fileId}`
+}
+
+// 2026-09-08 修复:convert-markdown 端点此前把 file.path 直接当磁盘路径。
+// 但 P2(2026-08-06)之后 path 已是公开 URL(/uploads/<id> 或 CDN 绝对 URL),
+// 新上传文件必然 existsSync 失败 → 恒 422"文件不存在"。
+// 还原规则:旧记录(真实磁盘路径)原样使用;新记录按 basename 在
+// UPLOAD_DIR / uploads/public / uploads/private 下定位落盘文件。
+function resolveDiskPath(filePath: string): string {
+  if (existsSync(filePath)) return filePath
+  const base = filePath.split(/[\\/]/).pop() ?? filePath
+  const candidates = [
+    process.env.UPLOAD_DIR ? join(process.env.UPLOAD_DIR, base) : '',
+    join(process.cwd(), 'uploads', 'public', base),
+    join(process.cwd(), 'uploads', 'private', base),
+  ]
+  for (const c of candidates) {
+    if (c && existsSync(c)) return c
+  }
+  return filePath // 未命中:交由服务层返回"文件不存在"
 }
 
 // =============================================================================
@@ -377,7 +396,8 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: buildSchema({
         summary: '文件转 Markdown',
-        description: '将指定文件(docx/xlsx/pptx/pdf/txt/md)转换为 Markdown 文本',
+        description:
+          '将指定文件(doc/docx/ppt/pptx/xls/xlsx/xlsm/odt/ods/odp/rtf/epub/csv/pdf/txt/md)转换为 Markdown 文本;失败时返回具体原因(如扫描件需 OCR/文件加密/结构损坏)',
         tags: ['File'],
         params: idParamSchema,
       }),
@@ -400,15 +420,16 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(403).send(error(403, '无权访问该文件'))
       }
 
-      // P2 修复(2026-08-06):改用 DB 记录的真实路径(file.path),
-      // 兼容公开(public)与私有(private)两种落盘位置,避免按 UPLOAD_DIR 拼接找不到文件
-      const filePath = file.path
-      const markdown = await convertToMarkdown(filePath)
-      if (!markdown) {
-        return reply.status(422).send(error(422, '不支持的文件类型或转换失败'))
+      // P2 修复(2026-08-06):改用 DB 记录的真实路径(file.path)定位文件;
+      // 2026-09-08:path 为 URL 形态(/uploads/<id>),需先还原本地磁盘路径;
+      // 落盘名为无后缀 UUID,类型判定须传原始文件名 file.name
+      const filePath = resolveDiskPath(file.path)
+      const result = await convertToMarkdownDetailed(filePath, file.name)
+      if (!result.markdown) {
+        return reply.status(422).send(error(422, result.error ?? '不支持的文件类型或转换失败'))
       }
 
-      return reply.send(success({ markdown, fileName: file.name }))
+      return reply.send(success({ markdown: result.markdown, fileName: file.name }))
     },
   )
 
