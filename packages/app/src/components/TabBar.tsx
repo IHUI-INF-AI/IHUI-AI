@@ -167,10 +167,10 @@ export function TabBar({
             <TabBarIcon
               tab={tab}
               isActive={isActive}
-              activeColor={tk.brand.DEFAULT}
+              activeColor={tk.brandAccent.DEFAULT}
               inactiveColor={tk.text.tertiary}
             />
-            <span style={textStyles.label(isActive ? tk.brand.DEFAULT : tk.text.tertiary)}>
+            <span style={textStyles.label(isActive ? tk.brandAccent.DEFAULT : tk.text.tertiary)}>
               {tab.label}
             </span>
           </div>

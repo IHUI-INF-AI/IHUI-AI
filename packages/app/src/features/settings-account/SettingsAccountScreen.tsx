@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 50,
       justifyContent: 'center',
       borderRadius: 12,
-      backgroundColor: tk.brand.DEFAULT,
+      backgroundColor: tk.brandAccent.DEFAULT,
       alignItems: 'center',
     },
     btnDisabled: { opacity: 0.6 },
