@@ -1168,11 +1168,17 @@ class LLMGateway:
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("agnes")
             return cfg.api_key, cfg.api_base, f"openai/{real_model}"
-        # Token6688 聚合网关(单 key 全模态,base 默认 https://k.token6688.com)
+        # Token6688 聚合网关(单 key 全模态)。⚠ LiteLLM openai/ 直连要求 api_base 以
+        # /v1 结尾(否则请求 {base}/chat/completions 落到网站首页 HTML,2026-09-08 假 key
+        # 实测:无 /v1 → "Empty or invalid response";有 /v1 → 401 Invalid API key 正确命中),
+        # 故默认带 /v1,且用户误配无 /v1 时自动补齐(防呆)。
         if m.startswith("t6688/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("token6688")
-            return cfg.api_key, cfg.api_base or "https://k.token6688.com", f"openai/{real_model}"
+            base = (cfg.api_base or "https://k.token6688.com").rstrip("/")
+            if not base.endswith("/v1"):
+                base += "/v1"
+            return cfg.api_key, base, f"openai/{real_model}"
         if m.startswith("ihui/"):
             real_model = model.split("/", 1)[1]
             cfg = settings.get_provider_config("ihui_relay")
