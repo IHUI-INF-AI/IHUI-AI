@@ -92,40 +92,47 @@ export default function IntegralPage() {
   return (
     <ThemeRoot>
       <View className="min-h-screen bg-background">
-        <View className="py-[60rpx] px-[40rpx] bg-[linear-gradient(135deg,var(--color-foreground),var(--color-foreground))] text-center">
-          <Text className="block text-[60rpx] font-bold text-white">{total}</Text>
-          <Text className="block mt-[12rpx] text-[26rpx] text-[var(--color-gold)]">
+        {/* 余额卡(对齐 RN 共享 PointsRecordScreen balanceCard:success-light 底 + 深绿文字) */}
+        <View className="mx-[20rpx] mt-[20rpx] rounded-[24rpx] bg-[var(--color-success-light)] py-[28rpx] px-[28rpx] text-center">
+          <Text className="block text-[28rpx] text-[var(--color-success-deep-text)]">
             {tt('member.integral.current', '当前积分')}
           </Text>
+          <Text className="block mt-[16rpx] text-[60rpx] font-bold text-[var(--color-success-deep-text)]">
+            {total}
+          </Text>
         </View>
-        <View className="p-[24rpx]">
+        <View className="p-[20rpx] pb-[64rpx]">
           {list.map((it) => (
             <View
               key={it.id}
-              className="flex justify-between items-center bg-card rounded-[16rpx] py-[28rpx] px-[24rpx] mb-[16rpx]"
+              className="mb-[16rpx] rounded-[24rpx] border border-[var(--color-border)] bg-background px-[28rpx] py-[28rpx]"
             >
-              <View className="flex flex-col">
-                <Text className="text-[28rpx] text-foreground">{it.type}</Text>
-                <Text className="mt-[10rpx] text-[22rpx] text-muted-foreground">{it.time}</Text>
+              <View className="flex justify-between items-center">
+                <Text className="flex-1 mr-[16rpx] text-[32rpx] font-semibold text-foreground">
+                  {it.type}
+                </Text>
+                <Text
+                  className={`text-[32rpx] font-semibold ${it.amount > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}`}
+                >
+                  {it.amount > 0 ? '+' : ''}
+                  {it.amount}
+                </Text>
               </View>
-              <Text
-                className={`text-[34rpx] font-semibold ${it.amount > 0 ? 'text-success' : 'text-destructive'}`}
-              >
-                {it.amount > 0 ? '+' : ''}
-                {it.amount}
-              </Text>
+              <View className="mt-[16rpx] flex justify-end">
+                <Text className="text-[22rpx] text-[var(--color-text-tertiary)]">{it.time}</Text>
+              </View>
             </View>
           ))}
           {loading && !list.length ? (
-            <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
+            <View className="flex flex-col items-center py-[96rpx] text-muted-foreground text-[28rpx]">
               <Text>{t('common.loading')}</Text>
             </View>
           ) : null}
           {error && !list.length ? (
-            <View className="flex flex-col items-center py-[80rpx] text-muted-foreground text-[26rpx]">
+            <View className="flex flex-col items-center py-[96rpx] text-muted-foreground text-[28rpx]">
               <Text>{tt('member.integral.loadFailed', '加载失败')}</Text>
               <Text
-                className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[24rpx] text-primary"
+                className="mt-[16rpx] py-[8rpx] px-[32rpx] text-[28rpx] text-primary"
                 onClick={() => load(true)}
               >
                 {t('common.retry')}
@@ -133,17 +140,17 @@ export default function IntegralPage() {
             </View>
           ) : null}
           {!loading && !list.length && !error ? (
-            <View className="text-center py-[120rpx] text-muted-foreground text-[26rpx]">
+            <View className="text-center py-[96rpx] text-[28rpx] text-muted-foreground">
               <Text>{tt('member.integral.empty', '暂无积分记录')}</Text>
             </View>
           ) : null}
           {loading && list.length ? (
-            <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
+            <View className="text-center py-[24rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
               <Text>{tt('member.integral.loading', '加载中…')}</Text>
             </View>
           ) : null}
           {!loading && list.length && !hasMoreRef.current ? (
-            <View className="text-center py-[24rpx] text-[22rpx] text-muted-foreground">
+            <View className="text-center py-[24rpx] text-[22rpx] text-[var(--color-text-tertiary)]">
               <Text>{tt('member.integral.noMore', '没有更多了')}</Text>
             </View>
           ) : null}
