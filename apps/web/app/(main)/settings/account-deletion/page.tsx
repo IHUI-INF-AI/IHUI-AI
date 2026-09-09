@@ -46,6 +46,15 @@ export default function AccountDeletionPage() {
   const [sending, setSending] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
   const [toast, setToast] = React.useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+  // 2026-09-09 修复:验证码倒计时 interval 登记到 ref,卸载时清理
+  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
+  React.useEffect(() => {
+    const ref = countdownTimerRef
+    return () => {
+      if (ref.current) clearInterval(ref.current)
+      ref.current = null
+    }
+  }, [])
 
   const queryStatus = React.useCallback(() => {
     setLoading(true)
@@ -77,10 +86,13 @@ export default function AccountDeletionPage() {
       if (res.success) {
         setToast({ type: 'success', msg: t('accountDeletionCodeSent') })
         setCountdown(60)
-        const timer = setInterval(() => {
+        // 2026-09-09 修复:倒计时 interval 登记到 ref,卸载时清理防孤儿 setState
+        if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+        countdownTimerRef.current = setInterval(() => {
           setCountdown((prev) => {
             if (prev <= 1) {
-              clearInterval(timer)
+              if (countdownTimerRef.current) clearInterval(countdownTimerRef.current)
+              countdownTimerRef.current = null
               return 0
             }
             return prev - 1

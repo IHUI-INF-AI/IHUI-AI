@@ -241,7 +241,7 @@ export default function VoicesPage() {
           </div>
         ) : (
           <div className="divide-y divide-border/40">
-            {voices.map((v) => {
+            {voices.map((v, idx) => {
               const id = voiceId(v)
               const status = voiceStatus(v).toLowerCase()
               const ready = STATUS_READY.has(status)
@@ -249,7 +249,9 @@ export default function VoicesPage() {
               const url = voiceUrl(v)
               const isExpanded = expanded === id
               return (
-                <div key={id || voiceName(v)} className="space-y-2 p-3">
+                // 2026-09-09 修复:key 缺 id 时回退 name,重名会导致 key 冲突/状态错乱;
+                // 回退加索引保证唯一稳定
+                <div key={id || `${voiceName(v)}-${idx}`} className="space-y-2 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center rounded-sm bg-violet-500/10 px-1.5 py-0.5 text-[10px] font-medium text-violet-600 dark:text-violet-400">
                       <Mic className="mr-1 h-3 w-3" />
